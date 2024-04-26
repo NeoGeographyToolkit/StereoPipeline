@@ -112,6 +112,35 @@ void load_cameras(std::vector<std::string> const& image_files,
   return;
 }
 
+// Guess the based on camera position. Usually one arrives here for pinhole
+// cameras.
+bool guessDatum(double cam_center_radius, vw::cartography::Datum & datum) {
+
+  bool success = false;
+  
+  // Datums for Earth, Mars, and Moon
+  vw::cartography::Datum earth("WGS84");
+  vw::cartography::Datum mars("D_MARS");
+  vw::cartography::Datum moon("D_MOON");
+  
+  double km = 1000.0;
+  if (cam_center_radius > earth.semi_major_axis() - 100*km && 
+      cam_center_radius < earth.semi_major_axis() + 5000*km) {
+    datum = earth;
+    success = true;
+  } else if (cam_center_radius > mars.semi_major_axis() - 100*km && 
+             cam_center_radius < mars.semi_major_axis() + 1500*km) {
+    datum = mars;
+    success = true;
+  } else if (cam_center_radius > moon.semi_major_axis() - 100*km && 
+             cam_center_radius < moon.semi_major_axis() + 1000*km) {
+    datum = moon;
+    success = true;
+  }
+
+  return success;
+}
+
 // Find the datum based on cameras. Return true on success. Otherwise don't set it.
 bool datum_from_camera(std::string const& image_file,
                        std::string const& camera_file, 
@@ -142,9 +171,15 @@ bool datum_from_camera(std::string const& image_file,
   datum = session->get_datum(cam.get(), use_sphere_for_non_earth);
   success = session->have_datum(); 
 
-  if (success)
-    vw_out() << "Guessed the datum from camera position.\n";
-
+  // TODO(oalexan1): Must have the function get_datum() return success or not.
+  // That must be checked at each location. then the block below can be removed.
+  if (!success && !asp::stereo_settings().no_datum && !stereo_settings().correlator_mode) {
+    double cam_center_radius = norm_2(cam->camera_center(vw::Vector2()));
+    success = guessDatum(cam_center_radius, datum);
+    if (success) 
+      vw_out() << "Guessed the datum from camera position.\n";
+  }
+  
   return success;
 }
 

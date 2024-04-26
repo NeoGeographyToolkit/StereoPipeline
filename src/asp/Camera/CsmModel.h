@@ -173,6 +173,8 @@ namespace asp {
     std::string model_name () const;
     std::string model_state() const; 
     
+    bool isFrameCam() const;
+    
   protected:
 
     // Read the ellipsoid (datum) axes from the isd json file

@@ -52,6 +52,10 @@ void load_cameras(std::vector<std::string> const& image_files,
                   std::string & stereo_session, // may change
                   bool & single_threaded_cameras,
                   std::vector<boost::shared_ptr<vw::camera::CameraModel>> & camera_models);
+
+// Guess the based on camera position. Usually one arrives here for pinhole
+// cameras.
+bool guessDatum(double cam_center_radius, vw::cartography::Datum & datum);
   
 // Find the datum based on cameras. Return true on success.
 bool datum_from_camera(std::string const& image_file, 

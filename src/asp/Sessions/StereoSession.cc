@@ -23,6 +23,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Core/AspStringUtils.h>
+#include <asp/Sessions/CameraUtils.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
@@ -264,35 +265,6 @@ namespace asp {
     cam2 = camera_model(m_right_image_file, m_right_camera_file);
   }
 
-// Guess the based on camera position. Usually one arrives here for pinhole
-// cameras.
-bool guessDatum(double cam_center_radius, vw::cartography::Datum & datum) {
-
-  bool success = false;
-  
-  // Datums for Earth, Mars, and Moon
-  vw::cartography::Datum earth("WGS84");
-  vw::cartography::Datum mars("D_MARS");
-  vw::cartography::Datum moon("D_MOON");
-  
-  double km = 1000.0;
-  if (cam_center_radius > earth.semi_major_axis() - 100*km && 
-      cam_center_radius < earth.semi_major_axis() + 5000*km) {
-    datum = earth;
-    success = true;
-  } else if (cam_center_radius > mars.semi_major_axis() - 100*km && 
-             cam_center_radius < mars.semi_major_axis() + 1500*km) {
-    datum = mars;
-    success = true;
-  } else if (cam_center_radius > moon.semi_major_axis() - 100*km && 
-             cam_center_radius < moon.semi_major_axis() + 1000*km) {
-    datum = moon;
-    success = true;
-  }
-
-  return success;
-}
-
 // This will be overridden in some sessions
 bool StereoSession::have_datum() const {
   return !asp::stereo_settings().no_datum && !stereo_settings().correlator_mode;
@@ -313,7 +285,7 @@ vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* c
   double cam_center_radius 
       = norm_2(cam->camera_center(vw::Vector2()));
   vw::cartography::Datum datum;
-  guessDatum(cam_center_radius, datum);
+  asp::guessDatum(cam_center_radius, datum);
     
   return datum;
 }

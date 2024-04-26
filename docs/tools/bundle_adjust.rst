@@ -601,21 +601,24 @@ control network. This helps in interfacing with ``rig_calibrator``
 
 This will write the file ``ba/run.nvm`` having the inlier interest point matches.
 
-If the cameras are of Pinhole type (:numref:`pinholemodels`), the camera poses
-will be read from the NVM file as well, and the optimized poses will be saved to
-such a file, unless invoked with ``--no-poses-from-nvm``. The input
-cameras must still be provided as above, however, so that the intrinsics can be
-read. With the option ``--inline-adjustments``, the updated Pinhole camera files
-will be written separately as well.
-
 The NVM file assumes that the interest points are shifted relative to the optical
 center of each camera. The optical centers are kept in a separate file ending with
 ``_offsets.txt``.
 
 The NVM format can be used with any cameras supported by ASP. To export to this
-format, use ``--output-cnet-type nvm``. For non-pinhole cameras, the optimized
-camera poses will not be saved to the NVM file, and the optical center will be
-the half the image dimensions.
+format, use ``--output-cnet-type nvm``. Unless this option is explicitly set,
+the output format is the same as the input format.
+
+If the cameras are of Pinhole (:numref:`pinholemodels`) or CSM Frame
+(:numref:`csm_frame`) type, the camera poses will be read from the NVM file as
+well, and the optimized poses will be saved to such a file, unless invoked with
+``--no-poses-from-nvm``. The optical centers will be read and written as well. The
+input cameras must still be provided as above, however, so that the intrinsics
+can be read. With the option ``--inline-adjustments``, the updated Pinhole
+camera files will be written separately as well.
+
+For all other types, no camera pose information will be read or written to the
+NVM file, and the optical centers will be set to half the image dimensions.
 
 .. _ba_out_files:
 

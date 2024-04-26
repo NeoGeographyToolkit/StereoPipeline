@@ -1271,9 +1271,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       // Assume the features are stored shifted relative to optical center
       bool nvm_no_shift = false;
       asp::readNvmAsCnet(opt.nvm, nvm_no_shift, cnet, world_to_cam, optical_offsets);
-      // For pinhole cameras also read the poses from nvm unless told not to
+      // For pinhole and csm frame cameras also read the poses from nvm unless told not to
       if (!opt.no_poses_from_nvm)
-        asp::updateCameraPoses(opt.stereo_session, world_to_cam, opt.camera_models);
+        asp::updateCameraPoses(world_to_cam, opt.camera_models);
     } else {
       // Read matches into a control network
       bool triangulate_control_points = true;
@@ -2388,7 +2388,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   bool found_datum = (opt.datum_str != "");
   if (!found_datum) {
     found_datum = asp::datum_from_camera(opt.image_files[0], opt.camera_files[0],
-                            opt.stereo_session,  session, // may change
+                            opt.stereo_session, session, // may change
                             // Outputs
                             opt.datum);
     opt.datum_str = opt.datum.name();

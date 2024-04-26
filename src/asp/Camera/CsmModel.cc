@@ -1182,10 +1182,8 @@ void CsmModel::deep_copy(boost::shared_ptr<CsmModel> & copy) const {
 
 void CsmModel::deep_copy(CsmModel & copy) const {
 
-  // Start with a shallow copy
+  // Start with a shallow copy. Then make a deep copy of m_gm_model.
   copy = *this;
-
-  // Then make a deep copy of m_gm_model
 
   // Frame case
   UsgsAstroFrameSensorModel const* frame_model 
@@ -1233,6 +1231,19 @@ vw::Vector3 CsmModel::sun_position() const {
                  << "CsmModel::sun_position() returns the Sun position as being "
                  << "at the planet center. This is a programmer error.\n");
   return m_sun_position;
+}
+
+bool CsmModel::isFrameCam() const {
+  csm::RasterGM const* gm_model
+    = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
+  if (gm_model == NULL)
+    return false;
+  UsgsAstroFrameSensorModel const* frame_model
+    = dynamic_cast<UsgsAstroFrameSensorModel const*>(gm_model);
+  if (frame_model == NULL)
+    return false;
+    
+  return true;
 }
 
 } // end namespace asp

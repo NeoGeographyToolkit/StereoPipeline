@@ -35,16 +35,6 @@ namespace asp {
 void exportTriPoints(asp::BAParams                const& param_storage, 
                      std::vector<Eigen::Vector3d>      & tri_vec);
 
-// Calculate the optical offsets for each image. For pinhole cameras,
-// read these from the camera model. For other cameras, use half of the
-// image size.
-void calcOpticalOffsets(std::vector<std::string>          const& image_files,
-                        std::vector<vw::CamPtr>           const& cams,
-                        std::map<std::string, Eigen::Vector2d> & optical_offsets);
-
-// Given a pinhole camera model, find the world-to-camera transform
-Eigen::Affine3d calcWorldToCam(vw::camera::PinholeModel const& pin);
-
 // Once bundle adjustment is done, export the outlier list, camera poses,
 // triangulated points, and optical offsets, and write the cnet to an nvm file.
 void saveNvm(asp::BaBaseOptions                const& opt,
@@ -56,8 +46,7 @@ void saveNvm(asp::BaBaseOptions                const& opt,
 
 // Given pinhole cameras and camera-to-world transforms, update the camera poses
 // in the pinhole cameras.
-void updateCameraPoses(std::string                  const& session, 
-                       std::vector<Eigen::Affine3d> const& world_to_cam,
+void updateCameraPoses(std::vector<Eigen::Affine3d> const& world_to_cam,
                        std::vector<vw::CamPtr>           & cams);
   
 } // end namespace asp
