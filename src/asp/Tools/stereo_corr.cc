@@ -33,7 +33,7 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Tools/stereo.h>
 
-//#include <boost/process.hpp>
+#include <boost/process.hpp>
 #include <boost/process/env.hpp>
 
 #include <xercesc/util/PlatformUtils.hpp>
@@ -1498,18 +1498,15 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       e["LD_LIBRARY_PATH"] = plugin_lib;   // For Linux
       e["DYLD_LIBRARY_PATH"] = plugin_lib; // For OSX
       vw_out() << "Path to libraries: " << plugin_lib << std::endl;
-      for (auto it = env_vars_map.begin(); it != env_vars_map.end(); it++) {
+      for (auto it = env_vars_map.begin(); it != env_vars_map.end(); it++)
         e[it->first] = it->second;
-      }
       
       // Call an external program which will write the disparity to disk
       std::string cmd = plugin_path + " " + options + " " 
         + left_aligned_file + " " + right_aligned_file + " " + aligned_disp_file;
       
-      if (alg_name == "msmw" || alg_name == "msmw2") {
-        // Need to provide the output mask
-        cmd += " " + mask_file;
-      }
+      if (alg_name == "msmw" || alg_name == "msmw2")
+        cmd += " " + mask_file; // Provide the mask file
 
       int timeout = stereo_settings().corr_timeout;
 
@@ -1518,10 +1515,12 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
       vw_out() << cmd << std::endl;
 
-      // // Use boost::process to run the given process with timeout.
-      // bp::child c(cmd, e);
-      // std::error_code ec;
-      // // TODO(oalexan1): Fix this warning
+      // Use boost::process
+      bp::system(cmd.c_str(), bp::std_out > stdout, bp::std_err > stderr, bp::std_in < stdin);
+      
+      // TODO(oalexan1): Timeout no longer works in recent boost versions.
+      //bp::child c(cmd, e);
+      //std::error_code ec;
       // if (!c.wait_for(std::chrono::seconds(timeout), ec)) {
       //   vw_out() << "\n" << "Timeout reached. Process terminated after "
       //            << timeout << " seconds. See the --corr-timeout option.\n";
