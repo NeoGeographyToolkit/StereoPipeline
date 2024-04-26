@@ -33,7 +33,6 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Tools/stereo.h>
 
-#include <boost/process.hpp>
 #include <boost/process/env.hpp>
 
 #include <xercesc/util/PlatformUtils.hpp>
@@ -1515,10 +1514,10 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
       vw_out() << cmd << std::endl;
 
-      // Use boost::process
-      bp::system(cmd.c_str(), bp::std_out > stdout, bp::std_err > stderr, bp::std_in < stdin);
+      // Use a system call
+      system(cmd.c_str());
       
-      // TODO(oalexan1): Timeout no longer works in recent boost versions.
+      // TODO(oalexan1): Timeout no longer works in recent boost versions on Mac.
       //bp::child c(cmd, e);
       //std::error_code ec;
       // if (!c.wait_for(std::chrono::seconds(timeout), ec)) {
