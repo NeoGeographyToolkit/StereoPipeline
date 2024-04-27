@@ -394,7 +394,8 @@ In case of horizontal misalignment, it is suggested to individually align the
 produced DEMs to the prior DEM, apply the alignment transform to the cameras
 (:numref:`ba_pc_align`), then redo the bundle-adjustment with the aligned
 cameras and the prior DEM as a constraint (:numref:`kaguya_ba`), while refining
-the intrinsics.
+the intrinsics. It is suggested to use a value of ``--heights-from-dem-uncertainty``
+maybe as low as 0.1 or 0.01, if desired to fit tightly to the prior DEM.
 
 The intersection error for each DEM (:numref:`point2dem`) can help evaluate the
 accuracy of the intrinsics. The ``geodiff`` program (:numref:`geodiff`), can be
