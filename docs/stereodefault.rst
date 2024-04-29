@@ -605,6 +605,8 @@ subpixel-mode (*integer*) (default = 1)
     | 10 - SGM Cosine 
     | 11 - SGM Parabola 
     | 12 - SGM Blend 
+    
+    See :cite:`Miclea_subpixel` for the SGM subpixel methods.
 
     For a visual comparison of the quality of these subpixel modes, refer
     back to :numref:`correlation`.

@@ -46,7 +46,7 @@ specified, it will be auto-guessed based on the content of the camera
 files provided as inputs.
 
 For Pleiades exact linescan camera models the atmospheric correction
-and velocity aberration corrections (:numref:`sensor_corrections`) are
+and velocity aberration corrections (:cite:`nugent1966velocity`) are
 disabled. This ensures that the exact and RPC camera models agree (see
 below).
 

@@ -19,9 +19,8 @@ If the ``-t`` option is not specified, it will be auto-guessed
 based on the content of the camera files provided as inputs.
 
 For PeruSat-1 exact linescan camera models the atmospheric correction and
-velocity aberration corrections (:numref:`sensor_corrections`) are
-disabled, as these decrease somewhat the agreement with the RPC
-models. 
+velocity aberration corrections (:cite:`nugent1966velocity`) are disabled, as
+these decrease somewhat the agreement with the RPC models. 
 
 DEMs created with the exact and RPC models differ by a systematic
 vertical shift of about 15 meters for unknown reasons, even though the
