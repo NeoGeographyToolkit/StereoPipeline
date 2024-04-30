@@ -273,6 +273,31 @@ namespace asp {
     
   };
 
+  /// Specialization of the StereoSessionGDAL class to use ASTER
+  /// map-projected inputs with the ASTER sensor model.
+  class StereoSessionASTERMapASTER : public StereoSessionMapProj  {
+  public:
+    StereoSessionASTERMapASTER(){};
+    virtual ~StereoSessionASTERMapASTER(){};
+
+    virtual std::string name() const { return "astermapaster"; }
+
+    static StereoSession* construct() { return new StereoSessionASTERMapASTER; }
+    
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file, 
+                      std::string const& camera_file,
+                      std::string const& ba_prefix,
+                      vw::Vector2 pixel_offset) const {
+    return load_adjusted_model(m_camera_loader.load_ASTER_camera_model(camera_file),
+                                 image_file, camera_file, ba_prefix, pixel_offset);
+    }
+    
+  };
+
+
   /// Specialization of the StereoSessionGDAL class to use Pleiades
   /// map-projected inputs with the Pleiades sensor model.
   class StereoSessionPleiadesMapPleiades : public StereoSessionMapProj  {

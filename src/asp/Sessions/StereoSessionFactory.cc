@@ -212,8 +212,16 @@ namespace asp {
       }
       if (!input_dem.empty() && actual_session_type == "aster") {
         // User says ASTER but also gives a DEM.
-        actual_session_type = "astermaprpc";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: astermaprpc.\n";
+        // Mapprojection can happen either with ASTER or RPC cameras 
+        std::string cam_tag = "CAMERA_MODEL_TYPE";
+        std::string l_cam_type 
+          = vw::cartography::read_header_string(left_image_file, cam_tag);
+        if (l_cam_type == "aster")
+          actual_session_type = "astermapaster";
+        else
+          actual_session_type = "astermaprpc"; // used also when l_cam_type is empty
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: " 
+          << actual_session_type << ".\n";
       }
       if (!input_dem.empty() && actual_session_type == "pleiades") {
         // User says Pleiades but also gives a DEM.
@@ -246,7 +254,7 @@ namespace asp {
     VW_ASSERT(!actual_session_type.empty(),
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
-              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster perusat pleiades opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm csmmaprpc pleiadesmappleiades].\n");
+              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster perusat pleiades opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermapaster astermaprpc opticalbarmapopticalbar csmmapcsm csmmaprpc pleiadesmappleiades].\n");
     
     if (!total_quiet)
       vw::vw_out() << "Using session: " << actual_session_type << "\n";
@@ -272,6 +280,8 @@ namespace asp {
       session = StereoSessionBarMapBar::construct();
     else if (actual_session_type == "spot5maprpc")
         session = StereoSessionSpot5MapRPC::construct();
+    else if (actual_session_type == "astermapaster")
+        session = StereoSessionASTERMapASTER::construct();
     else if (actual_session_type == "astermaprpc")
         session = StereoSessionASTERMapRPC::construct();
     else if (actual_session_type == "pleiadesmappleiades")
