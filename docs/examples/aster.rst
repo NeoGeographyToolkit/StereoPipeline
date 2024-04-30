@@ -80,6 +80,7 @@ Run ``parallel_stereo`` (:numref:`parallel_stereo`)::
      parallel_stereo -t aster         \
        --stereo-algorithm asp_mgm     \
        --subpixel-mode 9              \
+       --aster-use-csm                \
         out-Band3N.tif out-Band3B.tif \
         out-Band3N.xml out-Band3B.xml \
         out_stereo/run
@@ -87,6 +88,10 @@ Run ``parallel_stereo`` (:numref:`parallel_stereo`)::
 This used the ``asp_mgm`` algorithm, which is the most accurate algorithm ASP
 has. One can also try the option ``--subpixel-mode 2`` which will be much slower
 but produce better results.
+
+The option ``--aster-use-csm`` is used to fit a CSM model to the ASTER cameras
+(:numref:`aster_csm`). This makes the processing a lot faster and will be the 
+default in the future.
 
 See :numref:`nextsteps` for a discussion about various stereo algorithms and
 speed-vs-quality choices.
@@ -119,6 +124,7 @@ suggestions in :numref:`mapproj-example`).
      parallel_stereo -t aster         \
        --stereo-algorithm asp_mgm     \
        --subpixel-mode 9              \
+       --aster-use-csm                \
         out-Band3N.tif out-Band3B.tif \
         out-Band3N.xml out-Band3B.xml \
         out_stereo/run
@@ -128,15 +134,18 @@ suggestions in :numref:`mapproj-example`).
        --tr 200 out_stereo/run-PC.tif -o out_stereo/run-200m
 
      # Mapproject onto this DEM at 15 meters/pixel
-     mapproject --tr 15 out_stereo/run-200m-DEM.tif        \
+     mapproject --tr 15 --aster-use-csm \
+       out_stereo/run-200m-DEM.tif      \
        out-Band3N.tif out-Band3N.xml out-Band3N_proj.tif
-     mapproject --tr 15 out_stereo/run-200m-DEM.tif        \
+     mapproject --tr 15 --aster-use-csm \
+       out_stereo/run-200m-DEM.tif      \
        out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif
      
      # Run parallel_stereo with the mapprojected images
      parallel_stereo -t aster                  \
        --stereo-algorithm asp_mgm              \
        --subpixel-mode 9                       \
+       --aster-use-csm                         \
        out-Band3N_proj.tif out-Band3B_proj.tif \
        out-Band3N.xml out-Band3B.xml           \
        out_stereo_proj/run                     \

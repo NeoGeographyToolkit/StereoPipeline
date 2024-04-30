@@ -1122,7 +1122,8 @@ the jitter that we will solve for has rather high frequency.
 
    Produced DEM, orthoimage and intersection error. The correlation algorithm
    has some trouble over sand, resulting in holes. The jitter is clearly
-   visible. The color scale on the right is from 0 to 10 meters. 
+   visible, and will be solved for next. The color scale on the right is from 0
+   to 10 meters.
 
 The created DEM is brought in the coordinate system of the reference DEM. This
 results in a small shift in this case, but it is important to do this each time

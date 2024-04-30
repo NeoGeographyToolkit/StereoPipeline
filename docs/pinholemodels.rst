@@ -413,11 +413,10 @@ as done in OpenCV.
 
       RPC
       rpc_degree = 1
-      image_size = 5760 3840
-      distortion_num_x   = 0 1 0
-      distortion_den_x   = 1 0 0
-      distortion_num_y   = 0 0 1
-      distortion_den_y   = 1 0 0
+      distortion_num_x = 0 1 0
+      distortion_den_x = 1 0 0
+      distortion_num_y = 0 0 1
+      distortion_den_y = 1 0 0
 
 This sample RPC lens distortion model represents the case of no distortion, when
 the degree of the polynomials is 1, and both the distortion and undistortion

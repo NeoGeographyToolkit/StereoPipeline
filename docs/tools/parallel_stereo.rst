@@ -171,7 +171,7 @@ Command-line options
 -t, --session-type <string>
     Select the stereo session type to use for processing. Usually the
     program can select this automatically by the file extension except
-    for xml cameras. Options and when to use:
+    for xml cameras (if it has both DG and RPC models). Options and when to use:
     
     - nadirpinhole -- for satellites/aircraft with pinhole cameras
       (:numref:`skysat`, :numref:`sfmicebridge`). This equivalent to using
@@ -200,7 +200,7 @@ Command-line options
     - dgmaprpc
     - rpcmaprpc
     - spot5maprpc
-    - astermaprpc
+    - astermapaster / astermaprpc
     - opticalbarmapopticalbar
     - csmmapcsm / csmmaprpc
     - pleiadesmappleiades
