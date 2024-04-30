@@ -30,6 +30,7 @@
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/CsmModelFit.h>
+#include <asp/Sessions/CameraUtils.h>
 
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/StringUtils.h>
@@ -298,7 +299,7 @@ void parse_values(std::string list, std::vector<T> & values) {
 }
 
 struct Options : public vw::GdalWriteOptions {
-  std::string image_file, camera_file, lon_lat_values_str, pixel_values_str, datum_str,
+  std::string image_file, out_camera, lon_lat_values_str, pixel_values_str, datum_str,
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
     stereo_session, bundle_adjust_prefix, parsed_cam_ctr_str, parsed_cam_quat_str,
     distortion_str, distortion_type, refine_intrinsics;
@@ -308,8 +309,9 @@ struct Options : public vw::GdalWriteOptions {
   std::vector<double> lon_lat_values, pixel_values, distortion;
   bool refine_camera, parse_eci, parse_ecef, planet_pinhole; 
   int num_pixel_samples;
+  bool exact_tsai_to_csm_conv;
   Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0), planet_pinhole(false),
-  parse_eci(false), parse_ecef(false), num_pixel_samples(0)
+  parse_eci(false), parse_ecef(false), num_pixel_samples(0), exact_tsai_to_csm_conv(false)
   {}
 };
 
@@ -318,7 +320,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("");
   general_options.add_options()
-    ("output-camera-file,o", po::value(&opt.camera_file), "Specify the output camera file with a .tsai or .json extension.")
+    ("output-camera-file,o", po::value(&opt.out_camera), "Specify the output camera file with a .tsai or .json extension.")
     ("camera-type", po::value(&opt.camera_type)->default_value("pinhole"), "Specify the camera type. Options are: pinhole (default), opticalbar, and linescan.")
     ("lon-lat-values", po::value(&opt.lon_lat_values_str)->default_value(""),
     "A (quoted) string listing numbers, separated by commas or spaces, "
@@ -341,7 +343,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("optical-center", po::value(&opt.optical_center)->default_value(Vector2(nan, nan),"NaN NaN"),
      "The camera optical center. If not specified for pinhole cameras, it will be set to image center (half of image dimensions) times the pixel pitch. The optical bar camera always uses the image center.")
     ("pixel-pitch", po::value(&opt.pixel_pitch)->default_value(0),
-     "The pixel pitch.")
+     "The pixel pitch. If set to 1, the focal length and optical center are in units "
+     "of pixel.")
     ("distortion", po::value(&opt.distortion_str)->default_value(""),
      "Distortion model parameters. It is best to leave this blank and have the program "
      "determine them. By default, the OpenCV radial-tangential lens distortion "
@@ -406,7 +409,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.image_file.empty())
     vw_throw(ArgumentErr() << "Missing the input image.\n");
               
-  if (opt.camera_file.empty())
+  if (opt.out_camera.empty())
     vw_throw(ArgumentErr() << "Missing the output camera file name.\n");
 
   boost::to_lower(opt.camera_type);
@@ -423,18 +426,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if ((opt.camera_type == "opticalbar") && (opt.sample_file == ""))
     vw_throw(ArgumentErr() << "opticalbar type must use a sample camera file.\n");
 
-  std::string ext = get_extension(opt.camera_file);
-  if (ext != ".tsai" && ext != ".json") 
+  std::string out_ext = get_extension(opt.out_camera);
+  if (out_ext != ".tsai" && out_ext != ".json") 
     vw_throw(ArgumentErr() << "The output camera file must end with .tsai or .json.\n");
 
-  if (opt.camera_type == "linescan" && ext != ".json")
+  if (opt.camera_type == "linescan" && out_ext != ".json")
     vw_throw(ArgumentErr() << "An output linescan camera must end with .json.\n");
   
-  if (opt.camera_type == "opticalbar" && ext != ".tsai")
+  if (opt.camera_type == "opticalbar" && out_ext != ".tsai")
     vw_throw(ArgumentErr() << "An output optical bar camera must be in .tsai format.\n");
 
   // Create the output directory
-  vw::create_out_dir(opt.camera_file);
+  vw::create_out_dir(opt.out_camera);
 
   // The rest of the logic does not apply to linescan cameras
   if (opt.camera_type == "linescan")
@@ -457,10 +460,21 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
    vw_throw(ArgumentErr() << "The option for refining the intrinsics cannot, "
             "for the time being, constrain either the camera height or camera center.\n");
    
-  if (opt.camera_type == "pinhole" && ext == ".json" && !opt.planet_pinhole && 
-      opt.pixel_pitch != 1)
-    vw_throw(ArgumentErr() << "Can create a CSM frame camera only if the pixel pitch is 1.\n");
+  if (!opt.planet_pinhole && opt.reference_dem.empty() && opt.datum_str.empty() &&
+      opt.input_camera != "") {
+
+    // Guess the datum from the camera model    
+    asp::SessionPtr session;
+    vw::cartography::Datum datum;
+    bool found_datum = asp::datum_from_camera(opt.image_file, opt.input_camera, 
+                                              opt.stereo_session, session, // may change
+                                              datum); // output
     
+    // The found datum will be WGS84, D_MOON, or D_MARS, so its name will be meaningful.
+    if (found_datum)
+      opt.datum_str = datum.name();
+  }
+
   // If we cannot read the data from a DEM, must know the datum
   if (!opt.planet_pinhole && opt.reference_dem.empty() && opt.datum_str.empty())
     vw_throw(ArgumentErr() << "Must provide either a reference DEM or a datum.\n");
@@ -609,14 +623,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.lon_lat_values.pop_back();
     }
   }
+
+  std::string input_ext = get_extension(opt.input_camera);
   
   // Note that optical center can be negative (for some SkySat products).
   if (!opt.planet_pinhole &&
       opt.sample_file == "" &&
-      (opt.focal_length <= 0 || opt.pixel_pitch <= 0))
-    vw_throw(ArgumentErr() << "Must provide positive focal length "
-              << "and pixel pitch values, or a sample file to read these from.\n");
-
+      (opt.focal_length <= 0 || opt.pixel_pitch <= 0)) {
+  
+      // A pinhole camera can be its own sample file
+      if (input_ext == ".tsai") 
+        opt.sample_file = opt.input_camera;
+      else 
+        vw_throw(ArgumentErr() << "Must provide positive focal length "
+                << "and pixel pitch values, or a sample file to read these from.\n");
+  }
+  
   if (opt.sample_file != "" && 
       (!vm["focal-length"].defaulted() || !vm["optical-center"].defaulted() ||
         !vm["distortion"].defaulted()))
@@ -630,7 +652,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   parse_values<double>(opt.distortion_str, opt.distortion);
   
   // Sanity checks for lens distortion  
-  if (opt.camera_type != "pinhole" || ext != ".json") {
+  if (opt.camera_type != "pinhole" || out_ext != ".json") {
     if (opt.distortion.size() != 0)
       vw_throw(ArgumentErr() 
                << "Distortion coefficients are only supported for CSM Frame cameras.\n"); 
@@ -639,10 +661,43 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                << "Refining intrinsics is only supported for CSM Frame cameras.\n");
   }
   
-  // Populate the distortion parameters, if not set
-  if (opt.distortion.size() == 0 && opt.camera_type == "pinhole" && ext == ".json") {
+  // Populate the distortion parameters for CSM, if not set
+  if (opt.distortion.size() == 0 && opt.camera_type == "pinhole" && out_ext == ".json") {
     if (opt.distortion_type == "radtan") {
-      opt.distortion.resize(5, 0.0);
+      
+      // Consider the special case when we can precisely convert tsai to json,
+      // if the distortion is radtan (tsai) or no distortion.
+      std::vector<double> local_distortion;
+      if (input_ext == ".tsai") {
+        vw::camera::PinholeModel pin(opt.input_camera);
+        vw::camera::NullLensDistortion const* zero_dist =
+          dynamic_cast<vw::camera::NullLensDistortion const*>(pin.lens_distortion());
+        vw::camera::TsaiLensDistortion const* radtan_dist = 
+          dynamic_cast<vw::camera::TsaiLensDistortion const*>(pin.lens_distortion());
+        if (zero_dist != NULL) {
+          // Zero distortion can be thought of as radtan distortion with all zeros
+          local_distortion.resize(5, 0.0);
+          opt.exact_tsai_to_csm_conv = true;
+        } else if (radtan_dist != NULL) {
+          vw::Vector<double> dist = radtan_dist->distortion_parameters();
+          // Must have 5 parameters, else throw an error
+          if (dist.size() != 5) 
+            vw_throw(ArgumentErr() << "Expecting 5 distortion coefficients for tsai "
+                      << "distortion, got: " << dist.size() << ".\n");
+          // resize local dist to 5 elem and copy one by one
+          local_distortion.resize(5, 0.0);
+          for (size_t i = 0; i < 5; i++) 
+            local_distortion[i] = dist[i];
+          opt.exact_tsai_to_csm_conv = true;
+        }
+      }
+      
+      // See if can copy the exact distortion from the tsai file
+      if (!local_distortion.empty()) 
+        opt.distortion = local_distortion;
+      else
+        opt.distortion.resize(5, 0.0);
+        
     } else if (opt.distortion_type == "transverse") {
       // This distortion model is a pair of polynomials of degree 3 in x and y.
       opt.distortion.resize(20, 0.0); 
@@ -689,8 +744,8 @@ void manufacture_cam(Options & opt, int wid, int hgt,
     out_cam = opticalbar_cam;
   } else if (opt.camera_type == "pinhole") { // csm frame comes here too
 
-    std::string ext = get_extension(opt.sample_file);
-    if (opt.sample_file != "" && ext == ".json") {
+    std::string sample_ext = get_extension(opt.sample_file);
+    if (opt.sample_file != "" && sample_ext == ".json") {
       // Read the intrinsics from the csm file. The distortion will be set later.
       asp::CsmModel csm(opt.sample_file);
       opt.focal_length = csm.focal_length();
@@ -706,7 +761,7 @@ void manufacture_cam(Options & opt, int wid, int hgt,
     }
   
     boost::shared_ptr<PinholeModel> pinhole_cam;
-    if (opt.sample_file != "" && ext != ".json") {
+    if (opt.sample_file != "" &&  sample_ext != ".json") {
       // Use the initial guess from file
       pinhole_cam.reset(new PinholeModel(opt.sample_file));
     } else {
@@ -1175,8 +1230,8 @@ void save_linescan(Options & opt) {
                                      camera_model,
                                      csm_cam);
 
-  vw_out() << "Writing: " << opt.camera_file << std::endl;
-  csm_cam->saveState(opt.camera_file);
+  vw_out() << "Writing: " << opt.out_camera << std::endl;
+  csm_cam->saveState(opt.out_camera);
 }
 
 int main(int argc, char * argv[]) {
@@ -1205,23 +1260,41 @@ int main(int argc, char * argv[]) {
     // Output camera
     boost::shared_ptr<CameraModel> out_cam;
 
-    if (!opt.planet_pinhole) {
+    if (!opt.planet_pinhole && !opt.exact_tsai_to_csm_conv) {
       // Create a camera using user-specified options. Read geo and interp_dem.
       form_camera(opt, geo, interp_dem, input_camera_ptr, out_cam);
-    } else {
+    } else if (!opt.exact_tsai_to_csm_conv) {
       // Read a pinhole camera from Planet's json file format (*_pinhole.json). Then
       // the WGS84 datum is assumed. Ignore all other input options. Read geo datum.
       read_pinhole_from_json(opt, geo, out_cam);
     }
     
     if (opt.camera_type == "opticalbar") {
-      ((vw::camera::OpticalBarModel*)out_cam.get())->write(opt.camera_file);
+      ((vw::camera::OpticalBarModel*)out_cam.get())->write(opt.out_camera);
     } else if (opt.camera_type == "pinhole") {
-      std::string ext = get_extension(opt.camera_file);
-      vw::camera::PinholeModel* pin = (vw::camera::PinholeModel*)out_cam.get();
-      if (ext == ".tsai") {
-        pin->write(opt.camera_file);
-      } else if (ext == ".json") {
+      vw::camera::PinholeModel* pin = NULL;
+      boost::shared_ptr<vw::camera::PinholeModel> input_pin;
+      std::string out_ext = get_extension(opt.out_camera);
+      if (opt.exact_tsai_to_csm_conv) {
+        // Get the input pinhole model, to be converted below exactly to CSM
+        input_pin.reset(new vw::camera::PinholeModel(opt.input_camera));
+        pin = input_pin.get();
+        // Must make another copy to satisfy another path in the logic below
+        input_camera_ptr.reset(new vw::camera::PinholeModel(opt.input_camera));
+      } else { 
+        // Use the manufactured camera      
+        pin = (vw::camera::PinholeModel*)out_cam.get();
+      }
+     
+      if (out_ext == ".tsai") {
+        // Print these only for pinhole, as they may not exist for csm
+        vw::Vector3 llh = geo.datum().cartesian_to_geodetic(out_cam->camera_center(Vector2()));
+        vw_out() << "Output camera center lon, lat, and height above datum: " 
+                 << llh << std::endl;
+        vw_out() << "Writing: " << opt.out_camera << std::endl;
+        pin->write(opt.out_camera);
+        
+      } else if (out_ext == ".json") {
         DiskImageView<float> img(opt.image_file);
         int width = img.cols(), height = img.rows();
         asp::CsmModel csm;
@@ -1231,16 +1304,12 @@ int main(int argc, char * argv[]) {
         if (opt.refine_intrinsics != "")
           refineIntrinsics(opt, geo, interp_dem, input_camera_ptr, width, height, csm);
           
-        csm.saveState(opt.camera_file);
+        csm.saveState(opt.out_camera);
       } else {
-        vw_throw(ArgumentErr() << "Unknown output camera file extension: " << ext << ".\n");
+        vw_throw(ArgumentErr() << "Unknown output camera file extension: " 
+                 << out_ext << ".\n");
       }
     }
-    
-    // Print these after any refinements and then saving the camera
-    vw::Vector3 llh = geo.datum().cartesian_to_geodetic(out_cam->camera_center(Vector2()));
-    vw_out() << "Output camera center lon, lat, and height above datum: " << llh << std::endl;
-    vw_out() << "Writing: " << opt.camera_file << std::endl;
     
   } ASP_STANDARD_CATCHES;
   

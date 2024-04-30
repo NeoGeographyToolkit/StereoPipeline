@@ -30,7 +30,6 @@
 #include <string>
 #include <iostream>
 
-
 using namespace vw;
 
 namespace asp {

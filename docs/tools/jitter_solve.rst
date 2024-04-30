@@ -1220,7 +1220,8 @@ can be used to reuse the previous run (:numref:`jitter_reuse_run`).
    :name: aster_jitter_intersection_err
 
    The ray intersection error before (left) and after (right) solving for
-   jitter. The scale is in meters. 
+   jitter. The scale is in meters. Same pattern is seen as for the pixel
+   reprojection errors earlier.
 
 .. figure:: ../images/aster_jitter_dem_diff.png
    :name: aster_jitter_dem_diff

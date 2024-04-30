@@ -265,12 +265,12 @@ public:
     ImageView<result_type> tile(bbox.width(), bbox.height());
     for (std::int64_t col = bbox.min().x(); col < bbox.max().x(); col++){
       Vector3 C = m_corr[col];
-      for (std::int64_t row = bbox.min().y(); row < bbox.max().y(); row++){
-	input_type val = input_tile(col - bbox.min().x(), row - bbox.min().y());
-	if (m_has_nodata && val == m_nodata)
-	  tile(col - bbox.min().x(), row - bbox.min().y() ) = val;
-	else
-	  tile(col - bbox.min().x(), row - bbox.min().y() ) = C[1] * val / C[2] + C[0];
+      for (std::int64_t row = bbox.min().y(); row < bbox.max().y(); row++) {
+        input_type val = input_tile(col - bbox.min().x(), row - bbox.min().y());
+        if (m_has_nodata && val == m_nodata)
+          tile(col - bbox.min().x(), row - bbox.min().y()) = val;
+        else
+          tile(col - bbox.min().x(), row - bbox.min().y()) = C[1] * val / C[2] + C[0];
       }
     }
     

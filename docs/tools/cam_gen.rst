@@ -110,12 +110,24 @@ CSM Frame cameras
 ^^^^^^^^^^^^^^^^^
 
 This program can create a CSM Frame camera (:numref:`csm`) that approximates any
-camera supported by ASP. 
+camera supported by ASP. In this mode, distortion is modeled as well.
 
-In this mode, distortion is modeled as well. An additional solver pass can be
-invoked, which can refine the intrinsics, that is, the focal length, optical
-center, and the distortion coefficients, in addition to the camera pose. See the
-``--distortion`` option in :numref:`cam_gen_options` for the distortion model.
+If the input camera is Pinhole with radial-tangential (Tsai) distortion, or no
+distortion at all (:numref:`pinholemodels`), it can be converted exactly to a CSM
+Frame model (with latest ASP), as::
+
+  cam_gen input.tif           \
+    --input-camera input.tsai \
+    -o output.json
+
+Use ``cam_test`` (:numref:`cam_test`) to verify the agreement between the input
+and output cameras.
+
+For any other camera or distortion type, the best-fit model is found. An
+additional solver pass can be invoked, which can refine the intrinsics, that is,
+the focal length, optical center, and the distortion coefficients, in addition
+to the camera pose. See the ``--distortion`` option in :numref:`cam_gen_options`
+for the distortion model.
 
 Good initial guesses, especially for the focal length and optical center, are
 still expected.
@@ -132,8 +144,11 @@ Example::
     --refine-intrinsics focal_length,distortion \
     -o output.json
 
-The pixel pitch must always be 1, so the focal length and optical center must be
-in units of pixel.
+Here it was assumed that the the pixel pitch was 1. For pinhole cameras the
+pixel pitch can also be in millimeters, but then the focal length and optical
+center must be in the same units. In either case, upon conversion to CSM Frame
+cameras, the input focal length and optical center are divided by the pixel
+pitch. 
 
 It is suggested to not optimize the optical center, as that correlates with the
 camera pose and can lead to an implausible solution. The ``--distortion`` option
@@ -145,7 +160,8 @@ is different than just using ``--refine-camera`` alone, which does not support
 distortion.
 
 If the camera model is contained within the image, pass the image to
-``--input-camera``.
+``--input-camera``. Instead of specifying the focal length, optical center,
+and distortion, can pass a camera model having those to ``--sample-file``.
 
 To transfer the intrinsics produced by the invocation above to another camera
 acquired with the same sensor, run::
@@ -288,16 +304,19 @@ Command-line options
     See :numref:`kh9`, :numref:`file_format`, and :numref:`panoramic`.
 
 --focal-length <float (default: 0.0)>
-    The camera focal length.
+    The camera focal length. If ``--pixel-pitch`` is in millimeters, this 
+    must be in millimeters as well.
 
 --optical-center <float (default: NaN NaN)>
-    The camera optical center. If not specified for pinhole cameras,
-    it will be set to image center (half of image dimensions) times
-    the pixel pitch. The optical bar camera always uses the image
-    center.
+    The camera optical center. If ``--pixel-pitch`` is in millimeters, this must
+    be in millimeters as well. If not specified for pinhole cameras, it will be
+    set to image center (half of image dimensions) times the pixel pitch. The
+    optical bar camera always uses the image center.
 
 --pixel-pitch <float (default: 0.0)>
-    The camera pixel pitch.
+    The camera pixel pitch, that is, the width of a pixel. It can be in millimeters,
+    and then the focal length and optical center must be in millimeters as well.
+    If set to 1, the focal length and optical center are in units of pixel. 
 
 --distortion <string (default: "")>
     Distortion model parameters. It is best to leave this blank and have the

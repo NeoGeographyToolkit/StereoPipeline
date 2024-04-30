@@ -524,19 +524,30 @@ are ``speed``, ``motion_compensation_factor``, and ``scan_time``.
 CSM frame camera
 ----------------
 
-ASP supports the CSM (:numref:`csm`) frame camera model. This behaves about the
-same as the Pinhole model (:numref:`pinholemodels`), but it has different lens
-distortion models. Those include the `OpenCV radial-tangential distortion model
+ASP supports the CSM (:numref:`csm`) frame camera model. This is analogous to the 
+ASP Pinhole model (:numref:`pinholemodels`). 
+
+The CSM frame camera model has its own collection of 
+lens distortion models. Those include the `OpenCV radial-tangential distortion model
 <https://docs.opencv.org/3.4/dc/dbb/tutorial_py_calibration.html>`_ (it has 5
 parameters, in the order k1, k2, p1, p2, k3), *transverse* distortion, which is
 a pair of full polynomials of degree 3 in both x and y (20 coefficients), and
 various other `specialized models
 <https://github.com/DOI-USGS/usgscsm/blob/main/include/usgscsm/Distortion.h>`_.
 
+In latest ASP builds, the Pinhole model with no distortion or with radial-tangential
+(tsai) distortion operates as the CSM frame camera model with the same distortion
+model and values, which can be verified with ``cam_test`` (:numref:`cam_test`).
+
+In the CSM .json model state files (:numref:`csm_state`), the transverse and
+radial-tangential distortion models have ``m_distortionType`` set to the values
+of 1 and 7, respectively, with ``m_opticalDistCoeffs`` having the distortion
+parameters.
+
 ASP's ``cam_gen`` program (:numref:`cam_gen_frame`) can find the best-fit CSM
 frame camera model with the OpenCV radial-tangential distortion and with the
 transverse (3rd degree polynomial) distortion model. Then bundle adjustment can
-be used to refine the intrinsic and extrinsic camera parameters
+be employed to refine the intrinsic and extrinsic camera parameters
 (:numref:`ba_frame_linescan`).
 
 The ``sat_sim`` program (:numref:`sat_sim`) can create CSM frame cameras

@@ -94,10 +94,15 @@ For example, two images acquired at time 1004.6 can be named::
     my_images/ref_cam/10004.6.ref_cam.jpg
     my_images/alt_cam/10004.6.alt_cam.jpg
 
+The timestamp must consist only of digits and a decimal period. Anything
+starting with another character (including another period) will be removed.
+Hence, a value like 123.4e+5 will be converted to 123.4. 
+
 The tag after the timestamp is suggested to ensure all image names without
 directory path are unique, in case these are passed later to ``bundle_adjust``
-(:numref:`rc_bundle_adjust`). The tag better not have any numerical characters, as
-that may confuse ``rig_calibrator``.
+(:numref:`rc_bundle_adjust`). Ensure there exists some kind of separator
+between the timestamp and the tag, or at least the tag should not start with
+digits, as those will be treated as part of the timestamp.
 
 The images are expected to be 8 or 16 bit, with .jpg, .png, or .tif extension.
 
