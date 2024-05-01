@@ -87,29 +87,28 @@ etc.
 
 Each image file must be stored according to the convention::
 
-    <image dir>/<sensor name>/<timestamp><tag>.<extension>
+    <image dir>/<sensor name>/<timestamp><separator><tag>.<extension>
 
 For example, two images acquired at time 1004.6 can be named::
 
-    my_images/ref_cam/10004.6.ref_cam.jpg
-    my_images/alt_cam/10004.6.alt_cam.jpg
+    my_images/ref_cam/10004.6_ref_cam.jpg
+    my_images/alt_cam/10004.6_alt_cam.jpg
 
 The timestamp must consist only of digits and a decimal period. Anything
-starting with another character (including another period) will be removed.
-Hence, a value like 123.4e+5 will be converted to 123.4. 
+starting with another character (including another period) will not be 
+part of the timestamp. Hence, a value like 123.4e+5 will be converted to 123.4. 
 
-The tag after the timestamp is suggested to ensure all image names without
-directory path are unique, in case these are passed later to ``bundle_adjust``
-(:numref:`rc_bundle_adjust`). Ensure there exists some kind of separator
-between the timestamp and the tag, or at least the tag should not start with
-digits, as those will be treated as part of the timestamp.
+The tag is to ensure all image names without directory path are unique, in case
+these are passed later to ``bundle_adjust`` (:numref:`rc_bundle_adjust`). Ensure
+the separator does not start with digits, as those will be treated as part of
+the timestamp.
 
 The images are expected to be 8 or 16 bit, with .jpg, .png, or .tif extension.
 
 If some sensors also have depth data, the same convention is followed,
 with the file extension being .pc. Example::
 
-    my_images/alt_cam/10004.6.alt_cam.pc
+    my_images/alt_cam/10004.6_alt_cam.pc
 
 All such depth cloud files will be loaded automatically alongside
 images if present. See :numref:`point_cloud_format` for the file
@@ -342,9 +341,9 @@ How to export the data for use in bundle adjustment is discussed in
 Examples
 ^^^^^^^^
 
-See a step-by-step-example in :numref:`rig_calibrator_example`. See
-:numref:`sfm_iss` for a larger example covering a full ISS module, and
-:numref:`rig_msl` for an example using MSL Curiosity rover images.
+ - A step-by-step-example (:numref:`rig_calibrator_example`). 
+ - A larger example covering a full ISS module (:numref:`sfm_iss`).
+ - An example using MSL Curiosity rover images (:numref:`rig_msl`).
 
 Notes
 ^^^^^
@@ -356,6 +355,42 @@ set.
 The output directory will have the optimized rig configuration and
 camera poses for all images. These can be used as inputs for a
 subsequent invocation, if needed to fine-tune things.
+
+.. _rig_constraints:
+
+Constraints on rig transforms
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In this section we assume that ``--no_rig`` is not set, so we have a rig.
+
+If ``--camera_poses_to_float`` lists all sensors, all cameras can change in
+any way, as long as they are tied together by an (evolving) rig at all times.
+
+If only the reference sensor is mentioned in ``--camera_poses_to_float``, the
+cameras for this sensor will change freely, but the other cameras will only
+change as necessary to respect the rig constraint, while the rig configuration
+stays fixed. 
+
+If the reference sensor is not specified in ``--camera_poses_to_float``, the
+cameras for this sensor will stay fixed, while the transform from the reference
+sensor to another sensor will change only if that sensor is mentioned in
+``--camera_poses_to_float``.
+
+An analogous parameter is ``--depth_to_image_transforms_to_float``.
+
+Independent of these, the options ``--fix_rig_translations`` and
+``--fix_rig_rotations``, used separately or together, can constrain either the
+translation or rotation component of all transforms from the reference sensor to
+the other sensors.
+
+Constraints on triangulated points
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Triangulated points are, by default, set to not move too far, after
+registration. See ``--tri_weight`` and ``--tri_robust_threshold``.
+
+Additional constraints that can be used are ``--depth_mesh_weight``
+and ``--depth_tri_weight``.
 
 .. _rig_calibrator_registration:
 
@@ -527,10 +562,9 @@ If it performs poorly, it may be because:
 - Some weights passed in (e.g., ``--tri_weight``,
   ``--mesh_tri_weight``) may be too high and prevent convergence.
 
-- The options ``--camera_poses_to_float``, ``--intrinsics_to_float``,
-  ``--depth_to_image_transforms_to_float``,
-  were not all specified and hence some optimizations did not take
-  place.
+- The options ``--camera_poses_to_float`` (:numref:`rig_constraints`),
+  ``--intrinsics_to_float``, ``--depth_to_image_transforms_to_float``, were not
+  all specified and hence some optimizations did not take place.
 
 For understanding issues, it is strongly suggested to drastically
 reduce the problem to perhaps one or two images from each sensor, and
@@ -653,13 +687,15 @@ Command-line options for rig_calibrator
   previously optimized solution as an initial guess. Mesh intersections (if
   applicable) and ray triangulation will be recomputed before each pass.)
   Type: int32. Default: 2.
-``--camera_poses_to_float`` Specify the cameras of which sensor types can have
-  their poses floated. Note that allowing the cameras for all sensors types
-  to float can change the scene location, orientation, and scale. Hence,
-  registration may be needed. Example: 'cam1 cam3'. 
-  With this example, the rig transform from cam1 to cam3 will be
-  floated with the rig constraint, and the cam3 poses will be floated
-  without the rig constraint. Type: string. Default: "".
+``--camera_poses_to_float`` Specify the cameras for which sensors can have
+  their poses floated. Example: 'cam1 cam3'.  See more details in
+  :numref:`rig_constraints`. Type: string. Default: "".
+``--fix_rig_translations`` Fix the translation component of the transforms between
+  the sensors on the rig. Works only when ``--no_rig`` is not set. Type: bool.
+  Default: false.
+``--fix_rig_rotations`` Fix the rotation component of the transforms between the
+  sensors on the rig. Works only when ``--no_rig`` is not set. Type: bool.
+  Default: false.
 ``--tri_weight`` The weight to give to the constraint that optimized
   triangulated points stay close to original triangulated points. A
   positive value will help ensure the cameras do not move too far, but a

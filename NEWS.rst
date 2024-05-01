@@ -236,6 +236,7 @@ rig_calibrator (:numref:`rig_calibrator`):
      (:numref:`rc_bundle_adjust`).
    * Added documentation for how to register the produced cameras to the ground
      for a planet (:numref:`msl_registration`).
+   * Can fix the translation and/or rotation component of a rig configuration.  
      
 lronac2mosaic.py (:numref:`lronac2mosaic`):
   * Run ``spiceinit`` before calling ``lronaccal``, and re-enable all
