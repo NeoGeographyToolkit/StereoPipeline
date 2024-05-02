@@ -703,6 +703,11 @@ Command-line options for rig_calibrator
 ``--tri_robust_threshold`` The robust threshold to use with the
   triangulation weight. Must be positive. See also ``--robust_threshold``.
   Type: double. Default: 0.1. 
+``--use_initial_triangulated_points`` Use the triangulated points from the
+  input nvm file. Together with ``--tri_weight``, this ensures the cameras do not move
+  too far from the initial solution. This will fail if additional interest point matches
+  are created with ``--num_overlaps``. If registration is used, the initial triangulated
+  points are transformed appropriately. Type: bool. Default: false.
 ``--depth_mesh_weight`` A larger value will give more weight to the constraint
   that the depth clouds stay close to the mesh. Not suggested by default.)
   Type: double. Default: 0.
