@@ -1235,7 +1235,7 @@ Command-line options
     must no longer be used in stereo.
         
 --min-triangulation-angle <degrees (default: 0.1)>
-    Filter as outliers any triangulation point for which all rays converging to
+    Filter as outlier any triangulation point for which all rays converging to
     it have an angle less than this (measured in degrees). This happens on
     loading the match files and after each optimization pass. This should be used
     cautiously with very uncertain input cameras.

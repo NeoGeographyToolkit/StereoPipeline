@@ -1957,7 +1957,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("ip-num-ransac-iterations", po::value(&opt.ip_num_ransac_iterations)->default_value(1000),
      "How many RANSAC iterations to do in interest point matching.")
     ("min-triangulation-angle", po::value(&opt.min_triangulation_angle)->default_value(0.1),
-     "Filter as outliers any triangulation point for which all rays converging to "
+     "Filter as outlier any triangulation point for which all rays converging to "
       "it have an angle less than this (measured in degrees). This happens on "
       "loading the match files and after each optimization pass. This should be used "
       "cautiously with very uncertain input cameras.")
