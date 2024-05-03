@@ -299,7 +299,6 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
   
 } // End function add_disparity_residual_block
 
-
 // ----------------------------------------------------------------
 // Start outlier functions
 
@@ -452,6 +451,10 @@ int add_to_outliers(ControlNetwork & cnet,
     vw_out() << "Removed " << num_outliers_by_elev_or_lonlat
              << " outliers by elevation range and/or lon-lat range.\n";
   }
+
+  // Remove outliers by convergence angle
+  if (opt.min_triangulation_angle > 0) 
+    asp::filterOutliersByConvergenceAngle(opt, cnet, param_storage);
 
   // Remove outliers based on spatial extent. Be more generous with
   // leaving data in than what the input parameters suggest, because
@@ -1954,9 +1957,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("ip-num-ransac-iterations", po::value(&opt.ip_num_ransac_iterations)->default_value(1000),
      "How many RANSAC iterations to do in interest point matching.")
     ("min-triangulation-angle", po::value(&opt.min_triangulation_angle)->default_value(0.1),
-     "A triangulated point will be accepted as valid only if at "
-     "least two of the rays which converge at it have a triangulation "
-     "angle of at least this (measured in degrees).")
+     "Filter as outliers any triangulation point for which all rays converging to "
+      "it have an angle less than this (measured in degrees). This happens on "
+      "loading the match files and after each optimization pass. This should be used "
+      "cautiously with very uncertain input cameras.")
     ("forced-triangulation-distance", po::value(&opt.forced_triangulation_distance)->default_value(-1),
      "When triangulation fails, for example, when input cameras are inaccurate, "
      "artificially create a triangulation point this far ahead of the camera, "

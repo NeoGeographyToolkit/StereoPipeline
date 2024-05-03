@@ -722,6 +722,10 @@ void initial_filter_by_proj_win(asp::BaBaseOptions          & opt,
                                 asp::BAParams               & param_storage, 
                                 vw::ba::ControlNetwork const& cnet);
 
+void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
+                                      vw::ba::ControlNetwork const& cnet,
+                                      asp::BAParams & param_storage);
+
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_CAMERA_H__

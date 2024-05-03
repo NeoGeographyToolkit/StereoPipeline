@@ -1379,4 +1379,63 @@ void initial_filter_by_proj_win(asp::BaBaseOptions          & opt,
   }
 }
 
+void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
+                                      vw::ba::ControlNetwork const& cnet,
+                                      asp::BAParams & param_storage) {
+
+  std::vector<vw::CamPtr> optimized_cams;
+  std::vector<vw::Vector3> opt_cam_positions;
+  asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
+  asp::calcCameraCenters(optimized_cams, opt_cam_positions);
+  int num_outliers_by_conv_angle = 0;
+
+  for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
+
+    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+      continue; // don't filter out GCP
+    if (param_storage.get_point_outlier(ipt))
+      continue; // skip outliers
+    
+    // The GCC coordinate of this point
+    const double * point = param_storage.get_point_ptr(ipt);
+    Vector3 xyz(point[0], point[1], point[2]);
+    
+    // Control point
+    auto const& cp = cnet[ipt];
+    double max_angle = 0;
+    for (size_t j = 0; j < cp.size(); j++) {
+      size_t j_cam_id = cp[j].image_id();
+      vw::Vector3 P1 = opt_cam_positions[j_cam_id];
+      vw::Vector3 dir1 = xyz - P1;
+      if (norm_2(dir1) > 1e-8) 
+        dir1 = normalize(dir1);
+      
+      for (size_t k = j + 1; k < cp.size(); k++) {
+        size_t k_cam_id = cp[k].image_id();
+        vw::Vector3 P2 = opt_cam_positions[k_cam_id];
+        vw::Vector3 dir2 = xyz - P2;
+        if (norm_2(dir2) > 1e-8) 
+          dir2 = normalize(dir2);
+        
+        double angle = (180.0 / M_PI) * acos(dot_prod(dir1, dir2));
+        if (std::isnan(angle) || std::isinf(angle)) 
+          continue;
+        max_angle = std::max(max_angle, angle);
+      }
+    }
+    
+    if (max_angle < opt.min_triangulation_angle) {
+      param_storage.set_point_outlier(ipt, true);
+      num_outliers_by_conv_angle++;
+    }
+  }
+  
+  int num_pts = param_storage.num_points();
+  vw::vw_out() << std::setprecision(4) 
+               << "Removed " << num_outliers_by_conv_angle 
+               << " triangulated points out of " << num_pts
+               << " (" << (100.0 * num_outliers_by_conv_angle) / num_pts << "%)" 
+               << " by ray convergence angle.\n";
+}
+
 } // end namespace asp

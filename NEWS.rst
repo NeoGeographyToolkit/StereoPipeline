@@ -141,6 +141,9 @@ bundle_adjust (:numref:`bundle_adjust`):
   * RPC undistortion is now done with a solver rather than using separate
     undistortion coefficients. This much more accurate but slower.
     (:numref:`pinholemodels`.) 
+  * Ensure that outlier filtering with ``--min-triangulation-angle`` is done
+    after each pass with refined cameras and for all ways of reading a control
+    network.  
   
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).

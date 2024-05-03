@@ -1235,9 +1235,10 @@ Command-line options
     must no longer be used in stereo.
         
 --min-triangulation-angle <degrees (default: 0.1)>
-    A triangulated point will be accepted as valid only if at
-    least two of the rays which converge at it have a triangulation
-    angle of at least this (measured in degrees). 
+    Filter as outliers any triangulation point for which all rays converging to
+    it have an angle less than this (measured in degrees). This happens on
+    loading the match files and after each optimization pass. This should be used
+    cautiously with very uncertain input cameras.
 
 --ip-triangulation-max-error <float>
     When matching IP, filter out any pairs with a triangulation
