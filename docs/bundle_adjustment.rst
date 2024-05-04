@@ -562,43 +562,6 @@ to the reference terrain.
 Also note the earlier comment about sharing and floating the intrinsics
 individually.
 
-RPC lens distortion
-^^^^^^^^^^^^^^^^^^^
-
-If it is realized that the optimized intrinsics still do not make the
-ASP-generated DEMs agree very well with the ground truth, and some residual and
-systematic error can be seen either by comparing these two or in intersection
-error files, it may be convenient to convert the current camera models to ones
-with the distortion given by rational function coefficients (RPC) of a desired
-degree (:numref:`pinholemodels`). An RPC model can have a lot more coefficients
-to optimize, hence a better fit can be found. 
-
-It is suggested to use low-degree polynomials as those are easy to fit, and go
-to higher degree only for refinement if needed.
-
-One should, however, first try the simpler *Tsai* and *Adjustable Tsai* lens
-distortion models (:numref:`pinholemodels`), or the OpenCV radial-tangential
-distortion model for CSM (:numref:`csm_frame_def`) before resorting to RPC.
-
-The tool ``convert_pinhole_model`` (:numref:`convert_pinhole_model`) can be used
-to convert a camera model with one distortion type to another one with Pinhole
-cameras. The ``cam_gen`` program can be used to convert a camera model to CSM
-(:numref:`cam_gen_frame`).
-
-Working with map-projected images
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If ``parallel_stereo`` was run with map-projected images, one can still extract
-dense interest point matches and the unaligned disparity from such a run, and
-these can be applied with the original unprojected images for the purpose of
-bundle adjustment (after being renamed appropriately, :numref:`ba_match_files`).
-This may be convenient since while bundle adjustment must always happen with the
-original images, ``parallel_stereo`` could be faster and more accurate when
-images are map-projected. It is suggested that the unaligned disparity and
-interest points obtained this way be examined carefully.  Particularly the grid
-size used in mapprojection should be similar to the ground sample distance for
-the raw images for best results.
-
 .. _kaguya_ba:
 
 Refining the intrinsics per sensor
@@ -1204,6 +1167,45 @@ can be first shifted up with ``image_calc``.
 
 Various such weight images can be merged with ``dem_mosaic``
 (:numref:`dem_mosaic`) or the values manipulated with ``image_calc``.
+
+.. _ba_rpc_distortion:
+
+RPC lens distortion
+^^^^^^^^^^^^^^^^^^^
+
+ASP provides a lens distortion model (:numref:`pinholemodels`) that uses
+Rational Polynomial Coefficients (RPC) of arbitrary degree
+(:numref:`rpc_distortion`). This can help fit lens distortion where other
+simpler models cannot.
+
+The tool ``convert_pinhole_model`` (:numref:`convert_pinhole_model`) can be used
+to create camera models with RPC distortion. 
+
+It is very important for the input distortion coefficients to be modified so
+they are on the order of 1e-7 or more, as otherwise they will be hard to
+optimize and may stay small. They can be set to this value manually.
+
+See :numref:`kaguya_ba` for how to to optimize the lens distortion. It is
+suggested to use interest point matches from disparity (:numref:`dense_ip`).
+
+.. figure:: images/biradial_err_rpc.png
+
+  Intersection error examples without modeling distortion (top), and after
+  optimizing the lens distortion using RPC (bottom). 
+  
+Working with map-projected images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If ``parallel_stereo`` was run with map-projected images, one can still extract
+dense interest point matches and the unaligned disparity from such a run, and
+these can be applied with the original unprojected images for the purpose of
+bundle adjustment (after being renamed appropriately, :numref:`ba_match_files`).
+This may be convenient since while bundle adjustment must always happen with the
+original images, ``parallel_stereo`` could be faster and more accurate when
+images are map-projected. It is suggested that the unaligned disparity and
+interest points obtained this way be examined carefully.  Particularly the grid
+size used in mapprojection should be similar to the ground sample distance for
+the raw images for best results.
 
 .. _jigsaw:
 

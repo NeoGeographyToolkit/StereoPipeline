@@ -248,14 +248,17 @@ exists for that.
 
 Care is needed around the origin to avoid division of small numbers.
 
+.. _rpc_distortion:
+
 RPC
 ^^^
     
-The distortion is based on a rational polynomial coefficient (RPC) model. This 
-is different than going from ground to image coordinates via RPC (:numref:`rpc`).
+A rational polynomial coefficient (RPC) model is employed for distortion. The
+degree can be arbitrary. This is different than going from ground to image
+coordinates via RPC (:numref:`rpc`).
 
-In this model, one goes from undistorted *normalized* pixels :math:`(x, y)`
-to distorted normalized pixels via the formulas
+In this model, the transform from undistorted *normalized* pixels :math:`(x, y)`
+to distorted normalized pixels is via the formulas
 
 .. math::
 
@@ -278,8 +281,11 @@ RPC distortion models can be generated as approximations to other
 pre-existing models with the tool ``convert_pinhole_model``
 (:numref:`convert_pinhole_model`).
 
-Also in the latest builds, the RPC undistortion is computed via a solver based on 
+In the latest builds, the RPC undistortion is computed via a solver based on 
 Newton's method, as for the fisheye lens distortion model.
+
+An illustration for how to use the RPC lens distortion is in
+:numref:`ba_rpc_distortion`.
 
 .. _file_format:
 
