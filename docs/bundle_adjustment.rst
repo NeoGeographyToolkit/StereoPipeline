@@ -1173,10 +1173,10 @@ Various such weight images can be merged with ``dem_mosaic``
 RPC lens distortion
 ^^^^^^^^^^^^^^^^^^^
 
-ASP provides a lens distortion model (:numref:`pinholemodels`) that uses
-Rational Polynomial Coefficients (RPC) of arbitrary degree
-(:numref:`rpc_distortion`). This can help fit lens distortion where other
-simpler models cannot.
+ASP provides a lens distortion model for Pinhole cameras
+(:numref:`pinholemodels`) that uses Rational Polynomial Coefficients (RPC) of
+arbitrary degree (:numref:`rpc_distortion`). This can help fit lens distortion
+where other simpler models cannot.
 
 The tool ``convert_pinhole_model`` (:numref:`convert_pinhole_model`) can be used
 to create camera models with RPC distortion. 
