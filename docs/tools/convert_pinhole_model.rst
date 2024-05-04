@@ -7,22 +7,13 @@ This tool can be used to approximately convert a pinhole model from one of the
 types listed in :numref:`pinholemodels` or an optical bar model
 (:numref:`panoramic`) to any other pinhole model type. 
 
-This can be convenient, for example, because the Brown-Conrady and Photometrix
-models provide a fast formula to undistort pixels, while the distortion
-operation is very slow, requiring a solver with multiple iterations using the
-undistortion formula at each step, which can make it time-consuming to run
-bundle adjustment and epipolar alignment during stereo. 
-
-For other models, such as Tsai and Adjustable Tsai, the reverse is true, hence
-converting from the former to the latter models can be very convenient for
-performance reasons.
+This can be convenient, for example, because for the Brown-Conrady and
+Photometrix models the distortion operation is iterative and slow, and by
+converting to a Tsai or Adjustable Tsai model this operation can be sped up.
 
 This program can also be used to convert a pinhole or optical bar model to a
-pinhole model with RPC lens distortion, which is a model where distortion is
-expressed as a ratio of polynomials. The RPC lens distortion model has the
-advantage that both the forward and reverse distortion calculation are
-approximated using RPC, hence both of these operations are fast, which can
-provide a large speedup when running stereo and bundle adjustment.
+pinhole model with RPC lens distortion (:numref:`rpc_distortion`), which is a
+model where distortion is expressed as a ratio of polynomials. 
 
 The degree of the RPC lens distortion can be specified via
 ``--rpc-degree``. A smaller value is suggested to start with, as
@@ -39,7 +30,7 @@ Usage
 Examples
 ~~~~~~~~
 
-Convert a camera model to the RPC type::
+Convert a camera model to have RPC lens distortion::
 
      convert_pinhole_model input.jpg input.tsai --output-type RPC \
        --rpc-degree 2 -o output_rpc.tsai

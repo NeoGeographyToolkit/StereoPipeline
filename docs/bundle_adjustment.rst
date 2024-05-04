@@ -1178,20 +1178,20 @@ ASP provides a lens distortion model for Pinhole cameras
 arbitrary degree (:numref:`rpc_distortion`). This can help fit lens distortion
 where other simpler models cannot.
 
-The tool ``convert_pinhole_model`` (:numref:`convert_pinhole_model`) can be used
-to create camera models with RPC distortion. 
+The tool ``convert_pinhole_model`` (:numref:`convert_pinhole_model`) can create
+camera models with RPC distortion. 
 
-It is very important for the input distortion coefficients to be modified so
-they are on the order of 1e-7 or more, as otherwise they will be hard to
-optimize and may stay small. They can be set to this value manually.
+It is very important for the input distortion coefficients to be manually
+modified so they are on the order of 1e-7 or more, as otherwise they will be
+hard to optimize and may stay small.
 
 See :numref:`kaguya_ba` for how to to optimize the lens distortion. It is
 suggested to use interest point matches from disparity (:numref:`dense_ip`).
 
 .. figure:: images/biradial_err_rpc.png
 
-  Intersection error examples without modeling distortion (top), and after
-  optimizing the lens distortion using RPC (bottom). 
+  Triangulation error (:numref:`triangulation_error`) examples without modeling
+  distortion (top), and after optimizing the lens distortion with RPC (bottom). 
   
 Working with map-projected images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
