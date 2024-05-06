@@ -45,7 +45,7 @@ See :numref:`rig_calibrator_example` for a solved example,
    Lab at NASA Ames.
 
 Capabilities
-^^^^^^^^^^^^
+~~~~~~~~~~~~
 
 - The cameras on the rig may be purely image cameras, or may have a depth
   component. In the latter case, the transform from a camera's depth to image
@@ -77,15 +77,32 @@ Capabilities
   textured mesh with that image is created, for visual examination of
   any misalignments (if an input mesh is given).
 
-.. _rig_calibrator_data_conv:
+.. _rig_data_conv:
 
 Input data conventions
-^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~
 
-Each rig sensor should have a name, such as ``ref_cam``, ``alt_cam``,
-etc.
+Each rig sensor must have a name, such as ``ref_cam``, ``alt_cam``,
+etc. Each image must have a timestamp and be associated with a sensor.
+This information can be specified with a file / directory structure
+or in a list. 
 
-Each image file must be stored according to the convention::
+File name convention
+^^^^^^^^^^^^^^^^^^^^
+
+If an image name (without directory) has a timestamp followed by a sensor string
+as part of its name, those will be parsed. Example::
+
+    my_images/<text>10004.6<text>ref_cam<text>.jpg
+
+The earliest encountered sequence of digits (optionally followed by decimal
+period and more digits) will be the timestamp. The earliest encountered string
+matching the sensor name will be used.
+
+Directory structure
+^^^^^^^^^^^^^^^^^^^
+
+The images can be organized in directories according to the convention::
 
     <image dir>/<sensor name>/<timestamp><separator><tag>.<extension>
 
@@ -94,34 +111,34 @@ For example, two images acquired at time 1004.6 can be named::
     my_images/ref_cam/10004.6_ref_cam.jpg
     my_images/alt_cam/10004.6_alt_cam.jpg
 
-The timestamp must consist only of digits and a decimal period. Anything
-starting with another character (including another period) will not be 
-part of the timestamp. Hence, a value like 123.4e+5 will be converted to 123.4. 
+List format
+^^^^^^^^^^^
 
-The tag is to ensure all image names without directory path are unique, in case
-these are passed later to ``bundle_adjust`` (:numref:`rc_bundle_adjust`). Ensure
-the separator does not start with digits, as those will be treated as part of
-the timestamp.
+With the ``--image_sensor_list`` option, can pass in a list, in which each line
+can look as::
+
+    <image dir>/image.tif ref_cam 10004.6
+
+The second entry is the sensor name and the third is the timestamp.
+
+Assumptions about images
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+All image names (without directory path) must unique.
 
 The images are expected to be 8 or 16 bit, with .jpg, .png, or .tif extension.
-
-If some sensors also have depth data, the same convention is followed,
-with the file extension being .pc. Example::
-
-    my_images/alt_cam/10004.6_alt_cam.pc
-
-All such depth cloud files will be loaded automatically alongside
-images if present. See :numref:`point_cloud_format` for the file
-format.
 
 Assumptions about the timestamp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the rig constraint is used (omitting ``--no_rig``), and the
-sensors acquire the images at independent times, it is strongly
-suggested that the timestamp be a number of the form
-``<digits>.<digits>``, representing the precise image acquisition
-time, in seconds.
+A timestamp that is part of a file name must consist only of digits and a
+decimal period. Anything starting with another character (including another
+period) will not be part of the timestamp. Hence, a value like 123.4e+5 will be
+converted to 123.4. 
+
+If the rig constraint is used (omitting ``--no_rig``), and the sensors acquire
+the images at independent times, the timestamp must represent the precise image
+acquisition time, in seconds, in double precision.
 
 Without the rig constraint, or if all the sensors on the rig take pictures
 simultaneously, the only assumption is that images have the same timestamp only
@@ -129,12 +146,8 @@ if taken at the same time, with the precise timestamp value not used
 (but one must set ``--bracket_len`` to a small value). See also 
 ``--num_overlaps``.
 
-Any characters in the timestamp string that are not digits or the
-decimal period will be removed and the rest will be converted to a
-double-precision value, interpreted as time in seconds.
-
-The following bash script can make a copy of the images with file
-names of the form ``dir/sensor/digits.jpg``::
+The following bash script can copy the images to new names of the form
+``dir/<sensor>/<timestamp><sensor>.<ext>``::
 
     mkdir -p new_images/my_cam
     ext=".jpg"
@@ -144,8 +157,20 @@ names of the form ``dir/sensor/digits.jpg``::
         ((timestamp++))
     done
 
+Depth data
+^^^^^^^^^^
+
+If for some images there is depth data, a depth data file must have the same
+name as the corresponding image, but with a ``.pc`` extension. Example::
+
+    my_images/alt_cam/10004.6_alt_cam.pc
+
+All such depth cloud files will be loaded automatically alongside
+images if present. See :numref:`point_cloud_format` for the file
+format.
+
 The reference sensor
-^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~
 
 With the rig constraint, if each sensor acquires images independently,
 one of the sensors, named the *reference* sensor, should acquire
@@ -155,7 +180,7 @@ using bilinear pose interpolation.
 .. _rig_config:
 
 Configuration file
-^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~
 
 What is known about the rig, or set of rigs, should be specified in a
 plain text file, with the following syntax::
@@ -254,7 +279,7 @@ Such a file can be read with the option ``--rig_config``.
 .. _rig_calibrator_outputs:
 
 Output files
-^^^^^^^^^^^^
+~~~~~~~~~~~~
 
 The optimized rig configuration in the format described in :numref:`rig_config`
 is saved to::
@@ -339,14 +364,14 @@ How to export the data for use in bundle adjustment is discussed in
 :numref:`rc_bundle_adjust`.
 
 Examples
-^^^^^^^^
+~~~~~~~~
 
  - A step-by-step-example (:numref:`rig_calibrator_example`). 
  - A larger example covering a full ISS module (:numref:`sfm_iss`).
  - An example using MSL Curiosity rover images (:numref:`rig_msl`).
 
 Notes
-^^^^^
+~~~~~
 
 Optimizing the camera poses (without control points or a preexisting
 mesh constraint) can change the scale and orientation of the camera
@@ -359,7 +384,7 @@ subsequent invocation, if needed to fine-tune things.
 .. _rig_constraints:
 
 Constraints on rig transforms
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In this section we assume that ``--no_rig`` is not set, so we have a rig.
 
@@ -384,7 +409,7 @@ translation or rotation component of all transforms from the reference sensor to
 the other sensors.
 
 Constraints on triangulated points
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Triangulated points are, by default, set to not move too far, after
 registration. See ``--tri_weight`` and ``--tri_robust_threshold``.
@@ -395,7 +420,7 @@ and ``--depth_tri_weight``.
 .. _rig_calibrator_registration:
 
 Determination of scale and registration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The cameras produced so far are in an arbitrary coordinate system. This section
 describes how to register them to known Cartesian coordinates. For registering
@@ -477,7 +502,7 @@ constraint, if such a prior surface mesh is available.
 .. _rig_calibration_stats:
 
 Quality metrics
-^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~
 
 The rig calibrator will print out some statistics showing the residual errors
 before and after each optimization pass (before outlier removal at the
@@ -528,7 +553,7 @@ the ``--no_rig`` option, when the cameras are decoupled and see if this
 makes a difference.
 
 Handling failures
-^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~
 
 This software was very carefully tested in many circumstances, and it
 is though to be, by and large, correct, and it should normally co-register
@@ -582,7 +607,7 @@ One should also look at the statistics printed by the tool.
 .. _point_cloud_format:
 
 Point cloud file format
-^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~
 
 The depth point clouds (for the depth component of cameras, if
 applicable) are saved to disk in binary. The first three entries are
@@ -599,7 +624,7 @@ unless the measurements are ground data taken from a planet's orbit.
 .. _rc_bundle_adjust:
 
 Interfacing with bundle_adjust
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The optimized cameras produced with ``rig_calibrator`` can be saved in the ASP
 Pinhole format (:numref:`pinholemodels`) with the option
@@ -647,13 +672,13 @@ match files as input to ``bundle_adjust``, as described earlier.
 
 In order for exporting data this way to work, all input image names (without
 directory path) must be unique, as the ASP bundle adjustment counts on that. See
-the input naming convention in :numref:`rig_calibrator_data_conv`.
+the input naming convention in :numref:`rig_data_conv`.
 
 How to register the produced cameras to the ground is discussed in
 :numref:`msl_registration`.
 
 Source code
-^^^^^^^^^^^
+~~~~~~~~~~~
 
 The rig calibration software is shipped with ASP. It can, however, be
 built and used independently, and has many fewer dependencies
@@ -664,9 +689,17 @@ instructions <https://github.com/NeoGeographyToolkit/MultiView>`_.
 
 .. _rig_calibrator_command_line:
 
-Command-line options for rig_calibrator
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
+``--rig_config`` Read the rig configuration from file. Type: string. 
+  Default: "".
+``--nvm`` Read images and camera poses from this nvm file, as exported by
+  Theia. Type: string. Default: "".
+``--image_sensor_list`` Read image name, sensor name, and timestamp, from each
+  line in this list. The order need not be as in the nvm file. Alternatively, a
+  directory structure can be used. See :numref:`rig_data_conv`. Type: string.
+  Default: "".
 ``--robust_threshold`` Residual pixel errors and 3D point residuals (the latter
   multiplied by corresponding weight) much larger than this will be
   logarithmically attenuated to affect less the cost function. See also
@@ -768,8 +801,6 @@ Command-line options for rig_calibrator
 ``--out_texture_dir`` If non-empty and if an input mesh was provided, project
   the camera images using the optimized poses onto the mesh and write the
   obtained .obj files in the given directory. Type: string. Default: "".
-``--nvm`` Read images and camera poses from this nvm file, as exported by
-  Theia. Type: string. Default: "".
 ``--num_overlaps`` Match an image with this many images (of all camera
   types for the same rig) following it in increasing order of
   timestamp value. Set to a positive value
@@ -802,8 +833,6 @@ Command-line options for rig_calibrator
   Type: string. Default: "".
 ``--xyz_file`` The path to the xyz file used for registration. Type:
   string. Default: "".
-``--rig_config`` Read the rig configuration from file. Type: string. 
-  Default: "".
 ``--read_nvm_no_shift`` Read an nvm file assuming that interest point
   matches were not shifted to the origin.
 ``--save_nvm_no_shift`` Save the optimized camera poses and inlier interest point 

@@ -16,8 +16,13 @@ they see must overlap.
 If there are more than two maps, the second is merged to the first,
 which is then merged with the third, etc.
 
-The produced map must be bundle-adjusted to refine it, using
-``rig_calibrator`` (with or without the rig constraint).
+The produced map must be bundle-adjusted to refine it, using ``rig_calibrator``
+(with or without the rig constraint).
+
+The inputs must satisfy one of the naming conventions in
+:numref:`rig_data_conv`. This program supports the option
+``--image_sensor_list`` for when the directory structure or filenames do not
+have enough information on sensor types and timestamps.
 
 The output map can be visualized in ``stereo_gui``
 (:numref:`stereo_gui_nvm`).
@@ -83,10 +88,14 @@ Command-line options for sfm_merge
   for matches to this many images at the beginning and end of the 
   second map. Default: 10,
 
+--image_sensor_list <string (default: "")>
+  Read image name, sensor name, and timestamp, from each line in this list.
+  Alternatively, a directory structure can be used (:numref:`rig_data_conv`).
+
 --fast_merge
-    When merging maps that have shared images, use their camera poses to 
-    find the transform from other maps to first map, and skip finding 
-    additional matches among the images.
+  When merging maps that have shared images, use their camera poses to 
+  find the transform from other maps to first map, and skip finding 
+  additional matches among the images.
 
 --fix_first_map
   If true, after merging the maps and reconciling the camera poses for

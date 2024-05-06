@@ -179,7 +179,7 @@ using the GDAL tool suite shipped with ASP (:numref:`gdal_tools`) as::
 
 The obtained images should be distributed in directories
 corresponding to the robot, with names like ``my_data/bumble_sci``
-and ``my_data/queen_sci`` (:numref:`rig_calibrator_data_conv`).
+and ``my_data/queen_sci`` (:numref:`rig_data_conv`).
 
 nav_cam
 ~~~~~~~
@@ -198,7 +198,7 @@ robots::
     --timestamp_tol 1.0
 
 Here we used the fact that the ``sci_cam`` images have the acquisition
-timestamp as part of their name (:numref:`rig_calibrator_data_conv`).
+timestamp as part of their name (:numref:`rig_data_conv`).
 
 This will create the directory ``my_data/bumble_nav``. The produced
 files will contain, as for the other cameras, the timestamp as part of

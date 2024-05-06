@@ -1087,9 +1087,10 @@ Custom approaches to interest points
 Sparse and roughly uniformly distributed interest points
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To attempt to create roughly uniformly distributed *sparse* interest points during
-bundle adjustment, use options along the lines ``--ip-per-tile 1000
---matches-per-tile 500 --max-pairwise-matches 10000``. 
+To attempt to create roughly uniformly distributed *sparse* interest points
+during bundle adjustment, use options along the lines ``--ip-per-tile 1000
+--matches-per-tile 500 --max-pairwise-matches 10000``.  Also consider using
+mapprojected images (:numref:`mapip`.)
 
 Note that if the images are big, this will result in a very large number of
 potential matches, because a tile has the size of 1024 pixels. (See
@@ -1102,6 +1103,9 @@ Dense and uniformly distributed interest points
 
 Dense and uniformly distributed interest points can be created during stereo. If
 having many images, that will mean many combinations of stereo pairs. 
+
+The resulting interest points will be between the *original, unprojected
+and unaligned images*, and can be used in bundle adjustment.
 
 For each stereo invocation, add options along the lines of::
 
@@ -1117,16 +1121,24 @@ Only the second approach is supported with mapprojected images. See
 The produced interest points must be renamed to the *standard convention* and
 reflect the names of the raw images, not the mapprojected ones
 (:numref:`ba_match_files`), then passed to ``bundle_adjust`` via the
-``--match-files`` option.
+``--match-files-prefix`` option.
 
 Invoke ``bundle_adjust`` with an option along the lines of
 ``--max-pairwise-matches 10000`` (or larger) to ensure that on reading the
 interest points the full set is kept. 
 
+Interest points from mapprojected images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Interest point matches can be found between mapprojected images first, and those
+can be unprojected and used in bundle adjustment. This can produce many more
+interest points when the difference of perspective or scale between images is
+large. See :numref:`mapip`.
+
 .. _limit_ip:
 
 Limit extent of interest point matches
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To limit the triangulated points produced from interest points to a certain area
 during bundle adjustment, two approaches are supported. One is the option
@@ -1171,7 +1183,7 @@ Various such weight images can be merged with ``dem_mosaic``
 .. _ba_rpc_distortion:
 
 RPC lens distortion
-^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~
 
 ASP provides a lens distortion model for Pinhole cameras
 (:numref:`pinholemodels`) that uses Rational Polynomial Coefficients (RPC) of
@@ -1193,20 +1205,6 @@ suggested to use interest point matches from disparity (:numref:`dense_ip`).
   Triangulation error (:numref:`triangulation_error`) examples without modeling
   distortion (top), and after optimizing the lens distortion with RPC (bottom). 
   
-Working with map-projected images
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If ``parallel_stereo`` was run with map-projected images, one can still extract
-dense interest point matches and the unaligned disparity from such a run, and
-these can be applied with the original unprojected images for the purpose of
-bundle adjustment (after being renamed appropriately, :numref:`ba_match_files`).
-This may be convenient since while bundle adjustment must always happen with the
-original images, ``parallel_stereo`` could be faster and more accurate when
-images are map-projected. It is suggested that the unaligned disparity and
-interest points obtained this way be examined carefully.  Particularly the grid
-size used in mapprojection should be similar to the ground sample distance for
-the raw images for best results.
-
 .. _jigsaw:
 
 Bundle adjustment using ISIS

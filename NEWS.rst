@@ -240,6 +240,9 @@ rig_calibrator (:numref:`rig_calibrator`):
    * Added documentation for how to register the produced cameras to the ground
      for a planet (:numref:`msl_registration`).
    * Can fix the translation and/or rotation component of a rig configuration.  
+   * Added two more naming conventions, to help process existing data
+     out-of-the-box. Also for ``theia_sfm`` and ``sfm_merge``.
+     :numref:`rig_data_conv`. 
      
 lronac2mosaic.py (:numref:`lronac2mosaic`):
   * Run ``spiceinit`` before calling ``lronaccal``, and re-enable all

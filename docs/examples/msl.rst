@@ -90,7 +90,7 @@ full-resolution images have ``_F`` as part of their name, as above.
 We will convert the .cub files to the PNG format so that they can be
 understood by image-processing programs. The ``rig_calibrator``
 convention will be used, of storing each sensor's data in its own
-subdirectory (:numref:`rig_calibrator_data_conv`). We will name the
+subdirectory (:numref:`rig_data_conv`). We will name the
 left and right navcam sensors ``lnav`` and ``rnav``. Then, the conversion
 commands are along the lines of::
 

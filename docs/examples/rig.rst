@@ -21,7 +21,7 @@ view, using the radtan distortion model).
 We assume the intrinsics of each sensor are reasonably well-known (but
 can be optimized later). Those are set in the rig configuration
 (:numref:`rig_config`). The images are organized as as in
-:numref:`rig_calibrator_data_conv`.
+:numref:`rig_data_conv`.
 
 The first step is solving for the camera poses, for which we use 
 ``theia_sfm`` (:numref:`theia_sfm`)::
