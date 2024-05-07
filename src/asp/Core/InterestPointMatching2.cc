@@ -200,7 +200,7 @@ public:
 
       // Find the equation that describes the epipolar line
       bool found_epipolar = false;
-      if (m_single_threaded_camera){
+      if (m_single_threaded_camera) {
         // ISIS camera is single-threaded
         Mutex::Lock lock(m_camera_mutex);
         line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, 
@@ -692,10 +692,21 @@ public:
           for (size_t i = 0; i < tile_ip2.size(); i++)
               ip2_list.push_back(tile_ip2[i]);
           int local_number_of_jobs = 1;
-          epipolar_ip_matching_task(m_single_threaded_camera, m_detect_method, 
+          if (m_single_threaded_camera) {
+            // ISIS camera is single-threaded, prevent a crash
+            Mutex::Lock lock(m_match_mutex);
+            epipolar_ip_matching_task(m_single_threaded_camera, m_detect_method, 
               local_number_of_jobs, m_epipolar_threshold, m_uniqueness_threshold, 
               m_datum, quiet, m_cam1, m_cam2, ip1_list, ip2_list,
               local_matched_ip1, local_matched_ip2); // outputs
+          } else {
+            // Multi-threaded camera
+            epipolar_ip_matching_task(m_single_threaded_camera, m_detect_method, 
+              local_number_of_jobs, m_epipolar_threshold, m_uniqueness_threshold, 
+              m_datum, quiet, m_cam1, m_cam2, ip1_list, ip2_list,
+              local_matched_ip1, local_matched_ip2); // outputs
+          }
+        
         } else {
           match_ip_no_datum(tile_ip1, tile_ip2, m_detect_method, m_uniqueness_threshold, 
             quiet, local_matched_ip1, local_matched_ip2); // outputs
