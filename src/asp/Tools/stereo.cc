@@ -692,11 +692,13 @@ namespace asp {
       // 3 or 4 for asp_sgm / asp_mgm, as it produced junk.
       if (stereo_settings().cost_mode != 3 && stereo_settings().cost_mode != 4)
         vw_throw(ArgumentErr() << "When using the asp_sgm or asp_mgm "
-                << "stereo algorithm, cost-mode must be 3 or 4.\n");
+                << "stereo algorithm, cost-mode must be 3 or 4. " 
+                << "Check your stereo.default or command-line options.\n");
       // Also do not allow corr-kernel to be outside of [3, 9]
       if (stereo_settings().corr_kernel[0] < 3 || stereo_settings().corr_kernel[0] > 9) 
         vw_throw(ArgumentErr() << "For the asp_sgm / asp_mgm algorithm, "
-          << "the corr kernel size must be between 3 and 9 (inclusive).\n");
+          << "the corr kernel size must be between 3 and 9 (inclusive). "
+          << "Check your stereo.default or command-line options.\n");
     }
 
     if (stereo_alg == vw::stereo::VW_CORRELATION_BM && stereo_settings().subpixel_mode > 6)

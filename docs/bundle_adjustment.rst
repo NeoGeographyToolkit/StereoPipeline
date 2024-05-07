@@ -86,14 +86,6 @@ Bundle adjustment using ASP
 Stereo Pipeline provides its own bundle adjustment tool, named
 ``bundle_adjust``. Its usage is described in :numref:`bundle_adjust`.
 
-.. figure:: images/kaguya_dem_errors.png
-   :name: kagya_dem_intersection_errors
-
-   Illustration of a mosaicked DEM and a corresponding mosaicked triangulation
-   error (intersection error) map (:numref:`triangulation_error`) for the
-   KaguyaTC camera. Bundle adjustment can greatly reduce the intersection error
-   (:numref:`kaguya_ba`). Before-and-after result, in other contexts, are in  :numref:`ba_rpc_distortion` and :numref:`ba_frame_linescan_results`.
-
 Start by running ``parallel_stereo`` without using bundle-adjusted camera
 models::
 
@@ -121,6 +113,16 @@ Run ``parallel_stereo`` while using the bundle-adjusted camera models::
 
 This should be followed, as before, by creation of a DEM and a triangulation
 error image.
+
+.. figure:: images/MOC_tri_error.png
+   :name: moc_dem_intersection_errors
+
+   An unusually large intersection error (left), and the version after bundle
+   adjustment (right). Note that these do not use the same range of colors. The
+   images are produced with the MOC camera (:numref:`moc_example`). The
+   remaining wavy pattern is due to jitter, that ASP has a solver for
+   (:numref:`jitter_solve`). More illustrations are in
+   :numref:`ba_rpc_distortion` and :numref:`ba_frame_linescan_results`.
 
 Bundle adjustment aims to make the cameras more self-consistent but offers no
 guarantees about their absolute positions (unless GCP are used), in fact, the
