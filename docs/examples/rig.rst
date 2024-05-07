@@ -66,6 +66,7 @@ Next, we run ``rig_calibrator``::
         --depth_to_image_transforms_to_float "haz_cam"    \
         --float_scale                                     \
         --bracket_len 1.0                                 \
+        --bracket_single_image                            \
         --num_iterations 100                              \
         --calibrator_num_passes 2                         \
         --registration                                    \
@@ -116,7 +117,9 @@ do not match well.
 
 The value of ``--bracket_len`` should be a little larger than the differences
 (in seconds) between the image times for which it is desired to do pose
-interpolation in time. 
+interpolation in time. The option ``--bracket_single_image`` is used to ensure
+that just a single non-reference image is used for each time bracket
+(useful if there are too many images).
 
 The options ``--save_pinhole_cameras`` and ``--save_matches`` 
 can be employed to save the pinhole cameras and the interest point matches

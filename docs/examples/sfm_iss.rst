@@ -344,6 +344,11 @@ enough perspective difference between images, it may eliminate too many
 features. The ``--max_reprojection_error`` option may eliminate
 features as well.
 
+Consider adding the option ``--bracket_len 1.0`` that decides the length of
+time, in seconds, between reference images used to bracket the other sensor. The
+option ``--bracket_single_image`` will allow only one image of any non-reference
+sensor to be bracketed.
+
 It is suggested to carefully examine the text printed on screen by this
 tool. See :numref:`rig_calibrator_registration` and
 :numref:`rig_calibration_stats` for the explanation of some statistics

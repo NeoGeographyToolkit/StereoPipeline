@@ -713,8 +713,9 @@ Command-line options
   after adjusting for the timestamp offset between these cameras. It is
   assumed the rig moves slowly and uniformly during this time. A large
   value here will make the calibrator compute a poor solution but a small
-  value may prevent enough images being bracketed. Type: double. Default: 0.6.
-  The timestamp (in seconds) is part of the image name.
+  value may prevent enough images being bracketed. 
+  The timestamp (in seconds) is part of the image name. See also 
+  ``--bracket_single_image``. Type: double. Default: 0.6.
 ``--calibrator_num_passes`` How many passes of optimization to do. Outliers
   will be removed after every pass. Each pass will start with the
   previously optimized solution as an initial guess. Mesh intersections (if
@@ -863,6 +864,11 @@ Command-line options
   spaces or newlines) whose camera poses should be fixed during
   optimization. These can be only reference sensor images when the rig
   constraint is on.
+``--bracket_single_image`` If more than one image from a given sensor is acquired
+  between two consecutive reference sensor images, as measured by timestamps,
+  keep only one, choosing the image that is closest to the midpoint of the
+  interval formed by reference sensor timestamps. Only applicable without
+  ``--no_rig``. Type: bool. Default: false.
 ``--extra_list`` Add to the SfM solution the camera poses for the
   additional images/depth clouds in this list. Use bilinear
   interpolation of poses in time and nearest neighbor extrapolation
