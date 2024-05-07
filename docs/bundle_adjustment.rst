@@ -86,17 +86,13 @@ Bundle adjustment using ASP
 Stereo Pipeline provides its own bundle adjustment tool, named
 ``bundle_adjust``. Its usage is described in :numref:`bundle_adjust`.
 
-Here is an example of using this tool on a couple of Apollo 15 images,
-and its effect on decreasing the stereo triangulation error.
+.. figure:: images/kaguya_dem_errors.png
+   :name: kagya_dem_intersection_errors
 
-.. figure:: images/examples/before_after_ba.png
-   :name: asp-ba-example
-
-   Illustration of the triangulation error (intersection error) map
-   (:numref:`triangulation_error`) for a pair of images before (left) and after
-   (right) using Stereo Pipeline's ``bundle_adjust``. Red and black colors
-   suggest higher error. It can be seen that the triangulation error is much
-   reduced, so the resulting cameras are more self-consistent.
+   Illustration of a mosaicked DEM and a corresponding mosaicked triangulation
+   error (intersection error) map (:numref:`triangulation_error`) for the
+   KaguyaTC camera. Bundle adjustment can greatly reduce the intersection error
+   (:numref:`kaguya_ba`). Before-and-after result, in other contexts, are in  :numref:`ba_rpc_distortion` and :numref:`ba_frame_linescan_results`.
 
 Start by running ``parallel_stereo`` without using bundle-adjusted camera
 models::
@@ -125,9 +121,6 @@ Run ``parallel_stereo`` while using the bundle-adjusted camera models::
 
 This should be followed, as before, by creation of a DEM and a triangulation
 error image.
-
-A comparison of the results given these two ways of doing stereo is shown in
-:numref:`asp-ba-example`.
 
 Bundle adjustment aims to make the cameras more self-consistent but offers no
 guarantees about their absolute positions (unless GCP are used), in fact, the
@@ -1055,6 +1048,8 @@ We will float the intrinsics for the frame cameras, and keep the linescan intrin
 Optimizing the optical center may not be necessary, as this intrinsic parameter
 may correlate with the position of the cameras, and these are not easy to
 separate. Optimizing this may produce an implausible optical center.
+
+.. _ba_frame_linescan_results:
 
 Post-refinement evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
