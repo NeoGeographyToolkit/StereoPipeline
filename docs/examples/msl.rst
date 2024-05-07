@@ -401,6 +401,18 @@ The intersection error for each DEM (:numref:`point2dem`) can help evaluate the
 accuracy of the intrinsics. The ``geodiff`` program (:numref:`geodiff`), can be
 used to assess the vertical agreement between DEMs.
 
+.. figure:: ../images/viper_ground_truth_stereo_dem.png
+   :name: viper_ground_truth_stereo_dem
+   :alt:  VIPER ground truth stereo DEM
+  
+   A DEM measured with a point cloud scanner (top) and a mosaicked DEM produced
+   with ASP (bottom), that was carefully validated with the measured DEM. Data
+   acquired in the `Regolith Testbed
+   <https://www.nasa.gov/centers-and-facilities/ames/the-lunar-lab-and-regolith-testbeds/>`_
+   at NASA Ames. The noise in the upper-left corner is due to an occluding light
+   source. Other sources of noise are because of shadows. The ``asp_bm`` algorithm was
+   used (:numref:`stereo_alg_overview`), which is one of the older algorithms in ASP.
+
 Notes
 ~~~~~
 

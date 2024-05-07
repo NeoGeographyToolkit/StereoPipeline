@@ -109,10 +109,11 @@ camera intrinsics (if applicable) is discussed further down
 Run ``parallel_stereo`` while using the bundle-adjusted camera models::
 
     parallel_stereo AS15-M-1134.cub AS15-M-1135.cub run_adjust/run \
-      --bundle-adjust-prefix run_ba/run
+      --bundle-adjust-prefix run_ba/run --prev-run-prefix run_noadjust/run
 
 This should be followed, as before, by creation of a DEM and a triangulation
-error image.
+error image. Note the option ``--prev-run-prefix`` that allowed reusing
+the previous run apart from the triangulation step.
 
 .. figure:: images/MOC_tri_error.png
    :name: moc_dem_intersection_errors

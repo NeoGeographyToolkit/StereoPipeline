@@ -4,8 +4,8 @@ The stereo algorithms in ASP in detail
 ======================================
 
 Here we will discuss in a lot of detail ASP's stereo algorithms. For a brief
-summary and an illustration see :numref:`stereo_algos`. For how to add new such
-algorithms, see :numref:`adding_algos`.
+summary and an illustration see :numref:`stereo_alg_overview`. For how to add
+new such algorithms, see :numref:`adding_algos`.
 
 .. _asp_bm:
 
