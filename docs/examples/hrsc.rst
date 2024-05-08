@@ -27,8 +27,8 @@ consistent with MOLA.
 What follows is an example for how to process HRSC data. One starts by
 fetching the two stereo channels from::
 
-   http://pds-geosciences.wustl.edu/mex/mex-m-hrsc-3-rdr-v3/mexhrs_1001/data/1995/h1995_0000_s12.img
-   http://pds-geosciences.wustl.edu/mex/mex-m-hrsc-3-rdr-v3/mexhrs_1001/data/1995/h1995_0000_s22.img
+   https://pds-geosciences.wustl.edu/mex/mex-m-hrsc-3-rdr-v4/mexhrs_4000/data/1995/h1995_0000_s13.img
+   https://pds-geosciences.wustl.edu/mex/mex-m-hrsc-3-rdr-v4/mexhrs_4000/data/1995/h1995_0000_s23.img
 
 .. figure:: ../images/examples/hrsc/hrsc_example.png
    :name: hrsc_figure
@@ -48,12 +48,26 @@ experiment on a small region to make sure your stereo parameters are
 working well. For this frame, the MGM stereo algorithm performed better
 than block matching with subpixel mode 3.
 
-::
+It appears that ``hrsc2isis`` is not able to read the level 3 images that 
+were downloaded above, and PDS no longer offers level 2 images. 
+What seems to work is edit the .img files and change level 3 to level 2,
+and then the processing works. That can be done with::
 
-     ISIS> hrsc2isis from=h1995_0000_s12.img to=h1995_0000_s12.cub
-     ISIS> hrsc2isis from=h1995_0000_s22.img to=h1995_0000_s22.cub
-     ISIS> spiceinit from=h1995_0000_s12.cub ckpredicted=true
-     ISIS> spiceinit from=h1995_0000_s22.cub ckpredicted=true
-     ISIS> parallel_stereo h1995_0000_s12.cub  h1995_0000_s22.cub \
-              --stereo-algorithm 2 --cost-mode 3 mgm/out
+    perl -pi -e 's#(PROCESSING_LEVEL_ID\s+=) 3#$1 2#g' *.img
 
+Then run::
+
+     ISIS> hrsc2isis from=h1995_0000_s13.img to=h1995_0000_s13.cub
+     ISIS> hrsc2isis from=h1995_0000_s23.img to=h1995_0000_s23.cub
+     ISIS> spiceinit from=h1995_0000_s13.cub ckpredicted=true
+     ISIS> spiceinit from=h1995_0000_s23.cub ckpredicted=true
+     ISIS> parallel_stereo h1995_0000_s13.cub  h1995_0000_s23.cub \
+             --stereo-algorithm 2 --cost-mode 3 mgm/out
+     ISIS> point2dem --stereographic --auto-proj-center \
+             mgm/out-PC.tif         
+
+These are big images, so consider using ``stereo_gui`` to select clips
+to work on (:numref:`stereo_gui`).
+
+See :numref:`nextsteps` for other stereo algorithms, and information on
+tradeoffs between them.
