@@ -382,8 +382,8 @@ All can then be passed together to ``bundle_adjust``.
 
 .. _msl_validation:
 
-Validation
-~~~~~~~~~~
+Validation of registered DEMs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Solving for both intrinsics and camera poses is a complex nonlinear problem,
 that may have more than one solution. It is strongly suggested to compare the

@@ -48,10 +48,9 @@ experiment on a small region to make sure your stereo parameters are
 working well. For this frame, the MGM stereo algorithm performed better
 than block matching with subpixel mode 3.
 
-It appears that ``hrsc2isis`` is not able to read the level 3 images that 
-were downloaded above, and PDS no longer offers level 2 images. 
-What seems to work is edit the .img files and change level 3 to level 2,
-and then the processing works. That can be done with::
+It appears that ``hrsc2isis`` is not able to read the level 3 images that were
+downloaded above, and PDS no longer offers level 2 images. What seems to work is
+edit the .img files and change level 3 to level 2. That can be done with::
 
     perl -pi -e 's#(PROCESSING_LEVEL_ID\s+=) 3#$1 2#g' *.img
 
