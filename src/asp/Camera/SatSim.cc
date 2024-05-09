@@ -864,6 +864,34 @@ bool skipCamera(int i, SatSimOptions const& opt) {
   return false;
 }
 
+// Given a transform from ref sensor to world, the ref sensor to current sensor,
+// create the transform from current sensor to world. Do it in-place. 
+void applyRigTransform(Eigen::Affine3d const & ref_to_sensor,
+                       vw::Vector3 & ctr, vw::Matrix3x3 & cam2world) {
+
+  // Create 4x4 transform matrix
+  Eigen::Matrix<double, 4, 4> cam2world4x4 = Eigen::Matrix<double, 4, 4>::Identity();
+  for (int r = 0; r < 3; r++) {
+    for (int c = 0; c < 3; c++) {
+      cam2world4x4(r, c) = cam2world(r, c);
+    }
+  }
+  for (int r = 0; r < 3; r++) 
+    cam2world4x4(r, 3) = ctr[r];
+
+  // Apply the rig transform 
+  cam2world4x4 = cam2world4x4  * ref_to_sensor.matrix().inverse(); 
+  
+  // Extract the rotation and translation
+  for (int r = 0; r < 3; r++) {
+    for (int c = 0; c < 3; c++) {
+      cam2world(r, c) = cam2world4x4(r, c);
+    }
+    ctr[r] = cam2world4x4(r, 3);
+  }
+  
+}
+
 // A function to create and save Pinhole cameras. Assume no distortion, and pixel
 // pitch = 1.
 void genPinholeCameras(SatSimOptions      const & opt,
@@ -871,6 +899,9 @@ void genPinholeCameras(SatSimOptions      const & opt,
             std::vector<vw::Vector3>      const & positions,
             std::vector<vw::Matrix3x3>    const & cam2world,
             std::vector<vw::Matrix3x3>    const & ref_cam2world,
+            bool                                 have_rig,
+            Eigen::Affine3d               const& ref2sensor,
+            std::string                   const & suffix, 
             // outputs
             std::vector<std::string>            & cam_names,
             std::vector<vw::CamPtr>             & cams) {
@@ -884,6 +915,17 @@ void genPinholeCameras(SatSimOptions      const & opt,
   cam_names.resize(positions.size());
   for (int i = 0; i < int(positions.size()); i++) {
 
+    vw::Vector3 P    = positions[i];
+    vw::Matrix3x3 R  = cam2world[i];
+    vw::Vector3 P0   = positions[i];
+    vw::Matrix3x3 R0 = ref_cam2world[i];
+    
+    if (have_rig) {
+      // Must adjust for the rig
+      applyRigTransform(ref2sensor, P, R);
+      applyRigTransform(ref2sensor, P0, R0);
+    }
+    
     // Always create the cameras, but only save them if we are not skipping
     asp::CsmModel * csmPtr = NULL;
     vw::camera::PinholeModel *pinPtr = NULL; 
@@ -894,11 +936,10 @@ void genPinholeCameras(SatSimOptions      const & opt,
                               opt.optical_center[0], opt.optical_center[1],
                               opt.focal_length, 
                               d.semi_major_axis(), d.semi_minor_axis(),
-                              positions[i], 
-                              cam2world[i]);
+                              P, R);
       cams[i] = vw::CamPtr(csmPtr); // will own this pointer
     } else {
-      pinPtr = new vw::camera::PinholeModel(positions[i], cam2world[i],
+      pinPtr = new vw::camera::PinholeModel(P, R,
                                             opt.focal_length, opt.focal_length,
                                             opt.optical_center[0], opt.optical_center[1]);
       cams[i] = vw::CamPtr(pinPtr); // will own this pointer
@@ -913,10 +954,9 @@ void genPinholeCameras(SatSimOptions      const & opt,
                                    opt.optical_center[0], opt.optical_center[1],
                                    opt.focal_length, 
                                    d.semi_major_axis(), d.semi_minor_axis(),
-                                   positions[i], 
-                                   ref_cam2world[i]);
+                                   P0, R0);
       else
-        pinRefCam = vw::camera::PinholeModel(positions[i], ref_cam2world[i],
+        pinRefCam = vw::camera::PinholeModel(P0, R0,
                                              opt.focal_length, opt.focal_length,
                                              opt.optical_center[0], opt.optical_center[1]);
     }
@@ -927,7 +967,8 @@ void genPinholeCameras(SatSimOptions      const & opt,
     else
       ext = ".tsai"; 
 
-    std::string camName = genPrefix(opt, i) + ext;
+    // The suffix is used with the rig
+    std::string camName = genPrefix(opt, i) + suffix + ext;
     cam_names[i] = camName;
 
     // Check if we do a range
@@ -963,7 +1004,7 @@ void genPinholeCameras(SatSimOptions      const & opt,
 
   return;
 }
-    
+
 // Bring crops in memory. It greatly helps with multi-threading speed.  
 // This function is used only for small tiles, to avoid running out of memory
 // (which did happen).
@@ -1170,7 +1211,8 @@ public:
 void genImages(SatSimOptions const& opt,
     bool external_cameras,
     std::vector<std::string> const& cam_names,
-    std::vector<vw::CamPtr> const& cams,
+    std::vector<vw::CamPtr>  const& cams,
+    std::string              const& suffix, 
     vw::cartography::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> dem,
     double height_guess,
@@ -1187,8 +1229,6 @@ void genImages(SatSimOptions const& opt,
     if (external_cameras)
       image_names[i] = opt.out_prefix + "-" 
       + fs::path(cam_names[i]).filename().replace_extension(".tif").string();
-    else if (opt.sensor_type == "pinhole")
-      image_names[i] = genPrefix(opt, i) + ".tif";
     else // just replace the extension
      image_names[i] = fs::path(cam_names[i]).replace_extension(".tif").string();
   }
@@ -1221,7 +1261,7 @@ void genImages(SatSimOptions const& opt,
   // image/camera rather than a set.
   if (opt.sensor_type == "pinhole") {
     if (!skipCamera(0, opt)) {
-      std::string image_list = opt.out_prefix + "-images.txt"; 
+      std::string image_list = opt.out_prefix + "-images" + suffix +".txt"; 
       vw::vw_out() << "Writing: " << image_list << std::endl;
       asp::write_list(image_list, image_names);
     } else {
@@ -1234,4 +1274,71 @@ void genImages(SatSimOptions const& opt,
   return;
 }
 
+// Generate the cameras and images for a rig
+void genRigCamerasImages(SatSimOptions    const & opt,
+            vw::cartography::GeoReference const & dem_georef,
+            std::vector<vw::Vector3>      const & positions,
+            std::vector<vw::Matrix3x3>    const & cam2world,
+            std::vector<vw::Matrix3x3>    const & ref_cam2world,
+            vw::ImageViewRef<vw::PixelMask<float>> dem,
+            double height_guess,
+            vw::cartography::GeoReference const& ortho_georef,
+            vw::ImageViewRef<vw::PixelMask<float>> ortho,
+            float ortho_nodata_val) {
+
+  // Sanity checks
+  if (opt.rig_config == "")            
+    vw::vw_throw(vw::ArgumentErr() << "The rig configuration file must be set.\n");
+  
+  if (opt.sensor_type != "pinhole")
+    vw::vw_throw(vw::ArgumentErr() << "Only pinhole cameras are supported with a rig.\n");
+
+  std::vector<std::string> sensor_names;
+  if (opt.sensor_name == "all")
+    sensor_names = opt.rig.cam_names; 
+  else
+    boost::split(sensor_names, opt.sensor_name, boost::is_any_of(","));
+  
+  // Map from each sensor in opt.rig.cam_names to index
+  std::map<std::string, int> sensor_name2index;
+  for (int i = 0; i < int(opt.rig.cam_names.size()); i++)
+    sensor_name2index[opt.rig.cam_names[i]] = i;
+  
+  // Iterate over sensor_names. Check if it is sensor_name2index
+  for (size_t sensor_it = 0; sensor_it < sensor_names.size(); sensor_it++) {
+    auto it = sensor_name2index.find(sensor_names[sensor_it]);
+    if (it == sensor_name2index.end())
+      vw::vw_throw(vw::ArgumentErr() << "Sensor: " << sensor_names[sensor_it] 
+        << " not found in the rig.\n");
+    
+    // Pass the intrinsics to a local copy of the options
+    int sensor_index = it->second;
+    SatSimOptions local_opt = opt;
+    auto params = opt.rig.cam_params[sensor_index];
+    local_opt.focal_length = params.focal_length;
+    local_opt.optical_center[0] = params.optical_center[0];
+    local_opt.optical_center[1] = params.optical_center[1];
+    local_opt.image_size[0]     = params.image_size[0];
+    local_opt.image_size[1]     = params.image_size[1];
+    
+    // The transform from the reference sensor to the current sensor
+    Eigen::Affine3d ref2cam = opt.rig.ref_to_cam_trans[sensor_index];
+    
+    // Must pass this in together with bool have_rig = true.
+    bool have_rig = true;
+    
+    // Sequence of camera names and cameras for one sensor
+    std::vector<std::string> cam_names; 
+    std::vector<vw::CamPtr>   cams;
+    // The suffix is needed to distinguish the cameras and images for each sensor
+    std::string suffix = "_" + sensor_names[sensor_it]; 
+    asp::genPinholeCameras(local_opt, dem_georef, positions, cam2world, ref_cam2world,
+                           have_rig, ref2cam, suffix, cam_names, cams);
+    bool external_cameras = false;
+    if (!opt.no_images)
+      asp::genImages(local_opt, external_cameras, cam_names, cams, suffix, dem_georef, dem, 
+          height_guess, ortho_georef, ortho, ortho_nodata_val);
+  }              
+}
+            
 } // end namespace asp

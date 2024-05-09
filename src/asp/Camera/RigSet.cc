@@ -19,6 +19,9 @@
 // somewhere else.
 
 #include <asp/Camera/RigSet.h>
+
+#include <vw/Core/Log.h>
+
 #include <glog/logging.h>
 #include <set>
 #include <fstream>
@@ -35,7 +38,7 @@ CameraParameters(Eigen::Vector2i const& image_size_in,
                   Eigen::VectorXd const& distortion_in,
                   DistortionType distortion_type_in):
   image_size(image_size_in), focal_length(focal_length_in),
-  optical_center(optical_center_in), distortion_params(distortion_in),
+  optical_center(optical_center_in), distortion(distortion_in),
   m_distortion_type(distortion_type_in) {}
 
 // Domain of validity of distortion model (normally all image)
@@ -291,10 +294,11 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
     R = RigSet();
 
     // Open the file
-    std::cout << "Reading: " << rig_config << std::endl;
+    vw::vw_out() << "Reading: " << rig_config << "\n";
     std::ifstream f;
     f.open(rig_config.c_str(), std::ios::in);
-    if (!f.is_open()) LOG(FATAL) << "Cannot open file for reading: " << rig_config << "\n";
+    if (!f.is_open()) 
+      LOG(FATAL) << "Cannot open rig file for reading: " << rig_config << "\n";
 
     int ref_sensor_count = 0;
     Eigen::VectorXd vals;
@@ -339,20 +343,18 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
       Eigen::Vector2d optical_center(vals[0], vals[1]);
 
       // Read distortion
-      
       camera::DistortionType dist_type = camera::NO_DISTORTION;
-      
       readConfigVals(f, "distortion_coeffs:", -1, vals);
       if (vals.size() != 0 && vals.size() != 1 && vals.size() != 4 && vals.size() < 5)
         LOG(FATAL) << "Expecting 0, 1, 4, 5, or more distortion coefficients.\n";
       Eigen::VectorXd distortion = vals;
-
       readConfigVals(f, "distortion_type:", 1, str_vals);
       if (distortion.size() == 0 && str_vals[0] != camera::NO_DISTORTION_STR)
         LOG(FATAL) << "When there are no distortion coefficients, distortion type must be: "
                    << camera::NO_DISTORTION_STR << "\n";
       
-      // For backward compatibility, accept camera::FISHEYE_DISTORTION_STR with 1 distortion coefficient, but use the FOV model
+      // For backward compatibility, accept camera::FISHEYE_DISTORTION_STR with
+      // 1 distortion coefficient, but use the FOV model
       if (distortion.size() == 1 && str_vals[0] == camera::FISHEYE_DISTORTION_STR)
         str_vals[0] = camera::FOV_DISTORTION_STR;
       
@@ -429,6 +431,7 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
           LOG(FATAL) << "The transform from the reference sensor to itself must be the identity.\n";
       }
     }
+    
     R.validate();
     
   } catch(std::exception const& e) {

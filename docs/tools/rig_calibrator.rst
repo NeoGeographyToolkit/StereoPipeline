@@ -209,7 +209,7 @@ Example (only one of the *N* sensors is shown)::
   focal_length: 621.04422
   optical_center: 580.56426999999996 495.51236
   distortion_coeffs: 1.0092038999999999
-  distortion_type: fisheye
+  distortion_type: fov
   image_size: 1280 960
   distorted_crop_size: 1280 960
   undistorted_image_size: 1500 1200
@@ -229,8 +229,9 @@ See a full example with two rigs in :numref:`sfm_iss_sample_rig_config`.
 The lens distortion model can be one of ``no_distortion`` (zero distortion
 parameters), ``fov`` (1 distortion parameter), ``fisheye`` (4 distortion
 parameters), or ``radtan`` (radial-tangential, 4 or 5 distortion parameters).
-The ``fisheye`` and ``radtan`` distortion models are the same as in OpenCV.
-See :numref:`pinholemodels` for more details.
+The ``fisheye`` and ``radtan`` distortion models are the same as in OpenCV. The
+``fisheye`` model with one distortion parameter will be cast to ``fov`` (this is
+for backward compatibility). See :numref:`pinholemodels` for more details.
 
 The ``ref_to_sensor_transform`` field has the rotation (9 doubles, stored
 row after row) and translation (3 doubles) transform from the

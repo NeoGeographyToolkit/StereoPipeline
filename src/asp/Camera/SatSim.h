@@ -23,6 +23,8 @@
 #ifndef __ASP_CAMERA_SATSIM_H__
 #define __ASP_CAMERA_SATSIM_H__
 
+#include <asp/Camera/RigSet.h>
+
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/FileIO/DiskImageView.h>
@@ -36,7 +38,7 @@
 
 namespace asp {
 
-struct SatSimOptions : vw::GdalWriteOptions {
+struct SatSimOptions: vw::GdalWriteOptions {
   std::string dem_file, ortho_file, out_prefix, camera_list, sensor_type;
   vw::Vector3 first, last; // dem pixel and height above dem datum
   int num_cameras, first_index, last_index;
@@ -45,8 +47,9 @@ struct SatSimOptions : vw::GdalWriteOptions {
   double roll, pitch, yaw, velocity, frame_rate;
   std::vector<double> jitter_frequency, jitter_amplitude, jitter_phase, horizontal_uncertainty;
   std::string jitter_frequency_str, jitter_amplitude_str, jitter_phase_str, 
-    horizontal_uncertainty_str;
+    horizontal_uncertainty_str, rig_config, sensor_name;
   bool no_images, save_ref_cams, square_pixels, save_as_csm;
+  asp::RigSet rig;
   SatSimOptions() {}
 };
 
@@ -80,11 +83,14 @@ void readPinholeCameras(SatSimOptions const& opt,
 
 // A function to create and save the cameras. Assume no distortion, and pixel
 // pitch = 1.
-void genPinholeCameras(SatSimOptions          const & opt, 
-                vw::cartography::GeoReference const & dem_georef,
-                std::vector<vw::Vector3>      const & positions,
-                std::vector<vw::Matrix3x3>    const & cam2world,
-                std::vector<vw::Matrix3x3>    const & ref_cam2world,
+void genPinholeCameras(SatSimOptions          const& opt, 
+                vw::cartography::GeoReference const& dem_georef,
+                std::vector<vw::Vector3>      const& positions,
+                std::vector<vw::Matrix3x3>    const& cam2world,
+                std::vector<vw::Matrix3x3>    const& ref_cam2world,
+                bool                                 have_rig,
+                Eigen::Affine3d               const& ref2sensor,
+                std::string                   const& suffix, 
                 // outputs
                 std::vector<std::string> & cam_names,
                 std::vector<vw::CamPtr>  & cams);
@@ -94,12 +100,25 @@ void genImages(SatSimOptions const& opt,
     bool external_cameras,
     std::vector<std::string>      const& cam_names,
     std::vector<vw::CamPtr>       const& cams,
+    std::string                   const& suffix, 
     vw::cartography::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> dem,
     double height_guess,
     vw::cartography::GeoReference const& ortho_georef,
     vw::ImageViewRef<vw::PixelMask<float>> ortho,
     float ortho_nodata_val);
+
+// Generate the cameras and images for a rig
+void genRigCamerasImages(SatSimOptions    const & opt,
+            vw::cartography::GeoReference const & dem_georef,
+            std::vector<vw::Vector3>      const & positions,
+            std::vector<vw::Matrix3x3>    const & cam2world,
+            std::vector<vw::Matrix3x3>    const & ref_cam2world,
+            vw::ImageViewRef<vw::PixelMask<float>> dem,
+            double height_guess,
+            vw::cartography::GeoReference const& ortho_georef,
+            vw::ImageViewRef<vw::PixelMask<float>> ortho,
+            float ortho_nodata_val);
 
 // A little function to avoid repetitive code in many places.
 // Get the value of a map key if known to exist.

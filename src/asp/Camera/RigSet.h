@@ -47,10 +47,12 @@ const std::string FISHEYE_DISTORTION_STR = "fisheye";
 const std::string RADTAN_DISTORTION_STR  = "radtan";
 const std::string RPC_DISTORTION_STR     = "rpc";
 
+// A class storing camera parameters. These will be passed to Pinhole
+// or CSM cameras.
 struct CameraParameters {
   double focal_length;
   Eigen::Vector2d optical_center;
-  Eigen::Vector2d distortion_params;
+  Eigen::VectorXd distortion;
   Eigen::Vector2i image_size;
   DistortionType m_distortion_type;
   Eigen::Vector2i m_distorted_crop_size;

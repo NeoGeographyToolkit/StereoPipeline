@@ -102,11 +102,12 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
      "amplitude in roll, pitch, yaw for first frequency, then for second, and so on. "
      "Separate the values by spaces or commas.")
     ("first-index", po::value(&opt.first_index)->default_value(-1),
-     "Index of first camera and/or image to generate, starting from 0. If not set, will create "
-     "all images/cameras. This is used for parallelization.")
+     "Index of first camera and/or image to generate, starting from 0. If not set, will "
+     "create all images/cameras. This is used for parallelization.")
     ("last-index", po::value(&opt.last_index)->default_value(-1),
-     "Index of last image and/or camera to generate, starting from 0. Stop before this index. "
-     "If not set, will create all images/cameras. This is used for parallelization.")
+     "Index of last image and/or camera to generate, starting from 0. Stop before "
+     "this index. If not set, will create all images/cameras. This is used for "
+     "parallelization.")
     ("frame-rate", po::value(&opt.frame_rate)->default_value(NaN), 
      "Camera frame rate, per second. Can be in double precision. If set, it will override "
      "--num. The cameras will start from --first (after any position adjustment, if "
@@ -127,7 +128,13 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     ("save-as-csm", 
       po::bool_switch(&opt.save_as_csm)->default_value(false)->implicit_value(true),
       "Save Pinhole (frame) cameras in the CSM format, as done for linescan cameras. "
-      "Can be used to combine these sensors in bundle adjustment and solving for jitter")
+      "Can be used to combine these sensors in bundle adjustment and solving for jitter.")
+     ("rig-config", po::value(&opt.rig_config)->default_value(""),
+      "Simulate a rig with this configuration file. Then do not set the image size, focal "
+      "length, optical center on the command line. See also --sensor-name.")
+     ("sensor-name", po::value(&opt.sensor_name)->default_value("all"),
+       "Name of the sensor in the rig to simulate. If not set, will simulate all sensors. "
+       "If more than one, list them separated by commas (no spaces).")
     ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
      "When intersecting a ray with a DEM, use this as the height error tolerance "
      "(measured in meters). It is expected that the default will be always good enough.")
@@ -152,11 +159,26 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
   if (opt.out_prefix == "")
     vw::vw_throw(vw::ArgumentErr() << "Missing output prefix.\n");
 
-  if (std::isnan(opt.image_size[0]) || std::isnan(opt.image_size[1]))
-    vw::vw_throw(vw::ArgumentErr() << "The image size must be specified.\n");
-  if (opt.image_size[0] <= 1 || opt.image_size[1] <= 1)
-    vw::vw_throw(vw::ArgumentErr() << "The image size must be at least 2 x 2.\n");
-
+  bool have_rig = !opt.rig_config.empty();
+  if (have_rig && opt.camera_list != "")
+    vw::vw_throw(vw::ArgumentErr() << "Cannot specify both --rig-config and --camera-list.\n");
+  
+  if (have_rig && opt.sensor_type != "pinhole")
+    vw::vw_throw(vw::ArgumentErr() << "The sensor type must be pinhole for a rig.\n");
+  
+  if (have_rig && 
+      (!vm["image-size"].defaulted() || !vm["focal-length"].defaulted() ||
+       !vm["optical-center"].defaulted()))
+      vw::vw_throw(vw::ArgumentErr() << "Cannot specify image size, focal length, or "
+        "optical center when using a rig. Those are set in the rig configuration file.\n");
+  
+  if (!have_rig) {  
+    if (std::isnan(opt.image_size[0]) || std::isnan(opt.image_size[1]))
+      vw::vw_throw(vw::ArgumentErr() << "The image size must be specified.\n");
+    if (opt.image_size[0] <= 1 || opt.image_size[1] <= 1)
+      vw::vw_throw(vw::ArgumentErr() << "The image size must be at least 2 x 2.\n");
+  }
+  
   if (opt.camera_list != "" && opt.no_images)
     vw::vw_throw(vw::ArgumentErr() << "The --camera-list and --no-images options "
       "cannot be used together.\n");
@@ -179,8 +201,6 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     if (std::isnan(opt.frame_rate)) {
       if (opt.num_cameras < 1)
         vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 1.\n");
-      if (opt.num_cameras == 1)
-        vw::vw_out(vw::WarningMessage) << "Warning: Creating only one camera.\n";
     } else {
       // Frame rate is set. Then need not set num cameras.
       if (opt.num_cameras > 0)
@@ -192,11 +212,23 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     }
 
     // Validate focal length, optical center, and image size
-    if (std::isnan(opt.focal_length))
-      vw::vw_throw(vw::ArgumentErr() << "The focal length must be positive.\n");
-    if (std::isnan(opt.optical_center[0]) || std::isnan(opt.optical_center[1]))
-      vw::vw_throw(vw::ArgumentErr() << "The optical center must be specified.\n");
-
+    if (!have_rig) {
+      if (std::isnan(opt.focal_length))
+        vw::vw_throw(vw::ArgumentErr() << "The focal length must be positive.\n");
+      if (std::isnan(opt.optical_center[0]) || std::isnan(opt.optical_center[1]))
+        vw::vw_throw(vw::ArgumentErr() << "The optical center must be specified.\n");
+    
+      // If the optical center is large, the images will show up very oblique.
+      // The current logic implicitly assumes that the optical center is close to
+      // the image center.
+      if (opt.optical_center[0] < 0 || opt.optical_center[1] < 0 ||
+          opt.optical_center[0] >= opt.image_size[0] || 
+          opt.optical_center[1] >= opt.image_size[1])
+        vw::vw_throw(vw::ArgumentErr() << "The optical center must be non-negative and "
+                    << "within the image bounds. It is suggested to have it close to "
+                    << "the image center.\n");
+    }
+      
     // Either both first and last ground positions are specified, or none.
     if (std::isnan(norm_2(opt.first_ground_pos)) != 
       std::isnan(norm_2(opt.last_ground_pos)))
@@ -333,6 +365,39 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
+  if (have_rig) {
+    // Read the rig configuration
+    bool have_rig_transforms = true; // dictated by the api
+    asp::readRigConfig(opt.rig_config, have_rig_transforms, opt.rig);
+    // Must have just one rig
+    if (opt.rig.cam_set.size() != 1)
+      vw::vw_throw(vw::ArgumentErr() << "Only one rig (reference sensor) is supported "
+                   << "in sat_sim.\n");  
+
+    for (size_t i = 0; i < opt.rig.cam_params.size(); i++) {
+      auto const& params = opt.rig.cam_params[i];
+    
+      if (params.image_size[0] <= 1 || params.image_size[1] <= 1)
+        vw::vw_throw(vw::ArgumentErr() << "The image size must be at least 2 x 2.\n");
+
+      if (params.focal_length <= 0)
+        vw::vw_throw(vw::ArgumentErr() << "The focal length must be positive.\n");
+    
+      // If the optical center is large, the images will show up very oblique.
+      // The current logic implicitly assumes that the optical center is close to
+      // the image center.
+      if (params.optical_center[0] < 0 || params.optical_center[1] < 0 ||
+          params.optical_center[0] >= params.image_size[0] || 
+          params.optical_center[1] >= params.image_size[1])
+        vw::vw_throw(vw::ArgumentErr() << "The optical center must be non-negative and "
+                    << "within the image bounds. It is suggested to have it close to "
+                    << "the image center.\n");
+    
+      if (params.distortion.size() != 0)
+        vw::vw_throw(vw::ArgumentErr() << "Distortion is not supported in sat_sim.\n");
+    }
+  }
+
   return;
 }
 
@@ -358,6 +423,7 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> cam_names;
     std::vector<vw::CamPtr> cams;
     bool external_cameras = false;
+    std::string suffix = ""; 
     int first_pos = 0; // used with linescan poses, which start before first image line
     if (!opt.camera_list.empty()) {
       // Read the cameras
@@ -366,6 +432,7 @@ int main(int argc, char *argv[]) {
       else
         asp::readLinescanCameras(opt, cam_names, cams);
       external_cameras = true;
+      
     } else {
       // Generate the cameras   
       double orbit_len = 0.0;
@@ -379,18 +446,24 @@ int main(int argc, char *argv[]) {
                           first_pos, orbit_len, positions, cam2world, 
                           cam2world_no_jitter, ref_cam2world);
       // Generate cameras
-      if (opt.sensor_type == "pinhole")
+      if (!opt.rig_config.empty()) {
+        asp::genRigCamerasImages(opt, dem_georef, positions, cam2world, ref_cam2world,
+          dem, height_guess, ortho_georef, ortho, ortho_nodata_val);
+      } else if (opt.sensor_type == "pinhole") {
+        bool have_rig = false;
+        Eigen::Affine3d ref2sensor = Eigen::Affine3d::Identity(); // not used
         asp::genPinholeCameras(opt, dem_georef, positions, cam2world, ref_cam2world,
-          cam_names, cams);
-      else
+                               have_rig, ref2sensor, suffix, cam_names, cams);
+      } else {
         asp::genLinescanCameras(orbit_len, dem_georef, dem, first_pos, positions, 
           cam2world, cam2world_no_jitter, ref_cam2world, height_guess,
           opt, cam_names, cams); // outputs
+      }
     }
 
-    // Generate images
-    if (!opt.no_images)
-      asp::genImages(opt, external_cameras, cam_names, cams, dem_georef, dem, 
+    // Generate images. When the rig is on, this has already been done.
+    if (!opt.no_images && opt.rig_config.empty())
+      asp::genImages(opt, external_cameras, cam_names, cams, suffix, dem_georef, dem, 
         height_guess, ortho_georef, ortho, ortho_nodata_val);
 
   } ASP_STANDARD_CATCHES;

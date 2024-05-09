@@ -6,7 +6,7 @@ sat_sim
 The ``sat_sim`` satellite simulator program models a satellite traveling around
 a planet and taking pictures. It can either create camera models (Pinhole or
 Linescan), or read them from disk. In either case it creates synthetic images
-for the given cameras. This tool can model camera jitter.  
+for the given cameras. This tool can model camera jitter and a rig.  
 
 The inputs are a DEM and georeferenced image (ortho image) of the area of
 interest. See :numref:`sat_sim_dem` for how to create such inputs.
@@ -82,14 +82,17 @@ focal length is 450,000 pixels. If the magnitude of DEM heights is within
 several hundred meters, this will result in the ground sample distance being
 around 1 meter per pixel.
 
+The resulting cameras will point in a direction perpendicular to the orbit
+trajectory. They will point precisely to the planet center only if the orbit
+endpoints are at the same height and the datum is spherical.
+
 The produced image and camera names will be along the lines of::
     
     run/run-10000.tif
     run/run-10000.tsai
 
-The resulting cameras will point in a direction perpendicular to the orbit
-trajectory. They will point precisely to the planet center only if the orbit
-endpoints are at the same height and the datum is spherical.
+These names will be adjusted per sensor, if a rig is present
+(:numref:`sat_sim_rig`).
 
 .. figure:: ../images/sfm_view_nadir_clip.png
    :name: sat_sim_illustration_nadir_clip
@@ -424,6 +427,32 @@ and without jitter as::
       --cam1  jitter0/run.json \
       --cam2  jitter2/run.json
 
+.. _sat_sim_rig:
+
+Frame camera rig
+^^^^^^^^^^^^^^^^
+
+The ``sat_sim`` program can simulate a frame camera rig. It will create one
+image and camera per rig sensor at each location in orbit. The rig should be
+passed in via ``--rig-config``. Its format is defined in :numref:`rig_config`. 
+
+As an example, consider the setup from :numref:`sat_sim_roll_pitch_yaw`. Add the
+rig option, and do not set the image size, focal length, and optical center on
+the command line, as those are set by the rig. 
+
+The produced image and camera file names will include the sensor name, before
+the image/camera extension. Example: ``out/out-10000_haz_cam.json``.
+
+Lens distortion is not supported. If desired to produce cameras and images
+only for a subset of the rig sensors, use the ``--sensor-name`` option.
+
+.. figure:: ../images/sat_sim_rig.png
+   :name: sat_sim_rig_illustration
+   :alt:  sat_sim_rig_illustration
+   
+   Illustration of ``sat_sim`` creating a rig of 3 cameras. The resulting
+   images have been mapprojected onto the ground.
+
 .. _roll_pitch_yaw_def:
 
 Roll, pitch, and yaw
@@ -526,6 +555,9 @@ cameras, one per line, with names as::
 
     <output prefix>-images.txt
     <output prefix>-cameras.txt
+
+These will be adjusted per sensor name, if a rig is present
+(:numref:`sat_sim_rig`).
 
 These files will not be saved if ``--first-index`` is non-zero, as
 then ``sat_sim`` is presumably being invoked concurrently by several
@@ -671,6 +703,15 @@ Command-line options
     cameras. Can be used to combine these sensors in bundle adjustment and
     solving for jitter. See an example in :numref:`jitter_linescan_frame_cam`.
 
+--rig-config <string (default="")>
+    Simulate a frame camera rig with this configuration file. Then do not set
+    the image size, focal length, optical center on the command line, as those
+    are set by the rig. See :numref:`sat_sim_rig`.
+
+--sensor-name <string (default="all")>
+    Name of the sensor in the rig to simulate (:numref:`sat_sim_rig`). If more
+    than one, list them separated by commas (no spaces).
+        
 --dem-height-error-tol <float (default: 0.001)>
     When intersecting a ray with a DEM, use this as the height error tolerance
     (measured in meters). It is expected that the default will be always good

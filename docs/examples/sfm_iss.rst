@@ -637,7 +637,7 @@ The reference documentation is in :numref:`rig_config`.
     focal_length: 608
     optical_center: 632.53683999999998 549.08385999999996
     distortion_coeffs: 0.99869300000000005
-    distortion_type: fisheye
+    distortion_type: fov
     image_size: 1280 960
     distorted_crop_size: 1200 900
     undistorted_image_size: 1200 1000
@@ -675,7 +675,7 @@ The reference documentation is in :numref:`rig_config`.
     focal_length: 604.39999999999998
     optical_center: 588.79561999999999 509.73835000000003
     distortion_coeffs: 1.0020100000000001
-    distortion_type: fisheye
+    distortion_type: fov
     image_size: 1280 960
     distorted_crop_size: 1200 900
     undistorted_image_size: 1200 1000
