@@ -84,8 +84,8 @@ single mosaic file with the extension ``.mos_hijitreged.norm.cub``. Be
 warned that the operations carried out by ``hiedr2mosaic.py`` can take
 many hours to complete on the very large HiRISE images.
 
-If you get any errors, make sure you have ISIS and its data installed,
-and the environmental variable ``ISISDATA`` is set (:numref:`isis_start`).
+If you get any errors, make sure you have ISIS and its data installed, and the
+environmental variable ``ISISDATA`` is set (:numref:`planetary_images`).
 
 An example of using ASP with HiRISE data is included in the
 ``examples/HiRISE`` directory (just type 'make' there).

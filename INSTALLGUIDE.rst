@@ -30,20 +30,15 @@ the archive, and run the executables in the ``bin`` subdirectory as::
 
 The result of the last command should be a help message.
 
-The stable releases are also available via conda
-(:numref:`conda_intro`).
-
-ASP can be installed with Docker (`instructions
-<https://github.com/uw-cryo/asp-binder>`_).
-
-The latest additions are documented in :numref:`news`.
-
 To permanently add the ASP executable subdirectory to your PATH,
 add the following line to the shell configuration (e.g.,
 ``~/.bashrc``), replacing ``/path/to/StereoPipeline/bin`` with the
 location on your filesystem::
 
     export PATH=${PATH}:/path/to/StereoPipeline/bin
+
+
+The latest additions are documented in :numref:`news`.
 
 Windows
 ~~~~~~~
@@ -54,63 +49,29 @@ Windows using the `Windows Subsystem for Linux
 Linux distribution is installed and verified to work, the installation steps are
 the same as for Linux.
 
+Conda and docker
+----------------
+
+The stable releases are also available via conda
+(:numref:`conda_intro`).
+
+ASP can be installed with Docker (`instructions
+<https://github.com/uw-cryo/asp-binder>`_).
+
+Post-installation
+-----------------
+ 
+The next steps depend on whether it is desired to process planetary (non-Earth),
+Earth, or aerial images.
+ 
 .. _planetary_images:
 
 Planetary images
 ~~~~~~~~~~~~~~~~
 
 If you plan to process images from NASA's spacecraft that are
-exploring other planets, you will probably need to have :term:`ISIS`
-installed.  A full ISIS installation is not required for operation of
-the main Stereo Pipeline programs (only the ISIS data directory is
-needed), but it is required for certain preprocessing steps before
-Stereo Pipeline programs are run for planetary data.  If you only want
-to process terrestrial images, skip to :numref:`dg_tutorial`.
-
-To perform pre-processing (radiometric calibration, ephemeris
-processing, etc.), of non-terrestrial images prior to running Stereo
-Pipeline, you will need to install :term:`ISIS`.  Just as with our 
-binaries, you can use the ISIS binaries as-is. See the ISIS installation
-instructions at:
-
-    https://github.com/DOI-USGS/ISIS3
-
-ASP has its own self-contained version of the ISIS libraries, and on
-occasion it is behind the latest ISIS (see the release notes in
-:numref:`news` for the ISIS version ASP has). You should be able to
-use a newer version of ISIS to prepare the images and cameras and have
-those work with the version of ISIS shipped with ASP, assuming no
-major changes have taken place in the data formats or camera models by
-the ISIS developers. At the very least, you should be able to install
-the older standalone version of ISIS that ASP uses if a failure is
-found.  
-
-To install a specific version of ISIS, follow the ISIS installation
-instructions, but create a new conda environment (not the one with your current
-ISIS), and right before you would run ``conda install isis``, run ``conda search
-isis`` to find all of the versions of ISIS available for installation.  For
-example, if you wanted to install ISIS 8.0.0, run::
-
-        conda install -c usgs-astrogeology -c conda-forge isis=8.0.0
-
-and then follow the remainder of the ISIS installation instructions.
-
-In closing, running the Stereo Pipeline executables only requires
-that you have downloaded the ISIS secondary data and have
-appropriately set the ``ISISDATA`` environment variable. This is
-normally performed for the user by starting up the conda ISIS 
-environment.
-
-.. _isis_start:
-
-Quick start for ISIS users
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Using the packaged ASP tarball
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-#. Fetch Stereo Pipeline from
-   https://github.com/NeoGeographyToolkit/StereoPipeline/releases
+exploring other planets, you will need to install ISIS and its data.
+Summary of the steps:
 
 #. Fetch ISIS binaries and install, following
    https://github.com/DOI-USGS/ISIS3#installation
@@ -140,37 +101,25 @@ Using the packaged ASP tarball
    - bash: ``export PATH="/path/to/StereoPipeline/bin:${PATH}"``
    - csh:  ``setenv PATH "/path/to/StereoPipeline/bin:${PATH}"``
 
-#. Try it out. See :numref:`lronac_csm` for a quick Lunar example
-   which does not require installing ISIS or it supporting data as
-   above, and :numref:`moc_tutorial` for an example using Mars images
-   and ISIS data.
+#. Try it out. See :numref:`lronac_csm` for a quick Lunar example which does not
+   require installing ISIS or it supporting data as above,
+   :numref:`moc_tutorial` for an example using Mars images and ISIS data, and
+   many other examples in :numref:`examples`.
 
-Installing ASP and ISIS in the same conda environment
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Earth images
+~~~~~~~~~~~~
 
-This is discussed further down. 
+Processing Earth images is described in the data processing tutorial in
+:numref:`dg_tutorial`. See also examples for ASTER (:numref:`aster`), Pleiades
+(:numref:`pleiades`), SkySat (:numref:`skysat`), and many more in
+:numref:`examples`.
 
-Quick start for Digital Globe users
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-#. Fetch Stereo Pipeline from
-   https://github.com/NeoGeographyToolkit/StereoPipeline/releases
-
-#. Extract Stereo Pipeline::
-
-     tar xvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.bz2
-
-#. Add StereoPipeline to your path, as above.
- 
-#. Try it out: Processing Earth images is described in the data processing
-   tutorial in :numref:`dg_tutorial`.
-
-Quick start for aerial and historical images
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Aerial and historical images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Fetch the software as above. Processing images without accurate camera
-pose information is described in :numref:`sfm`.
-
+pose information is described in :numref:`sfm`. See also examples for 
+declassified satellite images in :numref:`kh4`.
 
 Common errors
 -------------
@@ -190,7 +139,7 @@ slightly different.
     Stereo step 0: Preprocessing failed
 
 You need to set up your ISIS environment or manually set the correct
-location for ``ISISDATA`` (:numref:`isis_start`).
+location for ``ISISDATA`` (:numref:`planetary_images`).
 
 ::
 
@@ -198,13 +147,13 @@ location for ``ISISDATA`` (:numref:`isis_start`).
 
 You need to add the ``bin`` directory of your deployed Stereo Pipeline
 installation to the environmental variable ``PATH``
-(:numref:`isis_start`).
+(:numref:`planetary_images`).
 
 ::
 
     /bin/sh: camrange: command not found
 
-You need to to add the ``bin`` directory of your ISIS installation to your path (:numref:`isis_start`).
+You need to to add the ``bin`` directory of your ISIS installation to your path (:numref:`planetary_images`).
 
 ::
 

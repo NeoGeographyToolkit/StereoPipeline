@@ -1324,7 +1324,7 @@ Vallis. We use images E02/01461 and M01/00115, the same as used in
 ``mocproc`` program will operate on either the IMQ or IMG format files, we use
 the ``.imq`` below in the example). 
 
-Ensure that ISIS and its supporting data is installed, per :numref:`isis_start`,
+Ensure that ISIS and its supporting data is installed, per :numref:`planetary_images`,
 and that ``ISISROOT`` and ``ISIS3DATA`` are set. The string ``ISIS>`` is not 
 part of the shell commands below, it is just suggestive of the fact that we operate
 in an ISIS environment.
