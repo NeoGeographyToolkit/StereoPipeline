@@ -994,7 +994,7 @@ void genPinholeCameras(SatSimOptions      const & opt,
   // Write the list of cameras only if we are not skipping the first camera
   // Otherwise the same file may be written by multiple processes. 
   if (!skipCamera(0, opt)) {
-    std::string cam_list = opt.out_prefix + "-cameras.txt"; 
+    std::string cam_list = opt.out_prefix + "-cameras" + suffix + ".txt"; 
     vw::vw_out() << "Writing: " << cam_list << std::endl;
     asp::write_list(cam_list, cam_names);
   } else {
@@ -1275,6 +1275,34 @@ void genImages(SatSimOptions const& opt,
   return;
 }
 
+// If sensor type is one value, make a vector of that value with
+// as many entries as sensor names. Otherwise split by comma,
+// and there must be as many entries as sensors.
+void handleSensorType(int num_sensors, 
+                      std::string const& sensor_type, 
+                      std::vector<std::string> & sensor_types) { 
+                                                                
+  boost::split(sensor_types, sensor_type, boost::is_any_of(","));
+  
+  // If only one, fill to make num_sensors
+  if (sensor_types.size() == 1) {
+    std::string val = sensor_types[0];
+    sensor_types.clear();
+    for (int i = 0; i < num_sensors; i++)
+      sensor_types.push_back(val);
+  }
+  
+  // There must be as many as sensors
+  if (int(sensor_types.size()) != num_sensors)
+    vw::vw_throw(vw::ArgumentErr() << "Expecting as many sensor types as sensors.\n");
+  
+  // Each must be linescan or pinhole
+  for (int i = 0; i < int(sensor_types.size()); i++) {
+    if (sensor_types[i] != "linescan" && sensor_types[i] != "pinhole")
+      vw::vw_throw(vw::ArgumentErr() << "Expecting sensor type to be linescan or pinhole.\n");
+  }
+}
+
 // Generate the cameras and images for a rig
 void genRigCamerasImages(SatSimOptions          & opt,
             double                                orbit_len,     
@@ -1289,9 +1317,14 @@ void genRigCamerasImages(SatSimOptions          & opt,
             vw::cartography::GeoReference const& ortho_georef,
             vw::ImageViewRef<vw::PixelMask<float>> ortho,
             float ortho_nodata_val) {
+
   // Sanity checks
   if (opt.rig_config == "")            
     vw::vw_throw(vw::ArgumentErr() << "The rig configuration file must be set.\n");
+  
+  // Handle sensor types
+  std::vector<std::string> sensor_types;
+  handleSensorType(opt.rig.cam_names.size(), opt.sensor_type, sensor_types);
   
   std::vector<std::string> sensor_names;
   if (opt.sensor_name == "all")
@@ -1320,6 +1353,7 @@ void genRigCamerasImages(SatSimOptions          & opt,
     local_opt.optical_center[1] = params.optical_center[1];
     local_opt.image_size[0]     = params.image_size[0];
     local_opt.image_size[1]     = params.image_size[1];
+    local_opt.sensor_type       = sensor_types[sensor_it];
     
     // The transform from the reference sensor to the current sensor
     Eigen::Affine3d ref2sensor = opt.rig.ref_to_cam_trans[sensor_index];
@@ -1329,10 +1363,10 @@ void genRigCamerasImages(SatSimOptions          & opt,
     
     // Sequence of camera names and cameras for one sensor
     std::vector<std::string> cam_names; 
-    std::vector<vw::CamPtr>   cams;
+    std::vector<vw::CamPtr> cams;
     // The suffix is needed to distinguish the cameras and images for each sensor
     std::string suffix = "_" + sensor_names[sensor_it]; 
-    if (opt.sensor_type == "pinhole")
+    if (local_opt.sensor_type == "pinhole")
       asp::genPinholeCameras(local_opt, dem_georef, positions, cam2world, ref_cam2world,
                              have_rig, ref2sensor, suffix, cam_names, cams);
     else

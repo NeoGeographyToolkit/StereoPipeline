@@ -3,12 +3,12 @@
 Mars Exploration Rovers
 -----------------------
 
-The Mars Exploration Rovers (MER) have several cameras on board that acquire
-stereo pairs. The images come with CAHVOR camera models, that have local positions
-and orientations. 
+The Mars Exploration Rovers (MER) have several cameras onboard that acquire
+stereo pairs. The images come with CAHVOR camera models, that have local
+positions and orientations. 
 
-ASP can create point clouds and textured meshes from these these cameras. DEMs
-cannot be created right away, unlike for MSL, which has geolocation information
+ASP can create point clouds and textured meshes from these cameras. DEMs cannot
+be created right away, unlike for MSL, which has geolocation information
 (:numref:`csm_msl`), but an SfM solution is likely to work as in
 :numref:`rig_msl`.
 

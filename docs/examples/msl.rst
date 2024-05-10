@@ -11,7 +11,7 @@ other examples.
 This approach uses the images to create a self-consistent solution, which can
 be registered to the ground (:numref:`msl_registration`).
 
-Section :numref:`csm_msl` discusses using the known camera poses for MSL.
+:numref:`csm_msl` discusses using the known camera poses for MSL.
 
 .. _rig_msl_figure:
 

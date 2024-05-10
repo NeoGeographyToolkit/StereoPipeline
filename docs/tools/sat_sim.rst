@@ -426,12 +426,12 @@ and without jitter as::
 
 .. _sat_sim_rig:
 
-Frame camera rig
-^^^^^^^^^^^^^^^^
+Modeling a rig
+^^^^^^^^^^^^^^
 
-The ``sat_sim`` program can simulate a frame camera rig. It will create one
-image and camera per rig sensor at each location in orbit. The rig should be
-passed in via ``--rig-config``. Its format is defined in :numref:`rig_config`. 
+The ``sat_sim`` program can simulate a rig that has a mix of frame (pinhole) and
+linescan cameras. The rig should be passed in via ``--rig-config``. Its format
+is defined in :numref:`rig_config`. 
 
 As an example, consider the setup from :numref:`sat_sim_roll_pitch_yaw`. Add the
 rig option, and do not set the image size, focal length, and optical center on
@@ -440,8 +440,14 @@ the command line, as those are set by the rig.
 The produced image and camera file names will include the sensor name, before
 the image/camera extension. Example: ``out/out-10000_haz_cam.json``.
 
-Lens distortion is not supported. If desired to produce cameras and images
-only for a subset of the rig sensors, use the ``--sensor-name`` option.
+The option ``--sensor-type`` controls the type of each rig sensor. A single
+value will apply to all sensors. To have per-sensor type, set a list of values
+separated by commas, with no spaces. Example: ``--sensor-type
+linescan,pinhole,linescan``. 
+
+Lens distortion is not supported. If desired to produce cameras and images only
+for a subset of the rig sensors, use the ``--sensor-name`` option. Consider
+using the option ``--save-as-csm``.
 
 .. figure:: ../images/sat_sim_rig.png
    :name: sat_sim_rig_illustration
@@ -672,7 +678,9 @@ Command-line options
 
 --sensor-type <string (default="pinhole")>
     Sensor type for created cameras and images. Can be one of: ``pinhole``,
-    ``linescan``.
+    ``linescan``. With a rig (:numref:`sat_sim_rig`), this can be a list of
+    values, separated by commas, with no spaces, one per sensor, if desired
+    to have different types for different sensors.
 
 --non-square-pixels
     When creating linescan cameras and images, use the provided image height in

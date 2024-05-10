@@ -114,7 +114,9 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
      "applicable, per the doc). Set the --velocity value. The last camera will be no further "
      "than the (adjusted) value of --last along the orbit.")
      ("sensor-type", po::value(&opt.sensor_type)->default_value("pinhole"),
-      "Sensor type for created cameras and images. Can be one of: pinhole, linescan.")
+      "Sensor type for created cameras and images. Can be one of: pinhole, linescan. "
+      "With a rig, this can be a list of values, separated by commas, with no spaces, "
+      "one per sensor, if desired to have different types for different sensors.")
     ("non-square-pixels", po::bool_switch(&opt.non_square_pixels)->default_value(false)->implicit_value(true),
       "When creating linescan cameras and images, use the provided image height in pixels, "
       "even if that results in non-square pixels. The default is to auto-compute the image "
@@ -161,7 +163,8 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
 
   bool have_rig = !opt.rig_config.empty();
   if (have_rig && opt.camera_list != "")
-    vw::vw_throw(vw::ArgumentErr() << "Cannot specify both --rig-config and --camera-list.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Cannot specify both --rig-config and --camera-list.\n");
   
   if (have_rig && 
       (!vm["image-size"].defaulted() || !vm["focal-length"].defaulted() ||
@@ -327,16 +330,13 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     vw::vw_throw(vw::ArgumentErr() << "The satellite velocity must be positive.\n");
 
   // Checks for linescan cameras
-  if (opt.sensor_type == "linescan" && std::isnan(opt.velocity))
+  bool have_linescan = (opt.sensor_type.find("linescan") != std::string::npos);
+  if (have_linescan && std::isnan(opt.velocity))
     vw::vw_throw(vw::ArgumentErr() << "The satellite velocity must be specified "
       << "in order to create linescan cameras.\n");
-  if (opt.non_square_pixels && opt.sensor_type != "linescan")
+  if (opt.non_square_pixels && !have_linescan)
     vw::vw_throw(vw::ArgumentErr() << "Cannot specify --non-square-pixels unless creating "
       << "linescan cameras.\n");
-
-  if (opt.sensor_type == "linescan" && opt.save_as_csm) 
-    vw::vw_out(vw::WarningMessage) << "The --save-as-csm option is ignored "
-      << "for linescan cameras since there is no other approach in this case.\n";
 
   // Sanity check the first and last indices
   int ans = int(opt.first_index < 0) + int(opt.last_index < 0);
@@ -347,8 +347,8 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     vw::vw_throw(vw::ArgumentErr() << "The first index must be less than "
       "the last index.\n");
 
-  // Check for sensor type
-  if (opt.sensor_type != "pinhole" && opt.sensor_type != "linescan")
+  // Check for sensor type. With a rig, it will be checked later, per sensor.
+  if (!have_rig && (opt.sensor_type != "pinhole" && opt.sensor_type != "linescan"))
     vw::vw_throw(vw::ArgumentErr() 
                  << "The sensor type must be either pinhole or linescan.\n");
 
@@ -441,6 +441,7 @@ int main(int argc, char *argv[]) {
                           cam2world_no_jitter, ref_cam2world);
       // Generate cameras
       if (!opt.rig_config.empty()) {
+        // The rig needs special treatment 
         asp::genRigCamerasImages(opt, orbit_len, dem_georef, positions, cam2world, 
                                  cam2world_no_jitter, ref_cam2world, 
                                  first_pos, dem, height_guess, 
@@ -450,6 +451,7 @@ int main(int argc, char *argv[]) {
         asp::genPinholeCameras(opt, dem_georef, positions, cam2world, ref_cam2world,
                                have_rig, ref2sensor, suffix, cam_names, cams);
       } else {
+        // Linescan
         bool have_rig = false;
         asp::genLinescanCameras(orbit_len, dem_georef, dem, first_pos, positions, 
           cam2world, cam2world_no_jitter, ref_cam2world, height_guess,
