@@ -3,68 +3,64 @@
 Mars Exploration Rovers
 -----------------------
 
-The Mars Exploration Rovers (MER) have several cameras on board and they
-all seem to have a stereo pair. With ASP you are able to process the
-PANCAM, NAVCAM, and HAZCAM camera images. ISIS has no telemetry or
-camera intrinsic supports for these images. That however is not a
-problem as their raw images contain the cameras information in JPL's
-CAHV, CAHVOR, and CHAVORE formats.
+The Mars Exploration Rovers (MER) have several cameras on board that acquire
+stereo pairs. The images come with CAHVOR camera models, that have local positions
+and orientations. 
 
-These cameras are all variations of a simple pinhole camera model so
-they are processed with ASP in the ``Pinhole`` session instead of the
-usual ``ISIS``. ASP only supports creating of point clouds. *The
-\*-PC.tif is a raw point cloud with the first 3 channels being XYZ in
-the rover site's coordinate frame*. We don't support the creation of
-DEMs from these images and that is left as an exercise for the user.
-
-An example of using ASP with MER data is included in the
-``examples/MER`` directory (just type 'make' there).
-
-See :numref:`csm_msl` for an analogous example for the MSL Curiosity 
-rover using CSM cameras, and :numref:`rig_msl` for a processing 
-example for MSL based on Structure-from-Motion.
+ASP can create point clouds and textured meshes from these these cameras. DEMs
+cannot be created right away, unlike for MSL, which has geolocation information
+(:numref:`csm_msl`), but an SfM solution is likely to work as in
+:numref:`rig_msl`.
 
 PANCAM, NAVCAM, HAZCAM
 ~~~~~~~~~~~~~~~~~~~~~~
 
-All of these cameras are processed the same way. We'll be showing 3D
-processing of the front hazard cams. The only new things in the pipeline
-is the new executable ``mer2camera`` along with the use of
-``alignment-method epipolar``. This example is also provided in the MER
-data example directory.
+These are cameras on the rover and are all processed the same way. It is
+preferred to use NAVCAM images, as those have less distortion than the HAZCAM.
 
-.. figure:: ../images/examples/mer/fh01_combined.png
+.. figure:: ../images/examples/mer/mer_mesh.png
 
-   Example output possible with the front hazard cameras.
+   Left input image and produced textured mesh.
 
-.. _commands-3:
+Recipe
+^^^^^^
 
-Commands
-^^^^^^^^
-
-Download 2f194370083effap00p1214l0m1.img and
-2f194370083effap00p1214r0m1.img from the PDS.
+Download the data from the the `PDS Image Atlas <https://pds-imaging.jpl.nasa.gov/search/>`_. 
 
 ::
 
-     ISIS> mer2camera 2f194370083effap00p1214l0m1.img
-     ISIS> mer2camera 2f194370083effap00p1214r0m1.img
-     ISIS> parallel_stereo 2f194370083effap00p1214l0m1.img     \
-                           2f194370083effap00p1214r0m1.img     \
-                           2f194370083effap00p1214l0m1.cahvore \
-                           2f194370083effap00p1214r0m1.cahvore \
-                    fh01/fh01
+   wget https://planetarydata.jpl.nasa.gov/img/data/mer/mer2no_0xxx/data/sol0766/edr/2n194370551effap00p0675l0m1.img
+   wget https://planetarydata.jpl.nasa.gov/img/data/mer/mer2no_0xxx/data/sol0766/edr/2n194370551effap00p0675r0m1.img
+
+Create the CAHVOR cameras::
+
+   mer2camera 2n194370551effap00p0675l0m1.img
+   mer2camera 2n194370551effap00p0675r0m1.img
+
+Run stereo (:numref:`parallel_stereo`) and create a mesh with ``point2mesh`` (:numref:`point2mesh`)::
+
+   parallel_stereo                       \
+      2n194370551effap00p0675l0m1.img    \
+      2n194370551effap00p0675r0m1.img    \
+      2n194370551effap00p0675l0m1.cahvor \
+      2n194370551effap00p0675r0m1.cahvor \
+      run/run
+
+    point2mesh -s 2 --texture-step-size 2 \
+      run/run-PC.tif run/run-L.tif
 
 See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
-It is suggested to filter out points that are not triangulated well
-because they are too close to robot's camera or are extremely far
-away, using the ``parallel_stereo`` options::
+It is suggested to filter out points that are not triangulated well because they
+are too far using the ``parallel_stereo`` option ``--min-triangulation-angle``
+(:numref:`stereodefault`).
+
+For finer-grained control, can use::
 
     --universe-center camera --near-universe-radius 0.7 \
        --far-universe-radius 80.0
 
-These are suggested as well::
+These may be suggested as well::
 
     --alignment-method epipolar --force-use-entire-range
 
