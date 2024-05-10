@@ -201,6 +201,46 @@ double pixelAspectRatio(SatSimOptions                 const & opt,
   return ratio;
 }
 
+// Form a linescan camera taking into account the reference sensor to current
+// rig sensor transform.
+void populateCsmLinescanRig(double first_line_time, double dt_line, 
+                            double t0_ephem, double dt_ephem,
+                            double t0_quat, double dt_quat, 
+                            double focal_length,
+                            vw::Vector2                const & optical_center,
+                            vw::Vector2i               const & image_size,
+                            vw::cartography::Datum     const & datum, 
+                            std::string                const & sensor_id, 
+                            std::vector<vw::Vector3>   const & positions,
+                            std::vector<vw::Vector3>   const & velocities,
+                            std::vector<vw::Matrix3x3> const & cam2world,
+                            bool                               have_rig,
+                            Eigen::Affine3d            const & ref2sensor,
+                            // Outputs
+                            asp::CsmModel                    & model) {
+
+  // If there is a rig, must apply the proper transforms to positions and orientations
+  if (!have_rig) {
+      populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
+                      focal_length, optical_center, image_size, datum, sensor_id,
+                      positions, velocities, cam2world, model);
+  } else {
+    std::vector<vw::Vector3> trans_positions(positions.size());
+    std::vector<vw::Matrix3x3> trans_cam2world(cam2world.size());
+    for (size_t i = 0; i < positions.size(); i++) {
+      vw::Vector3   P = positions[i];
+      vw::Matrix3x3 R = cam2world[i]; 
+      
+      applyRigTransform(ref2sensor, P, R);
+      trans_positions[i] = P;
+      trans_cam2world[i] = R;
+    }
+    populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
+                      focal_length, optical_center, image_size, datum, sensor_id,
+                      trans_positions, velocities, trans_cam2world, model);
+  }
+  
+}
 // Create and save a linescan camera with given camera positions and orientations.
 // There will be just one of them, as all poses are part of the same linescan camera.
 void genLinescanCameras(double orbit_len,     
@@ -212,18 +252,20 @@ void genLinescanCameras(double orbit_len,
                         std::vector<vw::Matrix3x3>     const & cam2world_no_jitter,
                         std::vector<vw::Matrix3x3>     const & ref_cam2world,
                         double                                 height_guess,
+                        bool                                   have_rig,
+                        Eigen::Affine3d                const & ref2sensor,
+                        std::string                    const & suffix, 
                         // Outputs
                         SatSimOptions                          & opt, 
                         std::vector<std::string>               & cam_names,
                         std::vector<vw::CamPtr>                & cams) {
-
+  
   // Sanity checks
   if (cam2world.size() != positions.size() || 
       cam2world_no_jitter.size() != positions.size() ||
       ref_cam2world.size() != positions.size())
     vw::vw_throw(vw::ArgumentErr() 
                  << "Expecting as many camera orientations as positions.\n");
-
     
   // Initialize the outputs
   cam_names.clear();
@@ -261,23 +303,23 @@ void genLinescanCameras(double orbit_len,
   // If creating square pixels, must use the camera without jitter to estimate
   // the image height. Otherwise the image height produced from the camera with
   // jitter will be inconsistent with the one without jitter. This is a bugfix. 
-  if (!opt.square_pixels) 
-    populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
-                        opt.focal_length, local_optical_center,
-                        opt.image_size, dem_georef.datum(), sensor_id,
-                        positions, velocities, cam2world, 
-                        *ls_cam); // output 
+  if (!opt.non_square_pixels) 
+    populateCsmLinescanRig(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
+                           opt.focal_length, local_optical_center,
+                           opt.image_size, dem_georef.datum(), sensor_id,
+                           positions, velocities, cam2world_no_jitter, have_rig, ref2sensor, 
+                           *ls_cam); // output
   else
-    populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
-                        opt.focal_length, local_optical_center,
-                        opt.image_size, dem_georef.datum(), sensor_id,
-                        positions, velocities, cam2world_no_jitter, 
-                        *ls_cam); // output
+    populateCsmLinescanRig(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
+                           opt.focal_length, local_optical_center,
+                           opt.image_size, dem_georef.datum(), sensor_id,
+                           positions, velocities, cam2world, have_rig, ref2sensor, 
+                           *ls_cam); // output 
 
   // Sanity check (very useful)
   // PinLinescanTest(opt, *ls_cam, positions, cam2world);
 
-  if (opt.square_pixels) {
+  if (!opt.non_square_pixels) {
     // Find the pixel aspect ratio on the ground (x/y)
     vw::vw_out() << "Adjusting image height from " << opt.image_size[1] << " to ";
     double ratio = pixelAspectRatio(opt, dem_georef, *ls_cam, dem, height_guess);
@@ -290,25 +332,26 @@ void genLinescanCameras(double orbit_len,
 
     // Recreate the camera with this aspect ratio. This time potentially use the 
     // camera with jitter. 
-    populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
-                        opt.focal_length, local_optical_center,
-                        opt.image_size, dem_georef.datum(), sensor_id,
-                        positions, velocities, cam2world, 
-                        *ls_cam); // output
+    populateCsmLinescanRig(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
+                           opt.focal_length, local_optical_center,
+                           opt.image_size, dem_georef.datum(), sensor_id,
+                           positions, velocities, cam2world, have_rig, ref2sensor,
+                           *ls_cam); // output
     // Sanity check (very useful for testing, the new ratio must be close to 1.0)
     // ratio = pixelAspectRatio(opt, dem_georef, *ls_cam, dem, height_guess);
   }
-  std::string filename = opt.out_prefix + ".json";
+  
+  std::string filename = opt.out_prefix + suffix + ".json";
   ls_cam->saveState(filename);
 
   if (opt.save_ref_cams) {
       asp::CsmModel ref_cam;
-      populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
-                          opt.focal_length, local_optical_center, 
-                          opt.image_size, dem_georef.datum(), sensor_id,
-                          positions,  velocities, ref_cam2world,
-                          ref_cam); // output
-    std::string ref_filename = opt.out_prefix + "-ref.json";
+      populateCsmLinescanRig(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
+                             opt.focal_length, local_optical_center, 
+                             opt.image_size, dem_georef.datum(), sensor_id,
+                             positions,  velocities, ref_cam2world, have_rig, ref2sensor,
+                             ref_cam); // output
+    std::string ref_filename = opt.out_prefix + "-ref" + suffix + ".json";
     ref_cam.saveState(ref_filename);
   }
 

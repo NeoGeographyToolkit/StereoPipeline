@@ -24,6 +24,7 @@
 
 #include <vw/Camera/CameraModel.h>
 #include <vw/Image/ImageViewRef.h>
+#include <Eigen/Geometry>
 
 namespace vw {
   namespace cartography {
@@ -38,7 +39,7 @@ struct SatSimOptions;
 // Create and save a linescan camera with given camera positions and orientations.
 // There will be just one of them, as all poses are part of the same linescan camera.
 // See the .cc file for more details.
-void genLinescanCameras(double orbit_len,     
+void genLinescanCameras(double                                 orbit_len,     
                         vw::cartography::GeoReference  const & dem_georef,
                         vw::ImageViewRef<vw::PixelMask<float>> dem,
                         int                                    first_pos,
@@ -47,10 +48,13 @@ void genLinescanCameras(double orbit_len,
                         std::vector<vw::Matrix3x3>     const & cam2world_no_jitter,
                         std::vector<vw::Matrix3x3>     const & ref_cam2world,
                         double                                 height_guess,
+                        bool                                   have_rig,
+                        Eigen::Affine3d               const  & ref2sensor,
+                        std::string                   const  & suffix, 
                         // Outputs
-                        SatSimOptions                          & opt, 
-                        std::vector<std::string>               & cam_names,
-                        std::vector<vw::CamPtr>                & cams);
+                        SatSimOptions                         & opt, 
+                        std::vector<std::string>              & cam_names,
+                        std::vector<vw::CamPtr>               & cams);
 
 // A function to read Linescan cameras from disk in CSM format. There will
 // be just one of them.

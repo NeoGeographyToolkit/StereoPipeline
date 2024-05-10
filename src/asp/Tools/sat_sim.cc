@@ -115,10 +115,10 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
      "than the (adjusted) value of --last along the orbit.")
      ("sensor-type", po::value(&opt.sensor_type)->default_value("pinhole"),
       "Sensor type for created cameras and images. Can be one of: pinhole, linescan.")
-    ("square-pixels", po::bool_switch(&opt.square_pixels)->default_value(false)->implicit_value(true),
-      "When creating linescan images, override the image height (the second value "
-      "in --image-size) to ensure that the horizontal and vertical ground "
-      "sample distances are very similar.")
+    ("non-square-pixels", po::bool_switch(&opt.non_square_pixels)->default_value(false)->implicit_value(true),
+      "When creating linescan cameras and images, use the provided image height in pixels, "
+      "even if that results in non-square pixels. The default is to auto-compute the image "
+      "height.")
     ("no-images", po::bool_switch(&opt.no_images)->default_value(false)->implicit_value(true),
      "Create only cameras, and no images. Cannot be used with --camera-list.")
      ("save-ref-cams", po::bool_switch(&opt.save_ref_cams)->default_value(false)->implicit_value(true),
@@ -163,9 +163,6 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
   if (have_rig && opt.camera_list != "")
     vw::vw_throw(vw::ArgumentErr() << "Cannot specify both --rig-config and --camera-list.\n");
   
-  if (have_rig && opt.sensor_type != "pinhole")
-    vw::vw_throw(vw::ArgumentErr() << "The sensor type must be pinhole for a rig.\n");
-  
   if (have_rig && 
       (!vm["image-size"].defaulted() || !vm["focal-length"].defaulted() ||
        !vm["optical-center"].defaulted()))
@@ -183,11 +180,6 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     vw::vw_throw(vw::ArgumentErr() << "The --camera-list and --no-images options "
       "cannot be used together.\n");
   
-  if (opt.camera_list != "" && opt.square_pixels)
-    vw::vw_throw(vw::ArgumentErr() << "The --camera-list and --square-pixels options "
-      "cannot be used together. Making the mapprojected pixels be approximately "
-      "square requires modifying the camera model.\n");
-
   if (opt.camera_list == "") {
     if (opt.first == vw::Vector3() || opt.last == vw::Vector3())
       vw::vw_throw(vw::ArgumentErr() << "The first and last camera positions must be "
@@ -338,8 +330,8 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
   if (opt.sensor_type == "linescan" && std::isnan(opt.velocity))
     vw::vw_throw(vw::ArgumentErr() << "The satellite velocity must be specified "
       << "in order to create linescan cameras.\n");
-  if (opt.square_pixels && opt.sensor_type != "linescan")
-    vw::vw_throw(vw::ArgumentErr() << "Cannot specify --square-pixels unless creating "
+  if (opt.non_square_pixels && opt.sensor_type != "linescan")
+    vw::vw_throw(vw::ArgumentErr() << "Cannot specify --non-square-pixels unless creating "
       << "linescan cameras.\n");
 
   if (opt.sensor_type == "linescan" && opt.save_as_csm) 
@@ -357,7 +349,8 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
 
   // Check for sensor type
   if (opt.sensor_type != "pinhole" && opt.sensor_type != "linescan")
-    vw::vw_throw(vw::ArgumentErr() << "The sensor type must be either pinhole or linescan.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "The sensor type must be either pinhole or linescan.\n");
 
   // Create the output directory based on the output prefix
   vw::create_out_dir(opt.out_prefix);
@@ -424,6 +417,7 @@ int main(int argc, char *argv[]) {
     std::vector<vw::CamPtr> cams;
     bool external_cameras = false;
     std::string suffix = ""; 
+    Eigen::Affine3d ref2sensor = Eigen::Affine3d::Identity();
     int first_pos = 0; // used with linescan poses, which start before first image line
     if (!opt.camera_list.empty()) {
       // Read the cameras
@@ -447,17 +441,19 @@ int main(int argc, char *argv[]) {
                           cam2world_no_jitter, ref_cam2world);
       // Generate cameras
       if (!opt.rig_config.empty()) {
-        asp::genRigCamerasImages(opt, dem_georef, positions, cam2world, ref_cam2world,
-          dem, height_guess, ortho_georef, ortho, ortho_nodata_val);
+        asp::genRigCamerasImages(opt, orbit_len, dem_georef, positions, cam2world, 
+                                 cam2world_no_jitter, ref_cam2world, 
+                                 first_pos, dem, height_guess, 
+                                 ortho_georef, ortho, ortho_nodata_val);
       } else if (opt.sensor_type == "pinhole") {
         bool have_rig = false;
-        Eigen::Affine3d ref2sensor = Eigen::Affine3d::Identity(); // not used
         asp::genPinholeCameras(opt, dem_georef, positions, cam2world, ref_cam2world,
                                have_rig, ref2sensor, suffix, cam_names, cams);
       } else {
+        bool have_rig = false;
         asp::genLinescanCameras(orbit_len, dem_georef, dem, first_pos, positions, 
           cam2world, cam2world_no_jitter, ref_cam2world, height_guess,
-          opt, cam_names, cams); // outputs
+          have_rig, ref2sensor, suffix, opt, cam_names, cams); // outputs
       }
     }
 

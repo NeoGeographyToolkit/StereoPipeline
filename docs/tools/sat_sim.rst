@@ -5,7 +5,7 @@ sat_sim
 
 The ``sat_sim`` satellite simulator program models a satellite traveling around
 a planet and taking pictures. It can either create camera models (Pinhole or
-Linescan), or read them from disk. In either case it creates synthetic images
+linescan), or read them from disk. In either case it creates synthetic images
 for the given cameras. This tool can model camera jitter and a rig.  
 
 The inputs are a DEM and georeferenced image (ortho image) of the area of
@@ -356,9 +356,9 @@ only the pitch amplitudes are nonzero, and are equal to 1 micro radian.
 Linescan cameras
 ^^^^^^^^^^^^^^^^
 
-The ``sat_sim`` tool can be used to simulate Linescan cameras, with or without
-jitter. Then, instead of many Pinhole cameras and/or images along the orbit, a
-single Linescan camera and/or image will be created. 
+The ``sat_sim`` tool can be used to simulate linescan cameras and images, with
+or without jitter. Then, instead of many Pinhole cameras and/or images along the
+orbit, a single Linescan camera and/or image will be created. 
 
 The option ``--num`` (or ``--frame-rate``) will control how many camera samples
 are created between the first and last image lines (including these lines). An
@@ -372,18 +372,18 @@ samples.
 All above modes are supported. One has to add to ``sat_sim`` the option
 ``--sensor-type linescan``.
 
-Add the option ``--square-pixels`` to autocompute and override the input image
-height (number of scan lines, the second value in ``--image-size``) to ensure
-that the horizontal and vertical ground sample distances are very similar.
-The produced image height will be the same regardless of amount of jitter 
-in the input cameras or whether jitter is modeled at all.
+By default, if the linescan cameras are not provided with ``--camera-list``, the
+input image height is auto-computed so that the horizontal and vertical ground
+sample distances are very similar. The produced image height will be the same
+regardless of amount of jitter in the input cameras or whether jitter is modeled
+at all. This can be overridden with ``--non-square-pixels``.
 
 When creating synthetic linescan cameras, the row coordinate of the optical
 center (the second value in ``--optical-center``) will be ignored and will be
 treated as set to 0. Hence, we assume that the ray from the camera center that
 is perpendicular to the sensor plane intersects the single-row sensor array. 
 
-The produced Linescan camera is in the CSM model state format
+The produced linescan cameras are in the CSM model state format
 (:numref:`csm_state`). This is a standard CSM format and can be read by all ASP
 tools including this one.
 
@@ -406,14 +406,11 @@ also model along-track jitter.
       --optical-center 500 500           \
       --image-size 1000 1000             \
       --sensor-type linescan             \
-      --square-pixels                    \
       --jitter-frequency 5               \
       --velocity 7500                    \
       --horizontal-uncertainty '0 2 0'   \
       --jitter-phase "0.4 0.8 1.2"       \
       -o jitter2/run
-
-Note that the image height will be overridden given the ``--square-pixels`` option.
 
 See :numref:`jitter_sat_sim` for how such cameras can be used with ASP's jitter solver.
 
@@ -674,12 +671,13 @@ Command-line options
     the orbit. 
 
 --sensor-type <string (default="pinhole")>
-    Sensor type for created cameras and images. Can be one of: pinhole, linescan.
+    Sensor type for created cameras and images. Can be one of: ``pinhole``,
+    ``linescan``.
 
---square-pixels
-    When creating linescan images, override the image height (the second value
-    in ``--image-size``) to ensure that the horizontal and vertical ground
-    sample distances are very similar.
+--non-square-pixels
+    When creating linescan cameras and images, use the provided image height in
+    pixels, even if that results in non-square pixels. The default is to
+    auto-compute the image height.
 
 --first-index <int (default: -1)>
     Index of first camera and/or image to generate, starting from 0. If not set,

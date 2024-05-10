@@ -48,7 +48,7 @@ struct SatSimOptions: vw::GdalWriteOptions {
   std::vector<double> jitter_frequency, jitter_amplitude, jitter_phase, horizontal_uncertainty;
   std::string jitter_frequency_str, jitter_amplitude_str, jitter_phase_str, 
     horizontal_uncertainty_str, rig_config, sensor_name;
-  bool no_images, save_ref_cams, square_pixels, save_as_csm;
+  bool no_images, save_ref_cams, non_square_pixels, save_as_csm;
   asp::RigSet rig;
   SatSimOptions() {}
 };
@@ -109,16 +109,24 @@ void genImages(SatSimOptions const& opt,
     float ortho_nodata_val);
 
 // Generate the cameras and images for a rig
-void genRigCamerasImages(SatSimOptions    const & opt,
-            vw::cartography::GeoReference const & dem_georef,
-            std::vector<vw::Vector3>      const & positions,
-            std::vector<vw::Matrix3x3>    const & cam2world,
-            std::vector<vw::Matrix3x3>    const & ref_cam2world,
-            vw::ImageViewRef<vw::PixelMask<float>> dem,
-            double height_guess,
-            vw::cartography::GeoReference const& ortho_georef,
-            vw::ImageViewRef<vw::PixelMask<float>> ortho,
-            float ortho_nodata_val);
+void genRigCamerasImages(SatSimOptions                       & opt,
+                         double                                orbit_len,
+                         vw::cartography::GeoReference const & dem_georef,
+                         std::vector<vw::Vector3>      const & positions,
+                         std::vector<vw::Matrix3x3>    const & cam2world,
+                         std::vector<vw::Matrix3x3>    const & cam2world_no_jitter,
+                         std::vector<vw::Matrix3x3>    const & ref_cam2world,
+                         int                                   first_pos,
+                         vw::ImageViewRef<vw::PixelMask<float>> dem,
+                         double height_guess,
+                         vw::cartography::GeoReference const& ortho_georef,
+                         vw::ImageViewRef<vw::PixelMask<float>> ortho,
+                         float ortho_nodata_val);
+
+// Given a transform from ref sensor to world, the ref sensor to current sensor,
+// create the transform from current sensor to world. Do it in-place. 
+void applyRigTransform(Eigen::Affine3d const & ref_to_sensor,
+                       vw::Vector3 & ctr, vw::Matrix3x3 & cam2world);
 
 // A little function to avoid repetitive code in many places.
 // Get the value of a map key if known to exist.

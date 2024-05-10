@@ -23,6 +23,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Camera/SatSim.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Camera/SyntheticLinescan.h>
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/CameraBBox.h>
@@ -974,14 +975,14 @@ void genPinholeCameras(SatSimOptions      const & opt,
     // Check if we do a range
     if (skipCamera(i, opt)) continue;
 
-    vw::vw_out() << "Writing: " << camName << std::endl;
+    vw::vw_out() << "Writing: " << camName << "\n";
     if (opt.save_as_csm) 
       csmPtr->saveState(camName);
     else
       pinPtr->write(camName);
 
     if (opt.save_ref_cams) {
-      std::string refCamName = genRefPrefix(opt, i) + ext;
+      std::string refCamName = genRefPrefix(opt, i) + suffix + ext;
       vw::vw_out() << "Writing: " << refCamName << std::endl;
       if (opt.save_as_csm)
         csmRefCam.saveState(refCamName);
@@ -1275,24 +1276,23 @@ void genImages(SatSimOptions const& opt,
 }
 
 // Generate the cameras and images for a rig
-void genRigCamerasImages(SatSimOptions    const & opt,
+void genRigCamerasImages(SatSimOptions          & opt,
+            double                                orbit_len,     
             vw::cartography::GeoReference const & dem_georef,
             std::vector<vw::Vector3>      const & positions,
             std::vector<vw::Matrix3x3>    const & cam2world,
+            std::vector<vw::Matrix3x3>    const & cam2world_no_jitter,
             std::vector<vw::Matrix3x3>    const & ref_cam2world,
+            int                                   first_pos,
             vw::ImageViewRef<vw::PixelMask<float>> dem,
             double height_guess,
             vw::cartography::GeoReference const& ortho_georef,
             vw::ImageViewRef<vw::PixelMask<float>> ortho,
             float ortho_nodata_val) {
-
   // Sanity checks
   if (opt.rig_config == "")            
     vw::vw_throw(vw::ArgumentErr() << "The rig configuration file must be set.\n");
   
-  if (opt.sensor_type != "pinhole")
-    vw::vw_throw(vw::ArgumentErr() << "Only pinhole cameras are supported with a rig.\n");
-
   std::vector<std::string> sensor_names;
   if (opt.sensor_name == "all")
     sensor_names = opt.rig.cam_names; 
@@ -1322,7 +1322,7 @@ void genRigCamerasImages(SatSimOptions    const & opt,
     local_opt.image_size[1]     = params.image_size[1];
     
     // The transform from the reference sensor to the current sensor
-    Eigen::Affine3d ref2cam = opt.rig.ref_to_cam_trans[sensor_index];
+    Eigen::Affine3d ref2sensor = opt.rig.ref_to_cam_trans[sensor_index];
     
     // Must pass this in together with bool have_rig = true.
     bool have_rig = true;
@@ -1332,8 +1332,14 @@ void genRigCamerasImages(SatSimOptions    const & opt,
     std::vector<vw::CamPtr>   cams;
     // The suffix is needed to distinguish the cameras and images for each sensor
     std::string suffix = "_" + sensor_names[sensor_it]; 
-    asp::genPinholeCameras(local_opt, dem_georef, positions, cam2world, ref_cam2world,
-                           have_rig, ref2cam, suffix, cam_names, cams);
+    if (opt.sensor_type == "pinhole")
+      asp::genPinholeCameras(local_opt, dem_georef, positions, cam2world, ref_cam2world,
+                             have_rig, ref2sensor, suffix, cam_names, cams);
+    else
+      asp::genLinescanCameras(orbit_len, dem_georef, dem, first_pos, positions, 
+           cam2world, cam2world_no_jitter, ref_cam2world, height_guess,
+           have_rig, ref2sensor, suffix, local_opt, cam_names, cams);
+
     bool external_cameras = false;
     if (!opt.no_images)
       asp::genImages(local_opt, external_cameras, cam_names, cams, suffix, dem_georef, dem, 

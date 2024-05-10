@@ -1356,7 +1356,6 @@ Create a forward-looking linescan image and camera, with no jitter::
 
     sat_sim $opt                  \
       --sensor-type linescan      \
-      --square-pixels             \
       --roll 0 --pitch 30 --yaw 0 \
       --horizontal-uncertainty    \
       "0.0 0.0 0.0"               \
@@ -1367,7 +1366,6 @@ Create a forward-looking linescan camera, with no images, with pitch jitter::
     sat_sim $opt                  \
       --no-images                 \
       --sensor-type linescan      \
-      --square-pixels             \
       --roll 0 --pitch 30 --yaw 0 \
       --horizontal-uncertainty    \
       "0.0 2.0 0.0"               \
