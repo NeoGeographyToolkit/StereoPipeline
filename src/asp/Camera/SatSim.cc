@@ -232,7 +232,7 @@ public:
 
     result_type result;
     result[0] = err;
-    //std::cout << "t = " << t << ", err = " << err << std::endl;
+    //vw::vw_out() << "t = " << t << ", err = " << err << std::endl;
     return result;
   }
 };
@@ -275,8 +275,8 @@ void findBestProjCamLocation
     double t2 = param_scale_factor * l2;
     P1 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
     P2 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
-    std::cout << "Param scale factor is " << param_scale_factor << std::endl;
-    std::cout << "Distance must be 1 meter: " << norm_2(P1 - P2) << std::endl;
+    vw::vw_out() << "Param scale factor is " << param_scale_factor << std::endl;
+    vw::vw_out() << "Distance must be 1 meter: " << norm_2(P1 - P2) << std::endl;
   }
 #endif
 
@@ -292,12 +292,12 @@ void findBestProjCamLocation
   double spacing = 1000.0 / slope;
 #if 0
   // Verification that spacing is correct
-  std::cout << "Spacing is " << spacing << std::endl;
+  vw::vw_out() << "Spacing is " << spacing << std::endl;
   {
     double t1 = 0, t2 = spacing;
     P1 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
     P2 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
-    std::cout << "Distance must be 100 meters: " << norm_2(P2 - P1) << std::endl;
+    vw::vw_out() << "Distance must be 100 meters: " << norm_2(P2 - P1) << std::endl;
   }
 #endif
 
@@ -316,7 +316,7 @@ void findBestProjCamLocation
   // First need to search around for a good initial guess. This is a bug fix.
   // Number of attempts times spacing in m is 1e+8 m, which is 100,000 km. 
   // Enough for any orbit length.
-  // std::cout << "Searching for a good initial guess.\n";
+  // vw::vw_out() << "Searching for a good initial guess.\n";
   int attempts = int(1e+8);
   double best_val = g_big_val;
   for (int i = 0; i < attempts; i++) {
@@ -329,7 +329,7 @@ void findBestProjCamLocation
       len2[0] = t / param_scale_factor;
       double val = model(len2)[0];
 
-      //std::cout << "len, val, attempt = " << len2[0] << ' ' << val << ' ' << i << std::endl;
+      //vw::vw_out() << "len, val, attempt = " << len2[0] << ' ' << val << ' ' << i << std::endl;
 
       if (val < best_val) {
         best_val = val;
@@ -346,7 +346,7 @@ void findBestProjCamLocation
   } // end doing attempts
 
   // Run the optimization with the just-found initial guess
-  // std::cout << "Running the solver.\n";
+  // vw::vw_out() << "Running the solver.\n";
   len = vw::math::levenberg_marquardt(model, len, observation, status, 
                                       max_abs_tol, max_rel_tol, num_max_iter);
 
@@ -357,7 +357,7 @@ void findBestProjCamLocation
 // Turning this off, as the minimum cost function may be far from zero.
 // May need to add some other check here.
   if (std::abs(model(len)[0]) > 1.0) {
-    std::cout << "Abs of model value is " << std::abs(model(len)[0]) << std::endl;
+    vw::vw_out() << "Abs of model value is " << std::abs(model(len)[0]) << std::endl;
     vw::vw_throw(vw::ArgumentErr() << "Error: The solver for finding correct ends of "
       << "orbital segment did not converge to a good solution. Check your DEM, " 
       << "roll, pitch, yaw, and ground path endpoints.\n");
@@ -372,6 +372,7 @@ void findBestProjCamLocation
 // A function to compute orbit length in ECEF given its endpoints in projected
 // coordinates. 1e+5 points are used to approximate the orbit length. Should be
 // enough. This gets slow when using 1e+6 points.
+// TODO(oalexan1): This may not be accurate enough for very long orbit segments.
 double calcOrbitLength(vw::Vector3 const& first_proj,
                        vw::Vector3 const& last_proj,
                        vw::cartography::GeoReference const& dem_georef) {
@@ -470,7 +471,7 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
 
   // Initialize the outputs, this value will change
   num_cameras = 0;
-
+  
   // Orbit length in meters. Throw an error if getting an orbit of length 0,
   // as that suggests there was a failure in finding in orbit end points.
   double orbit_len = calcOrbitLength(first_proj, last_proj, dem_georef);
@@ -503,6 +504,7 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
   // Travel along the orbit in very small increments. Return the last point
   // before exceeding the orbit length. 
   int num = 1000000; // one million samples along the orbit should be enough
+  // TODO(oalexan1): Something more clever and faster should be done.
   vw::Vector3 beg = vw::cartography::projToEcef(dem_georef, first_proj);
   vw::Vector3 end = beg;
   vw::Vector3 out_proj = first_proj; // will keep the result here
@@ -539,9 +541,9 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
 }
 
 // Given the direction going from first_proj to last_proj, and knowing
-// that we are at curr_proj, find if we are before or after orig_first_proj.
+// that we are at curr_proj, find if we are before or after ref_proj.
 // Return 1 if after, -1 if before, 0 if at that point. 
-double findDirectionAlongOrbit(vw::Vector3 const& orig_first_proj,
+double findDirectionAlongOrbit(vw::Vector3 const& ref_proj,
                                 vw::Vector3 const& first_proj,
                                 vw::Vector3 const& last_proj,
                                 vw::Vector3 const& curr_proj) {
@@ -551,51 +553,44 @@ double findDirectionAlongOrbit(vw::Vector3 const& orig_first_proj,
   if (len1 != 0)
     dir1 = dir1 / len1;
 
-  // Handle the case when we are at orig_first_proj
-  vw::Vector3 dir2 = curr_proj - orig_first_proj;
+  // Handle the case when we are at ref_proj
+  vw::Vector3 dir2 = curr_proj - ref_proj;
   double len2 = norm_2(dir2);
   if (len2 == 0)
     return 0;
 
    dir2 = dir2 / len2;
    if (norm_2(dir1 - dir2) <= norm_2(dir1 + dir2))
-     sign = 1.0; // curr_proj is after orig_first_proj
+     sign = 1.0; // curr_proj is after ref_proj
    else  
-    sign = -1.0; // curr_proj is before orig_first_proj
+    sign = -1.0; // curr_proj is before ref_proj
 
   return sign;
 }
 
+// Given the direction in orbit from first_proj to last_proj (these determine
+// the orbit geometry), find the signed distance along the orbit (in ECEF) from
+// ref_proj to curr_proj.
+double signedOrbitDistance(vw::Vector3 const& curr_proj,
+                           vw::Vector3 const& ref_proj,
+                           vw::Vector3 const& first_proj,
+                           vw::Vector3 const& last_proj,
+                           vw::cartography::GeoReference const& dem_georef) {
+  double dist = calcOrbitLength(ref_proj, curr_proj, dem_georef);
+  double sign = findDirectionAlongOrbit(ref_proj, first_proj, last_proj, curr_proj);
+  return sign * dist;
+}
+
 // Calc the jitter amplitude at a given location along the orbit. We will
-// accumulate over all frequencies. We measure the orbit length from original
-// user-set starting point, even if the first camera is not there. That because
-// we will end up using different orbital segments for different roll, pitch,
-// and yaw, but we want to always measure from same starting point. Use a
-// different amplitude and phase shift for roll, pitch, and yaw. But all these
-// share the same set of frequencies.
+// accumulate over all frequencies. The signed distance is from the reference
+// orbit point. Use a different amplitude and phase shift for roll, pitch, and
+// yaw. But all these share the same set of frequencies.
 vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
-                              vw::Vector3 const& orig_first_proj, // user-set
-                              vw::Vector3 const& first_proj, // first actual camera
-                              vw::Vector3 const& last_proj,  // last actual camera
-                              vw::cartography::GeoReference const& dem_georef,
-                              double t) {
+                                vw::Vector3   const& curr_proj, // curr proj camera pos
+                                double signed_dist) { // distance from ref_proj
 
+  double height_above_datum = curr_proj[2]; // curr satellite height
   vw::Vector3 amp(0, 0, 0);
-
-  // Current postion in projected coordinates and height above datum for it
-  vw::Vector3 curr_proj = first_proj * (1.0 - t) + last_proj * t;
-  double height_above_datum = curr_proj[2];
-
-  // Length of the orbit from starting point, orig_first_proj, before
-  // adjustment for roll, pitch, and yaw. This way when different orbital
-  // segments are used, for different roll, pitch, and yaw, d will not
-  // always start as 0 at the beginning of each segment. TODO(oalexan1):
-  // Better calculate orbit length from prev proj to curr proj, then add up
-  // to previous value.
-  double dist = calcOrbitLength(orig_first_proj, curr_proj, dem_georef);
-
-  // Find if we are before or after orig_first_proj. This will multiply 'dist' below.
-  double sign = findDirectionAlongOrbit(orig_first_proj, first_proj, last_proj, curr_proj);
 
   for (size_t freq_iter = 0; freq_iter < opt.jitter_frequency.size(); freq_iter++) {
     double f = opt.jitter_frequency[freq_iter];
@@ -620,9 +615,9 @@ vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
         // Convert to degrees
         a = a * 180.0 / M_PI;
       }
-
+      
       // Compute the jitter, in degrees. Add the phase.
-      amp[c] += a * sin(sign * dist * 2.0 * M_PI / T + opt.jitter_phase[index]);
+      amp[c] += a * sin(signed_dist * 2.0 * M_PI / T + opt.jitter_phase[index]);
     }
 
   } // End loop through frequencies
@@ -680,9 +675,14 @@ void calcTrajectory(SatSimOptions & opt,
   bool have_roll_pitch_yaw = !std::isnan(opt.roll) && !std::isnan(opt.pitch) &&
       !std::isnan(opt.yaw);
 
-  // Starting point of orbit before we adjust it to match the desired
-  // ground locations and roll/pitch/yaw angles.
-  vw::Vector3 orig_first_proj = first_proj;
+  // Projected orbital location when looking straight down at the first ground point.
+  // This is the reference location for measuring time and jitter from.
+  vw::Vector3 ref_proj = first_proj;
+  if (have_ground_pos)
+    findBestProjCamLocation(opt, dem_georef, dem, height_guess, first_proj, last_proj,
+                            proj_along, proj_across, delta, 
+                            0, 0, 0, // roll, pitch, yaw
+                            opt.first_ground_pos, ref_proj);
 
   if (have_ground_pos && have_roll_pitch_yaw) {
     // Find best starting and ending points for the orbit given desired
@@ -725,10 +725,10 @@ void calcTrajectory(SatSimOptions & opt,
                       last_proj, opt.num_cameras);                      
   }
 
-  orbit_len = calcOrbitLength(first_proj, last_proj, dem_georef); // will be passed out
+  orbit_len = calcOrbitLength(first_proj, last_proj, dem_georef);
 
   // Good to print these
-  vw::vw_out() << "Orbit length between first and last adjusted cameras: " 
+  vw::vw_out() << "Orbit length between first and last inclination-adjusted cameras: " 
      << orbit_len << " meters.\n"; 
   vw::vw_out() << "Number of camera samples: " << opt.num_cameras << "." << std::endl;
 
@@ -762,7 +762,14 @@ void calcTrajectory(SatSimOptions & opt,
   double inc_amount = 1.0 / double(total);
   tpc.report_progress(0);
 
+  // The signed distance from ref_proj to first_proj. We will add to it the distance
+  // from first_proj to the current point. It will allow us to measure distance
+  // and time from ref_proj.
+  double ref_to_first_signed_dist 
+    = signedOrbitDistance(first_proj, ref_proj, first_proj, last_proj, dem_georef);
+
   for (int i = 0; i < total; i++) {
+    
     // Calc position along the trajectory and normalized along and across vectors
     // in ECEF. Produced along and across vectors are normalized and perpendicular
     // to each other.
@@ -794,11 +801,15 @@ void calcTrajectory(SatSimOptions & opt,
     ref_cam2world[i] = cam2world[i];
     cam2world_no_jitter[i] = cam2world[i];
 
-    // See if to apply the jitter
+    // Current postion in projected coordinates and height above datum for it
+    vw::Vector3 curr_proj = first_proj * (1.0 - t) + last_proj * t;
+
+    // Signed distance from ref_proj to curr_proj. 
+    double signed_dist = ref_to_first_signed_dist + t * orbit_len;
+      
     vw::Vector3 jitter_amp(0, 0, 0);
     if (model_jitter)
-      jitter_amp = calcJitterAmplitude(opt, orig_first_proj, first_proj, last_proj, 
-                                       dem_georef, t);                       
+      jitter_amp = calcJitterAmplitude(opt, curr_proj, signed_dist);
     
     // If to apply a roll, pitch, yaw rotation
     if (have_roll_pitch_yaw) {

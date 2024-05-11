@@ -137,6 +137,13 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
      ("sensor-name", po::value(&opt.sensor_name)->default_value("all"),
        "Name of the sensor in the rig to simulate. If not set, will simulate all sensors. "
        "If more than one, list them separated by commas (no spaces).")
+     ("model-time", po::bool_switch(&opt.model_time)->default_value(false)->implicit_value(true),
+       "Model time at each camera position. See also --start-time.")
+     ("reference-time", po::value(&opt.ref_time)->default_value(946684800.0),
+       "The measured time when the satellite is along given orbit, in nadir orientation, "
+       "with the center view direction closest to the ground point at --first-ground-pos. "
+       "A unique value for each orbit is suggested. The default corresponds to "
+       "2000-01-01T00:00:00 GMT/UTC. See also --model-time.")
     ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
      "When intersecting a ray with a DEM, use this as the height error tolerance "
      "(measured in meters). It is expected that the default will be always good enough.")
@@ -352,6 +359,20 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
     vw::vw_throw(vw::ArgumentErr() 
                  << "The sensor type must be either pinhole or linescan.\n");
 
+  if (opt.model_time) {
+    // Must have the velocity set
+    if (std::isnan(opt.velocity))
+      vw::vw_throw(vw::ArgumentErr() << "Must set the velocity to model time.\n");
+      
+     // Must have first ground pos
+    if (std::isnan(norm_2(opt.first_ground_pos)))
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Must set the first ground position to model time.\n"); 
+      
+    if (opt.camera_list != "")
+      vw::vw_throw(vw::ArgumentErr() << "Cannot model time with --camera-list.\n");
+  }
+  
   // Create the output directory based on the output prefix
   vw::create_out_dir(opt.out_prefix);
 
@@ -413,6 +434,9 @@ int main(int argc, char *argv[]) {
     vw::cartography::GeoReference ortho_georef;
     vw::cartography::readGeorefImage(opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
 
+    // double NaN = std::numeric_limits<double>::quiet_NaN();
+    // vw::Vector3 ref_pos(NaN, NaN, NaN);
+    
     std::vector<std::string> cam_names;
     std::vector<vw::CamPtr> cams;
     bool external_cameras = false;
