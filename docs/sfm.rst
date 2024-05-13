@@ -372,6 +372,10 @@ provides the ``icebridge_kmz_to_csv`` tool (see
 camera positions from the kmz files available for each IceBridge
 flight at http://asapdata.arc.nasa.gov/dms/missions.html.
 
+For such logic based on camera positions to work well, the camera positions
+must not be along a line, as then the 3D transform computed based on these
+positions will not be well-defined.
+
 Another option which is useful when processing IceBridge data is the
 ``--position-filter-dist`` option for ``bundle_adjust`` (measured in meters).
 IceBridge data sets contain a large number of images and when processing many at
@@ -380,7 +384,9 @@ limit interest-point matching to image pairs which are actually close enough to
 overlap. A good way to determine what distance to use is to load the camera
 position kmz file from their website into Google Earth and use the ruler tool to
 measure the distance between a pair of frames that are as far apart as you want
-to match. Commands using these options may look like this::
+to match. 
+
+Commands using these options may look like this::
 
     icebridge_kmz_to_csv 1000123_DMS_Frame_Events.kmz \
       camera_positions.csv
