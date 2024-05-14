@@ -375,9 +375,9 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
   
   // Check the reference time. We want the time accurate to within 1e-8 seconds,
   // and that is tricky when the time is large.
-  if (std::abs(opt.ref_time) >= 1e+6)
-    vw::vw_throw(vw::ArgumentErr() << "The reference time is too large. This can "
-                 << "cause numerical issues.\n");
+  if (opt.ref_time <= 0 || opt.ref_time >= 1e+6)
+    vw::vw_throw(vw::ArgumentErr() << "The reference time is not positive or is too large. "
+                 << "This can cause numerical issues.\n");
     
   // Create the output directory based on the output prefix
   vw::create_out_dir(opt.out_prefix);

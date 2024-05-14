@@ -481,9 +481,9 @@ with the camera pitch being --40, 0, and 40 degrees, respectively (so considerin
 *forward*, *nadir*, and *backward*-looking cameras), the created cameras will have
 names that look like::
 
-  out/out-009997.588028494_haz_cam.tsai
-  out/out-010000.000000000_haz_cam.tsai
-  out/out-010002.411951096_haz_cam.tsai
+  out/out-0009997.588028494_haz_cam.tsai
+  out/out-0010000.000000000_haz_cam.tsai
+  out/out-0010002.411951096_haz_cam.tsai
 
 This needs ``--reference-time`` to be defined, which is the time when the camera
 looks straight down at the starting point of the ground path. The default

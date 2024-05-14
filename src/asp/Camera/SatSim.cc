@@ -793,8 +793,13 @@ void calcTrajectory(SatSimOptions & opt,
     
     // Time better be positive, otherwise it may be tricky to interpret the timestamp
     // with a dash in front.
-    if (opt.model_time && cam_times[i] <= 0)
-      vw::vw_throw(vw::ArgumentErr() << "Time must be positive. Check --reference-time.\n");
+    if (opt.model_time) {
+      if (cam_times[i] <= 0)
+       vw::vw_throw(vw::ArgumentErr() << "Time must be positive. Check --reference-time.\n");
+      if (cam_times[i] >= 1e+6)
+       vw::vw_throw(vw::ArgumentErr() << "Time must be less than 1e+6. Check "
+                    << "--reference-time.\n");
+    }
       
     // Calc position along the trajectory and normalized along and across vectors
     // in ECEF. Produced along and across vectors are normalized and perpendicular
@@ -865,12 +870,12 @@ std::string genPrefix(SatSimOptions const& opt, int i, double timestamp, bool is
   if (!opt.model_time) {
     return opt.out_prefix + ref + "-" + num2str(10000 + i);
   } else {
-    // If modeling time, will do sprintf with 7 digits before dot and 9 after.
-    // This is to ensure that the time is unique. Use fixed precision.
-    // Use leading zeros to ensure that the string is always the same length
-    // and will be sorted correctly.
-    char buffer[256];  
-    snprintf(buffer, sizeof(buffer), "%s%s-%016.9f", 
+    // If modeling time, will do sprintf with 7 digits before dot and 9 after
+    // (with the dot, there will be 17 characters in total). This is to ensure
+    // that the time is unique. Use fixed precision. Use leading zeros to ensure
+    // that the string is always the same length and will be sorted correctly.
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer), "%s%s-%017.9f", 
              opt.out_prefix.c_str(), ref.c_str(), timestamp);
     
     return std::string(buffer);
