@@ -90,27 +90,58 @@ mapproject the images as ASP can usually get good results. More
 aggressive terrain might require an additional ``cam2map4stereo.py``
 step.
 
+In case of failure, it is suggested to re-run this tool with the option
+``--keep`` to keep the intermediate files, and then inspect the ones before
+the final step. 
+
 Running stereo
 ~~~~~~~~~~~~~~
 
 Stereo can then be run either with unstitched or stitched .cub files.
-Here's an example::
+Here's an example with the unstitched LE images::
 
-    parallel_stereo M104318871LE*.mosaic.norm.cub  \
-      M104311715LE*.mosaic.norm.cub result/output  \
-      --alignment-method affineepipolar
+    parallel_stereo M104318871LE.cub M104311715LE.cub  \
+      --alignment-method affineepipolar                \
+      run/run
 
+Create a DEM, orthoimage, and error image with ``point2dem``
+(:numref:`point2dem`)::
+ 
+    point2dem --streographic --auto-proj-center \
+      --errorimage --orthoimage                 \
+        run/run-PC.tif run/run-L.tif
+        
 Check the stereo convergence angle as printed during preprocessing
 (:numref:`stereo_pairs`). That angle is often too small for LRO NAC,
 and then the results are not going to be great.
 
+Check the triangulation error (:numref:`triangulation_error`) in the produced
+error image. This may suggest that bundle adjustment may be needed
+(:numref:`bundle_adjust`).
+
 See :numref:`nextsteps` for a discussion about various stereo
 speed-vs-quality choices. Consider using mapprojection
-(:numref:`mapproj-example`).
+(:numref:`mapproj-example`) for best results for steep slopes.
 
-Mapprojection can also be done with the ISIS tools
-(:numref:`mapproj_with_cam2map`). Better mapprojection results can be
-achieved by projecting on a higher resolution elevation source like
-the WAC DTM. This is achieved using the ISIS command ``demprep`` and
-attaching to cube files via the ``spiceinit`` SHAPE and MODEL options.
+It is strongly suggested to convert the cameras to CSM 
+(:numref:`csm_linescan`). This makes mapprojection faster, 
+and also can help solve for jitter (:numref:`jitter_solve`).
+
+Validation and alignment
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+A `LOLA <https://ode.rsl.wustl.edu/moon/lrololadataPointSearch.aspx>`_ point
+cloud can be downloaded for the area of interest. Download the RDR
+``PointPerRow`` product.
+
+The produced DEM can be aligned to LOLA with ``pc_align`` (:numref:`pc_align`),
+with a command as::
+
+    pc_align --max-displacement 500          \
+     --csv-format 2:lon,3:lat,4:radius_km    \
+     --save-inv-transformed-reference-points \
+     run/run-DEM.tif LOLA.csv                \
+     -o run/run-align
+     
+    
 

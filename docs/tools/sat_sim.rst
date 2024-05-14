@@ -6,7 +6,8 @@ sat_sim
 The ``sat_sim`` satellite simulator program models a satellite traveling around
 a planet and taking pictures. It can either create camera models (Pinhole or
 linescan), or read them from disk. In either case it creates synthetic images
-for the given cameras. This tool can model camera jitter and a rig.  
+for the given cameras. This tool can model camera jitter, a rig, and recording
+acquisition time.
 
 The inputs are a DEM and georeferenced image (ortho image) of the area of
 interest. See :numref:`sat_sim_dem` for how to create such inputs.
@@ -92,7 +93,7 @@ The produced image and camera names will be along the lines of::
     run/run-10000.tsai
 
 These names will be adjusted per sensor, if a rig is present
-(:numref:`sat_sim_rig`).
+(:numref:`sat_sim_rig`), or if time is modeled (:numref:`sat_sim_time`).
 
 .. figure:: ../images/sfm_view_nadir_clip.png
    :name: sat_sim_illustration_nadir_clip
@@ -438,7 +439,9 @@ rig option, and do not set the image size, focal length, and optical center on
 the command line, as those are set by the rig. 
 
 The produced image and camera file names will include the sensor name, before
-the image/camera extension. Example: ``out/out-10000_haz_cam.json``.
+the image/camera extension. Example::
+
+  out/out-10000_haz_cam.tsai
 
 The option ``--sensor-type`` controls the type of each rig sensor. A single
 value will apply to all sensors. To have per-sensor type, set a list of values
@@ -455,6 +458,44 @@ using the option ``--save-as-csm``.
    
    Illustration of ``sat_sim`` creating a rig of 3 cameras. The resulting
    images have been mapprojected onto the ground.
+
+.. _sat_sim_time:
+
+Modeling time
+^^^^^^^^^^^^^
+
+Given two points on the orbit (specified by ``--first`` and ``--last``), the
+starting ground position (``--first-ground-pos``), and satellite velocity
+(``--velocity``), the option ``--model-time`` ensures the precise time is
+recorded for each acquisition.
+
+The time is measured in seconds in double precision. Time is important for
+pointing control with a rig.
+
+The time will be saved with the linescan camera metadata. It will be part of the
+name of the pinhole cameras and images (but not part of the name for linescan
+sensors).
+
+As an example, given an orbit, and three separate invocations of ``sat_sim``,
+with the camera pitch being --40, 0, and 40 degrees, respectively (so considering
+*forward*, *nadir*, and *backward*-looking cameras), the created cameras will have
+names that look like::
+
+  out/out-009997.588028494_haz_cam.tsai
+  out/out-010000.000000000_haz_cam.tsai
+  out/out-010002.411951096_haz_cam.tsai
+
+This needs ``--reference-time`` to be defined, which is the time when the camera
+looks straight down at the starting point of the ground path. The default
+value is 10,000 seconds. 
+
+For different orbits it is suggested to use a different value for
+``--reference-time``. It is suggested to keep the reference time in the 10,000 -
+100,000 range to ensure the produced times are positive but not too large, which
+can result in loss of precision.
+
+Here we also assumed a rig was present (:numref:`sat_sim_rig`), with the sensor
+name being ``haz_cam``.
 
 .. _roll_pitch_yaw_def:
 
@@ -717,6 +758,16 @@ Command-line options
 --sensor-name <string (default="all")>
     Name of the sensor in the rig to simulate (:numref:`sat_sim_rig`). If more
     than one, list them separated by commas (no spaces).
+
+--model-time
+    Model time at each camera position (:numref:`sat_sim_time`). See also
+    ``--reference-time``.
+    
+--reference-time <double (default: 10000.0)>
+    The measured time, in seconds, when the satellite is along given orbit, in nadir
+    orientation, with the center view direction closest to the ground point at
+    ``--first-ground-pos``. A unique value for each orbit is suggested. A large value
+    (millions), may result in numerical issues. See :numref:`sat_sim_time`.
         
 --dem-height-error-tol <float (default: 0.001)>
     When intersecting a ray with a DEM, use this as the height error tolerance

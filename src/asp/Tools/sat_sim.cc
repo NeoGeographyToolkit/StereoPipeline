@@ -139,14 +139,14 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
        "If more than one, list them separated by commas (no spaces).")
      ("model-time", po::bool_switch(&opt.model_time)->default_value(false)->implicit_value(true),
        "Model time at each camera position. See also --start-time.")
-     ("reference-time", po::value(&opt.ref_time)->default_value(946684800.0),
-       "The measured time when the satellite is along given orbit, in nadir orientation, "
-       "with the center view direction closest to the ground point at --first-ground-pos. "
-       "A unique value for each orbit is suggested. The default corresponds to "
-       "2000-01-01T00:00:00 GMT/UTC. See also --model-time.")
-    ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
-     "When intersecting a ray with a DEM, use this as the height error tolerance "
-     "(measured in meters). It is expected that the default will be always good enough.")
+     ("reference-time", po::value(&opt.ref_time)->default_value(10000),
+       "The measured time, in seconds,  when the satellite is along given orbit, in nadir "
+       "orientation, with the center view direction closest to the ground point at "
+       "--first-ground-pos. A unique value for each orbit is suggested. A large value "
+       "(millions), may result in numerical issues.")
+     ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
+      "When intersecting a ray with a DEM, use this as the height error tolerance "
+      "(measured in meters). It is expected that the default will be always good enough.")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -373,6 +373,12 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
       vw::vw_throw(vw::ArgumentErr() << "Cannot model time with --camera-list.\n");
   }
   
+  // Check the reference time. We want the time accurate to within 1e-8 seconds,
+  // and that is tricky when the time is large.
+  if (std::abs(opt.ref_time) >= 1e+6)
+    vw::vw_throw(vw::ArgumentErr() << "The reference time is too large. This can "
+                 << "cause numerical issues.\n");
+    
   // Create the output directory based on the output prefix
   vw::create_out_dir(opt.out_prefix);
 
@@ -434,9 +440,6 @@ int main(int argc, char *argv[]) {
     vw::cartography::GeoReference ortho_georef;
     vw::cartography::readGeorefImage(opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
 
-    // double NaN = std::numeric_limits<double>::quiet_NaN();
-    // vw::Vector3 ref_pos(NaN, NaN, NaN);
-    
     std::vector<std::string> cam_names;
     std::vector<vw::CamPtr> cams;
     bool external_cameras = false;
@@ -453,33 +456,35 @@ int main(int argc, char *argv[]) {
       
     } else {
       // Generate the cameras   
-      double orbit_len = 0.0;
+      double orbit_len = 0.0, first_line_time = 0.0; // will change
       std::vector<vw::Vector3> positions;
       // vector of rot matrices. The matrix cam2world_no_jitter
       // is only needed with linescan cameras, but compute it for consistency 
       // in all cases.
       std::vector<vw::Matrix3x3> cam2world, cam2world_no_jitter, ref_cam2world;
+      std::vector<double> cam_times;
       asp::calcTrajectory(opt, dem_georef, dem, height_guess,
                           // Outputs
-                          first_pos, orbit_len, positions, cam2world, 
-                          cam2world_no_jitter, ref_cam2world);
+                          first_pos, first_line_time, orbit_len, positions, cam2world, 
+                          cam2world_no_jitter, ref_cam2world, cam_times);
       // Generate cameras
       if (!opt.rig_config.empty()) {
         // The rig needs special treatment 
-        asp::genRigCamerasImages(opt, orbit_len, dem_georef, positions, cam2world, 
-                                 cam2world_no_jitter, ref_cam2world, 
-                                 first_pos, dem, height_guess, 
+        asp::genRigCamerasImages(opt, first_line_time, orbit_len, dem_georef, positions, 
+                                 cam2world, cam2world_no_jitter, ref_cam2world, 
+                                 cam_times, first_pos, dem, height_guess, 
                                  ortho_georef, ortho, ortho_nodata_val);
       } else if (opt.sensor_type == "pinhole") {
         bool have_rig = false;
         asp::genPinholeCameras(opt, dem_georef, positions, cam2world, ref_cam2world,
-                               have_rig, ref2sensor, suffix, cam_names, cams);
+                               cam_times, have_rig, ref2sensor, suffix, cam_names, cams);
       } else {
         // Linescan
         bool have_rig = false;
-        asp::genLinescanCameras(orbit_len, dem_georef, dem, first_pos, positions, 
-          cam2world, cam2world_no_jitter, ref_cam2world, height_guess,
-          have_rig, ref2sensor, suffix, opt, cam_names, cams); // outputs
+        asp::genLinescanCameras(first_line_time, orbit_len, dem_georef, dem, first_pos, 
+                                positions, cam2world, cam2world_no_jitter, ref_cam2world, 
+                                cam_times, height_guess,
+                                have_rig, ref2sensor, suffix, opt, cam_names, cams); // out
       }
     }
 

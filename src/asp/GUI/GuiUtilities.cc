@@ -386,6 +386,9 @@ void read_csv_metadata(std::string              const& csv_file,
   // via --csv-format-str.
   std::string local_csv_format_str;
   
+  bool guessed_lola = (csv_file.find("RDR") != std::string::npos &&
+                       csv_file.find("PointPerRow") != std::string::npos);
+
   if (csv_format != "") {
     local_csv_format_str = csv_format;
   } else {
@@ -403,8 +406,14 @@ void read_csv_metadata(std::string              const& csv_file,
     // the file if not specified the user.
     if (csv_file.find("-diff.csv") != std::string::npos) // geodiff
       local_csv_format_str = "1:lon, 2:lat, 3:height_above_datum";
+    
+    // LOLA  
+    if (local_csv_format_str == "" && guessed_lola) {
+      vw::vw_out() << "Guessing the CSV format for LOLA.\n";
+      local_csv_format_str = "2:lon, 3:lat, 4:radius_km";
+    }
   }
-
+  
   // For polygons, can assume that first coordinate is x and second is y
   if (isPoly && local_csv_format_str.empty())
     local_csv_format_str = "1:x, 2:y";
@@ -470,6 +479,13 @@ void read_csv_metadata(std::string              const& csv_file,
     has_datum = true;
   }
 
+  if (!has_datum && guessed_lola) {
+    vw::vw_out() << "Guessing the datum for LOLA.\n";
+    vw::cartography::Datum datum("D_MOON");
+    georef.set_datum(datum);
+    has_datum = true;
+  }
+  
   if (has_georef) {
     if (!has_datum) {
       popUp("Must specify --csv-datum.");

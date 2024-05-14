@@ -814,7 +814,8 @@ void asp::transform_cameras_with_indiv_image_gcp
 (boost::shared_ptr<ControlNetwork> const& cnet_ptr,
  std::vector<vw::CamPtr> & camera_models) {
   
-  vw_out() << "Applying transform to cameras given several GCP not shared among the images.\n";
+  vw_out() << "Applying transform to cameras given several GCP not shared "
+           << "among the images.\n";
 
   int num_cams = camera_models.size();
 

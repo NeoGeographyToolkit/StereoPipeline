@@ -243,7 +243,8 @@ void populateCsmLinescanRig(double first_line_time, double dt_line,
 }
 // Create and save a linescan camera with given camera positions and orientations.
 // There will be just one of them, as all poses are part of the same linescan camera.
-void genLinescanCameras(double                                 orbit_len,     
+void genLinescanCameras(double                                 first_line_time,
+                        double                                 orbit_len,     
                         vw::cartography::GeoReference  const & dem_georef,
                         vw::ImageViewRef<vw::PixelMask<float>> dem,
                         int                                    first_pos,
@@ -251,6 +252,7 @@ void genLinescanCameras(double                                 orbit_len,
                         std::vector<vw::Matrix3x3>     const & cam2world,
                         std::vector<vw::Matrix3x3>     const & cam2world_no_jitter,
                         std::vector<vw::Matrix3x3>     const & ref_cam2world,
+                        std::vector<double>            const & cam_times,
                         double                                 height_guess,
                         bool                                   have_rig,
                         Eigen::Affine3d                const & ref2sensor,
@@ -263,7 +265,8 @@ void genLinescanCameras(double                                 orbit_len,
   // Sanity checks
   if (cam2world.size() != positions.size() || 
       cam2world_no_jitter.size() != positions.size() ||
-      ref_cam2world.size() != positions.size())
+      ref_cam2world.size() != positions.size() ||
+      cam_times.size() != positions.size())
     vw::vw_throw(vw::ArgumentErr() 
                  << "Expecting as many camera orientations as positions.\n");
     
@@ -271,10 +274,10 @@ void genLinescanCameras(double                                 orbit_len,
   cam_names.clear();
   cams.clear();
   
-  // Parametrize the time by orbit length
-  double first_line_time = 0.0;
-  double last_line_time = orbit_len / opt.velocity;
-  double dt_line = (last_line_time - first_line_time) / (opt.image_size[1] - 1.0);
+  // Measure time based on the length of the segment between 1st and last line.
+  // Must be consistent with calcTrajectory().
+  double orbit_segment_time = orbit_len / opt.velocity;
+  double dt_line = orbit_segment_time / (opt.image_size[1] - 1.0);
 
   // Positions and orientations use the same starting time and spacing. Note
   // that opt.num_cameras is the number of cameras within the desired orbital
@@ -285,11 +288,18 @@ void genLinescanCameras(double                                 orbit_len,
   // image line has time 0. 
   if (first_pos > 0)
     vw::vw_throw(vw::ArgumentErr() << "First position index must be non-positive.\n");
-  double dt_ephem = (last_line_time - first_line_time) / (opt.num_cameras - 1.0);
-  double t0_ephem = first_line_time + first_pos * dt_ephem;
+  double dt_ephem = orbit_segment_time / (opt.num_cameras - 1.0);
   double dt_quat = dt_ephem;
+  double t0_ephem = first_line_time + first_pos * dt_ephem;
   double t0_quat = t0_ephem;
 
+  // Sanity check. The linescan time logic here must agree with the logic in
+  // calcTrajectory(), including for frame cameras.
+  for (size_t i = 0; i < positions.size(); i++) {
+    if (opt.model_time && std::abs(t0_ephem + dt_ephem * i - cam_times[i]) > 1e-8)
+      vw::vw_throw(vw::ArgumentErr() << "Time mismatch. Use a smaller --reference-time.\n");
+  }
+  
   // We have no velocities in this context, so set them to 0
   std::vector<vw::Vector3> velocities(positions.size(), vw::Vector3(0, 0, 0));
   
@@ -326,7 +336,7 @@ void genLinescanCameras(double                                 orbit_len,
     // Adjust the image height to make the pixels square
     opt.image_size[1] = std::max(round(opt.image_size[1] / ratio), 2.0);
     // Must adjust the time spacing to match the new image height
-    dt_line = (last_line_time - first_line_time) / (opt.image_size[1] - 1.0);
+    dt_line = orbit_segment_time / (opt.image_size[1] - 1.0);
     vw::vw_out() << opt.image_size[1] << " pixels, to make the ground "
                  << "projection of an image pixel be roughly square.\n";
 

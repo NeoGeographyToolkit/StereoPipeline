@@ -115,7 +115,7 @@ void calcEcefAlongAcross(vw::cartography::GeoReference const& dem_georef,
                          double delta,
                          vw::Vector3 const& proj_along,
                          vw::Vector3 const& proj_across,
-                         vw::Vector3 & proj_pt,
+                         vw::Vector3 const& proj_pt,
                          // Outputs
                          vw::Vector3 & along,
                          vw::Vector3 & across) {

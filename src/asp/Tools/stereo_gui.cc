@@ -47,7 +47,7 @@ using namespace vw::stereo;
 using namespace asp;
 namespace fs = boost::filesystem;
 
-namespace asp{
+namespace asp {
 
   // Parse the input command line arguments. We'll use this function
   // only when we failed to parse the arguments under the assumption

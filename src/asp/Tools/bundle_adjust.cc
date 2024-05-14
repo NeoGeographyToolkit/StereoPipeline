@@ -1702,7 +1702,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      po::value(&intrinsics_limit_str)->default_value(""),
      "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in min max pairs and are applied in the order [focal length, optical center, other intrinsics] until all of the limits are used. Check the documentation to determine how many intrinsic parameters are used for your cameras.")
     ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
-     "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the inline-adjustments option.")
+      "CSV file containing estimated positions of each camera. For this to work "
+      "well the camera must travel not along linear path, as this data will be "
+      "used to find an alignment transform. Only used with the inline-adjustments "
+      "setting to initialize global camera coordinates. If used, the csv-format "
+      "setting must also be set. The 'file' field is searched for strings that are "
+      "found in the input image files to match locations to cameras.")
     ("init-camera-using-gcp",  po::bool_switch(&opt.init_camera_using_gcp)->default_value(false)->implicit_value(true),
      "Given an image, a pinhole camera lacking correct position and orientation, and a GCP file, find the pinhole camera with given intrinsics most consistent with the GCP.")
     ("transform-cameras-with-shared-gcp",  po::bool_switch(&opt.transform_cameras_with_shared_gcp)->default_value(false)->implicit_value(true),
