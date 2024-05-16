@@ -96,8 +96,8 @@ void findCameraPose(std::vector<vw::Vector3> const& ground_points,
 
   // Convert obtained rotation
   Eigen::Matrix3d rotation;
-  RodriguesToRotation(Eigen::Vector3d(rvec.at<double>(0), rvec.at<double>(1), rvec.at<double>(2)),
-                      rotation);
+  RodriguesToRotation(Eigen::Vector3d(rvec.at<double>(0), rvec.at<double>(1), 
+                                      rvec.at<double>(2)), rotation);
 
   // Make world2cam into cam2world
   Eigen::Matrix3d cam2world = rotation.inverse(); 

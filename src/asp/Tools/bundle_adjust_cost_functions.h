@@ -209,25 +209,27 @@ public:
     // Update the lens distortion parameters in the new camera.
     // - These values are also optimized as scale factors.
     // TODO: This approach FAILS when the input value is zero!!
-    boost::shared_ptr<LensDistortion> distortion = m_underlying_camera->lens_distortion()->copy();
+    boost::shared_ptr<LensDistortion> distortion 
+      = m_underlying_camera->lens_distortion()->copy();
     vw::Vector<double> lens = distortion->distortion_parameters();
     for (size_t i=0; i<lens.size(); ++i)
       lens[i] *= raw_lens[i];
     distortion->set_distortion_parameters(lens);
 
     // Duplicate the input camera model with the pose, focus, center, and lens updated.
-    vw::camera::PinholeModel cam(correction.position(),
-                                 correction.pose().rotation_matrix(),
-                                 focus, focus, // focal lengths
-                                 center_x, center_y, // pixel offsets
-                                 distortion.get(),
-                                 m_underlying_camera->pixel_pitch());
-
+    // Respect m_u_direction, m_v_direction, m_w_direction in the original model.
+    vw::camera::PinholeModel cam = *m_underlying_camera;
+    cam.set_camera_center(correction.position());
+    cam.set_camera_pose(correction.pose().rotation_matrix());
+    cam.set_focal_length(vw::Vector2(focus, focus));
+    cam.set_point_offset(vw::Vector2(center_x, center_y));
+    cam.set_lens_distortion(distortion.get());
+    cam.set_pixel_pitch(m_underlying_camera->pixel_pitch());
     try {
       // Project the point into the camera.
       Vector2 pixel = cam.point_to_pixel_no_check(point);
       return pixel;
-    } catch(...){
+    } catch(...) {
     }
 
     // Do not allow one bad pixel value to ruin the whole problem
