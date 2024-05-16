@@ -445,8 +445,9 @@ the image/camera extension. Example::
 
 The option ``--sensor-type`` controls the type of each rig sensor. A single
 value will apply to all sensors. To have per-sensor type, set a list of values
-separated by commas, with no spaces. Example: ``--sensor-type
-linescan,pinhole,linescan``. 
+separated by commas, with no spaces. Example::
+
+  --sensor-type linescan,pinhole,linescan
 
 Lens distortion is not supported. If desired to produce cameras and images only
 for a subset of the rig sensors, use the ``--sensor-name`` option. Consider

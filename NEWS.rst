@@ -232,6 +232,8 @@ cam_gen (:numref:`cam_gen`):
    * Can fit a CSM frame camera to a given input camera, including distortion
      (:numref:`cam_gen_frame`).
    * Can export linescan cameras to CSM format (:numref:`cam_gen_linescan`).
+   * Can create cameras given longitude, latitude, height above datum, and roll,
+     pitch, yaw angles (:numref:`cam_gen_extrinsics`).
 
 rig_calibrator (:numref:`rig_calibrator`):
    * Can export the interest point matches, cameras, and the OpenCV lens

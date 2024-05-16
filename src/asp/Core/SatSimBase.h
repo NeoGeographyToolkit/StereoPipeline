@@ -26,23 +26,20 @@
 
 namespace asp {
 
-  // A small number to help convert directions from being in projected space to
-  // ECEF (the transform between these is nonlinear). Do not use a small value,
-  // as in ECEF these will be large numbers and we may have precision issues.
-  // The value 0.01 was tested well. Measured in meters.
-  double satSimDelta();
+// A small number to help convert directions from being in projected space to
+// ECEF (the transform between these is nonlinear). Do not use a small value,
+// as in ECEF these will be large numbers and we may have precision issues.
+// The value 0.01 was tested well. Measured in meters.
+double satSimDelta();
 
-  // Assemble the cam2world matrix from the along track, across track, and down vectors
-  // Note how we swap the first two columns and flip one sign. We went the along
-  // direction to be the camera y direction
-  void assembleCam2WorldMatrix(vw::Vector3 const& along, 
-                              vw::Vector3 const& across, 
-                              vw::Vector3 const& down,
-                              // Output
-                              vw::Matrix3x3 & cam2world);
-
-  // Return the matrix of rotation in the xy plane, from camera to satellite body
-  vw::Matrix3x3 rotationXY();
+// Assemble the cam2world matrix from the along track, across track, and down vectors
+// Note how we swap the first two columns and flip one sign. We went the along
+// direction to be the camera y direction
+void assembleCam2WorldMatrix(vw::Vector3 const& along, 
+                            vw::Vector3 const& across, 
+                            vw::Vector3 const& down,
+                            // Output
+                            vw::Matrix3x3 & cam2world);
 
 // Make these vectors have norm 1, and make across perpendicular to along
 void normalizeOrthogonalizeAlongAcross(vw::Vector3 & along, vw::Vector3 & across);

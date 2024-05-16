@@ -320,6 +320,11 @@ The DMS images are available for download at the `IceBridge ftp site
 of the available data types can be found at the `mission data summary
 <https://nsidc.org/data/icebridge/instr_data_summary.html>`_ page.
 
+Several ways of creating cameras are discussed below, with or without SfM.
+ 
+SfM approach
+^^^^^^^^^^^^
+
 This example uses data from the November 5, 2009 flight over Antarctica. The
 following camera model (icebridge_model.tsai) was used (see
 :numref:`pinholemodels` on Pinhole camera models)::
@@ -410,12 +415,23 @@ Run ``orbitviz`` (:numref:`orbitviz`) to visualize the camera positions::
     orbitviz out --load-camera-solve --hide-labels    \
      -r wgs84 -t nadirpinhole
 
-Alternatively, the ``camera_solve`` executable can be bypassed altogether. If a
-given image has already an orthoimage associated with it (check the IceBridge
-portal page), that provides enough information to guess an initial position of
-the camera, using the ``ortho2pinhole`` (:numref:`ortho2pinhole`) tool. Later,
-the obtained cameras can be bundle-adjusted. Here is how this tool can be used,
-on grayscale images::
+Cameras from measurements
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For some Earth missions the positions and orientations of the cameras are known.
+The cameras can then be found as in :numref:`cam_gen_extrinsics`.
+
+Cameras from GCP
+^^^^^^^^^^^^^^^^
+
+See :numref:`camera_solve_gcp`.
+
+Cameras from orthoimages
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Cameras can be created based on orthoimages, if available, such as for
+IceBridge. The ``ortho2pinhole`` (:numref:`ortho2pinhole`) tool is used. Later,
+the obtained cameras can be bundle-adjusted. Example for grayscale images::
 
     ortho2pinhole raw_image.tif ortho_image.tif \
       icebridge_model.tsai output_pinhole.tsai
@@ -457,6 +473,9 @@ features to make alignment more accurate but ``pc_align`` still failed
 to produce a good fit until the lidar point cloud was converted into a
 smoothed DEM.
 
+Terrain creation
+^^^^^^^^^^^^^^^^
+
 Run ``parallel_stereo`` (:numref:`parallel_stereo`) on the DMS images::
 
    parallel_stereo -t nadirpinhole             \
@@ -490,6 +509,9 @@ Create a DEM from the LVIS data::
      --tr 30                                         \
      --search-radius-factor 2.0                      \
      -o lvis
+
+Terrain alignment
+^^^^^^^^^^^^^^^^^
 
 Align the produced stereo point cloud to the LVIS data using ``pc_align``
 (:numref:`pc_align`)::

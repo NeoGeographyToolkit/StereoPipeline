@@ -14,10 +14,11 @@ at the NASA Ames Research Center in Moffett Field, CA.
 **Contributors and Developers**
 
 - Zachary Moratto (NASA/Stinger-Ghaffarian Technologies, former ASP Lead Architect)
-- Michael J. Broxton (NASA/Carnegie Mellon University, former ASP Lead Architect)
+- Michael J. Broxton (NASA/Carnegie Mellon University, former ASP Lead Architect
   and Project Lead, co-developer of the Vision Workbench)
 - Matthew Hancher (NASA, co-developer of the Vision Workbench)
-- Dr. Ara Nefian (NASA/Carnegie Mellon University)
+- Dr. Ara Nefian (NASA/Carnegie Mellon University, wrote the Bayes EM subpixel mode 
+  and the early version of Shape-from-Shading)
 - Mike Lundy (NASA/Stinger-Ghaffarian Technologies)
 - Dr. Laurence Edwards (NASA, former IRG Terrain Reconstruction Lead)
 - Monica Palaseanu-Lovejoy (USGS, lead the research on the bathymetry module, :numref:`shallow_water_bathy`)
@@ -34,7 +35,8 @@ at the NASA Ames Research Center in Moffett Field, CA.
 - Morgon Kanter (Bard College)
 - Kerri Cahoy (Stanford University) 
 - Ian Saxton (UC San Diego)
-- Trey Smith (NASA)
+- Trey Smith (NASA, lead the effort that resulted in the rig calibrator,
+  :numref:`rig_calibrator`)
 - `mstyer <https://github.com/mstyer>`_
 - `harguess <https://github.com/harguess>`_
 - David Shean (University of Washington)

@@ -41,7 +41,6 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/IpMatchingAlgs.h> // Lightweight header for matching algorithms
-#include <asp/Core/SatSimBase.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/IsisIO/IsisInterface.h>

@@ -31,6 +31,8 @@
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/CsmModelFit.h>
 #include <asp/Sessions/CameraUtils.h>
+#include <asp/Core/ReportUtils.h>
+#include <asp/Core/CameraTransforms.h>
 
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/StringUtils.h>
@@ -302,7 +304,7 @@ struct Options : public vw::GdalWriteOptions {
   std::string image_file, out_camera, lon_lat_values_str, pixel_values_str, datum_str,
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
     stereo_session, bundle_adjust_prefix, parsed_cam_ctr_str, parsed_cam_quat_str,
-    distortion_str, distortion_type, refine_intrinsics;
+    distortion_str, distortion_type, refine_intrinsics, extrinsics_file;
   double focal_length, pixel_pitch, gcp_std, height_above_datum,
     cam_height, cam_weight, cam_ctr_weight;
   Vector2 optical_center;
@@ -310,8 +312,9 @@ struct Options : public vw::GdalWriteOptions {
   bool refine_camera, parse_eci, parse_ecef, planet_pinhole; 
   int num_pixel_samples;
   bool exact_tsai_to_csm_conv;
-  Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0), planet_pinhole(false),
-  parse_eci(false), parse_ecef(false), num_pixel_samples(0), exact_tsai_to_csm_conv(false)
+  Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0), 
+  planet_pinhole(false), parse_eci(false), parse_ecef(false), num_pixel_samples(0), 
+  exact_tsai_to_csm_conv(false)
   {}
 };
 
@@ -384,6 +387,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "taking into account other input options.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. See the doc for options.")
+    ("extrinsics", po::value(&opt.extrinsics_file)->default_value(""),
+     "Read a file having on each line an image name and extrinsic parameters as "
+     "longitude, latitude, height above datum, roll, pitch, and yaw. Write one .tsai "
+     "camera file per image.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust "
      "when providing an input camera.")
@@ -405,6 +412,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
+
+  // If extrinsics file is set, must have datum and sample file
+  if (opt.extrinsics_file != "") {
+    if (opt.datum_str == "")
+      vw_throw(ArgumentErr() << "Must provide a datum when reading extrinsics.\n");
+    if (opt.sample_file == "")
+      vw_throw(ArgumentErr() << "Must provide a sample file when reading extrinsics.\n");
+    // The rest of the options do not apply      
+    return;  
+  }
 
   if (opt.image_file.empty())
     vw_throw(ArgumentErr() << "Missing the input image.\n");
@@ -1234,6 +1251,57 @@ void save_linescan(Options & opt) {
   csm_cam->saveState(opt.out_camera);
 }
 
+// See --extrinsics.
+void camerasFromExtrinsics(Options const& opt) {
+  
+  // Read the extrinsics
+  std::set<std::string> str_col_names = {"image"};  
+  std::set<std::string> num_col_names = {"lon", "lat", "height_above_datum", 
+                                            "roll", "pitch", "yaw"};
+  std::map<std::string, std::vector<std::string>> str_map;
+  std::map<std::string, std::vector<double>> num_map;
+  asp::readReportFile(opt.extrinsics_file, str_col_names, num_col_names, str_map, num_map); 
+  
+  // Read the intrinsics
+  vw::camera::PinholeModel pinhole(opt.sample_file);
+  
+  // Read the datum
+  vw::cartography::Datum datum(opt.datum_str);
+  
+  int num_cameras = str_map["image"].size();
+  if (num_cameras == 0) 
+    vw_throw(ArgumentErr() << "No extrinsics found in: " << opt.extrinsics_file << ".\n");
+  
+  // Iterate over cameras
+  for (int i = 0; i < num_cameras; i++) {
+    
+    // Read the extrinsics
+    double lon = num_map["lon"][i];
+    double lat = num_map["lat"][i];
+    double height_above_datum = num_map["height_above_datum"][i];
+    double roll = num_map["roll"][i];
+    double pitch = num_map["pitch"][i];
+    double yaw = num_map["yaw"][i];
+    
+    // Convert camera center to ECEF
+    vw::Vector3 llh(lon, lat, height_above_datum);
+    vw::Vector3 P = datum.geodetic_to_cartesian(llh);
+    // Camera-to-world rotation
+    vw::Matrix3x3 ned = datum.lonlat_to_ned_matrix(llh);
+    vw::Matrix3x3 R = ned * asp::rollPitchYaw(roll, pitch, yaw) * asp::rotationXY();
+    // Form the camera
+    pinhole.set_camera_center(P);
+    pinhole.set_camera_pose(R);
+
+    // Write the camera
+    std::string imageFile = str_map["image"][i];
+    std::string camFile = fs::path(imageFile).replace_extension(".tsai").string();
+    vw::create_out_dir(camFile);
+    vw::vw_out() << "Writing: " << camFile << std::endl;
+    pinhole.write(camFile);
+  }
+} 
+  
 int main(int argc, char * argv[]) {
   
   Options opt;
@@ -1248,6 +1316,11 @@ int main(int argc, char * argv[]) {
       return 0;
     }
 
+    if (opt.extrinsics_file != "") {
+      camerasFromExtrinsics(opt);
+      return 0;
+    }
+    
     // Some of the numbers we print need high precision
     vw_out().precision(17);
   

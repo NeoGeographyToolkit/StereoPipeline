@@ -24,6 +24,22 @@
 
 namespace asp {
 
+// Return the matrix of rotation in the xy plane, from camera to satellite body
+vw::Matrix3x3 rotationXY() {
+
+  vw::Matrix3x3 T;
+  // Set all elements to zero
+  for (int row = 0; row < 3; row++)
+    for (int col = 0; col < 3; col++)
+      T(row, col) = 0.0;
+  
+  T(0, 1) = -1;
+  T(1, 0) = 1;
+  T(2, 2) = 1;
+
+  return T;
+}
+
 // A function to convert a 3x3 VW matrix to Eigen
 Eigen::Matrix3d vwToEigenMat(vw::Matrix3x3 const& m) {
   Eigen::Matrix3d result;
@@ -85,7 +101,7 @@ vw::Matrix3x3 rollPitchYaw(double roll, double pitch, double yaw) {
     Eigen::AngleAxisd pitchAngle(DEG_TO_RAD * pitch, Eigen::Vector3d::UnitY());
     Eigen::AngleAxisd yawAngle  (DEG_TO_RAD * yaw,   Eigen::Vector3d::UnitZ());
 
-    // Multiply these returing an Eigen Matrix3d
+    // Multiply these returning an Eigen Matrix3d
     Eigen::Quaterniond q = yawAngle * pitchAngle * rollAngle;
 
     // Convert to Eigen3

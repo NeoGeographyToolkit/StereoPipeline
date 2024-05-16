@@ -135,9 +135,9 @@ For other examples, see :numref:`examples`.
    :name: lronac_csm_example
 
    Example of produced DEM and orthoimage using LRO NAC stereo pair
-   ``M181058717LE`` and ``M181073012LE`` and CSM cameras. How to
-   obtain and prepare the inputs is discussed in
-   :numref:`lronac-example`.
+   ``M181058717LE`` and ``M181073012LE`` and CSM cameras. How to obtain and
+   prepare the inputs is discussed in :numref:`lronac-example`. Mapprojection
+   can eliminate the staircasing artifacts (:numref:`mapproj-example`).
 
 .. _moc_tutorial:
 

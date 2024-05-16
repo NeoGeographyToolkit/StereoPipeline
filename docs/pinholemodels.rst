@@ -309,39 +309,39 @@ format using the extension ``.tsai``. A sample file is shown below.
    C = 266.943 -105.583 -2.14189
    R = 0.0825447 0.996303 -0.0238243 -0.996008 0.0832884 0.0321213 0.0339869 0.0210777 0.9992
    pitch = 0.0064
-   Photometrix
-   xp = 0.004
-   yp = -0.191
-   k1 = 1.31024e-04
-   k2 = -2.05354e-07
-   k3 = -5.28558e-011
-   p1 = 7.2359e-006
-   p2 = 2.2656e-006
-   b1 = 0.0
-   b2 = 0.0
+   TSAI
+   k1 = -0.094196634563
+   k2 = 0.115036424262
+   k3 = -0.032238313341
+   p1 = -0.000256622541
+   p2 = -0.000353613460
 
 The first half of the file is the same for all Pinhole models:
 
-* ``VERSION_X`` = A header line used to track the format of the file.
+* ``VERSION_X`` A header line used to track the format of the file.
 
-* ``PINHOLE`` = The type of camera model, so that other types can be
+* ``PINHOLE`` The type of camera model, so that other types can be
   stored with the .tsai extension.
 
-* ``fu, fv, cu, cv`` = The first four intrinsic parameters described in
+* ``fu, fv, cu, cv`` The first four intrinsic parameters described in
   the previous section.
 
-* ``u, v, and w_direction`` = These lines allow an additional
+* ``u, v, and w_direction`` These lines allow an additional
   permutation of the axes of the camera coordinates. By default, the
   positive column direction aligns with x, the positive row direction
   aligns with y, and downward into the image aligns with z.
+  
+  It is strongly suggested to not modify these directions, and they 
+  will be removed from the file in future versions of ASP. The camera
+  rotation alone (below) should be sufficient.
 
-* ``C`` = The location of the camera center, usually in the geocentric
+* ``C`` The location of the camera center, usually in the geocentric
   coordinate system (GCC/ECEF).
 
-* ``R`` = The rotation matrix describing the camera's absolute pose in the world
+* ``R`` The rotation matrix describing the camera's absolute pose in the world
   coordinate system (camera-to-world rotation, :numref:`pinholemath`).
 
-* ``pitch`` = The pitch intrinsic parameter described in the previous
+* ``pitch`` The pitch intrinsic parameter described in the previous
   section.
 
 The second half of the file describes the lens distortion model

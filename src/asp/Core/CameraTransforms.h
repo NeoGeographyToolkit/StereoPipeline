@@ -28,6 +28,9 @@
 
 namespace asp {
 
+// Return the matrix of rotation in the xy plane, from camera to satellite body
+vw::Matrix3x3 rotationXY();
+
 // Find the roll-pitch-yaw rotation in ZYX order. The inputs are in
 // degrees.
 vw::Matrix3x3 rollPitchYaw(double roll, double pitch, double yaw);

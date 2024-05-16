@@ -7,7 +7,8 @@ This program can create Pinhole (:numref:`pinholemodels`), Optical Bar
 (:numref:`panoramic`), and CSM (:numref:`csm`) camera models, given camera's
 optical center, focal length, pixel pitch, the longitude-latitude coordinates of
 the camera image corners (or some other pixels) as measured on a DEM. It can
-also approximate any camera supported by ASP.
+also approximate any camera supported by ASP, and produce a camera given geodetic
+coordinates of the camera center and roll, pitch, and yaw angles.
 
 A datum (and a height above it) can be used instead of the DEM. Normally all
 these inputs are known only approximately, so the output camera model will not
@@ -103,6 +104,40 @@ input. For example: ``--datum D_MARS``.
 
 The ``--height-above-datum`` option will not be used if the input DEM covers the
 image ground footprint.
+
+.. _cam_gen_extrinsics:
+
+Geodetic coordinates and angles
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Given a file named ``extrinsics.txt`` with lines of the form::
+
+  # image, lon, lat, height_above_datum, roll, pitch, yaw
+  img.tif, -95.092, 29.508, 1280.175, 0.073, 11.122, 144.002
+
+the command::
+
+  cam_gen                       \
+    --extrinsics extrinsics.txt \
+    --sample-file sample.tsai   \
+    --datum WGS84
+
+will write for each line a camera model named ``img.tsai`` based on these
+measurements. The heights are in meters, measured above the specified datum. The
+angles are in degrees, with yaw measured from true north. 
+
+The intrinsics are taken from the sample file, an example of which is in 
+:numref:`file_format`. Only the focal length, optical center, lens distortion,
+and pixel pitch values from such a file are used. 
+
+The three angles are applied in the order roll, pitch, yaw, starting from the
+camera pointing straight down, which is the camera z axis.
+
+The text file passed in to ``--extrinsics`` can have the entries in any order,
+and additional entries as well, as long as there is one-to-one correspondence
+between the names in starting header line and the values, and the desired named
+columns are present, with these precise names. Comma and space can be used as
+separators.
 
 .. _cam_gen_frame:
 
@@ -224,6 +259,8 @@ The camera obtained using this tool (whether with or without the
 It is suggested that this is avoided by default. One has to be a bit careful
 when doing this optimization to ensure some corners are not optimized at the
 expense of others. This is discussed in :numref:`camera_solve_gcp`.
+
+See :numref:`kaguya_ba` regarding optimizing camera intrinsics.
 
 Validation
 ~~~~~~~~~~
@@ -366,6 +403,11 @@ Command-line options
     refinements or taking into account other input options. Example
     in :numref:`skysat_stereo`.
 
+--extrinsics <string (default: "")>
+    Read a file having on each line an image name and extrinsic parameters as
+    longitude, latitude, height above datum, roll, pitch, and yaw. Write one
+    .tsai camera file per image. See :numref:`cam_gen_extrinsics`.
+    
 --cam-height <float (default: 0.0)>
     If both this and ``--cam-weight`` are positive, enforce that the output
     camera is at this height above datum.

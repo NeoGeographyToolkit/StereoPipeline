@@ -50,22 +50,6 @@ void assembleCam2WorldMatrix(vw::Vector3 const& along,
  return;
 }
 
-// Return the matrix of rotation in the xy plane, from camera to satellite body
-vw::Matrix3x3 rotationXY() {
-
-  vw::Matrix3x3 T;
-  // Set all elements to zero
-  for (int row = 0; row < 3; row++)
-    for (int col = 0; col < 3; col++)
-      T(row, col) = 0.0;
-  
-  T(0, 1) = 1;
-  T(1, 0) = -1;
-  T(2, 2) = 1;
-
-  return T;
-}
-
 // Given two end points in projected coordinates determining a satellite 
 // trajectory, find the along and across vectors in projected coordinates.
 void calcProjAlongAcross(vw::Vector3 const& first_proj,
