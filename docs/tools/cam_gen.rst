@@ -231,8 +231,9 @@ the command::
     --datum WGS84
 
 will write for each line a camera model named ``img.tsai`` based on these
-measurements. The heights are in meters, measured above the specified datum. The
-angles are in degrees, with yaw measured from true north. 
+measurements of camera position and orientation. The heights are in meters,
+measured above the specified datum. The angles are in degrees, with yaw measured
+from true north. 
 
 The intrinsics are taken from the sample file, an example of which is in 
 :numref:`file_format`. Only the focal length, optical center, lens distortion,
