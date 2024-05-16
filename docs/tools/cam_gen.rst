@@ -6,9 +6,10 @@ cam_gen
 This program can create Pinhole (:numref:`pinholemodels`), Optical Bar
 (:numref:`panoramic`), and CSM (:numref:`csm`) camera models, given camera's
 optical center, focal length, pixel pitch, the longitude-latitude coordinates of
-the camera image corners (or some other pixels) as measured on a DEM. It can
-also approximate any camera supported by ASP, and produce a camera given geodetic
-coordinates of the camera center and roll, pitch, and yaw angles.
+the camera image corners (or some other pixels) as measured on a DEM.
+
+This tool can also approximate any camera supported by ASP, and produce a camera
+given geodetic coordinates of the camera center and roll, pitch, and yaw angles.
 
 A datum (and a height above it) can be used instead of the DEM. Normally all
 these inputs are known only approximately, so the output camera model will not
@@ -18,7 +19,7 @@ adjustment, which can also make use of the GCP file that this tool creates.
 This program can be used with historical images (:numref:`kh4`) for which camera
 position and orientation is not known. If the corners of the image on the ground
 are not known, they could be guessed in Google Earth. :numref:`skysat` makes use
-of ``cam_gen`` for SkySat images.
+of ``cam_gen`` for SkySat images. It can also help avoid full Structure-from-Motion (:numref:`sfm`).
 
 The accuracy of this tool decreases as the field of view becomes very narrow. In
 that case it is suggested to use it to approximate a good known camera rather
@@ -104,40 +105,6 @@ input. For example: ``--datum D_MARS``.
 
 The ``--height-above-datum`` option will not be used if the input DEM covers the
 image ground footprint.
-
-.. _cam_gen_extrinsics:
-
-Geodetic coordinates and angles
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Given a file named ``extrinsics.txt`` with lines of the form::
-
-  # image, lon, lat, height_above_datum, roll, pitch, yaw
-  img.tif, -95.092, 29.508, 1280.175, 0.073, 11.122, 144.002
-
-the command::
-
-  cam_gen                       \
-    --extrinsics extrinsics.txt \
-    --sample-file sample.tsai   \
-    --datum WGS84
-
-will write for each line a camera model named ``img.tsai`` based on these
-measurements. The heights are in meters, measured above the specified datum. The
-angles are in degrees, with yaw measured from true north. 
-
-The intrinsics are taken from the sample file, an example of which is in 
-:numref:`file_format`. Only the focal length, optical center, lens distortion,
-and pixel pitch values from such a file are used. 
-
-The three angles are applied in the order roll, pitch, yaw, starting from the
-camera pointing straight down, which is the camera z axis.
-
-The text file passed in to ``--extrinsics`` can have the entries in any order,
-and additional entries as well, as long as there is one-to-one correspondence
-between the names in starting header line and the values, and the desired named
-columns are present, with these precise names. Comma and space can be used as
-separators. Empty lines and lines starting with the pound sign are ignored.
 
 .. _cam_gen_frame:
 
@@ -245,6 +212,44 @@ adjustment to both.
 
 If desired to create linescan cameras to given specifications, use instead
 ``sat_sim`` (:numref:`sat_sim`).
+
+.. _cam_gen_extrinsics:
+
+Geodetic coordinates and angles
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Given a file named ``extrinsics.txt`` with lines of the form::
+
+  # image, lon, lat, height_above_datum, roll, pitch, yaw
+  img.tif, -95.092, 29.508, 1280.175, 0.073, 11.122, 144.002
+
+the command::
+
+  cam_gen                       \
+    --extrinsics extrinsics.txt \
+    --sample-file sample.tsai   \
+    --datum WGS84
+
+will write for each line a camera model named ``img.tsai`` based on these
+measurements. The heights are in meters, measured above the specified datum. The
+angles are in degrees, with yaw measured from true north. 
+
+The intrinsics are taken from the sample file, an example of which is in 
+:numref:`file_format`. Only the focal length, optical center, lens distortion,
+and pixel pitch values from such a file are used. 
+
+The three angles are applied in the order roll, pitch, yaw, starting from the
+camera pointing straight down, which is the camera z axis.
+
+The text file passed in to ``--extrinsics`` can have the entries in any order,
+and additional entries as well, as long as there is one-to-one correspondence
+between the names in the starting header line and the values in subsequent
+lines. All the desired named columns must exist, with these precise names.
+Comma and space can be used as separators. Empty lines and lines starting with
+the pound sign are ignored.
+
+Such functionality can be helpful for processing images acquired with an aircraft
+that records its position and orientation (:numref:`sfmicebridge`).
           
 Further refinement
 ~~~~~~~~~~~~~~~~~~

@@ -531,6 +531,10 @@ direction. So, the camera *y* direction is along the track, the camera *x*
 direction is the negative of the across-track direction, and *z* points towards
 the ground as before.
 
+Camera models with desired roll, pitch, and yaw angles can be also created when
+the camera follows a variable path with variable orientation
+(:numref:`cam_gen_extrinsics`).
+
 Efficiency considerations
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
