@@ -228,16 +228,31 @@ find_external_library(CSM ${ASP_DEPS_DIR} "csm" "csmapi" REQUIRED)
 # usgscsm by bypassing the csm interface.
 find_external_library(USGSCSM ${ASP_DEPS_DIR} "usgscsm" "usgscsm" REQUIRED)
 
-# Link to ale. This is needed to be able to export the CSM camera state.
+# ALE
 find_external_library(ALE ${ASP_DEPS_DIR} "ale" "ale" REQUIRED)
 
+# These are needed for rig_calibrator
+# MVE
+set(MVE_LIB_NAMES mveUtil mveCore mveOgl mveDmrecon)
+find_external_library(MVE ${ASP_DEPS_DIR} "mve" "${MVE_LIB_NAMES}" REQUIRED)
+# Rayint only has headers, no libraries
+find_external_library(MVE ${ASP_DEPS_DIR} "rayint" "" REQUIRED)
+# texture reconstruction
+find_external_library(TEXRECON ${ASP_DEPS_DIR} "" "texture_reconstruction" REQUIRED)
+
 # PCL
-# TODO(oalexan1): Having to specify the version here always breaks.
+# The PCL include directory is include/pcl-x.xx
+file(GLOB PCL_DIRS "${ASP_DEPS_DIR}/include/pcl-*") # all matches
+list(GET PCL_DIRS 0 PCL_DIR) # first entry
+if (NOT PCL_DIR) # must exist
+  message(FATAL_ERROR "Could not find the PCL include directory.")
+endif()
+get_filename_component(PCL_INC_DIR ${PCL_DIR} NAME) # extract pcl-x.xx
 set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
                   pcl_kdtree pcl_keypoints pcl_ml pcl_octree pcl_recognition
                   pcl_registration pcl_sample_consensus pcl_search pcl_segmentation
                   pcl_stereo pcl_surface pcl_tracking)
-find_external_library(PCL ${ASP_DEPS_DIR} "pcl-1.13" "${PCL_LIB_NAMES}" REQUIRED)
+find_external_library(PCL ${ASP_DEPS_DIR} "${PCL_INC_DIR}" "${PCL_LIB_NAMES}" REQUIRED)
 
 # OpenCV 
 set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg

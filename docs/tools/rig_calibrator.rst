@@ -678,16 +678,6 @@ the input naming convention in :numref:`rig_data_conv`.
 How to register the produced cameras to the ground is discussed in
 :numref:`msl_registration`.
 
-Source code
-~~~~~~~~~~~
-
-The rig calibration software is shipped with ASP. It can, however, be
-built and used independently, and has many fewer dependencies
-than ASP itself (particularly, it does not depend on ISIS). If desired
-to run ``multi_stereo``, however, then ASP itself is needed
-(:numref:`multi_stereo`). See this tool's `source code and build
-instructions <https://github.com/NeoGeographyToolkit/MultiView>`_.
-
 .. _rig_calibrator_command_line:
 
 Command-line options
