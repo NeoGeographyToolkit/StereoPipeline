@@ -25,9 +25,9 @@ find_package(Threads REQUIRED)
 message("Searching for Boost.")
 set(REQUIRED_BOOST_LIBS program_options system filesystem regex date_time thread iostreams)
 if (ASP_DEPS_DIR) # Look in that directory
-  set(BOOST_ROOT       "${ASP_DEPS_DIR}")
-  set(BOOST_LIBRARYDIR "${ASP_DEPS_DIR}/lib")
-  set(BOOST_INCLUDEDIR "${ASP_DEPS_DIR}/include")
+  set(Boost_ROOT       "${ASP_DEPS_DIR}")
+  set(Boost_LIBRARYDIR "${ASP_DEPS_DIR}/lib")
+  set(Boost_INCLUDEDIR "${ASP_DEPS_DIR}/include")
   set(Boost_NO_SYSTEM_PATHS ON) # Do not search anywhere else
   set(Boost_DEBUG ON)
   set(Boost_DETAILED_FAILURE_MSG ON)
@@ -296,6 +296,9 @@ foreach(f ${MAIN_HEADER_FILES})
   INSTALL(FILES ${f} DESTINATION include/asp)
 endforeach()
 
+# CERES and its dependencies
+set(SOLVER_LIBRARIES ${CERES_LIBRARIES} ${GLOG_LIBRARIES} ${GFLAGS_LIBRARIES})
+    
 # Define each of the libaries
 
 # ASP_CORE
@@ -314,6 +317,18 @@ get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
 get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
 set(ASP_ISISIO_LIB_DEPENDENCIES  AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
                                  ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
+
+# ASP OpenMVG
+get_all_source_files( "OpenMVG" ASP_OPENMVG_SRC_FILES)
+get_all_source_files( "OpenMVG/tests" ASP_OPENMVG_TEST_FILES)
+set(ASP_OPENMVG_LIB_DEPENDENCIES "")
+
+# ASP Rig
+get_all_source_files( "Rig"       ASP_RIG_SRC_FILES)
+get_all_source_files( "Rig/tests" ASP_RIG_TEST_FILES)
+set(ASP_RIG_LIB_DEPENDENCIES AspCore AspOpenMvg ${OPENCV_LIBRARIES}
+    ${SOLVER_LIBRARIES})
+
 # ASP_CAMERA
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
@@ -342,10 +357,6 @@ get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
 set(ASP_PCLIO_LIB_DEPENDENCIES  pcl_common pcl_io_ply pcl_io
     AspCore ${VISIONWORKBENCH_LIBRARIES})
 
-# CERES and its dependencies
-set(SOLVER_LIBRARIES ${CERES_LIBRARIES} ${GLOG_LIBRARIES} ${GFLAGS_LIBRARIES})
-
-    
 # Add all of the library subdirectories
 
 add_subdirectory(Core)
@@ -353,6 +364,8 @@ add_subdirectory(SpiceIO)
 if(ASP_HAVE_PKG_ISISIO)
     add_subdirectory(IsisIO)
 endif()
+add_subdirectory(Rig)
+add_subdirectory(OpenMVG)
 add_subdirectory(Camera)
 
 add_subdirectory(Sessions)

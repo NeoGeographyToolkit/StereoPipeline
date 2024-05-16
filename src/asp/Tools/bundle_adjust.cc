@@ -1678,8 +1678,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str,
     intrinsics_limit_str;
-  bool inline_adjustments;
-  int   max_iterations_tmp;
+  bool inline_adjustments = false;
+  int max_iterations_tmp = -1;
   po::options_description general_options("");
   general_options.add_options()
     ("output-prefix,o",  po::value(&opt.out_prefix), "Prefix for output filenames.")

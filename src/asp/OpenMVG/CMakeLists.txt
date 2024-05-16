@@ -1,0 +1,2 @@
+add_library_wrapper(AspOpenMvg "${ASP_OPENMVG_SRC_FILES}" "${ASP_OPENMVG_TEST_FILES}"
+    "${ASP_OPENMVG_LIB_DEPENDENCIES}")
