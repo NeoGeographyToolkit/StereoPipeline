@@ -125,9 +125,10 @@ Command-line options for sfs
     4. Charon model (a variation of Lunar-Lambert).
 
 --smoothness-weight <float (default: 0.04)>
-    The weight given to the cost function term which consists of sums
-    of squares of second-order derivatives. A larger value will result
-    in a smoother solution with fewer artifacts. See also
+    The weight given to the cost function term which consists of sums of squares
+    of second-order derivatives. A larger value will result in a smoother
+    solution with fewer artifacts. The range can be in 0.01 -- 10,000. A
+    discussion of this term is in :cite:`lesage2021constraints`. See also
     ``--gradient-weight``.
 
 --initial-dem-constraint-weight <float (default: 0)>

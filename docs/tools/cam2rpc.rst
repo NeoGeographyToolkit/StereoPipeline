@@ -52,9 +52,9 @@ It is suggested to mapproject the produced image and camera onto a DEM using
 ``mapproject`` (:numref:`mapproject`) and compare with the result from the
 original image and camera.
 
-In addition, if the produced image file contains the original upper-left image
-corner, the ``cam_test`` program (:numref:`cam_test`) can be invoked to compare
-the original and new RPC camera, for example as follows::
+In addition, *if the produced image file contains the original upper-left image
+corner*, the ``cam_test`` program (:numref:`cam_test`) can be invoked to compare
+the original and resulting RPC camera, for example as follows::
 
     cam_test --image output.tif --cam1 input.tsai --cam2 output.xml
 

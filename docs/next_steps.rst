@@ -436,7 +436,10 @@ resolution can be set to about 40 times coarser than either the default
 images. If the resulting DEM turns out to be noisy or have holes, one could
 change in ``point2dem`` the search radius factor, use hole-filling, invoke more
 aggressive outlier removal, and erode pixels at the boundary (those tend to be
-less reliable). Alternatively, holes can be filled with ``dem_mosaic``.
+less reliable). 
+
+Holes in a DEM can be filled and the DEM smoothed with ``dem_mosaic``
+(:numref:`dem_mosaic_grow`, :numref:`dem_mosaic_blur`).
 
 .. _conv_to_ellipsoid:
 

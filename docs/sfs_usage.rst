@@ -84,7 +84,7 @@ image exposure, :math:`A(x, y)` is the per-pixel normalized albedo,
 :math:`R_k(\phi(x, y))` is the reflectance computed from the terrain for
 :math:`k`-th image, :math:`\left\|\nabla^2 \phi(x, y) \right\|^2` is the
 sum of squares of all second-order partial derivatives of :math:`\phi`,
-:math:`\mu > 0` is a smoothing term, and :math:`\lambda > 0` determines
+:math:`\mu > 0` is a smoothness weight, and :math:`\lambda > 0` determines
 how close we should stay to the input terrain :math:`\phi_0` (smaller
 :math:`\mu` will show more detail but may introduce some artifacts, and
 smaller :math:`\lambda` may allow for more flexibility in optimization
@@ -318,7 +318,7 @@ If this DEM has holes, those can be filled in ``dem_mosaic``
 
 The ``dem_mosaic`` program can also apply some blur to attenuate big artifacts
 (:numref:`dem_mosaic_blur`). Use, for example, ``--dem-blur-sigma 2``. Note that
-``sfs`` has a smoothing term itself which should take care of small
+``sfs`` has a smoothness term which should take care of very small
 imperfections in the input.
 
 See :numref:`sfs_initial_terrain` for how to use a third-party DEM as input to
@@ -341,11 +341,11 @@ should be used instead, see :numref:`parallel_sfs`)::
       --max-iterations 10                   \
       -o sfs_ref1/run
 
-The smoothness weight is a parameter that needs tuning. If it is too
-small, SfS will return noisy results, if it is too large, too much
-detail will be blurred. One can experiment with values between 0.01
-and 100000 with a factor of 10 to find this weight, and then refine
-it in smaller steps.
+The smoothness weight is a parameter that needs tuning. If it is too small, SfS
+will return noisy results, if it is too large, too much detail will be blurred.
+One can experiment with values between 0.01 and 100,000 with a factor of 10 to
+find this weight, and then refine it in smaller steps. A discussion of this
+term is in :cite:`lesage2021constraints`.
 
 Here we used the Lunar-Lambertian model. The meaning of the other ``sfs``
 options can be looked up in :numref:`sfs`.

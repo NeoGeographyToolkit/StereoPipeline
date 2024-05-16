@@ -179,6 +179,9 @@ The reconstruction can be visualized as::
 
 One may need to zoom out to see all cameras. See an illustration in :numref:`view_reconstruction`.
 
+The next example, in :numref:`sfmicebridge`, discusses how to avoid SfM
+altogether.
+ 
 .. _sfm_world_coords:
 
 Creation of cameras in world coordinates
