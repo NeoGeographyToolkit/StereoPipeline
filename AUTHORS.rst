@@ -35,7 +35,7 @@ at the NASA Ames Research Center in Moffett Field, CA.
 - Morgon Kanter (Bard College)
 - Kerri Cahoy (Stanford University) 
 - Ian Saxton (UC San Diego)
-- Trey Smith (NASA, lead the effort that resulted in the rig calibrator,
+- Trey Smith (NASA, lead the Astrobee and ISAAC projects, that resulted in the rig calibrator,
   :numref:`rig_calibrator`)
 - `mstyer <https://github.com/mstyer>`_
 - `harguess <https://github.com/harguess>`_

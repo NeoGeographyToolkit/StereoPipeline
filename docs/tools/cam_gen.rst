@@ -137,7 +137,7 @@ The text file passed in to ``--extrinsics`` can have the entries in any order,
 and additional entries as well, as long as there is one-to-one correspondence
 between the names in starting header line and the values, and the desired named
 columns are present, with these precise names. Comma and space can be used as
-separators.
+separators. Empty lines and lines starting with the pound sign are ignored.
 
 .. _cam_gen_frame:
 

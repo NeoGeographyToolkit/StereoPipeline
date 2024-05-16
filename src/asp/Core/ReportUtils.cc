@@ -78,7 +78,10 @@ void readReportFile(std::string const& report_file,
     // Skip empty lines
     if (tokens.empty()) 
       continue;
-    
+    // Skip lines starting with a pound sign
+    if (tokens[0][0] == '#') 
+      continue;
+      
     // Must have as many tokens as columns
     if (tokens.size() != colNames.size()) 
       vw::vw_throw(vw::ArgumentErr() << "Line has " << tokens.size() << " values. "
