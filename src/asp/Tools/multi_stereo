@@ -33,6 +33,8 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
+import asp_rig_utils
+
 def process_args(args):
     """
     Set up the parser and parse the args.
