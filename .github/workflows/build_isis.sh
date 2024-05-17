@@ -12,13 +12,6 @@ echo Now in $(pwd)
 # packages as further down this document. Then archive them as in build_test.sh,
 # and continue the rest of the instructions from there.
 
-# Set up the conda env
-conda init bash
-source /Users/runner/.bash_profile
-echo listing envs
-conda env list
-conda activate asp_deps
-
 # Set up the compiler
 isMac=$(uname -s | grep Darwin)
 if [ "$isMac" != "" ]; then
@@ -34,10 +27,11 @@ ssh-keygen -t rsa
 # Add the key /Users/runner/.ssh/id_rsa.pub to github in Settings -> SSH and GPG keys
 
 # Build only the rig_calibrator component of MultiView 
+cd
 git clone https://github.com/NeoGeographyToolkit/MultiView.git --recursive
 cd MultiView
 mkdir -p build && cd build
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 $PREFIX/bin/cmake                              \
   -DBUILD_RIG_CALIBRATOR_ONLY=ON               \
   -DCMAKE_VERBOSE_MAKEFILE=TRUE                \
@@ -46,7 +40,6 @@ $PREFIX/bin/cmake                              \
   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp    \
   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp \
   ..
-
 make -j 10 install
 
 # See instructions in build_test.sh for how to upload the built packages
@@ -54,7 +47,7 @@ make -j 10 install
 # Turn on the steps below only if starting from scratch
 if [ 1 -eq 0 ]; then 
   echo Wiping old env
-  /bin/rm -rf /usr/local/miniconda/envs/asp_deps
+  /bin/rm -rf /Users/runner/miniconda3/envs/asp_deps
 
   # Fetch the isis env
   /bin/rm -f isis_environment.yml
@@ -80,7 +73,6 @@ cd
 git clone https://github.com/DOI-USGS/ale.git --recursive
 cd ale
 git reset --hard 775ff21
-conda activate asp_deps
 # Set up the compiler
 isMac=$(uname -s | grep Darwin)
 if [ "$isMac" != "" ]; then
@@ -90,12 +82,12 @@ else
   cc_comp=x86_64-conda_cos6-linux-gnu-gcc
   cxx_comp=x86_64-conda_cos6-linux-gnu-g++
 fi
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 mkdir -p build && cd build
 cmake .. -DALE_USE_EXTERNAL_EIGEN=ON -DALE_USE_EXTERNAL_JSON=ON -DUSGSCSM_EXTERNAL_DEPS=ON -DCMAKE_VERBOSE_MAKEFILE=TRUE -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp -DALE_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${PREFIX} -DALE_BUILD_TESTS=OFF -DUSGSCSM_BUILD_TESTS=OFF -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_EIGEN=ON -DALE_BUILD_TESTS=OFF
 make -j 20 install
 
-# Continue with building usgscsm with the same env as above
+# Continue with building usgscsm with compiler swet up above as for ale
 cd 
 #git clone git@github.com:USGS-Astrogeology/usgscsm.git --recursive
 #git clone https://github.com/DOI-USGS/usgscsm.git --recursive
@@ -104,7 +96,8 @@ cd usgscsm
 #git reset --hard 0f065ca
 git checkout height_radtan_fixes
 mkdir -p build && cd build
-cmake .. -DALE_USE_EXTERNAL_EIGEN=ON -DALE_USE_EXTERNAL_JSON=ON -DUSGSCSM_EXTERNAL_DEPS=ON -DCMAKE_VERBOSE_MAKEFILE=TRUE -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp -DUSGSCSM_BUILD_DOCS=OFF -DALE_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${PREFIX} -DALE_BUILD_TESTS=OFF -DUSGSCSM_BUILD_TESTS=OFF -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_EIGEN=ON -DALE_BUILD_TESTS=OFF
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+cmake .. -DALE_USE_EXTERNAL_EIGEN=ON -DALE_USE_EXTERNAL_JSON=ON -DUSGSCSM_EXTERNAL_DEPS=ON -DCMAKE_VERBOSE_MAKEFILE=TRUE -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp -DUSGSCSM_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${PREFIX} -DALE_BUILD_TESTS=OFF -DUSGSCSM_BUILD_TESTS=OFF -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_EIGEN=ON -DALE_BUILD_TESTS=OFF
 make -j 20 install
 
 # Build ISIS3
@@ -118,7 +111,7 @@ git checkout 1b129bd84
 mkdir build
 cd build
 export ISISROOT=$PWD
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 cmake -GNinja -DJP2KFLAG=OFF -Dpybindings=OFF \
  -DbuildTests=OFF -DCMAKE_BUILD_TYPE=Release  \
  -DCMAKE_INSTALL_PREFIX=$PREFIX ../isis
@@ -128,7 +121,7 @@ export NINJAJOBS=2
 # Must do usgscsm
 # Init the shell and activate the asp_deps env
 cd
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 git clone https://github.com/DOI-USGS/usgscsm.git
 cd usgscsm
 git checkout 1.7.0
@@ -140,7 +133,7 @@ make -j 20 && make install
 
 # libnabo
 cd
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 git clone https://github.com/oleg-alexandrov/libnabo.git
 cd libnabo
 mkdir build && cd build
@@ -160,7 +153,7 @@ make -j10 install
 
 # libpointmacher
 cd 
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 conda activate asp_deps
 git clone https://github.com/oleg-alexandrov/libpointmatcher.git
 cd libpointmatcher
@@ -191,7 +184,7 @@ make -j 10 install
 cd
 git clone https://github.com/oleg-alexandrov/FastGlobalRegistration.git
 cd FastGlobalRegistration
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 export SRC_DIR=$(pwd)
 mkdir build && cd build
 CUSTOM_SOURCE_DIR=${SRC_DIR}/source
@@ -215,7 +208,7 @@ mkdir -p ${LIB_DIR}
 
 #s2p
 cd
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 conda activate asp_deps
 conda install -c conda-forge -y fftw=3.3.10   
 git clone https://github.com/oleg-alexandrov/s2p.git --recursive
@@ -279,7 +272,7 @@ mkdir -p ${BIN_DIR}
 
 # libelas
 cd 
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 conda activate asp_deps
 git clone https://github.com/NeoGeographyToolkit/libelas.git
 cd libelas
@@ -309,7 +302,7 @@ mkdir -p ${BIN_DIR}
 # multiview
 cd
 conda activate asp_deps
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 conda install -c conda-forge rocksdb=8.5.3 rapidjson=1.1.0 \
   ilmbase=2.5.5 openexr=2.5.5 -y
 git clone https://github.com/NeoGeographyToolkit/MultiView.git --recursive
@@ -350,7 +343,7 @@ else
   cc_comp=x86_64-conda_cos6-linux-gnu-gcc
   cxx_comp=x86_64-conda_cos6-linux-gnu-g++
 fi
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 git clone https://github.com/visionworkbench/visionworkbench.git
 cd visionworkbench
 mkdir -p build
@@ -376,7 +369,7 @@ else
   cc_comp=x86_64-conda_cos6-linux-gnu-gcc
   cxx_comp=x86_64-conda_cos6-linux-gnu-g++
 fi
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 git clone https://github.com/NeoGeographyToolkit/StereoPipeline.git
 cd StereoPipeline
 mkdir -p build
@@ -395,7 +388,7 @@ make -j10 install > /dev/null 2>&1 # this is too verbose
 echo Packaging the build
 cd
 conda activate asp_deps
-export PREFIX=/usr/local/miniconda/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 git clone https://github.com/NeoGeographyToolkit/BinaryBuilder
 cd BinaryBuilder
 ./make-dist.py $PREFIX   \
