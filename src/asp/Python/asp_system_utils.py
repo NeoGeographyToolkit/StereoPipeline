@@ -25,7 +25,7 @@ import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing, si
 import os.path as P
 import asp_string_utils, asp_cmd_utils
 
-# This is explained further down.
+# This is explained further down
 if 'ASP_LIBRARY_PATH' in os.environ:
     os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 

@@ -29,7 +29,7 @@ sys.path.insert(0, libexecpath)
 
 import asp_system_utils, asp_string_utils, asp_cmd_utils
 asp_system_utils.verify_python_version_is_supported()
-from stereo_utils import * # must be after the path is altered above
+from asp_stereo_utils import * # must be after the path is altered above
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]

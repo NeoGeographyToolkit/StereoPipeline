@@ -14,12 +14,14 @@ set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
                  time_trials          camera_calibrate
                  camera_solve         parallel_sfs
                  mapproject           parallel_bundle_adjust
+                 extract_bag          list_timestamps
+                 rig_bracket          texrecon
+                 theia_sfm            multi_stereo
                  historical_helper.py 
                  bathy_threshold_calc.py 
                  scale_bathy_mask.py
                  crs2crs2grid.py 
                  orbit_plot.py)
-set(PYTHON_LIBS stereo_utils.py)
 
 foreach(p ${PYTHON_TOOLS})
   INSTALL(FILES ${p} PERMISSIONS
@@ -27,9 +29,6 @@ foreach(p ${PYTHON_TOOLS})
     GROUP_READ GROUP_EXECUTE
     WORLD_READ WORLD_EXECUTE
     DESTINATION bin)
-endforeach()
-foreach(p ${PYTHON_LIBS})
-  INSTALL(FILES ${p}  DESTINATION libexec)
 endforeach()
 
 add_executable(aster2asp aster2asp.cc)
@@ -251,3 +250,24 @@ install(TARGETS disp2ip DESTINATION bin)
 add_executable(pc_filter pc_filter.cc)
 target_link_libraries(pc_filter AspPclIO AspSessions)
 install(TARGETS pc_filter DESTINATION bin)
+
+add_executable(rig_calibrator rig_calibrator.cc)
+target_link_libraries(rig_calibrator AspRig)
+install(TARGETS rig_calibrator DESTINATION bin)
+
+add_executable(undistort_image_texrecon undistort_image_texrecon.cc)
+target_link_libraries(undistort_image_texrecon AspRig)
+install(TARGETS undistort_image_texrecon DESTINATION bin)
+
+add_executable(fit_rpc fit_rpc.cc)
+target_link_libraries(fit_rpc AspRig)
+install(TARGETS fit_rpc DESTINATION bin)
+
+add_executable(sfm_submap sfm_submap.cc)
+target_link_libraries(sfm_submap AspRig)
+install(TARGETS sfm_submap DESTINATION bin)
+
+add_executable(sfm_merge sfm_merge.cc)
+target_link_libraries(sfm_merge AspRig)
+install(TARGETS sfm_merge DESTINATION bin)
+

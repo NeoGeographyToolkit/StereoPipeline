@@ -231,15 +231,6 @@ find_external_library(USGSCSM ${ASP_DEPS_DIR} "usgscsm" "usgscsm" REQUIRED)
 # ALE
 find_external_library(ALE ${ASP_DEPS_DIR} "ale" "ale" REQUIRED)
 
-# These are needed for rig_calibrator
-# MVE
-set(MVE_LIB_NAMES mveUtil mveCore mveOgl mveDmrecon)
-find_external_library(MVE ${ASP_DEPS_DIR} "mve" "${MVE_LIB_NAMES}" REQUIRED)
-# Rayint only has headers, no libraries
-find_external_library(MVE ${ASP_DEPS_DIR} "rayint" "" REQUIRED)
-# texture reconstruction
-find_external_library(TEXRECON ${ASP_DEPS_DIR} "" "texture_reconstruction" REQUIRED)
-
 # PCL
 # The PCL include directory is include/pcl-x.xx
 file(GLOB PCL_DIRS "${ASP_DEPS_DIR}/include/pcl-*") # all matches
@@ -276,6 +267,9 @@ set(PDAL_LIB_NAMES pdal_plugin_kernel_fauxplugin
                    pdal_plugin_writer_tiledb pdalcpp)
 find_external_library(PDAL ${ASP_DEPS_DIR} "pdal" "${PDAL_LIB_NAMES}" REQUIRED)
 
+set(TBB_LIB_NAMES tbb tbbmalloc tbbmalloc_proxy)
+find_external_library(TBB ${ASP_DEPS_DIR} "" "${TBB_LIB_NAMES}" REQUIRED)
+
 # This is an experiment, to be continued
 # Use only a small portion of VTK, and only in one stand-alone
 # tool. That one is a giant library. Thse are installed using
@@ -288,11 +282,21 @@ find_external_library(PDAL ${ASP_DEPS_DIR} "pdal" "${PDAL_LIB_NAMES}" REQUIRED)
 #find_external_library(VTK ${ASP_DEPS_DIR} "vtk-9.1" "${VTK_LIB_NAMES}" REQUIRED)
 
 # For convenience, list some libraries that VW and ISIS depend on.
-set(VW_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} ${OPENEXR_LIBRARIES}
-    ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  ${PROJ4_LIBRARIES}
-    ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${PNG_LIBRARIES}
-    ${FLANN_LIBRARIES} ${LZ4_LIBRARIES})
-set(ISIS_3RD_PARTY_LIBS Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES})
+set(VW_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} 
+    ${OPENEXR_LIBRARIES} ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  
+    ${PROJ4_LIBRARIES} ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} 
+    ${PNG_LIBRARIES} ${FLANN_LIBRARIES} ${LZ4_LIBRARIES})
+set(ISIS_3RD_PARTY_LIBS Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} 
+    ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES})
+
+# These are needed for rig_calibrator
+# MVE
+set(MVE_LIB_NAMES mveUtil mveCore mveOgl mveDmrecon)
+find_external_library(MVE ${ASP_DEPS_DIR} "mve" "${MVE_LIB_NAMES}" REQUIRED)
+# Rayint only has headers, no libraries
+find_external_library(RAYINT ${ASP_DEPS_DIR} "rayint" "" REQUIRED)
+# texture reconstruction
+find_external_library(TEXRECON ${ASP_DEPS_DIR} "" "texture_reconstruction" REQUIRED)
 
 # Libraries use paths like "asp/src/Core/Common.h" so we just need to
 # add this one include path. These must take precedence over anything
@@ -338,12 +342,6 @@ get_all_source_files( "OpenMVG" ASP_OPENMVG_SRC_FILES)
 get_all_source_files( "OpenMVG/tests" ASP_OPENMVG_TEST_FILES)
 set(ASP_OPENMVG_LIB_DEPENDENCIES "")
 
-# ASP Rig
-get_all_source_files( "Rig"       ASP_RIG_SRC_FILES)
-get_all_source_files( "Rig/tests" ASP_RIG_TEST_FILES)
-set(ASP_RIG_LIB_DEPENDENCIES AspCore AspOpenMvg ${OPENCV_LIBRARIES}
-    ${SOLVER_LIBRARIES})
-
 # ASP_CAMERA
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
@@ -364,13 +362,20 @@ set(ASP_GUI_LIB_DEPENDENCIES AspCore AspCamera Qt5::Core Qt5::Gui Qt5::Widgets $
 # ASP_GOTCHA
 get_all_source_files( "Gotcha"       ASP_GOTCHA_SRC_FILES)
 get_all_source_files( "Gotcha/tests" ASP_GOTCHA_TEST_FILES)
-set(ASP_GOTCHA_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${OPENCV_LIBRARIES} ${Boost_LIBRARIES})
+set(ASP_GOTCHA_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${OPENCV_LIBRARIES} 
+    ${Boost_LIBRARIES})
 
 # ASP_PclIO
 get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
 get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
 set(ASP_PCLIO_LIB_DEPENDENCIES  pcl_common pcl_io_ply pcl_io
     AspCore ${VISIONWORKBENCH_LIBRARIES})
+
+# ASP Rig
+get_all_source_files("Rig"       ASP_RIG_SRC_FILES)
+get_all_source_files("Rig/tests" ASP_RIG_TEST_FILES)
+set(ASP_RIG_LIB_DEPENDENCIES AspCore AspOpenMvg AspPclIO tbb ${OPENCV_LIBRARIES}
+    ${SOLVER_LIBRARIES} ${MVE_LIBRARIES} ${RAYINT_LIBRARIES} ${TEXRECON_LIBRARIES})
 
 # Add all of the library subdirectories
 

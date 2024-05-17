@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# TODO(oalexan1): This broke after GitHub no longer allows unzipping
-# files to system directories. See build_test.sh for the latest logic.
 
 # This is a scratch pad of commands used to build ASP dependencies for OSX
 # in the cloud, while connecting with ssh.yml. It will go away once
@@ -10,9 +8,9 @@
 cd
 echo Now in $(pwd)
 
-# Fetch previously built packages
-wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env6/asp_deps.tar.gz
-/usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
+# Fetch the ASP dependencies, as described in build_test.sh. Update the needed
+# packages as further down this document. Then archive them as in build_test.sh,
+# and continue the rest of the instructions from there.
 
 # Set up the conda env
 conda init bash
@@ -94,15 +92,17 @@ else
 fi
 export PREFIX=/usr/local/miniconda/envs/asp_deps
 mkdir -p build && cd build
-cmake .. -DALE_USE_EXTERNAL_EIGEN=ON -DALE_USE_EXTERNAL_JSON=ON -DUSGSCSM_EXTERNAL_DEPS=ON -DCMAKE_VERBOSE_MAKEFILE=TRUE -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp -DUSGSCSM_BUILD_DOCS=OFF -DALE_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${PREFIX} -DALE_BUILD_TESTS=OFF -DUSGSCSM_BUILD_TESTS=OFF -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_EIGEN=ON -DALE_BUILD_TESTS=OFF
+cmake .. -DALE_USE_EXTERNAL_EIGEN=ON -DALE_USE_EXTERNAL_JSON=ON -DUSGSCSM_EXTERNAL_DEPS=ON -DCMAKE_VERBOSE_MAKEFILE=TRUE -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp -DALE_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${PREFIX} -DALE_BUILD_TESTS=OFF -DUSGSCSM_BUILD_TESTS=OFF -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_EIGEN=ON -DALE_BUILD_TESTS=OFF
 make -j 20 install
 
 # Continue with building usgscsm with the same env as above
 cd 
 #git clone git@github.com:USGS-Astrogeology/usgscsm.git --recursive
-git clone https://github.com/DOI-USGS/usgscsm.git --recursive
+#git clone https://github.com/DOI-USGS/usgscsm.git --recursive
+git clone git@github.com:oleg-alexandrov/usgscsm.git --recursive
 cd usgscsm
-git reset --hard 0f065ca
+#git reset --hard 0f065ca
+git checkout height_radtan_fixes
 mkdir -p build && cd build
 cmake .. -DALE_USE_EXTERNAL_EIGEN=ON -DALE_USE_EXTERNAL_JSON=ON -DUSGSCSM_EXTERNAL_DEPS=ON -DCMAKE_VERBOSE_MAKEFILE=TRUE -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp -DUSGSCSM_BUILD_DOCS=OFF -DALE_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${PREFIX} -DALE_BUILD_TESTS=OFF -DUSGSCSM_BUILD_TESTS=OFF -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_EIGEN=ON -DALE_BUILD_TESTS=OFF
 make -j 20 install

@@ -28,7 +28,7 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-from stereo_utils import * # must be after the path is altered above
+from asp_stereo_utils import * # must be after the path is altered above
 
 import asp_system_utils, asp_cmd_utils
 asp_system_utils.verify_python_version_is_supported()

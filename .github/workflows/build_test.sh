@@ -24,7 +24,6 @@ if [ 1 -eq 0 ]; then
   mkdir -p ~/work/StereoPipeline/packages
   /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
     /Users/runner/miniconda3/envs
-  #/usr/local/miniconda/envs/asp_deps /usr/local/miniconda/envs/python_isis8
   
   # When ssh.yml exits, it will cache ~/work/StereoPipeline/packages
   # This can be fetched on a local machine, then the desired tarball

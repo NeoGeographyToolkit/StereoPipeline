@@ -19,7 +19,7 @@
 from __future__ import print_function
 import os, sys, optparse, string, subprocess, math
 
-from stereo_utils.py import get_asp_version
+from asp_stereo_utils import get_asp_version
 
 import asp_system_utils
 asp_system_utils.verify_python_version_is_supported()
