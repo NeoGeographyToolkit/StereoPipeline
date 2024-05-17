@@ -1,0 +1,322 @@
+#!/usr/bin/env python
+# Copyright (c) 2017, United States Government, as represented by the
+# Administrator of the National Aeronautics and Space Administration.
+#
+# All rights reserved.
+#
+# The Astrobee platform is licensed under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with the
+# License. You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+
+"""
+    Documentation:
+    https://stereopipeline.readthedocs.io/en/latest/tools/theia_sfm.html
+"""
+
+import argparse, glob, os, re, shutil, subprocess, sys, platform
+
+# Set up the path to Python modules about to load
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+import asp_asp_rig_utils
+
+def sanityChecks(args):
+
+    if args.rig_config == "":
+        raise Exception("The path to the rig configuration file was not specified.")
+
+    if args.theia_flags == "":
+        raise Exception("The path to the Theia flags was not specified.")
+
+    if not os.path.exists(args.theia_flags):
+        raise Exception("Cannot find the Theia flags file: " + args.theia_flags)
+
+    if args.out_dir == "":
+        raise Exception("The path to the output directory was not specified.")
+
+def processArgs(args, base_dir):
+    """
+    Set up the parser and parse the args.
+    """
+
+    # Number of arguments before starting to parse them
+    num_input_args = len(sys.argv)
+
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument("--rig_config",  dest="rig_config", default="",
+                        help = "Rig configuration file.")
+
+    parser.add_argument("--images",  dest="images", default="",
+                        help = "Images, as individual wildcards. Example: " + \
+                        "'dir/cam1/*tif dir/cam2/*tif.")
+
+    parser.add_argument("--image_list",  dest="image_list", default="",
+                        help = "Use the images from this list, instead of setting " + \
+                        "--images. Images must be separated by a newline.")
+   
+    parser.add_argument("--image_sensor_list",  dest="image_sensor_list", default="",
+                        help = "An alternative way of listing the input images, " + \
+                        "when the sensor name is specified separately in the same " + \
+                        "file. See the naming convention in the documentation.")
+        
+    parser.add_argument("--theia_flags", dest="theia_flags",
+                        default="", help="The flags to pass to Theia. By default, " + \
+                        "the file ``share/theia_flags.txt`` in the software "       + \
+                        "distribution is used.")
+
+    parser.add_argument("--out_dir", dest="out_dir", default="",
+                        help="The output directory (only the 'cameras.nvm' " + \
+                        "file in it is needed afterwards).")
+
+    args, other = parser.parse_known_args()
+
+    # Set the Theia path if missing
+    if args.theia_flags == "":
+        args.theia_flags = base_dir + "/share/theia_flags.txt"
+    
+    # Print the help message if called with no arguments
+    if num_input_args <= 1:
+        parser.print_help()
+        sys.exit(1)
+
+    # Remove continuation lines in the string (those are convenient
+    # for readability in docs)
+    args.images = args.images.replace('\\', '')
+    args.images = args.images.replace('\n', ' ')
+
+    if int(args.images != "") + int(args.image_list != "") + int(len(other) > 0) + \
+         int(args.image_sensor_list != "") != 1:
+        raise Exception("Must set the input images using --images " + \
+                        "--image_list, --image_sensor_list, or individual images, " + \
+                        "but using just one approach.")
+    
+    # The inputs can be given as wildcards, file having an image list,
+    # or individually specified images
+    image_array = []
+    for image_wildcard in args.images.split():
+        # Expand all wildcards
+        image_array += glob.glob(image_wildcard)
+    # Use the image list, if provided
+    if args.image_list != "":
+        image_array = asp_rig_utils.read_list(args.image_list)
+    # Use images specified on the command line with no quotes
+    if len(other) > 0:
+        image_array = other[:]
+
+    # Error checking    
+    asp_rig_utils.check_for_sub_images(image_array)
+    sanityChecks(args)
+    
+    return (args, image_array)
+
+def genTheiaInputs(rig_config, args, image_array):
+    '''
+    Create the inputs as Theia wants them.
+    '''
+    
+    # Find the sensor name for each image    
+    (image_array, img_sensor_dict) \
+        = asp_rig_utils.findSensorNames(image_array, rig_config, args.image_sensor_list)
+    
+    # Initialize the data structure
+    images_by_sensor = {}
+    extensions = set()
+
+    # Parse the images for all cameras
+    image_set = set()
+    image_array = sorted(image_array)
+    for image in image_array:
+        image_set.add(image)
+
+        if image in img_sensor_dict:
+            sensor_name = img_sensor_dict[image]
+        else:
+            raise Exception("Could not find sensor name for image: " + image)
+        
+        if sensor_name not in images_by_sensor:
+            images_by_sensor[sensor_name] = []
+        images_by_sensor[sensor_name].append(image)
+        ext = asp_rig_utils.imageExtension(images_by_sensor[sensor_name])
+        extensions.add(ext)
+
+    if len(image_set) != len(image_array):
+        raise Exception("Found duplicate input images.")
+    if len(extensions) > 1:
+        raise Exception("Input images have a mix of filename extensions. Use just one. " + \
+                        "Found: ", extensions)
+    if len(extensions) == 0:
+        raise Exception("The input image set is invalid.")
+    extension = list(extensions)[0]
+
+    print("Output directory: " + args.out_dir)    
+    asp_rig_utils.mkdir_p(args.out_dir)
+
+    # Remove old images in sym_image_dir
+    sym_image_dir = args.out_dir + "/sym_images"
+    old_images = glob.glob(sym_image_dir + "/*")
+    if len(old_images) > 0:
+        print("Removing old images from " + sym_image_dir)
+        for image in old_images:
+            os.remove(image)
+
+    # Theia likes all images in the same dir, so do it with sym links
+    print("Creating sym links to the input images in: " + sym_image_dir)
+    asp_rig_utils.mkdir_p(sym_image_dir)
+    sym_images = {}
+    nonempty_rig = []
+    for sensor_id in range(len(rig_config)):
+        sensor_name = rig_config[sensor_id]['sensor_name']
+        sym_images[sensor_name] = []
+        if sensor_name not in images_by_sensor:
+            print("Found a sensor name with no images: " + sensor_name)
+            continue
+        
+        nonempty_rig.append(rig_config[sensor_id])
+        num_images = len(images_by_sensor[sensor_name])
+        
+        for it in range(num_images):
+            image = images_by_sensor[sensor_name][it]
+
+            # Sanity check. Each image file name must be /path/to/<timestamp>.extension.
+            # Also check if the timestamp is unique.
+            src_file = os.path.relpath(image, sym_image_dir)
+            base_file = os.path.basename(image)
+           
+            if image in img_sensor_dict:
+              sensor_name = img_sensor_dict[image]
+            else:
+              raise Exception("Could not find sensor name for image: " + image)
+            
+            # If the sensor name is not part of the image name, add it, to ensure
+            # uniqueness.
+            dst_file = os.path.basename(image)
+            if sensor_name not in dst_file:
+                dst_file = sensor_name + "_" + dst_file
+            dst_file = sym_image_dir + "/" + dst_file
+            sym_images[sensor_name].append(dst_file)
+            os.symlink(src_file, dst_file)
+            
+    # Must use this later on, otherwise the syntax of the file created
+    # later is incorrect.
+    rig_config = nonempty_rig[:]
+    
+    calib_file = asp_rig_utils.genCalibrationFile(args, rig_config, sym_images)
+
+    return (calib_file, sym_image_dir, images_by_sensor, sym_images, extension)
+
+def write_with_full_path(nvm_file, final_nvm_file,
+                    offset_file, final_offset_file,
+                    images, sym_images):
+    """
+    Theia saves images without full path. Go back to original image names in the nvm
+    and offset files.
+    """
+    # Make a dict for quick lookup
+    image_dict = {}
+    for key in images:
+        for i in range(len(images[key])):
+            image_dict[os.path.basename(sym_images[key][i])] = images[key][i]
+
+    in_files = [nvm_file, offset_file]
+    out_files = [final_nvm_file, final_offset_file]
+
+    for file_it in range(2):
+        lines = []
+        with open(in_files[file_it], 'r') as fh:
+            lines = fh.readlines()
+
+        for line_it in range(len(lines)):
+            vals = lines[line_it].split()
+            if len(vals) > 0 and vals[0] in image_dict:
+                vals[0] = image_dict[vals[0]]
+                lines[line_it] = " ".join(vals) + "\n"
+
+        print("Writing file with original image names: " + out_files[file_it])
+        with open(out_files[file_it], 'w') as fh:
+            fh.writelines(lines)
+    
+if __name__ == "__main__":
+
+    # The directory having as subdirs bin, lib, etc. 
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
+
+    # Set the path to OpenIO. This will not be needed when this dependency is removed
+    os.environ['OIIO_LIBRARY_PATH'] = base_dir + "/lib"
+
+    # TODO(oalexan1): Setting the dynamic library path this way is fragile, but
+    # I can't think of any better solution, and otherwise it fails to find the lib.
+    if 'Darwin' in platform.system():
+        key = 'DYLD_LIBRARY_PATH'
+        if key not in os.environ:
+            os.environ[key] = base_dir + '/lib'
+        else:
+            os.environ[key] = base_dir + '/lib' + ':' + os.environ[key]
+    
+    (args, image_array) = processArgs(sys.argv, base_dir)
+
+    rig_config = asp_rig_utils.parseRigConfig(args.rig_config)
+
+    (calib_file, sym_image_dir, images, sym_images, image_extension) \
+                 = genTheiaInputs(rig_config, args, image_array)
+
+    reconstruction_file = args.out_dir + "/reconstruction"
+    matching_dir = args.out_dir + "/matches"
+
+    # Wipe old data
+    for old_reconstruction in glob.glob(reconstruction_file + "*"):
+        print("Deleting old reconstruction: " + old_reconstruction)
+        os.remove(old_reconstruction)
+
+    count = 0
+    for old_matches in glob.glob(matching_dir + "/*"):
+        if count == 0:
+            print("Wiping old matches in: " + matching_dir)
+        count += 1
+        os.remove(old_matches)
+
+    cmd = [base_dir + "/bin/build_reconstruction", "--flagfile",
+           args.theia_flags, "--images",
+           sym_image_dir + "/*" + image_extension,
+           "--calibration_file", calib_file,
+           "--output_reconstruction", reconstruction_file,
+           "--matching_working_directory", matching_dir,
+           "--intrinsics_to_optimize", "NONE"]
+    asp_rig_utils.run_cmd(cmd)
+    
+    nvm_file = reconstruction_file + ".nvm"
+    cmd = [base_dir + "/bin/export_to_nvm_file", "-input_reconstruction_file",
+           reconstruction_file + "-0", "-output_nvm_file", nvm_file]
+    asp_rig_utils.run_cmd(cmd)
+
+    final_nvm_file = args.out_dir + "/cameras.nvm"
+
+    offset_file = reconstruction_file + "_offsets.txt";
+    final_offset_file = args.out_dir + "/cameras_offsets.txt";
+    
+    write_with_full_path(nvm_file, final_nvm_file, offset_file, final_offset_file,
+                         images, sym_images)
+    
+    # Wipe the reconstruction.nvm file and its offsets, as it has relative paths.
+    # TODO(oalexan1): May need to write cameras.nvm to start with, then overwrite it
+    # in-place.
+    if os.path.exists(nvm_file):
+        #print("Removing: " + nvm_file)
+        os.remove(nvm_file)
+    # Also wipe the offset file
+    if os.path.exists(offset_file):
+        #print("Removing: " + offset_file)
+        os.remove(offset_file)
+    
