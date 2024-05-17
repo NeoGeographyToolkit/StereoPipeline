@@ -45,27 +45,28 @@ if [ 1 -eq 0 ]; then
   echo Id is $id
   if [ "$success" != "success" ]; then
     echo "Error: The ssh.yml workflow did not succeed"
-  else 
-    echo Fetching the build with id $id from the cloud 
-    echo $gh run download -R $repo $id
-    /bin/rm -rf ssh-test-macOS # Must wipe this first, or else the download can fail
-    $gh run download -R $repo $id
+    exit
+  fi 
+  echo Fetching the build with id $id from the cloud 
+  echo $gh run download -R $repo $id
+  /bin/rm -rf ssh-test-macOS # Must wipe this first, or else the download can fail
+  $gh run download -R $repo $id
 
-    # Must be careful with the line below. This comes from ssh.yml
-    binaries=ssh-test-macOS/asp_deps.tar.gz
-    if [ ! -f "$binaries" ]; then
-      echo "Error: File: $binaries does not exist"
-      exit 1
-    fi 
-    
-    repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
-    tag=mac_conda_env6 # Must be the same tag as in the wget link above
-    # Wipe old version
-    $gh release -R $repo delete $tag 
-    notes="Mac conda env6"
-    # Add the binaries
-    /usr/bin/time $gh release -R $repo create $tag $binaries --title $tag --notes "$notes"
-  fi
+  # Must be careful with the line below. This comes from ssh.yml
+  binaries=ssh-test-macOS/asp_deps.tar.gz
+  if [ ! -f "$binaries" ]; then
+    echo "Error: File: $binaries does not exist"
+    exit 1
+  fi 
+  
+  repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
+  tag=mac_conda_env6 # Must be the same tag as in the wget link above
+  # Wipe old version
+  $gh release -R $repo delete $tag 
+  notes="Mac conda env6"
+  # Add the binaries
+  /usr/bin/time $gh release -R $repo create $tag $binaries --title $tag --notes "$notes"
+
   # End block that is pasted to the terminal to update the dependencies
 fi
   
