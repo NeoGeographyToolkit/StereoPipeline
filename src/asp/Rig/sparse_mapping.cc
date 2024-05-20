@@ -670,79 +670,6 @@ void FilterPID(double reproj_thresh,
     s.PrintStats();
 }
 
-// Write the BAL format.
-bool WriteBAL(const std::string& filename,
-                              camera::CameraParameters const& camera_params,
-                              std::vector<std::map<int, int> > const& pid_to_cid_fid,
-                              std::vector<Eigen::Vector3d> const& pid_to_xyz,
-                              std::vector<Eigen::Affine3d> const& cid_to_cam_t_global,
-                              std::vector<Eigen::Matrix2Xd > const& cid_to_keypoint_map) {
-  std::ofstream os;
-  os.open(filename.c_str());
-  os.precision(20);
-  if (!os.is_open()) {
-    LOG(ERROR) << "WriteBAL: cannot open the file.";
-    return false;
-  }
-
-  LOG(INFO) << "Writing: " << filename << std::endl;
-
-  // Write the number of camera poses and 3D points
-  size_t nrObservations = 0;
-  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++)
-    nrObservations += pid_to_cid_fid[pid].size();
-
-  // Write observations
-  os << cid_to_cam_t_global.size() << " " << pid_to_cid_fid.size() << " "
-     << nrObservations << std::endl;
-  os << std::endl;
-
-  for (size_t pid = 0; pid < pid_to_xyz.size(); pid++) {
-    std::map<int, int> const& track = pid_to_cid_fid[pid];
-
-    for (std::map<int, int>::const_iterator it = track.begin(); it != track.end(); it++) {
-      int cid = it->first;
-      int fid = it->second;
-
-      Eigen::Vector2d pt = cid_to_keypoint_map[cid].col(fid);
-      os << cid /*camera id*/<< " " << pid /*point id*/<< " "
-         << -pt[0] << ' ' << pt[1] << std::endl;  // need minus due to bal conventions
-    }
-  }
-  os << std::endl;
-
-  // One more place at which to deal with bal conversion. The camera plane
-  // is on the negative z axis.
-  Eigen::Matrix3d T; T << -1, 0, 0, 0, 1, 0, 0, 0, -1;
-
-  // Write cameras
-  double k1 = 0, k2 = 0;  // no distortion
-  for (size_t i = 0; i < cid_to_cam_t_global.size(); i++) {
-    Eigen::Vector3d vec;
-    camera::RotationToRodrigues(T*(cid_to_cam_t_global.at(i).linear()),
-                                &vec);
-
-    os << vec.transpose() << std::endl;
-    os << (T*(cid_to_cam_t_global.at(i).translation())).transpose() << std::endl;
-    os << camera_params.GetFocalLength() << std::endl;
-    os << k1 << std::endl;
-    os << k2 << std::endl;
-    os << std::endl;
-  }
-
-  // Write the points
-  for (size_t j = 0; j < pid_to_xyz.size(); j++) {
-    Eigen::Vector3d point = pid_to_xyz[j];
-    os << point[0] << std::endl;
-    os << point[1] << std::endl;
-    os << point[2] << std::endl;
-    os << std::endl;
-  }
-
-  os.close();
-  return true;
-}
-
 // Given a data sequence having camera pose information for a set of
 // timestamps, interpolate those poses at the timestamps given in
 // out_time. We assume timestamps are always in increasing values.
@@ -867,19 +794,6 @@ void PoseInterpolation(std::vector<std::string> const& images,
   return;
 }
 
-void InitializeCidFidToPid(int num_cid,
-                           std::vector<std::map<int, int>> const& pid_to_cid_fid,
-                           std::vector<std::map<int, int>> * cid_fid_to_pid) {
-  cid_fid_to_pid->clear();
-  cid_fid_to_pid->resize(num_cid, std::map<int, int>());
-
-  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
-    for (std::pair<int, int> const& cid_fid : pid_to_cid_fid[pid]) {
-      (*cid_fid_to_pid)[cid_fid.first][cid_fid.second] = pid;
-    }
-  }
-}
-  
 }  // namespace sparse_mapping
 
 

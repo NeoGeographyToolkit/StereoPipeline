@@ -8,6 +8,7 @@ namespace camera {
 namespace rig {
 
 class nvmData;
+class RigSet;
   
 // Merge two maps
 void MergeMaps(rig::nvmData const& A_in,

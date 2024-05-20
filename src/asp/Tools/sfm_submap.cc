@@ -16,7 +16,6 @@
  * under the License.
  */
 #include <Rig/thread.h>
-#include <Rig/sparse_map.h>
 #include <Rig/sparse_mapping.h>
 #include <Rig/nvm.h>
 #include <Rig/rig_config.h>

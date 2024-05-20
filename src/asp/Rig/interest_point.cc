@@ -64,7 +64,8 @@ DEFINE_double(sift_contrastThreshold, 0.02,
 DEFINE_double(sift_edgeThreshold, 10, "SIFT edge threshold.");
 DEFINE_double(sift_sigma, 1.6, "SIFT sigma.");
 
-DECLARE_int32(max_pairwise_matches); // declared externally
+DEFINE_int32(max_pairwise_matches, 2000,
+             "Maximum number of pairwise matches in an image pair to keep.");
 
 namespace rig {
 
@@ -307,8 +308,6 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
   // affine2D works better than homography
   // cv::Mat H = cv::findHomography(left_vec, right_vec, cv::RANSAC,
   // ransacReprojThreshold, inlier_mask, maxIters, confidence);
-  // TODO(oalexan1): The logic in BuildMapFindEssentialAndInliers()
-  // is much better at eliminating outliers, but is likely slower.
   cv::Mat H = cv::estimateAffine2D(left_vec, right_vec, inlier_mask, cv::RANSAC,
                                    ransacReprojThreshold, maxIters, confidence);
 
@@ -348,7 +347,8 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
   *matches = std::make_pair(left_ip, right_ip);
   match_mutex->unlock();
 }
-  
+ 
+// TODO(oalexan1): Use vw logic 
 void writeIpRecord(std::ofstream& f, InterestPoint const& p) {
   f.write(reinterpret_cast<const char*>(&(p.x)), sizeof(p.x));
   f.write(reinterpret_cast<const char*>(&(p.y)), sizeof(p.y));
@@ -366,6 +366,7 @@ void writeIpRecord(std::ofstream& f, InterestPoint const& p) {
     f.write(reinterpret_cast<const char*>(&(p.descriptor[i])), sizeof(p.descriptor[i]));
 }
 
+// TODO(oalexan1): Use vw logic
 // Write matches to disk
 void writeMatchFile(std::string match_file, std::vector<InterestPoint> const& ip1,
                     std::vector<InterestPoint> const& ip2) {
@@ -382,6 +383,7 @@ void writeMatchFile(std::string match_file, std::vector<InterestPoint> const& ip
   f.close();
 }
 
+// TODO(oalexan1): Move to triangulation file.
 // TODO(oalexan1): Duplicate code
 void Triangulate(bool rm_invalid_xyz, double focal_length,
                  std::vector<Eigen::Affine3d> const& cid_to_cam_t_global,
@@ -418,7 +420,8 @@ void Triangulate(bool rm_invalid_xyz, double focal_length,
   }
 
 }
-  
+
+// TODO(oalexan1): Move to triangulation file.  
 // Triangulate rays emanating from given undistorted and centered pixels
 Eigen::Vector3d TriangulatePair(double focal_length1, double focal_length2,
                                 Eigen::Affine3d const& world_to_cam1,
@@ -443,6 +446,7 @@ Eigen::Vector3d TriangulatePair(double focal_length1, double focal_length2,
   return solution;
 }
 
+// TODO(oalexan1): Move to triangulation file.
 // Triangulate n rays emanating from given undistorted and centered pixels
 Eigen::Vector3d Triangulate(std::vector<double>          const& focal_length_vec,
                             std::vector<Eigen::Affine3d> const& world_to_cam_vec,
@@ -472,6 +476,7 @@ Eigen::Vector3d Triangulate(std::vector<double>          const& focal_length_vec
   return solution;
 }
 
+// TODO(oalexan1): Use vw logic.
 // Form the match file name. Assume the input images are of the form
 // cam_name/image.jpg. Use the ASP convention of the match file being
 // run/run-image1__image2.match. This assumes all input images are unique.
@@ -1226,6 +1231,7 @@ void detectMatchFeatures(// Inputs
   return;
 }
 
+// TODO(oalexan1): Move to triangulation.cc.
 void multiViewTriangulation(// Inputs
                             std::vector<camera::CameraParameters>   const& cam_params,
                             std::vector<rig::cameraImage>     const& cams,

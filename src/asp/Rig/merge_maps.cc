@@ -30,7 +30,6 @@
 #pragma GCC diagnostic pop
 
 #include <Rig/essential.h>
-#include <Rig/sparse_map.h>
 #include <Rig/merge_maps.h>
 #include <Rig/rig_config.h>
 #include <Rig/camera_image.h>
@@ -40,6 +39,8 @@
 #include <Rig/basic_algs.h>
 #include <Rig/ransac.h>
 #include <Rig/transform_utils.h>
+#include <Rig/rig_config.h>
+#include <Rig/interest_point.h>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
