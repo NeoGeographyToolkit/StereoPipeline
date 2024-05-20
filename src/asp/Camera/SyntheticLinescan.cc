@@ -241,6 +241,7 @@ void populateCsmLinescanRig(double first_line_time, double dt_line,
   }
   
 }
+
 // Create and save a linescan camera with given camera positions and orientations.
 // There will be just one of them, as all poses are part of the same linescan camera.
 void genLinescanCameras(double                                 first_line_time,
@@ -258,9 +259,9 @@ void genLinescanCameras(double                                 first_line_time,
                         Eigen::Affine3d                const & ref2sensor,
                         std::string                    const & suffix, 
                         // Outputs
-                        SatSimOptions                          & opt, 
-                        std::vector<std::string>               & cam_names,
-                        std::vector<vw::CamPtr>                & cams) {
+                        SatSimOptions                        & opt, 
+                        std::vector<std::string>             & cam_names,
+                        std::vector<vw::CamPtr>              & cams) {
   
   // Sanity checks
   if (cam2world.size() != positions.size() || 

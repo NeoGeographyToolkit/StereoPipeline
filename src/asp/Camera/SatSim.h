@@ -23,8 +23,6 @@
 #ifndef __ASP_CAMERA_SATSIM_H__
 #define __ASP_CAMERA_SATSIM_H__
 
-#include <asp/Camera/RigSet.h>
-
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/FileIO/DiskImageView.h>
@@ -33,8 +31,14 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/Core/Exception.h>
 
+#include <Eigen/Dense>
+
 #include <string>
 #include <map>
+
+namespace rig {
+  class RigSet;
+}
 
 namespace asp {
 
@@ -49,7 +53,6 @@ struct SatSimOptions: vw::GdalWriteOptions {
   std::string jitter_frequency_str, jitter_amplitude_str, jitter_phase_str, 
     horizontal_uncertainty_str, rig_config, sensor_name;
   bool no_images, save_ref_cams, non_square_pixels, save_as_csm, model_time;
-  asp::RigSet rig;
   SatSimOptions() {}
 };
 
@@ -113,6 +116,7 @@ void genImages(SatSimOptions const& opt,
 
 // Generate the cameras and images for a rig
 void genRigCamerasImages(SatSimOptions                      & opt,
+                         rig::RigSet                   const& rig,
                          double                               first_line_time,
                          double                               orbit_len,
                          vw::cartography::GeoReference const& dem_georef,

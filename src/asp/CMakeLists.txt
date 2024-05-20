@@ -342,10 +342,16 @@ get_all_source_files( "OpenMVG" ASP_OPENMVG_SRC_FILES)
 get_all_source_files( "OpenMVG/tests" ASP_OPENMVG_TEST_FILES)
 set(ASP_OPENMVG_LIB_DEPENDENCIES "")
 
+# ASP Rig
+get_all_source_files("Rig"       ASP_RIG_SRC_FILES)
+get_all_source_files("Rig/tests" ASP_RIG_TEST_FILES)
+set(ASP_RIG_LIB_DEPENDENCIES AspCore AspOpenMvg AspPclIO tbb ${OPENCV_LIBRARIES}
+    ${SOLVER_LIBRARIES} ${MVE_LIBRARIES} ${RAYINT_LIBRARIES} ${TEXRECON_LIBRARIES})
+
 # ASP_CAMERA
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
-set(ASP_CAMERA_LIB_DEPENDENCIES AspCore AspSpiceIO AspIsisIO ${XERCESC_LIBRARIES}
+set(ASP_CAMERA_LIB_DEPENDENCIES AspCore AspSpiceIO AspIsisIO AspRig ${XERCESC_LIBRARIES}
     ${CSM_LIBRARIES} ${USGSCSM_LIBRARIES} ${ALE_LIBRARIES})
 
 # ASP_SESSIONS
@@ -370,12 +376,6 @@ get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
 get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
 set(ASP_PCLIO_LIB_DEPENDENCIES  pcl_common pcl_io_ply pcl_io
     AspCore ${VISIONWORKBENCH_LIBRARIES})
-
-# ASP Rig
-get_all_source_files("Rig"       ASP_RIG_SRC_FILES)
-get_all_source_files("Rig/tests" ASP_RIG_TEST_FILES)
-set(ASP_RIG_LIB_DEPENDENCIES AspCore AspOpenMvg AspPclIO tbb ${OPENCV_LIBRARIES}
-    ${SOLVER_LIBRARIES} ${MVE_LIBRARIES} ${RAYINT_LIBRARIES} ${TEXRECON_LIBRARIES})
 
 # Add all of the library subdirectories
 

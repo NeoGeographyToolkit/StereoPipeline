@@ -22,6 +22,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Camera/SyntheticLinescan.h>
 #include <asp/Camera/SatSim.h>
+#include <asp/Rig/rig_config.h>
 
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Camera/PinholeModel.h>
@@ -30,8 +31,8 @@
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-
-void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
+void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
+                      rig::RigSet & rig) {
 
   double NaN = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("General options");
@@ -388,32 +389,32 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
   if (have_rig) {
     // Read the rig configuration
     bool have_rig_transforms = true; // dictated by the api
-    asp::readRigConfig(opt.rig_config, have_rig_transforms, opt.rig);
+    rig::readRigConfig(opt.rig_config, have_rig_transforms, rig);
     // Must have just one rig
-    if (opt.rig.cam_set.size() != 1)
+    if (rig.cam_set.size() != 1)
       vw::vw_throw(vw::ArgumentErr() << "Only one rig (reference sensor) is supported "
                    << "in sat_sim.\n");  
 
-    for (size_t i = 0; i < opt.rig.cam_params.size(); i++) {
-      auto const& params = opt.rig.cam_params[i];
+    for (size_t i = 0; i < rig.cam_params.size(); i++) {
+      auto const& params = rig.cam_params[i];
     
-      if (params.image_size[0] <= 1 || params.image_size[1] <= 1)
+      if (params.GetDistortedSize()[0] <= 1 || params.GetDistortedSize()[1] <= 1)
         vw::vw_throw(vw::ArgumentErr() << "The image size must be at least 2 x 2.\n");
 
-      if (params.focal_length <= 0)
+      if (params.GetFocalLength() <= 0)
         vw::vw_throw(vw::ArgumentErr() << "The focal length must be positive.\n");
     
       // If the optical center is large, the images will show up very oblique.
       // The current logic implicitly assumes that the optical center is close to
       // the image center.
-      if (params.optical_center[0] < 0 || params.optical_center[1] < 0 ||
-          params.optical_center[0] >= params.image_size[0] || 
-          params.optical_center[1] >= params.image_size[1])
+      if (params.GetOpticalOffset()[0] < 0 || params.GetOpticalOffset()[1] < 0 ||
+          params.GetOpticalOffset()[0] >= params.GetDistortedSize()[0] || 
+          params.GetOpticalOffset()[1] >= params.GetDistortedSize()[1])
         vw::vw_throw(vw::ArgumentErr() << "The optical center must be non-negative and "
                     << "within the image bounds. It is suggested to have it close to "
                     << "the image center.\n");
     
-      if (params.distortion.size() != 0)
+      if (params.GetDistortion().size() != 0)
         vw::vw_throw(vw::ArgumentErr() << "Distortion is not supported in sat_sim.\n");
     }
   }
@@ -424,8 +425,9 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt) {
 int main(int argc, char *argv[]) {
 
   asp::SatSimOptions opt;
+  rig::RigSet rig;
   try {
-    handle_arguments(argc, argv, opt);
+    handle_arguments(argc, argv, opt, rig);
 
     // Read the DEM
     vw::ImageViewRef<vw::PixelMask<float>> dem;
@@ -470,7 +472,7 @@ int main(int argc, char *argv[]) {
       // Generate cameras
       if (!opt.rig_config.empty()) {
         // The rig needs special treatment 
-        asp::genRigCamerasImages(opt, first_line_time, orbit_len, dem_georef, positions, 
+        asp::genRigCamerasImages(opt, rig, first_line_time, orbit_len, dem_georef, positions, 
                                  cam2world, cam2world_no_jitter, ref_cam2world, 
                                  cam_times, first_pos, dem, height_guess, 
                                  ortho_georef, ortho, ortho_nodata_val);

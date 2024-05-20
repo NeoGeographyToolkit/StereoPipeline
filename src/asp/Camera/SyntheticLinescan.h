@@ -35,6 +35,7 @@ namespace vw {
 namespace asp {
 
 struct SatSimOptions;
+class RigSet;
 
 // Create and save a linescan camera with given camera positions and orientations.
 // There will be just one of them, as all poses are part of the same linescan camera.
@@ -51,12 +52,12 @@ void genLinescanCameras(double                                 first_line_time,
                         std::vector<double>            const & cam_times,
                         double                                 height_guess,
                         bool                                   have_rig,
-                        Eigen::Affine3d               const  & ref2sensor,
-                        std::string                   const  & suffix, 
+                        Eigen::Affine3d                const & ref2sensor,
+                        std::string                    const & suffix, 
                         // Outputs
-                        SatSimOptions                         & opt, 
-                        std::vector<std::string>              & cam_names,
-                        std::vector<vw::CamPtr>               & cams);
+                        SatSimOptions                        & opt, 
+                        std::vector<std::string>             & cam_names,
+                        std::vector<vw::CamPtr>              & cams);
 
 // A function to read Linescan cameras from disk in CSM format. There will
 // be just one of them.

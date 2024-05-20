@@ -24,6 +24,7 @@
 #include <asp/Camera/SatSim.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/SyntheticLinescan.h>
+#include <asp/Rig/rig_config.h>
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/CameraBBox.h>
@@ -1356,6 +1357,7 @@ void handleSensorType(int num_sensors,
 
 // Generate the cameras and images for a rig
 void genRigCamerasImages(SatSimOptions          & opt,
+            rig::RigSet                    const& rig,
             double                                first_line_time,
             double                                orbit_len,     
             vw::cartography::GeoReference const & dem_georef,
@@ -1377,18 +1379,18 @@ void genRigCamerasImages(SatSimOptions          & opt,
   
   // Handle sensor types
   std::vector<std::string> sensor_types;
-  handleSensorType(opt.rig.cam_names.size(), opt.sensor_type, sensor_types);
+  handleSensorType(rig.cam_names.size(), opt.sensor_type, sensor_types);
   
   std::vector<std::string> sensor_names;
   if (opt.sensor_name == "all")
-    sensor_names = opt.rig.cam_names; 
+    sensor_names = rig.cam_names; 
   else
     boost::split(sensor_names, opt.sensor_name, boost::is_any_of(","));
   
-  // Map from each sensor in opt.rig.cam_names to index
+  // Map from each sensor in rig.cam_names to index
   std::map<std::string, int> sensor_name2index;
-  for (int i = 0; i < int(opt.rig.cam_names.size()); i++)
-    sensor_name2index[opt.rig.cam_names[i]] = i;
+  for (int i = 0; i < int(rig.cam_names.size()); i++)
+    sensor_name2index[rig.cam_names[i]] = i;
   
   // Iterate over sensor_names. Check if it is sensor_name2index
   for (size_t sensor_it = 0; sensor_it < sensor_names.size(); sensor_it++) {
@@ -1398,18 +1400,18 @@ void genRigCamerasImages(SatSimOptions          & opt,
         << " not found in the rig.\n");
     
     // Pass the intrinsics to a local copy of the options
-    int sensor_index = it->second;
-    SatSimOptions local_opt = opt;
-    auto params = opt.rig.cam_params[sensor_index];
-    local_opt.focal_length = params.focal_length;
-    local_opt.optical_center[0] = params.optical_center[0];
-    local_opt.optical_center[1] = params.optical_center[1];
-    local_opt.image_size[0]     = params.image_size[0];
-    local_opt.image_size[1]     = params.image_size[1];
+    int sensor_index            = it->second;
+    SatSimOptions local_opt     = opt;
+    auto params                 = rig.cam_params[sensor_index];
+    local_opt.focal_length      = params.GetFocalLength();
+    local_opt.optical_center[0] = params.GetOpticalOffset()[0];
+    local_opt.optical_center[1] = params.GetOpticalOffset()[1];
+    local_opt.image_size[0]     = params.GetDistortedSize()[0];
+    local_opt.image_size[1]     = params.GetDistortedSize()[1];
     local_opt.sensor_type       = sensor_types[sensor_it];
     
     // The transform from the reference sensor to the current sensor
-    Eigen::Affine3d ref2sensor = opt.rig.ref_to_cam_trans[sensor_index];
+    Eigen::Affine3d ref2sensor = rig.ref_to_cam_trans[sensor_index];
     
     // Must pass this in together with bool have_rig = true.
     bool have_rig = true;
