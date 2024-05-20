@@ -175,6 +175,10 @@ namespace asp {
     
     bool isFrameCam() const;
     
+    // Ensure the linescan model quaternions are always normalized and do not
+    // suddenly flip sign
+    void normalizeLinescanQuaternions();
+    
   protected:
 
     // Read the ellipsoid (datum) axes from the isd json file

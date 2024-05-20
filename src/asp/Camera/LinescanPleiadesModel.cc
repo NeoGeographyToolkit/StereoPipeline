@@ -20,6 +20,7 @@
 #include <asp/Camera/PleiadesXML.h>
 #include <asp/Camera/LinescanPleiadesModel.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Camera/CsmUtils.h>
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 
 // This class implements the Pleiades linescan model
@@ -181,6 +182,9 @@ void PleiadesCameraModel::populateCsmModel() {
     m_ls_model->m_quaternions[4*pos_it + coord] = q.z(); coord++;
     m_ls_model->m_quaternions[4*pos_it + coord] = q.w(); coord++;
   }
+
+  // Quaternions must always be normalized and not change suddenly in sign.
+  asp::normalizeQuaternions(m_ls_model);
 
   // Re-creating the model from the state forces some operations to
   // take place which are inaccessible otherwise.

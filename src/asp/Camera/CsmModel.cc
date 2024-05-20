@@ -19,6 +19,7 @@
 
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Camera/CsmUtils.h>
 
 #include <vw/Camera/PinholeModel.h>
 
@@ -473,6 +474,9 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   
   // This must happen after gm model is set
   readCsmSunPosition(m_gm_model, m_sun_position);
+
+  // This is a bug fix.
+  normalizeLinescanQuaternions();  
 }
 
 /// Load the camera model from a model state written to disk.
@@ -526,6 +530,15 @@ void setModelFromStateStringAux(bool recreate_model,
   }
 
   return;
+}
+
+// Ensure the linescan model quaternions are always normalized and do not
+// suddenly flip sign. This is a bug fix.
+void CsmModel::normalizeLinescanQuaternions() {
+  UsgsAstroLsSensorModel * ls_model
+    = dynamic_cast<UsgsAstroLsSensorModel*>(m_gm_model.get());
+  if (ls_model != NULL)
+    asp::normalizeQuaternions(ls_model);
 }
   
 /// Load the camera model from a model state written to disk. A model state is
@@ -595,6 +608,9 @@ void CsmModel::setModelFromStateString(std::string const& model_state,
     
   // This must happen after gm model is set
   readCsmSunPosition(m_gm_model, m_sun_position);
+  
+  // This is a bug fix.
+  normalizeLinescanQuaternions();  
 }
   
 void CsmModel::throw_if_not_init() const {
@@ -650,8 +666,8 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
   csm::ImageCoord imagePt = vectorToImageCoord(pix + ASP_TO_CSM_SHIFT);
   double achievedPrecision = -1.0; // will be modified in the function
   csm::EcefLocus locus = m_gm_model->imageToRemoteImagingLocus(imagePt,
-                                                                m_desired_precision,
-                                                                &achievedPrecision);
+                                                               m_desired_precision,
+                                                               &achievedPrecision);
   Vector3 dir = ecefVectorToVector(locus.direction);
   return dir;
 

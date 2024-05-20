@@ -31,6 +31,34 @@
 
 namespace asp {
 
+// Ensure that quaternions don't suddenly change sign. This is a bugfix.
+void fixQuaternionSigns(UsgsAstroLsSensorModel * ls_model) {
+  
+  // Find the largest magnitude quaternion coefficient and its coordinate
+  int numQuats = ls_model->m_numQuaternions / NUM_QUAT_PARAMS;
+  double max_q = 0.0;
+  int max_j = 0;
+  for (int i = 0; i < numQuats; i++) {
+    double * quat = &ls_model->m_quaternions[NUM_QUAT_PARAMS * i];
+    for (int j = 0; j < 4; j++) {
+      if (std::abs(quat[j]) > std::abs(max_q)) {
+        max_q = quat[j];
+        max_j = j;
+      }
+    }
+  }
+    
+  // Ensure the signs are consistent
+  for (int i = 0; i < numQuats; i++) {
+    double * quat = &ls_model->m_quaternions[NUM_QUAT_PARAMS * i];
+    if (quat[max_j] * max_q < 0) {
+      for (int j = 0; j < 4; j++) {
+        quat[j] *= -1.0;
+      }  
+    }
+  }
+}
+
 // Normalize quaternions in UsgsAstroLsSensorModel.
 void normalizeQuaternions(UsgsAstroLsSensorModel * ls_model) {
 
@@ -48,6 +76,9 @@ void normalizeQuaternions(UsgsAstroLsSensorModel * ls_model) {
       ls_model->m_quaternions[4 * qit + coord] /= norm;
   }
 
+  // Fix any sign issues. This is a bugfix.
+  asp::fixQuaternionSigns(ls_model);
+  
   return;
 }
 
@@ -64,6 +95,9 @@ void normalizeQuaternions(UsgsAstroFrameSensorModel * frame_model) {
   }
   norm = sqrt(norm);
 
+  if (norm == 0)
+    return;
+    
   // Normalize the quaternions. Put them back in the model.
   for (size_t i = 0; i < 4; i++) {
     q[i] /= norm;
@@ -397,6 +431,9 @@ void populateCsmLinescan(double first_line_time, double dt_line,
     ls_model->m_quaternions[4*index + coord] = w; coord++;
   }
   
+  // Quaternions must always be normalized and not change suddenly in sign.
+  asp::normalizeQuaternions(ls_model);
+
   // Re-creating the model from the state forces some operations to
   // take place which are inaccessible otherwise.
   std::string modelState = ls_model->getModelState();

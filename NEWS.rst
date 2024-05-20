@@ -134,7 +134,7 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Order of images in each previously created interest point match file need
     not be the same as for input images.
   * RPC lens distortion is now applied to pixels that are normalized by focal
-    length, in addition to being offset by the principal point This is
+    length, in addition to being offset by the principal point. This is
     consistent with the radial-tangential and fisheye models, and produces a
     more accurate fit to other models. *Previously created models are now
     invalid*.
@@ -282,6 +282,9 @@ misc:
   * Do not keep auxiliary files with temporary names in the work directory for
     ``parallel_stereo`` and ``parallel_bundle_adjust``. Use run's output
     directory and proper names.
+  * Ensure any sequence of quaternions in a CSM linescan model is normalized
+    and there is no sign flip along the sequence. Such a flip was resulting
+    in incorrectly interpolated camera orientations.  
   * Auto-guess the planet for Pinhole cameras (For Earth, Moon, Mars).   
   * Documented the program ``view_reconstruction``
     (:numref:`view_reconstruction`), with a figure.  

@@ -9,7 +9,7 @@ a given datum, or for a terrain covered by a given DEM. If
 ``--save-tif-image`` is specified, the image portion corresponding to
 the RPC model will be saved in the TIF format.
 
-The produced RPC camera can be restricted to a given ground or pixel region.
+The produced RPC camera can be restricted to a given ground or pixel box.
 In either case it will be consistent with the image portion that is saved.
 
 The obtained RPC models and images can be used with ``stereo`` (when the
@@ -43,7 +43,7 @@ box, values from a DEM are used, and the image is cropped.
       --dem-file DEM.tif --save-tif-image --image-crop-box 90 70 5511 3675
 
 Here we have constrained the RPC camera model and output image to not go
-beyond a given bounding box.
+beyond a given bounding box. 
 
 Validation
 ~~~~~~~~~~

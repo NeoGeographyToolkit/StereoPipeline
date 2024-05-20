@@ -387,6 +387,9 @@ void DGCameraModel::populateCsmModel() {
     m_ls_model->m_quaternions[4*pos_it + coord] = q.w(); coord++;
   }
 
+  // Quaternions must always be normalized and not change suddenly in sign.
+  asp::normalizeQuaternions(m_ls_model.get());
+  
   // Re-creating the model from the state forces some operations to
   // take place which are inaccessible otherwise.
   std::string modelState = m_ls_model->getModelState();
