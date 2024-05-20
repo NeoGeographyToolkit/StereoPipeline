@@ -349,7 +349,8 @@ void findBestProjCamLocation
   attempts = 8;
   for (int attempt = 0; attempt < attempts; attempt++) {
     double delta = 1.0 / pow(10.0, attempt);
-    for (double i = best_i - 50*delta; i <= best_i + 50*delta; i += delta) {
+    double best_i_init = best_i; // So that loop end points do not change mid-loop
+    for (double i = best_i_init - 50*delta; i <= best_i_init + 50*delta; i += delta) {
       double t = spacing * i;
       vw::Vector<double, 1> curr_len; 
       curr_len[0] = t / param_scale_factor;
