@@ -178,7 +178,7 @@ double demPixelErr(SatSimOptions const& opt,
 }
 
 // A model with the error given by demPixelErr(). The variable will be t,
-// which will give the position along the trajectory.
+// which will give the position along the trajectory. 
 class RayDemPixelLMA : public vw::math::LeastSquaresModelBase<RayDemPixelLMA> {
 
   SatSimOptions const& m_opt;
@@ -233,7 +233,7 @@ public:
 
     result_type result;
     result[0] = err;
-    //vw::vw_out() << "t = " << t << ", err = " << err << std::endl;
+    // vw::vw_out() << "t = " << t << ", err = " << err << std::endl;
     return result;
   }
 };
@@ -306,13 +306,7 @@ void findBestProjCamLocation
   RayDemPixelLMA model(opt, dem_georef, dem, height_guess, first_proj, last_proj,
                        proj_along, proj_across, delta, param_scale_factor,
                        roll, pitch, yaw, pixel_loc);
-  int status = -1;
-  double max_abs_tol = 1e-14;
-  double max_rel_tol = max_abs_tol;
-  int num_max_iter = 100;
-  vw::Vector<double, 1> observation; 
-  observation[0] = 0; // because we want to minimize the error
-  vw::Vector<double, 1> len; len[0] = 0; // initial guess 
+  vw::Vector<double, 1> best_len; best_len[0] = 0; // initial guess 
 
   // First need to search around for a good initial guess. This is a bug fix.
   // Number of attempts times spacing in m is 1e+8 m, which is 100,000 km. 
@@ -320,21 +314,21 @@ void findBestProjCamLocation
   // vw::vw_out() << "Searching for a good initial guess.\n";
   int attempts = int(1e+8);
   double best_val = g_big_val;
+  double best_i = 0;
   for (int i = 0; i < attempts; i++) {
     
     // Move towards the positive direction then the negative one
     double curr_best_val = best_val;
     for (int j = -1; j <= 1; j += 2) {
       double t = spacing * i * j;
-      vw::Vector<double, 1> len2; 
-      len2[0] = t / param_scale_factor;
-      double val = model(len2)[0];
-
-      //vw::vw_out() << "len, val, attempt = " << len2[0] << ' ' << val << ' ' << i << std::endl;
-
+      vw::Vector<double, 1> curr_len; 
+      curr_len[0] = t / param_scale_factor;
+      double val = model(curr_len)[0];
+      //vw::vw_out() << "len, val = " << curr_len[0] << ' ' << val << "\n";
       if (val < best_val) {
         best_val = val;
-        len = len2;
+        best_len = curr_len;
+        best_i = i * j; // take into account the sign
       }
     }
     
@@ -345,28 +339,57 @@ void findBestProjCamLocation
     }
 
   } // end doing attempts
-
+  
+  // Do local refinement. This is necessary as the initial guess may be far from
+  // the minimum and the function may be noisy. Will do i with increments of 1,
+  // then 0.1, etc., around current best_i. Start with increment of 1 to peek
+  // ahead beyond the values where we stopped before, while revisiting some of
+  // the values of i as well. This was tested on a bug, so do not modify here
+  // lightly.
+  attempts = 8;
+  for (int attempt = 0; attempt < attempts; attempt++) {
+    double delta = 1.0 / pow(10.0, attempt);
+    for (double i = best_i - 50*delta; i <= best_i + 50*delta; i += delta) {
+      double t = spacing * i;
+      vw::Vector<double, 1> curr_len; 
+      curr_len[0] = t / param_scale_factor;
+      double val = model(curr_len)[0];
+      //vw::vw_out() << "len, val = " << curr_len[0] << ' ' << val << "\n";
+      if (val < best_val) {
+        best_val = val;
+        best_len = curr_len;
+        best_i = i;
+      }
+    }
+  }
+  
   // Run the optimization with the just-found initial guess
   // vw::vw_out() << "Running the solver.\n";
-  len = vw::math::levenberg_marquardt(model, len, observation, status, 
+  int status = -1;
+  double max_abs_tol = 1e-14;
+  double max_rel_tol = max_abs_tol;
+  int num_max_iter = 100;
+  vw::Vector<double, 1> observation; 
+  observation[0] = 0; // because we want to minimize the error
+  best_len = vw::math::levenberg_marquardt(model, best_len, observation, status, 
                                       max_abs_tol, max_rel_tol, num_max_iter);
-
   // Note: The status is ignored here. We will just take whatever the solver
   // outputs, as it may not converge within tolerance. 
-
+  double val = model(best_len)[0];
+ 
 #if 0
 // Turning this off, as the minimum cost function may be far from zero.
 // May need to add some other check here.
-  if (std::abs(model(len)[0]) > 1.0) {
-    vw::vw_out() << "Abs of model value is " << std::abs(model(len)[0]) << std::endl;
-    vw::vw_throw(vw::ArgumentErr() << "Error: The solver for finding correct ends of "
-      << "orbital segment did not converge to a good solution. Check your DEM, " 
-      << "roll, pitch, yaw, and ground path endpoints.\n");
+  if (std::abs(model(best_len)[0]) > 1.0) {
+    vw::vw_out() << "Abs of model value is " << std::abs(model(best_len)[0]) << std::endl;
+    // vw::vw_throw(vw::ArgumentErr() << "Error: The solver for finding correct ends of "
+    //   << "orbital segment did not converge to a good solution. Check your DEM, " 
+    //   << "roll, pitch, yaw, and ground path endpoints.\n");
   }
 #endif
 
   // Compute the best location given the just-found position on the segment
-  double t = len[0] * param_scale_factor;
+  double t = best_len[0] * param_scale_factor;
   best_proj = first_proj * (1.0 - t) + last_proj * t;
 }
 
@@ -705,7 +728,7 @@ void calcTrajectory(SatSimOptions & opt,
     sw1.stop();
     vw::vw_out() << "Elapsed time for starting endpoint: " 
                  << sw1.elapsed_seconds() << " s.\n";
-                 
+                           
     // Same thing for the last camera
     vw::Stopwatch sw2;
     sw2.start();
@@ -717,7 +740,7 @@ void calcTrajectory(SatSimOptions & opt,
     sw2.stop();
     vw::vw_out() << "Elapsed time for ending endpoint: " 
                  << sw2.elapsed_seconds() << " s.\n";
-                 
+                           
     // Overwrite the first and last camera locations in projected coordinates
     // with the best ones
     first_proj = first_best_cam_loc_proj;
@@ -734,7 +757,7 @@ void calcTrajectory(SatSimOptions & opt,
   orbit_len = calcOrbitLength(first_proj, last_proj, dem_georef);
 
   // Good to print these
-  vw::vw_out() << "Orbit length between first and last inclination-adjusted cameras: " 
+  vw::vw_out() << "Orbit length between the first and last inclination-adjusted cameras: " 
      << orbit_len << " meters.\n"; 
   vw::vw_out() << "Number of camera samples: " << opt.num_cameras << "." << std::endl;
 
@@ -1350,8 +1373,11 @@ void handleSensorType(int num_sensors,
   
   // Each must be linescan or pinhole
   for (int i = 0; i < int(sensor_types.size()); i++) {
+    if (sensor_types[i] == "frame")
+      sensor_types[i] = "pinhole"; // frame is synonymous with pinhole
     if (sensor_types[i] != "linescan" && sensor_types[i] != "pinhole")
-      vw::vw_throw(vw::ArgumentErr() << "Expecting sensor type to be linescan or pinhole.\n");
+      vw::vw_throw(vw::ArgumentErr() << "Expecting sensor type to be linescan "
+                   << "or pinhole/frame.\n");
   }
 }
 

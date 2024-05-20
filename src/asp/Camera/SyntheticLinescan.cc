@@ -332,7 +332,7 @@ void genLinescanCameras(double                                 first_line_time,
 
   if (!opt.non_square_pixels) {
     // Find the pixel aspect ratio on the ground (x/y)
-    vw::vw_out() << "Adjusting image height from " << opt.image_size[1] << " to ";
+    vw::vw_out() << "Adjusting the linescan image height from " << opt.image_size[1] << " to ";
     double ratio = pixelAspectRatio(opt, dem_georef, *ls_cam, dem, height_guess);
     // Adjust the image height to make the pixels square
     opt.image_size[1] = std::max(round(opt.image_size[1] / ratio), 2.0);
