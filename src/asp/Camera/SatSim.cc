@@ -1318,11 +1318,12 @@ void genImages(SatSimOptions const& opt,
     // Save the image using the block write function with multiple threads
     // Increase the tile size, as otherwise this code becomes very slow
     // since a time-consuming camera box calculation happens in each tile.
+    // TODO(oalexan1): Figure out why the slowdown.
     vw::vw_out() << "Writing: " << image_names[i] << std::endl;
     bool has_georef = false; // the produced image is raw, it has no georef
     bool has_nodata = true;
     SatSimOptions local_opt = opt;
-    local_opt.raster_tile_size = vw::Vector2i(1024, 1024);
+    local_opt.raster_tile_size = vw::Vector2i(512, 512);
 
     block_write_gdal_image(image_names[i], 
       vw::apply_mask(SynImageView(opt, cams[i], 
@@ -1447,7 +1448,7 @@ void genRigCamerasImages(SatSimOptions          & opt,
     std::vector<std::string> cam_names; 
     std::vector<vw::CamPtr> cams;
     // The suffix is needed to distinguish the cameras and images for each sensor
-    std::string suffix = "_" + sensor_names[sensor_it]; 
+    std::string suffix = "-" + sensor_names[sensor_it]; 
     if (local_opt.sensor_type == "pinhole")
       asp::genPinholeCameras(local_opt, dem_georef, positions, cam2world, ref_cam2world,
                              cam_times, have_rig, ref2sensor, suffix, cam_names, cams);

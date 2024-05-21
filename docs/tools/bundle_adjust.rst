@@ -589,9 +589,12 @@ See :numref:`jigsaw_cnet_details` for more technical details. See also ASP's
 NVM format
 ^^^^^^^^^^
 
-The ``bundle_adjust`` program can read and write the VisualSfM NVM format for a
-control network. This helps in interfacing with ``rig_calibrator``
-(:numref:`rc_bundle_adjust`) and ``theia_sfm`` (:numref:`theia_sfm`). Usage::
+http://ccwu.me/vsfm/doc.html#nvm
+
+The ``bundle_adjust`` program can read and write the `VisualSfM NVM format
+<http://ccwu.me/vsfm/doc.html#nvm>`_ for a control network. This helps in
+interfacing with ``rig_calibrator`` (:numref:`rc_bundle_adjust`) and
+``theia_sfm`` (:numref:`theia_sfm`). Usage::
 
     bundle_adjust --nvm input.nvm \
       --image-list images.txt     \

@@ -981,7 +981,7 @@ cameras were accurate enough, so these steps were skipped.
       --tri-robust-threshold 0.1               \
       --num-lines-per-position    500          \
       --num-lines-per-orientation 500          \
-      --num-anchor-points 40000                \
+      --num-anchor-points 10000                \
       --num-anchor-points-extra-lines 500      \
       --anchor-dem ref-adj.tif                 \
       --anchor-weight 0.1                      \
@@ -1454,7 +1454,7 @@ ensure movement only for the pitch angle::
         --tri-weight 0.1                         \
         --tri-robust-threshold 0.1               \
         --num-anchor-points 10000                \
-        --num-anchor-points-extra-lines 5000     \
+        --num-anchor-points-extra-lines 500      \
         --anchor-dem dem.tif                     \
         --anchor-weight 0.05                     \
         --heights-from-dem dem.tif               \
@@ -1557,7 +1557,7 @@ that creates the interest point matches is similar.
         --tri-weight 0.1                        \
         --tri-robust-threshold 0.1              \
         --num-anchor-points-per-tile 100        \
-        --num-anchor-points-extra-lines 5000    \
+        --num-anchor-points-extra-lines 500     \
         --anchor-dem dem.tif                    \
         --anchor-weight 0.01                    \
         --heights-from-dem dem.tif              \

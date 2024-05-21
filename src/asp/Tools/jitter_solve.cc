@@ -44,6 +44,7 @@
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/IsisIO/IsisInterface.h>
+#include <asp/Rig/rig_config.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
@@ -73,14 +74,14 @@ struct Options: public asp::BaBaseOptions {
     num_anchor_points_per_tile;
   std::string anchor_weight_image;   
   double quat_norm_weight, anchor_weight, roll_weight, yaw_weight;
-  std::string anchor_dem;
+  std::string anchor_dem, rig_config;
   int num_anchor_points_extra_lines;
   bool initial_camera_constraint;
   std::map<int, int> orbital_groups;
   double forced_triangulation_distance;
 };
     
-void handle_arguments(int argc, char *argv[], Options& opt) {
+void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
 
   po::options_description general_options("");
   general_options.add_options()
@@ -240,6 +241,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save the model state of optimized CSM cameras as part of the .cub files. Any prior "
      "version and any SPICE data will be deleted. Mapprojected images obtained with prior "
      "version of the cameras must no longer be used in stereo.")
+     ("rig-config", po::value(&opt.rig_config)->default_value(""),
+      "Assume that the cameras are on a rig with this configuration file.")
     ("initial-camera-constraint", 
      po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
      "When constraining roll and yaw, measure these not in the satellite along-track/ "
@@ -312,9 +315,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Throw if there are duplicate camera file names.
   asp::check_for_duplicates(opt.image_files, opt.camera_files, opt.out_prefix);
   
-  const int num_images = opt.image_files.size();
-  
   // Sanity check
+  const int num_images = opt.image_files.size();
   if (opt.image_files.size() != opt.camera_files.size())
     vw_throw(ArgumentErr() << "Must have as many cameras as  have images.\n");
   
@@ -392,6 +394,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.anchor_weight > 0 && opt.anchor_dem.empty()) 
     vw::vw_throw(vw::ArgumentErr() << "If --anchor-weight is positive, set --anchor-dem.\n");
+  
+  bool have_rig = !opt.rig_config.empty();
+  if (have_rig) {
+    bool have_rig_transforms = false; // will create them from scratch
+    rig::readRigConfig(opt.rig_config, have_rig_transforms, rig);
+    
+    for (size_t i = 0; i < rig.cam_params.size(); i++) {
+      auto const& params = rig.cam_params[i];
+      if (params.GetDistortion().size() != 0)
+        vw::vw_throw(vw::ArgumentErr() << "Distortion is not supported in jitter_solve.\n");
+    }
+  }
   
   return;
 }
@@ -499,15 +513,16 @@ void calcFirstLastOrientationLines(UsgsAstroLsSensorModel const* ls_model,
 // if those are set. Throughout this function the lines are indexed in the order
 // they are acquired, which can be the reverse of the order they are eventually
 // stored in the file if the scan direction is reverse.
+// This function assumes the quaternions have been normalized.
 void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
   
   // The positions and quaternions can go way beyond the valid range of image lines,
   // so need to estimate how many of them are within the range.
-  
   int numLines = ls_model->m_nLines;
   vw_out() << "Number of lines: " << numLines << ".\n";
 
-  double earlier_line_time = -1.0, later_line_time = -1.0, elapsed_time = -1.0, dt_per_line = -1.0;
+  double earlier_line_time = -1.0, later_line_time = -1.0, 
+         elapsed_time = -1.0, dt_per_line = -1.0;
   calcTimes(ls_model, earlier_line_time, later_line_time, elapsed_time,  
             dt_per_line);
 
@@ -624,6 +639,8 @@ void calcAnchorPoints(Options                         const & opt,
   if (opt.num_anchor_points_per_image <= 0 && opt.num_anchor_points_per_tile <= 0)
     vw::vw_throw(vw::ArgumentErr() << "Expecting a positive number of anchor points.\n");
 
+  bool warning_printed = false;
+  
   // If to use an anchor weight image
   bool have_anchor_weight_image = (!opt.anchor_weight_image.empty());
   vw::ImageViewRef<vw::PixelMask<float>> anchor_weight_image;
@@ -640,12 +657,11 @@ void calcAnchorPoints(Options                         const & opt,
     int numLines   = dims[1];
     int numSamples = dims[0];
     int extra = opt.num_anchor_points_extra_lines;
-    {
-      UsgsAstroLsSensorModel * ls_model
-        = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
-      if (ls_model == NULL)
-         extra = 0; // extra lines are only for linescan
-    }
+
+    UsgsAstroLsSensorModel * ls_model
+      = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+    if (ls_model == NULL)
+       extra = 0; // extra lines are only for linescan
 
     // Find how much image area will be taken by each anchor point  
     // Convert to double early on to avoid integer overflow
@@ -713,6 +729,31 @@ void calcAnchorPoints(Options                         const & opt,
           
           anchor_weight_from_image = img_wt.child();
         }
+        
+        if (ls_model != NULL) {
+          // Anchor points must not be outside the range of tabulated positions and orientations
+          csm::ImageCoord imagePt;
+          asp::toCsmPixel(pix, imagePt);
+          double time = ls_model->getImageTime(imagePt);
+          
+          int numPos    = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+          double posT0  = ls_model->m_t0Ephem;
+          double posDt  = ls_model->m_dtEphem;
+          int pos_index = static_cast<int>((time - posT0) / posDt);
+          int numQuat   = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+          double quatT0 = ls_model->m_t0Quat;
+          double quatDt = ls_model->m_dtQuat;
+          int quat_index = static_cast<int>((time - quatT0) / quatDt);
+          if (pos_index < 0 || pos_index >= numPos || 
+              quat_index < 0 || quat_index >= numQuat) {
+            if (!warning_printed) {
+              vw::vw_out(vw::WarningMessage) << "Not placing anchor points outside "
+                << "the range of tabulated positions and orientations.\n";
+              warning_printed = true;
+            }
+            continue; 
+          }
+        }
 
         pixel_vec[icam].push_back(pix);
         weight_vec[icam].push_back(opt.anchor_weight * anchor_weight_from_image);
@@ -739,6 +780,7 @@ void calcAnchorPoints(Options                         const & opt,
 }
 
 // Add the linescan model reprojection error to the cost function
+// TODO(oalexan1): Move this to JitterSolveCostFuns.cc
 void addLsReprojectionErr(Options          const & opt,
                           UsgsAstroLsSensorModel * ls_model,
                           vw::Vector2      const & observation,
@@ -746,9 +788,9 @@ void addLsReprojectionErr(Options          const & opt,
                           double                   weight,
                           ceres::Problem         & problem) {
 
-  // Must grow the number of quaternions and positions a bit
-  // because during optimization the 3D point and corresponding
-  // pixel may move somewhat.
+  // Find all positions and quaternions that can affect the current pixel. Must
+  // grow the number of quaternions and positions a bit because during
+  // optimization the 3D point and corresponding pixel may move somewhat.
   double line_extra = opt.max_init_reproj_error + 5.0; // add some more just in case
   csm::ImageCoord imagePt1, imagePt2;
   asp::toCsmPixel(observation - Vector2(0.0, line_extra), imagePt1);
@@ -757,17 +799,16 @@ void addLsReprojectionErr(Options          const & opt,
   double time2 = ls_model->getImageTime(imagePt2);
 
   // Handle quaternions. We follow closely the conventions for UsgsAstroLsSensorModel.
+  // TODO(oalexan1): Must be a function to call for both positions and quaternions.
   int numQuatPerObs = 8; // Max num of quaternions used in pose interpolation 
   int numQuat       = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
   double quatT0     = ls_model->m_t0Quat;
   double quatDt     = ls_model->m_dtQuat;
-
   // Starting and ending quat index (ending is exclusive). Based on lagrangeInterp().
   int qindex1      = static_cast<int>((time1 - quatT0) / quatDt);
   int qindex2      = static_cast<int>((time2 - quatT0) / quatDt);
   int begQuatIndex = std::min(qindex1, qindex2) - numQuatPerObs / 2 + 1;
   int endQuatIndex = std::max(qindex1, qindex2) + numQuatPerObs / 2 + 1;
-
   // Keep in bounds
   begQuatIndex = std::max(0, begQuatIndex);
   endQuatIndex = std::min(endQuatIndex, numQuat);
@@ -780,13 +821,11 @@ void addLsReprojectionErr(Options          const & opt,
   int numPos       = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
   double posT0     = ls_model->m_t0Ephem;
   double posDt     = ls_model->m_dtEphem;
-
   // Starting and ending pos index (ending is exclusive). Based on lagrangeInterp().
   int pindex1 = static_cast<int>((time1 - posT0) / posDt);
   int pindex2 = static_cast<int>((time2 - posT0) / posDt);
   int begPosIndex = std::min(pindex1, pindex2) - numPosPerObs / 2 + 1;
   int endPosIndex = std::max(pindex1, pindex2) + numPosPerObs / 2 + 1;
-
   // Keep in bounds
   begPosIndex = std::max(0, begPosIndex);
   endPosIndex = std::min(endPosIndex, numPos);
@@ -979,7 +1018,8 @@ void addDemConstraint(Options                  const& opt,
     if (outliers.find(ipt) != outliers.end() || observation == Vector3(0, 0, 0)) 
       continue; // outlier
       
-    ceres::CostFunction* xyz_cost_function = weightedXyzError::Create(observation, xyz_weight);
+    ceres::CostFunction* xyz_cost_function 
+      = weightedXyzError::Create(observation, xyz_weight);
     ceres::LossFunction* xyz_loss_function = new ceres::CauchyLoss(xyz_threshold);
     double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
 
@@ -1336,9 +1376,9 @@ void addRollYawConstraint
 // Apply the input adjustments to the CSM cameras. Resample linescan models.
 // Get pointers to the underlying CSM cameras, as need to manipulate
 // those directly. This modifies camera_models in place.
-void prepareCsmCameras(Options const& opt,
-  std::vector<vw::CamPtr>      const& camera_models,
-  std::vector<asp::CsmModel*>       & csm_models) {
+void initResampleCsmCams(Options const& opt,
+  std::vector<vw::CamPtr>        const& camera_models,
+  std::vector<asp::CsmModel*>         & csm_models) {
 
   // Wipe the output
   csm_models.clear();
@@ -1364,7 +1404,8 @@ void prepareCsmCameras(Options const& opt,
       = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_cam->m_gm_model).get());
 
     if (ls_model == NULL && frame_model == NULL)
-      vw_throw(ArgumentErr() << "Expecting the cameras to be of CSM linescan or frame type.\n");
+      vw_throw(ArgumentErr() 
+               << "Expecting the cameras to be of CSM linescan or frame type.\n");
 
     // Normalize quaternions. Later, the quaternions being optimized will
     // be kept close to being normalized.  This makes it easy to ensure
@@ -1542,7 +1583,8 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Parse arguments and perform validation
   Options opt;
-  handle_arguments(argc, argv, opt);
+  rig::RigSet rig;
+  handle_arguments(argc, argv, opt, rig);
 
   bool approximate_pinhole_intrinsics = false;
   asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
@@ -1565,8 +1607,9 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Apply the input adjustments to the cameras. Resample linescan models.
   // Get pointers to the underlying CSM cameras, as need to manipulate
   // those directly. These will result in changes to the input cameras.
+  // TODO(oalexan1): Must normalize the quaternions before resampling!   
   std::vector<asp::CsmModel*> csm_models;
-  prepareCsmCameras(opt, opt.camera_models, csm_models);
+  initResampleCsmCams(opt, opt.camera_models, csm_models);
   
   // This the right place to record the original camera positions.
   std::vector<vw::Vector3> orig_cam_positions;
@@ -1669,16 +1712,12 @@ void run_jitter_solve(int argc, char* argv[]) {
   vw_out() << "Removed " << outliers.size() 
     << " outliers based on initial reprojection error.\n";
   
+  // Update tri points from DEM and create anchor xyz from DEM.
   bool have_dem = (!opt.heights_from_dem.empty());
-
-  // Create anchor xyz with the help of a DEM in two ways.
-  // TODO(oalexan1): Study how to best pass the DEM to avoid the code
-  // below not being slow. It is not clear if the DEM tiles are cached
-  // when passing around an ImageViewRef.
   std::vector<Vector3> dem_xyz_vec;
   vw::cartography::GeoReference dem_georef, anchor_georef;
   ImageViewRef<PixelMask<double>> interp_dem, interp_anchor_dem;
-  if (opt.heights_from_dem != "") {
+  if (have_dem) {
     vw::vw_out() << "Reading the DEM for the --heights-from-dem constraint.\n";
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
     asp::update_point_from_dem(cnet, crn, outliers, opt.camera_models,
@@ -1686,7 +1725,6 @@ void run_jitter_solve(int argc, char* argv[]) {
                                // Output
                                dem_xyz_vec);
   }
-  
   if (opt.anchor_dem != "") {
     vw::vw_out() << "Reading the DEM for the --anchor-dem constraint.\n";
     asp::create_interp_dem(opt.anchor_dem, anchor_georef, interp_anchor_dem);

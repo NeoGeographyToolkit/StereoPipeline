@@ -116,8 +116,9 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
      "than the (adjusted) value of --last along the orbit.")
      ("sensor-type", po::value(&opt.sensor_type)->default_value("pinhole"),
       "Sensor type for created cameras and images. Can be one of: pinhole, linescan. "
-      "With a rig, this can be a list of values, separated by commas, with no spaces, "
-      "one per sensor, if desired to have different types for different sensors.")
+      "Can use 'frame' instead of 'pinhole'. With a rig, this can be a list of values, "
+      "separated by commas, with no spaces, one per sensor, if desired to have different "
+      "types for different sensors.")
     ("non-square-pixels", po::bool_switch(&opt.non_square_pixels)->default_value(false)->implicit_value(true),
       "When creating linescan cameras and images, use the provided image height in pixels, "
       "even if that results in non-square pixels. The default is to auto-compute the image "
@@ -398,15 +399,10 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
     for (size_t i = 0; i < rig.cam_params.size(); i++) {
       auto const& params = rig.cam_params[i];
     
-      if (params.GetDistortedSize()[0] <= 1 || params.GetDistortedSize()[1] <= 1)
-        vw::vw_throw(vw::ArgumentErr() << "The image size must be at least 2 x 2.\n");
-
-      if (params.GetFocalLength() <= 0)
-        vw::vw_throw(vw::ArgumentErr() << "The focal length must be positive.\n");
-    
       // If the optical center is large, the images will show up very oblique.
-      // The current logic implicitly assumes that the optical center is close to
-      // the image center.
+      // The current sat_sim logic implicitly assumes that the optical center is close to
+      // the image center, as we shoot rays to the ground not through the optical
+      // center but through the middle of the image.
       if (params.GetOpticalOffset()[0] < 0 || params.GetOpticalOffset()[1] < 0 ||
           params.GetOpticalOffset()[0] >= params.GetDistortedSize()[0] || 
           params.GetOpticalOffset()[1] >= params.GetDistortedSize()[1])

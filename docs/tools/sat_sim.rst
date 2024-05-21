@@ -724,9 +724,10 @@ Command-line options
 
 --sensor-type <string (default="pinhole")>
     Sensor type for created cameras and images. Can be one of: ``pinhole``,
-    ``linescan``. With a rig (:numref:`sat_sim_rig`), this can be a list of
-    values, separated by commas, with no spaces, one per sensor, if desired
-    to have different types for different sensors.
+    ``linescan``. Can use ``frame`` instead of ``pinhole``. With a rig
+    (:numref:`sat_sim_rig`), this can be a list of values, separated by commas,
+    with no spaces, one per sensor, if desired to have different types for
+    different sensors.
 
 --non-square-pixels
     When creating linescan cameras and images, use the provided image height in

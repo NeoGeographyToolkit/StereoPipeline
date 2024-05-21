@@ -147,6 +147,9 @@ void formPositionQuatVecPerGroup(std::map<int, int> const& orbital_groups,
     for (int c = NUM_XYZ_PARAMS; c < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; c++)
         orbital_group_quaternions[group_id].push_back(frame_model->getParameterValue(c));
   }
+  
+  // TODO(oalexan1): Must normalize the quaternions per group here and ensure
+  // the same sign for the dominant coefficient.
 
   return;
 }
