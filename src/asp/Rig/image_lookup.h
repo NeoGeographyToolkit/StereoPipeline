@@ -47,6 +47,18 @@ namespace rig {
 class cameraImage;
 class ImageMessage;
 class RigSet;
+class nvmData;
+
+// For each image, find its sensor name and timestamp. The info can be in a list or
+// from the file or directory structure. If flexible_strategy is true, then 
+// can try from list first, and if that fails, then from file/directory structure.
+void readImageSensorTimestamp(std::string const& image_sensor_list, 
+                              std::vector<std::string> const& image_files,
+                              std::vector<std::string> const& cam_names,
+                              bool flexible_strategy,
+                              // Outputs
+                              std::vector<int> & cam_types,
+                              std::vector<double> & timestamps);
 
 // Look up images, with or without the rig constraint. See individual
 // functions below for more details.

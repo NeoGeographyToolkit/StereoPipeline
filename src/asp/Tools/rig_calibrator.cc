@@ -21,6 +21,10 @@
 
 // See the ASP documentation for how this tool works.
 
+#include <asp/Core/Common.h>
+#include <vw/FileIO/FileUtils.h>
+#include <vw/Core/Log.h>
+
 // TODO(oalexan1): Move these to cost_function.cc, together will
 // all logic for the cost function.
 #include <ceres/ceres.h>
@@ -900,7 +904,8 @@ void writeResiduals(std::string                           const& out_dir,
   // Save these to disk
   rig::createDir(out_dir);
   for (size_t cam_type  = 0; cam_type < cam_names.size(); cam_type++) {
-    std::string out_file = out_dir + "/" + cam_names[cam_type] + "-" + prefix + "-residuals.txt";
+    std::string out_file = out_dir + "/" + cam_names[cam_type] + 
+      "-" + prefix + "-residuals.txt";
     std::cout << "Writing: " << out_file << std::endl;
     std::ofstream ofs (out_file.c_str());
     ofs.precision(17);
@@ -1004,10 +1009,15 @@ void setUpFixRigOptions(bool no_rig, bool fix_rig_translations, bool fix_rig_rot
 } // end namespace rig
                              
 int main(int argc, char** argv) {
+
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
   tbb::task_arena schedule(tbb::task_arena::automatic); // to force linking to tbb
 
+  // Create the output directory, turn on logging, do validation
+  std::string out_prefix = FLAGS_out_dir + "/run"; // part of the api
+  vw::create_out_dir(out_prefix);
+  asp::log_to_file(argc, argv, "", out_prefix);
   rig::parameterValidation();
 
   rig::RigSet R;
@@ -1049,12 +1059,12 @@ int main(int argc, char** argv) {
   std::vector<rig::MsgMap> depth_maps;
   rig::nvmData nvm;
   rig::readListOrNvm(FLAGS_camera_poses, FLAGS_nvm, 
-                           FLAGS_image_sensor_list, FLAGS_extra_list,
-                           FLAGS_use_initial_rig_transforms,
-                           FLAGS_bracket_len, FLAGS_nearest_neighbor_interp, 
-                           FLAGS_read_nvm_no_shift, R,
-                           // outputs
-                           nvm, image_maps, depth_maps); // out
+                     FLAGS_image_sensor_list, FLAGS_extra_list,
+                     FLAGS_use_initial_rig_transforms,
+                     FLAGS_bracket_len, FLAGS_nearest_neighbor_interp, 
+                     FLAGS_read_nvm_no_shift, R,
+                     // outputs
+                     nvm, image_maps, depth_maps); // out
   
   // Keep here the images, timestamps, and bracketing information
   std::vector<rig::cameraImage> cams;
@@ -1065,13 +1075,13 @@ int main(int argc, char** argv) {
   // Select the images to use. If the rig is used, keep non-ref images
   // only within the bracket.
   rig::lookupImages(// Inputs
-                          FLAGS_no_rig, FLAGS_bracket_len,
-                          FLAGS_timestamp_offsets_max_change,
-                          FLAGS_bracket_single_image, 
-                          R, image_maps, depth_maps,
-                          // Outputs
-                          ref_timestamps, world_to_ref,
-                          cams, world_to_cam, min_timestamp_offset, max_timestamp_offset);
+                    FLAGS_no_rig, FLAGS_bracket_len,
+                    FLAGS_timestamp_offsets_max_change,
+                    FLAGS_bracket_single_image, 
+                    R, image_maps, depth_maps,
+                    // Outputs
+                    ref_timestamps, world_to_ref,
+                    cams, world_to_cam, min_timestamp_offset, max_timestamp_offset);
   // De-allocate data we no longer need
   image_maps = std::vector<rig::MsgMap>();
   depth_maps = std::vector<rig::MsgMap>();

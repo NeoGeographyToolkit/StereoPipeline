@@ -257,6 +257,8 @@ void writeInliersToNvm
   }
 }
 
+// TODO(oalexan1): Must integrate with Nvm.cc.
+
 // Write an nvm file. Keypoints may or may not be shifted relative to the optical center.
 // The focal length is set to 0. Intrinsics need to be saved in some other data structure.
 void WriteNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,

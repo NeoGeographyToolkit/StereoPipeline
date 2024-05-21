@@ -20,6 +20,9 @@
 #include <Rig/rig_config.h>
 #include <Rig/transform_utils.h>
 #include <Rig/system_utils.h>
+
+#include <vw/Core/Log.h>
+
 #include <iostream>
 #include <set>
 #include <fstream>
@@ -30,7 +33,6 @@
 namespace rig {
 
 void RigSet::validate() const {
-  
   if (cam_set.empty()) 
     LOG(FATAL) << "Found an empty set of rigs.\n";
   
@@ -64,6 +66,22 @@ void RigSet::validate() const {
     if (isRefSensor(cam_names[cam_it]) && ref_to_cam_timestamp_offsets[cam_it] != 0) 
       LOG(FATAL) << "The timestamp offsets for the reference sensors must be always 0.\n";
   }
+  
+  for (size_t i = 0; i < this->cam_params.size(); i++) {
+    auto const& params = this->cam_params[i];
+    if (params.GetDistortedSize()[0] <= 1 || params.GetDistortedSize()[1] <= 1)
+        LOG(FATAL) << "The image size must be at least 2 x 2.\n";
+    if (params.GetFocalLength() == 0)
+       LOG(FATAL) << "The focal length must be non-zero.\n";
+  }
+
+  for (size_t cam_it = 0; cam_it < cam_names.size(); cam_it++) {
+    if (isRefSensor(cam_names[cam_it]) &&
+        ref_to_cam_trans[cam_it].matrix() != Eigen::Affine3d::Identity().matrix())
+      LOG(FATAL) 
+        << "The transform from the reference sensor to itself must be the identity.\n";
+  }
+
 }
   
 // A ref sensor is the first sensor on each rig
@@ -142,7 +160,7 @@ void writeRigConfig(std::string const& out_dir, bool model_rig, RigSet const& R)
   
   rig::createDir(out_dir);
   std::string rig_config = out_dir + "/rig_config.txt";
-  std::cout << "Writing: " << rig_config << std::endl;
+  vw::vw_out() << "Writing: " << rig_config << "\n";
 
   std::ofstream f;
   f.open(rig_config.c_str(), std::ios::binary | std::ios::out);
@@ -318,15 +336,17 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
     R = RigSet();
 
     // Open the file
-    std::cout << "Reading: " << rig_config << std::endl;
+    vw::vw_out() << "Reading: " << rig_config << "\n";
+    
     std::ifstream f;
     f.open(rig_config.c_str(), std::ios::in);
-    if (!f.is_open()) LOG(FATAL) << "Cannot open file for reading: " << rig_config << "\n";
+    if (!f.is_open()) 
+      LOG(FATAL) << "Cannot open file for reading: " << rig_config << "\n";
 
     int ref_sensor_count = 0;
     Eigen::VectorXd vals;
     std::vector<std::string> str_vals;
-
+    
     // Read each sensor
     while (1) {
       std::string ref_sensor_name;
@@ -350,8 +370,9 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
         readConfigVals(f, "sensor_name:", 1, str_vals);
       } catch(...) {
         // Likely no more sensors
-        return;
+        break;
       }
+      
       std::string sensor_name = str_vals[0];
 
       // It is convenient to store each sensor in cam_set, which has the rig set structure,
@@ -449,20 +470,11 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
       R.ref_to_cam_timestamp_offsets.push_back(timestamp_offset);
     }
     
-    // Sanity check
-    if (have_rig_transforms) {
-      for (size_t cam_it = 0; cam_it < R.cam_names.size(); cam_it++) {
-        if (R.isRefSensor(R.cam_names[cam_it]) &&
-            R.ref_to_cam_trans[cam_it].matrix() != Eigen::Affine3d::Identity().matrix())
-          LOG(FATAL) << "The transform from the reference sensor to itself must be the identity.\n";
-      }
-    }
-    
-    R.validate();
-    
   } catch(std::exception const& e) {
     LOG(FATAL) << e.what() << "\n";
   }
+
+  R.validate();
 
   return;
 }

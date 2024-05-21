@@ -104,22 +104,20 @@ void eigen2vec(Eigen::Matrix2Xd const& mat,
 // acting as separators.  Store them in a set.
 void readList(std::string const& file, std::set<std::string> & list);
 
-// Find cam type based on cam name
-void camTypeFromName(std::string const& cam_name,
-                     std::vector<std::string> const& cam_names,
-                     int& cam_type);
-  
-// Given a file with name <path to>/<cam name>/<digits>.<digits>.jpg, or <path
-// to>/file.png, where file has both digits (with potentially a dot and more
-// digits), and also <cam name>, find the cam name and the timestamp. 
-void findCamTypeAndTimestamp(std::string const& image_file,
-                             std::vector<std::string> const& cam_names,
-                             // Outputs
-                             int    & cam_type,
-                             double & timestamp);
-  
 // Replace .<extension> with <suffix>  
 std::string changeFileSuffix(std::string filename, std::string new_suffix);
+
+// Given a sorted vector of times, and a time t, find the bracketing indices.
+// If t is smaller than all times, return indices 0, 1. If t is larger than all
+// times, return indices len - 2, len - 1. Hence, this will never fail, and
+// will allow for extrapolation. Do not check for times being sorted. 
+// This has logarithmic complexity, and will be used very often.
+void calcBracketIndicies(const std::vector<double>& times, double t,
+                         int & low, int & high);
+
+// The parent subdirectory. Example: mydir/nav_cam/file.jpg will return
+// 'nav_cam'.
+std::string parentSubdir(std::string const& image_file);
   
 }  // end namespace rig
 

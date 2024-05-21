@@ -19,8 +19,12 @@
 
 #include <Rig/camera_image.h>
 #include <Rig/rig_config.h>
+#include <Rig/basic_algs.h>
 #include <Rig/image_lookup.h>
 #include <Rig/RigCameraParams.h>
+#include <Rig/nvm.h>
+#include <Rig/interpolation_utils.h>
+#include <Rig/transform_utils.h>
 
 #include <glog/logging.h>
 #include <boost/filesystem.hpp>
@@ -32,7 +36,6 @@
 namespace fs = boost::filesystem;
 
 namespace rig {
-
   
 // Sort by timestamps adjusted to be relative to the ref camera clock.
 // Additionally sort by image name, so that the order is deterministic.
@@ -73,6 +76,229 @@ void adjustImageSize(camera::CameraParameters const& cam_params, cv::Mat & image
   // Check
   if (image.cols != calib_image_cols || image.rows != calib_image_rows)
     LOG(FATAL) << "Sci cam images have the wrong size.";
+}
+
+// Find cam type based on cam name
+void camTypeFromName(std::string const& cam_name,
+                     std::vector<std::string> const& cam_names,
+                     int& cam_type) {
+  cam_type = 0; // initialize
+  for (size_t cam_it = 0; cam_it < cam_names.size(); cam_it++) {
+    if (cam_names[cam_it] == cam_name) {
+      cam_type = cam_it;
+      return;
+    }
+  }
+
+  throw std::string("Could not determine the sensor type for: " + cam_name);
+}
+  
+// Given a file with name 
+// <dir><text><digits>.<digits><text>ref_cam<text>.jpg
+// or 
+// <dir>/<cam name>/<digits>.<digits>.jpg
+// find the cam name and the timestamp. 
+void findCamTypeAndTimestamp(std::string const& image_file,
+                             std::vector<std::string> const& cam_names,
+                             // Outputs
+                             int    & cam_type,
+                             double & timestamp) {
+
+  // Initialize the outputs
+  cam_type = 0;
+  timestamp = 0.0;
+  
+  std::string basename = fs::path(image_file).filename().string();
+
+  // The cam name is the subdir having the images
+  std::string cam_name = rig::parentSubdir(image_file);
+
+  // Try to find the cam name from the basename
+  // Convention: my_images/<text>10004.6<text>ref_cam<text>.jpg,
+  // where ref_cam is the cam name.
+  bool found_cam_name = false;
+  for (size_t cam_it = 0; cam_it < cam_names.size(); cam_it++) {
+    if (basename.find(cam_names[cam_it]) != std::string::npos) {
+      cam_type = cam_it;
+      cam_name = cam_names[cam_it];
+      found_cam_name = true;
+      break;
+    }
+  }
+
+  // Infer cam type from cam name. This can fail if the naming convention is
+  // my_images/<timestamp><cam_name>.jpg.
+  if (!found_cam_name) {
+    try {
+      camTypeFromName(cam_name, cam_names, cam_type);
+      found_cam_name = true;
+    } catch (std::string const& e) {}
+  }
+  
+  // If no luck, cannot continue. In this case the user is supposed to provide
+  // --image_sensor_list.
+  if (!found_cam_name)
+    LOG(FATAL) << "Could not determine the sensor type for: " << image_file
+               << ". Check your rig configuration, or provide --image_sensor_list.\n"; 
+    
+  // Read the first sequence of digits, followed potentially by a dot and more 
+  // digits. Remove anything after <digits>.<digits>.
+  bool have_dot = false;
+  std::string timestamp_str;
+  bool found_digits = false;
+  for (size_t it = 0; it < basename.size(); it++) {
+
+    if (!found_digits && (basename[it] < '0' || basename[it] > '9')) 
+      continue; // Not a digit yet, keep going
+    
+    found_digits = true;
+      
+    if (basename[it] == '.') {
+      if (have_dot) 
+        break; // We have seen a dot already, ignore the rest
+      have_dot = true;
+      timestamp_str += basename[it];
+      continue;
+    }
+
+    if (basename[it] < '0' || basename[it] > '9') 
+      break; // Not a digit, ignore the rest
+    
+    timestamp_str += basename[it];
+  }
+
+  if (timestamp_str.empty())
+    	throw (std::string("Image name (without directory) must have digits as part of ")
+              + std::string("their name, which will be converted to a timestamp."));
+
+  // Having the timestamp extracted from the image name is convenient though it
+  // requires some care. This is well-documented.
+  timestamp = atof(timestamp_str.c_str());
+}
+
+// Parse a file each line of which contains a filename, a sensor name, and a timestamp.
+// Then reorder the data based on input file names. 
+bool parseImageSensorList(std::string const& image_sensor_list,
+                          std::vector<std::string> const& image_files,
+                          std::vector<std::string> const& cam_names,
+                          bool flexible_strategy,
+                          // Outputs
+                          std::vector<int> & cam_types,
+                          std::vector<double> & timestamps) {
+
+  // Wipe the outputs
+  cam_types.clear(); cam_types.resize(image_files.size());
+  timestamps.clear(); timestamps.resize(image_files.size());
+     
+  // Open the file
+  std::ifstream f(image_sensor_list.c_str());
+  if (!f.is_open()) {
+    if (flexible_strategy)
+      return false;
+    else
+      LOG(FATAL) << "Cannot open file for reading: " << image_sensor_list << "\n";
+  }
+
+  std::cout << "Reading: " << image_sensor_list << std::endl;
+  
+  // Go from cam name to cam type
+  std::map<std::string, int> cam_name_to_type;
+  for (size_t it = 0; it < cam_names.size(); it++)
+    cam_name_to_type[cam_names[it]] = it;
+    
+  // Must put the data to read in maps, as they may not be in the same
+  // order as in the input image_files that we must respect.
+  std::map<std::string, int> image_to_cam_type;
+  std::map<std::string, double> image_to_timestamp;
+  std::string line;
+  while (getline(f, line)) {
+    
+    // if line starts with comment or has only white spaces, skip it
+    if (line.empty() || line[0] == '#') continue;
+    if (line.find_first_not_of(" \t\n\v\f\r") == std::string::npos) continue;
+     
+    std::string image_file;
+    double timestamp = 0.0;
+    std::string cam_name;
+    std::istringstream iss(line);
+    if (!(iss >> image_file >> cam_name >> timestamp)) {
+      if (flexible_strategy)
+        return false;
+      else 
+       LOG(FATAL) << "Cannot parse: " << image_sensor_list << "\n";
+    }
+    
+    // Must not have duplicate image_file
+    if (image_to_cam_type.find(image_file) != image_to_cam_type.end())
+      LOG(FATAL) << "Duplicate image file: " << image_file << " in: "
+                 << image_sensor_list << "\n";
+    if (image_to_timestamp.find(image_file) != image_to_timestamp.end())
+      LOG(FATAL) << "Duplicate image file: " << image_file << " in: "
+                 << image_sensor_list << "\n";
+    
+    // Look up the sensor name    
+    auto it = cam_name_to_type.find(cam_name);
+    if (it == cam_name_to_type.end())
+      LOG(FATAL) << "Cannot find sensor name: " << cam_name << "\n";
+    image_to_cam_type[image_file] = it->second;
+    image_to_timestamp[image_file] = timestamp;
+  }
+  
+  // Must now add them in the order of image_files
+  for (size_t img_it = 0; img_it < image_files.size(); img_it++) {
+    auto type_it = image_to_cam_type.find(image_files[img_it]);
+    auto time_it = image_to_timestamp.find(image_files[img_it]);
+    if (type_it == image_to_cam_type.end() || time_it == image_to_timestamp.end())
+      LOG(FATAL) << "Cannot find image file: " << image_files[img_it] 
+                 << " in list: " << image_sensor_list << "\n";
+    cam_types[img_it] = type_it->second;
+    timestamps[img_it] = time_it->second;
+  }
+    
+  return true;
+}
+
+// For each image, find its sensor name and timestamp. The info can be in a list or
+// from the file or directory structure. If flexible_strategy is true, then 
+// can try from list first, and if that fails, then from file/directory structure.
+void readImageSensorTimestamp(std::string const& image_sensor_list, 
+                              std::vector<std::string> const& image_files,
+                              std::vector<std::string> const& cam_names,
+                              bool flexible_strategy,
+                              // Outputs
+                              std::vector<int> & cam_types,
+                              std::vector<double> & timestamps) {
+
+  // Parse the image sensor list if it is not empty
+  bool success = false;
+  if (image_sensor_list != "") {
+    bool success = parseImageSensorList(image_sensor_list, image_files, cam_names,
+                                        flexible_strategy, 
+                                        cam_types, timestamps); // outputs
+    if (success)
+      return;
+    if (!success && !flexible_strategy)
+      LOG(FATAL) << "Cannot parse the image sensor list: " << image_sensor_list << "\n";
+  }
+  
+  // Clear the outputs
+  cam_types.clear(); cam_types.resize(image_files.size());
+  timestamps.clear(); timestamps.resize(image_files.size());
+  
+  for (size_t it = 0; it < image_files.size(); it++) {
+    int cam_type = 0;
+    double timestamp = 0.0;
+    try {
+      findCamTypeAndTimestamp(image_files[it], cam_names,  
+                              cam_type, timestamp); // outputs
+    } catch (std::exception const& e) {
+        LOG(FATAL) << "Could not infer sensor type and image timestamp. See the naming "
+                   << "convention, and check your images. Detailed message:\n" << e.what();
+    }
+    
+    cam_types[it] = cam_type;
+    timestamps[it] = timestamp;
+  }
 }
 
 // Find an image at the given timestamp or right after it. We assume
@@ -195,6 +421,333 @@ void lookupFilesPoses(// Inputs
     }
   }
 }
+
+// Read an image with 3 floats per pixel. OpenCV's imread() cannot do that.
+void readXyzImage(std::string const& filename, cv::Mat & img) {
+  std::ifstream f;
+  f.open(filename.c_str(), std::ios::binary | std::ios::in);
+  if (!f.is_open()) LOG(FATAL) << "Cannot open file for reading: " << filename << "\n";
+
+  int rows, cols, channels;
+  // TODO(oalexan1): Replace below with int32_t and check that it is same thing.
+  f.read((char*)(&rows), sizeof(rows));         // NOLINT
+  f.read((char*)(&cols), sizeof(cols));         // NOLINT
+  f.read((char*)(&channels), sizeof(channels)); // NOLINT
+
+  img = cv::Mat::zeros(rows, cols, CV_32FC3);
+
+  for (int row = 0; row < rows; row++) {
+    for (int col = 0; col < cols; col++) {
+      cv::Vec3f P;
+      // TODO(oalexan1): See if using reinterpret_cast<char*> does the same
+      // thing.
+      for (int c = 0; c < channels; c++)
+        f.read((char*)(&P[c]), sizeof(P[c])); // NOLINT
+      img.at<cv::Vec3f>(row, col) = P;
+    }
+  }
+
+  return;
+}
+
+void readImageEntry(// Inputs
+                    std::string const& image_file,
+                    Eigen::Affine3d const& world_to_cam,
+                    std::vector<std::string> const& cam_names,
+                    int cam_type,
+                    double timestamp,
+                    // Outputs
+                    std::vector<std::map<double, rig::ImageMessage>> & image_maps,
+                    std::vector<std::map<double, rig::ImageMessage>> & depth_maps) {
+  
+  // Aliases
+  std::map<double, ImageMessage> & image_map = image_maps[cam_type];
+  std::map<double, ImageMessage> & depth_map = depth_maps[cam_type];
+
+  if (image_map.find(timestamp) != image_map.end())
+    std::cout << "WARNING: Duplicate timestamp " << std::setprecision(17) << timestamp
+                 << " for sensor id " << cam_type << "\n";
+  
+  // Read the image as grayscale, in order for feature matching to work
+  // For texturing, texrecon should use the original color images.
+  //std::cout << "Reading: " << image_file << std::endl;
+  image_map[timestamp].image        = cv::imread(image_file, cv::IMREAD_GRAYSCALE);
+  image_map[timestamp].name         = image_file;
+  image_map[timestamp].timestamp    = timestamp;
+  image_map[timestamp].world_to_cam = world_to_cam;
+
+  // Sanity check
+  if (depth_map.find(timestamp) != depth_map.end())
+    LOG(WARNING) << "Duplicate timestamp " << std::setprecision(17) << timestamp
+                 << " for sensor id " << cam_type << "\n";
+
+  // Read the depth data, if present
+  std::string depth_file = fs::path(image_file).replace_extension(".pc").string();
+  if (fs::exists(depth_file)) {
+    //std::cout << "Reading: " << depth_file << std::endl;
+    rig::readXyzImage(depth_file, depth_map[timestamp].image);
+    depth_map[timestamp].name      = depth_file;
+    depth_map[timestamp].timestamp = timestamp;
+  }
+}
+
+// Add poses for the extra desired images based on interpolation, extrapolation,
+// and/or the rig transform.
+void calcExtraPoses(std::string const& extra_list, bool use_initial_rig_transforms,
+                    double bracket_len, bool nearest_neighbor_interp,
+                    rig::RigSet const& R,
+                    // Append here
+                    std::vector<std::string>     & cid_to_filename,
+                    std::vector<int>             & cam_types,
+                    std::vector<double>          & timestamps,
+                    std::vector<Eigen::Affine3d> & cid_to_cam_t_global) {
+
+  // Put the existing poses in a map
+  std::map<int, std::map<double, Eigen::Affine3d>> existing_world_to_cam;
+  std::set<std::string> existing_images;
+
+  for (size_t image_it = 0; image_it < cid_to_filename.size(); image_it++) {
+    auto const& image_file = cid_to_filename[image_it];
+    existing_images.insert(image_file); 
+    int cam_type = cam_types[image_it];
+    double timestamp = timestamps[image_it];
+    Eigen::Affine3d world_to_cam = cid_to_cam_t_global[image_it];
+    existing_world_to_cam[cam_type][timestamp] = world_to_cam;
+
+    if (use_initial_rig_transforms) {
+      // Use the rig constraint to find the poses for the other sensors on the rig
+      // First go to the ref sensor
+      double ref_timestamp = timestamp - R.ref_to_cam_timestamp_offsets[cam_type];
+
+      // Careful here with transform directions and order
+      Eigen::Affine3d cam_to_ref = R.ref_to_cam_trans[cam_type].inverse();
+      Eigen::Affine3d world_to_ref = cam_to_ref * world_to_cam;
+
+      // Now do all the sensors on that rig. Note how we do the reverse of the above
+      // timestamp and camera operations, but not just for the given cam_type,
+      // but for any sensor on the rig.
+      for (size_t sensor_it = 0; sensor_it < R.ref_to_cam_trans.size(); sensor_it++) {
+
+        if (R.rigId(sensor_it) != R.rigId(cam_type)) 
+          continue; // stay within the current rig
+        
+        // Initialize the map if needed
+        if (existing_world_to_cam.find(sensor_it) == existing_world_to_cam.end())
+          existing_world_to_cam[sensor_it] = std::map<double, Eigen::Affine3d>();
+
+        // Add an entry, unless one already exists
+        std::map<double, Eigen::Affine3d> & map = existing_world_to_cam[sensor_it]; // alias
+        // TODO(oalexan1): Any issues with numerical precision of timestamps?
+        double curr_timestamp = ref_timestamp + R.ref_to_cam_timestamp_offsets[sensor_it];
+        if (map.find(curr_timestamp) == map.end())
+          existing_world_to_cam[sensor_it][curr_timestamp]
+            = R.ref_to_cam_trans[sensor_it] * world_to_ref;
+      }
+    }
+  }
+  
+  // Read the extra image names. Ignore the ones already existing.
+  std::ifstream f(extra_list.c_str());
+  std::vector<std::string> extra_images;
+  if (!f.is_open())
+    LOG(FATAL) << "Cannot open file for reading: " << extra_list << "\n";
+  std::string line;
+  while (getline(f, line)) {
+    if (line.empty() || line[0] == '#') continue;
+    std::string image_file;
+    std::istringstream iss(line);
+    if (!(iss >> image_file))
+      LOG(FATAL) << "Cannot parse the image file in: " << extra_list << "\n";
+    if (existing_images.find(image_file) != existing_images.end()) 
+      continue; // this image already exists
+    extra_images.push_back(image_file);
+  }
+  
+  // Infer the timestamp and sensor type for the extra images
+  std::vector<int> extra_cam_types;
+  std::vector<double> extra_timestamps;
+  bool flexible_strategy = true; // can handle with and without separate attributes
+  readImageSensorTimestamp(extra_list, extra_images, R.cam_names, 
+                           flexible_strategy,
+                           extra_cam_types, extra_timestamps); // outputs
+  
+  // Save the new images in a map, to ensure they are sorted.
+  // Also need maps for cam types and timestamps, to be able to associate
+  // image names with these
+  std::map<int, std::map<double, std::string>> extra_map; 
+  std::map<std::string, int> extra_cam_types_map;
+  std::map<std::string, double> extra_timestamps_map;
+  for (size_t image_it = 0; image_it < extra_images.size(); image_it++) {
+    std::string image_file = extra_images[image_it]; 
+    int cam_type = extra_cam_types[image_it];
+    double curr_timestamp = extra_timestamps[image_it];
+    extra_map[cam_type][curr_timestamp] = image_file;
+    extra_cam_types_map[image_file] = cam_type;
+    extra_timestamps_map[image_file] = curr_timestamp;
+  }
+
+  // Iterate over each sensor type and interpolate or extrapolate into existing data
+  for (auto sensor_it = extra_map.begin(); sensor_it != extra_map.end(); sensor_it++) {
+
+    int cam_type = sensor_it->first;
+    std::map<double, std::string> & target_map = sensor_it->second; // alias
+    
+    // Look up existing poses to be used for interpolation/extrapolation
+    std::map<double, Eigen::Affine3d> & input_map = existing_world_to_cam[cam_type]; // alias
+    if (input_map.empty()) {
+      std::string msg = std::string("Cannot find camera poses for sensor: ")
+        + R.cam_names[cam_type] + " as the data is insufficient.\n";
+      if (!use_initial_rig_transforms) 
+        msg += std::string("If the rig configuration file has an initial rig, consider ")
+          + "using the option --use_initial_rig_transforms.\n";
+      std::cout << msg;
+      continue;
+    }
+
+    std::vector<std::string> found_images;
+    std::vector<Eigen::Affine3d> found_poses;
+    interpOrExtrap(input_map, target_map, bracket_len, nearest_neighbor_interp,
+                   found_images, found_poses); // outputs
+
+    for (size_t found_it = 0; found_it < found_images.size(); found_it++) {
+      cid_to_filename.push_back(found_images[found_it]);
+      cid_to_cam_t_global.push_back(found_poses[found_it]);
+      
+      // Add the cam type and timestamp
+      auto type_it = extra_cam_types_map.find(found_images[found_it]);
+      if (type_it == extra_cam_types_map.end())
+        LOG(FATAL) << "Cannot find cam type for image: " << found_images[found_it] << "\n";
+      cam_types.push_back(type_it->second);
+      auto time_it = extra_timestamps_map.find(found_images[found_it]);
+      if (time_it == extra_timestamps_map.end())
+        LOG(FATAL) << "Cannot find timestamp for image: " << found_images[found_it] << "\n";
+      timestamps.push_back(time_it->second);
+    }
+  }
+}
+
+void readCameraPoses(// Inputs
+                     std::string const& camera_poses_file,
+                     // Outputs
+                     nvmData & nvm) {
+  
+  // Clear the outputs
+  nvm = nvmData();
+
+  // Open the file
+  std::cout << "Reading: " << camera_poses_file << std::endl;
+  std::ifstream f(camera_poses_file.c_str());
+  if (!f.is_open())
+    LOG(FATAL) << "Cannot open file for reading: " << camera_poses_file << "\n";
+  
+  std::string line;
+  while (getline(f, line)) {
+    if (line.empty() || line[0] == '#') continue;
+    
+    std::string image_file;
+    std::istringstream iss(line);
+    if (!(iss >> image_file))
+      LOG(FATAL) << "Cannot parse the image file in: "
+                 << camera_poses_file << "\n";
+    
+    // Read the camera to world transform
+    Eigen::VectorXd vals(12);
+    double val = -1.0;
+    int count = 0;
+    while (iss >> val) {
+      if (count >= 12) break;
+      vals[count] = val;
+      count++;
+    }
+    
+    if (count != 12)
+      LOG(FATAL) << "Expecting 12 values for the transform on line:\n" << line << "\n";
+    
+    Eigen::Affine3d world_to_cam = vecToAffine(vals);
+    nvm.cid_to_cam_t_global.push_back(world_to_cam);
+    nvm.cid_to_filename.push_back(image_file);
+  }
+}
+
+// TODO(oalexan1): Move this to fileio.cc.  
+// Read camera information and images from a list or from an NVM file.
+// Can interpolate/extrapolate poses for data from an extra list.
+// Only later we will consider if the features are shifted or not in the nvm.
+void readListOrNvm(// Inputs
+                   std::string const& camera_poses_list,
+                   std::string const& nvm_file,
+                   std::string const& image_sensor_list,
+                   std::string const& extra_list,
+                   bool use_initial_rig_transforms,
+                   double bracket_len, bool nearest_neighbor_interp,
+                   bool read_nvm_no_shift,
+                   rig::RigSet const& R,
+                   // Outputs
+                   nvmData & nvm,
+                   std::vector<std::map<double, rig::ImageMessage>> & image_maps,
+                   std::vector<std::map<double, rig::ImageMessage>> & depth_maps) {
+
+  // Wipe the outputs
+  image_maps.clear();
+  depth_maps.clear();
+  image_maps.resize(R.cam_names.size());
+  depth_maps.resize(R.cam_names.size());
+  
+  if (int(camera_poses_list.empty()) + int(nvm_file.empty()) != 1)
+    LOG(FATAL) << "Must specify precisely one of --camera-poses or --nvm.\n";
+
+  if (camera_poses_list != "") {
+    rig::readCameraPoses(// Inputs
+                               camera_poses_list,  
+                               // Outputs
+                               nvm);
+  } else {
+    rig::ReadNvm(nvm_file, 
+                 nvm.cid_to_keypoint_map,  
+                 nvm.cid_to_filename,  
+                 nvm.pid_to_cid_fid,  
+                 nvm.pid_to_xyz,  
+                 nvm.cid_to_cam_t_global);
+    if (!read_nvm_no_shift) {
+      std::string offsets_file = rig::offsetsFilename(nvm_file);
+      rig::readNvmOffsets(offsets_file, nvm.optical_centers); 
+      // Must have as many offsets as images
+      if (nvm.optical_centers.size() != nvm.cid_to_filename.size())
+        LOG(FATAL) << "Expecting as many optical centers as images.\n";
+    }
+  }
+  
+  // Infer the timestamp and sensor type from list or directory structure
+  std::vector<int> cam_types;
+  std::vector<double> timestamps;
+  bool flexible_strategy = false;
+  readImageSensorTimestamp(image_sensor_list, nvm.cid_to_filename, R.cam_names, 
+                           flexible_strategy,
+                           cam_types, timestamps); // outputs
+  
+  // Extra poses need be be added right after reading the original ones,
+  // to ensure the same book-keeping is done for all of them. The extra
+  // entries do not mess up the bookkeeping of pid_to_cid_fid, etc,
+  // if their cid is larger than the ones read from NVM.
+  if (extra_list != "")
+    calcExtraPoses(extra_list, use_initial_rig_transforms, bracket_len,
+                   nearest_neighbor_interp, R,
+                   // Append here
+                   nvm.cid_to_filename, cam_types, timestamps, nvm.cid_to_cam_t_global);
+
+  std::cout << "Reading the images.\n";
+  for (size_t it = 0; it < nvm.cid_to_filename.size(); it++) {
+    // Aliases
+    auto const& image_file = nvm.cid_to_filename[it];
+    auto const& world_to_cam = nvm.cid_to_cam_t_global[it];
+    readImageEntry(image_file, world_to_cam, R.cam_names,  
+                   cam_types[it], timestamps[it],
+                   // Outputs
+                   image_maps, depth_maps);
+  }
+
+  return;
+}
   
 // Look up each ref cam image by timestamp, with the rig assumption. In between
 // any two ref cam timestamps, which are no further from each other than the
@@ -279,10 +832,10 @@ void lookupImagesAndBrackets(// Inputs
         // This has to succeed since this timestamp came from an existing image
         bool have_lookup =  
           rig::lookupImage(cam.timestamp, image_data[cam_type],
-                                 // Outputs
-                                 cam.image, cam.image_name, 
-                                 image_start_positions[cam_type], // this will move forward
-                                 found_time);
+                           // Outputs
+                           cam.image, cam.image_name, 
+                           image_start_positions[cam_type], // this will move forward
+                           found_time);
         
         if (!have_lookup)
           LOG(FATAL) << std::fixed << std::setprecision(17)
@@ -335,12 +888,12 @@ void lookupImagesAndBrackets(// Inputs
           std::string image_name;
           bool have_lookup =
             rig::lookupImage(curr_timestamp, image_data[cam_type],
-                                   // Outputs
-                                   image, image_name,
-                                   // care here, start_pos moves forward
-                                   start_pos,
-                                   // found_time will be updated now
-                                   found_time);
+                             // Outputs
+                             image, image_name,
+                             // care here, start_pos moves forward
+                             start_pos,
+                             // found_time will be updated now
+                             found_time);
 
           // Need not succeed, but then there's no need to go on as we
           // are at the end
@@ -450,11 +1003,11 @@ void lookupImagesAndBrackets(// Inputs
         cam.cloud_timestamp = -1.0;  // will change
         if (!depth_data.empty()) 
           rig::lookupImage(cam.timestamp,  // start looking from this time forward
-                                depth_data[cam_type],
-                                // Outputs
-                                cam.depth_cloud, cam.depth_name, 
-                                depth_start_positions[cam_type],  // this will move forward
-                                cam.cloud_timestamp);             // found time
+                           depth_data[cam_type],
+                           // Outputs
+                           cam.depth_cloud, cam.depth_name, 
+                           depth_start_positions[cam_type],  // this will move forward
+                           cam.cloud_timestamp);             // found time
         
         cams.push_back(cam);
       } // end loop over local_cams
@@ -543,10 +1096,10 @@ void lookupImagesNoBrackets(// Inputs
       // This has to succeed since this timestamp originally came from an existing image
       bool have_lookup =  
         rig::lookupImage(cam.timestamp, image_data[cam_type],
-                               // Outputs
-                               cam.image, cam.image_name, 
-                               image_start_positions[cam_type],  // this will move forward
-                               found_time);
+                         // Outputs
+                         cam.image, cam.image_name, 
+                         image_start_positions[cam_type],  // this will move forward
+                         found_time);
       if (!have_lookup)
         LOG(FATAL) << std::fixed << std::setprecision(17)
                    << "Cannot look up camera at time " << cam.timestamp << ".\n";

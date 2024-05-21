@@ -77,98 +77,6 @@ std::string parentSubdir(std::string const& image_file) {
   return fs::path(image_file).parent_path().filename().string();
 }
 
-// Find cam type based on cam name
-void camTypeFromName(std::string const& cam_name,
-                     std::vector<std::string> const& cam_names,
-                     int& cam_type) {
-  cam_type = 0; // initialize
-  for (size_t cam_it = 0; cam_it < cam_names.size(); cam_it++) {
-    if (cam_names[cam_it] == cam_name) {
-      cam_type = cam_it;
-      return;
-    }
-  }
-
-  throw std::string("Could not determine the sensor type for: " + cam_name);
-}
-  
-// Given a file with name <dir>/<cam name>/<digits>.<digits>.jpg, or <dir><text><digits>.<digits><text>ref_cam<text>.jpg, find the cam name and the timestamp. 
-void findCamTypeAndTimestamp(std::string const& image_file,
-                             std::vector<std::string> const& cam_names,
-                             // Outputs
-                             int    & cam_type,
-                             double & timestamp) {
-
-  // Initialize the outputs
-  cam_type = 0;
-  timestamp = 0.0;
-  
-  std::string basename = fs::path(image_file).filename().string();
-
-  // The cam name is the subdir having the images
-  std::string cam_name = parentSubdir(image_file);
-
-  // Infer cam type from cam name. This can fail if the naming convention is
-  // my_images/<timestamp><cam_name>.jpg.
-  bool found_cam_name = false;
-  try {
-    camTypeFromName(cam_name, cam_names, cam_type);
-    found_cam_name = true;
-  } catch (std::string const& e) {}
-
-  // If did not find it, try to find the cam name from the basename
-  if (!found_cam_name) {
-    for (size_t cam_it = 0; cam_it < cam_names.size(); cam_it++) {
-      if (basename.find(cam_names[cam_it]) != std::string::npos) {
-        cam_type = cam_it;
-        cam_name = cam_names[cam_it];
-        found_cam_name = true;
-        break;
-      }
-    }
-  }
-  
-  // If no luck, cannot continue. In this case the user is supposed to provide
-  // --image_sensor_list.
-  if (!found_cam_name)
-    LOG(FATAL) << "Could not determine the sensor type for: " << image_file
-               << ". Check your rig configuration, or provide --image_sensor_list.\n"; 
-    
-  // Read the first sequence of digits, followed potentially by a dot and more 
-  // digits. Remove anything after <digits>.<digits>.
-  bool have_dot = false;
-  std::string timestamp_str;
-  bool found_digits = false;
-  for (size_t it = 0; it < basename.size(); it++) {
-
-    if (!found_digits && (basename[it] < '0' || basename[it] > '9')) 
-      continue; // Not a digit yet, keep going
-    
-    found_digits = true;
-      
-    if (basename[it] == '.') {
-      if (have_dot) 
-        break; // We have seen a dot already, ignore the rest
-      have_dot = true;
-      timestamp_str += basename[it];
-      continue;
-    }
-
-    if (basename[it] < '0' || basename[it] > '9') 
-      break; // Not a digit, ignore the rest
-    
-    timestamp_str += basename[it];
-  }
-
-  if (timestamp_str.empty())
-    	throw (std::string("Image name (without directory) must have digits as part of ")
-              + std::string("their name, which will be converted to a timestamp."));
-
-  // Having the timestamp extracted from the image name is convenient though it
-  // requires some care. This is well-documented.
-  timestamp = atof(timestamp_str.c_str());
-}
-
 // Replace .<extension> with <suffix>  
 std::string changeFileSuffix(std::string filename, std::string new_suffix) {
   // Find the last '.' character in the filename
@@ -182,5 +90,39 @@ std::string changeFileSuffix(std::string filename, std::string new_suffix) {
     return new_filename;
   }
 }  
+
+// See the header for details.
+void calcBracketIndicies(const std::vector<double>& times, double t,
+                         int & low, int & high) {
+
+  if (times.empty()) 
+    LOG(FATAL) << "Cannot find bracketing indices for an empty vector.\n";
+    
+  int len = times.size();
+  if (t <= times[0]) {
+    low = 0;
+    high = 1;
+    return;
+  } else if (t >= times[len-1]) {
+    low = len-2;
+    high = len-1;
+    return;
+  } 
   
+  low = 0;
+  high = len - 1;
+
+  // Search for first iterator it such that t <= times[it]
+  auto it = std::lower_bound(times.begin(), times.end(), t);
+  high = std::distance(times.begin(), it);
+  low = high - 1;
+
+  // Sanity check
+  bool is_good = (times[low] <= t && t <= times[high]);
+  if (low < 0 || high >= len || low + 1 != high || !is_good) 
+    LOG(FATAL) << "Book-keeping failure in bracketing. Must not happen.\n";
+
+  return;  
+}
+
 }  // end namespace rig

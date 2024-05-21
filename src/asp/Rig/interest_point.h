@@ -234,17 +234,6 @@ std::string registrationCamName(std::string const& hugin_file,
                                 std::vector<std::string> const& cam_names,
                                 std::vector<rig::cameraImage> const & cams);
   
-// For each image, find its sensor name and timestamp. The info can be in a list or
-// from the directory structure. If flexible_strategy is true, then 
-// can try from list first, and if that fails, then from directory structure.
-void readImageSensorTimestamp(std::string const& image_sensor_list, 
-                              std::vector<std::string> const& image_files,
-                              std::vector<std::string> const& cam_names,
-                              bool flexible_strategy,
-                              // Outputs
-                              std::vector<int> & cam_types,
-                              std::vector<double> & timestamps);
-  
 struct cameraImage;
 
 void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
@@ -298,9 +287,6 @@ void saveXyzImage(std::string const& filename, cv::Mat const& img);
 
 // Save images and depth clouds to disk
 void saveImagesAndDepthClouds(std::vector<cameraImage> const& cams);
-
-// Read an image with 3 floats per pixel. OpenCV's imread() cannot do that.
-void readXyzImage(std::string const& filename, cv::Mat & img);
 
 // For nvm data that has the keypoints shifted relative to the optical
 // center, undo this shift when 'undo_shift' is true. So, add the optical center.
