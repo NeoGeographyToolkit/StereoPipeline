@@ -589,8 +589,6 @@ See :numref:`jigsaw_cnet_details` for more technical details. See also ASP's
 NVM format
 ^^^^^^^^^^
 
-http://ccwu.me/vsfm/doc.html#nvm
-
 The ``bundle_adjust`` program can read and write the `VisualSfM NVM format
 <http://ccwu.me/vsfm/doc.html#nvm>`_ for a control network. This helps in
 interfacing with ``rig_calibrator`` (:numref:`rc_bundle_adjust`) and
