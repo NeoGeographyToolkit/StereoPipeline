@@ -441,56 +441,60 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> cam_names;
     std::vector<vw::CamPtr> cams;
     bool external_cameras = false;
-    std::string suffix = ""; 
-    Eigen::Affine3d ref2sensor = Eigen::Affine3d::Identity();
-    int first_pos = 0; // used with linescan poses, which start before first image line
     if (!opt.camera_list.empty()) {
       // Read the cameras
+      external_cameras = true;
+      std::string suffix = ""; 
       if (opt.sensor_type == "pinhole")
         asp::readPinholeCameras(opt, cam_names, cams);
       else
         asp::readLinescanCameras(opt, cam_names, cams);
-      external_cameras = true;
+      // Generate images
+      if (!opt.no_images)
+        asp::genImages(opt, external_cameras, cam_names, cams, suffix, dem_georef, dem, 
+          height_guess, ortho_georef, ortho, ortho_nodata_val);
       
-    } else {
+    } else if (opt.rig_config.empty()) {
       // Generate the cameras   
-      double orbit_len = 0.0, first_line_time = 0.0; // will change
+      // The matrix cam2world_no_jitter is only needed with linescan cameras,
+      // but compute it for consistency in all cases.
+      bool have_rig = false;
+      Eigen::Affine3d ref2sensor = Eigen::Affine3d::Identity();
+
       std::vector<vw::Vector3> positions;
-      // vector of rot matrices. The matrix cam2world_no_jitter
-      // is only needed with linescan cameras, but compute it for consistency 
-      // in all cases.
       std::vector<vw::Matrix3x3> cam2world, cam2world_no_jitter, ref_cam2world;
       std::vector<double> cam_times;
+      int first_pos = 0; // used with linescan poses, which start before first image line
+      double orbit_len = 0.0, first_line_time = 0.0; // will change
+        
+      // Compute the camera poses
       asp::calcTrajectory(opt, dem_georef, dem, height_guess,
                           // Outputs
                           first_pos, first_line_time, orbit_len, positions, cam2world, 
                           cam2world_no_jitter, ref_cam2world, cam_times);
       // Generate cameras
-      if (!opt.rig_config.empty()) {
-        // The rig needs special treatment 
-        asp::genRigCamerasImages(opt, rig, first_line_time, orbit_len, dem_georef, positions, 
-                                 cam2world, cam2world_no_jitter, ref_cam2world, 
-                                 cam_times, first_pos, dem, height_guess, 
-                                 ortho_georef, ortho, ortho_nodata_val);
-      } else if (opt.sensor_type == "pinhole") {
-        bool have_rig = false;
+      std::string suffix = ""; 
+      if (opt.sensor_type == "pinhole") {
         asp::genPinholeCameras(opt, dem_georef, positions, cam2world, ref_cam2world,
-                               cam_times, have_rig, ref2sensor, suffix, cam_names, cams);
-      } else {
-        // Linescan
-        bool have_rig = false;
+                              cam_times, have_rig, ref2sensor, suffix, cam_names, cams);
+      } else if (opt.sensor_type == "linescan") {
         asp::genLinescanCameras(first_line_time, orbit_len, dem_georef, dem, first_pos, 
-                                positions, cam2world, cam2world_no_jitter, ref_cam2world, 
-                                cam_times, height_guess,
-                                have_rig, ref2sensor, suffix, opt, cam_names, cams); // out
+                              positions, cam2world, cam2world_no_jitter, ref_cam2world, 
+                              cam_times, height_guess,
+                              have_rig, ref2sensor, suffix, opt, cam_names, cams); // out
       }
+    
+      // Generate images
+      if (!opt.no_images)
+        asp::genImages(opt, external_cameras, cam_names, cams, suffix, dem_georef, dem, 
+          height_guess, ortho_georef, ortho, ortho_nodata_val);
+        
+    } else {
+      // The rig needs special treatment 
+      asp::genRigCamerasImages(opt, rig, dem_georef, dem, height_guess, 
+                               ortho_georef, ortho, ortho_nodata_val);
     }
-
-    // Generate images. When the rig is on, this has already been done.
-    if (!opt.no_images && opt.rig_config.empty())
-      asp::genImages(opt, external_cameras, cam_names, cams, suffix, dem_georef, dem, 
-        height_guess, ortho_georef, ortho, ortho_nodata_val);
-
+      
   } ASP_STANDARD_CATCHES;
 
   return 0;

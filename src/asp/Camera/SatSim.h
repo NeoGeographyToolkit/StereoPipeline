@@ -115,22 +115,14 @@ void genImages(SatSimOptions const& opt,
     float ortho_nodata_val);
 
 // Generate the cameras and images for a rig
-void genRigCamerasImages(SatSimOptions                      & opt,
-                         rig::RigSet                   const& rig,
-                         double                               first_line_time,
-                         double                               orbit_len,
-                         vw::cartography::GeoReference const& dem_georef,
-                         std::vector<vw::Vector3>      const& positions,
-                         std::vector<vw::Matrix3x3>    const& cam2world,
-                         std::vector<vw::Matrix3x3>    const& cam2world_no_jitter,
-                         std::vector<vw::Matrix3x3>    const& ref_cam2world,
-                         std::vector<double>           const& cam_times,
-                         int                                  first_pos,
-                         vw::ImageViewRef<vw::PixelMask<float>> dem,
-                         double height_guess,
-                         vw::cartography::GeoReference const& ortho_georef,
-                         vw::ImageViewRef<vw::PixelMask<float>> ortho,
-                         float ortho_nodata_val);
+void genRigCamerasImages(SatSimOptions          & opt,
+            rig::RigSet                    const& rig,
+            vw::cartography::GeoReference const & dem_georef,
+            vw::ImageViewRef<vw::PixelMask<float>> dem,
+            double height_guess,
+            vw::cartography::GeoReference const& ortho_georef,
+            vw::ImageViewRef<vw::PixelMask<float>> ortho,
+            float ortho_nodata_val);
 
 // Given a transform from ref sensor to world, the ref sensor to current sensor,
 // create the transform from current sensor to world. Do it in-place. 

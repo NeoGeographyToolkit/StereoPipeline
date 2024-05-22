@@ -776,9 +776,9 @@ void calcTrajectory(SatSimOptions & opt,
   first_pos = 0;
   int last_pos = opt.num_cameras; // stop before last
   if (opt.sensor_type == "linescan") {
-     // Double the number of cameras, half of extra ones going beyond image lines
-     first_pos = -opt.num_cameras/2;
-     last_pos  = 2 * opt.num_cameras + first_pos;
+    // Double the number of cameras, half of extra ones going beyond image lines
+    first_pos = -opt.num_cameras/2;
+    last_pos  = 2 * opt.num_cameras + first_pos;
   }
 
   int total = last_pos - first_pos;
@@ -1386,15 +1386,7 @@ void handleSensorType(int num_sensors,
 // Generate the cameras and images for a rig
 void genRigCamerasImages(SatSimOptions          & opt,
             rig::RigSet                    const& rig,
-            double                                first_line_time,
-            double                                orbit_len,     
             vw::cartography::GeoReference const & dem_georef,
-            std::vector<vw::Vector3>      const & positions,
-            std::vector<vw::Matrix3x3>    const & cam2world,
-            std::vector<vw::Matrix3x3>    const & cam2world_no_jitter,
-            std::vector<vw::Matrix3x3>    const & ref_cam2world,
-            std::vector<double>           const & cam_times,
-            int                                   first_pos,
             vw::ImageViewRef<vw::PixelMask<float>> dem,
             double height_guess,
             vw::cartography::GeoReference const& ortho_georef,
@@ -1440,15 +1432,25 @@ void genRigCamerasImages(SatSimOptions          & opt,
     
     // The transform from the reference sensor to the current sensor
     Eigen::Affine3d ref2sensor = rig.ref_to_cam_trans[sensor_index];
-    
-    // Must pass this in together with bool have_rig = true.
+    std::string suffix = "-" + sensor_names[sensor_it]; 
     bool have_rig = true;
     
+    std::vector<vw::Vector3> positions;
+    std::vector<vw::Matrix3x3> cam2world, cam2world_no_jitter, ref_cam2world;
+    std::vector<double> cam_times;
+    int first_pos = 0; // used with linescan poses, which start before first image line
+    double orbit_len = 0.0, first_line_time = 0.0; // will change
+    
+    // Compute the camera poses
+    asp::calcTrajectory(local_opt, dem_georef, dem, height_guess,
+                        // Outputs
+                        first_pos, first_line_time, orbit_len, positions, cam2world, 
+                        cam2world_no_jitter, ref_cam2world, cam_times);
+
     // Sequence of camera names and cameras for one sensor
     std::vector<std::string> cam_names; 
     std::vector<vw::CamPtr> cams;
     // The suffix is needed to distinguish the cameras and images for each sensor
-    std::string suffix = "-" + sensor_names[sensor_it]; 
     if (local_opt.sensor_type == "pinhole")
       asp::genPinholeCameras(local_opt, dem_georef, positions, cam2world, ref_cam2world,
                              cam_times, have_rig, ref2sensor, suffix, cam_names, cams);

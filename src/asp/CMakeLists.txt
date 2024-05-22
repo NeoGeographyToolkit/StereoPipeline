@@ -320,18 +320,18 @@ set(SOLVER_LIBRARIES ${CERES_LIBRARIES} ${GLOG_LIBRARIES} ${GFLAGS_LIBRARIES})
     
 # Define each of the libaries
 
-# ASP_CORE
+# ASP Core
 get_all_source_files( "Core"       ASP_CORE_SRC_FILES)
 get_all_source_files( "Core/tests" ASP_CORE_TEST_FILES)
 set(ASP_CORE_LIB_DEPENDENCIES ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES}
     ${PDAL_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${CMAKE_DL_LIBS})
 
-# ASP_SPICEIO
+# ASP SpiceIO
 get_all_source_files( "SpiceIO"       ASP_SPICEIO_SRC_FILES)
 get_all_source_files( "SpiceIO/tests" ASP_SPICEIO_TEST_FILES)
 set(ASP_SPICEIO_LIB_DEPENDENCIES AspCore ${SPICE_LIBRARIES})
 
-# ASP_ISISIO
+# ASP IsisIO
 get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
 get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
 set(ASP_ISISIO_LIB_DEPENDENCIES  AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
@@ -348,30 +348,30 @@ get_all_source_files("Rig/tests" ASP_RIG_TEST_FILES)
 set(ASP_RIG_LIB_DEPENDENCIES AspCore AspOpenMvg AspPclIO tbb ${OPENCV_LIBRARIES}
     ${SOLVER_LIBRARIES} ${MVE_LIBRARIES} ${RAYINT_LIBRARIES} ${TEXRECON_LIBRARIES})
 
-# ASP_CAMERA
+# ASP Camera
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
 set(ASP_CAMERA_LIB_DEPENDENCIES AspCore AspSpiceIO AspIsisIO AspRig ${XERCESC_LIBRARIES}
     ${CSM_LIBRARIES} ${USGSCSM_LIBRARIES} ${ALE_LIBRARIES})
 
-# ASP_SESSIONS
+# ASP Sessions
 ## This code is more complicated and is specified in the lower level file
 get_all_source_files( "Sessions"       ASP_SESSIONS_SRC_FILES)
 get_all_source_files( "Sessions/tests" ASP_SESSIONS_TEST_FILES)
 set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspSpiceIO AspIsisIO AspCamera)
 
-# ASP_GUI
+# ASP GUI
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
 set(ASP_GUI_LIB_DEPENDENCIES AspCore AspCamera Qt5::Core Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
 
-# ASP_GOTCHA
+# ASP Gotcha
 get_all_source_files( "Gotcha"       ASP_GOTCHA_SRC_FILES)
 get_all_source_files( "Gotcha/tests" ASP_GOTCHA_TEST_FILES)
 set(ASP_GOTCHA_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${OPENCV_LIBRARIES} 
     ${Boost_LIBRARIES})
 
-# ASP_PclIO
+# ASP PclIO
 get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
 get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
 set(ASP_PCLIO_LIB_DEPENDENCIES  pcl_common pcl_io_ply pcl_io
