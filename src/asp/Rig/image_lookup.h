@@ -49,6 +49,27 @@ class ImageMessage;
 class RigSet;
 class nvmData;
 
+// Given a file with name 
+// <dir><text><digits>.<digits><text>ref_cam<text>.jpg
+// or 
+// <dir>/<cam name>/<digits>.<digits>.jpg
+// find the cam type
+void findCamType(std::string const& image_file,
+                 std::vector<std::string> const& cam_names,
+                 // Output
+                 int & cam_type);
+
+// Given a file with name 
+// <dir><text><digits>.<digits><text>ref_cam<text>.jpg
+// or 
+// <dir>/<cam name>/<digits>.<digits>.jpg
+// find the cam name and the timestamp. 
+void findCamTypeAndTimestamp(std::string const& image_file,
+                             std::vector<std::string> const& cam_names,
+                             // Outputs
+                             int    & cam_type,
+                             double & timestamp);
+
 // For each image, find its sensor name and timestamp. The info can be in a list or
 // from the file or directory structure. If flexible_strategy is true, then 
 // can try from list first, and if that fails, then from file/directory structure.

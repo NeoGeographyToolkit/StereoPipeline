@@ -92,7 +92,53 @@ void camTypeFromName(std::string const& cam_name,
 
   throw std::string("Could not determine the sensor type for: " + cam_name);
 }
+
+// Given a file with name 
+// <dir><text><digits>.<digits><text>ref_cam<text>.jpg
+// or 
+// <dir>/<cam name>/<digits>.<digits>.jpg
+// find the cam type
+void findCamType(std::string const& image_file,
+                 std::vector<std::string> const& cam_names,
+                 // Output
+                 int & cam_type) {
+  // Initialize the output
+  cam_type = 0;
   
+  std::string basename = fs::path(image_file).filename().string();
+
+  // Try to find the cam name from the basename
+  // Convention: my_images/<text>10004.6<text>ref_cam<text>.jpg,
+  // where ref_cam is the cam name.
+  bool found_cam_name = false;
+  std::string cam_name; 
+  for (size_t cam_it = 0; cam_it < cam_names.size(); cam_it++) {
+    if (basename.find(cam_names[cam_it]) != std::string::npos) {
+      cam_name = cam_names[cam_it];
+      found_cam_name = true;
+      break;
+    }
+  }
+
+  // Infer cam name based on name of parent directory
+  if (!found_cam_name) {
+    try {
+      // The cam name is the subdir having the images
+      cam_name = rig::parentSubdir(image_file);
+      found_cam_name = true;
+    } catch (std::string const& e) {}
+  }
+
+  // Find the sensor id (type)
+  camTypeFromName(cam_name, cam_names, cam_type);
+  
+  // If no luck, cannot continue. In this case the user is supposed to provide
+  // --image_sensor_list.
+  if (!found_cam_name)
+    LOG(FATAL) << "Could not determine the sensor type for: " << image_file
+               << ". Check your rig configuration, or provide --image_sensor_list.\n"; 
+}
+
 // Given a file with name 
 // <dir><text><digits>.<digits><text>ref_cam<text>.jpg
 // or 
@@ -104,45 +150,12 @@ void findCamTypeAndTimestamp(std::string const& image_file,
                              int    & cam_type,
                              double & timestamp) {
 
-  // Initialize the outputs
-  cam_type = 0;
-  timestamp = 0.0;
-  
-  std::string basename = fs::path(image_file).filename().string();
+  rig::findCamType(image_file, cam_names, cam_type);
 
-  // The cam name is the subdir having the images
-  std::string cam_name = rig::parentSubdir(image_file);
-
-  // Try to find the cam name from the basename
-  // Convention: my_images/<text>10004.6<text>ref_cam<text>.jpg,
-  // where ref_cam is the cam name.
-  bool found_cam_name = false;
-  for (size_t cam_it = 0; cam_it < cam_names.size(); cam_it++) {
-    if (basename.find(cam_names[cam_it]) != std::string::npos) {
-      cam_type = cam_it;
-      cam_name = cam_names[cam_it];
-      found_cam_name = true;
-      break;
-    }
-  }
-
-  // Infer cam type from cam name. This can fail if the naming convention is
-  // my_images/<timestamp><cam_name>.jpg.
-  if (!found_cam_name) {
-    try {
-      camTypeFromName(cam_name, cam_names, cam_type);
-      found_cam_name = true;
-    } catch (std::string const& e) {}
-  }
-  
-  // If no luck, cannot continue. In this case the user is supposed to provide
-  // --image_sensor_list.
-  if (!found_cam_name)
-    LOG(FATAL) << "Could not determine the sensor type for: " << image_file
-               << ". Check your rig configuration, or provide --image_sensor_list.\n"; 
-    
   // Read the first sequence of digits, followed potentially by a dot and more 
   // digits. Remove anything after <digits>.<digits>.
+  timestamp = 0.0;
+  std::string basename = fs::path(image_file).filename().string();
   bool have_dot = false;
   std::string timestamp_str;
   bool found_digits = false;
