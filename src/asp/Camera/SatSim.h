@@ -114,6 +114,19 @@ void genImages(SatSimOptions const& opt,
     vw::ImageViewRef<vw::PixelMask<float>> ortho,
     float ortho_nodata_val);
 
+// Generate cameras and images for a sensor
+void genCamerasImages(float ortho_nodata_val,
+            bool have_rig,
+            vw::ImageViewRef<vw::PixelMask<float>> dem,
+            double height_guess,
+            vw::cartography::GeoReference const& ortho_georef,
+            vw::ImageViewRef<vw::PixelMask<float>> ortho,
+            SatSimOptions                      & opt,
+            rig::RigSet                   const& rig,
+            vw::cartography::GeoReference const& dem_georef,
+            Eigen::Affine3d               const& ref2sensor,
+            std::string                   const& suffix);
+
 // Generate the cameras and images for a rig
 void genRigCamerasImages(SatSimOptions          & opt,
             rig::RigSet                    const& rig,

@@ -1383,6 +1383,51 @@ void handleSensorType(int num_sensors,
   }
 }
 
+// Generate cameras and images for a sensor
+void genCamerasImages(float ortho_nodata_val,
+            bool have_rig,
+            vw::ImageViewRef<vw::PixelMask<float>> dem,
+            double height_guess,
+            vw::cartography::GeoReference const& ortho_georef,
+            vw::ImageViewRef<vw::PixelMask<float>> ortho,
+            SatSimOptions                      & opt,
+            rig::RigSet                   const& rig,
+            vw::cartography::GeoReference const& dem_georef,
+            Eigen::Affine3d               const& ref2sensor,
+            std::string                   const& suffix) {
+
+  std::vector<vw::Vector3> positions;
+  std::vector<vw::Matrix3x3> cam2world, cam2world_no_jitter, ref_cam2world;
+  std::vector<double> cam_times;
+  int first_pos = 0; // used with linescan poses, which start before first image line
+  double orbit_len = 0.0, first_line_time = 0.0; // will change
+  
+  // Compute the camera poses
+  asp::calcTrajectory(opt, dem_georef, dem, height_guess,
+                      // Outputs
+                      first_pos, first_line_time, orbit_len, positions, cam2world, 
+                      cam2world_no_jitter, ref_cam2world, cam_times);
+
+  // Sequence of camera names and cameras for one sensor
+  std::vector<std::string> cam_names; 
+  std::vector<vw::CamPtr> cams;
+  // The suffix is needed to distinguish the cameras and images for each sensor
+  if (opt.sensor_type == "pinhole")
+    asp::genPinholeCameras(opt, dem_georef, positions, cam2world, ref_cam2world,
+                            cam_times, have_rig, ref2sensor, suffix, cam_names, cams);
+  else
+    asp::genLinescanCameras(first_line_time, orbit_len, dem_georef, dem, first_pos, 
+                            positions, cam2world, cam2world_no_jitter, ref_cam2world, 
+                            cam_times, height_guess, have_rig, ref2sensor, suffix, 
+                            opt, cam_names, cams);
+
+  bool external_cameras = false;
+  if (!opt.no_images)
+    asp::genImages(opt, external_cameras, cam_names, cams, suffix, dem_georef, dem, 
+        height_guess, ortho_georef, ortho, ortho_nodata_val);
+
+}
+
 // Generate the cameras and images for a rig
 void genRigCamerasImages(SatSimOptions          & opt,
             rig::RigSet                    const& rig,
@@ -1420,8 +1465,8 @@ void genRigCamerasImages(SatSimOptions          & opt,
         << " not found in the rig.\n");
     
     // Pass the intrinsics to a local copy of the options
-    int sensor_index            = it->second;
     SatSimOptions local_opt     = opt;
+    int sensor_index            = it->second;
     auto params                 = rig.cam_params[sensor_index];
     local_opt.focal_length      = params.GetFocalLength();
     local_opt.optical_center[0] = params.GetOpticalOffset()[0];
@@ -1434,36 +1479,9 @@ void genRigCamerasImages(SatSimOptions          & opt,
     Eigen::Affine3d ref2sensor = rig.ref_to_cam_trans[sensor_index];
     std::string suffix = "-" + sensor_names[sensor_it]; 
     bool have_rig = true;
+    genCamerasImages(ortho_nodata_val, have_rig, dem, height_guess, ortho_georef, ortho, 
+                     local_opt, rig, dem_georef, ref2sensor, suffix); 
     
-    std::vector<vw::Vector3> positions;
-    std::vector<vw::Matrix3x3> cam2world, cam2world_no_jitter, ref_cam2world;
-    std::vector<double> cam_times;
-    int first_pos = 0; // used with linescan poses, which start before first image line
-    double orbit_len = 0.0, first_line_time = 0.0; // will change
-    
-    // Compute the camera poses
-    asp::calcTrajectory(local_opt, dem_georef, dem, height_guess,
-                        // Outputs
-                        first_pos, first_line_time, orbit_len, positions, cam2world, 
-                        cam2world_no_jitter, ref_cam2world, cam_times);
-
-    // Sequence of camera names and cameras for one sensor
-    std::vector<std::string> cam_names; 
-    std::vector<vw::CamPtr> cams;
-    // The suffix is needed to distinguish the cameras and images for each sensor
-    if (local_opt.sensor_type == "pinhole")
-      asp::genPinholeCameras(local_opt, dem_georef, positions, cam2world, ref_cam2world,
-                             cam_times, have_rig, ref2sensor, suffix, cam_names, cams);
-    else
-      asp::genLinescanCameras(first_line_time, orbit_len, dem_georef, dem, first_pos, 
-                              positions, cam2world, cam2world_no_jitter, ref_cam2world, 
-                              cam_times, height_guess, have_rig, ref2sensor, suffix, 
-                              local_opt, cam_names, cams);
-
-    bool external_cameras = false;
-    if (!opt.no_images)
-      asp::genImages(local_opt, external_cameras, cam_names, cams, suffix, dem_georef, dem, 
-          height_guess, ortho_georef, ortho, ortho_nodata_val);
   }              
 }
             
