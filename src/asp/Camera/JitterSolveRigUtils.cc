@@ -75,10 +75,6 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
     vw::vw_throw(vw::ArgumentErr() 
              << "Expecting the number of cameras to match the number of images.\n");
     
-  // Print the image names
-  for (int i = 0; i < num_images; i++) 
-    vw::vw_out() << "Image: " << image_files[i] << std::endl;
-  // Print the camera names
   for (int i = 0; i < num_images; i++)  {
     vw::vw_out() << "Camera: " << camera_files[i] << std::endl;
 
@@ -110,16 +106,16 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
 
       int cam_type = -1; 
       rig::findCamType(camera_files[i], rig.cam_names, cam_type);
-      int numPos     = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
-      double beg_pos_time = ls_model->m_t0Ephem;
-      double pos_dt   = ls_model->m_dtEphem;
-      double end_pos_time = beg_pos_time + (numPos - 1) * pos_dt;
-      int numQuat    = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+      int numPos           = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+      double beg_pos_time  = ls_model->m_t0Ephem;
+      double pos_dt        = ls_model->m_dtEphem;
+      double end_pos_time  = beg_pos_time + (numPos - 1) * pos_dt;
+      int numQuat          = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
       double beg_quat_time = ls_model->m_t0Quat;
-      double quat_dt   = ls_model->m_dtQuat;
+      double quat_dt       = ls_model->m_dtQuat;
       double end_quat_time = beg_quat_time + (numQuat - 1) * quat_dt;
-      double beg_time = std::max(beg_pos_time, beg_quat_time);
-      double end_time = std::min(end_pos_time, end_quat_time);
+      double beg_time      = std::max(beg_pos_time, beg_quat_time);
+      double end_time      = std::min(end_pos_time, end_quat_time);
 
       int numLines = ls_model->m_nLines;
       csm::ImageCoord imagePt;
