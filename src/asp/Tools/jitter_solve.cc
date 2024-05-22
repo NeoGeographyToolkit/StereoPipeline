@@ -45,6 +45,7 @@
 #include <asp/Core/ImageUtils.h>
 #include <asp/IsisIO/IsisInterface.h>
 #include <asp/Rig/rig_config.h>
+#include <asp/Camera/JitterSolveRigUtils.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
@@ -734,17 +735,16 @@ void calcAnchorPoints(Options                         const & opt,
           // Anchor points must not be outside the range of tabulated positions and orientations
           csm::ImageCoord imagePt;
           asp::toCsmPixel(pix, imagePt);
-          double time = ls_model->getImageTime(imagePt);
-          
-          int numPos    = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
-          double posT0  = ls_model->m_t0Ephem;
-          double posDt  = ls_model->m_dtEphem;
-          int pos_index = static_cast<int>((time - posT0) / posDt);
-          int numQuat   = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
-          double quatT0 = ls_model->m_t0Quat;
-          double quatDt = ls_model->m_dtQuat;
+          double time    = ls_model->getImageTime(imagePt);
+          int numPos     = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+          double posT0   = ls_model->m_t0Ephem;
+          double posDt   = ls_model->m_dtEphem;
+          int pos_index  = static_cast<int>((time - posT0) / posDt);
+          int numQuat    = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+          double quatT0  = ls_model->m_t0Quat;
+          double quatDt  = ls_model->m_dtQuat;
           int quat_index = static_cast<int>((time - quatT0) / quatDt);
-          if (pos_index < 0 || pos_index >= numPos || 
+          if (pos_index < 0  || pos_index >= numPos || 
               quat_index < 0 || quat_index >= numQuat) {
             if (!warning_printed) {
               vw::vw_out(vw::WarningMessage) << "Not placing anchor points outside "
@@ -1552,6 +1552,7 @@ void formTriVec(std::vector<Vector3> const& dem_xyz_vec,
   return;
 }
 
+// TODO(oalexan1): Move this to a separate file
 void saveOptimizedCameraModels(std::string const& out_prefix,
                                std::string const& stereo_session, 
                                std::vector<std::string> const& image_files,
@@ -1610,6 +1611,13 @@ void run_jitter_solve(int argc, char* argv[]) {
   // TODO(oalexan1): Must normalize the quaternions before resampling!   
   std::vector<asp::CsmModel*> csm_models;
   initResampleCsmCams(opt, opt.camera_models, csm_models);
+
+  // Preparations if having a rig
+  bool have_rig = (opt.rig_config != "");
+  std::vector<RigCamInfo> rig_cam_info;
+  if (have_rig)
+    populateRigCamInfo(rig, opt.image_files, opt.camera_files, csm_models, 
+                       opt.orbital_groups, rig_cam_info);
   
   // This the right place to record the original camera positions.
   std::vector<vw::Vector3> orig_cam_positions;
@@ -1641,6 +1649,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::set<std::string> existing_files;
   asp::listExistingMatchFiles(prefix, existing_files);
 
+  // TODO(oalexan1): Make this into a function
   // Load match files
   std::map<std::pair<int, int>, std::string> match_files;
   for (size_t k = 0; k < all_pairs.size(); k++) {
@@ -1650,16 +1659,13 @@ void run_jitter_solve(int argc, char* argv[]) {
     std::string const& image2_path  = opt.image_files[j];  // alias
     std::string const& camera1_path = opt.camera_files[i]; // alias
     std::string const& camera2_path = opt.camera_files[j]; // alias
-
     // Load match files from a different source
     std::string match_file 
       = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
                             opt.out_prefix, image1_path, image2_path);
-
     // The external match file does not exist, don't try to load it
     if (existing_files.find(match_file) == existing_files.end())
       continue;
-    
     match_files[std::make_pair(i, j)] = match_file;
   }
   

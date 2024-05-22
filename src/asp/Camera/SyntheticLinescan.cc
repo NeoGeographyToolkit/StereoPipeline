@@ -276,7 +276,7 @@ void genLinescanCameras(double                                 first_line_time,
   cams.clear();
   
   // Measure time based on the length of the segment between 1st and last line.
-  // Must be consistent with calcTrajectory().
+  // Must be consistent with genCamPoses().
   double orbit_segment_time = orbit_len / opt.velocity;
   double dt_line = orbit_segment_time / (opt.image_size[1] - 1.0);
 
@@ -295,7 +295,7 @@ void genLinescanCameras(double                                 first_line_time,
   double t0_quat = t0_ephem;
 
   // Sanity check. The linescan time logic here must agree with the logic in
-  // calcTrajectory(), including for frame cameras.
+  // genCamPoses(), including for frame cameras.
   for (size_t i = 0; i < positions.size(); i++) {
     if (opt.model_time && std::abs(t0_ephem + dt_ephem * i - cam_times[i]) > 1e-8)
       vw::vw_throw(vw::ArgumentErr() << "Time mismatch. Use a smaller --reference-time.\n");

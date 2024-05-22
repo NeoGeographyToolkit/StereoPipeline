@@ -61,26 +61,6 @@ struct SatSimOptions: vw::GdalWriteOptions {
 // very far from the datum. 
 double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem);
 
-// A function that will take as input the endpoints and will compute the
-// satellite positions and along track/across track/down directions in ECEF,
-// which will give the camera to world rotation matrix.
-// The key observation is that the trajectory will be a straight edge in
-// projected coordinates so will be computed there first. In some usage
-// modes we will adjust the end points of the trajectory along the way.
-void calcTrajectory(SatSimOptions & opt,
-                    vw::cartography::GeoReference const& dem_georef,
-                    vw::ImageViewRef<vw::PixelMask<float>> dem,
-                    double height_guess,
-                    // Outputs
-                    int                        & first_pos,
-                    double                     & first_line_time,
-                    double                     & orbit_len,
-                    std::vector<vw::Vector3>   & positions,
-                    std::vector<vw::Matrix3x3> & cam2world,
-                    std::vector<vw::Matrix3x3> & cam2world_no_jitter,
-                    std::vector<vw::Matrix3x3> & ref_cam2world,
-                    std::vector<double>        & cam_times);
-
 // A function to read the cameras from a file
 void readPinholeCameras(SatSimOptions const& opt, 
     std::vector<std::string> & cam_names,

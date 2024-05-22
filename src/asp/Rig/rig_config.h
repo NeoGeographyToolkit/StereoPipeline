@@ -62,6 +62,9 @@ struct RigSet {
   // If this sensor is a reference sensor for one of the rig.
   bool isRefSensor(std::string const& sensor_name) const;
 
+  // If this sensor is a reference sensor for one of the rig.
+  bool isRefSensor(int cam_id) const;
+
   // Return the id of the rig given the index of the camera
   // in cam_names.
   int rigId(int cam_id) const;
@@ -72,6 +75,10 @@ struct RigSet {
   // Index in the list of sensors of the sensor with given name
   int sensorIndex(std::string const& sensor_name) const;
 
+  // Given the id of a sensor, find the id of the ref sensor for the rig
+  // having this sensor
+  int refSensorId(int cam_id) const;
+   
   // Create a rig set having a single rig  
   RigSet subRig(int rig_id) const;
   

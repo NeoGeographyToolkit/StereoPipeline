@@ -92,6 +92,11 @@ bool RigSet::isRefSensor(std::string const& cam_name) const {
   return false;
 }
 
+// A ref sensor is the first sensor on each rig
+bool RigSet::isRefSensor(int cam_id) const {
+  return isRefSensor(cam_names[cam_id]);
+}
+
 // Return the id of the rig given the index of the sensor
 // in cam_names.
 int RigSet::rigId(int cam_id) const {
@@ -125,6 +130,12 @@ int RigSet::sensorIndex(std::string const& sensor_name) const {
     LOG(FATAL) << "Could not find sensor in rig. That is unexpected. Offending sensor: "
                << sensor_name << ".\n";
   return it - cam_names.begin();
+}
+
+// Given the id of a sensor, find the id of the ref sensor for the rig
+// having this sensor
+int RigSet::refSensorId(int cam_id) const {
+  return sensorIndex(refSensor(cam_id));
 }
   
 // Create a rig set having a single rig  

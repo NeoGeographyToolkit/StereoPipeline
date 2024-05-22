@@ -650,25 +650,22 @@ vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
 }
 
 // A function that will take as input the endpoints and will compute the
-// satellite trajectory and along track/across track/down directions in ECEF,
-// which will give the camera to world rotation matrix.
-// The key observation is that the trajectory will be a straight edge in
-// projected coordinates so will be computed there first. In some usage
-// modes we will adjust the end points of the trajectory along the way.
-void calcTrajectory(SatSimOptions & opt,
-                    vw::cartography::GeoReference const& dem_georef,
-                    vw::ImageViewRef<vw::PixelMask<float>> dem,
-                    double height_guess,
-                    // Outputs
-                    int                        & first_pos,
-                    double                     & first_line_time,
-                    double                     & orbit_len,
-                    std::vector<vw::Vector3>   & positions,
-                    std::vector<vw::Matrix3x3> & cam2world,
-                    std::vector<vw::Matrix3x3> & cam2world_no_jitter,
-                    std::vector<vw::Matrix3x3> & ref_cam2world,
-                    std::vector<double>        & cam_times) {
-
+// positions and orientations in ECEF. The key observation is that the positions
+// will form a straight edge in projected coordinates. In some usage modes we
+// will adjust the end points of the produced path.
+void genCamPoses(SatSimOptions & opt,
+                 vw::cartography::GeoReference const& dem_georef,
+                 vw::ImageViewRef<vw::PixelMask<float>> dem,
+                 double height_guess,
+                 // Outputs
+                 int                        & first_pos,
+                 double                     & first_line_time,
+                 double                     & orbit_len,
+                 std::vector<vw::Vector3>   & positions,
+                 std::vector<vw::Matrix3x3> & cam2world,
+                 std::vector<vw::Matrix3x3> & cam2world_no_jitter,
+                 std::vector<vw::Matrix3x3> & ref_cam2world,
+                 std::vector<double>        & cam_times) {
 
   // Initialize the outputs. They may change later.
   first_pos = 0;
@@ -1403,7 +1400,7 @@ void genCamerasImages(float ortho_nodata_val,
   double orbit_len = 0.0, first_line_time = 0.0; // will change
   
   // Compute the camera poses
-  asp::calcTrajectory(opt, dem_georef, dem, height_guess,
+  asp::genCamPoses(opt, dem_georef, dem, height_guess,
                       // Outputs
                       first_pos, first_line_time, orbit_len, positions, cam2world, 
                       cam2world_no_jitter, ref_cam2world, cam_times);
