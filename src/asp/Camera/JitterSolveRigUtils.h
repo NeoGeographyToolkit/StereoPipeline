@@ -63,7 +63,8 @@ void populateRigCamInfo(rig::RigSet const& rig,
                         std::vector<asp::CsmModel*> const& csm_models,
                         std::map<int, int> const& orbital_groups,
                         // Outputs
-                        std::vector<RigCamInfo> & rig_cam_info);
+                        std::vector<RigCamInfo> & rig_cam_info,
+                        std::vector<double>     & ref_to_curr_sensor_vec);
 
 } // end namespace asp
 

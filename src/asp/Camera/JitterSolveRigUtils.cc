@@ -19,9 +19,11 @@
 
 #include <asp/Rig/rig_config.h>
 #include <asp/Rig/image_lookup.h>
+#include <asp/Rig/transform_utils.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/JitterSolveRigUtils.h>
 #include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Core/EigenTransformUtils.h>
 
 #include <vw/Core/Log.h>
 #include <vw/Math/Functors.h>
@@ -76,7 +78,6 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
              << "Expecting the number of cameras to match the number of images.\n");
     
   for (int i = 0; i < num_images; i++)  {
-    vw::vw_out() << "Camera: " << camera_files[i] << std::endl;
 
     auto & rig_info = rig_cam_info[i]; // alias
     
@@ -215,6 +216,89 @@ void findClosestRefCamera(rig::RigSet const& rig,
     } // end iterating over ref sensor cameras
   } // end iterating over cameras
 }
+
+// Given all camera-to-world transforms, find the median rig transforms.
+// This is robust to outliers.
+void calcRigTransforms(rig::RigSet const& rig,
+                       std::vector<asp::CsmModel*> const& csm_models,
+                       std::vector<RigCamInfo> const& rig_cam_info,
+                       // Outputs
+                       std::vector<double> & ref_to_curr_sensor_vec) {
+  
+  int num_rig_sensors = rig.cam_names.size();
+  ref_to_curr_sensor_vec.resize(rig::NUM_RIGID_PARAMS * num_rig_sensors, 0.0);
+  std::map<int, std::vector<Eigen::MatrixXd>> transforms_map;
+  
+  for (int icam = 0; icam < (int)csm_models.size(); icam++) {
+
+    // Get the underlying linescan model or frame model
+    asp::CsmModel * csm_cam = csm_models[icam];
+    UsgsAstroLsSensorModel * ls_model
+      = dynamic_cast<UsgsAstroLsSensorModel*>((csm_cam->m_gm_model).get());
+    UsgsAstroFrameSensorModel * frame_model
+      = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_cam->m_gm_model).get());
+    
+    int sensor_id = rig_cam_info[icam].sensor_id;
+    // For linescan, for now, use the identity transform
+    Eigen::Affine3d ref_to_curr;
+    ref_to_curr.setIdentity();
+
+    // Temporary
+    if (ls_model != NULL && !rig.isRefSensor(sensor_id))
+      vw::vw_throw(vw::ArgumentErr() << "For now, a non-ref sensor must be frame camera.\n");
+    
+    if (frame_model != NULL) {
+      // This is the precise acquisition time
+      double time = rig_cam_info[icam].beg_pose_time;
+      
+      // Find current position and orientation
+      double x, y, z, qx, qy, qz, qw;
+      csm_models[icam]->frame_position(x, y, z);
+      csm_models[icam]->frame_quaternion(qx, qy, qz, qw);
+      
+      Eigen::Affine3d cam2world = asp::calcTransform(x, y, z, qx, qy, qz, qw);
+      
+      // Find the ref sensor camera
+      int ref_cam_index = rig_cam_info[icam].ref_cam_index;
+      UsgsAstroLsSensorModel * ref_ls_model
+        = dynamic_cast<UsgsAstroLsSensorModel*>(csm_models[ref_cam_index]->m_gm_model.get());
+      // It must be non-null for now
+      if (ref_ls_model == NULL) 
+        vw::vw_throw(vw::ArgumentErr() << "Expecting a linescan model.\n");
+      
+      double ref_pos[3], ref_q[4];  
+      asp::interpPositions(ref_ls_model, time, ref_pos);
+      asp::interpQuaternions(ref_ls_model, time, ref_q);  
+      
+       Eigen::Affine3d ref_cam2world 
+        = asp::calcTransform(ref_pos[0], ref_pos[1], ref_pos[2],
+                             ref_q[0], ref_q[1], ref_q[2], ref_q[3]);
+        
+       ref_to_curr = cam2world.inverse() * ref_cam2world;
+    }
+    
+    transforms_map[sensor_id].push_back(ref_to_curr.matrix());
+  }
+  
+  // Find median, for robustness
+  for (auto it = transforms_map.begin(); it != transforms_map.end(); it++) {
+
+    int sensor_id = it->first;
+    auto & transforms = it->second;
+    if (transforms.empty()) 
+        LOG(FATAL) << "No poses were found for rig sensor with id: " << sensor_id << "\n";
+
+    Eigen::Affine3d median_trans;
+    median_trans.matrix() = rig::median_matrix(transforms);
+    
+    // Normalize the linear component of median_trans
+    median_trans.linear() /= pow(median_trans.linear().determinant(), 1.0 / 3.0);
+
+    // Pack the median transform into the output vector    
+    rig::rigid_transform_to_array(median_trans,
+       &ref_to_curr_sensor_vec[rig::NUM_RIGID_PARAMS * sensor_id]);
+  }
+}
                            
 // Find the relationship between the cameras relative to the rig
 void populateRigCamInfo(rig::RigSet const& rig,
@@ -223,8 +307,9 @@ void populateRigCamInfo(rig::RigSet const& rig,
                         std::vector<asp::CsmModel*> const& csm_models,
                         std::map<int, int> const& orbital_groups,
                         // Outputs
-                        std::vector<RigCamInfo> & rig_cam_info) {
-  
+                        std::vector<RigCamInfo> & rig_cam_info,
+                        std::vector<double>     & ref_to_curr_sensor_vec) {
+
   // Print a message, as this can take time
   vw::vw_out() << "Determine the rig relationships for the cameras.\n";
    
@@ -240,18 +325,11 @@ void populateRigCamInfo(rig::RigSet const& rig,
   populateFrameGroupMidTimestamp(csm_models, orbital_groups, group_timestamps, 
                                  rig_cam_info);
 
-  // For each camera find the closest camera acquired with the reference sensor
+  // For each camera find the closest camera in time acquired with the reference sensor
   findClosestRefCamera(rig, csm_models, rig_cam_info);
-   
-  // Print for each element in rig_cam_info the type, sensor id, and times
-  // for (size_t i = 0; i < rig_cam_info.size(); i++) {
-  //   auto const& info = rig_cam_info[i];
-  //   std::cout << "cam index: " << i << info.cam_index << " type: " << info.sensor_type 
-  //     << " id: " << info.sensor_id
-  //     << " mid time: " << info.mid_group_time << " beg time: " << info.beg_pose_time
-  //     << " end time: " << info.end_pose_time << " ref camera index: " << info.ref_cam_index 
-  //     << "\n";
-  // }
+  
+  // Find the initial guess rig transforms based on all camera-to-world transforms
+  calcRigTransforms(rig, csm_models, rig_cam_info, ref_to_curr_sensor_vec);
 }
 
 } // end namespace asp

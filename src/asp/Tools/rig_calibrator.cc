@@ -1096,12 +1096,12 @@ int main(int argc, char** argv) {
     // TODO(oalexan1): Test if this works with --no_rig. For now this 
     // combination is not allowed.
     rig::calc_world_to_cam_using_rig(// Inputs
-                                           !FLAGS_no_rig,
-                                           cams, world_to_ref, ref_timestamps,
-                                           R.ref_to_cam_trans,
-                                           R.ref_to_cam_timestamp_offsets,
-                                           // Output
-                                           world_to_cam);
+                                     !FLAGS_no_rig,
+                                     cams, world_to_ref, ref_timestamps,
+                                     R.ref_to_cam_trans,
+                                     R.ref_to_cam_timestamp_offsets,
+                                     // Output
+                                     world_to_cam);
   }
   
   if (!FLAGS_no_rig && !FLAGS_use_initial_rig_transforms) {
@@ -1137,7 +1137,7 @@ int main(int argc, char** argv) {
   }
 
   // Put the rig transforms in arrays, so we can optimize them
-  std::vector<double> ref_to_cam_vec(num_cam_types * rig::NUM_RIGID_PARAMS);
+  std::vector<double> ref_to_cam_vec(num_cam_types * rig::NUM_RIGID_PARAMS, 0.0);
   for (int cam_type = 0; cam_type < num_cam_types; cam_type++)
     rig::rigid_transform_to_array
       (R.ref_to_cam_trans[cam_type],

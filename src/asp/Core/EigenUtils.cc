@@ -212,7 +212,7 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
         continue;
       }
 
-    }else if (!is_lola_rdr_format){
+    } else if (!is_lola_rdr_format) {
 
       // lat,lon,height format
       double height;

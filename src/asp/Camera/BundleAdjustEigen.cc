@@ -19,6 +19,7 @@
 ///
 
 #include <asp/Camera/BundleAdjustEigen.h>
+#include <asp/Core/EigenTransformUtils.h>
 #include <asp/Core/Nvm.h>
 
 #include <vw/Camera/PinholeModel.h>
@@ -111,26 +112,17 @@ Eigen::Affine3d calcWorldToCam(asp::CsmModel const& csm) {
 
   // Find the camera center
   double x = 0, y = 0, z = 0;
+  double qx = 0, qy = 0, qz = 0, qw = 0;
   try {
     csm.frame_position(x, y, z);
+    csm.frame_quaternion(qx, qy, qz, qw);
   } catch (const std::exception & e) {
     // Not a frame camera, return the identity matrix
     return world_to_cam;
   }
-  Eigen::Vector3d ET;
-  ET(0) = x; ET(1) = y; ET(2) = z;
 
-  // Find the camera-to-world rotation
-  double qx = 0, qy = 0, qz = 0, qw = 0;
-  csm.frame_quaternion(qx, qy, qz, qw);
-  Eigen::Quaterniond q(qw, qx, qy, qz);
-  Eigen::Matrix3d ER = q.toRotationMatrix();
-
-  // Populate the rotation + translation matrix
-  E.setIdentity();
-  E.block<3,3>(0,0) = ER;
-  E.block<3,1>(0,3) = ET;
-
+  E = calcTransform(x, y, z, qx, qy, qz, qw).matrix();
+  
   // This is camera-to-world, so invert it
   world_to_cam.matrix() = E.inverse();  
   

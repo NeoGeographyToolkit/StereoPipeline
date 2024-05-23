@@ -486,35 +486,14 @@ double DGCameraModel::get_line_at_time(double time) const {
   return line0 + (line1 - line0) * (time - time0) / (time1 - time0);
 }
 
-// TODO(oalexan1): This must be wiped when no longer inheriting from VW linescan
 vw::Vector3 DGCameraModel::get_camera_center_at_time(double time) const {
   csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
   return vw::Vector3(ecef.x, ecef.y, ecef.z);
 }
 
-// TODO(oalexan1): This must be wiped when no longer inheriting from VW linescan
 vw::Vector3 DGCameraModel::get_camera_velocity_at_time(double time) const {
   csm::EcefVector ecef = m_ls_model->getSensorVelocity(time);
   return vw::Vector3(ecef.x, ecef.y, ecef.z);
-}
-
-// Function to interpolate quaternions with the CSM model. This is used
-// for CSM model validation but not in production.
-// TODO(oalexan1): Move this to a new CsmModelUtils.cc file and call it from here.
-// TODO(oalexan1): This must be wiped when removing the ASP linescan implementation
-void DGCameraModel::getQuaternions(const double& time, double q[4]) const {
-
-  int nOrder = 8;
-  if (m_ls_model->m_platformFlag == 0)
-    nOrder = 4;
-  int nOrderQuat = nOrder;
-  if (m_ls_model->m_numQuaternions/4 < 6 && nOrder == 8)
-    nOrderQuat = 4;
-
-  lagrangeInterp(m_ls_model->m_numQuaternions / 4,
-                 &m_ls_model->m_quaternions[0],
-                 m_ls_model->m_t0Quat, m_ls_model->m_dtQuat,
-                 time, 4, nOrderQuat, q);
 }
 
 // Interpolate the satellite position covariance at given pixel
@@ -557,12 +536,6 @@ void DGCameraModel::interpSatelliteQuatCov(vw::Vector2 const& pix,
                     time, SAT_QUAT_COV_SIZE, q_cov);
 }
 
-vw::Quat DGCameraModel::get_camera_pose_at_time(double time) const {
-  double q[4];
-  getQuaternions(time, q);
-  return vw::Quat(q[3], q[0], q[1], q[2]); // go from (x, y, z, w) to (w, x, y, z)
-}
-  
 // Gives a pointing vector in the world coordinates.
 vw::Vector3 DGCameraModel::pixel_to_vector(vw::Vector2 const& pix) const {
   return m_csm_model->pixel_to_vector(pix);

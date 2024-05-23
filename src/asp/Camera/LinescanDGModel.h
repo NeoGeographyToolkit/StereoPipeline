@@ -71,8 +71,6 @@ namespace asp {
 
     virtual vw::Vector3 get_camera_velocity_at_time(double time) const;
 
-    virtual vw::Quat get_camera_pose_at_time(double time) const;
-
     // Gives a pointing vector in the world coordinates.
     virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const;
 

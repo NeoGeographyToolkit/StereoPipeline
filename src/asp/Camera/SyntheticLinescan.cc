@@ -235,6 +235,7 @@ void populateCsmLinescanRig(double first_line_time, double dt_line,
       trans_positions[i] = P;
       trans_cam2world[i] = R;
     }
+    
     populateCsmLinescan(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
                       focal_length, optical_center, image_size, datum, sensor_id,
                       trans_positions, velocities, trans_cam2world, model);

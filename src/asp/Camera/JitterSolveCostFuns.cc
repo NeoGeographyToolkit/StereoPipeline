@@ -345,13 +345,12 @@ bool weightedRollYawError::operator()(double const * const * parameters,
 }
 
 // Add the linescan model reprojection error to the cost function
-// TODO(oalexan1): Move this to JitterSolveCostFuns.cc
-void addLsReprojectionErr(asp::BaBaseOptions const & opt,
-                          UsgsAstroLsSensorModel * ls_model,
-                          vw::Vector2      const & observation,
-                          double                 * tri_point,
-                          double                   weight,
-                          ceres::Problem         & problem) {
+void addLsReprojectionErr(asp::BaBaseOptions  const& opt,
+                          UsgsAstroLsSensorModel   * ls_model,
+                          vw::Vector2         const& observation,
+                          double                   * tri_point,
+                          double                     weight,
+                          ceres::Problem           & problem) {
 
   // Find all positions and quaternions that can affect the current pixel. Must
   // grow the number of quaternions and positions a bit because during

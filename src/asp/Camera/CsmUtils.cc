@@ -108,7 +108,6 @@ void normalizeQuaternions(UsgsAstroFrameSensorModel * frame_model) {
 }
 
 // Get quaternions. This duplicates the UsgsAstroLsSensorModel function as that one is private
-// TODO(oalexan1): Call this from LinescanDGModel.cc.
 void interpQuaternions(UsgsAstroLsSensorModel * ls_model, double time,
                       double q[4]) {
   int nOrder = 8;

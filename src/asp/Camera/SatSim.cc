@@ -991,7 +991,7 @@ void genPinholeCameras(SatSimOptions      const& opt,
     vw::Matrix3x3 R  = cam2world[i];
     vw::Vector3 P0   = positions[i];
     vw::Matrix3x3 R0 = ref_cam2world[i];
-    
+
     if (have_rig) {
       // Must adjust for the rig
       applyRigTransform(ref2sensor, P, R);
