@@ -26,6 +26,7 @@
 
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/JitterSolveUtils.h>
+#include <asp/Camera/JitterSolveRigUtils.h>
 #include <asp/Camera/CsmUtils.h>
 
 #include <asp/Core/BundleAdjustUtils.h>
@@ -63,6 +64,17 @@ void addFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                              double                    * tri_point,
                              double                      weight,
                              ceres::Problem            & problem);
+
+// Reprojection error with ls ref sensor and frame curr sensor
+void addRigLsFrameReprojectionErr(asp::BaBaseOptions  const & opt,
+                                  asp::RigCamInfo     const & rig_cam_info,
+                                  vw::Vector2         const & frame_observation,
+                                  double                      weight,
+                                  UsgsAstroLsSensorModel    * ref_ls_model,
+                                  UsgsAstroFrameSensorModel * curr_frame_model,
+                                  double                    * ref_to_curr_trans,
+                                  double                    * tri_point,
+                                  ceres::Problem            & problem);
 
 /// A ceres cost function. The residual is the difference between the observed
 /// 3D point and the current (floating) 3D point, multiplied by given weight.

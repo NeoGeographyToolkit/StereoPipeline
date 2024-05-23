@@ -45,6 +45,8 @@
 #include <asp/Core/ImageUtils.h>
 #include <asp/IsisIO/IsisInterface.h>
 #include <asp/Rig/rig_config.h>
+#include <asp/Rig/transform_utils.h>
+
 #include <asp/Camera/JitterSolveRigUtils.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
@@ -781,6 +783,7 @@ void calcAnchorPoints(Options                         const & opt,
 
 // Add reprojection errors. Collect data that will be used to add camera
 // constraints that scale with the number of reprojection errors and GSD.
+// TODO(oalexan1): Move this to JitterSolveCostFuns.cc.
 void addReprojCamErrs(Options                           const & opt,
                       asp::CRNJ                         const & crn,
                       std::vector<std::vector<Vector2>> const & pixel_vec,
@@ -788,12 +791,16 @@ void addReprojCamErrs(Options                           const & opt,
                       std::vector<std::vector<int>>     const & isAnchor_vec,
                       std::vector<std::vector<int>>     const & pix2xyz_index,
                       std::vector<asp::CsmModel*>       const & csm_models,
+                      bool                                      have_rig,
+                      rig::RigSet                        const& rig,
+                      std::vector<RigCamInfo>            const& rig_cam_info,
                       // Outputs
                       std::vector<double>                     & tri_points_vec,
                       std::vector<double>                     & frame_params,
                       std::vector<double>                     & weight_per_residual,
                       std::vector<std::vector<double>>        & weight_per_cam,
                       std::vector<std::vector<double>>        & count_per_cam,
+                      std::vector<double>                     & ref_to_curr_sensor_vec,
                       ceres::Problem                          & problem) {
 
   // Do here two passes, first for non-anchor points and then for anchor ones.
@@ -822,23 +829,70 @@ void addReprojCamErrs(Options                           const & opt,
         // Pass 0 is without anchor points, while pass 1 uses them
         if ((int)isAnchor != pass) 
           continue;
-
-        // We can have linescan or frame cameras 
-        UsgsAstroLsSensorModel * ls_model
-          = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
-        UsgsAstroFrameSensorModel * frame_model
-          = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
-  
-        // Note how for the frame model we pass the frame_params for the current camera.
-        if (ls_model != NULL)
-          addLsReprojectionErr(opt, ls_model, pix_obs, tri_point, pix_wt, problem);
-        else if (frame_model != NULL)
-          addFrameReprojectionErr(opt, frame_model, pix_obs, 
-              &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)],
-              tri_point, pix_wt, problem);                   
-        else
-          vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
-
+        
+        if (!have_rig) {
+          // TODO(oalexan1): This must be a function
+          // No rig
+          // We can have linescan or frame cameras 
+          UsgsAstroLsSensorModel * ls_model
+            = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+          UsgsAstroFrameSensorModel * frame_model
+            = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+    
+          // Note how for the frame model we pass the frame_params for the current camera.
+          if (ls_model != NULL)
+            addLsReprojectionErr(opt, ls_model, pix_obs, tri_point, pix_wt, problem);
+          else if (frame_model != NULL)
+            addFrameReprojectionErr(opt, frame_model, pix_obs, 
+                &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)],
+                tri_point, pix_wt, problem);                   
+          else
+            vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+        } else {
+          // Have rig
+          // TODO(oalexan1): This must be a function
+          auto rig_info = rig_cam_info[icam];  
+          int ref_cam = rig_info.ref_cam_index;
+          int sensor_id = rig_info.sensor_id;
+          double* ref_to_curr_sensor_trans 
+              = &ref_to_curr_sensor_vec[rig::NUM_RIGID_PARAMS * sensor_id];
+          
+          // We can have linescan or frame cameras 
+          UsgsAstroLsSensorModel * ls_model
+            = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+          UsgsAstroFrameSensorModel * frame_model
+            = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+          UsgsAstroLsSensorModel * ref_ls_model 
+            = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[ref_cam]->m_gm_model).get());
+    
+          // For now, the ref camera must be linescan 
+          // TODO(oalexan1): Remove this temporary restriction
+          if (ref_ls_model == NULL)
+            vw::vw_throw(vw::ArgumentErr() << "Reference camera must be linescan.\n");
+          
+          if (rig.isRefSensor(sensor_id)) {
+            // This does not need the rig 
+            // Note how for the frame model we pass the frame_params for the current camera.
+            if (ls_model != NULL)
+              addLsReprojectionErr(opt, ls_model, pix_obs, tri_point, pix_wt, problem);
+            else if (frame_model != NULL)
+              addFrameReprojectionErr(opt, frame_model, pix_obs, 
+                  &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)],
+                  tri_point, pix_wt, problem);                   
+            else
+              vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+          } else {
+            // For now, the current camera must be frame
+            // TODO(oalexan1): Remove this temporary restriction
+            if (frame_model == NULL)
+              vw::vw_throw(vw::ArgumentErr() << "Current camera must be frame.\n");
+            addRigLsFrameReprojectionErr(opt, rig_info, pix_obs, pix_wt, ref_ls_model, 
+                          frame_model, 
+                          ref_to_curr_sensor_trans,
+                          tri_point, problem);
+          } // end case of a non-ref sensor
+        } // end condition for having a rig
+      
         // Two residuals were added. Save the corresponding weights.
         for (int c = 0; c < PIXEL_SIZE; c++)
           weight_per_residual.push_back(pix_wt);
@@ -1705,9 +1759,11 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Add reprojection errors. Get back weights_per_cam, count_per_cam.
   addReprojCamErrs(opt, crn, pixel_vec, weight_vec,
                    isAnchor_vec, pix2xyz_index, csm_models,
+                   have_rig, rig, rig_cam_info, 
                    // Outputs
                    tri_points_vec, frame_params, weight_per_residual, 
-                   weight_per_cam, count_per_cam, problem);
+                   weight_per_cam, count_per_cam, ref_to_curr_sensor_vec, 
+                   problem);
  
   // Add the DEM constraint. We check earlier that only one
   // of the two options below can be set at a time.
@@ -1731,6 +1787,7 @@ void run_jitter_solve(int argc, char* argv[]) {
                      problem);
 
   // Add the constraint to keep the camera positions close to initial values
+  // TODO(oalexan1): Must adjust for rig
   if (opt.camera_position_weight > 0) 
     addCamPositionConstraint(opt, outliers, crn, csm_models, weight_per_cam, count_per_cam,
                              // Outputs
@@ -1738,17 +1795,20 @@ void run_jitter_solve(int argc, char* argv[]) {
     
   // Add constraints to keep quat norm close to 1, and make rotations 
   // not change too much
+  // TODO(oalexan1): Must adjust for rig
   addQuatNormRotationConstraints(opt, outliers, crn, csm_models,  
                                  // Outputs
                                  frame_params,
                                  weight_per_residual,  // append
                                  problem);
 
+  // TODO(oalexan1): Must adjust for rig
   if (opt.roll_weight > 0 || opt.yaw_weight > 0)
     addRollYawConstraint(opt, crn, csm_models, roll_yaw_georef,
                         frame_params, weight_per_residual, problem); // outputs
 
   // Save residuals before optimization
+  // TODO(oalexan1): Must adjust for rig
   std::string residual_prefix = opt.out_prefix + "-initial_residuals";
   saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                  tri_points_vec, outliers, weight_per_residual,
@@ -1784,6 +1844,7 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // With the problem solved, update camera_models based on frame_params
   // (applies only to frame cameras, if any)
+  // TODO(oalexan1): Must adjust for rig
   updateFrameCameras(csm_models, frame_params);  
 
   // By now the cameras have been updated in-place. Compute the optimized
@@ -1793,6 +1854,7 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Save residuals after optimization
   residual_prefix = opt.out_prefix + "-final_residuals";
+  // TODO(oalexan1): Must adjust for rig
   saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                  tri_points_vec, outliers, weight_per_residual,
                  pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index);
@@ -1800,6 +1862,8 @@ void run_jitter_solve(int argc, char* argv[]) {
   saveOptimizedCameraModels(opt.out_prefix, opt.stereo_session,
                             opt.image_files, opt.camera_files,
                             opt.camera_models, opt.update_isis_cubes_with_csm_state);
+  
+  // TODO(oalexan1): Must save the optimized rig
   
   // Compute the change in camera centers.
   std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";

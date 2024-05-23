@@ -93,20 +93,20 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
     
     if (frame_model != NULL) {
       
-      int cam_type = -1;
+      int sensor_id = -1;
       double timestamp = -1.0; 
       rig::findCamTypeAndTimestamp(camera_files[i], rig.cam_names,
-                                  cam_type, timestamp);
+                                  sensor_id, timestamp);
       rig_info.sensor_type = RIG_FRAME_SENSOR;
-      rig_info.sensor_id = cam_type;
+      rig_info.sensor_id = sensor_id;
       // The mid_group_time will be the mid time for the frame group, to be filled later.
       rig_info.beg_pose_time = timestamp;
       rig_info.end_pose_time = timestamp;
       
     } else if (ls_model != NULL) {
 
-      int cam_type = -1; 
-      rig::findCamType(camera_files[i], rig.cam_names, cam_type);
+      int sensor_id = -1; 
+      rig::findCamType(camera_files[i], rig.cam_names, sensor_id);
       int numPos           = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
       double beg_pos_time  = ls_model->m_t0Ephem;
       double pos_dt        = ls_model->m_dtEphem;
@@ -122,7 +122,7 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
       csm::ImageCoord imagePt;
       asp::toCsmPixel(vw::Vector2(0, numLines/2.0), imagePt);
       rig_info.sensor_type = RIG_LINESCAN_SENSOR;
-      rig_info.sensor_id = cam_type;
+      rig_info.sensor_id = sensor_id;
       // Each pose has its time. The mid group time is a compromise between them.
       rig_info.mid_group_time = ls_model->getImageTime(imagePt);
       rig_info.beg_pose_time = beg_time;

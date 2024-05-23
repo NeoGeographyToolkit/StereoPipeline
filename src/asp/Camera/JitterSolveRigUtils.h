@@ -46,7 +46,7 @@ struct RigCamInfo {
   double mid_group_time;
   
   // For linescan: the starting and ending time for positions/orientations.
-  // For frame: both are the acquisition time.
+  // For frame: both are the current pose time.
   double beg_pose_time, end_pose_time;
   
   // The index of the camera in opt.camera_models
