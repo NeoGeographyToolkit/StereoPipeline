@@ -430,8 +430,10 @@ KH-7 was an effective observation satellite that followed the Corona
 program. It contained an index (frame) camera and a single strip
 (pushbroom) camera. ASP does not currently have a dedicated camera model for
 this camera, so we will have to try to approximate it with a pinhole
-model. Without a dedicated solution for this camera, you may only be
-able to get good results near the central region of the image.
+model. 
+
+Without a dedicated solution for this camera, the solution may be adequate only
+*near the central region of the image*.
 
 For this example we find the following images in Earth Explorer
 declassified collection 2::
