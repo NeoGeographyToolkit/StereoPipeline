@@ -344,6 +344,35 @@ bool weightedRollYawError::operator()(double const * const * parameters,
   return true;
 }
 
+// Calc the range of indices in the samples needed to interpolate between time1 and time2.
+// Based on lagrangeInterp() in usgscsm.
+void calcIndexBounds(double time1, double time2, double t0, double dt, int numVals,
+                     // Outputs
+                     int & begIndex, int & endIndex) {
+
+  // Order of Lagrange interpolation
+  int numInterpSamples = 8;
+
+  // Starting and ending  index (ending is exclusive).
+  int index1 = static_cast<int>((time1 - t0) / dt);
+  int index2 = static_cast<int>((time2 - t0) / dt);
+  
+  // TODO(oalexan1): Maybe the indices should be more generous, so not adding 1
+  // to begIndex, even though what is here seems correct according to 
+  // lagrangeInterp().
+  begIndex = std::min(index1, index2) - numInterpSamples / 2 + 1;
+  endIndex = std::max(index1, index2) + numInterpSamples / 2 + 1;
+  
+  // Keep in bounds
+  begIndex = std::max(0, begIndex);
+  endIndex = std::min(endIndex, numVals);
+  if (begIndex >= endIndex)
+    vw::vw_throw(vw::ArgumentErr() << "Book-keeping error in interpolation. " 
+      << "Likely image order is different than camera order.\n"); 
+    
+  return;
+}
+
 // Add the linescan model reprojection error to the cost function
 void addLsReprojectionErr(asp::BaBaseOptions  const& opt,
                           UsgsAstroLsSensorModel   * ls_model,
@@ -362,40 +391,21 @@ void addLsReprojectionErr(asp::BaBaseOptions  const& opt,
   double time1 = ls_model->getImageTime(imagePt1);
   double time2 = ls_model->getImageTime(imagePt2);
 
-  // Handle quaternions. We follow closely the conventions for UsgsAstroLsSensorModel.
-  // TODO(oalexan1): Must be a function to call for both positions and quaternions.
-  int numQuatPerObs = 8; // Max num of quaternions used in pose interpolation 
+  // Find the range of indices that can affect the current pixel
   int numQuat       = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
   double quatT0     = ls_model->m_t0Quat;
   double quatDt     = ls_model->m_dtQuat;
-  // Starting and ending quat index (ending is exclusive). Based on lagrangeInterp().
-  int qindex1      = static_cast<int>((time1 - quatT0) / quatDt);
-  int qindex2      = static_cast<int>((time2 - quatT0) / quatDt);
-  int begQuatIndex = std::min(qindex1, qindex2) - numQuatPerObs / 2 + 1;
-  int endQuatIndex = std::max(qindex1, qindex2) + numQuatPerObs / 2 + 1;
-  // Keep in bounds
-  begQuatIndex = std::max(0, begQuatIndex);
-  endQuatIndex = std::min(endQuatIndex, numQuat);
-  if (begQuatIndex >= endQuatIndex)
-    vw::vw_throw(vw::ArgumentErr() << "Book-keeping error for quaternions for pixel: " 
-      << observation << ". Likely image order is different than camera order.\n"); 
+  int begQuatIndex = -1, endQuatIndex = -1;
+  calcIndexBounds(time1, time2, quatT0, quatDt, numQuat, 
+                  begQuatIndex, endQuatIndex); // outputs
 
   // Same for positions
-  int numPosPerObs = 8;
   int numPos       = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
   double posT0     = ls_model->m_t0Ephem;
   double posDt     = ls_model->m_dtEphem;
-  // Starting and ending pos index (ending is exclusive). Based on lagrangeInterp().
-  int pindex1 = static_cast<int>((time1 - posT0) / posDt);
-  int pindex2 = static_cast<int>((time2 - posT0) / posDt);
-  int begPosIndex = std::min(pindex1, pindex2) - numPosPerObs / 2 + 1;
-  int endPosIndex = std::max(pindex1, pindex2) + numPosPerObs / 2 + 1;
-  // Keep in bounds
-  begPosIndex = std::max(0, begPosIndex);
-  endPosIndex = std::min(endPosIndex, numPos);
-  if (begPosIndex >= endPosIndex)
-    vw::vw_throw(vw::ArgumentErr() << "Book-keeping error for positions for pixel: " 
-      << observation << ". Likely image order is different than camera order.\n"); 
+  int begPosIndex = -1, endPosIndex = -1;
+  calcIndexBounds(time1, time2, posT0, posDt, numPos, 
+                  begPosIndex, endPosIndex); // outputs
 
   ceres::CostFunction* pixel_cost_function =
     LsPixelReprojErr::Create(observation, weight, ls_model,
