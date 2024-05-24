@@ -56,6 +56,9 @@ struct RigCamInfo {
   // The index of the reference camera in opt.camera_models. The reference
   // camera is assumed to be linescan.
   int ref_cam_index; 
+  
+  // Declare the constructor
+  RigCamInfo();
 };
 
 // Book-keeping needed to tie each camera to the rig

@@ -33,6 +33,20 @@
 
 namespace asp {
 
+// Constructor for class RigCamInfo. Initialize all fields to NaN to ensure full
+// initialization later. That is important, because initialization happens over
+// many stages and we want to catch any errors.
+RigCamInfo::RigCamInfo() {
+  double nan     = std::numeric_limits<double>::quiet_NaN();
+  sensor_id      = nan;
+  sensor_type    = RIG_LINESCAN_SENSOR;
+  mid_group_time = nan;
+  beg_pose_time  = nan;
+  end_pose_time  = nan;
+  cam_index      = nan;
+  ref_cam_index  = nan;
+}
+
 // Find the timestamps for each group of frame cameras
 void timestampsPerGroup(std::map<int, int> const& orbital_groups,
                std::vector<asp::CsmModel*> const& csm_models,
@@ -213,6 +227,7 @@ void findClosestRefCamera(rig::RigSet const& rig,
         
       max_time = dt;
       rig_cam_info[icam].ref_cam_index = ref_info.cam_index;
+      
     } // end iterating over ref sensor cameras
   } // end iterating over cameras
 }
@@ -231,25 +246,66 @@ void calcRigTransforms(rig::RigSet const& rig,
   
   for (int icam = 0; icam < (int)csm_models.size(); icam++) {
 
+    auto const& rig_info = rig_cam_info[icam]; // alias
+    Eigen::Affine3d ref_to_curr;
+
     // Get the underlying linescan model or frame model
     asp::CsmModel * csm_cam = csm_models[icam];
     UsgsAstroLsSensorModel * ls_model
       = dynamic_cast<UsgsAstroLsSensorModel*>((csm_cam->m_gm_model).get());
     UsgsAstroFrameSensorModel * frame_model
       = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_cam->m_gm_model).get());
-    
-    int sensor_id = rig_cam_info[icam].sensor_id;
-    // For linescan, for now, use the identity transform
-    Eigen::Affine3d ref_to_curr;
-    ref_to_curr.setIdentity();
+    // Find the ref camera
+    int ref_cam_index = rig_info.ref_cam_index;
+    UsgsAstroLsSensorModel * ref_ls_model
+      = dynamic_cast<UsgsAstroLsSensorModel*>(csm_models[ref_cam_index]->m_gm_model.get());
+    // It must be non-null for now
+    if (ref_ls_model == NULL) 
+      vw::vw_throw(vw::ArgumentErr() << "Expecting a linescan model as ref sensor.\n");
 
-    // Temporary
-    if (ls_model != NULL && !rig.isRefSensor(sensor_id))
-      vw::vw_throw(vw::ArgumentErr() << "For now, a non-ref sensor must be frame camera.\n");
+    int sensor_id = rig_info.sensor_id;
+    if (rig.isRefSensor(sensor_id)) {
+      // The transform from a reference sensor to itself is the identity
+      ref_to_curr.setIdentity();
+      transforms_map[sensor_id].push_back(ref_to_curr.matrix());
+
+    } else if (ls_model != NULL) {
+
+      // Iterate over pose samples, and find the transform from the reference
+      // sensor to the current sensor at each sample time.
+      int numPos          = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+      double beg_pos_time = ls_model->m_t0Ephem;
+      double pos_dt       = ls_model->m_dtEphem;
+      int ref_icam = rig_info.ref_cam_index;
+      for (int i = 0; i < numPos; i++) {
+        double time = beg_pos_time + i * pos_dt;
+        
+        // Ensure we stay in bounds
+        if (time < rig_info.beg_pose_time || time < rig_cam_info[ref_icam].beg_pose_time ||
+            time > rig_info.end_pose_time || time > rig_cam_info[ref_icam].end_pose_time) 
+          continue;
+        
+        double pos[3], q[4];
+        asp::interpPositions(ls_model, time, pos);
+        asp::interpQuaternions(ls_model, time, q);
+        Eigen::Affine3d cam2world 
+          = asp::calcTransform(pos[0], pos[1], pos[2], q[0], q[1], q[2], q[3]);
+        
+        double ref_pos[3], ref_q[4];  
+        asp::interpPositions(ref_ls_model, time, ref_pos);
+        asp::interpQuaternions(ref_ls_model, time, ref_q);  
+        Eigen::Affine3d ref_cam2world 
+           = asp::calcTransform(ref_pos[0], ref_pos[1], ref_pos[2],
+                                ref_q[0], ref_q[1], ref_q[2], ref_q[3]);
+        
+        ref_to_curr = cam2world.inverse() * ref_cam2world;
+        transforms_map[sensor_id].push_back(ref_to_curr.matrix());
+      }
+      
+    } else if (frame_model != NULL) {
     
-    if (frame_model != NULL) {
       // This is the precise acquisition time
-      double time = rig_cam_info[icam].beg_pose_time;
+      double time = rig_info.beg_pose_time;
       
       // Find current position and orientation
       double x, y, z, qx, qy, qz, qw;
@@ -257,14 +313,6 @@ void calcRigTransforms(rig::RigSet const& rig,
       csm_models[icam]->frame_quaternion(qx, qy, qz, qw);
       
       Eigen::Affine3d cam2world = asp::calcTransform(x, y, z, qx, qy, qz, qw);
-      
-      // Find the ref sensor camera
-      int ref_cam_index = rig_cam_info[icam].ref_cam_index;
-      UsgsAstroLsSensorModel * ref_ls_model
-        = dynamic_cast<UsgsAstroLsSensorModel*>(csm_models[ref_cam_index]->m_gm_model.get());
-      // It must be non-null for now
-      if (ref_ls_model == NULL) 
-        vw::vw_throw(vw::ArgumentErr() << "Expecting a linescan model.\n");
       
       double ref_pos[3], ref_q[4];  
       asp::interpPositions(ref_ls_model, time, ref_pos);
@@ -275,12 +323,11 @@ void calcRigTransforms(rig::RigSet const& rig,
                              ref_q[0], ref_q[1], ref_q[2], ref_q[3]);
         
        ref_to_curr = cam2world.inverse() * ref_cam2world;
+       transforms_map[sensor_id].push_back(ref_to_curr.matrix());
     }
-    
-    transforms_map[sensor_id].push_back(ref_to_curr.matrix());
   }
-  
-  // Find median, for robustness
+    
+  // Find the median, for robustness. 
   for (auto it = transforms_map.begin(); it != transforms_map.end(); it++) {
 
     int sensor_id = it->first;
@@ -298,6 +345,8 @@ void calcRigTransforms(rig::RigSet const& rig,
     rig::rigid_transform_to_array(median_trans,
        &ref_to_curr_sensor_vec[rig::NUM_RIGID_PARAMS * sensor_id]);
   }
+  
+  return;
 }
                            
 // Find the relationship between the cameras relative to the rig

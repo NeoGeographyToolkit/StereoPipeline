@@ -309,9 +309,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
                                       opt.image_files, opt.camera_files, // outputs
                                       ensure_equal_sizes); 
 
-    // This is needed when several images are acquired in quick succession
-    // and we want to impose roll and yaw constraints given their orbital 
-    // trajectory.
+    // This is needed when several frame camera images are acquired in quick succession
     asp::readGroupStructure(images_or_cams, opt.orbital_groups);
   }
   

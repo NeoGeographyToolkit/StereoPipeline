@@ -65,13 +65,13 @@ void readGroupStructure(std::vector<std::string> const & image_lists,
     // Read the list
     std::vector<std::string> image_names;
     asp::read_list(image_lists[i], image_names);
-
+    
     // Add a new group, and let all images in the list be in that group
     bool has_images = false;
     for (size_t j = 0; j < image_names.size(); j++) {
-      if (!asp::has_image_extension(image_names[i]))
+      if (!asp::has_image_extension(image_names[j]))
         continue;
-      if (!fs::exists(image_names[i])) // additional robustness check
+      if (!fs::exists(image_names[j])) // additional robustness check
         continue; 
 
       has_images = true;
