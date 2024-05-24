@@ -459,4 +459,215 @@ void applyAdjustmentToCsmCamera(std::string const& image_file,
   csm_cam->applyTransform(ecef_transform);
 }
 
+// Calc the time of first image line, last image line, elapsed time
+// between these lines, and elapsed time per line.  This assumes a
+// linear relationship between lines and time.
+// TODO(oalexan1): This is fragile. Maybe it can be avoided.
+void calcTimes(UsgsAstroLsSensorModel const* ls_model,
+               double & earlier_line_time, double & later_line_time,
+               double & elapsed_time, double & dt_per_line) {
+
+  int numLines = ls_model->m_nLines;
+  csm::ImageCoord imagePt;
+
+  asp::toCsmPixel(vw::Vector2(0, 0), imagePt);
+  earlier_line_time = ls_model->getImageTime(imagePt);
+
+  asp::toCsmPixel(vw::Vector2(0, numLines - 1), imagePt);
+  later_line_time = ls_model->getImageTime(imagePt);
+
+  // See note in resampleModel().
+  if (earlier_line_time > later_line_time)
+    std::swap(earlier_line_time, later_line_time);
+  
+  elapsed_time = later_line_time - earlier_line_time;
+  dt_per_line = elapsed_time / (numLines - 1.0);
+
+  if (later_line_time <= earlier_line_time)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "The time of the last line (in scanning order) must be larger than "
+                 << "first line time.\n");
+  
+  return;
+}
+
+// Calculate the line index for first and last tabulated position.
+// We always expect these to be less than first line index (0), and no less
+// than last valid image line index (numLines - 1), respectively.
+// TODO(oalexan1): This assumes a linear relationship between time and lines,
+// which is fragile. At least need to check that this assumption is satisfied.
+void calcFirstLastPositionLines(UsgsAstroLsSensorModel const* ls_model, 
+                                double & beg_position_line, double & end_position_line) {
+
+  double earlier_line_time = -1.0, later_line_time = -1.0, 
+         elapsed_time = -1.0, dt_per_line = -1.0;
+  calcTimes(ls_model, earlier_line_time, later_line_time, elapsed_time,  
+               dt_per_line);
+  
+  // Find time of first and last tabulated position.
+  double bt = ls_model->m_t0Ephem;
+  double et = bt + (ls_model->m_positions.size()/NUM_XYZ_PARAMS - 1) * ls_model->m_dtEphem;
+
+  // Use the equation: time = earlier_line_time + line * dt_per_line.
+  // See note in resampleModel() about scan direction.
+  beg_position_line = (bt - earlier_line_time) / dt_per_line;
+  end_position_line = (et - earlier_line_time) / dt_per_line;
+
+  // Sanity checks
+  if (beg_position_line > 1e-3) // allow for rounding errors 
+    vw::vw_throw(vw::ArgumentErr() << "Line of first tabulated position is "
+                 << beg_position_line << ", which is after first image line, which is "
+                 << 0 << ".\n");
+  int numLines = ls_model->m_nLines;
+  if (end_position_line < numLines - 1 - 1e-3)  // allow for rounding errors
+    vw::vw_throw(vw::ArgumentErr() << "Line of last tabulated position is "
+                 << end_position_line << ", which is before last image line, which is "
+                 << numLines - 1 << ".\n");
+}
+  
+// Calculate the line index for first and last tabulated orientation.
+// We always expect these to be less than first line index (0), and no less
+// than last valid image line index (numLines - 1), respectively.
+void calcFirstLastOrientationLines(UsgsAstroLsSensorModel const* ls_model, 
+                                   double & beg_orientation_line, double & end_orientation_line) {
+
+  double earlier_line_time = -1.0, later_line_time = -1.0, 
+         elapsed_time = -1.0, dt_per_line = -1.0;
+  calcTimes(ls_model, earlier_line_time, later_line_time, elapsed_time,  
+               dt_per_line);
+  
+  // Find time of first and last tabulated orientation.
+  double bt = ls_model->m_t0Quat;
+  double et = bt + (ls_model->m_quaternions.size()/NUM_QUAT_PARAMS - 1) * ls_model->m_dtQuat;
+  
+  // Use the equation: time = earlier_line_time + line * dt_per_line.
+  beg_orientation_line = (bt - earlier_line_time) / dt_per_line;
+  end_orientation_line = (et - earlier_line_time) / dt_per_line;
+
+  // Sanity checks
+  if (beg_orientation_line > 1e-3) // allow for rounding errors 
+    vw::vw_throw(vw::ArgumentErr() << "Line of first tabulated orientation is "
+                 << beg_orientation_line << ", which is after first image line, which is "
+                   << 0 << ".\n");
+  int numLines = ls_model->m_nLines;
+  if (end_orientation_line < numLines - 1 - 1e-3)  // allow for rounding errors
+    vw::vw_throw(vw::ArgumentErr() << "Line of last tabulated orientation is "
+                 << end_orientation_line << ", which is before last image line, which is "
+                   << numLines - 1 << ".\n");
+}
+
+// The provided tabulated positions, velocities and quaternions may be too few,
+// so resample them with --num-lines-per-position and --num-lines-per-orientation,
+// if those are set. Throughout this function the lines are indexed in the order
+// they are acquired, which can be the reverse of the order they are eventually
+// stored in the file if the scan direction is reverse.
+// This function assumes the quaternions have been normalized.
+void resampleModel(int num_lines_per_position, int num_lines_per_orientation,
+                   UsgsAstroLsSensorModel * ls_model) {
+  
+  // The positions and quaternions can go way beyond the valid range of image lines,
+  // so need to estimate how many of them are within the range.
+  int numLines = ls_model->m_nLines;
+  vw::vw_out() << "Number of lines: " << numLines << ".\n";
+
+  double earlier_line_time = -1.0, later_line_time = -1.0, 
+         elapsed_time = -1.0, dt_per_line = -1.0;
+  calcTimes(ls_model, earlier_line_time, later_line_time, elapsed_time,  
+            dt_per_line);
+
+  // Line index of first and last tabulated position
+  double beg_position_line = -1.0, end_position_line = -1.0;
+  calcFirstLastPositionLines(ls_model, beg_position_line, end_position_line);
+  vw::vw_out() << std::setprecision (17) << "Line of first and last tabulated position: "
+           << beg_position_line << ' ' << end_position_line << "\n";
+
+  // Line index of first and last tabulated orientation
+  double beg_orientation_line = -1.0, end_orientation_line = -1.0;
+  calcFirstLastOrientationLines(ls_model, beg_orientation_line, end_orientation_line);
+  vw::vw_out() << std::setprecision (17) << "Line of first and last tabulated orientation: "
+           << beg_orientation_line << ' ' << end_orientation_line << "\n";
+
+  double numInputLinesPerPosition = (numLines - 1) * ls_model->m_dtEphem / elapsed_time;
+  double numInputLinesPerOrientation = (numLines - 1) * ls_model->m_dtQuat / elapsed_time;
+  vw::vw_out() << "Number of image lines per input position: "
+           << round(numInputLinesPerPosition) << "\n";
+  vw::vw_out() << "Number of image lines per input orientation: "
+           << round(numInputLinesPerOrientation) << "\n";
+
+  if (num_lines_per_position > 0) {
+    // Resample in such a way that first and last samples are preserved. This is tricky.
+    double posFactor = double(numInputLinesPerPosition) / double(num_lines_per_position);
+    if (posFactor <= 0.0)
+      vw::vw_throw(vw::ArgumentErr() << "Invalid image.\n");
+
+    int numOldMeas = ls_model->m_numPositions / NUM_XYZ_PARAMS;
+    int numNewMeas = round(posFactor * (numOldMeas - 1.0)) + 1; // careful here
+    numNewMeas = std::max(numNewMeas, 2);
+
+    posFactor = double(numNewMeas - 1.0) / double(numOldMeas - 1.0);
+    double currDtEphem = ls_model->m_dtEphem / posFactor;
+    double numLinesPerPosition = (numLines - 1.0) * currDtEphem / elapsed_time;
+    vw::vw_out() << "Resampled number of lines per position: "
+             << numLinesPerPosition << "\n";
+    std::vector<double> positions(NUM_XYZ_PARAMS * numNewMeas, 0);
+    std::vector<double> velocities(NUM_XYZ_PARAMS * numNewMeas, 0);
+    for (int ipos = 0; ipos < numNewMeas; ipos++) {
+      double time = ls_model->m_t0Ephem + ipos * currDtEphem;
+      asp::interpPositions(ls_model, time, &positions[NUM_XYZ_PARAMS * ipos]);
+      asp::interpVelocities(ls_model, time, &velocities[NUM_XYZ_PARAMS * ipos]);
+    }
+    
+    // Overwrite in the model. Time of first tabulated position does not change.
+    ls_model->m_dtEphem = currDtEphem;
+    ls_model->m_numPositions = positions.size();
+    ls_model->m_positions = positions;
+    ls_model->m_velocities = velocities;
+
+    // Sanity check
+    double new_beg_position_line = -1.0, new_end_position_line = -1.0;
+    calcFirstLastPositionLines(ls_model, new_beg_position_line, new_end_position_line);
+    if (std::abs(beg_position_line - new_beg_position_line) > 1.0e-3 ||
+        std::abs(end_position_line - new_end_position_line) > 1.0e-3)
+      vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Resampling was done "
+                   << "without preserving first and last tabulated position time.\n");
+  }
+
+  if (num_lines_per_orientation > 0) {
+    // Resample in such a way that first and last samples are preserved. This is tricky.
+    double posFactor = double(numInputLinesPerOrientation) / double(num_lines_per_orientation);
+    if (posFactor <= 0.0)
+      vw::vw_throw(vw::ArgumentErr() << "Invalid image.\n");
+
+    int numOldMeas = ls_model->m_numQuaternions / NUM_QUAT_PARAMS;
+    int numNewMeas = round(posFactor * (numOldMeas - 1.0)) + 1; // careful here
+    numNewMeas = std::max(numNewMeas, 2);
+
+    posFactor = double(numNewMeas - 1.0) / double(numOldMeas - 1.0);
+    double currDtQuat = ls_model->m_dtQuat / posFactor;
+    double numLinesPerOrientation = (numLines - 1.0) * currDtQuat / elapsed_time;
+    vw::vw_out() << "Resampled number of lines per orientation: "
+             << numLinesPerOrientation << "\n";
+    std::vector<double> quaternions(NUM_QUAT_PARAMS * numNewMeas, 0);
+    for (int ipos = 0; ipos < numNewMeas; ipos++) {
+      double time = ls_model->m_t0Quat + ipos * currDtQuat;
+      asp::interpQuaternions(ls_model, time, &quaternions[NUM_QUAT_PARAMS * ipos]);
+    }
+    
+    // Overwrite in the model. Time of first tabulated orientation does not change.
+    ls_model->m_dtQuat = currDtQuat;
+    ls_model->m_numQuaternions = quaternions.size();
+    ls_model->m_quaternions = quaternions;
+
+    // Sanity check
+    double new_beg_orientation_line = -1.0, new_end_orientation_line = -1.0;
+    calcFirstLastOrientationLines(ls_model, new_beg_orientation_line, new_end_orientation_line);
+    if (std::abs(beg_orientation_line - new_beg_orientation_line) > 1.0e-3 ||
+        std::abs(end_orientation_line - new_end_orientation_line) > 1.0e-3)
+      vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Resampling was done "
+                   << "without preserving first and last tabulated orientation time.\n");
+  }
+
+  return;
+}
+
 } // end namespace asp

@@ -102,6 +102,9 @@ void populateCsmLinescan(double first_line_time, double dt_line,
                                  vw::CamPtr  const& cam,
                                  asp::CsmModel    * csm_cam); 
 
+void resampleModel(int num_lines_per_position, int num_lines_per_orientation,
+                   UsgsAstroLsSensorModel * ls_model); 
+
 } // end namespace asp
 
 #endif//__ASP_CAMERA_CSM_UTILS_H__

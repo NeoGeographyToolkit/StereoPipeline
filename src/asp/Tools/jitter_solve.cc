@@ -76,10 +76,10 @@ struct Options: public asp::BaBaseOptions {
   int num_lines_per_position, num_lines_per_orientation, num_anchor_points_per_image,
     num_anchor_points_per_tile;
   std::string anchor_weight_image;   
-  double quat_norm_weight, anchor_weight, roll_weight, yaw_weight;
   std::string anchor_dem, rig_config;
   int num_anchor_points_extra_lines;
   bool initial_camera_constraint;
+  double quat_norm_weight, anchor_weight, roll_weight, yaw_weight;
   std::map<int, int> orbital_groups;
   double forced_triangulation_distance;
 };
@@ -414,217 +414,6 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   return;
 }
 
-// Calc the time of first image line, last image line, elapsed time
-// between these lines, and elapsed time per line.  This assumes a
-// linear relationship between lines and time.
-// TODO(oalexan1): This is fragile. Maybe it can be avoided.
-void calcTimes(UsgsAstroLsSensorModel const* ls_model,
-               double & earlier_line_time, double & later_line_time,
-               double & elapsed_time, double & dt_per_line) {
-
-  int numLines = ls_model->m_nLines;
-  csm::ImageCoord imagePt;
-
-  asp::toCsmPixel(vw::Vector2(0, 0), imagePt);
-  earlier_line_time = ls_model->getImageTime(imagePt);
-
-  asp::toCsmPixel(vw::Vector2(0, numLines - 1), imagePt);
-  later_line_time = ls_model->getImageTime(imagePt);
-
-  // See note in resampleModel().
-  if (earlier_line_time > later_line_time)
-    std::swap(earlier_line_time, later_line_time);
-  
-  elapsed_time = later_line_time - earlier_line_time;
-  dt_per_line = elapsed_time / (numLines - 1.0);
-
-  if (later_line_time <= earlier_line_time)
-    vw::vw_throw(vw::ArgumentErr()
-                 << "The time of the last line (in scanning order) must be larger than "
-                 << "first line time.\n");
-  
-  return;
-}
-
-// Calculate the line index for first and last tabulated position.
-// We always expect these to be less than first line index (0), and no less
-// than last valid image line index (numLines - 1), respectively.
-// TODO(oalexan1): This assumes a linear relationship between time and lines,
-// which is fragile. At least need to check that this assumption is satisfied.
-void calcFirstLastPositionLines(UsgsAstroLsSensorModel const* ls_model, 
-                                double & beg_position_line, double & end_position_line) {
-
-  double earlier_line_time = -1.0, later_line_time = -1.0, 
-         elapsed_time = -1.0, dt_per_line = -1.0;
-  calcTimes(ls_model, earlier_line_time, later_line_time, elapsed_time,  
-               dt_per_line);
-  
-  // Find time of first and last tabulated position.
-  double bt = ls_model->m_t0Ephem;
-  double et = bt + (ls_model->m_positions.size()/NUM_XYZ_PARAMS - 1) * ls_model->m_dtEphem;
-
-  // Use the equation: time = earlier_line_time + line * dt_per_line.
-  // See note in resampleModel() about scan direction.
-  beg_position_line = (bt - earlier_line_time) / dt_per_line;
-  end_position_line = (et - earlier_line_time) / dt_per_line;
-
-  // Sanity checks
-  if (beg_position_line > 1e-3) // allow for rounding errors 
-    vw::vw_throw(vw::ArgumentErr() << "Line of first tabulated position is "
-                 << beg_position_line << ", which is after first image line, which is "
-                 << 0 << ".\n");
-  int numLines = ls_model->m_nLines;
-  if (end_position_line < numLines - 1 - 1e-3)  // allow for rounding errors
-    vw::vw_throw(vw::ArgumentErr() << "Line of last tabulated position is "
-                 << end_position_line << ", which is before last image line, which is "
-                 << numLines - 1 << ".\n");
-}
-  
-// Calculate the line index for first and last tabulated orientation.
-// We always expect these to be less than first line index (0), and no less
-// than last valid image line index (numLines - 1), respectively.
-void calcFirstLastOrientationLines(UsgsAstroLsSensorModel const* ls_model, 
-                                   double & beg_orientation_line, double & end_orientation_line) {
-
-  double earlier_line_time = -1.0, later_line_time = -1.0, 
-         elapsed_time = -1.0, dt_per_line = -1.0;
-  calcTimes(ls_model, earlier_line_time, later_line_time, elapsed_time,  
-               dt_per_line);
-  
-  // Find time of first and last tabulated orientation.
-  double bt = ls_model->m_t0Quat;
-  double et = bt + (ls_model->m_quaternions.size()/NUM_QUAT_PARAMS - 1) * ls_model->m_dtQuat;
-  
-  // Use the equation: time = earlier_line_time + line * dt_per_line.
-  beg_orientation_line = (bt - earlier_line_time) / dt_per_line;
-  end_orientation_line = (et - earlier_line_time) / dt_per_line;
-
-  // Sanity checks
-  if (beg_orientation_line > 1e-3) // allow for rounding errors 
-    vw::vw_throw(vw::ArgumentErr() << "Line of first tabulated orientation is "
-                 << beg_orientation_line << ", which is after first image line, which is "
-                   << 0 << ".\n");
-  int numLines = ls_model->m_nLines;
-  if (end_orientation_line < numLines - 1 - 1e-3)  // allow for rounding errors
-    vw::vw_throw(vw::ArgumentErr() << "Line of last tabulated orientation is "
-                 << end_orientation_line << ", which is before last image line, which is "
-                   << numLines - 1 << ".\n");
-}
-
-// TODO(oalexan1): Move the function below out of here, to CsmUtils.cc.
-// The provided tabulated positions, velocities and quaternions may be too few,
-// so resample them with --num-lines-per-position and --num-lines-per-orientation,
-// if those are set. Throughout this function the lines are indexed in the order
-// they are acquired, which can be the reverse of the order they are eventually
-// stored in the file if the scan direction is reverse.
-// This function assumes the quaternions have been normalized.
-void resampleModel(Options const& opt, UsgsAstroLsSensorModel * ls_model) {
-  
-  // The positions and quaternions can go way beyond the valid range of image lines,
-  // so need to estimate how many of them are within the range.
-  int numLines = ls_model->m_nLines;
-  vw_out() << "Number of lines: " << numLines << ".\n";
-
-  double earlier_line_time = -1.0, later_line_time = -1.0, 
-         elapsed_time = -1.0, dt_per_line = -1.0;
-  calcTimes(ls_model, earlier_line_time, later_line_time, elapsed_time,  
-            dt_per_line);
-
-  // Line index of first and last tabulated position
-  double beg_position_line = -1.0, end_position_line = -1.0;
-  calcFirstLastPositionLines(ls_model, beg_position_line, end_position_line);
-  vw_out() << std::setprecision (17) << "Line of first and last tabulated position: "
-           << beg_position_line << ' ' << end_position_line << "\n";
-
-  // Line index of first and last tabulated orientation
-  double beg_orientation_line = -1.0, end_orientation_line = -1.0;
-  calcFirstLastOrientationLines(ls_model, beg_orientation_line, end_orientation_line);
-  vw_out() << std::setprecision (17) << "Line of first and last tabulated orientation: "
-           << beg_orientation_line << ' ' << end_orientation_line << "\n";
-
-  double numInputLinesPerPosition = (numLines - 1) * ls_model->m_dtEphem / elapsed_time;
-  double numInputLinesPerOrientation = (numLines - 1) * ls_model->m_dtQuat / elapsed_time;
-  vw_out() << "Number of image lines per input position: "
-           << round(numInputLinesPerPosition) << "\n";
-  vw_out() << "Number of image lines per input orientation: "
-           << round(numInputLinesPerOrientation) << "\n";
-
-  if (opt.num_lines_per_position > 0) {
-    // Resample in such a way that first and last samples are preserved. This is tricky.
-    double posFactor = double(numInputLinesPerPosition) / double(opt.num_lines_per_position);
-    if (posFactor <= 0.0)
-      vw::vw_throw(vw::ArgumentErr() << "Invalid image.\n");
-
-    int numOldMeas = ls_model->m_numPositions / NUM_XYZ_PARAMS;
-    int numNewMeas = round(posFactor * (numOldMeas - 1.0)) + 1; // careful here
-    numNewMeas = std::max(numNewMeas, 2);
-
-    posFactor = double(numNewMeas - 1.0) / double(numOldMeas - 1.0);
-    double currDtEphem = ls_model->m_dtEphem / posFactor;
-    double numLinesPerPosition = (numLines - 1.0) * currDtEphem / elapsed_time;
-    vw_out() << "Resampled number of lines per position: "
-             << numLinesPerPosition << "\n";
-    std::vector<double> positions(NUM_XYZ_PARAMS * numNewMeas, 0);
-    std::vector<double> velocities(NUM_XYZ_PARAMS * numNewMeas, 0);
-    for (int ipos = 0; ipos < numNewMeas; ipos++) {
-      double time = ls_model->m_t0Ephem + ipos * currDtEphem;
-      asp::interpPositions(ls_model, time, &positions[NUM_XYZ_PARAMS * ipos]);
-      asp::interpVelocities(ls_model, time, &velocities[NUM_XYZ_PARAMS * ipos]);
-    }
-    
-    // Overwrite in the model. Time of first tabulated position does not change.
-    ls_model->m_dtEphem = currDtEphem;
-    ls_model->m_numPositions = positions.size();
-    ls_model->m_positions = positions;
-    ls_model->m_velocities = velocities;
-
-    // Sanity check
-    double new_beg_position_line = -1.0, new_end_position_line = -1.0;
-    calcFirstLastPositionLines(ls_model, new_beg_position_line, new_end_position_line);
-    if (std::abs(beg_position_line - new_beg_position_line) > 1.0e-3 ||
-        std::abs(end_position_line - new_end_position_line) > 1.0e-3)
-      vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Resampling was done "
-                   << "without preserving first and last tabulated position time.\n");
-  }
-
-  if (opt.num_lines_per_orientation > 0) {
-    // Resample in such a way that first and last samples are preserved. This is tricky.
-    double posFactor = double(numInputLinesPerOrientation) / double(opt.num_lines_per_orientation);
-    if (posFactor <= 0.0)
-      vw::vw_throw(vw::ArgumentErr() << "Invalid image.\n");
-
-    int numOldMeas = ls_model->m_numQuaternions / NUM_QUAT_PARAMS;
-    int numNewMeas = round(posFactor * (numOldMeas - 1.0)) + 1; // careful here
-    numNewMeas = std::max(numNewMeas, 2);
-
-    posFactor = double(numNewMeas - 1.0) / double(numOldMeas - 1.0);
-    double currDtQuat = ls_model->m_dtQuat / posFactor;
-    double numLinesPerOrientation = (numLines - 1.0) * currDtQuat / elapsed_time;
-    vw_out() << "Resampled number of lines per orientation: "
-             << numLinesPerOrientation << "\n";
-    std::vector<double> quaternions(NUM_QUAT_PARAMS * numNewMeas, 0);
-    for (int ipos = 0; ipos < numNewMeas; ipos++) {
-      double time = ls_model->m_t0Quat + ipos * currDtQuat;
-      asp::interpQuaternions(ls_model, time, &quaternions[NUM_QUAT_PARAMS * ipos]);
-    }
-    
-    // Overwrite in the model. Time of first tabulated orientation does not change.
-    ls_model->m_dtQuat = currDtQuat;
-    ls_model->m_numQuaternions = quaternions.size();
-    ls_model->m_quaternions = quaternions;
-
-    // Sanity check
-    double new_beg_orientation_line = -1.0, new_end_orientation_line = -1.0;
-    calcFirstLastOrientationLines(ls_model, new_beg_orientation_line, new_end_orientation_line);
-    if (std::abs(beg_orientation_line - new_beg_orientation_line) > 1.0e-3 ||
-        std::abs(end_orientation_line - new_end_orientation_line) > 1.0e-3)
-      vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Resampling was done "
-                   << "without preserving first and last tabulated orientation time.\n");
-  }
-
-  return;
-}
-
 // Calculate a set of anchor points uniformly distributed over the image
 // Will use opt.num_anchor_points_extra_lines. We append to weight_vec and
 // other quantities that were used for reprojection errors for match points.
@@ -785,7 +574,7 @@ void calcAnchorPoints(Options                         const & opt,
 // Add reprojection errors. Collect data that will be used to add camera
 // constraints that scale with the number of reprojection errors and GSD.
 // TODO(oalexan1): Move this to JitterSolveCostFuns.cc.
-void addReprojCamErrs(Options                           const & opt,
+void addReprojCamErrs(asp::BaBaseOptions                const & opt,
                       asp::CRNJ                         const & crn,
                       std::vector<std::vector<Vector2>> const & pixel_vec,
                       std::vector<std::vector<double>>  const & weight_vec,
@@ -933,7 +722,7 @@ void addReprojCamErrs(Options                           const & opt,
 }
 
 // Add the constraint based on DEM
-void addDemConstraint(Options                  const& opt,
+void addDemConstraint(asp::BaBaseOptions       const& opt,
                       std::vector<vw::Vector3> const& dem_xyz_vec,
                       std::set<int>            const& outliers,
                       vw::ba::ControlNetwork   const& cnet,
@@ -989,7 +778,7 @@ void addDemConstraint(Options                  const& opt,
 
 // Add the constraint to keep triangulated points close to initial values
 // This does not need a DEM or alignment
-void addTriConstraint(Options                const& opt,
+void addTriConstraint(asp::BaBaseOptions     const& opt,
                       std::set<int>          const& outliers,
                       vw::ba::ControlNetwork const& cnet,
                       asp::CRNJ              const& crn,
@@ -1036,7 +825,7 @@ void addTriConstraint(Options                const& opt,
 
 // Add camera constraints that are proportional to the number of reprojection errors.
 // This requires going through some of the same motions as in addReprojCamErrs().
-void addCamPositionConstraint(Options                          const& opt,
+void addCamPositionConstraint(asp::BaBaseOptions               const& opt,
                               std::set<int>                    const& outliers,
                               asp::CRNJ                        const& crn,
                               std::vector<asp::CsmModel*>      const& csm_models,
@@ -1120,13 +909,14 @@ void addCamPositionConstraint(Options                          const& opt,
 }
 
 void addQuatNormRotationConstraints(
-    Options                       const& opt,
+    asp::BaBaseOptions            const& opt,
     std::set<int>                 const& outliers,
     asp::CRNJ                     const& crn,
     std::vector<asp::CsmModel*>   const& csm_models,
     bool                                 have_rig,
     rig::RigSet                   const& rig,
     std::vector<RigCamInfo>       const& rig_cam_info,
+    double                               quat_norm_weight, 
     // Outputs
     std::vector<double>                & frame_params,
     std::vector<double>                & weight_per_residual, // append
@@ -1187,7 +977,7 @@ void addQuatNormRotationConstraints(
 
   // Try to make the norm of quaternions be close to 1
   // TODO(oalexan1): Make this a standalone function
-  if (opt.quat_norm_weight > 0.0) {
+  if (quat_norm_weight > 0.0) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
 
       UsgsAstroLsSensorModel * ls_model
@@ -1200,13 +990,13 @@ void addQuatNormRotationConstraints(
         int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
         for (int iq = 0; iq < numQuat; iq++) {
           ceres::CostFunction* quat_norm_cost_function
-            = weightedQuatNormError::Create(opt.quat_norm_weight);
+            = weightedQuatNormError::Create(quat_norm_weight);
           // We use no loss function, as the quaternions have no outliers
           ceres::LossFunction* quat_norm_loss_function = NULL;
           problem.AddResidualBlock(quat_norm_cost_function, quat_norm_loss_function,
                                   &ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
           
-          weight_per_residual.push_back(opt.quat_norm_weight); // 1 single residual
+          weight_per_residual.push_back(quat_norm_weight); // 1 single residual
         }
 
       } else if (frame_model != NULL) {
@@ -1215,13 +1005,13 @@ void addQuatNormRotationConstraints(
         double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
 
         ceres::CostFunction* quat_norm_cost_function
-          = weightedQuatNormError::Create(opt.quat_norm_weight);
+          = weightedQuatNormError::Create(quat_norm_weight);
         // We use no loss function, as the quaternions have no outliers
         ceres::LossFunction* quat_norm_loss_function = NULL;
         problem.AddResidualBlock(quat_norm_cost_function, quat_norm_loss_function,
                                 &curr_params[NUM_XYZ_PARAMS]); // quat starts here
         
-        weight_per_residual.push_back(opt.quat_norm_weight); // 1 single residual
+        weight_per_residual.push_back(quat_norm_weight); // 1 single residual
 
       } else {
          vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
@@ -1233,17 +1023,19 @@ void addQuatNormRotationConstraints(
 // Add roll / yaw constraints. For linescan, use the whole set of samples for given
 // camera model. For frame cameras, use the trajectory of all cameras in the same orbital
 // group as the current camera.
-void addRollYawConstraint
-   (Options                         const& opt,
-    asp::CRNJ                       const& crn,
-    std::vector<asp::CsmModel*>     const& csm_models,
-    vw::cartography::GeoReference   const& georef,
-    // Outputs (append to residual)
-    std::vector<double>                  & frame_params,
-    std::vector<double>                  & weight_per_residual,
-    ceres::Problem                       & problem) {
+void addRollYawConstraint(asp::BaBaseOptions              const& opt,
+                          asp::CRNJ                       const& crn,
+                          std::vector<asp::CsmModel*>     const& csm_models,
+                          vw::cartography::GeoReference   const& georef,
+                          std::map<int, int>              const& orbital_groups,
+                          bool initial_camera_constraint,
+                          double roll_weight, double yaw_weight,
+                          // Outputs (append to residual)
+                          std::vector<double>                  & frame_params,
+                          std::vector<double>                  & weight_per_residual,
+                          ceres::Problem                       & problem) {
   
-  if (opt.roll_weight <= 0.0 && opt.yaw_weight <= 0.0)
+  if (roll_weight <= 0.0 && yaw_weight <= 0.0)
      vw::vw_throw(vw::ArgumentErr() 
          << "addRollYawConstraint: The roll or yaw weight must be positive.\n");
 
@@ -1251,14 +1043,14 @@ void addRollYawConstraint
 
   // Frame cameras can be grouped by orbital portion. Ensure that all cameras
   // belong to a group.
-  if (num_cams != int(opt.orbital_groups.size()))
+  if (num_cams != int(orbital_groups.size()))
     vw::vw_throw(vw::ArgumentErr() 
          << "addRollYawConstraint: Failed to add each input camera to an orbital group.\n");
 
   // Create the orbital trajectory for each group of frame cameras
   std::map<int, std::vector<double>> orbital_group_positions;
   std::map<int, std::vector<double>> orbital_group_quaternions;
-  formPositionQuatVecPerGroup(opt.orbital_groups, csm_models, 
+  formPositionQuatVecPerGroup(orbital_groups, csm_models, 
     orbital_group_positions, orbital_group_quaternions); // outputs
 
   for (int icam = 0; icam < num_cams; icam++) {
@@ -1282,29 +1074,29 @@ void addRollYawConstraint
           = weightedRollYawError::Create(interp_positions,
                                          ls_model->m_quaternions,
                                          georef, iq,
-                                         opt.roll_weight, opt.yaw_weight, 
-                                         opt.initial_camera_constraint);
+                                         roll_weight, yaw_weight, 
+                                         initial_camera_constraint);
 
         // We use no loss function, as the quaternions have no outliers
         ceres::LossFunction* roll_yaw_loss_function = NULL;
         problem.AddResidualBlock(roll_yaw_cost_function, roll_yaw_loss_function,
                                 &ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
         // The recorded weight should not be 0 as we will divide by it
-        weight_per_residual.push_back(opt.roll_weight || 1.0);
-        weight_per_residual.push_back(opt.yaw_weight  || 1.0);
+        weight_per_residual.push_back(roll_weight || 1.0);
+        weight_per_residual.push_back(yaw_weight  || 1.0);
       } // end loop through quaternions for given camera
     
     } else if (frame_model != NULL) {
       // Frame cameras. Use the positions and quaternions of the cameras
       // in the same orbital group to enforce the roll/yaw constraint for
       // each camera in the group.
-      auto it = opt.orbital_groups.find(icam);
-      if (it == opt.orbital_groups.end())
+      auto it = orbital_groups.find(icam);
+      if (it == orbital_groups.end())
         vw::vw_throw(vw::ArgumentErr() 
            << "addRollYawConstraint: Failed to find orbital group for camera.\n"); 
       int group_id = it->second;
 
-      int index_in_group = indexInGroup(icam, opt.orbital_groups);
+      int index_in_group = indexInGroup(icam, orbital_groups);
       std::vector<double> positions = orbital_group_positions[group_id];
       std::vector<double> quaternions = orbital_group_quaternions[group_id];
       if (positions.size() / NUM_XYZ_PARAMS < 2) {
@@ -1318,8 +1110,8 @@ void addRollYawConstraint
       ceres::CostFunction* roll_yaw_cost_function
         = weightedRollYawError::Create(positions, quaternions, 
                                    georef, index_in_group,
-                                   opt.roll_weight, opt.yaw_weight, 
-                                   opt.initial_camera_constraint);
+                                   roll_weight, yaw_weight, 
+                                   initial_camera_constraint);
 
       // We use no loss function, as the quaternions have no outliers
       ceres::LossFunction* roll_yaw_loss_function = NULL;
@@ -1331,8 +1123,8 @@ void addRollYawConstraint
                                 &curr_params[NUM_XYZ_PARAMS]); // quat starts here
 
       // The recorded weight should not be 0 as we will divide by it
-      weight_per_residual.push_back(opt.roll_weight || 1.0);
-      weight_per_residual.push_back(opt.yaw_weight  || 1.0);
+      weight_per_residual.push_back(roll_weight || 1.0);
+      weight_per_residual.push_back(yaw_weight  || 1.0);
     } else {
       vw::vw_throw(vw::ArgumentErr() 
          << "addRollYawConstraint: Expecting CSM linescan or frame cameras.\n");
@@ -1346,9 +1138,9 @@ void addRollYawConstraint
 // Apply the input adjustments to the CSM cameras. Resample linescan models.
 // Get pointers to the underlying CSM cameras, as need to manipulate
 // those directly. This modifies camera_models in place.
-void initResampleCsmCams(Options const& opt,
-  std::vector<vw::CamPtr>        const& camera_models,
-  std::vector<asp::CsmModel*>         & csm_models) {
+void initResampleCsmCams(Options                     const& opt,
+                         std::vector<vw::CamPtr>     const& camera_models,
+                         std::vector<asp::CsmModel*>      & csm_models) {
 
   // Wipe the output
   csm_models.clear();
@@ -1386,7 +1178,7 @@ void initResampleCsmCams(Options const& opt,
       // The provided tabulated positions, velocities and quaternions may be too few,
       // so resample them with --num-lines-per-position and --num-lines-per-orientation,
       // if those are set.
-      resampleModel(opt, ls_model);
+      resampleModel(opt.num_lines_per_position, opt.num_lines_per_orientation, ls_model);
     } else if (frame_model != NULL) {
       normalizeQuaternions(frame_model);
     } else {
@@ -1523,12 +1315,12 @@ void formTriVec(std::vector<Vector3> const& dem_xyz_vec,
 }
 
 // TODO(oalexan1): Move this to a separate file
-void saveOptimizedCameraModels(std::string const& out_prefix,
-                               std::string const& stereo_session, 
-                               std::vector<std::string> const& image_files,
-                               std::vector<std::string> const& camera_files,
-                               std::vector<vw::CamPtr>  const& camera_models,
-                               bool update_isis_cubes_with_csm_state) {
+void saveCsmCameras(std::string const& out_prefix,
+                    std::string const& stereo_session, 
+                    std::vector<std::string> const& image_files,
+                    std::vector<std::string> const& camera_files,
+                    std::vector<vw::CamPtr>  const& camera_models,
+                    bool update_isis_cubes_with_csm_state) {
 
   for (size_t icam = 0; icam < camera_models.size(); icam++) {
     std::string adjustFile = asp::bundle_adjust_file_name(out_prefix,
@@ -1814,14 +1606,19 @@ void run_jitter_solve(int argc, char* argv[]) {
   // not change too much
   addQuatNormRotationConstraints(opt, outliers, crn, csm_models,  
                                  have_rig, rig, rig_cam_info,
+                                 opt.quat_norm_weight, 
                                  // Outputs
                                  frame_params,
                                  weight_per_residual,  // append
                                  problem);
 
   if (opt.roll_weight > 0 || opt.yaw_weight > 0)
-    addRollYawConstraint(opt, crn, csm_models, roll_yaw_georef,
-                        frame_params, weight_per_residual, problem); // outputs
+    addRollYawConstraint(opt, crn, csm_models, roll_yaw_georef, 
+                         opt.orbital_groups, 
+                         opt.initial_camera_constraint,
+                         opt.roll_weight, opt.yaw_weight,
+                         // Outputs
+                         frame_params, weight_per_residual, problem); // outputs
 
   // Save residuals before optimization
   std::string residual_prefix = opt.out_prefix + "-initial_residuals";
@@ -1873,9 +1670,10 @@ void run_jitter_solve(int argc, char* argv[]) {
                  tri_points_vec, outliers, weight_per_residual,
                  pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index);
 
-  saveOptimizedCameraModels(opt.out_prefix, opt.stereo_session,
-                            opt.image_files, opt.camera_files,
-                            opt.camera_models, opt.update_isis_cubes_with_csm_state);
+  // Save the optimized camera models
+  saveCsmCameras(opt.out_prefix, opt.stereo_session,
+                 opt.image_files, opt.camera_files,
+                 opt.camera_models, opt.update_isis_cubes_with_csm_state);
   
   if (have_rig) {
     // Save the rig
