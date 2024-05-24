@@ -18,17 +18,19 @@
 // Cost functions used in solving for jitter. These need access to the camera models,
 // so they are stored in the Camera folder.
 
-#include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/SatSimBase.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Rig/transform_utils.h>
+#include <asp/Rig/rig_config.h>
 #include <asp/Core/EigenTransformUtils.h>
+#include <asp/Camera/JitterSolveCostFuns.h>
 
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Exception.h>
+#include <vw/Camera/CameraImage.h>
 
 namespace asp {
 
@@ -364,6 +366,51 @@ bool RigLsFramePixelReprojErr::operator()(double const * const * parameters,
   return true;
 }
 
+// A Ceres cost function. The residual is the roll and/or yaw component of the camera
+// rotation, as measured relative to the initial along-track direction. We assume
+// that all positions are along the same segment in projected coordinates, or at
+// least that the current position and its nearest neighbors are roughly on
+// such a segment. That one is used to measure the roll/yaw from. This is consistent
+// with how sat_sim creates the cameras.
+struct weightedRollYawError {
+  // See the .cc file for the implementation.  
+  weightedRollYawError(std::vector<double>       const& positions, 
+                   std::vector<double>           const& quaternions,
+                   vw::cartography::GeoReference const& georef,
+                   int cur_pos, double rollWeight, double yawWeight,
+                   bool initial_camera_constraint);
+
+  // Compute the weighted roll/yaw error between the current position and along-track
+  // direction. Recall that quaternion = cam2world = sat2World * rollPitchYaw * rotXY.
+  // rollPitchYaw is variable and can have jitter. Extract from it roll, pitch,
+  // yaw. See the .cc file for the implementation.
+  bool operator()(double const * const * parameters, double * residuals) const;
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(std::vector<double>           const& positions, 
+                                     std::vector<double>           const& quaternions, 
+                                     vw::cartography::GeoReference const& georef,
+                                     int cur_pos, 
+                                     double rollWeight, double yawWeight,
+                                     bool initial_camera_constraint) {
+
+    ceres::DynamicNumericDiffCostFunction<weightedRollYawError>* cost_function =
+          new ceres::DynamicNumericDiffCostFunction<weightedRollYawError>
+          (new weightedRollYawError(positions, quaternions, georef, cur_pos, 
+                                    rollWeight, yawWeight, initial_camera_constraint));
+
+    cost_function->SetNumResiduals(2); // for roll and yaw
+    cost_function->AddParameterBlock(NUM_QUAT_PARAMS);
+
+    return cost_function;
+  }
+
+  double m_rollWeight, m_yawWeight;
+  vw::Matrix3x3 m_rotXY, m_sat2World, m_initCam2World;
+  bool m_initial_camera_constraint;
+};
+
 // Constructor for weightedRollYawError. See the .h file for the documentation.
 weightedRollYawError::weightedRollYawError
                   (std::vector<double>           const& positions, 
@@ -650,6 +697,685 @@ void addRigLsFrameReprojectionErr(asp::BaBaseOptions  const & opt,
   vars.push_back(tri_point);
   vars.push_back(ref_to_curr_trans); // transform from ref to curr sensor on the rig
   problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
+}
+
+/// A ceres cost function. The residual is the difference between the observed
+/// 3D point and the current (floating) 3D point, multiplied by given weight.
+struct weightedXyzError {
+  weightedXyzError(vw::Vector3 const& observation, double weight):
+    m_observation(observation), m_weight(weight){}
+
+  template <typename T>
+  bool operator()(const T* point, T* residuals) const {
+    for (size_t p = 0; p < m_observation.size(); p++)
+      residuals[p] = m_weight * (point[p] - m_observation[p]);
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(vw::Vector3 const& observation, double const& weight) {
+    return (new ceres::AutoDiffCostFunction<weightedXyzError, 3, 3>
+            (new weightedXyzError(observation, weight)));
+  }
+
+  vw::Vector3 m_observation;
+  double  m_weight;
+};
+
+/// A Ceres cost function. The residual is the difference between the
+/// initial quaternion and optimized quaternion, multiplied by given weight.
+struct weightedRotationError {
+  weightedRotationError(const double * init_quat, double weight):
+    m_weight(weight) {
+
+    // Make a copy, as later the value at the pointer will change
+    m_init_quat.resize(NUM_QUAT_PARAMS);
+    for (int it = 0; it < NUM_QUAT_PARAMS; it++)
+      m_init_quat[it] = init_quat[it];
+  }
+
+  template <typename T>
+  bool operator()(const T* quat, T* residuals) const {
+    for (size_t p = 0; p < m_init_quat.size(); p++)
+      residuals[p] = m_weight * (quat[p] - m_init_quat[p]);
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(const double * init_quat, double weight){
+    return (new ceres::AutoDiffCostFunction<weightedRotationError,
+            NUM_QUAT_PARAMS, NUM_QUAT_PARAMS>
+            (new weightedRotationError(init_quat, weight)));
+  }
+
+  std::vector<double> m_init_quat;
+  double  m_weight;
+};
+
+/// A Ceres cost function. The residual is the difference between the
+/// initial position and optimized position, multiplied by given weight.
+struct weightedTranslationError {
+  weightedTranslationError(const double * init_position, double weight):
+    m_weight(weight) {
+
+    // Make a copy, as later the value at the pointer will change
+    m_init_position.resize(NUM_XYZ_PARAMS);
+    for (int it = 0; it < NUM_XYZ_PARAMS; it++)
+      m_init_position[it] = init_position[it];
+  }
+
+  template <typename T>
+  bool operator()(const T* position, T* residuals) const {
+    for (size_t p = 0; p < m_init_position.size(); p++)
+      residuals[p] = m_weight * (position[p] - m_init_position[p]);
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(const double * init_position, double weight){
+    return (new ceres::AutoDiffCostFunction
+            <weightedTranslationError, NUM_XYZ_PARAMS, NUM_XYZ_PARAMS>
+            (new weightedTranslationError(init_position, weight)));
+  }
+
+  std::vector<double> m_init_position;
+  double  m_weight;
+};
+
+/// A Ceres cost function. The residual is the weighted difference between 1 and
+/// norm of quaternion.
+struct weightedQuatNormError {
+  weightedQuatNormError(double weight):
+    m_weight(weight) {}
+
+  template <typename T>
+  bool operator()(const T* quat, T* residuals) const {
+    residuals[0] = T(0.0);
+    for (size_t p = 0; p < NUM_QUAT_PARAMS; p++)
+      residuals[0] += quat[p] * quat[p];
+
+    residuals[0] = m_weight * (residuals[0] - 1.0);
+    
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(double weight) {
+    return (new ceres::AutoDiffCostFunction<weightedQuatNormError, 1, NUM_QUAT_PARAMS>
+            (new weightedQuatNormError(weight)));
+  }
+
+  double  m_weight;
+};
+
+// Add reprojection errors. Collect data that will be used to add camera
+// constraints that scale with the number of reprojection errors and GSD.
+void addReprojCamErrs(asp::BaBaseOptions                const & opt,
+                      asp::CRNJ                         const & crn,
+                      std::vector<std::vector<vw::Vector2>> const & pixel_vec,
+                      std::vector<std::vector<double>>  const & weight_vec,
+                      std::vector<std::vector<int>>     const & isAnchor_vec,
+                      std::vector<std::vector<int>>     const & pix2xyz_index,
+                      std::vector<asp::CsmModel*>       const & csm_models,
+                      bool                                      have_rig,
+                      rig::RigSet                        const& rig,
+                      std::vector<RigCamInfo>            const& rig_cam_info,
+                      // Outputs
+                      std::vector<double>                     & tri_points_vec,
+                      std::vector<double>                     & frame_params,
+                      std::vector<double>                     & weight_per_residual,
+                      std::vector<std::vector<double>>        & weight_per_cam,
+                      std::vector<std::vector<double>>        & count_per_cam,
+                      std::vector<double>                     & ref_to_curr_sensor_vec,
+                      ceres::Problem                          & problem) {
+
+  // Do here two passes, first for non-anchor points and then for anchor ones.
+  // This way it is easier to do the bookkeeping when saving the residuals.
+  // Note: The same motions as here are repeated in saveJitterResiduals().
+  weight_per_cam.resize(2);
+  count_per_cam.resize(2);
+  for (int pass = 0; pass < 2; pass++) {
+    
+     weight_per_cam[pass].resize((int)crn.size(), 0.0);
+     count_per_cam[pass].resize((int)crn.size(), 0.0);
+
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+
+      vw::DiskImageView<float> img(opt.image_files[icam]);
+      vw::BBox2 image_box = bounding_box(img);
+      std::vector<double> this_cam_weights;
+
+      for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
+
+        vw::Vector2 pix_obs    = pixel_vec[icam][ipix];
+        double * tri_point = &tri_points_vec[3 * pix2xyz_index[icam][ipix]];
+        double pix_wt      = weight_vec[icam][ipix];
+        bool isAnchor      = isAnchor_vec[icam][ipix];
+
+        // Pass 0 is without anchor points, while pass 1 uses them
+        if ((int)isAnchor != pass) 
+          continue;
+        
+        if (!have_rig) {
+          // TODO(oalexan1): This must be a function
+          // No rig
+          // We can have linescan or frame cameras 
+          UsgsAstroLsSensorModel * ls_model
+            = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+          UsgsAstroFrameSensorModel * frame_model
+            = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+    
+          // Note how for the frame model we pass the frame_params for the current camera.
+          if (ls_model != NULL)
+            addLsReprojectionErr(opt, ls_model, pix_obs, tri_point, pix_wt, problem);
+          else if (frame_model != NULL)
+            addFrameReprojectionErr(opt, frame_model, pix_obs, 
+                &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)],
+                tri_point, pix_wt, problem);                   
+          else
+            vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+        } else {
+          // Have rig
+          // TODO(oalexan1): This must be a function
+          auto rig_info = rig_cam_info[icam];  
+          int ref_cam = rig_info.ref_cam_index;
+          int sensor_id = rig_info.sensor_id;
+          double* ref_to_curr_sensor_trans 
+              = &ref_to_curr_sensor_vec[rig::NUM_RIGID_PARAMS * sensor_id];
+          
+          // We can have linescan or frame cameras 
+          UsgsAstroLsSensorModel * ls_model
+            = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+          UsgsAstroFrameSensorModel * frame_model
+            = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+          UsgsAstroLsSensorModel * ref_ls_model 
+            = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[ref_cam]->m_gm_model).get());
+    
+          // For now, the ref camera must be linescan 
+          // TODO(oalexan1): Remove this temporary restriction
+          if (ref_ls_model == NULL)
+            vw::vw_throw(vw::ArgumentErr() << "Reference camera must be linescan.\n");
+          
+          if (rig.isRefSensor(sensor_id)) {
+            // This does not need the rig 
+            // Note how for the frame model we pass the frame_params for the current camera.
+            if (ls_model != NULL)
+              addLsReprojectionErr(opt, ls_model, pix_obs, tri_point, pix_wt, problem);
+            else if (frame_model != NULL)
+              addFrameReprojectionErr(opt, frame_model, pix_obs, 
+                  &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)],
+                  tri_point, pix_wt, problem);                   
+            else
+              vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+          } else {
+            // For now, the current camera must be frame
+            // TODO(oalexan1): Remove this temporary restriction
+            if (frame_model == NULL)
+              vw::vw_throw(vw::ArgumentErr() << "Current camera must be frame.\n");
+            addRigLsFrameReprojectionErr(opt, rig_info, pix_obs, pix_wt, ref_ls_model, 
+                          frame_model, 
+                          ref_to_curr_sensor_trans,
+                          tri_point, problem);
+          } // end case of a non-ref sensor
+        } // end condition for having a rig
+      
+        // Two residuals were added. Save the corresponding weights.
+        for (int c = 0; c < PIXEL_SIZE; c++)
+          weight_per_residual.push_back(pix_wt);
+
+        // Anchor points are fixed by definition. They try to prevent
+        // the cameras from moving too much from original poses.
+        if (isAnchor) 
+          problem.SetParameterBlockConstant(tri_point);
+        
+        // Find the weight to use with the camera constraint
+        vw::Vector3 xyz_obs(tri_point[0], tri_point[1], tri_point[2]);
+        double gsd = 0.0;
+        try {
+          gsd = vw::camera::estimatedGSD(opt.camera_models[icam].get(), image_box, 
+                                         pix_obs, xyz_obs);
+        } catch (...) {
+          continue;
+        }
+        if (gsd <= 0) 
+          continue; 
+
+        // The camera position weight depends on the input multiplier, pixel weight, and gsd
+        double position_wt = opt.camera_position_weight * pix_wt / gsd;
+        this_cam_weights.push_back(position_wt);
+      } // end iteration through pixels
+      
+      // Find the median weight and count. The median is more robust to outliers.
+      count_per_cam[pass][icam] = this_cam_weights.size();
+      if (count_per_cam[pass][icam] > 0)
+        weight_per_cam[pass][icam] = vw::math::destructive_median(this_cam_weights);
+      else
+        weight_per_cam[pass][icam] = 0.0;
+    } // end iteration through cameras
+  } // end iteration through passes
+
+  return;
+}
+
+// Add the constraint based on DEM
+void addDemConstraint(asp::BaBaseOptions       const& opt,
+                      std::vector<vw::Vector3> const& dem_xyz_vec,
+                      std::set<int>            const& outliers,
+                      vw::ba::ControlNetwork   const& cnet,
+                      // Outputs
+                      std::vector<double>           & tri_points_vec,
+                      std::vector<double>           & weight_per_residual, // append
+                      ceres::Problem                & problem) {
+  
+  double xyz_weight = -1.0, xyz_threshold = -1.0;
+    
+  if (!opt.heights_from_dem.empty()) {
+    xyz_weight = 1.0/opt.heights_from_dem_uncertainty;
+    xyz_threshold = opt.heights_from_dem_robust_threshold;
+  } else {
+    vw::vw_throw(vw::ArgumentErr() << "No input DEM was provided.\n");
+  }
+  
+  if (dem_xyz_vec.size() != cnet.size()) 
+    vw::vw_throw(vw::ArgumentErr() << "Must have as many xyz computed from DEM as xyz "
+             << "triangulated from match files.\n");
+  if (xyz_weight <= 0 || xyz_threshold <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "Detected invalid robust threshold or weights.\n");
+
+  int num_tri_points = cnet.size();
+  
+  // The tri_points_vec must have at least as many points as cnet. It can have anchor points
+  // as well.
+  if ((int)tri_points_vec.size() < num_tri_points * NUM_XYZ_PARAMS)
+    vw::vw_throw(vw::ArgumentErr() << "Too few triangulated points.\n");
+  
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+      
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+      vw::vw_throw(vw::ArgumentErr() << "Found GCP where not expecting any.\n");
+
+    // Note that we get tri points from dem_xyz_vec, based on the input DEM
+    vw::Vector3 observation = dem_xyz_vec.at(ipt);
+    if (outliers.find(ipt) != outliers.end() || observation == vw::Vector3(0, 0, 0)) 
+      continue; // outlier
+      
+    ceres::CostFunction* xyz_cost_function 
+      = weightedXyzError::Create(observation, xyz_weight);
+    ceres::LossFunction* xyz_loss_function = new ceres::CauchyLoss(xyz_threshold);
+    double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+
+    // Add cost function
+    problem.AddResidualBlock(xyz_cost_function, xyz_loss_function, tri_point);
+
+    for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+      weight_per_residual.push_back(xyz_weight);
+  }
+}
+
+// Add the constraint to keep triangulated points close to initial values
+// This does not need a DEM or alignment
+void addTriConstraint(asp::BaBaseOptions     const& opt,
+                      std::set<int>          const& outliers,
+                      vw::ba::ControlNetwork const& cnet,
+                      asp::CRNJ              const& crn,
+                      // Outputs
+                      std::vector<double>    & tri_points_vec,
+                      std::vector<double>    & weight_per_residual, // append
+                      ceres::Problem         & problem) {
+
+  // Estimate the GSD for each triangulated point
+  std::vector<double> gsds;
+  asp::estimateGsdPerTriPoint(opt.image_files, opt.camera_models, crn, 
+                              outliers, tri_points_vec, gsds);
+  
+  int num_tri_points = cnet.size();
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint ||
+        cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
+      continue; // Skip GCPs and height-from-dem points which have their own constraint
+
+    if (outliers.find(ipt) != outliers.end()) 
+      continue; // skip outliers
+      
+    double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+    
+    // The weight must be inversely proportional to the GSD, to ensure
+    // this is in pixel units
+    double gsd = gsds[ipt];
+    if (gsd <= 0) 
+      continue; // GSD calculation failed. Do not use a constraint.
+    double weight = opt.tri_weight / gsd;
+  
+    // Use as constraint the initially triangulated point
+    vw::Vector3 observation(tri_point[0], tri_point[1], tri_point[2]);
+
+    ceres::CostFunction* cost_function = weightedXyzError::Create(observation, weight);
+    ceres::LossFunction* loss_function = new ceres::CauchyLoss(opt.tri_robust_threshold);
+    problem.AddResidualBlock(cost_function, loss_function, tri_point);
+    
+    for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+      weight_per_residual.push_back(opt.tri_weight);
+      
+  } // End loop through xyz
+}
+
+// Add camera constraints that are proportional to the number of reprojection errors.
+// This requires going through some of the same motions as in addReprojCamErrs().
+void addCamPositionConstraint(asp::BaBaseOptions               const& opt,
+                              std::set<int>                    const& outliers,
+                              asp::CRNJ                        const& crn,
+                              std::vector<asp::CsmModel*>      const& csm_models,
+                              std::vector<std::vector<double>> const& weight_per_cam,
+                              std::vector<std::vector<double>> const& count_per_cam,
+                              bool                                    have_rig,
+                              rig::RigSet                      const& rig,
+                              std::vector<asp::RigCamInfo>     const& rig_cam_info,
+                              // Outputs
+                              std::vector<double>                & frame_params,
+                              std::vector<double>                & weight_per_residual, 
+                              ceres::Problem                     & problem) {
+
+  // First pass is for interest point matches, and second pass is for anchor points
+  for (int pass = 0; pass < 2; pass++) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+      
+      // With a rig, only the ref sensor has rotation constraints 
+      if (have_rig && !rig.isRefSensor(rig_cam_info[icam].sensor_id))
+        continue;
+      
+      double median_wt = weight_per_cam[pass][icam];
+      double count = count_per_cam[pass][icam];
+      if (count <= 0) 
+        continue; // no reprojection errors for this camera
+      
+      // We know the median weight to use, and how many residuals were added.
+      // Based on the CERES loss function formula, adding N loss functions each 
+      // with weight w and robust threshold t is equivalent to adding one loss 
+      // function with weight sqrt(N)*w and robust threshold sqrt(N)*t.
+      // For linescan cameras, then need to subdivide this for individual
+      // positions for that camera.
+      double combined_wt  = sqrt(count * 1.0) * median_wt;
+      double combined_th = sqrt(count * 1.0) * opt.camera_position_robust_threshold;
+      UsgsAstroLsSensorModel * ls_model
+        = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+      UsgsAstroFrameSensorModel * frame_model
+        = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+        
+      if (ls_model != NULL) {
+        // There are multiple position parameters per camera. They divide among
+        // them the job of minimizing the reprojection error. So need to divide
+        // the weight among them.
+
+        // Divide the weight among the positions
+        int numPos = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+        double wt = combined_wt / sqrt(numPos * 1.0);
+        double th = combined_th / sqrt(numPos * 1.0);
+        for (int ip = 0; ip < numPos; ip++) {
+          ceres::CostFunction* cost_function
+            = weightedTranslationError::Create(&ls_model->m_positions[ip * NUM_XYZ_PARAMS],
+                                               wt);
+          ceres::LossFunction* loss_function = new ceres::CauchyLoss(th);
+          problem.AddResidualBlock(cost_function, loss_function,
+                                  &ls_model->m_positions[ip * NUM_XYZ_PARAMS]);
+          
+          for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+            weight_per_residual.push_back(wt);
+        }
+        
+      } else if (frame_model != NULL) {
+      
+        // Same logic as for bundle_adjust
+        // There is only one position per camera
+        double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+        // we will copy from curr_params the initial position
+        ceres::CostFunction* cost_function
+          = weightedTranslationError::Create(&curr_params[0], combined_wt);
+        ceres::LossFunction* loss_function = new ceres::CauchyLoss(combined_th);
+        problem.AddResidualBlock(cost_function, loss_function,
+                                &curr_params[0]); // translation starts here
+        
+        for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+          weight_per_residual.push_back(combined_wt);
+            
+      } else {
+         vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+      }
+    }
+  }
+}
+
+void addQuatNormRotationConstraints(
+    asp::BaBaseOptions            const& opt,
+    std::set<int>                 const& outliers,
+    asp::CRNJ                     const& crn,
+    std::vector<asp::CsmModel*>   const& csm_models,
+    bool                                 have_rig,
+    rig::RigSet                   const& rig,
+    std::vector<RigCamInfo>       const& rig_cam_info,
+    double                               quat_norm_weight, 
+    // Outputs
+    std::vector<double>                & frame_params,
+    std::vector<double>                & weight_per_residual, // append
+    ceres::Problem                     & problem) {
+  
+  // Constrain the rotations
+  // TODO(oalexan1): Make this a standalone function
+  if (opt.rotation_weight > 0.0) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+
+      // With a rig, only the ref sensor has rotation constraints 
+      if (have_rig && !rig.isRefSensor(rig_cam_info[icam].sensor_id))
+        continue;
+      
+      UsgsAstroLsSensorModel * ls_model
+        = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+      UsgsAstroFrameSensorModel * frame_model
+        = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+
+      if (ls_model != NULL) {
+        // There are multiple quaternion parameters per camera
+        int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+        for (int iq = 0; iq < numQuat; iq++) {
+          ceres::CostFunction* rotation_cost_function
+            = weightedRotationError::Create(&ls_model->m_quaternions[iq * NUM_QUAT_PARAMS],
+                                            opt.rotation_weight);
+          // We use no loss function, as the quaternions have no outliers
+          ceres::LossFunction* rotation_loss_function = NULL;
+          problem.AddResidualBlock(rotation_cost_function, rotation_loss_function,
+                                  &ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+          
+          for (int c = 0; c < NUM_QUAT_PARAMS; c++)
+            weight_per_residual.push_back(opt.rotation_weight);
+        }
+
+      } else if (frame_model != NULL) {
+        // There is one quaternion per camera, stored after the translation
+        double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+          
+        // Copy from curr_params the initial quaternion
+        ceres::CostFunction* rotation_cost_function
+          = weightedRotationError::Create(&curr_params[NUM_XYZ_PARAMS], // quat starts here
+                                          opt.rotation_weight);
+        // Pass the quaternion to optimize to the problem                                  
+        // We use no loss function, as the quaternions have no outliers
+        ceres::LossFunction* rotation_loss_function = NULL;
+        problem.AddResidualBlock(rotation_cost_function, rotation_loss_function,
+                                &curr_params[NUM_XYZ_PARAMS]); // quat starts here
+        
+        for (int c = 0; c < NUM_QUAT_PARAMS; c++)
+          weight_per_residual.push_back(opt.rotation_weight);
+      } else {
+         vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+      }
+
+    } // end loop through cameras
+  }
+
+  // Try to make the norm of quaternions be close to 1
+  // TODO(oalexan1): Make this a standalone function
+  if (quat_norm_weight > 0.0) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+
+      UsgsAstroLsSensorModel * ls_model
+        = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+      UsgsAstroFrameSensorModel * frame_model
+        = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+
+      if (ls_model != NULL) {
+
+        int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+        for (int iq = 0; iq < numQuat; iq++) {
+          ceres::CostFunction* quat_norm_cost_function
+            = weightedQuatNormError::Create(quat_norm_weight);
+          // We use no loss function, as the quaternions have no outliers
+          ceres::LossFunction* quat_norm_loss_function = NULL;
+          problem.AddResidualBlock(quat_norm_cost_function, quat_norm_loss_function,
+                                  &ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+          
+          weight_per_residual.push_back(quat_norm_weight); // 1 single residual
+        }
+
+      } else if (frame_model != NULL) {
+
+        // There is one quaternion per camera, stored after the translation
+        double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+
+        ceres::CostFunction* quat_norm_cost_function
+          = weightedQuatNormError::Create(quat_norm_weight);
+        // We use no loss function, as the quaternions have no outliers
+        ceres::LossFunction* quat_norm_loss_function = NULL;
+        problem.AddResidualBlock(quat_norm_cost_function, quat_norm_loss_function,
+                                &curr_params[NUM_XYZ_PARAMS]); // quat starts here
+        
+        weight_per_residual.push_back(quat_norm_weight); // 1 single residual
+
+      } else {
+         vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+      }
+    }
+  }
+}
+
+// Add roll / yaw constraints. For linescan, use the whole set of samples for given
+// camera model. For frame cameras, use the trajectory of all cameras in the same orbital
+// group as the current camera.
+void addRollYawConstraint(asp::BaBaseOptions              const& opt,
+                          asp::CRNJ                       const& crn,
+                          std::vector<asp::CsmModel*>     const& csm_models,
+                          vw::cartography::GeoReference   const& georef,
+                          std::map<int, int>              const& orbital_groups,
+                          bool initial_camera_constraint,
+                          double roll_weight, double yaw_weight,
+                          // Outputs (append to residual)
+                          std::vector<double>                  & frame_params,
+                          std::vector<double>                  & weight_per_residual,
+                          ceres::Problem                       & problem) {
+  
+  if (roll_weight <= 0.0 && yaw_weight <= 0.0)
+     vw::vw_throw(vw::ArgumentErr() 
+         << "addRollYawConstraint: The roll or yaw weight must be positive.\n");
+
+  int num_cams = crn.size();
+
+  // Frame cameras can be grouped by orbital portion. Ensure that all cameras
+  // belong to a group.
+  if (num_cams != int(orbital_groups.size()))
+    vw::vw_throw(vw::ArgumentErr() 
+         << "addRollYawConstraint: Failed to add each input camera to an orbital group.\n");
+
+  // Create the orbital trajectory for each group of frame cameras
+  std::map<int, std::vector<double>> orbital_group_positions;
+  std::map<int, std::vector<double>> orbital_group_quaternions;
+  formPositionQuatVecPerGroup(orbital_groups, csm_models, 
+    orbital_group_positions, orbital_group_quaternions); // outputs
+
+  for (int icam = 0; icam < num_cams; icam++) {
+
+    UsgsAstroLsSensorModel * ls_model
+      = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+    UsgsAstroFrameSensorModel * frame_model
+      = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+
+    if (ls_model != NULL) {
+      // Linescan cameras. Use the full sequence of cameras in the model
+      // to enforce the roll/yaw constraint for each camera in the sequence.
+      int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+
+      // Make positions one-to-one with quaternions
+      std::vector<double> interp_positions;
+      asp::orbitInterpExtrap(ls_model, georef, interp_positions);
+      
+      for (int iq = 0; iq < numQuat; iq++) {
+        ceres::CostFunction* roll_yaw_cost_function
+          = weightedRollYawError::Create(interp_positions,
+                                         ls_model->m_quaternions,
+                                         georef, iq,
+                                         roll_weight, yaw_weight, 
+                                         initial_camera_constraint);
+
+        // We use no loss function, as the quaternions have no outliers
+        ceres::LossFunction* roll_yaw_loss_function = NULL;
+        problem.AddResidualBlock(roll_yaw_cost_function, roll_yaw_loss_function,
+                                &ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+        // The recorded weight should not be 0 as we will divide by it
+        weight_per_residual.push_back(roll_weight || 1.0);
+        weight_per_residual.push_back(yaw_weight  || 1.0);
+      } // end loop through quaternions for given camera
+    
+    } else if (frame_model != NULL) {
+      // Frame cameras. Use the positions and quaternions of the cameras
+      // in the same orbital group to enforce the roll/yaw constraint for
+      // each camera in the group.
+      auto it = orbital_groups.find(icam);
+      if (it == orbital_groups.end())
+        vw::vw_throw(vw::ArgumentErr() 
+           << "addRollYawConstraint: Failed to find orbital group for camera.\n"); 
+      int group_id = it->second;
+
+      int index_in_group = indexInGroup(icam, orbital_groups);
+      std::vector<double> positions = orbital_group_positions[group_id];
+      std::vector<double> quaternions = orbital_group_quaternions[group_id];
+      if (positions.size() / NUM_XYZ_PARAMS < 2) {
+        // It can happen that we have just one frame camera, but then we just
+        // can't add this constraint
+        vw::vw_out(vw::WarningMessage) << "Cannot add roll and/or yaw constraint for "
+          << "for an orbital group consisting of only one frame camera.\n";
+        continue;
+      }
+        
+      ceres::CostFunction* roll_yaw_cost_function
+        = weightedRollYawError::Create(positions, quaternions, 
+                                   georef, index_in_group,
+                                   roll_weight, yaw_weight, 
+                                   initial_camera_constraint);
+
+      // We use no loss function, as the quaternions have no outliers
+      ceres::LossFunction* roll_yaw_loss_function = NULL;
+
+      // Note how we set the quaternions to be optimized from frame_params.
+      // Above, we only cared for initial positions and quaternions.
+      double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+      problem.AddResidualBlock(roll_yaw_cost_function, roll_yaw_loss_function,
+                                &curr_params[NUM_XYZ_PARAMS]); // quat starts here
+
+      // The recorded weight should not be 0 as we will divide by it
+      weight_per_residual.push_back(roll_weight || 1.0);
+      weight_per_residual.push_back(yaw_weight  || 1.0);
+    } else {
+      vw::vw_throw(vw::ArgumentErr() 
+         << "addRollYawConstraint: Expecting CSM linescan or frame cameras.\n");
+    }
+
+  } // end loop through cameras
+
+  return;
 }
 
 } // end namespace asp
