@@ -45,7 +45,15 @@
 
 namespace asp {
 
+const double g_big_pixel_value = 1000.0;  // don't make this too big
+
 struct BaBaseOptions;
+
+// Calc the range of indices in the samples needed to interpolate between time1 and time2.
+// Based on lagrangeInterp() in usgscsm.
+void calcIndexBounds(double time1, double time2, double t0, double dt, int numVals,
+                     // Outputs
+                     int & begIndex, int & endIndex);
 
 // Add the linescan model reprojection error to the cost function
 void addLsReprojectionErr(asp::BaBaseOptions const & opt,
@@ -63,18 +71,6 @@ void addFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                              double                    * tri_point,
                              double                      weight,
                              ceres::Problem            & problem);
-
-// Reprojection error with ls ref sensor and frame curr sensor
-void addRigLsFrameReprojectionErr(asp::BaBaseOptions  const & opt,
-                                  asp::RigCamInfo     const & rig_cam_info,
-                                  vw::Vector2         const & frame_observation,
-                                  double                      weight,
-                                  UsgsAstroLsSensorModel    * ref_ls_model,
-                                  UsgsAstroFrameSensorModel * curr_frame_model,
-                                  double                    * ref_to_curr_trans,
-                                  double                    * tri_point,
-                                  ceres::Problem            & problem);
-
 
 // Add reprojection errors. Collect data that will be used to add camera
 // constraints that scale with the number of reprojection errors and GSD.
