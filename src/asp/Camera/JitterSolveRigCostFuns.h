@@ -49,6 +49,17 @@ void addRigLsFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                                   double                    * tri_point,
                                   ceres::Problem            & problem);
 
+// Reprojection error with ls ref sensor and ls curr sensor
+void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
+                               asp::RigCamInfo     const & rig_cam_info,
+                               vw::Vector2         const & curr_observation,
+                               double                      weight,
+                               UsgsAstroLsSensorModel    * ref_ls_model,
+                               UsgsAstroLsSensorModel    * curr_ls_model,
+                               double                    * ref_to_curr_trans,
+                               double                    * tri_point,
+                               ceres::Problem            & problem);
+
 } // end namespace asp
 
 #endif //__ASP_CAMERA_JITTER_SOLVE_RIG_COST_FUNS_H__

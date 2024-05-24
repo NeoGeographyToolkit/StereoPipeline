@@ -128,40 +128,56 @@ private:
   UsgsAstroFrameSensorModel* m_frame_model;
 }; // End class FramePixelReprojErr
 
+// Update the linescan model with the latest optimized values of the position
+// and quaternion parameters. Also update the triangulated point.
+void updateLsModelTriPt(double const * const * parameters, 
+                        int begQuatIndex, int endQuatIndex,
+                        int begPosIndex, int endPosIndex,
+                        int & param_shift,
+                        UsgsAstroLsSensorModel & cam,
+                        csm::EcefCoord & P) {
+    
+  // Start at the first param
+  param_shift = 0;
+  
+  // Update the relevant quaternions in the local copy
+  for (int qi = begQuatIndex; qi < endQuatIndex; qi++) {
+    for (int coord = 0; coord < NUM_QUAT_PARAMS; coord++) {
+      cam.m_quaternions[NUM_QUAT_PARAMS * qi + coord]
+        = parameters[qi + param_shift - begQuatIndex][coord];
+    }
+  }
+
+  // Same for the positions. Note how we move forward in the parameters array,
+  // as this is after the quaternions
+  param_shift += (endQuatIndex - begQuatIndex);
+  for (int pi = begPosIndex; pi < endPosIndex; pi++) {
+    for (int coord = 0; coord < NUM_XYZ_PARAMS; coord++) {
+      cam.m_positions[NUM_XYZ_PARAMS * pi + coord]
+        = parameters[pi + param_shift - begPosIndex][coord];
+    }
+  }
+
+  // Move forward in the array of parameters, then recover the triangulated point
+  param_shift += (endPosIndex - begPosIndex);
+  P.x = parameters[param_shift][0];
+  P.y = parameters[param_shift][1];
+  P.z = parameters[param_shift][2];
+}  
+
 // See the documentation higher up in the file.
 bool LsPixelReprojErr::operator()(double const * const * parameters, 
                                   double * residuals) const {
 
   try {
-    // Make a copy of the model, as we will update quaternion and position values
-    // that are being modified now. This may be expensive.
+    // Make a copy of the model, as we will update quaternion and position
+    // values that are being modified now. This may be expensive.
+    // Update the shift too.
     UsgsAstroLsSensorModel cam = *m_ls_model;
-
-    // Update the relevant quaternions in the local copy
     int shift = 0;
-    for (int qi = m_begQuatIndex; qi < m_endQuatIndex; qi++) {
-      for (int coord = 0; coord < NUM_QUAT_PARAMS; coord++) {
-        cam.m_quaternions[NUM_QUAT_PARAMS * qi + coord]
-          = parameters[qi + shift - m_begQuatIndex][coord];
-      }
-    }
-
-    // Same for the positions. Note how we move forward in the parameters array,
-    // as this is after the quaternions
-    shift += (m_endQuatIndex - m_begQuatIndex);
-    for (int pi = m_begPosIndex; pi < m_endPosIndex; pi++) {
-      for (int coord = 0; coord < NUM_XYZ_PARAMS; coord++) {
-        cam.m_positions[NUM_XYZ_PARAMS * pi + coord]
-          = parameters[pi + shift - m_begPosIndex][coord];
-      }
-    }
-
-    // Move forward in the array of parameters, then recover the triangulated point
-    shift += (m_endPosIndex - m_begPosIndex);
     csm::EcefCoord P;
-    P.x = parameters[shift][0];
-    P.y = parameters[shift][1];
-    P.z = parameters[shift][2];
+    updateLsModelTriPt(parameters, m_begQuatIndex, m_endQuatIndex,
+                       m_begPosIndex, m_endPosIndex, shift, cam, P);
 
     // Project in the camera with high precision. Do not use here
     // anything lower than 1e-8, as the linescan model will then
@@ -682,7 +698,7 @@ void addReprojCamErrs(asp::BaBaseOptions                const & opt,
             vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
         } else {
           // Have rig
-          // TODO(oalexan1): This must be a function
+          // TODO(oalexan1): This must be a function in JitterSolveRigCostFuns.cc
           auto rig_info = rig_cam_info[icam];  
           int ref_cam = rig_info.ref_cam_index;
           int sensor_id = rig_info.sensor_id;
@@ -714,14 +730,15 @@ void addReprojCamErrs(asp::BaBaseOptions                const & opt,
             else
               vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
           } else {
-            // For now, the current camera must be frame
-            // TODO(oalexan1): Remove this temporary restriction
-            if (frame_model == NULL)
-              vw::vw_throw(vw::ArgumentErr() << "Current camera must be frame.\n");
-            addRigLsFrameReprojectionErr(opt, rig_info, pix_obs, pix_wt, ref_ls_model, 
-                          frame_model, 
-                          ref_to_curr_sensor_trans,
-                          tri_point, problem);
+            if (frame_model != NULL)
+              addRigLsFrameReprojectionErr(opt, rig_info, pix_obs, pix_wt, ref_ls_model, 
+                          frame_model, ref_to_curr_sensor_trans, tri_point, problem);
+            else if (ls_model != NULL)
+              addRigLsLsReprojectionErr(opt, rig_info, pix_obs, pix_wt, ref_ls_model, 
+                          ls_model, ref_to_curr_sensor_trans, tri_point, problem);
+            else 
+              vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+                
           } // end case of a non-ref sensor
         } // end condition for having a rig
       

@@ -55,6 +55,15 @@ void calcIndexBounds(double time1, double time2, double t0, double dt, int numVa
                      // Outputs
                      int & begIndex, int & endIndex);
 
+// Update the linescan model with the latest optimized values of the position
+// and quaternion parameters. Also update the triangulated point.
+void updateLsModelTriPt(double const * const * parameters, 
+                        int begQuatIndex, int endQuatIndex,
+                        int begPosIndex, int endPosIndex,
+                        int & param_shift,
+                        UsgsAstroLsSensorModel & cam,
+                        csm::EcefCoord & P);
+
 // Add the linescan model reprojection error to the cost function
 void addLsReprojectionErr(asp::BaBaseOptions const & opt,
                           UsgsAstroLsSensorModel * ls_model,
