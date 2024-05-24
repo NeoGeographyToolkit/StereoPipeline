@@ -21,6 +21,9 @@
 #include <asp/Camera/JitterSolveUtils.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Camera/JitterSolveRigUtils.h>
+#include <asp/Rig/rig_config.h>
+#include <asp/Rig/transform_utils.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/UsgsAstroFrameSensorModel.h>
@@ -180,27 +183,57 @@ void initFrameCameraParams(std::vector<asp::CsmModel*> const& csm_models,
 
 // Given the optimized values of the frame camera parameters, update
 // the frame camera models. If there are none, do nothing. This modifies
-// csm_models.
-void updateFrameCameras(std::vector<asp::CsmModel*> & csm_models,
-  std::vector<double> const& frame_params) {
-
-  // Sanity check
+// the csm_models. With a rig, frame_params get updated too.
+void updateFrameCameras(bool have_rig,
+                        rig::RigSet                  const& rig,
+                        std::vector<asp::RigCamInfo> const& rig_cam_info,
+                        std::vector<double>          const& ref_to_curr_sensor_vec,
+                        std::vector<asp::CsmModel*>       & csm_models,
+                        std::vector<double>               & frame_params) {
+   
+  // Sanity check. The allocated space is for all cameras, for simplicity.
   if (frame_params.size() != (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS) * csm_models.size())
     vw::vw_throw(vw::ArgumentErr() << "Invalid number of frame camera parameters.");
 
   for (size_t icam = 0; icam < csm_models.size(); icam++) {
 
+    UsgsAstroLsSensorModel * ls_model
+     = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
     UsgsAstroFrameSensorModel * frame_model
      = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+
+    // Temporary check     
+    if (have_rig && rig.isRefSensor(rig_cam_info[icam].sensor_id) && ls_model == NULL)
+      vw::vw_throw(vw::ArgumentErr() << "The rig reference sensor must be linescan.\n");
 
     if (frame_model == NULL)
       continue;
 
+    // Current frame cam parameters 
+    double * frame_arr = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+
+    if (have_rig) {
+      // Update the frame cam parameters from the rig
+      auto rig_info = rig_cam_info[icam];  
+      int sensor_id = rig_info.sensor_id;
+      double const* ref_to_curr_trans 
+        = &ref_to_curr_sensor_vec[rig::NUM_RIGID_PARAMS * sensor_id];
+
+      int ref_cam   = rig_info.ref_cam_index;
+      UsgsAstroLsSensorModel * ref_ls_model = 
+        dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[ref_cam]->m_gm_model).get());
+      if (ref_ls_model == NULL)
+        vw::vw_throw(vw::ArgumentErr() << "The rig reference sensor must be linescan.\n");
+
+      asp::linescanToCurrSensorTrans(*ref_ls_model, rig_info, ref_to_curr_trans,
+                                     frame_arr); // output
+  
+    }
+
     // Update the frame camera model. The UsgsAstroFrameSensorModel stores
     // first 3 position parameters, then 4 quaternion parameters.
-    const double * vals = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
     for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++)
-      frame_model->setParameterValue(i, vals[i]); 
+      frame_model->setParameterValue(i, frame_arr[i]); 
   }
 
   return;

@@ -108,7 +108,7 @@ void normalizeQuaternions(UsgsAstroFrameSensorModel * frame_model) {
 }
 
 // Get quaternions. This duplicates the UsgsAstroLsSensorModel function as that one is private
-void interpQuaternions(UsgsAstroLsSensorModel * ls_model, double time,
+void interpQuaternions(UsgsAstroLsSensorModel const* ls_model, double time,
                       double q[4]) {
   int nOrder = 8;
   if (ls_model->m_platformFlag == 0)
@@ -136,7 +136,7 @@ void interpPositions(std::vector<double> const& positions,
 }
 
 // Get positions. Based on the UsgsAstroLsSensorModel code.
-void interpPositions(UsgsAstroLsSensorModel * ls_model, double time,
+void interpPositions(UsgsAstroLsSensorModel const* ls_model, double time,
                      double pos[3]) {
   // Call the above wrapper
   interpPositions(ls_model->m_positions, ls_model->m_t0Ephem, ls_model->m_dtEphem,
@@ -145,7 +145,7 @@ void interpPositions(UsgsAstroLsSensorModel * ls_model, double time,
 
 // Get positions. Based on the UsgsAstroLsSensorModel code.
 // TODO(oalexan1): Move this to a new CsmModelUtils.cc file and
-void interpVelocities(UsgsAstroLsSensorModel * ls_model, double time,
+void interpVelocities(UsgsAstroLsSensorModel const* ls_model, double time,
                   double vel[3]) {
   int nOrder = 8;
   if (ls_model->m_platformFlag == 0)

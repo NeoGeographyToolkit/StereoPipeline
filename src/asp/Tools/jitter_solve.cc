@@ -408,6 +408,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
       if (params.GetDistortion().size() != 0)
         vw::vw_throw(vw::ArgumentErr() << "Distortion is not supported in jitter_solve.\n");
     }
+    
+    if (opt.roll_weight > 0 || opt.yaw_weight > 0)
+      vw::vw_throw(vw::ArgumentErr() << "Cannot use the roll/yaw constraint with a rig.\n");
   }
   
   return;
@@ -1035,12 +1038,15 @@ void addTriConstraint(Options                const& opt,
 
 // Add camera constraints that are proportional to the number of reprojection errors.
 // This requires going through some of the same motions as in addReprojCamErrs().
-void addCamPositionConstraint(Options                      const & opt,
-                              std::set<int>                const & outliers,
-                              asp::CRNJ                    const & crn,
-                              std::vector<asp::CsmModel*>  const & csm_models,
+void addCamPositionConstraint(Options                          const& opt,
+                              std::set<int>                    const& outliers,
+                              asp::CRNJ                        const& crn,
+                              std::vector<asp::CsmModel*>      const& csm_models,
                               std::vector<std::vector<double>> const& weight_per_cam,
                               std::vector<std::vector<double>> const& count_per_cam,
+                              bool                                    have_rig,
+                              rig::RigSet                      const& rig,
+                              std::vector<asp::RigCamInfo>     const& rig_cam_info,
                               // Outputs
                               std::vector<double>                & frame_params,
                               std::vector<double>                & weight_per_residual, 
@@ -1049,6 +1055,10 @@ void addCamPositionConstraint(Options                      const & opt,
   // First pass is for interest point matches, and second pass is for anchor points
   for (int pass = 0; pass < 2; pass++) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
+      
+      // With a rig, only the ref sensor has rotation constraints 
+      if (have_rig && !rig.isRefSensor(rig_cam_info[icam].sensor_id))
+        continue;
       
       double median_wt = weight_per_cam[pass][icam];
       double count = count_per_cam[pass][icam];
@@ -1112,10 +1122,13 @@ void addCamPositionConstraint(Options                      const & opt,
 }
 
 void addQuatNormRotationConstraints(
-    Options                      const & opt,
-    std::set<int>                const & outliers,
-    asp::CRNJ                    const & crn,
-    std::vector<asp::CsmModel*>  const & csm_models,
+    Options                       const& opt,
+    std::set<int>                 const& outliers,
+    asp::CRNJ                     const& crn,
+    std::vector<asp::CsmModel*>   const& csm_models,
+    bool                                 have_rig,
+    rig::RigSet                   const& rig,
+    std::vector<RigCamInfo>       const& rig_cam_info,
     // Outputs
     std::vector<double>                & frame_params,
     std::vector<double>                & weight_per_residual, // append
@@ -1126,6 +1139,10 @@ void addQuatNormRotationConstraints(
   if (opt.rotation_weight > 0.0) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
 
+      // With a rig, only the ref sensor has rotation constraints 
+      if (have_rig && !rig.isRefSensor(rig_cam_info[icam].sensor_id))
+        continue;
+      
       UsgsAstroLsSensorModel * ls_model
         = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
       UsgsAstroFrameSensorModel * frame_model
@@ -1563,7 +1580,6 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Apply the input adjustments to the cameras. Resample linescan models.
   // Get pointers to the underlying CSM cameras, as need to manipulate
   // those directly. These will result in changes to the input cameras.
-  // TODO(oalexan1): Must normalize the quaternions before resampling!   
   std::vector<asp::CsmModel*> csm_models;
   initResampleCsmCams(opt, opt.camera_models, csm_models);
 
@@ -1581,50 +1597,53 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   // Make a list of all the image pairs to find matches for. Some quantities
   // below are not needed but are part of the API.
-  bool external_matches = true;
-  bool got_est_cam_positions = false;
-  double position_filter_dist = -1.0;
-  std::vector<vw::Vector3> estimated_camera_gcc;
-  bool have_overlap_list = false;
-  std::set<std::pair<std::string, std::string>> overlap_list;
-  std::vector<std::pair<int,int>> all_pairs;
-  asp::determine_image_pairs(// Inputs
-                             opt.overlap_limit, opt.match_first_to_last,  
-                             external_matches,
-                             opt.image_files, 
-                             got_est_cam_positions, position_filter_dist,
-                             estimated_camera_gcc, have_overlap_list, overlap_list,
-                             // Output
-                             all_pairs);
-
-  // List existing match files. This can take a while.
-  vw_out() << "Computing the list of existing match files.\n";
-  std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
-                                              opt.match_files_prefix,  
-                                              opt.out_prefix);
-  std::set<std::string> existing_files;
-  asp::listExistingMatchFiles(prefix, existing_files);
-
-  // TODO(oalexan1): Make this into a function
-  // Load match files
   std::map<std::pair<int, int>, std::string> match_files;
-  for (size_t k = 0; k < all_pairs.size(); k++) {
-    int i = all_pairs[k].first;
-    int j = all_pairs[k].second;
-    std::string const& image1_path  = opt.image_files[i];  // alias
-    std::string const& image2_path  = opt.image_files[j];  // alias
-    std::string const& camera1_path = opt.camera_files[i]; // alias
-    std::string const& camera2_path = opt.camera_files[j]; // alias
-    // Load match files from a different source
-    std::string match_file 
-      = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
-                            opt.out_prefix, image1_path, image2_path);
-    // The external match file does not exist, don't try to load it
-    if (existing_files.find(match_file) == existing_files.end())
-      continue;
-    match_files[std::make_pair(i, j)] = match_file;
+  if (opt.isis_cnet == "") {
+    // TODO(oalexan1): Make this into a function
+    bool external_matches = true;
+    bool got_est_cam_positions = false;
+    double position_filter_dist = -1.0;
+    std::vector<vw::Vector3> estimated_camera_gcc;
+    bool have_overlap_list = false;
+    std::set<std::pair<std::string, std::string>> overlap_list;
+    std::vector<std::pair<int,int>> all_pairs;
+    asp::determine_image_pairs(// Inputs
+                              opt.overlap_limit, opt.match_first_to_last,  
+                              external_matches,
+                              opt.image_files, 
+                              got_est_cam_positions, position_filter_dist,
+                              estimated_camera_gcc, have_overlap_list, overlap_list,
+                              // Output
+                              all_pairs);
+
+    // List existing match files. This can take a while.
+    vw_out() << "Computing the list of existing match files.\n";
+    std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
+                                                opt.match_files_prefix,  
+                                                opt.out_prefix);
+    std::set<std::string> existing_files;
+    asp::listExistingMatchFiles(prefix, existing_files);
+
+    // TODO(oalexan1): Make this into a function
+    // Load match files
+    for (size_t k = 0; k < all_pairs.size(); k++) {
+      int i = all_pairs[k].first;
+      int j = all_pairs[k].second;
+      std::string const& image1_path  = opt.image_files[i];  // alias
+      std::string const& image2_path  = opt.image_files[j];  // alias
+      std::string const& camera1_path = opt.camera_files[i]; // alias
+      std::string const& camera2_path = opt.camera_files[j]; // alias
+      // Load match files from a different source
+      std::string match_file 
+        = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
+                              opt.out_prefix, image1_path, image2_path);
+      // The external match file does not exist, don't try to load it
+      if (existing_files.find(match_file) == existing_files.end())
+        continue;
+      match_files[std::make_pair(i, j)] = match_file;
+    }
   }
-  
+    
   if (match_files.empty() && opt.isis_cnet.empty())
     vw_throw(ArgumentErr() 
              << "No match files or ISIS cnet found. Check if your match "
@@ -1787,28 +1806,26 @@ void run_jitter_solve(int argc, char* argv[]) {
                      problem);
 
   // Add the constraint to keep the camera positions close to initial values
-  // TODO(oalexan1): Must adjust for rig
   if (opt.camera_position_weight > 0) 
     addCamPositionConstraint(opt, outliers, crn, csm_models, weight_per_cam, count_per_cam,
+                             have_rig, rig, rig_cam_info,
                              // Outputs
                              frame_params, weight_per_residual, problem);
     
   // Add constraints to keep quat norm close to 1, and make rotations 
   // not change too much
-  // TODO(oalexan1): Must adjust for rig
   addQuatNormRotationConstraints(opt, outliers, crn, csm_models,  
+                                 have_rig, rig, rig_cam_info,
                                  // Outputs
                                  frame_params,
                                  weight_per_residual,  // append
                                  problem);
 
-  // TODO(oalexan1): Must adjust for rig
   if (opt.roll_weight > 0 || opt.yaw_weight > 0)
     addRollYawConstraint(opt, crn, csm_models, roll_yaw_georef,
                         frame_params, weight_per_residual, problem); // outputs
 
   // Save residuals before optimization
-  // TODO(oalexan1): Must adjust for rig
   std::string residual_prefix = opt.out_prefix + "-initial_residuals";
   saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                  tri_points_vec, outliers, weight_per_residual,
@@ -1842,10 +1859,10 @@ void run_jitter_solve(int argc, char* argv[]) {
     vw_out() << "Found a valid solution, but did not reach the actual minimum. "
              << "This is expected, and likely the produced solution is good enough.\n";
 
-  // With the problem solved, update camera_models based on frame_params
-  // (applies only to frame cameras, if any)
-  // TODO(oalexan1): Must adjust for rig
-  updateFrameCameras(csm_models, frame_params);  
+  // With the problem solved, update camera_models based on frame_params.
+  // With a rig, update frame_params first. Applies only to frame cameras, if any.
+  updateFrameCameras(have_rig, rig, rig_cam_info, ref_to_curr_sensor_vec, 
+                     csm_models, frame_params);  
 
   // By now the cameras have been updated in-place. Compute the optimized
   // camera centers.
@@ -1854,7 +1871,6 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Save residuals after optimization
   residual_prefix = opt.out_prefix + "-final_residuals";
-  // TODO(oalexan1): Must adjust for rig
   saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                  tri_points_vec, outliers, weight_per_residual,
                  pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index);
@@ -1863,8 +1879,20 @@ void run_jitter_solve(int argc, char* argv[]) {
                             opt.image_files, opt.camera_files,
                             opt.camera_models, opt.update_isis_cubes_with_csm_state);
   
-  // TODO(oalexan1): Must save the optimized rig
-  
+  if (have_rig) {
+    // Save the rig
+    std::string out_dir;
+    try {
+      out_dir = fs::path(opt.out_prefix).parent_path().string(); 
+    } catch (const std::exception & e) {
+      out_dir = "";
+    }
+    // TODO(oalexan1): Sort this out. For now, writing out/rig.txt than rig.txt.
+    if (out_dir == "")
+      out_dir = opt.out_prefix;
+    rig::writeRigConfig(out_dir, have_rig, rig);
+  }
+
   // Compute the change in camera centers.
   std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";
   if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 

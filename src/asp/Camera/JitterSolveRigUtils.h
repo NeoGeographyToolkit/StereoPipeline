@@ -28,6 +28,8 @@
 #include <map>
 #include <vector>
 
+class UsgsAstroLsSensorModel;
+
 namespace rig {
   class RigSet;
 }
@@ -65,6 +67,14 @@ void populateRigCamInfo(rig::RigSet const& rig,
                         // Outputs
                         std::vector<RigCamInfo> & rig_cam_info,
                         std::vector<double>     & ref_to_curr_sensor_vec);
+
+// Given a linescan camera and the transform from it to the current camera,
+// find the current camera to world transform as an array.
+void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ls_cam,
+                               const asp::RigCamInfo & rig_cam_info,
+                               double const* ref_to_curr_trans,
+                               // Output
+                               double * cam2world_arr);
 
 } // end namespace asp
 

@@ -50,15 +50,15 @@ void normalizeQuaternions(UsgsAstroLsSensorModel * ls_model);
 void normalizeQuaternions(UsgsAstroFrameSensorModel * frame_model);
 
 // Get quaternions. This duplicates the UsgsAstroLsSensorModel function as that one is private
-void interpQuaternions(UsgsAstroLsSensorModel * ls_model, double time,
+void interpQuaternions(UsgsAstroLsSensorModel const* ls_model, double time,
                        double q[4]);
 
 // Get positions. Based on the UsgsAstroLsSensorModel code.
-void interpPositions(UsgsAstroLsSensorModel * ls_model, double time,
+void interpPositions(UsgsAstroLsSensorModel const* ls_model, double time,
                      double pos[3]);
 
-// Get positions. Based on the UsgsAstroLsSensorModel code.
-void interpVelocities(UsgsAstroLsSensorModel * ls_model, double time,
+// Get velocities. Based on the UsgsAstroLsSensorModel code.
+void interpVelocities(UsgsAstroLsSensorModel const* ls_model, double time,
                       double vel[3]);
 
 // Nearest neighbor interpolation into a sequence of vectors of length

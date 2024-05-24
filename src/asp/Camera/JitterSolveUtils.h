@@ -30,7 +30,13 @@
 #include <map>
 #include <vector>
 
+namespace rig {
+  class RigSet;
+}
+
 namespace asp {
+
+class RigCamInfo;
 
 // If several images are acquired in quick succession along the same orbit and
 // stored in the same list, record this structure by grouping them together.
@@ -64,9 +70,16 @@ void initFrameCameraParams(std::vector<asp::CsmModel*> const& csm_models,
 
 // Given the optimized values of the frame camera parameters, update
 // the frame camera models. If there are none, do nothing. This modifies
-// camera_models.
-void updateFrameCameras(std::vector<asp::CsmModel*> & csm_models,
-  std::vector<double> const& frame_params);
+// the csm_models. With a rig, frame_params get updated too.
+// Given the optimized values of the frame camera parameters, update
+// the frame camera models. If there are none, do nothing. This modifies
+// the csm_models. With a rig, frame_params get updated too.
+void updateFrameCameras(bool have_rig,
+                        rig::RigSet                  const& rig,
+                        std::vector<asp::RigCamInfo> const& rig_cam_info,
+                        std::vector<double>          const& ref_to_curr_sensor_vec,
+                        std::vector<asp::CsmModel*>       & csm_models,
+                        std::vector<double>               & frame_params);
 
 } // end namespace asp
 

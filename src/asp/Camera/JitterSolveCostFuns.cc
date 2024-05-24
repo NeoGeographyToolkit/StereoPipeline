@@ -333,28 +333,14 @@ bool RigLsFramePixelReprojErr::operator()(double const * const * parameters,
     // Move forward in the array of parameters, then recover the ref to curr transform
     shift += 1;
     double const* ref_to_curr_trans = parameters[shift];
-    Eigen::Affine3d ref_to_curr_trans_aff;
-    rig::array_to_rigid_transform(ref_to_curr_trans_aff, ref_to_curr_trans);
     
-    // The time at which the pixel is seen
-    double frame_time = m_rig_cam_info.beg_pose_time;
-
-    // The transform from the reference camera to the world. We assume
-    // the linescan and frame cameras use the same clock.
-    double ref_pos[3], ref_q[4];  
-    asp::interpPositions(&ls_cam, frame_time, ref_pos);
-    asp::interpQuaternions(&ls_cam, frame_time, ref_q);  
-    Eigen::Affine3d ref_cam2world 
-        = asp::calcTransform(ref_pos[0], ref_pos[1], ref_pos[2],
-                             ref_q[0], ref_q[1], ref_q[2], ref_q[3]);
-
-    // Apply the rig constraint
-    Eigen::Affine3d cam2world = ref_cam2world * ref_to_curr_trans_aff.inverse();
+    // Current camera to world transform based on the ref cam and the rig
+    std::vector<double> cam2world_vec(rig::NUM_RIGID_PARAMS);
+    asp::linescanToCurrSensorTrans(ls_cam, m_rig_cam_info, ref_to_curr_trans,
+                                   &cam2world_vec[0]); // output
     
     // Make a copy of the frame camera and set the latest position and orientation
     UsgsAstroFrameSensorModel frame_cam = *m_curr_frame_model;
-    std::vector<double> cam2world_vec(rig::NUM_RIGID_PARAMS);
-    rig::rigid_transform_to_array(cam2world, &cam2world_vec[0]);
     for (int coord = 0; coord < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; coord++)
       frame_cam.setParameterValue(coord, cam2world_vec[coord]);
     

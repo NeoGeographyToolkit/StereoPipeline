@@ -332,4 +332,33 @@ void populateRigCamInfo(rig::RigSet const& rig,
   calcRigTransforms(rig, csm_models, rig_cam_info, ref_to_curr_sensor_vec);
 }
 
+// Given a linescan camera and the transform from it to the current camera,
+// find the current camera to world transform as an array.
+void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ls_cam,
+                               const asp::RigCamInfo & rig_cam_info,
+                               double const* ref_to_curr_trans,
+                               // Output
+                               double * cam2world_arr) {
+
+  Eigen::Affine3d ref_to_curr_trans_aff;
+  rig::array_to_rigid_transform(ref_to_curr_trans_aff, ref_to_curr_trans);
+  
+  // The time at which the pixel is seen
+  double frame_time = rig_cam_info.beg_pose_time;
+
+  // The transform from the reference camera to the world. We assume
+  // the linescan and frame cameras use the same clock.
+  double ref_pos[3], ref_q[4];  
+  asp::interpPositions(&ls_cam, frame_time, ref_pos);
+  asp::interpQuaternions(&ls_cam, frame_time, ref_q);  
+  Eigen::Affine3d ref_cam2world 
+      = asp::calcTransform(ref_pos[0], ref_pos[1], ref_pos[2],
+                            ref_q[0], ref_q[1], ref_q[2], ref_q[3]);
+  // Apply the rig constraint
+  Eigen::Affine3d cam2world = ref_cam2world * ref_to_curr_trans_aff.inverse();
+
+  // Convert to an array
+  rig::rigid_transform_to_array(cam2world, cam2world_arr);
+}
+
 } // end namespace asp
