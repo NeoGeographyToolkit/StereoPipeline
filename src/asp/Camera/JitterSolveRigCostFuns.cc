@@ -36,12 +36,12 @@
 namespace asp {
 
 // An error function minimizing the error of projecting an xyz point into a
-// given CSM frame camera pixel that is on a rig with a linescan camera. The
-// variables of optimization are a portion of the position and quaternion
-// variables affected by this, the triangulation point, and the transform from
-// the ref linescan sensor to the current frame sensor.
-struct RigLsFramePixelReprojErr {
-  RigLsFramePixelReprojErr(vw::Vector2 const& frame_pix, double weight,
+// given CSM frame camera pixel that is on a rig with a linescan camera ref
+// sensor. The variables of optimization are a portion of the position and
+// quaternion variables affected by this, the triangulation point, and the
+// transform from the ref linescan sensor to the current linescan/frame sensor.
+struct RigLsPixelReprojErr {
+  RigLsPixelReprojErr(vw::Vector2 const& curr_pix, double weight,
                            asp::RigCamInfo const& rig_cam_info,
                            UsgsAstroLsSensorModel* ref_ls_model,
                            UsgsAstroFrameSensorModel * curr_frame_model,
@@ -50,7 +50,7 @@ struct RigLsFramePixelReprojErr {
                            int begRefPosIndex, int endRefPosIndex,
                            int begCurrQuatIndex, int endCurrQuatIndex,
                            int begCurrPosIndex, int endCurrPosIndex):
-    m_frame_pix(frame_pix), m_weight(weight),
+    m_curr_pix(curr_pix), m_weight(weight),
     m_rig_cam_info(rig_cam_info),
     m_begRefQuatIndex(begRefQuatIndex), m_endRefQuatIndex(endRefQuatIndex),
     m_begRefPosIndex(begRefPosIndex),   m_endRefPosIndex(endRefPosIndex),
@@ -63,7 +63,7 @@ struct RigLsFramePixelReprojErr {
   bool operator()(double const * const * parameters, double * residuals) const; 
 
   // Factory to hide the construction of the CostFunction object from the client code.
-  static ceres::CostFunction* Create(vw::Vector2 const& frame_pix, double weight,
+  static ceres::CostFunction* Create(vw::Vector2 const& curr_pix, double weight,
                                      asp::RigCamInfo const& rig_cam_info,
                                      UsgsAstroLsSensorModel* ref_ls_model,
                                      UsgsAstroFrameSensorModel* curr_frame_model,
@@ -74,14 +74,14 @@ struct RigLsFramePixelReprojErr {
                                      int begCurrPosIndex, int endCurrPosIndex) {
 
     // TODO(oalexan1): Try using here the analytical cost function
-    ceres::DynamicNumericDiffCostFunction<RigLsFramePixelReprojErr>* cost_function =
-      new ceres::DynamicNumericDiffCostFunction<RigLsFramePixelReprojErr>
-      (new RigLsFramePixelReprojErr(frame_pix, weight, rig_cam_info, ref_ls_model,
-                                    curr_frame_model, curr_ls_model,
-                                    begRefQuatIndex, endRefQuatIndex,
-                                    begRefPosIndex, endRefPosIndex,
-                                    begCurrQuatIndex, endCurrQuatIndex,
-                                    begCurrPosIndex, endCurrPosIndex));
+    ceres::DynamicNumericDiffCostFunction<RigLsPixelReprojErr>* cost_function =
+      new ceres::DynamicNumericDiffCostFunction<RigLsPixelReprojErr>
+      (new RigLsPixelReprojErr(curr_pix, weight, rig_cam_info, ref_ls_model,
+                               curr_frame_model, curr_ls_model,
+                               begRefQuatIndex, endRefQuatIndex,
+                               begRefPosIndex, endRefPosIndex,
+                               begCurrQuatIndex, endCurrQuatIndex,
+                               begCurrPosIndex, endCurrPosIndex));
 
     // The residual size is always the same.
     cost_function->SetNumResiduals(PIXEL_SIZE);
@@ -102,7 +102,7 @@ struct RigLsFramePixelReprojErr {
   }
 
 private:
-  vw::Vector2 m_frame_pix; // The frame camera pixel 
+  vw::Vector2 m_curr_pix; // The pixel on the current camera (rather than ref camera)
   double m_weight;
   asp::RigCamInfo m_rig_cam_info;
   UsgsAstroLsSensorModel* m_ref_ls_model;
@@ -113,11 +113,11 @@ private:
   int m_begCurrQuatIndex, m_endCurrQuatIndex;
   int m_begCurrPosIndex, m_endCurrPosIndex;
   
-}; // End class RigLsFramePixelReprojErr
+}; // End class RigLsPixelReprojErr
 
-// The implementation of operator() for RigLsFramePixelReprojErr
-bool RigLsFramePixelReprojErr::operator()(double const * const * parameters, 
-                                  double * residuals) const {
+// The implementation of operator() for RigLsPixelReprojErr
+bool RigLsPixelReprojErr::operator()(double const * const * parameters, 
+                                     double * residuals) const {
 
   try {
     
@@ -134,26 +134,37 @@ bool RigLsFramePixelReprojErr::operator()(double const * const * parameters,
     shift += 1;
     double const* ref_to_curr_trans = parameters[shift];
     
-    // Current camera to world transform based on the ref cam and the rig
-    std::vector<double> cam2world_vec(rig::NUM_RIGID_PARAMS);
-    asp::linescanToCurrSensorTrans(ref_ls_cam, m_rig_cam_info, ref_to_curr_trans,
-                                   &cam2world_vec[0]); // output
-    
-    // Make a copy of the frame camera and set the latest position and orientation
-    UsgsAstroFrameSensorModel frame_cam = *m_curr_frame_model;
-    for (int coord = 0; coord < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; coord++)
-      frame_cam.setParameterValue(coord, cam2world_vec[coord]);
-    
     // Project in the camera with high precision. Do not use here anything lower
     // than 1e-8, as the CSM model can return junk. Convert to ASP pixel.
     double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
-    csm::ImageCoord imagePt = frame_cam.groundToImage(P, desired_precision);
+    csm::ImageCoord imagePt;
+    if (m_curr_frame_model != NULL) {
+      
+      // Current camera to world transform based on the ref cam and the rig
+      std::vector<double> cam2world_vec(rig::NUM_RIGID_PARAMS);
+      asp::linescanToCurrSensorTrans(ref_ls_cam, m_rig_cam_info, ref_to_curr_trans,
+                                    &cam2world_vec[0]); // output
+    
+      // Make a copy of the frame camera and set the latest position and orientation
+      UsgsAstroFrameSensorModel frame_cam = *m_curr_frame_model;
+      for (int coord = 0; coord < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; coord++)
+        frame_cam.setParameterValue(coord, cam2world_vec[coord]);
+      
+      // Project the point into the frame camera
+      imagePt = frame_cam.groundToImage(P, desired_precision);
+      
+    } else if (m_curr_ls_model != NULL) {
+      vw::vw_throw(vw::ArgumentErr() << "Not implemented yet.\n");
+    } else {
+      vw::vw_throw(vw::ArgumentErr() << "Expecting either a frame or a linescan model.\n");
+    }
+    
     vw::Vector2 pix;
     asp::fromCsmPixel(pix, imagePt);
     
     // Compute the residuals  
-    residuals[0] = m_weight*(pix[0] - m_frame_pix[0]);
-    residuals[1] = m_weight*(pix[1] - m_frame_pix[1]);
+    residuals[0] = m_weight*(pix[0] - m_curr_pix[0]);
+    residuals[1] = m_weight*(pix[1] - m_curr_pix[1]);
     
   } catch (std::exception const& e) {
     residuals[0] = g_big_pixel_value;
@@ -167,7 +178,7 @@ bool RigLsFramePixelReprojErr::operator()(double const * const * parameters,
 // Reprojection error with ls ref sensor and frame curr sensor
 void addRigLsFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                                   asp::RigCamInfo     const & rig_cam_info,
-                                  vw::Vector2         const & frame_pix,
+                                  vw::Vector2         const & curr_pix,
                                   double                      weight,
                                   UsgsAstroLsSensorModel    * ref_ls_model,
                                   UsgsAstroFrameSensorModel * curr_frame_model,
@@ -195,33 +206,43 @@ void addRigLsFrameReprojectionErr(asp::BaBaseOptions  const & opt,
   double time2 = frame_time + delta;
 
   // Find the range of indices that can affect the current pixel
-  int numQuat       = ref_ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
-  double quatT0     = ref_ls_model->m_t0Quat;
-  double quatDt     = ref_ls_model->m_dtQuat;
+  int numRefQuat   = ref_ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+  double refQuatT0 = ref_ls_model->m_t0Quat;
+  double refQuatDt = ref_ls_model->m_dtQuat;
   int begRefQuatIndex = -1, endRefQuatIndex = -1;
-  calcIndexBounds(time1, time2, quatT0, quatDt, numQuat, 
+  calcIndexBounds(time1, time2, refQuatT0, refQuatDt, numRefQuat, 
                   begRefQuatIndex, endRefQuatIndex); // outputs
 
   // Same for positions
-  int numPos       = ref_ls_model->m_positions.size() / NUM_XYZ_PARAMS;
-  double posT0     = ref_ls_model->m_t0Ephem;
-  double posDt     = ref_ls_model->m_dtEphem;
+  int numRefPos   = ref_ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+  double refPosT0 = ref_ls_model->m_t0Ephem;
+  double refPosDt = ref_ls_model->m_dtEphem;
   int begRefPosIndex = -1, endRefPosIndex = -1;
-  calcIndexBounds(time1, time2, posT0, posDt, numPos, 
+  calcIndexBounds(time1, time2, refPosT0, refPosDt, numRefPos, 
                   begRefPosIndex, endRefPosIndex); // outputs
   
-  // Quantities applicable here
+  // This should not be strictly necessary, but an investigation to validate
+  // this is not yet done. Expand, just in case.
+  begRefQuatIndex--; endRefQuatIndex++;
+  begRefPosIndex--; endRefPosIndex++;
+  // Keep in bounds
+  begRefQuatIndex = std::max(0, begRefQuatIndex);
+  begRefPosIndex = std::max(0, begRefPosIndex);
+  endRefQuatIndex = std::min(endRefQuatIndex, numRefQuat);
+  endRefPosIndex = std::min(endRefPosIndex, numRefPos);
+  
+  // Quantities not applicable here
   UsgsAstroLsSensorModel * curr_ls_model = NULL; 
   int begCurrQuatIndex = -1, endCurrQuatIndex = -1;
   int begCurrPosIndex = -1, endCurrPosIndex = -1;
   
   ceres::CostFunction* pixel_cost_function =
-    RigLsFramePixelReprojErr::Create(frame_pix, weight, rig_cam_info, ref_ls_model,
-                                     curr_frame_model, curr_ls_model, 
-                                     begRefQuatIndex, endRefQuatIndex,
-                                     begRefPosIndex, endRefPosIndex,
-                                     begCurrQuatIndex, endCurrQuatIndex,
-                                     begCurrPosIndex, endCurrPosIndex);
+    RigLsPixelReprojErr::Create(curr_pix, weight, rig_cam_info, ref_ls_model,
+                                curr_frame_model, curr_ls_model, 
+                                begRefQuatIndex, endRefQuatIndex,
+                                begRefPosIndex, endRefPosIndex,
+                                begCurrQuatIndex, endCurrQuatIndex,
+                                begCurrPosIndex, endCurrPosIndex);
   ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
 
   // The variable of optimization are camera quaternions and positions stored in the
@@ -236,10 +257,11 @@ void addRigLsFrameReprojectionErr(asp::BaBaseOptions  const & opt,
   problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
 }
 
-// Reprojection error with ls ref sensor and ls curr sensor
+// Reprojection error with ref ls ref sensor and curr ls sensor
+// TODO(oalexan1): Find ways of integrating with the frame
 void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
                                asp::RigCamInfo     const & rig_cam_info,
-                               vw::Vector2         const & curr_observation,
+                               vw::Vector2         const & curr_pix,
                                double                      weight,
                                UsgsAstroLsSensorModel    * ref_ls_model,
                                UsgsAstroLsSensorModel    * curr_ls_model,
@@ -253,64 +275,91 @@ void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
    
   double line_extra = opt.max_init_reproj_error + 5.0; // add some more just in case
   csm::ImageCoord imagePt1, imagePt2;
-  asp::toCsmPixel(curr_observation - vw::Vector2(0.0, line_extra), imagePt1);
-  asp::toCsmPixel(curr_observation + vw::Vector2(0.0, line_extra), imagePt2);
+  asp::toCsmPixel(curr_pix - vw::Vector2(0.0, line_extra), imagePt1);
+  asp::toCsmPixel(curr_pix + vw::Vector2(0.0, line_extra), imagePt2);
   double time1 = curr_ls_model->getImageTime(imagePt1);
   double time2 = curr_ls_model->getImageTime(imagePt2);
 
   std::cout << "--times are " << time1 << ' ' << time2 << std::endl;
   
   // Find the range of indices that can affect the current pixel
-  int numQuat       = curr_ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
-  double quatT0     = curr_ls_model->m_t0Quat;
-  double quatDt     = curr_ls_model->m_dtQuat;
-  int begRefQuatIndex = -1, endRefQuatIndex = -1;
-  calcIndexBounds(time1, time2, quatT0, quatDt, numQuat, 
-                  begRefQuatIndex, endRefQuatIndex); // outputs
+  int numCurrQuat       = curr_ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+  double currQuatT0     = curr_ls_model->m_t0Quat;
+  double currQuatDt     = curr_ls_model->m_dtQuat;
+  int begCurrQuatIndex = -1, endCurrQuatIndex = -1;
+  calcIndexBounds(time1, time2, currQuatT0, currQuatDt, numCurrQuat, 
+                  begCurrQuatIndex, endCurrQuatIndex); // outputs
 
   // Same for positions
-  int numPos       = curr_ls_model->m_positions.size() / NUM_XYZ_PARAMS;
-  double posT0     = curr_ls_model->m_t0Ephem;
-  double posDt     = curr_ls_model->m_dtEphem;
-  int begRefPosIndex = -1, endRefPosIndex = -1;
-  calcIndexBounds(time1, time2, posT0, posDt, numPos, 
-                  begRefPosIndex, endRefPosIndex); // outputs
+  int numCurrPos       = curr_ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+  double currPosT0     = curr_ls_model->m_t0Ephem;
+  double currPosDt     = curr_ls_model->m_dtEphem;
+  int begCurrPosIndex = -1, endCurrPosIndex = -1;
+  calcIndexBounds(time1, time2, currPosT0, currPosDt, numCurrPos, 
+                  begCurrPosIndex, endCurrPosIndex); // outputs
   
-  std::cout << "--beg and end quat index: " << begRefQuatIndex << ' ' << endRefQuatIndex << std::endl;
-  std::cout << "--beg and end pos index: " << begRefPosIndex << ' ' << endRefPosIndex << std::endl;
+  std::cout << "--beg and end quat index: " << begCurrQuatIndex << ' ' << endCurrQuatIndex << std::endl;
+  std::cout << "--beg and end pos index: " << begCurrPosIndex << ' ' << endCurrPosIndex << std::endl;
   
   // This should not be strictly necessary, but an investigation to validate
-  // this is not yet done.
-  begRefQuatIndex--; endRefQuatIndex++;
-  begRefPosIndex--; endRefPosIndex++;
-   
+  // this is not yet done. Expand, just in case.
+  begCurrQuatIndex--; endCurrQuatIndex++;
+  begCurrPosIndex--; endCurrPosIndex++;
+  // Keep in bounds
+  begCurrQuatIndex = std::max(0, begCurrQuatIndex);
+  begCurrPosIndex = std::max(0, begCurrPosIndex);
+  endCurrQuatIndex = std::min(endCurrQuatIndex, numCurrQuat);
+  endCurrPosIndex = std::min(endCurrPosIndex, numCurrPos);
+ 
   // Expand these to see the effect of the reference sensor
-  time1 = std::min(quatT0 + begRefQuatIndex * quatDt, posT0 + begRefPosIndex * posDt);
-  time2 = std::max(quatT0 + endRefQuatIndex * quatDt, posT0 + endRefPosIndex * posDt);
+  time1 = std::min(currQuatT0 + begCurrQuatIndex * currQuatDt, 
+                   currPosT0 + begCurrPosIndex * currPosDt);
+  time2 = std::max(currQuatT0 + endCurrQuatIndex * currQuatDt, 
+                   currPosT0 + endCurrPosIndex * currPosDt);
   
   std::cout << "--2 times are " << time1 << ' ' << time2 << std::endl;
   
   // Ref quaternions
-  int ref_numQuat   = ref_ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
-  double ref_quatT0 = ref_ls_model->m_t0Quat;
-  double ref_quatDt = ref_ls_model->m_dtQuat;
-  calcIndexBounds(time1, time2, ref_quatT0, ref_quatDt, ref_numQuat, 
+  int numRefQuat   = ref_ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+  double refQuatT0 = ref_ls_model->m_t0Quat;
+  double refQuatDt = ref_ls_model->m_dtQuat;
+  int begRefQuatIndex = -1, endRefQuatIndex = -1;
+  calcIndexBounds(time1, time2, refQuatT0, refQuatDt, numRefQuat, 
                   begRefQuatIndex, endRefQuatIndex); // outputs
   
   // Ref positions
-  int ref_numPos   = ref_ls_model->m_positions.size() / NUM_XYZ_PARAMS;
-  double ref_posT0 = ref_ls_model->m_t0Ephem;
-  double ref_posDt = ref_ls_model->m_dtEphem;
-  calcIndexBounds(time1, time2, ref_posT0, ref_posDt, ref_numPos, 
+  int numRefPos   = ref_ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+  double refPosT0 = ref_ls_model->m_t0Ephem;
+  double refPosDt = ref_ls_model->m_dtEphem;
+  int begRefPosIndex = -1, endRefPosIndex = -1;
+  calcIndexBounds(time1, time2, refPosT0, refPosDt, numRefPos, 
                   begRefPosIndex, endRefPosIndex); // outputs
   
   std::cout << "--ref beg and end quat index: " << begRefQuatIndex << ' ' << endRefQuatIndex << std::endl;
   std::cout << "--ref beg and end pos index: " << begRefPosIndex << ' ' << endRefPosIndex << std::endl;
-   
   std::cout << "--now in addRigLsLsReprojectionErr--\n";
-  exit(0);
+  // Quantities not applicable here
+  UsgsAstroFrameSensorModel * curr_frame_model = NULL; 
   
-  
+  ceres::CostFunction* pixel_cost_function =
+    RigLsPixelReprojErr::Create(curr_pix, weight, rig_cam_info, ref_ls_model,
+                                curr_frame_model, curr_ls_model, 
+                                begRefQuatIndex, endRefQuatIndex,
+                                begRefPosIndex, endRefPosIndex,
+                                begCurrQuatIndex, endCurrQuatIndex,
+                                begCurrPosIndex, endCurrPosIndex);
+  ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
+
+  // The variable of optimization are camera quaternions and positions stored in the
+  // camera models, the triangulated point, and the rig transform.
+  std::vector<double*> vars;
+  for (int it = begRefQuatIndex; it < endRefQuatIndex; it++)
+    vars.push_back(&ref_ls_model->m_quaternions[it * NUM_QUAT_PARAMS]);
+  for (int it = begRefPosIndex; it < endRefPosIndex; it++)
+    vars.push_back(&ref_ls_model->m_positions[it * NUM_XYZ_PARAMS]);
+  vars.push_back(tri_point);
+  vars.push_back(ref_to_curr_trans); // transform from ref to curr sensor on the rig
+  problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
 }
 
 } // end namespace asp
