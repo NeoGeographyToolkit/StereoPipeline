@@ -71,13 +71,23 @@ void populateRigCamInfo(rig::RigSet const& rig,
                         std::vector<RigCamInfo> & rig_cam_info,
                         std::vector<double>     & ref_to_curr_sensor_vec);
 
-// Given a linescan camera and the transform from it to the current camera,
-// find the current camera to world transform as an array.
-void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ls_cam,
-                               const asp::RigCamInfo & rig_cam_info,
+// Given a reference linescan camera and the transform from it to the current
+// camera, find the current camera to world transform as an array.
+void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ref_ls_cam,
+                               double curr_time,
                                double const* ref_to_curr_trans,
                                // Output
                                double * cam2world_arr);
+
+// Given a reference linescan camera and the transform from it to the current
+// linescan camera, update the the current camera poses within the given range.
+void updateLinescanWithRig(const UsgsAstroLsSensorModel & ref_ls_cam,
+                           double const* ref_to_curr_trans,
+                           UsgsAstroLsSensorModel & curr_ls_cam, // update this
+                           // Range of quat and position indices to update.
+                           // The default is to update all.
+                           int beg_quat_index = -1, int end_quat_index = -1,
+                           int beg_pos_index = -1, int end_pos_index = -1);
 
 } // end namespace asp
 

@@ -381,10 +381,10 @@ void populateRigCamInfo(rig::RigSet const& rig,
   calcRigTransforms(rig, csm_models, rig_cam_info, ref_to_curr_sensor_vec);
 }
 
-// Given a linescan camera and the transform from it to the current camera,
-// find the current camera to world transform as an array.
-void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ls_cam,
-                               const asp::RigCamInfo & rig_cam_info,
+// Given a reference linescan camera and the transform from it to the current
+// camera, find the current camera to world transform as an array.
+void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ref_ls_cam,
+                               double curr_time,
                                double const* ref_to_curr_trans,
                                // Output
                                double * cam2world_arr) {
@@ -392,14 +392,11 @@ void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ls_cam,
   Eigen::Affine3d ref_to_curr_trans_aff;
   rig::array_to_rigid_transform(ref_to_curr_trans_aff, ref_to_curr_trans);
   
-  // The time at which the pixel is seen
-  double frame_time = rig_cam_info.beg_pose_time;
-
   // The transform from the reference camera to the world. We assume
   // the linescan and frame cameras use the same clock.
   double ref_pos[3], ref_q[4];  
-  asp::interpPositions(&ls_cam, frame_time, ref_pos);
-  asp::interpQuaternions(&ls_cam, frame_time, ref_q);  
+  asp::interpPositions(&ref_ls_cam, curr_time, ref_pos);
+  asp::interpQuaternions(&ref_ls_cam, curr_time, ref_q);  
   Eigen::Affine3d ref_cam2world 
       = asp::calcTransform(ref_pos[0], ref_pos[1], ref_pos[2],
                             ref_q[0], ref_q[1], ref_q[2], ref_q[3]);
@@ -408,6 +405,54 @@ void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ls_cam,
 
   // Convert to an array
   rig::rigid_transform_to_array(cam2world, cam2world_arr);
+}
+
+// Given a reference linescan camera and the transform from it to the current
+// linescan camera, update the the current camera poses within the given range.
+void updateLinescanWithRig(const UsgsAstroLsSensorModel & ref_ls_cam,
+                           double const* ref_to_curr_trans,
+                           UsgsAstroLsSensorModel & curr_ls_cam, // update this
+                           // Range of quat and position indices to update.
+                           // The default is to update all.
+                           int beg_quat_index, int end_quat_index,
+                           int beg_pos_index, int end_pos_index) {
+
+  // See if have to update the whole range of quats and positions
+  if (beg_quat_index < 0 || end_quat_index < 0) {
+    beg_quat_index = 0;
+    end_quat_index = curr_ls_cam.m_quaternions.size() / NUM_QUAT_PARAMS;
+  }
+  if (beg_pos_index < 0 || end_pos_index < 0) {
+    beg_pos_index = 0;
+    end_pos_index = curr_ls_cam.m_positions.size() / NUM_XYZ_PARAMS;
+  }
+  
+  std::vector<double> cam2world_vec(rig::NUM_RIGID_PARAMS);
+  double currQuatT0 = curr_ls_cam.m_t0Quat;
+  double currQuatDt = curr_ls_cam.m_dtQuat;
+  double currPosT0  = curr_ls_cam.m_t0Ephem;
+  double currPosDt  = curr_ls_cam.m_dtEphem;
+  
+  // Update the quaternions
+  for (int qi = beg_quat_index; qi < end_quat_index; qi++) {
+    double t = currQuatT0 + qi * currQuatDt;
+    asp::linescanToCurrSensorTrans(ref_ls_cam, t, ref_to_curr_trans,
+                                   &cam2world_vec[0]); // output
+    for (int coord = 0; coord < NUM_QUAT_PARAMS; coord++)
+      curr_ls_cam.m_quaternions[qi * NUM_QUAT_PARAMS + coord] 
+        = cam2world_vec[coord + NUM_XYZ_PARAMS];
+  }
+
+  // Update the positions
+  for (int pi = beg_pos_index; pi < end_pos_index; pi++) {
+    double t = currPosT0 + pi * currPosDt;
+    asp::linescanToCurrSensorTrans(ref_ls_cam, t,
+                                  ref_to_curr_trans,
+                                  &cam2world_vec[0]); // output
+    for (int coord = 0; coord < NUM_XYZ_PARAMS; coord++)
+      curr_ls_cam.m_positions[pi * NUM_XYZ_PARAMS + coord] 
+      = cam2world_vec[coord];
+  }  
 }
 
 } // end namespace asp

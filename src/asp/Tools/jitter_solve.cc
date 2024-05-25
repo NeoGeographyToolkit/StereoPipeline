@@ -1082,10 +1082,9 @@ void run_jitter_solve(int argc, char* argv[]) {
     vw_out() << "Found a valid solution, but did not reach the actual minimum. "
              << "This is expected, and likely the produced solution is good enough.\n";
 
-  // With the problem solved, update camera_models based on frame_params.
-  // With a rig, update frame_params first. Applies only to frame cameras, if any.
-  updateFrameCameras(have_rig, rig, rig_cam_info, ref_to_curr_sensor_vec, 
-                     csm_models, frame_params);  
+  // Update the cameras given the optimized parameters
+  updateCameras(have_rig, rig, rig_cam_info, ref_to_curr_sensor_vec, 
+                csm_models, frame_params);  
 
   // By now the cameras have been updated in-place. Compute the optimized
   // camera centers.

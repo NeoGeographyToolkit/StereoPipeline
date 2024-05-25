@@ -134,27 +134,40 @@ bool RigLsPixelReprojErr::operator()(double const * const * parameters,
     shift += 1;
     double const* ref_to_curr_trans = parameters[shift];
     
+    std::vector<double> cam2world_vec(rig::NUM_RIGID_PARAMS);
+    
     // Project in the camera with high precision. Do not use here anything lower
     // than 1e-8, as the CSM model can return junk. Convert to ASP pixel.
     double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
     csm::ImageCoord imagePt;
     if (m_curr_frame_model != NULL) {
-      
       // Current camera to world transform based on the ref cam and the rig
-      std::vector<double> cam2world_vec(rig::NUM_RIGID_PARAMS);
-      asp::linescanToCurrSensorTrans(ref_ls_cam, m_rig_cam_info, ref_to_curr_trans,
-                                    &cam2world_vec[0]); // output
+      asp::linescanToCurrSensorTrans(ref_ls_cam, m_rig_cam_info.beg_pose_time, 
+                                     ref_to_curr_trans,
+                                     &cam2world_vec[0]); // output
     
       // Make a copy of the frame camera and set the latest position and orientation
-      UsgsAstroFrameSensorModel frame_cam = *m_curr_frame_model;
+      UsgsAstroFrameSensorModel curr_frame_cam = *m_curr_frame_model;
       for (int coord = 0; coord < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; coord++)
-        frame_cam.setParameterValue(coord, cam2world_vec[coord]);
+        curr_frame_cam.setParameterValue(coord, cam2world_vec[coord]);
       
       // Project the point into the frame camera
-      imagePt = frame_cam.groundToImage(P, desired_precision);
+      imagePt = curr_frame_cam.groundToImage(P, desired_precision);
       
     } else if (m_curr_ls_model != NULL) {
-      vw::vw_throw(vw::ArgumentErr() << "Not implemented yet.\n");
+      // Make a copy of the current linescan camera
+      UsgsAstroLsSensorModel curr_ls_cam = *m_curr_ls_model;
+
+      // Update the relevant quaternions in the local copy by interpolating
+      // in the ref camera model and applying the rig transform.
+      asp::updateLinescanWithRig(ref_ls_cam, ref_to_curr_trans, 
+                                 curr_ls_cam, // update this
+                                 m_begCurrQuatIndex, m_endCurrQuatIndex,
+                                 m_begCurrPosIndex, m_endCurrPosIndex);
+
+      // Project the point into the frame camera
+      imagePt = curr_ls_cam.groundToImage(P, desired_precision);
+      
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Expecting either a frame or a linescan model.\n");
     }
@@ -279,8 +292,6 @@ void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
   asp::toCsmPixel(curr_pix + vw::Vector2(0.0, line_extra), imagePt2);
   double time1 = curr_ls_model->getImageTime(imagePt1);
   double time2 = curr_ls_model->getImageTime(imagePt2);
-
-  std::cout << "--times are " << time1 << ' ' << time2 << std::endl;
   
   // Find the range of indices that can affect the current pixel
   int numCurrQuat       = curr_ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
@@ -297,10 +308,7 @@ void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
   int begCurrPosIndex = -1, endCurrPosIndex = -1;
   calcIndexBounds(time1, time2, currPosT0, currPosDt, numCurrPos, 
                   begCurrPosIndex, endCurrPosIndex); // outputs
-  
-  std::cout << "--beg and end quat index: " << begCurrQuatIndex << ' ' << endCurrQuatIndex << std::endl;
-  std::cout << "--beg and end pos index: " << begCurrPosIndex << ' ' << endCurrPosIndex << std::endl;
-  
+
   // This should not be strictly necessary, but an investigation to validate
   // this is not yet done. Expand, just in case.
   begCurrQuatIndex--; endCurrQuatIndex++;
@@ -316,8 +324,6 @@ void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
                    currPosT0 + begCurrPosIndex * currPosDt);
   time2 = std::max(currQuatT0 + endCurrQuatIndex * currQuatDt, 
                    currPosT0 + endCurrPosIndex * currPosDt);
-  
-  std::cout << "--2 times are " << time1 << ' ' << time2 << std::endl;
   
   // Ref quaternions
   int numRefQuat   = ref_ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
@@ -335,9 +341,6 @@ void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
   calcIndexBounds(time1, time2, refPosT0, refPosDt, numRefPos, 
                   begRefPosIndex, endRefPosIndex); // outputs
   
-  std::cout << "--ref beg and end quat index: " << begRefQuatIndex << ' ' << endRefQuatIndex << std::endl;
-  std::cout << "--ref beg and end pos index: " << begRefPosIndex << ' ' << endRefPosIndex << std::endl;
-  std::cout << "--now in addRigLsLsReprojectionErr--\n";
   // Quantities not applicable here
   UsgsAstroFrameSensorModel * curr_frame_model = NULL; 
   

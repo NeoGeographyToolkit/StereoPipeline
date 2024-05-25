@@ -68,18 +68,13 @@ void formPositionQuatVecPerGroup(std::map<int, int> const& orbital_groups,
 void initFrameCameraParams(std::vector<asp::CsmModel*> const& csm_models,
   std::vector<double> & frame_params); // output
 
-// Given the optimized values of the frame camera parameters, update
-// the frame camera models. If there are none, do nothing. This modifies
-// the csm_models. With a rig, frame_params get updated too.
-// Given the optimized values of the frame camera parameters, update
-// the frame camera models. If there are none, do nothing. This modifies
-// the csm_models. With a rig, frame_params get updated too.
-void updateFrameCameras(bool have_rig,
-                        rig::RigSet                  const& rig,
-                        std::vector<asp::RigCamInfo> const& rig_cam_info,
-                        std::vector<double>          const& ref_to_curr_sensor_vec,
-                        std::vector<asp::CsmModel*>       & csm_models,
-                        std::vector<double>               & frame_params);
+// Update the cameras given the optimized parameters
+void updateCameras(bool have_rig,
+                   rig::RigSet                  const& rig,
+                   std::vector<asp::RigCamInfo> const& rig_cam_info,
+                   std::vector<double>          const& ref_to_curr_sensor_vec,
+                   std::vector<asp::CsmModel*>       & csm_models,
+                   std::vector<double>               & frame_params);
 
 } // end namespace asp
 
