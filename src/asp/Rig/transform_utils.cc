@@ -384,7 +384,9 @@ void calc_rig_trans(std::vector<rig::cameraImage> const& cams,
   
 // Extract a rigid transform to an array of length NUM_RIGID_PARAMS
 void rigid_transform_to_array(Eigen::Affine3d const& aff, double* arr) {
-  for (size_t it = 0; it < 3; it++) arr[it] = aff.translation()[it];
+  
+  for (size_t it = 0; it < 3; it++) 
+    arr[it] = aff.translation()[it];
 
   Eigen::Quaterniond R(aff.linear());
   arr[3] = R.x();

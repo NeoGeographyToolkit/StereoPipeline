@@ -346,8 +346,8 @@ Floating the intrinsics
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 The obtained alignment transform can be used to align the cameras as
-well, and then one can experiment with floating the intrinsics, as in
-:numref:`skysat`.
+well, and then one can experiment with floating the intrinsics.
+See :numref:`intrinsics_ground_truth`.
 
 Modeling the camera models as pinhole cameras with RPC distortion
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -596,24 +596,22 @@ Write the intersection error image to a separate file::
 Looking at the error result, it is clear that the simple pinhole model
 is not doing a good job modeling the KH7 camera. We can try to improve
 things by adding a distortion model to replace the NULL model in the
-.tsai files we are using.
+.tsai files we are using (:numref:`pinhole_distortion`):
 
 ::
 
-   BrownConrady
-   xp  = -1e-12
-   yp  = -1e-12
-   k1  = -1e-10
-   k2  = -1e-14
-   k3  = -1e-22
-   p1  = -1e-12
-   p2  = -1e-12
-   phi = -1e-12
+   TSAI
+   k1 = 1e-7
+   k2 = 1e-7
+   k3 = 1e-7
+   p1 = 1e-7
+   p2 = 1e-7
 
 Once the distortion model is added, you can use ``bundle_adjust`` to
-optimize them. See the section on solving for pinhole intrinsics in the
-KH4B example for details. We hope to provide a more rigorous method of
-modeling the KH7 camera in the future.
+optimize the intrinsics. See :numref:`intrinsics_ground_truth`.
+
+We hope to provide a more rigorous method of modeling the KH7 camera in the
+future.
 
 .. _kh9:
 

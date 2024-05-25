@@ -63,6 +63,8 @@ model creator chooses pixel units, or if measuring in millimeters or
 meters. In either case, all lengths must be consistent and the units
 documented by the model creator.
 
+.. _pinhole_distortion:
+
 Lens distortion models
 ~~~~~~~~~~~~~~~~~~~~~~
 

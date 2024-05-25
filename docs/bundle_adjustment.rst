@@ -294,14 +294,15 @@ times.
 Using ground truth when floating the intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If a point cloud having ground truth, such as a lidar file or DEM
-exists, say named ``lidar.csv``, it can be used as part of bundle
+If a point cloud having ground truth, such as a DEM or lidar file
+exists, say named ``ref.tif``, it can be used as part of bundle
 adjustment. For that, the stereo DEM obtained earlier 
 needs to be first aligned to this ground truth, such as::
 
-    pc_align --max-displacement VAL run_stereo/run-DEM.tif \
-      --save-inv-transformed-reference-points              \
-      lidar.csv -o run_align/run 
+    pc_align --max-displacement VAL           \
+      run_stereo/run-DEM.tif ref.tif          \
+      --save-inv-transformed-reference-points \
+      -o run_align/run 
 
 (see the manual page of this tool in :numref:`pc_align` for more details).
 
@@ -312,14 +313,13 @@ This alignment can then be applied to the cameras as well::
        left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai \
        --apply-initial-transform-only -o run_align/run
 
-Note that your lidar file may have some conventions as to what each
-column means, and then any tools that use this cloud must set
-``--csv-format`` and perhaps also ``--datum`` and/or ``--csv-proj4``.
-
 If ``pc_align`` is called with the clouds in reverse order (the denser
 cloud should always be the first), when applying the transform to the
 cameras in ``bundle_adjust`` one should use ``transform.txt`` instead of
 ``inverse-transform.txt`` above.
+
+Note that if your ground truth is in CSV format, any tools that use this cloud
+must set ``--csv-format`` and perhaps also ``--datum`` and/or ``--csv-proj4``.
 
 See :numref:`ba_pc_align` for how to handle the case when input
 adjustments exist.
@@ -340,12 +340,12 @@ to a reference DEM, but the heights may be off. This can happen, for example,
 if the focal length or lens distortion are not accurately known. 
 
 In this case it is possible to borrow more accurate information from the
-reference DEM (see details below). The option for this is
-``--heights-from-dem``. An additional control is given, in the form of the
-option ``--heights-from-dem-uncertainty`` (1 sigma, in meters). The smaller its
-value is, the stronger the DEM constraint. This value divides the difference
-between the triangulated points being optimized and their initial value on the
-DEM when added to the cost function (:numref:`how_ba_works`). 
+reference DEM. The option for this is ``--heights-from-dem``. An additional
+control is given, in the form of the option ``--heights-from-dem-uncertainty``
+(1 sigma, in meters). The smaller its value is, the stronger the DEM constraint.
+This value divides the difference between the triangulated points being
+optimized and their initial value on the DEM when added to the cost function
+(:numref:`how_ba_works`). 
 
 The option ``--heights-from-dem-robust-threshold`` ensures that these weighted
 differences plateau at a certain level and do not dominate the problem. The
@@ -357,8 +357,8 @@ instead ``--heights-from-dem-uncertainty``.
 If a triangulated point is not close to the reference DEM, bundle adjustment
 falls back to the ``--tri-weight`` constraint.
 
-Here is an example, and note that, as in the earlier section,
-we assume that the cameras and the terrain are already aligned::
+Here is an example. As in the earlier section, *we assume that the cameras and
+the terrain are already aligned*::
 
      bundle_adjust -t nadirpinhole                   \
        --inline-adjustments                          \
@@ -379,8 +379,8 @@ outliers, as the input DEM may not be that accurate, and then if tying
 too much to it some valid matches be be flagged as outliers otherwise,
 perhaps.
 
-It is suggested to use dense interest points as above (and adjust
-``--max-pairwise-matches`` to not throw some of them out). We set
+It is suggested to use dense interest points (:numref:`dense_ip`), and adjust
+``--max-pairwise-matches`` to not throw some of them out. We set
 ``--camera-position-weight 0``, as hopefully the DEM constraint is enough to
 constrain the solution.
 
@@ -398,10 +398,9 @@ DEM with better accuracy.
 This option can be more effective than using ``--reference-terrain`` when there
 is a large uncertainty in camera intrinsics.
 
-See two other large-scale examples of using this option, without
-floating the intrinsics, in the SkySat processing example
-(:numref:`skysat`), using Pinhole cameras, and with 
-linescan Lunar images with variable illumination
+See two other large-scale examples of using ``--heights-from-dem``, without
+floating the intrinsics, in the SkySat processing example (:numref:`skysat`),
+using Pinhole cameras, and with linescan Lunar images with variable illumination
 (:numref:`sfs-lola`).
 
 Here we assumed all intrinsics are shared. See
@@ -437,7 +436,7 @@ follows::
        run_stereo/run               
 
 and then bundle adjustment can be invoked with this disparity and the
-lidar/DEM file. Note that we use the cameras obtained after alignment::
+DEM/lidar file. Note that we use the cameras obtained after alignment::
 
      bundle_adjust -t nadirpinhole --inline-adjustments         \
        --solve-intrinsics --camera-position-weight 0            \
@@ -745,6 +744,9 @@ as::
 
 It is likely better, however, to ensure there is a lot of overlap between the
 input images and use the stereo DEM mosaic rather than LOLA.
+
+*The process will fail if the DEM that is used as a constraint is misaligned
+with the cameras.* Alignment is discussed in :numref:`intrinsics_ground_truth`.
  
 It is useful to subtract each DEM from the mosaic using ``geodiff``
 (:numref:`geodiff`)::
@@ -1116,13 +1118,13 @@ or::
 Only the second approach is supported with mapprojected images. See
 :numref:`triangulation_options` for more details. 
 
-The produced interest points must be renamed to the *standard convention* and
+The produced interest points *must be renamed to the standard convention* and
 reflect the names of the raw images, not the mapprojected ones
 (:numref:`ba_match_files`), then passed to ``bundle_adjust`` via the
 ``--match-files-prefix`` option.
 
 Invoke ``bundle_adjust`` with an option along the lines of
-``--max-pairwise-matches 10000`` (or larger) to ensure that on reading the
+``--max-pairwise-matches 20000`` (or larger) to ensure that on reading the
 interest points the full set is kept. 
 
 Interest points from mapprojected images
