@@ -1197,8 +1197,9 @@ It is very important for the input distortion coefficients to be manually
 modified so they are on the order of 1e-7 or more, as otherwise they will be
 hard to optimize and may stay small.
 
-See :numref:`kaguya_ba` for how to to optimize the lens distortion. It is
-suggested to use interest point matches from disparity (:numref:`dense_ip`).
+See :numref:`intrinsics_ground_truth` and :numref:`kaguya_ba` for examples of
+how to to optimize the lens distortion. It is suggested to use interest point
+matches from disparity (:numref:`dense_ip`).
 
 .. figure:: images/biradial_err_rpc.png
 

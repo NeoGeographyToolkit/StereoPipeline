@@ -380,10 +380,12 @@ but hopefully not too large. The ``pc_align`` tool can be used to make
 this DEM aligned to the reference DEM.
 
 Next, one follows the same process as outlined in :numref:`skysat` and
-:numref:`floatingintrinsics` to refine the RPC
-coefficients. We will float the RPC coefficients of the left and right
-images independently, as they are unrelated. Hence the command we will
-use is::
+:numref:`floatingintrinsics` to refine the RPC coefficients. It is suggested to
+use the ``--heights-from-dem`` option as in that example. Here we use the more
+complicated ``--reference-terrain`` option. 
+
+We will float the RPC coefficients of the left and right images independently,
+as they are unrelated. Hence the command we will use is::
 
      bundle_adjust for_small.tif aft_small.tif                       \
        for_small_rpc.tsai aft_small_rpc.tsai                         \
@@ -400,17 +402,16 @@ use is::
        --intrinsics-to-float other_intrinsics --robust-threshold 10  \
        --initial-transform pc_align/run-transform.txt
 
-Here it is suggested to use a match file with dense interest points. The
-initial transform is the transform written by ``pc_align`` applied to
-the reference terrain and the DEM obtained with the camera models
-``for_small_rpc.tsai`` and ``aft_small_rpc.tsai`` (with the reference
-terrain being the first of the two clouds passed to the alignment
-program). The unaligned disparity in the disparity list should be from
-the stereo run with these initial guess camera models (hence stereo
-should be used with the ``--unalign-disparity`` option). It is suggested
-that the optical center and focal lengths of the two cameras be kept
-fixed, as RPC distortion should be able model any changes in those
-quantities as well.
+Here it is suggested to use a match file with dense interest points
+(:numref:`dense_ip`). The initial transform is the transform written by
+``pc_align`` applied to the reference terrain and the DEM obtained with the
+camera models ``for_small_rpc.tsai`` and ``aft_small_rpc.tsai`` (with the
+reference terrain being the first of the two clouds passed to the alignment
+program). The unaligned disparity in the disparity list should be from the
+stereo run with these initial guess camera models (hence stereo should be used
+with the ``--unalign-disparity`` option). It is suggested that the optical
+center and focal lengths of the two cameras be kept fixed, as RPC distortion
+should be able model any changes in those quantities as well.
 
 One can also experiment with the option ``--heights-from-dem`` instead
 of ``--reference-terrain``. The former seems to be able to handle better
@@ -543,19 +544,24 @@ each camera using the GCPs.
       --ip-detect-method 1 -o bundle_6001/out     \
       --max-iterations 30 --fix-gcp-xyz
 
-At this point it is a good idea to experiment with downsampled copies of
-the input images before running processing with the full size images.
-You can generate these using ``stereo_gui``. Also make copies of the
-camera model files and scale the pitch to match the
-downsample amount. 
+Check the GCP pixel residulas at the end of the produced resusual file
+(:numref:`ba_err_per_point`).
 
+At this point it is a good idea to experiment with lower-resolution copies of
+the input images before running processing with the full size images. You can
+generate these using ``stereo_gui``
 ::
 
      stereo_gui 5001.tif 6001.tif --create-image-pyramids-only
      ln -s 5001_sub16.tif  5001_small.tif
      ln -s 6001_sub16.tif  6001_small.tif
+     
+Make copies of the camera files for the smaller images::
+     
      cp 5001.tsai  5001_small.tsai
      cp 6001.tsai  6001_small.tsai
+
+Multiply the pitch in the produced cameras by the resolution scale factor.
 
 Now we can run ``bundle_adjust`` and ``parallel_stereo``. If you are using the
 GCPs from earlier, the pixel values will need to be scaled to match the
@@ -589,6 +595,15 @@ It is suggested to run stereo with mapprojected images
 (:numref:`mapproj-example`). See also :numref:`nextsteps` for a
 discussion about various speed-vs-quality choices in stereo.
 
+.. figure:: ../images/kh7_dem.png
+
+  An example of a DEM created from KH-7 images without modeling distortion
+  (left, inside the green polygon), on top of a known DEM. The elevation range
+  is 738 to 3363 meters. This is at 1/16 the resolution of the original images,
+  so some noise is expected. On the right is the intersection error image. The
+  location seems to be about right, but there are strong nonlinear effects in
+  the elevations and the intersection error.
+
 Write the intersection error image to a separate file::
 
      gdal_translate -b 4 st_small_new/out-PC.tif st_small_new/error.tif
@@ -608,7 +623,10 @@ things by adding a distortion model to replace the NULL model in the
    p2 = 1e-7
 
 Once the distortion model is added, you can use ``bundle_adjust`` to
-optimize the intrinsics. See :numref:`intrinsics_ground_truth`.
+optimize the intrinsics. See :numref:`intrinsics_ground_truth`. 
+ASP's most advanced model is RPC (:numref:`ba_rpc_distortion`).
+Here likely a separate RPC model will be needed for each image.
+It is not clear how much it will improve the results.
 
 We hope to provide a more rigorous method of modeling the KH7 camera in the
 future.
