@@ -597,7 +597,7 @@ discussion about various speed-vs-quality choices in stereo.
    :name: kh7_fig
    
    An example of a DEM created from KH-7 images without modeling distortion
-   (left, inside the green polygon), and after using RPC to model distortion
+   (left, inside the green polygon), and after modeling distortion with RPC
    (right), on top of a reference terrain. The elevation range is 738 to 3363
    meters. This is at 1/16 the resolution of the original images, so some noise
    is expected. The RPC model greatly reduces the disagreement with the reference,
