@@ -429,12 +429,10 @@ Declassified satellite images: KH-7
 
 KH-7 was an effective observation satellite that followed the Corona
 program. It contained an index (frame) camera and a single strip
-(pushbroom) camera. ASP does not currently have a dedicated camera model for
-this camera, so we will have to try to approximate it with a pinhole
-model. 
+(pushbroom) camera. 
 
-Without a dedicated solution for this camera, the solution may be adequate only
-*near the central region of the image*.
+ASP has *no exact camera model for this camera.* Approximate solutions are shown
+in :numref:`kh7_fig`.
 
 For this example we find the following images in Earth Explorer
 declassified collection 2::
@@ -487,7 +485,7 @@ for how to install the ImageMagick software that it needs.
        --input-path DZB00401800038H026001.tif                            \
        --output-path 6001.tif
 
-We will try to approximate the KH7 camera using a pinhole model. The
+We will try to approximate the KH-7 camera using a pinhole model. The
 pitch of the image is determined by the scanner, which is 7.0e-06 meters
 per pixel. The focal length of the camera is reported to be 1.96 meters,
 and we will set the optical center at the center of the image. We need
@@ -596,40 +594,51 @@ It is suggested to run stereo with mapprojected images
 discussion about various speed-vs-quality choices in stereo.
 
 .. figure:: ../images/kh7_dem.png
+   :name: kh7_fig
+   
+   An example of a DEM created from KH-7 images without modeling distortion
+   (left, inside the green polygon), and after using RPC to model distortion
+   (right), on top of a reference terrain. The elevation range is 738 to 3363
+   meters. This is at 1/16 the resolution of the original images, so some noise
+   is expected. The RPC model greatly reduces the disagreement with the reference,
+   but a closer inspection still shows systematic differences. 
 
-  An example of a DEM created from KH-7 images without modeling distortion
-  (left, inside the green polygon), on top of a known DEM. The elevation range
-  is 738 to 3363 meters. This is at 1/16 the resolution of the original images,
-  so some noise is expected. On the right is the intersection error image. The
-  location seems to be about right, but there are strong nonlinear effects in
-  the elevations and the intersection error.
+The above figure shows the effect of modeling distortion using RPC
+(:numref:`ba_rpc_distortion`). The approach was to first create the RPC
+distortion models with ``convert_pinhole_model``
+(:numref:`convert_pinhole_model`). Polynomials of degree 3 were used. Then, the
+camera files were manually modified to set the very small distortion
+coefficients to 1e-7, as otherwise they would not get optimized. 
 
-Write the intersection error image to a separate file::
+The optimization was as in :numref:`heights_from_dem`, with the precise
+command::
 
-     gdal_translate -b 4 st_small_new/out-PC.tif st_small_new/error.tif
+    bundle_adjust                            \
+      left.tif right.tif                     \
+      left.tsai right.tsai                   \
+      --inline-adjustments                   \
+      --solve-intrinsics                     \
+      --intrinsics-to-float distortion       \
+      --intrinsics-to-share none             \
+      --num-iterations 10                    \
+      --match-files-prefix dense_matches/run \
+      --max-pairwise-matches 40000           \
+      --remove-outliers-params               \
+        '75.0 3.0 100 100'                   \
+      --heights-from-dem ref.tif             \
+      --heights-from-dem-uncertainty 500     \
+      -o ba/run 
+    
+Dense interest point matches were employed (:numref:`dense_ip`). 
 
-Looking at the error result, it is clear that the simple pinhole model
-is not doing a good job modeling the KH7 camera. We can try to improve
-things by adding a distortion model to replace the NULL model in the
-.tsai files we are using (:numref:`pinhole_distortion`):
+Alignment of the cameras to the reference was done both before and after
+optimizing the distortion. 
 
-::
-
-   TSAI
-   k1 = 1e-7
-   k2 = 1e-7
-   k3 = 1e-7
-   p1 = 1e-7
-   p2 = 1e-7
-
-Once the distortion model is added, you can use ``bundle_adjust`` to
-optimize the intrinsics. See :numref:`intrinsics_ground_truth`. 
-ASP's most advanced model is RPC (:numref:`ba_rpc_distortion`).
-Here likely a separate RPC model will be needed for each image.
-It is not clear how much it will improve the results.
-
-We hope to provide a more rigorous method of modeling the KH7 camera in the
-future.
+It is likely a complete calibration of the KH-7 cameras can be performed with
+RPC distortion if multiple stereo pairs (acquired with precisely the same camera
+from the KH-7 family) are simultaneously optimized. One could then also try to
+use ``--intrinsics-to-share all``, and to also refine the optical center and
+focal length.
 
 .. _kh9:
 

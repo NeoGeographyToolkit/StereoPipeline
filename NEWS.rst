@@ -140,7 +140,9 @@ bundle_adjust (:numref:`bundle_adjust`):
     invalid*.
   * RPC undistortion is now done with a solver rather than using separate
     undistortion coefficients. This much more accurate but slower.
-    (:numref:`pinholemodels`.) 
+    (:numref:`pinholemodels`.)
+  * Added an example of using RPC distortion for KH-7 cameras, for which 
+  * an exact model is not available (:numref:`kh7_fig`).
   * Ensure that outlier filtering with ``--min-triangulation-angle`` is done
     after each pass with refined cameras and for all ways of reading a control
     network.  
