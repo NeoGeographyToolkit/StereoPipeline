@@ -34,6 +34,7 @@
 #include <asp/Core/StereoSettings.h>
 
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Camera/LensDistortion.h>
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Camera/CameraImage.h>
 
@@ -188,11 +189,8 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BAParams & param_stor
 
     PinholeModel* in_cam  = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
 
-    // Start with a copy of the input camera. Then overwrite its parameters.
-    // Note that out_cam originally shares the distortion with in_cam, as
-    // that one is a pointer. But the second line below takes care of that.
-    // This is awkward. An object having members as pointers is not safe.
-    PinholeModel* out_cam = new PinholeModel(*in_cam);
+    // Start with a deep copy of the input camera. Then overwrite its parameters.
+    PinholeModel* out_cam = new PinholeModel(*in_cam); // deep copy
     *out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
 
     new_cam_models[icam] = vw::CamPtr(out_cam);
@@ -1436,6 +1434,307 @@ void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
                << " triangulated points out of " << num_pts
                << " (" << (100.0 * num_outliers_by_conv_angle) / num_pts << "%)" 
                << " by ray convergence angle.\n";
+}
+
+// TODO(oalexan1): Must check with no pinhole distortion
+
+void get_optical_center(vw::camera::CameraModel const* cam, vw::Vector2 & center) {
+  
+  // Cast to pinhole model
+  vw::camera::PinholeModel const* pin_ptr 
+    = dynamic_cast<vw::camera::PinholeModel const*>(cam);
+  if (pin_ptr != NULL) {
+    center = pin_ptr->point_offset();
+    return;
+  }
+  
+  // Cast to optical bar model
+  vw::camera::OpticalBarModel const* bar_ptr 
+    = dynamic_cast<vw::camera::OpticalBarModel const*>(cam);
+  if (bar_ptr != NULL) {
+    center = bar_ptr->get_optical_center();
+    return;
+  }  
+  
+  // Cast to CSM model
+  asp::CsmModel const* csm_ptr = dynamic_cast<asp::CsmModel const*>(cam);
+  if (csm_ptr != NULL) {
+    center = csm_ptr->optical_center();
+    return;
+  }
+  
+  // If we get here, the camera type is not recognized
+  vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in get_optical_center().\n");
+}
+
+void set_optical_center(vw::camera::CameraModel* cam, vw::Vector2 const& center) {
+  
+  // Cast to pinhole model
+  vw::camera::PinholeModel* pin_ptr 
+    = dynamic_cast<vw::camera::PinholeModel*>(cam);
+  if (pin_ptr != NULL) {
+    pin_ptr->set_point_offset(center);
+    return;
+  }
+  
+  // Cast to optical bar model
+  vw::camera::OpticalBarModel* bar_ptr 
+    = dynamic_cast<vw::camera::OpticalBarModel*>(cam);
+  if (bar_ptr != NULL) {
+    bar_ptr->set_optical_center(center);
+    return;
+  }  
+  
+  // Cast to CSM model
+  asp::CsmModel* csm_ptr = dynamic_cast<asp::CsmModel*>(cam);
+  if (csm_ptr != NULL) {
+    csm_ptr->set_optical_center(center);
+    return;
+  }
+  
+  // If we get here, the camera type is not recognized
+  vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in set_optical_center().\n");
+}
+
+// Get the focal length
+void get_focal_length(vw::camera::CameraModel const* cam, double & focal) {
+  
+  // Cast to pinhole model
+  vw::camera::PinholeModel const* pin_ptr 
+    = dynamic_cast<vw::camera::PinholeModel const*>(cam);
+  if (pin_ptr != NULL) {
+    focal = pin_ptr->focal_length()[0];
+    return;
+  }
+  
+  // Cast to optical bar model
+  vw::camera::OpticalBarModel const* bar_ptr 
+    = dynamic_cast<vw::camera::OpticalBarModel const*>(cam);
+  if (bar_ptr != NULL) {
+    focal = bar_ptr->get_focal_length();
+    return;
+  }  
+  
+  // Cast to CSM model
+  asp::CsmModel const* csm_ptr = dynamic_cast<asp::CsmModel const*>(cam);
+  if (csm_ptr != NULL) {
+    focal = csm_ptr->focal_length();
+    return;
+  }
+  
+  // If we get here, the camera type is not recognized
+  vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in get_focal_length().\n");
+}
+ 
+// Set the focal length
+void set_focal_length(vw::camera::CameraModel* cam, double const& focal) {
+  
+  // Cast to pinhole model
+  vw::camera::PinholeModel* pin_ptr 
+    = dynamic_cast<vw::camera::PinholeModel*>(cam);
+  if (pin_ptr != NULL) {
+    pin_ptr->set_focal_length(vw::Vector2(focal, focal));
+    return;
+  }
+  
+  // Cast to optical bar model
+  vw::camera::OpticalBarModel* bar_ptr 
+    = dynamic_cast<vw::camera::OpticalBarModel*>(cam);
+  if (bar_ptr != NULL) {
+    bar_ptr->set_focal_length(focal);
+    return;
+  }  
+  
+  // Cast to CSM model
+  asp::CsmModel* csm_ptr = dynamic_cast<asp::CsmModel*>(cam);
+  if (csm_ptr != NULL) {
+    csm_ptr->set_focal_length(focal);
+    return;
+  }
+  
+  // If we get here, the camera type is not recognized
+  vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in set_focal_length().\n");
+}  
+
+void get_distortion(vw::camera::CameraModel const* cam, vw::Vector<double> &dist) {
+  
+  // Cast to pinhole model
+  vw::camera::PinholeModel const* pin_ptr 
+    = dynamic_cast<vw::camera::PinholeModel const*>(cam);
+  if (pin_ptr != NULL) {
+    dist = pin_ptr->lens_distortion()->distortion_parameters();
+    return;
+  }
+  
+  // Cast to optical bar model
+  vw::camera::OpticalBarModel const* bar_ptr 
+    = dynamic_cast<vw::camera::OpticalBarModel const*>(cam);
+  if (bar_ptr != NULL) {
+    dist.set_size(asp::NUM_OPTICAL_BAR_EXTRA_PARAMS); 
+    dist[0] = bar_ptr->get_speed();
+    dist[1] = bar_ptr->get_motion_compensation();
+    dist[2] = bar_ptr->get_scan_time();
+    return;
+  }  
+  
+  // Cast to CSM model
+  asp::CsmModel const* csm_ptr = dynamic_cast<asp::CsmModel const*>(cam);
+  if (csm_ptr != NULL) {
+    std::vector<double> csm_dist = csm_ptr->distortion();
+    dist.set_size(csm_dist.size());
+    for (size_t i = 0; i < csm_dist.size(); i++)
+      dist[i] = csm_dist[i];
+    return;
+  }
+  
+  // If we get here, the camera type is not recognized
+  vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in get_distortion().\n");
+}  
+
+// Set the distortion. The underlying model must already have distortion of this size.
+void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist) {
+  
+  // Cast to pinhole model
+  vw::camera::PinholeModel* pin_ptr 
+    = dynamic_cast<vw::camera::PinholeModel*>(cam);
+  if (pin_ptr != NULL) {
+    boost::shared_ptr<LensDistortion> distortion = pin_ptr->lens_distortion()->copy();
+    if (dist.size() != distortion->distortion_parameters().size())
+      vw::vw_throw(vw::ArgumentErr() << "Expecting " 
+                   << distortion->distortion_parameters().size() 
+                   << " distortion parameters for a pinhole model.\n");
+    distortion->set_distortion_parameters(dist);
+    pin_ptr->set_lens_distortion(distortion.get());
+    return;
+  }
+  
+  // Cast to optical bar model
+  vw::camera::OpticalBarModel* bar_ptr 
+    = dynamic_cast<vw::camera::OpticalBarModel*>(cam);
+  if (bar_ptr != NULL) {
+    if (dist.size() != asp::NUM_OPTICAL_BAR_EXTRA_PARAMS)
+      vw::vw_throw(vw::ArgumentErr() << "Expecting " << asp::NUM_OPTICAL_BAR_EXTRA_PARAMS 
+                   << " distortion parameters for an optical bar model.\n");
+    bar_ptr->set_speed(dist[0]);
+    bar_ptr->set_motion_compensation(dist[1]);
+    bar_ptr->set_scan_time(dist[2]);
+    return;
+  }
+  
+  // Cast to CSM model
+  asp::CsmModel* csm_ptr = dynamic_cast<asp::CsmModel*>(cam);
+  if (csm_ptr != NULL) {
+    std::vector<double> csm_dist = csm_ptr->distortion();
+    if (dist.size() != csm_dist.size())
+      vw::vw_throw(vw::ArgumentErr() << "Expecting " << csm_dist.size() 
+                   << " distortion parameters for a CSM model.\n");
+    for (size_t i = 0; i < dist.size(); i++)
+      csm_dist.push_back(dist[i]);
+    csm_ptr->set_distortion(csm_dist);
+    return;
+  }  
+  
+  // If we get here, the camera type is not recognized
+  vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in set_distortion().\n");
+}
+
+// If some cameras share an intrinsic parameter, that parameter must start with
+// the same value for all cameras sharing it. This is a bugfix.
+// Return true if the cameras were changed.
+bool syncUpInitialSharedParams(BACameraType camera_type, 
+                               asp::BAParams const& param_storage,
+                               std::vector<vw::CamPtr>& camera_models) {
+
+  bool cameras_changed = false;
+  
+  if (camera_type != BaCameraType_Pinhole && camera_type != BaCameraType_OpticalBar &&
+      camera_type != BaCameraType_CSM)
+    return cameras_changed; // Not applicable as not optimizing intrinsics
+    
+  // Create groups of cameras that share focal length, optical center, and distortion.
+  std::map<int, std::set<int>> focal_groups, center_groups, distortion_groups;
+  for (size_t icam = 0; icam < param_storage.num_cameras(); icam++) {
+    int focal_group      = param_storage.get_focus_offset(icam);
+    int center_group     = param_storage.get_center_offset(icam);
+    int distortion_group = param_storage.get_distortion_offset(icam);
+    focal_groups     [focal_group].insert(icam);
+    center_groups    [center_group].insert(icam);
+    distortion_groups[distortion_group].insert(icam);
+  }
+  
+  // Iterate over focus groups. Get the focus. Apply it to all cameras in the group.
+  // Print a warning if the focus is not the same for all cameras in the group.
+  bool printed_focal_warning = false;
+  for (auto const& group : focal_groups) {
+    int focus_group = group.first;
+    std::set<int> const& cams = group.second;
+    int first_index = *cams.begin();
+    double focal_length = -1.0;
+    get_focal_length(camera_models[first_index].get(), focal_length);
+    for (int icam: cams) {
+      double curr_focal_length = -1.0;
+      get_focal_length(camera_models[icam].get(), curr_focal_length);
+      if (curr_focal_length != focal_length) {
+        if (!printed_focal_warning) {
+          vw::vw_out(vw::WarningMessage)
+            << "Found cameras sharing a focal length, but different focal "
+            "lengths. Copying the value from the first camera in each group.\n";
+          printed_focal_warning = true;
+          cameras_changed = true;
+        }
+        set_focal_length(camera_models[icam].get(), focal_length);
+      }  
+    }
+  }
+  // Same for optical center
+  bool printed_center_warning = false;
+  for (auto const& group: center_groups) {
+    int center_group = group.first;
+    std::set<int> const& cams = group.second;
+    int first_index = *cams.begin();
+    vw::Vector2 optical_center = Vector2(-1, -1);
+    get_optical_center(camera_models[first_index].get(), optical_center);
+    for (int icam: cams) {
+      Vector2 curr_optical_center = Vector2(-1, -1);
+      get_optical_center(camera_models[icam].get(), curr_optical_center);
+      if (curr_optical_center != optical_center) {
+        if (!printed_center_warning) {
+          vw::vw_out(vw::WarningMessage)
+            << "Found cameras sharing an optical center, but different centers. "
+            "Copying the value from the first camera in each group.\n";
+          printed_center_warning = true;
+          cameras_changed = true;
+        }
+        set_optical_center(camera_models[icam].get(), optical_center);
+      }  
+    }
+  }
+  
+  // Same for distortion
+  bool printed_distortion_warning = false;
+  for (auto const& group: distortion_groups) {
+    int distortion_group = group.first;
+    std::set<int> const& cams = group.second;
+    int first_index = *cams.begin();
+    vw::Vector<double> distortion_params;
+    get_distortion(camera_models[first_index].get(), distortion_params);
+    for (int icam: cams) {
+      vw::Vector<double> curr_distortion_params;
+      get_distortion(camera_models[icam].get(), curr_distortion_params);
+      if (curr_distortion_params != distortion_params) {
+        if (!printed_distortion_warning) {
+          vw::vw_out(vw::WarningMessage)
+            << "Found cameras sharing a distortion model, but different distortion "
+            "parameters. Copying the value from the first camera in each group.\n";
+          printed_distortion_warning = true;
+          cameras_changed = true;
+        }
+        set_distortion(camera_models[icam].get(), distortion_params);
+      }  
+    }
+  }
+
+  return cameras_changed;
 }
 
 } // end namespace asp

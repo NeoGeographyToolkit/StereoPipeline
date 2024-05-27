@@ -145,7 +145,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     an exact model is not available (:numref:`kh7_fig`).
   * Ensure that outlier filtering with ``--min-triangulation-angle`` is done
     after each pass with refined cameras and for all ways of reading a control
-    network.  
+    network.
+  * Bugfix: if some intrinsics are shared, sync them up after optimization.
   
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).

@@ -314,6 +314,12 @@ public:
                             size_t skip=100, const std::string name="points",
                             const std::string icon =
                             "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png");
+
+  /// Compute the offset index in the intrinsics
+  size_t get_center_offset(int cam_index) const;
+  size_t get_focus_offset(int cam_index) const;
+  size_t get_distortion_offset(int cam_index) const;
+
 private: // Variables
 
   int m_num_points, m_num_cameras, m_params_per_point, m_num_pose_params;
@@ -332,14 +338,6 @@ private: // Variables
   // Raw data storage
   std::vector<double> m_points_vec, m_cameras_vec, m_intrinsics_vec;
   std::vector<bool> m_outlier_points_vec;
-
-private: // Functions
-
-  /// Compute the offset index in the intrinsics
-  size_t get_center_offset(int cam_index) const;
-  size_t get_focus_offset(int cam_index) const;
-  size_t get_distortion_offset(int cam_index) const;
-
 }; // End class BAParams
 
 // When distortion params are shared, their number must agree
@@ -422,7 +420,7 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
 void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
                                 int camera_index,
                                 asp::BAParams & param_storage);
-// This does not copy the camera position and orentation
+// This does not copy the camera position and orientation
 void pack_csm_to_arrays(asp::CsmModel const& camera,
                         int camera_index,
                         asp::BAParams & param_storage);
@@ -725,6 +723,21 @@ void initial_filter_by_proj_win(asp::BaBaseOptions          & opt,
 void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
                                       vw::ba::ControlNetwork const& cnet,
                                       asp::BAParams & param_storage);
+
+// Interface for setting/getting intrinsics for all supported camera models
+void get_optical_center(vw::camera::CameraModel const* cam, vw::Vector2 & center);
+void set_optical_center(vw::camera::CameraModel* cam, vw::Vector2 const& center);
+void get_focal_length(vw::camera::CameraModel const* cam, double & focal);
+void set_focal_length(vw::camera::CameraModel* cam, double const& focal);
+void get_distortion(vw::camera::CameraModel const* cam, vw::Vector<double> &dist);
+void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist);
+
+// If some cameras share an intrinsic parameter, that parameter must start with
+// the same value for all cameras sharing it. This is a bugfix. Return
+// true if the cameras were modified.
+bool syncUpInitialSharedParams(BACameraType camera_type, 
+                               asp::BAParams const& param_storage,
+                               std::vector<vw::CamPtr>& camera_models);
 
 } // end namespace asp
 

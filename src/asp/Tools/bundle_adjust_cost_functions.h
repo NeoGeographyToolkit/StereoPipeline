@@ -587,7 +587,6 @@ struct BaDispXyzError {
     return true;
   }
 
-
   // TODO: Should this logic live somewhere else?
   /// Create the list of residual pointers when solving for intrinsics.
   /// - Extra logic is needed to avoid duplicate pointers.
@@ -596,7 +595,6 @@ struct BaDispXyzError {
                                     bool solve_intrinsics,
                                     asp::IntrinsicOptions const& intrinsics_opt,
                                     std::vector<double*> &residual_ptrs) {
-   
     double* left_camera  = param_storage.get_camera_ptr(left_cam_index );
     double* right_camera = param_storage.get_camera_ptr(right_cam_index);
     residual_ptrs.clear();
@@ -681,7 +679,7 @@ struct BaDispXyzError {
       bool solve_intrinsics, asp::IntrinsicOptions intrinsics_opt = asp::IntrinsicOptions()) {
 
     const int NUM_RESIDUALS = 2;
-
+    
     ceres::DynamicNumericDiffCostFunction<BaDispXyzError>* cost_function =
         new ceres::DynamicNumericDiffCostFunction<BaDispXyzError>(
             new BaDispXyzError(max_disp_error, reference_terrain_weight,
@@ -707,8 +705,8 @@ struct BaDispXyzError {
       if (block_sizes.size() != 5)
         vw_throw(LogicErr() << "Error: Pinhole camera model parameter number error!");
       cost_function->AddParameterBlock(block_sizes[1]); // The camera position/pose
-      if (!intrinsics_opt.center_shared    ) cost_function->AddParameterBlock(block_sizes[2]);
-      if (!intrinsics_opt.focus_shared     ) cost_function->AddParameterBlock(block_sizes[3]);
+      if (!intrinsics_opt.center_shared) cost_function->AddParameterBlock(block_sizes[2]);
+      if (!intrinsics_opt.focus_shared) cost_function->AddParameterBlock(block_sizes[3]);
       if (!intrinsics_opt.distortion_shared) cost_function->AddParameterBlock(block_sizes[4]);
     }
     return cost_function;

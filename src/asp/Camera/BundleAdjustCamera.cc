@@ -228,7 +228,8 @@ size_t asp::BAParams::get_distortion_offset(int cam_index) const {
     if (m_intrinsics_opts.distortion_shared)
       return m_distortion_offset;
     else
-      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + m_distortion_offset;
+      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + 
+              m_distortion_offset;
   }
 
   // Share intrinsics per sensor
@@ -292,7 +293,8 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
       for (int i = 0; i < NUM_CENTER_PARAMS; i++) {
         percent = static_cast<double>(dist(m_rand_gen))/DENOM;
         if (intrinsics_index < num_intrinsics) {
-          range = intrinsic_limits[2*intrinsics_index+1] - intrinsic_limits[2*intrinsics_index];
+          range = intrinsic_limits[2*intrinsics_index+1] 
+            - intrinsic_limits[2*intrinsics_index];
           scale = percent*range + intrinsic_limits[2*intrinsics_index];
         } else
           scale = percent*DEFAULT_RANGE + DEFAULT_MIN;
@@ -471,7 +473,7 @@ void CameraAdjustment::pack_to_array(double* array) const {
     array[i + VEC_SIZE] = pose_vec[i];
   }
 }
-  
+
 void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
                             int camera_index,
                             asp::BAParams & param_storage) {

@@ -1400,6 +1400,11 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                               max_num_dist_params, 
                               opt.intrinsics_options);
 
+  // Sync up any camera intrinsics that should be shared. Do this before
+  // populating the param storage values.
+  cameras_changed = cameras_changed ||
+    syncUpInitialSharedParams(opt.camera_type, param_storage, opt.camera_models);
+ 
   // Fill in the camera and intrinsic parameters.
   std::vector<boost::shared_ptr<camera::CameraModel>> new_cam_models;
   bool ans = false;
@@ -1411,7 +1416,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     case BaCameraType_OpticalBar:
       ans = init_cams_optical_bar(opt, param_storage, 
                                   opt.initial_transform_file, opt.initial_transform,new_cam_models); break;
-    case BaCameraType_CSM:
+    case BaCameraType_CSM: // CSM while optimizing intrinsics
       ans = init_cams_csm(opt, param_storage, 
                           opt.initial_transform_file, opt.initial_transform,
                           new_cam_models); break;
