@@ -385,7 +385,10 @@ use the ``--heights-from-dem`` option as in that example. Here we use the more
 complicated ``--reference-terrain`` option. 
 
 We will float the RPC coefficients of the left and right images independently,
-as they are unrelated. Hence the command we will use is::
+as they are unrelated. The initial coefficients must be manually modified
+to be at least 1e-7, as otherwise they will not be optimized.
+
+The command we will use is::
 
      bundle_adjust for_small.tif aft_small.tif                       \
        for_small_rpc.tsai aft_small_rpc.tsai                         \
@@ -416,11 +419,14 @@ should be able model any changes in those quantities as well.
 One can also experiment with the option ``--heights-from-dem`` instead
 of ``--reference-terrain``. The former seems to be able to handle better
 large height differences between the DEM with the initial cameras and
-the reference terrain, while the former is better at refining the
+the reference terrain, while the latter is better at refining the
 solution.
 
 Then one can create a new DEM from the optimized camera models and see
 if it is an improvement.
+
+Another example of using RPC and an illustration is in
+`:numref:`kh7_fig`. 
 
 .. _kh7:
 
@@ -603,8 +609,8 @@ discussion about various speed-vs-quality choices in stereo.
    is expected. The RPC model greatly reduces the disagreement with the reference,
    but a closer inspection still shows systematic differences. 
 
-The above figure shows the effect of modeling distortion using RPC
-(:numref:`ba_rpc_distortion`). The approach was to first create the RPC
+The above figure shows the effect of modeling distortion using RPC distortion
+(:numref:`rpc_distortion`). The approach was to first create the RPC
 distortion models with ``convert_pinhole_model``
 (:numref:`convert_pinhole_model`). Polynomials of degree 3 were used. Then, the
 camera files were manually modified to set the very small distortion

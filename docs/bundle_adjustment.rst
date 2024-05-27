@@ -1198,13 +1198,14 @@ modified so they are on the order of 1e-7 or more, as otherwise they will be
 hard to optimize and may stay small.
 
 See :numref:`intrinsics_ground_truth` and :numref:`kaguya_ba` for examples of
-how to to optimize the lens distortion. It is suggested to use interest point
-matches from disparity (:numref:`dense_ip`).
+how to to optimize the lens distortion. An example specifically using RPC is in
+:numref:`kh7_fig`. It is suggested to use interest point matches from disparity
+(:numref:`dense_ip`). 
 
 .. figure:: images/biradial_err_rpc.png
 
   Triangulation error (:numref:`triangulation_error`) examples without modeling
-  distortion (top), and after optimizing the lens distortion with RPC (bottom). 
+  distortion (top), and after optimizing the lens distortion with RPC (bottom).
   
 .. _jigsaw:
 
