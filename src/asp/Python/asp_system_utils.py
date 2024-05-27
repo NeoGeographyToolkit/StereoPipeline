@@ -62,15 +62,19 @@ def get_prog_version(prog):
         raise Exception("Checking " + prog + " version caused errors")
 
     # This is a fix for sometimes GNU Parallel printing a warning at the beginning
+    found = False
     for line in out.split("\n"):
         m = re.match(r"^.*?warning", line, re.IGNORECASE)
-        if m: continue
+        if m: 
+            continue
         # This covers a version with no dots and a version like 3.0.1-alpha.
         # This is a fragile code.
         m = re.match(r"^.*? (\d[^\s]+)", line)
-        if not m:
-           raise Exception("Could not find " + prog + " version")
-        return m.group(1)
+        if m:
+          return m.group(1)
+        
+    raise Exception("Could not find version in: " + out)
+    
     return ""
 
 def get_num_cpus():
