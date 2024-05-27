@@ -23,17 +23,17 @@
 #define __ASP_CORE_MACROS_H__
 
 #define ASP_STANDARD_CATCHES                                   \
-  catch ( const vw::ArgumentErr& e ) {                         \
-    vw::vw_out() << e.what() << std::endl;                     \
+  catch (const vw::ArgumentErr& e) {                           \
+    vw::vw_out() << "\n\nERROR: " << e.what() << "\n\n";       \
     return 1;                                                  \
-  } catch ( const vw::Exception& e ) {                         \
-    std::cerr << "\n\nVW Error: " << e.what() << std::endl;    \
+  } catch (const vw::Exception& e) {                           \
+    std::cerr << "\n\nERROR: " << e.what() << "\n\n";          \
     return 1;                                                  \
-  } catch ( const std::bad_alloc& e ) {                        \
-    std::cerr << "\n\nError: Ran out of memory!" << std::endl; \
+  } catch (const std::bad_alloc& e) {                          \
+    std::cerr << "\n\nERROR: Ran out of memory!\n\n";          \
     return 1;                                                  \
-  } catch ( const std::exception& e ) {                        \
-    std::cerr << "\n\nError: " << e.what() <<  std::endl;      \
+  } catch (const std::exception& e) {                          \
+    std::cerr << "\n\nERROR: " << e.what() << "\n\n";          \
     return 1;                                                  \
   }
 

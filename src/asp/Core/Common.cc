@@ -665,8 +665,10 @@ asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
     opt.gdal_options["BIGTIFF"] = "IF_SAFER";
   }
 
-  if (vm.count("help"))
-    vw::vw_throw(vw::ArgumentErr() << usage_comment << public_options);
+  if (vm.count("help")) {
+    vw::vw_out() << usage_comment << public_options << "\n";
+    exit(0);
+  }
 
   if (vm.count("version")) {
     std::ostringstream ostr;
@@ -686,7 +688,8 @@ asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
 #endif
     ostr << "  Boost C++ Libraries " << ASP_BOOST_VERSION << "\n";
     ostr << "  GDAL " << GDAL_RELEASE_NAME << " | " << GDAL_RELEASE_DATE << "\n";
-    vw::vw_throw(vw::ArgumentErr() << ostr.str());
+    vw::vw_out() << ostr.str() << "\n";
+    exit(0);
   }
 
   opt.setVwSettingsFromOpt();
