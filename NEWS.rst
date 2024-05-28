@@ -146,7 +146,7 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Ensure that outlier filtering with ``--min-triangulation-angle`` is done
     after each pass with refined cameras and for all ways of reading a control
     network.
-  * Bugfix: if some intrinsics are shared, sync them up after optimization.
+  * Bugfix: if some intrinsics are shared, sync them up before optimization.
   
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).
