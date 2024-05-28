@@ -2341,11 +2341,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "The value of --camera-position-robust-threshold "
               << "must be positive.\n");
     
-  if ((!opt.heights_from_dem.empty()) && opt.fix_gcp_xyz)
-    vw_throw(ArgumentErr()
-             << "The option --fix-gcp-xyz is not compatible with a DEM constraint.\n");
-  
-  if (opt.heights_from_dem_uncertainty <= 0.0) 
+if (opt.heights_from_dem_uncertainty <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be "
               << "positive.\n");
   

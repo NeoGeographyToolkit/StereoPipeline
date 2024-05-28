@@ -35,10 +35,10 @@ Convert a camera model to have RPC lens distortion::
      convert_pinhole_model input.jpg input.tsai --output-type RPC \
        --rpc-degree 2 -o output_rpc.tsai
 
-Specify the image dimensions instead of the image, and convert to
-BrownConradyDistortion::
+Specify the image dimensions instead of the image, and convert to radial-tangential
+(Tsai) lens distortion::
 
-     convert_pinhole_model input.tsai --output-type BrownConradyDistortion \
+     convert_pinhole_model input.tsai --output-type TsaiLensDistortion \
        --image-size "5000 4000" -o output.tsai
 
 Validation 

@@ -18,6 +18,7 @@
 /// \file CameraResectioning.cc
 
 #include <asp/Camera/CameraResectioning.h>
+#include <vw/Math/BBox.h>
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <Eigen/Dense>
@@ -69,20 +70,26 @@ void findCameraPose(std::vector<vw::Vector3> const& ground_points,
   cv::Mat distortion(4, 1, cv::DataType<double>::type, cv::Scalar(0));
 
   // Convert to OpenCV format
+  vw::BBox2 img_box;
   std::vector<cv::Point2d> cv_pixel_observations;
   std::vector<cv::Point3d> cv_ground_points;
   for (size_t it = 0; it < ground_points.size(); it++) {
     auto & V = ground_points[it];
     auto & P = pixel_observations[it];
+    img_box.grow(P);
     cv_ground_points.push_back(cv::Point3d(V[0], V[1], V[2]));
     cv_pixel_observations.push_back(cv::Point2d(P[0], P[1]));
   }
   
-  // Call PnP
+  // Call PnP. Because of un-modeled distortion and inaccuracy of picking GCP,
+  // relax the tolerance. But still want to throw out worst outliers, for example,
+  // if the inputs are produced with interest-point matching, which can have a
+  // lot of outliers.
   bool useExtrinsicGuess = false;
   int iterationsCount = 1000; // This algorithm is cheap, let it try hard
-  float reprojectionError = 20.0; // because of un-modeled distortion, relax things here
-  double confidence = 0.95;
+  double len = std::max(img_box.width(), img_box.height());
+  float reprojectionError = std::max(20.0, 0.10 * len);
+  double confidence = 0.75;
   cv::Mat rvec(3, 1, cv::DataType<double>::type, cv::Scalar(0)); // Rodrigues rotation 
   cv::Mat tvec(3, 1, cv::DataType<double>::type, cv::Scalar(0)); // translation
   bool result = cv::solvePnPRansac(cv_ground_points, cv_pixel_observations,
@@ -92,7 +99,8 @@ void findCameraPose(std::vector<vw::Vector3> const& ground_points,
                                    confidence);
   if (!result)
     vw::vw_throw(vw::ArgumentErr()
-                 << "Failed to find camera orientation using pixel and ground data.\n");
+                 << "Failed to find the camera pose using pixel and ground data. "
+                 << "The provided inputs may be inaccurate.\n");
 
   // Convert obtained rotation
   Eigen::Matrix3d rotation;
