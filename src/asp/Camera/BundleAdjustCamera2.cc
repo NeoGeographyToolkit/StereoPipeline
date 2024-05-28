@@ -1436,8 +1436,6 @@ void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
                << " by ray convergence angle.\n";
 }
 
-// TODO(oalexan1): Must check with no pinhole distortion
-
 void get_optical_center(vw::camera::CameraModel const* cam, vw::Vector2 & center) {
   
   // Cast to pinhole model
@@ -1561,12 +1559,14 @@ void get_distortion(vw::camera::CameraModel const* cam, vw::Vector<double> &dist
   // Cast to pinhole model
   vw::camera::PinholeModel const* pin_ptr 
     = dynamic_cast<vw::camera::PinholeModel const*>(cam);
+  
   if (pin_ptr != NULL) {
     dist = pin_ptr->lens_distortion()->distortion_parameters();
     return;
   }
   
   // Cast to optical bar model
+  // TODO(oalexan1): This must be member function and called in a couple of other places.
   vw::camera::OpticalBarModel const* bar_ptr 
     = dynamic_cast<vw::camera::OpticalBarModel const*>(cam);
   if (bar_ptr != NULL) {
@@ -1609,6 +1609,7 @@ void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist
   }
   
   // Cast to optical bar model
+  // TODO(oalexan1): This must be a member function and called in a couple of other places.
   vw::camera::OpticalBarModel* bar_ptr 
     = dynamic_cast<vw::camera::OpticalBarModel*>(cam);
   if (bar_ptr != NULL) {
