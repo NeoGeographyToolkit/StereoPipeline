@@ -306,10 +306,11 @@ specify it as::
     --jitter-phase "1.5708 1.5708 1.5708 0.0 0.0 0.0"
 
 Here we used an approximation of :math:`\pi/2` radians, which is 90 degrees,
-for the 45 Hz frequency, and 0 radians for the 100 Hz frequency.
+for the 45 Hz frequency, and 0 radians for the 100 Hz frequency. 
 
-See :numref:`sat_sim_options` for more information on
-these options.
+The values can also be separatedy by commas, without spaces, then the quotes are
+not necessary. See :numref:`sat_sim_options` for more information on these
+options.
 
 A useful test is compare a camera without jitter with the corresponding one with
 jitter.  For that, project a pixel from the first camera to the datum, and
@@ -448,6 +449,16 @@ value will apply to all sensors. To have per-sensor type, set a list of values
 separated by commas, with no spaces. Example::
 
   --sensor-type linescan,pinhole,linescan
+
+The positions and orientations of sensors in the focal plane and of their
+footprints on the ground can be overridden by setting
+``--rig-sensor-ground-offsets``.
+
+For example, consider a rig with two cameras. If it is desired to have the rig
+sensors separated by 0.02 m in the sensor plane, and their footprints separated
+by 2000 m on the ground, use::
+
+  --rig-sensor-ground-offsets "-0.01 0 -1000 0 0.01 0 1000 0"
 
 Lens distortion is not supported. If desired to produce cameras and images only
 for a subset of the rig sensors, use the ``--sensor-name`` option. Consider
@@ -690,27 +701,28 @@ Command-line options
 
 --jitter-frequency <string>
     Jitter frequency, in Hz. Used for modeling jitter (satellite vibration).
-    Several frequencies can be specified. Use a quoted list, with spaces or
-    commas as separators. See also  ``--jitter-amplitude`` and
-    ``--horizontal-uncertainty``.
+    Several frequencies can be specified. Use a quoted list, with spaces as
+    separators (or separated by commas with no quotes). See also
+    ``--jitter-amplitude`` and ``--horizontal-uncertainty``.
 
 --jitter-phase <string>
     Jitter phase, in radians. Measures the jitter phase offset from the start of
-    the orbit as set by ``--first``. Specify as a quoted list of numbers. Number
-    of values must be 3 times the number of frequencies. The order in this list
+    the orbit as set by ``--first``. Specify as a quoted list of numbers
+    separated by space (or separated by commas with no quotes). The Number of
+    values must be 3 times the number of frequencies. The order in this list
     corresponds to phase for roll, pitch, and yaw for first frequency, then
     second frequency, etc. If not specified, will be set to 0. 
     
 --jitter-amplitude <string>
     Jitter amplitude, in micro radians. Specify as a quoted list having
     amplitude in roll, pitch, yaw for first frequency, then second frequency,
-    etc. Separate the values by spaces or commas.
+    etc. Separate the values by spaces (or commas with no quotes).
 
 --horizontal-uncertainty <string>
     Camera horizontal uncertainty on the ground, in meters, at nadir
     orientation. Specify as three numbers, in quotes, used for roll, pitch, and
-    yaw. The jitter amplitude for each of these
-    angles is found as ``amplitude = atan(horizontal_uncertainty /
+    yaw (or separated by commas with no quotes). The jitter amplitude for each of
+    these angles is found as ``amplitude = atan(horizontal_uncertainty /
     satellite_elevation_above_datum)``, then converted to degrees. See
     :numref:`sat_sim_jitter_model` for details.
 
@@ -761,6 +773,16 @@ Command-line options
     the image size, focal length, optical center on the command line, as those
     are set by the rig. See :numref:`sat_sim_rig`.
 
+--rig-sensor-ground-offsets <string (default="")>
+    Modify the input rig so that each sensor has the given horizontal offsets
+    from the rig center in the rig plane, and the sensor ground footprints have
+    the given horizontal offsets from the nominal ground footprint at nadir.
+    Specify as a quoted list of values, separated by spaces or commas. The order
+    is sensor1_x sensor1_y ground1_x ground1_y followed by sensor 2, etc. The
+    units are in meter. These will determine the sensor rotations. Separate the
+    values by spaces with quotes or commas with no quotes. If not set, use 0 for
+    all sensors.
+    
 --sensor-name <string (default="all")>
     Name of the sensor in the rig to simulate (:numref:`sat_sim_rig`). If more
     than one, list them separated by commas (no spaces).

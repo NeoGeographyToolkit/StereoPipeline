@@ -84,24 +84,27 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
      "is around 7500 m/s, with a higher altitude and longer period.")
     ("jitter-frequency", po::value(&opt.jitter_frequency_str)->default_value(""),
      "Jitter frequency, in Hz. Used for modeling jitter (satellite vibration). "
-     "Several frequencies can be specified. Use a quoted list, with spaces or "
-     "commas as separators. See also  --jitter-amplitude and --horizontal-uncertainty.")
+     "Several frequencies can be specified. Use a quoted list, with spaces "
+     "as separators (or separated by commas with no quotes). See also "
+     "--jitter-amplitude and --horizontal-uncertainty.")
     ("jitter-phase", po::value(&opt.jitter_phase_str)->default_value(""),
      "Jitter phase, in radians. Measures the jitter phase offset from the start of "
-     "the orbit as set by ``--first``. Specify as a quoted list of numbers. Number "
+     "the orbit as set by --first. Specify as a quoted list of numbers (or "
+     "separated by commas with no quotes). The number "
      "of values must be 3 times the number of frequencies. The order in this list "
      "corresponds to phase for roll, pitch, and yaw for first frequency, then "
      "second frequency, etc. If not specified, will be set to 0.")
     ("horizontal-uncertainty", po::value(&opt.horizontal_uncertainty_str)->default_value(""),
      "Camera horizontal uncertainty on the ground, in meters, at nadir orientation. "
-     "Specify as a quoted list of three numbers, used for roll, pitch, and yaw. The "
-     "jitter amplitude for each of these angles is found as "
+     "Specify as a quoted list of three numbers (or separated by commas with no quotes), "
+     "used for roll, pitch, and yaw. The jitter amplitude for each of these angles "
+     "is found as "
      "= atan(horizontal_uncertainty / satellite_elevation_above_datum), then converted "
      "to degrees. See also --jitter-amplitude.")
     ("jitter-amplitude", po::value(&opt.jitter_amplitude_str)->default_value(""),
      "Jitter amplitude, in micro radians. Specify as a quoted list having "
      "amplitude in roll, pitch, yaw for first frequency, then for second, and so on. "
-     "Separate the values by spaces or commas.")
+     "Separate the values by spaces (or commas with no quotes).")
     ("first-index", po::value(&opt.first_index)->default_value(-1),
      "Index of first camera and/or image to generate, starting from 0. If not set, will "
      "create all images/cameras. This is used for parallelization.")
@@ -136,6 +139,15 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
      ("rig-config", po::value(&opt.rig_config)->default_value(""),
       "Simulate a rig with this configuration file. Then do not set the image size, focal "
       "length, optical center on the command line. See also --sensor-name.")
+     ("rig-sensor-ground-offsets", 
+      po::value(&opt.rig_sensor_ground_offsets)->default_value(""),
+      "Modify the input rig so that each sensor has the given horizontal offsets from "
+      "the rig center in the rig plane, and the sensor ground footprints have the given "
+      "horizontal offsets from the nominal ground footprint at nadir. "
+      "Specify as a quoted list of values, separated by spaces or commas. The order is "
+      "sensor1_x sensor1_y ground1_x ground1_y followed by sensor 2, etc. The units "
+      "are in meter. These will determine the sensor orientations. If not "
+      "set, use 0 for all sensors.")
      ("sensor-name", po::value(&opt.sensor_name)->default_value("all"),
        "Name of the sensor in the rig to simulate. If not set, will simulate all sensors. "
        "If more than one, list them separated by commas (no spaces).")
@@ -357,9 +369,13 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
       "the last index.\n");
 
   // Check for sensor type. With a rig, it will be checked later, per sensor.
-  if (!have_rig && (opt.sensor_type != "pinhole" && opt.sensor_type != "linescan"))
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "The sensor type must be either pinhole or linescan.\n");
+  if (!have_rig) {
+    if (opt.sensor_type == "frame")
+      opt.sensor_type = "pinhole"; // pinhole is same as frame
+    if (opt.sensor_type != "pinhole" && opt.sensor_type != "linescan")
+      vw::vw_throw(vw::ArgumentErr() 
+                 << "The sensor type must be either pinhole/frame or linescan.\n");
+  }
 
   if (opt.model_time) {
     // Must have the velocity set

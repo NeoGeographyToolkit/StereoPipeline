@@ -43,7 +43,8 @@ namespace rig {
 namespace asp {
 
 struct SatSimOptions: vw::GdalWriteOptions {
-  std::string dem_file, ortho_file, out_prefix, camera_list, sensor_type;
+  std::string dem_file, ortho_file, out_prefix, camera_list, sensor_type, 
+  rig_sensor_ground_offsets;
   vw::Vector3 first, last; // dem pixel and height above dem datum
   int num_cameras, first_index, last_index;
   vw::Vector2 optical_center, image_size, first_ground_pos, last_ground_pos;
@@ -102,18 +103,18 @@ void genCamerasImages(float ortho_nodata_val,
             vw::cartography::GeoReference const& ortho_georef,
             vw::ImageViewRef<vw::PixelMask<float>> ortho,
             SatSimOptions                      & opt,
-            rig::RigSet                   const& rig,
+            rig::RigSet                        & rig,
             vw::cartography::GeoReference const& dem_georef,
             Eigen::Affine3d               const& ref2sensor,
             std::string                   const& suffix);
 
 // Generate the cameras and images for a rig
 void genRigCamerasImages(SatSimOptions          & opt,
-            rig::RigSet                    const& rig,
-            vw::cartography::GeoReference const & dem_georef,
+            rig::RigSet                         & rig,
+            vw::cartography::GeoReference  const& dem_georef,
             vw::ImageViewRef<vw::PixelMask<float>> dem,
             double height_guess,
-            vw::cartography::GeoReference const& ortho_georef,
+            vw::cartography::GeoReference  const& ortho_georef,
             vw::ImageViewRef<vw::PixelMask<float>> ortho,
             float ortho_nodata_val);
 

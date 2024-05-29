@@ -33,6 +33,7 @@
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Core/StringUtils.h>
 
 #include <iomanip>
 
@@ -98,6 +99,67 @@ void calcEcefTrajPtAlongAcross(vw::Vector3 const& curr_proj,
 // This is used to signify when the algorithm below fails to find a solution
 const double g_big_val = 1e+100;
 
+// Calc the camera center, orientation, and ground point for the given projected
+// orbit position, roll, pitch, and yaw. The camera center is in ECEF.
+// The guess for the xyz ground point will be updated if the solver converges.
+bool calcCamPoseAndGroundPt(SatSimOptions const& opt,
+                            vw::Vector3 const& curr_proj,
+                            vw::cartography::GeoReference const& dem_georef,
+                            vw::ImageViewRef<vw::PixelMask<float>> dem,
+                            double delta,
+                            vw::Vector3 const& proj_along,
+                            vw::Vector3 const& proj_across,
+                            double roll, double pitch, double yaw,
+                            double height_guess,
+                            // Outputs
+                            vw::Matrix3x3 & cam2world,
+                            vw::Vector3 & cam_ctr, 
+                            vw::Vector3 & xyz,
+                            vw::Vector3 & xyz_guess) {
+
+  vw::Vector3 along, across;
+  calcEcefTrajPtAlongAcross(curr_proj, dem_georef, delta,
+                            proj_along, proj_across, 
+                            // Outputs, perpendicular and normal vectors
+                            cam_ctr, along, across);
+
+  // Find the z vector as perpendicular to both along and across
+  vw::Vector3 down = vw::math::cross_prod(along, across);
+  down = down / norm_2(down);
+
+  // The camera to world rotation
+  asp::assembleCam2WorldMatrix(along, across, down, cam2world);
+  // Apply the roll-pitch-yaw rotation
+  vw::Matrix3x3 R = asp::rollPitchYaw(roll, pitch, yaw);
+  cam2world = cam2world * R * asp::rotationXY();
+
+  // Ray from camera to ground going through image center
+  // TODO(oalexan1): This must go through the optical center, not the image center.
+  vw::Vector3 cam_dir = cam2world * vw::Vector3(0, 0, 1);
+
+  // Find the intersection of this ray with the ground
+  bool treat_nodata_as_zero = false;
+  bool has_intersection = false;
+  double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
+  double max_rel_tol = max_abs_tol;
+  int num_max_iter = 100;
+  xyz = vw::cartography::camera_pixel_to_dem_xyz
+    (cam_ctr, cam_dir, dem,
+      dem_georef, treat_nodata_as_zero,
+      has_intersection, 
+      // Below we use a prudent approach. Try to make the solver work
+      // hard. It is not clear if this is needed.
+      std::min(opt.dem_height_error_tol, 1e-8),
+      max_abs_tol, max_rel_tol, 
+      num_max_iter, xyz_guess, height_guess);
+
+  // Update the guess if we found a solution
+  if (has_intersection) 
+    xyz_guess = xyz;
+
+  return has_intersection;
+}
+  
 // Given an orbit given by the first and last camera center positions in
 // projected coordinates, a real number t describing the position along this
 // line, roll, pitch, and yaw for the camera (relative to nadir), find the z
@@ -116,63 +178,30 @@ double demPixelErr(SatSimOptions const& opt,
                    double roll, double pitch, double yaw,
                    vw::Vector2 const& pixel_loc,
                    double height_guess,
-                   vw::Vector3 & xyz_guess) { // xyz_guess may change
-  
+                   vw::Vector3 & xyz_guess) {
+
   // Calc position along the trajectory and normalized along and across vectors
   // in ECEF
-  vw::Vector3 P, along, across;
   vw::Vector3 curr_proj = first_proj * (1.0 - t) + last_proj * t;
-  calcEcefTrajPtAlongAcross(curr_proj, dem_georef, delta,
-                            proj_along, proj_across, 
-                            // Outputs, perpendicular and normal vectors
-                            P, along, across);
 
-  // Find the z vector as perpendicular to both along and across
-  vw::Vector3 down = vw::math::cross_prod(along, across);
-  down = down / norm_2(down);
-
-  // The camera to world rotation
   vw::Matrix3x3 cam2world;
-  asp::assembleCam2WorldMatrix(along, across, down, cam2world);
-  // Apply the roll-pitch-yaw rotation
-  vw::Matrix3x3 R = asp::rollPitchYaw(roll, pitch, yaw);
-  cam2world = cam2world * R * asp::rotationXY();
-
-  // Ray from camera to ground going through image center
-  vw::Vector3 cam_dir = cam2world * vw::Vector3(0, 0, 1);
-
-  // Find the intersection of this ray with the ground
-  bool treat_nodata_as_zero = false;
-  bool has_intersection = false;
-  double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
-  double max_rel_tol = max_abs_tol;
-  int num_max_iter = 100;
-  vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
-    (P, cam_dir, dem,
-      dem_georef, treat_nodata_as_zero,
-      has_intersection, 
-      // Below we use a prudent approach. Try to make the solver work
-      // hard. It is not clear if this is needed.
-      std::min(opt.dem_height_error_tol, 1e-8),
-      max_abs_tol, max_rel_tol, 
-      num_max_iter, xyz_guess, height_guess);
-
-  if (!has_intersection)
+  vw::Vector3 cam_ctr, xyz;
+  bool success = calcCamPoseAndGroundPt(opt, curr_proj, dem_georef, dem, delta,
+                                        proj_along, proj_across, roll, pitch, yaw,
+                                        height_guess, cam2world, cam_ctr, xyz, xyz_guess);
+  
+  if (!success)
     return g_big_val;
 
   // Convert to llh
   vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
 
   // Find pixel location 
-  vw::Vector2 pixel_loc2 = dem_georef.lonlat_to_pixel
-    (subvector(llh, 0, 2));
+  vw::Vector2 pixel_loc2 = dem_georef.lonlat_to_pixel(subvector(llh, 0, 2));
 
   // If the pixel is outside the DEM, return a big value
   if (!vw::bounding_box(dem).contains(pixel_loc2))
     return g_big_val;
-
-  // At this stage it is safe to update the guess, as we got a good result
-  xyz_guess = xyz;
 
   return norm_2(pixel_loc - pixel_loc2);
 }
@@ -649,14 +678,110 @@ vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
   return amp;
 }
 
+// Parse --rig-sensor-ground-offsets. 
+void parseSensorGroundOffsets(std::string const& offsets_str,
+                              int num_sensors,
+                              std::vector<double> & offsets) {
+ 
+ std::string sep = ", \t\n"; // separators: comma, space, tab, newline
+ offsets = vw::str_to_std_vec(offsets_str, sep);
+   
+  // Must have 4 offsets (2 sensor and 2 ground) per sensor
+  if (offsets.size() != 4 * num_sensors)
+    vw::vw_throw(vw::ArgumentErr() << "Expecting " << 4 * num_sensors 
+      << " offsets, got " << offsets.size() << ".\n"); 
+}
+
+// Change the rig to have desired offsets in the sensor plane and ground plane.
+// These will determine the orientations. The offsets are in meters.
+void adjustRigForOffsets(SatSimOptions const& opt,
+                         vw::cartography::GeoReference const& dem_georef,
+                         vw::ImageViewRef<vw::PixelMask<float>> dem,
+                         double height_guess,
+                         vw::Vector3 const& ref_proj,
+                         vw::Vector3 const& proj_along,
+                         vw::Vector3 const& proj_across,
+                         double delta,
+                         rig::RigSet & rig) {
+
+  int num_rig_sensors = rig.cam_names.size();
+  std::vector<double> offsets;
+  parseSensorGroundOffsets(opt.rig_sensor_ground_offsets, num_rig_sensors,
+                           offsets); // output
+
+  // Find the transform from the sensor to the ground at nadir, and the ground point
+  vw::Matrix3x3 cam2world;
+  vw::Vector3 cam_ctr;
+  double roll = 0, pitch = 0, yaw = 0;
+  vw::Vector3 xyz = vw::Vector3(0, 0, 0), xyz_guess = vw::Vector3(0, 0, 0);
+  bool success = calcCamPoseAndGroundPt(opt, ref_proj, dem_georef, dem, delta,
+                                        proj_along, proj_across, roll, pitch, yaw,
+                                        height_guess, cam2world, cam_ctr, xyz, xyz_guess);
+  if (!success)
+   vw::vw_throw(vw::ArgumentErr() << "Could not compute the ground point at nadir.\n");     
+  
+  // Convert the ground point to camera coordinates
+  xyz = inverse(cam2world) * (xyz - cam_ctr);
+  
+  // Iterate over sensors. For each sensor compute desired sensor center
+  // and orientation
+  for (int s = 0; s < num_rig_sensors; s++) {
+    int offset_index = 4 * s;
+    double sensor_offset_x = offsets[offset_index + 0];
+    double sensor_offset_y = offsets[offset_index + 1];
+    double ground_offset_x = offsets[offset_index + 2];
+    double ground_offset_y = offsets[offset_index + 3];
+    
+    vw::Vector3 sensor_ctr = vw::Vector3(sensor_offset_x, sensor_offset_y, 0);
+    vw::Vector3 ground_pt =  xyz + vw::Vector3(ground_offset_x, ground_offset_y, 0);
+    // Must offset the ground point relative to the sensor center
+    // to have it in sensor coordinates.
+    ground_pt = ground_pt - sensor_ctr;
+    
+    // Need a rotation for the sensor to reflect the direction from sensor to ground
+    vw::Vector3 z = normalize(ground_pt);
+    // Adjust x to be perpendicular to z
+    vw::Vector3 x(1, 0, 0);
+    x = x - dot_prod(x, z) * z;
+    x = normalize(x);
+    // y must be perpendicular to x and z
+    vw::Vector3 y = cross_prod(z, x);
+    
+    // Make these as columns in a matrix R
+    vw::Matrix3x3 R;
+    for (int r = 0; r < 3; r++) {
+      R(r, 0) = x[r];
+      R(r, 1) = y[r];
+      R(r, 2) = z[r];
+    }
+    
+    // Put the rotation and the translation into an Eigen matrix of size 4
+    Eigen::Matrix<double, 4, 4> ref2sensor = Eigen::Matrix<double, 4, 4>::Identity();
+    // Copy the rotation
+    for (int r = 0; r < 3; r++) {
+      for (int c = 0; c < 3; c++) {
+        ref2sensor(r, c) = R(r, c);
+      }
+    }
+    // Copy the translation
+    for (int r = 0; r < 3; r++)
+      ref2sensor(r, 3) = sensor_ctr[r];
+    
+    // Update the rig
+    rig.ref_to_cam_trans[s].matrix() = ref2sensor;
+  }
+}
+
 // A function that will take as input the endpoints and will compute the
 // positions and orientations in ECEF. The key observation is that the positions
 // will form a straight edge in projected coordinates. In some usage modes we
-// will adjust the end points of the produced path.
+// will adjust the end points of the produced path. The rig may get adjusted
+// if --rig-sensor-ground-offsets is set.
 void genCamPoses(SatSimOptions & opt,
                  vw::cartography::GeoReference const& dem_georef,
                  vw::ImageViewRef<vw::PixelMask<float>> dem,
                  double height_guess,
+                 bool have_rig,
                  // Outputs
                  int                        & first_pos,
                  double                     & first_line_time,
@@ -665,7 +790,9 @@ void genCamPoses(SatSimOptions & opt,
                  std::vector<vw::Matrix3x3> & cam2world,
                  std::vector<vw::Matrix3x3> & cam2world_no_jitter,
                  std::vector<vw::Matrix3x3> & ref_cam2world,
-                 std::vector<double>        & cam_times) {
+                 std::vector<double>        & cam_times,
+                 rig::RigSet                & rig) {
+
 
   // Initialize the outputs. They may change later.
   first_pos = 0;
@@ -704,12 +831,19 @@ void genCamPoses(SatSimOptions & opt,
 
   // Projected orbital location when looking straight down at the first ground point.
   // This is the reference location for measuring time and jitter from.
-  vw::Vector3 ref_proj = first_proj;
+  vw::Vector3 ref_proj = first_proj; // will change
   if (have_ground_pos)
     findBestProjCamLocation(opt, dem_georef, dem, height_guess, first_proj, last_proj,
                             proj_along, proj_across, delta, 
                             0, 0, 0, // roll, pitch, yaw
-                            opt.first_ground_pos, ref_proj);
+                            opt.first_ground_pos, 
+                            ref_proj); // output
+
+  // Adjust the rig given --rig-sensor-ground-offsets
+  if (have_rig && !opt.rig_sensor_ground_offsets.empty())
+    adjustRigForOffsets(opt, dem_georef, dem, height_guess, ref_proj,
+                        proj_along, proj_across, delta, 
+                        rig);
 
   if (have_ground_pos && have_roll_pitch_yaw) {
     // Find best starting and ending points for the orbit given desired
@@ -950,7 +1084,7 @@ void applyRigTransform(Eigen::Affine3d const & ref_to_sensor,
     cam2world4x4(r, 3) = ctr[r];
 
   // Apply the rig transform 
-  cam2world4x4 = cam2world4x4  * ref_to_sensor.matrix().inverse(); 
+  cam2world4x4 = cam2world4x4 * ref_to_sensor.matrix().inverse(); 
   
   // Extract the rotation and translation
   for (int r = 0; r < 3; r++) {
@@ -1355,7 +1489,6 @@ void genImages(SatSimOptions const& opt,
 void handleSensorType(int num_sensors, 
                       std::string const& sensor_type, 
                       std::vector<std::string> & sensor_types) { 
-                                                                
   boost::split(sensor_types, sensor_type, boost::is_any_of(","));
   
   // If only one, fill to make num_sensors
@@ -1388,7 +1521,7 @@ void genCamerasImages(float ortho_nodata_val,
             vw::cartography::GeoReference const& ortho_georef,
             vw::ImageViewRef<vw::PixelMask<float>> ortho,
             SatSimOptions                      & opt,
-            rig::RigSet                   const& rig,
+            rig::RigSet                        & rig,
             vw::cartography::GeoReference const& dem_georef,
             Eigen::Affine3d               const& ref2sensor,
             std::string                   const& suffix) {
@@ -1399,11 +1532,14 @@ void genCamerasImages(float ortho_nodata_val,
   int first_pos = 0; // used with linescan poses, which start before first image line
   double orbit_len = 0.0, first_line_time = 0.0; // will change
   
-  // Compute the camera poses
-  asp::genCamPoses(opt, dem_georef, dem, height_guess,
+  // Compute the camera poses. Some logic here is different for linescan and frame
+  // cameras, that's why this logic is called individually for each rig sensor,
+  // even though if all sensors are of the same time it would be enough to call
+  // it once.
+  asp::genCamPoses(opt, dem_georef, dem, height_guess, have_rig,
                       // Outputs
                       first_pos, first_line_time, orbit_len, positions, cam2world, 
-                      cam2world_no_jitter, ref_cam2world, cam_times);
+                      cam2world_no_jitter, ref_cam2world, cam_times, rig);
 
   // Sequence of camera names and cameras for one sensor
   std::vector<std::string> cam_names; 
@@ -1427,11 +1563,11 @@ void genCamerasImages(float ortho_nodata_val,
 
 // Generate the cameras and images for a rig
 void genRigCamerasImages(SatSimOptions          & opt,
-            rig::RigSet                    const& rig,
-            vw::cartography::GeoReference const & dem_georef,
+            rig::RigSet                         & rig,
+            vw::cartography::GeoReference  const& dem_georef,
             vw::ImageViewRef<vw::PixelMask<float>> dem,
             double height_guess,
-            vw::cartography::GeoReference const& ortho_georef,
+            vw::cartography::GeoReference  const& ortho_georef,
             vw::ImageViewRef<vw::PixelMask<float>> ortho,
             float ortho_nodata_val) {
 
