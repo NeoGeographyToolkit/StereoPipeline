@@ -305,11 +305,11 @@ def isLinescan(cam_file):
 
 def roll_pitch_yaw(rot_mat, ref_rot_mat):
 
-    # rotate about z axis by 90 degrees
-    # This will be a problem for non-sat_sim cameras
+    # Rotate about z axis by 90 degrees. This must be synched up with 
+    # sat_sim. This will be a problem for non-sat_sim cameras.
     T = np.zeros((3,3),float)
-    T[0, 1] = 1
-    T[1, 0] = -1
+    T[0, 1] = -1
+    T[1, 0] = 1
     T[2, 2] = 1
     Tinv = np.linalg.inv(T)
 
@@ -678,11 +678,12 @@ parser = argparse.ArgumentParser(usage=usage,
                                  formatter_class=argparse.RawTextHelpFormatter)
 
 parser.add_argument('--dataset', dest = 'dataset', default = '',
-                    help='The dataset to plot. If more than one, separate them '         + 
-                    'by comma, with no spaces in between. The dataset is the prefix '    + 
-                    'of the cameras, such as  "cameras/" or "opt/run-". It is to be '    + 
-                    'followed by the orbit id, such as, "nadir" or "aft". If more than ' + 
-                    'one dataset, they will be plotted on top of each other.')
+                    help='The dataset to plot. Only one or two datasets are supported '
+                    '(for example, before and after optimization). Each dataset can have '
+                    'several types of images, given by --orbit-id. The dataset is the prefix '
+                    'of the cameras, such as "cameras/" or "opt/run-". It is to be followed '
+                    'by the orbit id, such as, "nadir" or "aft". If more than one dataset, '
+                    'they will be plotted on top of each other.')
 
 parser.add_argument('--orbit-id', dest = 'orbit_id', default = '',
                     help='The id (a string) that determines an orbital group of ' + 
