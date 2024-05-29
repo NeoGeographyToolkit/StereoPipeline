@@ -747,25 +747,14 @@ void adjustRigForOffsets(SatSimOptions const& opt,
     // y must be perpendicular to x and z
     vw::Vector3 y = cross_prod(z, x);
     
-    // Make these as columns in a matrix R
-    vw::Matrix3x3 R;
-    for (int r = 0; r < 3; r++) {
-      R(r, 0) = x[r];
-      R(r, 1) = y[r];
-      R(r, 2) = z[r];
-    }
-    
     // Put the rotation and the translation into an Eigen matrix of size 4
     Eigen::Matrix<double, 4, 4> ref2sensor = Eigen::Matrix<double, 4, 4>::Identity();
-    // Copy the rotation
     for (int r = 0; r < 3; r++) {
-      for (int c = 0; c < 3; c++) {
-        ref2sensor(r, c) = R(r, c);
-      }
-    }
-    // Copy the translation
-    for (int r = 0; r < 3; r++)
+      ref2sensor(r, 0) = x[r];
+      ref2sensor(r, 1) = y[r];
+      ref2sensor(r, 2) = z[r];  
       ref2sensor(r, 3) = sensor_ctr[r];
+    }
     
     // Update the rig
     rig.ref_to_cam_trans[s].matrix() = ref2sensor;
