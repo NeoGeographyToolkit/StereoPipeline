@@ -214,11 +214,12 @@ Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
 --dataset <string (default: "")>
-    The dataset to plot. If more than one, separate them by comma, with no
-    spaces in between. The dataset is the prefix of the cameras, such as
-    "cameras/" or "opt/run-". It is to be followed by the orbit id, such as,
-    "nadir" or "aft". If more than one dataset, they will be plotted on top of
-    each other.
+    The dataset to plot. Only one or two datasets are supported (for example,
+    before and after optimization). Each dataset can have several types of
+    images, given by ``--orbit-id``. The dataset is the prefix of the cameras,
+    such as "cameras/" or "opt/run-". It is to be followed by the orbit id, such
+    as, "nadir" or "aft". If more than one dataset, they will be plotted on top
+    of each other.
 
 --list <string (default: "")>
     Instead of specifying ``--dataset``, load the cameras listed in this file
