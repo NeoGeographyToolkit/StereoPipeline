@@ -734,6 +734,7 @@ void adjustRigForOffsets(SatSimOptions const& opt,
     
     vw::Vector3 sensor_ctr = vw::Vector3(sensor_offset_x, sensor_offset_y, 0);
     vw::Vector3 ground_pt =  xyz + vw::Vector3(ground_offset_x, ground_offset_y, 0);
+
     // Must offset the ground point relative to the sensor center
     // to have it in sensor coordinates.
     ground_pt = ground_pt - sensor_ctr;
@@ -1505,6 +1506,7 @@ void handleSensorType(int num_sensors,
 // Generate cameras and images for a sensor
 void genCamerasImages(float ortho_nodata_val,
             bool have_rig,
+            int rig_sensor_index,
             vw::ImageViewRef<vw::PixelMask<float>> dem,
             double height_guess,
             vw::cartography::GeoReference const& ortho_georef,
@@ -1512,7 +1514,6 @@ void genCamerasImages(float ortho_nodata_val,
             SatSimOptions                      & opt,
             rig::RigSet                        & rig,
             vw::cartography::GeoReference const& dem_georef,
-            Eigen::Affine3d               const& ref2sensor,
             std::string                   const& suffix) {
 
   std::vector<vw::Vector3> positions;
@@ -1529,6 +1530,11 @@ void genCamerasImages(float ortho_nodata_val,
                       // Outputs
                       first_pos, first_line_time, orbit_len, positions, cam2world, 
                       cam2world_no_jitter, ref_cam2world, cam_times, rig);
+
+  // In genCamPoses() the rig may have been updated. Fetch the latest.
+  Eigen::Affine3d ref2sensor = Eigen::Affine3d::Identity();
+  if (have_rig)
+    ref2sensor = rig.ref_to_cam_trans[rig_sensor_index];
 
   // Sequence of camera names and cameras for one sensor
   std::vector<std::string> cam_names; 
@@ -1601,8 +1607,8 @@ void genRigCamerasImages(SatSimOptions          & opt,
     Eigen::Affine3d ref2sensor = rig.ref_to_cam_trans[sensor_index];
     std::string suffix = "-" + sensor_names[sensor_it]; 
     bool have_rig = true;
-    genCamerasImages(ortho_nodata_val, have_rig, dem, height_guess, ortho_georef, ortho, 
-                     local_opt, rig, dem_georef, ref2sensor, suffix); 
+    genCamerasImages(ortho_nodata_val, have_rig, sensor_index, dem, height_guess, 
+                     ortho_georef, ortho, local_opt, rig, dem_georef, suffix); 
     
   }              
 }

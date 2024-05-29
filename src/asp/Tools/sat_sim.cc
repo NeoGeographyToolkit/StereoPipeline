@@ -475,10 +475,10 @@ int main(int argc, char *argv[]) {
       // The matrix cam2world_no_jitter is only needed with linescan cameras,
       // but compute it for consistency in all cases.
       bool have_rig = false;
-      Eigen::Affine3d ref2sensor = Eigen::Affine3d::Identity();
-
-      asp::genCamerasImages(ortho_nodata_val, have_rig, dem, height_guess, 
-                            ortho_georef, ortho, opt, rig, dem_georef, ref2sensor, suffix); 
+      int rig_sensor_index = -1;
+      asp::genCamerasImages(ortho_nodata_val, have_rig, rig_sensor_index,
+                            dem, height_guess, ortho_georef, ortho, opt, 
+                            rig, dem_georef, suffix); 
 
     } else {
       // The rig needs special treatment 
