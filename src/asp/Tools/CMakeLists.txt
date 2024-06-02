@@ -271,3 +271,7 @@ add_executable(sfm_merge sfm_merge.cc)
 target_link_libraries(sfm_merge AspRig)
 install(TARGETS sfm_merge DESTINATION bin)
 
+add_executable(dem2gcp dem2gcp.cc)
+target_link_libraries(dem2gcp AspCore AspSessions)
+install(TARGETS dem2gcp DESTINATION bin)
+
