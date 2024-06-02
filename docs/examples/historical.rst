@@ -433,12 +433,11 @@ Another example of using RPC and an illustration is in
 Declassified satellite images: KH-7
 -----------------------------------
 
-KH-7 was an effective observation satellite that followed the Corona
-program. It contained an index (frame) camera and a single strip
-(pushbroom) camera. 
+KH-7 was an effective observation satellite that followed the Corona program. It
+contained an index (frame) camera and a single strip (pushbroom) camera. 
 
-ASP has *no exact camera model for this camera.* Approximate solutions are shown
-in :numref:`kh7_fig`.
+ASP has *no exact camera model for this camera.* An RPC distortion model can be
+fit as in :numref:`dem2gcp`. See a figure in :numref:`kh7_fig`.
 
 For this example we find the following images in Earth Explorer
 declassified collection 2::
@@ -586,65 +585,27 @@ downsampling applied to the input images.
     parallel_stereo --alignment-method homography                      \
       --skip-rough-homography --disable-tri-ip-filter                  \
       --ip-detect-method 1 --session-type nadirpinhole                 \
+      --stereo-algorithm asp_mgm --subpixel-mode 9                     \
       5001_small.tif 6001_small.tif                                    \
       bundle_small_new/out-out-5001_small.tsai                         \
       bundle_small_new/out-out-6001_small.tsai                         \
       st_small_new/out
 
-As in :numref:`kh4`, it is suggested to mapproject the images with these
-cameras onto the initial guess DEM, overlay all these in ``stereo_gui``,
-and check if they roughly align.
-
 It is suggested to run stereo with mapprojected images
-(:numref:`mapproj-example`). See also :numref:`nextsteps` for a
-discussion about various speed-vs-quality choices in stereo.
+(:numref:`mapproj-example`). Use the ``asp_mgm`` algorithm. See also
+:numref:`nextsteps` for a discussion about various speed-vs-quality choices in
+stereo.
 
 .. figure:: ../images/kh7_dem.png
    :name: kh7_fig
    
-   An example of a DEM created from KH-7 images without modeling distortion
-   (left, inside the green polygon), and after modeling distortion with RPC
-   (right), on top of a reference terrain. The elevation range is 738 to 3363
-   meters. This is at 1/16 the resolution of the original images, so some noise
-   is expected. The RPC model greatly reduces the disagreement with the reference,
-   but a closer inspection still shows systematic differences. 
+   An example of a DEM created from KH-7 images after modeling distortion with RPC
+   (within the green polygon), on top of a reference terrain. 
 
-The above figure shows the effect of modeling distortion using RPC distortion
-(:numref:`rpc_distortion`). The approach was to first create the RPC
-distortion models with ``convert_pinhole_model``
-(:numref:`convert_pinhole_model`). Polynomials of degree 3 were used. Then, the
-camera files were manually modified to set the very small distortion
-coefficients to 1e-7, as otherwise they would not get optimized. 
-
-The optimization was as in :numref:`heights_from_dem`, with the precise
-command::
-
-    bundle_adjust                            \
-      left.tif right.tif                     \
-      left.tsai right.tsai                   \
-      --inline-adjustments                   \
-      --solve-intrinsics                     \
-      --intrinsics-to-float distortion       \
-      --intrinsics-to-share none             \
-      --num-iterations 10                    \
-      --match-files-prefix dense_matches/run \
-      --max-pairwise-matches 40000           \
-      --remove-outliers-params               \
-        '75.0 3.0 100 100'                   \
-      --heights-from-dem ref.tif             \
-      --heights-from-dem-uncertainty 500     \
-      -o ba/run 
-    
-Dense interest point matches were employed (:numref:`dense_ip`). 
-
-Alignment of the cameras to the reference was done both before and after
-optimizing the distortion. 
-
-It is likely a complete calibration of the KH-7 cameras can be performed with
-RPC distortion if multiple stereo pairs (acquired with precisely the same camera
-from the KH-7 family) are simultaneously optimized. One could then also try to
-use ``--intrinsics-to-share all``, and to also refine the optical center and
-focal length.
+Fitting an RPC model to the cameras with the help of the ``dem2gcp`` program
+(:numref:`dem2gcp`) can greatly help improve the produced DEM. See an
+illustration in :numref:`kh7_fig`, and difference maps in
+:numref:`kh7_orig_vs_opt`.
 
 .. _kh9:
 

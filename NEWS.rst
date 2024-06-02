@@ -4,8 +4,11 @@ Changes since the last release
 New tools:
   * Added ``orbit_plot.py`` (:numref:`orbit_plot`), a tool for plotting
     camera orientations along an orbit (contributed by Shashank Bhushan).
-  * Added ``gcp_gen`` (:numref:`gcp_gen`), a program for generating
-    ground control points (GCPs). Helps create camera models from scratch.  
+  * Added ``gcp_gen`` (:numref:`gcp_gen`), a program for generating ground
+    control points (GCP) based on ortho images. Helps create camera models from
+    scratch.  
+  * Added ``dem2gcp`` (:numref:`dem2gcp`), a utility  for creating GCPs based on
+    measuring the warping in an ASP-produced DEM relative to a reference DEM.
 
 New camera support:
   * Added the ability to use the CSM camera model with ASTER images
