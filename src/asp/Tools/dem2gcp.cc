@@ -225,6 +225,7 @@ int main(int argc, char * argv[]) {
   
   // TODO(oalexan1): This must be a function
   // Write the GCP file
+
   vw::vw_out() << "Writing: " << opt.out_gcp << "\n";
   std::ofstream ofs(opt.out_gcp.c_str());
   ofs.precision(17); // max precision

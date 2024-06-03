@@ -2118,7 +2118,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
   
   // Reusing match files implies that we skip matching
-  if (opt.clean_match_files_prefix != "" || opt.match_files_prefix != "")
+  if (opt.clean_match_files_prefix != "" || opt.match_files_prefix != "" ||
+      opt.isis_cnet != "" || opt.nvm != "")
     opt.skip_matching = true;
 
   // If opt.output_cnet_type is not set, set it to the same format as the input

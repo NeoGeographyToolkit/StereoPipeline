@@ -57,10 +57,18 @@ void adjustImageSize(camera::CameraParameters const& cam_params, cv::Mat & image
   int64_t calib_image_rows = cam_params.GetDistortedSize()[1];
   int64_t factor = raw_image_cols / calib_image_cols;
 
+  // If the raw image has size 0, skip, but give a warning. This happens
+  // when the image is not found. If prior interest point matches exist,
+  // the workflow can still continue.
+  if (raw_image_cols == 0 || raw_image_rows == 0) {
+    LOG(WARNING) << "Image has size 0, skipping.";
+    return;
+  }
+  
   if ((raw_image_cols != calib_image_cols * factor) ||
       (raw_image_rows != calib_image_rows * factor)) {
-    LOG(FATAL) << "Image width and height are: " << raw_image_cols << ' ' << raw_image_rows
-               << "\n"
+    LOG(FATAL) << "Image width and height are: "
+               << raw_image_cols << ' ' << raw_image_rows << "\n"
                << "Calibrated image width and height are: "
                << calib_image_cols << ' ' << calib_image_rows << "\n"
                << "These must be equal up to an integer factor.\n";
@@ -75,7 +83,7 @@ void adjustImageSize(camera::CameraParameters const& cam_params, cv::Mat & image
 
   // Check
   if (image.cols != calib_image_cols || image.rows != calib_image_rows)
-    LOG(FATAL) << "Sci cam images have the wrong size.";
+    LOG(FATAL) << "The images have the wrong size.";
 }
 
 // Find cam type based on cam name

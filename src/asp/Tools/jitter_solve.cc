@@ -237,7 +237,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "version and any SPICE data will be deleted. Mapprojected images obtained with prior "
      "version of the cameras must no longer be used in stereo.")
      ("rig-config", po::value(&opt.rig_config)->default_value(""),
-      "Assume that the cameras are on a rig with this configuration file.")
+      "Assume that the cameras are on a rig with this configuration file. The intrinsics "
+      "will be read, but not the sensor transforms, as those will be auto-computed. "
+      "The optimized rig including the sensor transforms will be saved at the end.")
     ("initial-camera-constraint", 
      po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
      "When constraining roll and yaw, measure these not in the satellite along-track/ "

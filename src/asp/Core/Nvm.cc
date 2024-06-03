@@ -255,7 +255,7 @@ void writeNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
     // Camera center in world coordinates
     Eigen::Vector3d t(world_to_cam[cid].translation());
     Eigen::Vector3d camera_center =
-      - world_to_cam[cid].rotation().inverse() * t;
+      -world_to_cam[cid].rotation().inverse() * t;
 
     f << cid_to_filename[cid] << " " << focal_lengths[cid]
       << " " << q.w() << " " << q.x() << " " << q.y() << " " << q.z() << " "
