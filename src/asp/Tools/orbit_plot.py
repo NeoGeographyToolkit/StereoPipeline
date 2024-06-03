@@ -484,7 +484,8 @@ def read_angles(orig_cams, opt_cams, ref_cams):
 #     return rotation_angles 
     
 # Load and plot each row in the figure given by 'ax'
-def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, options):
+def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
+             ref_list, options):
 
   # We assume we have one or two datasets that we want to plot on top of each other.
   numSets = len(datasets)
@@ -515,6 +516,8 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, o
     if hasList:
       opt_cams = read_list(optPrefix, camType, extensions)
       ref_cams = []
+      if ref_list != "":
+        ref_cams = read_list(ref_list, camType, extensions)
     else:
       all_opt_cams = sorted(multi_glob(optPrefix + camType, extensions))
       ref_cams     = sorted(multi_glob(optPrefix + camType + '-ref', extensions))
@@ -527,6 +530,9 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, o
   if hasList:
     orig_cams = read_list(origPrefix, camType, extensions)
     ref_cams = []
+    if ref_list != "":
+      ref_cams = read_list(ref_list, camType, extensions)
+
   else: 
     all_orig_cams = sorted(multi_glob(origPrefix + camType, extensions))
     ref_cams      = sorted(multi_glob(origPrefix + camType + '-ref', extensions))
@@ -551,7 +557,7 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, o
   # Check that these sets are the same size
   if options.use_ref_cams and len(orig_cams) != len(ref_cams):
       print("Number of input and reference cameras must be thee same. See the option --use-ref-cams for more info. For these numbers, got: ", \
-              len(ref_cams), " and ", len(opt_cams))
+              len(ref_cams), " and ", len(orig_cams))
       sys.exit(1)
   if numSets == 2 and options.use_ref_cams and len(orig_cams) != len(opt_cams):
       print("Number of cameras in both datasets must be the same when using " + \
@@ -659,7 +665,7 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, o
       if numSets == 1:
           txt = 'StDev:' + stds[index][0]
       else: 
-          txt = 'StDev before/after:' + stds[index][0] + ", " + stds[index][1]
+          txt = 'StDev:' + stds[index][0] + ", " + stds[index][1]
       # Add stdev values as text
       A[index].text(0.05, 0.05, txt,
           va='top', color='k', transform=A[index].transAxes, fontsize=fs)    
@@ -700,6 +706,10 @@ parser.add_argument('--list', dest = 'list', default = '',
                     'in this file (one per line). Only the names matching --orbit-id '   + 
                     'will be read. If more than one list, separate them by comma, with ' + 
                     'no spaces in between.')
+
+parser.add_argument('--ref-list', dest = 'ref_list', default = '',
+                    help='When --list is specified, read the ref cams from here.')
+
 
 parser.add_argument('--orbit-label', dest = 'orbit_label', default = '',
                     help='The label to use for each orbital group (will be shown as '
@@ -767,8 +777,8 @@ if options.dataset == "":
     hasList = True
     options.dataset = options.list
 
-if hasList and options.use_ref_cams:
-    print("Cannot use reference cameras when reading from a list.")
+if hasList and options.use_ref_cams and options.ref_list == "":
+    print("Must set --ref-list when using --use-ref-cams with --list.")
     parser.print_help()
     sys.exit(1)
 
@@ -841,7 +851,8 @@ plt.rc('figure', titlesize = fs) # fontsize of the figure title
 
 # Plot each row in the figure
 for row in range(len(orbits)):
-  plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, options)
+  plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, 
+           options.ref_list, options)
 
 # Show a title if set
 if options.title != "":

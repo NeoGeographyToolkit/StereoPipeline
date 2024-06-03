@@ -250,6 +250,9 @@ Command-line options
     ``--save-ref-cams``. Otherwise do not use this option. In that case the
     satellite orientation is estimated based on camera positions.
 
+--ref-list <string (default: "")>
+    When ``--list`` is specified, read the reference cameras from this file.
+    
 --subtract-line-fit
     If set, subtract the best line fit from the curves being plotted. If more
     than one dataset is being plotted, the same line fit will be subtracted from
