@@ -371,7 +371,8 @@ void writePinholeCamera(camera::CameraParameters const& cam_params,
   
   std::ofstream ofs(filename);
   ofs.precision(17);
-  ofs << "VERSION_3\n";
+  ofs << "VERSION_4\n";
+  ofs << "PINHOLE\n";
   ofs << "fu = " << cam_params.GetFocalVector()[0] << "\n";
   ofs << "fv = " << cam_params.GetFocalVector()[1] << "\n";
   ofs << "cu = " << cam_params.GetOpticalOffset()[0] << "\n";
