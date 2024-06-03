@@ -227,22 +227,8 @@ to ensure that the order of channels is::
     - conda-forge
     - defaults
 
-It is possible that you may already have some of these channels in a
-global ``~/.condarc`` file, and you may be tempted to just run the
-final add channels command.  If you aren't familiar with conda channel
-management, this may have unintended consequences.  Please inspect the
-order of the output of the ``--show channels`` command carefully, if
-it is not exactly like the above, you can either edit the
-``$CONDA_PREFIX/.condarc`` file, or delete it completely, and then run
-each of the three ``conda config --env -add channels`` commands
-exactly as shown.
-
-You can use the ``--prepend channels`` argument to ``conda config``
-but unless you want to add the ``nasa-ames-stereo-pipeline`` channel to
-all of your conda environments (which you probably don't), please
-make sure you have activated your *asp* environment and make sure to use
-the ``--env`` argument to contain the change to the current environment
-and not all environments.
+*Not having the channels in this order is likely to result in failure to install
+ASP.*
 
 Install ASP with the command::
 
@@ -253,12 +239,21 @@ Install ASP with the command::
      stereo-pipeline==3.3.0
 
 This will install ASP 3.3.0 together with ISIS 8.0.0. Note that the
-latest build (see above) may have more fixes or features than this
+*latest build* (see above) may have more fixes or features than this
 official release.
 
 Alternatively, consider using ``mamba`` instead of ``conda``. It is
 must faster though it is not always guaranteed to work. 
 
+Run::
+
+  conda activate asp
+  
+to activate the environment in any new shell. This should put the ASP binaries
+in the path, and will also initialize the ``PROJ_DATA`` environment variable
+that is needed for the PROJ library. Or, set the PATH variable as in
+:numref:`precompiled_binaries`.
+  
 Fixes for potential OSX issues
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

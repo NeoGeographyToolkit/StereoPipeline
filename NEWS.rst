@@ -7,8 +7,9 @@ New tools:
   * Added ``gcp_gen`` (:numref:`gcp_gen`), a program for generating ground
     control points (GCP) based on ortho images. Helps create camera models from
     scratch.  
-  * Added ``dem2gcp`` (:numref:`dem2gcp`), a utility  for creating GCPs based on
-    measuring the warping in an ASP-produced DEM relative to a reference DEM.
+  * Added ``dem2gcp`` (:numref:`dem2gcp`), a tool that can greatly help solve
+    for lens distortion that manifests itself as large horizontal warping in the
+    DEM. 
 
 New camera support:
   * Added the ability to use the CSM camera model with ASTER images
@@ -243,14 +244,15 @@ cam_gen (:numref:`cam_gen`):
 
 rig_calibrator (:numref:`rig_calibrator`):
    * Can export the interest point matches, cameras, and the OpenCV lens
-     distortion model for use with ``bundle_adjust``
-     (:numref:`rc_bundle_adjust`).
+     distortion model for use with ``bundle_adjust`` (:numref:`rc_bundle_adjust`).
    * Added documentation for how to register the produced cameras to the ground
      for a planet (:numref:`msl_registration`).
    * Can fix the translation and/or rotation component of a rig configuration.  
+   * Can constrain camera positions with ``--camera_position_weight``.
    * Added two more naming conventions, to help process existing data
      out-of-the-box. Also for ``theia_sfm`` and ``sfm_merge``.
      :numref:`rig_data_conv`. 
+   * Thoroughly validated with an orbital rig (in addition to indoor rigs).   
      
 lronac2mosaic.py (:numref:`lronac2mosaic`):
   * Run ``spiceinit`` before calling ``lronaccal``, and re-enable all

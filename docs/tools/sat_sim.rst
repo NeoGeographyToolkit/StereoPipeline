@@ -771,7 +771,8 @@ Command-line options
 --rig-config <string (default="")>
     Simulate a frame camera rig with this configuration file. Then do not set
     the image size, focal length, optical center on the command line, as those
-    are set by the rig. See :numref:`sat_sim_rig`.
+    are set by the rig. The transforms on this rig may be adjusted via
+    ``--rig-sensor-ground-offsets``. See :numref:`sat_sim_rig`.
 
 --rig-sensor-ground-offsets <string (default="")>
     Modify the input rig so that each sensor has the given horizontal offsets

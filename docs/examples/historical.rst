@@ -591,20 +591,21 @@ downsampling applied to the input images.
       bundle_small_new/out-out-6001_small.tsai                         \
       st_small_new/out
 
-It is suggested to run stereo with mapprojected images
-(:numref:`mapproj-example`). Use the ``asp_mgm`` algorithm. See also
-:numref:`nextsteps` for a discussion about various speed-vs-quality choices in
-stereo.
+The above may produce a DEM with many holes. It is strongly suggested to run
+stereo with mapprojected images (:numref:`mapproj-example`). Use the ``asp_mgm``
+algorithm. See also :numref:`nextsteps` for a discussion about various
+speed-vs-quality choices in stereo.
 
 .. figure:: ../images/kh7_dem.png
    :name: kh7_fig
    
    An example of a DEM created from KH-7 images after modeling distortion with RPC
-   (within the green polygon), on top of a reference terrain. 
+   (within the green polygon), on top of a reference terrain. GCP were used (:numref:`dem2gcp`), as well as mapprojected images and the ``asp_mgm``
+   algorithm. 
 
-Fitting an RPC model to the cameras with the help of the ``dem2gcp`` program
-(:numref:`dem2gcp`) can greatly help improve the produced DEM. See an
-illustration in :numref:`kh7_fig`, and difference maps in
+Fitting an RPC model to the cameras with the help of GCP created by the
+``dem2gcp`` program (:numref:`dem2gcp`) can greatly help improve the produced
+DEM. See an illustration in :numref:`kh7_fig`, and difference maps in
 :numref:`kh7_orig_vs_opt`.
 
 .. _kh9:

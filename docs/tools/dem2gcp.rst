@@ -5,13 +5,14 @@ dem2gcp
 
 This program generates GCP (:numref:`bagcp`) based on densely measuring the
 warping between two DEMs, which helps resolve the lens distortion and the
-warping with (:numref:`intrinsics_ground_truth`).
+warping.
 
 The approach is as follows. The dense disparity from an ASP-produced warped DEM
-to a reference DEM is found. This program will take as input that disparity
-and interest point matches between the raw images, and will produce GCP with
-correct ground positions based on the reference DEM. Lastly, bundle adjustment
-will solve for the lens distortion.
+to a reference DEM is found. This program will take as input that disparity and
+interest point matches between the raw images, and will produce GCP with correct
+ground positions based on the reference DEM. Lastly, bundle adjustment
+(:numref:`intrinsics_ground_truth`) invoked with the GCP will solve for the
+lens distortion. 
 
 This program was motivated by the processing of KH-7 images, for which ASP has
 no camera model, so the initial produced DEM ends up rather warped. The hope is 
@@ -25,7 +26,7 @@ Prepare the images and Pinhole camera models with no distortion as shown in
 
 It is very strongly suggested to work at a lower-resolution, such as 1/16th of
 the original resolution. The exact factor depends on the GSD of raw images and
-of the reference DEM. The Pinhole camera models (numref:`pinholemodels`) can be
+of the reference DEM. The Pinhole camera models (:numref:`pinholemodels`) can be
 adjusted for the resolution change by multiplying appropriately the ``pitch``
 value *only*.
 
@@ -140,7 +141,7 @@ images.
    :name: dem2gcp_ip_vs_gcp
    
    Interest point matches (left, in red) and produced GCP (right), on top of the raw images.
-   Plotted with ``sterero_gui`` (:numref:`stereo_gui`). 
+   Flat areas do not have GCP. Plotted with ``sterero_gui`` (:numref:`stereo_gui`). 
 
 Plotted in :numref:`dem2gcp_ip_vs_gcp` are the interest point matches and the
 resulting GCP. Their numbers are likely excessive here, though the bigger concern
@@ -149,7 +150,7 @@ is if they are lacking over featureless terrain.
 Solving for lens distortion
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We employ the solution from :numref:`heights_from_dem`, which mostly takes care
+We employ the recipe from :numref:`heights_from_dem`, which mostly takes care
 of the vertical component of disagreement between the ASP-produced and reference
 DEM, and augment it with GCP, that mostly take care of the horizontal component.
 
@@ -158,9 +159,9 @@ RPC lens distortion model (:numref:`rpc_distortion`) as in
 :numref:`convert_pinhole_model`.
 
 The small RPC coefficients *must be changed manually to be at least 1e-7*,
-otherwise they will not get optimized. A RPC of degree 3 is used for now. 
+otherwise they will not get optimized. Here, RPC of degree 3 is used. 
 
-Command::
+Optimization of intrinsics with DEM and GCP constraints:: 
 
     bundle_adjust                                 \
       left_image.tif right_image.tif              \
@@ -178,9 +179,11 @@ Command::
       out.gcp                                     \
       -o ba_rpc_gcp_ht/run
      
-Note how we employ the match file and GCP created earlier. A higher value 
-in ``--heights-from-dem-uncertainty`` gives less weight to the vertical 
-constraint. Likely it is better to prioritize the GCP instead.
+Note how we employ *both* the match file and the GCP created earlier. A higher
+value in ``--heights-from-dem-uncertainty`` gives less weight to the vertical
+constraint. Likely it is better to prioritize the GCP instead. Reducing
+``--max-pairwise-matches`` will sparse out the interest point matches, but not
+the GCP. 
 
 Examine the pixel residuals before and after bundle adjustment
 (:numref:`ba_err_per_point`) in ``stereo_gui`` as::
@@ -190,7 +193,7 @@ Examine the pixel residuals before and after bundle adjustment
     ba_rpc_gcp_ht/run-final_residuals_pointmap.csv
 
 It should be rather obvious to see which residuals are from the GCP. These are
-also flagged in this csv file.
+also flagged in those csv files.
 
 .. figure:: ../images/kh7_orig_vs_opt.png
    :name: kh7_orig_vs_opt
@@ -201,16 +204,22 @@ also flagged in this csv file.
    (c) additionally, use the GCP produced by ``dem2gcp``. The differences are
    found with ``geodiff`` (:numref:`geodiff`) and plotted with ``stereo_gui``.
 
+.. figure:: ../images/kh7_dem.png
+   :name: kh7_fig2
+   
+   The unwarped ASP DEM that results in the right-most difference in the above
+   figure (within the green polygon), on top of the reference DEM. 
+
 Then, one can rerun stereo with the optimized cameras and the original images
 (again with the option ``--prev-run-prefix``). The results are in
 :numref:`kh7_orig_vs_opt`. The warping is much reduced but not eliminated. 
 
 Ideally, several pairs of images are available that are acquired with precisely
-the same camera model (note that there is a whole family of KH-7 cameras). Then,
-they would be used jointly in bundle adjustment, while setting
-``--intrinsics-to-share all``. This should increase the accuracy across the
-board, if the produced DEMs are mountainous and hence it is easy to measure the
-discrepancies.
+the same camera model (note that there is a whole family of KH-7 camera models).
+Then, the cameras with the same model would be used jointly in bundle
+adjustment, while setting ``--intrinsics-to-share all``. This should increase
+the accuracy across the board, if the DEMs are for mountainous regions and it is
+easy to measure the warping.
  
 One could also use a higher degree for the RPC model, such as 5.
 

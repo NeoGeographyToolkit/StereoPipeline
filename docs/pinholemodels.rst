@@ -20,20 +20,25 @@ Overview
 
 The generic Pinhole model uses the following parameters:
 
--  *fu* = The focal length in horizontal pixel units.
+-  *fu* = The horizontal focal length in pixels or physical units.
 
--  *fv* = The focal length in vertical pixel units.
+-  *fv* = The vertical focal length in pixels or physical units. This 
+   is usually equal to *fu*. Here, *vertical* means along an image column.
 
--  *cu* = The horizontal offset of the principal point of the camera in
-   the image plane in pixel units, from 0,0.
+-  *cu* = The horizontal offset of the principal point of the camera relative
+   to the upper-left image corner, in pixels or physical units.
 
--  *cv* = The vertical offset of the principal point of the camera in
-   the image plane in pixel units, from 0,0.
+-  *cv* = The vertical offset of the principal point of the camera relative
+   to the upper-left image corner, in pixels or physical units.
 
--  *pitch* = The size of each pixel in the units used to specify the
-   four parameters listed above. This will usually either be 1.0 if they
-   are specified in pixel units or alternately the size of a pixel in
-   millimeters or meters.
+-  *pitch* = The size of each pixel. This is required to correctly interpret the
+   four parameters listed above. The pitch is usually 1.0 if the intrinsics are
+   in pixel units, or it is the size of a pixel in millimeters or meters
+   (physical units).
+   
+   Making an image resolution coarser by a factor must be accompanied by
+   *multiplying the pitch by the same factor* (all other parameters including
+   distortion do not change).
 
 The focal length is sometimes known as the *principal distance*. The
 value :math:`cu` is usually approximately half the image width in pixels
@@ -45,23 +50,15 @@ A few sample Pinhole models are shown later in the text. The underlying
 mathematical model is described in :numref:`pinholemath`.
 
 Along with the basic Pinhole camera parameters, a lens distortion model
-can be added. Note that the units used in the distortion model must
-match the units used for the parameters listed above. For example, if
-the camera calibration was performed using units of millimeters the
-focal lengths etc. must be given in units of millimeters and the pitch
-must be equal to the size of each pixel in millimeters. Alternatively,
-units of meter can be used, and the choice of unit must be documented
-by the creators of the models.
+can be added. Normally the distortion model is applied after the pixels
+are shifted to be relative to the principal point and divided by the
+focal length, at least for the radial-tangential (Tsai), fisheye, FOV,
+and RPC models. See the Brown-Conrady model for an exception.  
 
 The following lens distortion models are currently supported. (The
 formulas below may miss some small details; the implementation in
 ``LensDistortion.cc`` in VisionWorkbench should be the final
 reference.)
-
-Note that the values below change drastically depending on whether the
-model creator chooses pixel units, or if measuring in millimeters or
-meters. In either case, all lengths must be consistent and the units
-documented by the model creator.
 
 .. _pinhole_distortion:
 
@@ -328,15 +325,12 @@ The first half of the file is the same for all Pinhole models:
 * ``fu, fv, cu, cv`` The first four intrinsic parameters described in
   the previous section.
 
-* ``u, v, and w_direction`` These lines allow an additional
-  permutation of the axes of the camera coordinates. By default, the
-  positive column direction aligns with x, the positive row direction
-  aligns with y, and downward into the image aligns with z.
+* ``u, v, w`` directions. These allow for additional permutations and
+  flips of the axes of the camera coordinates. By default, the positive column
+  direction aligns with x, the positive row direction aligns with y, and
+  downward into the image aligns with z. It is suggested to avoid adjusting
+  these and modify the rotation matrix instead.
   
-  It is strongly suggested to not modify these directions, and they 
-  will be removed from the file in future versions of ASP. The camera
-  rotation alone (below) should be sufficient.
-
 * ``C`` The location of the camera center, usually in the geocentric
   coordinate system (GCC/ECEF).
 
@@ -344,7 +338,7 @@ The first half of the file is the same for all Pinhole models:
   coordinate system (camera-to-world rotation, :numref:`pinholemath`).
 
 * ``pitch`` The pitch intrinsic parameter described in the previous
-  section.
+  section. 
 
 The second half of the file describes the lens distortion model
 being used. The name of the distortion model appears first, followed
@@ -370,7 +364,7 @@ the line having the pitch is the same for all models and not shown in the exampl
       k3 = 1e-3
 
 The ``k3`` parameter is optional in the Tsai model. It is stored last,
-as done in OpenCV.
+as in OpenCV.
 
 * **Adjustable Tsai**
   ::
