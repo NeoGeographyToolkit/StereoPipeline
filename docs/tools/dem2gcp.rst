@@ -109,11 +109,12 @@ reference hill-shaded DEM::
     --correlator-mode  \
     --ip-per-tile 500  \
     warped_hill_b1.tif \
-    ref_hill_b1.tif
+    ref_hill_b1.tif    \
     warp/run
 
 The order here is very important. Increase ``--ip-per-tile`` if not enough matches
-are found.
+are found. One could consider experimenting with comparing the ``asp_bm`` and
+``asp_mgm`` algorithms (:numref:`stereo_alg_overview`).
 
 Running ``dem2gcp``
 ~~~~~~~~~~~~~~~~~~~
