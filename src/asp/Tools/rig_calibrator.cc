@@ -22,6 +22,7 @@
 // See the ASP documentation for how this tool works.
 
 #include <asp/Core/Common.h>
+#include <asp/Core/BundleAdjustUtils.h>
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Core/Log.h>
 
@@ -163,6 +164,11 @@ DEFINE_double(depth_mesh_weight, 0.0,
               "A larger value will give more weight to the constraint that the depth clouds "
               "stay close to the mesh. Not suggested by default.");
 
+DEFINE_double(camera_position_weight, 0.0,
+              "A constraint to keep the camera positions close to initial locations. "
+              "A high value can impede convergence. This does not use a robust threshold "
+              "(soft cost function).");
+
 DEFINE_bool(affine_depth_to_image, false, "Assume that the depth-to-image transform "
             "for each depth + image camera is an arbitrary affine transform rather than "
             "scale * rotation + translation.");
@@ -203,7 +209,6 @@ DEFINE_bool(registration, false,
             "and the rig transforms before starting the optimization. For now, the "
             "depth-to-image transforms do not change as result of this, which may be a "
             "problem. To apply the registration only, use zero iterations.");
-
 
 DEFINE_string(hugin_file, "", "The path to the hugin .pto file used for registration.");
 
@@ -458,11 +463,11 @@ struct BracketedDepthError {
     m_cam_stamp(cam_stamp),
     m_block_sizes(block_sizes) {
     // Sanity check
-    if (m_block_sizes.size() != 7 ||
+    if (m_block_sizes.size() != 7             ||
         m_block_sizes[0] != NUM_RIGID_PARAMS  ||
         m_block_sizes[1] != NUM_RIGID_PARAMS  ||
         m_block_sizes[2] != NUM_RIGID_PARAMS  ||
-        (m_block_sizes[3] != NUM_RIGID_PARAMS  && m_block_sizes[3] != NUM_AFFINE_PARAMS) ||
+        (m_block_sizes[3] != NUM_RIGID_PARAMS && m_block_sizes[3] != NUM_AFFINE_PARAMS) ||
         m_block_sizes[4] != NUM_SCALAR_PARAMS ||
         m_block_sizes[5] != NUM_XYZ_PARAMS    ||
         m_block_sizes[6] != NUM_SCALAR_PARAMS) {
@@ -677,6 +682,49 @@ struct XYZError {
   double m_weight;
 };  // End class XYZError
 
+/// A Ceres cost function. The residual is the difference between the
+/// initial position and optimized position, multiplied by given weight.
+/// The variable has the rotations as well, but those are ignored.
+struct CamPositionErr {
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+  CamPositionErr(const double * init_world_to_cam, double weight):
+    m_weight(weight) {
+
+    // Make a copy, as later the value at the pointer will change
+    m_init_position = calc_cam_position(init_world_to_cam);
+  }
+
+  bool operator()(double const* const* parameters, double* residuals) const {
+    Eigen::Vector3d curr_cam_position = calc_cam_position(parameters[0]);
+    for (size_t p = 0; p < NUM_XYZ_PARAMS; p++)
+      residuals[p] = m_weight * (curr_cam_position[p] - m_init_position[p]);
+    for (size_t p = NUM_XYZ_PARAMS; p < rig::NUM_RIGID_PARAMS; p++)
+      residuals[p] = 0; // for rotations
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from the client code.
+  static ceres::CostFunction* Create(const double * init_world_to_cam, double weight) {
+
+    ceres::DynamicNumericDiffCostFunction<CamPositionErr>* cost_function =
+      new ceres::DynamicNumericDiffCostFunction<CamPositionErr>
+      (new CamPositionErr(init_world_to_cam, weight));
+
+    // The residual size is always the same
+    cost_function->SetNumResiduals(rig::NUM_RIGID_PARAMS);
+
+    // The camera wrapper knows all of the block sizes to add.
+    // The full parameter has the rotation too.
+    cost_function->AddParameterBlock(rig::NUM_RIGID_PARAMS); 
+
+    return cost_function;
+  }
+
+  Eigen::Vector3d m_init_position;
+  double m_weight;
+};
+
 // TODO(oalexan1): Move to residual_utils.cc
 void calc_residuals_stats(std::vector<double> const& residuals,
                           std::vector<std::string> const& residual_names,
@@ -748,6 +796,9 @@ void parameterValidation() {
   if (FLAGS_tri_weight > 0.0 && FLAGS_tri_robust_threshold <= 0.0)
     LOG(FATAL) << "The triangulation robust threshold must be positive.\n";
 
+  if (FLAGS_camera_position_weight < 0.0)
+    LOG(FATAL) << "The camera position weight must non-negative.\n";
+  
   if (FLAGS_registration && (FLAGS_xyz_file.empty() || FLAGS_hugin_file.empty()))
     LOG(FATAL) << "In order to register the map, the hugin and xyz file must be specified.";
 
@@ -1227,9 +1278,8 @@ int main(int argc, char** argv) {
   if (FLAGS_no_rig) {
     world_to_cam_vec.resize(cams.size() * rig::NUM_RIGID_PARAMS);
     for (size_t cid = 0; cid < cams.size(); cid++)
-      rig::rigid_transform_to_array
-        (world_to_cam[cid],
-         &world_to_cam_vec[rig::NUM_RIGID_PARAMS * cid]);
+      rig::rigid_transform_to_array(world_to_cam[cid],
+                                    &world_to_cam_vec[rig::NUM_RIGID_PARAMS * cid]);
   }
 
   // Detect and match features if --num_overlaps > 0. Append the features
@@ -1242,15 +1292,15 @@ int main(int argc, char** argv) {
   bool local_save_matches = false;
   std::vector<Eigen::Vector3d> xyz_vec; // triangulated points go here
   rig::detectMatchFeatures(// Inputs
-                                 cams, R.cam_params, FLAGS_out_dir, local_save_matches,
-                                 filter_matches_using_cams, world_to_cam,
-                                 FLAGS_num_overlaps, input_image_pairs,
-                                 FLAGS_initial_max_reprojection_error,
-                                 FLAGS_num_match_threads,
-                                 FLAGS_read_nvm_no_shift, FLAGS_no_nvm_matches,
-                                 FLAGS_verbose,
-                                 // Outputs
-                                 keypoint_vec, pid_to_cid_fid, xyz_vec, nvm);
+                           cams, R.cam_params, FLAGS_out_dir, local_save_matches,
+                           filter_matches_using_cams, world_to_cam,
+                           FLAGS_num_overlaps, input_image_pairs,
+                           FLAGS_initial_max_reprojection_error,
+                           FLAGS_num_match_threads,
+                           FLAGS_read_nvm_no_shift, FLAGS_no_nvm_matches,
+                           FLAGS_verbose,
+                           // Outputs
+                           keypoint_vec, pid_to_cid_fid, xyz_vec, nvm);
   if (pid_to_cid_fid.empty())
     LOG(FATAL) << "No interest points were found. Must specify either "
                << "--nvm or positive --num_overlaps.\n";
@@ -1261,8 +1311,8 @@ int main(int argc, char** argv) {
   std::vector<int> bracketed_depth_mesh_block_sizes;
   std::vector<int> xyz_block_sizes;
   rig::set_up_block_sizes(num_depth_params,
-                                bracketed_cam_block_sizes, bracketed_depth_block_sizes,
-                                bracketed_depth_mesh_block_sizes, xyz_block_sizes);
+                          bracketed_cam_block_sizes, bracketed_depth_block_sizes,
+                          bracketed_depth_mesh_block_sizes, xyz_block_sizes);
 
   // For a given fid = pid_to_cid_fid[pid][cid], the value
   // pid_cid_fid_inlier[pid][cid][fid] will be non-zero only if this
@@ -1273,15 +1323,15 @@ int main(int argc, char** argv) {
   // TODO(oalexan1): Must initialize all points as inliers outside this function,
   // as now this function resets those.
   rig::flagOutlierByExclusionDist(// Inputs
-                                        R.cam_params, cams, pid_to_cid_fid,
-                                        keypoint_vec,
-                                        // Outputs
-                                        pid_cid_fid_inlier);
+                                  R.cam_params, cams, pid_to_cid_fid,
+                                  keypoint_vec,
+                                  // Outputs
+                                  pid_cid_fid_inlier);
 
   // Ensure that the triangulated points are kept in sync with the cameras
   if (FLAGS_use_initial_triangulated_points && registration_applied)
     rig::transformInlierTriPoints(registration_trans, pid_to_cid_fid, 
-                                          pid_cid_fid_inlier, xyz_vec);
+                                  pid_cid_fid_inlier, xyz_vec);
   
   // Structures needed to intersect rays with the mesh
   std::vector<std::map<int, std::map<int, Eigen::Vector3d>>> pid_cid_fid_mesh_xyz;
@@ -1308,10 +1358,10 @@ int main(int argc, char** argv) {
     // Triangulate, unless desired to reuse the initial points
     if (!FLAGS_use_initial_triangulated_points)
       rig::multiViewTriangulation(// Inputs
-                                        R.cam_params, cams, world_to_cam, pid_to_cid_fid,
-                                        keypoint_vec,
-                                        // Outputs
-                                        pid_cid_fid_inlier, xyz_vec);
+                                  R.cam_params, cams, world_to_cam, pid_to_cid_fid,
+                                  keypoint_vec,
+                                  // Outputs
+                                  pid_cid_fid_inlier, xyz_vec);
 
     // This is a copy which won't change
     std::vector<Eigen::Vector3d> xyz_vec_orig;
@@ -1328,11 +1378,11 @@ int main(int argc, char** argv) {
     // Compute where each ray intersects the mesh
     if (FLAGS_mesh != "")
       rig::meshTriangulations(// Inputs
-                                    R.cam_params, cams, world_to_cam, pid_to_cid_fid,
-                                    pid_cid_fid_inlier, keypoint_vec, bad_xyz,
-                                    FLAGS_min_ray_dist, FLAGS_max_ray_dist, mesh, bvh_tree,
-                                    // Outputs
-                                    pid_cid_fid_mesh_xyz, pid_mesh_xyz);
+                              R.cam_params, cams, world_to_cam, pid_to_cid_fid,
+                              pid_cid_fid_inlier, keypoint_vec, bad_xyz,
+                              FLAGS_min_ray_dist, FLAGS_max_ray_dist, mesh, bvh_tree,
+                              // Outputs
+                              pid_cid_fid_mesh_xyz, pid_mesh_xyz);
 
     // For a given fid = pid_to_cid_fid[pid][cid], the value
     // pid_cid_fid_to_residual_index[pid][cid][fid] will be the index
@@ -1355,8 +1405,8 @@ int main(int argc, char** argv) {
     std::set<double*> fixed_parameters; // to avoid double fixing
     ceres::SubsetManifold* constant_transform_manifold = nullptr;
     rig::setUpFixRigOptions(FLAGS_no_rig, FLAGS_fix_rig_translations, 
-                                  FLAGS_fix_rig_rotations,
-                                  constant_transform_manifold);
+                            FLAGS_fix_rig_rotations,
+                            constant_transform_manifold);
     
     for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
       for (auto cid_fid = pid_to_cid_fid[pid].begin();
@@ -1633,14 +1683,60 @@ int main(int argc, char** argv) {
       
     }  // end iterating over pid
 
+    // Add the camera position constraints for the ref cams
+    if (FLAGS_camera_position_weight > 0.0) {
+      
+      for (size_t cid = 0; cid < cams.size(); cid++) {
+        int cam_type = cams[cid].camera_type;
+        auto const& sensor_name = R.cam_names[cam_type];
+        if (camera_poses_to_float.find(sensor_name)
+            == camera_poses_to_float.end()) continue; // sensor not floated
+        if (!FLAGS_no_rig && !R.isRefSensor(sensor_name))
+          continue; // only ref sensors are floated in a rig
+        
+        // Find timestamps and pointers to bracketing cameras ref_to_cam transform.
+        // This strongly depends on whether we are using a rig or not.
+        double beg_ref_timestamp = -1.0, end_ref_timestamp = -1.0, cam_timestamp = -1.0;
+        double *beg_cam_ptr = NULL, *end_cam_ptr = NULL, *ref_to_cam_ptr = NULL;
+        rig::calcBracketing(// Inputs
+                      FLAGS_no_rig, cid, cam_type, cams, ref_timestamps, R,
+                      world_to_cam_vec, world_to_ref_vec, ref_to_cam_vec,
+                      ref_identity_vec, right_identity_vec,
+                      // Outputs
+                      beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
+                      beg_ref_timestamp, end_ref_timestamp,
+                      cam_timestamp);
+        ceres::CostFunction* cam_pos_cost_function =
+           rig::CamPositionErr::Create(beg_cam_ptr, FLAGS_camera_position_weight);
+        ceres::LossFunction* cam_pos_loss_function = NULL; // no robust threshold
+        problem.AddResidualBlock(cam_pos_cost_function, cam_pos_loss_function,
+                                 beg_cam_ptr);
+        
+        residual_names.push_back(sensor_name + "_pos_x");
+        residual_names.push_back(sensor_name + "_pos_y");
+        residual_names.push_back(sensor_name + "_pos_z");
+        residual_names.push_back(sensor_name + "_q_x");
+        residual_names.push_back(sensor_name + "_q_y");
+        residual_names.push_back(sensor_name + "_q_z");
+        residual_names.push_back(sensor_name + "_q_w");
+        residual_scales.push_back(FLAGS_camera_position_weight);
+        residual_scales.push_back(FLAGS_camera_position_weight);
+        residual_scales.push_back(FLAGS_camera_position_weight);
+        residual_scales.push_back(1.0); // Rotations will not be constrained
+        residual_scales.push_back(1.0);
+        residual_scales.push_back(1.0);
+        residual_scales.push_back(1.0);
+      }
+    }
+      
     // Evaluate the residuals before optimization
     std::vector<double> residuals;
     rig::evalResiduals("before opt", residual_names, residual_scales, problem, residuals);
 
     if (pass == 0)
       rig::writeResiduals(FLAGS_out_dir, "initial", R.cam_names, cams, keypoint_vec,  
-                                pid_to_cid_fid, pid_cid_fid_inlier, pid_cid_fid_to_residual_index,  
-                                residuals);
+                          pid_to_cid_fid, pid_cid_fid_inlier, pid_cid_fid_to_residual_index,  
+                          residuals);
     
     // Solve the problem
     ceres::Solver::Options options;
@@ -1656,7 +1752,6 @@ int main(int argc, char** argv) {
 
     // The optimization is done. Right away copy the optimized states
     // to where they belong to keep all data in sync.
-
     if (!FLAGS_no_rig) {
       // Copy back the reference transforms
       for (int cid = 0; cid < num_ref_cams; cid++)
@@ -1730,7 +1825,7 @@ int main(int argc, char** argv) {
 
   if (FLAGS_save_matches)
     rig::saveInlierMatchPairs(cams, FLAGS_num_overlaps, pid_to_cid_fid,
-                                     keypoint_vec, pid_cid_fid_inlier, FLAGS_out_dir);
+                              keypoint_vec, pid_cid_fid_inlier, FLAGS_out_dir);
 
   // Update the transforms from the world to every camera
   rig::calc_world_to_cam_rig_or_not(  // Inputs

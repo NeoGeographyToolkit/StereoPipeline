@@ -129,6 +129,10 @@ void rigid_transform_to_array(Eigen::Affine3d const& aff, double* arr);
 // transform. Normalize the quaternion to make it into a rotation.
 void array_to_rigid_transform(Eigen::Affine3d& aff, const double* arr);
 
+// A function to compute the camera position in world coordinates given
+// the world_to_cam array
+Eigen::Vector3d calc_cam_position(double const* world_to_cam);
+
 // Compute the n-weight slerp, analogous to the linear combination
 // W[0]*Q[0] + ... + W[n-1]*Q[n-1]. This is experimental.
 // We assume the sum of weights is 1.

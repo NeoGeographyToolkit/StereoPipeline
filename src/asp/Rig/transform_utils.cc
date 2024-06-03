@@ -406,6 +406,18 @@ void array_to_rigid_transform(Eigen::Affine3d& aff, const double* arr) {
   aff = Eigen::Affine3d(Eigen::Translation3d(arr[0], arr[1], arr[2])) * Eigen::Affine3d(R);
 }
 
+// A function to compute the camera position in world coordinates given
+// the world_to_cam array
+Eigen::Vector3d calc_cam_position(double const* world_to_cam) {
+  
+  Eigen::Affine3d world_to_cam_aff;
+  array_to_rigid_transform(world_to_cam_aff, world_to_cam);
+  Eigen::Vector3d t(world_to_cam_aff.translation());
+  Eigen::Vector3d camera_center = -world_to_cam_aff.rotation().inverse() * t;  
+  
+  return camera_center;
+}
+
 // Compute the n-weight slerp, analogous to the linear combination
 // W[0]*Q[0] + ... + W[n-1]*Q[n-1]. This is experimental.
 // We assume the sum of weights is 1.
