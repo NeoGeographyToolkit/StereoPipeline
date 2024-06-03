@@ -23,12 +23,15 @@
 
 #include <vw/Core/Log.h>
 
+#include <opencv2/calib3d.hpp>
+#include <boost/filesystem.hpp>
+
 #include <iostream>
 #include <set>
 #include <fstream>
 #include <iomanip>
 
-#include <opencv2/calib3d.hpp>
+namespace fs = boost::filesystem;
 
 namespace rig {
 
@@ -165,14 +168,15 @@ RigSet RigSet::subRig(int rig_id) const {
 }
   
 // Save the optimized rig configuration
-void writeRigConfig(std::string const& out_dir, bool model_rig, RigSet const& R) {
+void writeRigConfig(std::string const& rig_config, bool model_rig, RigSet const& R) {
 
   R.validate();
   
+  // Ensure that the output directory exists
+  std::string out_dir = fs::path(rig_config).parent_path().string();
   rig::createDir(out_dir);
-  std::string rig_config = out_dir + "/rig_config.txt";
+  
   vw::vw_out() << "Writing: " << rig_config << "\n";
-
   std::ofstream f;
   f.open(rig_config.c_str(), std::ios::binary | std::ios::out);
   if (!f.is_open()) LOG(FATAL) << "Cannot open file for writing: " << rig_config << "\n";

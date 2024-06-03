@@ -1106,16 +1106,8 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   if (have_rig) {
     // Save the rig
-    std::string out_dir;
-    try {
-      out_dir = fs::path(opt.out_prefix).parent_path().string(); 
-    } catch (const std::exception & e) {
-      out_dir = "";
-    }
-    // TODO(oalexan1): Sort this out. For now, writing out/rig.txt than rig.txt.
-    if (out_dir == "")
-      out_dir = opt.out_prefix;
-    rig::writeRigConfig(out_dir, have_rig, rig);
+    std::string rig_config = opt.out_prefix + "-rig_config.txt"; 
+    rig::writeRigConfig(rig_config, have_rig, rig);
   }
 
   // Compute the change in camera centers.

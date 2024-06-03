@@ -710,7 +710,6 @@ parser.add_argument('--list', dest = 'list', default = '',
 parser.add_argument('--ref-list', dest = 'ref_list', default = '',
                     help='When --list is specified, read the ref cams from here.')
 
-
 parser.add_argument('--orbit-label', dest = 'orbit_label', default = '',
                     help='The label to use for each orbital group (will be shown as '
                     'part of the title). If more than one, separate them by comma, with ' + 

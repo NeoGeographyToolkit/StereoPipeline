@@ -26,7 +26,8 @@ namespace rig {
 
 // Create a directory recursively, unless it exists already. This works like mkdir -p.
 void createDir(std::string const& dir) {
-  if (dir == "") return;  // This can be useful if dir was created with parent_path().
+  if (dir == "")
+    return;  // This can be useful if dir was created with parent_path().
 
   if (!boost::filesystem::exists(dir)) {
     if (!boost::filesystem::create_directories(dir) || !boost::filesystem::is_directory(dir))

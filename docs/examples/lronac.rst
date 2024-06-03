@@ -143,5 +143,9 @@ with a command as::
      run/run-DEM.tif LOLA.csv                \
      -o run/run-align
      
-    
+Solving for jitter
+~~~~~~~~~~~~~~~~~~
 
+LRO NAC images can have jitter. A process as for CTX in :numref:`jitter_ctx`
+usually works well to remove it (see also a multi-image example in
+:numref:`jitter_multiple_images`).

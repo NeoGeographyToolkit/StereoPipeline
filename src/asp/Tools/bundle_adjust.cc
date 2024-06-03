@@ -3078,7 +3078,7 @@ void findPairwiseMatches(Options & opt, // will change
     
     const int i = this_instance_pairs[k].first;
     const int j = this_instance_pairs[k].second;
-
+    
     std::string const& image1_path  = opt.image_files[i];  // alias
     std::string const& image2_path  = opt.image_files[j];  // alias
     std::string const& camera1_path = opt.camera_files[i]; // alias

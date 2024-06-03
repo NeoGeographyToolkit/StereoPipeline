@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
   // and undistortion RPC coefficients.
   R.cam_params[0].SetDistortion(rpc_dist_coeffs);
 
-  rig::writeRigConfig(FLAGS_out_dir, use_initial_rig_transforms, R);
+  rig::writeRigConfig(FLAGS_out_dir + "/rig_config.txt", use_initial_rig_transforms, R);
   
   return 0;
 }

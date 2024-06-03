@@ -1858,13 +1858,13 @@ int main(int argc, char** argv) {
   rig::saveCameraPoses(FLAGS_out_dir, cams, world_to_cam);
   
   bool model_rig = (!FLAGS_no_rig);
-  rig::writeRigConfig(FLAGS_out_dir, model_rig, R);
+  rig::writeRigConfig(FLAGS_out_dir + "/rig_config.txt", model_rig, R);
 
   std::string nvm_file = FLAGS_out_dir + "/cameras.nvm";
   bool shift_keypoints = true;
   rig::writeInliersToNvm(nvm_file, shift_keypoints, R.cam_params, cams,
-                               world_to_cam, keypoint_vec,
-                               pid_to_cid_fid, pid_cid_fid_inlier, xyz_vec);
+                         world_to_cam, keypoint_vec,
+                         pid_to_cid_fid, pid_cid_fid_inlier, xyz_vec);
   
   if (FLAGS_save_nvm_no_shift) {
     std::string nvm_file = FLAGS_out_dir + "/cameras_no_shift.nvm";

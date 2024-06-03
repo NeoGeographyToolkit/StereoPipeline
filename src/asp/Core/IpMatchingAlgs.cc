@@ -70,7 +70,6 @@ void filter_ip_by_disparity(double pct,    // for example, 90.0
   return;
 }
 
-
 double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,
                                  vw::Vector2i const& image_size, int tile_size,
                                  int min_ip_per_tile) {
@@ -211,18 +210,42 @@ void convergence_angles(vw::camera::CameraModel const * left_cam,
   std::sort(sorted_angles.begin(), sorted_angles.end());
 }
 
-// Find all match files stored on disk having this prefix
+// Find all match files stored on disk having this prefix. This is much faster
+// than trying to see if any combination of images results in a match file.
 void listExistingMatchFiles(std::string const& prefix,
                             std::set<std::string> & existing_files) {
+
   existing_files.clear();
+  fs::path dirName = fs::path(".");
+  try {
+    dirName = fs::path(prefix).parent_path();
+  } catch(...) {}
   
-  fs::path dirName = fs::path(prefix).parent_path().string();
+  // This is a fix for an output prefix which is of the form "run" rather than
+  // "run/run".
+  bool add_dot = false;
+  if (dirName.string() == "") {
+    dirName = fs::path(".");
+    add_dot = true;
+  }
+  
+  // Iterate over all files in the directory
   for (auto i = fs::directory_iterator(dirName); i != fs::directory_iterator(); i++) {
+    
     if (fs::is_directory(i->path())) // skip dirs
       continue;
     std::string filename = i->path().string();
-    if (filename.find(".match") != std::string::npos)
-      existing_files.insert(filename);
+    if (filename.find(".match") == std::string::npos) // keep only match files
+      continue;
+      
+    if (add_dot && filename.size() >= 2 && filename[0] == '.' && filename[1] == '/' &&
+        filename.find(prefix) != 0) {
+      // Had to temporarily replace prefix*.match with ./prefix*.match so
+      // boost can list the current directory. Remove the dot (and slash) now.
+      filename = filename.substr(2, filename.size()-2);
+    }
+      
+    existing_files.insert(filename);
   }
 }
 
