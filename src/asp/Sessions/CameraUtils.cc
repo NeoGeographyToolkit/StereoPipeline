@@ -48,31 +48,36 @@ void load_camera(std::string const& image_file,
                  vw::CamPtr      & camera_model,
                  bool            & single_threaded_camera) {
 
-  std::string input_dem = ""; // No DEM
-  bool allow_map_promote = false;
-  if (session.get() == NULL) {
-    session.reset(asp::StereoSessionFactory::create
-                    (stereo_session, // may change
-                     opt, image_file, image_file,
-                     camera_file, camera_file,
-                     out_prefix, input_dem,
-                     allow_map_promote, quiet));
-  
-    // This is necessary to avoid a crash with ISIS cameras which is single-threaded
-    // TODO(oalexan1): Check this value for csm cameras embedded in ISIS images.
-    single_threaded_camera = (!session->supports_multi_threading());
+  // Must have a try block, as otherwise OpenMP crashes the program
+  // as the caller seems unable to catch the exception from threads.
+  try {
+    std::string input_dem = ""; // No DEM
+    bool allow_map_promote = false;
+    if (session.get() == NULL) {
+      session.reset(asp::StereoSessionFactory::create
+                      (stereo_session, // may change
+                      opt, image_file, image_file,
+                      camera_file, camera_file,
+                      out_prefix, input_dem,
+                      allow_map_promote, quiet));
+    
+      // This is necessary to avoid a crash with ISIS cameras which is single-threaded
+      // TODO(oalexan1): Check this value for csm cameras embedded in ISIS images.
+      single_threaded_camera = (!session->supports_multi_threading());
+    }
+    
+    bool local_quiet = true; // To not print messages about loading each camera
+    camera_model = session->camera_model(image_file, camera_file, local_quiet);
+    if (approximate_pinhole_intrinsics) {
+      boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
+        boost::dynamic_pointer_cast<vw::camera::PinholeModel>(camera_model);
+      // Replace lens distortion with fast approximation
+      vw::camera::update_pinhole_for_fast_point2pixel<vw::camera::TsaiLensDistortion>
+        (*(pinhole_ptr.get()), file_image_size(image_file));
+    }
+  } catch (const std::exception& e) {
+    vw::vw_out() << e.what() << "\n";
   }
-  
-  bool local_quiet = true; // To not print messages about loading each camera
-  camera_model = session->camera_model(image_file, camera_file, local_quiet);
-  if (approximate_pinhole_intrinsics) {
-    boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
-      boost::dynamic_pointer_cast<vw::camera::PinholeModel>(camera_model);
-    // Replace lens distortion with fast approximation
-    vw::camera::update_pinhole_for_fast_point2pixel<vw::camera::TsaiLensDistortion>
-      (*(pinhole_ptr.get()), file_image_size(image_file));
-  }
-
 }
 
 // Load cameras from given image and camera files. Load them in parallel except
@@ -96,9 +101,9 @@ void load_cameras(std::vector<std::string> const& image_files,
   
   // Sanity check
   if (image_files.size() != camera_files.size()) 
-    vw_throw(ArgumentErr() << "Expecting as many images as cameras.\n");  
+    vw::vw_throw(vw::ArgumentErr() << "Expecting as many images as cameras.\n");  
 
-  camera_models.resize(image_files.size());
+  camera_models.resize(image_files.size(), vw::CamPtr(NULL));
 
   // First invocation. Will create the session. Will update
   // single_threaded_camera, and stereo_session. All subsequent invocations will
@@ -119,8 +124,14 @@ void load_cameras(std::vector<std::string> const& image_files,
       load_camera(image_files[i], camera_files[i], out_prefix, opt,
                   approximate_pinhole_intrinsics, quiet,
                   session, stereo_session, camera_models[i], single_threaded_camera);
+      
+    // Check that the cameras got loaded
+    for (size_t i = 0; i < camera_models.size(); i++) {
+      if (camera_models[i].get() == NULL) 
+        vw::vw_throw(vw::ArgumentErr() << "Failed to load all camera models.\n");
+    }  
   } else {
-    // Load the cameras one by one
+    // Load the cameras one by one. This is needed for ISIS cameras.
     for (size_t i = 0; i < image_files.size(); i++)
       load_camera(image_files[i], camera_files[i], out_prefix, opt,
                   approximate_pinhole_intrinsics, quiet,
