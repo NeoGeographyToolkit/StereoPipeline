@@ -150,6 +150,7 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Ensure that outlier filtering with ``--min-triangulation-angle`` is done
     after each pass with refined cameras and for all ways of reading a control
     network.
+  * Load the camera models in parallel, for speed (except for ISIS).
   * Bugfix: if some intrinsics are shared, sync them up before optimization.
   
 parallel_stereo (:numref:`parallel_stereo`):

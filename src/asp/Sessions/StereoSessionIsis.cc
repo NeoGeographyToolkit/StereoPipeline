@@ -576,7 +576,7 @@ StereoSessionIsis::load_camera_model(std::string const& image_file,
 }
 
 // Reverse any pre-alignment that was done to the disparity.
-ImageViewRef<PixelMask<Vector2f> >
+ImageViewRef<PixelMask<Vector2f>>
 StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
 
   std::string dust_result = input_file;

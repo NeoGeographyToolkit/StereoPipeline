@@ -380,14 +380,19 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
                                                  m_right_image_file,
                                                  image_file);
   
+  vw::CamPtr cam;
   if (camera_file == "") // No camera file provided, use the image file.
-    m_camera_model[image_cam_pair]
-     = load_camera_model(image_file, image_file, ba_prefix, pixel_offset);
+    cam = load_camera_model(image_file, image_file, ba_prefix, pixel_offset);
   else // Camera file provided
-    m_camera_model[image_cam_pair] 
-    = load_camera_model(image_file, camera_file, ba_prefix, pixel_offset);
+    cam  = load_camera_model(image_file, camera_file, ba_prefix, pixel_offset);
 
-  return m_camera_model[image_cam_pair];
+  {
+    // Save the camera model in the map to not load it again. Ensure thread safety. 
+    vw::Mutex::Lock lock(m_camera_mutex);
+    m_camera_model[image_cam_pair] = cam;
+  }
+
+  return cam;
 }
 
 // Default preprocessing hook. Some sessions may override it.
@@ -1193,6 +1198,7 @@ StereoSession::load_rpc_camera_model(std::string const& image_file,
 	   << err1 << "\n" << err2 << "\n" << msg);
 } // End function load_rpc_camera_model
 
+// Return the camera pixel offset, if having --left-image-crop-win and same for right.
 vw::Vector2 StereoSession::camera_pixel_offset(std::string const& input_dem,
                                                std::string const& left_image_file,
                                                std::string const& right_image_file,
@@ -1201,11 +1207,14 @@ vw::Vector2 StereoSession::camera_pixel_offset(std::string const& input_dem,
   // When we need to do stereo on cropped images, we just
   // crop the images together with their georeferences.
   if (input_dem != "")
-    return Vector2();
+    return Vector2(0, 0);
 
   bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
   bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-  vw::Vector2 left_pixel_offset, right_pixel_offset;
+  if (!crop_left && !crop_right)
+    return Vector2(0, 0); // No offset needed
+    
+  vw::Vector2 left_pixel_offset(0, 0), right_pixel_offset(0, 0);
   if (crop_left) left_pixel_offset  = stereo_settings().left_image_crop_win.min();
   if (crop_right) right_pixel_offset = stereo_settings().right_image_crop_win.min();
   
@@ -1216,9 +1225,10 @@ vw::Vector2 StereoSession::camera_pixel_offset(std::string const& input_dem,
   else
     // If the image files were not specified, no offset and no error.
     if ((left_image_file != "") || (right_image_file != ""))
-      vw_throw(ArgumentErr() << "Supplied image file does not match left or right image file.");
+      vw_throw(ArgumentErr() 
+               << "Supplied image file does not match left or right image file.");
 
-  return Vector2();
+  return Vector2(0, 0);
 }
 
 boost::shared_ptr<vw::camera::CameraModel>

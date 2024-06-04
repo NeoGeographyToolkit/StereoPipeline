@@ -305,9 +305,9 @@ namespace asp {
                                    vw::Vector2i & left_size,
                                    vw::Vector2i & right_size);
     
-    // Cache here the camera when loaded
-    std::map<std::pair<std::string, std::string>, boost::shared_ptr<vw::camera::CameraModel>>
-    m_camera_model;
+    // Cache here the camera when loaded. Use a mutex to protect the cache.
+    vw::Mutex m_camera_mutex;
+    std::map<std::pair<std::string, std::string>, vw::CamPtr> m_camera_model;
     
   };
 

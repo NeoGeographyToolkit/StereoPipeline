@@ -26,7 +26,9 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/InterestPoint/InterestData.h>
+#include <vw/Core/Stopwatch.h>
 
+#include <omp.h>
 #include <string>
 #include <iostream>
 
@@ -39,29 +41,30 @@ void load_camera(std::string const& image_file,
                  std::string const& out_prefix,
                  vw::GdalWriteOptions const& opt,
                  bool approximate_pinhole_intrinsics,
+                 bool quiet,
                  // Outputs
-                 std::string & stereo_session,
-                 vw::CamPtr  & camera_model,
-                 bool        & single_threaded_camera) {
+                 asp::SessionPtr & session,
+                 std::string     & stereo_session,
+                 vw::CamPtr      & camera_model,
+                 bool            & single_threaded_camera) {
 
-  // TODO(oalexan1): Replace this with a simpler camera model loader class.
-  // But note that this call also refines the stereo session name.
   std::string input_dem = ""; // No DEM
   bool allow_map_promote = false;
-  // TODO(oalexan1): The quiet flag should likely be false just once.
-  bool quiet = false; 
-  asp::SessionPtr session
-    (asp::StereoSessionFactory::create(stereo_session, opt,
-                                        image_file, image_file,
-                                        camera_file, camera_file,
-                                        out_prefix, input_dem,
-                                        allow_map_promote, quiet));
-  camera_model = session->camera_model(image_file, camera_file);
+  if (session.get() == NULL) {
+    session.reset(asp::StereoSessionFactory::create
+                    (stereo_session, // may change
+                     opt, image_file, image_file,
+                     camera_file, camera_file,
+                     out_prefix, input_dem,
+                     allow_map_promote, quiet));
   
-  // This is necessary to avoid a crash with ISIS cameras which is single-threaded
-  // TODO(oalexan1): Check this value for csm cameras embedded in ISIS images.
-  single_threaded_camera = (!session->supports_multi_threading());
+    // This is necessary to avoid a crash with ISIS cameras which is single-threaded
+    // TODO(oalexan1): Check this value for csm cameras embedded in ISIS images.
+    single_threaded_camera = (!session->supports_multi_threading());
+  }
   
+  bool local_quiet = true; // To not print messages about loading each camera
+  camera_model = session->camera_model(image_file, camera_file, local_quiet);
   if (approximate_pinhole_intrinsics) {
     boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
       boost::dynamic_pointer_cast<vw::camera::PinholeModel>(camera_model);
@@ -72,42 +75,60 @@ void load_camera(std::string const& image_file,
 
 }
 
-// Load cameras from given image and camera files
+// Load cameras from given image and camera files. Load them in parallel except
+// for ISIS which is not thread-safe.
 void load_cameras(std::vector<std::string> const& image_files,
                   std::vector<std::string> const& camera_files,
-                  std::string const& out_prefix, 
-                  vw::GdalWriteOptions const& opt,
+                  std::string              const& out_prefix, 
+                  vw::GdalWriteOptions     const& opt,
                   bool approximate_pinhole_intrinsics,
                   // Outputs
-                  std::string & stereo_session, // may change
-                  bool & single_threaded_camera,
-                  std::vector<boost::shared_ptr<vw::camera::CameraModel>> & camera_models) {
+                  std::string             & stereo_session,
+                  bool                    & single_threaded_camera,
+                  std::vector<vw::CamPtr> & camera_models) {
 
+  // Print a message as this may take a while
+  vw::vw_out() << "Loading the cameras.\n";
+  
+  // stopwatch
+  vw::Stopwatch sw;
+  sw.start();
+  
   // Sanity check
   if (image_files.size() != camera_files.size()) 
     vw_throw(ArgumentErr() << "Expecting as many images as cameras.\n");  
 
-  // Initialize the outputs
   camera_models.resize(image_files.size());
-  single_threaded_camera = false; // may change
-  
-  // TODO(oalexan1): Must load one camera first. Then, if the result is that it
-  // is not single-threaded, load the rest in parallel. This can greatly speed
-  // up loading of many cameras.
-  for (size_t i = 0; i < image_files.size(); i++) {
-    // Use local variables to for thread-safety
-    bool local_single_threaded_camera = false;
-    std::string local_stereo_session = stereo_session; 
-    load_camera(image_files[i], camera_files[i], out_prefix, opt,
-                approximate_pinhole_intrinsics,
-                local_stereo_session, camera_models[i], local_single_threaded_camera);
 
-    // Update these based on the camera just loaded
-    // TODO(oalexan1): Must use here a lock when using multiple threads.
-    single_threaded_camera = local_single_threaded_camera;
-    stereo_session = local_stereo_session;
+  // First invocation. Will create the session. Will update
+  // single_threaded_camera, and stereo_session. All subsequent invocations will
+  // not change these so will be thread-safe.
+  asp::SessionPtr session(NULL); // will change
+  single_threaded_camera = false; // may change
+  bool quiet = false;
+  int i = 0;
+  load_camera(image_files[i], camera_files[i], out_prefix, opt,
+              approximate_pinhole_intrinsics, quiet,
+              session, stereo_session, camera_models[i], single_threaded_camera);
+
+  quiet = true;
+  if (!single_threaded_camera) {
+    // Use OpenMP to load the cameras in parallel
+    #pragma omp parallel for
+    for (size_t i = 0; i < image_files.size(); i++)
+      load_camera(image_files[i], camera_files[i], out_prefix, opt,
+                  approximate_pinhole_intrinsics, quiet,
+                  session, stereo_session, camera_models[i], single_threaded_camera);
+  } else {
+    // Load the cameras one by one
+    for (size_t i = 0; i < image_files.size(); i++)
+      load_camera(image_files[i], camera_files[i], out_prefix, opt,
+                  approximate_pinhole_intrinsics, quiet,
+                  session, stereo_session, camera_models[i], single_threaded_camera);
   }
   
+  sw.stop();
+  std::cout << "Loading cameras elapsed time: " << sw.elapsed_seconds() << " seconds.\n";
   return;
 }
 

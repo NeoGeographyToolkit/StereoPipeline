@@ -3186,7 +3186,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> map_files;
     std::string mapproj_dem;
     bool need_no_matches = (opt.apply_initial_transform_only || 
-                            !opt.isis_cnet.empty() || opt.nvm != "");
+                            !opt.isis_cnet.empty() || !opt.nvm.empty());
     if (!need_no_matches) {
       if (!opt.mapprojected_data_list.empty()) {
         asp::read_list(opt.mapprojected_data_list, map_files);

@@ -442,8 +442,9 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   // Remember the plugin name. It will be needed to add a model state to a cub file.
   m_plugin_name = csm_plugin->getPluginName();
   
-  vw::vw_out() << "Using plugin: " << this->plugin_name() 
-               << " with model name " << model_name << std::endl;
+  // This is verbose
+  //vw::vw_out() << "Using plugin: " << this->plugin_name() 
+  //             << " with model name " << model_name << std::endl;
 
   // Now try to construct the camera model
   csm::WarningList warnings;

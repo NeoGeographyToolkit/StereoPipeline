@@ -142,7 +142,7 @@ images.
    :name: dem2gcp_ip_vs_gcp
    
    Interest point matches (left, in red) and produced GCP (right), on top of the raw images.
-   Flat areas do not have GCP. Plotted with ``sterero_gui`` (:numref:`stereo_gui`). 
+   Flat areas do not have GCP. Plotted with ``stereo_gui`` (:numref:`stereo_gui`). 
 
 Plotted in :numref:`dem2gcp_ip_vs_gcp` are the interest point matches and the
 resulting GCP. Their numbers are likely excessive here, though the bigger concern
@@ -222,7 +222,8 @@ adjustment, while setting ``--intrinsics-to-share all``. This should increase
 the accuracy across the board, if the DEMs are for mountainous regions and it is
 easy to measure the warping.
  
-One could also use a higher degree for the RPC model, such as 5.
+One could also use a higher degree for the RPC model, such as 6
+(:numref:`ba_rpc_distortion`).
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~

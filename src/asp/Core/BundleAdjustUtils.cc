@@ -45,10 +45,10 @@ namespace asp {
 // Read adjustments
 // TODO(oalexan1): Integrate with the VW function for that
 void read_adjustments(std::string const& filename,
-                           vw::Vector3      & position_correction,
-                           Quat             & pose_correction,
-                           Vector2          & pixel_offset,
-                           double           & scale) {
+                      vw::Vector3      & position_correction,
+                      Quat             & pose_correction,
+                      Vector2          & pixel_offset,
+                      double           & scale) {
 
   // Initialize the outputs
   pixel_offset = Vector2();

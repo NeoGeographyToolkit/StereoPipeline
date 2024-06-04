@@ -459,7 +459,7 @@ void CameraAdjustment::read_from_adjust_file(std::string const& filename) {
   vw::Vector2 pixel_offset = vw::Vector2();
   double scale = 1.0;
   
-  vw::vw_out() << "Reading adjusted camera model: " << filename << std::endl;
+  vw::vw_out() << "Reading camera adjustment: " << filename << std::endl;
   asp::read_adjustments(filename, m_position_data, m_pose_data,
                         pixel_offset, scale);
 }

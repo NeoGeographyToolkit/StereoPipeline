@@ -238,16 +238,16 @@ namespace asp {
       
     } // End map promotion section
 
-    if (!input_dem.empty() &&
-        (actual_session_type == "perusat")) {
+    if (!input_dem.empty() && actual_session_type == "perusat") {
       // User says PeruSat-1 or Pleiades but also gives a DEM, so the images were mapprojected.
       // If the mapprojection was done with the exact model, stereo becomes
       // painfully slow. If it was done with the RPC model, things become hard
       // to manage, and stereo needs to know both the exact and RPC model
       // and those are in different files. Hence, just don't allow mapprojected
       // images in this case.
-      vw_throw(vw::NoImplErr() << "Stereo with mapprojected images and the PeruSat-1 or Pleiades "
-               << "linescan model is not implemented. Use instead the RPC model.");
+      vw_throw(vw::NoImplErr() << "Stereo with mapprojected images and the "
+               << "PeruSat-1 linescan model is not implemented. "
+               << "Use instead the RPC model.");
     }
     
     // We should know the session type by now.
