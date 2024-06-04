@@ -1072,6 +1072,10 @@ The model state files have all the data needed to project ground points into the
 camera and vice-versa, so they are sufficient for any use in ASP. The model state can
 also be embedded in ISIS cubes (:numref:`embedded_csm`).
 
+The `usgscsm_cam_test
+<https://github.com/DOI-USGS/usgscsm/blob/main/docs/source/tools/usgscsm_cam_test.rst>`_
+program can convert any CSM camera to model state.
+
 ASP's bundle adjustment program (:numref:`bundle_adjust`) normally writes plain
 text ``.adjust`` files which encode how the position and orientation of the
 cameras were modified (:numref:`adjust_files`). If invoked for CSM cameras,
@@ -1086,9 +1090,7 @@ This functionality is implemented for all USGS CSM sensors, so, for ``frame``,
 The ``cam_gen`` program can convert several linescan camera model types to CSM
 model state (:numref:`cam_gen_linescan`). It can also approximate some Pinhole,
 RPC, or other cameras with CSM frame cameras in model state format
-(:numref:`cam_gen_frame`). The `usgscsm_cam_test
-<https://github.com/DOI-USGS/usgscsm/blob/main/docs/source/tools/usgscsm_cam_test.rst>`_
-program can convert any CSM camera to model state.
+(:numref:`cam_gen_frame`). 
 
 ASP's ``parallel_stereo`` and bundle adjustment programs can, in addition to CSM
 ISD camera model files, also load such model state files, either as previously

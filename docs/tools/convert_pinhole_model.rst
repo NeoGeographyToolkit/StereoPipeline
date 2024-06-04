@@ -30,10 +30,13 @@ Usage
 Examples
 ~~~~~~~~
 
-Convert a camera model to have RPC lens distortion::
+Convert a camera model to have RPC lens distortion of degree 3::
 
      convert_pinhole_model input.jpg input.tsai --output-type RPC \
-       --rpc-degree 2 -o output_rpc.tsai
+       --rpc-degree 3 -o output_rpc.tsai
+
+RPC polynomials of degree up to 6 have been used successfully
+(:numref:`ba_rpc_distortion`, :numref:`dem2gcp`).
 
 Specify the image dimensions instead of the image, and convert to radial-tangential
 (Tsai) lens distortion::
@@ -59,7 +62,7 @@ the distortion model conversion.
 Refinement
 ~~~~~~~~~~
 
-Bundle adjustment can be used to refine a produced camera model. For that, it is
+Bundle adjustment can refine a produced camera model. For that, it is
 suggested to have many overlapping images, a well-aligned terrain model to
 constrain against, and to ensure that all images acquired with the same sensor
 share the intrinsic parameters. A detailed recipe is in :numref:`kaguya_ba`.

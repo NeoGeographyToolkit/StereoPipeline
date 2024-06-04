@@ -276,23 +276,25 @@ cameras, and also before and after bundle adjustment.
 Running stereo
 ~~~~~~~~~~~~~~
 
-Followed by stereo::
+Stereo with raw images::
 
-     parallel_stereo for_small.tif aft_small.tif                        \
-       ba_small/run-for_small.tsai ba_small/run-aft_small.tsai          \
-       stereo_small_mgm/run --alignment-method affineepipolar           \
-       -t opticalbar --skip-rough-homography --disable-tri-ip-filter    \
-       --ip-detect-method 1 --stereo-algorithm 2 
+     parallel_stereo --stereo-algorithm asp_mgm                \
+       for_small.tif aft_small.tif                             \
+       ba_small/run-for_small.tsai ba_small/run-aft_small.tsai \
+       --subpixel-mode 9                                       \
+       --alignment-method affineepipolar                       \
+       -t opticalbar --skip-rough-homography                   \
+       --disable-tri-ip-filter                                 \
+       --ip-detect-method 1                                    \
+       stereo_small_mgm/run
 
-If stereo takes too long, and in particular, if the printed disparity
-search range is large (its width and height is more than 100 pixels),
-it is strongly suggested to run stereo with mapprojected images, per
-:numref:`mapproj-example`. Ensure the mapprojected images have the
-same resolution, and overlay them on top of the initial DEM first, to
-check for gross misalignment.
+It is strongly suggested to run stereo with *mapprojected images*, per
+:numref:`mapproj-example`. Ensure the mapprojected images have the same
+resolution, and overlay them on top of the initial DEM first, to check for gross
+misalignment.
 
-See :numref:`nextsteps` for a discussion about various
-speed-vs-quality choices in stereo.
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices
+in stereo.
 
 .. _kh4_align:
 
@@ -592,7 +594,7 @@ downsampling applied to the input images.
       st_small_new/out
 
 The above may produce a DEM with many holes. It is strongly suggested to run
-stereo with mapprojected images (:numref:`mapproj-example`). Use the ``asp_mgm``
+stereo with *mapprojected images* (:numref:`mapproj-example`). Use the ``asp_mgm``
 algorithm. See also :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices in stereo.
 
@@ -600,7 +602,7 @@ speed-vs-quality choices in stereo.
    :name: kh7_fig
    
    An example of a DEM created from KH-7 images after modeling distortion with RPC
-   (within the green polygon), on top of a reference terrain. GCP were used (:numref:`dem2gcp`), as well as mapprojected images and the ``asp_mgm``
+   of degree 3 (within the green polygon), on top of a reference terrain. GCP were used (:numref:`dem2gcp`), as well as mapprojected images and the ``asp_mgm``
    algorithm. 
 
 Fitting an RPC model to the cameras with the help of GCP created by the
