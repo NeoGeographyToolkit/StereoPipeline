@@ -1074,7 +1074,7 @@ also be embedded in ISIS cubes (:numref:`embedded_csm`).
 
 The `usgscsm_cam_test
 <https://github.com/DOI-USGS/usgscsm/blob/main/docs/source/tools/usgscsm_cam_test.rst>`_
-program can convert any CSM camera to model state.
+program, which ASP ships, can convert any CSM camera to model state.
 
 ASP's bundle adjustment program (:numref:`bundle_adjust`) normally writes plain
 text ``.adjust`` files which encode how the position and orientation of the
