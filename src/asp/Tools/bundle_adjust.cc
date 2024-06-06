@@ -1562,7 +1562,6 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   }
   
   // Write clean matches and many types of stats
-  // TODO(oalexan1): Should this be done after the last pass?
   asp::matchFilesProcessing(cnet,
                             asp::BaBaseOptions(opt), // note the slicing
                             optimized_cams, remove_outliers, outliers, opt.mapproj_dem,
@@ -1573,7 +1572,6 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                             mapprojOffsets, mapprojOffsetsPerCam,
                             horizVertErrors);
 
-  // TODO(oalexan1): Should this be done after the last pass?
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
   if (!opt.mapproj_dem.empty()) {
@@ -3170,7 +3168,7 @@ int main(int argc, char* argv[]) {
     asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
                       opt.approximate_pinhole_intrinsics,  
                       // Outputs
-                      opt.stereo_session,  // may change
+                      opt.stereo_session,
                       opt.single_threaded_cameras,  
                       opt.camera_models);
     

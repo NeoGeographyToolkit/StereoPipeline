@@ -37,6 +37,7 @@
 #include <vw/Camera/LensDistortion.h>
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Camera/CameraImage.h>
+#include <vw/Core/Stopwatch.h>
 
 #include <boost/algorithm/string.hpp>
 
@@ -1131,11 +1132,12 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
   }
 }
 
-// Write updated camera models to disk
-void saveUpdatedCameras(asp::BaBaseOptions const& opt, asp::BAParams const& param_storage) {
-  
-  int num_cameras = opt.image_files.size();
-  for (int icam = 0; icam < num_cameras; icam++) {
+void saveUpdatedCamera(asp::BaBaseOptions const& opt, asp::BAParams const& param_storage,
+                       int icam) {
+
+  // Must have a try block, as otherwise OpenMP crashes the program
+  // as the caller seems unable to catch the exception from threads.
+  try {
 
     switch(opt.camera_type) {
     case BaCameraType_Pinhole:
@@ -1170,8 +1172,29 @@ void saveUpdatedCameras(asp::BaBaseOptions const& opt, asp::BAParams const& para
     default:
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.\n");
     }
-    
-  } // End loop through cameras
+  } catch (const std::exception& e) {
+    vw::vw_out() << e.what() << "\n";
+  }
+  
+}
+
+// Write updated camera models to disk
+void saveUpdatedCameras(asp::BaBaseOptions const& opt, asp::BAParams const& param_storage) {
+  
+  int num_cameras = opt.image_files.size();
+  vw::Stopwatch sw;
+  sw.start();
+  if (!opt.single_threaded_cameras) {
+    #pragma omp parallel for 
+    for (int icam = 0; icam < num_cameras; icam++)
+      saveUpdatedCamera(opt, param_storage, icam);
+  } else {
+    for (int icam = 0; icam < num_cameras; icam++)
+      saveUpdatedCamera(opt, param_storage, icam);
+  }
+
+  sw.stop();
+  std::cout << "Saving cameras elapsed time: " << sw.elapsed_seconds() << " seconds.\n";
 
   return;
 }

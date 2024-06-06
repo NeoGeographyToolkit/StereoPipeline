@@ -95,7 +95,6 @@ void load_cameras(std::vector<std::string> const& image_files,
   // Print a message as this may take a while
   vw::vw_out() << "Loading the cameras.\n";
   
-  // stopwatch
   vw::Stopwatch sw;
   sw.start();
   

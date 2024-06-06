@@ -246,7 +246,6 @@ Matrix<double> compute_relative_transform(std::string const& image1,
   for (int attempt = 1; attempt <= num_attempts; attempt++) {
     try {
       tf = compute_ip_matching(image1, image2, roi1, roi2, opt);
-      vw::vw_out() << "Found transform:\n" << tf << std::endl;
       break;
     } catch (std::exception const& e) {
       vw_out() << "Failed with error: " << e.what() << "\n";
