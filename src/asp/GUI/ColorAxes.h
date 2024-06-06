@@ -30,7 +30,11 @@
 
 #include <asp/GUI/WidgetBase.h>
 
- class QwtPlotZoomer;
+class QwtPlotZoomer;
+class QContextMenuEvent;
+class QMenu;
+class QAction;
+class QContextMenuEvent;
 
 namespace vw { namespace gui {
 
@@ -51,12 +55,23 @@ public:
   
   void sizeToFit();
 
+public slots:
+
+  // Se the min and max intensity values for the data to be plotted
+  void setMinMaxIntensity(); 
+
 private:
   ColorAxesPlotter *m_plotter;
   QwtPlotZoomer* m_zoomer;
 
   // Spatial extent of the data to be plotted
   double m_min_x, m_min_y, m_max_x, m_max_y;
+
+  // Context menu
+  QMenu  * m_ContextMenu;
+  void contextMenuEvent(QContextMenuEvent *event);
+  
+  QAction* m_setMinMaxIntensityAction;
 };
 
 }}

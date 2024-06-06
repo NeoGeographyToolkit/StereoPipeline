@@ -162,13 +162,16 @@ An example invocation is as follows::
 This will colorize the first image using the ``inferno`` colormap, the
 second one with the ``binary-red-blue`` colormap, and will not
 colorize the third one. See :numref:`colormap` for the full list of
-colormaps. Use the ``--min`` and ``--max`` options to narrow down
-the range of values to colorize.
+colormaps. 
 
 The ``--colorbar`` option applies to all subsequent images until
 ``--no-colorbar`` is encountered, and vice-versa. Each 
 ``--colormap-style`` option also applies to all subsequent images until
 overridden by this option with another value.
+
+The range of intensities of each colorized image is computed automatically.
+Right-click in each image to adjust this range. The ``--min`` and ``--max``
+options will set values for these that will apply to all images.
 
 .. figure:: ../images/colorbar_axes.png
    :name: colorbar_axes_fig
@@ -836,7 +839,8 @@ accept all other ``parallel_stereo`` options as well.
 --colorbar
     Colorize all images and/or csv files after this option until the
     ``--no-colorbar`` option is encountered. Show these images with a colorbar
-    and axes (:numref:`colorize`).
+    and axes (:numref:`colorize`). Right-click in each image to adjust the
+    range of intensities to colorize.
 
 --no-colorbar
     Do not colorize any images after this option, until the option 

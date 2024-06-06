@@ -40,7 +40,7 @@
 #include <qwt_point_data.h>
 #include <QtGui>
 #include <QtWidgets>
-
+#include <QMenu>
 #include <string>
 #include <vector>
 
@@ -3243,7 +3243,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     }
   }
 
-  void MainWidget::contextMenuEvent(QContextMenuEvent *event){
+  void MainWidget::contextMenuEvent(QContextMenuEvent *event) {
 
     int x = event->x(), y = event->y();
     m_mousePrsX = x;
@@ -3445,7 +3445,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   void MainWidget::setThreshold(){
 
     std::ostringstream oss;
-    oss.precision(18);
+    oss.precision(17);
     oss << m_thresh;
     std::string imageThresh = oss.str();
     bool ans = getStringFromGui(this,
@@ -3516,7 +3516,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   void MainWidget::setHillshadeParams(){
 
     std::ostringstream oss;
-    oss.precision(18);
+    oss.precision(17);
     oss << m_hillshade_azimuth
         << " "
         << m_hillshade_elevation << std::endl;

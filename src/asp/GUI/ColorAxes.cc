@@ -38,6 +38,7 @@
 #include <QMouseEvent>
 #include <QPen>
 #include <QPainter>
+#include <QMenu>
 
 #include <asp/GUI/ColorAxes.h>
 #include <asp/GUI/GuiUtilities.h>
@@ -249,125 +250,129 @@ class ColorAxesData: public QwtMatrixRasterData {
 
 public:
 
+// Make the minimum value a little smaller than any actual value, too to be
+// able to use it for no-data and show it as black. See LutColormap().
+void setMinMaxNoData(double min_val, double max_val) {
+  m_min_val = min_val;
+  m_max_val = max_val;
+  m_nodata_plot_val = adjustMinVal(m_min_val, m_max_val);
+  QwtMatrixRasterData::setInterval(Qt::ZAxis, QwtInterval(m_nodata_plot_val, m_max_val));
+}
+
+
 ColorAxesData(imageData & image, double min_x, double min_y, double max_x, double max_y):
   m_image(image), m_min_x(min_x), m_min_y(min_y), m_max_x(max_x), m_max_y(max_y) {
 
-    // TODO(oalexan1): Need to handle georeferences.
+  // TODO(oalexan1): Need to handle georeferences.
 
-    m_sub_scale = -1;  // This must be set properly before being used
-    m_beg_x = 0;
-    m_beg_y = 0;
- 
-    // TODO(oalexan1): Handle no-data properly by using transparent pixels.
-    m_min_val = asp::stereo_settings().min;
-    m_max_val = asp::stereo_settings().max;
+  m_sub_scale = -1;  // This must be set properly before being used
+  m_beg_x = 0;
+  m_beg_y = 0;
 
-    // Find the min and max values, and the no-data value
-    bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
-    if (poly_or_xyz) {
-      m_nodata_val = -std::numeric_limits<double>::max();
-      if (std::isnan(m_min_val) || std::isnan(m_max_val)) 
-        findRobustBounds(m_image.scattered_data, m_min_val, m_max_val);
-    } else {
-      auto const& img = m_image.img.m_img_ch1_double;
-      if (img.planes() != 1)
-        vw::vw_throw(vw::ArgumentErr() 
-          << "Only images with one channel can be colorized.\n"); // should not be reached
+  // TODO(oalexan1): Handle no-data properly by using transparent pixels.
+  m_min_val = asp::stereo_settings().min;
+  m_max_val = asp::stereo_settings().max;
 
-      m_nodata_val = img.get_nodata_val();
-      if (std::isnan(m_min_val) || std::isnan(m_max_val)) // if the user did not set these
-        calcLowResMinMax(m_image, m_nodata_val, m_min_val, m_max_val);
-    }
+  // Find the min and max values, and the no-data value
+  bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
+  if (poly_or_xyz) {
+    m_nodata_val = -std::numeric_limits<double>::max();
+    if (std::isnan(m_min_val) || std::isnan(m_max_val)) 
+      findRobustBounds(m_image.scattered_data, m_min_val, m_max_val);
+  } else {
+    auto const& img = m_image.img.m_img_ch1_double;
+    if (img.planes() != 1)
+      vw::vw_throw(vw::ArgumentErr() 
+        << "Only images with one channel can be colorized.\n"); // should not be reached
 
-    QwtMatrixRasterData::setInterval(Qt::XAxis, QwtInterval(m_min_x, m_max_x));
-    QwtMatrixRasterData::setInterval(Qt::YAxis, QwtInterval(m_min_y, m_max_y));
-
-    // Make the minimum value a little smaller than any actual value, too to be
-    // able to use it for no-data and show it as black. The black color won't
-    // really show even though it is the first color, because very close to it
-    // we start using actual colors. See LutColormap().
-    m_nodata_plot_val = adjustMinVal(m_min_val, m_max_val);
-    QwtMatrixRasterData::setInterval(Qt::ZAxis, QwtInterval(m_nodata_plot_val, m_max_val));
-
-    return;
+    m_nodata_val = img.get_nodata_val();
+    if (std::isnan(m_min_val) || std::isnan(m_max_val)) // if the user did not set these
+      calcLowResMinMax(m_image, m_nodata_val, m_min_val, m_max_val);
   }
 
-  // Given that we plan to render a portion of an image on disk within these
-  // bounds, and resulting in a given image size, read from disk a clip with resolution
-  // and extent just enough for the job, or a little higher res and bigger.
-  void prepareClip(double x0, double y0, double x1, double y1, QSize const& imageSize) {
-
-    // Ensure initialization
-    m_level = 0;
-    m_sub_scale = 1;
-    m_beg_x = 0;
-    m_beg_y = 0;
-
-    bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
-    if (poly_or_xyz) 
-      return; // nothing to do
-
-    // Have an image.
-    
-    // Note that y0 and y1 are normally flipped
-    int beg_x = floor(std::min(x0, x1)), end_x = ceil(std::max(x0, x1));
-    int beg_y = floor(std::min(y0, y1)), end_y = ceil(std::max(y0, y1));
-
-    // if in doubt, go with lower sub_scale, so higher resolution.
-    double sub_scale_x = (end_x - beg_x) / imageSize.width();
-    double sub_scale_y = (end_y - beg_y) / imageSize.height();
-    double sub_scale = sqrt(sub_scale_x * sub_scale_y);
-
-    // Make the image a little blurrier. But this will run faster. Same logic
-    // is used in MainWidget.cc
-    sub_scale *= 1.3; 
-
-    m_level =  m_image.img.m_img_ch1_double.pyramidLevel(sub_scale);
-    m_sub_scale = round(pow(2.0, m_level));
-    beg_x = floor(beg_x/m_sub_scale); end_x = ceil(end_x/m_sub_scale);
-    beg_y = floor(beg_y/m_sub_scale); end_y = ceil(end_y/m_sub_scale);
-
-    vw::BBox2i box;
-    box.min() = Vector2i(beg_x, beg_y);
-    box.max() = Vector2i(end_x + 1, end_y + 1); // because max is exclusive
-
-    box.crop(vw::bounding_box(m_image.img.m_img_ch1_double.pyramid()[m_level]));
-
-    // Instead of returning image(x, y), we will return
-    // sub_image(x/scale + beg_x, y/scale + beg_y).
-    m_sub_image = crop(m_image.img.m_img_ch1_double.pyramid()[m_level], box);
-
-    m_beg_x = box.min().x();
-    m_beg_y = box.min().y();
-  }
+  QwtMatrixRasterData::setInterval(Qt::XAxis, QwtInterval(m_min_x, m_max_x));
+  QwtMatrixRasterData::setInterval(Qt::YAxis, QwtInterval(m_min_y, m_max_y));
+  setMinMaxNoData(m_min_val, m_max_val);
   
-  virtual double value(double x, double y) const {
-    
-    // Instead of returning  m_image(x, y), we will return
-    // m_sub_image(x/m_sub_scale - m_beg_x, y/m_sub_scale - m_beg_y).
-    if (m_sub_scale <= 0) 
-      vw::vw_throw(vw::ArgumentErr() << "Programmer error. Not ready yet to render the image.\n");
-    
-    bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
-    if (poly_or_xyz)
-      return m_nodata_plot_val; // TODO(oalexan1): Make transparent
+  return;
+}
 
-    // Return pixels at the appropriate level of resolution
-    x = round(x/m_sub_scale) - m_beg_x;
-    y = round(y/m_sub_scale) - m_beg_y;
+// Given that we plan to render a portion of an image on disk within these
+// bounds, and resulting in a given image size, read from disk a clip with resolution
+// and extent just enough for the job, or a little higher res and bigger.
+void prepareClip(double x0, double y0, double x1, double y1, QSize const& imageSize) {
 
-    if (x < 0 || y < 0 || x > m_sub_image.cols() - 1 || y > m_sub_image.rows() - 1)
-      return m_nodata_plot_val;
-    
-    double val = m_sub_image(x, y);
-    
-    if (val == m_nodata_val || val != val) 
-      return m_nodata_plot_val; // TODO(oalexan1): Make transparent, for now it is black
+  // Ensure initialization
+  m_level = 0;
+  m_sub_scale = 1;
+  m_beg_x = 0;
+  m_beg_y = 0;
 
-    // Ensure this is no smaller than m_min_val, as otherwise it will be shown
-    // as black background.
-    return std::max(m_min_val, val);
-  }
+  bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
+  if (poly_or_xyz) 
+    return; // nothing to do
+
+  // Have an image.
+  
+  // Note that y0 and y1 are normally flipped
+  int beg_x = floor(std::min(x0, x1)), end_x = ceil(std::max(x0, x1));
+  int beg_y = floor(std::min(y0, y1)), end_y = ceil(std::max(y0, y1));
+
+  // if in doubt, go with lower sub_scale, so higher resolution.
+  double sub_scale_x = (end_x - beg_x) / imageSize.width();
+  double sub_scale_y = (end_y - beg_y) / imageSize.height();
+  double sub_scale = sqrt(sub_scale_x * sub_scale_y);
+
+  // Make the image a little blurrier. But this will run faster. Same logic
+  // is used in MainWidget.cc
+  sub_scale *= 1.3; 
+
+  m_level =  m_image.img.m_img_ch1_double.pyramidLevel(sub_scale);
+  m_sub_scale = round(pow(2.0, m_level));
+  beg_x = floor(beg_x/m_sub_scale); end_x = ceil(end_x/m_sub_scale);
+  beg_y = floor(beg_y/m_sub_scale); end_y = ceil(end_y/m_sub_scale);
+
+  vw::BBox2i box;
+  box.min() = Vector2i(beg_x, beg_y);
+  box.max() = Vector2i(end_x + 1, end_y + 1); // because max is exclusive
+
+  box.crop(vw::bounding_box(m_image.img.m_img_ch1_double.pyramid()[m_level]));
+
+  // Instead of returning image(x, y), we will return
+  // sub_image(x/scale + beg_x, y/scale + beg_y).
+  m_sub_image = crop(m_image.img.m_img_ch1_double.pyramid()[m_level], box);
+
+  m_beg_x = box.min().x();
+  m_beg_y = box.min().y();
+}
+
+virtual double value(double x, double y) const {
+  
+  // Instead of returning  m_image(x, y), we will return
+  // m_sub_image(x/m_sub_scale - m_beg_x, y/m_sub_scale - m_beg_y).
+  if (m_sub_scale <= 0) 
+    vw::vw_throw(vw::ArgumentErr() << "Programmer error. Not ready yet to render the image.\n");
+  
+  bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
+  if (poly_or_xyz)
+    return m_nodata_plot_val; // TODO(oalexan1): Make transparent
+
+  // Return pixels at the appropriate level of resolution
+  x = round(x/m_sub_scale) - m_beg_x;
+  y = round(y/m_sub_scale) - m_beg_y;
+
+  if (x < 0 || y < 0 || x > m_sub_image.cols() - 1 || y > m_sub_image.rows() - 1)
+    return m_nodata_plot_val;
+  
+  double val = m_sub_image(x, y);
+  
+  if (val == m_nodata_val || val != val) 
+    return m_nodata_plot_val; // TODO(oalexan1): Make transparent, for now it is black
+
+  // Ensure this is no smaller than m_min_val, as otherwise it will be shown
+  // as black background.
+  return std::max(m_min_val, val);
+}
 
 public:
   imageData & m_image;
@@ -466,7 +471,7 @@ public:
     }
     //sw2.stop();
     //std::cout << "drawing took " << sw2.elapsed_seconds() << " s\n";
-
+    
     QwtLinearColorMap const * cmap = (QwtLinearColorMap*)this->colorMap();
     QwtInterval I(0.0, 1.0); // QwtLinearColorMap does not remember its interval
     drawScatteredData(m_data->m_image, xMap, yMap, canvasRect, I, cmap, 
@@ -496,6 +501,9 @@ public:
     return QwtPlotSpectrogram::renderImage(xMap, yMap, area, imageSize);
   }
 
+  // Direct access to the data
+  ColorAxesData* data() { return m_data; }
+   
   ColorAxesData * m_data;  
 };
 
@@ -589,6 +597,13 @@ ColorAxes::ColorAxes(QWidget *parent,
   plotLayout()->setCanvasMargin(0);
   plotLayout()->setAlignCanvasToScales(true);
   
+  // Right-click context menu
+  m_ContextMenu = new QMenu();
+
+  // Se the min and max intensity values for the data to be plotted
+  m_setMinMaxIntensityAction = m_ContextMenu->addAction("Set min and max intensity");
+  connect(m_setMinMaxIntensityAction, SIGNAL(triggered()), this, SLOT(setMinMaxIntensity()));
+  
   replot();
 }
 
@@ -597,6 +612,13 @@ void ColorAxes::mousePressEvent(QMouseEvent *e) {
   vw::vw_out() << "Image: " << m_images[m_beg_image_id].name << std::endl;
   
   QwtPlot::mousePressEvent(e);
+}
+  
+void ColorAxes::contextMenuEvent(QContextMenuEvent *event) {
+
+  int x = event->x(), y = event->y();
+  m_ContextMenu->popup(mapToGlobal(QPoint(x,y)));
+  return;
 }
   
 void ColorAxes::resizeEvent(QResizeEvent *e) {
@@ -661,6 +683,39 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
 // Zoom to full extent
 void ColorAxes::sizeToFit() {
   m_zoomer->zoom(m_zoomer->zoomBase());
+}
+
+// Se the min and max intensity values for the data to be plotted
+void ColorAxes::setMinMaxIntensity() {
+
+  double min_val = m_plotter->data()->m_min_val;
+  double max_val = m_plotter->data()->m_max_val;  
+
+  std::ostringstream oss;
+  oss.precision(8);
+  oss << min_val << " " << max_val << "\n";
+
+  std::string minMaxVal = oss.str();
+  bool ans = getStringFromGui(this,
+    "Minimum and maximum intensity values",
+    "Minimum and maximum intensity values",
+    minMaxVal,
+    minMaxVal);
+  if (!ans)
+    return;
+
+  std::istringstream iss(minMaxVal);
+  if (! (iss >> min_val >> max_val) ) {
+    popUp("Could not read the min and max intensity values.");
+    return;
+  }
+
+  // Call m_plotter, which will set m_min_val and m_max_val
+  // and m_nodata_plot_val
+  setAxisScale(QwtPlot::yRight, min_val, max_val);
+  m_plotter->data()->setMinMaxNoData(min_val, max_val);    
+
+  replot();
 }
 
 }} // end namespace vw::gui
