@@ -270,6 +270,10 @@ void detect_ip(vw::ip::InterestPointList& ip,
   if (ip_per_tile != 0)
     points_per_tile = ip_per_tile;
 
+  // Record the current number of ip per tile. Later this can be used
+  // for a subsequent attempt, if this one failed.
+  asp::stereo_settings().ip_per_tile = points_per_tile;
+  
   vw::vw_out() << "\t    Using " << points_per_tile 
     << " interest points per tile (1024^2 px).\n";
 

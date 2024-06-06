@@ -15,26 +15,30 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file image_mosaic.cc
-///
-/// Tool for creating mosaics of images on disk.
-/// - Currently supports one line of images.
-
-#include <limits>
-#include <boost/algorithm/string.hpp>
-
-#include <vw/FileIO/DiskImageUtils.h>
-#include <vw/Image/Algorithms2.h>
-#include <vw/Image/AlgorithmFunctions.h>
-#include <vw/Image/Manipulation.h>
-
+// \file image_mosaic.cc
+//
+// Tool for creating mosaics of images on disk. Currently supports one line of
+// images.
 
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/InterestPointMatching.h>
 
+#include <vw/FileIO/DiskImageUtils.h>
+#include <vw/Image/Algorithms2.h>
+#include <vw/Image/AlgorithmFunctions.h>
+#include <vw/Image/Manipulation.h>
+#include <vw/FileIO/FileUtils.h>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
+
+#include <limits>
+
 using namespace vw;
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
 /// GDAL block write sizes must be a multiple to 16 so if the input value is
 ///  not a multiple of 16 increase it until it is.
@@ -44,14 +48,13 @@ void fix_tile_multiple(int &size) {
     size = ((size / TILE_MULTIPLE) + 1) * TILE_MULTIPLE;
 }
 
-
 struct Options: vw::GdalWriteOptions {
   std::vector<std::string> image_files;
   std::string orientation, output_image, output_type, out_prefix;
-  int    overlap_width, band, blend_radius, ip_per_tile;
+  int    overlap_width, band, blend_radius, ip_per_tile, num_ransac_iterations;
   bool   has_input_nodata_value, has_output_nodata_value, reverse, rotate,
          use_affine_transform, rotate90, rotate90ccw;
-  double input_nodata_value, output_nodata_value;
+  double input_nodata_value, output_nodata_value, inlier_threshold;
   Vector2 big_tile_size;
   Options(): has_input_nodata_value(false), has_output_nodata_value(false),
              input_nodata_value (std::numeric_limits<double>::quiet_NaN()),
@@ -106,7 +109,7 @@ void match_ip_in_regions(std::string const& image_file1,
     match_file = ip::match_filename(opt.out_prefix, image_file1, image_file2);
 
     // If the match file already exists, load it instead of finding new points.
-    if (boost::filesystem::exists(match_file)) {
+    if (fs::exists(match_file)) {
       vw_out() << "Reading matched interest points from file: " << match_file << std::endl;
       ip::read_binary_match_file(match_file, matched_ip1, matched_ip2);
       vw_out() << "Read in " << matched_ip1.size() << " matched IP.\n";
@@ -135,9 +138,7 @@ void match_ip_in_regions(std::string const& image_file1,
     matched_ip2[i].y  += roi2.min()[1];
     matched_ip2[i].iy += roi2.min()[1];
   }
-  //std::cout << "Number of matched ip: " << matched_ip1.size() << std::endl;
 } // End function match_ip_in_regions
-
 
 /// Compute a matrix transform between images, searching for IP in
 ///  the specified regions.
@@ -145,7 +146,7 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
                                    std::string const& image_file2,
                                    BBox2i const& roi1,
                                    BBox2i const& roi2,
-                                   Options const& opt) {
+                                   Options & opt) {
 
   // Find IP, looking in only the specified regions.
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
@@ -156,11 +157,11 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
   std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
   std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
 
-  // RANSAC parameters.
-  const int    num_iterations   = 100;
-  const double inlier_threshold = 10;
-  const int    min_num_output_inliers = ransac_ip1.size()/2;
-  const bool   reduce_min_num_output_inliers_if_no_fit = true;
+  // RANSAC parameters
+  int min_num_output_inliers = ransac_ip1.size()/2;
+  bool reduce_min_num_output_inliers_if_no_fit = true;
+  vw_out() << "Number of RANSAC iterations: " << opt.num_ransac_iterations << "\n";
+  vw_out() << "Inlier threshold in pixels: " << opt.inlier_threshold << "\n";
 
   Matrix<double> tf;
   std::vector<size_t> indices;
@@ -170,26 +171,26 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
                                       vw::math::InterestPointErrorMetric>
                                         ransac(vw::math::AffineFittingFunctor(),
                                               vw::math::InterestPointErrorMetric(),
-                                              num_iterations,
-                                              inlier_threshold,
+                                              opt.num_ransac_iterations,
+                                              opt.inlier_threshold,
                                               min_num_output_inliers,
                                               reduce_min_num_output_inliers_if_no_fit);
-      tf      = ransac( ransac_ip2, ransac_ip1 );
-      indices = ransac.inlier_indices(tf, ransac_ip2, ransac_ip1 );
-    } else { // More restricted transform.
+      tf      = ransac(ransac_ip2, ransac_ip1);
+      indices = ransac.inlier_indices(tf, ransac_ip2, ransac_ip1);
+    } else { // More restricted transform
       vw::math::RandomSampleConsensus<vw::math::TranslationRotationFittingFunctorN<2>,
                                       vw::math::InterestPointErrorMetric>
-                                        ransac(vw::math::TranslationRotationFittingFunctorN<2>(),
-                                              vw::math::InterestPointErrorMetric(),
-                                              num_iterations,
-                                              inlier_threshold,
-                                              min_num_output_inliers,
-                                              reduce_min_num_output_inliers_if_no_fit);
-      tf      = ransac( ransac_ip2, ransac_ip1 );
-      indices = ransac.inlier_indices(tf, ransac_ip2, ransac_ip1 );
+                                      ransac(vw::math::TranslationRotationFittingFunctorN<2>(),
+                                             vw::math::InterestPointErrorMetric(),
+                                             opt.num_ransac_iterations,
+                                             opt.inlier_threshold,
+                                             min_num_output_inliers,
+                                             reduce_min_num_output_inliers_if_no_fit);
+      tf      = ransac(ransac_ip2, ransac_ip1);
+      indices = ransac.inlier_indices(tf, ransac_ip2, ransac_ip1);
     }
   } catch (...) {
-    vw_throw( ArgumentErr() << "Automatic Alignment failed in RANSAC fit!");
+    vw_throw( ArgumentErr() << "Automatic alignment failed in the RANSAC fit.");
   }
 
   // Keeping only inliers
@@ -203,7 +204,7 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
   if (opt.out_prefix != "") {
     // Write a match file for debugging
     match_file = ip::match_filename(opt.out_prefix, image_file1, image_file2);
-    match_file = boost::filesystem::path(match_file).replace_extension("").string();
+    match_file = fs::path(match_file).replace_extension("").string();
     match_file += "-clean.match";
     vw_out() << "Writing inlier matches after RANSAC to: " << match_file << std::endl;
     ip::write_binary_match_file(match_file, inlier_ip1, inlier_ip2);
@@ -217,7 +218,7 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
 ///  (the top left corner of image1 is (0,0))
 Matrix<double> compute_relative_transform(std::string const& image1,
                                           std::string const& image2,
-                                          Options const& opt) {
+                                          Options& opt) {
 
   Vector2i size1 = file_image_size(image1);
   Vector2i size2 = file_image_size(image2);
@@ -226,25 +227,58 @@ Matrix<double> compute_relative_transform(std::string const& image1,
   // - Currently only horizontal orientation is supported.
   BBox2i roi1, roi2;
   if (opt.orientation == "horizontal") {
-    roi1.min() = Vector2(size1[0]-opt.overlap_width, 0);
+    roi1.min() = Vector2(std::max(size1[0] - opt.overlap_width, 0), 0);
     roi1.max() = size1; // Bottom right corner
-    roi2.min() = Vector2(0,0); // Top left corner
-    roi2.max() = Vector2(opt.overlap_width, size2[1]); // Bottom right corner
+    roi2.min() = Vector2(0, 0); // Top left corner
+    roi2.max() = Vector2(std::min(opt.overlap_width, size2[0]), size2[1]); // Bottom right
   }
 
   if (roi1.empty() || roi2.empty())
     vw_throw( ArgumentErr() << "Unrecognized image orientation!");
 
-  Matrix<double> tf = compute_ip_matching(image1, image2, roi1, roi2, opt);
+  Matrix<double> tf;
+  
+  // Try several times, with ever-larger value of ip-per-tile. Normally this value 
+  // is computed internally, or passed in by the user via --ip-per-tile. In 
+  // either case, it will be recorded in asp::stereo_settings().ip_per_tile,
+  // which we will increase in subsequent attempts.
+  int num_attempts = 3;
+  for (int attempt = 1; attempt <= num_attempts; attempt++) {
+    try {
+      tf = compute_ip_matching(image1, image2, roi1, roi2, opt);
+      vw::vw_out() << "Found transform:\n" << tf << std::endl;
+      break;
+    } catch (std::exception const& e) {
+      vw_out() << "Failed with error: " << e.what() << "\n";
+      if (attempt == num_attempts)
+        vw_throw(ArgumentErr()
+                 << "Failed to compute the relative transform. Inspect your images.\n");
+    }
+
+    // Wipe any old match file to force it to be regenerated
+    std::string match_file;
+    if (opt.out_prefix != "")
+      match_file = ip::match_filename(opt.out_prefix, image1, image2);
+    if (!match_file.empty() && fs::exists(match_file)) {
+      vw::vw_out() << "Removing old match file: " << match_file << "\n";
+      fs::remove(match_file);
+    }
+      
+    // Multiply the number of IP per tile by 4 and try again.
+    asp::stereo_settings().ip_per_tile *= 4;
+    opt.ip_per_tile = asp::stereo_settings().ip_per_tile;
+    vw_out() << "Increasing --ip-per-tile to: " << asp::stereo_settings().ip_per_tile 
+             << "\n";
+  }
+  
   return tf;
 
 } // End function compute_relative_transform
 
-
 /// Compute the positions of each image relative to the first image.
 /// - The top left corner of the first image is coordinate 0,0 in the output image.
-void compute_all_image_positions(Options const& opt,
-                                 std::vector<boost::shared_ptr<vw::Transform> > & transforms,
+void compute_all_image_positions(Options & opt,
+                                 std::vector<boost::shared_ptr<vw::Transform>> & transforms,
                                  std::vector<BBox2i>          & bboxes,
                                  Vector2i                     & output_image_size) {
 
@@ -268,7 +302,6 @@ void compute_all_image_positions(Options const& opt,
   mo(1,0) = 0;
   mo(1,1) = 1;
   transforms[0] = boost::shared_ptr<vw::Transform>(new AffineTransform(mo, to));
-  //transforms[0] = boost::shared_ptr<vw::Transform>(new TranslateTransform(0,0));
   bboxes    [0] = output_bbox;
   
   // This approach only works for serial pairs, if we add another type of
@@ -582,7 +615,7 @@ void write_selected_image_type(ImageViewRef<float> const& out_img,
   
 } // End function write_selected_image_type
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   // Add the reverse option
   general_options.add( vw::GdalWriteOptionsDescription(opt) );
@@ -615,7 +648,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-nodata-value", po::value(&opt.output_nodata_value),
      "Nodata value to use on output.")
     ("output-prefix", po::value(&opt.out_prefix)->default_value(""),
-     "If specified, save here the interest point matches used in mosaicking.");
+     "If specified, save here the interest point matches used in mosaicking.")
+    ("num-ransac-iterations", po::value(&opt.num_ransac_iterations)->default_value(1000),
+     "How many iterations to perform in RANSAC when finding interest point matches.")
+    ("inlier-threshold", po::value(&opt.inlier_threshold)->default_value(10.0),
+     "The inlier threshold (in pixels) to separate inliers from outliers when computing interest point matches. A smaller threshold will result in fewer inliers.");
  
   po::options_description positional("");
   positional.add_options()
@@ -664,6 +701,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     }
   }
   
+  // Create the output directory
+  vw::create_out_dir(opt.output_image);
+
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.output_image);
 }
 
 int main( int argc, char *argv[] ) {
@@ -702,9 +744,9 @@ int main( int argc, char *argv[] ) {
     vw_out() << "Writing: " << opt.output_image << std::endl;
     TerminalProgressCallback tpc("asp", "\t    Mosaic:");
     ImageViewRef<float> out_img = 
-        ImageMosaicView< PixelMask<float> >(images, transforms, bboxes,
-                                           opt.blend_radius, output_image_size,
-                                           opt.output_nodata_value);
+        ImageMosaicView<PixelMask<float>>(images, transforms, bboxes,
+                                          opt.blend_radius, output_image_size,
+                                          opt.output_nodata_value);
 
     if (opt.rotate)
       //write_selected_image_type(ImageRotateView<float>(out_img), opt.output_nodata_value, opt);

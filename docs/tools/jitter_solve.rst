@@ -384,7 +384,7 @@ Then, jitter was solved for, using the aligned cameras::
       --max-initial-reprojection-error 20      \
       --heights-from-dem ref_dem.tif           \
       --heights-from-dem-uncertainty 20.0      \
-      --num-iterations 20                      \
+      --num-iterations 10                      \
       --anchor-weight 0                        \
       --tri-weight 0.1                         \
       -o jitter/run

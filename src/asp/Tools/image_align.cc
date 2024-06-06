@@ -433,6 +433,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.output_prefix != "") // for saving match files, etc.
     vw::create_out_dir(opt.output_prefix);
+
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.output_image);
   
   return;  
 }

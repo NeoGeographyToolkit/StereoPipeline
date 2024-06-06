@@ -646,33 +646,44 @@ and note which image corners correspond to which compass locations.
 It is suggested to resize the images to a more manageable size. This can
 avoid failures in the processing below (:numref:`resizing_images`).
 
-We merge the images with the ``image_mosaic`` tool.
+We merge the images with ``image_mosaic`` (:numref:`image_mosaic`)::
 
-::
-
-     image_mosaic D3C1216-200548F040_a.tif D3C1216-200548F040_b.tif D3C1216-200548F040_c.tif \
-       D3C1216-200548F040_d.tif  D3C1216-200548F040_e.tif  D3C1216-200548F040_f.tif          \
-       D3C1216-200548F040_g.tif  D3C1216-200548F040_h.tif  D3C1216-200548F040_i.tif          \
-       D3C1216-200548F040_j.tif  D3C1216-200548F040_k.tif  D3C1216-200548F040_l.tif          \
-       --ot byte --overlap-width 3000 -o D3C1216-200548F040.tif
-     image_mosaic D3C1216-200548A041_a.tif D3C1216-200548A041_b.tif D3C1216-200548A041_c.tif \
-       D3C1216-200548A041_d.tif  D3C1216-200548A041_e.tif  D3C1216-200548A041_f.tif          \
-       D3C1216-200548A041_g.tif  D3C1216-200548A041_h.tif  D3C1216-200548A041_i.tif          \
-       D3C1216-200548A041_j.tif  D3C1216-200548A041_k.tif --overlap-width 1000               \
-       --ot byte -o D3C1216-200548A041.tif  --rotate
+    image_mosaic                                        \
+      D3C1216-200548F040_a.tif D3C1216-200548F040_b.tif \
+      D3C1216-200548F040_c.tif D3C1216-200548F040_d.tif \
+      D3C1216-200548F040_e.tif D3C1216-200548F040_f.tif \
+      D3C1216-200548F040_g.tif D3C1216-200548F040_h.tif \
+      D3C1216-200548F040_i.tif D3C1216-200548F040_j.tif \
+      D3C1216-200548F040_k.tif D3C1216-200548F040_l.tif \
+      --ot byte --overlap-width 3000                    \
+      -o D3C1216-200548F040.tif
+      
+    image_mosaic                                        \
+      D3C1216-200548A041_a.tif D3C1216-200548A041_b.tif \
+      D3C1216-200548A041_c.tif D3C1216-200548A041_d.tif \
+      D3C1216-200548A041_e.tif D3C1216-200548A041_f.tif \
+      D3C1216-200548A041_g.tif D3C1216-200548A041_h.tif \
+      D3C1216-200548A041_i.tif D3C1216-200548A041_j.tif \
+      D3C1216-200548A041_k.tif --overlap-width 1000     \
+      --ot byte -o D3C1216-200548A041.tif  --rotate
 
 These images also need to be cropped to remove most of the area around
 the images::
 
-     historical_helper.py rotate-crop --input-path D3C1216-200548F040.tif \
-       --output-path for.tif                                              \
-       --interest-points '2414 1190  346001 1714  345952 23960  2356 23174'
-     historical_helper.py rotate-crop --input-path D3C1216-200548A041.tif \
-       --output-path aft.tif                                              \
-       --interest-points '1624 1333  346183 1812  346212 24085  1538 23504'
+     historical_helper.py rotate-crop      \
+       --input-path D3C1216-200548F040.tif \
+       --output-path for.tif               \
+       --interest-points '2414 1190 346001 1714 
+                          345952 23960 2356 23174'
+     historical_helper.py rotate-crop      \
+       --input-path D3C1216-200548A041.tif \
+       --output-path aft.tif               \
+       --interest-points '1624 1333 346183 1812 
+                          346212 24085  1538 23504'
 
-We used, as above, the ``historical_helper.py`` tool. See :numref:`historical_helper`
-for how to install the ImageMagick software that it needs.
+We used, as above, the ``historical_helper.py`` tool. See
+:numref:`historical_helper` for how to install the ImageMagick software that it
+needs.
 
 For this example there are ASTER DEMs which can be used for reference.
 They can be downloaded from https://gdex.cr.usgs.gov/gdex/ as single
@@ -708,16 +719,24 @@ as in the previous examples.
 
 ::
 
-     cam_gen --sample-file sample_kh9_for_optical_bar.tsai --camera-type opticalbar          \
-       --lon-lat-values '-151.954 61.999  -145.237 61.186  -145.298 60.944  -152.149 61.771' \
-       for.tif --reference-dem aster_dem.tif --refine-camera  -o for.tsai
-     cam_gen --sample-file sample_kh9_aft_optical_bar.tsai --camera-type opticalbar         \
-       --lon-lat-values '-152.124 61.913  -145.211 61.156  -145.43 60.938  -152.117 61.667' \
-       aft.tif --reference-dem aster_dem.tif --refine-camera  -o aft.tsai
+     cam_gen --sample-file sample_kh9_for_optical_bar.tsai \
+       --camera-type opticalbar                            \
+       --lon-lat-values '-151.954 61.999 -145.237 61.186 
+                         -145.298 60.944 -152.149 61.771'  \
+       for.tif --reference-dem aster_dem.tif               \
+       --refine-camera -o for.tsai
+     cam_gen --sample-file sample_kh9_aft_optical_bar.tsai \
+       --camera-type opticalbar                            \
+       --lon-lat-values '-152.124 61.913 -145.211 61.156 
+                         -145.43 60.938  -152.117 61.667'  \
+       aft.tif --reference-dem aster_dem.tif               \
+       --refine-camera -o aft.tsai
 
 As with KH-4B, it is best to first experiment with low resolution copies
-of the images. Don't forget to scale the image size, center location,
-and pixel size in the new camera files!
+of the images. 
+
+*Don't forget to scale the image size, center location, and pixel size in the new
+camera files.*
 
 ::
 

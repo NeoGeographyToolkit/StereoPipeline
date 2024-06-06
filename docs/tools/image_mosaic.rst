@@ -3,16 +3,51 @@
 image_mosaic
 ------------
 
-The program ``image_mosaic`` aligns multiple input images into a single
-output image. Currently it only supports a horizontal sequence of images
-such as scanned Corona images. An example of using this tool is in
-:numref:`kh4`.
+The program ``image_mosaic`` aligns multiple input images into a single output
+image. Currently it only supports a horizontal sequence of images such as
+scanned Corona images (:numref:`kh4`).
 
-Usage::
+It is expected that the second input image is a continuation on the right of the
+first image, and so on. Otherwise, this program must be called with the images
+in reverse order, or by setting the ``--reverse`` option.
+
+Example
+~~~~~~~
+
+::
+
+     image_mosaic input1.tif input2.tif \
+       --ot Float32 --blend-radius 2000 \
+       --overlap-width 5000             \
+       -o output.tif
+
+More examples are in :numref:`kh4`, :numref:`kh7`, and :numref:`kh9`.
+       
+Handling failure
+~~~~~~~~~~~~~~~~
+
+In case of failure, inspect the input images. This tool assumes the second
+image can be appended to the right of the first image. It expects no rotation
+between the images.
+
+This program can fail if not enough interest points are found to align the
+images. It will try a couple of attempts with a larger value of
+``--ip-per-tile`` before giving up.
+
+Try using an even larger value of this parameter than what the program attempted
+and printed on the screen.
+
+Also consider adjusting ``--inlier-threshold`` and ``--num-ransac-iterations``
+if the produced transform is not accurate. A lower inlier threshold will result
+in a more accurate transform but a higher chance of failure.
+
+Usage
+~~~~~
 
      image_mosaic [options] <images> -o output_file_path
 
-Command-line options for image_mosaic:
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
 --t_orientation <horizontal>
     Specify the image layout.  Currently only supports horizontal.
@@ -68,6 +103,15 @@ Command-line options for image_mosaic:
 --output-prefix <string>
     If specified, save here the interest point matches used in
     mosaicking.
+
+--num-ransac-iterations <integer (default: 1000)>
+    How many iterations to perform in RANSAC when finding interest point 
+    matches.
+
+--inlier-threshold <integer (default: 10)>    
+    The inlier threshold (in pixels) to separate inliers from outliers when 
+    computing interest point matches. A smaller threshold will result in fewer 
+    inliers.
 
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use

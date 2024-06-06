@@ -759,6 +759,10 @@ If GCP are present, the file ``{output-prefix}-gcp_report.txt`` will be saved to
 disk, having the initial and optimized GCP coordinates, and their difference,
 both in ECEF and longitude-latitude-height above datum. 
 
+The reprojection error file may be more helpful than this GCP report file
+(:numref:`ba_err_per_point`). The GCP are flagged with the string ``# GCP`` at
+the end of that file.
+
 .. _ba_error_propagation:
 
 Error propagation
