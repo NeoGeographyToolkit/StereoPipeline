@@ -1184,7 +1184,7 @@ void saveUpdatedCameras(asp::BaBaseOptions const& opt, asp::BAParams const& para
   int num_cameras = opt.image_files.size();
   vw::Stopwatch sw;
   sw.start();
-  if (!opt.single_threaded_cameras) {
+  if (!opt.single_threaded_cameras && !opt.update_isis_cubes_with_csm_state) {
     #pragma omp parallel for 
     for (int icam = 0; icam < num_cameras; icam++)
       saveUpdatedCamera(opt, param_storage, icam);
