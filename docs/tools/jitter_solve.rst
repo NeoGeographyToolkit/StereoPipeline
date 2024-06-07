@@ -86,15 +86,55 @@ cameras is available.
 The implementation is the same as for bundle adjustment
 (:numref:`heights_from_dem`).
 
-Anchor points
-^^^^^^^^^^^^^
+.. _jitter_ip:
 
-The anchor points constraint also use a well-aligned external DEM,
-with important differences. These points are created based on pixels
-that are uniformly distributed over each image, not just where the images
-overlap, and can even go beyond the first and last image line. This
-ensures that the optimized poses do not oscillate where the images
-overlap very little or not at all.
+Interest point matches
+~~~~~~~~~~~~~~~~~~~~~~
+
+Since solving for jitter is a fine-grained operation, modifying many positions
+and orientations along the satellite track, many dense and uniformly distributed
+interest points are necessary. It is suggested to create these with stereo, with
+the option ``--num-matches-from-disparity`` (:numref:`dense_ip`). 
+An example is shown in :numref:`jitter_ctx`.
+
+The most accurate interest points are obtained when the images are mapprojected.
+This is illustrated in :numref:`jitter_dg`. The produced interest point
+matches will be, however, between the original, unprojected images, as expected
+by the solver. 
+
+All interest point matches from disparity must be copied to a single directory
+and *renamed according ot the naming convention* (:numref:`ba_match_files`).
+The jitter solver is passed the prefix of these files with the option
+``--match-files-prefix``.
+
+If having more than two images, one can do pairwise stereo to get dense matches.
+For a large number of images this is prohibitive, so a representative subset may
+do.
+
+It is suggested to call ``jitter_solve`` with a large value of
+``--max-pairwise-matches``, such as 40000.
+
+Examine the produced ``pointmap.csv`` files to see the residuals for the
+interest points (:numref:`jitter_out_files`).
+
+This program can read interest point matches in the ISIS control network format,
+using the option ``--isis-cnet``. See :numref:`ba_out_files` in the the
+``bundle_adjust``  manual for more details about control networks and this
+format. Unlike that program, ``jitter_solve`` does not save an updated control
+network, as this tool changes the triangulated points only in very minor ways.
+
+.. _jitter_anchor_points:
+
+Anchor points
+~~~~~~~~~~~~~
+
+The anchor points constraint uses a well-aligned external DEM, but with
+important differences, as compared to interest point matches. 
+
+The anchor points are created based on pixels that are uniformly distributed
+over each image, not just where the images overlap, and can even go beyond the
+first and last image line. This ensures that the optimized poses do not
+oscillate where the images overlap very little or not at all.
 
 This constraint works by projecting rays to the ground from the chosen
 uniformly distributed pixels, finding the *anchor points* where the
@@ -160,50 +200,6 @@ used. Inspection of residual files (:numref:`jitter_out_files`),
 and of triangulation errors (:numref:`triangulation_error`)
 and DEM differences after solving for jitter
 (:numref:`jitter_dg`) can help decide the sampling rate.
-
-.. _jitter_ip:
-
-Interest point matches
-~~~~~~~~~~~~~~~~~~~~~~
-
-Since solving for jitter is a fine-grained operation, modifying many positions
-and orientations along the satellite track, many dense and uniformly distributed
-interest points are necessary. It is suggested to create these with stereo, with
-the option ``--num-matches-from-disparity``. An example is shown in
-:numref:`jitter_ctx`.
-
-The most accurate interest points are obtained when the images are mapprojected.
-This is illustrated in :numref:`jitter_dg`. The produced interest point
-matches will be, however, between the original, unprojected images, as expected
-by the solver.
-
-If there are more than two images, it is good to have a lot of triplets among
-the interest point matches (features that show up in at least three images).
-Otherwise, the triangulated surface may decouple into disjoint pairwise triangulated
-surfaces (though this is less likely to happen with the ``--heights-from-dem`` option).
-
-Plenty of triplets are usually generated with the option
-``--num-matches-from-disparity``, if this is invoked with stereo between first
-and second image, first and third, second and third, etc. The image that overlaps
-the most with other images should be used as the first one.
-
-It is suggested to call ``jitter_solve`` with a large value of
-``--max-pairwise-matches``, such as 1000000, to ensure that all interest point
-matches are used, especially the triplets.
-
-To determine if a triangulated point corresponds to a triplet of interest point
-matches, examine the produced ``*-pointmap.csv`` files. Their format is
-described in :numref:`jitter_out_files`.
-
-The dense interest point matches need to be copied from each output stereo directory
-to a location and with a naming convention such that they can be used
-by ``jitter_solve``. That is illustrated in :numref:`jitter_dg`.
-
-This program can read interest point matches in the ISIS control network format,
-using the option ``--isis-cnet``. See :numref:`ba_out_files` in the the
-``bundle_adjust``  manual for more details about control networks and this
-format. Unlike that program, ``jitter_solve`` does not save an updated control
-network, as this tool changes the triangulated points only in very minor ways.
 
 .. _jitter_ctx:
 
@@ -385,15 +381,20 @@ Then, jitter was solved for, using the aligned cameras::
       --heights-from-dem ref_dem.tif           \
       --heights-from-dem-uncertainty 20.0      \
       --num-iterations 10                      \
+      --num-anchor-points 0                    \
       --anchor-weight 0                        \
       --tri-weight 0.1                         \
       -o jitter/run
 
 It was found that using about 1000 lines per pose (position and
 orientation) sample gave good results, and if using too few lines, the
-poses become noisy. Dense interest point matches appear necessary for
-a good result, though perhaps the number produced during stereo could
-be lowered.
+poses become noisy. 
+
+*Dense interest point matches* appear necessary for a good result, though perhaps
+the number produced during stereo could be lowered. See :numref:`jitter_ip`.
+
+Here *anchor points* were not used. They can be necessary to stabilize the
+solution (:numref:`jitter_anchor_points`).
 
 The constraint relative to the reference DEM is needed, to make sure
 the DEM produced later agrees with the reference one.  Otherwise, the
@@ -580,7 +581,7 @@ because:
  - The terrain is very steep, which introduces some extraneous signal
    in the problem to optimize.
    
-We consider a datatset with two images named 1.tif and 2.tif, and corresponding
+We consider a dataset with two images named 1.tif and 2.tif, and corresponding
 camera files 1.xml and 2.xml, having the exact DigitalGlobe linescan model.
 
 Bundle adjustment
@@ -702,14 +703,13 @@ to align them with the reference terrain::
 Solving for jitter
 ^^^^^^^^^^^^^^^^^^
 
-Copy the produced dense interest point matches for use in
-solving for jitter::
+Copy the produced dense interest point matches for use in solving for jitter::
 
     mkdir -p dense
     cp run_1_2_map/run-disp-1.map__2.map.match \
       dense/run-1__2.match
 
-See :numref:`jitter_ip` for a longer explanation regarding interest point
+See :numref:`jitter_ip` for a longer explanation regarding dense interest point
 matches.
 
 Solve for jitter::
@@ -735,6 +735,7 @@ Solve for jitter::
     -o jitter/run
 
 See :numref:`jitter_camera` regarding camera constraints.
+See :numref:`jitter_anchor_points` regarding anchor points.
 
 .. _fig_dg_jitter_pointmap_anchor_points:
 
@@ -988,6 +989,7 @@ cameras were accurate enough, so these steps were skipped.
       -o jitter_tri/run
 
 See :numref:`jitter_camera` for a discussion of camera constraints.
+See :numref:`jitter_anchor_points` regarding anchor points.
 
 Next, we invoke the solver with the same initial data, but with a constraint
 tying to the reference DEM, with the option ``--heights-from-dem ref-adj.tif``.
@@ -1168,19 +1170,23 @@ terrain, one should consider applying more blur to the reference terrain and/or
 redoing mapprojection and stereo with the now-aligned cameras, and see if this
 improves this difference.
 
+.. _jitter_naming_convention:
+
 Solving for jitter
 ^^^^^^^^^^^^^^^^^^
 
 Copy the dense match file to follow the naming convention
-for unprojected images::
+for unprojected (original) images::
 
     mkdir -p jitter
     cp stereo_bm/run-disp-out-Band3N.map__out-Band3B.map.match \
       jitter/run-out-Band3N__out-Band3B.match
 
-The naming convention for the output match file above is
-``<prefix>-<image1>__<image2>.match``, where the image names are without the
-directory name and extension.
+The *naming convention for the match files* is::
+
+  <prefix>-<image1>__<image2>.match
+  
+where the image names are without the directory name and extension.
 
 Here it is important to use a lot of match points and a low 
 value for ``--num-lines-per-orientation`` and same for position,
@@ -1199,12 +1205,15 @@ Solve for jitter with the aligned cameras::
       --match-files-prefix jitter/run                 \
       --heights-from-dem ref.tif                      \
       --heights-from-dem-uncertainty 10               \
+      --num-anchor-points 0                           \
+      --anchor-weight 0.0                             \
       -o jitter/run
 
 The DEM uncertainty constraint was set to 10, as the image GSD is 15 meters.
 This can be reduced to 5 meters, likely.
 
-See :numref:`jitter_camera` for a discussion of camera constraints.
+See :numref:`jitter_camera` for a discussion of camera constraints,
+and :numref:`jitter_anchor_points` regarding anchor points.
 
 .. figure:: ../images/aster_jitter_pointmap.png
    :name: aster_jitter_pointmap
