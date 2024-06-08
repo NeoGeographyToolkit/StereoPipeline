@@ -441,7 +441,7 @@ int main(int argc, char* argv[]) {
 
     // The user datum and DEM datum must agree
     bool warn_only = false;
-    asp::checkDatumConsistency(dem_georef, target_georef, warn_only);
+    asp::checkDatumConsistency(dem_georef.datum(), target_georef.datum(), warn_only);
      
     // Find the target resolution based --tr, --mpp, and --ppd if provided. Do
     // the math to convert pixel-per-degree to meter-per-pixel and vice-versa.

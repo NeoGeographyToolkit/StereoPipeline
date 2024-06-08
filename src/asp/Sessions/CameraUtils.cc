@@ -230,7 +230,9 @@ void checkDatumConsistency(vw::cartography::Datum const& datum1,
         << "Datum 1: " << datum1 << "\n"
         << "Datum 2: " << datum2 << "\n";
     if (err < 500.0 || warn_only) // this is mild
-       vw::vw_out(vw::WarningMessage) << oss.str();
+       vw::vw_out(vw::WarningMessage) 
+       << oss.str() 
+       << "This is likely harmless, but check your inputs.\n";
     else // this is severe
       vw::vw_throw(vw::ArgumentErr() << oss.str());
   }
