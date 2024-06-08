@@ -26,8 +26,8 @@ that case it is suggested to use it to approximate a good known camera rather
 than creating a camera from scratch given corner ground coordinates
 (:numref:`cam_gen_prior`).
 
-See :numref:`initial_terrain` for how to find a good DEM to infer the heights
-from.
+See :numref:`cam_gen_validation` for how to validate the created cameras, and 
+:numref:`initial_terrain` for how to find a reference DEM.
 
 Usage::
 
@@ -61,6 +61,8 @@ This procedure is not as accurate as approximating an existing camera
   
 Some other pixels can be used instead of corners, if using the
 ``--pixel-values`` option.
+
+See :numref:`cam_gen_validation` for how to validate the created cameras.
 
 Optical bar cameras
 ^^^^^^^^^^^^^^^^^^^
@@ -106,6 +108,8 @@ input. For example: ``--datum D_MARS``.
 The ``--height-above-datum`` option will not be used if the input DEM covers the
 image ground footprint.
 
+See :numref:`cam_gen_validation` for how to validate the created cameras.
+
 .. _cam_gen_frame:
 
 CSM Frame cameras
@@ -122,8 +126,7 @@ Frame model (with latest ASP), as::
     --input-camera input.tsai \
     -o output.json
 
-Use ``cam_test`` (:numref:`cam_test`) to verify the agreement between the input
-and output cameras.
+See :numref:`cam_gen_validation` for how to validate the created cameras.
 
 For any other camera or distortion type, the best-fit model is found. An
 additional solver pass can be invoked, which can refine the intrinsics, that is,
@@ -180,8 +183,7 @@ acquired with the same sensor, run::
 The produced camera intrinsics can be jointly refined with other frame or
 linescan cameras using ``bundle_adjust`` (:numref:`ba_frame_linescan`).
  
-The ``cam_test`` program (:numref:`cam_test`) can evaluate the agreement between
-the input and output cameras.
+See :numref:`cam_gen_validation` for how to validate the created cameras.
 
 .. _cam_gen_linescan:
 
@@ -268,6 +270,8 @@ expense of others. This is discussed in :numref:`camera_solve_gcp`.
 
 See :numref:`kaguya_ba` regarding optimizing camera intrinsics.
 
+.. _cam_gen_validation:
+
 Validation
 ~~~~~~~~~~
 
@@ -279,7 +283,9 @@ camera to verify if it projects where expected::
 The output ``img_map.tif`` can be overlaid onto the hillshaded DEM in
 ``stereo_gui``.
 
-Use ``cam_test`` program (:numref:`cam_test`) for sanity checks.
+Use ``cam_test`` program (:numref:`cam_test`) for sanity checks. This is 
+particularly helpful when ``cam_gen`` is used to approximate a prior 
+camera. Then these can be compared.
 
 The ``sfm_view`` program (:numref:`sfm_view`) can be used to visualize the
 cameras in orbit.

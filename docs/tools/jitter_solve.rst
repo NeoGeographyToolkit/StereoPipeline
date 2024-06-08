@@ -86,6 +86,54 @@ cameras is available.
 The implementation is the same as for bundle adjustment
 (:numref:`heights_from_dem`).
 
+.. _jitter_camera:
+
+Camera constraints
+~~~~~~~~~~~~~~~~~~
+
+Jitter is believed to be caused by vibrations in the linescan camera as it
+acquires the image. If that is the case, the camera positions are likely
+accurate, and can be constrained to not move much, while the orientations can
+move more. 
+
+The default behavior is to have no camera position constraint. This is
+controlled by the option ``--camera-position-weight``, whose default value is
+0.0. This option scales appropriately with the number of interest points, the
+local averaged GSD, anchor points, and their weight. This can impede the
+optimization, so should be used with care.
+
+More details can be found in the ``bundle_adjust`` documentation, as the same
+logic is used for both tools (:numref:`ba_cam_constraints`).
+
+This program writes a report file that records the changes in camera position
+(:numref:`jitter_cam_offsets`). It is suggested to examine it and adjust the
+camera constraints, if appropriate.
+
+Camera position and ground constraints should be sufficient. It is suggested not
+to use the experimental ``--rotation-weight`` option.
+
+Resampling the poses
+~~~~~~~~~~~~~~~~~~~~
+
+Often times, the number of tabulated camera positions and orientations
+in the CSM file is very small. For example, for Airbus Pleiades, the
+position is sampled every 30 seconds, while acquiring the whole image
+can take only 1.6 seconds. For CTX the opposite problem happens, the
+orientations are sampled too finely, resulting in too many variables
+to optimize.
+
+Hence, it is strongly suggested to resample the provided positions and
+orientations before the solver optimizes them. Use the options:
+``--num-lines-per-position`` and ``--num-lines-per-orientation``. The
+estimated number of lines per position and orientation will be printed
+on screen, before and after resampling.
+
+In the two examples below drastically different sampling rates will be
+used. Inspection of residual files (:numref:`jitter_out_files`),
+and of triangulation errors (:numref:`triangulation_error`)
+and DEM differences after solving for jitter
+(:numref:`jitter_dg`) can help decide the sampling rate.
+
 .. _jitter_ip:
 
 Interest point matches
@@ -93,8 +141,8 @@ Interest point matches
 
 Since solving for jitter is a fine-grained operation, modifying many positions
 and orientations along the satellite track, many dense and uniformly distributed
-interest points are necessary. It is suggested to create these with stereo, with
-the option ``--num-matches-from-disparity`` (:numref:`dense_ip`). 
+interest points are necessary. It is suggested to create these with *pairwise
+stereo*, with the option ``--num-matches-from-disparity`` (:numref:`dense_ip`).
 An example is shown in :numref:`jitter_ctx`.
 
 The most accurate interest points are obtained when the images are mapprojected.
@@ -152,54 +200,6 @@ The relevant options are ``--num-anchor-points``,
 ``--num-anchor-points-per-tile``, ``--anchor-weight``, ``--anchor-dem``, and
 ``--num-anchor-points-extra-lines``.  An example is given in
 :numref:`jitter_dg`.
-
-.. _jitter_camera:
-
-Camera constraints
-~~~~~~~~~~~~~~~~~~
-
-Jitter is believed to be caused by vibrations in the linescan camera as it
-acquires the image. If that is the case, the camera positions are likely
-accurate, and can be constrained to not move much, while the orientations can
-move more. 
-
-The default behavior is to have no camera position constraint. This is
-controlled by the option ``--camera-position-weight``, whose default value is
-0.0. This option scales appropriately with the number of interest points, the
-local averaged GSD, anchor points, and their weight. This can impede the
-optimization, so should be used with care.
-
-More details can be found in the ``bundle_adjust`` documentation, as the same
-logic is used for both tools (:numref:`ba_cam_constraints`).
-
-This program writes a report file that records the changes in camera position
-(:numref:`jitter_cam_offsets`). It is suggested to examine it and adjust the
-camera constraints, if appropriate.
-
-Camera position and ground constraints should be sufficient. It is suggested not
-to use the experimental ``--rotation-weight`` option.
-
-Resampling the poses
-~~~~~~~~~~~~~~~~~~~~
-
-Often times, the number of tabulated camera positions and orientations
-in the CSM file is very small. For example, for Airbus Pleiades, the
-position is sampled every 30 seconds, while acquiring the whole image
-can take only 1.6 seconds. For CTX the opposite problem happens, the
-orientations are sampled too finely, resulting in too many variables
-to optimize.
-
-Hence, it is strongly suggested to resample the provided positions and
-orientations before the solver optimizes them. Use the options:
-``--num-lines-per-position`` and ``--num-lines-per-orientation``. The
-estimated number of lines per position and orientation will be printed
-on screen, before and after resampling.
-
-In the two examples below drastically different sampling rates will be
-used. Inspection of residual files (:numref:`jitter_out_files`),
-and of triangulation errors (:numref:`triangulation_error`)
-and DEM differences after solving for jitter
-(:numref:`jitter_dg`) can help decide the sampling rate.
 
 .. _jitter_ctx:
 
@@ -349,8 +349,8 @@ This DEM was aligned to MOLA and recreated, as::
 The value in ``--max-displacement`` may need tuning
 (:numref:`pc_align`).
 
-This transform was applied to the cameras, to make them aligned to
-MOLA (:numref:`ba_pc_align`)::
+This transform was applied to the cameras (note that this approach is applicable *only*
+when the first cloud in ``pc_align`` was the ASP-produced DEM, otherwise see :numref:`ba_pc_align`)::
 
     bundle_adjust                                                \
       --input-adjustments-prefix ba/run                          \
@@ -360,12 +360,13 @@ MOLA (:numref:`ba_pc_align`)::
       img/J03_045820_1915_XN_11N210W.cal.json                    \
       img/K05_055472_1916_XN_11N210W.cal.json                    \
       --apply-initial-transform-only                             \
-    -o ba_align/run
+      -o ba_align/run
 
 Solving for jitter
 ^^^^^^^^^^^^^^^^^^
 
-Then, jitter was solved for, using the aligned cameras::
+Then, jitter was solved for, using the *original cameras*, with the adjustments prefix
+having the latest refinements and alignment::
 
     jitter_solve                               \
       img/J03_045820_1915_XN_11N210W.cal.cub   \
@@ -699,6 +700,9 @@ to align them with the reference terrain::
       1.tif 2.tif 1.xml 2.xml                             \
       --apply-initial-transform-only                      \
       -o align/run
+
+If the clouds in ``pc_align`` were in reverse order, the direct transform must
+be used, *not the inverse* (:numref:`ba_pc_align`).
 
 Solving for jitter
 ^^^^^^^^^^^^^^^^^^
