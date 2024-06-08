@@ -343,6 +343,17 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   if (opt.tri_robust_threshold <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --tri-robust-threshold must be positive.\n");
   
+  // This is a bug fix. The user by mistake passed in an empty height-from-dem string.
+  if (!vm["heights-from-dem"].defaulted() && opt.heights_from_dem.empty())
+    vw_throw(ArgumentErr() 
+             << "The value of --heights-from-dem is empty. "
+             << "Then it must not be set at all.\n");
+   
+   // Same for opt.anchor_dem
+   if (!vm["anchor-dem"].defaulted() && opt.anchor_dem.empty())
+    vw_throw(ArgumentErr() 
+             << "The value of --anchor-dem is empty. Then it must not be set at all.\n");
+     
   if (opt.heights_from_dem_uncertainty <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be positive.\n");
   
