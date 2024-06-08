@@ -312,6 +312,7 @@ struct Options : public vw::GdalWriteOptions {
   bool refine_camera, parse_eci, parse_ecef, planet_pinhole; 
   int num_pixel_samples;
   bool exact_tsai_to_csm_conv;
+  vw::cartography::Datum datum;
   Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0), 
   planet_pinhole(false), parse_eci(false), parse_ecef(false), num_pixel_samples(0), 
   exact_tsai_to_csm_conv(false)
@@ -459,9 +460,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // The rest of the logic does not apply to linescan cameras
   if (opt.camera_type == "linescan")
     return;
-  
+
   // Planet's custom format  
   opt.planet_pinhole = boost::algorithm::ends_with(opt.input_camera, "_pinhole.json");
+  if (opt.planet_pinhole && !opt.datum_str.empty()) {
+    // Can only use WGS84 for Planet cameras
+    vw::cartography::Datum datum1(opt.datum_str);
+    vw::cartography::Datum datum2("WG84");
+    bool warn_only = false;
+    asp::checkDatumConsistency(datum1, datum2, warn_only);
+  }
   if (opt.planet_pinhole && opt.datum_str.empty()) {
     opt.datum_str = "WGS84";
     vw::vw_out() << "Setting the datum to: " << opt.datum_str << std::endl;
@@ -477,21 +485,48 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
    vw_throw(ArgumentErr() << "The option for refining the intrinsics cannot, "
             "for the time being, constrain either the camera height or camera center.\n");
    
-  if (!opt.planet_pinhole && opt.reference_dem.empty() && opt.datum_str.empty() &&
-      opt.input_camera != "") {
+  // Set the datum from the string
+  if (!opt.datum_str.empty())
+    opt.datum.set_well_known_datum(opt.datum_str);
 
+  if (!opt.input_camera.empty()) {
     // Guess the datum from the camera model    
     asp::SessionPtr session;
-    vw::cartography::Datum datum;
-    bool found_datum = asp::datum_from_camera(opt.image_file, opt.input_camera, 
-                                              opt.stereo_session, session, // may change
-                                              datum); // output
-    
-    // The found datum will be WGS84, D_MOON, or D_MARS, so its name will be meaningful.
-    if (found_datum)
-      opt.datum_str = datum.name();
+    vw::cartography::Datum cam_datum;
+    bool found_cam_datum = asp::datum_from_camera(opt.image_file, opt.input_camera, 
+                                                  // Outputs
+                                                  opt.stereo_session, session, cam_datum);
+    // For pinhole session the guessed datum may be unreliable, so warn only
+    bool warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
+    if (found_cam_datum && !opt.datum_str.empty())
+      asp::checkDatumConsistency(cam_datum, opt.datum, warn_only);
+    // opt.datum is more general than opt.datum_str, but set both
+    if (found_cam_datum && opt.datum_str.empty()) {
+      opt.datum = cam_datum;
+      opt.datum_str = cam_datum.name();
+    }
   }
 
+  // Must do the same for opt.sample_file. This and opt.input_camera are used for
+  // different things. opt.sample_file may not even be an orbital camera.
+  if (!opt.sample_file.empty()) {
+    // Guess the datum from the camera model    
+    asp::SessionPtr session;
+    vw::cartography::Datum cam_datum;
+    bool found_cam_datum = asp::datum_from_camera(opt.sample_file, opt.sample_file,
+                                                  // Outputs
+                                                  opt.stereo_session, session, cam_datum);
+    // For pinhole session the guessed datum may be unreliable, so warn only
+    bool warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
+    if (found_cam_datum && !opt.datum_str.empty())
+      asp::checkDatumConsistency(cam_datum, opt.datum, warn_only);
+    // opt.datum is more general than opt.datum_str, but set both
+    if (found_cam_datum && opt.datum_str.empty()) {
+      opt.datum = cam_datum;
+      opt.datum_str = cam_datum.name();
+    }
+  }
+   
   // If we cannot read the data from a DEM, must know the datum
   if (!opt.planet_pinhole && opt.reference_dem.empty() && opt.datum_str.empty())
     vw_throw(ArgumentErr() << "Must provide either a reference DEM or a datum.\n");
@@ -1006,9 +1041,21 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
     has_dem = true;
     vw::read_nodata_val(opt.reference_dem, nodata_value);
     vw_out() << "Using nodata value: " << nodata_value << std::endl;
+    
+    // For pinhole the datum may be unreliable, so warn only
+    bool warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
+    if (!opt.datum_str.empty()) 
+      asp::checkDatumConsistency(geo.datum(), opt.datum, warn_only);
+    
+    if (opt.datum_str.empty()) {
+      // Set for completeness
+      opt.datum = geo.datum();
+      opt.datum_str = geo.datum().name();
+    }
+      
   } else {
     // Keep track of the datum
-    geo.set_datum(vw::cartography::Datum(opt.datum_str)); 
+    geo.set_datum(opt.datum);
     vw_out() << "No reference DEM provided. Will use a height of "
              << opt.height_above_datum << " above the datum:\n" 
              << geo.datum() << std::endl;
@@ -1170,8 +1217,11 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
 void read_pinhole_from_json(Options & opt, vw::cartography::GeoReference & geo,
                             boost::shared_ptr<CameraModel> & out_cam) {
 
+  if (opt.datum_str.empty()) 
+    vw_throw(ArgumentErr() << "Must provide a datum to read a pinhole camera.\n");
+    
   // Set the datum
-  geo.set_datum(vw::cartography::Datum(opt.datum_str));
+  geo.set_datum(opt.datum);
   
   std::ifstream f(opt.input_camera);
   json j = json::parse(f);

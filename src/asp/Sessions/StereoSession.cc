@@ -273,6 +273,7 @@ bool StereoSession::have_datum() const {
 // Returns the target datum to use for a given camera model.
 // Can be overridden by derived classes.
 // If no success finding the datum, will return WGS84.
+// TODO(oalexan1): This must return a flag indicating if the datum was found.
 vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* cam,
                                                 bool use_sphere_for_non_earth) const {
   
@@ -304,16 +305,19 @@ vw::cartography::GeoReference StereoSession::get_georef() {
   vw::cartography::Datum datum;
   if (!stereo_settings().correlator_mode) {
     has_datum = true;
-    boost::shared_ptr<vw::camera::CameraModel> 
-    cam = this->camera_model(m_left_image_file, m_left_camera_file);
+    vw::CamPtr cam = this->camera_model(m_left_image_file, m_left_camera_file);
     // Spherical datum for non-Earth, as done usually. Used
     // consistently this way in bundle adjustment and stereo.
     bool use_sphere_for_non_earth = true; 
     datum = this->get_datum(cam.get(), use_sphere_for_non_earth);
   }
-  
-  // TODO(oalexan1): If the datum read from the image and the one read from the
-  // session disagree, what to do? 
+
+  // Sanity check
+  if (has_georef && has_datum) {
+    // For pinhole the guessed datum may be unreliable, so warn only
+    bool warn_only = (this->name().find("pinhole") != std::string::npos);
+    asp::checkDatumConsistency(georef.datum(), datum, warn_only);
+  }
   
   if (!has_georef) {
     // The best we can do is to get the datum, even non-projected

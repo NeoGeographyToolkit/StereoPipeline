@@ -213,4 +213,27 @@ bool datum_from_camera(std::string const& image_file,
   return success;
 }
 
+// This can catch user mistakes
+void checkDatumConsistency(vw::cartography::Datum const& datum1,                        
+                           vw::cartography::Datum const& datum2,
+                           bool warn_only) {
+
+  double err1 = std::abs(datum1.semi_major_axis() - datum2.semi_major_axis());
+  double err2 = std::abs(datum1.semi_minor_axis() - datum2.semi_minor_axis());
+  double err = std::max(err1, err2);
+  
+  if (err >= 1e-6) {
+    std::ostringstream oss;
+    oss.precision(8);
+    oss << "Found mis-matched datums. The difference in semi-axes is: " 
+        << err << " meters.\n"
+        << "Datum 1: " << datum1 << "\n"
+        << "Datum 2: " << datum2 << "\n";
+    if (err < 500.0 || warn_only) // this is mild
+       vw::vw_out(vw::WarningMessage) << oss.str();
+    else // this is severe
+      vw::vw_throw(vw::ArgumentErr() << oss.str());
+  }
+}
+
 } // end namespace asp

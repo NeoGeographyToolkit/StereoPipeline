@@ -28,6 +28,7 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/MapprojectImage.h>
+#include <asp/Sessions/CameraUtils.h>
 
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Camera/PinholeModel.h>
@@ -438,11 +439,16 @@ int main(int argc, char* argv[]) {
                           have_input_georef, target_georef);
     }
 
+    // The user datum and DEM datum must agree
+    bool warn_only = false;
+    asp::checkDatumConsistency(dem_georef, target_georef, warn_only);
+     
     // Find the target resolution based --tr, --mpp, and --ppd if provided. Do
     // the math to convert pixel-per-degree to meter-per-pixel and vice-versa.
     int sum = (!std::isnan(opt.tr)) + (!std::isnan(opt.mpp)) + (!std::isnan(opt.ppd));
     if (sum >= 2)
-      vw_throw( ArgumentErr() << "Must specify at most one of the options: --tr, --mpp, --ppd.\n" );
+      vw::vw_throw(vw::ArgumentErr() 
+               << "Must specify at most one of the options: --tr, --mpp, --ppd.\n" );
 
     double radius = target_georef.datum().semi_major_axis();
     if (!std::isnan(opt.tr)) { // --tr was set

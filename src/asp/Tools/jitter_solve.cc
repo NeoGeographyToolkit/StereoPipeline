@@ -358,7 +358,8 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be positive.\n");
   
   if (opt.heights_from_dem_robust_threshold <= 0.0) 
-    vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be positive.\n");
+    vw_throw(ArgumentErr() 
+             << "The value of --heights-from-robust-threshold must be positive.\n");
 
   if (opt.rotation_weight < 0)
     vw_throw(ArgumentErr() << "Rotation weight must be non-negative.\n");
@@ -807,7 +808,7 @@ void run_jitter_solve(int argc, char* argv[]) {
                                              opt.stereo_session, session, opt.datum);
   if (!found_datum)
     vw_throw(ArgumentErr() << "No datum was found in the input cameras.\n");
-    
+  
   // Apply the input adjustments to the cameras. Resample linescan models.
   // Get pointers to the underlying CSM cameras, as need to manipulate
   // those directly. These will result in changes to the input cameras.
@@ -929,9 +930,11 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::vector<Vector3> dem_xyz_vec;
   vw::cartography::GeoReference dem_georef, anchor_georef;
   ImageViewRef<PixelMask<double>> interp_dem, interp_anchor_dem;
+  bool warn_only = false; // for jitter solving we always know well the datum
   if (have_dem) {
     vw::vw_out() << "Reading the DEM for the --heights-from-dem constraint.\n";
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
+    asp::checkDatumConsistency(opt.datum, dem_georef.datum(), warn_only);
     asp::update_point_from_dem(cnet, crn, outliers, opt.camera_models,
                                dem_georef, interp_dem,  
                                // Output
@@ -940,6 +943,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (opt.anchor_dem != "") {
     vw::vw_out() << "Reading the DEM for the --anchor-dem constraint.\n";
     asp::create_interp_dem(opt.anchor_dem, anchor_georef, interp_anchor_dem);
+    asp::checkDatumConsistency(opt.datum, anchor_georef.datum(), warn_only);
   }
 
   // Handle the roll/yaw constraint DEM. We already checked that one of thse cases should work

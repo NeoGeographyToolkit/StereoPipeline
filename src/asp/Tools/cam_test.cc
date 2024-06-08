@@ -219,22 +219,32 @@ int main(int argc, char *argv[]) {
       // Use the datum specified by the user
       datum.set_well_known_datum(opt.datum);
       found_datum = true;
-    } else {
-      // Auto-guess the datum, this is the default
-      found_datum = asp::datum_from_camera(opt.image_file, opt.cam1_file,
-                                           opt.session1, cam1_session, // may change
-                                           datum); // output
-      
-      // Sanity check: both cameras should have the same datum
-      vw::cartography::Datum datum2;
-      found_datum = asp::datum_from_camera(opt.image_file, opt.cam2_file,
-                                           opt.session2, cam2_session, // may change
-                                            datum2); // output
-      if (datum.semi_major_axis() != datum2.semi_major_axis() ||
-          datum.semi_minor_axis() != datum2.semi_minor_axis())
-            vw::vw_out(vw::WarningMessage) << "The two cameras have different datums:\n" 
-                                           << datum << "\n" << datum2 << "\n"
-                                           << "Consider using the --datum option.\n";
+    }
+
+    // See if the first camera has a datum    
+    vw::cartography::Datum cam_datum;
+    bool warn_only = true; // warn about differences in the datums
+    bool found_cam_datum = asp::datum_from_camera(opt.image_file, opt.cam1_file,
+                                                   // Outputs
+                                                   opt.session1, cam1_session, cam_datum);
+    if (found_datum && found_cam_datum)
+      asp::checkDatumConsistency(datum, cam_datum, warn_only);
+     
+     if (!found_datum && found_cam_datum) {
+      datum = cam_datum;
+      found_datum = true;
+    }
+       
+    // Same for the second camera
+    found_cam_datum = asp::datum_from_camera(opt.image_file, opt.cam2_file,
+                                             // Outputs
+                                             opt.session2, cam2_session, cam_datum);   
+    if (found_datum && found_cam_datum)
+      asp::checkDatumConsistency(datum, cam_datum, warn_only);
+    
+    if (!found_datum && found_cam_datum) {
+      datum = cam_datum;
+      found_datum = true;
     }
     
     if (!found_datum)

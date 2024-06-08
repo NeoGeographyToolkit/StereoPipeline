@@ -2299,17 +2299,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Try to infer the datum, if possible, from the images. For
   // example, Cartosat-1 has that info in the Tif file.
-  bool guessed_datum = false;
-  if (opt.datum_str == "") {
-    // TODO(oalexan1): What if a different planet is specified in the images?
-    vw::cartography::GeoReference georef;
-    for (size_t it = 0; it < opt.image_files.size(); it++) {
-      bool is_good = vw::cartography::read_georeference(georef, opt.image_files[it]);
-      if (is_good) {
-        opt.datum = georef.datum();
-        opt.datum_str = opt.datum.name();
-        guessed_datum = true;
-      }
+  bool have_datum = false;
+  // For pinhole session the guessed datum may be unreliable, so warn only
+  bool warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
+
+  vw::cartography::GeoReference georef;
+  for (size_t it = 0; it < opt.image_files.size(); it++) {
+    bool is_good = vw::cartography::read_georeference(georef, opt.image_files[it]);
+      
+    // Must check the consistency of the datums
+    if (is_good && have_datum)
+      asp::checkDatumConsistency(opt.datum, georef.datum(), warn_only);
+      
+    if (is_good && !have_datum) {
+      opt.datum = georef.datum();
+      opt.datum_str = opt.datum.name();
+      have_datum = true;
     }
   }
 
@@ -2321,11 +2326,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw::cartography::GeoReference georef;
       bool is_good = vw::cartography::read_georeference(georef, opt.reference_terrain);
       if (!is_good)
-        vw_throw(ArgumentErr() << "The reference terrain DEM does not have a georeference.\n");
+        vw_throw(ArgumentErr() 
+                 << "The reference terrain DEM does not have a georeference.\n");
+      if (is_good && have_datum)
+        asp::checkDatumConsistency(opt.datum, georef.datum(), warn_only);
       if (opt.datum_str == ""){
         opt.datum = georef.datum();
         opt.datum_str = opt.datum.name();
-        guessed_datum = true;
+        have_datum = true;
       }
     }
   }
@@ -2369,49 +2377,71 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
         vw_throw( ArgumentErr() << "The DEM " << dem_file
                   << " does not have a georeference.\n");
 
+      // Must check the consistency of the datums
+      if (have_datum)
+        asp::checkDatumConsistency(opt.datum, georef.datum(), warn_only);
+      
       if (opt.datum_str == "") {
-        // TODO(oalexan1): What if a different planet is specified in the images?
         opt.datum = georef.datum();
         opt.datum_str = opt.datum.name();
-        guessed_datum = true;
+        have_datum = true;
       }
     }
   }
   
   // Set the datum, either based on what the user specified or the axes
-  if (opt.datum_str != "" && !guessed_datum) {
+  vw::cartography::Datum user_datum;
+  bool have_user_datum = false;
+  if (opt.datum_str != "") {
     try {
-      opt.datum.set_well_known_datum(opt.datum_str);
+      user_datum.set_well_known_datum(opt.datum_str);
+      have_user_datum = true;
     } catch(...) {
       // Whatever datum name we had, it was bad, so we'll make more attempts below
       opt.datum_str = "";
-      guessed_datum = false;
+      have_user_datum = false;
     }
   } else if (opt.semi_major > 0 && opt.semi_minor > 0){
     // Otherwise, if the user set the semi-axes, use that.
-    opt.datum = cartography::Datum("User Specified Datum",
-                                   "User Specified Spheroid",
-                                   "Reference Meridian",
-                                   opt.semi_major, opt.semi_minor, 0.0);
-    opt.datum_str = opt.datum.name();
-    guessed_datum = true;
-    // TODO(oalexan1): What if a different planet is specified in the images?
-    // Must have a sanity check here.
+    user_datum = cartography::Datum("User Specified Datum",
+                                    "User Specified Spheroid",
+                                    "Reference Meridian",
+                                    opt.semi_major, opt.semi_minor, 0.0);
+    have_user_datum = true;
   }
 
+  // Must check the consistency of the datums
+  if (have_datum && have_user_datum)
+    asp::checkDatumConsistency(opt.datum, user_datum, warn_only);
+  
+  if (!have_datum && have_user_datum) {
+    opt.datum = user_datum;
+    have_datum = true;
+  }  
+  
+  if (opt.datum_str.empty() && have_datum)
+    opt.datum_str = opt.datum.name();
+
+  // Try to find the datum from the cameras. 
+  vw::cartography::Datum cam_datum;
+  bool have_cam_datum = asp::datum_from_camera(opt.image_files[0], opt.camera_files[0],
+                                               // Outputs
+                                               opt.stereo_session, session, cam_datum);
+  
+  // Must check the consistency of the datums
+  warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
+  if (have_cam_datum && have_datum)
+    asp::checkDatumConsistency(opt.datum, cam_datum, warn_only);
+     
   // Otherwise try to set the datum based on cameras. It will not work for Pinhole.
-  bool found_datum = (opt.datum_str != "");
-  if (!found_datum) {
-    found_datum = asp::datum_from_camera(opt.image_files[0], opt.camera_files[0],
-                            opt.stereo_session, session, // may change
-                            // Outputs
-                            opt.datum);
+  if (!have_datum && have_cam_datum) {
+    opt.datum = cam_datum;
     opt.datum_str = opt.datum.name();
-    // TODO(oalexan1): What if a different planet is specified in the images?
+    have_datum = true;
   }
-
+  
   // Many times the datum is mandatory
-  if (!found_datum) {
+  if (!have_datum) {
     if (!opt.gcp_files.empty() || !opt.camera_position_file.empty())
       vw_throw( ArgumentErr() << "When ground control points or a camera position "
                << "file are used, option --datum must be specified.\n");
@@ -2420,7 +2450,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                 << "When filtering by elevation limit, option --datum must be specified.\n");
   }
 
-  if (found_datum)
+  if (have_datum)
     vw_out() << "Datum:\n" << opt.datum << std::endl;
   else
     vw_out() << "No datum specified or detected.\n";
@@ -2505,7 +2535,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw(ArgumentErr()
                << "When using a csv reference terrain, "
                << "must specify the csv-format.\n");
-    if (opt.datum_str == "")
+    if (!have_datum)
       vw_throw(ArgumentErr() 
                << "When using a reference terrain, must specify the datum.\n");
     if (opt.disparity_list == "") 
@@ -2535,7 +2565,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                  << "Cannot specify more than one of --transform-cameras-using-gcp, "
                  << "--transform-cameras-with-shared-gcp, --init-camera-using-gcp.\n");
 
-  if (opt.propagate_errors && opt.datum.name() == asp::UNSPECIFIED_DATUM) 
+  if (opt.propagate_errors && !have_datum)
     vw_throw(ArgumentErr() << "Cannot propagate errors without a datum. Set --datum.\n");
   
   if (opt.update_isis_cubes_with_csm_state) {
@@ -2617,8 +2647,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
     // When there is camera position uncertainty, the other camera weights must be 0.    
     if (opt.camera_position_weight > 0) {
-      vw::vw_out() << "Setting --camera-position-weight to 0 as --camera-position-uncertainty "
-                   << "is positive.\n";
+      vw::vw_out() << "Setting --camera-position-weight to 0 as "
+                   << "--camera-position-uncertainty  is positive.\n";
       opt.camera_position_weight = 0;
     }
     
@@ -2628,7 +2658,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.camera_weight = 0;
     }  
     
-    if (opt.datum.name() == asp::UNSPECIFIED_DATUM) 
+    if (!have_datum)
       vw::vw_throw(vw::ArgumentErr() 
               << "Cannot use camera uncertainties without a datum. Set --datum.\n");
   }
@@ -2642,7 +2672,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   }
   
-  if (opt.use_llh_error && opt.datum.name() == asp::UNSPECIFIED_DATUM) 
+  if (opt.use_llh_error && !have_datum) 
     vw::vw_throw(vw::ArgumentErr() 
               << "Cannot use --use-llh-error without a datum. Set --datum.\n");
   

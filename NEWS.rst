@@ -301,6 +301,9 @@ misc:
     (:numref:`view_reconstruction`), with a figure.  
   * Added a sanity check: If the user sets ``--t_srs`` to any tool, it 
     must not be empty.
+  * Added sanity checks to ensure no mix-up of datums from different planets in
+    different inputs for the stereo tools, ``bundle_adjust``, ``jitter_solve``,
+    ``mapproject``, ``cam_test``, and ``cam_gen``.
   
 RELEASE 3.3.0, August 16, 2023
 ------------------------------
