@@ -1379,6 +1379,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "The priority blending length must not be negative.\n"
                            << usage << general_options);
 
+  // This is a bug fix. The user by mistake passed in an empty projection string.
+  if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
+    vw_throw(ArgumentErr() 
+             << "The value of --t_srs is empty. Then it must not be set at all.\n");
+
   // If priority blending is used, need to adjust extra_crop_len accordingly
   opt.extra_crop_len = std::max(opt.extra_crop_len, 3*opt.priority_blending_len);
 

@@ -46,7 +46,6 @@ using namespace vw::camera;
 using namespace std;
 using namespace vw::cartography;
 
-
 struct Options : public vw::GdalWriteOptions {
   string image_file, camera_file, stereo_session, bundle_adjust_prefix,
          datum_str, dem_file, target_srs_string, output_kml;
@@ -93,7 +92,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 			    positional, positional_desc, usage,
 			    allow_unregistered, unregistered);
 
-  
   if ( opt.image_file.empty() )
     vw_throw( ArgumentErr() << "Missing input image.\n" << usage << general_options );
 
@@ -115,6 +113,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   //  BBox2 b = opt.image_crop_box; // make a copy
   //  opt.image_crop_box = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
   //}
+  
+  // This is a bug fix. The user by mistake passed in an empty projection string.
+  if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
+    vw_throw(ArgumentErr() 
+             << "The value of --t_srs is empty. Then it must not be set at all.\n");
+  
 }
 
 int main( int argc, char *argv[] ) {

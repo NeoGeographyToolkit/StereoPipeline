@@ -91,9 +91,9 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),
       "Set output DEM resolution (in target georeferenced units per pixel). These units may be in degrees or meters, depending on your projection. If not specified, it will be computed automatically (except for LAS and CSV files). Multiple spacings can be set (in quotes) to generate multiple output files. This is the same as the --tr option.")
     ("tr", po::value(&dem_spacing2)->default_value(""), "This is identical to the --dem-spacing option.")
-    ("datum", po::value(&opt.datum),
+    ("datum", po::value(&opt.datum)->default_value(""),
      "Set the datum. This will override the datum from the input images and also --t_srs, --semi-major-axis, and --semi-minor-axis. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-    ("reference-spheroid,r", po::value(&opt.reference_spheroid),
+    ("reference-spheroid,r", po::value(&opt.reference_spheroid)->default_value(""),
      "This is identical to the datum option.")
     ("semi-major-axis",      po::value(&opt.semi_major)->default_value(0),
      "Explicitly set the datum semi-major axis in meters.")
@@ -236,6 +236,11 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
                             << "must be non-negative.\n" << usage << general_options);
   }
 
+  // This is a bug fix. The user by mistake passed in an empty projection string.
+  if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
+    vw_throw(ArgumentErr() 
+             << "The value of --t_srs is empty. Then it must not be set at all.\n");
+  
   if (opt.has_las_or_csv_or_pcd && opt.median_filter_params[0] > 0 &&
       opt.median_filter_params[1] > 0){
     vw_throw(ArgumentErr() 

@@ -135,6 +135,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
+  // This is a bug fix. The user by mistake passed in an empty projection string.
+  if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
+    vw_throw(ArgumentErr() 
+             << "The value of --t_srs is empty. Then it must not be set at all.\n");
+
   // Swap min and max if need be
   if ( opt.lon_lat_range.min().x() > opt.lon_lat_range.max().x() )
     std::swap( opt.lon_lat_range.min().x(), opt.lon_lat_range.max().x() );

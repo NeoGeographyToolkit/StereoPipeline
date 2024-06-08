@@ -122,7 +122,7 @@ struct Options: vw::GdalWriteOptions {
   Options() : compressed(false), max_valid_triangulation_error(0.0), num_samples(0) {}
 };
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("General Options");
   general_options.add_options()
@@ -177,6 +177,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.out_prefix.empty())
     opt.out_prefix =
       vw::prefix_from_filename(opt.pointcloud_file);
+
+  // This is a bug fix. The user by mistake passed in an empty projection string.
+  if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
+    vw_throw(ArgumentErr() 
+             << "The value of --t_srs is empty. Then it must not be set at all.\n");
 
   // reference_spheroid and datum are aliases
   boost::to_lower(opt.reference_spheroid);

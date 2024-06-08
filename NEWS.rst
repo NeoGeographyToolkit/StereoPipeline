@@ -299,6 +299,8 @@ misc:
   * Auto-guess the planet for Pinhole cameras (For Earth, Moon, Mars).   
   * Documented the program ``view_reconstruction``
     (:numref:`view_reconstruction`), with a figure.  
+  * Added a sanity check: If the user sets ``--t_srs`` to any tool, it 
+    must not be empty.
   
 RELEASE 3.3.0, August 16, 2023
 ------------------------------

@@ -115,6 +115,11 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
     opt.camera_file = "";
   }
 
+  // This is a bug fix. The user by mistake passed in an empty projection string.
+  if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
+    vw_throw(ArgumentErr() 
+             << "The value of --t_srs is empty. Then it must not be set at all.\n");
+
   if (asp::has_cam_extension(opt.output_file))
     vw_throw(ArgumentErr() << "The output file is a camera. Check your inputs.\n");
 
@@ -426,7 +431,7 @@ int main(int argc, char* argv[]) {
     GeoReference target_georef = dem_georef;
 
     // User specified the proj4 string for the output georeference
-    if (opt.target_srs_string != ""){
+    if (opt.target_srs_string != "") {
       bool  have_user_datum = false, have_input_georef = false;
       Datum user_datum;
       asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum,
