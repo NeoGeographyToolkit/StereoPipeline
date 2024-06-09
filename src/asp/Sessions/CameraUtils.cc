@@ -222,6 +222,12 @@ void checkDatumConsistency(vw::cartography::Datum const& datum1,
   double err2 = std::abs(datum1.semi_minor_axis() - datum2.semi_minor_axis());
   double err = std::max(err1, err2);
   
+  // Small bodies can be tricky, for those allow various radii
+  double rad = 1.0e+6; // 1000 km
+  bool small_body = (datum1.semi_major_axis() < rad || datum1.semi_minor_axis() < rad ||
+                     datum2.semi_major_axis() < rad || datum2.semi_minor_axis() < rad);
+                     
+                     
   if (err >= 1e-6) {
     std::ostringstream oss;
     oss.precision(8);
@@ -229,7 +235,7 @@ void checkDatumConsistency(vw::cartography::Datum const& datum1,
         << err << " meters.\n"
         << "Datum 1: " << datum1 << "\n"
         << "Datum 2: " << datum2 << "\n";
-    if (err < 500.0 || warn_only) // this is mild
+    if (err < 500.0 || warn_only || small_body) // this is mild
        vw::vw_out(vw::WarningMessage) 
        << oss.str() 
        << "This is likely harmless, but check your inputs.\n";

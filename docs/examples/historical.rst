@@ -439,7 +439,8 @@ KH-7 was an effective observation satellite that followed the Corona program. It
 contained an index (frame) camera and a single strip (pushbroom) camera. 
 
 ASP has *no exact camera model for this camera.* An RPC distortion model can be
-fit as in :numref:`dem2gcp`. See a figure in :numref:`kh7_fig`.
+fit as in :numref:`dem2gcp`. See a figure in :numref:`kh7_fig`. This produces
+an approximate solution.
 
 For this example we find the following images in Earth Explorer
 declassified collection 2::

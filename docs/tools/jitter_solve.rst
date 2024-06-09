@@ -746,8 +746,8 @@ See :numref:`jitter_anchor_points` regarding anchor points.
 .. figure:: ../images/dg_jitter_pointmap_anchor_points.png
    :name: dg_jitter_pointmap_anchor_points
 
-   The pixel reprojection errors per triangulated point (first row) and per
-   anchor point (second row) before and after (left and right) solving for
+   The pixel reprojection errors per triangulated point (first column) and per
+   anchor point (second column) before and after (left and right) solving for
    jitter. Blue shows an error of 0, and red is an error of at least 0.3 pixels.
 
 It can be seen in :numref:`fig_dg_jitter_pointmap_anchor_points` that

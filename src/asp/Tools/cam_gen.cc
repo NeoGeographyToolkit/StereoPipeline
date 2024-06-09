@@ -489,7 +489,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (!opt.datum_str.empty())
     opt.datum.set_well_known_datum(opt.datum_str);
 
-  if (!opt.input_camera.empty()) {
+  if (!opt.planet_pinhole && !opt.input_camera.empty()) {
     // Guess the datum from the camera model    
     asp::SessionPtr session;
     vw::cartography::Datum cam_datum;

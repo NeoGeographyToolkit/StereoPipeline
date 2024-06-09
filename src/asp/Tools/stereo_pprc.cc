@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file stereo_pprc.cc
 ///
 #include <vw/Image/AntiAliasing.h>
@@ -69,8 +68,8 @@ struct BlobHolder {
 
 /// Create the mask of pixels above threshold. Fix any holes in it.
 ImageViewRef<PixelMask<uint8>>
-BlobHolder::mask_and_fill_holes( ImageViewRef<PixelGray<float>> const& img,
-                                 double threshold ){
+BlobHolder::mask_and_fill_holes(ImageViewRef<PixelGray<float>> const& img,
+                                 double threshold) {
 
   ImageViewRef<PixelMask<uint8>> thresh_mask = mask_above_threshold(img, threshold);
   int max_area = 0; // fill arbitrarily big holes
@@ -290,7 +289,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     // The blob holders must not go out of scope while masks are being written.
     BlobHolder LB, RB;
     // TODO(oalexan1): Wipe this code.
-    if ( !std::isnan(left_threshold) && !std::isnan(right_threshold) ){
+    if ( !std::isnan(left_threshold) && !std::isnan(right_threshold) ) {
       ImageViewRef<PixelMask<uint8>> left_thresh_mask
         = LB.mask_and_fill_holes(left_image,  left_threshold);
       ImageViewRef<PixelMask<uint8>> right_thresh_mask

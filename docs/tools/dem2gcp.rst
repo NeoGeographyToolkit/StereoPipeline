@@ -58,8 +58,8 @@ Ensure ``parallel_stereo`` was invoked to generate dense matches from disparity
 help produce sufficient GCP later on. (Their number can be reduced later 
 for bundle adjustment with the option ``--max-pairwise-matches``.)
 
-Ensure that the match file is renamed according the *naming convention* for the
-original raw images (:numref:`ba_match_files`). Such matches can be produced
+Ensure that the match files are renamed according the *naming convention* for
+the original raw images (:numref:`ba_match_files`). Such matches can be produced
 after stereo already finished, by re-running ``stereo_tri`` only
 (:numref:`entrypoints`).
 
@@ -134,9 +134,9 @@ Running ``dem2gcp``
       --gcp-sigma 1e-2                                 \
       --output-gcp out.gcp
       
-Here we used the left and right raw images, the left and right camera models
-with no distortion that produced the DEM, and the dense matches between the raw
-images. 
+Here we used the left and right raw images, the latest aligned left and right
+camera models that produced the warped DEM, and the dense matches between the
+raw images. 
 
 .. figure:: ../images/dem2gcp_ip_vs_gcp.png
    :name: dem2gcp_ip_vs_gcp
@@ -160,7 +160,8 @@ RPC lens distortion model (:numref:`rpc_distortion`) as in
 :numref:`convert_pinhole_model`.
 
 The small RPC coefficients *must be changed manually to be at least 1e-7*,
-otherwise they will not get optimized. Here, RPC of degree 3 is used. 
+otherwise they will not get optimized. Here, RPC of degree 3 is used. A higher
+degree can can be used, either initially, or for subsequent iterations.
 
 Optimization of intrinsics with DEM and GCP constraints:: 
 
@@ -176,7 +177,7 @@ Optimization of intrinsics with DEM and GCP constraints::
       --max-pairwise-matches 100000               \
       --remove-outliers-params '75.0 3.0 100 100' \
       --heights-from-dem ref_dem.tif              \
-      --heights-from-dem-uncertainty 500          \
+      --heights-from-dem-uncertainty 250          \
       out.gcp                                     \
       -o ba_rpc_gcp_ht/run
      
@@ -215,15 +216,11 @@ Then, one can rerun stereo with the optimized cameras and the original images
 (again with the option ``--prev-run-prefix``). The results are in
 :numref:`kh7_orig_vs_opt`. The warping is much reduced but not eliminated. 
 
-Ideally, several pairs of images are available that are acquired with precisely
-the same camera model (note that there is a whole family of KH-7 camera models).
-Then, the cameras with the same model would be used jointly in bundle
-adjustment, while setting ``--intrinsics-to-share all``. This should increase
-the accuracy across the board, if the DEMs are for mountainous regions and it is
-easy to measure the warping.
- 
-One could also use a higher degree for the RPC model, such as 6
+One could try to use a higher degree for the RPC model, such as 6
 (:numref:`ba_rpc_distortion`).
+
+The ideal solution would create proper camera models, which are likely of the
+linescan variety.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
