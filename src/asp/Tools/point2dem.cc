@@ -392,8 +392,9 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
   // Sanity check
   if (opt.auto_proj_center && opt.projection == PLATECARREE)
-    vw::vw_throw(ArgumentErr() << "No projection was set (such as --stereographic). Cannot use --auto-proj-center.\n");
-    
+    vw::vw_throw(ArgumentErr() 
+                 << "No projection was set (such as --stereographic). "
+                 << "Cannot use --auto-proj-center.\n");
 } // end function handle_arguments()
 
 // Wrapper for do_software_rasterization that goes through all spacing values
@@ -513,9 +514,13 @@ int main(int argc, char *argv[]) {
     // the DEM a projection that uses some physical units (meters),
     // rather than lon, lat. Otherwise, we honor the user's requested
     // projection and convert the points if necessary.
+    // Do not quietly assume an Earth datum, the user must set it.
     if (opt.target_srs_string.empty()) {
       if (have_user_datum)
         output_georef.set_datum(user_datum);
+      else if (!have_input_georef && opt.datum == "")
+        vw::vw_throw(vw::ArgumentErr()
+                     << "A datum, projection, or semi-axes must be set.\n");
       set_projection(opt, output_georef);
     } else {
       // Set the user-specified the target srs_string into georef
@@ -617,22 +622,12 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // TODO(oalexan1): The proj box estimation should happen even when
-    // we don't have the intersection error, such as when reading a
-    // las or csv file.
+    // Estimate the proj box size, and the max intersection error (if having an error iamge)
     double estim_max_error = 0.0;
     BBox3 estim_proj_box;
-    if (error_image.rows() > 0 && error_image.cols() > 0) {
-
-      if (error_image.cols() != point_image.cols() || 
-          error_image.rows() != point_image.rows()) 
-        vw_throw(ArgumentErr() 
-                 << "The error image and point image must have the same size.");
-      estim_max_error = asp::estim_max_tri_error_and_proj_box(proj_points, error_image,
+    estim_max_error = asp::estim_max_tri_error_and_proj_box(proj_points, error_image,
                                                          opt.remove_outliers_params,
                                                          estim_proj_box);
-    }
-
     // Create the DEM
     do_software_rasterization_multi_spacing(proj_points, opt, output_georef, error_image,
                                             estim_max_error, estim_proj_box);
