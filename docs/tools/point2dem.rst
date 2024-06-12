@@ -112,8 +112,9 @@ Polar stereographic projection
 
 ::
 
-     point2dem -r moon \
-       --stereographic --proj-lon 0 --proj-lat -90 \
+     point2dem -r moon             \
+       --stereographic             \
+       --proj-lon 0 --proj-lat -90 \
        run/run-PC.tif
 
 UTM projection

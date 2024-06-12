@@ -29,10 +29,10 @@
 #include <asp/Sessions/CameraUtils.h>
 #include <vw/Math/Functors.h>
 #include <asp/Tools/stereo.h>
-#include <asp/Core/ThreadedEdgeMask.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <xercesc/util/PlatformUtils.hpp>
+#include <asp/Core/ThreadedEdgeMask.h>
 
 using namespace vw;
 using namespace asp;
@@ -185,8 +185,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   in_file_list.push_back(opt.in_file2);
   in_file_list.push_back(opt.cam_file1);
   in_file_list.push_back(opt.cam_file2);
-  bool inputs_changed = (!is_latest_timestamp(left_mask_file,  in_file_list ) ||
-                         !is_latest_timestamp(right_mask_file, in_file_list)  );
+  bool inputs_changed = (!is_latest_timestamp(left_mask_file,  in_file_list) ||
+                         !is_latest_timestamp(right_mask_file, in_file_list));
 
   bool rebuild = crop_left || crop_right || inputs_changed;
   try {
@@ -211,7 +211,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   }
 
   cartography::GeoReference left_georef, right_georef;
-  bool has_left_georef  = read_georeference(left_georef,  left_image_file );
+  bool has_left_georef  = read_georeference(left_georef,  left_image_file);
   bool has_right_georef = read_georeference(right_georef, right_image_file);
 
   // The output no-data value must be < 0 as the images are scaled to around [0, 1].
@@ -233,32 +233,42 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
     Stopwatch sw;
     sw.start();
-
-    ImageViewRef<PixelMask<uint8>> left_mask
-      = copy_mask(constant_view(uint8(255),
-                                left_image.cols(), left_image.rows()),
-                  asp::threaded_edge_mask(left_image,0,0,1024));
-    ImageViewRef<PixelMask<uint8>> right_mask
-      = copy_mask(constant_view(uint8(255),
-                                right_image.cols(), right_image.rows() ),
-                  asp::threaded_edge_mask(right_image,0,0,1024));
-
+    
     // Read the no-data values of L.tif and R.tif.
     float left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
     float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
-    if ( left_rsrc->has_nodata_read() )
+    if (left_rsrc->has_nodata_read())
       left_nodata_value  = left_rsrc->nodata_read();
-    if ( right_rsrc->has_nodata_read() )
+    if (right_rsrc->has_nodata_read())
       right_nodata_value = right_rsrc->nodata_read();
 
     // We need to treat the following special case: if the user
     // skipped image normalization, so we are still using the original
     // input images, and the user wants to use a custom no-data value,
     // this is the time to apply it.
-    if (skip_img_norm && !std::isnan(stereo_settings().nodata_value)){
+    if (skip_img_norm && !std::isnan(stereo_settings().nodata_value)) {
       left_nodata_value  = stereo_settings().nodata_value;
       right_nodata_value = stereo_settings().nodata_value;
     }
+    
+    // No-data values must always be non-negative
+    if (std::isnan(left_nodata_value) || left_nodata_value < 0)
+      left_nodata_value = 0;
+    if (std::isnan(right_nodata_value) || right_nodata_value < 0)
+      right_nodata_value = 0;
+
+// TODO(oalexan1): Remove the ThreadedEdgeMask logic, as it is slow. 
+// But the alternative outlined below is not doing the same thing when 
+// it comes to mapprojected images. 
+#if 1
+    ImageViewRef<PixelMask<uint8>> left_mask
+      = copy_mask(constant_view(uint8(255),
+                                left_image.cols(), left_image.rows()),
+                  asp::threaded_edge_mask(left_image,0,0,1024));
+    ImageViewRef<PixelMask<uint8>> right_mask
+      = copy_mask(constant_view(uint8(255),
+                                right_image.cols(), right_image.rows()),
+                  asp::threaded_edge_mask(right_image,0,0,1024));
 
     // Mask no-data pixels.
     left_mask = intersect_mask(left_mask,
@@ -267,16 +277,28 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     right_mask = intersect_mask(right_mask,
                                 create_mask_less_or_equal(right_image,
                                                           right_nodata_value));
-
+#else
+    // Mask no-data pixels
+    ImageViewRef<PixelMask<uint8>> left_mask 
+       = copy_mask(constant_view(uint8(255), left_image.cols(), left_image.rows()),
+                                 create_mask_less_or_equal(left_image,
+                                                         left_nodata_value));
+    ImageViewRef<PixelMask<uint8>> right_mask 
+        = copy_mask(constant_view(uint8(255), right_image.cols(), right_image.rows()),
+                                  create_mask_less_or_equal(right_image,
+                                                          right_nodata_value));
+#endif
+      
     // Invalidate pixels below (normalized) threshold. This is experimental.
     double left_threshold  = std::numeric_limits<double>::quiet_NaN();
     double right_threshold = std::numeric_limits<double>::quiet_NaN();
     double nodata_fraction = stereo_settings().nodata_pixel_percentage/100.0;
-    if ( skip_img_norm && (!std::isnan(nodata_fraction)) ){
-      vw_throw( ArgumentErr() << "\nCannot skip image normalization while attempting "
-                << "to apply a normalized threshold.\n");
-    }
-    if (!std::isnan(nodata_fraction)){
+    if (skip_img_norm && !std::isnan(nodata_fraction))
+      vw::vw_throw(vw::ArgumentErr() 
+               << "Cannot skip image normalization while attempting "
+               << "to apply a normalized threshold.\n");
+
+    if (!std::isnan(nodata_fraction)) {
       // Declare a fixed proportion of low-value pixels to be no-data.
       math::CDFAccumulator<PixelGray<float>> left_cdf (1024, 1024),
                                                right_cdf(1024, 1024);
@@ -288,8 +310,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
     // The blob holders must not go out of scope while masks are being written.
     BlobHolder LB, RB;
-    // TODO(oalexan1): Wipe this code.
-    if ( !std::isnan(left_threshold) && !std::isnan(right_threshold) ) {
+    if ( !std::isnan(left_threshold) && !std::isnan(right_threshold)) {
       ImageViewRef<PixelMask<uint8>> left_thresh_mask
         = LB.mask_and_fill_holes(left_image,  left_threshold);
       ImageViewRef<PixelMask<uint8>> right_thresh_mask
@@ -298,7 +319,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       right_mask = intersect_mask(right_mask, right_thresh_mask);
     }
 
-    // Mask out regions with low input pixel value standard deviations if the user requested it.
+    // Mask out regions with low input pixel value standard deviations if the
+    // user requested it.
     if (stereo_settings().nodata_stddev_kernel > 0) {
       Vector2i stddev_kernel(stereo_settings().nodata_stddev_kernel, stereo_settings().nodata_stddev_kernel);
 
@@ -335,34 +357,49 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     // mask, and vice-versa to reduce noise, if the images
     // are map-projected.
     vw_out() << "Writing masks: " << left_mask_file << ' ' << right_mask_file << ".\n";
-    if (has_left_georef && has_right_georef && !opt.input_dem.empty()){
-      // Left image mask transformed into right coordinates
-      ImageViewRef<PixelMask<uint8>> warped_left_mask
-        = crop(vw::cartography::geo_transform
-               (left_mask, left_georef, right_georef,
-                ConstantEdgeExtension(),NearestPixelInterpolation()
-               ),
-               bounding_box(right_mask));
-      // Right image mask transformed into left coordinates
-      ImageViewRef<PixelMask<uint8>> warped_right_mask
-        = crop(vw::cartography::geo_transform
-               (right_mask, right_georef, left_georef,
-                ConstantEdgeExtension(), NearestPixelInterpolation()
-               ),
-               bounding_box(left_mask));
-
-      vw::cartography::block_write_gdal_image(left_mask_file,
-                                  apply_mask(intersect_mask(left_mask, warped_right_mask)),
-                                  has_left_georef, left_georef,
-                                  has_nodata, output_nodata,
-                                  opt, TerminalProgressCallback("asp", "\t    Mask L: ")
-                                  );
-      vw::cartography::block_write_gdal_image(right_mask_file,
-                                  apply_mask(intersect_mask(right_mask, warped_left_mask)),
-                                  has_right_georef, right_georef,
-                                  has_nodata, output_nodata,
-                                  opt, TerminalProgressCallback("asp", "\t    Mask R: "));
-    }else{
+    if (has_left_georef && has_right_georef && !opt.input_dem.empty()) {
+      
+      // Write with big blocks. Small blocks results in slow writing and great
+      // memory usage. The latter is likely because there's a memory leak
+      // somewhere or the bookkeeping for small tiles takes too much memory.
+      // This is a bugfix.
+      Vector2 orig_tile_size = opt.raster_tile_size;
+      opt.raster_tile_size = Vector2(1024, 1024);
+      
+      { 
+        // Right image mask transformed into left coordinates
+        // Keep this in its own scope to free up the memory of its bookkeeping
+        // as soon as possible.
+        ImageViewRef<PixelMask<uint8>> warped_right_mask
+          = crop(vw::cartography::geo_transform
+                (right_mask, right_georef, left_georef,
+                  ConstantEdgeExtension(), NearestPixelInterpolation()),
+                bounding_box(left_mask));
+        vw::cartography::block_write_gdal_image(left_mask_file,
+                                 apply_mask(intersect_mask(left_mask, warped_right_mask)),
+                                 has_left_georef, left_georef,
+                                 has_nodata, output_nodata,
+                                 opt, TerminalProgressCallback("asp", "\t    Mask L: "));
+      }
+      {
+        // Left image mask transformed into right coordinates. Keep it in its
+        // own scope as per above.
+        ImageViewRef<PixelMask<uint8>> warped_left_mask
+          = crop(vw::cartography::geo_transform
+                (left_mask, left_georef, right_georef,
+                  ConstantEdgeExtension(), NearestPixelInterpolation()),
+                bounding_box(right_mask));
+        vw::cartography::block_write_gdal_image(right_mask_file,
+                                    apply_mask(intersect_mask(right_mask, warped_left_mask)),
+                                    has_right_georef, right_georef,
+                                    has_nodata, output_nodata,
+                                    opt, TerminalProgressCallback("asp", "\t    Mask R: "));
+      }
+      
+      // Put the original tile size back
+      opt.raster_tile_size = orig_tile_size;
+      
+    } else {
       // No DEM to map-project to.
       // TODO: Even so, the trick above with intersecting the masks will still work,
       // if the images are map-projected (such as with cam2map-ed cubes),
@@ -381,7 +418,6 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     vw_out(DebugMessage,"asp") << "Mask creation elapsed time: "
                                << sw.elapsed_seconds() << " s." << std::endl;
   } // End creating masks
-
 
   std::string lsub  = opt.out_prefix+"-L_sub.tif";
   std::string rsub  = opt.out_prefix+"-R_sub.tif";

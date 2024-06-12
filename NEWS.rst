@@ -166,6 +166,7 @@ parallel_stereo (:numref:`parallel_stereo`):
   * For the ``asp_sgm`` and ``asp_mgm`` algorithms allow ``cost-mode`` to
     have the value 3 or 4 only, as other values produce bad results. 
   * Fix a failure when the working directory has a space in its name.
+  * Bugfix for memory usage with very large images.
 
 point2dem (:numref:`point2dem`):
   * Added the option ``--auto-proj-center``, to automatically compute the
@@ -180,7 +181,9 @@ point2dem (:numref:`point2dem`):
     representing the x, y, and z coordinates of the points, with z being
     vertical (option ``--input-is-projected``).
   * Bugfix for when all heights are equal. A valid DEM is produced.  
-
+  * Do not assume the datum is WGS84 by default, as this can result in
+    incorrect DEMs. The datum, projection, or semi-axes must be set    
+    (or read from the input PC/LAS file).
 gdal
    * Full support for WKT and GeoJSON for the projection string (option
      ``--t_srs``) in ``point2dem``, ``point2las``, ``mapproject``,
