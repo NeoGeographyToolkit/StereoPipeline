@@ -217,9 +217,10 @@ skip-image-normalization
     nodata-pixels. Create instead symbolic links to original images. This is a
     speedup option for mapprojected input images.
           
-nodata-value (default = none)
+nodata-value (default = NaN)
     Pixels with values less than or equal to this number are treated as
-    no-data. This overrides the nodata values from input images.
+    no-data. This overrides the nodata values from input images. Must 
+    be non-negative.
 
 stddev-mask-kernel (*integer*) (default = -1)
     Size of kernel to be used in standard deviation filtering of input
@@ -269,6 +270,11 @@ right-image-clip: (*string*) (default = "")
     If ``--right-image-crop-win`` is used, replaced the right image
     cropped to that window with this clip.
 
+accept-provided-mapproj-dem
+    Accept the DEM provided on the command line as the one mapprojection was
+    done with, even if it disagrees with the DEM recorded in the geoheaders of
+    input images.
+    
 threads (*integer*) (default = 0)
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
