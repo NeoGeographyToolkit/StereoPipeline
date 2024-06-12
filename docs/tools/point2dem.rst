@@ -36,12 +36,17 @@ to pick a stereographic projection.
 
 .. _point2dem_auto_proj_center:
 
-Auto-guess projection center and datum
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Auto-guess projection center
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Create a DEM for Mars in a local stereographic projection, auto-guessing
+the projection center and grid size.
 
 ::
 
-    point2dem --stereographic --auto-proj-center run/run-PC.tif
+    point2dem -r mars --stereographic \
+      --auto-proj-center              \
+      run/run-PC.tif
 
 This creates ``run/run-DEM.tif``, which is a GeoTIFF file, with each
 32-bit floating point pixel value being the height above the datum
@@ -52,7 +57,7 @@ In this case the stereographic projection was used, and its center was
 auto-guessed as the median longitude and latitude of the 
 points in the cloud. The grid size was also auto-guessed.
 
-ASP normally auto-guesses the datum, otherwise the option ``-r`` can
+ASP normally auto-guesses the planet (datum), otherwise the option ``-r`` can
 be used. If desired to change the output no-data value (which can also
 be inspected with ``gdalinfo``), use the options ``--nodata-value``.
 
@@ -87,7 +92,7 @@ Custom grid size with geographic projection
 
 ::
 
-    point2dem --tr 0.0001 run/run-PC.tif
+    point2dem -r earth --tr 0.0001 run/run-PC.tif
 
 It is important to note that the grid size here, passed to ``--tr``,
 is in degrees, because the default projection is in degrees. If you
@@ -107,7 +112,8 @@ Polar stereographic projection
 
 ::
 
-     point2dem --stereographic --proj-lon 0 --proj-lat -90 \
+     point2dem -r moon \
+       --stereographic --proj-lon 0 --proj-lat -90 \
        run/run-PC.tif
 
 UTM projection
@@ -127,13 +133,15 @@ The zone for the UTM projection depends on the region of interest.
 See the options ``--sinusoidal``, ``--mercator``, etc., in :numref:`point2dem_options`
 for how to set other projections.
     
-Multiple clouds
-^^^^^^^^^^^^^^^
+Multiple clouds, including CSV and LAS
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
-     point2dem in1.las in2.csv run/run-PC.tif -o combined \
-       --dem-spacing 0.001 --nodata-value -32768
+     point2dem -r earth                              \
+       --dem-spacing 0.001                           \
+       --csv-format 1:lon,2:lat,3:height_above_datum \
+       in1.las in2.csv run/run-PC.tif -o combined 
 
 Here LAS, CSV, and TIF point clouds (the latter obtained with
 ``parallel_stereo``) are fused together into a single DEM.
