@@ -197,6 +197,10 @@ namespace asp {
        "If --right-image-crop-win is used, replaced the right image cropped to that window with this clip.")
       ("aster-use-csm", po::bool_switch(&global.aster_use_csm)->default_value(false)->implicit_value(true),
        "Use the CSM model with ASTER cameras (-t aster).")
+      ("accept-provided-mapproj-dem", 
+        po::bool_switch(&global.accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
+       "Accept the DEM provided on the command line as the one mapprojection was done with, "
+       "even if it disagrees with the DEM recorded in the geoheaders of input images.")
       
       // For bathymetry correction
       ("left-bathy-mask", po::value(&global.left_bathy_mask),

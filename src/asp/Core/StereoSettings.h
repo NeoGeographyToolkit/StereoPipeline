@@ -148,6 +148,7 @@ namespace asp {
 
     // This option will be the default in the future and then it will go away
     bool aster_use_csm; // Use the CSM camera model with ASTER images
+    bool accept_provided_mapproj_dem;
     
     // Correlation options
     

@@ -107,7 +107,7 @@ void estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points,
 
   // Call auxiliary function to do the estimation
   estimate_inliers_bbox(pct_factor_x, pct_factor_y, pct_factor_z, outlier_factor, 
-                       x_vals, y_vals, z_vals, inliers_bbox);
+                        x_vals, y_vals, z_vals, inliers_bbox);
   
   return;
 }
@@ -170,42 +170,56 @@ double estim_max_tri_error_and_proj_box(vw::ImageViewRef<vw::Vector3> const& pro
   // Initialize the outputs
   double estim_max_error = 0.0;
   estim_proj_box = BBox3();
+  
+  if (error_image.rows() > 0 && error_image.cols() > 0 && 
+      (error_image.cols() != proj_points.cols() || 
+      error_image.rows() != proj_points.rows())) 
+      vw_throw(ArgumentErr() 
+                << "The error image and point image must have the same size.");
 
   // Start with a 256 (2^8) by 256 sampling of the cloud
-  bool success = false;
-  for (int attempt = 8; attempt <= 18; attempt++){
+  bool success = true;
+  for (int attempt = 8; attempt <= 18; attempt++) {
     
     double sample = (1 << attempt);
-    int32 subsample_amt = int32(norm_2(Vector2(error_image.cols(), error_image.rows()))/sample);
-    if (subsample_amt < 1 )
+    int32 subsample_amt = int32(norm_2(Vector2(proj_points.cols(), 
+                                               proj_points.rows()))/sample);
+    
+    if (subsample_amt < 1)
       subsample_amt = 1;
     
-    Stopwatch sw2;
-    sw2.start();
     PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
-    for_each_pixel(subsample(error_image, subsample_amt),
-                   error_accum,
-                   TerminalProgressCallback
-                   ("asp","Bounding box and triangulation error range estimation: ") );
-    if (error_accum.size() > 0){
-      success = true;
-      estim_max_error = error_accum.value(remove_outliers_params);
+    if (error_image.cols() > 0 && error_image.rows() > 0) {
+      //Stopwatch sw2;
+      //sw2.start();
+      for_each_pixel(subsample(error_image, subsample_amt),
+                    error_accum,
+                    TerminalProgressCallback
+                    ("asp","Bounding box and triangulation error range estimation: ") );
+      if (error_accum.size() > 0) 
+        estim_max_error = error_accum.value(remove_outliers_params);
+      else
+        success = false;
+        
+      //sw2.stop();
+      //vw_out(DebugMessage,"asp") << "Elapsed time: " << sw2.elapsed_seconds() << std::endl;
     }
-    sw2.stop();
 
     asp::estimate_points_bdbox(subsample(proj_points, subsample_amt),
                                subsample(error_image, subsample_amt),
                                remove_outliers_params,  estim_max_error,
                                estim_proj_box);
-    
+
     if (estim_proj_box.empty()) 
       success = false;
     
-    vw_out(DebugMessage,"asp") << "Elapsed time: " << sw2.elapsed_seconds() << std::endl;
-    if (success || subsample_amt == 1) break;
-    vw_out() << "Estimation failed. Check if your cloud is valid. "
+    if (success || subsample_amt == 1) 
+      break;
+      
+    vw_out() << "DEM extent estimation failed. Check if your cloud is valid. "
              << "Trying again with finer sampling.\n";
   }
+  
   return estim_max_error;
 }
   
