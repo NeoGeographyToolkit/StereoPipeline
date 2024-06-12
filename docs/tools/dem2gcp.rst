@@ -58,7 +58,7 @@ Ensure ``parallel_stereo`` was invoked to generate dense matches from disparity
 help produce sufficient GCP later on. (Their number can be reduced later 
 for bundle adjustment with the option ``--max-pairwise-matches``.)
 
-Ensure that the match files are renamed according the *naming convention* for
+Ensure that the dense match files are renamed according the *naming convention* for
 the original raw images (:numref:`ba_match_files`). Such matches can be produced
 after stereo already finished, by re-running ``stereo_tri`` only
 (:numref:`entrypoints`).
@@ -161,7 +161,7 @@ RPC lens distortion model (:numref:`rpc_distortion`) as in
 
 The small RPC coefficients *must be changed manually to be at least 1e-7*,
 otherwise they will not get optimized. Here, RPC of degree 3 is used. A higher
-degree can can be used, either initially, or for subsequent iterations.
+degree can be employed, either initially, or for subsequent iterations.
 
 Optimization of intrinsics with DEM and GCP constraints:: 
 
