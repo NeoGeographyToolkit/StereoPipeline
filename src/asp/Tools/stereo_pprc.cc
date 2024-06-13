@@ -251,15 +251,9 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       right_nodata_value = stereo_settings().nodata_value;
     }
     
-    // No-data values must always be non-negative
-    if (std::isnan(left_nodata_value) || left_nodata_value < 0)
-      left_nodata_value = 0;
-    if (std::isnan(right_nodata_value) || right_nodata_value < 0)
-      right_nodata_value = 0;
-
-// TODO(oalexan1): Remove the ThreadedEdgeMask logic, as it is slow. 
-// But the alternative outlined below is not doing the same thing when 
-// it comes to mapprojected images. 
+    // TODO(oalexan1): Remove the ThreadedEdgeMask logic, as it is slow. 
+    // But the alternative outlined below is not doing the same thing when 
+    // it comes to mapprojected images. 
 #if 1
     ImageViewRef<PixelMask<uint8>> left_mask
       = copy_mask(constant_view(uint8(255),
