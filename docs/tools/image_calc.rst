@@ -10,12 +10,15 @@ The tool supports multiple input images but each must be the same size
 and data type. Input images are restricted to one channel (band). For images with
 more than one channel, only the first channel will be read.
 
-The following symbols are allowed in the arithmetic string: +, -, \*, /,
-(), min(), max(), pow(), abs(), sign(), and var_N, where N is the index of one of
-the input images (N\ :math:`\ge`\ 0). The tool also supports certain conditional
-operations: lt, gt, lte, gte, eq (<, >, <=, >=, == respectively).  These must be
-used in a format like "lt(var_0, 0.003, var_1, 0)", which translates to
-"if var_0 < 0.003 then var_1 else 0".
+The pixel in the first image is referred to as ``var_0``, the second as
+``var_1``, and so on. 
+
+The following symbols are allowed in the arithmetic string: ``+``, ``-``,
+``\*``, ``/``, ``()``, ``min()``, ``max()``, ``pow()``, ``abs()``, ``sign()``.
+The tool also supports certain conditional operations: ``lt``, ``gt``, ``lte``,
+``gte``, ``eq`` (``<``, ``>``, ``<=``, ``>=``, ``==`` respectively).  These must
+be used in a format like ``lt(var_0, 0.003, var_1, 0)``, which translates to ``if
+var_0 < 0.003 then var_1 else 0``.
 
 An example arithmetic string to be passed via ``-c`` is::
 

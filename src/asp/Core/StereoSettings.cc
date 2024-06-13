@@ -143,9 +143,9 @@ namespace asp {
        "How many RANSAC iterations to do in interest point matching.")
       ("disable-tri-ip-filter",     po::bool_switch(&global.disable_tri_filtering)->default_value(false)->implicit_value(true),
        "Turn off the tri-ip filtering step.")
-      ("ip-debug-images",     po::bool_switch(&global.ip_debug_images)->default_value(false)->implicit_value(true),
-                      "Write debug images to disk when detecting and matching interest points.")
-      ("num-obalog-scales",              po::value(&global.num_scales)->default_value(-1),
+      ("ip-debug-images", po::bool_switch(&global.ip_debug_images)->default_value(false)->implicit_value(true),
+       "Write debug images to disk when detecting and matching interest points.")
+      ("num-obalog-scales", po::value(&global.num_scales)->default_value(-1),
        "How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. More can help for images with high frequency artifacts.")
       ("nodata-value",             po::value(&global.nodata_value)->default_value(g_nan_val),
        "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")

@@ -219,8 +219,7 @@ skip-image-normalization
           
 nodata-value (default = NaN)
     Pixels with values less than or equal to this number are treated as
-    no-data. This overrides the nodata values from input images. Must 
-    be non-negative.
+    no-data. This overrides the nodata values from input images.
 
 stddev-mask-kernel (*integer*) (default = -1)
     Size of kernel to be used in standard deviation filtering of input
