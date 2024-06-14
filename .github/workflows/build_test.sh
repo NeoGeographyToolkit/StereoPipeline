@@ -45,8 +45,9 @@ if [ 1 -eq 0 ]; then
   echo Id is $id
   if [ "$success" != "success" ]; then
     echo "Error: The ssh.yml workflow did not succeed"
-    exit
+    exit 1
   fi 
+  
   echo Fetching the build with id $id from the cloud 
   echo $gh run download -R $repo $id
   /bin/rm -rf ssh-test-macOS # Must wipe this first, or else the download can fail

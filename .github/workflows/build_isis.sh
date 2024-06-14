@@ -72,7 +72,9 @@ cd
 #git clone git@github.com:DOI-USGS/ale.git --recursive
 git clone https://github.com/DOI-USGS/ale.git --recursive
 cd ale
-git reset --hard 775ff21
+git submodule update --recursive # if refreshing the repo later
+git rebase origin/main
+#git reset --hard 775ff21
 # Set up the compiler
 isMac=$(uname -s | grep Darwin)
 if [ "$isMac" != "" ]; then
@@ -82,54 +84,73 @@ else
   cc_comp=x86_64-conda_cos6-linux-gnu-gcc
   cxx_comp=x86_64-conda_cos6-linux-gnu-g++
 fi
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+#export PREFIX=/Users/runner/miniconda3/envs/asp_deps # osx
+export PREFIX=$HOME/miniconda3/envs/asp_deps # linux
 mkdir -p build && cd build
-cmake .. -DALE_USE_EXTERNAL_EIGEN=ON -DALE_USE_EXTERNAL_JSON=ON -DUSGSCSM_EXTERNAL_DEPS=ON -DCMAKE_VERBOSE_MAKEFILE=TRUE -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp -DALE_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${PREFIX} -DALE_BUILD_TESTS=OFF -DUSGSCSM_BUILD_TESTS=OFF -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_EIGEN=ON -DALE_BUILD_TESTS=OFF
+cmake ..                                       \
+  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp    \
+  -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp \
+  -DALE_USE_EXTERNAL_EIGEN=ON                  \
+  -DALE_USE_EXTERNAL_JSON=ON                   \
+  -DALE_BUILD_DOCS=OFF                         \
+  -DALE_BUILD_TESTS=OFF                        \
+  -DCMAKE_VERBOSE_MAKEFILE=TRUE                \
+  -DCMAKE_INSTALL_PREFIX=${PREFIX}
 make -j 20 install
 
-# Continue with building usgscsm with compiler swet up above as for ale
+# Continue with building usgscsm with compiler set up above as for ale
 cd 
-#git clone git@github.com:USGS-Astrogeology/usgscsm.git --recursive
-#git clone https://github.com/DOI-USGS/usgscsm.git --recursive
-git clone git@github.com:oleg-alexandrov/usgscsm.git --recursive
+git clone git@github.com:USGS-Astrogeology/usgscsm.git --recursive
+#git clone git@github.com:oleg-alexandrov/usgscsm.git --recursive
 cd usgscsm
-#git reset --hard 0f065ca
-git checkout height_radtan_fixes
+git submodule update --recursive # if refreshing the repo later
+git rebase origin/main
 mkdir -p build && cd build
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
-cmake .. -DALE_USE_EXTERNAL_EIGEN=ON -DALE_USE_EXTERNAL_JSON=ON -DUSGSCSM_EXTERNAL_DEPS=ON -DCMAKE_VERBOSE_MAKEFILE=TRUE -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp -DUSGSCSM_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${PREFIX} -DALE_BUILD_TESTS=OFF -DUSGSCSM_BUILD_TESTS=OFF -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_JSON=ON -DALE_USE_EXTERNAL_EIGEN=ON -DALE_BUILD_TESTS=OFF
+#export PREFIX=/Users/runner/miniconda3/envs/asp_deps # osx
+export PREFIX=$HOME/miniconda3/envs/asp_deps # linux
+$PREFIX/bin/cmake ..                           \
+  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp    \
+  -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp \
+  -DUSGSCSM_EXTERNAL_DEPS=ON                   \
+  -DUSGSCSM_BUILD_DOCS=OFF                     \
+  -DUSGSCSM_BUILD_TESTS=OFF                    \
+  -DCMAKE_VERBOSE_MAKEFILE=TRUE                \
+  -DCMAKE_INSTALL_PREFIX=${PREFIX}
 make -j 20 install
 
 # Build ISIS3
 cd
-echo Will build ISIS3
-conda activate asp_deps
-#git clone https://github.com/DOI-USGS/ISIS3.git     
-git clone https://github.com/oleg-alexandrov/ISIS3.git
+git clone https://github.com/DOI-USGS/ISIS3.git     
+#git clone https://github.com/oleg-alexandrov/ISIS3.git
 cd ISIS3
-git checkout 1b129bd84
+# Use latest, not 8.0.3, as that one does not compile.
+#git checkout 8.0.3
+#git reset --hard 8.0.3
 mkdir build
 cd build
 export ISISROOT=$PWD
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
-cmake -GNinja -DJP2KFLAG=OFF -Dpybindings=OFF \
- -DbuildTests=OFF -DCMAKE_BUILD_TYPE=Release  \
- -DCMAKE_INSTALL_PREFIX=$PREFIX ../isis
-export NINJAJOBS=2
-/usr/bin/time ninja install -j 2
-
-# Must do usgscsm
-# Init the shell and activate the asp_deps env
-cd
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
-git clone https://github.com/DOI-USGS/usgscsm.git
-cd usgscsm
-git checkout 1.7.0
-perl -pi -e "s#private:#public:#g" include/usgscsm/UsgsAstroFrameSensorModel.h 
-mkdir -p build && cd build
-$PREFIX/bin/cmake .. -DUSGSCSM_EXTERNAL_DEPS=ON -DCMAKE_INSTALL_PREFIX=${PREFIX}  \
-    -DCMAKE_BUILD_TYPE=Release -DUSGSCSM_BUILD_TESTS=OFF
-make -j 20 && make install
+#export PREFIX=/Users/runner/miniconda3/envs/asp_deps # osx
+export PREFIX=$HOME/miniconda3/envs/asp_deps # linux
+conda activate asp_deps
+export PATH=$PREFIX/bin:$PATH
+ext=.so
+if [ "$(uname)" = "Darwin" ]; then
+    ext=.dylib
+fi
+/bin/rm -fv $PREFIX/version # to ensure the build does not fail
+$PREFIX/bin/cmake                                  \
+ -GNinja                                           \
+ -DJP2KFLAG=OFF                                    \
+ -Dpybindings=OFF                                  \
+ -DbuildTests=OFF -DCMAKE_BUILD_TYPE=Release       \
+ -DEMBREE_INCLUDE_DIR=$PREFIX/include              \
+ -DEMBREE_LIBRARY=$PREFIX/lib/libembree3$ext       \
+ -DPCL_INCLUDE_DIR=$PREFIX/include/pcl-1.13        \
+ -DOPENCV_INCLUDE_DIR:PATH=$PREFIX/include/opencv4 \
+ -DCMAKE_INSTALL_PREFIX=$PREFIX                    \
+ ../isis
+#export NINJAJOBS=2; /usr/bin/time ninja install -j $NINJAJOBS # osx
+/usr/bin/time ninja install -j 14 # linux
 
 # libnabo
 cd
