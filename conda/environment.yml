@@ -1,0 +1,21 @@
+# Placeholder minimal asp deps conda environement. Not yet fully fleshed out.
+# Use instead the ones at: conda/asp_deps_3.4.0*.yaml
+
+name: asp_deps
+
+channels:
+  - nasa-ames-stereo-pipeline
+  - usgs-astrogeology
+  - conda-forge
+  - defaults
+
+dependencies:
+  - pdal 2.6.0
+  - opencv 4.8.1
+  - cmake>=3.15
+  - csm
+  - eigen
+  - nlohmann_json
+  - proj
+  - sqlite>=3.11
+  

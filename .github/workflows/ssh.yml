@@ -12,8 +12,8 @@ jobs:
     # offline tarball with dependencies, and how to update that one if need
     # be.
     - name: Setup tmate session
-      uses: owenthereal/action-upterm@v1
-      # uses: mxschmitt/action-tmate@v3
+      uses: mxschmitt/action-tmate@v3 # disconnects after about 40 minutes
+      #uses: owenthereal/action-upterm@v1 # disconnects after 30 minutes
       timeout-minutes: 600
       with:
         limit-access-to-actor: true

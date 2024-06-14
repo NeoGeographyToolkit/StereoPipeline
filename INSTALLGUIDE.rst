@@ -238,9 +238,9 @@ Install ASP with the command::
      -c conda-forge               \
      stereo-pipeline==3.3.0
 
-This will install ASP 3.3.0 together with ISIS 8.0.0. Note that the
-*latest build* (see above) may have more fixes or features than this
-official release.
+This will install ASP 3.3.0 together with ISIS 8.0.0. Note that the *latest
+build* (:numref:`precompiled_binaries`) may have more features and fixes than
+this official release.
 
 Alternatively, consider using ``mamba`` instead of ``conda``. It is
 must faster though it is not always guaranteed to work. 

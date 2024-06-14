@@ -32,13 +32,14 @@ jobs:
     #       ${{ runner.os }}-build-${{ env.cache-name }}-
     #       ${{ runner.os }}-build-
     #       ${{ runner.os }}-
-    - name: build_test
-      # Build and test ASP
-      run: ./.github/workflows/build_test.sh
+    - name: build_isis
+      # Build ISIS and other ASP dependencies
+      run: ./.github/workflows/build_isis.sh
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with: 
-         name: StereoPipeline-${{ runner.os }}
+         name: ASP-dependencies-${{ runner.os }}
          path: ~/work/StereoPipeline/packages
          retention-days: 2
       continue-on-error: true
+

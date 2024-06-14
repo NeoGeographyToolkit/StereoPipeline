@@ -28,7 +28,7 @@ if [ 1 -eq 0 ]; then
   # When ssh.yml exits, it will cache ~/work/StereoPipeline/packages
   # This can be fetched on a local machine, then the desired tarball
   # can be pushed to the cloud updating the above wget link.
-  # That goes as follows:
+  # That goes as follows, on the local machine:
   gh=/home/oalexan1/miniconda3/envs/gh/bin/gh
   repo=git@github.com:NeoGeographyToolkit/StereoPipeline.git
 
@@ -60,11 +60,13 @@ if [ 1 -eq 0 ]; then
     exit 1
   fi 
   
+  # Use a different tag below if desired to make another copy. If so, must
+  # later update the wget link above.
+  tag=mac_conda_env6 
   repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
-  tag=mac_conda_env6 # Must be the same tag as in the wget link above
   # Wipe old version
   $gh release -R $repo delete $tag 
-  notes="Mac conda env6"
+  notes="$tag"
   # Add the binaries
   /usr/bin/time $gh release -R $repo create $tag $binaries --title $tag --notes "$notes"
 
@@ -89,7 +91,7 @@ fi
 # TODO(oalexan1): This no longer works
 # Install some tools
 # TODO(oalexan1): Must have a short environment.yml file
-# having all the dependencies ASP needs.
+# having all the dependencies ASP needs. Then use that below.
 # conda init bash
 # source ~/.bash_profile
 # conda activate $envName
@@ -134,9 +136,6 @@ make -j10 install > /dev/null 2>&1 # this is too verbose
 out_build_vw=$(pwd)/output_build_vw.txt
 make install > $out_build_vw 2>&1
 tail -n 500 $out_build_vw
-
-# Temporary fix for the csm frame camera
-perl -pi -e "s#private:#public:#g" $envPath/include/usgscsm/UsgsAstroFrameSensorModel.h
 
 # Build StereoPipeline
 cd $aspRepoDir
