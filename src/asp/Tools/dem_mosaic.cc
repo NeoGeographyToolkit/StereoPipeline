@@ -67,11 +67,54 @@ typedef float RealT;
 // This is used for various tolerances
 double g_tol = 1e-6;
 
-// TODO: Fold modifications into VW!
+// Compute a weight that is zero, then rises, plateaus, and then falls.
+// - hCenterLine contains the center column at each row/col
+// - hMaxDistArray contains the width of the column at each row/col
+// TODO(oalexan1): Move this to VW, and see about overwriting 
+// the other weight functions.
+double compute_plateaued_weights(Vector2 const& pix, bool horizontal,
+                                 std::vector<double> const& centers,
+                                 std::vector<double> const& widths,
+                                 double max_weight_val) {
+  
+  int primary_axis = 0, secondary_axis = 1; // Vertical
+  if (horizontal) {
+    primary_axis   = 1;
+    secondary_axis = 0;
+  }
+  
+  // We round below, to avoid issues when we are within numerical value
+  // to an integer value for row/col.
+  // To do: Need to do interpolation here.
+
+  int pos = (int)round(pix[primary_axis]); // The row or column
+  if (pos < 0 || pos >= (int)widths.size() || pos >= (int)centers.size())
+    return 0;
+  
+  double max_dist = widths[pos]/2.0; // Half column width
+  double center   = centers[pos];
+  double dist     = fabs(pix[secondary_axis]-center); // Pixel distance from center column
+
+  if (max_dist <= 0 || dist < 0)
+    return 0;
+
+  // We want to make sure the weight is positive (even if small) at
+  // the first/last valid pixel.
+  double tol = 1e-8*max_dist;
+  
+  // The weight is not normalized. This is a bugfix. Normalized weights result
+  // in higher weights in narrow regions, which is not what we want.
+  double weight = std::max(0.0, max_dist - dist + tol);
+  weight = std::min(max_weight_val, weight);
+
+  return weight;
+}
+
+// TODO(oalexan1): Fold modifications into VW.
 template<class ImageT>
 void centerline_weights2(ImageT const& img, ImageView<double> & weights,
-                         double hole_fill_value=0, double border_fill_value=-1, 
-                         BBox2i roi=BBox2i()){
+                         double max_weight_val, double hole_fill_value=0, 
+                         double border_fill_value=-1, BBox2i roi=BBox2i()) {
 
   int numRows = img.rows();
   int numCols = img.cols();
@@ -147,8 +190,10 @@ void centerline_weights2(ImageT const& img, ImageView<double> & weights,
       vw::Vector2 pix(col, row);
       double new_weight = 0; // Invalid pixels usually get zero weight
       if (is_valid(img(col,row))) {
-        double weight_h = compute_line_weights(pix, true,  hCenterLine, hMaxDistArray);
-        double weight_v = compute_line_weights(pix, false, vCenterLine, vMaxDistArray);
+        double weight_h = compute_plateaued_weights(pix, true,  hCenterLine, hMaxDistArray,
+                                                    max_weight_val);
+        double weight_v = compute_plateaued_weights(pix, false, vCenterLine, vMaxDistArray,
+                                                    max_weight_val);
         new_weight = weight_h*weight_v;
       }
       else { // Invalid pixel
@@ -168,7 +213,7 @@ void centerline_weights2(ImageT const& img, ImageView<double> & weights,
 // Flat before 0 and after M. Higher value of L means
 // more flatness at the ends, but higher growth
 // in the middle.
-double S_shape(double x, double M, double L){
+double S_shape(double x, double M, double L) {
   if (x <= 0) return 0;
   if (x >= M) return M;
   return 0.5*M*(1 + boost::math::erf (0.5*sqrt(M_PI) * (2*x*L/M - L)));
@@ -529,8 +574,9 @@ public:
       // priority blending length was positive, we've already expanded 'bbox'.
       if (!use_priority_blend)
         in_box.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
-
+        
       in_box.crop(dem_pixel_box);
+      
       if (in_box.width() == 1 || in_box.height() == 1){
         // Grassfire likes to have width of at least 2
         in_box.expand(1);
@@ -539,7 +585,7 @@ public:
       if (in_box.width() <= 1 || in_box.height() <= 1)
         continue; // No overlap with this tile, skip to the next DEM.
 
-      if (m_opt.median || m_opt.nmad || use_priority_blend || m_opt.block_max){
+      if (m_opt.median || m_opt.nmad || use_priority_blend || m_opt.block_max) {
         // Must use a blank tile each time
         fill(tile, m_opt.out_nodata_value);
         fill(weights, 0.0);
@@ -611,8 +657,7 @@ public:
         dem = apply_mask(gaussian_filter(fill_nodata_with_avg
                                          (create_mask(select_channel(dem, 0), nodata_value),
                                           kernel_size),
-                                         m_opt.dem_blur_sigma),
-                         nodata_value);
+                                         m_opt.dem_blur_sigma), nodata_value);
       }
       
       // Mark the handle to the image as not in use, though we still
@@ -641,16 +686,17 @@ public:
           }
         }
         // TODO: Generalize this modification and move it to VW!!!
-        centerline_weights2
-                (create_mask_less_or_equal(select_channel(dem2, 0), nodata_value),
-                 local_wts, -1.0);
+        centerline_weights2(create_mask_less_or_equal(select_channel(dem2, 0), nodata_value),
+                            local_wts, m_bias, -1.0);
       } // End centerline weights case
 
       // If we don't limit the weights from above, we will have tiling artifacts,
       // as in different tiles the weights grow to different heights since
       // they are cropped to different regions. For priority blending length,
       // we'll do this process later, as the bbox is obtained differently in that case.
-      if (!use_priority_blend) {
+      // With centerline weights, that is handled before 1D weights are multiplied
+      // to get the 2D weights.
+      if (!use_priority_blend && !m_opt.use_centerline_weights) {
         for (int col = 0; col < local_wts.cols(); col++) {
           for (int row = 0; row < local_wts.rows(); row++) {
             local_wts(col, row) = std::min(local_wts(col, row), double(m_bias));
@@ -659,7 +705,7 @@ public:
       }
 
       // Erode. We already did that if centerline weights are used.
-      if (!m_opt.use_centerline_weights){
+      if (!m_opt.use_centerline_weights) {
         int max_cutoff = max_pixel_value(local_wts);
         int min_cutoff = m_opt.erode_len;
         if (max_cutoff <= min_cutoff)
@@ -684,9 +730,11 @@ public:
       }
 
 #if 0
-      // Dump the weights
+      // Save the weights with georeference. Very useful for debugging
+      // non-uniqueness issues across tiles.
       std::ostringstream os;
-      os << "weights_" << dem_iter << ".tif";
+      os << "weights_" << dem_iter << "_" << bbox.min().x() << "_" << bbox.min().y() 
+         << ".tif";
       vw_out() << "Writing: " << os.str() << std::endl;
       bool has_georef = true, has_nodata = true;
       block_write_gdal_image(os.str(), local_wts,
@@ -709,8 +757,9 @@ public:
         = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
 
       // Loop through each output pixel
-      for (int c = 0; c < bbox.width(); c++){
-        for (int r = 0; r < bbox.height(); r++){
+      // TODO(oalexan1): This must be a function
+      for (int c = 0; c < bbox.width(); c++) {
+        for (int r = 0; r < bbox.height(); r++) {
 
           // Coordinates in the output mosaic
           vw::Vector2 out_pix(c +  bbox.min().x(), r +  bbox.min().y());
@@ -737,7 +786,7 @@ public:
             // are barely so.
             pval = dem(i0, j0);
 
-          }else{ // We are not right on an integer pixel and we need to interpolate
+          } else { // We are not right on an integer pixel and we need to interpolate
 
             // Below must use x <= cols()-1 as x is double
             bool is_good = ((x >= 0) && (x <= dem.cols()-1) && // TODO: should be an image function!
@@ -763,7 +812,7 @@ public:
             } else
               pval = interp_dem(x, y); // Things checked out, do the interpolation.
           }
-          // Seperate the value and alpha for this pixel.
+          // Separate the value and alpha for this pixel.
           double val = pval.v();
           double wt  = pval.a();
 
@@ -870,7 +919,7 @@ public:
       }
       
       if (use_priority_blend || m_opt.save_index_map)
-	clip2dem_index.push_back(dem_iter);
+        clip2dem_index.push_back(dem_iter);
       
     } // End iterating over DEMs
 
@@ -1122,6 +1171,7 @@ public:
       // Wipe from the tile all values outside the perimeter of
       // first_dem. So we don't wipe values that happen to be
       // in the holes of first_dem.
+      // TODO(oalexan1): How about using here the function centerline_weights2()?
       vw::ImageView<double> local_wts;
       bool fill_holes = true;
       centerline_weights(create_mask(first_dem, m_opt.out_nodata_value), local_wts,
@@ -1448,16 +1498,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              << usage << general_options);
 
   if (opt.priority_blending_len > 0 && opt.use_centerline_weights)
-    vw_throw(ArgumentErr() << "The --priority-blending-length and --use-centerline-weights options cannot be used together, as the latter expects no holes in the DEM, but the priority blending length works by internally hollowing out the non-priority DEMs before blending.\n"
-             << usage << general_options);
+    vw::vw_throw(vw::ArgumentErr() 
+             << "The --priority-blending-length and --use-centerline-weights options "
+             << "cannot be used together, as the latter expects no holes in the DEM, "
+             << "but the priority blending length works by internally hollowing out "
+             << "the non-priority DEMs before blending.\n");
 
   // Read the DEMs
-  if (opt.dem_list_file != ""){ // Get them from a list
+  if (opt.dem_list_file != "") { // Get them from a list
 
     if (!unregistered.empty())
-      vw_throw(ArgumentErr() << "The DEMs were specified via a list. "
-			     << "There were however extraneous files or options passed in.\n"
-			     << usage << general_options);
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "The DEMs were specified via a list. There were however "
+                   << "extraneous files or options passed in.\n");
 
     std::ifstream is(opt.dem_list_file.c_str());
     std::string file;
@@ -1476,9 +1529,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
 
   if (opt.this_dem_as_reference != "" && opt.first_dem_as_reference) {
-    vw_throw(ArgumentErr() << "Cannot have both options --first-dem-as-reference "
-             << "and --this-dem-as-reference.\n"
-	     << usage << general_options);
+    vw::vw_throw(vw::ArgumentErr() 
+             << "Cannot have both options --first-dem-as-reference "
+             << "and --this-dem-as-reference.\n");
   }
 
   // We will co-opt the logic of first_dem_as_reference but won't blend the reference DEM
@@ -1487,10 +1540,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.dem_files.insert(opt.dem_files.begin(), opt.this_dem_as_reference);
   }
   
-  if (int(opt.dem_files.size()) <= opt.save_dem_weight) {
-    vw_throw(ArgumentErr() << "Cannot save weights for given index as it is out of bounds.\n"
-	     << usage << general_options);
-  }
+  if (int(opt.dem_files.size()) <= opt.save_dem_weight)
+    vw::vw_throw(vw::ArgumentErr() 
+             << "Cannot save weights for given index as it is out of bounds.\n");
 
   // When too many things should be done at the same time it is tricky
   // to have them work correctly. So prohibit that. Let the user run

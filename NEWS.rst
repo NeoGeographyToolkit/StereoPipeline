@@ -270,6 +270,9 @@ lronac2mosaic.py (:numref:`lronac2mosaic`):
 camera_solve (:numref:`camera_solve`):
   * Switched to cascade matching from brute force matching, which is much faster.
   * Always reuse the Theia SfM matches.
+ 
+dem_mosaic (:numref:`dem_mosaic`):
+  * Bugfix for option ``--use-centerline-weights``. 
     
 misc:
   * Upgraded to Boost 1.82.0.

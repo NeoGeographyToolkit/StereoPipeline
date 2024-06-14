@@ -18,8 +18,9 @@
 # __END_LICENSE__
 
 '''
-This tool implements a multi-process and multi-machine version of sfs. The input DEM gets split
-into tiles with padding, sfs runs on each tile, and the outputs are mosaicked.
+This tool implements a multi-process and multi-machine version of sfs. The input
+DEM gets split into tiles with padding, sfs runs on each tile, and the outputs
+are mosaicked.
 '''
 
 import sys
