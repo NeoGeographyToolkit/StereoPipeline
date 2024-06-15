@@ -22,7 +22,8 @@ endfunction(get_all_source_files)
 
 # Look for a library dependency, starting with the given search
 # folder. If the header files are in a subfolder of "include",
-# specify that one in "inc_subfolder".
+# specify that one in "inc_subfolder". The value of 
+# LIB_SUBDIR is used for CSM to find the library.
 function(find_external_library name search_folder inc_subfolder libNameList required)
 
   # Define the variable names we will create
@@ -43,7 +44,7 @@ function(find_external_library name search_folder inc_subfolder libNameList requ
     set(${${LIB_NAME}} "")
     foreach(lib ${libNameList})
       set(FULL_NAME "lib${lib}${ext}")
-      set(FULL_PATH "${search_folder}/lib/${FULL_NAME}")
+      set(FULL_PATH "${search_folder}/lib/${LIB_SUBDIR}${FULL_NAME}")
       if (NOT EXISTS ${FULL_PATH})
           # Try to see if maybe the lib is with an extension
           file(GLOB LIB_FILES ${FULL_PATH}*)

@@ -208,11 +208,13 @@ find_external_library(ISIS ${ASP_DEPS_DIR} "isis" "isis" REQUIRED)
 
 if(ASP_HAVE_PKG_ISIS)
   # Pull the ISIS version. It is on the first line before the first space.
-  file(STRINGS "${ASP_DEPS_DIR}/version" MY_STRING LIMIT_COUNT 1)
-  string(REPLACE " " ";" MY_LIST ${MY_STRING}) # split by space and store into MY_LIST
-  list(GET MY_LIST 0 ASP_ISIS_VERSION)
+  file(STRINGS "${ASP_DEPS_DIR}/isis_version.txt" ISIS_VERSION_LINE LIMIT_COUNT 1)
+  # Split by space, save to list
+  string(REPLACE " " ";" ISIS_VERSION_LIST ${ISIS_VERSION_LINE}) 
+  # Get the first element
+  list(GET ISIS_VERSION_LIST 0 ISIS_VERSION)
   set(ASP_HAVE_PKG_ISISIO 1)
-  message(STATUS "Found ISIS version: ${ASP_ISIS_VERSION}")
+  message(STATUS "Found ISIS version: ${ISIS_VERSION}")
     
   # Some ISIS headers include Qt headers in a way that requires the include below
   include_directories("${ASP_DEPS_DIR}/include/qt")
@@ -226,7 +228,10 @@ find_external_library(CSM ${ASP_DEPS_DIR} "csm" "csmapi" REQUIRED)
 # plugins, presubably because it is found at link time now,
 # but things still work. This is is necessary since we need to peek into
 # usgscsm by bypassing the csm interface.
+# Have to use a global variable to peek in the subdir where this lib is stored.
+set(LIB_SUBDIR "csmplugins/")
 find_external_library(USGSCSM ${ASP_DEPS_DIR} "usgscsm" "usgscsm" REQUIRED)
+set(LIB_SUBDIR "") # No longer needed
 
 # ALE
 find_external_library(ALE ${ASP_DEPS_DIR} "ale" "ale" REQUIRED)

@@ -1,8 +1,8 @@
-name: build_test
+name: build_isis
 on:
   workflow_dispatch:
 
-# Build and test ASP on macOS. Triggered via gh.
+# Build ISIS and other ASP dependencies on macOS. Triggered via gh.
 
 # on:
 #   push:
@@ -33,7 +33,6 @@ jobs:
     #       ${{ runner.os }}-build-
     #       ${{ runner.os }}-
     - name: build_isis
-      # Build ISIS and other ASP dependencies
       run: ./.github/workflows/build_isis.sh
     - name: Upload artifacts
       uses: actions/upload-artifact@v2

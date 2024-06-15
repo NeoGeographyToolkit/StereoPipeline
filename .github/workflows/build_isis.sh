@@ -20,25 +20,17 @@ else
   cxx_comp=x86_64-conda_cos6-linux-gnu-g++
 fi
 
-# Fetch the ASP depenedencies
-wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env6/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
+# Fetch the ASP depenedencies. Must update the link below if, as described in
+# build_test.sh, the tarball is saved to a different location.
+wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env7/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 /usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
-# Build ale
+# Build ale. It is assumed the compiler is set up as above.
 cd
 git clone https://github.com/DOI-USGS/ale.git --recursive
 cd ale
 git submodule update --recursive # if refreshing the repo later
 git rebase origin/main
-# Set up the compiler
-isMac=$(uname -s | grep Darwin)
-if [ "$isMac" != "" ]; then
-  cc_comp=clang
-  cxx_comp=clang++
-else
-  cc_comp=x86_64-conda_cos6-linux-gnu-gcc
-  cxx_comp=x86_64-conda_cos6-linux-gnu-g++
-fi
 export PREFIX=$HOME/miniconda3/envs/asp_deps
 export PATH=$PREFIX/bin:$PATH
 mkdir -p build && cd build
@@ -53,7 +45,7 @@ cmake ..                                       \
   -DCMAKE_INSTALL_PREFIX=${PREFIX}
 make -j 20 install
 
-# Continue with building usgscsm with compiler set up above as for ale
+# Build usgscsm. It is assumed the compiler is set up as above.
 cd 
 git clone https://github.com/DOI-USGS/usgscsm.git --recursive
 cd usgscsm
@@ -101,7 +93,11 @@ $PREFIX/bin/cmake                                  \
 export NINJAJOBS=4; /usr/bin/time ninja install -j $NINJAJOBS # osx
 #/usr/bin/time ninja install -j 14 # linux
 
-# Archive the updated packages
+# Create a tarball with the updated packages. It will be uploaded as an
+# artifact. The destination directory is set in the .yml file.
+#
+# See build_test.sh for how to use this artifact to save the updated packages to
+# a permanent location.
 mkdir -p ~/work/StereoPipeline/packages
 /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
     /Users/runner/miniconda3/envs
@@ -388,24 +384,3 @@ $PREFIX/bin/cmake ..                         \
   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp
 echo Building StereoPipeline
 make -j10 install > /dev/null 2>&1 # this is too verbose
-
-# Package with BinaryBuilder
-echo Packaging the build
-cd
-conda activate asp_deps
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
-git clone https://github.com/NeoGeographyToolkit/BinaryBuilder
-cd BinaryBuilder
-./make-dist.py $PREFIX   \
-  --asp-deps-dir $PREFIX \
-  --python-env $(dirname $PREFIX)/python_isis8
-
-# Archive the conda env in the packages dir. This dir
-# is set in the .yml file. It will be saved as 
-# an artifact.
-echo Will archive the conda env
-packageDir=$HOME/work/StereoPipeline/packages
-mkdir -p $packageDir
-cd /usr/local/miniconda
-/usr/bin/time tar czf $packageDir/asp_deps_osx.tar.gz envs
-

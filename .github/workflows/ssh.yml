@@ -22,7 +22,7 @@ jobs:
       with: 
          # Useful for saving any results produced in this session. Can be later
          # downloaded.
-         name: ssh-test-${{ runner.os }}
+         name: ASP-dependencies-${{ runner.os }}
          path: ~/work/StereoPipeline/packages
          retention-days: 2
       continue-on-error: true

@@ -11,32 +11,34 @@ else
 fi
 
 # Fetch the ASP depenedencies
-wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env6/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
+wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env7/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 /usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
 # How to update the dependencies. Read very carefully and update as needed.
 if [ 1 -eq 0 ]; then
 
-  # Log in with ssh.yml, and create the needed dependencies, per the ASP manual,
-  # section on building ASP. Or fetch existing ones as above.
-  # Update the dependencies as needed. Then archive them as follows:
-  
+  # Log in with ssh.yml, or run the build_isis.yml action, and create the needed
+  # dependencies, per the ASP manual, section on building ASP. Or fetch existing
+  # ones as above. Update the dependencies as needed. Then archive them manually
+  # (only with ssh.yml) as follows:
   mkdir -p ~/work/StereoPipeline/packages
   /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
     /Users/runner/miniconda3/envs
   
-  # When ssh.yml exits, it will cache ~/work/StereoPipeline/packages
+  # When the action exits, it will cache ~/work/StereoPipeline/packages
   # This can be fetched on a local machine, then the desired tarball
   # can be pushed to the cloud updating the above wget link.
   # That goes as follows, on the local machine:
+  #workflow="ssh.yml" # manual and interactive
+  workflow="build_isis.yml" # automatic, from a script
   gh=/home/oalexan1/miniconda3/envs/gh/bin/gh
   repo=git@github.com:NeoGeographyToolkit/StereoPipeline.git
 
-  # Query the ssh.yml. Must check that that the top-most run is successful
-  $gh run list -R $repo --workflow=ssh.yml
+  # Query the ${workflow}. Must check that that the top-most run is successful
+  $gh run list -R $repo --workflow=${workflow}
   
   # Find the latest id, then fetch the artifacts for it
-  ans=$($gh run list -R $repo --workflow=ssh.yml | grep -v STATUS | head -n 1)
+  ans=$($gh run list -R $repo --workflow=${workflow} | grep -v STATUS | head -n 1)
   completed=$(echo $ans | awk '{print $1}')
   success=$(echo $ans | awk '{print $2}')
   id=$(echo $ans | awk '{print $7}')
@@ -44,17 +46,17 @@ if [ 1 -eq 0 ]; then
   echo Success is $success
   echo Id is $id
   if [ "$success" != "success" ]; then
-    echo "Error: The ssh.yml workflow did not succeed"
+    echo "Error: The ${workflow} workflow did not succeed"
     exit 1
   fi 
   
   echo Fetching the build with id $id from the cloud 
   echo $gh run download -R $repo $id
-  /bin/rm -rf ssh-test-macOS # Must wipe this first, or else the download can fail
+  /bin/rm -rf ASP-dependencies-macOS # Must wipe this first, or else the download can fail
   $gh run download -R $repo $id
 
-  # Must be careful with the line below. This comes from ssh.yml
-  binaries=ssh-test-macOS/asp_deps.tar.gz
+  # Must be careful with the line below. This is set in the ${workflow} file.
+  binaries=ASP-dependencies-macOS/asp_deps.tar.gz
   if [ ! -f "$binaries" ]; then
     echo "Error: File: $binaries does not exist"
     exit 1
@@ -62,7 +64,7 @@ if [ 1 -eq 0 ]; then
   
   # Use a different tag below if desired to make another copy. If so, must
   # later update the wget link above.
-  tag=mac_conda_env6 
+  tag=mac_conda_env7
   repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
   # Wipe old version
   $gh release -R $repo delete $tag 
