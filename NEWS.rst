@@ -275,7 +275,7 @@ dem_mosaic (:numref:`dem_mosaic`):
   * Bugfix for option ``--use-centerline-weights``. 
     
 misc:
-  * Upgraded to Boost 1.82.0.
+  * Upgraded to ISIS 8.0.3, Boost 1.82.0.
   * Made all tools that spawn processes in parallel use the option
     ``--parallel-options``, with default ``--sshdelay 0.2``, to avoid
     failure on certain architectures.

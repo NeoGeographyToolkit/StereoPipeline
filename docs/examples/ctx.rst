@@ -49,23 +49,27 @@ Convert the .IMG files to ISIS .cub files, initialize the spice information, and
 
 (Here one can optionally run ``ctxevenodd`` on the ``cal.cub`` files, if needed.)
 
-Run stereo::
+Run ``parallel_stereo`` (:numref:`parallel_stereo`) and ``point2dem``
+(:numref:`point2dem`)::
 
-    ISIS> cam2map4stereo.py P02_001981_1823.cal.cub P03_002258_1817.cal.cub
-    ISIS> parallel_stereo P02_001981_1823.map.cub P03_002258_1817.map.cub \
-            results/out
-
-Then, one runs ``point2dem`` (:numref:`point2dem`) on the output to generate a
-DEM. Care is needed to use a local projection.
-
+    cam2map4stereo.py P02_001981_1823.cal.cub P03_002258_1817.cal.cub
+    parallel_stereo                                      \
+      --stereo-algorithm asp_mgm --subpixel-mode 9       \
+      P02_001981_1823.map.cub P03_002258_1817.map.cub    \
+      results/out
+    point2dem -r mars --stereographic --auto-proj-center \
+      results/out-PC.tif
+  
 Higher quality results can be obtained by using the ``aspm_mgm`` algorithm and
-mapprojection. See :numref:`nextsteps` about the next steps, including a
-discussion about various speed-vs-quality choices in stereo.
+mapprojection (:numref:`nextsteps`).
 
 CTX cameras can benefit from bundle adjustment (:numref:`bundle_adjustment`). It
 is is also strongly suggested to use CSM camera models for improved performance
-(:numref:`csm`). The recipe for linescan cameras (as for CTX) is in
-:numref:`create_csm_linescan`.
+(:numref:`csm`). See :numref:`create_csm_linescan` for how to create CSM camera
+models for linescan cameras, including for CTX.
+
+CTX cameras can exhibit jitter. How to correct it is discussed in
+:numref:`jitter_ctx`.
 
 Automated Processing of HiRISE and CTX
 --------------------------------------

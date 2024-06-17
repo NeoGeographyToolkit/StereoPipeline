@@ -14,67 +14,32 @@ fi
 wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env7/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 /usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
-# How to update the dependencies. Read very carefully and update as needed.
+# The ASP dependencies are built/updated as follows. Read very carefully and update as needed.
 if [ 1 -eq 0 ]; then
 
-  # Log in with ssh.yml, or run the build_isis.yml action, and create the needed
-  # dependencies, per the ASP manual, section on building ASP. Or fetch existing
-  # ones as above. Update the dependencies as needed. Then archive them manually
-  # (only with ssh.yml) as follows:
+  # Run the ssh.yml or build_isis.yml action, and create the needed
+  # dependencies, per the ASP manual, the section on building ASP. Or fetch the
+  # existing ones as above. Update the dependencies as needed. With ssh.yml,
+  # archive them manually as follows (this automatic with build_isis.yml):
   mkdir -p ~/work/StereoPipeline/packages
   /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
     /Users/runner/miniconda3/envs
   
   # When the action exits, it will cache ~/work/StereoPipeline/packages
-  # This can be fetched on a local machine, then the desired tarball
-  # can be pushed to the cloud updating the above wget link.
-  # That goes as follows, on the local machine:
-  #workflow="ssh.yml" # manual and interactive
-  workflow="build_isis.yml" # automatic, from a script
-  gh=/home/oalexan1/miniconda3/envs/gh/bin/gh
-  repo=git@github.com:NeoGeographyToolkit/StereoPipeline.git
+  # as an artifact.
 
-  # Query the ${workflow}. Must check that that the top-most run is successful
-  $gh run list -R $repo --workflow=${workflow}
-  
-  # Find the latest id, then fetch the artifacts for it
-  ans=$($gh run list -R $repo --workflow=${workflow} | grep -v STATUS | head -n 1)
-  completed=$(echo $ans | awk '{print $1}')
-  success=$(echo $ans | awk '{print $2}')
-  id=$(echo $ans | awk '{print $7}')
-  echo Completed is $completed
-  echo Success is $success
-  echo Id is $id
-  if [ "$success" != "success" ]; then
-    echo "Error: The ${workflow} workflow did not succeed"
-    exit 1
-  fi 
-  
-  echo Fetching the build with id $id from the cloud 
-  echo $gh run download -R $repo $id
-  /bin/rm -rf ASP-dependencies-macOS # Must wipe this first, or else the download can fail
-  $gh run download -R $repo $id
-
-  # Must be careful with the line below. This is set in the ${workflow} file.
-  binaries=ASP-dependencies-macOS/asp_deps.tar.gz
-  if [ ! -f "$binaries" ]; then
-    echo "Error: File: $binaries does not exist"
-    exit 1
-  fi 
-  
-  # Use a different tag below if desired to make another copy. If so, must
-  # later update the wget link above.
+  # From a local machine, save the artifact for the Mac to a permanent location as a release. 
+  # If $tag changes below, adjust the wget links above and in build_isis.sh
   tag=mac_conda_env7
-  repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
-  # Wipe old version
-  $gh release -R $repo delete $tag 
-  notes="$tag"
-  # Add the binaries
-  /usr/bin/time $gh release -R $repo create $tag $binaries --title $tag --notes "$notes"
-
-  # End block that is pasted to the terminal to update the dependencies
-fi
+  workflow="build_isis.yml" # automatic, from a script
+  #workflow="ssh.yml" # manual and interactive
+  $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
   
+  # For linux, the dependencies from the local machine can be saved as follows.
+  tag=linux_conda_env7
+  $HOME/projects/StereoPipeline/.github/workflows/save_linux_deps.sh $tag
+fi
+
 # Check that base dir is StereoPipeline
 aspRepoDir=$(pwd) # same as $HOME/work/StereoPipeline/StereoPipeline
 if [ "$(basename $aspRepoDir)" != "StereoPipeline" ]; then
@@ -90,29 +55,8 @@ if [ ! -d "$envPath" ]; then
     exit 1
 fi
 
-# TODO(oalexan1): This no longer works
-# Install some tools
-# TODO(oalexan1): Must have a short environment.yml file
-# having all the dependencies ASP needs. Then use that below.
-# conda init bash
-# source ~/.bash_profile
-# conda activate $envName
-# conda install -c conda-forge -y parallel pbzip2
-# # These need installing for now
-# conda install -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge geoid=1.0_isis7 htdp=1.0_isis7 -y
-
 baseDir=$(dirname $aspRepoDir) # one level up
 installDir=$baseDir/install
-
-# The logic below is turned off for now, as the env was
-# created and cached manually by logging into the cloud machine.
-#if [ ! -d "$envPath" ]; then
-#   # Create the conda environment. When the environemnt changes, wipe its cached
-#   # version for this action, then this will recreate it.
-#   # Note the variable $envName. This must also be the environment name in the
-#   # .yaml file.
-#   conda env create -f conda/${envName}_osx_env.yaml
-# fi
 
 # packageDir will later be uploaded, as set in the yml file
 packageDir=$baseDir/packages

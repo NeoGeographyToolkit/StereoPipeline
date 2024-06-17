@@ -370,15 +370,14 @@ input images. Some conversion command examples are shown below::
 In the third command we used ``gdal_translate`` to pick a single band rather
 than combining the three. This tool is shipped with ASP (:numref:`gdal_tools`).
 
-Obtaining ground control points for icy locations on Earth can be
-particularly difficult because they are not well surveyed or because
-the terrain shifts over time. This may force you to use estimated
-camera positions to convert the local camera models into global
-coordinates. To make this easier for IceBridge data sets, ASP
-provides the ``icebridge_kmz_to_csv`` tool (see
-:numref:`icebridgekmztocsv`) which extracts a list of estimated
-camera positions from the kmz files available for each IceBridge
-flight at http://asapdata.arc.nasa.gov/dms/missions.html.
+Obtaining ground control points for icy locations on Earth can be particularly
+difficult because they are not well surveyed or because the terrain shifts over
+time. This may force you to use estimated camera positions to convert the local
+camera models into global coordinates. To make this easier for IceBridge data
+sets, ASP provides the ``icebridge_kmz_to_csv`` tool (see
+:numref:`icebridgekmztocsv`) which extracts a list of estimated camera positions
+(in ECEF coordinates) from the kmz files available for each IceBridge flight at
+http://asapdata.arc.nasa.gov/dms/missions.html.
 
 For such logic based on camera positions to work well, the camera positions
 must not be along a line, as then the 3D transform computed based on these

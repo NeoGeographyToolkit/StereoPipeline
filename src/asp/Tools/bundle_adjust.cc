@@ -1705,7 +1705,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      po::value(&intrinsics_limit_str)->default_value(""),
      "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in min max pairs and are applied in the order [focal length, optical center, other intrinsics] until all of the limits are used. Check the documentation to determine how many intrinsic parameters are used for your cameras.")
     ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
-      "CSV file containing estimated positions of each camera. For this to work "
+      "CSV file containing estimated position of each camera in ECEF coordinates. "
+      "For this to work "
       "well the camera must travel not along linear path, as this data will be "
       "used to find an alignment transform. Only used with the inline-adjustments "
       "setting to initialize global camera coordinates. If used, the csv-format "

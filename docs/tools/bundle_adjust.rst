@@ -1266,13 +1266,13 @@ Command-line options
     optimization.
 
 --camera-positions <filename>
-    CSV file containing estimated positions of each camera. For this to work
-    well the camera must travel not along linear path, as this data will be used
-    to find an alignment transform. Only used with the inline-adjustments
-    setting to initialize global camera coordinates. If used, the csv-format
-    setting must also be set. The "file" field is searched for strings that are
-    found in the input image files to match locations to cameras. See
-    :numref:`sfmicebridge` for an example.
+    CSV file containing estimated position of each camera, in ECEF
+    coordinates. For this to work well the camera must travel not along linear
+    path, as this data will be used to find an alignment transform. Only used
+    with the inline-adjustments setting to initialize global camera coordinates.
+    If used, the csv-format setting must also be set. The "file" field is
+    searched for strings that are found in the input image files to match
+    locations to cameras. See :numref:`sfmicebridge` for an example.
 
 --init-camera-using-gcp
     Given an image, a pinhole camera lacking correct position and
