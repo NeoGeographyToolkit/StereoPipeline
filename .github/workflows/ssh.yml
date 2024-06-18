@@ -6,6 +6,10 @@ jobs:
   build:
     runs-on: macos-13
     steps:
+    - uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-activate-base: true
+        activate-environment: ""
     - uses: actions/checkout@v3
     # No caching of dependencies, as the cache does not change when it is
     # modified, and it can expire. See build_test.sh how to fetch an
