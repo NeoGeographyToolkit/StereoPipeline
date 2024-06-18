@@ -15,19 +15,22 @@ The pixel in the first image is referred to as ``var_0``, the second as
 
 The following symbols are allowed in the arithmetic string: ``+``, ``-``,
 ``\*``, ``/``, ``()``, ``min()``, ``max()``, ``pow()``, ``abs()``, ``sign()``.
+
 The tool also supports certain conditional operations: ``lt``, ``gt``, ``lte``,
 ``gte``, ``eq`` (``<``, ``>``, ``<=``, ``>=``, ``==`` respectively).  These must
-be used in a format like ``lt(var_0, 0.003, var_1, 0)``, which translates to ``if
-var_0 < 0.003 then var_1 else 0``.
+be used in a format like ``lt(a, b, c, d)``, which translates to
+``if a < b then c else d``. Here, the values of ``a``, ``b``, ``c``, and ``d``
+can be any variables or constants (:numref:`image_calc_above_thresh`).
 
 An example arithmetic string to be passed via ``-c`` is::
 
     -abs(var_0) + min(58, var_1, var_2) / 2
 
-The tool respects the normal PEMDAS order of operations *except* that
-it parses equal priority operations from right to left, *not* the
-expected left to right.  Parentheses can be used to enforce any
-preferred order of evaluation.
+An example is in :numref:`image_calc_mask`.
+
+The tool respects the normal PEMDAS order of operations *except* that it parses
+equal priority operations from right to left, *not* the expected left to right.
+Parentheses can be used to enforce any preferred order of evaluation.
 
 Examples
 ~~~~~~~~
@@ -40,16 +43,7 @@ Apply operation and save pixels as float32
      image_calc -c "pow(var_0/3.0, 1.1)" input_image.tif \
       -o output_image.tif -d float32
 
-Invalidate values no more than a threshold
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-::
-
-    thresh=5.2
-    image_calc -c "max($thresh, var_0)" -d float32 \
-        --output-nodata-value $thresh              \
-        input.tif -o output.tif
-
+.. _image_calc_mask:
 
 Apply a mask to an image
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -73,6 +67,30 @@ Create a mask
         input.tif -o output.tif
 
 Positive values will become 1, and the rest will become 0. 
+
+Invalidate values no more than a threshold
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+    thresh=5.2
+    image_calc -c "max($thresh, var_0)" -d float32 \
+        --output-nodata-value $thresh              \
+        input.tif -o output.tif
+
+.. _image_calc_above_thresh:
+
+Invalidate values no less than a threshold
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+    thresh=1000
+    nodata=-10000
+    image_calc -c "gte(var_0, $thresh, $nodata, var_0)" \
+      -d float32                                        \
+      --output-nodata-value $nodata                     \
+      input.tif -o output.tif
 
 Create an image with random values
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -26,7 +26,7 @@ consistent with MOLA.
 Preparing the data
 ~~~~~~~~~~~~~~~~~~
 
-Fetching the two stereo channels from::
+Fetch the two stereo channels using ``wget`` from::
 
    https://pds-geosciences.wustl.edu/mex/mex-m-hrsc-3-rdr-v4/mexhrs_4000/data/1995/h1995_0000_s13.img
    https://pds-geosciences.wustl.edu/mex/mex-m-hrsc-3-rdr-v4/mexhrs_4000/data/1995/h1995_0000_s23.img
