@@ -1,44 +1,21 @@
 #!/bin/bash
 
-# Set up the compiler
-isMac=$(uname -s | grep Darwin)
-if [ "$isMac" != "" ]; then
-  cc_comp=clang
-  cxx_comp=clang++
-else
-  cc_comp=x86_64-conda_cos6-linux-gnu-gcc
-  cxx_comp=x86_64-conda_cos6-linux-gnu-g++
-fi
-
 # Fetch the ASP depenedencies
-wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env7/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
+tag=mac_conda_env7
+wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 /usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
-# The ASP dependencies are built/updated as follows. Read very carefully and update as needed.
-if [ 1 -eq 0 ]; then
+# Note: The ASP dependencies at the location above are updated using
+# the script save_mac_deps.sh. See that script for how to do the preparations. 
+# Here is how the script is called::
+# tag=mac_conda_env7 # must match the tag above, and also in build_isis.sh
+# workflow="build_isis.yml" # automatic workflow
+# #workflow="ssh.yml" # manual workflow
+# $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
 
-  # Run the ssh.yml or build_isis.yml action, and create the needed
-  # dependencies, per the ASP manual, the section on building ASP. Or fetch the
-  # existing ones as above. Update the dependencies as needed. With ssh.yml,
-  # archive them manually as follows (this automatic with build_isis.yml):
-  mkdir -p ~/work/StereoPipeline/packages
-  /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
-    /Users/runner/miniconda3/envs
-  
-  # When the action exits, it will cache ~/work/StereoPipeline/packages
-  # as an artifact.
-
-  # From a local machine, save the artifact for the Mac to a permanent location as a release. 
-  # If $tag changes below, adjust the wget links above and in build_isis.sh
-  tag=mac_conda_env7
-  workflow="build_isis.yml" # automatic, from a script
-  #workflow="ssh.yml" # manual and interactive
-  $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
-  
-  # For linux, the dependencies from the local machine can be saved as follows.
-  tag=linux_conda_env7
-  $HOME/projects/StereoPipeline/.github/workflows/save_linux_deps.sh $tag
-fi
+# For linux, the dependencies from the local machine can be saved as follows.
+# tag=linux_conda_env7
+# $HOME/projects/StereoPipeline/.github/workflows/save_linux_deps.sh $tag
 
 # Check that base dir is StereoPipeline
 aspRepoDir=$(pwd) # same as $HOME/work/StereoPipeline/StereoPipeline
@@ -61,6 +38,16 @@ installDir=$baseDir/install
 # packageDir will later be uploaded, as set in the yml file
 packageDir=$baseDir/packages
 testDir=$baseDir/StereoPipelineTest
+
+# Set up the compiler
+isMac=$(uname -s | grep Darwin)
+if [ "$isMac" != "" ]; then
+  cc_comp=clang
+  cxx_comp=clang++
+else
+  cc_comp=x86_64-conda_cos6-linux-gnu-gcc
+  cxx_comp=x86_64-conda_cos6-linux-gnu-g++
+fi
 
 # Build visionworkbench
 mkdir -p $baseDir
@@ -158,48 +145,10 @@ fi
 tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 
 # Note: If the test results change, a new tarball with latest scripts and test
-# results must be uploaded. Here's how that is done.
-# TODO(oalexan1): This must be a tool, and documented in StereoPipelineTest.
-if [ 1 -eq 0 ]; then
-  # Fetch the latest artifact of this run. It will have the current test results,
-  # since later in this script we have a step that saves the test results.
-  # Fetching of the artifact can be done with gh, as in an example above.
-  # Inspect all tests. Update the failed ones (each 'gold' is overwritten with 'run').
-  # Make the new 'run' directory the new 'gold'. Do not keep the 'run' directories.
-  # Push this updated tarball to the cloud. 
-  
-  # Go to the directory having the StereoPipelineTest.tar.gz (after fetching the artifact)
-  f=StereoPipelineTest.tar.gz
-  # Check if it exists
-  if [ ! -f "$f" ]; then
-    echo "Error: File: $f does not exist"
-    exit 1
-  fi
-  # Extract
-  tar xzfv $f > /dev/null 2>&1 # this is verbose
-  if [ ! -d "StereoPipelineTest" ]; then
-    echo "Error: Directory: StereoPipelineTest does not exist"
-    exit 1
-  fi
-  for f in StereoPipelineTest/ss*/run; do 
-    g=${f/run/gold}
-    /bin/rm -rfv $g
-    /bin/mv -fv $f $g
-  done
-  # Must make all scripts in bin and individual tests executable
-  chmod a+x StereoPipelineTest/bin/* StereoPipelineTest/*/*sh
-  # Create a new tarball
-  binaries=StereoPipelineTest.tar
-  tar cfv $binaries StereoPipelineTest 
-  repo=git@github.com:NeoGeographyToolkit/StereoPipelineTest.git  
-  gh=/home/oalexan1/miniconda3/envs/gh/bin/gh
-  tag=0.0.1
-  $gh release -R $repo delete $tag # wipe old tarball
-  notes="Update test results"
-  $gh release -R $repo create $tag $binaries --title $tag --notes "$notes" # upload new
-fi
+# results must be uploaded. That is done by running the script:
+# StereoPipeline/.github/workflows/update_mac_tests.sh
 
-# Go to test dir
+# Go to the test dir
 if [ ! -d "$testDir" ]; then
     echo "Error: Directory: $testDir does not exist"
     exit 1

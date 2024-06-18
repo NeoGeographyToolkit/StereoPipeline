@@ -20,9 +20,9 @@ else
   cxx_comp=x86_64-conda_cos6-linux-gnu-g++
 fi
 
-# Fetch the ASP depenedencies. Must update the link below if, as described in
-# build_test.sh, the tarball is saved to a different location.
-wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/mac_conda_env7/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
+# Fetch the ASP depenedencies. Must keep $tag in sync with build_test.sh.
+tag=mac_conda_env7
+wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 /usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
 # Build ale. It is assumed the compiler is set up as above.

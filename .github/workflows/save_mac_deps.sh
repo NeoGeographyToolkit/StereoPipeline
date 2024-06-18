@@ -1,7 +1,17 @@
 #!/bin/bash
 
-# Fetch the latest dependencies as saved in an artifact in the clound.
-# Save them to a permanent location as a release.
+# To update the Mac dependencies, or create new ones, run the ssh.yml action
+# (for interactive use) or build_isis.yml (batch).
+
+# In manual mode, before exiting, save the dependencies as follows:
+# mkdir -p ~/work/StereoPipeline/packages
+# /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
+#   /Users/runner/miniconda3/envs
+
+# Then, from a local machine, run this script. See build_test.sh for
+# context and an example. 
+
+# Must keep $tag in sync.
 
 # Check usage
 if [ "$#" -lt 2 ]; then
@@ -9,7 +19,7 @@ if [ "$#" -lt 2 ]; then
     exit 1
 fi
 
-# The workflow that saved the dependencies as artifact
+# The workflow that saved the dependencies as artifact (ssh.yml or build_isis.yml)
 workflow=$1; shift
 
 # The tag to use to save the dependencies. Must then use this tag
