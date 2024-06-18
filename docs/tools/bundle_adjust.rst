@@ -1468,6 +1468,12 @@ Command-line options
     projection of xyz in the right image by more than this value
     in pixels.
 
+--flann-method <string (default = "kmeans")>
+    Choose the FLANN method for matching interest points. The default
+    ``kmeans`` is slower but deterministic, while ``kdtree`` is faster 
+    (up to 6x) but not deterministic (starting with FLANN 1.9.2).
+    Normally the default is good enough. 
+
 --save-vwip
     Save .vwip files (intermediate files for creating .match
     files). For ``parallel_bundle_adjust`` these will be saved in

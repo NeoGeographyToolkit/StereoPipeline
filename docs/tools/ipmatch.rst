@@ -39,12 +39,9 @@ Command-line options for ipmatch:
 --output-prefix <file name>
     Write output files using this prefix.
 
---matcher-threshold <float (default: 0.6)>
+--matcher-threshold <float (default: 0.8)>
     Threshold for the separation between closest and next closest
     interest points.
-
---non-kdtree
-    Use a non-KDTree version of the matching algorithm.
 
 --distance-metric <L2|Hamming (default: L2)>
     Distance metric to use.  Hamming should only be used for binary
@@ -58,6 +55,14 @@ Command-line options for ipmatch:
 
 --ransac-iterations <integer (default: 100)>
     Number of RANSAC iterations.
+
+--flann-method <string (default = "kmeans")>
+    Choose the FLANN method for matching interest points. The default
+    ``kmeans`` is slower but deterministic, while ``kdtree`` is faster but
+    not deterministic (starting with FLANN 1.9.2).
+
+--non-flann
+    Use an implementation of the interest matcher that is not reliant on FLANN.
 
 -d, --debug-image
     Set to write out debug images.

@@ -330,8 +330,8 @@ namespace asp {
     vw_out() << "Found " << inlier_indices.size() << " / " << ip1.size() << " inliers.\n";
 
     sw.stop();
-    vw_out(DebugMessage,"asp") << "Elapsed time in computing rectification matrices: "
-                               << sw.elapsed_seconds() << " seconds.\n";
+    vw_out() << "Elapsed time in computing rectification matrices: "
+             << sw.elapsed_seconds() << " seconds.\n";
 
     // Extract the matrices and the cropped transformed box from the computed transform
     left_matrix  = submatrix(T, 0, 0, 3, 3);

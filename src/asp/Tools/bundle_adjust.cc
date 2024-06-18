@@ -109,6 +109,7 @@ void Options::copy_to_asp_settings() const {
   asp::stereo_settings().ip_edge_buffer_percent     = ip_edge_buffer_percent;
   asp::stereo_settings().ip_debug_images            = ip_debug_images;
   asp::stereo_settings().ip_normalize_tiles         = ip_normalize_tiles;
+  asp::stereo_settings().flann_method               = flann_method;
   asp::stereo_settings().propagate_errors           = propagate_errors;
   // The setting below is not used, but populate it for completeness
   asp::stereo_settings().horizontal_stddev          = vw::Vector2(horizontal_stddev,
@@ -2035,6 +2036,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("horizontal-stddev", po::value(&opt.horizontal_stddev)->default_value(0), 
       "If positive, propagate this stddev of horizontal ground plane camera uncertainty "
       "through triangulation for all cameras. To be used with --propagate-errors.")
+    ("flann-method",  po::value(&opt.flann_method)->default_value("kmeans"),
+       "Choose the FLANN method for matching interest points. The default 'kmeans' is "
+       "slower but deterministic, while 'kdtree' is faster but not deterministic.")
     ("save-vwip", po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
      "Save .vwip files (intermediate files for creating .match files). For parallel_bundle_adjust these will be saved in subdirectories, as they depend on the image pair. Must start with an empty output directory for this to work.")
     ("vwip-prefix",  po::value(&opt.vwip_prefix),

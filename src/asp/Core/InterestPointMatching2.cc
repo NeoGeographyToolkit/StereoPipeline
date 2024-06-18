@@ -306,8 +306,8 @@ void EpipolarLinePointMatcher::operator()(ip::InterestPointList const& ip1,
   output_indices.resize(ip1_size);
 
   // Set up FLANNTree objects of all the different types we may need.
-  math::FLANNTree<float>         kd_float;
-  math::FLANNTree<unsigned char> kd_uchar;
+  math::FLANNTree<float>         kd_float(asp::stereo_settings().flann_method);
+  math::FLANNTree<unsigned char> kd_uchar(asp::stereo_settings().flann_method);
 
   Matrix<float>         ip2_matrix_float;
   Matrix<unsigned char> ip2_matrix_uchar;
@@ -316,10 +316,10 @@ void EpipolarLinePointMatcher::operator()(ip::InterestPointList const& ip1,
   const bool use_uchar_FLANN = (ip_detect_method == DETECT_IP_METHOD_ORB);
   if (use_uchar_FLANN) {
     ip_list_to_matrix(ip2, ip2_matrix_uchar);
-    kd_uchar.load_match_data( ip2_matrix_uchar, vw::math::FLANN_DistType_Hamming );
+    kd_uchar.load_match_data(ip2_matrix_uchar, vw::math::FLANN_DistType_Hamming);
   }else {
     ip_list_to_matrix(ip2, ip2_matrix_float);
-    kd_float.load_match_data( ip2_matrix_float,  vw::math::FLANN_DistType_L2 );
+    kd_float.load_match_data(ip2_matrix_float,  vw::math::FLANN_DistType_L2);
   }
 
   vw_out(InfoMessage,"interest_point") << "FLANN-Tree created. Searching...\n";
@@ -586,13 +586,13 @@ void match_ip_no_datum(std::vector<vw::ip::InterestPoint> const& ip1_copy,
   if (detect_method != DETECT_IP_METHOD_ORB) {
     // For all L2Norm distance metrics
     vw::ip::InterestPointMatcher<vw::ip::L2NormMetric,ip::NullConstraint> 
-      matcher(uniqueness_threshold);
+      matcher(asp::stereo_settings().flann_method, uniqueness_threshold);
     matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
 	    TerminalProgressCallback("asp", "\t   Matching: "), quiet);
   } else {
     // For Hamming distance metrics
     vw::ip::InterestPointMatcher<ip::HammingMetric,ip::NullConstraint> 
-      matcher(uniqueness_threshold);
+      matcher(asp::stereo_settings().flann_method, uniqueness_threshold);
     matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
 	    TerminalProgressCallback("asp", "\t   Matching: "), quiet);
   }

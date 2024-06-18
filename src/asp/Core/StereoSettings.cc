@@ -191,6 +191,9 @@ namespace asp {
        "created with bundle_adjust or parallel_stereo.")
       ("clean-match-files-prefix",  po::value(&global.clean_match_files_prefix)->default_value(""),
        "Use as input match file the *-clean.match file from this prefix (this had the outliers filtered out).")
+      ("flann-method",  po::value(&global.flann_method)->default_value("kmeans"),
+       "Choose the FLANN method for matching interest points. The default 'kmeans' is "
+       "slower but deterministic, while 'kdtree' is faster but not deterministic.")
       ("left-image-clip", po::value(&global.left_image_clip)->default_value(""),
        "If --left-image-crop-win is used, replaced the left image cropped to that window with this clip.")
       ("right-image-clip", po::value(&global.right_image_clip)->default_value(""),

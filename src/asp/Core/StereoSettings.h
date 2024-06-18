@@ -146,6 +146,8 @@ namespace asp {
     
     int disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
 
+    std::string flann_method; // The method to use for FLANN matching 
+    
     // This option will be the default in the future and then it will go away
     bool aster_use_csm; // Use the CSM camera model with ASTER images
     bool accept_provided_mapproj_dem;

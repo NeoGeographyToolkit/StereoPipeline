@@ -143,8 +143,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     more accurate fit to other models. *Previously created models are now
     invalid*.
   * RPC undistortion is now done with a solver rather than using separate
-    undistortion coefficients. This much more accurate but slower.
-    (:numref:`pinholemodels`.)
+    undistortion coefficients. This much more accurate but slower
+    (:numref:`pinholemodels`).
   * Added an example of using RPC distortion for KH-7 cameras, for which 
     an exact model is not available (:numref:`kh7_fig`).
   * Ensure that outlier filtering with ``--min-triangulation-angle`` is done
@@ -305,6 +305,9 @@ misc:
   * Auto-guess the planet for Pinhole cameras (For Earth, Moon, Mars).   
   * Documented the program ``view_reconstruction``
     (:numref:`view_reconstruction`), with a figure.  
+  * Switched by default to a slower but deterministic method for matching
+    interest points in ``bundle_adjust`` and ``parallel_stereo``. Normally this
+    is not a bottleneck. See ``--flann-method`` in :numref:`stereodefault-pprc`.
   * Added a sanity check: If the user sets ``--t_srs`` to any tool, it 
     must not be empty.
   * Added sanity checks to ensure no mix-up of datums from different planets in
@@ -350,7 +353,7 @@ parallel_stereo (:numref:`parallel_stereo`):
     (DigitalGlobe) linescan cameras (:numref:`error_propagation`).
   * Documented the pre-processing options ``--stddev-mask-kernel``
     and ``--stddev-mask-thresh``
-    (:numref:`stereo-default-preprocessing`). Fixed a bug in writing
+    (:numref:`stereodefault-pprc`). Fixed a bug in writing
     out debug images for this option.
   * The cameras files used in mapprojection can be switched to other
     ones for the purpose of doing stereo or reusing a stereo run

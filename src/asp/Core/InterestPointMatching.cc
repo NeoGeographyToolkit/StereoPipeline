@@ -428,7 +428,7 @@ bool tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
 
 bool stddev_ip_filtering(std::vector<vw::ip::InterestPoint> const& ip1,
                          std::vector<vw::ip::InterestPoint> const& ip2,
-                         std::list<size_t>& valid_indices ) {
+                         std::list<size_t>& valid_indices) {
   const int NUM_STD_FILTER = 4;
   // 4 stddev filtering. Deletes any disparity measurement that is 4
   // stddev away from the measurements of it's local neighbors. We
@@ -449,7 +449,7 @@ bool stddev_ip_filtering(std::vector<vw::ip::InterestPoint> const& ip1,
         Vector2(ip1[index].x,ip1[index].y);
       count++;
     }
-    math::FLANNTree<float> tree1;
+    math::FLANNTree<float> tree1(asp::stereo_settings().flann_method);
     tree1.load_match_data(locations1, vw::math::FLANN_DistType_L2);
 
     std::pair<double,size_t> worse_index;
@@ -474,15 +474,15 @@ bool stddev_ip_filtering(std::vector<vw::ip::InterestPoint> const& ip1,
 
       // Make an average of the disparities around us and not our own measurement
       Vector2 sum;
-      for ( size_t j = 1; j < good_indices.size(); j++ ) {
-        sum += disparity_vector[ good_indices[j] ];
+      for (size_t j = 1; j < good_indices.size(); j++) {
+        sum += disparity_vector[good_indices[j]];
       }
-      sum = normalize( sum );
+      sum = normalize(sum);
 
       // Project all disparities along the new gradient
       Vector<double> projections( good_indices.size() );
-      for ( size_t j = 0; j < good_indices.size(); j++ ) {
-        projections[j] = dot_prod( disparity_vector[good_indices[j]], sum );
+      for (size_t j = 0; j < good_indices.size(); j++) {
+        projections[j] = dot_prod(disparity_vector[good_indices[j]], sum);
       }
       double mean   = 0;
       double stddev = 0;

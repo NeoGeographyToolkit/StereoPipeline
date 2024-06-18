@@ -80,7 +80,7 @@ struct Options: public asp::BaBaseOptions {
   vw::Vector2 elevation_limit;   // Expected range of elevation to limit results to.
   vw::BBox2 lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
   vw::Matrix<double> initial_transform;
-  std::string   fixed_cameras_indices_str;
+  std::string   fixed_cameras_indices_str, flann_method;
   std::set<int> fixed_cameras_indices;
   asp::IntrinsicOptions intrinsics_options;
   vw::Vector2i matches_per_tile_params;

@@ -22,7 +22,7 @@ various speed-vs-accuracy tradeoffs of stereo algorithms.
 Listed below are the parameters used by ``parallel_stereo``, grouped
 by processing stage.
 
-.. _stereo-default-preprocessing:
+.. _stereodefault-pprc:
 
 Preprocessing
 -------------
@@ -179,6 +179,12 @@ disparity-range-expansion-percent (*integer*) (default = 20)
     percentage before computing the stereo correlation with local
     epipolar alignment.
 
+flann-method (*string*) (default = "kmeans")
+    Choose the FLANN method for matching interest points. The default
+    ``kmeans`` is slower but deterministic, while ``kdtree`` is faster 
+    (up to 6x) but not deterministic (starting with FLANN 1.9.2).
+    Normally the default is good enough. 
+    
 Other pre-processing options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
