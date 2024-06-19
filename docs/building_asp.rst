@@ -538,35 +538,60 @@ Run in ``BinaryBuilder`` the command::
       --asp-deps-dir $HOME/miniconda3/envs/asp_deps   \
       --python-env $HOME/miniconda3/envs/python_isis8
 
-The same command can be used to package the ``asp`` conda environment created
-earlier. Then, one should use instead of ``build_asp/install`` the directory
-``$HOME/miniconda3/envs/asp``. The dependencies will still come from
-``$HOME/miniconda3/envs/asp_deps``.
-
 Building and packaging should be done separately for Linux and OSX.
+
+Test ASP
+~~~~~~~~
+
+The script ``auto_build/launch_master.sh`` in ``BinaryBuilder`` can be invoked
+to build and test ASP. This script and also ``auto_build/utils.sh`` need to be
+read carefully and some variables adjusted.
+
+The `StereoPipeline test suite
+<https://github.com/NeoGeographyToolkit/StereoPipelineTest>`_ is run. It has
+comprehensive tests for the ASP tools.
+
+This functionality creates the daily builds, which are then
+uploaded to the GitHub release page (:numref:`precompiled_binaries`). 
 
 Push the release to GitHub
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Create a release on `GitHub
 <https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_. Use the tag
-for the current release. Upload the binaries (for Linux and OSX,
-:numref:`build_binaries`) and pdf documentation (asp_book.pdf,
-:numref:`build_asp_doc`). Add to the release notes a link to the appropriate
-NEWS section of the documentation (:numref:`news`). *Only after all this save
+for the current release. Add to the release notes a link to the appropriate
+NEWS section of the documentation (:numref:`news`). *Only after this save
 the release.* 
+
+*Do not delete and recreate the release* (:numref:`zenodo`). It is fine to
+upload the binaries after a release is created, and delete and re-upload them.
+
+The GitHub tool ``gh`` can be used to push the binaries to the release. 
+Here's an example usage::
+
+  cd BinaryBuilder
+  for file in StereoPipeline-3.4.0-Linux.tar.bz2 \
+              StereoPipeline-3.4.0-OSX.tar.bz2; do
+    gh release upload 3.4.0 $file \
+      -R git@github.com:NeoGeographyToolkit/StereoPipeline.git   
+  done
+
+Alternatively, these can be uploaded manually.
+
+.. _zenodo:
 
 Zenodo link for the release
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Saving the release will trigger creating the Zenodo permanent link. That link
+Creating a release will trigger producing the Zenodo permanent link. That link
 cannot be changed, and the text it copies from the release notes cannot be
 changed either.
 
-It is very important to create the release just once for the given tag. Otherwise,
-the Zenodo link will be messed up. It is fine to later overwrite the binaries
-for this release, or even to upload them later. Just do not delete and recreate
-the release.
+It is very important to *create the release just once for the given tag*.
+Otherwise, the Zenodo permanent link will always point to the earliest attempt
+at making the release. It is fine to later overwrite the binaries for this
+release, or even to upload them later. Just do not delete and recreate the
+release page itself.
 
 Do not just rename the latest automatically uploaded daily build, as that will
 create an incorrect Zenodo link.
@@ -583,36 +608,6 @@ release.
 Push this update to GitHub. The new commit will be after the tag for the
 release, but that is not an issue. It is best to not change the tag after
 the release and Zenodo link got created.
-
-Updating the release from the command line
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The GitHub tool ``gh`` can be used to push files to a release. 
-Here's an example usage::
-
-  cd BinaryBuilder
-  for file in StereoPipeline-3.4.0-Linux.tar.bz2 \
-              StereoPipeline-3.4.0-OSX.tar.bz2   \
-              asp_book.pdf; do 
-    gh release upload 3.4.0 $file \
-      -R git@github.com:NeoGeographyToolkit/StereoPipeline.git   
-  done
-
-As before, do not delete and recreate the release, but it is fine
-to delete and re-upload the binaries and documentation.
-
-Test ASP
-~~~~~~~~
-
-The script ``auto_build/launch_master.sh`` in ``BinaryBuilder`` can be used to
-build and test ASP. This script and also ``auto_build/utils.sh`` need to be read
-carefully and some variables adjusted.
-
-The `StereoPipeline test suite <https://github.com/NeoGeographyToolkit/StereoPipelineTest>`_ has scripts that comprehensively test the ASP tools.
-
-This infrastructure is used to create the daily builds. If all tests pass, the
-builds are  uploaded to the GitHub release page
-(:numref:`precompiled_binaries`). 
 
 Announce the release
 ~~~~~~~~~~~~~~~~~~~~

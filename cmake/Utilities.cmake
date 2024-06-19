@@ -61,6 +61,7 @@ function(find_external_library name search_folder inc_subfolder libNameList requ
     endforeach()
     
     set(${INC_NAME} ${search_folder}/include/${inc_subfolder})
+    string(REGEX REPLACE "/$" "" ${INC_NAME} ${${INC_NAME}}) # rm trailing /
   else()
     # TODO: Provide effective findX.cmake files to handle these.
     find_package(${name} REQUIRED)

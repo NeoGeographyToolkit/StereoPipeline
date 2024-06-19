@@ -30,14 +30,10 @@ mission planning, and public outreach.
 Installation
 ============
 
-Precompiled binaries are available for the stable releases and the
-current development build.
-
-Precompiled binaries (Linux and macOS)
---------------------------------------
-
-Simply download the appropriate distribution for your operating
-system, extract, and run the executables in the ``bin`` subdirectory.
+Precompiled binaries (for Linux and macOS) are available for the stable releases
+and the current development build. Simply download the appropriate distribution
+for your operating system, extract, and run the executables in the ``bin``
+subdirectory.
 
 - `Stable releases, daily builds, and conda packages
   <https://stereopipeline.readthedocs.io/en/latest/installation.html>`_
