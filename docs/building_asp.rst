@@ -13,14 +13,14 @@ in :numref:`installation`.
 Building ASP without conda
 --------------------------
 
-Note that latest ASP cannot be compiled with the dependencies listed below,
-since it started to depend on versions of some packages not available in conda
-for the time being. ASP 3.3.0 can still be compiled though, as described below.
+The dependencies for the *latest development version* of ASP are a available as
+a `binary tarball <https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/>`_.
 
-This entails downloading all the ASP dependencies with conda first as
-pre-compiled binaries, then pulling the VisionWorkbench and Stereo
-Pipeline source code from GitHub, and building locally. This is
-suggested only for the very adventurous user.
+Building the *prior ASP 3.3.0 release* (:numref:`conda_intro`) without conda
+entails downloading all the ASP dependencies with conda first as pre-compiled
+binaries, then pulling the VisionWorkbench and Stereo Pipeline source code from
+GitHub, and building locally. This is suggested only for the very adventurous
+user.
 
 The environments having the ASP dependencies are in the ``conda``
 directory of the Stereo Pipeline repository, as above. After
@@ -127,6 +127,9 @@ Build VisionWorkbench and Stereo Pipeline::
 
 Building ASP and its dependencies with conda
 --------------------------------------------
+
+*This section applies only to the prior ASP 3.3.0 release*
+(:numref:`conda_intro`).
 
 This page is meant for advanced users of ASP and maintainers who would
 like to use conda to rebuild ASP and all its dependencies. It is
@@ -317,7 +320,7 @@ After a package is uploaded, it can be installed in the existing
     conda install -c nasa-ames-stereo-pipeline \
       -c usgs-astrogeology                     \
       -c conda-forge                           \
-      libelas=asp3.4.0_alpha
+      libelas=asp3.3.0
 
 It is strongly suggested to try using ``mamba install`` instead of 
 ``conda install``, as it is much faster.
@@ -378,24 +381,19 @@ used here.
 In order to build the PDF (but not the HTML) document, a full
 LaTeX distribution is also necessary, such as TeX Live. 
 
-The ``docs`` directory contains the root of the documentation. Running
-``make html`` and ``make latexpdf`` there will create the HTML and PDF
-versions of the documentation in the _build subdirectory. In
-particular, the PDF document will be at::
+The ``docs`` directory contains the root of the documentation. Running ``make
+html`` will create the HTML version of the documentation in the _build
+subdirectory.
 
-  ./_build/latex/asp_book.pdf
-
-If the documentation builds well locally but fails to update 
-on the web, see the `build status page <https://readthedocs.org/projects/stereopipeline/builds/>`_.
+If the documentation builds well locally but fails to update on the web, see the
+`build status page <https://readthedocs.org/projects/stereopipeline/builds/>`_.
 
 .. _asp_release_guide:
 
-Releasing a new version of ASP using conda
-------------------------------------------
+Releasing a new version of ASP
+------------------------------
 
-This and subsequent sections are mostly reading for ASP developers.
-This content is included with the user documentation as this way it is
-easier to refer to relevant sections in the user guide.
+This is reading for ASP maintainers.
 
 Update the version number
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -422,40 +420,33 @@ should be incrementally updated as changes are made during development.
 Commit and tag
 ~~~~~~~~~~~~~~
 
-Commit all changes. Tag the release in the VisionWorkbench and ASP repos. Example:: 
+Commit all changes. Tag the release in the VisionWorkbench and ASP repos.
+Example:: 
 
-  git tag 3.3.0
-  git push origin 3.3.0 # commit to your branch
-  git push god    3.3.0 # commit to main branch
+  git tag 3.4.0
+  git push origin 3.4.0 # commit to your branch
+  git push god    3.4.0 # commit to main branch
 
-(Here it is assumed that 'origin' points to your own fork and 'god'
+(Here it is assumed that ``origin`` points to your own fork and ``god``
 points to the parent repository.)
 
 If more commits were made and it is desired to apply this tag to a
 different commit, first remove the exiting tag with::
 
-  git tag -d 3.3.0
-  git push origin :refs/tags/3.3.0
-  git push god    :refs/tags/3.3.0
+  git tag -d 3.4.0
+  git push origin :refs/tags/3.4.0
+  git push god    :refs/tags/3.4.0
 
 Build ASP with conda
 ~~~~~~~~~~~~~~~~~~~~
 
 See :numref:`conda_build`. 
-
-Test ASP
-~~~~~~~~
-
-Fetch the ``stereo-pipeline`` conda package, per :numref:`conda_intro`. Save it,
-for example, in a conda environment named ``asp``.
-
-Use the `ASP test framework
-<https://github.com/NeoGeographyToolkit/StereoPipelineTest#readme>`_ to test it.
-Set the correct paths in the configuration file used for testing, as described
-there.
     
 Save a record of the conda packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*This section applies only to the prior ASP 3.3.0 release*
+(:numref:`conda_intro`).
 
 It is suggested to save a complete record of all packages that went into this conda
 release, as sometimes conda may have issues solving for the dependencies or it may 
@@ -484,20 +475,14 @@ dependencies in :numref:`build_from_source`.
 .. _build_binaries:
 
 Building self-contained binaries
---------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In addition to creating a conda package, it is also convenient and ship an
-archive having all ASP tools and needed libraries (this includes the ISIS
+In addition to creating a conda package, it is also convenient and ship a
+zipped package having all ASP tools and needed libraries (this includes the ISIS
 libraries but not the ISIS tools). 
 
 Such a build is created for each release and also daily. These are posted on the
 GitHub release page (:numref:`precompiled_binaries`). 
-
-This work is a continuation of the process described in
-:numref:`asp_release_guide`.
-
-Use BinaryBuilder
-~~~~~~~~~~~~~~~~~
 
 ASP uses a custom build system. It can be downloaded with ``git`` from:
 
@@ -543,12 +528,6 @@ Prepare the documentation
 
 Follow the instructions in :numref:`build_asp_doc`. 
 
-Copy ``asp_book.pdf`` to the ``BinaryBuilder/dist-add/`` directory. Then it will
-be added to the packaged build. 
-
-If this operation is not done, likely ``dist-add/`` has the previous release
-documentation, which will be shipped instead. So this step must not be missed.
-
 Package the build
 ~~~~~~~~~~~~~~~~~
 
@@ -566,8 +545,8 @@ earlier. Then, one should use instead of ``build_asp/install`` the directory
 
 Building and packaging should be done separately for Linux and OSX.
 
-Creating a GitHub release
--------------------------
+Push the release to GitHub
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Create a release on `GitHub
 <https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_. Use the tag
@@ -612,15 +591,28 @@ The GitHub tool ``gh`` can be used to push files to a release.
 Here's an example usage::
 
   cd BinaryBuilder
-  for file in StereoPipeline-3.3.0-Linux.tar.bz2 \
-              StereoPipeline-3.3.0-OSX.tar.bz2   \
+  for file in StereoPipeline-3.4.0-Linux.tar.bz2 \
+              StereoPipeline-3.4.0-OSX.tar.bz2   \
               asp_book.pdf; do 
-    gh release upload 3.3.0 $file \
+    gh release upload 3.4.0 $file \
       -R git@github.com:NeoGeographyToolkit/StereoPipeline.git   
   done
 
 As before, do not delete and recreate the release, but it is fine
 to delete and re-upload the binaries and documentation.
+
+Test ASP
+~~~~~~~~
+
+The script ``auto_build/launch_master.sh`` in ``BinaryBuilder`` can be used to
+build and test ASP. This script and also ``auto_build/utils.sh`` need to be read
+carefully and some variables adjusted.
+
+The `StereoPipeline test suite <https://github.com/NeoGeographyToolkit/StereoPipelineTest>`_ has scripts that comprehensively test the ASP tools.
+
+This infrastructure is used to create the daily builds. If all tests pass, the
+builds are  uploaded to the GitHub release page
+(:numref:`precompiled_binaries`). 
 
 Announce the release
 ~~~~~~~~~~~~~~~~~~~~
@@ -636,23 +628,6 @@ Post-release work
 Update the version number in ``src/CMakeLists.txt`` in boh the VisionWorkbench
 and ASP repositories.  
 
-If version 3.3.0 just got released, we expect that the next feature
-release will be 3.4.0, if a major release, or 3.3.1 if a minor
-release. So, the version tag should be updated to 3.3.1-alpha in
+If version 3.4.0 just got released, we expect that the next feature release will
+likely be be 3.5.0. The version tag should be updated to 3.5.0-alpha in
 anticipation (see https://semver.org for guidance).
-
-Ensure the nightly build and regression (:numref:`nightly`) scripts are modified
-to use the latest dependencies.
-
-.. _nightly:
-
-Nightly regression
-------------------
-
-The script ``auto_build/launch_master.sh`` in ``BinaryBuilder`` is used to
-build and test ASP nightly. If these succeed, the produced daily build is 
-automatically uploaded to the GitHub release page. The Linux build runs
-locally while the OSX build runs on GitHub via Actions.
-
-This script and also ``auto_build/utils.sh`` need to be read carefully and some
-variables adjusted.

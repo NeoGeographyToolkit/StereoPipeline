@@ -1,5 +1,8 @@
-Changes since the last release
-------------------------------
+RELEASE 3.4.0, June 19, 2024
+----------------------------
+
+*This release is is available only as binaries, and not as a conda package*
+(:numref:`conda_intro`).
 
 New tools:
   * Added ``orbit_plot.py`` (:numref:`orbit_plot`), a tool for plotting
@@ -193,6 +196,7 @@ gdal
    * Upgraded to GDAL 3.8.0 and PROJ 9.3.0.
    
 csm (:numref:`csm`):
+   * Upgraded to USGSCSM 2.0.1.
    * Fixed several problems in generation of CSM cameras for MSL Curiosity Nav
      and Mast images. Much large-scale testing was performed. Updated the
      example showing how to create stereo from either Nav or Mast stereo pairs
@@ -236,6 +240,8 @@ sfs (:numref:`sfs`):
   * Added the option ``--albedo-robust-threshold``.
 
 isis (:numref:`moc_tutorial`):
+  * The ISIS libraries are compiled from source, and reflect the code after
+    the ISIS 3.3.0 release (:numref:`conda_intro`). 
   * Made the operation of projecting into an ISIS linescan camera 2.2-2.6 times
     faster by using the secant method to find the best sensor line.
   * Expanded the ``jigsaw`` documentation (:numref:`jigsaw`). This is the 
@@ -275,7 +281,6 @@ dem_mosaic (:numref:`dem_mosaic`):
   * Bugfix for option ``--use-centerline-weights``. 
     
 misc:
-  * Upgraded to ISIS 8.0.3, Boost 1.82.0.
   * Made all tools that spawn processes in parallel use the option
     ``--parallel-options``, with default ``--sshdelay 0.2``, to avoid
     failure on certain architectures.
@@ -314,6 +319,7 @@ misc:
   * Added sanity checks to ensure no mix-up of datums from different planets in
     different inputs for the stereo tools, ``bundle_adjust``, ``jitter_solve``,
     ``mapproject``, ``cam_test``, and ``cam_gen``.
+  * Upgraded to Boost 1.82.0.
   
 RELEASE 3.3.0, August 16, 2023
 ------------------------------

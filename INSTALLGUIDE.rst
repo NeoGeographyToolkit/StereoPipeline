@@ -2,7 +2,7 @@ Installation
 ============
 
 Precompiled binaries are available for the stable releases and the
-current development build.  Stereo Pipeline can also be compiled from
+current development build. Stereo Pipeline can also be compiled from
 source, but this is not recommended (:numref:`building_asp`).
 
 .. _precompiled_binaries:
@@ -25,13 +25,13 @@ from:
 No installation steps or administrative rights are necessary.  Extract
 the archive, and run the executables in the ``bin`` subdirectory as::
 
-    tar xvf StereoPipeline-3.3.0-2023-08-16-x86_64-Linux.tar.bz2
-    ./StereoPipeline-3.3.0-2023-08-16-x86_64-Linux/bin/stereo --help
+    tar xvf StereoPipeline-3.4.0-2024-06-19-x86_64-Linux.tar.bz2
+    ./StereoPipeline-3.4.0-2024-06-19-x86_64-Linux/bin/stereo --help
 
 The result of the last command should be a help message.
 
 To permanently add the ASP executable subdirectory to your PATH,
-add the following line to the shell configuration (e.g.,
+add the following line to your shell configuration (e.g.,
 ``~/.bashrc``), replacing ``/path/to/StereoPipeline/bin`` with the
 location on your filesystem::
 
@@ -52,8 +52,8 @@ the same as for Linux.
 Conda and docker
 ----------------
 
-The stable releases are also available via conda
-(:numref:`conda_intro`).
+The latest ASP release (3.4.0) is available only as binaries. The 3.3.0 release
+can be installed via conda (:numref:`conda_intro`).
 
 ASP can be installed with Docker (`instructions
 <https://github.com/uw-cryo/asp-binder>`_).
@@ -177,15 +177,24 @@ the processing time should go down. Both ``gdalinfo`` and
 Fetching pre-compiled ASP with conda
 ------------------------------------
 
-ASP's official releases can be downloaded with ``conda``, for Linux and OSX with
-the Intel processor. 
+*The latest ASP release (3.4.0, June 19, 2024) is available only as binaries*
+(:numref:`precompiled_binaries`).
+
+The reason is that the latest ISIS conda release (8.0.3) has dependencies that
+are incompatible with what ASP expects. This will be rectified in the next ASP
+and ISIS releases.
+
+See :numref:`news` for what changed between releases.
+
+The latest ISIS can be installed via conda in a separate location
+(:numref:`planetary_images`). ASP's internal libraries are based on the
+ISIS source code (circa June 15, 2024), after the ISIS 8.0.3 release.
+
+The ASP 3.3.0 release (August 16, 2023) can be installed via conda, together 
+with ISIS 8.0.0.
 
 ASP conda packages do not exist for ARM64 Mac (M1/M2). See
-:numref:`precompiled_binaries` for how other platforms may be handled.
-
-The latest conda release is version 3.3.0, published on August 16, 2023. See
-:numref:`news` for what changed since then.  The newer functionality
-is available only with the daily build (:numref:`precompiled_binaries`).
+:numref:`precompiled_binaries` for how this and platforms may be handled.
 
 To install ``conda``, see:
 
@@ -254,32 +263,6 @@ in the path, and will also initialize the ``PROJ_DATA`` environment variable
 that is needed for the PROJ library. Or, set the PATH variable as in
 :numref:`precompiled_binaries`.
   
-Fixes for potential OSX issues
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The ASP 3.3.0 conda package for OSX had a couple of issues with external
-packages. These were later fixed and the conda packages for this release have
-been updated. For the record, these issues and workarounds for them
-are described below, even though they are no longer applicable. 
-
-On OSX, if an error about ``embree`` not finding ``tbb`` is encountered (these
-are third-party libraries), run::
-
-    conda activate asp
-    conda install -c usgs-astrogeology -c conda-forge \
-      embree -y --force-reinstall
-
-If the ``ipfind`` (or ``pc_align`` with the option
-``--initial-transform-from-hillshading``, which uses ``ipfind``) fails, try to
-run this tool along the lines of::
-
-    DYLD_LIBRARY_PATH=$HOME/miniconda3/envs/asp/lib ipfind \
-      <other options>
-
-These issues seem to be caused by how conda handles third-party libraries. This
-is not a problem with the binary release (:numref:`precompiled_binaries`) or 
-with conda on Linux.
-
 Post-installation
 ~~~~~~~~~~~~~~~~~
 
@@ -306,6 +289,8 @@ For more information see the `ISIS installation instructions
 
 Using a precise list of packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*This section applies to the prior ASP 3.3.0 release* (:numref:`conda_intro`). 
 
 Some variability may exist in the precise dependencies fetched by
 conda. For the record, the full environment for this release can be

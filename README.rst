@@ -39,10 +39,9 @@ Precompiled binaries (Linux and macOS)
 Simply download the appropriate distribution for your operating
 system, extract, and run the executables in the ``bin`` subdirectory.
 
-- `Stable releases and daily builds
-  <https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_
-  (`pdf documentation <https://github.com/NeoGeographyToolkit/StereoPipeline/releases/latest/download/asp_book.pdf>`_)
-
+- `Stable releases, daily builds, and conda packages
+  <https://stereopipeline.readthedocs.io/en/latest/installation.html>`_
+  
 See the `NEWS
 <https://stereopipeline.readthedocs.io/en/latest/news.html>`_
 for the most recent additions.
@@ -52,19 +51,12 @@ you can add the following line to your shell configuration (e.g.,
 ``~/.bashrc``), replacing ``/path/to/StereoPipeline/bin`` with the location
 on your filesystem: ``export PATH=${PATH}:/path/to/StereoPipeline/bin``
 
-*ISIS Users*: Please install USGS ISIS version 8.0.0 or later if you
-would like to process NASA non-terrestrial images. Users wishing to
-process Earth images, such as Digital Globe, satellites with RPC
-cameras, or various frame/pinhole cameras do not need to download
-anything else. If ASP is installed with conda, it will install ISIS in
-the same environment as well, though it may not be the latest version.
-
-Fetching ASP with conda or compiling from source
-------------------------------------------------
-
-See the `install guide
-<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/INSTALLGUIDE.rst>`_
-for details.
+*ISIS users*: Please install the latest `USGS ISIS
+<https://github.com/DOI-USGS/ISIS3>`_ if you would like to process NASA
+non-terrestrial images. Users wishing to process Earth images, such as Digital
+Globe, satellites with RPC cameras, or various frame/pinhole cameras do not need
+to download anything else. If ASP is installed with conda, it will install ISIS
+in the same environment as well, though it may not be the latest version.
 
 Documentation
 =============
@@ -75,8 +67,8 @@ The documentation includes a gentle introduction to using the Stereo Pipeline,
 an entry for each tool, and example processing workflows for many supported
 sensors.
 
-The ReStructured Text source files for the documentation are distributed in the
-`docs/` subdirectory.
+The ReStructured Text source files for the documentation are in the `docs`
+subdirectory of the ASP distribution.
 
 Support and user community
 ==========================
@@ -103,9 +95,8 @@ Adaptive Control and Evolvable Systems (ACES) group, and draws on
 their experience developing computer vision techniques for autonomous
 vehicle control systems.
 
-See the `AUTHORS
-<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/AUTHORS.rst>`_
-file for a complete list of developers.
+See the `list of contributors
+<https://stereopipeline.readthedocs.io/en/latest/acknowledgements.html>`_.
 
 Citation
 --------
