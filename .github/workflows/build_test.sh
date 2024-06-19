@@ -9,8 +9,8 @@ wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${ta
 # the script save_mac_deps.sh. See that script for how to do the preparations. 
 # Here is how the script is called::
 # tag=mac_conda_env7 # must match the tag above, and also in build_isis.sh
-# workflow="build_isis.yml" # automatic workflow
-# #workflow="ssh.yml" # manual workflow
+# workflow="ssh.yml" # manual workflow
+# #workflow="build_isis.yml" # automatic workflow
 # $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
 
 # For linux, the dependencies from the local machine can be saved as follows.

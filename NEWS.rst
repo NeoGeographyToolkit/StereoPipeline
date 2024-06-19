@@ -308,6 +308,7 @@ misc:
   * Switched by default to a slower but deterministic method for matching
     interest points in ``bundle_adjust`` and ``parallel_stereo``. Normally this
     is not a bottleneck. See ``--flann-method`` in :numref:`stereodefault-pprc`.
+  * Made RANSAC multi-threaded. This speeds up interest point matching.
   * Added a sanity check: If the user sets ``--t_srs`` to any tool, it 
     must not be empty.
   * Added sanity checks to ensure no mix-up of datums from different planets in

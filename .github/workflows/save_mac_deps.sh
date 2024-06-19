@@ -1,12 +1,16 @@
 #!/bin/bash
 
 # To update the Mac dependencies, or create new ones, run the ssh.yml action
-# (for interactive use) or build_isis.yml (batch).
+# (for interactive use) or build_isis.yml (batch). The dependencies can be
+# built, fetched with conda, etc. They should be installed in 
+# /Users/runner/miniconda3/envs. 
+# See https://stereopipeline.readthedocs.io/en/latest/building_asp.html
+# for more details.
 
-# In manual mode, before exiting, save the dependencies as follows:
-# mkdir -p ~/work/StereoPipeline/packages
-# /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
-#   /Users/runner/miniconda3/envs
+# In manual mode, when done, and before exiting, save the dependencies as follows:
+#   mkdir -p ~/work/StereoPipeline/packages
+#   /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
+#     /Users/runner/miniconda3/envs
 
 # Then, from a local machine, run this script. See build_test.sh for
 # context and an example. 
@@ -58,6 +62,8 @@ if [ ! -f "$binaries" ]; then
 fi 
 
 # Add the tarball of dependencies as a release
+# Can use a new tag here, or overwrite the existing tarball
+# If making a new one, must make sure to update the tag in build_test.sh and build_isis.sh
 repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
 # Wipe old version
 $gh release -R $repo delete $tag 

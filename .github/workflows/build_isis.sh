@@ -300,11 +300,12 @@ BIN_DIR=${PREFIX}/plugins/stereo/elas/bin
 mkdir -p ${BIN_DIR}
 /bin/cp -fv elas ${BIN_DIR}/elas
 
-# multiview
+# Multiview
 cd
 conda activate asp_deps
 export PREFIX=/Users/runner/miniconda3/envs/asp_deps
-conda install -c conda-forge rocksdb=8.5.3 rapidjson=1.1.0 \
+conda install -c conda-forge                      \
+  rocksdb=8.5.3 rapidjson=1.1.0                   \
   ilmbase=2.5.5 openexr=2.5.5 -y
 git clone https://github.com/NeoGeographyToolkit/MultiView.git --recursive
 cd MultiView
@@ -317,15 +318,56 @@ mkdir -p build && cd build
 # if [[ $target_platform =~ osx.* ]]; then
 # 	opt="-DTBB_LIBRARY=${PREFIX}/lib/libtbb.12.dylib -DTBB_MALLOC_LIBRARY=${PREFIX}/lib/libtbbmalloc.2.dylib"
 # fi
-cmake ..                                    \
-    -DCMAKE_BUILD_TYPE=Release              \
-    -DMULTIVIEW_DEPS_DIR=${PREFIX}          \
-    -DCMAKE_VERBOSE_MAKEFILE=ON             \
-    -DCMAKE_CXX_FLAGS='-O3 -std=c++11'      \
-    -DCMAKE_C_FLAGS='-O3'                   \
+$PREFIX/bin/cmake ..                              \
+    -DCMAKE_BUILD_TYPE=Release                    \
+    -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp     \
+    -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp  \
+    -DMULTIVIEW_DEPS_DIR=${PREFIX}                \
+    -DCMAKE_VERBOSE_MAKEFILE=ON                   \
+    -DCMAKE_CXX_FLAGS='-O3 -std=c++11 -Wno-error' \
+    -DCMAKE_C_FLAGS='-O3 -Wno-error'              \
     -DCMAKE_INSTALL_PREFIX=${PREFIX}
 make -j4
 make install
+
+# Build OpenImageIO. This is for debugging. Normally
+# it would be built as part of MultiView.
+cd
+git clone https://github.com/NeoGeographyToolkit/oiio.git
+cd oiio
+mkdir build && cd build
+#export PREFIX=$HOME/miniconda3/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+$PREFIX/bin/cmake ..                              \
+    -DCMAKE_BUILD_TYPE=Release                    \
+    -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp     \
+    -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp  \
+    -DMULTIVIEW_DEPS_DIR=${PREFIX}                \
+    -DCMAKE_VERBOSE_MAKEFILE=ON                   \
+    -DCMAKE_CXX_FLAGS='-O3 -std=c++11 -Wno-error' \
+    -DCMAKE_C_FLAGS='-O3'                         \
+    -DCMAKE_INSTALL_PREFIX=${PREFIX}              \
+    -DBUILD_SHARED_LIBS=ON                        \
+    -DUSE_PYTHON=OFF                              \
+    -DUSE_OPENCV=OFF                              \
+    -DUSE_QT=OFF                                  \
+    -DUSE_DICOM=OFF                               \
+    -DUSE_NUKE=OFF                                \
+    -DUSE_LIBRAW=OFF                              \
+    -DOIIO_BUILD_TESTS=OFF                        \
+    -DOIIO_BUILD_TOOLS=OFF                        \
+    -DUSE_OPENGL=OFF                              \
+    -DBUILD_DOCS=OFF                              \
+    -DINSTALL_DOCS=OFF                            \
+    -DINSTALL_FONTS=OFF                           \
+    -DOIIO_THREAD_ALLOW_DCLP=OFF                  \
+    -DEMBEDPLUGINS=OFF                            \
+    -DPROJECT_IS_TOP_LEVEL=OFF                    \
+    -DUSE_TBB=OFF                                 \
+    -DUSE_FIELD3D=OFF                             \
+    -DUSE_OPENVDB=OFF                             \
+    -DUSE_QT=OFF                                  \
+    -DUSE_OCIO=OFF
 
 # Make the python env
 echo Creating a new python_isis8 env

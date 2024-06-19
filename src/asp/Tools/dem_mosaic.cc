@@ -71,7 +71,7 @@ double g_tol = 1e-6;
 // - hCenterLine contains the center column at each row/col
 // - hMaxDistArray contains the width of the column at each row/col
 // TODO(oalexan1): Move this to VW, and see about overwriting 
-// the other weight functions.
+// the other weight functions. The other one uses normalization, which is bad.
 double compute_plateaued_weights(Vector2 const& pix, bool horizontal,
                                  std::vector<double> const& centers,
                                  std::vector<double> const& widths,
@@ -744,7 +744,7 @@ public:
 			     TerminalProgressCallback("asp", ""));
 #endif
 
-      // TODO: Function call!
+      // TODO(oalexan1): This must be a function
       // Set the weights in the alpha channel
       for (int col = 0; col < dem.cols(); col++){
         for (int row = 0; row < dem.rows(); row++){
@@ -757,7 +757,7 @@ public:
         = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
 
       // Loop through each output pixel
-      // TODO(oalexan1): This must be a function
+      // TODO(oalexan1): This must be a function 
       for (int c = 0; c < bbox.width(); c++) {
         for (int r = 0; r < bbox.height(); r++) {
 
@@ -883,7 +883,7 @@ public:
             if (m_opt.save_dem_weight == dem_iter)
               saved_weight(c, r) = 1;
 
-          }else if (m_opt.count){ // Count --> Increment the value
+          }else if (m_opt.count){ // Increment the count
             tile(c, r)++;
             weights(c, r) += wt;
           }else if (m_opt.stddev){ // Standard Deviation --> Keep running calculation
@@ -943,7 +943,7 @@ public:
       for (int c = 0; c < bbox.width(); c++){ // Iterate over all pixels!
         for (int r = 0; r < bbox.height(); r++){
 
-          if (weights(c, r) > 1.0){
+          if (weights(c, r) > 1.0) {
             tile(c, r) = sqrt(tile(c, r) / (weights(c, r) - 1.0));
           } else { // Invalid pixel!
             tile(c, r) = m_opt.out_nodata_value;
@@ -987,10 +987,10 @@ public:
           for (size_t m = 0; m < vals_all.size(); m++) {
             double dist = fabs(vals_all[m] - tile(c, r));
             if (dist < min_dist) {
-	      // Here we save the index not in the current array which
-	      // is m, but in the full list of DEMs, some of which are
-	      // likely skipped in this tile as they don't intersect
-	      // it.
+              // Here we save the index not in the current array which
+              // is m, but in the full list of DEMs, some of which are
+              // likely skipped in this tile as they don't intersect
+              // it.
               index_map(c, r) = clip2dem_index[m];
               min_dist = dist;
             }
