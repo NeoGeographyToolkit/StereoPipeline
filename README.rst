@@ -5,12 +5,12 @@ Ames Stereo Pipeline (ASP)
 .. image:: https://zenodo.org/badge/DOI/latest.svg
    :target: https://zenodo.org/badge/latestdoi/714891
 
-.. image:: https://zenodo.org/badge/DOI/Version%203.3.0.svg
-   :target: https://zenodo.org/record/8270270
+.. image:: https://zenodo.org/badge/DOI/Version%203.4.0.svg
+   :target: https://zenodo.org/records/12176190
 
 .. image:: https://readthedocs.org/projects/stereopipeline/badge/?version=latest
    :target: https://stereopipeline.readthedocs.io/en/latest/?badge=latest
-   :alt: Documentation Status
+   :alt: Documentation status
 
 The NASA Ames Stereo Pipeline (ASP) is a suite of free and open source
 automated geodesy and stereogrammetry tools designed for processing

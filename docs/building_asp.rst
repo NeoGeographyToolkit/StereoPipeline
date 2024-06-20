@@ -583,9 +583,9 @@ Alternatively, these can be uploaded manually.
 Zenodo link for the release
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Creating a release will trigger producing the Zenodo permanent link. That link
-cannot be changed, and the text it copies from the release notes cannot be
-changed either.
+Creating a release will trigger producing the Zenodo permanent link (after a few
+minutes). That link cannot be changed, and the text it copies from the release
+notes cannot be changed either.
 
 It is very important to *create the release just once for the given tag*.
 Otherwise, the Zenodo permanent link will always point to the earliest attempt
@@ -596,11 +596,14 @@ release page itself.
 Do not just rename the latest automatically uploaded daily build, as that will
 create an incorrect Zenodo link.
 
-Wait a few minutes for Zenodo to mint the link for this release, then visit the
-Zenodo page at https://zenodo.org/badge/latestdoi/714891 (which will always
-point to the 'latest' DOI) and find there this release's URL. Put it at the
-top of README.rst, in the appropriate ``target`` field. Increment the version in
-the ``image`` field right above that. 
+Wait for Zenodo to mint the link for this release, then visit the Zenodo page at
+https://zenodo.org/badge/latestdoi/714891 (which will always point to the
+'latest' DOI) and find there this release's URL. Put it at the top of
+`README.rst
+<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/README.rst>`_,
+in the appropriate ``target`` field. 
+
+*Increment the version in the image field right above that.*
 
 Add this link also to the NEWS.rst page, under the section name for the current
 release.

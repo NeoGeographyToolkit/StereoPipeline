@@ -4,6 +4,9 @@ RELEASE 3.4.0, June 19, 2024
 *This release is is available only as binaries, and not as a conda package*
 (:numref:`conda_intro`).
 
+DOI: `10.5281/zenodo.12176190 <https://zenodo.org/records/12176190>`_
+Stable release doc: https://stereopipeline.readthedocs.io/en/stable/index.html
+
 New tools:
   * Added ``orbit_plot.py`` (:numref:`orbit_plot`), a tool for plotting
     camera orientations along an orbit (contributed by Shashank Bhushan).

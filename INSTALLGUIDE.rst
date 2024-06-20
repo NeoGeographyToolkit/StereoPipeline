@@ -37,7 +37,6 @@ location on your filesystem::
 
     export PATH=${PATH}:/path/to/StereoPipeline/bin
 
-
 The latest additions are documented in :numref:`news`.
 
 Windows
@@ -177,8 +176,8 @@ the processing time should go down. Both ``gdalinfo`` and
 Fetching pre-compiled ASP with conda
 ------------------------------------
 
-*The latest ASP release (3.4.0, June 19, 2024) is available only as binaries*
-(:numref:`precompiled_binaries`).
+*The latest ASP release (3.4.0, June 19, 2024) is available only as binaries*.
+See :numref:`precompiled_binaries` for how to fetch them.
 
 The reason is that the latest ISIS conda release (8.0.3) has dependencies that
 are incompatible with what ASP expects. This will be rectified in the next ASP
