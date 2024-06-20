@@ -5,6 +5,7 @@ RELEASE 3.4.0, June 19, 2024
 (:numref:`conda_intro`).
 
 DOI: `10.5281/zenodo.12176190 <https://zenodo.org/records/12176190>`_
+
 Stable release doc: https://stereopipeline.readthedocs.io/en/stable/index.html
 
 New tools:
@@ -328,6 +329,7 @@ RELEASE 3.3.0, August 16, 2023
 ------------------------------
 
 DOI: `10.5281/zenodo.8270270 <https://zenodo.org/record/8270270>`_
+
 Stable release doc: https://stereopipeline.readthedocs.io/en/stable/index.html
 
 New tools:
