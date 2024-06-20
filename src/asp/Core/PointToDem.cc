@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <asp/Core/DemUtils.h>
+#include <asp/Core/PointToDem.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/PointCloudProcessing.h>
 #include <asp/Core/PdalUtils.h>
@@ -94,7 +94,7 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
     }
   }
 
-  if (opt.do_ortho){
+  if (opt.do_ortho) {
     if (num <= 1)
       vw_throw(ArgumentErr() << "Missing input texture files.\n");
     if (num%2 != 0)

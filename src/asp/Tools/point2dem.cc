@@ -18,7 +18,7 @@
 // \file point2dem.cc
 //
 
-#include <asp/Core/DemUtils.h>
+#include <asp/Core/PointToDem.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/OrthoRasterizer.h>
 #include <asp/Core/Macros.h>

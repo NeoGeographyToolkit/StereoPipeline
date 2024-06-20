@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file DemUtils.h
+/// \file PointToDem.h
 /// Utility functions for point2dem
 
 #ifndef __ASP_CORE_DEM_UTILS_H__

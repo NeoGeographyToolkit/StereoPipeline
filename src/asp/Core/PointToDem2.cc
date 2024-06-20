@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <asp/Core/DemUtils.h>
+#include <asp/Core/PointToDem.h>
 #include <asp/Core/PointUtils.h>
 
 #include <vw/Image/AntiAliasing.h>
@@ -25,7 +25,7 @@
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
 
-// Moved here some logic from DemUtils.cc to speed up compilation.
+// Moved here some logic from PointToDem.cc to speed up compilation.
 
 using namespace vw;
 
