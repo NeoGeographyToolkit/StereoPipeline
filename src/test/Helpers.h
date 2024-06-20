@@ -26,15 +26,23 @@
 #include <vw/Image/PixelTypeInfo.h>
 #include <vw/Image/PixelMath.h>
 
+// Turn off warnings about things we can't control
+#define BOOST_ALLOW_DEPRECATED_HEADERS
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS  
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#include <boost/function.hpp>
+#include <boost/range/iterator_range_core.hpp>
+#pragma GCC diagnostic pop
+
 #include <gtest/gtest_ASP.h>
+
 #include <cmath>
 #include <complex>
 #include <string>
 #include <queue>
 #include <cstdlib>
-
-#include <boost/function.hpp>
-#include <boost/range/iterator_range_core.hpp>
 
 #if defined(VW_ENABLE_EXCEPTIONS) && (VW_ENABLE_EXCEPTIONS==1)
 #define HAS_EXCEPTIONS(x) x

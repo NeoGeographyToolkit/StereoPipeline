@@ -27,6 +27,8 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
 
+namespace fs = boost::filesystem;
+
 namespace asp {
   
 void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
@@ -34,7 +36,7 @@ void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
                 vw::ImageViewRef<float> weight,
                 std::string const& cloud_file) {
       
-  std::string ext = boost::filesystem::extension(cloud_file);
+  std::string ext = fs::path(cloud_file).extension().string();
   boost::algorithm::to_lower(ext);
   if (ext != ".pcd" && ext != ".ply") 
     vw::vw_throw(vw::ArgumentErr() << "The input point cloud extension must be .pcd or .ply.");
