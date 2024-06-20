@@ -191,7 +191,8 @@ point2dem (:numref:`point2dem`):
   * Do not assume the datum is WGS84 by default, as this can result in
     incorrect DEMs. The datum, projection, or semi-axes must be set    
     (or read from the input PC/LAS file).
-gdal
+    
+gdal (:numref:`gdal_tools`):
    * Full support for WKT and GeoJSON for the projection string (option
      ``--t_srs``) in ``point2dem``, ``point2las``, ``mapproject``,
      ``dem_mosaic``, ``cam2rpc``. Can still use PROJ.4 strings. 
@@ -245,7 +246,7 @@ sfs (:numref:`sfs`):
 
 isis (:numref:`moc_tutorial`):
   * The ISIS libraries are compiled from source, and reflect the code after
-    the ISIS 3.3.0 release (:numref:`conda_intro`). 
+    the ISIS 8.0.3 release (:numref:`conda_intro`). 
   * Made the operation of projecting into an ISIS linescan camera 2.2-2.6 times
     faster by using the secant method to find the best sensor line.
   * Expanded the ``jigsaw`` documentation (:numref:`jigsaw`). This is the 

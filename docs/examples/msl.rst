@@ -401,6 +401,11 @@ The intersection error for each DEM (:numref:`point2dem`) can help evaluate the
 accuracy of the intrinsics. The ``geodiff`` program (:numref:`geodiff`), can be
 used to assess the vertical agreement between DEMs.
 
+For cases when the ASP-produced DEMs have remaining strong differences with the
+prior DEM, use the ``dem2gcp`` program (:numref:`dem2gcp`) to create GCPs to help
+correct this. One GCP file can be produced for each stereo pair, and then all
+can be passed to ``bundle_adjust``.
+
 .. figure:: ../images/viper_ground_truth_stereo_dem.png
    :name: viper_ground_truth_stereo_dem
    :alt:  VIPER ground truth stereo DEM
