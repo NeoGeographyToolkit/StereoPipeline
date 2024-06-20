@@ -588,7 +588,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     // invoking needlessly refreshPixmap() again, which is expensive.
     if (m_firstPaintEvent) {
       update();
-    }else {
+    } else {
       refreshPixmap();
     }
   }
@@ -621,7 +621,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     return MainWidget::image2world(image_box, m_beg_image_id);
   }
   
-  void MainWidget::viewThreshImages(bool refresh_pixmap){
+  void MainWidget::viewThreshImages(bool refresh_pixmap) {
 
     int num_non_poly_images = 0;
     int num_images = m_images.size();
@@ -653,9 +653,9 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
       
       double nodata_val = -std::numeric_limits<double>::max();
       vw::read_nodata_val(input_file, nodata_val);
+      
       // Do not use max(nodata_val, thresh) as sometimes nodata_val can be larger than data
       nodata_val = m_thresh;
-
       int num_channels = m_images[image_iter].img.planes();
       
       if (num_channels != 1) {
@@ -665,7 +665,6 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
       }
 
       m_images[image_iter].m_display_mode = THRESHOLDED_VIEW;
-      
       ImageViewRef<double> thresh_image
         = apply_mask(create_mask_less_or_equal(DiskImageView<double>(input_file),
                                                nodata_val), nodata_val);
@@ -682,6 +681,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
                                     has_nodata, nodata_val);
 
       // Read it back right away
+      m_images[image_iter].loaded_thresholded = false; // force reload
       m_images[image_iter].read(thresholded_file, m_opt, THRESHOLDED_VIEW);
       temporary_files().files.insert(thresholded_file);
     }
@@ -3442,7 +3442,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   }
 
   // Show the current image threshold, and allow the user to change it.
-  void MainWidget::setThreshold(){
+  void MainWidget::setThreshold() {
 
     std::ostringstream oss;
     oss.precision(17);
@@ -3460,7 +3460,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     MainWidget::setThreshold(thresh);
   }
 
-  void MainWidget::setThreshold(double thresh){
+  void MainWidget::setThreshold(double thresh) {
 
     int non_poly_image = 0;
     int num_non_poly_images = 0;
@@ -3470,7 +3470,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
       non_poly_image = image_iter;
     }
     
-    if (num_non_poly_images > 1){
+    if (num_non_poly_images > 1) {
       if (std::isnan(asp::stereo_settings().nodata_value)) 
         popUp("Must have just one image in each window to set the image threshold.");
       else

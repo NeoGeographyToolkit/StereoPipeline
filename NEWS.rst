@@ -1,3 +1,9 @@
+Changes since the last release
+------------------------------
+
+stereo_gui:
+  * Changing the image threshold updates the display correctly.
+
 RELEASE 3.4.0, June 19, 2024
 ----------------------------
 

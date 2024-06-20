@@ -128,7 +128,7 @@ void lookupPropertyIndices(std::vector<std::map<std::string, std::string>> const
 class chooseFilesFilterDelegate: public QStyledItemDelegate {
 public:
   chooseFilesFilterDelegate(QObject *filter, QObject *parent = 0):
-    QStyledItemDelegate(parent), filter(filter){}
+    QStyledItemDelegate(parent), filter(filter) {}
 
   virtual QWidget *createEditor(QWidget *parent,
                                 const QStyleOptionViewItem &option,
@@ -196,7 +196,7 @@ bool MainWindow::sanityChecks(int num_images) {
   
   // If a match file was explicitly specified, use it.
   if (stereo_settings().match_file != "") {
-    if (m_image_files.size() != 2){
+    if (m_image_files.size() != 2) {
       popUp("The --match-file option only works with two valid input images.");
       return false;
     }
@@ -326,7 +326,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     bool is_image = true;
     try {
       vw::DiskImageView<double> img(local_images[i]);
-    }catch(...){
+    }catch(...) {
       is_image = false;
     }
     
@@ -995,12 +995,12 @@ void MainWindow::hideShowAll_windowVersion() {
   createLayout();
 }
 
-void MainWindow::resizeEvent(QResizeEvent *){
+void MainWindow::resizeEvent(QResizeEvent *) {
   if (m_chooseFiles)
     m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
 }
 
-void MainWindow::closeEvent(QCloseEvent *){
+void MainWindow::closeEvent(QCloseEvent *) {
   forceQuit();
 }
 
@@ -1014,7 +1014,7 @@ bool MainWindow::editingMatches() const {
   return editing_matches;
 }
 
-void MainWindow::forceQuit(){
+void MainWindow::forceQuit() {
 
   // See if in the middle of editing of matches with unsaved matches
   if (MainWindow::editingMatches()) {
@@ -1032,7 +1032,7 @@ void MainWindow::forceQuit(){
     for (std::set<std::string>::iterator it = tmp_files.begin();
          it != tmp_files.end() ; it++) {
       std::string file = *it;
-      if (fs::exists(file)){
+      if (fs::exists(file)) {
         vw_out() << "Deleting: " << file << std::endl;
         fs::remove(file);
       }
@@ -1076,7 +1076,7 @@ void MainWindow::sizeToFit() {
 
 }
 
-void MainWindow::viewSingleWindow(){
+void MainWindow::viewSingleWindow() {
 
   bool single_window = m_viewSingleWindow_action->isChecked();
 
@@ -1504,7 +1504,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   
 }
 
-void MainWindow::saveMatches(){
+void MainWindow::saveMatches() {
 
   if (stereo_settings().match_file == "") {
     if (!supplyOutputPrefixIfNeeded(this, m_output_prefix))
@@ -1597,12 +1597,12 @@ void MainWindow::writeGroundControlPoints() {
   popUp("Wrote: " + stereo_settings().gcp_file);
 }
 
-void MainWindow::addDelMatches(){
+void MainWindow::addDelMatches() {
   popUp("Right-click on images to add/delete interest point matches.");
   return;
 }
 
-void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
+void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd) {
 
   if (m_widgets.size() < 2) {
     // Note: We allow three images, as the third may be the DEM
@@ -1665,17 +1665,17 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
 
 }
 
-void MainWindow::save_screenshot(){
+void MainWindow::save_screenshot() {
   QMessageBox::about(this, tr("Info"), tr("To save a screenshot, right-click on an image."));
   return;
 }
 
-void MainWindow::select_region(){
+void MainWindow::select_region() {
   QMessageBox::about(this, tr("Info"), tr("Use Control-Left Mouse to select a region. Its bounds will be printed in a terminal. Stereo can be run on selected regions."));
   return;
 }
 
-void MainWindow::change_cursor(){
+void MainWindow::change_cursor() {
   m_cursor_count = (m_cursor_count + 1) % 3;
   if (m_cursor_count == 0) {
     setCursor(Qt::PointingHandCursor);
@@ -1686,11 +1686,11 @@ void MainWindow::change_cursor(){
   }
 }
 
-void MainWindow::run_stereo(){
+void MainWindow::run_stereo() {
   MainWindow::run_stereo_or_parallel_stereo("stereo");
 }
 
-void MainWindow::run_parallel_stereo(){
+void MainWindow::run_parallel_stereo() {
   MainWindow::run_stereo_or_parallel_stereo("parallel_stereo");
 }
 
@@ -1712,13 +1712,13 @@ void MainWindow::viewThreshImages() {
   MainWindow::updateDisplayModeMenuEntries();
 
   for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (!mw(m_widgets[i]))
+      continue;
     bool refresh_pixmap = true;
-    if (mw(m_widgets[i])) {
-      if (m_display_mode == THRESHOLDED_VIEW) 
-        mw(m_widgets[i])->viewThreshImages(refresh_pixmap);
-      else
-        mw(m_widgets[i])->viewUnthreshImages();
-    }
+    if (m_display_mode == THRESHOLDED_VIEW) 
+      mw(m_widgets[i])->viewThreshImages(refresh_pixmap);
+    else
+      mw(m_widgets[i])->viewUnthreshImages();
   }
 }
 
@@ -1794,6 +1794,12 @@ void MainWindow::thresholdGetSet() {
       mw(m_widgets[i])->setThreshold(thresholds[i]);
   }
   
+  // Turn off viewing thresholded images when the threshold is set. The user can
+  // turn this back on, and then the thresholded image will be recomputed and
+  // displayed.
+  m_display_mode = REGULAR_VIEW;
+  MainWindow::updateDisplayModeMenuEntries();
+  MainWindow::viewThreshImages();
 }
 
 void MainWindow::setLineWidth() {
@@ -1936,7 +1942,7 @@ void MainWindow::setZoomAllToSameRegion() {
 // Zoom all widgets to the same region which comes from widget with given id.
 // There is no need to re-create any layouts now, as nothing changes
 // except the fact that we zoom.
-void MainWindow::zoomAllToSameRegionAction(int widget_id){
+void MainWindow::zoomAllToSameRegionAction(int widget_id) {
   int num_widgets = m_widgets.size();
   if (widget_id < 0 || widget_id >= num_widgets) {
     popUp("Invalid widget id.");
@@ -1986,7 +1992,7 @@ void MainWindow::viewPrevImage() {
   MainWindow::viewOtherImage(-1); 
 }
 
-void MainWindow::uncheckProfileModeCheckbox(){
+void MainWindow::uncheckProfileModeCheckbox() {
   m_profileMode_action->setChecked(false);
   return;
 }
@@ -2005,7 +2011,7 @@ void MainWindow::profileMode() {
   }
 }
 
-void MainWindow::uncheckPolyEditModeCheckbox(){
+void MainWindow::uncheckPolyEditModeCheckbox() {
   m_polyEditMode_action->setChecked(false);
   return;
 }
@@ -2110,7 +2116,7 @@ void MainWindow::about() {
 
 }
 
-bool MainWindow::eventFilter(QObject *obj, QEvent *event){
+bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
 
 #if 0
   // Logic which for now does nothing but may be useful one day
