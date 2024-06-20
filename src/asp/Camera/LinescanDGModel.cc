@@ -130,20 +130,17 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
   // Build the TLCTimeInterpolation object and do a quick sanity check.
   vw::camera::TLCTimeInterpolation
     tlc_time_interpolation(img.tlc_vec, convert(parse_dg_time(img.tlc_start_time)));
-  
-  VW_ASSERT(fabs(convert(parse_dg_time(img.first_line_start_time)) -
-  tlc_time_interpolation(0)) < fabs(1.0 / (10.0 * img.avg_line_rate)),
-	     vw::MathErr()
-	     << "First line time and output from TLC lookup table "
-	     << "do not agree of the ephemeris time for the first line of the image. "
-	     << "If your XML camera files are not from the WorldView satellites, "
-	     << "you may try the switch -t rpc to use the RPC camera model.\n"
-	     << "The first image line ephemeris time is: "
-  	     << convert(parse_dg_time(img.first_line_start_time)) << ".\n"
-	     << "The TLC look up table time is: " << tlc_time_interpolation(0) << ".\n"
-	     << "Maximum allowed difference is 1/10 of avg line rate, which is: "
-	     << fabs(1.0 / (10.0 * img.avg_line_rate))
-	     << ".\n");
+  double first_line_time = convert(parse_dg_time(img.first_line_start_time));
+  double tol = std::abs(1.0 / (10.0 * img.avg_line_rate));
+  VW_ASSERT(std::abs(first_line_time - tlc_time_interpolation(0)) < tol,
+	     vw::ArgumentErr()
+        << "First line time does not agree with TLC time for file: " << path << ".\n"
+        << "This suggests that your camera file is incorrect. To make this error go away, "
+        << "edit the camera file and make the value of <TLCTIME> equal to the value of "
+        << "<FIRSTLINETIME>. Use the produced cameras with caution.\n"
+        << "Or consider using the RPC camera model (option -t rpc).\n"
+        << "First line time is: " << first_line_time << ".\n"
+        << "TLC time is: " << tlc_time_interpolation(0) << ".\n");
 
   double et0 = convert(parse_dg_time(eph.start_time));
   double at0 = convert(parse_dg_time(att.start_time));
