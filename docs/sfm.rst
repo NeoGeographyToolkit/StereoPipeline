@@ -574,6 +574,9 @@ in more detail and the other tools in ASP.
 Solving for pinhole cameras using GCP
 -------------------------------------
 
+GCP creation
+^^^^^^^^^^^^
+
 A quick alternative to SfM with ``camera_solve`` is to create correctly oriented
 cameras using ground control points (GCP, :numref:`bagcp`), an initial camera
 having intrinsics only, and bundle adjustment. Here we outline this process.
@@ -591,6 +594,9 @@ features seen in the camera image, GCP can be created with point-and-click in
 ``stereo_gui`` (:numref:`creatinggcp`). Such an input DEM can be found
 as shown in :numref:`initial_terrain`. If the geolocations of image corners are 
 known, use instead ``cam_gen`` (:numref:`cam_gen`).
+
+Camera creation from GCP
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 We use the GCP to find the camera pose. For that, first create a Pinhole camera
 (:numref:`pinholemodels`) file, say called ``init.tsai``, with only the
@@ -640,6 +646,9 @@ This will write the desired correctly oriented camera file as
 individual output prefix.
 
 The datum field must be adjusted depending on the planet.
+
+Validation
+^^^^^^^^^^
 
 It is very important to inspect the file::
 
