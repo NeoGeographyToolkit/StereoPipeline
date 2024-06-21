@@ -525,10 +525,10 @@ Command-line options for point2dem
 
 --input-is-projected
    Input data is already in projected coordinates, or is a point cloud in
-   Cartesian coordinates that is small in extent. Need not be spatially
-   organized. If both a top and bottom surface exists, one of them must be
-   cropped out. Point (0, 0, 0) is considered invalid. Must specify a projection
-   to interpret the data amd the output grid size.
+   Cartesian coordinates in a box such as [-10, 10]^3. Need not be spatially
+   organized. If both a top and bottom surface exists (such as indoors), one of
+   them must be cropped out. Point (0, 0, 0) is considered invalid. Must specify
+   a projection to interpret the data and the output grid size.
     
 --rounding-error <float (default: 1/2^{10}=0.0009765625)>
     How much to round the output DEM and errors, in meters (more

@@ -652,7 +652,9 @@ Command-line options
 --first <float, float, float>
     First camera position, specified as DEM pixel column and row, and height
     above the DEM datum. This may be adjusted, per
-    :numref:`sat_sim_roll_pitch_yaw_ground`.
+    :numref:`sat_sim_roll_pitch_yaw_ground`. Can use ``mapproject
+    --query-pixel`` to find the DEM pixel column and row for a given image pixel
+    (:numref:`mapproj_options`).
 
 --last <float, float, float>
     Last camera position, specified as DEM pixel column and row, and height

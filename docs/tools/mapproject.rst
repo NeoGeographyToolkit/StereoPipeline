@@ -111,6 +111,8 @@ Usage
 
      mapproject [options] <dem> <camera-image> <camera-model> <output-image>
 
+.. _mapproj_options:
+
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -195,6 +197,11 @@ Command-line options
     Display the computed projection information and estimated ground
     sample distance (pixel size on the ground), and quit.
 
+--query-pixel <double double>
+    Trace a ray from this input image pixel (values start from 0) to the ground.
+    Print the intersection point with the DEM as lon, lat, height, then as DEM
+    column, row, height. Quit afterwards.
+    
 --parallel-options <string (default: "--sshdelay 0.2")>
     Options to pass directly to GNU Parallel.
 

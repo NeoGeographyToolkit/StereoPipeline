@@ -29,6 +29,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/MapprojectImage.h>
 #include <asp/Sessions/CameraUtils.h>
+#include <asp/Core/DemUtils.h>
 
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Camera/PinholeModel.h>
@@ -77,7 +78,12 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("no-geoheader-info", po::bool_switch(&opt.noGeoHeaderInfo)->default_value(false),
      "Do not write metadata information in the geoheader. See the doc for more info.")
-    ("aster-use-csm", po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
+    ("query-pixel", po::value(&opt.query_pixel)->default_value(vw::Vector2(NaN, NaN)),
+     "Trace a ray from this input image pixel (values start from 0) to the ground. "
+     "Print the intersection point with the DEM as lon, lat, height, then "
+     "as DEM column, row, height. Quit afterwards.")
+    ("aster-use-csm", 
+     po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with ASTER cameras (-t aster).")
     ("parse-options", po::bool_switch(&opt.parseOptions)->default_value(false),
      "Parse the options and print the results. Used by the mapproject script.")
@@ -385,6 +391,12 @@ int main(int argc, char* argv[]) {
                                << "to be unprojected or raw camera imagery.\n";
     }
 
+    // If the query pixel option was set, run the query and exit
+    if (!std::isnan(opt.query_pixel[0]) && !std::isnan(opt.query_pixel[1])) {
+      asp::queryPixel(opt.dem_file, opt.camera_model, opt.query_pixel);
+      return 0;
+    }
+
     // Load the DEM
     bool datum_dem = false;
     GeoReference dem_georef;
@@ -525,10 +537,11 @@ int main(int argc, char* argv[]) {
       vw_out() << "Query finished, exiting mapproject tool.\n";
       return 0;
     }
-
-    // For certain pinhole camera models the reverse check can make map projection very slow,
-    // so we disable it here.  The check is very important for computing the bounding box safely
-    // but we don't really need it when projecting the pixels back in to the camera.
+    
+    // For certain pinhole camera models the reverse check can make map
+    // projection very slow, so we disable it here.  The check is very important
+    // for computing the bounding box safely but we don't really need it when
+    // projecting the pixels back in to the camera.
     boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
                 boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_model);
     if (pinhole_ptr)

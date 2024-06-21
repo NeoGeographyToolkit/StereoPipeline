@@ -1,7 +1,10 @@
 Changes since the last release
 ------------------------------
 
-stereo_gui:
+mapproject (:numref:`mapproject`):
+  * Add the option ``--query-pixel``.
+  
+stereo_gui (:numref:`stereo_gui`):
   * Changing the image threshold updates the display correctly.
 
 RELEASE 3.4.0, June 19, 2024

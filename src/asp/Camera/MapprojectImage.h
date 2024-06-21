@@ -44,6 +44,7 @@ struct MapprojOptions: vw::GdalWriteOptions {
   std::string target_srs_string, output_type, metadata;
   double nodata_value, tr, mpp, ppd, datum_offset;
   vw::BBox2 target_projwin, target_pixelwin;
+  vw::Vector2 query_pixel;
 };
 
 // Project the image depending on image format.

@@ -370,7 +370,17 @@ def main(argsIn):
     rpc_label = 'RPC Metadata'
     rpc_dict  = parse_gdal_metadata(options.imagePath, rpc_label)
     rpc_lines = format_metadata(rpc_label, rpc_dict)
+     
+    # Handle --query-pixel 
+    if '--query-pixel' in options.extraArgs:
+      cmd = ['mapproject_single', options.demPath, options.imagePath, options.cameraPath,
+              options.outputPath] + options.extraArgs
+      p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+      ans, err = p.communicate()
+      print(ans)
+      return 0
 
+    # Handle --query-projection        
     query_only = False
     if '--query-projection' in options.extraArgs:
         query_only = True

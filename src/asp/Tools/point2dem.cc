@@ -201,10 +201,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
      "Skip writing a DEM.")
     ("input-is-projected", po::bool_switch(&opt.input_is_projected)->default_value(false), 
      "Input data is already in projected coordinates, or is a point cloud in Cartesian "
-     "coordinates that is small in extent. Need not be spatially organized. "
-     "If both a top and bottom surface exists, one of them must be cropped out. "
-     "Point (0, 0, 0) is considered invalid. Must specify a projection to interpret "
-     "the data and the output grid size.");
+     "coordinates that is small in extent. See the doc for more info.");
 
   general_options.add(manipulation_options);
   general_options.add(projection_options);

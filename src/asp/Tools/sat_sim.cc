@@ -48,7 +48,7 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
      "and --optical-center will be ignored.")
     ("first", po::value(&opt.first)->default_value(vw::Vector3(), ""),
     "First camera position, specified as DEM pixel column and row, and height above "
-    "the DEM datum.")
+    "the DEM datum. See the doc for more info.")
     ("last", po::value(&opt.last)->default_value(vw::Vector3(), ""),
     "Last camera position, specified as DEM pixel column and row, and height above "
     "the DEM datum.")
