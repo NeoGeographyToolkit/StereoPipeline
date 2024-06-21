@@ -3060,10 +3060,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
         if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
           continue;
         
-        std::cout << "--stereo crop win is " << m_stereoCropWin << std::endl;
-
         BBox2 image_box = world2image(m_stereoCropWin, image_it); 
-        std::cout << "--image box is " << image_box << std::endl;
         vw_out() << std::setprecision(8) 
                  << "src win for    " << m_images[image_it].name << ": "
                  << round(image_box.min().x()) << ' ' << round(image_box.min().y()) << ' '
@@ -3073,12 +3070,10 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
           Vector2 proj_min, proj_max;
           // Convert pixels to projected coordinates
           BBox2 point_box;
-          std::cout << "--image box is " << image_box << std::endl;
           if (m_images[image_it].m_isPoly || m_images[image_it].m_isCsv)
             point_box = image_box;
           else 
             point_box = m_images[image_it].georef.pixel_to_point_bbox(image_box);
-          std::cout << "--point box is " << point_box << std::endl;
 
           proj_min = point_box.min();
           proj_max = point_box.max();
@@ -3091,7 +3086,6 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
           
           Vector2 lonlat_min, lonlat_max;
           BBox2 lonlat_box = m_images[image_it].georef.point_to_lonlat_bbox(point_box);
-          std::cout << "--lonlat box is " << lonlat_box << std::endl;
           
           lonlat_min = lonlat_box.min();
           lonlat_max = lonlat_box.max();
