@@ -62,6 +62,9 @@ This procedure is not as accurate as approximating an existing camera
 Some other pixels can be used instead of corners, if using the
 ``--pixel-values`` option.
 
+Lens distortion parameters, if needed, can be added manually to the produced
+files (:numref:`pinholemodels`).
+
 See :numref:`cam_gen_validation` for how to validate the created cameras.
 
 Optical bar cameras
