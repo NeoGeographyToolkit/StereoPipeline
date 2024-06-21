@@ -18,8 +18,8 @@
 /// \file PointToDem.h
 /// Utility functions for point2dem
 
-#ifndef __ASP_CORE_DEM_UTILS_H__
-#define __ASP_CORE_DEM_UTILS_H__
+#ifndef __ASP_CORE_POINT_TO_DEM_H__
+#define __ASP_CORE_POINT_TO_DEM_H__
 
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <asp/Core/OrthoRasterizer.h>
@@ -110,4 +110,4 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
 
 } // end namespace asp
 
-#endif//__ASP_CORE_DEM_UTILS_H__
+#endif//__ASP_CORE_POINT_TO_DEM_H__
