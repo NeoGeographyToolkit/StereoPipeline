@@ -574,12 +574,12 @@ in more detail and the other tools in ASP.
 Solving for pinhole cameras using GCP
 -------------------------------------
 
-GCP creation
-^^^^^^^^^^^^
-
 A quick alternative to SfM with ``camera_solve`` is to create correctly oriented
 cameras using ground control points (GCP, :numref:`bagcp`), an initial camera
 having intrinsics only, and bundle adjustment. Here we outline this process.
+
+GCP creation
+^^^^^^^^^^^^
 
 Given the camera image, a similar-enough orthoimage, and a DEM, the ``gcp_gen``
 program (:numref:`gcp_gen`) can create a GCP file for it::
