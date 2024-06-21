@@ -1032,6 +1032,17 @@ std::vector<double> CsmModel::distortion() const {
   return dist;
 }
 
+// Get distortion type
+DistortionType CsmModel::distortion_type() const {
+  DistortionType dist_type;
+  bool success = false;
+  CSM_FRAME_GET(m_distortionType, "distortion type", dist_type)
+  if (success) 
+    return dist_type;
+  CSM_LINESCAN_GET(m_distortionType, "distortion type", dist_type)
+  return dist_type;
+}
+
 // Set distortion type
 void CsmModel::set_distortion_type(DistortionType dist_type) {
   bool success = false;

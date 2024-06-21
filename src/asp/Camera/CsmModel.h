@@ -137,6 +137,7 @@ namespace asp {
 
     /// Get intrinsic parameters
     std::vector<double> distortion() const;
+    DistortionType distortion_type() const;
     double focal_length() const;
     vw::Vector2 optical_center() const; // return sample and line
     

@@ -1155,7 +1155,12 @@ void saveUpdatedCamera(asp::BaBaseOptions const& opt, asp::BAParams const& param
         std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
                                                               opt.image_files[icam],
                                                               opt.camera_files[icam]);
-        vw::vw_out() << "Writing: " << adjust_file << std::endl;
+        
+        #pragma omp critical
+        {
+          // Ensure this text is not messed up when writing in parallel
+          vw::vw_out() << "Writing: " << adjust_file << std::endl;
+        }
         
         CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
         asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
@@ -1184,7 +1189,10 @@ void saveUpdatedCameras(asp::BaBaseOptions const& opt, asp::BAParams const& para
   int num_cameras = opt.image_files.size();
   vw::Stopwatch sw;
   sw.start();
-  if (!opt.single_threaded_cameras && !opt.update_isis_cubes_with_csm_state) {
+  // For pinhole and nadirpinhole sessions, save the cameras sequentially,
+  // as some info is printed along the way and can get messed up if done in parallel.
+  if (!opt.single_threaded_cameras && !opt.update_isis_cubes_with_csm_state &&
+      opt.stereo_session.find("pinhole") == std::string::npos) {
     #pragma omp parallel for 
     for (int icam = 0; icam < num_cameras; icam++)
       saveUpdatedCamera(opt, param_storage, icam);
@@ -1194,7 +1202,7 @@ void saveUpdatedCameras(asp::BaBaseOptions const& opt, asp::BAParams const& para
   }
 
   sw.stop();
-  std::cout << "Saving cameras elapsed time: " << sw.elapsed_seconds() << " seconds.\n";
+  vw::vw_out() << "Saving cameras elapsed time: " << sw.elapsed_seconds() << " seconds.\n";
 
   return;
 }
@@ -1581,7 +1589,6 @@ void get_distortion(vw::camera::CameraModel const* cam, vw::Vector<double> &dist
   // Cast to pinhole model
   vw::camera::PinholeModel const* pin_ptr 
     = dynamic_cast<vw::camera::PinholeModel const*>(cam);
-  
   if (pin_ptr != NULL) {
     dist = pin_ptr->lens_distortion()->distortion_parameters();
     return;
@@ -1651,6 +1658,8 @@ void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist
     if (dist.size() != csm_dist.size())
       vw::vw_throw(vw::ArgumentErr() << "Expecting " << csm_dist.size() 
                    << " distortion parameters for a CSM model.\n");
+    
+    csm_dist.clear();
     for (size_t i = 0; i < dist.size(); i++)
       csm_dist.push_back(dist[i]);
     csm_ptr->set_distortion(csm_dist);
@@ -1759,5 +1768,117 @@ bool syncUpInitialSharedParams(BACameraType camera_type,
 
   return cameras_changed;
 }
+
+// This is needed to allocate enough storage for the distortion parameters.
+int calcMaxNumDistParams(std::vector<vw::CamPtr> const& camera_models,
+                         BACameraType camera_type,
+                         IntrinsicOptions const& intrinsics_opts,
+                         std::vector<double> const& intrinsics_limits) {
+
+  int num_cameras = camera_models.size();
+  std::vector<int> num_dist_params(num_cameras, 0);
+  for (size_t cam_it  = 0; cam_it < camera_models.size(); cam_it++) {
+    if (camera_type == BaCameraType_Pinhole) {
+      auto pin_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>
+                      (camera_models[cam_it]);
+      if (!pin_ptr) 
+        vw_throw(ArgumentErr() << "Expecting a Pinhole camera.\n");
+      num_dist_params[cam_it] 
+        = pin_ptr->lens_distortion()->distortion_parameters().size();
+    } else if (camera_type == BaCameraType_OpticalBar) {
+      num_dist_params[cam_it] = asp::NUM_OPTICAL_BAR_EXTRA_PARAMS;
+    } else if (camera_type == BaCameraType_CSM) {
+      auto csm_ptr = boost::dynamic_pointer_cast<asp::CsmModel>(camera_models[cam_it]);
+      if (!csm_ptr)
+        vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
+      num_dist_params[cam_it] = csm_ptr->distortion().size();
+    } else if (camera_type == BaCameraType_Other) {
+      num_dist_params[cam_it] = 0; // distortion does not get handled
+    } else {
+      vw_throw(ArgumentErr() << "Unknown camera type.\n");
+    }
+
+    // For the case where the camera has zero distortion parameters, use one
+    // dummy parameter just so we don't have to change the parameter block logic
+    // later on.
+    // TODO(oalexan1): Test with a mix of cameras with and without distortion.
+    if (camera_type != BaCameraType_Other && num_dist_params[cam_it] < 1)
+      num_dist_params[cam_it] = 1;
+  }
+  
+  // It is simpler to allocate the same number of distortion params per camera
+  // even if some cameras have fewer. The extra ones won't be used. 
+  int max_num_dist_params = 
+    *std::max_element(num_dist_params.begin(), num_dist_params.end());
+
+  asp::distortion_sanity_check(num_dist_params, intrinsics_opts,
+                               intrinsics_limits);
+
+
+  return max_num_dist_params;
+}
+
+// This is needed to ensure distortion coefficients are not so small
+// that they don't get optimized. This modifies the camera models in place.
+void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
+                         BACameraType camera_type, 
+                         IntrinsicOptions const& intrinsics_opts,
+                         double min_distortion) {
+
+  int num_cameras = camera_models.size();
+  bool message_printed = false;
+  for (size_t cam_it  = 0; cam_it < camera_models.size(); cam_it++) {
+    
+    // See if this logic is needed
+    if (camera_type == BaCameraType_Pinhole) {
+      
+      auto pin_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>
+                      (camera_models[cam_it]);
+      if (!pin_ptr) 
+        vw_throw(ArgumentErr() << "Expecting a Pinhole camera.\n");
+        
+    } else if (camera_type == BaCameraType_CSM) {
+    
+      auto csm_ptr = boost::dynamic_pointer_cast<asp::CsmModel>(camera_models[cam_it]);
+      if (!csm_ptr)
+        vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
+       
+      // Non radtan cameras have distortion that is not normalized by focal
+      // length. Better not mess with it.  
+      DistortionType dist_type = csm_ptr->distortion_type();
+      if (dist_type != DistortionType::RADTAN)
+        continue;
+        
+    } else if (camera_type == BaCameraType_OpticalBar) {
+      continue; // likely not needed for optical bar
+    } else if (camera_type == BaCameraType_Other) {
+      continue; // distortion does not get handled
+    } else {
+      vw_throw(ArgumentErr() << "Unknown camera type.\n");
+    }
+    
+    if (!intrinsics_opts.float_distortion_params(cam_it))
+      continue; // distortion is not being optimized for this camera
+      
+    // Adjust the distortion parameters  
+    vw::Vector<double> dist_params;
+    asp::get_distortion(camera_models[cam_it].get(), dist_params);
+    for (size_t i = 0; i < dist_params.size(); i++) {
+      if (std::abs(dist_params[i]) < std::abs(min_distortion)) {
+        dist_params[i] = min_distortion;
+        if (!message_printed) {
+          vw::vw_out(vw::WarningMessage)
+            << "Setting distortion parameters to at least " << min_distortion
+            << " (option --min-distortion) to ensure they are optimized.\n";
+            message_printed = true;
+        }
+      }
+    }
+    asp::set_distortion(camera_models[cam_it].get(), dist_params);
+            
+  } // end loop through cameras
+  
+  return;
+} 
 
 } // end namespace asp

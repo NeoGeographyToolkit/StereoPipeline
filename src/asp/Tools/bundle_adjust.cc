@@ -1355,45 +1355,17 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     return;
   }
   
-  // Collect distortion size per camera
-  // TODO(oalexan1): Make this into a function
-  std::vector<int> num_dist_params(num_cameras, 0);
-  for (size_t cam_it  = 0; cam_it < opt.camera_models.size(); cam_it++) {
-    if (opt.camera_type == BaCameraType_Pinhole) {
-      auto pin_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>
-                      (opt.camera_models[cam_it]);
-      if (!pin_ptr) 
-        vw_throw(ArgumentErr() << "Expecting a Pinhole camera.\n");
-      num_dist_params[cam_it] 
-        = pin_ptr->lens_distortion()->distortion_parameters().size();
-    } else if (opt.camera_type == BaCameraType_OpticalBar) {
-      num_dist_params[cam_it] = asp::NUM_OPTICAL_BAR_EXTRA_PARAMS;
-    } else if (opt.camera_type == BaCameraType_CSM) {
-      auto csm_ptr = boost::dynamic_pointer_cast<asp::CsmModel>(opt.camera_models[cam_it]);
-      if (!csm_ptr)
-        vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
-      num_dist_params[cam_it] = csm_ptr->distortion().size();
-    } else if (opt.camera_type == BaCameraType_Other) {
-      num_dist_params[cam_it] = 0; // distortion does not get handled
-    } else {
-      vw_throw(ArgumentErr() << "Unknown camera type.\n");
-    }
-
-    // For the case where the camera has zero distortion parameters, use one
-    // dummy parameter just so we don't have to change the parameter block logic
-    // later on.
-    // TODO(oalexan1): Test with a mix of cameras with and without distortion.
-    if (opt.camera_type != BaCameraType_Other && num_dist_params[cam_it] < 1)
-      num_dist_params[cam_it] = 1;
-  }
-
-  // It is simpler to allocate the same number of distortion params per camera
-  // even if some cameras have fewer. The extra ones won't be used. 
-  int max_num_dist_params = 
-    *std::max_element(num_dist_params.begin(), num_dist_params.end());
-  distortion_sanity_check(num_dist_params, opt.intrinsics_options,
-                          opt.intrinsics_limits);
-
+  // Calculate the max length of a distortion vector
+  int max_num_dist_params 
+    = asp::calcMaxNumDistParams(opt.camera_models, opt.camera_type,
+                                opt.intrinsics_options, opt.intrinsics_limits);
+  
+  // This is needed to ensure distortion coefficients are not so small as to not get
+  // optimized. 
+   if (opt.solve_intrinsics && !opt.apply_initial_transform_only)
+     asp::ensureMinDistortion(opt.camera_models, opt.camera_type, 
+                              opt.intrinsics_options, opt.min_distortion);
+  
   // Create the storage arrays for the variables we will adjust.
   asp::BAParams param_storage(num_points, num_cameras,
                               // Distinguish when we solve for intrinsics
@@ -2036,6 +2008,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("horizontal-stddev", po::value(&opt.horizontal_stddev)->default_value(0), 
       "If positive, propagate this stddev of horizontal ground plane camera uncertainty "
       "through triangulation for all cameras. To be used with --propagate-errors.")
+    ("min-distortion", 
+     po::value(&opt.min_distortion)->default_value(1e-7),
+      "When lens distortion is optimized, all initial distortion parameters that "
+      "are smaller in magnitude than this value are set to this value. This is to "
+      "ensure the parameters are big enough to be optimized. Can be negative. Applies "
+      "to Pinhole cameras (all distortion models) and CSM (radial-tangential distortion "
+      "only). Does not apply to optical bar models.")
     ("flann-method",  po::value(&opt.flann_method)->default_value("kmeans"),
        "Choose the FLANN method for matching interest points. The default 'kmeans' is "
        "slower but deterministic, while 'kdtree' is faster but not deterministic.")

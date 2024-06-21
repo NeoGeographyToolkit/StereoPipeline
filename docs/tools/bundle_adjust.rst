@@ -1443,6 +1443,13 @@ Command-line options
     Individually normalize the input images instead of using common
     values.
 
+--min-distortion <double (default: 1e-7)>
+    When lens distortion is optimized, all initial distortion parameters
+    that are smaller in magnitude than this value are set to this value. This is
+    to ensure the parameters are big enough to be optimized. Can be negative.
+    Applies to Pinhole cameras (all distortion models) and CSM
+    (radial-tangential distortion only). Does not apply to optical bar models.
+    
 --reference-terrain <filename>
     An externally provided trustworthy 3D terrain, either as a DEM
     or as a lidar file, very close (after alignment) to the stereo

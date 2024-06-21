@@ -1195,7 +1195,8 @@ camera models with RPC distortion.
 
 It is very important for the input distortion coefficients to be manually
 modified so they are on the order of 1e-7 or more, as otherwise they will be
-hard to optimize and may stay small.
+hard to optimize and may stay small. In the latest builds this is done
+automatically by ``bundle_adjust`` (option ``--min-distortion``).
 
 See :numref:`intrinsics_ground_truth` and :numref:`kaguya_ba` for examples of
 how to to optimize the lens distortion. An example specifically using RPC is

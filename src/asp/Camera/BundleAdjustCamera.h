@@ -739,6 +739,19 @@ bool syncUpInitialSharedParams(BACameraType camera_type,
                                asp::BAParams const& param_storage,
                                std::vector<vw::CamPtr>& camera_models);
 
+// This is needed to allocate enough storage for the distortion parameters.
+int calcMaxNumDistParams(std::vector<vw::CamPtr> const& camera_models,
+                         BACameraType camera_type,
+                         IntrinsicOptions const& intrinsics_opts,
+                         std::vector<double> const& intrinsics_limits);
+
+// This is needed to ensure distortion coefficients are not so small
+// that they don't get optimized. This modifies the camera models in place.
+void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
+                         BACameraType camera_type, 
+                         IntrinsicOptions const& intrinsics_opts,                         
+                         double min_distortion);
+
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_CAMERA_H__

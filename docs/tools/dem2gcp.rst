@@ -161,7 +161,9 @@ RPC lens distortion model (:numref:`rpc_distortion`) as in
 
 The small RPC coefficients *must be changed manually to be at least 1e-7*,
 otherwise they will not get optimized. Here, RPC of degree 3 is used. A higher
-degree can be employed, either initially, or for subsequent iterations.
+degree can be employed, either initially, or for subsequent iterations. In the
+latest builds this is done automatically by ``bundle_adjust`` (option
+``--min-distortion``).
 
 Optimization of intrinsics with DEM and GCP constraints:: 
 

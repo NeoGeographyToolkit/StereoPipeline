@@ -1,6 +1,10 @@
 Changes since the last release
 ------------------------------
 
+bundle_adjust (:numref:`bundle_adjust`):
+  Added the option ``--min-distortion`` to ensure small distortion parameters
+  get optimized.
+  
 mapproject (:numref:`mapproject`):
   * Add the option ``--query-pixel``.
   
