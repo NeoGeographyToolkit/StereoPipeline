@@ -7,7 +7,10 @@ bundle_adjust (:numref:`bundle_adjust`):
   
 mapproject (:numref:`mapproject`):
   * Add the option ``--query-pixel``.
-  
+
+jitter_solve (:numref:`jitter_solve`):
+  * Add an example for the Kaguya Terrain Camera (:numref:`jitter_kaguya`).
+    
 stereo_gui (:numref:`stereo_gui`):
   * Changing the image threshold updates the display correctly.
 

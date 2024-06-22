@@ -207,7 +207,8 @@ Example 1: CTX images on Mars
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A CTX stereo pair will be used which has quite noticeable jitter.
-See :numref:`jitter_multiple_images` for a discussion of multiple images.
+See :numref:`jitter_multiple_images` for a discussion of multiple images,
+and a similar example for KaguyaTC in :numref:`jitter_kaguya`.
 
 Input images
 ^^^^^^^^^^^^

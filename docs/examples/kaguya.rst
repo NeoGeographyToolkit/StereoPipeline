@@ -220,3 +220,62 @@ Refining the camera intrinsics for Kaguya TC
 
 See :numref:`kaguya_ba`.
 
+.. _jitter_kaguya:
+
+Solving for jitter for Kaguya TC
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Kaguya TC cameras exhibit some jitter, but its effect is not as strong as the one of
+lens distortion, which needs to be solved for first. 
+
+Then, jitter can be corrected as for CTX in :numref:`jitter_ctx`.
+
+.. figure:: ../images/kaguya_jitter.png
+   :name: jitter_kaguya_fig
+   :alt: Jitter for Kaguya TC
+
+   First row: the stereo DEM and orthoimage. Second row: The difference of
+   stereo DEM to LOLA. Third row: the triangulation error
+   (:numref:`triangulation_error`). These are before (left) and after (right)
+   solving for jitter. The ranges in the colorbar are in meters.
+   
+Here we worked with the stereo pair::
+
+   TC1W2B0_01_05324N054E2169
+   TC2W2B0_01_05324N056E2169
+
+Stereo was run with mapprojected images (:numref:`mapproj-example`). 
+Dense matches were produced from stereo disparity (:numref:`dense_ip`).
+The DEM and cameras were aligned to LOLA, and lens distortion was solved
+for as in :numref:`kaguya_ba` (using additional overlapping images).
+The resulting optimized cameras were passed in to the jitter solver.
+
+The DEM to constrain against was produced from LOLA, with a command as::
+
+  point2dem                              \
+    -r moon                              \
+    --stereographic                      \
+    --auto-proj-center                   \
+    --csv-format 2:lon,3:lat,4:radius_km \
+    --search-radius-factor 10            \
+    --tr 25                              \
+    lola.csv
+    
+This was then filled in with ``dem_mosaic`` (:numref:`dem_mosaic_grow`).
+
+Solving for jitter::
+
+  jitter_solve                                           \
+    TC1W2B0_01_05324N054E2169.cub                        \
+    TC2W2B0_01_05324N056E2169.cub                        \
+    ba/run-TC1W2B0_01_05324N054E2169.adjusted_state.json \
+    ba/run-TC2W2B0_01_05324N056E2169.adjusted_state.json \
+    --max-pairwise-matches 20000                         \
+    --num-lines-per-position    300                      \
+    --num-lines-per-orientation 300                      \
+    --max-initial-reprojection-error 20                  \
+    --match-files-prefix dense_matches/run               \
+    --heights-from-dem lola-filled-DEM.tif               \
+    --num-iterations 10                                  \
+    --heights-from-dem-uncertainty 10                    \
+    -o jitter/run
