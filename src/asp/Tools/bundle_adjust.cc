@@ -1664,37 +1664,52 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
      "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
     ("inline-adjustments",   po::bool_switch(&inline_adjustments)->default_value(false),
-     "If this is set, and the input cameras are of the pinhole or panoramic type, apply the adjustments directly to the cameras, rather than saving them separately as .adjust files.")
+     "If this is set, and the input cameras are of the pinhole or panoramic type, apply "
+     "the adjustments directly to the cameras, rather than saving them separately as "
+     ".adjust files.")
     ("approximate-pinhole-intrinsics", po::bool_switch(&opt.approximate_pinhole_intrinsics)->default_value(false),
      "If it reduces computation time, approximate the lens distortion model.")
     ("solve-intrinsics",    po::bool_switch(&opt.solve_intrinsics)->default_value(false)->implicit_value(true),
-     "Optimize intrinsic camera parameters. Only used for pinhole, optical bar, "
-     "and CSM (frame and linescan) cameras. This implies --inline-adjustments.")
+     "Optimize intrinsic camera parameters. Only used for pinhole, optical bar, and CSM "
+     "(frame and linescan) cameras. This implies --inline-adjustments.")
     ("intrinsics-to-float", po::value(&intrinsics_to_float_str)->default_value(""),
-     "If solving for intrinsics and is desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics (distortion). Not specifying anything will float all of them. Also can specify 'all' or 'none'. See the documentation for when intrinsics are optimized per sensor.")
+     "If solving for intrinsics and is desired to float only a few of them, specify here, "
+     "in quotes, one or more of: focal_length, optical_center, other_intrinsics "
+     "(distortion). Not specifying anything will float all of them. Also can specify 'all' "
+     "or 'none'. See the documentation for when intrinsics are optimized per sensor.")
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
-     "If solving for intrinsics and is desired to share only a few of them across all cameras, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics (distortion). By default all of the intrinsics are shared, so to not share any of them pass in an empty string. Also can specify 'all' or 'none'. If sharing intrinsics per sensor, this option is ignored, as then the sharing is more fine-grained.")
-    ("intrinsics-limits", 
-     po::value(&intrinsics_limit_str)->default_value(""),
-     "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in min max pairs and are applied in the order [focal length, optical center, other intrinsics] until all of the limits are used. Check the documentation to determine how many intrinsic parameters are used for your cameras.")
-    ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
-      "CSV file containing estimated position of each camera in ECEF coordinates. "
-      "For this to work "
-      "well the camera must travel not along linear path, as this data will be "
-      "used to find an alignment transform. Only used with the inline-adjustments "
-      "setting to initialize global camera coordinates. If used, the csv-format "
-      "setting must also be set. The 'file' field is searched for strings that are "
-      "found in the input image files to match locations to cameras.")
+     "If solving for intrinsics and is desired to share only a few of them across all "
+     "cameras, specify here, in quotes, one or more of: focal_length, optical_center, "
+     "other_intrinsics (distortion). By default all of the intrinsics are shared, so to "
+     "not share any of them pass in an empty string. Also can specify 'all' or 'none'. If "
+     "sharing intrinsics per sensor, this option is ignored, as then the sharing is more "
+     "fine-grained.")
+    ("intrinsics-limits", po::value(&intrinsics_limit_str)->default_value(""),
+     "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in "
+     "min max pairs and are applied in the order [focal length, optical center, other "
+     "intrinsics] until all of the limits are used. Check the documentation to determine "
+     "how many intrinsic parameters are used for your cameras.")
+    ("camera-positions", 
+     po::value(&opt.camera_position_file)->default_value(""),
+     "CSV file containing estimated position of each camera in ECEF coordinates. For this "
+     "to work well the camera must travel not along linear path, as this data will be used "
+     "to find an alignment transform. Only used with the inline-adjustments setting to "
+     "initialize global camera coordinates. If used, the csv-format setting must also be "
+     "set. The 'file' field is searched for strings that are found in the input image "
+     "files to match locations to cameras.")
     ("init-camera-using-gcp",  po::bool_switch(&opt.init_camera_using_gcp)->default_value(false)->implicit_value(true),
-     "Given an image, a pinhole camera lacking correct position and orientation, and a GCP file, find the pinhole camera with given intrinsics most consistent with the GCP.")
-    ("transform-cameras-with-shared-gcp",  po::bool_switch(&opt.transform_cameras_with_shared_gcp)->default_value(false)->implicit_value(true),
-    "Given at least 3 GCP, with each seen in at least 2 images, "
-    "find the triangulated positions based on pixels values in the GCP, "
-    "and apply a rotation + translation + scale transform to the entire "
-    "camera system so that the triangulated points get mapped to the ground "
-     "coordinates in the GCP.")
+     "Given an image, a pinhole camera lacking correct position and orientation, and a GCP "
+     "file, find the pinhole camera with given intrinsics most consistent with the GCP.")
+    ("transform-cameras-with-shared-gcp",  
+     po::bool_switch(&opt.transform_cameras_with_shared_gcp)->default_value(false)->implicit_value(true),
+     "Given at least 3 GCP, with each seen in at least 2 images, find the triangulated "
+     "positions based on pixels values in the GCP, and apply a rotation + translation + "
+     "scale transform to the entire camera system so that the triangulated points get "
+     "mapped to the ground coordinates in the GCP.")
     ("transform-cameras-using-gcp",  po::bool_switch(&opt.transform_cameras_using_gcp)->default_value(false)->implicit_value(true),
-     "Given a set of GCP, with at least two images having at least three GCP each (but with each GCP not shared among the images), transform the cameras to ground coordinates. This is not as robust as --transform-cameras-with-shared-gcp.")
+     "Given a set of GCP, with at least two images having at least three GCP each (but "
+     "with each GCP not shared among the images), transform the cameras to ground "
+     "coordinates. This is not as robust as --transform-cameras-with-shared-gcp.")
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
      "Do not try to initialize the positions of pinhole cameras based on input GCPs. This "
      "ignored as is now the default. See also: --init-camera-using-gcp.")
@@ -1717,11 +1732,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("csv-proj4",         po::value(&opt.csv_proj4_str)->default_value(""),
      "The PROJ.4 string to use to interpret the entries in input CSV files.")
     ("reference-terrain", po::value(&opt.reference_terrain)->default_value(""),
-     "An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the stereo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras.")
+    "An externally provided trustworthy 3D terrain, either as a DEM "
+    "or as a lidar file, very close (after alignment) to the stereo "
+    "result from the given images and cameras that can be used as a "
+    "reference, instead of GCP, to optimize the intrinsics of the "
+    "cameras.")
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000),
      "Maximum number of (randomly picked) points from the reference terrain to use.")
     ("disparity-list", po::value(&opt.disparity_list)->default_value(""),
-     "The unaligned disparity files to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two images, second is for the second and third images, etc. If an image pair has no disparity file, use 'none'.")
+     "The unaligned disparity files to use when optimizing the intrinsics based on a "
+     "reference terrain. Specify them as a list in quotes separated by spaces. First file "
+     "is for the first two images, second is for the second and third images, etc. If an "
+     "image pair has no disparity file, use 'none'.")
     ("max-disp-error", po::value(&opt.max_disp_error)->default_value(-1),
      "When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.")
     ("reference-terrain-weight", po::value(&opt.reference_terrain_weight)->default_value(1.0),
@@ -1754,13 +1776,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "outside the image and weights that are non-positive, NaN, or equal to nodata "
      "will be ignored.")
     ("datum", po::value(&opt.datum_str)->default_value(""),
-     "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+     "Use this datum. Needed only for ground control points, a camera position file, or "
+     "for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 "
+     "meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth "
+     "(=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
      "Explicitly set the datum semi-major axis in meters (see above).")
     ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),
      "Explicitly set the datum semi-minor axis in meters (see above).")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
-     "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
+     "Select the stereo session type to use for processing. Usually the program can select "
+     "this automatically by the file extension, except for xml cameras. See the doc for "
+     "options.")
     ("min-matches",      po::value(&opt.min_matches)->default_value(5),
      "Set the minimum  number of matches between images that will be considered.")
     ("max-pairwise-matches", po::value(&opt.max_pairwise_matches)->default_value(10000),
@@ -1828,14 +1855,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "See --camera-position-uncertainty for a hard constraint.")
     ("camera-position-robust-threshold", 
      po::value(&opt.camera_position_robust_threshold)->default_value(0.1),
-     "The robust threshold to attenuate large discrepancies between initial and "
-     "optimized camera positions with the option --camera-position-weight. "
-     "This is less than --robust-threshold, as the primary goal "
-     "is to reduce pixel reprojection errors, even if that results in big differences "
-     "in the camera positions. It is suggested to not modify this value, "
-     "and adjust instead --camera-position-weight.")
-    ("rotation-weight",      po::value(&opt.rotation_weight)->default_value(0.0),
-     "A higher weight will penalize more rotation deviations from the original configuration.")
+     "The robust threshold to attenuate large discrepancies between initial and optimized "
+     "camera positions with the option --camera-position-weight. This is less than "
+     "--robust-threshold, as the primary goal is to reduce pixel reprojection errors, even "
+     "if that results in big differences in the camera positions. It is suggested to not "
+     "modify this value, and adjust instead --camera-position-weight.")
+    ("rotation-weight", 
+     po::value(&opt.rotation_weight)->default_value(0.0),
+     "A higher weight will penalize more rotation deviations from the original "
+     "configuration.")
     ("camera-weight", po::value(&opt.camera_weight)->default_value(0.0),
      "The weight to give to the constraint that the camera positions/orientations "
      "stay close to the original values. A higher weight means that the values will "
@@ -1850,12 +1878,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "are in pixels. See also --tri-robust-threshold. Does not apply to GCP or points "
       "constrained by a DEM.")
     ("tri-robust-threshold", po::value(&opt.tri_robust_threshold)->default_value(0.1),
-     "The robust threshold to attenuate large differences between initial and "
-     "optimized triangulation points, after multiplying them by --tri-weight and "
-     "dividing by GSD. This is less than --robust-threshold, as the primary goal "
-     "is to reduce pixel reprojection errors, even if that results in big differences "
-      "in the triangulated points. It is suggested to not modify this value, "
-      "and adjust instead --tri-weight.")
+     "The robust threshold to attenuate large differences between initial and optimized "
+     "triangulation points, after multiplying them by --tri-weight and dividing by GSD. "
+     "This is less than --robust-threshold, as the primary goal is to reduce pixel "
+     "reprojection errors, even if that results in big differences in the triangulated "
+     "points. It is suggested to not modify this value, and adjust instead --tri-weight.")
     ("isis-cnet", po::value(&opt.isis_cnet)->default_value(""),
      "Read a control network having interest point matches from this binary file "
      "in the ISIS jigsaw format. This can be used with any images and cameras "
@@ -1878,11 +1905,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "If a feature is seen in n >= 2 images, give it a weight proportional with "
      "(n-1)^exponent.")
     ("ip-per-tile", po::value(&opt.ip_per_tile)->default_value(0),
-      "How many interest points to detect in each 1024^2 image tile (default: automatic determination). This is before matching. Not all interest points will have a match. See also --matches-per-tile.")
+     "How many interest points to detect in each 1024^2 image tile (default: automatic "
+     "determination). This is before matching. Not all interest points will have a match. "
+     "See also --matches-per-tile.")
     ("ip-per-image", po::value(&opt.ip_per_image)->default_value(0),
      "How many interest points to detect in each image (default: automatic determination). It is overridden by --ip-per-tile if provided.")
-    ("num-passes",           po::value(&opt.num_ba_passes)->default_value(2),
-     "How many passes of bundle adjustment to do, with given number of iterations in each pass. For more than one pass, outliers will be removed between passes using --remove-outliers-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed (*-clean.match) will be written to disk.")
+    ("num-passes",
+     po::value(&opt.num_ba_passes)->default_value(2),
+     "How many passes of bundle adjustment to do, with given number of iterations in each "
+     "pass. For more than one pass, outliers will be removed between passes using "
+     "--remove-outliers-params, and re-optimization will take place. Residual files and a "
+     "copy of the match files with the outliers removed (*-clean.match) will be written to "
+     "disk.")
     ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
      "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
     ("camera-position-uncertainty",  
@@ -1898,7 +1932,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "option. The default should be good enough.")
     ("remove-outliers-params", 
      po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 5.0 8.0", "'pct factor err1 err2'"),
-     "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points (that are not GCP) with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Also remove outliers based on distribution of interest point matches and triangulated points.")
+     "Outlier removal based on percentage, when more than one bundle adjustment pass is "
+     "used. Triangulated points (that are not GCP) with reprojection error in pixels "
+     "larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as "
+     "outliers. Hence, never remove errors smaller than err1 but always remove those "
+     "bigger than err2. Specify as a list in quotes. Also remove outliers based on "
+     "distribution of interest point matches and triangulated points.")
     ("elevation-limit", po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
      "Remove as outliers interest points (that are not GCP) for which the elevation of the triangulated position (after cameras are optimized) is outside of this range. Specify as two values: min max.")
     // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
@@ -2019,10 +2058,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
        "Choose the FLANN method for matching interest points. The default 'kmeans' is "
        "slower but deterministic, while 'kdtree' is faster but not deterministic.")
     ("save-vwip", po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
-     "Save .vwip files (intermediate files for creating .match files). For parallel_bundle_adjust these will be saved in subdirectories, as they depend on the image pair. Must start with an empty output directory for this to work.")
+     "Save .vwip files (intermediate files for creating .match files). For "
+     "parallel_bundle_adjust these will be saved in subdirectories, as they depend on the "
+     "image pair. Must start with an empty output directory for this to work.")
     ("vwip-prefix",  po::value(&opt.vwip_prefix),
      "Save .vwip files with this prefix. This is a private option used by parallel_bundle_adjust.")
-    ("ip-debug-images", po::bool_switch(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
+    ("ip-debug-images", 
+     po::bool_switch(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
      "Write debug images to disk when detecting and matching interest points.");
     
   general_options.add(vw::GdalWriteOptionsDescription(opt));
