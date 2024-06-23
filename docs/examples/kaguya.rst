@@ -228,7 +228,8 @@ Solving for jitter for Kaguya TC
 Kaguya TC cameras exhibit some jitter, but its effect is not as strong as the one of
 lens distortion, which needs to be solved for first. 
 
-Then, jitter can be corrected as for CTX in :numref:`jitter_ctx`.
+Then, jitter can be corrected as for CTX in :numref:`jitter_ctx`. The precise commands
+are below.
 
 .. figure:: ../images/kaguya_jitter.png
    :name: jitter_kaguya_fig
