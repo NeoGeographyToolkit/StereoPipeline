@@ -1732,11 +1732,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("csv-proj4",         po::value(&opt.csv_proj4_str)->default_value(""),
      "The PROJ.4 string to use to interpret the entries in input CSV files.")
     ("reference-terrain", po::value(&opt.reference_terrain)->default_value(""),
-    "An externally provided trustworthy 3D terrain, either as a DEM "
-    "or as a lidar file, very close (after alignment) to the stereo "
-    "result from the given images and cameras that can be used as a "
-    "reference, instead of GCP, to optimize the intrinsics of the "
-    "cameras.")
+     "An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, "
+     "very close (after alignment) to the stereo result from the given images and cameras "
+     "that can be used as a reference, instead of GCP, to optimize the intrinsics of the "
+     "cameras.")
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000),
      "Maximum number of (randomly picked) points from the reference terrain to use.")
     ("disparity-list", po::value(&opt.disparity_list)->default_value(""),
@@ -2031,32 +2030,35 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "take place. Using --num-iterations 0 and without this option "
      "will create those.")
     ("proj-win", po::value(&opt.proj_win)->default_value(BBox2(0,0,0,0), "auto"),
-     "Flag as outliers input triangulated points not in this proj win (box in projected units as provided by --proj_str). This should be generous if the input cameras have significant errors.")
+     "Flag as outliers input triangulated points not in this proj win (box in projected "
+     "units as provided by --proj_str). This should be generous if the input cameras have "
+     "significant errors.")
     ("proj-str",   po::value(&opt.proj_str)->default_value(""),
      "To be used in conjunction with --proj-win.")
     ("matches-per-tile-params",  po::value(&opt.matches_per_tile_params)->default_value(Vector2(1024, 1280), "1024 1280"),
-     "To be used with --matches-per-tile. The first value is the image tile "
-      "size for both images. A larger second value allows each right tile to "
-      "further expand to this size, resulting in the tiles overlapping. This may be "
-      "needed if the homography alignment between these images is not great, as "
-      "this transform is used to pair up left and right image tiles.")
-    ("propagate-errors",  po::bool_switch(&opt.propagate_errors)->default_value(false)->implicit_value(true),
-     "Propagate the errors from the input cameras to the triangulated points for all "
-     "pairs of match points, and produce a report having the median, mean, "
-     "standard deviation, and number of samples for each camera pair.")
+     "To be used with --matches-per-tile. The first value is the image tile size for both "
+     "images. A larger second value allows each right tile to further expand to this size, "
+     "resulting in the tiles overlapping. This may be needed if the homography alignment "
+     "between these images is not great, as this transform is used to pair up left and "
+     "right image tiles.")
+    ("propagate-errors",  
+     po::bool_switch(&opt.propagate_errors)->default_value(false)->implicit_value(true),
+     "Propagate the errors from the input cameras to the triangulated points for all pairs "
+     "of match points, and produce a report having the median, mean, standard deviation, "
+     "and number of samples for each camera pair.")
     ("horizontal-stddev", po::value(&opt.horizontal_stddev)->default_value(0), 
-      "If positive, propagate this stddev of horizontal ground plane camera uncertainty "
-      "through triangulation for all cameras. To be used with --propagate-errors.")
+     "If positive, propagate this stddev of horizontal ground plane camera uncertainty "
+     "through triangulation for all cameras. To be used with --propagate-errors.")
     ("min-distortion", 
      po::value(&opt.min_distortion)->default_value(1e-7),
-      "When lens distortion is optimized, all initial distortion parameters that "
-      "are smaller in magnitude than this value are set to this value. This is to "
-      "ensure the parameters are big enough to be optimized. Can be negative. Applies "
-      "to Pinhole cameras (all distortion models) and CSM (radial-tangential distortion "
-      "only). Does not apply to optical bar models.")
+     "When lens distortion is optimized, all initial distortion parameters that are "
+     "smaller in magnitude than this value are set to this value. This is to ensure the "
+     "parameters are big enough to be optimized. Can be negative. Applies to Pinhole "
+     "cameras (all distortion models) and CSM (radial-tangential distortion only). Does "
+     "not apply to optical bar models.")
     ("flann-method",  po::value(&opt.flann_method)->default_value("kmeans"),
-       "Choose the FLANN method for matching interest points. The default 'kmeans' is "
-       "slower but deterministic, while 'kdtree' is faster but not deterministic.")
+     "Choose the FLANN method for matching interest points. The default 'kmeans' is slower "
+     "but deterministic, while 'kdtree' is faster but not deterministic.")
     ("save-vwip", po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
      "Save .vwip files (intermediate files for creating .match files). For "
      "parallel_bundle_adjust these will be saved in subdirectories, as they depend on the "
@@ -2065,7 +2067,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save .vwip files with this prefix. This is a private option used by parallel_bundle_adjust.")
     ("ip-debug-images", 
      po::bool_switch(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
-     "Write debug images to disk when detecting and matching interest points.");
+     "Write debug images to disk when detecting and matching interest points.")
+    ;
     
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
