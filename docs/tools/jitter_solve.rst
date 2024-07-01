@@ -201,6 +201,18 @@ The relevant options are ``--num-anchor-points``,
 ``--num-anchor-points-extra-lines``.  An example is given in
 :numref:`jitter_dg`.
 
+Solving for intrinsics 
+~~~~~~~~~~~~~~~~~~~~~~
+
+For some datasets there can be both jitter and lens distortion effects, such
+as for Kaguya TC (:numref:`kaguya_ba`, :numref:`jitter_kaguya`). In such cases,
+the stronger phenomenon should be solved for first. 
+
+The ``bundle_adjust`` and ``jitter_solve`` programs can use each other's output
+cameras as inputs, as each saves image and optimized camera lists
+(:numref:`ba_out_cams`), which can then be passed in to the other program the
+via the ``--image-list`` and ``--camera-list`` options.
+
 .. _jitter_ctx:
 
 Example 1: CTX images on Mars
@@ -1713,6 +1725,20 @@ points have had their heights set to the DEM height, which can be
 confusing. Yet in the final (optimized) file these points have moved,
 so then the result makes more sense. When using the ``--tri-weight``
 option the true initial triangulated points and errors are used.
+
+Image and camera lists
+^^^^^^^^^^^^^^^^^^^^^^
+
+The list of input images will be saved to::
+
+    {output-prefix}-image_list.txt
+
+The list of optimized cameras will be saved to::
+
+    {output-prefix}-camera_list.txt
+
+This is convenient because both ``bundle_adjust`` and ``jitter_solve`` can read
+such lists with the ``--image-list`` and ``--camera-list`` options.
 
 .. _jitter_options:
 

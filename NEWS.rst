@@ -2,8 +2,8 @@ Changes since the last release
 ------------------------------
 
 bundle_adjust (:numref:`bundle_adjust`):
-  Added the option ``--min-distortion`` to ensure small distortion parameters
-  get optimized.
+ * Added the option ``--min-distortion`` to ensure small distortion parameters
+   get optimized.
   
 mapproject (:numref:`mapproject`):
   * Add the option ``--query-pixel``.
@@ -13,6 +13,16 @@ jitter_solve (:numref:`jitter_solve`):
     
 stereo_gui (:numref:`stereo_gui`):
   * Changing the image threshold updates the display correctly.
+
+image_calc (:numref:`image_calc`):
+  * Added an example for how to extract the horizontal and vertical disparity
+    bands while setting invalid disparities to a no-data value
+    (:numref:`mask_disparity`).
+  
+misc:
+ * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
+   optimized camera file names (or adjustments). Can be passed in back to
+   any of these tools (:numref:`ba_out_files`).
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

@@ -763,6 +763,26 @@ The reprojection error file may be more helpful than this GCP report file
 (:numref:`ba_err_per_point`). The GCP are flagged with the string ``# GCP`` at
 the end of that file.
 
+.. _ba_out_cams:
+
+Image and camera lists
+^^^^^^^^^^^^^^^^^^^^^^
+
+The list of input images will be saved to::
+
+    {output-prefix}-image_list.txt
+
+The list of optimized cameras (such as for CSM or with the option
+``--inline-adjustments``) will be saved to::
+
+    {output-prefix}-camera_list.txt
+
+If only ``.adjust`` files are saved, these will be in the list instead.
+
+This is convenient because both ``bundle_adjust`` and ``jitter_solve`` can read
+such lists with the ``--image-list`` and ``--camera-list`` options (but not if
+``.adjust`` files are saved).
+
 .. _ba_error_propagation:
 
 Error propagation
@@ -1479,7 +1499,8 @@ Command-line options
     Choose the FLANN method for matching interest points. The default
     ``kmeans`` is slower but deterministic, while ``kdtree`` is faster 
     (up to 6x) but not deterministic (starting with FLANN 1.9.2).
-    Normally the default is good enough. 
+    Normally the default is good enough. This does not apply to 
+    ORB feature matching.
 
 --save-vwip
     Save .vwip files (intermediate files for creating .match

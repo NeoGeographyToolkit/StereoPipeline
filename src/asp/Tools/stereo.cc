@@ -637,9 +637,6 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
       stereo_settings().disp_smooth_texture = SGM_DEFAULT_TEXTURE_SMOOTH_SCALE;
     if (vm["subpixel-mode"].defaulted()) 
       stereo_settings().subpixel_mode = SGM_DEFAULT_SUBPIXEL_MODE;
-    else
-      vw_out() << "Will refine the disparity with ASP subpixel-mode: "
-                << stereo_settings().subpixel_mode << ".\n";
 
     // This is for the case when settings are read from stereo.default. Print
     // some warnings.

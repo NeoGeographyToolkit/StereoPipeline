@@ -272,11 +272,11 @@ Solving for jitter::
     ba/run-TC1W2B0_01_05324N054E2169.adjusted_state.json \
     ba/run-TC2W2B0_01_05324N056E2169.adjusted_state.json \
     --max-pairwise-matches 20000                         \
-    --num-lines-per-position    300                      \
+    --num-lines-per-position 300                         \
     --num-lines-per-orientation 300                      \
     --max-initial-reprojection-error 20                  \
     --match-files-prefix dense_matches/run               \
     --heights-from-dem lola-filled-DEM.tif               \
-    --num-iterations 10                                  \
     --heights-from-dem-uncertainty 10                    \
+    --num-iterations 10                                  \
     -o jitter/run

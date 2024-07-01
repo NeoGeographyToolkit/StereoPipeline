@@ -252,7 +252,7 @@ namespace asp {
     
     VW_ASSERT(left_map_proj_cam.get() && right_map_proj_cam.get(),
               ArgumentErr() << "StereoSession: Unable to locate map "
-              << "projection camera model inside input files!");
+              << "projection camera model inside input files.");
 
     // Double check that we can read the DEM and that it has cartographic information.
     VW_ASSERT(!input_dem.empty(), InputErr() << "StereoSession: Require input DEM.");

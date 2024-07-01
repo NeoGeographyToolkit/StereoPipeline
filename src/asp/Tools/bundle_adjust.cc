@@ -766,7 +766,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   if (opt.heights_from_dem != "") {
     vw::vw_out() << "Constraining against DEM: " << opt.heights_from_dem << "\n";
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
-    asp::update_point_from_dem(cnet, crn, outliers, opt.camera_models,
+    asp::update_tri_pts_from_dem(cnet, crn, outliers, opt.camera_models,
                                dem_georef, interp_dem, 
                                // Output
                                dem_xyz_vec);
@@ -2382,6 +2382,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() 
              << "The value of --heights-from-dem is empty. "
              << "Then it must not be set at all.\n");
+  
+  if (!vm["heights-from-dem-uncertainty"].defaulted() &&
+      vm["heights-from-dem"].defaulted())
+    vw_throw(ArgumentErr() 
+             << "The value of --heights-from-dem-uncertainty is set, "
+             << "but --heights-from-dem is not set.\n");
   
   if (opt.heights_from_dem_uncertainty <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be "

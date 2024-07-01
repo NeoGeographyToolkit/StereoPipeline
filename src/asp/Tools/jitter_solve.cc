@@ -354,6 +354,12 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     vw_throw(ArgumentErr() 
              << "The value of --anchor-dem is empty. Then it must not be set at all.\n");
      
+  if (!vm["heights-from-dem-uncertainty"].defaulted() &&
+      vm["heights-from-dem"].defaulted())
+    vw_throw(ArgumentErr() 
+             << "The value of --heights-from-dem-uncertainty is set, "
+             << "but --heights-from-dem is not set.\n");
+
   if (opt.heights_from_dem_uncertainty <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be positive.\n");
   
@@ -764,13 +770,16 @@ void saveCsmCameras(std::string const& out_prefix,
                     std::vector<vw::CamPtr>  const& camera_models,
                     bool update_isis_cubes_with_csm_state) {
 
-  for (size_t icam = 0; icam < camera_models.size(); icam++) {
+  int num_cameras = camera_models.size();
+  std::vector<std::string> cam_files(num_cameras);
+  for (int icam = 0; icam < num_cameras; icam++) {
     std::string adjustFile = asp::bundle_adjust_file_name(out_prefix,
                                                           image_files[icam],
                                                           camera_files[icam]);
     std::string csmFile = asp::csmStateFile(adjustFile);
     asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], stereo_session);
     csm_cam->saveState(csmFile);
+    cam_files[icam] = csmFile;
 
     if (update_isis_cubes_with_csm_state) {
       // Save the CSM state to the image file. Wipe any spice info.
@@ -782,6 +791,17 @@ void saveCsmCameras(std::string const& out_prefix,
       asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
     }
   }
+  
+  // Write the image lists
+  std::string img_list_file = out_prefix + "-image_list.txt";
+  vw::vw_out() << "Writing: " << img_list_file << std::endl;
+  asp::write_list(img_list_file, image_files);
+  
+  // Write the camera lists
+  std::string cam_list_file = out_prefix + "-camera_list.txt";
+  vw::vw_out() << "Writing: " << cam_list_file << std::endl;
+  asp::write_list(cam_list_file, cam_files);
+  
 }
 
 void run_jitter_solve(int argc, char* argv[]) {
@@ -935,7 +955,7 @@ void run_jitter_solve(int argc, char* argv[]) {
     vw::vw_out() << "Reading the DEM for the --heights-from-dem constraint.\n";
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
     asp::checkDatumConsistency(opt.datum, dem_georef.datum(), warn_only);
-    asp::update_point_from_dem(cnet, crn, outliers, opt.camera_models,
+    asp::update_tri_pts_from_dem(cnet, crn, outliers, opt.camera_models,
                                dem_georef, interp_dem,  
                                // Output
                                dem_xyz_vec);

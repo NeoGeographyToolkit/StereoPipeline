@@ -127,6 +127,39 @@ Subtract 360 degrees from the longitudes in a GeoTiff file
       --longitude-offset -360 -d float32 
 
 
+.. _mask_disparity:
+
+Extract disparity bands respecting invalid disparities
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Extracting one disparity band with ``gdal_translate`` (:numref:`gdal_tools`)
+makes it hard to see where the disparity is zero but valid, and where it is
+invalid. This can be disambiguated with ``image_calc``, by using the mask
+from the third band to set the invalid disparities in a band to nodata. 
+
+For that, first extract the three bands from an ``F.tif`` disparity
+produced by ASP (:numref:`outputfiles`)::
+
+    for b in 1 2 3; do 
+      gdal_translate -b $b F.tif F_b${b}.tif
+    done
+      
+Then consider a value ``t`` that is larger than any disparity, such as
+``t=1e+6``. Add this value to all disparities, apply the mask from the third
+band, then subtract it. Invalid values will become equal to ``-t``, which is set
+as the nodata value.
+
+::
+
+    t=1e+6
+    for b in 1 2; do 
+      image_calc -c "(var_0 + $t)*var_1 - $t" \
+      --output-nodata-value -$t               \
+      F_b${b}.tif F_b3.tif                    \
+      -o F_b${b}_nodata.tif
+    done
+    
+
 Usage
 ~~~~~
 

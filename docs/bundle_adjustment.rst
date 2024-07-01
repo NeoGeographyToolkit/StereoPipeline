@@ -360,18 +360,18 @@ falls back to the ``--tri-weight`` constraint.
 Here is an example. As in the earlier section, *we assume that the cameras and
 the terrain are already aligned*::
 
-     bundle_adjust -t nadirpinhole                   \
-       --inline-adjustments                          \
-       --solve-intrinsics --camera-position-weight 0 \
-       --max-pairwise-matches 20000                  \
-       --heights-from-dem dem.tif                    \
-       --heights-from-dem-uncertainty 10.0           \
-       --heights-from-dem-robust-threshold 0.1       \
-       --parameter-tolerance 1e-12                   \
-       --remove-outliers-params "75.0 3.0 20 25"     \
-       left.tif right.tif                            \
-       run_align/run-run-left.tsai                   \
-       run_align/run-run-right.tsai                  \
+     bundle_adjust -t nadirpinhole               \
+       --inline-adjustments                      \
+       --solve-intrinsics                        \
+       --camera-position-weight 0                \
+       --max-pairwise-matches 20000              \
+       --heights-from-dem dem.tif                \
+       --heights-from-dem-uncertainty 10.0       \
+       --parameter-tolerance 1e-12               \
+       --remove-outliers-params "75.0 3.0 20 25" \
+       left.tif right.tif                        \
+       run_align/run-run-left.tsai               \
+       run_align/run-run-right.tsai              \
        -o run_ba_hts_from_dem/run
 
 Here we were rather generous with the parameters for removing
@@ -766,8 +766,8 @@ For the next step, refining the intrinsics, it is important to have
 well-distributed interest points. 
 
 Normally, the sparse interest points produced with bundle adjustment so far can
-be used. For most precise work, dense and uniformly distributed interest points
-can be necessary. This is discussed in :numref:`dense_ip`.
+be used. *For most precise work, dense and uniformly distributed interest points
+produced from disparity are necessary* (:numref:`dense_ip`).
 
 For example, if the input dataset consists of 6 overlapping stereo pairs, stereo
 can be run between each left image and every other right image, producing 36

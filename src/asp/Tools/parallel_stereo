@@ -116,7 +116,11 @@ def sym_link_prev_run(prev_run_prefix, out_prefix):
     Do not sym link the previous point cloud, DEM, etc., also not
     VRT files as those will not be valid.
     '''
-    
+
+    # Ensure we do not wipe the run we want to reuse    
+    if prev_run_prefix == out_prefix:
+      raise Exception('The previous run prefix is the same as the current run prefix.')
+      
     curr_dir = os.path.dirname(out_prefix)
     mkdir_p(curr_dir)
     

@@ -255,9 +255,10 @@ functions.
 
 To create polygons, click with the left mouse button on points to be
 added. When clicking close to the starting point, the polygon becomes
-closed and a new one can be drawn. A single point can be drawn by
+closed and and a new one can be drawn. A single point can be drawn by
 clicking twice in the same location. To draw a segment, click on its
 starting point, ending point, and then its starting point again.
+*One must return to the starting point for the polygon to be recorded.*
 
 The resulting shapes can be saved from the right-click menu as shapefiles or in
 plain text. The shapefile specification prohibits having a mix of points,

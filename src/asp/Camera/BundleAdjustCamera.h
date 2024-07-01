@@ -614,26 +614,6 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
                    vw::Matrix<double> const& initial_transform,
                    std::vector<vw::CamPtr> &new_cam_models);
 
-/// Write a pinhole camera file to disk.
-void write_pinhole_output_file(asp::BaBaseOptions const& opt, int icam,
-                               vw::cartography::Datum const& datum,
-                               asp::BAParams const& param_storage);
-
-/// Write an optical bar camera file to disk.
-void write_optical_bar_output_file(asp::BaBaseOptions const& opt, int icam,
-                                   vw::cartography::Datum const& datum,
-                                   asp::BAParams const& param_storage);
-
-/// Write a CSM camera file to disk.
-void write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
-                           vw::cartography::Datum const& datum,
-                           asp::BAParams const& param_storage);
-
-/// Write a csm camera state file to disk. Assumes no intrinsics are optimized.
-void write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
-                                   std::string const& adjustFile, 
-                                   asp::BAParams const& param_storage);
-
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
 void saveCameraReport(asp::BaBaseOptions const& opt, asp::BAParams const& param_storage,

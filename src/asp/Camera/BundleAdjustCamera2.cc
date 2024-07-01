@@ -311,10 +311,10 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
   return cameras_changed;
 }
 
-/// Write a pinhole camera file to disk.
-void write_pinhole_output_file(asp::BaBaseOptions const& opt, int icam,
-                               vw::cartography::Datum const& datum,
-                               asp::BAParams const& param_storage) {
+/// Write a pinhole camera file to disk. Return the path to the saved file.
+std::string write_pinhole_output_file(asp::BaBaseOptions const& opt, int icam,
+                                      vw::cartography::Datum const& datum,
+                                      asp::BAParams const& param_storage) {
 
   // Get the output file path
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
@@ -341,13 +341,15 @@ void write_pinhole_output_file(asp::BaBaseOptions const& opt, int icam,
                   << datum.cartesian_to_geodetic(out_cam.camera_center())
                   << " (longitude, latitude, height above datum(m))\n\n";
   }
+  
+  return cam_file;
 }
 
 
-/// Write an optical bar camera file to disk.
-void write_optical_bar_output_file(asp::BaBaseOptions const& opt, int icam,
-                                   vw::cartography::Datum const& datum,
-                                   asp::BAParams const& param_storage) {
+/// Write an optical bar camera file to disk. Return the path to the saved file.
+std::string write_optical_bar_output_file(asp::BaBaseOptions const& opt, int icam,
+                                          vw::cartography::Datum const& datum,
+                                          asp::BAParams const& param_storage) {
 
   // Get the output file path
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
@@ -375,10 +377,13 @@ void write_optical_bar_output_file(asp::BaBaseOptions const& opt, int icam,
                   << datum.cartesian_to_geodetic(out_cam.camera_center())
                   << " (longitude, latitude, height above datum(m))\n\n";
   }
+  
+  return cam_file;
 }
 
-/// Write a CSM camera file to disk. Assumes that the intriniscs are optimized.
-void write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
+// Write a CSM camera file to disk. Assumes that the intriniscs are optimized.
+// Return the path to the saved file.
+std::string write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
                            vw::cartography::Datum const& datum,
                            asp::BAParams const& param_storage) {
 
@@ -416,10 +421,12 @@ void write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
     vw::vw_out() << "Adding updated CSM state to image file: " << image_name << std::endl;
     asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
   }
+  
+  return cam_file;
 }
 
 /// Write a csm camera state file to disk. Assumes no intrinsics are optimized.
-void write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
+std::string write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
                                    std::string const& adjustFile, 
                                    asp::BAParams const& param_storage) {
   
@@ -447,6 +454,8 @@ void write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
     vw::vw_out() << "Adding updated CSM state to image file: " << image_name << std::endl;
     asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
   }
+  
+  return csmFile;
 }
 
 // Read image and camera lists. Can have several comma-separated lists
@@ -1132,23 +1141,26 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
   }
 }
 
-void saveUpdatedCamera(asp::BaBaseOptions const& opt, asp::BAParams const& param_storage,
-                       int icam) {
+// Save the updated camera model to disk. Return the name of the file written.
+std::string saveUpdatedCamera(asp::BaBaseOptions const& opt, 
+                              asp::BAParams const& param_storage,
+                              int icam) {
 
   // Must have a try block, as otherwise OpenMP crashes the program
   // as the caller seems unable to catch the exception from threads.
+  std::string cam_file; 
   try {
 
-    switch(opt.camera_type) {
+    switch (opt.camera_type) {
     case BaCameraType_Pinhole:
-      write_pinhole_output_file(opt, icam, opt.datum, param_storage);
+      cam_file = write_pinhole_output_file(opt, icam, opt.datum, param_storage);
       break;
     case BaCameraType_OpticalBar:
-      write_optical_bar_output_file(opt, icam, opt.datum, param_storage);
+      cam_file = write_optical_bar_output_file(opt, icam, opt.datum, param_storage);
       break;
     case BaCameraType_CSM:
       // When solving for intrinsics and using CSM
-      write_csm_output_file(opt, icam, opt.datum, param_storage);
+      cam_file = write_csm_output_file(opt, icam, opt.datum, param_storage);
       break;
     case BaCameraType_Other: {
         // TODO(oalexan1): Make this into a function and move it out.
@@ -1162,8 +1174,11 @@ void saveUpdatedCamera(asp::BaBaseOptions const& opt, asp::BAParams const& param
           vw::vw_out() << "Writing: " << adjust_file << std::endl;
         }
         
+        // The cam_file will be overwritten below for CSM cameras
         CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-        asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
+        asp::write_adjustments(adjust_file, cam_adjust.position(), 
+                                          cam_adjust.pose());
+        cam_file = adjust_file;
 
         // For CSM camera models export, in addition, the JSON state
         // with the adjustment applied to it.
@@ -1171,7 +1186,7 @@ void saveUpdatedCamera(asp::BaBaseOptions const& opt, asp::BAParams const& param
         if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades" ||
             opt.stereo_session == "dg"  ||
             (opt.stereo_session == "aster" && asp::stereo_settings().aster_use_csm))
-          write_csm_output_file_no_intr(opt, icam, adjust_file, param_storage);
+          cam_file = write_csm_output_file_no_intr(opt, icam, adjust_file, param_storage);
       }
       break;
     default:
@@ -1181,29 +1196,43 @@ void saveUpdatedCamera(asp::BaBaseOptions const& opt, asp::BAParams const& param
     vw::vw_out() << e.what() << "\n";
   }
   
+  return cam_file;
 }
 
 // Write updated camera models to disk
 void saveUpdatedCameras(asp::BaBaseOptions const& opt, asp::BAParams const& param_storage) {
   
   int num_cameras = opt.image_files.size();
+  std::vector<std::string> cam_files(num_cameras);
   vw::Stopwatch sw;
   sw.start();
-  // For pinhole and nadirpinhole sessions, save the cameras sequentially,
-  // as some info is printed along the way and can get messed up if done in parallel.
+  
+  // For pinhole and nadirpinhole sessions, save the cameras sequentially, as
+  // some info is printed along the way and can get messed up if done in
+  // parallel.
   if (!opt.single_threaded_cameras && !opt.update_isis_cubes_with_csm_state &&
       opt.stereo_session.find("pinhole") == std::string::npos) {
     #pragma omp parallel for 
     for (int icam = 0; icam < num_cameras; icam++)
-      saveUpdatedCamera(opt, param_storage, icam);
+      cam_files[icam] = saveUpdatedCamera(opt, param_storage, icam);
   } else {
     for (int icam = 0; icam < num_cameras; icam++)
-      saveUpdatedCamera(opt, param_storage, icam);
+      cam_files[icam] = saveUpdatedCamera(opt, param_storage, icam);
   }
 
   sw.stop();
   vw::vw_out() << "Saving cameras elapsed time: " << sw.elapsed_seconds() << " seconds.\n";
 
+  // Write the image lists
+  std::string img_list_file = opt.out_prefix + "-image_list.txt";
+  vw::vw_out() << "Writing: " << img_list_file << std::endl;
+  asp::write_list(img_list_file, opt.image_files);
+  
+  // Write the camera lists
+  std::string cam_list_file = opt.out_prefix + "-camera_list.txt";
+  vw::vw_out() << "Writing: " << cam_list_file << std::endl;
+  asp::write_list(cam_list_file, cam_files);
+  
   return;
 }
 

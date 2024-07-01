@@ -451,13 +451,13 @@ model file input option and observe the rotation of the 3D model.
 How the pinhole model is applied
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-As mentioned in :numref:`file_format`, the ASP Pinhole models
-store the focal length as :math:`fu` and :math:`fv`, the optical center
-:math:`(cu, cv)` (which is the pixel location at which the ray coming
-from the center of the camera is perpendicular to the image plane, in
-units of the pixel pitch), the vector :math:`C` which is the camera
-center in world coordinates system, and the matrix :math:`R` that is the
-transform from camera to world coordinates.
+As mentioned in :numref:`file_format`, the ASP Pinhole models store the focal
+length as :math:`fu` and :math:`fv`, the optical center :math:`(cu, cv)` (which
+is the pixel location at which the ray coming from the center of the camera is
+perpendicular to the image plane, in units of the pixel pitch), the vector
+:math:`C` which is the camera center in the world coordinate system (such as
+ECEF, so body-fixed), and the matrix :math:`R` that is the transform from camera
+to world coordinates.
 
 To go in more detail, a point :math:`Q` in the camera coordinate system
 gets transformed to a point :math:`P` in the world coordinate system

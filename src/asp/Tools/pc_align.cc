@@ -164,41 +164,38 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
   if ( opt.reference.empty() || opt.source.empty() )
-    vw_throw( ArgumentErr() << "Missing input files.\n" << usage << general_options );
+    vw_throw( ArgumentErr() << "Missing input files.\n");
 
   if ( opt.out_prefix.empty() )
-    vw_throw( ArgumentErr() << "Missing output prefix.\n" << usage << general_options );
+    vw_throw( ArgumentErr() << "Missing output prefix.\n");
 
   if ( opt.max_disp == 0.0 )
     vw_throw( ArgumentErr() << "The max-displacement option was not set. "
-              << "Use -1 if it is desired not to use it.\n" << usage << general_options );
+              << "Use -1 if it is desired not to use it.\n");
 
   if ( opt.num_iter < 0 )
-    vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n"
-              << usage << general_options );
+    vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n");
 
   if ( (opt.semi_major_axis != 0 && opt.semi_minor_axis == 0) ||
        (opt.semi_minor_axis != 0 && opt.semi_major_axis == 0) ){
 
     vw_throw( ArgumentErr() << "One of the semi-major or semi-minor axes"
-              << " was specified, but not the other one.\n"
-              << usage << general_options );
+              << " was specified, but not the other one.\n");
   }
 
   if (opt.semi_major_axis < 0 || opt.semi_minor_axis < 0){
     vw_throw( ArgumentErr() << "The semi-major and semi-minor axes cannot "
-                            << "be negative.\n" << usage << general_options );
+                            << "be negative.\n" );
   }
 
   if (opt.datum != "" && opt.semi_major_axis != 0 && opt.semi_minor_axis != 0 ){
     vw_throw( ArgumentErr() << "Both the datum string and datum semi-axes were "
-                            << "specified. At most one needs to be set.\n"
-                            << usage << general_options );
+                            << "specified. At most one needs to be set.\n");
   }
 
   if ((opt.initial_ned_translation != "" || opt.initial_rotation_angle != 0)
@@ -239,15 +236,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Only the following alignment methods are supported: "
 	      << "point-to-plane, point-to-point, similarity-point-to-point, "
               << "similarity-point-to-plane, fgr, least-squares, and similarity-least-squares.\n"
-	      << usage << general_options );
+	      );
 
   if (opt.alignment_method != "point-to-plane"            &&
       opt.alignment_method != "point-to-point"            &&
       opt.alignment_method != "similarity-point-to-point" &&
       opt.alignment_method != "similarity-point-to-plane" &&
       opt.compute_translation_only) {
-    vw_throw( ArgumentErr() << "The option --compute-translation-only is only applicable to point-to-plane, point-to-point, similarity-point-to-point, and similarity-point-to-plane alignment.\n"
-	      << usage << general_options );
+    vw_throw( ArgumentErr() << "The option --compute-translation-only is only applicable to point-to-plane, point-to-point, similarity-point-to-point, and similarity-point-to-plane alignment.\n");
   }
   
   if ( (opt.alignment_method == "least-squares" ||
@@ -578,7 +574,7 @@ void filter_source_cloud(DP          const& ref_point_cloud,
 
   sw.stop();
   if (opt.verbose)
-    vw_out() << "Filtering gross outliers took " << sw.elapsed_seconds() << " [s]" << endl;
+    vw_out() << "Filtering gross outliers took " << sw.elapsed_seconds() << " s\n";
 }
 
 
@@ -673,9 +669,11 @@ initial_transform_from_match_file(std::string const& ref_file,
                                   std::string const& hillshading_transform,
                                   Vector2 initial_transform_ransac_params){
   
-  if (asp::get_cloud_type(ref_file) != "DEM" ||
-      asp::get_cloud_type(source_file) != "DEM" )
-    vw_throw( ArgumentErr() << "The alignment transform computation based on manually chosen point matches only works for DEMs. Use point2dem to first create DEMs from the input point clouds.\n" );
+  if (asp::get_cloud_type(ref_file) != "DEM" || asp::get_cloud_type(source_file) != "DEM")
+    vw_throw(ArgumentErr() 
+             << "The alignment transform computation based on manually chosen "
+             << "point matches only works for DEMs. Use point2dem to first create "
+             << "DEMs from the input point clouds.\n");
 
   vector<vw::ip::InterestPoint> ref_ip, source_ip;
   vw_out() << "Reading match file: " << match_file << "\n";
@@ -827,7 +825,7 @@ vw::Vector3 estimate_ref_cloud_centroid(vw::cartography::GeoReference const& geo
     centroid[it] = meanRef[it];
   
   sw.stop();
-  vw_out() << "Centroid estimation took " << sw.elapsed_seconds() << " [s]" << endl;
+  vw_out() << "Centroid estimation took " << sw.elapsed_seconds() << " s\n";
 
   return centroid;
 }
@@ -954,7 +952,7 @@ int main( int argc, char *argv[] ) {
                                 source_box, trans_source_box);
       sw0.stop();
       vw_out() << "Computation of bounding boxes took " 
-              << sw0.elapsed_seconds() << " [s]" << endl;
+              << sw0.elapsed_seconds() << " s\n";
 
       // When boxes are huge, it is hard to do the optimization of intersecting
       // them, as they may differ not by 0 or 360, but by 180. Better do nothing
@@ -1004,7 +1002,7 @@ int main( int argc, char *argv[] ) {
     sw1.stop();
     if (opt.verbose)
       vw_out() << "Loading the reference point cloud took "
-               << sw1.elapsed_seconds() << " [s]" << endl;
+               << sw1.elapsed_seconds() << " s\n";
     //ref_point_cloud.save(outputBaseFile + "_ref.vtk");
 
     // Load the subsampled source point cloud. If the user wants
@@ -1024,7 +1022,7 @@ int main( int argc, char *argv[] ) {
     sw2.stop();
     if (opt.verbose)
       vw_out() << "Loading the source point cloud took "
-               << sw2.elapsed_seconds() << " [s]" << endl;
+               << sw2.elapsed_seconds() << " s\n";
 
     // So far we shifted by first point in reference point cloud to reduce
     // the magnitude of all loaded points. Now that we have loaded all
@@ -1046,7 +1044,7 @@ int main( int argc, char *argv[] ) {
 
     // If the reference point cloud came from a DEM, also load the data in DEM format.
     cartography::GeoReference dem_georef;
-    vw::ImageViewRef< PixelMask<float> > reference_dem_ref;
+    vw::ImageViewRef<PixelMask<float>> reference_dem_ref;
     if (opt.use_dem_distances()) {
       vw_out() << "Loading reference as DEM." << endl;
       // Load the dem, then wrap it inside an ImageViewRef object.
@@ -1059,17 +1057,17 @@ int main( int argc, char *argv[] ) {
 
     // Filter the reference and initialize the reference tree
     double elapsed_time;
-    PM::ICP icp; // LibpointMatcher object
+    PM::ICP icp; // libpointmatcher object
 
     Stopwatch sw3;
     if (opt.verbose)
-      vw_out() << "Building the reference cloud tree." << endl;
+      vw_out() << "Building the reference cloud tree.\n";
     sw3.start();
     icp.initRefTree(ref_point_cloud, alignment_method_fallback(opt.alignment_method),
 		    opt.highest_accuracy, false /*opt.verbose*/);
     sw3.stop();
     if (opt.verbose)
-      vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " [s]\n";
+      vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " s\n";
 
     // Apply the initial guess transform to the source point cloud.
     apply_transform_to_cloud(initT, source_point_cloud);
@@ -1091,10 +1089,10 @@ int main( int argc, char *argv[] ) {
 
     // Make the libpointmatcher error message clearer
     std::string libpointmatcher_error = "no point to minimize";
-    std::string pc_align_error = std::string
-      ("This likely means that the clouds are too far. Consider increasing the "
+    std::string pc_align_error = 
+       "This likely means that the clouds are too far. Consider increasing the "
        "--max-displacement value to something somewhat larger than the expected "
-       "length of the displacement that may be needed to align the clouds.\n");
+       "length of the displacement that may be needed to align the clouds.\n";
     
     try {
       elapsed_time = compute_registration_error(ref_point_cloud, source_point_cloud, icp,
@@ -1109,7 +1107,7 @@ int main( int argc, char *argv[] ) {
     
     calc_stats("Input", beg_errors);
     if (opt.verbose)
-      vw_out() << "Initial error computation took " << elapsed_time << " [s]" << endl;
+      vw_out() << "Initial error computation took " << elapsed_time << " s\n";
 
     // Compute the transformation to align the source to reference.
     Stopwatch sw4;
@@ -1163,7 +1161,7 @@ int main( int argc, char *argv[] ) {
     }
     sw4.stop();
     if (opt.verbose)
-      vw_out() << "Alignment took " << sw4.elapsed_seconds() << " [s]" << endl;
+      vw_out() << "Alignment took " << sw4.elapsed_seconds() << " s\n";
 
     // Transform the source to make it close to reference.
     DP trans_source_point_cloud(source_point_cloud);
@@ -1186,7 +1184,7 @@ int main( int argc, char *argv[] ) {
                                    end_errors);
     calc_stats("Output", end_errors);
     if (opt.verbose)
-      vw_out() << "Final error computation took " << elapsed_time << " [s]" << endl;
+      vw_out() << "Final error computation took " << elapsed_time << " s\n";
 
     // We must apply to T the initial guess transform
     PointMatcher<RealT>::Matrix combinedT = T*initT;
@@ -1276,7 +1274,7 @@ int main( int argc, char *argv[] ) {
 
     sw5.stop();
     if (opt.verbose) vw_out() << "Saving to disk took "
-                              << sw5.elapsed_seconds() << " [s]" << endl;
+                              << sw5.elapsed_seconds() << " s\n";
 
   } ASP_STANDARD_CATCHES;
 

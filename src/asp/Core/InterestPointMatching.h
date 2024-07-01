@@ -232,25 +232,14 @@ template <class Image1T>
 void detect_ip(vw::ip::InterestPointList& ip,
 	       vw::ImageViewBase<Image1T> const& image,
 	       int ip_per_tile, std::string const file_path, double nodata) {
-  ip.clear();
 
-  // If the images are cropped, redo the ip
-  // TODO(oalexan1): This won't handle well the case when the input
-  // images changed on disk. 
-  bool crop_left  = (stereo_settings().left_image_crop_win  != vw::BBox2i(0, 0, 0, 0));
-  bool crop_right = (stereo_settings().right_image_crop_win != vw::BBox2i(0, 0, 0, 0));
-  bool rebuild = crop_left || crop_right;
-  
-  // If a valid file_path was provided, just try to read in the IP's from that file.
-  if ((file_path != "") && (boost::filesystem::exists(file_path)) && !rebuild) {
-    vw::vw_out() << "\t    Reading interest points from file: " << file_path << std::endl;
-    ip = vw::ip::read_binary_ip_file_list(file_path);
-    vw::vw_out() << "\t    Found interest points: " << ip.size() << std::endl;
-    return;
-  }
-  
+  // Always generate ip, even if they may exist on disk. This is a bugfix for
+  // the case when the images change. 
+   
   vw::Stopwatch sw1;
   sw1.start();
+
+  ip.clear();
 
   // Automatically determine how many ip we need. Can be overridden below
   // either by --ip-per-image or --ip-per-tile (the latter takes priority).

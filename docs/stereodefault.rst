@@ -183,7 +183,8 @@ flann-method (*string*) (default = "kmeans")
     Choose the FLANN method for matching interest points. The default
     ``kmeans`` is slower but deterministic, while ``kdtree`` is faster 
     (up to 6x) but not deterministic (starting with FLANN 1.9.2).
-    Normally the default is good enough. 
+    Normally the default is good enough. This does not apply to 
+    ORB feature matching.
     
 Other pre-processing options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

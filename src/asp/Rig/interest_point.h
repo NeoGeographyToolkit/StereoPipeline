@@ -154,7 +154,6 @@ struct InterestPoint {
   }
 };  // End class InterestPoint
 
-  
 typedef std::pair<std::vector<InterestPoint>, std::vector<InterestPoint> > MATCH_PAIR;
 typedef std::map<std::pair<int, int>, rig::MATCH_PAIR> MATCH_MAP;
 
@@ -173,11 +172,13 @@ void matchFeatures(std::mutex* match_mutex, int left_image_index, int right_imag
 // Form the match file name. Assume the input images are of the form
 // cam_name/image.jpg. Use the ASP convention of the match file being
 // run/run-image1__image2.match. This assumes all input images are unique.
+// TODO(oalexan1): Duplicate code.
 std::string matchFileName(std::string const& match_dir,
                           std::string const& left_image, std::string const& right_image,
                           std::string const& suffix);
 
 // Routines for reading & writing interest point match files
+// TODO(oalexan1): Duplicate code.
 void writeMatchFile(std::string match_file, std::vector<InterestPoint> const& ip1,
                     std::vector<InterestPoint> const& ip2);
 
@@ -185,7 +186,7 @@ void writeMatchFile(std::string match_file, std::vector<InterestPoint> const& ip
 void Triangulate(bool rm_invalid_xyz, double focal_length,
                  std::vector<Eigen::Affine3d> const& cid_to_cam_t_global,
                  std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
-                 std::vector<std::map<int, int> > * pid_to_cid_fid,
+                 std::vector<std::map<int, int>> * pid_to_cid_fid,
                  std::vector<Eigen::Vector3d> * pid_to_xyz);
   
 // Triangulate two rays emanating from given undistorted and centered pixels

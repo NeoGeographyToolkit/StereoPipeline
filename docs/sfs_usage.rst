@@ -49,11 +49,11 @@ as far as 85 degrees and even 89.6 degrees South.
 
 See an example for Kaguya TC lunar images in :numref:`sfs_kaguya`.
 
-This tool's performance is mixed with Mars data. That is likely because
-Mars has very diverse geological properties and an atmosphere which
-scatters light. The program has experimental support for modeling haze
-and the Hapke model (:numref:`sfs`), but this was not thoroughly
-investigated.
+This tool's performance is *mixed* with Mars data. That is likely because Mars
+has very diverse geological properties and an atmosphere which scatters light.
+The program has experimental support for modeling haze and the Hapke model
+(:numref:`sfs`), but this was not thoroughly investigated. The program was used
+successfully for Mercury (:cite:`bertone2023highly`).
 
 It is suggested to invoke this tool with a terrain model that is
 already reasonably accurate, and with images with diverse illumination

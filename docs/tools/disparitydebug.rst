@@ -26,7 +26,10 @@ statistics when tuning the search range settings in the
 If the input images are map-projected (georeferenced), the outputs of
 ``disparitydebug`` will also be georeferenced.
 
-Example::
+Examples
+~~~~~~~~
+
+::
 
     disparitydebug run/run-D_sub.tif
 
@@ -35,10 +38,17 @@ View the obtained horizontal and vertical disparities with::
     stereo_gui run/run-D_sub-H.tif run/run-D_sub-V.tif 
 
 Another example of using this tool (and a figure) is given in
-:numref:`diagnosing_problems`, when discussing how to examine a
-produced run.
+:numref:`diagnosing_problems`, when discussing how to examine a produced run.
 
-Command-line options for disparitydebug:
+Alternative approach
+~~~~~~~~~~~~~~~~~~~~
+
+To extract the horizontal and vertical bands from a disparity without
+normalization, and then set the invalid values to no-data, see
+:numref:`mask_disparity`.
+
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
 -o, --output-prefix <string (default: "")>
     Specify the output file prefix.

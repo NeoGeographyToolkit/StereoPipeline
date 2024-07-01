@@ -417,6 +417,8 @@ Update NEWS.rst. Add the release date on top, along the lines of prior releases
 changes, especially those that result in changed behavior or options, and it
 should be incrementally updated as changes are made during development.
 
+Update the copyright year in the README.rst file.
+
 Commit and tag
 ~~~~~~~~~~~~~~
 

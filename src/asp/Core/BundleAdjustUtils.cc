@@ -425,17 +425,17 @@ bool update_point_height_from_dem(vw::cartography::GeoReference const& dem_geore
   return true;
 }
 
-// Shoot rays from all matching interest point. Intersect those with a DEM. Find
+// Shoot rays from all matching interest points. Intersect those with a DEM. Find
 // their average. Project it vertically onto the DEM. Invalid or uncomputable
 // xyz are set to the zero vector.
-void update_point_from_dem(vw::ba::ControlNetwork const& cnet,
-                           asp::CRNJ const& crn,
-                           std::set<int> const& outliers,
-                           std::vector<vw::CamPtr> const& camera_models,
-                           vw::cartography::GeoReference const& dem_georef,
-                           vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                           // Output
-                           std::vector<vw::Vector3> & dem_xyz_vec) {
+void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
+                             asp::CRNJ const& crn,
+                             std::set<int> const& outliers,
+                             std::vector<vw::CamPtr> const& camera_models,
+                             vw::cartography::GeoReference const& dem_georef,
+                             vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
+                             // Output
+                             std::vector<vw::Vector3> & dem_xyz_vec) {
 
   int num_tri_points = cnet.size();
 
