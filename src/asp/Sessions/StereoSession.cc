@@ -77,10 +77,6 @@ namespace asp {
                         m_left_map_proj_model, m_right_map_proj_model);
   }
 
-  // TODO(oalexan1): The logic below must be a function, to be applied to left and
-  // to right data, and also to be used in bundle_adjust to find the right camera
-  // when undoing mapprojection.
-
   // Read keywords that describe how the images were map-projected.
   void read_mapproj_headers(std::string const& map_file,
                             std::string const& input_cam_file,

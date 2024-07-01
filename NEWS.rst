@@ -26,6 +26,9 @@ misc:
  * The option ``--flann-method`` in ``bundle_adjust`` and ``stereo`` defaults to
    using the slower but deterministic ``kmeans`` method for a smaller set of
    interest points, and to ``kdtree`` otherwise (:numref:`stereodefault-pprc`).
+ * When creating dense interest point matches from disparity and mapprojected
+   images, the match file reflects the name of the original unprojected images
+   (:numref:`dense_ip`).
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

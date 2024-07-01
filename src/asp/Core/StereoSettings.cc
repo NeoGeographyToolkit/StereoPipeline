@@ -423,7 +423,11 @@ namespace asp {
       ("unalign-disparity",                 po::bool_switch(&global.unalign_disparity)->default_value(false)->implicit_value(true),
        "Take the computed disparity, and compute the disparity between unaligned images.")
       ("num-matches-from-disparity", po::value(&global.num_matches_from_disparity)->default_value(0), "Create a match file with this many points uniformly sampled from the stereo disparity. The matches are between original images (that is, before any alignment or map-projection). See also num-matches-from-disp-triplets.")
-      ("num-matches-from-disp-triplets", po::value(&global.num_matches_from_disp_triplets)->default_value(0), "Create a match file with this many points uniformly sampled from the stereo disparity, while making sure that if there are more than two images, a set of ground features are represented by matches in at least three of them. The matches are between original images (that is, before any alignment or map-projection). The file name is <output prefix>-disp-<left image>__<right image>.match.")
+      ("num-matches-from-disp-triplets", po::value(&global.num_matches_from_disp_triplets)->default_value(0), 
+       "Create a match file with this many points uniformly sampled from the stereo "
+       "disparity, while making sure that if there are more than two images, a set of ground "
+       "features are represented by matches in at least three of them. See the documentation "
+       "for more info.")
       ("point-cloud-rounding-error",
        po::value(&global.point_cloud_rounding_error)->default_value(0.0),
        "How much to round the output point cloud values, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. Default: 1/2^10 for Earth and proportionally less for smaller bodies, unless error propagation happens, when it is set by default to 1e-8 meters, to avoid introducing step artifacts in these errors.")

@@ -1115,13 +1115,24 @@ or::
   
     --num-matches-from-disparity 10000
 
+in order to create such a match file.
+
 Only the second approach is supported with mapprojected images. See
 :numref:`triangulation_options` for more details. 
 
-The produced interest points *must be renamed to the standard convention* and
-reflect the names of the raw images, not the mapprojected ones
-(:numref:`ba_match_files`), then passed to ``bundle_adjust`` via the
-``--match-files-prefix`` option.
+The produced match file name is named along the lines of::
+
+   run/run-disp-left__right.match
+
+where ``left.tif`` and ``right.tif`` are the input images. If these images are
+mapprojected, the latest ASP (post version 3.4.0) will instead adjust the match
+file name to reflect the original, unprojected image names, as the matches are
+between those images. 
+
+In either case, the produced match files *must use the standard naming
+convention* for the original image names (:numref:`ba_match_files`). The match
+files must be passed to ``bundle_adjust`` via the ``--match-files-prefix``
+option. In this example, the prefix would be ``run/run-disp``.
 
 Invoke ``bundle_adjust`` with an option along the lines of
 ``--max-pairwise-matches 20000`` (or larger) to ensure that on reading the

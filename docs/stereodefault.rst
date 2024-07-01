@@ -796,19 +796,22 @@ save-double-precision-point-cloud (default = false)
     precision at twice the storage).
 
 num-matches-from-disp-triplets (*integer*) (default = 0)
-    Create a match file with this many points uniformly sampled from the stereo
-    disparity, while making sure that if there are more than two images, a
-    set of ground features are represented by matches in at least three of
-    them. The matches are between original images (that is, before any
-    alignment or map-projection). The file name is ``<output
-    prefix>-disp-<left image>__<right image>.match``. This can
-    be very slow for images 50,000 or more on the side. Use then
-    ``num-matches-from-disparity``.  To not continue
-    with triangulation, use ``--compute-point-cloud-center-only``.
-    See :numref:`floatingintrinsics` for an application.
+    Create a match file with roughly this many points uniformly sampled from the
+    stereo disparity, while making sure that if there are more than two images,
+    a set of ground features are represented by matches in at least three of
+    them. The matches are between original images (that is, before any alignment
+    or map-projection). The file name is ``<output prefix>-disp-<left
+    image>__<right image>.match``. In latest ASP (post version 3.4.0), if these
+    images are mapprojected, the mach file is adjusted to reflect the names of
+    the original unprojected images. Creating this match file can be very slow
+    for images 50,000 or more on the side. Use then
+    ``num-matches-from-disparity``.  To not continue with triangulation, use
+    ``--compute-point-cloud-center-only``. Such match files can be used in
+    bundle adjustment when refining the lens distortion
+    (:numref:`heights_from_dem`).
 
 num-matches-from-disparity (*integer*) (default = 0)
-    Create a match file with this many points uniformly sampled from
+    Create a match file with roughly this many points uniformly sampled from
     the stereo disparity. The matches are between original images
     (that is, before any alignment or map-projection). See also
     ``num-matches-from-disp-triplets``.

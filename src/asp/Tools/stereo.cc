@@ -557,6 +557,16 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
               << usage << general_options);
   }
 
+  // For time being the crop wins are not taken into account when
+  // matches are produced from disparity, and the results are wrong.
+  // Therefore, disable this.
+  if ((crop_left || crop_right) && 
+      (stereo_settings().num_matches_from_disparity > 0 ||
+       stereo_settings().num_matches_from_disp_triplets > 0))
+    vw_throw(ArgumentErr() << "Cannot use --num-matches-from-disparity or "
+              << "--num-matches-from-disp-triplets with --left-image-crop-win or "
+              << "--right-image-crop-win.\n");
+
   // Ensure good order
   BBox2 & b = stereo_settings().lon_lat_limit; // alias
   if (b != BBox2(0,0,0,0)) {
