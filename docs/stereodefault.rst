@@ -179,12 +179,12 @@ disparity-range-expansion-percent (*integer*) (default = 20)
     percentage before computing the stereo correlation with local
     epipolar alignment.
 
-flann-method (*string*) (default = "kmeans")
-    Choose the FLANN method for matching interest points. The default
-    ``kmeans`` is slower but deterministic, while ``kdtree`` is faster 
-    (up to 6x) but not deterministic (starting with FLANN 1.9.2).
-    Normally the default is good enough. This does not apply to 
-    ORB feature matching.
+flann-method (*string*) (default = "auto")
+    Choose the FLANN method for matching interest points. Options: ``kmeans``:
+    slower but deterministic, ``kdtree``: faster (up to 6x) but not
+    deterministic (starting with FLANN 1.9.2). The default (``auto``) is to use
+    ``kmeans`` for 25,000 features or less and ``kdtree`` otherwise. This does
+    not apply to ORB feature matching.
     
 Other pre-processing options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

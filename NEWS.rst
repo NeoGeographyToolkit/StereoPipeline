@@ -23,6 +23,9 @@ misc:
  * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
    optimized camera file names (or adjustments). Can be passed in back to
    any of these tools (:numref:`ba_out_files`).
+ * The option ``--flann-method`` in ``bundle_adjust`` and ``stereo`` defaults to
+   using the slower but deterministic ``kmeans`` method for a smaller set of
+   interest points, and to ``kdtree`` otherwise (:numref:`stereodefault-pprc`).
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

@@ -2056,9 +2056,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "parameters are big enough to be optimized. Can be negative. Applies to Pinhole "
      "cameras (all distortion models) and CSM (radial-tangential distortion only). Does "
      "not apply to optical bar models.")
-    ("flann-method",  po::value(&opt.flann_method)->default_value("kmeans"),
-     "Choose the FLANN method for matching interest points. The default 'kmeans' is slower "
-     "but deterministic, while 'kdtree' is faster but not deterministic.")
+    ("flann-method",  po::value(&opt.flann_method)->default_value("auto"),
+      "Choose the FLANN method for matching interest points. Options: 'kmeans': "
+      "slower but deterministic, 'kdtree': faster (up to 6x) but not deterministic "
+      "(starting with FLANN 1.9.2). The default ('auto') is to use 'kmeans' for "
+      "25,000 features or less and 'kdtree' otherwise. This does not apply to ORB "
+      "feature matching.")
     ("save-vwip", po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
      "Save .vwip files (intermediate files for creating .match files). For "
      "parallel_bundle_adjust these will be saved in subdirectories, as they depend on the "
