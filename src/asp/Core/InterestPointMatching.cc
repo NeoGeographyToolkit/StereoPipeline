@@ -589,7 +589,7 @@ size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
       
     Vector3 llh = datum.cartesian_to_geodetic(xyz);
     if ( (elevation_limit[0] < elevation_limit[1]) && 
-         ( (llh[2] < elevation_limit[0]) || (llh[2] > elevation_limit[1]) ) ) {
+         ((llh[2] < elevation_limit[0]) || (llh[2] > elevation_limit[1]))) {
       // vw_out() << "Removing IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
       continue;
     }

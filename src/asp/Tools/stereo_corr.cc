@@ -279,119 +279,6 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 } // End produce_lowres_disparity
 
 // TODO(oalexan1): move this to InterestPointMatching.cc
-
-/// Detect IP in the full-resolution aligned images.
-/// Applicable to alignment methods epipolar and with mapprojected images,
-/// when interest points are not found among original images.
-/// The binary interest point file will be written to disk.
-
-/// TODO(oalexan1): Move ip matching with aligned or mapprojected
-/// images from here to to stereo_pprc or StereoSession, for
-/// consistency with the logic used ip matching with original images.
-void load_or_compute_ip(std::string const & left_unalgined_image,
-                        std::string const & right_unaligned_image,
-                        std::string const & left_camera,
-                        std::string const & right_camera,
-                        std::string const & out_prefix,
-                        boost::shared_ptr<asp::StereoSession> session,
-                        // Output
-                        std::string & match_filename) {
-  
-  const std::string left_aligned_image_file  = out_prefix + "-L.tif";
-  const std::string right_aligned_image_file = out_prefix + "-R.tif";
-
-  const std::string unaligned_match_file
-    = session->stereo_match_filename(session->left_cropped_image(),
-                                     session->right_cropped_image(),
-                                     out_prefix);
-
-  const std::string aligned_match_file     
-    = vw::ip::match_filename(out_prefix, "L.tif", "R.tif");
-
-  // Make sure the match file is newer than these files
-  std::vector<std::string> ref_list;
-  ref_list.push_back(left_unalgined_image);
-  ref_list.push_back(right_unaligned_image);
-  if (fs::exists(left_camera))
-    ref_list.push_back(left_camera);
-  if (fs::exists(right_camera))
-    ref_list.push_back(right_camera);
-
-  bool rebuild = (!is_latest_timestamp(unaligned_match_file, ref_list));
-  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-  if (!crop_left && !crop_right &&
-      (stereo_settings().force_reuse_match_files ||
-       stereo_settings().clean_match_files_prefix != "" ||
-       stereo_settings().match_files_prefix != ""))
-    rebuild = false; // Do not rebuild with externally provided match files
-    
-  // Try the unaligned match file first
-  if (fs::exists(unaligned_match_file) && !rebuild) {
-    vw_out() << "Cached IP match file found: " << unaligned_match_file << std::endl;
-    match_filename = unaligned_match_file;
-    return;
-  }
-
-  // Try the aligned match file.
-  // TODO(oalexan1): This heuristics is fragile.
-  // This should happen only for alignment method none or epipolar, but need to check
-  if (fs::exists(aligned_match_file) && is_latest_timestamp(aligned_match_file, ref_list)) {
-    vw_out() << "Cached IP match file found: " << aligned_match_file << std::endl;
-    match_filename = aligned_match_file;
-    return;
-  }
-
-  // Now try the aligned match file
-  match_filename = aligned_match_file;
-
-  vw_out() << "No IP file found, computing IP now.\n";
-  
-  // Load the images
-  boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_aligned_image_file)),
-    right_rsrc(DiskImageResourcePtr(right_aligned_image_file));
-
-  std::string left_ip_filename  = ip::ip_filename(out_prefix, left_aligned_image_file);
-  std::string right_ip_filename = ip::ip_filename(out_prefix, right_aligned_image_file);
-
-  // Read the no-data values written to disk previously when
-  // the normalized left and right sub-images were created.
-  float left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
-  float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
-  if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read ();
-  if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
-  
-  // These images can be big, so use ImageViewRef
-  ImageViewRef<float> left_image  = DiskImageView<float>(left_rsrc);
-  ImageViewRef<float> right_image = DiskImageView<float>(right_rsrc);
-
-  // No interest point operations have been performed before
-  vw_out() << "\t    * Detecting interest points.\n";
-
-  bool success = false;
-  
-  // TODO: Depending on alignment method, we can tailor the IP filtering strategy.
-  double thresh_factor = stereo_settings().ip_inlier_factor; // 1.0/15 by default
-  
-  // This range is extra large to handle elevation differences.
-  // TODO(oalexan1): Must move ip matching to StereoSession and
-  // use a single homography function and a single choice of parameters.
-  const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default
-  size_t number_of_jobs = 1;
-  success = asp::homography_ip_matching(left_image, right_image,
-                                        stereo_settings().ip_per_tile,
-                                        inlier_threshold, match_filename,
-                                        number_of_jobs,
-                                        left_ip_filename, right_ip_filename,
-                                        left_nodata_value, right_nodata_value);
-
-  if (!success)
-    vw_throw(ArgumentErr() << "Could not find interest points.\n");
-
-  return;
-}
-
-// TODO(oalexan1): move this to InterestPointMatching.cc
 BBox2 get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
                                      vw::math::Histogram const& hist_y,
                                      double edge_discard_percentile,
@@ -431,55 +318,6 @@ BBox2 get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
   return BBox2(search_minI, search_maxI);
 }
 
-// TODO(oalexan1): Move this out of this file.
-// Undo the alignment of interest points. If tx_left and tx_right are null,
-// that will mean there is no alignment to undo.
-void unalign_ip(vw::TransformPtr tx_left,
-               vw::TransformPtr  tx_right,
-               std::vector<vw::ip::InterestPoint> const& ip1_in,
-               std::vector<vw::ip::InterestPoint> const& ip2_in,
-               std::vector<vw::ip::InterestPoint> & ip1_out,
-               std::vector<vw::ip::InterestPoint> & ip2_out) {
-
-  // Init the output vectors
-  ip1_out.clear();
-  ip2_out.clear();
-  int num_ip = ip1_in.size();
-  ip1_out.reserve(num_ip);
-  ip2_out.reserve(num_ip);
-
-  if (int(tx_left.get() != NULL) + int(tx_right != NULL) == 1)
-    vw_throw(ArgumentErr() << "Either both or none of the transforms must be set.\n");
-
-  // This function can be called with both unaligned and aligned interest points
-  bool aligned_ip = (tx_left.get() != NULL && tx_right != NULL);
-
-  // For each interest point, compute the height and only keep it if the height falls within
-  // the specified range.
-  for (size_t i = 0; i < num_ip; i++) {
-
-    // We must not both apply a transform and a scale at the same time
-    // as these are meant to do the same thing in different circumstances.
-    Vector2 p1 = Vector2(ip1_in[i].x, ip1_in[i].y);
-    Vector2 p2 = Vector2(ip2_in[i].x, ip2_in[i].y);
-
-    if (aligned_ip) {
-      // Unalign
-      p1 = tx_left->reverse (p1);
-      p2 = tx_right->reverse(p2);
-    }
-    
-    ip1_out.push_back(ip1_in[i]);
-    ip2_out.push_back(ip2_in[i]);
-  }
-  
-  // ip in and ip out must have same size. this is a temporary check.
-  if (ip1_in.size() != ip1_out.size())
-    vw_throw(ArgumentErr() << "Aligned and unaligned interest points have different sizes.\n");
-    
-  return;
-}
-  
 /// Use existing interest points to compute a search range
 /// - This function could use improvement!
 /// - Should it be used in all cases?
@@ -503,8 +341,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   // Align the ip, so go ip between left.tif and right.tif to ones between
   // L.tif and R.tif. If the matches are already between L.tif and R.tif
   // then do nothing.
-  // TODO(oalexan1): Having this as a special case is annoying.
-  // TODO(oalexan1): Wipe this!
+  // TODO(oalexan1): Having this as a special case is annoying. Do something about this.
   std::string aligned_match_file = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
   if (match_filename != aligned_match_file)
     align_ip(opt.session->tx_left(), opt.session->tx_right(), in_left_ip, in_right_ip);
@@ -512,35 +349,6 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   // Camera models
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
   opt.session->camera_models(left_camera_model, right_camera_model);
-
-  bool will_do = (!stereo_settings().correlator_mode &&
-                  (stereo_settings().alignment_method == "none" ||
-                  stereo_settings().alignment_method == "epipolar"));
-  if (will_do) {
-    // unalign ip
-    std::cout << "--will unalign ip\n";
-    std::vector<vw::ip::InterestPoint> unaligned_left_ip, unaligned_right_ip;
-    unalign_ip(opt.session->tx_left(), opt.session->tx_right(),
-               in_left_ip, in_right_ip, unaligned_left_ip, unaligned_right_ip);
-
-    std::vector<double> sorted_angles;
-    asp::convergence_angles(left_camera_model.get(),
-                            right_camera_model.get(),
-                            unaligned_left_ip, unaligned_right_ip,
-                            sorted_angles);
-
-    if (sorted_angles.empty()) {
-      vw_out() << "No convergence angles calculated.\n";
-    }
-
-    int len = sorted_angles.size();
-    vw_out() << "2Convergence angle percentiles (in degrees) based on "
-    << "interest point matches:\n";
-    vw_out() << "\t"
-              << "25% " << sorted_angles[0.25*len] << ", "
-              << "50% " << sorted_angles[0.50*len] << ", "
-              << "75% " << sorted_angles[0.75*len] << ".\n";
-  }    
 
   // Filter out IPs which fall outside the specified elevation range
   // TODO(oalexan1): This must go to stereo_pprc.
@@ -581,7 +389,8 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   
   // Quit if we don't have the requested number of IP.
   if (static_cast<int>(matched_left_ip.size()) < stereo_settings().min_num_ip)
-    vw_throw(ArgumentErr() << "Number of IPs left after filtering is " << matched_left_ip.size()
+    vw_throw(ArgumentErr() << "Number of IPs left after filtering is " 
+             << matched_left_ip.size()
              << " which is less than the required amount of " 
              << stereo_settings().min_num_ip << ". Aborting stereo_corr.\n"
              << " - Consider removing the run directory and restarting stereo,\n"
@@ -698,7 +507,6 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   return search_range;
 } // End function approximate_search_range
 
-
 /// The first step of correlation computation.
 void lowres_correlation(ASPGlobalOptions & opt) {
 
@@ -717,21 +525,25 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     if (!crop_left && crop_right)
       stereo_settings().search_range -= stereo_settings().right_image_crop_win.min();
 
-  }else if (stereo_settings().seed_mode == 2){
+  }else if (stereo_settings().seed_mode == 2) {
     // Do nothing as we will compute the search range based on D_sub
-  }else if (stereo_settings().seed_mode == 3){
+  }else if (stereo_settings().seed_mode == 3) {
     // Do nothing as low-res disparity (D_sub) is already provided by sparse_disp
   } else { // Regular seed mode
 
-    // TODO(oalexan1): All ip matching should happen in stereo_pprc for consistency.
-    
-    // Load IP from disk if they exist, or else compute them.
-    std::string match_filename;
-    load_or_compute_ip(opt.session->left_cropped_image(), 
-                       opt.session->right_cropped_image(),
-                       opt.cam_file1, opt.cam_file2, opt.out_prefix, opt.session,
-                       // Output
-                       match_filename);
+  // Load IP from disk
+  std::string match_filename;
+  bool have_aligned_matches = (stereo_settings().alignment_method == "none" ||
+                               stereo_settings().alignment_method == "epipolar");
+  if (have_aligned_matches)
+    match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
+  else 
+    match_filename = opt.session->stereo_match_filename(opt.session->left_cropped_image(),
+                                                        opt.session->right_cropped_image(),
+                                                        opt.out_prefix);
+  // The interest points must exist by now
+  if (!fs::exists(match_filename))
+    vw_throw(ArgumentErr() << "Missing IP matches file: " << match_filename);
     
     // This function applies filtering to find good points
     stereo_settings().search_range = approximate_search_range(opt, match_filename);

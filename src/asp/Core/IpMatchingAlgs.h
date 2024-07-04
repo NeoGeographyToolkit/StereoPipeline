@@ -46,6 +46,9 @@ namespace vw {
 
 namespace asp {
 
+// Compute ip between L.tif and R.tif produced by stereo.
+void compute_ip_LR(std::string const & out_prefix);
+
 // Outlier removal based on the disparity of interest points.
 // Points with x or y disparity not within the 100-'pct' to 'pct'
 // percentile interval expanded by 'factor' will be removed as
@@ -68,6 +71,15 @@ void align_ip(vw::TransformPtr const& tx_left,
               vw::TransformPtr const& tx_right,
               std::vector<vw::ip::InterestPoint> & ip_left,
               std::vector<vw::ip::InterestPoint> & ip_right);
+
+// Undo the alignment of interest points. If tx_left and tx_right are null,
+// that will mean there is no alignment to undo.
+void unalign_ip(vw::TransformPtr tx_left,
+               vw::TransformPtr  tx_right,
+               std::vector<vw::ip::InterestPoint> const& ip1_in,
+               std::vector<vw::ip::InterestPoint> const& ip2_in,
+               std::vector<vw::ip::InterestPoint> & ip1_out,
+               std::vector<vw::ip::InterestPoint> & ip2_out);
 
 // Heuristics for match file prefix
 std::string match_file_prefix(std::string const& clean_match_files_prefix,

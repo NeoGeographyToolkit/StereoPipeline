@@ -16,15 +16,91 @@
 // __END_LICENSE__
 
 #include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
+#include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/StereoSettings.h>
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
+#include <asp/Core/FileUtils.h>
 #include <boost/filesystem.hpp>
+
 using namespace vw;
 namespace fs = boost::filesystem;
 
 namespace asp {
+
+// Compute ip between L.tif and R.tif produced by stereo.
+void compute_ip_LR(std::string const & out_prefix) {
+  
+  const std::string left_aligned_image_file  = out_prefix + "-L.tif";
+  const std::string right_aligned_image_file = out_prefix + "-R.tif";
+  std::string match_filename = vw::ip::match_filename(out_prefix, "L.tif", "R.tif");
+
+  // Make sure the match file is newer than these files
+  std::vector<std::string> ref_list;
+  ref_list.push_back(left_aligned_image_file);
+  ref_list.push_back(right_aligned_image_file);
+
+  bool crop_left  = (asp::stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (asp::stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  bool rebuild = (!is_latest_timestamp(match_filename, ref_list) || crop_left || crop_right);
+  if (!crop_left && !crop_right &&
+      (asp::stereo_settings().force_reuse_match_files ||
+       asp::stereo_settings().clean_match_files_prefix != "" ||
+       asp::stereo_settings().match_files_prefix != ""))
+    rebuild = false; // Do not rebuild with externally provided match files
+    
+  if (fs::exists(match_filename) && !rebuild) {
+    vw_out() << "Cached IP match file found: " << match_filename << std::endl;
+    return;
+  }
+
+  vw_out() << "Computing interest points matches.\n";
+  
+  // Load the images
+  boost::shared_ptr<DiskImageResource> 
+    left_rsrc(DiskImageResourcePtr(left_aligned_image_file)),
+    right_rsrc(DiskImageResourcePtr(right_aligned_image_file));
+
+  std::string left_ip_filename  = ip::ip_filename(out_prefix, left_aligned_image_file);
+  std::string right_ip_filename = ip::ip_filename(out_prefix, right_aligned_image_file);
+
+  // Read the no-data values written to disk previously when
+  // the normalized left and right sub-images were created.
+  float left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
+  float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
+  if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read ();
+  if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
+  
+  // These images can be big, so use ImageViewRef
+  ImageViewRef<float> left_image  = DiskImageView<float>(left_rsrc);
+  ImageViewRef<float> right_image = DiskImageView<float>(right_rsrc);
+
+  // No interest point operations have been performed before
+  vw_out() << "\t    * Detecting interest points.\n";
+
+  // TODO: Depending on alignment method, we can tailor the IP filtering strategy.
+  double thresh_factor = asp::stereo_settings().ip_inlier_factor; // 1.0/15 by default
+  
+  // This range is extra large to handle elevation differences. That can 
+  // be an issue with mapprojected images.
+  // TODO(oalexan1): Must use everywhere a single choice of parameters
+  // for ip matching with homography.
+  const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default
+  size_t number_of_jobs = 1;
+  bool success = asp::homography_ip_matching(left_image, right_image,
+                                        asp::stereo_settings().ip_per_tile,
+                                        inlier_threshold, match_filename,
+                                        number_of_jobs,
+                                        left_ip_filename, right_ip_filename,
+                                        left_nodata_value, right_nodata_value);
+
+  if (!success)
+    vw_throw(ArgumentErr() << "Could not find interest points.\n");
+
+  return;
+}
 
 // Outlier removal based on the disparity of interest points.
 // Points with x or y disparity not within the 100-'pct' to 'pct'
@@ -140,6 +216,67 @@ void align_ip(vw::TransformPtr const& tx_left,
 
   return;
 } // End align_ip
+
+// Undo the alignment of interest points. If tx_left and tx_right are null,
+// that will mean there is no alignment to undo.
+void unalign_ip(vw::TransformPtr tx_left,
+               vw::TransformPtr  tx_right,
+               std::vector<vw::ip::InterestPoint> const& ip1_in,
+               std::vector<vw::ip::InterestPoint> const& ip2_in,
+               std::vector<vw::ip::InterestPoint> & ip1_out,
+               std::vector<vw::ip::InterestPoint> & ip2_out) {
+
+  // Init the output vectors
+  ip1_out.clear();
+  ip2_out.clear();
+  int num_ip = ip1_in.size();
+  ip1_out.reserve(num_ip);
+  ip2_out.reserve(num_ip);
+
+  if (int(tx_left.get() != NULL) + int(tx_right != NULL) == 1)
+    vw_throw(ArgumentErr() << "Either both or none of the transforms must be set.\n");
+
+  // This function can be called with both unaligned and aligned interest points
+  bool aligned_ip = (tx_left.get() != NULL && tx_right != NULL);
+
+  // For each interest point, compute the height and only keep it if the height falls within
+  // the specified range.
+  for (size_t i = 0; i < num_ip; i++) {
+
+    // We must not both apply a transform and a scale at the same time
+    // as these are meant to do the same thing in different circumstances.
+    Vector2 p1 = Vector2(ip1_in[i].x, ip1_in[i].y);
+    Vector2 p2 = Vector2(ip2_in[i].x, ip2_in[i].y);
+    
+    if (aligned_ip) {
+      // Unalign
+      p1 = tx_left->reverse (p1);
+      p2 = tx_right->reverse(p2);
+    }
+    
+    // First push the original ip
+    ip1_out.push_back(ip1_in[i]);
+    ip2_out.push_back(ip2_in[i]);
+    
+    // Then adjust x and y
+    ip1_out.back().x = p1[0];
+    ip1_out.back().y = p1[1];
+    ip2_out.back().x = p2[0];
+    ip2_out.back().y = p2[1];
+    
+    // Same for ix and iy, for consistency
+    ip1_out.back().ix = p1[0];
+    ip1_out.back().iy = p1[1];
+    ip2_out.back().ix = p2[0];
+    ip2_out.back().iy = p2[1];
+  }
+  
+  // ip_in and ip_out must have same size.
+  if (ip1_in.size() != ip1_out.size())
+    vw_throw(ArgumentErr() << "Aligned and unaligned interest points have different sizes.\n");
+    
+  return;
+}
 
 // Heuristics for match file prefix
 std::string match_file_prefix(std::string const& clean_match_files_prefix,
