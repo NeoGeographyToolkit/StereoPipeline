@@ -239,8 +239,6 @@ void unalign_ip(vw::TransformPtr tx_left,
   // This function can be called with both unaligned and aligned interest points
   bool aligned_ip = (tx_left.get() != NULL && tx_right != NULL);
 
-  // For each interest point, compute the height and only keep it if the height falls within
-  // the specified range.
   for (size_t i = 0; i < num_ip; i++) {
 
     // We must not both apply a transform and a scale at the same time
