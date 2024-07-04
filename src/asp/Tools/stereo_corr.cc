@@ -430,6 +430,55 @@ BBox2 get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
 
   return BBox2(search_minI, search_maxI);
 }
+
+// TODO(oalexan1): Move this out of this file.
+// Undo the alignment of interest points. If tx_left and tx_right are null,
+// that will mean there is no alignment to undo.
+void unalign_ip(vw::TransformPtr tx_left,
+               vw::TransformPtr  tx_right,
+               std::vector<vw::ip::InterestPoint> const& ip1_in,
+               std::vector<vw::ip::InterestPoint> const& ip2_in,
+               std::vector<vw::ip::InterestPoint> & ip1_out,
+               std::vector<vw::ip::InterestPoint> & ip2_out) {
+
+  // Init the output vectors
+  ip1_out.clear();
+  ip2_out.clear();
+  int num_ip = ip1_in.size();
+  ip1_out.reserve(num_ip);
+  ip2_out.reserve(num_ip);
+
+  if (int(tx_left.get() != NULL) + int(tx_right != NULL) == 1)
+    vw_throw(ArgumentErr() << "Either both or none of the transforms must be set.\n");
+
+  // This function can be called with both unaligned and aligned interest points
+  bool aligned_ip = (tx_left.get() != NULL && tx_right != NULL);
+
+  // For each interest point, compute the height and only keep it if the height falls within
+  // the specified range.
+  for (size_t i = 0; i < num_ip; i++) {
+
+    // We must not both apply a transform and a scale at the same time
+    // as these are meant to do the same thing in different circumstances.
+    Vector2 p1 = Vector2(ip1_in[i].x, ip1_in[i].y);
+    Vector2 p2 = Vector2(ip2_in[i].x, ip2_in[i].y);
+
+    if (aligned_ip) {
+      // Unalign
+      p1 = tx_left->reverse (p1);
+      p2 = tx_right->reverse(p2);
+    }
+    
+    ip1_out.push_back(ip1_in[i]);
+    ip2_out.push_back(ip2_in[i]);
+  }
+  
+  // ip in and ip out must have same size. this is a temporary check.
+  if (ip1_in.size() != ip1_out.size())
+    vw_throw(ArgumentErr() << "Aligned and unaligned interest points have different sizes.\n");
+    
+  return;
+}
   
 /// Use existing interest points to compute a search range
 /// - This function could use improvement!
@@ -463,6 +512,35 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   // Camera models
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
   opt.session->camera_models(left_camera_model, right_camera_model);
+
+  bool will_do = (!stereo_settings().correlator_mode &&
+                  (stereo_settings().alignment_method == "none" ||
+                  stereo_settings().alignment_method == "epipolar"));
+  if (will_do) {
+    // unalign ip
+    std::cout << "--will unalign ip\n";
+    std::vector<vw::ip::InterestPoint> unaligned_left_ip, unaligned_right_ip;
+    unalign_ip(opt.session->tx_left(), opt.session->tx_right(),
+               in_left_ip, in_right_ip, unaligned_left_ip, unaligned_right_ip);
+
+    std::vector<double> sorted_angles;
+    asp::convergence_angles(left_camera_model.get(),
+                            right_camera_model.get(),
+                            unaligned_left_ip, unaligned_right_ip,
+                            sorted_angles);
+
+    if (sorted_angles.empty()) {
+      vw_out() << "No convergence angles calculated.\n";
+    }
+
+    int len = sorted_angles.size();
+    vw_out() << "2Convergence angle percentiles (in degrees) based on "
+    << "interest point matches:\n";
+    vw_out() << "\t"
+              << "25% " << sorted_angles[0.25*len] << ", "
+              << "50% " << sorted_angles[0.50*len] << ", "
+              << "75% " << sorted_angles[0.75*len] << ".\n";
+  }    
 
   // Filter out IPs which fall outside the specified elevation range
   // TODO(oalexan1): This must go to stereo_pprc.

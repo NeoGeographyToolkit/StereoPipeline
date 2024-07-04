@@ -667,6 +667,7 @@ int main(int argc, char* argv[]) {
                                    !stereo_settings().part_of_multiview_run);
 
     stereo_preprocessing(adjust_left_image_size, opt);
+    // TODO(oalexan1): Must test with crop win!
 
     estimate_convergence_angle(opt);
     

@@ -29,6 +29,8 @@ misc:
  * When creating dense interest point matches from disparity and mapprojected
    images, the match file reflects the name of the original unprojected images
    (:numref:`dense_ip`).
+  * Bugfix for ungraceful failure (abort) for the ``asp_mgm`` algorithm when the
+    disparity search range is large.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------
