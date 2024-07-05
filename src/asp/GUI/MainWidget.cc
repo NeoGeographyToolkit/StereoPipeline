@@ -3564,5 +3564,9 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
     }
     
   }
+
+  void MainWidget::setCropWin(vw::BBox2 const& stereoCropWin) {
+    m_stereoCropWin = stereoCropWin;
+  }
   
 }} // namespace vw::gui

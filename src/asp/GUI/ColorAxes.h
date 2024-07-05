@@ -50,9 +50,7 @@ public:
             std::vector<imageData> & images);  // will be modifed
 
   virtual void mousePressEvent(QMouseEvent *e);
-
   virtual void resizeEvent(QResizeEvent *e);
-  
   void sizeToFit();
 
 public slots:

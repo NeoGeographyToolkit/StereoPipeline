@@ -18,7 +18,7 @@ image_calc (:numref:`image_calc`):
   * Added an example for how to extract the horizontal and vertical disparity
     bands while setting invalid disparities to a no-data value
     (:numref:`mask_disparity`).
-  
+
 misc:
  * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
    optimized camera file names (or adjustments). Can be passed in back to

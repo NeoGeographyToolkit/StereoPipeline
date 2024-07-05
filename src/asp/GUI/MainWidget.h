@@ -157,9 +157,9 @@ namespace vw { namespace gui {
     void setWorldBox(vw::BBox2 const& world_box);
     vw::BBox2 worldBox() const;
     
-    void setCropWin(vw::BBox2 const& stereoCropWin) {
-      m_stereoCropWin = stereoCropWin;
-    }
+    void keyPressEvent(QKeyEvent   *event);
+    
+    void setCropWin(vw::BBox2 const& stereoCropWin);
 
 signals:
     void toggleViewMatchesSignal    ();
@@ -219,7 +219,6 @@ public slots:
     void wheelEvent           (QWheelEvent *event);
     void enterEvent           (QEvent      *event);
     void leaveEvent           (QEvent      *event);
-    void keyPressEvent        (QKeyEvent   *event);
     void contextMenuEvent     (QContextMenuEvent *event);
 
   private:

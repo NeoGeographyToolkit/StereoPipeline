@@ -78,7 +78,7 @@ turned on or off via a checkbox. Clicking on an image's name will zoom
 to it and display it on top of other images. By right-clicking on an
 image name, other operations can be performed, such as hillshading,
 etc.
-        
+
 In this mode, the keys ``n`` and ``p`` can be used to cycle among
 the images.
 
@@ -123,9 +123,7 @@ Other features
 Hillshading
 ~~~~~~~~~~~
 
-The ``stereo_gui`` program can be used to create and display hillshaded DEMs. 
-
-For example, to create and view a hillshaded DEM, run::
+The ``stereo_gui`` program can create and display hillshaded DEMs. Example::
 
     stereo_gui --hillshade dem.tif
 
@@ -135,7 +133,7 @@ images`` option.
 Right-click to change the azimuth and elevation angles, hence the direction and
 height of the light source. Then toggle hillshading off and then on again.
 
-Hillshaded images can also be created with the ``hillshade`` tool
+Hillshaded images can also be produced with the ``hillshade`` tool
 (:numref:`hillshade`) or with ``gdaldem hillshade`` (:numref:`gdal_tools`).
 
 .. _colorize:

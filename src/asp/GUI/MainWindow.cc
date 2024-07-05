@@ -164,7 +164,23 @@ bool MainWindow::sanityChecks(int num_images) {
     popUp("The GCP file does not exist. If desired to create it, please specify --dem-file.");
     return false;
   }
-                     
+  
+  // The dem file must exist if not empty. Must also have a georef.
+  if (stereo_settings().dem_file != "") {
+    try {
+      DiskImageView<float> dem(stereo_settings().dem_file);
+    } catch (...) {
+      popUp("The DEM file does not exist or is not a valid image file.");
+      return false;
+    }
+    vw::cartography::GeoReference georef;
+    bool has_georef = vw::cartography::read_georeference(georef, stereo_settings().dem_file);
+    if (!has_georef) {
+      popUp("The DEM file does not have a georeference. Please provide one.");
+      return false;
+    }
+  }
+                    
   // This is for the workflow of creating GCP from a DEM and images
   bool gcp_exists = !stereo_settings().gcp_file.empty() && 
                     fs::exists(stereo_settings().gcp_file);
@@ -1593,8 +1609,6 @@ void MainWindow::writeGroundControlPoints() {
     if (mw(m_widgets[i]) != NULL) 
       mw(m_widgets[i])->setEditingMatches(false);
   }
-  
-  popUp("Wrote: " + stereo_settings().gcp_file);
 }
 
 void MainWindow::addDelMatches() {
@@ -2131,6 +2145,14 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
   return QMainWindow::eventFilter(obj, event);
 }
 
-// For now this does nothing
 void MainWindow::keyPressEvent(QKeyEvent *event) {
+  // Redirect to some widget. This is a fix for panning not working
+  // unless one clicks on the image first.
+  for (size_t wit = 0; wit < m_widgets.size(); wit++) {
+    if (mw(m_widgets[wit])) {
+      mw(m_widgets[wit])->keyPressEvent(event);
+      break;
+    }
+  }
+  
 }
