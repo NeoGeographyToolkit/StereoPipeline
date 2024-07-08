@@ -205,9 +205,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered  );
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
@@ -218,7 +218,7 @@ int main(int argc, char* argv[]) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
 
     // Get the list of image files and camera model files

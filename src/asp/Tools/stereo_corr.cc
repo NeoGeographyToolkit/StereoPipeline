@@ -115,8 +115,8 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
     Rmask(opt.out_prefix + "-rMask.tif");
 
-  DiskImageView<PixelGray<float> > left_sub (opt.out_prefix+"-L_sub.tif"),
-    right_sub(opt.out_prefix+"-R_sub.tif");
+  DiskImageView<PixelGray<float>> left_sub (opt.out_prefix + "-L_sub.tif"),
+    right_sub(opt.out_prefix + "-R_sub.tif");
 
   DiskImageView<uint8> left_mask_sub (opt.out_prefix+"-lMask_sub.tif"),
     right_mask_sub(opt.out_prefix+"-rMask_sub.tif");
@@ -127,7 +127,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
   // Compute the initial search range in the subsampled image
   BBox2 search_range(floor(elem_prod(downsample_scale, stereo_settings().search_range.min())),
-                      ceil (elem_prod(downsample_scale, stereo_settings().search_range.max())));
+                     ceil(elem_prod(downsample_scale, stereo_settings().search_range.max())));
 
   vw::stereo::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
@@ -525,9 +525,9 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     if (!crop_left && crop_right)
       stereo_settings().search_range -= stereo_settings().right_image_crop_win.min();
 
-  }else if (stereo_settings().seed_mode == 2) {
+  } else if (stereo_settings().seed_mode == 2) {
     // Do nothing as we will compute the search range based on D_sub
-  }else if (stereo_settings().seed_mode == 3) {
+  } else if (stereo_settings().seed_mode == 3) {
     // Do nothing as low-res disparity (D_sub) is already provided by sparse_disp
   } else { // Regular seed mode
 
@@ -611,12 +611,12 @@ void lowres_correlation(ASPGlobalOptions & opt) {
 /// This correlator takes a low resolution disparity image as an input
 /// so that it may narrow its search range for each tile that is processed.
 class SeededCorrelatorView: public ImageViewBase<SeededCorrelatorView> {
-  ImageViewRef<PixelGray<float> >   m_left_image;
-  ImageViewRef<PixelGray<float> >   m_right_image;
+  ImageViewRef<PixelGray<float>>   m_left_image;
+  ImageViewRef<PixelGray<float>>   m_right_image;
   ImageViewRef<vw::uint8> m_left_mask;
   ImageViewRef<vw::uint8> m_right_mask;
-  ImageViewRef<PixelMask<Vector2f> > m_sub_disp;
-  ImageViewRef<PixelMask<Vector2i> > m_sub_disp_spread;
+  ImageViewRef<PixelMask<Vector2f>> m_sub_disp;
+  ImageViewRef<PixelMask<Vector2i>> m_sub_disp_spread;
   ImageView<PixelMask<float>> * m_lr_disp_diff;
 
   // Settings
@@ -784,7 +784,6 @@ public:
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
 }; // End class SeededCorrelatorView
-
 
 /// Stereo correlation function using ASP's block-matching and MGM/SGM
 /// algorithms which can handle a 2D disparity.

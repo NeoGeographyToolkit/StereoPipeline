@@ -153,7 +153,7 @@ StereoSessionPinhole::load_adj_pinhole_model(std::string const& image_file,
                                                  right_image_file,
                                                  image_file);
   
-  if ( stereo_settings().alignment_method != "epipolar" ) {
+  if (stereo_settings().alignment_method != "epipolar") {
     // Not epipolar, just load the camera model.
     return load_adjusted_model(vw::camera::load_pinhole_camera_model(camera_file),
                                image_file, camera_file, ba_prefix, pixel_offset);
@@ -247,7 +247,7 @@ void StereoSessionPinhole::load_camera_models(
     return;
   }
 
-  // PinholeModel case is more complicated. The camera models
+  // The case of epipolar alignment is more complicated. The camera models
   // returned do not include a crop offset, but the aligned camera
   // models have been shifted so that they are aligned after the crop
   // has been applied.
@@ -284,6 +284,8 @@ StereoSessionPinhole::tx_type StereoSessionPinhole::tx_left() const {
   
   // A very annoying feature of epipolar alignment is that the cameras
   // returned in this mode already have alignment applied to them.
+  // See StereoSessionPinhole::load_camera_models() above.
+  
   // Then, the alignment need not happen in here, so we always return
   // tx_left_homography(), even though for epipolar alignment that
   // becomes the identity matrix instead of the expected alignment
@@ -304,7 +306,8 @@ StereoSessionPinhole::tx_type StereoSessionPinhole::tx_left() const {
   // alignment and crop windows. Lots of work.
 
   // So, for now leave things so that this class is consistent with
-  // itself for epipolar alignment, even though that is not consistent
+  // itself for epipolar alignment, and the produced triangulated 
+  // point cloud is correct, even though that is not consistent
   // with the usual way of doing things.
   
   //if (stereo_settings().alignment_method != "epipolar")

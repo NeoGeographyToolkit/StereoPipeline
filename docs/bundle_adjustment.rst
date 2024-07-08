@@ -607,6 +607,9 @@ total). The left image was acquired with the ``TC1`` sensor, and the right one
 with ``TC2``. These sensors have different intrinsics.
 
 Some Kaguya images have different widths. These should not be mixed together.
+Of the images with narrower width, it was observed that images acquired with 
+"morning" illumination need different calibration than the rest. Hence,
+there will be two groups of intrinsics for the narrow TC images.
 
 Some images had very large difference in illumination (not for the same stereo
 pair). Then, finding of matching interest points can fail. Kaguya images are

@@ -99,7 +99,7 @@ public:
     // Sanity check
     for (int p = 1; p < (int)m_disparity_maps.size(); p++){
       if (m_disparity_maps[0].cols() != m_disparity_maps[p].cols() ||
-          m_disparity_maps[0].rows() != m_disparity_maps[p].rows()   )
+          m_disparity_maps[0].rows() != m_disparity_maps[p].rows())
         vw_throw( ArgumentErr() << "In multi-view triangulation, all disparities "
                   << "must have the same dimensions.\n" );
     }
@@ -113,7 +113,7 @@ public:
 
   /// Compute the 3D coordinate corresponding to a pixel location.
   /// - p is not actually used here, it should always be zero!
-  inline result_type operator()( size_t i, size_t j, size_t p=0 ) const {
+  inline result_type operator()(size_t i, size_t j, size_t p = 0) const {
 
     // For each input image, de-warp the pixel in to the native camera coordinates
     int num_disp = m_disparity_maps.size();
@@ -159,7 +159,7 @@ public:
           result = pixel_type();
           errorVec = Vector3();
         }
-      }catch(...) {
+      } catch(...) {
         return pixel_type(); // The zero vector, it means that there is no valid data
       }
       
@@ -637,7 +637,7 @@ void stereo_triangulation(std::string const& output_prefix,
 
       boost::shared_ptr<StereoSession> sPtr = opt_vec[p].session;
 
-      if (p == 0){ // The first image is the "left" image for all pairs.
+      if (p == 0) { // The first image is the "left" image for all pairs.
         image_files.push_back(opt_vec[p].in_file1);
         camera_files.push_back(opt_vec[p].cam_file1);
         cameras.push_back(camera_model1);
@@ -744,10 +744,9 @@ void stereo_triangulation(std::string const& output_prefix,
     std::vector<BathyPlaneSettings> bathy_plane_set;
     ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
     if (bathy_correct) {
-
       if (disparity_maps.size() != 1)
-        vw_throw(ArgumentErr() << "Bathymetry correction does not work with multiview stereo\n");
-      
+        vw_throw(ArgumentErr() 
+                 << "Bathymetry correction does not work with multiview stereo.\n");
       read_bathy_plane_set(stereo_settings().bathy_plane, bathy_plane_set);
       opt_vec[0].session->read_aligned_bathy_masks(left_aligned_bathy_mask,
                                                    right_aligned_bathy_mask); 

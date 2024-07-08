@@ -567,6 +567,15 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
               << "--num-matches-from-disp-triplets with --left-image-crop-win or "
               << "--right-image-crop-win.\n");
 
+  // This does not work because tx_left() and tx_right() return the identity for
+  // this alignment method. See StereoSessionPinhole::tx_left() for more
+  // details.
+  if (asp::stereo_settings().alignment_method == "epipolar" &&
+      (stereo_settings().num_matches_from_disparity > 0 ||
+       stereo_settings().num_matches_from_disp_triplets > 0))
+    vw_throw(ArgumentErr() << "Cannot use --num-matches-from-disparity or "
+              << "--num-matches-from-disp-triplets with epipolar alignment.\n");
+
   // Ensure good order
   BBox2 & b = stereo_settings().lon_lat_limit; // alias
   if (b != BBox2(0,0,0,0)) {
