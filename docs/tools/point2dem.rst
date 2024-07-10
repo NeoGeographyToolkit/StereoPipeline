@@ -533,7 +533,9 @@ Command-line options for point2dem
 --rounding-error <float (default: 1/2^{10}=0.0009765625)>
     How much to round the output DEM and errors, in meters (more
     rounding means less precision but potentially smaller size on
-    disk). The inverse of a power of 2 is suggested.
+    disk). The inverse of a power of 2 is suggested. See also 
+    ``--point-cloud-rounding-error`` and ``--save-double-precision-point-cloud``
+    for when the input point cloud is created (:numref:`triangulation_options`).
 
 --dem-hole-fill-len <integer (default: 0)>
     Maximum dimensions of a hole in the output DEM to fill in, in pixels.
