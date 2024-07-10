@@ -788,7 +788,8 @@ point-cloud-rounding-error (*double*)
     less for smaller bodies, unless error propagation happens
     (:numref:`error_propagation`), when it is set by default to 
     :math:`10^{-8}` meters, to avoid introducing step artifacts in
-    these errors.
+    these errors. See also ``--save-double-precision-point-cloud`` below,
+    and ``--rounding-error`` in ``point2dem`` (:numref:`point2dem_options`).
 
 save-double-precision-point-cloud (default = false)
     Save the final point cloud in double precision rather than bringing
