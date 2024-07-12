@@ -397,34 +397,172 @@ void BaDispXyzError::unpack_residual_pointers(double const* const* parameters,
   int index = 0;
   for (size_t i=1; i<m_num_left_param_blocks; ++i) {
     left_param_blocks[i] = parameters[index];
-    ++index;
+    index++;
   }
   if (!m_solve_intrinsics) {
     // Unpack everything from the right block in order.
     for (size_t i=1; i<m_num_right_param_blocks; ++i) {
       right_param_blocks[i] = parameters[index];
-      ++index;
+      index++;
     }
   } else { // Solve for intrinsics. Handle shared intrinsics.
     right_param_blocks[1] = parameters[index]; // Pose and position
-    ++index;
+    index++;
     if (m_intrinsics_opt.center_shared)
       right_param_blocks[2] = left_param_blocks[2];
     else {
       right_param_blocks[2] = parameters[index];
-      ++index;
+      index++;
     }
     if (m_intrinsics_opt.focus_shared)
       right_param_blocks[3] = left_param_blocks[3];
     else {
       right_param_blocks[3] = parameters[index];
-      ++index;
+      index++;
     }
     if (m_intrinsics_opt.distortion_shared)
       right_param_blocks[4] = left_param_blocks[4];
     else {
       right_param_blocks[4] = parameters[index];
-      ++index;
+      index++;
     }
   } // End pinhole case
+}
+
+// Factory to hide the construction of the CostFunction object from
+// the client code.
+ceres::CostFunction* BaDispXyzError::Create(
+    double max_disp_error, double reference_terrain_weight,
+    Vector3 const& reference_xyz, ImageViewRef<DispPixelT> const& interp_disp,
+    boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
+    boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
+    bool solve_intrinsics, asp::IntrinsicOptions intrinsics_opt) {
+
+  const int NUM_RESIDUALS = 2;
+  
+  ceres::DynamicNumericDiffCostFunction<BaDispXyzError>* cost_function =
+      new ceres::DynamicNumericDiffCostFunction<BaDispXyzError>(
+          new BaDispXyzError(max_disp_error, reference_terrain_weight,
+                              reference_xyz, interp_disp, 
+                              left_camera_wrapper, right_camera_wrapper,
+                              solve_intrinsics, intrinsics_opt));
+
+  // The residual size is always the same.
+  cost_function->SetNumResiduals(NUM_RESIDUALS);
+
+  // Add all of the blocks for each camera, except for the first (point)
+  // block which is provided at creation time.
+  std::vector<int> block_sizes = left_camera_wrapper->get_block_sizes();
+  for (size_t i=1; i<block_sizes.size(); ++i) {
+    cost_function->AddParameterBlock(block_sizes[i]);
+  }
+  block_sizes = right_camera_wrapper->get_block_sizes();
+  if (!solve_intrinsics) {
+    for (size_t i=1; i<block_sizes.size(); ++i) {
+      cost_function->AddParameterBlock(block_sizes[i]);
+    }
+  } else { // Pinhole handling
+    if (block_sizes.size() != 5)
+      vw_throw(LogicErr() << "Error: Pinhole camera model parameter number error!");
+    cost_function->AddParameterBlock(block_sizes[1]); // The camera position/pose
+    if (!intrinsics_opt.center_shared) cost_function->AddParameterBlock(block_sizes[2]);
+    if (!intrinsics_opt.focus_shared) cost_function->AddParameterBlock(block_sizes[3]);
+    if (!intrinsics_opt.distortion_shared) cost_function->AddParameterBlock(block_sizes[4]);
+  }
+  return cost_function;
+}  // End function Create
+
+CamUncertaintyError::CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
+                                         vw::Vector2 const& uncertainty, int num_pixel_obs,
+                                         vw::cartography::Datum const& datum,
+                                         double camera_position_uncertainty_power):
+  m_orig_ctr(orig_ctr), m_uncertainty(uncertainty), m_num_pixel_obs(num_pixel_obs),
+  m_camera_position_uncertainty_power(camera_position_uncertainty_power) {
+    
+  // Ensure at least one term
+  m_num_pixel_obs = std::max(m_num_pixel_obs, 1);
+    
+  // The first three parameters are the camera center adjustments.
+  m_orig_adj = Vector3(orig_adj[0], orig_adj[1], orig_adj[2]);
+
+  // The uncertainty must be positive
+  if (m_uncertainty[0] <= 0 || m_uncertainty[1] <= 0)
+    vw_throw(ArgumentErr() << "CamUncertaintyError: Invalid uncertainty: "
+              << uncertainty << ". All values must be positive.\n");    
+  
+  // The NED coordinate system, for separating horizontal and vertical components
+  vw::Vector3 llh = datum.cartesian_to_geodetic(orig_ctr);
+  vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
+  m_EcefToNed = vw::math::inverse(NedToEcef);
+}
+
+bool CamUncertaintyError::operator()(const double* cam_adj, double* residuals) const {
+  
+  // The difference between the original and current camera center
+  vw::Vector3 diff;
+  for (size_t p = 0; p < 3; p++)
+    diff[p] = cam_adj[p] - m_orig_adj[p];
+  
+  // Convert the difference to NED
+  vw::Vector3 NedDir = m_EcefToNed * diff;
+  
+  // Split into horizontal and vertical components
+  vw::Vector2 horiz = subvector(NedDir, 0, 2);
+  double      vert  = NedDir[2];
+  
+  // Normalize by uncertainty
+  horiz /= m_uncertainty[0];
+  vert  /= m_uncertainty[1];
+  
+  // In the final sum of squares, each term will end up being differences
+  // raised to m_camera_position_uncertainty_power power.
+  double p = m_camera_position_uncertainty_power / 4.0;
+  residuals[0] = sqrt(m_num_pixel_obs) * pow(dot_prod(horiz, horiz), p);
+  residuals[1] = sqrt(m_num_pixel_obs) * pow(vert * vert, p);
+
+  return true;
+}
+
+// Factory to hide the construction of the CostFunction object from
+// the client code.
+ceres::CostFunction* LLHError::Create(Vector3                const& observation_xyz,
+                                      Vector3                const& sigma,
+                                      vw::cartography::Datum const& datum) {
+  return (new ceres::NumericDiffCostFunction<LLHError, ceres::CENTRAL, 3, 3>
+          (new LLHError(observation_xyz, sigma, datum)));
+}
+
+bool LLHError::operator()(const double* point, double* residuals) const {
+  Vector3 observation_llh, point_xyz, point_llh;
+  for (size_t p = 0; p < m_observation_xyz.size(); p++) {
+    point_xyz[p] = double(point[p]);
+  }
+
+  point_llh       = m_datum.cartesian_to_geodetic(point_xyz);
+  observation_llh = m_datum.cartesian_to_geodetic(m_observation_xyz);
+
+  for (size_t p = 0; p < m_observation_xyz.size(); p++) 
+    residuals[p] = (point_llh[p] - observation_llh[p])/m_sigma[p]; // Input units are meters
+
+  return true;
+}
+
+/// From the input options select the correct Ceres loss function.
+ceres::LossFunction* get_loss_function(std::string const& cost_function, double th) {
+
+  ceres::LossFunction* loss_function = NULL;
+  if (cost_function == "l2")
+    loss_function = NULL;
+  else if (cost_function == "trivial")
+    loss_function = new ceres::TrivialLoss();
+  else if (cost_function == "huber")
+    loss_function = new ceres::HuberLoss(th);
+  else if (cost_function == "cauchy")
+    loss_function = new ceres::CauchyLoss(th);
+  else if (cost_function == "l1")
+    loss_function = new ceres::SoftLOneLoss(th);
+  else{
+    vw::vw_throw(vw::ArgumentErr() << "Unknown cost function: " << cost_function << ".\n");
+  }
+  return loss_function;
 }
