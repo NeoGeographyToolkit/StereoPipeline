@@ -21,6 +21,7 @@
 
 #include <asp/Camera/BundleAdjustIsis.h>
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Camera/BaseCostFuns.h>
 #include <asp/Core/Common.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>

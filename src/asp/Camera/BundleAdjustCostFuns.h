@@ -18,10 +18,7 @@
 #ifndef __ASP_CAMERA_BUNDLE_ADJUST_COST_FUNCTIONS_H__
 #define __ASP_CAMERA_BUNDLE_ADJUST_COST_FUNCTIONS_H__
 
-/**
-  Ceres cost functions used by bundle_adjust.
-*/
-// TODO(oalexan1): Move most of this logic to the .cc file.
+// Ceres cost functions used by bundle_adjust.
 
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Camera/OpticalBarModel.h>
@@ -54,18 +51,7 @@
 #undef LOCAL_GCC_VERSION
 #endif
 
-using namespace vw;
-using namespace vw::camera;
-
 typedef vw::PixelMask<vw::Vector<float, 2>> DispPixelT;
-
-/// Used to accumulate the number of reprojection errors in bundle adjustment.
-int g_ba_num_errors = 0;
-Mutex g_ba_mutex;
-
-double g_big_pixel_value = 1000.0;  // don't make this too big
-
-//=====================================================================
 
 /// Simple base class for unpacking Ceres parameter blocks into
 ///  a camera model which can do point projections.
@@ -73,8 +59,8 @@ class CeresBundleModelBase {
 public:
 
   // These are the same for every camera.
-  int num_point_params() const {return 3;}
-  int num_pose_params () const {return 6;}
+  int num_point_params() const { return 3; }
+  int num_pose_params () const { return 6; }
 
   /// This is for all camera parameters other than the pose parameters.
   /// - These can be spread out across multiple parameter blocks.
@@ -280,7 +266,7 @@ struct BaDispXyzError {
   BaDispXyzError(double max_disp_error,
                  double reference_terrain_weight,
                  vw::Vector3 const& reference_xyz,
-                 ImageViewRef<DispPixelT> const& interp_disp,
+                 vw::ImageViewRef<DispPixelT> const& interp_disp,
                  boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
                  boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
                  bool solve_intrinsics, // Would like to remove these!
@@ -316,14 +302,14 @@ struct BaDispXyzError {
   // the client code.
   static ceres::CostFunction* Create(
       double max_disp_error, double reference_terrain_weight,
-      vw::Vector3 const& reference_xyz, ImageViewRef<DispPixelT> const& interp_disp,
+      vw::Vector3 const& reference_xyz, vw::ImageViewRef<DispPixelT> const& interp_disp,
       boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
       boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
       bool solve_intrinsics, asp::IntrinsicOptions intrinsics_opt);
   
   double m_max_disp_error, m_reference_terrain_weight;
   vw::Vector3 m_reference_xyz;
-  ImageViewRef<DispPixelT> const& m_interp_disp;
+  vw::ImageViewRef<DispPixelT> const& m_interp_disp;
   size_t m_num_left_param_blocks, m_num_right_param_blocks;
   // TODO: Make constant!
   boost::shared_ptr<CeresBundleModelBase> m_left_camera_wrapper;
@@ -495,5 +481,17 @@ private:
 
 /// From the input options select the correct Ceres loss function.
 ceres::LossFunction* get_loss_function(std::string const& cost_function, double th);
+
+// Add a ground constraint (GCP or height from DEM)
+void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
+                      std::string             const& cost_function_str, 
+                      bool use_llh_error,
+                      bool fix_gcp_xyz,
+                      // Outputs
+                      vw::ba::ControlNetwork & cnet,
+                      int                    & num_gcp,
+                      int                    & num_gcp_or_dem_residuals,
+                      asp::BAParams          & param_storage, 
+                      ceres::Problem         & problem);
 
 #endif // __ASP_CAMERA_BUNDLE_ADJUST_COST_FUNCTIONS_H__

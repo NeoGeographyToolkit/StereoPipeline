@@ -730,81 +730,6 @@ void addCamPosCostFun(Options                                 const& opt,
   }
 }
 
-// Add a ground constraint (GCP or height from DEM)
-// TODO(oalexan1): Must move this to a file named BundleAdjustCostFunctions.cc
-void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
-                      std::string             const& cost_function_str, 
-                      bool use_llh_error,
-                      bool fix_gcp_xyz,
-                      // Outputs
-                      vw::ba::ControlNetwork & cnet,
-                      int                    & num_gcp,
-                      int                    & num_gcp_or_dem_residuals,
-                      asp::BAParams          & param_storage, 
-                      ceres::Problem         & problem) {
-
-  int num_points  = param_storage.num_points();
-  if (num_points != (int)cnet.size()) 
-    vw::vw_throw(vw::ArgumentErr() << "Book-keeping error, the size of the control network "
-             << "must equal the number of points.\n");
-  
-  num_gcp = 0;
-  num_gcp_or_dem_residuals = 0;
-
-  for (int ipt = 0; ipt < num_points; ipt++) {
-    if (cnet[ipt].type() != ControlPoint::GroundControlPoint &&
-        cnet[ipt].type() != ControlPoint::PointFromDem)
-      continue; // Skip non-GCP's and points which do not need special treatment
-
-    if (param_storage.get_point_outlier(ipt))
-      continue; // skip outliers
-      
-    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
-      num_gcp++;
-      
-    Vector3 observation = cnet[ipt].position();
-    Vector3 xyz_sigma   = cnet[ipt].sigma();
-
-    ceres::CostFunction* cost_function;
-    if (!use_llh_error) {
-      cost_function = XYZError::Create(observation, xyz_sigma);
-    } else {
-      Vector3 llh_sigma = xyz_sigma;
-      // make lat,lon into lon,lat
-      std::swap(llh_sigma[0], llh_sigma[1]);
-      cost_function = LLHError::Create(observation, llh_sigma, opt.datum);
-    }
-
-    // Don't use the same loss function as for pixels since that one
-    // discounts outliers and the GCP's should never be discounted.
-    // The user an override this for the advanced --heights-from-dem
-    // option.
-    ceres::LossFunction* loss_function = NULL;
-    if (opt.heights_from_dem != ""           &&
-        opt.heights_from_dem_uncertainty > 0 &&
-        opt.heights_from_dem_robust_threshold > 0) {
-      loss_function 
-      = get_loss_function(cost_function_str, opt.heights_from_dem_robust_threshold);
-    } else {
-      loss_function = new ceres::TrivialLoss();
-    }
-    double * point  = param_storage.get_point_ptr(ipt);
-    problem.AddResidualBlock(cost_function, loss_function, point);
-
-    num_gcp_or_dem_residuals++;
-    
-    // Points whose sigma is FIXED_GCP_SIGMA (a tiny positive value are set to fixed)
-    double s = asp::FIXED_GCP_SIGMA;
-    if (cnet[ipt].type() == ControlPoint::GroundControlPoint && 
-        (fix_gcp_xyz || xyz_sigma == vw::Vector3(s, s, s))) {
-      cnet[ipt].set_sigma(Vector3(s, s, s)); // will be saved in the ISIS cnet
-      problem.SetParameterBlockConstant(point);
-    }
-      
-  } // End loop through triangulated points
-  
-}
-
 // One pass of bundle adjustment
 int do_ba_ceres_one_pass(Options             & opt,
                          asp::CRNJ      const& crn,
@@ -2608,7 +2533,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw(ArgumentErr() 
                << "Must specify --max-disp-error in pixels as a positive value.\n");
     if (opt.reference_terrain_weight < 0) 
-      vw_throw( ArgumentErr() << "The value of --reference-terrain-weight must be non-negative.\n");
+      vw_throw(ArgumentErr() 
+               << "The value of --reference-terrain-weight must be non-negative.\n");
   }
 
   if (opt.match_files_prefix != "" && opt.clean_match_files_prefix != "") 
