@@ -38,6 +38,9 @@
 #include <asp/Core/DataLoader.h>
 #include <asp/Camera/BundleAdjustEigen.h>
 #include <asp/Camera/BaseCostFuns.h>
+#include <asp/Camera/BundleAdjustCostFuns.h> // Ceres included in this file
+#include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Sessions/CameraUtils.h>
 
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>
@@ -46,6 +49,21 @@
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Camera/CameraImage.h>
 #include <vw/Cartography/GeoTransform.h>
+#include <vw/BundleAdjustment/ControlNetworkLoader.h>
+#include <vw/BundleAdjustment/CameraRelation.h>
+#include <vw/Camera/PinholeModel.h>
+#include <vw/Camera/LensDistortion.h>
+#include <vw/Camera/OpticalBarModel.h>
+
+// Can't do much about warnings in boost except to hide them
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#include <boost/algorithm/string.hpp>
+#include <boost/program_options.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/fstream.hpp>
+#include <boost/foreach.hpp>
+#pragma GCC diagnostic pop
 
 #include <xercesc/util/PlatformUtils.hpp>
 
@@ -516,7 +534,6 @@ int add_to_outliers(ControlNetwork & cnet,
 // stereo with the option --unalign-disparity. If there are n images, there must
 // be n-1 disparities, from each image to the next.
 // TODO(oalexan1): move to a separate file called BundleAdjustCostFunctions.cc
-// Also with most of bundle_adjust_cost_functions.h.
 void addReferenceTerrainCostFunction(
          Options             & opt,
          asp::BAParams       & param_storage, 
@@ -715,7 +732,6 @@ void addCamPosCostFun(Options                                 const& opt,
 
 // Add a ground constraint (GCP or height from DEM)
 // TODO(oalexan1): Must move this to a file named BundleAdjustCostFunctions.cc
-// and move there also all the logic now in bundle_adjust_cost_functions.h.
 void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
                       std::string             const& cost_function_str, 
                       bool use_llh_error,

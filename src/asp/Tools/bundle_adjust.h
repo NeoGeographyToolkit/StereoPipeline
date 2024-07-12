@@ -18,32 +18,10 @@
 #ifndef __ASP_TOOLS_BUNDLEADJUST_H__
 #define __ASP_TOOLS_BUNDLEADJUST_H__
 
-// Can't do much about warnings in boost except to hide them
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <boost/algorithm/string.hpp>
-#include <boost/program_options.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/fstream.hpp>
-#include <boost/foreach.hpp>
-#pragma GCC diagnostic pop
-
-#include <vw/BundleAdjustment/CameraRelation.h>
-#include <vw/BundleAdjustment/ControlNetwork.h>
-#include <vw/BundleAdjustment/ControlNetworkLoader.h>
-#include <vw/Camera/CAHVORModel.h>
-#include <vw/Camera/PinholeModel.h>
-#include <vw/Camera/LensDistortion.h>
-#include <vw/Cartography/Datum.h>
-#include <vw/Camera/OpticalBarModel.h>
-
-#include <asp/Core/BundleAdjustUtils.h>
-#include <asp/Sessions/CameraUtils.h>
 #include <asp/Camera/BundleAdjustCamera.h>
-#include <asp/Tools/bundle_adjust_cost_functions.h> // Ceres included in this file.
 
-#include <stdlib.h>
-#include <iostream>
+#include <vw/BundleAdjustment/ControlNetwork.h>
+#include <vw/Cartography/Datum.h>
 
 // This file contains the bundle adjust options and some other needed functions.
 
@@ -54,8 +32,8 @@ struct Options: public asp::BaBaseOptions {
     cost_function, mapprojected_data, gcp_from_mapprojected;
   int ip_per_tile, ip_per_image, matches_per_tile;
   double forced_triangulation_distance, overlap_exponent, ip_triangulation_max_error;
-  int    instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
-  bool   save_intermediate_cameras, approximate_pinhole_intrinsics,
+  int instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
+  bool save_intermediate_cameras, approximate_pinhole_intrinsics,
     init_camera_using_gcp, disable_pinhole_gcp_init,
     transform_cameras_with_shared_gcp, transform_cameras_using_gcp,
     fix_gcp_xyz, solve_intrinsics, 
@@ -65,11 +43,11 @@ struct Options: public asp::BaBaseOptions {
     csv_format_str, csv_proj4_str, disparity_list,
     dem_file_for_overlap;
   double semi_major, semi_minor, position_filter_dist;
-  int    num_ba_passes;
+  int num_ba_passes;
   std::string remove_outliers_params_str;
   std::vector<double> intrinsics_limits;
   boost::shared_ptr<vw::ba::ControlNetwork> cnet;
-  int    ip_detect_method, num_scales;
+  int ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, max_disp_error,
     auto_overlap_buffer, pct_for_overlap, min_distortion;
@@ -85,6 +63,7 @@ struct Options: public asp::BaBaseOptions {
   vw::Vector2i matches_per_tile_params;
   double horizontal_stddev;
   vw::Vector<double> horizontal_stddev_vec; // may come from cameras or user
+  
   // Make sure all values are initialized, even though they will be
   // over-written later.
   Options(): ip_per_tile(0), ip_per_image(0), 
