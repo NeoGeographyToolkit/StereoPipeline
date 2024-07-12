@@ -433,9 +433,9 @@ void populateCsmLinescan(double first_line_time, double dt_line,
   // Quaternions must always be normalized and not change suddenly in sign.
   asp::normalizeQuaternions(ls_model);
 
-  // Use the transverse distortion model
-  ls_model->m_distortionType = TRANSVERSE;
-  ls_model->m_opticalDistCoeffs.resize(20, 0.0);
+  // Use the radtan distortion model with zero distortion
+  ls_model->m_distortionType = RADTAN;
+  ls_model->m_opticalDistCoeffs.resize(5, 0.0);
   
   // Re-creating the model from the state forces some operations to
   // take place which are inaccessible otherwise.
