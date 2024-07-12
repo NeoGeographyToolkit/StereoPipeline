@@ -398,7 +398,7 @@ having the latest refinements and alignment::
       img/J03_045820_1915_XN_11N210W.cal.json  \
       img/K05_055472_1916_XN_11N210W.cal.json  \
       --input-adjustments-prefix ba_align/run  \
-      --max-pairwise-matches 1000000           \
+      --max-pairwise-matches 100000            \
       --match-files-prefix stereo/run-disp     \
       --num-lines-per-position    1000         \
       --num-lines-per-orientation 1000         \
@@ -748,7 +748,7 @@ Solve for jitter::
       --input-adjustments-prefix align/run    \
       --match-files-prefix dense/run          \
       --num-iterations 10                     \
-      --max-pairwise-matches 1000000          \
+      --max-pairwise-matches 100000           \
       --max-initial-reprojection-error 10     \
       --tri-weight 0.1                        \
       --tri-robust-threshold 0.1              \
@@ -759,7 +759,7 @@ Solve for jitter::
       --num-anchor-points 10000               \
       --num-anchor-points-extra-lines 500     \
       --anchor-dem ref.tif                    \
-      --anchor-weight 1.0                     \
+      --anchor-weight 0.1                     \
     -o jitter/run
 
 See :numref:`jitter_camera` regarding camera constraints.
@@ -1004,7 +1004,7 @@ cameras were accurate enough, so these steps were skipped.
       2.xml 2.xml                              \
       --match-files-prefix matches/run         \
       --num-iterations 10                      \
-      --max-pairwise-matches 1000000           \
+      --max-pairwise-matches 100000            \
       --max-initial-reprojection-error 20      \
       --tri-weight 0.1                         \
       --tri-robust-threshold 0.1               \
@@ -1225,7 +1225,7 @@ Solve for jitter with the aligned cameras::
     jitter_solve out-Band3N.tif out-Band3B.tif        \
       ba_align/run-run-out-Band3N.adjusted_state.json \
       ba_align/run-run-out-Band3B.adjusted_state.json \
-      --max-pairwise-matches 1000000                  \
+      --max-pairwise-matches 100000                   \
       --num-lines-per-position 100                    \
       --num-lines-per-orientation 100                 \
       --max-initial-reprojection-error 20             \

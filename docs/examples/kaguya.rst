@@ -246,7 +246,10 @@ Here we worked with the stereo pair::
    TC2W2B0_01_05324N056E2169
 
 Stereo was run with mapprojected images (:numref:`mapproj-example`). 
+
 Dense matches were produced from stereo disparity (:numref:`dense_ip`).
+Having on the order of 20,000 dense matches is suggested.
+
 The DEM and cameras were aligned to LOLA, and lens distortion was solved
 for as in :numref:`kaguya_ba` (using additional overlapping images).
 The resulting optimized cameras were passed in to the jitter solver.
@@ -274,9 +277,13 @@ Solving for jitter::
     --num-lines-per-orientation 300                      \
     --max-initial-reprojection-error 20                  \
     --match-files-prefix dense_matches/run               \
-    --heights-from-dem lola-filled-DEM.tif               \
+    --heights-from-dem lola-DEM.tif                      \
     --heights-from-dem-uncertainty 10                    \
+    --anchor-dem lola-DEM.tif                            \
+    --num-anchor-points 5000                             \
+    --num-anchor-points-extra-lines 1000                 \
+    --anchor-weight 0.01                                 \
     --num-iterations 10                                  \
     -o jitter/run
 
-One may consider adding some anchor points (:numref:`jitter_anchor_points`).
+
