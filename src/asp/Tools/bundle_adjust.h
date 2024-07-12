@@ -50,7 +50,6 @@
 /// The big bag of parameters needed by bundle_adjust.cc
 /// The ones shared with jitter_solve.cc are in asp::BaBaseOptions.
 struct Options: public asp::BaBaseOptions {
-  std::vector<std::string>  gcp_files;
   std::string cnet_file, vwip_prefix,
     cost_function, mapprojected_data, gcp_from_mapprojected;
   int ip_per_tile, ip_per_image, matches_per_tile;

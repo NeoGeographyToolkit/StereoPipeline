@@ -258,12 +258,10 @@ The DEM to constrain against was produced from LOLA, with a command as::
     --stereographic                      \
     --auto-proj-center                   \
     --csv-format 2:lon,3:lat,4:radius_km \
-    --search-radius-factor 10            \
+    --search-radius-factor 5             \
     --tr 25                              \
     lola.csv
     
-This was then filled in with ``dem_mosaic`` (:numref:`dem_mosaic_grow`).
-
 Solving for jitter::
 
   jitter_solve                                           \
@@ -280,3 +278,5 @@ Solving for jitter::
     --heights-from-dem-uncertainty 10                    \
     --num-iterations 10                                  \
     -o jitter/run
+
+One may consider adding some anchor points (:numref:`jitter_anchor_points`).

@@ -351,7 +351,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
 
   po::options_description positional_options("");
   po::positional_options_description positional_desc;
-  if (is_multiview){
+  if (is_multiview) {
     // The number of input files could be huge. Just store them in a vector,
     // we'll parse them in the caller.
     positional_options.add_options()
@@ -379,9 +379,9 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options,
-                                                  all_general_options, positional_options,
-                                                  positional_desc, usage,
-                                                  allow_unregistered, unregistered);
+                                                 all_general_options, positional_options,
+                                                 positional_desc, usage,
+                                                 allow_unregistered, unregistered);
 
   // Read the config file
   try {
@@ -433,8 +433,9 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   os << usage << general_options;
   usage = os.str();
 
-  // For multiview, just store the files and return
-  if (is_multiview){
+  // For multiview, just store the files and return. Must happen after
+  // logging starts, as logging for multiview is done in subdirectories. 
+  if (is_multiview) {
     if (vm.count("input-files") == 0)
       vw_throw(ArgumentErr() << "Missing input arguments.\n" << usage);
     input_files = vm["input-files"].as< std::vector<std::string>>();
@@ -1074,3 +1075,4 @@ vw::stereo::CorrelationAlgorithm stereo_alg_to_num(std::string alg) {
 }
 
 } // end namespace asp
+

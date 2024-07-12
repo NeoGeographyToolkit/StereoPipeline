@@ -725,43 +725,6 @@ struct BaDispXyzError {
   asp::IntrinsicOptions m_intrinsics_opt;
 };
 
-
-//===================================================================
-
-/// A ceres cost function. The residual is the difference between the
-/// observed 3D point and the current (floating) 3D point, normalized by
-/// xyz_sigma. Used only for ground control points or with --tri-weight.
-struct XYZError {
-  XYZError(Vector3 const& observation, Vector3 const& xyz_sigma):
-    m_observation(observation), m_xyz_sigma(xyz_sigma) {
-      bool is_good = (xyz_sigma[0] > 0 && xyz_sigma[1] > 0 && xyz_sigma[2] > 0);
-      if (!is_good) {
-        // This will also cover NaNs
-        vw_throw(ArgumentErr() << "XYZError: Invalid xyz_sigma: "
-                 << xyz_sigma << ". All values must be positive.\n");
-      }
-    }
-
-  template <typename T>
-  bool operator()(const T* point, T* residuals) const {
-    for (size_t p = 0; p < m_observation.size(); p++)
-      residuals[p] = (point[p] - m_observation[p])/m_xyz_sigma[p]; // Units are meters
-
-    return true;
-  }
-
-  // Factory to hide the construction of the CostFunction object from
-  // the client code.
-  static ceres::CostFunction* Create(Vector3 const& observation,
-                                     Vector3 const& xyz_sigma){
-    return (new ceres::AutoDiffCostFunction<XYZError, 3, 3>
-            (new XYZError(observation, xyz_sigma)));
-  }
-
-  Vector3 m_observation;
-  Vector3 m_xyz_sigma;
-};
-
 /// This cost function imposes a rather hard constraint on camera center
 /// horizontal and vertical motion. It does so by knowing how many reprojection
 /// errors exist for this camera and making this cost function big enough to
@@ -855,7 +818,8 @@ struct CamUncertaintyError {
 /// but lon-lat is, we can, in the GCP file, assign a bigger
 /// sigma to the latter.
 struct LLHError {
-  LLHError(Vector3 const& observation_xyz, Vector3 const& sigma, vw::cartography::Datum & datum):
+  LLHError(Vector3 const& observation_xyz, Vector3 const& sigma, 
+           vw::cartography::Datum const& datum):
     m_observation_xyz(observation_xyz), m_sigma(sigma), m_datum(datum){}
 
   template <typename T>
@@ -876,9 +840,9 @@ struct LLHError {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(Vector3 const& observation_xyz,
-                                     Vector3 const& sigma,
-                                     vw::cartography::Datum & datum){
+  static ceres::CostFunction* Create(Vector3                const& observation_xyz,
+                                     Vector3                const& sigma,
+                                     vw::cartography::Datum const& datum){
 
     return (new ceres::NumericDiffCostFunction<LLHError, ceres::CENTRAL, 3, 3>
             (new LLHError(observation_xyz, sigma, datum)));

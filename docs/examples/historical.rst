@@ -551,7 +551,7 @@ each camera using the GCPs.
       --ip-detect-method 1 -o bundle_6001/out     \
       --max-iterations 30 --fix-gcp-xyz
 
-Check the GCP pixel residulas at the end of the produced resusual file
+Check the GCP pixel residuals at the end of the produced residual file
 (:numref:`ba_err_per_point`).
 
 At this point it is a good idea to experiment with lower-resolution copies of

@@ -24,6 +24,8 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/ImageUtils.h>
+#include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/StereoSessionFactory.h>
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Camera/CameraModel.h>
@@ -153,20 +155,28 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.out_gcp);
 }
 
-int main(int argc, char * argv[]) {
+int run_dem2gcp(int argc, char * argv[]) {
   
   Options opt;
-  try {
-    
-    handle_arguments(argc, argv, opt);
   
+  // Parse and validate the input options  
+  handle_arguments(argc, argv, opt);
+  
+  // Load the cameras  
+  std::vector<vw::CamPtr> camera_models(2);
+  std::string stereo_session, out_prefix;
+  asp::SessionPtr session(NULL);
+  session.reset(asp::StereoSessionFactory::create
+                        (stereo_session, // will change
+                        opt, opt.left_img, opt.right_img,
+                        opt.left_cam, opt.right_cam,
+                        out_prefix));
+  session->camera_models(camera_models[0], camera_models[1]);
+
   // Load the control network  
   std::vector<std::string> image_files;
   image_files.push_back(opt.left_img);
   image_files.push_back(opt.right_img);
-  std::vector<vw::CamPtr> camera_models(2);
-  camera_models[0].reset(new vw::camera::PinholeModel(opt.left_cam));
-  camera_models[1].reset(new vw::camera::PinholeModel(opt.right_cam));
   vw::ba::ControlNetwork cnet("asp");
   bool triangulate_control_points = true;
   std::map<std::pair<int, int>, std::string> match_files;
@@ -278,8 +288,14 @@ int main(int argc, char * argv[]) {
     ofs << "\n";
     
     gcp_id++;
-    
   }
+  
+  return 0;
+}
+
+int main(int argc, char * argv[]) {
+  try {
+    run_dem2gcp(argc, argv);    
   } ASP_STANDARD_CATCHES;
    
   return 0;      

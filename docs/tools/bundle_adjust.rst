@@ -166,8 +166,8 @@ Handling failures
 This program will fail if the illumination changes too much between images (see
 also :numref:`sfs_azimuth`).
 
-Various approaches of creation of interest point matches are presented below
-(the existing ones should be deleted first). Use ``stereo_gui``
+Various approaches of creation of interest point matches are presented in 
+:numref:`ba_ip` (the existing ones should be deleted first). Use ``stereo_gui``
 (:numref:`stereo_gui_pairwise_matches`) to inspect the matches.
 
 To make the program work harder at reducing big pixel reprojection errors, the
@@ -289,6 +289,8 @@ See :numref:`bundle_adjustment` for how to solve for intrinsics. In particular,
 see :numref:`kaguya_ba` for the case when there exist several
 sensors, each with its own intrinsics parameters.
 
+.. _ba_ip:
+
 Well-distributed interest points
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -308,8 +310,12 @@ uniformly. For that, use the option ``--matches-per-tile``::
 For very large images, the number of interest points and matches per tile (whose
 size is 1024 pixels on the side) should be decreased from the above. 
 
-This and production of interest points from stereo are further discussed in
-:numref:`custom_ip`.
+If the images have very different perspectives, it is suggested to create the
+interest points based on mapprojected images (:numref:`mapip`.)
+
+Uniformly distributed interest points can be produced from stereo disparity.
+
+See :numref:`custom_ip` for more details.
 
 Controlling where interest points are placed
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -420,8 +426,9 @@ Ground control points consist of known points on the ground, together with their
 pixel locations in one or more images. Their use is to refine, initialize, or
 transform to desired coordinates the camera poses (:numref:`ba_use_gcp`).
 
-GCP can be created with ``gcp_gen`` (:numref:`gcp_gen`) or ``stereo_gui``
-(:numref:`creatinggcp`). 
+GCP can be created with ``gcp_gen`` (:numref:`gcp_gen`), ``stereo_gui``
+(:numref:`creatinggcp`), ``gcp_gen`` (:numref:`gcp_gen`), or ``dem2gcp``
+(:numref:`dem2gcp`).
 
 File format
 ^^^^^^^^^^^

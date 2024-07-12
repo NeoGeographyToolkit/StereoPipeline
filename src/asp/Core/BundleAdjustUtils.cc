@@ -541,8 +541,10 @@ void flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
       // The index of the triangulated point
       int ipt = (**fiter).m_point_id;
       
-      VW_ASSERT(icam < num_cameras, ArgumentErr() << "Out of bounds in the number of cameras.");
-      VW_ASSERT(ipt < num_tri_points, ArgumentErr() << "Out of bounds in the number of points.");
+      VW_ASSERT(icam < num_cameras, ArgumentErr() 
+                  << "Out of bounds in the number of cameras.");
+      VW_ASSERT(ipt < num_tri_points, ArgumentErr() 
+                  << "Out of bounds in the number of points.");
 
       if (outliers.find(ipt) != outliers.end()) {
         // Is an outlier
@@ -571,11 +573,15 @@ void flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
       try {
         pix = camera_models[icam]->point_to_pixel(tri_point);
         bool is_good = (norm_2(pix - observation) <= max_init_reproj_error);
+      
+        if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+          is_good = true; // GCP are not filtered with max_init_reproj_error
+
         if (!is_good) { // this checks for NaN too
           outliers.insert(ipt);
           continue;
         }
-      } catch(...) {
+      } catch (...) {
         outliers.insert(ipt);
         continue;
       }

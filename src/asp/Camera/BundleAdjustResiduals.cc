@@ -159,7 +159,8 @@ void compute_mean_residuals_at_xyz(asp::CRNJ const& crn,
   
 } // End function compute_mean_residuals_at_xyz
   
-  /// Write out a .csv file recording the residual error at each location on the ground
+// Write out a .csv file recording the residual error at each location on the ground
+// TODO(oalexan1): Integrate with write_per_xyz_residuals().
 void write_residual_map(std::string const& output_prefix,
                         // Mean residual of each point
                         std::vector<double> const& mean_residuals,
@@ -697,6 +698,7 @@ void saveJitterResiduals(ceres::Problem                             & problem,
 
 // This is used in jitter_solve. There can be more tri points than in cnet,
 // because we add anchor points. Those do not get processed here.
+// TODO(oalexan1): Integrate with write_residual_map().
 void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
                                    std::string            const& residual_prefix,
                                    vw::cartography::Datum const& datum,
@@ -735,6 +737,9 @@ void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
     std::string comment = "";
     if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
       comment = " # GCP";
+    else if (cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
+      comment = " # from DEM";
+      
     file << llh[0] << ", " << llh[1] <<", " << llh[2] << ", "
          << mean_pixel_residual_norm[ipt] << ", "
          << pixel_residual_count[ipt] << comment << std::endl;

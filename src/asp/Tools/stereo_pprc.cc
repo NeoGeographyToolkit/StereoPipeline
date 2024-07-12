@@ -227,7 +227,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       check_image_sizes(opt.in_file1, left_mask_file);
       check_image_sizes(opt.in_file2, right_mask_file);
     }
-  }else{
+  } else {
 
     vw_out() << "\t--> Generating image masks.\n";
 
@@ -304,7 +304,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
     // The blob holders must not go out of scope while masks are being written.
     BlobHolder LB, RB;
-    if ( !std::isnan(left_threshold) && !std::isnan(right_threshold)) {
+    if (!std::isnan(left_threshold) && !std::isnan(right_threshold)) {
       ImageViewRef<PixelMask<uint8>> left_thresh_mask
         = LB.mask_and_fill_holes(left_image,  left_threshold);
       ImageViewRef<PixelMask<uint8>> right_thresh_mask
@@ -361,9 +361,9 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       opt.raster_tile_size = Vector2(1024, 1024);
       
       { 
-        // Right image mask transformed into left coordinates
-        // Keep this in its own scope to free up the memory of its bookkeeping
-        // as soon as possible.
+        // Right image mask transformed into left coordinates. Keep this in its
+        // own scope to free up the memory of its bookkeeping as soon as
+        // possible.
         ImageViewRef<PixelMask<uint8>> warped_right_mask
           = crop(vw::cartography::geo_transform
                 (right_mask, right_georef, left_georef,
@@ -429,14 +429,14 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   try {
     // First try to see if the subsampled images exist.
     if (!fs::exists(lsub)  || !fs::exists(rsub) ||
-        !fs::exists(lmsub) || !fs::exists(rmsub)){
+        !fs::exists(lmsub) || !fs::exists(rmsub)) {
       rebuild = true;
-    }else{
-      // This confusing try catch is to see if the subsampled images actually have content.
-      DiskImageView<PixelGray<float>> testl (lsub );
-      DiskImageView<PixelGray<float>> testr (rsub );
-      DiskImageView<uint8>             testlm(lmsub);
-      DiskImageView<uint8>             testrm(rmsub);
+    } else {
+      // See if the subsampled images are valid
+      DiskImageView<PixelGray<float>> testl(lsub);
+      DiskImageView<PixelGray<float>> testr(rsub);
+      DiskImageView<uint8> testlm(lmsub);
+      DiskImageView<uint8> testrm(rmsub);
       vw_out() << "\t--> Using cached subsampled images.\n";
     }
   } catch (vw::Exception const& e) {
@@ -485,26 +485,22 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     if (sub_scale > 0.5) {
       // When we are near the pixel input to output ratio, standard
       // interpolation gives the best possible results.
-      left_sub_image  = block_rasterize(resample(copy_mask(left_image,  create_mask(left_mask)),
-                                                 sub_scale), 
-                                        sub_tile_size_vec, sub_threads);
-      right_sub_image = block_rasterize(resample(copy_mask(right_image, create_mask(right_mask)),
-                                                 sub_scale), 
-                                        sub_tile_size_vec, sub_threads);
+      left_sub_image  = block_rasterize(
+        resample(copy_mask(left_image, create_mask(left_mask)), sub_scale), 
+                 sub_tile_size_vec, sub_threads);
+      right_sub_image = block_rasterize(
+        resample(copy_mask(right_image, create_mask(right_mask)), sub_scale), 
+                 sub_tile_size_vec, sub_threads);
     } else {
       // When we heavily reduce the image size, super sampling seems
       // like the best approach. The method below should be equivalent.
-      left_sub_image
-        = block_rasterize
-        (cache_tile_aware_render(resample_aa(copy_mask(left_image,create_mask(left_mask)),
-                                             sub_scale),
-                                 Vector2i(256,256) * sub_scale),
+      left_sub_image = block_rasterize(
+          cache_tile_aware_render(resample_aa(copy_mask(left_image, create_mask(left_mask)),
+                                              sub_scale), Vector2i(256,256) * sub_scale),
          sub_tile_size_vec, sub_threads);
-      right_sub_image
-        = block_rasterize
-        (cache_tile_aware_render(resample_aa(copy_mask(right_image,create_mask(right_mask)),
-                                             sub_scale),
-                                 Vector2i(256,256) * sub_scale),
+      right_sub_image = block_rasterize(
+        cache_tile_aware_render(resample_aa(copy_mask(right_image, create_mask(right_mask)),
+                                             sub_scale), Vector2i(256,256) * sub_scale),
          sub_tile_size_vec, sub_threads);
     }
 
@@ -515,42 +511,40 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     vw::cartography::GeoReference left_sub_georef, right_sub_georef;
     if (has_left_georef) {
       // Account for scale.
-      double left_scale = 0.5*( double(left_sub_image.cols())/left_image.cols()
-                              + double(left_sub_image.rows())/left_image.rows());
+      double left_scale = 0.5 * (double(left_sub_image.cols())/left_image.cols() + 
+                                 double(left_sub_image.rows())/left_image.rows());
       left_sub_georef = resample(left_georef, left_scale);
     }
     if (has_right_georef) {
       // Account for scale.
-      double right_scale = 0.5*( double(right_sub_image.cols())/right_image.cols()
-                               + double(right_sub_image.rows())/right_image.rows());
+      double right_scale = 0.5 * (double(right_sub_image.cols())/right_image.cols() + 
+                                  double(right_sub_image.rows())/right_image.rows());
       right_sub_georef = resample(right_georef, right_scale);
     }
 
-    vw::cartography::block_write_gdal_image
-      ( lsub, apply_mask(left_sub_image, output_nodata),
-        has_left_georef, left_sub_georef,
-        has_nodata, output_nodata,
-        opt_nopred, TerminalProgressCallback("asp", "\t    Sub L: ") );
-    vw::cartography::block_write_gdal_image
-      ( rsub, apply_mask(right_sub_image, output_nodata),
-        has_right_georef, right_sub_georef,
-        has_nodata, output_nodata,
-        opt_nopred, TerminalProgressCallback("asp", "\t    Sub R: ") );
-    vw::cartography::block_write_gdal_image
-      ( lmsub,
-        channel_cast_rescale<uint8>(select_channel(left_sub_image, 1)),
-        has_left_georef, left_sub_georef,
-        has_nodata, output_nodata,
-        opt_nopred, TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
-    vw::cartography::block_write_gdal_image
-      ( rmsub,
-        channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)),
-        has_right_georef, right_sub_georef,
-        has_nodata, output_nodata,
-        opt_nopred, TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
+    vw::cartography::block_write_gdal_image(
+      lsub, apply_mask(left_sub_image, output_nodata),
+      has_left_georef, left_sub_georef,
+      has_nodata, output_nodata,
+      opt_nopred, TerminalProgressCallback("asp", "\t    Sub L: ") );
+    vw::cartography::block_write_gdal_image(
+      rsub, apply_mask(right_sub_image, output_nodata),
+      has_right_georef, right_sub_georef,
+      has_nodata, output_nodata,
+      opt_nopred, TerminalProgressCallback("asp", "\t    Sub R: ") );
+    vw::cartography::block_write_gdal_image(
+      lmsub, channel_cast_rescale<uint8>(select_channel(left_sub_image, 1)),
+      has_left_georef, left_sub_georef,
+      has_nodata, output_nodata,
+      opt_nopred, TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
+    vw::cartography::block_write_gdal_image(
+      rmsub, channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)),
+      has_right_georef, right_sub_georef,
+      has_nodata, output_nodata,
+      opt_nopred, TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
   } // End try/catch to see if the subsampled images have content
 
-  if (skip_img_norm && stereo_settings().subpixel_mode == 2){
+  if (skip_img_norm && stereo_settings().subpixel_mode == 2) {
     // If image normalization is not done, we still need to compute the image
     // stats, to do normalization on the fly in stereo_rfne.
     // This code is not in stereo_rfne, as that one is meant to be distributed
@@ -578,10 +572,10 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     Vector6f right_stats = gather_stats(pixel_cast<PixelMask<float>>(right_masked_image), 
                                         "right",
                                         opt.out_prefix, right_image_file);
-    std::string   left_stats_file  = opt.out_prefix + "-lStats.tif";
-    std::string   right_stats_file = opt.out_prefix + "-rStats.tif";
+    std::string left_stats_file  = opt.out_prefix + "-lStats.tif";
+    std::string right_stats_file = opt.out_prefix + "-rStats.tif";
 
-    vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
+    vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << "\n";
     Vector<float32> left_stats2  = left_stats;  // cast
     Vector<float32> right_stats2 = right_stats; // cast
     write_vector(left_stats_file,  left_stats2 );

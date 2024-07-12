@@ -84,7 +84,14 @@ The DEM constraint is preferred, if a decent DEM that is well-aligned with the
 cameras is available.
 
 The implementation is the same as for bundle adjustment
-(:numref:`heights_from_dem`).
+(:numref:`heights_from_dem`). 
+
+Ground control points
+^^^^^^^^^^^^^^^^^^^^^
+
+Just like ``bundle_adjust`` (:numref:`bagcp`), this program can make use of
+ground control points. The pixel residuals at ground control points 
+are flagged in the produced report file (:numref:`jitter_err_per_point`).
 
 .. _jitter_camera:
 
@@ -191,10 +198,14 @@ reprojection errors (:numref:`bundle_adjustment`) for the anchor
 points. This complements the reprojection errors from triangulated
 interest point matches, and the external DEM constraint (if used).
 
-Anchor points are strongly encouraged either with an intrinsic
-constraint or an external DEM constraint. Their number should be
-similar to the number of interest points, and it should be large if
-the poses are resampled very finely (see next section).
+Anchor points are strongly encouraged either with an intrinsic constraint or an
+external DEM constraint. Their number and weights should be less than for the
+interest points, to avoid these dominating the problem.
+
+Resampling the camera poses very finely may require more anchor points.
+
+A report file that has the residuals at anchor points is written down
+(:numref:`anchor_point_files`).
 
 The relevant options are ``--num-anchor-points``,
 ``--num-anchor-points-per-tile``, ``--anchor-weight``, ``--anchor-dem``, and
@@ -1692,6 +1703,11 @@ DEM and intersection error, respectively, before and after solving for jitter),
 but the csv files can be examined without creating stereo runs, which can take
 many hours.
 
+If GCP are passed on input, they will be flagged in this file, just as 
+for ``bundle_adjust`` (:numref:`ba_err_per_point`).
+
+.. _anchor_point_files:
+
 Anchor points
 ^^^^^^^^^^^^^
 
@@ -1846,7 +1862,7 @@ Command-line options for jitter_solve
     Filter as outliers triangulated points project using initial cameras with 
     error more than this, measured in pixels. Since jitter corrections are 
     supposed to be small and cameras bundle-adjusted by now, this value 
-    need not be too big.
+    need not be too big. Does not apply to GCP.
 
 --num-anchor-points <integer (default: 0)>
     How many anchor points to create tying each pixel to a point on a DEM along

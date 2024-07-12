@@ -27,6 +27,7 @@
 #include <asp/Core/EigenTransformUtils.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveRigCostFuns.h>
+#include <asp/Camera/BaseCostFuns.h>
 
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
@@ -815,7 +816,7 @@ void addDemConstraint(asp::BaBaseOptions       const& opt,
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
       
     if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
-      vw::vw_throw(vw::ArgumentErr() << "Found GCP where not expecting any.\n");
+      continue; // Skip GCPs
 
     // Note that we get tri points from dem_xyz_vec, based on the input DEM
     vw::Vector3 observation = dem_xyz_vec.at(ipt);
@@ -878,6 +879,42 @@ void addTriConstraint(asp::BaBaseOptions     const& opt,
     
     for (int c = 0; c < NUM_XYZ_PARAMS; c++)
       weight_per_residual.push_back(opt.tri_weight);
+      
+  } // End loop through xyz
+}
+
+// Add the GCP constraint
+void addGcpConstraint(asp::BaBaseOptions     const& opt,
+                      std::set<int>          const& outliers,
+                      vw::ba::ControlNetwork const& cnet,
+                      // Outputs
+                      std::vector<double>    & tri_points_vec,
+                      std::vector<double>    & weight_per_residual, // append
+                      ceres::Problem         & problem) {
+  
+  int num_tri_points = cnet.size();
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+    if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint)
+      continue; // Applies only to GCPs
+
+    if (outliers.find(ipt) != outliers.end()) 
+      continue; // skip outliers
+      
+    double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+    
+    // Use as constraint the initially triangulated point
+    vw::Vector3 observation(tri_point[0], tri_point[1], tri_point[2]);
+    vw::Vector3 xyz_sigma = cnet[ipt].sigma();
+
+    // Use same cost function as for bundle adjustment
+    ceres::CostFunction* cost_function = XYZError::Create(observation, xyz_sigma);
+    
+    // No soft cost function for GCP. These are assumed to be accurate.
+    ceres::LossFunction* loss_function  = new ceres::TrivialLoss();
+    problem.AddResidualBlock(cost_function, loss_function, tri_point);
+    
+    for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+      weight_per_residual.push_back(1.0 / xyz_sigma[c]);
       
   } // End loop through xyz
 }

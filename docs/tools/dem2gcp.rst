@@ -21,8 +21,9 @@ to model and correct the deformation in the sensor plane as lens distortion.
 ASP DEM creation
 ~~~~~~~~~~~~~~~~
 
-Prepare the images and Pinhole camera models with no distortion as shown in
-:numref:`kh7`. 
+Prepare the images and camera models, such as in :numref:`kh7`. This workflow
+expects the cameras to be in Pinhole (:numref:`pinholemodels`) or CSM
+(:numref:`csm`) format.
 
 It is very strongly suggested to work at a lower-resolution, such as 1/16th of
 the original resolution. The exact factor depends on the GSD of raw images and
@@ -33,12 +34,14 @@ value *only*.
 Bundle-adjust the images and the cameras without optimizing the intrinsics
 (:numref:`bundle_adjust`). Use the option ``--inline-adjustments``, and
 increase ``--ip-per-tile`` and ``--matches-per-tile`` if not getting enough 
-matches.
+matches. 
 
 Mapproject the images at the same appropriate resolution onto a reference DEM
-with the cameras produced by bundle adjustment. Use a local projection, such as
-stereographic. Run stereo with the mapprojected images
-(:numref:`mapproj-example`). Use the ``asp_mgm`` algorithm with
+with the cameras produced by bundle adjustment. Do not use, here, and below,
+the original cameras and the .adjust files.
+
+Use a local projection, such as stereographic. Run stereo with the mapprojected
+images (:numref:`mapproj-example`). Use the ``asp_mgm`` algorithm with
 ``--subpixel-mode 9`` (:numref:`stereo_alg_overview`). This will ensure the best
 quality.
 
@@ -118,6 +121,11 @@ are found. One could consider experimenting with comparing the ``asp_bm`` and
 
 Running ``dem2gcp``
 ~~~~~~~~~~~~~~~~~~~
+
+This command must be invoked with the warped ASP DEM and the reference DEM whose
+hillshaded versions were used to produce the disparity. Do not use here DEMs
+before cropping/regridding/blur applications, as those are not consistent with
+the disparity.
 
 :: 
 

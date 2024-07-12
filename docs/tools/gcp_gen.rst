@@ -25,6 +25,8 @@ inlier threshold if the matches are not good enough.
 The context and next steps after using this program are discussed in
 :numref:`camera_solve_gcp`.
 
+See the related program named ``dem2gcp`` (:numref:`dem2gcp`).
+
 Example
 ~~~~~~~
 

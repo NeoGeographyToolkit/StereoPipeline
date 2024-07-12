@@ -138,14 +138,15 @@ asp::get_files_with_ext(std::vector<std::string>& files, std::string const& ext,
   std::vector<std::string> match_files;
   std::vector<std::string>::iterator it = files.begin();
   while (it != files.end()) {
-    if (boost::iends_with(boost::to_lower_copy(*it), ext)){ // Match
+    if (boost::iends_with(boost::to_lower_copy(*it), ext)) { // Match
       match_files.push_back(*it);
       if (prune_input_list) // Clear match from the input list
         it = files.erase(it);
       else
-        ++it;
-    } else // No Match
-      ++it;
+        it++;
+    } else {// No match
+      it++;
+    }
   } // End loop through input list
 
   return match_files;
@@ -156,7 +157,7 @@ asp::get_files_with_ext(std::vector<std::string>& files, std::string const& ext,
 // all found images and cameras. This is a local auxiliary 
 // function not exposed in the header file.
 void readImagesCamsOrLists(std::vector<std::string> const & in,
-                          std::vector<std::string>       & out){
+                           std::vector<std::string>       & out) {
 
   // Wipe the output
   out.clear();
@@ -378,7 +379,7 @@ std::string asp::current_posix_time_string() {
 // planet (a point on whose surface is given by 'shift'). Return an
 // inverse power of 2, 1/2^10 for Earth and proportionally less for
 // smaller bodies.
-double asp::get_rounding_error(vw::Vector3 const& shift, double rounding_error){
+double asp::get_rounding_error(vw::Vector3 const& shift, double rounding_error) {
 
   // Do nothing if the user specified it.
   if (rounding_error > 0.0) return rounding_error;

@@ -122,10 +122,12 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     ("min-triangulation-angle", po::value(&opt.min_triangulation_angle)->default_value(0.1),
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to "
      "accept this point as valid. It must be a positive value.")
-    ("max-initial-reprojection-error", po::value(&opt.max_init_reproj_error)->default_value(10),
-     "Filter as outliers triangulated points project using initial cameras with error more than "
-     "this, measured in pixels. Since jitter corrections are supposed to be small and cameras "
-     "bundle-adjusted by now, this value need not be too big.")
+    ("max-initial-reprojection-error", 
+     po::value(&opt.max_init_reproj_error)->default_value(10),
+     "Filter as outliers triangulated points project using initial cameras with error more "
+     "than this, measured in pixels. Since jitter corrections are supposed to be small and "
+     "cameras bundle-adjusted by now, this value need not be too big. Does not apply to "
+     "GCP.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
      "Set the threshold for the Cauchy robust cost function. Increasing this makes "
      "the solver focus harder on the larger errors.")
@@ -272,7 +274,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
-  // Do this check first, as the output prefix is used below many times
+  // Do this check first, as the output prefix is needed to log to file
   if (opt.out_prefix == "") 
     vw_throw(ArgumentErr() << "Must specify the output prefix.\n" << usage << "\n");
 
@@ -281,6 +283,16 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
 
   // Turn on logging to file (after the output directory is created)
   asp::log_to_file(argc, argv, "", opt.out_prefix);
+
+  // This must be done early
+  boost::to_lower(opt.stereo_session);
+
+  // Separate out GCP files
+  bool rm_from_input_list = true;
+  opt.gcp_files = asp::get_files_with_ext(opt.image_files, ".gcp", rm_from_input_list);
+  int num_gcp_files = opt.gcp_files.size();
+  if (num_gcp_files > 0)
+    vw_out() << "Found " << num_gcp_files << " GCP files.\n";
 
   // Set this before loading cameras, as jitter can be modeled only with CSM
   // cameras.
@@ -746,7 +758,9 @@ void formTriVec(std::vector<Vector3> const& dem_xyz_vec,
     for (int q = 0; q < NUM_XYZ_PARAMS; q++)
       orig_tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
     
-    if (have_dem && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) {
+    bool is_gcp = (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
+
+    if (have_dem && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0) && !is_gcp) {
       tri_point = dem_xyz_vec.at(ipt);
 
       // Update in the cnet too
@@ -928,6 +942,12 @@ void run_jitter_solve(int argc, char* argv[]) {
               << "and then re-running bundle adjustment.\n");
   }
   
+  if (!opt.gcp_files.empty()) {
+    int num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
+    checkGcpRadius(opt.datum, cnet);
+    vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
+  }
+  
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   asp::CRNJ crn;
   crn.from_cnet(cnet);
@@ -1059,6 +1079,11 @@ void run_jitter_solve(int argc, char* argv[]) {
                      tri_points_vec,  
                      weight_per_residual,  // append
                      problem);
+
+  // Add the GCP constraint. GCP can come from GCP files or ISIS cnet.
+  addGcpConstraint(opt, outliers, cnet,
+                   // Outputs
+                   tri_points_vec, weight_per_residual, problem);
 
   // Add the constraint to keep the camera positions close to initial values
   if (opt.camera_position_weight > 0) 

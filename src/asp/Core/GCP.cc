@@ -25,6 +25,7 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Image/Interpolation.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/FileIO/FileUtils.h>
 
 namespace asp {
 
@@ -74,6 +75,7 @@ void writeGCP(std::vector<std::string> const& image_files,
              << tol << " meters. This is not supported.\n");
     
   vw_out() << "Writing: " << gcp_file << "\n";
+  vw::create_out_dir(gcp_file);
   std::ofstream output_handle(gcp_file.c_str());
   output_handle << std::setprecision(17);
 

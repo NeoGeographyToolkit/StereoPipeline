@@ -1910,4 +1910,26 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
   return;
 } 
 
+// Sanity check. This does not prevent the user from setting the wrong datum,
+// but it can catch unreasonable height values for GCP.
+void checkGcpRadius(vw::cartography::Datum const& datum, 
+                    vw::ba::ControlNetwork const& cnet) {
+  
+  int num_points = cnet.size();
+  for (int ipt = 0; ipt < num_points; ipt++) {
+    if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
+      continue;
+      
+    vw::Vector3 observation = cnet[ipt].position();
+    double thresh = 2e+5; // 200 km
+    if (std::abs(norm_2(observation) - datum.semi_major_axis()) > thresh || 
+        std::abs(norm_2(observation) - datum.semi_minor_axis()) > thresh)
+      vw_throw(ArgumentErr() << "Radius of a ground control point in ECEF differs "
+              << "from the datum radii by more than " << thresh << " meters.\n"
+              << "Check your GCPs and datum.\n");
+  }
+  
+  return;  
+}
+
 } // end namespace asp

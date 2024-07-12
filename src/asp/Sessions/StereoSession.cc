@@ -439,8 +439,8 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   // Compute input image statistics. This can be slow so use a timer.
   vw::Stopwatch sw1;
   sw1.start();
-  Vector6f left_stats  = gather_stats(left_masked_image,  "left",
-                                      this->m_out_prefix, left_cropped_file);
+  Vector6f left_stats = gather_stats(left_masked_image,  "left",
+                                     this->m_out_prefix, left_cropped_file);
   sw1.stop();  
   vw_out() << "Left image stats time: " << sw1.elapsed_seconds() << std::endl;
   vw::Stopwatch sw2;

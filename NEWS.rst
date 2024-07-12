@@ -10,6 +10,7 @@ mapproject (:numref:`mapproject`):
 
 jitter_solve (:numref:`jitter_solve`):
   * Add an example for the Kaguya Terrain Camera (:numref:`jitter_kaguya`).
+  * Can use GCP files.
     
 stereo_gui (:numref:`stereo_gui`):
   * Changing the image threshold updates the display correctly.

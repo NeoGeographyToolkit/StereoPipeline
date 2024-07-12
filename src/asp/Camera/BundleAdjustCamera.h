@@ -94,7 +94,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   std::vector<vw::Vector2> camera_position_uncertainty;    
   vw::Vector<double, 4> remove_outliers_params;
   BACameraType camera_type;
-  std::vector<std::string> image_files, camera_files;
+  std::vector<std::string> image_files, camera_files, gcp_files;
   std::vector<vw::CamPtr> camera_models;
   std::map<std::pair<int, int>, std::string> match_files;
   vw::cartography::Datum datum;
@@ -731,6 +731,11 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
                          BACameraType camera_type, 
                          IntrinsicOptions const& intrinsics_opts,                         
                          double min_distortion);
+
+// Sanity check. This does not prevent the user from setting the wrong datum,
+// but it can catch unreasonable height values for GCP.
+void checkGcpRadius(vw::cartography::Datum const& datum, 
+                    vw::ba::ControlNetwork const& cnet);
 
 } // end namespace asp
 

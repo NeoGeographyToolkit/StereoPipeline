@@ -123,6 +123,15 @@ void addTriConstraint(asp::BaBaseOptions     const& opt,
                       std::vector<double>    & weight_per_residual, // append
                       ceres::Problem         & problem);
 
+// Add the GCP constraint
+void addGcpConstraint(asp::BaBaseOptions     const& opt,
+                      std::set<int>          const& outliers,
+                      vw::ba::ControlNetwork const& cnet,
+                      // Outputs
+                      std::vector<double>    & tri_points_vec,
+                      std::vector<double>    & weight_per_residual, // append
+                      ceres::Problem         & problem);
+
 // Add camera constraints that are proportional to the number of reprojection errors.
 // This requires going through some of the same motions as in addReprojCamErrs().
 void addCamPositionConstraint(asp::BaBaseOptions               const& opt,

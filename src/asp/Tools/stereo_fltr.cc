@@ -504,7 +504,7 @@ int main(int argc, char* argv[]) {
     xercesc::XMLPlatformUtils::Initialize();
 
     vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : Stage 3 --> FILTERING \n";
+             << " ] : Stage 4 --> FILTERING \n";
 
     // This is probably the right place in which to warn the user about
     // new hole filling behavior.

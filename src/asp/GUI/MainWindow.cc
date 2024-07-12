@@ -342,7 +342,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     bool is_image = true;
     try {
       vw::DiskImageView<double> img(local_images[i]);
-    }catch(...) {
+    } catch(...) {
       is_image = false;
     }
     

@@ -37,6 +37,7 @@
 #include <asp/Core/OutlierProcessing.h>
 #include <asp/Core/DataLoader.h>
 #include <asp/Camera/BundleAdjustEigen.h>
+#include <asp/Camera/BaseCostFuns.h>
 
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>
@@ -712,6 +713,82 @@ void addCamPosCostFun(Options                                 const& opt,
   }
 }
 
+// Add a ground constraint (GCP or height from DEM)
+// TODO(oalexan1): Must move this to a file named BundleAdjustCostFunctions.cc
+// and move there also all the logic now in bundle_adjust_cost_functions.h.
+void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
+                      std::string             const& cost_function_str, 
+                      bool use_llh_error,
+                      bool fix_gcp_xyz,
+                      // Outputs
+                      vw::ba::ControlNetwork & cnet,
+                      int                    & num_gcp,
+                      int                    & num_gcp_or_dem_residuals,
+                      asp::BAParams          & param_storage, 
+                      ceres::Problem         & problem) {
+
+  int num_points  = param_storage.num_points();
+  if (num_points != (int)cnet.size()) 
+    vw::vw_throw(vw::ArgumentErr() << "Book-keeping error, the size of the control network "
+             << "must equal the number of points.\n");
+  
+  num_gcp = 0;
+  num_gcp_or_dem_residuals = 0;
+
+  for (int ipt = 0; ipt < num_points; ipt++) {
+    if (cnet[ipt].type() != ControlPoint::GroundControlPoint &&
+        cnet[ipt].type() != ControlPoint::PointFromDem)
+      continue; // Skip non-GCP's and points which do not need special treatment
+
+    if (param_storage.get_point_outlier(ipt))
+      continue; // skip outliers
+      
+    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+      num_gcp++;
+      
+    Vector3 observation = cnet[ipt].position();
+    Vector3 xyz_sigma   = cnet[ipt].sigma();
+
+    ceres::CostFunction* cost_function;
+    if (!use_llh_error) {
+      cost_function = XYZError::Create(observation, xyz_sigma);
+    } else {
+      Vector3 llh_sigma = xyz_sigma;
+      // make lat,lon into lon,lat
+      std::swap(llh_sigma[0], llh_sigma[1]);
+      cost_function = LLHError::Create(observation, llh_sigma, opt.datum);
+    }
+
+    // Don't use the same loss function as for pixels since that one
+    // discounts outliers and the GCP's should never be discounted.
+    // The user an override this for the advanced --heights-from-dem
+    // option.
+    ceres::LossFunction* loss_function = NULL;
+    if (opt.heights_from_dem != ""           &&
+        opt.heights_from_dem_uncertainty > 0 &&
+        opt.heights_from_dem_robust_threshold > 0) {
+      loss_function 
+      = get_loss_function(cost_function_str, opt.heights_from_dem_robust_threshold);
+    } else {
+      loss_function = new ceres::TrivialLoss();
+    }
+    double * point  = param_storage.get_point_ptr(ipt);
+    problem.AddResidualBlock(cost_function, loss_function, point);
+
+    num_gcp_or_dem_residuals++;
+    
+    // Points whose sigma is FIXED_GCP_SIGMA (a tiny positive value are set to fixed)
+    double s = asp::FIXED_GCP_SIGMA;
+    if (cnet[ipt].type() == ControlPoint::GroundControlPoint && 
+        (fix_gcp_xyz || xyz_sigma == vw::Vector3(s, s, s))) {
+      cnet[ipt].set_sigma(Vector3(s, s, s)); // will be saved in the ISIS cnet
+      problem.SetParameterBlockConstant(point);
+    }
+      
+  } // End loop through triangulated points
+  
+}
+
 // One pass of bundle adjustment
 int do_ba_ceres_one_pass(Options             & opt,
                          asp::CRNJ      const& crn,
@@ -891,61 +968,12 @@ int do_ba_ceres_one_pass(Options             & opt,
   } // end iterating over cameras
 
   // Add ground control points or points based on a DEM constraint
-  // Error goes up as GCP's move from their input positions.
-  // TODO(oalexan1): Put this in a separate function.
   int num_gcp = 0, num_gcp_or_dem_residuals = 0;
-  for (int ipt = 0; ipt < num_points; ipt++) {
-    if (cnet[ipt].type() != ControlPoint::GroundControlPoint &&
-        cnet[ipt].type() != ControlPoint::PointFromDem)
-      continue; // Skip non-GCP's and points which do not need special treatment
-
-    if (param_storage.get_point_outlier(ipt))
-      continue; // skip outliers
-    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
-      num_gcp++;
-    Vector3 observation = cnet[ipt].position();
-    Vector3 xyz_sigma   = cnet[ipt].sigma();
-
-    ceres::CostFunction* cost_function;
-    if (!opt.use_llh_error) 
-      cost_function = XYZError::Create(observation, xyz_sigma);
-    else{
-      Vector3 llh_sigma = xyz_sigma;
-      // make lat,lon into lon,lat
-      std::swap(llh_sigma[0], llh_sigma[1]);
-      cost_function = LLHError::Create(observation, llh_sigma, opt.datum);
-    }
-
-    // Don't use the same loss function as for pixels since that one
-    // discounts outliers and the GCP's should never be discounted.
-    // The user an override this for the advanced --heights-from-dem
-    // option.
-    ceres::LossFunction* loss_function = NULL;
-    if (opt.heights_from_dem != ""           &&
-        opt.heights_from_dem_uncertainty > 0 &&
-        opt.heights_from_dem_robust_threshold > 0) {
-      loss_function 
-      = get_loss_function(opt.cost_function, opt.heights_from_dem_robust_threshold);
-    } else {
-      loss_function = new ceres::TrivialLoss();
-    }
-    double * point  = param_storage.get_point_ptr(ipt);
-    problem.AddResidualBlock(cost_function, loss_function, point);
-
-    num_gcp_or_dem_residuals++;
-    
-    // Points whose sigma is FIXED_GCP_SIGMA (a tiny positive value are set to fixed)
-    double s = asp::FIXED_GCP_SIGMA;
-    if (cnet[ipt].type() == ControlPoint::GroundControlPoint && 
-        (opt.fix_gcp_xyz || xyz_sigma == vw::Vector3(s, s, s))) {
-      cnet[ipt].set_sigma(Vector3(s, s, s)); // will be saved in the ISIS cnet
-      problem.SetParameterBlockConstant(point);
-    }
-      
-  } // End loop through GCP's
+  addGcpOrDemConstraint(opt, opt.cost_function, opt.use_llh_error, opt.fix_gcp_xyz, 
+                        // Outputs
+                        cnet, num_gcp, num_gcp_or_dem_residuals, param_storage, problem);  
 
   // Add camera constraints
-  // - Error goes up as cameras move and rotate from their input positions.
   if (opt.camera_weight > 0) {
     for (int icam = 0; icam < num_cameras; icam++) {
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
@@ -962,7 +990,6 @@ int do_ba_ceres_one_pass(Options             & opt,
   }
 
   // Finer level control of only rotation. See also --camera-position-weight.
-  // Error goes up as cameras move and rotate from their input positions.
   // Note: A strong constraint here can prevent convergence as the is no loss function.
   // Camera position and tri constraints are suggested instead.
   if (opt.rotation_weight > 0) {
@@ -1230,27 +1257,6 @@ void runRandomPasses(Options & opt, asp::BAParams & param_storage,
   
   // Copy back the best cost
   final_cost = best_cost;
-}
-
-// Sanity check. This does not prevent the user from setting the wrong datum,
-// but it can catch unreasonable height values for GCP.
-void checkGcpRadius(vw::cartography::Datum const& datum, ControlNetwork const& cnet) {
-  
-  int num_points = cnet.size();
-  for (int ipt = 0; ipt < num_points; ipt++) {
-    if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
-      continue;
-      
-    vw::Vector3 observation = cnet[ipt].position();
-    double thresh = 2e+5; // 200 km
-    if (std::abs(norm_2(observation) - datum.semi_major_axis()) > thresh || 
-        std::abs(norm_2(observation) - datum.semi_minor_axis()) > thresh)
-      vw_throw(ArgumentErr() << "Radius of a ground control point in ECEF differs "
-              << "from the datum radii by more than " << thresh << " meters.\n"
-              << "Check your GCPs and datum.\n");
-  }
-  
-  return;  
 }
 
 /// Use Ceres to do bundle adjustment.
@@ -2090,11 +2096,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
+  // Do this check first, as the output prefix is needed to log to file
+  if (opt.out_prefix.empty())
+    vw::vw_throw(vw::ArgumentErr() << "Missing output prefix.\n");
+
+  // Create the output directory
+  vw::create_out_dir(opt.out_prefix);
+
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
+
   // This must be done early
   boost::to_lower(opt.stereo_session);
 
   // Separate out GCP files
-  opt.gcp_files = asp::get_files_with_ext(opt.image_files, ".gcp", true);
+  bool rm_from_input_list = true;
+  opt.gcp_files = asp::get_files_with_ext(opt.image_files, ".gcp", rm_from_input_list);
   const size_t num_gcp_files = opt.gcp_files.size();
   vw_out() << "Found " << num_gcp_files << " GCP files on the command line.\n";
 
@@ -2500,15 +2517,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (!vm["max-iterations"].defaulted())
     opt.num_iterations = max_iterations_tmp;
   
-  if (opt.out_prefix.empty())
-    vw::vw_throw(vw::ArgumentErr() << "Missing output prefix.\n");
-
-  // Create the output directory
-  vw::create_out_dir(opt.out_prefix);
-
-  // Turn on logging to file
-  asp::log_to_file(argc, argv, "", opt.out_prefix);
-
   load_intrinsics_options(opt.solve_intrinsics, !vm["intrinsics-to-share"].defaulted(),
                           intrinsics_to_float_str, intrinsics_to_share_str,
                           opt.intrinsics_options);
@@ -2896,7 +2904,7 @@ void matches_from_mapproj_images(int i, int j,
 /// from each map-projected image to the DEM it was map-projected onto,
 /// project those matches back into the camera image, and create gcp
 /// tying each camera image match to its desired location on the DEM.
-void create_gcp_from_mapprojected_images(Options const& opt){
+void create_gcp_from_mapprojected_images(Options const& opt) {
 
   if (opt.instance_index != 0) 
     return; // only do this for first instance

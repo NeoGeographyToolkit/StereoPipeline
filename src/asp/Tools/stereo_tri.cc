@@ -413,7 +413,7 @@ void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
     keywords["BAND6"] = "VerticalStdDev";
   }
 
-  if (opt.session->supports_multi_threading()){
+  if (opt.session->supports_multi_threading()) {
     asp::block_write_approx_gdal_image
       (point_cloud_file, shift,
        stereo_settings().point_cloud_rounding_error,
@@ -421,7 +421,7 @@ void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
        has_georef, georef, has_nodata, nodata,
        opt, TerminalProgressCallback("asp", "\t--> Triangulating: "),
        keywords);
-  }else{
+  } else {
     // ISIS does not support multi-threading
     asp::write_approx_gdal_image
       (point_cloud_file, shift,
@@ -791,7 +791,7 @@ void stereo_triangulation(std::string const& output_prefix,
         vw_out() << "Reading existing point cloud center: " << cloud_center_file << std::endl;
       }
     }
-    if (stereo_settings().compute_point_cloud_center_only){
+    if (stereo_settings().compute_point_cloud_center_only) {
       vw_out() << "Computed the point cloud center. Will stop here." << std::endl;
       return;
     }
@@ -840,7 +840,8 @@ int main(int argc, char* argv[]) {
   try {
     xercesc::XMLPlatformUtils::Initialize();
 
-    vw_out() << "\n[ " << asp::current_posix_time_string() << " ] : Stage 4 --> TRIANGULATION \n";
+    vw_out() << "\n[ " << asp::current_posix_time_string() 
+             << " ] : Stage 5 --> TRIANGULATION \n";
 
     asp::stereo_register_sessions();
 
