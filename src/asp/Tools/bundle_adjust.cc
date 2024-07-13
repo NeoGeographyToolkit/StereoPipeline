@@ -44,8 +44,8 @@
 #include <vw/Core/CmdUtils.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/InterestPoint/Matcher.h>
-#include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoTransform.h>
+#include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/BundleAdjustment/CameraRelation.h>
 #include <vw/Camera/PinholeModel.h>
@@ -299,7 +299,6 @@ int add_to_outliers(ControlNetwork & cnet,
 
 // End outlier functions
 
-
 // One pass of bundle adjustment
 int do_ba_ceres_one_pass(asp::BaOptions      & opt,
                          asp::CRNJ      const& crn,
@@ -336,7 +335,7 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
   // changes by a scale specific to it. Note: If an intrinsic starts as 0, it
   // will then stay as 0. This is documented. Can be both useful and confusing.
   
-  // DEM constraint. 
+  // Prepare for the DEM constraint. 
   // TODO(oalexan1): Study how to best pass the DEM to avoid the code
   // below not being slow. It is not clear if the DEM tiles are cached
   // when passing around an ImageViewRef.
@@ -369,120 +368,27 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
     vw::cartography::readGeorefImage(opt.weight_image,
       weight_image_nodata, weight_image_georef, weight_image);
 
-  // Add the cost function component for difference of pixel observations
-  // Reduce error by making pixel projection consistent with observations.
-  
   // Add the various cost functions the solver will optimize over.
-  // First is pixel reprojection error. Note: cam_residual_counts and num_pixels_per_cam
-  // serve different purposes. 
-  // TODO(oalexan1): Put this in a separate function.
   ceres::Problem problem;
-  std::vector<size_t> cam_residual_counts(num_cameras, 0);
-  std::vector<size_t> num_pixels_per_cam(num_cameras, 0);
-  std::vector<std::vector<vw::Vector2>> pixels_per_cam(num_cameras);
-  std::vector<std::vector<vw::Vector3>> tri_points_per_cam(num_cameras);
-  std::vector<std::map<int, vw::Vector2>> pixel_sigmas(num_cameras);
-  for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
-    cam_residual_counts[icam] = 0;
-    num_pixels_per_cam[icam] = 0;
-    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) { // IP loop
-
-      // The index of the 3D point this IP is for.
-      int ipt = (**fiter).m_point_id;
-      if (param_storage.get_point_outlier(ipt))
-        continue; // skip outliers
-
-      VW_ASSERT(int(icam) < num_cameras,
-                ArgumentErr() << "Out of bounds in the number of cameras.");
-      VW_ASSERT(int(ipt)  < num_points,
-                ArgumentErr() << "Out of bounds in the number of points.");
-
-      double* point = param_storage.get_point_ptr(ipt);
-      if (point[0] == 0 && point[1] == 0 && point[2] == 0) {
-        // Flag points in the center of the planet as outliers
-        param_storage.set_point_outlier(ipt, true);
-        continue;
-      }
-      
-      // Weight from image, if provided
-      vw::PixelMask<float> img_wt = 1.0;
-      if (have_weight_image) {
-        Vector3 ecef(point[0], point[1], point[2]);
-        img_wt = vw::cartography::closestPixelVal(weight_image, weight_image_georef, ecef);
-        
-        // Flag bad weights as outliers
-        if (!is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0) {
-          param_storage.set_point_outlier(ipt, true);
-          continue;
-        }
-      }
-        
-      // Adjust non-GCP triangulated points based on the DEM, if
-      // provided.
-      bool is_gcp = (cnet[ipt].type() == ControlPoint::GroundControlPoint);
-      if (have_dem && !is_gcp && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) {
-        // Update the tri point in param_storage based on the DEM.
-        for (int p = 0; p < 3; p++) 
-          point[p] = dem_xyz_vec.at(ipt)[p]; 
-        // Set the point type, so we can track it later
-        cnet[ipt].set_type(ControlPoint::PointFromDem); 
-        // Update the cnet as well. This will be used later.
-        cnet[ipt].set_position(Vector3(point[0], point[1], point[2])); 
-       
-        // Set the uncertainty to the uncertainty of the DEM 
-        double s = opt.heights_from_dem_uncertainty;
-        cnet[ipt].set_sigma(Vector3(s, s, s));
-      }
-      
-      // The observed value for the projection of point with index ipt into
-      // the camera with index icam.
-      Vector2 observation = (**fiter).m_location;
-      Vector2 pixel_sigma = (**fiter).m_scale;
-
-      // This is a bugfix
-      if (pixel_sigma != pixel_sigma) // nan check
-        pixel_sigma = Vector2(1, 1);
-      
-      if (pixel_sigma[0] <= 0.0 || pixel_sigma[1] <= 0.0) {
-        // Cannot add a cost function term with non-positive pixel sigma
-        param_storage.set_point_outlier(ipt, true);
-        continue;
-      }
-      
-      double p = opt.overlap_exponent;
-      if (p > 0 && count_map[ipt] > 2) {
-        // Give more weight to points that are seen in more images.
-        // This should not be overused. 
-        double delta = pow(count_map[ipt] - 1.0, p);
-        pixel_sigma /= delta;
-      }
-      
-      // Apply the weight image
-      if (have_weight_image)
-        pixel_sigma /= img_wt.child();
-        
-      // Need this for --camera-position-weight 
-      if (opt.camera_position_weight > 0) {
-        pixels_per_cam[icam].push_back(observation);
-        tri_points_per_cam[icam].push_back(cnet[ipt].position());
-      }
-      // For computing pixel reprojection errors
-      pixel_sigmas[icam][ipt] = pixel_sigma;
-
-      // Call function to add the appropriate Ceres residual block.
-      add_reprojection_residual_block(observation, pixel_sigma, ipt, icam,
-                                      param_storage, opt, problem);
-      cam_residual_counts[icam] += 1; // Track the number of residual blocks for each camera
-      num_pixels_per_cam[icam] += 1;  // Track the number of pixels for each camera
-      
-    } // end iterating over points
-  } // end iterating over cameras
-
+  
+  // Pixel reprojection error
+  std::vector<size_t> cam_residual_counts, num_pixels_per_cam;
+  std::vector<std::vector<vw::Vector2>> pixels_per_cam;
+  std::vector<std::vector<vw::Vector3>> tri_points_per_cam;
+  std::vector<std::map<int, vw::Vector2>> pixel_sigmas;
+  asp::addPixelReprojCostFun(opt, crn, count_map, weight_image, weight_image_georef,
+                             dem_xyz_vec, have_weight_image, have_dem,
+                             // Outputs
+                             cnet, param_storage, problem, cam_residual_counts,
+                             num_pixels_per_cam, pixels_per_cam, tri_points_per_cam,
+                             pixel_sigmas);
+  
   // Add ground control points or points based on a DEM constraint
   int num_gcp = 0, num_gcp_or_dem_residuals = 0;
-  addGcpOrDemConstraint(opt, opt.cost_function, opt.use_llh_error, opt.fix_gcp_xyz, 
-                        // Outputs
-                        cnet, num_gcp, num_gcp_or_dem_residuals, param_storage, problem);  
+  asp::addGcpOrDemConstraint(opt, opt.cost_function, opt.use_llh_error, opt.fix_gcp_xyz, 
+                             // Outputs
+                             cnet, num_gcp, num_gcp_or_dem_residuals,
+                             param_storage, problem);  
 
   // Add camera constraints
   if (opt.camera_weight > 0) {
@@ -544,15 +450,17 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
   // constraint per reprojection error.
   int num_cam_pos_residuals = 0;
   if (opt.camera_position_weight > 0)
-    addCamPosCostFun(opt, orig_parameters, pixels_per_cam, tri_points_per_cam, pixel_sigmas,
-                     orig_cams, param_storage, problem, num_cam_pos_residuals);
+    asp::addCamPosCostFun(opt, orig_parameters, pixels_per_cam, 
+                          tri_points_per_cam, pixel_sigmas, orig_cams, 
+                          param_storage, problem, num_cam_pos_residuals);
   
   // Add a cost function meant to tie up to known disparity
   // (option --reference-terrain).
   std::vector<vw::Vector3> reference_vec;
   std::vector<ImageViewRef<DispPixelT>> interp_disp; // must be kept in scope
   if (opt.reference_terrain != "") 
-    addReferenceTerrainCostFunction(opt, param_storage, problem, reference_vec, interp_disp);
+    asp::addReferenceTerrainCostFunction(opt, param_storage, problem, 
+                                         reference_vec, interp_disp);
 
   // TODO(oalexan1): Put this in a separate function
   int num_tri_residuals = 0;
@@ -561,8 +469,8 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
     std::vector<double> gsds;
     asp::estimateGsdPerTriPoint(opt.image_files, orig_cams, crn, param_storage, gsds);
     for (int ipt = 0; ipt < num_points; ipt++) {
-      if (cnet[ipt].type() == ControlPoint::GroundControlPoint ||
-          cnet[ipt].type() == ControlPoint::PointFromDem)
+      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint ||
+          cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
         continue; // Skip GCPs and height-from-dem points which have their own constraint
       
       if (param_storage.get_point_outlier(ipt))

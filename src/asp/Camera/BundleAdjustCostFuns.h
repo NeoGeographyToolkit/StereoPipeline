@@ -29,27 +29,10 @@
 #include <asp/Core/BundleAdjustUtils.h>
 
 // Turn off warnings from eigen
-#if defined(__GNUC__) || defined(__GNUG__)
-#define LOCAL_GCC_VERSION (__GNUC__ * 10000                    \
-                           + __GNUC_MINOR__ * 100              \
-                           + __GNUC_PATCHLEVEL__)
-#if LOCAL_GCC_VERSION >= 40600
-#pragma GCC diagnostic push
-#endif
-#if LOCAL_GCC_VERSION >= 40202
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
-#endif
-#endif
-
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
-
-#if defined(__GNUC__) || defined(__GNUG__)
-#if LOCAL_GCC_VERSION >= 40600
 #pragma GCC diagnostic pop
-#endif
-#undef LOCAL_GCC_VERSION
-#endif
 
 typedef vw::PixelMask<vw::Vector<float, 2>> DispPixelT;
 
@@ -59,6 +42,8 @@ namespace asp {
   struct BAParams;
 }
 
+namespace asp {
+  
 /// Simple base class for unpacking Ceres parameter blocks into
 ///  a camera model which can do point projections.
 class CeresBundleModelBase {
@@ -488,18 +473,6 @@ private:
 /// From the input options select the correct Ceres loss function.
 ceres::LossFunction* get_loss_function(std::string const& cost_function, double th);
 
-// Add a ground constraint (GCP or height from DEM)
-void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
-                      std::string             const& cost_function_str, 
-                      bool use_llh_error,
-                      bool fix_gcp_xyz,
-                      // Outputs
-                      vw::ba::ControlNetwork & cnet,
-                      int                    & num_gcp,
-                      int                    & num_gcp_or_dem_residuals,
-                      asp::BAParams          & param_storage, 
-                      ceres::Problem         & problem);
-
 /// Add error source for projecting a 3D point into the camera.
 void add_reprojection_residual_block(vw::Vector2 const& observation, 
                                      vw::Vector2 const& pixel_sigma,
@@ -541,4 +514,39 @@ void addCamPosCostFun(asp::BaOptions                          const& opt,
                       ceres::Problem                             & problem,
                       int                                        & num_cam_pos_residuals);
 
+// Pixel reprojection error. Note: cam_residual_counts and num_pixels_per_cam
+// serve different purposes. 
+void addPixelReprojCostFun(asp::BaOptions                         const& opt,
+                           asp::CRNJ                              const& crn,
+                           std::vector<int>                       const& count_map,
+                           vw::ImageViewRef<vw::PixelMask<float>> const& weight_image,
+                           vw::cartography::GeoReference          const& weight_image_georef,
+                           std::vector<vw::Vector3>               const& dem_xyz_vec,
+                           bool have_weight_image, 
+                           bool have_dem,
+                           // Outputs
+                           vw::ba::ControlNetwork                  & cnet,
+                           asp::BAParams                           & param_storage,
+                           ceres::Problem                          & problem,
+                           std::vector<size_t>                     & cam_residual_counts,
+                           std::vector<size_t>                     & num_pixels_per_cam,
+                           std::vector<std::vector<vw::Vector2>>   & pixels_per_cam,
+                           std::vector<std::vector<vw::Vector3>>   & tri_points_per_cam,
+                           std::vector<std::map<int, vw::Vector2>> & pixel_sigmas);
+
+// Add a ground constraint (GCP or height from DEM)
+void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
+                      std::string             const& cost_function_str, 
+                      bool use_llh_error,
+                      bool fix_gcp_xyz,
+                      // Outputs
+                      vw::ba::ControlNetwork & cnet,
+                      int                    & num_gcp,
+                      int                    & num_gcp_or_dem_residuals,
+                      asp::BAParams          & param_storage, 
+                      ceres::Problem         & problem);
+
+} // end namespace asp
+
 #endif // __ASP_CAMERA_BUNDLE_ADJUST_COST_FUNCTIONS_H__
+
