@@ -80,7 +80,7 @@ using namespace vw::ba;
 class BaCallback: public ceres::IterationCallback {
 public:
   
-  BaCallback(Options const& opt, asp::BAParams const& param_storage):
+  BaCallback(BaOptions const& opt, asp::BAParams const& param_storage):
     m_opt(opt), m_param_storage(param_storage){}
 
   virtual ceres::CallbackReturnType operator() (const ceres::IterationSummary& summary) {
@@ -89,11 +89,11 @@ public:
   }
   
 private:
-  Options const& m_opt;
+  BaOptions const& m_opt;
   asp::BAParams const& m_param_storage;
 };
 
-void Options::copy_to_asp_settings() const {
+void BaOptions::copy_to_asp_settings() const {
   asp::stereo_settings().ip_matching_method         = ip_detect_method;
   asp::stereo_settings().epipolar_threshold         = epipolar_threshold;
   asp::stereo_settings().ip_inlier_factor           = ip_inlier_factor;
@@ -139,7 +139,7 @@ void Options::copy_to_asp_settings() const {
 void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& pixel_sigma,
                                      int point_index, int camera_index, 
                                      asp::BAParams & param_storage,
-                                     Options const& opt,
+                                     BaOptions const& opt,
                                      ceres::Problem & problem) {
 
   ceres::LossFunction* loss_function;
@@ -249,7 +249,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
                                   ImageViewRef<DispPixelT> const& interp_disp, 
                                   int left_cam_index, int right_cam_index,
                                   asp::BAParams & param_storage,
-                                  Options const& opt,
+                                  BaOptions const& opt,
                                   ceres::Problem & problem) {
 
   ceres::LossFunction* loss_function 
@@ -326,7 +326,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
 int add_to_outliers(ControlNetwork & cnet,
                     asp::CRNJ const& crn,
                     asp::BAParams & param_storage,
-                    Options const& opt,
+                    BaOptions const& opt,
                     std::vector<size_t> const& cam_residual_counts,
                     std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
                     size_t num_gcp_or_dem_residuals,
@@ -535,7 +535,7 @@ int add_to_outliers(ControlNetwork & cnet,
 // be n-1 disparities, from each image to the next.
 // TODO(oalexan1): move to a separate file called BundleAdjustCostFunctions.cc
 void addReferenceTerrainCostFunction(
-         Options             & opt,
+         BaOptions             & opt,
          asp::BAParams       & param_storage, 
          ceres::Problem      & problem,
          std::vector<vw::Vector3> & reference_vec,
@@ -644,7 +644,7 @@ void addReferenceTerrainCostFunction(
 
 // Add a soft constraint to keep the cameras near the original position. 
 // Add a combined constraint for all reprojection errors in given camera.
-void addCamPosCostFun(Options                                 const& opt,
+void addCamPosCostFun(BaOptions                                 const& opt,
                       asp::BAParams                           const& orig_parameters,
                       std::vector<std::vector<vw::Vector2>>   const& pixels_per_cam,
                       std::vector<std::vector<vw::Vector3>>   const& tri_points_per_cam,
@@ -731,7 +731,7 @@ void addCamPosCostFun(Options                                 const& opt,
 }
 
 // One pass of bundle adjustment
-int do_ba_ceres_one_pass(Options             & opt,
+int do_ba_ceres_one_pass(BaOptions             & opt,
                          asp::CRNJ      const& crn,
                          bool                  first_pass,
                          bool                  remove_outliers, 
@@ -1134,7 +1134,7 @@ int do_ba_ceres_one_pass(Options             & opt,
 
 // Run several more passes with random initial parameter offsets. This flow is
 // only kicked in if opt.num_random_passes is positive, which is not the
-void runRandomPasses(Options & opt, asp::BAParams & param_storage,
+void runRandomPasses(BaOptions & opt, asp::BAParams & param_storage,
                      double & final_cost, asp::CRNJ const& crn,
                      bool remove_outliers,
                      asp::BAParams const& orig_parameters) {
@@ -1201,7 +1201,7 @@ void runRandomPasses(Options & opt, asp::BAParams & param_storage,
 }
 
 /// Use Ceres to do bundle adjustment.
-void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc) {
+void do_ba_ceres(BaOptions & opt, std::vector<Vector3> const& estimated_camera_gcc) {
 
   // Try to set up the control network, ie the list of point coordinates.
   // - This triangulates from the camera models to determine the initial
@@ -1545,7 +1545,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
 /// Looks in the input camera position file to generate a GCC position for
 /// each input camera.
 /// - If no match is found, the coordinate is (0,0,0)
-int load_estimated_camera_positions(Options &opt, 
+int load_estimated_camera_positions(BaOptions &opt, 
                                     std::vector<Vector3> & estimated_camera_gcc) {
   estimated_camera_gcc.clear();
   if (opt.camera_position_file == "")
@@ -1596,7 +1596,7 @@ int load_estimated_camera_positions(Options &opt,
   return num_matches_found;  
 }
 
-void handle_arguments(int argc, char *argv[], Options& opt) {
+void handle_arguments(int argc, char *argv[], BaOptions& opt) {
   
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str,
@@ -2668,7 +2668,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 }
 
 // A wrapper around ip matching. Can also work with NULL cameras.
-void ba_match_ip(Options & opt, asp::SessionPtr session, 
+void ba_match_ip(BaOptions & opt, asp::SessionPtr session, 
                  std::string const& image1_path,  std::string const& image2_path,
                  vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
                  std::string const& match_filename) {
@@ -2761,7 +2761,7 @@ void ba_match_ip(Options & opt, asp::SessionPtr session,
 /// can use. Both matches between mapprojected images and between
 /// original images are saved to files.
 void matches_from_mapproj_images(int i, int j,
-                                 Options& opt, asp::SessionPtr session,
+                                 BaOptions& opt, asp::SessionPtr session,
                                  std::vector<std::string> const& map_files,
                                  std::string mapproj_dem, 
                                  vw::cartography::GeoReference const& dem_georef,
@@ -2846,7 +2846,7 @@ void matches_from_mapproj_images(int i, int j,
 /// from each map-projected image to the DEM it was map-projected onto,
 /// project those matches back into the camera image, and create gcp
 /// tying each camera image match to its desired location on the DEM.
-void create_gcp_from_mapprojected_images(Options const& opt) {
+void create_gcp_from_mapprojected_images(BaOptions const& opt) {
 
   if (opt.instance_index != 0) 
     return; // only do this for first instance
@@ -2975,7 +2975,7 @@ void create_gcp_from_mapprojected_images(Options const& opt) {
 
 // Compute statistics for the designated images (or mapprojected
 // images), and perhaps the footprints.
-void computeStats(Options const& opt, std::vector<std::string> const& map_files,
+void computeStats(BaOptions const& opt, std::vector<std::string> const& map_files,
                   std::string const& dem_file_for_overlap) {
 
   int num_images = opt.image_files.size();
@@ -3019,7 +3019,7 @@ void computeStats(Options const& opt, std::vector<std::string> const& map_files,
   return;
 }
 
-void findPairwiseMatches(Options & opt, // will change
+void findPairwiseMatches(BaOptions & opt, // will change
                          std::vector<std::string> const& map_files,
                          std::string const& mapproj_dem,
                          std::vector<Vector3> const& estimated_camera_gcc,
@@ -3183,7 +3183,7 @@ void findPairwiseMatches(Options & opt, // will change
 
 int main(int argc, char* argv[]) {
 
-  Options opt;
+  BaOptions opt;
   try {
     xercesc::XMLPlatformUtils::Initialize();
 

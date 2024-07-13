@@ -27,7 +27,7 @@
 
 /// The big bag of parameters needed by bundle_adjust.cc
 /// The ones shared with jitter_solve.cc are in asp::BaBaseOptions.
-struct Options: public asp::BaBaseOptions {
+struct BaOptions: public asp::BaBaseOptions {
   std::string cnet_file, vwip_prefix,
     cost_function, mapprojected_data, gcp_from_mapprojected;
   int ip_per_tile, ip_per_image, matches_per_tile;
@@ -66,7 +66,7 @@ struct Options: public asp::BaBaseOptions {
   
   // Make sure all values are initialized, even though they will be
   // over-written later.
-  Options(): ip_per_tile(0), ip_per_image(0), 
+  BaOptions(): ip_per_tile(0), ip_per_image(0), 
              forced_triangulation_distance(-1), overlap_exponent(0), 
              save_intermediate_cameras(false),
              fix_gcp_xyz(false), solve_intrinsics(false), 
