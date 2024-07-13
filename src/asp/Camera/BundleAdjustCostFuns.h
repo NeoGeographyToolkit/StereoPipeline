@@ -53,6 +53,12 @@
 
 typedef vw::PixelMask<vw::Vector<float, 2>> DispPixelT;
 
+// Forward declaration
+struct BaOptions;
+namespace asp {
+  struct BAParams;
+}
+
 /// Simple base class for unpacking Ceres parameter blocks into
 ///  a camera model which can do point projections.
 class CeresBundleModelBase {
@@ -493,5 +499,46 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
                       int                    & num_gcp_or_dem_residuals,
                       asp::BAParams          & param_storage, 
                       ceres::Problem         & problem);
+
+/// Add error source for projecting a 3D point into the camera.
+void add_reprojection_residual_block(vw::Vector2 const& observation, 
+                                     vw::Vector2 const& pixel_sigma,
+                                     int point_index, int camera_index, 
+                                     asp::BAParams & param_storage,
+                                     asp::BaOptions const& opt,
+                                     ceres::Problem & problem);
+
+/// Add residual block for the error using reference xyz.
+void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
+                                  vw::ImageViewRef<DispPixelT> const& interp_disp, 
+                                  int left_cam_index, int right_cam_index,
+                                  asp::BAParams & param_storage,
+                                  asp::BaOptions const& opt,
+                                  ceres::Problem & problem);
+
+// Add a cost function meant to tie up to known disparity form left to right
+// image and known ground truth reference terrain (option --reference-terrain).
+// This was only tested for pinhole cameras. Disparity must be created with
+// stereo with the option --unalign-disparity. If there are n images, there must
+// be n-1 disparities, from each image to the next.
+void addReferenceTerrainCostFunction(
+         asp::BaOptions      & opt,
+         asp::BAParams       & param_storage, 
+         ceres::Problem      & problem,
+         std::vector<vw::Vector3> & reference_vec,
+         std::vector<vw::ImageViewRef<DispPixelT>> & interp_disp);
+
+// Add a soft constraint to keep the cameras near the original position. 
+// Add a combined constraint for all reprojection errors in given camera.
+void addCamPosCostFun(asp::BaOptions                          const& opt,
+                      asp::BAParams                           const& orig_parameters,
+                      std::vector<std::vector<vw::Vector2>>   const& pixels_per_cam,
+                      std::vector<std::vector<vw::Vector3>>   const& tri_points_per_cam,
+                      std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
+                      std::vector<vw::CamPtr>                 const& orig_cams,
+                      // Outputs
+                      asp::BAParams                              & param_storage,
+                      ceres::Problem                             & problem,
+                      int                                        & num_cam_pos_residuals);
 
 #endif // __ASP_CAMERA_BUNDLE_ADJUST_COST_FUNCTIONS_H__

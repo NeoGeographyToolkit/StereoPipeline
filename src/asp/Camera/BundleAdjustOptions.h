@@ -23,10 +23,10 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Cartography/Datum.h>
 
+namespace asp {
+  
 // This file contains the bundle adjust options and some other needed functions.
-
-/// The big bag of parameters needed by bundle_adjust.cc
-/// The ones shared with jitter_solve.cc are in asp::BaBaseOptions.
+// The ones shared with jitter_solve.cc are in asp::BaBaseOptions.
 struct BaOptions: public asp::BaBaseOptions {
   std::string cnet_file, vwip_prefix,
     cost_function, mapprojected_data, gcp_from_mapprojected;
@@ -82,5 +82,7 @@ struct BaOptions: public asp::BaBaseOptions {
   void copy_to_asp_settings() const;
   
 }; // End class Options
+
+} // end namespace asp
 
 #endif // __ASP_TOOLS_BUNDLEADJUST_H__
