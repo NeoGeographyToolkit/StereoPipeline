@@ -29,6 +29,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 
 // Turn off warnings from eigen
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
