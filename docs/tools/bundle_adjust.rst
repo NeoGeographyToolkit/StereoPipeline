@@ -426,9 +426,8 @@ Ground control points consist of known points on the ground, together with their
 pixel locations in one or more images. Their use is to refine, initialize, or
 transform to desired coordinates the camera poses (:numref:`ba_use_gcp`).
 
-GCP can be created with ``gcp_gen`` (:numref:`gcp_gen`), ``stereo_gui``
-(:numref:`creatinggcp`), ``gcp_gen`` (:numref:`gcp_gen`), or ``dem2gcp``
-(:numref:`dem2gcp`).
+GCP can be created with ``stereo_gui`` (:numref:`creatinggcp`), ``gcp_gen``
+(:numref:`gcp_gen`),  and ``dem2gcp`` (:numref:`dem2gcp`).
 
 File format
 ^^^^^^^^^^^
@@ -474,7 +473,7 @@ Uses of GCP
 
 One or more ``.gcp`` files can be passed to ``bundle_adjust`` as shown in
 :numref:`ba_examples`, together with one or more images and cameras, to refine the
-camera poses. 
+camera poses.  The option ``--datum`` must be set correctly to interpret the GCP.
 
 GCP can also be employed to initialize the cameras (:numref:`camera_solve_gcp`), or
 to transform them as a group, with the ``bundle_adjust`` options

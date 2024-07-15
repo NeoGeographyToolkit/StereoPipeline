@@ -611,7 +611,9 @@ file can be saved as above. See the documentation of ``ipfind``
 (:numref:`ipfind`) and ``ipmatch`` (:numref:`ipmatch`), for how to increase the
 number of matches, etc.
 
-Lastly, a non-GUI automatic approach exists as well (:numref:`gcp_gen`).
+Lastly, non-GUI automatic approaches exists as well. Two methods are supported:
+tying a raw image to an orthoimage and a DEM (:numref:`gcp_gen`), and tying a
+produced DEM to a prior DEM (:numref:`dem2gcp`).
 
 See earlier in this section for how GCP can be used.
 
