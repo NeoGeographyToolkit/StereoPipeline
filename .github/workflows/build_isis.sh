@@ -41,7 +41,7 @@ cmake ..                                         \
   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp   \
   -DALE_USE_EXTERNAL_EIGEN=ON                    \
-  -DCMAKE_CXX_FLAGS='-mmacosx-version-min=10.10' \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10            \
   -DALE_USE_EXTERNAL_JSON=ON                     \
   -DALE_BUILD_DOCS=OFF                           \
   -DALE_BUILD_TESTS=OFF                          \
@@ -62,7 +62,7 @@ export PATH=$PREFIX/bin:$PATH
 cmake ..                                         \
   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp   \
-  -DCMAKE_CXX_FLAGS='-mmacosx-version-min=10.10' \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10            \
   -DUSGSCSM_EXTERNAL_DEPS=ON                     \
   -DUSGSCSM_BUILD_DOCS=OFF                       \
   -DUSGSCSM_BUILD_TESTS=OFF                      \

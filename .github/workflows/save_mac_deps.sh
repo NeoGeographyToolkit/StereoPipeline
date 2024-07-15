@@ -43,7 +43,7 @@ success=$(echo $ans | awk '{print $2}')
 id=$(echo $ans | awk '{print $7}')
 echo Stage: $completed
 echo Status: $success
-echo Id is $id
+echo Id: $id
 if [ "$success" != "success" ]; then
   echo "Error: The ${workflow} workflow did not succeed"
   exit 1
