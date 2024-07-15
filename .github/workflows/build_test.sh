@@ -80,7 +80,7 @@ cd build
 $envPath/bin/cmake ..                             \
   -DASP_DEPS_DIR=$envPath                         \
   -DCMAKE_VERBOSE_MAKEFILE=ON                     \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10             \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13             \
   -DCMAKE_INSTALL_PREFIX=$installDir              \
   -DVISIONWORKBENCH_INSTALL_DIR=$installDir       \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
