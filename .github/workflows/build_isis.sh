@@ -21,27 +21,31 @@ else
 fi
 
 # Fetch the ASP depenedencies. Must keep $tag in sync with build_test.sh.
-tag=mac_conda_env7
+tag=mac_conda_env8
 wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 /usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
-# Build ale. It is assumed the compiler is set up as above.
+# Build ale. It is assumed the compiler is set up as above. May need to save the
+# curent ~/.ssh/id_rsa.pub key to Github in the user settings for recursive
+# cloning of the submodules to work.
 cd
 git clone https://github.com/DOI-USGS/ale.git --recursive
 cd ale
 git submodule update --recursive # if refreshing the repo later
-git rebase origin/main
+#git rebase origin/main
+git reset --hard 0ba7b24
 export PREFIX=$HOME/miniconda3/envs/asp_deps
 export PATH=$PREFIX/bin:$PATH
 mkdir -p build && cd build
-cmake ..                                       \
-  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp    \
-  -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp \
-  -DALE_USE_EXTERNAL_EIGEN=ON                  \
-  -DALE_USE_EXTERNAL_JSON=ON                   \
-  -DALE_BUILD_DOCS=OFF                         \
-  -DALE_BUILD_TESTS=OFF                        \
-  -DCMAKE_VERBOSE_MAKEFILE=TRUE                \
+cmake ..                                         \
+  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp      \
+  -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp   \
+  -DALE_USE_EXTERNAL_EIGEN=ON                    \
+  -DCMAKE_CXX_FLAGS='-mmacosx-version-min=10.10' \
+  -DALE_USE_EXTERNAL_JSON=ON                     \
+  -DALE_BUILD_DOCS=OFF                           \
+  -DALE_BUILD_TESTS=OFF                          \
+  -DCMAKE_VERBOSE_MAKEFILE=TRUE                  \
   -DCMAKE_INSTALL_PREFIX=${PREFIX}
 make -j 20 install
 
@@ -50,19 +54,24 @@ cd
 git clone https://github.com/DOI-USGS/usgscsm.git --recursive
 cd usgscsm
 git submodule update --recursive # if refreshing the repo later
-git rebase origin/main
+#git rebase origin/main
+git reset --hard 568ea46
 mkdir -p build && cd build
 export PREFIX=$HOME/miniconda3/envs/asp_deps
 export PATH=$PREFIX/bin:$PATH
-cmake ..                                       \
-  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp    \
-  -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp \
-  -DUSGSCSM_EXTERNAL_DEPS=ON                   \
-  -DUSGSCSM_BUILD_DOCS=OFF                     \
-  -DUSGSCSM_BUILD_TESTS=OFF                    \
-  -DCMAKE_VERBOSE_MAKEFILE=TRUE                \
+cmake ..                                         \
+  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp      \
+  -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp   \
+  -DCMAKE_CXX_FLAGS='-mmacosx-version-min=10.10' \
+  -DUSGSCSM_EXTERNAL_DEPS=ON                     \
+  -DUSGSCSM_BUILD_DOCS=OFF                       \
+  -DUSGSCSM_BUILD_TESTS=OFF                      \
+  -DCMAKE_VERBOSE_MAKEFILE=TRUE                  \
   -DCMAKE_INSTALL_PREFIX=${PREFIX}
 make -j 20 install
+
+# Stop here this time. Other dependencies have been built.
+exit 0
 
 # Build ISIS3
 cd

@@ -41,8 +41,8 @@ ans=$($gh run list -R $repo --workflow=${workflow} | grep -v STATUS | head -n 1)
 completed=$(echo $ans | awk '{print $1}')
 success=$(echo $ans | awk '{print $2}')
 id=$(echo $ans | awk '{print $7}')
-echo Completed is $completed
-echo Success is $success
+echo Stage: $completed
+echo Status: $success
 echo Id is $id
 if [ "$success" != "success" ]; then
   echo "Error: The ${workflow} workflow did not succeed"
@@ -65,7 +65,12 @@ fi
 # Can use a new tag here, or overwrite the existing tarball
 # If making a new one, must make sure to update the tag in build_test.sh and build_isis.sh
 repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
-# Wipe old version
-$gh release -R $repo delete $tag 
+
+# Wipe any old version
+echo If present, deleting the old release for tag: $tag
+$gh release -R $repo delete $tag 2>/dev/null # hide any error message for missing release
+
+# Upload the new version
 notes="$tag"
+echo Uploading a new version for tag: $tag
 /usr/bin/time $gh release -R $repo create $tag $binaries --title $tag --notes "$notes"

@@ -1,14 +1,16 @@
 #!/bin/bash
 
 # Fetch the ASP depenedencies
-tag=mac_conda_env7
+tag=mac_conda_env8
 wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 /usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
-# Note: The ASP dependencies at the location above are updated using
-# the script save_mac_deps.sh. See that script for how to do the preparations. 
-# Here is how the script is called::
-# tag=mac_conda_env7 # must match the tag above, and also in build_isis.sh
+# The ASP dependencies at the location above are updated using the script
+# save_mac_deps.sh. See that script for how to do the preparations. 
+# Here is how the script is called, from a local machine (which need not be a Mac).
+# The tag set here must match the tag above, and also in build_isis.sh.
+# If changing here, must later change in the other places.
+# tag=mac_conda_env8 
 # workflow="ssh.yml" # manual workflow
 # #workflow="build_isis.yml" # automatic workflow
 # $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
