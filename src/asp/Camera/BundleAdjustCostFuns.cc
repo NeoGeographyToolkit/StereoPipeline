@@ -895,6 +895,69 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
   return;
 }
 
+// Add a soft constraint that ties triangulated points close to their initial positions.
+// This is adjusted for GSD.
+void addTriConstraint(asp::BaOptions           const& opt,
+                      vw::ba::ControlNetwork   const& cnet,
+                      asp::CRNJ                const& crn,
+                      std::vector<std::string> const& image_files,
+                      std::vector<vw::CamPtr>  const& orig_cams,
+                      double tri_weight,
+                      std::string cost_function_str,
+                      double tri_robust_threshold,
+                      // Outputs
+                      asp::BAParams  & param_storage,
+                      ceres::Problem & problem,
+                      int            & num_tri_residuals) {
+  
+  // Initialize the output
+  num_tri_residuals = 0;
+
+  // Tri weight must be positive
+  if (tri_weight <= 0) 
+    vw::vw_throw(vw::ArgumentErr() << "The triangulation weight must be positive.\n");
+
+  int num_points = param_storage.num_points();
+  if ((int)cnet.size() != num_points)
+  vw_throw(ArgumentErr() << "Book-keeping error, the size of the control network "
+            "must be the same as the number of triangulated points.\n");
+
+  // Add triangulation weight to make each triangulated point not move too far
+  std::vector<double> gsds;
+  asp::estimateGsdPerTriPoint(image_files, orig_cams, crn, param_storage, gsds);
+  for (int ipt = 0; ipt < num_points; ipt++) {
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint ||
+        cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
+      continue; // Skip GCPs and height-from-dem points which have their own constraint
+
+    if (param_storage.get_point_outlier(ipt))
+      continue; // skip outliers
+
+    // Use as constraint the triangulated point optimized at the previous
+    // iteration. That is on purpose, to ensure that the triangulated point is
+    // more accurate than it was at the start of the optimization. For the
+    // first iteration, that will be what is read from the cnet. Note how the
+    // weight is normalized by the GSD, to make it in pixel coordinates, as
+    // the rest of the residuals.
+    double * point = param_storage.get_point_ptr(ipt);
+    Vector3 observation(point[0], point[1], point[2]);
+    double gsd = gsds[ipt];
+    if (gsd <= 0 || std::isnan(gsd))
+      continue; // GSD calculation failed. Do not use a constraint.
+      
+    double s = gsd/tri_weight;
+    Vector3 xyz_sigma(s, s, s);
+
+    ceres::CostFunction* cost_function = XYZError::Create(observation, xyz_sigma);
+    ceres::LossFunction* loss_function 
+      = get_loss_function(cost_function_str, tri_robust_threshold);
+    problem.AddResidualBlock(cost_function, loss_function, point);
+
+    num_tri_residuals++;
+  } // End loop through xyz
+
+} // end adding a triangulation constraint
+
 // Add a cost function meant to tie up to known disparity form left to right
 // image and known ground truth reference terrain (option --reference-terrain).
 // This was only tested for pinhole cameras. Disparity must be created with

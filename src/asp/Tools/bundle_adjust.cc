@@ -93,7 +93,7 @@ private:
 // Start outlier functions
 
 /// Add to the outliers based on the large residuals
-int add_to_outliers(ControlNetwork & cnet,
+int add_to_outliers(vw::ba::ControlNetwork & cnet,
                     asp::CRNJ const& crn,
                     asp::BAParams & param_storage,
                     asp::BaOptions const& opt,
@@ -461,42 +461,13 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
     asp::addReferenceTerrainCostFunction(opt, param_storage, problem, 
                                          reference_vec, interp_disp);
 
-  // TODO(oalexan1): Put this in a separate function
+  // Add a ground constraints to keep points close to their initial positions
   int num_tri_residuals = 0;
-  if (opt.tri_weight > 0) {
-    // Add triangulation weight to make each triangulated point not move too far
-    std::vector<double> gsds;
-    asp::estimateGsdPerTriPoint(opt.image_files, orig_cams, crn, param_storage, gsds);
-    for (int ipt = 0; ipt < num_points; ipt++) {
-      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint ||
-          cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
-        continue; // Skip GCPs and height-from-dem points which have their own constraint
-      
-      if (param_storage.get_point_outlier(ipt))
-        continue; // skip outliers
-      
-      // Use as constraint the triangulated point optimized at the previous
-      // iteration. That is on purpose, to ensure that the triangulated point is
-      // more accurate than it was at the start of the optimization. For the
-      // first iteration, that will be what is read from the cnet. Note how the
-      // weight is normalized by the GSD, to make it in pixel coordinates, as
-      // the rest of the residuals.
-      double * point = param_storage.get_point_ptr(ipt);
-      Vector3 observation(point[0], point[1], point[2]);
-      double gsd = gsds[ipt];
-      if (gsd <= 0)
-        continue; // GSD calculation failed. Do not use a constraint.
-      double s = gsd/opt.tri_weight;
-      Vector3 xyz_sigma(s, s, s);
-
-      ceres::CostFunction* cost_function = XYZError::Create(observation, xyz_sigma);
-      ceres::LossFunction* loss_function 
-        = get_loss_function(opt.cost_function, opt.tri_robust_threshold);
-      problem.AddResidualBlock(cost_function, loss_function, point);
-
-      num_tri_residuals++;
-    } // End loop through xyz
-  } // end adding a triangulation constraint
+  if (opt.tri_weight > 0)
+    asp::addTriConstraint(opt, cnet, crn, opt.image_files, orig_cams,
+                          opt.tri_weight, opt.cost_function, opt.tri_robust_threshold,
+                          // Outputs
+                          param_storage, problem, num_tri_residuals); 
 
   const size_t MIN_KML_POINTS = 50;
   size_t kmlPointSkip = 30;
@@ -534,9 +505,9 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
   options.gradient_tolerance  = 1e-16;
   options.function_tolerance  = 1e-16;
   options.parameter_tolerance = opt.parameter_tolerance; // default is 1e-8
-  options.max_num_iterations                = opt.num_iterations;
+  options.max_num_iterations  = opt.num_iterations;
   options.max_num_consecutive_invalid_steps = std::max(5, opt.num_iterations/5); // try hard
-  options.minimizer_progress_to_stdout      = true;
+  options.minimizer_progress_to_stdout = true;
 
   if (opt.single_threaded_cameras)
     options.num_threads = 1;
@@ -2496,6 +2467,7 @@ void computeStats(asp::BaOptions const& opt, std::vector<std::string> const& map
   return;
 }
 
+// TODO(oalexan1): Move to BundleAjustIp.cc
 void findPairwiseMatches(asp::BaOptions & opt, // will change
                          std::vector<std::string> const& map_files,
                          std::string const& mapproj_dem,

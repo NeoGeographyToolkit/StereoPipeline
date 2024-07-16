@@ -490,6 +490,53 @@ void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
                                   asp::BaOptions const& opt,
                                   ceres::Problem & problem);
 
+// Pixel reprojection error. Note: cam_residual_counts and num_pixels_per_cam
+// serve different purposes. 
+void addPixelReprojCostFun(asp::BaOptions                         const& opt,
+                           asp::CRNJ                              const& crn,
+                           std::vector<int>                       const& count_map,
+                           vw::ImageViewRef<vw::PixelMask<float>> const& weight_image,
+                           vw::cartography::GeoReference          const& weight_image_georef,
+                           std::vector<vw::Vector3>               const& dem_xyz_vec,
+                           bool have_weight_image, 
+                           bool have_dem,
+                           // Outputs
+                           vw::ba::ControlNetwork                  & cnet,
+                           asp::BAParams                           & param_storage,
+                           ceres::Problem                          & problem,
+                           std::vector<size_t>                     & cam_residual_counts,
+                           std::vector<size_t>                     & num_pixels_per_cam,
+                           std::vector<std::vector<vw::Vector2>>   & pixels_per_cam,
+                           std::vector<std::vector<vw::Vector3>>   & tri_points_per_cam,
+                           std::vector<std::map<int, vw::Vector2>> & pixel_sigmas);
+
+// Add a soft constraint that ties triangulated points close to their initial positions.
+// This is adjusted for GSD.
+void addTriConstraint(asp::BaOptions           const& opt,
+                      vw::ba::ControlNetwork   const& cnet,
+                      asp::CRNJ                const& crn,
+                      std::vector<std::string> const& image_files,
+                      std::vector<vw::CamPtr>  const& orig_cams,
+                      double tri_weight,
+                      std::string cost_function_str,
+                      double tri_robust_threshold,
+                      // Outputs
+                      asp::BAParams  & param_storage,
+                      ceres::Problem & problem,
+                      int            & num_tri_residuals);
+
+// Add a ground constraint (GCP or height from DEM)
+void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
+                      std::string             const& cost_function_str, 
+                      bool use_llh_error,
+                      bool fix_gcp_xyz,
+                      // Outputs
+                      vw::ba::ControlNetwork & cnet,
+                      int                    & num_gcp,
+                      int                    & num_gcp_or_dem_residuals,
+                      asp::BAParams          & param_storage, 
+                      ceres::Problem         & problem);
+
 // Add a cost function meant to tie up to known disparity form left to right
 // image and known ground truth reference terrain (option --reference-terrain).
 // This was only tested for pinhole cameras. Disparity must be created with
@@ -514,38 +561,6 @@ void addCamPosCostFun(asp::BaOptions                          const& opt,
                       asp::BAParams                              & param_storage,
                       ceres::Problem                             & problem,
                       int                                        & num_cam_pos_residuals);
-
-// Pixel reprojection error. Note: cam_residual_counts and num_pixels_per_cam
-// serve different purposes. 
-void addPixelReprojCostFun(asp::BaOptions                         const& opt,
-                           asp::CRNJ                              const& crn,
-                           std::vector<int>                       const& count_map,
-                           vw::ImageViewRef<vw::PixelMask<float>> const& weight_image,
-                           vw::cartography::GeoReference          const& weight_image_georef,
-                           std::vector<vw::Vector3>               const& dem_xyz_vec,
-                           bool have_weight_image, 
-                           bool have_dem,
-                           // Outputs
-                           vw::ba::ControlNetwork                  & cnet,
-                           asp::BAParams                           & param_storage,
-                           ceres::Problem                          & problem,
-                           std::vector<size_t>                     & cam_residual_counts,
-                           std::vector<size_t>                     & num_pixels_per_cam,
-                           std::vector<std::vector<vw::Vector2>>   & pixels_per_cam,
-                           std::vector<std::vector<vw::Vector3>>   & tri_points_per_cam,
-                           std::vector<std::map<int, vw::Vector2>> & pixel_sigmas);
-
-// Add a ground constraint (GCP or height from DEM)
-void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
-                      std::string             const& cost_function_str, 
-                      bool use_llh_error,
-                      bool fix_gcp_xyz,
-                      // Outputs
-                      vw::ba::ControlNetwork & cnet,
-                      int                    & num_gcp,
-                      int                    & num_gcp_or_dem_residuals,
-                      asp::BAParams          & param_storage, 
-                      ceres::Problem         & problem);
 
 } // end namespace asp
 
