@@ -14,6 +14,8 @@ jitter_solve (:numref:`jitter_solve`):
     
 stereo_gui (:numref:`stereo_gui`):
   * Changing the image threshold updates the display correctly.
+  * When creating GCP, ask before quitting without saving them. Save the IP as
+    well when GCP are saved.
 
 image_calc (:numref:`image_calc`):
   * Added an example for how to extract the horizontal and vertical disparity

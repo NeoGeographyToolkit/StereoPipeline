@@ -185,7 +185,8 @@ bool MainWindow::sanityChecks(int num_images) {
   bool gcp_exists = !stereo_settings().gcp_file.empty() && 
                     fs::exists(stereo_settings().gcp_file);
   if (gcp_exists && stereo_settings().dem_file != "") {
-    popUp("A DEM file and GCP file were specified. Then, the GCP file passed in must not exist, since it is supposed to be created based on the DEM.");
+    popUp("A DEM file and GCP file were specified. Then, the GCP file passed in "
+          "must not exist, since it is supposed to be created based on the DEM.");
     return false;
   }
   
@@ -197,6 +198,10 @@ bool MainWindow::sanityChecks(int num_images) {
     return false;
   }
 
+  m_saved_gcp_and_ip = true;
+  if (MainWindow::creatingGcp()) 
+    m_saved_gcp_and_ip = false; // will need to save GCP and IP files
+   
   // If a gcp file was passed in, we will interpret those as matches
   if (stereo_settings().gcp_file != "")
     asp::stereo_settings().view_matches = true;
@@ -280,7 +285,8 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   m_allowMultipleSelections(false), m_matches_exist(false),
   m_argc(argc), m_argv(argv),
   m_show_two_images_when_side_by_side_with_dialog(true), 
-  m_cursor_count(0), m_cnet("ASP_control_network") {
+  m_cursor_count(0), m_cnet("ASP_control_network"),
+  m_saved_gcp_and_ip(true) {
 
   m_display_mode = asp::stereo_settings().hillshade ? HILLSHADED_VIEW : REGULAR_VIEW;
 
@@ -846,7 +852,7 @@ void MainWindow::createMenus() {
   m_saveMatches_action->setStatusTip(tr("Save interest point matches"));
   connect(m_saveMatches_action, SIGNAL(triggered()), this, SLOT(saveMatches()));
 
-  m_writeGcp_action = new QAction(tr("Write GCP file"), this);
+  m_writeGcp_action = new QAction(tr("Save GCP and IP matches"), this);
   m_writeGcp_action->setStatusTip(tr("Save interest point matches as GCP for bundle_adjust"));
   connect(m_writeGcp_action, SIGNAL(triggered()), this, SLOT(writeGroundControlPoints()));
 
@@ -1030,23 +1036,43 @@ bool MainWindow::editingMatches() const {
   return editing_matches;
 }
 
+// We can create GCP when --gcp-file and --dem-file got specified,
+// and the GCP file does not exist yet.
+bool MainWindow::creatingGcp() const {
+ return (stereo_settings().dem_file != "" && 
+         stereo_settings().gcp_file != "" && 
+         !fs::exists(asp::stereo_settings().gcp_file));
+}
+
 void MainWindow::forceQuit() {
 
+  // See if in the middle of creating GCP
+  bool force_quit = false;
+  if (!m_saved_gcp_and_ip) {
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, "Quit",
+                                  "GCP and IP matches were not saved. Quit?",
+                                  QMessageBox::Yes|QMessageBox::No);
+    if (reply != QMessageBox::Yes) 
+      return;
+
+    // If we want to quit without saving GCP, will not pop up the dialog again
+    force_quit = true;
+  }
+  
   // See if in the middle of editing of matches with unsaved matches
-  if (MainWindow::editingMatches()) {
+  if (!force_quit && MainWindow::editingMatches()) {
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(this, "Quit",
                                   "Interest point matches were not saved. Quit?",
                                   QMessageBox::Yes|QMessageBox::No);
-    if (reply != QMessageBox::Yes) {
+    if (reply != QMessageBox::Yes)
       return;
-    }
   }
   
   if (asp::stereo_settings().delete_temporary_files_on_exit) {
     std::set<std::string> & tmp_files = vw::gui::temporary_files().files;
-    for (std::set<std::string>::iterator it = tmp_files.begin();
-         it != tmp_files.end() ; it++) {
+    for (auto it = tmp_files.begin(); it != tmp_files.end() ; it++) {
       std::string file = *it;
       if (fs::exists(file)) {
         vw_out() << "Deleting: " << file << std::endl;
@@ -1537,7 +1563,12 @@ void MainWindow::saveMatches() {
     
   m_matches_exist = true;
 
-   // matches got saved, no more editing for now
+  // If creating GCP, and matches are not saved yet, that means GCP were not saved 
+  // either
+  if (MainWindow::creatingGcp() && MainWindow::editingMatches())
+    m_saved_gcp_and_ip = false;
+
+  // matches got saved, no more editing for now
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (mw(m_widgets[i]) != NULL) 
       mw(m_widgets[i])->setEditingMatches(false);
@@ -1580,6 +1611,9 @@ void MainWindow::writeGroundControlPoints() {
   if (stereo_settings().dem_file == "") 
     return; // Likely the user did not choose a file, so cancel the save.
   
+  // Have a DEM file, need to save GCP, and did not save it yet
+  m_saved_gcp_and_ip = false;
+  
   // Prompt the user for the desired output path unless specified in --gcp-file.
   if (stereo_settings().gcp_file == "") {
     try {
@@ -1594,21 +1628,21 @@ void MainWindow::writeGroundControlPoints() {
     }
   }
 
+  // Must save the matches. This is helpful in case
+  // want to resume creating GCP.
+  MainWindow::saveMatches();
+
   try {
     asp::writeGCP(m_image_files,  
                   stereo_settings().gcp_file,  
                   stereo_settings().dem_file,
                   m_matchlist);
+    m_saved_gcp_and_ip = true;
   } catch (std::exception const& e) {
     popUp(e.what());
     return;
   }
   
-  // Matches got saved, no more editing for now
-  for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (mw(m_widgets[i]) != NULL) 
-      mw(m_widgets[i])->setEditingMatches(false);
-  }
 }
 
 void MainWindow::addDelMatches() {

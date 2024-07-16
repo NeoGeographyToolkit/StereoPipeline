@@ -134,6 +134,8 @@ namespace vw { namespace gui {
     // See if in the middle of editing matches
     bool editingMatches() const;
 
+    bool creatingGcp() const;
+    
     void updateViewMenuEntries();
     void updateDisplayModeMenuEntries();
     
@@ -218,6 +220,8 @@ namespace vw { namespace gui {
     // are shown side-by-side with a dialog. The user can later choose
     // to show any number.
     bool m_show_two_images_when_side_by_side_with_dialog;
+    
+    bool m_saved_gcp_and_ip;
   };
 
 }} // namespace vw::gui

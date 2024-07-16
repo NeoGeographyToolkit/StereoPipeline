@@ -2750,7 +2750,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
                       (event->modifiers() & Qt::ControlModifier) );
 
     // If the user is editing match points
-    if (!m_polyEditMode && m_moveMatchPoint->isChecked() && !m_cropWinMode){
+    if (!m_polyEditMode && m_moveMatchPoint->isChecked() && !m_cropWinMode) {
 
       m_editingMatches = true;
 
