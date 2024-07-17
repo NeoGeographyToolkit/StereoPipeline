@@ -704,28 +704,30 @@ void unalign_disparity(bool is_map_projected,
   
 }
 
-/// Bin the disparities, and from each bin get a disparity value.
-/// This will create a correspondence from the left to right image,
-/// which we save in the match format.
-/// When gen_triplets is true, and there are many overlapping images,
-/// try hard to have many IP with the property that each such IP is seen
-/// in more than two images. This helps with bundle adjustment.
-void compute_matches_from_disp(ASPGlobalOptions const& opt,
-                               DispImageType    const& disp,
-                               vw::TransformPtr const& left_trans,
-                               vw::TransformPtr const& right_trans,
-                               std::string      const& match_file,
-                               int max_num_matches,
-                               bool gen_triplets, bool is_map_projected) {
+// Auxiliary function to compute matches from disparity. A multiplier
+// bigger than 1 will be passed in if too few matches are found.
+void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
+                                   DispImageType    const& disp,
+                                   vw::TransformPtr const& left_trans,
+                                   vw::TransformPtr const& right_trans,
+                                   int max_num_matches,
+                                   bool gen_triplets, bool is_map_projected,
+                                   double multiplier, 
+                                   // Output
+                                   std::vector<vw::ip::InterestPoint> & left_ip, 
+                                   std::vector<vw::ip::InterestPoint> & right_ip) {
 
-  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
+// Clear the outputs
+left_ip.clear();
+right_ip.clear();
 
   if (!gen_triplets) {
 
     // Use doubles to avoid integer overflow
     double num_pixels = double(disp.cols()) * double(disp.rows());
-    double bin_len = sqrt(num_pixels/std::min(double(max_num_matches), num_pixels));
-    VW_ASSERT(bin_len >= 1.0, vw::ArgumentErr() << "Expecting bin_len >= 1.\n");
+    double den = std::min(double(max_num_matches), num_pixels) * multiplier;
+    double bin_len = sqrt(num_pixels/den);
+    bin_len = std::max(1.0, bin_len);
 
     int lenx = round(disp.cols()/bin_len); lenx = std::max(1, lenx);
     int leny = round(disp.rows()/bin_len); leny = std::max(1, leny);
@@ -802,8 +804,9 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
       
       // Use doubles to avoid integer overflow
       double num_pixels = double(left_img.cols()) * double(left_img.rows());
-      int bin_len = round(sqrt(num_pixels/std::min(double(max_num_matches), num_pixels)));
-      VW_ASSERT(bin_len >= 1, vw::ArgumentErr() << "Expecting bin_len >= 1.\n");
+      double den = std::min(double(max_num_matches), num_pixels) * multiplier;
+      double bin_len = sqrt(num_pixels/den);
+      bin_len = std::max(1.0, bin_len);
 
       int lenx = round(left_img.cols()/bin_len); lenx = std::max(1, lenx);
       int leny = round(left_img.rows()/bin_len); leny = std::max(1, leny);
@@ -870,8 +873,10 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
       DiskImageView<float> right_img(opt.in_file2);
     
       double num_pixels = double(right_img.cols()) * double(right_img.rows());
-      int bin_len = round(sqrt(num_pixels/std::min(double(max_num_matches), num_pixels)));
-      VW_ASSERT(bin_len >= 1, vw::ArgumentErr() << "Expecting bin_len >= 1.\n");
+      double den = std::min(double(max_num_matches), num_pixels) * multiplier;
+      // The bin len must be integer here
+      int bin_len = round(sqrt(num_pixels/den));
+      bin_len = std::max(1, bin_len);
 
       // Iterate over disparity.
 
@@ -922,10 +927,43 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
     }
     
   } // end considering multi-image friendly ip
-
+  
   vw_out() << "Determined " << left_ip.size()
            << " interest point matches from disparity.\n";
+}
 
+/// Bin the disparities, and from each bin get a disparity value.
+/// This will create a correspondence from the left to right image,
+/// which we save in the match format.
+/// When gen_triplets is true, and there are many overlapping images,
+/// try hard to have many IP with the property that each such IP is seen
+/// in more than two images. This helps with bundle adjustment.
+void compute_matches_from_disp(ASPGlobalOptions const& opt,
+                               DispImageType    const& disp,
+                               vw::TransformPtr const& left_trans,
+                               vw::TransformPtr const& right_trans,
+                               std::string      const& match_file,
+                               int max_num_matches,
+                               bool gen_triplets, bool is_map_projected) {
+
+  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
+
+  // Call the aux function
+  double multiplier = 1.0;
+  compute_matches_from_disp_aux(opt, disp, left_trans, right_trans,
+                                max_num_matches, gen_triplets, is_map_projected,
+                                multiplier, left_ip, right_ip);
+  double ratio = double(left_ip.size())/double(max_num_matches);
+  ratio = std::max(1e-8, ratio);
+  if (ratio < 1.0) {
+    vw_out() << "The number of matches is way less than the requested value. "
+             << "Trying again.\n";
+    multiplier = 1.0/ratio;
+    compute_matches_from_disp_aux(opt, disp, left_trans, right_trans,
+                                  max_num_matches, gen_triplets, is_map_projected,
+                                  multiplier, left_ip, right_ip);
+  }
+  
   vw_out() << "Writing: " << match_file << std::endl;
   ip::write_binary_match_file(match_file, left_ip, right_ip);
 }
