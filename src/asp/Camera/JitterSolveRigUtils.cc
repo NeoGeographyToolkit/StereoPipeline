@@ -348,7 +348,19 @@ void calcRigTransforms(rig::RigSet const& rig,
   
   return;
 }
-                           
+
+// Update the rig with the optimized transforms
+void updateRig(std::vector<double> const& ref_to_curr_sensor_vec,
+               rig::RigSet & rig) {
+
+  int num_rig_sensors = rig.cam_names.size();
+  for (int sensor_id = 0; sensor_id < num_rig_sensors; sensor_id++) {
+      rig::array_to_rigid_transform
+        (rig.ref_to_cam_trans[sensor_id],
+         &ref_to_curr_sensor_vec[rig::NUM_RIGID_PARAMS * sensor_id]);
+  }
+}
+
 // Find the relationship between the cameras relative to the rig
 void populateRigCamInfo(rig::RigSet const& rig,
                         std::vector<std::string> const& image_files,
@@ -360,7 +372,7 @@ void populateRigCamInfo(rig::RigSet const& rig,
                         std::vector<double>     & ref_to_curr_sensor_vec) {
 
   // Print a message, as this can take time
-  vw::vw_out() << "Determine the rig relationships for the cameras.\n";
+  vw::vw_out() << "Determining the rig relationships between the cameras.\n";
    
   // Initialize the rig cam info after a first pass through the cameras
   populateInitRigCamInfo(rig, image_files, camera_files, csm_models, 

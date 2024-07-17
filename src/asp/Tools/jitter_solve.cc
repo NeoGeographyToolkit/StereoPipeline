@@ -240,7 +240,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "version of the cameras must no longer be used in stereo.")
      ("rig-config", po::value(&opt.rig_config)->default_value(""),
       "Assume that the cameras are on a rig with this configuration file. The intrinsics "
-      "will be read, but not the sensor transforms, as those will be auto-computed. "
+      "will be read, but not the transforms between sensors, as those will be auto-computed. "
       "The optimized rig including the sensor transforms will be saved at the end.")
     ("initial-camera-constraint", 
      po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
@@ -1165,7 +1165,8 @@ void run_jitter_solve(int argc, char* argv[]) {
                  opt.camera_models, opt.update_isis_cubes_with_csm_state);
   
   if (have_rig) {
-    // Save the rig
+    // Update the rig with the optimized transforms and save it
+    asp::updateRig(ref_to_curr_sensor_vec, rig);
     std::string rig_config = opt.out_prefix + "-rig_config.txt"; 
     rig::writeRigConfig(rig_config, have_rig, rig);
   }

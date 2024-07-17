@@ -89,6 +89,10 @@ void updateLinescanWithRig(const UsgsAstroLsSensorModel & ref_ls_cam,
                            int beg_quat_index = -1, int end_quat_index = -1,
                            int beg_pos_index = -1, int end_pos_index = -1);
 
+// Update the rig with the optimized transforms
+void updateRig(std::vector<double> const& ref_to_curr_sensor_vec,
+               rig::RigSet & rig);
+
 } // end namespace asp
 
 #endif //__ASP_CAMERA_JITTER_SOLVE_RIG_UTILS_H__

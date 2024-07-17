@@ -398,7 +398,9 @@ void rigid_transform_to_array(Eigen::Affine3d const& aff, double* arr) {
 // Convert an array of length NUM_RIGID_PARAMS to a rigid
 // transform. Normalize the quaternion to make it into a rotation.
 void array_to_rigid_transform(Eigen::Affine3d& aff, const double* arr) {
-  for (size_t it = 0; it < 3; it++) aff.translation()[it] = arr[it];
+  
+  for (size_t it = 0; it < 3; it++) 
+    aff.translation()[it] = arr[it];
 
   Eigen::Quaterniond R(arr[6], arr[3], arr[4], arr[5]);
   R.normalize();
