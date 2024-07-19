@@ -929,8 +929,11 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
   // and return as output the converted box.
   bool MainWidget::get_crop_win(QRect & win) {
 
+    // This pop-up will be shown when the user attempts to run stereo from
+    // the gui.
     if (m_end_image_id - m_beg_image_id != 1) {
-      popUp("Must have just one image in each window to be able to select regions for stereo.");
+      popUp("Must have just one image in each window to be able to select "
+            "regions for stereo.");
       m_cropWinMode = false;
       m_rubberBand = m_emptyRubberBand;
       m_stereoCropWin = BBox2();
@@ -939,7 +942,8 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     }
 
     if (m_stereoCropWin.empty()) {
-      popUp("No valid region for stereo is present. Regions can be selected with Control-Mouse in each image.");
+      popUp("No valid region for stereo is present. Regions can be selected "
+            "with Control-Mouse in each image.");
       return false;
     }
 

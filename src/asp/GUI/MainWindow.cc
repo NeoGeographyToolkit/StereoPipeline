@@ -1659,10 +1659,19 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd) {
     return;
   }
 
-  QRect left_win, right_win;
-  if (!mw(m_widgets[0]) || !mw(m_widgets[0])->get_crop_win(left_win))
+  // Output prefix must be non-empty
+  if (m_output_prefix.empty()) {
+    QMessageBox::about(this, tr("Error"),
+                       tr("The output prefix must be passed in, together with the images, "
+                          "cameras, and stereo options, to be able to run stereo."));
     return;
-  if (!mw(m_widgets[1]) || !mw(m_widgets[1])->get_crop_win(right_win))
+  }
+  
+  // There is no need for a pop-up on failure here, as there will be one
+  // in get_crop_win() if the crop windows are not set.
+  QRect left_win, right_win;
+  if ((!mw(m_widgets[0]) || !mw(m_widgets[0])->get_crop_win(left_win)) ||
+      (!mw(m_widgets[1]) || !mw(m_widgets[1])->get_crop_win(right_win))) 
     return;
 
   int left_x  = left_win.x();
@@ -1707,10 +1716,11 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd) {
   os << " --right-image-crop-win " << right_x << " " << right_y << " "
      << right_wx << " " << right_wy;
   run_cmd += os.str();
+
+  // Run the command
   vw_out() << "Running: " << run_cmd << std::endl;
   system(run_cmd.c_str());
   QMessageBox::about(this, tr("stereo_gui"), tr("Done running stereo"));
-
 }
 
 void MainWindow::save_screenshot() {

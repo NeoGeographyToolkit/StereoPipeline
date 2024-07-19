@@ -22,6 +22,10 @@ image_calc (:numref:`image_calc`):
     bands while setting invalid disparities to a no-data value
     (:numref:`mask_disparity`).
 
+parallel_stereo (:numref:`parallel_stereo`):
+   * If the number of matches from disparity is much less than requested, try to
+     find more matches. This usually brings their number in the ballpark.
+     
 misc:
  * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
    optimized camera file names (or adjustments). Can be passed in back to
@@ -83,7 +87,7 @@ jitter_solve (:numref:`jitter_solve`):
   * Added an example with 27 CTX images (:numref:`jitter_multiple_images`).  
   * Added the option ``--weight-image``, to weigh observations based on
     geographic location of triangulated points (:numref:`limit_ip`).
-  * Can handle a linescan and frame camera rig (almost parallel rays) 
+  * Can handle several sensors with same location and direction
     (:numref:`jitter_no_baseline`).
   * Support reading the ISIS ``jigsaw`` binary control network
     format (:numref:`jitter_ip`).
@@ -441,9 +445,6 @@ jitter_solve (:numref:`jitter_solve`):
     (:numref:`jitter_ip`).
   * Validated the option ``--reference-dem`` for bundle adjustment. This works
     even when rays obtained during triangulation are parallel.
-  * Ensure jitter can be solved for the case of one frame and one linescan
-    camera with no baseline, when triangulation becomes tricky 
-    (:numref:`jitter_no_baseline`).
   * Bugfix for reverse scan direction.
   * Added an example for Pleiades cameras (:numref:`jitter_pleiades`),
     comparing two ways of setting ground constraints.

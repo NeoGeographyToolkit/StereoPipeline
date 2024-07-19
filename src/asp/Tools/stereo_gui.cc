@@ -340,8 +340,6 @@ int main(int argc, char** argv) {
     omp_set_num_threads(processor_count);
     
     // Start up the Qt GUI
-    // TODO(oalexan1): The arguments below are accessible from the main window
-    // from stereo_settings() directly, so there is no need to pass them this way.
     vw::gui::MainWindow main_window(opt, images, output_prefix,
                                     stereo_settings().grid_cols,
                                     stereo_settings().window_size,
