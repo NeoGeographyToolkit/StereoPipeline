@@ -1006,10 +1006,9 @@ void run_jitter_solve(int argc, char* argv[]) {
     vw_throw(ArgumentErr() << "Expecting at least two input cameras.\n");
 
   // If some of the input cameras are frame, need to store position and
-  // quaternion variables for them outside the camera model, as these are
-  // private for UsgsAstroFrameCameraModel, unlike for UsgsAstroLsSensorModel.
-  // It is easier to just allocate the space for all cameras, even if it may go
-  // unused mostly or at all.
+  // quaternion variables for them outside the camera model.
+  // TODO(oalexan1): Revisit this decision now that frame camera
+  // params are no longer private.
   std::vector<double> frame_params;
   initFrameCameraParams(csm_models, frame_params);
 

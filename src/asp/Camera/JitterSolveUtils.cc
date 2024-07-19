@@ -164,6 +164,7 @@ void formPositionQuatVecPerGroup(std::map<int, int> const& cam2group,
 void initFrameCameraParams(std::vector<asp::CsmModel*> const& csm_models,
   std::vector<double> & frame_params) { // output
 
+  // Note how we allocate storage for all cameras, for simplicity.
   frame_params.resize((NUM_XYZ_PARAMS + NUM_QUAT_PARAMS) * csm_models.size(), 0.0);
 
   for (size_t icam = 0; icam < csm_models.size(); icam++) {

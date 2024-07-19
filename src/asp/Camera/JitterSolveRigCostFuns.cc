@@ -365,4 +365,43 @@ void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
   problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
 }
 
+// Add the ls or frame camera model reprojection error to the cost function
+void addRigLsOrFrameReprojectionErr(asp::BaBaseOptions  const & opt,
+                                    int                         icam,
+                                    UsgsAstroLsSensorModel    * ref_ls_model,
+                                    UsgsAstroFrameSensorModel * ref_frame_model,
+                                    UsgsAstroLsSensorModel    * ls_model,
+                                    UsgsAstroFrameSensorModel * frame_model,
+                                    std::vector<double>       & frame_params,
+                                    vw::Vector2         const & pix_obs,
+                                    double                      pix_wt,
+                                    double                    * tri_point,
+                                    double                    * ref_to_curr_sensor_trans, 
+                                    asp::RigCamInfo     const & rig_info,
+                                    ceres::Problem            & problem) {
+
+  if (ref_ls_model != NULL) {
+    
+    // Ref sensor is linescan
+    if (frame_model != NULL)
+      addRigLsFrameReprojectionErr(opt, rig_info, pix_obs, pix_wt, ref_ls_model, 
+                  frame_model, ref_to_curr_sensor_trans, tri_point, problem);
+    else if (ls_model != NULL)
+      addRigLsLsReprojectionErr(opt, rig_info, pix_obs, pix_wt, ref_ls_model, 
+                  ls_model, ref_to_curr_sensor_trans, tri_point, problem);
+    else 
+      vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+  
+  } else if (ref_frame_model != NULL) {
+    // Ref sensor is frame
+    // throw no impl error
+    vw::vw_throw(vw::NoImplErr() << "Frame camera model not yet implemented.\n");
+    
+  } else {
+    vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+  }  
+}
+
+// Call this function
+
 } // end namespace asp

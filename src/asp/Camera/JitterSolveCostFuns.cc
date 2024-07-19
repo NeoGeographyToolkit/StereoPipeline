@@ -515,6 +515,29 @@ void addFrameReprojectionErr(asp::BaBaseOptions  const & opt,
   return;   
 }
 
+// Add the ls or frame camera model reprojection error to the cost function
+void addLsOrFrameReprojectionErr(asp::BaBaseOptions  const & opt,
+                                 int                         icam,
+                                 UsgsAstroLsSensorModel    * ls_model,
+                                 UsgsAstroFrameSensorModel * frame_model,
+                                 std::vector<double>       & frame_params,
+                                 vw::Vector2         const & pix_obs,
+                                 double                      pix_wt,
+                                 double                    * tri_point,
+                                 ceres::Problem            & problem) {
+
+  // Note how for the frame model we pass the frame_params for the current camera.
+  // For the linescan cameras the params are changed inside the model.
+  if (ls_model != NULL)
+    addLsReprojectionErr(opt, ls_model, pix_obs, tri_point, pix_wt, problem);
+  else if (frame_model != NULL)
+    addFrameReprojectionErr(opt, frame_model, pix_obs, 
+        &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)],
+        tri_point, pix_wt, problem);                   
+  else
+    vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+}
+
 /// A ceres cost function. The residual is the difference between the observed
 /// 3D point and the current (floating) 3D point, multiplied by given weight.
 struct weightedXyzError {
@@ -670,77 +693,49 @@ void addReprojCamErrs(asp::BaBaseOptions                const & opt,
 
       for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
 
-        vw::Vector2 pix_obs    = pixel_vec[icam][ipix];
-        double * tri_point = &tri_points_vec[3 * pix2xyz_index[icam][ipix]];
-        double pix_wt      = weight_vec[icam][ipix];
-        bool isAnchor      = isAnchor_vec[icam][ipix];
+        vw::Vector2 pix_obs = pixel_vec[icam][ipix];
+        double * tri_point  = &tri_points_vec[3 * pix2xyz_index[icam][ipix]];
+        double pix_wt       = weight_vec[icam][ipix];
+        bool isAnchor       = isAnchor_vec[icam][ipix];
 
         // Pass 0 is without anchor points, while pass 1 uses them
         if ((int)isAnchor != pass) 
           continue;
         
+        csm::RasterGM * csm = csm_models[icam]->m_gm_model.get();
+        UsgsAstroLsSensorModel * ls_model 
+          = dynamic_cast<UsgsAstroLsSensorModel*>(csm);
+        UsgsAstroFrameSensorModel * frame_model
+          = dynamic_cast<UsgsAstroFrameSensorModel*>(csm);
+  
         if (!have_rig) {
-          // TODO(oalexan1): This must be a function
           // No rig
-          // We can have linescan or frame cameras 
-          UsgsAstroLsSensorModel * ls_model
-            = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
-          UsgsAstroFrameSensorModel * frame_model
-            = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
-    
-          // Note how for the frame model we pass the frame_params for the current camera.
-          if (ls_model != NULL)
-            addLsReprojectionErr(opt, ls_model, pix_obs, tri_point, pix_wt, problem);
-          else if (frame_model != NULL)
-            addFrameReprojectionErr(opt, frame_model, pix_obs, 
-                &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)],
-                tri_point, pix_wt, problem);                   
-          else
-            vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+          addLsOrFrameReprojectionErr(opt, icam, ls_model, frame_model, frame_params, 
+                                      pix_obs, pix_wt, tri_point, problem);
         } else {
           // Have rig
-          // TODO(oalexan1): This must be a function in JitterSolveRigCostFuns.cc
-          auto rig_info = rig_cam_info[icam];  
-          int ref_cam = rig_info.ref_cam_index;
-          int sensor_id = rig_info.sensor_id;
+          asp::RigCamInfo rig_info = rig_cam_info[icam];  
+          int ref_cam              = rig_info.ref_cam_index;
+          int sensor_id            = rig_info.sensor_id;
           double* ref_to_curr_sensor_trans 
               = &ref_to_curr_sensor_vec[rig::NUM_RIGID_PARAMS * sensor_id];
           
-          // We can have linescan or frame cameras 
-          UsgsAstroLsSensorModel * ls_model
-            = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
-          UsgsAstroFrameSensorModel * frame_model
-            = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+          // We can have linescan or frame cameras for ref and curr cameras
+          csm::RasterGM * ref_csm = csm_models[ref_cam]->m_gm_model.get();
           UsgsAstroLsSensorModel * ref_ls_model 
-            = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[ref_cam]->m_gm_model).get());
-    
-          // For now, the ref camera must be linescan 
-          // TODO(oalexan1): Remove this temporary restriction
-          if (ref_ls_model == NULL)
-            vw::vw_throw(vw::ArgumentErr() << "Reference camera must be linescan.\n");
-          
-          if (rig.isRefSensor(sensor_id)) {
-            // This does not need the rig 
-            // Note how for the frame model we pass the frame_params for the current camera.
-            if (ls_model != NULL)
-              addLsReprojectionErr(opt, ls_model, pix_obs, tri_point, pix_wt, problem);
-            else if (frame_model != NULL)
-              addFrameReprojectionErr(opt, frame_model, pix_obs, 
-                  &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)],
-                  tri_point, pix_wt, problem);                   
-            else
-              vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
-          } else {
-            if (frame_model != NULL)
-              addRigLsFrameReprojectionErr(opt, rig_info, pix_obs, pix_wt, ref_ls_model, 
-                          frame_model, ref_to_curr_sensor_trans, tri_point, problem);
-            else if (ls_model != NULL)
-              addRigLsLsReprojectionErr(opt, rig_info, pix_obs, pix_wt, ref_ls_model, 
-                          ls_model, ref_to_curr_sensor_trans, tri_point, problem);
-            else 
-              vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
-                
-          } // end case of a non-ref sensor
+            = dynamic_cast<UsgsAstroLsSensorModel*>(ref_csm);
+          UsgsAstroFrameSensorModel * ref_frame_model 
+            = dynamic_cast<UsgsAstroFrameSensorModel*>(ref_csm);  
+
+          if (rig.isRefSensor(sensor_id)) // Do not need for the rig
+            addLsOrFrameReprojectionErr(opt, icam, ls_model, frame_model, frame_params, 
+                                        pix_obs, pix_wt, tri_point, problem);
+           else // Use the rig
+             asp::addRigLsOrFrameReprojectionErr(opt, icam, ref_ls_model, ref_frame_model, 
+                                    ls_model, frame_model, frame_params, 
+                                    pix_obs, pix_wt, tri_point, 
+                                    ref_to_curr_sensor_trans, rig_info, problem);
+
         } // end condition for having a rig
       
         // Two residuals were added. Save the corresponding weights.

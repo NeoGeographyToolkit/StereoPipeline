@@ -38,27 +38,20 @@ namespace asp {
 
 struct BaBaseOptions;
 
-// Reprojection error with ls ref sensor and frame curr sensor
-void addRigLsFrameReprojectionErr(asp::BaBaseOptions  const & opt,
-                                  asp::RigCamInfo     const & rig_cam_info,
-                                  vw::Vector2         const & frame_observation,
-                                  double                      weight,
-                                  UsgsAstroLsSensorModel    * ref_ls_model,
-                                  UsgsAstroFrameSensorModel * curr_frame_model,
-                                  double                    * ref_to_curr_trans,
-                                  double                    * tri_point,
-                                  ceres::Problem            & problem);
-
-// Reprojection error with ls ref sensor and ls curr sensor
-void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
-                               asp::RigCamInfo     const & rig_cam_info,
-                               vw::Vector2         const & curr_observation,
-                               double                      weight,
-                               UsgsAstroLsSensorModel    * ref_ls_model,
-                               UsgsAstroLsSensorModel    * curr_ls_model,
-                               double                    * ref_to_curr_trans,
-                               double                    * tri_point,
-                               ceres::Problem            & problem);
+// Add the ls or frame camera model reprojection error to the cost function
+void addRigLsOrFrameReprojectionErr(asp::BaBaseOptions  const & opt,
+                                    int                         icam,
+                                    UsgsAstroLsSensorModel    * ref_ls_model,
+                                    UsgsAstroFrameSensorModel * ref_frame_model,
+                                    UsgsAstroLsSensorModel    * ls_model,
+                                    UsgsAstroFrameSensorModel * frame_model,
+                                    std::vector<double>       & frame_params,
+                                    vw::Vector2         const & pix_obs,
+                                    double                      pix_wt,
+                                    double                    * tri_point,
+                                    double                    * ref_to_curr_sensor_trans, 
+                                    asp::RigCamInfo     const & rig_info,
+                                    ceres::Problem            & problem);
 
 } // end namespace asp
 

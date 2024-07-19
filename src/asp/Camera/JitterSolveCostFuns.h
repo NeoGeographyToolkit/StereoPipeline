@@ -64,23 +64,6 @@ void updateLsModelTriPt(double const * const * parameters,
                         UsgsAstroLsSensorModel & cam,
                         csm::EcefCoord & P);
 
-// Add the linescan model reprojection error to the cost function
-void addLsReprojectionErr(asp::BaBaseOptions const & opt,
-                          UsgsAstroLsSensorModel * ls_model,
-                          vw::Vector2      const & observation,
-                          double                 * tri_point,
-                          double                   weight,
-                          ceres::Problem         & problem);
-
-// Add the frame camera model reprojection error to the cost function
-void addFrameReprojectionErr(asp::BaBaseOptions  const & opt,
-                             UsgsAstroFrameSensorModel * frame_model,
-                             vw::Vector2         const & observation,
-                             double                    * frame_params,
-                             double                    * tri_point,
-                             double                      weight,
-                             ceres::Problem            & problem);
-
 // Add reprojection errors. Collect data that will be used to add camera
 // constraints that scale with the number of reprojection errors and GSD.
 void addReprojCamErrs(asp::BaBaseOptions                const & opt,
