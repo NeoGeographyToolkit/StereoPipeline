@@ -158,11 +158,7 @@ void populateFrameGroupMidTimestamp(std::vector<asp::CsmModel*>          const& 
     if (frame_model == NULL)
       continue; // Skip non-frame cameras
     
-    auto it = cam2group.find(icam);
-    if (it == cam2group.end())
-      vw::vw_throw(vw::ArgumentErr() 
-         << "Failed to find orbital group for camera.\n"); 
-    int group_id = it->second;
+    int group_id = rig::mapVal(cam2group, icam);
 
     auto g_it = timestamp_map.find(group_id);
     if (g_it == timestamp_map.end())
@@ -186,7 +182,16 @@ void populateFrameGroupMidTimestamp(std::vector<asp::CsmModel*>          const& 
 // this is total number of cameras times the number of cameras acquired with
 // a reference sensor. Something more clever did not work, and this may be
 // good enough.
+// Note: This is not good enough to bracket the camera in time. For that,
+// need to find the right group of cameras having ref_cam_index, and
+// then do a binary search.
+
 // TODO(oalexan1): Decrease the complexity of this function. Use binary search.
+// TODO(oalexan1): This logic assumes that datasets acquired either with the
+// same rig on different occasions or acquired with different rigs do not
+// overlap in time. This is fragile. Fir a given icam, must search
+// only through the group of cameras acquired with the same rig at the same
+// time.
 void findClosestRefCamera(rig::RigSet const& rig,
                           std::vector<asp::CsmModel*> const& csm_models,
                           std::vector<RigCamInfo> & rig_cam_info) {
@@ -234,6 +239,58 @@ void findClosestRefCamera(rig::RigSet const& rig,
   
 }
 
+// Find the times and indices bracketing a given time
+bool timestampBrackets(double time, 
+                  std::map<double, int> const& timestamps,
+                  // Outputs
+                  double & time1, double & time2,
+                  int & index1, int & index2) {
+
+  // Initialize the outputs to something
+  time1 = 0.0; time2 = 0.0;
+  index1 = 0; index2 = 0;
+  
+  double first_time = timestamps.begin()->first;
+  double last_time  = timestamps.rbegin()->first;
+  if (time < first_time || time > last_time)
+    return false; // out of bounds
+
+  // Find the time no earlier than time
+  auto it = timestamps.lower_bound(time);
+  if (it == timestamps.end()) {
+    return false; // out of bounds
+  }
+  time2 = it->first;
+  index2 = it->second;
+
+  // Must have index1 < index2, as later we need two independent poses
+  // at end points when we optimize them.
+  if (it == timestamps.begin()) {
+    if (timestamps.size() == 1)
+      LOG(FATAL) << "Too few timestamps.\n";
+    
+    time1 = it->first;
+    index1 = it->second;
+    it++;
+    time2 = it->first;
+    index2 = it->second;  
+  } else {
+    it--;
+    time1 = it->first;
+    index1 = it->second;
+  }
+
+  // Very important checks
+  if (index1 == index2)
+    LOG(FATAL) << "Bookkeeping failure in timestamps: equal indices.\n";
+  if (time1 == time2)
+    LOG(FATAL) << "Bookkeeping failure in timestamps: equal times.\n";
+  if (time < time1 || time > time2)
+    LOG(FATAL) << "Bookkeeping failure in timestamps: time out of bounds.\n";
+    
+  return true;
+}
+  
 // Given a map from timestamps to frame camera indices in csm_models, do linear
 // interpolation in time. Return false if out of bounds.
 // TODO(oalexan1): Must allow some slack at end points, so do a little extrapolation.
@@ -243,32 +300,12 @@ bool interpFramePose(std::vector<asp::CsmModel*> const& csm_models,
                      // Output
                      Eigen::Affine3d & cam2world) {
   
-  double first_time = timestamps.begin()->first;
-  double last_time  = timestamps.rbegin()->first;
-  if (time < first_time || time > last_time) {
-    return false; // out of bounds
-  }
+  double time1 = 0.0, time2 = 0.0;
+  int index1 = 0, index2 = 0;
+  bool success = timestampBrackets(time, timestamps, time1, time2, index1, index2);
+  if (!success) 
+    return false;
 
-  // Find the time no earlier than time
-  auto it = timestamps.lower_bound(time);
-  if (it == timestamps.end()) {
-    return false; // out of bounds
-  }
-  double time2 = it->first;
-  int index2 = it->second;
-  
-  // Care here to not go out of bounds
-  double time1  = time2;
-  double index1 = index2;
-  if (time1 > time) {
-    if (it == timestamps.begin()) {
-      return false; // out of bounds
-    }
-    it--;
-    time1 = it->first;
-    index1 = it->second;
-  }
-  
   // Position and orientation at time1
   double x1, y1, z1, qx1, qy1, qz1, qw1;
   csm_models[index1]->frame_position(x1, y1, z1);
@@ -309,6 +346,7 @@ bool calcInterpRefCamToWorld(std::vector<asp::CsmModel*> const& csm_models,
                              RigCamInfo const& rig_info, // current cam info
                              UsgsAstroFrameSensorModel * ref_frame_model,
                              UsgsAstroLsSensorModel * ref_ls_model,
+                             std::map<int, int> const& cam2group,
                              std::map<int, std::map<double, int>> const& timestamp_map,
                              int ref_icam, double time,
                              // Output
@@ -317,8 +355,9 @@ bool calcInterpRefCamToWorld(std::vector<asp::CsmModel*> const& csm_models,
   if (ref_frame_model != NULL) {
 
     // Find the interpolated ref cam at the current time.
+    int ref_group = rig::mapVal(cam2group, ref_icam);
     std::map<double, int> const& ref_timestamps 
-      = rig::mapVal(timestamp_map, ref_icam);
+      = rig::mapVal(timestamp_map, ref_group);
     bool success = interpFramePose(csm_models, ref_timestamps, time, ref_cam2world);
     if (!success) 
       return false;
@@ -348,6 +387,7 @@ bool calcInterpRefCamToWorld(std::vector<asp::CsmModel*> const& csm_models,
 void calcRigTransforms(rig::RigSet const& rig,
                        std::vector<asp::CsmModel*> const& csm_models,
                        std::vector<RigCamInfo> const& rig_cam_info,
+                       std::map<int, int> const& cam2group,
                        std::map<int, std::map<double, int>> const& timestamp_map,
                        // Outputs
                        std::vector<double> & ref_to_curr_sensor_vec) {
@@ -406,7 +446,7 @@ void calcRigTransforms(rig::RigSet const& rig,
         Eigen::Affine3d ref_cam2world;
         bool success = calcInterpRefCamToWorld(csm_models, rig_cam_info, rig_info,
                                                ref_frame_model, ref_ls_model,
-                                               timestamp_map, ref_icam, time,
+                                               cam2group, timestamp_map, ref_icam, time,
                                                // Output
                                                ref_cam2world);
         if (!success) 
@@ -431,7 +471,7 @@ void calcRigTransforms(rig::RigSet const& rig,
       Eigen::Affine3d ref_cam2world;
       bool success = calcInterpRefCamToWorld(csm_models, rig_cam_info, rig_info,
                                              ref_frame_model, ref_ls_model,
-                                             timestamp_map, ref_icam, time,
+                                             cam2group, timestamp_map, ref_icam, time,
                                              // Output
                                              ref_cam2world);
       if (!success) 
@@ -456,6 +496,8 @@ void calcRigTransforms(rig::RigSet const& rig,
     
     // Normalize the linear component of median_trans
     median_trans.linear() /= pow(median_trans.linear().determinant(), 1.0 / 3.0);
+    
+    std::cout << "--median trans is " << median_trans.matrix() << "\n";
 
     // Pack the median transform into the output vector    
     rig::rigid_transform_to_array(median_trans,
@@ -506,7 +548,7 @@ void populateRigCamInfo(rig::RigSet const& rig,
   findClosestRefCamera(rig, csm_models, rig_cam_info);
   
   // Find the initial guess rig transforms based on all camera-to-world transforms
-  calcRigTransforms(rig, csm_models, rig_cam_info, timestamp_map,
+  calcRigTransforms(rig, csm_models, rig_cam_info, cam2group, timestamp_map,
                     ref_to_curr_sensor_vec);
 }
 

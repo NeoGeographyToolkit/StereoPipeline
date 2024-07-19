@@ -27,6 +27,7 @@
 #include <asp/Core/EigenTransformUtils.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveRigCostFuns.h>
+#include <asp/Rig/basic_algs.h>
 
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
@@ -365,6 +366,55 @@ void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
   problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
 }
 
+// Reprojection error with ls ref sensor and frame curr sensor
+void addRigFrameFrameReprojectionErr(asp::BaBaseOptions  const & opt,
+                                     asp::RigCamInfo     const & rig_cam_info,
+                                     std::vector<asp::CsmModel*> const& csm_models,
+                                     std::map<int, int>  const& cam2group,
+                                     std::map<int, std::map<double, int>>  
+                                                         const & timestamp_map,
+                                     vw::Vector2         const & curr_pix,
+                                     double                      weight,
+                                     UsgsAstroLsSensorModel    * ref_ls_model,
+                                     UsgsAstroFrameSensorModel * curr_frame_model,
+                                     std::vector<double>       & frame_params,
+                                     double                    * ref_to_curr_trans,
+                                     double                    * tri_point,
+                                     ceres::Problem            & problem) {
+  std::cout << "--now in addRigFrameFrameReprojectionErr\n";
+  std::cout << "--note that we may have anchor points\n";
+
+  std::cout << "--must handle the case when we are out of bounds\n";
+  
+  // The time when the frame camera pixel was observed
+  double frame_time = rig_cam_info.beg_pose_time;
+  if (frame_time != rig_cam_info.end_pose_time)
+   vw::vw_throw(vw::ArgumentErr() 
+                << "For a frame sensor beg and end pose time must be same.\n");
+   
+  std::cout << "2--frame time is " << frame_time << std::endl;
+  int icam = rig_cam_info.cam_index;
+  std::cout << "2--icam is " << icam << std::endl;
+  int ref_icam = rig_cam_info.ref_cam_index;
+  std::cout << "2--ref icam is " << ref_icam << std::endl;
+   
+  int ref_group = rig::mapVal(cam2group, ref_icam);
+  std::cout << "--ref group is " << ref_group << std::endl;
+   
+  std::map<double, int> const& ref_timestamps 
+    = rig::mapVal(timestamp_map, ref_group);
+
+  double time1 = 0.0, time2 = 0.0;
+  int index1 = 0, index2 = 0;
+  bool success = timestampBrackets(frame_time, ref_timestamps, time1, time2, index1, index2);
+  if (!success) 
+    return;
+
+  std::cout.precision(17);
+  std::cout << "--time1, ref time, and time2 are " << time1 << ' ' << frame_time << ' ' << time2 << std::endl;
+
+}
+
 // Add the ls or frame camera model reprojection error to the cost function
 void addRigLsOrFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                                     int                         icam,
@@ -373,6 +423,10 @@ void addRigLsOrFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                                     UsgsAstroLsSensorModel    * ls_model,
                                     UsgsAstroFrameSensorModel * frame_model,
                                     std::vector<double>       & frame_params,
+                                    std::vector<asp::CsmModel*> const& csm_models,
+                                    std::map<int, int> const& cam2group,
+                                    std::map<int, std::map<double, int>>
+                                                        const & timestamp_map,
                                     vw::Vector2         const & pix_obs,
                                     double                      pix_wt,
                                     double                    * tri_point,
@@ -394,6 +448,16 @@ void addRigLsOrFrameReprojectionErr(asp::BaBaseOptions  const & opt,
   
   } else if (ref_frame_model != NULL) {
     // Ref sensor is frame
+    addRigFrameFrameReprojectionErr(opt, rig_info, 
+                                    csm_models, cam2group, timestamp_map, 
+                                    pix_obs, pix_wt, ref_ls_model, 
+                                    frame_model, frame_params,
+                                    ref_to_curr_sensor_trans, tri_point, problem);
+    
+    std::cout << "--icam is " << icam << std::endl;
+    std::cout << "--icam2 is " << rig_info.cam_index << std::endl;
+    std::cout << "--ref cam index is " << rig_info.ref_cam_index << std::endl;
+
     // throw no impl error
     vw::vw_throw(vw::NoImplErr() << "Frame camera model not yet implemented.\n");
     
@@ -401,7 +465,5 @@ void addRigLsOrFrameReprojectionErr(asp::BaBaseOptions  const & opt,
     vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
   }  
 }
-
-// Call this function
 
 } // end namespace asp

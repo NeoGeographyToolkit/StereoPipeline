@@ -207,7 +207,6 @@ void updateCameras(bool have_rig,
     double * frame_arr = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
 
     if (have_rig) {
-            
       auto rig_info = rig_cam_info[icam];
       int ref_cam   = rig_info.ref_cam_index;
       int sensor_id = rig_info.sensor_id;

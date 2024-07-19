@@ -656,16 +656,18 @@ struct weightedQuatNormError {
 
 // Add reprojection errors. Collect data that will be used to add camera
 // constraints that scale with the number of reprojection errors and GSD.
-void addReprojCamErrs(asp::BaBaseOptions                const & opt,
-                      asp::CRNJ                         const & crn,
+void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
+                      asp::CRNJ                             const & crn,
                       std::vector<std::vector<vw::Vector2>> const & pixel_vec,
-                      std::vector<std::vector<double>>  const & weight_vec,
-                      std::vector<std::vector<int>>     const & isAnchor_vec,
-                      std::vector<std::vector<int>>     const & pix2xyz_index,
-                      std::vector<asp::CsmModel*>       const & csm_models,
-                      bool                                      have_rig,
-                      rig::RigSet                        const& rig,
-                      std::vector<RigCamInfo>            const& rig_cam_info,
+                      std::vector<std::vector<double>>      const & weight_vec,
+                      std::vector<std::vector<int>>         const & isAnchor_vec,
+                      std::vector<std::vector<int>>         const & pix2xyz_index,
+                      std::vector<asp::CsmModel*>           const & csm_models,
+                      bool                                          have_rig,
+                      rig::RigSet                           const & rig,
+                      std::vector<RigCamInfo>               const & rig_cam_info,
+                      std::map<int, int>                    const & cam2group,
+                      std::map<int, std::map<double, int>>  const & timestamp_map,
                       // Outputs
                       std::vector<double>                     & tri_points_vec,
                       std::vector<double>                     & frame_params,
@@ -733,6 +735,7 @@ void addReprojCamErrs(asp::BaBaseOptions                const & opt,
            else // Use the rig
              asp::addRigLsOrFrameReprojectionErr(opt, icam, ref_ls_model, ref_frame_model, 
                                     ls_model, frame_model, frame_params, 
+                                    csm_models, cam2group, timestamp_map,
                                     pix_obs, pix_wt, tri_point, 
                                     ref_to_curr_sensor_trans, rig_info, problem);
 

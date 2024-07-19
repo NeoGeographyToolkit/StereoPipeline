@@ -1054,7 +1054,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Add reprojection errors. Get back weights_per_cam, count_per_cam.
   addReprojCamErrs(opt, crn, pixel_vec, weight_vec,
                    isAnchor_vec, pix2xyz_index, csm_models,
-                   have_rig, rig, rig_cam_info, 
+                   have_rig, rig, rig_cam_info, opt.cam2group, timestamp_map,
                    // Outputs
                    tri_points_vec, frame_params, weight_per_residual, 
                    weight_per_cam, count_per_cam, ref_to_curr_sensor_vec, 

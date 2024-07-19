@@ -96,6 +96,13 @@ void updateLinescanWithRig(const UsgsAstroLsSensorModel & ref_ls_cam,
 void updateRig(std::vector<double> const& ref_to_curr_sensor_vec,
                rig::RigSet & rig);
 
+// Find the times and indices bracketing a given time
+bool timestampBrackets(double time, 
+                  std::map<double, int> const& timestamps,
+                  // Outputs
+                  double & time1, double & time2,
+                  int & index1, int & index2);
+
 } // end namespace asp
 
 #endif //__ASP_CAMERA_JITTER_SOLVE_RIG_UTILS_H__
