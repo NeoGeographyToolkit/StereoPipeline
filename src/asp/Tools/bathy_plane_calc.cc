@@ -958,9 +958,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (!use_meas && opt.dem == "")
     vw_throw(ArgumentErr() << "Missing the input dem.\n" << usage << general_options );
 
-  if (opt.mask_boundary_shapefile.empty() && opt.bathy_plane == "")
-    vw_throw(ArgumentErr() << "Missing the output bathy plane file.\n"
-             << usage << general_options );
+  if (opt.bathy_plane.empty() && opt.mask_boundary_shapefile.empty())
+    vw_throw(ArgumentErr() << "Must set either --bathy-plane or --mask-boundary-shapefile.\n"
+             << usage << general_options);
   
   if (use_meas && opt.csv_format_str == "") 
     vw_throw(ArgumentErr() << "Must set the option --csv-format.\n"
@@ -981,8 +981,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw(ArgumentErr() << "A positive number of samples must be specified.\n"
                << usage << general_options);
   }
-}
 
+  // Create the output prefix  
+  std::string out_prefix = opt.bathy_plane;
+  if (opt.bathy_plane.empty())
+    out_prefix = opt.mask_boundary_shapefile;
+  // Remove the extension, which is the text after the last dot
+  size_t pos = out_prefix.rfind(".");
+  if (pos != std::string::npos)
+    out_prefix = out_prefix.substr(0, pos);
+    
+  // Create the output directory and turn on logging to file
+  vw::create_out_dir(out_prefix);
+  asp::log_to_file(argc, argv, "", out_prefix);
+}
 
 int main( int argc, char *argv[] ) {
 
@@ -998,11 +1010,12 @@ int main( int argc, char *argv[] ) {
     boost::shared_ptr<CameraModel> camera_model;
     if (use_mask) {
       std::string out_prefix;
-      asp::SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
-                                                           opt,
-                                                           opt.mask, opt.mask,
-                                                           opt.camera, opt.camera,
-                                                           out_prefix));
+      asp::SessionPtr 
+        session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
+                                                  opt,
+                                                  opt.mask, opt.mask,
+                                                  opt.camera, opt.camera,
+                                                  out_prefix));
       camera_model = session->camera_model(opt.mask, opt.camera);
     }
 
