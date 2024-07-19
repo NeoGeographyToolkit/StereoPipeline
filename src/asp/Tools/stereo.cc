@@ -118,7 +118,7 @@ void parse_multiview(int argc, char* argv[],
   opt_vec.push_back(opt);
 
   if (files.size() < 3)
-    vw_throw(ArgumentErr() << "Missing all of the correct input files.\n\n" << usage);
+    vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n\n" << usage);
 
   // Add note on the alignment method. If done in handle_arguments, it will be
   // printed twice.
@@ -153,7 +153,7 @@ void parse_multiview(int argc, char* argv[],
   std::vector<std::string> images, cameras;
   std::string input_dem;
   if (!parse_multiview_cmd_files(files, images, cameras, output_prefix, input_dem))
-    vw_throw(ArgumentErr() << "Missing all of the correct input files.\n\n" << usage);
+    vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n\n" << usage);
 
   int num_pairs = (int)images.size() - 1;
   if (num_pairs <= 0)
@@ -453,7 +453,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   if (!opt.input_dem.empty())  files.push_back(opt.input_dem);
   if (!parse_multiview_cmd_files(files, // inputs
                                   images, cameras, opt.out_prefix, opt.input_dem)) // outputs
-    vw_throw(ArgumentErr() << "Missing all of the correct input files.\n\n" << usage);
+    vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n\n" << usage);
 
   opt.in_file1 = "";  if (images.size() >= 1)  opt.in_file1  = images[0];
   opt.in_file2 = "";  if (images.size() >= 2)  opt.in_file2  = images[1];
@@ -461,7 +461,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   opt.cam_file2 = ""; if (cameras.size() >= 2) opt.cam_file2 = cameras[1];
 
   if (opt.in_file1.empty() || opt.in_file2.empty() || opt.out_prefix.empty())
-    vw_throw(ArgumentErr() << "Missing all of the correct input files.\n\n" << usage);
+    vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n\n" << usage);
 
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
