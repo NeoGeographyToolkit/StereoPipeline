@@ -72,7 +72,7 @@ void populateRigCamInfo(rig::RigSet const& rig,
                         // Outputs
                         std::vector<RigCamInfo> & rig_cam_info,
                         std::vector<double>     & ref_to_curr_sensor_vec,
-                        std::map<int, std::map<double, int>> & group_timestamp_cam_map);
+                        std::map<int, std::map<double, int>> & timestamp_map);
 
 // Given a reference linescan camera and the transform from it to the current
 // camera, find the current camera to world transform as an array.

@@ -853,11 +853,11 @@ void run_jitter_solve(int argc, char* argv[]) {
   bool have_rig = (opt.rig_config != "");
   std::vector<RigCamInfo> rig_cam_info;
   std::vector<double> ref_to_curr_sensor_vec;
-  std::map<int, std::map<double, int>> group_timestamp_cam_map;
+  std::map<int, std::map<double, int>> timestamp_map;
   if (have_rig)
     populateRigCamInfo(rig, opt.image_files, opt.camera_files, csm_models, 
                        opt.cam2group, rig_cam_info, ref_to_curr_sensor_vec,
-                       group_timestamp_cam_map);
+                       timestamp_map);
   
   // This the right place to record the original camera positions.
   std::vector<vw::Vector3> orig_cam_positions;

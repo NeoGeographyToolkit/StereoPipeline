@@ -48,33 +48,6 @@ RigCamInfo::RigCamInfo() {
   ref_cam_index  = nan;
 }
 
-// Find the timestamps for each group of frame cameras
-void timestampsPerGroup(std::map<int, int> const& cam2group,
-               std::vector<asp::CsmModel*> const& csm_models,
-               std::vector<RigCamInfo> const& rig_cam_info,
-               // Outputs 
-               std::map<int, std::vector<double>> & group_timestamps) {
-
-  // Wipe the output
-  group_timestamps.clear();
-
-  int num_cams = csm_models.size();
-  for (int icam = 0; icam < num_cams; icam++) {
-    
-    auto it = cam2group.find(icam);
-    if (it == cam2group.end())
-      vw::vw_throw(vw::ArgumentErr() 
-         << "addRollYawConstraint: Failed to find orbital group for camera.\n"); 
-    int group_id = it->second;
-
-    UsgsAstroFrameSensorModel * frame_model
-      = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
-    if (frame_model == NULL)
-      continue; // Skip non-frame cameras
-    group_timestamps[group_id].push_back(rig_cam_info[icam].beg_pose_time);
-  }
-}
-
 // First pass at collecting info about relationships between cameras and the rig
 void populateInitRigCamInfo(rig::RigSet const& rig,
                         std::vector<std::string> const& image_files,
@@ -151,11 +124,29 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
   }
 }    
 
+// For each group of frame cameras, find the map from each timestamp to the index
+// of the camera in the full array of cameras.
+void populateTimestampMap(std::map<int, int> const& cam2group,
+                          std::vector<RigCamInfo> const& rig_cam_info,
+                          std::map<int, std::map<double, int>> & timestamp_map) {
+  
+  timestamp_map.clear();
+  for (int icam = 0; icam < (int)rig_cam_info.size(); icam++) {
+     auto const& info = rig_cam_info[icam]; // alias
+     
+     if (info.sensor_type != RIG_FRAME_SENSOR)
+        continue;
+     
+     int group = rig::mapVal(cam2group, icam);
+     timestamp_map[group][info.beg_pose_time] = icam;
+  }
+}
+
 // Each frame camera will have a timestamp. Find the median timestamp for each group
 // of such cameras.
-void populateFrameGroupMidTimestamp(std::vector<asp::CsmModel*>        const& csm_models,
-                                    std::map<int, int>                 const& cam2group,
-                                    std::map<int, std::vector<double>> const& group_timestamps,
+void populateFrameGroupMidTimestamp(std::vector<asp::CsmModel*>          const& csm_models,
+                                    std::map<int, int>                   const& cam2group,
+                                    std::map<int, std::map<double, int>> const& timestamp_map,
                                     // Outputs
                                     std::vector<RigCamInfo> & rig_cam_info) {
 
@@ -173,32 +164,20 @@ void populateFrameGroupMidTimestamp(std::vector<asp::CsmModel*>        const& cs
          << "Failed to find orbital group for camera.\n"); 
     int group_id = it->second;
 
-    auto g_it = group_timestamps.find(group_id);
-    if (g_it == group_timestamps.end())
+    auto g_it = timestamp_map.find(group_id);
+    if (g_it == timestamp_map.end())
       vw::vw_throw(vw::ArgumentErr() 
          << "Failed to find group in timestamps.\n");
     
-    std::vector<double> timestamps = g_it->second;
+    // Put the keys in a vector
+    auto map = g_it->second;
+    std::vector<double> timestamps;
+    for (auto const& p: map) 
+      timestamps.push_back(p.first);
+
+    // Find the median    
     double median = vw::math::destructive_median(timestamps);
     rig_cam_info[icam].mid_group_time = median;
-  }
-}
-
-// For each group of frame cameras, find the map from each timestamp to the index
-// of the camera in the full array of cameras.
-void populateTimestampMap(std::map<int, int> const& cam2group,
-                          std::vector<RigCamInfo> const& rig_cam_info,
-                          std::map<int, std::map<double, int>> & group_timestamp_cam_map) {
-  
-  group_timestamp_cam_map.clear();
-  for (int icam = 0; icam < (int)rig_cam_info.size(); icam++) {
-     auto const& info = rig_cam_info[icam]; // alias
-     
-     if (info.sensor_type != RIG_FRAME_SENSOR)
-        continue;
-     
-     int group = rig::mapVal(cam2group, icam);
-     group_timestamp_cam_map[group][info.beg_pose_time] = icam;
   }
 }
 
@@ -325,22 +304,21 @@ bool interpFramePose(std::vector<asp::CsmModel*> const& csm_models,
   return true;
 }
 
-bool calcInterpRefCamToWorld(
-    std::vector<asp::CsmModel*> const& csm_models,
-    std::vector<RigCamInfo> const& rig_cam_info, // info for all cameras
-    RigCamInfo const& rig_info, // current camera info
-    UsgsAstroFrameSensorModel * ref_frame_model,
-    UsgsAstroLsSensorModel * ref_ls_model,
-    std::map<int, std::map<double, int>> const& group_timestamp_cam_map,
-    int ref_icam, double time,
-    // Output
-    Eigen::Affine3d & ref_cam2world) {
+bool calcInterpRefCamToWorld(std::vector<asp::CsmModel*> const& csm_models,
+                             std::vector<RigCamInfo> const& rig_cam_info, // all cam info
+                             RigCamInfo const& rig_info, // current cam info
+                             UsgsAstroFrameSensorModel * ref_frame_model,
+                             UsgsAstroLsSensorModel * ref_ls_model,
+                             std::map<int, std::map<double, int>> const& timestamp_map,
+                             int ref_icam, double time,
+                             // Output
+                             Eigen::Affine3d & ref_cam2world) {
 
   if (ref_frame_model != NULL) {
 
     // Find the interpolated ref cam at the current time.
     std::map<double, int> const& ref_timestamps 
-      = rig::mapVal(group_timestamp_cam_map, ref_icam);
+      = rig::mapVal(timestamp_map, ref_icam);
     bool success = interpFramePose(csm_models, ref_timestamps, time, ref_cam2world);
     if (!success) 
       return false;
@@ -355,15 +333,13 @@ bool calcInterpRefCamToWorld(
     double ref_pos[3], ref_q[4];  
     asp::interpPositions(ref_ls_model, time, ref_pos);
     asp::interpQuaternions(ref_ls_model, time, ref_q);  
-    ref_cam2world 
-      = asp::calcTransform(ref_pos[0], ref_pos[1], ref_pos[2],
-                            ref_q[0], ref_q[1], ref_q[2], ref_q[3]);
+    ref_cam2world = asp::calcTransform(ref_pos[0], ref_pos[1], ref_pos[2],
+                                       ref_q[0], ref_q[1], ref_q[2], ref_q[3]);
   } else {
     vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
   }
 
   return true;
-
 }
 
 // Given all camera-to-world transforms, find the median rig transforms.
@@ -372,7 +348,7 @@ bool calcInterpRefCamToWorld(
 void calcRigTransforms(rig::RigSet const& rig,
                        std::vector<asp::CsmModel*> const& csm_models,
                        std::vector<RigCamInfo> const& rig_cam_info,
-                       std::map<int, std::map<double, int>> const& group_timestamp_cam_map,
+                       std::map<int, std::map<double, int>> const& timestamp_map,
                        // Outputs
                        std::vector<double> & ref_to_curr_sensor_vec) {
   
@@ -430,7 +406,7 @@ void calcRigTransforms(rig::RigSet const& rig,
         Eigen::Affine3d ref_cam2world;
         bool success = calcInterpRefCamToWorld(csm_models, rig_cam_info, rig_info,
                                                ref_frame_model, ref_ls_model,
-                                               group_timestamp_cam_map, ref_icam, time,
+                                               timestamp_map, ref_icam, time,
                                                // Output
                                                ref_cam2world);
         if (!success) 
@@ -455,7 +431,7 @@ void calcRigTransforms(rig::RigSet const& rig,
       Eigen::Affine3d ref_cam2world;
       bool success = calcInterpRefCamToWorld(csm_models, rig_cam_info, rig_info,
                                              ref_frame_model, ref_ls_model,
-                                             group_timestamp_cam_map, ref_icam, time,
+                                             timestamp_map, ref_icam, time,
                                              // Output
                                              ref_cam2world);
       if (!success) 
@@ -510,7 +486,7 @@ void populateRigCamInfo(rig::RigSet const& rig,
                         // Outputs
                         std::vector<RigCamInfo> & rig_cam_info,
                         std::vector<double>     & ref_to_curr_sensor_vec,
-                        std::map<int, std::map<double, int>> & group_timestamp_cam_map) {
+                        std::map<int, std::map<double, int>> & timestamp_map) {
 
   // Print a message, as this can take time
   vw::vw_out() << "Determining the rig relationships between the cameras.\n";
@@ -519,21 +495,18 @@ void populateRigCamInfo(rig::RigSet const& rig,
   populateInitRigCamInfo(rig, image_files, camera_files, csm_models, 
                          rig_cam_info);
 
-  populateTimestampMap(cam2group, rig_cam_info, group_timestamp_cam_map);
-  
-  // Find the range of timestamps for each group of frame cameras
-  std::map<int, std::vector<double>> group_timestamps;
-  timestampsPerGroup(cam2group, csm_models, rig_cam_info, group_timestamps);
+  // Find a map that from each group to timestamps and indicies in that group
+  populateTimestampMap(cam2group, rig_cam_info, timestamp_map);
   
   // Find the mid time for each frame group as the median of the group timestamps  
-  populateFrameGroupMidTimestamp(csm_models, cam2group, group_timestamps, 
+  populateFrameGroupMidTimestamp(csm_models, cam2group, timestamp_map,
                                  rig_cam_info);
 
   // For each camera find the closest camera in time acquired with the reference sensor
   findClosestRefCamera(rig, csm_models, rig_cam_info);
   
   // Find the initial guess rig transforms based on all camera-to-world transforms
-  calcRigTransforms(rig, csm_models, rig_cam_info, group_timestamp_cam_map,
+  calcRigTransforms(rig, csm_models, rig_cam_info, timestamp_map,
                     ref_to_curr_sensor_vec);
 }
 
