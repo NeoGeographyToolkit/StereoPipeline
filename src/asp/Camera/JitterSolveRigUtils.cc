@@ -24,6 +24,7 @@
 #include <asp/Camera/JitterSolveRigUtils.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/EigenTransformUtils.h>
+#include <asp/Rig/basic_algs.h>
 
 #include <vw/Core/Log.h>
 #include <vw/Math/Functors.h>
@@ -48,7 +49,7 @@ RigCamInfo::RigCamInfo() {
 }
 
 // Find the timestamps for each group of frame cameras
-void timestampsPerGroup(std::map<int, int> const& orbital_groups,
+void timestampsPerGroup(std::map<int, int> const& cam2group,
                std::vector<asp::CsmModel*> const& csm_models,
                std::vector<RigCamInfo> const& rig_cam_info,
                // Outputs 
@@ -60,8 +61,8 @@ void timestampsPerGroup(std::map<int, int> const& orbital_groups,
   int num_cams = csm_models.size();
   for (int icam = 0; icam < num_cams; icam++) {
     
-    auto it = orbital_groups.find(icam);
-    if (it == orbital_groups.end())
+    auto it = cam2group.find(icam);
+    if (it == cam2group.end())
       vw::vw_throw(vw::ArgumentErr() 
          << "addRollYawConstraint: Failed to find orbital group for camera.\n"); 
     int group_id = it->second;
@@ -79,7 +80,6 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
                         std::vector<std::string> const& image_files,
                         std::vector<std::string> const& camera_files,
                         std::vector<asp::CsmModel*> const& csm_models,
-                        std::map<int, int> const& orbital_groups,
                         // Outputs
                         std::vector<RigCamInfo> & rig_cam_info) {
 
@@ -95,8 +95,10 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
 
     auto & rig_info = rig_cam_info[i]; // alias
     
-    // Each camera must know where it belongs
+    // Each camera must know where it belongs, and other info
     rig_info.cam_index = i;
+    rig_info.image_file = image_files[i];
+    rig_info.camera_file = camera_files[i];
     
     // Get the underlying linescan model or frame model
     asp::CsmModel * csm_cam = csm_models[i];
@@ -137,7 +139,8 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
       asp::toCsmPixel(vw::Vector2(0, numLines/2.0), imagePt);
       rig_info.sensor_type = RIG_LINESCAN_SENSOR;
       rig_info.sensor_id = sensor_id;
-      // Each pose has its time. The mid group time is a compromise between them.
+      // Each pose has a timestamp. The mid group time is a compromise between 
+      // the timestamps of the poses in each group.
       rig_info.mid_group_time = ls_model->getImageTime(imagePt);
       rig_info.beg_pose_time = beg_time;
       rig_info.end_pose_time = end_time;
@@ -151,7 +154,7 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
 // Each frame camera will have a timestamp. Find the median timestamp for each group
 // of such cameras.
 void populateFrameGroupMidTimestamp(std::vector<asp::CsmModel*>        const& csm_models,
-                                    std::map<int, int>                 const& orbital_groups,
+                                    std::map<int, int>                 const& cam2group,
                                     std::map<int, std::vector<double>> const& group_timestamps,
                                     // Outputs
                                     std::vector<RigCamInfo> & rig_cam_info) {
@@ -164,8 +167,8 @@ void populateFrameGroupMidTimestamp(std::vector<asp::CsmModel*>        const& cs
     if (frame_model == NULL)
       continue; // Skip non-frame cameras
     
-    auto it = orbital_groups.find(icam);
-    if (it == orbital_groups.end())
+    auto it = cam2group.find(icam);
+    if (it == cam2group.end())
       vw::vw_throw(vw::ArgumentErr() 
          << "Failed to find orbital group for camera.\n"); 
     int group_id = it->second;
@@ -181,11 +184,30 @@ void populateFrameGroupMidTimestamp(std::vector<asp::CsmModel*>        const& cs
   }
 }
 
+// For each group of frame cameras, find the map from each timestamp to the index
+// of the camera in the full array of cameras.
+void populateTimestampMap(std::map<int, int> const& cam2group,
+                          std::vector<RigCamInfo> const& rig_cam_info,
+                          std::map<int, std::map<double, int>> & group_timestamp_cam_map) {
+  
+  group_timestamp_cam_map.clear();
+  for (int icam = 0; icam < (int)rig_cam_info.size(); icam++) {
+     auto const& info = rig_cam_info[icam]; // alias
+     
+     if (info.sensor_type != RIG_FRAME_SENSOR)
+        continue;
+     
+     int group = rig::mapVal(cam2group, icam);
+     group_timestamp_cam_map[group][info.beg_pose_time] = icam;
+  }
+}
+
 // For each camera, find the camera closest in time that was acquired with the
 // reference sensor on the same rig as the current camera. The complexity of
 // this is total number of cameras times the number of cameras acquired with
 // a reference sensor. Something more clever did not work, and this may be
 // good enough.
+// TODO(oalexan1): Decrease the complexity of this function. Use binary search.
 void findClosestRefCamera(rig::RigSet const& rig,
                           std::vector<asp::CsmModel*> const& csm_models,
                           std::vector<RigCamInfo> & rig_cam_info) {
@@ -230,13 +252,127 @@ void findClosestRefCamera(rig::RigSet const& rig,
       
     } // end iterating over ref sensor cameras
   } // end iterating over cameras
+  
+}
+
+// Given a map from timestamps to frame camera indices in csm_models, do linear
+// interpolation in time. Return false if out of bounds.
+// TODO(oalexan1): Must allow some slack at end points, so do a little extrapolation.
+bool interpFramePose(std::vector<asp::CsmModel*> const& csm_models,
+                     std::map<double, int> const& timestamps,
+                     double time, 
+                     // Output
+                     Eigen::Affine3d & cam2world) {
+  
+  double first_time = timestamps.begin()->first;
+  double last_time  = timestamps.rbegin()->first;
+  if (time < first_time || time > last_time) {
+    return false; // out of bounds
+  }
+
+  // Find the time no earlier than time
+  auto it = timestamps.lower_bound(time);
+  if (it == timestamps.end()) {
+    return false; // out of bounds
+  }
+  double time2 = it->first;
+  int index2 = it->second;
+  
+  // Care here to not go out of bounds
+  double time1  = time2;
+  double index1 = index2;
+  if (time1 > time) {
+    if (it == timestamps.begin()) {
+      return false; // out of bounds
+    }
+    it--;
+    time1 = it->first;
+    index1 = it->second;
+  }
+  
+  // Position and orientation at time1
+  double x1, y1, z1, qx1, qy1, qz1, qw1;
+  csm_models[index1]->frame_position(x1, y1, z1);
+  csm_models[index1]->frame_quaternion(qx1, qy1, qz1, qw1);
+  
+  // Position and orientation at time2
+  double x2, y2, z2, qx2, qy2, qz2, qw2;
+  csm_models[index2]->frame_position(x2, y2, z2);
+  csm_models[index2]->frame_quaternion(qx2, qy2, qz2, qw2);
+  
+  double alpha = (time - time1)/(time2 - time1);
+  if (time1 == time2) 
+    alpha = 0.0; // Corner case
+    
+  // Interpolate
+  double x = x1 + alpha*(x2 - x1);
+  double y = y1 + alpha*(y2 - y1);
+  double z = z1 + alpha*(z2 - z1);
+  double qx = qx1 + alpha*(qx2 - qx1);
+  double qy = qy1 + alpha*(qy2 - qy1);
+  double qz = qz1 + alpha*(qz2 - qz1);
+  double qw = qw1 + alpha*(qw2 - qw1);
+  // Normalize the quaternion
+  double norm = sqrt(qx*qx + qy*qy + qz*qz + qw*qw);
+  qx /= norm;
+  qy /= norm;
+  qz /= norm;
+  qw /= norm;
+
+  // Convert to a transform      
+  cam2world = asp::calcTransform(x, y, z, qx, qy, qz, qw);
+  
+  return true;
+}
+
+bool calcInterpRefCamToWorld(
+    std::vector<asp::CsmModel*> const& csm_models,
+    std::vector<RigCamInfo> const& rig_cam_info, // info for all cameras
+    RigCamInfo const& rig_info, // current camera info
+    UsgsAstroFrameSensorModel * ref_frame_model,
+    UsgsAstroLsSensorModel * ref_ls_model,
+    std::map<int, std::map<double, int>> const& group_timestamp_cam_map,
+    int ref_icam, double time,
+    // Output
+    Eigen::Affine3d & ref_cam2world) {
+
+  if (ref_frame_model != NULL) {
+
+    // Find the interpolated ref cam at the current time.
+    std::map<double, int> const& ref_timestamps 
+      = rig::mapVal(group_timestamp_cam_map, ref_icam);
+    bool success = interpFramePose(csm_models, ref_timestamps, time, ref_cam2world);
+    if (!success) 
+      return false;
+      
+  } else if (ref_ls_model != NULL) {
+  
+    // Ensure we stay in bounds
+    if (time < rig_info.beg_pose_time || time < rig_cam_info[ref_icam].beg_pose_time ||
+        time > rig_info.end_pose_time || time > rig_cam_info[ref_icam].end_pose_time) 
+      return false;
+  
+    double ref_pos[3], ref_q[4];  
+    asp::interpPositions(ref_ls_model, time, ref_pos);
+    asp::interpQuaternions(ref_ls_model, time, ref_q);  
+    ref_cam2world 
+      = asp::calcTransform(ref_pos[0], ref_pos[1], ref_pos[2],
+                            ref_q[0], ref_q[1], ref_q[2], ref_q[3]);
+  } else {
+    vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+  }
+
+  return true;
+
 }
 
 // Given all camera-to-world transforms, find the median rig transforms.
-// This is robust to outliers.
+// This is robust to outliers. Must handle both frame and linescan cameras
+// for both the ref and curr sensor, which is 4 cases.
 void calcRigTransforms(rig::RigSet const& rig,
                        std::vector<asp::CsmModel*> const& csm_models,
                        std::vector<RigCamInfo> const& rig_cam_info,
+                       std::map<int, std::map<double, int>> const& group_timestamp_cam_map,
                        // Outputs
                        std::vector<double> & ref_to_curr_sensor_vec) {
   
@@ -259,44 +395,46 @@ void calcRigTransforms(rig::RigSet const& rig,
     int ref_cam_index = rig_info.ref_cam_index;
     UsgsAstroLsSensorModel * ref_ls_model
       = dynamic_cast<UsgsAstroLsSensorModel*>(csm_models[ref_cam_index]->m_gm_model.get());
-    // It must be non-null for now
-    if (ref_ls_model == NULL) 
-      vw::vw_throw(vw::ArgumentErr() << "Expecting a linescan model as ref sensor.\n");
+    UsgsAstroFrameSensorModel * ref_frame_model
+      = dynamic_cast<UsgsAstroFrameSensorModel*>(csm_models[ref_cam_index]->m_gm_model.get());
 
     int sensor_id = rig_info.sensor_id;
     if (rig.isRefSensor(sensor_id)) {
       // The transform from a reference sensor to itself is the identity
       ref_to_curr.setIdentity();
       transforms_map[sensor_id].push_back(ref_to_curr.matrix());
+      continue;
+    }
 
-    } else if (ls_model != NULL) {
+    int ref_icam = rig_info.ref_cam_index;
+    
+    // Assume the ref sensor is a linescan sensor
+    if (ls_model != NULL) {
 
       // Iterate over pose samples, and find the transform from the reference
       // sensor to the current sensor at each sample time.
       int numPos          = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
       double beg_pos_time = ls_model->m_t0Ephem;
       double pos_dt       = ls_model->m_dtEphem;
-      int ref_icam = rig_info.ref_cam_index;
       for (int i = 0; i < numPos; i++) {
         double time = beg_pos_time + i * pos_dt;
-        
-        // Ensure we stay in bounds
-        if (time < rig_info.beg_pose_time || time < rig_cam_info[ref_icam].beg_pose_time ||
-            time > rig_info.end_pose_time || time > rig_cam_info[ref_icam].end_pose_time) 
-          continue;
-        
+
+        // Current camera position and orientation        
         double pos[3], q[4];
         asp::interpPositions(ls_model, time, pos);
         asp::interpQuaternions(ls_model, time, q);
         Eigen::Affine3d cam2world 
           = asp::calcTransform(pos[0], pos[1], pos[2], q[0], q[1], q[2], q[3]);
         
-        double ref_pos[3], ref_q[4];  
-        asp::interpPositions(ref_ls_model, time, ref_pos);
-        asp::interpQuaternions(ref_ls_model, time, ref_q);  
-        Eigen::Affine3d ref_cam2world 
-           = asp::calcTransform(ref_pos[0], ref_pos[1], ref_pos[2],
-                                ref_q[0], ref_q[1], ref_q[2], ref_q[3]);
+        // Ref camera position and orientation
+        Eigen::Affine3d ref_cam2world;
+        bool success = calcInterpRefCamToWorld(csm_models, rig_cam_info, rig_info,
+                                               ref_frame_model, ref_ls_model,
+                                               group_timestamp_cam_map, ref_icam, time,
+                                               // Output
+                                               ref_cam2world);
+        if (!success) 
+          continue;
         
         ref_to_curr = cam2world.inverse() * ref_cam2world;
         transforms_map[sensor_id].push_back(ref_to_curr.matrix());
@@ -307,26 +445,28 @@ void calcRigTransforms(rig::RigSet const& rig,
       // This is the precise acquisition time
       double time = rig_info.beg_pose_time;
       
-      // Find current position and orientation
+      // Find current frame cam position and orientation
       double x, y, z, qx, qy, qz, qw;
       csm_models[icam]->frame_position(x, y, z);
       csm_models[icam]->frame_quaternion(qx, qy, qz, qw);
-      
       Eigen::Affine3d cam2world = asp::calcTransform(x, y, z, qx, qy, qz, qw);
       
-      double ref_pos[3], ref_q[4];  
-      asp::interpPositions(ref_ls_model, time, ref_pos);
-      asp::interpQuaternions(ref_ls_model, time, ref_q);  
-      
-       Eigen::Affine3d ref_cam2world 
-        = asp::calcTransform(ref_pos[0], ref_pos[1], ref_pos[2],
-                             ref_q[0], ref_q[1], ref_q[2], ref_q[3]);
+      // Find reference linescan cam position and orientation
+      Eigen::Affine3d ref_cam2world;
+      bool success = calcInterpRefCamToWorld(csm_models, rig_cam_info, rig_info,
+                                             ref_frame_model, ref_ls_model,
+                                             group_timestamp_cam_map, ref_icam, time,
+                                             // Output
+                                             ref_cam2world);
+      if (!success) 
+        continue;
         
-       ref_to_curr = cam2world.inverse() * ref_cam2world;
-       transforms_map[sensor_id].push_back(ref_to_curr.matrix());
+      ref_to_curr = cam2world.inverse() * ref_cam2world;
+      transforms_map[sensor_id].push_back(ref_to_curr.matrix());
     }
-  }
     
+  } // End loop through cameras
+  
   // Find the median, for robustness. 
   for (auto it = transforms_map.begin(); it != transforms_map.end(); it++) {
 
@@ -366,31 +506,35 @@ void populateRigCamInfo(rig::RigSet const& rig,
                         std::vector<std::string> const& image_files,
                         std::vector<std::string> const& camera_files,
                         std::vector<asp::CsmModel*> const& csm_models,
-                        std::map<int, int> const& orbital_groups,
+                        std::map<int, int> const& cam2group,
                         // Outputs
                         std::vector<RigCamInfo> & rig_cam_info,
-                        std::vector<double>     & ref_to_curr_sensor_vec) {
+                        std::vector<double>     & ref_to_curr_sensor_vec,
+                        std::map<int, std::map<double, int>> & group_timestamp_cam_map) {
 
   // Print a message, as this can take time
   vw::vw_out() << "Determining the rig relationships between the cameras.\n";
    
   // Initialize the rig cam info after a first pass through the cameras
   populateInitRigCamInfo(rig, image_files, camera_files, csm_models, 
-                         orbital_groups, rig_cam_info);
+                         rig_cam_info);
 
+  populateTimestampMap(cam2group, rig_cam_info, group_timestamp_cam_map);
+  
   // Find the range of timestamps for each group of frame cameras
   std::map<int, std::vector<double>> group_timestamps;
-  timestampsPerGroup(orbital_groups, csm_models, rig_cam_info, group_timestamps);
+  timestampsPerGroup(cam2group, csm_models, rig_cam_info, group_timestamps);
   
   // Find the mid time for each frame group as the median of the group timestamps  
-  populateFrameGroupMidTimestamp(csm_models, orbital_groups, group_timestamps, 
+  populateFrameGroupMidTimestamp(csm_models, cam2group, group_timestamps, 
                                  rig_cam_info);
 
   // For each camera find the closest camera in time acquired with the reference sensor
   findClosestRefCamera(rig, csm_models, rig_cam_info);
   
   // Find the initial guess rig transforms based on all camera-to-world transforms
-  calcRigTransforms(rig, csm_models, rig_cam_info, ref_to_curr_sensor_vec);
+  calcRigTransforms(rig, csm_models, rig_cam_info, group_timestamp_cam_map,
+                    ref_to_curr_sensor_vec);
 }
 
 // Given a reference linescan camera and the transform from it to the current

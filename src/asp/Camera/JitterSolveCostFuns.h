@@ -169,7 +169,7 @@ void addRollYawConstraint(asp::BaBaseOptions              const& opt,
                           asp::CRNJ                       const& crn,
                           std::vector<asp::CsmModel*>     const& csm_models,
                           vw::cartography::GeoReference   const& georef,
-                          std::map<int, int>              const& orbital_groups,
+                          std::map<int, int>              const& cam2group,
                           bool initial_camera_constraint,
                           double roll_weight, double yaw_weight,
                           // Outputs (append to residual)

@@ -1123,7 +1123,7 @@ void addRollYawConstraint(asp::BaBaseOptions              const& opt,
                           asp::CRNJ                       const& crn,
                           std::vector<asp::CsmModel*>     const& csm_models,
                           vw::cartography::GeoReference   const& georef,
-                          std::map<int, int>              const& orbital_groups,
+                          std::map<int, int>              const& cam2group,
                           bool initial_camera_constraint,
                           double roll_weight, double yaw_weight,
                           // Outputs (append to residual)
@@ -1139,14 +1139,14 @@ void addRollYawConstraint(asp::BaBaseOptions              const& opt,
 
   // Frame cameras can be grouped by orbital portion. Ensure that all cameras
   // belong to a group.
-  if (num_cams != int(orbital_groups.size()))
+  if (num_cams != int(cam2group.size()))
     vw::vw_throw(vw::ArgumentErr() 
          << "addRollYawConstraint: Failed to add each input camera to an orbital group.\n");
 
   // Create the orbital trajectory for each group of frame cameras
   std::map<int, std::vector<double>> orbital_group_positions;
   std::map<int, std::vector<double>> orbital_group_quaternions;
-  formPositionQuatVecPerGroup(orbital_groups, csm_models, 
+  formPositionQuatVecPerGroup(cam2group, csm_models, 
     orbital_group_positions, orbital_group_quaternions); // outputs
 
   for (int icam = 0; icam < num_cams; icam++) {
@@ -1186,13 +1186,13 @@ void addRollYawConstraint(asp::BaBaseOptions              const& opt,
       // Frame cameras. Use the positions and quaternions of the cameras
       // in the same orbital group to enforce the roll/yaw constraint for
       // each camera in the group.
-      auto it = orbital_groups.find(icam);
-      if (it == orbital_groups.end())
+      auto it = cam2group.find(icam);
+      if (it == cam2group.end())
         vw::vw_throw(vw::ArgumentErr() 
            << "addRollYawConstraint: Failed to find orbital group for camera.\n"); 
       int group_id = it->second;
 
-      int index_in_group = indexInGroup(icam, orbital_groups);
+      int index_in_group = indexInGroup(icam, cam2group);
       std::vector<double> positions = orbital_group_positions[group_id];
       std::vector<double> quaternions = orbital_group_quaternions[group_id];
       if (positions.size() / NUM_XYZ_PARAMS < 2) {

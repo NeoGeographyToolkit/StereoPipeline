@@ -717,9 +717,9 @@ void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
                                    std::vector<vw::ip::InterestPoint> & left_ip, 
                                    std::vector<vw::ip::InterestPoint> & right_ip) {
 
-// Clear the outputs
-left_ip.clear();
-right_ip.clear();
+  // Clear the outputs
+  left_ip.clear();
+  right_ip.clear();
 
   if (!gen_triplets) {
 

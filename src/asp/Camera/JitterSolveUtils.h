@@ -45,7 +45,7 @@ class RigCamInfo;
 // group. Here we ignore the cameras. Matching cameras to images will be done
 // outside of this function.
 void readGroupStructure(std::vector<std::string> const & image_lists,
-                        std::map<int, int> & orbital_groups);
+                        std::map<int, int> & cam2group);
 
 
 // Given a set of integers in increasing order, with each assigned to a group,
@@ -55,7 +55,7 @@ int indexInGroup(int icam, std::map<int, int> const& cam2group);
 // For frame cameras that belong to the same orbital group, collect together
 // the initial positions in a single vector, and same for quaternions. Linescan 
 // cameras are skipped as their positions/quaternions are already in one vector.
-void formPositionQuatVecPerGroup(std::map<int, int> const& orbital_groups,
+void formPositionQuatVecPerGroup(std::map<int, int> const& cam2group,
                std::vector<asp::CsmModel*> const& csm_models,
                // Outputs 
                std::map<int, std::vector<double>> & orbital_group_positions,

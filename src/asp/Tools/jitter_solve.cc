@@ -72,7 +72,7 @@ struct Options: public asp::BaBaseOptions {
   int num_anchor_points_extra_lines;
   bool initial_camera_constraint;
   double quat_norm_weight, anchor_weight, roll_weight, yaw_weight;
-  std::map<int, int> orbital_groups;
+  std::map<int, int> cam2group;
   double forced_triangulation_distance;
 };
     
@@ -316,7 +316,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
                                       ensure_equal_sizes); 
 
     // This is needed when several frame camera images are acquired in quick succession
-    asp::readGroupStructure(images_or_cams, opt.orbital_groups);
+    asp::readGroupStructure(images_or_cams, opt.cam2group);
   }
   
   // Throw if there are duplicate camera file names.
@@ -853,9 +853,11 @@ void run_jitter_solve(int argc, char* argv[]) {
   bool have_rig = (opt.rig_config != "");
   std::vector<RigCamInfo> rig_cam_info;
   std::vector<double> ref_to_curr_sensor_vec;
+  std::map<int, std::map<double, int>> group_timestamp_cam_map;
   if (have_rig)
     populateRigCamInfo(rig, opt.image_files, opt.camera_files, csm_models, 
-                       opt.orbital_groups, rig_cam_info, ref_to_curr_sensor_vec);
+                       opt.cam2group, rig_cam_info, ref_to_curr_sensor_vec,
+                       group_timestamp_cam_map);
   
   // This the right place to record the original camera positions.
   std::vector<vw::Vector3> orig_cam_positions;
@@ -1104,7 +1106,7 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   if (opt.roll_weight > 0 || opt.yaw_weight > 0)
     addRollYawConstraint(opt, crn, csm_models, roll_yaw_georef, 
-                         opt.orbital_groups, 
+                         opt.cam2group, 
                          opt.initial_camera_constraint,
                          opt.roll_weight, opt.yaw_weight,
                          // Outputs

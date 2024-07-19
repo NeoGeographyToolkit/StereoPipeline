@@ -57,6 +57,8 @@ struct RigCamInfo {
   // camera is assumed to be linescan.
   int ref_cam_index; 
   
+  std::string image_file, camera_file; 
+   
   // Declare the constructor
   RigCamInfo();
 };
@@ -66,10 +68,11 @@ void populateRigCamInfo(rig::RigSet const& rig,
                         std::vector<std::string> const& image_files,
                         std::vector<std::string> const& camera_files,
                         std::vector<asp::CsmModel*> const& csm_models,
-                        std::map<int, int> const& orbital_groups,
+                        std::map<int, int> const& cam2group,
                         // Outputs
                         std::vector<RigCamInfo> & rig_cam_info,
-                        std::vector<double>     & ref_to_curr_sensor_vec);
+                        std::vector<double>     & ref_to_curr_sensor_vec,
+                        std::map<int, std::map<double, int>> & group_timestamp_cam_map);
 
 // Given a reference linescan camera and the transform from it to the current
 // camera, find the current camera to world transform as an array.

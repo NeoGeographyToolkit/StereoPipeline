@@ -106,10 +106,12 @@ void camTypeFromName(std::string const& cam_name,
 // or 
 // <dir>/<cam name>/<digits>.<digits>.jpg
 // find the cam type
-void findCamType(std::string const& image_file,
-                 std::vector<std::string> const& cam_names,
-                 // Output
-                 int & cam_type) {
+// Return the index in the basename where the cam name starts or std::string::npos
+// if not found.
+size_t findCamType(std::string const& image_file,
+                   std::vector<std::string> const& cam_names,
+                   // Output
+                   int & cam_type) {
   // Initialize the output
   cam_type = 0;
   
@@ -120,10 +122,13 @@ void findCamType(std::string const& image_file,
   // where ref_cam is the cam name.
   bool found_cam_name = false;
   std::string cam_name; 
+  size_t cam_name_pos = std::string::npos;
   for (size_t cam_it = 0; cam_it < cam_names.size(); cam_it++) {
-    if (basename.find(cam_names[cam_it]) != std::string::npos) {
+    auto pos_it = basename.find(cam_names[cam_it]);
+    if (pos_it != std::string::npos) {
       cam_name = cam_names[cam_it];
       found_cam_name = true;
+      cam_name_pos = pos_it;
       break;
     }
   }
@@ -145,6 +150,8 @@ void findCamType(std::string const& image_file,
   if (!found_cam_name)
     LOG(FATAL) << "Could not determine the sensor type for: " << image_file
                << ". Check your rig configuration, or provide --image_sensor_list.\n"; 
+               
+  return cam_name_pos;            
 }
 
 // Given a file with name 
@@ -158,12 +165,45 @@ void findCamTypeAndTimestamp(std::string const& image_file,
                              int    & cam_type,
                              double & timestamp) {
 
-  rig::findCamType(image_file, cam_names, cam_type);
-
-  // Read the first sequence of digits, followed potentially by a dot and more 
-  // digits. Remove anything after <digits>.<digits>.
+  size_t cam_name_pos = rig::findCamType(image_file, cam_names, cam_type);
   timestamp = 0.0;
   std::string basename = fs::path(image_file).filename().string();
+  
+  // Eliminate the text starting with the sensor name, if we have
+  // the sensor name as part of the image name.
+  if (cam_name_pos != std::string::npos) {
+    basename = basename.substr(0, cam_name_pos);
+  }
+
+  // Eliminate all non-digits at the end of the basename
+  for (size_t it = basename.size(); it > 0; it--) {
+    if (basename[it-1] < '0' || basename[it-1] > '9') {
+      basename = basename.substr(0, it-1);
+    } else {
+      break;
+    }
+  }
+  
+  // Search backward until finding a non-digit or a second dot.
+  // Remove anything at and before that when this happens.
+  int num_dots = 0;
+  for (size_t it = basename.size(); it > 0; it--) {
+    if (basename[it-1] == '.')
+      num_dots++;
+      
+    if (num_dots >= 2) {
+      basename = basename.substr(it);
+      break;
+    }
+  
+    if (basename[it-1] != '.' && (basename[it-1] < '0' || basename[it-1] > '9')) {
+      basename = basename.substr(it);
+      break;
+    }
+  }  
+                             
+  // Read the last sequence of digits, followed potentially by a dot and more 
+  // digits. Remove anything after <digits>.<digits>.
   bool have_dot = false;
   std::string timestamp_str;
   bool found_digits = false;

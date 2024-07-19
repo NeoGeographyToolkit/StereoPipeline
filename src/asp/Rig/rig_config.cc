@@ -87,7 +87,8 @@ void RigSet::validate() const {
 
 }
   
-// A ref sensor is the first sensor on each rig
+// We assume the first encountered sensor is the ref sensor. This is enforced
+// on reading the rig.
 bool RigSet::isRefSensor(std::string const& cam_name) const {
   for (size_t rig_it = 0; rig_it < cam_set.size(); rig_it++) 
     if (cam_set[rig_it][0] == cam_name) 
@@ -121,7 +122,9 @@ int RigSet::rigId(int cam_id) const {
   return -1;
 }
 
-// The name of the ref sensor for the rig having the given sensor id
+// The name of the ref sensor for the rig having the given sensor id. We assume
+// the first encountered sensor is the ref sensor. This is enforced on reading
+// the rig.
 std::string RigSet::refSensor(int cam_id) const {
   return cam_set[rigId(cam_id)][0];
 }
@@ -346,6 +349,10 @@ void readConfigVals(std::ifstream & f, std::string const& tag, int desired_num_v
 // Read a rig configuration. Check if the transforms among the sensors
 // on the rig is not 0, in that case will use it.
 void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigSet & R) {
+  
+  // To check for duplicate sensors
+  std::set<std::string> ref_sensors, sensors;
+  
   try {
     // Initialize the outputs
     R = RigSet();
@@ -362,9 +369,13 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
     Eigen::VectorXd vals;
     std::vector<std::string> str_vals;
     
+    // It is assumed in several places that the first encountered
+    // sensor is the ref sensor.
+    
     // Read each sensor
+    bool is_ref_sensor = false; 
+    std::string ref_sensor_name;
     while (1) {
-      std::string ref_sensor_name;
       int curr_pos = f.tellg(); // where we are in the file
       // Read the reference sensor
       try {
@@ -372,23 +383,40 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
         ref_sensor_name = str_vals[0];
         ref_sensor_count++; // found a ref sensor
         R.cam_set.resize(ref_sensor_count);
+        is_ref_sensor = true;
+        
+       // Check for duplicate ref sensor
+        if (ref_sensors.find(ref_sensor_name) != ref_sensors.end())
+          LOG(FATAL) << "Found a duplicate reference sensor: " << ref_sensor_name << "\n";
+        ref_sensors.insert(ref_sensor_name);
       } catch (...) {
         // No luck, go back to the line we tried to read, and continue reading other fields
         f.seekg(curr_pos, std::ios::beg);
       }
       
-      // TODO(oalexan1): Must test that ref_sensor_name is unique.
-      // Also that the first sensor in each rig is the reference sensor.
-      // This must be tested with one and several rigs.
-      
       try {
         readConfigVals(f, "sensor_name:", 1, str_vals);
-      } catch(...) {
+      } catch (...) {
         // Likely no more sensors
         break;
       }
       
       std::string sensor_name = str_vals[0];
+      
+      // The first sensor must be the ref sensor
+      if (is_ref_sensor && sensor_name != ref_sensor_name) 
+        LOG(FATAL) << "The first sensor in each rig must be the reference sensor.\n";
+        
+      is_ref_sensor = false; // reset  
+      
+      if (ref_sensor_name == "")
+        LOG(FATAL) << "The reference sensor name must be the first entry in "
+        << "the rig config file.\n";
+
+      // Check for duplicate sensor
+      if (sensors.find(sensor_name) != sensors.end())
+        LOG(FATAL) << "Found a duplicate sensor: " << sensor_name << "\n";
+      sensors.insert(sensor_name);
 
       // It is convenient to store each sensor in cam_set, which has the rig set structure,
       // and in R.cam_names, which is enough for almost all processing.

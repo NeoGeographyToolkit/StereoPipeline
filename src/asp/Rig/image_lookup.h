@@ -54,10 +54,11 @@ class nvmData;
 // or 
 // <dir>/<cam name>/<digits>.<digits>.jpg
 // find the cam type
-void findCamType(std::string const& image_file,
-                 std::vector<std::string> const& cam_names,
-                 // Output
-                 int & cam_type);
+// Return the index in the basename where the cam name starts or std::string::npos if not found.
+size_t findCamType(std::string const& image_file,
+                   std::vector<std::string> const& cam_names,
+                   // Output
+                   int & cam_type);
 
 // Given a file with name 
 // <dir><text><digits>.<digits><text>ref_cam<text>.jpg

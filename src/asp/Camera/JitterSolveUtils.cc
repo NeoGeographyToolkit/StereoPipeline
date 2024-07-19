@@ -41,17 +41,17 @@ namespace asp {
 // group. Here we ignore the cameras. Matching cameras to images will be done
 // outside of this function.
 void readGroupStructure(std::vector<std::string> const & image_lists,
-                        std::map<int, int> & orbital_groups) {
+                        std::map<int, int> & cam2group) {
 
   // Wipe the output
-  orbital_groups.clear();
+  cam2group.clear();
 
   int group_count = 0, image_count = 0;
   for (size_t i = 0; i < image_lists.size(); i++) {
 
     // The case when we have a standalone image
     if (asp::has_image_extension(image_lists[i])) {
-      orbital_groups[image_count] = group_count;
+      cam2group[image_count] = group_count;
       group_count++;
       image_count++;
       continue;
@@ -75,7 +75,7 @@ void readGroupStructure(std::vector<std::string> const & image_lists,
         continue; 
 
       has_images = true;
-      orbital_groups[image_count] = group_count;
+      cam2group[image_count] = group_count;
       image_count++;
     }
 
@@ -96,8 +96,8 @@ int indexInGroup(int icam, std::map<int, int> const& cam2group) {
 
   int group_id = it->second;
 
-  // Now iterate over all the integers in all the groups,
-  // and see where the current integer is.
+  // Now iterate over all the integers in the group having icam,
+  // and the index of icam in its group.
   int pos_in_group = -1;
   for (auto it = cam2group.begin(); it != cam2group.end(); it++) {
     
@@ -119,7 +119,7 @@ int indexInGroup(int icam, std::map<int, int> const& cam2group) {
 // For frame cameras that belong to the same orbital group, collect together
 // the initial positions in a single vector, and same for quaternions. Linescan 
 // cameras are skipped as their positions/quaternions are already in one vector.
-void formPositionQuatVecPerGroup(std::map<int, int> const& orbital_groups,
+void formPositionQuatVecPerGroup(std::map<int, int> const& cam2group,
                std::vector<asp::CsmModel*> const& csm_models,
                // Outputs 
                std::map<int, std::vector<double>> & orbital_group_positions,
@@ -132,8 +132,8 @@ void formPositionQuatVecPerGroup(std::map<int, int> const& orbital_groups,
   int num_cams = csm_models.size();
   for (int icam = 0; icam < num_cams; icam++) {
     
-    auto it = orbital_groups.find(icam);
-    if (it == orbital_groups.end())
+    auto it = cam2group.find(icam);
+    if (it == cam2group.end())
       vw::vw_throw(vw::ArgumentErr() 
          << "addRollYawConstraint: Failed to find orbital group for camera.\n"); 
     int group_id = it->second;
