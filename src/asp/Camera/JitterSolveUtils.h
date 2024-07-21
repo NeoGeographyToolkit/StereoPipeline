@@ -25,6 +25,7 @@
 #include <asp/Camera/CsmModel.h>
 
 #include <vw/Cartography/GeoReference.h>
+#include <asp/Camera/JitterSolveRigUtils.h>
 
 #include <string>
 #include <map>
@@ -69,9 +70,11 @@ void initFrameCameraParams(std::vector<asp::CsmModel*> const& csm_models,
   std::vector<double> & frame_params); // output
 
 // Update the cameras given the optimized parameters
-void updateCameras(bool have_rig,
+void updateCameras(bool                                have_rig,
                    rig::RigSet                  const& rig,
                    std::vector<asp::RigCamInfo> const& rig_cam_info,
+                   std::map<int, int>           const& cam2group,
+                   TimestampMap                 const& timestamp_map,
                    std::vector<double>          const& ref_to_curr_sensor_vec,
                    std::vector<asp::CsmModel*>       & csm_models,
                    std::vector<double>               & frame_params);

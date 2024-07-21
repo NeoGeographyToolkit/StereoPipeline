@@ -655,7 +655,7 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                                 pixel_residual_count);
 
   // Add residuals for anchor points. That is pass 1 from
-  // addReprojectionErrors(). We imitate here the same logic for that
+  // addReprojCamErrs(). We imitate here the same logic for that
   // pass. We continue to increment the ires counter from above.
   std::vector<Vector3> anchor_xyz;
   std::vector<double> anchor_residual_norm;

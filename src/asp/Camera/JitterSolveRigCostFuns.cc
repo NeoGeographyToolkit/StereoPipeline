@@ -366,53 +366,173 @@ void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
   problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
 }
 
+// An error function minimizing the error of projecting an xyz point into a
+// given CSM frame camera pixel that is on a rig with a frame camera ref
+// sensor. The variables of optimization are the ref cam bracketing 
+// positions and orientations, the triangulation point, and the
+// transform from the ref frame sensor to the current frame sensor.
+struct RigFramePixelReprojErr {
+  RigFramePixelReprojErr(vw::Vector2 const& curr_pix, double weight,
+                           asp::RigCamInfo const& rig_cam_info,
+                           UsgsAstroFrameSensorModel * curr_frame_model,
+                           double beg_ref_time, double end_ref_time):
+    m_curr_pix(curr_pix), m_weight(weight),
+    m_rig_cam_info(rig_cam_info),
+    m_curr_frame_model(curr_frame_model),
+    m_beg_ref_time(beg_ref_time), m_end_ref_time(end_ref_time) {}
+
+  // The implementation is further down
+  bool operator()(double const * const * parameters, double * residuals) const; 
+
+  // Factory to hide the construction of the CostFunction object from the client code.
+  static ceres::CostFunction* Create(vw::Vector2 const& curr_pix, double weight,
+                                     asp::RigCamInfo const& rig_cam_info,
+                                     UsgsAstroFrameSensorModel* curr_frame_model,
+                                     double beg_ref_time, double end_ref_time) {
+
+    // TODO(oalexan1): Try using here the analytical cost function
+    ceres::DynamicNumericDiffCostFunction<RigFramePixelReprojErr>* cost_function =
+      new ceres::DynamicNumericDiffCostFunction<RigFramePixelReprojErr>
+      (new RigFramePixelReprojErr(curr_pix, weight, rig_cam_info, 
+                                  curr_frame_model, beg_ref_time, end_ref_time));
+
+    // Add a parameter block for beg and end positions
+    cost_function->AddParameterBlock(NUM_XYZ_PARAMS);
+    cost_function->AddParameterBlock(NUM_XYZ_PARAMS);
+    
+    // Add a parameter block for beg and end quaternions
+    cost_function->AddParameterBlock(NUM_QUAT_PARAMS);
+    cost_function->AddParameterBlock(NUM_QUAT_PARAMS);
+        
+    // Add a parameter block for the ref to curr sensor rig transform
+    cost_function->AddParameterBlock(rig::NUM_RIGID_PARAMS);
+    
+    // Add a parameter block for the xyz point
+    cost_function->AddParameterBlock(NUM_XYZ_PARAMS);
+
+    // The residual size the pixel size
+    cost_function->SetNumResiduals(PIXEL_SIZE);
+    
+    return cost_function;
+  }
+
+private:
+  vw::Vector2 m_curr_pix; // The pixel on the current camera (rather than ref camera)
+  double m_weight;
+  asp::RigCamInfo m_rig_cam_info;
+  UsgsAstroFrameSensorModel* m_curr_frame_model;
+  double m_beg_ref_time, m_end_ref_time;
+}; // End class RigFramePixelReprojErr
+
+// The implementation of operator() for RigFramePixelReprojErr
+bool RigFramePixelReprojErr::operator()(double const * const * parameters, 
+                                        double * residuals) const {
+
+  try {
+
+    double const* beg_frame_xyz_arr  = parameters[0];
+    double const* end_frame_xyz_arr  = parameters[1];
+    double const* beg_frame_quat_arr = parameters[2];
+    double const* end_frame_quat_arr = parameters[3];
+    double const* ref_to_curr_trans  = parameters[4];
+    double const* tri_point          = parameters[5];
+
+    double frame_time = m_rig_cam_info.beg_pose_time;
+
+    // Must concatenate the position and orientation arrays
+    double beg_frame_arr[rig::NUM_RIGID_PARAMS];
+    double end_frame_arr[rig::NUM_RIGID_PARAMS];
+    for (int i = 0; i < NUM_XYZ_PARAMS; i++) {
+      beg_frame_arr[i] = beg_frame_xyz_arr[i];
+      end_frame_arr[i] = end_frame_xyz_arr[i];
+    }
+    for (int i = 0; i < NUM_QUAT_PARAMS; i++) {
+      beg_frame_arr[NUM_XYZ_PARAMS + i] = beg_frame_quat_arr[i];
+      end_frame_arr[NUM_XYZ_PARAMS + i] = end_frame_quat_arr[i];
+    }
+    
+    // Find the interpolated current cam2world transform
+    double cam2world_arr[rig::NUM_RIGID_PARAMS];
+    asp::interpCurrPose(m_beg_ref_time, m_end_ref_time, frame_time, 
+                        beg_frame_arr, end_frame_arr, ref_to_curr_trans,
+                        cam2world_arr);
+    
+    // Make a copy of the model, and set the latest position and orientation. 
+    UsgsAstroFrameSensorModel curr_frame_cam = *m_curr_frame_model;
+    for (int coord = 0; coord < rig::NUM_RIGID_PARAMS; coord++)
+      curr_frame_cam.setParameterValue(coord, cam2world_arr[coord]);
+
+    // Convert the 3D point to a CSM object
+    csm::EcefCoord P;
+    P.x = tri_point[0];
+    P.y = tri_point[1];
+    P.z = tri_point[2];
+      
+    // Project in the camera with high precision. Do not use here anything lower
+    // than 1e-8, as the CSM model can return junk.
+    double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
+    csm::ImageCoord imagePt = curr_frame_cam.groundToImage(P, desired_precision);
+   
+    // Convert to ASP pixel
+    vw::Vector2 pix;
+    asp::fromCsmPixel(pix, imagePt);
+    
+    // Compute the residuals  
+    residuals[0] = m_weight*(pix[0] - m_curr_pix[0]);
+    residuals[1] = m_weight*(pix[1] - m_curr_pix[1]);
+    
+  } catch (std::exception const& e) {
+    residuals[0] = g_big_pixel_value;
+    residuals[1] = g_big_pixel_value;
+    return true; // accept the solution anyway
+  }
+
+  return true;
+}
+
 // Reprojection error with ls ref sensor and frame curr sensor
 void addRigFrameFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                                      asp::RigCamInfo     const & rig_cam_info,
                                      std::vector<asp::CsmModel*> const& csm_models,
-                                     std::map<int, int>  const& cam2group,
-                                     std::map<int, std::map<double, int>>  
-                                                         const & timestamp_map,
+                                     std::map<int, int>  const & cam2group,
+                                     TimestampMap        const & timestamp_map,
                                      vw::Vector2         const & curr_pix,
                                      double                      weight,
-                                     UsgsAstroLsSensorModel    * ref_ls_model,
                                      UsgsAstroFrameSensorModel * curr_frame_model,
                                      std::vector<double>       & frame_params,
                                      double                    * ref_to_curr_trans,
                                      double                    * tri_point,
                                      ceres::Problem            & problem) {
-  std::cout << "--now in addRigFrameFrameReprojectionErr\n";
-  std::cout << "--note that we may have anchor points\n";
 
-  std::cout << "--must handle the case when we are out of bounds\n";
+  double beg_ref_time = 0.0, end_ref_time = 0.0;
+  int beg_ref_index = 0, end_ref_index = 0;
+  bool success = timestampBrackets(rig_cam_info, cam2group, timestamp_map, 
+                                   // Outputs
+                                   beg_ref_time, end_ref_time, 
+                                   beg_ref_index, end_ref_index);
   
-  // The time when the frame camera pixel was observed
-  double frame_time = rig_cam_info.beg_pose_time;
-  if (frame_time != rig_cam_info.end_pose_time)
-   vw::vw_throw(vw::ArgumentErr() 
-                << "For a frame sensor beg and end pose time must be same.\n");
-   
-  std::cout << "2--frame time is " << frame_time << std::endl;
-  int icam = rig_cam_info.cam_index;
-  std::cout << "2--icam is " << icam << std::endl;
-  int ref_icam = rig_cam_info.ref_cam_index;
-  std::cout << "2--ref icam is " << ref_icam << std::endl;
-   
-  int ref_group = rig::mapVal(cam2group, ref_icam);
-  std::cout << "--ref group is " << ref_group << std::endl;
-   
-  std::map<double, int> const& ref_timestamps 
-    = rig::mapVal(timestamp_map, ref_group);
-
-  double time1 = 0.0, time2 = 0.0;
-  int index1 = 0, index2 = 0;
-  bool success = timestampBrackets(frame_time, ref_timestamps, time1, time2, index1, index2);
   if (!success) 
     return;
 
-  std::cout.precision(17);
-  std::cout << "--time1, ref time, and time2 are " << time1 << ' ' << frame_time << ' ' << time2 << std::endl;
+  double * beg_frame_arr = &frame_params[beg_ref_index * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+  double * end_frame_arr = &frame_params[end_ref_index * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
 
+  ceres::CostFunction* pixel_cost_function =
+    RigFramePixelReprojErr::Create(curr_pix, weight, rig_cam_info, curr_frame_model, 
+                                   beg_ref_time, end_ref_time);
+  ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
+
+  // The variable of optimization are bracketing ref camera poses, stored
+  // separately as position and orientation, the rig transform, and the
+  // triangulated point.
+  std::vector<double*> vars;
+  vars.push_back(&beg_frame_arr[0]);
+  vars.push_back(&end_frame_arr[0]);
+  vars.push_back(&beg_frame_arr[NUM_XYZ_PARAMS]);
+  vars.push_back(&end_frame_arr[NUM_XYZ_PARAMS]);
+  vars.push_back(ref_to_curr_trans);
+  vars.push_back(tri_point);
+  problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
 }
 
 // Add the ls or frame camera model reprojection error to the cost function
@@ -424,10 +544,9 @@ void addRigLsOrFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                                     UsgsAstroFrameSensorModel * frame_model,
                                     std::vector<double>       & frame_params,
                                     std::vector<asp::CsmModel*> const& csm_models,
-                                    std::map<int, int> const& cam2group,
-                                    std::map<int, std::map<double, int>>
-                                                        const & timestamp_map,
-                                    vw::Vector2         const & pix_obs,
+                                    std::map<int, int>          const& cam2group,
+                                    TimestampMap                const & timestamp_map,
+                                    vw::Vector2                 const & pix_obs,
                                     double                      pix_wt,
                                     double                    * tri_point,
                                     double                    * ref_to_curr_sensor_trans, 
@@ -447,20 +566,19 @@ void addRigLsOrFrameReprojectionErr(asp::BaBaseOptions  const & opt,
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
   
   } else if (ref_frame_model != NULL) {
-    // Ref sensor is frame
-    addRigFrameFrameReprojectionErr(opt, rig_info, 
-                                    csm_models, cam2group, timestamp_map, 
-                                    pix_obs, pix_wt, ref_ls_model, 
-                                    frame_model, frame_params,
-                                    ref_to_curr_sensor_trans, tri_point, problem);
-    
-    std::cout << "--icam is " << icam << std::endl;
-    std::cout << "--icam2 is " << rig_info.cam_index << std::endl;
-    std::cout << "--ref cam index is " << rig_info.ref_cam_index << std::endl;
 
-    // throw no impl error
-    vw::vw_throw(vw::NoImplErr() << "Frame camera model not yet implemented.\n");
-    
+    if (frame_model != NULL)
+      addRigFrameFrameReprojectionErr(opt, rig_info, 
+                                      csm_models, cam2group, timestamp_map, 
+                                      pix_obs, pix_wt, 
+                                      frame_model, frame_params,
+                                      ref_to_curr_sensor_trans, tri_point, problem);
+    else if (ls_model != NULL)
+      vw::vw_throw(vw::ArgumentErr() << "When the reference sensor is frame, "
+                   << "the other sensors must also be frame.\n");
+    else 
+      vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+       
   } else {
     vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
   }  

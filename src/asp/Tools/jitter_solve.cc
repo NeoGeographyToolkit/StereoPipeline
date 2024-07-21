@@ -853,7 +853,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   bool have_rig = (opt.rig_config != "");
   std::vector<RigCamInfo> rig_cam_info;
   std::vector<double> ref_to_curr_sensor_vec;
-  std::map<int, std::map<double, int>> timestamp_map;
+  TimestampMap timestamp_map;
   if (have_rig)
     populateRigCamInfo(rig, opt.image_files, opt.camera_files, csm_models, 
                        opt.cam2group, rig_cam_info, ref_to_curr_sensor_vec,
@@ -1138,6 +1138,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   // Solve the problem
   vw_out() << "Starting the Ceres optimizer." << std::endl;
+  
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
   vw_out() << summary.FullReport() << "\n";
@@ -1146,7 +1147,8 @@ void run_jitter_solve(int argc, char* argv[]) {
              << "This is expected, and likely the produced solution is good enough.\n";
 
   // Update the cameras given the optimized parameters
-  updateCameras(have_rig, rig, rig_cam_info, ref_to_curr_sensor_vec, 
+  updateCameras(have_rig, rig, rig_cam_info, 
+                opt.cam2group, timestamp_map, ref_to_curr_sensor_vec, 
                 csm_models, frame_params);  
 
   // By now the cameras have been updated in-place. Compute the optimized
@@ -1167,6 +1169,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   if (have_rig) {
     // Update the rig with the optimized transforms and save it
+    std::cout << "--Check if the ref to ref sensor transform is the identity?\n";
     asp::updateRig(ref_to_curr_sensor_vec, rig);
     std::string rig_config = opt.out_prefix + "-rig_config.txt"; 
     rig::writeRigConfig(rig_config, have_rig, rig);

@@ -87,8 +87,10 @@ void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ref_ls_cam,
 
 // Given a frame linescan camera and the transform from it to the current
 // camera, find the current camera to world transform as an array.
-void frameToCurrSensorTrans(const UsgsAstroFrameSensorModel & ref_frame_cam,
-                            asp::RigCamInfo     const & rig_cam_info,
+void frameToCurrSensorTrans(std::vector<double>       const& frame_params,
+                            asp::RigCamInfo           const& rig_cam_info,
+                            std::map<int, int>        const& cam2group,
+                            TimestampMap              const& timestamp_map,
                             double const* ref_to_curr_trans,
                             // Output
                             double * cam2world_arr);

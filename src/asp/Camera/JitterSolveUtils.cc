@@ -21,7 +21,6 @@
 #include <asp/Camera/JitterSolveUtils.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/BundleAdjustUtils.h>
-#include <asp/Camera/JitterSolveRigUtils.h>
 #include <asp/Rig/rig_config.h>
 #include <asp/Rig/transform_utils.h>
 
@@ -185,9 +184,11 @@ void initFrameCameraParams(std::vector<asp::CsmModel*> const& csm_models,
 // Update the cameras given the optimized parameters. Without a rig,
 // the linescan cameras are optimized in-place but the frame cameras still
 // have external parameters. 
-void updateCameras(bool have_rig,
+void updateCameras(bool                                have_rig,
                    rig::RigSet                  const& rig,
                    std::vector<asp::RigCamInfo> const& rig_cam_info,
+                   std::map<int, int>           const& cam2group,
+                   TimestampMap                 const& timestamp_map,
                    std::vector<double>          const& ref_to_curr_sensor_vec,
                    std::vector<asp::CsmModel*>       & csm_models,
                    std::vector<double>               & frame_params) {
@@ -216,31 +217,36 @@ void updateCameras(bool have_rig,
       // For now, the reference sensor must be linescan
       UsgsAstroLsSensorModel * ref_ls_model 
         = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[ref_cam]->m_gm_model).get());
-      if (ref_ls_model == NULL)
-        vw::vw_throw(vw::ArgumentErr() << "The rig reference sensor must be linescan.\n");
+      UsgsAstroFrameSensorModel * ref_frame_model
+        = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[ref_cam]->m_gm_model).get());
+      if (ref_ls_model != NULL) {
 
-      if (ls_model != NULL) {
-        // Update the ls model
-        asp::updateLinescanWithRig(*ref_ls_model, ref_to_curr_sensor_trans,
-                                   *ls_model); // update this
-      } else if (frame_model != NULL) {
-        // Update the frame camera model
-        asp::linescanToCurrSensorTrans(*ref_ls_model, rig_info.beg_pose_time, 
-                                     ref_to_curr_sensor_trans,
-                                     frame_arr); // output
-      } else {
-        vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.\n");
+        if (ls_model != NULL) {
+          // Update the ls model in place
+          asp::updateLinescanWithRig(*ref_ls_model, ref_to_curr_sensor_trans,
+                                    *ls_model); // output
+        } else if (frame_model != NULL) {
+          // Update the frame camera params
+          asp::linescanToCurrSensorTrans(*ref_ls_model, rig_info.beg_pose_time, 
+                                      ref_to_curr_sensor_trans,
+                                      frame_arr); // output
+        }
+      } else if (ref_frame_model != NULL) {
+        // Update the frame camera params
+        asp::frameToCurrSensorTrans(frame_params, rig_info,
+                                    cam2group, timestamp_map,
+                                    ref_to_curr_sensor_trans,
+                                    frame_arr); // output
       }
-    }
-
+    } 
+    
     if (frame_model != NULL) {
-      // Update the frame camera model based on frame_arr. The
-      // UsgsAstroFrameSensorModel stores first 3 position parameters, then 4
-      // quaternion parameters.
-      for (size_t i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++)
+      // Update the frame camera model based on frame camera params
+      for (size_t i = 0; i < rig::NUM_RIGID_PARAMS; i++)
         frame_model->setParameterValue(i, frame_arr[i]); 
     }
-  }
+    
+  } // End loop over cameras
 
   return;
 }

@@ -556,8 +556,6 @@ void calcRigTransforms(rig::RigSet const& rig,
     // Normalize the linear component of median_trans
     median_trans.linear() /= pow(median_trans.linear().determinant(), 1.0 / 3.0);
     
-    std::cout << "--median trans is " << median_trans.matrix() << "\n";
-
     // Pack the median transform into the output vector    
     rig::rigid_transform_to_array(median_trans,
        &ref_to_curr_sensor_vec[rig::NUM_RIGID_PARAMS * sensor_id]);
@@ -639,15 +637,32 @@ void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ref_ls_cam,
 
 // Given a frame linescan camera and the transform from it to the current
 // camera, find the current camera to world transform as an array.
-// TODO(oalexan1): Must use this function in the Frame costFun
-void frameToCurrSensorTrans(const UsgsAstroFrameSensorModel & ref_frame_cam,
-                            asp::RigCamInfo     const & rig_cam_info,
-                            double const* ref_to_curr_trans,
+void frameToCurrSensorTrans(std::vector<double>       const& frame_params,
+                            asp::RigCamInfo           const& rig_cam_info,
+                            std::map<int, int>        const& cam2group,
+                            TimestampMap              const& timestamp_map,
+                            double                    const* ref_to_curr_trans,
                             // Output
-                            double * cam2world_arr) {
+                            double                         * cam2world_arr) {
 
-std::cout << "--must read all!\n";
+  double beg_ref_time = 0.0, end_ref_time = 0.0;
+  int beg_ref_index = 0, end_ref_index = 0;
+  bool success = timestampBrackets(rig_cam_info, cam2group, timestamp_map, 
+                                  // Outputs
+                                  beg_ref_time, end_ref_time, 
+                                  beg_ref_index, end_ref_index);
+  if (!success) 
+    vw::vw_throw(vw::ArgumentErr() << "Failed to find the bracketing times.\n");
 
+  // The pointers to the bracketing frame camera parameters
+  double const* beg_frame_arr = &frame_params[beg_ref_index * rig::NUM_RIGID_PARAMS];
+  double const* end_frame_arr = &frame_params[end_ref_index * rig::NUM_RIGID_PARAMS];
+
+  // Find the interpolated current cam2world transform
+  double frame_time = rig_cam_info.beg_pose_time;
+  asp::interpCurrPose(beg_ref_time, end_ref_time, frame_time, 
+                      beg_frame_arr, end_frame_arr, ref_to_curr_trans,
+                      cam2world_arr);
 }
 
 // Given a reference linescan camera and the transform from it to the current
