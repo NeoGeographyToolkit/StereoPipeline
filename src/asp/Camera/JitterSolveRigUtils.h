@@ -29,12 +29,15 @@
 #include <vector>
 
 class UsgsAstroLsSensorModel;
+class UsgsAstroFrameSensorModel;
 
 namespace rig {
   class RigSet;
 }
 
 namespace asp {
+
+typedef std::map<int, std::map<double, int>> TimestampMap;
 
 // Create enum for senor type, which can be frame or linescan
 enum RigSensorType {RIG_LINESCAN_SENSOR, RIG_FRAME_SENSOR}; 
@@ -72,7 +75,7 @@ void populateRigCamInfo(rig::RigSet const& rig,
                         // Outputs
                         std::vector<RigCamInfo> & rig_cam_info,
                         std::vector<double>     & ref_to_curr_sensor_vec,
-                        std::map<int, std::map<double, int>> & timestamp_map);
+                        TimestampMap & timestamp_map);
 
 // Given a reference linescan camera and the transform from it to the current
 // camera, find the current camera to world transform as an array.
@@ -81,6 +84,14 @@ void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ref_ls_cam,
                                double const* ref_to_curr_trans,
                                // Output
                                double * cam2world_arr);
+
+// Given a frame linescan camera and the transform from it to the current
+// camera, find the current camera to world transform as an array.
+void frameToCurrSensorTrans(const UsgsAstroFrameSensorModel & ref_frame_cam,
+                            asp::RigCamInfo     const & rig_cam_info,
+                            double const* ref_to_curr_trans,
+                            // Output
+                            double * cam2world_arr);
 
 // Given a reference linescan camera and the transform from it to the current
 // linescan camera, update the the current camera poses within the given range.
@@ -102,6 +113,30 @@ bool timestampBrackets(double time,
                   // Outputs
                   double & time1, double & time2,
                   int & index1, int & index2);
+
+// Find the timestamps bracketing the camera with the given rig_cam_info.
+// This is a wrapper around the above function.
+bool timestampBrackets(asp::RigCamInfo     const & rig_cam_info,
+                        std::map<int, int> const & cam2group,
+                        TimestampMap       const & timestamp_map,
+                        // Outputs
+                        double & beg_ref_time, double & end_ref_time, 
+                        int & beg_ref_index, int & end_ref_index);
+
+// Given two poses, each as x, y, z, qx, qy, qz, qw, linearly interpolate between them.
+void interpPose(double time1, double time2, 
+                double const* pose1, double const* pose2, double time, 
+                // Output
+                double* pose);
+
+// Given reference poses at time1 and time2, a time in between, and the transform
+// from the rig from the reference to the current sensor, find the current sensor
+// pose (camera-to-world) at the given time.
+void interpCurrPose(double time1, double time2, double time, 
+                    double const* pose1, double const* pose2, 
+                    double const* ref_to_curr_trans,
+                    // Output
+                    double * cam2world_arr);
 
 } // end namespace asp
 

@@ -128,7 +128,7 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
 // of the camera in the full array of cameras.
 void populateTimestampMap(std::map<int, int> const& cam2group,
                           std::vector<RigCamInfo> const& rig_cam_info,
-                          std::map<int, std::map<double, int>> & timestamp_map) {
+                          TimestampMap & timestamp_map) {
   
   timestamp_map.clear();
   for (int icam = 0; icam < (int)rig_cam_info.size(); icam++) {
@@ -146,7 +146,7 @@ void populateTimestampMap(std::map<int, int> const& cam2group,
 // of such cameras.
 void populateFrameGroupMidTimestamp(std::vector<asp::CsmModel*>          const& csm_models,
                                     std::map<int, int>                   const& cam2group,
-                                    std::map<int, std::map<double, int>> const& timestamp_map,
+                                    TimestampMap const& timestamp_map,
                                     // Outputs
                                     std::vector<RigCamInfo> & rig_cam_info) {
 
@@ -290,7 +290,82 @@ bool timestampBrackets(double time,
     
   return true;
 }
+
+// Find the timestamps bracketing the camera with the given rig_cam_info.
+// This is a wrapper around the above function.
+bool timestampBrackets(asp::RigCamInfo     const & rig_cam_info,
+                        std::map<int, int> const & cam2group,
+                        TimestampMap       const & timestamp_map,
+                        // Outputs
+                        double & beg_ref_time, double & end_ref_time, 
+                        int & beg_ref_index, int & end_ref_index) {
+
+  // Initialize the outputs
+  beg_ref_time = -1.0; end_ref_time = -1.0;
+  beg_ref_index = -1;  end_ref_index = -1;
   
+  double frame_time = rig_cam_info.beg_pose_time;
+  if (frame_time != rig_cam_info.end_pose_time)
+   vw::vw_throw(vw::ArgumentErr() 
+                << "For a frame sensor beg and end pose time must be same.\n");
+   
+  int icam = rig_cam_info.cam_index;
+  int ref_icam = rig_cam_info.ref_cam_index;
+  int ref_group = rig::mapVal(cam2group, ref_icam);
+  auto const& ref_timestamps = rig::mapVal(timestamp_map, ref_group);
+  bool success = timestampBrackets(frame_time, ref_timestamps, 
+                                   // Outputs
+                                   beg_ref_time, end_ref_time, 
+                                   beg_ref_index, end_ref_index);
+  return success;
+}
+
+// Given two poses, each as x, y, z, qx, qy, qz, qw, linearly interpolate between them.
+void interpPose(double time1, double time2, 
+                double const* pose1, double const* pose2, double time, 
+                // Output
+                double* pose) {
+
+  double alpha = (time - time1)/(time2 - time1);
+  if (time1 == time2) 
+    alpha = 0.0; // Corner case
+
+  for (int i = 0; i < NUM_XYZ_PARAMS + NUM_QUAT_PARAMS; i++) 
+    pose[i] = pose1[i] + alpha*(pose2[i] - pose1[i]);
+    
+  // Normalize the quaternion
+  double * q = pose + NUM_XYZ_PARAMS;
+  double norm = sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
+  for (int i = 0; i < NUM_QUAT_PARAMS; i++) 
+    q[i] /= norm;
+}
+
+// Given reference poses at time1 and time2, a time in between, and the transform
+// from the rig from the reference to the current sensor, find the current sensor
+// pose (camera-to-world) at the given time.
+void interpCurrPose(double time1, double time2, double time, 
+                    double const* pose1, double const* pose2, 
+                    double const* ref_to_curr_trans,
+                    // Output
+                    double * cam2world_arr) {
+
+  // Interpolate the reference poses, and convert to a transform
+  double r[NUM_XYZ_PARAMS + NUM_QUAT_PARAMS];
+  interpPose(time1, time2, pose1, pose2, time, r);
+  Eigen::Affine3d ref_cam2world = asp::calcTransform(r[0], r[1], r[2], 
+                                                     r[3], r[4], r[5], r[6]);
+  
+  // Convert the reference to current transform array to a transform
+  Eigen::Affine3d ref_to_curr_trans_aff;
+  rig::array_to_rigid_transform(ref_to_curr_trans_aff, ref_to_curr_trans);
+
+  // Apply the rig constraint
+  Eigen::Affine3d cam2world = ref_cam2world * ref_to_curr_trans_aff.inverse();
+
+  // Convert to an array
+  rig::rigid_transform_to_array(cam2world, cam2world_arr);
+}    
+
 // Given a map from timestamps to frame camera indices in csm_models, do linear
 // interpolation in time. Return false if out of bounds.
 // TODO(oalexan1): Must allow some slack at end points, so do a little extrapolation.
@@ -307,36 +382,20 @@ bool interpFramePose(std::vector<asp::CsmModel*> const& csm_models,
     return false;
 
   // Position and orientation at time1
-  double x1, y1, z1, qx1, qy1, qz1, qw1;
-  csm_models[index1]->frame_position(x1, y1, z1);
-  csm_models[index1]->frame_quaternion(qx1, qy1, qz1, qw1);
+  double a[NUM_XYZ_PARAMS + NUM_QUAT_PARAMS];
+  csm_models[index1]->frame_position(a[0], a[1], a[2]);
+  csm_models[index1]->frame_quaternion(a[3], a[4], a[5], a[6]);
   
   // Position and orientation at time2
-  double x2, y2, z2, qx2, qy2, qz2, qw2;
-  csm_models[index2]->frame_position(x2, y2, z2);
-  csm_models[index2]->frame_quaternion(qx2, qy2, qz2, qw2);
+  double b[NUM_XYZ_PARAMS + NUM_QUAT_PARAMS];
+  csm_models[index2]->frame_position(b[0], b[1], b[2]);
+  csm_models[index2]->frame_quaternion(b[3], b[4], b[5], b[6]);
   
-  double alpha = (time - time1)/(time2 - time1);
-  if (time1 == time2) 
-    alpha = 0.0; // Corner case
-    
-  // Interpolate
-  double x = x1 + alpha*(x2 - x1);
-  double y = y1 + alpha*(y2 - y1);
-  double z = z1 + alpha*(z2 - z1);
-  double qx = qx1 + alpha*(qx2 - qx1);
-  double qy = qy1 + alpha*(qy2 - qy1);
-  double qz = qz1 + alpha*(qz2 - qz1);
-  double qw = qw1 + alpha*(qw2 - qw1);
-  // Normalize the quaternion
-  double norm = sqrt(qx*qx + qy*qy + qz*qz + qw*qw);
-  qx /= norm;
-  qy /= norm;
-  qz /= norm;
-  qw /= norm;
+  double c[NUM_XYZ_PARAMS + NUM_QUAT_PARAMS];
+  interpPose(time1, time2, a, b, time, c);
 
   // Convert to a transform      
-  cam2world = asp::calcTransform(x, y, z, qx, qy, qz, qw);
+  cam2world = asp::calcTransform(c[0], c[1], c[2], c[3], c[4], c[5], c[6]);
   
   return true;
 }
@@ -347,7 +406,7 @@ bool calcInterpRefCamToWorld(std::vector<asp::CsmModel*> const& csm_models,
                              UsgsAstroFrameSensorModel * ref_frame_model,
                              UsgsAstroLsSensorModel * ref_ls_model,
                              std::map<int, int> const& cam2group,
-                             std::map<int, std::map<double, int>> const& timestamp_map,
+                             TimestampMap const& timestamp_map,
                              int ref_icam, double time,
                              // Output
                              Eigen::Affine3d & ref_cam2world) {
@@ -388,7 +447,7 @@ void calcRigTransforms(rig::RigSet const& rig,
                        std::vector<asp::CsmModel*> const& csm_models,
                        std::vector<RigCamInfo> const& rig_cam_info,
                        std::map<int, int> const& cam2group,
-                       std::map<int, std::map<double, int>> const& timestamp_map,
+                       TimestampMap const& timestamp_map,
                        // Outputs
                        std::vector<double> & ref_to_curr_sensor_vec) {
   
@@ -528,7 +587,7 @@ void populateRigCamInfo(rig::RigSet const& rig,
                         // Outputs
                         std::vector<RigCamInfo> & rig_cam_info,
                         std::vector<double>     & ref_to_curr_sensor_vec,
-                        std::map<int, std::map<double, int>> & timestamp_map) {
+                        TimestampMap & timestamp_map) {
 
   // Print a message, as this can take time
   vw::vw_out() << "Determining the rig relationships between the cameras.\n";
@@ -576,6 +635,19 @@ void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ref_ls_cam,
 
   // Convert to an array
   rig::rigid_transform_to_array(cam2world, cam2world_arr);
+}
+
+// Given a frame linescan camera and the transform from it to the current
+// camera, find the current camera to world transform as an array.
+// TODO(oalexan1): Must use this function in the Frame costFun
+void frameToCurrSensorTrans(const UsgsAstroFrameSensorModel & ref_frame_cam,
+                            asp::RigCamInfo     const & rig_cam_info,
+                            double const* ref_to_curr_trans,
+                            // Output
+                            double * cam2world_arr) {
+
+std::cout << "--must read all!\n";
+
 }
 
 // Given a reference linescan camera and the transform from it to the current
