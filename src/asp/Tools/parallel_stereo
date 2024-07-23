@@ -728,13 +728,15 @@ def keepOnlySpecified(keep_only, out_prefix, subdirs):
         for f in glob.glob(out_prefix + "*" + ext):
             all_files.add(f)
 
-    # List all the files with the suffixes the user wants to keep    
+    # List all the files with the suffixes the user wants to keep. Must also keep
+    # the aux.xml files, as those can have CRS information.    
     keep_files = set()
     if keep_only == "all_combined":
             keep_files = all_files.copy()
     else:
         for keep in keep_only.split():
-            for f in glob.glob(out_prefix + "*" + keep):
+            for f in glob.glob(out_prefix + "*" + keep) + \
+                     glob.glob(out_prefix + "*" + keep + ".aux.xml"): 
                 keep_files.add(f)
 
     if len(keep_files) == 0:
@@ -745,17 +747,25 @@ def keepOnlySpecified(keep_only, out_prefix, subdirs):
     for f in keep_files:
         print("Keeping: " + f)
         if isVrt(f):
-            f_out = os.path.splitext(f)[0] + "_merged.tif"
+            f_merged = os.path.splitext(f)[0] + "_merged.tif"
             print("Convert " + f + " from VRT to TIF format.")
             cmd = ['gdal_translate', '-co', 'compress=lzw', '-co', 'TILED=yes', '-co',
                    'INTERLEAVE=BAND', '-co', 'BLOCKXSIZE=256', '-co', 'BLOCKYSIZE=256',
-                   '-co', 'BIGTIFF=IF_SAFER', f, f_out]
+                   '-co', 'BIGTIFF=IF_SAFER', f, f_merged]
             (out, err, status) = asp_system_utils.executeCommand(cmd, realTimeOutput = True)
             if status != 0:
                 raise Exception('Failed converting VRT to TIF. Qutting. ' + \
                                 'Likely this run is partially wiped now.')
-            print("Renaming: " + f_out + " to " + f)
-            shutil.move(f_out, f)
+                
+            print("Renaming: " + f_merged + " to " + f)
+            shutil.move(f_merged, f)
+            
+            # If _merged.aux.xml exists, rename it to .xml. This is for 3D CRS.
+            merged_aux = f_merged + ".aux.xml"
+            aux = f + ".aux.xml"
+            if os.path.exists(merged_aux):
+                print("Renaming: " + merged_aux + " to " + aux)
+                shutil.move(merged_aux, aux)
 
     # Delete the other files and directories
     for f in list(all_files) + subdirs:
