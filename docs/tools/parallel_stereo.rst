@@ -197,7 +197,7 @@ Command-line options
 
     - pinholemappinhole
     - isismapisis
-    - dgmaprpc
+    - dgmaprpc / dgmapdg
     - rpcmaprpc
     - spot5maprpc
     - astermapaster / astermaprpc

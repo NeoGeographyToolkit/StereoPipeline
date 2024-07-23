@@ -170,8 +170,16 @@ namespace asp {
     if (allow_map_promote) {
       if (!input_dem.empty() && actual_session_type == "dg") {
         // User says DG but also gives a DEM.
-        actual_session_type = "dgmaprpc";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: dgmaprpc.\n";
+        // Mapprojection can happen either with DG or RPC cameras
+        std::string cam_tag = "CAMERA_MODEL_TYPE";
+        std::string l_cam_type 
+          = vw::cartography::read_header_string(left_image_file, cam_tag);
+        if (l_cam_type == "dg")
+          actual_session_type = "dgmapdg";
+        else
+          actual_session_type = "dgmaprpc"; // used also when l_cam_type is empty
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: " 
+          << actual_session_type << ".\n";
       }
       if (!input_dem.empty() && actual_session_type == "rpc") {
         // User says RPC but also gives a DEM.
@@ -254,7 +262,7 @@ namespace asp {
     VW_ASSERT(!actual_session_type.empty(),
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
-              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster perusat pleiades opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermapaster astermaprpc opticalbarmapopticalbar csmmapcsm csmmaprpc pleiadesmappleiades].\n");
+              << "See the parallel_stereo documentation for options.\n");
     
     if (!total_quiet)
       vw::vw_out() << "Using session: " << actual_session_type << "\n";
@@ -266,6 +274,8 @@ namespace asp {
       session = StereoSessionDG::construct();
     else if (actual_session_type == "dgmaprpc")
         session = StereoSessionDGMapRPC::construct();
+    else if (actual_session_type == "dgmapdg")
+        session = StereoSessionDGMapDG::construct();
     else if (actual_session_type == "nadirpinhole")
       session = StereoSessionNadirPinhole::construct();
     else if (actual_session_type == "pinhole")

@@ -362,7 +362,7 @@ int main(int argc, char* argv[]) {
 
     // Additional checks once the stereo session is determined.
     
-    if (opt.stereo_session == "dg" || opt.stereo_session == "perusat")
+    if (opt.stereo_session == "perusat")
       vw_out(WarningMessage) << "Images map-projected using the '" << opt.stereo_session
                              << "' camera model cannot be used later for stereo. "
                              << "If that is desired, please run mapproject with "

@@ -10,7 +10,6 @@ mapproject (:numref:`mapproject`):
 
 jitter_solve (:numref:`jitter_solve`):
   * Can model rig constraints between sensors (:numref:`jitter_rig`).
-
   * Add an example for the Kaguya Terrain Camera (:numref:`jitter_kaguya`).
   * Can use GCP files.
     
@@ -27,7 +26,10 @@ image_calc (:numref:`image_calc`):
 parallel_stereo (:numref:`parallel_stereo`):
    * If the number of matches from disparity is much less than requested, try to
      find more matches. This usually brings their number in the ballpark.
-     
+   * It is possible to mapproject either with ``dg`` and ``rpc`` cameras
+     when using mapprojected images in stereo with DigitalGlobe / Maxar
+     cameras (:numref:`dg-mapproj`).
+
 misc:
  * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
    optimized camera file names (or adjustments). Can be passed in back to

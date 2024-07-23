@@ -660,8 +660,8 @@ It is important to note that ASP expects the input low-resolution DEM
 to be in reference to a datum ellipsoid, such as WGS84 or NAD83. If
 the DEM is in respect to either the EGM96 or NAVD88 geoids, the ASP
 tool ``dem_geoid`` can be used to convert the DEM to WGS84 or NAD83
-(:numref:`dem_geoid`).  (The same tool can be used to convert back the
-final output ASP DEM to be in reference to a geoid, if desired.)
+(:numref:`dem_geoid`). See :numref:`conv_to_ellipsoid` for more
+details.
 
 Not applying this conversion might not properly negate the parallax seen
 between the two images, though it will not corrupt the triangulation
@@ -671,26 +671,28 @@ you should note that the geoheader attached to those types of files
 usually does not describe the vertical datum they used. That can only be
 understood by careful reading of your provider's documents.
 
-Below are the commands for mapprojecting the input and then running
-through stereo. You can use any projection you like as long as it
-preserves detail in the images. Note that the last parameter in the
-stereo call is the input low-resolution DEM. The dataset is the same as
-the one used in :numref:`rawdg`.
-
 .. figure:: images/examples/dg/Mapped.png
    :name: fig:dg-map-example
    :figwidth: 100%
 
    Example colorized height map and ortho image output.
 
-Commands
-^^^^^^^^
+A DigitalGlobe/Maxar camera file contains both an exact (linescan) camera
+model and an approximate RPC camera model. For a long time ASP preferred
+to use the RPC model for mapprojection, as it was much faster than the exact
+model. 
 
-It is very important to specify the argument ``-t rpc`` to
-``mapproject``, as otherwise the exact DG model will be used, which is
-slower and not what ``parallel_stereo`` expects later.
+With ASP 3.4.0, the exact model has been greatly sped up, and any of these
+models can be used for mapprojection. Triangulation will happen either way with
+the exact model. 
 
-The same appropriately chosen resolution setting (option ``--tr``)
+In this example, we use the RPC model for mapprojection (``-t rpc``).
+
+It is *strongly suggested* to use a local projection for the mapprojection,
+especially around poles, as there the default longitude-latitude
+projection is not accurate.
+
+The *same* appropriately chosen resolution setting (option ``--tr``)
 must be used for both images to avoid long run-times and artifacts
 (:numref:`mapproj-res`).
 
@@ -700,7 +702,7 @@ misregistration artifacts transfer over to the mapprojected images. Ensure the
 input DEM is relative to an ellipsoid and not a geoid
 (:numref:`conv_to_ellipsoid`). Fill and blur the input DEM if needed (:numref:`dem_mosaic_grow`, :numref:`dem_mosaic_blur`).
 
-::
+Commands::
 
     mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
       --tr 0.5 ref_dem.tif                                      \
@@ -737,19 +739,6 @@ same terrain with the same resolution, thus no additional alignment is
 necessary. More details about how to set these and other ``parallel_stereo``
 parameters can be found in :numref:`settingoptionsinstereodefault`.
 
-Note here that any DigitalGlobe/Maxar camera file has two models in
-it, the exact linescan model (which we name ``DG``), and its ``RPC``
-approximation. Above, we have used the approximate ``RPC`` model for
-mapprojection, since mapprojection is just a pre-processing step to
-make the images more similar to each other, this step will be undone
-during stereo triangulation, and hence using the ``RPC`` model is good
-enough, while being much faster than the exact ``DG`` model.
-
-When ``parallel_stereo`` runs with mapprojected images above,
-it will run as if invoked with the ``-t dgmaprpc`` stereo session, 
-signaling that the images were mapprojected with ``RPC`` cameras
-but the triangulation happens with the exact ``DG`` cameras.
-
 .. _other-mapproj:
 
 Mapprojection with other camera models
@@ -771,8 +760,7 @@ models, output prefix, and the name of the DEM used for mapprojection.
 
 The session name (``-t``) passed to ``parallel_stereo`` should be
 ``rpcmaprpc``, ``pinholemappinhole``, or just ``rpc``, ``pinhole``,
-etc. Normally this is detected and set automatically, except
-for the ``dg`` and ``rpc`` ambiguity, as discussed right above.
+etc. Normally this is detected and set automatically.
 
 The stereo command with mapprojected images when the cameras are
 stored separately is along the lines of::
