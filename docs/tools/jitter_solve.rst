@@ -1535,75 +1535,164 @@ This solver does not create anchor points for the frame cameras. There
 are usually many such images and they overlap a lot, so anchor points
 are not needed as much as for linescan cameras.
 
-.. _jitter_no_baseline:
+.. _jitter_rig:
 
-Solving for jitter with a linescan and frame rig
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Rig constraints
+~~~~~~~~~~~~~~~
 
-In this example we consider a rig that is made of one linescan and one frame
-camera. These sensors are positioned in the same location and look in the same
-direction. The linescan sensor acquires a single image with many lines, while
-the frame camera records many rectangular images of much smaller dimensions.
-They both experience the same jitter. 
+This solver can model the fact that the input images have been acquired with 
+one or more rigs. A rig can have one or more sensors. A sensor can be frame or
+linescan. Each rig can acquire several data collections. Each rig can have its
+own design.
 
-The "rigid" frame camera images are used to correct the jitter.
+Rig configuration
+^^^^^^^^^^^^^^^^^
+
+Each rig must have a designated *reference sensor*. The transforms from the
+reference sensor to other sensors on that rig will be optimized by this solver. 
+
+The intrinsics of all sensors for all rigs should be set in a single
+configuration file, in the format described in :numref:`rig_config`. 
+
+This solver assumes no lens distortion, no offsets between clocks of individual
+sensors, and no depth measurements, so the entries for these in the rig
+configuration file should be left at nominal values. The entries for
+``distorted_crop_size`` and ``undistorted_image_size`` should have the image
+dimensions.
+
+Assumptions
+^^^^^^^^^^^
+
+ - When a rig has both linescan and frame sensors, the reference sensor must be
+   linescan. That because the linescan sensor acquires image data more frequently.
+     
+ - The *reference sensor* must acquire data frequently enough that pose
+   interpolation in time is accurate. For a frame reference sensor, that may
+   mean that all frame sensors acquire data simultaneously, or the reference
+   sensor acquires data quickly. For a linescan reference sensor, the parameters
+   ``--num-lines-per-position`` and ``--num-lines-per-orientation`` need to be
+   smaller than 1/2 of the jitter period.
+   
+ - The acquisition times of all sensors on a rig during a contiguous observation
+   stretch must be within the time range of the reference sensor, to avoid 
+   extrapolation in time.
+ 
+ - The acquisition times are known very accurately.  
+ 
+It is not assumed that acquisition times are synchronized between sensors,
+or that a frame camera has a fixed frame rate. 
+
+Naming convention
+^^^^^^^^^^^^^^^^^
+
+The images and cameras passed in must be in one-to-one correspondence. 
+
+The following format is expected for frame image and camera names::
+
+  <path>/<group><sep><timestamp><sep><sensor name>.<extension>
+
+Any separator characters in ``<sep>`` *must not contain alphanumeric
+characters*, as that will confuse the program. The timestamp must be
+of the form ``<digits>.<digits>`` (no values such as 1e+7).
+
+All images acquired by a frame sensor in a given contiguous stretch of time must
+be listed in a text file of the form::
+
+  <path>/<group><sep><sensor name>.txt
+
+which is passed in to the solver as an image file would be otherwise. The same
+applies to the cameras. An example is below.
+
+Each linescan sensor image or camera name must be of the form::
+
+  <path>/<group><sep><sensor name>.<extension>
+
+Each contiguous acquisition with a rig must have a unique group name, that will
+be part of all filenames produced at that time. In other words, acquisitions
+with different rigs or by the same rig at another time need to have different
+group names.
+
+.. _jitter_no_baseline_example:
+
+Example of sensors on a rig with a very small baseline
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In this example we consider a rig with one linescan and one frame sensor. 
+The rig looks straight down, so there is very little overall baseline
+between the sensors.
+
+The linescan sensor acquires a single wide and tall image, while the frame
+camera records many rectangular images of much smaller dimensions. They both
+experience the same jitter. 
+
+The solver enforces the rig constraint between the sensors.
+
+The frame camera images are shown to be able to help correct the jitter. That is
+because each frame camera image can serve as a template, relative to which
+oscillations in the linescan sensor can be measured. 
+
+The rig constraint is not essential here. This one is useful however when there
+are two sensors side-by-side, as then the rig helps constrain the yaw angle.
 
 Synthetic data for this example can be produced as in
-:numref:`jitter_linescan_frame_cam`. The ``sat_sim`` invocations for linescan
-and frame cameras are the same except using different sensor dimensions and
-sensor type.
+:numref:`jitter_linescan_frame_cam`, with the addition of modeling a rig, as in 
+:numref:`sat_sim_rig`.
 
 A straightforward application of the jitter-solving recipe in
 :numref:`jitter_linescan_frame_cam` will fail, as it is not possible to
-triangulate properly the points seen by the two cameras, since the rays are
+triangulate properly the points seen by the cameras, since the rays are
 almost parallel or slightly diverging. The following adjustments are
 suggested:
 
 - Use ``--forced-triangulation-distance 500000`` for both bundle adjustment and
   jitter solving (the precise value here is not very important if the
-  ``--heights-from-dem`` constraint is used). This will result in triangulated
-  points even when the rays are parallel or divergent. 
+  ``--heights-from-dem`` constraint is used, as the triangulated point will be
+  adjusted based on the DEM). This will result in triangulated points even when
+  the rays are parallel or a little divergent. 
 - Use ``--min-triangulation-angle 1e-10`` in both bundle adjustment and jitter
   solving, to ensure we don't throw away features with small convergence angle,
   as that will be almost all of them.
 - Be generous with outlier filtering when there is a lot of jitter. Use,
   for example, ``--remove-outliers-params '75.0 3.0 10 10'`` in ``bundle_adjust``
   and ``--max-initial-reprojection-error 10`` in ``jitter_solve``.
-- The option ``--heights-from-dem`` should be used. It got improved in the
-  latest build and does well for such degenerate rays
-  (:numref:`heights_from_dem`). 
+- The option ``--heights-from-dem`` should be used (:numref:`heights_from_dem`). 
 - Use ``--match-files-prefix`` instead of ``--clean-match-files-prefix`` in
   ``jitter_solve``, as maybe bundle adjustment filtered out too many good matches
-  with a small convergence angle.
+  with a small convergence angle (if it was not invoked as suggested above).
 
-Here's the command for solving for jitter, and the bundle adjustment command 
-that creates the interest point matches is similar.
+Here's the command for solving for jitter. This assumes interest points were
+produced with bundle adjustment. It is preferred that they are dense, as in
+previous sections. The same rig configuration can be used as when the input
+images and cameras are created with ``sat_sim`` (:numref:`sat_sim_rig`).
 
 ::
 
     jitter_solve                                \
+        --rig-config rig.txt                    \
         --forced-triangulation-distance 500000  \
         --min-matches 1                         \
         --min-triangulation-angle 1e-10         \
         --num-iterations 10                     \
         --max-pairwise-matches 50000            \
         --match-files-prefix ba/run             \
-        --roll-weight 10000                     \
-        --yaw-weight 10000                      \
         --max-initial-reprojection-error 100    \
-        --tri-weight 0.1                        \
-        --tri-robust-threshold 0.1              \
         --num-anchor-points-per-tile 100        \
         --num-anchor-points-extra-lines 500     \
         --anchor-dem dem.tif                    \
         --anchor-weight 0.01                    \
         --heights-from-dem dem.tif              \
         --heights-from-dem-uncertainty 10       \
-        data/nadir_frame_images.txt             \
         data/nadir_linescan.tif                 \
-        data/nadir_frame_cameras.txt            \
+        data/nadir_frame_images.txt             \
         data/nadir_linescan.json                \
+        data/nadir_frame_cameras.txt            \
         -o jitter/run
+
+The options ``--use-initial-rig-transforms``, ``--fix-rig-rotations``,
+``--fix-rig-translations``, and ``--camera-position-weight`` can constrain the
+solution in various ways.
+
+The optimized rig will be saved in the output directory and can be inspected.
 
 The value of ``--heights-from-dem-uncertainty`` can be decreased if the input DEM
 is reliable and it is desired to tie the solution more to it. 
@@ -1616,6 +1705,9 @@ same effect on both sensors. That is accomplished with the option
 It is important to examine the produced triangulated points and reprojection
 errors (:numref:`ba_err_per_point`) to ensure the points are well-distributed
 and that the errors are small and uniform.
+
+The ``orbit_plot`` program (:numref:`orbit_plot`) can inspect the camera
+orientations before and after optimization.
 
 .. _jitter_out_files:
 
@@ -1981,6 +2073,24 @@ Command-line options for jitter_solve
     inaccurate, artificially create a triangulation point this far
     ahead of the camera, in units of meters. Some of these
     may be later filtered as outliers. 
+
+--rig-config <string>
+    Assume that the cameras are acquired with a set of rigs with this
+    configuration file (:numref:`jitter_rig`). The intrinsics will be read, but
+    not the transforms between sensors, as those will be auto-computed (unless
+    ``--use-initial-rig-transforms`` is set). The optimized rig, including the
+    sensor transforms, will be saved.
+
+--fix-rig-translations
+    Fix the translation component of the transforms between the sensors on a rig.
+    
+--fix-rig-rotations
+    Fix the rotation component of the transforms between the sensors on a rig.
+
+--use-initial-rig-transforms
+    Use the transforms between the sensors (``ref_to_sensor_transform``) of the
+    rig given by ``--rig-config``, instead of computing them from the poses of
+    individual cameras.
 
 --overlap-limit <integer (default: 0)>
     Limit the number of subsequent images to search for matches to

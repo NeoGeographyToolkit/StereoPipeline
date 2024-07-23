@@ -572,6 +572,8 @@ local-alignment-debug
     A developer option used to debug local epipolar alignment issues.
     An example is in :numref:`local_alignment_issues`.
 
+.. _subpixel_options:
+
 Subpixel refinement
 -------------------
 

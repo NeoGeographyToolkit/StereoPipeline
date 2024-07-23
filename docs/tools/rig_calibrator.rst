@@ -93,11 +93,14 @@ File name convention
 If an image name (without directory) has a timestamp followed by a sensor string
 as part of its name, those will be parsed. Example::
 
-    my_images/<text>10004.6<text>ref_cam<text>.jpg
+    my_images/<text>10004.6<text><sensor name><text>.jpg
 
-The earliest encountered sequence of digits (optionally followed by decimal
-period and more digits) will be the timestamp. The earliest encountered string
-matching the sensor name will be used.
+The last encountered sequence of digits (optionally followed by decimal period
+and more digits) before the sensor name will be the timestamp. The earliest
+encountered string matching the sensor name will be used.
+
+*It is strongly suggested to not have any other digits in the image name, as
+that may confuse the parser.*
 
 Directory structure
 ^^^^^^^^^^^^^^^^^^^
@@ -219,7 +222,9 @@ Example (only one of the *N* sensors is shown)::
 
 If there is more than one sensor on the rig, need to create a new value for
 ``sensor_name``, and add a block as above for each sensor (without a new
-``ref_sensor_name``).
+``ref_sensor_name``). 
+
+The first specified sensor must be the reference one.
 
 If there is more than one rig, there should be a new line having 
 ``ref_sensor_name``, and then continue as above.
@@ -724,10 +729,10 @@ Command-line options
   their poses floated. Example: 'cam1 cam3'.  See more details in
   :numref:`rig_constraints`. Type: string. Default: "".
 ``--fix_rig_translations`` Fix the translation component of the transforms between
-  the sensors on the rig. Works only when ``--no_rig`` is not set. Type: bool.
+  the sensors on a rig. Works only when ``--no_rig`` is not set. Type: bool.
   Default: false.
 ``--fix_rig_rotations`` Fix the rotation component of the transforms between the
-  sensors on the rig. Works only when ``--no_rig`` is not set. Type: bool.
+  sensors on a rig. Works only when ``--no_rig`` is not set. Type: bool.
   Default: false.
 ``--camera_position_weight`` A constraint to keep the camera positions close to
   initial locations. A high value can impede convergence. This does not use a

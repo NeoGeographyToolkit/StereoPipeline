@@ -292,7 +292,9 @@ bool timestampBrackets(double time,
   // This is a very important check. We cannot extrapolate in time.
   // TODO(oalexan1): Offending cameras better be filtered out before this point.
   if (time < first_time || time > last_time)
-    LOG(FATAL) << "Found a time outsie the range of reference camera timestamps.\n";
+    LOG(FATAL) << "Found a timestamp for a frame sensor that is not within the "
+      << "range of timestamps for the reference sensor. Such data must be manually "
+      << "excluded. Offending time: " << std::setprecision(17) << time << "\n";
 
   // Find the time no earlier than time
   auto it = timestamps.lower_bound(time);

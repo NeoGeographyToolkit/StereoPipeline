@@ -79,6 +79,9 @@ Run bundle adjustment (:numref:`bundle_adjust`) and stereo
       --bundle-adjust-prefix ba/run                                 \
       stereo/run
 
+For datasets with very oblique illumination, ``--subpixel-mode 2`` 
+(:numref:`subpixel_options`) worked better, but is much slower.
+
 Run ``point2dem`` (:numref:`point2dem`) to get a DEM. Consider using the
 stereographic projection centered at the region of interest::
 

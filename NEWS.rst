@@ -9,6 +9,8 @@ mapproject (:numref:`mapproject`):
   * Add the option ``--query-pixel``.
 
 jitter_solve (:numref:`jitter_solve`):
+  * Can model rig constraints between sensors (:numref:`jitter_rig`).
+
   * Add an example for the Kaguya Terrain Camera (:numref:`jitter_kaguya`).
   * Can use GCP files.
     
@@ -87,8 +89,8 @@ jitter_solve (:numref:`jitter_solve`):
   * Added an example with 27 CTX images (:numref:`jitter_multiple_images`).  
   * Added the option ``--weight-image``, to weigh observations based on
     geographic location of triangulated points (:numref:`limit_ip`).
-  * Can handle several sensors with same location and direction
-    (:numref:`jitter_no_baseline`).
+  * Can handle several sensors with very similar positions and orientations
+    (:numref:`jitter_rig`).
   * Support reading the ISIS ``jigsaw`` binary control network
     format (:numref:`jitter_ip`).
   * Can read and write CSM model state embedded in ISIS .cub files   

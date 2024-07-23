@@ -255,7 +255,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     ("use-initial-rig-transforms", 
      po::bool_switch(&opt.use_initial_rig_transforms)->default_value(false)->implicit_value(true),
      "Use the transforms between the sensors (ref_to_sensor_transform) of the rig "
-     "specified via --rig-config, instead of computing them from the poses of individual "
+     "given by --rig-config, instead of computing them from the poses of individual "
      "cameras.")
     ("initial-camera-constraint", 
      po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
