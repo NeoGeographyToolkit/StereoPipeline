@@ -27,6 +27,7 @@
 #include <Rig/transform_utils.h>
 
 #include <glog/logging.h>
+#include <vw/Core/Log.h>
 #include <boost/filesystem.hpp>
 
 #include <iostream>
@@ -154,26 +155,45 @@ size_t findCamType(std::string const& image_file,
   return cam_name_pos;            
 }
 
+// Must keep only alphanumeric characters in the s
+void removeNonAlnum(std::string & s) {
+  for (size_t it = 0; it < s.size(); it++) {
+    if ((s[it] < '0' || s[it] > '9') &&
+        (s[it] < 'a' || s[it] > 'z') &&
+        (s[it] < 'A' || s[it] > 'Z')) {
+      s = s.substr(0, it) + s.substr(it+1);
+      it--;
+    }
+  }
+}
+
 // Given a file with name 
-// <dir><text><digits>.<digits><text>ref_cam<text>.jpg
+// <dir>/<text><digits>.<digits><text>ref_cam<text>.jpg
 // or 
 // <dir>/<cam name>/<digits>.<digits>.jpg
 // find the cam name and the timestamp. 
+// Can also handle:
+// <dir>/<group><separator><digits>.<digits><text>ref_cam<text>.jpg
+// when it parses the group.
 void findCamTypeAndTimestamp(std::string const& image_file,
                              std::vector<std::string> const& cam_names,
                              // Outputs
                              int    & cam_type,
-                             double & timestamp) {
+                             double & timestamp,
+                             std::string & group) {
 
-  size_t cam_name_pos = rig::findCamType(image_file, cam_names, cam_type);
+  // Initialize the outputs
+  cam_type  = -1;
   timestamp = 0.0;
+  group     = "";
+  
+  size_t cam_name_pos = rig::findCamType(image_file, cam_names, cam_type);
   std::string basename = fs::path(image_file).filename().string();
   
   // Eliminate the text starting with the sensor name, if we have
   // the sensor name as part of the image name.
-  if (cam_name_pos != std::string::npos) {
+  if (cam_name_pos != std::string::npos)
     basename = basename.substr(0, cam_name_pos);
-  }
 
   // Eliminate all non-digits at the end of the basename
   for (size_t it = basename.size(); it > 0; it--) {
@@ -185,7 +205,7 @@ void findCamTypeAndTimestamp(std::string const& image_file,
   }
   
   // Search backward until finding a non-digit or a second dot.
-  // Remove anything at and before that when this happens.
+  // The entry before that is the group, and after is the timestamp.
   int num_dots = 0;
   for (size_t it = basename.size(); it > 0; it--) {
     if (basename[it-1] == '.')
@@ -197,11 +217,14 @@ void findCamTypeAndTimestamp(std::string const& image_file,
     }
   
     if (basename[it-1] != '.' && (basename[it-1] < '0' || basename[it-1] > '9')) {
+      group = basename.substr(0, it);
       basename = basename.substr(it);
       break;
     }
   }  
-                             
+  
+  removeNonAlnum(group);
+
   // Read the last sequence of digits, followed potentially by a dot and more 
   // digits. Remove anything after <digits>.<digits>.
   bool have_dot = false;
@@ -237,6 +260,34 @@ void findCamTypeAndTimestamp(std::string const& image_file,
   timestamp = atof(timestamp_str.c_str());
 }
 
+// Given a file with name 
+// <dir>/<group><separator><separator>ref_cam<text>.ext
+// parse the group and the cam index.
+void findCamTypeAndGroup(std::string const& image_file,
+                        std::vector<std::string> const& cam_names,
+                        // Outputs
+                        int         & cam_type,
+                        std::string & group) {
+
+  // Initialize the outputs
+  cam_type  = -1;
+  group     = "";
+  
+  size_t cam_name_pos = rig::findCamType(image_file, cam_names, cam_type);
+  std::string basename = fs::path(image_file).filename().string();
+  
+  // Eliminate the text starting with the sensor name, if we have
+  // the sensor name as part of the image name.
+  if (cam_name_pos != std::string::npos)
+    group = basename.substr(0, cam_name_pos);
+
+  removeNonAlnum(group);
+  
+  // The group must be non-empty
+  if (group.empty())
+    LOG(FATAL) << "Could not parse the group from: " << image_file << "\n";
+}
+
 // Parse a file each line of which contains a filename, a sensor name, and a timestamp.
 // Then reorder the data based on input file names. 
 bool parseImageSensorList(std::string const& image_sensor_list,
@@ -260,7 +311,7 @@ bool parseImageSensorList(std::string const& image_sensor_list,
       LOG(FATAL) << "Cannot open file for reading: " << image_sensor_list << "\n";
   }
 
-  std::cout << "Reading: " << image_sensor_list << std::endl;
+  vw::vw_out() << "Reading: " << image_sensor_list << "\n";
   
   // Go from cam name to cam type
   std::map<std::string, int> cam_name_to_type;
@@ -350,8 +401,9 @@ void readImageSensorTimestamp(std::string const& image_sensor_list,
     int cam_type = 0;
     double timestamp = 0.0;
     try {
+      std::string group; // not used 
       findCamTypeAndTimestamp(image_files[it], cam_names,  
-                              cam_type, timestamp); // outputs
+                              cam_type, timestamp, group); // outputs
     } catch (std::exception const& e) {
         LOG(FATAL) << "Could not infer sensor type and image timestamp. See the naming "
                    << "convention, and check your images. Detailed message:\n" << e.what();
@@ -526,12 +578,13 @@ void readImageEntry(// Inputs
   std::map<double, ImageMessage> & depth_map = depth_maps[cam_type];
 
   if (image_map.find(timestamp) != image_map.end())
-    std::cout << "WARNING: Duplicate timestamp " << std::setprecision(17) << timestamp
-                 << " for sensor id " << cam_type << "\n";
+    vw::vw_out(vw::WarningMessage) 
+      << "Duplicate timestamp " << std::setprecision(17) << timestamp
+      << " for sensor id " << cam_type << "\n";
   
   // Read the image as grayscale, in order for feature matching to work
   // For texturing, texrecon should use the original color images.
-  //std::cout << "Reading: " << image_file << std::endl;
+  //vw::vw_out() << "Reading: " << image_file << std::endl;
   image_map[timestamp].image        = cv::imread(image_file, cv::IMREAD_GRAYSCALE);
   image_map[timestamp].name         = image_file;
   image_map[timestamp].timestamp    = timestamp;
@@ -545,7 +598,7 @@ void readImageEntry(// Inputs
   // Read the depth data, if present
   std::string depth_file = fs::path(image_file).replace_extension(".pc").string();
   if (fs::exists(depth_file)) {
-    //std::cout << "Reading: " << depth_file << std::endl;
+    //vw::vw_out() << "Reading: " << depth_file << std::endl;
     rig::readXyzImage(depth_file, depth_map[timestamp].image);
     depth_map[timestamp].name      = depth_file;
     depth_map[timestamp].timestamp = timestamp;
@@ -661,7 +714,7 @@ void calcExtraPoses(std::string const& extra_list, bool use_initial_rig_transfor
       if (!use_initial_rig_transforms) 
         msg += std::string("If the rig configuration file has an initial rig, consider ")
           + "using the option --use_initial_rig_transforms.\n";
-      std::cout << msg;
+      vw::vw_out() << msg;
       continue;
     }
 
@@ -696,7 +749,7 @@ void readCameraPoses(// Inputs
   nvm = nvmData();
 
   // Open the file
-  std::cout << "Reading: " << camera_poses_file << std::endl;
+  vw::vw_out() << "Reading: " << camera_poses_file << std::endl;
   std::ifstream f(camera_poses_file.c_str());
   if (!f.is_open())
     LOG(FATAL) << "Cannot open file for reading: " << camera_poses_file << "\n";
@@ -796,7 +849,7 @@ void readListOrNvm(// Inputs
                    // Append here
                    nvm.cid_to_filename, cam_types, timestamps, nvm.cid_to_cam_t_global);
 
-  std::cout << "Reading the images.\n";
+  vw::vw_out() << "Reading the images.\n";
   for (size_t it = 0; it < nvm.cid_to_filename.size(); it++) {
     // Aliases
     auto const& image_file = nvm.cid_to_filename[it];
@@ -835,7 +888,7 @@ void lookupImagesAndBrackets(// Inputs
                              std::vector<double>& min_timestamp_offset,
                              std::vector<double>& max_timestamp_offset) {
 
-  std::cout << "Looking up the images and bracketing the timestamps." << std::endl;
+  vw::vw_out() << "Looking up the images and bracketing the timestamps." << std::endl;
 
   int num_ref_cams = ref_timestamps.size();
   int num_cam_types = R.cam_names.size();
@@ -1078,7 +1131,7 @@ void lookupImagesAndBrackets(// Inputs
   // Adjust for timestamp_offsets_max_change. Printing the bounds is useful if
   // the timestamps can be allowed to change. Turn off printing this for now, as
   // it is rather confusing. 
-  // std::cout << "If optimizing the timestamp offset, its bounds must be, per sensor:\n";
+  // vw::vw_out() << "If optimizing the timestamp offset, its bounds must be, per sensor:\n";
   for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
     if (R.isRefSensor(R.cam_names[cam_type]))
       continue;  // bounds don't make sense here
@@ -1097,7 +1150,7 @@ void lookupImagesAndBrackets(// Inputs
     min_timestamp_offset[cam_type] += delta;
     max_timestamp_offset[cam_type] -= delta;
     // Print the timestamp offset allowed ranges
-    // std::cout << std::setprecision(8) << R.cam_names[cam_type]
+    // vw::vw_out() << std::setprecision(8) << R.cam_names[cam_type]
     //           << ": [" << min_timestamp_offset[cam_type]
     //           << ", " << max_timestamp_offset[cam_type] << "]\n";
   }
@@ -1117,7 +1170,7 @@ void lookupImagesNoBrackets(// Inputs
                             std::vector<double>& min_timestamp_offset,
                             std::vector<double>& max_timestamp_offset) {
 
-  std::cout << "Looking up the images." << std::endl;
+  vw::vw_out() << "Looking up the images." << std::endl;
   int num_cam_types = R.cam_names.size();
   
   // Initialize the outputs
@@ -1207,9 +1260,9 @@ void lookupImagesOneRig(// Inputs
                         std::vector<double>                 & max_timestamp_offset) {
   
   rig::lookupFilesPoses(// Inputs
-                              R, image_maps, depth_maps,
-                              // Outputs
-                              ref_timestamps, world_to_ref);
+                        R, image_maps, depth_maps,
+                        // Outputs
+                        ref_timestamps, world_to_ref);
   
   if (!no_rig) 
     lookupImagesAndBrackets(// Inputs
@@ -1234,14 +1287,14 @@ void lookupImagesOneRig(// Inputs
     num_images[cams[cam_it].camera_type]++;
   bool is_good = true;
   for (int cam_type_it = 0; cam_type_it < num_cam_types; cam_type_it++) {
-    std::cout << "Number of images for sensor: " << R.cam_names[cam_type_it] << ": "
+    vw::vw_out() << "Number of images for sensor: " << R.cam_names[cam_type_it] << ": "
               << num_images[cam_type_it] << std::endl;
 
     if (num_images[cam_type_it] == 0)
       is_good = false;
   }
   if (!is_good)
-    std::cout << "WARNING: Could not find images for all sensors.\n";
+    vw::vw_out(vw::WarningMessage) << "Could not find images for all sensors.\n";
 
   // The images may need to be resized to be the same
   // size as in the calibration file. Sometimes the full-res images

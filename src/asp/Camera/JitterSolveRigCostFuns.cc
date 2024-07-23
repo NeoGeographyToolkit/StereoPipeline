@@ -601,7 +601,7 @@ void addRigLsOrFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                   << " is outside the time range of the reference sensor, which is: "
                   << beg_ref_time << ' ' << end_ref_time << ".\n"
                   << "This may also be due to mixup of image and camera order, or because of "
-                  << "to anchor points far out of range. Offending pixel: " 
+                  << "anchor points far out of range. Offending pixel: " 
                   << pix_obs << ".\n");
   
     // Ref sensor is linescan

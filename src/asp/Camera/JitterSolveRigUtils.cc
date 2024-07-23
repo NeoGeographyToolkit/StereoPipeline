@@ -98,22 +98,36 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
     UsgsAstroFrameSensorModel * frame_model
       = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_cam->m_gm_model).get());
     
+    int sensor_id = -1;
+    std::string group; 
     if (frame_model != NULL) {
       
-      int sensor_id = -1;
       double timestamp = -1.0; 
       rig::findCamTypeAndTimestamp(camera_files[i], rig.cam_names,
-                                  sensor_id, timestamp);
+                                   sensor_id, timestamp, group); // outputs
       rig_info.sensor_type = RIG_FRAME_SENSOR;
       rig_info.sensor_id = sensor_id;
+      rig_info.rig_group = group;
+      
       // The mid_group_time will be the mid time for the frame group, to be filled later.
       rig_info.beg_pose_time = timestamp;
       rig_info.end_pose_time = timestamp;
       
+      // Image files must have the same convention as camera files.
+      rig::findCamTypeAndTimestamp(image_files[i], rig.cam_names,
+                                   sensor_id, timestamp, group); // outputs
+      if (sensor_id != rig_info.sensor_id     || 
+          timestamp != rig_info.beg_pose_time ||
+          group     != rig_info.rig_group)
+        vw::vw_throw(vw::ArgumentErr() 
+                     << "Mismatch between image and camera name. "
+                     << "Image: " << image_files[i] << ", camera: " << camera_files[i] 
+                     << "\n");
+      
     } else if (ls_model != NULL) {
 
-      int sensor_id = -1; 
-      rig::findCamType(camera_files[i], rig.cam_names, sensor_id);
+      rig::findCamTypeAndGroup(camera_files[i], rig.cam_names,
+                               sensor_id, group); // outputs
 
       // Each pose has a timestamp. The mid group time is a compromise between 
       // the timestamps of the poses in each group.
@@ -122,10 +136,21 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
       asp::toCsmPixel(vw::Vector2(0, numLines/2.0), imagePt);
       rig_info.sensor_type = RIG_LINESCAN_SENSOR;
       rig_info.sensor_id = sensor_id;
+      rig_info.rig_group = group;
       rig_info.mid_group_time = ls_model->getImageTime(imagePt);
 
       // Find the time bounds for the linescan sensor
       linescanTimeBounds(ls_model, rig_info.beg_pose_time, rig_info.end_pose_time);
+      
+      // Image files must have the same convention as camera files.
+      rig::findCamTypeAndGroup(image_files[i], rig.cam_names, 
+                               sensor_id, group); // outputs
+      if (sensor_id != rig_info.sensor_id ||
+          group     != rig_info.rig_group)
+        vw::vw_throw(vw::ArgumentErr() 
+                     << "Mismatch between image and camera name. "
+                     << "Image: " << image_files[i] << ", camera: " << camera_files[i] 
+                     << "\n");
       
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
@@ -191,16 +216,9 @@ void populateFrameGroupMidTimestamp(std::vector<asp::CsmModel*>          const& 
 // this is total number of cameras times the number of cameras acquired with
 // a reference sensor. Something more clever did not work, and this may be
 // good enough.
-// Note: This is not good enough to bracket the camera in time. For that,
-// need to find the right group of cameras having ref_cam_index, and
-// then do a binary search.
 
 // TODO(oalexan1): Decrease the complexity of this function. Use binary search.
-// TODO(oalexan1): This logic assumes that datasets acquired either with the
-// same rig on different occasions or acquired with different rigs do not
-// overlap in time. This is fragile. Fir a given icam, must search
-// only through the group of cameras acquired with the same rig at the same
-// time.
+// Also process each rig group separately.
 void findClosestRefCamera(rig::RigSet const& rig,
                           std::vector<asp::CsmModel*> const& csm_models,
                           std::vector<RigCamInfo> & rig_cam_info) {
@@ -226,6 +244,15 @@ void findClosestRefCamera(rig::RigSet const& rig,
     for (int ref_cam_index: ref_sensor_cams) {
       
       auto const& ref_info = rig_cam_info[ref_cam_index]; // alias
+      
+      // The rig group must be non-empty  
+      if (info.rig_group.empty() || ref_info.rig_group.empty())
+        vw::vw_throw(vw::ArgumentErr() << "Empty rig group.\n");
+
+      // Both must be in the same rig group
+      if (ref_info.rig_group != info.rig_group)
+        continue;
+          
       int ref_sensor_id2 = rig.refSensorId(ref_info.sensor_id);
       
       // This must be a ref sensor
@@ -236,7 +263,7 @@ void findClosestRefCamera(rig::RigSet const& rig,
         continue; // Not the same ref sensor
         
       // See if it is closer than the current best
-      double dt = fabs(ref_info.mid_group_time - info.mid_group_time);
+      double dt = std::abs(ref_info.mid_group_time - info.mid_group_time);
       if (dt >= max_time) 
         continue;
         
@@ -623,7 +650,8 @@ void populateRigCamInfo(rig::RigSet const& rig,
   populateFrameGroupMidTimestamp(csm_models, cam2group, timestamp_map,
                                  rig_cam_info);
 
-  // For each camera find the closest camera in time acquired with the reference sensor
+  // For each camera find the closest camera within the rig and group
+  // that is acquired with the reference sensor
   findClosestRefCamera(rig, csm_models, rig_cam_info);
   
   // Find the initial guess rig transforms based on all camera-to-world transforms

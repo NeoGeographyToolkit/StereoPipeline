@@ -47,7 +47,9 @@ struct RigCamInfo {
   int sensor_id; // The sensor id in the rig set
   RigSensorType sensor_type; // frame or linescan
   
-  // The time at the image center for linescan and mid group for frame
+  // The time at the image center for linescan and mid group for frame. Here the
+  // group is formed of all camera images acquired within a contigious time with
+  // the same frame sensor.
   double mid_group_time;
   
   // For linescan: the starting and ending time for positions/orientations.
@@ -60,7 +62,12 @@ struct RigCamInfo {
   // camera is assumed to be linescan.
   int ref_cam_index; 
   
-  std::string image_file, camera_file; 
+  std::string image_file, camera_file;
+  
+  // The group name for the all cameras acquired with all sensors on a rig
+  // within a contigious time interval. Acquisitions at at a different time
+  // intervals and/or a different rig must have different group names.
+  std::string rig_group;
    
   // Declare the constructor
   RigCamInfo();

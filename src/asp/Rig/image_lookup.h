@@ -65,11 +65,24 @@ size_t findCamType(std::string const& image_file,
 // or 
 // <dir>/<cam name>/<digits>.<digits>.jpg
 // find the cam name and the timestamp. 
+// Can also handle:
+// <dir>/<group><separator><digits>.<digits><text>ref_cam<text>.jpg
+// when it parses the group.
 void findCamTypeAndTimestamp(std::string const& image_file,
                              std::vector<std::string> const& cam_names,
                              // Outputs
                              int    & cam_type,
-                             double & timestamp);
+                             double & timestamp,
+                             std::string & group);
+
+// Given a file with name 
+// <dir>/<group><separator><separator>ref_cam<text>.ext
+// parse the group and the cam index.
+void findCamTypeAndGroup(std::string const& image_file,
+                        std::vector<std::string> const& cam_names,
+                        // Outputs
+                        int         & cam_type,
+                        std::string & group);
 
 // For each image, find its sensor name and timestamp. The info can be in a list or
 // from the file or directory structure. If flexible_strategy is true, then 
