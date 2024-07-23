@@ -110,11 +110,11 @@ DEFINE_string(depth_to_image_transforms_to_float, "",
               "(if depth data exists). Example: 'cam1 cam3'.");
 
 DEFINE_bool(fix_rig_translations, false,
-            "Fix the translation component of the transforms between the sensors on the "
+            "Fix the translation component of the transforms between the sensors on a "
             "rig. Works only when --no-rig is not set.");
 
 DEFINE_bool(fix_rig_rotations, false,
-            "Fix the rotation component of the transforms between the sensors on the "
+            "Fix the rotation component of the transforms between the sensors on a "
             "rig. Works only when --no-rig is not set.");
 
 DEFINE_bool(float_scale, false,
@@ -1027,34 +1027,6 @@ void applyRegistration(bool no_rig, bool scale_depth,
   }
   
   return;
-}
-
-// If applicable, set up the parameters block to fix the rig translations and/or rotations
-void setUpFixRigOptions(bool no_rig, bool fix_rig_translations, bool fix_rig_rotations,
-                        ceres::SubsetManifold*& constant_transform_manifold) {
-  
-  constant_transform_manifold = NULL;
-  
-  int beg = 0, end = 0;
-  if (!no_rig && fix_rig_translations) {
-    beg = 0; 
-    end = 3;
-  }
-  
-  if (!no_rig && fix_rig_rotations) {
-    if (!fix_rig_translations)
-      beg = 3; // only fix rotation
-    end = rig::NUM_RIGID_PARAMS;
-  }
-  
-  // Make a vector that goes from beg to end with increment 1
-  std::vector<int> fixed_indices;
-  for (int it = beg; it < end; it++)
-    fixed_indices.push_back(it);
-  
-  if (!fixed_indices.empty())
-    constant_transform_manifold = new ceres::SubsetManifold(rig::NUM_RIGID_PARAMS,
-                                                            fixed_indices);
 }
 
 } // end namespace rig

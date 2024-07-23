@@ -54,6 +54,8 @@ void addRigLsOrFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                                     double                    * tri_point,
                                     double                    * ref_to_curr_sensor_trans, 
                                     asp::RigCamInfo     const & rig_info,
+                                    bool                       fix_rig_translations,
+                                    bool                       fix_rig_rotations,
                                     ceres::Problem            & problem);
 
 } // end namespace asp

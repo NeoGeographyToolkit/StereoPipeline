@@ -70,7 +70,8 @@ struct Options: public asp::BaBaseOptions {
   std::string anchor_weight_image;   
   std::string anchor_dem, rig_config;
   int num_anchor_points_extra_lines;
-  bool initial_camera_constraint;
+  bool initial_camera_constraint, fix_rig_translations, fix_rig_rotations,
+    use_initial_rig_transforms;
   double quat_norm_weight, anchor_weight, roll_weight, yaw_weight;
   std::map<int, int> cam2group;
   double forced_triangulation_distance;
@@ -238,10 +239,24 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "Save the model state of optimized CSM cameras as part of the .cub files. Any prior "
      "version and any SPICE data will be deleted. Mapprojected images obtained with prior "
      "version of the cameras must no longer be used in stereo.")
-     ("rig-config", po::value(&opt.rig_config)->default_value(""),
-      "Assume that the cameras are on a rig with this configuration file. The intrinsics "
-      "will be read, but not the transforms between sensors, as those will be auto-computed. "
-      "The optimized rig including the sensor transforms will be saved at the end.")
+    ("rig-config", po::value(&opt.rig_config)->default_value(""),
+     "Assume that the cameras are acquired with a set of rigs with this configuration "
+     "file. The intrinsics will be read, but not the transforms between sensors, as those "
+     "will be auto-computed (unless --use-initial-rig-transforms is set). The optimized "
+     "rig, including the sensor transforms, will be saved.")
+    ("fix-rig-translations", 
+     po::bool_switch(&opt.fix_rig_translations)->default_value(false)->implicit_value(true),
+     "Fix the translation component of the transforms between the sensors on a "
+     "rig.")
+     ("fix-rig-rotations", 
+      po::bool_switch(&opt.fix_rig_rotations)->default_value(false)->implicit_value(true),
+     "Fix the rotation component of the transforms between the sensors on a "
+     "rig.")
+    ("use-initial-rig-transforms", 
+     po::bool_switch(&opt.use_initial_rig_transforms)->default_value(false)->implicit_value(true),
+     "Use the transforms between the sensors (ref_to_sensor_transform) of the rig "
+     "specified via --rig-config, instead of computing them from the poses of individual "
+     "cameras.")
     ("initial-camera-constraint", 
      po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
      "When constraining roll and yaw, measure these not in the satellite along-track/ "
@@ -422,7 +437,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   
   bool have_rig = !opt.rig_config.empty();
   if (have_rig) {
-    bool have_rig_transforms = false; // will create them from scratch
+    bool have_rig_transforms = opt.use_initial_rig_transforms;
     rig::readRigConfig(opt.rig_config, have_rig_transforms, rig);
     
     for (size_t i = 0; i < rig.cam_params.size(); i++) {
@@ -856,8 +871,9 @@ void run_jitter_solve(int argc, char* argv[]) {
   TimestampMap timestamp_map;
   if (have_rig)
     populateRigCamInfo(rig, opt.image_files, opt.camera_files, csm_models, 
-                       opt.cam2group, rig_cam_info, ref_to_curr_sensor_vec,
-                       timestamp_map);
+                       opt.cam2group, opt.use_initial_rig_transforms,
+                       // Outputs
+                       rig_cam_info, ref_to_curr_sensor_vec, timestamp_map);
   
   // This the right place to record the original camera positions.
   std::vector<vw::Vector3> orig_cam_positions;
@@ -1055,6 +1071,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   addReprojCamErrs(opt, crn, pixel_vec, weight_vec,
                    isAnchor_vec, pix2xyz_index, csm_models,
                    have_rig, rig, rig_cam_info, opt.cam2group, timestamp_map,
+                   opt.fix_rig_translations, opt.fix_rig_rotations,
                    // Outputs
                    tri_points_vec, frame_params, weight_per_residual, 
                    weight_per_cam, count_per_cam, ref_to_curr_sensor_vec, 
@@ -1169,7 +1186,6 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   if (have_rig) {
     // Update the rig with the optimized transforms and save it
-    std::cout << "--Check if the ref to ref sensor transform is the identity?\n";
     asp::updateRig(ref_to_curr_sensor_vec, rig);
     std::string rig_config = opt.out_prefix + "-rig_config.txt"; 
     rig::writeRigConfig(rig_config, have_rig, rig);

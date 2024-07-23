@@ -25,10 +25,40 @@
 
 namespace rig {
 
+// If applicable, set up the parameters block to fix the rig translations and/or rotations
+void setUpFixRigOptions(bool no_rig, bool fix_rig_translations, bool fix_rig_rotations,
+                        ceres::SubsetManifold*& constant_transform_manifold) {
+  
+  constant_transform_manifold = NULL;
+  
+  int beg = 0, end = 0;
+  if (!no_rig && fix_rig_translations) {
+    beg = 0; 
+    end = 3;
+  }
+  
+  if (!no_rig && fix_rig_rotations) {
+    if (!fix_rig_translations)
+      beg = 3; // only fix rotation
+    end = rig::NUM_RIGID_PARAMS;
+  }
+  
+  // Make a vector that goes from beg to end with increment 1
+  std::vector<int> fixed_indices;
+  for (int it = beg; it < end; it++)
+    fixed_indices.push_back(it);
+  
+  if (!fixed_indices.empty())
+    constant_transform_manifold = new ceres::SubsetManifold(rig::NUM_RIGID_PARAMS,
+                                                            fixed_indices);
+}
+
 // Find pointers to the camera and reference images that bracket the
 // camera image. Great care is needed here. Two cases are considered,
 // if there is a rig or not. If no_rig is true, then the reference images are
 // the same as the camera images. 
+// TODO(oalexan1): This needs to go somewhere else.
+// TODO(oalexan1): Move the rig cost functions here.
 void calcBracketing(// Inputs
                   bool no_rig, int cid, int cam_type,
                   std::vector<rig::cameraImage> const& cams,

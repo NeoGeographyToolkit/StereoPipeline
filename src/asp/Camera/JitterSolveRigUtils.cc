@@ -48,6 +48,24 @@ RigCamInfo::RigCamInfo() {
   ref_cam_index  = nan;
 }
 
+// Find the time bounds for a linescan sensor
+void linescanTimeBounds(UsgsAstroLsSensorModel const* ls_model, 
+                        // Outputs
+                        double & beg_time, double & end_time) {
+
+  int numPos           = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+  double beg_pos_time  = ls_model->m_t0Ephem;
+  double pos_dt        = ls_model->m_dtEphem;
+  double end_pos_time  = beg_pos_time + (numPos - 1) * pos_dt;
+  int numQuat          = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+  double beg_quat_time = ls_model->m_t0Quat;
+  double quat_dt       = ls_model->m_dtQuat;
+  double end_quat_time = beg_quat_time + (numQuat - 1) * quat_dt;
+  
+  beg_time      = std::max(beg_pos_time, beg_quat_time);
+  end_time      = std::min(end_pos_time, end_quat_time);
+}
+
 // First pass at collecting info about relationships between cameras and the rig
 void populateInitRigCamInfo(rig::RigSet const& rig,
                         std::vector<std::string> const& image_files,
@@ -96,27 +114,18 @@ void populateInitRigCamInfo(rig::RigSet const& rig,
 
       int sensor_id = -1; 
       rig::findCamType(camera_files[i], rig.cam_names, sensor_id);
-      int numPos           = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
-      double beg_pos_time  = ls_model->m_t0Ephem;
-      double pos_dt        = ls_model->m_dtEphem;
-      double end_pos_time  = beg_pos_time + (numPos - 1) * pos_dt;
-      int numQuat          = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
-      double beg_quat_time = ls_model->m_t0Quat;
-      double quat_dt       = ls_model->m_dtQuat;
-      double end_quat_time = beg_quat_time + (numQuat - 1) * quat_dt;
-      double beg_time      = std::max(beg_pos_time, beg_quat_time);
-      double end_time      = std::min(end_pos_time, end_quat_time);
 
+      // Each pose has a timestamp. The mid group time is a compromise between 
+      // the timestamps of the poses in each group.
       int numLines = ls_model->m_nLines;
       csm::ImageCoord imagePt;
       asp::toCsmPixel(vw::Vector2(0, numLines/2.0), imagePt);
       rig_info.sensor_type = RIG_LINESCAN_SENSOR;
       rig_info.sensor_id = sensor_id;
-      // Each pose has a timestamp. The mid group time is a compromise between 
-      // the timestamps of the poses in each group.
       rig_info.mid_group_time = ls_model->getImageTime(imagePt);
-      rig_info.beg_pose_time = beg_time;
-      rig_info.end_pose_time = end_time;
+
+      // Find the time bounds for the linescan sensor
+      linescanTimeBounds(ls_model, rig_info.beg_pose_time, rig_info.end_pose_time);
       
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
@@ -252,8 +261,11 @@ bool timestampBrackets(double time,
   
   double first_time = timestamps.begin()->first;
   double last_time  = timestamps.rbegin()->first;
+
+  // This is a very important check. We cannot extrapolate in time.
+  // TODO(oalexan1): Offending cameras better be filtered out before this point.
   if (time < first_time || time > last_time)
-    return false; // out of bounds
+    LOG(FATAL) << "Found a time outsie the range of reference camera timestamps.\n";
 
   // Find the time no earlier than time
   auto it = timestamps.lower_bound(time);
@@ -448,13 +460,22 @@ void calcRigTransforms(rig::RigSet const& rig,
                        std::vector<RigCamInfo> const& rig_cam_info,
                        std::map<int, int> const& cam2group,
                        TimestampMap const& timestamp_map,
+                       bool use_initial_rig_transforms,
                        // Outputs
                        std::vector<double> & ref_to_curr_sensor_vec) {
   
   int num_rig_sensors = rig.cam_names.size();
   ref_to_curr_sensor_vec.resize(rig::NUM_RIGID_PARAMS * num_rig_sensors, 0.0);
+
+  if (use_initial_rig_transforms) {
+     // Pack the initial rig transforms into the output vector 
+     for (int sensor_id = 0; sensor_id < num_rig_sensors; sensor_id++) 
+       rig::rigid_transform_to_array(rig.ref_to_cam_trans[sensor_id],
+         &ref_to_curr_sensor_vec[rig::NUM_RIGID_PARAMS * sensor_id]);
+    return;
+  }
+
   std::map<int, std::vector<Eigen::MatrixXd>> transforms_map;
-  
   for (int icam = 0; icam < (int)csm_models.size(); icam++) {
 
     auto const& rig_info = rig_cam_info[icam]; // alias
@@ -582,6 +603,7 @@ void populateRigCamInfo(rig::RigSet const& rig,
                         std::vector<std::string> const& camera_files,
                         std::vector<asp::CsmModel*> const& csm_models,
                         std::map<int, int> const& cam2group,
+                        bool use_initial_rig_transforms,
                         // Outputs
                         std::vector<RigCamInfo> & rig_cam_info,
                         std::vector<double>     & ref_to_curr_sensor_vec,
@@ -606,12 +628,12 @@ void populateRigCamInfo(rig::RigSet const& rig,
   
   // Find the initial guess rig transforms based on all camera-to-world transforms
   calcRigTransforms(rig, csm_models, rig_cam_info, cam2group, timestamp_map,
-                    ref_to_curr_sensor_vec);
+                    use_initial_rig_transforms, ref_to_curr_sensor_vec);
 }
 
 // Given a reference linescan camera and the transform from it to the current
 // camera, find the current camera to world transform as an array.
-void linescanToCurrSensorTrans(const UsgsAstroLsSensorModel & ref_ls_cam,
+void linescanToCurrSensorTrans(UsgsAstroLsSensorModel const& ref_ls_cam,
                                double curr_time,
                                double const* ref_to_curr_trans,
                                // Output
@@ -667,7 +689,7 @@ void frameToCurrSensorTrans(std::vector<double>       const& frame_params,
 
 // Given a reference linescan camera and the transform from it to the current
 // linescan camera, update the the current camera poses within the given range.
-void updateLinescanWithRig(const UsgsAstroLsSensorModel & ref_ls_cam,
+void updateLinescanWithRig(UsgsAstroLsSensorModel const& ref_ls_cam,
                            double const* ref_to_curr_trans,
                            UsgsAstroLsSensorModel & curr_ls_cam, // update this
                            // Range of quat and position indices to update.

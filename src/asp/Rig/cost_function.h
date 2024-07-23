@@ -20,6 +20,8 @@
 #ifndef RIG_COST_FUNCTION_H_
 #define RIG_COST_FUNCTION_H_
 
+#include <ceres/ceres.h>
+
 #include <vector>
 
 namespace rig {
@@ -27,11 +29,17 @@ namespace rig {
 // Forward declarations
 class cameraImage;
 class RigSet;
+
+// If applicable, set up the parameters block to fix the rig translations and/or rotations
+void setUpFixRigOptions(bool no_rig, bool fix_rig_translations, bool fix_rig_rotations,
+                        ceres::SubsetManifold*& constant_transform_manifold);
  
 // Find pointers to the camera and reference images that bracket the
 // camera image. Great care is needed here. Two cases are considered,
 // if there is a rig or not. If no_rig is true, then the reference images are
 // the same as the camera images. 
+// TODO(oalexan1): This needs to go somewhere else.
+// TODO(oalexan1): Move the rig cost functions here.
 void calcBracketing(// Inputs
                   bool no_rig, int cid, int cam_type,
                   std::vector<rig::cameraImage> const& cams,

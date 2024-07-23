@@ -78,6 +78,8 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
                       std::vector<RigCamInfo>               const & rig_cam_info,
                       std::map<int, int>                    const & cam2group,
                       TimestampMap                          const & timestamp_map,
+                      bool                                          fix_rig_translations,
+                      bool                                          fix_rig_rotations,
                       // Outputs
                       std::vector<double>                     & tri_points_vec,
                       std::vector<double>                     & frame_params,

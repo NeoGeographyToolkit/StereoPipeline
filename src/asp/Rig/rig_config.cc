@@ -500,9 +500,21 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
       R.ref_to_cam_trans.push_back(vecToAffine(vals));
 
       // Sanity check
-      if (have_rig_transforms &&
-          R.ref_to_cam_trans.back().matrix() == 0 * R.ref_to_cam_trans.back().matrix()) {
-        LOG(FATAL) << "Failed to read valid transforms between the sensors on the rig\n";
+      if (have_rig_transforms) {
+        if (R.ref_to_cam_trans.back().matrix() == 0 * R.ref_to_cam_trans.back().matrix())
+          LOG(FATAL) << "Failed to read valid transforms between the sensors on the rig\n";
+          
+        // Put a warning if the transform is the identity matrix if the sensor
+        // is not the ref one
+        if (sensor_name != ref_sensor_name && 
+            R.ref_to_cam_trans.back().matrix() == Eigen::Affine3d::Identity().matrix()) 
+          LOG(WARNING) << "A non-reference sensor on the rig as the identity as the "
+            << "transform from the reference sensor. Sensor name: " << sensor_name << "\n";
+          
+        // The determinant of the transform must be 1.
+        double scale = pow(R.ref_to_cam_trans.back().linear().determinant(), 1.0 / 3.0);
+        if (std::abs(scale - 1.0) > 1e-6)
+          LOG(FATAL) << "The determinant of the ref-to-sensor transform must be 1.\n";
       }
 
       readConfigVals(f, "depth_to_image_transform:", 12, vals);

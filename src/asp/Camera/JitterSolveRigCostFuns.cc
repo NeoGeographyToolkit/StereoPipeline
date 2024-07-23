@@ -24,6 +24,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Rig/transform_utils.h>
 #include <asp/Rig/rig_config.h>
+#include <asp/Rig/cost_function.h>
 #include <asp/Core/EigenTransformUtils.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveRigCostFuns.h>
@@ -43,14 +44,14 @@ namespace asp {
 // transform from the ref linescan sensor to the current linescan/frame sensor.
 struct RigLsPixelReprojErr {
   RigLsPixelReprojErr(vw::Vector2 const& curr_pix, double weight,
-                           asp::RigCamInfo const& rig_cam_info,
-                           UsgsAstroLsSensorModel* ref_ls_model,
-                           UsgsAstroFrameSensorModel * curr_frame_model,
-                           UsgsAstroLsSensorModel * curr_ls_model,
-                           int begRefQuatIndex, int endRefQuatIndex, 
-                           int begRefPosIndex, int endRefPosIndex,
-                           int begCurrQuatIndex, int endCurrQuatIndex,
-                           int begCurrPosIndex, int endCurrPosIndex):
+                      asp::RigCamInfo const& rig_cam_info,
+                      UsgsAstroLsSensorModel* ref_ls_model,
+                      UsgsAstroFrameSensorModel * curr_frame_model,
+                      UsgsAstroLsSensorModel * curr_ls_model,
+                      int begRefQuatIndex, int endRefQuatIndex, 
+                      int begRefPosIndex, int endRefPosIndex,
+                      int begCurrQuatIndex, int endCurrQuatIndex,
+                      int begCurrPosIndex, int endCurrPosIndex):
     m_curr_pix(curr_pix), m_weight(weight),
     m_rig_cam_info(rig_cam_info),
     m_begRefQuatIndex(begRefQuatIndex), m_endRefQuatIndex(endRefQuatIndex),
@@ -198,6 +199,9 @@ void addRigLsFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                                   UsgsAstroFrameSensorModel * curr_frame_model,
                                   double                    * ref_to_curr_trans,
                                   double                    * tri_point,
+                                  bool                        fix_rig_translations,
+                                  bool                        fix_rig_rotations,
+                                  ceres::SubsetManifold     * constant_transform_manifold,
                                   ceres::Problem            & problem) {
 
   // The time when the frame camera pixel was observed
@@ -269,6 +273,9 @@ void addRigLsFrameReprojectionErr(asp::BaBaseOptions  const & opt,
   vars.push_back(tri_point);
   vars.push_back(ref_to_curr_trans); // transform from ref to curr sensor on the rig
   problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
+  
+  if (fix_rig_translations || fix_rig_rotations) 
+    problem.SetManifold(ref_to_curr_trans, constant_transform_manifold);
 }
 
 // Reprojection error with ref ls ref sensor and curr ls sensor
@@ -281,6 +288,9 @@ void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
                                UsgsAstroLsSensorModel    * curr_ls_model,
                                double                    * ref_to_curr_trans,
                                double                    * tri_point,
+                               bool                        fix_rig_translations,
+                               bool                        fix_rig_rotations,
+                               ceres::SubsetManifold     * constant_transform_manifold,
                                ceres::Problem            & problem) {
 
   // Find the positions and orientations in the current linescan model
@@ -364,6 +374,9 @@ void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
   vars.push_back(tri_point);
   vars.push_back(ref_to_curr_trans); // transform from ref to curr sensor on the rig
   problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
+  
+  if (fix_rig_translations || fix_rig_rotations) 
+    problem.SetManifold(ref_to_curr_trans, constant_transform_manifold);
 }
 
 // An error function minimizing the error of projecting an xyz point into a
@@ -502,6 +515,9 @@ void addRigFrameFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                                      std::vector<double>       & frame_params,
                                      double                    * ref_to_curr_trans,
                                      double                    * tri_point,
+                                     bool                        fix_rig_translations,
+                                     bool                        fix_rig_rotations,
+                                     ceres::SubsetManifold     * constant_transform_manifold,
                                      ceres::Problem            & problem) {
 
   double beg_ref_time = 0.0, end_ref_time = 0.0;
@@ -533,6 +549,9 @@ void addRigFrameFrameReprojectionErr(asp::BaBaseOptions  const & opt,
   vars.push_back(ref_to_curr_trans);
   vars.push_back(tri_point);
   problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
+  
+  if (fix_rig_translations || fix_rig_rotations) 
+    problem.SetManifold(ref_to_curr_trans, constant_transform_manifold);
 }
 
 // Add the ls or frame camera model reprojection error to the cost function
@@ -551,28 +570,69 @@ void addRigLsOrFrameReprojectionErr(asp::BaBaseOptions  const & opt,
                                     double                    * tri_point,
                                     double                    * ref_to_curr_sensor_trans, 
                                     asp::RigCamInfo     const & rig_info,
+                                    bool                        fix_rig_translations,
+                                    bool                        fix_rig_rotations,
                                     ceres::Problem            & problem) {
+
+  // Prepare for the case of fixed rig translations and/or rotations    
+  ceres::SubsetManifold* constant_transform_manifold = nullptr;
+  bool no_rig = false;
+  rig::setUpFixRigOptions(no_rig, fix_rig_translations, 
+                          fix_rig_rotations,
+                          constant_transform_manifold);
 
   if (ref_ls_model != NULL) {
     
+    // Sanity check: the current pixel time must be in bounds
+    double curr_time = -1.0;
+    if (frame_model != NULL) {
+      curr_time = rig_info.beg_pose_time;
+    } else if (ls_model != NULL) {
+      csm::ImageCoord imagePt;
+      asp::toCsmPixel(pix_obs, imagePt);
+      curr_time = ls_model->getImageTime(imagePt);
+    }
+    double beg_ref_time = -1.0, end_ref_time = -1.0;
+    asp::linescanTimeBounds(ref_ls_model, beg_ref_time, end_ref_time);
+    if (curr_time < beg_ref_time || curr_time > end_ref_time)
+      vw::vw_throw(vw::ArgumentErr() 
+                  << std::setprecision(17)
+                  << "Time " << curr_time
+                  << " is outside the time range of the reference sensor, which is: "
+                  << beg_ref_time << ' ' << end_ref_time << ".\n"
+                  << "This may also be due to mixup of image and camera order, or because of "
+                  << "to anchor points far out of range. Offending pixel: " 
+                  << pix_obs << ".\n");
+  
     // Ref sensor is linescan
     if (frame_model != NULL)
       addRigLsFrameReprojectionErr(opt, rig_info, pix_obs, pix_wt, ref_ls_model, 
-                  frame_model, ref_to_curr_sensor_trans, tri_point, problem);
+                  frame_model, ref_to_curr_sensor_trans, tri_point, 
+                  fix_rig_translations, fix_rig_rotations, 
+                  constant_transform_manifold,
+                  problem);
     else if (ls_model != NULL)
       addRigLsLsReprojectionErr(opt, rig_info, pix_obs, pix_wt, ref_ls_model, 
-                  ls_model, ref_to_curr_sensor_trans, tri_point, problem);
+                  ls_model, ref_to_curr_sensor_trans, tri_point, 
+                  fix_rig_translations, fix_rig_rotations,
+                  constant_transform_manifold,
+                  problem);
     else 
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
   
   } else if (ref_frame_model != NULL) {
 
+    // The check for time being in bounds will be done when attempting to interpolate
+    
     if (frame_model != NULL)
       addRigFrameFrameReprojectionErr(opt, rig_info, 
                                       csm_models, cam2group, timestamp_map, 
                                       pix_obs, pix_wt, 
                                       frame_model, frame_params,
-                                      ref_to_curr_sensor_trans, tri_point, problem);
+                                      ref_to_curr_sensor_trans, tri_point, 
+                                      fix_rig_translations, fix_rig_rotations,
+                                      constant_transform_manifold,
+                                      problem);
     else if (ls_model != NULL)
       vw::vw_throw(vw::ArgumentErr() << "When the reference sensor is frame, "
                    << "the other sensors must also be frame.\n");
