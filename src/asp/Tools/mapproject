@@ -498,14 +498,20 @@ def main(argsIn):
         commandList = commandList + ['--convert-tiles']
     if options.suppressOutput:
         commandList = commandList + ['--suppress-output']
-    commandList   = commandList + options.extraArgs # Append other options
-    commandString = asp_string_utils.argListToString(commandList)
+    commandList = commandList + options.extraArgs # Append other options
+
+    # Append all components of commandList to parallelArgs. Otherwise, if some
+    # arguments have spaces or quotes, and are concatenated intro a string,
+    # the call will fail.
+    parallelArgs += commandList
+    commandString = ""
 
     # Use GNU parallel call to distribute the work across computers
     # - This call will wait until all processes are finished
+    verbose = True
     asp_system_utils.runInGnuParallel(options.numProcesses, commandString,
                                       argumentFilePath, parallelArgs,
-                                      options.nodesListPath, True)#not options.suppressOutput)
+                                      options.nodesListPath, verbose)
 
     # Find the tiles that were generated
     tiles = []

@@ -218,6 +218,12 @@ def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, para
         os.environ['ASP_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']
         os.environ['LD_LIBRARY_PATH'] = ''
 
+    # Add simple quotes around each argument which has simple or double quotes
+    # or spaces. This is a bugfix for 3D CRS specified via --t_srs.
+    for i in range(len(cmd)):
+        if '"' in cmd[i] or '\'' in cmd[i] or ' ' in cmd[i] or '\t' in cmd[i]:
+          cmd[i] = '\'' + cmd[i] + '\''
+    
     returnCode = subprocess.call(cmd)
 
     # Undo the above
