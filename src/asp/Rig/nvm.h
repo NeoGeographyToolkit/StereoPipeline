@@ -107,6 +107,7 @@ void remapNvm(std::map<int, int>                const& cid2cid,
               std::vector<std::map<int, int>>        & pid_to_cid_fid,
               std::vector<Eigen::Vector3d>           & pid_to_xyz,
               std::vector<Eigen::Affine3d>           & world_to_cam,
+              std::vector<double>                    & focal_lengths,
               std::map<std::string, Eigen::Vector2d> & optical_centers);
 
 // Extract a submap in-place from an nvm object.

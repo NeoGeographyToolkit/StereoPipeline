@@ -147,6 +147,7 @@ void readNvm(std::string                       const& input_filename,
 // Those are ignored, and only camera poses, matches, and keypoints are used.
 // It is assumed that the interest points are shifted relative to the optical center.
 // Write the optical center separately.
+// TODO(oalexan1): Must merge with WriteNvm in nvm.cc.
 void writeNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
               std::vector<std::string> const& cid_to_filename,
               std::vector<double> const& focal_lengths,
@@ -451,7 +452,7 @@ void remapNvm(std::vector<std::string> const& image_files,
   // Remap the nvm
   rig::remapNvm(cid2cid, nvm.cid_to_keypoint_map, nvm.cid_to_filename,
                 nvm.pid_to_cid_fid, nvm.pid_to_xyz, nvm.world_to_cam,
-                nvm.optical_centers);
+                nvm.focal_lengths, nvm.optical_centers);
 }
 
 // Read an NVM file into the VisionWorkbench control network format. The flag

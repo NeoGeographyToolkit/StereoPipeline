@@ -335,13 +335,14 @@ void WriteNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
 
 // Given a map from current cid to new cid, apply this map to the nvm. This can
 // extract a submap and/or reorder data.
-void remapNvm(std::map<int, int>                const  & cid2cid,
+void remapNvm(std::map<int, int>                  const& cid2cid,
                 // Outputs
                 std::vector<Eigen::Matrix2Xd>          & cid_to_keypoint_map,
                 std::vector<std::string>               & cid_to_filename,
                 std::vector<std::map<int, int>>        & pid_to_cid_fid,
                 std::vector<Eigen::Vector3d>           & pid_to_xyz,
                 std::vector<Eigen::Affine3d>           & world_to_cam,
+                std::vector<double>                    & focal_lengths,
                 std::map<std::string, Eigen::Vector2d> & optical_centers) {
 
   // cid2d must be non-empty
@@ -373,6 +374,7 @@ void remapNvm(std::map<int, int>                const  & cid2cid,
   std::vector<Eigen::Matrix2Xd>   cid_to_keypoint_map_out(num_out);
   std::vector<std::string>        cid_to_filename_out(num_out);
   std::vector<Eigen::Affine3d>    world_to_cam_out(num_out);
+  std::vector<double>             focal_lengths_out(num_out);
   std::vector<std::map<int, int>> pid_to_cid_fid_out;
   std::vector<Eigen::Vector3d>    pid_to_xyz_out;
   std::map<std::string, Eigen::Vector2d> optical_centers_out;
@@ -383,8 +385,9 @@ void remapNvm(std::map<int, int>                const  & cid2cid,
       continue;
     size_t new_cid = it->second;
     cid_to_keypoint_map_out[new_cid] = cid_to_keypoint_map[cid];
-    cid_to_filename_out[new_cid]      = cid_to_filename[cid];
-    world_to_cam_out[new_cid]  = world_to_cam[cid];
+    cid_to_filename_out[new_cid]     = cid_to_filename[cid];
+    world_to_cam_out[new_cid]        = world_to_cam[cid];
+    focal_lengths_out[new_cid]       = focal_lengths[cid];
     
     if (!optical_centers.empty()) {
       auto it2 = optical_centers.find(cid_to_filename[cid]);
@@ -414,12 +417,13 @@ void remapNvm(std::map<int, int>                const  & cid2cid,
   }
 
   // Copy the output to the input
-  cid_to_keypoint_map   = cid_to_keypoint_map_out;
-  cid_to_filename       = cid_to_filename_out;
-  world_to_cam   = world_to_cam_out;
-  pid_to_cid_fid        = pid_to_cid_fid_out;
-  pid_to_xyz            = pid_to_xyz_out;
-  optical_centers       = optical_centers_out;  
+  cid_to_keypoint_map = cid_to_keypoint_map_out;
+  cid_to_filename     = cid_to_filename_out;
+  world_to_cam        = world_to_cam_out;
+  focal_lengths       = focal_lengths_out;
+  pid_to_cid_fid      = pid_to_cid_fid_out;
+  pid_to_xyz          = pid_to_xyz_out;
+  optical_centers     = optical_centers_out;
 }
 
 // Extract a submap in-place.
@@ -479,7 +483,7 @@ void ExtractSubmap(std::vector<std::string> const& images_to_keep,
   // Remap the nvm
   rig::remapNvm(cid2cid, nvm.cid_to_keypoint_map, nvm.cid_to_filename,
                 nvm.pid_to_cid_fid, nvm.pid_to_xyz, nvm.world_to_cam,
-                nvm.optical_centers);
+                nvm.focal_lengths, nvm.optical_centers);
   
   std::cout << "Number of images in the extracted map: " << nvm.cid_to_filename.size() << "\n";
   std::cout << "Number of tracks in the extracted map: " << nvm.pid_to_cid_fid.size() << "\n";
