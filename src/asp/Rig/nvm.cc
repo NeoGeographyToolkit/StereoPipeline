@@ -327,8 +327,163 @@ void WriteNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
   f.close();
 }
 
+// Given a map from current cid to new cid, apply this map to the nvm. This can
+// extract a submap and/or reorder data.
+void remapNvm(std::map<int, int>                const  & cid2cid,
+                // Outputs
+                std::vector<Eigen::Matrix2Xd>          & cid_to_keypoint_map,
+                std::vector<std::string>               & cid_to_filename,
+                std::vector<std::map<int, int>>        & pid_to_cid_fid,
+                std::vector<Eigen::Vector3d>           & pid_to_xyz,
+                std::vector<Eigen::Affine3d>           & cid_to_cam_t_global,
+                std::map<std::string, Eigen::Vector2d> & optical_centers) {
+
+  // cid2d must be non-empty
+  if (cid2cid.empty())
+    LOG(FATAL) << "Cannot reorder a control network with an empty map.";
+    
+  // Find the min and max value in the map
+  int min_out_cid = cid2cid.begin()->second;
+  int max_out_cid = cid2cid.begin()->second;
+  for (auto const& p : cid2cid) {
+    min_out_cid = std::min(min_out_cid, p.second);
+    max_out_cid = std::max(max_out_cid, p.second);
+  }
+
+  // Min cid must be non-negative
+  if (min_out_cid < 0)
+    LOG(FATAL) << "Cannot reorder a control network with negative cids.";
+  
+  // Check that all values in cid2cid are unique
+  std::set<int> values;
+  for (auto const& p : cid2cid) {
+    if (values.find(p.second) != values.end())
+      LOG(FATAL) << "Cannot reorder a control network with repeated cids.";
+    values.insert(p.second);
+  }
+  
+  // Allocate space for the output  
+  int num_out = max_out_cid + 1;
+  std::vector<Eigen::Matrix2Xd>   cid_to_keypoint_map_out(num_out);
+  std::vector<std::string>        cid_to_filename_out(num_out);
+  std::vector<Eigen::Affine3d>    cid_to_cam_t_global_out(num_out);
+  std::vector<std::map<int, int>> pid_to_cid_fid_out;
+  std::vector<Eigen::Vector3d>    pid_to_xyz_out;
+  std::map<std::string, Eigen::Vector2d> optical_centers_out;
+  
+  for (size_t cid = 0; cid < cid_to_filename.size(); cid++) {
+    auto it = cid2cid.find(cid);
+    if (it == cid2cid.end()) 
+      continue;
+    size_t new_cid = it->second;
+    cid_to_keypoint_map_out[new_cid] = cid_to_keypoint_map[cid];
+    cid_to_filename_out[new_cid]      = cid_to_filename[cid];
+    cid_to_cam_t_global_out[new_cid]  = cid_to_cam_t_global[cid];
+    
+    if (!optical_centers.empty()) {
+      auto it2 = optical_centers.find(cid_to_filename[cid]);
+      if (it2 != optical_centers.end())
+        optical_centers_out[cid_to_filename[cid]] = it2->second;
+    }
+  }              
+  
+  // Create new pid_to_cid_fid and pid_to_xyz.
+  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
+    auto const& cid_fid = pid_to_cid_fid[pid];  // alias
+    std::map<int, int> cid_fid_out;
+    for (auto it = cid_fid.begin(); it != cid_fid.end(); it++) {
+      int cid = it->first;
+      auto cid2cid_it = cid2cid.find(cid);
+      if (cid2cid_it == cid2cid.end()) 
+        continue;  // not an image we want to keep
+      int new_cid = cid2cid_it->second;  
+      cid_fid_out[new_cid] = it->second; // fid does not change
+    }
+    
+    if (cid_fid_out.size() <= 1) 
+      continue;  // tracks must have size at least 2
+    
+    pid_to_cid_fid_out.push_back(cid_fid_out);
+    pid_to_xyz_out.push_back(pid_to_xyz[pid]);
+  }
+
+  // Copy the output to the input
+  cid_to_keypoint_map   = cid_to_keypoint_map_out;
+  cid_to_filename       = cid_to_filename_out;
+  cid_to_cam_t_global   = cid_to_cam_t_global_out;
+  pid_to_cid_fid        = pid_to_cid_fid_out;
+  pid_to_xyz            = pid_to_xyz_out;
+  optical_centers       = optical_centers_out;  
+}
+
+// Extract a submap in-place.
+void ExtractSubmap(std::vector<std::string> const& images_to_keep,
+                   rig::nvmData & nvm) {
+
+  // Sanity check. The images to keep must exist in the original map.
+  std::map<std::string, int> image2cid;
+  for (size_t cid = 0; cid < nvm.cid_to_filename.size(); cid++)
+    image2cid[nvm.cid_to_filename[cid]] = cid;
+  for (size_t cid = 0; cid < images_to_keep.size(); cid++) {
+    if (image2cid.find(images_to_keep[cid]) == image2cid.end())
+      std::cout << "Warning: Could not find in the input map the image: "
+                << images_to_keep[cid] << "\n";
+  }
+
+  // To extract the submap-in place, it is simpler to reorder the images
+  // to extract to be in the same order as in the map. Keep those in
+  // local vector 'keep'.
+  std::vector<std::string> keep;
+  {
+    std::set<std::string> keep_set;
+    for (size_t cid = 0; cid < images_to_keep.size(); cid++)
+      keep_set.insert(images_to_keep[cid]);
+    for (size_t cid = 0; cid < nvm.cid_to_filename.size(); cid++) {
+      if (keep_set.find(nvm.cid_to_filename[cid]) != keep_set.end())
+        keep.push_back(nvm.cid_to_filename[cid]);
+    }
+  }
+
+  // Map each image we keep to its index
+  std::map<std::string, int> keep2cid;
+  for (size_t cid = 0; cid < keep.size(); cid++)
+    keep2cid[keep[cid]] = cid;
+
+  // The map from the old cid to the new cid
+  std::map<int, int> cid2cid;
+  for (size_t cid = 0; cid < nvm.cid_to_filename.size(); cid++) {
+    auto it = keep2cid.find(nvm.cid_to_filename[cid]);
+    if (it == keep2cid.end()) continue;  // current image is not in the final submap
+    cid2cid[cid] = it->second;
+  }
+
+  // Sanity checks. All the kept images must be represented in cid2cid,
+  // and the values in cid2cid must be consecutive.
+  if (cid2cid.size() != keep.size() || cid2cid.empty())
+    LOG(FATAL) << "Cannot extract a submap. Check your inputs. Maybe some images "
+               << "are duplicated or none are in the map.";
+  for (auto it = cid2cid.begin(); it != cid2cid.end(); it++) {
+    auto it2 = it; it2++;
+    if (it2 == cid2cid.end()) continue;
+    if (it->second + 1 != it2->second || cid2cid.begin()->second != 0 )
+      LOG(FATAL) << "Cannot extract a submap. Check if the images "
+                 << "you want to keep are in the same order as in the original map.";
+  }
+
+  // Remap the nvm
+  rig::remapNvm(cid2cid, nvm.cid_to_keypoint_map, nvm.cid_to_filename,
+                nvm.pid_to_cid_fid, nvm.pid_to_xyz, nvm.cid_to_cam_t_global,
+                nvm.optical_centers);
+  
+  std::cout << "Number of images in the extracted map: " << nvm.cid_to_filename.size() << "\n";
+  std::cout << "Number of tracks in the extracted map: " << nvm.pid_to_cid_fid.size() << "\n";
+
+  return;
+}
+
 // For an image like image_dir/my_cam/image.png, create the file
 // out_dir/image.tsai.
+// TODO(oalexan1): Move this out of here.
 std::string pinholeFile(std::string const& out_dir, 
                         std::string const& sensor_name, 
                         std::string const& image_file) {
@@ -344,6 +499,7 @@ std::string pinholeFile(std::string const& out_dir,
 }
   
 // Write a line of the form: name = a b c
+// TODO(oalexan1): Move this out of here.
 void write_param_vec(std::string const& param_name, std::ofstream & os, 
                      Eigen::VectorXd const& vals) {
 
@@ -356,8 +512,8 @@ void write_param_vec(std::string const& param_name, std::ofstream & os,
   os << "\n";
 }
   
-// A utility for saving a camera in a format ASP understands. For now do not save
-// the distortion.
+// A utility for saving a camera in a format ASP understands. 
+// TODO(oalexan1): Move this somewhere else.
 void writePinholeCamera(camera::CameraParameters const& cam_params,
                         Eigen::Affine3d const& world_to_cam,
                         std::string const& filename) {
@@ -427,8 +583,8 @@ void writePinholeCamera(camera::CameraParameters const& cam_params,
   
 }
   
-// Save the optimized cameras in ASP's Pinhole format. For now do not save
-// the distortion model.
+// Save the optimized cameras in ASP's Pinhole format. 
+// TODO(oalexan1): Move this somewhere else.
 void writePinholeCameras(std::vector<std::string>              const& cam_names,
                          std::vector<camera::CameraParameters> const& cam_params,
                          std::vector<rig::cameraImage>   const& cams,

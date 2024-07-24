@@ -19,39 +19,20 @@
 #ifndef SPARSE_MAPPING_TENSOR_H_
 #define SPARSE_MAPPING_TENSOR_H_
 
-#include <Rig/RigCameraModel.h>
 #include <Eigen/Geometry>
-#include <ceres/ceres.h>
 
-#include <array>
-#include <functional>
 #include <map>
 #include <set>
 #include <string>
-#include <utility>
 #include <vector>
 #include <limits>
-#include <memory>
-#include <mutex>
-
-namespace cv {
-  class Mat;
-  class DMatch;
-}
 
 namespace rig {
   struct nvmData;
-  struct RigSet;
 }
 
 namespace sparse_mapping {
 
-  class SparseMap;
-
-  // Extract a submap in-place.
-  void ExtractSubmap(std::vector<std::string> const& images_to_keep,
-                     rig::nvmData & nvm);
-  
   
 }  // namespace sparse_mapping
 

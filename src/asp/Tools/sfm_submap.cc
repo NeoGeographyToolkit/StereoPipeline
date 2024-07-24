@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
     rig::readNvmOffsets(offsets_file, nvm.optical_centers);
 
   // Extract the submap. Will also extract a subset of the optical centers.
-  sparse_mapping::ExtractSubmap(images_to_keep, nvm);
+  rig::ExtractSubmap(images_to_keep, nvm);
 
   rig::WriteNvm(nvm.cid_to_keypoint_map,
                       nvm.cid_to_filename,

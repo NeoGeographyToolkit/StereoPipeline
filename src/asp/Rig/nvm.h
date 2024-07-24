@@ -95,14 +95,31 @@ void WriteNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
               std::vector<Eigen::Affine3d> const& cid_to_cam_t_global,
               std::string const& output_filename);
 
+// Given a map from current cid to new cid, apply this map to the nvm. This can
+// extract a submap and/or reorder data.
+void remapNvm(std::map<int, int>                const& cid2cid,
+              // Outputs
+              std::vector<Eigen::Matrix2Xd>          & cid_to_keypoint_map,
+              std::vector<std::string>               & cid_to_filename,
+              std::vector<std::map<int, int>>        & pid_to_cid_fid,
+              std::vector<Eigen::Vector3d>           & pid_to_xyz,
+              std::vector<Eigen::Affine3d>           & cid_to_cam_t_global,
+              std::map<std::string, Eigen::Vector2d> & optical_centers);
+
+// Extract a submap in-place from an nvm object.
+void ExtractSubmap(std::vector<std::string> const& images_to_keep,
+                    rig::nvmData & nvm);
+  
 // A utility for saving a camera in a format ASP understands. For now do not save
 // the distortion.
+// TODO(oalexan1): Move this somewhere else.
 void writePinholeCamera(camera::CameraParameters const& cam_params,
                         Eigen::Affine3d          const& world_to_cam,
                         std::string              const& filename);
   
 // Save the optimized cameras in ASP's Pinhole format. For now do not save
 // the distortion model.
+// TODO(oalexan1): Move this somewhere else.
 void writePinholeCameras(std::vector<std::string>              const& cam_names,
                          std::vector<camera::CameraParameters> const& cam_params,
                          std::vector<rig::cameraImage>   const& cams,
