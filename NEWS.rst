@@ -4,6 +4,8 @@ Changes since the last release
 bundle_adjust (:numref:`bundle_adjust`):
  * Added the option ``--min-distortion`` to ensure small distortion parameters
    get optimized.
+ * Compensate for the images in the input nvm being potentially in different
+   order than the images specified on the command line.  
   
 mapproject (:numref:`mapproject`):
   * Add the option ``--query-pixel``.
@@ -12,6 +14,7 @@ jitter_solve (:numref:`jitter_solve`):
   * Can model rig constraints between sensors (:numref:`jitter_rig`).
   * Add an example for the Kaguya Terrain Camera (:numref:`jitter_kaguya`).
   * Can use GCP files.
+  * Can read a control network from an nvm file.
     
 stereo_gui (:numref:`stereo_gui`):
   * Changing the image threshold updates the display correctly.

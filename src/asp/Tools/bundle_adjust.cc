@@ -1286,8 +1286,8 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("nvm", po::value(&opt.nvm)->default_value(""),
      "Read a control network having interest point matches from this file in the NVM "
      "format. This can be used with any images and cameras supported by ASP. For Pinhole "
-     "or CSM frame cameras, the (optimized) camera poses will be read/written to NVM as "
-     "well. See also --output-cnet-type, --no-poses-from-nvm.")
+     "or CSM frame cameras, the (optimized) camera poses will be read from / written to "
+     "NVM as well. See also --output-cnet-type, --no-poses-from-nvm.")
     ("output-cnet-type", po::value(&opt.output_cnet_type)->default_value(""),
       "The format in which to save the control network of interest point matches. "
       "Options: 'match-files' (match files in ASP's format), 'isis-cnet' (ISIS "

@@ -1104,10 +1104,10 @@ Command-line options
 --nvm <string (default: "")>
     Read a control network having interest point matches from this file in the
     NVM format. This can be used with any images and cameras supported by ASP.
-    For Pinhole cameras, the (optimized) camera poses will be read/written to
-    NVM as well. See also ``--output-cnet-type``, ``--no-poses-from-nvm``, and
-    :numref:`ba_nvm`.
-    
+    For Pinhole or CSM frame cameras, the (optimized) camera poses will be
+    read from / written to NVM as well (:numref:`ba_nvm`). See also
+    ``--output-cnet-type``, ``--no-poses-from-nvm``.
+
 --output-cnet-type <string (default: "")>
     The format in which to save the control network of interest point matches.
     Options: ``match-files`` (match files in ASP's format), ``isis-cnet`` (ISIS

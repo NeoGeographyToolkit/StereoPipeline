@@ -173,10 +173,13 @@ Examine the produced ``pointmap.csv`` files to see the residuals for the
 interest points (:numref:`jitter_out_files`).
 
 This program can read interest point matches in the ISIS control network format,
-using the option ``--isis-cnet``. See :numref:`ba_out_files` in the the
-``bundle_adjust``  manual for more details about control networks and this
-format. Unlike that program, ``jitter_solve`` does not save an updated control
-network, as this tool changes the triangulated points only in very minor ways.
+using the option ``--isis-cnet``, and from an NVM file, with the option
+``--nvm``. 
+
+See :numref:`control_network` in the the ``bundle_adjust``  manual for more details
+about control networks. Unlike that program, ``jitter_solve`` does not save an
+updated control network, as this tool changes the triangulated points only in
+very minor ways. Camera poses from NVM files are not read either.
 
 .. _jitter_anchor_points:
 
@@ -1950,6 +1953,11 @@ Command-line options for jitter_solve
     in the ISIS control network format. This can be used with any images and
     cameras supported by ASP.
 
+--nvm <string (default: "")>
+    Read a control network having interest point matches from this file in the
+    NVM format. This can be used with any images and cameras supported by ASP.
+    Camera poses will not be read from the NVM file.
+    
 --max-initial-reprojection-error <integer (default: 10)> 
     Filter as outliers triangulated points project using initial cameras with 
     error more than this, measured in pixels. Since jitter corrections are 

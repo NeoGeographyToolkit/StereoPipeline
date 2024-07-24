@@ -438,9 +438,6 @@ change in ``point2dem`` the search radius factor, use hole-filling, invoke more
 aggressive outlier removal, and erode pixels at the boundary (those tend to be
 less reliable). 
 
-Holes in a DEM can be filled and the DEM smoothed with ``dem_mosaic``
-(:numref:`dem_mosaic_grow`, :numref:`dem_mosaic_blur`).
-
 .. _conv_to_ellipsoid:
 
 Conversion of initial guess terrain to ellipsoid heights
@@ -469,11 +466,11 @@ This will create ``dem-adj.tif``.
 Hole-filling and smoothing the input DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the input DEM has too much detail, and those features do not agree with the images
-mapprojected on it, this can result in artifacts in the final DEM.
+If the input DEM has too much detail, and those features do not agree with the
+images mapprojected on it, this can result in artifacts in the final DEM.
 
-It is suggested to blur the input DEM before using it, for example,
-with the command::
+It is suggested to blur the input DEM before using it, for example, with the
+command::
 
    dem_mosaic --dem-blur-sigma 5 dem.tif -o dem_blur.tif
 
@@ -481,7 +478,8 @@ The amount of blur may depend on the input DEM resolution, image ground sample
 distance, and how misregistered the initial DEM is relative to the images. One
 can experiment on a clip with values of 5 and 10 for sigma, for example.
 
-If the DEM has holes, those need to be filled first (:numref:`dem_mosaic_grow` and :numref:`dem_mosaic_fill`), and then a blur applied. 
+If the DEM has holes, those need to be filled first (:numref:`dem_mosaic_grow`
+and :numref:`dem_mosaic_fill`), and then the blur applied. 
 
 .. _mapproj-res:
 
