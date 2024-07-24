@@ -466,8 +466,8 @@ with the command::
 
 This will create ``dem-adj.tif``.
 
-Smoothing the input DEM
-^^^^^^^^^^^^^^^^^^^^^^^
+Hole-filling and smoothing the input DEM
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the input DEM has too much detail, and those features do not agree with the images
 mapprojected on it, this can result in artifacts in the final DEM.
@@ -481,12 +481,14 @@ The amount of blur may depend on the input DEM resolution, image ground sample
 distance, and how misregistered the initial DEM is relative to the images. One
 can experiment on a clip with values of 5 and 10 for sigma, for example.
 
+If the DEM has holes, those need to be filled first (:numref:`dem_mosaic_grow` and :numref:`dem_mosaic_fill`), and then a blur applied. 
+
 .. _mapproj-res:
 
 Resolution of mapprojection
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-It is very important to specify the same resolution (ground sample
+*It is very important to specify the same resolution* (ground sample
 distance) when mapprojecting the images (option ``--tr`` for
 ``mapproject``, :numref:`mapproject`), in order for the images to have
 the same scale and avoid big search range issues later in correlation.
@@ -593,8 +595,13 @@ Next, we mapproject the left image onto this DEM with the the ``mapproject`` pro
        left.cub left_proj.tif
 
 The resolution of mapprojection is automatically determined, and can be later
-inspected with ``gdalinfo`` (:numref:`gdal_tools`). It is very important to use
-the same resolution for mapprojecting the right image (:numref:`mapproj-res`)::
+inspected with ``gdalinfo`` (:numref:`gdal_tools`). 
+
+*It is very important to use the same resolution for mapprojecting the right
+image* (:numref:`mapproj-res`), and to adjust the resolution below (``--tr``),
+and also likely the projection (``--t_srs``).
+
+:: 
 
      mapproject --tr 0.000038694000978 run_nomap/run-DEM.tif \
        right.cub right_proj.tif
