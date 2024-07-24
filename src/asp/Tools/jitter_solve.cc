@@ -43,6 +43,7 @@
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/IsisIO/IsisInterface.h>
+#include <asp/Core/Nvm.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
@@ -114,6 +115,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "Read a control network having interest point matches from this binary file "
      "in the ISIS jigsaw format. This can be used with any images and cameras "
      "supported by ASP.")
+    ("nvm", po::value(&opt.nvm)->default_value(""),
+     "Read a control network having interest point matches from this file in the NVM "
+     "format. This can be used with any images and cameras supported by ASP.")
     ("min-matches", po::value(&opt.min_matches)->default_value(30),
      "Set the minimum  number of matches between images that will be considered.")
     ("max-pairwise-matches", po::value(&opt.max_pairwise_matches)->default_value(10000),
@@ -354,9 +358,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     opt.overlap_limit = opt.image_files.size();
   
   if (int(!opt.match_files_prefix.empty()) + int(!opt.clean_match_files_prefix.empty())
-      + int(!opt.isis_cnet.empty()) != 1) 
+      + int(!opt.isis_cnet.empty()) + int(!opt.nvm.empty()) != 1)
     vw_throw(ArgumentErr() << "Must specify precisely one of: --match-files-prefix, "
-             << "--clean-match-files-prefix, --isis-cnet.\n");
+             << "--clean-match-files-prefix, --isis-cnet, --nvm.\n");
 
   if (opt.max_init_reproj_error <= 0.0)
     vw_throw(ArgumentErr() << "Must have a positive --max-initial-reprojection-error.\n");
@@ -449,6 +453,11 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     if (opt.roll_weight > 0 || opt.yaw_weight > 0)
       vw::vw_throw(vw::ArgumentErr() << "Cannot use the roll/yaw constraint with a rig.\n");
   }
+  
+  if (!have_rig && 
+      (opt.use_initial_rig_transforms || opt.fix_rig_translations || opt.fix_rig_rotations))
+    vw::vw_throw(vw::ArgumentErr() << "Cannot use --use-initial-rig-transforms, "
+                 << "--fix-rig-translations, or --fix-rig-rotations without a rig.\n");
   
   return;
 }
@@ -882,7 +891,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Make a list of all the image pairs to find matches for. Some quantities
   // below are not needed but are part of the API.
   std::map<std::pair<int, int>, std::string> match_files;
-  if (opt.isis_cnet == "") {
+  if (opt.isis_cnet.empty() && opt.nvm.empty()) {
     // TODO(oalexan1): Make this into a function
     bool external_matches = true;
     bool got_est_cam_positions = false;
@@ -928,9 +937,9 @@ void run_jitter_solve(int argc, char* argv[]) {
     }
   }
     
-  if (match_files.empty() && opt.isis_cnet.empty())
-    vw_throw(ArgumentErr() 
-             << "No match files or ISIS cnet found. Check if your match "
+  if (match_files.empty() && opt.isis_cnet.empty() && opt.nvm.empty())
+    vw::vw_throw(vw::ArgumentErr() 
+             << "No match files, ISIS cnet, or nvm file found. Check if your match "
              << "files exist and if they satisfy the naming convention "
              << "<prefix>-<image1>__<image2>.match.\n");
 
@@ -941,6 +950,13 @@ void run_jitter_solve(int argc, char* argv[]) {
     vw::vw_out() << "Reading ISIS control network: " << opt.isis_cnet << "\n";
     asp::loadIsisCnet(opt.isis_cnet, opt.image_files,
                       cnet, isisCnetData); // outputs
+  } else if (opt.nvm != "") {
+      // Assume the features are stored shifted relative to optical center
+      bool nvm_no_shift = false;
+      std::vector<Eigen::Affine3d> world_to_cam; // poses will not be used
+      std::map<std::string, Eigen::Vector2d> optical_offsets;
+      asp::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift, 
+                         cnet, world_to_cam, optical_offsets); // outputs
   } else {
     bool triangulate_control_points = true;
     bool success = vw::ba::build_control_network(triangulate_control_points,

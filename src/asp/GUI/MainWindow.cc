@@ -317,7 +317,8 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     asp::stereo_settings().pairwise_matches = true;
     vw_out() << "Reading NVM file: " << asp::stereo_settings().nvm << "\n";
     try {
-       asp::readNvmAsCnet(asp::stereo_settings().nvm, asp::stereo_settings().nvm_no_shift,
+       asp::readNvmAsCnet(asp::stereo_settings().nvm, std::vector<std::string>(),
+                          asp::stereo_settings().nvm_no_shift,
                           m_cnet, world_to_cam, optical_offsets);
     } catch (const std::exception& e) {
       popUp(e.what());

@@ -66,7 +66,9 @@ void writeNvm(nvmData const& nvm, std::string const& output_filename);
 // nvm_no_shift, if true, means that the interest points are not shifted
 // relative to the optical center, so can be read as is.
 void readNvmAsCnet(std::string const& input_filename, 
+                   std::vector<std::string> const& image_files,
                    bool nvm_no_shift,
+                   // Outputs
                    vw::ba::ControlNetwork & cnet,
                    std::vector<Eigen::Affine3d> & world_to_cam,
                    std::map<std::string, Eigen::Vector2d> & offsets);

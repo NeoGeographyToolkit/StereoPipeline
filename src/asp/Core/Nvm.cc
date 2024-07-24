@@ -16,6 +16,7 @@
 // __END_LICENSE__
 
 #include <asp/Core/Nvm.h>
+#include <Rig/nvm.h>
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
 #include <vw/FileIO/FileUtils.h>
@@ -85,8 +86,8 @@ std::string offsetsFilename(std::string const& nvm_filename) {
 // If a filename having extension _offset.txt instead of .nvm exists, read
 // from it the optical center offsets and apply them. So, the interest points
 // that are read in have the offset applied.
-void readNvm(std::string const& input_filename,
-             bool nvm_no_shift,
+void readNvm(std::string                       const& input_filename,
+             bool                                     nvm_no_shift,
              std::vector<Eigen::Matrix2Xd>          & cid_to_keypoint_map,
              std::vector<std::string>               & cid_to_filename,
              std::vector<std::map<int, int>>        & pid_to_cid_fid,
@@ -95,10 +96,11 @@ void readNvm(std::string const& input_filename,
              std::vector<double>                    & focal_lengths,
              std::map<std::string, Eigen::Vector2d> & offsets) {
 
+  vw::vw_out() << "Reading: " << input_filename << "\n";
+
   // Read the offsets (optical centers) to apply to the interest points,
   // if applicable.
   std::string offset_path = offsetsFilename(input_filename);
-  vw::vw_out() << "Reading: " << input_filename << std::endl;
   std::ifstream offset_fh(offset_path.c_str());
   
   bool have_offsets = false;
@@ -107,14 +109,12 @@ void readNvm(std::string const& input_filename,
   if (nvm_no_shift) {
     have_offsets = false;
     if (offset_fh.good()) 
-      vw::vw_out() << "When reading " << input_filename << ", "
-                   << "ignoring the optical center offsets from: " << offset_path
+      vw::vw_out() << "Ignoring the optical center offsets from: " << offset_path
                    << std::endl;
   } else {
     if (!offset_fh.good())
       vw::vw_throw(vw::ArgumentErr() << "Cannot find optical offsets file: "
-                   << offset_path << ". Consider reading the nvm file with "
-                   << "the no-shift option or specify the offsets.\n");
+                   << offset_path << "\n");
     
     readNvmOffsets(offset_path, offsets);  
     have_offsets = true;
@@ -487,10 +487,50 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
   return;
 }
 
+// Reorder the nvm to agree with a given image list
+void remapNvm(std::vector<std::string> const& image_files,
+              nvmData & nvm) {
+
+  if (image_files.size() != nvm.cid_to_filename.size())
+    vw::vw_throw(vw::ArgumentErr() 
+                  << "The nvm and input images do not have the same files.\n");
+
+  // Find the cid for each image in the nvm file
+  std::map<std::string, int> nvm_file2cid;
+  for (size_t i = 0; i < nvm.cid_to_filename.size(); i++)
+    nvm_file2cid[nvm.cid_to_filename[i]] = i;
+  // Same for the image files
+  std::map<std::string, int> image_file2cid;
+  for (size_t i = 0; i < image_files.size(); i++)
+    image_file2cid[image_files[i]] = i;
+
+  // These must have the same size
+  if (nvm_file2cid.size() != image_file2cid.size())
+    vw::vw_throw(vw::ArgumentErr() 
+                  << "The nvm and input images do not have the same files.\n");
+    
+  // Create cid2cid map that will help reorder then nvm to agree with the 
+  // image files
+  std::map<int, int> cid2cid;
+  for (size_t i = 0; i < image_files.size(); i++) {
+    std::string image_file = image_files[i];
+    if (nvm_file2cid.find(image_file) == nvm_file2cid.end())
+      vw::vw_throw(vw::ArgumentErr() << "Cannot find image: " << image_file
+                    << " in the nvm.\n");
+    cid2cid[nvm_file2cid[image_file]] = i;
+  }  
+
+  // Remap the nvm
+  rig::remapNvm(cid2cid, nvm.cid_to_keypoint_map, nvm.cid_to_filename,
+                nvm.pid_to_cid_fid, nvm.pid_to_xyz, nvm.world_to_cam,
+                nvm.optical_centers);
+}
+
 // Read an NVM file into the VisionWorkbench control network format. The flag
 // nvm_no_shift, if true, means that the interest points are not shifted
 // relative to the optical center, so can be read as is.
 void readNvmAsCnet(std::string const& input_filename, 
+                   std::vector<std::string> const& image_files,
                    bool nvm_no_shift,
                    vw::ba::ControlNetwork & cnet,
                    std::vector<Eigen::Affine3d> & world_to_cam,
@@ -500,6 +540,10 @@ void readNvmAsCnet(std::string const& input_filename,
   nvmData nvm;
   asp::readNvm(input_filename, nvm_no_shift, nvm);
 
+  // Must ensure the nvm image list agrees with the input image list
+  if (!image_files.empty()) 
+    remapNvm(image_files, nvm);
+  
   // Convert to a control network
   asp::nvmToCnet(nvm, cnet, optical_offsets, world_to_cam);
 }
