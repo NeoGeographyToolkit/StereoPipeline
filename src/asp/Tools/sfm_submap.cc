@@ -20,7 +20,6 @@
 #include <Rig/nvm.h>
 #include <Rig/rig_config.h>
 #include <Rig/basic_algs.h>
-#include <Rig/tensor.h>
 
 #include <opencv2/features2d/features2d.hpp>
 
@@ -90,12 +89,12 @@ int main(int argc, char** argv) {
   }
 
   rig::nvmData nvm;
-  rig::ReadNvm(FLAGS_input_map, 
-                     nvm.cid_to_keypoint_map,  
-                     nvm.cid_to_filename,  
-                     nvm.pid_to_cid_fid,  
-                     nvm.pid_to_xyz,  
-                     nvm.cid_to_cam_t_global);
+  rig::ReadNvm(FLAGS_input_map,
+               nvm.cid_to_keypoint_map,
+               nvm.cid_to_filename,
+               nvm.pid_to_cid_fid,
+               nvm.pid_to_xyz,
+               nvm.cid_to_cam_t_global);
  
   std::string offsets_file = rig::offsetsFilename(FLAGS_input_map);
   if (!fs::exists(offsets_file))
@@ -107,11 +106,11 @@ int main(int argc, char** argv) {
   rig::ExtractSubmap(images_to_keep, nvm);
 
   rig::WriteNvm(nvm.cid_to_keypoint_map,
-                      nvm.cid_to_filename,
-                      nvm.pid_to_cid_fid,
-                      nvm.pid_to_xyz,
-                      nvm.cid_to_cam_t_global,
-                      FLAGS_output_map);
+                nvm.cid_to_filename,
+                nvm.pid_to_cid_fid,
+                nvm.pid_to_xyz,
+                nvm.cid_to_cam_t_global,
+                FLAGS_output_map);
 
   if (std::ifstream(offsets_file)) {
     std::string output_offsets_file = rig::offsetsFilename(FLAGS_output_map);

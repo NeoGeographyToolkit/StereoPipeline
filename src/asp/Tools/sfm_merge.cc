@@ -16,7 +16,6 @@
  * under the License.
  */
 #include <Rig/thread.h>
-#include <Rig/tensor.h>
 #include <Rig/sparse_mapping.h>
 #include <Rig/interest_point.h>
 #include <Rig/reprojection.h>
