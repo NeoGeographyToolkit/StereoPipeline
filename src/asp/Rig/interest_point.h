@@ -184,7 +184,7 @@ void writeMatchFile(std::string match_file, std::vector<InterestPoint> const& ip
 
 // TODO(oalexan1): Duplicate code
 void Triangulate(bool rm_invalid_xyz, double focal_length,
-                 std::vector<Eigen::Affine3d> const& cid_to_cam_t_global,
+                 std::vector<Eigen::Affine3d> const& world_to_cam,
                  std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
                  std::vector<std::map<int, int>> * pid_to_cid_fid,
                  std::vector<Eigen::Vector3d> * pid_to_xyz);

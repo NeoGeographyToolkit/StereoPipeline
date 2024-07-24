@@ -94,7 +94,7 @@ int main(int argc, char** argv) {
                nvm.cid_to_filename,
                nvm.pid_to_cid_fid,
                nvm.pid_to_xyz,
-               nvm.cid_to_cam_t_global);
+               nvm.world_to_cam);
  
   std::string offsets_file = rig::offsetsFilename(FLAGS_input_map);
   if (!fs::exists(offsets_file))
@@ -109,7 +109,7 @@ int main(int argc, char** argv) {
                 nvm.cid_to_filename,
                 nvm.pid_to_cid_fid,
                 nvm.pid_to_xyz,
-                nvm.cid_to_cam_t_global,
+                nvm.world_to_cam,
                 FLAGS_output_map);
 
   if (std::ifstream(offsets_file)) {

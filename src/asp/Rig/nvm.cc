@@ -41,7 +41,7 @@ void ReadNvm(std::string               const & input_filename,
              std::vector<std::string>        & cid_to_filename,
              std::vector<std::map<int, int>> & pid_to_cid_fid,
              std::vector<Eigen::Vector3d>    & pid_to_xyz,
-             std::vector<Eigen::Affine3d>    & cid_to_cam_t_global) {
+             std::vector<Eigen::Affine3d>    & world_to_cam) {
 
   std::cout << "Reading: " << input_filename << std::endl;
   std::ifstream f(input_filename, std::ios::in);
@@ -63,7 +63,7 @@ void ReadNvm(std::string               const & input_filename,
   // Resize all our structures to support the number of cameras we now expect
   cid_to_keypoint_map.resize(number_of_cid);
   cid_to_filename.resize(number_of_cid);
-  cid_to_cam_t_global.resize(number_of_cid);
+  world_to_cam.resize(number_of_cid);
   for (ptrdiff_t cid = 0; cid < number_of_cid; cid++) {
     // Clear keypoints from map. We'll read these in shortly
     cid_to_keypoint_map.at(cid).resize(Eigen::NoChange_t(), 2);
@@ -79,8 +79,8 @@ void ReadNvm(std::string               const & input_filename,
 
     // Solve for t, which is part of the affine transform
     Eigen::Matrix3d r = q.matrix();
-    cid_to_cam_t_global.at(cid).linear() = r;
-    cid_to_cam_t_global.at(cid).translation() = -r * c;
+    world_to_cam.at(cid).linear() = r;
+    world_to_cam.at(cid).translation() = -r * c;
   }
 
   // Read the number of points
@@ -265,7 +265,7 @@ void WriteNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
               std::vector<std::string> const& cid_to_filename,
               std::vector<std::map<int, int>> const& pid_to_cid_fid,
               std::vector<Eigen::Vector3d> const& pid_to_xyz,
-              std::vector<Eigen::Affine3d> const& cid_to_cam_t_global,
+              std::vector<Eigen::Affine3d> const& world_to_cam,
               std::string const& output_filename) {
 
   // Ensure that the output directory exists
@@ -281,7 +281,7 @@ void WriteNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
     << "Unequal number of filenames and keypoints";
   CHECK(pid_to_cid_fid.size() == pid_to_xyz.size())
     << "Unequal number of pid_to_cid_fid and xyz measurements";
-  CHECK(cid_to_filename.size() == cid_to_cam_t_global.size())
+  CHECK(cid_to_filename.size() == world_to_cam.size())
     << "Unequal number of filename and camera transforms";
 
   // Write camera information
@@ -289,12 +289,12 @@ void WriteNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
   for (size_t cid = 0; cid < cid_to_filename.size(); cid++) {
 
     // World-to-camera rotation quaternion
-    Eigen::Quaterniond q(cid_to_cam_t_global[cid].rotation());
+    Eigen::Quaterniond q(world_to_cam[cid].rotation());
 
     // Camera center in world coordinates
-    Eigen::Vector3d t(cid_to_cam_t_global[cid].translation());
+    Eigen::Vector3d t(world_to_cam[cid].translation());
     Eigen::Vector3d camera_center =
-      - cid_to_cam_t_global[cid].rotation().inverse() * t;
+      - world_to_cam[cid].rotation().inverse() * t;
 
     f << cid_to_filename[cid] << " " << 1 // focal length is set to 1, not used
       << " " << q.w() << " " << q.x() << " " << q.y() << " " << q.z() << " "
@@ -335,7 +335,7 @@ void remapNvm(std::map<int, int>                const  & cid2cid,
                 std::vector<std::string>               & cid_to_filename,
                 std::vector<std::map<int, int>>        & pid_to_cid_fid,
                 std::vector<Eigen::Vector3d>           & pid_to_xyz,
-                std::vector<Eigen::Affine3d>           & cid_to_cam_t_global,
+                std::vector<Eigen::Affine3d>           & world_to_cam,
                 std::map<std::string, Eigen::Vector2d> & optical_centers) {
 
   // cid2d must be non-empty
@@ -366,7 +366,7 @@ void remapNvm(std::map<int, int>                const  & cid2cid,
   int num_out = max_out_cid + 1;
   std::vector<Eigen::Matrix2Xd>   cid_to_keypoint_map_out(num_out);
   std::vector<std::string>        cid_to_filename_out(num_out);
-  std::vector<Eigen::Affine3d>    cid_to_cam_t_global_out(num_out);
+  std::vector<Eigen::Affine3d>    world_to_cam_out(num_out);
   std::vector<std::map<int, int>> pid_to_cid_fid_out;
   std::vector<Eigen::Vector3d>    pid_to_xyz_out;
   std::map<std::string, Eigen::Vector2d> optical_centers_out;
@@ -378,7 +378,7 @@ void remapNvm(std::map<int, int>                const  & cid2cid,
     size_t new_cid = it->second;
     cid_to_keypoint_map_out[new_cid] = cid_to_keypoint_map[cid];
     cid_to_filename_out[new_cid]      = cid_to_filename[cid];
-    cid_to_cam_t_global_out[new_cid]  = cid_to_cam_t_global[cid];
+    world_to_cam_out[new_cid]  = world_to_cam[cid];
     
     if (!optical_centers.empty()) {
       auto it2 = optical_centers.find(cid_to_filename[cid]);
@@ -410,7 +410,7 @@ void remapNvm(std::map<int, int>                const  & cid2cid,
   // Copy the output to the input
   cid_to_keypoint_map   = cid_to_keypoint_map_out;
   cid_to_filename       = cid_to_filename_out;
-  cid_to_cam_t_global   = cid_to_cam_t_global_out;
+  world_to_cam   = world_to_cam_out;
   pid_to_cid_fid        = pid_to_cid_fid_out;
   pid_to_xyz            = pid_to_xyz_out;
   optical_centers       = optical_centers_out;  
@@ -472,7 +472,7 @@ void ExtractSubmap(std::vector<std::string> const& images_to_keep,
 
   // Remap the nvm
   rig::remapNvm(cid2cid, nvm.cid_to_keypoint_map, nvm.cid_to_filename,
-                nvm.pid_to_cid_fid, nvm.pid_to_xyz, nvm.cid_to_cam_t_global,
+                nvm.pid_to_cid_fid, nvm.pid_to_xyz, nvm.world_to_cam,
                 nvm.optical_centers);
   
   std::cout << "Number of images in the extracted map: " << nvm.cid_to_filename.size() << "\n";

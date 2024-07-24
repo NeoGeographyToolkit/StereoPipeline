@@ -150,7 +150,7 @@ int main(int argc, char** argv) {
                      in0.cid_to_filename,  
                      in0.pid_to_cid_fid,  
                      in0.pid_to_xyz,  
-                     in0.cid_to_cam_t_global);
+                     in0.world_to_cam);
   if (!FLAGS_no_shift) {
     bool undo_shift = true; // remove the shift relative to the optical center
     std::string offsets_file = rig::offsetsFilename(argv[1]);
@@ -170,7 +170,7 @@ int main(int argc, char** argv) {
                        in1.cid_to_filename,  
                        in1.pid_to_cid_fid,  
                        in1.pid_to_xyz,  
-                       in1.cid_to_cam_t_global);
+                       in1.world_to_cam);
     if (!FLAGS_no_shift) {
       bool undo_shift = true; // remove the shift relative to the optical center
       std::string offsets_file = rig::offsetsFilename(argv[i]);
@@ -212,7 +212,7 @@ int main(int argc, char** argv) {
       if (pos == in0_name_to_cid.end()) continue;  // was not in in0
       
       int in0_cid = pos->second;
-      out_map.cid_to_cam_t_global[out_cid] = in0.cid_to_cam_t_global[in0_cid];
+      out_map.world_to_cam[out_cid] = in0.world_to_cam[in0_cid];
     }
   }
 
@@ -229,7 +229,7 @@ int main(int argc, char** argv) {
                       out_map.cid_to_filename,
                       out_map.pid_to_cid_fid,
                       out_map.pid_to_xyz,
-                      out_map.cid_to_cam_t_global,
+                      out_map.world_to_cam,
                       FLAGS_output_map);
 
   // Save the optical offsets

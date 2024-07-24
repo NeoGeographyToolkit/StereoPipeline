@@ -237,7 +237,7 @@ void findTracksForSharedImages(sparse_mapping::SparseMap * A_in,
 // indices. By now the poses are in the same coordinate system but
 // some show up in both maps.
 void MergePoses(std::map<int, int> & cid2cid,
-                std::vector<Eigen::Affine3d> & cid_to_cam_t_global) {
+                std::vector<Eigen::Affine3d> & world_to_cam) {
     
   // The total number of output cameras (last new cid value + 1)
   int num_out_cams = rig::maxMapVal(cid2cid) + 1;
@@ -245,15 +245,15 @@ void MergePoses(std::map<int, int> & cid2cid,
   // Each blob will be original cids that end up being a single cid
   // after identifying repeat images.
   std::vector<std::set<int>> blobs(num_out_cams);
-  for (size_t cid = 0; cid < cid_to_cam_t_global.size(); cid++)
+  for (size_t cid = 0; cid < world_to_cam.size(); cid++)
     blobs[cid2cid[cid]].insert(cid);
 
-  // To merge cid_to_cam_t_global, find the average rotation and translation
+  // To merge world_to_cam, find the average rotation and translation
   // from the two maps.
-  std::vector<Eigen::Affine3d> cid_to_cam_t_global2(num_out_cams);
+  std::vector<Eigen::Affine3d> world_to_cam2(num_out_cams);
   for (size_t c = 0; c < blobs.size(); c++) {
     if (blobs[c].size() == 1) {
-      cid_to_cam_t_global2[c] = cid_to_cam_t_global[*blobs[c].begin()];
+      world_to_cam2[c] = world_to_cam[*blobs[c].begin()];
     } else {
       int num = blobs[c].size();
 
@@ -261,23 +261,23 @@ void MergePoses(std::map<int, int> & cid2cid,
       std::vector<double> W(num, 1.0/num);
 
       std::vector<Eigen::Quaternion<double>> Q(num);
-      cid_to_cam_t_global2[c].translation() << 0.0, 0.0, 0.0;
+      world_to_cam2[c].translation() << 0.0, 0.0, 0.0;
       int pos = -1;
       for (auto it = blobs[c].begin(); it != blobs[c].end(); it++) {
         pos++;
         int cid = *it;
-        Q[pos] = Eigen::Quaternion<double>(cid_to_cam_t_global[cid].linear());
+        Q[pos] = Eigen::Quaternion<double>(world_to_cam[cid].linear());
 
-        cid_to_cam_t_global2[c].translation()
-          += W[pos]*cid_to_cam_t_global[cid].translation();
+        world_to_cam2[c].translation()
+          += W[pos]*world_to_cam[cid].translation();
       }
       Eigen::Quaternion<double> S = rig::slerp_n(W, Q);
-      cid_to_cam_t_global2[c].linear() = S.toRotationMatrix();
+      world_to_cam2[c].linear() = S.toRotationMatrix();
     }
   }
 
   // Return the updated poses
-  cid_to_cam_t_global = cid_to_cam_t_global2;
+  world_to_cam = world_to_cam2;
   
   return;
 }
@@ -366,8 +366,8 @@ Eigen::Affine3d computeTransformFromBToA(const rig::nvmData& A,
   
   // Put the B poses in a map
   std::map<std::string, Eigen::Affine3d> B_world2cam;
-  for (size_t cid = 0; cid < B.cid_to_cam_t_global.size(); cid++)
-    B_world2cam[B.cid_to_filename[cid]] = B.cid_to_cam_t_global[cid];
+  for (size_t cid = 0; cid < B.world_to_cam.size(); cid++)
+    B_world2cam[B.cid_to_filename[cid]] = B.world_to_cam[cid];
   
   // Find the transform from B to A based on shared poses
   for (size_t cid = 0; cid < A.cid_to_filename.size(); cid++) {
@@ -375,7 +375,7 @@ Eigen::Affine3d computeTransformFromBToA(const rig::nvmData& A,
     if (b_it == B_world2cam.end()) 
       continue;
     
-    auto const& A_world2cam = A.cid_to_cam_t_global[cid];
+    auto const& A_world2cam = A.world_to_cam[cid];
     auto const& B_world2cam = b_it->second;
     
     // Go from world of B to world of A
@@ -642,13 +642,13 @@ void MergeMaps(rig::nvmData const& A,
     bool read_nvm_no_shift = true; // not used, part of the api
     bool no_nvm_matches = true; // not used, part of the api
     rig::nvmData empty_nvm; // not used, part of the api
-    C.cid_to_cam_t_global.resize(C.cid_to_filename.size()); // won't be used
+    C.world_to_cam.resize(C.cid_to_filename.size()); // won't be used
     std::cout << "Number of image pairs to match: " << image_pairs.size() << std::endl;
     std::vector<Eigen::Vector3d> local_xyz_vec; // not used
     rig::detectMatchFeatures(// Inputs
                                    C_cams, R.cam_params, out_dir, save_matches,  
                                    filter_matches_using_cams,  
-                                   C.cid_to_cam_t_global,
+                                   C.world_to_cam,
                                    num_overlaps, image_pairs,
                                    initial_max_reprojection_error, FLAGS_num_threads,  
                                    read_nvm_no_shift, no_nvm_matches, verbose,  
@@ -686,14 +686,14 @@ void MergeMaps(rig::nvmData const& A,
     // Find triangulated points
     std::vector<Eigen::Vector3d> A_xyz_vec, B_xyz_vec; // triangulated points go here
     rig::multiViewTriangulation(// Inputs
-                                      R.cam_params, A_cams, A.cid_to_cam_t_global,
+                                      R.cam_params, A_cams, A.world_to_cam,
                                       A_pid_to_cid_fid,
                                       A_keypoint_vec,
                                       // Outputs
                                       A_pid_cid_fid_inlier, A_xyz_vec);
     rig::multiViewTriangulation(// Inputs
                                       R.cam_params, B_cams,
-                                      B.cid_to_cam_t_global,
+                                      B.world_to_cam,
                                       B_pid_to_cid_fid,
                                       B_keypoint_vec,
                                       // Outputs
@@ -729,15 +729,15 @@ void MergeMaps(rig::nvmData const& A,
   std::cout << "Translation: " << B2A_trans.translation().transpose() << "\n";
   
   // Bring the B map cameras in the A map coordinate system. Do not modify
-  // B.cid_to_cam_t_global, but make a copy of it in B_trans_world2cam.
-  std::vector<Eigen::Affine3d> B_trans_world2cam = B.cid_to_cam_t_global;
+  // B.world_to_cam, but make a copy of it in B_trans_world2cam.
+  std::vector<Eigen::Affine3d> B_trans_world2cam = B.world_to_cam;
   rig::TransformCameras(B2A_trans, B_trans_world2cam);
 
   // Append all to the C map. Note how we use the transformed B.
-  C.cid_to_cam_t_global.clear();
-  C.cid_to_cam_t_global.insert(C.cid_to_cam_t_global.end(),
-                           A.cid_to_cam_t_global.begin(), A.cid_to_cam_t_global.end());
-  C.cid_to_cam_t_global.insert(C.cid_to_cam_t_global.end(),
+  C.world_to_cam.clear();
+  C.world_to_cam.insert(C.world_to_cam.end(),
+                           A.world_to_cam.begin(), A.world_to_cam.end());
+  C.world_to_cam.insert(C.world_to_cam.end(),
                                B_trans_world2cam.begin(), B_trans_world2cam.end());
 
   //  Find how to map cid to new cid which will not have
@@ -746,8 +746,8 @@ void MergeMaps(rig::nvmData const& A,
   int num_out_cams = 0;
   findCidToCid(C.cid_to_filename, cid2cid, num_out_cams);
 
-  // Update C.cid_to_cam_t_global by merging poses for same images in the two maps
-  MergePoses(cid2cid, C.cid_to_cam_t_global);
+  // Update C.world_to_cam by merging poses for same images in the two maps
+  MergePoses(cid2cid, C.world_to_cam);
 
   // Merge the camera names too, based on cid2cid
   mergeCameraNames(C.cid_to_filename, cid2cid, num_out_cams);
@@ -831,7 +831,7 @@ void MergeMaps(rig::nvmData const& A,
 
   // Triangulate the merged tracks with merged cameras
   rig::multiViewTriangulation(// Inputs
-                                    R.cam_params, C_cams, C.cid_to_cam_t_global,
+                                    R.cam_params, C_cams, C.world_to_cam,
                                     C.pid_to_cid_fid, C_keypoint_vec,
                                     // Outputs
                                     C_pid_cid_fid_inlier, C.pid_to_xyz);

@@ -386,7 +386,7 @@ void writeMatchFile(std::string match_file, std::vector<InterestPoint> const& ip
 // TODO(oalexan1): Move to triangulation file.
 // TODO(oalexan1): Duplicate code
 void Triangulate(bool rm_invalid_xyz, double focal_length,
-                 std::vector<Eigen::Affine3d> const& cid_to_cam_t_global,
+                 std::vector<Eigen::Affine3d> const& world_to_cam,
                  std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
                  std::vector<std::map<int, int>> * pid_to_cid_fid,
                  std::vector<Eigen::Vector3d> * pid_to_xyz) {
@@ -397,10 +397,10 @@ void Triangulate(bool rm_invalid_xyz, double focal_length,
 
   // Build p matrices for all of the cameras. aspOpenMVG::Triangulation
   // will be holding pointers to all of the cameras.
-  std::vector<aspOpenMVG::Mat34> cid_to_p(cid_to_cam_t_global.size());
+  std::vector<aspOpenMVG::Mat34> cid_to_p(world_to_cam.size());
   for (size_t cid = 0; cid < cid_to_p.size(); cid++) {
-    aspOpenMVG::P_From_KRt(k, cid_to_cam_t_global[cid].linear(),
-                        cid_to_cam_t_global[cid].translation(), &cid_to_p[cid]);
+    aspOpenMVG::P_From_KRt(k, world_to_cam[cid].linear(),
+                        world_to_cam[cid].translation(), &cid_to_p[cid]);
   }
 
   pid_to_xyz->resize(pid_to_cid_fid->size());

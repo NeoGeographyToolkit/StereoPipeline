@@ -46,7 +46,7 @@ struct nvmData {
   std::vector<std::string>         cid_to_filename;
   std::vector<std::map<int, int>>  pid_to_cid_fid;
   std::vector<Eigen::Vector3d>     pid_to_xyz;
-  std::vector<Eigen::Affine3d>     cid_to_cam_t_global;
+  std::vector<Eigen::Affine3d>     world_to_cam;
   // Interest points in the nvm file are shifted relative to optical centers
   std::map<std::string, Eigen::Vector2d> optical_centers;
 };
@@ -57,7 +57,7 @@ void ReadNvm(std::string               const & input_filename,
              std::vector<std::string>        & cid_to_filename,
              std::vector<std::map<int, int>> & pid_to_cid_fid,
              std::vector<Eigen::Vector3d>    & pid_to_xyz,
-             std::vector<Eigen::Affine3d>    & cid_to_cam_t_global);
+             std::vector<Eigen::Affine3d>    & world_to_cam);
 
 // Write the inliers in nvm format. The keypoints are shifted relative to the optical
 // center, as written by Theia.
@@ -92,7 +92,7 @@ void WriteNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
               std::vector<std::string> const& cid_to_filename,
               std::vector<std::map<int, int>> const& pid_to_cid_fid,
               std::vector<Eigen::Vector3d> const& pid_to_xyz,
-              std::vector<Eigen::Affine3d> const& cid_to_cam_t_global,
+              std::vector<Eigen::Affine3d> const& world_to_cam,
               std::string const& output_filename);
 
 // Given a map from current cid to new cid, apply this map to the nvm. This can
@@ -103,7 +103,7 @@ void remapNvm(std::map<int, int>                const& cid2cid,
               std::vector<std::string>               & cid_to_filename,
               std::vector<std::map<int, int>>        & pid_to_cid_fid,
               std::vector<Eigen::Vector3d>           & pid_to_xyz,
-              std::vector<Eigen::Affine3d>           & cid_to_cam_t_global,
+              std::vector<Eigen::Affine3d>           & world_to_cam,
               std::map<std::string, Eigen::Vector2d> & optical_centers);
 
 // Extract a submap in-place from an nvm object.

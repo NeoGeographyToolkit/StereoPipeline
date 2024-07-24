@@ -563,7 +563,7 @@ double ComputeRaysAngle(int pid,
 
 void FilterPID(double reproj_thresh,
                camera::CameraParameters const& camera_params,
-               std::vector<Eigen::Affine3d > const& cid_to_cam_t_global,
+               std::vector<Eigen::Affine3d > const& world_to_cam,
                std::vector<Eigen::Matrix2Xd > const& cid_to_keypoint_map,
                std::vector<std::map<int, int> > * pid_to_cid_fid,
                std::vector<Eigen::Vector3d> * pid_to_xyz,
@@ -574,10 +574,10 @@ void FilterPID(double reproj_thresh,
   // Reprojection error at each match point.
   std::vector<double> errors;
 
-  int num_cams = cid_to_cam_t_global.size();
+  int num_cams = world_to_cam.size();
   std::vector<Eigen::Vector3d> cam_ctrs(num_cams);
   for (int cid = 0; cid < num_cams; cid++) {
-    cam_ctrs[cid] = cid_to_cam_t_global[cid].inverse().translation();
+    cam_ctrs[cid] = world_to_cam[cid].inverse().translation();
   }
 
   // Init the stats
@@ -598,7 +598,7 @@ void FilterPID(double reproj_thresh,
     }
 
     for (std::pair<int, int> cid_fid : (*pid_to_cid_fid)[pid]) {
-      Eigen::Vector2d pix = (cid_to_cam_t_global[cid_fid.first] *
+      Eigen::Vector2d pix = (world_to_cam[cid_fid.first] *
                              (*pid_to_xyz)[pid]).hnormalized() * camera_params.GetFocalLength();
       errors.push_back((cid_to_keypoint_map[cid_fid.first].col(cid_fid.second) - pix).norm());
       // Mark points which don't project at valid camera pixels
@@ -609,7 +609,7 @@ void FilterPID(double reproj_thresh,
       }
 
       // Mark points that are behind the camera
-      Eigen::Vector3d P = cid_to_cam_t_global[cid_fid.first] * (*pid_to_xyz)[pid];
+      Eigen::Vector3d P = world_to_cam[cid_fid.first] * (*pid_to_xyz)[pid];
       if (P[2] <= 0) {
         behind_cam = true;
         is_bad[pid] = true;
@@ -641,7 +641,7 @@ void FilterPID(double reproj_thresh,
     std::map<int, int>::iterator itr = cid_fid.begin();
     while (itr != cid_fid.end()) {
       s.num_features++;
-      Eigen::Vector2d pix = (cid_to_cam_t_global[itr->first] *
+      Eigen::Vector2d pix = (world_to_cam[itr->first] *
                              (*pid_to_xyz)[pid]).hnormalized() * camera_params.GetFocalLength();
       double err
         = (cid_to_keypoint_map[itr->first].col(itr->second) - pix).norm();

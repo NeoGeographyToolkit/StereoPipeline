@@ -614,7 +614,7 @@ void calcExtraPoses(std::string const& extra_list, bool use_initial_rig_transfor
                     std::vector<std::string>     & cid_to_filename,
                     std::vector<int>             & cam_types,
                     std::vector<double>          & timestamps,
-                    std::vector<Eigen::Affine3d> & cid_to_cam_t_global) {
+                    std::vector<Eigen::Affine3d> & world_to_cam) {
 
   // Put the existing poses in a map
   std::map<int, std::map<double, Eigen::Affine3d>> existing_world_to_cam;
@@ -625,7 +625,7 @@ void calcExtraPoses(std::string const& extra_list, bool use_initial_rig_transfor
     existing_images.insert(image_file); 
     int cam_type = cam_types[image_it];
     double timestamp = timestamps[image_it];
-    Eigen::Affine3d world2cam = cid_to_cam_t_global[image_it];
+    Eigen::Affine3d world2cam = world_to_cam[image_it];
     existing_world_to_cam[cam_type][timestamp] = world2cam;
 
     if (use_initial_rig_transforms) {
@@ -725,7 +725,7 @@ void calcExtraPoses(std::string const& extra_list, bool use_initial_rig_transfor
 
     for (size_t found_it = 0; found_it < found_images.size(); found_it++) {
       cid_to_filename.push_back(found_images[found_it]);
-      cid_to_cam_t_global.push_back(found_poses[found_it]);
+      world_to_cam.push_back(found_poses[found_it]);
       
       // Add the cam type and timestamp
       auto type_it = extra_cam_types_map.find(found_images[found_it]);
@@ -778,7 +778,7 @@ void readCameraPoses(// Inputs
       LOG(FATAL) << "Expecting 12 values for the transform on line:\n" << line << "\n";
     
     Eigen::Affine3d world2cam = vecToAffine(vals);
-    nvm.cid_to_cam_t_global.push_back(world2cam);
+    nvm.world_to_cam.push_back(world2cam);
     nvm.cid_to_filename.push_back(image_file);
   }
 }
@@ -821,7 +821,7 @@ void readListOrNvm(// Inputs
                  nvm.cid_to_filename,  
                  nvm.pid_to_cid_fid,  
                  nvm.pid_to_xyz,  
-                 nvm.cid_to_cam_t_global);
+                 nvm.world_to_cam);
     if (!read_nvm_no_shift) {
       std::string offsets_file = rig::offsetsFilename(nvm_file);
       rig::readNvmOffsets(offsets_file, nvm.optical_centers); 
@@ -847,13 +847,13 @@ void readListOrNvm(// Inputs
     calcExtraPoses(extra_list, use_initial_rig_transforms, bracket_len,
                    nearest_neighbor_interp, R,
                    // Append here
-                   nvm.cid_to_filename, cam_types, timestamps, nvm.cid_to_cam_t_global);
+                   nvm.cid_to_filename, cam_types, timestamps, nvm.world_to_cam);
 
   vw::vw_out() << "Reading the images.\n";
   for (size_t it = 0; it < nvm.cid_to_filename.size(); it++) {
     // Aliases
     auto const& image_file = nvm.cid_to_filename[it];
-    auto const& world2cam = nvm.cid_to_cam_t_global[it];
+    auto const& world2cam = nvm.world_to_cam[it];
     readImageEntry(image_file, world2cam, R.cam_names,  
                    cam_types[it], timestamps[it],
                    // Outputs
