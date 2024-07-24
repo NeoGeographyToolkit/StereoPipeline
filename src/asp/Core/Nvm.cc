@@ -81,11 +81,9 @@ std::string offsetsFilename(std::string const& nvm_filename) {
   return nvm_filename.substr(0, std::max(file_len - 4, 0)) + "_offsets.txt";
 }
 
-// Reads the NVM control network format. The interest points may or may not
-// be shifted relative to optical center. The user is responsible for knowing that.
-// If a filename having extension _offset.txt instead of .nvm exists, read
-// from it the optical center offsets and apply them. So, the interest points
-// that are read in have the offset applied.
+// Reads the NVM control network format. If a filename having extension
+// _offset.txt instead of .nvm exists, read from it the optical center offsets
+// and apply them.
 void readNvm(std::string                       const& input_filename,
              bool                                     nvm_no_shift,
              std::vector<Eigen::Matrix2Xd>          & cid_to_keypoint_map,
@@ -95,8 +93,6 @@ void readNvm(std::string                       const& input_filename,
              std::vector<Eigen::Affine3d>           & world_to_cam,
              std::vector<double>                    & focal_lengths,
              std::map<std::string, Eigen::Vector2d> & offsets) {
-
-  vw::vw_out() << "Reading: " << input_filename << "\n";
 
   // Read the offsets (optical centers) to apply to the interest points,
   // if applicable.
@@ -120,99 +116,31 @@ void readNvm(std::string                       const& input_filename,
     have_offsets = true;
   }
   
-  std::ifstream f(input_filename, std::ios::in);
-  std::string token;
-  std::getline(f, token);
-  
-  // Assert that we start with our NVM token
-  if (token.compare(0, 6, "NVM_V3") != 0) {
-    vw::vw_throw(vw::ArgumentErr() << "File doesn't start with NVM token.");
-  }
+  // Read the nvm as is, without applying any offsets
+  rig::ReadNvm(input_filename, cid_to_keypoint_map, cid_to_filename,
+               pid_to_cid_fid, pid_to_xyz, world_to_cam, focal_lengths);
 
-  // Read the number of cameras
-  ptrdiff_t number_of_cid;
-  f >> number_of_cid;
-  if (number_of_cid < 1) {
-    vw::vw_throw(vw::ArgumentErr() << "NVM file is missing cameras.");
-  }
-
-  // Resize all our structures to support the number of cameras we now expect
-  cid_to_keypoint_map.resize(number_of_cid);
-  cid_to_filename.resize(number_of_cid);
-  world_to_cam.resize(number_of_cid);
-  focal_lengths.resize(number_of_cid);
-  for (ptrdiff_t cid = 0; cid < number_of_cid; cid++) {
-    // Clear keypoints from map. We'll read these in shortly
-    cid_to_keypoint_map.at(cid).resize(Eigen::NoChange_t(), 2);
-
-    // Read the line that contains camera information
-    std::string image_name; 
-    double focal, dist1, dist2;
-    Eigen::Quaterniond q;
-    Eigen::Vector3d c;
-    f >> image_name >> focal;
-    f >> q.w() >> q.x() >> q.y() >> q.z();
-    f >> c[0] >> c[1] >> c[2] >> dist1 >> dist2;
-    cid_to_filename.at(cid) = image_name;
-    focal_lengths.at(cid) = focal;
-
-    // Solve for t, which is part of the affine transform
-    Eigen::Matrix3d r = q.matrix();
-    world_to_cam.at(cid).linear() = r;
-    world_to_cam.at(cid).translation() = -r * c;
-  }
-
-  // Read the number of points
-  ptrdiff_t number_of_pid;
-  f >> number_of_pid;
-  if (number_of_pid < 1)
-    vw::vw_throw(vw::ArgumentErr() << "The NVM file has no triangulated points.");
-
-  // Read the point
-  pid_to_cid_fid.resize(number_of_pid);
-  pid_to_xyz.resize(number_of_pid);
-  Eigen::Vector3d xyz;
-  Eigen::Vector3i color;
-  Eigen::Vector2d pt;
-  ptrdiff_t cid, fid;
-  for (ptrdiff_t pid = 0; pid < number_of_pid; pid++) {
-    pid_to_cid_fid.at(pid).clear();
-
-    ptrdiff_t number_of_measures;
-    f >> xyz[0] >> xyz[1] >> xyz[2] >>
-      color[0] >> color[1] >> color[2] >> number_of_measures;
-    pid_to_xyz.at(pid) = xyz;
-    for (ptrdiff_t m = 0; m < number_of_measures; m++) {
-      f >> cid >> fid >> pt[0] >> pt[1];
-
-      // Apply the optical center offset if it exists
-      if (have_offsets) {
-        auto map_it = offsets.find(cid_to_filename.at(cid));
-        if (map_it == offsets.end()) {
-          vw::vw_throw(vw::ArgumentErr() << "Cannot find optical offset for image "
-                       << cid_to_filename.at(cid) << "\n");
-        }
-        pt[0] += (map_it->second)[0];
-        pt[1] += (map_it->second)[1];
-      }
-      
-      pid_to_cid_fid.at(pid)[cid] = fid;
-
-      if (cid_to_keypoint_map.at(cid).cols() <= fid)
-        cid_to_keypoint_map.at(cid).conservativeResize(Eigen::NoChange_t(), fid + 1);
-      
-      cid_to_keypoint_map.at(cid).col(fid) = pt;
-    }
-
-    if (!f.good())
-      vw::vw_throw(vw::ArgumentErr() << "Unable to correctly read PID: " << pid);
-  }
-
- // If no offsets, use zero offsets
- if (nvm_no_shift) {
-    for (ptrdiff_t cid = 0; cid < number_of_cid; cid++)
+  // If no offsets, use zero offsets
+  if (nvm_no_shift) {
+    for (ptrdiff_t cid = 0; cid < cid_to_filename.size(); cid++)
       offsets[cid_to_filename.at(cid)] = Eigen::Vector2d(0, 0);
-  }  
+  }
+ 
+  // If we have the offsets, apply them to the interest points
+  if (have_offsets) {
+    for (ptrdiff_t cid = 0; cid < cid_to_filename.size(); cid++) {
+      std::string name = cid_to_filename.at(cid);
+      auto off_it = offsets.find(name);
+      if (off_it == offsets.end())
+        vw::vw_throw(vw::ArgumentErr() << "Cannot find optical offset for image: "
+                      << name << "\n");
+      Eigen::Vector2d offset = off_it->second;
+      for (ptrdiff_t fid = 0; fid < cid_to_keypoint_map.at(cid).cols(); fid++) {
+        cid_to_keypoint_map.at(cid).col(fid) += offset;
+      }
+    }
+  } // end applying offsets
+  
 }
 
 // Write an nvm file. Note that a single focal length is assumed and no distortion.

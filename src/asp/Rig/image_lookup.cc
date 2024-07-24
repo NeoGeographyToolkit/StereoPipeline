@@ -821,7 +821,8 @@ void readListOrNvm(// Inputs
                  nvm.cid_to_filename,  
                  nvm.pid_to_cid_fid,  
                  nvm.pid_to_xyz,  
-                 nvm.world_to_cam);
+                 nvm.world_to_cam,
+                 nvm.focal_lengths);
     if (!read_nvm_no_shift) {
       std::string offsets_file = rig::offsetsFilename(nvm_file);
       rig::readNvmOffsets(offsets_file, nvm.optical_centers); 

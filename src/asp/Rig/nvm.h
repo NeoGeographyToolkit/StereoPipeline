@@ -52,13 +52,15 @@ struct nvmData {
   std::map<std::string, Eigen::Vector2d> optical_centers;
 };
 
-// Read cameras and interest points from an nvm file  
+// Reads the NVM control network format. This function does not apply
+// the optical offsets. Use instead the function that does.
 void ReadNvm(std::string               const & input_filename,
              std::vector<Eigen::Matrix2Xd>   & cid_to_keypoint_map,
              std::vector<std::string>        & cid_to_filename,
              std::vector<std::map<int, int>> & pid_to_cid_fid,
              std::vector<Eigen::Vector3d>    & pid_to_xyz,
-             std::vector<Eigen::Affine3d>    & world_to_cam);
+             std::vector<Eigen::Affine3d>    & world_to_cam,
+             std::vector<double>             & focal_lengths);
 
 // Write the inliers in nvm format. The keypoints are shifted relative to the optical
 // center, as written by Theia.

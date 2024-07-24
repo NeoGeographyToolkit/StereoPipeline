@@ -146,11 +146,12 @@ int main(int argc, char** argv) {
 
   rig::nvmData in0;
   rig::ReadNvm(argv[1],
-                     in0.cid_to_keypoint_map,  
-                     in0.cid_to_filename,  
-                     in0.pid_to_cid_fid,  
-                     in0.pid_to_xyz,  
-                     in0.world_to_cam);
+               in0.cid_to_keypoint_map,
+               in0.cid_to_filename,
+               in0.pid_to_cid_fid,
+               in0.pid_to_xyz,
+               in0.world_to_cam,
+               in0.focal_lengths);
   if (!FLAGS_no_shift) {
     bool undo_shift = true; // remove the shift relative to the optical center
     std::string offsets_file = rig::offsetsFilename(argv[1]);
@@ -166,11 +167,12 @@ int main(int argc, char** argv) {
     
     rig::nvmData in1;
     rig::ReadNvm(argv[i],
-                       in1.cid_to_keypoint_map,  
-                       in1.cid_to_filename,  
-                       in1.pid_to_cid_fid,  
-                       in1.pid_to_xyz,  
-                       in1.world_to_cam);
+                 in1.cid_to_keypoint_map,
+                 in1.cid_to_filename,
+                 in1.pid_to_cid_fid,
+                 in1.pid_to_xyz,
+                 in1.world_to_cam,
+                 in1.focal_lengths);
     if (!FLAGS_no_shift) {
       bool undo_shift = true; // remove the shift relative to the optical center
       std::string offsets_file = rig::offsetsFilename(argv[i]);

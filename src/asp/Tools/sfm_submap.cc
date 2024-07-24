@@ -94,7 +94,8 @@ int main(int argc, char** argv) {
                nvm.cid_to_filename,
                nvm.pid_to_cid_fid,
                nvm.pid_to_xyz,
-               nvm.world_to_cam);
+               nvm.world_to_cam,
+               nvm.focal_lengths);
  
   std::string offsets_file = rig::offsetsFilename(FLAGS_input_map);
   if (!fs::exists(offsets_file))

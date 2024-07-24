@@ -24,6 +24,9 @@
 #include <Rig/basic_algs.h>
 #include <Rig/system_utils.h>
 
+#include <vw/Core/Log.h>
+#include <vw/Core/Exception.h>
+
 #include <boost/filesystem.hpp>
 #include <glog/logging.h>
 
@@ -34,48 +37,52 @@ namespace fs = boost::filesystem;
 
 namespace rig {
 
-// Reads the NVM control network format. The interest points may or may not
-// be shifted relative to optical center. The user is responsible for knowing that.
+// Reads the NVM control network format. This function does not apply
+// the optical offsets. Use instead the function that does.
 void ReadNvm(std::string               const & input_filename,
              std::vector<Eigen::Matrix2Xd>   & cid_to_keypoint_map,
              std::vector<std::string>        & cid_to_filename,
              std::vector<std::map<int, int>> & pid_to_cid_fid,
              std::vector<Eigen::Vector3d>    & pid_to_xyz,
-             std::vector<Eigen::Affine3d>    & world_to_cam) {
+             std::vector<Eigen::Affine3d>    & world_to_cam,
+             std::vector<double>             & focal_lengths) {
 
-  std::cout << "Reading: " << input_filename << std::endl;
+  vw::vw_out() << "Reading: " << input_filename << "\n";
   std::ifstream f(input_filename, std::ios::in);
   std::string token;
   std::getline(f, token);
   
   // Assert that we start with our NVM token
   if (token.compare(0, 6, "NVM_V3") != 0) {
-    LOG(FATAL) << "File doesn't start with NVM token.";
+    vw::vw_throw(vw::ArgumentErr() << "File doesn't start with NVM token.");
   }
 
   // Read the number of cameras
   ptrdiff_t number_of_cid;
   f >> number_of_cid;
   if (number_of_cid < 1) {
-    LOG(FATAL) << "NVM file is missing cameras.";
+    vw::vw_throw(vw::ArgumentErr() << "NVM file is missing cameras.");
   }
 
   // Resize all our structures to support the number of cameras we now expect
   cid_to_keypoint_map.resize(number_of_cid);
   cid_to_filename.resize(number_of_cid);
   world_to_cam.resize(number_of_cid);
+  focal_lengths.resize(number_of_cid);
   for (ptrdiff_t cid = 0; cid < number_of_cid; cid++) {
     // Clear keypoints from map. We'll read these in shortly
     cid_to_keypoint_map.at(cid).resize(Eigen::NoChange_t(), 2);
 
     // Read the line that contains camera information
+    std::string image_name; 
     double focal, dist1, dist2;
     Eigen::Quaterniond q;
     Eigen::Vector3d c;
-    f >> token >> focal;
+    f >> image_name >> focal;
     f >> q.w() >> q.x() >> q.y() >> q.z();
     f >> c[0] >> c[1] >> c[2] >> dist1 >> dist2;
-    cid_to_filename.at(cid) = token;
+    cid_to_filename.at(cid) = image_name;
+    focal_lengths.at(cid) = focal;
 
     // Solve for t, which is part of the affine transform
     Eigen::Matrix3d r = q.matrix();
@@ -86,9 +93,8 @@ void ReadNvm(std::string               const & input_filename,
   // Read the number of points
   ptrdiff_t number_of_pid;
   f >> number_of_pid;
-  if (number_of_pid < 1) {
-    LOG(FATAL) << "The NVM file has no triangulated points.";
-  }
+  if (number_of_pid < 1)
+    vw::vw_throw(vw::ArgumentErr() << "The NVM file has no triangulated points.");
 
   // Read the point
   pid_to_cid_fid.resize(number_of_pid);
@@ -105,18 +111,18 @@ void ReadNvm(std::string               const & input_filename,
       color[0] >> color[1] >> color[2] >> number_of_measures;
     pid_to_xyz.at(pid) = xyz;
     for (ptrdiff_t m = 0; m < number_of_measures; m++) {
-      f >> cid >> fid >> pt[0] >> pt[1];
 
+      f >> cid >> fid >> pt[0] >> pt[1];
       pid_to_cid_fid.at(pid)[cid] = fid;
 
-      if (cid_to_keypoint_map.at(cid).cols() <= fid) {
+      if (cid_to_keypoint_map.at(cid).cols() <= fid)
         cid_to_keypoint_map.at(cid).conservativeResize(Eigen::NoChange_t(), fid + 1);
-      }
+      
       cid_to_keypoint_map.at(cid).col(fid) = pt;
     }
 
     if (!f.good())
-      LOG(FATAL) << "Unable to correctly read PID: " << pid;
+      vw::vw_throw(vw::ArgumentErr() << "Unable to read file: " << input_filename);
   }
 }
 
