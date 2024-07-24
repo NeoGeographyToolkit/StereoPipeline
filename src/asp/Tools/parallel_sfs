@@ -449,7 +449,7 @@ def main(argsIn):
     python_path = sys.executable # children must use same Python as parent
     # We use below the libexec_path to call python, not the shell script
     parallel_sfs_path = asp_system_utils.libexec_path('parallel_sfs')
-    commandList   = [python_path, parallel_sfs_path,
+    commandList = [python_path, parallel_sfs_path,
                      '--pixelStartX', '{1}',
                      '--pixelStartY', '{2}',
                      '--pixelStopX',  '{3}',
@@ -462,14 +462,15 @@ def main(argsIn):
     if options.resume:
         commandList.append('--resume')
         
-    commandList   = commandList + options.extraArgs # Append other options
-    commandString = asp_string_utils.argListToString(commandList)
+    # Prepend the parallel arguments and append the extra arguments
+    commandList = parallelArgs + commandList + options.extraArgs
 
     # Use GNU parallel call to distribute the work across computers
     # - This call will wait until all processes are finished
-    asp_system_utils.runInGnuParallel(options.numProcesses, commandString,
-                                      argumentFilePath, parallelArgs,
-                                      options.nodesListPath, True)#not options.suppressOutput)
+    verbose = True
+    asp_system_utils.runInGnuParallel(options.numProcesses, 
+                                      argumentFilePath, commandList,
+                                      options.nodesListPath, verbose)
 
     # Mosaic the results
     for it in range(len(perTileFiles)):

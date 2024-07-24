@@ -176,7 +176,8 @@ def check_parallel_version():
     if ver < '20170722':
         die("Expecting a version of GNU parallel >= 20170722.")
 
-def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, parallelArgs=[], nodeListPath=None, verbose=False):
+def runInGnuParallel(numParallelProcesses, argumentFilePath, args, 
+                     nodeListPath=None, verbose=False):
     """Use GNU Parallel to spread task across multiple computers and processes"""
 
     # Make sure GNU parallel is installed
@@ -204,10 +205,7 @@ def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, para
         cmd += ['--sshloginfile', nodeListPath]
 
     # Append any additional arguments to parallel
-    cmd += parallelArgs
-
-    # Append the actual command we want to call to the GNU Parallel call
-    cmd += [commandString]
+    cmd += args
 
     if verbose: # Echo the command line call we are about to make
         print(" ".join(cmd))

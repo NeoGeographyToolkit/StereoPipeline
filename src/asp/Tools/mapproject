@@ -500,17 +500,14 @@ def main(argsIn):
         commandList = commandList + ['--suppress-output']
     commandList = commandList + options.extraArgs # Append other options
 
-    # Append all components of commandList to parallelArgs. Otherwise, if some
-    # arguments have spaces or quotes, and are concatenated intro a string,
-    # the call will fail.
-    parallelArgs += commandList
-    commandString = ""
+    # Prepend the parallel arguments
+    commandList = parallelArgs + commandList
 
     # Use GNU parallel call to distribute the work across computers
     # - This call will wait until all processes are finished
     verbose = True
-    asp_system_utils.runInGnuParallel(options.numProcesses, commandString,
-                                      argumentFilePath, parallelArgs,
+    asp_system_utils.runInGnuParallel(options.numProcesses, 
+                                      argumentFilePath, commandList, 
                                       options.nodesListPath, verbose)
 
     # Find the tiles that were generated
