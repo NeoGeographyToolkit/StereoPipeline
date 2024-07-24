@@ -365,21 +365,21 @@ Eigen::Affine3d computeTransformFromBToA(const rig::nvmData& A,
   std::vector<Eigen::MatrixXd> B2A_vec;
   
   // Put the B poses in a map
-  std::map<std::string, Eigen::Affine3d> B_world_to_cam;
+  std::map<std::string, Eigen::Affine3d> B_world2cam;
   for (size_t cid = 0; cid < B.cid_to_cam_t_global.size(); cid++)
-    B_world_to_cam[B.cid_to_filename[cid]] = B.cid_to_cam_t_global[cid];
+    B_world2cam[B.cid_to_filename[cid]] = B.cid_to_cam_t_global[cid];
   
   // Find the transform from B to A based on shared poses
   for (size_t cid = 0; cid < A.cid_to_filename.size(); cid++) {
-    auto b_it = B_world_to_cam.find(A.cid_to_filename[cid]);
-    if (b_it == B_world_to_cam.end()) 
+    auto b_it = B_world2cam.find(A.cid_to_filename[cid]);
+    if (b_it == B_world2cam.end()) 
       continue;
     
-    auto const& A_world_to_cam = A.cid_to_cam_t_global[cid];
-    auto const& B_world_to_cam = b_it->second;
+    auto const& A_world2cam = A.cid_to_cam_t_global[cid];
+    auto const& B_world2cam = b_it->second;
     
     // Go from world of B to world of A
-    B2A_vec.push_back( ((A_world_to_cam.inverse()) * B_world_to_cam).matrix() );
+    B2A_vec.push_back( ((A_world2cam.inverse()) * B_world2cam).matrix() );
   }
 
   // Find the median transform, for robustness
@@ -729,16 +729,16 @@ void MergeMaps(rig::nvmData const& A,
   std::cout << "Translation: " << B2A_trans.translation().transpose() << "\n";
   
   // Bring the B map cameras in the A map coordinate system. Do not modify
-  // B.cid_to_cam_t_global, but make a copy of it in B_trans_world_to_cam.
-  std::vector<Eigen::Affine3d> B_trans_world_to_cam = B.cid_to_cam_t_global;
-  rig::TransformCameras(B2A_trans, B_trans_world_to_cam);
+  // B.cid_to_cam_t_global, but make a copy of it in B_trans_world2cam.
+  std::vector<Eigen::Affine3d> B_trans_world2cam = B.cid_to_cam_t_global;
+  rig::TransformCameras(B2A_trans, B_trans_world2cam);
 
   // Append all to the C map. Note how we use the transformed B.
   C.cid_to_cam_t_global.clear();
   C.cid_to_cam_t_global.insert(C.cid_to_cam_t_global.end(),
                            A.cid_to_cam_t_global.begin(), A.cid_to_cam_t_global.end());
   C.cid_to_cam_t_global.insert(C.cid_to_cam_t_global.end(),
-                               B_trans_world_to_cam.begin(), B_trans_world_to_cam.end());
+                               B_trans_world2cam.begin(), B_trans_world2cam.end());
 
   //  Find how to map cid to new cid which will not have
   //  repetition. Also sort by image name.

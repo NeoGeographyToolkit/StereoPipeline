@@ -625,8 +625,8 @@ void calcExtraPoses(std::string const& extra_list, bool use_initial_rig_transfor
     existing_images.insert(image_file); 
     int cam_type = cam_types[image_it];
     double timestamp = timestamps[image_it];
-    Eigen::Affine3d world_to_cam = cid_to_cam_t_global[image_it];
-    existing_world_to_cam[cam_type][timestamp] = world_to_cam;
+    Eigen::Affine3d world2cam = cid_to_cam_t_global[image_it];
+    existing_world_to_cam[cam_type][timestamp] = world2cam;
 
     if (use_initial_rig_transforms) {
       // Use the rig constraint to find the poses for the other sensors on the rig
@@ -635,7 +635,7 @@ void calcExtraPoses(std::string const& extra_list, bool use_initial_rig_transfor
 
       // Careful here with transform directions and order
       Eigen::Affine3d cam_to_ref = R.ref_to_cam_trans[cam_type].inverse();
-      Eigen::Affine3d world_to_ref = cam_to_ref * world_to_cam;
+      Eigen::Affine3d world_to_ref = cam_to_ref * world2cam;
 
       // Now do all the sensors on that rig. Note how we do the reverse of the above
       // timestamp and camera operations, but not just for the given cam_type,
@@ -707,7 +707,7 @@ void calcExtraPoses(std::string const& extra_list, bool use_initial_rig_transfor
     std::map<double, std::string> & target_map = sensor_it->second; // alias
     
     // Look up existing poses to be used for interpolation/extrapolation
-    std::map<double, Eigen::Affine3d> & input_map = existing_world_to_cam[cam_type]; // alias
+    auto & input_map = existing_world_to_cam[cam_type]; // alias
     if (input_map.empty()) {
       std::string msg = std::string("Cannot find camera poses for sensor: ")
         + R.cam_names[cam_type] + " as the data is insufficient.\n";
@@ -777,8 +777,8 @@ void readCameraPoses(// Inputs
     if (count != 12)
       LOG(FATAL) << "Expecting 12 values for the transform on line:\n" << line << "\n";
     
-    Eigen::Affine3d world_to_cam = vecToAffine(vals);
-    nvm.cid_to_cam_t_global.push_back(world_to_cam);
+    Eigen::Affine3d world2cam = vecToAffine(vals);
+    nvm.cid_to_cam_t_global.push_back(world2cam);
     nvm.cid_to_filename.push_back(image_file);
   }
 }
@@ -853,8 +853,8 @@ void readListOrNvm(// Inputs
   for (size_t it = 0; it < nvm.cid_to_filename.size(); it++) {
     // Aliases
     auto const& image_file = nvm.cid_to_filename[it];
-    auto const& world_to_cam = nvm.cid_to_cam_t_global[it];
-    readImageEntry(image_file, world_to_cam, R.cam_names,  
+    auto const& world2cam = nvm.cid_to_cam_t_global[it];
+    readImageEntry(image_file, world2cam, R.cam_names,  
                    cam_types[it], timestamps[it],
                    // Outputs
                    image_maps, depth_maps);

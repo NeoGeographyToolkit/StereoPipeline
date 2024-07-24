@@ -151,7 +151,8 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
      ("sensor-name", po::value(&opt.sensor_name)->default_value("all"),
        "Name of the sensor in the rig to simulate. If not set, will simulate all sensors. "
        "If more than one, list them separated by commas (no spaces).")
-     ("model-time", po::bool_switch(&opt.model_time)->default_value(false)->implicit_value(true),
+     ("model-time", 
+      po::bool_switch(&opt.model_time)->default_value(false)->implicit_value(true),
        "Model time at each camera position. See also --start-time.")
      ("reference-time", po::value(&opt.ref_time)->default_value(10000),
        "The measured time, in seconds,  when the satellite is along given orbit, in nadir "
