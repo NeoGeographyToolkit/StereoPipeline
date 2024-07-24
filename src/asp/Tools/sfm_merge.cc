@@ -18,7 +18,6 @@
 #include <Rig/thread.h>
 #include <Rig/sparse_mapping.h>
 #include <Rig/interest_point.h>
-#include <Rig/reprojection.h>
 #include <Rig/nvm.h>
 #include <Rig/rig_config.h>
 #include <Rig/merge_maps.h>

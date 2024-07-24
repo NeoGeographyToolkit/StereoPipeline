@@ -16,6 +16,9 @@
  * under the License.
  */
 
+// TODO(oalexan1): Many of these functions are not used and should be removed.
+// Then move the remaining ones to a more appropriate files.
+
 #include <Rig/sparse_mapping.h>
 #include <Rig/RigCameraModel.h>
 
