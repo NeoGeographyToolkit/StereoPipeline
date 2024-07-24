@@ -220,7 +220,7 @@ void saveNvm(asp::BaBaseOptions                const& opt,
     
   // Write the nvm
   std::string nvm_file = opt.out_prefix + ".nvm"; 
-  nvmData nvm;
+  rig::nvmData nvm;
   asp::cnetToNvm(cnet, optical_offsets, world_to_cam, nvm, tri_vec, outliers);
   asp::writeNvm(nvm, nvm_file);
 }

@@ -23,6 +23,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <Rig/nvm.h>
 
 #include <map>
 #include <vector>
@@ -36,19 +37,6 @@ namespace vw {
 
 namespace asp {
 
-struct nvmData {
-  std::vector<Eigen::Matrix2Xd>    cid_to_keypoint_map;
-  std::vector<std::string>         cid_to_filename;
-  std::vector<std::map<int, int>>  pid_to_cid_fid;
-  std::vector<Eigen::Vector3d>     pid_to_xyz;
-  std::vector<Eigen::Affine3d>     world_to_cam;
-  std::vector<double>              focal_lengths;
-  // Optical center per image, kept in a separate file, maybe in different order.
-  // Interest points in the nvm file are shifted relative to this.
-  // Set these to 0 if there is no shift relative to the optical center.
-  std::map<std::string, Eigen::Vector2d> optical_centers;
-};
-
 // A function to read nvm offsets. On each line there must be the image name,
 // then the optical center column, then row. Read into an std::map, with the
 // key being the image name, and the value being vector2 of the optical center.
@@ -56,11 +44,11 @@ void readNvmOffsets(std::string const& offset_path,
                     std::map<std::string, Eigen::Vector2d> & offsets);
 
 // Read an NVM file. Any offset is applied upon reading.
-void readNvm(std::string const& input_filename, bool nvm_no_shift, nvmData & nvm);
+void readNvm(std::string const& input_filename, bool nvm_no_shift, rig::nvmData & nvm);
 
 // Write an NVM file. Subtract from the interest points the given offset.
 // The offsets are saved in a separate file.
-void writeNvm(nvmData const& nvm, std::string const& output_filename);
+void writeNvm(rig::nvmData const& nvm, std::string const& output_filename);
 
 // Read an NVM file into the VisionWorkbench control network format. The flag
 // nvm_no_shift, if true, means that the interest points are not shifted
@@ -80,13 +68,13 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
                std::map<std::string, Eigen::Vector2d> const& offsets,
                std::vector<Eigen::Affine3d>           const& world_to_cam,
                // Output
-               nvmData & nvm,
+               rig::nvmData & nvm,
                // Optional updated triangulated points and outlier flags
                std::vector<Eigen::Vector3d> const& tri_vec = std::vector<Eigen::Vector3d>(),
                std::set<int> const& outliers = std::set<int>());
   
 // Convert nvm to cnet
-void nvmToCnet(nvmData const& nvm, 
+void nvmToCnet(rig::nvmData const& nvm, 
                // Outputs
                vw::ba::ControlNetwork                 & cnet,
                std::map<std::string, Eigen::Vector2d> & offsets,

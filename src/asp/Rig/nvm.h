@@ -47,6 +47,7 @@ struct nvmData {
   std::vector<std::map<int, int>>  pid_to_cid_fid;
   std::vector<Eigen::Vector3d>     pid_to_xyz;
   std::vector<Eigen::Affine3d>     world_to_cam;
+  std::vector<double>              focal_lengths;
   // Interest points in the nvm file are shifted relative to optical centers
   std::map<std::string, Eigen::Vector2d> optical_centers;
 };

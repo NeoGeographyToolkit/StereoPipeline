@@ -775,7 +775,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     syncUpInitialSharedParams(opt.camera_type, param_storage, opt.camera_models);
  
   // Fill in the camera and intrinsic parameters.
-  std::vector<boost::shared_ptr<camera::CameraModel>> new_cam_models;
+  std::vector<vw::CamPtr> new_cam_models;
   bool ans = false;
   switch (opt.camera_type) {
     case BaCameraType_Pinhole:

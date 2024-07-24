@@ -169,7 +169,7 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
 
   // Read the nvm and create the cnet
   bool nvm_no_shift = false; // have an offsets file
-  asp::nvmData nvm;
+  rig::nvmData nvm;
   asp::readNvm(opt.input_nvm, nvm_no_shift, nvm);
   vw::ba::ControlNetwork cnet("raw");
   std::vector<Eigen::Affine3d> world_to_cam;
