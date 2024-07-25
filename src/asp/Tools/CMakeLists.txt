@@ -164,7 +164,7 @@ target_link_libraries(stereo_fltr AspSessions AspGotcha)
 install(TARGETS stereo_fltr DESTINATION bin)
 
 add_executable(stereo_gui stereo_gui.cc stereo.h stereo.cc)
-target_link_libraries(stereo_gui AspGUI AspSessions)
+target_link_libraries(stereo_gui AspGUI AspSessions AspRig)
 install(TARGETS stereo_gui DESTINATION bin)
 
 add_executable(stereo_parse stereo_parse.cc stereo.h stereo.cc) 
@@ -244,7 +244,7 @@ target_link_libraries(corr_eval AspCore AspSessions)
 install(TARGETS corr_eval DESTINATION bin)
 
 add_executable(disp2ip disp2ip.cc)
-target_link_libraries(disp2ip AspCore AspSessions)
+target_link_libraries(disp2ip AspCore AspSessions AspRig)
 install(TARGETS disp2ip DESTINATION bin)
 
 add_executable(pc_filter pc_filter.cc)

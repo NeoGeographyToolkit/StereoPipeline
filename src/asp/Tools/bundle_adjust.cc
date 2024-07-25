@@ -669,7 +669,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     } else if (opt.nvm != "") {
       // Assume the features are stored shifted relative to optical center
       bool nvm_no_shift = false;
-      asp::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift, 
+      rig::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift, 
                          cnet, world_to_cam, optical_offsets);// outputs
       // For pinhole and csm frame cameras also read the poses from nvm unless told not to
       if (!opt.no_poses_from_nvm)
