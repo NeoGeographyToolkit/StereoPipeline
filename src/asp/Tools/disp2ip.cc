@@ -24,7 +24,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
-#include <asp/Core/Nvm.h>
+#include <asp/Rig/nvm.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/DisparityProcessing.h>
 #include <boost/program_options.hpp>

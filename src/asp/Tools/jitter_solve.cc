@@ -43,7 +43,7 @@
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/IsisIO/IsisInterface.h>
-#include <asp/Core/Nvm.h>
+#include <asp/Rig/nvm.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>

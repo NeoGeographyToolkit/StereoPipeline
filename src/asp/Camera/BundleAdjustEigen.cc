@@ -20,7 +20,7 @@
 
 #include <asp/Camera/BundleAdjustEigen.h>
 #include <asp/Core/EigenTransformUtils.h>
-#include <asp/Core/Nvm.h>
+#include <asp/Rig/nvm.h>
 
 #include <vw/Camera/PinholeModel.h>
 namespace asp {
