@@ -335,9 +335,10 @@ It is very important to inspect the ``final_residuals_stats.txt`` report file to
 ensure each image has had enough features and has small enough reprojection
 errors (:numref:`ba_out_files`).
 
-Stereo is run next. The ``local_epipolar`` alignment
-(:numref:`running-stereo`) here did a flawless job, unlike
-``affineepipolar`` alignment which resulted in some blunders.
+Stereo is run next. The ``local_epipolar`` alignment (:numref:`running-stereo`)
+here did a flawless job, unlike ``affineepipolar`` alignment which resulted in
+some blunders. 
+
 ::
 
     parallel_stereo                              \
@@ -676,8 +677,8 @@ obscure the jitter signal which we will solve for.
 The option ``--max-disp-spread 100`` was used because the images
 had many clouds (:numref:`handling_clouds`).
 
-A large number of dense matches from stereo disparity will be created, to
-be used later to solve for jitter.
+A large number of dense interest point matches from stereo disparity will be
+created, to be used later to solve for jitter.
 
 ::
 
@@ -739,6 +740,10 @@ Copy the produced dense interest point matches for use in solving for jitter::
     mkdir -p dense
     cp run_1_2_map/run-disp-1.map__2.map.match \
       dense/run-1__2.match
+
+In ASP 3.4.0 or later, that file to be copied is named instead
+``run_1_2_map/run-disp-1__2.match``, or so, reflecting the names of the raw
+images.
 
 See :numref:`jitter_ip` for a longer explanation regarding dense interest point
 matches.
@@ -927,7 +932,8 @@ Since the two mapprojected images agree very well with the hillshaded
 reference DEM when overlaid in ``stereo_gui`` (:numref:`stereo_gui`), 
 no bundle adjustment was used. 
 
-Stereo was run::
+Stereo was run, and we create dense interest point matches from disparity,
+that will be needed later::
 
     outPrefix=stereo_map_12/run
     parallel_stereo                      \
@@ -991,7 +997,11 @@ Copy the dense interest point matches found in stereo, using the convention
     /bin/cp -fv stereo_map_12/run-disp-1.map__2.map.match \
       matches/run-1__2.match
 
-See :numref:`jitter_ip` for a longer explanation regarding interest point
+In ASP 3.4.0 or later, that file to be copied is named instead
+``run_1_2_map/run-disp-1__2.match``, or so, reflecting the names of the raw
+images.
+
+See :numref:`jitter_ip` for a longer explanation regarding dense interest point
 matches.
 
 Solve for jitter with the intrinsic ``--tri-weight`` ground constraint
@@ -1212,6 +1222,10 @@ for unprojected (original) images::
     mkdir -p jitter
     cp stereo_bm/run-disp-out-Band3N.map__out-Band3B.map.match \
       jitter/run-out-Band3N__out-Band3B.match
+
+In ASP 3.4.0 or later, that file to be copied is named instead
+``run_1_2_map/run-disp-Band3N__out-Band3B.match``, or so, reflecting the names
+of the raw images.
 
 The *naming convention for the match files* is::
 
