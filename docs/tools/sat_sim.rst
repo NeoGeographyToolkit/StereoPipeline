@@ -472,7 +472,8 @@ configuration will be saved to disk as::
 Such a rig configuration can be passed in to ``jitter_solve``
 (:numref:`jitter_solve`) and ``rig_calibrator`` (:numref:`rig_calibrator`). If
 this rig passed back in to ``sat_sim``, use as above the option
-``--rig-sensor-ground-offsets`` if desired to adjust both sensors. 
+``--rig-sensor-ground-offsets``, as the offsets for each sensor are lost when
+the rig is saved as above.
 
 Lens distortion is not supported. If desired to produce cameras and images only
 for a subset of the rig sensors, use the ``--sensor-name`` option. Consider
