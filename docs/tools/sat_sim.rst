@@ -463,6 +463,17 @@ by 2000 m on the ground, use::
 
   --rig-sensor-ground-offsets "-0.01 0 -1000 0 0.01 0 1000 0"
 
+After the images and cameras are saved, the rig that created the data will be
+adjusted to make each sensor transform relative to the first sensor. The rig
+configuration will be saved to disk as::
+
+  <out prefix>-rig_config.txt
+
+Such a rig configuration can be passed in to ``jitter_solve``
+(:numref:`jitter_solve`) and ``rig_calibrator`` (:numref:`rig_calibrator`). If
+this rig passed back in to ``sat_sim``, use as above the option
+``--rig-sensor-ground-offsets`` if desired to adjust both sensors. 
+
 Lens distortion is not supported. If desired to produce cameras and images only
 for a subset of the rig sensors, use the ``--sensor-name`` option. Consider
 using the option ``--save-as-csm``.

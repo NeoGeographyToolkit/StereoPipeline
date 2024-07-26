@@ -1585,5 +1585,24 @@ void genRigCamerasImages(SatSimOptions          & opt,
     
   }              
 }
+
+// Modify the rig that was used to produce the images to make the sensor transforms
+// relative to the first sensor.or. 
+void writeRelRig(std::string const& out_prefix, rig::RigSet const& rig) {
+  
+  rig::RigSet ref_rig = rig;
+  for (size_t i = 0; i < rig.ref_to_cam_trans.size(); i++)
+    ref_rig.ref_to_cam_trans[i] 
+        = rig.ref_to_cam_trans[i] * rig.ref_to_cam_trans[0].inverse();
+  
+  // Ensure the first transform is identity. Now it may not be precisely it
+  // because of numerical errors.
+  ref_rig.ref_to_cam_trans[0] = Eigen::Affine3d::Identity();
+  
+  std::string ref_rig_config = out_prefix + "-rig_config.txt";
+  bool have_rig = true;
+  rig::writeRigConfig(ref_rig_config, have_rig, ref_rig);
+  
+}
             
 } // end namespace asp

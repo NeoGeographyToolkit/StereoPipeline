@@ -123,6 +123,10 @@ void genRigCamerasImages(SatSimOptions          & opt,
 void applyRigTransform(Eigen::Affine3d const & ref_to_sensor,
                        vw::Vector3 & ctr, vw::Matrix3x3 & cam2world);
 
+// Write the rig used by this program and the rig in which each sensor
+// is relative to the first sensor. 
+void writeRelRig(std::string const& out_prefix, rig::RigSet const& rig);
+
 // A little function to avoid repetitive code in many places.
 // Get the value of a map key if known to exist.
 template<class A, class B>

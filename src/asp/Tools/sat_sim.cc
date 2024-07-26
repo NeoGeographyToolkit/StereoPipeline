@@ -137,8 +137,9 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
       "Save Pinhole (frame) cameras in the CSM format, as done for linescan cameras. "
       "Can be used to combine these sensors in bundle adjustment and solving for jitter.")
      ("rig-config", po::value(&opt.rig_config)->default_value(""),
-      "Simulate a rig with this configuration file. Then do not set the image size, focal "
-      "length, optical center on the command line. See also --sensor-name.")
+     "Simulate a frame camera rig with this configuration file. Then do not set the image "
+     "size, focal length, optical center on the command line, as those are set by the rig. "
+     "The transforms on this rig may be adjusted via --rig-sensor-ground-offsets.")
      ("rig-sensor-ground-offsets", 
       po::value(&opt.rig_sensor_ground_offsets)->default_value(""),
       "Modify the input rig so that each sensor has the given horizontal offsets from "
@@ -486,7 +487,11 @@ int main(int argc, char *argv[]) {
       asp::genRigCamerasImages(opt, rig, dem_georef, dem, height_guess, 
                                ortho_georef, ortho, ortho_nodata_val);
     }
-      
+     
+     
+    if (!opt.rig_config.empty())
+      asp::writeRelRig(opt.out_prefix, rig);
+
   } ASP_STANDARD_CATCHES;
 
   return 0;
