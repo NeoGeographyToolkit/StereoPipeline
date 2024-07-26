@@ -471,7 +471,7 @@ configuration will be saved to disk as::
 
 Such a rig configuration can be passed in to ``jitter_solve``
 (:numref:`jitter_solve`) and ``rig_calibrator`` (:numref:`rig_calibrator`). If
-this rig passed back in to ``sat_sim``, use as above the option
+this rig is passed back in to ``sat_sim``, use as above the option
 ``--rig-sensor-ground-offsets``, as the offsets for each sensor are lost when
 the rig is saved as above.
 
