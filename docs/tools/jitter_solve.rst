@@ -791,10 +791,12 @@ description of these output files and how they were plotted.
 Redoing mapprojection and stereo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-(See also section :numref:`jitter_reuse_run` for a more efficient approach in
-ASP 3.3.0 or later.)
+The jitter solver produces optimized CSM cameras (:numref:`csm`), for all types
+of input cameras. 
 
-Mapproject the optimized CSM cameras::
+One can reuse the previously created mapprojected images with the new
+cameras (:numref:`jitter_reuse_run`). Alternatively, here is how to or recreate
+the mapprojected images:: 
 
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
     for i in 1 2; do 
@@ -832,10 +834,9 @@ Run stereo::
 Reusing a previous run
 ^^^^^^^^^^^^^^^^^^^^^^
 
-In ASP 3.3.0 or later, the mapprojection need not be redone,
-and stereo can resume at the triangulation stage
-(:numref:`mapproj_reuse`). This saves a lot of computing. The commands in the
-previous section can be replaced with::
+In ASP 3.3.0 or later, the mapprojection need not be redone, and stereo can
+resume at the triangulation stage (:numref:`mapproj_reuse`). This saves a lot of
+computing. The commands in the previous section can be replaced with::
 
     parallel_stereo                                        \
       --max-disp-spread 100                                \
@@ -858,8 +859,8 @@ previous section can be replaced with::
       stereo_jitter/run-PC.tif
 
 Note how we used the old mapprojected images ``1.map.tif`` and ``2.map.tif``,
-the option ``--prev-run-prefix`` pointing to the old run, while
-the triangulation is done with the new jitter-corrected cameras. 
+the option ``--prev-run-prefix`` pointing to the old run, while the
+triangulation is done with the new jitter-corrected CSM cameras. 
 
 Validation
 ^^^^^^^^^^
