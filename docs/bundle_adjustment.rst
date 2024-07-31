@@ -1101,6 +1101,9 @@ Note that if the images are big, this will result in a very large number of
 potential matches, because a tile has the size of 1024 pixels. (See
 :numref:`ba_options` for the reference documentation for these options.)
 
+To produce sparse interest point matches that are accurate to *subpixel level*,
+use ``--ip-detect-method 1``.
+
 .. _dense_ip:
 
 Dense and uniformly distributed interest points
@@ -1109,8 +1112,9 @@ Dense and uniformly distributed interest points
 Dense and uniformly distributed interest points can be created during stereo. If
 having many images, that will mean many combinations of stereo pairs. 
 
-The resulting interest points will be between the *original, unprojected
-and unaligned images*, and can be used in bundle adjustment.
+The resulting interest points will be between the *original, unprojected and
+unaligned images*. This is true even when stereo itself is done with
+*mapprojected images*.
 
 For each stereo invocation, add options along the lines of::
 

@@ -43,9 +43,9 @@ ip-per-image <integer (default: unspecified)>
 ip-detect-method <integer (default: 0)>
     What type of interest point detection algorithm to use for image alignment.
     0 = Custom OBAloG (:cite:`jakkula2010efficient`) implementation (default), 1
-    = SIFT implementation from OpenCV, 2 = ORB implementation from OpenCV. If
-    the default method does not perform well, try out one of the other two
-    methods.
+    = SIFT implementation from OpenCV, 2 = ORB implementation from OpenCV. The 
+    SIFT method, unlike OBALoG, produces interest points that are accurate
+    to subpixel level.
 
 epipolar-threshold <double (default: unspecified)>
     Maximum distance in pixels from the epipolar line to search for

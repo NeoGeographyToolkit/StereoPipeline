@@ -1072,7 +1072,9 @@ Command-line options
 
 --ip-detect-method <integer (default: 0)>
     Choose an interest point detection method from: 0 = OBAloG
-    (:cite:`jakkula2010efficient`), 1 = SIFT (from OpenCV), 2 = ORB (from OpenCV).
+    (:cite:`jakkula2010efficient`), 1 = SIFT (from OpenCV), 2 = ORB (from
+    OpenCV). The SIFT method, unlike OBALoG, produces interest points that are
+    accurate to subpixel level. See also :numref:`custom_ip`.
 
 --matches-per-tile <int (default: unspecified)>
     How many interest point matches to compute in each image tile (of size

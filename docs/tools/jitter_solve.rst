@@ -147,14 +147,15 @@ Interest point matches
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Since solving for jitter is a fine-grained operation, modifying many positions
-and orientations along the satellite track, many dense and uniformly distributed
-interest points are necessary. It is suggested to create these with *pairwise
-stereo*, with the option ``--num-matches-from-disparity`` (:numref:`dense_ip`).
-An example is shown in :numref:`jitter_ctx`.
+and orientations along the satellite track. Hence, many dense and
+well-distributed interest points are necessary. It is suggested to create these
+with *pairwise stereo*, with the option ``--num-matches-from-disparity``
+(:numref:`dense_ip`). An example is shown in :numref:`jitter_ctx`. *An alternative*
+to pairwise stereo is discussed below.
 
 The most accurate interest points are obtained when the images are mapprojected.
 This is illustrated in :numref:`jitter_dg`. The produced interest point
-matches will be, however, between the original, unprojected images, as expected
+matches will be, however, between the *original, unprojected images*, as expected
 by the solver. 
 
 All interest point matches from disparity must be copied to a single directory
@@ -163,14 +164,22 @@ The jitter solver is passed the prefix of these files with the option
 ``--match-files-prefix``.
 
 If having more than two images, one can do pairwise stereo to get dense matches.
-For a large number of images this is prohibitive, so a representative subset may
-do.
+For a large number of images this is prohibitive.
+
+*Sparse* interest point matches can work as well if sufficiently
+well-distributed and accurate. Then stereo is not necessary. Use
+``parallel_bundle_adjust`` with the options ``--ip-detect-method 1`` to create
+subpixel-level accurate matches, and with ``--ip-per-tile 500 --matches-per-tile
+500`` to ensure there are plenty of them. The option ``--mapprojected-data``
+(:numref:`mapip`) is suggested as well.
 
 It is suggested to call ``jitter_solve`` with a large value of
 ``--max-pairwise-matches``, such as 40000.
 
-Examine the produced ``pointmap.csv`` files to see the residuals for the
-interest points (:numref:`jitter_out_files`).
+Examine the interest point matches in ``stereo_gui``
+(:numref:`stereo_gui_view_ip`). Also examine the produced ``pointmap.csv`` files
+to see the distribution and residuals of interest points
+(:numref:`jitter_err_per_point`).
 
 This program can read interest point matches in the ISIS control network format,
 using the option ``--isis-cnet``, and from an NVM file, with the option
@@ -419,8 +428,9 @@ It was found that using about 1000 lines per pose (position and
 orientation) sample gave good results, and if using too few lines, the
 poses become noisy. 
 
-*Dense interest point matches* appear necessary for a good result, though perhaps
-the number produced during stereo could be lowered. See :numref:`jitter_ip`.
+Either dense and *uniformly distributed* interest point matches or sufficiently
+dense *subpixel-level accurate sparse matches* are necessary to solve for jitter
+(:numref:`jitter_ip`).
 
 Here *anchor points* were not used. They can be necessary to stabilize the
 solution (:numref:`jitter_anchor_points`).
@@ -545,14 +555,15 @@ The resulting stereo DEMs can be mosaicked with ``dem_mosaic``
 (:numref:`dem_mosaic`). Alignment to MOLA can be done as before, and the 
 alignment transform must be applied to the cameras (:numref:`ba_pc_align`).
 
-Then, jitter was solved for, as earlier, but for the entire set at once. The
-dense pairwise matches were used. They were copied from individual stereo
-directories to a single directory. It is important to use the proper naming
-convention (:numref:`ba_match_files`).
+Then, jitter was solved for, as earlier, but for the entire set at once. Dense
+pairwise matches were used (:numref:`dense_ip`). They were copied from
+individual stereo directories to a single directory. It is important to use the
+proper naming convention (:numref:`ba_match_files`).
 
-One could augment the dense matches with all *clean* sparse matches from bundle
-adjustment, if renamed to the proper convention. This can be helpful to ensure
-all images are tied together.
+One could augment or substitute the dense matches with *subpixel-level accurate*
+sparse matches from bundle adjustment if renamed to the proper convention
+(:numref:`jitter_ip`). This can be helpful to ensure all images are tied
+together.
 
 The DEM used as a constraint can be either the existing gridded MOLA product, or
 it can be created from MOLA with ``point2dem`` (:numref:`jitter_solve_ctx_dem`).
@@ -621,6 +632,7 @@ the cameras::
 
     bundle_adjust                               \
       -t dg                                     \
+      --ip-detect-method 1                      \
       --ip-per-image 10000                      \
       --tri-weight 0.1                          \
       --tri-robust-threshold 0.1                \
@@ -677,8 +689,8 @@ obscure the jitter signal which we will solve for.
 The option ``--max-disp-spread 100`` was used because the images
 had many clouds (:numref:`handling_clouds`).
 
-A large number of dense interest point matches from stereo disparity will be
-created, to be used later to solve for jitter.
+A large number of *dense interest point matches* from stereo disparity will be
+created (:numref:`jitter_ip`), to be used later to solve for jitter.
 
 ::
 
@@ -743,10 +755,11 @@ Copy the produced dense interest point matches for use in solving for jitter::
 
 In ASP 3.4.0 or later, that file to be copied is named instead
 ``run_1_2_map/run-disp-1__2.match``, or so, reflecting the names of the raw
-images.
+images, as these the matches are between the *original images*, even if produced
+from mapprojected images. 
 
-See :numref:`jitter_ip` for a longer explanation regarding dense interest point
-matches.
+See :numref:`jitter_ip` for a longer explanation regarding dense and sparse
+interest point matches.
 
 Solve for jitter::
 
@@ -794,9 +807,9 @@ Redoing mapprojection and stereo
 The jitter solver produces optimized CSM cameras (:numref:`csm`), for all types
 of input cameras. 
 
-One can reuse the previously created mapprojected images with the new
-cameras (:numref:`jitter_reuse_run`). Alternatively, here is how to or recreate
-the mapprojected images:: 
+One can reuse the previously created mapprojected images with the new cameras
+(:numref:`jitter_reuse_run`). Alternatively, here is how to recreate the
+mapprojected images:: 
 
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
     for i in 1 2; do 
@@ -1217,7 +1230,7 @@ improves this difference.
 Solving for jitter
 ^^^^^^^^^^^^^^^^^^
 
-Copy the dense match file to follow the naming convention
+Copy the dense match file (:numref:`dense_ip`) to follow the naming convention
 for unprojected (original) images::
 
     mkdir -p jitter
@@ -1232,7 +1245,8 @@ The *naming convention for the match files* is::
 
   <prefix>-<image1>__<image2>.match
   
-where the image names are without the directory name and extension.
+where the image names are without the directory name and extension. See
+:numref:`jitter_ip` for more information on interest point matches.
 
 Here it is important to use a lot of match points and a low 
 value for ``--num-lines-per-orientation`` and same for position,
@@ -1348,7 +1362,8 @@ That is accomplished by invoking the jitter solver as in
 :numref:`jitter_options`.
 
 This option is very experimental and its effectiveness was only partially
-validated. 
+validated. If having a rig, it is suggested to employ instead the strategy in
+:numref:`jitter_rig`.
 
 This option can be used with synthetic cameras as well. The results then will be
 somewhat different than without this option, especially towards orbit end
@@ -1474,6 +1489,7 @@ Run bundle adjustment to get interest point matches::
         --processes 10                               \
         --nodes-list nodes_list.txt                  \
         --num-iterations 10                          \
+        --ip-detect-method 1                         \
         --tri-weight 0.1                             \
         --camera-weight 0                            \
         --auto-overlap-params "dem.tif 15"           \
@@ -1481,15 +1497,21 @@ Run bundle adjustment to get interest point matches::
         --remove-outliers-params '75.0 3.0 10 10'    \
         --min-triangulation-angle 5.0                \
         --ip-per-tile 500                            \
+        --matches-per-tile 500                       \
         --max-pairwise-matches 6000                  \
         --image-list $dir/images.txt                 \
         --camera-list $dir/cameras.txt               \
         --mapprojected-data-list $dir/map_images.txt \
         -o ba/run
 
-Here we assumed a minimum triangulation convergence angle of 15 degrees between
+Here we assumed a minimum triangulation convergence angle of 5 degrees between
 the two sets of cameras (:numref:`stereo_pairs`). See :numref:`pbs_slurm` for
 how to set up the computing nodes needed for ``--nodes-list``.
+
+We use ``--ip-detect-method 1`` to detect interest points. This invokes the SIFT
+feature detection method, which is more accurate than the default
+``--ip-detect-method 0``. See :numref:`jitter_ip` for more information on
+interest point matches.
 
 We could have used a ground constraint above, but since we only need the
 interest points and not the camera poses, it is not necessary. The default
@@ -1522,7 +1544,7 @@ ensure movement only for the pitch angle::
 
 The value of ``--heights-from-dem-uncertainty`` should be chosen with care.
 
-Here we used ``--max-pairwise-matches 3000`` as the linescan camera has many
+We used ``--max-pairwise-matches 3000`` as the linescan camera has many
 matches with each frame camera image, and there are many such frame camera
 images. A much larger number would be used if we had only a couple of linescan
 camera images and no frame camera images.
@@ -1584,12 +1606,13 @@ Assumptions
  - When a rig has both linescan and frame sensors, the reference sensor must be
    linescan. That because the linescan sensor acquires image data more frequently.
      
- - The *reference sensor* must acquire data frequently enough that pose
+ - The *reference sensor* must acquire data *frequently enough* that pose
    interpolation in time is accurate. For a frame reference sensor, that may
    mean that all frame sensors acquire data simultaneously, or the reference
-   sensor acquires data quickly. For a linescan reference sensor, the parameters
-   ``--num-lines-per-position`` and ``--num-lines-per-orientation`` need to be
-   smaller than 1/2 of the jitter period.
+   sensor captures data at a finer rate than any observed jitter. For a linescan
+   reference sensor, the parameters ``--num-lines-per-position`` and
+   ``--num-lines-per-orientation`` need to be smaller than 1/2 of the jitter
+   period.
    
  - The acquisition times of all sensors on a rig during a contiguous observation
    stretch must be within the time range of the reference sensor, to avoid 

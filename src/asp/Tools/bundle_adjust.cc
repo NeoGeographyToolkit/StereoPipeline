@@ -698,6 +698,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   }
 
   if (!opt.gcp_files.empty()) {
+    vw::vw_out() << "Found " << opt.gcp_files.size() << " ground control point files.\n";
     num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
     checkGcpRadius(opt.datum, cnet);
     vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
@@ -1503,8 +1504,6 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   // Separate out GCP files
   bool rm_from_input_list = true;
   opt.gcp_files = asp::get_files_with_ext(opt.image_files, ".gcp", rm_from_input_list);
-  const size_t num_gcp_files = opt.gcp_files.size();
-  vw_out() << "Found " << num_gcp_files << " GCP files on the command line.\n";
 
   // Handle the situation when the images and cameras are in lists
   if (!opt.image_list.empty()) {
