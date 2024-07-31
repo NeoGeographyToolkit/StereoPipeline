@@ -482,10 +482,16 @@ def read_angles(orig_cams, opt_cams, ref_cams):
 #         rotation_angles.append(camera_angles)
         
 #     return rotation_angles 
-    
+
+def err_fun(vals, opt):
+  ''' Find the standard deviation or RMSE of the given values. '''
+  if opt.use_rmse:
+    return np.sqrt(np.multiply(vals, vals).mean())
+  return np.std(vals)
+                
 # Load and plot each row in the figure given by 'ax'
 def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
-             ref_list, options):
+             ref_list, opt):
 
   # We assume we have one or two datasets that we want to plot on top of each other.
   numSets = len(datasets)
@@ -522,7 +528,7 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
       all_opt_cams = sorted(multi_glob(optPrefix + camType, extensions))
       ref_cams     = sorted(multi_glob(optPrefix + camType + '-ref', extensions))
       opt_cams     = exclude_ref_cams(all_opt_cams, ref_cams)
-      if (not options.use_ref_cams) and len(ref_cams) > 0:
+      if (not opt.use_ref_cams) and len(ref_cams) > 0:
           print_ref_cam_warning = True
 
   # Same for orig cams. Overwrite the earlier ref cams, if present,
@@ -538,28 +544,28 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
     ref_cams      = sorted(multi_glob(origPrefix + camType + '-ref', extensions))
     orig_cams     = exclude_ref_cams(all_orig_cams, ref_cams)
   
-  if (not options.use_ref_cams) and len(ref_cams) > 0:
+  if (not opt.use_ref_cams) and len(ref_cams) > 0:
       print_ref_cam_warning = True
 
   # If not using ref cams, wipe them
-  if not options.use_ref_cams:
+  if not opt.use_ref_cams:
       if (print_ref_cam_warning):
           print("Found reference cameras but will not use them.")
       ref_cams = []
 
-  # Reduce the number of cameras to options.num_cameras
-  orig_cams = getFirstN(orig_cams, options.num_cameras)
-  if options.use_ref_cams:
-      ref_cams  = getFirstN(ref_cams, options.num_cameras)
+  # Reduce the number of cameras to opt.num_cameras
+  orig_cams = getFirstN(orig_cams, opt.num_cameras)
+  if opt.use_ref_cams:
+      ref_cams  = getFirstN(ref_cams, opt.num_cameras)
   if numSets == 2:
-      opt_cams  = getFirstN(opt_cams, options.num_cameras)
+      opt_cams  = getFirstN(opt_cams, opt.num_cameras)
 
   # Check that these sets are the same size
-  if options.use_ref_cams and len(orig_cams) != len(ref_cams):
+  if opt.use_ref_cams and len(orig_cams) != len(ref_cams):
       print("Number of input and reference cameras must be thee same. See the option --use-ref-cams for more info. For these numbers, got: ", \
               len(ref_cams), " and ", len(orig_cams))
       sys.exit(1)
-  if numSets == 2 and options.use_ref_cams and len(orig_cams) != len(opt_cams):
+  if numSets == 2 and opt.use_ref_cams and len(orig_cams) != len(opt_cams):
       print("Number of cameras in both datasets must be the same when using " + \
         "reference cameras. Got: ", len(orig_cams), " and ", len(opt_cams))
       sys.exit(1)
@@ -569,10 +575,10 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
   # Read the rotations and convert them to roll, pitch, yaw
   (orig_rotation_angles, opt_rotation_angles) = read_angles(orig_cams, opt_cams, ref_cams)
 
-  # Eliminate several first and last few values, based on options.trim_ratio
+  # Eliminate several first and last few values, based on opt.trim_ratio
   if isLinescan(orig_cams[0]):
       totalNum = len(orig_rotation_angles)
-      removeNum = int(options.trim_ratio * totalNum)
+      removeNum = int(opt.trim_ratio * totalNum)
       removeNumBefore = int(removeNum / 2)
       removeNumAfter = removeNum - removeNumBefore
       b = removeNumBefore
@@ -601,7 +607,7 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
   opt_yaw    = [r[2] for r in opt_rotation_angles]
 
   residualTag = ''
-  if options.subtract_line_fit:
+  if opt.subtract_line_fit:
       # Same line fit will be subtracted from all datasets
       residualTag = ' residual'
       fit_roll = poly_fit(np.array(range(len(orig_roll))), orig_roll)
@@ -617,20 +623,23 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
           opt_yaw = opt_yaw - fit_yaw
 
   fmt = "{:.2e}" # 2 digits of precision are enough for display 
-  orig_roll_std = fmt.format(np.std(orig_roll))
-  orig_pitch_std = fmt.format(np.std(orig_pitch))
-  orig_yaw_std = fmt.format(np.std(orig_yaw))
-  print(origTag + " " + camType + " roll std: " + orig_roll_std + " degrees")
-  print(origTag + " " + camType + " pitch std: " + orig_pitch_std + " degrees")
-  print(origTag + " " + camType + " yaw std: " + orig_yaw_std + " degrees")
-  (opt_roll_std, opt_pitch_std, opt_yaw_std) = (0, 0, 0) # initialize
+  orig_roll_err = fmt.format(err_fun(orig_roll, opt))
+  orig_pitch_err = fmt.format(err_fun(orig_pitch, opt))
+  orig_yaw_err = fmt.format(err_fun(orig_yaw, opt))
+  err_str = 'StDev: '
+  if opt.use_rmse:
+        err_str = ' RMSE: '
+  print(origTag + " " + camType + " roll " + err_str + orig_roll_err + " degrees")
+  print(origTag + " " + camType + " pitch " + err_str + orig_pitch_err + " degrees")
+  print(origTag + " " + camType + " yaw " + err_str + orig_yaw_err + " degrees")
+  (opt_roll_err, opt_pitch_err, opt_yaw_err) = (0, 0, 0) # initialize
   if numSets == 2:
-      opt_roll_std = fmt.format(np.std(opt_roll))
-      opt_pitch_std = fmt.format(np.std(opt_pitch))
-      opt_yaw_std = fmt.format(np.std(opt_yaw))
-      print(optTag + " " + camType + " roll std: " + opt_roll_std + " degrees")
-      print(optTag + " " + camType + " pitch std: " + opt_pitch_std + " degrees")
-      print(optTag + " " + camType + " yaw std: " + opt_yaw_std + " degrees")
+      opt_roll_err = fmt.format(err_fun(opt_roll, opt))
+      opt_pitch_err = fmt.format(err_fun(opt_pitch, opt))
+      opt_yaw_err = fmt.format(err_fun(opt_yaw, opt))
+      print(optTag + " " + camType + " roll " + err_str + opt_roll_err + " degrees")
+      print(optTag + " " + camType + " pitch " + err_str + opt_pitch_err + " degrees")
+      print(optTag + " " + camType + " yaw " + err_str + opt_yaw_err + " degrees")
 
   # Find the handle to the axis object for the current row
   if len(ax.shape) == 1:
@@ -639,7 +648,7 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
       A = ax[row]
 
   # Plot residuals
-  lw = options.line_width
+  lw = opt.line_width
   A[0].plot(np.arange(len(orig_roll)), orig_roll, label=origTag, color = 'r', linewidth = lw)
   A[1].plot(np.arange(len(orig_pitch)), orig_pitch, label=origTag, color = 'r', 
             linewidth = lw)
@@ -658,15 +667,15 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
   #A[1].set_ylabel('Degrees') # don't repeat this as it takes space
   #A[2].set_ylabel('Degrees')
 
-  stds = ((orig_roll_std, opt_roll_std), (orig_pitch_std, opt_pitch_std), (orig_yaw_std, opt_yaw_std))
+  err = ((orig_roll_err, opt_roll_err), (orig_pitch_err, opt_pitch_err), (orig_yaw_err, opt_yaw_err))
   for index in range(3):
       A[index].set_xlabel('Frame index')
-      # Calc stddev text
+      # Calc err text
       if numSets == 1:
-          txt = 'StDev:' + stds[index][0]
+          txt = err_str + err[index][0]
       else: 
-          txt = 'StDev:' + stds[index][0] + ", " + stds[index][1]
-      # Add stdev values as text
+          txt = err_str + err[index][0] + ", " + err[index][1]
+      # Add err values as text
       A[index].text(0.05, 0.05, txt,
           va='top', color='k', transform=A[index].transAxes, fontsize=fs)    
       # legend
@@ -724,9 +733,14 @@ parser.add_argument('--use-ref-cams', dest = 'use_ref_cams', action='store_true'
 
 parser.add_argument('--subtract-line-fit', dest = 'subtract_line_fit', action='store_true',
                     help='If set, subtract the best line fit from the curves being '      + 
-                    'plotted. If more than one dataset is being plotted, the same line '  + 
-                    'fit will be subtracted from all of them. This is useful to see the ' + 
-                    'residuals after fitting a line to the data.')
+                    'plotted. If more than one dataset is present, the same line ' +
+                    'fit (for the first one) will be subtracted from all of them. '     +
+                    'This is useful for inspecting subtle changes.')
+
+parser.add_argument('--use-rmse', dest = 'use_rmse', action='store_true',
+                    help='Compute and display the root mean square error (RMSE) ' +
+                    'rather than the standard deviation. This is useful when a ' +
+                    'systematic shift is present. See also --subtract-line-fit.')
 
 parser.add_argument('--num-cameras',  dest='num_cameras', type=int, default = -1,
                     help='Plot only the first this many cameras from each orbital ' + 
@@ -753,57 +767,57 @@ parser.add_argument('--line-width', dest = 'line_width', type=float, default = 1
 parser.add_argument('--font-size', dest = 'font_size', type=int, default = 14,
                     help='Font size for the plots.')
 
-(options, args) = parser.parse_known_args(sys.argv)
+(opt, args) = parser.parse_known_args(sys.argv)
 
 # Throw an error if not all args have been parsed
 if len(args) > 1:
     print("Not all arguments were parsed. Unprocessed values:", args[1:])
     sys.exit(1)
 
-if options.dataset == "" and options.list == "": 
+if opt.dataset == "" and opt.list == "": 
     print("Must set --dataset or --list.")
     parser.print_help()
     sys.exit(1)
 
-if options.dataset != "" and options.list != "": 
+if opt.dataset != "" and opt.list != "": 
     print("Cannot set both --dataset and --list.")
     parser.print_help()
     sys.exit(1)
 
 hasList = False
-if options.dataset == "":
+if opt.dataset == "":
     # If the dataset label is not set, use the list
     hasList = True
-    options.dataset = options.list
+    opt.dataset = opt.list
 
-if hasList and options.use_ref_cams and options.ref_list == "":
+if hasList and opt.use_ref_cams and opt.ref_list == "":
     print("Must set --ref-list when using --use-ref-cams with --list.")
     parser.print_help()
     sys.exit(1)
 
-if options.orbit_id == "":
+if opt.orbit_id == "":
     print("Must set --orbit-id.")
     parser.print_help()
     sys.exit(1)
 
-if options.trim_ratio < 0:
+if opt.trim_ratio < 0:
     print("The value of --trim-ratio must be non-negative.")
     parser.print_help()
     sys.exit(1)
 
-if options.line_width <= 0:
+if opt.line_width <= 0:
     print("The value of --line-width must be positive.")
     parser.print_help()
     sys.exit(1)
 
-if options.font_size <= 0:
+if opt.font_size <= 0:
     print("The value of --font-size must be positive.")
     parser.print_help()
     sys.exit(1)
 
 # Parse the datasets and their labels. Split by comma.
-datasets = options.dataset.split(',')
-dataset_labels = options.dataset_label.split(',')
+datasets = opt.dataset.split(',')
+dataset_labels = opt.dataset_label.split(',')
 if len(dataset_labels) == 0 or (len(dataset_labels) == 1 and dataset_labels[0] == ""):
     dataset_labels = datasets[:]
 if len(dataset_labels) != len(datasets):
@@ -811,8 +825,8 @@ if len(dataset_labels) != len(datasets):
     sys.exit(1)
 
 # Parse the orbits and their labels. Split by comma.
-orbits = options.orbit_id.split(',')
-orbit_labels = options.orbit_label.split(',')
+orbits = opt.orbit_id.split(',')
+orbit_labels = opt.orbit_label.split(',')
 if len(orbit_labels) == 0 or (len(orbit_labels) == 1 and orbit_labels[0] == ""):
     orbit_labels = orbits[:]
 if len(orbit_labels) != len(orbits):
@@ -820,7 +834,7 @@ if len(orbit_labels) != len(orbits):
     sys.exit(1)
 
 # Read the figure dimensions
-figure_size = options.figure_size.split(',')
+figure_size = opt.figure_size.split(',')
 if len(figure_size) != 2:
     print("The --figure-size option must have two values. Got: ", figure_size)
     sys.exit(1)
@@ -839,7 +853,7 @@ f, ax = plt.subplots(len(orbits), 3, sharex=True, sharey = False,
 plt.rcParams["legend.loc"] = 'upper right' 
 
 # Set up the font for all elements
-fs = options.font_size
+fs = opt.font_size
 plt.rcParams.update({'font.size': fs})
 plt.rc('axes', titlesize = fs)   # fontsize of the axes title
 plt.rc('axes', labelsize = fs)   # fontsize of the x and y labels
@@ -851,11 +865,11 @@ plt.rc('figure', titlesize = fs) # fontsize of the figure title
 # Plot each row in the figure
 for row in range(len(orbits)):
   plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels, 
-           options.ref_list, options)
+           opt.ref_list, opt)
 
 # Show a title if set
-if options.title != "":
-    f.suptitle(options.title, fontsize=fs)
+if opt.title != "":
+    f.suptitle(opt.title, fontsize=fs)
 
 plt.tight_layout()
 plt.show()

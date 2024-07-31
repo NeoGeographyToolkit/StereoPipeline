@@ -2,10 +2,10 @@ Changes since the last release
 ------------------------------
 
 bundle_adjust (:numref:`bundle_adjust`):
- * Added the option ``--min-distortion`` to ensure small distortion parameters
-   get optimized.
- * Compensate for the images in the input nvm being potentially in different
-   order than the images specified on the command line.  
+  * Added the option ``--min-distortion`` to ensure small distortion parameters
+    get optimized.
+  * Compensate for the images in the input nvm being potentially in different
+    order than the images specified on the command line.  
   
 mapproject (:numref:`mapproject`):
   * Add the option ``--query-pixel``.
@@ -27,27 +27,30 @@ image_calc (:numref:`image_calc`):
     (:numref:`mask_disparity`).
 
 parallel_stereo (:numref:`parallel_stereo`):
-   * If the number of matches from disparity is much less than requested, try to
-     find more matches. This usually brings their number in the ballpark.
-   * It is possible to mapproject either with ``dg`` and ``rpc`` cameras
-     when using mapprojected images in stereo with DigitalGlobe / Maxar
-     cameras (:numref:`dg-mapproj`).
+  * If the number of matches from disparity is much less than requested, try to
+    find more matches. This usually brings their number in the ballpark.
+  * It is possible to mapproject either with ``dg`` and ``rpc`` cameras
+    when using mapprojected images in stereo with DigitalGlobe / Maxar
+    cameras (:numref:`dg-mapproj`).
+
+orbit_plot (:numref:`orbit_plot`):
+  * Added the option ``--use-rmse``.
 
 misc:
- * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
-   optimized camera file names (or adjustments). Can be passed in back to
-   any of these tools (:numref:`ba_out_files`).
- * The option ``--flann-method`` in ``bundle_adjust`` and ``stereo`` defaults to
-   using the slower but deterministic ``kmeans`` method for a smaller set of
-   interest points, and to ``kdtree`` otherwise (:numref:`stereodefault-pprc`).
- * When creating dense interest point matches from disparity and mapprojected
-   images, the match file reflects the name of the original unprojected images
-   (:numref:`dense_ip`).
- * Bugfix for a crash with the ``asp_mgm`` algorithm when the disparity search
-   range is large.
- * Print the stereo convergence angle in ``stereo_pprc`` with mapprojected
-   images and with epipolar alignment. These are the remaining cases that were
-   not handled before.
+  * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
+    optimized camera file names (or adjustments). Can be passed in back to
+    any of these tools (:numref:`ba_out_files`).
+  * The option ``--flann-method`` in ``bundle_adjust`` and ``stereo`` defaults to
+    using the slower but deterministic ``kmeans`` method for a smaller set of
+    interest points, and to ``kdtree`` otherwise (:numref:`stereodefault-pprc`).
+  * When creating dense interest point matches from disparity and mapprojected
+    images, the match file reflects the name of the original unprojected images
+    (:numref:`dense_ip`).
+  * Bugfix for a crash with the ``asp_mgm`` algorithm when the disparity search
+    range is large.
+  * Print the stereo convergence angle in ``stereo_pprc`` with mapprojected
+    images and with epipolar alignment. These are the remaining cases that were
+    not handled before.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

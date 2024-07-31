@@ -255,10 +255,15 @@ Command-line options
     
 --subtract-line-fit
     If set, subtract the best line fit from the curves being plotted. If more
-    than one dataset is being plotted, the same line fit will be subtracted from
-    all of them. This is useful to see the residuals after fitting a line to the
-    data.
+    than one dataset is present, the same line fit (for the first one)
+    will be subtracted from all of them. This is useful for inspecting subtle
+    changes.
 
+--use-rmse
+  Compute and display the root mean square error (RMSE) rather than the standard
+  deviation. This is useful when a systematic shift is present. See also
+  ``--subtract-line-fit``.
+    
 --trim-ratio <float (default: 0.0)>
     Trim ratio. Given a value between 0 and 1 (inclusive), remove this fraction
     of camera poses from each sequence, with half of this amount for poses at
