@@ -513,19 +513,30 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
   // Number of cameras. Add 1 because we need to include the last camera.
   num_cameras = int(orbit_len / period) + 1;
 
+  // Cannot have one camera sample for linescan regardless of what the user wants
+  bool is_linescan = (opt.sensor_type.find("linescan") != std::string::npos);
+  
   // Sanity checks. It is fine to have one single camera, but that is not usual.
   if (num_cameras < 1)
     vw::vw_throw(vw::ArgumentErr() << "The number of cameras must be at least 1.\n");
-  if (num_cameras == 1)
-    vw::vw_out(vw::WarningMessage) << "Warning: Creating only one camera sample.\n";
+  if (num_cameras == 1) {
+    if (is_linescan) {
+      vw::vw_out(vw::WarningMessage) << "For linescan cameras, must have at least "
+      "two camera samples. Adding a second one.\n";
+      num_cameras = 2;
+    } else {
+      vw::vw_out(vw::WarningMessage) << "Creating only one frame camera sample.\n";
+    }
+  }
 
-  // Update the orbit length
-  orbit_len = period * (num_cameras - 1.0);
-
+  // Update the orbit length. Handle gracefully the case of one camera.
+  orbit_len = period * std::max(num_cameras - 1.0, 1.0);
+  
   // Sanity check, important for the work below. It is fine for first and last 
   // proj to be in the same location, but that is not usual.
   if (norm_2(last_proj - first_proj) < 1e-6)
-    vw::vw_out(vw::WarningMessage) << "Warning: The first and last camera positions are too close. Check your inputs.\n";
+    vw::vw_out(vw::WarningMessage) << "Warning: The first and last camera positions are "
+      <<"too close. Check your inputs.\n";
 
   // Travel along the orbit in very small increments. Return the last point
   // before exceeding the orbit length. 
@@ -562,8 +573,10 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
 
   }
 
-  // Update the last orbit point, in projected coords
-  last_proj = out_proj;
+  // Update the last orbit point, in projected coords. Handle gracefully
+  // the case of one camera.
+  if (norm_2(last_proj - first_proj) > 1e-6)
+    last_proj = out_proj;
 }
 
 // Given the direction going from first_proj to last_proj, and knowing
@@ -871,6 +884,9 @@ void genCamPoses(SatSimOptions & opt,
   int last_pos = opt.num_cameras; // stop before last
   if (opt.sensor_type == "linescan") {
     // Double the number of cameras, half of extra ones going beyond image lines
+    if (opt.num_cameras < 2)
+      vw::vw_throw(vw::ArgumentErr() << "For linescan cameras, must have at least "
+        "two camera samples.\n");
     first_pos = -opt.num_cameras/2;
     last_pos  = 2 * opt.num_cameras + first_pos;
   }
@@ -1574,11 +1590,11 @@ void genRigCamerasImages(SatSimOptions          & opt,
     local_opt.optical_center[1] = params.GetOpticalOffset()[1];
     local_opt.image_size[0]     = params.GetDistortedSize()[0];
     local_opt.image_size[1]     = params.GetDistortedSize()[1];
-    local_opt.sensor_type       = sensor_types[sensor_it];
+    local_opt.sensor_type       = sensor_types[sensor_index];
     
     // The transform from the reference sensor to the current sensor
     Eigen::Affine3d ref2sensor = rig.ref_to_cam_trans[sensor_index];
-    std::string suffix = "-" + sensor_names[sensor_it]; 
+    std::string suffix = "-" + rig.cam_names[sensor_index];
     bool have_rig = true;
     genCamerasImages(ortho_nodata_val, have_rig, sensor_index, dem, height_guess, 
                      ortho_georef, ortho, local_opt, rig, dem_georef, suffix); 

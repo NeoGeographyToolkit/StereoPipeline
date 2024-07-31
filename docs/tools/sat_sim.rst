@@ -440,7 +440,7 @@ is defined in :numref:`rig_config`.
 
 As an example, consider the setup from :numref:`sat_sim_roll_pitch_yaw`. Add the
 rig option, and do not set the image size, focal length, and optical center on
-the command line, as those are set by the rig. 
+the command line, as those are set by the rig configuration. 
 
 The produced image and camera file names will include the sensor name, before
 the image/camera extension. Example::
@@ -483,7 +483,7 @@ using the option ``--save-as-csm``.
    :name: sat_sim_rig_illustration
    :alt:  sat_sim_rig_illustration
    
-   Illustration of ``sat_sim`` creating a rig of 3 cameras. The resulting
+   Illustration of ``sat_sim`` creating a rig of 3 frame cameras. The resulting
    images have been mapprojected onto the ground.
 
 .. _sat_sim_time:
@@ -497,7 +497,7 @@ starting ground position (``--first-ground-pos``), and satellite velocity
 recorded for each acquisition.
 
 The time is measured in seconds in double precision. Time is important for
-pointing control with a rig.
+modeling a rig, when this option is set to true even when not explicitly set.
 
 The time will be saved with the linescan camera metadata. It will be part of the
 name of the pinhole cameras and images (but not part of the name for linescan
@@ -517,9 +517,9 @@ looks straight down at the starting point of the ground path. The default
 value is 10,000 seconds. 
 
 For different orbits it is suggested to use a different value for
-``--reference-time``. It is suggested to keep the reference time in the 10,000 -
-100,000 range to ensure the produced times are positive but not too large, which
-can result in loss of precision.
+``--reference-time``, and also a different output prefix. It is suggested to
+keep the reference time in the 1000 - 100,000 second range to ensure the produced
+and nearby times are positive but not too large, which can result in loss of precision.
 
 Here we also assumed a rig was present (:numref:`sat_sim_rig`), with the sensor
 name being ``haz_cam``.

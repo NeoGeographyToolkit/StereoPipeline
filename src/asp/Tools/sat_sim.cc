@@ -179,10 +179,20 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
-  if (opt.dem_file == "" || opt.ortho_file == "")
-    vw::vw_throw(vw::ArgumentErr() << "Missing input DEM and/or ortho image.\n");
   if (opt.out_prefix == "")
     vw::vw_throw(vw::ArgumentErr() << "Missing output prefix.\n");
+
+  // Create the output directory based on the output prefix
+  vw::create_out_dir(opt.out_prefix);
+
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
+
+  // Some functions use google logging
+  google::InitGoogleLogging(argv[0]);
+
+  if (opt.dem_file == "" || opt.ortho_file == "")
+    vw::vw_throw(vw::ArgumentErr() << "Missing input DEM and/or ortho image.\n");
 
   bool have_rig = !opt.rig_config.empty();
   if (have_rig && opt.camera_list != "")
@@ -194,7 +204,12 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
        !vm["optical-center"].defaulted()))
       vw::vw_throw(vw::ArgumentErr() << "Cannot specify image size, focal length, or "
         "optical center when using a rig. Those are set in the rig configuration file.\n");
-  
+
+  if (have_rig && !opt.model_time) {
+    opt.model_time = true;
+    vw::vw_out() << "Will model time as a rig was specified.\n";
+  }
+
   if (!have_rig) {  
     if (std::isnan(opt.image_size[0]) || std::isnan(opt.image_size[1]))
       vw::vw_throw(vw::ArgumentErr() << "The image size must be specified.\n");
@@ -399,12 +414,6 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
     vw::vw_throw(vw::ArgumentErr() << "The reference time is not positive or is too large. "
                  << "This can cause numerical issues.\n");
     
-  // Create the output directory based on the output prefix
-  vw::create_out_dir(opt.out_prefix);
-
-  // Turn on logging to file
-  asp::log_to_file(argc, argv, "", opt.out_prefix);
-
   if (have_rig) {
     // Read the rig configuration
     bool have_rig_transforms = true; // dictated by the api

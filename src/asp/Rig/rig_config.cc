@@ -22,6 +22,7 @@
 #include <Rig/system_utils.h>
 
 #include <vw/Core/Log.h>
+#include <vw/Core/Exception.h>
 
 #include <opencv2/calib3d.hpp>
 #include <boost/filesystem.hpp>
@@ -37,13 +38,13 @@ namespace rig {
 
 void RigSet::validate() const {
   if (cam_set.empty()) 
-    LOG(FATAL) << "Found an empty set of rigs.\n";
+    vw::vw_throw(vw::IOErr() << "Found an empty set of rigs.\n");
   
   size_t num_cams = 0;
   std::set<std::string> all_cams; // checks for duplicates
   for (size_t rig_it = 0; rig_it < cam_set.size(); rig_it++) {
     if (cam_set[rig_it].empty()) 
-      LOG(FATAL) << "Found a rig with no cams.\n";
+      vw::vw_throw(vw::IOErr() << "Found a rig with no cams.\n");
     
     num_cams += cam_set[rig_it].size();
     for (size_t cam_it = 0; cam_it < cam_set[rig_it].size(); cam_it++)
@@ -51,38 +52,45 @@ void RigSet::validate() const {
   }
   
   if (num_cams != all_cams.size() || num_cams != cam_names.size())
-    LOG(FATAL) << "Found a duplicate sensor name in the rig set.\n";
+    vw::vw_throw(vw::IOErr()
+                 << "Found a duplicate sensor name in the rig set.\n");
   
   if (num_cams != ref_to_cam_trans.size()) 
-    LOG(FATAL) << "Number of sensors is not equal to number of ref-to-cam transforms.\n";
+    vw::vw_throw(vw::IOErr() 
+                 << "Number of sensors is not equal to number of ref-to-cam transforms.\n");
   
   if (num_cams != depth_to_image.size()) 
-    LOG(FATAL) << "Number of sensors is not equal to number of depth-to-image transforms.\n";
+    vw::vw_throw(vw::IOErr()
+                  << "Number of sensors is not equal to number of depth-to-image "
+                  << "transforms.\n");
   
   if (num_cams != ref_to_cam_timestamp_offsets.size()) 
-    LOG(FATAL) << "Number of sensors is not equal to number of ref-to-cam timestamp offsets.\n";
+    vw::vw_throw(vw::IOErr() 
+                 << "Number of sensors is not equal to number of ref-to-cam "
+                 << "timestamp offsets.\n");
   
   if (num_cams != cam_params.size()) 
-    LOG(FATAL) << "Number of sensors is not equal to number of camera models.\n";
+    vw::vw_throw(vw::IOErr() 
+                 << "Number of sensors is not equal to number of camera models.\n");
   
   for (size_t cam_it = 0; cam_it < cam_names.size(); cam_it++) {
     if (isRefSensor(cam_names[cam_it]) && ref_to_cam_timestamp_offsets[cam_it] != 0) 
-      LOG(FATAL) << "The timestamp offsets for the reference sensors must be always 0.\n";
+      vw::vw_throw(vw::IOErr() << "The timestamp offsets for the reference sensors must be always 0.\n");
   }
   
   for (size_t i = 0; i < this->cam_params.size(); i++) {
     auto const& params = this->cam_params[i];
     if (params.GetDistortedSize()[0] <= 1 || params.GetDistortedSize()[1] <= 1)
-        LOG(FATAL) << "The image size must be at least 2 x 2.\n";
+        vw::vw_throw(vw::IOErr() << "The image size must be at least 2 x 2.\n");
     if (params.GetFocalLength() == 0)
-       LOG(FATAL) << "The focal length must be non-zero.\n";
+       vw::vw_throw(vw::IOErr() << "The focal length must be non-zero.\n");
   }
 
   for (size_t cam_it = 0; cam_it < cam_names.size(); cam_it++) {
     if (isRefSensor(cam_names[cam_it]) &&
         ref_to_cam_trans[cam_it].matrix() != Eigen::Affine3d::Identity().matrix())
-      LOG(FATAL) 
-        << "The transform from the reference sensor to itself must be the identity.\n";
+      vw::vw_throw(vw::IOErr() 
+        << "The transform from the reference sensor to itself must be the identity.\n");
   }
 
 }
@@ -105,7 +113,7 @@ bool RigSet::isRefSensor(int cam_id) const {
 // in cam_names.
 int RigSet::rigId(int cam_id) const {
   if (cam_id < 0 || cam_id >= cam_names.size()) 
-    LOG(FATAL) << "Out of bounds sensor id.\n";
+    vw::vw_throw(vw::IOErr() << "Out of bounds sensor id.\n");
   
   std::string cam_name = cam_names[cam_id];
   
@@ -118,7 +126,8 @@ int RigSet::rigId(int cam_id) const {
   }
 
   // Should not arrive here
-  LOG(FATAL) << "Could not look up in the rig the sensor: " << cam_name << "\n";
+  vw::vw_throw(vw::IOErr() 
+               << "Could not look up in the rig the sensor: " << cam_name << "\n");
   return -1;
 }
 
@@ -133,8 +142,10 @@ std::string RigSet::refSensor(int cam_id) const {
 int RigSet::sensorIndex(std::string const& sensor_name) const {
   auto it = std::find(cam_names.begin(), cam_names.end(), sensor_name);
   if (it == cam_names.end()) 
-    LOG(FATAL) << "Could not find sensor in rig. That is unexpected. Offending sensor: "
-               << sensor_name << ".\n";
+    vw::vw_throw(vw::IOErr()
+                 << "Could not find sensor in rig. That is unexpected. Offending sensor: "
+                 << sensor_name << ".\n");
+    
   return it - cam_names.begin();
 }
 
@@ -148,7 +159,7 @@ int RigSet::refSensorId(int cam_id) const {
 RigSet RigSet::subRig(int rig_id) const {
 
   if (rig_id < 0 || rig_id >= cam_set.size()) 
-    LOG(FATAL) << "Out of range in rig set.\n";
+    vw::vw_throw(vw::IOErr() << "Out of range in rig set.\n");
 
   RigSet sub_rig;
   sub_rig.cam_set.push_back(cam_set[rig_id]);
@@ -182,7 +193,8 @@ void writeRigConfig(std::string const& rig_config, bool model_rig, RigSet const&
   vw::vw_out() << "Writing: " << rig_config << "\n";
   std::ofstream f;
   f.open(rig_config.c_str(), std::ios::binary | std::ios::out);
-  if (!f.is_open()) LOG(FATAL) << "Cannot open file for writing: " << rig_config << "\n";
+  if (!f.is_open()) 
+    vw::vw_throw(vw::IOErr() << "Cannot open file for writing: " << rig_config << "\n");
   f.precision(17);
 
   for (size_t cam_type = 0; cam_type < R.cam_params.size(); cam_type++) {
@@ -223,8 +235,9 @@ void writeRigConfig(std::string const& rig_config, bool model_rig, RigSet const&
     else if (D.size() > 5 && dist_type == camera::RPC_DISTORTION)
       f << "distortion_type: " << camera::RPC_DISTORTION_STR << "\n";
     else
-      LOG(FATAL) << "Expecting 0, 1, 4, 5, or more distortion coefficients. Got: "
-                 << D.size() << ".\n";
+      vw::vw_throw(vw::IOErr() 
+                   << "Expecting 0, 1, 4, 5, or more distortion coefficients. Got: "
+                   << D.size() << ".\n");
 
     Eigen::Vector2i image_size = R.cam_params[cam_type].GetDistortedSize();
     f << "image_size: " << image_size[0] << ' ' << image_size[1] << "\n";
@@ -298,19 +311,20 @@ void readConfigVals(std::ifstream & f, std::string const& tag, int desired_num_v
     if (token == "") 
       continue; // likely just whitespace is present on the line
     
-    if (token != tag) throw std::runtime_error("Could not read value for: " + tag);
+    if (token != tag) 
+      vw::vw_throw(vw::IOErr() << "Could not read value for: " << tag << "\n");
 
     // Copy to Eigen::VectorXd
     vals.resize(local_vals.size());
     for (int it = 0; it < vals.size(); it++) vals[it] = local_vals[it];
 
     if (desired_num_vals >= 0 && vals.size() != desired_num_vals)
-      throw std::runtime_error("Read an incorrect number of values for: " + tag);
+      vw::vw_throw(vw::IOErr() << "Read an incorrect number of values for: " << tag << "\n");
 
     return;
   }
 
-  throw std::runtime_error("Could not read value for: " + tag);
+  vw::vw_throw(vw::IOErr() << "Could not read value for: " << tag << "\n");
 }
   
 // Read strings separated by spaces after given tag. Ignore comments, so any line starting
@@ -335,15 +349,15 @@ void readConfigVals(std::ifstream & f, std::string const& tag, int desired_num_v
     }
 
     if (token != tag) 
-      throw std::runtime_error("Could not read value for: " + tag);
+      vw::vw_throw(vw::IOErr() << "Could not read value for: " << tag << "\n");
 
     if (desired_num_vals >= 0 && vals.size() != desired_num_vals)
-      throw std::runtime_error("Read an incorrect number of values for: " + tag);
+      vw::vw_throw(vw::IOErr() << "Read an incorrect number of values for: " << tag << "\n");
 
     return;
   }
 
-  throw std::runtime_error("Could not read value for: " + tag);
+  vw::vw_throw(vw::IOErr() << "Could not read value for: " << tag << "\n");
 }
 
 // Read a rig configuration. Check if the transforms among the sensors
@@ -363,7 +377,7 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
     std::ifstream f;
     f.open(rig_config.c_str(), std::ios::in);
     if (!f.is_open()) 
-      LOG(FATAL) << "Cannot open file for reading: " << rig_config << "\n";
+      vw::vw_throw(vw::IOErr() << "Cannot open file: " << rig_config << "\n");
 
     int ref_sensor_count = 0;
     Eigen::VectorXd vals;
@@ -387,7 +401,7 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
         
        // Check for duplicate ref sensor
         if (ref_sensors.find(ref_sensor_name) != ref_sensors.end())
-          LOG(FATAL) << "Found a duplicate reference sensor: " << ref_sensor_name << "\n";
+          vw::vw_throw(vw::IOErr() << "Found a duplicate reference sensor: " << ref_sensor_name << "\n");
         ref_sensors.insert(ref_sensor_name);
       } catch (...) {
         // No luck, go back to the line we tried to read, and continue reading other fields
@@ -405,17 +419,19 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
       
       // The first sensor must be the ref sensor
       if (is_ref_sensor && sensor_name != ref_sensor_name) 
-        LOG(FATAL) << "The first sensor in each rig must be the reference sensor.\n";
+        vw::vw_throw(vw::IOErr() 
+                     << "The first sensor in each rig must be the reference sensor.\n");
         
       is_ref_sensor = false; // reset  
       
       if (ref_sensor_name == "")
-        LOG(FATAL) << "The reference sensor name must be the first entry in "
-        << "the rig config file.\n";
+        vw::vw_throw(vw::IOErr() 
+                     << "The reference sensor name must be the first entry in "
+                     << "the rig config file.\n");
 
       // Check for duplicate sensor
       if (sensors.find(sensor_name) != sensors.end())
-        LOG(FATAL) << "Found a duplicate sensor: " << sensor_name << "\n";
+        vw::vw_throw(vw::IOErr() << "Found a duplicate sensor: " << sensor_name << "\n");
       sensors.insert(sensor_name);
 
       // It is convenient to store each sensor in cam_set, which has the rig set structure,
@@ -435,13 +451,15 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
       
       readConfigVals(f, "distortion_coeffs:", -1, vals);
       if (vals.size() != 0 && vals.size() != 1 && vals.size() != 4 && vals.size() < 5)
-        LOG(FATAL) << "Expecting 0, 1, 4, 5, or more distortion coefficients.\n";
+        vw::vw_throw(vw::IOErr()
+                     << "Expecting 0, 1, 4, 5, or more distortion coefficients.\n");
       Eigen::VectorXd distortion = vals;
 
       readConfigVals(f, "distortion_type:", 1, str_vals);
       if (distortion.size() == 0 && str_vals[0] != camera::NO_DISTORTION_STR)
-        LOG(FATAL) << "When there are no distortion coefficients, distortion type must be: "
-                   << camera::NO_DISTORTION_STR << "\n";
+        vw::vw_throw(vw::IOErr() 
+                     << "When there are no distortion coefficients, distortion type must be: "
+                     << camera::NO_DISTORTION_STR << "\n");
       
       // For backward compatibility, accept camera::FISHEYE_DISTORTION_STR with 1 distortion coefficient, but use the FOV model
       if (distortion.size() == 1 && str_vals[0] == camera::FISHEYE_DISTORTION_STR)
@@ -449,22 +467,26 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
       
       // Validation 
       if (distortion.size() == 1 && str_vals[0] != camera::FOV_DISTORTION_STR)
-          LOG(FATAL) << "When there is 1 distortion coefficient, distortion type must be: "
-                     << camera::FOV_DISTORTION_STR << "\n";
+          vw::vw_throw(vw::IOErr() 
+                       << "When there is 1 distortion coefficient, distortion type must be: "
+                       << camera::FOV_DISTORTION_STR << "\n");
       if (distortion.size() == 4 &&
           str_vals[0] != camera::FISHEYE_DISTORTION_STR &&
           str_vals[0] != camera::RADTAN_DISTORTION_STR)
-        LOG(FATAL) << "When there are 4 distortion coefficients, distortion type "
-                    << "must be: " << camera::FISHEYE_DISTORTION_STR << " or "
-                    << camera::RADTAN_DISTORTION_STR << "\n";
+        vw::vw_throw(vw::IOErr() 
+                     << "When there are 4 distortion coefficients, distortion type "
+                     << "must be: " << camera::FISHEYE_DISTORTION_STR << " or "
+                     << camera::RADTAN_DISTORTION_STR << "\n");
       if (distortion.size() == 5 &&
           str_vals[0] != camera::RADTAN_DISTORTION_STR)
-        LOG(FATAL) << "When there are 5 distortion coefficient, distortion type must be: "
-                   << camera::RADTAN_DISTORTION_STR << "\n";
+        vw::vw_throw(vw::IOErr() 
+                     << "When there are 5 distortion coefficient, distortion type must be: "
+                     << camera::RADTAN_DISTORTION_STR << "\n");
       if ((distortion.size() > 5) &&
           str_vals[0] != camera::RPC_DISTORTION_STR)
-        LOG(FATAL) << "When there are more than 5 distortion coefficients, distortion "
-                   << "type must be: " << camera::RPC_DISTORTION_STR << "\n";
+        vw::vw_throw(vw::IOErr() 
+                     << "When there are more than 5 distortion coefficients, distortion "
+                     << "type must be: " << camera::RPC_DISTORTION_STR << "\n");
 
       // Set distortion type based on str_vals[0]
       if (str_vals[0] == camera::NO_DISTORTION_STR) 
@@ -478,7 +500,7 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
       else if (str_vals[0] == camera::RPC_DISTORTION_STR)
         dist_type = camera::RPC_DISTORTION;
       else
-        LOG(FATAL) << "Unknown distortion type: " << str_vals[0] << "\n";
+        vw::vw_throw(vw::IOErr() << "Unknown distortion type: " << str_vals[0] << "\n");
       
       readConfigVals(f, "image_size:", 2, vals);
       Eigen::Vector2i image_size(vals[0], vals[1]);
@@ -502,19 +524,21 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
       // Sanity check
       if (have_rig_transforms) {
         if (R.ref_to_cam_trans.back().matrix() == 0 * R.ref_to_cam_trans.back().matrix())
-          LOG(FATAL) << "Failed to read valid transforms between the sensors on the rig\n";
+          vw::vw_throw(vw::IOErr() 
+                       << "Failed to read valid transforms between the sensors on the rig\n");
           
         // Put a warning if the transform is the identity matrix if the sensor
         // is not the ref one
         if (sensor_name != ref_sensor_name && 
             R.ref_to_cam_trans.back().matrix() == Eigen::Affine3d::Identity().matrix()) 
-          LOG(WARNING) << "A non-reference sensor on the rig as the identity as the "
-            << "transform from the reference sensor. Sensor name: " << sensor_name << "\n";
+          LOG(WARNING) << "A non-reference sensor on the rig has the identity as the "
+            << "sensor transform. Sensor name: " << sensor_name << "\n";
           
         // The determinant of the transform must be 1.
         double scale = pow(R.ref_to_cam_trans.back().linear().determinant(), 1.0 / 3.0);
         if (std::abs(scale - 1.0) > 1e-6)
-          LOG(FATAL) << "The determinant of the ref-to-sensor transform must be 1.\n";
+          vw::vw_throw(vw::IOErr() 
+                       << "The determinant of the ref-to-sensor transform must be 1.\n");
       }
 
       readConfigVals(f, "depth_to_image_transform:", 12, vals);
@@ -526,7 +550,7 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
     }
     
   } catch(std::exception const& e) {
-    LOG(FATAL) << e.what() << "\n";
+    vw::vw_throw(vw::IOErr() << e.what() << "\n");
   }
 
   R.validate();
