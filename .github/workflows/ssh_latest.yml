@@ -1,4 +1,4 @@
-name: ssh
+name: ssh_latest
 on:
   workflow_dispatch:
 
