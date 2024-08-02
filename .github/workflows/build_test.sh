@@ -6,18 +6,7 @@ wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${ta
 /usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
 # The ASP dependencies at the location above are updated using the script
-# save_mac_deps.sh. See that script for how to do the preparations. 
-# Here is how the script is called, from a local machine (which need not be a Mac).
-# The tag set here must match the tag above, and also in build_isis.sh.
-# If changing here, must later change in the other places.
-# tag=mac_conda_env8 
-# workflow="ssh.yml" # manual workflow
-# #workflow="build_isis.yml" # automatic workflow
-# $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
-
-# For linux, the dependencies from the local machine can be saved as follows.
-# tag=linux_conda_env7
-# $HOME/projects/StereoPipeline/.github/workflows/save_linux_deps.sh $tag
+# save_mac_deps.sh. See that script for more info.
 
 # Check that base dir is StereoPipeline
 aspRepoDir=$(pwd) # same as $HOME/work/StereoPipeline/StereoPipeline

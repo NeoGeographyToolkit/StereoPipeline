@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # To update the Mac dependencies, or create new ones, run the ssh.yml action
-# (for interactive use) or build_isis.yml (batch). The dependencies can be
-# built, fetched with conda, etc. They should be installed in 
+# (for interactive use) or build_isis.yml (batch). Some dependencies can be
+# fetched with conda, and others need to be built. They should be installed in 
 # /Users/runner/miniconda3/envs. 
 # See https://stereopipeline.readthedocs.io/en/latest/building_asp.html
 # for more details.
@@ -12,10 +12,22 @@
 #   /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
 #     /Users/runner/miniconda3/envs
 
-# Then, from a local machine, run this script. See build_test.sh for
-# context and an example. 
+# Then, from a local machine, which need not be a mac, run this script. 
 
-# Must keep $tag in sync.
+# The tag set here must match the tag in build_test.sh and build_isis.sh. If
+# changing here, must later change in the other places.
+
+# tag=mac_conda_env8 
+# workflow="ssh.yml" # manual workflow
+# #workflow="build_isis.yml" # automatic workflow
+# $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
+
+# This script will overwrite the dependencies. If in doubt, use it with a new
+# tag, as the dependencies are very hard to recreate.
+
+# For linux, the dependencies from the local machine can be saved as follows.
+# tag=linux_conda_env7
+# $HOME/projects/StereoPipeline/.github/workflows/save_linux_deps.sh $tag
 
 # Check usage
 if [ "$#" -lt 2 ]; then
