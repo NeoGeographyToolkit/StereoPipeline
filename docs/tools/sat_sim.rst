@@ -436,7 +436,7 @@ Modeling a rig
 
 The ``sat_sim`` program can simulate a rig that has a mix of frame (pinhole) and
 linescan cameras. The rig should be passed in via ``--rig-config``. Its format
-is defined in :numref:`rig_config`. 
+is defined in :numref:`rig_config`. The rig can be adjusted after loading (:numref:`sat_sim_rig_adjust`).
 
 As an example, consider the setup from :numref:`sat_sim_roll_pitch_yaw`. Add the
 rig option, and do not set the image size, focal length, and optical center on
@@ -453,28 +453,6 @@ separated by commas, with no spaces. Example::
 
   --sensor-type linescan,pinhole,linescan
 
-The positions and orientations of sensors in the focal plane and of their
-footprints on the ground can be overridden by setting
-``--rig-sensor-ground-offsets``.
-
-For example, consider a rig with two cameras. If it is desired to have the rig
-sensors separated by 0.02 m in the sensor plane, and their footprints separated
-by 2000 m on the ground, use::
-
-  --rig-sensor-ground-offsets "-0.01 0 -1000 0 0.01 0 1000 0"
-
-After the images and cameras are saved, the rig that created the data will be
-adjusted to make each sensor transform relative to the first sensor. The rig
-configuration will be saved to disk as::
-
-  <out prefix>-rig_config.txt
-
-Such a rig configuration can be passed in to ``jitter_solve``
-(:numref:`jitter_solve`) and ``rig_calibrator`` (:numref:`rig_calibrator`). If
-this rig is passed back in to ``sat_sim``, use as above the option
-``--rig-sensor-ground-offsets``, as the offsets for each sensor are lost when
-the rig is saved as above.
-
 Lens distortion is not supported. If desired to produce cameras and images only
 for a subset of the rig sensors, use the ``--sensor-name`` option. Consider
 using the option ``--save-as-csm``.
@@ -485,6 +463,41 @@ using the option ``--save-as-csm``.
    
    Illustration of ``sat_sim`` creating a rig of 3 frame cameras. The resulting
    images have been mapprojected onto the ground.
+
+.. _sat_sim_rig_adjust:
+
+Adjusting a rig
+^^^^^^^^^^^^^^^
+
+Given a rig (:numref:`sat_sim_rig`), the positions and orientations of the
+sensors in the focal plane and of their footprints on the ground can be
+overridden by setting ``--rig-sensor-ground-offsets``.
+
+For example, consider a rig with two cameras. If it is desired to have the rig
+sensors separated by 0.02 m in the *x* direction the sensor plane, and their
+footprints separated by 2000 m in the *x* (across-track) direction on the ground,
+with no separation vertically, use::
+
+  --rig-sensor-ground-offsets -0.01,0,-1000,0,0.01,0,1000 0
+
+Additionally, an option such as::
+
+  --rig-sensor-rotation-angles 0.0,5.0
+
+can be used to rotate each sensor in the sensor plane by the corresponding angle
+in degrees.
+
+After the images and cameras are saved, the rig that created the data will be
+modified to make each sensor transform relative to the first sensor. The rig
+configuration will be saved to disk as::
+
+  <out prefix>-rig_config.txt
+
+Such a rig configuration can be passed in to ``jitter_solve``
+(:numref:`jitter_solve`) and ``rig_calibrator`` (:numref:`rig_calibrator`). 
+
+If this rig is passed back in to ``sat_sim``, one must again specify the offsets
+and angles, if any, as such adjustments are lost when the rig is saved as above.
 
 .. _sat_sim_time:
 
@@ -789,7 +802,8 @@ Command-line options
     Simulate a frame camera rig with this configuration file. Then do not set
     the image size, focal length, optical center on the command line, as those
     are set by the rig. The transforms on this rig may be adjusted via
-    ``--rig-sensor-ground-offsets``. See :numref:`sat_sim_rig`.
+    ``--rig-sensor-ground-offsets`` and ``--rig-sensor-rotation-angles``. See
+    :numref:`sat_sim_rig`.
 
 --rig-sensor-ground-offsets <string (default="")>
     Modify the input rig so that each sensor has the given horizontal offsets
@@ -800,6 +814,11 @@ Command-line options
     units are in meter. These will determine the sensor rotations. Separate the
     values by spaces with quotes or commas with no quotes. If not set, use 0 for
     all sensors.
+
+--rig-sensor-rotation-angles <string (default="")>
+    Modify the input rig by rotating each sensor by the given angle in the sensor
+    plane. Specify as one number per sensor, in degrees, separated by commas, or 
+    in quotes and separated by spaces.
     
 --sensor-name <string (default="all")>
     Name of the sensor in the rig to simulate (:numref:`sat_sim_rig`). If more

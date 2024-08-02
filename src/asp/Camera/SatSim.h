@@ -44,7 +44,7 @@ namespace asp {
 
 struct SatSimOptions: vw::GdalWriteOptions {
   std::string dem_file, ortho_file, out_prefix, camera_list, sensor_type, 
-  rig_sensor_ground_offsets;
+  rig_sensor_ground_offsets, rig_sensor_rotation_angles;
   vw::Vector3 first, last; // dem pixel and height above dem datum
   int num_cameras, first_index, last_index;
   vw::Vector2 optical_center, image_size, first_ground_pos, last_ground_pos;

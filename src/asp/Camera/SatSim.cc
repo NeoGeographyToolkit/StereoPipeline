@@ -671,11 +671,33 @@ void parseSensorGroundOffsets(std::string const& offsets_str,
  
  std::string sep = ", \t\n"; // separators: comma, space, tab, newline
  offsets = vw::str_to_std_vec(offsets_str, sep);
-   
-  // Must have 4 offsets (2 sensor and 2 ground) per sensor
-  if (offsets.size() != 4 * num_sensors)
-    vw::vw_throw(vw::ArgumentErr() << "Expecting " << 4 * num_sensors 
-      << " offsets, got " << offsets.size() << ".\n"); 
+ 
+ // If empty, set to 0.
+ if (offsets.empty())
+   offsets.resize(4 * num_sensors, 0.0);
+
+ // Must have 4 offsets (2 sensor and 2 ground) per sensor
+ if (offsets.size() != 4 * num_sensors)
+   vw::vw_throw(vw::ArgumentErr() << "Expecting " << 4 * num_sensors 
+     << " offsets, got " << offsets.size() << ".\n"); 
+}
+
+// Parse --rig-sensor-rotation-angles.
+void parseSensorRotationAngles(std::string const& angles_str,
+                               int num_sensors,
+                               std::vector<double> & angles) {
+ 
+  std::string sep = ", \t\n"; // separators: comma, space, tab, newline
+  angles = vw::str_to_std_vec(angles_str, sep);
+
+  // If empty, set to 0.
+  if (angles.empty())
+    angles.resize(num_sensors, 0.0);
+       
+  // Must have 1 angle per sensor
+  if (angles.size() != num_sensors)
+    vw::vw_throw(vw::ArgumentErr() << "Expecting " << num_sensors 
+      << " angles, got " << angles.size() << ".\n");
 }
 
 // Change the rig to have desired offsets in the sensor plane and ground plane.
@@ -691,9 +713,11 @@ void adjustRigForOffsets(SatSimOptions const& opt,
                          rig::RigSet & rig) {
 
   int num_rig_sensors = rig.cam_names.size();
-  std::vector<double> offsets;
+  std::vector<double> offsets, angles;
   parseSensorGroundOffsets(opt.rig_sensor_ground_offsets, num_rig_sensors,
                            offsets); // output
+  parseSensorRotationAngles(opt.rig_sensor_rotation_angles, num_rig_sensors,
+                            angles); // output
 
   // Find the transform from the sensor to the ground at nadir, and the ground point
   vw::Matrix3x3 cam2world;
@@ -733,18 +757,32 @@ void adjustRigForOffsets(SatSimOptions const& opt,
     x = normalize(x);
     // y must be perpendicular to x and z
     vw::Vector3 y = cross_prod(z, x);
-    
-    // Put the rotation and the translation into an Eigen matrix of size 4
-    Eigen::Matrix<double, 4, 4> ref2sensor = Eigen::Matrix<double, 4, 4>::Identity();
+
+    // Compute the rotation due to offsets
+    Eigen::Matrix<double, 4, 4> offset_mat = Eigen::Matrix<double, 4, 4>::Identity();
     for (int r = 0; r < 3; r++) {
-      ref2sensor(r, 0) = x[r];
-      ref2sensor(r, 1) = y[r];
-      ref2sensor(r, 2) = z[r];  
-      ref2sensor(r, 3) = sensor_ctr[r];
+      offset_mat(r, 0) = x[r];
+      offset_mat(r, 1) = y[r];
+      offset_mat(r, 2) = z[r];  
+      offset_mat(r, 3) = sensor_ctr[r];
+    }
+
+    // Compute the rotation due to angles
+    Eigen::Matrix<double, 4, 4> rot_mat = Eigen::Matrix<double, 4, 4>::Identity();
+    if (!angles.empty()) {
+      double th = angles[s];
+      // Convert to radians
+      th = th * M_PI / 180.0;
+      // Create a rotation by th around the z axis
+      Eigen::Matrix3d R;
+      R(0, 0) = cos(th); R(0, 1) = -sin(th); R(0, 2) = 0;
+      R(1, 0) = sin(th); R(1, 1) = cos(th);  R(1, 2) = 0;
+      R(2, 0) = 0;       R(2, 1) = 0;        R(2, 2) = 1;
+      rot_mat.block<3, 3>(0, 0) = R;
     }
     
-    // Update the rig
-    rig.ref_to_cam_trans[s].matrix() = ref2sensor;
+    // Update the rig. Rotations get applied first.
+    rig.ref_to_cam_trans[s].matrix() = offset_mat * rot_mat;
   }
 }
 
@@ -816,7 +854,8 @@ void genCamPoses(SatSimOptions & opt,
                             ref_proj); // output
 
   // Adjust the rig given --rig-sensor-ground-offsets
-  if (have_rig && !opt.rig_sensor_ground_offsets.empty())
+  if (have_rig && 
+      (!opt.rig_sensor_ground_offsets.empty() || !opt.rig_sensor_rotation_angles.empty()))
     adjustRigForOffsets(opt, dem_georef, dem, height_guess, ref_proj,
                         proj_along, proj_across, delta, 
                         rig);

@@ -26,6 +26,10 @@ image_calc (:numref:`image_calc`):
     bands while setting invalid disparities to a no-data value
     (:numref:`mask_disparity`).
 
+sat_sim (:numref:`sat_sim`):
+  * Added the option ``--rig-sensor-rotation-angles``, to be able to produce
+    a rig to desired specifications (:numref:`sat_sim_rig_adjust`).
+
 parallel_stereo (:numref:`parallel_stereo`):
   * If the number of matches from disparity is much less than requested, try to
     find more matches. This usually brings their number in the ballpark.

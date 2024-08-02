@@ -139,8 +139,9 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
      ("rig-config", po::value(&opt.rig_config)->default_value(""),
      "Simulate a frame camera rig with this configuration file. Then do not set the image "
      "size, focal length, optical center on the command line, as those are set by the rig. "
-     "The transforms on this rig may be adjusted via --rig-sensor-ground-offsets.")
-     ("rig-sensor-ground-offsets", 
+     "The transforms on this rig may be adjusted via --rig-sensor-ground-offsets "
+     "and --rig-sensor-rotation-angles.")
+     ("rig-sensor-ground-offsets",
       po::value(&opt.rig_sensor_ground_offsets)->default_value(""),
       "Modify the input rig so that each sensor has the given horizontal offsets from "
       "the rig center in the rig plane, and the sensor ground footprints have the given "
@@ -149,6 +150,11 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
       "sensor1_x sensor1_y ground1_x ground1_y followed by sensor 2, etc. The units "
       "are in meter. These will determine the sensor orientations. If not "
       "set, use 0 for all sensors.")
+     ("rig-sensor-rotation-angles",
+      po::value(&opt.rig_sensor_rotation_angles)->default_value(""),
+      "Modify the input rig by rotating each sensor by the given angle in the sensor "
+      "plane. Specify as one number per sensor, in degrees, separated by commas, or "
+      "in quotes and separated by spaces.")
      ("sensor-name", po::value(&opt.sensor_name)->default_value("all"),
        "Name of the sensor in the rig to simulate. If not set, will simulate all sensors. "
        "If more than one, list them separated by commas (no spaces).")
