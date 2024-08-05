@@ -63,8 +63,8 @@ def dirToTile(dir):
     bbox = BBox(int(parts[-4]), int(parts[-3]), int(parts[-2]), int(parts[-1]))
     return bbox
 
-def readTiles(out_prefix):
-    '''Read the tiles as saved by parallel_stereo.'''
+def readDirList(out_prefix):
+    '''Read the subdirectories for parallel_stereo.'''
 
     dirList = out_prefix + '-dirList.txt'
     
@@ -76,12 +76,28 @@ def readTiles(out_prefix):
     f = open(dirList, 'r')
     lines = f.readlines()
     f.close()
-    tiles = []
+
+    dirs = []
     for line in lines:
         line = line.strip()
+        # Remove empty lines
         if line == '':
             continue
-        tiles.append(dirToTile(line))
+        dirs.append(line)
+    
+    return dirs
+    
+def readTiles(out_prefix):
+    '''Read the tiles corresponding to parallel_stereo subdirectories.'''
+
+    dirs = readDirList(out_prefix)
+
+    tiles = []
+    for dir in dirs:
+        dir = dir.strip()
+        if dir == '':
+            continue
+        tiles.append(dirToTile(dir))
     
     return tiles
       

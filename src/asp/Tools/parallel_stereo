@@ -90,23 +90,18 @@ def check_system_memory(opt, args, settings):
 def tile_dir(prefix, tile):
     return prefix + '-' + tile.name_str()
 
-def produce_tiles(settings, tile_w, tile_h):
-    '''Generate a list of bounding boxes for each output tile.'''
-    image_size = settings["trans_left_image_size"]
-    tiles_nx   = int(math.ceil(float(image_size[0]) / tile_w))
-    tiles_ny   = int(math.ceil(float(image_size[1]) / tile_h))
-
-    tiles = []
-    for j in range(tiles_ny):
-        for i in range(tiles_nx):
-            c_tile_w = tile_w
-            c_tile_h = tile_h
-            if i == tiles_nx - 1:
-                c_tile_w = int(image_size[0]) - i * tile_w
-            if j == tiles_ny - 1:
-                c_tile_h = int(image_size[1]) - j * tile_h
-            tiles.append(BBox(i*tile_w,j*tile_h,c_tile_w,c_tile_h))
-
+def produce_tiles(args, settings, tile_w, tile_h):
+    '''
+    Generate a list of bounding boxes for each output tile. Use stereo_parse for
+    that. Skip the tiles that have no valid disparity.
+    '''
+    
+    sep = ","
+    tile_opt = ['--parallel-tile-size', str(tile_w), str(tile_h)]
+    verbose = False
+    run_and_parse_output("stereo_parse", args + tile_opt, sep, verbose)
+    
+    tiles = readTiles(settings['out_prefix'][0])
     return tiles
 
 def sym_link_prev_run(prev_run_prefix, out_prefix):
@@ -138,63 +133,58 @@ def sym_link_prev_run(prev_run_prefix, out_prefix):
                 os.remove(dst_f) # this could be some dangling thing
             os.symlink(rel_src, dst_f)
 
-def create_subproject_dirs(opt, settings):
-
-    # Create a subdirectory for each process we start.  Pretend
-    # previous steps of stereo already ran in that directory by
-    # creating symbolic links to actual files in parent run directory.
-    # Don't symlink to RD.tif or PC.tif as those will be files which
-    # actually need to be created in each subdirectory.
-    # Return the created subdirectories, and save their list to disk.
-    dirs = []
+def create_subdirs_symlink(opt, args, settings):
+    """
+    Create the list of tiles and the corresponding subdirectories. Create
+    symbolic links in each subdirectory to actual files in parent run directory.
+    Don't symlink to RD.tif or PC.tif as those will be files which actually need
+    to be created in each subdirectory. Return the created subdirectories, and
+    save their list to disk.
+    """
+    
     out_prefix = settings['out_prefix'][0]
-        
-    # Save the list of subdirectories to disk. This is used in stereo_blend.
-    dirList = out_prefix + '-dirList.txt'
+    tiles = produce_tiles(args, settings, opt.job_size_w, opt.job_size_h)
+    subdirs = readDirList(out_prefix)
+
     try:
-        parentDir = os.path.dirname(dirList)
+        parentDir = os.path.dirname(out_prefix)
         mkdir_p(parentDir)
     except:
         pass
     
-    print ("Writing: " + dirList)
-    fout = open(dirList, 'w')
+    for tile_id in range(len(subdirs)):
 
-    for tile in produce_tiles(settings, opt.job_size_w, opt.job_size_h):
-        subproject_dir = tile_dir(out_prefix, tile)
-        dirs.append(subproject_dir)
-        tile_prefix = subproject_dir + "/" + tile.name_str()
-        if opt.dryrun:
-            print("mkdir -p %s" % subproject_dir)
-            print("Soft linking via %s %s" % (tile_prefix, out_prefix))
-        else:
-            mkdir_p(subproject_dir)
-            fout.write(subproject_dir + "\n")
-
-            # Get list of files in the output (not tile) directory
-            files = glob.glob(out_prefix + '*')
-            for f in files:
-                if os.path.isdir(f): continue # Skip folders
-                rel_src = os.path.relpath(f, subproject_dir)
-                m = re.match(skip_symlink_expr, rel_src)
-                if m: continue # won't sym link certain patterns
-                # Make a symlink from main folder to the tile folder
-                dst_f = f.replace(out_prefix, tile_prefix)
-                if os.path.lexists(dst_f): continue
-                os.symlink(rel_src, dst_f)
-
-    fout.close()
+        tile        = tiles[tile_id]    
+        subdir      = subdirs[tile_id]
+        tile_prefix = subdir + "/" + tile.name_str()
     
-    return dirs
+        if opt.dryrun:
+            print("mkdir -p %s" % subdir)
+            print("Soft linking via %s %s" % (tile_prefix, out_prefix))
+            continue
+            
+        mkdir_p(subdir)
+        files = glob.glob(out_prefix + '*') # the files in the parent directory
+        for f in files:
+            if os.path.isdir(f): continue # Skip folders
+            rel_src = os.path.relpath(f, subdir)
+            m = re.match(skip_symlink_expr, rel_src)
+            if m: continue # won't sym link certain patterns
+            # Make a symlink from main folder to the tile folder
+            dst_f = f.replace(out_prefix, tile_prefix)
+            if os.path.lexists(dst_f): continue
+            os.symlink(rel_src, dst_f)
+
+    return subdirs
 
 def rename_files(settings, subdirs, postfix_in, postfix_out):
     """
       Rename tile_dir/file_in.tif to tile_dir/file_out.tif.
       Skip symlinks, such as when this directory was processed before.
     """
-    for dir in subdirs:
-        tile = dirToTile(dir)
-        prefix = dir + "/" + tile.name_str()
+    for subdir in subdirs:
+        tile = dirToTile(subdir)
+        prefix = subdir + "/" + tile.name_str()
         filename_in  = prefix + postfix_in
         filename_out = prefix + postfix_out
         if os.path.isfile(filename_in) and (not os.path.islink(filename_in)):
@@ -203,30 +193,37 @@ def rename_files(settings, subdirs, postfix_in, postfix_out):
             os.rename(filename_in, filename_out)
 
 def create_symlinks_for_multiview(opt, settings):
-
-    # Running parallel_stereo for each pair in a multiview run
-    # creates files like:
-    # out-prefix-pair2/2-4096_4096_1629_1629/4096_4096_1629_1629-F.tif
-    # To run parallel_stereo for tri, we expect this at
-    # out-prefix-4096_4096_1629_1629/4096_4096_1629_1629-pair2/2-F.tif
-    # Create the latter as a sym link.
-
-    create_subproject_dirs(opt, settings) # symlink L.tif, etc
-
-    tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
+    """
+    Running parallel_stereo for each pair in a multiview run
+    creates files like:
+      out-prefix-pair2/2-4096_4096_1629_1629/4096_4096_1629_1629-F.tif
+    To run parallel_stereo for tri, we expect this at
+      out-prefix-4096_4096_1629_1629/4096_4096_1629_1629-pair2/2-F.tif
+    Create the latter as a sym link.
+    """
+    subdirs = create_subdirs_symlink(opt, args, settings) # symlink L.tif, etc
+    
     for s in sorted(settings.keys()):
+        
+        # Find the settings for each stereo command that together comprise the
+        # multiview run.
+        # TODO(oalexan1): This should be factored out as a function, and the abve
+        # loop should iterate over the output of this function.
         m = re.match(r'multiview_command', s)
         if not m:
             continue
         local_settings=run_and_parse_output("stereo_parse", settings[s][1:],
-                                             sep, opt.verbose)
+                                            sep, opt.verbose)
         local_prefix = local_settings['out_prefix'][0]
         m = re.match(r'^(.*?)-pair(\d+)\/', local_prefix)
         if not m:
             continue
         base_prefix = m.group(1)
         index       = str(m.group(2))
-        for tile in tiles:
+        
+        for tile_id in range(len(subdirs)):
+            subdir = subdirs[tile_id]
+            tile = dirToTile(subdir)
             tile_str = tile.name_str()
             src_pref = tile_dir(base_prefix + '-pair' + index + '/' + index, tile) + '/' + tile_str
             dst_dir  = tile_dir(base_prefix, tile) + '/' + tile_str + '-pair' + index
@@ -275,7 +272,7 @@ def grow_crop_tile_maybe(settings, prog, tile):
 
     return crop_box
 
-def build_vrt(prog, opt, settings, georef, postfix, tile_postfix, contract_tiles=False):
+def build_vrt(prog, opt, args, settings, georef, postfix, tile_postfix, contract_tiles=False):
     '''Generate a VRT file to treat the separate image tiles as one large image.'''
 
     image_size = settings["trans_left_image_size"]
@@ -291,7 +288,7 @@ def build_vrt(prog, opt, settings, georef, postfix, tile_postfix, contract_tiles
     f.write("  <GeoTransform>" + georef["GeoTransform"] + "</GeoTransform>\n")
 
     # Locate a known good tile
-    tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
+    tiles = produce_tiles(args, settings, opt.job_size_w, opt.job_size_h)
     goodFilename = ""
     for tile in tiles:
         directory = tile_dir(settings['out_prefix'][0], tile)
@@ -1123,7 +1120,7 @@ if __name__ == '__main__':
         settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
 
         # Create the directory tree for this run
-        subdirs = create_subproject_dirs(opt, settings)
+        subdirs = create_subdirs_symlink(opt, args, settings)
 
     # TODO(oalexan1): The giant block below needs to be broken up into two
     # functions, called main_run() and and tile_run(). Careful testing will be
@@ -1151,7 +1148,7 @@ if __name__ == '__main__':
             if (opt.stop_point <= step):
                 sys.exit()
             normal_run('stereo_pprc', opt, args, msg='%d: Preprocessing' % step)
-            # Now the L.tif is saved, regather the settings.
+            # Now that L.tif is saved, recompute trans_left_image_size.
             settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
 
         # Correlation
@@ -1164,7 +1161,7 @@ if __name__ == '__main__':
             calc_lowres_disp(args, opt, sep, resume = opt.resume_at_corr)
 
             # symlink D_sub, D_sub_spread, etc.
-            subdirs = create_subproject_dirs(opt, settings)
+            subdirs = create_subdirs_symlink(opt, args, settings)
 
             # Run full-res stereo using multiple processes.
             check_system_memory(opt, args, settings)
@@ -1179,10 +1176,10 @@ if __name__ == '__main__':
             # build the vrt of all correlation tiles, and sym link
             # that vrt from all tile directories.
             rename_files(settings, subdirs, "-D.tif", "-Dnosym.tif")
-            build_vrt('stereo_corr', opt, settings, georef, 
+            build_vrt('stereo_corr', opt, args, settings, georef, 
                       "-D.tif", "-Dnosym.tif", 
                       contract_tiles = using_padded_tiles)
-            subdirs = create_subproject_dirs(opt, settings) # symlink D.tif
+            subdirs = create_subdirs_symlink(opt, args, settings) # symlink D.tif
 
         skip_refine_step = (int(settings['subpixel_mode'][0]) > 6)
 
@@ -1195,24 +1192,24 @@ if __name__ == '__main__':
             if not using_padded_tiles:
                 print("No work to do at the blending step.")
             else:
-                subdirs = create_subproject_dirs(opt, settings)
+                subdirs = create_subdirs_symlink(opt, args, settings)
                 spawn_to_nodes(step, opt, settings, parallel_args, subdirs)
 
                 if not skip_refine_step:
                     # Do the same trick as after stereo_corr
                     rename_files(settings, subdirs, "-B.tif", "-Bnosym.tif")
-                    build_vrt('stereo_blend', opt, settings, georef, 
+                    build_vrt('stereo_blend', opt, args, settings, georef, 
                               "-B.tif", "-Bnosym.tif", 
                               contract_tiles = False)
-                    create_subproject_dirs(opt, settings) # symlink B.tif
+                    create_subdirs_symlink(opt, args, settings) # symlink B.tif
 
             # At the blending step, make a vrt from the per-tile lr-disp differences.
             if settings['save_lr_disp_diff'][0] != '0':
                 if using_padded_tiles:
-                    build_vrt('stereo_blend', opt, settings, georef,
+                    build_vrt('stereo_blend', opt, args, settings, georef,
                             "-L-R-disp-diff.tif", "-L-R-disp-diff-blend.tif")
                 else:
-                    build_vrt('stereo_blend', opt, settings, georef,
+                    build_vrt('stereo_blend', opt, args, settings, georef,
                             "-L-R-disp-diff.tif", "-L-R-disp-diff.tif")
 
         # Refinement
@@ -1225,7 +1222,7 @@ if __name__ == '__main__':
             if using_padded_tiles:
                 parallel_args.extend(['--subpix-from-blend'])
             if not skip_refine_step:
-                subdirs = create_subproject_dirs(opt, settings)
+                subdirs = create_subdirs_symlink(opt, args, settings)
                 spawn_to_nodes(step, opt, settings, parallel_args, subdirs)
 
         # Filtering
@@ -1234,13 +1231,13 @@ if __name__ == '__main__':
             if (opt.stop_point <= step):
                 sys.exit()
             try:
-                build_vrt('stereo_rfne', opt, settings, georef, "-RD.tif", "-RD.tif")
+                build_vrt('stereo_rfne', opt, args, settings, georef, "-RD.tif", "-RD.tif")
             except Exception as e:
                 # Make the error message more informative
                 raise Exception('Failed to build a VRT from */*RD.tif files. Must redo at least the refinement step. Additional error message: ' + str(e))
                 
             normal_run('stereo_fltr', opt, args, msg='%d: Filtering' % step)
-            create_subproject_dirs(opt, settings) # symlink F.tif
+            create_subdirs_symlink(opt, args, settings) # symlink F.tif
 
         # Triangulation
         # TODO(oalexan1): For stereo we do not need to pad the tiles, which should
@@ -1271,16 +1268,16 @@ if __name__ == '__main__':
                 asp_cmd_utils.wipe_option(parallel_args, '--num-matches-from-disp-triplets', 1)
                 
                 # Create subdirs and symlink the files just created
-                subdirs = create_subproject_dirs(opt, settings)
+                subdirs = create_subdirs_symlink(opt, args, settings)
                 # Run triangulation on multiple machines
                 spawn_to_nodes(step, opt, settings, parallel_args, subdirs)
-                build_vrt('stereo_tri', opt, settings, georef, "-PC.tif", "-PC.tif") # mosaic
+                build_vrt('stereo_tri', opt, args, settings, georef, "-PC.tif", "-PC.tif")
 
         # If the run concluded successfully, merge and wipe
         if (opt.stop_point > Step.tri):
           if len(subdirs) == 0:
             # If this was not created by now, do it now
-            subdirs = create_subproject_dirs(opt, settings)
+            subdirs = create_subdirs_symlink(opt, args, settings)
           keepOnlySpecified(opt.keep_only, out_prefix, subdirs)
                 
        # End main process case

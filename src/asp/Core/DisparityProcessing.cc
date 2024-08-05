@@ -32,9 +32,10 @@ using namespace vw::cartography;
 
 namespace asp {
   
-/// Load the D_sub file
+/// Load the D_sub file fully in memory
 bool load_D_sub(std::string const& d_sub_file,
-                ImageViewRef<PixelMask<Vector2f>> & sub_disp) {
+                ImageView<PixelMask<Vector2f>> & sub_disp) {
+
   if (!boost::filesystem::exists(d_sub_file))
     return false;
   
@@ -43,33 +44,28 @@ bool load_D_sub(std::string const& d_sub_file,
   ChannelTypeEnum disp_data_type = rsrc->channel_type();
   
   if (disp_data_type == VW_CHANNEL_INT32) // Cast the integer file to float
-    sub_disp = pixel_cast<PixelMask<Vector2f>>(DiskImageView<PixelMask<Vector2i>>(d_sub_file));
+    sub_disp = copy(pixel_cast<PixelMask<Vector2f>>(DiskImageView<PixelMask<Vector2i>>(d_sub_file)));
   else // File on disk is float
-    sub_disp = DiskImageView<PixelMask<Vector2f>>(d_sub_file);
+    sub_disp = copy(DiskImageView<PixelMask<Vector2f>>(d_sub_file));
   return true;
 }
 
 // Load the low-res disparity and the scale needed to convert it to full-res
-void load_D_sub_and_scale(asp::ASPGlobalOptions                    const & opt,
-                          std::string                              const & d_sub_file, 
-                          vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>  & sub_disp,
-                          vw::Vector2                                    & upsample_scale) {
+void load_D_sub_and_scale(std::string                           const & out_prefix, 
+                          std::string                           const & d_sub_file, 
+                          vw::ImageView<vw::PixelMask<vw::Vector2f>>  & sub_disp,
+                          vw::Vector2                                 & upsample_scale) {
   
-  DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
-    Rmask(opt.out_prefix + "-rMask.tif");
-  
-  DiskImageView<PixelGray<float> > left_sub (opt.out_prefix+"-L_sub.tif"),
-    right_sub(opt.out_prefix+"-R_sub.tif");
+  DiskImageView<float> L(out_prefix + "-L.tif");
   
   if (!load_D_sub(d_sub_file, sub_disp)) {
-    std::string msg = "Could not read " + d_sub_file + ".";
-    if (stereo_settings().skip_low_res_disparity_comp)
-      msg += "\nPerhaps one should disable --skip-low-res-disparity-comp.";
+    std::string msg = "Could not read low-res disparity: " + d_sub_file + ". " 
+     + "Check your run. See if --skip-low-res-disparity-comp is on.";
     vw_throw(ArgumentErr() << msg << "\n");
   }
 
-  upsample_scale = Vector2(double(Lmask.cols()) / double(sub_disp.cols()) ,
-                           double(Lmask.rows()) / double(sub_disp.rows()));
+  upsample_scale = Vector2(double(L.cols()) / double(sub_disp.cols()),
+                           double(L.rows()) / double(sub_disp.rows()));
 }
 
 // Filter D_sub. All alignment methods are supported.
@@ -90,12 +86,9 @@ void filter_D_sub(ASPGlobalOptions const& opt,
   double factor = outlier_removal_params[1];
   double pct_fraction = 1.0 - pct/100.0;
 
-  vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp_ref;
+  vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
   vw::Vector2 upsample_scale;
-  asp::load_D_sub_and_scale(opt, d_sub_file, sub_disp_ref, upsample_scale);
-
-  // Use ImageView to read D_sub fully in memory so it can be modified
-  vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp = sub_disp_ref;
+  asp::load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
 
   // Will save the sub PC file, since we compute these anyway
   // for the purpose of filtering.
@@ -327,12 +320,9 @@ void filter_D_sub_using_spread(ASPGlobalOptions const& opt, std::string const& d
 
   vw_out() << "Filtering outliers in D_sub based on --max-disp-spread.\n";
 
-  vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp_ref;
+  vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
   vw::Vector2 upsample_scale;
-  asp::load_D_sub_and_scale(opt, d_sub_file, sub_disp_ref, upsample_scale);
-
-  // Use ImageView to read D_sub fully in memory so it can be modified
-  vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp = sub_disp_ref;
+  asp::load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
 
   std::vector<double> dx, dy;
   for (int col = 0; col < sub_disp.cols(); col++) {

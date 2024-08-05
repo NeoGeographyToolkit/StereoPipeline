@@ -79,10 +79,9 @@ void read_search_range_from_D_sub(std::string const& d_sub_file,
   if (stereo_settings().seed_mode == 0)
     return;
 
-  vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp;
+  vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
   vw::Vector2 upsample_scale;
-  
-  asp::load_D_sub_and_scale(opt, d_sub_file, sub_disp, upsample_scale);
+  asp::load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
   
   BBox2 search_range = stereo::get_disparity_range(sub_disp);
   search_range.min() = floor(elem_prod(search_range.min(), upsample_scale));
@@ -828,7 +827,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
     Rmask(opt.out_prefix + "-rMask.tif");
-  ImageViewRef<PixelMask<Vector2f> > sub_disp;
+  ImageView<PixelMask<Vector2f>> sub_disp;
   
   if (stereo_settings().seed_mode > 0) {
     if (!load_D_sub(d_sub_file, sub_disp)) {
@@ -838,10 +837,10 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
       vw_throw(ArgumentErr() << msg << "\n");
     }
   }
-  ImageViewRef<PixelMask<Vector2i> > sub_disp_spread;
+  ImageViewRef<PixelMask<Vector2i>> sub_disp_spread;
   if (stereo_settings().seed_mode == 2 ||  stereo_settings().seed_mode == 3){
     // D_sub_spread is mandatory for seed_mode 2 and 3.
-    sub_disp_spread = DiskImageView<PixelMask<Vector2i> >(spread_file);
+    sub_disp_spread = DiskImageView<PixelMask<Vector2i>>(spread_file);
   }else if (stereo_settings().seed_mode == 1){
     // D_sub_spread is optional for seed_mode 1, we use it only if it is provided.
     if (fs::exists(spread_file)) {

@@ -127,10 +127,10 @@ namespace asp {
       //vw_out() << "Creating IP from D_sub.\n";
       std::vector<vw::ip::InterestPoint> left_ip_from_dsub, right_ip_from_dsub;
       if (stereo_settings().seed_mode > 0) {
-        vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp;
+        vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
         vw::Vector2 upsample_scale;
         std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
-        asp::load_D_sub_and_scale(opt, d_sub_file, sub_disp, upsample_scale);
+        asp::load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
         asp::aligned_ip_from_D_sub(sub_disp, upsample_scale,  
                                    left_ip_from_dsub, right_ip_from_dsub);
       }

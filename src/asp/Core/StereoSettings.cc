@@ -522,7 +522,11 @@ namespace asp {
   ParseDescription::ParseDescription() : po::options_description("stereo_parse options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
-      ("tile-at-location", po::value(&global.tile_at_loc)->default_value(""),
+    ("parallel-tile-size", 
+     po::value(&global.parallel_tile_size)->default_value(Vector2i(0,0),"0 0"),
+      "Create tiles with these dimensions that are needed for parallel_stereo. Skip the "
+      "tiles that, after being padded, do not contain valid disparities.")
+    ("tile-at-location", po::value(&global.tile_at_loc)->default_value(""),
        "Find the tile in the current parallel_stereo run which generated the DEM portion having this lon-lat-height location. Specify as a string in quotes: 'lon lat height'. Use this option with stereo_parse and the rest of options used in parallel_stereo, including cameras, output prefix, etc. (except for those needed for tiling and parallelization). This does not work with mapprojected images.");
   }
 

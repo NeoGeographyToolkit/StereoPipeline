@@ -35,14 +35,14 @@ namespace asp {
   /// Load the D_sub file in a consistent format.
   /// - Returns false if the file does not exist.
   bool load_D_sub(std::string const& d_sub_file,
-                  vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> & sub_disp);
+                  vw::ImageView<vw::PixelMask<vw::Vector2f>> & sub_disp);
 
   
   // Load the low-res disparity and the scale needed to convert it to full-res
-  void load_D_sub_and_scale(ASPGlobalOptions                              const & opt,
-                            std::string                                   const & d_sub_file, 
-                            vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>       & sub_disp,
-                            vw::Vector2                                         & upsample_scale);
+  void load_D_sub_and_scale(std::string                                const & out_prefix, 
+                            std::string                                const & d_sub_file, 
+                            vw::ImageView<vw::PixelMask<vw::Vector2f>>       & sub_disp,
+                            vw::Vector2                                      & upsample_scale);
   
   // Filter D_sub. All alignment methods are supported.
   void filter_D_sub(ASPGlobalOptions const& opt,

@@ -26,6 +26,7 @@
 #include <vw/Stereo/CorrelationView.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Core/DisparityProcessing.h>
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
@@ -142,7 +143,8 @@ int main(int argc, char* argv[]) {
     vw::vw_out() << "trans_left_image,"  << trans_left_image  << "\n";
     vw::vw_out() << "trans_right_image," << trans_right_image << "\n";
     
-    vw::Vector2 trans_left_image_size;
+    // This is needed to create tiles in parallel_stereo
+    vw::Vector2 trans_left_image_size(0, 0);
     if (fs::exists(trans_left_image))
       trans_left_image_size = file_image_size(trans_left_image);
     vw_out() << "trans_left_image_size," << trans_left_image_size.x() << "," 
@@ -196,15 +198,84 @@ int main(int argc, char* argv[]) {
     bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM ||
                         stereo_settings().alignment_method == "local_epipolar");
     
-    if (!using_tiles)
-      vw_out() << "collar_size," << 0 << "\n";
-    else
-      vw_out() << "collar_size," << stereo_settings().sgm_collar_size << "\n";
-    
+    int sgm_collar_size = 0;
+    if (using_tiles)
+      sgm_collar_size = stereo_settings().sgm_collar_size;
+    vw_out() << "collar_size," << sgm_collar_size << "\n";
+
     vw_out() << "corr_memory_limit_mb," << stereo_settings().corr_memory_limit_mb << "\n";
     vw_out() << "save_lr_disp_diff," << stereo_settings().save_lr_disp_diff << "\n";
     vw_out() << "correlator_mode," << stereo_settings().correlator_mode << "\n";
     
+    if (asp::stereo_settings().parallel_tile_size != vw::Vector2i(0, 0)) {
+      // Produce the tiles for parallel_stereo. Skip the ones not having valid
+      // disparity.
+      // if (trans_left_image_size == vw::Vector2(0, 0))
+      //   vw_throw(ArgumentErr() << "Cannot produce tiles without a valid L.tif.\n");
+
+      std::string d_sub_file = opt.out_prefix + "-D_sub.tif";  
+      vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
+      vw::Vector2 upsample_scale;
+      asp::load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
+      std::cout << "--upsample_scale is " << upsample_scale << std::endl;
+      
+      std::cout << "--trans_left_image size is " << trans_left_image_size << std::endl;
+      std::cout << "--sgm collar size is " << sgm_collar_size << std::endl;
+      int tile_x = asp::stereo_settings().parallel_tile_size[0];
+      int tile_y = asp::stereo_settings().parallel_tile_size[1];
+      std::cout << "--tilew is " << tile_x << std::endl;
+      std::cout << "--tileh is " << tile_y << std::endl;
+      int tiles_nx = int(ceil(double(trans_left_image_size[0]) / tile_x));
+      int tiles_ny = int(ceil(double(trans_left_image_size[1]) / tile_y));
+      std::cout << "--tiles_nx is " << tiles_nx << std::endl;
+      std::cout << "--tiles_ny is " << tiles_ny << std::endl;
+      
+      std::string dirList = opt.out_prefix + "-dirList.txt";
+      // Open this for writing
+      std::ofstream ofs(dirList.c_str()); 
+      // Iterate in iy from 0 to tiles_ny - 1, and in ix from 0 to tiles_nx - 1.
+      for (int iy = 0; iy < tiles_ny; iy++) {
+        for (int ix = 0; ix < tiles_nx; ix++) {
+          
+          // Adjust for the tiles at the boundary
+          int curr_tile_x = tile_x;
+          int curr_tile_y = tile_y;
+          if (ix == tiles_nx - 1)
+            curr_tile_x = int(trans_left_image_size[0]) - ix * tile_x;
+          if (iy == tiles_ny - 1)
+            curr_tile_y = int(trans_left_image_size[1]) - iy * tile_y;
+            
+          int beg_x = ix * tile_x;
+          int beg_y = iy * tile_y;
+          
+          int min_sub_x = floor((beg_x - sgm_collar_size) / upsample_scale[0]);
+          int min_sub_y = floor((beg_y - sgm_collar_size) / upsample_scale[1]);
+          int max_sub_x = ceil((beg_x + curr_tile_x + sgm_collar_size) / upsample_scale[0]);
+          int max_sub_y = ceil((beg_y + curr_tile_y + sgm_collar_size) / upsample_scale[1]);
+          
+          min_sub_x = std::max(min_sub_x, 0);
+          min_sub_y = std::max(min_sub_y, 0);
+          max_sub_x = std::min(max_sub_x, sub_disp.cols() - 1);
+          max_sub_y = std::min(max_sub_y, sub_disp.rows() - 1);
+         
+          bool has_valid_vals = false;
+          for (int y = min_sub_y; y <= max_sub_y; y++) {
+            for (int x = min_sub_x; x <= max_sub_x; x++) {
+              if (is_valid(sub_disp(x, y))) {
+                has_valid_vals = true;
+                break;
+              }
+            }
+            if (has_valid_vals) break;
+          } 
+          
+          if (has_valid_vals)
+            ofs << opt.out_prefix << "-" << beg_x << "_" << beg_y << "_" 
+                << curr_tile_x << "_" << curr_tile_y << "\n";
+        }
+      }
+    }
+
     // This block of code should be in its own executable but I am
     // reluctant to create one just for it. This functionality will be
     // invoked after low-res disparity is computed, whether done in
