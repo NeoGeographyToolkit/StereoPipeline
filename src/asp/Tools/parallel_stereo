@@ -787,7 +787,96 @@ def set_collar_size(new_collar_size, args, settings):
     set_option(args, '--sgm-collar-size', [str(collar_size)])
     settings['collar_size'] = [str(collar_size)]
     return (settings, args)
-            
+
+def parallel_stereo_args(p, opt, parallel_args, args):
+    """
+    Find the options used by parallel_stereo which are not
+    passed to the stereo executables. This is fragile.
+    """
+
+    # Map from option, say --job-size-w, to the variable name, say, job_size_w.
+    opt2var = {}
+    for x in p._actions:
+        # For cases like ['-l', '--long'] get the second entry
+        opt_str = getattr(x, 'option_strings')[-1]
+        opt2var[opt_str] = getattr(x, 'dest')
+
+    extra_args = []
+    option_dict = vars(opt) # Each option understood by python, and its parsed value
+    for arg in parallel_args[1:]:
+
+        if arg in args:
+            # This is an option passed to stereo
+            continue
+
+        if len(arg) >= 2 and arg[0] == '-' and arg[1] != '-':
+            # We expect two dashes
+            raise Exception('Failed to parse: ' + arg)
+
+        if not arg in opt2var.keys():
+            # Does not start with dash
+            continue 
+
+        var = opt2var[arg]
+
+        if option_dict[var] is None:
+            # This option was not specified
+            continue
+
+        if isinstance(option_dict[var], bool):
+            # This is a bool flag, append it with no value
+            extra_args.append(arg)
+            continue
+
+        if (isinstance(option_dict[var], int)    or
+            isinstance(option_dict[var], float)  or
+            asp_string_utils.isString(option_dict[var])):
+            # For int, float, and string, append together with value
+            extra_args.append(arg)
+            extra_args.append(str(option_dict[var]))
+            continue
+
+        # We cannot currently parse other options than int, string, float, and bool.
+        # Should be simple to fix if need be. 
+        raise Exception('Could not parse: ' + arg)
+
+    return extra_args
+
+def setup_run_multiview(opt, settings, parallel_args, args):
+    '''
+    Prepare and run multiview stereo. Triangulation is joint, but
+    the steps before that are done separately for each pair.
+    '''
+ 
+    # TODO(oalexan1): This function calls parallel_stereo again. This is
+    # confusing.
+    
+    if opt.keep_only == "all_combined":
+        # Change the default to "unchanged"
+        opt.keep_only = "unchanged"
+    if opt.keep_only != "unchanged":
+        # If the user specified something else
+        raise Exception('Option --keep-only does not work with multiview stereo.')
+
+    # Bugfix: avoid confusing the logic below
+    asp_cmd_utils.wipe_option(parallel_args, '-s', 1)
+    if os.path.exists(opt.stereo_file):
+        parallel_args.extend(['--stereo-file', opt.stereo_file])
+
+    # Args only for parallel_stereo
+    extra_args = parallel_stereo_args(p, opt, parallel_args, args)
+
+    if opt.entry_point < Step.tri:
+        run_multiview(__file__, args, extra_args, opt.entry_point,
+                        opt.stop_point, opt.verbose, settings)
+        # Everything is done.
+        sys.exit(0)
+    else:
+        # We will arrive here after this script invokes itself
+        # for multiview.  Set up the directories. After this
+        # exits, triangulation will run.
+        create_symlinks_for_multiview(settings, opt)
+                
 if __name__ == '__main__':
     usage = '''parallel_stereo [options] <images> [<cameras>]
                   <output_file_prefix> [DEM]
@@ -803,10 +892,10 @@ if __name__ == '__main__':
     # computers. It also allows us to get past the single-threaded
     # constraints of ISIS.
 
-    # Algorithm: When the script is started, it starts one copy of
-    # itself on each node if doing steps 1, 2, or 4 (corr, rfne, tri).
-    # Those scripts in turn start actual jobs on those nodes.
-    # For the other steps, the script does the work itself.
+    # Algorithm: When this script is started, it calls itself on each node if
+    # doing steps 1, 2, or 4 (corr, rfne, tri). Those scripts in turn start
+    # actual jobs on those nodes. For the other steps, the script does the work
+    # itself.
 
     # Python does not know how to disambiguate between two
     # options which start with a similar prefix.
@@ -987,9 +1076,9 @@ if __name__ == '__main__':
     if opt.version:
         args.append('-v')
 
+    # TODO(oalexan1): This block must be a function called setup_job_size().
     if int(opt.job_size_h < 0) + int(opt.job_size_w < 0) == 1:
         raise Exception('Must set neither or both of --job-size-h and --job-size-w.')
-        
     # If --job-size-h and --job-size-w are not set, set them depending on the algorithm
     localEpi = (settings['alignment_method'][0] == 'local_epipolar')
     if opt.job_size_h < 0:
@@ -1015,7 +1104,6 @@ if __name__ == '__main__':
         elif alg > VW_CORRELATION_BM:
             # SGM, MGM, etc.
             opt.sgm_collar_size = 256
-    
     # Update the collar size in the settings and args
     (settings, args) = set_collar_size(opt.sgm_collar_size, args, settings)
 
@@ -1029,6 +1117,19 @@ if __name__ == '__main__':
     print('Using a collar (padding) for each tile of ' + settings['collar_size'][0] + \
           ' pixels.')
     
+    # parallel_args is what we will pass to spawned copies of parallel_stereo,
+    # while 'args' is what we pass to plain stereo.
+    parallel_args = sys.argv # shallow copy
+    
+    # Individual tools may use these options, but then they confuse parallel_stereo.
+    # They are usually encountered in log files.
+    if '--compute-point-cloud-center-only' in parallel_args:
+      raise Exception('Option --compute-point-cloud-center-only is not ' + \
+                      'supported. Use stereo_tri instead.')
+    if '--compute-low-res-disparity-only' in parallel_args:
+        raise Exception('Option --compute-low-res-disparity-only is not ' + \
+                        'supported. Use stereo_corr instead.')
+
     # See if to resume at triangulation. This logic must happen after we figured
     # if we need padded tiles, otherwise the bookkeeping will be wrong.
     if opt.tile_id is None and opt.prev_run_prefix is not None:
@@ -1045,22 +1146,9 @@ if __name__ == '__main__':
         # Create the directory tree for this run
         subdirs = create_subproject_dirs(settings)
 
-    # parallel_args is what we will pass to spawned copies of parallel_stereo,
-    # while 'args' is what we pass to plain stereo.
-    parallel_args = sys.argv # shallow copy
-    
-    # Individual tools may use these options, but then they confuse parallel_stereo.
-    # They are usually encountered in log files.
-    if '--compute-point-cloud-center-only' in parallel_args:
-      raise Exception('Option --compute-point-cloud-center-only is not ' + \
-                      'supported. Use stereo_tri instead.')
-    if '--compute-low-res-disparity-only' in parallel_args:
-        raise Exception('Option --compute-low-res-disparity-only is not ' + \
-                        'supported. Use stereo_corr instead.')
-
-    # TODO(oalexan1): The giant block below needs to be broken up into
-    # several functions named parent_run(), child_run(), and
-    # multiview_run(). Careful testing will be needed.
+    # TODO(oalexan1): The giant block below needs to be broken up into two
+    # functions, called main_run() and and tile_run(). Careful testing will be
+    # needed, including for multiview stereo.
     if opt.tile_id is None:
 
         # We get here when the script is started. The current running
@@ -1075,80 +1163,8 @@ if __name__ == '__main__':
         
         num_pairs = int(settings['num_stereo_pairs'][0])
         if num_pairs > 1:
-            # Run multiview logic. 
-            # TODO(oalexan1): This must be a function.
-            if opt.keep_only == "all_combined":
-                # Change the default to "unchanged"
-                opt.keep_only = "unchanged"
-            if opt.keep_only != "unchanged":
-                # If the user specified something else
-                raise Exception('Option --keep-only does not work with multiview stereo.')
-            
-            # Bugfix: avoid confusing the logic below
-            asp_cmd_utils.wipe_option(parallel_args, '-s', 1)
-            if os.path.exists(opt.stereo_file):
-                parallel_args.extend(['--stereo-file', opt.stereo_file])
-
-            # Map from option, say --job-size-w, to the variable name, say, job_size_w.
-            opt2var = {}
-            for x in p._actions:
-                # For cases like ['-l', '--long'] get the second entry
-                opt_str = getattr(x, 'option_strings')[-1]
-                opt2var[opt_str] = getattr(x, 'dest')
-
-            # Find the options used by parallel_stereo which are not
-            # passed to the stereo executables. This is a bit fragile.
-            extra_args = []
-            option_dict = vars(opt) # Each option understood by python, and its parsed value
-
-            for arg in parallel_args[1:]:
-
-                if arg in args:
-                    # This is an option passed to stereo
-                    continue
-
-                if len(arg) >= 2 and arg[0] == '-' and arg[1] != '-':
-                    # We expect two dashes
-                    raise Exception('Not implemented, failed to parse: ' + arg)
-
-                if not arg in opt2var.keys():
-                    # Does not start with dash
-                    continue 
-
-                var = opt2var[arg]
-
-                if option_dict[var] is None:
-                    # This option was not specified
-                    continue
-
-                if isinstance(option_dict[var], bool):
-                    # This is a bool flag, append it with no value
-                    extra_args.append(arg)
-                    continue
-
-                if (isinstance(option_dict[var], int)    or
-                    isinstance(option_dict[var], float)  or
-                    asp_string_utils.isString(option_dict[var])):
-                    # For int, float, and string, append together with value
-                    extra_args.append(arg)
-                    extra_args.append(str(option_dict[var]))
-                    continue
-
-                # We cannot currently parse other options than int, string, float, and bool.
-                # Should be simple to fix if need be. 
-                raise Exception('Could not parse: ' + arg)
-
-            if opt.entry_point < Step.tri:
-                run_multiview(__file__, args, extra_args, opt.entry_point,
-                              opt.stop_point, opt.verbose, settings)
-                # Everything is done.
-                sys.exit(0)
-            else:
-                # We will arrive here after this script invokes itself
-                # for multiview.  Set up the directories and run Step.tri.
-                create_symlinks_for_multiview(settings, opt)
-
-        # Parent script logic for each step
+            # Multiview stereo needs special treatment
+            setup_run_multiview(opt, settings, parallel_args, args)
 
         # Preprocessing
         step = Step.pprc
