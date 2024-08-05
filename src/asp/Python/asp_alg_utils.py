@@ -139,3 +139,22 @@ def genSegmentList(length, size, padding):
     
     return L
 
+def isVrt(filename):
+    '''
+    Peek at the first line and see if it this is a vrt.
+    '''
+
+    if (not os.path.exists(filename)) or os.path.isdir(filename):
+        return False
+
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            line = f.readline().lower()
+            if line.startswith('<vrtdataset'):
+                return True
+    except:
+        # Binary files will be handled here
+        return False
+    
+    return False
+
