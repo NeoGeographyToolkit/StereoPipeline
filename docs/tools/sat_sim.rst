@@ -445,7 +445,7 @@ the command line, as those are set by the rig configuration.
 The produced image and camera file names will include the sensor name, before
 the image/camera extension. Example::
 
-  out/out-10000_haz_cam.tsai
+  out/out-10000_my_cam.tsai
 
 The option ``--sensor-type`` controls the type of each rig sensor. A single
 value will apply to all sensors. To have per-sensor type, set a list of values
@@ -478,7 +478,7 @@ sensors separated by 0.02 m in the *x* direction the sensor plane, and their
 footprints separated by 2000 m in the *x* (across-track) direction on the ground,
 with no separation vertically, use::
 
-  --rig-sensor-ground-offsets -0.01,0,-1000,0,0.01,0,1000 0
+  --rig-sensor-ground-offsets -0.01,0,-1000,0,0.01,0,1000,0
 
 Additionally, an option such as::
 
@@ -521,9 +521,9 @@ with the camera pitch being --40, 0, and 40 degrees, respectively (so considerin
 *forward*, *nadir*, and *backward*-looking cameras), the created cameras will have
 names that look like::
 
-  out/out-0009997.588028494_haz_cam.tsai
-  out/out-0010000.000000000_haz_cam.tsai
-  out/out-0010002.411951096_haz_cam.tsai
+  out/out-0009997.588028494_my_cam.tsai
+  out/out-0010000.000000000_my_cam.tsai
+  out/out-0010002.411951096_my_cam.tsai
 
 This needs ``--reference-time`` to be defined, which is the time when the camera
 looks straight down at the starting point of the ground path. The default
@@ -535,7 +535,7 @@ keep the reference time in the 1000 - 100,000 second range to ensure the produce
 and nearby times are positive but not too large, which can result in loss of precision.
 
 Here we also assumed a rig was present (:numref:`sat_sim_rig`), with the sensor
-name being ``haz_cam``.
+name being ``my_cam``.
 
 .. _roll_pitch_yaw_def:
 
