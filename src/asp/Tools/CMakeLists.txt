@@ -259,10 +259,6 @@ add_executable(undistort_image_texrecon undistort_image_texrecon.cc)
 target_link_libraries(undistort_image_texrecon AspRig)
 install(TARGETS undistort_image_texrecon DESTINATION bin)
 
-add_executable(fit_rpc fit_rpc.cc)
-target_link_libraries(fit_rpc AspRig)
-install(TARGETS fit_rpc DESTINATION bin)
-
 add_executable(sfm_submap sfm_submap.cc)
 target_link_libraries(sfm_submap AspRig)
 install(TARGETS sfm_submap DESTINATION bin)
