@@ -46,6 +46,12 @@ namespace vw {
 
 namespace asp {
 
+// Find the match file taking into account --match-files-prefix and
+// --clean-match-files-prefix.
+std::string stereo_match_filename(std::string const& left_cropped_file,
+                                  std::string const& right_cropped_file,
+                                  std::string const& out_prefix);
+
 // Compute ip between L.tif and R.tif produced by stereo.
 void compute_ip_LR(std::string const & out_prefix);
 

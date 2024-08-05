@@ -290,36 +290,6 @@ bool StereoSession::ip_matching(std::string const& input_file1,
   return inlier;
 } // End function ip_matching()
 
-// This logic is used in a handful of places  
-std::string StereoSession::stereo_match_filename(std::string const& left_cropped_file,
-                                                 std::string const& right_cropped_file,
-                                                 std::string const& out_prefix) {
-  
-  // Define the file name containing IP match information.
-  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-  
-  // See if can use an externally provided match file
-  std::string match_filename;
-  if (!crop_left && !crop_right)
-    match_filename 
-      = asp::match_filename(stereo_settings().clean_match_files_prefix,
-                            stereo_settings().match_files_prefix,  
-                            out_prefix, left_cropped_file, right_cropped_file);
-  
-  // If the user wants to use an external match file, it better exist
-  bool external_matches = (!stereo_settings().clean_match_files_prefix.empty() ||
-                           !stereo_settings().match_files_prefix.empty());
-  if (external_matches && !boost::filesystem::exists(match_filename)) 
-    vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
-  
-  // Fall back to creating one if no luck
-  if (match_filename == "" || !boost::filesystem::exists(match_filename))
-      match_filename = vw::ip::match_filename(out_prefix, left_cropped_file, right_cropped_file);
-  
-  return match_filename;
-}
-    
 // Find ip matches and determine the alignment matrices
 void StereoSession::determine_image_alignment(// Inputs
                                               std::string  const& out_prefix,
@@ -343,7 +313,7 @@ void StereoSession::determine_image_alignment(// Inputs
   
   // Define the file name containing IP match information.
   std::string match_filename
-    = this->stereo_match_filename(left_cropped_file, right_cropped_file, out_prefix);
+    = asp::stereo_match_filename(left_cropped_file, right_cropped_file, out_prefix);
   
   std::string left_ip_filename  = ip::ip_filename(out_prefix, left_cropped_file);
   std::string right_ip_filename = ip::ip_filename(out_prefix, right_cropped_file);

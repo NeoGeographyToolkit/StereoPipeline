@@ -216,9 +216,8 @@ void fill_blend_options(ASPGlobalOptions const& opt, std::string const& in_file,
   std::string dir;
   std::string dirList = opt.out_prefix + "-dirList.txt";
   std::ifstream ifs(dirList.c_str());
-  while (ifs >> dir){
+  while (ifs >> dir)
     folder_list.push_back(dir);
-  }
   ifs.close();
   if (folder_list.empty()) 
     vw_throw(ArgumentErr() << "Something is corrupted. Found an empty file: "

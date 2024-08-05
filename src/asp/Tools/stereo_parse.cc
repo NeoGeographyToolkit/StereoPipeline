@@ -48,7 +48,7 @@ void find_tile_at_loc(std::string const& tile_at_loc, ASPGlobalOptions const& op
 
   vw::cartography::GeoReference georef = opt.session->get_georef();
 
-  boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+  vw::CamPtr left_camera_model, right_camera_model;
   opt.session->camera_models(left_camera_model, right_camera_model);
   
   Vector3 xyz = georef.datum().geodetic_to_cartesian(Vector3(lon, lat, h));
@@ -80,7 +80,7 @@ void find_tile_at_loc(std::string const& tile_at_loc, ASPGlobalOptions const& op
 
     BBox2i box(start_x, start_y, wid_x, wid_y);
     if (box.contains(pix)) {
-      std::cout << "Tile with location: " << tile_name << std::endl;
+      std::cout << "Tile with location: " << tile_name << "\n";
       success = true;
     }
   }
@@ -111,40 +111,45 @@ int main(int argc, char* argv[]) {
       return 1;
     }
     
-    vw_out() << "in_file1,"        << opt.in_file1        << endl;
-    vw_out() << "in_file2,"        << opt.in_file2        << endl;
-    vw_out() << "cam_file1,"       << opt.cam_file1       << endl;
-    vw_out() << "cam_file2,"       << opt.cam_file2       << endl;
-    vw_out() << "input_dem,"       << opt.input_dem       << endl;
-    vw_out() << "extra_argument1," << opt.extra_argument1 << endl;
-    vw_out() << "extra_argument2," << opt.extra_argument2 << endl;
-    vw_out() << "extra_argument3," << opt.extra_argument3 << endl;
+    vw_out() << "in_file1,"        << opt.in_file1        << "\n";
+    vw_out() << "in_file2,"        << opt.in_file2        << "\n";
+    vw_out() << "cam_file1,"       << opt.cam_file1       << "\n";
+    vw_out() << "cam_file2,"       << opt.cam_file2       << "\n";
+    vw_out() << "input_dem,"       << opt.input_dem       << "\n";
+    vw_out() << "extra_argument1," << opt.extra_argument1 << "\n";
+    vw_out() << "extra_argument2," << opt.extra_argument2 << "\n";
+    vw_out() << "extra_argument3," << opt.extra_argument3 << "\n";
 
-    vw_out() << "stereo_session,"   << opt.stereo_session         << endl;
-    vw_out() << "stereo_default_filename," << opt.stereo_default_filename       << endl;
-    vw_out() << "left_image_crop_win,"     << stereo_settings().left_image_crop_win.min().x() << ","
+    vw_out() << "stereo_session,"   << opt.stereo_session << "\n";
+    vw_out() << "stereo_default_filename," << opt.stereo_default_filename << "\n";
+    vw_out() << "left_image_crop_win,"
+             << stereo_settings().left_image_crop_win.min().x() << ","
              << stereo_settings().left_image_crop_win.min().y() << ","
              << stereo_settings().left_image_crop_win.width()   << ","
-             << stereo_settings().left_image_crop_win.height()  << endl;
+             << stereo_settings().left_image_crop_win.height()  << "\n";
 
-    vw_out() << "out_prefix," << output_prefix << endl;
+    vw_out() << "out_prefix," << output_prefix << "\n";
 
     Vector2i left_image_size  = file_image_size(opt.in_file1),
              right_image_size = file_image_size(opt.in_file2);
-    vw_out() << "left_image_size,"  << left_image_size.x()  << "," << left_image_size.y()  << endl;
-    vw_out() << "right_image_size," << right_image_size.x() << "," << right_image_size.y() << endl;
+    vw_out() << "left_image_size,"  << left_image_size.x()  << "," 
+             << left_image_size.y()  << "\n";
+    vw_out() << "right_image_size," << right_image_size.x() << "," 
+             << right_image_size.y() << "\n";
 
-    string trans_left_image  = opt.out_prefix+"-L.tif";
-    string trans_right_image = opt.out_prefix+"-R.tif";
-    vw_out() << "trans_left_image,"  << trans_left_image  << endl;
-    vw_out() << "trans_right_image," << trans_right_image << endl;
-    Vector2 trans_left_image_size;
-    if ( fs::exists(trans_left_image) )
+    std::string trans_left_image  = opt.out_prefix+"-L.tif";
+    std::string trans_right_image = opt.out_prefix+"-R.tif";
+    vw::vw_out() << "trans_left_image,"  << trans_left_image  << "\n";
+    vw::vw_out() << "trans_right_image," << trans_right_image << "\n";
+    
+    vw::Vector2 trans_left_image_size;
+    if (fs::exists(trans_left_image))
       trans_left_image_size = file_image_size(trans_left_image);
-    vw_out() << "trans_left_image_size," << trans_left_image_size.x() << "," << trans_left_image_size.y() << endl;
+    vw_out() << "trans_left_image_size," << trans_left_image_size.x() << "," 
+             << trans_left_image_size.y() << "\n";
 
     cartography::GeoReference georef = opt.session->get_georef();
-    vw_out() << "WKT--non-comma-separator--" << georef.get_wkt() << std::endl;
+    vw_out() << "WKT--non-comma-separator--" << georef.get_wkt() << "\n";
 
     // Write the geotransform as a string as expected by GDAL's vrt xml format
     // TODO: Not sure if this will be useful as a member function in GeoReference.
@@ -153,7 +158,7 @@ int main(int argc, char* argv[]) {
     os.precision(18);
     os << " "  << T(0, 2) << ",  " << T(0, 0) << ",  " << T(0, 1) << ",  "
        << " "  << T(1, 2) << ",  " << T(1, 0) << ",  " << T(1, 1);
-    vw_out() << "GeoTransform--non-comma-separator--" << os.str() << std::endl;
+    vw_out() << "GeoTransform--non-comma-separator--" << os.str() << "\n";
 
     // Some care is needed below. The transformed_window will be used
     // by parallel_stereo to parallelize stereo on a given user-specified
@@ -174,17 +179,15 @@ int main(int argc, char* argv[]) {
     vw_out() << "transformed_window," << transformed_window.min().x() << ","
              << transformed_window.min().y() << ","
              << transformed_window.width()   << ","
-             << transformed_window.height()  << endl;
+             << transformed_window.height()  << "\n";
 
-    //vw_out() << "corr_tile_size," << ASPGlobalOptions::corr_tile_size() << endl;
-    vw_out() << "corr_tile_size," << stereo_settings().corr_tile_size_ovr << endl;
-    vw_out() << "rfne_tile_size," << ASPGlobalOptions::rfne_tile_size() << endl;
-    vw_out() << "tri_tile_size,"  << ASPGlobalOptions::tri_tile_size()  << endl;
-
-    vw_out() << "stereo_algorithm," << stereo_settings().stereo_algorithm << endl;
-    vw_out() << "alignment_method,"  << stereo_settings().alignment_method << endl;
-
-    vw_out() << "subpixel_mode," << stereo_settings().subpixel_mode << endl;
+    //vw_out() << "corr_tile_size," << ASPGlobalOptions::corr_tile_size() << "\n";
+    vw_out() << "corr_tile_size," << stereo_settings().corr_tile_size_ovr << "\n";
+    vw_out() << "rfne_tile_size," << ASPGlobalOptions::rfne_tile_size() << "\n";
+    vw_out() << "tri_tile_size,"  << ASPGlobalOptions::tri_tile_size()  << "\n";
+    vw_out() << "stereo_algorithm," << stereo_settings().stereo_algorithm << "\n";
+    vw_out() << "alignment_method,"  << stereo_settings().alignment_method << "\n";
+    vw_out() << "subpixel_mode," << stereo_settings().subpixel_mode << "\n";
 
     // Apart from default block matching, correlation will be done tiles
     // with padding, which is called here collar_size.
@@ -194,15 +197,13 @@ int main(int argc, char* argv[]) {
                         stereo_settings().alignment_method == "local_epipolar");
     
     if (!using_tiles)
-      vw_out() << "collar_size," << 0 << endl;
+      vw_out() << "collar_size," << 0 << "\n";
     else
-      vw_out() << "collar_size," << stereo_settings().sgm_collar_size << endl;
+      vw_out() << "collar_size," << stereo_settings().sgm_collar_size << "\n";
     
-    vw_out() << "corr_memory_limit_mb," << stereo_settings().corr_memory_limit_mb << endl;
-
-    vw_out() << "save_lr_disp_diff," << stereo_settings().save_lr_disp_diff << std::endl;
-
-    vw_out() << "correlator_mode," << stereo_settings().correlator_mode << endl;
+    vw_out() << "corr_memory_limit_mb," << stereo_settings().corr_memory_limit_mb << "\n";
+    vw_out() << "save_lr_disp_diff," << stereo_settings().save_lr_disp_diff << "\n";
+    vw_out() << "correlator_mode," << stereo_settings().correlator_mode << "\n";
     
     // This block of code should be in its own executable but I am
     // reluctant to create one just for it. This functionality will be
@@ -231,8 +232,8 @@ int main(int argc, char* argv[]) {
             continue;
           }
 
-          ImageView<PixelMask<Vector2f> > d_sub;
-          read_image(d_sub, d_sub_file);
+          vw::ImageView<PixelMask<Vector2f>> d_sub;
+          vw::read_image(d_sub, d_sub_file);
           // Account for scale.
           double left_scale = 0.5*( double(d_sub.cols())/left_image.cols() +
                                     double(d_sub.rows())/left_image.rows());

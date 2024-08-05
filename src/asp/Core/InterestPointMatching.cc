@@ -192,9 +192,12 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   // determination of the homography. We'd rather have it accurate here and throw
   // away some good matches than the other way around. Later these matches will 
   // be replaced with matches per tile once the homography transform is found.
-  if (tight_inlier_threshold)
-    inlier_th = std::min(0.05*norm_2(Vector2(left_size.x(),left_size.y())), 1000.0);
-    
+  if (tight_inlier_threshold) {
+    inlier_th = std::min(0.05*norm_2(Vector2(left_size.x(),left_size.y())), inlier_th);
+    inlier_th = std::min(inlier_th, 200.0);
+    inlier_th = std::max(inlier_th, 5.0);
+  }
+  
   int min_inliers = left_copy.size()/2;
   bool reduce_num_if_no_fit = true;
   

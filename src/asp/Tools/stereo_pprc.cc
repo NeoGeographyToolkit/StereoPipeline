@@ -605,9 +605,9 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
   if (have_aligned_matches)
     match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
   else 
-    match_filename = opt.session->stereo_match_filename(opt.session->left_cropped_image(),
-                                                        opt.session->right_cropped_image(),
-                                                        opt.out_prefix);
+    match_filename = asp::stereo_match_filename(opt.session->left_cropped_image(),
+                                                opt.session->right_cropped_image(),
+                                                opt.out_prefix);
   // The interest points must exist by now
   if (!fs::exists(match_filename))
     vw_throw(ArgumentErr() << "Missing IP matches file: " << match_filename);

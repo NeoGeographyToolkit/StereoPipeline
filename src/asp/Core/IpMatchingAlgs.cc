@@ -30,11 +30,49 @@ namespace fs = boost::filesystem;
 
 namespace asp {
 
+// Find the match file taking into account --match-files-prefix and
+// --clean-match-files-prefix.
+std::string stereo_match_filename(std::string const& left_cropped_file,
+                                  std::string const& right_cropped_file,
+                                  std::string const& out_prefix) {
+  
+  // Define the file name containing IP match information.
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  
+  // See if can use an externally provided match file
+  std::string match_filename;
+  if (!crop_left && !crop_right)
+    match_filename 
+      = asp::match_filename(stereo_settings().clean_match_files_prefix,
+                            stereo_settings().match_files_prefix,  
+                            out_prefix, left_cropped_file, right_cropped_file);
+  
+  // If the user wants to use an external match file, it better exist
+  bool external_matches = (!stereo_settings().clean_match_files_prefix.empty() ||
+                           !stereo_settings().match_files_prefix.empty());
+  if (external_matches && !boost::filesystem::exists(match_filename)) 
+    vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
+  
+  // Fall back to creating one if no luck
+  if (match_filename == "" || !boost::filesystem::exists(match_filename))
+      match_filename = vw::ip::match_filename(out_prefix, left_cropped_file, right_cropped_file);
+  
+  return match_filename;
+}
+
 // Compute ip between L.tif and R.tif produced by stereo.
 void compute_ip_LR(std::string const & out_prefix) {
   
   const std::string left_aligned_image_file  = out_prefix + "-L.tif";
   const std::string right_aligned_image_file = out_prefix + "-R.tif";
+  
+  // The L-R match file. TODO(oalexan1): May need to consider the
+  // --match-files-prefix and --clean-match-files-prefix options. 
+  // For that, need to integrate with the logic for finding the match file
+  // for non-mapprojected images. So this function should be called from
+  // StereoSession::preprocessing_hook() where we know left_cropped_file, etc.
+  // Must then also test with ISIS mapprojected images.
   std::string match_filename = vw::ip::match_filename(out_prefix, "L.tif", "R.tif");
 
   // Make sure the match file is newer than these files
