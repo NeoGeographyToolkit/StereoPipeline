@@ -129,6 +129,7 @@ int main(int argc, char* argv[]) {
              << stereo_settings().left_image_crop_win.width()   << ","
              << stereo_settings().left_image_crop_win.height()  << "\n";
 
+    // This is different from opt.out_prefix for multiview
     vw_out() << "out_prefix," << output_prefix << "\n";
 
     Vector2i left_image_size  = file_image_size(opt.in_file1),
@@ -206,17 +207,25 @@ int main(int argc, char* argv[]) {
     vw_out() << "corr_memory_limit_mb," << stereo_settings().corr_memory_limit_mb << "\n";
     vw_out() << "save_lr_disp_diff," << stereo_settings().save_lr_disp_diff << "\n";
     vw_out() << "correlator_mode," << stereo_settings().correlator_mode << "\n";
-    
+
     if (asp::stereo_settings().parallel_tile_size != vw::Vector2i(0, 0)) {
       // Produce the tiles for parallel_stereo. Skip the ones not having valid
       // disparity.
-      // if (trans_left_image_size == vw::Vector2(0, 0))
-      //   vw_throw(ArgumentErr() << "Cannot produce tiles without a valid L.tif.\n");
+      if (trans_left_image_size == vw::Vector2(0, 0))
+         vw_throw(ArgumentErr() << "Cannot produce tiles without a valid L.tif.\n");
 
-      std::string d_sub_file = opt.out_prefix + "-D_sub.tif";  
+      // We can check for valid D_sub only if seed_mode is not 0 and not part of a multiview
+      // run, as that one is tricky to get right.
+      bool have_D_sub = false;
+      std::string d_sub_file = output_prefix + "-D_sub.tif";
+      std::cout << "===d sub file is " << d_sub_file << std::endl;
       vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
-      vw::Vector2 upsample_scale;
-      asp::load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
+      vw::Vector2 upsample_scale(0, 0);
+      bool is_multiview = stereo_settings().part_of_multiview_run;
+      if (stereo_settings().seed_mode != 0 && !is_multiview) {
+        have_D_sub = true; 
+        asp::load_D_sub_and_scale(output_prefix, d_sub_file, sub_disp, upsample_scale);
+      }
       std::cout << "--upsample_scale is " << upsample_scale << std::endl;
       
       std::cout << "--trans_left_image size is " << trans_left_image_size << std::endl;
@@ -229,8 +238,9 @@ int main(int argc, char* argv[]) {
       int tiles_ny = int(ceil(double(trans_left_image_size[1]) / tile_y));
       std::cout << "--tiles_nx is " << tiles_nx << std::endl;
       std::cout << "--tiles_ny is " << tiles_ny << std::endl;
+      std::cout << "--is multiview is " << is_multiview << std::endl;
       
-      std::string dirList = opt.out_prefix + "-dirList.txt";
+      std::string dirList = output_prefix + "-dirList.txt";
       // Open this for writing
       std::ofstream ofs(dirList.c_str()); 
       // Iterate in iy from 0 to tiles_ny - 1, and in ix from 0 to tiles_nx - 1.
@@ -248,29 +258,33 @@ int main(int argc, char* argv[]) {
           int beg_x = ix * tile_x;
           int beg_y = iy * tile_y;
           
-          int min_sub_x = floor((beg_x - sgm_collar_size) / upsample_scale[0]);
-          int min_sub_y = floor((beg_y - sgm_collar_size) / upsample_scale[1]);
-          int max_sub_x = ceil((beg_x + curr_tile_x + sgm_collar_size) / upsample_scale[0]);
-          int max_sub_y = ceil((beg_y + curr_tile_y + sgm_collar_size) / upsample_scale[1]);
+          bool has_valid_vals = true;
+          if (have_D_sub) {
+            has_valid_vals = false;
+            int min_sub_x = floor((beg_x - sgm_collar_size) / upsample_scale[0]);
+            int min_sub_y = floor((beg_y - sgm_collar_size) / upsample_scale[1]);
+            int max_sub_x = ceil((beg_x + curr_tile_x + sgm_collar_size) / upsample_scale[0]);
+            int max_sub_y = ceil((beg_y + curr_tile_y + sgm_collar_size) / upsample_scale[1]);
+            
+            min_sub_x = std::max(min_sub_x, 0);
+            min_sub_y = std::max(min_sub_y, 0);
+            max_sub_x = std::min(max_sub_x, sub_disp.cols() - 1);
+            max_sub_y = std::min(max_sub_y, sub_disp.rows() - 1);
           
-          min_sub_x = std::max(min_sub_x, 0);
-          min_sub_y = std::max(min_sub_y, 0);
-          max_sub_x = std::min(max_sub_x, sub_disp.cols() - 1);
-          max_sub_y = std::min(max_sub_y, sub_disp.rows() - 1);
-         
-          bool has_valid_vals = false;
-          for (int y = min_sub_y; y <= max_sub_y; y++) {
-            for (int x = min_sub_x; x <= max_sub_x; x++) {
-              if (is_valid(sub_disp(x, y))) {
-                has_valid_vals = true;
-                break;
+            for (int y = min_sub_y; y <= max_sub_y; y++) {
+              for (int x = min_sub_x; x <= max_sub_x; x++) {
+                if (is_valid(sub_disp(x, y))) {
+                  has_valid_vals = true;
+                  break;
+                }
               }
-            }
-            if (has_valid_vals) break;
-          } 
+              if (has_valid_vals) 
+                break;
+            } 
+          }
           
           if (has_valid_vals)
-            ofs << opt.out_prefix << "-" << beg_x << "_" << beg_y << "_" 
+            ofs << output_prefix << "-" << beg_x << "_" << beg_y << "_" 
                 << curr_tile_x << "_" << curr_tile_y << "\n";
         }
       }

@@ -96,12 +96,47 @@ def produce_tiles(args, settings, tile_w, tile_h):
     that. Skip the tiles that have no valid disparity.
     '''
     
+    # This cannot happen before we know trans_left_image_size
+    key = 'trans_left_image_size'
+    if key not in settings:
+        raise Exception("Cannot produce tiles until L.tif is known.")
+        
     sep = ","
     tile_opt = ['--parallel-tile-size', str(tile_w), str(tile_h)]
     verbose = False
+    print("--now in produce_tiles")
+    print("tile opt is ", tile_opt)
+    print("args is ", " ".join(args))
+    
+    num_pairs = int(settings['num_stereo_pairs'][0]) # for multiview
+    print("num_pairs is ", num_pairs)
+    
+    if opt.seed_mode != 0 and num_pairs == 1:
+      # D_sub must exist
+      d_sub_file = settings['out_prefix'][0] + '-D_sub.tif'
+      if not os.path.exists(d_sub_file):
+          raise Exception('The file ' + d_sub_file + ' does not exist.')
+    
+    # Create the tiles
     run_and_parse_output("stereo_parse", args + tile_opt, sep, verbose)
     
+    # print("---local prefix is ", local_prefix)
+    # print("---out prefix is ", out_prefix)
+    
+    # # This is a bugfix for multiview. The tiles are produced in a subdirectory
+    # if local_prefix != out_prefix:
+    #     local_tile_list = local_prefix + '-dirList.txt'
+    #     out_tile_list   = out_prefix + '-dirList.txt'
+    #     if os.path.exists(local_tile_list):
+    #         print("--copy file ", local_tile_list, " to ", out_tile_list)
+    #         shutil.copyfile(local_tile_list, out_tile_list)
+    #     else:
+    #         raise Exception('The file ' + local_tile_list + ' does not exist.')
+            
     tiles = readTiles(settings['out_prefix'][0])
+    
+    print("--size of tiles is ", len(tiles))
+    
     return tiles
 
 def sym_link_prev_run(prev_run_prefix, out_prefix):
@@ -192,7 +227,7 @@ def rename_files(settings, subdirs, postfix_in, postfix_out):
                 os.remove(filename_out)
             os.rename(filename_in, filename_out)
 
-def create_symlinks_for_multiview(opt, settings):
+def create_symlinks_for_multiview(opt, args, settings):
     """
     Running parallel_stereo for each pair in a multiview run
     creates files like:
@@ -201,13 +236,14 @@ def create_symlinks_for_multiview(opt, settings):
       out-prefix-4096_4096_1629_1629/4096_4096_1629_1629-pair2/2-F.tif
     Create the latter as a sym link.
     """
+    print("args 6 is ", " ".join(args))
     subdirs = create_subdirs_symlink(opt, args, settings) # symlink L.tif, etc
     
     for s in sorted(settings.keys()):
         
         # Find the settings for each stereo command that together comprise the
         # multiview run.
-        # TODO(oalexan1): This should be factored out as a function, and the abve
+        # TODO(oalexan1): This should be factored out as a function, and the above
         # loop should iterate over the output of this function.
         m = re.match(r'multiview_command', s)
         if not m:
@@ -853,7 +889,7 @@ def setup_run_multiview(opt, settings, parallel_args, args):
         # We will arrive here after this script invokes itself
         # for multiview.  Set up the directories. After this
         # exits, triangulation will run.
-        create_symlinks_for_multiview(opt, settings)
+        create_symlinks_for_multiview(opt, args, settings)
                 
 if __name__ == '__main__':
     usage = '''parallel_stereo [options] <images> [<cameras>]
