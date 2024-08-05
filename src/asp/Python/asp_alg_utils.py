@@ -47,6 +47,44 @@ class BBox:
     def __str__(self):
         return 'BBox('+ str(self.x) +', '+ str(self.y) +', '+ str(self.width) +', '+ str(self.height) +')' 
 
+def dirToTile(dir):
+    '''
+      From run/run-512_0_512_512 extract the bbox 512 0 512 512.
+    '''
+
+    # Split by _ and -
+    parts = re.split('[-_]', dir)
+    
+    # Must be at least 4 of them
+    if len(parts) < 4:
+        raise Exception('Could not extract bbox from ' + dir)
+    
+    # Last 4 parts are the bbox
+    bbox = BBox(int(parts[-4]), int(parts[-3]), int(parts[-2]), int(parts[-1]))
+    return bbox
+
+def readTiles(out_prefix):
+    '''Read the tiles as saved by parallel_stereo.'''
+
+    dirList = out_prefix + '-dirList.txt'
+    
+    # Must exist
+    if not os.path.exists(dirList):
+        raise Exception('Incomplete parallel_stereo run. Cannot find: ' + dirList)
+    
+    # Read and parse the tiles    
+    f = open(dirList, 'r')
+    lines = f.readlines()
+    f.close()
+    tiles = []
+    for line in lines:
+        line = line.strip()
+        if line == '':
+            continue
+        tiles.append(dirToTile(line))
+    
+    return tiles
+      
 def intersect_boxes(A, B):
     axmin = A.x; axmax = A.x + A.width; aymin = A.y; aymax = A.y + A.height
     bxmin = B.x; bxmax = B.x + B.width; bymin = B.y; bymax = B.y + B.height

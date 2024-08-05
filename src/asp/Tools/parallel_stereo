@@ -138,14 +138,14 @@ def sym_link_prev_run(prev_run_prefix, out_prefix):
                 os.remove(dst_f) # this could be some dangling thing
             os.symlink(rel_src, dst_f)
 
-def create_subproject_dirs(settings, **kw):
+def create_subproject_dirs(settings):
 
     # Create a subdirectory for each process we start.  Pretend
     # previous steps of stereo already ran in that directory by
     # creating symbolic links to actual files in parent run directory.
     # Don't symlink to RD.tif or PC.tif as those will be files which
     # actually need to be created in each subdirectory.
-    # Return the created subdirectories.
+    # Return the created subdirectories, and save their list to disk.
     dirs = []
     out_prefix = settings['out_prefix'][0]
         
@@ -169,7 +169,6 @@ def create_subproject_dirs(settings, **kw):
             print("Soft linking via %s %s" % (tile_prefix, out_prefix))
         else:
             mkdir_p(subproject_dir)
-
             fout.write(subproject_dir + "\n")
 
             # Get list of files in the output (not tile) directory
@@ -188,17 +187,16 @@ def create_subproject_dirs(settings, **kw):
     
     return dirs
 
-def rename_files(settings, postfix_in, postfix_out, **kw):
+def rename_files(settings, subdirs, postfix_in, postfix_out):
     """
-    Rename tile_dir/file_in.tif to tile_dir/file_out.tif.
-    Skip symlinks, such as when this directory was processed before.
+      Rename tile_dir/file_in.tif to tile_dir/file_out.tif.
+      Skip symlinks, such as when this directory was processed before.
     """
-    
-    tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
-    for tile in tiles:
-        directory    = tile_dir(settings['out_prefix'][0], tile)
-        filename_in  = directory + "/" + tile.name_str() + postfix_in
-        filename_out = directory + "/" + tile.name_str() + postfix_out
+    for dir in subdirs:
+        tile = dirToTile(dir)
+        prefix = dir + "/" + tile.name_str()
+        filename_in  = prefix + postfix_in
+        filename_out = prefix + postfix_out
         if os.path.isfile(filename_in) and (not os.path.islink(filename_in)):
             if os.path.exists(filename_out):
                 os.remove(filename_out)
@@ -206,7 +204,7 @@ def rename_files(settings, postfix_in, postfix_out, **kw):
 
 def create_symlinks_for_multiview(settings, opt):
 
-    # Running parallel_stereo for each pair in a mutiview run
+    # Running parallel_stereo for each pair in a multiview run
     # creates files like:
     # out-prefix-pair2/2-4096_4096_1629_1629/4096_4096_1629_1629-F.tif
     # To run parallel_stereo for tri, we expect this at
@@ -492,7 +490,7 @@ def get_best_procs_threads(step, settings):
 # Launch GNU Parallel for all tiles, it will take care of distributing
 # the jobs across the nodes and load balancing. The way we accomplish
 # this is by calling this same script but with --tile-id <num>.
-def spawn_to_nodes(step, settings, args):
+def spawn_to_nodes(step, settings, args, subdirs):
 
     if opt.processes is None or opt.threads_multi is None:
         # The user did not specify these. We will find the best
@@ -507,8 +505,6 @@ def spawn_to_nodes(step, settings, args):
     args.extend(['--processes', str(procs)])
     args.extend(['--threads-multiprocess', str(threads)])
 
-    tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
-
     # Each tile has an index in the list of tiles. There can be a huge amount of
     # tiles, and for that reason we store their indices in a file, rather than
     # putting them on the command line. Keep this file in the run directory.
@@ -516,7 +512,7 @@ def spawn_to_nodes(step, settings, args):
     tiles_index = out_prefix + "-tiles-index.txt"
     mkdir_p(os.path.dirname(tiles_index))
     f = open(tiles_index, 'w')
-    for i in range(len(tiles)):
+    for i in range(len(subdirs)):
         f.write("%d\n" % i)
     f.close()
 
@@ -1149,7 +1145,7 @@ if __name__ == '__main__':
                 sys.exit(0)
             else:
                 # We will arrive here after this script invokes itself
-                # for multivew.  Set up the directories and run Step.tri.
+                # for multiview.  Set up the directories and run Step.tri.
                 create_symlinks_for_multiview(settings, opt)
 
         # Parent script logic for each step
@@ -1160,11 +1156,8 @@ if __name__ == '__main__':
             if (opt.stop_point <= step):
                 sys.exit()
             normal_run('stereo_pprc', args, msg='%d: Preprocessing' % step)
-            create_subproject_dirs(settings) # symlink L.tif, etc
-            # Now the left is defined. Regather the settings
-            # and properly create the project dirs.
-            settings = run_and_parse_output("stereo_parse", args, sep,
-                                            opt.verbose)
+            # Now the L.tif is saved, regather the settings.
+            settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
 
         # Correlation
         step = Step.corr
@@ -1176,12 +1169,12 @@ if __name__ == '__main__':
             calc_lowres_disp(args, opt, sep, resume = opt.resume_at_corr)
 
             # symlink D_sub, D_sub_spread, etc.
-            create_subproject_dirs(settings)
+            subdirs = create_subproject_dirs(settings)
 
             # Run full-res stereo using multiple processes.
             check_system_memory(opt, args, settings)
             parallel_args.extend(['--skip-low-res-disparity-comp'])
-            spawn_to_nodes(step, settings, parallel_args)
+            spawn_to_nodes(step, settings, parallel_args, subdirs)
             # Low-res disparity is done, so wipe that option
             asp_cmd_utils.wipe_option(parallel_args, '--skip-low-res-disparity-comp', 0)
             
@@ -1190,10 +1183,11 @@ if __name__ == '__main__':
             # rename all correlation tiles to something else,
             # build the vrt of all correlation tiles, and sym link
             # that vrt from all tile directories.
-            rename_files(settings, "-D.tif", "-Dnosym.tif")
-            build_vrt('stereo_corr', settings, georef, "-D.tif", "-Dnosym.tif", 
+            rename_files(settings, subdirs, "-D.tif", "-Dnosym.tif")
+            build_vrt('stereo_corr', settings, georef, 
+                      "-D.tif", "-Dnosym.tif", 
                       contract_tiles = using_padded_tiles)
-            create_subproject_dirs(settings) # symlink D.tif
+            subdirs = create_subproject_dirs(settings) # symlink D.tif
 
         skip_refine_step = (int(settings['subpixel_mode'][0]) > 6)
 
@@ -1206,13 +1200,14 @@ if __name__ == '__main__':
             if not using_padded_tiles:
                 print("No work to do at the blending step.")
             else:
-                create_subproject_dirs(settings)
-                spawn_to_nodes(step, settings, parallel_args)
+                subdirs = create_subproject_dirs(settings)
+                spawn_to_nodes(step, settings, parallel_args, subdirs)
 
                 if not skip_refine_step:
                     # Do the same trick as after stereo_corr
-                    rename_files(settings, "-B.tif", "-Bnosym.tif")
-                    build_vrt('stereo_blend', settings, georef, "-B.tif", "-Bnosym.tif", 
+                    rename_files(settings, subdirs, "-B.tif", "-Bnosym.tif")
+                    build_vrt('stereo_blend', settings, georef, 
+                              "-B.tif", "-Bnosym.tif", 
                               contract_tiles = False)
                     create_subproject_dirs(settings) # symlink B.tif
 
@@ -1235,8 +1230,8 @@ if __name__ == '__main__':
             if using_padded_tiles:
                 parallel_args.extend(['--subpix-from-blend'])
             if not skip_refine_step:
-                create_subproject_dirs(settings)
-                spawn_to_nodes(step, settings, parallel_args)
+                subdirs = create_subproject_dirs(settings)
+                spawn_to_nodes(step, settings, parallel_args, subdirs)
 
         # Filtering
         step = Step.fltr
@@ -1254,7 +1249,7 @@ if __name__ == '__main__':
 
         # Triangulation
         # TODO(oalexan1): For stereo we do not need to pad the tiles, which should
-        # be a nice speed up. But then must ensure both the padded and unpadded
+        # be a nice speed up. But then must ensure both the padded and non-padded
         # tiles are wiped after the run is done.
         step = Step.tri
         subdirs = []
@@ -1280,11 +1275,10 @@ if __name__ == '__main__':
                 asp_cmd_utils.wipe_option(parallel_args, '--num-matches-from-disparity', 1)
                 asp_cmd_utils.wipe_option(parallel_args, '--num-matches-from-disp-triplets', 1)
                 
-                # symlink the files just created
+                # Create subdirs and symlink the files just created
                 subdirs = create_subproject_dirs(settings)
-
                 # Run triangulation on multiple machines
-                spawn_to_nodes(step, settings, parallel_args)
+                spawn_to_nodes(step, settings, parallel_args, subdirs)
                 build_vrt('stereo_tri', settings, georef, "-PC.tif", "-PC.tif") # mosaic
 
         # If the run concluded successfully, merge and wipe
@@ -1304,7 +1298,7 @@ if __name__ == '__main__':
 
         try:
             # Pick the tile we want from the list of tiles
-            tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
+            tiles = readTiles(out_prefix)
             tile  = tiles[opt.tile_id]
 
             if (opt.entry_point == Step.corr):
