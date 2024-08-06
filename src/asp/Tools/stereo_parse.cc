@@ -128,9 +128,9 @@ void produceTiles(std::string const& output_prefix,
       int curr_tile_x = tile_x;
       int curr_tile_y = tile_y;
       if (ix == tiles_nx - 1)
-        curr_tile_x = int(trans_left_image_size[0]) - ix * tile_x;
+        curr_tile_x = std::max(int(trans_left_image_size[0]) - ix * tile_x, 0);
       if (iy == tiles_ny - 1)
-        curr_tile_y = int(trans_left_image_size[1]) - iy * tile_y;
+        curr_tile_y = std::max(int(trans_left_image_size[1]) - iy * tile_y, 0);
         
       int beg_x = ix * tile_x;
       int beg_y = iy * tile_y;

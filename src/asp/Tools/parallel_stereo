@@ -214,7 +214,6 @@ def create_symlinks_for_multiview(opt, args, settings):
       out-prefix-4096_4096_1629_1629/4096_4096_1629_1629-pair2/2-F.tif
     Create the latter as a sym link.
     """
-    print("args 6 is ", " ".join(args))
     subdirs = create_subdirs_symlink(opt, args, settings) # symlink L.tif, etc
     
     for s in sorted(settings.keys()):
