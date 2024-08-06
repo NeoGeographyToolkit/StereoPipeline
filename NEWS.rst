@@ -36,6 +36,7 @@ parallel_stereo (:numref:`parallel_stereo`):
   * It is possible to mapproject either with ``dg`` and ``rpc`` cameras
     when using mapprojected images in stereo with DigitalGlobe / Maxar
     cameras (:numref:`dg-mapproj`).
+  * Skip tiles for which there is no valid low-resolution disparity.
 
 orbit_plot (:numref:`orbit_plot`):
   * Added the option ``--use-rmse``.

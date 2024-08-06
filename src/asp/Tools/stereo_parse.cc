@@ -81,13 +81,91 @@ void find_tile_at_loc(std::string const& tile_at_loc, ASPGlobalOptions const& op
 
     BBox2i box(start_x, start_y, wid_x, wid_y);
     if (box.contains(pix)) {
-      std::cout << "Tile with location: " << tile_name << "\n";
+      vw::vw_out() << "Tile with location: " << tile_name << "\n";
       success = true;
     }
   }
 
   if (!success)
     vw_out() << "No tile found at location.\n"; 
+}
+
+// Produce the list of tiles for which D_sub has valid values.
+void produceTiles(std::string const& output_prefix, 
+                  vw::Vector2 const& trans_left_image_size,
+                  vw::Vector2i const& parallel_tile_size,
+                  int sgm_collar_size) {
+
+  if (trans_left_image_size == vw::Vector2(0, 0))
+      vw_throw(ArgumentErr() << "Cannot produce tiles without a valid L.tif.\n");
+
+  // We check for valid D_sub only if seed_mode is not 0 and not part of a multiview
+  // run, as that one is tricky to get right, given that each pair run has its own D_sub.
+  bool have_D_sub = false;
+  std::string d_sub_file = output_prefix + "-D_sub.tif";
+  vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
+  vw::Vector2 upsample_scale(0, 0);
+  bool is_multiview = stereo_settings().part_of_multiview_run;
+  if (stereo_settings().seed_mode != 0 && !is_multiview) {
+    have_D_sub = true; 
+    asp::load_D_sub_and_scale(output_prefix, d_sub_file, sub_disp, upsample_scale);
+  }
+
+  int tile_x = parallel_tile_size[0];
+  int tile_y = parallel_tile_size[1];
+  int tiles_nx = int(ceil(double(trans_left_image_size[0]) / tile_x));
+  int tiles_ny = int(ceil(double(trans_left_image_size[1]) / tile_y));
+
+  // Open the file for writing
+  std::string dirList = output_prefix + "-dirList.txt";
+  std::ofstream ofs(dirList.c_str()); 
+
+  // Iterate in iy from 0 to tiles_ny - 1, and in ix from 0 to tiles_nx - 1.
+  for (int iy = 0; iy < tiles_ny; iy++) {
+    for (int ix = 0; ix < tiles_nx; ix++) {
+      
+      // Adjust for the tiles at the boundary
+      int curr_tile_x = tile_x;
+      int curr_tile_y = tile_y;
+      if (ix == tiles_nx - 1)
+        curr_tile_x = int(trans_left_image_size[0]) - ix * tile_x;
+      if (iy == tiles_ny - 1)
+        curr_tile_y = int(trans_left_image_size[1]) - iy * tile_y;
+        
+      int beg_x = ix * tile_x;
+      int beg_y = iy * tile_y;
+      
+      bool has_valid_vals = true;
+      if (have_D_sub) {
+        has_valid_vals = false;
+        int min_sub_x = floor((beg_x - sgm_collar_size) / upsample_scale[0]);
+        int min_sub_y = floor((beg_y - sgm_collar_size) / upsample_scale[1]);
+        int max_sub_x = ceil((beg_x + curr_tile_x + sgm_collar_size) / upsample_scale[0]);
+        int max_sub_y = ceil((beg_y + curr_tile_y + sgm_collar_size) / upsample_scale[1]);
+        
+        min_sub_x = std::max(min_sub_x, 0);
+        min_sub_y = std::max(min_sub_y, 0);
+        max_sub_x = std::min(max_sub_x, sub_disp.cols() - 1);
+        max_sub_y = std::min(max_sub_y, sub_disp.rows() - 1);
+      
+        for (int y = min_sub_y; y <= max_sub_y; y++) {
+          for (int x = min_sub_x; x <= max_sub_x; x++) {
+            if (is_valid(sub_disp(x, y))) {
+              has_valid_vals = true;
+              break;
+            }
+          }
+          if (has_valid_vals) 
+            break;
+        } 
+      }
+      
+      if (has_valid_vals)
+        ofs << output_prefix << "-" << beg_x << "_" << beg_y << "_" 
+            << curr_tile_x << "_" << curr_tile_y << "\n";
+    }
+  }
+
 }
 
 int main(int argc, char* argv[]) {
@@ -208,92 +286,12 @@ int main(int argc, char* argv[]) {
     vw_out() << "save_lr_disp_diff," << stereo_settings().save_lr_disp_diff << "\n";
     vw_out() << "correlator_mode," << stereo_settings().correlator_mode << "\n";
 
-    if (asp::stereo_settings().parallel_tile_size != vw::Vector2i(0, 0)) {
-      // Produce the tiles for parallel_stereo. Skip the ones not having valid
-      // disparity.
-      if (trans_left_image_size == vw::Vector2(0, 0))
-         vw_throw(ArgumentErr() << "Cannot produce tiles without a valid L.tif.\n");
+    if (asp::stereo_settings().parallel_tile_size != vw::Vector2i(0, 0)) 
+      produceTiles(output_prefix, trans_left_image_size, 
+                   asp::stereo_settings().parallel_tile_size, sgm_collar_size);
 
-      // We can check for valid D_sub only if seed_mode is not 0 and not part of a multiview
-      // run, as that one is tricky to get right.
-      bool have_D_sub = false;
-      std::string d_sub_file = output_prefix + "-D_sub.tif";
-      std::cout << "===d sub file is " << d_sub_file << std::endl;
-      vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
-      vw::Vector2 upsample_scale(0, 0);
-      bool is_multiview = stereo_settings().part_of_multiview_run;
-      if (stereo_settings().seed_mode != 0 && !is_multiview) {
-        have_D_sub = true; 
-        asp::load_D_sub_and_scale(output_prefix, d_sub_file, sub_disp, upsample_scale);
-      }
-      std::cout << "--upsample_scale is " << upsample_scale << std::endl;
-      
-      std::cout << "--trans_left_image size is " << trans_left_image_size << std::endl;
-      std::cout << "--sgm collar size is " << sgm_collar_size << std::endl;
-      int tile_x = asp::stereo_settings().parallel_tile_size[0];
-      int tile_y = asp::stereo_settings().parallel_tile_size[1];
-      std::cout << "--tilew is " << tile_x << std::endl;
-      std::cout << "--tileh is " << tile_y << std::endl;
-      int tiles_nx = int(ceil(double(trans_left_image_size[0]) / tile_x));
-      int tiles_ny = int(ceil(double(trans_left_image_size[1]) / tile_y));
-      std::cout << "--tiles_nx is " << tiles_nx << std::endl;
-      std::cout << "--tiles_ny is " << tiles_ny << std::endl;
-      std::cout << "--is multiview is " << is_multiview << std::endl;
-      
-      std::string dirList = output_prefix + "-dirList.txt";
-      // Open this for writing
-      std::ofstream ofs(dirList.c_str()); 
-      // Iterate in iy from 0 to tiles_ny - 1, and in ix from 0 to tiles_nx - 1.
-      for (int iy = 0; iy < tiles_ny; iy++) {
-        for (int ix = 0; ix < tiles_nx; ix++) {
-          
-          // Adjust for the tiles at the boundary
-          int curr_tile_x = tile_x;
-          int curr_tile_y = tile_y;
-          if (ix == tiles_nx - 1)
-            curr_tile_x = int(trans_left_image_size[0]) - ix * tile_x;
-          if (iy == tiles_ny - 1)
-            curr_tile_y = int(trans_left_image_size[1]) - iy * tile_y;
-            
-          int beg_x = ix * tile_x;
-          int beg_y = iy * tile_y;
-          
-          bool has_valid_vals = true;
-          if (have_D_sub) {
-            has_valid_vals = false;
-            int min_sub_x = floor((beg_x - sgm_collar_size) / upsample_scale[0]);
-            int min_sub_y = floor((beg_y - sgm_collar_size) / upsample_scale[1]);
-            int max_sub_x = ceil((beg_x + curr_tile_x + sgm_collar_size) / upsample_scale[0]);
-            int max_sub_y = ceil((beg_y + curr_tile_y + sgm_collar_size) / upsample_scale[1]);
-            
-            min_sub_x = std::max(min_sub_x, 0);
-            min_sub_y = std::max(min_sub_y, 0);
-            max_sub_x = std::min(max_sub_x, sub_disp.cols() - 1);
-            max_sub_y = std::min(max_sub_y, sub_disp.rows() - 1);
-          
-            for (int y = min_sub_y; y <= max_sub_y; y++) {
-              for (int x = min_sub_x; x <= max_sub_x; x++) {
-                if (is_valid(sub_disp(x, y))) {
-                  has_valid_vals = true;
-                  break;
-                }
-              }
-              if (has_valid_vals) 
-                break;
-            } 
-          }
-          
-          if (has_valid_vals)
-            ofs << output_prefix << "-" << beg_x << "_" << beg_y << "_" 
-                << curr_tile_x << "_" << curr_tile_y << "\n";
-        }
-      }
-    }
-
-    // This block of code should be in its own executable but I am
-    // reluctant to create one just for it. This functionality will be
-    // invoked after low-res disparity is computed, whether done in
-    // C++ or in Python. It will attach a georeference to this disparity.
+    // Attach a georeference to this disparity. 
+    // TODO(oalexan1): Make this into a function
     std::string left_image_file = opt.out_prefix + "-L.tif";
     if (stereo_settings().attach_georeference_to_lowres_disparity &&
         fs::exists(left_image_file)) {

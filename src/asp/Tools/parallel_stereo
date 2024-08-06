@@ -104,12 +104,7 @@ def produce_tiles(args, settings, tile_w, tile_h):
     sep = ","
     tile_opt = ['--parallel-tile-size', str(tile_w), str(tile_h)]
     verbose = False
-    print("--now in produce_tiles")
-    print("tile opt is ", tile_opt)
-    print("args is ", " ".join(args))
-    
     num_pairs = int(settings['num_stereo_pairs'][0]) # for multiview
-    print("num_pairs is ", num_pairs)
     
     if opt.seed_mode != 0 and num_pairs == 1:
       # D_sub must exist
@@ -119,24 +114,7 @@ def produce_tiles(args, settings, tile_w, tile_h):
     
     # Create the tiles
     run_and_parse_output("stereo_parse", args + tile_opt, sep, verbose)
-    
-    # print("---local prefix is ", local_prefix)
-    # print("---out prefix is ", out_prefix)
-    
-    # # This is a bugfix for multiview. The tiles are produced in a subdirectory
-    # if local_prefix != out_prefix:
-    #     local_tile_list = local_prefix + '-dirList.txt'
-    #     out_tile_list   = out_prefix + '-dirList.txt'
-    #     if os.path.exists(local_tile_list):
-    #         print("--copy file ", local_tile_list, " to ", out_tile_list)
-    #         shutil.copyfile(local_tile_list, out_tile_list)
-    #     else:
-    #         raise Exception('The file ' + local_tile_list + ' does not exist.')
-            
     tiles = readTiles(settings['out_prefix'][0])
-    
-    print("--size of tiles is ", len(tiles))
-    
     return tiles
 
 def sym_link_prev_run(prev_run_prefix, out_prefix):
