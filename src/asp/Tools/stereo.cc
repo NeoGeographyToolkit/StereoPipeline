@@ -817,6 +817,19 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
   if (dem_provided && georef1.get_wkt() != georef2.get_wkt())
     vw_throw(ArgumentErr() << "The left and right images must use the same projection.\n");
 
+  // Must check here for same resolution. This is an endless source of bugs.
+  if (dem_provided && !stereo_settings().allow_different_mapproject_gsd) {
+    auto M1 = georef1.transform();
+    auto M2 = georef2.transform();
+    // The diagonal terms of these must be equal.
+    double tol = 1e-10;
+    if (std::abs(M1(0, 0) - M2(0, 0)) > tol || std::abs(M1(1, 1) - M2(1, 1)) > tol)
+      vw::vw_throw(vw::ArgumentErr() 
+               << "The input mapprojected images must have the same resolution for best "
+               << "results. This can be overriden with the option: "
+               << "--allow-different-mapproject-gsd. This is not recommended.\n");
+  }
+  
   // If the images are map-projected, we need an input DEM, as we use the ASP
   // flow with map-projected images.
   bool corr_only = stereo_settings().correlator_mode;

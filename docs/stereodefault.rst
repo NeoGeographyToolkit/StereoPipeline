@@ -281,6 +281,11 @@ accept-provided-mapproj-dem
     done with, even if it disagrees with the DEM recorded in the geoheaders of
     input images.
     
+allow-different-mapproject-gsd
+    Allow the left and right mapprojected images to have different GSD. This is
+    for backward compatibility and is not recommended, as it can produce worse
+    results.
+
 threads (*integer*) (default = 0)
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
@@ -425,11 +430,11 @@ corr-search (*integer integer integer integer*)
     the number of erroneous matches, so it can be advantageous to tune
     the search range for a particular data set.
 
-    If this option is not provided, ``parallel_stereo`` will make an
-    attempt to guess its search range using interest points.
-
     These four integers define the minimum horizontal and vertical
     disparity and then the maximum horizontal and vertical disparity.
+
+    If this option is not provided, ``parallel_stereo`` will make an
+    attempt to guess its search range using interest points.
 
 max-disp-spread (*double*) (default = -1.0)
     If positive, limit the spread of the disparity to this value

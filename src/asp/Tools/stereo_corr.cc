@@ -907,9 +907,8 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
                << "Value of --corr-tile-size is " << stereo_settings().corr_tile_size_ovr
                << " but image size is " << image_size << ".\n" 
                << "Increase --corr-tile-size so the entire image fits in one tile, or "
-               << "use parallel_stereo. Not that making --corr-tile-size "
-               << "larger than 9000 or so may "
-               << "cause GDAL to crash.\n\n");
+               << "use parallel_stereo. Note that making --corr-tile-size "
+               << "larger than 9000 or so may cause GDAL to crash.\n\n");
   }
 
   // Provide the user with some feedback of what we are actually going to use.

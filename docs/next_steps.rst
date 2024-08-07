@@ -267,10 +267,13 @@ Search range determination
 
 Using these settings alone, ASP will attempt to work out the minimum and
 maximum disparity it will search for automatically. However if you wish
-to, you can explicitly set the extent of the search range by adding the
-option::
+to, you can explicitly set the extent of the search range by adding an option
+such as::
 
     corr-search -80 -2 20 2
+
+These four integers define the minimum horizontal and vertical disparity and
+then the maximum horizontal and vertical disparity (:numref:`corr_section`).
 
 The search range determined automatically can then be tightened using
 the option ``--max-disp-spread`` (:numref:`stereodefault`) before

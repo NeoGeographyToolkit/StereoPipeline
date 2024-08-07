@@ -143,6 +143,7 @@ namespace asp {
     int    alignment_num_ransac_iterations;   ///< How many ransac iterations to do in global or local epipolar alignment transform computation
     vw::Vector2 outlier_removal_params;
     vw::Vector2i matches_per_tile_params;
+    bool allow_different_mapproject_gsd;
     
     int disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
 

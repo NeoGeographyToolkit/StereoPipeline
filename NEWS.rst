@@ -37,6 +37,8 @@ parallel_stereo (:numref:`parallel_stereo`):
     when using mapprojected images in stereo with DigitalGlobe / Maxar
     cameras (:numref:`dg-mapproj`).
   * Skip tiles for which there is no valid low-resolution disparity.
+  * Throw an error if the left and right mapprojected images have different
+    resolutions, as this can lead to incorrect results.
 
 orbit_plot (:numref:`orbit_plot`):
   * Added the option ``--use-rmse``.

@@ -218,7 +218,11 @@ namespace asp {
       ("refraction-index", po::value(&global.refraction_index)->default_value(0),
        "The index of refraction of water to be used in bathymetry correction. (Must be specified and bigger than 1.)")
       ("output-cloud-type", po::value(&global.output_cloud_type)->default_value("all"),
-       "When bathymetry correction is used, return only the triangulated cloud of points where the bathymetry correction was applied (option: 'bathy'), where it was not applied (option: 'topo'), or the full cloud (option: 'all'). The default is 'all'.");
+       "When bathymetry correction is used, return only the triangulated cloud of points where the bathymetry correction was applied (option: 'bathy'), where it was not applied (option: 'topo'), or the full cloud (option: 'all'). The default is 'all'.")
+      ("allow-different-mapproject-gsd",   
+       po::bool_switch(&global.allow_different_mapproject_gsd)->default_value(false)->implicit_value(true),
+       "Allow the left and right mapprojected images to have different GSD. This is "
+       "for backward compatibility, and is not recommended.");
   }
 
   CorrelationDescription::CorrelationDescription() : po::options_description("Correlation options") {
