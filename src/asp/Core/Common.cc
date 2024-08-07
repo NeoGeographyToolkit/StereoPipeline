@@ -645,11 +645,16 @@ asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
     all_options.add(all_public_options).add(positional_options);
 
     if (allow_unregistered) {
-      po::parsed_options parsed = po::command_line_parser(argc, argv).options(all_options).allow_unregistered().style(po::command_line_style::unix_style).run();
+      po::parsed_options parsed = 
+        po::command_line_parser(argc, argv).options(all_options).allow_unregistered()
+         .style(po::command_line_style::unix_style).run();
       unregistered = collect_unrecognized(parsed.options, po::include_positional);
       po::store(parsed, vm);
     } else {
-      po::store(po::command_line_parser(argc, argv).options(all_options).positional(positional_desc).style(po::command_line_style::unix_style).run(), vm);
+      po::parsed_options parsed = 
+        po::command_line_parser(argc, argv).options(all_options).positional(positional_desc)
+         .style(po::command_line_style::unix_style).run();
+      po::store(parsed, vm);
     }
 
     po::notify(vm);

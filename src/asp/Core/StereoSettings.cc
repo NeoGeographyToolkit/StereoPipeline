@@ -279,8 +279,9 @@ namespace asp {
                      "Skip the low-resolution disparity computation. This option is invoked from parallel_stereo.")
       ("compute-low-res-disparity-only", po::bool_switch(&global.compute_low_res_disparity_only)->default_value(false)->implicit_value(true),
                      "Compute only the low-resolution disparity, skip the full-resolution disparity computation.")
-      ("disparity-estimation-dem", po::value(&global.disparity_estimation_dem)->default_value(""),
-                     "DEM to use in estimating the low-resolution disparity (when corr-seed-mode is 2).")
+      ("disparity-estimation-dem", 
+        po::value(&global.disparity_estimation_dem)->default_value(""),
+        "DEM to use in estimating the low-resolution disparity (when corr-seed-mode is 2).")
       ("disparity-estimation-dem-error", po::value(&global.disparity_estimation_dem_error)->default_value(0.0),
                      "Error (in meters) of the disparity estimation DEM.")
       ("corr-timeout",           po::value(&global.corr_timeout)->default_value(global.default_corr_timeout),
@@ -721,12 +722,13 @@ namespace asp {
       }
 
     // Parser return char strings
-    po::parsed_options result(&desc);
+    po::parsed_options parsed(&desc);
     std::copy(asp_config_file_iterator(is, allowed_options, allow_unregistered),
               asp_config_file_iterator(),
-              std::back_inserter(result.options));
-    // Convert char strings into desired type.
-    return po::basic_parsed_options<char>(result);
+              std::back_inserter(parsed.options));
+    
+    // Convert char strings into desired type
+    return po::basic_parsed_options<char>(parsed);
   }
 
   // Parse the ASP stereo config file, such as stereo.default.
