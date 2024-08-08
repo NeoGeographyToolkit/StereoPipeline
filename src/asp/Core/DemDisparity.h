@@ -38,10 +38,11 @@ namespace asp {
 
   /// Use a DEM to get the low-res disparity
   void produce_dem_disparity(ASPGlobalOptions & opt,
+                             vw::TransformPtr tx_left,
+                             vw::TransformPtr tx_right,
                              boost::shared_ptr<vw::camera::CameraModel> left_camera_model,
                              boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
-                             std::string session_name
-                             );
+                             std::string const& session_name);
 
 }
 

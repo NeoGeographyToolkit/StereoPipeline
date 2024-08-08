@@ -84,8 +84,9 @@ BBox2i transformed_crop_win(ASPGlobalOptions const& opt){
 }
 
 // Handle the arguments for the multiview case. The logic used to break up the
-// command line arguments for all images/cameras into command line arguments for 
-// pairs of image/cameras is fragile.
+// command line arguments for all images/cameras into command line arguments for
+// pairs of image/cameras is fragile. 
+
 void handle_multiview(int argc, char* argv[],
                       int num_pairs,
                       std::vector<std::string> const& files,
@@ -104,6 +105,11 @@ void handle_multiview(int argc, char* argv[],
 
   // If a file shows up more than once as input, that will confuse
   // the logic at the next step, so forbid that.
+  // TODO(oalexan1): It is possible to determine the command line options and
+  // their values from boost program options, right after parsing and before it
+  // stores them in a map. Then this hack is not needed. The current approach
+  // will fail with the option  --disparity-estimation-dem dem.tif if dem.tif is
+  // also the mapprojection DEM.
   std::map<std::string, int> vals;
   for (int s = 1; s < argc; s++)
     vals[argv[s]]++;
@@ -111,7 +117,7 @@ void handle_multiview(int argc, char* argv[],
     if (vals[files[s]] > 1) {
       vw_throw(ArgumentErr() << "The following input argument shows up more than "
                 << "once and hence cannot be parsed correctly: "
-                << files[s] << ".\n\n" << usage);
+                << files[s] << ".\n");
     }
   }
 
@@ -125,13 +131,12 @@ void handle_multiview(int argc, char* argv[],
   
   // Must signal to the children runs that they are part of a multiview run
   std::string opt_str = "--part-of-multiview-run";
-  std::vector<std::string>::iterator it = find(options.begin(), options.end(),
-                                                opt_str);
+  auto it = find(options.begin(), options.end(), opt_str);
   if (it == options.end())
     options.push_back(opt_str);
 
   // Multiview is very picky about alignment method
-  if (stereo_settings().alignment_method != "none"               &&
+  if (stereo_settings().alignment_method != "none" &&
       stereo_settings().alignment_method != "homography") {
 
     std::string new_alignment;
@@ -146,28 +151,24 @@ void handle_multiview(int argc, char* argv[],
       << stereo_settings().alignment_method << "' to '" << new_alignment << "'.\n";
     stereo_settings().alignment_method = new_alignment;
 
-    // Set this for future runs as well
-    if (num_pairs > 1) {  
-      
-      std::string align_opt = "--alignment-method";
-      auto it = std::find(options.begin(), options.end(), align_opt);
-      if (it != options.end() && it + 1 != options.end()){
-        // Modify existing alignment
-        *(it+1) = new_alignment;
-      }else{
-        // Set new alignment
-        options.push_back(align_opt);
-        options.push_back(new_alignment);
-      }
+    // Set this for future pairwise runs as well
+    std::string align_opt = "--alignment-method";
+    auto it = std::find(options.begin(), options.end(), align_opt);
+    if (it != options.end() && it + 1 != options.end()) {
+      // Modify existing alignment
+      *(it+1) = new_alignment;
+    } else {
+      // Set new alignment
+      options.push_back(align_opt);
+      options.push_back(new_alignment);
     }
   }
-
-  std::string prog_name = extract_prog_name(argv[0]);
 
   // Generate the stereo command for each of the pairs made up of the first
   // image and each subsequent image, with corresponding cameras.
   opt_vec.resize(num_pairs);
-  for (int p = 1; p <= num_pairs; p++){
+  std::string prog_name = extract_prog_name(argv[0]);
+  for (int p = 1; p <= num_pairs; p++) {
 
     std::vector<std::string> cmd;
     cmd.push_back(prog_name);
@@ -179,16 +180,16 @@ void handle_multiview(int argc, char* argv[],
     cmd.push_back(images[0]); // left image
     cmd.push_back(images[p]); // right image
 
-    if (!cameras.empty()){
+    if (!cameras.empty()) {
       // Don't append the camera names if they are the same as the image names
-      if ((images[0] != cameras[0]) && (images[p] != cameras[p])){
+      if ((images[0] != cameras[0]) && (images[p] != cameras[p])) {
         cmd.push_back(cameras[0]); // left camera
         cmd.push_back(cameras[p]); // right camera
       }
     }
 
-    std::string local_prefix = output_prefix;
     // Need to have a separate output prefix for each pair
+    std::string local_prefix = output_prefix;
     std::ostringstream os;
     os << local_prefix << "-pair" << p << "/" << p;
     local_prefix = os.str();
@@ -205,7 +206,7 @@ void handle_multiview(int argc, char* argv[],
     bool is_multiview = false; // single image and camera pair
     std::vector<std::string> local_files;
     handle_arguments(largc, &largv[0], opt_vec[p-1], additional_options,
-                        is_multiview, local_files, usage, exit_early);
+                     is_multiview, local_files, usage, exit_early);
 
     if (verbose) {
       // Needed for stereo_parse
@@ -218,8 +219,10 @@ void handle_multiview(int argc, char* argv[],
       vw_out() << std::endl;
     }
 
-  }
+  } // end loop through pairs
 
+  // Sanity checks specific to multiview
+  
   if (stereo_settings().propagate_errors) 
     vw::vw_throw(vw::ArgumentErr() << "Error propagation is not "
                   << "implemented for more than two images.\n");
@@ -230,7 +233,7 @@ void handle_multiview(int argc, char* argv[],
               << " is not meant to be used directly with more than two images. Use "
               << "instead the stereo/parallel_stereo scripts with desired entry points.\n");
 
-  // This must not happen earlier as StereoSession is not initialized yet
+  // This must happen after StereoSession is initialized
   if (opt_vec[0].session->do_bathymetry()) 
     vw_throw(ArgumentErr() << "Bathymetry correction does not work with "
               << "multiview stereo.\n");
@@ -267,7 +270,7 @@ void parse_multiview(int argc, char* argv[],
   opt_vec.push_back(opt);
 
   if (files.size() < 3)
-    vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n\n" << usage);
+    vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n");
 
   // Add note on the alignment method. If done in handle_arguments, it will be
   // printed twice.
@@ -279,7 +282,7 @@ void parse_multiview(int argc, char* argv[],
   std::vector<std::string> images, cameras;
   std::string input_dem;
   if (!parse_multiview_cmd_files(files, images, cameras, output_prefix, input_dem))
-    vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n\n" << usage);
+    vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n");
 
   int num_pairs = (int)images.size() - 1;
   if (num_pairs <= 0)
@@ -294,9 +297,9 @@ void parse_multiview(int argc, char* argv[],
     handle_arguments(argc, argv, opt_vec[0], additional_options,
                     is_multiview, files, usage, exit_early);
   } else {
-    handle_multiview(argc, argv, num_pairs, files, images, cameras,
-                     output_prefix, input_dem, additional_options, verbose, exit_early,
-                     usage, opt_vec);
+    handle_multiview(argc, argv, num_pairs, files, images, cameras, output_prefix, input_dem, 
+                     additional_options, verbose, exit_early, usage,
+                     opt_vec); // output
   }
     
   
@@ -367,7 +370,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
     positional_options.add_options()
       ("input-files", po::value< std::vector<std::string>>(), "Input files");
     positional_desc.add("input-files", -1);
-  }else{
+  } else {
     // Two-view, have left and right.
     positional_options.add_options()
       ("left-input-image",   po::value(&opt.in_file1),   "Left input image")
@@ -385,7 +388,11 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
     positional_desc.add("input-dem",          1);
   }
 
-  usage = "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n  Extensions are automatically added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.";
+  usage = 
+  "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n"
+  "  Extensions are automatically added to the output files.\n"
+  "  Camera model arguments may be optional for some stereo session types (e.g., isis).\n"
+  "  Stereo parameters should be set in the stereo.default file.";
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options,
@@ -444,12 +451,13 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   os << usage << general_options;
   usage = os.str();
 
-  // For multiview, just store the files and return. Must happen after
-  // logging starts, as logging for multiview is done in subdirectories. 
+  // For multiview, just store the files and return. Must happen after logging
+  // starts, as logging for multiview is done in subdirectories. In multiview
+  // mode, the logic further down will be later called for each pair.
   if (is_multiview) {
     if (vm.count("input-files") == 0)
       vw_throw(ArgumentErr() << "Missing input arguments.\n");
-    input_files = vm["input-files"].as< std::vector<std::string>>();
+    input_files = vm["input-files"].as<std::vector<std::string>>();
     return;
   }
 
@@ -789,24 +797,25 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
   const bool dem_provided = !opt.input_dem.empty();
 
   // Seed mode valid values
-  if (stereo_settings().seed_mode > 3){
+  if (stereo_settings().seed_mode > 3) {
     vw_throw(ArgumentErr() << "Invalid value for --corr-seed-mode: "
               << stereo_settings().seed_mode << ".\n");
   }
 
-  // D_sub from DEM needs a positive disparity_estimation_dem_error
-  if (stereo_settings().seed_mode == 2 &&
-      stereo_settings().disparity_estimation_dem_error <= 0.0){
-    vw_throw(ArgumentErr() 
-              << "For --corr-seed-mode 2, the value of disparity-estimation-dem-error "
-              << "must be positive.");
-  }
+  if (stereo_settings().seed_mode == 2) {
 
-  // D_sub from DEM needs a DEM
-  if (stereo_settings().seed_mode == 2 &&
-      stereo_settings().disparity_estimation_dem.empty()) {
-    vw_throw(ArgumentErr() 
-             << "For --corr-seed-mode 2, must set --disparity-estimation-dem.\n");
+    if (stereo_settings().disparity_estimation_dem_error <= 0.0)
+      vw_throw(ArgumentErr() 
+        << "For --corr-seed-mode 2, the value of disparity-estimation-dem-error "
+        << "must be positive.");
+      
+    if (stereo_settings().disparity_estimation_dem.empty())
+      vw_throw(ArgumentErr() 
+        << "For --corr-seed-mode 2, must set --disparity-estimation-dem.\n");
+  
+    if (stereo_settings().alignment_method == "epipolar")
+      vw_throw(ArgumentErr() 
+        << "For --corr-seed-mode 2, cannot use epipolar alignment.\n");
   }
 
   // Must use map-projected images if input DEM is provided
