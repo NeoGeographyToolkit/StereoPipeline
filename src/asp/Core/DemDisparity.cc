@@ -44,12 +44,12 @@ namespace asp {
 // Take a low-res pixel. Make it full res. Undo the transform. Intersect with the DEM.
 // Return true on success. This is used twice.
 template <class DEMImageT>
-bool lowResPixToDemXyz(Vector2 const& left_lowres_pix,
+inline bool lowResPixToDemXyz(Vector2 const& left_lowres_pix,
                        vw::Vector2f const& downsample_scale,
                        vw::TransformPtr tx_left,
                        vw::CamPtr left_camera_model,
                        double dem_error, GeoReference const& dem_georef,
-                       DEMImageT dem,
+                       DEMImageT & dem,
                        // Outputs
                        vw::Vector3 & left_camera_vec, Vector3 & prev_xyz, Vector3 & xyz) {
                             
@@ -83,61 +83,6 @@ bool lowResPixToDemXyz(Vector2 const& left_lowres_pix,
   // Update the previous guess  
   prev_xyz = xyz;
   
-  return true;
-}
-
-// Take a low-res pixel. Make it full res. Undo the transform. Intersect with the DEM.
-// Return true on success. This is used twice.
-inline bool lowResPixToDemXyz2(Vector2 const& left_lowres_pix,
-                       vw::Vector2f const& downsample_scale,
-                       vw::TransformPtr tx_left,
-                       vw::CamPtr left_camera_model,
-                       double dem_error, 
-                       GeoReference const& georef_crop,
-                       ImageView <PixelMask<float>> & dem_crop,
-                       // Outputs
-                       vw::Vector3 & left_camera_vec, Vector3 & prev_xyz, Vector3 & xyz) {
-     
-    //  std::cout << "--now here in lowResPixToDemXyz2\n";                       
-    double height_error_tol = std::max(dem_error/4.0, 1.0); // height error in meters
-    double max_abs_tol      = height_error_tol/4.0; // abs cost function change
-    double max_rel_tol      = 1e-14; // rel cost function change
-    int    num_max_iter     = 50;
-    bool   treat_nodata_as_zero = false;
-                            
-    Vector2 left_fullres_pix = elem_quot(left_lowres_pix, downsample_scale);
-    left_fullres_pix = tx_left->reverse(left_fullres_pix);
-    bool has_intersection = false;
-    Vector3 left_camera_ctr;
-    
-    try {
-      left_camera_ctr = left_camera_model->camera_center(left_fullres_pix);
-      left_camera_vec = left_camera_model->pixel_to_vector(left_fullres_pix);
-    } catch (...) {
-      return false;
-    }
-
-    xyz = camera_pixel_to_dem_xyz(left_camera_ctr, left_camera_vec,
-                                          dem_crop, georef_crop,
-                                          treat_nodata_as_zero,
-                                          has_intersection,
-                                          height_error_tol, max_abs_tol,
-                                          max_rel_tol, num_max_iter,
-                                          prev_xyz);
-    
-    if (!has_intersection || xyz == Vector3()) 
-      return false;
-    
-    // Save the current guess for the next iteration  
-    prev_xyz = xyz;
-
-        // std::cout << "lowres pix = " << left_lowres_pix << "\n";
-        // std::cout << "fullres pix = " << left_fullres_pix << "\n";
-        // std::cout << "--left cam ctr = " << left_camera_ctr << "\n";
-        // std::cout << "--left cam vec = " << left_camera_vec << "\n";
-        // std::cout << "--prev xyz = " << prev_xyz << "\n";
-        // std::cout << "xyz = " << xyz << "\n";
-
   return true;
 }
 
@@ -283,7 +228,7 @@ public:
         Vector2 left_lowres_pix = Vector2(col, row);
         
         vw::Vector3 left_camera_vec, xyz;
-        bool success = lowResPixToDemXyz2(left_lowres_pix, m_downsample_scale, 
+        bool success = lowResPixToDemXyz(left_lowres_pix, m_downsample_scale, 
                                          m_tx_left, m_left_camera_model,
                                          m_dem_error, georef_crop, dem_crop,
                                          left_camera_vec, prev_xyz, xyz); // outputs
