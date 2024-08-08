@@ -469,20 +469,18 @@ This will create ``dem-adj.tif``.
 Hole-filling and smoothing the input DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the input DEM has too much detail, and those features do not agree with the
-images mapprojected on it, this can result in artifacts in the final DEM.
+It is suggested to inspect and then hole-fill the input DEM
+(:numref:`dem_mosaic_grow` and :numref:`dem_mosaic_fill`). 
 
-It is suggested to blur the input DEM before using it, for example, with the
-command::
+If the input DEM has too much detail, and those features do not agree with the
+images mapprojected on it, this can result in artifacts in the final DEM. A blur
+is suggested, after the holes are filled. Example::
 
    dem_mosaic --dem-blur-sigma 5 dem.tif -o dem_blur.tif
 
 The amount of blur may depend on the input DEM resolution, image ground sample
 distance, and how misregistered the initial DEM is relative to the images. One
 can experiment on a clip with values of 5 and 10 for sigma, for example.
-
-If the DEM has holes, those need to be filled first (:numref:`dem_mosaic_grow`
-and :numref:`dem_mosaic_fill`), and then the blur applied. 
 
 .. _mapproj-res:
 
@@ -581,18 +579,21 @@ for this low-resolution DEM to be smooth enough and with no holes.
 
 We used ``--search-radius-factor 5`` to expand the DEM a
 bit, to counteract future erosion at image boundary in stereo due to
-the correlation kernel size. This is optional. The input DEM can be grown
-and blurred with ``dem_mosaic`` (:numref:`dem_mosaic_grow`).
-
+the correlation kernel size. This is optional. 
 By calling ``gdalinfo -proj4``, the PROJ.4 string of the obtained DEM
 can be found, which can be used in mapprojection later, and with the
 resolution switched to meters from degrees (see :numref:`dg-mapproj`
 for more details).
 
+This DEM can be hole-filled and blurred with ``dem_mosaic`` if needed
+(:numref:`dem_mosaic_grow`), producing a DEM called
+``run_nomap/run-smooth.tif``. Inspect the result. It should be smooth and with
+no holes.
+
 Next, we mapproject the left image onto this DEM with the the ``mapproject`` program
 (:numref:`mapproject`):: 
 
-     mapproject run_nomap/run-DEM.tif           \
+     mapproject run_nomap/run-smooth.tif \
        left.cub left_proj.tif
 
 The resolution of mapprojection is automatically determined, and can be later
@@ -604,7 +605,7 @@ and also likely the projection (``--t_srs``).
 
 :: 
 
-     mapproject --tr 0.000038694000978 run_nomap/run-DEM.tif \
+     mapproject --tr 0.000038694000978 run_nomap/run-smooth.tif \
        right.cub right_proj.tif
 
 Next, we do stereo with these mapprojected images::
@@ -613,7 +614,7 @@ Next, we do stereo with these mapprojected images::
        --subpixel-mode 9                               \
        --sgm-collar-size 256                           \
        left_proj.tif right_proj.tif left.cub right.cub \
-       run_map/run run_nomap/run-DEM.tif
+       run_map/run run_nomap/run-smooth.tif
 
 Even though we use mapprojected images, we still specified the original images
 as the third and fourth arguments. That because we need the camera information
