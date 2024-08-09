@@ -349,7 +349,7 @@ private:
                              m_bathy_correct, m_cloud_type,
                              in_memory_left_aligned_bathy_mask,
                              in_memory_right_aligned_bathy_mask);
-  } // End function PreRasterHelper() maprojected version
+  } // End function PreRasterHelper() mapprojected version
 }; // End class StereoTriangulation
 
 /// A wrapper function for StereoTriangulation view construction
@@ -875,8 +875,10 @@ int main(int argc, char* argv[]) {
     for (int s = 0; s < (int)opt_vec.size(); s++)
       opt_vec[s].raster_tile_size = Vector2i(ts, ts);
 
-    // Internal Processes
-    //---------------------------------------------------------
+    // This is good info to have at triangulation. Also prints a warning regarding
+    // small triangulation angle and potentially an empty point cloud.
+    if (opt_vec.size() == 1)
+      asp::estimate_convergence_angle(opt_vec[0]);
 
     asp::stereo_triangulation(output_prefix, opt_vec);
 

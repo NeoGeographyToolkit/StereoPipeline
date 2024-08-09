@@ -317,6 +317,10 @@ vw::Vector6f gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
 
   typedef boost::shared_ptr<StereoSession> SessionPtr;
 
+// Find the median angle in degrees at which rays emanating from
+// matching points meet
+void estimate_convergence_angle(ASPGlobalOptions const& opt);
+
 } // end namespace asp
 
 #endif // __STEREO_SESSION_H__

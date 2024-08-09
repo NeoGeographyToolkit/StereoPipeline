@@ -49,6 +49,8 @@
 using namespace vw;
 using namespace vw::cartography;
 
+namespace fs = boost::filesystem;
+
 namespace asp {
 
 // A default IP matching implementation that derived classes can use
@@ -362,6 +364,64 @@ void StereoSession::determine_image_alignment(// Inputs
   
   // Because the images are now aligned they are the same size
   right_size = left_size;
+}
+
+// Find the median angle in degrees at which rays emanating from
+// matching points meet
+void estimate_convergence_angle(ASPGlobalOptions const& opt) {
+
+  if (stereo_settings().correlator_mode)
+    return; // No camera can be assumed, hence no convergence angle.
+
+  // When having matches between L and R, need to do things a bit differently.
+  bool have_aligned_matches = (stereo_settings().alignment_method == "none" ||
+                               stereo_settings().alignment_method == "epipolar");
+
+  std::string match_filename;
+  if (have_aligned_matches)
+    match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
+  else 
+    match_filename = asp::stereo_match_filename(opt.session->left_cropped_image(),
+                                                opt.session->right_cropped_image(),
+                                                opt.out_prefix);
+  // The interest points must exist by now
+  if (!fs::exists(match_filename))
+    vw_throw(ArgumentErr() << "Missing IP matches file: " << match_filename);
+  
+  std::vector<ip::InterestPoint> left_ip, right_ip;
+  ip::read_binary_match_file(match_filename, left_ip, right_ip);
+
+  if (have_aligned_matches) {
+    // Unalign the interest point matches
+    std::vector<vw::ip::InterestPoint> unaligned_left_ip, unaligned_right_ip;
+    asp::unalign_ip(opt.session->tx_left(), opt.session->tx_right(),
+                    left_ip, right_ip, unaligned_left_ip, unaligned_right_ip);
+    left_ip  = unaligned_left_ip;
+    right_ip = unaligned_right_ip;
+  }
+
+  std::vector<double> sorted_angles;
+  boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+  opt.session->camera_models(left_cam, right_cam);
+  asp::convergence_angles(left_cam.get(), right_cam.get(), left_ip, right_ip, sorted_angles);
+
+  if (sorted_angles.empty()) {
+    vw_out(vw::WarningMessage) << "Could not compute the stereo convergence angle.\n";
+    return;
+  }
+  
+  int len = sorted_angles.size();
+  vw_out() << "Convergence angle percentiles (in degrees) based on interest point matches:\n";
+  vw_out() << "\t"
+           << "25% " << sorted_angles[0.25*len] << ", "
+           << "50% " << sorted_angles[0.50*len] << ", "
+           << "75% " << sorted_angles[0.75*len] << ".\n";
+           
+   if (sorted_angles[0.50*len] < 5.0)
+      vw_out(vw::WarningMessage) 
+        << "The stereo convergence angle is: " << sorted_angles[0.50*len] << " degrees. "
+        << "This is quite low and may result in an empty or unreliable point cloud. " 
+        << "Reduce --min-triangulation-angle to triangulate with very low angles.\n";
 }
 
 } // End namespace asp

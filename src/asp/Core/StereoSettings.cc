@@ -411,7 +411,7 @@ namespace asp {
       ("far-universe-radius",               po::value(&global.far_universe_radius)->default_value(0.0),
                                             "Radius of outer boundary of universe in meters (remove points with radius larger than that).")
       ("min-triangulation-angle",           po::value(&global.min_triangulation_angle)->default_value(-1.0),
-                                            "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid. It must be positive. The internal default is somewhat less than 1 degree.")
+       "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid. It must be positive. The internal default is somewhat less than 1 degree.")
     ("max-valid-triangulation-error", po::value(&global.max_valid_triangulation_error)->default_value(0),
             "If positive, points with triangulation error larger than this will be removed from the cloud. Measured in meters.")
       ("bundle-adjust-prefix", po::value(&global.bundle_adjust_prefix),

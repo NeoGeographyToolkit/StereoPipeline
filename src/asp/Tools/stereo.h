@@ -96,7 +96,6 @@ namespace asp {
   // external algorithms will have to examine closer the algorithm
   // string. This function has a Python analog in parallel_stereo.
   vw::stereo::CorrelationAlgorithm stereo_alg_to_num(std::string alg);
-  
 } // end namespace vw
 
 #endif//__ASP_STEREO_H__
