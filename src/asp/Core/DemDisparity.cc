@@ -19,9 +19,16 @@
 
 // Estimate the low-resolution disparity based on cameras and a DEM.
 
+// TODO(oalexan1): Decrease the tolerance for the DEM intersection.
+
+// TODO(oalexan1): Filter this disparity for outliers
+
+// TODO(oalexan1): Multithreading is failing! Must have 
+// one copy of the transform for each thread! See stereo_tri.cc,
+// the array transforms_copy. 
+
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/DemDisparity.h>
-#include <asp/Core/DemUtils.h>
 
 #include <vw/Image/ImageView.h>
 #include <vw/Image/Transform.h>
@@ -32,6 +39,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/FileIO/MatrixIO.h>
+#include <vw/Cartography/Map2CamTrans.h>
 
 #include <boost/filesystem/operations.hpp>
 namespace fs = boost::filesystem;
@@ -55,7 +63,7 @@ lowResPixToDemXyz(Vector2 const& left_lowres_pix,
                   double height_guess,
                   // Outputs
                   vw::Vector3 & left_camera_vec, Vector3 & prev_xyz, Vector3 & xyz) {
-                            
+  
   Vector2 left_fullres_pix = elem_quot(left_lowres_pix, downsample_scale);
   left_fullres_pix = tx_left->reverse(left_fullres_pix);
   
@@ -68,6 +76,7 @@ lowResPixToDemXyz(Vector2 const& left_lowres_pix,
     return false;
   }
   
+  // TODO(oalexan1): Decrease this tol
   double height_error_tol = std::max(dem_error/4.0, 1.0); // height error in meters
   double max_abs_tol      = height_error_tol/4.0; // abs cost function change
   double max_rel_tol      = 1e-14; // rel cost function change
@@ -119,14 +128,29 @@ DemDisparity(ImgRefT const& left_image,
     m_dem_georef(dem_georef),
     m_dem(dem),
     m_downsample_scale(downsample_scale),
-    m_tx_left(tx_left), m_tx_right(tx_right),
     m_left_camera_model(left_camera_model),
     m_right_camera_model(right_camera_model),
     m_pixel_sample(pixel_sample),
     m_disp_spread(disp_spread) {
 
+    // Make copies of Map2Camp transforms, as those are not thread-safe
+    
+    if (dynamic_cast<Map2CamTrans*>(tx_left.get()) != NULL) {
+      std::cout << "--make copy of left tx\n";
+     m_tx_left = vw::cartography::mapproj_trans_copy(tx_left);
+    }
+    else
+      m_tx_left = tx_left;
+
+    if (dynamic_cast<Map2CamTrans*>(tx_right.get()) != NULL) {
+      std::cout << "--make copy of right tx\n";
+     m_tx_right = vw::cartography::mapproj_trans_copy(tx_right);
+    }
+    else
+      m_tx_right = tx_right;
+    
   // This can speed up and make more reliable the intersection of rays with the DEM
-  m_height_guess = asp::findDemHeightGuess(m_dem);
+  m_height_guess = vw::cartography::demHeightGuess(m_dem);
 }
       
 
@@ -155,7 +179,9 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
   for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
     for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
+      lowres_disparity(col, row) = PixelMask<Vector2f>();
       lowres_disparity(col, row).invalidate();
+      m_disp_spread(col, row) = PixelMask<Vector2i>();
       m_disp_spread(col, row).invalidate();
     }
   }
@@ -246,17 +272,21 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
       for (int k = 0; k < curr_pixel_disp_range.cols(); k++) {
 
+        curr_pixel_disp_range(k, 0).invalidate();
         Vector2 right_fullres_pix;
         try {
-          right_fullres_pix = m_right_camera_model->point_to_pixel(xyz + bias[k]*m_dem_error*left_camera_vec);
+          vw::Vector3 biased_xyz = xyz + bias[k] * m_dem_error * left_camera_vec;
+          // Raw camera pixel
+          right_fullres_pix = m_right_camera_model->point_to_pixel(biased_xyz);
+          // Transformed camera pixel
+          right_fullres_pix = m_tx_right->forward(right_fullres_pix);
         } catch (...) {
-          curr_pixel_disp_range(k, 0).invalidate();
           continue;
         }
-        right_fullres_pix = m_tx_right->forward(right_fullres_pix);
 
         Vector2 right_lowres_pix = elem_prod(right_fullres_pix, m_downsample_scale);
         curr_pixel_disp_range(k, 0) = right_lowres_pix - left_lowres_pix;
+        curr_pixel_disp_range(k, 0).validate();
         success_arr[k] = 1;
 
         // If the disparities at the endpoints of the range were successful,
