@@ -273,7 +273,10 @@ def main(argsIn):
     
     # Directory where the job is running
     parser.add_argument('--work-dir',  dest='workDir', default=None,
-                                        help='Working directory to assemble the tiles in')
+                        help='Working directory to assemble the tiles in.')
+
+    parser.add_argument('--run-dir', dest='runDir', default=None,
+                        help='Directory in which the script is running.')
 
     parser.add_argument("--suppress-output", action="store_true", default=False,
                         dest="suppressOutput",  help="Suppress output of sub-calls.")
@@ -312,6 +315,10 @@ def main(argsIn):
         parser.print_help()
         sys.exit(1)
 
+    # This can handle spaces in directory names, unlike when GNU parallel is in charge    
+    if options.runDir is not None:
+      os.chdir(options.runDir)
+
     # Run an initial query to parse and validate the user input
     sep = ","
     verbose = False
@@ -336,12 +343,15 @@ def main(argsIn):
     startTime = time.time()
 
     # Determine if this is a main copy or a spawned copy
-    spawnedCopy = ( (options.pixelStartX is not None) and (options.pixelStartY is not None) and
-                    (options.pixelStopX  is not None) and (options.pixelStopY  is not None) and
-                    options.workDir )
-
-    if spawnedCopy: # This copy was spawned to process a single tile
-        return writeSingleTile(options) # Just call a function to handle this and then we are done!
+    spawnedCopy = ((options.pixelStartX is not None) and \
+                   (options.pixelStartY is not None) and \
+                   (options.pixelStopX  is not None) and \
+                   (options.pixelStopY  is not None) and \
+                    options.workDir is not None)
+    
+    if spawnedCopy: 
+        # This copy was spawned to process a single tile
+        return writeSingleTile(options) 
 
     # Now we are in the main process, not in a spawned copy
 
@@ -436,7 +446,6 @@ def main(argsIn):
         tempFolder = os.path.join(outputFolder, outputName.replace('.', '_') + '_tiles/')
     asp_file_utils.createFolder(tempFolder)
 
-
     # Generate a text file that contains the boundaries for each tile
     argumentFilePath = os.path.join(tempFolder, 'argumentList.txt')
     with open(argumentFilePath, 'w') as argumentFile:
@@ -500,6 +509,10 @@ def main(argsIn):
         commandList = commandList + ['--suppress-output']
     commandList = commandList + options.extraArgs # Append other options
 
+    # Append the run directory
+    runDir = asp_system_utils.escape_token(os.getcwd())
+    commandList = commandList + ['--run-dir', runDir]
+     
     # Prepend the parallel arguments
     commandList = parallelArgs + commandList
 

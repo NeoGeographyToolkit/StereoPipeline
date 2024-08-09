@@ -248,6 +248,9 @@ def main(argsIn):
                         "the desired per-tile output files are missing or invalid (as "  + \
                         "checked by gdalinfo).")
     
+    parser.add_argument('--run-dir', dest='runDir', default=None,
+                        help='Directory in which the script is running.')
+    
     parser.add_argument("--suppress-output", action="store_true", default=False,
                         dest="suppressOutput",  help="Suppress output of sub-calls.")
 
@@ -273,6 +276,10 @@ def main(argsIn):
     if not args and not options.version:
         parser.print_help()
         sys.exit(1)
+
+    # This can handle spaces in directory names, unlike when GNU parallel is in charge    
+    if options.runDir is not None:
+      os.chdir(options.runDir)
         
     # The parallel_sfs tool must not take the option --crop-win as it will
     # work on the entire input DEM.
@@ -464,6 +471,10 @@ def main(argsIn):
         
     # Prepend the parallel arguments and append the extra arguments
     commandList = parallelArgs + commandList + options.extraArgs
+
+    # Append the run directory
+    runDir = asp_system_utils.escape_token(os.getcwd())
+    commandList = commandList + ['--run-dir', runDir]
 
     # Use GNU parallel call to distribute the work across computers
     # - This call will wait until all processes are finished

@@ -176,6 +176,17 @@ def check_parallel_version():
     if ver < '20170722':
         die("Expecting a version of GNU parallel >= 20170722.")
 
+# Add simple quotes around each argument which has quotes or spaces
+# and which is not already quoted. This is a bugfix for 3D CRS specified via
+# --t_srs, and for arguments having spaces.
+def escape_token(token):
+    has_issues = ('"' in token or ' ' in token or '\t' in token)
+    has_simple_quotes = token.startswith('\'') and token.endswith('\'')
+    has_double_quotes = token.startswith('"') and token.endswith('"')
+    if has_issues and not has_simple_quotes and not has_double_quotes:
+      token = '\'' + token + '\''
+    return token
+
 def runInGnuParallel(numParallelProcesses, argumentFilePath, args, 
                      nodeListPath=None, verbose=False):
     """Use GNU Parallel to spread task across multiple computers and processes"""
@@ -191,7 +202,11 @@ def runInGnuParallel(numParallelProcesses, argumentFilePath, args,
     # Let output be interspersed, read input series from file
     # Start in the same directory on remote machines. Ensure
     # that vital env variables are copied over.
-    cmd = ['parallel',  '--will-cite', '--workdir', os.getcwd(), '-u',
+    # We do not use here the --workdir option, as it cannot handle
+    # spaces in the path. Instead, each caller of this function
+    # must handle the workdir itself. See for example the mapproject
+    # program.
+    cmd = ['parallel',  '--will-cite', '-u',
            '--env', 'PATH', '--env', 'PYTHONPATH', '--env', 'ISISROOT',
            '--env', 'ASP_LIBRARY_PATH',
            '--env', 'ISISDATA', '-a', argumentFilePath]
@@ -216,12 +231,10 @@ def runInGnuParallel(numParallelProcesses, argumentFilePath, args,
         os.environ['ASP_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']
         os.environ['LD_LIBRARY_PATH'] = ''
 
-    # Add simple quotes around each argument which has simple or double quotes
-    # or spaces. This is a bugfix for 3D CRS specified via --t_srs.
+    # Handle spaces and quotes
     for i in range(len(cmd)):
-        if '"' in cmd[i] or '\'' in cmd[i] or ' ' in cmd[i] or '\t' in cmd[i]:
-          cmd[i] = '\'' + cmd[i] + '\''
-    
+        cmd[i] = escape_token(cmd[i])
+
     returnCode = subprocess.call(cmd)
 
     # Undo the above
