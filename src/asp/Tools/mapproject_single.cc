@@ -274,7 +274,9 @@ void calc_target_geom(// Inputs
                                       // Lat/lon degrees are different so we never want to do this!
     }
   }
-  vw_out() << "Output pixel size: " << current_resolution << std::endl;
+  
+  // Print the GSD with full precision, as it may be employed with other images
+  vw_out() << std::setprecision(17) << "Output pixel size: " << current_resolution << "\n";
 
   // If an image bounding box (projected coordinates) was passed in,
   // override the camera's view on the ground with the custom box.
