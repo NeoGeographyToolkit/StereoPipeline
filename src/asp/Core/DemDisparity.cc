@@ -23,10 +23,6 @@
 
 // TODO(oalexan1): Filter this disparity for outliers
 
-// TODO(oalexan1): Multithreading is failing! Must have 
-// one copy of the transform for each thread! See stereo_tri.cc,
-// the array transforms_copy. 
-
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/DemDisparity.h>
 
@@ -64,6 +60,7 @@ lowResPixToDemXyz(Vector2 const& left_lowres_pix,
                   // Outputs
                   vw::Vector3 & left_camera_vec, Vector3 & prev_xyz, Vector3 & xyz) {
   
+  // Calc the full-res pixel  
   Vector2 left_fullres_pix = elem_quot(left_lowres_pix, downsample_scale);
   left_fullres_pix = tx_left->reverse(left_fullres_pix);
   
@@ -128,27 +125,13 @@ DemDisparity(ImgRefT const& left_image,
     m_dem_georef(dem_georef),
     m_dem(dem),
     m_downsample_scale(downsample_scale),
+    m_tx_left(tx_left), m_tx_right(tx_right),
     m_left_camera_model(left_camera_model),
     m_right_camera_model(right_camera_model),
     m_pixel_sample(pixel_sample),
     m_disp_spread(disp_spread) {
 
-    // Make copies of Map2Camp transforms, as those are not thread-safe
-    
-    if (dynamic_cast<Map2CamTrans*>(tx_left.get()) != NULL) {
-      std::cout << "--make copy of left tx\n";
-     m_tx_left = vw::cartography::mapproj_trans_copy(tx_left);
-    }
-    else
-      m_tx_left = tx_left;
 
-    if (dynamic_cast<Map2CamTrans*>(tx_right.get()) != NULL) {
-      std::cout << "--make copy of right tx\n";
-     m_tx_right = vw::cartography::mapproj_trans_copy(tx_right);
-    }
-    else
-      m_tx_right = tx_right;
-    
   // This can speed up and make more reliable the intersection of rays with the DEM
   m_height_guess = vw::cartography::demHeightGuess(m_dem);
 }
@@ -186,19 +169,41 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
     }
   }
 
-  double height_error_tol = std::max(m_dem_error/4.0, 1.0); // height error in meters
-  double max_abs_tol      = height_error_tol/4.0; // abs cost function change
-  double max_rel_tol      = 1e-14; // rel cost function change
-  int    num_max_iter     = 50;
-  bool   treat_nodata_as_zero = false;
-  Vector3 prev_xyz;
+  // Sample the box on the diagonal and perimeter  
+  std::vector<vw::Vector2> points;
+  vw::cartography::sample_int_box(bbox, points);
 
+  // Make local copies of Map2Camp transforms, as those are not thread-safe
+  vw::TransformPtr local_tx_left;
+  if (dynamic_cast<Map2CamTrans*>(m_tx_left.get()) != NULL) {
+    local_tx_left = vw::cartography::mapproj_trans_copy(m_tx_left);
+
+    // Must cache the relevant transform portion to ensure thread safety
+    // with the reverse() function.
+    vw::BBox2 full_res_box;
+    for (int i = 0; i < points.size(); i++) {
+      vw::Vector2 low_res_pix = points[i];
+      vw::Vector2 full_res_pix = elem_quot(low_res_pix, m_downsample_scale);
+      full_res_box.grow(full_res_pix);
+    }
+    full_res_box.expand(1); // just in case
+    local_tx_left->reverse_bbox(full_res_box); // This will cache what is needed
+  } else {
+    local_tx_left = m_tx_left;
+  }
+
+  // For the right transform we won't use the "reverse" function, so no need for caching.
+  vw::TransformPtr local_tx_right;
+  if (dynamic_cast<Map2CamTrans*>(m_tx_right.get()) != NULL)
+    local_tx_right = vw::cartography::mapproj_trans_copy(m_tx_right);
+  else
+    local_tx_right = m_tx_right;
+  
   // Estimate the DEM region we expect to use and crop it into an
   // ImageView. This will make the algorithm much faster than
   // accessing individual DEM pixels from disk. To do that, find
   // the pixel values on a small set of points of the diagonals of
   // the current tile.
-
   std::vector<Vector2> diagonals;
   int wid = bbox.width() - 1, hgt = bbox.height() - 1;
   int dim = std::max(1, std::max(wid, hgt)/10);
@@ -206,15 +211,16 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
     diagonals.push_back(bbox.min() + Vector2(double(i)*wid/dim, double(i)*hgt/dim));
   for (int i = 0; i <= dim; i++)
     diagonals.push_back(bbox.min() + Vector2(double(i)*wid/dim, hgt - double(i)*hgt/dim));
-
+  
   BBox2i dem_box;
+  Vector3 prev_xyz; // for storing ray-to-dem intersection from the previous iteration
   for (unsigned k = 0; k < diagonals.size(); k++) {
 
     // TODO(oalexan1): This is duplicated code. Move it to a function.
     Vector2 left_lowres_pix = diagonals[k];
     
     vw::Vector3 left_camera_vec, xyz;
-    bool success = lowResPixToDemXyz(left_lowres_pix, m_downsample_scale, m_tx_left, 
+    bool success = lowResPixToDemXyz(left_lowres_pix, m_downsample_scale, local_tx_left, 
                                      m_left_camera_model, m_dem_error, m_dem_georef, 
                                      m_dem, m_height_guess, 
                                      left_camera_vec, prev_xyz, xyz); // outputs
@@ -253,9 +259,9 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
       Vector2 left_lowres_pix = Vector2(col, row);
       
       vw::Vector3 left_camera_vec, xyz;
-      bool success = lowResPixToDemXyz(left_lowres_pix, m_downsample_scale, m_tx_left, 
+      bool success = lowResPixToDemXyz(left_lowres_pix, m_downsample_scale, local_tx_left, 
                                        m_left_camera_model, m_dem_error, georef_crop, 
-                                       dem_crop, m_height_guess,
+                                       dem_crop, m_height_guess, 
                                        left_camera_vec, prev_xyz, xyz); // outputs
       if (!success) 
         continue;
@@ -278,8 +284,8 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
           vw::Vector3 biased_xyz = xyz + bias[k] * m_dem_error * left_camera_vec;
           // Raw camera pixel
           right_fullres_pix = m_right_camera_model->point_to_pixel(biased_xyz);
-          // Transformed camera pixel
-          right_fullres_pix = m_tx_right->forward(right_fullres_pix);
+          // Transformed (mapprojected) camera pixel
+          right_fullres_pix = local_tx_right->forward(right_fullres_pix);
         } catch (...) {
           continue;
         }
