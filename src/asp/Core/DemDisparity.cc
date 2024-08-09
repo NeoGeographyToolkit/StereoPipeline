@@ -42,7 +42,8 @@ using namespace vw::cartography;
 namespace asp {
 
 // Take a low-res pixel. Make it full res. Undo the transform. Intersect with the DEM.
-// Return true on success. This is used twice.
+// Return true on success. This is used twice. It is templated so that it can be called
+// for both ImageViewRef and ImageView.
 template <class DEMImageT>
 inline bool lowResPixToDemXyz(Vector2 const& left_lowres_pix,
                        vw::Vector2f const& downsample_scale,
@@ -86,33 +87,29 @@ inline bool lowResPixToDemXyz(Vector2 const& left_lowres_pix,
   return true;
 }
 
-template <class ImageT, class DEMImageT>
-class DemDisparity: public ImageViewBase<DemDisparity<ImageT, DEMImageT>> {
-  ImageT            m_left_image;
+typedef ImageViewRef<PixelGray<float>> ImgRefT;
+
+class DemDisparity: public ImageViewBase<DemDisparity> {
+  ImgRefT           m_left_image;
   double            m_dem_error;
   GeoReference      m_dem_georef;
-  const DEMImageT & m_dem;
+  ImageViewRef<PixelMask<float>> m_dem;
   Vector2f          m_downsample_scale;
   vw::TransformPtr  m_tx_left, m_tx_right;
   boost::shared_ptr<camera::CameraModel> m_left_camera_model;
   boost::shared_ptr<camera::CameraModel> m_right_camera_model;
-  bool            m_do_align;
-  Matrix<double>  m_align_left_matrix, m_align_right_matrix;
   int             m_pixel_sample;
   ImageView<PixelMask<Vector2i>> & m_disp_spread;
 
 public:
-  DemDisparity(ImageViewBase<ImageT> const& left_image,
-                double dem_error, GeoReference dem_georef,
-                DEMImageT const& dem,
-                Vector2f const& downsample_scale,
-                vw::TransformPtr tx_left, vw::TransformPtr tx_right, 
-                boost::shared_ptr<camera::CameraModel> left_camera_model,
-                boost::shared_ptr<camera::CameraModel> right_camera_model,
-                bool do_align,
-                vw::Matrix<double> const& align_left_matrix, 
-                vw::Matrix<double> const& align_right_matrix,
-                int pixel_sample, ImageView<PixelMask<Vector2i>> & disp_spread):
+  DemDisparity(ImgRefT const& left_image,
+               double dem_error, GeoReference dem_georef,
+               ImageViewRef<PixelMask<float>> const& dem,
+               Vector2f const& downsample_scale,
+               vw::TransformPtr tx_left, vw::TransformPtr tx_right, 
+               boost::shared_ptr<camera::CameraModel> left_camera_model,
+               boost::shared_ptr<camera::CameraModel> right_camera_model,
+               int pixel_sample, ImageView<PixelMask<Vector2i>> & disp_spread):
       m_left_image(left_image.impl()),
       m_dem_error(dem_error),
       m_dem_georef(dem_georef),
@@ -121,9 +118,6 @@ public:
       m_tx_left(tx_left), m_tx_right(tx_right),
       m_left_camera_model(left_camera_model),
       m_right_camera_model(right_camera_model),
-      m_do_align(do_align),
-      m_align_left_matrix(align_left_matrix),
-      m_align_right_matrix(align_right_matrix),
       m_pixel_sample(pixel_sample),
       m_disp_spread(disp_spread) {
         
@@ -131,7 +125,7 @@ public:
       }
 
   // ImageView interface
-  typedef PixelMask<Vector2i> pixel_type;
+  typedef PixelMask<Vector2f> pixel_type;
   typedef pixel_type result_type;
   typedef ProceduralPixelAccessor<DemDisparity> pixel_accessor;
 
@@ -165,11 +159,10 @@ public:
     double max_rel_tol      = 1e-14; // rel cost function change
     int    num_max_iter     = 50;
     bool   treat_nodata_as_zero = false;
-
     Vector3 prev_xyz;
 
     // Estimate the DEM region we expect to use and crop it into an
-    // ImageView.  This will make the algorithm much faster than
+    // ImageView. This will make the algorithm much faster than
     // accessing individual DEM pixels from disk. To do that, find
     // the pixel values on a small set of points of the diagonals of
     // the current tile.
@@ -210,7 +203,7 @@ public:
 
     // Crop the georef, read the DEM region in memory
     GeoReference georef_crop = crop(m_dem_georef, dem_box);
-    ImageView <PixelMask<float>> dem_crop = crop(m_dem, dem_box);
+    ImageView<PixelMask<float>> dem_crop = crop(m_dem, dem_box);
 
     // Compute the DEM disparity. Use one in every 'm_pixel_sample' pixels.
     for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
@@ -283,30 +276,6 @@ public:
   }
 };
 
-template <class ImageT, class DEMImageT>
-DemDisparity<ImageT, DEMImageT>
-dem_disparity(ImageViewBase<ImageT> const& left,
-              double dem_error, GeoReference dem_georef,
-              DEMImageT const& dem,
-              Vector2f const& downsample_scale,
-              vw::TransformPtr tx_left, vw::TransformPtr tx_right,
-              boost::shared_ptr<camera::CameraModel> left_camera_model,
-              boost::shared_ptr<camera::CameraModel> right_camera_model,
-              bool do_align,
-              Matrix<double> const& align_left_matrix,
-              Matrix<double> const& align_right_matrix,
-              int pixel_sample,
-              ImageView<PixelMask<Vector2i>> & disp_spread) {
-  typedef DemDisparity<ImageT, DEMImageT> return_type;
-  return return_type(left.impl(),
-                      dem_error, dem_georef,
-                      dem, downsample_scale,
-                      tx_left, tx_right,
-                      left_camera_model, right_camera_model,
-                      do_align, align_left_matrix, align_right_matrix,
-                      pixel_sample, disp_spread);
-}
-
 void produce_dem_disparity(ASPGlobalOptions & opt,
                             vw::TransformPtr tx_left, vw::TransformPtr tx_right,
                             boost::shared_ptr<camera::CameraModel> left_camera_model,
@@ -340,8 +309,9 @@ void produce_dem_disparity(ASPGlobalOptions & opt,
     vw::vw_throw(vw::ArgumentErr() << "There is no georeference information in: "
                     << dem_file << ".\n");
 
+  // Create a masked DEM, by using the no-data value, if present
   DiskImageView<float> dem_disk_image(dem_file);
-  ImageViewRef<PixelMask<float >> dem = pixel_cast<PixelMask<float>>(dem_disk_image);
+  ImageViewRef<PixelMask<float>> dem = pixel_cast<PixelMask<float>>(dem_disk_image);
   boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(dem_file));
   if (rsrc->has_nodata_read()) {
     double nodata_value = rsrc->nodata_read();
@@ -352,51 +322,29 @@ void produce_dem_disparity(ASPGlobalOptions & opt,
   Vector2f downsample_scale(float(left_image_sub.cols()) / float(left_image.cols()),
                             float(left_image_sub.rows()) / float(left_image.rows()));
 
-  Matrix<double> align_left_matrix  = math::identity_matrix<3>();
-  Matrix<double> align_right_matrix = math::identity_matrix<3>();
-  bool do_align = (stereo_settings().alignment_method == "homography"     ||
-                    stereo_settings().alignment_method == "affineepipolar" ||
-                    stereo_settings().alignment_method == "local_epipolar");
-  if (do_align) {
-    // We used a transform to align the images, so we have to make
-    // sure to apply that transform to the disparity we are about to
-    // compute as well.
-    if (fs::exists(opt.out_prefix+"-align-L.exr"))
-      read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
-    if (fs::exists(opt.out_prefix+"-align-R.exr"))
-      read_matrix(align_right_matrix, opt.out_prefix + "-align-R.exr");
-    
-    vw_out(DebugMessage,"asp") << "Left alignment matrix: "  << align_left_matrix  << "\n";
-    vw_out(DebugMessage,"asp") << "Right alignment matrix: " << align_right_matrix << "\n";
-  }
-
-  // Smaller tiles is better
+  // Smaller tiles is better, as then more threads can run at once
   Vector2 orig_tile_size = opt.raster_tile_size;
   opt.raster_tile_size = Vector2i(64, 64);
 
-  // This image is small enough that we can keep it in memory
+  // This image is small enough that we can keep it in memory. It will be created
+  // alongside the low-res disparity image.
   ImageView<PixelMask<Vector2i>> disp_spread(left_image_sub.cols(), left_image_sub.rows());
 
+  // Compute and write the low-resolution disparity
   ImageViewRef<PixelMask<Vector2f>> lowres_disparity
-    = pixel_cast<PixelMask<Vector2f>>(dem_disparity(left_image_sub,
-                                                    dem_error, dem_georef,
-                                                    dem, downsample_scale,
-                                                    tx_left, tx_right,
-                                                    left_camera_model, right_camera_model,
-                                                    do_align,
-                                                    align_left_matrix, align_right_matrix,
-                                                    pixel_sample, disp_spread));
+    = DemDisparity(left_image_sub, dem_error, dem_georef, dem, downsample_scale,
+                   tx_left, tx_right, left_camera_model, right_camera_model,
+                   pixel_sample, disp_spread);
   std::string disparity_file = opt.out_prefix + "-D_sub.tif";
   vw_out() << "Writing low-resolution disparity: " << disparity_file << "\n";
   auto tpc1 = TerminalProgressCallback("asp", "\t--> Low-resolution disparity:");
-  if (session_name == "isis") {
+  if (session_name.find("isis") != std::string::npos) {
     // ISIS does not support multi-threading
     boost::scoped_ptr<DiskImageResource> 
       drsrc(vw::cartography::build_gdal_rsrc(disparity_file, lowres_disparity, opt));
     vw::write_image(*drsrc, lowres_disparity, tpc1);
   } else {
-    vw::cartography::block_write_gdal_image(disparity_file, lowres_disparity,
-                                            opt, tpc1);
+    vw::cartography::block_write_gdal_image(disparity_file, lowres_disparity, opt, tpc1);
   }
 
   // The disparity spread is in memory by now, so can be written with multiple threads 
