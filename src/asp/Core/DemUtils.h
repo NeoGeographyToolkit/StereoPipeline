@@ -28,11 +28,6 @@
 
 namespace asp {
 
-// Find a handful of valid DEM values and average them. It helps later when
-// intersecting with the DEM, especially for Mars, where the DEM heights ca be
-// very far from the datum. 
-double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem);
-
 // Given an image pixel, trace a ray to the ground and find the intersection.
 void queryPixel(std::string const& dem_file, vw::CamPtr camera_model,
                 vw::Vector2 const& query_pixel);

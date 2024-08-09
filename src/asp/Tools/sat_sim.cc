@@ -25,6 +25,7 @@
 #include <asp/Rig/rig_config.h>
 
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
+#include <vw/Cartography/CameraBBox.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Core/Stopwatch.h>
@@ -463,7 +464,7 @@ int main(int argc, char *argv[]) {
     float dem_nodata_val = -std::numeric_limits<float>::max(); // will change
     vw::cartography::GeoReference dem_georef;
     vw::cartography::readGeorefImage(opt.dem_file, dem_nodata_val, dem_georef, dem);
-    double height_guess = asp::findDemHeightGuess(dem); // useful for ray-dem intersection
+    double height_guess = vw::cartography::demHeightGuess(dem); // useful for ray-dem intersection
 
     // Read the ortho image
     vw::ImageViewRef<vw::PixelMask<float>> ortho;

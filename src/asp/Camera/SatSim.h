@@ -57,11 +57,6 @@ struct SatSimOptions: vw::GdalWriteOptions {
   SatSimOptions() {}
 };
 
-// Find a handful of valid DEM values and average them. It helps later when
-// intersecting with the DEM, especially for Mars, where the DEM heights ca be
-// very far from the datum. 
-double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem);
-
 // A function to read the cameras from a file
 void readPinholeCameras(SatSimOptions const& opt, 
     std::vector<std::string> & cam_names,

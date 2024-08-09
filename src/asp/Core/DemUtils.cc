@@ -21,34 +21,6 @@
 
 namespace asp {
 
-// Find a handful of valid DEM values and average them. It helps later when
-// intersecting with the DEM, especially for Mars, where the DEM heights ca be
-// very far from the datum. 
-double findDemHeightGuess(vw::ImageViewRef<vw::PixelMask<float>> const& dem) {
-
-  double height_guess = 0.0;
-  bool found = false;
-  double sum = 0.0, num = 0.0;
-  for (double row = 0; row < dem.rows(); row += dem.rows()/10.0) {
-    for (double col = 0; col < dem.cols(); col += dem.cols()/10.0) {
-      if (is_valid(dem(col, row))) {
-        sum += dem(col, row).child();
-        num++;
-        if (num > 20) {
-          // Those are enough, as going on for too long may take too much time
-          found = true;
-          break;
-        }
-      }
-    }
-    if (found) break;
-  }
-  if (num > 0) 
-    height_guess = sum/num;
-    
-  return height_guess;
-} // End function findDemHeightGuess()
-
 // Given an image pixel, trace a ray to the ground and find the intersection.
 void queryPixel(std::string const& dem_file, vw::CamPtr camera_model,
                 vw::Vector2 const& query_pixel) {
@@ -74,7 +46,7 @@ void queryPixel(std::string const& dem_file, vw::CamPtr camera_model,
   
   vw::Vector3 cam_ctr = camera_model->camera_center(query_pixel);
   vw::Vector3 cam_dir = camera_model->pixel_to_vector(query_pixel);
-  double height_guess = asp::findDemHeightGuess(masked_dem);
+  double height_guess = vw::cartography::demHeightGuess(masked_dem);
 
   // Intersect the ray going from the given camera pixel with a DEM
   // Use xyz_guess as initial guess and overwrite it with the new value
