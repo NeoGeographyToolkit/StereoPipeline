@@ -24,6 +24,8 @@
 
 #include <boost/smart_ptr/shared_ptr.hpp>
 
+#include <vw/Math/Transform.h>
+
 // Forward declaration
 namespace asp {
   struct ASPGlobalOptions;
@@ -33,6 +35,7 @@ namespace vw {
     class CameraModel;
   }
 }
+
 
 namespace asp {
 
