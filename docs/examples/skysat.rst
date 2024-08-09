@@ -113,12 +113,14 @@ use of existing RPC cameras to accurately find the pinhole camera
 poses. The option ``--height-above-datum`` should not be necessary if
 the DEM footprint covers fully the area of interest.
 
+See :numref:`cam_gen_validation` for how to validate the created cameras.
+
 Bundle adjustment
 ^^^^^^^^^^^^^^^^^
 
 For the next steps, it may be convenient to make symbolic links from
 the image names and cameras to something shorter (once relevant
-metatadata that needs the original names is parsed from
+metadata that needs the original names is parsed from
 ``frame_index.csv``). For example, if all the images and cameras just
 produced are in a directory called ``img``, one can do::
 
@@ -161,8 +163,9 @@ than ``bundle_adjust``, as there are very many pairs of images to match.
     --nodes-list $nodesList                   \
     -o ba/run
 
-See :numref:`ba_validation` for important sanity checks and report
-files to examine after bundle adjustment.
+See :numref:`ba_validation` for important sanity checks and report files to
+examine after bundle adjustment. See :numref:`cam_gen_validation` for how to
+validate the created cameras.
 
 See :numref:`pbs_slurm` for more details on running ASP tools on multiple
 machines. 
