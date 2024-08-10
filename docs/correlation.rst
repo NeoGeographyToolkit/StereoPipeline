@@ -262,7 +262,7 @@ This tool can be customized with the ``parallel_stereo`` switch
 ``--sparse-disp-options``. 
 
 Installation of sparse_disp
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``sparse_disp`` tool is written in Python, and it depends on a
 version of GDAL that is newer than what we support in ASP and on other
