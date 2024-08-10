@@ -234,7 +234,7 @@ namespace asp {
       ("prefilter-kernel-width", po::value(&global.slogW)->default_value(1.5),
        "Sigma value for Gaussian kernel used with prefilter modes 1 and 2.")
       ("corr-seed-mode",         po::value(&global.seed_mode)->default_value(1),
-                     "Correlation seed strategy. [0 None, 1 Use low-res disparity from stereo, 2 Use low-res disparity from provided DEM (see disparity-estimation-dem), 3 Use low-res disparity produced by sparse_disp (in development)]")
+        "Correlation seed strategy. [0 None, 1 Use low-res disparity from stereo, 2 Use low-res disparity from provided DEM (see disparity-estimation-dem), 3 Use low-res disparity produced by sparse_disp (in development)]")
       ("min-num-ip",             po::value(&global.min_num_ip)->default_value(30),
                      "The minimum number of interest points which must be found to estimate the search range.")
       ("corr-sub-seed-percent",  po::value(&global.seed_percent_pad)->default_value(0.25),
@@ -281,13 +281,21 @@ namespace asp {
                      "Compute only the low-resolution disparity, skip the full-resolution disparity computation.")
       ("disparity-estimation-dem", 
         po::value(&global.disparity_estimation_dem)->default_value(""),
-        "DEM to use in estimating the low-resolution disparity (when corr-seed-mode is 2).")
-      ("disparity-estimation-dem-error", po::value(&global.disparity_estimation_dem_error)->default_value(0.0),
-                     "Error (in meters) of the disparity estimation DEM.")
-      ("corr-timeout",           po::value(&global.corr_timeout)->default_value(global.default_corr_timeout),
-                     "Correlation timeout for an image tile, in seconds.")
-      ("stereo-algorithm",       po::value(&global.stereo_algorithm)->default_value("asp_bm"),
-                     "Stereo algorithm to use. Options: asp_bm, asp_sgm, asp_mgm, asp_final_mgm, mgm (original author implementation), opencv_sgbm, libelas, msmw, msmw2, and opencv_bm.")
+        "The DEM to use in estimating the low-resolution disparity "
+        "(when corr-seed-mode is 2).")
+      ("disparity-estimation-dem-error", 
+        po::value(&global.disparity_estimation_dem_error)->default_value(0.0),
+        "Error, or uncertainty, in meters, of the disparity estimation DEM.")
+      ("disparity-estimation-sample-rate", 
+        po::value(&global.disparity_estimation_sample_rate)->default_value(2),
+        "Use one out of this many samples along each row and column, "
+        "for ---corr-seed-mode 2.")
+      ("corr-timeout", 
+       po::value(&global.corr_timeout)->default_value(global.default_corr_timeout),
+       "Correlation timeout for an image tile, in seconds.")
+      ("stereo-algorithm",
+       po::value(&global.stereo_algorithm)->default_value("asp_bm"),
+       "Stereo algorithm to use. Options: asp_bm, asp_sgm, asp_mgm, asp_final_mgm, mgm (original author implementation), opencv_sgbm, libelas, msmw, msmw2, and opencv_bm.")
       ("corr-blob-filter",       po::value(&global.corr_blob_filter_area)->default_value(0),
                      "Filter blobs this size or less in correlation pyramid step.")
       ("corr-tile-size",         po::value(&global.corr_tile_size_ovr)->default_value(ASPGlobalOptions::corr_tile_size()),

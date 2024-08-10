@@ -192,6 +192,7 @@ namespace asp {
     bool skip_low_res_disparity_comp;
     std::string disparity_estimation_dem;     // DEM to use in estimating the low-resolution disparity
     double disparity_estimation_dem_error; // Error (in meters) of the disparity estimation DEM
+    int disparity_estimation_sample_rate;
     int    corr_timeout;              // Correlation timeout for a tile, in seconds
     int default_corr_timeout;         // Will be used to adjust corr_timeout
     std::string stereo_algorithm;     // See StereoSettings.cc for the possible values.

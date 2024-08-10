@@ -42,6 +42,8 @@ using namespace vw::stereo;
 using namespace asp;
 namespace bp = boost::process;
 
+typedef vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> DispImageRef;
+
 /// Returns the properly cast cost mode type
 stereo::CostFunctionType get_cost_mode_value() {
   switch(stereo_settings().cost_mode) {
@@ -135,12 +137,8 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
   std::string spread_file = opt.out_prefix + "-D_sub_spread.tif";
 
   if (stereo_settings().seed_mode != 3 && fs::exists(spread_file)) {
-    // We will recreate D_sub below unless seed_mode is 3, when the work
-    // happens in sparse_disp outside this logic. We may or may not recreate
-    // D_sub_spread, but in either case wipe the existing one or else
-    // it may be a leftover from a previous run with different image
-    // sizes, and in that case it will be inconsistent with D_sub
-    // we will create now.
+    // Wipe any potentially old spread file, unless seed_mode is 3, when 
+    // sparse_disp does the work.
     fs::remove(spread_file);
   }
 
@@ -437,7 +435,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   if (std::max(search_range.width(), search_range.height()) <= MIN_SEARCH_WIDTH) {
     search_range.min() -= MINIMAL_EXPAND; // BBox2.expand() function does not always work!!!!
     search_range.max() += MINIMAL_EXPAND;
-    vw_out(InfoMessage,"asp") << "Using expanded search range: " << search_range << std::endl;
+    vw_out(InfoMessage, "asp") << "Using expanded search range: " << search_range << "\n";
     filter_using_histogram = false; // histogram filtering can be too aggressive
   }
 
@@ -617,8 +615,8 @@ class SeededCorrelatorView: public ImageViewBase<SeededCorrelatorView> {
   ImageViewRef<PixelGray<float>>   m_right_image;
   ImageViewRef<vw::uint8> m_left_mask;
   ImageViewRef<vw::uint8> m_right_mask;
-  ImageViewRef<PixelMask<Vector2f>> m_sub_disp;
-  ImageViewRef<PixelMask<Vector2i>> m_sub_disp_spread;
+  DispImageRef m_sub_disp;
+  DispImageRef m_sub_disp_spread;
   ImageView<PixelMask<float>> * m_lr_disp_diff;
 
   // Settings
@@ -634,17 +632,15 @@ public:
   // Set these input types here instead of making them template arguments
   typedef ImageViewRef<PixelGray<float>>    ImageType;
   typedef ImageViewRef<vw::uint8>           MaskType;
-  typedef ImageViewRef<PixelMask<Vector2f>> DispSeedImageType;
-  typedef ImageViewRef<PixelMask<Vector2i>> SpreadImageType;
   typedef ImageType::pixel_type InputPixelType;
 
   SeededCorrelatorView(ImageType             const& left_image,
                        ImageType             const& right_image,
                        MaskType              const& left_mask,
                        MaskType              const& right_mask,
-                       DispSeedImageType     const& sub_disp,
-                       SpreadImageType       const& sub_disp_spread,
-                       Vector2i const& kernel_size,
+                       DispImageRef          const& sub_disp,
+                       DispImageRef          const& sub_disp_spread,
+                       Vector2i              const& kernel_size,
                        stereo::CostFunctionType cost_mode,
                        int corr_timeout, double seconds_per_op,
                        Vector2i const& region_ul,
@@ -693,8 +689,9 @@ public:
       seed_bbox.expand(1);
       seed_bbox.crop(m_seed_bbox);
       // Get the disparity range in d_sub corresponding to this tile.
-      VW_OUT(DebugMessage, "stereo") << "\nGetting disparity range for : " << seed_bbox << "\n";
-      DispSeedImageType disparity_in_box = crop(m_sub_disp, seed_bbox);
+      VW_OUT(DebugMessage, "stereo") 
+        << "\nGetting disparity range for : " << seed_bbox << "\n";
+      DispImageRef disparity_in_box = crop(m_sub_disp, seed_bbox);
 
       local_search_range = stereo::get_disparity_range(disparity_in_box);
 
@@ -704,14 +701,16 @@ public:
       if (has_sub_disp_spread &&
           m_sub_disp_spread.cols() != m_sub_disp.cols() &&
           m_sub_disp_spread.rows() != m_sub_disp.rows()){
-        vw_throw(ArgumentErr() << "stereo_corr: D_sub and D_sub_spread must have equal sizes.\n");
+        vw_throw(ArgumentErr() << "D_sub and D_sub_spread must have equal sizes.\n");
       }
 
       if (has_sub_disp_spread) {
         // Expand the disparity range by m_sub_disp_spread.
-        SpreadImageType spread_in_box = crop(m_sub_disp_spread, seed_bbox);
-
+        DispImageRef spread_in_box = crop(m_sub_disp_spread, seed_bbox);
         BBox2 spread = stereo::get_disparity_range(spread_in_box);
+        // The spread may be negative if the box is empty
+        spread.max()[0] = std::max(spread.max()[0], 0.0); 
+        spread.max()[1] = std::max(spread.max()[1], 0.0);
         local_search_range.min() -= spread.max();
         local_search_range.max() += spread.max();
       } //endif has_sub_disp_spread
@@ -734,10 +733,9 @@ public:
                  << local_search_range << "\n";
       }
 
-      VW_OUT(DebugMessage, "stereo") << "SeededCorrelatorView("
-                                     << bbox << ") local search range "
-                                     << local_search_range << " vs "
-                                     << stereo_settings().search_range << "\n";
+      VW_OUT(DebugMessage, "stereo") 
+        << "SeededCorrelatorView("<< bbox << ") local search range "
+        << local_search_range << " vs " << stereo_settings().search_range << "\n";
 
     } else{ // seed mode == 0
       local_search_range = stereo_settings().search_range;
@@ -751,7 +749,7 @@ public:
     const int rm_half_kernel = 5; // Filter kernel size used by CorrelationView
     vw::stereo::PrefilterModeType prefilter_mode =
       static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode);
-    ImageViewRef<PixelMask<Vector2f>> disparity_map
+    DispImageRef disparity_map
       = stereo::pyramid_correlate(m_left_image,   m_right_image,
                                   m_left_mask,    m_right_mask,
                                   prefilter_mode,
@@ -840,15 +838,15 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
       vw_throw(ArgumentErr() << msg << "\n");
     }
   }
-  ImageViewRef<PixelMask<Vector2i>> sub_disp_spread;
+  DispImageRef sub_disp_spread;
   if (stereo_settings().seed_mode == 2 ||  stereo_settings().seed_mode == 3){
     // D_sub_spread is mandatory for seed_mode 2 and 3.
-    sub_disp_spread = DiskImageView<PixelMask<Vector2i>>(spread_file);
+    sub_disp_spread = DiskImageView<PixelMask<Vector2f>>(spread_file);
   }else if (stereo_settings().seed_mode == 1){
     // D_sub_spread is optional for seed_mode 1, we use it only if it is provided.
     if (fs::exists(spread_file)) {
       try {
-        sub_disp_spread = DiskImageView<PixelMask<Vector2i> >(spread_file);
+        sub_disp_spread = DiskImageView<PixelMask<Vector2f>>(spread_file);
       }
       catch (...) {}
     }
@@ -885,7 +883,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
 
   // Set up the reference to the stereo disparity code
   // - Processing is limited to left_trans_crop_win for use with parallel_stereo.
-  ImageViewRef<PixelMask<Vector2f>> fullres_disparity =
+  DispImageRef fullres_disparity =
     crop(SeededCorrelatorView(left_disk_image, right_disk_image, Lmask, Rmask,
                               sub_disp, sub_disp_spread, kernel_size, 
                               cost_mode, corr_timeout, seconds_per_op,
@@ -937,7 +935,8 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
 
   std::string d_file = opt.out_prefix + "-D.tif";
   vw_out() << "Writing: " << d_file << "\n";
-  
+  auto tpc = TerminalProgressCallback("asp", "\t--> Correlation :");
+
   if (stereo_alg > vw::stereo::VW_CORRELATION_BM) {
     // SGM and external algorithms perform subpixel correlation in
     // this step, so write out floats.
@@ -950,16 +949,14 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
                                     ASPGlobalOptions::rfne_tile_size());
     vw::cartography::block_write_gdal_image(d_file, result,
                                             has_left_georef, left_georef,
-                                            has_nodata, nodata, opt,
-                                            TerminalProgressCallback("asp", "\t--> Correlation :"));
+                                            has_nodata, nodata, opt, tpc);
 
   } else {
     // Otherwise cast back to integer results to save on storage space.
     vw::cartography::block_write_gdal_image(d_file, 
                                             pixel_cast<PixelMask<Vector2i>>(fullres_disparity),
                                             has_left_georef, left_georef,
-                                            has_nodata, nodata, opt,
-                                            TerminalProgressCallback("asp", "\t--> Correlation :"));
+                                            has_nodata, nodata, opt, tpc);
   }
 
   if (stereo_settings().save_lr_disp_diff) {
@@ -969,14 +966,13 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
     vw_out() << "Writing: " << lr_disp_diff_file << "\n";
     opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(), // small block size
                                     ASPGlobalOptions::rfne_tile_size());
+    auto tpc = TerminalProgressCallback("asp", "\t--> L-R-disp-diff :");
     vw::cartography::block_write_gdal_image(lr_disp_diff_file,
                                             apply_mask(lr_disp_diff, lr_disp_nodata),
                                             has_left_georef, left_georef,
-                                            has_lr_disp_nodata, lr_disp_nodata, opt,
-                                            TerminalProgressCallback("asp",
-                                                                     "\t--> L-R-disp-diff :"));
+                                            has_lr_disp_nodata, lr_disp_nodata, opt, tpc);
   }
-
+  
   return;
 } // End function stereo_correlation_2D
 
@@ -1206,7 +1202,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     // with pyramid levels is enough to get away without a seed. And the external
     // methods can't use a seed anyway.
     ImageView<PixelMask<Vector2f>> sub_disp;
-    ImageView<PixelMask<Vector2i>> sub_disp_spread;
+    ImageView<PixelMask<Vector2f>> sub_disp_spread;
 
     // Prepare for saving the LR to RL disparity difference.
     ImageView<PixelMask<float>> * lr_disp_diff_ptr = NULL;

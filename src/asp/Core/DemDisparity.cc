@@ -18,6 +18,8 @@
 // \file DEMDisparity.cc
 
 // Estimate the low-resolution disparity based on cameras and a DEM.
+// TODO(oalexan1): CPU utilization is not good. Try instead to create
+// tasks for each subbox.
 
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/DemDisparity.h>
@@ -102,7 +104,7 @@ class DemDisparity: public ImageViewBase<DemDisparity> {
   boost::shared_ptr<camera::CameraModel> m_left_camera_model;
   boost::shared_ptr<camera::CameraModel> m_right_camera_model;
   int             m_pixel_sample;
-  ImageView<PixelMask<Vector2i>> & m_disp_spread;
+  ImageView<PixelMask<Vector2f>> & m_disp_spread;
   double m_height_guess;
 
 public:
@@ -114,7 +116,7 @@ DemDisparity(ImgRefT const& left_image,
               vw::TransformPtr tx_left, vw::TransformPtr tx_right, 
               boost::shared_ptr<camera::CameraModel> left_camera_model,
               boost::shared_ptr<camera::CameraModel> right_camera_model,
-              int pixel_sample, ImageView<PixelMask<Vector2i>> & disp_spread):
+              int pixel_sample, ImageView<PixelMask<Vector2f>> & disp_spread):
     m_left_image(left_image.impl()),
     m_dem_error(dem_error),
     m_dem_georef(dem_georef),
@@ -159,7 +161,7 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
     for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
       lowres_disparity(col, row) = PixelMask<Vector2f>();
       lowres_disparity(col, row).invalidate();
-      m_disp_spread(col, row) = PixelMask<Vector2i>();
+      m_disp_spread(col, row) = PixelMask<Vector2f>();
       m_disp_spread(col, row).invalidate();
     }
   }
@@ -199,6 +201,7 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
   // accessing individual DEM pixels from disk. To do that, find
   // the pixel values on a small set of points of the diagonals of
   // the current tile.
+  // TODO(oalexan1): Use here instead the points computed earlier.
   std::vector<Vector2> diagonals;
   int wid = bbox.width() - 1, hgt = bbox.height() - 1;
   int dim = std::max(1, std::max(wid, hgt)/10);
@@ -211,9 +214,7 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
   Vector3 prev_xyz; // for storing ray-to-dem intersection from the previous iteration
   for (unsigned k = 0; k < diagonals.size(); k++) {
 
-    // TODO(oalexan1): This is duplicated code. Move it to a function.
     Vector2 left_lowres_pix = diagonals[k];
-    
     vw::Vector3 left_camera_vec, xyz;
     bool success = lowResPixToDemXyz(left_lowres_pix, m_downsample_scale, local_tx_left, 
                                      m_left_camera_model, m_dem_error, m_dem_georef, 
@@ -276,6 +277,7 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
         curr_pixel_disp_range(k, 0).invalidate();
         Vector2 right_fullres_pix;
         try {
+          // TODO(oalexan1): Should the off-nadir angle affect the bias?
           vw::Vector3 biased_xyz = xyz + bias[k] * m_dem_error * left_camera_vec;
           // Raw camera pixel
           right_fullres_pix = m_right_camera_model->point_to_pixel(biased_xyz);
@@ -295,12 +297,23 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
         if (k == 1 && success_arr[0] && success_arr[1]) break;
       }
 
-      BBox2f search_range = stereo::get_disparity_range(curr_pixel_disp_range);
-      if (search_range == BBox2f(0,0,0,0)) 
+      // Continue if none of the disparities were successful
+      if (!success_arr[0] && !success_arr[1] && !success_arr[2]) 
         continue;
+        
+      // Accumulate the values for which there is success
+      BBox2f search_range;
+      for (int k = 0; k < curr_pixel_disp_range.cols(); k++) {
+        if (success_arr[k] && is_valid(curr_pixel_disp_range(k, 0))) 
+          search_range.grow(curr_pixel_disp_range(k, 0).child());
+      }
 
-      lowres_disparity(col, row) = round((search_range.min() + search_range.max())/2.0);
-      m_disp_spread(col, row) = ceil((search_range.max() - search_range.min())/2.0);
+      // These quantities are kept as float, as they can be tiny for large images      
+      lowres_disparity(col, row) = (search_range.min() + search_range.max())/2.0;
+      lowres_disparity(col, row).validate();
+      // Divide by 2 here as later we will expand by this value in both directions
+      m_disp_spread(col, row) = (search_range.max() - search_range.min())/2.0;
+      m_disp_spread(col, row).validate();
     }
   }
 
@@ -326,7 +339,9 @@ void produce_dem_disparity(ASPGlobalOptions & opt,
                             << stereo_settings().search_range << ".\n";
 
   // Skip pixels to speed things up, particularly for ISIS and DG.
-  int pixel_sample = 2;
+  int pixel_sample = asp::stereo_settings().disparity_estimation_sample_rate;
+  pixel_sample = std::max(1, pixel_sample);
+  vw::vw_out() << "Low-res disparity estimation sample rate: " << pixel_sample << "\n";
 
   DiskImageView<PixelGray<float>> left_image(opt.out_prefix+"-L.tif");
   DiskImageView<PixelGray<float>> left_image_sub(opt.out_prefix+"-L_sub.tif");
@@ -366,7 +381,7 @@ void produce_dem_disparity(ASPGlobalOptions & opt,
 
   // This image is small enough that we can keep it in memory. It will be created
   // alongside the low-res disparity image.
-  ImageView<PixelMask<Vector2i>> disp_spread(left_image_sub.cols(), left_image_sub.rows());
+  ImageView<PixelMask<Vector2f>> disp_spread(left_image_sub.cols(), left_image_sub.rows());
 
   // Compute and write the low-resolution disparity
   ImageViewRef<PixelMask<Vector2f>> lowres_disparity
