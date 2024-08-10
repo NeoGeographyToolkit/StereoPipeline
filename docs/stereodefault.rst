@@ -348,7 +348,7 @@ corr-seed-mode (=0,1,2,3)
     0 - None
        Don't calculate a low-resolution variant of the disparity image.
        The search range provided by ``corr-search`` is used directly in
-       computing the full-resolution disparity.
+       computing the full-resolution disparity. 
 
     1 - Low-resolution disparity from stereo
        Calculate a low-resolution version of the disparity from the
@@ -363,22 +363,16 @@ corr-seed-mode (=0,1,2,3)
        seed is a good hybrid approach.
 
     2 - Low-resolution disparity from an input DEM
-       Use a lower-resolution DEM together with an estimated value for
-       its error to compute the low-resolution disparity, which will then
-       be used to find the full-resolution disparity as above. These
-       quantities can be specified via the options
-       ``disparity-estimation-dem`` and
-       ``disparity-estimation-dem-error`` respectively. This option is
-       not compatible with map projected input images.
-
+       Use a lower-resolution DEM together with an estimated value for its error
+       to compute the low-resolution disparity, which will then be used to find
+       the full-resolution disparity as above. These quantities can be specified
+       via the options ``disparity-estimation-dem`` and
+       ``disparity-estimation-dem-error`` respectively. See also
+       :numref:`d_sub_dem`.
+       
     3 - Disparity from full-resolution images at a sparse number of points.
        This is an advanced option for terrain having snow and no
-       large-scale features. It is described in :numref:`sparse_disp`.
-
-    For large images, bigger than MOC-NA, using the low-resolution
-    disparity seed is a definitive plus. Smaller images such as Cassini
-    ISS or MER images should just shut this option off to save storage
-    space.
+       large-scale features. This is described in :numref:`sparse_disp`.
 
 corr-sub-seed-percent (*float*) (default=0.25)
     When using ``corr-seed-mode 1``, the solved-for or user-provided
