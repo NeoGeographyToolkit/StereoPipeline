@@ -105,7 +105,7 @@ and absolute brightness :cite:`Nishihara84practical`. We recommend
 that you use the defaults for these parameters to start with, and
 then experiment only if your results are sub-optimal.
 
-.. _d-sub:
+.. _stereo_corr:
 
 Disparity map initialization
 ----------------------------
@@ -113,11 +113,13 @@ Disparity map initialization
 Correlation is the process at the heart of the Stereo Pipeline. It is a
 collection of algorithms that compute correspondences between pixels in
 the left image and pixels in the right image. The map of these
-correspondences is called a *disparity map*. You can think of a
-disparity map as an image whose pixel locations correspond to the pixel
-:math:`(u,v)` in the left image, and whose pixel values contain the
-horizontal and vertical offsets :math:`(d_u, d_v)` to the matching pixel
-in the right image, which is :math:`(u+d_u, v+d_v)`.
+correspondences is called a *disparity map*.  This is saved
+in the file named ``output_prefix-D.tif``.
+
+A disparity map is an image whose pixel locations correspond to the pixel
+:math:`(u,v)` in the left image, and whose pixel values contain the horizontal
+and vertical offsets :math:`(d_u, d_v)` to the matching pixel in the right
+image, which is :math:`(u+d_u, v+d_v)`.
 
 The correlation process attempts to find a match for every pixel in the
 left image. The only pixels skipped are those marked invalid in the mask
@@ -164,48 +166,147 @@ three cost functions, though we recommend normalized cross correlation
 lighting and contrast variations between a pair of images. Try the
 others if you need more speed at the cost of quality.
 
-Our implementation of pyramid correlation is a little unique in that it
-is actually split into two levels of pyramid searching. There is a
-``output_prefix-D_sub.tif`` disparity image that is computed from the
-greatly reduced input images ``*-L_sub.tif`` and
-``output_prefix-R_sub.tif``. Those "sub" images have their size chosen
-so that their area is around 2.25 megapixels, a size that is easily
-viewed on the screen unlike the raw source images. The low-resolution
-disparity image then defines the per thread search range of the higher
-resolution disparity, ``output_prefix-D.tif``.
+.. _d_sub:
 
-This solution is imperfect but comes from our model of multi-threaded
-processing. ASP processes individual tiles of the output disparity in
-parallel. The smaller the tiles, the easier it is to distribute evenly
-among the CPU cores. The size of the tile unfortunately limits the max
-number of pyramid levels we can process. We've struck a balance where
-every 1024 by 1024 pixel area is processed individually in a tile. This
-practice allows only 5 levels of pyramid processing. With the addition
-of the second tier of pyramid searching with
-``output_prefix-D_sub.tif``, we are allowed to process beyond that
-limitation.
+Low-resolution disparity
+------------------------
 
-Any large failure in the low-resolution disparity image will be
-detrimental to the performance of the higher resolution disparity.  In
-the event that the low-resolution disparity is completely unhelpful,
-it can be skipped by adding ``corr-seed-mode 0`` in the
-``stereo.default`` file and using a manual search range
-(:numref:`search_range`). This should only be considered in cases
-where the texture in an image is completely lost when subsampled.  An
-example would be satellite images of fresh snow in the Arctic.
-Alternatively, ``output_prefix-D_sub.tif`` can be computed at a sparse
-set of pixels at full resolution, as described in
-:numref:`sparse-disp`.
+Producing the disparity map at full resolution as in :numref:`stereo_corr` is
+computationally expensive. To speed up the process, ASP starts by first creating
+a low-resolution initial guess version of the disparity map. This is saved
+in the file ``output_prefix-D_sub.tif``. 
 
-An alternative to computing ``output_prefix-D.tif`` from sub-sampled
-images (``corr-seed-mode 1``) or skipping it altogether
-(``corr-seed-mode 0``), is to compute it from a lower-resolution DEM of
-the area (``corr-seed-mode 2``). In this situation, the low-resolution
-DEM needs to be specified together with its estimated error. See 
-:numref:`corr_section` for more detailed information as to
-how to specify these options. In our experiments, if the input DEM has a
-resolution of 1 km, a good value for the DEM error is about 10 m, or
-higher if the terrain is very variable.
+Four methods are available for producing this low-resolution disparity,
+described below.
+
+.. _d_sub_corr:
+
+Disparity from stereo correlation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The default approach is to use for the low-resolution disparity the same
+algorithm as for the full-resolution one, but called with the low-resolution
+images ``output_prefix-L_sub.tif`` and ``output_prefix-R_sub.tif``. 
+
+Those "sub" images have their size chosen so that their area is around 2.25
+megapixels, a size that is easily viewed on the screen unlike the raw source
+images. 
+
+This corresponds to the ``parallel_stereo`` option ``--corr-seed-mode 1``
+(:numref:`stereodefault`).
+
+.. _d_sub_dem:
+
+Disparity from a DEM
+~~~~~~~~~~~~~~~~~~~~
+
+The low resolution disparity can be computed from a lower-resolution initial
+guess DEM of the area. This works with all alignment methods except ``epipolar``
+(:numref:`image_alignment`). Mapprojected images are supported
+(:numref:`mapproj-example`).
+
+This can be useful when there are a lot of clouds, or terrain features are not seen
+well at low resolution.
+
+For reasons of speed, this computation skips every other pixel in the produced
+disparity. This is not a problem, because this data is only used as a guess for
+the full-resolution disparity. 
+
+As an example, invoke ``parallel_stereo`` with options along the lines of::
+
+   --corr-seed-mode 2                 \
+   --disparity-estimation-dem ref.tif \
+   --disparity-estimation-dem-error 5 
+
+See :numref:`stereodefault` for more information on these options.
+
+.. _sparse_disp:
+
+Sparse disparity from full-resolution images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For snowy landscapes, whose only features may be small-scale grooves or ridges
+sculpted by wind (so-called *zastrugi*), the low-resolution images appear blank,
+so the default low-resolution disparity approach in :numref:`d_sub_corr` fails.
+
+One can then use a disparity from a DEM (:numref:`d_sub_dem`), skip the
+low-resolution disparity (:numref:`d_sub_skip`), or the approach outlined in
+this section, based on the tool named ``sparse_disp``.
+
+This program create the low-resolution initial disparity
+``output_prefix-D_sub.tif`` from the full-resolution images, yet only at a
+sparse set of pixels for reasons, of speed. This low-resolution disparity is
+then refined as earlier using a pyramid approach, but with fewer levels,
+to prevent the features being washed out.
+
+.. figure:: images/examples/sparse_disp.png
+   :name: fig:sparse-disp-example
+   :figwidth: 100%
+
+   Example of a difficult terrain obtained without (left) and with (right)
+   ``sparse_disp``. (In these DEMs there is very little elevation change,
+   hence the flat appearance.)
+
+Here is an example:
+
+::
+
+    parallel_stereo -t dg --corr-seed-mode 3            \
+      --corr-max-levels 2                               \
+      left_mapped.tif right_mapped.tif                  \
+      12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML  \
+      12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML  \
+      dg/dg srtm_53_07.tif
+
+This tool can be customized with the ``parallel_stereo`` switch
+``--sparse-disp-options``. 
+
+Installation of sparse_disp
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``sparse_disp`` tool is written in Python, and it depends on a
+version of GDAL that is newer than what we support in ASP and on other
+Python modules that we don't ship. It is suggested to to use the Conda
+Python management system at
+
+  https://docs.conda.io/en/latest/miniconda.html
+
+to install these dependencies. This can be done as follows::
+
+    conda create --name sparse_disp -c conda-forge python=3.12 gdal=3.8
+    conda activate sparse_disp
+    conda install -c conda-forge scipy
+
+Assuming that you used the default installation path for ``conda``, which is
+``$HOME/miniconda3``, before running the ``parallel_stereo`` command, as shown
+above, one needs to set::
+
+    export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.12/site-packages
+
+It is very important that the same version of Python be used here as
+the one shipped with ASP. Note that if GDAL is fetched from a
+different repository than conda-forge, one may run into issues with
+dependencies not being correct, and then it will fail at runtime.
+
+.. _d_sub_skip:
+
+Skip the low-resolution disparity
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Any large failure in the low-resolution disparity image will be detrimental to
+the performance of the higher resolution disparity.  In the event that the
+low-resolution disparity is completely unhelpful, it can be skipped by adding
+``corr-seed-mode 0`` in the ``stereo.default`` file and using a manual search
+range (:numref:`search_range`). 
+
+This should only be considered in cases where the texture in an image is
+completely lost when subsampled.  An example would be satellite images of fresh
+snow in the Arctic. Alternatively, ``output_prefix-D_sub.tif`` can be computed
+at a sparse set of pixels at full resolution, as described in
+:numref:`sparse_disp`.
+
+More on the correlation process
+-------------------------------
 
 Debugging disparity map initialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

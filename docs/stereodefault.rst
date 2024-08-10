@@ -373,7 +373,7 @@ corr-seed-mode (=0,1,2,3)
 
     3 - Disparity from full-resolution images at a sparse number of points.
        This is an advanced option for terrain having snow and no
-       large-scale features. It is described in :numref:`sparse-disp`.
+       large-scale features. It is described in :numref:`sparse_disp`.
 
     For large images, bigger than MOC-NA, using the low-resolution
     disparity seed is a definitive plus. Smaller images such as Cassini
@@ -582,28 +582,29 @@ local-alignment-debug
 Subpixel refinement
 -------------------
 
-subpixel-mode (*integer*) (default = 1)
-    This parameter selects the subpixel correlation method. Parabola
-    subpixel is very fast but will produce results that are only
-    slightly more accurate than those produced by the initialization
-    step. Bayes EM (mode 2) is very slow but offers the best quality.
-    When tuning ``stereo.default`` parameters, it is expedient to start
-    out using parabola subpixel as a "draft mode." When the results are
-    looking good with parabola subpixel, then they will look even
-    better with subpixel mode 2. For inputs with little noise, the
-    affine method (subpixel mode 3) may produce results equivalent to
-    Bayes EM in a shorter time. Phase correlation (subpixel mode 4) is
-    uses a frequency domain technique. It is slow and is best may not
-    produce better results than mode 2 but it may work well in some
-    situations with flat terrain.
+subpixel-mode (*integer*) (default = auto)
+    This parameter selects the subpixel correlation method. Parabola subpixel
+    (mode 1) is very fast but will produce results that are only slightly more
+    accurate than those produced by the integer disparity step. Bayes EM (mode 2)
+    is very slow but offers the best quality. 
+    
+    When tuning ``stereo.default`` parameters, it is expedient to start out
+    using parabola subpixel as a "draft mode." When the results are looking good
+    with parabola subpixel mode, then they will look even
+    better with subpixel mode 2. For inputs with little noise, the affine method
+    (subpixel mode 3) may produce results equivalent to Bayes EM in a shorter
+    time. Phase correlation (subpixel mode 4) is uses a frequency domain
+    technique. It is slow and is best may not produce better results than mode 2
+    but it may work well in some situations with flat terrain.
 
-    Subpixel modes 5 and 6 are experimental. Modes 7-12 are only used as
-    part of SGM/MGM correlation. These are much faster than subpixel
-    modes 2-4 and if selected (with SGM/MGM) will be the only subpixel
-    mode performed. They interpolate between the SGM/MGM integer results
-    and should produce reasonable values. The default blend method for
-    SGM/MGM is a custom algorithm that should work well but the you may
-    find that one of the other options is better for your data.
+    Subpixel modes 5 and 6 are experimental. Modes 7-12 are only used as part of
+    SGM/MGM correlation (see the stereo algorithms in
+    :numref:`stereo_alg_overview`). These are much faster than subpixel modes
+    2-4 and if selected (with SGM/MGM) will be the only subpixel mode performed.
+    They interpolate between the SGM/MGM integer results and should produce
+    reasonable values. The default blend method for SGM/MGM is a custom
+    algorithm that should work well but the you may find that one of the other
+    options is better for your data.
 
     Subpixel modes 1-4 can be used in conjunction with SGM/MGM. In this
     case subpixel mode 12 will be used first, followed by the selected
@@ -624,6 +625,9 @@ subpixel-mode (*integer*) (default = 1)
     | 10 - SGM Cosine 
     | 11 - SGM Parabola 
     | 12 - SGM Blend 
+    
+    The default subpixel mode value is 1 with ``--stereo-algorithm asp_bm`` and
+    12 with the ``asp_sgm`` and ``asp_mgm`` algorithms. 
     
     See :cite:`Miclea_subpixel` for the SGM subpixel methods.
 

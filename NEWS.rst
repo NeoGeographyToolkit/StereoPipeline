@@ -37,8 +37,12 @@ parallel_stereo (:numref:`parallel_stereo`):
     when using mapprojected images in stereo with DigitalGlobe / Maxar
     cameras (:numref:`dg-mapproj`).
   * Skip tiles for which there is no valid low-resolution disparity.
+  * The initial low-resolution disparity from a DEM works with mapprojected
+    images (:numref:`d_sub_dem`).
   * Throw an error if the left and right mapprojected images have different
     resolutions, as this can lead to incorrect results.
+  * Print a warning in ``stereo_pprc`` and ``stereo_tri`` if the stereo
+    convergence angle is too small.
 
 orbit_plot (:numref:`orbit_plot`):
   * Added the option ``--use-rmse``.
@@ -58,6 +62,8 @@ misc:
   * Print the stereo convergence angle in ``stereo_pprc`` with mapprojected
     images and with epipolar alignment. These are the remaining cases that were
     not handled before.
+  * The ``mapproject`` and ``parallel_sfs`` programs will not fail if the work
+    directory has spaces (this fix is a workaround, the bug is in GNU Parallel).
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

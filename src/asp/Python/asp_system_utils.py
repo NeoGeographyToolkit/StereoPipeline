@@ -198,14 +198,12 @@ def runInGnuParallel(numParallelProcesses, argumentFilePath, args,
     # Ensure our 'parallel' is not out of date
     check_parallel_version()
 
-    # Use GNU parallel with given number of processes.
-    # Let output be interspersed, read input series from file
-    # Start in the same directory on remote machines. Ensure
-    # that vital env variables are copied over.
-    # We do not use here the --workdir option, as it cannot handle
-    # spaces in the path. Instead, each caller of this function
-    # must handle the workdir itself. See for example the mapproject
-    # program.
+    # Use GNU parallel with given number of processes. Let output be
+    # interspersed, read input series from file Start in the same directory on
+    # remote machines. Ensure that vital env variables are copied over.
+    # We do not use the GNU Parallel --workdir option, as this tool cannot
+    # handle spaces in the path. Instead, each caller of this function must
+    # handle the workdir itself. See for example the mapproject program.
     cmd = ['parallel',  '--will-cite', '-u',
            '--env', 'PATH', '--env', 'PYTHONPATH', '--env', 'ISISROOT',
            '--env', 'ASP_LIBRARY_PATH',

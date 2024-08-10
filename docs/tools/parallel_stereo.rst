@@ -218,7 +218,7 @@ Command-line options
 
 --sparse-disp-options <string (default: "")>
     Options to pass directly to sparse_disp
-    (:numref:`sparse-disp`). Use quotes around this string.
+    (:numref:`sparse_disp`). Use quotes around this string.
 
 --job-size-w <integer (default: auto)>
     Pixel width of input image tile for a single process. See

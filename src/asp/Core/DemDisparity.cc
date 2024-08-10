@@ -19,10 +19,6 @@
 
 // Estimate the low-resolution disparity based on cameras and a DEM.
 
-// TODO(oalexan1): Decrease the tolerance for the DEM intersection.
-
-// TODO(oalexan1): Filter this disparity for outliers
-
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/DemDisparity.h>
 
@@ -73,8 +69,7 @@ lowResPixToDemXyz(Vector2 const& left_lowres_pix,
     return false;
   }
   
-  // TODO(oalexan1): Decrease this tol
-  double height_error_tol = std::max(dem_error/4.0, 1.0); // height error in meters
+  double height_error_tol = std::max(dem_error/4.0, 0.01); // height error in meters
   double max_abs_tol      = height_error_tol/4.0; // abs cost function change
   double max_rel_tol      = 1e-14; // rel cost function change
   int    num_max_iter     = 50;

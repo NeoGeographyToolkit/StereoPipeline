@@ -11,7 +11,7 @@ visualize what region a given LVIS file covers and what the shape of its
 data looks like. If the output path is not passed to the tool it will
 generate an output path by appending ".kml" to the input path. This tool
 requires the simplekml Python package to run. One way to get this is to
-install the ASP Python tools, described at the end of :numref:`sparse-disp`.
+install the ASP Python tools, described at the end of :numref:`sparse_disp`.
 
 Usage:: 
 

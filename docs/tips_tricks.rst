@@ -56,7 +56,7 @@ amount of time.
 
 -  To get good results if the images lack large-scale features (such as
    for ice plains) use a different way to get the low-resolution
-   disparity (:numref:`sparse-disp`).
+   disparity (:numref:`sparse_disp`).
 
 -  If a run takes unreasonably long, decreasing the timeout parameter
    may be in order (:numref:`longrun`).

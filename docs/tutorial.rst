@@ -380,6 +380,8 @@ number of processes, etc.), while adding the option
 ``D_sub.tif`` with ``disparitydebug`` (:numref:`disparitydebug`) 
 and the various search ranges printed on screen.
 
+The ``D_sub.tif`` file can be created from a DEM (:numref:`d_sub_dem`).
+
 When ``D_sub.tif`` is found to be reasonable, ``parallel_stereo``
 should be re-run with the option ``--resume-at-corr``.
 
@@ -422,101 +424,19 @@ example of using it is in :numref:`ccd-artifact-example`.
    and with (right) CCD boundary artifact corrections applied using
    ``wv_correct``.
 
+Images lacking large-scale features
+-----------------------------------
+
+See :numref:`d_sub_dem` and :numref:`sparse_disp` for suggestions on
+how to deal with images that lack large-scale features, such as 
+when the images have a lot of snow.
+
 Jitter
 ------
 
 Another source of artifacts in linescan cameras, such as from
 DigitalGlobe, is jitter. ASP can solve for it using a jitter solver
 (:numref:`jitter_solve`).
-
-.. _sparse-disp:
-
-Images lacking large-scale features
------------------------------------
-
-Stereo Pipeline's approach to performing correlation is a two-step
-pyramid algorithm, in which low-resolution versions of the input images
-are created, the disparity map (``output_prefix-D_sub.tif``) is found,
-and then this disparity map is refined using increasingly
-higher-resolution versions of the input images (:numref:`d-sub`).
-
-This approach usually works quite well for rocky terrain but may fail
-for snowy landscapes, whose only features may be small-scale grooves or
-ridges sculpted by wind (so-called *zastrugi*) that disappear at low
-resolution.
-
-A first attempt at solving this is to run ``parallel_stereo`` with::
-
-     --corr-seed-mode 0 --corr-max-levels 2
-
-This will prevent creating a low-resolution disparity which may be
-inaccurate in this case. (Note that interest points which are computed
-before this are found at full resolution, so they should turn out
-well.) Here, ASP will run correlation with two levels, so the lower
-initial resolution is a factor of 4 coarser than the original, which
-will hopefully prevent small features from being lost.
-
-If that is not sufficient or perhaps not fast enough, Stereo Pipeline
-provides a tool named ``sparse_disp`` to create the low-resolution
-initial disparity ``output_prefix-D_sub.tif`` based on full-resolution
-images, yet only at a sparse set of pixels for reasons, of speed.
-This low-resolution disparity is then refined as earlier using a
-pyramid approach, but again with fewer levels.
-
-.. figure:: images/examples/sparse_disp.png
-   :name: fig:sparse-disp-example
-   :figwidth: 100%
-
-   Example of a difficult terrain obtained without (left) and with (right)
-   ``sparse_disp``. (In these DEMs there is very little elevation change,
-   hence the flat appearance.)
-
-This mode can be invoked by passing to ``parallel_stereo`` the option
-``--corr-seed-mode 3``. Also, during pyramid correlation it is suggested
-to use somewhat fewer levels than the default ``--corr-max-levels 5``,
-to again not subsample the images too much and lose the features.
-
-Here is an example:
-
-::
-
-    parallel_stereo -t dg --corr-seed-mode 3            \
-      --corr-max-levels 2                               \
-      left_mapped.tif right_mapped.tif                  \
-      12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML  \
-      12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML  \
-      dg/dg srtm_53_07.tif
-
-If ``sparse_disp`` is not working well for your images you may be able
-to improve its results by experimenting with the set of ``sparse_disp``
-options which can be passed into ``parallel_stereo`` through the
-``--sparse-disp-options`` parameter. ``sparse_disp`` has so far only
-been tested with ``affineepipolar`` image alignment so you may not get
-good results with other alignment methods.
-
-The ``sparse_disp`` tool is written in Python, and it depends on a
-version of GDAL that is newer than what we support in ASP and on other
-Python modules that we don't ship. It is suggested to to use the Conda
-Python management system at
-
-  https://docs.conda.io/en/latest/miniconda.html
-
-to install these dependencies. This can be done as follows::
-
-    conda create --name sparse_disp -c conda-forge python=3.12 gdal=3.8
-    conda activate sparse_disp
-    conda install -c conda-forge scipy
-
-Assuming that you used the default installation path for ``conda``, which is
-``$HOME/miniconda3``, before running the ``parallel_stereo`` command, as shown
-above, one needs to set::
-
-    export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.12/site-packages
-
-It is very important that the same version of Python be used here as
-the one shipped with ASP. Note that if GDAL is fetched from a
-different repository than conda-forge, one may run into issues with
-dependencies not being correct, and then it will fail at runtime.
 
 Multi-spectral images
 ---------------------

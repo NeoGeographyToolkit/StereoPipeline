@@ -709,7 +709,9 @@ The ``ref_dem.tif`` dataset should be at a coarser resolution, such as 40 times
 coarser than the input images, as discussed earlier, to ensure no
 misregistration artifacts transfer over to the mapprojected images. Ensure the
 input DEM is relative to an ellipsoid and not a geoid
-(:numref:`conv_to_ellipsoid`). Fill and blur the input DEM if needed (:numref:`dem_mosaic_grow`, :numref:`dem_mosaic_blur`).
+(:numref:`conv_to_ellipsoid`). 
+
+Fill and blur the input DEM if needed (:numref:`dem_mosaic_grow`).
 
 Commands::
 
