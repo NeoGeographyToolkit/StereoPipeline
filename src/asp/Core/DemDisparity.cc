@@ -18,6 +18,7 @@
 // \file DEMDisparity.cc
 
 // Estimate the low-resolution disparity based on cameras and a DEM.
+
 // TODO(oalexan1): CPU utilization is not good. Try instead to create
 // tasks for each subbox.
 
@@ -34,6 +35,8 @@
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/Cartography/Map2CamTrans.h>
+#include <vw/Core/Stopwatch.h>
+#include <vw/Image/AlgorithmFunctions.h>
 
 #include <boost/filesystem/operations.hpp>
 namespace fs = boost::filesystem;
@@ -71,8 +74,8 @@ lowResPixToDemXyz(Vector2 const& left_lowres_pix,
     return false;
   }
   
-  double height_error_tol = std::max(dem_error/4.0, 0.01); // height error in meters
-  double max_abs_tol      = height_error_tol/4.0; // abs cost function change
+  double height_error_tol = 1e-3; // abs height error
+  double max_abs_tol      = 1e-14; // abs cost function change
   double max_rel_tol      = 1e-14; // rel cost function change
   int    num_max_iter     = 50;
   bool   treat_nodata_as_zero = false;
@@ -103,7 +106,7 @@ class DemDisparity: public ImageViewBase<DemDisparity> {
   vw::TransformPtr  m_tx_left, m_tx_right;
   boost::shared_ptr<camera::CameraModel> m_left_camera_model;
   boost::shared_ptr<camera::CameraModel> m_right_camera_model;
-  int             m_pixel_sample;
+  int               m_pixel_sample;
   ImageView<PixelMask<Vector2f>> & m_disp_spread;
   double m_height_guess;
 
@@ -132,7 +135,6 @@ DemDisparity(ImgRefT const& left_image,
   // This can speed up and make more reliable the intersection of rays with the DEM
   m_height_guess = vw::cartography::demHeightGuess(m_dem);
 }
-      
 
 // ImageView interface
 typedef PixelMask<Vector2f> pixel_type;
@@ -196,12 +198,10 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
   else
     local_tx_right = m_tx_right;
   
-  // Estimate the DEM region we expect to use and crop it into an
-  // ImageView. This will make the algorithm much faster than
-  // accessing individual DEM pixels from disk. To do that, find
-  // the pixel values on a small set of points of the diagonals of
+  // Find the pixel values on a small set of points of the diagonals of
   // the current tile.
   // TODO(oalexan1): Use here instead the points computed earlier.
+  // But this would be a lot of points.
   std::vector<Vector2> diagonals;
   int wid = bbox.width() - 1, hgt = bbox.height() - 1;
   int dim = std::max(1, std::max(wid, hgt)/10);
@@ -209,7 +209,10 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
     diagonals.push_back(bbox.min() + Vector2(double(i)*wid/dim, double(i)*hgt/dim));
   for (int i = 0; i <= dim; i++)
     diagonals.push_back(bbox.min() + Vector2(double(i)*wid/dim, hgt - double(i)*hgt/dim));
-  
+
+  // Estimate the DEM region we expect to use and crop it into an
+  // ImageView. This will make the algorithm much faster than
+  // accessing individual DEM pixels from disk.
   BBox2i dem_box;
   Vector3 prev_xyz; // for storing ray-to-dem intersection from the previous iteration
   for (unsigned k = 0; k < diagonals.size(); k++) {
@@ -242,14 +245,14 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
   // Compute the DEM disparity. Use one in every 'm_pixel_sample' pixels.
   for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
 
-    if (row%m_pixel_sample != 0) 
+    if (row % m_pixel_sample != 0) 
       continue;
 
     // Must wipe the previous guess since we are now too far from it
     prev_xyz = Vector3();
 
     for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
-      if (col%m_pixel_sample != 0) 
+      if (col % m_pixel_sample != 0) 
         continue;
 
       Vector2 left_lowres_pix = Vector2(col, row);
@@ -268,13 +271,13 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
       // xyz. Use that to get an estimate of the disparity
       // error.
 
-      ImageView<PixelMask<Vector2>> curr_pixel_disp_range(3, 1);
+      ImageView<PixelMask<Vector2>> curr_disp(3, 1);
       double bias[] = {-1.0, 1.0, 0.0};
       int success_arr[] = {0, 0, 0};
 
-      for (int k = 0; k < curr_pixel_disp_range.cols(); k++) {
+      for (int k = 0; k < curr_disp.cols(); k++) {
 
-        curr_pixel_disp_range(k, 0).invalidate();
+        curr_disp(k, 0).invalidate();
         Vector2 right_fullres_pix;
         try {
           // TODO(oalexan1): Should the off-nadir angle affect the bias?
@@ -288,8 +291,8 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
         }
 
         Vector2 right_lowres_pix = elem_prod(right_fullres_pix, m_downsample_scale);
-        curr_pixel_disp_range(k, 0) = right_lowres_pix - left_lowres_pix;
-        curr_pixel_disp_range(k, 0).validate();
+        curr_disp(k, 0) = right_lowres_pix - left_lowres_pix;
+        curr_disp(k, 0).validate();
         success_arr[k] = 1;
 
         // If the disparities at the endpoints of the range were successful,
@@ -303,9 +306,9 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
         
       // Accumulate the values for which there is success
       BBox2f search_range;
-      for (int k = 0; k < curr_pixel_disp_range.cols(); k++) {
-        if (success_arr[k] && is_valid(curr_pixel_disp_range(k, 0))) 
-          search_range.grow(curr_pixel_disp_range(k, 0).child());
+      for (int k = 0; k < curr_disp.cols(); k++) {
+        if (success_arr[k] && is_valid(curr_disp(k, 0))) 
+          search_range.grow(curr_disp(k, 0).child());
       }
 
       // These quantities are kept as float, as they can be tiny for large images      
@@ -326,6 +329,15 @@ inline void rasterize(DestT const& dest, BBox2i bbox) const {
 }
 
 }; // End class DemDisparity
+
+#if 0
+class DisparityTask: public Task, private boost::noncopyable {
+public:
+  DisparityTask(){}
+  void operator()() {
+  }
+};
+#endif
 
 void produce_dem_disparity(ASPGlobalOptions & opt,
                             vw::TransformPtr tx_left, vw::TransformPtr tx_right,
@@ -383,6 +395,27 @@ void produce_dem_disparity(ASPGlobalOptions & opt,
   // alongside the low-res disparity image.
   ImageView<PixelMask<Vector2f>> disp_spread(left_image_sub.cols(), left_image_sub.rows());
 
+#if 0
+  // TODO(oalexan1): See if using tasks improves the performance.
+  vw::BBox2i dsub_bbox = vw::bounding_box(left_image_sub);
+  std::vector<BBox2i> blocks 
+    = vw::subdivide_bbox(dsub_bbox, opt.raster_tile_size[0], opt.raster_tile_size[1]);
+  // Iterate and print the boxes
+  for (int i = 0; i < (int)blocks.size(); i++) {
+    vw_out() << "Block " << i << ": " << blocks[i] << std::endl;
+  }
+  
+  FifoWorkQueue disp_queue; // Create a thread pool object
+  for (size_t i = 0; i < blocks.size(); i++) {
+    boost::shared_ptr<Task> disp_task(new DisparityTask());
+    disp_queue.add_task(disp_task);
+  }
+  disp_queue.join_all(); // Wait for all the jobs to finish.
+#endif
+    
+  vw::Stopwatch sw;
+  sw.start();
+  
   // Compute and write the low-resolution disparity
   ImageViewRef<PixelMask<Vector2f>> lowres_disparity
     = DemDisparity(left_image_sub, dem_error, dem_georef, dem, downsample_scale,
@@ -405,6 +438,9 @@ void produce_dem_disparity(ASPGlobalOptions & opt,
   vw_out() << "Writing low-resolution disparity spread: " << disp_spread_file << "\n";
   auto tpc2 = TerminalProgressCallback("asp", "\t--> Low-resolution disparity spread:");
   vw::cartography::block_write_gdal_image(disp_spread_file, disp_spread, opt, tpc2);
+  
+  sw.stop();
+  vw_out() << "Low-res disparity elapsed time: " << sw.elapsed_seconds() << " s.\n";
   
   // Go back to the original tile size
   opt.raster_tile_size = orig_tile_size;

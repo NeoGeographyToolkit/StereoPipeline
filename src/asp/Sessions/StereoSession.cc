@@ -535,7 +535,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                          has_nodata, output_nodata, options,
                          TerminalProgressCallback("asp","\t  L:  "));
   sw3.stop();
-  vw_out() << "Time to write left image: " << sw3.elapsed_seconds() << std::endl;
+  vw_out() << "Writing left image elapsed time: " << sw3.elapsed_seconds() << " s\n";
     
   vw_out() << "\t--> Writing: " << right_output_file << ".\n";
   vw::Stopwatch sw4;
@@ -562,7 +562,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                            TerminalProgressCallback("asp","\t  R:  "));
   }
   sw4.stop();
-  vw_out() << "Time to write right image: " << sw4.elapsed_seconds() << std::endl;
+  vw_out() << "Writing right image elapsed time: " << sw4.elapsed_seconds() << " s\n";
 
   // For bathy runs only
   if (this->do_bathymetry())
