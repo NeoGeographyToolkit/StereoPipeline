@@ -31,14 +31,16 @@ sat_sim (:numref:`sat_sim`):
     a rig to desired specifications (:numref:`sat_sim_rig_adjust`).
 
 parallel_stereo (:numref:`parallel_stereo`):
+  * The initial low-resolution disparity from a DEM works with mapprojected
+    images (:numref:`d_sub_dem`).
+  * Added a discussion of various ways ASP can make use of existing terrain data
+    (:numref:`existing_terrain`).
   * If the number of matches from disparity is much less than requested, try to
     find more matches. This usually brings their number in the ballpark.
   * It is possible to mapproject either with ``dg`` and ``rpc`` cameras
     when using mapprojected images in stereo with DigitalGlobe / Maxar
     cameras (:numref:`dg-mapproj`).
   * Skip tiles for which there is no valid low-resolution disparity.
-  * The initial low-resolution disparity from a DEM works with mapprojected
-    images (:numref:`d_sub_dem`).
   * Throw an error if the left and right mapprojected images have different
     resolutions, as this can lead to incorrect results.
   * Print a warning in ``stereo_pprc`` and ``stereo_tri`` if the stereo

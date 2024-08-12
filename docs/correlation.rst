@@ -205,6 +205,10 @@ guess DEM of the area. This works with all alignment methods except ``epipolar``
 (:numref:`image_alignment`). Mapprojected images are supported
 (:numref:`mapproj-example`).
 
+This option assumes rather good alignment between the cameras and the DEM.
+Otherwise see :numref:`ba_pc_align`. The option ``--disparity-estimation-dem-error``
+should be used to specify the uncertainty in such a DEM.
+
 This can be useful when there are a lot of clouds, or terrain features are not
 seen well at low resolution.
 
@@ -218,6 +222,11 @@ When features are washed out at low resolution, consider also adding the option
 ``--corr-max-levels 2``, or see :numref:`sparse_disp`.
 
 See :numref:`stereodefault` for more information on these options.
+
+It is suggested to extract the produced low-resolution disparity bands with
+``gdal_translate`` (:numref:`mask_disparity`) or ``disparitydebug``
+(:numref:`disparitydebug`). Inspect them  in ``stereo_gui``
+(:numref:`stereo_gui`).
 
 .. _sparse_disp:
 

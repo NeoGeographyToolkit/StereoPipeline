@@ -852,68 +852,6 @@ would be wrong if it was specified.
 
 An example without mapprojected images is shown in :numref:`bathy_reuse_run`.
 
-.. _multiview:
-
-Multi-view stereo
-~~~~~~~~~~~~~~~~~
-
-ASP supports multi-view stereo at the triangulation stage. This mode is
-somewhat experimental, and not used widely. We have obtained higher
-quality results by doing pairwise stereo and merging the results, as
-described later on in this section.
-
-In the multiview scenario, the first image is set as reference,
-disparities are computed from it to all the other images, and then joint
-triangulation is performed :cite:`slabaugh2001optimal`. A
-single point cloud is generated with one 3D point for each pixel in the
-first image. The inputs to multi-view stereo and its output point cloud
-are handled in the same way as for two-view stereo (e.g., inputs can be
-mapprojected, the output can be converted to a DEM, etc.).
-
-It is suggested that images be bundle-adjusted (:numref:`baasp`)
-before running multi-view stereo.
-
-Example (for ISIS with three images)::
-
-     parallel_stereo file1.cub file2.cub file3.cub results/run
-
-Example (for DigitalGlobe/Maxar data with three mapprojected images)::
-
-     parallel_stereo file1.tif file2.tif file3.tif \
-       file1.xml file2.xml file3.xml               \
-       results/run input-DEM.tif
-
-For a sequence of images, multi-view stereo can be run several times
-with each image as a reference, and the obtained point clouds combined
-into a single DEM using ``point2dem`` (:numref:`point2dem`).
-
-The ray intersection error, the fourth band in the point cloud file, is
-computed as twice the mean of distances from the optimally computed
-intersection point to the individual rays. For two rays, this agrees
-with the intersection error for two-view stereo which is defined as the
-minimal distance between rays. For multi-view stereo this error is much
-less amenable to interpretation than for two-view stereo, since the
-number of valid rays corresponding to a given feature can vary across
-the image, which results in discontinuities in the intersection error.
-
-Other ways of combining multiple images
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-As an alternative to multi-view stereo, point clouds can be generated
-from multiple stereo pairs, and then a single DEM can be created with
-``point2dem`` (:numref:`builddem`). Or, multiple DEMs can be
-created, then combined into a single DEM with ``dem_mosaic``
-(:numref:`dem_mosaic`).
-
-In both of these approaches, the point clouds could be registered to a
-trusted dataset using ``pc_align`` before creating a combined terrain
-model (:numref:`pc-align-example`).
-
-The advantage of creating separate DEMs and then merging them (after
-alignment) with ``dem_mosaic``, compared to multiview triangulation, is
-that this approach will not create visible seams, while likely it will
-still increase the accuracy compared to the individual input DEMs.
-
 .. _diagnosing_problems:
 
 Diagnosing problems
@@ -1489,5 +1427,116 @@ loaded as raster data files, and the 'New 3D Map View' under the
 View menu will create a new window, and by clicking on the wrench
 icon, you can set the DEM file as the terrain source, and are able
 to move around a perspective view of your terrain.
+
+.. _existing_terrain:
+
+Use of existing terrain data
+----------------------------
+
+ASP's tools can incorporate prior ground data, such as DEMs, 
+lidar point clouds, or GCP files.
+
+ASP assumes such data is well-aligned with the input images and cameras. To
+perform such alignment, one may first run bundle adjustment
+(:numref:`bundle_adjust`), followed by stereo (:numref:`parallel_stereo`), DEM
+creation (:numref:`point2dem`), alignment of DEM to existing terrain
+(:numref:`pc-align-example`), and then the aligment can be applied to the
+bundle-adjusted cameras (:numref:`ba_pc_align`).
+
+Any input terrain is assumed to be relative to a datum ellipsoid,
+otherwise it should be converted with ``dem_geoid`` (:numref:`conv_to_ellipsoid`).
+This applies, in particular, to OpenTopography DEMs (:numref:`initial_terrain`).
+
+These are the various approaches of integrating well-aligned prior terrain data.
+
+ - Bundle adjustment can be performed with a terrain constraint. If the terrain
+   is a DEM, use the ``--heights-from-dem`` option (:numref:`heights_from_dem`).
+   This also works for a rather dense point cloud in various formats, after
+   gridding it with ``point2dem``. 
+ 
+ - The ``jitter_solve`` program (:numref:`jitter_solve`) can be called in the
+   same way with the option ``--heights-from-dem``.
+   
+ - For rather sparse lidar data, the ``bundle_adjust`` option named
+   ``--reference-terrain`` can be invoked (:numref:`reference_terrain`).
+   This one is harder to use as it takes as input stereo disparities.
+ 
+ - Low-resolution stereo disparity can be initialized from a DEM, with the
+   option ``--corr-seed-mode 2`` (:numref:`d_sub_dem`).
+    
+ - Stereo can be run with mapprojected images. The DEM for mapprojection can be
+   external, or from a previous stereo run (:numref:`mapproj-example`).
+
+ - GCP files (:numref:`bagcp`) can be incorporated into bundle adjustment and
+   jitter solving. These can also be used for aligment with ``pc_align`` (as the
+   *source* cloud).
+ 
+ - Given a prior DEM and an ASP-produced DEM, ASP can create dense correspondences
+   between hillshaded versions of these, that can be passed to the
+   ``dem2gcp`` program (:numref:`dem2gcp`) to produce dense GCP. This can help
+   correct warping in the ASP-produced DEM, by either solving for lens distortion
+   or jitter.
+  
+.. _multiview:
+
+Multi-view stereo
+~~~~~~~~~~~~~~~~~
+
+ASP supports multi-view stereo at the triangulation stage. This mode is
+somewhat experimental, and not used widely. We have obtained higher
+quality results by doing pairwise stereo and merging the results, as
+described later on in this section.
+
+In the multiview scenario, the first image is set as reference,
+disparities are computed from it to all the other images, and then joint
+triangulation is performed :cite:`slabaugh2001optimal`. A
+single point cloud is generated with one 3D point for each pixel in the
+first image. The inputs to multi-view stereo and its output point cloud
+are handled in the same way as for two-view stereo (e.g., inputs can be
+mapprojected, the output can be converted to a DEM, etc.).
+
+It is suggested that images be bundle-adjusted (:numref:`baasp`)
+before running multi-view stereo.
+
+Example (for ISIS with three images)::
+
+     parallel_stereo file1.cub file2.cub file3.cub results/run
+
+Example (for DigitalGlobe/Maxar data with three mapprojected images)::
+
+     parallel_stereo file1.tif file2.tif file3.tif \
+       file1.xml file2.xml file3.xml               \
+       results/run input-DEM.tif
+
+For a sequence of images, multi-view stereo can be run several times
+with each image as a reference, and the obtained point clouds combined
+into a single DEM using ``point2dem`` (:numref:`point2dem`).
+
+The ray intersection error, the fourth band in the point cloud file, is
+computed as twice the mean of distances from the optimally computed
+intersection point to the individual rays. For two rays, this agrees
+with the intersection error for two-view stereo which is defined as the
+minimal distance between rays. For multi-view stereo this error is much
+less amenable to interpretation than for two-view stereo, since the
+number of valid rays corresponding to a given feature can vary across
+the image, which results in discontinuities in the intersection error.
+
+Other ways of combining multiple images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+As an alternative to multi-view stereo, point clouds can be generated
+from multiple stereo pairs, and then a single DEM can be created with
+``point2dem`` (:numref:`builddem`). Or, multiple DEMs can be
+created, then combined into a single DEM with ``dem_mosaic``
+(:numref:`dem_mosaic`).
+
+In both of these approaches, the point clouds could be registered to a
+trusted dataset using ``pc_align`` before creating a combined terrain
+model (:numref:`pc-align-example`).
+
+The advantage of creating separate DEMs and then merging them (after
+alignment) with ``dem_mosaic``, compared to multiview triangulation, is
+that this approach will not create visible seams, while likely it will
+still increase the accuracy compared to the individual input DEMs.
 
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN
