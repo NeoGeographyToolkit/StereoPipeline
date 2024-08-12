@@ -1540,7 +1540,7 @@ LOLA DEM named ``ref.tif``. It can be found by invoking::
 
     gdalinfo -proj4 ref.tif
 
-and looking for the value of the ``PROJ.4`` field.
+and looking for the value of the ``PROJ`` field.
 
 It is worth experimenting repeating this experiment at sub2 and sub8,
 and examine visually the obtained hillshaded DEMs overlaid on top of

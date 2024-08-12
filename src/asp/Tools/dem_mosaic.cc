@@ -1304,7 +1304,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("tr",              po::value(&opt.tr),
 	   "Output grid size, that is, the DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.")
     ("t_srs",           po::value(&opt.target_srs_string)->default_value(""),
-	   "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ.4). If not provided, use the one from the first DEM to be mosaicked.")
+	   "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ). If not provided, use the one from the first DEM to be mosaicked.")
     ("t_projwin",       po::value(&opt.projwin),
      "Limit the mosaic to this region, with the corners given in georeferenced coordinates "
      "(xmin ymin xmax ymax). Max is exclusive. See the ``--tap`` option if desired to apply "

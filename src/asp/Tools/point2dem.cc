@@ -35,6 +35,7 @@
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/EulerAngles.h>
 #include <vw/Cartography/PointImageManipulation.h>
+#include <vw/Cartography/DatumUtils.h>
 
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <limits>
@@ -85,7 +86,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   po::options_description projection_options("Projection options");
   projection_options.add_options()
     ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), 
-     "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ.4). If not provided, will be read from the point cloud, if available.")
+     "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ). If not provided, will be read from the point cloud, if available.")
     ("t_projwin",     po::value(&opt.target_projwin),
      "The output DEM will have corners with these georeferenced coordinates. The actual spatial extent (ground footprint) is obtained by expanding this box by half the grid size.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),
@@ -179,8 +180,8 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     ("erode-length",   po::value<int>(&opt.erode_len)->default_value(0),
      "Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes).")
     ("csv-format",     po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
-    ("csv-proj4",      po::value(&opt.csv_proj4_str)->default_value(""), 
-     "The PROJ.4 string to use to interpret the entries in input CSV files, if those files contain Easting and Northing fields. If not specified, --t_srs will be used.")
+    ("csv-srs",      po::value(&opt.csv_srs)->default_value(""), 
+     "The projection string to use to interpret the entries in input CSV files. If not set, --t_srs will be used.")
     ("filter",      po::value(&opt.filter)->default_value("weighted_average"), 
      "The filter to apply to the heights of the cloud points within a given circular neighborhood when gridding (its radius is controlled via --search-radius-factor). Options: weighted_average (default), min, max, mean, median, stddev, count (number of points), nmad (= 1.4826 * median(abs(X - median(X)))), n-pct (where n is a real value between 0 and 100, for example, 80-pct, meaning, 80th percentile). Except for the default, the name of the filter will be added to the obtained DEM file name, e.g., output-min-DEM.tif.")
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
@@ -201,7 +202,9 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
      "Skip writing a DEM.")
     ("input-is-projected", po::bool_switch(&opt.input_is_projected)->default_value(false), 
      "Input data is already in projected coordinates, or is a point cloud in Cartesian "
-     "coordinates that is small in extent. See the doc for more info.");
+     "coordinates that is small in extent. See the doc for more info.")
+    ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
+     "An alias for --csv-srs, for backward compatibility.");
 
   general_options.add(manipulation_options);
   general_options.add(projection_options);
@@ -224,14 +227,13 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
   if (vm.count("input-files") == 0)
     vw_throw(ArgumentErr() << "Missing input point clouds.\n" << usage << general_options);
+    
   std::vector<std::string> input_files = vm["input-files"].as< std::vector<std::string> >();
-  
   parse_input_clouds_textures(input_files, opt);
 
-  if (opt.median_filter_params[0] < 0 || opt.median_filter_params[1] < 0){
+  if (opt.median_filter_params[0] < 0 || opt.median_filter_params[1] < 0)
     vw_throw(ArgumentErr() << "The parameters for median-based filtering "
-                            << "must be non-negative.\n" << usage << general_options);
-  }
+                            << "must be non-negative.\n");
 
   // This is a bug fix. The user by mistake passed in an empty projection string.
   if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
@@ -239,21 +241,15 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
              << "The value of --t_srs is empty. Then it must not be set at all.\n");
   
   if (opt.has_las_or_csv_or_pcd && opt.median_filter_params[0] > 0 &&
-      opt.median_filter_params[1] > 0){
+      opt.median_filter_params[1] > 0)
     vw_throw(ArgumentErr() 
-             << "Median-based filtering cannot handle CSV or LAS files.\n"
-             << usage << general_options);
-  }
+             << "Median-based filtering cannot handle CSV or LAS files.\n");
 
-  if (opt.erode_len < 0){
-    vw_throw(ArgumentErr() << "Erode length must be non-negative.\n"
-                            << usage << general_options);
-  }
+  if (opt.erode_len < 0)
+    vw_throw(ArgumentErr() << "Erode length must be non-negative.\n");
 
-  if ((dem_spacing1.size() > 0) && (dem_spacing2.size() > 0)){
-    vw_throw(ArgumentErr() << "The DEM spacing was specified twice.\n"
-                            << usage << general_options);
-  }
+  if ((dem_spacing1.size() > 0) && (dem_spacing2.size() > 0))
+    vw_throw(ArgumentErr() << "The DEM spacing was specified twice.\n");
 
   // Consolidate the dem_spacing and tr parameters
   if (dem_spacing1.size() < dem_spacing2.size())
@@ -268,30 +264,27 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   for (size_t i=0; i<opt.dem_spacing.size(); ++i) {
     if (opt.dem_spacing[i] < 0.0){
       // Note: Zero spacing means we'll set it internally.
-      vw_throw(ArgumentErr() << "The DEM spacing must be non-negative.\n" << usage << general_options);
+      vw_throw(ArgumentErr() << "The DEM spacing must be non-negative.\n" );
     }
     if (opt.dem_spacing[i] > 0)
       spacing_provided = true;
   }
 
-  if (opt.has_las_or_csv_or_pcd && !spacing_provided){
+  if (opt.has_las_or_csv_or_pcd && !spacing_provided)
     vw_throw(ArgumentErr() << "When inputs are not PC.tif files, the "
                             << "output DEM resolution must be set.\n");
-  }
 
   if (opt.out_prefix.empty())
     opt.out_prefix = asp::prefix_from_pointcloud_filename(opt.pointcloud_files[0]);
 
-  if (opt.use_surface_sampling){
+  if (opt.use_surface_sampling)
     vw_out(WarningMessage) 
           << "The --use-surface-sampling option invokes the old algorithm and "
           << "is obsolete, it will be removed in future versions.\n";
-  }
 
   if (opt.use_surface_sampling && opt.filter != "weighted_average")
     vw_throw(ArgumentErr() 
-             << "Cannot use surface "
-             << "sampling with any filter of point cloud points.\n");
+             << "Cannot use surface sampling with any filter of point cloud points.\n");
 
   if (opt.use_surface_sampling && opt.has_las_or_csv_or_pcd)
     vw_throw(ArgumentErr() << "Cannot use surface " << "sampling with LAS or CSV files.\n");
@@ -299,8 +292,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   if (opt.fsaa != 1 && !opt.use_surface_sampling){
     vw_throw(ArgumentErr() 
              << "The --fsaa option is obsolete. It can be used only with the "
-             << "--use-surface-sampling option which invokes the old algorithm.\n" 
-             << usage << general_options);
+             << "--use-surface-sampling option which invokes the old algorithm.\n");
   }
 
   if (opt.dem_hole_fill_len < 0)
@@ -353,13 +345,20 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     vw_out() << "Cropping to " << opt.target_projwin << " pt. " << std::endl;
   }
 
-  // If the user specified a PROJ.4 string to use to interpret the
-  // input in CSV files, use the same string to create output DEMs,
-  // unless the user explicitly sets the output PROJ.4 string.
-  if (!opt.csv_proj4_str.empty() && opt.target_srs_string.empty()) {
-    vw_out() << "The PROJ.4 string for reading CSV files was set. "
-             << "Will use it for output as well.\n";
-    opt.target_srs_string = opt.csv_proj4_str;
+  // Must specify either csv_srs or csv_proj4_str, but not both. The latter is 
+  // for backward compatibility.
+  if (!opt.csv_srs.empty() && !opt.csv_proj4_str.empty())
+    vw_throw(ArgumentErr() << "Cannot specify both --csv-srs and --csv-proj4.\n");
+  if (!opt.csv_proj4_str.empty() && opt.csv_srs.empty())
+    opt.csv_srs = opt.csv_proj4_str;
+      
+  // If the user specified an srs to interpret the input in CSV files, use the
+  // same string to create output DEMs, unless the user explicitly sets the
+  // output t_srs string.
+  if (!opt.csv_srs.empty() && opt.target_srs_string.empty()) {
+    vw_out() << "The --csv-srs option was set, but not --t_srs. Will use the former "
+    "as substitute for the latter.\n";
+    opt.target_srs_string = opt.csv_srs;
   }
 
   // Create the output directory
@@ -525,13 +524,21 @@ int main(int argc, char *argv[]) {
                           have_input_georef, output_georef);
     }
 
-    // If the input PROJ.4 string is empty, use the output one. 
-    if (!opt.csv_format_str.empty() && opt.csv_proj4_str.empty()) {
-      opt.csv_proj4_str = output_georef.get_wkt();
-      vw_out() << "The option --csv-proj4 was not specified. Using the output projection "
-               << "when interpreting csv files.\n";
-    }
+    // If the csv PROJ string is empty, use t_srs
+    if (opt.csv_srs.empty())
+      opt.csv_srs = opt.target_srs_string;
     
+    // Configure a CSV converter object according to the input parameters
+    asp::CsvConv csv_conv;
+    csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_srs); // Modifies csv_conv
+    vw::cartography::GeoReference csv_georef;
+    csv_conv.parse_georef(csv_georef);
+
+    // The provided datums must not be too different  
+    bool warn_only = false; 
+    if (!opt.csv_srs.empty())
+      vw::checkDatumConsistency(output_georef.datum(), csv_georef.datum(), warn_only);
+
     // Convert any input LAS, CSV, PCD, or unorganized projected TIF files to
     // ASP's point cloud tif format
     // - The output and input datum will match unless the input data files
@@ -539,7 +546,7 @@ int main(int argc, char *argv[]) {
     // - Should all be XYZ format when finished, unless option 
     //  --input-is-projected is set.
     std::vector<std::string> tmp_tifs;
-    chip_convert_to_tif(opt, output_georef.datum(), tmp_tifs);
+    chip_convert_to_tif(opt, csv_conv, csv_georef, tmp_tifs);
 
     // Generate a merged xyz point cloud consisting of all inputs
     // - By now, each input exists in xyz tif format.

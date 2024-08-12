@@ -36,8 +36,11 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/Map2CamTrans.h>
+#include <vw/Cartography/DatumUtils.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/Cartography/DatumUtils.h>
+
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 
@@ -314,7 +317,7 @@ vw::cartography::GeoReference StereoSession::get_georef() {
   if (has_georef && has_datum) {
     // For pinhole the guessed datum may be unreliable, so warn only
     bool warn_only = (this->name().find("pinhole") != std::string::npos);
-    asp::checkDatumConsistency(georef.datum(), datum, warn_only);
+    vw::checkDatumConsistency(georef.datum(), datum, warn_only);
   }
   
   if (!has_georef) {

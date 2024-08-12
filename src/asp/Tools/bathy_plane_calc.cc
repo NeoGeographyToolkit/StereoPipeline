@@ -470,9 +470,9 @@ void find_points_from_meas_csv(std::string const& water_height_measurements,
 
   // Read the CSV file
   asp::CsvConv csv_conv;
-  std::string csv_proj4_str = ""; // not needed
+  std::string csv_srs = ""; // not needed
   try {
-    csv_conv.parse_csv_format(csv_format_str, csv_proj4_str);
+    csv_conv.parse_csv_format(csv_format_str, csv_srs);
   }catch (...) {
     // Give a more specific error message
     vw_throw(ArgumentErr() << "Could not parse --csv-format. Was given: "

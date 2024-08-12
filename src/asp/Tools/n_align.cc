@@ -74,7 +74,7 @@ typedef flann::Index<flann::L2<double>> KDTree_double;
 /// Options container
 struct Options : public vw::GdalWriteOptions {
   // Input
-  string in_prefix, in_transforms, datum, csv_format_str, csv_proj4_str; 
+  string in_prefix, in_transforms, datum, csv_format_str, csv_srs, csv_proj4_str; 
   int    num_iter, max_num_points;
   double semi_major_axis, semi_minor_axis, rel_error_tol;
   bool   save_transformed_clouds, align_to_first_cloud, verbose;
@@ -82,10 +82,10 @@ struct Options : public vw::GdalWriteOptions {
   // Output
   string out_prefix;
 
-  Options(){}
+  Options() {}
 };
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("num-iterations",           po::value(&opt.num_iter)->default_value(100),
@@ -93,8 +93,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-num-points", po::value(&opt.max_num_points)->default_value(1000000),
      "Maximum number of (randomly picked) points from each cloud to use.")
     ("csv-format",               po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
-    ("csv-proj4",                po::value(&opt.csv_proj4_str)->default_value(""),
-     "The PROJ.4 string to use to interpret the entries in input CSV files.")
+    ("csv-srs",      po::value(&opt.csv_srs)->default_value(""), 
+     "The projection string to use to interpret the entries in input CSV files.")
     ("datum",                    po::value(&opt.datum)->default_value(""),
      "Use this datum for CSV files instead of auto-detecting it. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",          po::value(&opt.semi_major_axis)->default_value(0),
@@ -113,10 +113,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Stop when the change in the error divided by the error itself is less than this.")
     ("align-to-first-cloud", po::bool_switch(&opt.align_to_first_cloud)->default_value(false)->implicit_value(true),
      "Align the other clouds to the first one, rather than to their common centroid.")
+    ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
+     "An alias for --csv-srs, for backward compatibility.");
     ("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
      "Print the alignment error after each iteration.");
     
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -132,38 +134,51 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
-  if ( opt.out_prefix.empty() )
-    vw_throw( ArgumentErr() << "Missing output prefix.\n" << usage << general_options );
+  if (opt.out_prefix.empty())
+    vw_throw(ArgumentErr() << "Missing output prefix.\n" << usage << general_options);
 
-  if ( opt.num_iter < 0 )
-    vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n"
-              << usage << general_options );
+  // Create the output directory
+  vw::create_out_dir(opt.out_prefix);
 
-  if ( (opt.semi_major_axis != 0 && opt.semi_minor_axis == 0) ||
-       (opt.semi_minor_axis != 0 && opt.semi_major_axis == 0) ){
-    vw_throw( ArgumentErr() << "One of the semi-major or semi-minor axes"
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
+
+  if (opt.num_iter < 0)
+    vw_throw(ArgumentErr() << "The number of iterations must be non-negative.\n"
+              << usage << general_options);
+
+  // Must specify either csv_srs or csv_proj4_str, but not both. The latter is 
+  // for backward compatibility.
+  if (!opt.csv_srs.empty() && !opt.csv_proj4_str.empty())
+    vw_throw(ArgumentErr() << "Cannot specify both --csv-srs and --csv-proj4.\n");
+  if (!opt.csv_proj4_str.empty() && opt.csv_srs.empty())
+    opt.csv_srs = opt.csv_proj4_str;
+
+  if ((opt.semi_major_axis != 0 && opt.semi_minor_axis == 0) ||
+       (opt.semi_minor_axis != 0 && opt.semi_major_axis == 0)) {
+    vw_throw(ArgumentErr() << "One of the semi-major or semi-minor axes"
               << " was specified, but not the other one.\n"
-              << usage << general_options );
+              << usage << general_options);
   }
 
-  if (opt.semi_major_axis < 0 || opt.semi_minor_axis < 0){
-    vw_throw( ArgumentErr() << "The semi-major and semi-minor axes cannot "
-                            << "be negative.\n" << usage << general_options );
+  if (opt.semi_major_axis < 0 || opt.semi_minor_axis < 0) {
+    vw_throw(ArgumentErr() << "The semi-major and semi-minor axes cannot "
+                            << "be negative.\n" << usage << general_options);
   }
 
-  if (opt.datum != "" && opt.semi_major_axis != 0 && opt.semi_minor_axis != 0 ){
-    vw_throw( ArgumentErr() << "Both the datum string and datum semi-axes were "
+  if (opt.datum != "" && opt.semi_major_axis != 0 && opt.semi_minor_axis != 0) {
+    vw_throw(ArgumentErr() << "Both the datum string and datum semi-axes were "
                             << "specified. At most one needs to be set.\n"
-                            << usage << general_options );
+                            << usage << general_options);
   }
 
   if (opt.cloud_files.size() < 2)
-    vw_throw( ArgumentErr() << "Must have at least two clouds to align.\n"
-              << usage << general_options );
+    vw_throw(ArgumentErr() << "Must have at least two clouds to align.\n"
+              << usage << general_options);
 
   if (opt.in_prefix != "" && opt.in_transforms != "")
-    vw_throw( ArgumentErr() << "Cannot specify both the initial transforms prefix "
-              << "and the list of initial transforms.\n" << usage << general_options );
+    vw_throw(ArgumentErr() << "Cannot specify both the initial transforms prefix "
+              << "and the list of initial transforms.\n" << usage << general_options);
 }
 
 bool triplet_less(vw::Vector3 const& p, vw::Vector3 const& q) {
@@ -241,25 +256,25 @@ void apply_transform_to_cloud(std::vector<vw::Vector3> & cloud, Eigen::MatrixXd 
   }
 }
 
-void print_cloud(std::vector<vw::Vector3> const& cloud){
+void print_cloud(std::vector<vw::Vector3> const& cloud) {
   for (size_t it = 0; it < cloud.size(); it++) {
     vw_out() << cloud[it].x() << ' ' << cloud[it].y() << ' ' << cloud[it].z() << std::endl;
   }
 }
 
-void sort_and_make_unqiue(std::vector<vw::Vector3> & cloud){
+void sort_and_make_unqiue(std::vector<vw::Vector3> & cloud) {
   std::sort(cloud.begin(), cloud.end(), triplet_less);
   std::vector<vw::Vector3>::iterator it = std::unique(cloud.begin(), cloud.end());
   cloud.resize(std::distance(cloud.begin(), it));
 }
 
-void BuildKDTree_double(std::vector<vw::Vector3> const& cloud, KDTree_double* tree){
+void BuildKDTree_double(std::vector<vw::Vector3> const& cloud, KDTree_double* tree) {
   int rows = cloud.size();
   int dim = vw::Vector3().size();
 
   // Need to have this to avoid a seg fault later
   if (rows*dim <= 0) 
-    vw_throw( ArgumentErr() << "Cannot operate on empty clouds.\n" );
+    vw_throw(ArgumentErr() << "Cannot operate on empty clouds.\n");
   
   std::vector<double> dataset(rows * dim);
   flann::Matrix<double> dataset_mat(&dataset[0], rows, dim);
@@ -278,7 +293,7 @@ void BuildKDTree_double(std::vector<vw::Vector3> const& cloud, KDTree_double* tr
 
 void SearchKDTree_double(KDTree_double* tree, const vw::Vector3& input, 
                          std::vector<int>& indices,
-                         std::vector<double>& dists, int nn){
+                         std::vector<double>& dists, int nn) {
   int rows_t = 1;
   int dim = input.size();
   
@@ -296,7 +311,7 @@ void SearchKDTree_double(KDTree_double* tree, const vw::Vector3& input,
   tree->knnSearch(query_mat, indices_mat, dists_mat, nn, flann::SearchParams(ONE_TWO_EIGHT));
 }
 
-std::string transform_file(std::string const& out_prefix, int index){
+std::string transform_file(std::string const& out_prefix, int index) {
   std::ostringstream os;
   os << out_prefix << "-transform-" << index << ".txt";
   std::string transFile = os.str();
@@ -305,7 +320,7 @@ std::string transform_file(std::string const& out_prefix, int index){
 
 /// Save the transforms
 void write_transforms(std::vector<Eigen::MatrixXd> const& transVec,
-		     std::string const& out_prefix){
+		     std::string const& out_prefix) {
 
   for (size_t it = 0; it < transVec.size(); it++) {
     std::string transFile = transform_file(out_prefix, it);
@@ -316,7 +331,7 @@ void write_transforms(std::vector<Eigen::MatrixXd> const& transVec,
 
 /// Read the transforms. We assume we know their number.
 void read_transforms(std::vector<Eigen::MatrixXd> & transVec,
-		     std::string const& in_prefix){
+		     std::string const& in_prefix) {
 
   for (size_t it = 0; it < transVec.size(); it++) {
     std::string transFile = transform_file(in_prefix, it);
@@ -326,17 +341,17 @@ void read_transforms(std::vector<Eigen::MatrixXd> & transVec,
 
 /// Read the transforms from a list. We assume we know their numbers.
 void read_transforms_from_list(std::vector<Eigen::MatrixXd> & transVec,
-                               std::string const& transform_list){
+                               std::string const& transform_list) {
   std::istringstream is(transform_list);
   for (size_t it = 0; it < transVec.size(); it++) {
     std::string transFile;
-    if ( !(is >> transFile) )
-      vw_throw( ArgumentErr() << "Cannot parse enough transform files from: " << transform_list);
+    if (!(is >> transFile))
+      vw_throw(ArgumentErr() << "Cannot parse enough transform files from: " << transform_list);
     read_transform(transVec[it], transFile);
   }
 }
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[]) {
 
   Options opt;
   try {
@@ -344,17 +359,11 @@ int main(int argc, char *argv[]){
 
     // Parse the csv format string and csv projection string
     asp::CsvConv csv_conv;
-    csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
-    
-    // Create the output directory
-    vw::create_out_dir(opt.out_prefix);
-    
-    // Turn on logging to file
-    asp::log_to_file(argc, argv, "", opt.out_prefix);
+    csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_srs);
     
     // Try to read the georeference/datum info
     vw::cartography::GeoReference geo;
-    asp::read_georef(opt.cloud_files, opt.datum, opt.csv_proj4_str,  
+    asp::read_georef(opt.cloud_files, opt.datum, opt.csv_srs,  
                      opt.semi_major_axis, opt.semi_minor_axis,  
                      opt.csv_format_str,  csv_conv, geo);
 
@@ -450,7 +459,7 @@ int main(int argc, char *argv[]){
     
     int step = 0; // Starting step
     // int step = 1; // original incorrect logic in the Matlab code
-    while (step < opt.num_iter){
+    while (step < opt.num_iter) {
 
       bool firstStep = (step == 0);
       bool lastStep  = (step == opt.num_iter - 1);
@@ -499,7 +508,7 @@ int main(int argc, char *argv[]){
 
           // For each point in cloud i, find a match in cloud j
           PairType Corr1;
-          for (size_t index_i = 0; index_i < clouds[i].size(); index_i++){
+          for (size_t index_i = 0; index_i < clouds[i].size(); index_i++) {
             SearchKDTree_double(Trees[j].get(), clouds[i][index_i], match, dist, 1);
             if (match.empty()) continue; // should not happen
             int index_j = match[0];
@@ -508,7 +517,7 @@ int main(int argc, char *argv[]){
 
           // Now do it in reverse
           PairType Corr2;
-          for (size_t index_j = 0; index_j < clouds[j].size(); index_j++){
+          for (size_t index_j = 0; index_j < clouds[j].size(); index_j++) {
             SearchKDTree_double(Trees[i].get(), clouds[j][index_j], match, dist, 1);
             if (match.empty()) continue; // should not happen
             int index_i = match[0];

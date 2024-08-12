@@ -45,6 +45,7 @@
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
+#include <vw/Cartography/DatumUtils.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/BundleAdjustment/CameraRelation.h>
 #include <vw/Camera/PinholeModel.h>
@@ -1003,7 +1004,7 @@ int load_estimated_camera_positions(asp::BaOptions &opt,
   
   // Read the input csv file
   asp::CsvConv conv;
-  conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
+  conv.parse_csv_format(opt.csv_format_str, opt.csv_srs);
   std::list<asp::CsvConv::CsvRecord> pos_records;
   typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
   conv.read_csv_file(opt.camera_position_file, pos_records);
@@ -1011,7 +1012,6 @@ int load_estimated_camera_positions(asp::BaOptions &opt,
   // Set up a GeoReference object using the datum
   vw::cartography::GeoReference geo;
   geo.set_datum(opt.datum); // We checked for a datum earlier
-  // Use user's csv_proj4 string, if provided, to add info to the georef.
   conv.parse_georef(geo);
 
   // For each input camera, find the matching position in the record list
@@ -1126,8 +1126,8 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("fix-gcp-xyz",       po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
      "If the GCP are highly accurate, use this option to not float them during the optimization.")
     ("csv-format",        po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
-    ("csv-proj4",         po::value(&opt.csv_proj4_str)->default_value(""),
-     "The PROJ.4 string to use to interpret the entries in input CSV files.")
+    ("csv-srs",         po::value(&opt.csv_srs)->default_value(""),
+     "The PROJ or WKT string to use to interpret the entries in input CSV files.")
     ("reference-terrain", po::value(&opt.reference_terrain)->default_value(""),
      "An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, "
      "very close (after alignment) to the stereo result from the given images and cameras "
@@ -1460,6 +1460,8 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       "(starting with FLANN 1.9.2). The default ('auto') is to use 'kmeans' for "
       "25,000 features or less and 'kdtree' otherwise. This does not apply to ORB "
       "feature matching.")
+    ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
+     "An alias for --csv-srs, for backward compatibility.")
     ("save-vwip", po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
      "Save .vwip files (intermediate files for creating .match files). For "
      "parallel_bundle_adjust these will be saved in subdirectories, as they depend on the "
@@ -1579,6 +1581,13 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   //  explicitly anyway.
   if (opt.skip_matching) 
     opt.force_reuse_match_files = true;
+
+    // Must specify either csv_srs or csv_proj4_str, but not both. The latter is 
+  // for backward compatibility.
+  if (!opt.csv_srs.empty() && !opt.csv_proj4_str.empty())
+    vw_throw(ArgumentErr() << "Cannot specify both --csv-srs and --csv-proj4.\n");
+  if (!opt.csv_proj4_str.empty() && opt.csv_srs.empty())
+    opt.csv_srs = opt.csv_proj4_str;
 
   if (opt.auto_overlap_params != "" && opt.skip_matching) {
     vw_out() << "Ignoring --auto-overlap-params since no matching takes place.\n";
@@ -1748,7 +1757,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       
     // Must check the consistency of the datums
     if (is_good && have_datum)
-      asp::checkDatumConsistency(opt.datum, georef.datum(), warn_only);
+      vw::checkDatumConsistency(opt.datum, georef.datum(), warn_only);
       
     if (is_good && !have_datum) {
       opt.datum = georef.datum();
@@ -1768,7 +1777,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
         vw_throw(ArgumentErr() 
                  << "The reference terrain DEM does not have a georeference.\n");
       if (is_good && have_datum)
-        asp::checkDatumConsistency(opt.datum, georef.datum(), warn_only);
+        vw::checkDatumConsistency(opt.datum, georef.datum(), warn_only);
       if (opt.datum_str == ""){
         opt.datum = georef.datum();
         opt.datum_str = opt.datum.name();
@@ -1824,7 +1833,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
 
       // Must check the consistency of the datums
       if (have_datum)
-        asp::checkDatumConsistency(opt.datum, georef.datum(), warn_only);
+        vw::checkDatumConsistency(opt.datum, georef.datum(), warn_only);
       
       if (opt.datum_str == "") {
         opt.datum = georef.datum();
@@ -1857,7 +1866,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
 
   // Must check the consistency of the datums
   if (have_datum && have_user_datum)
-    asp::checkDatumConsistency(opt.datum, user_datum, warn_only);
+    vw::checkDatumConsistency(opt.datum, user_datum, warn_only);
   
   if (!have_datum && have_user_datum) {
     opt.datum = user_datum;
@@ -1876,7 +1885,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   // Must check the consistency of the datums
   warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
   if (have_cam_datum && have_datum)
-    asp::checkDatumConsistency(opt.datum, cam_datum, warn_only);
+    vw::checkDatumConsistency(opt.datum, cam_datum, warn_only);
      
   // Otherwise try to set the datum based on cameras. It will not work for Pinhole.
   if (!have_datum && have_cam_datum) {

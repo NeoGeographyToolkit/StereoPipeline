@@ -240,7 +240,7 @@ void adjust_lonlat_bbox(std::string const& file_name, vw::BBox2 & box);
 /// Try to read the georef/datum info, need it to read CSV files.
 void read_georef(std::vector<std::string> const& clouds,
                  std::string const& datum_str,
-                 std::string const& csv_proj4_str, 
+                 std::string const& csv_srs, 
                  double semi_major_axis,
                  double semi_minor_axis,
                  std::string & csv_format_str,

@@ -65,10 +65,6 @@ bool datum_from_camera(std::string const& image_file,
                         // Outputs
                         vw::cartography::Datum & datum);
 
-// This can catch user mistakes
-void checkDatumConsistency(vw::cartography::Datum const& datum1,
-                           vw::cartography::Datum const& datum2,
-                           bool warn_only);
 } // end namespace asp
 
 #endif // __STEREO_SESSION_CAMERAUTILS_H__

@@ -158,8 +158,8 @@ format of the CSV file via the ``--csv-format`` option. Entries in the
 CSV file can then be (in any order) (a) longitude, latitude (in
 degrees), height above datum (in meters), (b) longitude, latitude,
 distance from planet center (in meters or km), (c) easting, northing and
-height above datum (in meters), in this case a PROJ.4 string must be set
-via ``--csv-proj4``, (d) Cartesian coordinates :math:`(x, y, z)`
+height above datum (in meters), in this case a PROJ or WKT string must be set
+via ``--csv-srs``, (d) Cartesian coordinates :math:`(x, y, z)`
 measured from planet center (in meters). The precise syntax is described
 in the table below. The tool can also auto-detect the LOLA RDR
 PointPerRow format.
@@ -558,7 +558,7 @@ Command-line options for pc_align
     transform is applied to the source points).  Used for removing
     gross outliers in the source (movable) point cloud.
 
--o, --output-prefix <filename>
+-o, --output-prefix <string (default: "")>
     Specify the output file prefix.
 
 --outlier-ratio <float (default: 0.75)>
@@ -573,7 +573,7 @@ Command-line options for pc_align
     Maximum number of (randomly picked) source points to use (after
     discarding gross outliers).
 
---alignment-method <string (default: point-to-plane)>
+--alignment-method <string (default: "point-to-plane")>
     The type of iterative closest point method to use.  Choices:
     point-to-plane, point-to-point, similarity-point-to-plane,
     similarity-point-to-point, fgr, least-squares,
@@ -612,13 +612,13 @@ Command-line options for pc_align
     the radius is measured in meters from planet center),
     ``3:lat 2:lon 1:height_above_datum``,
     ``1:easting 2:northing 3:height_above_datum``
-    (need to set ``--csv-proj4``; the height above datum is in
+    (need to set ``--csv-srs``; the height above datum is in
     meters). Can also use radius_km for column_type, when it is
     again measured from planet center.
 
---csv-proj4 <string>
-    The PROJ.4 string to use to interpret the entries in input CSV
-    files, if those files contain Easting and Northing fields.
+--csv-srs <string>
+    The PROJ or WKT string to use to interpret the entries in input CSV
+    files.
 
 --compute-translation-only
     Compute the transform from source to reference point cloud as

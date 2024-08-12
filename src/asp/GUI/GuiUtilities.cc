@@ -367,7 +367,7 @@ bool read_datum_from_csv(std::string const& file, vw::cartography::Datum & datum
   return false;
 }
 
-// Given one or more of --csv-format-str, --csv-proj4, and datum, extract
+// Given one or more of --csv-format-str, --csv-srs, and datum, extract
 // the needed metadata.
 void read_csv_metadata(std::string              const& csv_file,
                        std::string              const& csv_format, 
@@ -418,15 +418,15 @@ void read_csv_metadata(std::string              const& csv_file,
   if (isPoly && local_csv_format_str.empty())
     local_csv_format_str = "1:x, 2:y";
   
-  if (asp::stereo_settings().csv_proj4 != "")
-    vw_out() << "Using projection: " << asp::stereo_settings().csv_proj4 << "\n";
+  if (asp::stereo_settings().csv_srs != "")
+    vw_out() << "Using projection: " << asp::stereo_settings().csv_srs << "\n";
 
   try {
     int min_num_fields = 3;
     if (isPoly) 
       min_num_fields = 2; // only x and y coordinates may exist
     csv_conv.parse_csv_format(local_csv_format_str,
-                              asp::stereo_settings().csv_proj4,
+                              asp::stereo_settings().csv_srs,
                               min_num_fields);
   } catch (...) {
     // Give a more specific error message

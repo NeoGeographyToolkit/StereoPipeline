@@ -81,7 +81,7 @@ namespace asp {
 
     /// Initialize using a pair of CSV format strings
     void parse_csv_format(std::string const& csv_format_str,
-                          std::string const& csv_proj4_str,
+                          std::string const& csv_srs,
                           int min_num_fields = 3);
 
     /// If the user passed in a csv file containing easting, northing, height
@@ -152,7 +152,7 @@ namespace asp {
     std::map<int, int>         col2sort; ///< Which input columns went in which vector indices (numbers only)
 
     std::string csv_format_str;
-    std::string csv_proj4_str;
+    std::string csv_srs;
     CsvFormat   format;
     int         utm_zone;
     bool        utm_north;
@@ -187,7 +187,7 @@ namespace asp {
 
   /// Need this for pc_align and point2dem
   inline std::string csv_opt_caption(){
-    return "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '2:file 5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum 5:file', '1:easting 2:northing 3:height_above_datum' (need to set --csv-proj4). Can also use radius_km for column_type.";
+    return "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '2:file 5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum 5:file', '1:easting 2:northing 3:height_above_datum' (need to set --csv-srs). Can also use radius_km for column_type.";
   }
 
   /// A valid line is not empty and does not start with '#'.

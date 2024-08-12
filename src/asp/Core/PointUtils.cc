@@ -65,24 +65,23 @@ int asp::CsvConv::get_sorted_index_for_name(std::string const& name){
 // The user specifies 3 fields that determine the coordinate.
 // If min_num_fields 2, autocomplete the third value to 0.
 void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
-                                    std::string const& csv_proj4_str,
+                                    std::string const& csv_srs,
                                     int min_num_fields) {
 
-  // This guards against the case where the user specifies a proj4 string
+  // This guards against the case where the user specifies a proj string
   // only having the string D_MARS, with no spheroid or axes.
-  std::string csv_proj4_str_lc = boost::to_lower_copy(csv_proj4_str); // lowercase
-  if ((csv_proj4_str_lc.find("d_moon") != std::string::npos ||
-       csv_proj4_str_lc.find("d_mars") != std::string::npos) &&
-      csv_proj4_str_lc.find("spheroid") == std::string::npos) {
-    vw_throw(ArgumentErr() << "D_MOON and D_MARS are not official PROJ4 names. "
-                           << "Specify the datum elsewhere or define radii manually. "
-                           << "The PROJ4 string is: " << csv_proj4_str << ".\n");
+  std::string csv_srs_lc = boost::to_lower_copy(csv_srs); // lowercase
+  if ((csv_srs_lc.find("d_moon") != std::string::npos ||
+       csv_srs_lc.find("d_mars") != std::string::npos) &&
+      csv_srs_lc.find("spheroid") == std::string::npos) {
+    vw_throw(ArgumentErr() << "D_MOON and D_MARS are not official projection strings. "
+                           << "The PROJ string is: " << csv_srs << ".\n");
   }
 
   *this = asp::CsvConv(); // Reset this object to the default state
 
   this->csv_format_str = csv_format_str; // Record inputs
-  this->csv_proj4_str  = csv_proj4_str;
+  this->csv_srs  = csv_srs;
 
   std::string local = csv_format_str; // Make lowercase
   boost::algorithm::to_lower(local);
@@ -99,7 +98,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
   // alone.
   std::string str;
   is >> str;
-  if (str == "utm"){
+  if (str == "utm") {
     is >> str;
     asp::parse_utm_str(str, this->utm_zone, this->utm_north);
   }else{
@@ -179,7 +178,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
     this->format = EASTING_HEIGHT_NORTHING;
   } else if (sorted_names[0] == "pixel_x" &&
              sorted_names[1] == "pixel_y" &&
-             sorted_names[2] == "pixel_val"){
+             sorted_names[2] == "pixel_val") {
     this->format = PIXEL_XYVAL;
   }else{
     vw_throw( ArgumentErr() << "Cannot understand the csv format string: "
@@ -187,11 +186,11 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
   }
 }
 
+// If the user passed in a csv file containing easting, northing, height
+// above datum, and either a utm zone or a custom PROJ string,
+// pass that info into the georeference for the purpose of converting
+// later from easting and northing to lon and lat.
 bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
-  // If the user passed in a csv file containing easting, northing, height
-  // above datum, and either a utm zone or a custom proj4 string,
-  // pass that info into the georeference for the purpose of converting
-  // later from easting and northing to lon and lat.
 
   if (this->utm_zone >= 0) { // UTM case
     try{
@@ -201,15 +200,16 @@ bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
       vw_throw(ArgumentErr() << "Detected error: " << e.what()
                              << "\nPlease check if you are using an Earth datum.\n");
     }
-  } else if (this->csv_proj4_str != "") { // Not UTM, with proj4 string
+  } else if (this->csv_srs != "") { // Not UTM, with PROJ string
     bool have_user_datum = false, have_input_georef = false;
     Datum user_datum;
-    asp::set_srs_string(this->csv_proj4_str, have_user_datum, user_datum,
+    asp::set_srs_string(this->csv_srs, have_user_datum, user_datum,
                         have_input_georef, georef);
     return true;
-  }else{ // No UTM, no proj4 string
+  } else { // No UTM, no srs string
     if (this->format == EASTING_HEIGHT_NORTHING)
-      vw_throw( ArgumentErr() << "When a CSV file has easting and northing, the PROJ.4 string must be set via --csv-proj4.\n" );
+      vw::vw_throw(vw::ArgumentErr() << "When a CSV file has Easting and Northing, "
+                   "must set --csv-srs.\n");
   }
   return false;
 }

@@ -40,7 +40,7 @@ struct BaOptions: public asp::BaBaseOptions {
     ip_normalize_tiles, ip_debug_images, stop_after_stats, stop_after_matching,
     skip_matching, apply_initial_transform_only, save_vwip, propagate_errors;
   std::string camera_position_file, initial_transform_file,
-    csv_format_str, csv_proj4_str, disparity_list,
+    csv_format_str, csv_srs, csv_proj4_str, disparity_list,
     dem_file_for_overlap;
   double semi_major, semi_minor, position_filter_dist;
   int num_ba_passes;

@@ -25,7 +25,7 @@ using namespace vw;
 
 namespace asp {
 
-void load_csv_or_dem(std::string const& csv_format_str, std::string const& csv_proj4_str,
+void load_csv_or_dem(std::string const& csv_format_str, std::string const& csv_srs_str,
                      std::string const& reference_terrain,
                      int max_num_reference_points,
                      vw::cartography::GeoReference & geo, // may change
@@ -36,9 +36,7 @@ void load_csv_or_dem(std::string const& csv_format_str, std::string const& csv_p
   ref_data.clear();
   
   asp::CsvConv csv_conv;
-  csv_conv.parse_csv_format(csv_format_str, csv_proj4_str);
-  
-  // Use user's csv_proj4 string, if provided, to add info to the georef.
+  csv_conv.parse_csv_format(csv_format_str, csv_srs_str);
   csv_conv.parse_georef(geo);
   
   vw::BBox2 lonlat_box; // not used

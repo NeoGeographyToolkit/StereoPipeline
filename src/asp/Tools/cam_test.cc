@@ -36,6 +36,7 @@
 #include <asp/Camera/Covariance.h>
 #include <asp/Sessions/CameraUtils.h>
 
+#include <vw/Cartography/DatumUtils.h>
 #include <vw/Core/Stopwatch.h>
 
 using namespace vw;
@@ -228,7 +229,7 @@ int main(int argc, char *argv[]) {
                                                    // Outputs
                                                    opt.session1, cam1_session, cam_datum);
     if (found_datum && found_cam_datum)
-      asp::checkDatumConsistency(datum, cam_datum, warn_only);
+      vw::checkDatumConsistency(datum, cam_datum, warn_only);
      
      if (!found_datum && found_cam_datum) {
       datum = cam_datum;
@@ -240,7 +241,7 @@ int main(int argc, char *argv[]) {
                                              // Outputs
                                              opt.session2, cam2_session, cam_datum);   
     if (found_datum && found_cam_datum)
-      asp::checkDatumConsistency(datum, cam_datum, warn_only);
+      vw::checkDatumConsistency(datum, cam_datum, warn_only);
     
     if (!found_datum && found_cam_datum) {
       datum = cam_datum;

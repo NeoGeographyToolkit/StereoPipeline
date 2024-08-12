@@ -35,7 +35,7 @@ namespace vw {
 }
 
 namespace asp {
-void load_csv_or_dem(std::string const& csv_format_str, std::string const& csv_proj4_str,
+void load_csv_or_dem(std::string const& csv_format_str, std::string const& csv_srs,
                      std::string const& reference_terrain,
                      int max_num_reference_points,
                      vw::cartography::GeoReference & geo, // may change

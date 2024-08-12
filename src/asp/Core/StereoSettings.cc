@@ -511,7 +511,7 @@ namespace asp {
       ("zoom-proj-win", po::value(&global.zoom_proj_win)->default_value(BBox2(0,0,0,0), ""),
        "Zoom to this proj win on startup. It is assumed that the images are georeferenced. Also accessible from the View menu.")
       ("csv-format",     po::value(&global.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
-      ("csv-proj4",      po::value(&global.csv_proj4)->default_value(""), "The PROJ.4 string to use to interpret the entries in a CSV file. If not specified, try to use the --datum option.")
+      ("csv-srs",      po::value(&global.csv_srs)->default_value(""), "The PROJ or WKT string to use to interpret the entries in a CSV file. If not specified, try to use the --datum option.")
       ("csv-datum",      po::value(&global.csv_datum)->default_value(""), "The datum to use when plotting a CSV file.")
       ("preview",   po::bool_switch(&global.preview)->default_value(false)->implicit_value(true),
        "Load and display the images one at a time. The 'n' and 'p' keys can be used to cycle through them.")

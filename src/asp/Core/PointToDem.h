@@ -33,6 +33,8 @@ namespace vw {
 
 namespace asp {
 
+class CsvConv;
+
 // This is a list of types the user can specify for output with a dedicated
 // command line flag.
 enum ProjectionType {
@@ -74,7 +76,8 @@ struct DemOptions: vw::GdalWriteOptions {
   double      max_valid_triangulation_error;
   vw::Vector2 median_filter_params;
   int         erode_len;
-  std::string csv_format_str, csv_proj4_str, filter;
+  std::string csv_format_str, csv_srs, filter;
+  std::string csv_proj4_str; // for backward compatibility 
   double      search_radius_factor, sigma_factor, default_grid_size_multiplier;
   bool        use_surface_sampling;
   bool        has_las_or_csv_or_pcd, auto_proj_center;
@@ -99,8 +102,10 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 // Convert any LAS or CSV files to ASP tif files. We do some binning
 // to make the spatial data more localized, to improve performance.
 // - We will later wipe these temporary tifs.
-void chip_convert_to_tif(DemOptions& opt, vw::cartography::Datum const& datum,
-                               std::vector<std::string> & tmp_tifs);
+void chip_convert_to_tif(DemOptions& opt, 
+                         asp::CsvConv const& csv_conv,
+                         vw::cartography::GeoReference const& csv_georef,
+                         std::vector<std::string> & tmp_tifs);
 
 // Rasterize a DEM
 void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,

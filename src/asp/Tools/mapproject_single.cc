@@ -32,6 +32,7 @@
 #include <asp/Core/DemUtils.h>
 
 #include <vw/Cartography/CameraBBox.h>
+#include <vw/Cartography/DatumUtils.h>
 #include <vw/Camera/PinholeModel.h>
 
 using namespace vw;
@@ -49,7 +50,7 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
     ("nodata-value",     po::value(&opt.nodata_value)->default_value(-32768),
      "No-data value to use unless specified in the input image.")
     ("t_srs",            po::value(&opt.target_srs_string)->default_value(""),
-     "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ.4). If not provided, use the one from the DEM.")
+     "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ). If not provided, use the one from the DEM.")
     ("tr",              po::value(&opt.tr)->default_value(NaN),
      "Set the output file resolution (ground sample distance) in target "
      "georeferenced units per pixel. This may be in degrees or meters, "
@@ -455,7 +456,7 @@ int main(int argc, char* argv[]) {
 
     // The user datum and DEM datum must agree
     bool warn_only = false;
-    asp::checkDatumConsistency(dem_georef.datum(), target_georef.datum(), warn_only);
+    vw::checkDatumConsistency(dem_georef.datum(), target_georef.datum(), warn_only);
      
     // Find the target resolution based --tr, --mpp, and --ppd if provided. Do
     // the math to convert pixel-per-degree to meter-per-pixel and vice-versa.

@@ -58,8 +58,8 @@ const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the larg
 struct Options : public vw::GdalWriteOptions {
   // Input
   string reference, source, init_transform_file, alignment_method, config_file,
-    datum, csv_format_str, csv_proj4_str, match_file, hillshade_options,
-    ipfind_options, ipmatch_options, fgr_options;
+    datum, csv_format_str, csv_srs, match_file, hillshade_options,
+    ipfind_options, ipmatch_options, fgr_options, csv_proj4_str;
   Vector2 initial_transform_ransac_params;
   PointMatcher<RealT>::Matrix init_transform;
   int    num_iter,
@@ -105,17 +105,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                                  "The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-plane, similarity-point-to-point, fgr, least-squares, similarity-least-squares]")
     ("highest-accuracy",         po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
                                  "Compute with highest accuracy for point-to-plane (can be much slower).")
-    ("csv-format",               po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
-    ("csv-proj4",                po::value(&opt.csv_proj4_str)->default_value(""),
-                                 "The PROJ.4 string to use to interpret the entries in input CSV files.")
+    ("csv-format",               po::value(&opt.csv_format_str)->default_value(""),  
+     asp::csv_opt_caption().c_str())
+    ("csv-srs",      po::value(&opt.csv_srs)->default_value(""), 
+     "The PROJ or WKT string to use to interpret the entries in input CSV files.")
     ("datum",                    po::value(&opt.datum)->default_value(""),
-                                 "Use this datum for CSV files instead of auto-detecting it. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+     "Use this datum for CSV files instead of auto-detecting it. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",          po::value(&opt.semi_major_axis)->default_value(0),
-                                 "Explicitly set the datum semi-major axis in meters.")
+     "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis",          po::value(&opt.semi_minor_axis)->default_value(0),
-                                 "Explicitly set the datum semi-minor axis in meters.")
-    ("output-prefix,o",          po::value(&opt.out_prefix)->default_value("run/run"),
-                                 "Specify the output prefix.")
+     "Explicitly set the datum semi-minor axis in meters.")
+    ("output-prefix,o",          po::value(&opt.out_prefix)->default_value(""),
+     "Specify the output prefix.")
     ("compute-translation-only", po::bool_switch(&opt.compute_translation_only)->default_value(false)->implicit_value(true),
                                  "Compute the transform from source to reference point cloud as a translation only (no rotation).")
     ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
@@ -144,7 +145,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Do not estimate the shared bounding box of the two clouds. This estimation "
      "can be costly for large clouds but helps with eliminating outliers.")
     ("config-file", po::value(&opt.config_file)->default_value(""),
-     "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.");
+     "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.")
+    ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
+     "An alias for --csv-srs, for backward compatibility.");
 
   //("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
   // "Print debug information");
@@ -160,7 +163,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("reference", 1);
   positional_desc.add("source",    1);
 
-  string usage("--max-displacement arg [other options] <reference cloud> <source cloud> -o <output prefix>");
+  string usage("--max-displacement arg [other options] <reference cloud> <source cloud> "
+               "-o <output prefix>");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -168,10 +172,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
-  if ( opt.reference.empty() || opt.source.empty() )
+  // If the user specifies no options at all, print the help message.
+  // Otherwise, print the specific error.
+  if (opt.reference.empty() && opt.source.empty() && opt.out_prefix.empty())
+    vw_throw( ArgumentErr() << "No input arguments provided.\n" 
+             << usage << general_options);
+
+  if (opt.reference.empty() || opt.source.empty())
     vw_throw( ArgumentErr() << "Missing input files.\n");
 
-  if ( opt.out_prefix.empty() )
+  if (opt.out_prefix.empty())
     vw_throw( ArgumentErr() << "Missing output prefix.\n");
 
   if ( opt.max_disp == 0.0 )
@@ -211,6 +221,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << "and expect one to be computed automatically.\n");
   }
 
+  // Must specify either csv_srs or csv_proj4_str, but not both. The latter is 
+  // for backward compatibility.
+  if (!opt.csv_srs.empty() && !opt.csv_proj4_str.empty())
+    vw_throw(ArgumentErr() << "Cannot specify both --csv-srs and --csv-proj4.\n");
+  if (!opt.csv_proj4_str.empty() && opt.csv_srs.empty())
+    opt.csv_srs = opt.csv_proj4_str;
+
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -221,7 +238,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   opt.init_transform = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
   if (opt.init_transform_file != ""){
     asp::read_transform(opt.init_transform, opt.init_transform_file);
-    vw_out() << std::setprecision(16) << "Initial guess transform:\n" << opt.init_transform << endl;
+    vw_out() << std::setprecision(16) << "Initial guess transform:\n" 
+             << opt.init_transform << "\n";
     vw_out() << std::setprecision(8); // undo the higher precision
   }
 
@@ -231,19 +249,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       opt.alignment_method != "similarity-point-to-plane" &&
       opt.alignment_method != "fgr"                       &&
       opt.alignment_method != "least-squares"             &&
-      opt.alignment_method != "similarity-least-squares"
-      )
+      opt.alignment_method != "similarity-least-squares")
     vw_throw( ArgumentErr() << "Only the following alignment methods are supported: "
-	      << "point-to-plane, point-to-point, similarity-point-to-point, "
-              << "similarity-point-to-plane, fgr, least-squares, and similarity-least-squares.\n"
-	      );
+	    << "point-to-plane, point-to-point, similarity-point-to-point, "
+      << "similarity-point-to-plane, fgr, least-squares, and similarity-least-squares.\n");
 
   if (opt.alignment_method != "point-to-plane"            &&
       opt.alignment_method != "point-to-point"            &&
       opt.alignment_method != "similarity-point-to-point" &&
       opt.alignment_method != "similarity-point-to-plane" &&
       opt.compute_translation_only) {
-    vw_throw( ArgumentErr() << "The option --compute-translation-only is only applicable to point-to-plane, point-to-point, similarity-point-to-point, and similarity-point-to-plane alignment.\n");
+    vw_throw( ArgumentErr() << "The option --compute-translation-only is only applicable "
+             << "to point-to-plane, point-to-point, similarity-point-to-point, and "
+             << "similarity-point-to-plane alignment.\n");
   }
   
   if ( (opt.alignment_method == "least-squares" ||
@@ -258,6 +276,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (num_iter < 1 || factor <= 0.0)
     vw_throw( ArgumentErr() << "Invalid values were provided for "
               << "--initial-transform-ransac-params.\n");
+    
 }
 
 /// Compute output statistics for pc_align
@@ -877,14 +896,14 @@ int main( int argc, char *argv[] ) {
     
     // Parse the csv format string and csv projection string
     asp::CsvConv csv_conv;
-    csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
+    csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_srs);
 
     // Try to read the georeference/datum info
     GeoReference geo;
     std::vector<std::string> clouds;
     clouds.push_back(opt.reference);
     clouds.push_back(opt.source);
-    read_georef(clouds, opt.datum, opt.csv_proj4_str,  
+    read_georef(clouds, opt.datum, opt.csv_srs,  
                 opt.semi_major_axis, opt.semi_minor_axis,  
                 opt.csv_format_str,  csv_conv, geo);
 

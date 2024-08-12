@@ -979,7 +979,7 @@ void addReferenceTerrainCostFunction(
   // Load the reference data
   std::vector<vw::Vector3> input_reference_vec;
   std::vector<ImageView<DispPixelT>> disp_vec;
-  asp::load_csv_or_dem(opt.csv_format_str, opt.csv_proj4_str, opt.reference_terrain,  
+  asp::load_csv_or_dem(opt.csv_format_str, opt.csv_srs, opt.reference_terrain,  
                         opt.max_num_reference_points,  
                         geo,       // may change
                         input_reference_vec); // output

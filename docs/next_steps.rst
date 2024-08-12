@@ -580,7 +580,7 @@ for this low-resolution DEM to be smooth enough and with no holes.
 We used ``--search-radius-factor 5`` to expand the DEM a
 bit, to counteract future erosion at image boundary in stereo due to
 the correlation kernel size. This is optional. 
-By calling ``gdalinfo -proj4``, the PROJ.4 string of the obtained DEM
+By calling ``gdalinfo -proj4``, the PROJ string of the obtained DEM
 can be found, which can be used in mapprojection later, and with the
 resolution switched to meters from degrees (see :numref:`dg-mapproj`
 for more details).
@@ -1230,8 +1230,8 @@ great at the poles. Hence above we used a local stereographic projection. See
 The tool will infer the datum and projection from the input images, if
 present. You can explicitly specify a coordinate system (e.g., mercator,
 sinusoidal) and a reference spheroid (i.e., calculated for the Moon,
-Mars, or Earth). Alternatively, the datum semi-axes can be set or a
-PROJ.4 string can be passed in.
+Mars, or Earth). Alternatively, the datum semi-axes can be set, or a
+WKT or PROJ string can be passed in via ``--t_srs``.
 
 ::
 
@@ -1266,7 +1266,7 @@ variation of the options::
 
 The ``point2dem`` program is also able to accept output projection
 options the same way as the tools in GDAL. Well-known EPSG, IAU2000
-projections, and custom PROJ.4 strings can applied with the target
+projections, and custom PROJ or WKT strings can applied with the target
 spatial reference set flag, ``--t_srs``. If the target spatial reference
 flag is applied with any of the reference spheroid options, the
 reference spheroid option will overwrite the datum defined in the target

@@ -58,7 +58,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   general_options.add_options()
     ("datum",            po::value(&opt.datum_str)->default_value(""),
      "Use this datum to interpret the heights. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters). Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-    ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ.4 string). Can also be an URL or in WKT format, as for GDAL.")
+    ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ or WKT string).")
     ("quick",            po::bool_switch(&opt.quick)->default_value(false),
 	     "Use a faster but less accurate computation.")
     ("output-kml", po::value(&opt.output_kml),

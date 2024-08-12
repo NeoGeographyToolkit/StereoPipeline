@@ -154,7 +154,9 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 // Convert any LAS, CSV, PCD, or unorganized TIF files to ASP tif files. We do some binning
 // to make the spatial data more localized, to improve performance.
 // - We will later wipe these temporary tifs.
-void chip_convert_to_tif(DemOptions& opt, vw::cartography::Datum const& datum,
+void chip_convert_to_tif(DemOptions& opt, 
+                         asp::CsvConv const& csv_conv,
+                         vw::cartography::GeoReference const& csv_georef,
                          std::vector<std::string> & tmp_tifs) {
 
   if (!opt.has_las_or_csv_or_pcd)
@@ -177,21 +179,9 @@ void chip_convert_to_tif(DemOptions& opt, vw::cartography::Datum const& datum,
   vw::cartography::GeoReference pc_georef;
   bool have_pc_georef = asp::georef_from_pc_files(opt.pointcloud_files, pc_georef);
 
-  // Configure a CSV converter object according to the input parameters
-  asp::CsvConv csv_conv;
-  csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str); // Modifies csv_conv
-
-  // Set the georef for CSV files, if user's csv_proj4_str if specified
-  vw::cartography::GeoReference csv_georef;
-  csv_conv.parse_georef(csv_georef);
-
-  // TODO: This may be a bug. What if the csv-proj4 and t_srs strings use
-  // datums with different radii? 
-  csv_georef.set_datum(datum);
-
   if (!have_pc_georef) // if we have no georef so far, the csv georef is our best guess.
     pc_georef = csv_georef;
-
+  
   // There are situations in which some files will already be tif, and
   // others will be LAS or CSV. When we convert the latter to tif,
   // we'd like to be able to match the number of rows of the existing

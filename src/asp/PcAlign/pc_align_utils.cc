@@ -519,7 +519,7 @@ InterpolationReadyDem load_interpolation_ready_dem(std::string const& dem_path,
 /// Try to read the georef/datum info, need it to read CSV files.
 void read_georef(std::vector<std::string> const& clouds,
                  std::string const& datum_str,
-                 std::string const& csv_proj4_str, 
+                 std::string const& csv_srs, 
                  double semi_major_axis,
                  double semi_minor_axis,
                  std::string & csv_format_str,
@@ -604,34 +604,32 @@ void read_georef(std::vector<std::string> const& clouds,
     is_good = true;
   }
 
-  // This must be the last as it has priority. Use user's csv_proj4 string,
-  // to add info to the georef.
-  if (csv_conv.parse_georef(geo)) {
+  // This must be the last as it has priority. Add to the georef based on --csv-srs.
+  if (csv_conv.parse_georef(geo))
     is_good = true;
-  }
 
   if (is_good)
     vw::vw_out() << "Will use datum (for CSV files): " << geo.datum() << std::endl;
 
   // A lot of care is needed below.
-  if (!is_good  && (csv_format_str == "" || csv_conv.get_format() != asp::CsvConv::XYZ) ){
+  if (!is_good  && (csv_format_str == "" || csv_conv.get_format() != asp::CsvConv::XYZ)) {
     // There is no DEM/LAS to read the datum from, and the user either
     // did not specify the CSV format (then we set it to lat, lon,
     // height), or it is specified as containing lat, lon, rather than xyz.
     bool has_csv = false;
     for (size_t it = 0; it < clouds.size(); it++) 
       has_csv = has_csv || ( asp::get_cloud_type(clouds[it]) == "CSV" );
-    if (has_csv){
+    if (has_csv) {
       // We are in trouble, will not be able to convert input lat, lon, to xyz.
       vw::vw_throw( vw::ArgumentErr() << "Cannot detect the datum. "
-                    << "Please specify it via --csv-proj4 or --datum or "
+                    << "Please specify it via --csv-srs or --datum or "
                     << "--semi-major-axis and --semi-minor-axis.\n" );
-    }else{
+    } else {
       // The inputs have no georef. Will have to write xyz.
       vw::vw_out() << "No datum specified. Will write output CSV files "
                    << "in the x,y,z format." << std::endl;
       csv_format_str = "1:x 2:y 3:z";
-      csv_conv.parse_csv_format(csv_format_str, csv_proj4_str);
+      csv_conv.parse_csv_format(csv_format_str, csv_srs);
       is_good = true;
     }
   }

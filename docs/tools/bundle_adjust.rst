@@ -1253,12 +1253,12 @@ Command-line options
     the radius is measured in meters from planet center), 
     ``3:lat 2:lon 1:height_above_datum``,
     ``1:easting 2:northing 3:height_above_datum``
-    (need to set ``--csv-proj4``; the height above datum is in
+    (need to set ``--csv-srs``; the height above datum is in
     meters).  Can also use radius_km for column_type, when it is
     again measured from planet center.
 
---csv-proj4 <string>
-    The PROJ.4 string to use to interpret the entries in input CSV
+--csv-srs <string>
+    The PROJ or WKT string to use to interpret the entries in input CSV
     files, if those files contain Easting and Northing fields.
 
 --update-isis-cubes-with-csm-state

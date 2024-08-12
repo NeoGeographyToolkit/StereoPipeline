@@ -28,7 +28,7 @@ Command-line options for camera_footprint:
     D_MOON, D_MARS, and MOLA.
 
 --t_srs <proj string>
-    Specify the georeference projection (PROJ.4 string).
+    Specify the georeference projection (PROJ or WKT) string.
 
 -t, --session-type
     Select the stereo session type to use for processing. Normally

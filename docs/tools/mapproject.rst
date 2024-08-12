@@ -121,7 +121,7 @@ Command-line options
 
 --t_srs <string (default: "")>
     Specify the output projection as a GDAL projection string (WKT, GeoJSON, or
-    PROJ.4). If not provided, use the one from the DEM.
+    PROJ). If not provided, use the one from the DEM.
 
 --tr <float>
     Set the output file resolution (ground sample distance) in target

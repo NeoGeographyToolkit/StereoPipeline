@@ -365,7 +365,7 @@ This can be made into a DEM with ``point2dem`` (:numref:`point2dem`)::
   point2dem                    \
     --datum D_MARS             \
     --csv-format "$format"     \
-    --csv-proj4  "$proj"       \
+    --csv-srs "$proj"          \
     --t_srs "$proj"            \
     --tr 0.1                   \
     --search-radius-factor 0.5 \

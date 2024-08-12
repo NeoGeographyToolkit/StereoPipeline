@@ -101,7 +101,7 @@ Command-line options
 
 --t_srs <string>
     Specify a GDAL projection string instead of the datum (in WKT, GeoJSON, or
-    PROJ.4 format).
+    PROJ format).
 
 --dem-file <filename>
     Instead of using a datum and a longitude-latitude-height box,

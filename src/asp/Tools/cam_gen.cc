@@ -45,6 +45,7 @@
 #include <vw/Math/Geometry.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Camera/OpticalBarModel.h>
+#include <vw/Cartography/DatumUtils.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -468,7 +469,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw::cartography::Datum datum1(opt.datum_str);
     vw::cartography::Datum datum2("WG84");
     bool warn_only = false;
-    asp::checkDatumConsistency(datum1, datum2, warn_only);
+    vw::checkDatumConsistency(datum1, datum2, warn_only);
   }
   if (opt.planet_pinhole && opt.datum_str.empty()) {
     opt.datum_str = "WGS84";
@@ -499,7 +500,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     // For pinhole session the guessed datum may be unreliable, so warn only
     bool warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
     if (found_cam_datum && !opt.datum_str.empty())
-      asp::checkDatumConsistency(cam_datum, opt.datum, warn_only);
+      vw::checkDatumConsistency(cam_datum, opt.datum, warn_only);
     // opt.datum is more general than opt.datum_str, but set both
     if (found_cam_datum && opt.datum_str.empty()) {
       opt.datum = cam_datum;
@@ -519,7 +520,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     // For pinhole session the guessed datum may be unreliable, so warn only
     bool warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
     if (found_cam_datum && !opt.datum_str.empty())
-      asp::checkDatumConsistency(cam_datum, opt.datum, warn_only);
+      vw::checkDatumConsistency(cam_datum, opt.datum, warn_only);
     // opt.datum is more general than opt.datum_str, but set both
     if (found_cam_datum && opt.datum_str.empty()) {
       opt.datum = cam_datum;
@@ -1045,7 +1046,7 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
     // For pinhole the datum may be unreliable, so warn only
     bool warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
     if (!opt.datum_str.empty()) 
-      asp::checkDatumConsistency(geo.datum(), opt.datum, warn_only);
+      vw::checkDatumConsistency(geo.datum(), opt.datum, warn_only);
     
     if (opt.datum_str.empty()) {
       // Set for completeness

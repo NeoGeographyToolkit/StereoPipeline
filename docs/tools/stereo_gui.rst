@@ -219,7 +219,7 @@ To plot an arbitrary CSV file with longitude, latitude and value, do::
       filename.csv
 
 If the file has data in projected units (such as using Easting and
-Northing values), specify the option ``--csv-proj4`` having the
+Northing values), specify the option ``--csv-srs`` having the
 projection, and use for the CSV format a string such as::
 
   "1:easting 2:northing 3:height_above_datum"
@@ -880,7 +880,7 @@ accept all other ``parallel_stereo`` options as well.
     the radius is measured in meters from planet center),
     ``3:lat 2:lon 1:height_above_datum``,
     ``1:easting 2:northing 3:height_above_datum``
-    (need to set ``--csv-proj4``; the height above datum is in
+    (need to set ``--csv-srs``; the height above datum is in
     meters). Can also use radius_km for column_type, when it is
     again measured from planet center.
 
@@ -890,8 +890,8 @@ accept all other ``parallel_stereo`` options as well.
     (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth
     (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).
 
---csv-proj4 <string (default="")>
-    The PROJ.4 string to use when plotting a CSV
+--csv-srs <string (default="")>
+    The PROJ or WKT string to use when plotting a CSV
     file. If not specified, try to use the ``--datum`` option. 
 
 --lowest-resolution-subimage-num-pixels <integer (default: -1)>

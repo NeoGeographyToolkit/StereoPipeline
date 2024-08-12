@@ -51,6 +51,8 @@
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Camera/CameraImage.h>
+#include <vw/Cartography/DatumUtils.h>
+
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/UsgsAstroFrameSensorModel.h>
 #include <usgscsm/Utilities.h>
@@ -1008,7 +1010,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (have_dem) {
     vw::vw_out() << "Reading the DEM for the --heights-from-dem constraint.\n";
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
-    asp::checkDatumConsistency(opt.datum, dem_georef.datum(), warn_only);
+    vw::checkDatumConsistency(opt.datum, dem_georef.datum(), warn_only);
     asp::update_tri_pts_from_dem(cnet, crn, outliers, opt.camera_models,
                                dem_georef, interp_dem,  
                                // Output
@@ -1017,7 +1019,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (opt.anchor_dem != "") {
     vw::vw_out() << "Reading the DEM for the --anchor-dem constraint.\n";
     asp::create_interp_dem(opt.anchor_dem, anchor_georef, interp_anchor_dem);
-    asp::checkDatumConsistency(opt.datum, anchor_georef.datum(), warn_only);
+    vw::checkDatumConsistency(opt.datum, anchor_georef.datum(), warn_only);
   }
 
   // Handle the roll/yaw constraint DEM. We already checked that one of thse cases should work

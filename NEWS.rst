@@ -64,6 +64,9 @@ misc:
     not handled before.
   * The ``mapproject`` and ``parallel_sfs`` programs will not fail if the work
     directory has spaces (this fix is a workaround, the bug is in GNU Parallel).
+  * Renamed ``--csv-proj4`` to ``--csv-srs``. This accepts any GDAL WKT,
+    GeoJSON, or PROJ string. The previous option is still accepted for backward
+    compatibility.  
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

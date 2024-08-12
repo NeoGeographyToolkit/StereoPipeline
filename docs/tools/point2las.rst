@@ -89,7 +89,7 @@ Command-line options for point2las
 
 --t_srs <string (default: "")>
     Specify the output projection as a GDAL projection string (WKT, GeoJSON, or
-    PROJ.4). If not provided, will be read from the point cloud, if available.
+    PROJ). If not provided, will be read from the point cloud, if available.
 
 --compressed
     Compress using laszip.

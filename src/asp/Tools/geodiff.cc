@@ -56,7 +56,7 @@ public:
 };
 
 struct Options : vw::GdalWriteOptions {
-  string dem1_file, dem2_file, output_prefix, csv_format_str, csv_proj4_str;
+  string dem1_file, dem2_file, output_prefix, csv_format_str, csv_srs, csv_proj4_str;
   double nodata_value;
 
   bool use_float, use_absolute;
@@ -75,7 +75,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Output the absolute difference as opposed to just the difference.")
     ("csv-format",     po::value(&opt.csv_format_str)->default_value(""),
      asp::csv_opt_caption().c_str())
-    ("csv-proj4",      po::value(&opt.csv_proj4_str)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV file. If not specified, it will be borrowed from the DEM.");
+    ("csv-srs",      po::value(&opt.csv_srs)->default_value(""), 
+     "The projection string to use to interpret the entries in input CSV files. If not set, "
+     "it will be borrowed from the DEM.")
+    ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
+     "An alias for --csv-srs, for backward compatibility.");
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
@@ -104,6 +108,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       + "__" + fs::path(opt.dem2_file).stem().string();
 
   vw::create_out_dir(opt.output_prefix);
+  
+  // Must specify either csv_srs or csv_proj4_str, but not both. The latter is 
+  // for backward compatibility.
+  if (!opt.csv_srs.empty() && !opt.csv_proj4_str.empty())
+    vw_throw(ArgumentErr() << "Cannot specify both --csv-srs and --csv-proj4.\n");
+  if (!opt.csv_proj4_str.empty() && opt.csv_srs.empty())
+    opt.csv_srs = opt.csv_proj4_str;
+  
 }
 
 void georef_sanity_checks(GeoReference const& georef1, GeoReference const& georef2){
@@ -244,12 +256,12 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   if (!has_georef) 
     vw_throw(ArgumentErr() << "geodiff cannot load a georeference from: " << dem_file << ".\n");
 
-  if (opt.csv_proj4_str == "")
-    opt.csv_proj4_str = dem_georef.get_wkt(); // Copy from the DEM
+  if (opt.csv_srs == "")
+    opt.csv_srs = dem_georef.get_wkt(); // Copy from the DEM
   
   // Configure a CSV converter object according to the input parameters
   asp::CsvConv csv_conv;
-  csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str); // Modifies csv_conv
+  csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_srs); // Modifies csv_conv
   if (!csv_conv.is_configured()) 
     vw_throw(ArgumentErr() << "Could not configure the csv parser.\n");
 

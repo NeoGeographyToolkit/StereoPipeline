@@ -145,8 +145,8 @@ Multiple clouds, including CSV and LAS
        in1.las in2.csv run/run-PC.tif -o combined 
 
 Here LAS, CSV, and TIF point clouds (the latter obtained with
-``parallel_stereo``) are fused together into a single DEM.
-The option ``--dem-spacing`` is an alias for ``--tr``.
+``parallel_stereo``) are fused together into a single DEM. The option
+``--dem-spacing`` is an alias for ``--tr``. See also ``--csv-srs``.
 
 If it is desired to use the ``--orthoimage`` option with multiple
 clouds, the clouds need to be specified first, followed by the
@@ -275,11 +275,9 @@ Unless the output projection is explicitly set when invoking
 For LAS or CSV clouds it is not possible to generate intersection error
 maps or ortho images.
 
-For CSV point clouds, the option ``--csv-format`` must be set. If such a cloud
-contains easting, northing, and height above datum, the option ``--csv-proj4``
-containing a PROJ.4 string needs to be specified to interpret this data. If the
-PROJ.4 string is set, it will be also used for output DEMs, unless ``--t_srs``
-is specified.
+For CSV point clouds, the option ``--csv-format`` must be set. The option
+``--csv-srs`` containing a PROJ or WKT string needs to be specified to interpret
+this data. If not provided, the value set in ``--t_srs`` will be used.
 
 Output statistics
 ~~~~~~~~~~~~~~~~~
@@ -331,7 +329,7 @@ Command-line options for point2dem
 
 --t_srs <string (default: "")>
     Specify the output projection as a GDAL projection string (WKT, GeoJSON, or
-    PROJ.4). If not provided, will be read from the point cloud, if available.
+    PROJ). If not provided, will be read from the point cloud, if available.
 
 --t_projwin <xmin ymin xmax ymax>
     The output DEM will have corners with these georeferenced
@@ -432,14 +430,13 @@ Command-line options for point2dem
     the radius is measured in meters from planet center),
     ``3:lat 2:lon 1:height_above_datum``,
     ``1:easting 2:northing 3:height_above_datum``
-    (need to set ``--csv-proj4``; the height above datum is in
+    (need to set ``--csv-srs``; the height above datum is in
     meters). Can also use radius_km for column_type, when it is
     again measured from planet center.
 
---csv-proj4 <string (default: "")>
-    The PROJ.4 string to use to interpret the entries in input CSV
-    files, if those files contain Easting and Northing fields. If
-    not specified, ``--t_srs`` will be used.
+--csv-srs <string (default: "")>
+    The PROJ or WKT string to use to interpret the entries in input CSV files.
+    If not specified, ``--t_srs`` will be used.
 
 --filter <string (default: "weighted_average")>
     The filter to apply to the heights of the cloud points within

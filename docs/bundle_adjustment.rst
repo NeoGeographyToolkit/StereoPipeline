@@ -319,7 +319,7 @@ cameras in ``bundle_adjust`` one should use ``transform.txt`` instead of
 ``inverse-transform.txt`` above.
 
 Note that if your ground truth is in CSV format, any tools that use this cloud
-must set ``--csv-format`` and perhaps also ``--datum`` and/or ``--csv-proj4``.
+must set ``--csv-format`` and perhaps also ``--datum`` and/or ``--csv-srs``.
 
 See :numref:`ba_pc_align` for how to handle the case when input
 adjustments exist.
