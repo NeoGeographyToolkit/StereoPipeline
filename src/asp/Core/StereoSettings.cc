@@ -287,7 +287,7 @@ namespace asp {
         po::value(&global.disparity_estimation_dem_error)->default_value(0.0),
         "Error, or uncertainty, in meters, of the disparity estimation DEM.")
       ("disparity-estimation-sample-rate", 
-        po::value(&global.disparity_estimation_sample_rate)->default_value(2),
+        po::value(&global.disparity_estimation_sample_rate)->default_value(1),
         "Use one out of this many samples along each row and column, "
         "for ---corr-seed-mode 2.")
       ("corr-timeout", 

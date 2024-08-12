@@ -564,6 +564,17 @@ correlator-mode
     before triangulation, so at filtered disparity. See
     :numref:`correlator-mode` for more details.
 
+disparity-estimation-dem (*string*) (default = "")
+    The DEM to use in estimating the low-resolution disparity (when
+    ``corr-seed-mode`` is 2).
+
+disparity-estimation-dem-error (*double*) (default = 0.0)
+    Error, or uncertainty, in meters, of the disparity estimation DEM.
+    
+disparity-estimation-sample-rate (*int*) (default = 1)
+    Use one out of this many samples along each row and column, for
+    ``corr-seed-mode 2``.
+    
 stereo-debug
     A developer option used to debug stereo correlation.
 

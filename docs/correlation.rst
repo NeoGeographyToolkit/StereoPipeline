@@ -205,18 +205,17 @@ guess DEM of the area. This works with all alignment methods except ``epipolar``
 (:numref:`image_alignment`). Mapprojected images are supported
 (:numref:`mapproj-example`).
 
-This can be useful when there are a lot of clouds, or terrain features are not seen
-well at low resolution.
-
-For reasons of speed, this computation skips every other pixel in the produced
-disparity. This is not a problem, because this data is only used as a guess for
-the full-resolution disparity. 
+This can be useful when there are a lot of clouds, or terrain features are not
+seen well at low resolution.
 
 As an example, invoke ``parallel_stereo`` with options along the lines of::
 
    --corr-seed-mode 2                 \
    --disparity-estimation-dem ref.tif \
    --disparity-estimation-dem-error 5 
+
+When features are washed out at low resolution, consider also adding the option
+``--corr-max-levels 2``, or see :numref:`sparse_disp`.
 
 See :numref:`stereodefault` for more information on these options.
 
