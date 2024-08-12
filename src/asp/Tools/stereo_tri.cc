@@ -300,7 +300,9 @@ private:
     for (size_t i = 0; i < transforms.size(); ++i)
       transforms_copy[i] = vw::cartography::mapproj_trans_copy(transforms[i]);
 
-    // As a side effect, this call makes transforms_copy create a local cache we want later
+    // As a side effect, this call makes transforms_copy create a local cache we
+    // want later. Caching is fast for dense rasterizing purposes, but slow for
+    // sparse pixels.
     transforms_copy[0]->reverse_bbox(bbox); 
     if (transforms_copy.size() != m_disparity_maps.size() + 1){
       vw_throw( ArgumentErr() << "In multi-view triangulation, "

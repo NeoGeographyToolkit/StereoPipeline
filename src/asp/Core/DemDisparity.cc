@@ -19,9 +19,6 @@
 
 // Estimate the low-resolution disparity based on cameras and a DEM.
 
-// TODO(oalexan1): CPU utilization is not good. Try instead to create
-// tasks for each subbox.
-
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/DemDisparity.h>
 
@@ -131,7 +128,6 @@ DemDisparity(ImgRefT const& left_image,
     m_pixel_sample(pixel_sample),
     m_disp_spread(disp_spread) {
 
-
   // This can speed up and make more reliable the intersection of rays with the DEM
   m_height_guess = vw::cartography::demHeightGuess(m_dem);
 }
@@ -177,8 +173,10 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
   if (dynamic_cast<Map2CamTrans*>(m_tx_left.get()) != NULL) {
     local_tx_left = vw::cartography::mapproj_trans_copy(m_tx_left);
 
-    // Must cache the relevant transform portion to ensure thread safety
-    // with the reverse() function.
+    // Do not cache the transform portion for this tile. That is good when lots
+    // of points are queried from the tile. Here we need a low-resolution
+    // subset, and caching greatly slows things down.
+#if 0
     vw::BBox2 full_res_box;
     for (int i = 0; i < points.size(); i++) {
       vw::Vector2 low_res_pix = points[i];
@@ -187,6 +185,8 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
     }
     full_res_box.expand(1); // just in case
     local_tx_left->reverse_bbox(full_res_box); // This will cache what is needed
+#endif
+    
   } else {
     local_tx_left = m_tx_left;
   }
@@ -330,15 +330,6 @@ inline void rasterize(DestT const& dest, BBox2i bbox) const {
 
 }; // End class DemDisparity
 
-#if 0
-class DisparityTask: public Task, private boost::noncopyable {
-public:
-  DisparityTask(){}
-  void operator()() {
-  }
-};
-#endif
-
 void produce_dem_disparity(ASPGlobalOptions & opt,
                             vw::TransformPtr tx_left, vw::TransformPtr tx_right,
                             boost::shared_ptr<camera::CameraModel> left_camera_model,
@@ -395,24 +386,6 @@ void produce_dem_disparity(ASPGlobalOptions & opt,
   // alongside the low-res disparity image.
   ImageView<PixelMask<Vector2f>> disp_spread(left_image_sub.cols(), left_image_sub.rows());
 
-#if 0
-  // TODO(oalexan1): See if using tasks improves the performance.
-  vw::BBox2i dsub_bbox = vw::bounding_box(left_image_sub);
-  std::vector<BBox2i> blocks 
-    = vw::subdivide_bbox(dsub_bbox, opt.raster_tile_size[0], opt.raster_tile_size[1]);
-  // Iterate and print the boxes
-  for (int i = 0; i < (int)blocks.size(); i++) {
-    vw_out() << "Block " << i << ": " << blocks[i] << std::endl;
-  }
-  
-  FifoWorkQueue disp_queue; // Create a thread pool object
-  for (size_t i = 0; i < blocks.size(); i++) {
-    boost::shared_ptr<Task> disp_task(new DisparityTask());
-    disp_queue.add_task(disp_task);
-  }
-  disp_queue.join_all(); // Wait for all the jobs to finish.
-#endif
-    
   vw::Stopwatch sw;
   sw.start();
   
