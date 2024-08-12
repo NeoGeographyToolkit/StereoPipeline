@@ -524,9 +524,9 @@ int main(int argc, char *argv[]) {
                           have_input_georef, output_georef);
     }
 
-    // If the csv PROJ string is empty, use t_srs
+    // If the csv PROJ string is empty, use the output georef wkt
     if (opt.csv_srs.empty())
-      opt.csv_srs = opt.target_srs_string;
+      opt.csv_srs = output_georef.get_wkt();
     
     // Configure a CSV converter object according to the input parameters
     asp::CsvConv csv_conv;

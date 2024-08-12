@@ -191,11 +191,12 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
 // pass that info into the georeference for the purpose of converting
 // later from easting and northing to lon and lat.
 bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
-
+  
+  bool success = false;
   if (this->utm_zone >= 0) { // UTM case
     try{
       georef.set_UTM(this->utm_zone, this->utm_north);
-      return true;
+      success = true;
     } catch ( const std::exception& e ) {
       vw_throw(ArgumentErr() << "Detected error: " << e.what()
                              << "\nPlease check if you are using an Earth datum.\n");
@@ -205,13 +206,15 @@ bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
     Datum user_datum;
     asp::set_srs_string(this->csv_srs, have_user_datum, user_datum,
                         have_input_georef, georef);
-    return true;
-  } else { // No UTM, no srs string
-    if (this->format == EASTING_HEIGHT_NORTHING)
+    success = true;
+  } 
+  
+  if (this->format == EASTING_HEIGHT_NORTHING && !georef.is_projected())
       vw::vw_throw(vw::ArgumentErr() << "When a CSV file has Easting and Northing, "
-                   "must set --csv-srs.\n");
-  }
-  return false;
+                   "must set --csv-srs, and it must use projected coordinates, "
+                   "not longitude-latitude.\n");
+  
+  return success;
 }
 
 asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool & success,
