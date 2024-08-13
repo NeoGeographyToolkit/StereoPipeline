@@ -31,12 +31,15 @@ if [ ! -d "StereoPipelineTest" ]; then
 fi
 
 # Update the failed tests (each 'gold' is overwritten with 'run').
+# This assumes that the "run" directories are trusted to be correct.
 echo "Updating the tests"
 for f in StereoPipelineTest/ss*/run; do 
   g=${f/run/gold}
   /bin/rm -rfv $g
   /bin/mv -fv $f $g
 done
+
+# If the scripts need to be updated, do it here, manually
 
 # Must make all scripts in bin and individual tests executable
 chmod a+x StereoPipelineTest/bin/* StereoPipelineTest/*/*sh
