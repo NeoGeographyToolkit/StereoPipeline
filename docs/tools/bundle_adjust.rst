@@ -778,8 +778,8 @@ The list of input images will be saved to::
 
     {output-prefix}-image_list.txt
 
-The list of optimized cameras (such as for CSM or with the option
-``--inline-adjustments``) will be saved to::
+The list of optimized cameras (such as for CSM cameras or with the option
+``--inline-adjustments`` for Pinhole cameras) will be saved to::
 
     {output-prefix}-camera_list.txt
 
@@ -800,7 +800,7 @@ of inlier interest point matches. The produced uncertainties will be separated
 into horizontal and vertical components relative to the datum. Statistical
 measures will be produced for each pair of images.
 
-The same logic as in stereo triangulation is used (:numref:`error_propagation`),
+The same logic as in stereo triangulation is employed (:numref:`error_propagation`),
 but for the sparse set of interest point matches rather than for the dense image
 disparity. Since the produced uncertainties depend only weakly on the
 triangulated surface, computing them for a sparse set of features, and

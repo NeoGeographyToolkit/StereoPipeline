@@ -273,6 +273,8 @@ namespace asp {
     bool   compute_point_cloud_center_only;   // Only compute the center of triangulated point cloud and exit.
     bool   skip_point_cloud_center_comp;
     bool   unalign_disparity;                 // Compute disparity between unaligned images
+    bool enable_atmospheric_refraction_correction; 
+    bool enable_velocity_aberration_correction;
     
     // stereo_gui options
     int grid_cols;

@@ -689,11 +689,14 @@ double get_time_at_line(double line, UsgsAstroLsSensorModel const* ls_model) {
 // between them (rather than piecewise linear).
 double get_line_at_time(double time, UsgsAstroLsSensorModel const* ls_model) {
 
-  // Here we count on the linescan model always being populated.
-  if (ls_model->m_intTimeLines.size() != 2) 
-  vw::vw_throw(vw::ArgumentErr() 
-                << "Expecting linear relation between time and image lines.\n");
-
+  // All dt values in m_ls_model->m_intTimes must be equal, or else
+  // the model is not linear in time.
+  for (size_t i = 1; i < ls_model->m_intTimeLines.size(); i++) {
+    if (std::abs(ls_model->m_intTimes[i] - ls_model->m_intTimes[0]) > 1e-10)
+      vw::vw_throw(vw::ArgumentErr() 
+                    << "Expecting a linear relation between time and image lines.\n");
+  }
+  
   int line0 = 0;
   int line1 = ls_model->m_nLines - 1;
   double time0 = get_time_at_line(line0, ls_model);
@@ -733,10 +736,14 @@ vw::Vector3 pixel_to_vector(vw::Vector2 const& pix, UsgsAstroLsSensorModel const
 // Adjust the linescan model to correct for velocity aberration and/or
 // atmospheric refraction.
 void orbitalCorrections(asp::CsmModel * csm_model, 
-                        double local_earth_radius, double mean_ground_elevation) {
+                        bool correct_velocity_aberration,
+                        bool correct_atmospheric_refraction,
+                        double local_earth_radius, 
+                        double mean_ground_elevation) {
   
   UsgsAstroLsSensorModel *ls_model 
     = dynamic_cast<UsgsAstroLsSensorModel*>(csm_model->m_gm_model.get());
+
   if (ls_model == NULL)
     vw::vw_throw(vw::ArgumentErr() << "Invalid initialization of the linescan model.\n");
 
@@ -746,34 +753,38 @@ void orbitalCorrections(asp::CsmModel * csm_model,
   
   auto & qv = ls_model->m_quaternions; // shorthand
   for (int pos_it = 0; pos_it < ls_model->m_numQuaternions / 4; pos_it++) {
+
     double t = ls_model->m_t0Quat + pos_it * ls_model->m_dtQuat;
-    
     vw::Vector3 cam_ctr = asp::get_camera_center_at_time(t, ls_model);
     vw::Vector3 vel = asp::get_camera_velocity_at_time(t, ls_model);
-    
+
     // Get back to VW quaternion format
     vw::Quat q(qv[4*pos_it + 3], qv[4*pos_it + 0], qv[4*pos_it + 1], qv[4*pos_it + 2]);
-    
+
     // Find the line at the given time based on a linear fit
     double line = asp::get_line_at_time(t, ls_model);
-    
+
     // Find the cam_direction at the center of the line
     vw::Vector2 pix(ls_model->m_nSamples/2.0, line);
     vw::Vector3 cam_dir = csm_model->pixel_to_vector(pix);
-    
-    // Find and apply the atmospheric refraction correction
     vw::Quaternion<double> corr_rot;
-    cam_dir = vw::camera::apply_atmospheric_refraction_correction
-                    (cam_ctr, local_earth_radius, mean_ground_elevation, cam_dir, 
-                     corr_rot); // output
-    q = corr_rot * q;
+    
+    if (correct_atmospheric_refraction) {
+      // Find and apply the atmospheric refraction correction
+      cam_dir = vw::camera::apply_atmospheric_refraction_correction
+                      (cam_ctr, local_earth_radius, mean_ground_elevation, cam_dir, 
+                       corr_rot); // output
+      q = corr_rot * q;
+    }
 
-    // Find and apply the velocity aberration correction
-    cam_dir = vw::camera::apply_velocity_aberration_correction
-                    (cam_ctr, vel, local_earth_radius, cam_dir, 
-                     corr_rot); // output
-    q = corr_rot * q;
-
+    if (correct_velocity_aberration) {
+      // Find and apply the velocity aberration correction
+      cam_dir = vw::camera::apply_velocity_aberration_correction
+                      (cam_ctr, vel, local_earth_radius, cam_dir, 
+                      corr_rot); // output
+      q = corr_rot * q;
+    }
+    
     // Create the updated quaternions. ASP stores the quaternions as (w, x, y,
     // z). CSM wants them as x, y, z, w.
     updated_quats[4*pos_it + 0] = q.x();
@@ -784,11 +795,6 @@ void orbitalCorrections(asp::CsmModel * csm_model,
 
   // Replace with the updated quaternions
   ls_model->m_quaternions = updated_quats;
-  
-  // Re-creating the model from the state forces some operations to
-  // take place which are inaccessible otherwise.
-  std::string modelState = ls_model->getModelState();
-  ls_model->replaceModelState(modelState);
 }
 
 } // end namespace asp

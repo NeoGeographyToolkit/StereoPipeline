@@ -451,8 +451,16 @@ namespace asp {
                                             "Only compute the center of triangulated point cloud and exit.")
       ("skip-point-cloud-center-comp", po::bool_switch(&global.skip_point_cloud_center_comp)->default_value(false)->implicit_value(true),
        "Skip the computation of the point cloud center. This option is invoked from parallel_stereo.")
-      ("compute-error-vector",              po::bool_switch(&global.compute_error_vector)->default_value(false)->implicit_value(true),
-                                            "Compute the triangulation error vector, not just its length.")
+      ("compute-error-vector", po::bool_switch(&global.compute_error_vector)->default_value(false)->implicit_value(true),
+       "Compute the triangulation error vector, not just its length.")
+      ("enable-atmospheric-refraction-correction", 
+       po::bool_switch(&global.enable_atmospheric_refraction_correction)->default_value(false)->implicit_value(true),
+       "Enable atmospheric refraction correction for Pleiades linescan cameras. By default, "
+       "such a correction is enabled only for WorldView linescan cameras.")
+      ("enable-velocity-aberration-correction", 
+       po::bool_switch(&global.enable_velocity_aberration_correction)->default_value(false)->implicit_value(true),
+       "Enable velocity aberration correction for Pleiades linescan cameras. By default, "
+        "such a correction is enabled only for WorldView linescan cameras.")
       // TODO(oalexan1): Wipe the least squares triangulation approach. Not used.
       ("use-least-squares",  po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
        "Use rigorous least squares triangulation. This is slow for ISIS processes.")      

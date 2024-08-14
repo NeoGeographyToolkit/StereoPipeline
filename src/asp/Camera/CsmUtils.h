@@ -122,6 +122,8 @@ vw::Vector3 get_camera_velocity_at_time(double time, UsgsAstroLsSensorModel cons
 // Adjust the linescan model to correct for velocity aberration and/or
 // atmospheric refraction.
 void orbitalCorrections(asp::CsmModel * csm_model, 
+                        bool correct_velocity_aberration,
+                        bool correct_atmospheric_refraction,
                         double local_earth_radius, 
                         double mean_ground_elevation);
 

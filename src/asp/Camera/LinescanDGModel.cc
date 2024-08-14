@@ -15,6 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// TODO(oalexan1): Make this inherit from CsmModel.
+
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Core/StereoSettings.h>
@@ -392,10 +394,14 @@ void DGCameraModel::populateCsmModel() {
   std::string modelState = m_ls_model->getModelState();
   m_ls_model->replaceModelState(modelState);
 
-  // Adjust the CSM model to correct for velocity aberration.
-  // This can only happen after the model is fully initialized,
-  // as need to create rays from the camera center to the ground.
-  asp::orbitalCorrections(m_csm_model.get(), m_local_earth_radius, m_mean_ground_elevation);
+  // Adjust the CSM model to correct for velocity aberration and atmospheric
+  // refraction. This can only happen after the model is fully initialized, as
+  // need to create rays from the camera center to the ground.
+  bool correct_velocity_aberration = true;
+  bool correct_atmospheric_refraction = true;
+  asp::orbitalCorrections(m_csm_model.get(), 
+                          correct_velocity_aberration, correct_atmospheric_refraction,
+                          m_local_earth_radius, m_mean_ground_elevation);
   
   return;
 }

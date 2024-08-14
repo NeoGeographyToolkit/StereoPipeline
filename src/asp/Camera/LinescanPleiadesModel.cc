@@ -15,12 +15,13 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <vw/Camera/CameraSolve.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/PleiadesXML.h>
 #include <asp/Camera/LinescanPleiadesModel.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmUtils.h>
+#include <vw/Camera/CameraSolve.h>
+#include <vw/Camera/OrbitalCorrections.h>
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 
 // This class implements the Pleiades linescan model
@@ -101,6 +102,7 @@ void PleiadesCameraModel::populateCsmModel() {
   // Using this:
   // double detSample = (col + 0.5) * sampleSumming + startingSample;
   // double detLine = line * lineSumming + startingLine; // but it will use line = 0
+  
   m_ls_model->m_detectorLineSumming   = 1.0;
   m_ls_model->m_detectorSampleSumming = -m_coeff_psi_x[1];
   
@@ -112,8 +114,7 @@ void PleiadesCameraModel::populateCsmModel() {
   
   // Optical center
   m_ls_model->m_detectorLineOrigin   = -m_coeff_psi_y[0]; // note: m_coeff_psi_y[1] = 0
-  m_ls_model->m_detectorSampleOrigin = m_coeff_psi_x[0] 
-                                        + m_coeff_psi_x[1] * (m_ref_col - 0.5);
+  m_ls_model->m_detectorSampleOrigin = m_coeff_psi_x[0] + m_coeff_psi_x[1] * (m_ref_col - 0.5);
 
   // Time
   m_ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions
@@ -191,15 +192,16 @@ void PleiadesCameraModel::populateCsmModel() {
   std::string modelState = m_ls_model->getModelState();
   m_ls_model->replaceModelState(modelState);
   
-#if 0 // For debugging
-  std::string json_state_file = "tmp.json";
-  modelState = m_ls_model->getModelState(); // refresh this
-  vw::vw_out() << "Writing model state: " << json_state_file << std::endl;
-  std::ofstream ofs(json_state_file.c_str());
-  ofs << modelState << std::endl;
-  ofs.close();
-#endif
-
+  // Adjust the CSM model to correct for velocity aberration and atmospheric
+  // refraction, if desired. This can only happen after the model is fully initialized, as
+  // need to create rays from the camera center to the ground.
+  // TODO(oalexan1): Use more precise values below.
+  double local_earth_radius = vw::DEFAULT_EARTH_RADIUS;
+  double mean_ground_elevation = vw::DEFAULT_SURFACE_ELEVATION;
+  asp::orbitalCorrections(this, 
+                          asp::stereo_settings().enable_velocity_aberration_correction,
+                          asp::stereo_settings().enable_atmospheric_refraction_correction,
+                          local_earth_radius, mean_ground_elevation);
 }
   
 vw::Vector3 PleiadesCameraModel::camera_center(vw::Vector2 const& pix) const {

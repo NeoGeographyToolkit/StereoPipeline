@@ -37,7 +37,7 @@ parallel_stereo (:numref:`parallel_stereo`):
     (:numref:`existing_terrain`).
   * If the number of matches from disparity is much less than requested, try to
     find more matches. This usually brings their number in the ballpark.
-  * It is possible to mapproject either with ``dg`` and ``rpc`` cameras
+  * It is possible to mapproject either with ``dg`` or ``rpc`` cameras
     when using mapprojected images in stereo with DigitalGlobe / Maxar
     cameras (:numref:`dg-mapproj`).
   * Skip tiles for which there is no valid low-resolution disparity.
@@ -45,6 +45,10 @@ parallel_stereo (:numref:`parallel_stereo`):
     resolutions, as this can lead to incorrect results.
   * Print a warning in ``stereo_pprc`` and ``stereo_tri`` if the stereo
     convergence angle is too small.
+  * Added the options ``--enable-atmospheric-refraction-correction``
+    and ``--enable-velocity-aberration-correction`` for Pleiades linescan
+    cameras (these are enabled by default for WorldView cameras only).
+    It is not clear if these corrections improve or not vertical accuracy.
 
 orbit_plot (:numref:`orbit_plot`):
   * Added the option ``--use-rmse``.
@@ -52,7 +56,7 @@ orbit_plot (:numref:`orbit_plot`):
 misc:
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
     optimized camera file names (or adjustments). Can be passed in back to
-    any of these tools (:numref:`ba_out_files`).
+    any of these tools (:numref:`ba_out_cams`).
   * The option ``--flann-method`` in ``bundle_adjust`` and ``stereo`` defaults to
     using the slower but deterministic ``kmeans`` method for a smaller set of
     interest points, and to ``kdtree`` otherwise (:numref:`stereodefault-pprc`).

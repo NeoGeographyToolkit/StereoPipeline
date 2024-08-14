@@ -848,6 +848,14 @@ compute-error-vector
     contain the three components of the triangulation error vector in
     the North-East-Down coordinate system.
 
+enable-atmospheric-refraction-correction
+    Enable atmospheric refraction correction for Pleiades linescan cameras. By default, 
+    such a correction is enabled only for WorldView linescan cameras.
+    
+enable-velocity-aberration-correction
+    Enable velocity aberration correction for Pleiades linescan cameras. By default, 
+    such a correction is enabled only for WorldView linescan cameras.
+    
 .. _stereo-default-error-propagation:
 
 Error propagation (used in triangulation)
