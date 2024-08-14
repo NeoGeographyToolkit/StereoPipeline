@@ -21,6 +21,8 @@
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/BundleAdjustUtils.h>
+
+#include <vw/Camera/OrbitalCorrections.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
@@ -672,6 +674,121 @@ void resampleModel(int num_lines_per_position, int num_lines_per_orientation,
   }
 
   return;
+}
+
+// Get the time at a given line. 
+double get_time_at_line(double line, UsgsAstroLsSensorModel const* ls_model) {
+
+  csm::ImageCoord csm_pix;
+  vw::Vector2 pix(0, line);
+  asp::toCsmPixel(pix, csm_pix);
+  return ls_model->getImageTime(csm_pix);
+}
+
+// Get the line number at a given time. This assumes a linear relationship
+// between them (rather than piecewise linear).
+double get_line_at_time(double time, UsgsAstroLsSensorModel const* ls_model) {
+
+  // Here we count on the linescan model always being populated.
+  if (ls_model->m_intTimeLines.size() != 2) 
+  vw::vw_throw(vw::ArgumentErr() 
+                << "Expecting linear relation between time and image lines.\n");
+
+  int line0 = 0;
+  int line1 = ls_model->m_nLines - 1;
+  double time0 = get_time_at_line(line0, ls_model);
+  double time1 = get_time_at_line(line1, ls_model);
+    
+  return line0 + (line1 - line0) * (time - time0) / (time1 - time0);
+}
+
+// Get camera center at a given time
+vw::Vector3 get_camera_center_at_time(double time, UsgsAstroLsSensorModel const* ls_model) {
+  csm::EcefCoord ecef = ls_model->getSensorPosition(time);
+  return vw::Vector3(ecef.x, ecef.y, ecef.z);
+}
+  
+// Get camera velocity at a given time
+vw::Vector3 get_camera_velocity_at_time(double time, UsgsAstroLsSensorModel const* ls_model) {
+  csm::EcefVector ecef = ls_model->getSensorVelocity(time);
+  return vw::Vector3(ecef.x, ecef.y, ecef.z);
+}
+
+// Re implementation of the CSM wrapper around the USGS function for going from
+// a pixel to a ray. Need it because cannot access the CSM model given the ls model.
+vw::Vector3 pixel_to_vector(vw::Vector2 const& pix, UsgsAstroLsSensorModel const* ls_model,
+                            double desired_precision) {
+
+  csm::ImageCoord csm_pix;
+  asp::toCsmPixel(pix, csm_pix);
+
+  double achievedPrecision = -1.0; // will be modified in the function
+  csm::EcefLocus locus = ls_model->imageToRemoteImagingLocus(csm_pix,
+                                                             desired_precision,
+                                                             &achievedPrecision);
+  vw::Vector3 dir = ecefVectorToVector(locus.direction);
+  return dir;
+}
+
+// Adjust the linescan model to correct for velocity aberration and/or
+// atmospheric refraction.
+void orbitalCorrections(asp::CsmModel * csm_model, 
+                        double local_earth_radius, double mean_ground_elevation) {
+  
+  UsgsAstroLsSensorModel *ls_model 
+    = dynamic_cast<UsgsAstroLsSensorModel*>(csm_model->m_gm_model.get());
+  if (ls_model == NULL)
+    vw::vw_throw(vw::ArgumentErr() << "Invalid initialization of the linescan model.\n");
+
+  // Collect the updated quaternions in a separate vector, to not interfere
+  // with using the current ones during the correction process.
+  std::vector<double> updated_quats(ls_model->m_quaternions.size());
+  
+  auto & qv = ls_model->m_quaternions; // shorthand
+  for (int pos_it = 0; pos_it < ls_model->m_numQuaternions / 4; pos_it++) {
+    double t = ls_model->m_t0Quat + pos_it * ls_model->m_dtQuat;
+    
+    vw::Vector3 cam_ctr = asp::get_camera_center_at_time(t, ls_model);
+    vw::Vector3 vel = asp::get_camera_velocity_at_time(t, ls_model);
+    
+    // Get back to VW quaternion format
+    vw::Quat q(qv[4*pos_it + 3], qv[4*pos_it + 0], qv[4*pos_it + 1], qv[4*pos_it + 2]);
+    
+    // Find the line at the given time based on a linear fit
+    double line = asp::get_line_at_time(t, ls_model);
+    
+    // Find the cam_direction at the center of the line
+    vw::Vector2 pix(ls_model->m_nSamples/2.0, line);
+    vw::Vector3 cam_dir = csm_model->pixel_to_vector(pix);
+    
+    // Find and apply the atmospheric refraction correction
+    vw::Quaternion<double> corr_rot;
+    cam_dir = vw::camera::apply_atmospheric_refraction_correction
+                    (cam_ctr, local_earth_radius, mean_ground_elevation, cam_dir, 
+                     corr_rot); // output
+    q = corr_rot * q;
+
+    // Find and apply the velocity aberration correction
+    cam_dir = vw::camera::apply_velocity_aberration_correction
+                    (cam_ctr, vel, local_earth_radius, cam_dir, 
+                     corr_rot); // output
+    q = corr_rot * q;
+
+    // Create the updated quaternions. ASP stores the quaternions as (w, x, y,
+    // z). CSM wants them as x, y, z, w.
+    updated_quats[4*pos_it + 0] = q.x();
+    updated_quats[4*pos_it + 1] = q.y();
+    updated_quats[4*pos_it + 2] = q.z();
+    updated_quats[4*pos_it + 3] = q.w();
+  }
+
+  // Replace with the updated quaternions
+  ls_model->m_quaternions = updated_quats;
+  
+  // Re-creating the model from the state forces some operations to
+  // take place which are inaccessible otherwise.
+  std::string modelState = ls_model->getModelState();
+  ls_model->replaceModelState(modelState);
 }
 
 } // end namespace asp

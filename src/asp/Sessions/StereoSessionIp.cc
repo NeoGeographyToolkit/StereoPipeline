@@ -421,7 +421,7 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
       vw_out(vw::WarningMessage) 
         << "The stereo convergence angle is: " << sorted_angles[0.50*len] << " degrees. "
         << "This is quite low and may result in an empty or unreliable point cloud. " 
-        << "Reduce --min-triangulation-angle to triangulate with very low angles.\n";
+        << "Reduce --min-triangulation-angle to triangulate with very small angles.\n";
 }
 
 } // End namespace asp

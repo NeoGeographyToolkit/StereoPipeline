@@ -100,8 +100,7 @@ void fromCsmPixel(vw::Vector2 & pix, csm::ImageCoord const& csm) {
   pix[1] = csm.line - ASP_TO_CSM_SHIFT[1];
 }
 
-
-Vector3 ecefCoordToVector(csm::EcefCoord c) {
+Vector3 ecefCoordToVector(csm::EcefCoord const& c) {
   Vector3 v;
   v[0] = c.x;
   v[1] = c.y;
@@ -109,7 +108,7 @@ Vector3 ecefCoordToVector(csm::EcefCoord c) {
   return v;
 }
 
-Vector3 ecefVectorToVector(csm::EcefVector c) {
+Vector3 ecefVectorToVector(csm::EcefVector const& c) {
   Vector3 v;
   v[0] = c.x;
   v[1] = c.y;
@@ -117,7 +116,7 @@ Vector3 ecefVectorToVector(csm::EcefVector c) {
   return v;
 }
 
-Vector2 imageCoordToVector(csm::ImageCoord c) {
+Vector2 imageCoordToVector(csm::ImageCoord const& c) {
   Vector2 v;
   v[0] = c.samp;
   v[1] = c.line;
@@ -664,7 +663,9 @@ Vector2 CsmModel::point_to_pixel(Vector3 const& point) const {
 Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
   throw_if_not_init();
 
-  csm::ImageCoord imagePt = vectorToImageCoord(pix + ASP_TO_CSM_SHIFT);
+  csm::ImageCoord imagePt;
+  toCsmPixel(pix, imagePt);
+  
   double achievedPrecision = -1.0; // will be modified in the function
   csm::EcefLocus locus = m_gm_model->imageToRemoteImagingLocus(imagePt,
                                                                m_desired_precision,

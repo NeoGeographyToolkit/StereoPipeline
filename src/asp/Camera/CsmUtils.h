@@ -102,8 +102,28 @@ void populateCsmLinescan(double first_line_time, double dt_line,
                                  vw::CamPtr  const& cam,
                                  asp::CsmModel    * csm_cam); 
 
+// Resample a model using Lagrange interpolation.
 void resampleModel(int num_lines_per_position, int num_lines_per_orientation,
                    UsgsAstroLsSensorModel * ls_model); 
+
+// Get the time at a given line. 
+double get_time_at_line(double line, UsgsAstroLsSensorModel const* ls_model);
+
+// Get the line number at a given time. This assumes a linear relationship
+// between them (rather than piecewise linear).
+double get_line_at_time(double time, UsgsAstroLsSensorModel const* ls_model);
+
+// Get camera center at a given time
+vw::Vector3 get_camera_center_at_time(double time, UsgsAstroLsSensorModel const* ls_model);
+
+// Get camera velocity at a given time
+vw::Vector3 get_camera_velocity_at_time(double time, UsgsAstroLsSensorModel const* ls_model);
+
+// Adjust the linescan model to correct for velocity aberration and/or
+// atmospheric refraction.
+void orbitalCorrections(asp::CsmModel * csm_model, 
+                        double local_earth_radius, 
+                        double mean_ground_elevation);
 
 } // end namespace asp
 

@@ -395,109 +395,16 @@ void DGCameraModel::populateCsmModel() {
   // Adjust the CSM model to correct for velocity aberration.
   // This can only happen after the model is fully initialized,
   // as need to create rays from the camera center to the ground.
-  orbitalCorrections();
+  asp::orbitalCorrections(m_csm_model.get(), m_local_earth_radius, m_mean_ground_elevation);
   
   return;
-}
-
-// Adjust the CSM model to correct for velocity aberration and/or
-// atmospheric refraction.
-// This can only happen after the model is fully initialized,
-// as need to create rays from the camera center to the ground.
-// In no-csm mode this happens inside of LinescanModel.cc.
-void DGCameraModel::orbitalCorrections() {
-  // Collect the updated quaternions in a separate vector, to not interfere
-  // with using the current ones during the correction process.
-  std::vector<double> updated_quats(m_ls_model->m_quaternions.size());
-  
-  auto & qv = m_ls_model->m_quaternions; // shorthand
-  for (int pos_it = 0; pos_it < m_ls_model->m_numQuaternions / 4; pos_it++) {
-    double t = m_ls_model->m_t0Quat + pos_it * m_ls_model->m_dtQuat;
-    
-    vw::Vector3 cam_ctr = this->get_camera_center_at_time(t);
-    vw::Vector3 vel = this->get_camera_velocity_at_time(t);
-    
-    // Get back to VW quaternion format
-    vw::Quat q(qv[4*pos_it + 3], qv[4*pos_it + 0], qv[4*pos_it + 1], qv[4*pos_it + 2]);
-    
-    // Find the line at the given time based on a linear fit
-    double line = this->get_line_at_time(t);
-    
-    // Find the cam_direction at the center of the line
-    vw::Vector2 pix(m_ls_model->m_nSamples/2.0, line);
-    vw::Vector3 cam_dir = this->pixel_to_vector(pix);
-    
-    // Find and apply the atmospheric refraction correction
-    vw::Quaternion<double> corr_rot;
-    cam_dir = vw::camera::apply_atmospheric_refraction_correction
-                    (cam_ctr, m_local_earth_radius, m_mean_ground_elevation, cam_dir, 
-                     corr_rot); // output
-    q = corr_rot * q;
-
-    // Find and apply the velocity aberration correction
-    cam_dir = vw::camera::apply_velocity_aberration_correction
-                    (cam_ctr, vel, m_local_earth_radius, cam_dir, 
-                     corr_rot); // output
-    q = corr_rot * q;
-
-    // Create the updated quaternions. ASP stores the quaternions as (w, x, y,
-    // z). CSM wants them as x, y, z, w.
-    updated_quats[4*pos_it + 0] = q.x();
-    updated_quats[4*pos_it + 1] = q.y();
-    updated_quats[4*pos_it + 2] = q.z();
-    updated_quats[4*pos_it + 3] = q.w();
-  }
-
-  // Replace with the updated quaternions
-  m_ls_model->m_quaternions = updated_quats;
-  
-  // Re-creating the model from the state forces some operations to
-  // take place which are inaccessible otherwise.
-  std::string modelState = m_ls_model->getModelState();
-  m_ls_model->replaceModelState(modelState);
-}
-
-// Re-implement base class functions
-// TODO(oalexan1): This must be wiped when no longer inheriting from VW linescan  
-double DGCameraModel::get_time_at_line(double line) const {
-  csm::ImageCoord csm_pix;
-  vw::Vector2 pix(0, line);
-  asp::toCsmPixel(pix, csm_pix);
-  return m_ls_model->getImageTime(csm_pix);
-}
-
-// Get the line number at a given time. This assumes a linear relationship
-// between them (rather than piecewise linear).
-double DGCameraModel::get_line_at_time(double time) const {
-  
-  // Here we count on the linescan model always being populated.
-  if (m_ls_model->m_intTimeLines.size() != 2) 
-  vw::vw_throw(vw::ArgumentErr() 
-                << "Expecting linear relation between time and image lines.\n");
-
-  int line0 = 0;
-  int line1 = m_ls_model->m_nLines - 1;
-  double time0 = get_time_at_line(line0);
-  double time1 = get_time_at_line(line1);
-    
-  return line0 + (line1 - line0) * (time - time0) / (time1 - time0);
-}
-
-vw::Vector3 DGCameraModel::get_camera_center_at_time(double time) const {
-  csm::EcefCoord ecef = m_ls_model->getSensorPosition(time);
-  return vw::Vector3(ecef.x, ecef.y, ecef.z);
-}
-
-vw::Vector3 DGCameraModel::get_camera_velocity_at_time(double time) const {
-  csm::EcefVector ecef = m_ls_model->getSensorVelocity(time);
-  return vw::Vector3(ecef.x, ecef.y, ecef.z);
 }
 
 // Interpolate the satellite position covariance at given pixel
 void DGCameraModel::interpSatellitePosCov(vw::Vector2 const& pix,
                                           double p_cov[SAT_POS_COV_SIZE]) const {
   
-  double time = get_time_at_line(pix.y());
+  double time = asp::get_time_at_line(pix.y(), m_ls_model.get());
   int numCov = m_satellite_pos_cov.size() / SAT_POS_COV_SIZE;
 
   int nOrder = 8;
@@ -514,7 +421,7 @@ void DGCameraModel::interpSatellitePosCov(vw::Vector2 const& pix,
 void DGCameraModel::interpSatelliteQuatCov(vw::Vector2 const& pix,
                                            double q_cov[SAT_QUAT_COV_SIZE]) const {
 
-  double time = get_time_at_line(pix.y());
+  double time = asp::get_time_at_line(pix.y(), m_ls_model.get());
   int numCov = m_satellite_quat_cov.size() / SAT_QUAT_COV_SIZE;
   
   int nOrder = 8;

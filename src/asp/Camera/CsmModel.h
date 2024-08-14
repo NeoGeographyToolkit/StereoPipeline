@@ -40,6 +40,8 @@ namespace csm {
   // Forward declarations
   class RasterGM; 
   class ImageCoord;
+  class EcefVector;
+  class EcefCoord;
 }
 
 namespace asp {
@@ -211,6 +213,9 @@ namespace asp {
   // conventions to what CSM expects and vice versa
   void toCsmPixel(vw::Vector2 const& pix, csm::ImageCoord & csm);
   void fromCsmPixel(vw::Vector2 & pix, csm::ImageCoord const& csm);
+  vw::Vector3 ecefVectorToVector(csm::EcefVector const& c);
+  vw::Vector3 ecefCoordToVector(csm::EcefCoord const& c);
+  vw::Vector2 imageCoordToVector(csm::ImageCoord const& c);
   
 } // end namespace asp
 

@@ -64,13 +64,6 @@ namespace asp {
     virtual ~DGCameraModel() {}
     virtual std::string type() const { return "LinescanDG"; }
 
-    // Re-implement base class functions
-    virtual double get_time_at_line(double line) const;
-
-    virtual vw::Vector3 get_camera_center_at_time(double time) const;
-
-    virtual vw::Vector3 get_camera_velocity_at_time(double time) const;
-
     // Gives a pointing vector in the world coordinates.
     virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const;
 
@@ -111,13 +104,6 @@ namespace asp {
     // rectified before removing the older approach.
     void populateCsmModel();
 
-    // Update poses for velocity aberration and/or atmospheric refraction.
-    void orbitalCorrections();
-    
-    // Get the line number at a given time. This assumes a linear relationship
-    // between them (rather than piecewise linear).
-    double get_line_at_time(double time) const;
-    
     // Extrinsics
     vw::camera::PiecewiseAPositionInterpolation m_position_func; // Position at given time
     vw::camera::LinearPiecewisePositionInterpolation m_velocity_func; // Velocity at given time
