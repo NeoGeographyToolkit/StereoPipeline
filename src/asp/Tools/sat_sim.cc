@@ -170,6 +170,10 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
      ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
       "When intersecting a ray with a DEM, use this as the height error tolerance "
       "(measured in meters). It is expected that the default will be always good enough.")
+     ("blur-sigma", po::value(&opt.blur_sigma)->default_value(0.0),
+      "When creating images, blur them with a Gaussian with this sigma. The sigma is "
+      "in input orthoimage pixel units.")
+     ("help,h", "Display this help message.")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -449,6 +453,10 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
     }
   }
 
+ // Blur sigma must be non-negative
+ if (opt.blur_sigma < 0)
+   vw::vw_throw(vw::ArgumentErr() << "The blur sigma must be non-negative.\n");
+   
   return;
 }
 

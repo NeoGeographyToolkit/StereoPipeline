@@ -605,7 +605,7 @@ location)::
 The ``dem_mosaic`` (:numref:`dem_mosaic`) tool can be used to fill holes in the
 DEM, using either the ``--hole-fill-length`` or ``--fill-search-radius`` option.
 It is also suggested to blur it a little, which may reduce some of the noise in
-the DEM. For that, use ``dem_mosaic`` with the option ``--blur-sigma`` with a
+the DEM. For that, use ``dem_mosaic`` with the option ``--dem-blur-sigma`` with a
 value of 1 or 2.
 
 Very large holes may be infilled from a third-party low-resolution DEM, like
@@ -833,7 +833,11 @@ Command-line options
     orientation, with the center view direction closest to the ground point at
     ``--first-ground-pos``. A unique value for each orbit is suggested. A large value
     (millions), may result in numerical issues. See :numref:`sat_sim_time`.
-        
+
+--blur-sigma <double (default: 0.0)>
+    When creating images, blur them with a Gaussian with this sigma. The sigma is
+    in input orthoimage pixel units.
+            
 --dem-height-error-tol <float (default: 0.001)>
     When intersecting a ray with a DEM, use this as the height error tolerance
     (measured in meters). It is expected that the default will be always good

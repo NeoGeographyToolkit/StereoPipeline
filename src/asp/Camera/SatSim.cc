@@ -35,6 +35,7 @@
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Core/StringUtils.h>
+#include <vw/Image/Filter.h>
 
 #include <iomanip>
 
@@ -1240,6 +1241,7 @@ void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
     vw::cartography::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> const& ortho,
     vw::cartography::GeoReference const& ortho_georef,
+    double blur_sigma,
     // Outputs
     vw::ImageView<vw::PixelMask<float>> & crop_dem,
     vw::cartography::GeoReference & crop_dem_georef,
@@ -1277,12 +1279,26 @@ void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
     // Same for the ortho
     vw::BBox2i ortho_pixel_box = ortho_georef.point_to_pixel_bbox(ortho_box);
     ortho_pixel_box.expand(expand);
+    
+    // Adjust for any blur
+    int kernel_size = 0;
+    if (blur_sigma > 0) {
+      kernel_size = vw::compute_kernel_size(blur_sigma);
+      std::cout << "--sigma is " << blur_sigma << ", kernel size is " << kernel_size << std::endl;
+      ortho_pixel_box.expand(kernel_size); // to avoid edge effects
+    }
+
     ortho_pixel_box.crop(vw::bounding_box(ortho));
 
     // Crop
     crop_dem = vw::crop(dem, dem_pixel_box);
     crop_dem_georef = crop(dem_georef, dem_pixel_box);
-    crop_ortho = vw::crop(ortho, ortho_pixel_box);
+
+    if (blur_sigma > 0) 
+      crop_ortho = vw::crop(vw::gaussian_filter(ortho, blur_sigma), ortho_pixel_box);
+    else
+      crop_ortho = vw::crop(ortho, ortho_pixel_box);
+      
     crop_ortho_georef = crop(ortho_georef, ortho_pixel_box);
 }
 
@@ -1357,7 +1373,7 @@ public:
     vw::cartography::GeoReference crop_ortho_georef; // make a copy to be thread-safe
     vw::ImageView<vw::PixelMask<float>> crop_ortho;
     setupCroppedDemAndOrtho(crop_image_size,
-      crop_cam, m_dem, m_dem_georef, m_ortho, m_ortho_georef, 
+      crop_cam, m_dem, m_dem_georef, m_ortho, m_ortho_georef, m_opt.blur_sigma,
       // Outputs
       crop_dem, crop_dem_georef, crop_ortho, crop_ortho_georef);
 
