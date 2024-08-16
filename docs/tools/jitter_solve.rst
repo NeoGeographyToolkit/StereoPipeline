@@ -2121,6 +2121,11 @@ Command-line options for jitter_solve
     ahead of the camera, in units of meters. Some of these
     may be later filtered as outliers. 
 
+--num-passes <integer (default: 2)>
+    How many passes of jitter solving to do, with the given number of iterations
+    in each pass. Each pass uses the previously refined cameras, which improves
+    the accuracy of the DEM constraint and the final result.
+    
 --rig-config <string>
     Assume that the cameras are acquired with a set of rigs with this
     configuration file (:numref:`jitter_rig`). The intrinsics will be read, but

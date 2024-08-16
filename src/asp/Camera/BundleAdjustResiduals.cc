@@ -467,7 +467,7 @@ void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
   
       // Sanity check
       if (ipt < 0 || ipt >= num_points)
-        vw_throw(LogicErr() << "Invalid point index " << ipt 
+        vw::vw_throw(vw::LogicErr() << "Invalid point index " << ipt 
                  << " in saveTriOffsetsPerCamera().\n");
         
       if (outliers.find(ipt) != outliers.end())

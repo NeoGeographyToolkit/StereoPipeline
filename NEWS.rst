@@ -15,7 +15,8 @@ jitter_solve (:numref:`jitter_solve`):
   * Add an example for the Kaguya Terrain Camera (:numref:`jitter_kaguya`).
   * Can use GCP files.
   * Can read a control network from an nvm file.
-    
+  * Do two passes. This improves the results.
+      
 stereo_gui (:numref:`stereo_gui`):
   * Changing the image threshold updates the display correctly.
   * When creating GCP, ask before quitting without saving them. Save the IP as

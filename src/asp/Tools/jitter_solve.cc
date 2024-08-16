@@ -248,7 +248,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     ("num-passes",
      po::value(&opt.num_passes)->default_value(2),
      "How many passes of jitter solving to do, with given number of iterations in each "
-     "pass. For more than one pass.")
+     "pass.")
     ("rig-config", po::value(&opt.rig_config)->default_value(""),
      "Assume that the cameras are acquired with a set of rigs with this configuration "
      "file. The intrinsics will be read, but not the transforms between sensors, as those "
@@ -870,7 +870,7 @@ void jitterSolvePass(int                                 pass,
                      rig::RigSet                       & rig,
                      std::vector<double>               & ref_to_curr_sensor_vec) {
 
-  vw::vw_out() << "Jitter solving pass: " << pass << "\n";
+  vw::vw_out() << "\nJitter solving pass: " << pass << "\n";
   
   // If some of the input cameras are frame, need to store position and
   // quaternion variables for them outside the camera model.
@@ -1095,6 +1095,15 @@ void jitterSolvePass(int                                 pass,
                            orig_cam_positions, opt_cam_positions,
                            cam_offsets_file); 
 
+  // Resize the tri_points_vec to eliminate the anchor points that were appended.
+  // The number of those can be variable in each pass and those do not contribute
+  // to the triangulation offsets. This must be at the end.
+  int num_tri_points = cnet.size();
+  size_t tri_len = num_tri_points*NUM_XYZ_PARAMS;
+  if (orig_tri_points_vec.size() < tri_len || tri_points_vec.size() < tri_len)
+    vw_throw(ArgumentErr() << "Expecting more triangulated points.\n");
+  orig_tri_points_vec.resize(tri_len);
+  tri_points_vec.resize(tri_len);
   std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";     
   asp::saveTriOffsetsPerCamera(opt.image_files, outliers,
                                orig_tri_points_vec, tri_points_vec,
