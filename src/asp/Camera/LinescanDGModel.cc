@@ -20,7 +20,6 @@
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/Covariance.h>
 
@@ -260,22 +259,22 @@ void DGCameraModel::populateCsmModel() {
   // computation failing due to numerical precision issues, which can
   // be traced to the DG camera using a focal length (in pixels) of
   // 2,002,252.25.
-  m_csm_model.reset(new CsmModel);
+  //this->reset(new CsmModel);
 
   // This sensor is used for Earth only
   vw::cartography::Datum datum("WGS84"); 
-  m_csm_model->m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
-  m_csm_model->m_semi_major_axis = datum.semi_major_axis(); 
-  m_csm_model->m_semi_minor_axis = datum.semi_minor_axis();
+  this->m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
+  this->m_semi_major_axis = datum.semi_major_axis(); 
+  this->m_semi_minor_axis = datum.semi_minor_axis();
     
   // Create a linescan model as a smart pointer, and do smart pointer
-  // casting Follow the CSM API. The type of m_gm_model is
+  // casting. Follow the CSM API. The type of m_gm_model is
   // csm::RasterGM, which is a base class. UsgsAstroLsSensorModel is
   // derived from it. A smart pointer to m_gm_model is held by
-  // m_csm_model.
-  m_csm_model->m_gm_model.reset(new UsgsAstroLsSensorModel);
+  // this model.
+  this->m_gm_model.reset(new UsgsAstroLsSensorModel);
   m_ls_model = boost::dynamic_pointer_cast<UsgsAstroLsSensorModel>
-    (m_csm_model->m_gm_model);
+    (this->m_gm_model);
   if (m_ls_model == NULL)
     vw::vw_throw(vw::ArgumentErr() << "Invalid initialization of the linescan model.\n");
     
@@ -285,18 +284,15 @@ void DGCameraModel::populateCsmModel() {
     
   m_ls_model->m_nSamples = m_image_size[0]; 
   m_ls_model->m_nLines   = m_image_size[1];
-
-  double f = m_focal_length;
-
   m_ls_model->m_platformFlag = 1; // For order 8 Lagrange interpolation
   m_ls_model->m_maxElevation =  10000.0; //  10 km
   m_ls_model->m_minElevation = -10000.0; // -10 km
-  m_ls_model->m_focalLength  =  f;
+  m_ls_model->m_focalLength  =  m_focal_length;
   m_ls_model->m_zDirection   = 1.0;
   m_ls_model->m_halfSwath    = 1.0;
   m_ls_model->m_sensorIdentifier = "DigitalGlobeLinescan";
-  m_ls_model->m_majorAxis = m_csm_model->m_semi_major_axis;
-  m_ls_model->m_minorAxis = m_csm_model->m_semi_minor_axis;
+  m_ls_model->m_majorAxis = this->m_semi_major_axis;
+  m_ls_model->m_minorAxis = this->m_semi_minor_axis;
 
   // The choices below are because of how DigitalGlobe's
   // get_local_pixel_vector() interacts with the
@@ -399,7 +395,7 @@ void DGCameraModel::populateCsmModel() {
   // need to create rays from the camera center to the ground.
   bool correct_velocity_aberration = true;
   bool correct_atmospheric_refraction = true;
-  asp::orbitalCorrections(m_csm_model.get(), 
+  asp::orbitalCorrections(this, 
                           correct_velocity_aberration, correct_atmospheric_refraction,
                           m_local_earth_radius, m_mean_ground_elevation);
   
@@ -446,26 +442,5 @@ void DGCameraModel::interpSatelliteQuatCov(vw::Vector2 const& pix,
                     time, SAT_QUAT_COV_SIZE, q_cov);
 }
 
-// Gives a pointing vector in the world coordinates.
-vw::Vector3 DGCameraModel::pixel_to_vector(vw::Vector2 const& pix) const {
-  return m_csm_model->pixel_to_vector(pix);
-}
-
-// Ground-to-image
-vw::Vector2 DGCameraModel::point_to_pixel(vw::Vector3 const& point) const {
-   return m_csm_model->point_to_pixel(point);
-}
-  
-// Camera pose
-vw::Quaternion<double> DGCameraModel::camera_pose(vw::Vector2 const& pix) const {
-  vw_throw(vw::NoImplErr() << "camera_pose() is not implemented with CSM.");
-  return vw::Quaternion<double>();
-}
-
-// Gives the camera position in world coordinates.
-vw::Vector3 DGCameraModel::camera_center(vw::Vector2 const& pix) const {
-  return m_csm_model->camera_center(pix);
-}
-    
 } // end namespace asp
 

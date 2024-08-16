@@ -20,12 +20,14 @@
 // for extracting surface elevation from the RPC model.
 
 // \file LinescanDGModel.h
-// A wrapper around the CSM linescan model.
+// This class inherits from the CSM model.
 
 #ifndef __STEREO_CAMERA_LINESCAN_DG_MODEL_H__
 #define __STEREO_CAMERA_LINESCAN_DG_MODEL_H__
 
 #include <asp/Camera/TimeProcessing.h>
+#include <asp/Camera/CsmModel.h>
+
 #include <vw/Camera/Extrinsics.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Math/EulerAngles.h>
@@ -39,14 +41,10 @@ namespace asp {
   // matrix and 4x4 satellite quaternion matrix.
   const int SAT_POS_COV_SIZE = 6, SAT_QUAT_COV_SIZE = 10;
   
-  // Forward declaration
-  class CsmModel;
-
-  // This is the standard DG implementation. In Extrinsics.cc there are
-  // other ways of performing position and pose interpolation as well.
-  // TODO(oalexan1): Eliminate all these VW functions and inheritance
-  // from LinescanDGModel, and use directly the inputs from the XML file.
-  class DGCameraModel: public vw::camera::CameraModel {
+  // This is the standard DG implementation. In Extrinsics.cc there are other
+  // ways of performing position and pose interpolation as well. TODO(oalexan1):
+  // Eliminate all these VW functions use directly the inputs from the XML file.
+  class DGCameraModel: public asp::CsmModel {
     
   public:
     
@@ -64,22 +62,8 @@ namespace asp {
     virtual ~DGCameraModel() {}
     virtual std::string type() const { return "LinescanDG"; }
 
-    // Gives a pointing vector in the world coordinates.
-    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const;
-
-    // Point to pixel with no initial guess
-    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const;
-    
-    // Camera pose
-    virtual vw::Quaternion<double> camera_pose(vw::Vector2 const& pix) const;
-
-    /// Gives the camera position in world coordinates.
-    virtual vw::Vector3 camera_center(vw::Vector2 const& pix) const;
-
-    // CsmModel is ASP's wrapper around the CSM model. It holds a smart pointer
-    // to the CSM linescan model, which is of type UsgsAstroLsSensorModel.
-    boost::shared_ptr<CsmModel> m_csm_model; // wrapper
-    boost::shared_ptr<UsgsAstroLsSensorModel> m_ls_model; // actual model
+    // This is a pointer to the underlying linescan model
+    boost::shared_ptr<UsgsAstroLsSensorModel> m_ls_model;
 
     // For error propagation
     std::vector<vw::CamPtr> m_perturbed_cams;
@@ -98,13 +82,10 @@ namespace asp {
     // for validation of the CSM model but not in production.  
     void getQuaternions(const double& time, double q[4]) const;
 
-    // Digital Globe implementation using CSM. Eventually this will replace
-    // LinescanDGModel. Note that the CSM-based logic does not support velocity
-    // aberration and atmospheric refraction correction. That needs to be
-    // rectified before removing the older approach.
     void populateCsmModel();
 
     // Extrinsics
+    // TODO(oalexan1): Wipe all these. Use the data from the xml directly.
     vw::camera::PiecewiseAPositionInterpolation m_position_func; // Position at given time
     vw::camera::LinearPiecewisePositionInterpolation m_velocity_func; // Velocity at given time
     vw::camera::SLERPPoseInterpolation m_pose_func; // Pose at given time
