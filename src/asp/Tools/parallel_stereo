@@ -110,7 +110,8 @@ def produce_tiles(args, settings, tile_w, tile_h):
       # D_sub must exist
       d_sub_file = settings['out_prefix'][0] + '-D_sub.tif'
       if not os.path.exists(d_sub_file):
-          raise Exception('The file ' + d_sub_file + ' does not exist.')
+        print("WARNING: The file " + d_sub_file + " does not exist. " + \
+              "Will not be able to exclude tiles with no data.")
     
     # Create the tiles
     run_and_parse_output("stereo_parse", args + tile_opt, sep, verbose)

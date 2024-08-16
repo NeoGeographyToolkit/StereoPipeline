@@ -108,7 +108,13 @@ void produceTiles(std::string const& output_prefix,
   bool is_multiview = stereo_settings().part_of_multiview_run;
   if (stereo_settings().seed_mode != 0 && !is_multiview) {
     have_D_sub = true; 
-    asp::load_D_sub_and_scale(output_prefix, d_sub_file, sub_disp, upsample_scale);
+    try {
+      asp::load_D_sub_and_scale(output_prefix, d_sub_file, sub_disp, upsample_scale);
+    }catch(...) {
+      // Keep on going if we cannot load D_sub. Just cannot exclude the tiles
+      // with no data then.
+      have_D_sub = false;
+    }
   }
 
   int tile_x = parallel_tile_size[0];
