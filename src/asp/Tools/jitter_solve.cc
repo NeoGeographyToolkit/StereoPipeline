@@ -246,7 +246,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "version and any SPICE data will be deleted. Mapprojected images obtained with prior "
      "version of the cameras must no longer be used in stereo.")
     ("num-passes",
-     po::value(&opt.num_passes)->default_value(1),
+     po::value(&opt.num_passes)->default_value(2),
      "How many passes of jitter solving to do, with given number of iterations in each "
      "pass. For more than one pass.")
     ("rig-config", po::value(&opt.rig_config)->default_value(""),
@@ -444,6 +444,10 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   if (opt.anchor_weight > 0 && opt.anchor_dem.empty()) 
     vw::vw_throw(vw::ArgumentErr() << "If --anchor-weight is positive, set --anchor-dem.\n");
   
+  // Must have at least one pass
+  if (opt.num_passes < 1)
+    vw_throw(ArgumentErr() << "Must have at least one pass.\n");
+    
   bool have_rig = !opt.rig_config.empty();
   if (have_rig) {
     bool have_rig_transforms = opt.use_initial_rig_transforms;
@@ -847,170 +851,26 @@ void saveCsmCameras(std::string const& out_prefix,
   
 }
 
-void run_jitter_solve(int argc, char* argv[]) {
+// Run one pass of solving for jitter. At each pass the cameras we have so far
+// are used to triangulate the points and the DEM constraint is refreshed if
+// applicable, and then the cameras are optimized. More than one pass
+// was shown to improve the accuracy.
+void jitterSolvePass(int                                 pass,
+                     bool                                have_rig,
+                     Options                      const& opt,
+                     asp::CRNJ                    const& crn,
+                     std::vector<RigCamInfo>      const& rig_cam_info,
+                     TimestampMap                 const& timestamp_map,
+                     // Outputs
+                     ba::ControlNetwork                & cnet,
+                     std::set<int>                     & outliers,
+                     std::vector<asp::CsmModel*>       & csm_models,
+                     std::vector<vw::Vector3>          & orig_cam_positions,
+                     std::vector<double>               & orig_tri_points_vec,
+                     rig::RigSet                       & rig,
+                     std::vector<double>               & ref_to_curr_sensor_vec) {
 
-  // Parse arguments and perform validation
-  Options opt;
-  rig::RigSet rig;
-  handle_arguments(argc, argv, opt, rig);
-
-  bool approximate_pinhole_intrinsics = false;
-  asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
-                    approximate_pinhole_intrinsics,  
-                    // Outputs
-                    opt.stereo_session,  // may change
-                    opt.single_threaded_cameras,  
-                    opt.camera_models);
-
-  // Find the datum.
-  // TODO(oalexan1): Integrate this into load_cameras, to avoid loading
-  // the cameras twice. Do this also in bundle_adjust.cc.
-  asp::SessionPtr session(NULL);
-  bool found_datum = asp::datum_from_camera(opt.image_files[0], opt.camera_files[0],
-                                             // Outputs
-                                             opt.stereo_session, session, opt.datum);
-  if (!found_datum)
-    vw_throw(ArgumentErr() << "No datum was found in the input cameras.\n");
-  
-  // Apply the input adjustments to the cameras. Resample linescan models.
-  // Get pointers to the underlying CSM cameras, as need to manipulate
-  // those directly. These will result in changes to the input cameras.
-  std::vector<asp::CsmModel*> csm_models;
-  initResampleCsmCams(opt, opt.camera_models, csm_models);
-
-  // Preparations if having a rig
-  bool have_rig = (opt.rig_config != "");
-  std::vector<RigCamInfo> rig_cam_info;
-  std::vector<double> ref_to_curr_sensor_vec;
-  TimestampMap timestamp_map;
-  if (have_rig)
-    populateRigCamInfo(rig, opt.image_files, opt.camera_files, csm_models, 
-                       opt.cam2group, opt.use_initial_rig_transforms,
-                       // Outputs
-                       rig_cam_info, ref_to_curr_sensor_vec, timestamp_map);
-  
-  // This the right place to record the original camera positions.
-  std::vector<vw::Vector3> orig_cam_positions;
-  asp::calcCameraCenters(opt.camera_models, orig_cam_positions);
-  
-  // Make a list of all the image pairs to find matches for. Some quantities
-  // below are not needed but are part of the API.
-  std::map<std::pair<int, int>, std::string> match_files;
-  if (opt.isis_cnet.empty() && opt.nvm.empty()) {
-    // TODO(oalexan1): Make this into a function
-    bool external_matches = true;
-    bool got_est_cam_positions = false;
-    double position_filter_dist = -1.0;
-    std::vector<vw::Vector3> estimated_camera_gcc;
-    bool have_overlap_list = false;
-    std::set<std::pair<std::string, std::string>> overlap_list;
-    std::vector<std::pair<int,int>> all_pairs;
-    asp::determine_image_pairs(// Inputs
-                              opt.overlap_limit, opt.match_first_to_last,  
-                              external_matches,
-                              opt.image_files, 
-                              got_est_cam_positions, position_filter_dist,
-                              estimated_camera_gcc, have_overlap_list, overlap_list,
-                              // Output
-                              all_pairs);
-
-    // List existing match files. This can take a while.
-    vw_out() << "Computing the list of existing match files.\n";
-    std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
-                                                opt.match_files_prefix,  
-                                                opt.out_prefix);
-    std::set<std::string> existing_files;
-    asp::listExistingMatchFiles(prefix, existing_files);
-
-    // TODO(oalexan1): Make this into a function
-    // Load match files
-    for (size_t k = 0; k < all_pairs.size(); k++) {
-      int i = all_pairs[k].first;
-      int j = all_pairs[k].second;
-      std::string const& image1_path  = opt.image_files[i];  // alias
-      std::string const& image2_path  = opt.image_files[j];  // alias
-      std::string const& camera1_path = opt.camera_files[i]; // alias
-      std::string const& camera2_path = opt.camera_files[j]; // alias
-      // Load match files from a different source
-      std::string match_file 
-        = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
-                              opt.out_prefix, image1_path, image2_path);
-      // The external match file does not exist, don't try to load it
-      if (existing_files.find(match_file) == existing_files.end())
-        continue;
-      match_files[std::make_pair(i, j)] = match_file;
-    }
-  }
-    
-  if (match_files.empty() && opt.isis_cnet.empty() && opt.nvm.empty())
-    vw::vw_throw(vw::ArgumentErr() 
-             << "No match files, ISIS cnet, or nvm file found. Check if your match "
-             << "files exist and if they satisfy the naming convention "
-             << "<prefix>-<image1>__<image2>.match.\n");
-
-  // Build control network and perform triangulation with adjusted input cameras
-  ba::ControlNetwork cnet("jitter_solve");
-  if (opt.isis_cnet != "") {
-    asp::IsisCnetData isisCnetData; // isis cnet (if loaded)
-    vw::vw_out() << "Reading ISIS control network: " << opt.isis_cnet << "\n";
-    asp::loadIsisCnet(opt.isis_cnet, opt.image_files,
-                      cnet, isisCnetData); // outputs
-  } else if (opt.nvm != "") {
-      // Assume the features are stored shifted relative to optical center
-      bool nvm_no_shift = false;
-      std::vector<Eigen::Affine3d> world_to_cam; // poses will not be used
-      std::map<std::string, Eigen::Vector2d> optical_offsets;
-      rig::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift, 
-                         cnet, world_to_cam, optical_offsets); // outputs
-  } else {
-    bool triangulate_control_points = true;
-    bool success = vw::ba::build_control_network(triangulate_control_points,
-                                                cnet, // output
-                                                opt.camera_models, opt.image_files,
-                                                match_files, opt.min_matches,
-                                                opt.min_triangulation_angle*(M_PI/180.0),
-                                                opt.forced_triangulation_distance,
-                                                opt.max_pairwise_matches);
-    if (!success)
-      vw::vw_throw(vw::ArgumentErr()
-              << "Failed to build a control network. Check the bundle adjustment directory "
-              << "for matches and if the match files satisfy the naming convention. "
-              << "Or, consider removing all .vwip and "
-              << ".match files and increasing the number of interest points "
-              << "using --ip-per-image or --ip-per-tile, or decreasing --min-matches, "
-              << "and then re-running bundle adjustment.\n");
-  }
-  
-  if (!opt.gcp_files.empty()) {
-    int num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
-    checkGcpRadius(opt.datum, cnet);
-    vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
-  }
-  
-  // TODO(oalexan1): Is it possible to avoid using CRNs?
-  asp::CRNJ crn;
-  crn.from_cnet(cnet);
-  
-  if ((int)crn.size() != opt.camera_models.size()) 
-    vw_throw(ArgumentErr() << "Book-keeping error, the size of CameraRelationNetwork "
-             << "must equal the number of images.\n");
-
-  // Flag as outliers points with initial reprojection error bigger than
-  // a certain amount. This assumes that the input cameras are very accurate.
-  std::set<int> outliers;
-  flag_initial_outliers(cnet, crn, opt.camera_models, opt.max_init_reproj_error,  
-                        // Output
-                        outliers);
-  vw_out() << "Removed " << outliers.size() 
-    << " outliers based on initial reprojection error.\n";
-  
-  std::vector<double> orig_tri_points_vec;
-  
-  // Do this many passes
-  for (int pass = 0; pass < opt.num_passes; pass++) {
-    std::cout << "--pass is " << pass << std::endl;
-  
-  // TODO(oalexan1): This must be a function
+  vw::vw_out() << "Jitter solving pass: " << pass << "\n";
   
   // If some of the input cameras are frame, need to store position and
   // quaternion variables for them outside the camera model.
@@ -1081,9 +941,11 @@ void run_jitter_solve(int argc, char* argv[]) {
                      pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
                      local_orig_tri_points_vec, tri_points_vec);
   
-  // Save the original triangulated points for the initial pass
-  if (pass == 0)
+  // Save the original camera positions and triangulated points for the initial pass
+  if (pass == 0) {
     orig_tri_points_vec = local_orig_tri_points_vec;
+    asp::calcCameraCenters(opt.camera_models, orig_cam_positions);
+  }
       
   // The above structures must not be resized anymore, as we will get pointers
   // to individual blocks within them.
@@ -1237,8 +1099,174 @@ void run_jitter_solve(int argc, char* argv[]) {
   asp::saveTriOffsetsPerCamera(opt.image_files, outliers,
                                orig_tri_points_vec, tri_points_vec,
                                crn, tri_offsets_file);
+
+} // end jitterSolvePass
+
+void run_jitter_solve(int argc, char* argv[]) {
+
+  // Parse arguments and perform validation
+  Options opt;
+  rig::RigSet rig;
+  handle_arguments(argc, argv, opt, rig);
+
+  bool approximate_pinhole_intrinsics = false;
+  asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
+                    approximate_pinhole_intrinsics,  
+                    // Outputs
+                    opt.stereo_session,  // may change
+                    opt.single_threaded_cameras,  
+                    opt.camera_models);
+
+  // Find the datum.
+  // TODO(oalexan1): Integrate this into load_cameras, to avoid loading
+  // the cameras twice. Do this also in bundle_adjust.cc.
+  asp::SessionPtr session(NULL);
+  bool found_datum = asp::datum_from_camera(opt.image_files[0], opt.camera_files[0],
+                                             // Outputs
+                                             opt.stereo_session, session, opt.datum);
+  if (!found_datum)
+    vw_throw(ArgumentErr() << "No datum was found in the input cameras.\n");
   
-  } // end loop through passes
+  // Apply the input adjustments to the cameras. Resample linescan models.
+  // Get pointers to the underlying CSM cameras, as need to manipulate
+  // those directly. These will result in changes to the input cameras.
+  std::vector<asp::CsmModel*> csm_models;
+  initResampleCsmCams(opt, opt.camera_models, csm_models);
+
+  // Preparations if having a rig
+  bool have_rig = (opt.rig_config != "");
+  std::vector<RigCamInfo> rig_cam_info;
+  std::vector<double> ref_to_curr_sensor_vec;
+  TimestampMap timestamp_map;
+  if (have_rig)
+    populateRigCamInfo(rig, opt.image_files, opt.camera_files, csm_models, 
+                       opt.cam2group, opt.use_initial_rig_transforms,
+                       // Outputs
+                       rig_cam_info, ref_to_curr_sensor_vec, timestamp_map);
+  
+  // Make a list of all the image pairs to find matches for. Some quantities
+  // below are not needed but are part of the API.
+  std::map<std::pair<int, int>, std::string> match_files;
+  if (opt.isis_cnet.empty() && opt.nvm.empty()) {
+    // TODO(oalexan1): Make this into a function
+    bool external_matches = true;
+    bool got_est_cam_positions = false;
+    double position_filter_dist = -1.0;
+    std::vector<vw::Vector3> estimated_camera_gcc;
+    bool have_overlap_list = false;
+    std::set<std::pair<std::string, std::string>> overlap_list;
+    std::vector<std::pair<int,int>> all_pairs;
+    asp::determine_image_pairs(// Inputs
+                              opt.overlap_limit, opt.match_first_to_last,  
+                              external_matches,
+                              opt.image_files, 
+                              got_est_cam_positions, position_filter_dist,
+                              estimated_camera_gcc, have_overlap_list, overlap_list,
+                              // Output
+                              all_pairs);
+
+    // List existing match files. This can take a while.
+    vw_out() << "Computing the list of existing match files.\n";
+    std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
+                                                opt.match_files_prefix,  
+                                                opt.out_prefix);
+    std::set<std::string> existing_files;
+    asp::listExistingMatchFiles(prefix, existing_files);
+
+    // TODO(oalexan1): Make this into a function
+    // Load match files
+    for (size_t k = 0; k < all_pairs.size(); k++) {
+      int i = all_pairs[k].first;
+      int j = all_pairs[k].second;
+      std::string const& image1_path  = opt.image_files[i];  // alias
+      std::string const& image2_path  = opt.image_files[j];  // alias
+      std::string const& camera1_path = opt.camera_files[i]; // alias
+      std::string const& camera2_path = opt.camera_files[j]; // alias
+      // Load match files from a different source
+      std::string match_file 
+        = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
+                              opt.out_prefix, image1_path, image2_path);
+      // The external match file does not exist, don't try to load it
+      if (existing_files.find(match_file) == existing_files.end())
+        continue;
+      match_files[std::make_pair(i, j)] = match_file;
+    }
+  }
+    
+  if (match_files.empty() && opt.isis_cnet.empty() && opt.nvm.empty())
+    vw::vw_throw(vw::ArgumentErr() 
+             << "No match files, ISIS cnet, or nvm file found. Check if your match "
+             << "files exist and if they satisfy the naming convention "
+             << "<prefix>-<image1>__<image2>.match.\n");
+
+  // Build control network and perform triangulation with adjusted input cameras
+  ba::ControlNetwork cnet("jitter_solve");
+  if (opt.isis_cnet != "") {
+    asp::IsisCnetData isisCnetData; // isis cnet (if loaded)
+    vw::vw_out() << "Reading ISIS control network: " << opt.isis_cnet << "\n";
+    asp::loadIsisCnet(opt.isis_cnet, opt.image_files,
+                      cnet, isisCnetData); // outputs
+  } else if (opt.nvm != "") {
+      // Assume the features are stored shifted relative to optical center
+      bool nvm_no_shift = false;
+      std::vector<Eigen::Affine3d> world_to_cam; // poses will not be used
+      std::map<std::string, Eigen::Vector2d> optical_offsets;
+      rig::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift, 
+                         cnet, world_to_cam, optical_offsets); // outputs
+  } else {
+    bool triangulate_control_points = true;
+    bool success = vw::ba::build_control_network(triangulate_control_points,
+                                                cnet, // output
+                                                opt.camera_models, opt.image_files,
+                                                match_files, opt.min_matches,
+                                                opt.min_triangulation_angle*(M_PI/180.0),
+                                                opt.forced_triangulation_distance,
+                                                opt.max_pairwise_matches);
+    if (!success)
+      vw::vw_throw(vw::ArgumentErr()
+              << "Failed to build a control network. Check the bundle adjustment directory "
+              << "for matches and if the match files satisfy the naming convention. "
+              << "Or, consider removing all .vwip and "
+              << ".match files and increasing the number of interest points "
+              << "using --ip-per-image or --ip-per-tile, or decreasing --min-matches, "
+              << "and then re-running bundle adjustment.\n");
+  }
+  
+  if (!opt.gcp_files.empty()) {
+    int num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
+    checkGcpRadius(opt.datum, cnet);
+    vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
+  }
+  
+  // TODO(oalexan1): Is it possible to avoid using CRNs?
+  asp::CRNJ crn;
+  crn.from_cnet(cnet);
+  
+  if ((int)crn.size() != opt.camera_models.size()) 
+    vw_throw(ArgumentErr() << "Book-keeping error, the size of CameraRelationNetwork "
+             << "must equal the number of images.\n");
+
+  // Flag as outliers points with initial reprojection error bigger than
+  // a certain amount. This assumes that the input cameras are very accurate.
+  std::set<int> outliers;
+  flag_initial_outliers(cnet, crn, opt.camera_models, opt.max_init_reproj_error,  
+                        // Output
+                        outliers);
+  vw_out() << "Removed " << outliers.size() 
+    << " outliers based on initial reprojection error.\n";
+  
+  // It is convenient to compute these inside the first pass rather than outside
+  std::vector<vw::Vector3> orig_cam_positions;
+  std::vector<double> orig_tri_points_vec;
+  
+  // Do this many passes
+  for (int pass = 0; pass < opt.num_passes; pass++)
+    jitterSolvePass(pass, have_rig, opt, crn, rig_cam_info, 
+                    timestamp_map,
+                    // Outputs
+                    cnet, outliers, csm_models,
+                    orig_cam_positions, orig_tri_points_vec, rig, 
+                    ref_to_curr_sensor_vec);
   
   return;
 }
