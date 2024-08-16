@@ -848,12 +848,12 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   asp::CRNJ crn;
   crn.from_cnet(cnet);
 
-  if (opt.num_ba_passes <= 0)
+  if (opt.num_passes <= 0)
     vw_throw(ArgumentErr() << "Error: Expecting at least one bundle adjust pass.\n");
   
-  bool remove_outliers = (opt.num_ba_passes > 1);
+  bool remove_outliers = (opt.num_passes > 1);
   double final_cost = 0.0;
-  for (int pass = 0; pass < opt.num_ba_passes; pass++) {
+  for (int pass = 0; pass < opt.num_passes; pass++) {
 
     if (opt.apply_initial_transform_only)
       continue;
@@ -1308,7 +1308,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("ip-per-image", po::value(&opt.ip_per_image)->default_value(0),
      "How many interest points to detect in each image (default: automatic determination). It is overridden by --ip-per-tile if provided.")
     ("num-passes",
-     po::value(&opt.num_ba_passes)->default_value(2),
+     po::value(&opt.num_passes)->default_value(2),
      "How many passes of bundle adjustment to do, with given number of iterations in each "
      "pass. For more than one pass, outliers will be removed between passes using "
      "--remove-outliers-params, and re-optimization will take place. Residual files and a "

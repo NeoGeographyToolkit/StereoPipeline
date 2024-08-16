@@ -80,7 +80,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
     image_list, camera_list, mapprojected_data_list,
     fixed_image_list, camera_position_uncertainty_str;
   int overlap_limit, min_matches, max_pairwise_matches, num_iterations,
-    ip_edge_buffer_percent, max_num_reference_points;
+    ip_edge_buffer_percent, max_num_reference_points, num_passes;
   bool have_overlap_list;
   std::set<std::pair<std::string, std::string>> overlap_list;
   std::string overlap_list_file, auto_overlap_params, datum_str, proj_str;
@@ -104,7 +104,8 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
                    camera_position_robust_threshold(0.0), camera_weight(-1.0),
                    rotation_weight(0.0), tri_weight(0.0),
                    robust_threshold(0.0), min_matches(0),
-                   num_iterations(0), overlap_limit(0), have_overlap_list(false),
+                   num_iterations(0), num_passes(0), 
+                   overlap_limit(0), have_overlap_list(false),
                    camera_type(BaCameraType_Other), max_num_reference_points(-1),
                    datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM, 
                                                 "User Specified Spheroid",

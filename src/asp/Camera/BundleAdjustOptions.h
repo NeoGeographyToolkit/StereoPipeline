@@ -43,7 +43,6 @@ struct BaOptions: public asp::BaBaseOptions {
     csv_format_str, csv_srs, csv_proj4_str, disparity_list,
     dem_file_for_overlap;
   double semi_major, semi_minor, position_filter_dist;
-  int num_ba_passes;
   std::string remove_outliers_params_str;
   std::vector<double> intrinsics_limits;
   boost::shared_ptr<vw::ba::ControlNetwork> cnet;
@@ -71,7 +70,6 @@ struct BaOptions: public asp::BaBaseOptions {
              save_intermediate_cameras(false),
              fix_gcp_xyz(false), solve_intrinsics(false), 
              semi_major(0), semi_minor(0), position_filter_dist(-1),
-             num_ba_passes(2), 
              ip_detect_method(0), num_scales(-1), 
              pct_for_overlap(-1), skip_rough_homography(false),
              individually_normalize(false), use_llh_error(false), 

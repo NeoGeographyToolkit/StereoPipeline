@@ -245,6 +245,10 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "Save the model state of optimized CSM cameras as part of the .cub files. Any prior "
      "version and any SPICE data will be deleted. Mapprojected images obtained with prior "
      "version of the cameras must no longer be used in stereo.")
+    ("num-passes",
+     po::value(&opt.num_passes)->default_value(1),
+     "How many passes of jitter solving to do, with given number of iterations in each "
+     "pass. For more than one pass.")
     ("rig-config", po::value(&opt.rig_config)->default_value(""),
      "Assume that the cameras are acquired with a set of rigs with this configuration "
      "file. The intrinsics will be read, but not the transforms between sensors, as those "
@@ -273,7 +277,6 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "coordinate system. The goal is the same, to penalize deviations that are not "
      "aligned with satellite pitch.")
     ;
-
     general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   // TODO(oalexan1): This old option may need to be wiped given the newer
@@ -1001,6 +1004,21 @@ void run_jitter_solve(int argc, char* argv[]) {
   vw_out() << "Removed " << outliers.size() 
     << " outliers based on initial reprojection error.\n";
   
+  std::vector<double> orig_tri_points_vec;
+  
+  // Do this many passes
+  for (int pass = 0; pass < opt.num_passes; pass++) {
+    std::cout << "--pass is " << pass << std::endl;
+  
+  // TODO(oalexan1): This must be a function
+  
+  // If some of the input cameras are frame, need to store position and
+  // quaternion variables for them outside the camera model.
+  // TODO(oalexan1): Revisit this decision now that frame camera
+  // params are no longer private.
+  std::vector<double> frame_params;
+  initFrameCameraParams(csm_models, frame_params);
+  
   // Update tri points from DEM and create anchor xyz from DEM.
   bool have_dem = (!opt.heights_from_dem.empty());
   std::vector<Vector3> dem_xyz_vec;
@@ -1039,18 +1057,11 @@ void run_jitter_solve(int argc, char* argv[]) {
   if (num_cameras < 2)
     vw_throw(ArgumentErr() << "Expecting at least two input cameras.\n");
 
-  // If some of the input cameras are frame, need to store position and
-  // quaternion variables for them outside the camera model.
-  // TODO(oalexan1): Revisit this decision now that frame camera
-  // params are no longer private.
-  std::vector<double> frame_params;
-  initFrameCameraParams(csm_models, frame_params);
-
   // Put the triangulated points in a vector. Update the cnet from the DEM,
   // if we have one. Later will add here the anchor points.
-  std::vector<double> orig_tri_points_vec, tri_points_vec;
+  std::vector<double> local_orig_tri_points_vec, tri_points_vec;
   formTriVec(dem_xyz_vec, have_dem,
-    cnet, orig_tri_points_vec, tri_points_vec); // outputs
+    cnet, local_orig_tri_points_vec, tri_points_vec); // outputs
   
   // Create structures for pixels, xyz, and weights, to be used in optimization
   std::vector<std::vector<Vector2>> pixel_vec;
@@ -1068,10 +1079,14 @@ void run_jitter_solve(int argc, char* argv[]) {
     calcAnchorPoints(opt, interp_anchor_dem, anchor_georef, csm_models,  
                      // Append to these
                      pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
-                     orig_tri_points_vec, tri_points_vec);
-    
-    // The above structures must not be resized anymore, as we will get pointers
-    // to individual blocks within them.
+                     local_orig_tri_points_vec, tri_points_vec);
+  
+  // Save the original triangulated points for the initial pass
+  if (pass == 0)
+    orig_tri_points_vec = local_orig_tri_points_vec;
+      
+  // The above structures must not be resized anymore, as we will get pointers
+  // to individual blocks within them.
 
   // Need this in order to undo the multiplication by weight before saving the residuals
   std::vector<double> weight_per_residual;
@@ -1147,10 +1162,12 @@ void run_jitter_solve(int argc, char* argv[]) {
                          frame_params, weight_per_residual, problem); // outputs
 
   // Save residuals before optimization
-  std::string residual_prefix = opt.out_prefix + "-initial_residuals";
-  saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
-                 tri_points_vec, outliers, weight_per_residual,
-                 pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index);
+  if (pass == 0) {
+    std::string residual_prefix = opt.out_prefix + "-initial_residuals";
+    saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
+                   tri_points_vec, outliers, weight_per_residual,
+                   pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index);
+  }
   
   // Set up the problem
   ceres::Solver::Options options;
@@ -1192,7 +1209,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   asp::calcCameraCenters(opt.camera_models, opt_cam_positions);
 
   // Save residuals after optimization
-  residual_prefix = opt.out_prefix + "-final_residuals";
+  std::string residual_prefix = opt.out_prefix + "-final_residuals";
   saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                  tri_points_vec, outliers, weight_per_residual,
                  pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index);
@@ -1220,6 +1237,9 @@ void run_jitter_solve(int argc, char* argv[]) {
   asp::saveTriOffsetsPerCamera(opt.image_files, outliers,
                                orig_tri_points_vec, tri_points_vec,
                                crn, tri_offsets_file);
+  
+  } // end loop through passes
+  
   return;
 }
 
