@@ -259,7 +259,6 @@ void DGCameraModel::populateCsmModel() {
   // computation failing due to numerical precision issues, which can
   // be traced to the DG camera using a focal length (in pixels) of
   // 2,002,252.25.
-  //this->reset(new CsmModel);
 
   // This sensor is used for Earth only
   vw::cartography::Datum datum("WGS84"); 
@@ -282,17 +281,17 @@ void DGCameraModel::populateCsmModel() {
   // not a boost::shared_ptr reset, it is UsgsAstroLsSensorModel reset.
   m_ls_model->reset();
     
-  m_ls_model->m_nSamples = m_image_size[0]; 
-  m_ls_model->m_nLines   = m_image_size[1];
-  m_ls_model->m_platformFlag = 1; // For order 8 Lagrange interpolation
-  m_ls_model->m_maxElevation =  10000.0; //  10 km
-  m_ls_model->m_minElevation = -10000.0; // -10 km
-  m_ls_model->m_focalLength  =  m_focal_length;
-  m_ls_model->m_zDirection   = 1.0;
-  m_ls_model->m_halfSwath    = 1.0;
+  m_ls_model->m_nSamples         = m_image_size[0];
+  m_ls_model->m_nLines           = m_image_size[1];
+  m_ls_model->m_platformFlag     = 1; // For order 8 Lagrange interpolation
+  m_ls_model->m_maxElevation     = 10000.0; //  10 km
+  m_ls_model->m_minElevation     = -10000.0; // -10 km
+  m_ls_model->m_focalLength      = m_focal_length;
+  m_ls_model->m_zDirection       = 1.0;
+  m_ls_model->m_halfSwath        = 1.0;
   m_ls_model->m_sensorIdentifier = "DigitalGlobeLinescan";
-  m_ls_model->m_majorAxis = this->m_semi_major_axis;
-  m_ls_model->m_minorAxis = this->m_semi_minor_axis;
+  m_ls_model->m_majorAxis        = this->m_semi_major_axis;
+  m_ls_model->m_minorAxis        = this->m_semi_minor_axis;
 
   // The choices below are because of how DigitalGlobe's
   // get_local_pixel_vector() interacts with the

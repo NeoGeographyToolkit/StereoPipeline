@@ -384,9 +384,14 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
     match_filename = asp::stereo_match_filename(opt.session->left_cropped_image(),
                                                 opt.session->right_cropped_image(),
                                                 opt.out_prefix);
-  // The interest points must exist by now
-  if (!fs::exists(match_filename))
-    vw_throw(ArgumentErr() << "Missing IP matches file: " << match_filename);
+  // The interest points must exist by now. But be tolerant of failure, as
+  // this functionality is not critical.
+  if (!fs::exists(match_filename)) {
+    vw::vw_out(vw::WarningMessage) 
+      << "Cannot estimate the convergence angle, as cannot find the match file: " 
+      << match_filename << ".\n";
+    return;
+  }
   
   std::vector<ip::InterestPoint> left_ip, right_ip;
   ip::read_binary_match_file(match_filename, left_ip, right_ip);
