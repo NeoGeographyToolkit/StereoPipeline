@@ -11,11 +11,11 @@ mapproject (:numref:`mapproject`):
   * Add the option ``--query-pixel``.
 
 jitter_solve (:numref:`jitter_solve`):
+  * Do two passes by default. This improves the results.
   * Can model rig constraints between sensors (:numref:`jitter_rig`).
-  * Add an example for the Kaguya Terrain Camera (:numref:`jitter_kaguya`).
+  * Added an example for the Kaguya Terrain Camera (:numref:`jitter_kaguya`).
   * Can use GCP files.
   * Can read a control network from an nvm file.
-  * Do two passes. This improves the results.
       
 stereo_gui (:numref:`stereo_gui`):
   * Changing the image threshold updates the display correctly.

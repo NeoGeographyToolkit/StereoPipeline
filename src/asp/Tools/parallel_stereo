@@ -134,7 +134,7 @@ def sym_link_prev_run(prev_run_prefix, out_prefix):
     mkdir_p(curr_dir)
     
     for ext in ['L.tif', 'R.tif', 'L-cropped.tif', 'R-cropped.tif',
-                'L_sub.tif', 'R_sub.tif', 'Mask_sub.tif', 'D_sub.tif',
+                'L_sub.tif', 'R_sub.tif', 'Mask_sub.tif', 'D_sub.tif', 'D_sub_spread.tif',
                 '.vwip', '.exr', '.match', 'GoodPixelMap.tif',
                 'F.tif', 'stats.tif', 'Mask.tif', 'bathy_mask.tif']:
         files = glob.glob(prev_run_prefix + '*' + ext)

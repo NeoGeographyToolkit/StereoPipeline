@@ -283,15 +283,16 @@ void calc_target_geom(// Inputs
   // override the camera's view on the ground with the custom box.
   // The user needs to know the georeference projected coordinate
   // system (using the query command) to do this.
-  if ( opt.target_projwin != BBox2() ) {
+  if (opt.target_projwin != BBox2()) {
     cam_box = opt.target_projwin;
-    if ( cam_box.min().y() > cam_box.max().y() )
-      std::swap( cam_box.min().y(), cam_box.max().y() );
-    // The adjustments below are possibly to make the maximum
+    if (cam_box.min().y() > cam_box.max().y())
+      std::swap(cam_box.min().y(), cam_box.max().y());
+    // The adjustments below are to make the maximum
     // non-exclusive.
     cam_box.max().x() -= current_resolution; 
-    cam_box.min().y() += current_resolution;
+    cam_box.max().y() -= current_resolution;
   }
+
 
   // In principle the corners of the projection box can be
   // arbitrary.  However, we will force them to be at integer
@@ -313,11 +314,11 @@ void calc_target_geom(// Inputs
   // This polarity checking is to make sure the output has been
   // transposed after going through reprojection. Normally this is
   // the case. Yet with grid data from GMT, it is not.
-  if ( T(0,0) < 0 ) // If X coefficient of affine transform is negative (cols go opposite direction from projected x coords)
+  if (T(0, 0) < 0) // If X coefficient of affine transform is negative (cols go opposite direction from projected x coords)
     T(0,2) = cam_box.max().x();  // The maximum projected X coordinate is the starting offset
   else
     T(0,2) = cam_box.min().x(); // The minimum projected X coordinate is the starting offset
-  T(0,0) =  current_resolution;  // Set col/X conversion to meters per pixel
+  T(0,0) = current_resolution;  // Set col/X conversion to meters per pixel
   T(1,1) = -current_resolution;  // Set row/Y conversion to meters per pixel with a vertical flip (increasing row = down in Y)
   T(1,2) = cam_box.max().y();       // The maximum projected Y coordinate is the starting offset
   if (target_georef.pixel_interpretation() == GeoReference::PixelAsArea) { 
@@ -328,10 +329,14 @@ void calc_target_geom(// Inputs
   target_georef.set_transform(T); // Overwrite the existing transform in target_georef
 
   // Compute output image size in pixels using bounding box in output projected space
-  BBox2i target_image_size = target_georef.point_to_pixel_bbox(cam_box);
-
+  // Do not use point_to_pixel_bbox() as that one exaggerates the size of the box.
+  BBox2i target_image_size;
+  target_image_size.grow(target_georef.point_to_pixel(cam_box.min()));
+  target_image_size.grow(target_georef.point_to_pixel(cam_box.max()));
+  target_image_size.min() = round(target_image_size.min());
+  target_image_size.max() = round(target_image_size.max());
+  
   // Last adjustment, to ensure 0 0 is always in the box corner
-  // TODO(oalexan1): Does cropping require updating the georef ll box?
   target_georef = crop(target_georef, target_image_size.min().x(), 
                        target_image_size.min().y());
 

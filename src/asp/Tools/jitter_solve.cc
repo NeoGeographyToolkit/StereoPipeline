@@ -441,8 +441,11 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   if (opt.anchor_weight < 0)
     vw_throw(ArgumentErr() << "Anchor weight must be non-negative.\n");
 
-  if (opt.anchor_weight > 0 && opt.anchor_dem.empty()) 
-    vw::vw_throw(vw::ArgumentErr() << "If --anchor-weight is positive, set --anchor-dem.\n");
+  if ((opt.anchor_weight > 0  || opt.num_anchor_points_per_image > 0 || 
+       opt.num_anchor_points_per_tile > 0 || opt.num_anchor_points_extra_lines > 0) &&
+      opt.anchor_dem.empty()) 
+    vw::vw_throw(vw::ArgumentErr() << "Anchor points parameters have been specified. "
+                 << "Must set  --anchor-dem.\n");
   
   // Must have at least one pass
   if (opt.num_passes < 1)
@@ -468,6 +471,14 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     vw::vw_throw(vw::ArgumentErr() << "Cannot use --use-initial-rig-transforms, "
                  << "--fix-rig-translations, or --fix-rig-rotations without a rig.\n");
   
+  // If have both anchor DEM and height-from-dem, and these are difrerent, print
+  // a warming that the user should check for their agreement.
+  if (!opt.anchor_dem.empty() && !opt.heights_from_dem.empty() &&
+      opt.anchor_dem != opt.heights_from_dem)
+    vw::vw_out(vw::WarningMessage) 
+      << "The values of --anchor-dem and --heights-from-dem are different. "
+      << "Check (with geodiff) that these are in agreement.\n";
+      
   return;
 }
 

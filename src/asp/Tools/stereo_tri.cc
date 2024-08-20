@@ -794,7 +794,7 @@ void stereo_triangulation(std::string const& output_prefix,
       }
     }
     if (stereo_settings().compute_point_cloud_center_only) {
-      vw_out() << "Computed the point cloud center. Will stop here." << std::endl;
+      vw_out() << "Computed the point cloud center.\n";
       return;
     }
 

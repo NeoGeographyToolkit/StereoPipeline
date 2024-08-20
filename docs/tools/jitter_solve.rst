@@ -174,12 +174,15 @@ subpixel-level accurate matches, and with ``--ip-per-tile 500 --matches-per-tile
 (:numref:`mapip`) is suggested as well.
 
 It is suggested to call ``jitter_solve`` with a large value of
-``--max-pairwise-matches``, such as 40000.
+``--max-pairwise-matches``, such as 40000, or 2-3 times more than that for 
+images with lots of lines and high-frequency jitter. *There must be at least
+a handful of matches for each jitter period.*
 
 Examine the interest point matches in ``stereo_gui``
 (:numref:`stereo_gui_view_ip`). Also examine the produced ``pointmap.csv`` files
 to see the distribution and residuals of interest points
-(:numref:`jitter_err_per_point`).
+(:numref:`jitter_err_per_point`), and if the matches are dense enough given 
+the observed jitter.
 
 This program can read interest point matches in the ISIS control network format,
 using the option ``--isis-cnet``, and from an NVM file, with the option
