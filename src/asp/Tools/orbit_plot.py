@@ -316,7 +316,7 @@ def roll_pitch_yaw(rot_mat, ref_rot_mat):
     inv_ref_rot_mat = np.linalg.inv(ref_rot_mat)
     N = np.matmul(inv_ref_rot_mat, rot_mat)
 
-    return R.from_matrix(np.matmul(N, Tinv)).as_euler('XYZ',degrees=True)
+    return R.from_matrix(np.matmul(N, Tinv)).as_euler('XYZ', degrees=True)
 
 # Return at most this many elements from an array
 def getFirstN(arr, N):
