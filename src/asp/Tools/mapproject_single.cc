@@ -250,9 +250,7 @@ void calc_target_geom(// Inputs
   float auto_res = -1.0;  // will be updated
   bool quick = datum_dem; // The non-quick option does not make sense with huge DEMs.
   try {
-    cam_box = camera_bbox(dem, dem_georef,
-                          target_georef, 
-                          camera_model,
+    cam_box = camera_bbox(dem, dem_georef, target_georef, camera_model,
                           image_size.x(), image_size.y(), auto_res, quick);
   } catch (std::exception const& e) {
     if (opt.target_projwin == BBox2() || calc_target_res) {
@@ -271,8 +269,8 @@ void calc_target_geom(// Inputs
     if (target_georef.is_projected()) {
       current_resolution = opt.mpp; // Use units of meters
     } else { // Not projected, GDC coordinates only.
-      current_resolution = 1/opt.ppd; // Use units of degrees
-                                      // Lat/lon degrees are different so we never want to do this!
+      // Use units of degrees. Lat/lon degrees are different so, this should be avoided.
+      current_resolution = 1/opt.ppd; 
     }
   }
   
