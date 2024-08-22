@@ -738,6 +738,10 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
 void checkGcpRadius(vw::cartography::Datum const& datum, 
                     vw::ba::ControlNetwork const& cnet);
 
+// Some logic for camera position uncertainty, used in bundle_adjust and jitter_solve
+void handleCameraPositionUncertainty(asp::BaBaseOptions & opt,
+                                     bool have_datum);
+
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_CAMERA_H__

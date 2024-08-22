@@ -74,7 +74,7 @@ void compute_residuals(asp::BaBaseOptions const& opt,
     num_expected_residuals += total_num_cam_params;
   if (opt.rotation_weight > 0)
     num_expected_residuals += total_num_cam_params;
-  num_expected_residuals += num_uncertainty_residuals * PIXEL_SIZE;
+  num_expected_residuals += num_uncertainty_residuals * asp::NUM_XYZ_PARAMS;
   num_expected_residuals += reference_vec.size() * PIXEL_SIZE;
   num_expected_residuals += num_cam_position_residuals * param_storage.params_per_camera();
   
@@ -345,7 +345,7 @@ void write_residual_logs(std::string const& residual_prefix,
   }
 
   // Keep track of number of camera uncertainty residuals but don't save those
-  index += PIXEL_SIZE * num_uncertainty_residuals;
+  index += num_uncertainty_residuals * asp::NUM_XYZ_PARAMS;
 
   // List residuals for matching input terrain (lidar)
   if (reference_vec.size() > 0) {

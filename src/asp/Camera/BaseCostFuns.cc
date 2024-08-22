@@ -23,15 +23,17 @@
 namespace asp {
   
 CamUncertaintyError::CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
-                                         vw::Vector2 const& uncertainty, int num_pixel_obs,
+                                         vw::Vector2 const& uncertainty, double num_pixel_obs,
                                          vw::cartography::Datum const& datum,
                                          double camera_position_uncertainty_power):
   m_orig_ctr(orig_ctr), m_uncertainty(uncertainty), m_num_pixel_obs(num_pixel_obs),
   m_camera_position_uncertainty_power(camera_position_uncertainty_power) {
     
-  // Ensure at least one term
-  m_num_pixel_obs = std::max(m_num_pixel_obs, 1);
-    
+  // m_num_pixel_obs must be positive
+  if (m_num_pixel_obs <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "CamUncertaintyError: Invalid num_pixel_obs: "
+              << m_num_pixel_obs << ". It must be positive.\n");
+  
   // The first three parameters are the camera center adjustments.
   m_orig_adj = vw::Vector3(orig_adj[0], orig_adj[1], orig_adj[2]);
 
@@ -44,6 +46,13 @@ CamUncertaintyError::CamUncertaintyError(vw::Vector3 const& orig_ctr, double con
   vw::Vector3 llh = datum.cartesian_to_geodetic(orig_ctr);
   vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
   m_EcefToNed = vw::math::inverse(NedToEcef);
+}
+
+// The signed power is a better-behaved version of pow that respects the sign of the input.
+inline double signed_power(double val, double power) {
+  if (val < 0)
+    return -pow(-val, power);
+  return pow(val, power);
 }
 
 bool CamUncertaintyError::operator()(const double* cam_adj, double* residuals) const {
@@ -64,11 +73,13 @@ bool CamUncertaintyError::operator()(const double* cam_adj, double* residuals) c
   horiz /= m_uncertainty[0];
   vert  /= m_uncertainty[1];
   
-  // In the final sum of squares, each term will end up being differences
-  // raised to m_camera_position_uncertainty_power power.
-  double p = m_camera_position_uncertainty_power / 4.0;
-  residuals[0] = sqrt(m_num_pixel_obs) * pow(dot_prod(horiz, horiz), p);
-  residuals[1] = sqrt(m_num_pixel_obs) * pow(vert * vert, p);
+  // In the final sum of squares, each term will end up being differences raised
+  // to m_camera_position_uncertainty_power power. Multiplying here by
+  // sqrt(m_num_pixel_obs) was making the constraint too strict.
+  double p = m_camera_position_uncertainty_power / 2.0;
+  residuals[0] = signed_power(horiz[0], p);
+  residuals[1] = signed_power(horiz[1], p);
+  residuals[2] = signed_power(vert, p);
 
   return true;
 }

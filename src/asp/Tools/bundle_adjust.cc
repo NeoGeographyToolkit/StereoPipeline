@@ -435,8 +435,9 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
       vw::Vector3 orig_ctr = orig_cam_positions[icam];
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
       double * cam_ptr  = param_storage.get_camera_ptr(icam);
+      int param_len = 6; // bundle_adjust and jitter_solve expect different lengths
       ceres::CostFunction* cost_function 
-        = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, 
+        = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, param_len,
                                       opt.camera_position_uncertainty[icam],
                                       num_pixels_per_cam[icam], opt.datum,
                                       opt.camera_position_uncertainty_power);
@@ -1086,6 +1087,16 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "min max pairs and are applied in the order [focal length, optical center, other "
      "intrinsics] until all of the limits are used. Check the documentation to determine "
      "how many intrinsic parameters are used for your cameras.")
+    ("camera-position-uncertainty",  
+     po::value(&opt.camera_position_uncertainty_str)->default_value(""),
+     "A list having on each line the image name and the horizontal and vertical camera "
+     "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
+     "cameras to within the given values, potentially at the expense of accuracy.")
+    ("camera-position-uncertainty-power",  
+     po::value(&opt.camera_position_uncertainty_power)->default_value(16.0),
+     "A higher value makes the cost function rise more steeply when "
+     "--camera-position-uncertainty is close to being violated. This is an advanced "
+      "option. The default should be good enough.")
     ("camera-positions", 
      po::value(&opt.camera_position_file)->default_value(""),
      "CSV file containing estimated position of each camera in ECEF coordinates. For this "
@@ -1316,17 +1327,6 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "disk.")
     ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
      "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
-    ("camera-position-uncertainty",  
-     po::value(&opt.camera_position_uncertainty_str)->default_value(""),
-     "A list having on each line the image name and the horizontal and vertical camera "
-     "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
-     "cameras to within the given values, potentially at the expense of accuracy. The "
-     "default is to use instead --camera-position-weight, which is a soft constraint.")
-    ("camera-position-uncertainty-power",  
-     po::value(&opt.camera_position_uncertainty_power)->default_value(16.0),
-     "A higher value makes the cost function rise more steeply when "
-     "--camera-position-uncertainty is close to being violated. This is an advanced "
-      "option. The default should be good enough.")
     ("remove-outliers-params", 
      po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 5.0 8.0", "'pct factor err1 err2'"),
      "Outlier removal based on percentage, when more than one bundle adjustment pass is "
@@ -2046,68 +2046,8 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   // If opt.camera_position_uncertainty is non-empty, read this file. It 
   // has the image name and the uncertainty in the camera position.
   bool have_camera_position_uncertainty = !opt.camera_position_uncertainty_str.empty();
-  if (have_camera_position_uncertainty) {
-    
-    // Create map from image name to index
-    std::map<std::string, int> image_name_to_index;
-    for (int i = 0; i < (int)opt.image_files.size(); i++) 
-      image_name_to_index[opt.image_files[i]] = i;
-    
-    // Resize opt.camera_position_uncertainty to the number of images
-    opt.camera_position_uncertainty.resize(opt.image_files.size(), vw::Vector2(0, 0));
-    
-    // Read the uncertainties per image
-    bool have_small_uncertainty = false;
-    std::string image_name;
-    double horiz = 0, vert = 0; 
-    std::ifstream ifs(opt.camera_position_uncertainty_str.c_str());
-    while (ifs >> image_name >> horiz >> vert) {
-      auto it = image_name_to_index.find(image_name);
-      if (it == image_name_to_index.end())
-        vw_throw(ArgumentErr() << "Image " << image_name 
-                 << " as read from " << opt.camera_position_uncertainty_str
-                 << " is not among the input images.\n");
-      int index = it->second;
-      opt.camera_position_uncertainty[index] = Vector2(horiz, vert);
-      
-      if (horiz < 0.2 || vert < 0.2)
-        have_small_uncertainty = true;
-    }
-    
-    if (have_small_uncertainty) {
-      // This is an observed problem. Small uncertainty makes it hard for the solver.
-      opt.parameter_tolerance = std::min(opt.parameter_tolerance, 1e-10);
-      vw::vw_out(vw::WarningMessage) 
-        << "The specified camera uncertainties are under 0.2. The solver may "
-        << "take a long time converging. Reduce the number of iterations if needed. "
-        << "Also consider setting --parameter-tolerance 1e-12.\n";
-    }
-    
-    // Ensure each horizontal and vertical uncertainty is positive
-    for (int i = 0; i < (int)opt.image_files.size(); i++) {
-      if (opt.camera_position_uncertainty[i][0] <= 0 || 
-          opt.camera_position_uncertainty[i][1] <= 0)
-       vw::vw_throw(vw::ArgumentErr() 
-                    << "The camera uncertainty for each image must be set and be positive.\n");
-    }  
-  
-    // When there is camera position uncertainty, the other camera weights must be 0.    
-    if (opt.camera_position_weight > 0) {
-      vw::vw_out() << "Setting --camera-position-weight to 0 as "
-                   << "--camera-position-uncertainty  is positive.\n";
-      opt.camera_position_weight = 0;
-    }
-    
-    if (opt.camera_weight > 0) {
-      vw::vw_out() << "Setting --camera-weight to 0 as --camera-position-uncertainty "
-                    << "is positive.\n";
-      opt.camera_weight = 0;
-    }  
-    
-    if (!have_datum)
-      vw::vw_throw(vw::ArgumentErr() 
-              << "Cannot use camera uncertainties without a datum. Set --datum.\n");
-  }
+  if (have_camera_position_uncertainty)
+   asp::handleCameraPositionUncertainty(opt, have_datum); 
 
   // Set camera weight to 0 if camera position weight is positive
   if (opt.camera_position_weight > 0) {

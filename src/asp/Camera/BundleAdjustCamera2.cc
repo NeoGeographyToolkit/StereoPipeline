@@ -1932,4 +1932,68 @@ void checkGcpRadius(vw::cartography::Datum const& datum,
   return;  
 }
 
+// Some logic for camera position uncertainty, used in bundle_adjust and jitter_solve
+void handleCameraPositionUncertainty(asp::BaBaseOptions & opt, bool have_datum) {
+  
+  // Create map from image name to index
+  std::map<std::string, int> image_name_to_index;
+  for (int i = 0; i < (int)opt.image_files.size(); i++) 
+    image_name_to_index[opt.image_files[i]] = i;
+  
+  // Resize opt.camera_position_uncertainty to the number of images
+  opt.camera_position_uncertainty.resize(opt.image_files.size(), vw::Vector2(0, 0));
+  
+  // Read the uncertainties per image from file
+  std::string image_name;
+  double horiz = 0, vert = 0; 
+  std::ifstream ifs(opt.camera_position_uncertainty_str.c_str());
+  
+  if (!ifs.good())
+    vw_throw(ArgumentErr() << "Cannot read camera position uncertainty from: "
+              << opt.camera_position_uncertainty_str << ".\n");
+    
+  while (ifs >> image_name >> horiz >> vert) {
+    auto it = image_name_to_index.find(image_name);
+    if (it == image_name_to_index.end())
+      vw_throw(ArgumentErr() << "Image " << image_name 
+                << " as read from " << opt.camera_position_uncertainty_str
+                << " is not among the input images.\n");
+    int index = it->second;
+    opt.camera_position_uncertainty[index] = Vector2(horiz, vert);
+  }
+
+  // This constraint requires the solver to work harder to converge.
+  opt.parameter_tolerance = std::min(opt.parameter_tolerance, 1e-10);
+  
+  // Ensure each horizontal and vertical uncertainty is positive
+  for (int i = 0; i < (int)opt.image_files.size(); i++) {
+    if (opt.camera_position_uncertainty[i][0] <= 0 || 
+        opt.camera_position_uncertainty[i][1] <= 0)
+      vw::vw_throw(vw::ArgumentErr() 
+                  << "The camera uncertainty for each image must be set and be positive.\n");
+  }  
+
+  // The power must be positive
+  if (opt.camera_position_uncertainty_power <= 0)
+    vw::vw_throw(vw::ArgumentErr() 
+                << "The value of --camera-position-uncertainty-power must be positive.\n");
+
+  // When there is camera position uncertainty, the other camera weights must be 0.    
+  if (opt.camera_position_weight > 0) {
+    vw::vw_out() << "Setting --camera-position-weight to 0 as "
+                  << "--camera-position-uncertainty is positive.\n";
+    opt.camera_position_weight = 0;
+  }
+  
+  if (opt.camera_weight > 0) {
+    vw::vw_out() << "Setting --camera-weight to 0 as --camera-position-uncertainty "
+                  << "is positive.\n";
+    opt.camera_weight = 0;
+  }  
+  
+  if (!have_datum)
+    vw::vw_throw(vw::ArgumentErr() 
+            << "Cannot use camera uncertainties without a datum. Set --datum.\n");
+}
+
 } // end namespace asp

@@ -921,9 +921,114 @@ void addGcpConstraint(asp::BaBaseOptions     const& opt,
   } // End loop through xyz
 }
 
+// Add hard camera constraints. Be generous with the uncertainty. 
+void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
+                                  std::set<int>                    const& outliers,
+                                  asp::CRNJ                        const& crn,
+                                  std::vector<asp::CsmModel*>      const& csm_models,
+                                  std::vector<std::vector<double>> const& count_per_cam,
+                                  double                                  anchor_weight,
+                                  bool                                    have_rig,
+                                  rig::RigSet                      const& rig,
+                                  std::vector<asp::RigCamInfo>     const& rig_cam_info,
+                                  // Outputs
+                                  std::vector<double>                & frame_params,
+                                  std::vector<double>                & weight_per_residual, 
+                                  ceres::Problem                     & problem) {
+
+  // First pass is for interest point matches, and second pass is for anchor points
+  for (int pass = 0; pass < 2; pass++) {
+    for (int icam = 0; icam < (int)crn.size(); icam++) {
+      
+      // With a rig, only the ref sensor has rotation constraints 
+      if (have_rig && !rig.isRefSensor(rig_cam_info[icam].sensor_id))
+        continue;
+      
+      double count = count_per_cam[pass][icam];
+      if (count <= 0) 
+        continue; // no reprojection errors for this camera
+    
+      int param_len = NUM_XYZ_PARAMS;
+      
+      UsgsAstroLsSensorModel * ls_model
+        = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+      UsgsAstroFrameSensorModel * frame_model
+        = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+        
+      if (ls_model != NULL) {
+        
+        // There are multiple position parameters per camera. Divide the ip
+        // count between them. Note: It was not found helpful to add such a
+        // weight to the CameraUncertaintyError. But the logic below is still
+        // useful for skipping cameras with no pixels.
+        double numPos = ls_model->m_positions.size() / double(NUM_XYZ_PARAMS);
+        double localCount = 1.0 / numPos;
+
+        // Adjust for the anchor weight
+        if (pass == 1)
+          localCount = localCount * anchor_weight;
+        if (localCount <= 0) 
+          continue;
+        
+        for (int ip = 0; ip < numPos; ip++) {
+
+          // Must have both a pointer and the vector, as dictated by the API
+          double * cam_ptr = &ls_model->m_positions[ip * NUM_XYZ_PARAMS];
+          vw::Vector3 orig_cam(cam_ptr[0], cam_ptr[1], cam_ptr[2]);
+          ceres::CostFunction* cost_function
+                  = CamUncertaintyError::Create(orig_cam, cam_ptr, param_len,
+                                        opt.camera_position_uncertainty[icam],
+                                        localCount, opt.datum,
+                                        opt.camera_position_uncertainty_power);
+          // This is a hard constraint, so we use a trivial loss function        
+          ceres::LossFunction* loss_function = new ceres::TrivialLoss();
+          problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
+          
+          for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+            weight_per_residual.push_back(1.0); // To ensure correct bookkeeping
+        }
+        
+      } else if (frame_model != NULL) {
+      
+        // Same logic as for bundle_adjust
+        // There is only one position per camera
+        // Must have both a pointer and the vector, as dictated by the API
+        double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+        vw::Vector3 orig_cam(curr_params[0], curr_params[1], curr_params[2]);
+
+        // Adjust for the anchor weight
+        double localCount = 1.0; // count;
+        if (pass == 1)
+          localCount = 1.0 * anchor_weight; // count
+        if (localCount <= 0) 
+          continue;
+
+        ceres::CostFunction* cost_function
+          = CamUncertaintyError::Create(orig_cam, curr_params, param_len,
+                                        opt.camera_position_uncertainty[icam],
+                                        localCount, opt.datum,
+                                        opt.camera_position_uncertainty_power);
+        // This is a hard constraint, so we use a trivial loss function        
+        ceres::LossFunction* loss_function = new ceres::TrivialLoss();
+        problem.AddResidualBlock(cost_function, loss_function,
+                                &curr_params[0]);
+        
+        for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+          weight_per_residual.push_back(1.0); // To ensure correct bookkeeping
+          
+      } else {
+        vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+      }
+    } // end loop through cameras
+  } // end loop through passes
+
+  return;
+}
+
 // Add camera constraints that are proportional to the number of reprojection errors.
 // This requires going through some of the same motions as in addReprojCamErrs().
-void addCamPositionConstraint(asp::BaBaseOptions               const& opt,
+// Use instead addHardCamPositionConstraint().
+void addSoftCamPositionConstraint(asp::BaBaseOptions           const& opt,
                               std::set<int>                    const& outliers,
                               asp::CRNJ                        const& crn,
                               std::vector<asp::CsmModel*>      const& csm_models,
@@ -949,7 +1054,7 @@ void addCamPositionConstraint(asp::BaBaseOptions               const& opt,
       double count = count_per_cam[pass][icam];
       if (count <= 0) 
         continue; // no reprojection errors for this camera
-      
+
       // We know the median weight to use, and how many residuals were added.
       // Based on the CERES loss function formula, adding N loss functions each 
       // with weight w and robust threshold t is equivalent to adding one loss 
@@ -995,15 +1100,18 @@ void addCamPositionConstraint(asp::BaBaseOptions               const& opt,
         ceres::LossFunction* loss_function = new ceres::CauchyLoss(combined_th);
         problem.AddResidualBlock(cost_function, loss_function,
                                 &curr_params[0]); // translation starts here
-        
+
         for (int c = 0; c < NUM_XYZ_PARAMS; c++)
           weight_per_residual.push_back(combined_wt);
             
       } else {
          vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
       }
+
     }
   }
+
+  return;
 }
 
 void addQuatNormRotationConstraints(

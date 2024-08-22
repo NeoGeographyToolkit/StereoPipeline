@@ -197,8 +197,16 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      po::value(&opt.num_anchor_points_extra_lines)->default_value(0),
      "Start placing anchor points this many lines before first image line "
      "and after last image line. Applies only to linescan cameras.")
-    ("rotation-weight", po::value(&opt.rotation_weight)->default_value(0.0),
-     "A higher weight will penalize more deviations from the original camera orientations.")
+    ("camera-position-uncertainty",  
+     po::value(&opt.camera_position_uncertainty_str)->default_value(""),
+     "A list having on each line the image name and the horizontal and vertical camera "
+     "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
+     "cameras to within the given values, potentially at the expense of accuracy.")
+    ("camera-position-uncertainty-power",  
+     po::value(&opt.camera_position_uncertainty_power)->default_value(16.0),
+     "A higher value makes the cost function rise more steeply when "
+     "--camera-position-uncertainty is close to being violated. This is an advanced "
+      "option. The default should be good enough.")
     ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.0),
      "A soft constraint to keep the camera positions close to the original values. "
      "It is meant to prevent a wholesale shift of the cameras. It can impede "
@@ -213,6 +221,10 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "is to reduce pixel reprojection errors, even if that results in big differences "
      "in the camera positions. It is suggested to not modify this value, "
      "and adjust instead --camera-position-weight.")
+    ("rotation-weight", po::value(&opt.rotation_weight)->default_value(0.0),
+     "A higher weight will penalize more deviations from the original camera "
+     "orientations. This is not recommended. Use instead ground constraints and "
+     "--camera-position-uncertainty.")
     ("quat-norm-weight", po::value(&opt.quat_norm_weight)->default_value(1.0),
      "How much weight to give to the constraint that the norm of each quaternion must be 1.")
     ("roll-weight", po::value(&opt.roll_weight)->default_value(0.0),
@@ -402,6 +414,11 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   if (opt.heights_from_dem_robust_threshold <= 0.0) 
     vw_throw(ArgumentErr() 
              << "The value of --heights-from-robust-threshold must be positive.\n");
+
+  bool have_camera_position_uncertainty = !opt.camera_position_uncertainty_str.empty();
+  bool have_datum = true; // Jitter solving always expects a datum
+  if (have_camera_position_uncertainty)
+   asp::handleCameraPositionUncertainty(opt, have_datum); 
 
   if (opt.rotation_weight < 0)
     vw_throw(ArgumentErr() << "Rotation weight must be non-negative.\n");
@@ -1010,8 +1027,17 @@ void jitterSolvePass(int                                 pass,
                    tri_points_vec, weight_per_residual, problem);
 
   // Add the constraint to keep the camera positions close to initial values
+  if (opt.camera_position_uncertainty.size() > 0) 
+    addHardCamPositionConstraint(opt, outliers, crn, csm_models, count_per_cam,
+                                 opt.anchor_weight,
+                                 have_rig, rig, rig_cam_info,
+                                 // Outputs
+                                 frame_params, weight_per_residual, problem);
+
+  // Add another type of constraint to keep the camera positions close to initial values.
+  // The earlier one is recommended as this one was not fully sorted out.
   if (opt.camera_position_weight > 0) 
-    addCamPositionConstraint(opt, outliers, crn, csm_models, weight_per_cam, count_per_cam,
+    addSoftCamPositionConstraint(opt, outliers, crn, csm_models, weight_per_cam, count_per_cam,
                              have_rig, rig, rig_cam_info,
                              // Outputs
                              frame_params, weight_per_residual, problem);

@@ -226,40 +226,40 @@ GCP can be used as well (:numref:`bagcp`).
 Camera constraints
 ^^^^^^^^^^^^^^^^^^
 
-The option ``--camera-position-weight``, with a  default of 0.0 (so it is off by
-default), constrains how much the camera positions can move. This is a soft
-constraint and is given less priority than reducing the pixel reprojection
-errors. It can still impede the optimization process, so it is suggested to
-use it with caution.
+If the position uncertainties per camera are known, the option
+``--camera-position-uncertainty`` can be used. This sets hard
+constraints on how much each camera position can move horizontally and
+vertically, in meters, in the local North-East-Down coordinate system of each
+camera. See :numref:`ba_options` for usage.
 
-This value is a multiplier, representing the ratio of strength of the camera
-position constraint versus the pixel reprojection error constraint. Internally
-the constraint adapts to the mean local ground sample distance, number of
-interest points, and per-pixel uncertainty (1 sigma). The implementation is very
-analogous to the triangulation constraint (:numref:`ba_ground_constraints`).
+When using hard constraints in bundle adjustment, caution should be exercised as
+they can impact the optimization process. It is not recommended to set
+uncertainties below 0.2 meters, as this may result in slow convergence or even
+failure to converge. It is better be generous with the uncertainties in either
+case.
 
 It is suggested to examine the camera change report
 (:numref:`ba_camera_offsets`) and pixel reprojection report
 (:numref:`ba_errors_per_camera`) to see the effect of this constraint. 
+
+The option ``--camera-position-weight``, with a default of 0.0 (so it is off by
+default), offers a soft constraint, and is given less priority than reducing the
+pixel reprojection errors. This was shown to impede the optimization process.
+Use instead the option ``--camera-position-uncertainty``.
+
+This weight is a multiplier, representing the ratio of strength of the camera
+position constraint versus the pixel reprojection error constraint. Internally
+the constraint adapts to the mean local ground sample distance, number of
+interest points, and per-pixel uncertainty (1 sigma). The implementation is very
+analogous to the triangulation constraint (:numref:`ba_ground_constraints`).
 
 An additional modifier to this constraint is the option
 ``--camera-position-robust-threshold``. This is a robust threshold, with a
 default of 0.1, that will attenuate big differences in camera position. Its
 documentation has more details. 
  
-If the position uncertainties per camera are known, the option
-``--camera-position-uncertainty`` can be used instead. This sets hard
-constraints on how much each camera position can move horizontally and
-vertically, in meters, in the local North-East-Down coordinate system of each
-camera. 
-
-When using hard constraints in bundle adjustment, caution should be exercised as
-they can impact the optimization process. It is not recommended to set
-uncertainties below 0.2 meters, as this may result in slow convergence or even
-failure to converge.
-
-It is suggested to not use the option ``--rotation-weight``, as camera position
-and ground position constraints are usually sufficient.
+It is suggested not to use the option ``--rotation-weight``, as camera position
+and ground constraints are usually sufficient.
 
 Use cases
 ~~~~~~~~~
@@ -1031,13 +1031,25 @@ Command-line options
     big differences in the triangulated points. It is suggested to not modify
     this value, and adjust instead ``--tri-weight``.
 
+--camera-position-uncertainty <string (default: "")>
+    A list having on each line the image name and the horizontal and vertical
+    camera position uncertainty (1 sigma, in meters). This strongly constrains
+    the movement of cameras to within the given values, potentially at the
+    expense of accuracy. See :numref:`ba_cam_constraints` for details. 
+    See also ``--camera-position-uncertainty-power``.
+
+--camera-position-uncertainty-power <double (default: 16.0)>
+    A higher value makes the cost function rise more steeply when
+    ``--camera-position-uncertainty`` is close to being violated. This is an
+    advanced option. The default should be good enough.
+
 --camera-position-weight <double (default: 0.0)>
     A soft constraint to keep the camera positions close to the original values.
-    It is meant to prevent a wholesale shift of the cameras. It can impede 
-    the reduction in reprojection errors. It adjusts to the ground sample
-    distance and the number of interest points in the images. The computed
-    discrepancy is attenuated with ``--camera-position-robust-threshold``. See
-    ``--camera-position-uncertainty`` for a hard constraint.
+    It is meant to prevent a wholesale shift of the cameras. It can impede the
+    reduction in reprojection errors. It adjusts to the ground sample distance
+    and the number of interest points in the images. The computed discrepancy is
+    attenuated with ``--camera-position-robust-threshold``. See
+    :numref:`ba_cam_constraints` for details.
  
 --camera-position-robust-threshold <double (default: 0.1)>
     The robust threshold to attenuate large discrepancies between initial and
@@ -1427,19 +1439,6 @@ Command-line options
     that fall outside the image and weights that are non-positive, NaN, or equal
     to nodata will be ignored. See :numref:`limit_ip` for details.
 
---camera-position-uncertainty <string (default: "")>
-    A list having on each line the image name and the horizontal and vertical
-    camera position uncertainty (1 sigma, in meters). This strongly constrains
-    the movement of cameras to within the given values, potentially at the
-    expense of accuracy. The default is to use instead
-    ``--camera-position-weight``, which is a soft constraint. See
-    :numref:`ba_cam_constraints` for details. 
-
---camera-position-uncertainty-power <double (default: 16.0)>
-    A higher value makes the cost function rise more steeply when
-    ``--camera-position-uncertainty`` is close to being violated. This is an
-    advanced option. The default should be good enough.
-    
 --propagate-errors
     Propagate the errors from the input cameras to the triangulated
     points for all pairs of match points, and produce a report having

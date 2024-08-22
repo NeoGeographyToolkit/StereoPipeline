@@ -72,6 +72,57 @@ struct XYZError {
   vw::Vector3 m_xyz_sigma;
 };
 
+/// This cost function imposes a rather hard constraint on camera center
+/// horizontal and vertical motion. It does so by knowing how many reprojection
+/// errors exist for this camera and making this cost function big enough to
+/// overcome then when the motion is going out of bounds. The residual here is
+/// raised to 4th power and will be squared when added to the cost function.
+/// Two residuals are computed, for horizontal and vertical motion.
+struct CamUncertaintyError {
+  
+  CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
+                      vw::Vector2 const& uncertainty, double num_pixel_obs,
+                      vw::cartography::Datum const& datum,
+                      double camera_position_uncertainty_power);
+    
+  bool operator()(const double* cam_adj, double* residuals) const;
+  
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* 
+    Create(vw::Vector3 const& orig_ctr, double const* orig_adj, int param_len,
+           vw::Vector2 const& uncertainty, double num_pixel_obs,
+           vw::cartography::Datum const& datum, 
+           double camera_position_uncertainty_power) {
+    // 2 residuals and 3 translation variables. For bundle_adjust must add the
+    // rotation variables, as otherwise CERES says some params have inconsistent
+    // sizes. ceres::RIDDER works better than ceres::CENTRAL for this cost
+    // function, especially when the uncertainty is 0.1 m or less.
+    if (param_len == 3)
+     return (new ceres::NumericDiffCostFunction<CamUncertaintyError, ceres::CENTRAL, 3, 3>
+            (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, num_pixel_obs, 
+                                     datum, camera_position_uncertainty_power)));
+    else if (param_len == 6)
+     return (new ceres::NumericDiffCostFunction<CamUncertaintyError, ceres::CENTRAL, 3, 6>
+            (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, num_pixel_obs, 
+                                     datum, camera_position_uncertainty_power)));
+    else
+      vw::vw_throw(vw::ArgumentErr() << "CamUncertaintyError: Invalid param_len: "
+               << param_len << ". Must be 3 or 6.\n");
+  }
+
+  // orig_ctr is the original camera center, orig_cam_ptr is the original
+  // adjustment (resulting in the original center). The uncertainty is
+  // in meters.
+  vw::Vector3 m_orig_ctr;
+  vw::Vector3 m_orig_adj;
+  int m_param_len;
+  vw::Vector2 m_uncertainty;
+  double m_num_pixel_obs; // use double, so we can do a fractional amount of the constraint
+  vw::Matrix3x3 m_EcefToNed;
+  double m_camera_position_uncertainty_power;
+};
+
 } // end namespace asp
 
 #endif //__ASP_CAMERA_BASE_COST_FUNS_H__

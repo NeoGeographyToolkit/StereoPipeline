@@ -119,9 +119,25 @@ void addGcpConstraint(asp::BaBaseOptions     const& opt,
                       std::vector<double>    & weight_per_residual, // append
                       ceres::Problem         & problem);
 
-// Add camera constraints that are proportional to the number of reprojection errors.
+// Add hard camera constraints. Be generous with the uncertainty. 
+void addHardCamPositionConstraint(asp::BaBaseOptions           const& opt,
+                                  std::set<int>                    const& outliers,
+                                  asp::CRNJ                        const& crn,
+                                  std::vector<asp::CsmModel*>      const& csm_models,
+                                  std::vector<std::vector<double>> const& count_per_cam,
+                                  double                                  anchor_weight,
+                                  bool                                    have_rig,
+                                  rig::RigSet                      const& rig,
+                                  std::vector<asp::RigCamInfo>     const& rig_cam_info,
+                                  // Outputs
+                                  std::vector<double>                & frame_params,
+                                  std::vector<double>                & weight_per_residual, 
+                                  ceres::Problem                     & problem);
+
+// Add soft camera constraints that are proportional to the number of reprojection errors.
 // This requires going through some of the same motions as in addReprojCamErrs().
-void addCamPositionConstraint(asp::BaBaseOptions               const& opt,
+// This was not fully understood. Use instead addHardCamPositionConstraint().
+void addSoftCamPositionConstraint(asp::BaBaseOptions           const& opt,
                               std::set<int>                    const& outliers,
                               asp::CRNJ                        const& crn,
                               std::vector<asp::CsmModel*>      const& csm_models,
