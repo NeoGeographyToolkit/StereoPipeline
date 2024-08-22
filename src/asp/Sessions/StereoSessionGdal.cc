@@ -49,7 +49,7 @@ namespace asp {
 /// Returns the target datum to use for a given camera model
 vw::cartography::Datum StereoSessionCsm::get_datum(const vw::camera::CameraModel* cam,
                                                    bool use_sphere_for_non_earth) const {
-  
+
   // Peek at the .cub file to get the planet name without reading
   // it as an ISIS camera (which can fail unless the ISISDATA
   // folder exists, and for CSM that is not guaranteed.)
@@ -78,7 +78,8 @@ vw::cartography::Datum StereoSessionCsm::get_datum(const vw::camera::CameraModel
   bool is_mars =  (std::abs(mars.semi_major_axis()  - radius1)  < 1e-7 &&
                    std::abs(mars.semi_minor_axis()  - radii[2]) < 1e-7);
   
-  if (boost::to_lower_copy(spheroid_name).find("unknown") != std::string::npos) {
+  if (boost::to_lower_copy(spheroid_name).find("unknown") != std::string::npos ||
+      spheroid_name.empty()) {
     // Unknown datum. Try to fill in the name from above.
     if (is_wgs84)
       return wgs84;

@@ -782,7 +782,9 @@ void asp::read_vec(std::string const& filename, std::vector<double> & vals) {
   ifs.close();
 }
 
-// Read the target name (planet name) from the plain text portion of an ISIS cub file
+// Read the target name (planet name) from the plain text portion of an ISIS cub
+// file or from a CSM file. Will return "UNKNOWN" if the target name cannot be
+// found.
 std::string asp::read_target_name(std::string const& filename) {
 
   std::string target = "UNKNOWN";
@@ -817,7 +819,18 @@ std::string asp::read_target_name(std::string const& filename) {
     if (! (iss >> val >> target)) 
       continue;
 
+    // Wipe any commas, quotes, or spaces (this is for CSM files)
+    boost::replace_all(target, ",", "");
+    boost::replace_all(target, "\"", "");
+    boost::replace_all(target, " ", "");
+    
     boost::to_upper(target);
+    
+    // If empty, return UNKNOWN
+    if (target == "")
+       target = "UNKNOWN";
+    
+    // Found a target, no need to go on   
     return target;
   }
   

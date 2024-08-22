@@ -514,9 +514,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     // Guess the datum from the camera model    
     asp::SessionPtr session;
     vw::cartography::Datum cam_datum;
-    bool found_cam_datum = asp::datum_from_camera(opt.sample_file, opt.sample_file,
-                                                  // Outputs
-                                                  opt.stereo_session, session, cam_datum);
+    bool found_cam_datum = false;
+    try {
+      found_cam_datum = asp::datum_from_camera(opt.image_file, opt.sample_file,
+                                           // Outputs
+                                           opt.stereo_session, session, cam_datum);
+    } catch (std::exception const& e) {
+      // Use here an empty session, as the sample file need not be the same type
+      // as the input camera.
+      std::string local_session = ""; 
+      found_cam_datum = asp::datum_from_camera(opt.image_file, opt.sample_file,
+                                               // Outputs
+                                               local_session, session, cam_datum);
+    }
+    
     // For pinhole session the guessed datum may be unreliable, so warn only
     bool warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
     if (found_cam_datum && !opt.datum_str.empty())
