@@ -484,8 +484,9 @@ Additionally, an option such as::
 
   --rig-sensor-rotation-angles 0.0,5.0
 
-can be used to rotate each sensor in the sensor plane by the corresponding angle
-in degrees.
+can be invoked to rotate each sensor in the sensor plane by the corresponding
+angle in degrees. The in-sensor rotations get applied before the sensor and
+ground offsets.
 
 After the images and cameras are saved, the rig that created the data will be
 modified to make each sensor transform relative to the first sensor. The rig

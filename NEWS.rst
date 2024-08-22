@@ -14,6 +14,7 @@ jitter_solve (:numref:`jitter_solve`):
   * Do two passes by default. This improves the results.
   * Can model rig constraints between sensors (:numref:`jitter_rig`).
   * Added an example for the Kaguya Terrain Camera (:numref:`jitter_kaguya`).
+  * Added the option ``--camera-position-uncertainty`` (:numref:`jitter_camera`).
   * Can use GCP files.
   * Can read a control network from an nvm file.
       

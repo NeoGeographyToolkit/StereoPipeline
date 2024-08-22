@@ -286,7 +286,9 @@ Solving for jitter::
     --num-anchor-points 5000                             \
     --num-anchor-points-extra-lines 1000                 \
     --anchor-weight 0.01                                 \
-    --num-iterations 10                                  \
+    --num-iterations 20                                  \
     -o jitter/run
 
+The value of ``--anchor-weight`` can be increased to 0.1 - 0.5, if oscillations
+are seen at the starting and ending image lines.
 

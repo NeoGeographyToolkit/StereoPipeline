@@ -752,13 +752,22 @@ void adjustRigForOffsets(SatSimOptions const& opt,
     
     // Need a rotation for the sensor to reflect the direction from sensor to ground
     vw::Vector3 z = normalize(ground_pt);
+    
+    // This is a minor bugfix. For the sensor that has the trivial orientation,
+    // eliminate the numerical noise in the z axis. This way, the results with
+    // no rig and with a trivial rig are the same.
+    if (sensor_offset_x == 0 && sensor_offset_y == 0 && 
+        ground_offset_x == 0 && ground_offset_y == 0 ||
+        norm_2(z - vw::Vector3(0, 0, 1.0)) < 1e-10) 
+      z = vw::Vector3(0, 0, 1.0);
+    
     // Adjust x to be perpendicular to z
     vw::Vector3 x(1, 0, 0);
     x = x - dot_prod(x, z) * z;
     x = normalize(x);
     // y must be perpendicular to x and z
     vw::Vector3 y = cross_prod(z, x);
-
+    
     // Compute the rotation due to offsets
     Eigen::Matrix<double, 4, 4> offset_mat = Eigen::Matrix<double, 4, 4>::Identity();
     for (int r = 0; r < 3; r++) {
@@ -785,6 +794,7 @@ void adjustRigForOffsets(SatSimOptions const& opt,
     // Update the rig. Rotations get applied first.
     rig.ref_to_cam_trans[s].matrix() = offset_mat * rot_mat;
   }
+  
 }
 
 // A function that will take as input the endpoints and will compute the
@@ -1036,22 +1046,24 @@ void genCamPoses(SatSimOptions & opt,
 }
 
 // Generate a prefix that will be used for image names and camera names
-std::string genPrefix(SatSimOptions const& opt, int i, double timestamp, bool is_ref) {
-  
+std::string genPrefix(SatSimOptions const& opt, int i, double timestamp, bool is_ref,
+                      std::string const& suffix) {
+
   std::string ref = ""; 
   if (is_ref) 
     ref = "-ref";
   
   if (!opt.model_time) {
-    return opt.out_prefix + ref + "-" + num2str(10000 + i);
+    // TODO(oalexan1): Use the same function as below to format the number.
+    return opt.out_prefix + "-" + num2str(10000 + i) + suffix + ref;
   } else {
     // If modeling time, will do sprintf with 7 digits before dot and 9 after
     // (with the dot, there will be 17 characters in total). This is to ensure
     // that the time is unique. Use fixed precision. Use leading zeros to ensure
     // that the string is always the same length and will be sorted correctly.
     char buffer[256];
-    snprintf(buffer, sizeof(buffer), "%s%s-%017.9f", 
-             opt.out_prefix.c_str(), ref.c_str(), timestamp);
+    snprintf(buffer, sizeof(buffer), "%s-%017.9f%s%s",
+             opt.out_prefix.c_str(), timestamp, suffix.c_str(), ref.c_str());
     
     return std::string(buffer);
   }
@@ -1194,7 +1206,7 @@ void genPinholeCameras(SatSimOptions      const& opt,
 
     // The suffix is used with the rig
     bool is_ref = false;
-    std::string camName = genPrefix(opt, i, cam_times[i], is_ref) + suffix + ext;
+    std::string camName = genPrefix(opt, i, cam_times[i], is_ref, suffix) + ext;
     cam_names[i] = camName;
 
     // Check if we do a range
@@ -1208,7 +1220,7 @@ void genPinholeCameras(SatSimOptions      const& opt,
 
     if (opt.save_ref_cams) {
       bool is_ref = true;
-      std::string refCamName = genPrefix(opt, i, cam_times[i], is_ref) + suffix + ext;
+      std::string refCamName = genPrefix(opt, i, cam_times[i], is_ref, suffix) + ext;
       vw::vw_out() << "Writing: " << refCamName << std::endl;
       if (opt.save_as_csm)
         csmRefCam.saveState(refCamName);
@@ -1284,7 +1296,6 @@ void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
     int kernel_size = 0;
     if (blur_sigma > 0) {
       kernel_size = vw::compute_kernel_size(blur_sigma);
-      std::cout << "--sigma is " << blur_sigma << ", kernel size is " << kernel_size << std::endl;
       ortho_pixel_box.expand(kernel_size); // to avoid edge effects
     }
 

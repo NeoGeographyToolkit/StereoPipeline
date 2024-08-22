@@ -363,7 +363,7 @@ void genLinescanCameras(double                                 first_line_time,
                              opt.image_size, dem_georef.datum(), sensor_id,
                              positions,  velocities, ref_cam2world, have_rig, ref2sensor,
                              ref_cam); // output
-    std::string ref_filename = opt.out_prefix + "-ref" + suffix + ".json";
+    std::string ref_filename = opt.out_prefix + suffix + "-ref" + ".json";
     ref_cam.saveState(ref_filename);
   }
 
