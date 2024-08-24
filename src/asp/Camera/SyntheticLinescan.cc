@@ -353,6 +353,7 @@ void genLinescanCameras(double                                 first_line_time,
     // ratio = pixelAspectRatio(opt, dem_georef, *ls_cam, dem, height_guess);
   }
   
+  // TODO(oalexan1): Integrate with the logic in genPrefix().
   std::string filename = opt.out_prefix + suffix + ".json";
   ls_cam->saveState(filename);
 
@@ -380,8 +381,8 @@ void genLinescanCameras(double                                 first_line_time,
 // rather than asp::CsmModel type. This is not important as we will
 // abstract it right away to the base class.
 void readLinescanCameras(SatSimOptions const& opt, 
-    std::vector<std::string> & cam_names,
-    std::vector<vw::CamPtr> & cams) {
+                         std::vector<std::string> & cam_names,
+                         std::vector<vw::CamPtr> & cams) {
 
   // Read the camera names
   vw::vw_out() << "Reading: " << opt.camera_list << std::endl;

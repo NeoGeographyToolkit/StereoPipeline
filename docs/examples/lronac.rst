@@ -107,8 +107,8 @@ Here's an example with the unstitched LE images::
 Create a DEM, orthoimage, and error image with ``point2dem``
 (:numref:`point2dem`)::
  
-    point2dem --streographic --auto-proj-center \
-      --errorimage --orthoimage                 \
+    point2dem --stereographic --auto-proj-center \
+      --errorimage --orthoimage                  \
         run/run-PC.tif run/run-L.tif
         
 Check the stereo convergence angle as printed during preprocessing
