@@ -83,14 +83,17 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
     ip_edge_buffer_percent, max_num_reference_points, num_passes;
   bool have_overlap_list;
   std::set<std::pair<std::string, std::string>> overlap_list;
-  std::string overlap_list_file, auto_overlap_params, datum_str, proj_str;
+  std::string overlap_list_file, auto_overlap_params, datum_str, proj_str,
+    csv_format_str, csv_srs, csv_proj4_str, disparity_list;
   bool match_first_to_last, single_threaded_cameras, 
     update_isis_cubes_with_csm_state;
-  double min_triangulation_angle, max_init_reproj_error, robust_threshold, parameter_tolerance;
+  double forced_triangulation_distance, min_triangulation_angle, max_init_reproj_error, 
+    robust_threshold, parameter_tolerance;
   double heights_from_dem_uncertainty, reference_terrain_weight, 
     heights_from_dem_robust_threshold, camera_weight, rotation_weight, 
     camera_position_weight, camera_position_robust_threshold,
-    tri_weight, tri_robust_threshold, camera_position_uncertainty_power;
+    tri_weight, tri_robust_threshold, camera_position_uncertainty_power,
+    max_disp_error;
   std::vector<vw::Vector2> camera_position_uncertainty;    
   vw::Vector<double, 4> remove_outliers_params;
   BACameraType camera_type;
@@ -100,16 +103,18 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   vw::cartography::Datum datum;
   vw::BBox2 proj_win; // Limit input triangulated points to this projwin
 
-  BaBaseOptions(): min_triangulation_angle(0.0), camera_position_weight(0.0),
-                   camera_position_robust_threshold(0.0), camera_weight(-1.0),
-                   rotation_weight(0.0), tri_weight(0.0),
-                   robust_threshold(0.0), min_matches(0),
-                   num_iterations(0), num_passes(0), 
-                   overlap_limit(0), have_overlap_list(false),
-                   camera_type(BaCameraType_Other), max_num_reference_points(-1),
-                   datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM, 
-                                                "User Specified Spheroid",
-                                                "Reference Meridian", 1, 1, 0)) {}
+  BaBaseOptions(): 
+   forced_triangulation_distance(-1), 
+   min_triangulation_angle(0.0), camera_position_weight(0.0),
+   camera_position_robust_threshold(0.0), camera_weight(-1.0),
+   rotation_weight(0.0), tri_weight(0.0),
+   robust_threshold(0.0), min_matches(0),
+   num_iterations(0), num_passes(0), 
+   overlap_limit(0), have_overlap_list(false),
+   camera_type(BaCameraType_Other), max_num_reference_points(-1),
+   datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM, 
+                                "User Specified Spheroid",
+                                "Reference Meridian", 1, 1, 0)) {}
 };
   
 // A structure to hold percentiles of given sorted values. This sorts the inputs.

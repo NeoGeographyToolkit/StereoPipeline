@@ -31,7 +31,7 @@ struct BaOptions: public asp::BaBaseOptions {
   std::string cnet_file, vwip_prefix,
     cost_function, mapprojected_data, gcp_from_mapprojected;
   int ip_per_tile, ip_per_image, matches_per_tile;
-  double forced_triangulation_distance, overlap_exponent, ip_triangulation_max_error;
+  double overlap_exponent, ip_triangulation_max_error;
   int instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
   bool save_intermediate_cameras, approximate_pinhole_intrinsics,
     init_camera_using_gcp, disable_pinhole_gcp_init,
@@ -40,7 +40,7 @@ struct BaOptions: public asp::BaBaseOptions {
     ip_normalize_tiles, ip_debug_images, stop_after_stats, stop_after_matching,
     skip_matching, apply_initial_transform_only, save_vwip, propagate_errors;
   std::string camera_position_file, initial_transform_file,
-    csv_format_str, csv_srs, csv_proj4_str, disparity_list,
+    
     dem_file_for_overlap;
   double semi_major, semi_minor, position_filter_dist;
   std::string remove_outliers_params_str;
@@ -48,7 +48,7 @@ struct BaOptions: public asp::BaBaseOptions {
   boost::shared_ptr<vw::ba::ControlNetwork> cnet;
   int ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
-  double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, max_disp_error,
+  double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, 
     auto_overlap_buffer, pct_for_overlap, min_distortion;
   bool skip_rough_homography, enable_rough_homography, disable_tri_filtering,
     enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
@@ -56,7 +56,7 @@ struct BaOptions: public asp::BaBaseOptions {
   vw::Vector2 elevation_limit;   // Expected range of elevation to limit results to.
   vw::BBox2 lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
   vw::Matrix<double> initial_transform;
-  std::string   fixed_cameras_indices_str, flann_method;
+  std::string fixed_cameras_indices_str, flann_method;
   std::set<int> fixed_cameras_indices;
   asp::IntrinsicOptions intrinsics_options;
   vw::Vector2i matches_per_tile_params;
@@ -66,7 +66,7 @@ struct BaOptions: public asp::BaBaseOptions {
   // Make sure all values are initialized, even though they will be
   // over-written later.
   BaOptions(): ip_per_tile(0), ip_per_image(0), 
-             forced_triangulation_distance(-1), overlap_exponent(0), 
+             overlap_exponent(0), 
              save_intermediate_cameras(false),
              fix_gcp_xyz(false), solve_intrinsics(false), 
              semi_major(0), semi_minor(0), position_filter_dist(-1),

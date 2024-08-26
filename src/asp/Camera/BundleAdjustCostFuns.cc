@@ -662,8 +662,10 @@ void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
                                         residual_ptrs);
  if (opt.camera_type == asp::BaCameraType_Other) {
 
-    boost::shared_ptr<CeresBundleModelBase> left_wrapper (new AdjustedCameraBundleModel(left_camera_model ));
-    boost::shared_ptr<CeresBundleModelBase> right_wrapper(new AdjustedCameraBundleModel(right_camera_model));
+    boost::shared_ptr<CeresBundleModelBase> 
+      left_wrapper (new AdjustedCameraBundleModel(left_camera_model));
+    boost::shared_ptr<CeresBundleModelBase> 
+      right_wrapper(new AdjustedCameraBundleModel(right_camera_model));
     ceres::CostFunction* cost_function =
       BaDispXyzError::Create(opt.max_disp_error, opt.reference_terrain_weight,
         reference_xyz, interp_disp, left_wrapper, right_wrapper,
@@ -913,7 +915,7 @@ void addTriConstraint(asp::BaOptions           const& opt,
 // stereo with the option --unalign-disparity. If there are n images, there must
 // be n-1 disparities, from each image to the next.
 void addReferenceTerrainCostFunction(
-         asp::BaOptions      & opt,
+         asp::BaOptions  & opt,
          asp::BAParams       & param_storage, 
          ceres::Problem      & problem,
          std::vector<vw::Vector3> & reference_vec,
@@ -1010,7 +1012,7 @@ void addReferenceTerrainCostFunction(
 
       // Call function to select the appropriate Ceres residual block to add.
       add_disparity_residual_block(reference_xyz, interp_disp[icam],
-                                    icam, icam+1, // left icam and right icam
+                                    icam, icam + 1, // left icam and right icam
                                     param_storage, opt, problem);
     }
     tpc.report_incremental_progress(inc_amount);

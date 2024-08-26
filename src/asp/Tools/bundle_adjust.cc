@@ -1770,15 +1770,15 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   if (opt.reference_terrain != "") {
     std::string file_type = asp::get_cloud_type(opt.reference_terrain);
     if (file_type == "DEM") {
-    // TODO(oalexan1): What if a different planet is specified in the images?
       vw::cartography::GeoReference georef;
       bool is_good = vw::cartography::read_georeference(georef, opt.reference_terrain);
       if (!is_good)
         vw_throw(ArgumentErr() 
                  << "The reference terrain DEM does not have a georeference.\n");
+      // Ensure the datum read from the DEM agrees with the one from the cameras/user
       if (is_good && have_datum)
         vw::checkDatumConsistency(opt.datum, georef.datum(), warn_only);
-      if (opt.datum_str == ""){
+      if (opt.datum_str == "") {
         opt.datum = georef.datum();
         opt.datum_str = opt.datum.name();
         have_datum = true;

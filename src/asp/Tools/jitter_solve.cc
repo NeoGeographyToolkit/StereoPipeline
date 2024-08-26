@@ -77,7 +77,6 @@ struct Options: public asp::BaBaseOptions {
     use_initial_rig_transforms;
   double quat_norm_weight, anchor_weight, roll_weight, yaw_weight;
   std::map<int, int> cam2group;
-  double forced_triangulation_distance;
 };
     
 void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {

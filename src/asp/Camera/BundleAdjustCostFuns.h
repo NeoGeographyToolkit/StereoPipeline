@@ -433,22 +433,6 @@ private:
 /// From the input options select the correct Ceres loss function.
 ceres::LossFunction* get_loss_function(std::string const& cost_function, double th);
 
-/// Add error source for projecting a 3D point into the camera.
-void add_reprojection_residual_block(vw::Vector2 const& observation, 
-                                     vw::Vector2 const& pixel_sigma,
-                                     int point_index, int camera_index, 
-                                     asp::BAParams & param_storage,
-                                     asp::BaOptions const& opt,
-                                     ceres::Problem & problem);
-
-/// Add residual block for the error using reference xyz.
-void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
-                                  vw::ImageViewRef<DispPixelT> const& interp_disp, 
-                                  int left_cam_index, int right_cam_index,
-                                  asp::BAParams & param_storage,
-                                  asp::BaOptions const& opt,
-                                  ceres::Problem & problem);
-
 // Pixel reprojection error. Note: cam_residual_counts and num_pixels_per_cam
 // serve different purposes. 
 void addPixelReprojCostFun(asp::BaOptions                         const& opt,
