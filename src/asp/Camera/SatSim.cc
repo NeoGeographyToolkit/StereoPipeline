@@ -1045,29 +1045,30 @@ void genCamPoses(SatSimOptions & opt,
   return;
 }
 
-// Generate a prefix that will be used for image names and camera names
-std::string genPrefix(SatSimOptions const& opt, int i, double timestamp, bool is_ref,
-                      std::string const& suffix) {
+// Generate a prefix for produced image and camera names.
+std::string camPrefix(SatSimOptions const& opt, int iFrame, double timestamp, bool isRef,
+                      bool isFrame, std::string const& suffix) {
 
   std::string ref = ""; 
-  if (is_ref) 
+  if (isRef) 
     ref = "-ref";
   
-  if (!opt.model_time) {
-    // TODO(oalexan1): Use the same function as below to format the number.
-    return opt.out_prefix + "-" + num2str(10000 + i) + suffix + ref;
+  // Prepare the timestamp string. If modeling time, will do sprintf with 7
+  // digits before dot and 9 after (with the dot, there will be 17 characters in
+  // total). This is to ensure that the time is unique. Use fixed precision. Use
+  // leading zeros to ensure that the string is always the same length and will
+  // be sorted correctly.
+  char time[256];
+  if (!isFrame) {
+    time[0] = '\0'; // empty string
   } else {
-    // If modeling time, will do sprintf with 7 digits before dot and 9 after
-    // (with the dot, there will be 17 characters in total). This is to ensure
-    // that the time is unique. Use fixed precision. Use leading zeros to ensure
-    // that the string is always the same length and will be sorted correctly.
-    char buffer[256];
-    snprintf(buffer, sizeof(buffer), "%s-%017.9f%s%s",
-             opt.out_prefix.c_str(), timestamp, suffix.c_str(), ref.c_str());
-    
-    return std::string(buffer);
+    if (!opt.model_time) 
+      snprintf(time, sizeof(time), "-%d", 10000 + iFrame); // 5 characters, starts with 1
+    else
+      snprintf(time, sizeof(time), "-%017.9f", timestamp); // 17 characters, 9 after dot
   }
-  return "";
+  
+  return opt.out_prefix + time + suffix + ref;
 }
 
 // A function to read Pinhole cameras from disk
@@ -1205,8 +1206,8 @@ void genPinholeCameras(SatSimOptions      const& opt,
       ext = ".tsai"; 
 
     // The suffix is used with the rig
-    bool is_ref = false;
-    std::string camName = genPrefix(opt, i, cam_times[i], is_ref, suffix) + ext;
+    bool isRef = false, isFrame = true;
+    std::string camName = camPrefix(opt, i, cam_times[i], isRef, isFrame, suffix) + ext;
     cam_names[i] = camName;
 
     // Check if we do a range
@@ -1219,8 +1220,8 @@ void genPinholeCameras(SatSimOptions      const& opt,
       pinPtr->write(camName);
 
     if (opt.save_ref_cams) {
-      bool is_ref = true;
-      std::string refCamName = genPrefix(opt, i, cam_times[i], is_ref, suffix) + ext;
+      bool isRef = true;
+      std::string refCamName = camPrefix(opt, i, cam_times[i], isRef, isFrame, suffix) + ext;
       vw::vw_out() << "Writing: " << refCamName << std::endl;
       if (opt.save_as_csm)
         csmRefCam.saveState(refCamName);
@@ -1515,7 +1516,7 @@ void genImages(SatSimOptions const& opt,
   // image/camera rather than a set.
   if (opt.sensor_type == "pinhole") {
     if (!skipCamera(0, opt)) {
-      std::string image_list = opt.out_prefix + "-images" + suffix +".txt"; 
+      std::string image_list = opt.out_prefix + "-images" + suffix + ".txt"; 
       vw::vw_out() << "Writing: " << image_list << std::endl;
       asp::write_list(image_list, image_names);
     } else {

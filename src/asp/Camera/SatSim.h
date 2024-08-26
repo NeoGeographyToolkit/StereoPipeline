@@ -62,6 +62,10 @@ void readPinholeCameras(SatSimOptions const& opt,
     std::vector<std::string> & cam_names,
     std::vector<vw::CamPtr> & cams);
 
+// Generate a prefix for produced image and camera names.
+std::string camPrefix(SatSimOptions const& opt, int iFrame, double timestamp, bool isRef,
+                      bool isFrame, std::string const& suffix);
+
 // A function to create and save the cameras. Assume no distortion, and pixel
 // pitch = 1.
 void genPinholeCameras(SatSimOptions          const& opt, 

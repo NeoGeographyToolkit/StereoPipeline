@@ -353,18 +353,24 @@ void genLinescanCameras(double                                 first_line_time,
     // ratio = pixelAspectRatio(opt, dem_georef, *ls_cam, dem, height_guess);
   }
   
-  // TODO(oalexan1): Integrate with the logic in genPrefix().
-  std::string filename = opt.out_prefix + suffix + ".json";
+  double timestamp = std::numeric_limits<double>::quiet_NaN();
+  int iFrame = -1; // No frame index for linescan cameras
+  bool isRef = false;
+  bool isFrame = false;
+  std::string ref= ""; 
+  std::string filename = camPrefix(opt, iFrame, timestamp, isRef, isFrame, suffix) + ".json";
   ls_cam->saveState(filename);
 
   if (opt.save_ref_cams) {
-      asp::CsmModel ref_cam;
-      populateCsmLinescanRig(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
-                             opt.focal_length, local_optical_center, 
-                             opt.image_size, dem_georef.datum(), sensor_id,
-                             positions,  velocities, ref_cam2world, have_rig, ref2sensor,
-                             ref_cam); // output
-    std::string ref_filename = opt.out_prefix + suffix + "-ref" + ".json";
+    asp::CsmModel ref_cam;
+    populateCsmLinescanRig(first_line_time, dt_line, t0_ephem, dt_ephem, t0_quat, dt_quat,
+                           opt.focal_length, local_optical_center, 
+                           opt.image_size, dem_georef.datum(), sensor_id,
+                           positions,  velocities, ref_cam2world, have_rig, ref2sensor,
+                           ref_cam); // output
+    isRef = true;
+    std::string ref_filename = 
+      camPrefix(opt, iFrame, timestamp, isRef, isFrame, suffix) + ".json";
     ref_cam.saveState(ref_filename);
   }
 
