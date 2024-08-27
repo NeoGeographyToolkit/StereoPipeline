@@ -511,7 +511,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
 void lowres_correlation(ASPGlobalOptions & opt) {
 
   vw_out() << "\n[ " << current_posix_time_string()
-           << " ] : Stage 1 --> LOW-RESOLUTION CORRELATION\n";
+           << " ]: Stage 1 --> LOW-RESOLUTION CORRELATION\n";
 
   // Working out search range if need be
   if (stereo_settings().is_search_defined()) {
@@ -605,7 +605,7 @@ void lowres_correlation(ASPGlobalOptions & opt) {
   }
 
   vw_out() << "\n[ " << current_posix_time_string()
-           << " ] : LOW-RESOLUTION CORRELATION FINISHED\n";
+           << " ]: LOW-RESOLUTION CORRELATION FINISHED\n";
 } // End lowres_correlation
 
 /// This correlator takes a low resolution disparity image as an input
@@ -1594,7 +1594,7 @@ int main(int argc, char* argv[]) {
       ts = ((ts / TILE_MULTIPLE) + 1) * TILE_MULTIPLE;
       
     opt.raster_tile_size = Vector2i(ts, ts);
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION\n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ]: Stage 1 --> CORRELATION\n";
 
     if (stereo_settings().alignment_method == "local_epipolar") {
       // Need to have the low-res 2D disparity to later guide the
@@ -1614,7 +1614,7 @@ int main(int argc, char* argv[]) {
       stereo_correlation_2D(opt);
     }
 
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : CORRELATION FINISHED\n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ]: CORRELATION FINISHED\n";
     
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;

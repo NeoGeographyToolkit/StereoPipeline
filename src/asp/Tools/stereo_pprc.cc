@@ -141,11 +141,6 @@ void check_image_sizes(std::string const& file1, std::string const& file2) {
 /// The main preprocessing function
 void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
-  // Write the image list, that is needed by jitter_solve
-  std::string image_list = opt.out_prefix + "-image_list.txt";
-  std::ofstream list(image_list.c_str());
-  list << opt.in_file1  << ' ' << opt.in_file2  << "\n";
-   
   // Normalize the images, or create symlinks to the original
   // images if the user chose not to normalize.
   std::string left_image_file, right_image_file;
@@ -600,7 +595,7 @@ int main(int argc, char* argv[]) {
   try {
     xercesc::XMLPlatformUtils::Initialize();
   
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 0 --> PREPROCESSING \n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ]: Stage 0 --> PREPROCESSING\n";
 
     stereo_register_sessions();
 
@@ -611,11 +606,11 @@ int main(int argc, char* argv[]) {
                          verbose, output_prefix, opt_vec);
     ASPGlobalOptions opt = opt_vec[0];
 
-    vw_out() << "Using image files:  " << opt.in_file1  << ", " << opt.in_file2  << std::endl;
+    vw_out() << "Image files:  " << opt.in_file1  << ", " << opt.in_file2  << "\n";
     if (opt.cam_file1 != "" || opt.cam_file2 != "") 
-      vw_out() << "Using camera files: " << opt.cam_file1 << ", " << opt.cam_file2 << std::endl;
+      vw_out() << "Camera files: " << opt.cam_file1 << ", " << opt.cam_file2 << "\n";
     if (!opt.input_dem.empty())
-      vw_out() << "Using input DEM: " << opt.input_dem << std::endl;
+      vw_out() << "Input DEM: " << opt.input_dem << "\n";
 
     // We will not adjust the left image size if we do multiview stereo,
     // so we can keep one-to-one correspondence between the several
@@ -627,7 +622,7 @@ int main(int argc, char* argv[]) {
     stereo_preprocessing(adjust_left_image_size, opt);
     asp::estimate_convergence_angle(opt);
     
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : PREPROCESSING FINISHED \n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ]: PREPROCESSING FINISHED\n";
 
      xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;

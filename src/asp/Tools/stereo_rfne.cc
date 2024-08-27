@@ -375,7 +375,7 @@ int main(int argc, char* argv[]) {
     xercesc::XMLPlatformUtils::Initialize();
 
     vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : Stage 3 --> REFINEMENT\n";
+             << " ]: Stage 3 --> REFINEMENT\n";
 
     stereo_register_sessions();
 
@@ -396,7 +396,7 @@ int main(int argc, char* argv[]) {
     stereo_refinement(opt);
 
     vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : REFINEMENT FINISHED \n";
+             << " ]: REFINEMENT FINISHED\n";
 
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;

@@ -504,7 +504,7 @@ int main(int argc, char* argv[]) {
 
   try {
 
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> BLENDING\n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ]: Stage 2 --> BLENDING\n";
 
     stereo_register_sessions();
 
@@ -538,7 +538,7 @@ int main(int argc, char* argv[]) {
       stereo_blending(opt, in_file, out_file);
     }
     
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : BLENDING FINISHED\n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ]: BLENDING FINISHED\n";
 
   } ASP_STANDARD_CATCHES;
 

@@ -843,7 +843,7 @@ int main(int argc, char* argv[]) {
     xercesc::XMLPlatformUtils::Initialize();
 
     vw_out() << "\n[ " << asp::current_posix_time_string() 
-             << " ] : Stage 5 --> TRIANGULATION \n";
+             << " ]: Stage 5 --> TRIANGULATION\n";
 
     asp::stereo_register_sessions();
 
@@ -854,7 +854,7 @@ int main(int argc, char* argv[]) {
     asp::parse_multiview(argc, argv, asp::TriangulationDescription(),
                          verbose, output_prefix, opt_vec);
 
-    if (opt_vec.size() > 1){
+    if (opt_vec.size() > 1) {
       // For multiview, turn on logging to file in the run directory
       // in output_prefix, not just in individual subdirectories.
       asp::log_to_file(argc, argv, opt_vec[0].stereo_default_filename,
@@ -884,7 +884,7 @@ int main(int argc, char* argv[]) {
 
     asp::stereo_triangulation(output_prefix, opt_vec);
 
-    vw_out() << "\n[ " << asp::current_posix_time_string() << " ] : TRIANGULATION FINISHED \n";
+    vw_out() << "\n[ " << asp::current_posix_time_string() << " ]: TRIANGULATION FINISHED\n";
 
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;

@@ -504,7 +504,7 @@ int main(int argc, char* argv[]) {
     xercesc::XMLPlatformUtils::Initialize();
 
     vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : Stage 4 --> FILTERING \n";
+             << " ]: Stage 4 --> FILTERING\n";
 
     // This is probably the right place in which to warn the user about
     // new hole filling behavior.
@@ -531,7 +531,7 @@ int main(int argc, char* argv[]) {
       gotcha_disparity_refinement(opt);
     
     vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : FILTERING FINISHED \n";
+             << " ]: FILTERING FINISHED\n";
 
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
