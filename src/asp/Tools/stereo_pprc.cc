@@ -141,6 +141,11 @@ void check_image_sizes(std::string const& file1, std::string const& file2) {
 /// The main preprocessing function
 void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
+  // Write the image list, that is needed by jitter_solve
+  std::string image_list = opt.out_prefix + "-image_list.txt";
+  std::ofstream list(image_list.c_str());
+  list << opt.in_file1  << ' ' << opt.in_file2  << "\n";
+   
   // Normalize the images, or create symlinks to the original
   // images if the user chose not to normalize.
   std::string left_image_file, right_image_file;
@@ -160,7 +165,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                      left_image_file, right_image_file);
   else // Perform image normalization
     opt.session->preprocessing_hook(adjust_left_image_size,
-                                    opt.in_file1,    opt.in_file2,
+                                    opt.in_file1, opt.in_file2,
                                     left_image_file, right_image_file);
 
   boost::shared_ptr<DiskImageResource>

@@ -457,8 +457,8 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
   
   // Add a cost function meant to tie up to known disparity
   // (option --reference-terrain).
-  std::vector<vw::Vector3> reference_vec;
-  std::vector<ImageViewRef<DispPixelT>> interp_disp; // must be kept in scope
+  std::vector<vw::Vector3> reference_vec; // must be persistent
+  std::vector<ImageViewRef<DispPixelT>> interp_disp; // must be persistent
   if (opt.reference_terrain != "") 
     asp::addReferenceTerrainCostFunction(opt, param_storage, problem, 
                                          reference_vec, interp_disp);
@@ -1136,13 +1136,15 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "A file having a list of images (separated by spaces or newlines) whose cameras should be fixed during optimization.")
     ("fix-gcp-xyz",       po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
      "If the GCP are highly accurate, use this option to not float them during the optimization.")
-    ("csv-format",        po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
-    ("csv-srs",         po::value(&opt.csv_srs)->default_value(""),
-     "The PROJ or WKT string to use to interpret the entries in input CSV files.")
+    ("csv-format", 
+     po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
+    ("csv-srs", 
+     po::value(&opt.csv_srs)->default_value(""),
+     "The PROJ or WKT string for interpreting the entries in input CSV files.")
     ("reference-terrain", po::value(&opt.reference_terrain)->default_value(""),
      "An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, "
      "very close (after alignment) to the stereo result from the given images and cameras "
-     "that can be used as a reference, instead of GCP, to optimize the intrinsics of the "
+     "that can be used as a reference, to optimize the intrinsics of the "
      "cameras.")
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000),
      "Maximum number of (randomly picked) points from the reference terrain to use.")
@@ -1801,17 +1803,14 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     vw_throw(ArgumentErr() 
              << "The value of --heights-from-dem is empty. "
              << "Then it must not be set at all.\n");
-  
   if (!vm["heights-from-dem-uncertainty"].defaulted() &&
       vm["heights-from-dem"].defaulted())
     vw_throw(ArgumentErr() 
              << "The value of --heights-from-dem-uncertainty is set, "
              << "but --heights-from-dem is not set.\n");
-  
   if (opt.heights_from_dem_uncertainty <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be "
               << "positive.\n");
-  
   if (opt.heights_from_dem_robust_threshold <= 0.0) 
     vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be "
               << "positive.\n");

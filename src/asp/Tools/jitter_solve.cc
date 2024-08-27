@@ -42,6 +42,7 @@
 #include <asp/Core/IpMatchingAlgs.h> // Lightweight header for matching algorithms
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/ImageUtils.h>
+#include <asp/Core/PointUtils.h>
 #include <asp/IsisIO/IsisInterface.h>
 #include <asp/Rig/nvm.h>
 
@@ -220,6 +221,28 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "is to reduce pixel reprojection errors, even if that results in big differences "
      "in the camera positions. It is suggested to not modify this value, "
      "and adjust instead --camera-position-weight.")
+    ("reference-terrain", po::value(&opt.reference_terrain)->default_value(""),
+     "An externally provided trustworthy reference terrain to use as a constraint. It can "
+     "be either a DEM or a point cloud in CSV format. It must be well-aligned with the "
+     "input cameras.")
+    ("max-num-reference-points", 
+     po::value(&opt.max_num_reference_points)->default_value(100000000),
+     "Maximum number of (randomly picked) points from the --reference-terrain dataset.")
+    ("stereo-prefix-list", po::value(&opt.stereo_prefix_list)->default_value(""),
+     "List of stereo prefixes (one per line) having disparities for the "
+     "--reference-terrain option.")
+    ("reference-terrain-uncertainty", 
+     po::value(&opt.reference_terrain_uncertainty)->default_value(1.0),
+     "The uncertainty (1 sigma, in meters), for the dataset in --reference-terrain.")
+    ("reference-terrain-robust-threshold",
+     po::value(&opt.reference_terrain_robust_threshold)->default_value(0.1),
+     "The robust threshold, in pixels, fo the option --reference-terrain. It is suggested "
+     "to not modify this value, and adjust instead --reference-terrain-uncertainty.")
+    ("csv-format", 
+     po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
+    ("csv-srs", 
+     po::value(&opt.csv_srs)->default_value(""),
+     "The PROJ or WKT string for interpreting the entries in input CSV files.")
     ("rotation-weight", po::value(&opt.rotation_weight)->default_value(0.0),
      "A higher weight will penalize more deviations from the original camera "
      "orientations. This is not recommended. Use instead ground constraints and "
@@ -414,6 +437,31 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     vw_throw(ArgumentErr() 
              << "The value of --heights-from-robust-threshold must be positive.\n");
 
+  // Options for reference terrain
+  if (!vm["reference-terrain"].defaulted() && opt.reference_terrain.empty())
+    vw_throw(ArgumentErr() 
+             << "The value of --reference-terrain is empty. "
+             << "Then it must not be set at all.\n");
+  if (!vm["reference-terrain-uncertainty"].defaulted() &&
+      vm["reference-terrain"].defaulted())
+    vw_throw(ArgumentErr() 
+             << "The value of --reference-terrain-uncertainty is set, "
+             << "but --reference-terrain is not set.\n");
+  if (opt.reference_terrain_uncertainty <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --reference-terrain-uncertainty must be "
+              << "positive.\n");
+  if (opt.reference_terrain_robust_threshold <= 0.0) 
+    vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be "
+              << "positive.\n");
+  if (!opt.reference_terrain.empty()) {
+    if (opt.stereo_prefix_list.empty())
+      vw_throw(ArgumentErr() 
+               << "Must set --stereo-prefix-list when --reference-terrain is set.\n");
+    if (!opt.rig_config.empty())
+      vw_throw(ArgumentErr() 
+               << "Cannot use --rig-config with --reference-terrain.\n");
+  }
+  
   bool have_camera_position_uncertainty = !opt.camera_position_uncertainty_str.empty();
   bool have_datum = true; // Jitter solving always expects a datum
   if (have_camera_position_uncertainty)
@@ -878,6 +926,27 @@ void saveCsmCameras(std::string const& out_prefix,
   
 }
 
+// TODO(oalexan1): Move this to jitterSolveCostFuns.cc
+void addReferenceTerrainCostFunction(asp::BaBaseOptions        const& opt,
+                                     // Outputs
+                                     ceres::Problem                 & problem,
+                                     std::vector<vw::Vector3>       & reference_vec,
+         std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> & interp_disp) {
+
+  // Some basic sanity checks were done when the inputs were parsed. 
+  
+  // TODO(oalexan1): Iterate over stereo runs.
+  // TODO(oalexan1): Must check for L_cropped.tif, R_cropped.tif which 
+  // must not exist.
+  // TODO(oalexan1): Must check for L.tsai and R.tsai, these should
+  // not exist as that would be epipolar alignment. 
+  std::cout << "---now in addReferenceTerrainCostFunction---" << std::endl;
+  exit(0);
+  
+  // Must do a lot of validation
+  
+}
+
 // Run one pass of solving for jitter. At each pass the cameras we have so far
 // are used to triangulate the points and the DEM constraint is refreshed if
 // applicable, and then the cameras are optimized. More than one pass
@@ -1019,6 +1088,13 @@ void jitterSolvePass(int                                 pass,
                      tri_points_vec,  
                      weight_per_residual,  // append
                      problem);
+  // Add a cost function meant to tie up to known disparity
+  // (option --reference-terrain).
+  // Two structures that must be persistent
+  std::vector<vw::Vector3> reference_vec; 
+  std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> interp_disp; 
+  if (opt.reference_terrain != "") 
+    asp::addReferenceTerrainCostFunction(opt, problem, reference_vec, interp_disp);
 
   // Add the GCP constraint. GCP can come from GCP files or ISIS cnet.
   addGcpConstraint(opt, outliers, cnet,

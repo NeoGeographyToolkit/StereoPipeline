@@ -486,9 +486,9 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
 // stereo with the option --unalign-disparity. If there are n images, there must
 // be n-1 disparities, from each image to the next.
 void addReferenceTerrainCostFunction(
-         asp::BaOptions      & opt,
-         asp::BAParams       & param_storage, 
-         ceres::Problem      & problem,
+         asp::BaOptions           & opt,
+         asp::BAParams            & param_storage, 
+         ceres::Problem           & problem,
          std::vector<vw::Vector3> & reference_vec,
          std::vector<vw::ImageViewRef<DispPixelT>> & interp_disp);
 

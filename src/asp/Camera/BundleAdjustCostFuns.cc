@@ -959,7 +959,7 @@ void addReferenceTerrainCostFunction(
     // to quickly discard most points in the huge reference terrain.
     // Let's hope there is no 360 degree offset when computing
     // the longitude. 
-    if ( asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
+    if (asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0)) {
       vw::Vector3 llh = geo.datum().cartesian_to_geodetic(reference_xyz);
       vw::Vector2 ll  = subvector(llh, 0, 2);
       if (!asp::stereo_settings().lon_lat_limit.contains(ll)) {
@@ -972,7 +972,7 @@ void addReferenceTerrainCostFunction(
     // Iterate over the cameras, add a residual for each point and each camera pair.
     for (int icam = 0; icam < num_cameras - 1; icam++) {
 
-      boost::shared_ptr<CameraModel> left_camera  = opt.camera_models[icam  ];
+      boost::shared_ptr<CameraModel> left_camera  = opt.camera_models[icam];
       boost::shared_ptr<CameraModel> right_camera = opt.camera_models[icam+1];
 
       try {

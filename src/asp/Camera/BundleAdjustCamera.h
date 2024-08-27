@@ -84,12 +84,13 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   bool have_overlap_list;
   std::set<std::pair<std::string, std::string>> overlap_list;
   std::string overlap_list_file, auto_overlap_params, datum_str, proj_str,
-    csv_format_str, csv_srs, csv_proj4_str, disparity_list;
+    csv_format_str, csv_srs, csv_proj4_str, disparity_list, stereo_prefix_list;
   bool match_first_to_last, single_threaded_cameras, 
     update_isis_cubes_with_csm_state;
   double forced_triangulation_distance, min_triangulation_angle, max_init_reproj_error, 
     robust_threshold, parameter_tolerance;
   double heights_from_dem_uncertainty, reference_terrain_weight, 
+    reference_terrain_uncertainty, reference_terrain_robust_threshold,
     heights_from_dem_robust_threshold, camera_weight, rotation_weight, 
     camera_position_weight, camera_position_robust_threshold,
     tri_weight, tri_robust_threshold, camera_position_uncertainty_power,

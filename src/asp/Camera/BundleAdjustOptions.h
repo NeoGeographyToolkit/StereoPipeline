@@ -15,8 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#ifndef __ASP_TOOLS_BUNDLEADJUST_H__
-#define __ASP_TOOLS_BUNDLEADJUST_H__
+#ifndef __ASP_TOOLS_BUNDLE_ADJUST_OPTIONS_H__
+#define __ASP_TOOLS_BUNDLE_ADJUST_OPTIONS_H__
 
 #include <asp/Camera/BundleAdjustCamera.h>
 
@@ -39,9 +39,7 @@ struct BaOptions: public asp::BaBaseOptions {
     fix_gcp_xyz, solve_intrinsics, 
     ip_normalize_tiles, ip_debug_images, stop_after_stats, stop_after_matching,
     skip_matching, apply_initial_transform_only, save_vwip, propagate_errors;
-  std::string camera_position_file, initial_transform_file,
-    
-    dem_file_for_overlap;
+  std::string camera_position_file, initial_transform_file, dem_file_for_overlap;
   double semi_major, semi_minor, position_filter_dist;
   std::string remove_outliers_params_str;
   std::vector<double> intrinsics_limits;
@@ -79,8 +77,8 @@ struct BaOptions: public asp::BaBaseOptions {
   /// Bundle adjustment settings that must be passed to the asp settings
   void copy_to_asp_settings() const;
   
-}; // End class Options
+}; // End class BaOptions
 
 } // end namespace asp
 
-#endif // __ASP_TOOLS_BUNDLEADJUST_H__
+#endif // __ASP_TOOLS_BUNDLE_ADJUST_OPTIONS_H__
