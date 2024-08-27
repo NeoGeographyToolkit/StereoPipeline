@@ -44,7 +44,7 @@ using namespace vw::cartography;
 namespace asp {
 
 // Transform the crop window to be in reference to L.tif
-BBox2i transformed_crop_win(ASPGlobalOptions const& opt){
+BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
 
   BBox2i b = stereo_settings().left_image_crop_win;
   boost::shared_ptr<vw::DiskImageResource> rsrc = 
@@ -241,6 +241,63 @@ void handle_multiview(int argc, char* argv[],
   return;
 }
 
+// If --trans-crop-win is in the input arguments, this is means that we are running
+// stereo for a tile  
+bool is_tile_run(int argc, char* argv[]) {
+  for (int s = 1; s < argc; s++) {
+    if (std::string(argv[s]) == "--trans-crop-win") 
+      return true;
+  }
+  
+  return false;
+}
+
+// Save some info that will be useful for peeking at ar un
+void save_run_info(ASPGlobalOptions const& opt,
+                   std::vector<std::string> const& images, 
+                   std::vector<std::string> const& cameras,
+                   std::string const& input_dem) {
+
+  std::string info_file = opt.out_prefix + "-info.txt";
+  std::ofstream ostr(info_file.c_str());
+  if (!ostr.good())
+    vw_throw(ArgumentErr() << "Failed to open: " << info_file << "\n");
+    
+  // Print the images
+  ostr << "images: ";
+  for (int i = 0; i < (int)images.size(); i++) 
+    ostr << images[i] << " ";
+  ostr << "\n";
+
+  // Print the cameras
+  ostr << "cameras: ";
+  for (int i = 0; i < (int)cameras.size(); i++) 
+    ostr << cameras[i] << " ";
+  ostr << "\n";
+
+  // Print the DEM
+  ostr << "input_dem: " << input_dem << "\n";
+
+  // Print the output prefix
+  ostr << "output_prefix: " << opt.out_prefix << "\n";
+
+  // Print the alignment method
+  ostr << "alignment_method: " << stereo_settings().alignment_method << "\n"; 
+
+  // Print the stereo session
+  ostr << "stereo_session: " << opt.stereo_session << "\n";
+
+  // Print left-image-crop-win
+  auto l = stereo_settings().left_image_crop_win;
+  ostr << "left_image_crop_win: " << l.min().x() << " " << l.min().y() << " " 
+      << l.width() << " " << l.height() << "\n";
+
+  // Print right-image-crop-win
+  auto r = stereo_settings().right_image_crop_win;
+  ostr << "right_image_crop_win: " << r.min().x() << " " << r.min().y() << " " 
+      << r.width() << " " << r.height() << "\n";
+}
+
 // If a stereo program is invoked as:
 // prog <images> <cameras> <output-prefix> [<input_dem>] <other options>
 // with the number of images n >= 2, create n-1 individual
@@ -301,7 +358,10 @@ void parse_multiview(int argc, char* argv[],
                      additional_options, verbose, exit_early, usage,
                      opt_vec); // output
   }
-    
+  
+  // For each stereo command not in a tile, print the run info
+  if (!is_tile_run(argc, argv))
+    save_run_info(opt_vec[0], images, cameras, input_dem);
   
   return;
 }
@@ -1025,16 +1085,14 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
       stereo::StereoModel model(camera_model1.get(), camera_model2.get());
       double error;
       Vector3 point = model(Vector2(), Vector2(), error);
-      if (point != Vector3() // triangulation succeeded
-          && ((dot_prod(cam1_vec, point - cam1_ctr) < 0) ||
-              (dot_prod(cam2_vec, point - cam2_ctr) < 0)   )
-          ){
-        vw_out(WarningMessage)
-          << "Your cameras appear to not to be pointing at the same location! "
-          << "A test vector triangulated backwards through "
-          << "the camera models. You should double check "
-          << "your input models as most likely stereo won't "
-          << "be able to triangulate.\n";
+      if (point != Vector3() && // triangulation succeeded
+          ((dot_prod(cam1_vec, point - cam1_ctr) < 0) ||
+           (dot_prod(cam2_vec, point - cam2_ctr) < 0))) {
+        vw::vw_out(vw::WarningMessage)
+          << "Your cameras appear to not to be pointing at the same location. "
+          << "A test vector triangulated backwards through the camera models. "
+          << "You should double-check your input cameras as most likely stereo "
+          << "will not be able to triangulate.\n";
       }
       
     } catch (const std::exception& e) {
