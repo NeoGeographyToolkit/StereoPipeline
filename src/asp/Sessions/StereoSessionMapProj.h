@@ -43,8 +43,8 @@ namespace asp {
     virtual std::string name() const = 0;
     virtual bool isMapProjected() const { return true; } // TODO: Delete?
 
-    virtual tx_type tx_left () const {return tx_left_map_trans ();}
-    virtual tx_type tx_right() const {return tx_right_map_trans();}
+    virtual vw::TransformPtr tx_left () const {return tx_left_map_trans ();}
+    virtual vw::TransformPtr tx_right() const {return tx_right_map_trans();}
   };
   
   

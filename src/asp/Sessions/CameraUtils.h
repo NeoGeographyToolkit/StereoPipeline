@@ -16,16 +16,17 @@
 // __END_LICENSE__
 
 
-/// \file Camerautils.h
+/// \file CameraUtils.h
 /// Camera utilities that need the stereo session
 
-#ifndef __STEREO_SESSION_CAMERAUTILS_H__
-#define __STEREO_SESSION_CAMERAUTILS_H__
+#ifndef __STEREO_SESSION_CAMERA_UTILS_H__
+#define __STEREO_SESSION_CAMERA_UTILS_H__
 
 #include <vector>
 #include <string>
 
 #include <vw/Camera/CameraModel.h>
+#include <vw/Math/Transform.h>
 #include <vw/FileIO/GdalWriteOptions.h>
 
 namespace vw {
@@ -51,7 +52,7 @@ void load_cameras(std::vector<std::string> const& image_files,
                   // Outputs
                   std::string & stereo_session, // may change
                   bool & single_threaded_cameras,
-                  std::vector<boost::shared_ptr<vw::camera::CameraModel>> & camera_models);
+                  std::vector<vw::CamPtr> & camera_models);
 
 // Guess the based on camera position. Usually one arrives here for pinhole
 // cameras.
@@ -59,12 +60,21 @@ bool guessDatum(double cam_center_radius, vw::cartography::Datum & datum);
   
 // Find the datum based on cameras. Return true on success.
 bool datum_from_camera(std::string const& image_file, 
-                        std::string const& camera_file,
-                        std::string & stereo_session, // may change
-                        asp::SessionPtr & session, // may be null on input
-                        // Outputs
-                        vw::cartography::Datum & datum);
+                       std::string const& camera_file,
+                       std::string & stereo_session, // may change
+                       asp::SessionPtr & session, // may be null on input
+                       // Outputs
+                       vw::cartography::Datum & datum);
+
+// Given a list of stereo prefixes, extract some info about them
+void parseStereoRuns(std::string const& prefix_file,
+                     std::vector<std::string> const& all_image_files,
+                     // Outputs
+                     std::vector<int> & left_indices,
+                     std::vector<int> & right_indices,
+                     std::vector<vw::TransformPtr> & left_trans,
+                     std::vector<vw::TransformPtr> & right_trans);
 
 } // end namespace asp
 
-#endif // __STEREO_SESSION_CAMERAUTILS_H__
+#endif // __STEREO_SESSION_CAMERA_UTILS_H__

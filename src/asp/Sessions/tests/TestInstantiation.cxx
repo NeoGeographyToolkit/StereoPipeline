@@ -53,10 +53,10 @@ TYPED_TEST_CASE( InstantiationTest, SessionTypes );
 TYPED_TEST( InstantiationTest, Typedefs ) {
   try {
     // Verify object for left transform
-    typename TestFixture::SessionT::tx_type left_tx =
+    vw::TransformPtr left_tx =
       this->session.tx_left();
     // Verify object for right transform
-    typename TestFixture::SessionT::tx_type right_tx =
+    vw::TransformPtr right_tx =
       this->session.tx_right();
   } catch ( const vw::Exception& e ) {}
 }

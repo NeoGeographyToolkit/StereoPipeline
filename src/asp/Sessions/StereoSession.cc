@@ -1093,7 +1093,7 @@ void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop,
 
 // TODO: Move this function somewhere else!
 /// Computes a Map2CamTrans given a DEM, image, and a sensor model.
-inline StereoSession::tx_type
+inline vw::TransformPtr
 getTransformFromMapProject(const std::string &input_dem_path,
                            const std::string &img_file_path,
                            boost::shared_ptr<vw::camera::CameraModel> map_proj_model_ptr) {
@@ -1109,51 +1109,46 @@ getTransformFromMapProject(const std::string &input_dem_path,
 
   bool call_from_mapproject = false;
   DiskImageView<float> img(img_file_path);
-  return StereoSession::tx_type(new cartography::Map2CamTrans(map_proj_model_ptr.get(),
+  return vw::TransformPtr(new cartography::Map2CamTrans(map_proj_model_ptr.get(),
                                    image_georef, dem_georef, input_dem_path,
                                    Vector2(img.cols(), img.rows()),
                                    call_from_mapproject));
 }
 
-typename StereoSession::tx_type
-StereoSession::tx_left_homography() const {
+vw::TransformPtr StereoSession::tx_left_homography() const {
   Matrix<double> tx = math::identity_matrix<3>();
   if (stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ||
        stereo_settings().alignment_method == "local_epipolar") {
     read_matrix(tx, m_out_prefix + "-align-L.exr");
   }
-  return tx_type(new vw::HomographyTransform(tx));
+  return vw::TransformPtr(new vw::HomographyTransform(tx));
 }
 
-typename StereoSession::tx_type
-StereoSession::tx_right_homography() const {
+vw::TransformPtr StereoSession::tx_right_homography() const {
   Matrix<double> tx = math::identity_matrix<3>();
   if (stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ||
        stereo_settings().alignment_method == "local_epipolar") {
     read_matrix(tx, m_out_prefix + "-align-R.exr");
   }
-  return tx_type(new vw::HomographyTransform(tx));
+  return vw::TransformPtr(new vw::HomographyTransform(tx));
 }
 
-typename StereoSession::tx_type
-StereoSession::tx_identity() const {
+vw::TransformPtr StereoSession::tx_identity() const {
   Matrix<double> tx = math::identity_matrix<3>();
-  return tx_type(new vw::HomographyTransform(tx));
+  return vw::TransformPtr(new vw::HomographyTransform(tx));
 }
 
-
-typename StereoSession::tx_type
-StereoSession::tx_left_map_trans() const {
+vw::TransformPtr StereoSession::tx_left_map_trans() const {
   std::string left_map_proj_image = this->left_cropped_image();
   if (!m_left_map_proj_model)
     vw_throw(ArgumentErr() << "Map projection model not loaded for image "
               << left_map_proj_image);
   return getTransformFromMapProject(m_input_dem, left_map_proj_image, m_left_map_proj_model);
 }
-typename StereoSession::tx_type
-StereoSession::tx_right_map_trans() const {
+
+vw::TransformPtr StereoSession::tx_right_map_trans() const {
   std::string right_map_proj_image = this->right_cropped_image();
   if (!m_right_map_proj_model)
     vw_throw(ArgumentErr() << "Map projection model not loaded for image "

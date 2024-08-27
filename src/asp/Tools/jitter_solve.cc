@@ -1067,13 +1067,20 @@ void jitterSolvePass(int                                 pass,
                      tri_points_vec,  
                      weight_per_residual,  // append
                      problem);
-  // Add a cost function meant to tie up to known disparity
-  // (option --reference-terrain).
-  // Two structures that must be persistent
+    
+  // Add a cost function meant to tie up to known disparities (option
+  // --reference-terrain). The structures below must persist until the end.
   std::vector<vw::Vector3> reference_vec; 
   std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> interp_disp; 
-  if (opt.reference_terrain != "") 
-    asp::addReferenceTerrainCostFunction(opt, problem, reference_vec, interp_disp);
+  std::vector<int> left_indices, right_indices;
+  std::vector<vw::TransformPtr> left_trans, right_trans;
+  if (opt.reference_terrain != "") {
+    asp::parseStereoRuns(opt.stereo_prefix_list, opt.image_files,
+                         left_indices, right_indices, left_trans, right_trans); // outputs
+    asp::addReferenceTerrainCostFunction(opt, left_indices, right_indices,
+                                         left_trans, right_trans,
+                                         problem, reference_vec, interp_disp);
+  }
 
   // Add the GCP constraint. GCP can come from GCP files or ISIS cnet.
   addGcpConstraint(opt, outliers, cnet,

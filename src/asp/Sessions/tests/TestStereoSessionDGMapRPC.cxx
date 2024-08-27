@@ -71,8 +71,8 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
   RPCXML left_xml, right_xml;
   left_xml.read_from_file( "dg_example1.xml" );
   right_xml.read_from_file( "dg_example4.xml" );
-  StereoSessionDGMapRPC::tx_type left_tx = session.tx_left();
-  StereoSessionDGMapRPC::tx_type right_tx = session.tx_right();
+  vw::TransformPtr left_tx = session.tx_left();
+  vw::TransformPtr right_tx = session.tx_right();
   cartography::Datum datum;
 
   // Verify that LX matches what we got by hand.

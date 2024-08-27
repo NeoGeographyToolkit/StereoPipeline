@@ -136,11 +136,8 @@ namespace asp {
     /// Get the crop ROI applied to the two input images.
     void get_input_image_crops(vw::BBox2i &left_image_crop, vw::BBox2i &right_image_crop) const;
 
-    /// Transform from image coordinates on disk to original untransformed image pixels.
-    typedef boost::shared_ptr<vw::Transform> tx_type;
-
-    virtual tx_type tx_left () const {return tx_left_homography ();} // Default implementation
-    virtual tx_type tx_right() const {return tx_right_homography();}
+    virtual vw::TransformPtr tx_left () const {return tx_left_homography ();} // Default implementation
+    virtual vw::TransformPtr tx_right() const {return tx_right_homography();}
 
     // All of the "hook" functions below have default implementations
     // that just copy the inputs to the outputs!
@@ -242,11 +239,11 @@ namespace asp {
                                    vw::cartography::GeoReference     & right_georef);
 
     // These are all the currently supported transformation types
-    tx_type tx_identity        () const; // Not left or right specific
-    tx_type tx_left_homography () const;
-    tx_type tx_right_homography() const;
-    tx_type tx_left_map_trans  () const;
-    tx_type tx_right_map_trans () const;
+    vw::TransformPtr tx_identity        () const; // Not left or right specific
+    vw::TransformPtr tx_left_homography () const;
+    vw::TransformPtr tx_right_homography() const;
+    vw::TransformPtr tx_left_map_trans  () const;
+    vw::TransformPtr tx_right_map_trans () const;
 
     /// Function to load a specific type of camera model with a pixel offset.
     virtual boost::shared_ptr<vw::camera::CameraModel>

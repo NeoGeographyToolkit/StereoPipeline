@@ -277,7 +277,7 @@ void StereoSessionPinhole::load_camera_models(
 }
 
 // Return the left transform used in alignment
-StereoSessionPinhole::tx_type StereoSessionPinhole::tx_left() const {
+vw::TransformPtr StereoSessionPinhole::tx_left() const {
   
   // TODO(oalexan1): Find a relevant test case then wipe the commented-out logic
   // below.
@@ -316,13 +316,13 @@ StereoSessionPinhole::tx_type StereoSessionPinhole::tx_left() const {
   // Comment out the logic below, per the text above.
   // TODO(oalexan1): Figure out if things can work without casting
   // away the const.
-  //StereoSession::tx_type trans_left, trans_right;
+  //vw::TransformPtr trans_left, trans_right;
   //((StereoSessionPinhole*)this)->pinhole_cam_trans(trans_left, trans_right);
   //return trans_left;
 }
 
 // Return the right transform used in alignment
-StereoSessionPinhole::tx_type StereoSessionPinhole::tx_right() const {
+vw::TransformPtr StereoSessionPinhole::tx_right() const {
 
   //if (stereo_settings().alignment_method != "epipolar")
   return StereoSession::tx_right_homography(); // see above
@@ -330,13 +330,13 @@ StereoSessionPinhole::tx_type StereoSessionPinhole::tx_right() const {
   // See the lengthy rant in tx_left() above.
   // TODO(oalexan1): Figure out if things can work without casting
   // away the const.
-  //StereoSession::tx_type trans_left, trans_right;
+  //vw::TransformPtr trans_left, trans_right;
   //((StereoSessionPinhole*)this)->pinhole_cam_trans(trans_left, trans_right);
   //return trans_right;
 }
 
-void StereoSessionPinhole::pinhole_cam_trans(tx_type & left_trans,
-                                             tx_type & right_trans) {
+void StereoSessionPinhole::pinhole_cam_trans(vw::TransformPtr & left_trans,
+                                             vw::TransformPtr & right_trans) {
 
   // Load the epipolar aligned camera models
   boost::shared_ptr<camera::CameraModel> left_aligned_model, right_aligned_model;

@@ -31,6 +31,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Math/Transform.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/UsgsAstroFrameSensorModel.h>
@@ -166,7 +167,11 @@ void addQuatNormRotationConstraints(
     ceres::Problem                     & problem);
 
 // Option --reference-terrain
-void addReferenceTerrainCostFunction(asp::BaBaseOptions        const& opt,
+void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
+                                     std::vector<int>              const& left_indices,
+                                     std::vector<int>              const& right_indices,
+                                     std::vector<vw::TransformPtr> const& left_trans,
+                                     std::vector<vw::TransformPtr> const& right_trans,
                                      // Outputs
                                      ceres::Problem                 & problem,
                                      std::vector<vw::Vector3>       & reference_vec,

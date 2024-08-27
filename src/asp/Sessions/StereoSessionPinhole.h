@@ -75,12 +75,12 @@ namespace asp {
     /// - Note that for epipolar aligned images these return identity transforms since the 
     ///   epipolar aligned images are consisted with the (new epipolar) camera models returned
     ///   from this class.
-    virtual tx_type tx_left () const;
-    virtual tx_type tx_right() const;
+    virtual vw::TransformPtr tx_left () const;
+    virtual vw::TransformPtr tx_right() const;
 
     /// Get the transforms from the unaligned input images to the epipolar aligned images.
     /// - CAHV* type models are not currently supported!
-    void pinhole_cam_trans(tx_type & left_trans, tx_type & right_trans);
+    void pinhole_cam_trans(vw::TransformPtr & left_trans, vw::TransformPtr & right_trans);
     
   protected:
     /// Function to load a camera model of the particular type.
