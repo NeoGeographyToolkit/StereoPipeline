@@ -22,7 +22,10 @@
 #include <asp/Core/AspStringUtils.h>
 #include <vw/Core/Exception.h>
 
+#include <boost/algorithm/string.hpp>
+
 #include <iostream>
+#include <fstream>
 
 namespace asp {
 
@@ -42,5 +45,39 @@ void parseCamTypes(std::string const& session_name,
   it += sep.size();
   mapproj_cam_type = session_name.substr(it, session_name.size());
 } 
+
+// Given a file having keys like "run:", followed by values, extract
+// the keys and values in a map from keys to vectors of strings.
+void parseKeysVals(std::string const& file, 
+                   std::map<std::string, std::vector<std::string>> & keys_vals) {
+
+  std::ifstream ifs(file.c_str());
+  if (!ifs.good()) 
+    vw::vw_throw(vw::ArgumentErr() << "Could not open file: " << file << "\n");
+
+  // Wipe the output map
+  keys_vals.clear();
+  
+  // Read the file line by line
+  std::string line;
+  while (getline(ifs, line)) {
+    boost::trim(line);
+    if (line.empty()) continue;
+    if (line[0] == '#') continue; // Skip comments
+
+    // Split the line into key and value
+    std::vector<std::string> parts;
+    boost::split(parts, line, boost::is_any_of(" \t"), boost::token_compress_on);
+
+    if (parts.empty())
+      continue;
+
+    // Add the key and value to the map
+    std::string key = parts[0];
+    parts.erase(parts.begin());
+    keys_vals[key] = parts;
+  }
+  
+}
 
 } // end namespace asp

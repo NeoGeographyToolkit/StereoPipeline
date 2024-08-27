@@ -938,15 +938,16 @@ void addReferenceTerrainCostFunction(
   if (load_reference_disparities(opt.disparity_list, disp_vec, interp_disp) != num_cameras-1)
     vw_throw(ArgumentErr() << "Expecting one less disparity than there are cameras.\n");
   
+  // Read the image boxes. They are needed to find the GSD per camera.
   std::vector<vw::BBox2i> image_boxes;
   for (int icam = 0; icam < num_cameras; icam++){
-    DiskImageView<float> img(opt.image_files[icam]);
-    BBox2i bbox = vw::bounding_box(img);
+    vw::DiskImageView<float> img(opt.image_files[icam]);
+    vw::BBox2i bbox = vw::bounding_box(img);
     image_boxes.push_back(bbox);
   }
 
-  vw_out() << "Setting up the error to the reference terrain.\n";
-  TerminalProgressCallback tpc("", "\t--> ");
+  vw::vw_out() << "Setting up the error to the reference terrain.\n";
+  vw::TerminalProgressCallback tpc("", "\t--> ");
   tpc.report_progress(0);
   double inc_amount = 1.0/double(input_reference_vec.size());
 

@@ -22,6 +22,8 @@
 #define __ASP_CORE_ASP_STRING_UTILS_H__
 
 #include <string>
+#include <map>
+#include <vector>
 
 namespace asp {
 
@@ -31,6 +33,12 @@ void parseCamTypes(std::string const& session_name,
                    std::string & tri_cam_type, 
                    std::string & mapproj_cam_type);
 
+// Given a file having keys like "run:", and values like what follows, extract
+// the keys and values in a map from keys to vectors of strings.
+void parseKeysVals(std::string const& file, 
+                   std::map<std::string, std::vector<std::string>> & keys_vals);
+
 } // end namespace asp
+
 
 #endif //__ASP_CORE_ASP_STRING_UTILS_H__

@@ -226,7 +226,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "be either a DEM or a point cloud in CSV format. It must be well-aligned with the "
      "input cameras.")
     ("max-num-reference-points", 
-     po::value(&opt.max_num_reference_points)->default_value(100000000),
+     po::value(&opt.max_num_reference_points)->default_value(100000),
      "Maximum number of (randomly picked) points from the --reference-terrain dataset.")
     ("stereo-prefix-list", po::value(&opt.stereo_prefix_list)->default_value(""),
      "List of stereo prefixes (one per line) having disparities for the "
@@ -923,27 +923,6 @@ void saveCsmCameras(std::string const& out_prefix,
   std::string cam_list_file = out_prefix + "-camera_list.txt";
   vw::vw_out() << "Writing: " << cam_list_file << std::endl;
   asp::write_list(cam_list_file, cam_files);
-  
-}
-
-// TODO(oalexan1): Move this to jitterSolveCostFuns.cc
-void addReferenceTerrainCostFunction(asp::BaBaseOptions        const& opt,
-                                     // Outputs
-                                     ceres::Problem                 & problem,
-                                     std::vector<vw::Vector3>       & reference_vec,
-         std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> & interp_disp) {
-
-  // Some basic sanity checks were done when the inputs were parsed. 
-  
-  // TODO(oalexan1): Iterate over stereo runs.
-  // TODO(oalexan1): Must check for L_cropped.tif, R_cropped.tif which 
-  // must not exist.
-  // TODO(oalexan1): Must check for L.tsai and R.tsai, these should
-  // not exist as that would be epipolar alignment. 
-  std::cout << "---now in addReferenceTerrainCostFunction---" << std::endl;
-  exit(0);
-  
-  // Must do a lot of validation
   
 }
 

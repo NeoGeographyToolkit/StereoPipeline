@@ -19,20 +19,29 @@
 // so they are stored in the Camera folder.
 
 #include <asp/Camera/BundleAdjustCamera.h>
-#include <asp/Core/CameraTransforms.h>
-#include <asp/Core/SatSimBase.h>
-#include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Camera/BaseCostFuns.h>
+#include <asp/Camera/JitterSolveCostFuns.h>
+#include <asp/Camera/JitterSolveRigCostFuns.h>
 #include <asp/Rig/transform_utils.h>
 #include <asp/Rig/rig_config.h>
 #include <asp/Core/EigenTransformUtils.h>
-#include <asp/Camera/JitterSolveCostFuns.h>
-#include <asp/Camera/JitterSolveRigCostFuns.h>
-#include <asp/Camera/BaseCostFuns.h>
+#include <asp/Core/CameraTransforms.h>
+#include <asp/Core/SatSimBase.h>
+#include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Core/DataLoader.h>
+#include <asp/Core/Common.h>
+#include <asp/Core/AspStringUtils.h>
+#include <asp/Core/StereoSettings.h>
 
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Exception.h>
 #include <vw/Camera/CameraImage.h>
+#include <vw/Cartography/DatumUtils.h>
+
+#include <boost/filesystem.hpp>
+
+namespace fs = boost::filesystem;
 
 namespace asp {
 
@@ -1339,6 +1348,204 @@ void addRollYawConstraint(asp::BaBaseOptions              const& opt,
   } // end loop through cameras
 
   return;
+}
+
+// Validate that key exists in the map and the value is a vector of 4 entries,
+// each equal to "0".
+void validateCropWin(std::string const& key, std::string const& file,  
+                     std::map<std::string, std::vector<std::string>> const& vals) {
+
+  if (vals.find(key) == vals.end())
+    vw::vw_throw(vw::ArgumentErr() << "Missing entry for " << key << " in " << file << ".\n");
+     
+  std::vector<std::string> const& v = vals.find(key)->second;
+  if (v.size() != 4)
+    vw::vw_throw(vw::ArgumentErr() << "Expecting 4 entries for " << key << " in " 
+                 << file << ".\n");
+  
+  for (int i = 0; i < 4; i++)
+    if (v[i] != "0")
+        vw::vw_throw(vw::ArgumentErr() << "Cannot use a run produced with cropped images.\n");
+}
+
+// Option --reference-terrain
+void addReferenceTerrainCostFunction(asp::BaBaseOptions        const& opt,
+                                     // Outputs
+                                     ceres::Problem                 & problem,
+                                     std::vector<vw::Vector3>       & reference_vec,
+         std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> & interp_disp) {
+
+  // Some basic sanity checks were done when the inputs were parsed. 
+  
+  // TODO(oalexan1): Iterate over stereo runs.
+  // TODO(oalexan1): Must check for L_cropped.tif, R_cropped.tif which 
+  // must not exist.
+  // TODO(oalexan1): Must check for L.tsai and R.tsai, these should
+  // not exist as that would be epipolar alignment. 
+  std::cout << "---now in addReferenceTerrainCostFunction---" << std::endl;
+  
+  // Must do a lot of validation
+  
+  // Set up a GeoReference object using the datum, it may get modified later
+  vw::cartography::GeoReference geo;
+  geo.set_datum(opt.datum); // We checked for a datum earlier
+  std::cout << "--datum is " << opt.datum << std::endl;
+
+  // Read the reference terrain
+  // Load the reference data
+  std::vector<vw::Vector3> input_reference_vec;
+  asp::load_csv_or_dem(opt.csv_format_str, opt.csv_srs, opt.reference_terrain,  
+                        opt.max_num_reference_points,  
+                        // Outputs
+                        geo, input_reference_vec);
+  
+  vw::vw_out() << "Read " << input_reference_vec.size() << " reference points.\n";
+  
+  // Ensure the read georef lives on the same planet
+  bool warn_only = false;
+  vw::checkDatumConsistency(opt.datum, geo.datum(), warn_only);
+    
+  // Read the image boxes. They are needed to find the GSD per camera.
+  std::vector<vw::BBox2i> image_boxes;
+  for (size_t icam = 0; icam < opt.image_files.size(); icam++) {
+    vw::DiskImageView<float> img(opt.image_files[icam]);
+    vw::BBox2i bbox = vw::bounding_box(img);
+    image_boxes.push_back(bbox);
+    std::cout << "--box for image " << opt.image_files[icam] << " is " << bbox << std::endl;
+  }
+
+  // Read the list of stereo prefixes
+  std::vector<std::string> prefix_list;
+  asp::read_list(opt.stereo_prefix_list, prefix_list);
+  if (prefix_list.empty())
+    vw::vw_throw(vw::ArgumentErr() << "Expecting at least one stereo prefix.\n");
+    
+  // Iterate over prefixes and print each one
+  // TODO(oalexan1): This must be a function
+  // For each left and right image in the stereo run, find the index in 
+  // the input cameras, and the transforms.
+  for (size_t i = 0; i < prefix_list.size(); i++) {
+    
+    // TODO(oalexan1): This must be a function called processStereoPrefix().
+    std::string prefix = prefix_list[i];
+    std::cout << "prefix: " << prefix << std::endl;
+    std::string info_file = prefix + "-info.txt";
+    // If it does not exist, the run is invalid
+    if (!fs::exists(info_file))
+      vw::vw_throw(vw::ArgumentErr() << "Missing: " << info_file << ". Invalid stereo run.\n");
+   
+    std::map<std::string, std::vector<std::string>> vals;
+    asp::parseKeysVals(info_file, vals);
+    
+    // Must not have a run with crop wins
+    validateCropWin("left_image_crop_win:", info_file, vals);
+    validateCropWin("right_image_crop_win:", info_file, vals);
+    
+    // This DEM is nonempty if the images are mapprojected
+    std::string input_dem;
+    auto dem_val = vals.find("input_dem:");
+    if (dem_val != vals.end() && !dem_val->second.empty())
+      input_dem = dem_val->second[0];
+    std::cout << "--input_dem is " << input_dem << std::endl;
+    
+    // Must have only two images in each run
+    auto img_val = vals.find("images:");
+    if (img_val == vals.end())
+      vw::vw_throw(vw::ArgumentErr() << "Missing left_image_path in " << info_file << ".\n");
+    auto images = img_val->second;
+    if (images.size() > 2)
+      vw::vw_throw(vw::ArgumentErr() << "Cannot handle multiview stereo runs.\n"); 
+    if (images.size() != 2)
+      vw::vw_throw(vw::ArgumentErr() << "Expecting two images in " << info_file << ".\n");
+    
+    // Find the raw images, when the images are mapprojected
+    std::vector<std::string> raw_images = images; 
+    for (size_t i = 0; i < images.size(); i++) {
+      
+      if (input_dem.empty())
+        continue; 
+        
+      std::string img = images[i];
+      std::cout << "--img is " << img << std::endl;
+      // Look up the raw image in the mapprojected image
+      std::string img_file_key = "INPUT_IMAGE_FILE";
+      std::string raw_img; 
+      boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(img));
+      vw::cartography::read_header_string(*rsrc.get(), img_file_key, raw_img);
+      std::cout << "--raw img is " << raw_img << std::endl;
+      // If empty, that's a failure
+      if (raw_img.empty())
+        vw::vw_throw(vw::ArgumentErr() << "Failed to find the raw image name in "
+                     << "the geoheader of " << img << ".\n");
+      raw_images[i] = raw_img;
+    }
+    
+    // Each raw image must be among the input images
+    int left_index = -1, right_index = -1;
+    for (size_t i = 0; i < opt.image_files.size(); i++) {
+      if (opt.image_files[i] == raw_images[0])
+        left_index = i;
+      if (opt.image_files[i] == raw_images[1])
+        right_index = i;
+    }
+    // If not found, that's a failure
+    if (left_index < 0 || right_index < 0)
+      vw::vw_throw(vw::ArgumentErr() << "Some images for the stereo run: " << prefix
+                   << " are not among the input images for the jitter solver.\n");
+    
+    std::cout << "--left index is " << left_index << std::endl;
+    std::cout << "--right index is " << right_index << std::endl;
+    
+    auto session_val = vals.find("stereo_session:");
+    if (session_val == vals.end() || session_val->second.empty())
+      vw::vw_throw(vw::ArgumentErr() << "Missing stereo_session in " << info_file << ".\n");
+    std::string stereo_session = session_val->second[0];
+    std::cout << "--stereo_session is " << stereo_session << std::endl;
+    
+    auto alignment_val = vals.find("alignment_method:");
+    if (alignment_val == vals.end() || alignment_val->second.empty())
+      vw::vw_throw(vw::ArgumentErr() << "Missing alignment_method in " << info_file << ".\n");
+    std::string curr_alignment_method = alignment_val->second[0];
+    std::cout << "--curr_alignment_method is " << curr_alignment_method << std::endl;
+    
+    // Temporarily replace the alignment method so we can fetch the transform
+    std::string orig_alignment_method = asp::stereo_settings().alignment_method;
+    std::cout << "--orig alignment is " << orig_alignment_method << std::endl;
+    
+    asp::stereo_settings().alignment_method = curr_alignment_method;
+    std::cout << "--curr alignment is " << asp::stereo_settings().alignment_method << std::endl;
+    
+    // The prefix from the info file must agree with the one passed in
+    auto prefix_val = vals.find("output_prefix:");
+    if (prefix_val == vals.end() || prefix_val->second.empty())
+      vw::vw_throw(vw::ArgumentErr() << "Missing output_prefix in " << info_file << ".\n");
+    if (prefix_val->second[0] != prefix)
+      vw::vw_throw(vw::ArgumentErr() << "Mismatch between output_prefix in " << info_file
+                   << " and the stereo prefix.\n");
+    std::cout << "--prefix is " << prefix << std::endl;
+       
+  // asp::SessionPtr session(NULL);
+  // if (opt.stereo_session.empty()) {
+  //   session.reset(asp::StereoSessionFactory::create
+  //                       (opt.stereo_session, // may change
+  //                       opt, opt.image_files[0], opt.image_files[0],
+  //                       opt.camera_files[0], opt.camera_files[0],
+  //                       opt.out_prefix));
+     
+    // Put back the original alignment method
+    asp::stereo_settings().alignment_method = orig_alignment_method;
+    
+  }
+  
+  vw::vw_out() << "Setting up the error to the reference terrain.\n";
+  reference_vec.clear();
+  for (size_t data_col = 0; data_col < input_reference_vec.size(); data_col++) {
+
+    vw::Vector3 reference_xyz = input_reference_vec[data_col];
+    //std::cout << "--xyz is " << reference_xyz << std::endl;
+  }
+      
+  exit(0);
 }
 
 } // end namespace asp

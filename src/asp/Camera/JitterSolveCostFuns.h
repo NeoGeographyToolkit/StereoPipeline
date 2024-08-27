@@ -165,6 +165,13 @@ void addQuatNormRotationConstraints(
     std::vector<double>                & weight_per_residual, // append
     ceres::Problem                     & problem);
 
+// Option --reference-terrain
+void addReferenceTerrainCostFunction(asp::BaBaseOptions        const& opt,
+                                     // Outputs
+                                     ceres::Problem                 & problem,
+                                     std::vector<vw::Vector3>       & reference_vec,
+         std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> & interp_disp);
+
 // Add roll / yaw constraints. For linescan, use the whole set of samples for given
 // camera model. For frame cameras, use the trajectory of all cameras in the same orbital
 // group as the current camera.
