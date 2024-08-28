@@ -1071,15 +1071,18 @@ void jitterSolvePass(int                                 pass,
   // Add a cost function meant to tie up to known disparities (option
   // --reference-terrain). The structures below must persist until the end.
   std::vector<vw::Vector3> reference_vec; 
-  std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> interp_disp; 
   std::vector<int> left_indices, right_indices;
+  std::vector<asp::SessionPtr> sessions;
   std::vector<vw::TransformPtr> left_trans, right_trans;
+  asp::DispVec disp_vec;
   if (opt.reference_terrain != "") {
     asp::parseStereoRuns(opt.stereo_prefix_list, opt.image_files,
-                         left_indices, right_indices, left_trans, right_trans); // outputs
-    asp::addReferenceTerrainCostFunction(opt, left_indices, right_indices,
-                                         left_trans, right_trans,
-                                         problem, reference_vec, interp_disp);
+                         // Outputs
+                         left_indices, right_indices, sessions, left_trans, right_trans,
+                         disp_vec);
+    asp::addReferenceTerrainCostFunction(opt, csm_models, left_indices, right_indices,
+                                         left_trans, right_trans, disp_vec,
+                                         problem, reference_vec);
   }
 
   // Add the GCP constraint. GCP can come from GCP files or ISIS cnet.

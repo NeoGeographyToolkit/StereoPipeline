@@ -37,6 +37,7 @@
 #include <vw/Camera/CameraImage.h>
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/Math/Transform.h>
+#include <vw/Image/Interpolation.h>
 
 namespace asp {
 
@@ -1347,14 +1348,15 @@ void addRollYawConstraint(asp::BaBaseOptions              const& opt,
 
 // Option --reference-terrain
 void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
+                                     std::vector<asp::CsmModel*>   const& csm_models,
                                      std::vector<int>              const& left_indices,
                                      std::vector<int>              const& right_indices,
                                      std::vector<vw::TransformPtr> const& left_trans,
                                      std::vector<vw::TransformPtr> const& right_trans,
+                                     DispVec                       const& disp_vec,
                                      // Outputs
                                      ceres::Problem                 & problem,
-                                     std::vector<vw::Vector3>       & reference_vec,
-         std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> & interp_disp) {
+                                     std::vector<vw::Vector3>       & reference_vec) {
 
   // Some basic sanity checks were done when the inputs were parsed. 
   
@@ -1395,12 +1397,64 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
     std::cout << "--box for image " << opt.image_files[icam] << " is " << bbox << std::endl;
   }
   
+  // Iterate over disp_vec and print the size of each element
+  std::cout << "--size of disp vec is " << disp_vec.size() << std::endl;
+  for (size_t i = 0; i < disp_vec.size(); i++) {
+    std::cout << "--disp_vec[" << i << "] has size " << disp_vec[i]->cols() << " x " << disp_vec[i]->rows() << std::endl;
+  }
+  
   vw::vw_out() << "Setting up the error to the reference terrain.\n";
   reference_vec.clear();
   for (size_t data_col = 0; data_col < input_reference_vec.size(); data_col++) {
 
     vw::Vector3 reference_xyz = input_reference_vec[data_col];
-    //std::cout << "--xyz is " << reference_xyz << std::endl;
+    std::cout << "--xyz is " << reference_xyz << std::endl;
+    // Iterate over left indices
+    for (size_t i = 0; i < left_indices.size(); i++) {
+      int left_index = left_indices[i];
+      int right_index = right_indices[i];
+      std::cout << "--left index is " << left_index << std::endl;
+      std::cout << "--right index is " << right_index << std::endl;
+     
+      auto & left_tx = left_trans[i];
+      auto & right_tx = right_trans[i];
+      vw::Vector2 raw_left_pix = csm_models[left_index]->point_to_pixel(reference_xyz);
+      std::cout << "--left raw pixel is " << raw_left_pix << std::endl;
+
+      std::cout << "--will now transform the pixel" << std::endl;
+      vw::Vector2 left_trans_pix = left_tx->forward(raw_left_pix);
+      std::cout << "--left trans pixel is " << left_trans_pix << std::endl;
+      
+      // Typedefs to avoid long lines      
+      typedef vw::ValueEdgeExtension<vw::PixelMask<vw::Vector2f>> NoDataType;
+      //typedef vw::DiskImageView<vw::PixelMask<vw::Vector2f>> DispDiskView;
+      typedef vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> DispDiskView;
+
+      vw::PixelMask<vw::Vector2f> no_data; no_data.invalidate();
+      NoDataType no_data_ext(no_data);
+
+      std::cout << "--cols and rows are " << disp_vec[i]->cols() << " " << disp_vec[i]->rows() << std::endl;
+
+      vw::InterpolationView<vw::EdgeExtensionView<DispDiskView, NoDataType>, vw::BicubicInterpolation> 
+        interp_disp = interpolate(DispDiskView(*disp_vec[i].get()), 
+                                  vw::BicubicInterpolation(), no_data_ext);
+
+
+      vw::PixelMask<vw::Vector2f> disp_pix 
+        = interp_disp(left_trans_pix[0], left_trans_pix[1]);
+      
+      std::cout << "--disp pix is " << disp_pix << std::endl;
+      // skip invalid pixels
+      if (!is_valid(disp_pix)) 
+        continue;
+      
+      vw::Vector2 right_trans_pix = left_trans_pix + disp_pix.child();
+      vw::Vector2 right_raw_pix = right_tx->reverse(right_trans_pix);
+      vw::Vector2 right_raw_pix2 = csm_models[right_index]->point_to_pixel(reference_xyz);
+      std::cout << "--right trans pix is " << right_trans_pix << std::endl;
+      std::cout << "two versions of right raw pix are " << right_raw_pix << " " << right_raw_pix2 << " with norm of diff " << norm_2(right_raw_pix - right_raw_pix2) << std::endl;
+       
+    }
   }
       
   exit(0);

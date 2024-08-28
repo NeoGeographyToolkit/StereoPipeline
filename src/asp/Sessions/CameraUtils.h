@@ -28,6 +28,7 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/Math/Transform.h>
 #include <vw/FileIO/GdalWriteOptions.h>
+#include <vw/FileIO/DiskImageView.h>
 
 namespace vw {
   namespace cartography {
@@ -67,13 +68,16 @@ bool datum_from_camera(std::string const& image_file,
                        vw::cartography::Datum & datum);
 
 // Given a list of stereo prefixes, extract some info about them
-void parseStereoRuns(std::string const& prefix_file,
+typedef std::vector<boost::shared_ptr<vw::DiskImageView<vw::PixelMask<vw::Vector2f>>>> DispVec;
+void parseStereoRuns(std::string              const& prefix_file,
                      std::vector<std::string> const& all_image_files,
                      // Outputs
-                     std::vector<int> & left_indices,
-                     std::vector<int> & right_indices,
+                     std::vector<int>              & left_indices,
+                     std::vector<int>              & right_indices,
+                     std::vector<asp::SessionPtr>  & sessions,
                      std::vector<vw::TransformPtr> & left_trans,
-                     std::vector<vw::TransformPtr> & right_trans);
+                     std::vector<vw::TransformPtr> & right_trans,
+                     DispVec                       & disparities);
 
 } // end namespace asp
 

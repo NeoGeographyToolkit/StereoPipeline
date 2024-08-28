@@ -167,15 +167,17 @@ void addQuatNormRotationConstraints(
     ceres::Problem                     & problem);
 
 // Option --reference-terrain
+typedef std::vector<boost::shared_ptr<vw::DiskImageView<vw::PixelMask<vw::Vector2f>>>> DispVec;
 void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
+                                     std::vector<asp::CsmModel*>   const& csm_models,
                                      std::vector<int>              const& left_indices,
                                      std::vector<int>              const& right_indices,
                                      std::vector<vw::TransformPtr> const& left_trans,
                                      std::vector<vw::TransformPtr> const& right_trans,
+                                     DispVec                       const& disp_vec,
                                      // Outputs
                                      ceres::Problem                 & problem,
-                                     std::vector<vw::Vector3>       & reference_vec,
-         std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> & interp_disp);
+                                     std::vector<vw::Vector3>       & reference_vec);
 
 // Add roll / yaw constraints. For linescan, use the whole set of samples for given
 // camera model. For frame cameras, use the trajectory of all cameras in the same orbital

@@ -236,14 +236,17 @@ void validateCropWin(std::string const& key, std::string const& file,
 }
 
 // Given a list of stereo prefixes, extract the indices of the left and right
-// images in the full list of images, and the alignment transforms.
+// images in the full list of images, the alignment transforms, disparities,
+// and sessions.
 void parseStereoRuns(std::string const& prefix_file,
                      std::vector<std::string> const& all_image_files,
                      // Outputs
                      std::vector<int> & left_indices,
                      std::vector<int> & right_indices,
+                     std::vector<asp::SessionPtr>  & sessions,
                      std::vector<vw::TransformPtr> & left_trans,
-                     std::vector<vw::TransformPtr> & right_trans) {
+                     std::vector<vw::TransformPtr> & right_trans,
+                     DispVec & disp_vec) {
 
   // Must have at least one stereo run
   if (prefix_file.empty())
@@ -252,8 +255,10 @@ void parseStereoRuns(std::string const& prefix_file,
   // Wipe the outputs
   left_indices.clear();
   right_indices.clear();
+  sessions.clear();
   left_trans.clear();
   right_trans.clear();
+  disp_vec.clear();
   
   // Read the list of stereo prefixes
   std::vector<std::string> prefix_list;
@@ -265,10 +270,9 @@ void parseStereoRuns(std::string const& prefix_file,
   // the input cameras, and the transforms.
   for (size_t i = 0; i < prefix_list.size(); i++) {
     
-    // TODO(oalexan1): This must be a function called processStereoPrefix().
-    std::string prefix = prefix_list[i];
-    std::cout << "prefix: " << prefix << std::endl;
-    std::string info_file = prefix + "-info.txt";
+    std::string stereo_prefix = prefix_list[i];
+    std::cout << "stereo_prefix: " << stereo_prefix << std::endl;
+    std::string info_file = stereo_prefix + "-info.txt";
     // If it does not exist, the run is invalid
     if (!fs::exists(info_file))
       vw::vw_throw(vw::ArgumentErr() << "Missing: " << info_file 
@@ -298,7 +302,16 @@ void parseStereoRuns(std::string const& prefix_file,
     if (images.size() != 2)
       vw::vw_throw(vw::ArgumentErr() << "Expecting two images in " << info_file << ".\n");
     
-    // Find the raw images, when the images are mapprojected
+    // Find the camera files
+    auto cam_val = vals.find("cameras:");
+    if (cam_val == vals.end())
+      vw::vw_throw(vw::ArgumentErr() << "Missing camera_files in " << info_file << ".\n");
+    auto cameras = cam_val->second;
+    if (cameras.size() != 2)
+      vw::vw_throw(vw::ArgumentErr() << "Expecting two camera files in " 
+                   << info_file << ".\n");
+      
+    // Find the raw images, for when the images are mapprojected
     std::vector<std::string> raw_images = images; 
     for (size_t i = 0; i < images.size(); i++) {
       
@@ -330,7 +343,7 @@ void parseStereoRuns(std::string const& prefix_file,
     }
     // If not found, that's a failure
     if (left_index < 0 || right_index < 0)
-      vw::vw_throw(vw::ArgumentErr() << "Some images for the stereo run: " << prefix
+      vw::vw_throw(vw::ArgumentErr() << "Some images for the stereo run: " << stereo_prefix
                    << " are not among the input images for the jitter solver.\n");
     
     std::cout << "--left index is " << left_index << std::endl;
@@ -347,7 +360,11 @@ void parseStereoRuns(std::string const& prefix_file,
       vw::vw_throw(vw::ArgumentErr() << "Missing alignment_method in " << info_file << ".\n");
     std::string curr_alignment_method = alignment_val->second[0];
     std::cout << "--curr_alignment_method is " << curr_alignment_method << std::endl;
-    
+    // For epipolar alignment, the transforms need a different approach
+    if (curr_alignment_method == "epipolar")
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Cannot use a run produced with epipolar alignment.\n");
+      
     // Temporarily replace the alignment method so we can fetch the transform
     std::string orig_alignment_method = asp::stereo_settings().alignment_method;
     std::cout << "--orig alignment is " << orig_alignment_method << std::endl;
@@ -359,23 +376,51 @@ void parseStereoRuns(std::string const& prefix_file,
     auto prefix_val = vals.find("output_prefix:");
     if (prefix_val == vals.end() || prefix_val->second.empty())
       vw::vw_throw(vw::ArgumentErr() << "Missing output_prefix in " << info_file << ".\n");
-    if (prefix_val->second[0] != prefix)
-      vw::vw_throw(vw::ArgumentErr() << "Mismatch between output_prefix in " << info_file
+    if (prefix_val->second[0] != stereo_prefix)
+      vw::vw_throw(vw::ArgumentErr() << "Mismatch between output prefix in " << info_file
                    << " and the stereo prefix.\n");
-    std::cout << "--prefix is " << prefix << std::endl;
-       
-  // asp::SessionPtr session(NULL);
-  // if (opt.stereo_session.empty()) {
-  //   session.reset(asp::StereoSessionFactory::create
-  //                       (opt.stereo_session, // may change
-  //                       opt, opt.image_files[0], opt.image_files[0],
-  //                       opt.camera_files[0], opt.camera_files[0],
-  //                       opt.out_prefix));
+    std::cout << "--stereo_prefix is " << stereo_prefix << std::endl;
      
+    vw::GdalWriteOptions opt;   
+    asp::SessionPtr session
+     (asp::StereoSessionFactory::create(stereo_session, // may change
+                                       opt, images[0], images[1],
+                                       cameras[0], cameras[1],
+                                       stereo_prefix, input_dem));
+  
+     std::string disp_file = stereo_prefix + "-F.tif";
+      if (!fs::exists(disp_file))
+        vw::vw_throw(vw::ArgumentErr() << "Missing: " << disp_file 
+                      << ". Invalid stereo run.\n"); 
+    
+    // Must not have an -L_cropped.tif file as then cannot use the run.
+    // Same for -R_cropped.tif and for L.tsai and R.tsai.
+    std::string left_cropped = stereo_prefix + "-L-cropped.tif";
+    std::string right_cropped = stereo_prefix + "-R-cropped.tif"; 
+    if (fs::exists(left_cropped) || fs::exists(right_cropped))
+      vw::vw_throw(vw::ArgumentErr()
+                   << "Cannot use a run produced with cropped images.\n");
+    std::string left_tsai = stereo_prefix + "-L.tsai";
+    std::string right_tsai = stereo_prefix + "-R.tsai";
+    if (fs::exists(left_tsai) || fs::exists(right_tsai))
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Cannot use a run produced with epipolar alignment.\n");
+    
+    // Add to the indices and transforms
+    left_indices.push_back(left_index);
+    right_indices.push_back(right_index);
+    sessions.push_back(session);
+    left_trans.push_back(session->tx_left());
+    right_trans.push_back(session->tx_right());
+    
+    // Do not cast to ImageViewRef as that may be slow. Keep the disparity as
+    // DiskImageView.
+    disp_vec.push_back(boost::shared_ptr<vw::DiskImageView<vw::PixelMask<vw::Vector2f>>>
+                       (new vw::DiskImageView<vw::PixelMask<vw::Vector2f>>(disp_file)));
+                                 
     // Put back the original alignment method
     asp::stereo_settings().alignment_method = orig_alignment_method;
-    
-  }
+  } // end loop through stereo prefixes
   
 }
 
