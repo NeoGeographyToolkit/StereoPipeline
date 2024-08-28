@@ -441,6 +441,41 @@ void calcIndexBounds(double time1, double time2, double t0, double dt, int numVa
   return;
 }
 
+// Find the positions and orientations in the current linescan model
+// that can affect the given pixel.
+void calcPosQuatIndexBounds(double line_extra,
+                            UsgsAstroLsSensorModel * ls_model,
+                            vw::Vector2 const& observation,
+                            // Outputs
+                            int & begPosIndex,  int & endPosIndex,
+                            int & begQuatIndex, int & endQuatIndex) {
+
+  // Initialize the outputs
+  begPosIndex = -1; endPosIndex = -1;
+  begQuatIndex = -1; endQuatIndex = -1;
+
+  csm::ImageCoord imagePt1, imagePt2;
+  asp::toCsmPixel(observation - vw::Vector2(0.0, line_extra), imagePt1);
+  asp::toCsmPixel(observation + vw::Vector2(0.0, line_extra), imagePt2);
+  double time1 = ls_model->getImageTime(imagePt1);
+  double time2 = ls_model->getImageTime(imagePt2);
+
+  // Positions
+  int numPos       = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+  double posT0     = ls_model->m_t0Ephem;
+  double posDt     = ls_model->m_dtEphem;
+  calcIndexBounds(time1, time2, posT0, posDt, numPos, 
+                  begPosIndex, endPosIndex); // outputs
+
+  // Quaternions
+  int numQuat       = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+  double quatT0     = ls_model->m_t0Quat;
+  double quatDt     = ls_model->m_dtQuat;
+  calcIndexBounds(time1, time2, quatT0, quatDt, numQuat, 
+                  begQuatIndex, endQuatIndex); // outputs
+  return;
+}
+   
 // Add the linescan model reprojection error to the cost function
 void addLsReprojectionErr(asp::BaBaseOptions  const& opt,
                           UsgsAstroLsSensorModel   * ls_model,
@@ -453,28 +488,11 @@ void addLsReprojectionErr(asp::BaBaseOptions  const& opt,
   // grow the number of quaternions and positions a bit because during
   // optimization the 3D point and corresponding pixel may move somewhat.
   double line_extra = opt.max_init_reproj_error + 5.0; // add some more just in case
-  csm::ImageCoord imagePt1, imagePt2;
-  asp::toCsmPixel(observation - vw::Vector2(0.0, line_extra), imagePt1);
-  asp::toCsmPixel(observation + vw::Vector2(0.0, line_extra), imagePt2);
-  double time1 = ls_model->getImageTime(imagePt1);
-  double time2 = ls_model->getImageTime(imagePt2);
-
-  // Find the range of indices that can affect the current pixel
-  int numQuat       = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
-  double quatT0     = ls_model->m_t0Quat;
-  double quatDt     = ls_model->m_dtQuat;
-  int begQuatIndex = -1, endQuatIndex = -1;
-  calcIndexBounds(time1, time2, quatT0, quatDt, numQuat, 
-                  begQuatIndex, endQuatIndex); // outputs
-
-  // Same for positions
-  int numPos       = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
-  double posT0     = ls_model->m_t0Ephem;
-  double posDt     = ls_model->m_dtEphem;
   int begPosIndex = -1, endPosIndex = -1;
-  calcIndexBounds(time1, time2, posT0, posDt, numPos, 
-                  begPosIndex, endPosIndex); // outputs
-
+  int begQuatIndex = -1, endQuatIndex = -1;
+  calcPosQuatIndexBounds(line_extra, ls_model, observation, 
+                         begPosIndex, endPosIndex, begQuatIndex, endQuatIndex); // outputs
+  
   ceres::CostFunction* pixel_cost_function =
     LsPixelReprojErr::Create(observation, weight, ls_model,
                              begQuatIndex, endQuatIndex,

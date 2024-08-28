@@ -296,7 +296,7 @@ void addRigLsLsReprojectionErr(asp::BaBaseOptions  const & opt,
   // Find the positions and orientations in the current linescan model
   // that can affect the given pixel. Then, expand on this, as an even 
   // bigger range in the reference sensor will affect these.
-   
+
   double line_extra = opt.max_init_reproj_error + 5.0; // add some more just in case
   csm::ImageCoord imagePt1, imagePt2;
   asp::toCsmPixel(curr_pix - vw::Vector2(0.0, line_extra), imagePt1);
