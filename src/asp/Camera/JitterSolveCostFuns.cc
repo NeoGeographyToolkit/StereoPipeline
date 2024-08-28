@@ -38,6 +38,7 @@
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/Math/Transform.h>
 #include <vw/Image/Interpolation.h>
+#include <vw/Cartography/Map2CamTrans.h>
 
 namespace asp {
 
@@ -769,7 +770,7 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
         } // end condition for having a rig
       
         // Two residuals were added. Save the corresponding weights.
-        for (int c = 0; c < PIXEL_SIZE; c++)
+        for (int c = 0; c < asp::PIXEL_SIZE; c++)
           weight_per_residual.push_back(pix_wt);
 
         // Anchor points are fixed by definition. They try to prevent
@@ -1364,6 +1365,270 @@ void addRollYawConstraint(asp::BaBaseOptions              const& opt,
   return;
 }
 
+// The disparity-based error measured by --reference-terrain. It is the
+// difference between left_pix + disp and right_pix, given the current ground
+// pixel and camera models.
+bool calcDispBasedError(UsgsAstroLsSensorModel *left_ls,
+                        UsgsAstroLsSensorModel *right_ls,
+                        vw::TransformPtr left_tx,
+                        vw::TransformPtr right_tx,
+                        DispPtr disp,
+                        csm::EcefCoord const& P,
+                        vw::Vector2 & error) {
+
+  // Project into the images
+  double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
+  csm::ImageCoord left_csm_pix = left_ls->groundToImage(P, desired_precision);
+  csm::ImageCoord right_csm_pix = right_ls->groundToImage(P, desired_precision);
+
+  // Covert to ASP pixels    
+  vw::Vector2 left_raw_pix, right_raw_pix;
+  asp::fromCsmPixel(left_raw_pix, left_csm_pix);
+  asp::fromCsmPixel(right_raw_pix, right_csm_pix);
+
+  // Convert to aligned pixel
+  vw::Vector2 left_trans_pix = left_tx->forward(left_raw_pix);
+
+  // Typedefs to avoid long lines      
+  typedef vw::ValueEdgeExtension<vw::PixelMask<vw::Vector2f>> NoDataType;
+  typedef vw::DiskImageView<vw::PixelMask<vw::Vector2f>> DispDiskView;
+  
+  // Compute the interpolated aligned disparity. Use no-data when out of bounds.
+  vw::PixelMask<vw::Vector2f> no_data; 
+  no_data.invalidate();
+  NoDataType no_data_ext(no_data);
+  vw::InterpolationView<vw::EdgeExtensionView<DispDiskView, NoDataType>, 
+                        vw::BicubicInterpolation> 
+    interp_disp = interpolate(*disp.get(), vw::BicubicInterpolation(), no_data_ext);
+  vw::PixelMask<vw::Vector2f> disp_pix = interp_disp(left_trans_pix[0], left_trans_pix[1]);
+
+  // Flag invalid pixels
+  if (!is_valid(disp_pix)) 
+    return false;
+
+  // Discrepancy between right pixel and left pixel + disparity
+  vw::Vector2 right_trans_pix = left_trans_pix + disp_pix.child();
+  vw::Vector2 right_raw_derived_pix = right_tx->reverse(right_trans_pix);
+  
+  error = right_raw_derived_pix - right_raw_pix;
+
+  return true;
+}
+
+// Fallback error value for --reference-terrain. Do not make this big, as when
+// the calculation succeeds, the errors are small.
+double g_ref_terrain_pix_val = 5.0;
+
+// Reference terrain error. See calcDispBasedError() for the implementation.
+struct RefTerrainReprojErr {
+  RefTerrainReprojErr(UsgsAstroLsSensorModel *left_ls,
+                      UsgsAstroLsSensorModel *right_ls,
+                      vw::TransformPtr left_tx,
+                      vw::TransformPtr right_tx,
+                      DispPtr disp,
+                      csm::EcefCoord const& P,
+                      int begLeftPosIndex, int endLeftPosIndex,
+                      int begLeftQuatIndex, int endLeftQuatIndex,
+                      int begRightPosIndex, int endRightPosIndex,
+                      int begRightQuatIndex, int endRightQuatIndex):
+    m_left_ls(left_ls), m_right_ls(right_ls),
+    m_left_tx(left_tx), m_right_tx(right_tx), m_disp(disp), m_P(P),
+    m_begLeftPosIndex(begLeftPosIndex), m_endLeftPosIndex(endLeftPosIndex),
+    m_begLeftQuatIndex(begLeftQuatIndex), m_endLeftQuatIndex(endLeftQuatIndex),
+    m_begRightPosIndex(begRightPosIndex), m_endRightPosIndex(endRightPosIndex),
+    m_begRightQuatIndex(begRightQuatIndex), m_endRightQuatIndex(endRightQuatIndex) {}
+
+  // The implementation is further down
+  bool operator()(double const * const * parameters, double * residuals) const; 
+
+  // Factory to hide the construction of the CostFunction object from the client code.
+  static ceres::CostFunction* Create(
+                      UsgsAstroLsSensorModel *left_ls,
+                      UsgsAstroLsSensorModel *right_ls,
+                      vw::TransformPtr left_tx,
+                      vw::TransformPtr right_tx,
+                      DispPtr disp,
+                      csm::EcefCoord const& P,
+                      int begLeftPosIndex, int endLeftPosIndex,
+                      int begLeftQuatIndex, int endLeftQuatIndex,
+                      int begRightPosIndex, int endRightPosIndex,
+                      int begRightQuatIndex, int endRightQuatIndex) {
+
+    ceres::DynamicNumericDiffCostFunction<RefTerrainReprojErr>* cost_function =
+      new ceres::DynamicNumericDiffCostFunction<RefTerrainReprojErr>
+      (new RefTerrainReprojErr(left_ls, right_ls, left_tx, right_tx, disp, P,
+                               begLeftPosIndex, endLeftPosIndex,
+                               begLeftQuatIndex, endLeftQuatIndex,
+                               begRightPosIndex, endRightPosIndex,
+                               begRightQuatIndex, endRightQuatIndex));
+
+    // The residual size is the pixel size
+    cost_function->SetNumResiduals(PIXEL_SIZE);
+
+    // Add a parameter block for each position and quaternion
+    for (int it = begLeftPosIndex; it < endLeftPosIndex; it++)
+      cost_function->AddParameterBlock(NUM_XYZ_PARAMS);
+    for (int it = begLeftQuatIndex; it < endLeftQuatIndex; it++)
+      cost_function->AddParameterBlock(NUM_QUAT_PARAMS);
+    for (int it = begRightPosIndex; it < endRightPosIndex; it++)
+      cost_function->AddParameterBlock(NUM_XYZ_PARAMS);
+    for (int it = begRightQuatIndex; it < endRightQuatIndex; it++)
+      cost_function->AddParameterBlock(NUM_QUAT_PARAMS);
+
+    return cost_function;
+  }
+
+private:
+  UsgsAstroLsSensorModel *m_left_ls, *m_right_ls;
+  vw::TransformPtr m_left_tx, m_right_tx;
+  DispPtr m_disp;
+  csm::EcefCoord m_P;
+  int m_begLeftPosIndex, m_endLeftPosIndex;
+  int m_begLeftQuatIndex, m_endLeftQuatIndex;
+  int m_begRightPosIndex, m_endRightPosIndex;
+  int m_begRightQuatIndex, m_endRightQuatIndex;
+  
+}; // End class RefTerrainReprojErr
+
+// See the documentation higher up in the file.
+bool RefTerrainReprojErr::operator()(double const * const * parameters,
+                                     double * residuals) const {
+
+  try {
+    // Make a copy of the models
+    UsgsAstroLsSensorModel local_left_ls = *m_left_ls;
+    UsgsAstroLsSensorModel local_right_ls = *m_right_ls;
+    
+    // Update position and quaternion parameters with the current values
+    int param_count = 0;
+    for (int it = m_begLeftPosIndex; it < m_endLeftPosIndex; it++) {
+      for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+        local_left_ls.m_positions[it * NUM_XYZ_PARAMS + c] = parameters[param_count][c];
+      param_count++;
+    }
+    for (int it = m_begLeftQuatIndex; it < m_endLeftQuatIndex; it++) {
+      for (int c = 0; c < NUM_QUAT_PARAMS; c++)
+        local_left_ls.m_quaternions[it * NUM_QUAT_PARAMS + c] = parameters[param_count][c];
+      param_count++;
+    }
+    // Same for the right camera
+    for (int it = m_begRightPosIndex; it < m_endRightPosIndex; it++) {
+      for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+        local_right_ls.m_positions[it * NUM_XYZ_PARAMS + c] = parameters[param_count][c];
+      param_count++;
+    }
+    for (int it = m_begRightQuatIndex; it < m_endRightQuatIndex; it++) {
+      for (int c = 0; c < NUM_QUAT_PARAMS; c++)
+        local_right_ls.m_quaternions[it * NUM_QUAT_PARAMS + c] = parameters[param_count][c];
+      param_count++;
+    }
+    
+    // Make local copies of Map2Camp transforms, as those are not thread-safe
+    vw::TransformPtr local_left_tx = m_left_tx;
+    if (dynamic_cast<vw::cartography::Map2CamTrans*>(m_left_tx.get()) != NULL)
+      local_left_tx = vw::cartography::mapproj_trans_copy(m_left_tx);
+    vw::TransformPtr local_right_tx = m_right_tx;
+    if (dynamic_cast<vw::cartography::Map2CamTrans*>(m_right_tx.get()) != NULL)
+      local_right_tx = vw::cartography::mapproj_trans_copy(m_right_tx);
+    
+    vw::Vector2 error;
+    bool success = calcDispBasedError(&local_left_ls, &local_right_ls, 
+                                      local_left_tx, local_right_tx,
+                                      m_disp, m_P, error);
+    
+    if (success) {
+      residuals[0] = error[0];
+      residuals[1] = error[1];
+    } else {
+      residuals[0] = g_ref_terrain_pix_val;
+      residuals[1] = g_ref_terrain_pix_val;
+    }
+    
+    // Accept the solution in either case, as it is too late to back out,
+    // because that will mess up the bookkeeping.
+    return true; 
+    
+  } catch (...) {
+    residuals[0] = g_ref_terrain_pix_val;
+    residuals[1] = g_ref_terrain_pix_val;
+    return true; // accept the solution anyway
+  }
+
+  return true;
+}
+
+bool addRefTerrainReprojectionErr(asp::BaBaseOptions const& opt,
+                                  UsgsAstroLsSensorModel *left_ls,
+                                  UsgsAstroLsSensorModel *right_ls,
+                                  vw::TransformPtr left_tx,
+                                  vw::TransformPtr right_tx,
+                                  vw::BBox2i const& left_bbox,
+                                  vw::BBox2i const& right_bbox,
+                                  DispPtr disp,
+                                  csm::EcefCoord const& P,
+                                  ceres::Problem & problem) {
+
+  double line_extra = opt.max_init_reproj_error + 5.0; // add some more just in case
+  double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
+  
+  // Find all positions and quaternions that can affect the current pixel.
+  csm::ImageCoord left_csm_pix = left_ls->groundToImage(P, desired_precision);
+  vw::Vector2 left_pix;
+  asp::fromCsmPixel(left_pix, left_csm_pix);
+  if (!left_bbox.contains(left_pix))
+    return false; // the pixel is outside the left image
+
+  int leftBegPosIndex = -1, leftEndPosIndex = -1;
+  int leftBegQuatIndex = -1, leftEndQuatIndex = -1;
+  calcPosQuatIndexBounds(line_extra, left_ls, left_pix, 
+                         // Outputs
+                         leftBegPosIndex, leftEndPosIndex, 
+                         leftBegQuatIndex, leftEndQuatIndex);
+
+  // Same for the right camera
+  csm::ImageCoord right_csm_pix = right_ls->groundToImage(P, desired_precision);
+  vw::Vector2 right_pix;
+  asp::fromCsmPixel(right_pix, right_csm_pix);
+  if (!right_bbox.contains(right_pix))
+    return false; // the pixel is outside the right image
+    
+  int rightBegPosIndex = -1, rightEndPosIndex = -1;
+  int rightBegQuatIndex = -1, rightEndQuatIndex = -1;
+  calcPosQuatIndexBounds(line_extra, right_ls, right_pix, 
+                         // Outputs
+                         rightBegPosIndex, rightEndPosIndex, 
+                         rightBegQuatIndex, rightEndQuatIndex);
+  
+  ceres::CostFunction* pixel_cost_function = 
+    RefTerrainReprojErr::Create(left_ls, right_ls, left_tx, right_tx, disp, P,
+                                leftBegPosIndex, leftEndPosIndex,
+                                leftBegQuatIndex, leftEndQuatIndex,
+                                rightBegPosIndex, rightEndPosIndex,
+                                rightBegQuatIndex, rightEndQuatIndex);
+      
+  ceres::LossFunction* pixel_loss_function 
+    = new ceres::CauchyLoss(opt.reference_terrain_robust_threshold);
+  
+  // The variable of optimization are the relevant camera positions and quaternions.
+  std::vector<double*> vars;
+  for (int it = leftBegPosIndex; it < leftEndPosIndex; it++)
+    vars.push_back(&left_ls->m_positions[it * NUM_XYZ_PARAMS]);
+  for (int it = leftBegQuatIndex; it < leftEndQuatIndex; it++)
+    vars.push_back(&left_ls->m_quaternions[it * NUM_QUAT_PARAMS]);
+
+  // Same for the right camera
+  for (int it = rightBegPosIndex; it < rightEndPosIndex; it++)
+    vars.push_back(&right_ls->m_positions[it * NUM_XYZ_PARAMS]);
+  for (int it = rightBegQuatIndex; it < rightEndQuatIndex; it++)
+    vars.push_back(&right_ls->m_quaternions[it * NUM_QUAT_PARAMS]);
+  
+  problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
+  
+  return true;
+}
+
+// TODO(oalexan1): Must add weighting and bookkeeping logic so we can save the residuals.
+
 // Option --reference-terrain
 void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      std::vector<asp::CsmModel*>   const& csm_models,
@@ -1373,24 +1638,13 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      std::vector<vw::TransformPtr> const& right_trans,
                                      DispVec                       const& disp_vec,
                                      // Outputs
-                                     ceres::Problem                 & problem,
-                                     std::vector<vw::Vector3>       & reference_vec) {
+                                     ceres::Problem           & problem,
+                                     std::vector<double>      & weight_per_residual, // append
+                                     std::vector<vw::Vector3> & reference_vec) {
 
-  // Some basic sanity checks were done when the inputs were parsed. 
-  
-  // TODO(oalexan1): Iterate over stereo runs.
-  // TODO(oalexan1): Must check for L_cropped.tif, R_cropped.tif which 
-  // must not exist.
-  // TODO(oalexan1): Must check for L.tsai and R.tsai, these should
-  // not exist as that would be epipolar alignment. 
-  std::cout << "---now in addReferenceTerrainCostFunction---" << std::endl;
-  
-  // Must do a lot of validation
-  
   // Set up a GeoReference object using the datum, it may get modified later
   vw::cartography::GeoReference geo;
   geo.set_datum(opt.datum); // We checked for a datum earlier
-  std::cout << "--datum is " << opt.datum << std::endl;
 
   // Read the reference terrain
   // Load the reference data
@@ -1412,13 +1666,6 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
     vw::DiskImageView<float> img(opt.image_files[icam]);
     vw::BBox2i bbox = vw::bounding_box(img);
     image_boxes.push_back(bbox);
-    std::cout << "--box for image " << opt.image_files[icam] << " is " << bbox << std::endl;
-  }
-  
-  // Iterate over disp_vec and print the size of each element
-  std::cout << "--size of disp vec is " << disp_vec.size() << std::endl;
-  for (size_t i = 0; i < disp_vec.size(); i++) {
-    std::cout << "--disp_vec[" << i << "] has size " << disp_vec[i]->cols() << " x " << disp_vec[i]->rows() << std::endl;
   }
   
   vw::vw_out() << "Setting up the error to the reference terrain.\n";
@@ -1426,56 +1673,54 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
   for (size_t data_col = 0; data_col < input_reference_vec.size(); data_col++) {
 
     vw::Vector3 reference_xyz = input_reference_vec[data_col];
-    std::cout << "--xyz is " << reference_xyz << std::endl;
+
     // Iterate over left indices
     for (size_t i = 0; i < left_indices.size(); i++) {
       int left_index = left_indices[i];
       int right_index = right_indices[i];
-      std::cout << "--left index is " << left_index << std::endl;
-      std::cout << "--right index is " << right_index << std::endl;
-     
       auto & left_tx = left_trans[i];
       auto & right_tx = right_trans[i];
-      vw::Vector2 raw_left_pix = csm_models[left_index]->point_to_pixel(reference_xyz);
-      std::cout << "--left raw pixel is " << raw_left_pix << std::endl;
 
-      std::cout << "--will now transform the pixel" << std::endl;
-      vw::Vector2 left_trans_pix = left_tx->forward(raw_left_pix);
-      std::cout << "--left trans pixel is " << left_trans_pix << std::endl;
+      vw::BBox2i left_bbox = image_boxes[left_index];
+      vw::BBox2i right_bbox = image_boxes[right_index];
       
-      // Typedefs to avoid long lines      
-      typedef vw::ValueEdgeExtension<vw::PixelMask<vw::Vector2f>> NoDataType;
-      //typedef vw::DiskImageView<vw::PixelMask<vw::Vector2f>> DispDiskView;
-      typedef vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> DispDiskView;
+      // Get the underlying linescan models      
+      csm::RasterGM * left_csm = csm_models[left_index]->m_gm_model.get();
+      UsgsAstroLsSensorModel * left_ls 
+        = dynamic_cast<UsgsAstroLsSensorModel*>(left_csm);
+      csm::RasterGM * right_csm = csm_models[right_index]->m_gm_model.get();
+      UsgsAstroLsSensorModel * right_ls 
+        = dynamic_cast<UsgsAstroLsSensorModel*>(right_csm);
+      if (left_ls == NULL || right_ls == NULL)
+        vw::vw_throw(vw::ArgumentErr() << "The option --reference-terrain works only "
+                      << "with linescan cameras.\n");
 
-      vw::PixelMask<vw::Vector2f> no_data; no_data.invalidate();
-      NoDataType no_data_ext(no_data);
-
-      std::cout << "--cols and rows are " << disp_vec[i]->cols() << " " << disp_vec[i]->rows() << std::endl;
-
-      vw::InterpolationView<vw::EdgeExtensionView<DispDiskView, NoDataType>, vw::BicubicInterpolation> 
-        interp_disp = interpolate(DispDiskView(*disp_vec[i].get()), 
-                                  vw::BicubicInterpolation(), no_data_ext);
-
-
-      vw::PixelMask<vw::Vector2f> disp_pix 
-        = interp_disp(left_trans_pix[0], left_trans_pix[1]);
+      // Convert to CSM points
+      csm::EcefCoord P(reference_xyz[0], reference_xyz[1], reference_xyz[2]);
       
-      std::cout << "--disp pix is " << disp_pix << std::endl;
-      // skip invalid pixels
-      if (!is_valid(disp_pix)) 
-        continue;
+      // If the error cannot be measured even with nominal values of the parameters,
+      // there is no point in adding the error.
+      vw::Vector2 error;
+      bool success = calcDispBasedError(left_ls, right_ls, left_tx, right_tx, disp_vec[i], P, 
+                                        error); // output
       
-      vw::Vector2 right_trans_pix = left_trans_pix + disp_pix.child();
-      vw::Vector2 right_raw_pix = right_tx->reverse(right_trans_pix);
-      vw::Vector2 right_raw_pix2 = csm_models[right_index]->point_to_pixel(reference_xyz);
-      std::cout << "--right trans pix is " << right_trans_pix << std::endl;
-      std::cout << "two versions of right raw pix are " << right_raw_pix << " " << right_raw_pix2 << " with norm of diff " << norm_2(right_raw_pix - right_raw_pix2) << std::endl;
-       
+      if (!success) 
+        continue; // skip this point
+      
+      // Add the error cost function for this point
+      success = addRefTerrainReprojectionErr(opt, left_ls, right_ls, 
+                                             left_tx, right_tx, 
+                                             left_bbox, right_bbox, 
+                                             disp_vec[i], P, problem);
+      if (!success) 
+        continue; // skip this point
+        
+      // Two residuals were added. Save the corresponding weights.
+      for (int c = 0; c < asp::PIXEL_SIZE; c++)
+        weight_per_residual.push_back(1.0);
+        
     }
   }
-      
-  exit(0);
 }
 
 } // end namespace asp

@@ -153,21 +153,22 @@ void addSoftCamPositionConstraint(asp::BaBaseOptions           const& opt,
                               ceres::Problem                     & problem);
 
 void addQuatNormRotationConstraints(
-    asp::BaBaseOptions            const& opt,
-    std::set<int>                 const& outliers,
-    asp::CRNJ                     const& crn,
-    std::vector<asp::CsmModel*>   const& csm_models,
-    bool                                 have_rig,
-    rig::RigSet                   const& rig,
-    std::vector<RigCamInfo>       const& rig_cam_info,
-    double                               quat_norm_weight, 
-    // Outputs
-    std::vector<double>                & frame_params,
-    std::vector<double>                & weight_per_residual, // append
-    ceres::Problem                     & problem);
+                        asp::BaBaseOptions            const& opt,
+                        std::set<int>                 const& outliers,
+                        asp::CRNJ                     const& crn,
+                        std::vector<asp::CsmModel*>   const& csm_models,
+                        bool                                 have_rig,
+                        rig::RigSet                   const& rig,
+                        std::vector<RigCamInfo>       const& rig_cam_info,
+                        double                               quat_norm_weight, 
+                        // Outputs
+                        std::vector<double>                & frame_params,
+                        std::vector<double>                & weight_per_residual, // append
+                        ceres::Problem                     & problem);
 
-// Option --reference-terrain
-typedef std::vector<boost::shared_ptr<vw::DiskImageView<vw::PixelMask<vw::Vector2f>>>> DispVec;
+// Option --reference-terrain 
+typedef boost::shared_ptr<vw::DiskImageView<vw::PixelMask<vw::Vector2f>>> DispPtr;
+typedef std::vector<DispPtr> DispVec;
 void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      std::vector<asp::CsmModel*>   const& csm_models,
                                      std::vector<int>              const& left_indices,
@@ -177,6 +178,7 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      DispVec                       const& disp_vec,
                                      // Outputs
                                      ceres::Problem                 & problem,
+                                     std::vector<double>            & weight_per_residual,
                                      std::vector<vw::Vector3>       & reference_vec);
 
 // Add roll / yaw constraints. For linescan, use the whole set of samples for given

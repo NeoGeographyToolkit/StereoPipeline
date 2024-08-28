@@ -566,6 +566,9 @@ void compute_residuals(asp::BaBaseOptions const& opt,
   problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
 }
 
+// Save the pixel reprojection error and anchor point residuals for the jitter solver.
+// Here we count on the fact that they are at the beginning of the residuals vector,
+// and we go through them in the same order as they were added.
 void saveJitterResiduals(ceres::Problem                             & problem, 
                          std::string                           const& residual_prefix,
                          asp::BaBaseOptions                    const& opt,
@@ -642,10 +645,7 @@ void saveJitterResiduals(ceres::Problem                             & problem,
       median = vw::math::destructive_median(residuals_per_cam[icam]);
       count  = residuals_per_cam[icam].size();
     }
-    residual_file << name   << ", "
-                  << mean   << ", "
-                  << median << ", "
-                  << count  << "\n";
+    residual_file << name   << ", " << mean   << ", " << median << ", " << count  << "\n";
   }
   residual_file.close();
 

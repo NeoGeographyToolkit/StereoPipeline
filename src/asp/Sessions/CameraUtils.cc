@@ -142,7 +142,7 @@ void load_cameras(std::vector<std::string> const& image_files,
   }
   
   sw.stop();
-  std::cout << "Loading cameras elapsed time: " << sw.elapsed_seconds() << " seconds.\n";
+  vw::vw_out() << "Loading cameras elapsed time: " << sw.elapsed_seconds() << " seconds.\n";
   return;
 }
 
@@ -271,7 +271,6 @@ void parseStereoRuns(std::string const& prefix_file,
   for (size_t i = 0; i < prefix_list.size(); i++) {
     
     std::string stereo_prefix = prefix_list[i];
-    std::cout << "stereo_prefix: " << stereo_prefix << std::endl;
     std::string info_file = stereo_prefix + "-info.txt";
     // If it does not exist, the run is invalid
     if (!fs::exists(info_file))
@@ -290,7 +289,6 @@ void parseStereoRuns(std::string const& prefix_file,
     auto dem_val = vals.find("input_dem:");
     if (dem_val != vals.end() && !dem_val->second.empty())
       input_dem = dem_val->second[0];
-    std::cout << "--input_dem is " << input_dem << std::endl;
     
     // Must have only two images in each run
     auto img_val = vals.find("images:");
@@ -319,13 +317,11 @@ void parseStereoRuns(std::string const& prefix_file,
         continue; 
         
       std::string img = images[i];
-      std::cout << "--img is " << img << std::endl;
       // Look up the raw image in the mapprojected image
       std::string img_file_key = "INPUT_IMAGE_FILE";
       std::string raw_img; 
       boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(img));
       vw::cartography::read_header_string(*rsrc.get(), img_file_key, raw_img);
-      std::cout << "--raw img is " << raw_img << std::endl;
       // If empty, that's a failure
       if (raw_img.empty())
         vw::vw_throw(vw::ArgumentErr() << "Failed to find the raw image name in "
@@ -346,20 +342,15 @@ void parseStereoRuns(std::string const& prefix_file,
       vw::vw_throw(vw::ArgumentErr() << "Some images for the stereo run: " << stereo_prefix
                    << " are not among the input images for the jitter solver.\n");
     
-    std::cout << "--left index is " << left_index << std::endl;
-    std::cout << "--right index is " << right_index << std::endl;
-    
     auto session_val = vals.find("stereo_session:");
     if (session_val == vals.end() || session_val->second.empty())
       vw::vw_throw(vw::ArgumentErr() << "Missing stereo_session in " << info_file << ".\n");
     std::string stereo_session = session_val->second[0];
-    std::cout << "--stereo_session is " << stereo_session << std::endl;
     
     auto alignment_val = vals.find("alignment_method:");
     if (alignment_val == vals.end() || alignment_val->second.empty())
       vw::vw_throw(vw::ArgumentErr() << "Missing alignment_method in " << info_file << ".\n");
     std::string curr_alignment_method = alignment_val->second[0];
-    std::cout << "--curr_alignment_method is " << curr_alignment_method << std::endl;
     // For epipolar alignment, the transforms need a different approach
     if (curr_alignment_method == "epipolar")
       vw::vw_throw(vw::ArgumentErr() 
@@ -367,10 +358,8 @@ void parseStereoRuns(std::string const& prefix_file,
       
     // Temporarily replace the alignment method so we can fetch the transform
     std::string orig_alignment_method = asp::stereo_settings().alignment_method;
-    std::cout << "--orig alignment is " << orig_alignment_method << std::endl;
     
     asp::stereo_settings().alignment_method = curr_alignment_method;
-    std::cout << "--curr alignment is " << asp::stereo_settings().alignment_method << std::endl;
     
     // The prefix from the info file must agree with the one passed in
     auto prefix_val = vals.find("output_prefix:");
@@ -379,7 +368,6 @@ void parseStereoRuns(std::string const& prefix_file,
     if (prefix_val->second[0] != stereo_prefix)
       vw::vw_throw(vw::ArgumentErr() << "Mismatch between output prefix in " << info_file
                    << " and the stereo prefix.\n");
-    std::cout << "--stereo_prefix is " << stereo_prefix << std::endl;
      
     vw::GdalWriteOptions opt;   
     asp::SessionPtr session
