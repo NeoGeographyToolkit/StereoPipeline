@@ -536,10 +536,12 @@ Command-line options for point2dem
 
 --dem-hole-fill-len <integer (default: 0)>
     Maximum dimensions of a hole in the output DEM to fill in, in pixels.
+    For large holes, use instead ``dem_mosaic`` (:numref:`dem_mosaic_grow`).
 
 --orthoimage-hole-fill-len <integer (default: 0)>
     Maximum dimensions of a hole in the output orthoimage to fill
     in, in pixels. See also ``--orthoimage-hole-fill-extra-len``.
+    For large holes, use instead ``mapproject`` (:numref:`mapproject`).
 
 --orthoimage-hole-fill-extra-len <integer (default: 0)>
     This value, in pixels, will make orthoimage hole filling more

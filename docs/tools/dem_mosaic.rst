@@ -173,6 +173,22 @@ Grow a DEM
         --fill-num-passes 3     \
         input.tif -o filled.tif 
 
+This command will become very slow for large ``--fill-search-radius``. 
+It is suggested to increase ``--fill-num-passes`` instead.
+
+This method will also grow the DEM outwards, not just within
+a hole.
+
+It is suggested to blur a little the obtained DEM, such as::
+
+    dem_mosaic --dem-blur-sigma 2 filled.tif -o blurred.tif
+
+To preserve as much as possible the input DEM values in the resulting DEM,
+except a small transition area at the boundary, run::
+    
+    dem_mosaic --priority-blending-length 20 \
+      input.tif blurred.tif -o output.tif
+
 Unlike the fill example in :numref:`dem_mosaic_fill`, in this mode the tool will
 not try to fill small holes of a given diameter that are fully surrounded by
 valid data. Instead, for any pixel that is invalid (lacks data), ``dem_mosaic``
@@ -190,22 +206,6 @@ the value from, and :math:`p` is given by ``--fill-power``.
 
 This process will be repeated the specified number of times, with the valid
 portion of the DEM growing each time.
-
-This method will also grow the DEM outwards, not just within
-a hole.
-
-This command will become very slow for large ``--fill-search-radius``. 
-It is suggested to increase ``--fill-num-passes`` instead.
-
-It is suggested to blur a little the obtained DEM, such as::
-
-    dem_mosaic --dem-blur-sigma 2 filled.tif -o blurred.tif
-
-To preserve as much as possible the input DEM values in the produced DEM,
-except a small transition area at the boundary, run::
-    
-    dem_mosaic --priority-blending-length 20 \
-      input.tif blurred.tif -o output.tif
 
 Usage
 ~~~~~
