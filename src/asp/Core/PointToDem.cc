@@ -126,7 +126,7 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
                                  asp::is_las_or_csv_or_pcd(files[i]));
   if (opt.has_las_or_csv_or_pcd && opt.do_ortho)
     vw_throw(ArgumentErr() 
-             << "Cannot create orthoimages unless the inputs are PC.tif files..\n");
+             << "Cannot create orthoimages unless the inputs are PC.tif files.\n");
 
   if (opt.do_ortho){
 

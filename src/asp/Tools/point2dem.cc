@@ -305,6 +305,17 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     vw_throw(ArgumentErr() << "The value of --orthoimage-hole-fill-len is positive, "
                            << "but orthoimage generation was not requested.\n");
 
+  if (opt.dem_hole_fill_len > 200)
+    vw::vw_out(WarningMessage) << "The value of --dem-hole-fill-len is large, "
+                               << "this may result in the program running out of memory. "
+                               << "Consider using dem_mosaic with the option "
+                               << "--fill-search-radius instead.\n";
+
+  if (opt.ortho_hole_fill_len > 200)
+    vw::vw_out(WarningMessage) << "The value of --orthoimage-hole-fill-len is large, "
+                               << "this may result in the program running out of memory. "
+                               << "Consider using the mapproject program instead.\n";
+
   if (opt.ortho_hole_fill_len > 0) {
     // We do hole-filling before erosion and outlier removal, for performance reason,
     // and the two may not play nicely together.
