@@ -1391,7 +1391,9 @@ bool calcDispBasedError(UsgsAstroLsSensorModel *left_ls,
 
   // Typedefs to avoid long lines      
   typedef vw::ValueEdgeExtension<vw::PixelMask<vw::Vector2f>> NoDataType;
-  typedef vw::DiskImageView<vw::PixelMask<vw::Vector2f>> DispDiskView;
+  // temporary
+  //typedef vw::DiskImageView<vw::PixelMask<vw::Vector2f>> DispDiskView;
+  typedef vw::ImageView<vw::PixelMask<vw::Vector2f>> DispDiskView;
   
   // Compute the interpolated aligned disparity. Use no-data when out of bounds.
   vw::PixelMask<vw::Vector2f> no_data; 
@@ -1401,7 +1403,7 @@ bool calcDispBasedError(UsgsAstroLsSensorModel *left_ls,
                         vw::BicubicInterpolation> 
     interp_disp = interpolate(*disp.get(), vw::BicubicInterpolation(), no_data_ext);
   vw::PixelMask<vw::Vector2f> disp_pix = interp_disp(left_trans_pix[0], left_trans_pix[1]);
-
+  
   // Flag invalid pixels
   if (!is_valid(disp_pix)) 
     return false;
@@ -1409,9 +1411,8 @@ bool calcDispBasedError(UsgsAstroLsSensorModel *left_ls,
   // Discrepancy between right pixel and left pixel + disparity
   vw::Vector2 right_trans_pix = left_trans_pix + disp_pix.child();
   vw::Vector2 right_raw_derived_pix = right_tx->reverse(right_trans_pix);
-  
   error = right_raw_derived_pix - right_raw_pix;
-
+  
   return true;
 }
 
@@ -1523,13 +1524,8 @@ bool RefTerrainReprojErr::operator()(double const * const * parameters,
       param_count++;
     }
     
-    // Make local copies of Map2Camp transforms, as those are not thread-safe
     vw::TransformPtr local_left_tx = m_left_tx;
-    if (dynamic_cast<vw::cartography::Map2CamTrans*>(m_left_tx.get()) != NULL)
-      local_left_tx = vw::cartography::mapproj_trans_copy(m_left_tx);
     vw::TransformPtr local_right_tx = m_right_tx;
-    if (dynamic_cast<vw::cartography::Map2CamTrans*>(m_right_tx.get()) != NULL)
-      local_right_tx = vw::cartography::mapproj_trans_copy(m_right_tx);
     
     vw::Vector2 error;
     bool success = calcDispBasedError(&local_left_ls, &local_right_ls, 
@@ -1635,30 +1631,35 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      std::vector<int>              const& right_indices,
                                      std::vector<vw::TransformPtr> const& left_trans,
                                      std::vector<vw::TransformPtr> const& right_trans,
-                                     DispVec                       const& disp_vec,
+                                     std::vector<std::string>      const& disp_files,  
                                      // Outputs
                                      ceres::Problem           & problem,
+                                     std::vector<DispPtr>     & disp_vec,
                                      std::vector<double>      & weight_per_residual, // append
                                      std::vector<vw::Vector3> & reference_vec,
                                      std::vector<std::vector<int>> & ref_indices) {
 
-  ref_indices.clear();
-  
   // Set up a GeoReference object using the datum, it may get modified later
   vw::cartography::GeoReference geo;
   geo.set_datum(opt.datum); // We checked for a datum earlier
 
   // Read the reference terrain
-  // Load the reference data
   asp::load_csv_or_dem(opt.csv_format_str, opt.csv_srs, opt.reference_terrain,  
                         opt.max_num_reference_points,  
                         // Outputs
                         geo, reference_vec);
 
+  // Load the disparity files
+  // TODO(oalexan1): See if we can keep a pointer to a DiskImageView
+  disp_vec.resize(disp_files.size());
+  for (size_t i = 0; i < disp_files.size(); i++) {
+    disp_vec[i].reset(new vw::ImageView<vw::PixelMask<vw::Vector2f>>());
+    *disp_vec[i] = copy(vw::DiskImageView<vw::PixelMask<vw::Vector2f>>(disp_files[i]));
+  }
+    
   // Record the indices of the residuals of the reference points  
+  ref_indices.clear();
   ref_indices.resize(reference_vec.size());
-  
-  vw::vw_out() << "Read " << reference_vec.size() << " reference points.\n";
   
   // Ensure the read georef lives on the same planet
   bool warn_only = false;
@@ -1673,6 +1674,8 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
   }
   
   vw::vw_out() << "Setting up the error to the reference terrain.\n";
+  int num_kept_ref_points = 0;
+  
   for (size_t data_col = 0; data_col < reference_vec.size(); data_col++) {
 
     vw::Vector3 reference_xyz = reference_vec[data_col];
@@ -1684,6 +1687,17 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
       auto & left_tx = left_trans[i];
       auto & right_tx = right_trans[i];
 
+      // For Map2CamTrans, must turn off caching to ensure thread safety
+      vw::cartography::Map2CamTrans* left_map2cam = 
+        dynamic_cast<vw::cartography::Map2CamTrans*>(left_tx.get());
+      if (left_map2cam != NULL) 
+        left_map2cam->set_use_cache(false);
+      // Same for the right camera
+      vw::cartography::Map2CamTrans* right_map2cam = 
+        dynamic_cast<vw::cartography::Map2CamTrans*>(right_tx.get());
+      if (right_map2cam != NULL)
+        right_map2cam->set_use_cache(false);
+    
       vw::BBox2i left_bbox = image_boxes[left_index];
       vw::BBox2i right_bbox = image_boxes[right_index];
       
@@ -1726,7 +1740,15 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
         weight_per_residual.push_back(1.0);
 
     }
+    
+    // See if this point is kept
+    if (ref_indices[data_col].size() > 0)
+      num_kept_ref_points++;
   }
+  
+  vw::vw_out() << "Read " << num_kept_ref_points 
+    << " reference terrain points (after filtering).\n";
+  
 }
 
 } // end namespace asp

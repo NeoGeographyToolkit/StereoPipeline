@@ -68,7 +68,6 @@ bool datum_from_camera(std::string const& image_file,
                        vw::cartography::Datum & datum);
 
 // Given a list of stereo prefixes, extract some info about them
-typedef std::vector<boost::shared_ptr<vw::DiskImageView<vw::PixelMask<vw::Vector2f>>>> DispVec;
 void parseStereoRuns(std::string              const& prefix_file,
                      std::vector<std::string> const& all_image_files,
                      // Outputs
@@ -77,7 +76,7 @@ void parseStereoRuns(std::string              const& prefix_file,
                      std::vector<asp::SessionPtr>  & sessions,
                      std::vector<vw::TransformPtr> & left_trans,
                      std::vector<vw::TransformPtr> & right_trans,
-                     DispVec                       & disparities);
+                     std::vector<std::string>      & disp_files);
 
 } // end namespace asp
 

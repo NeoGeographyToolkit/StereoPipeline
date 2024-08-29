@@ -246,7 +246,7 @@ void parseStereoRuns(std::string const& prefix_file,
                      std::vector<asp::SessionPtr>  & sessions,
                      std::vector<vw::TransformPtr> & left_trans,
                      std::vector<vw::TransformPtr> & right_trans,
-                     DispVec & disp_vec) {
+                     std::vector<std::string>      & disp_files) {
 
   // Must have at least one stereo run
   if (prefix_file.empty())
@@ -258,7 +258,7 @@ void parseStereoRuns(std::string const& prefix_file,
   sessions.clear();
   left_trans.clear();
   right_trans.clear();
-  disp_vec.clear();
+  disp_files.clear();
   
   // Read the list of stereo prefixes
   std::vector<std::string> prefix_list;
@@ -377,8 +377,8 @@ void parseStereoRuns(std::string const& prefix_file,
                                        stereo_prefix, input_dem));
   
      std::string disp_file = stereo_prefix + "-F.tif";
-      if (!fs::exists(disp_file))
-        vw::vw_throw(vw::ArgumentErr() << "Missing: " << disp_file 
+     if (!fs::exists(disp_file))
+       vw::vw_throw(vw::ArgumentErr() << "Missing: " << disp_file 
                       << ". Invalid stereo run.\n"); 
     
     // Must not have an -L_cropped.tif file as then cannot use the run.
@@ -400,11 +400,7 @@ void parseStereoRuns(std::string const& prefix_file,
     sessions.push_back(session);
     left_trans.push_back(session->tx_left());
     right_trans.push_back(session->tx_right());
-    
-    // Do not cast to ImageViewRef as that may be slow. Keep the disparity as
-    // DiskImageView.
-    disp_vec.push_back(boost::shared_ptr<vw::DiskImageView<vw::PixelMask<vw::Vector2f>>>
-                       (new vw::DiskImageView<vw::PixelMask<vw::Vector2f>>(disp_file)));
+    disp_files.push_back(disp_file);
                                  
     // Put back the original alignment method
     asp::stereo_settings().alignment_method = orig_alignment_method;

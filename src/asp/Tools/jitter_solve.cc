@@ -1073,18 +1073,19 @@ void jitterSolvePass(int                                 pass,
   std::vector<int> left_indices, right_indices;
   std::vector<asp::SessionPtr> sessions;
   std::vector<vw::TransformPtr> left_trans, right_trans;
-  asp::DispVec disp_vec;
+  std::vector<std::string> disp_files;
+  std::vector<DispPtr> disp_vec;
   std::vector<vw::Vector3> reference_vec; 
   std::vector<std::vector<int>> ref_indices;
   if (opt.reference_terrain != "") {
     asp::parseStereoRuns(opt.stereo_prefix_list, opt.image_files,
                          // Outputs
                          left_indices, right_indices, sessions, left_trans, right_trans,
-                         disp_vec);
+                         disp_files);
     asp::addReferenceTerrainCostFunction(opt, csm_models, left_indices, right_indices,
-                                         left_trans, right_trans, disp_vec,
+                                         left_trans, right_trans, disp_files,
                                          // Outputs
-                                         problem, 
+                                         problem, disp_vec,
                                          weight_per_residual, // append
                                          reference_vec, ref_indices);
   }
