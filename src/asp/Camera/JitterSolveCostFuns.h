@@ -179,7 +179,8 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      // Outputs
                                      ceres::Problem                 & problem,
                                      std::vector<double>            & weight_per_residual,
-                                     std::vector<vw::Vector3>       & reference_vec);
+                                     std::vector<vw::Vector3>       & reference_vec,
+                                     std::vector<std::vector<int>>  & ref_indices);
 
 // Add roll / yaw constraints. For linescan, use the whole set of samples for given
 // camera model. For frame cameras, use the trajectory of all cameras in the same orbital

@@ -440,7 +440,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   // Options for reference terrain
   if (!vm["reference-terrain"].defaulted() && opt.reference_terrain.empty())
     vw_throw(ArgumentErr() 
-             << "The value of --reference-terrain is empty. "
+             << "The value of --reference-terrain is set and empty. "
              << "Then it must not be set at all.\n");
   if (!vm["reference-terrain-uncertainty"].defaulted() &&
       vm["reference-terrain"].defaulted())
@@ -1070,11 +1070,12 @@ void jitterSolvePass(int                                 pass,
     
   // Add a cost function meant to tie up to known disparities (option
   // --reference-terrain). The structures below must persist until the end.
-  std::vector<vw::Vector3> reference_vec; 
   std::vector<int> left_indices, right_indices;
   std::vector<asp::SessionPtr> sessions;
   std::vector<vw::TransformPtr> left_trans, right_trans;
   asp::DispVec disp_vec;
+  std::vector<vw::Vector3> reference_vec; 
+  std::vector<std::vector<int>> ref_indices;
   if (opt.reference_terrain != "") {
     asp::parseStereoRuns(opt.stereo_prefix_list, opt.image_files,
                          // Outputs
@@ -1082,7 +1083,10 @@ void jitterSolvePass(int                                 pass,
                          disp_vec);
     asp::addReferenceTerrainCostFunction(opt, csm_models, left_indices, right_indices,
                                          left_trans, right_trans, disp_vec,
-                                         problem, reference_vec);
+                                         // Outputs
+                                         problem, 
+                                         weight_per_residual, // append
+                                         reference_vec, ref_indices);
   }
 
   // Add the GCP constraint. GCP can come from GCP files or ISIS cnet.
@@ -1129,7 +1133,8 @@ void jitterSolvePass(int                                 pass,
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                    tri_points_vec, outliers, weight_per_residual,
-                   pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index);
+                   pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
+                   reference_vec, ref_indices);
   }
   
   // Set up the problem
@@ -1175,7 +1180,8 @@ void jitterSolvePass(int                                 pass,
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
   saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                  tri_points_vec, outliers, weight_per_residual,
-                 pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index);
+                 pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
+                 reference_vec, ref_indices);
 
   // Save the optimized camera models
   saveCsmCameras(opt.out_prefix, opt.stereo_session,

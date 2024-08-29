@@ -222,6 +222,81 @@ void write_residual_map(std::string const& output_prefix,
 
 } // End function write_residual_map
 
+// This is used in jitter_solve. There can be more tri points than in cnet,
+// because we add anchor points. Those do not get processed here.
+// TODO(oalexan1): Integrate with write_residual_map().
+void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
+                                   std::string            const& residual_prefix,
+                                   vw::cartography::Datum const& datum,
+                                   std::set<int>          const& outliers,
+                                   std::vector<double>    const& tri_points_vec,
+                                   std::vector<double>    const& mean_pixel_residual_norm,
+                                   std::vector<int>       const& pixel_residual_count) {
+    
+  std::string map_prefix = residual_prefix + "_pointmap";
+  std::string output_path = map_prefix + ".csv";
+
+  int num_tri_points = cnet.size();
+  
+  // Open the output file and write the header. TODO(oalexan1): See
+  // if it is possible to integrate this with the analogous
+  // bundle_adjust function.
+  vw_out() << "Writing: " << output_path << std::endl;
+
+  std::ofstream file;
+  file.open(output_path.c_str());
+  file.precision(17);
+  file << "# lon, lat, height_above_datum, mean_residual, num_observations\n";
+  file << "# " << datum << std::endl;
+
+  // Write all the points to the file
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+
+    if (outliers.find(ipt) != outliers.end() || pixel_residual_count[ipt] <= 0)
+      continue; // Skip outliers
+    
+    // The final GCC coordinate of this point
+    const double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+    Vector3 xyz(tri_point[0], tri_point[1], tri_point[2]);
+    Vector3 llh = datum.cartesian_to_geodetic(xyz);
+    
+    std::string comment = "";
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+      comment = " # GCP";
+    else if (cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
+      comment = " # from DEM";
+      
+    file << llh[0] << ", " << llh[1] <<", " << llh[2] << ", "
+         << mean_pixel_residual_norm[ipt] << ", "
+         << pixel_residual_count[ipt] << comment << std::endl;
+  }
+  file.close();
+}
+
+// This is used in jitter_solve
+void write_anchor_residuals(std::string              const& residual_prefix,
+                            vw::cartography::Datum   const& datum,
+                            std::vector<vw::Vector3> const& anchor_xyz,
+                            std::vector<double>      const& anchor_residual_norm) {
+  
+  std::string map_prefix = residual_prefix + "_anchor_points";
+  std::string output_path = map_prefix + ".csv";
+  vw_out() << "Writing: " << output_path << std::endl;
+  std::ofstream file;
+  file.open(output_path.c_str());
+  file.precision(17);
+  file << "# lon, lat, height_above_datum, anchor_residual_pixel_norm\n";
+  file << "# " << datum << std::endl;
+
+  for (size_t anchor_it = 0; anchor_it < anchor_xyz.size(); anchor_it++) {
+    Vector3 llh = datum.cartesian_to_geodetic(anchor_xyz[anchor_it]);
+    file << llh[0] <<", "<< llh[1] << ", " << llh[2] << ", "
+         << anchor_residual_norm[anchor_it] << std::endl;
+  }
+  
+  file.close();
+}
+
 /// Write log files describing all residual errors. The order of data stored
 /// in residuals must mirror perfectly the way residuals were created. 
 void write_residual_logs(std::string const& residual_prefix, 
@@ -566,6 +641,80 @@ void compute_residuals(asp::BaBaseOptions const& opt,
   problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
 }
 
+// Residuals for option --reference-terrain
+void writeRefTerrainResiduals(std::string                   const& residual_prefix,
+                              vw::cartography::Datum        const& datum,
+                              std::vector<double>           const&  residuals,
+                              std::vector<double>           const& weight_per_residual,
+                              std::vector<vw::Vector3>      const& reference_vec,
+                              std::vector<std::vector<int>> const& ref_indices) {
+
+  // Sanity checks
+  if (residuals.size() != weight_per_residual.size()) 
+    vw_throw(ArgumentErr() << "There must be as many residuals as weights for them.\n");
+  if (ref_indices.size() != reference_vec.size())
+    vw_throw(ArgumentErr() << "Expecting as many indices as reference points.\n");
+    
+  std::string map_prefix = residual_prefix + "_ref_terrain";
+  std::string output_path = map_prefix + ".csv";
+
+  // Open the output file and write the header. TODO(oalexan1): See
+  // if it is possible to integrate this with the analogous
+  // bundle_adjust function.
+  vw_out() << "Writing: " << output_path << std::endl;
+
+  std::ofstream file;
+  file.open(output_path.c_str());
+  file.precision(17);
+  file << "# lon, lat, height_above_datum, mean_residual, num_observations\n";
+  file << "# " << datum << std::endl;
+
+  int num_ref_points = reference_vec.size();
+  
+  // Write all the points to the file
+  for (int ipt = 0; ipt < num_ref_points; ipt++) {
+
+    // Skip if no indices
+    if (ref_indices[ipt].empty())
+      continue;
+    
+    double res = 0.0, count = 0.0;      
+    
+    // Iterate over the indices
+    for (int i = 0; i < (int)ref_indices[ipt].size(); i++) {
+      int ires = ref_indices[ipt][i];
+      
+      // ires + 1 must be less than residuals.size()
+      if (ires + 1 >= (int)residuals.size())
+        vw_throw(ArgumentErr() << "Invalid residual index.\n");
+      
+      // There are two residuals per point, as this is a pixel residual. Each
+      // residual must be divided by its weight which was added when the
+      // residual was created.   
+      double norm = norm_2(Vector2(residuals[ires + 0] / weight_per_residual[ires + 0],
+                                   residuals[ires + 1] / weight_per_residual[ires + 1]));
+      res += norm;
+      count += 1.0;
+    }
+    
+    // Skip if no residuals
+    if (count == 0.0)
+      continue;
+      
+    // Average the residuals
+    res /= count;
+    
+    // Save lon, lat, height, mean residual, count
+    Vector3 llh = datum.cartesian_to_geodetic(reference_vec[ipt]);
+    file << llh[0] << ", " << llh[1] <<", " << llh[2] << ", "
+         << res << ", " << count << "\n";
+
+  }
+  file.close();
+
+  return;
+} // End function writeRefTerrainResiduals()
+
 // Save the pixel reprojection error and anchor point residuals for the jitter solver.
 // Here we count on the fact that they are at the beginning of the residuals vector,
 // and we go through them in the same order as they were added.
@@ -581,9 +730,11 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          std::vector<std::vector<vw::Vector2>> const& pixel_vec,
                          std::vector<std::vector<double>>      const& weight_vec,
                          std::vector<std::vector<int>>         const& isAnchor_vec,
-                         std::vector<std::vector<int>>         const& pix2xyz_index) {
-  
-  // Compute the residuals before optimization
+                         std::vector<std::vector<int>>         const& pix2xyz_index,
+                         std::vector<vw::Vector3>              const& reference_vec,
+                         std::vector<std::vector<int>>         const& ref_indices) {
+
+  // Compute the residuals at the current solution
   std::vector<double> residuals;
   compute_residuals(opt, problem, residuals);
   if (residuals.size() != weight_per_residual.size()) 
@@ -693,82 +844,12 @@ void saveJitterResiduals(ceres::Problem                             & problem,
   if (ires > (int)residuals.size())
     vw_throw(ArgumentErr() << "More residuals found than expected.\n");
 
+  if (opt.reference_terrain != "")
+    writeRefTerrainResiduals(residual_prefix, datum, 
+                             residuals, weight_per_residual,
+                             reference_vec, ref_indices);
+     
   return;
-}
-
-// This is used in jitter_solve. There can be more tri points than in cnet,
-// because we add anchor points. Those do not get processed here.
-// TODO(oalexan1): Integrate with write_residual_map().
-void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
-                                   std::string            const& residual_prefix,
-                                   vw::cartography::Datum const& datum,
-                                   std::set<int>          const& outliers,
-                                   std::vector<double>    const& tri_points_vec,
-                                   std::vector<double>    const& mean_pixel_residual_norm,
-                                   std::vector<int>       const& pixel_residual_count) {
-    
-  std::string map_prefix = residual_prefix + "_pointmap";
-  std::string output_path = map_prefix + ".csv";
-
-  int num_tri_points = cnet.size();
-  
-  // Open the output file and write the header. TODO(oalexan1): See
-  // if it is possible to integrate this with the analogous
-  // bundle_adjust function.
-  vw_out() << "Writing: " << output_path << std::endl;
-
-  std::ofstream file;
-  file.open(output_path.c_str());
-  file.precision(17);
-  file << "# lon, lat, height_above_datum, mean_residual, num_observations\n";
-  file << "# " << datum << std::endl;
-
-  // Write all the points to the file
-  for (int ipt = 0; ipt < num_tri_points; ipt++) {
-
-    if (outliers.find(ipt) != outliers.end() || pixel_residual_count[ipt] <= 0)
-      continue; // Skip outliers
-    
-    // The final GCC coordinate of this point
-    const double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
-    Vector3 xyz(tri_point[0], tri_point[1], tri_point[2]);
-    Vector3 llh = datum.cartesian_to_geodetic(xyz);
-    
-    std::string comment = "";
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
-      comment = " # GCP";
-    else if (cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
-      comment = " # from DEM";
-      
-    file << llh[0] << ", " << llh[1] <<", " << llh[2] << ", "
-         << mean_pixel_residual_norm[ipt] << ", "
-         << pixel_residual_count[ipt] << comment << std::endl;
-  }
-  file.close();
-}
-
-// This is used in jitter_solve
-void write_anchor_residuals(std::string              const& residual_prefix,
-                            vw::cartography::Datum   const& datum,
-                            std::vector<vw::Vector3> const& anchor_xyz,
-                            std::vector<double>      const& anchor_residual_norm) {
-  
-  std::string map_prefix = residual_prefix + "_anchor_points";
-  std::string output_path = map_prefix + ".csv";
-  vw_out() << "Writing: " << output_path << std::endl;
-  std::ofstream file;
-  file.open(output_path.c_str());
-  file.precision(17);
-  file << "# lon, lat, height_above_datum, anchor_residual_pixel_norm\n";
-  file << "# " << datum << std::endl;
-
-  for (size_t anchor_it = 0; anchor_it < anchor_xyz.size(); anchor_it++) {
-    Vector3 llh = datum.cartesian_to_geodetic(anchor_xyz[anchor_it]);
-    file << llh[0] <<", "<< llh[1] << ", " << llh[2] << ", "
-         << anchor_residual_norm[anchor_it] << std::endl;
-  }
-  
-  file.close();
 }
 
 } // end namespace asp 

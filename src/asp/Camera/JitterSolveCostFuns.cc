@@ -1627,9 +1627,8 @@ bool addRefTerrainReprojectionErr(asp::BaBaseOptions const& opt,
   return true;
 }
 
-// TODO(oalexan1): Must add weighting and bookkeeping logic so we can save the residuals.
-
 // Option --reference-terrain
+// TODO(oalexan1): Must add the uncertainty logic.
 void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      std::vector<asp::CsmModel*>   const& csm_models,
                                      std::vector<int>              const& left_indices,
@@ -1640,21 +1639,26 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      // Outputs
                                      ceres::Problem           & problem,
                                      std::vector<double>      & weight_per_residual, // append
-                                     std::vector<vw::Vector3> & reference_vec) {
+                                     std::vector<vw::Vector3> & reference_vec,
+                                     std::vector<std::vector<int>> & ref_indices) {
 
+  ref_indices.clear();
+  
   // Set up a GeoReference object using the datum, it may get modified later
   vw::cartography::GeoReference geo;
   geo.set_datum(opt.datum); // We checked for a datum earlier
 
   // Read the reference terrain
   // Load the reference data
-  std::vector<vw::Vector3> input_reference_vec;
   asp::load_csv_or_dem(opt.csv_format_str, opt.csv_srs, opt.reference_terrain,  
                         opt.max_num_reference_points,  
                         // Outputs
-                        geo, input_reference_vec);
+                        geo, reference_vec);
+
+  // Record the indices of the residuals of the reference points  
+  ref_indices.resize(reference_vec.size());
   
-  vw::vw_out() << "Read " << input_reference_vec.size() << " reference points.\n";
+  vw::vw_out() << "Read " << reference_vec.size() << " reference points.\n";
   
   // Ensure the read georef lives on the same planet
   bool warn_only = false;
@@ -1669,10 +1673,9 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
   }
   
   vw::vw_out() << "Setting up the error to the reference terrain.\n";
-  reference_vec.clear();
-  for (size_t data_col = 0; data_col < input_reference_vec.size(); data_col++) {
+  for (size_t data_col = 0; data_col < reference_vec.size(); data_col++) {
 
-    vw::Vector3 reference_xyz = input_reference_vec[data_col];
+    vw::Vector3 reference_xyz = reference_vec[data_col];
 
     // Iterate over left indices
     for (size_t i = 0; i < left_indices.size(); i++) {
@@ -1714,11 +1717,14 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                              disp_vec[i], P, problem);
       if (!success) 
         continue; // skip this point
-        
+      
+      // Record where the residuals for this point are stored
+      ref_indices[data_col].push_back(weight_per_residual.size());
+      
       // Two residuals were added. Save the corresponding weights.
       for (int c = 0; c < asp::PIXEL_SIZE; c++)
         weight_per_residual.push_back(1.0);
-        
+
     }
   }
 }

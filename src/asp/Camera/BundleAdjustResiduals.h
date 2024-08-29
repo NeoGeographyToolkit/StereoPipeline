@@ -122,29 +122,15 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          std::vector<std::vector<vw::Vector2>> const& pixel_vec,
                          std::vector<std::vector<double>>      const& weight_vec,
                          std::vector<std::vector<int>>         const& isAnchor_vec,
-                         std::vector<std::vector<int>>         const& pix2xyz_index);
+                         std::vector<std::vector<int>>         const& pix2xyz_index,
+                         std::vector<vw::Vector3>              const& reference_vec,
+                         std::vector<std::vector<int>>         const& ref_indices);
 
 // This is used in jitter_solve
 void compute_residuals(asp::BaBaseOptions const& opt,
                        ceres::Problem & problem,
                        // Output
                        std::vector<double> & residuals);
-
-// This is used in jitter_solve 
-void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
-                                   std::string            const& residual_prefix,
-                                   vw::cartography::Datum const& datum,
-                                   std::set<int>          const& outliers,
-                                   std::vector<double>    const& tri_points_vec,
-                                   std::vector<double>    const& mean_pixel_residual_norm,
-                                   std::vector<int>       const& pixel_residual_count);
-
-// This is used in jitter_solve
-void write_anchor_residuals(std::string              const& residual_prefix,
-                            vw::cartography::Datum   const& datum,
-                            std::vector<vw::Vector3> const& anchor_xyz,
-                            std::vector<double>      const& anchor_residual_norm);
-
 
 } // end namespace asp
 
