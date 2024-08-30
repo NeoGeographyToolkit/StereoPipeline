@@ -27,7 +27,6 @@
 #include <asp/Sessions/StereoSessionGdal.h>
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Camera/CsmModel.h>
-#include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Image/Transform.h>
 
 namespace asp {

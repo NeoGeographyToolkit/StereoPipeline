@@ -339,6 +339,7 @@ void findClosestPolyEdge(// inputs
 }
 
 // Return true if the extension is .csv or .txt
+// TODO(oalexan1): Move this to Common.cc
 bool hasCsv(std::string const& fileName) {
   std::string ext = get_extension(fileName);
   if (ext == ".csv" || ext == ".txt")
@@ -353,7 +354,7 @@ bool read_datum_from_csv(std::string const& file, vw::cartography::Datum & datum
   int count = 0;
   std::ifstream fh(file);
     std::string line;
-    while (getline(fh, line, '\n') ) {
+    while (getline(fh, line, '\n')) {
 
       // If the datum was not found early on, give up
       count++;
@@ -398,6 +399,7 @@ void read_csv_metadata(std::string              const& csv_file,
     if (csv_file.find("pointmap") != std::string::npos       || // bundle_adjust
         csv_file.find("match_offsets") != std::string::npos  || // bundle_adjust
         csv_file.find("anchor_points") != std::string::npos  || // jitter_solve
+        csv_file.find("ref_terrain") != std::string::npos    || // jitter_solve
         csv_file.find("beg_errors.csv") != std::string::npos || // pc_align
         csv_file.find("end_errors.csv") != std::string::npos)   // pc_align
       local_csv_format_str = "1:lon, 2:lat, 4:height_above_datum";
@@ -408,10 +410,8 @@ void read_csv_metadata(std::string              const& csv_file,
       local_csv_format_str = "1:lon, 2:lat, 3:height_above_datum";
     
     // LOLA  
-    if (local_csv_format_str == "" && guessed_lola) {
-      vw::vw_out() << "Guessing the CSV format for LOLA.\n";
+    if (local_csv_format_str == "" && guessed_lola)
       local_csv_format_str = "2:lon, 3:lat, 4:radius_km";
-    }
   }
   
   // For polygons, can assume that first coordinate is x and second is y
@@ -462,7 +462,9 @@ void read_csv_metadata(std::string              const& csv_file,
                     csv_file.find("match_offsets") != std::string::npos  ||
                     csv_file.find("beg_errors.csv") != std::string::npos || 
                     csv_file.find("end_errors.csv") != std::string::npos ||
-                    csv_file.find("-diff.csv") != std::string::npos);
+                    csv_file.find("-diff.csv") != std::string::npos ||
+                    vw::gui::hasCsv(csv_file));
+  
   if (known_csv) {
     vw::cartography::Datum datum;
     if (read_datum_from_csv(csv_file, datum)) {

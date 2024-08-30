@@ -88,7 +88,7 @@ void write_adjustments(std::string const& filename,
 }
 
 void compute_stereo_residuals(std::vector<vw::CamPtr> const& camera_models,
-                                   ControlNetwork const& cnet) {
+                              ControlNetwork const& cnet) {
 
   // Compute pre-adjustment residuals and convert to bundles
   int n = 0;

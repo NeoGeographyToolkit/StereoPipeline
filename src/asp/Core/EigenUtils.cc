@@ -131,24 +131,13 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
     numTokens++;
     token = strtok (NULL, sep);
   }
-  if (numTokens < 3){
-    vw_throw( vw::IOErr() << "Expecting at least three fields on each "
-                          << "line of file: " << file_name << "\n" );
-  }
+  if (numTokens < 3)
+    vw::vw_throw(vw::IOErr() << "Expecting at least three fields on each "
+                          << "line of file: " << file_name << "\n");
 
-  if (!csv_conv.is_configured()){
-    if (numTokens > 20){
-      is_lola_rdr_format = true;
-      if (verbose)
-        vw::vw_out() << "Guessing file " << file_name <<
-	  " to be in LOLA RDR PointPerRow format.\n";
-    }else{
-      is_lola_rdr_format = false;
-      if (verbose)
-        vw::vw_out() << "Guessing file " << file_name
-                     << " to be in latitude,longitude,height above datum (meters) format.\n";
-    }
-  }
+  // This is a fatal error
+  if (!csv_conv.is_configured())
+    vw::vw_throw(vw::ArgumentErr() << "The CSV format string is not set.\n");
 
   // TODO(oalexan1): We parse these guessed file types manually but we should
   // use a CsvConv object to do it!
@@ -424,7 +413,7 @@ void load_dem_pixel_type(std::string const& file_name,
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
 
   bool shift_was_calc = false;
-  std::int64_t  points_count   = 0;
+  std::int64_t points_count = 0;
 
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
   double inc_amount = 1.0 / double(pix_box.width() );

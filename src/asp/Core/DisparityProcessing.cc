@@ -436,42 +436,42 @@ public:
       int col_sample = std::max(1, std::min(sample_len, m_disparity.cols()/num_min_samples));
       int row_sample = std::max(1, std::min(sample_len, m_disparity.rows()/num_min_samples));
 
+      vw_out() << "\nEstimating the unaligned disparity dimensions.\n";
       vw::TerminalProgressCallback tpc("asp", "\t--> ");
       double inc_amount = col_sample / std::max(double(m_disparity.cols()), 1.0);
       tpc.report_progress(0);
-      vw_out() << "\nEstimating the unaligned disparity dimensions.\n";
 
       for (int col = 0; col < m_disparity.cols(); col++) {
 
-	// Ensure that the last column is picked
-	if (col % col_sample != 0 && col != m_disparity.cols() - 1) 
-	  continue;
+    // Ensure that the last column is picked
+    if (col % col_sample != 0 && col != m_disparity.cols() - 1) 
+      continue;
 
         for (int row = 0; row < m_disparity.rows(); row++) {
-	  
-	  // Ensure that the last row is picked
-	  if (row % row_sample != 0 && row != m_disparity.rows() - 1) 
-	    continue;
+      
+      // Ensure that the last row is picked
+      if (row % row_sample != 0 && row != m_disparity.rows() - 1) 
+        continue;
 
-	  // This is quite important to avoid an incorrectly computed img_box.
+      // This is quite important to avoid an incorrectly computed img_box.
           typename DispImageType::pixel_type dpix = m_disparity(col, row);
           if (!is_valid(dpix))
-	    continue;
+        continue;
 
           // Unalign the left pixel
-	  Vector2 left_pix;
-	  try{
-	    left_pix  = m_left_transform->reverse(Vector2(col, row));
-	  }catch(...){
-	    continue;
-	  }
+      Vector2 left_pix;
+      try{
+        left_pix  = m_left_transform->reverse(Vector2(col, row));
+      }catch(...){
+        continue;
+      }
           img_box.grow(left_pix);
 
-	  // Save this lookup map for the future
-	  m_unaligned_trans[std::make_pair(col, row)] = left_pix;
+      // Save this lookup map for the future
+      m_unaligned_trans[std::make_pair(col, row)] = left_pix;
         }
 
-	tpc.report_incremental_progress(inc_amount);
+    tpc.report_incremental_progress(inc_amount);
       }
       tpc.report_finished();
 
@@ -479,8 +479,8 @@ public:
       // and may have missed some points.
       Vector2 diff = img_box.max() - img_box.min();
       if (!img_box.empty()) {
-	img_box.grow(img_box.min() - 0.1*diff);
-	img_box.grow(img_box.max() + 0.1*diff);
+    img_box.grow(img_box.min() - 0.1*diff);
+    img_box.grow(img_box.max() + 0.1*diff);
       }
       
       m_num_cols = img_box.max().x();
@@ -537,7 +537,7 @@ public:
       for (int row = 0; row < curr_bbox.height(); row++) {
         unaligned_disp(col, row) = pixel_type();
         unaligned_disp(col, row).invalidate();
-	count(col, row) = 0;
+        count(col, row) = 0;
       }
     }
     
@@ -548,45 +548,45 @@ public:
     if (!m_is_map_projected) {
       BBox2i full_disp_bbox = bounding_box(m_disparity);
       for (int col = 0; col < unaligned_disp.cols(); col++) {
-	for (int row = 0; row < unaligned_disp.rows(); row++) {
-	  
-	  // Get the pixel coordinate in the output image (left unaligned pixel),
-	  // Then get the pixel coordinate in the left input image.
-	  Vector2 output_pixel(col + curr_bbox.min()[0], row + curr_bbox.min()[1]);
-	  Vector2 left_aligned_pixel;
-	try {
-	  left_aligned_pixel = local_left_transform->forward(output_pixel);
-	}catch(...){
-	  // This can fail since we may apply it to pixels outside of range
-	  continue;
-	}
-	if (!full_disp_bbox.contains(left_aligned_pixel)) 
-	  continue;
-	disp_bbox.grow(left_aligned_pixel);
-	}
+        for (int row = 0; row < unaligned_disp.rows(); row++) {
+      
+          // Get the pixel coordinate in the output image (left unaligned pixel),
+          // Then get the pixel coordinate in the left input image.
+          Vector2 output_pixel(col + curr_bbox.min()[0], row + curr_bbox.min()[1]);
+          Vector2 left_aligned_pixel;
+          try {
+            left_aligned_pixel = local_left_transform->forward(output_pixel);
+          }catch(...){
+            // This can fail since we may apply it to pixels outside of range
+            continue;
+          }
+          if (!full_disp_bbox.contains(left_aligned_pixel)) 
+            continue;
+          disp_bbox.grow(left_aligned_pixel);
+        }
       }
     }else{
       for (int col = 0; col < m_disparity.cols(); col++) {
-	for (int row = 0; row < m_disparity.rows(); row++) {
-	  
-	  std::pair<int, int> pix = std::make_pair(col, row);
-	  std::map <std::pair<int, int>, Vector2>::const_iterator it = m_unaligned_trans.find(pix);
-	  if (it == m_unaligned_trans.end())
-	    continue;
+        for (int row = 0; row < m_disparity.rows(); row++) {
+      
+          std::pair<int, int> pix = std::make_pair(col, row);
+          auto it = m_unaligned_trans.find(pix);
+          if (it == m_unaligned_trans.end())
+            continue;
 
-	  Vector2 rev = it->second;
-	  if (curr_bbox.contains(rev)) {
-	    disp_bbox.grow(Vector2(col, row));
-	  }
-	}
+          Vector2 rev = it->second;
+          if (curr_bbox.contains(rev)) {
+            disp_bbox.grow(Vector2(col, row));
+          }
+        }
       }
 
       // Grow the box to account for the fact that we did a sub-sampling
       // and may have missed some points.
       Vector2 diff = disp_bbox.max() - disp_bbox.min();
       if (!disp_bbox.empty()) {
-	disp_bbox.grow(disp_bbox.min() - 0.1*diff);
-	disp_bbox.grow(disp_bbox.max() + 0.1*diff);
+        disp_bbox.grow(disp_bbox.min() - 0.1*diff);
+        disp_bbox.grow(disp_bbox.max() + 0.1*diff);
       }
       
     }
@@ -603,61 +603,62 @@ public:
 
     for (int col = 0; col < disp.cols(); col++) {
       for (int row = 0; row < disp.rows(); row++) {
-	
-	DispPixelT dpix = disp(col, row);
-	if (!is_valid(dpix))
-	  continue;
+    
+    DispPixelT dpix = disp(col, row);
+    if (!is_valid(dpix))
+      continue;
 
-	// Go from position in the cropped disparity to the
-	// position in the full disparity.
-	int ucol = col + disp_bbox.min().x();
-	int urow = row + disp_bbox.min().y();
-	
-	// De-warp left and right pixels to be in the camera coordinate system
-	Vector2 left_pix, right_pix;
-	try{
-	  left_pix  = local_left_transform->reverse (Vector2(ucol, urow));
-	  right_pix = local_right_transform->reverse(Vector2(ucol, urow)
+    // Go from position in the cropped disparity to the
+    // position in the full disparity.
+    int ucol = col + disp_bbox.min().x();
+    int urow = row + disp_bbox.min().y();
+    
+    // De-warp left and right pixels to be in the camera coordinate system
+    Vector2 left_pix, right_pix;
+    try{
+      left_pix  = local_left_transform->reverse (Vector2(ucol, urow));
+      right_pix = local_right_transform->reverse(Vector2(ucol, urow)
                                                      + stereo::DispHelper(dpix));
-	}catch(...){
-	  continue;
-	}
-	Vector2 dir = right_pix - left_pix; // disparity value
-	
-	// This averaging is useful in filling tiny holes and avoiding staircasing.
-	// TODO: Use some weights. The closer contribution should have more weight.
-	for (int icol = -KERNEL_SIZE; icol <= KERNEL_SIZE; icol++) {
-	  for (int irow = -KERNEL_SIZE; irow <= KERNEL_SIZE; irow++) {
-	    int lcol = round(left_pix[0]) + icol;
-	    int lrow = round(left_pix[1]) + irow;
-	    
-	    // shift to be in the domain of the cropped image
-	    lcol -= curr_bbox.min()[0];
-	    lrow -= curr_bbox.min()[1];
-	    if (lcol < 0 || lcol >= curr_bbox.width())  continue;
-	    if (lrow < 0 || lrow >= curr_bbox.height()) continue;
-	    if (!is_valid(unaligned_disp(lcol, lrow)))
-	      unaligned_disp(lcol, lrow).validate();
-	    unaligned_disp(lcol, lrow).child() += dir;
-	    count(lcol, lrow)++;
-	  }
-	}
-	
+    }catch(...){
+      continue;
+    }
+    Vector2 dir = right_pix - left_pix; // disparity value
+    
+    // This averaging is useful in filling tiny holes and avoiding staircasing.
+    // TODO: Use some weights. The closer contribution should have more weight.
+    for (int icol = -KERNEL_SIZE; icol <= KERNEL_SIZE; icol++) {
+      for (int irow = -KERNEL_SIZE; irow <= KERNEL_SIZE; irow++) {
+        int lcol = round(left_pix[0]) + icol;
+        int lrow = round(left_pix[1]) + irow;
+        
+        // shift to be in the domain of the cropped image
+        lcol -= curr_bbox.min()[0];
+        lrow -= curr_bbox.min()[1];
+        if (lcol < 0 || lcol >= curr_bbox.width())  continue;
+        if (lrow < 0 || lrow >= curr_bbox.height()) continue;
+        if (!is_valid(unaligned_disp(lcol, lrow)))
+          unaligned_disp(lcol, lrow).validate();
+        unaligned_disp(lcol, lrow).child() += dir;
+        count(lcol, lrow)++;
+      }
+    }
+    
       }
     }
     
     for (int col = 0; col < unaligned_disp.cols(); col++) {
       for (int row = 0; row < unaligned_disp.rows(); row++) {
-	if (count(col, row) == 0)
-	  unaligned_disp(col, row).invalidate();
-	else
-	  unaligned_disp(col, row) /= double(count(col, row));
+    if (count(col, row) == 0)
+      unaligned_disp(col, row).invalidate();
+    else
+      unaligned_disp(col, row) /= double(count(col, row));
       }
     }
     
-    // Use the crop trick to fake that the support region is the same size as the entire image.
-    return prerasterize_type(unaligned_disp, -curr_bbox.min().x(), -curr_bbox.min().y(),
-			     cols(), rows());
+    // Use the crop trick to fake that the support region is the same size as
+    // the entire image.
+    return prerasterize_type(unaligned_disp, -curr_bbox.min().x(), 
+                             -curr_bbox.min().y(), cols(), rows());
   }
   
   template <class DestT>
