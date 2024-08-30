@@ -167,8 +167,7 @@ void addQuatNormRotationConstraints(
                         ceres::Problem                     & problem);
 
 // Option --reference-terrain 
-//typedef boost::shared_ptr<vw::DiskImageView<vw::PixelMask<vw::Vector2f>>> DispPtr;
-typedef boost::shared_ptr<vw::ImageView<vw::PixelMask<vw::Vector2f>>> DispPtr;
+typedef boost::shared_ptr<vw::DiskImageView<vw::PixelMask<vw::Vector2f>>> DispPtr;
 void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      std::vector<asp::CsmModel*>   const& csm_models,
                                      std::vector<int>              const& left_indices,

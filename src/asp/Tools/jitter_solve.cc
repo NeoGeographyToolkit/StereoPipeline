@@ -23,6 +23,8 @@
 // TODO(oalexan1): Move some UsgsAstroLsSensorModel functions from
 // here and from LinescanDGModel.cc to CsmUtils.cc.
 
+// TODO(oalexan1): Why jitter_solve does not use all threads?
+
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Camera/CsmModel.h>
@@ -75,7 +77,7 @@ struct Options: public asp::BaBaseOptions {
   std::string anchor_dem, rig_config;
   int num_anchor_points_extra_lines;
   bool initial_camera_constraint, fix_rig_translations, fix_rig_rotations,
-    use_initial_rig_transforms;
+    use_initial_rig_transforms, accept_provided_mapproj_dem;
   double quat_norm_weight, anchor_weight, roll_weight, yaw_weight;
   std::map<int, int> cam2group;
 };
@@ -236,7 +238,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "The uncertainty (1 sigma, in meters), for the dataset in --reference-terrain.")
     ("reference-terrain-robust-threshold",
      po::value(&opt.reference_terrain_robust_threshold)->default_value(0.1),
-     "The robust threshold, in pixels, fo the option --reference-terrain. It is suggested "
+     "The robust threshold, in pixels, for the option --reference-terrain. It is suggested "
      "to not modify this value, and adjust instead --reference-terrain-uncertainty.")
     ("csv-format", 
      po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
@@ -310,13 +312,12 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "system is rotated by 90 degrees in the sensor plane relative to the satellite "
      "coordinate system. The goal is the same, to penalize deviations that are not "
      "aligned with satellite pitch.")
+      ("accept-provided-mapproj-dem", 
+        po::bool_switch(&opt.accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
+       "Accept the DEM provided on the command line as the one mapprojection was done with, "
+       "even if it disagrees with the DEM recorded in the geoheaders of input images.")
     ;
     general_options.add(vw::GdalWriteOptionsDescription(opt));
-
-  // TODO(oalexan1): This old option may need to be wiped given the newer
-  // recent outlier filtering.
-  asp::stereo_settings().ip_edge_buffer_percent = opt.ip_edge_buffer_percent;
-
   po::options_description positional("");
   positional.add_options()
     ("input-files", po::value(&opt.image_files));
@@ -331,6 +332,15 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
+
+  // Stereo settings must be set after the command line arguments are parsed
+  asp::stereo_settings().accept_provided_mapproj_dem = opt.accept_provided_mapproj_dem;
+  // Set this before loading cameras, as jitter can be modeled only with CSM
+  // cameras.
+  asp::stereo_settings().aster_use_csm = true;
+  // TODO(oalexan1): This old option may need to be wiped given the newer
+  // recent outlier filtering.
+  asp::stereo_settings().ip_edge_buffer_percent = opt.ip_edge_buffer_percent;
 
   // Do this check first, as the output prefix is needed to log to file
   if (opt.out_prefix == "") 
@@ -352,10 +362,6 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   if (num_gcp_files > 0)
     vw_out() << "Found " << num_gcp_files << " GCP files.\n";
 
-  // Set this before loading cameras, as jitter can be modeled only with CSM
-  // cameras.
-  asp::stereo_settings().aster_use_csm = true;
-  
   if (!opt.image_list.empty()) {
     // Read the images and cameras and put them in 'images_or_cams' to be parsed later
     if (!opt.image_files.empty())
@@ -454,12 +460,24 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be "
               << "positive.\n");
   if (!opt.reference_terrain.empty()) {
+    
     if (opt.stereo_prefix_list.empty())
       vw_throw(ArgumentErr() 
                << "Must set --stereo-prefix-list when --reference-terrain is set.\n");
     if (!opt.rig_config.empty())
       vw_throw(ArgumentErr() 
                << "Cannot use --rig-config with --reference-terrain.\n");
+    
+    // Must have --csv-format unless the reference terrain is a DEM
+    if (opt.csv_format_str.empty()) {
+      vw::cartography::GeoReference georef;
+      bool has_georef = asp::has_image_extension(opt.reference_terrain) &&
+                        vw::cartography::read_georeference(georef, opt.reference_terrain);
+      if (!has_georef)
+        vw_throw(ArgumentErr() 
+                 << "Must set --csv-format when --reference-terrain is set "
+                 << "the terrain is not a DEM.\n");
+    }
   }
   
   bool have_camera_position_uncertainty = !opt.camera_position_uncertainty_str.empty();

@@ -1387,13 +1387,16 @@ bool calcDispBasedError(UsgsAstroLsSensorModel *left_ls,
   asp::fromCsmPixel(right_raw_pix, right_csm_pix);
 
   // Convert to aligned pixel
-  vw::Vector2 left_trans_pix = left_tx->forward(left_raw_pix);
+  vw::Vector2 left_trans_pix;
+  try {
+    left_trans_pix = left_tx->forward(left_raw_pix);
+  } catch (...) {
+    return false;
+  }
 
   // Typedefs to avoid long lines      
   typedef vw::ValueEdgeExtension<vw::PixelMask<vw::Vector2f>> NoDataType;
-  // temporary
-  //typedef vw::DiskImageView<vw::PixelMask<vw::Vector2f>> DispDiskView;
-  typedef vw::ImageView<vw::PixelMask<vw::Vector2f>> DispDiskView;
+  typedef vw::DiskImageView<vw::PixelMask<vw::Vector2f>> DispDiskView;
   
   // Compute the interpolated aligned disparity. Use no-data when out of bounds.
   vw::PixelMask<vw::Vector2f> no_data; 
@@ -1405,12 +1408,17 @@ bool calcDispBasedError(UsgsAstroLsSensorModel *left_ls,
   vw::PixelMask<vw::Vector2f> disp_pix = interp_disp(left_trans_pix[0], left_trans_pix[1]);
   
   // Flag invalid pixels
-  if (!is_valid(disp_pix)) 
+  if (!is_valid(disp_pix))
     return false;
 
   // Discrepancy between right pixel and left pixel + disparity
   vw::Vector2 right_trans_pix = left_trans_pix + disp_pix.child();
-  vw::Vector2 right_raw_derived_pix = right_tx->reverse(right_trans_pix);
+  vw::Vector2 right_raw_derived_pix;
+  try {
+    right_raw_derived_pix = right_tx->reverse(right_trans_pix);
+  } catch (...) {
+    return false;
+  }
   error = right_raw_derived_pix - right_raw_pix;
   
   return true;
@@ -1625,6 +1633,8 @@ bool addRefTerrainReprojectionErr(asp::BaBaseOptions const& opt,
 
 // Option --reference-terrain
 // TODO(oalexan1): Must add the uncertainty logic.
+// TODO(oalexan1): Handle loading the DEM in memory. Put a warning if it is too big.
+// TODO(oalexan1): Filter out points outside the box and load more if needed.
 void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      std::vector<asp::CsmModel*>   const& csm_models,
                                      std::vector<int>              const& left_indices,
@@ -1639,22 +1649,29 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      std::vector<vw::Vector3> & reference_vec,
                                      std::vector<std::vector<int>> & ref_indices) {
 
+  // For now, only one stereo pair is supported, so size of left_indices must be 1
+  if (left_indices.size() != 1)
+    vw::vw_throw(vw::ArgumentErr() << "Expecting only one stereo pair.\n");
+    
   // Set up a GeoReference object using the datum, it may get modified later
   vw::cartography::GeoReference geo;
   geo.set_datum(opt.datum); // We checked for a datum earlier
 
   // Read the reference terrain
+  // TODO(oalexan1): This loads points that are way outside the image bounds,
+  // and will later be wiped. Must do some heuristics to avoid this.
+  // Such as, projecting into the camera early on.
   asp::load_csv_or_dem(opt.csv_format_str, opt.csv_srs, opt.reference_terrain,  
                         opt.max_num_reference_points,  
                         // Outputs
                         geo, reference_vec);
 
-  // Load the disparity files
-  // TODO(oalexan1): See if we can keep a pointer to a DiskImageView
+  // Load the disparity files. Keep a pointer to DiskImageView to avoid loading
+  // them fully in memory, as they can be huge.
   disp_vec.resize(disp_files.size());
   for (size_t i = 0; i < disp_files.size(); i++) {
-    disp_vec[i].reset(new vw::ImageView<vw::PixelMask<vw::Vector2f>>());
-    *disp_vec[i] = copy(vw::DiskImageView<vw::PixelMask<vw::Vector2f>>(disp_files[i]));
+    vw::vw_out() << "Reading disparity file: " << disp_files[i] << "\n"; 
+    disp_vec[i].reset(new vw::DiskImageView<vw::PixelMask<vw::Vector2f>>(disp_files[i]));
   }
     
   // Record the indices of the residuals of the reference points  
@@ -1674,30 +1691,68 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
   }
   
   vw::vw_out() << "Setting up the error to the reference terrain.\n";
+
   int num_kept_ref_points = 0;
   
+  // TODO(oalexan1): Do not use new. Keep the DEM in memory some other way.
+  vw::ImageView<float> * left_dem = new vw::ImageView<float>();
+  vw::ImageView<float> * right_dem = new vw::ImageView<float>();
+  
+  // Iterate over stereo pairs
+  for (size_t i = 0; i < left_indices.size(); i++) {
+    auto & left_tx = left_trans[i];
+    auto & right_tx = right_trans[i];
+
+    // For Map2CamTrans, must turn off caching to ensure thread safety
+    vw::cartography::Map2CamTrans* left_map2cam = 
+      dynamic_cast<vw::cartography::Map2CamTrans*>(left_tx.get());
+    if (left_map2cam != NULL) {
+      left_map2cam->set_use_cache(false);
+      *left_dem = copy(left_map2cam->m_dem);
+      left_map2cam->m_masked_dem = vw::create_mask(*left_dem,
+                                                    left_map2cam->m_nodata);
+      left_map2cam->m_interp_dem = vw::interpolate(left_map2cam->m_masked_dem, 
+                                                    vw::BicubicInterpolation(), 
+                                                    vw::ZeroEdgeExtension());
+    }
+
+    // Same for the right camera
+    vw::cartography::Map2CamTrans* right_map2cam = 
+      dynamic_cast<vw::cartography::Map2CamTrans*>(right_tx.get());
+    if (right_map2cam != NULL) {
+      right_map2cam->set_use_cache(false);
+      *right_dem = copy(right_map2cam->m_dem);
+      right_map2cam->m_masked_dem = vw::create_mask(*right_dem, 
+                                                    right_map2cam->m_nodata);
+      right_map2cam->m_interp_dem = vw::interpolate(right_map2cam->m_masked_dem, 
+                                                    vw::BicubicInterpolation(), 
+                                                    vw::ZeroEdgeExtension());
+    }
+  } // end loop through stereo pairs
+      
+  // Need a progress bar as this can be slow
+  vw::TerminalProgressCallback tpc("asp", "Loading ref points: --> ");
+  // Find the spacing for progress. Avoid int32 overflow.
+  double total = double(reference_vec.size()) * double(left_indices.size()); 
+  long long spacing = std::max(round(total / 100.0), 1.0);
+  long long count = 0;
+
+  // Loop through the reference points
   for (size_t data_col = 0; data_col < reference_vec.size(); data_col++) {
 
     vw::Vector3 reference_xyz = reference_vec[data_col];
 
     // Iterate over left indices
     for (size_t i = 0; i < left_indices.size(); i++) {
-      int left_index = left_indices[i];
-      int right_index = right_indices[i];
+      
+      count++;
+      if (count % spacing == 0)
+        tpc.report_incremental_progress(0.01);
+        
       auto & left_tx = left_trans[i];
       auto & right_tx = right_trans[i];
-
-      // For Map2CamTrans, must turn off caching to ensure thread safety
-      vw::cartography::Map2CamTrans* left_map2cam = 
-        dynamic_cast<vw::cartography::Map2CamTrans*>(left_tx.get());
-      if (left_map2cam != NULL) 
-        left_map2cam->set_use_cache(false);
-      // Same for the right camera
-      vw::cartography::Map2CamTrans* right_map2cam = 
-        dynamic_cast<vw::cartography::Map2CamTrans*>(right_tx.get());
-      if (right_map2cam != NULL)
-        right_map2cam->set_use_cache(false);
-    
+      int left_index = left_indices[i];
+      int right_index = right_indices[i];
       vw::BBox2i left_bbox = image_boxes[left_index];
       vw::BBox2i right_bbox = image_boxes[right_index];
       
@@ -1745,6 +1800,8 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
     if (ref_indices[data_col].size() > 0)
       num_kept_ref_points++;
   }
+  
+  tpc.report_finished();
   
   vw::vw_out() << "Read " << num_kept_ref_points 
     << " reference terrain points (after filtering).\n";
