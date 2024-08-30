@@ -178,6 +178,7 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      // Outputs
                                      ceres::Problem                 & problem,
                                      std::vector<DispPtr>           & disp_vec,
+                                     vw::ImageView<float>           & mapproj_dem,
                                      std::vector<double>            & weight_per_residual,
                                      std::vector<vw::Vector3>       & reference_vec,
                                      std::vector<std::vector<int>>  & ref_indices);

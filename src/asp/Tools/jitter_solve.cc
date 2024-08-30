@@ -1095,6 +1095,7 @@ void jitterSolvePass(int                                 pass,
   std::vector<DispPtr> disp_vec;
   std::vector<vw::Vector3> reference_vec; 
   std::vector<std::vector<int>> ref_indices;
+  vw::ImageView<float> mapproj_dem;
   if (opt.reference_terrain != "") {
     asp::parseStereoRuns(opt.stereo_prefix_list, opt.image_files,
                          // Outputs
@@ -1103,7 +1104,7 @@ void jitterSolvePass(int                                 pass,
     asp::addReferenceTerrainCostFunction(opt, csm_models, left_indices, right_indices,
                                          left_trans, right_trans, disp_files,
                                          // Outputs
-                                         problem, disp_vec,
+                                         problem, disp_vec, mapproj_dem,
                                          weight_per_residual, // append
                                          reference_vec, ref_indices);
   }

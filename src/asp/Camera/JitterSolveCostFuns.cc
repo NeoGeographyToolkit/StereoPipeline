@@ -1633,7 +1633,6 @@ bool addRefTerrainReprojectionErr(asp::BaBaseOptions const& opt,
 
 // Option --reference-terrain
 // TODO(oalexan1): Must add the uncertainty logic.
-// TODO(oalexan1): Handle loading the DEM in memory. Put a warning if it is too big.
 // TODO(oalexan1): Filter out points outside the box and load more if needed.
 void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      std::vector<asp::CsmModel*>   const& csm_models,
@@ -1645,6 +1644,7 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      // Outputs
                                      ceres::Problem           & problem,
                                      std::vector<DispPtr>     & disp_vec,
+                                     vw::ImageView<float>     & mapproj_dem,
                                      std::vector<double>      & weight_per_residual, // append
                                      std::vector<vw::Vector3> & reference_vec,
                                      std::vector<std::vector<int>> & ref_indices) {
@@ -1690,52 +1690,71 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
     image_boxes.push_back(bbox);
   }
   
-  vw::vw_out() << "Setting up the error to the reference terrain.\n";
-
   int num_kept_ref_points = 0;
+  vw::vw_out() << "Setting up the error to the reference terrain.\n";
   
-  // TODO(oalexan1): Do not use new. Keep the DEM in memory some other way.
-  vw::ImageView<float> * left_dem = new vw::ImageView<float>();
-  vw::ImageView<float> * right_dem = new vw::ImageView<float>();
-  
-  // Iterate over stereo pairs
+  // For Map2CamTrans, must turn off caching to ensure thread safety, and read
+  // the DEM in memory.
   for (size_t i = 0; i < left_indices.size(); i++) {
+    
     auto & left_tx = left_trans[i];
     auto & right_tx = right_trans[i];
 
-    // For Map2CamTrans, must turn off caching to ensure thread safety
     vw::cartography::Map2CamTrans* left_map2cam = 
       dynamic_cast<vw::cartography::Map2CamTrans*>(left_tx.get());
-    if (left_map2cam != NULL) {
-      left_map2cam->set_use_cache(false);
-      *left_dem = copy(left_map2cam->m_dem);
-      left_map2cam->m_masked_dem = vw::create_mask(*left_dem,
-                                                    left_map2cam->m_nodata);
-      left_map2cam->m_interp_dem = vw::interpolate(left_map2cam->m_masked_dem, 
-                                                    vw::BicubicInterpolation(), 
-                                                    vw::ZeroEdgeExtension());
-    }
-
-    // Same for the right camera
     vw::cartography::Map2CamTrans* right_map2cam = 
       dynamic_cast<vw::cartography::Map2CamTrans*>(right_tx.get());
-    if (right_map2cam != NULL) {
-      right_map2cam->set_use_cache(false);
-      *right_dem = copy(right_map2cam->m_dem);
-      right_map2cam->m_masked_dem = vw::create_mask(*right_dem, 
-                                                    right_map2cam->m_nodata);
-      right_map2cam->m_interp_dem = vw::interpolate(right_map2cam->m_masked_dem, 
-                                                    vw::BicubicInterpolation(), 
-                                                    vw::ZeroEdgeExtension());
-    }
+    
+    // Either both must be null or both must be non-null.
+    if ((left_map2cam == NULL) != (right_map2cam == NULL))
+      vw::vw_throw(vw::ArgumentErr() << "Both images in a stereo pair must be "
+                   << "mapprojected, or neither of them.\n");
+        
+    if (left_map2cam == NULL || right_map2cam == NULL)
+      continue; // nothing to do
+    
+    // Both must be projected onto the same DEM
+    if (left_map2cam->m_dem_file != right_map2cam->m_dem_file)
+      vw::vw_throw(vw::ArgumentErr() << "The two images in a stereo pair must be "
+                   << "projected onto the same DEM.\n");
+    
+    // Print a warning if the left_map2cam->m_dem width and height are no less than 
+    // 5000 pixels, as that would be slow to load.
+    int k = 5000;
+    if (left_map2cam->m_dem.cols() >= k || left_map2cam->m_dem.rows() >= k)
+      vw::vw_out(vw::WarningMessage) 
+        << "The mapprojection DEM " << left_map2cam->m_dem_file 
+        << " is very large, it may take a long time to load. Dimensions: "
+        << left_map2cam->m_dem.cols() << " x " << left_map2cam->m_dem.rows() 
+        << ".\n";
+
+    // Load the DEM in memory and set it for each transform. This is a fix
+    // for very slow performance. Note that the disparity is still loaded
+    // on demand only, as that can be large.
+    mapproj_dem = copy(left_map2cam->m_dem);
+    
+    left_map2cam->set_use_cache(false);
+    left_map2cam->m_masked_dem = vw::create_mask(mapproj_dem, 
+                                                 left_map2cam->m_nodata);
+    left_map2cam->m_interp_dem = vw::interpolate(left_map2cam->m_masked_dem, 
+                                                  vw::BicubicInterpolation(), 
+                                                  vw::ZeroEdgeExtension());
+
+    right_map2cam->set_use_cache(false);
+    right_map2cam->m_masked_dem = vw::create_mask(mapproj_dem,
+                                                  right_map2cam->m_nodata);
+    right_map2cam->m_interp_dem = vw::interpolate(right_map2cam->m_masked_dem, 
+                                                  vw::BicubicInterpolation(), 
+                                                  vw::ZeroEdgeExtension());
   } // end loop through stereo pairs
       
   // Need a progress bar as this can be slow
   vw::TerminalProgressCallback tpc("asp", "Loading ref points: --> ");
   // Find the spacing for progress. Avoid int32 overflow.
   double total = double(reference_vec.size()) * double(left_indices.size()); 
-  long long spacing = std::max(round(total / 100.0), 1.0);
-  long long count = 0;
+  double hundred = 100.0;
+  long long spacing = std::max(round(total / hundred), 1.0);
+  long long data_count = 0;
 
   // Loop through the reference points
   for (size_t data_col = 0; data_col < reference_vec.size(); data_col++) {
@@ -1745,9 +1764,9 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
     // Iterate over left indices
     for (size_t i = 0; i < left_indices.size(); i++) {
       
-      count++;
-      if (count % spacing == 0)
-        tpc.report_incremental_progress(0.01);
+      data_count++;
+      if (data_count % spacing == 0)
+        tpc.report_incremental_progress(1.0/hundred);
         
       auto & left_tx = left_trans[i];
       auto & right_tx = right_trans[i];

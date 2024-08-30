@@ -414,7 +414,7 @@ public:
     m_is_map_projected(is_map_projected), 
     m_disparity(disparity), m_left_transform(left_transform), 
     m_right_transform(right_transform), m_opt(opt),
-    m_num_cols(0), m_num_rows(0){
+    m_num_cols(0), m_num_rows(0) {
 
     // Compute the output image size
     
@@ -425,7 +425,7 @@ public:
       DiskImageView<float> left_img(left_file);
       m_num_cols = left_img.cols();
       m_num_rows = left_img.rows();
-    }else{
+    } else {
       // Map projected, need to check all the pixel coordinates.
       // This is going to be slow for large images!
       BBox2i img_box;
@@ -443,35 +443,35 @@ public:
 
       for (int col = 0; col < m_disparity.cols(); col++) {
 
-    // Ensure that the last column is picked
-    if (col % col_sample != 0 && col != m_disparity.cols() - 1) 
-      continue;
+        // Ensure that the last column is picked
+        if (col % col_sample != 0 && col != m_disparity.cols() - 1) 
+          continue;
 
-        for (int row = 0; row < m_disparity.rows(); row++) {
-      
-      // Ensure that the last row is picked
-      if (row % row_sample != 0 && row != m_disparity.rows() - 1) 
-        continue;
+            for (int row = 0; row < m_disparity.rows(); row++) {
+          
+          // Ensure that the last row is picked
+          if (row % row_sample != 0 && row != m_disparity.rows() - 1) 
+            continue;
 
-      // This is quite important to avoid an incorrectly computed img_box.
+          // This is quite important to avoid an incorrectly computed img_box.
           typename DispImageType::pixel_type dpix = m_disparity(col, row);
           if (!is_valid(dpix))
-        continue;
+            continue;
 
           // Unalign the left pixel
-      Vector2 left_pix;
-      try{
-        left_pix  = m_left_transform->reverse(Vector2(col, row));
-      }catch(...){
-        continue;
-      }
+          Vector2 left_pix;
+          try{
+            left_pix  = m_left_transform->reverse(Vector2(col, row));
+          }catch(...){
+            continue;
+          }
           img_box.grow(left_pix);
 
-      // Save this lookup map for the future
-      m_unaligned_trans[std::make_pair(col, row)] = left_pix;
+          // Save this lookup map for the future
+          m_unaligned_trans[std::make_pair(col, row)] = left_pix;
         }
 
-    tpc.report_incremental_progress(inc_amount);
+        tpc.report_incremental_progress(inc_amount);
       }
       tpc.report_finished();
 
@@ -479,17 +479,17 @@ public:
       // and may have missed some points.
       Vector2 diff = img_box.max() - img_box.min();
       if (!img_box.empty()) {
-    img_box.grow(img_box.min() - 0.1*diff);
-    img_box.grow(img_box.max() + 0.1*diff);
+        img_box.grow(img_box.min() - 0.1*diff);
+        img_box.grow(img_box.max() + 0.1*diff);
       }
-      
+        
       m_num_cols = img_box.max().x();
       m_num_rows = img_box.max().y();
 
       vw_out() << "Dimensions are: " << m_num_cols << ' ' << m_num_rows << ".\n";
-    }
-    // Done computing the input image size.
-  }
+    } // Done computing the input image size
+    
+  } // End constructor
 
   // ImageView interface
   typedef PixelMask<Vector2f>                          pixel_type;
