@@ -228,14 +228,16 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "be either a DEM or a point cloud in CSV format. It must be well-aligned with the "
      "input cameras.")
     ("max-num-reference-points", 
-     po::value(&opt.max_num_reference_points)->default_value(100000),
+     po::value(&opt.max_num_reference_points)->default_value(50000),
      "Maximum number of (randomly picked) points from the --reference-terrain dataset.")
     ("stereo-prefix-list", po::value(&opt.stereo_prefix_list)->default_value(""),
      "List of stereo prefixes (one per line) having disparities for the "
      "--reference-terrain option.")
     ("reference-terrain-uncertainty", 
      po::value(&opt.reference_terrain_uncertainty)->default_value(1.0),
-     "The uncertainty (1 sigma, in meters), for the dataset in --reference-terrain.")
+     "The uncertainty (1 sigma, in meters), for the dataset in --reference-terrain. "
+     "A smaller value will result in a stronger constraint. It is suggested to not "
+     "not make this too small as it may prevent convergence.")
     ("reference-terrain-robust-threshold",
      po::value(&opt.reference_terrain_robust_threshold)->default_value(0.1),
      "The robust threshold, in pixels, for the option --reference-terrain. It is suggested "

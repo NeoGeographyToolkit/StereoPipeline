@@ -1439,12 +1439,13 @@ struct RefTerrainReprojErr {
                       vw::TransformPtr right_tx,
                       DispPtr disp,
                       csm::EcefCoord const& P,
+                      double weight,
                       int begLeftPosIndex, int endLeftPosIndex,
                       int begLeftQuatIndex, int endLeftQuatIndex,
                       int begRightPosIndex, int endRightPosIndex,
                       int begRightQuatIndex, int endRightQuatIndex):
     m_left_ls(left_ls), m_right_ls(right_ls),
-    m_left_tx(left_tx), m_right_tx(right_tx), m_disp(disp), m_P(P),
+    m_left_tx(left_tx), m_right_tx(right_tx), m_disp(disp), m_P(P), m_weight(weight),
     m_begLeftPosIndex(begLeftPosIndex), m_endLeftPosIndex(endLeftPosIndex),
     m_begLeftQuatIndex(begLeftQuatIndex), m_endLeftQuatIndex(endLeftQuatIndex),
     m_begRightPosIndex(begRightPosIndex), m_endRightPosIndex(endRightPosIndex),
@@ -1461,6 +1462,7 @@ struct RefTerrainReprojErr {
                       vw::TransformPtr right_tx,
                       DispPtr disp,
                       csm::EcefCoord const& P,
+                      double weight,
                       int begLeftPosIndex, int endLeftPosIndex,
                       int begLeftQuatIndex, int endLeftQuatIndex,
                       int begRightPosIndex, int endRightPosIndex,
@@ -1468,7 +1470,7 @@ struct RefTerrainReprojErr {
 
     ceres::DynamicNumericDiffCostFunction<RefTerrainReprojErr>* cost_function =
       new ceres::DynamicNumericDiffCostFunction<RefTerrainReprojErr>
-      (new RefTerrainReprojErr(left_ls, right_ls, left_tx, right_tx, disp, P,
+      (new RefTerrainReprojErr(left_ls, right_ls, left_tx, right_tx, disp, P, weight,
                                begLeftPosIndex, endLeftPosIndex,
                                begLeftQuatIndex, endLeftQuatIndex,
                                begRightPosIndex, endRightPosIndex,
@@ -1495,6 +1497,7 @@ private:
   vw::TransformPtr m_left_tx, m_right_tx;
   DispPtr m_disp;
   csm::EcefCoord m_P;
+  double m_weight;
   int m_begLeftPosIndex, m_endLeftPosIndex;
   int m_begLeftQuatIndex, m_endLeftQuatIndex;
   int m_begRightPosIndex, m_endRightPosIndex;
@@ -1544,11 +1547,11 @@ bool RefTerrainReprojErr::operator()(double const * const * parameters,
                                       m_disp, m_P, error);
     
     if (success) {
-      residuals[0] = error[0];
-      residuals[1] = error[1];
+      residuals[0] = m_weight * error[0];
+      residuals[1] = m_weight * error[1];
     } else {
-      residuals[0] = g_ref_terrain_pix_val;
-      residuals[1] = g_ref_terrain_pix_val;
+      residuals[0] = m_weight * g_ref_terrain_pix_val;
+      residuals[1] = m_weight * g_ref_terrain_pix_val;
     }
     
     // Accept the solution in either case, as it is too late to back out,
@@ -1556,8 +1559,8 @@ bool RefTerrainReprojErr::operator()(double const * const * parameters,
     return true; 
     
   } catch (...) {
-    residuals[0] = g_ref_terrain_pix_val;
-    residuals[1] = g_ref_terrain_pix_val;
+    residuals[0] = m_weight * g_ref_terrain_pix_val;
+    residuals[1] = m_weight * g_ref_terrain_pix_val;
     return true; // accept the solution anyway
   }
 
@@ -1573,6 +1576,7 @@ bool addRefTerrainReprojectionErr(asp::BaBaseOptions const& opt,
                                   vw::BBox2i const& right_bbox,
                                   DispPtr disp,
                                   csm::EcefCoord const& P,
+                                  double weight,
                                   ceres::Problem & problem) {
 
   double line_extra = opt.max_init_reproj_error + 5.0; // add some more just in case
@@ -1607,7 +1611,7 @@ bool addRefTerrainReprojectionErr(asp::BaBaseOptions const& opt,
                          rightBegQuatIndex, rightEndQuatIndex);
   
   ceres::CostFunction* pixel_cost_function = 
-    RefTerrainReprojErr::Create(left_ls, right_ls, left_tx, right_tx, disp, P,
+    RefTerrainReprojErr::Create(left_ls, right_ls, left_tx, right_tx, disp, P, weight,
                                 leftBegPosIndex, leftEndPosIndex,
                                 leftBegQuatIndex, leftEndQuatIndex,
                                 rightBegPosIndex, rightEndPosIndex,
@@ -1825,7 +1829,7 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
   } // end loop through stereo pairs
       
   // Need a progress bar as this can be slow
-  vw::TerminalProgressCallback tpc("asp", "Loading ref points: --> ");
+  vw::TerminalProgressCallback tpc("asp", "Filter ref points with disparity: --> ");
   // Find the spacing for progress. Avoid int32 overflow.
   double total = double(reference_vec.size()) * double(left_indices.size()); 
   double hundred = 100.0;
@@ -1874,22 +1878,39 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
       if (!success) 
         continue; // skip this point
       
+      // Find the weight to use with the camera constraint
+      double gsd = 0.0;
+      try {
+        vw::Vector2 pix_obs = csm_models[left_index]->point_to_pixel(reference_xyz);
+        gsd = vw::camera::estimatedGSD(csm_models[left_index], image_boxes[left_index],
+                                        pix_obs, reference_xyz);
+      } catch (...) {
+        continue;
+      }
+      if (gsd <= 0.0) 
+        continue; 
+
+      // Bigger uncertainty means a smaller weight for the residual. Also 
+      // convert from meters to pixels.
+      double weight = gsd / opt.reference_terrain_uncertainty;
+      
       // Add the error cost function for this point
       success = addRefTerrainReprojectionErr(opt, left_ls, right_ls, 
                                              left_tx, right_tx, 
                                              left_bbox, right_bbox, 
-                                             disp_vec[i], P, problem);
+                                             disp_vec[i], P, weight, problem);
       if (!success) 
         continue; // skip this point
       
       // Record where the residuals for this point are stored
       ref_indices[data_col].push_back(weight_per_residual.size());
       
-      // Two residuals were added. Save the corresponding weights.
+      // Two residuals were added. Save the corresponding weights. The saved residuals
+      // will be divided back by the weight.
       for (int c = 0; c < asp::PIXEL_SIZE; c++)
-        weight_per_residual.push_back(1.0);
+        weight_per_residual.push_back(weight);
 
-    }
+    } // end loop through stereo pairs
     
     // See if this point is kept
     if (ref_indices[data_col].size() > 0)
