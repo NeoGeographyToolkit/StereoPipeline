@@ -40,6 +40,12 @@
 #include <vw/Image/Interpolation.h>
 #include <vw/Cartography/Map2CamTrans.h>
 
+#include <algorithm>
+#include <iostream>
+#include <iterator>
+#include <random>
+#include <vector>
+
 namespace asp {
 
 // An error function minimizing the error of projecting an xyz point
@@ -1711,10 +1717,13 @@ void loadReferenceTerrain(asp::BaBaseOptions            const& opt,
 
     // If they are too many, pick a subset
     if (reference_vec.size() > opt.max_num_reference_points) {
-      std::random_shuffle(reference_vec.begin(), reference_vec.end());
+      // Deterministic shuffle
+      unsigned seed = 0;
+      std::mt19937 gen(seed);
+      std::shuffle(reference_vec.begin(), reference_vec.end(), gen);
       reference_vec.resize(opt.max_num_reference_points);
     }
-    
+
     vw::vw_out() << "Read " << reference_vec.size()
       << " reference terrain points (after filtering by projection into camera).\n";
     
