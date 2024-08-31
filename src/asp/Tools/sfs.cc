@@ -1370,28 +1370,33 @@ double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
   return reflectance;
 }
 
-// Hapke's model.
-// See: An Experimental Study of Light Scattering by Large, Irregular Particles
-// Audrey F. McGuire, Bruce W. Hapke. 1995. The reflectance used is R(g), in equation
-// above Equation 21. The p(g) function is given by Equation (14), yet this one uses
-// an old convention. The updated p(g) is given in:
-// Spectrophotometric properties of materials observed by Pancam on the Mars Exploration Rovers: 1.
-// Spirit. JR Johnson, 2006.
-// We Use the two-term p(g), and the parameter c, not c'=1-c.
-// We also use the values of w(=omega), b, and c from that table.
-// Note that we use the updated Hapke model, having the term B(g). This one is given in
-// "Modeling spectral and bidirectional reflectance", Jacquemoud, 1992. It has the params
-// B0 and h.
-// The ultimate reference is probably Hapke, 1986, having all pieces in one place, but
-// that one is not available. 
-// We use mostly the parameter values for omega, b, c, B0 and h from:
-// Surface reflectance of Mars observed by CRISM/MRO: 2.
-// Estimation of surface photometric properties in Gusev Crater and Meridiani Planum by J. Fernando. 
+// Hapke's model. See: An Experimental Study of Light Scattering by Large,
+// Irregular Particles Audrey F. McGuire, Bruce W. Hapke. 1995. The reflectance
+// used is R(g), in equation above Equation 21. The p(g) function is given by
+// Equation (14), yet this one uses an old convention. The updated p(g) is given
+// in: Spectrophotometric properties of materials observed by Pancam on the Mars
+// Exploration Rovers: 1. Spirit. JR Johnson, 2006. We Use the two-term p(g),
+// and the parameter c, not c'=1-c. We also use the values of w(=omega), b, and
+// c from that table.
+
+// Note that we use the updated Hapke model, having the term B(g). This one is
+// given in "Modeling spectral and bidirectional reflectance", Jacquemoud, 1992.
+// It has the params B0 and h. The ultimate reference is probably Hapke, 1986,
+// having all pieces in one place, but that one is not available. 
+
+// We use mostly the parameter values for omega, b, c, B0 and h from: Surface
+// reflectance of Mars observed by CRISM/MRO: 2. Estimation of surface
+// photometric properties in Gusev Crater and Meridiani Planum by J. Fernando.
 // See equations (1), (2) and (4) in that paper.
+
 // Example values for the params: w=omega=0.68, b=0.17, c=0.62, B0=0.52, h=0.52.
-// But we don't use equation (3) from that paper, we use instead what they call the formula H93,
-// which is the H(x) from McGuire and Hapke 1995 mentioned above.
-// See the complete formulas below.
+
+// We don't use equation (3) from that paper, we use instead what they call
+// the formula H93, which is the H(x) from McGuire and Hapke 1995 mentioned
+// above. See the complete formulas below.
+
+// The Fernando paper has a factor S, which is not present in the 1992
+// Jacquemoud paper, so we don't use it either here.
 double computeHapkeReflectanceFromNormal(Vector3 const& sunPos,
                                          Vector3 const& viewPos,
                                          Vector3 const& xyz,

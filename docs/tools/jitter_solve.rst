@@ -50,7 +50,7 @@ A report file having the change in triangulated points is written to disk
 (:numref:`jitter_cam_offsets`). It can help evaluate the effect of this
 constraint. Also check the pixel reprojection errors per camera
 (:numref:`jitter_errors_per_camera`) and per triangulated point
-(:numref:`jitter_err_per_point`), before and after solving for jitter.
+(:numref:`jitter_tri_err`), before and after solving for jitter.
 
 Triangulated points that are constrained via a DEM (option
 ``--heights-from-dem``, :numref:`jitter_dem_constraint`), that is, those that
@@ -94,7 +94,7 @@ Ground control points
 
 Just like ``bundle_adjust`` (:numref:`bagcp`), this program can make use of
 ground control points. The pixel residuals at ground control points 
-are flagged in the produced report file (:numref:`jitter_err_per_point`).
+are flagged in the produced report file (:numref:`jitter_tri_err`).
 
 .. _jitter_camera:
 
@@ -188,8 +188,8 @@ a handful of matches for each jitter period.*
 Examine the interest point matches in ``stereo_gui``
 (:numref:`stereo_gui_view_ip`). Also examine the produced ``pointmap.csv`` files
 to see the distribution and residuals of interest points
-(:numref:`jitter_err_per_point`), and if the matches are dense enough given 
-the observed jitter.
+(:numref:`jitter_tri_err`), and if the matches are dense enough given the
+observed jitter.
 
 This program can read interest point matches in the ISIS control network format,
 using the option ``--isis-cnet``, and from an NVM file, with the option
@@ -1767,9 +1767,9 @@ orientations before and after optimization.
 Point cloud constraint
 ~~~~~~~~~~~~~~~~~~~~~~
 
-In this scenario it is assumed that a point cloud is available that can be used
-to constrain the jitter solution. The cloud can be in CSV format or be a DEM. 
-*The cloud must be well-aligned with the input cameras.*
+In this scenario it is assumed that a reference point cloud is available that
+can constrain the jitter solution. The cloud can be in CSV format or a DEM. *The
+cloud must be well-aligned with the input cameras.*
 
 This workflow requires having filtered stereo disparity files (``F.tif``,
 :numref:`outputfiles`) as made by ``parallel_stereo``
@@ -1778,10 +1778,11 @@ supported*.
 
 The algorithm projects a reference terrain point into one camera, propagates it
 through the stereo disparity to the other camera, and takes the pixel difference
-with the direct projection in the other camera (the *residual* further down).
-The option ``--reference-terrain-uncertainty`` can set the uncertainty, with a
-higher uncertainty resulting in less weight for this constraint. The weight is
-also adjusted for the ground sample distance at each reference terrain point.
+with the direct projection in the other camera (this difference is called the
+*residual* further down). The option ``--reference-terrain-uncertainty`` can set
+the uncertainty, with a higher uncertainty resulting in less weight for this
+constraint. The weight is also adjusted for the ground sample distance at each
+reference terrain point.
 
 The stereo runs should be produced either with the same images as invoked by the
 jitter solver, or with mapprojected versions of those (the same order of images
@@ -1790,7 +1791,7 @@ that has some information which ``jitter_solve`` will use.
 
 It is not important that the cameras or bundle-adjust prefixes passed to the
 jitter solving be the same as the ones for the stereo runs, but all the relevant
-files must be available, and the inputs to stereo should not be changed after
+files must be available, and the inputs to stereo must not be changed after
 the stereo runs are created.
 
 The list of stereo prefixes (:numref:`tutorial`), should be set via
@@ -1809,7 +1810,7 @@ needed.
 
 Example usage::
 
-  echo stereo_run/run > stereo_list.txt
+  echo {output prefix} > stereo_list.txt
   
   jitter_solve                                    \
     --max-pairwise-matches 50000                  \
@@ -1833,8 +1834,12 @@ projection, rather than geographic coordinates, the option ``--csv-srs`` must be
 set to specify the projection. Then adust ``--csv-format`` accordingly above.
 
 The initial and final residuals for the reference terrain points are saved to
-disk in CSV format and should be examined
-(:numref:`jitter_ref_terrain_residuals`).
+disk in CSV format and should be examined (:numref:`jitter_ref_err`). Also
+examine the pixel reprojection errors (:numref:`jitter_tri_err`).
+
+The solver may be slow for very large runs. Then decreasing the number of
+iterations to 10 or 5 will help. The number of reference points can be decreased
+as well.
 
 .. _jitter_out_files:
 
@@ -1893,7 +1898,7 @@ This is helpful in understanding how much the triangulated points move. An
 unreasonable amount of movement may suggest imposing stronger constraints on the
 triangulated points (option ``--tri-weight``).
 
-.. _jitter_err_per_point:
+.. _jitter_tri_err:
 
 Reprojection errors per triangulated point
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1914,7 +1919,7 @@ and::
      {output-prefix}-final_residuals_pointmap.csv
 
 Such CSV files can be colorized and overlaid with ``stereo_gui``
-(:numref:`plot_csv`) to see at which pixels the residual error is
+(:numref:`plot_csv`) to see at which triangulated points the residual error is
 large.
 
 These files are very correlated to the dense results produced with stereo (the
@@ -1961,7 +1966,7 @@ confusing. Yet in the final (optimized) file these points have moved,
 so then the result makes more sense. When using the ``--tri-weight``
 option the true initial triangulated points and errors are used.
 
-.. _jitter_ref_terrain_residuals:
+.. _jitter_ref_err:
 
 Reference terrain residuals
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
