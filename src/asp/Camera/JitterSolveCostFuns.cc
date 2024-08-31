@@ -1365,6 +1365,9 @@ void addRollYawConstraint(asp::BaBaseOptions              const& opt,
   return;
 }
 
+// TODO(oalexan1): This file is getting big. Move the code below to
+// jitterSolveRefCostFun.cc.
+
 // The disparity-based error measured by --reference-terrain. It is the
 // difference between left_pix + disp and right_pix, given the current ground
 // pixel and camera models.
@@ -1631,6 +1634,90 @@ bool addRefTerrainReprojectionErr(asp::BaBaseOptions const& opt,
   return true;
 }
 
+// Read the reference terrain. Ensure enough reference points are loaded that
+// project in the camera boxes. Do two attempts.
+// TODO(oalexan1): This will need adjustment if there is more than one stereo pair.
+void loadReferenceTerrain(asp::BaBaseOptions            const& opt,
+                          std::vector<asp::CsmModel*>   const& csm_models,
+                          std::vector<int>              const& left_indices,
+                          std::vector<int>              const& right_indices,
+                          std::vector<vw::TransformPtr> const& left_trans,
+                          std::vector<vw::TransformPtr> const& right_trans,
+                          std::vector<vw::BBox2i>       const& image_boxes,
+                          // Output
+                          std::vector<vw::Vector3> & reference_vec) {
+
+  vw::vw_out() << "Loading reference terrain points and then filtering them.\n";
+  
+  // Set up a GeoReference object using the datum, it may get modified later
+  vw::cartography::GeoReference geo;
+  geo.set_datum(opt.datum); // We checked for a datum earlier
+  // Ensure the read georef lives on the same planet
+  bool warn_only = false;
+  vw::checkDatumConsistency(opt.datum, geo.datum(), warn_only);
+  
+  for (size_t i = 0; i < left_indices.size(); i++) {
+      
+    auto * left_cam = csm_models[left_indices[i]];
+    auto * right_cam = csm_models[right_indices[i]];
+    auto left_bbox = image_boxes[left_indices[i]];
+    auto right_bbox = image_boxes[right_indices[i]];
+      
+    int num_try_load = 5 * opt.max_num_reference_points;
+    for (int attempt = 0; attempt < 2; attempt++) {
+   
+      reference_vec.clear();
+      std::vector<vw::Vector3> local_reference_vec;
+      asp::load_csv_or_dem(opt.csv_format_str, opt.csv_srs, opt.reference_terrain,  
+                            num_try_load,  
+                            // Outputs
+                            geo, local_reference_vec);
+    
+      // TODO(oalexan1): For non-ISIS cameras this could be done in parallel.
+      for (size_t data_col = 0; data_col < local_reference_vec.size(); data_col++) {
+        vw::Vector3 reference_xyz = local_reference_vec[data_col];
+        vw::Vector2 left_pix, right_pix;
+        try {
+          left_pix = left_cam->point_to_pixel(reference_xyz);
+          right_pix = right_cam->point_to_pixel(reference_xyz);
+        } catch (...) {
+          continue;
+        }
+        if (!left_bbox.contains(left_pix) || !right_bbox.contains(right_pix))
+          continue;
+      
+        reference_vec.push_back(reference_xyz);
+      }
+      
+      int num_loaded = reference_vec.size();
+      double ratio = double(num_loaded) / opt.max_num_reference_points;
+      if (ratio >= 1.0)
+        break; // loaded enough points
+
+       // Try again
+       num_try_load = 1.5 * num_try_load / std::max(ratio, 1e-3); // avoid division by 0
+       vw::vw_out() << "Loaded too few points after filtering. Try again.\n";
+    
+    } // end attempt loop
+    
+    // If there are too few points, print a warning
+    if (reference_vec.size() < opt.max_num_reference_points)
+      vw::vw_out(vw::WarningMessage) << "Loaded only " << reference_vec.size()
+        << " reference terrain points after filtering by projection into camera.\n";
+
+    // If they are too many, pick a subset
+    if (reference_vec.size() > opt.max_num_reference_points) {
+      std::random_shuffle(reference_vec.begin(), reference_vec.end());
+      reference_vec.resize(opt.max_num_reference_points);
+    }
+    
+    vw::vw_out() << "Read " << reference_vec.size()
+      << " reference terrain points (after filtering by projection into camera).\n";
+    
+  } // end loop through stereo pairs
+
+} // end function loadReferenceTerrain()
+
 // Option --reference-terrain
 // TODO(oalexan1): Must add the uncertainty logic.
 // TODO(oalexan1): Filter out points outside the box and load more if needed.
@@ -1653,19 +1740,20 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
   if (left_indices.size() != 1)
     vw::vw_throw(vw::ArgumentErr() << "Expecting only one stereo pair.\n");
     
-  // Set up a GeoReference object using the datum, it may get modified later
-  vw::cartography::GeoReference geo;
-  geo.set_datum(opt.datum); // We checked for a datum earlier
-
-  // Read the reference terrain
-  // TODO(oalexan1): This loads points that are way outside the image bounds,
-  // and will later be wiped. Must do some heuristics to avoid this.
-  // Such as, projecting into the camera early on.
-  asp::load_csv_or_dem(opt.csv_format_str, opt.csv_srs, opt.reference_terrain,  
-                        opt.max_num_reference_points,  
-                        // Outputs
-                        geo, reference_vec);
-
+  // Read the image boxes
+  std::vector<vw::BBox2i> image_boxes;
+  for (size_t icam = 0; icam < opt.image_files.size(); icam++) {
+    vw::DiskImageView<float> img(opt.image_files[icam]);
+    vw::BBox2i bbox = vw::bounding_box(img);
+    image_boxes.push_back(bbox);
+  }
+  
+  // Read the reference terrain. Ensure enough reference points are loaded that
+  // project in the camera boxes. 
+  loadReferenceTerrain(opt, csm_models, left_indices, right_indices,
+                      left_trans, right_trans, image_boxes, 
+                      reference_vec); // output
+ 
   // Load the disparity files. Keep a pointer to DiskImageView to avoid loading
   // them fully in memory, as they can be huge.
   disp_vec.resize(disp_files.size());
@@ -1677,19 +1765,7 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
   // Record the indices of the residuals of the reference points  
   ref_indices.clear();
   ref_indices.resize(reference_vec.size());
-  
-  // Ensure the read georef lives on the same planet
-  bool warn_only = false;
-  vw::checkDatumConsistency(opt.datum, geo.datum(), warn_only);
     
-  // Read the image boxes. They are needed to find the GSD per camera.
-  std::vector<vw::BBox2i> image_boxes;
-  for (size_t icam = 0; icam < opt.image_files.size(); icam++) {
-    vw::DiskImageView<float> img(opt.image_files[icam]);
-    vw::BBox2i bbox = vw::bounding_box(img);
-    image_boxes.push_back(bbox);
-  }
-  
   int num_kept_ref_points = 0;
   vw::vw_out() << "Setting up the error to the reference terrain.\n";
   
@@ -1726,7 +1802,7 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
         << "The mapprojection DEM " << left_map2cam->m_dem_file 
         << " is very large, it may take a long time to load. Dimensions: "
         << left_map2cam->m_dem.cols() << " x " << left_map2cam->m_dem.rows() 
-        << ".\n";
+        << " pixels.\n";
 
     // Load the DEM in memory and set it for each transform. This is a fix
     // for very slow performance. Note that the disparity is still loaded
@@ -1823,7 +1899,7 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
   tpc.report_finished();
   
   vw::vw_out() << "Read " << num_kept_ref_points 
-    << " reference terrain points (after filtering).\n";
+    << " reference terrain points (after filtering by disparity).\n";
   
 }
 
