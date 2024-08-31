@@ -935,10 +935,11 @@ Command-line options
     Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2
 
 --robust-threshold <double (default:0.5)>
-    Set the threshold for robust cost functions. Increasing this
-    makes the solver focus harder on the larger errors.
-    See the `Google Ceres <http://ceres-solver.org/nnls_modeling.html>`_
-    documentation on robust cost functions.
+    Set the threshold for the robust reprojection error cost function.
+    Increasing this makes the solver focus harder on the larger errors while
+    becoming more sensitive to outliers. See the `Google Ceres
+    <http://ceres-solver.org/nnls_modeling.html>`_ documentation on robust cost
+    functions.
 
 --datum <string (default: "")>
     Set the datum. This will override the datum from the input images and also
@@ -1229,10 +1230,6 @@ Command-line options
     cameras are optimized) are outside of this range.  Specify as
     four values.
 
---reference-terrain-weight <double (default: 1)>
-    How much weight to give to the cost function terms involving
-    the reference terrain.
-
 --heights-from-dem <string (default: "")>
     Assuming the cameras have already been bundle-adjusted and aligned to a
     known DEM, constrain the triangulated points to be close to the DEM. See
@@ -1270,8 +1267,8 @@ Command-line options
     again measured from planet center.
 
 --csv-srs <string>
-    The PROJ or WKT string to use to interpret the entries in input CSV
-    files, if those files contain Easting and Northing fields.
+    The PROJ or WKT string for interpreting the entries in input CSV
+    files.
 
 --update-isis-cubes-with-csm-state
     Save the model state of optimized CSM cameras as part of the .cub
@@ -1476,13 +1473,15 @@ Command-line options
     to ensure the parameters are big enough to be optimized. Can be negative.
     Applies to Pinhole cameras (all distortion models) and CSM
     (radial-tangential distortion only). Does not apply to optical bar models.
-    
+
 --reference-terrain <filename>
-    An externally provided trustworthy 3D terrain, either as a DEM
-    or as a lidar file, very close (after alignment) to the stereo
-    result from the given images and cameras that can be used as a
-    reference, instead of GCP, to optimize the intrinsics of the
-    cameras.
+    An externally provided trustworthy reference terrain to use as a constraint.
+    It can be either a DEM or a point cloud in CSV format. It must be
+    well-aligned with the input cameras (:numref:`reference_terrain`).
+
+--reference-terrain-weight <double (default: 1)>
+    How much weight to give to the cost function terms involving
+    the reference terrain.
 
 --max-num-reference-points <integer (default: 100000000)>
     Maximum number of (randomly picked) points from the reference
