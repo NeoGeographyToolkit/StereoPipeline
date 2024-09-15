@@ -71,7 +71,7 @@ Extrinsic constraint
 This ties the triangulated ground points obtained from interest point matches to
 an external DEM, which may be at a lower resolution than the images. It is
 expected that this external DEM is *well-aligned* with the input cameras (see
-:numref:`ba_pc_align` for how do the alignment). 
+:numref:`ba_pc_align` for how do the alignment).
 
 This option is named ``--heights-from-dem``, and it is controlled via
 ``--heights-from-dem-uncertainty`` and ``--heights-from-dem-robust-threshold``.
@@ -1769,7 +1769,7 @@ Point cloud constraint
 
 In this scenario it is assumed that a reference point cloud is available that
 can constrain the jitter solution. The cloud can be in CSV format or a DEM. *The
-cloud must be well-aligned with the input cameras.*
+cloud must be well-aligned with the input cameras.*  The cloud can be sparse. 
 
 This workflow requires having filtered stereo disparity files (``F.tif``,
 :numref:`outputfiles`) as made by ``parallel_stereo``
@@ -1800,7 +1800,8 @@ out how they relate to the images passed in to the solver. It will undo any
 alignment or mapprojection transforms as appropriate.
 
 This workflow does not preclude using the ``--heights-from-dem`` option or
-anchor points. It assumes that no rig is present and that all cameras are linescan.
+anchor points. It assumes that no rig is present and that all cameras are
+linescan.
 
 If the images are mapprojected, *this option loads fully in memory the DEM that
 was used for mapprojecting them*, for performance reasons, so it should not be

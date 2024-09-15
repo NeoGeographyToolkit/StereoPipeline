@@ -1457,10 +1457,15 @@ These are the various approaches of integrating well-aligned prior terrain data.
  - The ``jitter_solve`` program (:numref:`jitter_solve`) can be called in the
    same way with the option ``--heights-from-dem``.
    
- - For rather sparse lidar data, the ``bundle_adjust`` option named
+ - For sparse point clouds or DEM data, the ``bundle_adjust`` option named
    ``--reference-terrain`` can be invoked (:numref:`reference_terrain`).
    This one is harder to use as it takes as input stereo disparities.
  
+ - The ``jitter_solve`` program also has the option ``--reference-terrain``.
+   This one is easier to use than the analogous ``bundle_adjust`` option, as the
+   unaligning of the disparity is done for the user on the fly
+   (:numref:`jitter_ref_terrain`).
+  
  - Low-resolution stereo disparity can be initialized from a DEM, with the
    option ``--corr-seed-mode 2`` (:numref:`d_sub_dem`).
     
