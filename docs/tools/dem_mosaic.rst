@@ -159,12 +159,12 @@ Fill small holes
 
     dem_mosaic --hole-fill-length 50 input.tif -o output.tif
 
-.. _dem_mosaic_grow:
+.. _dem_mosaic_extrapolate:
 
-Grow a DEM
-^^^^^^^^^^
+Extrapolating a DEM
+^^^^^^^^^^^^^^^^^^^
 
-::
+To extrapolate a DEM based on a weighted average of neighbors, run::
 
     dem_mosaic                  \
         --fill-search-radius 25 \
@@ -177,7 +177,7 @@ This command will become very slow for large ``--fill-search-radius``.
 It is suggested to increase ``--fill-num-passes`` instead.
 
 This method will also grow the DEM outwards, not just within
-a hole.
+a hole, unlike the hole-filling example in :numref:`dem_mosaic_fill`.
 
 It is suggested to blur a little the obtained DEM, such as::
 
@@ -189,11 +189,9 @@ except a small transition area at the boundary, run::
     dem_mosaic --priority-blending-length 20 \
       input.tif blurred.tif -o output.tif
 
-Unlike the fill example in :numref:`dem_mosaic_fill`, in this mode the tool will
-not try to fill small holes of a given diameter that are fully surrounded by
-valid data. Instead, for any pixel that is invalid (lacks data), ``dem_mosaic``
-will search for valid pixels within the specified search radius. If the
-percentage of valid to total number of found pixels is no less than the
+The extrapolation works as follows. For any pixel that is invalid (lacks data),
+``dem_mosaic`` will search for valid pixels within the specified search radius.
+If the percentage of valid to total number of found pixels is no less than the
 specified value, the invalid pixel will be filled with the weighted average of
 the valid pixel values, with the weight given as:
 

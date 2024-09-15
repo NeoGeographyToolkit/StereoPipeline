@@ -81,7 +81,7 @@ must be very similar.
    maps are in :numref:`kh7_orig_vs_opt`.
 
 Some hole-filling and blur can be applied to the ASP DEM with ``dem_mosaic``
-(:numref:`dem_mosaic_blur` and :numref:`dem_mosaic_grow`).
+(:numref:`dem_mosaic_blur` and :numref:`dem_mosaic_extrapolate`).
 
 A command as::
 

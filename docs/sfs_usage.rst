@@ -314,7 +314,7 @@ invoked with no input grid size, computes the grid size as the image
 GSD, and that value can then be used when creating the input SfS DEM.
 
 If this DEM has holes, those can be filled in ``dem_mosaic``
-(:numref:`dem_mosaic_grow`). 
+(:numref:`dem_mosaic_extrapolate`). 
 
 The ``dem_mosaic`` program can also apply some blur to attenuate big artifacts
 (:numref:`dem_mosaic_blur`). Use, for example, ``--dem-blur-sigma 2``. Note that
@@ -931,7 +931,7 @@ Any spikes or other artifacts should be blurred, such as by running::
 
     dem_mosaic --dem-blur-sigma 2 ref.tif -o ref_blur.tif
     
-Any holes can also be filled ``dem_mosaic`` (:numref:`dem_mosaic_grow`,
+Any holes can also be filled ``dem_mosaic`` (:numref:`dem_mosaic_extrapolate`,
 :numref:`dem_mosaic_fill`). A subsequent blur with a sigma of 2 pixels is
 suggested (:numref:`dem_mosaic_blur`).
 

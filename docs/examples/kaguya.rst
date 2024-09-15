@@ -125,7 +125,7 @@ any holes::
 
 Inspect the produced DEM ``stereo/run-DEM.tif`` in ``stereo_gui`` in hillshading
 mode. Any additional holes can be filled with ``dem_mosaic``
-(:numref:`dem_mosaic_grow`).
+(:numref:`dem_mosaic_extrapolate`).
 
 It is also suggested to blur it a little, to make it smoother::
 

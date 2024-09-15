@@ -942,7 +942,7 @@ as in :numref:`csm_msl`. The quality of the produced DEM can be quite uneven,
 especially far from the camera. 
 
 Large holes in the initial DEM were filled in with the ``dem_mosaic`` option
-``--fill-search-radius`` (:numref:`dem_mosaic_grow`). 
+``--fill-search-radius`` (:numref:`dem_mosaic_extrapolate`). 
 
 Then, it can be made coarser, for example, as::
 

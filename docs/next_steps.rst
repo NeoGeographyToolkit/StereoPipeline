@@ -470,7 +470,7 @@ Hole-filling and smoothing the input DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 It is suggested to inspect and then hole-fill the input DEM
-(:numref:`dem_mosaic_grow` and :numref:`dem_mosaic_fill`). 
+(:numref:`dem_mosaic_extrapolate` and :numref:`dem_mosaic_fill`). 
 
 If the input DEM has too much detail, and those features do not agree with the
 images mapprojected on it, this can result in artifacts in the final DEM. A blur
@@ -586,7 +586,7 @@ resolution switched to meters from degrees (see :numref:`dg-mapproj`
 for more details).
 
 This DEM can be hole-filled and blurred with ``dem_mosaic`` if needed
-(:numref:`dem_mosaic_grow`), producing a DEM called
+(:numref:`dem_mosaic_extrapolate`), producing a DEM called
 ``run_nomap/run-smooth.tif``. Inspect the result. It should be smooth and with
 no holes.
 
@@ -711,7 +711,7 @@ misregistration artifacts transfer over to the mapprojected images. Ensure the
 input DEM is relative to an ellipsoid and not a geoid
 (:numref:`conv_to_ellipsoid`). 
 
-Fill and blur the input DEM if needed (:numref:`dem_mosaic_grow`).
+Fill and blur the input DEM if needed (:numref:`dem_mosaic_extrapolate`).
 
 Commands::
 
