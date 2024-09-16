@@ -25,7 +25,7 @@ jobs:
     # produced in this session. Can be later downloaded manually and saved to a
     # permanent location.
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with: 
          name: ASP-dependencies-${{ runner.os }}
          path: ~/work/StereoPipeline/packages

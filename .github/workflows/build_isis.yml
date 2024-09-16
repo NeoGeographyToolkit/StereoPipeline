@@ -35,7 +35,7 @@ jobs:
     - name: build_isis
       run: ./.github/workflows/build_isis.sh
     - name: Upload artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with: 
          name: ASP-dependencies-${{ runner.os }}
          path: ~/work/StereoPipeline/packages
