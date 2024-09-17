@@ -179,7 +179,7 @@ namespace asp {
     // Fraction with no adjustment
     double native_penalty_fraction
       = (double)RpcSolveLMA::NUM_PENALTY_TERMS / (double)normalized_pixels.size();
-    double penalty_adjustment      = penalty_weight_fraction / native_penalty_fraction;
+    double penalty_adjustment = penalty_weight_fraction / native_penalty_fraction;
     
     VW_OUT(DebugMessage, "math") << "rpc_gen: Computed penalty weight: "
                                  << penalty_adjustment<< std::endl;
