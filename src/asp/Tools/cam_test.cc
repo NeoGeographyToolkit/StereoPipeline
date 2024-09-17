@@ -185,6 +185,33 @@ void testErrorPropagation(Options const& opt,
   vw::vw_out() << "Horizontal and vertical stddev: " << ans << std::endl;
 }
 
+// This is an important sanity check for RPC cameras, which have only a limited
+// range of valid heights above datum.
+void rpc_datum_sanity_check(std::string const& cam_file, 
+                            double height_above_datum,
+                            vw::camera::CameraModel const* cam) {
+  // Cast the camera to RPC
+  asp::RPCModel const* rpc_cam = dynamic_cast<asp::RPCModel const*>(cam);
+  if (rpc_cam == NULL)
+    vw::vw_throw(vw::ArgumentErr() << "Expecting an RPC camera model.\n");
+    
+  vw::Vector3 lonlatheight_offset = rpc_cam->lonlatheight_offset();
+  vw::Vector3 lonlatheight_scale  = rpc_cam->lonlatheight_scale();
+  double mid_ht = lonlatheight_offset[2];
+  double min_ht = mid_ht - lonlatheight_scale[2];
+  double max_ht = mid_ht + lonlatheight_scale[2];
+  
+  if (height_above_datum < min_ht || height_above_datum > max_ht)
+    vw::vw_out(vw::WarningMessage) 
+      << "For RPC camera file: " << cam_file
+      << ", the range of valid heights above datum is "
+      << min_ht << " to " << max_ht 
+      << " meters. The provided height above datum is "
+      << height_above_datum 
+      << " meters. The results may be inaccurate. Set appropriately "
+      << "the --height-above-datum option.\n";
+}
+
 int main(int argc, char *argv[]) {
 
   Options opt;
@@ -265,6 +292,14 @@ int main(int argc, char *argv[]) {
                << "were guessed as: '" << opt.session1 << "'. It is suggested that they be "
                << "explicitly specified using --session1 and --session2.\n");
 
+    // Sanity checks for RPC cameras
+    if (opt.session1 == "rpc")
+      rpc_datum_sanity_check(opt.cam1_file, opt.height_above_datum, 
+                             vw::camera::unadjusted_model(cam1_model.get()));
+    if (opt.session2 == "rpc")
+      rpc_datum_sanity_check(opt.cam2_file, opt.height_above_datum,
+                             vw::camera::unadjusted_model(cam2_model.get()));
+
     if (opt.test_error_propagation && opt.session1 == "dg" && opt.session2 == "dg") {
       testErrorPropagation(opt, datum, cam1_model, cam2_model);
       return 0;
@@ -297,6 +332,7 @@ int main(int argc, char *argv[]) {
 
     double major_axis = datum.semi_major_axis() + opt.height_above_datum;
     double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
+    
     // Iterate over the image
     std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff, nocsm_vs_csm_diff;
     int num_failed = 0;
@@ -386,6 +422,14 @@ int main(int argc, char *argv[]) {
     if (opt.aster_vs_csm)
       print_diffs("No-csm vs csm pixel diff", nocsm_vs_csm_diff);
 
+    // If either session is rpc, warn that the camera center may not be accurate
+    if (opt.session1 == "rpc" || opt.session2 == "rpc") {
+      vw::vw_out() << "\n"; // separate from the diffs
+      vw::vw_out(vw::WarningMessage) 
+        << "For RPC cameras, the concept of camera center is not well-defined, "
+        << "so the result for that should be ignored.\n"; 
+    }
+    
     double elapsed_sec = sw.elapsed_seconds();
     vw_out() << "\nElapsed time per sample: " << 1e+6 * elapsed_sec/ctr_diff.size()
              << " milliseconds.\n";

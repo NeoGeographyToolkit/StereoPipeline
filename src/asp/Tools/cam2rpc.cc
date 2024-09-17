@@ -22,16 +22,18 @@
 // some work needs to be done for these packages to give correct results off-Earth.
 
 #include <asp/Sessions/StereoSessionFactory.h>
-#include <vw/FileIO/DiskImageView.h>
-#include <vw/Core/StringUtils.h>
-#include <vw/Camera/PinholeModel.h>
-#include <vw/Cartography/Datum.h>
-#include <vw/Cartography/GeoReference.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Camera/RPCModelGen.h>
 #include <asp/Core/PointUtils.h>
+#include <vw/FileIO/DiskImageView.h>
+
+#include <vw/Core/StringUtils.h>
+#include <vw/Camera/PinholeModel.h>
+#include <vw/Cartography/Datum.h>
+#include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/CameraBBox.h>
 
 #include <limits>
 #include <cstring>
@@ -199,7 +201,7 @@ void add_perimeter_diag_points(BBox2 const& image_box,
                                vw::cartography::Datum const& datum,
                                BBox2 const& ll, // lon-lat box
                                Vector2 const& H, // height range
-                               // Outputs
+                               // Outputs (append to these)
                                std::vector<Vector3> & all_llh,
                                std::vector<Vector2> & all_pixels) {
 
@@ -208,7 +210,8 @@ void add_perimeter_diag_points(BBox2 const& image_box,
   b.max() -= Vector2(1, 1);
 
   // Calc samples on box perimeter and diagonals
-  int num_steps = 100; // number of steps on each segment
+  // Add on the perimeter a non-small portion of points we added so far throughout
+  int num_steps = std::max(100, int(all_llh.size()/10));
   std::vector<vw::Vector2> points;
   vw::cartography::sample_float_box(b, points, num_steps);
   
@@ -244,6 +247,80 @@ void add_perimeter_diag_points(BBox2 const& image_box,
     }
   }
 
+}
+
+// Add pixel and llh samples along the perimeter and diagonals of image_box.
+// using the DEM.
+void add_perimeter_diag_points(BBox2 const& image_box, 
+                               vw::CamPtr cam,
+                               ImageViewRef<PixelMask<float>> dem,
+                               GeoReference const& dem_geo,
+                               // Outputs (append to these)
+                               std::vector<Vector3> & all_llh,
+                               std::vector<Vector2> & all_pixels) {
+
+  // Reduce the max by 1, as sample_float_box() assumes the max is not exclusive
+  BBox2 b = image_box;
+  b.max() -= Vector2(1, 1);
+
+  // Calc samples on box perimeter and diagonals
+  // Add on the perimeter a non-small portion of points we added so far throughout
+  // the image
+  int num_steps = std::max(100, int(all_llh.size()/10));
+  std::cout << "--num steps is " << num_steps << std::endl;
+  
+  std::vector<vw::Vector2> points;
+  vw::cartography::sample_float_box(b, points, num_steps);
+  
+  double height_guess = vw::cartography::demHeightGuess(dem);
+  std::cout << "--height guess is " << height_guess << std::endl;
+  vw::Vector3 xyz_guess(0, 0, 0);
+  
+  for (size_t j = 0; j < points.size(); j++) {
+    vw::Vector2 pix = points[j];
+    
+    // Intersect the ray going from the given camera pixel with a DEM
+    // Use xyz_guess as initial guess and overwrite it with the new value
+    bool treat_nodata_as_zero = false;
+    bool has_intersection = false;
+    double max_abs_tol = 1e-14;
+    double max_rel_tol = max_abs_tol;
+    double dem_height_error_tol = 1e-3; // 1 mm
+    int num_max_iter = 100;
+    vw::Vector3 xyz;
+    try {
+      
+      // Intersect with the DEM
+      xyz = vw::cartography::
+        camera_pixel_to_dem_xyz(cam->camera_center(pix), 
+                                cam->pixel_to_vector(pix),
+                                dem,
+                                dem_geo, 
+                                treat_nodata_as_zero,
+                                has_intersection, 
+                                dem_height_error_tol, 
+                                max_abs_tol, max_rel_tol, 
+                                num_max_iter, 
+                                xyz_guess, 
+                                height_guess);
+    } catch (...) {
+      continue;
+    }
+
+    if (!has_intersection || xyz == vw::Vector3())
+      continue;
+
+    // Update the guess for nex time, now that we have a valid intersection point
+    xyz_guess = xyz;
+
+    vw::Vector3 llh = dem_geo.datum().cartesian_to_geodetic(xyz);
+      
+    all_llh.push_back(llh);
+    all_pixels.push_back(pix);
+    
+  } // end loop through points
+  
+  return;
 }
 
 int main(int argc, char *argv[]) {
@@ -310,7 +387,10 @@ int main(int argc, char *argv[]) {
       opt.has_output_nodata = false;
     }
 
+    // Masked input image
     DiskImageView<float> disk_view(opt.image_file);
+    ImageViewRef<PixelMask<float>> input_img
+      = create_mask_less_or_equal(disk_view, opt.input_nodata_value);
 
     // The bounding box
     BBox2 image_box = bounding_box(disk_view);
@@ -326,18 +406,14 @@ int main(int argc, char *argv[]) {
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
     double inc_amount = 1.0 / double(opt.num_samples);
 
-    // Mask the input image
-    ImageViewRef< PixelMask<float> > input_img
-      = create_mask_less_or_equal(disk_view, opt.input_nodata_value);
-
     // TODO(oalexan1): The two cases below are very similar. Merge them.
     
     if (opt.dem_file.empty()) {
 
       vw_out() << "Datum: " << opt.datum << std::endl;
 
-      BBox2   & ll = opt.lon_lat_range; // shortcut
-      Vector2 & H  = opt.height_range;
+      BBox2 ll = opt.lon_lat_range; // shortcut
+      Vector2 H = opt.height_range;
       double delta_lon = (ll.max()[0] - ll.min()[0])/double(opt.num_samples);
       double delta_lat = (ll.max()[1] - ll.min()[1])/double(opt.num_samples);
       double delta_ht  = (H[1] - H[0])/double(opt.num_samples);
@@ -368,22 +444,25 @@ int main(int argc, char *argv[]) {
         }
         tpc.report_incremental_progress(inc_amount);
       }
+      tpc.report_finished();
       
       // Add points for pixels along the perimeter and diagonals of image_box. Constrain
       // by the ll box.
-      add_perimeter_diag_points(image_box, cam, opt.datum, ll, H, all_llh, all_pixels);
+      add_perimeter_diag_points(image_box, cam, opt.datum, ll, H, 
+                                all_llh, all_pixels); // outputs
 
     } else {
       vw_out() << "Sampling the DEM: " << opt.dem_file  << std::endl;
 
       float dem_nodata_val = -std::numeric_limits<float>::max(); 
       vw::read_nodata_val(opt.dem_file, dem_nodata_val);
+
       ImageViewRef<PixelMask<float>> dem 
         = create_mask(DiskImageView<float>(opt.dem_file), dem_nodata_val);
 
       GeoReference dem_geo;
       if (!read_georeference(dem_geo, opt.dem_file))
-        vw_throw(ArgumentErr() << "Missing georef.\n");
+        vw_throw(ArgumentErr() << "Missing georef in DEM: " << opt.dem_file << ".\n");
 
       // Get the datum from the DEM
       opt.datum = dem_geo.datum();
@@ -428,9 +507,14 @@ int main(int argc, char *argv[]) {
 
         }
         tpc.report_incremental_progress(inc_amount);
-      }
-    }
-    tpc.report_finished();
+      } // end loop through DEM pixels
+      tpc.report_finished();
+      
+      // Add pixel and llh samples along the perimeter and diagonals of image_box.
+      // using the DEM.
+      add_perimeter_diag_points(image_box, cam, dem, dem_geo, all_llh, all_pixels);
+
+    } // end condition DEM or not
 
     // The pixel box
     BBox2 pixel_box;
