@@ -112,9 +112,9 @@ Command-line options
     the RPC model.
 
 --dem-file <filename>
-    Compute the longitude-latitude and height ranges in which to fit the RPC
-    camera as the bounding box of the portion of this DEM that is covered by the
-    input image.
+    Compute the longitude-latitude-height box in which to fit the RPC camera as
+    the bounding box of the portion of this DEM that is seen by the input
+    camera.
 
 --num-samples <integer (default: 40)>
     How many samples to use in each direction in the

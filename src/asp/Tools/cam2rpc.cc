@@ -77,13 +77,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("semi-major-axis", po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""), "Specify a GDAL projection string instead of the datum (in WKT, GeoJSON, or PROJ format).")
-    ("lon-lat-range", po::value(&opt.lon_lat_range)->default_value(BBox2i(0,0,0,0), "0 0 0 0"),
-     "The longitude-latitude range in which to compute the RPC model. Specify in the format: lon_min lat_min lon_max lat_max.")
-    ("height-range", po::value(&opt.height_range)->default_value(Vector2i(0,0),"0 0"),
+    ("lon-lat-range", po::value(&opt.lon_lat_range)->default_value(BBox2(0,0,0,0), "0 0 0 0"),
+     "The longitude-latitude range in which to compute the RPC model. Specify in the "
+     "format: lon_min lat_min lon_max lat_max.")
+    ("height-range", po::value(&opt.height_range)->default_value(Vector2(0,0),"0 0"),
      "Minimum and maximum heights above the datum in which to compute the RPC model.")
     ("dem-file", po::value(&opt.dem_file)->default_value(""),
-     "Compute the longitude-latitude and height ranges in which to fit the RPC camera "
-      "as the bounding box of the portion of this DEM that is covered by the input image.")
+     "Compute the longitude-latitude-height box in which to fit the RPC camera as the "
+      "bounding box of the portion of this DEM that is seen by the input camera.")
     ("num-samples", po::value(&opt.num_samples)->default_value(40),
      "How many samples to use in each direction in the longitude-latitude-height range.")
     ("penalty-weight", po::value(&opt.penalty_weight)->default_value(0.03), // check here!
@@ -183,11 +184,23 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              << opt.lon_lat_range.max() << " degrees.\n";
   }
 
+  // If the DEM file is provided, the lon-lat and height ranges must not be set 
+  if (!opt.dem_file.empty()) {
+    if (opt.lon_lat_range != BBox2(0,0,0,0))
+      vw_throw(ArgumentErr() << "Cannot specify both a DEM file and a lon-lat range.\n");
+    if (opt.height_range != Vector2(0,0))
+      vw_throw(ArgumentErr() << "Cannot specify both a DEM file and a height range.\n");
+  }
+  
   // Convert from width and height to min and max
   if (!opt.image_crop_box.empty()) {
     BBox2 b = opt.image_crop_box; // make a copy
     opt.image_crop_box = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
   }
+  
+  // There must be at least 2 samples in each dimension
+  if (opt.num_samples < 2)
+    vw_throw(ArgumentErr() << "Must have at least 2 samples in each dimension.\n");
 }
 
 // Add pixel and llh samples along the perimeter and diagonals of image_box.
@@ -248,27 +261,24 @@ void add_perimeter_diag_points(BBox2 const& image_box,
 // Add pixel and llh samples along the perimeter and diagonals of image_box.
 // using the DEM.
 void sample_dem_perim_diag(BBox2 const& image_box, 
-                               vw::CamPtr cam,
-                               ImageViewRef<PixelMask<float>> dem,
-                               GeoReference const& dem_geo,
-                               // Outputs (append to these)
-                               std::vector<Vector3> & all_llh,
-                               std::vector<Vector2> & all_pixels) {
+                           vw::CamPtr cam,
+                           ImageViewRef<PixelMask<float>> dem,
+                           GeoReference const& dem_geo,
+                           // Outputs (append to these)
+                           std::vector<Vector3> & all_llh,
+                           std::vector<Vector2> & all_pixels) {
 
-  // Reduce the max by 1, as sample_float_box() assumes the max is not exclusive
+  // Reduce the max by 1, as sample_float_box() assumes the max is inclusive
   BBox2 b = image_box;
   b.max() -= Vector2(1, 1);
 
   // Calc samples on box perimeter and diagonals
-  // Add on the perimeter a non-small portion of points we added so far throughout
-  // the image
   int num_steps = 100;
-  
   std::vector<vw::Vector2> points;
   vw::cartography::sample_float_box(b, points, num_steps);
   
   double height_guess = vw::cartography::demHeightGuess(dem);
-  vw::Vector3 xyz_guess(0, 0, 0);
+  vw::Vector3 xyz_guess(0, 0, 0); // will be updated
   
   for (size_t j = 0; j < points.size(); j++) {
     vw::Vector2 pix = points[j];
@@ -407,6 +417,58 @@ void calc_llh_bbox_from_dem(Options & opt, vw::CamPtr cam,
   return;
 }
 
+// Sample the llh box and shoot the 3D points into the camera.
+// Filter by image box.
+void sample_llh_bbox(Options const& opt, vw::CamPtr cam,
+                     BBox2 const& image_box,
+                     // Outputs
+                     std::vector<Vector3> & all_llh,
+                     std::vector<Vector2> & all_pixels) {
+
+  // Wipe the outputs
+  all_llh.clear();
+  all_pixels.clear();
+
+  vw_out() << "Sampling the ground points and camera pixels.\n";
+  double inc_amount = 1.0 / double(opt.num_samples);
+
+  BBox2 ll = opt.lon_lat_range; // shortcut
+  Vector2 H = opt.height_range;
+  double delta_lon = (ll.max()[0] - ll.min()[0])/double(opt.num_samples);
+  double delta_lat = (ll.max()[1] - ll.min()[1])/double(opt.num_samples);
+  double delta_ht  = (H[1] - H[0])/double(opt.num_samples);
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  tpc.report_progress(0);
+  for (double lon = ll.min()[0]; lon <= ll.max()[0]; lon += delta_lon) {
+    for (double lat = ll.min()[1]; lat <= ll.max()[1]; lat += delta_lat) {
+      for (double ht = H[0]; ht <= H[1]; ht += delta_ht) {
+
+        Vector3 llh(lon, lat, ht);
+        Vector3 xyz = opt.datum.geodetic_to_cartesian(llh);
+
+        // Go back to llh. This is a bugfix for the 360 deg offset problem.
+        llh = opt.datum.cartesian_to_geodetic(xyz);
+
+        Vector2 cam_pix;
+        try {
+          // The point_to_pixel function can be capricious
+          cam_pix = cam->point_to_pixel(xyz);
+        } catch(...) {
+          continue;
+        }
+        if (image_box.contains(cam_pix)) {
+          all_llh.push_back(llh);
+          all_pixels.push_back(cam_pix);
+        }
+
+      }
+    }
+    tpc.report_incremental_progress(inc_amount);
+  }
+  tpc.report_finished();
+  
+}
+
 int main(int argc, char *argv[]) {
 
   Options opt;
@@ -491,48 +553,12 @@ int main(int argc, char *argv[]) {
     // Generate point pairs
     std::vector<Vector3> all_llh;
     std::vector<Vector2> all_pixels;
-
-    vw_out() << "Projecting pixels into the camera to generate the RPC model.\n";
-    double inc_amount = 1.0 / double(opt.num_samples);
-
-    BBox2 ll = opt.lon_lat_range; // shortcut
-    Vector2 H = opt.height_range;
-    double delta_lon = (ll.max()[0] - ll.min()[0])/double(opt.num_samples);
-    double delta_lat = (ll.max()[1] - ll.min()[1])/double(opt.num_samples);
-    double delta_ht  = (H[1] - H[0])/double(opt.num_samples);
-    vw::TerminalProgressCallback tpc("asp", "\t--> ");
-    tpc.report_progress(0);
-    for (double lon = ll.min()[0]; lon <= ll.max()[0]; lon += delta_lon) {
-      for (double lat = ll.min()[1]; lat <= ll.max()[1]; lat += delta_lat) {
-        for (double ht = H[0]; ht <= H[1]; ht += delta_ht) {
-
-          Vector3 llh(lon, lat, ht);
-          Vector3 xyz = opt.datum.geodetic_to_cartesian(llh);
-
-          // Go back to llh. This is a bugfix for the 360 deg offset problem.
-          llh = opt.datum.cartesian_to_geodetic(xyz);
-
-          Vector2 cam_pix;
-          try {
-            // The point_to_pixel function can be capricious
-            cam_pix = cam->point_to_pixel(xyz);
-          } catch(...) {
-            continue;
-          }
-          if (image_box.contains(cam_pix)) {
-            all_llh.push_back(llh);
-            all_pixels.push_back(cam_pix);
-          }
-
-        }
-      }
-      tpc.report_incremental_progress(inc_amount);
-    }
-    tpc.report_finished();
+    sample_llh_bbox(opt, cam, image_box, 
+                    all_llh, all_pixels); // outputs
     
     // Add points for pixels along the perimeter and diagonals of image_box. Constrain
     // by the ll box.
-    add_perimeter_diag_points(image_box, cam, opt.datum, ll, H, 
+    add_perimeter_diag_points(image_box, cam, opt.datum, opt.lon_lat_range, opt.height_range,
                               all_llh, all_pixels); // outputs
 
     // The pixel box
