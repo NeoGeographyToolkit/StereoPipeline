@@ -24,7 +24,7 @@ from pathlib import Path
 
 project = 'Ames Stereo Pipeline'
 copyright = (
-    '2009-2021, United States Government as represented by the '
+    '2009-2024, United States Government as represented by the '
     'Administrator of the National Aeronautics and Space Administration'
 )
 author = 'ASP Authors'
