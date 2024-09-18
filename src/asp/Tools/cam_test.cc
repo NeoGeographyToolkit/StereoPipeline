@@ -201,7 +201,8 @@ void rpc_datum_sanity_check(std::string const& cam_file,
   double min_ht = mid_ht - lonlatheight_scale[2];
   double max_ht = mid_ht + lonlatheight_scale[2];
   
-  if (height_above_datum < min_ht || height_above_datum > max_ht)
+  if (height_above_datum < min_ht || height_above_datum > max_ht) {
+    vw::vw_out() << "\n";
     vw::vw_out(vw::WarningMessage) 
       << "For RPC camera file: " << cam_file
       << ", the range of valid heights above datum is "
@@ -209,7 +210,8 @@ void rpc_datum_sanity_check(std::string const& cam_file,
       << " meters. The provided height above datum is "
       << height_above_datum 
       << " meters. The results may be inaccurate. Set appropriately "
-      << "the --height-above-datum option.\n";
+      << "the --height-above-datum option.\n\n";
+  }
 }
 
 int main(int argc, char *argv[]) {

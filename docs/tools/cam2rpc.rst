@@ -32,7 +32,7 @@ Example for ISIS cub cameras for Mars::
       --datum D_MARS --save-tif-image                   \
       --height-range -10000 -9000                       \
       --lon-lat-range 141.50 34.43 141.61 34.15         \
-      --num-samples 40 --penalty-weight 0.03 --gsd 1
+      --penalty-weight 0.03 --gsd 1
 
 Example for pinhole cameras, where instead of sampling a lon-lat-height
 box, values from a DEM are used, and the image is cropped.
@@ -56,11 +56,15 @@ In addition, *if the produced image file contains the original upper-left image
 corner*, the ``cam_test`` program (:numref:`cam_test`) can be invoked to compare
 the original and resulting RPC camera, for example as follows::
 
-    cam_test --image output.tif --cam1 input.tsai --cam2 output.xml
+    cam_test --image output.tif --cam1 input.tsai --cam2 output.xml \
+      --height-above-datum val
 
-This should result in similar values for the camera directions and pixel differences,
-but not for the camera centers, because the RPC model does not have a well-defined
-camera center. 
+Here, ``val`` is a value that is between the minimum and maximum heights used
+when the RPC model was computed.
+
+This should result in similar values for the camera directions and pixel
+differences, but not for the camera centers, because the RPC model does not have
+a well-defined camera center. 
 
 Large pixel differences are a sign that the image was not cropped to the region
 containing the original upper-left corner (option ``--no-crop`` may help then,

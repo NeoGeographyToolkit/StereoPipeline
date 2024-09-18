@@ -58,6 +58,10 @@ parallel_stereo (:numref:`parallel_stereo`):
 orbit_plot (:numref:`orbit_plot`):
   * Added the option ``--use-rmse``.
 
+cam2rpc (:numref:`cam2rpc`):
+  * When a DEM is passed in, sample not just the DEM surface but its bounding
+    box, to create a more robust RPC model.
+  
 misc:
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
     optimized camera file names (or adjustments). Can be passed in back to
