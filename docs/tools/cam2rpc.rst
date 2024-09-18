@@ -34,16 +34,12 @@ Example for ISIS cub cameras for Mars::
       --lon-lat-range 141.50 34.43 141.61 34.15         \
       --penalty-weight 0.03 --gsd 1
 
-Example for pinhole cameras, where instead of sampling a lon-lat-height
-box, values from a DEM are used, and the image is cropped.
-
-::
+Example for pinhole cameras, with the lon-lat-height box produced from a DEM.
+Here the image is also cropped and the image portion on which the RPC model is
+defined is saved::
 
     cam2rpc input.tif input.tsai output.xml --session-type nadirpinhole   \
       --dem-file DEM.tif --save-tif-image --image-crop-box 90 70 5511 3675
-
-Here we have constrained the RPC camera model and output image to not go
-beyond a given bounding box. 
 
 Validation
 ~~~~~~~~~~
@@ -107,10 +103,6 @@ Command-line options
     Specify a GDAL projection string instead of the datum (in WKT, GeoJSON, or
     PROJ format).
 
---dem-file <filename>
-    Instead of using a datum and a longitude-latitude-height box,
-    sample the surface of this DEM.
-
 --lon-lat-range <lon_min lat_min lon_max lat_max>
     The longitude-latitude range in which to compute the RPC model.
     Specify in the format: lon_min lat_min lon_max lat_max.
@@ -118,6 +110,11 @@ Command-line options
 --height-range <min_height max_height>
     Minimum and maximum heights above the datum in which to compute
     the RPC model.
+
+--dem-file <filename>
+    Compute the longitude-latitude and height ranges in which to fit the RPC
+    camera as the bounding box of the portion of this DEM that is covered by the
+    input image.
 
 --num-samples <integer (default: 40)>
     How many samples to use in each direction in the

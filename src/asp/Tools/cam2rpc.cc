@@ -77,12 +77,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("semi-major-axis", po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""), "Specify a GDAL projection string instead of the datum (in WKT, GeoJSON, or PROJ format).")
-    ("dem-file", po::value(&opt.dem_file)->default_value(""),
-     "Instead of using a datum and a longitude-latitude-height box, sample the surface of this DEM.")
     ("lon-lat-range", po::value(&opt.lon_lat_range)->default_value(BBox2i(0,0,0,0), "0 0 0 0"),
      "The longitude-latitude range in which to compute the RPC model. Specify in the format: lon_min lat_min lon_max lat_max.")
     ("height-range", po::value(&opt.height_range)->default_value(Vector2i(0,0),"0 0"),
      "Minimum and maximum heights above the datum in which to compute the RPC model.")
+    ("dem-file", po::value(&opt.dem_file)->default_value(""),
+     "Compute the longitude-latitude and height ranges in which to fit the RPC camera "
+      "as the bounding box of the portion of this DEM that is covered by the input image.")
     ("num-samples", po::value(&opt.num_samples)->default_value(40),
      "How many samples to use in each direction in the longitude-latitude-height range.")
     ("penalty-weight", po::value(&opt.penalty_weight)->default_value(0.03), // check here!
