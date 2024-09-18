@@ -41,7 +41,7 @@ namespace rig {
 
 // Reads the NVM control network format. This function does not apply
 // the optical offsets. Use instead the function that does.
-void ReadNvm(std::string               const & input_filename,
+void readNvm(std::string               const & input_filename,
              std::vector<Eigen::Matrix2Xd>   & cid_to_keypoint_map,
              std::vector<std::string>        & cid_to_filename,
              std::vector<std::map<int, int>> & pid_to_cid_fid,
@@ -251,7 +251,7 @@ void writeInliersToNvm
     }
   }
   
-  WriteNvm(cid_to_keypoint_map, cid_to_filename, nvm_pid_to_cid_fid,  
+  writeNvm(cid_to_keypoint_map, cid_to_filename, nvm_pid_to_cid_fid,  
            nvm_pid_to_xyz, world_to_cam, nvm_file);
 
   // Write the optical center per image
@@ -269,80 +269,10 @@ void writeInliersToNvm
   }
 }
 
-// TODO(oalexan1): Must the two existing WriteNvm functions.
-// Write an nvm file. Keypoints may or may not be shifted relative to the optical center.
-// The focal length is set to 0. Intrinsics need to be saved in some other data structure.
-void WriteNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
-              std::vector<std::string> const& cid_to_filename,
-              std::vector<std::map<int, int>> const& pid_to_cid_fid,
-              std::vector<Eigen::Vector3d> const& pid_to_xyz,
-              std::vector<Eigen::Affine3d> const& world_to_cam,
-              std::string const& output_filename) {
-
-  // Ensure that the output directory exists
-  std::string out_dir = fs::path(output_filename).parent_path().string();
-  rig::createDir(out_dir);
-
-  std::cout << "Writing: " << output_filename << std::endl;
-  std::fstream f(output_filename, std::ios::out);
-  f.precision(17); // double precision
-  f << "NVM_V3\n";
-
-  CHECK(cid_to_filename.size() == cid_to_keypoint_map.size())
-    << "Unequal number of filenames and keypoints";
-  CHECK(pid_to_cid_fid.size() == pid_to_xyz.size())
-    << "Unequal number of pid_to_cid_fid and xyz measurements";
-  CHECK(cid_to_filename.size() == world_to_cam.size())
-    << "Unequal number of filename and camera transforms";
-
-  // Write camera information
-  f << cid_to_filename.size() << std::endl;
-  for (size_t cid = 0; cid < cid_to_filename.size(); cid++) {
-
-    // World-to-camera rotation quaternion
-    Eigen::Quaterniond q(world_to_cam[cid].rotation());
-
-    // Camera center in world coordinates
-    Eigen::Vector3d t(world_to_cam[cid].translation());
-    Eigen::Vector3d camera_center =
-      - world_to_cam[cid].rotation().inverse() * t;
-
-    f << cid_to_filename[cid] << " " << 1 // focal length is set to 1, not used
-      << " " << q.w() << " " << q.x() << " " << q.y() << " " << q.z() << " "
-      << camera_center[0] << " " << camera_center[1] << " "
-      << camera_center[2] << " " << "0 0\n"; // zero distortion, not used
-  }
-
-  // Write the number of points
-  f << pid_to_cid_fid.size() << std::endl;
-
-  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
-    f << pid_to_xyz[pid][0] << " " << pid_to_xyz[pid][1] << " "
-      << pid_to_xyz[pid][2] << " 0 0 0 "
-      << pid_to_cid_fid[pid].size();
-
-    CHECK(pid_to_cid_fid[pid].size() > 1)
-      << "PID " << pid << " has " << pid_to_cid_fid[pid].size() << " measurements";
-
-    for (std::map<int, int>::const_iterator it = pid_to_cid_fid[pid].begin();
-         it != pid_to_cid_fid[pid].end(); it++) {
-      f << " " << it->first << " " << it->second << " "
-        << cid_to_keypoint_map[it->first].col(it->second)[0] << " "
-        << cid_to_keypoint_map[it->first].col(it->second)[1];
-    }
-    f << std::endl;
-  }
-
-  // Close the file
-  f.flush();
-  f.close();
-}
-
 // Write an nvm file. Note that a single focal length is assumed and no distortion.
 // Those are ignored, and only camera poses, matches, and keypoints are used.
 // It is assumed that the interest points are shifted relative to the optical center.
 // Write the optical center separately.
-// TODO(oalexan1): Must merge with WriteNvm earlier.
 void writeNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
               std::vector<std::string> const& cid_to_filename,
               std::vector<double> const& focal_lengths,
@@ -356,8 +286,6 @@ void writeNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
   vw::create_out_dir(output_filename);
 
   vw::vw_out() << "Writing: " << output_filename << std::endl;
-  
-  // TODO(oalexan1): Use here the earlier WriteNvm function().
   
   std::fstream f(output_filename, std::ios::out);
   f.precision(17); // double precision
@@ -383,7 +311,11 @@ void writeNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
     Eigen::Vector3d camera_center =
       -world_to_cam[cid].rotation().inverse() * t;
 
-    f << cid_to_filename[cid] << " " << focal_lengths[cid]
+    double focal_length = 1.0;
+    if (!focal_lengths.empty())
+      focal_length = focal_lengths[cid];
+
+    f << cid_to_filename[cid] << " " << focal_length
       << " " << q.w() << " " << q.x() << " " << q.y() << " " << q.z() << " "
       << camera_center[0] << " " << camera_center[1] << " "
       << camera_center[2] << " " << "0 0\n"; // zero distortion, not used
@@ -408,12 +340,15 @@ void writeNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
       auto fid = it->second;
     
       // Find the offset for this image
-      auto map_it = optical_centers.find(cid_to_filename[cid]);
-      if (map_it == optical_centers.end()) {
-        vw::vw_throw(vw::ArgumentErr() << "Cannot find optical offset for image "
-                     << cid_to_filename[cid] << "\n");
+      Eigen::Vector2d offset = Eigen::Vector2d::Zero();
+      if (!optical_centers.empty()) {
+        auto map_it = optical_centers.find(cid_to_filename[cid]);
+        if (map_it == optical_centers.end()) {
+          vw::vw_throw(vw::ArgumentErr() << "Cannot find optical offset for image "
+                      << cid_to_filename[cid] << "\n");
+        }
+        offset = map_it->second;
       }
-      Eigen::Vector2d offset = map_it->second;
       
       // Write with the offset subtracted
       f << " " << cid << " " << fid << " "
@@ -427,9 +362,30 @@ void writeNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
   f.flush();
   f.close();
   
-  // Write the optical center offsets
-  std::string offset_path = offsetsFilename(output_filename);
-  writeNvmOffsets(offset_path, optical_centers);
+  if (!optical_centers.empty()) {
+    // Write the optical center offsets
+    std::string offset_path = offsetsFilename(output_filename);
+    writeNvmOffsets(offset_path, optical_centers);
+  }
+}
+
+// Write an nvm file. Keypoints are written as-is, and maybe shifted or not
+// relative to the optical center. No focal length info is known, so it is set
+// to 1.0.
+void writeNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
+              std::vector<std::string> const& cid_to_filename,
+              std::vector<std::map<int, int>> const& pid_to_cid_fid,
+              std::vector<Eigen::Vector3d> const& pid_to_xyz,
+              std::vector<Eigen::Affine3d> const& world_to_cam,
+              std::string const& output_filename) {
+
+  // Part of the API
+  std::vector<double> focal_lengths;
+  std::map<std::string, Eigen::Vector2d> const optical_centers;
+  
+  writeNvm(cid_to_keypoint_map, cid_to_filename, focal_lengths,
+           pid_to_cid_fid, pid_to_xyz, world_to_cam, optical_centers,
+           output_filename);
 }
 
 // Given a map from current cid to new cid, apply this map to the nvm. This can
@@ -778,7 +734,7 @@ void readNvm(std::string                       const& input_filename,
   }
   
   // Read the nvm as is, without applying any offsets
-  rig::ReadNvm(input_filename, cid_to_keypoint_map, cid_to_filename,
+  rig::readNvm(input_filename, cid_to_keypoint_map, cid_to_filename,
                pid_to_cid_fid, pid_to_xyz, world_to_cam, focal_lengths);
 
   // If no offsets, use zero offsets

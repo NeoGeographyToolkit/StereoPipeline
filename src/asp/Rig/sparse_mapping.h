@@ -64,7 +64,7 @@ namespace sparse_mapping {
   void HistogramEqualizationCheck(int histogram_equalization1, int histogram_equalization2);
 
   // Writes the NVM control network format.
-  void WriteNvm(std::vector<Eigen::Matrix2Xd > const& cid_to_keypoint_map,
+  void writeNvm(std::vector<Eigen::Matrix2Xd > const& cid_to_keypoint_map,
                 std::vector<std::string> const& cid_to_filename,
                 std::vector<std::map<int, int> > const& pid_to_cid_fid,
                 std::vector<Eigen::Vector3d> const& pid_to_xyz,
@@ -72,7 +72,7 @@ namespace sparse_mapping {
                 double focal_length,
                 std::string const& output_filename);
   // Reads the NVM control network format.
-  void ReadNvm(std::string const& input_filename,
+  void readNvm(std::string const& input_filename,
                std::vector<Eigen::Matrix2Xd > * cid_to_keypoint_map,
                std::vector<std::string> * cid_to_filename,
                std::vector<std::map<int, int> > * pid_to_cid_fid,

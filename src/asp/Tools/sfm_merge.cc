@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
   std::vector<std::map<std::string, Eigen::Vector2d>> offsets(argc - 1);
 
   rig::nvmData in0;
-  rig::ReadNvm(argv[1],
+  rig::readNvm(argv[1],
                in0.cid_to_keypoint_map,
                in0.cid_to_filename,
                in0.pid_to_cid_fid,
@@ -166,7 +166,7 @@ int main(int argc, char** argv) {
   for (int i = 2; i < argc; i++) {
     
     rig::nvmData in1;
-    rig::ReadNvm(argv[i],
+    rig::readNvm(argv[i],
                  in1.cid_to_keypoint_map,
                  in1.cid_to_filename,
                  in1.pid_to_cid_fid,
@@ -227,7 +227,7 @@ int main(int argc, char** argv) {
   }
   
   // TODO(oalexan1): Throw out outliers!
-  rig::WriteNvm(out_map.cid_to_keypoint_map,
+  rig::writeNvm(out_map.cid_to_keypoint_map,
                       out_map.cid_to_filename,
                       out_map.pid_to_cid_fid,
                       out_map.pid_to_xyz,

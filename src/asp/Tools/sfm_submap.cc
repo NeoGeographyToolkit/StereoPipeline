@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
   }
 
   rig::nvmData nvm;
-  rig::ReadNvm(FLAGS_input_map,
+  rig::readNvm(FLAGS_input_map,
                nvm.cid_to_keypoint_map,
                nvm.cid_to_filename,
                nvm.pid_to_cid_fid,
@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
   // Extract the submap. Will also extract a subset of the optical centers.
   rig::ExtractSubmap(images_to_keep, nvm);
 
-  rig::WriteNvm(nvm.cid_to_keypoint_map,
+  rig::writeNvm(nvm.cid_to_keypoint_map,
                 nvm.cid_to_filename,
                 nvm.pid_to_cid_fid,
                 nvm.pid_to_xyz,

@@ -59,7 +59,7 @@ struct nvmData {
 
 // Reads the NVM control network format. This function does not apply
 // the optical offsets. Use instead the function that does.
-void ReadNvm(std::string               const & input_filename,
+void readNvm(std::string               const & input_filename,
              std::vector<Eigen::Matrix2Xd>   & cid_to_keypoint_map,
              std::vector<std::string>        & cid_to_filename,
              std::vector<std::map<int, int>> & pid_to_cid_fid,
@@ -95,8 +95,14 @@ void readNvmOffsets(std::string const& offset_path,
 void writeNvmOffsets(std::string const& offset_path,
                      std::map<std::string, Eigen::Vector2d> const& offsets);
   
-// Write an nvm file. Keypoints may or may not be shifted relative to the optical center.
-void WriteNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
+// Write an NVM file. Subtract from the interest points the given offset.
+// The offsets are saved in a separate file.
+void writeNvm(rig::nvmData const& nvm, std::string const& output_filename);
+
+// Write an nvm file. Keypoints are written as-is, and maybe shifted or not
+// relative to the optical center. No focal length info is known, so it is set
+// to 1.0.
+void writeNvm(std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
               std::vector<std::string> const& cid_to_filename,
               std::vector<std::map<int, int>> const& pid_to_cid_fid,
               std::vector<Eigen::Vector3d> const& pid_to_xyz,
@@ -137,10 +143,6 @@ void writePinholeCameras(std::vector<std::string>              const& cam_names,
  
 // Read an NVM file. Any offset is applied upon reading.
 void readNvm(std::string const& input_filename, bool nvm_no_shift, rig::nvmData & nvm);
-
-// Write an NVM file. Subtract from the interest points the given offset.
-// The offsets are saved in a separate file.
-void writeNvm(rig::nvmData const& nvm, std::string const& output_filename);
 
 // Read an NVM file into the VisionWorkbench control network format. The flag
 // nvm_no_shift, if true, means that the interest points are not shifted

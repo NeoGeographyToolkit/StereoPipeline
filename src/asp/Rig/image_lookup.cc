@@ -816,7 +816,7 @@ void readListOrNvm(// Inputs
                                // Outputs
                                nvm);
   } else {
-    rig::ReadNvm(nvm_file, 
+    rig::readNvm(nvm_file, 
                  nvm.cid_to_keypoint_map,  
                  nvm.cid_to_filename,  
                  nvm.pid_to_cid_fid,  
