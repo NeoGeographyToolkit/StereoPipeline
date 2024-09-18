@@ -124,6 +124,11 @@ Exploration Systems Mission Directorate (ESMD) funding sources:
   under Dr. Ross Beyer (2020-2022).
 - NASA-USGS Interagency Agreement #30499, SAA2-403489 to support the satellite-derived
   bathymetry work (2020-2021)
+- NASA-USGS Interagency Agreement #NNH22OB02A to support interoperability between ISIS
+  and ASP (2022-)
+- Decadal Survey Incubation for global Surface Topography and Vegetation (STV) grant #21-DSI-21-0008 under Dr. David Shean (2022-2025)
+- Support for Open Source Tools, Frameworks, and Libraries (OSTFL) grant #20-OSTFL20-0050
+  under Dr. Ross Beyer (2023-2024)
 
 Any opinions, findings, and conclusions or recommendations expressed in
 this documentation are those of the authors and do not necessarily
