@@ -604,17 +604,15 @@ Command-line options for pc_align
     Explicitly set the datum semi-minor axis in meters.
 
 --csv-format <string>
-    Specify the format of input CSV files as a list of entries
-    column_index:column_type (indices start from 1).  Examples:
-    ``1:x 2:y 3:z`` (a Cartesian coordinate system with origin at
-    planet center is assumed, with the units being in meters),
-    ``5:lon 6:lat 7:radius_m`` (longitude and latitude are in degrees,
-    the radius is measured in meters from planet center),
-    ``3:lat 2:lon 1:height_above_datum``,
-    ``1:easting 2:northing 3:height_above_datum``
-    (need to set ``--csv-srs``; the height above datum is in
-    meters). Can also use radius_km for column_type, when it is
-    again measured from planet center.
+    Specify, in quotes, the format of input CSV files as a list of entries
+    ``column_index:column_type`` (indices start from 1). Examples: ``'1:x 2:y
+    3:z'`` (a Cartesian coordinate system with origin at planet center is
+    assumed, with the units being in meters), ``'5:lon 6:lat 7:radius_m'``
+    (longitude and latitude are in degrees, the radius is measured in meters
+    from planet center), ``'3:lat 2:lon 1:height_above_datum'``, ``'1:easting
+    2:northing 3:height_above_datum'`` (need to set ``--csv-srs``; the height
+    above datum is in meters). Can also use ``radius_km`` for ``column_type``,
+    when it is again measured from planet center.
 
 --csv-srs <string>
     The PROJ or WKT string to use to interpret the entries in input CSV

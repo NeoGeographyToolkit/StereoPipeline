@@ -1033,7 +1033,7 @@ Command-line options
     this value, and adjust instead ``--tri-weight``.
 
 --camera-position-uncertainty <string (default: "")>
-    A list having on each line the image name and the horizontal and vertical
+    A file having on each line the image name and the horizontal and vertical
     camera position uncertainty (1 sigma, in meters). This strongly constrains
     the movement of cameras to within the given values, potentially at the
     expense of accuracy. See :numref:`ba_cam_constraints` for details. 

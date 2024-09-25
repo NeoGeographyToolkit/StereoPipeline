@@ -201,7 +201,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "and after last image line. Applies only to linescan cameras.")
     ("camera-position-uncertainty",  
      po::value(&opt.camera_position_uncertainty_str)->default_value(""),
-     "A list having on each line the image name and the horizontal and vertical camera "
+     "A file having on each line the image name and the horizontal and vertical camera "
      "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
      "cameras to within the given values, potentially at the expense of accuracy.")
     ("camera-position-uncertainty-power",  

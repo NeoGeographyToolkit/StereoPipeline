@@ -107,7 +107,7 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
                     std::vector<vw::Vector3> const& reference_vec, 
                     ceres::Problem &problem) {
 
-  vw_out() << "Removing pixel outliers in preparation for another solver attempt.\n";
+  vw_out() << "Removing outliers.\n";
 
   size_t num_points  = param_storage.num_points();
   size_t num_cameras = param_storage.num_cameras();
@@ -1089,7 +1089,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "how many intrinsic parameters are used for your cameras.")
     ("camera-position-uncertainty",  
      po::value(&opt.camera_position_uncertainty_str)->default_value(""),
-     "A list having on each line the image name and the horizontal and vertical camera "
+     "A file having on each line the image name and the horizontal and vertical camera "
      "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
      "cameras to within the given values, potentially at the expense of accuracy.")
     ("camera-position-uncertainty-power",  
