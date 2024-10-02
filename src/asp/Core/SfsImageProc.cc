@@ -49,8 +49,6 @@ void maxImage(int cols, int rows,
   
   int num_images = images.size();
 
-  std::cout << "--cols and rows are: " << cols << ' ' << rows << std::endl;
-  
   max_image.set_size(cols, rows);
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
@@ -67,8 +65,6 @@ void maxImage(int cols, int rows,
     if (img.cols() <= 0 || img.rows() <= 0) 
       continue;
   
-    std::cout << "--img cols and rows are " << img.cols() << ' ' << img.rows() << std::endl;
-      
     if (img.cols() != cols || img.rows() != rows) 
       vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended images "
                    << "must have the same dimensions.\n");
