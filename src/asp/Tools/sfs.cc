@@ -2228,11 +2228,17 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
   for (int row = 1; row < dem.rows() - 1; row += sample_row_rate)
     num_sample_rows++;
   
-  // Add 1 for book-keeping purposes, to ensure that when the sampling rate
+  // Add 2 for book-keeping purposes, to ensure that when the sampling rate
   // is 1, we get as many cols and rows as the DEM has.
-  num_sample_cols++;
-  num_sample_rows++;
-    
+  num_sample_cols += 2;
+  num_sample_rows += 2;
+  
+  // Important sanity check
+  if (sample_col_rate == 1 && num_sample_cols != dem.cols())
+    vw_throw(LogicErr() << "Book-keeping error in computing reflectance and intensity.\n");
+  if (sample_row_rate == 1 && num_sample_rows != dem.rows())
+    vw_throw(LogicErr() << "Book-keeping error in computing reflectance and intensity.\n");
+      
   // Init the reflectance and intensity as invalid. Do it at all grid
   // points, not just where we sample, to ensure that these quantities
   // are fully initialized.
@@ -5003,7 +5009,7 @@ int main(int argc, char* argv[]) {
       vw_out() << "Found DEM nodata value: " << dem_nodata_val << std::endl;
       if (std::isnan(dem_nodata_val)) {
         dem_nodata_val = -std::numeric_limits<float>::max(); // bugfix for NaN
-        vw_out() << "Overwriting the nodata-value with: " << dem_nodata_val << "\n";
+        vw_out() << "Overwriting the nodata value with: " << dem_nodata_val << "\n";
       }
     }
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
