@@ -1452,6 +1452,12 @@ a subselection may not be necessary.
 It is best to avoid images with very low illumination angles as those
 can result in artifacts in the produced SfS terrain.
 
+The first step that will happen when this is launched is computing the image
+exposures. This is a serial step running on a single node, but is reasonably
+fast. The exposures can be computed ahead of time by using the flag
+``--compute-exposures-only`` in this tool. Then the computed exposures can be
+passed to the command above via the ``--image-exposures-prefix`` option.
+
 The option ``--allow-borderline-data`` improves the level of detail
 close to permanently shadowed areas. See :numref:`sfs_borderline`.
 
