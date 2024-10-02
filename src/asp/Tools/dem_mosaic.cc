@@ -1209,7 +1209,7 @@ void load_dem_bounding_boxes(Options       const& opt,
                              std::vector<BBox2> & dem_proj_bboxes,
                              std::vector<BBox2i> & dem_pixel_bboxes) {
 
-  vw_out() << "Determining the bounding boxes of the input DEMs.\n";
+  vw_out() << "Determining the bounding boxes of the inputs.\n";
 
   // Initialize the outputs
   mosaic_bbox = BBox2();
