@@ -2220,24 +2220,45 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
     vw_out() << "Maximum DEM height: " << max_dem_height << std::endl;
   }
   
+  // See how many samples we end up having further down. Must start counting
+  // from 1, just as we do in that loop.
+  int num_sample_cols = 0, num_sample_rows = 0;
+  for (int col = 1; col < dem.cols() - 1; col += sample_col_rate) 
+    num_sample_cols++;
+  for (int row = 1; row < dem.rows() - 1; row += sample_row_rate)
+    num_sample_rows++;
+  
+  // Add 1 for book-keeping purposes, to ensure that when the sampling rate
+  // is 1, we get as many cols and rows as the DEM has.
+  num_sample_cols++;
+  num_sample_rows++;
+    
   // Init the reflectance and intensity as invalid. Do it at all grid
   // points, not just where we sample, to ensure that these quantities
   // are fully initialized.
-  reflectance.set_size(dem.cols(), dem.rows());
-  intensity.set_size(dem.cols(), dem.rows());
-  ground_weight.set_size(dem.cols(), dem.rows());
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
+  reflectance.set_size(num_sample_cols, num_sample_rows);
+  intensity.set_size(num_sample_cols, num_sample_rows);
+  ground_weight.set_size(num_sample_cols, num_sample_rows);
+  for (int col = 0; col < num_sample_cols; col++) {
+    for (int row = 0; row < num_sample_rows; row++) {
       reflectance(col, row).invalidate();
       intensity(col, row).invalidate();
       ground_weight(col, row) = 0.0;
     }
   }
 
+  // Need to very carefully distinguish below between col and col_sample,
+  // and between row and row_sample. These are same only if the sampling
+  // rate is 1.
   bool use_pq = (pq.cols() > 0 && pq.rows() > 0);
+  int col_sample = 0;
   for (int col = 1; col < dem.cols() - 1; col += sample_col_rate) {
+    col_sample++;
+    
+    int row_sample = 0;
     for (int row = 1; row < dem.rows() - 1; row += sample_row_rate) {
-      
+      row_sample++;
+    
       double pval = 0, qval = 0;
       if (use_pq) {
         pval = pq(col, row)[0];
@@ -2246,14 +2267,15 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
       computeReflectanceAndIntensity(dem(col-1, row), dem(col, row), dem(col+1, row),
                                      dem(col, row+1), dem(col, row-1),
                                      use_pq, pval, qval,
-                                     col, row, dem,  geo,
+                                     col, row, dem, geo,
                                      model_shadows, max_dem_height,
                                      gridx, gridy,
                                      model_params, global_params,
                                      crop_box, image, blend_weight, camera,
                                      scaled_sun_posn, 
-                                     reflectance(col, row), intensity(col, row),
-                                     ground_weight(col, row),
+                                     reflectance(col_sample, row_sample),
+                                     intensity(col_sample, row_sample),
+                                     ground_weight(col_sample, row_sample),
                                      reflectance_model_coeffs,
                                      slopeErrEstim,
                                      heightErrEstim);
@@ -3528,17 +3550,17 @@ struct AlbedoChangeError {
 // Given that the DEM heights are in meters as well, having these grid sizes
 // will make it possible to handle heights and grids in same units.
 void compute_grid_sizes_in_meters(ImageView<double> const& dem,
-                                  GeoReference const& geo,
-                                  double nodata_val,
-                                  double & gridx, double & gridy){
+                                  GeoReference const& geo, double nodata_val,
+                                  int sample_col_rate, int sample_row_rate,
+                                  double & gridx, double & gridy) {
 
   // Initialize the outputs
   gridx = 0; gridy = 0;
 
   // Estimate the median height
   std::vector<double> heights;
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
+  for (int col = 0; col < dem.cols(); col += sample_col_rate) {
+    for (int row = 0; row < dem.rows(); row += sample_row_rate) {
       double h = dem(col, row);
       if (h == nodata_val) continue;
       heights.push_back(h);
@@ -3554,8 +3576,8 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
   // Find the grid sizes by estimating the Euclidean distances
   // between points of a DEM at constant height.
   std::vector<double> gridx_vec, gridy_vec;
-  for (int col = 0; col < dem.cols()-1; col++) {
-    for (int row = 0; row < dem.rows()-1; row++) {
+  for (int col = 0; col < dem.cols() - 1; col += sample_col_rate) {
+    for (int row = 0; row < dem.rows() - 1; row += sample_row_rate) {
 
       // The xyz position at the center grid point
       Vector2 lonlat = geo.pixel_to_lonlat(Vector2(col, row));
@@ -3580,6 +3602,8 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
   // Median grid size
   if (!gridx_vec.empty()) gridx = gridx_vec[gridx_vec.size()/2];
   if (!gridy_vec.empty()) gridy = gridy_vec[gridy_vec.size()/2];
+  
+  vw_out() << "Grid in x and y in meters: " << gridx << ' ' << gridy << "\n";
 }
 
 void read_sun_positions_from_list(Options const& opt,
@@ -3898,7 +3922,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.steepness_factor <= 0.0) 
     vw_throw(ArgumentErr() << "The steepness factor must be positive.\n");    
       
-  if (opt.compute_exposures_only){
+  if (opt.compute_exposures_only) {
     if (opt.use_approx_camera_models ||
         opt.use_approx_adjusted_camera_models ||
         opt.use_rpc_approximation ||
@@ -4029,7 +4053,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   double dval;
   std::ifstream ise(exposure_file.c_str());
   int exp_count = 0;
-  while (ise >> name >> dval){
+  while (ise >> name >> dval) {
     img2exp[name] = dval;
     exp_count++;
   }
@@ -4065,7 +4089,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     std::map< std::string, std::vector<double> > img2haze;
     std::ifstream ish(haze_file.c_str());
     int haze_count = 0;
-    while(1){
+    while(1) {
       std::string line;
       std::getline(ish, line);
       std::istringstream hstream(line);
@@ -4121,9 +4145,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_out() << "Parsing model coefficients: " << opt.model_coeffs << std::endl;
     std::istringstream is(opt.model_coeffs);
     double val;
-    while( is >> val){
+    while (is >> val)
       opt.model_coeffs_vec.push_back(val);
-    }
   }
 
   // Initial model coefficients, if provided in the file
@@ -4204,8 +4227,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.estimate_height_errors && opt.model_shadows) 
     vw_throw( ArgumentErr() << "Cannot estimate height error when modeling shadows.");
   
-  if (opt.save_computed_intensity_only || opt.estimate_slope_errors || opt.estimate_height_errors){
-    if (opt.max_iterations > 0 || opt.max_coarse_iterations > 0){
+  if (opt.save_computed_intensity_only || opt.estimate_slope_errors || 
+      opt.estimate_height_errors) {
+    if (opt.max_iterations > 0 || opt.max_coarse_iterations > 0) {
       vw_out(WarningMessage) << "Using 0 iterations.\n";
       opt.max_iterations = 0;
       opt.max_coarse_iterations = 0;
@@ -4242,6 +4266,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
 }
 
+// Sample large DEMs. Keep about 200 row and column samples.
+void calcSampleRates(ImageViewRef<double> const& dem,
+                     int & sample_col_rate, int & sample_row_rate) {
+  sample_col_rate = std::max((int)round(dem.cols()/200.0), 1);
+  sample_row_rate = std::max((int)round(dem.rows()/200.0), 1);
+}
+
 // Run sfs at a given coarseness level
 void run_sfs_level(// Fixed inputs
                    int num_iterations, Options & opt,
@@ -4271,13 +4302,17 @@ void run_sfs_level(// Fixed inputs
   int num_dems   = dems.size();
   ceres::Problem problem;
   
+  // Sample large DEMs. Keep about 200 row and column samples.
+  int sample_col_rate = 0, sample_row_rate = 0;
+  calcSampleRates(dems[0], sample_col_rate, sample_row_rate);
+  
   // Find the grid sizes in meters. Note that dem heights are in
   // meters too, so we treat both horizontal and vertical measurements
   // in same units.
-  double gridx, gridy;
-  compute_grid_sizes_in_meters(dems[0], geo[0], dem_nodata_val, gridx, gridy);
-  vw_out() << "grid in x and y in meters: "
-           << gridx << ' ' << gridy << std::endl;
+  double gridx = 0.0, gridy = 0.0;
+  compute_grid_sizes_in_meters(dems[0], geo[0], dem_nodata_val, 
+                               sample_col_rate, sample_row_rate,
+                               gridx, gridy);
   g_gridx = &gridx;
   g_gridy = &gridy;
 
@@ -4775,8 +4810,8 @@ void deepenCraters() {
       vw_out() << "Img nodata: " << img_nodata_val << std::endl;
     }
     
-    ImageView<PixelMask<float>> img(create_mask(DiskImageView<float>(img_file), img_nodata_val));
-    std::cout << "cols and rows are " << img.cols() << ' ' << img.rows() << std::endl;
+    ImageView<PixelMask<float>> img(create_mask(DiskImageView<float>(img_file), 
+                                                img_nodata_val));
     if (img.cols() != dem.cols() || img.rows() != dem.rows()) {
       vw_throw(ArgumentErr() << "Images and DEM must have same size.\n");
     }
@@ -4993,7 +5028,7 @@ int main(int argc, char* argv[]) {
     // Read the handles to the DEMs. Here we don't load them into
     // memory yet. We will later load into memory only cropped
     // versions if cropping is specified. This is to save on memory.
-    std::vector< ImageViewRef<double> > dem_handles(num_dems);
+    std::vector< ImageViewRef<double>> dem_handles(num_dems);
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) 
       dem_handles[dem_iter] = DiskImageView<double>(opt.input_dems[dem_iter]);
 
@@ -5079,7 +5114,7 @@ int main(int argc, char* argv[]) {
                   << dem_iter << " is too small.\n" );
       }
     }
-
+    
     // Read the sun positions from a list, if provided. Usually those
     // are read from the cameras, however, as done further down. 
     std::vector<ModelParams> model_params;
@@ -5511,14 +5546,19 @@ int main(int argc, char* argv[]) {
     // Find the grid sizes in meters. Note that dem heights are in
     // meters too, so we treat both horizontal and vertical
     // measurements in same units.
-    double gridx, gridy;
-    compute_grid_sizes_in_meters(dems[0][0], geos[0][0], dem_nodata_val, gridx, gridy);
-    vw_out() << "grid in x and y in meters: "
-             << gridx << ' ' << gridy << std::endl;
+    
+    // Sample large DEMs. Keep about 200 row and column samples.
+    int sample_col_rate = 0, sample_row_rate = 0;
+    calcSampleRates(dems[0][0], sample_col_rate, sample_row_rate);
+    double gridx = 0.0, gridy = 0.0;
+    compute_grid_sizes_in_meters(dems[0][0], geos[0][0], dem_nodata_val,
+                                 sample_col_rate, sample_row_rate,
+                                 gridx, gridy); // outputs
     g_gridx = &gridx;
     g_gridy = &gridy;
 
     // Find the max DEM height
+    
     std::vector<double> max_dem_height(num_dems, -std::numeric_limits<double>::max());
     if (opt.model_shadows) {
       for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
@@ -5536,12 +5576,18 @@ int main(int argc, char* argv[]) {
     g_max_dem_height = &max_dem_height;
     
     // Initial albedo. This will be updated later.
+    
+    // Compute the initial albedo. This is a constant initially.
     double initial_albedo = 1.0;
-    for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
-      albedos[0][dem_iter].set_size(dems[0][dem_iter].cols(), dems[0][dem_iter].rows());
-      for (int col = 0; col < albedos[0][dem_iter].cols(); col++) {
-        for (int row = 0; row < albedos[0][dem_iter].rows(); row++) {
-          albedos[0][dem_iter](col, row) = initial_albedo;
+    if (!opt.compute_exposures_only) {
+      // Skip this when computing the exposures only, as this can take a lot of
+      // memory and is not needed in that case.
+      for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
+        albedos[0][dem_iter].set_size(dems[0][dem_iter].cols(), dems[0][dem_iter].rows());
+        for (int col = 0; col < albedos[0][dem_iter].cols(); col++) {
+          for (int row = 0; row < albedos[0][dem_iter].rows(); row++) {
+            albedos[0][dem_iter](col, row) = initial_albedo;
+          }
         }
       }
     }
@@ -5562,13 +5608,14 @@ int main(int argc, char* argv[]) {
         if (opt.skip_images[dem_iter].find(image_iter) !=
             opt.skip_images[dem_iter].end()) continue;
         
+        // Sample large DEMs. Keep about 200 row and column samples.
+        int sample_col_rate = 0, sample_row_rate = 0;
+        calcSampleRates(dems[0][dem_iter], sample_col_rate, sample_row_rate);
+
         ImageView<PixelMask<double>> reflectance, intensity;
         ImageView<double> ground_weight;
         ImageView<Vector2> pq; // no need for these just for initialization
         
-        // Sample the large DEMs. Keep about 200 row and column samples.
-        int sample_col_rate = std::max((int)round(dems[0][dem_iter].cols()/200.0), 1);
-        int sample_row_rate = std::max((int)round(dems[0][dem_iter].rows()/200.0), 1);
         computeReflectanceAndIntensity(dems[0][dem_iter], pq, geos[0][dem_iter],
                                        opt.model_shadows, max_dem_height[dem_iter],
                                        gridx, gridy, sample_col_rate, sample_row_rate,
