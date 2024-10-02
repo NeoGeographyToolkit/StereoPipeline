@@ -22,6 +22,7 @@
 #include <asp/Core/Macros.h>
 
 #include <vw/Cartography/GeoTransform.h>
+#include <vw/Core/Stopwatch.h>
 
 #include <vector>
 #include <string>
@@ -73,6 +74,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (std::isnan(opt.threshold))
     vw::vw_throw(vw::ArgumentErr() << "The threshold must be set.\n");
     
+  // Create the output directory
+  vw::create_out_dir(opt.out_list);
+
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_list);
+    
   return;
 }
 
@@ -111,21 +118,14 @@ double calc_score_apply(std::string const& image_file,
                                          out_box, img_box);
   
   // Find the current image bounding box in the output image coordinates
-  std::cout << "--test this: " << vw::bounding_box(img) << std::endl;
   vw::BBox2 trans_box = geotrans.reverse_bbox(vw::bounding_box(img));
-  std::cout << "--test trans box!\n";
   // Grow to int
   trans_box = vw::grow_bbox_to_int(trans_box);
-  
-  std::cout << "--out box is " << out_box << std::endl;
-  std::cout << "--input box is " << img_box << std::endl;
-  std::cout << "transformed input box is " << trans_box << std::endl;
   
   // trans_box must be contained within out_box, as that's how out_box was formed
   if (!out_box.contains(trans_box))
     vw::vw_throw(vw::ArgumentErr()
                   << "An image bounding box is not contained in output box.\n"); 
-   
 
   // Prepare the image for interpolation   
   vw::PixelMask<float> no_data;
@@ -136,7 +136,9 @@ double calc_score_apply(std::string const& image_file,
     = interpolate(img, vw::BilinearInterpolation(), no_data_ext);
  
   // Iterate over the transformed box and calculate the score or apply the
-  // image
+  // image.
+  // Note: Multi-threading slowed things down. Likely because ASP does not
+  // likely reading pixels from same large images in multiple threads.
   double score = 0.0;
   for (int col = trans_box.min().x(); col < trans_box.max().x(); col++) {
     for (int row = trans_box.min().y(); row < trans_box.max().y(); row++) {
@@ -144,7 +146,7 @@ double calc_score_apply(std::string const& image_file,
       vw::Vector2 out_pix(col, row);
       
       // If the value of out_pix is valid and no less than the threshold,
-      // continue
+      // the new image will not add anything to the coverage
       vw::PixelMask<float> out_val = out_img(col, row);
       if (is_valid(out_val) && out_val.child() >= threshold)
         continue;
@@ -156,7 +158,7 @@ double calc_score_apply(std::string const& image_file,
       // Skip invalid values and values less than the threshold
       if (!is_valid(val) || val.child() < threshold)
         continue;
-      
+
       // This is a good value, increment the score
       score++;
       
@@ -166,30 +168,22 @@ double calc_score_apply(std::string const& image_file,
     }  
   }
    
-   return score;
+  return score;
 }
                            
-
-void read_georefs(std::vector<std::string> const& image_files) {
-
-  // TODO(oalexan1): Rename this function
+void run_image_subset(Options const& opt) {
+  
+  vw::vw_out() << "Reading: " << opt.image_list_file << "\n";
+  std::vector<std::string> image_files;
+  asp::read_list(opt.image_list_file, image_files);
   
   vw::vw_out() << "Reading input georeferences.\n";
   vw::cartography::GeoReference out_georef;
 
-  // TODO(oalexan1): Must read nodata
-  
-  // Set up the progress bar
-  int num_images = image_files.size();  
-  vw::TerminalProgressCallback tpc("", "\t--> ");
-  tpc.report_progress(0);
-  double inc_amount = 1.0 / double(num_images);
-   
   // Loop through all input images
+  int num_images = image_files.size();  
   vw::BBox2 out_box;
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
-
-    std::cout << "\n";
 
     std::string image_file = image_files[image_iter]; 
     vw::DiskImageResourceGDAL in_rsrc(image_file);
@@ -201,7 +195,6 @@ void read_georefs(std::vector<std::string> const& image_files) {
     
     // Input image bounding box
     vw::BBox2 img_box = vw::bounding_box(img);
-    std::cout << "--img box: " << img_box << std::endl;
 
     // Borrow the geo info from the first image
     if (image_iter == 0) {
@@ -215,40 +208,16 @@ void read_georefs(std::vector<std::string> const& image_files) {
 
     // Convert the bounding box of current image to output pixel coordinates
     vw::BBox2 trans_img_box = geotrans.reverse_bbox(img_box);
-    std::cout << "--input and trans pix box: " << img_box << ' ' << trans_img_box << std::endl;
     out_box.grow(trans_img_box);
-    
-    tpc.report_incremental_progress(inc_amount);
-    std::cout << "\n";
-    
   } // End loop through DEM files
-  tpc.report_finished();
 
-  std::cout << "--final pixel box is " << out_box << std::endl;
   // grow this to int
   out_box = vw::grow_bbox_to_int(out_box);
-  std::cout << "--final pixel box is " << out_box << std::endl;
   
-  vw::Vector2 pix = out_box.min();
-  std::cout << "--1pix and point is " << pix << ' ' << out_georef.pixel_to_point(pix) << std::endl;
-  
-  // Crop the georef to the output box
+  // Crop the georef to the output box. Adjust the box.
   out_georef = crop(out_georef, out_box);
-  out_box -= out_box.min();
-  std::cout << "--final pixel box is " << out_box << std::endl;
-  
-  pix = out_box.min();
-  std::cout << "--2pix and point is " << pix << ' ' << out_georef.pixel_to_point(pix) << std::endl;
-  
-  // TODO(oalexan1): Must grow the output box to int. Then must crop
-  // the georef to it and shift the box!
-
-  // TODO(oalexan1): Must iterate over pixels. Then do forward(). Then convert
-  // to point from forward pixel. Must also do multi-threaded.
-
-  std::set<std::string> inspected_set;
-  std::vector<std::string> inspected_images(num_images);
-  std::vector<double> scores(num_images, 0.0);
+  out_box.max() -= out_box.min();
+  out_box.min() = vw::Vector2(0, 0);
   
   // Create the output image as a pixel mask, with all pixels being float and invalid
   vw::ImageView<vw::PixelMask<float>> out_img(out_box.width(), out_box.height());
@@ -259,25 +228,73 @@ void read_georefs(std::vector<std::string> const& image_files) {
     }
   }
   
-  // Do as many passes as images, do nothing in each pass
+  // Now process the images  
+  vw::vw_out() << "Processing the images.\n";
+  vw::Stopwatch sw;
+  sw.start();
+  vw::TerminalProgressCallback tpc("", "\t--> ");
+  tpc.report_progress(0);
+  double inc_amount = 2.0 / (double(num_images) * double(num_images));
+  
+  // Do as many passes as images
+  std::map<std::string, double> inspected;
   for (int pass = 0; pass < num_images; pass++) {
-    
+        
     // Skip inspected images
-    if (inspected_set.find(image_files[pass]) != inspected_set.end())
+    if (inspected.find(image_files[pass]) != inspected.end())
       continue;
-    
-      
-  }  
-    
-} // End function load_dem_bounding_boxes
 
-void run_image_subset(Options const& opt) {
+    double best_score = -1.0;
+    int best_index = 0;
+    
+    // Inner iteration over all images. Skip the inspected ones.
+    for (int inner = 0; inner < num_images; inner++) {
+     
+      if (inspected.find(image_files[inner]) != inspected.end())
+        continue;
+
+      bool apply = false;
+      double score = calc_score_apply(image_files[inner], opt.threshold, apply, 
+                                      out_georef, out_img);
+        
+      // Update the best score
+      if (score > best_score) {
+        best_score = score;
+        best_index = inner;
+      }
+      tpc.report_incremental_progress(inc_amount);
+    }
+
+    // If the score is 0, we are done, as more passes won't help
+    if (best_score == 0.0) {
+      break;
+    }
+    
+    // Add the contribution of the best image
+    bool apply = true;
+    calc_score_apply(image_files[best_index], opt.threshold, apply, 
+                     out_georef, out_img);
+    
+    // Flag the current image as inspected and store its score
+    inspected[image_files[best_index]] = best_score;
+  }  
+
+  tpc.report_finished();
+  sw.stop();
+  vw::vw_out() << "Elapsed time: " << sw.elapsed_seconds() << " s.\n";
   
-  std::vector<std::string> image_files;
-  asp::read_list(opt.image_list_file, image_files);
+  // Save in decreasing order of score
+  std::vector<std::pair<double, std::string>> sorted;
+  for (auto const& p: inspected)
+    sorted.push_back(std::make_pair(p.second, p.first));
+  std::sort(sorted.begin(), sorted.end());
+  vw::vw_out() << "Writing: " << opt.out_list << "\n";
+  std::ofstream ofs(opt.out_list.c_str());
+  for (int i = sorted.size()-1; i >= 0; i--)
+    ofs << sorted[i].second << " " << sorted[i].first << "\n";
+  ofs.close();
   
-  read_georefs(image_files);
-}
+} // End function run_image_subset()
 
 int main(int argc, char *argv[]) {
 
