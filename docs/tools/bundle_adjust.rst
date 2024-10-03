@@ -854,36 +854,38 @@ with this data's interpretation.
 Registration errors on the ground
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the option ``--mapproj-dem`` (with a DEM file as a value) is
-specified, each pair of interest point matches (after bundle
-adjustment and outlier removal) will be projected onto this DEM, and
-the midpoint location and distance between these points will be
-found. 
+If the option ``--mapproj-dem`` (with a DEM file as a value) is specified, each
+pair of interest point matches (after bundle adjustment and outlier removal)
+will be projected onto this DEM, and the distances between these pairs of
+projected points will be found. 
 
 The file::
 
     {output-prefix}-mapproj_match_offset_stats.txt
 
-will have the percentiles (25%, 50%, 75%, 85%, 95%) of these distances for
-each image against the rest, and for each pair of images, in units of
-meter.
+will have the percentiles (25%, 50%, 75%, 85%, 95%) of these distances for each
+image against the rest, in meters.
 
-Ideally these distances should all be well under 1 GSD if the mapprojected
-images agree perfectly. This makes it easy to see which camera images are
-misregistered.
+This is an advanced metric that is very helpful if the images are expected to be 
+well-registered to each other and to the DEM, and if the DEM is accurate.
+Consider inspecting first the files mentioned earlier in :numref:`ba_out_files`.
 
-This is an advanced metric that is only helpful if the images and DEM are known
-to be very well-aligned, while the DEM is very accurate. Consider inspecting
-first the files mentioned earlier in :numref:`ba_out_files`.
+Ideally, the 50th percentiles should be under 1 GSD.
+
+The file::
+
+    {output-prefix}-mapproj_match_offset_pair_stats.txt
+
+saves such measurements for every pair of images. 
 
 The full report will be saved to::
 
 
     {output-prefix}-mapproj_match_offsets.txt
 
-having the longitude, latitude, and height above datum of the
-midpoint, and the above-mentioned distance between these projections
-(in meters).
+having the longitude, latitude, and height above datum of the midpoint of each
+pair of projected points, and the above-mentioned distance between these
+projections (in meters).
 
 This file is very analogous to the ``pointmap.csv`` file, except that
 these errors are measured on the ground in meters, and not in the cameras

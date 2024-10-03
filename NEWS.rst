@@ -9,7 +9,10 @@ bundle_adjust (:numref:`bundle_adjust`):
     get optimized.
   * Compensate for the images in the input nvm being potentially in different
     order than the images specified on the command line.  
-  
+  * The report file measuring statistics of registration errors on the ground
+    got broken up into errors per image and per image pair
+    (:numref:`ba_mapproj_dem`).
+
 mapproject (:numref:`mapproject`):
   * Add the option ``--query-pixel``.
 

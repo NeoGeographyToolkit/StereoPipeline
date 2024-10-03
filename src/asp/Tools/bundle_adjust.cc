@@ -947,10 +947,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
   if (!opt.mapproj_dem.empty()) {
-    std::string mapproj_offsets_stats_file 
-      = opt.out_prefix + "-mapproj_match_offset_stats.txt";
-    std::string mapproj_offsets_file = opt.out_prefix + "-mapproj_match_offsets.txt";
-    asp::saveMapprojOffsets(mapproj_offsets_stats_file, mapproj_offsets_file,
+    asp::saveMapprojOffsets(opt.out_prefix,
                             mapproj_dem_georef,
                             mapprojPoints,
                             mapprojOffsets, 

@@ -1456,14 +1456,15 @@ void asp::calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
 
 // Save mapprojected matches offsets for each image pair having matches
 void asp::saveMapprojOffsets(
-     std::string                       const& mapproj_offsets_stats_file,
-     std::string                       const& mapproj_offsets_file,
+     std::string                       const& out_prefix,
      vw::cartography::GeoReference     const& mapproj_dem_georef,
      std::vector<vw::Vector<float, 4>> const& mapprojPoints,
      std::vector<asp::MatchPairStats>  const& mapprojOffsets,
      std::vector<std::vector<float>>        & mapprojOffsetsPerCam,
      std::vector<std::string>          const& imageFiles) {
   
+  std::string mapproj_offsets_stats_file 
+    = out_prefix + "-mapproj_match_offset_stats.txt";
   vw_out() << "Writing: " << mapproj_offsets_stats_file << "\n";
   std::ofstream ofs (mapproj_offsets_stats_file.c_str());
   ofs.precision(8); // 8 digits of precision for errors is enough
@@ -1489,6 +1490,12 @@ void asp::saveMapprojOffsets(
         << val25 << ' ' << val50 << ' ' << val75 << ' '
         << val85 << ' ' << val95 << ' ' << count << "\n";
   }
+  ofs.close();
+
+  std::string mapproj_offsets_pair_stats_file 
+    = out_prefix + "-mapproj_match_offset_pair_stats.txt";
+  vw::vw_out() << "Writing: " << mapproj_offsets_pair_stats_file << "\n";
+  ofs = std::ofstream(mapproj_offsets_pair_stats_file.c_str());
 
   ofs << "# Percentiles of distances between matching pixels after mapprojecting onto DEM.\n"
       << "# Per image pair and measured in DEM pixel units.\n";
@@ -1500,9 +1507,9 @@ void asp::saveMapprojOffsets(
         << c.val25 << ' ' << c.val50 << ' ' << c.val75 << ' '
         << c.val85 << ' ' << c.val95 << ' ' << c.num_vals << "\n";
   }
-
   ofs.close();
 
+  std::string mapproj_offsets_file = out_prefix + "-mapproj_match_offsets.txt";
   vw_out() << "Writing: " << mapproj_offsets_file << "\n";
   ofs = std::ofstream(mapproj_offsets_file.c_str());
   // 12 digits of precision for errors is enough. 

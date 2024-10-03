@@ -20,7 +20,7 @@ the threshold, then the image that contributes the most additional pixels, etc.
 
 The produced subset is saved to an output list, with the image name and number
 of contributing pixels on each line. The images are sorted in decreasing order
-of pixel contribution.
+of contribution to coverage.
 
 Background and example
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -60,7 +60,7 @@ Validation
 ~~~~~~~~~~
 
 When this program finishes, overlay the images in the produced list and inspect
-if they cover the desired area in decreasing order of pixel contribution. 
+if they cover the desired area in decreasing order of contribution to coverage. 
 
 The program ``dem_mosaic`` (:numref:`dem_mosaic`) with the ``--max`` option
 can be helpful in determining if the produced subset coverage is about

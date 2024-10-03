@@ -564,8 +564,7 @@ void saveHorizVertErrors(std::string const& horiz_vert_errors_file,
                          std::vector<std::string> const& imageFiles);
 
 // Save mapprojected matches offsets for each image pair having matches
-void saveMapprojOffsets(std::string                       const& mapproj_offsets_stats_file,
-                        std::string                       const& mapproj_offsets_file,
+void saveMapprojOffsets(std::string                       const& out_prefix,
                         vw::cartography::GeoReference     const& mapproj_dem_georef,
                         std::vector<vw::Vector<float, 4>> const& mapprojPoints,
                         std::vector<asp::MatchPairStats>  const& mapprojOffsets,
