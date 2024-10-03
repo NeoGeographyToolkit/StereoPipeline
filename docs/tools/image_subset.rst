@@ -4,7 +4,7 @@ image_subset
 ------------
 
 Given a set of overlapping georeferenced images, this program will extract a 
-subset that result in almost the same coverage as the original images.
+subset that results in almost the same coverage as the original images.
 
 This program is slow, as the algorithm complexity is proportional to the square
 of number of input images and the number of output pixels. It is best used with
@@ -73,7 +73,8 @@ Command-line options
     The list of input images.
 
 --output-list, -o <string (default: "")>
-    The file having the produced image subset.
+    The file having the produced image subset, and for each image the number of
+    contributing pixels (sorted in decreasing order of contribution).
     
 --threshold <double (default: NaN)>
     The image threshold. Pixels no less than this will contribute to the coverage.

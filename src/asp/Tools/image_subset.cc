@@ -49,7 +49,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
    ("image-list", po::value(&opt.image_list_file)->default_value(""),
     "The list of input images.")
    ("output-list,o", po::value(&opt.out_list)->default_value(""),
-    "The file having the produced image subset.")
+    "The file having the produced image subset, and for each image the number "
+    "of contributing pixels (sorted in decreasing order of contribution).")
    ("threshold", po::value(&opt.threshold)->default_value(nan),
     "The image threshold. Pixels no less than this will contribute to the coverage.")
   ;

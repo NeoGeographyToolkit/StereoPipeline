@@ -1168,18 +1168,14 @@ bundle-adjusted cameras produced so far, align that one to ``ref.tif``,
 and then apply this alignment to the cameras.
 
 Examine the file having the stereo convergence angles for each pair of images as
-produced by bundle adjustment (:numref:`ba_conv_angle`). Pick one or more pairs
-of images with a solid convergence angle (say 15-30 degrees, or 4-10 degrees
-if no better luck). Ensure those pairs have a good number of matches, which is
-at least several dozens, and similar illumination.
+produced by bundle adjustment (:numref:`ba_conv_angle`). Eliminate those with a
+convergence angle of under 10 degrees or so, and sort the rest in decreasing
+number of matches (if not enough pairs left, can decrease this angle to 5
+degrees).
 
-Create one or more stereo DEMs. If the site is large, the created
-terrains should cover a representative extent. They need not cover it
-fully, as we will use this data for alignment only.
-
-It is very important that the camera adjustments created so far are
-used in stereo, by passing them via ``--bundle-adjust-prefix``. So,
-the stereo command can look as follows::
+Produce a few dozen stereo DEMs. It is very important that the camera
+adjustments created so far are used in stereo, by passing them via
+``--bundle-adjust-prefix``. So, the stereo command can look as follows::
 
     parallel_stereo A.cub B.cub A.json B.json \
       --bundle-adjust-prefix ba/run           \
