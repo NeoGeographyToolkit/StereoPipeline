@@ -915,51 +915,15 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   std::set<int> outliers;
   updateOutliers(cnet, param_storage, outliers);
   
-  // Calculate convergence angles. Remove the outliers flagged earlier, if
-  // remove_outliers is true. Compute offsets of mapprojected matches, if a DEM
-  // is given. Propagate errors if desired. These are done together as they rely
-  // on reloading interest point matches, which is expensive so the matches are
-  // used for both operations.
-  // TODO(oalexan1): Should this be done after the last pass?
-  std::vector<vw::Vector<float, 4>> mapprojPoints; // all points, not just stats
-  std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
-  std::vector<std::vector<float>> mapprojOffsetsPerCam;
-  std::vector<asp::HorizVertErrorStats> horizVertErrors;
-  vw::cartography::GeoReference mapproj_dem_georef;
-  if (!opt.mapproj_dem.empty()) {
-    bool is_good = vw::cartography::read_georeference(mapproj_dem_georef, opt.mapproj_dem);
-    if (!is_good) 
-      vw::vw_throw(vw::ArgumentErr() << "Could not read a georeference from: "
-                   << opt.mapproj_dem << ".\n");
-  }
-  
-  // Write clean matches and many types of stats
+  // Write clean matches and many types of stats. These are done together as
+  // they rely on reloading interest point matches, which is expensive.
+  bool save_clean_matches = false;
   asp::matchFilesProcessing(cnet,
                             asp::BaBaseOptions(opt), // note the slicing
                             optimized_cams, remove_outliers, outliers, opt.mapproj_dem,
                             opt.propagate_errors, opt.horizontal_stddev_vec, 
-                            // Outputs
-                            opt.match_files,
-                            convAngles, mapprojPoints, 
-                            mapprojOffsets, mapprojOffsetsPerCam,
-                            horizVertErrors);
+                            save_clean_matches, opt.match_files);
 
-  std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
-  asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
-  if (!opt.mapproj_dem.empty()) {
-    asp::saveMapprojOffsets(opt.out_prefix,
-                            mapproj_dem_georef,
-                            mapprojPoints,
-                            mapprojOffsets, 
-                            mapprojOffsetsPerCam, // will change
-                            opt.image_files);
-  }
-  
-  if (opt.propagate_errors) {
-    std::string horiz_vert_errors_file = opt.out_prefix + "-triangulation_uncertainty.txt";
-    asp::saveHorizVertErrors(horiz_vert_errors_file, horizVertErrors, opt.image_files);
-  }
-  
   // Compute the change in camera centers. For that, we need the original cameras.
   std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";
   if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
@@ -1172,7 +1136,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("mapproj-dem", po::value(&opt.mapproj_dem)->default_value(""),
      "If specified, mapproject every pair of matched interest points onto this DEM "
      "and compute their distance, then percentiles of such distances for each image "
-     "pair and for each image vs the rest. This is done after bundle adjustment "
+     "vs the rest and each image pair. This is done after bundle adjustment "
      "and outlier removal. Measured in meters.")
     ("weight-image", po::value(&opt.weight_image)->default_value(""),
      "Given a georeferenced image with float values, for each initial triangulated "

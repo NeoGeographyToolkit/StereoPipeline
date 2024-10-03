@@ -1997,6 +1997,16 @@ The list of optimized cameras will be saved to::
 This is convenient because both ``bundle_adjust`` and ``jitter_solve`` can read
 such lists with the ``--image-list`` and ``--camera-list`` options.
 
+.. _other_jitter_out:
+
+Other output files
+^^^^^^^^^^^^^^^^^^
+
+This program writes the stereo convergence angles (:numref:`ba_conv_angle`) and
+can compute the registration errors on the ground (:numref:`ba_mapproj_dem`).
+These are the same as for ``bundle_adjust``, hence the referral to the relevant
+sections for that program.
+
 .. _jitter_options:
 
 Command-line options for jitter_solve
@@ -2244,6 +2254,13 @@ Command-line options for jitter_solve
     How many passes of jitter solving to do, with the given number of iterations
     in each pass. Each pass uses the previously refined cameras, which improves
     the accuracy of the DEM constraint and the final result.
+
+--mapproj-dem <string (default: "")>
+    If specified, mapproject every pair of matched interest points onto this DEM
+    and compute their distance, then percentiles of such distances for each
+    image vs the rest and each image pair. This is done after bundle adjustment
+    and outlier removal. Measured in meters. See :numref:`ba_mapproj_dem` for
+    more details.
     
 --rig-config <string>
     Assume that the cameras are acquired with a set of rigs with this

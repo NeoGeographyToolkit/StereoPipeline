@@ -261,6 +261,11 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "A weight to penalize the deviation of camera yaw orientation as measured from the "
      "along-track direction. Pass in a large value, such as 1e+5. This is best used only "
      "with linescan cameras created with sat_sim.")
+    ("mapproj-dem", po::value(&opt.mapproj_dem)->default_value(""),
+     "If specified, mapproject every pair of matched interest points onto this DEM "
+     "and compute their distance, then percentiles of such distances for each image "
+     "vs the rest and each image pair. This is done after bundle adjustment "
+     "and outlier removal. Measured in meters.")
     ("weight-image", po::value(&opt.weight_image)->default_value(""),
      "Given a georeferenced image with float values, for each initial triangulated "
      "point find its location in the image and closest pixel value. Multiply the "
@@ -1193,7 +1198,7 @@ void jitterSolvePass(int                                 pass,
                 opt.cam2group, timestamp_map, ref_to_curr_sensor_vec, 
                 csm_models, frame_params);  
 
-  // By now the cameras have been updated in-place. Compute the optimized
+  // By now camera_models has been updated in-place. Compute the optimized
   // camera centers.
   std::vector<vw::Vector3> opt_cam_positions;
   asp::calcCameraCenters(opt.camera_models, opt_cam_positions);
@@ -1217,7 +1222,18 @@ void jitterSolvePass(int                                 pass,
     rig::writeRigConfig(rig_config, have_rig, rig);
   }
 
-  // Compute the change in camera centers.
+  // Write many types of stats. These are done together as they rely on
+  // reloading interest point matches, which is expensive.
+  bool remove_outliers = true, propagate_errors = false, save_clean_matches = false;
+  vw::Vector<double> horizontal_stddev_vec; // not used
+  asp::matchFilesProcessing(cnet,
+                            asp::BaBaseOptions(opt), // note the slicing
+                            opt.camera_models, // these have been updated
+                            remove_outliers, outliers, opt.mapproj_dem,
+                            propagate_errors, horizontal_stddev_vec, 
+                            save_clean_matches, opt.match_files);
+
+  // Compute the change in camera centers
   std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";
   if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
     asp::saveCameraOffsets(opt.datum, opt.image_files, 
@@ -1284,7 +1300,6 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   // Make a list of all the image pairs to find matches for. Some quantities
   // below are not needed but are part of the API.
-  std::map<std::pair<int, int>, std::string> match_files;
   if (opt.isis_cnet.empty() && opt.nvm.empty()) {
     // TODO(oalexan1): Make this into a function
     bool external_matches = true;
@@ -1327,11 +1342,11 @@ void run_jitter_solve(int argc, char* argv[]) {
       // The external match file does not exist, don't try to load it
       if (existing_files.find(match_file) == existing_files.end())
         continue;
-      match_files[std::make_pair(i, j)] = match_file;
+      opt.match_files[std::make_pair(i, j)] = match_file;
     }
   }
     
-  if (match_files.empty() && opt.isis_cnet.empty() && opt.nvm.empty())
+  if (opt.match_files.empty() && opt.isis_cnet.empty() && opt.nvm.empty())
     vw::vw_throw(vw::ArgumentErr() 
              << "No match files, ISIS cnet, or nvm file found. Check if your match "
              << "files exist and if they satisfy the naming convention "
@@ -1356,7 +1371,7 @@ void run_jitter_solve(int argc, char* argv[]) {
     bool success = vw::ba::build_control_network(triangulate_control_points,
                                                 cnet, // output
                                                 opt.camera_models, opt.image_files,
-                                                match_files, opt.min_matches,
+                                                opt.match_files, opt.min_matches,
                                                 opt.min_triangulation_angle*(M_PI/180.0),
                                                 opt.forced_triangulation_distance,
                                                 opt.max_pairwise_matches);

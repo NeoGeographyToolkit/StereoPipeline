@@ -81,11 +81,10 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
     fixed_image_list, camera_position_uncertainty_str;
   int overlap_limit, min_matches, max_pairwise_matches, num_iterations,
     ip_edge_buffer_percent, max_num_reference_points, num_passes;
-  bool have_overlap_list;
   std::set<std::pair<std::string, std::string>> overlap_list;
   std::string overlap_list_file, auto_overlap_params, datum_str, proj_str,
     csv_format_str, csv_srs, csv_proj4_str, disparity_list, stereo_prefix_list;
-  bool match_first_to_last, single_threaded_cameras, 
+  bool have_overlap_list, propagate_errors, match_first_to_last, single_threaded_cameras, 
     update_isis_cubes_with_csm_state;
   double forced_triangulation_distance, min_triangulation_angle, max_init_reproj_error, 
     robust_threshold, parameter_tolerance;
@@ -103,6 +102,8 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   std::map<std::pair<int, int>, std::string> match_files;
   vw::cartography::Datum datum;
   vw::BBox2 proj_win; // Limit input triangulated points to this projwin
+  double horizontal_stddev;
+  vw::Vector<double> horizontal_stddev_vec; // may come from cameras or user
 
   BaBaseOptions(): 
    forced_triangulation_distance(-1), 
@@ -111,7 +112,8 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
    rotation_weight(0.0), tri_weight(0.0),
    robust_threshold(0.0), min_matches(0),
    num_iterations(0), num_passes(0), 
-   overlap_limit(0), have_overlap_list(false),
+   overlap_limit(0), have_overlap_list(false), propagate_errors(false),
+   match_first_to_last(false), single_threaded_cameras(false), update_isis_cubes_with_csm_state(false),
    camera_type(BaCameraType_Other), max_num_reference_points(-1),
    datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM, 
                                 "User Specified Spheroid",
@@ -580,18 +582,13 @@ void saveMapprojOffsets(std::string                       const& out_prefix,
 void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                           asp::BaBaseOptions           const& opt,
                           std::vector<vw::CamPtr>      const& optimized_cams,
-                          bool remove_outliers,
+                          bool                                remove_outliers,
                           std::set<int>                const& outliers,
                           std::string                  const& mapproj_dem,
-                          bool propagate_errors, 
+                          bool                                propagate_errors, 
                           vw::Vector<double>           const& horizontal_stddev_vec,
-                          // Outputs
-                          std::map<std::pair<int, int>, std::string> & match_files,
-                          std::vector<asp::MatchPairStats>  & convAngles,
-                          std::vector<vw::Vector<float, 4>> & mapprojPoints,
-                          std::vector<asp::MatchPairStats>  & mapprojOffsets,
-                          std::vector<std::vector<float>>   & mapprojOffsetsPerCam,
-                          std::vector<asp::HorizVertErrorStats>  & horizVertErrors);
+                          bool                                save_clean_matches,
+                          std::map<std::pair<int, int>, std::string> const& match_files);
 
 /// This is for the BundleAdjustmentModel class where the camera parameters
 /// are a rotation/offset that is applied on top of the existing camera model.

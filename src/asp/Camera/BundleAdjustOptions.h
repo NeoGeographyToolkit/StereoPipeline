@@ -38,7 +38,7 @@ struct BaOptions: public asp::BaBaseOptions {
     transform_cameras_with_shared_gcp, transform_cameras_using_gcp,
     fix_gcp_xyz, solve_intrinsics, 
     ip_normalize_tiles, ip_debug_images, stop_after_stats, stop_after_matching,
-    skip_matching, apply_initial_transform_only, save_vwip, propagate_errors;
+    skip_matching, apply_initial_transform_only, save_vwip;
   std::string camera_position_file, initial_transform_file, dem_file_for_overlap;
   double semi_major, semi_minor, position_filter_dist;
   std::string remove_outliers_params_str;
@@ -58,8 +58,6 @@ struct BaOptions: public asp::BaBaseOptions {
   std::set<int> fixed_cameras_indices;
   asp::IntrinsicOptions intrinsics_options;
   vw::Vector2i matches_per_tile_params;
-  double horizontal_stddev;
-  vw::Vector<double> horizontal_stddev_vec; // may come from cameras or user
   
   // Make sure all values are initialized, even though they will be
   // over-written later.

@@ -1598,17 +1598,17 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                                bool                                remove_outliers,
                                std::set<int>                const& outliers,
                                std::string                  const& mapproj_dem,
-                               bool propagate_errors, 
+                               bool                                propagate_errors, 
                                vw::Vector<double>           const& horizontal_stddev_vec,
-                               // Outputs
-                               std::map<std::pair<int, int>, std::string> & match_files,
-                               std::vector<asp::MatchPairStats>  & convAngles,
-                               std::vector<vw::Vector<float, 4>> & mapprojPoints,
-                               std::vector<asp::MatchPairStats>  & mapprojOffsets,
-                               std::vector<std::vector<float>>   & mapprojOffsetsPerCam,
-                               std::vector<asp::HorizVertErrorStats>  & horizVertErrors) {
+                               bool                                save_clean_matches,
+                               std::map<std::pair<int, int>, std::string> const& match_files) {
 
   vw_out() << "Creating reports.\n";
+  
+  std::vector<vw::Vector<float, 4>> mapprojPoints; // all points, not just stats
+  std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
+  std::vector<std::vector<float>> mapprojOffsetsPerCam;
+  std::vector<asp::HorizVertErrorStats> horizVertErrors;
   
   // Wipe the outputs
   mapprojPoints.clear();
@@ -1617,6 +1617,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   mapprojOffsetsPerCam.clear();
   horizVertErrors.clear();
 
+  std::map<std::pair<int, int>, std::string> local_match_files = match_files;
   bool save_mapproj_match_points_offsets = (!mapproj_dem.empty());
   vw::cartography::GeoReference mapproj_dem_georef;
   ImageViewRef<PixelMask<double>> interp_mapproj_dem;
@@ -1635,7 +1636,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   typedef std::tuple<float, float, float, float> Quadruplet;
   std::map<std::pair<int, int>, std::set<Quadruplet>> match_map;
   if (remove_outliers || !opt.isis_cnet.empty() || !opt.nvm.empty()) {
-  for (int ipt = 0; ipt < cnet.size(); ipt++) {
+    for (int ipt = 0; ipt < cnet.size(); ipt++) {
       // Skip outliers
       if (outliers.find(ipt) != outliers.end())
         continue;
@@ -1656,13 +1657,13 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
         }
       }
     }
-  }
+  } 
   
   // If we read the matches from an ISIS cnet or nvm, there are no match files.
   // Create them. 
   if (opt.isis_cnet != "" || opt.nvm != "") {
     // iterate over match pairs
-    match_files.clear();
+    local_match_files.clear();
     for (auto const& match_pair: match_map) {
       int left_index  = match_pair.first.first;
       int right_index = match_pair.first.second;
@@ -1674,12 +1675,12 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
         = vw::ip::match_filename(opt.out_prefix,
                                  opt.image_files[left_index],
                                  opt.image_files[right_index]);
-      match_files[std::make_pair(left_index, right_index)] = match_file;
+      local_match_files[std::make_pair(left_index, right_index)] = match_file;
     }
   }
   
   // Work on individual image pairs
-  for (const auto& match_it: match_files) {
+  for (const auto& match_it: local_match_files) {
    
     std::pair<int, int> cam_pair   = match_it.first;
     std::string         match_file = match_it.second;
@@ -1789,7 +1790,7 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                      convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
                      horizVertErrors);
 
-    if (opt.output_cnet_type != "match-files")
+    if (opt.output_cnet_type != "match-files" || !save_clean_matches)
       continue; // Do not write match files
 
     // Make a clean copy of the file
@@ -1810,6 +1811,26 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     vw::ip::write_binary_match_file(clean_match_file, left_ip, right_ip);
 
   } // End loop through the match files
+
+  // Save the produced files  
+  
+  std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
+  asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
+
+  if (!opt.mapproj_dem.empty())
+    asp::saveMapprojOffsets(opt.out_prefix,
+                            mapproj_dem_georef,
+                            mapprojPoints,
+                            mapprojOffsets, 
+                            mapprojOffsetsPerCam, // will change
+                            opt.image_files);
+
+  if (opt.propagate_errors) {
+    std::string horiz_vert_errors_file = opt.out_prefix + "-triangulation_uncertainty.txt";
+    asp::saveHorizVertErrors(horiz_vert_errors_file, horizVertErrors, opt.image_files);
+  }
+  
+  return;
 }
 
 // Find stats of propagated errors

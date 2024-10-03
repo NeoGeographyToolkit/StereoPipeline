@@ -1,9 +1,6 @@
 Changes since the last release
 ------------------------------
 
-* Added the program ``image_subset`` for selecting a subset of images that have
-  almost the same coverage as the full input set (:numref:`image_subset`).
-
 bundle_adjust (:numref:`bundle_adjust`):
   * Added the option ``--min-distortion`` to ensure small distortion parameters
     get optimized.
@@ -24,7 +21,9 @@ jitter_solve (:numref:`jitter_solve`):
   * Can constrain against a sparse point cloud (:numref:`jitter_ref_terrain`).
   * Can use GCP files.
   * Can read a control network from an nvm file.
-      
+  * Write the stereo convergence angles. Can write registration errors on the
+    ground (:numref:`other_jitter_out`).
+
 stereo_gui (:numref:`stereo_gui`):
   * Changing the image threshold updates the display correctly.
   * When creating GCP, ask before quitting without saving them. Save the IP as
@@ -60,6 +59,11 @@ parallel_stereo (:numref:`parallel_stereo`):
     and ``--enable-velocity-aberration-correction`` for Pleiades linescan
     cameras (these are enabled by default for WorldView cameras only).
     It is not clear if these corrections improve or not vertical accuracy.
+
+sfs (:numref:`sfs`):
+  * Added the program ``image_subset`` for selecting a subset of images that
+    have almost the same coverage as the full input set
+    (:numref:`image_subset`).
 
 orbit_plot (:numref:`orbit_plot`):
   * Added the option ``--use-rmse``.

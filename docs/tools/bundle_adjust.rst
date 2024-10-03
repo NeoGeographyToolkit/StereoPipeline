@@ -1249,11 +1249,11 @@ Command-line options
     this value, and adjust instead ``--heights-from-dem-uncertainty``.
 
 --mapproj-dem <string (default: "")>
-    If specified, mapproject every pair of matched interest points
-    onto this DEM and compute their distance, then percentiles of such
-    distances for each image pair and for each image vs the
-    rest. This is done after bundle adjustment and outlier removal.
-    Measured in meters. See :numref:`ba_mapproj_dem` for more details.
+    If specified, mapproject every pair of matched interest points onto this DEM
+    and compute their distance, then percentiles of such distances for each
+    image vs the rest and each image pair. This is done after bundle adjustment
+    and outlier removal. Measured in meters. See :numref:`ba_mapproj_dem` for
+    more details.
 
 --csv-format <string>
     Specify the format of input CSV files as a list of entries

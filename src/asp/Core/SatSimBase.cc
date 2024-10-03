@@ -66,13 +66,7 @@ void calcProjAlongAcross(vw::Vector3 const& first_proj,
 
   // Normalize
   proj_along = proj_along / norm_2(proj_along);
-
-  // One more sanity check
-  if (std::max(std::abs(proj_along[0]), std::abs(proj_along[1])) < 1e-6)
-    vw::vw_throw(vw::ArgumentErr()
-      << "It appears that the satellite is aiming for the ground or "
-      << "the orbital segment is too short. Correct the orbit end points.\n");
-
+  
   // Find the across-track direction, parallel to the ground, in projected coords
   proj_across = vw::math::cross_prod(proj_along, vw::Vector3(0, 0, 1));
   proj_across = proj_across / norm_2(proj_across);
