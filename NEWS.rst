@@ -1,6 +1,9 @@
 Changes since the last release
 ------------------------------
 
+* Added the program ``image_subset`` for selecting a subset of images that have
+  almost the same coverage as the full input set (:numref:`image_subset`).
+
 bundle_adjust (:numref:`bundle_adjust`):
   * Added the option ``--min-distortion`` to ensure small distortion parameters
     get optimized.

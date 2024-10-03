@@ -985,7 +985,7 @@ It is very strongly recommended to use the CSM camera models instead
 of ISIS models (:numref:`sfs_isis_vs_csm`).
 
 Inspection of many hundreds of images and choosing those that have
-valid pixels in the area of interest can be very arduous.  To make this
+valid pixels in the area of interest can be very arduous. To make this
 easier, we make use of the reporting facility of ``dem_mosaic``
 (:numref:`dem_mosaic`) when invoked with the the option
 ``--block-max``, with a large value of ``--block-size`` (larger than
@@ -1046,6 +1046,11 @@ varying too drastically between nearby images, and not being able to
 find matching interest points. Hence, there must be sufficient images
 so that the illumination conditions over the entire site change slowly
 as one goes down the list.
+
+A representative subset of the produced images can be found with the 
+program ``image_subset`` (:numref:`image_subset`). That tool must
+be invoked once the images have been registered to each other and
+to the ground, so later in the process (:numref:`parallel_sfs_usage`). 
 
 The paper :cite:`bertone2023highly` discusses how to automate
 the process of selecting images. 
@@ -1445,9 +1450,14 @@ For this step not all images need to be used, just a representative
 enough subset. Normally, having two or three sufficiently different
 illumination conditions at each location is good enough, ideally with 
 the shadows from one image being roughly perpendicular to shadows
-from other images. It is quite tricky to select such a subset, however,
-and normally SfS should work fine with a few hundred input images, so
-a subselection may not be necessary.
+from other images. 
+
+A representative subset of the produced images can be found with the 
+program ``image_subset`` (:numref:`image_subset`). Invoke that program
+with low-resolution versions of the mapprojected co-registered input 
+images. That program's page has more details. 
+
+SfS should work fine with a few hundred input images, but it can be slow.
 
 It is best to avoid images with very low illumination angles as those
 can result in artifacts in the produced SfS terrain.
