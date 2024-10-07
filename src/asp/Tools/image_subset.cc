@@ -257,6 +257,10 @@ void run_image_subset(Options const& opt) {
       bool apply = false;
       double score = calc_score_apply(image_files[inner], opt.threshold, apply, 
                                       out_georef, out_img);
+      
+      // TODO(oalexan1): If the score is zero, declare this image as not 
+      // useful, as its score will continue to be 0 for future out_img,
+      // since those only grow. This must be tested though.
         
       // Update the best score
       if (score > best_score) {

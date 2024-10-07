@@ -53,6 +53,11 @@ Then, for each group, this program can be called as::
 Note, as before, that this program can take many hours. A progress bar is
 displayed and helps track its advancement.
 
+For a very large terrain, it is suggested to break it up into quadrants with some
+overlap, collect all relevant images for each quadrant, and then process these
+quadrants separately. This will result in a faster runtime and produce images
+that are more relevant to each smaller area.
+
 A good threshold can be found by clicking on pixels of representative images in
 ``stereo_gui`` and observing the pixel values printed in the terminal.
 

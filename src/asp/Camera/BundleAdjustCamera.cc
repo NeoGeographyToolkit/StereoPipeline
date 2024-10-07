@@ -1617,7 +1617,6 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   mapprojOffsetsPerCam.clear();
   horizVertErrors.clear();
 
-  std::map<std::pair<int, int>, std::string> local_match_files = match_files;
   bool save_mapproj_match_points_offsets = (!mapproj_dem.empty());
   vw::cartography::GeoReference mapproj_dem_georef;
   ImageViewRef<PixelMask<double>> interp_mapproj_dem;
@@ -1660,7 +1659,8 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   } 
   
   // If we read the matches from an ISIS cnet or nvm, there are no match files.
-  // Create them. 
+  // Then create them. 
+  std::map<std::pair<int, int>, std::string> local_match_files = match_files;
   if (opt.isis_cnet != "" || opt.nvm != "") {
     // iterate over match pairs
     local_match_files.clear();
