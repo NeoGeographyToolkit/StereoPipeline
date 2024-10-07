@@ -95,11 +95,20 @@ This will produce the files ``run/run-HorizontalStdDev.tif`` and
 
 In all these files the values are in units of meter.
 
+Bundle adjustment
+-----------------
+
+Error propagation is also implemented in ``bundle_adjust``
+(:numref:`ba_error_propagation`). In that case, the errors are computed at each
+interest point, rather than densely.
+
+The same underlying logic is employed as for stereo.
+
 Implementation details
 ----------------------
 
 Note that propagating the errors subtly changes the behavior of stereo
-triangulation, and hence also of the output DEM. Triangulated points
+triangulation, and hence also the output DEM. Triangulated points
 are saved with a float precision of 1e-8 meters (rather than the usual
 1e-3 meters or so, :numref:`triangulation_options`), to avoid creating
 step artifacts later when gridding the rather slowly varying
@@ -299,3 +308,4 @@ The created DEMs (with nominal and then with biased cameras) can have
 their heights compared using the ``geodiff --absolute`` command
 (:numref:`geodiff`). We found a height difference that is very similar
 to the vertical standard deviation produced earlier.
+
