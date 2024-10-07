@@ -139,7 +139,7 @@ void georef_sanity_checks(GeoReference const& georef1, GeoReference const& geore
   
 }
 
-void dem2dem_diff(Options& opt){
+void dem2dem_diff(Options& opt) {
   
   DiskImageResourceGDAL dem1_rsrc(opt.dem1_file), dem2_rsrc(opt.dem2_file);
   double dem1_nodata = opt.nodata_value, dem2_nodata = opt.nodata_value;
@@ -294,8 +294,14 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   double diff_mean = 0.0;
   double diff_std  = 0.0;
 
+  vw::TerminalProgressCallback tpc("Diff:", "\t--> ");
+  tpc.report_progress(0);
+  double hundred = 100.0;
+  double inc_amount = hundred / std::max(csv_llh.size(), size_t(1));
+
   std::vector<Vector3> csv_diff;
   std::vector<double> csv_errs;
+  int prev_progress = 0;
   for (size_t it = 0; it < csv_llh.size(); it++) {
 
     Vector3 llh = csv_llh[it];
@@ -323,7 +329,16 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
     count     += 1;
     csv_diff.push_back(Vector3(ll[0], ll[1], diff));
     csv_errs.push_back(diff);
+    
+    int percent_progress = (int)round(it * inc_amount);
+    if (percent_progress != prev_progress) {
+      tpc.report_incremental_progress(1.0 / hundred);
+      prev_progress = percent_progress;
+    }
   }
+  
+  tpc.report_finished();
+  
 
   if (count > 0) {
     diff_mean /= count;
