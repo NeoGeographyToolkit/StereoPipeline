@@ -304,18 +304,10 @@ void blur_weights(ImageView<double> & weights, double sigma){
 
 }
 
-BBox2 custom_point_to_pixel_bbox(GeoReference const& georef, BBox2 const& ptbox){
-
-  // Given the corners in the projected space, find the pixel corners.
-  // If the biggest pixel value is say 42, the image must have 43
-  // pixels.  And if the biggest pixel value is 42.1 or 42.9, the
-  // image must have 44 pixels.  That's why below we use
-  // ceil(pix_box.max() + Vector2(1, 1)).
-
-  // This differs a bit from the point_to_pixel_bbox() function in
-  // GeoReferenceBase.cc.
-
-  // TODO: Maybe that function can be made to imitate this one. 
+// Given the corners in the projected space, find the pixel corners. Here needed
+// some custom logic, so BBox2 GeoReference::point_to_pixel_bbox() could not be
+// used.
+BBox2 custom_point_to_pixel_bbox(GeoReference const& georef, BBox2 const& ptbox) {
 
   vw::BBox2 pix_box;
   vw::Vector2 cr[] = {ptbox.min(), ptbox.max(),
@@ -324,20 +316,20 @@ BBox2 custom_point_to_pixel_bbox(GeoReference const& georef, BBox2 const& ptbox)
   for (int icr = 0; icr < (int)(sizeof(cr)/sizeof(Vector2)); icr++)
     pix_box.grow(georef.point_to_pixel(cr[icr]));
   
-  // If the corner is actually very close to an integer number, we
-  // assume it should in fact be integer but got moved a bit due to
-  // numerical error. Then we set it to integer. This ensures that
-  // when we mosaic a single DEM we get its corners to be the same as
-  // the originals rather than moved by a slight offset.
+  // Round values that are likely due to numerical error
+  if (norm_2(pix_box.min() - round(pix_box.min())) < g_tol) 
+    pix_box.min() = round(pix_box.min());
   if (norm_2(pix_box.max() - round(pix_box.max())) < g_tol) 
     pix_box.max() = round(pix_box.max());
 
-  pix_box.max() = ceil(pix_box.max() + vw::Vector2(1, 1));
-  
+  // Grow the box until the corners are integer. This is a bugfix.
+  pix_box.min() = floor(pix_box.min());
+  pix_box.max() = ceil (pix_box.max());
+
   return pix_box;
 }
 
-GeoReference read_georef(std::string const& file){
+GeoReference read_georef(std::string const& file) {
   // Read a georef, and check for success
   GeoReference geo;
   bool is_good = read_georeference(geo, file);
@@ -1282,7 +1274,6 @@ void load_dem_bounding_boxes(Options       const& opt,
     mosaic_bbox = first_dem_proj_box;
   
 } // End function load_dem_bounding_boxes
-
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
