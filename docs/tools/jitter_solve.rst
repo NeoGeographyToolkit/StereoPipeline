@@ -939,9 +939,14 @@ First, a reference DEM (Copernicus) for the area is fetched, and
 adjusted to be relative to WGS84, creating the file ``ref-adj.tif``
 (:numref:`initial_terrain`).
 
-Let the images be called ``1.tif`` and ``2.tif``, with corresponding
-Pleiades exact linescan cameras ``1.xml`` and ``2.xml``. Since the GSD
-specified in these files is about 0.72 m, this value is used in
+Let the images be called ``1.tif`` and ``2.tif``. The Pleiades exact camera
+model names usually start with the prefix ``DIM``. Here, for simplicity, will
+name them  ``1.xml`` and ``2.xml``. 
+
+*Do not use the Pleiades RPC camera models.* Their names start with the ``PRC``
+prefix.
+
+Since the GSD specified in these files is about 0.72 m, this value is used in
 mapprojection of both images (:numref:`mapproj-example`)::
 
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
