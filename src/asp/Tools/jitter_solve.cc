@@ -401,9 +401,8 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   if (opt.image_files.empty())
     vw_throw(ArgumentErr() << "Missing input image files.\n");
   
-  // Must have this early check to catch the contradiction between using RPC
-  // cameras (for any session) and the option --aster-use-csm. Eventually that
-  // switch will go away and this block will be removed.
+  // Must have this early check to print a clear message about unsupported
+  // camera before any error thrown by StereoSessionFactory.
   std::string err_str; 
   try {
     std::string input_dem = ""; // No DEM
@@ -419,10 +418,12 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     // Catch and record any error
     err_str = e.what();
   }
-  // First check for the RPC session
-  if (opt.stereo_session == "rpc")
-    vw_throw(ArgumentErr() << "RPC cameras are not supported in jitter_solve. "
-             << "Check your camera files and/or specify the -t option.\n");
+  // First check for unexpected sessions. Only dg, pleiades, aster, csm are allowed.
+  if (opt.stereo_session != "dg" && opt.stereo_session != "pleiades" &&
+      opt.stereo_session != "aster" && opt.stereo_session != "csm")
+    vw_throw(ArgumentErr() << "Session " << opt.stereo_session 
+             << " is not supported in jitter_solve. Check your camera files and/or "
+             << "specify the -t (--session-type) option.\n");
   // Throw any other errors
   if (err_str != "")
     vw_throw(ArgumentErr() << err_str << "\n");
