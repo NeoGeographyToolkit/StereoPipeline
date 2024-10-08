@@ -401,6 +401,32 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   if (opt.image_files.empty())
     vw_throw(ArgumentErr() << "Missing input image files.\n");
   
+  // Must have this early check to catch the contradiction between using RPC
+  // cameras (for any session) and the option --aster-use-csm. Eventually that
+  // switch will go away and this block will be removed.
+  std::string err_str; 
+  try {
+    std::string input_dem = ""; // No DEM
+    bool allow_map_promote = false, quiet = true;
+    asp::SessionPtr session;
+      session.reset(asp::StereoSessionFactory::create
+                      (opt.stereo_session, // may change
+                      opt, opt.image_files[0], opt.image_files[0], 
+                      opt.camera_files[0], opt.camera_files[0],
+                      opt.out_prefix, input_dem,
+                      allow_map_promote, quiet));
+  } catch (const std::exception& e) {
+    // Catch and record any error
+    err_str = e.what();
+  }
+  // First check for the RPC session
+  if (opt.stereo_session == "rpc")
+    vw_throw(ArgumentErr() << "RPC cameras are not supported in jitter_solve. "
+             << "Check your camera files and/or specify the -t option.\n");
+  // Throw any other errors
+  if (err_str != "")
+    vw_throw(ArgumentErr() << err_str << "\n");
+  
   if (opt.overlap_limit < 0)
     vw_throw(ArgumentErr() << "Must allow search for matches between "
              << "at least each image and its subsequent one.\n");
@@ -1263,6 +1289,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   rig::RigSet rig;
   handle_arguments(argc, argv, opt, rig);
 
+  // Load the cameras  
   bool approximate_pinhole_intrinsics = false;
   asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
                     approximate_pinhole_intrinsics,  
