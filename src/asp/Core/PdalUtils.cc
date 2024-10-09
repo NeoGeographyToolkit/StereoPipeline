@@ -54,6 +54,7 @@ public:
   StreamedCloud(bool has_georef, 
                 vw::ImageViewRef<vw::Vector3> point_image,
                 vw::ImageViewRef<double> error_image,
+                vw::ImageViewRef<float> intensity,
                 bool save_triangulation_error,
                 double max_valid_triangulation_error);
   ~StreamedCloud();
@@ -70,6 +71,7 @@ private:
   bool m_has_georef;
   vw::ImageViewRef<vw::Vector3> m_point_image;
   vw::ImageViewRef<double> m_error_image;
+  vw::ImageViewRef<float> m_intensity;
   bool m_save_triangulation_error;
   double m_max_valid_triangulation_error;
 
@@ -87,28 +89,18 @@ std::string StreamedCloud::getName() const {
 StreamedCloud::StreamedCloud(bool has_georef,
                              vw::ImageViewRef<vw::Vector3> point_image,
                              vw::ImageViewRef<double> error_image,
+                             vw::ImageViewRef<float> intensity,
                              bool save_triangulation_error,
                              double max_valid_triangulation_error):
   m_has_georef(has_georef),
-  m_point_image(point_image), m_error_image(error_image),
+  m_point_image(point_image), m_error_image(error_image), m_intensity(intensity),
   m_save_triangulation_error(save_triangulation_error),
   m_max_valid_triangulation_error(max_valid_triangulation_error),
   m_col_count(0), m_row_count(0),
   m_cols(m_point_image.cols()), m_rows(m_point_image.rows()),
   m_size(m_cols * m_rows), // careful here to avoid integer overflow
   m_count(0), m_num_valid_points(0), m_num_saved_points(0),
-  m_tpc(vw::TerminalProgressCallback("asp", "\t--> ")) {
-
-  // Sanity check, if the error image is nonempty, it must have the 
-  // same dimensions as the point image.
-  if (m_error_image.cols() > 0 && m_error_image.rows() > 0 &&
-      m_error_image.cols() != m_point_image.cols() &&
-      m_error_image.rows() != m_point_image.rows()) {
-    vw::vw_throw(vw::ArgumentErr() 
-                  << "Expecting the error image to have the same dimensions "
-                  << "as the point cloud image.\n");
-    }
-}
+  m_tpc(vw::TerminalProgressCallback("asp", "\t--> ")) {}
 
 StreamedCloud::~StreamedCloud() {}
 
@@ -123,7 +115,10 @@ void StreamedCloud::addDimensions(PointLayoutPtr layout) {
   // Co-opt the TextureU dimension for the triangulation error
   if (m_save_triangulation_error)
     layout->registerDim(pdal::Dimension::Id::TextureU);
-  // layout->registerDim(pdal::Dimension::Id::W); // double // for intensity
+    
+  // Co-opt the W dimension for the intensity
+  if (m_intensity.cols() != 0 || m_intensity.rows() != 0)
+    layout->registerDim(pdal::Dimension::Id::W); // intensity  
 }
 
 void StreamedCloud::addArgs(ProgramArgs& args) {
@@ -146,6 +141,9 @@ bool StreamedCloud::processOne(PointRef& point) {
   
   // Keep on going through the input cloud until a valid point
   // is found or until we run out of points.
+  
+  bool save_intensity = (m_intensity.cols() != 0 || m_intensity.rows() != 0);
+  
   while (1) {
     
     // Break the loop if no more points are available
@@ -170,14 +168,17 @@ bool StreamedCloud::processOne(PointRef& point) {
       point.setField(Dimension::Id::X, xyz[0]);
       point.setField(Dimension::Id::Y, xyz[1]);
       point.setField(Dimension::Id::Z, xyz[2]);
-      // pt.setField(Dimension::Id::W, v.w);
       m_num_saved_points++;
       
       // Save the triangulation error as a double
       if (m_save_triangulation_error)
         point.setField(Dimension::Id::TextureU, m_error_image(m_col_count, m_row_count));
+        
+      // Save the intensity as a double
+      if (save_intensity)
+        point.setField(Dimension::Id::W, m_intensity(m_col_count, m_row_count));
     }
-      
+
     // Adjust the counters whether the point is good or not
     m_col_count++;
     if (m_col_count >= m_cols) {
@@ -300,13 +301,31 @@ std::int64_t las_file_size(std::string const& las_file) {
 void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,
                vw::ImageViewRef<double> error_image,
+               vw::ImageViewRef<float> intensity,
                vw::Vector3 const& offset, vw::Vector3 const& scale,
                bool compressed, bool save_triangulation_error,
                double max_valid_triangulation_error,
                std::string const& out_prefix) {
 
+  // The point image and error image must have the same dimensions
+  if (error_image.cols() != 0 && error_image.rows() != 0 &&
+      (point_image.cols() != error_image.cols() ||
+      point_image.rows() != error_image.rows()))
+    vw::vw_throw(vw::ArgumentErr() 
+                  << "Expecting the point cloud image and the error image "
+                  << "to have the same dimensions.\n");
+
+  // If the intensity image is present, it must have the same dimensions
+  // as the point image.
+  if (intensity.cols() != 0 && intensity.rows() != 0 &&
+      (point_image.cols() != intensity.cols() ||
+      point_image.rows() != intensity.rows()))
+    vw::vw_throw(vw::ArgumentErr() 
+                  << "Expecting the point cloud image and the intensity image (L.tif) "
+                  << "to have the same dimensions.\n");
+    
   // Streamed cloud structure
-  pdal::StreamedCloud stream_cloud(has_georef, point_image, error_image,
+  pdal::StreamedCloud stream_cloud(has_georef, point_image, error_image, intensity,
                                    save_triangulation_error,
                                    max_valid_triangulation_error);
 
@@ -336,7 +355,7 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
   write_options.add("scale_z",  scale[2]);
   
   // LAS 1.4 instead of default LAS 1.2 is needed for advanced fields
-  if (save_triangulation_error) {
+  if (save_triangulation_error || intensity.cols() != 0 || intensity.rows() != 0) {
     write_options.add("minor_version", 4); 
     write_options.add("extra_dims", "all");
   }

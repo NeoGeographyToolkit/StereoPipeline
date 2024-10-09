@@ -154,6 +154,8 @@ File created during filtering
     correlator (gray pixels), and which were filled in by the hole filling
     algorithm (red pixels).
 
+.. _triangulation_files:
+
 Files created at triangulation
 ------------------------------
 

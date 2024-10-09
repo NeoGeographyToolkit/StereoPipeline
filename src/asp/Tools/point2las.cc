@@ -109,7 +109,7 @@ public:
 struct Options: vw::GdalWriteOptions {
   // Input
   std::string reference_spheroid, datum;
-  std::string pointcloud_file;
+  std::string pointcloud_file, intensity_file;
   std::string target_srs_string;
   bool        compressed, use_tukey_outlier_removal, ecef, no_input_georef;
   Vector2     outlier_removal_params;
@@ -153,6 +153,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save the triangulation error from the input point cloud as the TextureU field "
      "in the LAS file, in double precision. Take into account the outlier filtering."
      "This bumps the LAS file version from 1.2 to 1.4")
+    ("save-intensity-from-image", po::value(&opt.intensity_file)->default_value(""),
+     "Save the intensity of each triangulated point, as borrowed from the aligned left "
+     "image L.tif specified via this option, in the W field of the LAS file, in double "
+     "precision. This bumps the LAS file version from 1.2 to 1.4.")
     ("num-samples-for-outlier-estimation", 
      po::value(&opt.num_samples)->default_value(1000000),
      "Approximate number of samples to pick from the input cloud to find the outlier cutoff based on triangulation error.")
@@ -178,8 +182,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered);
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
   if (opt.pointcloud_file.empty())
     vw_throw(ArgumentErr() << "Missing point cloud.\n"
@@ -313,6 +317,11 @@ int main(int argc, char *argv[]) {
       point_image = geodetic_to_point(point_image, georef);
     }
 
+    // The intensity image, if provided
+    vw::ImageViewRef<float> intensity;
+    if (opt.intensity_file != "")
+      intensity = DiskImageView<float>(opt.intensity_file);
+    
     BBox3 cloud_bbox = asp::pointcloud_bbox(point_image, is_geodetic);
 
     // The las format stores the values as 32 bit integers. So, for a
@@ -331,7 +340,8 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < scale.size(); i++) {
       if (scale[i] <= 0.0) scale[i] = 1.0e-16; // avoid degeneracy
     }
-    asp::write_las(is_geodetic, georef, point_image, error_image,
+    asp::write_las(is_geodetic, georef, 
+                   point_image, error_image, intensity,
                    offset, scale, opt.compressed, 
                    opt.save_triangulation_error,
                    opt.max_valid_triangulation_error,
