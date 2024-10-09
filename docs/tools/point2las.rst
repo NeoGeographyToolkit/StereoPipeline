@@ -10,10 +10,12 @@ If the input cloud has a datum, or the ``--datum`` option is specified,
 then the output LAS file will be created in respect to this datum.
 Otherwise ECEF :math:`x,y,z` values will be saved.
 
-The point cloud triangulation error can be saved, if desired, in 
-the LAS ``intensity`` field.
+The ``point2dem`` program (:numref:`point2dem`) can be used to create a DEM
+from the LAS file, and ``pc_align`` (:numref:`pc_align`) can be invoked to 
+align point clouds, including in the LAS format. 
 
-Example usage:
+Example
+~~~~~~~
 
 ::
 
@@ -23,28 +25,28 @@ This will create the file ``output-prefix.las``. If the
 ``--compressed`` option is used, it will write instead
 ``output-prefix.laz``
 
+Validation
+~~~~~~~~~~
+
 A LAS or LAZ file can be inspected as::
 
     pdal info --all file.las
 
-The ``point2dem`` program (:numref:`point2dem`) can be used to create a DEM
-from the LAS file, and ``pc_align`` (:numref:`pc_align`) can be invoked to 
-align point clouds, including in the LAS format. 
-
 Outlier removal
 ~~~~~~~~~~~~~~~
 
-The ``point2las`` program filters out outliers in the input point
-cloud using the ray triangulation error (the fourth band in the
-cloud), hence points with an error above a certain threshold are not
-included in the output LAS file.
+The ``point2las`` program filters out outliers in the input point cloud using
+the ray triangulation error (:numref:`triangulation_error`). Points with
+an error above a certain threshold are not included in the output LAS file.
 
-It first picks a desired number of samples from the cloud, sorts the
-positive triangulation errors from the sample (the errors equal to 0
-correspond to invalid points, so these are ignored), and computes some
-statistical measures which are printed to the screen.  Those include
-the minimum, mean, standard deviation, maximum, and the error
-percentiles at 25% (Q1), 50% (median, Q2) and 75% (Q3).
+The triangulation error can be saved as well (:numref:`point2las_options`).
+
+This program first picks a desired number of samples from the cloud, sorts the
+positive triangulation errors from the sample (the errors equal to 0 correspond
+to invalid points, so these are ignored), and computes some statistical measures
+which are printed to the screen.  Those include the minimum, mean, standard
+deviation, maximum, and the error percentiles at 25% (Q1), 50% (median, Q2) and
+75% (Q3).
 
 Then, given the desired percentile and factor in ``--remove-outliers-params``,
 it computes the error for this percentile and multiplies it by the factor.
@@ -66,6 +68,8 @@ After the LAS file is saved, the number of outliers and their
 percentage from the total number of points are printed on the
 screen. Generally, the outlier threshold should not be so restrictive
 that more than approximately 30% of the points are eliminated.
+
+.. _point2las_options:
 
 Command-line options for point2las
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -111,12 +115,12 @@ Command-line options for point2las
     than this, if positive (measured in meters) will be removed from the cloud.
     Takes precedence over the above options.
 
---triangulation-error-factor <float (default: 0)>
-    If this factor is positive, save the point cloud triangulation
-    error to the 2-byte LAS intensity field by storing
-    min(round(factor*error), 65535). Resulting values that equal 65535
-    should be treated with caution.
-
+--save-triangulation-error
+    Save the triangulation error (:numref:`triangulation_error`) from the input
+    point cloud as the ``TextureU`` field in the LAS file, in double precision.
+    Take into account the outlier filtering. This bumps the LAS file version
+    from 1.2 to 1.4.
+    
 --num-samples-for-outlier-estimation <integer (default: 1000000)>
     Approximate number of samples to pick from the input cloud to find the 
     outlier cutoff based on triangulation error.

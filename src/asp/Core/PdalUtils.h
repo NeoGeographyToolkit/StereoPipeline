@@ -47,9 +47,8 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,
                vw::ImageViewRef<double> error_image,
                vw::Vector3 const& offset,  vw::Vector3 const& scale,
-               bool compressed,
+               bool compressed, bool save_triangulation_error,
                double max_valid_triangulation_error,
-               double triangulation_error_factor,
                std::string const& out_prefix);
   
 void read_las();

@@ -114,8 +114,8 @@ struct Options: vw::GdalWriteOptions {
   bool        compressed, use_tukey_outlier_removal, ecef, no_input_georef;
   Vector2     outlier_removal_params;
   double      max_valid_triangulation_error;
-  double      triangulation_error_factor;
   int         num_samples;
+  bool save_triangulation_error;
   
   // Output
   std::string out_prefix;
@@ -126,24 +126,35 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("General Options");
   general_options.add_options()
-    ("compressed,c", po::bool_switch(&opt.compressed)->default_value(false)->implicit_value(true),
+    ("compressed,c", 
+     po::bool_switch(&opt.compressed)->default_value(false)->implicit_value(true),
      "Compress using laszip.")
-    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
+    ("output-prefix,o", 
+     po::value(&opt.out_prefix), "Specify the output prefix.")
     ("datum", po::value(&opt.datum)->default_value(""),
      "Create a geo-referenced LAS file in respect to this datum. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-    ("reference-spheroid,r", po::value(&opt.reference_spheroid)->default_value(""),
+    ("reference-spheroid,r", 
+     po::value(&opt.reference_spheroid)->default_value(""),
      "This is identical to the datum option.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
      "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ). If not provided, will be read from the point cloud, if available.")
-    ("remove-outliers-params", po::value(&opt.outlier_removal_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
+    ("remove-outliers-params", 
+     po::value(&opt.outlier_removal_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
      "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
-    ("use-tukey-outlier-removal", po::bool_switch(&opt.use_tukey_outlier_removal)->default_value(false)->implicit_value(true),
-     "Remove outliers above Q3 + 1.5*(Q3 - Q1). Takes precedence over --remove-outliers-params.")
-    ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0.0),
+    ("use-tukey-outlier-removal", 
+     po::bool_switch(&opt.use_tukey_outlier_removal)->default_value(false)->implicit_value(true),
+     "Remove outliers above Q3 + 1.5*(Q3 - Q1). Takes precedence over "
+     "--remove-outliers-params.")
+    ("max-valid-triangulation-error", 
+     po::value(&opt.max_valid_triangulation_error)->default_value(0.0),
      "Outlier removal based on threshold. Points with triangulation error larger than this, if positive (measured in meters) will be removed from the cloud. Takes precedence over the above methods.")
-    ("triangulation-error-factor", po::value(&opt.triangulation_error_factor)->default_value(0.0),
-     "If this factor is positive, save the point cloud triangulation error to the 2-byte LAS intensity field by storing min(round(factor*error), 65535). Resulting values that equal 65535 should be treated with caution.")
-    ("num-samples-for-outlier-estimation", po::value(&opt.num_samples)->default_value(1000000),
+    ("save-triangulation-error", 
+     po::bool_switch(&opt.save_triangulation_error)->default_value(false),
+     "Save the triangulation error from the input point cloud as the TextureU field "
+     "in the LAS file, in double precision. Take into account the outlier filtering."
+     "This bumps the LAS file version from 1.2 to 1.4")
+    ("num-samples-for-outlier-estimation", 
+     po::value(&opt.num_samples)->default_value(1000000),
      "Approximate number of samples to pick from the input cloud to find the outlier cutoff based on triangulation error.")
     ("ecef", 
      po::bool_switch(&opt.ecef)->default_value(false)->implicit_value(true),
@@ -192,9 +203,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.datum = opt.reference_spheroid;
 
   double pct = opt.outlier_removal_params[0], factor = opt.outlier_removal_params[1];
-  if (pct <= 0.0 || pct > 100.0 || factor <= 0.0){
-    vw_throw( ArgumentErr() << "Invalid values were provided for outlier removal parameters.\n");
-  }
+  if (pct <= 0.0 || pct > 100.0 || factor <= 0.0)
+    vw_throw( ArgumentErr() 
+             << "Invalid values were provided for outlier removal parameters.\n");
 
   if (opt.max_valid_triangulation_error < 0.0) 
     vw_throw( ArgumentErr() 
@@ -315,14 +326,16 @@ int main(int argc, char *argv[]) {
     // the coordinates are in degrees, not in meters.
     Vector3 offset = (cloud_bbox.min() + cloud_bbox.max())/2.0;
     double  maxInt = std::numeric_limits<int32>::max();
-            maxInt *= 0.95; // Just in case stay a bit away
+    maxInt *= 0.95; // Just in case stay a bit away
     Vector3 scale  = cloud_bbox.size()/(2.0*maxInt);
     for (size_t i = 0; i < scale.size(); i++) {
       if (scale[i] <= 0.0) scale[i] = 1.0e-16; // avoid degeneracy
     }
     asp::write_las(is_geodetic, georef, point_image, error_image,
-                   offset, scale, opt.compressed, opt.max_valid_triangulation_error,
-                   opt.triangulation_error_factor, opt.out_prefix);
+                   offset, scale, opt.compressed, 
+                   opt.save_triangulation_error,
+                   opt.max_valid_triangulation_error,
+                   opt.out_prefix);
     return 0;
     
   } ASP_STANDARD_CATCHES;

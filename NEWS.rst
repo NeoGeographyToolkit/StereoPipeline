@@ -71,6 +71,11 @@ orbit_plot (:numref:`orbit_plot`):
 cam2rpc (:numref:`cam2rpc`):
   * When a DEM is passed in, sample not just the DEM surface but its bounding
     box, to create a more robust RPC model.
+
+point2las (:numref:`point2las`):
+  * Replaced the option ``--triangulation-error-factor`` for saving the triangulation
+    error as a scaled int with the option ``--save-triangulation-error``, that
+    saves it in double precision without scaling.
   
 misc:
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and

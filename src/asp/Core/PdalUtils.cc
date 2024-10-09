@@ -18,6 +18,11 @@
 // TODO(oalexan1): Move all LAS logic to here from PointUtils.cc, 
 // as that file is too big and very slow to compile.
 
+// References:
+// https://www.asprs.org/wp-content/uploads/2019/07/LAS_1_4_r15.pdf
+// https://pdal.io/en/2.7.2/project/docs.html
+// https://github.com/PDAL/PDAL/blob/master/pdal/Dimension.json
+
 /// \file PdalUtils.cc
 ///
 
@@ -40,7 +45,7 @@ namespace pdal {
     
 // A class to produce a point cloud point-by-point, rather than
 // having it all in memory at the same time. It will be streamed to
-// disk. See the GDALReader class for how to add more fields
+// disk. See the GDALReader in PDAL class for how to add more fields
 // and read from disk.
 class PDAL_DLL StreamedCloud: public Reader, public Streamable {
   
@@ -49,8 +54,8 @@ public:
   StreamedCloud(bool has_georef, 
                 vw::ImageViewRef<vw::Vector3> point_image,
                 vw::ImageViewRef<double> error_image,
-                double max_valid_triangulation_error,
-                double triangulation_error_factor);
+                bool save_triangulation_error,
+                double max_valid_triangulation_error);
   ~StreamedCloud();
 
 private:
@@ -65,8 +70,8 @@ private:
   bool m_has_georef;
   vw::ImageViewRef<vw::Vector3> m_point_image;
   vw::ImageViewRef<double> m_error_image;
+  bool m_save_triangulation_error;
   double m_max_valid_triangulation_error;
-  double m_triangulation_error_factor;
 
   // These are of type uint64_t
   point_count_t m_col_count, m_row_count, m_cols, m_rows;
@@ -82,12 +87,12 @@ std::string StreamedCloud::getName() const {
 StreamedCloud::StreamedCloud(bool has_georef,
                              vw::ImageViewRef<vw::Vector3> point_image,
                              vw::ImageViewRef<double> error_image,
-                             double max_valid_triangulation_error,
-                             double triangulation_error_factor):
+                             bool save_triangulation_error,
+                             double max_valid_triangulation_error):
   m_has_georef(has_georef),
   m_point_image(point_image), m_error_image(error_image),
+  m_save_triangulation_error(save_triangulation_error),
   m_max_valid_triangulation_error(max_valid_triangulation_error),
-  m_triangulation_error_factor(triangulation_error_factor), 
   m_col_count(0), m_row_count(0),
   m_cols(m_point_image.cols()), m_rows(m_point_image.rows()),
   m_size(m_cols * m_rows), // careful here to avoid integer overflow
@@ -114,8 +119,11 @@ void StreamedCloud::addDimensions(PointLayoutPtr layout) {
   layout->registerDim(pdal::Dimension::Id::X);
   layout->registerDim(pdal::Dimension::Id::Y);
   layout->registerDim(pdal::Dimension::Id::Z);
-  if (m_triangulation_error_factor > 0.0)
-    layout->registerDim(Dimension::Id::Intensity);
+  
+  // Co-opt the TextureU dimension for the triangulation error
+  if (m_save_triangulation_error)
+    layout->registerDim(pdal::Dimension::Id::TextureU);
+  // layout->registerDim(pdal::Dimension::Id::W); // double // for intensity
 }
 
 void StreamedCloud::addArgs(ProgramArgs& args) {
@@ -148,35 +156,26 @@ bool StreamedCloud::processOne(PointRef& point) {
     vw::Vector3 xyz = m_point_image(m_col_count, m_row_count);
     
     // Skip no-data points and point above the max valid triangulation error
-    bool is_good1 = ((!m_has_georef && xyz != vw::Vector3()) ||
+    bool valid_xyz = ((!m_has_georef && xyz != vw::Vector3()) ||
                     (m_has_georef  && !boost::math::isnan(xyz.z())));
-    bool is_good2 = (m_max_valid_triangulation_error <= 0 ||
+    bool valid_tri_err = (m_max_valid_triangulation_error <= 0 ||
                     m_error_image(m_col_count, m_row_count) <= 
                     m_max_valid_triangulation_error);
 
-    if (is_good1)
+    if (valid_xyz)
       m_num_valid_points++;
 
-    if (is_good1 && is_good2) {
+    if (valid_xyz && valid_tri_err) {
       
       point.setField(Dimension::Id::X, xyz[0]);
       point.setField(Dimension::Id::Y, xyz[1]);
       point.setField(Dimension::Id::Z, xyz[2]);
+      // pt.setField(Dimension::Id::W, v.w);
       m_num_saved_points++;
       
-      if (m_triangulation_error_factor > 0.0) {
-        // Scale the triangulation error, clamp it, and save it as
-        // uint16.  The LAS 1.2 format has no fields (apart from the
-        // taken already x, y, and z) with 32-bit values, so uint16
-        // is all one can do.
-        double scaled_error = m_triangulation_error_factor * 
-                              m_error_image(m_col_count, m_row_count);
-        scaled_error = round(scaled_error); // round to int32
-        scaled_error = std::max(scaled_error, 0.0); // should not be necessary
-        double max_int16 = std::numeric_limits<std::uint16_t>::max();
-        scaled_error = std::min(scaled_error, double(max_int16)); // clamp
-        point.setField(Dimension::Id::Intensity, (std::uint16_t)scaled_error);
-      }
+      // Save the triangulation error as a double
+      if (m_save_triangulation_error)
+        point.setField(Dimension::Id::TextureU, m_error_image(m_col_count, m_row_count));
     }
       
     // Adjust the counters whether the point is good or not
@@ -189,7 +188,7 @@ bool StreamedCloud::processOne(PointRef& point) {
     m_count++;
     
     // Break the loop if a good point was found
-    if (is_good1 && is_good2)
+    if (valid_xyz && valid_tri_err)
       return true;
   } // end while loop
   
@@ -297,46 +296,19 @@ std::int64_t las_file_size(std::string const& las_file) {
   return qi.m_pointCount;
 }
 
-// Read a LAS file point-by-point, and print the points to the screen. This is
-// an example that shows how to read LAS files.
-void read_las() {
-
-  // Set the input point cloud    
-  pdal::Options read_options;
-  read_options.add("filename", "input.las");
-  pdal::LasReader reader;
-  reader.setOptions(read_options);
-
-  // buf_size is the number of points that will be
-  // processed and kept in this table at the same time. 
-  // A somewhat bigger value may result in some efficiencies.
-  int buf_size = 100;
-  pdal::FixedPointTable t(buf_size);
-  reader.prepare(t);
-
-  // Read each point and print it to the screen
-  pdal::StreamProcessor writer;
-  pdal::Options write_options;
-  writer.setOptions(write_options);
-  writer.setInput(reader);
-  writer.prepare(t);
-  writer.execute(t);
-}
-
 // Save a point cloud and triangulation error to the LAS format
 void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,
                vw::ImageViewRef<double> error_image,
                vw::Vector3 const& offset, vw::Vector3 const& scale,
-               bool compressed,
+               bool compressed, bool save_triangulation_error,
                double max_valid_triangulation_error,
-               double triangulation_error_factor,
                std::string const& out_prefix) {
 
   // Streamed cloud structure
   pdal::StreamedCloud stream_cloud(has_georef, point_image, error_image,
-                                   max_valid_triangulation_error,
-                                   triangulation_error_factor);
+                                   save_triangulation_error,
+                                   max_valid_triangulation_error);
 
   // buf_size is the number of points that will be
   // processed and kept in this table at the same time. 
@@ -362,6 +334,13 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
   write_options.add("scale_x",  scale[0]);
   write_options.add("scale_y",  scale[1]);
   write_options.add("scale_z",  scale[2]);
+  
+  // LAS 1.4 instead of default LAS 1.2 is needed for advanced fields
+  if (save_triangulation_error) {
+    write_options.add("minor_version", 4); 
+    write_options.add("extra_dims", "all");
+  }
+
   if (has_georef)     
     write_options.add("a_srs", georef.get_wkt());
 
