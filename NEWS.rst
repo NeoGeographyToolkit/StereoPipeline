@@ -97,7 +97,8 @@ misc:
     directory has spaces (this fix is a workaround, the bug is in GNU Parallel).
   * Renamed ``--csv-proj4`` to ``--csv-srs``. This accepts any GDAL WKT,
     GeoJSON, or PROJ string. The previous option is still accepted for backward
-    compatibility.  
+    compatibility.
+  * Support images with up to 12 channels, up from 6.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

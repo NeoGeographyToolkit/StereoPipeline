@@ -16,14 +16,14 @@
 // __END_LICENSE__
 
 /// \file PointUtils.h
-///
 
 // Utilities for handling point cloud files (las, PC.tif, csv).
 
 #ifndef __ASP_CORE_POINT_UTILS_H__
 #define __ASP_CORE_POINT_UTILS_H__
 
-#include <string>
+#include <asp/Core/Common.h>
+
 #include <vw/Core/Functors.h>
 #include <vw/Image/PerPixelViews.h>
 #include <vw/Math/Vector.h>
@@ -32,7 +32,7 @@
 #include <vw/Mosaic/ImageComposite.h>
 #include <vw/FileIO/DiskImageUtils.h>
 
-#include <asp/Core/Common.h>
+#include <string>
 
 namespace vw{
   namespace cartography {
@@ -64,7 +64,6 @@ namespace asp {
       vw::Vector3 point_data;
       std::string file;
     };
-
 
   public: // Functions
 
@@ -132,8 +131,9 @@ namespace asp {
     /// Extracts the file name read from the csv line, or "" if it was not present.
     std::string file_from_csv(CsvRecord const& csv) const {return csv.file;}
 
-    /// Re-order an xyz point so the values appear in the format and order they did in the csv file.
-    /// - Naturally this function does nothing about all the fields we ignored when we read the file.
+    /// Re-order an xyz point so the values appear in the format and order they
+    /// did in the csv file. This function does nothing about all the fields we
+    /// ignored when we read the file.
     vw::Vector3 cartesian_to_csv(vw::Vector3 const& xyz,
                                  vw::cartography::GeoReference const& geo,
                                  double mean_longitude) const;
@@ -142,8 +142,9 @@ namespace asp {
     ///  to the order according to the "format" member variable.
     vw::Vector3 sort_parsed_vector3(CsvRecord const& v) const;
 
-    /// Performs the reverse of sort_parsed_vector3, putting the values in the order
-    ///  that they originally appeared in the file (ignores the file field).
+    /// Performs the reverse of sort_parsed_vector3, putting the values in the
+    /// order that they originally appeared in the file (ignores the file
+    /// field).
     vw::Vector3 unsort_vector3(vw::Vector3 const& v) const;
 
   private: // Variables
@@ -183,10 +184,10 @@ namespace asp {
   void parse_utm_str(std::string const& utm, int & zone, bool & north);
 
   /// CSV separator
-  inline std::string csv_separator(){ return ", \t"; }
+  inline std::string csv_separator() { return ", \t"; }
 
   /// Need this for pc_align and point2dem
-  inline std::string csv_opt_caption(){
+  inline std::string csv_opt_caption() {
     return "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '2:file 5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum 5:file', '1:easting 2:northing 3:height_above_datum' (need to set --csv-srs). Can also use radius_km for column_type.";
   }
 
@@ -224,13 +225,13 @@ namespace asp {
     /// Read a texture file
     template<class PixelT>
     typename boost::enable_if<boost::is_same<PixelT, vw::PixelGray<float>>, vw::ImageViewRef<PixelT>>::type
-    read_point_cloud_compatible_file(std::string const& file){
+    read_point_cloud_compatible_file(std::string const& file) {
       return vw::DiskImageView<PixelT>(file);
     }
     /// Read a point cloud file
     template<class PixelT>
     typename boost::disable_if<boost::is_same<PixelT, vw::PixelGray<float>>, vw::ImageViewRef<PixelT>>::type
-    read_point_cloud_compatible_file(std::string const& file){
+    read_point_cloud_compatible_file(std::string const& file) {
       return asp::read_asp_point_cloud<vw::math::VectorSize<PixelT>::value >(file);
     }
 
@@ -322,7 +323,7 @@ namespace asp {
     
     virtual bool        ReadNextPoint() = 0;
     virtual vw::Vector3 GetPoint() = 0;
-    virtual ~BaseReader(){}
+    virtual ~BaseReader() {}
   };
  
  // In the header file for the test, the others would ideally also have a test.
@@ -354,18 +355,20 @@ namespace asp {
 // Template function definitions
 
 template<int m>
-vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& filename){
+vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& filename) {
 
   vw::Vector3 shift;
   std::string shift_str;
   boost::shared_ptr<vw::DiskImageResource> rsrc
-    ( new vw::DiskImageResourceGDAL(filename) );
-  if (vw::cartography::read_header_string(*rsrc.get(), asp::ASP_POINT_OFFSET_TAG_STR, shift_str)){
+    (new vw::DiskImageResourceGDAL(filename));
+  bool success = vw::cartography::read_header_string(*rsrc.get(),
+                                                     asp::ASP_POINT_OFFSET_TAG_STR,
+                                                     shift_str);
+  if (success)
     shift = vw::str_to_vec<vw::Vector3>(shift_str);
-  }
 
   // Read the first m channels
-  vw::ImageViewRef<vw::Vector<double, m>> out_image
+  vw::ImageViewRef<vw::Vector<double, m>> out_image 
     = vw::read_channels<m, double>(filename, 0);
 
   // Add the shift back to the first several channels.
@@ -385,7 +388,7 @@ vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> con
   vw::mosaic::ImageComposite<PixelT> composite_image;
   composite_image.set_draft_mode(true); // images will be disjoint, no need for fancy stuff
 
-  for (int i = 0; i < (int)files.size(); i++){
+  for (int i = 0; i < (int)files.size(); i++) {
 
     vw::ImageViewRef<PixelT> I
       = point_utils_private::read_point_cloud_compatible_file<PixelT>(files[i]);
@@ -400,7 +403,7 @@ vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> con
       I = transpose(I);
 
     int start = composite_image.cols();
-    if (i > 0){
+    if (i > 0) {
       // Insert the spacing
       start = spacing*(int)ceil(double(start)/spacing) + spacing;
     }
@@ -411,7 +414,7 @@ vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> con
   return composite_image;
 }
 
-// Determine if we should be using a longitude range betweegn
+// Determine if we should be using a longitude range between
 // [-180, 180] or [0,360]. The former is used, unless the latter
 // results in a tighter range of longitudes, such as when crossing
 // the international date line.
@@ -438,7 +441,7 @@ bool has_stddev(std::vector<std::string> const& pc_files);
 // Per pixel operator returning the norm of a vector  
 template<class VectorT>
 struct VectorNorm: public vw::ReturnFixedType<double> {
-  VectorNorm(){}
+  VectorNorm() {}
   double operator() (VectorT const& vec) const {
     return norm_2(vec);
   }
@@ -446,7 +449,7 @@ struct VectorNorm: public vw::ReturnFixedType<double> {
   
 // Read the error channels from the point clouds, and take their norm
 template<int num_ch>
-vw::ImageViewRef<double> error_norm(std::vector<std::string> const& pc_files){
+vw::ImageViewRef<double> error_norm(std::vector<std::string> const& pc_files) {
 
   using namespace vw;
   VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
