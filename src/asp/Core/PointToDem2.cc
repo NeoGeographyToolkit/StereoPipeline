@@ -372,16 +372,16 @@ void save_stddev(DemOptions & opt,
     ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>
       (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);
     
-    ImageViewRef<double> horizontal_cov_channel = select_channel(point_disk_image, 4);
-    rasterizer.set_texture(horizontal_cov_channel);
+    ImageViewRef<double> horizontal_stddev_channel = select_channel(point_disk_image, 4);
+    rasterizer.set_texture(horizontal_stddev_channel);
     ImageViewRef<PixelGray<float>> rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
     save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
                                                         rounding_error, // local value
                                                         opt.nodata_value),
                 georef, hole_fill_len, "HorizontalStdDev");
     
-    ImageViewRef<double> vertical_cov_channel = select_channel(point_disk_image, 5);
-    rasterizer.set_texture(vertical_cov_channel);
+    ImageViewRef<double> vertical_stddev_channel = select_channel(point_disk_image, 5);
+    rasterizer.set_texture(vertical_stddev_channel);
     rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
     save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
                                                         rounding_error, // local value

@@ -26,13 +26,6 @@ Create a LAS file::
 This will produce the file ``output-prefix.las``. If the ``--compressed`` option
 is passed in, it will write instead ``output-prefix.laz``
 
-Save the triangulation error as the ``TextureU`` field in the LAS file in double
-precision::
-
-    point2las --save-triangulation-error \
-      output-prefix-PC.tif               \
-      -o output-prefix 
-
 Save the intensity of each triangulated point, as borrowed from the aligned (and
 normalized) left image ``L.tif`` (:numref:`outputfiles`), in the ``W`` field of
 the LAS file, in double precision::
@@ -40,6 +33,21 @@ the LAS file, in double precision::
     point2las output-prefix-PC.tif                    \
       --save-intensity-from-image output-prefix-L.tif \
       -o output-prefix 
+
+Save the triangulation error (:numref:`triangulation_error`) as the ``TextureU``
+field in the LAS file in double precision::
+
+    point2las --save-triangulation-error \
+      output-prefix-PC.tif               \
+      -o output-prefix 
+
+Save the standard deviations of the horizontal and vertical components of
+uncertainty (:numref:`error_propagation`) to the ``TextureV`` and ``TextureW``
+fields in the LAS file in double precision::
+
+    point2las --save-stddev \
+      output-prefix-PC.tif  \
+      -o output-prefix
 
 See the command-line options in :numref:`point2las_options` for more details.
 
@@ -133,17 +141,23 @@ Command-line options for point2las
     than this, if positive (measured in meters) will be removed from the cloud.
     Takes precedence over the above options.
 
+--save-intensity-from-image <filename>
+    Save the intensity of each triangulated point, as borrowed from the aligned left
+    image specified via this option, in the ``W`` field of the LAS file, in double
+    precision. This bumps the LAS file version from 1.2 to 1.4.
+
 --save-triangulation-error
     Save the triangulation error (:numref:`triangulation_error`) from the input
     point cloud as the ``TextureU`` field in the LAS file, in double precision.
     Take into account the outlier filtering. This bumps the LAS file version
     from 1.2 to 1.4.
     
---save-intensity-from-image <filename>
-    Save the intensity of each triangulated point, as borrowed from the aligned left
-    image specified via this option, in the ``W`` field of the LAS file, in double
+--save-stddev
+    Save the standard deviations of the horizontal and vertical components of
+    uncertainty (:numref:`error_propagation`) from the ASP point cloud file to
+    the ``TextureV`` and ``TextureW`` fields in the LAS file, in double
     precision. This bumps the LAS file version from 1.2 to 1.4.
-        
+           
 --num-samples-for-outlier-estimation <integer (default: 1000000)>
     Approximate number of samples to pick from the input cloud to find the 
     outlier cutoff based on triangulation error.

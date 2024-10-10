@@ -76,7 +76,7 @@ point2las (:numref:`point2las`):
   * Replaced the option ``--triangulation-error-factor`` for saving the triangulation
     error as a scaled int with the option ``--save-triangulation-error``, that
     saves it in double precision without scaling.
-  * Added the option ``--save-intensity-from-image``.
+  * Added the options ``--save-intensity-from-image`` and ``--save-stddev``.
   
 misc:
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and

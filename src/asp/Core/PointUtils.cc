@@ -1018,14 +1018,21 @@ bool asp::has_stddev(std::vector<std::string> const& pc_files) {
 
   bool has_sd = true;
   for (size_t i = 0; i < pc_files.size(); i++) {
+  
     std::string val;
-    std::string adj_key = "BAND5";
     boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(pc_files[i]));
+    
+    std::string adj_key = "BAND5";
     vw::cartography::read_header_string(*rsrc.get(), adj_key, val);
     if (val != "HorizontalStdDev")
       has_sd = false;
-  }
 
+    adj_key = "BAND6";
+    vw::cartography::read_header_string(*rsrc.get(), adj_key, val);
+    if (val != "VerticalStdDev")
+      has_sd = false;
+  }
+  
   if (has_sd && asp::num_channels(pc_files) < 6) 
     has_sd = false;
 

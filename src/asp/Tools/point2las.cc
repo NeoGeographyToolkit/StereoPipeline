@@ -115,7 +115,7 @@ struct Options: vw::GdalWriteOptions {
   Vector2     outlier_removal_params;
   double      max_valid_triangulation_error;
   int         num_samples;
-  bool save_triangulation_error;
+  bool save_triangulation_error, save_stddev;
   
   // Output
   std::string out_prefix;
@@ -148,15 +148,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("max-valid-triangulation-error", 
      po::value(&opt.max_valid_triangulation_error)->default_value(0.0),
      "Outlier removal based on threshold. Points with triangulation error larger than this, if positive (measured in meters) will be removed from the cloud. Takes precedence over the above methods.")
+    ("save-intensity-from-image", po::value(&opt.intensity_file)->default_value(""),
+     "Save the intensity of each triangulated point, as borrowed from the aligned left "
+     "image L.tif specified via this option, in the W field of the LAS file, in double "
+     "precision. This bumps the LAS file version from 1.2 to 1.4.")
     ("save-triangulation-error", 
      po::bool_switch(&opt.save_triangulation_error)->default_value(false),
      "Save the triangulation error from the input point cloud as the TextureU field "
      "in the LAS file, in double precision. Take into account the outlier filtering."
      "This bumps the LAS file version from 1.2 to 1.4")
-    ("save-intensity-from-image", po::value(&opt.intensity_file)->default_value(""),
-     "Save the intensity of each triangulated point, as borrowed from the aligned left "
-     "image L.tif specified via this option, in the W field of the LAS file, in double "
-     "precision. This bumps the LAS file version from 1.2 to 1.4.")
+    ("save-stddev", 
+      po::bool_switch(&opt.save_stddev)->default_value(false),
+      "Save the standard deviations of the horizontal and vertical components of uncertainty "
+      "from the ASP point cloud file to the TextureV and TextureW fields in the LAS file, "
+      "in double precision. This bumps the LAS file version from 1.2 to 1.4.")
     ("num-samples-for-outlier-estimation", 
      po::value(&opt.num_samples)->default_value(1000000),
      "Approximate number of samples to pick from the input cloud to find the outlier cutoff based on triangulation error.")
@@ -321,6 +326,26 @@ int main(int argc, char *argv[]) {
     vw::ImageViewRef<float> intensity;
     if (opt.intensity_file != "")
       intensity = DiskImageView<float>(opt.intensity_file);
+
+    // For saving the stddev
+    vw::ImageViewRef<vw::Vector6> full_point_image; 
+    vw::ImageViewRef<double> horizontal_stddev, vertical_stddev;
+    if (opt.save_stddev) {
+      std::vector<std::string> pointcloud_files;
+      pointcloud_files.push_back(opt.pointcloud_file);
+
+      bool has_sd = asp::has_stddev(pointcloud_files);
+      if (!has_sd)
+        vw_throw(ArgumentErr() << "The input point cloud file does not have "
+                 << "standard deviations.\n");
+
+      full_point_image 
+        = asp::form_point_cloud_composite<vw::Vector6>(pointcloud_files, 
+                                                       ASP_MAX_SUBBLOCK_SIZE);
+      // Channel 3 is the error image, 4 and 5 are the stddevs
+      horizontal_stddev = vw::select_channel(full_point_image, 4);
+      vertical_stddev   = vw::select_channel(full_point_image, 5);
+    }
     
     BBox3 cloud_bbox = asp::pointcloud_bbox(point_image, is_geodetic);
 
@@ -337,11 +362,12 @@ int main(int argc, char *argv[]) {
     double  maxInt = std::numeric_limits<int32>::max();
     maxInt *= 0.95; // Just in case stay a bit away
     Vector3 scale  = cloud_bbox.size()/(2.0*maxInt);
-    for (size_t i = 0; i < scale.size(); i++) {
+    for (size_t i = 0; i < scale.size(); i++)
       if (scale[i] <= 0.0) scale[i] = 1.0e-16; // avoid degeneracy
-    }
+
     asp::write_las(is_geodetic, georef, 
                    point_image, error_image, intensity,
+                   horizontal_stddev, vertical_stddev,
                    offset, scale, opt.compressed, 
                    opt.save_triangulation_error,
                    opt.max_valid_triangulation_error,

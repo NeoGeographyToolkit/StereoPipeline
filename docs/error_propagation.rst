@@ -10,8 +10,11 @@ deviation (stddev) of the uncertainty for each triangulated
 point. This is enabled with the option ``--propagate-errors``
 (:numref:`stereo-default-error-propagation`).
 
-The produced uncertainties are then propagated from the point cloud 
-to the produced DEM (:numref:`error_propagation_dem`).
+Bundle adjustment can propagate uncertainties as well
+(:numref:`ba_error_propagation`).
+
+The produced uncertainties can be exported from the point cloud to DEM and/or
+LAS files (:numref:`export_stddev`). 
 
 The input uncertainties
 -----------------------
@@ -69,17 +72,27 @@ The triangulation covariance matrix is computed in the local North-East-Down
 (NED) coordinates at each nominal triangulated point, and further decomposed
 into the horizontal and vertical components (:numref:`produced_covariances`). 
 
-The square root is taken, creating the stddev, which are saved as the 5th and
-6th band in the point cloud (\*-PC.tif file, :numref:`outputfiles`). Running
-``gdalinfo`` (:numref:`gdal_tools`) on the point cloud will show some metadata
-describing each band in that file.
+The square root is taken, creating the horizontal and vertical standard
+deviations, that are saved as the 5th and 6th band in the point cloud
+(\*-PC.tif file, :numref:`outputfiles`). Running ``gdalinfo``
+(:numref:`gdal_tools`) on the point cloud will show some metadata describing
+each band in that file.
 
 The computed stddev values are in units of meter.
 
-.. _error_propagation_dem:
+Bundle adjustment
+-----------------
 
-Propagation of uncertainties to the DEM
----------------------------------------
+Error propagation is also implemented in ``bundle_adjust``
+(:numref:`ba_error_propagation`). In that case, the errors are computed at each
+interest point, rather than densely.
+
+The same underlying logic is employed as for stereo.
+
+.. _export_stddev:
+
+Export to DEM and LAS
+---------------------
 
 The stddev values in the point cloud can then be gridded with ``point2dem``
 (:numref:`point2dem`) with the option ``--propagate-errors``, using the same
@@ -95,14 +108,8 @@ This will produce the files ``run/run-HorizontalStdDev.tif`` and
 
 In all these files the values are in units of meter.
 
-Bundle adjustment
------------------
-
-Error propagation is also implemented in ``bundle_adjust``
-(:numref:`ba_error_propagation`). In that case, the errors are computed at each
-interest point, rather than densely.
-
-The same underlying logic is employed as for stereo.
+The ``point2las`` program (:numref:`point2las`) can export the horizontal and
+vertical stddev values from the point cloud to a LAS file.
 
 Implementation details
 ----------------------

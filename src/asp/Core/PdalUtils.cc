@@ -55,6 +55,8 @@ public:
                 vw::ImageViewRef<vw::Vector3> point_image,
                 vw::ImageViewRef<double> error_image,
                 vw::ImageViewRef<float> intensity,
+                vw::ImageViewRef<double> horizontal_stddev,
+                vw::ImageViewRef<double> vertical_stddev,                
                 bool save_triangulation_error,
                 double max_valid_triangulation_error);
   ~StreamedCloud();
@@ -72,6 +74,8 @@ private:
   vw::ImageViewRef<vw::Vector3> m_point_image;
   vw::ImageViewRef<double> m_error_image;
   vw::ImageViewRef<float> m_intensity;
+  vw::ImageViewRef<double> m_horizontal_stddev;
+  vw::ImageViewRef<double> m_vertical_stddev;
   bool m_save_triangulation_error;
   double m_max_valid_triangulation_error;
 
@@ -90,10 +94,13 @@ StreamedCloud::StreamedCloud(bool has_georef,
                              vw::ImageViewRef<vw::Vector3> point_image,
                              vw::ImageViewRef<double> error_image,
                              vw::ImageViewRef<float> intensity,
+                             vw::ImageViewRef<double> horizontal_stddev,
+                             vw::ImageViewRef<double> vertical_stddev,
                              bool save_triangulation_error,
                              double max_valid_triangulation_error):
   m_has_georef(has_georef),
   m_point_image(point_image), m_error_image(error_image), m_intensity(intensity),
+  m_horizontal_stddev(horizontal_stddev), m_vertical_stddev(vertical_stddev),
   m_save_triangulation_error(save_triangulation_error),
   m_max_valid_triangulation_error(max_valid_triangulation_error),
   m_col_count(0), m_row_count(0),
@@ -112,13 +119,19 @@ void StreamedCloud::addDimensions(PointLayoutPtr layout) {
   layout->registerDim(pdal::Dimension::Id::Y);
   layout->registerDim(pdal::Dimension::Id::Z);
   
-  // Co-opt the TextureU dimension for the triangulation error
-  if (m_save_triangulation_error)
-    layout->registerDim(pdal::Dimension::Id::TextureU);
-    
   // Co-opt the W dimension for the intensity
   if (m_intensity.cols() != 0 || m_intensity.rows() != 0)
     layout->registerDim(pdal::Dimension::Id::W); // intensity  
+
+  // Co-opt the TextureU dimension for the triangulation error
+  if (m_save_triangulation_error)
+    layout->registerDim(pdal::Dimension::Id::TextureU);
+
+  // Co-opt the TextureV and TextureW dimensions for the horizontal and vertical stddev
+  if (m_horizontal_stddev.cols() != 0 || m_horizontal_stddev.rows() != 0)
+    layout->registerDim(pdal::Dimension::Id::TextureV); // horizontal stddev
+  if (m_vertical_stddev.cols() != 0 || m_vertical_stddev.rows() != 0)
+    layout->registerDim(pdal::Dimension::Id::TextureW); // vertical stddev    
 }
 
 void StreamedCloud::addArgs(ProgramArgs& args) {
@@ -143,6 +156,10 @@ bool StreamedCloud::processOne(PointRef& point) {
   // is found or until we run out of points.
   
   bool save_intensity = (m_intensity.cols() != 0 || m_intensity.rows() != 0);
+  bool save_horizontal_stddev = (m_horizontal_stddev.cols() != 0 ||
+                                 m_horizontal_stddev.rows() != 0);
+  bool save_vertical_stddev = (m_vertical_stddev.cols() != 0 ||
+                               m_vertical_stddev.rows() != 0);
   
   while (1) {
     
@@ -170,13 +187,19 @@ bool StreamedCloud::processOne(PointRef& point) {
       point.setField(Dimension::Id::Z, xyz[2]);
       m_num_saved_points++;
       
+      // Save the intensity as a double
+      if (save_intensity)
+        point.setField(Dimension::Id::W, m_intensity(m_col_count, m_row_count));
+        
       // Save the triangulation error as a double
       if (m_save_triangulation_error)
         point.setField(Dimension::Id::TextureU, m_error_image(m_col_count, m_row_count));
         
-      // Save the intensity as a double
-      if (save_intensity)
-        point.setField(Dimension::Id::W, m_intensity(m_col_count, m_row_count));
+      // Save the horizontal and vertical stddev as doubles
+      if (save_horizontal_stddev)
+        point.setField(Dimension::Id::TextureV, m_horizontal_stddev(m_col_count, m_row_count));
+      if (save_vertical_stddev)
+        point.setField(Dimension::Id::TextureW, m_vertical_stddev(m_col_count, m_row_count));
     }
 
     // Adjust the counters whether the point is good or not
@@ -302,13 +325,15 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,
                vw::ImageViewRef<double> error_image,
                vw::ImageViewRef<float> intensity,
+               vw::ImageViewRef<double> horizontal_stddev,
+               vw::ImageViewRef<double> vertical_stddev,
                vw::Vector3 const& offset, vw::Vector3 const& scale,
                bool compressed, bool save_triangulation_error,
                double max_valid_triangulation_error,
                std::string const& out_prefix) {
 
   // The point image and error image must have the same dimensions
-  if (error_image.cols() != 0 && error_image.rows() != 0 &&
+  if ((error_image.cols() != 0 || error_image.rows() != 0) &&
       (point_image.cols() != error_image.cols() ||
       point_image.rows() != error_image.rows()))
     vw::vw_throw(vw::ArgumentErr() 
@@ -317,15 +342,30 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
 
   // If the intensity image is present, it must have the same dimensions
   // as the point image.
-  if (intensity.cols() != 0 && intensity.rows() != 0 &&
+  if ((intensity.cols() != 0 || intensity.rows() != 0) &&
       (point_image.cols() != intensity.cols() ||
       point_image.rows() != intensity.rows()))
     vw::vw_throw(vw::ArgumentErr() 
                   << "Expecting the point cloud image and the intensity image (L.tif) "
                   << "to have the same dimensions.\n");
     
+  // Sanity checks for horizontal and vertical stddev images
+  if ((horizontal_stddev.cols() != 0 || horizontal_stddev.rows() != 0) &&
+      (point_image.cols() != horizontal_stddev.cols() ||
+      point_image.rows() != horizontal_stddev.rows()))
+    vw::vw_throw(vw::ArgumentErr() 
+                  << "Expecting the point cloud image and the horizontal stddev image "
+                  << "to have the same dimensions.\n");
+  if ((vertical_stddev.cols() != 0 || vertical_stddev.rows() != 0) &&
+      (point_image.cols() != vertical_stddev.cols() ||
+      point_image.rows() != vertical_stddev.rows()))
+    vw::vw_throw(vw::ArgumentErr() 
+                  << "Expecting the point cloud image and the vertical stddev image "
+                  << "to have the same dimensions.\n");
+      
   // Streamed cloud structure
   pdal::StreamedCloud stream_cloud(has_georef, point_image, error_image, intensity,
+                                   horizontal_stddev, vertical_stddev,
                                    save_triangulation_error,
                                    max_valid_triangulation_error);
 
@@ -355,7 +395,10 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
   write_options.add("scale_z",  scale[2]);
   
   // LAS 1.4 instead of default LAS 1.2 is needed for advanced fields
-  if (save_triangulation_error || intensity.cols() != 0 || intensity.rows() != 0) {
+  if (save_triangulation_error || 
+      intensity.cols() != 0 || intensity.rows() != 0 ||
+      horizontal_stddev.cols() != 0 || horizontal_stddev.rows() != 0 ||
+      vertical_stddev.cols() != 0 || vertical_stddev.rows() != 0) {
     write_options.add("minor_version", 4); 
     write_options.add("extra_dims", "all");
   }
