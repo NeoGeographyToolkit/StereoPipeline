@@ -287,7 +287,6 @@ namespace asp {
                                                               CenterLongitudeFunc(center));
   }
 
-
   /// ImageView operation that applies a transform matrix to every point in the image.
   class PointTransFunc : public vw::ReturnFixedType<vw::Vector3> {
     vw::Matrix3x3 m_trans;
@@ -351,8 +350,33 @@ namespace asp {
     virtual ~PcdReader();
   }; // End class PcdReader
 
-//===================================================================================
 // Template function definitions
+
+// Specialized functions for reading/writing images with a shift.
+// The shift is meant to bring the pixel values closer to origin,
+// with goal of saving the pixels as float instead of double.
+
+/// Subtract a given shift from first 3 components of given vector image.
+/// Skip pixels for which the first 3 components are (0, 0, 0).
+template <class VecT>
+struct SubtractShift: public vw::ReturnFixedType<VecT> {
+  vw::Vector3 m_shift;
+  SubtractShift(vw::Vector3 const& shift):m_shift(shift){}
+  VecT operator() (VecT const& pt) const {
+    VecT lpt = pt;
+    int len = std::min(3, (int)lpt.size());
+    if (subvector(lpt, 0, len) != subvector(vw::Vector3(), 0, len))
+      subvector(lpt, 0, len) -= subvector(m_shift, 0, len);
+    return lpt;
+  }
+};
+template <class ImageT>
+vw::UnaryPerPixelView<ImageT, SubtractShift<typename ImageT::pixel_type>>
+inline subtract_shift(vw::ImageViewBase<ImageT> const& image,
+                      vw::Vector3 const& shift) {
+  return vw::UnaryPerPixelView<ImageT, SubtractShift<typename ImageT::pixel_type>>
+    (image.impl(), SubtractShift<typename ImageT::pixel_type>(shift));
+}
 
 template<int m>
 vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& filename) {
@@ -376,6 +400,75 @@ vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& 
     out_image = subtract_shift(out_image, -shift);
 
   return out_image;
+}
+
+/// Block write image while subtracting a given value from all pixels
+/// and casting the result to float, while rounding to nearest mm.
+template <class ImageT>
+void block_write_approx_gdal_image(const std::string &filename,
+                                    vw::Vector3 const& shift,
+                                    double rounding_error,
+                                    vw::ImageViewBase<ImageT> const& image,
+                                    bool has_georef,
+                                    vw::cartography::GeoReference const& georef,
+                                    bool has_nodata, double nodata,
+                                    vw::GdalWriteOptions const& opt,
+                                    vw::ProgressCallback const& progress_callback
+                                    = vw::ProgressCallback::dummy_instance(),
+                                    std::map<std::string, std::string> const& keywords =
+                                    std::map<std::string, std::string>()) {
+
+  if (norm_2(shift) > 0) {
+
+    // Add the point shift to keywords
+    std::map<std::string, std::string> local_keywords = keywords;
+    local_keywords[ASP_POINT_OFFSET_TAG_STR] = vw::vec_to_str(shift);
+
+    block_write_gdal_image(filename,
+                            vw::channel_cast<float>
+                            (round_image_pixels(subtract_shift(image.impl(), shift),
+                                                get_rounding_error(shift, rounding_error))),
+                            has_georef, georef, has_nodata, nodata,
+                            opt, progress_callback, local_keywords);
+
+  }else{
+    block_write_gdal_image(filename, image, has_georef, georef,
+                            has_nodata, nodata, opt,
+                            progress_callback, keywords);
+  }
+
+}
+
+/// Single-threaded write image while subtracting a given value from
+/// all pixels and casting the result to float.
+template <class ImageT>
+void write_approx_gdal_image(const std::string &filename,
+                              vw::Vector3 const& shift,
+                              double rounding_error,
+                              vw::ImageViewBase<ImageT> const& image,
+                              bool has_georef,
+                              vw::cartography::GeoReference const& georef,
+                              bool has_nodata, double nodata,
+                              vw::GdalWriteOptions const& opt,
+                              vw::ProgressCallback const& progress_callback
+                              = vw::ProgressCallback::dummy_instance(),
+                              std::map<std::string, std::string> const& keywords =
+                              std::map<std::string, std::string>()) {
+
+  if (norm_2(shift) > 0){
+    // Add the point shift to keywords
+    std::map<std::string, std::string> local_keywords = keywords;
+    local_keywords[ASP_POINT_OFFSET_TAG_STR] = vw::vec_to_str(shift);
+    write_gdal_image(filename,
+                      vw::channel_cast<float>
+                      (round_image_pixels(subtract_shift(image.impl(), shift),
+                                          get_rounding_error(shift, rounding_error))),
+                      has_georef, georef, has_nodata, nodata,
+                      opt, progress_callback, local_keywords);
+  }else{
+    write_gdal_image(filename, image, has_georef, georef,
+                      has_nodata, nodata, opt, progress_callback, keywords);
+  }
 }
 
 /// Read given files and form an image composite.

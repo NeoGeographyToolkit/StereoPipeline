@@ -30,6 +30,7 @@
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/FileIO/MatrixIO.h>
+#include <vw/FileIO/DiskImageUtils.h>
 
 // Can't do much about warnings in boost except to hide them
 #pragma GCC diagnostic push
@@ -51,7 +52,7 @@ BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
           vw::DiskImageResourcePtr(opt.in_file1);
   DiskImageView<PixelGray<float>> left_image(rsrc);
   BBox2i full_box = bounding_box(left_image);
-  if (b == BBox2i(0, 0, 0, 0)){
+  if (b == BBox2i(0, 0, 0, 0)) {
 
     // No box was provided. Use the full box.
     if ( fs::exists(opt.out_prefix+"-L.tif") ){
@@ -61,7 +62,7 @@ BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
       b = full_box; // To not have an empty box
     }
 
-  }else{
+  } else {
 
     // Ensure that the region is inside the maximum theoretical region
     b.crop(full_box);
@@ -72,7 +73,7 @@ BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
       b = HomographyTransform(align_left_matrix).forward_bbox(b);
     }
 
-    if ( fs::exists(opt.out_prefix+"-L.tif") ){
+    if (fs::exists(opt.out_prefix+"-L.tif")) {
       // Intersect with L.tif which is the transformed and processed left image
       DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
       b.crop(bounding_box(L_img));
@@ -449,10 +450,10 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   }
 
   usage = 
-  "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n"
-  "  Extensions are automatically added to the output files.\n"
-  "  Camera model arguments may be optional for some stereo session types (e.g., isis).\n"
-  "  Stereo parameters should be set in the stereo.default file.";
+   "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n"
+   "  Extensions are automatically added to the output files.\n"
+   "  Camera model arguments may be optional for some stereo session types (e.g., isis).\n"
+   "  Stereo parameters should be set in the stereo.default file.";
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options,
@@ -570,10 +571,17 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   stereo_settings().trans_crop_win
     = BBox2i(bt.min().x(), bt.min().y(), bt.max().x(), bt.max().y());
 
+  int num_left_bands = vw::get_num_channels(opt.in_file1);
+  int num_right_bands = vw::get_num_channels(opt.in_file2);
+  
   // Ensure the crop windows are always contained in the images.
   boost::shared_ptr<vw::DiskImageResource> left_resource, right_resource;
   left_resource  = vw::DiskImageResourcePtr(opt.in_file1);
   right_resource = vw::DiskImageResourcePtr(opt.in_file2);
+  
+  // For multi-band images, this will only read the first band. This is enough
+  // for now as we do only bounding box checks. During stereo preprocessing, the
+  // images will be opened again and the correct band will be used.
   DiskImageView<float> left_image(left_resource);
   DiskImageView<float> right_image(right_resource);
   stereo_settings().left_image_crop_win.crop (bounding_box(left_image));
@@ -674,9 +682,30 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
               << "--max-disp-spread.\n");
 
   // Verify that there is only one channel per input image
-  if ( (left_resource->channels() > 1) || (right_resource->channels() > 1) )
-    vw_throw(ArgumentErr() << "Error: Input images can only have a single channel.\n\n");
+  if (asp::skip_image_normalization(opt) &&
+    (num_left_bands > 1 || num_right_bands > 1))
+    vw_throw(ArgumentErr() 
+             << "Error: Cannot skip image normalization if the input images "
+             << "have more than one band (channel).\n\n");
 
+  // Print a warning if more than one band exists and the band was not set.
+  if (stereo_settings().band == -1 && 
+      (num_left_bands > 1 || num_right_bands > 1)) {
+    vw_out(WarningMessage) << "The input images have more than one band (channel), "
+                            << "but the --band option was not set. Using band 1.\n";
+    stereo_settings().band = 1;
+  }
+  
+  // Having printed the warning, set the band to 1 if it was not set.
+  if (stereo_settings().band == -1)
+    stereo_settings().band = 1;
+  
+  // Sanity check  
+  if (stereo_settings().band <= 0 || 
+      stereo_settings().band > num_left_bands ||
+      stereo_settings().band > num_right_bands)
+    vw_throw(ArgumentErr() << "The value of --band is out of range.\n");    
+      
   if ((stereo_settings().bundle_adjust_prefix != "") &&
       (stereo_settings().alignment_method == "epipolar"))
     vw_throw(ArgumentErr() << "Error: Epipolar alignment does not support using a "
@@ -698,8 +727,8 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   if (stereo_settings().stereo_algorithm == "mgm" &&
       stereo_settings().corr_timeout == stereo_settings().default_corr_timeout) {
       stereo_settings().corr_timeout = 10 * stereo_settings().default_corr_timeout;
-    vw_out() << "For the original mgm algorithm increasing the --corr-timeout to: " <<
-      stereo_settings().corr_timeout << ".\n";
+    vw_out() << "For the original mgm algorithm increasing the --corr-timeout to: " 
+             << stereo_settings().corr_timeout << ".\n";
   }
 
   if (stereo_settings().correlator_mode && !opt.input_dem.empty())
@@ -1109,7 +1138,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
 // See if user's request to skip image normalization can be
 // satisfied.  This option is a speedup switch which is only meant
 // to work with with mapprojected images. It is also not documented.
-bool skip_image_normalization(ASPGlobalOptions const& opt){
+bool skip_image_normalization(ASPGlobalOptions const& opt) {
 
   if (!stereo_settings().skip_image_normalization) 
     return false;

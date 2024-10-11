@@ -27,6 +27,7 @@
 #include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Sessions/StereoSessionASTER.h>
 
+#include <asp/Core/PointUtils.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Core/DisparityProcessing.h>
 #include <asp/Core/Bathymetry.h>
@@ -825,9 +826,8 @@ void stereo_triangulation(std::string const& output_prefix,
     vw_out() << "\t--> " << universe_radius_func;
 
   } catch (IOErr const& e) {
-    vw_throw( ArgumentErr() << "\nUnable to start at point cloud stage "
-              << "-- could not read input files.\n"
-              << e.what() << "\nExiting.\n\n" );
+    vw_throw(ArgumentErr() << "\nUnable to start at the triangulation stage. "
+              << "Could not read input files.\n" << e.what() << "\n");
   } // End outer try/catch
 } // End function stereo_triangulation()
 

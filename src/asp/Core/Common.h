@@ -35,7 +35,6 @@
 #include <vw/Image/ImageIO.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/FileIO/DiskImageView.h>
-#include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/Vector.h>
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Image/ImageViewRef.h>
@@ -163,32 +162,6 @@ namespace asp {
   // Note: We use this constant in the python code as well
   const std::string ASP_POINT_OFFSET_TAG_STR = "POINT_OFFSET";
 
-  // Specialized functions for reading/writing images with a shift.
-  // The shift is meant to bring the pixel values closer to origin,
-  // with goal of saving the pixels as float instead of double.
-
-  /// Subtract a given shift from first 3 components of given vector image.
-  /// Skip pixels for which the first 3 components are (0, 0, 0).
-  template <class VecT>
-  struct SubtractShift: public vw::ReturnFixedType<VecT> {
-    vw::Vector3 m_shift;
-    SubtractShift(vw::Vector3 const& shift):m_shift(shift){}
-    VecT operator() (VecT const& pt) const {
-      VecT lpt = pt;
-      int len = std::min(3, (int)lpt.size());
-      if (subvector(lpt, 0, len) != subvector(vw::Vector3(), 0, len))
-        subvector(lpt, 0, len) -= subvector(m_shift, 0, len);
-      return lpt;
-    }
-  };
-  template <class ImageT>
-  vw::UnaryPerPixelView<ImageT, SubtractShift<typename ImageT::pixel_type> >
-  inline subtract_shift(vw::ImageViewBase<ImageT> const& image,
-                         vw::Vector3 const& shift) {
-    return vw::UnaryPerPixelView<ImageT, SubtractShift<typename ImageT::pixel_type> >
-      (image.impl(), SubtractShift<typename ImageT::pixel_type>(shift));
-  }
-
   /// Round pixels in given image to multiple of given rounding_error.
   template <class VecT>
   struct RoundImagePixels: public vw::ReturnFixedType<VecT> {
@@ -209,7 +182,6 @@ namespace asp {
       (image.impl(), RoundImagePixels<typename ImageT::pixel_type>(rounding_error));
   }
 
-
   /// To help with compression, round to about 1mm, but
   /// use for rounding a number with few digits in binary.
   const double APPROX_ONE_MM = 1.0/1024.0;
@@ -223,52 +195,37 @@ namespace asp {
   /// inverse power of 2, 1/2^10 for Earth and proportionally less for smaller bodies.
   double get_rounding_error(vw::Vector3 const& shift, double rounding_error);
 
-  /// Block write image while subtracting a given value from all pixels
-  /// and casting the result to float, while rounding to nearest mm.
-  template <class ImageT>
-  void block_write_approx_gdal_image(const std::string &filename,
-                                     vw::Vector3 const& shift,
-                                     double rounding_error,
-                                     vw::ImageViewBase<ImageT> const& image,
-                                     bool has_georef,
-                                     vw::cartography::GeoReference const& georef,
-                                     bool has_nodata, double nodata,
-                                     vw::GdalWriteOptions const& opt,
-                                     vw::ProgressCallback const& progress_callback
-                                     = vw::ProgressCallback::dummy_instance(),
-                                     std::map<std::string, std::string> const& keywords =
-                                     std::map<std::string, std::string>());
-
-
-  /// Single-threaded write image while subtracting a given value from
-  /// all pixels and casting the result to float.
-  template <class ImageT>
-  void write_approx_gdal_image(const std::string &filename,
-                               vw::Vector3 const& shift,
-                               double rounding_error,
-                               vw::ImageViewBase<ImageT> const& image,
-                               bool has_georef,
-                               vw::cartography::GeoReference const& georef,
-                               bool has_nodata, double nodata,
-                               vw::GdalWriteOptions const& opt,
-                               vw::ProgressCallback const& progress_callback
-                               = vw::ProgressCallback::dummy_instance(),
-                               std::map<std::string, std::string> const& keywords =
-                               std::map<std::string, std::string>());
-
-
-  /// Often times, we'd like to save an image to disk by using big
-  /// blocks, for performance reasons, then re-write it with desired blocks.
+  // Often times, we'd like to save an image to disk by using big
+  // blocks, for performance reasons, then re-write it with desired blocks.
+  // TODO(oalexan1): Move this somewhere else.
   template <class ImageT>
   void save_with_temp_big_blocks(int big_block_size,
                                  const std::string &filename,
                                  vw::ImageViewBase<ImageT> const& img,
-                                 bool has_georef, 
+                                 bool has_georef,
                                  vw::cartography::GeoReference const& georef,
                                  bool has_nodata, double nodata,
                                  vw::GdalWriteOptions & opt,
-                                 vw::ProgressCallback const& tpc);
+                                 vw::ProgressCallback const& tpc){
 
+    vw::Vector2 orig_block_size = opt.raster_tile_size;
+    opt.raster_tile_size = vw::Vector2(big_block_size, big_block_size);
+    block_write_gdal_image(filename, img, has_georef, georef, has_nodata, nodata, opt, tpc);
+
+    if (opt.raster_tile_size != orig_block_size){
+      std::string tmp_file
+        = boost::filesystem::path(filename).replace_extension(".tmp.tif").string();
+      boost::filesystem::rename(filename, tmp_file);
+      vw::DiskImageView<typename ImageT::pixel_type> tmp_img(tmp_file);
+      opt.raster_tile_size = orig_block_size;
+      vw::vw_out() << "Re-writing with blocks of size: "
+                   << opt.raster_tile_size[0] << " x " << opt.raster_tile_size[1] << ".\n";
+      vw::cartography::block_write_gdal_image(filename, tmp_img, has_georef, georef,
+                                  has_nodata, nodata, opt, tpc);
+      boost::filesystem::remove(tmp_file);
+    }
+    return;
+  }
 
   // TODO: Replace with something else!
   /// Convenience class for setting flags and later on
@@ -389,8 +346,5 @@ namespace program_options {
 
 } // end namespace program_options
 } // end namespace boost
-
-
-#include <asp/Core/Common.tcc>
 
 #endif//__ASP_CORE_COMMON_H__

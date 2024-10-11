@@ -20,6 +20,7 @@
 
 #include <asp/Core/DataLoader.h>
 #include <asp/Core/EigenUtils.h>
+#include <asp/Core/PointUtils.h>
 
 using namespace vw;
 

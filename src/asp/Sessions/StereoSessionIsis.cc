@@ -50,6 +50,7 @@
 #include <vw/InterestPoint/Detector.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/Cartography/Datum.h>
+#include <vw/FileIO/DiskImageUtils.h>
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -266,7 +267,7 @@ void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
 // the range of 0-1. To some extent we are compressing the dynamic
 // range, but we try to minimize that.
 ImageViewRef<PixelMask<float>>
-find_ideal_isis_range(DiskImageView<float> const& image,
+find_ideal_isis_range(ImageViewRef<float> const& image,
                       boost::shared_ptr<DiskImageResourceIsis> isis_rsrc,
                       float nodata_value,
                       std::string const& tag,
@@ -339,7 +340,8 @@ StereoSessionIsis::StereoSessionIsis() {
              base_dir << "\n");
   }
 }
-  
+
+// TODO(oalexan1): See about fully integrating this with StereoSession::preprocessing_hook()  
 void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
                        std::string const& left_input_file,
                        std::string const& right_input_file,
@@ -347,30 +349,28 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
                        std::string      & right_output_file) {
 
   std::string left_cropped_file, right_cropped_file;
+  ImageViewRef<float> left_cropped_image, right_cropped_image;
   vw::GdalWriteOptions options;
   float left_nodata_value, right_nodata_value;
   bool has_left_georef, has_right_georef;
   vw::cartography::GeoReference left_georef, right_georef;
   bool exit_early =
     StereoSession::shared_preprocessing_hook(options,
-                                             left_input_file,   right_input_file,
-                                             left_output_file,  right_output_file,
-                                             left_cropped_file, right_cropped_file,
-                                             left_nodata_value, right_nodata_value,
-                                             has_left_georef,   has_right_georef,
-                                             left_georef,       right_georef);
+                                             left_input_file,    right_input_file,
+                                             left_output_file,   right_output_file,
+                                             left_cropped_file,  right_cropped_file,
+                                             left_cropped_image, right_cropped_image,
+                                             left_nodata_value,  right_nodata_value,
+                                             has_left_georef,    has_right_georef,
+                                             left_georef,        right_georef);
 
   if (exit_early)
     return;
   
-  // Load the cropped images
-  DiskImageView<float> left_disk_image(left_cropped_file),
-    right_disk_image(right_cropped_file);
-
   // Get the image sizes. Later alignment options can choose to change
   // this parameters, such as affine epipolar.
-  Vector2i left_size  = file_image_size(left_cropped_file),
-           right_size = file_image_size(right_cropped_file);
+  Vector2i left_size(left_cropped_image.cols(), left_cropped_image.rows());
+  Vector2i right_size(right_cropped_image.cols(), right_cropped_image.rows());
 
   // These variables will be true if we reduce the valid range for ISIS images
   // using the nodata value provided by the user.
@@ -384,12 +384,12 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
     right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
   float left_lo, left_hi, left_mean, left_std;
   float right_lo, right_hi, right_mean, right_std;
-  ImageViewRef< PixelMask <float> > left_masked_image
-    = find_ideal_isis_range(left_disk_image, left_isis_rsrc, left_nodata_value,
+  ImageViewRef<PixelMask<float>> left_masked_image
+    = find_ideal_isis_range(left_cropped_image, left_isis_rsrc, left_nodata_value,
                             "left", will_apply_user_nodata_left,
                             left_lo, left_hi, left_mean, left_std);
   ImageViewRef< PixelMask <float> > right_masked_image
-    = find_ideal_isis_range(right_disk_image, right_isis_rsrc, right_nodata_value,
+    = find_ideal_isis_range(right_cropped_image, right_isis_rsrc, right_nodata_value,
                             "right", will_apply_user_nodata_right,
                             right_lo, right_hi, right_mean, right_std);
 
@@ -487,13 +487,14 @@ bool StereoSessionIsis::supports_multi_threading () const {
 }
   
 // Only used with mask_flatfield option?
+// TODO(oalexan1): Wipe this logic
 std::string write_shadow_mask(vw::GdalWriteOptions const& opt,
                               std::string const& output_prefix,
                               std::string const& input_image,
                               std::string const& mask_postfix) {
   // This thresholds at -25000 as the input sub4s for Apollo that I've
   // processed have a range somewhere between -32000 and +32000. -ZMM
-  DiskImageView<PixelGray<float> > disk_image(input_image);
+  DiskImageView<PixelGray<float>> disk_image(input_image);
   DiskImageView<uint8> disk_mask(output_prefix + mask_postfix);
   ImageViewRef<uint8> mask = apply_mask(intersect_mask(create_mask(disk_mask),
                                         create_mask(threshold(disk_image,-25000,0,1.0))));

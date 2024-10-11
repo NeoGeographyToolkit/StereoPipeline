@@ -231,6 +231,8 @@ namespace asp {
                                    std::string                       & right_output_file,
                                    std::string                       & left_cropped_file,
                                    std::string                       & right_cropped_file,
+                                   vw::ImageViewRef<float>           & left_cropped_image, 
+                                   vw::ImageViewRef<float>           & right_cripped_image, 
                                    float                             & left_nodata_value,
                                    float                             & right_nodata_value,
                                    bool                              & has_left_georef,

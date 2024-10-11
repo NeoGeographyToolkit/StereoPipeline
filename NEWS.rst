@@ -50,6 +50,8 @@ parallel_stereo (:numref:`parallel_stereo`):
   * It is possible to mapproject either with ``dg`` or ``rpc`` cameras
     when using mapprojected images in stereo with DigitalGlobe / Maxar
     cameras (:numref:`dg-mapproj`).
+  * Added the option ``--band`` to process a given band (channel) from
+    multispectral images (:numref:`stereodefault`).  
   * Skip tiles for which there is no valid low-resolution disparity.
   * Throw an error if the left and right mapprojected images have different
     resolutions, as this can lead to incorrect results.
@@ -77,7 +79,11 @@ point2las (:numref:`point2las`):
     error as a scaled int with the option ``--save-triangulation-error``, that
     saves it in double precision without scaling.
   * Added the options ``--save-intensity-from-image`` and ``--save-stddev``.
-  
+
+point2dem (:numref:`point2dem`):
+  * Adjust the region passed in via the option ``--t_projwin`` so that, as
+    usual, the DEM grid coordinates are integer multiples of the grid size.
+   
 misc:
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
     optimized camera file names (or adjustments). Can be passed in back to
@@ -98,7 +104,7 @@ misc:
   * Renamed ``--csv-proj4`` to ``--csv-srs``. This accepts any GDAL WKT,
     GeoJSON, or PROJ string. The previous option is still accepted for backward
     compatibility.
-  * Support images with up to 12 channels, up from 6.
+  * Support images with up to 12 bands (channels), up from 6.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

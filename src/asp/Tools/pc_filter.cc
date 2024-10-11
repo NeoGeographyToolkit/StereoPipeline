@@ -35,6 +35,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/EigenUtils.h>
 #include <asp/PclIO/PclIO.h>
+#include <asp/Core/PointUtils.h>
 
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/FileIO/MatrixIO.h>

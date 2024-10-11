@@ -82,8 +82,9 @@ Command-line options
     The width in pixels over which blending is performed. Default
     is calculated based on the overlap width.
 
---band <integer (default: 0)>
-    Specify a band to use for multi-channel images.
+--band <integer (default: 1)>
+    Specify a band (channel) to use for multi-channel images. The band count
+    starts from 1.
 
 --ot <type (default: Float32)>
     Output data type. Supported types: Byte, UInt16, Int16, UInt32,

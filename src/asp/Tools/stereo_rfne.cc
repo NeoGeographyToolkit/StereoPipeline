@@ -20,6 +20,8 @@
 ///
 
 #include <asp/Tools/stereo.h>
+#include <asp/Sessions/StereoSession.h>
+
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/ParabolaSubpixelView.h>
@@ -29,7 +31,7 @@
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageResourceOpenEXR.h>
 #include <vw/Image/InpaintView.h>
-#include <asp/Sessions/StereoSession.h>
+#include <vw/FileIO/DiskImageUtils.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 

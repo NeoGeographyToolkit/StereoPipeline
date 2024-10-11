@@ -192,6 +192,10 @@ namespace asp {
       ("clean-match-files-prefix",  po::value(&global.clean_match_files_prefix)->default_value(""),
        "Use as input match file the *-clean.match file from this prefix (this had the "
        "outliers filtered out).")
+      ("band", po::value(&global.band)->default_value(-1),
+       "Use this band (channel) from input images if more than one. The band count starts "
+       "from 1. If not set and more than one band is present, use the first band and print a "
+       "warning.")
       ("flann-method",  po::value(&global.flann_method)->default_value("auto"),
        "Choose the FLANN method for matching interest points. Options: 'kmeans': slower but "
        "deterministic, 'kdtree': faster (up to 6x) but not deterministic (starting with "

@@ -40,6 +40,7 @@
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/DatumUtils.h>
+#include <vw/FileIO/DiskImageUtils.h>
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
@@ -331,13 +332,13 @@ vw::cartography::GeoReference StereoSession::get_georef() {
 
     // assume these are degrees, does not mater much, but it needs be small enough
     double small = 1e-8;
-    transform(0,0) = small;
-    transform(1,1) = small;
-    transform(0,2) = small;
-    transform(1,2) = small;
+    transform(0,0) = small;  // grid in x
+    transform(1,1) = -small; // grid in y; y always goes down
+    transform(0,2) = 0; // origin x
+    transform(1,2) = 0; // origin y
     georef.set_transform(transform);
 
-    georef.set_geographic();
+    georef.set_geographic(); // default projection
     
     if (has_datum)
       georef.set_datum(datum);
@@ -408,36 +409,34 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                                        std::string      & right_output_file) {
 
   std::string left_cropped_file, right_cropped_file;
+  ImageViewRef<float> left_cropped_image, right_cropped_image;
   vw::GdalWriteOptions options;
   float left_nodata_value, right_nodata_value;
   bool has_left_georef, has_right_georef;
   vw::cartography::GeoReference left_georef, right_georef;
   bool exit_early =
     StereoSession::shared_preprocessing_hook(options,
-                                             left_input_file,   right_input_file,
-                                             left_output_file,  right_output_file,
-                                             left_cropped_file, right_cropped_file,
-                                             left_nodata_value, right_nodata_value,
-                                             has_left_georef,   has_right_georef,
-                                             left_georef,       right_georef);
+                                             left_input_file,    right_input_file,
+                                             left_output_file,   right_output_file,
+                                             left_cropped_file,  right_cropped_file,
+                                             left_cropped_image, right_cropped_image,
+                                             left_nodata_value,  right_nodata_value,
+                                             has_left_georef,    has_right_georef,
+                                             left_georef,        right_georef);
 
   if (exit_early)
     return;
   
-  // Load the images (can be cropped or original ones)
-  DiskImageView<float> left_disk_image(left_cropped_file);
-  DiskImageView<float> right_disk_image(right_cropped_file);
-  
   // Get the image sizes. Later alignment options can choose to
   // change this parameters (such as affine epipolar alignment).
-  Vector2i left_size  = file_image_size(left_cropped_file);
-  Vector2i right_size = file_image_size(right_cropped_file);
+  Vector2i left_size(left_cropped_image.cols(), left_cropped_image.rows());
+  Vector2i right_size(right_cropped_image.cols(), right_cropped_image.rows());
   
   // Set up image masks
   ImageViewRef<PixelMask<float>> left_masked_image
-    = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
+    = create_mask_less_or_equal(left_cropped_image, left_nodata_value);
   ImageViewRef<PixelMask<float>> right_masked_image
-    = create_mask_less_or_equal(right_disk_image, right_nodata_value);
+    = create_mask_less_or_equal(right_cropped_image, right_nodata_value);
   
   // Compute input image statistics. This can be slow so use a timer.
   vw::Stopwatch sw1;
@@ -623,12 +622,14 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
                           std::string                       & right_output_file,
                           std::string                       & left_cropped_file,
                           std::string                       & right_cropped_file,
+                          vw::ImageViewRef<float>           & left_cropped_image, 
+                          vw::ImageViewRef<float>           & right_cropped_image, 
                           float                             & left_nodata_value,
                           float                             & right_nodata_value,
                           bool                              & has_left_georef,
                           bool                              & has_right_georef,
                           vw::cartography::GeoReference     & left_georef,
-                          vw::cartography::GeoReference     & right_georef){
+                          vw::cartography::GeoReference     & right_georef) {
 
   // Retrieve nodata values and let the handles go out of scope right away.
   // For this to work the ISIS type must be registered with the
@@ -638,7 +639,7 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
     boost::shared_ptr<DiskImageResource>
       left_rsrc (DiskImageResourcePtr(left_input_file)),
       right_rsrc(DiskImageResourcePtr(right_input_file));
-    asp::get_nodata_values(left_rsrc,         right_rsrc,
+    asp::get_nodata_values(left_rsrc, right_rsrc, 
                            left_nodata_value, right_nodata_value);
   }
 
@@ -688,11 +689,23 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
                 !is_latest_timestamp(right_aligned_bathy_mask(), check_files)));
   }
   
+  // Consider the case of multi-band images
+  if (!rebuild) {
+    int lc = vw::get_num_channels(left_input_file);
+    int rc = vw::get_num_channels(right_input_file);
+    if (lc > 1 || rc > 1) {
+      vw_out(vw::WarningMessage) 
+        << "Always recomputing the inputs for multi-band images as the "
+        << "provided band may change.\n";
+      rebuild = true;
+    }
+  }
+  
   if (!rebuild && !crop_left && !crop_right) {
     try {
       vw_log().console_log().rule_set().add_rule(-1, "fileio");
-      DiskImageView<PixelGray<float32> > out_left (left_output_file);
-      DiskImageView<PixelGray<float32> > out_right(right_output_file);
+      DiskImageView<PixelGray<float32>> out_left (left_output_file);
+      DiskImageView<PixelGray<float32>> out_right(right_output_file);
 
       if (do_bathy) {
         DiskImageView<float> left_bathy_mask (left_aligned_bathy_mask());
@@ -709,18 +722,21 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
       vw_settings().reload_config();
     }
   } // End check for existing output files
+
+  // Load the desired band. Subtract 1 to make it start from 0.
+  int ch = asp::stereo_settings().band - 1;
+  ImageViewRef<float> left_orig_image = vw::read_channel<float>(left_input_file, ch);
+  ImageViewRef<float> right_orig_image = vw::read_channel<float>(right_input_file, ch);
   
   // See if to crop the images
   if (crop_left) {
     // Crop and save the left image to left_cropped_file
     has_left_georef = read_georeference(left_georef, left_input_file);
     bool has_nodata = true;
-
-    DiskImageView<float> left_orig_image(left_input_file);
     BBox2i left_win = stereo_settings().left_image_crop_win;
     left_win.crop(bounding_box(left_orig_image));
-
-    ImageViewRef<float> left_cropped_image = crop(left_orig_image, left_win);
+    // Return a handle to the cropped image
+    left_cropped_image = crop(left_orig_image, left_win);
 
     if (stereo_settings().left_image_clip != "") {
       // Replace the crop with a given clip. This is a very rarely used option.
@@ -740,18 +756,19 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
                            has_nodata, left_nodata_value,
                            options,
                            TerminalProgressCallback("asp", "\t:  "));
+  } else {
+    // Return a handle to the desired channel of the input image
+    left_cropped_image = left_orig_image;
   }
   
   if (crop_right) {
     // Crop the right image and write to right_cropped_file
     has_right_georef = read_georeference(right_georef, right_input_file);
     bool has_nodata = true;
-
-    DiskImageView<float> right_orig_image(right_input_file);
     BBox2i right_win = stereo_settings().right_image_crop_win;
     right_win.crop(bounding_box(right_orig_image));
-
-    ImageViewRef<float> right_cropped_image = crop(right_orig_image, right_win);
+    // Return a handle to the cropped image
+    right_cropped_image = crop(right_orig_image, right_win);
 
     if (stereo_settings().right_image_clip != "") {
       // Replace the crop with a given clip. This is a very rarely used option.
@@ -772,6 +789,9 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
                            has_nodata, right_nodata_value,
                            options,
                            TerminalProgressCallback("asp", "\t:  "));
+  } else {
+    // Return a handle to the desired channel of the input image
+    right_cropped_image = right_orig_image;
   }
   
   // Re-read the georef, since it may have changed above.

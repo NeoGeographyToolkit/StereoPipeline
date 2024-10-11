@@ -36,6 +36,7 @@
 
 #include <limits>
 
+
 using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -66,17 +67,11 @@ void get_input_image(std::string const& path,
                      Options const& opt,
                      ImageViewRef<float> &image,
                      double &nodata) {
-  // Extract the desired band
-  int num_bands = get_num_channels(path);
-  if (num_bands == 1){
-    image = DiskImageView<float>(path);
-  }else{
-    // Multi-band image. Pick the desired band.
-    int channel = opt.band - 1;  // In VW, bands start from 0, not 1.
-    image = select_channel(read_channels<1, float>(path, channel), 0);
-  }
 
-  // Read nodata-value from disk.
+  // Extract the desired band. // In VW, bands start from 0, not 1.
+  image = vw::read_channel<float>(path, opt.band - 1);
+  
+  // Read the nodata-value from disk
   DiskImageResourceGDAL in_rsrc(path);
   bool has_nodata = in_rsrc.has_nodata_read();
   if (has_nodata)
@@ -640,10 +635,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("ot",  po::value(&opt.output_type)->default_value("Float32"),
-          "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.")
-    ("band", po::value(&opt.band), "Which band to use (for multi-spectral images).")
+     "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.")
+    ("band", po::value(&opt.band)->default_value(1), 
+     "Which band (channel) to use (for multi-spectral images). The band count starts from 1.")
     ("input-nodata-value", po::value(&opt.input_nodata_value),
-          "Nodata value to use on input; input pixel values less than or equal to this are considered invalid.")
+     "Nodata value to use on input; input pixel values less than or equal to this are considered invalid.")
     ("output-nodata-value", po::value(&opt.output_nodata_value),
      "Nodata value to use on output.")
     ("output-prefix", po::value(&opt.out_prefix)->default_value(""),

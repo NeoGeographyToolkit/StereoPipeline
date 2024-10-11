@@ -27,6 +27,7 @@
 #include <vw/InterestPoint/Matcher.h>
 #include <asp/Core/IpMatchingAlgs.h>        // Lightweight header
 #include <asp/Sessions/CameraUtils.h>
+#include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/Functors.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Sessions/StereoSession.h>

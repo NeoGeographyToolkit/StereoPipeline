@@ -105,6 +105,11 @@ matches-per-tile-params <int int (default: 1024 1280)>
     needed if the homography alignment between these images is not great, as
     this transform is used to pair up left and right image tiles.
 
+band <int (default: -1)>
+    Use this band (channel) from input images if more than one. The band count
+    starts from 1. If not set and more than one band is present, use the first
+    band and print a warning.
+
 .. _image_alignment:
 
 Image alignment
