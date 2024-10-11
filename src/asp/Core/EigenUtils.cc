@@ -20,6 +20,11 @@
 ///
 
 #include <asp/Core/EigenUtils.h>
+#include <asp/Core/PointUtils.h>
+#include <asp/Core/Common.h>
+#include <asp/Core/Macros.h>
+#include <vw/Cartography/PointImageManipulation.h>
+#include <vw/FileIO/DiskImageUtils.h>
 
 using namespace vw;
 using namespace vw::cartography;

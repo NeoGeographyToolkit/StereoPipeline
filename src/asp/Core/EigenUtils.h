@@ -17,24 +17,23 @@
 
 #ifndef __CORE_EIGEN_UTILS_H__
 #define __CORE_EIGEN_UTILS_H__
+#include <vw/FileIO/DiskImageView.h>
+#include <vw/Cartography/Datum.h>
+#include <vw/Cartography/GeoReference.h>
+
+#include <Eigen/Dense>
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <vw/FileIO/DiskImageView.h>
-#include <vw/Cartography/Datum.h>
-#include <vw/Cartography/GeoReference.h>
-#include <vw/Cartography/PointImageManipulation.h>
-#include <vw/FileIO/DiskImageUtils.h>
-#include <asp/Core/Common.h>
-#include <asp/Core/Macros.h>
-#include <asp/Core/PointUtils.h>
-#include <Eigen/Dense>
 
 // A set of routines kept here because they use Eigen, and a set of routine
 // auxiliary to the routines using Eigen. 
 namespace asp {
 
+class CsvConv; // Forward declaration
+  
 typedef double RealT; // To introduce a bit of clarity
 
 typedef Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic> DoubleMatrix;
@@ -53,7 +52,7 @@ void load_csv(std::string const& file_name,
               bool calc_shift,
               vw::Vector3 & shift,
               vw::cartography::GeoReference const& geo,
-              CsvConv const& csv_conv,
+              asp::CsvConv const& csv_conv,
               bool & is_lola_rdr_format,
               double & median_longitude, bool verbose,
               DoubleMatrix & data);
