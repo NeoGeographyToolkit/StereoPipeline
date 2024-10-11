@@ -491,7 +491,7 @@ namespace asp{
       vw_throw( ArgumentErr() << "OrthoRasterize: Input point cloud is empty!\n" );
 
     // Override with user's projwin, if specified
-    if (m_projwin != BBox2()){
+    if (m_projwin != BBox2()) {
       subvector(m_bbox.min(), 0, 2) = m_projwin.min();
       subvector(m_bbox.max(), 0, 2) = m_projwin.max();
     }
@@ -620,15 +620,22 @@ namespace asp{
     snap_bbox(m_spacing, m_snapped_bbox);
 
     // Override with user's projwin, if specified
-    if (m_projwin != BBox2()){
+    if (m_projwin != BBox2()) {
       subvector(m_snapped_bbox.min(), 0, 2) = m_projwin.min();
       subvector(m_snapped_bbox.max(), 0, 2) = m_projwin.max();
+      
+      // The proj win takes into account that each pixel's physical size is
+      // m_spacing. So it is biased by half a pixel outwards from the snapped
+      // box. Compensate for that here.
+      m_snapped_bbox.min() += Vector3(m_spacing/2.0, m_spacing/2.0, 0);
+      m_snapped_bbox.max() -= Vector3(m_spacing/2.0, m_spacing/2.0, 0);
+      snap_bbox(m_spacing, m_snapped_bbox);
     }
 
   } // End function initialize_spacing()
 
   // Function to convert pixel coordinates to the point domain
-  BBox3 OrthoRasterizerView::pixel_to_point_bbox( BBox2 const& inbox ) const {
+  BBox3 OrthoRasterizerView::pixel_to_point_bbox(BBox2 const& inbox) const {
     BBox3 outbox = m_snapped_bbox;
     int d = (int)m_use_surface_sampling;
     outbox.min().x() = m_snapped_bbox.min().x() + ((double(inbox.min().x() - d))
@@ -735,7 +742,7 @@ namespace asp{
 
     }
 
-    if ( blocks_map.empty() ){
+    if ( blocks_map.empty()) {
       // TODO: Don't include these pixels in the total?
       { // Lock and update the total number of invalid pixels in this tile.
         vw::Mutex::Lock lock(*m_count_mutex);

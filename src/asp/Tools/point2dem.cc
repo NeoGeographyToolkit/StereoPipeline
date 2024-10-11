@@ -88,7 +88,9 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), 
      "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ). If not provided, will be read from the point cloud, if available.")
     ("t_projwin",     po::value(&opt.target_projwin),
-     "The output DEM will have corners with these georeferenced coordinates. The actual spatial extent (ground footprint) is obtained by expanding this box by half the grid size.")
+     "Specify a custom extent in georeferenced coordinates. This will be adjusted "
+      "to ensure that the grid points are placed at integer multiples of the grid "
+      "size.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),
       "Set output DEM resolution (in target georeferenced units per pixel). These units may be in degrees or meters, depending on your projection. If not specified, it will be computed automatically (except for LAS and CSV files). Multiple spacings can be set (in quotes) to generate multiple output files. This is the same as the --tr option.")
     ("tr", po::value(&dem_spacing2)->default_value(""), "This is identical to the --dem-spacing option.")
@@ -353,7 +355,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     if (opt.target_projwin.min().y() > opt.target_projwin.max().y()) {
       std::swap(opt.target_projwin.min().y(), opt.target_projwin.max().y());
     }
-    vw_out() << "Cropping to " << opt.target_projwin << " pt. " << std::endl;
+    vw_out() << "Cropping to " << opt.target_projwin << " pt.\n";
   }
 
   // Must specify either csv_srs or csv_proj4_str, but not both. The latter is 

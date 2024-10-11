@@ -12,13 +12,17 @@ The heights in the produced DEM are relative to a datum (ellipsoid).
 They are calculated by weighted averaging around each grid point
 of the heights of points in the cloud (see ``--search-radius-factor``).
 
-The output DEM is by default in the geographic coordinate system
-(longitude and latitude).  Any projection can be specified via the
-``--t_srs`` option. The grid size is set with ``--tr`` for the given 
-projection, and the extent with ``--t_projwin``. The grid corners
-are placed at integer multiples of the grid size, and the created
-DEM has a ground footprint which is half a grid pixel larger
+The output DEM is by default in the geographic coordinate system (longitude and
+latitude).  Any projection can be specified via the ``--t_srs`` option. The grid
+size is set with ``--tr`` for the given projection.
+
+The grid points are placed at integer multiples of the grid size, and the
+created DEM has a ground footprint which outwardly larger by half a grid pixel
 than the bounding box of the grid points.
+
+A custom extent can be specified with the option ``--t_projwin``. This will be
+adjusted to ensure, as above, that the grid points are placed at integer
+multiples of the grid size.
 
 The obtained DEMs can be colorized or hillshaded 
 (:numref:`genhillshade`), visualized with ``stereo_gui``
@@ -332,9 +336,9 @@ Command-line options for point2dem
     PROJ). If not provided, will be read from the point cloud, if available.
 
 --t_projwin <xmin ymin xmax ymax>
-    The output DEM will have corners with these georeferenced
-    coordinates. The actual spatial extent (ground footprint) is
-    obtained by expanding this box by half the grid size.
+    Specify a custom extent in georeferenced coordinates. This will be adjusted
+    to ensure that the grid points are placed at integer multiples of the grid
+    size.
 
 --datum <string>
     Set the datum. This will override the datum from the input

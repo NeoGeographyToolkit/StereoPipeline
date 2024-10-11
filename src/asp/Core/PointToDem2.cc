@@ -487,7 +487,8 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
 
   // TODO: Maybe put a warning or check here if the size is too big
 
-  // Now we are ready to specify the affine transform.
+  // The affine transform. If the user specified --t_projwin, the transform
+  // already incorporated that.
   georef.set_transform(rasterizer.geo_transform());
 
   // If the user requested FSAA, we temporarily increase the
@@ -497,16 +498,6 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
   // is increased, which will be the final spacing as well.
   if (opt.fsaa > 1)
     rasterizer.set_spacing(rasterizer.spacing() / double(opt.fsaa));
-
-  // If the user specified the ULLR, update the georeference
-  // transform here. The generate_fsaa_raster will be responsible
-  // for making sure we have the correct pixel crop.
-  if (opt.target_projwin != BBox2()) {
-    Matrix3x3 transform = georef.transform();
-    transform(0,2) = opt.target_projwin.min().x();
-    transform(1,2) = opt.target_projwin.max().y();
-    georef.set_transform(transform);
-  }
 
   // Fix have pixel offset required if pixel_interpretation is
   // PixelAsArea. We could have done that earlier, but it makes
