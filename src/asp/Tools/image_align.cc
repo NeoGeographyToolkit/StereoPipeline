@@ -324,7 +324,7 @@ calc_alignment_transform(std::string const& image_file1,
     ip::write_binary_match_file(clean_match_file, inlier_ip1, inlier_ip2);
   }
 
-  vw_out() << "Alignment transform:\n" << tf << std::endl;
+  vw_out() << "Alignment transform (in pixels):\n" << tf << std::endl;
 
   if (opt.ecef_transform_type != "") 
     calc_ecef_transform(inlier_ip1, inlier_ip2, opt, ecef_transform);
@@ -399,14 +399,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.ecef_transform_type != "") {
     if (opt.ecef_transform_type != "translation" && opt.ecef_transform_type != "rigid" &&
         opt.ecef_transform_type != "similarity") 
-      vw_throw(ArgumentErr() << "The value of --ecef-transform-type must be one of: translation, "
-               "rigid, or similarity.\n");    
+      vw_throw(ArgumentErr() << "The value of --ecef-transform-type must be one of: "
+               << "translation, rigid, or similarity.\n");    
     if (opt.dem1 == "" || opt.dem2 == "") 
       vw::vw_throw(vw::ArgumentErr() << "When using the option --ecef-transform-type, "
-                   "the options --dem1 and --dem2 must be set.\n");
+                   << "the options --dem1 and --dem2 must be set.\n");
     if (opt.output_prefix == "") 
       vw::vw_throw(vw::ArgumentErr() << "When using the option --ecef-transform-type, "
-                   "the option --output-prefix must be set.\n");
+                   << "the option --output-prefix must be set.\n");
   }
     
   // Determining the format of the second input image
@@ -577,8 +577,12 @@ int main(int argc, char *argv[]) {
 
     if (has_georef1) {
       // Borrow the georef from the first image, since we are in its coordinates
+      // It is useful to print the data below, as it explains what is happening
+      // in the georeference domain. The pixel-only transform is only one part.
+      vw::vw_out() << "\nSecond image georeference before alignment:\n\t" << georef2 << "\n";
       has_georef2 = has_georef1;
       georef2 = georef1;
+      vw::vw_out() << "Second image georeference after alignment:\n\t" << georef2 << "\n";
     } else{
       // Write no georef
       has_georef1 = false;
