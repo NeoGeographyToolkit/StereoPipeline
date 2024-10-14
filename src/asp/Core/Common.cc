@@ -441,7 +441,7 @@ void asp::log_to_file(int argc, char *argv[],
   os << out_prefix << "-log-" << prog_name << "-" 
      << clean_timestamp << "-" << pid << ".txt";
   std::string log_file = os.str();
-  vw_out() << "Writing log info to: " << log_file << std::endl;
+  vw_out() << "Writing log: " << log_file << std::endl;
   std::ofstream lg(log_file.c_str());
 
   // Write the version

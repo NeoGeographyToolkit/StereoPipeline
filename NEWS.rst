@@ -57,10 +57,10 @@ parallel_stereo (:numref:`parallel_stereo`):
     resolutions, as this can lead to incorrect results.
   * Print a warning in ``stereo_pprc`` and ``stereo_tri`` if the stereo
     convergence angle is too small.
-  * Added the options ``--enable-atmospheric-refraction-correction``
-    and ``--enable-velocity-aberration-correction`` for Pleiades linescan
-    cameras (these are enabled by default for WorldView cameras only).
-    It is not clear if these corrections improve or not vertical accuracy.
+  * Added the options ``--enable-atmospheric-refraction-correction`` and
+    ``--enable-velocity-aberration-correction`` for Pleiades linescan cameras
+    (these are enabled by default for WorldView cameras only). It is not clear
+    if these corrections improve or not Pleiades accuracy.
 
 sfs (:numref:`sfs`):
   * Added the program ``image_subset`` for selecting a subset of images that

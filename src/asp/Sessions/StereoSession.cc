@@ -208,9 +208,9 @@ namespace asp {
                                                   adj_prefix, zero_pixel_offset);
       } catch (std::exception const& e) {
         vw_throw(ArgumentErr() << "Failed to load the camera model from " << cam_file
-                << " for image " << image_file << ".\n"
-                << "First error message:" << msg << "\n"
-                << "Second error message:" << e.what() << "\n");
+                << " for image: " << image_file << ".\n"
+                << "First error message: " << msg << "\n"
+                << "Second error message: " << e.what() << "\n");
       }
     }
     
