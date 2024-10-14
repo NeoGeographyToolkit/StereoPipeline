@@ -517,7 +517,7 @@
 #cmakedefine HAVE_UNISTD_H 1
 
 /* The version of ISIS that this software was built against. */
-#define ASP_ISIS_VERSION "@ASP_ISIS_VERSION@"
+#define ASP_ISIS_VERSION "@ISIS_VERSION@"
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
