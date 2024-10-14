@@ -23,6 +23,8 @@
 #ifndef __STEREO_CAMERA_RPC_XML_H__
 #define __STEREO_CAMERA_RPC_XML_H__
 
+#include <asp/Core/BitChecker.h>
+
 #include <vw/Core/FundamentalTypes.h>
 #include <vw/Core/Log.h>
 #include <vw/Math/Vector.h>

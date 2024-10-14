@@ -20,8 +20,8 @@
 // brings in a bunch of Xerces Headers. This way I can limit the
 // spread of those headers and objects.
 
-#ifndef __STEREO_SESSION_DG_BitChecker_H__
-#define __STEREO_SESSION_DG_BitChecker_H__
+#ifndef __STEREO_SESSION_XMLBASE_H__
+#define __STEREO_SESSION_XMLBASE_H__
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/FundamentalTypes.h>
@@ -77,4 +77,4 @@ T* get_node( xercesc::DOMElement* element, std::string const& tag ) {
 
 } // end namespace asp
 
-#endif//__STEREO_SESSION_DG_BitChecker_H__
+#endif//__STEREO_SESSION_XMLBASE_H__

@@ -227,25 +227,6 @@ namespace asp {
     return;
   }
 
-  // TODO: Replace with something else!
-  /// Convenience class for setting flags and later on
-  ///  making sure that we set all of them.
-  /// - Designed to be inherited from.
-  class BitChecker {
-    std::bitset<32> m_checksum; ///< Store current bits
-    std::bitset<32> m_good;     ///< Store target bits
-
-  protected:
-    /// Used to check off that one of the arguments has been read.
-    void check_argument(vw::uint8 arg);
-
-  public:
-    /// Pass in the number of expected arguments, max 32
-    BitChecker(vw::uint8 num_arguments);
-
-    bool is_good() const; ///< Return true if all arguments have been checked.
-  }; // End class BitChecker
-
 } // end namespace asp
 
 // Custom Boost Program Options validators for VW/ASP types
