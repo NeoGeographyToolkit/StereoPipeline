@@ -856,8 +856,9 @@ Registration errors on the ground
 
 If the option ``--mapproj-dem`` (with a DEM file as a value) is specified, each
 pair of interest point matches (after bundle adjustment and outlier removal)
-will be projected onto this DEM, and the distances between these pairs of
-projected points will be found. 
+will be projected onto this DEM. Ideally, matching interest points should
+converge onto the same ground point, so the distance between the projections on
+the ground measures the amount of misregistration.
 
 The file::
 
@@ -870,7 +871,7 @@ This is an advanced metric that is very helpful if the images are expected to be
 well-registered to each other and to the DEM, and if the DEM is accurate.
 Consider inspecting first the files mentioned earlier in :numref:`ba_out_files`.
 
-Ideally, the 50th percentiles should be under 1 GSD.
+The 50th percentiles should be on the order of 1 GSD or less.
 
 The file::
 

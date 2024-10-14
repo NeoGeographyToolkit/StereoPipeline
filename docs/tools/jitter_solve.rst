@@ -1621,9 +1621,9 @@ Assumptions
  - When a rig has both linescan and frame sensors, the reference sensor must be
    linescan. That because the linescan sensor acquires image data more frequently.
      
- - The *reference sensor* must acquire data *frequently enough* that pose
-   interpolation in time is accurate. For a frame reference sensor, that may
-   mean that all frame sensors acquire data simultaneously, or the reference
+ - The *reference sensor* must acquire pose readings *frequently enough* that
+   pose interpolation in time is accurate. For a frame reference sensor, that
+   may mean that all frame sensors acquire data simultaneously, or the reference
    sensor captures data at a finer rate than any observed jitter. For a linescan
    reference sensor, the parameters ``--num-lines-per-position`` and
    ``--num-lines-per-orientation`` need to be smaller than 1/2 of the jitter
@@ -1650,6 +1650,10 @@ The following format is expected for frame image and camera names::
 Any separator characters in ``<sep>`` *must not contain alphanumeric
 characters*, as that will confuse the program. The timestamp must be
 of the form ``<digits>.<digits>`` (no values such as 1e+7).
+
+Example::
+  
+    data/acq1_10000.23_sensor1.tif
 
 All images acquired by a frame sensor in a given contiguous stretch of time must
 be listed in a text file of the form::

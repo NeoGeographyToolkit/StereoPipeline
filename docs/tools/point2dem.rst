@@ -17,16 +17,16 @@ latitude).  Any projection can be specified via the ``--t_srs`` option. The grid
 size is set with ``--tr`` for the given projection.
 
 The grid points are placed at integer multiples of the grid size, and the
-created DEM has a ground footprint which outwardly larger by half a grid pixel
+created DEM has a ground footprint that is outwardly larger by half a grid pixel
 than the bounding box of the grid points.
 
 A custom extent can be specified with the option ``--t_projwin``. This will be
 adjusted to ensure, as above, that the grid points are placed at integer
 multiples of the grid size.
 
-The obtained DEMs can be colorized or hillshaded 
-(:numref:`genhillshade`), visualized with ``stereo_gui``
-(:numref:`stereo_gui`) or analyzed using GDAL tools
+The obtained DEMs can be colorized or hillshaded (:numref:`genhillshade`),
+visualized with ``stereo_gui`` (:numref:`stereo_gui`), mosaicked with
+``dem_mosaic`` (:numref:`dem_mosaic`), or analyzed with GDAL tools
 (:numref:`gdal_tools`).
 
 Examples
@@ -173,8 +173,8 @@ More examples are shown in :numref:`builddem`.
 
 .. _molacmp:
 
-Comparing with MOLA Data
-~~~~~~~~~~~~~~~~~~~~~~~~
+Comparing with MOLA
+~~~~~~~~~~~~~~~~~~~
 
 When comparing the output of ``point2dem`` to laser altimeter data, like
 MOLA, it is important to understand the different kinds of data that are
@@ -256,8 +256,8 @@ If you attempt to derive science results from an ASP-produced terrain
 model with the default DEM spacing, expect serious questions from
 reviewers.
 
-Using with LAS or CSV clouds
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+LAS or CSV clouds
+~~~~~~~~~~~~~~~~~
 
 The ``point2dem`` program can take as inputs point clouds in LAS and CSV
 formats. These differ from point clouds created by stereo by being, in
@@ -271,13 +271,13 @@ DEM by searching further for points in the input clouds.
 It is expected that the input LAS files have spatial reference
 information such as WKT data. Otherwise it is assumed that the points
 are raw :math:`x,y,z` values in meters in reference to the planet
-center.
+center (ECEF).
 
 Unless the output projection is explicitly set when invoking
 ``point2dem``, the one from the first LAS file will be used.
 
-For LAS or CSV clouds it is not possible to generate intersection error
-maps or ortho images.
+For LAS or CSV clouds it is not possible to generate triangulation (ray
+intersection) error maps or ortho images.
 
 For CSV point clouds, the option ``--csv-format`` must be set. The option
 ``--csv-srs`` containing a PROJ or WKT string needs to be specified to interpret
