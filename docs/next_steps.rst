@@ -1043,15 +1043,22 @@ Here is an example. Recall that the denser cloud is specified first, and that
 this program is very sensitive to the value of ``--max-displacement``
 (:numref:`pc_align_max_displacement`)::
 
-    pc_align --max-displacement 200 --datum MOLA   \
-      --save-inv-transformed-reference-points      \
-      --csv-format '1:lon 2:lat 3:radius_m'        \
-      stereo-PC.tif mola.csv
+    pc_align --max-displacement 200           \
+      --datum MOLA                            \
+      --save-inv-transformed-reference-points \
+      --csv-format '1:lon 2:lat 3:radius_m'   \
+      stereo-PC.tif mola.csv                  \
+      -o align/run
 
-It is important to note here that there are two widely used Mars datums,
-and if your CSV file has, unlike above, the heights relative to a datum,
-the correct datum name must be specified via ``--datum``.  :numref:`molacmp`
-talks in more detail about the Mars datums.
+The cloud ``stereo-PC.tif`` will be transformed to to the coordinate system of
+``mola.csv`` and saved as ``align/run-trans_reference.tif``. It can 
+then be gridded with ``point2dem`` (:numref:`point2dem`) and compared to
+``mola.csv`` using ``geodiff`` (:numref:`geodiff`).
+
+It is important to note here that there are two widely used Mars datums, and if
+your CSV file has, unlike above, the heights relative to a datum, the correct
+datum name must be specified via ``--datum``.  :numref:`molacmp` talks in more
+detail about the Mars datums.
 
 See an illustration in :numref:`pc-align-fig`.
 
@@ -1064,7 +1071,11 @@ Validation of alignment
 
 The ``pc_align`` program saves some error report files in the output directory
 (:numref:`pc_align_error`). The produced aligned cloud can be compared to the
-cloud it was aligned to (:numref:`pc_align_validation`). 
+cloud it was aligned to.
+
+:numref:`pc_align_validation` has more details on this, including how to use
+the ``geodiff`` program (:numref:`geodiff`) to take the difference between clouds,
+which can then be colorized.
 
 Alignment and orthoimages
 ~~~~~~~~~~~~~~~~~~~~~~~~~

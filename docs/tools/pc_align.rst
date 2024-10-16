@@ -358,8 +358,8 @@ DEMs can be made out of them with ``point2dem`` (:numref:`point2dem`), and those
 can be overlaid as georeferenced images in ``stereo_gui`` (:numref:`stereo_gui`)
 for inspection. A GIS tool can be used as well.
 
-Alternatively, the ``geodiff`` program (:numref:`geodiff`) can be used
-to compute the (absolute) difference between aligned DEMs, which can
+Alternatively, the ``geodiff`` program (:numref:`geodiff`) can 
+compute the (absolute) difference between aligned DEMs, which can
 be colorized with ``colormap`` (:numref:`colormap`), or colorized on-the-fly
 and displayed with a colorbar in ``stereo_gui`` (:numref:`colorize`).
 
@@ -378,9 +378,6 @@ will be in the same format. If the input is a DEM, the output will be
 an ASP point cloud, since a gridded point cloud may not stay so after
 a 3D transform. 
 
-The ``point2dem`` program can be used to re-grid the obtained point cloud back
-to a DEM.
-
 As an example, assume that ``pc_align`` is run as::
 
     pc_align --max-displacement 100              \
@@ -394,6 +391,9 @@ This will save ``run/run-trans_reference.tif`` which is a point cloud
 in the coordinate system of the source dataset, and
 ``run/run-trans_source.csv`` which is in reference coordinate system
 of the reference dataset.
+
+The ``point2dem`` program (:numref:`point2dem`) can re-grid the
+obtained point cloud back to a DEM.
 
 Care is needed, as before, with setting ``--max-displacement``.
 
