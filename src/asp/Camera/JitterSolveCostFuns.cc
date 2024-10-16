@@ -966,8 +966,9 @@ void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
                                   std::vector<double>                & weight_per_residual, 
                                   ceres::Problem                     & problem) {
 
-  // First pass is for interest point matches, and second pass is for anchor points
-  for (int pass = 0; pass < 2; pass++) {
+  // Do not do a second pass for anchor points. A constraint for interest points
+  // only seems to be enough.
+  for (int pass = 0; pass < 1; pass++) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
       
       // With a rig, only the ref sensor has rotation constraints 
@@ -987,28 +988,26 @@ void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
         
       if (ls_model != NULL) {
         
-        // There are multiple position parameters per camera. Divide the ip
-        // count between them. Note: It was not found helpful to add such a
-        // weight to the CameraUncertaintyError. But the logic below is still
-        // useful for skipping cameras with no pixels.
+        // There are multiple position parameters per camera. Divide the
+        // constraint between them. This was very carefully tested.
         double numPos = ls_model->m_positions.size() / double(NUM_XYZ_PARAMS);
-        double localCount = 1.0 / numPos;
+        double weight = 1.0 / std::max(numPos, 1.0);
 
         // Adjust for the anchor weight
         if (pass == 1)
-          localCount = localCount * anchor_weight;
-        if (localCount <= 0) 
+          weight = weight * anchor_weight;
+        if (weight <= 0) 
           continue;
         
-        for (int ip = 0; ip < numPos; ip++) {
+        for (int pos_it = 0; pos_it < numPos; pos_it++) {
 
           // Must have both a pointer and the vector, as dictated by the API
-          double * cam_ptr = &ls_model->m_positions[ip * NUM_XYZ_PARAMS];
+          double * cam_ptr = &ls_model->m_positions[pos_it * NUM_XYZ_PARAMS];
           vw::Vector3 orig_cam(cam_ptr[0], cam_ptr[1], cam_ptr[2]);
           ceres::CostFunction* cost_function
                   = CamUncertaintyError::Create(orig_cam, cam_ptr, param_len,
                                         opt.camera_position_uncertainty[icam],
-                                        localCount, opt.datum,
+                                        weight, opt.datum,
                                         opt.camera_position_uncertainty_power);
           // This is a hard constraint, so we use a trivial loss function        
           ceres::LossFunction* loss_function = new ceres::TrivialLoss();
@@ -1027,16 +1026,16 @@ void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
         vw::Vector3 orig_cam(curr_params[0], curr_params[1], curr_params[2]);
 
         // Adjust for the anchor weight
-        double localCount = 1.0; // count;
+        double weight = 1.0;
         if (pass == 1)
-          localCount = 1.0 * anchor_weight; // count
-        if (localCount <= 0) 
+          weight = 1.0 * anchor_weight; // count
+        if (weight <= 0) 
           continue;
 
         ceres::CostFunction* cost_function
           = CamUncertaintyError::Create(orig_cam, curr_params, param_len,
                                         opt.camera_position_uncertainty[icam],
-                                        localCount, opt.datum,
+                                        weight, opt.datum,
                                         opt.camera_position_uncertainty_power);
         // This is a hard constraint, so we use a trivial loss function        
         ceres::LossFunction* loss_function = new ceres::TrivialLoss();

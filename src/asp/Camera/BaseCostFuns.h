@@ -81,7 +81,7 @@ struct XYZError {
 struct CamUncertaintyError {
   
   CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
-                      vw::Vector2 const& uncertainty, double num_pixel_obs,
+                      vw::Vector2 const& uncertainty, double weight,
                       vw::cartography::Datum const& datum,
                       double camera_position_uncertainty_power);
     
@@ -91,7 +91,7 @@ struct CamUncertaintyError {
   // the client code.
   static ceres::CostFunction* 
     Create(vw::Vector3 const& orig_ctr, double const* orig_adj, int param_len,
-           vw::Vector2 const& uncertainty, double num_pixel_obs,
+           vw::Vector2 const& uncertainty, double weight,
            vw::cartography::Datum const& datum, 
            double camera_position_uncertainty_power) {
     // 2 residuals and 3 translation variables. For bundle_adjust must add the
@@ -100,11 +100,11 @@ struct CamUncertaintyError {
     // function, especially when the uncertainty is 0.1 m or less.
     if (param_len == 3)
      return (new ceres::NumericDiffCostFunction<CamUncertaintyError, ceres::CENTRAL, 3, 3>
-            (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, num_pixel_obs, 
+            (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, weight, 
                                      datum, camera_position_uncertainty_power)));
     else if (param_len == 6)
      return (new ceres::NumericDiffCostFunction<CamUncertaintyError, ceres::CENTRAL, 3, 6>
-            (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, num_pixel_obs, 
+            (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, weight, 
                                      datum, camera_position_uncertainty_power)));
     else
       vw::vw_throw(vw::ArgumentErr() << "CamUncertaintyError: Invalid param_len: "
@@ -118,7 +118,7 @@ struct CamUncertaintyError {
   vw::Vector3 m_orig_adj;
   int m_param_len;
   vw::Vector2 m_uncertainty;
-  double m_num_pixel_obs; // use double, so we can do a fractional amount of the constraint
+  double m_weight; 
   vw::Matrix3x3 m_EcefToNed;
   double m_camera_position_uncertainty_power;
 };

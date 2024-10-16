@@ -23,16 +23,16 @@
 namespace asp {
   
 CamUncertaintyError::CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
-                                         vw::Vector2 const& uncertainty, double num_pixel_obs,
+                                         vw::Vector2 const& uncertainty, double weight,
                                          vw::cartography::Datum const& datum,
                                          double camera_position_uncertainty_power):
-  m_orig_ctr(orig_ctr), m_uncertainty(uncertainty), m_num_pixel_obs(num_pixel_obs),
+  m_orig_ctr(orig_ctr), m_uncertainty(uncertainty), m_weight(weight),
   m_camera_position_uncertainty_power(camera_position_uncertainty_power) {
     
-  // m_num_pixel_obs must be positive
-  if (m_num_pixel_obs <= 0)
-    vw::vw_throw(vw::ArgumentErr() << "CamUncertaintyError: Invalid num_pixel_obs: "
-              << m_num_pixel_obs << ". It must be positive.\n");
+  // m_weight must be positive
+  if (m_weight <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "CamUncertaintyError: Invalid weight: "
+              << m_weight << ". It must be positive.\n");
   
   // The first three parameters are the camera center adjustments.
   m_orig_adj = vw::Vector3(orig_adj[0], orig_adj[1], orig_adj[2]);
@@ -74,12 +74,12 @@ bool CamUncertaintyError::operator()(const double* cam_adj, double* residuals) c
   vert  /= m_uncertainty[1];
   
   // In the final sum of squares, each term will end up being differences raised
-  // to m_camera_position_uncertainty_power power. Multiplying here by
-  // sqrt(m_num_pixel_obs) was making the constraint too strict.
+  // to m_camera_position_uncertainty_power power. Multiply by
+  // sqrt(m_weight), to give the squared residual the correct weight.
   double p = m_camera_position_uncertainty_power / 2.0;
-  residuals[0] = signed_power(horiz[0], p);
-  residuals[1] = signed_power(horiz[1], p);
-  residuals[2] = signed_power(vert, p);
+  residuals[0] = sqrt(m_weight) * signed_power(horiz[0], p);
+  residuals[1] = sqrt(m_weight) * signed_power(horiz[1], p);
+  residuals[2] = sqrt(m_weight) * signed_power(vert, p);
 
   return true;
 }

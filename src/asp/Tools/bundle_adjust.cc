@@ -436,10 +436,11 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
       double * cam_ptr  = param_storage.get_camera_ptr(icam);
       int param_len = 6; // bundle_adjust and jitter_solve expect different lengths
+      double weight = 1.0;
       ceres::CostFunction* cost_function 
         = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, param_len,
                                       opt.camera_position_uncertainty[icam],
-                                      num_pixels_per_cam[icam], opt.datum,
+                                      weight, opt.datum,
                                       opt.camera_position_uncertainty_power);
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
       problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
