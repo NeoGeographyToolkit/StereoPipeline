@@ -479,18 +479,18 @@ Vector3 asp::CsvConv::csv_to_cartesian_or_point_height(CsvRecord const& csv,
   // but the output of this function may be easting, northing, height.
   
   Vector3 xyz;
-  if (this->format == EASTING_HEIGHT_NORTHING){
+  if (this->format == EASTING_HEIGHT_NORTHING) {
 
   Vector3 point_height = Vector3(ordered_csv[0], ordered_csv[1], ordered_csv[2]);
   Vector2 ll  = geo.point_to_lonlat(Vector2(point_height[0], point_height[1]));
   Vector3 llh = Vector3(ll[0], ll[1], point_height[2]); // now lon, lat, height
   xyz = geo.datum().geodetic_to_cartesian(llh);
   
-  }else if (this->format == HEIGHT_LAT_LON){
+  } else if (this->format == HEIGHT_LAT_LON) {
 
     xyz = geo.datum().geodetic_to_cartesian(ordered_csv);
 
-  }else{ // Handle asp::LAT_LON_RADIUS_M and asp::LAT_LON_RADIUS_KM
+  } else { // Handle asp::LAT_LON_RADIUS_M and asp::LAT_LON_RADIUS_KM
 
     if (this->format == LAT_LON_RADIUS_KM)
       ordered_csv[2] *= 1000.0; // now lon, lat, radius_m

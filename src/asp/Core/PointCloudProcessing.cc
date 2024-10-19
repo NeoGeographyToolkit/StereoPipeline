@@ -191,17 +191,23 @@ namespace asp {
           return m_has_valid_point; // reached end of file
 
         vals = m_csv_conv.parse_csv_line(m_is_first_line, m_has_valid_point, line);
-        if (m_has_valid_point) 
-          break;
+       
+        // Will return projected point and height or xyz. We really
+        // prefer projected points, as then the chipper will have an
+        // easier time grouping spatially points close together, as it
+        // operates the first two coordinates.
+        bool return_point_height = true;
+        try {
+          m_curr_point 
+            = m_csv_conv.csv_to_cartesian_or_point_height(vals, m_georef, return_point_height);
+        } catch (...) {
+          // This is a bug fix. Enounced a point that is out of range.
+          continue;
+        }   
+        
+        // Found a valid point 
+        break;
       }
-
-      // Will return projected point and height or xyz. We really
-      // prefer projected points, as then the chipper will have an
-      // easier time grouping spatially points close together, as it
-      // operates the first two coordinates.
-      bool return_point_height = true;
-      m_curr_point 
-        = m_csv_conv.csv_to_cartesian_or_point_height(vals, m_georef, return_point_height);
 
       return m_has_valid_point;
     }
