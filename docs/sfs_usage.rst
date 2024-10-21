@@ -1554,7 +1554,16 @@ the reference DEM and see which agree with the reference the most
 (even though the SfS DEM and the reference DEM can be quite different,
 it is possible to notice subtle shifts upon careful inspection).
 
-If this approach fails to remove the visually noticeable displacement
+Another approach is to find the stereo disparity from the hillshaded SfS DEM to
+the hillshaded reference DEM (at 1/4th the resolution) with ``parallel_stereo
+--correlator-mode``, then invoke ``image_align`` (:numref:`image_align`) on the
+disparity. It appears that the stereo correlation works better if the first
+cloud is the SfS DEM, as it has more detail. This can produce an alignment
+transform (:numref:`image_align_ecef_trans`) that can be passed in to
+``pc_align`` with zero iterations to align the SfS DEM to the reference DEM
+(:numref:`prevtrans`).
+
+If these approaches fails to remove the visually noticeable displacement
 between the SfS and LOLA terrain, one can try to nudge the SfS terrain
 manually, by using ``pc_align`` as::
 
