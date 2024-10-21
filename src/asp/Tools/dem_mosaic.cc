@@ -1759,6 +1759,10 @@ int main(int argc, char *argv[]) {
     if (opt.block_size > 0)
       block_size = opt.block_size;
 
+    // The block size must be a multiple of 16
+    if (block_size % 16 != 0)
+      vw::vw_throw(vw::ArgumentErr() << "The block size must be a multiple of 16.\n");
+      
     // See if to lump all mosaic in just a given file, rather than creating tiles.
     bool write_to_precise_file = (opt.out_prefix.size() >= 4 &&
 				   opt.out_prefix.substr(opt.out_prefix.size()-4, 4) == ".tif");
