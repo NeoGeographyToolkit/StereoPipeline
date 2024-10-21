@@ -100,7 +100,8 @@ bool asp::has_pinhole_extension(std::string const& input) {
 
 bool asp::has_image_extension(std::string const& input) {
   std::string ext = get_extension(input);
-  if (ext == ".tif"  || ext == ".tiff" || ext == ".ntf" ||
+  if (ext == ".tif"  || ext == ".tiff" || 
+      ext == ".ntf" || ext == ".nitf" ||
        ext == ".png"  || ext == ".jpeg" ||
        ext == ".jpg"  || ext == ".jp2"  ||
        ext == ".img"  || ext == ".cub"  ||
@@ -111,7 +112,8 @@ bool asp::has_image_extension(std::string const& input) {
 
 bool asp::has_tif_or_ntf_extension(std::string const& input) {
   std::string ext = get_extension(input);
-  if (ext == ".tif"  || ext == ".ntf")
+  if (ext == ".tif"  || ext == ".tiff" || 
+      ext == ".ntf" || ext == ".nitf")
     return true;
   return false;
 }
