@@ -47,7 +47,7 @@ Pinhole cameras
        '-122.389 37.627,-122.354 37.626,-122.358 37.612,-122.393 37.613'  \
         --reference-dem dem.tif --focal-length 553846.153846              \
         --optical-center 1280 540 --pixel-pitch 1                         \
-        img.tif -o img.tsai --gcp-file img.gcp --gcp-std 1e-2             \
+        img.tif -o img.tsai --gcp-file img.gcp --gcp-std 1e-2
 
 Here we assume that the pixel pitch is 1, hence both the focal length
 and the optical center are in units of pixels. If the focal length and

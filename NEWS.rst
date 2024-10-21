@@ -83,7 +83,11 @@ point2las (:numref:`point2las`):
 point2dem (:numref:`point2dem`):
   * Adjust the region passed in via the option ``--t_projwin`` so that, as
     usual, the DEM grid coordinates are integer multiples of the grid size.
-   
+  * Handle robustly invalid input points.  
+
+image_align (:numref:`image_align`):
+  * Let the default alignment method be ``rigid`` rather than ``translation``.
+
 misc:
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
     optimized camera file names (or adjustments). Can be passed in back to
@@ -105,6 +109,7 @@ misc:
     GeoJSON, or PROJ string. The previous option is still accepted for backward
     compatibility.
   * Support images with up to 12 bands (channels), up from 6.
+  * Support files with the .nitf extension.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

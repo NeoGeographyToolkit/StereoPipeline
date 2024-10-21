@@ -217,17 +217,24 @@ reliable measurements, which are stored, for example, in a file called
 
 Then, the command::
 
-    pc_align --max-displacement -1 --num-iterations 0 \
-      --save-transformed-source-points                \
-      --save-inv-transformed-reference-points         \
-      --initial-transform run/run-transform.txt       \
-      --csv-format <csv format string>                \
-      dem.tif meas.csv -o run_full/run
+    pc_align                                    \
+      --max-displacement -1                     \
+      --num-iterations 0                        \
+      --max-num-reference-points 1000           \
+      --max-num-source-points 1000              \
+      --save-transformed-source-points          \
+      --save-inv-transformed-reference-points   \
+      --initial-transform run/run-transform.txt \
+      --csv-format <csv format string>          \
+      dem.tif meas.csv                          \
+      -o run_full/run
 
 will transform the full ``dem.tif`` into the coordinate system of ``meas.csv``,
 and ``meas.csv`` into the coordinate system of ``ref.tif`` with no further
-iterations. See also :numref:`ba_pc_align` for how to use such
-transforms with cameras.
+iterations. The number of input points here is small, for speed, as they will
+not be used.
+
+See also :numref:`ba_pc_align` for how to use such transforms with cameras.
 
 If an initial transform is used, with zero or more iterations, the
 output transform produced by such an invocation will be from the source

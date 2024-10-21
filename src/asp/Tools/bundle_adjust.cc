@@ -918,7 +918,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   
   // Write clean matches and many types of stats. These are done together as
   // they rely on reloading interest point matches, which is expensive.
-  bool save_clean_matches = false;
+  bool save_clean_matches = true;
   asp::matchFilesProcessing(cnet,
                             asp::BaBaseOptions(opt), // note the slicing
                             optimized_cams, remove_outliers, outliers, opt.mapproj_dem,

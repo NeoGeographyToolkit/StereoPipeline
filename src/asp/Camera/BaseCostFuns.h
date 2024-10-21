@@ -118,7 +118,7 @@ struct CamUncertaintyError {
   vw::Vector3 m_orig_adj;
   int m_param_len;
   vw::Vector2 m_uncertainty;
-  double m_weight; 
+  double m_weight;
   vw::Matrix3x3 m_EcefToNed;
   double m_camera_position_uncertainty_power;
 };
