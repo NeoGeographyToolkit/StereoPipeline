@@ -8,9 +8,9 @@ the produced aligned second image, each feature has the same row and
 column coordinates as in the first image. It can return a transform
 in pixel space and one in planet's coordinate system.
 
-Several alignment transforms are supported. The alignment transform is
-determined with subpixel precision and is applied using bilinear
-interpolation.
+Several alignment transforms are supported, including ``rigid``,
+``translation``, ``similarity``,  etc. The alignment transform is determined
+with subpixel precision and is applied using bilinear interpolation.
 
 Features are matched among the images using either interest points
 or a disparity produced with ASP's correlation algorithms.
@@ -44,7 +44,8 @@ Examples
 
 ::
    
-    image_align image1.tif image2.tif -o image2_align.tif
+    image_align --alignment-transform rigid        \
+        image1.tif image2.tif -o image2_align.tif
 
 Using a disparity produced from correlation::
 
@@ -83,7 +84,7 @@ In either case, given two DEMs, ``dem1.tif`` and ``dem2.tif``, their
 corresponding images can be aligned to each other as::
 
     image_align image1.tif image2.tif --output-prefix run \
-      --alignment-method translation -o image2_align.tif
+      --alignment-transform rigid -o image2_align.tif
 
 Then, the alignment transform can be used to align the second DEM
 to the first, as::
@@ -97,9 +98,9 @@ in more accurate results than if applied on their hillshaded images.
 (Consider also using for hillshading the tool ``gdaldem hillshade``,
 :numref:`gdal_tools`.)
 
-If the DEMs have very different grids and projections, regridding them
-with ``gdalwarp`` may make them easier to align (invoke this tool with
-cubic spline interpolation).
+If the DEMs have very different grids and projections, regridding them with
+``gdalwarp`` may make them more similar and easier to align (invoke this tool
+with cubic spline interpolation).
   
 Note that the alignment transform is a 3x3 matrix and can be examined
 and edited.  Its inputs and outputs are 2D pixels in *homogeneous
@@ -125,10 +126,12 @@ locations of interest point matches are determined, and the best-fit
 
 Example::
 
-    image_align img1.tif img2.tif       \
-      -o img2_align.tif                 \
-      --ecef-transform-type translation \
-      --dem1 dem1.tif --dem2 dem2.tif   \
+    image_align img1.tif img2.tif \
+      -o img2_align.tif           \
+      --alignment-transform rigid \
+      --ecef-transform-type rigid \
+      --dem1 dem1.tif             \
+      --dem2 dem2.tif             \
       --output-prefix run/run
  
 This will save ``run/run-ecef-transform.txt`` in the ``pc_align``
@@ -138,17 +141,32 @@ format (rotation + translation + scale,
 (:numref:`prevtrans`), and to ``bundle_adjust`` if desired to
 transform cameras (:numref:`ba_pc_align`).
 
+It is important to keep in mind that the ECEF transform is from the second cloud
+to the first, hence ``pc_align`` should have the clouds *in the same order* as for
+``image_align`` in order to use this transform.
+
+The inverse of this transform is saved as well, if desired to transform the
+clouds or cameras from the coordinate system of the first image to the one of
+the second image.
+ 
 If no DEMs exist, the images themselves can be used in their
 place. The grayscale values will be interpreted as heights above the
 datum in meters. The ``image_calc`` program (:numref:`image_calc`)
 can modify these values before the DEMs are passed to ``image_align``.
 
-It is suggested to use ``--ecef-transform-type rigid`` if it is
-thought that a rotational component exists.  Note that
-this will produce a rotation + translation around planet center,
-rather than a local "in-plane" transform, so it 
-can be hard to interpret. A similarity transform can be used
-when there is a difference in scale.
+If only DEMs exist, their hillshaded versions (:numref:`hillshade`) can be
+used as images. As earlier, the more similar visually the images are, the 
+better the results.
+
+It is suggested to use ``--alignment-transform rigid`` and
+``--ecef-transform-type rigid`` if it is thought that a rotational component
+exists, and the value ``translation`` for these options if no rotation is
+expected.
+
+Note that this will produce a rotation + translation around planet
+center, rather than a local "in-plane" transform, so it can be hard to
+interpret. A similarity transform can be used when there is a difference in
+scale.
 
 Note that this transform is an approximation. It is not possible to
 precisely convert a 2D transform between images to a 3D transform
@@ -172,7 +190,7 @@ Command-line options for image_align
     If set, save the interest point matches and computed transform
     (in plain text) using this prefix.
 
---alignment-transform <string (default: "translation")>
+--alignment-transform <string (default: "rigid")>
     Specify the transform to use to align the second image to the
     first. Options: ``translation``, ``rigid`` (translation + rotation),
     ``similarity`` (translation + rotation + scale), ``affine``,

@@ -340,7 +340,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   general_options.add_options()
     ("output-image,o", po::value(&opt.output_image)->default_value(""),
      "Specify the output image.")
-    ("alignment-transform", po::value(&opt.alignment_transform)->default_value("translation"),
+    ("alignment-transform", po::value(&opt.alignment_transform)->default_value("rigid"),
      "Specify the transform to use to align the second image to the first. Options: translation, "
      "rigid (translation + rotation), similarity (translation + rotation + scale), affine, homography.")
     ("ip-per-image", po::value(&opt.ip_per_image)->default_value(0),
@@ -552,8 +552,13 @@ int main(int argc, char *argv[]) {
     
     if (opt.output_prefix != "" && opt.ecef_transform_type != "") {
       std::string ecef_transform_file = opt.output_prefix + "-ecef-transform.txt";
-      vw_out() << "Writing the ECEF transform to: " << ecef_transform_file << std::endl;
+      vw_out() << "Writing the ECEF transform to: " << ecef_transform_file << "\n";
       write_matrix_as_txt(ecef_transform_file, ecef_transform);
+      // Write the inverse too
+      std::string ecef_transform_inv_file = opt.output_prefix + "-ecef-inverse-transform.txt";
+      vw_out() << "Writing the inverse of the ECEF transform to: " 
+        << ecef_transform_inv_file << "\n";
+      write_matrix_as_txt(ecef_transform_inv_file, vw::math::inverse(ecef_transform));
     }
     
     // Any transforms supported by this tool fit in a homography transform object
