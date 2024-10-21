@@ -201,12 +201,13 @@ namespace asp {
           m_curr_point 
             = m_csv_conv.csv_to_cartesian_or_point_height(vals, m_georef, return_point_height);
         } catch (...) {
-          // This is a bug fix. Enounced a point that is out of range.
+          // This is a bug fix. Skip points out of bounds.
           continue;
         }   
         
         // Found a valid point 
-        break;
+        if (m_has_valid_point)
+          break;
       }
 
       return m_has_valid_point;

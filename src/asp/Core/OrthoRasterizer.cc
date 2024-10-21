@@ -151,7 +151,8 @@ namespace asp{
       
       // Further subdivide into boundaries so that prerasterize will
       // only query what it needs.
-      std::vector<BBox2i> blocks = subdivide_bbox(m_image_bbox, m_sub_block_size, m_sub_block_size);
+      std::vector<BBox2i> blocks = subdivide_bbox(m_image_bbox, m_sub_block_size, 
+                                                  m_sub_block_size);
       BBox3 local_union;
       std::list<BBoxPair> solutions;
       std::vector<double> local_hist(m_errors_hist.size(), 0);
