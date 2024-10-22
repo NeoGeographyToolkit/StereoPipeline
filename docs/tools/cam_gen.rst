@@ -60,7 +60,10 @@ This procedure is not as accurate as approximating an existing camera
 (:numref:`cam_gen_prior`).
   
 Some other pixels can be used instead of corners, if using the
-``--pixel-values`` option.
+``--pixel-values`` option. 
+
+The camera center, if known, can be set with the option ``--camera-center``.
+Otherwise the program will solve for it.
 
 Lens distortion parameters, if needed, can be added manually to the produced
 files (:numref:`pinholemodels`).
@@ -359,7 +362,7 @@ Command-line options
     The camera focal length. If ``--pixel-pitch`` is in millimeters, this 
     must be in millimeters as well.
 
---optical-center <float (default: NaN NaN)>
+--optical-center <float float (default: NaN NaN)>
     The camera optical center. If ``--pixel-pitch`` is in millimeters, this must
     be in millimeters as well. If not specified for pinhole cameras, it will be
     set to image center (half of image dimensions) times the pixel pitch. The
@@ -384,6 +387,9 @@ Command-line options
 --distortion-type <string (default: "radtan")>
     Set the distortion type. Options: ``radtan``, ``transverse``. Only
     applicable when creating CSM Frame cameras (:numref:`cam_gen_frame`).
+
+--camera-center <double double double (default: NaN NaN NaN)>
+    The camera center in ECEF coordinates. If not set, the program will solve for it.
 
 --refine-camera
     After a rough initial camera is obtained, refine it using least squares.

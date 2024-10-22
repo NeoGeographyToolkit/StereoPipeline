@@ -135,8 +135,7 @@ public:
 }; // End class CameraSolveLMA_Ht
 
 /// Find the best camera that fits the current GCP
-void fit_camera_to_xyz_ht(bool parse_ecef,
-                          Vector3 const& parsed_camera_center, // may not be known
+void fit_camera_to_xyz_ht(Vector3 const& parsed_camera_center, // may not be known
                           Vector3 const& input_camera_center, // may not be known
                           std::string const& camera_type,
                           bool refine_camera, 
@@ -194,9 +193,8 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
       ((PinholeModel*)out_cam.get())->apply_transform(rotation, translation, scale);
     }
     
-    if (parse_ecef) {
-      // Overwrite the solved camera center with what is found from the
-      // frame index file.
+    if (parsed_camera_center != Vector3(0, 0, 0)) {
+      // Overwrite the solved camera center with what was passed in
       ((PinholeModel*)out_cam.get())->set_camera_center(parsed_camera_center);
     }
   }
@@ -304,11 +302,12 @@ void parse_values(std::string list, std::vector<T> & values) {
 struct Options : public vw::GdalWriteOptions {
   std::string image_file, out_camera, lon_lat_values_str, pixel_values_str, datum_str,
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
-    stereo_session, bundle_adjust_prefix, parsed_cam_ctr_str, parsed_cam_quat_str,
+    stereo_session, bundle_adjust_prefix, parsed_camera_center_str, parsed_cam_quat_str,
     distortion_str, distortion_type, refine_intrinsics, extrinsics_file;
   double focal_length, pixel_pitch, gcp_std, height_above_datum,
     cam_height, cam_weight, cam_ctr_weight;
   Vector2 optical_center;
+  vw::Vector3 camera_center;
   std::vector<double> lon_lat_values, pixel_values, distortion;
   bool refine_camera, parse_eci, parse_ecef, planet_pinhole; 
   int num_pixel_samples;
@@ -359,8 +358,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "in x and y. Only applicable when creating CSM cameras. The default is zero "
      "distortion. See also --distortion-type.")
     ("distortion-type", po::value(&opt.distortion_type)->default_value("radtan"),
-      "Set the distortion type. Options: radtan (default) and transverse. Only applicable "
-      "when creating CSM Frame cameras.")
+     "Set the distortion type. Options: radtan (default) and transverse. Only applicable "
+     "when creating CSM Frame cameras.")
+    ("camera-center", 
+     po::value(&opt.camera_center)->default_value(Vector3(nan, nan, nan),"NaN NaN NaN"),
+     "The camera center in ECEF coordinates. If not set, the program will solve for it.")
     ("refine-camera", po::bool_switch(&opt.refine_camera)->default_value(false)->implicit_value(true),
      "After a rough initial camera is obtained, refine its pose using least squares.")
     ("refine-intrinsics", po::value(&opt.refine_intrinsics)->default_value(""),
@@ -607,9 +609,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             std::string x = vals[5];
             std::string y = vals[6];
             std::string z = vals[7];
-            opt.parsed_cam_ctr_str = x + " " + y + " " + z;
+            opt.parsed_camera_center_str = x + " " + y + " " + z;
             vw_out() << "Parsed the ECI camera center in km: "
-                << opt.parsed_cam_ctr_str <<".\n";
+                << opt.parsed_camera_center_str <<".\n";
             
             std::string q0 = vals[8];
             std::string q1 = vals[9];
@@ -627,9 +629,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             std::string x = vals[12];
             std::string y = vals[13];
             std::string z = vals[14];
-            opt.parsed_cam_ctr_str = x + " " + y + " " + z;
+            opt.parsed_camera_center_str = x + " " + y + " " + z;
             vw_out() << "Parsed the ECEF camera center in km: "
-                << opt.parsed_cam_ctr_str <<".\n";
+                << opt.parsed_camera_center_str <<".\n";
             
             std::string q0 = vals[15];
             std::string q1 = vals[16];
@@ -1079,24 +1081,31 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
 
   // If we have camera center in ECI or ECEF coordinates in km, convert
   // it to meters, then find the height above datum.
-  Vector3 parsed_cam_ctr(0, 0, 0);
-  if (opt.parsed_cam_ctr_str != "") {
+  Vector3 parsed_camera_center(0, 0, 0);
+  if (opt.parsed_camera_center_str != "") {
     std::vector<double> vals;
-    parse_values<double>(opt.parsed_cam_ctr_str, vals);
+    parse_values<double>(opt.parsed_camera_center_str, vals);
     if (vals.size() != 3) 
       vw_throw(ArgumentErr() << "Could not parse 3 values from: "
-                << opt.parsed_cam_ctr_str << ".\n");
+                << opt.parsed_camera_center_str << ".\n");
 
-    parsed_cam_ctr = Vector3(vals[0], vals[1], vals[2]);
-    parsed_cam_ctr *= 1000.0;  // convert to meters
-    vw_out() << "Parsed camera center (meters): " << parsed_cam_ctr << "\n";
-
-    Vector3 llh = geo.datum().cartesian_to_geodetic(parsed_cam_ctr);
-      
-    // If parsed_cam_ctr is in ECI coordinates, the lon and lat won't be accurate
+    parsed_camera_center = Vector3(vals[0], vals[1], vals[2]);
+    parsed_camera_center *= 1000.0;  // convert to meters
+    vw_out() << "Parsed camera center (meters): " << parsed_camera_center << "\n";
+  }
+  
+  // The camera center can be also set on the command line
+  if (!std::isnan(opt.camera_center[0])) {
+    parsed_camera_center = opt.camera_center;
+    vw_out() << "Using the camera center set on the command line: " 
+      << std::setprecision(17) << parsed_camera_center << "\n";
+  }
+  
+  if (parsed_camera_center != Vector3() && opt.cam_weight > 0) {
+    // If parsed_camera_center is in ECI coordinates, the lon and lat won't be accurate
     // but the height will be.
-    if (opt.cam_weight > 0) 
-      opt.cam_height = llh[2];
+    Vector3 llh = geo.datum().cartesian_to_geodetic(parsed_camera_center);
+    opt.cam_height = llh[2];
   }
     
   vw::Quat parsed_cam_quat;
@@ -1117,7 +1126,7 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
              << " meters with a weight strength of " << opt.cam_weight << ".\n";
   }
   if (opt.cam_ctr_weight > 0 && opt.refine_camera)  
-    vw_out() << "Will try to have the camera center change little during camera refinement.\n"; 
+    vw_out() << "Will constrain the camera center with the camera weight.\n"; 
 
   Vector3 input_cam_ctr(0, 0, 0); // estimated camera center from input camera
   std::vector<double> cam_heights;
@@ -1132,8 +1141,8 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
 
   // Overwrite the estimated center with what is parsed from vendor's data,
   // if this data exists.
-  if (opt.parse_ecef && parsed_cam_ctr != Vector3())
-    input_cam_ctr = parsed_cam_ctr;
+  if (parsed_camera_center != Vector3(0, 0, 0))
+    input_cam_ctr = parsed_camera_center;
     
   if (opt.lon_lat_values.size() < 3) 
     vw_throw(ArgumentErr() << "Expecting at least three longitude-latitude pairs.\n");
@@ -1215,7 +1224,7 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
 
   // Transform it and optionally refine it
   bool verbose = true;
-  fit_camera_to_xyz_ht(opt.parse_ecef, parsed_cam_ctr, input_cam_ctr,
+  fit_camera_to_xyz_ht(parsed_camera_center, input_cam_ctr,
                        opt.camera_type, opt.refine_camera,  
                        xyz_vec, opt.pixel_values, 
                        opt.cam_height, opt.cam_weight, opt.cam_ctr_weight, geo.datum(),

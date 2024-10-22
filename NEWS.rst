@@ -88,6 +88,9 @@ point2dem (:numref:`point2dem`):
 image_align (:numref:`image_align`):
   * Let the default alignment method be ``rigid`` rather than ``translation``.
 
+cam_gen (:numref:`cam_gen`):
+  * Added the option ``--camera-center``.
+  
 misc:
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
     optimized camera file names (or adjustments). Can be passed in back to

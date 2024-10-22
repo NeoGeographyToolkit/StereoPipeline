@@ -202,7 +202,7 @@ Other files created at all stages
 \*-<program name>-resource-usage.txt - resource usage files
     For Linux, write such a file for each ``parallel_stereo`` subprocess. It
     contains the elapsed time and memory usage, as output by ``/usr/bin/time``.
-    As for log files, these can be written to tile subdirectories and can be
+    As for log files, these can be written to tile subdirectories that are 
     deleted after a successful run.
 
 .. _poly_files:
@@ -215,13 +215,13 @@ a ``.txt`` or ``.csv`` extension. The x and y coordinates are stored as columns
 side-by side. Individual polygons are separated by an empty line. A color for
 the polygons is specified as a line of the form: ``color = red``. The given
 color applies to all polygons on subsequent lines until overridden by another
-such statement. An example use is in :numref:`plot_poly`.
+such statement. How to create and save such files is shown in :numref:`plot_poly`.
 
-When such polygons are saved, a header will be added to the file, as lines
-starting with the pound sign, containing the WKT string for the georeference,
-the value of ``--csv-format`` to interpret the vertices, and the style (usually
-set to ``poly``). This allows for overlaying polygons with different
-georeferences in ``stereo_gui``.
+When such polygons are saved, a header will be added to the file, consisting of
+lines starting with the pound sign, containing the WKT string for the
+georeference, the value of ``--csv-format`` to interpret the vertices, and the
+style (usually set to ``poly``). This allows for overlaying polygons with
+different georeferences in ``stereo_gui``.
 
 
 Inspection and properties of the output files

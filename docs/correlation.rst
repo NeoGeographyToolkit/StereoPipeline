@@ -41,7 +41,8 @@ squares Bundle Adjustment, which is described in detail in
 
 Next, the left and right images are roughly aligned using one of
 the four methods: (1) a homography transform of the right image
-based on automated tie-point measurements, (2) an affine epipolar
+based on automated tie-point measurements (interest point matches), 
+(2) an affine epipolar
 transform of both the left and right images (also based on tie-point
 measurements as earlier), the effect of which is equivalent to
 rotating the original cameras which took the pictures, (3) a 3D
