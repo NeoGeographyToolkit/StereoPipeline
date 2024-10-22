@@ -3,9 +3,9 @@
 Guide to output files
 =====================
 
-The ``parallel_stereo`` tool generates a variety of intermediate files
-that are useful for debugging. These are listed below, along with
-brief descriptions about the contents of each file. 
+The ``parallel_stereo`` program (:numref:`parallel_stereo`) generates a variety
+of intermediate files that are useful for debugging. These are listed below,
+along with brief descriptions about the contents of each file. 
 
 Some of these files are stored at the location given by the specified
 output prefix, while others are in subdirectories of that location
@@ -189,14 +189,21 @@ Files created at triangulation
 Other files created at all stages
 ---------------------------------
 
-\*-log* - Each program writes in the output prefix location (or tile
-    location for ``parallel_stereo``) a log file containing the
-    command name, build information, and various messages output by
-    that program.
-
-\*-<program name>-resource-usage.txt - For Linux, write such a file for each
-    ``parallel_stereo`` tile, containing the elapsed time and memory
-    usage, as output by ``/usr/bin/time``.
+\*-log* - log files
+    Each program invoked by ``parallel_stereo`` writes a log file containing the
+    command name, build information, and various messages output by that
+    program. Those are saved to the output prefix location, or to tile
+    subdirectories, depending on the stage of processing. 
+    
+    The tiles are deleted after a successful run, which makes the log files in
+    subdirectories go away. See the ``--keep-only`` option
+    (:numref:`ps_options`) for how to keep all data, including the log files.
+    
+\*-<program name>-resource-usage.txt - resource usage files
+    For Linux, write such a file for each ``parallel_stereo`` subprocess. It
+    contains the elapsed time and memory usage, as output by ``/usr/bin/time``.
+    As for log files, these can be written to tile subdirectories and can be
+    deleted after a successful run.
 
 .. _poly_files:
 
