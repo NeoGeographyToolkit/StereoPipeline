@@ -228,6 +228,15 @@ void filter_D_sub(ASPGlobalOptions const& opt,
     }
   }
 
+  // Print a warning if no valid points were found. Maybe the cameras
+  // are too similar.
+  if (vals.empty()) {
+    vw::vw_out(vw::WarningMessage) << "No valid points found during triangulation. "
+     << "Skipping any further outlier removal. Check the stereo convergence "
+     << "angle or consider reducing the value of --min-triangulation-angle.\n";
+     return;
+  }
+  
   // Find the outlier brackets
   double b = -1.0, e = -1.0;
   vw::math::find_outlier_brackets(vals, pct_fraction, factor, b, e);
@@ -319,7 +328,7 @@ void filter_D_sub_using_spread(ASPGlobalOptions const& opt, std::string const& d
     return;
 
   vw_out() << "Filtering outliers in D_sub based on --max-disp-spread.\n";
-
+  
   vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
   vw::Vector2 upsample_scale;
   asp::load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
@@ -346,17 +355,20 @@ void filter_D_sub_using_spread(ASPGlobalOptions const& opt, std::string const& d
     }
   }
   
+  // Do not throw an error, as sometimes the disparity is empty because
+  // some other filtering may have removed all points in degenerate cases.
+  // Just continue with the run and hope for the best.
   if (dx.empty())
-    vw_throw(ArgumentErr() << "Empty disparity.");
+    vw::vw_out(vw::WarningMessage) << "Empty disparity. Will not continue with filtering.\n";
   
   std::sort(dx.begin(), dx.end());
   std::sort(dy.begin(), dy.end());
   double mid_x = dx[dx.size()/2]; // median
   double mid_y = dy[dy.size()/2];
-  
   double half = max_disp_spread / 2.0;
+  
   BBox2 spread_box(mid_x - half, mid_y - half, max_disp_spread, max_disp_spread);
-
+  
   // Wipe offending disparities
   int count = 0;
   for (int col = 0; col < sub_disp.cols(); col++) {
