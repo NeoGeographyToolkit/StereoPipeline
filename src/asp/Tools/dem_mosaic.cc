@@ -959,23 +959,18 @@ public:
         for (int r = 0; r < bbox.height(); r++){
           if (weights(c, r) > 0)
             tile(c, r) /= weights(c, r);
-
-          //if (m_opt.save_dem_weight >= 0 && weights(c, r) > 0)
-          //  saved_weight(c, r) /= weights(c, r);
-
         } // End row loop
       } // End col loop
     } // End dividing case
 
-
     // Finish stddev calculations
-    if (m_opt.stddev){
-      for (int c = 0; c < bbox.width(); c++){ // Iterate over all pixels!
-        for (int r = 0; r < bbox.height(); r++){
+    if (m_opt.stddev) {
+      for (int c = 0; c < bbox.width(); c++) { // Iterate over all pixels!
+        for (int r = 0; r < bbox.height(); r++) {
 
           if (weights(c, r) > 1.0) {
             tile(c, r) = sqrt(tile(c, r) / (weights(c, r) - 1.0));
-          } else { // Invalid pixel!
+          } else { // Invalid pixel
             tile(c, r) = m_opt.out_nodata_value;
           }
         } // End row loop
@@ -983,6 +978,7 @@ public:
     } // End stddev case
 
     // For the median and nmad operations
+    // TODO(oalexan1): This must be a function
     if (m_opt.median || m_opt.nmad){
       // Init output pixels to nodata
       fill(tile, m_opt.out_nodata_value);
@@ -1058,6 +1054,7 @@ public:
     }
 
     // For priority blending length.
+    // TODO(oalexan1): This must be a function
     if (use_priority_blend) {
 
       if (tile_vec.size() != weight_vec.size() || tile_vec.size() != clip2dem_index.size())
@@ -1067,7 +1064,7 @@ public:
       // the DEMs where we don't want blending. Then we will have to
       // recreate the weights. That because the current weights have
       // been interpolated from a different grid, and won't handle
-      // erosion and bluring well.
+      // erosion and blur well.
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
         for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
           for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
@@ -1175,7 +1172,7 @@ public:
       tile = index_map;
 
     // How many valid pixels are there in the tile
-    long long int num_valid_in_tile = 0; // use int64 to not overlow for large images
+    long long int num_valid_in_tile = 0; // use int64 to not overflow for large images
     for (int col = 0; col < tile.cols(); col++) {
       for (int row = 0; row < tile.rows(); row++) {
         vw::Vector2 pix = vw::Vector2(col, row) + bbox.min();
