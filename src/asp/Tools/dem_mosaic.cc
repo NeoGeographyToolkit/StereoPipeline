@@ -392,6 +392,94 @@ std::string tile_suffix(Options const& opt){
   return ans;
 }
 
+// Initializations needed for various modes
+void initializeTileVector(int num_images, 
+                          BBox2i const& bbox, Options const& opt,
+                          // Outputs
+                          ImageView<double> & tile,
+                          std::vector<ImageView<double>>& tile_vec, 
+                          std::vector<ImageView<double>>& weight_vec) {
+
+  // Wipe the output vectors
+  tile_vec.clear();
+  weight_vec.clear();
+  
+  if (opt.median || opt.nmad) // Store each input separately
+    tile_vec.reserve(num_images);
+    
+  if (opt.stddev) { // Need one working image
+    tile_vec.push_back(ImageView<double>(bbox.width(), bbox.height()));
+    // Each pixel starts at zero, nodata is handled later
+    fill(tile_vec[0], 0.0);
+    fill(tile,        0.0);
+  }
+  
+  if (opt.priority_blending_len > 0) { // Store each weight separately
+    tile_vec.reserve  (num_images);
+    weight_vec.reserve(num_images);
+  }
+  
+  return;
+}
+
+// A helper function to do interpolation. Will not interpolate when 
+// exactly on the grid.
+typedef PixelGrayA<double> DoubleGrayA;
+DoubleGrayA interpDem(double x, double y, 
+                     ImageView<DoubleGrayA> const& dem,
+                     ImageViewRef<DoubleGrayA> const& interp_dem,
+                     double tol,
+                     const Options& opt) {
+
+  DoubleGrayA pval;
+
+  // Round to nearest integer location
+  int i0 = round(x), j0 = round(y);
+  if ((fabs(x-i0) < tol) && (fabs(y-j0) < tol) &&
+      ((i0 >= 0) && (i0 <= dem.cols()-1) &&
+        (j0 >= 0) && (j0 <= dem.rows()-1))) {
+
+    // A lot of care is needed here. We are at an integer
+    // pixel, save for numerical error. Just borrow pixel's
+    // value, and don't interpolate. Interpolation can result
+    // in invalid pixels if the current pixel is valid but its
+    // neighbors are not. It can also make it appear is if the
+    // current indices are out of bounds while in fact they
+    // are barely so.
+    pval = dem(i0, j0);
+
+  } else { // We are not right on an integer pixel and we need to interpolate
+
+    // Below must use x <= cols()-1 as x is double
+    bool is_good = ((x >= 0) && (x <= dem.cols()-1) && 
+        (y >= 0) && (y <= dem.rows()-1));
+    if (!is_good) {
+      pval.a() = 0; // Flag as nodata
+      return pval; // Outside the loaded DEM bounds, skip to the next pixel
+    }
+    
+    // If we have weights of 0, that means there are invalid pixels, so skip this point.
+    int i0 = (int)floor(x), j0 = (int)floor(y);
+    int i1 = (int)ceil(x),  j1 = (int)ceil(y);
+    bool nodata = ((dem(i0, j0).a() == 0) || (dem(i1, j0).a() == 0) ||
+                    (dem(i0, j1).a() == 0) || (dem(i1, j1).a() == 0));
+    bool border = ((dem(i0, j0).a() <  0) || (dem(i1, j0).a() <  0) ||
+                    (dem(i0, j1).a() <  0) || (dem(i1, j1).a() <  0));
+
+    if (nodata || border) {
+      pval.v() = 0;
+      pval.a() = -1; // Flag as border
+
+      if (opt.propagate_nodata && !border)
+        pval.a() = 0; // Flag as nodata
+
+    } else
+      pval = interp_dem(x, y); // Things checked out, do the interpolation.
+  }
+  
+  return pval;
+}
+
 /// Class that does the actual image processing work
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
   int m_cols, m_rows, m_bias;
@@ -486,7 +574,6 @@ public:
     // We will do all computations in double precision, regardless
     // of the precision of the inputs, for increased accuracy.
     // - The image data buffers are initialized here
-    typedef PixelGrayA<double> DoubleGrayA;
     ImageView<double> tile   (bbox.width(), bbox.height()); // the output tile (in most cases)
     ImageView<double> weights(bbox.width(), bbox.height()); // accumulated weights (in most cases)
     fill(tile, m_opt.out_nodata_value);
@@ -495,23 +582,13 @@ public:
     // True if we won't be doing any DEM blending.
     bool noblend = (no_blend(m_opt) > 0);
 
-    // A vector of images the size of the output tile.
-    // - Used for median, nmad, and stddev calculation.
+    // A vector of tiles, each of the size of the output tile, 
+    // is for median, nmad, and stddev calculation.
+    int num_images = m_imgMgr.size();
     std::vector<ImageView<double>> tile_vec, weight_vec;
     std::vector<std::string> dem_vec;
-    if (m_opt.median || m_opt.nmad) // Store each input separately
-      tile_vec.reserve(m_imgMgr.size());
-    if (m_opt.stddev) { // Need one working image
-      tile_vec.push_back(ImageView<double>(bbox.width(), bbox.height()));
-      // Each pixel starts at zero, nodata is handled later
-      fill(tile_vec[0], 0.0);
-      fill(tile,        0.0);
-    }
-    if (use_priority_blend) { // Store each weight separately
-      tile_vec.reserve  (m_imgMgr.size());
-      weight_vec.reserve(m_imgMgr.size());
-    }
-
+    initializeTileVector(num_images, bbox, m_opt, tile, tile_vec, weight_vec);
+    
     // This will ensure that pixels from earlier images are
     // mostly used unmodified except being blended at the boundary.
     vw::ImageView<double> weight_modifier;
@@ -761,49 +838,10 @@ public:
           // Input DEM pixel relative to loaded bbox
           double x = in_pix[0] - in_box.min().x();
           double y = in_pix[1] - in_box.min().y();
-          DoubleGrayA pval;
+          
+          // Interpolate
+          DoubleGrayA pval = interpDem(x, y, dem, interp_dem, g_tol, m_opt);
 
-          // Round to nearest integer location
-          int i0 = round(x), j0 = round(y);
-          if ((fabs(x-i0) < g_tol) && (fabs(y-j0) < g_tol) &&
-              ((i0 >= 0) && (i0 <= dem.cols()-1) &&
-               (j0 >= 0) && (j0 <= dem.rows()-1))) {
-
-            // A lot of care is needed here. We are at an integer
-            // pixel, save for numerical error. Just borrow pixel's
-            // value, and don't interpolate. Interpolation can result
-            // in invalid pixels if the current pixel is valid but its
-            // neighbors are not. It can also make it appear is if the
-            // current indices are out of bounds while in fact they
-            // are barely so.
-            pval = dem(i0, j0);
-
-          } else { // We are not right on an integer pixel and we need to interpolate
-
-            // Below must use x <= cols()-1 as x is double
-            bool is_good = ((x >= 0) && (x <= dem.cols()-1) && // TODO: should be an image function!
-		            (y >= 0) && (y <= dem.rows()-1));
-            if (!is_good)
-              continue; // Outside the loaded DEM bounds, skip to the next pixel
-
-            // If we have weights of 0, that means there are invalid pixels, so skip this point.
-            int i0 = (int)floor(x), j0 = (int)floor(y);
-            int i1 = (int)ceil(x),  j1 = (int)ceil(y);
-            bool nodata = ((dem(i0, j0).a() == 0) || (dem(i1, j0).a() == 0) ||
-                           (dem(i0, j1).a() == 0) || (dem(i1, j1).a() == 0));
-            bool border = ((dem(i0, j0).a() <  0) || (dem(i1, j0).a() <  0) ||
-                           (dem(i0, j1).a() <  0) || (dem(i1, j1).a() <  0));
-
-            if (nodata || border) {
-              pval.v() = 0;
-              pval.a() = -1; // Flag as border
-
-              if (m_opt.propagate_nodata && !border)
-                pval.a() = 0; // Flag as nodata
-
-            } else
-              pval = interp_dem(x, y); // Things checked out, do the interpolation.
-          }
           // Separate the value and alpha for this pixel.
           double val = pval.v();
           double wt  = pval.a();
@@ -823,7 +861,7 @@ public:
           }
 
           // If point is in-bounds and nodata, make sure this point stays 
-          //  at nodata even if other DEMS contain it.
+          //  at nodata even if other DEMs contain it.
           if ((wt == 0) && m_opt.propagate_nodata) {
             tile   (c, r) = 0;
             weights(c, r) = -1.0;
@@ -878,7 +916,7 @@ public:
           }else if (m_opt.count){ // Increment the count
             tile(c, r)++;
             weights(c, r) += wt;
-          }else if (m_opt.stddev){ // Standard Deviation --> Keep running calculation
+          } else if (m_opt.stddev) { // Standard deviation --> Keep running calculation
             weights(c, r) += 1.0;
             double curr_mean = tile_vec[0](c,r);
             double delta     = val - curr_mean;
@@ -886,7 +924,7 @@ public:
             double newVal = tile(c, r) + delta*(val - curr_mean);
             tile(c, r)    = newVal;
             tile_vec[0](c,r) = curr_mean;
-          }else if (!noblend){ // Blending --> Weighted average
+          } else if (!noblend) { // Blending --> Weighted average
             tile(c, r) += wt*val;
             weights(c, r) += wt;
             if (m_opt.save_dem_weight == dem_iter)
@@ -1189,7 +1227,6 @@ public:
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
 }; // End class DemMosaicView
-
 
 /// Find the bounding box of all DEMs in the projected space.
 /// - mosaic_bbox is the output bounding box in projected space
