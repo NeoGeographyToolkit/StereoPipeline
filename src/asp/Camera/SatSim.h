@@ -68,7 +68,7 @@ std::string camPrefix(SatSimOptions const& opt, int iFrame, double timestamp, bo
 
 // A function to create and save the cameras. Assume no distortion, and pixel
 // pitch = 1.
-void genPinholeCameras(SatSimOptions          const& opt, 
+void genPinholeCameras(SatSimOptions          const& opt,
                 vw::cartography::GeoReference const& dem_georef,
                 std::vector<vw::Vector3>      const& positions,
                 std::vector<vw::Matrix3x3>    const& cam2world,
@@ -77,12 +77,12 @@ void genPinholeCameras(SatSimOptions          const& opt,
                 bool                                 have_rig,
                 Eigen::Affine3d               const& ref2sensor,
                 std::string                   const& suffix, 
-                // outputs
+                // Outputs
                 std::vector<std::string> & cam_names,
                 std::vector<vw::CamPtr>  & cams);
 
 // Generate images by projecting rays from the sensor to the ground
-void genImages(SatSimOptions const& opt,
+void genImages(SatSimOptions      const& opt,
     bool external_cameras,
     std::vector<std::string>      const& cam_names,
     std::vector<vw::CamPtr>       const& cams,
@@ -129,8 +129,8 @@ void writeRelRig(std::string const& out_prefix, rig::RigSet const& rig);
 // A little function to avoid repetitive code in many places.
 // Get the value of a map key if known to exist.
 template<class A, class B>
-A mapVal(std::map<B, A> const& m, B const& key){
-  typename std::map<B, A>::const_iterator it = m.find(key);
+A mapVal(std::map<B, A> const& m, B const& key) {
+  auto it = m.find(key);
   if (it == m.end()) 
     vw::vw_throw(vw::ArgumentErr() << "Could not find key " << key << " in map.\n");
   return it->second;

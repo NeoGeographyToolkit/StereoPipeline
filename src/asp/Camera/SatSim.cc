@@ -60,7 +60,7 @@ void calcEcefTrajPtAlongAcross(vw::Vector3 const& curr_proj,
                                vw::Vector3 & P,
                                vw::Vector3 & along,
                                vw::Vector3 & across) {
-  
+
   // Compute the point on the trajectory, in projected coordinates
   asp::calcEcefAlongAcross(dem_georef, delta, proj_along, proj_across, curr_proj,
                           // Outputs, as vectors in ECEF
@@ -1130,18 +1130,18 @@ void applyRigTransform(Eigen::Affine3d const & ref_to_sensor,
 
 // A function to create and save Pinhole cameras. Assume no distortion, and pixel
 // pitch = 1.
-void genPinholeCameras(SatSimOptions      const& opt,
-            vw::cartography::GeoReference const& dem_georef,
-            std::vector<vw::Vector3>      const& positions,
-            std::vector<vw::Matrix3x3>    const& cam2world,
-            std::vector<vw::Matrix3x3>    const& ref_cam2world,
-            std::vector<double>           const& cam_times,
-            bool                                 have_rig,
-            Eigen::Affine3d               const& ref2sensor,
-            std::string                   const& suffix, 
-            // Outputs
-            std::vector<std::string>           & cam_names,
-            std::vector<vw::CamPtr>            & cams) {
+void genPinholeCameras(SatSimOptions          const& opt,
+                vw::cartography::GeoReference const& dem_georef,
+                std::vector<vw::Vector3>      const& positions,
+                std::vector<vw::Matrix3x3>    const& cam2world,
+                std::vector<vw::Matrix3x3>    const& ref_cam2world,
+                std::vector<double>           const& cam_times,
+                bool                                 have_rig,
+                Eigen::Affine3d               const& ref2sensor,
+                std::string                   const& suffix, 
+                // Outputs
+                std::vector<std::string> & cam_names,
+                std::vector<vw::CamPtr>  & cams) {
 
   // Ensure we have as many camera positions as we have camera orientations
   if (positions.size() != cam2world.size() || positions.size() != ref_cam2world.size()
@@ -1462,11 +1462,11 @@ public:
 };
 
 // Generate images by projecting rays from the sensor to the ground
-void genImages(SatSimOptions const& opt,
+void genImages(SatSimOptions      const& opt,
     bool external_cameras,
-    std::vector<std::string> const& cam_names,
-    std::vector<vw::CamPtr>  const& cams,
-    std::string              const& suffix, 
+    std::vector<std::string>      const& cam_names,
+    std::vector<vw::CamPtr>       const& cams,
+    std::string                   const& suffix, 
     vw::cartography::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> dem,
     double height_guess,
