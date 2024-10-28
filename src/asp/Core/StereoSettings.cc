@@ -239,8 +239,8 @@ namespace asp {
        "Sigma value for Gaussian kernel used with prefilter modes 1 and 2.")
       ("corr-seed-mode",         po::value(&global.seed_mode)->default_value(1),
         "Correlation seed strategy. [0 None, 1 Use low-res disparity from stereo, 2 Use low-res disparity from provided DEM (see disparity-estimation-dem), 3 Use low-res disparity produced by sparse_disp (in development)]")
-      ("min-num-ip",             po::value(&global.min_num_ip)->default_value(30),
-                     "The minimum number of interest points which must be found to estimate the search range.")
+      ("min-num-ip",             po::value(&global.min_num_ip)->default_value(20),
+       "The minimum number of interest points which must be found to estimate the search range.")
       ("corr-sub-seed-percent",  po::value(&global.seed_percent_pad)->default_value(0.25),
                      "Expand the search range by this factor when computing the low-resolution disparity.")
       ("cost-mode",              po::value(&global.cost_mode)->default_value(2),
