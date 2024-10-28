@@ -384,7 +384,7 @@ corr-sub-seed-percent (*float*) (default=0.25)
     search range is grown by this factor for the purpose of computing
     the low-resolution disparity.
 
-min-num-ip (*integer*) (default = 10)
+min-num-ip (*integer*) (default = 20)
     Automatic search range estimation will quit if at least this many
     interest points are not detected.
 
