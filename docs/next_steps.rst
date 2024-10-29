@@ -942,6 +942,12 @@ If ``stereo_corr`` takes unreasonably long, it may have encountered a
 portion of the image where, due to noise (such as clouds, shadows, etc.)
 the determined search range is much larger than what it should be. 
 
+In this case it is suggested to mapproject the images
+(:numref:`mapproj-example`). This will make the images more similar and reduce
+the search range. 
+
+A few other strategies, with or without mapprojected images, are as follows.
+
 With the default block-matching algorithm, ``--stereo-algorithm
 asp_bm``, the option ``--corr-timeout integer`` can be used to limit
 how long each 1024 |times| 1024 pixel tile can take. A good value here
