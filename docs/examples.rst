@@ -37,6 +37,7 @@ robot images) and in :numref:`sfm` (for orbital images with no rig).
    examples/skysat
    examples/historical
    examples/bathy
+   examples/umbra_sar
 
 .. _rig_examples:
 

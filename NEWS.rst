@@ -41,6 +41,7 @@ sat_sim (:numref:`sat_sim`):
     help simulate the effect of degraded images due to fog, motion, etc.
   
 parallel_stereo (:numref:`parallel_stereo`):
+  * Added an example of processing Umbra SAR images (:numref:`umbra_sar`).
   * The initial low-resolution disparity from a DEM works with mapprojected
     images (:numref:`d_sub_dem`).
   * Added a discussion of various ways ASP can make use of existing terrain data

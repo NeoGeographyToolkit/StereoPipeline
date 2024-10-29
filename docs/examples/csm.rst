@@ -546,8 +546,11 @@ choose good stereo pairs.
 The USGS CSM SAR sensor for LRO Mini-RF 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-*Mini-RF* was a Synthetic Aperture Radar (SAR) sensor on the LRO
-spacecraft. It is challenging to process its data with ASP for several
+This page describes processing data produced with the *Mini-RF* Synthetic
+Aperture Radar (SAR) sensor on the LRO spacecraft while making use of CSM
+cameras. A SAR example for Earth is in :numref:`umbra_sar`. 
+
+It is challenging to process its data with ASP for several
 reasons:
 
  - The synthetic image formation model produces curved rays going from the
