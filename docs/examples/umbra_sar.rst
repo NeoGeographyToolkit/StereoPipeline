@@ -56,7 +56,7 @@ It was helpful to run bundle adjustment first (:numref:`bundle_adjust`), to make
 the images more self-consistent and reduce the triangulation error
 (:numref:`triangulation_error`)::
 
-    bundle_adjust                               \
+    bundle_adjust -t rpc                        \
       left.tif right.tif                        \
       --ip-detect-method 1                      \
       --ip-per-tile 4000                        \
@@ -87,7 +87,7 @@ match files produced earlier::
 The ``asp_mgm`` algorithm worked much better than the default ``asp_bm``
 (:numref:`stereo_alg_overview`).
 
-Then, a terrain model was produced with ``point2dem`` (:numref:`point2dem`),
+A terrain model was produced with ``point2dem`` (:numref:`point2dem`),
 in a local stereographic projection::
 
     point2dem --stereographic \
@@ -113,7 +113,7 @@ The ASP-created DEM was aligned to the reference DEM with ``pc_align``
 
 A good value for the ``--max-displacement`` option is perhaps 1.5 times the mean
 elevation difference between the two input DEMs, that can be found with
-``geodiff`` and ``gdalinfo -stats`` (:numref:`geodiff`).
+``geodiff`` (:numref:`geodiff`)  and ``gdalinfo -stats``.
 
 The transformed cloud can be gridded back to a DEM as::
 
