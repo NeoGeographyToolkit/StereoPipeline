@@ -130,11 +130,11 @@ void centerline_weights2(ImageT const& img, ImageView<double> & weights,
   std::vector<int> minValInCol(numCols, 0);
   std::vector<int> maxValInCol(numCols, 0);
 
-  for (int k = 0; k < numRows; k++){
+  for (int k = 0; k < numRows; k++) {
     minValInRow[k] = numCols;
     maxValInRow[k] = 0;
   }
-  for (int col = 0; col < numCols; col++){
+  for (int col = 0; col < numCols; col++) {
     minValInCol[col] = numRows;
     maxValInCol[col] = 0;
   }
@@ -160,7 +160,7 @@ void centerline_weights2(ImageT const& img, ImageView<double> & weights,
   for (int row = 0; row < numRows; row++) {
     hCenterLine   [row] = (minValInRow[row] + maxValInRow[row])/2.0;
     hMaxDistArray [row] =  maxValInRow[row] - minValInRow[row];
-    if (hMaxDistArray[row] < 0){
+    if (hMaxDistArray[row] < 0) {
       hMaxDistArray[row]=0;
     }
   }
@@ -169,7 +169,7 @@ void centerline_weights2(ImageT const& img, ImageView<double> & weights,
   for (int col = 0 ; col < numCols; col++) {
     vCenterLine   [col] = (minValInCol[col] + maxValInCol[col])/2.0;
     vMaxDistArray [col] =  maxValInCol[col] - minValInCol[col];
-    if (vMaxDistArray[col] < 0){
+    if (vMaxDistArray[col] < 0) {
       vMaxDistArray[col]=0;
     }
   }
@@ -182,8 +182,8 @@ void centerline_weights2(ImageT const& img, ImageView<double> & weights,
   weights.set_size(output_bbox.width(), output_bbox.height());
   fill(weights, 0);
   
-  for (int row = output_bbox.min().y(); row < output_bbox.max().y(); row++){
-    for (int col = output_bbox.min().x(); col < output_bbox.max().x(); col++){
+  for (int row = output_bbox.min().y(); row < output_bbox.max().y(); row++) {
+    for (int col = output_bbox.min().x(); col < output_bbox.max().x(); col++) {
       bool inner_row = ((row >= minValInCol[col]) && (row <= maxValInCol[col]));
       bool inner_col = ((col >= minValInRow[row]) && (col <= maxValInRow[row]));
       bool inner_pixel = inner_row && inner_col;
@@ -249,14 +249,14 @@ inline notnodata(ImageViewBase<ImageT> const& image, NoDataT nodata) {
 template<class PixelT>
 struct BigOrZero: public ReturnFixedType<PixelT> {
   PixelT m_nodata;
-  BigOrZero(PixelT nodata):m_nodata(nodata){}
+  BigOrZero(PixelT nodata):m_nodata(nodata) {}
   double operator() (PixelT const& pix) const {
     if (pix != m_nodata && !std::isnan(pix)) return 1e+8;
     return 0;
   }
 };
 
-void blur_weights(ImageView<double> & weights, double sigma){
+void blur_weights(ImageView<double> & weights, double sigma) {
 
   if (sigma <= 0)
     return;
@@ -368,13 +368,13 @@ struct Options: vw::GdalWriteOptions {
 };
 
 /// Return the number of no-blending options selected.
-int no_blend(Options const& opt){
+int no_blend(Options const& opt) {
   return int(opt.first) + int(opt.last) + int(opt.min) + int(opt.max)
     + int(opt.mean) + int(opt.stddev) + int(opt.median)
     + int(opt.nmad) + int(opt.count) + int(opt.block_max);
 }
 
-std::string tile_suffix(Options const& opt){
+std::string tile_suffix(Options const& opt) {
   std::string ans;
   if (opt.first) ans     = "-first";
   if (opt.last) ans      = "-last";
@@ -525,7 +525,7 @@ public:
       if (std::abs(this_major_axis - out_major_axis) > 0.1 || 
           std::abs(this_minor_axis - out_minor_axis) > 0.1 ||
           m_georefs[i].datum().meridian_offset()
-          != m_out_georef.datum().meridian_offset()){
+          != m_out_georef.datum().meridian_offset()) {
         vw_throw(NoImplErr() << "Mosaicking of DEMs with differing datum radii "
                  << " or meridian offsets is not implemented. Datums encountered:\n"
                  << m_georefs[i].datum() << "\n"
@@ -534,7 +534,7 @@ public:
       if (m_georefs[i].datum().name() != m_out_georef.datum().name() &&
           this_major_axis == out_major_axis &&
           this_minor_axis == out_minor_axis &&
-          m_georefs[i].datum().meridian_offset() == m_out_georef.datum().meridian_offset()){
+          m_georefs[i].datum().meridian_offset() == m_out_georef.datum().meridian_offset()) {
         vw_out(WarningMessage) << "Found DEMs with the same radii and meridian offsets, "
                                << "but different names: "
                                << m_georefs[i].datum().name() << " and "
@@ -614,7 +614,7 @@ public:
       // Sanity check: the output no-data value must not equal to
       // any of the indices in the map, as then the two cannot be
       // distinguished.
-      for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++){
+      for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++) {
         if (dem_iter == m_opt.out_nodata_value) 
           vw_throw(ArgumentErr() << "Cannot have the output no-data value equal to "
                    << m_opt.out_nodata_value
@@ -646,7 +646,7 @@ public:
         
       in_box.crop(dem_pixel_box);
       
-      if (in_box.width() == 1 || in_box.height() == 1){
+      if (in_box.width() == 1 || in_box.height() == 1) {
         // Grassfire likes to have width of at least 2
         in_box.expand(1);
         in_box.crop(dem_pixel_box);
@@ -790,8 +790,8 @@ public:
       // Raise to the power. Note that when priority blending length is positive, we
       // delay this process.
       if (m_opt.weights_exp != 1 && !use_priority_blend) {
-        for (int col = 0; col < dem.cols(); col++){
-          for (int row = 0; row < dem.rows(); row++){
+        for (int col = 0; col < dem.cols(); col++) {
+          for (int row = 0; row < dem.rows(); row++) {
             if (local_wts(col, row) > 0)
               local_wts(col, row) = pow(local_wts(col, row), m_opt.weights_exp);
           }
@@ -815,8 +815,8 @@ public:
 
       // TODO(oalexan1): This must be a function
       // Set the weights in the alpha channel
-      for (int col = 0; col < dem.cols(); col++){
-        for (int row = 0; row < dem.rows(); row++){
+      for (int col = 0; col < dem.cols(); col++) {
+        for (int row = 0; row < dem.rows(); row++) {
           dem(col, row).a() = local_wts(col, row);
         }
       }
@@ -862,7 +862,7 @@ public:
 
           // If point is in-bounds and nodata, make sure this point stays 
           //  at nodata even if other DEMs contain it.
-          if ((wt == 0) && m_opt.propagate_nodata) {
+          if (wt == 0 && m_opt.propagate_nodata) {
             tile   (c, r) = 0;
             weights(c, r) = -1.0;
           }
@@ -876,8 +876,8 @@ public:
           // Initialize the tile if not done already.
           // Init to zero not needed with some types.
           if (!m_opt.stddev && !m_opt.median && !m_opt.nmad && !m_opt.min && !m_opt.max &&
-              !use_priority_blend){
-            if (is_nodata){
+              !use_priority_blend) {
+            if (is_nodata) {
               tile   (c, r) = 0;
               weights(c, r) = 0.0;
             }
@@ -889,7 +889,7 @@ public:
                (m_opt.min && (val < tile(c, r) || is_nodata)) ||
                (m_opt.max && (val > tile(c, r) || is_nodata)) ||
                m_opt.median || m_opt.nmad || 
-               use_priority_blend   || m_opt.block_max){
+               use_priority_blend   || m_opt.block_max) {
             // --> Conditions where we replace the current value
             tile   (c, r) = val;
             weights(c, r) = wt;
@@ -906,14 +906,14 @@ public:
                                          m_opt.min   || m_opt.max))
               index_map(c, r) = dem_iter;
 
-          }else if (m_opt.mean){ // Mean --> Accumulate the value
+          } else if (m_opt.mean) { // Mean --> Accumulate the value
             tile(c, r) += val;
             weights(c, r)++;
 
             if (m_opt.save_dem_weight == dem_iter)
               saved_weight(c, r) = 1;
 
-          }else if (m_opt.count){ // Increment the count
+          } else if (m_opt.count) { // Increment the count
             tile(c, r)++;
             weights(c, r) += wt;
           } else if (m_opt.stddev) { // Standard deviation --> Keep running calculation
@@ -943,7 +943,7 @@ public:
       }
       
       // For priority blending, need also to keep all tiles, but also the weights
-      if (use_priority_blend){
+      if (use_priority_blend) {
         tile_vec.push_back(copy(tile));
         weight_vec.push_back(copy(weights));
       }
@@ -954,9 +954,9 @@ public:
     } // End iterating over DEMs
 
     // Divide by the weights in blend, mean
-    if (!noblend || m_opt.mean){
-      for (int c = 0; c < bbox.width(); c++){ // Iterate over all pixels!
-        for (int r = 0; r < bbox.height(); r++){
+    if (!noblend || m_opt.mean) {
+      for (int c = 0; c < bbox.width(); c++) { // Iterate over all pixels!
+        for (int r = 0; r < bbox.height(); r++) {
           if (weights(c, r) > 0)
             tile(c, r) /= weights(c, r);
         } // End row loop
@@ -979,16 +979,16 @@ public:
 
     // For the median and nmad operations
     // TODO(oalexan1): This must be a function
-    if (m_opt.median || m_opt.nmad){
+    if (m_opt.median || m_opt.nmad) {
       // Init output pixels to nodata
       fill(tile, m_opt.out_nodata_value);
       std::vector<double> vals, vals_all(tile_vec.size());
       // Iterate through all pixels
-      for (int c = 0; c < bbox.width(); c++){
-        for (int r = 0; r < bbox.height(); r++){
+      for (int c = 0; c < bbox.width(); c++) {
+        for (int r = 0; r < bbox.height(); r++) {
           // Compute the median for this pixel
           vals.clear();
-          for (int i = 0; i < (int)tile_vec.size(); i++){
+          for (int i = 0; i < (int)tile_vec.size(); i++) {
             ImageView<double> & tile_ref = tile_vec[i];
             double this_val = tile_ref(c, r);
             vals_all[i] = this_val; // Record the original order.
@@ -1066,8 +1066,8 @@ public:
       // been interpolated from a different grid, and won't handle
       // erosion and blur well.
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-        for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
-          for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
+        for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
+          for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
             if (weight_vec[clip_iter](col, row) <= 0)
               tile_vec[clip_iter](col, row) = m_opt.out_nodata_value;
           }
@@ -1096,8 +1096,8 @@ public:
       // Raise to power
       if (m_opt.weights_exp != 1) {
         for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-          for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
-            for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
+          for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
+            for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
               weight_vec[clip_iter](col, row)
                 = pow(weight_vec[clip_iter](col, row), m_opt.weights_exp);
             }
@@ -1113,8 +1113,8 @@ public:
         fill(saved_weight, 0.0);
 
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-        for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
-          for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
+        for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
+          for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
 
             double wt = weight_vec[clip_iter](col, row);
             if (wt <= 0)
@@ -1134,8 +1134,8 @@ public:
       }
 
       // Compute the weighted average
-      for (int col = 0; col < tile.cols(); col++){
-        for (int row = 0; row < weights.rows(); row++){
+      for (int col = 0; col < tile.cols(); col++) {
+        for (int row = 0; row < weights.rows(); row++) {
           if (weights(col, row) > 0)
             tile(col, row) /= weights(col, row);
 
@@ -1249,7 +1249,7 @@ void load_dem_bounding_boxes(Options       const& opt,
   BBox2 first_dem_proj_box;
   
   // Loop through all DEMs
-  for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){ 
+  for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++) { 
 
     // Open a handle to this DEM file
     DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
@@ -1545,7 +1545,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw(ArgumentErr() << "No DEM files to mosaic.\n");
     is.close();
 
-  }else{  // Get them from the command line
+  } else{  // Get them from the command line
 
     if (unregistered.empty())
       vw_throw(ArgumentErr() << "No input DEMs were specified.\n"
@@ -1605,8 +1605,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     // set internally, not by the user.
     opt.has_out_nodata = false;
     opt.out_nodata_value = -std::numeric_limits<RealT>::max();
-  }else
+  } else {
     opt.has_out_nodata = true;
+  }
 
   // Cast this to float. All our nodata are float.
   opt.nodata_threshold = RealT(opt.nodata_threshold);
@@ -1617,7 +1618,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   opt.tile_list.clear();
   std::istringstream os(opt.tile_list_str);
   int val;
-  while (os >> val){
+  while (os >> val) {
     opt.tile_list.insert(val);
   }
   
@@ -1676,7 +1677,7 @@ int main(int argc, char *argv[]) {
     }
   
     double spacing = opt.tr;
-    if (opt.target_srs_string != "" && spacing <= 0){
+    if (opt.target_srs_string != "" && spacing <= 0) {
         vw_throw(ArgumentErr()
            << "Changing the projection was requested. The output DEM "
            << "resolution must be specified via the --tr option.\n");
@@ -1712,14 +1713,14 @@ int main(int argc, char *argv[]) {
       mosaic_georef = crop(mosaic_georef, ul.x(), ul.y());
 
 
-    }else {
+    } else {
       // Update spacing variable from the current transform
       spacing = mosaic_georef.transform()(0, 0);
     }
     
     
     // if the user specified the tile size in georeferenced units.
-    if (opt.geo_tile_size > 0){
+    if (opt.geo_tile_size > 0) {
       opt.tile_size = (int)round(opt.geo_tile_size/spacing);
       vw_out() << "Tile size in pixels: " << opt.tile_size << "\n";
     }
@@ -1826,14 +1827,14 @@ int main(int argc, char *argv[]) {
 
     // See if to save all tiles, or an individual tile.
     int start_tile = opt.tile_index, end_tile = opt.tile_index + 1;
-    if (opt.tile_index < 0){
+    if (opt.tile_index < 0) {
       start_tile = 0;
       end_tile = num_tiles;
     }
 
     // Compute the bounding box of each output tile
     std::vector<BBox2i> tile_pixel_bboxes;
-    for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
+    for (int tile_id = start_tile; tile_id < end_tile; tile_id++) {
 
       int tile_index_y = tile_id / num_tiles_x;
       int tile_index_x = tile_id - tile_index_y*num_tiles_x;
@@ -1857,14 +1858,14 @@ int main(int argc, char *argv[]) {
     BBox2i output_dem_box = BBox2i(0, 0, cols, rows); // output DEM box
     
     // Loop through all DEMs
-    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){
+    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++) {
 
       // Get the DEM bounding box that we previously computed (output projected coords)
       BBox2 dem_bbox = dem_proj_bboxes[dem_iter];
 
       // Go through each of the tile bounding boxes and see they intersect this DEM
       bool use_this_dem = false;
-      for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
+      for (int tile_id = start_tile; tile_id < end_tile; tile_id++) {
 
         if (!opt.tile_list.empty() && opt.tile_list.find(tile_id) == opt.tile_list.end()) 
           continue;
@@ -1903,7 +1904,7 @@ int main(int argc, char *argv[]) {
         DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
         if (in_rsrc.has_nodata_read())
           curr_nodata_value = RealT(in_rsrc.nodata_read());
-      }catch(std::exception const& e){
+      } catch(std::exception const& e) {
         // Try again
         imgMgr.freeup_handles_not_thread_safe();
         DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
@@ -1931,7 +1932,7 @@ int main(int argc, char *argv[]) {
     }
     
     // Time to generate each of the output tiles
-    for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
+    for (int tile_id = start_tile; tile_id < end_tile; tile_id++) {
 
       if (!opt.tile_list.empty() && opt.tile_list.find(tile_id) == opt.tile_list.end()) 
         continue;
@@ -2022,7 +2023,7 @@ int main(int argc, char *argv[]) {
       std::string index_map = opt.out_prefix + "-index-map.txt";
       vw_out() << "Writing: " << index_map << std::endl;
       std::ofstream ih(index_map.c_str());
-      for (int dem_iter = 0; dem_iter < (int)loaded_dems.size(); dem_iter++){
+      for (int dem_iter = 0; dem_iter < (int)loaded_dems.size(); dem_iter++) {
         ih << opt.dem_files[dem_iter] << ' ' << dem_iter << std::endl;
       }
     }

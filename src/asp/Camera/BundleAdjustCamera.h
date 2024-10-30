@@ -18,6 +18,8 @@
 /// \file BundleAdjustCamera.h
 ///
 
+// TODO(oalexan1): Put all code in the asp namespace.
+
 /// Camera logic used in bundle_adjust. It is kept here as it may be
 /// expected to make use of all cameras supported by ASP.
 
@@ -199,17 +201,17 @@ public:
           IntrinsicOptions intrinsics_opts = IntrinsicOptions()); 
 
   // Copy constructor
-  BAParams(BAParams const& other);
+  BAParams(asp::BAParams const& other);
 
   // Set all camera position and pose values to zero.
   void init_cams_as_zero();
 
   // When using the copy functions, the sizes must match!
   /// Copy one set of values from another instance.
-  void copy_points(BAParams const& other);
-  void copy_cameras(BAParams const& other);
-  void copy_intrinsics(BAParams const& other);
-  void copy_outliers(BAParams const& other);
+  void copy_points(asp::BAParams const& other);
+  void copy_cameras(asp::BAParams const& other);
+  void copy_intrinsics(asp::BAParams const& other);
+  void copy_outliers(asp::BAParams const& other);
 
   /// Apply a random offset to each camera position.
   void randomize_cameras();
@@ -311,7 +313,7 @@ public:
   }
 
   /// Print stats for optimized ground control points.
-  void print_gcp_stats(std::string const& out_prefx, 
+  void print_gcp_stats(std::string const& out_prefix, 
                        vw::ba::ControlNetwork const& cnet,
                        vw::cartography::Datum const& d) const;
 
@@ -421,6 +423,8 @@ private:
 
 //==================================================================================
 
+namespace asp {
+
 /// Packs info from various camera models into the provided arrays.
 /// - It is up to the caller to make sure the arrays are properly sized.
 void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
@@ -499,8 +503,6 @@ int load_reference_disparities(std::string const& disp_list_filename,
                                   disp_vec,
                                std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &
                                   interp_disp);
-namespace asp {
-
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided camera positions.
 /// - This function overwrites the camera parameters in-place
@@ -654,7 +656,7 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
                           double stddev1, double stddev2,
                           vw::cartography::Datum const& datum,
                           // Output
-                          HorizVertErrorStats & stats);
+                          asp::HorizVertErrorStats & stats);
 
 // Find the cameras with the latest adjustments. Note that we do not modify
 // opt.camera_models, but make copies as needed.

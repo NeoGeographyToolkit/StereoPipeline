@@ -56,7 +56,7 @@ bool asp::IntrinsicOptions::float_optical_center(int cam_index) const {
   int sensor_id = 0;
   if (share_intrinsics_per_sensor) 
     sensor_id = cam2sensor.at(cam_index);
-  
+
   return float_center[sensor_id];
 }
 
@@ -65,7 +65,7 @@ bool asp::IntrinsicOptions::float_focal_length(int cam_index) const {
   int sensor_id = 0;
   if (share_intrinsics_per_sensor) 
     sensor_id = cam2sensor.at(cam_index);
-  
+
   return float_focus[sensor_id];
 }
 
@@ -77,13 +77,13 @@ bool asp::IntrinsicOptions::float_distortion_params(int cam_index) const {
 
   return float_distortion[sensor_id];
 }
-                      
+
 // Constructor
 asp::BAParams::BAParams(int num_points, int num_cameras,
-                // Parameters below here only apply to pinhole models.
-                bool using_intrinsics,
-                int max_num_dist_params,
-                IntrinsicOptions intrinsics_opts): 
+          // Parameters below here only apply to pinhole models.
+          bool using_intrinsics,
+          int max_num_dist_params,
+          IntrinsicOptions intrinsics_opts): 
     m_num_points        (num_points),
     m_num_cameras       (num_cameras),
     m_params_per_point  (PARAMS_PER_POINT),
@@ -321,9 +321,9 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
 }
 
 /// Print stats for optimized ground control points.
-void asp::BAParams::print_gcp_stats(std::string const& out_prefix,
-                                    vw::ba::ControlNetwork const& cnet,
-                                    vw::cartography::Datum const& d) const {
+void asp::BAParams::print_gcp_stats(std::string const& out_prefix, 
+                       vw::ba::ControlNetwork const& cnet,
+                       vw::cartography::Datum const& d) const {
 
   std::string gcp_report = out_prefix + "-gcp-report.txt";
   vw::vw_out() << "Writing: " << gcp_report << std::endl;
@@ -364,9 +364,9 @@ void asp::BAParams::print_gcp_stats(std::string const& out_prefix,
 }
 
 void asp::BAParams::record_points_to_kml(const std::string &kml_path,
-                                         const vw::cartography::Datum& datum,
-                                         size_t skip, const std::string name,
-                                         const std::string icon) {
+                            const vw::cartography::Datum& datum,
+                            size_t skip, const std::string name,
+                            const std::string icon) {
   if (datum.name() == asp::UNSPECIFIED_DATUM) {
     vw::vw_out(vw::WarningMessage) << "No datum specified. Cannot write file: "
                                    << kml_path << std::endl;
@@ -474,6 +474,8 @@ void CameraAdjustment::pack_to_array(double* array) const {
   }
 }
 
+namespace asp {
+  
 void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
                             int camera_index,
                             asp::BAParams & param_storage) {
@@ -597,7 +599,8 @@ void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
 // information as is in param_storage.
 void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
                                             asp::BAParams & param_storage,
-                                            std::vector<vw::CamPtr> const& cam_ptrs){
+                                            std::vector<vw::CamPtr>
+                                            const& cam_ptrs){
 
   // Convert the transform format
   vw::Matrix3x3 R = submatrix(M, 0, 0, 3, 3);
@@ -628,7 +631,8 @@ void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
 // the camera position and orientation to the arrays.
 void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
                                     asp::BAParams & param_storage,
-                                    std::vector<vw::CamPtr> const& cam_ptrs) {
+                                    std::vector<vw::CamPtr>
+                                    const& cam_ptrs) {
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
     // Apply the transform
     boost::shared_ptr<asp::CsmModel> csm_ptr = 
@@ -649,7 +653,7 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            vw::Vector3   const & translation,
                            double                scale,
                            std::vector<vw::CamPtr> &camera_models,
-                           boost::shared_ptr<ControlNetwork> const& cnet) {
+                           boost::shared_ptr<vw::ba::ControlNetwork> const& cnet) {
 
   // Apply the transform to the cameras
   for (size_t icam = 0; icam < camera_models.size(); icam++){
@@ -676,7 +680,7 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
 /// Generate a warning if the GCP's are really far from the IP points
 /// - This is intended to help catch the common lat/lon swap in GCP files.
 void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
-                     boost::shared_ptr<ControlNetwork> const& cnet_ptr,
+                     boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
                      double forced_triangulation_distance) {
 
   // Count the points and triangulate
@@ -723,8 +727,10 @@ void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
 /// Load all of the reference disparities specified in the input text file
 /// and store them in the vectors.  Return the number loaded.
 int load_reference_disparities(std::string const& disp_list_filename,
-                               std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> &disp_vec,
-                               std::vector< vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &interp_disp) {
+                               std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> &
+                                  disp_vec,
+                               std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &
+                                  interp_disp) {
   // TODO: Disparities can be large, but if small it is better to
   // read them in memory.
   std::istringstream is(disp_list_filename);
@@ -744,16 +750,15 @@ int load_reference_disparities(std::string const& disp_list_filename,
   return static_cast<int>(disp_vec.size());
 }
 
-//============================================================================
+} // end namespace asp
 
 // Initialize the position and orientation of each pinhole camera model using
 // a least squares error transform to match the provided camera positions.
 // This function overwrites the camera parameters in-place
-bool asp::init_pinhole_model_with_camera_positions
-(boost::shared_ptr<ControlNetwork> const& cnet, 
+bool asp::init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet, 
  std::vector<vw::CamPtr> & camera_models,
  std::vector<std::string> const& image_files,
- std::vector<Vector3> const & estimated_camera_gcc) {
+ std::vector<vw::Vector3> const & estimated_camera_gcc) {
 
   vw_out() << "Initializing camera positions from input file." << std::endl;
 
@@ -960,7 +965,7 @@ void asp::transform_cameras_with_shared_gcp(
 /// Initialize the position and orientation of a pinhole camera model using
 /// GCP. It invokes OpenCV's PnP functionality.
 void asp::init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
-                                std::vector<vw::CamPtr> & camera_models) {
+                           std::vector<vw::CamPtr> & camera_models) {
   
   // Sanity check
   if (camera_models.size() != 1) 
@@ -1014,9 +1019,9 @@ void asp::init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const&
 // aux_cams, get the median scale change from the first set to the second one.
 // It is important to do the median, since scaling the cameras individually
 // is a bit of a shaky business.
-double asp::find_median_scale_change(std::vector<PinholeModel> const & sfm_cams,
-                                     std::vector<PinholeModel> const & aux_cams,
-                                     std::vector< std::vector<Vector3> > const& xyz){
+double asp::find_median_scale_change(std::vector<vw::camera::PinholeModel> const & sfm_cams,
+				std::vector<vw::camera::PinholeModel> const & aux_cams,
+				std::vector< std::vector<vw::Vector3>> const& xyz){
   
   int num_cams = sfm_cams.size();
 
@@ -1160,10 +1165,10 @@ void asp::align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz
     bool is_good = (xyz[it].size() >= 3);
     if (is_good) {
       for (size_t c = 0; c < pix[it].size(); c++) {
-	Vector2 pixel = pix[it][c];
-	pixel_vec[2*count  ] = pixel[0];
-	pixel_vec[2*count+1] = pixel[1];
-	count++;
+        Vector2 pixel = pix[it][c];
+        pixel_vec[2*count  ] = pixel[0];
+        pixel_vec[2*count+1] = pixel[1];
+        count++;
       }
     }
   }
@@ -1196,10 +1201,10 @@ void asp::align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz
 /// to the corresponding IP in the original non-map-projected image.
 /// - Return false if the pixel could not be converted.
 bool asp::projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
-                                 vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                                 vw::CamPtr camera_model,
-                                 vw::cartography::GeoReference const& georef,
-                                 vw::cartography::GeoReference const& dem_georef) {
+                            vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
+                            vw::CamPtr camera_model,
+                            vw::cartography::GeoReference const& georef,
+                            vw::cartography::GeoReference const& dem_georef) {
 
   // Get IP coordinate in the DEM
   Vector2 pix(P.x, P.y);
@@ -1228,6 +1233,7 @@ bool asp::projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
   return true;
 }
 
+namespace asp {
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera. Note that all intrinsic parameters are stored as multipliers
 // in asp::BAParams.
@@ -1367,10 +1373,12 @@ boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
   return copy;
 }
 
+} // end namespace asp
+
 // Save convergence angle percentiles for each image pair having matches
 void asp::saveConvergenceAngles(std::string const& conv_angles_file,
-                                std::vector<asp::MatchPairStats> const& convAngles,
-                                std::vector<std::string> const& imageFiles) {
+                           std::vector<asp::MatchPairStats> const& convAngles,
+                           std::vector<std::string> const& imageFiles) {
 
   vw_out() << "Writing: " << conv_angles_file << "\n";
   std::ofstream ofs (conv_angles_file.c_str());
@@ -1835,14 +1843,14 @@ void asp::matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
 
 // Find stats of propagated errors
 void asp::propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
-                               vw::camera::CameraModel const * left_cam,
-                               vw::camera::CameraModel const * right_cam,
-                               std::vector<vw::ip::InterestPoint> const& left_ip,
-                               std::vector<vw::ip::InterestPoint> const& right_ip,
-                               double stddev1, double stddev2,
-                               vw::cartography::Datum const& datum,
-                               // Output
-                               asp::HorizVertErrorStats & stats) {
+                          vw::camera::CameraModel const * left_cam,
+                          vw::camera::CameraModel const * right_cam,
+                          std::vector<vw::ip::InterestPoint> const& left_ip,
+                          std::vector<vw::ip::InterestPoint> const& right_ip,
+                          double stddev1, double stddev2,
+                          vw::cartography::Datum const& datum,
+                          // Output
+                          asp::HorizVertErrorStats & stats) {
 
   // Create a stereo model, to be used for triangulation
   double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos
@@ -1908,10 +1916,9 @@ void asp::propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
 
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
-void asp::saveCameraReport(asp::BaBaseOptions const& opt, 
-                           asp::BAParams const& param_storage,
-                           vw::cartography::Datum const& datum, 
-                           std::string const& prefix) {
+void asp::saveCameraReport(asp::BaBaseOptions const& opt, asp::BAParams const& param_storage,
+                      vw::cartography::Datum const& datum, 
+                      std::string const& prefix) {
 
   std::string output_path = opt.out_prefix + "-" + prefix + "-cameras.csv";
   vw_out() << "Writing: " << output_path << std::endl;
@@ -2000,8 +2007,8 @@ void asp::saveCameraReport(asp::BaBaseOptions const& opt,
 // Save stats of horizontal and vertical errors propagated from cameras
 // to triangulation
 void asp::saveHorizVertErrors(std::string const& horiz_vert_errors_file,
-                              std::vector<asp::HorizVertErrorStats> const& horizVertErrors,
-                              std::vector<std::string> const& imageFiles) {
+                         std::vector<asp::HorizVertErrorStats> const& horizVertErrors,
+                         std::vector<std::string> const& imageFiles) {
 
   vw_out() << "Writing: " << horiz_vert_errors_file << "\n";
   std::ofstream ofs (horiz_vert_errors_file.c_str());
