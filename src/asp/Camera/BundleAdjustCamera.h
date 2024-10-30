@@ -18,8 +18,6 @@
 /// \file BundleAdjustCamera.h
 ///
 
-// TODO(oalexan1): Put all code in the asp namespace.
-
 /// Camera logic used in bundle_adjust. It is kept here as it may be
 /// expected to make use of all cameras supported by ASP.
 
@@ -377,7 +375,6 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
                            // Will append below
                            std::vector<vw::Vector<float, 4>>       & mapprojPoints,
                            std::vector<float>                      & mapprojOffsets);
-} // end namespace asp
 
 /// Simple class to manage position/rotation information.
 /// - This is the data type stored in pc_align output files,
@@ -420,10 +417,6 @@ private:
   vw::Quat    m_pose_data;
 
 }; // End class CameraAdjustment
-
-//==================================================================================
-
-namespace asp {
 
 /// Packs info from various camera models into the provided arrays.
 /// - It is up to the caller to make sure the arrays are properly sized.
