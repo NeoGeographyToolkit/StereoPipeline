@@ -27,6 +27,61 @@ import matplotlib.pyplot as plt
 from pyproj import Proj, transform, Transformer
 from scipy.spatial.transform import Rotation as R
 
+# Add this value to an ASP pixel to get a CSM pixel
+ASP_TO_CSM_SHIFT = 0.5
+
+def toCsmPixel(asp_pix):
+    """
+    Convert an ASP pixel to a CSM pixel. Code copied from CsmModel.cc.
+    """
+    
+    # Explicitly ensure csm_pix has float values even if the input may be int 
+    csm_pix = np.array([float(asp_pix[0]), float(asp_pix[1])])
+    
+    # Add the shift
+    csm_pix[0] += ASP_TO_CSM_SHIFT
+    csm_pix[1] += ASP_TO_CSM_SHIFT
+  
+    return csm_pix
+
+def getTimeAtLine(model, line):
+    """
+    Find the time at a given line. The line count starts from 0. Code copied
+    from get_time_at_line() in CsmUtils.cc and getImageTime() in
+    UsgsAstroLsSensorModel.cpp.
+    """
+    
+    # Covert the line to a CSM pixel    
+    asp_pix = np.array([0.0, float(line)])
+    csm_pix = toCsmPixel(asp_pix)
+    
+    referenceIndex = 0
+    time = model['m_intTimeStartTimes'][referenceIndex] + \
+           model['m_intTimes'][referenceIndex] * \
+           (csm_pix[1] - model['m_intTimeLines'][referenceIndex] + 0.5)
+    
+    return time
+
+def getLineAtTime(time, model):
+    """
+    Get the line number at a given time. This assumes a linear relationship
+    between them (rather than piecewise linear). Code copied from
+    get_line_at_time() in CsmUtils.cc.
+    """
+
+    # All dt values in model['intTimes'] (slopes) must be equal, or else
+    # the model is not linear in time.
+    for i in range(1, len(model['m_intTimeLines'])):
+        if abs(model['m_intTimes'][i] - model['m_intTimes'][0]) > 1e-10:
+            raise Exception("Expecting a linear relation between time and image lines.\n")
+
+    line0 = 0.0
+    line1 = float(model['m_nLines']) - 1.0
+    time0 = getTimeAtLine(model, line0)
+    time1 = getTimeAtLine(model, line1)
+
+    return line0 + (line1 - line0) * (time - time0) / (time1 - time0)
+            
 # TODO(oalexan1): Fix this to be aware of the fact that the Earth is not a sphere.
 # See the relevant WV code.
 def produce_m(lon, lat, m_meridian_offset=0):
@@ -95,6 +150,70 @@ def convert_ecef2NED(asp_rotation,lon,lat):
     #r_ned = np.matmul(m,asp_rotation)
     return r_ned
 
+def read_csm_cam(json_file):
+    """
+    Read a CSM model state file in JSON format.
+    """
+    
+    print("Reading CSM camera: " + json_file)
+    
+    with open(json_file, 'r') as f:
+        data = f.read()
+
+    # Find first occurrence of open brace. This is needed because the CSM
+    # state has some text before the JSON object.
+    pos = data.find('{')
+    # do substring from pos to the end, if pos was found
+    if pos != -1:
+        data = data[pos:]
+
+    # parse the json from data
+    j = json.loads(data)
+
+    return j
+
+def read_tsai_cam(tsai):
+    """
+    read tsai frame model from asp and return a python dictionary containing the parameters
+    See ASP's frame camera implementation here: https://stereopipeline.readthedocs.io/en/latest/pinholemodels.html
+    Parameters
+    ----------
+    tsai: str
+        path to ASP frame camera model
+    Returns
+    ----------
+    output: dictionary
+        dictionary containing camera model parameters
+    #TODO: support distortion model
+    """
+    print("Reading Pinhole camera: " + tsai)
+        
+    camera = os.path.basename(tsai)
+    with open(tsai, 'r') as f:
+        content = f.readlines()
+    content = [x.strip() for x in content]
+    fu = np.float64(content[2].split(' = ', 4)[1]) # focal length in x
+    fv = np.float64(content[3].split(' = ', 4)[1]) # focal length in y
+    cu = np.float64(content[4].split(' = ', 4)[1]) # optical center in x
+    cv = np.float64(content[5].split(' = ', 4)[1]) # optical center in y
+    cam = content[9].split(' = ', 10)[1].split(' ')
+    cam_cen = [np.float64(x) for x in cam] # camera center coordinates in ECEF
+    rot = content[10].split(' = ', 10)[1].split(' ')
+    rot_mat = [np.float64(x) for x in rot] # rotation matrix for camera to world coordinates transformation
+
+    # Reshape as 3x3 matrix
+    rot_mat = np.reshape(rot_mat,(3,3))
+
+    pitch = np.float64(content[11].split(' = ', 10)[1]) # pixel pitch
+    tsai_dict = {
+      'camera': camera, 
+      'focal_length': (fu, fv),
+      'optical_center': (cu, cv), 
+      'cam_cen_ecef': cam_cen, 
+      'rotation_matrix': rot_mat, 
+      'pitch': pitch}
+    return tsai_dict
+
 def read_frame_cam_dict(cam):
 
     # Invoke the appropriate reader for .tsai and .json frame cameras
@@ -113,6 +232,7 @@ def estim_satellite_orientation(positions):
     y is the cross product of z and x.
     """
     num = len(positions)
+    
     rotations = []
     for i in range(num):
         prev_i = i - 1
@@ -143,70 +263,12 @@ def estim_satellite_orientation(positions):
     
     return rotations
 
-def read_tsai_cam(tsai):
-    """
-    read tsai frame model from asp and return a python dictionary containing the parameters
-    See ASP's frame camera implementation here: https://stereopipeline.readthedocs.io/en/latest/pinholemodels.html
-    Parameters
-    ----------
-    tsai: str
-        path to ASP frame camera model
-    Returns
-    ----------
-    output: dictionary
-        dictionary containing camera model parameters
-    #TODO: support distortion model
-    """
-    camera = os.path.basename(tsai)
-    with open(tsai, 'r') as f:
-        content = f.readlines()
-    content = [x.strip() for x in content]
-    fu = np.float64(content[2].split(' = ', 4)[1]) # focal length in x
-    fv = np.float64(content[3].split(' = ', 4)[1]) # focal length in y
-    cu = np.float64(content[4].split(' = ', 4)[1]) # optical center in x
-    cv = np.float64(content[5].split(' = ', 4)[1]) # optical center in y
-    cam = content[9].split(' = ', 10)[1].split(' ')
-    cam_cen = [np.float64(x) for x in cam] # camera center coordinates in ECEF
-    rot = content[10].split(' = ', 10)[1].split(' ')
-    rot_mat = [np.float64(x) for x in rot] # rotation matrix for camera to world coordinates transformation
-
-    # Reshape as 3x3 matrix
-    rot_mat = np.reshape(rot_mat,(3,3))
-
-    pitch = np.float64(content[11].split(' = ', 10)[1]) # pixel pitch
-    tsai_dict = {
-      'camera': camera, 
-      'focal_length': (fu, fv),
-      'optical_center': (cu, cv), 
-      'cam_cen_ecef': cam_cen, 
-      'rotation_matrix': rot_mat, 
-      'pitch': pitch}
-    return tsai_dict
-
 def read_frame_csm_cam(json_file):
     """
     Read rotation from a CSM Frame json state file.
     """
 
-    with open(json_file, 'r') as f:
-        data = f.read()
-
-    # Find first occurrence of open brace. This is needed because the CSM
-    # state has some text before the JSON object.
-    pos = data.find('{')
-    # do substring from pos to the end, if pos was found
-    if pos != -1:
-        data = data[pos:]
-
-    # parse the json from data
-    j = json.loads(data)
-    # print the json 
-    # print(json.dumps(j, indent=4, sort_keys=True))
-
-    # Print all keys in the json
-    # print("will print all keys in the json")
-    # for key in j.keys():
-    #     print(key)
+    j = read_csm_cam(json_file)
 
     # Read the entry having the translation and rotation
     params = j['m_currentParameterValue']
@@ -225,30 +287,12 @@ def read_frame_csm_cam(json_file):
 
     return dict
 
-def read_linescan_csm_cam(json_file):
+def read_linescan_pos_rot(json_file):
     """
-    Read rotation from a CSM linescan json state file.
+    Read positions and rotations from a CSM linescan json state file.
     """
-
-    with open(json_file, 'r') as f:
-        data = f.read()
-
-    # Find first occurrence of open brace. This is needed because the CSM
-    # state has some text before the JSON object.
-    pos = data.find('{')
-    # do substring from pos to the end, if pos was found
-    if pos != -1:
-        data = data[pos:]
-
-    # parse the json from data
-    j = json.loads(data)
-    # print the json 
-    # print(json.dumps(j, indent=4, sort_keys=True))
-
-    # Print all keys in the json
-    # print("will print all keys in the json")
-    # for key in j.keys():
-    #     print(key)
+    
+    j = read_csm_cam(json_file)
 
     # Read the positions
     positions_vec = j['m_positions']
@@ -271,7 +315,6 @@ def read_linescan_csm_cam(json_file):
     rotations = []
     for i in range(quats.shape[0]):
         r = R.from_quat(quats[i, :])
-        # print the rotation matrix
         rotations.append(r.as_matrix())
 
     return (positions, rotations)
@@ -315,7 +358,7 @@ def roll_pitch_yaw(rot_mat, ref_rot_mat):
 
     inv_ref_rot_mat = np.linalg.inv(ref_rot_mat)
     N = np.matmul(inv_ref_rot_mat, rot_mat)
-
+    
     return R.from_matrix(np.matmul(N, Tinv)).as_euler('XYZ', degrees=True)
 
 # Return at most this many elements from an array
@@ -365,7 +408,7 @@ def read_positions_rotations_from_file(cam_file):
 
   if lineScan:
       # Read linescan data
-      (positions, rotations) = read_linescan_csm_cam(cam_file)
+      (positions, rotations) = read_linescan_pos_rot(cam_file)
   else:   
       # read Pinhole (Frame) files in ASP .tsai or CSM .json format
       asp_dict = read_frame_cam_dict(cam_file)
@@ -483,6 +526,13 @@ def read_angles(orig_cams, opt_cams, ref_cams):
         
 #     return rotation_angles 
 
+def findRange(orig, opt):
+  """
+    Concatenate the orig and opt arrays and find the min and max values.
+  """
+  concat = np.sort(np.concatenate((orig, opt)))
+  return (concat.min(), concat.max())
+    
 def err_fun(vals, opt):
   ''' Find the standard deviation or RMSE of the given values. '''
   if opt.use_rmse:
@@ -525,8 +575,8 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
       if ref_list != "":
         ref_cams = read_list(ref_list, camType, extensions)
     else:
-      all_opt_cams = sorted(multi_glob(optPrefix + camType, extensions))
-      ref_cams     = sorted(multi_glob(optPrefix + camType + '-ref', extensions))
+      all_opt_cams = sorted(multi_glob(optPrefix + '*' + camType, extensions))
+      ref_cams     = sorted(multi_glob(optPrefix + '*' + camType + '-ref', extensions))
       opt_cams     = exclude_ref_cams(all_opt_cams, ref_cams)
       if (not opt.use_ref_cams) and len(ref_cams) > 0:
           print_ref_cam_warning = True
@@ -540,8 +590,8 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
       ref_cams = read_list(ref_list, camType, extensions)
 
   else: 
-    all_orig_cams = sorted(multi_glob(origPrefix + camType, extensions))
-    ref_cams      = sorted(multi_glob(origPrefix + camType + '-ref', extensions))
+    all_orig_cams = sorted(multi_glob(origPrefix + '*' + camType, extensions))
+    ref_cams      = sorted(multi_glob(origPrefix + '*' + camType + '-ref', extensions))
     orig_cams     = exclude_ref_cams(all_orig_cams, ref_cams)
   
   if (not opt.use_ref_cams) and len(ref_cams) > 0:
@@ -572,10 +622,17 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
 
   print("Number of cameras for view " + camType + ': ' + str(len(orig_cams)))
 
+  # Throw an error if no cameras are found
+  if len(orig_cams) == 0:
+        print("No cameras found for view " + camType)
+        sys.exit(1)
+
   # Read the rotations and convert them to roll, pitch, yaw
   (orig_rotation_angles, opt_rotation_angles) = read_angles(orig_cams, opt_cams, ref_cams)
 
   # Eliminate several first and last few values, based on opt.trim_ratio
+  firstQuatIndex = 0
+  lastQuatIndex = len(orig_rotation_angles) - 1
   if isLinescan(orig_cams[0]):
       totalNum = len(orig_rotation_angles)
       removeNum = int(opt.trim_ratio * totalNum)
@@ -586,8 +643,21 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
       orig_rotation_angles = orig_rotation_angles[b:e]
       if numSets == 2:
           opt_rotation_angles = opt_rotation_angles[b:e]
-      print("Plotting the most central %d out of %d poses for linescan cameras." % \
-          (len(orig_rotation_angles), totalNum))  
+      
+      if len(orig_rotation_angles) < totalNum:
+        print("Plotting the most central %d out of %d poses for linescan cameras." % \
+              (len(orig_rotation_angles), totalNum))  
+    
+      # Find the pose indices for the first and last image lines
+      j = read_csm_cam(orig_cams[0])
+      t0 = j['m_t0Quat']
+      dt = j['m_dtQuat']
+      num = j['m_numQuaternions']/4
+      numLines = j['m_nLines']
+      firstLineTime = getTimeAtLine(j, 0)
+      firstQuatIndex = int(round(firstLineTime - t0)/dt) - removeNumBefore
+      lastLineTime = getTimeAtLine(j, numLines-1)
+      lastQuatIndex = int(round(lastLineTime - t0)/dt) - removeNumBefore
   
   if numSets == 2:
     # Must check that we get same length as for orig rotations
@@ -622,6 +692,13 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
           opt_pitch = opt_pitch - fit_pitch
           opt_yaw = opt_yaw - fit_yaw
 
+  if isLinescan(orig_cams[0]):
+    minVal = [0, 0, 0]
+    maxVal = [0, 0, 0]
+    (minVal[0], maxVal[0]) = findRange(orig_roll, opt_roll)
+    (minVal[1], maxVal[1]) = findRange(orig_pitch, opt_pitch)
+    (minVal[2], maxVal[2]) = findRange(orig_yaw, opt_yaw)
+    
   fmt = "{:.2e}" # 2 digits of precision are enough for display 
   orig_roll_err = fmt.format(err_fun(orig_roll, opt))
   orig_pitch_err = fmt.format(err_fun(orig_pitch, opt))
@@ -659,6 +736,14 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
                 linewidth = lw)
       A[2].plot(np.arange(len(opt_yaw)), opt_yaw, label=optTag, color = 'b', linewidth = lw)
 
+  if isLinescan(orig_cams[0]):
+    # Plot vertical lines showing where the first and last image lines are
+    for index in range(3):
+        A[index].plot([firstQuatIndex, firstQuatIndex], [minVal[index], maxVal[index]],
+                  label = 'First image line', color = 'black', linestyle = '--')
+        A[index].plot([lastQuatIndex, lastQuatIndex], [minVal[index], maxVal[index]],
+                    label = 'Last image line', color = 'black', linestyle = '--')
+
   A[0].set_title(camLabel + ' roll'  + residualTag)
   A[1].set_title(camLabel + ' pitch' + residualTag)
   A[2].set_title(camLabel + ' yaw '  + residualTag)
@@ -675,10 +760,16 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
           txt = err_str + err[index][0]
       else: 
           txt = err_str + err[index][0] + ", " + err[index][1]
-      # Add err values as text
+          
+      # Make the margin bigger so that the text does not overlap with the data    
+      (x1, x2, y1, y2) = A[index].axis()
+      A[index].axis((x1, x2, y1 - 0.025*(y2-y1), y2))
+      
+      # Add err values as text. Careful to not put text on top of data. 
       A[index].text(0.05, 0.05, txt,
           va='top', color='k', transform=A[index].transAxes, fontsize=fs)    
-      # legend
+      
+      # Legend
       A[index].legend()
       # Se the font size
       ac = A[index]
@@ -732,14 +823,14 @@ parser.add_argument('--use-ref-cams', dest = 'use_ref_cams', action='store_true'
                     'based on camera positions.') 
 
 parser.add_argument('--subtract-line-fit', dest = 'subtract_line_fit', action='store_true',
-                    help='If set, subtract the best line fit from the curves being '      + 
-                    'plotted. If more than one dataset is present, the same line ' +
+                    help='If set, subtract the best line fit from the curves being '    + 
+                    'plotted. If more than one dataset is present, the same line '      +
                     'fit (for the first one) will be subtracted from all of them. '     +
                     'This is useful for inspecting subtle changes.')
 
 parser.add_argument('--use-rmse', dest = 'use_rmse', action='store_true',
                     help='Compute and display the root mean square error (RMSE) ' +
-                    'rather than the standard deviation. This is useful when a ' +
+                    'rather than the standard deviation. This is useful when a '  +
                     'systematic shift is present. See also --subtract-line-fit.')
 
 parser.add_argument('--num-cameras',  dest='num_cameras', type=int, default = -1,
@@ -766,6 +857,10 @@ parser.add_argument('--line-width', dest = 'line_width', type=float, default = 1
 
 parser.add_argument('--font-size', dest = 'font_size', type=int, default = 14,
                     help='Font size for the plots.')
+
+parser.add_argument('--output-file', dest = 'out_file', type=str, default = '',
+                    help='Save the figure to this image file, instead of showing it on ' +
+                    'the screen.')
 
 (opt, args) = parser.parse_known_args(sys.argv)
 
@@ -846,7 +941,7 @@ if numSets < 1:
     print("Must specify at least one dataset.")
     sys.exit(1)
 
-f, ax = plt.subplots(len(orbits), 3, sharex=True, sharey = False, 
+f, ax = plt.subplots(len(orbits), 3, sharex=False, sharey = False, 
                      figsize = (figure_size[0], figure_size[1]))
 
 # Set up the legend in the upper right corner. We will have text in upper-left
@@ -872,4 +967,14 @@ if opt.title != "":
     f.suptitle(opt.title, fontsize=fs)
 
 plt.tight_layout()
-plt.show()
+
+if opt.out_file == "":
+    plt.show()
+else:
+    # Create the parent directory for this file, then save it. 
+    print("Saving the figure to: " + opt.out_file)
+    parent = os.path.dirname(opt.out_file)
+    if parent != "" and not os.path.exists(parent):
+        os.makedirs(parent)
+    plt.ioff()
+    plt.savefig(opt.out_file)
