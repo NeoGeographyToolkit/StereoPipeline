@@ -69,7 +69,7 @@ sfs (:numref:`sfs`):
     (:numref:`image_subset`).
 
 orbit_plot (:numref:`orbit_plot`):
-  * Added the option ``--use-rmse``.
+  * Added the options ``--use-rmse``, ``--output-file``.
 
 cam2rpc (:numref:`cam2rpc`):
   * When a DEM is passed in, sample not just the DEM surface but its bounding

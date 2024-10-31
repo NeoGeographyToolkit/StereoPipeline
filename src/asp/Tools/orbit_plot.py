@@ -860,7 +860,7 @@ parser.add_argument('--font-size', dest = 'font_size', type=int, default = 14,
 
 parser.add_argument('--output-file', dest = 'out_file', type=str, default = '',
                     help='Save the figure to this image file, instead of showing it on ' +
-                    'the screen.')
+                    'the screen. A png extension is recommended.')
 
 (opt, args) = parser.parse_known_args(sys.argv)
 

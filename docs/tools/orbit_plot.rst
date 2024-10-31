@@ -73,10 +73,11 @@ Plot a single set of cameras along a given orbit::
       --orbit-label pinhole 
 
 We assume that the cameras are in the directory ``dataset1/``, and their names
-in that directory start with ``pinhole-fwd``. 
+in that directory contain the string ``pinhole-fwd``. 
 
-The slash (``/``) at the end of the directory name is important, as the two
-strings above will be concatenated to find the camera names.
+The slash (``/``) at the end of the directory name is important, on reading
+the tool will match the dataset name, followed by some characters, followed 
+by the orbit id. 
 
 The rest of a camera name can be any string ending in ``.tsai`` or ``.json``.
 Hence, only the cameras satisfying this convention will be read.
@@ -283,7 +284,11 @@ Command-line options
 
 --font-size <int (default: 14)>
     Font size for the plots.
-    
+
+--output-file <string (default: "")>
+    Save the figure to this image file, instead of showing it on the screen.
+    A png extension is recommended.
+        
 -h, --help
     Display this help message.
 

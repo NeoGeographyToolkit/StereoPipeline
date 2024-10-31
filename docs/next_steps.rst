@@ -470,7 +470,7 @@ Hole-filling and smoothing the input DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 It is suggested to inspect and then hole-fill the input DEM
-(:numref:`dem_mosaic_extrapolate` and :numref:`dem_mosaic_fill`). 
+(:numref:`dem_mosaic_fill` and :numref:`dem_mosaic_extrapolate`).
 
 If the input DEM has too much detail, and those features do not agree with the
 images mapprojected on it, this can result in artifacts in the final DEM. A blur
@@ -1128,8 +1128,8 @@ The ``stereo_gui`` program (:numref:`stereo_gui`) is a very versatile
 viewer that can overlay hillshaded DEMs, orthoimages, interest point matches,
 ASP's report files in CSV format, polygons, etc.
 
-Produced DEMs can also be mosaicked (:numref:`dem_mosaic`), differenced,
-including with CSV files (:numref:`geodiff`), and aligned
+Produced DEMs can also be mosaicked (:numref:`dem_mosaic`), subtracted from
+other DEMs or CSV files (:numref:`geodiff`), aligned to a reference
 (:numref:`pc-align-example`), etc.
 
 .. _p19-osg:

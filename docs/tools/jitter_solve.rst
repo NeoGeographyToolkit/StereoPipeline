@@ -455,6 +455,9 @@ If using camera position constraints (:numref:`jitter_camera`), it is
 suggested to be generous with the uncertainties. For CTX they are likely
 rather large.
 
+The report files mentioned in :numref:`jitter_out_files` can be very helpful
+in evaluating how well the jitter solver worked, even before rerunning stereo.
+
 The model states (:numref:`csm_state`) of optimized cameras are saved
 with names like::
 
@@ -796,6 +799,9 @@ Solve for jitter::
 See :numref:`jitter_camera` regarding camera constraints.
 See :numref:`jitter_anchor_points` regarding anchor points.
 
+The report files mentioned in :numref:`jitter_out_files` can be very helpful
+in evaluating how well the jitter solver worked, even before rerunning stereo.
+
 .. _fig_dg_jitter_pointmap_anchor_points:
 
 .. figure:: ../images/dg_jitter_pointmap_anchor_points.png
@@ -1061,6 +1067,9 @@ cameras were accurate enough, so these steps were skipped.
 See :numref:`jitter_camera` for a discussion of camera constraints.
 See :numref:`jitter_anchor_points` regarding anchor points.
 
+The report files mentioned in :numref:`jitter_out_files` can be very helpful
+in evaluating how well the jitter solver worked, even before rerunning stereo.
+
 Next, we invoke the solver with the same initial data, but with a constraint
 tying to the reference DEM, with the option ``--heights-from-dem ref-adj.tif``.
 Since the difference between the created stereo DEM and the reference DEM is on
@@ -1289,6 +1298,9 @@ This can be reduced to 5 meters, likely.
 
 See :numref:`jitter_camera` for a discussion of camera constraints,
 and :numref:`jitter_anchor_points` regarding anchor points.
+
+The report files mentioned in :numref:`jitter_out_files` can be very helpful
+in evaluating how well the jitter solver worked, even before rerunning stereo.
 
 .. figure:: ../images/aster_jitter_pointmap.png
    :name: aster_jitter_pointmap

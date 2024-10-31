@@ -121,5 +121,8 @@ The transformed cloud can be gridded back to a DEM as::
     --t_srs "$proj"  \
     align/run-trans_reference.tif
     
-Here, the projection in ``$proj`` can be the same as for the DEM created earlier
+Here, the projection string in ``$proj`` can be the same as for the DEM created earlier
 (the ``gdalinfo -proj4`` command invoked on that DEM can print it). 
+
+The ``geodiff`` program can take the difference of the now-aligned DEMs.
+Other inspections can be done as discussed in :numref:`visualising`.

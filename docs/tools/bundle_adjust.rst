@@ -31,13 +31,15 @@ See :numref:`moc_tutorial` for an introduction to these cameras.
 
 ::
 
-     bundle_adjust --camera-weight 0               \
-       --tri-weight 0.1 --tri-robust-threshold 0.1 \
-       file1.cub file2.cub file3.cub -o run_ba/run
+     bundle_adjust --camera-weight 0 \
+       --tri-weight 0.1              \
+       --tri-robust-threshold 0.1    \
+       file1.cub file2.cub file3.cub \
+       -o run_ba/run
 
-The above choices for camera weight and triangulation weight are a recent
-implementation and suggested going forward, but not yet the defaults. These are
-helpful in preventing the cameras from drifting too far from initial locations.
+The above choices for camera weight and triangulation weight have in the
+meantime become the defaults. These are helpful in preventing the cameras from
+drifting too far from initial locations.
 
 .. _maxar_gcp:
 
@@ -94,12 +96,14 @@ Pinhole cameras
 
 ::
 
-     bundle_adjust file1.JPG file2.JPG              \
-        file1.tsai file2.tsai                       \
-        -t nadirpinhole --inline-adjustments        \
-        --camera-weight 0                           \
-        --tri-weight 0.1 --tri-robust-threshold 0.1 \
-        --datum WGS_1984                            \
+     bundle_adjust -t nadirpinhole \
+       --inline-adjustments        \
+        --camera-weight 0          \
+        --tri-weight 0.1           \
+        --tri-robust-threshold 0.1 \
+        --datum WGS_1984           \
+        file1.JPG file2.JPG        \
+        file1.tsai file2.tsai      \
         -o run_ba/run
 
 See :numref:`pinholemodels` for the pinhole camera model format.
