@@ -41,8 +41,8 @@ Files created in preprocessing
     skip over the interest point alignment stage and instead use the cached
     tie-points contained in the ``*.match`` files, unless the images or cameras
     are newer, or if invoked with the options ``--left-image-crop-win`` or
-    ``--right-image-crop-win``. In the rare case that one of these files did get
-    corrupted, these should be deleted and ``parallel_stereo`` should be rerun.
+    ``--right-image-crop-win``. In the rare case that these files get 
+    corrupted, they should be deleted and ``parallel_stereo`` should be rerun.
     
     Both ``.vwip`` and ``.match`` files can be visualized in
     ``stereo_gui`` (:numref:`stereo_gui`), and ``.match`` files can be
