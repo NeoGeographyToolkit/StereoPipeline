@@ -654,9 +654,9 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
       dt = j['m_dtQuat']
       numLines = j['m_nLines']
       firstLineTime = getTimeAtLine(j, 0)
-      firstQuatIndex = int(round(firstLineTime - t0)/dt) - removeNumBefore
+      firstQuatIndex = int(round((firstLineTime - t0)/dt)) - removeNumBefore
       lastLineTime = getTimeAtLine(j, numLines-1)
-      lastQuatIndex = int(round(lastLineTime - t0)/dt) - removeNumBefore
+      lastQuatIndex = int(round((lastLineTime - t0)/dt)) - removeNumBefore
   
   if numSets == 2:
     # Must check that we get same length as for orig rotations
