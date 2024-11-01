@@ -42,8 +42,7 @@ Files created in preprocessing
     tie-points contained in the ``*.match`` files, unless the images or cameras
     are newer, or if invoked with the options ``--left-image-crop-win`` or
     ``--right-image-crop-win``. In the rare case that one of these files did get
-    corrupted or your input images have changed, you may want to delete these
-    files and allow ``parallel_stereo`` to regenerate them automatically. 
+    corrupted, these should be deleted and ``parallel_stereo`` should be rerun.
     
     Both ``.vwip`` and ``.match`` files can be visualized in
     ``stereo_gui`` (:numref:`stereo_gui`), and ``.match`` files can be
