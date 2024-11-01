@@ -261,17 +261,14 @@ skip-rough-homography
     fails.
 
 left-image-crop-win xoff yoff xsize ysize
-    Do stereo in a sub-region of the left image [default: use the
-    entire image].
+    Do stereo in a region of the left image. Default: use the
+    entire image. This option forces redoing all the pre-processing steps.
+    The region be created by ``stereo_gui`` (:numref:`stereo_gui`).
 
 right-image-crop-win xoff yoff xsize ysize
-    When combined with ``left-image-crop-win``, do stereo in given
-    subregions of left and right images. The crop windows can be
-    determined using ``stereo_gui``. It is important to note that when
-    both of these are specified, we explicitly crop the input images to
-    these regions, which does not happen when ``left-image-crop-win``
-    alone is specified. In that case we use the full images but only
-    restrict the computation to the specified region.
+    When combined with ``left-image-crop-win``, do stereo in given subregions of
+    left and right images. The crop windows can be determined using
+    ``stereo_gui``. This option forces redoing all the pre-processing steps.
 
 left-image-clip: (*string*) (default = "")
     If ``--left-image-crop-win`` is used, replaced the left image

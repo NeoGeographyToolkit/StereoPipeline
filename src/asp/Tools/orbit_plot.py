@@ -652,7 +652,6 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
       j = read_csm_cam(orig_cams[0])
       t0 = j['m_t0Quat']
       dt = j['m_dtQuat']
-      num = j['m_numQuaternions']/4
       numLines = j['m_nLines']
       firstLineTime = getTimeAtLine(j, 0)
       firstQuatIndex = int(round(firstLineTime - t0)/dt) - removeNumBefore

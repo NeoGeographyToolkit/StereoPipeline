@@ -35,16 +35,16 @@ Files created in preprocessing
     pair of images. For example, if your images are ``left.cub`` and
     ``right.cub`` you'll get a ``left__right.match`` file. 
 
-    The ``.vwip`` and ``.match`` files are meant to serve as cached
-    tie-point information, and they help speed up the pre-processing
-    phase of the Stereo Pipeline: if these files exist then the
-    ``parallel_stereo`` program will skip over the interest point alignment stage
-    and instead use the cached tie-points contained in the ``*.match``
-    files. In the rare case that one of these files did get corrupted or
-    your input images have changed, you may want to delete these files
-    and allow ``parallel_stereo`` to regenerate them automatically. This is also
-    recommended if you have upgraded the Stereo Pipeline software.
-
+    The ``.vwip`` and ``.match`` files are meant to serve as cached tie-point
+    information, and they help speed up the pre-processing phase of the Stereo
+    Pipeline. If these files exist, then the ``parallel_stereo`` program will
+    skip over the interest point alignment stage and instead use the cached
+    tie-points contained in the ``*.match`` files, unless the images or cameras
+    are newer, or if invoked with the options ``--left-image-crop-win`` or
+    ``--right-image-crop-win``. In the rare case that one of these files did get
+    corrupted or your input images have changed, you may want to delete these
+    files and allow ``parallel_stereo`` to regenerate them automatically. 
+    
     Both ``.vwip`` and ``.match`` files can be visualized in
     ``stereo_gui`` (:numref:`stereo_gui`), and ``.match`` files can be
     converted to plain text for inspection with
