@@ -78,7 +78,7 @@ struct Options: public asp::BaBaseOptions {
   int num_anchor_points_extra_lines;
   bool initial_camera_constraint, fix_rig_translations, fix_rig_rotations,
     use_initial_rig_transforms, accept_provided_mapproj_dem;
-  double quat_norm_weight, anchor_weight, roll_weight, yaw_weight;
+  double quat_norm_weight, anchor_weight, roll_weight, yaw_weight, smoothness_weight;
   std::map<int, int> cam2group;
 };
     
@@ -141,7 +141,8 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "Set the threshold for the Cauchy robust cost function. Increasing this makes "
      "the solver focus harder on the larger errors.")
     ("image-list", po::value(&opt.image_list)->default_value(""),
-     "A file containing the list of images, when they are too many to specify on the command line. Use space or newline as separator. See also --camera-list.")
+     "A file containing the list of images, when they are too many to specify on the "
+     "command line. Use space or newline as separator. See also --camera-list.")
     ("camera-list", po::value(&opt.camera_list)->default_value(""),
      "A file containing the list of cameras, when they are too many to specify on "
      "the command line. If the images have embedded camera information, such as for ISIS, "
@@ -183,10 +184,11 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
       "--heights-from-dem-uncertainty.")
     ("num-anchor-points", po::value(&opt.num_anchor_points_per_image)->default_value(0),
      "How many anchor points to create per image. They will be uniformly distributed.")
-    ("num-anchor-points-per-tile", po::value(&opt.num_anchor_points_per_tile)->default_value(0),
-     "How many anchor points to create per 1024 x 1024 image tile. They will "
-      "be uniformly distributed. Useful when images of vastly different sizes "
-      "(such as frame and linescan) are used together.")
+    ("num-anchor-points-per-tile", 
+     po::value(&opt.num_anchor_points_per_tile)->default_value(0),
+     "How many anchor points to create per 1024 x 1024 image tile. They will be uniformly "
+     "distributed. Useful when images of vastly different sizes (such as frame and "
+     "linescan) are used together.")
     ("anchor-weight", po::value(&opt.anchor_weight)->default_value(0.0),
      "How much weight to give to each anchor point. Anchor points are "
      "obtained by intersecting rays from initial cameras with the DEM given by "
@@ -251,31 +253,11 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "A higher weight will penalize more deviations from the original camera "
      "orientations. This is not recommended. Use instead ground constraints and "
      "--camera-position-uncertainty.")
-    ("quat-norm-weight", po::value(&opt.quat_norm_weight)->default_value(1.0),
-     "How much weight to give to the constraint that the norm of each quaternion must be 1.")
-    ("roll-weight", po::value(&opt.roll_weight)->default_value(0.0),
-     "A weight to penalize the deviation of camera roll orientation as measured from the "
-     "along-track direction. Pass in a large value, such as 1e+5. This is best used only with "
-     "linescan cameras created with sat_sim.")
-    ("yaw-weight", po::value(&opt.yaw_weight)->default_value(0.0),
-     "A weight to penalize the deviation of camera yaw orientation as measured from the "
-     "along-track direction. Pass in a large value, such as 1e+5. This is best used only "
-     "with linescan cameras created with sat_sim.")
     ("mapproj-dem", po::value(&opt.mapproj_dem)->default_value(""),
      "If specified, mapproject every pair of matched interest points onto this DEM "
      "and compute their distance, then percentiles of such distances for each image "
      "vs the rest and each image pair. This is done after bundle adjustment "
      "and outlier removal. Measured in meters.")
-    ("weight-image", po::value(&opt.weight_image)->default_value(""),
-     "Given a georeferenced image with float values, for each initial triangulated "
-     "point find its location in the image and closest pixel value. Multiply the "
-     "reprojection errors in the cameras for this point by this weight value. The solver "
-     "will focus more on optimizing points with a higher weight. Points that fall "
-     "outside the image and weights that are non-positive, NaN, or equal to nodata "
-     "will be ignored.")
-     ("anchor-weight-image", po::value(&opt.anchor_weight_image)->default_value(""),
-     "Weight image for anchor points. Limits where anchor points are placed and their weight. "
-     "These weights are additionally multiplied by --anchor-weight. See also --weight-image.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1.0),
      "Remove matched IPs this percentage from the image left/right sides.")
     ("forced-triangulation-distance", 
@@ -310,6 +292,31 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "Use the transforms between the sensors (ref_to_sensor_transform) of the rig "
      "given by --rig-config, instead of computing them from the poses of individual "
      "cameras.")
+    ("quat-norm-weight", po::value(&opt.quat_norm_weight)->default_value(1.0),
+     "How much weight to give to the constraint that the norm of each quaternion must be 1.")
+    ("roll-weight", po::value(&opt.roll_weight)->default_value(0.0),
+     "A weight to penalize the deviation of camera roll orientation as measured from the "
+     "along-track direction. Pass in a large value, such as 1e+5. This is best used only with "
+     "linescan cameras created with sat_sim.")
+    ("yaw-weight", po::value(&opt.yaw_weight)->default_value(0.0),
+     "A weight to penalize the deviation of camera yaw orientation as measured from the "
+     "along-track direction. Pass in a large value, such as 1e+5. This is best used only "
+     "with linescan cameras created with sat_sim.")
+    ("weight-image", po::value(&opt.weight_image)->default_value(""),
+     "Given a georeferenced image with float values, for each initial triangulated "
+     "point find its location in the image and closest pixel value. Multiply the "
+     "reprojection errors in the cameras for this point by this weight value. The solver "
+     "will focus more on optimizing points with a higher weight. Points that fall "
+     "outside the image and weights that are non-positive, NaN, or equal to nodata "
+     "will be ignored.")
+     ("anchor-weight-image", po::value(&opt.anchor_weight_image)->default_value(""),
+     "Weight image for anchor points. Limits where anchor points are placed and their "
+     "weight. These weights are additionally multiplied by --anchor-weight. See also "
+     "--weight-image.")
+     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.0),
+     "A weight to penalize the curvature of the sequence of orientations in the linescan "
+     "cameras being optimized being much larger than of the initial cameras. Increasing "
+     "this will make this sequence more smooth")
     ("initial-camera-constraint", 
      po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
      "When constraining roll and yaw, measure these not in the satellite along-track/ "
@@ -319,10 +326,10 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "system is rotated by 90 degrees in the sensor plane relative to the satellite "
      "coordinate system. The goal is the same, to penalize deviations that are not "
      "aligned with satellite pitch.")
-      ("accept-provided-mapproj-dem", 
-        po::bool_switch(&opt.accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
-       "Accept the DEM provided on the command line as the one mapprojection was done with, "
-       "even if it disagrees with the DEM recorded in the geoheaders of input images.")
+    ("accept-provided-mapproj-dem", 
+     po::bool_switch(&opt.accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
+     "Accept the DEM provided on the command line as the one mapprojection was done with, "
+     "even if it disagrees with the DEM recorded in the geoheaders of input images.")
     ;
     general_options.add(vw::GdalWriteOptionsDescription(opt));
   po::options_description positional("");
@@ -358,6 +365,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
 
   // Turn on logging to file (after the output directory is created)
   asp::log_to_file(argc, argv, "", opt.out_prefix);
+
+  // For Glog
+  google::InitGoogleLogging(argv[0]);
 
   // This must be done early
   boost::to_lower(opt.stereo_session);
@@ -520,7 +530,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
    asp::handleCameraPositionUncertainty(opt, have_datum); 
 
   if (opt.rotation_weight < 0)
-    vw_throw(ArgumentErr() << "Rotation weight must be non-negative.\n");
+    vw_throw(ArgumentErr() << "The rotation weight must be non-negative.\n");
   
   if (opt.camera_position_weight < 0) 
     vw_throw(ArgumentErr() << "The value of --camera-position-weight must be n"
@@ -531,14 +541,18 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
                             << "must be positive.\n");
       
   if (opt.quat_norm_weight <= 0)
-    vw_throw(ArgumentErr() << "Quaternion norm weight must be positive.\n");
+    vw_throw(ArgumentErr() << "The quaternion norm weight must be positive.\n");
 
   if (opt.roll_weight < 0.0)
-    vw_throw(ArgumentErr() << "Roll weight must be non-negative.\n");
+    vw_throw(ArgumentErr() << "The roll weight must be non-negative.\n");
 
   if (opt.yaw_weight < 0.0)
-    vw_throw(ArgumentErr() << "Yaw weight must be non-negative.\n");
+    vw_throw(ArgumentErr() << "The yaw weight must be non-negative.\n");
 
+  // The smoothness weight must be non-negative
+  if (opt.smoothness_weight < 0.0)
+    vw_throw(ArgumentErr() << "The smoothness weight must be non-negative.\n");
+    
   // Handle the roll/yaw constraint DEM
   if ((opt.roll_weight > 0 || opt.yaw_weight > 0) &&
      opt.heights_from_dem == "" && opt.anchor_dem == "")
@@ -555,7 +569,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     vw_throw(ArgumentErr() << "Cannot have anchor points both per image and per tile.\n");
     
   if (opt.anchor_weight < 0)
-    vw_throw(ArgumentErr() << "Anchor weight must be non-negative.\n");
+    vw_throw(ArgumentErr() << "The anchor weight must be non-negative.\n");
 
   if ((opt.anchor_weight > 0  || opt.num_anchor_points_per_image > 0 || 
        opt.num_anchor_points_per_tile > 0 || opt.num_anchor_points_extra_lines > 0) &&
@@ -1182,7 +1196,16 @@ void jitterSolvePass(int                                 pass,
                          // Outputs
                          frame_params, weight_per_residual, problem); // outputs
 
+  // Add the smoothness constraint. This is a constraint on the curvature of the
+  // sequence of poses.
+  if (opt.smoothness_weight > 0)
+    asp::addSmoothnessConstraint(opt, csm_models, opt.smoothness_weight,
+                                 have_rig, rig, rig_cam_info,
+                                 // Outputs
+                                 weight_per_residual, problem);
+     
   // Save residuals before optimization
+  std::cout << "--save residuals before optimization\n";
   if (pass == 0) {
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
@@ -1192,6 +1215,7 @@ void jitterSolvePass(int                                 pass,
   }
   
   // Set up the problem
+  std::cout << "--set up the problem\n";
   ceres::Solver::Options options;
   options.gradient_tolerance  = 1e-16;
   options.function_tolerance  = 1e-16;
@@ -1211,7 +1235,7 @@ void jitterSolvePass(int                                 pass,
   options.use_explicit_schur_complement = false; // Only matters with ITERATIVE_SCHUR
   
   // Solve the problem
-  vw_out() << "Starting the Ceres optimizer." << std::endl;
+  vw_out() << "Starting the Ceres optimizer.\n";
   
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);

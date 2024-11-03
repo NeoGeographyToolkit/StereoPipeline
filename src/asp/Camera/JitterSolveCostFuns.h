@@ -198,6 +198,18 @@ void addRollYawConstraint(asp::BaBaseOptions              const& opt,
                           std::vector<double>                  & weight_per_residual,
                           ceres::Problem                       & problem);
 
+// Add a constraint that the curvature of the sequence of poses does not become
+// a lot more than the initial one.
+void addSmoothnessConstraint(asp::BaBaseOptions               const& opt,
+                             std::vector<asp::CsmModel*>      const& csm_models,
+                             double                                  smoothness_weight,
+                             bool                                    have_rig,
+                             rig::RigSet                      const& rig,
+                             std::vector<asp::RigCamInfo>     const& rig_cam_info,
+                             // Outputs
+                             std::vector<double>                & weight_per_residual, 
+                             ceres::Problem                     & problem);
+
 } // end namespace asp
 
 #endif //__ASP_CAMERA_JITTER_SOLVE_COST_FUNS_H__

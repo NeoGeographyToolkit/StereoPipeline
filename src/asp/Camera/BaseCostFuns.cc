@@ -49,7 +49,7 @@ CamUncertaintyError::CamUncertaintyError(vw::Vector3 const& orig_ctr, double con
 }
 
 // The signed power is a better-behaved version of pow that respects the sign of the input.
-inline double signed_power(double val, double power) {
+double signed_power(double val, double power) {
   if (val < 0)
     return -pow(-val, power);
   return pow(val, power);

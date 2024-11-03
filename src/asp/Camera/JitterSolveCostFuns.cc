@@ -1932,4 +1932,222 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
   
 }
 
+// Given the quaternions in a camera model, calculate the curvature for each
+// coordinate. This cannot be done at the starting and ending coordinate, as we
+// use a centered difference. Make each curvature be at least the median
+// curvature. This will ensure that even flat areas are allowed to have some
+// curvature when being optimized.
+void estimCurvature(UsgsAstroLsSensorModel * ls_model,
+                   std::vector<double> & curvature) {
+
+  // There will be as many curvature terms as overall quaternion coefficients.
+  int numQuats = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+  curvature.resize(numQuats * NUM_QUAT_PARAMS, 0.0);
+
+  // Throw an error if less than 3 quaternions
+  if (numQuats < 3)
+    vw::vw_throw(vw::ArgumentErr() 
+        << "Need at least 3 quaternions to calculate curvature. Set the smoothness "
+        << "weight to 0.\n");
+      
+  // Start iterating from the second quaternion, as we need the previous one
+  // shorthand
+  double *q = &ls_model->m_quaternions[0];
+  for (int it = 1; it < numQuats - 1; it++) {
+    for (int c = 0; c < NUM_QUAT_PARAMS; c++) {
+        double val
+        = q[(it - 1) * NUM_QUAT_PARAMS + c] - 2.0 * q[it * NUM_QUAT_PARAMS + c] + 
+          q[(it + 1) * NUM_QUAT_PARAMS + c];
+        // Take the absolute value
+        curvature[it * NUM_QUAT_PARAMS + c] = std::abs(val);
+    }
+  }
+  
+  // Find the median curvature. Ignore the first and last curvatures as those are 0.
+  std::vector<double> median_curvature(4);
+  for (int c = 0; c < NUM_QUAT_PARAMS; c++) {
+
+    std::vector<double> vals;
+    for (int it = 1; it < numQuats - 1; it++)
+      vals.push_back(curvature[it * NUM_QUAT_PARAMS + c]);
+    median_curvature[c] = vw::math::destructive_median<double>(vals);
+  }
+
+  // For synthetic cameras, the median initial curvature is 0. That is not good.
+  // Ensure a decent lower bound for the median curvature by finding the average 
+  // of median curvatures and using 10% of that at least for each component.
+  double avg = 0.0;
+  for (int c = 0; c < NUM_QUAT_PARAMS; c++)
+    avg += median_curvature[c];
+  avg /= NUM_QUAT_PARAMS;
+  for (int c = 0; c < NUM_QUAT_PARAMS; c++)
+    median_curvature[c] = std::max(median_curvature[c], 0.1 * avg);
+     
+  // Make each curvature, even the ones at endpoints, be at least the median curvature
+  for (int it = 0; it < numQuats; it++) {
+    for (int c = 0; c < NUM_QUAT_PARAMS; c++) {
+      if (curvature[it * NUM_QUAT_PARAMS + c] < median_curvature[c])
+        curvature[it * NUM_QUAT_PARAMS + c] = median_curvature[c];
+    }
+  }
+
+  return;  
+}
+
+// Add the quaternion smoothness constraint. This prevents high-frequency
+// oscillations in the camera orientation.
+struct QuatSmoothnessErr {
+
+QuatSmoothnessErr(double const* smoothnessWeight) {
+  
+  // Make a local copy of the smoothness weight, so it does not go out of scope.
+  m_smoothnessWeight.resize(NUM_QUAT_PARAMS);
+  for (int it = 0; it < NUM_QUAT_PARAMS; it++)
+    m_smoothnessWeight[it] = smoothnessWeight[it];
+}
+
+// The implementation is further down
+bool operator()(double const * const * parameters, double * residuals) const; 
+
+// Factory to hide the construction of the CostFunction object from the client code.
+static ceres::CostFunction* Create(double const* smoothnessWeight, 
+                                    int begQuatIndex, 
+                                    int endQuatIndex) {
+
+  // TODO(oalexan1): Try using here the analytical cost function
+  ceres::DynamicNumericDiffCostFunction<QuatSmoothnessErr>* cost_function =
+    new ceres::DynamicNumericDiffCostFunction<QuatSmoothnessErr>
+    (new QuatSmoothnessErr(smoothnessWeight));
+
+  // The residual size is NUM_QUAT_PARAMS: the curvature per each component
+  cost_function->SetNumResiduals(NUM_QUAT_PARAMS);
+
+  // Add a parameter block for each quaternion and each position
+  for (int it = begQuatIndex; it <= endQuatIndex; it++)
+    cost_function->AddParameterBlock(NUM_QUAT_PARAMS);
+  
+  return cost_function;
+}
+
+private:
+  std::vector<double> m_smoothnessWeight;
+}; // End class QuatSmoothnessErr
+
+// A function that first increases slowly, then very fast, but without being
+// numerically unstable for very small or very large values of the input.
+double signed_exp(double val) {
+  double ans = val * (exp(abs(val)) - 1.0);
+  return ans;
+}
+
+// See the documentation higher up in the file.
+bool QuatSmoothnessErr::operator()(double const * const * parameters, 
+                                   double * residuals) const {
+
+
+  // parameters[0] has has q[index-1], with four components (x, y, z, w)
+  // parameters[1] has has q[index]
+  // parameters[2] has has q[index+1]
+  for (int it = 0; it < NUM_QUAT_PARAMS; it++) {
+    double curvature = parameters[0][it] - 2.0 * parameters[1][it] + parameters[2][it];
+
+    // Use a power of 8 so that this kicks in only when the curvature becomes
+    // big, but then it does so big time. Note that smoothnessWeight 
+    // takes into account the initial curvature, so this residual is normalized.
+    //residuals[it] = m_smoothnessWeight[it] * curvature;
+    residuals[it] = asp::signed_exp(m_smoothnessWeight[it] * curvature);
+  }
+
+  return true;
+}
+
+void addQuatSmoothnessErr(UsgsAstroLsSensorModel   * ls_model,
+                          int                        quatIndex, 
+                          double              const* smoothnessWeight,
+                          std::vector<double>      & weight_per_residual,
+                          ceres::Problem           & problem) {
+
+  // For a smoothness constraint need the current quaternion and its neighbors.
+  int begQuatIndex = quatIndex - 1, endQuatIndex = quatIndex + 1;
+  
+  // Sanity check
+  int numQuats = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+  if (begQuatIndex < 0 || endQuatIndex >= numQuats)
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Quat index out of bounds in the smoothness constraint.\n");
+  
+  ceres::CostFunction* pixel_cost_function =
+    QuatSmoothnessErr::Create(smoothnessWeight, begQuatIndex, endQuatIndex);
+  ceres::LossFunction* pixel_loss_function = NULL; // no attenuation
+
+  // The variable of optimization are camera quaternions. Notice how the
+  // quaternion indicies are in the [begQuatIndex, endQuatIndex] range, so
+  // inclusive at both ends.
+  std::vector<double*> vars;
+  for (int it = begQuatIndex; it <= endQuatIndex; it++)
+    vars.push_back(&ls_model->m_quaternions[it * NUM_QUAT_PARAMS]);
+  problem.AddResidualBlock(pixel_cost_function, pixel_loss_function, vars);
+
+  // Need this for bookkeeping. Won't be used as do do not save the residuals 
+  // for this cost function. If we ever do, need to take into account the internal
+  // raising to the power and the smoothness weight.
+  for (int it = 0; it < NUM_QUAT_PARAMS; it++)
+    weight_per_residual.push_back(1.0);
+  
+  return;   
+}
+
+// Add a constraint that the curvature of the sequence of poses does not become
+// a lot more than the initial one.
+void addSmoothnessConstraint(asp::BaBaseOptions               const& opt,
+                             std::vector<asp::CsmModel*>      const& csm_models,
+                             double                                  smoothness_weight,
+                             bool                                    have_rig,
+                             rig::RigSet                      const& rig,
+                             std::vector<asp::RigCamInfo>     const& rig_cam_info,
+                             // Outputs
+                             std::vector<double>                & weight_per_residual, 
+                             ceres::Problem                     & problem) {
+
+  if (smoothness_weight < 0.0 || !std::isfinite(smoothness_weight))
+    vw::vw_throw(vw::ArgumentErr() 
+      << "The smoothness weight must be non-negative.\n");
+  
+  int num_cams = csm_models.size();
+  for (int icam = 0; icam < num_cams; icam++) {
+    
+    // With a rig, only the ref sensor has rotation constraints 
+    if (have_rig && !rig.isRefSensor(rig_cam_info[icam].sensor_id))
+      continue;
+    
+    // Get the underlying linescan models      
+    csm::RasterGM * csm = csm_models[icam]->m_gm_model.get();
+    UsgsAstroLsSensorModel * ls_model = dynamic_cast<UsgsAstroLsSensorModel*>(csm);
+    if (ls_model == NULL)
+      continue; // not a linescan camera
+
+    // Estimate the curvature of the quaternions
+    std::vector<double> curvature;
+    estimCurvature(ls_model, curvature);
+
+    // Let the weight be inversely proportional to the curvature. This way the
+    // current curvature is normalized by the initial curvature. The multiplier 
+    // below the optimized curvature can be no more than a factor the initial
+    // curvature. 
+    std::vector<double> weights(curvature.size());
+    for (size_t it = 0; it < curvature.size(); it++)
+      weights[it] = 0.01 * smoothness_weight / curvature[it];
+      
+    // Add the smoothness constraint for the quaternions. Cannot have such
+    // a constraint for the first and last quaternion, as need neighbors.
+    int numQuats = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+    for (int it = 1; it < numQuats - 1; it++)
+      addQuatSmoothnessErr(ls_model, it, &weights[it * NUM_QUAT_PARAMS], 
+                           weight_per_residual, problem);
+    
+  } // end loop through cameras
+
+  return;
+}
+
 } // end namespace asp
