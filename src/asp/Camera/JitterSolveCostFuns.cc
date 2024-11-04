@@ -89,7 +89,7 @@ struct LsPixelReprojErr {
 
     // Add a parameter block for the xyz point
     cost_function->AddParameterBlock(NUM_XYZ_PARAMS);
-    
+
     return cost_function;
   }
 
@@ -1144,18 +1144,18 @@ void addSoftCamPositionConstraint(asp::BaBaseOptions           const& opt,
 }
 
 void addQuatNormRotationConstraints(
-    asp::BaBaseOptions            const& opt,
-    std::set<int>                 const& outliers,
-    asp::CRNJ                     const& crn,
-    std::vector<asp::CsmModel*>   const& csm_models,
-    bool                                 have_rig,
-    rig::RigSet                   const& rig,
-    std::vector<RigCamInfo>       const& rig_cam_info,
-    double                               quat_norm_weight, 
-    // Outputs
-    std::vector<double>                & frame_params,
-    std::vector<double>                & weight_per_residual, // append
-    ceres::Problem                     & problem) {
+                        asp::BaBaseOptions          const& opt,
+                        std::set<int>               const& outliers,
+                        asp::CRNJ                   const& crn,
+                        std::vector<asp::CsmModel*> const& csm_models,
+                        bool                               have_rig,
+                        rig::RigSet                 const& rig,
+                        std::vector<RigCamInfo>     const& rig_cam_info,
+                        double                             quat_norm_weight, 
+                        // Outputs
+                        std::vector<double>              & frame_params,
+                        std::vector<double>              & weight_per_residual,
+                        ceres::Problem                   & problem) {
   
   // Constrain the rotations
   // TODO(oalexan1): Make this a standalone function
@@ -1739,14 +1739,14 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
                                      std::vector<int>              const& right_indices,
                                      std::vector<vw::TransformPtr> const& left_trans,
                                      std::vector<vw::TransformPtr> const& right_trans,
-                                     std::vector<std::string>      const& disp_files,  
+                                     std::vector<std::string>      const& disp_files,
                                      // Outputs
-                                     ceres::Problem           & problem,
-                                     std::vector<DispPtr>     & disp_vec,
-                                     vw::ImageView<float>     & mapproj_dem,
-                                     std::vector<double>      & weight_per_residual, // append
-                                     std::vector<vw::Vector3> & reference_vec,
-                                     std::vector<std::vector<int>> & ref_indices) {
+                                     ceres::Problem                 & problem,
+                                     std::vector<DispPtr>           & disp_vec,
+                                     vw::ImageView<float>           & mapproj_dem,
+                                     std::vector<double>            & weight_per_residual,
+                                     std::vector<vw::Vector3>       & reference_vec,
+                                     std::vector<std::vector<int>>  & ref_indices) {
 
   // For now, only one stereo pair is supported, so size of left_indices must be 1
   if (left_indices.size() != 1)
@@ -2106,7 +2106,7 @@ void addSmoothnessConstraint(asp::BaBaseOptions               const& opt,
                              rig::RigSet                      const& rig,
                              std::vector<asp::RigCamInfo>     const& rig_cam_info,
                              // Outputs
-                             std::vector<double>                & weight_per_residual, 
+                             std::vector<double>                & weight_per_residual,
                              std::vector<std::vector<double>>   & orig_curvatures,
                              ceres::Problem                     & problem) {
 

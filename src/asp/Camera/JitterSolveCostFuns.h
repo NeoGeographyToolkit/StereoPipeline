@@ -121,7 +121,7 @@ void addGcpConstraint(asp::BaBaseOptions     const& opt,
                       ceres::Problem         & problem);
 
 // Add hard camera constraints. Be generous with the uncertainty. 
-void addHardCamPositionConstraint(asp::BaBaseOptions           const& opt,
+void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
                                   std::set<int>                    const& outliers,
                                   asp::CRNJ                        const& crn,
                                   std::vector<asp::CsmModel*>      const& csm_models,
@@ -153,18 +153,18 @@ void addSoftCamPositionConstraint(asp::BaBaseOptions           const& opt,
                               ceres::Problem                     & problem);
 
 void addQuatNormRotationConstraints(
-                        asp::BaBaseOptions            const& opt,
-                        std::set<int>                 const& outliers,
-                        asp::CRNJ                     const& crn,
-                        std::vector<asp::CsmModel*>   const& csm_models,
-                        bool                                 have_rig,
-                        rig::RigSet                   const& rig,
-                        std::vector<RigCamInfo>       const& rig_cam_info,
-                        double                               quat_norm_weight, 
+                        asp::BaBaseOptions          const& opt,
+                        std::set<int>               const& outliers,
+                        asp::CRNJ                   const& crn,
+                        std::vector<asp::CsmModel*> const& csm_models,
+                        bool                               have_rig,
+                        rig::RigSet                 const& rig,
+                        std::vector<RigCamInfo>     const& rig_cam_info,
+                        double                             quat_norm_weight, 
                         // Outputs
-                        std::vector<double>                & frame_params,
-                        std::vector<double>                & weight_per_residual, // append
-                        ceres::Problem                     & problem);
+                        std::vector<double>              & frame_params,
+                        std::vector<double>              & weight_per_residual,
+                        ceres::Problem                   & problem);
 
 // Option --reference-terrain 
 typedef boost::shared_ptr<vw::DiskImageView<vw::PixelMask<vw::Vector2f>>> DispPtr;
