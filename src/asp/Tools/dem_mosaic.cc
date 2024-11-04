@@ -462,9 +462,9 @@ DoubleGrayA interpDem(double x, double y,
     int i0 = (int)floor(x), j0 = (int)floor(y);
     int i1 = (int)ceil(x),  j1 = (int)ceil(y);
     bool nodata = ((dem(i0, j0).a() == 0) || (dem(i1, j0).a() == 0) ||
-                    (dem(i0, j1).a() == 0) || (dem(i1, j1).a() == 0));
+                   (dem(i0, j1).a() == 0) || (dem(i1, j1).a() == 0));
     bool border = ((dem(i0, j0).a() <  0) || (dem(i1, j0).a() <  0) ||
-                    (dem(i0, j1).a() <  0) || (dem(i1, j1).a() <  0));
+                   (dem(i0, j1).a() <  0) || (dem(i1, j1).a() <  0));
 
     if (nodata || border) {
       pval.v() = 0;
@@ -478,6 +478,137 @@ DoubleGrayA interpDem(double x, double y,
   }
   
   return pval;
+}
+
+// Process a DEM tile pixel by pixel. Take into account the various
+// blending options. 
+void processDemTile(Options const& opt,
+                    BBox2i const& bbox, 
+                    Vector2 const& in_box_min,
+                    ImageView<DoubleGrayA> const& dem,
+                    ImageViewRef<DoubleGrayA> const& interp_dem,
+                    GeoTransform const& geotrans,
+                    std::vector<ImageView<double>>& tile_vec,
+                    bool noblend,
+                    bool use_priority_blend,
+                    int dem_iter,
+                    double tol,
+                    // Outputs
+                    ImageView<double>& tile,
+                    ImageView<double>& weights,
+                    ImageView<double>& weight_modifier,
+                    ImageView<double>& saved_weight,
+                    ImageView<double>& index_map) {
+  
+  // Loop through each output pixel
+  for (int c = 0; c < bbox.width(); c++) {
+    for (int r = 0; r < bbox.height(); r++) {
+
+      // Coordinates in the output mosaic
+      vw::Vector2 out_pix(c + bbox.min().x(), r + bbox.min().y());
+      // Coordinate in this input DEM
+      vw::Vector2 in_pix = geotrans.reverse(out_pix);
+
+      // Input DEM pixel relative to loaded bbox
+      double x = in_pix[0] - in_box_min.x();
+      double y = in_pix[1] - in_box_min.y();
+      
+      // Interpolate
+      DoubleGrayA pval = interpDem(x, y, dem, interp_dem, tol, opt);
+
+      // Separate the value and alpha for this pixel.
+      double val = pval.v();
+      double wt = pval.a();
+
+      if (use_priority_blend) {
+        // The priority blending, pixels from earlier DEMs at this location
+        // are used unmodified unless close to that DEM boundary.
+        wt = std::min(weight_modifier(c, r), wt);
+
+        // Now ensure that the current DEM values will be used
+        // unmodified unless close to the boundary for subsequent
+        // DEMs. The weight w2 will be 0 well inside the DEM, and
+        // increase towards the boundary.
+        double wt2 = wt;
+        wt2 = std::max(0.0, opt.priority_blending_len - wt2);
+        weight_modifier(c, r) = std::min(weight_modifier(c, r), wt2);
+      }
+
+      // If point is in-bounds and nodata, make sure this point stays 
+      //  at nodata even if other DEMs contain it.
+      if (wt == 0 && opt.propagate_nodata) {
+        tile(c, r) = 0;
+        weights(c, r) = -1.0;
+      }
+
+      if (wt <= 0.0)
+        continue; // No need to continue if the weight is zero
+
+      // Check if the current output value at this pixel is nodata
+      bool is_nodata = ((tile(c, r) == opt.out_nodata_value));
+
+      // Initialize the tile if not done already.
+      // Init to zero not needed with some types.
+      if (!opt.stddev && !opt.median && !opt.nmad && !opt.min && !opt.max &&
+          !use_priority_blend) {
+        if (is_nodata) {
+          tile(c, r) = 0;
+          weights(c, r) = 0.0;
+        }
+      }
+
+      // Update the output value according to the commanded mode
+      if ((opt.first && is_nodata)                      ||
+           opt.last                                     ||
+           (opt.min && (val < tile(c, r) || is_nodata)) ||
+           (opt.max && (val > tile(c, r) || is_nodata)) ||
+           opt.median || opt.nmad || 
+           use_priority_blend || opt.block_max) {
+        // --> Conditions where we replace the current value
+        tile(c, r) = val;
+        weights(c, r) = wt;
+
+        // In these cases, the saved weight will be 1 or 0, since either
+        // a given DEM gives it all, or nothing at all.
+        if (opt.save_dem_weight >= 0 && (opt.first || opt.last ||
+                                        opt.min   || opt.max))
+          saved_weight(c, r) = (opt.save_dem_weight == dem_iter);
+
+        // In these cases, the saved weight will be 1 or 0, since either
+        // a given DEM gives it all, or nothing at all.
+        if (opt.save_index_map && (opt.first || opt.last ||
+                                  opt.min   || opt.max))
+          index_map(c, r) = dem_iter;
+
+      } else if (opt.mean) { // Mean --> Accumulate the value
+        tile(c, r) += val;
+        weights(c, r)++;
+
+        if (opt.save_dem_weight == dem_iter)
+          saved_weight(c, r) = 1;
+
+      } else if (opt.count) { // Increment the count
+        tile(c, r)++;
+        weights(c, r) += wt;
+      } else if (opt.stddev) { // Standard deviation --> Keep running calculation
+        weights(c, r) += 1.0;
+        double curr_mean = tile_vec[0](c,r);
+        double delta = val - curr_mean;
+        curr_mean += delta / weights(c, r);
+        double newVal = tile(c, r) + delta*(val - curr_mean);
+        tile(c, r) = newVal;
+        tile_vec[0](c,r) = curr_mean;
+      } else if (!noblend) { // Blending --> Weighted average
+        tile(c, r) += wt*val;
+        weights(c, r) += wt;
+        if (opt.save_dem_weight == dem_iter)
+          saved_weight(c, r) = wt;
+      }
+
+    } // End col loop
+  } // End row loop
+  
+  return;
 }
 
 /// Class that does the actual image processing work
@@ -824,115 +955,12 @@ public:
       // Prepare the DEM for interpolation
       ImageViewRef<DoubleGrayA> interp_dem
         = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
-
-      // Loop through each output pixel
-      // TODO(oalexan1): This must be a function 
-      for (int c = 0; c < bbox.width(); c++) {
-        for (int r = 0; r < bbox.height(); r++) {
-
-          // Coordinates in the output mosaic
-          vw::Vector2 out_pix(c +  bbox.min().x(), r +  bbox.min().y());
-          // Coordinate in this input DEM
-          vw::Vector2 in_pix = geotrans.reverse(out_pix);
-
-          // Input DEM pixel relative to loaded bbox
-          double x = in_pix[0] - in_box.min().x();
-          double y = in_pix[1] - in_box.min().y();
-          
-          // Interpolate
-          DoubleGrayA pval = interpDem(x, y, dem, interp_dem, g_tol, m_opt);
-
-          // Separate the value and alpha for this pixel.
-          double val = pval.v();
-          double wt  = pval.a();
-
-          if (use_priority_blend) {
-            // The priority blending, pixels from earlier DEMs at this location
-            // are used unmodified unless close to that DEM boundary.
-            wt = std::min(weight_modifier(c, r), wt);
-
-            // Now ensure that the current DEM values will be used
-            // unmodified unless close to the boundary for subsequent
-            // DEMs. The weight w2 will be 0 well inside the DEM, and
-            // increase towards the boundary.
-            double wt2 = wt;
-            wt2 = std::max(0.0, m_opt.priority_blending_len - wt2);
-            weight_modifier(c, r) = std::min(weight_modifier(c, r), wt2);
-          }
-
-          // If point is in-bounds and nodata, make sure this point stays 
-          //  at nodata even if other DEMs contain it.
-          if (wt == 0 && m_opt.propagate_nodata) {
-            tile   (c, r) = 0;
-            weights(c, r) = -1.0;
-          }
-
-          if (wt <= 0.0)
-            continue; // No need to continue if the weight is zero
-
-          // Check if the current output value at this pixel is nodata
-          bool is_nodata = ((tile(c, r) == m_opt.out_nodata_value));
-
-          // Initialize the tile if not done already.
-          // Init to zero not needed with some types.
-          if (!m_opt.stddev && !m_opt.median && !m_opt.nmad && !m_opt.min && !m_opt.max &&
-              !use_priority_blend) {
-            if (is_nodata) {
-              tile   (c, r) = 0;
-              weights(c, r) = 0.0;
-            }
-          }
-
-          // Update the output value according to the commanded mode
-          if ((m_opt.first && is_nodata)                      ||
-               m_opt.last                                     ||
-               (m_opt.min && (val < tile(c, r) || is_nodata)) ||
-               (m_opt.max && (val > tile(c, r) || is_nodata)) ||
-               m_opt.median || m_opt.nmad || 
-               use_priority_blend   || m_opt.block_max) {
-            // --> Conditions where we replace the current value
-            tile   (c, r) = val;
-            weights(c, r) = wt;
-
-            // In these cases, the saved weight will be 1 or 0, since either
-            // a given DEM gives it all, or nothing at all.
-            if (m_opt.save_dem_weight >= 0 && (m_opt.first || m_opt.last ||
-                                               m_opt.min   || m_opt.max))
-              saved_weight(c, r) = (m_opt.save_dem_weight == dem_iter);
-
-            // In these cases, the saved weight will be 1 or 0, since either
-            // a given DEM gives it all, or nothing at all.
-            if (m_opt.save_index_map && (m_opt.first || m_opt.last ||
-                                         m_opt.min   || m_opt.max))
-              index_map(c, r) = dem_iter;
-
-          } else if (m_opt.mean) { // Mean --> Accumulate the value
-            tile(c, r) += val;
-            weights(c, r)++;
-
-            if (m_opt.save_dem_weight == dem_iter)
-              saved_weight(c, r) = 1;
-
-          } else if (m_opt.count) { // Increment the count
-            tile(c, r)++;
-            weights(c, r) += wt;
-          } else if (m_opt.stddev) { // Standard deviation --> Keep running calculation
-            weights(c, r) += 1.0;
-            double curr_mean = tile_vec[0](c,r);
-            double delta     = val - curr_mean;
-            curr_mean     += delta / weights(c, r);
-            double newVal = tile(c, r) + delta*(val - curr_mean);
-            tile(c, r)    = newVal;
-            tile_vec[0](c,r) = curr_mean;
-          } else if (!noblend) { // Blending --> Weighted average
-            tile(c, r) += wt*val;
-            weights(c, r) += wt;
-            if (m_opt.save_dem_weight == dem_iter)
-              saved_weight(c, r) = wt;
-          }
-
-        } // End col loop
-      } // End row loop
+        
+      // Process the DEM tile pixel by pixel
+      processDemTile(m_opt, bbox, in_box.min(), dem, interp_dem, geotrans,
+                     tile_vec, noblend, use_priority_blend, dem_iter, g_tol,
+                     // Outputs
+                     tile, weights, weight_modifier, saved_weight, index_map);
 
       // For the median option, keep a copy of the output tile for each input DEM!
       // Also do it for max per block.
