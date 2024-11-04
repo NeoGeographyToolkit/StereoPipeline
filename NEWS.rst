@@ -19,6 +19,8 @@ jitter_solve (:numref:`jitter_solve`):
   * Added an example for the Kaguya Terrain Camera (:numref:`jitter_kaguya`).
   * Added the option ``--camera-position-uncertainty`` (:numref:`jitter_camera`).
   * Can constrain against a sparse point cloud (:numref:`jitter_ref_terrain`).
+  * Added the option ``--smoothness-weight`` to control high-frequency changes
+    in the camera orientations in linescan cameras. This is on by default.
   * Can use GCP files.
   * Can read a control network from an nvm file.
   * Write the stereo convergence angles. Can write registration errors on the

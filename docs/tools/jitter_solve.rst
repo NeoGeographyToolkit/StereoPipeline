@@ -126,6 +126,13 @@ value, on the order of 1e+4, to effectively kep the camera positions in place.
 Camera position and ground constraints should be sufficient. It is suggested not
 to use the experimental ``--rotation-weight`` option.
 
+Smoothness constraint
+^^^^^^^^^^^^^^^^^^^^^
+
+The option ``--smoothness-weight`` constraints how much each sequence of
+linescan poses can change in curvature relative to the initial values. This is
+adjusted internally by the program, with the default being a multiplier (1.0).
+
 Resampling the poses
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -2243,6 +2250,12 @@ Command-line options for jitter_solve
     their weight. Weights are additionally multiplied by ``--anchor-weight``.
     See also ``--weight-image``.
 
+--smoothness-weight <double (default: 1.0)>
+    A weight to penalize high-frequency changes in the sequence of orientations
+    in the linescan cameras being optimized. This is internally adjusted based
+    on the initial curvature of the sequence of orientations, and the default
+    should be good enough. A higher value may impede convergence.
+    
 --image-list
     A file containing the list of images, when they are too many to specify on
     the command line. Use in the file a space or newline as separator. See also

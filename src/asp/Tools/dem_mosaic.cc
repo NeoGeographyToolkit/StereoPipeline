@@ -577,7 +577,7 @@ void processDemTile(Options const& opt,
         // In these cases, the saved weight will be 1 or 0, since either
         // a given DEM gives it all, or nothing at all.
         if (opt.save_index_map && (opt.first || opt.last ||
-                                  opt.min   || opt.max))
+                                   opt.min   || opt.max))
           index_map(c, r) = dem_iter;
 
       } else if (opt.mean) { // Mean --> Accumulate the value
