@@ -58,11 +58,11 @@ void put_adjustments_in_params(std::string const& input_prefix,
                                asp::BAParams & param_storage) {
 
   const size_t num_cameras = param_storage.num_cameras();
-  
+
   for (size_t icam = 0; icam < num_cameras; icam++) {
     std::string adjust_file
       = asp::bundle_adjust_file_name(input_prefix, image_files[icam], camera_files[icam]);
-  
+
     double * cam_ptr = param_storage.get_camera_ptr(icam);
     CameraAdjustment adjustment;
     adjustment.read_from_adjust_file(adjust_file);
@@ -88,8 +88,8 @@ void create_corrected_cameras(std::vector<vw::CamPtr> const& input_cameras,
 /// Create the param storage. Collect in it any input adjustments and initial transform.
 /// Return a copy of the cameras having these adjustments applied to them.
 bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
-    std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
-    std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models) {
+       std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
+       std::vector<vw::CamPtr> & new_cam_models) {
 
   bool cameras_changed = false;
   
@@ -1200,7 +1200,8 @@ std::string saveUpdatedCamera(asp::BaBaseOptions const& opt,
 }
 
 // Write updated camera models to disk
-void saveUpdatedCameras(asp::BaBaseOptions const& opt, asp::BAParams const& param_storage) {
+void saveUpdatedCameras(asp::BaBaseOptions const& opt, 
+                        asp::BAParams const& param_storage) {
   
   int num_cameras = opt.image_files.size();
   std::vector<std::string> cam_files(num_cameras);
@@ -1381,6 +1382,8 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
   return;  
 }
 
+// TODO(oalexan1): This is not good enough for jitter solving. There are many
+// camera centers for each camera.
 void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
                        std::vector<vw::Vector3>      & cam_positions) {
 
@@ -1850,7 +1853,7 @@ int calcMaxNumDistParams(std::vector<vw::CamPtr> const& camera_models,
 // This is needed to ensure distortion coefficients are not so small
 // that they don't get optimized. This modifies the camera models in place.
 void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
-                         BACameraType camera_type, 
+                         BACameraType camera_type,
                          IntrinsicOptions const& intrinsics_opts,
                          double min_distortion) {
 

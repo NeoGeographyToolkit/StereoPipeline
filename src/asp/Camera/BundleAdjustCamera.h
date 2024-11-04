@@ -726,8 +726,8 @@ int calcMaxNumDistParams(std::vector<vw::CamPtr> const& camera_models,
 // This is needed to ensure distortion coefficients are not so small
 // that they don't get optimized. This modifies the camera models in place.
 void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
-                         BACameraType camera_type, 
-                         IntrinsicOptions const& intrinsics_opts,                         
+                         BACameraType camera_type,
+                         IntrinsicOptions const& intrinsics_opts,
                          double min_distortion);
 
 // Sanity check. This does not prevent the user from setting the wrong datum,
@@ -736,8 +736,7 @@ void checkGcpRadius(vw::cartography::Datum const& datum,
                     vw::ba::ControlNetwork const& cnet);
 
 // Some logic for camera position uncertainty, used in bundle_adjust and jitter_solve
-void handleCameraPositionUncertainty(asp::BaBaseOptions & opt,
-                                     bool have_datum);
+void handleCameraPositionUncertainty(asp::BaBaseOptions & opt, bool have_datum);
 
 } // end namespace asp
 

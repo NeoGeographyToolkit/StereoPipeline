@@ -207,7 +207,8 @@ void addSmoothnessConstraint(asp::BaBaseOptions               const& opt,
                              rig::RigSet                      const& rig,
                              std::vector<asp::RigCamInfo>     const& rig_cam_info,
                              // Outputs
-                             std::vector<double>                & weight_per_residual, 
+                             std::vector<double>                & weight_per_residual,
+                             std::vector<std::vector<double>>   & orig_curvatures,
                              ceres::Problem                     & problem);
 
 } // end namespace asp

@@ -1008,6 +1008,7 @@ void jitterSolvePass(int                                 pass,
                      std::vector<asp::CsmModel*>       & csm_models,
                      std::vector<vw::Vector3>          & orig_cam_positions,
                      std::vector<double>               & orig_tri_points_vec,
+                     std::vector<std::vector<double>>  & orig_curvatures,
                      rig::RigSet                       & rig,
                      std::vector<double>               & ref_to_curr_sensor_vec) {
 
@@ -1202,10 +1203,10 @@ void jitterSolvePass(int                                 pass,
     asp::addSmoothnessConstraint(opt, csm_models, opt.smoothness_weight,
                                  have_rig, rig, rig_cam_info,
                                  // Outputs
-                                 weight_per_residual, problem);
+                                 weight_per_residual, orig_curvatures, 
+                                 problem);
      
   // Save residuals before optimization
-  std::cout << "--save residuals before optimization\n";
   if (pass == 0) {
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
@@ -1215,7 +1216,6 @@ void jitterSolvePass(int                                 pass,
   }
   
   // Set up the problem
-  std::cout << "--set up the problem\n";
   ceres::Solver::Options options;
   options.gradient_tolerance  = 1e-16;
   options.function_tolerance  = 1e-16;
@@ -1460,9 +1460,11 @@ void run_jitter_solve(int argc, char* argv[]) {
   vw_out() << "Removed " << outliers.size() 
     << " outliers based on initial reprojection error.\n";
   
-  // It is convenient to compute these inside the first pass rather than outside
+  // It is convenient to compute these inside the first pass rather than outside.
+  // They should not go out of scope until the end of the program.
   std::vector<vw::Vector3> orig_cam_positions;
   std::vector<double> orig_tri_points_vec;
+  std::vector<std::vector<double>> orig_curvatures;
   
   // Do this many passes
   for (int pass = 0; pass < opt.num_passes; pass++)
@@ -1470,8 +1472,8 @@ void run_jitter_solve(int argc, char* argv[]) {
                     timestamp_map,
                     // Outputs
                     cnet, outliers, csm_models,
-                    orig_cam_positions, orig_tri_points_vec, rig, 
-                    ref_to_curr_sensor_vec);
+                    orig_cam_positions, orig_tri_points_vec, orig_curvatures,
+                    rig, ref_to_curr_sensor_vec);
   
   return;
 }

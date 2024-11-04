@@ -2107,13 +2107,22 @@ void addSmoothnessConstraint(asp::BaBaseOptions               const& opt,
                              std::vector<asp::RigCamInfo>     const& rig_cam_info,
                              // Outputs
                              std::vector<double>                & weight_per_residual, 
+                             std::vector<std::vector<double>>   & orig_curvatures,
                              ceres::Problem                     & problem) {
 
   if (smoothness_weight < 0.0 || !std::isfinite(smoothness_weight))
     vw::vw_throw(vw::ArgumentErr() 
       << "The smoothness weight must be non-negative.\n");
   
+  // orig_curvatures must be either empty or of size num_cams
   int num_cams = csm_models.size();
+  if (orig_curvatures.size() != 0 && orig_curvatures.size() != num_cams)
+    vw::vw_throw(vw::ArgumentErr() 
+      << "The orig_curvatures vector must be empty or of size equal "
+      << "to the number of cameras.\n");
+   if (orig_curvatures.empty())
+    orig_curvatures.resize(num_cams);
+     
   for (int icam = 0; icam < num_cams; icam++) {
     
     // With a rig, only the ref sensor has rotation constraints 
@@ -2126,17 +2135,18 @@ void addSmoothnessConstraint(asp::BaBaseOptions               const& opt,
     if (ls_model == NULL)
       continue; // not a linescan camera
 
-    // Estimate the curvature of the quaternions
-    std::vector<double> curvature;
-    estimCurvature(ls_model, curvature);
+    // Estimate the curvature of the quaternion sequence. Do this only once,
+    // with the original cameras, to keep the same constraint for all passes.
+    if (orig_curvatures[icam].empty())
+      estimCurvature(ls_model, orig_curvatures[icam]);
 
     // Let the weight be inversely proportional to the curvature. This way the
-    // current curvature is normalized by the initial curvature. The multiplier 
-    // below the optimized curvature can be no more than a factor the initial
-    // curvature. 
-    std::vector<double> weights(curvature.size());
-    for (size_t it = 0; it < curvature.size(); it++)
-      weights[it] = 0.01 * smoothness_weight / curvature[it];
+    // current curvature is normalized by the initial curvature. The multiplier
+    // below ensures the optimized curvature can be no more than a factor the
+    // initial curvature. 
+    std::vector<double> weights(orig_curvatures[icam].size());
+    for (size_t it = 0; it < orig_curvatures[icam].size(); it++)
+      weights[it] = 0.01 * smoothness_weight / orig_curvatures[icam][it];
       
     // Add the smoothness constraint for the quaternions. Cannot have such
     // a constraint for the first and last quaternion, as need neighbors.
