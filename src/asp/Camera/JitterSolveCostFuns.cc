@@ -2146,7 +2146,7 @@ void addSmoothnessConstraint(asp::BaBaseOptions               const& opt,
     // initial curvature. 
     std::vector<double> weights(orig_curvatures[icam].size());
     for (size_t it = 0; it < orig_curvatures[icam].size(); it++)
-      weights[it] = 0.01 * smoothness_weight / orig_curvatures[icam][it];
+      weights[it] = 0.001 * smoothness_weight / orig_curvatures[icam][it];
       
     // Add the smoothness constraint for the quaternions. Cannot have such
     // a constraint for the first and last quaternion, as need neighbors.
