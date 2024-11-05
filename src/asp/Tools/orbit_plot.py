@@ -484,48 +484,6 @@ def read_angles(orig_cams, opt_cams, ref_cams):
 
   return (orig_rotation_angles, opt_rotation_angles)
 
-# Logic for when we have N datasets to plot, not just one and two.
-# TODO(oalexan1): This function must replace the above. This was not tested.
-# Then rewrite the rest of the code to use an array of arrays instead of two arrays.
-# def read_angles(camSet, ref_cams): 
-
-#     if len(ref_cams) > 0:
-#         # Check length of each array in 'camSet' against reference
-#         ref_cams_length = len(ref_cams)  # Store the reference length once
-#         for cam in camSet:
-#             if len(cam) != ref_cams_length:
-#                 print(f"Number of reference cameras input cameras do not match.")
-#                 sys.exit(1)
-
-#     # If we do not have ref cameras that determine the satellite orientation,
-#     # estimate them from the camera positions
-#     refRotationsSet = []
-#     for cam in camSet:
-#         # First the case of length 0 for ref_cams
-#         if len(ref_cams) == 0:
-#             refRotationsSet.append(estim_satellite_orientation(cam))
-#         else:
-#             refRotationsSet.append(ref_cams) 
-    
-#     # Read the positions and rotations   
-#     positions = []
-#     rotations = []
-#     for cam in camSet:
-#         cam_positions, cam_rotations = read_positions_rotations(cam)
-#         positions.append(cam_positions)
-#         rotations.append(cam_rotations)
-#     (ref_positions, ref_rotations) = read_positions_rotations(ref_cams)
-    
-#     rotation_angles = []  # Store angles for all camera arrays
-#     for j in range(len(rotations)):  # Outer loop over cameras sets
-#         camera_angles = []  # Store angles for a single camera set
-#         for i in range(len(rotations[j])):  # Inner loop over rotations within a set
-#             angles = roll_pitch_yaw(rotations[j][i], refRotationsSet[j][i])
-#             camera_angles.append(angles)
-#         rotation_angles.append(camera_angles)
-        
-#     return rotation_angles 
-
 def findRange(orig, opt):
   """
     Concatenate the orig and opt arrays and find the min and max values.
@@ -538,7 +496,58 @@ def err_fun(vals, opt):
   if opt.use_rmse:
     return np.sqrt(np.multiply(vals, vals).mean())
   return np.std(vals)
-                
+
+def setupLinescanPlot(rotation_angles, trim_ratio, cam_files):
+    """
+       Prepare the linescan poses for plotting. 
+    """
+
+    # Remove the first and last few poses, based on the trim ratio
+    totalNum = len(rotation_angles)
+    removeNum = int(trim_ratio * totalNum)
+    removeNumBefore = int(removeNum / 2)
+    removeNumAfter = removeNum - removeNumBefore
+    b = removeNumBefore
+    e = totalNum - removeNumAfter
+    rotation_angles = rotation_angles[b:e]
+    
+    if len(rotation_angles) < totalNum:
+        print("Plotting the most central %d out of %d poses for linescan cameras." % \
+            (len(rotation_angles), totalNum))  
+
+    # Read the json file
+    j = read_csm_cam(cam_files[0])
+    t0 = j['m_t0Quat']
+    dt = j['m_dtQuat']
+    numLines = j['m_nLines']
+    firstLine = 0
+    lastLine = numLines - 1
+
+    # These correspond to the poses that are being plotted, which can go beyond
+    # the first and last image lines
+    begPlotTime = t0 + removeNumBefore * dt
+    endPlotTime = begPlotTime + len(rotation_angles) * dt
+    begPlotLine = getLineAtTime(begPlotTime, j)
+    endPlotLine = getLineAtTime(endPlotTime, j)
+    
+    # The X axis for the plot
+    x_vals = np.linspace(begPlotLine, endPlotLine, len(rotation_angles))
+  
+    return (rotation_angles, firstLine, lastLine, x_vals)
+
+def resampleVals(out_x, in_x, in_y):
+    """
+    Given x and y values, and a new grid out_x, find the y values on the new grid.
+    Use linear interpolation.
+    """
+
+    # If in_x and out_x are the same, return in_y
+    if np.array_equal(in_x, out_x):
+        return in_y
+    
+    out_y = np.interp(out_x, in_x, in_y)
+    return out_y
+
 # Load and plot each row in the figure given by 'ax'
 def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
              ref_list, opt):
@@ -612,7 +621,8 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
 
   # Check that these sets are the same size
   if opt.use_ref_cams and len(orig_cams) != len(ref_cams):
-      print("Number of input and reference cameras must be thee same. See the option --use-ref-cams for more info. For these numbers, got: ", \
+      print("Number of input and reference cameras must be thee same. See the " + \
+            "option --use-ref-cams for more info. For these numbers, got: ", \
               len(ref_cams), " and ", len(orig_cams))
       sys.exit(1)
   if numSets == 2 and opt.use_ref_cams and len(orig_cams) != len(opt_cams):
@@ -620,52 +630,36 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
         "reference cameras. Got: ", len(orig_cams), " and ", len(opt_cams))
       sys.exit(1)
 
-  print("Number of cameras for view " + camType + ': ' + str(len(orig_cams)))
-
   # Throw an error if no cameras are found
   if len(orig_cams) == 0:
-        print("No cameras found for view " + camType)
+        print("No cameras found for orbit id " + camType)
         sys.exit(1)
 
   # Read the rotations and convert them to roll, pitch, yaw
   (orig_rotation_angles, opt_rotation_angles) = read_angles(orig_cams, opt_cams, ref_cams)
 
-  # Eliminate several first and last few values, based on opt.trim_ratio
-  firstQuatIndex = 0
-  lastQuatIndex = len(orig_rotation_angles) - 1
-  if isLinescan(orig_cams[0]):
-      totalNum = len(orig_rotation_angles)
-      removeNum = int(opt.trim_ratio * totalNum)
-      removeNumBefore = int(removeNum / 2)
-      removeNumAfter = removeNum - removeNumBefore
-      b = removeNumBefore
-      e = totalNum - removeNumAfter
-      orig_rotation_angles = orig_rotation_angles[b:e]
-      if numSets == 2:
-          opt_rotation_angles = opt_rotation_angles[b:e]
-      
-      if len(orig_rotation_angles) < totalNum:
-        print("Plotting the most central %d out of %d poses for linescan cameras." % \
-              (len(orig_rotation_angles), totalNum))  
-    
-      # Find the pose indices for the first and last image lines
-      j = read_csm_cam(orig_cams[0])
-      t0 = j['m_t0Quat']
-      dt = j['m_dtQuat']
-      numLines = j['m_nLines']
-      firstLineTime = getTimeAtLine(j, 0)
-      firstQuatIndex = int(round((firstLineTime - t0)/dt)) - removeNumBefore
-      lastLineTime = getTimeAtLine(j, numLines-1)
-      lastQuatIndex = int(round((lastLineTime - t0)/dt)) - removeNumBefore
-  
-  if numSets == 2:
-    # Must check that we get same length as for orig rotations
-    # Print here the length of opt_rotation_angles
-    if len(opt_rotation_angles) != len(orig_rotation_angles):
-      print("The sizes of the two input datasets do not agree. " + \
-            "Got: ", len(opt_rotation_angles), " and ", len(orig_rotation_angles))
-      sys.exit(1)
+  print("Number of rotations for orbit id " + camType + ': ' + str(len(orig_rotation_angles)))
+  if numSets == 2 and (not isLinescan(orig_cams[0])):
+    # For linescan can handle different number of rotations but not for frame
+    if len(orig_rotation_angles) != len(opt_rotation_angles):
+        print("Number of rotations in the two datasets must be the same, got: ", \
+              len(orig_rotation_angles), " and ", len(opt_rotation_angles))
+        sys.exit(1)
 
+  # X axes for the plots (will change for linescan)
+  X1 = np.arange(len(orig_rotation_angles))
+  X2 = np.arange(len(opt_rotation_angles))
+  x_label = 'Frame index'
+
+  # For linescan, we will plot against image line. Number of rotations can differ.
+  if isLinescan(orig_cams[0]):
+      x_label = 'Image line'
+      (orig_rotation_angles, firstLine, lastLine, X1) = \
+            setupLinescanPlot(orig_rotation_angles, opt.trim_ratio, orig_cams)
+      if numSets == 2:
+          (opt_rotation_angles, _, _, X2) = \
+            setupLinescanPlot(opt_rotation_angles, opt.trim_ratio, opt_cams)
+  
   # The order is roll, pitch, yaw, as returned by
   # R.from_matrix().as_euler('XYZ',degrees=True)
   orig_roll  = [r[0] for r in orig_rotation_angles]
@@ -687,9 +681,9 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
       orig_pitch = orig_pitch - fit_pitch
       orig_yaw = orig_yaw - fit_yaw
       if numSets == 2:
-          opt_roll = opt_roll - fit_roll
-          opt_pitch = opt_pitch - fit_pitch
-          opt_yaw = opt_yaw - fit_yaw
+          opt_roll  = opt_roll  - resampleVals(X2, X1, fit_roll)
+          opt_pitch = opt_pitch - resampleVals(X2, X1, fit_pitch)
+          opt_yaw   = opt_yaw   - resampleVals(X2, X1, fit_yaw)
 
   if isLinescan(orig_cams[0]):
     minVal = [0, 0, 0]
@@ -725,22 +719,20 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
 
   # Plot residuals
   lw = opt.line_width
-  A[0].plot(np.arange(len(orig_roll)), orig_roll, label=origTag, color = 'r', linewidth = lw)
-  A[1].plot(np.arange(len(orig_pitch)), orig_pitch, label=origTag, color = 'r', 
-            linewidth = lw)
-  A[2].plot(np.arange(len(orig_yaw)), orig_yaw, label=origTag, color = 'r', linewidth = lw)
+  A[0].plot(X1, orig_roll, label=origTag, color = 'r', linewidth = lw)
+  A[1].plot(X1, orig_pitch, label=origTag, color = 'r', linewidth = lw)
+  A[2].plot(X1, orig_yaw, label=origTag, color = 'r', linewidth = lw)
   if numSets == 2:
-      A[0].plot(np.arange(len(opt_roll)), opt_roll, label=optTag, color = 'b', linewidth = lw)
-      A[1].plot(np.arange(len(opt_pitch)), opt_pitch, label=optTag, color = 'b', 
-                linewidth = lw)
-      A[2].plot(np.arange(len(opt_yaw)), opt_yaw, label=optTag, color = 'b', linewidth = lw)
+      A[0].plot(X2, opt_roll, label=optTag, color = 'b', linewidth = lw)
+      A[1].plot(X2, opt_pitch, label=optTag, color = 'b', linewidth = lw)
+      A[2].plot(X2, opt_yaw, label=optTag, color = 'b', linewidth = lw)
 
   if isLinescan(orig_cams[0]):
     # Plot vertical lines showing where the first and last image lines are
     for index in range(3):
-        A[index].plot([firstQuatIndex, firstQuatIndex], [minVal[index], maxVal[index]],
+        A[index].plot([firstLine, firstLine], [minVal[index], maxVal[index]],
                   label = 'First image line', color = 'black', linestyle = '--')
-        A[index].plot([lastQuatIndex, lastQuatIndex], [minVal[index], maxVal[index]],
+        A[index].plot([lastLine, lastLine], [minVal[index], maxVal[index]],
                     label = 'Last image line', color = 'black', linestyle = '--')
 
   A[0].set_title(camLabel + ' roll'  + residualTag)
@@ -753,7 +745,7 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
 
   err = ((orig_roll_err, opt_roll_err), (orig_pitch_err, opt_pitch_err), (orig_yaw_err, opt_yaw_err))
   for index in range(3):
-      A[index].set_xlabel('Frame index')
+      A[index].set_xlabel(x_label)
       # Calc err text
       if numSets == 1:
           txt = err_str + err[index][0]
