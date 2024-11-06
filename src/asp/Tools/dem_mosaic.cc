@@ -480,6 +480,129 @@ DoubleGrayA interpDem(double x, double y,
   return pval;
 }
 
+// Use the weights created so far only to burn holes in
+// the DEMs where we don't want blending. Then we will have to
+// recreate the weights. That because the current weights have
+// been interpolated from a different grid, and won't handle
+// erosion and blur well.
+void priorityBlend(double out_nodata_value,
+                   double bias,
+                   double weights_blur_sigma,
+                   double weights_exp,
+                   bool no_border_blend,
+                   int save_dem_weight,
+                   std::vector<int> const& clip2dem_index,
+                   GeoReference const& out_georef,
+                   BBox2i const& bbox,
+                   // Outputs
+                   std::vector<ImageView<double>> & tile_vec,
+                   std::vector<ImageView<double>> & weight_vec,
+                   ImageView<double> & tile,
+                   ImageView<double> & weights,
+                   ImageView<double> & saved_weight) {
+
+  if (tile_vec.size() != weight_vec.size() || tile_vec.size() != clip2dem_index.size())
+    vw_throw(ArgumentErr() << "There must be as many dem tiles as weight tiles.\n");
+
+  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+    for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
+      for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
+        if (weight_vec[clip_iter](col, row) <= 0)
+          tile_vec[clip_iter](col, row) = out_nodata_value;
+      }
+    }
+
+    weight_vec[clip_iter] = grassfire(notnodata(tile_vec[clip_iter],
+                                                out_nodata_value),
+                                      no_border_blend);
+  }
+
+  // Don't allow the weights to grow too fast, for uniqueness.
+  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+    for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
+      for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
+        weight_vec[clip_iter](col, row)
+          = std::min(weight_vec[clip_iter](col, row), double(bias));
+      }
+    }
+  }
+
+  // Blur the weights
+  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
+    blur_weights(weight_vec[clip_iter], weights_blur_sigma);
+
+  // Raise to power
+  if (weights_exp != 1) {
+    for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+      for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
+        for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
+          weight_vec[clip_iter](col, row)
+            = pow(weight_vec[clip_iter](col, row), weights_exp);
+        }
+      }
+    }
+  }
+
+  // Now we are ready for blending
+  fill(tile, out_nodata_value);
+  fill(weights, 0.0);
+
+  if (save_dem_weight >= 0)
+    fill(saved_weight, 0.0);
+
+  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+    for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
+      for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
+
+        double wt = weight_vec[clip_iter](col, row);
+        if (wt <= 0)
+          continue; // nothing to do
+
+        // Initialize the tile
+        if (tile(col, row) == out_nodata_value)
+          tile(col, row) = 0;
+
+        tile(col, row)    += wt*tile_vec[clip_iter](col, row);
+        weights(col, row) += wt;
+
+        if (clip2dem_index[clip_iter] == save_dem_weight)
+          saved_weight(col, row) = wt;
+      }
+    }
+  }
+
+  // Compute the weighted average
+  for (int col = 0; col < tile.cols(); col++) {
+    for (int row = 0; row < weights.rows(); row++) {
+      if (weights(col, row) > 0)
+        tile(col, row) /= weights(col, row);
+
+      if (save_dem_weight >= 0 && weights(col, row) > 0)
+        saved_weight(col, row) /= weights(col, row);
+
+    }
+  }
+
+  // Dump the weights. Useful for debugging.
+  bool save_weights = false; 
+  if (save_weights) {
+    for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+      GeoReference crop_georef = crop(out_georef, bbox);
+      std::ostringstream os;
+      os << "tile_weight_" << clip_iter << ".tif";
+      vw_out() << "\nWriting: " << os.str() << std::endl;
+      bool has_georef = true, has_nodata = true;
+      block_write_gdal_image(os.str(), weight_vec[clip_iter],
+                  has_georef, crop_georef,
+                  has_nodata, -100,
+                  vw::GdalWriteOptions(),
+                  TerminalProgressCallback("asp", ""));
+    }
+  }
+
+  return;
+}
+
 // Process a DEM tile pixel by pixel. Take into account the various
 // blending options. 
 void processDemTile(Options const& opt,
@@ -1081,115 +1204,14 @@ public:
         tile = copy(tile_vec[max_index]);
     }
 
-    // For priority blending length.
-    // TODO(oalexan1): This must be a function
-    if (use_priority_blend) {
-
-      if (tile_vec.size() != weight_vec.size() || tile_vec.size() != clip2dem_index.size())
-        vw_throw(ArgumentErr() << "There must be as many dem tiles as weight tiles.\n");
-
-      // We will use the weights created so far only to burn holes in
-      // the DEMs where we don't want blending. Then we will have to
-      // recreate the weights. That because the current weights have
-      // been interpolated from a different grid, and won't handle
-      // erosion and blur well.
-      for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-        for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
-          for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
-            if (weight_vec[clip_iter](col, row) <= 0)
-              tile_vec[clip_iter](col, row) = m_opt.out_nodata_value;
-          }
-        }
-
-        weight_vec[clip_iter] = grassfire(notnodata(tile_vec[clip_iter],
-                                                    m_opt.out_nodata_value),
-                                          m_opt.no_border_blend);
-      }
-
-      // Don't allow the weights to grow too fast, for uniqueness.
-      for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-        for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
-          for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
-            weight_vec[clip_iter](col, row)
-              = std::min(weight_vec[clip_iter](col, row), double(m_bias));
-          }
-        }
-      }
-
-      // Blur the weights.
-      for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-        blur_weights(weight_vec[clip_iter], m_opt.weights_blur_sigma);
-      }
-
-      // Raise to power
-      if (m_opt.weights_exp != 1) {
-        for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-          for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
-            for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
-              weight_vec[clip_iter](col, row)
-                = pow(weight_vec[clip_iter](col, row), m_opt.weights_exp);
-            }
-          }
-        }
-      }
-
-      // Now we are ready for blending
-      fill(tile, m_opt.out_nodata_value);
-      fill(weights, 0.0);
-
-      if (m_opt.save_dem_weight >= 0)
-        fill(saved_weight, 0.0);
-
-      for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-        for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
-          for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
-
-            double wt = weight_vec[clip_iter](col, row);
-            if (wt <= 0)
-              continue; // nothing to do
-
-            // Initialize the tile
-            if (tile(col, row) == m_opt.out_nodata_value)
-              tile(col, row) = 0;
-
-            tile(col, row)    += wt*tile_vec[clip_iter](col, row);
-            weights(col, row) += wt;
-
-            if (clip2dem_index[clip_iter] == m_opt.save_dem_weight)
-              saved_weight(col, row) = wt;
-          }
-        }
-      }
-
-      // Compute the weighted average
-      for (int col = 0; col < tile.cols(); col++) {
-        for (int row = 0; row < weights.rows(); row++) {
-          if (weights(col, row) > 0)
-            tile(col, row) /= weights(col, row);
-
-          if (m_opt.save_dem_weight >= 0 && weights(col, row) > 0)
-            saved_weight(col, row) /= weights(col, row);
-
-        }
-      }
-
-#if 0
-  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-    // Dump the modifier weights
-    GeoReference crop_georef = crop(m_out_georef, bbox);
-    std::ostringstream os;
-    os << "tile_weight_" << clip_iter << ".tif";
-    vw_out() << "\nWriting: " << os.str() << std::endl;
-    bool has_georef = true, has_nodata = true;
-    block_write_gdal_image(os.str(), weight_vec[clip_iter],
-                has_georef, crop_georef,
-                has_nodata, -100,
-                vw::GdalWriteOptions(),
-                TerminalProgressCallback("asp", ""));
-      }
-#endif
-
-    } // end considering the priority blending length
+    // For priority blending length, use the weights created so far only to burn holes in
+    // the DEMs where we don't want blending, then recreate the weights
+    if (use_priority_blend)
+      priorityBlend(m_opt.out_nodata_value, m_bias, m_opt.weights_blur_sigma,
+                    m_opt.weights_exp, m_opt.no_border_blend, m_opt.save_dem_weight,
+                    clip2dem_index, m_out_georef, bbox,
+                    // Outputs
+                    tile_vec, weight_vec, tile, weights, saved_weight);
 
     // Save the weight instead
     if (m_opt.save_dem_weight >= 0)
