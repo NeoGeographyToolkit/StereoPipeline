@@ -2143,7 +2143,7 @@ void addSmoothnessConstraint(asp::BaBaseOptions               const& opt,
     // Let the weight be inversely proportional to the curvature. This way the
     // current curvature is normalized by the initial curvature. The multiplier
     // below ensures the optimized curvature can be no more than a factor the
-    // initial curvature. 
+    // initial curvature. This was carefully tested with real and synthetic data.
     std::vector<double> weights(orig_curvatures[icam].size());
     for (size_t it = 0; it < orig_curvatures[icam].size(); it++)
       weights[it] = 0.001 * smoothness_weight / orig_curvatures[icam][it];

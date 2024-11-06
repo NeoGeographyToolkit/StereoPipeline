@@ -132,6 +132,7 @@ Smoothness constraint
 The option ``--smoothness-weight`` constraints how much each sequence of
 linescan poses can change in curvature relative to the initial values. This is
 adjusted internally by the program, with the default being a multiplier (1.0).
+More details are in :numref:`jitter_options`.
 
 Resampling the poses
 ~~~~~~~~~~~~~~~~~~~~
@@ -2253,8 +2254,9 @@ Command-line options for jitter_solve
 --smoothness-weight <double (default: 1.0)>
     A weight to penalize high-frequency changes in the sequence of orientations
     in the linescan cameras being optimized. This is internally adjusted based
-    on the initial curvature of the sequence of orientations, and the default
-    should be good enough. A higher value may impede convergence.
+    on the initial curvature of the sequence of orientations. The default
+    should be good enough. A higher value will make the solution smoother but 
+    may impede convergence.
     
 --image-list
     A file containing the list of images, when they are too many to specify on

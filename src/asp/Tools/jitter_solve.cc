@@ -316,8 +316,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(1.0),
       "A weight to penalize high-frequency changes in the sequence of orientations "
       "in the linescan cameras being optimized. This is internally adjusted based "
-      "on the initial curvature of the sequence of orientations, and the default "
-      "should be good enough. A higher value may impede convergence.")
+      "on the initial curvature of the sequence of orientations. The default "
+      "should be good enough. A higher value will make the solution smoother but "
+      "may impede convergence.")
     ("initial-camera-constraint", 
      po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
      "When constraining roll and yaw, measure these not in the satellite along-track/ "
