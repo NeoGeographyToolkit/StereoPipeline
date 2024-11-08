@@ -734,6 +734,65 @@ void processDemTile(Options const& opt,
   return;
 }
 
+void processMedianOrNmad(BBox2i const& bbox, 
+                         double out_nodata_value,
+                         bool is_median,
+                         bool save_index_map,
+                         std::vector<int> const& clip2dem_index,                        
+                         std::vector<ImageView<double>> const& tile_vec,
+                         ImageView<double> & tile,
+                         ImageView<double> & index_map) {
+
+  // Init output pixels to nodata
+  fill(tile, out_nodata_value);
+  std::vector<double> vals, vals_all(tile_vec.size());
+  // Iterate through all pixels
+  for (int c = 0; c < bbox.width(); c++) {
+    for (int r = 0; r < bbox.height(); r++) {
+      // Compute the median for this pixel
+      vals.clear();
+      for (int i = 0; i < (int)tile_vec.size(); i++) {
+        ImageView<double> const& tile_ref = tile_vec[i];
+        double this_val = tile_ref(c, r);
+        vals_all[i] = this_val; // Record the original order.
+        if (this_val == out_nodata_value)
+          continue;
+        vals.push_back(this_val);
+      }
+
+      if (vals.empty())
+        continue;
+      if (is_median)
+        tile(c, r) = math::destructive_median(vals);
+      else
+        tile(c, r) = math::destructive_nmad(vals);
+
+      if (!save_index_map)
+        continue;
+
+      // Record the index of the image that is closest to the
+      // median value.  Note that the median can average two
+      // values, so the median value may not equal exactly any of
+      // the input values.
+      double min_dist = std::numeric_limits<double>::max();
+      for (size_t m = 0; m < vals_all.size(); m++) {
+        double dist = fabs(vals_all[m] - tile(c, r));
+        if (dist < min_dist) {
+          // Here we save the index not in the current array which
+          // is m, but in the full list of DEMs, some of which are
+          // likely skipped in this tile as they don't intersect
+          // it.
+          index_map(c, r) = clip2dem_index[m];
+          min_dist = dist;
+        }
+      }
+
+    }// End row loop
+  } // End col loop
+
+  return;
+}
+
 /// Class that does the actual image processing work
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
   int m_cols, m_rows, m_bias;
@@ -929,6 +988,7 @@ public:
 
       // If the nodata_threshold is specified, all values no more than this
       // will be invalidated.
+      // TODO(oalexan1): This must be a function
       double nodata_value = m_nodata_values[dem_iter];
       if (!boost::math::isnan(m_opt.nodata_threshold)) {
         nodata_value = m_opt.nodata_threshold;
@@ -1008,7 +1068,7 @@ public:
             }
           }
         }
-        // TODO: Generalize this modification and move it to VW!!!
+        // TODO(oalexan1): Generalize this modification and move it to VW.
         centerline_weights2(create_mask_less_or_equal(select_channel(dem2, 0), nodata_value),
                             local_wts, m_bias, -1.0);
       } // End centerline weights case
@@ -1043,6 +1103,7 @@ public:
 
       // Raise to the power. Note that when priority blending length is positive, we
       // delay this process.
+      // TODO(oalexan1): This must be a function
       if (m_opt.weights_exp != 1 && !use_priority_blend) {
         for (int col = 0; col < dem.cols(); col++) {
           for (int row = 0; row < dem.rows(); row++) {
@@ -1128,56 +1189,15 @@ public:
       } // End col loop
     } // End stddev case
 
-    // For the median and nmad operations
-    // TODO(oalexan1): This must be a function
-    if (m_opt.median || m_opt.nmad) {
-      // Init output pixels to nodata
-      fill(tile, m_opt.out_nodata_value);
-      std::vector<double> vals, vals_all(tile_vec.size());
-      // Iterate through all pixels
-      for (int c = 0; c < bbox.width(); c++) {
-        for (int r = 0; r < bbox.height(); r++) {
-          // Compute the median for this pixel
-          vals.clear();
-          for (int i = 0; i < (int)tile_vec.size(); i++) {
-            ImageView<double> & tile_ref = tile_vec[i];
-            double this_val = tile_ref(c, r);
-            vals_all[i] = this_val; // Record the original order.
-            if (this_val == m_opt.out_nodata_value)
-              continue;
-            vals.push_back(this_val);
-          }
-          if (vals.empty())
-            continue;
-          if (m_opt.median)
-            tile(c, r) = math::destructive_median(vals);
-          else
-            tile(c, r) = math::destructive_nmad(vals);
-
-          if (!m_opt.save_index_map)
-            continue;
-          // Record the index of the image that is closest to the
-          // median value.  Note that the median can average two
-          // values, so the median value may not equal exactly any of
-          // the input values.
-          double min_dist = std::numeric_limits<double>::max();
-          for (size_t m = 0; m < vals_all.size(); m++) {
-            double dist = fabs(vals_all[m] - tile(c, r));
-            if (dist < min_dist) {
-              // Here we save the index not in the current array which
-              // is m, but in the full list of DEMs, some of which are
-              // likely skipped in this tile as they don't intersect
-              // it.
-              index_map(c, r) = clip2dem_index[m];
-              min_dist = dist;
-            }
-          }
-
-        }// End row loop
-      } // End col loop
-    } // End median/nmad case
+    // Median and nmad operations
+    if (m_opt.median || m_opt.nmad)
+      processMedianOrNmad(bbox, m_opt.out_nodata_value, m_opt.median, m_opt.save_index_map,
+                          clip2dem_index, tile_vec, 
+                          // Outputs
+                          tile, index_map);
 
     // For max per block, find the sum of values in each DEM
+    // TODO(oalexan1): This must be a function
     if (m_opt.block_max) {
       fill(tile, m_opt.out_nodata_value);
       int num_tiles = tile_vec.size();
@@ -1222,6 +1242,7 @@ public:
       tile = index_map;
 
     // How many valid pixels are there in the tile
+    // TODO(oalexan1): This must be a function
     long long int num_valid_in_tile = 0; // use int64 to not overflow for large images
     for (int col = 0; col < tile.cols(); col++) {
       for (int row = 0; row < tile.rows(); row++) {
@@ -1241,9 +1262,9 @@ public:
 
     if (m_opt.first_dem_as_reference) {
 
-      if (first_dem.cols() != tile.cols() || first_dem.rows() != tile.rows()) {
+      // TODO(oalexan1): This must be a function
+      if (first_dem.cols() != tile.cols() || first_dem.rows() != tile.rows())
         vw_throw(ArgumentErr() << "Book-keeping error when blending into first DEM.\n");
-      }
 
       // Wipe from the tile all values outside the perimeter of
       // first_dem. So we don't wipe values that happen to be
@@ -1267,7 +1288,7 @@ public:
     return prerasterize_type(pixel_cast<RealT>(tile),
                              -bbox.min().x(), -bbox.min().y(),
                              cols(), rows());
-  }
+  } // end function prerasterize
 
   template <class DestT>
   inline void rasterize(DestT const& dest, BBox2i bbox) const {
