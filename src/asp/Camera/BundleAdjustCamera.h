@@ -686,6 +686,11 @@ void parse_intrinsics_limits(std::string const& intrinsics_limits_str,
 void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
                        std::vector<vw::Vector3>      & cam_positions);
 
+// This function returns all camera centers for linescan cameras
+void calcCameraCenters(std::string const& stereo_session,
+                       std::vector<vw::CamPtr>  const& cams,
+                       std::vector<std::vector<vw::Vector3>> & cam_positions);
+
 // Update the set of outliers based on param_storage
 void updateOutliers(vw::ba::ControlNetwork const& cnet, 
                       asp::BAParams const& param_storage,

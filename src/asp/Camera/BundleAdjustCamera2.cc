@@ -32,12 +32,16 @@
 #include <asp/Camera/CameraErrorPropagation.h>
 #include <asp/IsisIO/IsisInterface.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Camera/LinescanUtils.h>
+#include <asp/Camera/CsmModel.h>
 
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/LensDistortion.h>
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Camera/CameraImage.h>
 #include <vw/Core/Stopwatch.h>
+
+#include <usgscsm/UsgsAstroLsSensorModel.h>
 
 #include <boost/algorithm/string.hpp>
 
@@ -1392,6 +1396,49 @@ void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
     vw::Vector3 ctr = cams[icam]->camera_center(vw::Vector2());
     cam_positions[icam] = ctr;
   }
+}
+
+// This function returns all camera centers for linescan cameras
+void calcCameraCenters(std::string const& stereo_session, 
+                       std::vector<vw::CamPtr>  const& camera_models,
+                       std::vector<std::vector<vw::Vector3>> & cam_positions) {
+
+  cam_positions.resize(camera_models.size());
+  for (size_t icam = 0; icam < camera_models.size(); icam++) {
+
+    asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], stereo_session);
+    if (csm_cam == NULL) {
+      // Have a single camera center
+      vw::Vector3 ctr = camera_models[icam]->camera_center(vw::Vector2());
+      cam_positions[icam].push_back(ctr);
+      continue;
+    }
+
+    csm::RasterGM * csm = csm_cam->m_gm_model.get();
+    UsgsAstroLsSensorModel * ls_model 
+      = dynamic_cast<UsgsAstroLsSensorModel*>(csm);
+    if (ls_model == NULL) {
+      // Have a single camera center
+      vw::Vector3 ctr = camera_models[icam]->camera_center(vw::Vector2());
+      cam_positions[icam].push_back(ctr);
+      continue; 
+    }
+
+    // Get the number of positions
+    int numPos = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+
+    // The positions are in a single vector, ls_model->m_positions
+    // Append them to cam_positions[icam]
+    for (int i = 0; i < numPos; i++) {
+      int j = i * NUM_XYZ_PARAMS;
+      double x = ls_model->m_positions[j+0];
+      double y = ls_model->m_positions[j+1];
+      double z = ls_model->m_positions[j+2];
+      cam_positions[icam].push_back(vw::Vector3(x, y, z));
+    }
+  }
+
+  return;
 }
 
 // Update the set of outliers based on param_storage

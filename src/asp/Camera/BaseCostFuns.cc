@@ -55,6 +55,15 @@ double signed_power(double val, double power) {
   return pow(val, power);
 }
 
+// A function that first increases slowly, then very fast, but without being
+// numerically unstable for very small or very large values of the input.
+// This was carefully tested with --camera-position-uncertainty
+// for bundle adjustment and jitter solving with uncertinty values of 0.1, 1, 10.
+double exp_cost(double val) {
+  double ans = exp(abs(val)) - 1.0;
+  return ans;
+}
+
 bool CamUncertaintyError::operator()(const double* cam_adj, double* residuals) const {
   
   // The difference between the original and current camera center
@@ -77,9 +86,9 @@ bool CamUncertaintyError::operator()(const double* cam_adj, double* residuals) c
   // to m_camera_position_uncertainty_power power. Multiply by
   // sqrt(m_weight), to give the squared residual the correct weight.
   double p = m_camera_position_uncertainty_power / 2.0;
-  residuals[0] = sqrt(m_weight) * signed_power(horiz[0], p);
-  residuals[1] = sqrt(m_weight) * signed_power(horiz[1], p);
-  residuals[2] = sqrt(m_weight) * signed_power(vert, p);
+  residuals[0] = sqrt(m_weight) * exp_cost(horiz[0]);
+  residuals[1] = sqrt(m_weight) * exp_cost(horiz[1]);
+  residuals[2] = sqrt(m_weight) * exp_cost(vert);
 
   return true;
 }

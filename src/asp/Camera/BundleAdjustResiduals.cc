@@ -598,6 +598,11 @@ void saveCameraOffsets(vw::cartography::Datum   const& datum,
                        std::vector<vw::Vector3> const& opt_cam_positions,
                        std::string              const& camera_offset_file) {
 
+  // Sanity check for the sizes
+  if (orig_cam_positions.size() != opt_cam_positions.size())
+    vw_throw(ArgumentErr() 
+      << "Expecting the same number of original and optimized camera positions.\n");
+
   vw::vw_out() << "Writing: " << camera_offset_file << std::endl;
   std::ofstream ofs(camera_offset_file.c_str());
   ofs.precision(8);
@@ -617,8 +622,61 @@ void saveCameraOffsets(vw::cartography::Datum   const& datum,
     double horiz_change = norm_2(subvector(NedDir, 0, 2));
     double vert_change  = std::abs(NedDir[2]);
     
-    ofs << image_files[icam] << " " << horiz_change << " " << vert_change << std::endl;
+    ofs << image_files[icam] << " " << horiz_change << " " << vert_change << "\n";
   }
+  ofs.close();
+
+  return;
+}
+
+// Compute the horizontal and vertical change in camera positions. If more than 
+// one camera position, such as for linescan, find the biggest.
+void saveCameraOffsets(vw::cartography::Datum                const& datum,
+                       std::vector<std::string>              const& image_files,
+                       std::vector<std::vector<vw::Vector3>> const& orig_cam_positions,
+                       std::vector<std::vector<vw::Vector3>> const& opt_cam_positions,
+                       std::string                           const& camera_offset_file) {
+
+  vw::vw_out() << "Writing: " << camera_offset_file << std::endl;
+  std::ofstream ofs(camera_offset_file.c_str());
+  ofs.precision(8);
+  ofs << "# Per-image absolute horizontal and vertical change in camera center (meters)\n";
+  
+  // Sanity check that the sizes are the same
+  if (orig_cam_positions.size() != opt_cam_positions.size())
+    vw::vw_throw(vw::ArgumentErr() 
+      << "Expecting the same number of original and optimized camera positions.\n");
+
+  // Loop through the cameras and find the change in their centers
+  for (size_t icam = 0; icam < orig_cam_positions.size(); icam++) {
+
+    auto const& orig_ctrs = orig_cam_positions[icam];
+    auto const& opt_ctrs  = opt_cam_positions[icam];
+    
+    if (orig_ctrs.size() != opt_ctrs.size())
+      vw::vw_throw(vw::ArgumentErr() 
+        << "Expecting the same number of original and optimized camera centers.\n");
+
+    // Iterate over the camera centers
+    double horiz_change = 0.0, vert_change = 0.0;
+    for (size_t i = 0; i < orig_ctrs.size(); i++) {
+      vw::Vector3 orig_ctr = orig_ctrs[i];
+      vw::Vector3 opt_ctr  = opt_ctrs[i];
+      
+      // Convert to geodetic
+      vw::Vector3 llh = datum.cartesian_to_geodetic(orig_ctr);
+      vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
+      vw::Matrix3x3 EcefToNed = vw::math::inverse(NedToEcef);
+      vw::Vector3 NedDir = EcefToNed * (opt_ctr - orig_ctr);
+    
+      // Find horizontal and vertical change
+      horiz_change = std::max(horiz_change, norm_2(subvector(NedDir, 0, 2)));
+      vert_change  = std::max(vert_change,  std::abs(NedDir[2]));
+    }
+
+    ofs << image_files[icam] << " " << horiz_change << " " << vert_change << "\n";
+  }
+  
   ofs.close();
 
   return;

@@ -1008,7 +1008,7 @@ void jitterSolvePass(int                                 pass,
                      ba::ControlNetwork                & cnet,
                      std::set<int>                     & outliers,
                      std::vector<asp::CsmModel*>       & csm_models,
-                     std::vector<vw::Vector3>          & orig_cam_positions,
+                     std::vector<std::vector<vw::Vector3>> & orig_cam_positions,
                      std::vector<double>               & orig_tri_points_vec,
                      std::vector<std::vector<double>>  & orig_curvatures,
                      rig::RigSet                       & rig,
@@ -1088,7 +1088,7 @@ void jitterSolvePass(int                                 pass,
   // Save the original camera positions and triangulated points for the initial pass
   if (pass == 0) {
     orig_tri_points_vec = local_orig_tri_points_vec;
-    asp::calcCameraCenters(opt.camera_models, orig_cam_positions);
+    asp::calcCameraCenters(opt.stereo_session, opt.camera_models, orig_cam_positions);
   }
       
   // The above structures must not be resized anymore, as we will get pointers
@@ -1253,8 +1253,8 @@ void jitterSolvePass(int                                 pass,
 
   // By now camera_models has been updated in-place. Compute the optimized
   // camera centers.
-  std::vector<vw::Vector3> opt_cam_positions;
-  asp::calcCameraCenters(opt.camera_models, opt_cam_positions);
+  std::vector<std::vector<vw::Vector3>> opt_cam_positions;
+  asp::calcCameraCenters(opt.stereo_session, opt.camera_models, opt_cam_positions);
 
   // Save residuals after optimization
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
@@ -1291,7 +1291,7 @@ void jitterSolvePass(int                                 pass,
   if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
     asp::saveCameraOffsets(opt.datum, opt.image_files, 
                            orig_cam_positions, opt_cam_positions,
-                           cam_offsets_file); 
+                           cam_offsets_file);
 
   // Resize the tri_points_vec to eliminate the anchor points that were appended.
   // The number of those can be variable in each pass and those do not contribute
@@ -1464,17 +1464,18 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   // It is convenient to compute these inside the first pass rather than outside.
   // They should not go out of scope until the end of the program.
-  std::vector<vw::Vector3> orig_cam_positions;
+  std::vector<std::vector<vw::Vector3>> orig_cam_positions;
   std::vector<double> orig_tri_points_vec;
   std::vector<std::vector<double>> orig_curvatures;
-  
+
   // Do this many passes
   for (int pass = 0; pass < opt.num_passes; pass++)
     jitterSolvePass(pass, have_rig, opt, crn, rig_cam_info, 
                     timestamp_map,
                     // Outputs
                     cnet, outliers, csm_models,
-                    orig_cam_positions, orig_tri_points_vec, orig_curvatures,
+                    orig_cam_positions,
+                    orig_tri_points_vec, orig_curvatures,
                     rig, ref_to_curr_sensor_vec);
   
   return;

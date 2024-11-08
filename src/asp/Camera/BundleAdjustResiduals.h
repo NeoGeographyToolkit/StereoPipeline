@@ -109,6 +109,14 @@ void saveCameraOffsets(vw::cartography::Datum   const& datum,
                        std::vector<vw::Vector3>  const& opt_cam_positions,
                        std::string              const& camera_offset_file);
 
+// Compute the horizontal and vertical change in camera positions. If more than 
+// one camera position, such as for linescan, find the biggest.
+void saveCameraOffsets(vw::cartography::Datum                const& datum,
+                       std::vector<std::string>              const& image_files,
+                       std::vector<std::vector<vw::Vector3>> const& orig_cam_positions,
+                       std::vector<std::vector<vw::Vector3>> const& opt_cam_positions,
+                       std::string                           const& camera_offset_file);
+
 // This is used in jitter_solve
 void saveJitterResiduals(ceres::Problem                             & problem, 
                          std::string                           const& residual_prefix,
