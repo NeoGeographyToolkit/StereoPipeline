@@ -2188,7 +2188,7 @@ Command-line options for jitter_solve
     expense of accuracy. See :numref:`ba_cam_constraints` for details. 
     See also ``--camera-position-uncertainty-power``.
     
---camera-position-uncertainty-power <double (default: 16.0)>
+--camera-position-uncertainty-power <double (default: 2.0)>
     A higher value makes the cost function rise more steeply when
     ``--camera-position-uncertainty`` is close to being violated. This is an
     advanced option. The default should be good enough.

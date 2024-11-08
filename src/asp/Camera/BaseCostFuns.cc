@@ -86,9 +86,9 @@ bool CamUncertaintyError::operator()(const double* cam_adj, double* residuals) c
   // to m_camera_position_uncertainty_power power. Multiply by
   // sqrt(m_weight), to give the squared residual the correct weight.
   double p = m_camera_position_uncertainty_power / 2.0;
-  residuals[0] = sqrt(m_weight) * exp_cost(horiz[0]);
-  residuals[1] = sqrt(m_weight) * exp_cost(horiz[1]);
-  residuals[2] = sqrt(m_weight) * exp_cost(vert);
+  residuals[0] = sqrt(m_weight) * pow(exp_cost(horiz[0]), p);
+  residuals[1] = sqrt(m_weight) * pow(exp_cost(horiz[1]), p);
+  residuals[2] = sqrt(m_weight) * pow(exp_cost(vert), p);
 
   return true;
 }
