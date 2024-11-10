@@ -10,13 +10,9 @@ source, but this is not recommended (:numref:`building_asp`).
 Precompiled binaries
 --------------------
 
-Linux and macOS
-~~~~~~~~~~~~~~~
+Linux
+~~~~~
  
-ASP builds are produced for Linux and OSX (with the Intel processor). ASP was
-verified to work on the OSX M1 processor using Rosetta 2. For Windows, see
-below.
-
 Choose either the latest build (recommended) or a stable release
 from:
 
@@ -38,6 +34,22 @@ location on your filesystem::
     export PATH=${PATH}:/path/to/StereoPipeline/bin
 
 The latest additions are documented in :numref:`news`.
+
+MacOS
+~~~~~
+
+ASP builds are produced for MacOS, with the Intel processor. ASP was verified to
+work on the Arm M1/M2 processor using Rosetta 2.
+
+The installation steps are the same as for Linux. It is important to 
+note that:
+
+- An error may be shown about the programs not being signed. That can be
+  overridden in the Privacy & Security settings of the system.
+ 
+- Running the programs the first time will be slow, as Rosetta will
+  translate them to the native architecture. Subsequent runs will be
+  faster.
 
 Windows
 ~~~~~~~
