@@ -44,8 +44,8 @@ work on the Arm M1/M2 processor using Rosetta 2.
 The installation steps are the same as for Linux. It is important to 
 note that:
 
-- An error may be shown about the programs not being signed. That can be
-  overridden in the Privacy & Security settings of the system.
+- An error may be shown about not being able to verfy the developers. That can
+  be overridden in the Privacy & Security settings of the system.
  
 - Running the programs the first time will be slow, as Rosetta will
   translate them to the native architecture. Subsequent runs will be
