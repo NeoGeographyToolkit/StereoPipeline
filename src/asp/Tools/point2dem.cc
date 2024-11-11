@@ -57,9 +57,13 @@ void split_number_string(const std::string &input, std::vector<double> &output) 
 
   double val;
   std::stringstream stream(s);
-  while (stream >> val) {
+  while (stream >> val)
     output.push_back(val);
-  }
+  
+  // If the input is non-empty but the output is empty, that means
+  // an invalid string was passed.
+  if (!input.empty() && output.empty())
+    vw_throw(ArgumentErr() << "Invalid value for the DEM spacing: " << input << "\n");
 }
 
 void handle_arguments(int argc, char *argv[], DemOptions& opt) {
@@ -259,15 +263,18 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
   // Extract the list of numbers from the input string
   split_number_string(dem_spacing1, opt.dem_spacing);
+  
+  // Check for for non-numeric or non-positive input
+  for (size_t i = 0; i < opt.dem_spacing.size(); i++) {
+    if (opt.dem_spacing[i] <= 0.0)
+      vw_throw(ArgumentErr() << "The DEM spacing must be positive.\n" );
+  }
+      
   if (opt.dem_spacing.size() == 0)
-    opt.dem_spacing.push_back(0.0); // Make sure we have a number!
+    opt.dem_spacing.push_back(0.0); // Make sure we have a number
 
   bool spacing_provided = false;
-  for (size_t i=0; i<opt.dem_spacing.size(); ++i) {
-    if (opt.dem_spacing[i] < 0.0){
-      // Note: Zero spacing means we'll set it internally.
-      vw_throw(ArgumentErr() << "The DEM spacing must be non-negative.\n" );
-    }
+  for (size_t i = 0; i < opt.dem_spacing.size(); i++) {
     if (opt.dem_spacing[i] > 0)
       spacing_provided = true;
   }

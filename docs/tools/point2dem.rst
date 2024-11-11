@@ -91,6 +91,16 @@ Here we have explicitly specified the spheroid (``-r moon``), rather
 than have it inferred automatically. The Moon spheroid will have a
 radius of 1737.4 km.
 
+Specify a projection string
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+    point2dem --tr '+proj=sinu +R=3396190 +no_defs' run/run-PC.tif
+
+This is the sinusoidal projection for Mars. The option ``gdalinfo --proj4``
+can find the projection string in a GeoTIFF file.
+
 Custom grid size with geographic projection
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
