@@ -590,7 +590,7 @@ void priorityBlend(double out_nodata_value,
       GeoReference crop_georef = crop(out_georef, bbox);
       std::ostringstream os;
       os << "tile_weight_" << clip_iter << ".tif";
-      vw_out() << "\nWriting: " << os.str() << std::endl;
+      vw_out() << "\nWriting: " << os.str() << "\n";
       bool has_georef = true, has_nodata = true;
       block_write_gdal_image(os.str(), weight_vec[clip_iter],
                   has_georef, crop_georef,
@@ -888,7 +888,7 @@ public:
     // of the precision of the inputs, for increased accuracy.
     // - The image data buffers are initialized here
     ImageView<double> tile   (bbox.width(), bbox.height()); // the output tile (in most cases)
-    ImageView<double> weights(bbox.width(), bbox.height()); // accumulated weights (in most cases)
+    ImageView<double> weights(bbox.width(), bbox.height()); // weights (in most cases)
     fill(tile, m_opt.out_nodata_value);
     fill(weights, 0.0);
 
@@ -1054,8 +1054,10 @@ public:
       }
 
       // Compute linear weights
-      ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0), nodata_value),
-                                              m_opt.no_border_blend);
+      ImageView<double> local_wts
+       = grassfire(notnodata(select_channel(dem, 0), nodata_value),
+                   m_opt.no_border_blend);
+       
       local_wts_orig = local_wts;
       if (m_opt.use_centerline_weights) {
         // Erode based on grassfire weights, and then overwrite the grassfire
@@ -1070,7 +1072,8 @@ public:
         }
         // TODO(oalexan1): Generalize this modification and move it to VW.
         centerline_weights2(create_mask_less_or_equal(select_channel(dem2, 0), nodata_value),
-                            local_wts, m_bias, -1.0);
+          local_wts, m_bias, -1.0);
+        
       } // End centerline weights case
 
       // If we don't limit the weights from above, we will have tiling artifacts,
@@ -1119,7 +1122,7 @@ public:
       std::ostringstream os;
       os << "weights_" << dem_iter << "_" << bbox.min().x() << "_" << bbox.min().y() 
          << ".tif";
-      vw_out() << "Writing: " << os.str() << std::endl;
+      vw_out() << "Writing: " << os.str() << "\n";
       bool has_georef = true, has_nodata = true;
       block_write_gdal_image(os.str(), local_wts,
 			     has_georef, georef,
@@ -1216,7 +1219,7 @@ public:
         // pixels for each mapprojected image/DEM when doing SfS.
         // The documentation has a longer explanation.
         vw_out() << "\n" << bbox << " " << dem_vec[i]
-                 << " pixel sum: " << tile_sum[i] << std::endl;
+                 << " pixel sum: " << tile_sum[i] << "\n";
       }
       int max_index = std::distance(tile_sum.begin(),
                                     std::max_element(tile_sum.begin(), tile_sum.end()));
@@ -1724,7 +1727,7 @@ int main(int argc, char *argv[]) {
       opt.out_nodata_value = static_cast<double>(-std::numeric_limits<RealT>::max());
     }
 
-    vw_out() << "Using output no-data value: " << opt.out_nodata_value << std::endl;
+    vw_out() << "Using output no-data value: " << opt.out_nodata_value << "\n";
 
     // Form the mosaic georef. The georef of the first DEM is used as
     // initial guess unless user wants to change the resolution and projection.
@@ -1883,7 +1886,7 @@ int main(int argc, char *argv[]) {
     
     if (opt.tile_index >= num_tiles) {
       vw_out() << "Tile with index: " << opt.tile_index
-	             << " is out of bounds." << std::endl;
+	             << " is out of bounds." << "\n";
       return 0;
     }
 
@@ -2040,7 +2043,7 @@ int main(int argc, char *argv[]) {
       
       // Raster the tile to disk. Optionally cast to int (may be
       // useful for mosaicking ortho images).
-      vw_out() << "Writing: " << dem_tile << std::endl;
+      vw_out() << "Writing: " << dem_tile << "\n";
       bool has_georef = true, has_nodata = true;
       TerminalProgressCallback tpc("asp", "\t--> ");
       if (opt.output_type == "Float32") 
@@ -2081,9 +2084,9 @@ int main(int argc, char *argv[]) {
         vw_throw(NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
 
       vw_out() << "Number of valid (not no-data) pixels written: " << num_valid_pixels
-               << "."<< std::endl;
+               << ".\n";
       if (num_valid_pixels == 0) {
-        vw_out() << "Removing tile with no valid pixels: " << dem_tile << std::endl;
+        vw_out() << "Removing tile with no valid pixels: " << dem_tile << "\n";
         boost::filesystem::remove(dem_tile);
       }
       
@@ -2092,10 +2095,10 @@ int main(int argc, char *argv[]) {
     // Write the name of each DEM file that was used together with its index
     if (opt.save_index_map) {
       std::string index_map = opt.out_prefix + "-index-map.txt";
-      vw_out() << "Writing: " << index_map << std::endl;
+      vw_out() << "Writing: " << index_map << "\n";
       std::ofstream ih(index_map.c_str());
       for (int dem_iter = 0; dem_iter < (int)loaded_dems.size(); dem_iter++) {
-        ih << opt.dem_files[dem_iter] << ' ' << dem_iter << std::endl;
+        ih << opt.dem_files[dem_iter] << ' ' << dem_iter << "\n";
       }
     }
 

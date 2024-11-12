@@ -264,14 +264,15 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   // Extract the list of numbers from the input string
   split_number_string(dem_spacing1, opt.dem_spacing);
   
-  // Check for for non-numeric or non-positive input
+  // Check for for non-positive input
   for (size_t i = 0; i < opt.dem_spacing.size(); i++) {
     if (opt.dem_spacing[i] <= 0.0)
       vw_throw(ArgumentErr() << "The DEM spacing must be positive.\n" );
   }
       
+  // Make sure we have a number      
   if (opt.dem_spacing.size() == 0)
-    opt.dem_spacing.push_back(0.0); // Make sure we have a number
+    opt.dem_spacing.push_back(0.0);
 
   bool spacing_provided = false;
   for (size_t i = 0; i < opt.dem_spacing.size(); i++) {

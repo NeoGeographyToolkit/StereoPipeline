@@ -192,9 +192,11 @@ void PeruSatXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
     std::string time_str, position_str, velocity_str;
     Vector3 position_vec, velocity_vec;
     
-    cast_xmlch(get_node<DOMElement>(curr_element, "LOCATION_XYZ")->getTextContent(), position_str);
-    cast_xmlch(get_node<DOMElement>(curr_element, "VELOCITY_XYZ")->getTextContent(), velocity_str);
-    cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(),         time_str);
+    cast_xmlch(get_node<DOMElement>(curr_element, "LOCATION_XYZ")->getTextContent(),
+               position_str);
+    cast_xmlch(get_node<DOMElement>(curr_element, "VELOCITY_XYZ")->getTextContent(),
+               velocity_str);
+    cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(), time_str);
 
     bool is_start_time = false;
     double time = PeruSatXML::convert_time(time_str, is_start_time);

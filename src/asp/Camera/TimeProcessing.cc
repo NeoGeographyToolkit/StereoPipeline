@@ -61,7 +61,7 @@ std::string fix_millisecond(std::string const& in_str) {
       }
 
       // See if to append more
-      while (num_digits_after_dot < 6) {
+      while (found_dot && num_digits_after_dot < 6) {
         out_str += "0";
         num_digits_after_dot++;
       }
@@ -69,7 +69,7 @@ std::string fix_millisecond(std::string const& in_str) {
     } else {
 
       // The last character is not a digit, it is likely a "Z"
-      while (num_digits_after_dot < 6) {
+      while (found_dot && num_digits_after_dot < 6) {
         // Append zeros
         out_str += "0";
         num_digits_after_dot++;
@@ -94,7 +94,6 @@ boost::posix_time::ptime parse_time(std::string const& s) {
   // Ensure there are exactly 6 digits for the millisecond or else
   // Boost will complain.
   s2 = asp::fix_millisecond(s2);
-  
   boost::posix_time::ptime time = boost::posix_time::time_from_string(s2);
   
   return time;
