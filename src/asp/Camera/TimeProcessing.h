@@ -40,5 +40,10 @@ namespace asp {
   // Fix that. PeruSat has this problem.
   std::string fix_millisecond(std::string const& in_str);
 
+  // Parse a time string such as "2017-12-07 15:36:40.90795Z"
   boost::posix_time::ptime parse_time(std::string const& s);  
+  
+  // Return the time in seconds since the epoch, down to the microsecond
+  double to_epoch(const boost::posix_time::ptime& pt);
+  
 }

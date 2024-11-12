@@ -60,11 +60,11 @@ namespace asp {
     ASTERXML(){}
 
     // The reader will populate these fields
-    std::vector< std::vector<vw::Vector2> > m_lattice_mat;
-    std::vector< std::vector<vw::Vector3> > m_sight_mat;
-    std::vector< std::vector<vw::Vector3> > m_world_sight_mat;
-    std::vector<vw::Vector3>                m_sat_pos;
-    vw::Vector2i                            m_image_size;
+    std::vector< std::vector<vw::Vector2>> m_lattice_mat;
+    std::vector< std::vector<vw::Vector3>> m_sight_mat;
+    std::vector< std::vector<vw::Vector3>> m_world_sight_mat;
+    std::vector<vw::Vector3>               m_sat_pos;
+    vw::Vector2i                           m_image_size;
     
     /// Parse an XML file to populate the data
     void read_xml(std::string const& xml_path);

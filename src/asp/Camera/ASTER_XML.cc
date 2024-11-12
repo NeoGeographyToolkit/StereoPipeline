@@ -25,7 +25,6 @@
 #include <asp/Camera/XMLBase.h>
 #include <asp/Camera/ASTER_XML.h>
 #include <asp/Camera/RPCModel.h>
-#include <asp/Camera/XMLBase.h>
 
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>
