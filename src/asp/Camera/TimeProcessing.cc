@@ -99,9 +99,10 @@ boost::posix_time::ptime parse_time(std::string const& s) {
   return time;
 }
 
-// Return the time in seconds since the epoch, down to the microsecond
-double to_epoch(const boost::posix_time::ptime& pt) {
-  boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
+// Return the time in seconds since January 1, 2000, down to the microsecond.
+// Avoid starting at the epoch (1970) as that may create some loss in precision.
+double to_seconds(const boost::posix_time::ptime& pt) {
+  boost::posix_time::ptime epoch(boost::gregorian::date(2000, 1, 1));
   boost::posix_time::time_duration diff = pt - epoch;
   return diff.total_microseconds() / 1.0e+6;
 }

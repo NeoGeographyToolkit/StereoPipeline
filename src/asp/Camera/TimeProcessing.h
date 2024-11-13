@@ -43,7 +43,7 @@ namespace asp {
   // Parse a time string such as "2017-12-07 15:36:40.90795Z"
   boost::posix_time::ptime parse_time(std::string const& s);  
   
-  // Return the time in seconds since the epoch, down to the microsecond
-  double to_epoch(const boost::posix_time::ptime& pt);
+  // Return the time in seconds since the January 1, 2000, down to the microsecond
+  double to_seconds(const boost::posix_time::ptime& pt);
   
-}
+} // end namespace asp

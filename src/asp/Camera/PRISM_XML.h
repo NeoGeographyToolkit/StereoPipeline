@@ -33,8 +33,8 @@ void parsePrismXml(std::string const& dim_file,
                    std::vector<vw::Vector3> & positions,
                    std::vector<vw::Vector3> & velocities,
                    std::vector<double> & position_times,
-                   std::vector<vw::Vector3> & rph,
-                   std::vector<double> & rph_times);
+                   std::vector<vw::Vector3> & rpy,
+                   std::vector<double> & rpy_times);
 
 } //end namespace asp
 

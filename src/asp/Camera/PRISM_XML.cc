@@ -72,8 +72,8 @@ void read_first_last_line_times(xercesc::DOMElement * data_node,
   DOMElement* last_line_time_node = get_node<DOMElement>(time_node, "TIME_LAST_LINE");
   cast_xmlch(last_line_time_node->getTextContent(), last_line_time_str);
 
-  first_line_time = asp::to_epoch(asp::parse_time(first_line_time_str));
-  last_line_time  = asp::to_epoch(asp::parse_time(last_line_time_str));
+  first_line_time = asp::to_seconds(asp::parse_time(first_line_time_str));
+  last_line_time  = asp::to_seconds(asp::parse_time(last_line_time_str));
 }
 
 // This function simplifies the logic when we know the info we need is surely in
@@ -186,7 +186,7 @@ void read_ephemeris(xercesc::DOMElement      * data_node,
     vw::Vector3 position, velocity;
 
     cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(), time_str);
-    double time = asp::to_epoch(asp::parse_time(time_str));
+    double time = asp::to_seconds(asp::parse_time(time_str));
     
     xercesc::DOMElement* location_node = get_node<DOMElement>(curr_element, "Location");
     cast_xmlch(get_node<DOMElement>(location_node, "X")->getTextContent(), xs);
@@ -205,16 +205,20 @@ void read_ephemeris(xercesc::DOMElement      * data_node,
     velocities.push_back(velocity);
     position_times.push_back(time);
   } // End loop through points
+  
+  // Expecting at least two ephemeris samples
+  if (positions.size() < 2) 
+    vw::vw_throw(vw::ArgumentErr() << "Expecting at least two ephemeris samples.\n");
 }
 
 // Read the angles (roll, pitch, yaw) of the camera
-void read_rlh(xercesc::DOMElement      * data_node,
-              std::vector<vw::Vector3> & rph,
-              std::vector<double>      & rph_times) {
+void read_rpy(xercesc::DOMElement      * data_node,
+              std::vector<vw::Vector3> & rpy,
+              std::vector<double>      & rpy_times) {
 
   // Wipe the output vectors
-  rph.clear(); 
-  rph_times.clear();
+  rpy.clear(); 
+  rpy_times.clear();
 
   xercesc::DOMElement* sat_att = get_node<DOMElement>(data_node, "Satellite_Attitudes");
   xercesc::DOMElement* angles_list = get_node<DOMElement>(sat_att, "Angles_List");
@@ -239,7 +243,7 @@ void read_rlh(xercesc::DOMElement      * data_node,
     vw::Vector3 vals;
 
     cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(), time_str);
-    double time = asp::to_epoch(asp::parse_time(time_str));
+    double time = asp::to_seconds(asp::parse_time(time_str));
 
     // Find the angle subnode
     xercesc::DOMElement* angle_node = get_node<DOMElement>(curr_element, "Angle");
@@ -248,9 +252,13 @@ void read_rlh(xercesc::DOMElement      * data_node,
     cast_xmlch(get_node<DOMElement>(angle_node, "ROLL")->getTextContent(), rs);
     vals = vw::Vector3(atof(ys.c_str()), atof(ps.c_str()), atof(rs.c_str()));
     
-    rph.push_back(vals);
-    rph_times.push_back(time);
+    rpy.push_back(vals);
+    rpy_times.push_back(time);
   } // End loop through points
+  
+  // Must have at least two samples
+  if (rpy.size() < 2) 
+    vw::vw_throw(vw::ArgumentErr() << "Expecting at least two roll-pitch-yaw samples.\n");
 }
 
 void parsePrismXml(std::string const& dim_file,
@@ -259,76 +267,70 @@ void parsePrismXml(std::string const& dim_file,
                    std::vector<vw::Vector3> & positions,
                    std::vector<vw::Vector3> & velocities,
                    std::vector<double> & position_times,
-                   std::vector<vw::Vector3> & rph,
-                   std::vector<double> & rph_times) {
+                   std::vector<vw::Vector3> & rpy,
+                   std::vector<double> & rpy_times) {
 
-  // Initalize the output variables
-  ncols = -1; 
-  nrows = -1;
-  first_line_time = -1.0;
-  last_line_time = -1.0;
-  positions.clear();
-  velocities.clear();
-  position_times.clear();
-  rph.clear();
-  rph_times.clear();
+  // Mandatory initialization for Xerces. Must be done once per process.
+  xercesc::XMLPlatformUtils::Initialize();
+  
+  // Put all xml logic in an extra scope, per
+  // https://xerces.apache.org/xerces-c/faq-parse-3.html to ensure all
+  // objects we create below go out of scope before we terminate Xerces.
+    
+  {    
+    // Initalize the output variables
+    ncols = -1; 
+    nrows = -1;
+    first_line_time = -1.0;
+    last_line_time = -1.0;
+    positions.clear();
+    velocities.clear();
+    position_times.clear();
+    rpy.clear();
+    rpy_times.clear();
 
-  boost::scoped_ptr<XercesDOMParser> parser(new XercesDOMParser());
-  parser->setValidationScheme(XercesDOMParser::Val_Always);
-  parser->setDoNamespaces(true);
-  boost::scoped_ptr<ErrorHandler> errHandler(new HandlerBase());
-  parser->setErrorHandler(errHandler.get());
+    boost::scoped_ptr<XercesDOMParser> parser(new XercesDOMParser());
+    parser->setValidationScheme(XercesDOMParser::Val_Always);
+    parser->setDoNamespaces(true);
+    boost::scoped_ptr<ErrorHandler> errHandler(new HandlerBase());
+    parser->setErrorHandler(errHandler.get());
 
-  DOMDocument* xmlDoc = NULL;
-  DOMElement* root = NULL;
+    DOMDocument* xmlDoc = NULL;
+    DOMElement* root = NULL;
 
-  try {
-    parser->parse(dim_file.c_str());
-    xmlDoc = parser->getDocument();
-    root = xmlDoc->getDocumentElement();
-  } catch(...) {
-    vw::vw_throw(vw::ArgumentErr() << "Faile to parse XML file: " << dim_file << "\n");
+    try {
+      parser->parse(dim_file.c_str());
+      xmlDoc = parser->getDocument();
+      root = xmlDoc->getDocumentElement();
+    } catch(...) {
+      vw::vw_throw(vw::ArgumentErr() << "Faile to parse XML file: " << dim_file << "\n");
+    }
+
+    // Parse the satellite type
+    std::string profile; 
+    parse_profile(root, profile);
+    if (profile != "ALOS")
+      vw::vw_throw(vw::ArgumentErr() 
+                  << "Expecting the value of METADATA_PROFILE to be ALOS.\n");
+
+    // Parse the number of cols and rows in each raw ccd block
+    read_ccd_dims(root, ncols, nrows);
+
+    // Parse the first and last line times
+    DOMElement* data_node = get_node<DOMElement>(root, "Data_Strip");
+    read_first_last_line_times(data_node, first_line_time, last_line_time);
+    
+    // Parse the camera position and velocities (ephemeris)
+    read_ephemeris(data_node, positions, velocities, position_times);
+
+    // Read roll-pitch-yaw angles
+    read_rpy(data_node, rpy, rpy_times);
   }
 
-  // Parse the satellite type
-  std::string profile; 
-  parse_profile(root, profile);
-  if (profile != "ALOS")
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "Expecting the value of METADATA_PROFILE to be ALOS.\n");
-
-  // Parse the number of cols and rows in each raw ccd block
-  read_ccd_dims(root, ncols, nrows);
-
-  // Parse the first and last line times
-  DOMElement* data_node = get_node<DOMElement>(root, "Data_Strip");
-  read_first_last_line_times(data_node, first_line_time, last_line_time);
-  
-  // Parse the camera position and velocities (ephemeris)
-  read_ephemeris(data_node, positions, velocities, position_times);
-
-  // TODO(oalexan1): Must fill in an additional position based on the last
-  // position and velocity, if not enough samples, as otherwise cannot
-  // interpolate in time at the last line.  
-  
-  // Print each velocity 
-  for (size_t i = 0; i < velocities.size(); i++)
-    std::cout << "Velocity: " << velocities[i]/vw::math::norm_2(velocities[i]) << "\n";
-  
-  // Print each position minus the previous position
-  for (size_t i = 1; i < positions.size(); i++) 
-    std::cout << "Position diff: " << (positions[i] - positions[i-1])/vw::math::norm_2(positions[i] - positions[i-1]) << "\n";
- 
-  // print the norm of each velocity
-  for (size_t i = 0; i < velocities.size(); i++) 
-    std::cout << "Velocity norm: " << norm_2(velocities[i]) << "\n";
+  // Mandatory termination for Xerces, once all other XML objects go out of scope 
+  xercesc::XMLPlatformUtils::Terminate();
     
-  // Read roll-pitch-yaw angles
-  read_rlh(data_node, rph, rph_times);
-
   return;
 }
 
 } // end namespace asp
-
-
