@@ -93,12 +93,14 @@ DOMElement* getFirstChildByTagName(DOMElement* node, const std::string & tag) {
 }
 
 // Read the dimensions of each of the raw image blocks.
-void read_ccd_dims(xercesc::DOMElement * root, 
-                   int & ncols, int & nrows) {
+void read_sources_info(xercesc::DOMElement * root, 
+                       int & ncols, int & nrows,
+                       std::string & view) {
 
   // Iinitialize the output variables
   ncols = -1;
   nrows = -1;
+  view = "";
   
   DOMElement* dataset_sources = get_node<DOMElement>(root, "Dataset_Sources");
   
@@ -124,6 +126,10 @@ void read_ccd_dims(xercesc::DOMElement * root,
     if (scene_source == NULL) 
       continue;
     
+    // Get the view (PRISM forward, etc.)
+    DOMElement* instrument = get_node<DOMElement>(scene_source, "INSTRUMENT");
+    cast_xmlch(instrument->getTextContent(), view);
+      
     // Get the Image_Interpretation subnode
     DOMElement* image_interpretation = get_node<DOMElement>(scene_source, 
                                                             "Image_Interpretation");
@@ -262,7 +268,7 @@ void read_rpy(xercesc::DOMElement      * data_node,
 }
 
 void parsePrismXml(std::string const& dim_file,
-                   int & ncols, int & nrows,
+                   int & ncols, int & nrows, std::string & view,
                    double & first_line_time, double & last_line_time,
                    std::vector<vw::Vector3> & positions,
                    std::vector<vw::Vector3> & velocities,
@@ -314,7 +320,7 @@ void parsePrismXml(std::string const& dim_file,
                   << "Expecting the value of METADATA_PROFILE to be ALOS.\n");
 
     // Parse the number of cols and rows in each raw ccd block
-    read_ccd_dims(root, ncols, nrows);
+    read_sources_info(root, ncols, nrows, view);
 
     // Parse the first and last line times
     DOMElement* data_node = get_node<DOMElement>(root, "Data_Strip");

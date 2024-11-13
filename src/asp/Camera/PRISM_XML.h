@@ -28,7 +28,7 @@
 namespace asp {
 
 void parsePrismXml(std::string const& dim_file,
-                   int & ncols, int & nrows,
+                   int & ncols, int & nrows, std::string & view, 
                    double & first_line_time, double & last_line_time,
                    std::vector<vw::Vector3> & positions,
                    std::vector<vw::Vector3> & velocities,
