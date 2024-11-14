@@ -114,7 +114,7 @@ void checkSpacing(std::vector<double> const& vals, double spacing, double tol,
   return;
 }
 
-// A function to greate a georeference in stereographic coordinates
+// A function to create a georeference in stereographic coordinates
 // at given position with given datum.
 void produceStereographicGeoref(vw::Vector3 const& pos, 
                                 vw::cartography::Datum const& datum,
@@ -132,13 +132,14 @@ void produceStereographicGeoref(vw::Vector3 const& pos,
 // Given a set of orbital positions acquired at with uniform time spacing,
 // corresponding velocities, the times, the time spacing, extrapolate one more
 // position by fitting a parabola. This was shown to given results to within 1
-// km. Do this in projected coordiantes, where the curvature is less, and the
+// km. Do this in projected coordinates, where the curvature is less, and the
 // error was validated to be half as much. Do this for velocity in ECEF. Add to
 // the time by incrementing the last time by the time interval.
-void extrapPosition(vw::cartography::Datum const& datum,
-                    double dt, std::vector<double> & times,
-                    std::vector<vw::Vector3> & positions,
-                    std::vector<vw::Vector3> & velocities) {
+void extrapolatePosition(vw::cartography::Datum const& datum,
+                         double                        dt, 
+                         std::vector<double>         & times,
+                         std::vector<vw::Vector3>    & positions,
+                         std::vector<vw::Vector3>    & velocities) {
 
   // Must have at least 3 positions
   if (positions.size() < 3) 
@@ -149,9 +150,9 @@ void extrapPosition(vw::cartography::Datum const& datum,
   if (dt <= 0)
     vw::vw_throw(vw::ArgumentErr() << "Expecting positive time spacing between samples.\n");
 
-    // Sanity check for spacing
-    double tol = 1e-6;
-    checkSpacing(times, dt, tol, "position");
+  // Sanity check for spacing
+  double tol = 1e-6;
+  checkSpacing(times, dt, tol, "position");
 
   // Produce a georef at the last position
   vw::cartography::GeoReference georef;
@@ -257,66 +258,58 @@ int main(int argc, char * argv[]) {
     // This is a fix for the range of the position times not encompassing the
     // range of the image lines times. This is a temporary fix, to be refined later.
     while (position_times.back() < last_line_time - tol)
-      extrapPosition(datum, dt_ephem, position_times, positions, velocities);
+      extrapolatePosition(datum, dt_ephem, position_times, positions, velocities);
 
    // Sanity check to ensure interpolation works later
    if (position_times[0] > first_line_time + tol || 
        position_times.back() < last_line_time - tol)
      vw::vw_throw(vw::ArgumentErr() 
        << "The position time range must encompass the image lines time range.\n");
-  if (rpy_times[0] > first_line_time + tol || 
+   if (rpy_times[0] > first_line_time + tol || 
       rpy_times.back() < last_line_time - tol)
-    vw::vw_throw(vw::ArgumentErr() 
-      << "The roll-pitch-yaw time range must encompass the image lines time range.\n");
+     vw::vw_throw(vw::ArgumentErr() 
+       << "The roll-pitch-yaw time range must encompass the image lines time range.\n");
    
+    // Optical offset
     // TODO(oalexan1): These need refinement. The [Schneider] doc has better values.
+    // Offset for the merged image. Subtract 32 as that is the overlap amount
+    // between CCDs. Heuristics for now.
     double roll = 0.0, pitch = 0, yaw = 0.0; 
-    if (view == "PRISM forward") 
+    double offset_factor = 0.0;
+    if (view == "PRISM forward")  {
       pitch = 23.8;
-    else if (view == "PRISM nadir")
+      offset_factor = 4.81;
+    } else if (view == "PRISM nadir") {
       pitch = 0.0;
-    else if (view == "PRISM backward")
+      offset_factor = 3.08;
+    } else if (view == "PRISM backward") {
       pitch = -23.8;
-    else
+      offset_factor = 3.31;
+    } else {
       vw::vw_throw(vw::ArgumentErr() << "Expecting forward, nadir or backward view. "
                    << "Got: " << view << ".\n");
-      
-    // TODO(oalexan1): Use honest focal length and optical offset
-
-    // Handle the focal length.  
-    // The doc says 1.939 m focal length.
-    // <THEORETICAL_RESOLUTION unit="M">2.50</THEORETICAL_RESOLUTION>
-    // 7060880 meters from Earth center is = 689,880 meters in elevation
-    //        <ELLIPSE_AXIS unit="M">7060880.000000</ELLIPSE_AXIS>
-    //  <ELLIPSE_ECCENTRICITY>0.000536</ELLIPSE_ECCENTRICITY>
-    //     <ELLIPSE_INCLINATION>1.712797</ELLIPSE_INCLINATION>
+    }
+    // CCD strip image width
+    int w = image_size[0];
+    int global_offset = (w-32) * offset_factor; // experimentally found
+    // Adapt to current CCD
+    int local_offset = global_offset - (opt.ccd - 1) * (w-32);
+    vw::Vector2 optical_center(local_offset, 0); // 0 offset in y
     
+    // Focal length
+    // TODO(oalexan1): Use honest focal length and optical offset
+    // The doc says 1.939 m focal length.
     double ht = 689880; // height above Earth's surface, in meters
     double dx = 2.5; // resolution in meters
     double focal_length = ht / dx; // focal length in pixels
-   
-    // CCD strip image width
-    int w = image_size[0];
-
-    // Offset for the merged image. Subtract 32 as that is the overlap amount
-    // between CCDs.
-    // Tried below 6, 4, 5. May need 4.8. To refine later.
-    int global_offset = (w-32) * 5; // experimentally found
-    
-    // Adapt to current CCD
-    int local_offset = global_offset - (opt.ccd - 1) * (w-32);
-    
-    // Let optical center be half the image size in x, but 0 in y
-    vw::Vector2 optical_center(local_offset, 0);
     
     // Create a georeference at the last position
     vw::cartography::GeoReference georef;
     produceStereographicGeoref(positions.back(), datum, georef);
 
-    // Assemle the cam2world matrices
+    // Assemble the cam2world matrices
     // TODO(oalexan1): This must be a function
     std::vector<vw::Matrix3x3> cam2world(positions.size());
-    std::vector<vw::Vector3> projections(positions.size());
     for (size_t i = 0; i < positions.size(); i++) {
       
       vw::Vector3 beg_pos = positions[i];
@@ -331,8 +324,6 @@ int main(int argc, char * argv[]) {
        = georef.geodetic_to_point(georef.datum().cartesian_to_geodetic(beg_pos));
       vw::Vector3 end_proj
         = georef.geodetic_to_point(georef.datum().cartesian_to_geodetic(end_pos));
-      
-      projections[i] = beg_proj;
       
       vw::Vector3 proj_along, proj_across;
       asp::calcProjAlongAcross(beg_proj, end_proj, proj_along, proj_across);
