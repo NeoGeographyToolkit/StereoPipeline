@@ -98,6 +98,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 void checkSpacing(std::vector<double> const& vals, double spacing, double tol, 
                   std::string const& tag) {
 
+  // The spacing must be positive
+  if (spacing <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "Expecting positive time spacing between samples.\n");
+    
   for (size_t i = 1; i < vals.size(); i++) {
     double diff = vals[i] - vals[i-1];
     double err = std::abs(diff - spacing);
@@ -108,6 +112,98 @@ void checkSpacing(std::vector<double> const& vals, double spacing, double tol,
   }
   
   return;
+}
+
+// A function to greate a georeference in stereographic coordinates
+// at given position with given datum.
+void produceStereographicGeoref(vw::Vector3 const& pos, 
+                                vw::cartography::Datum const& datum,
+                                vw::cartography::GeoReference & georef) {
+  
+  // Create a georeference at the last position
+  vw::Vector3 llh = datum.cartesian_to_geodetic(pos);
+  georef.set_datum(datum);
+  double scale  = 1.0, false_easting = 0.0, false_northing = 0.0;
+  georef.set_stereographic(llh[1], llh[0], scale, false_easting, false_northing);
+  
+  return;
+}
+
+// Given a set of orbital positions acquired at with uniform time spacing,
+// corresponding velocities, the times, the time spacing, extrapolate one more
+// position by fitting a parabola. This was shown to given results to within 1
+// km. Do this in projected coordiantes, where the curvature is less, and the
+// error was validated to be half as much. Do this for velocity in ECEF. Add to
+// the time by incrementing the last time by the time interval.
+void extrapPosition(vw::cartography::Datum const& datum,
+                    double dt, std::vector<double> & times,
+                    std::vector<vw::Vector3> & positions,
+                    std::vector<vw::Vector3> & velocities) {
+
+  // Must have at least 3 positions
+  if (positions.size() < 3) 
+    vw::vw_throw(vw::ArgumentErr() << "Expecting at least 3 positions for parabola "
+                  "extrapolation.\n");
+
+  // The time spacing must be positive
+  if (dt <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "Expecting positive time spacing between samples.\n");
+
+    // Sanity check for spacing
+    double tol = 1e-6;
+    checkSpacing(times, dt, tol, "position");
+
+  // Produce a georef at the last position
+  vw::cartography::GeoReference georef;
+  produceStereographicGeoref(positions.back(), datum, georef);
+
+  // Find projected coordinates
+  std::vector<vw::Vector3> projections(positions.size());
+  for (size_t i = 0; i < positions.size(); i++) 
+    projections[i] 
+      = georef.geodetic_to_point(georef.datum().cartesian_to_geodetic(positions[i]));    
+    
+  // We do the extrapolation at every position, to be able to check how we are
+  // doing before the final extrapolation.
+  int num_pos = positions.size(); // the position size will grow, but this will not
+
+  for (int i = 2; i < num_pos; i++) {
+    
+    vw::Vector3 u = projections[i-2];
+    vw::Vector3 v = projections[i-1];
+    vw::Vector3 w = projections[i]; 
+
+    // Extrapolate by fitting a parabola
+    vw::Vector3 next_proj = u - 3 * v + 3 * w;
+    vw::Vector3 next_pos 
+      = georef.datum().geodetic_to_cartesian(georef.point_to_geodetic(next_proj));
+    
+    // Do this for velocity as well
+    u = velocities[i-2];
+    v = velocities[i-1];
+    w = velocities[i];
+    vw::Vector3 next_vel = u - 3 * v + 3 * w;
+    
+    // if we are not at the end, see how this prediction compares
+    #if 0    
+    if (i < num_pos - 1) {
+      std::cout << "Error in extrapolation at position " << i << " is = "
+        << vw::math::norm_2(positions[i+1] - next_pos) << std::endl;
+      
+      std::cout << "Error in extrapolation at velocity " << i << " is = "
+        << vw::math::norm_2(velocities[i+1] - next_vel) << std::endl;  
+    }
+    #endif
+    
+    if (i == num_pos - 1) {
+      // Append the new position, last velocity, and a new time
+      positions.push_back(next_pos);
+      velocities.push_back(next_vel);
+      times.push_back(times.back() + dt);
+    }
+  }
+
+  return;      
 }
 
 int main(int argc, char * argv[]) {
@@ -157,6 +253,11 @@ int main(int argc, char * argv[]) {
    
    double dt_line = (last_line_time - first_line_time) / (nrows - 1.0);
    vw::Vector2 image_size(ncols, nrows);
+
+    // This is a fix for the range of the position times not encompassing the
+    // range of the image lines times. This is a temporary fix, to be refined later.
+    while (position_times.back() < last_line_time - tol)
+      extrapPosition(datum, dt_ephem, position_times, positions, velocities);
 
    // Sanity check to ensure interpolation works later
    if (position_times[0] > first_line_time + tol || 
@@ -208,19 +309,16 @@ int main(int argc, char * argv[]) {
     // Let optical center be half the image size in x, but 0 in y
     vw::Vector2 optical_center(local_offset, 0);
     
-    // Lon and lat at last position
-    vw::Vector3 last_pos = positions.back();
-    vw::Vector3 llh = datum.cartesian_to_geodetic(last_pos);
-    
-    // Create a georeference 
+    // Create a georeference at the last position
     vw::cartography::GeoReference georef;
-    georef.set_datum(datum);
-    double scale  = 1.0, false_easting = 0.0, false_northing = 0.0;
-    georef.set_stereographic(llh[1], llh[0], scale, false_easting, false_northing);
+    produceStereographicGeoref(positions.back(), datum, georef);
 
     // Assemle the cam2world matrices
+    // TODO(oalexan1): This must be a function
     std::vector<vw::Matrix3x3> cam2world(positions.size());
+    std::vector<vw::Vector3> projections(positions.size());
     for (size_t i = 0; i < positions.size(); i++) {
+      
       vw::Vector3 beg_pos = positions[i];
       // Normalized velocity
       vw::Vector3 vel = velocities[i];
@@ -233,10 +331,12 @@ int main(int argc, char * argv[]) {
        = georef.geodetic_to_point(georef.datum().cartesian_to_geodetic(beg_pos));
       vw::Vector3 end_proj
         = georef.geodetic_to_point(georef.datum().cartesian_to_geodetic(end_pos));
-        
+      
+      projections[i] = beg_proj;
+      
       vw::Vector3 proj_along, proj_across;
       asp::calcProjAlongAcross(beg_proj, end_proj, proj_along, proj_across);
-
+      
       vw::Vector3 along, across; // ECEF
       asp::calcEcefAlongAcross(georef, asp::satSimDelta(),
                                proj_along, proj_across, beg_proj,
@@ -252,12 +352,9 @@ int main(int argc, char * argv[]) {
       // It looks that the PRISM camera is mounted in reverse, so need to use
       // the inverse of the rotation matrix.
       cam2world[i] = cam2world[i] * R * vw::math::inverse(asp::rotationXY());
-        
     }
-    
-    // TODO(oalexan1): Must fill in an additional position based on the last
-    // position and velocity, if not enough samples, as otherwise cannot
-    // interpolate in time at the last line.  
+  
+    // Form and save the camera
     asp::CsmModel model;
     asp::populateCsmLinescan(first_line_time, dt_line, 
                              t0_ephem, dt_ephem, 
@@ -265,8 +362,6 @@ int main(int argc, char * argv[]) {
                              //t0_quat, dt_quat, // for later
                              focal_length, optical_center, image_size, datum, view,
                              positions, velocities, cam2world, model);
-    
-    // Write the camera
     vw::vw_out() << "Writing: " << opt.csm_file << "\n";
     model.saveState(opt.csm_file);
     
