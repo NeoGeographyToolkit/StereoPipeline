@@ -1718,6 +1718,7 @@ double MainWidget::pixelToWorldDist(double pd) {
   return norm_2(p-q);
 }
 
+// TODO(oalexan1): Move out this non-gui function.
 void MainWidget::appendToPolyVec(vw::geometry::dPoly const& P) {
 
   // Append the new polygon to the list of polygons. If we have several
@@ -1810,6 +1811,7 @@ void MainWidget::addPolyVert(double px, double py) {
 // Delete a vertex closest to where the user clicked.
 // TODO(oalexan1): This will fail when different polygons have
 // different georeferences.
+// TODO(oalexan1): Move out this non-gui function.
 void MainWidget::deleteVertex() {
 
   Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
@@ -1840,6 +1842,7 @@ void MainWidget::deleteVertex() {
   return;
 }
 
+// TODO(oalexan1): Move out this non-gui function.
 void MainWidget::deleteVertices() {
 
   if (m_stereoCropWin.empty()) {
@@ -1912,6 +1915,7 @@ void MainWidget::deleteVertices() {
 // given point. This needs to be in the MainWidget class as it needs
 // to know about how to convert from world coordinates to each
 // imageData coordinates.
+// TODO(oalexan1): Move out this non-gui function.
 void MainWidget::findClosestPolyEdge(// inputs
                                       double world_x0, double world_y0,
                                       std::vector<imageData> const& imageData,
@@ -1982,6 +1986,7 @@ void MainWidget::findClosestPolyEdge(// inputs
 
 // Find the closest point in a given set of imageData structures to a given point
 // in world coordinates.
+// TODO(oalexan1): Move out this non-gui function.
 void MainWidget::findClosestPolyVertex(// inputs
                                         double world_x0, double world_y0,
                                         std::vector<imageData> const& imageData,
@@ -2048,6 +2053,7 @@ void MainWidget::findClosestPolyVertex(// inputs
 // Insert intermediate vertex where the mouse right-clicks.
 // TODO(oalexan1): This will fail when different polygons have
 // different georeferences.
+// TODO(oalexan1): Move out this non-gui function.
 void MainWidget::insertVertex() {
 
   Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
