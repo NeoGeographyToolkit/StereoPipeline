@@ -52,8 +52,25 @@ public:
   
   virtual ~WidgetBase(){}
 
+  // The box which contains fully all images in the current widget,
+  // in world coordinates.
+  BBox2 m_world_box;
+
+  // The box in world coordinates which has the current view and
+  // last view.  This is normally smaller than m_world_box.
+  vw::BBox2 m_current_view, m_last_view;
+
+  // Dimensions and stats
+  int m_window_width;  // the width  of the plotting window in screen pixels
+  int m_window_height; // the height of the plotting window in screen pixels
+
+  // Shrink the image to be shown on screen by this factor
+  // (typically 0.90 to 0.95) to create an extra empty margin at a widget's
+  // border, to make it easier to zoom.
+  double m_border_factor;
+
   int m_beg_image_id;  // The id of the first image among m_images in this widget
-  int m_end_image_id;  // The id of the image past the last image among m_images in this widget
+  int m_end_image_id;  // The id of the image past the last image among m_images
 
   // The index of the image on top of which the rest are overlaid.
   // We will render in this image's pixel or projected domain. This
@@ -79,6 +96,16 @@ public:
   // projection, and vice versa
   vw::Vector2 world2projpoint(vw::Vector2 const  P, int imageIndex) const;
   vw::Vector2 projpoint2world(vw::Vector2 const  P, int imageIndex) const;
+
+  Vector2 world2screen(Vector2 const&  p) const;
+  Vector2 screen2world(Vector2 const&  p) const;
+  Vector2 world2image(Vector2 const& P, int imageIndex) const;
+  Vector2 image2world(Vector2 const& P, int imageIndex) const;
+
+  BBox2 world2screen(BBox2 const& R) const;
+  BBox2 screen2world(BBox2 const& R) const;
+  BBox2 world2image(BBox2 const& R, int imageIndex) const;
+  BBox2 image2world(BBox2 const& R, int imageIndex) const;
 
 }; // End class WidgetBase
 

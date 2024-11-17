@@ -285,31 +285,14 @@ public slots:
     std::map<int, std::string> m_perImagePolyColor;
     int m_lineWidth;
 
-    // The box which contains fully all images in the current widget,
-    // in world coordinates.
-    BBox2 m_world_box;
-
-    // The box in world coordinates which has the current view and
-    // last view.  This is normally smaller than m_world_box.
-    vw::BBox2 m_current_view, m_last_view;
-
     // Adjustment mode
-    enum AdjustmentMode { NoAdjustment,
-                          TransformAdjustment, GainAdjustment,
-                          OffsetAdjustment, GammaAdjustment };
+    enum AdjustmentMode {NoAdjustment,
+                         TransformAdjustment, GainAdjustment,
+                         OffsetAdjustment, GammaAdjustment};
     AdjustmentMode m_adjust_mode;
 
     // Mouse position
     vw::Vector2 m_curr_pixel_pos, m_curr_world_pos;
-
-    // Dimensions and stats
-    int m_window_width;  // the width  of the plotting window in screen pixels
-    int m_window_height; // the height of the plotting window in screen pixels
-
-    // Shrink the image to be shown on screen by this factor
-    // (typically 0.90 to 0.95) to create an extra empty margin at a widget's
-    // border, to make it easier to zoom.
-    double m_border_factor;
 
     // Mouse press  position
     int m_mousePrsX,  m_mousePrsY;
@@ -360,16 +343,6 @@ public slots:
     // the intensity. May be colorized.
     void drawScatteredData(QPainter* paint, int image_index);
 
-    Vector2 world2screen   (Vector2 const&  p) const;
-    Vector2 screen2world   (Vector2 const&  p) const;
-    BBox2   world2screen   (BBox2   const& R) const;
-    BBox2   screen2world   (BBox2   const& R) const;
-    Vector2 world2image    (Vector2 const& P, int imageIndex) const;
-    Vector2 image2world    (Vector2 const& P, int imageIndex) const;
-    BBox2   world2image    (BBox2   const& R, int imageIndex) const;
-  public:
-    // Need this public
-    BBox2   image2world    (BBox2   const& R, int imageIndex) const;
   private:
 
    void renderGeoreferencedImage(double scale_out, 

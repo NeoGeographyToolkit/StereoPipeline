@@ -78,4 +78,142 @@ void findRobustBounds(std::vector<vw::Vector3> const& scattered_data,
   return;
 }
 
+// Convert a position in the world coordinate system to a pixel
+// position as seen on screen (the screen origin is the
+// visible upper-left corner of the widget).
+Vector2 WidgetBase::world2screen(Vector2 const& p) const {
+
+  double x = m_window_width*((p.x() - m_current_view.min().x())
+                              / m_current_view.width());
+  double y = m_window_height*((p.y() - m_current_view.min().y())
+                              / m_current_view.height());
+
+  // Create an empty border margin, to make it easier to zoom
+  // by allowing the zoom window to slightly exceed the visible image
+  // area (that inability was such a nuisance).
+  x = m_border_factor*(x - m_window_width /2.0) + m_window_width /2.0;
+  y = m_border_factor*(y - m_window_height/2.0) + m_window_height/2.0;
+
+  return vw::Vector2(x, y);
+}
+
+// Convert a pixel on the screen to world coordinates.
+// See world2image() for the definition.
+Vector2 WidgetBase::screen2world(Vector2 const& p) const {
+
+  // First undo the empty border margin
+  double x = p.x(), y = p.y();
+  x = (x - m_window_width /2.0)/m_border_factor + m_window_width /2.0;
+  y = (y - m_window_height/2.0)/m_border_factor + m_window_height/2.0;
+
+  // Scale to world coordinates
+  x = m_current_view.min().x() + (m_current_view.width () * x / m_window_width);
+  y = m_current_view.min().y() + (m_current_view.height() * y / m_window_height);
+
+  return vw::Vector2(x, y);
+}
+
+BBox2 WidgetBase::screen2world(BBox2 const& R) const {
+  if (R.empty()) return R;
+  Vector2 A = screen2world(R.min());
+  Vector2 B = screen2world(R.max());
+  return BBox2(A, B);
+}
+
+BBox2 WidgetBase::world2screen(BBox2 const& R) const {
+  if (R.empty()) return R;
+  Vector2 A = world2screen(R.min());
+  Vector2 B = world2screen(R.max());
+  return BBox2(A, B);
+}
+
+// TODO(oalexan1): Rename world2image to world2pixel.
+// Then also have world2projpt, for both a point and a box.
+
+// TODO(oalexan1): See if world2image can be used instead of world2projpt,
+// and same for image2world and projpoint2world.
+
+// If we use georef, the world is in projected point units of the
+// first image, with y replaced with -y, to keep the y axis downward,
+// for consistency with how images are plotted.  Convert a world box
+// to a pixel box for the given image.
+Vector2 WidgetBase::world2image(Vector2 const& P, int imageIndex) const{
+  bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
+
+  if (poly_or_xyz) {
+    // Poly or points. There is no pixel concept in that case.
+    if (!m_use_georef)
+      return flip_in_y(P);
+    return m_world2image_geotransforms[imageIndex].point_to_point(flip_in_y(P));
+  }
+
+  // Image
+  if (!m_use_georef)
+    return P;
+  return m_world2image_geotransforms[imageIndex].point_to_pixel(flip_in_y(P));
+}
+
+BBox2 WidgetBase::world2image(BBox2 const& R, int imageIndex) const {
+
+  bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
+
+  if (R.empty())
+    return R;
+  if (m_images.empty())
+    return R;
+
+  if (poly_or_xyz) {
+    // Poly or points. There is no pixel concept in that case.
+    if (!m_use_georef)
+      return flip_in_y(R);
+    return m_world2image_geotransforms[imageIndex].point_to_point_bbox(flip_in_y(R));
+  }
+
+  // Image
+  if (!m_use_georef)
+    return R;
+  return m_world2image_geotransforms[imageIndex].point_to_pixel_bbox(flip_in_y(R));
+}
+
+// The reverse of world2image()
+Vector2 WidgetBase::image2world(Vector2 const& P, int imageIndex) const {
+
+  bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
+
+  if (poly_or_xyz) {
+    if (!m_use_georef)
+      return flip_in_y(P);
+
+    return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point(P));
+  }
+
+  if (!m_use_georef)
+    return P;
+  return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point(P));
+}
+
+// The reverse of world2image()
+BBox2 WidgetBase::image2world(BBox2 const& R, int imageIndex) const {
+
+  if (R.empty()) return R;
+  if (m_images.empty()) return R;
+
+  bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
+
+  // Consider the case when the current layer is a polygon.
+  // TODO(oalexan1): What if a layer has both an image and a polygon?
+
+  if (poly_or_xyz) {
+    if (!m_use_georef)
+      return flip_in_y(R);
+
+    return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point_bbox(R));
+  }
+
+  if (!m_use_georef)
+    return R;
+
+  return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point_bbox(R));
+}
+
 }} // namespace vw::gui
