@@ -1200,18 +1200,15 @@ void MainWidget::drawImage(QPainter* paint) {
     image_box.min() = floor(image_box.min());
     image_box.max() = ceil(image_box.max());
 
-    // Since the image portion contained in image_box could be huge,
-    // but the screen area small, render a sub-sampled version of
-    // the image for speed.
-    // Convert to double before multiplication, to avoid overflow
-    // when multiplying large integers.
-    QImage qimg;
+    // Since the image portion contained in image_box could be huge, but the
+    // screen area small, render a sub-sampled version of the image for speed.
+    // Increase the scale a little. This will make the image a little blurrier
+    // but will be faster to render.
+    // Same logic is used in ColorAxes.cc
     double scale = sqrt((1.0*image_box.width()) * image_box.height())/
       std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
-    // Increase the scale a little. This will make the image a little blurrier
-    // but will be faster to render. One can always zoom in more for detail.
-    // Same logic is used in ColorAxes.cc
     scale *= 1.3;
+    
     double scale_out = 1.0; // will be modified by get_image_clip()
     BBox2i region_out;
     bool highlight_nodata = (m_images[i].m_display_mode == THRESHOLDED_VIEW);
@@ -1221,6 +1218,7 @@ void MainWidget::drawImage(QPainter* paint) {
       highlight_nodata = false;
     }
 
+    QImage qimg;
     if (m_images[i].m_display_mode == THRESHOLDED_VIEW) {
       m_images[i].thresholded_img.get_image_clip(scale, image_box,
                                                   highlight_nodata,

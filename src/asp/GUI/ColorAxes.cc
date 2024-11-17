@@ -303,7 +303,6 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
 void prepareClip(double x0, double y0, double x1, double y1, QSize const& imageSize) {
 
   // Ensure initialization
-  m_level = 0;
   m_sub_scale = 1;
   m_beg_x = 0;
   m_beg_y = 0;
@@ -313,37 +312,28 @@ void prepareClip(double x0, double y0, double x1, double y1, QSize const& imageS
     return; // nothing to do
 
   // Have an image.
-
+  BBox2i screen_box(0, 0, imageSize.width(), imageSize.height());
+  
   // Note that y0 and y1 are normally flipped
   int beg_x = floor(std::min(x0, x1)), end_x = ceil(std::max(x0, x1));
   int beg_y = floor(std::min(y0, y1)), end_y = ceil(std::max(y0, y1));
+  BBox2i image_box(beg_x, beg_y, end_x - beg_x, end_y - beg_y);
 
-  // if in doubt, go with lower sub_scale, so higher resolution.
-  double sub_scale_x = (end_x - beg_x) / imageSize.width();
-  double sub_scale_y = (end_y - beg_y) / imageSize.height();
-  double sub_scale = sqrt(sub_scale_x * sub_scale_y);
-
-  // Make the image a little blurrier. But this will run faster. Same logic
-  // is used in MainWidget.cc
-  sub_scale *= 1.3;
-
-  m_level =  m_image.img.m_img_ch1_double.pyramidLevel(sub_scale);
-  m_sub_scale = round(pow(2.0, m_level));
-  beg_x = floor(beg_x/m_sub_scale); end_x = ceil(end_x/m_sub_scale);
-  beg_y = floor(beg_y/m_sub_scale); end_y = ceil(end_y/m_sub_scale);
-
-  vw::BBox2i box;
-  box.min() = Vector2i(beg_x, beg_y);
-  box.max() = Vector2i(end_x + 1, end_y + 1); // because max is exclusive
-
-  box.crop(vw::bounding_box(m_image.img.m_img_ch1_double.pyramid()[m_level]));
-
-  // Instead of returning image(x, y), we will return
-  // sub_image(x/scale + beg_x, y/scale + beg_y).
-  m_sub_image = crop(m_image.img.m_img_ch1_double.pyramid()[m_level], box);
-
-  m_beg_x = box.min().x();
-  m_beg_y = box.min().y();
+  // Since the image portion contained in image_box could be huge, but the
+  // screen area small, render a sub-sampled version of the image for speed.
+  // Increase the scale a little. This will make the image a little blurrier
+  // but will be faster to render.
+  double scale = sqrt((1.0*image_box.width()) * image_box.height())/
+    std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
+  scale *= 1.3;
+  
+  vw::BBox2i region_out;
+  m_image.img.m_img_ch1_double.get_image_clip(scale, image_box, 
+                                              // Outputs
+                                              m_sub_image, m_sub_scale, region_out);
+  
+  m_beg_x = region_out.min().x();
+  m_beg_y = region_out.min().y();
 }
 
 virtual double value(double x, double y) const {
@@ -351,7 +341,8 @@ virtual double value(double x, double y) const {
   // Instead of returning  m_image(x, y), we will return
   // m_sub_image(x/m_sub_scale - m_beg_x, y/m_sub_scale - m_beg_y).
   if (m_sub_scale <= 0)
-    vw::vw_throw(vw::ArgumentErr() << "Programmer error. Not ready yet to render the image.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Programmer error. Not ready yet to render the image.\n");
 
   bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
   if (poly_or_xyz)
@@ -382,7 +373,7 @@ public:
 private:
 
   // Can get away by using a lower-res image version at this sub scale.
-  int m_level, m_beg_x, m_beg_y;
+  int m_beg_x, m_beg_y;
   double m_sub_scale;
   ImageView<double> m_sub_image;
 };
