@@ -997,6 +997,55 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
   //             MainWidget Private Methods
   // --------------------------------------------------------------
 
+void MainWidget::renderGeoreferencedImage(QPainter* paint, const QImage& sourceImage,
+                              const BBox2i& screen_box, const BBox2i& region_out,
+                              double scale_out, int image_index) {
+
+  // Create a QImage object to store the transformed image
+  QImage transformedImage = QImage(screen_box.width(), screen_box.height(),
+                                 QImage::Format_ARGB32_Premultiplied);
+
+  // Initialize all pixels to transparent
+  for (int col = 0; col < transformedImage.width(); col++) {
+    for (int row = 0; row < transformedImage.height(); row++) {
+      transformedImage.setPixel(col, row, QColor(0, 0, 0, 0).rgba());
+    }
+  }
+
+#pragma omp parallel for
+  for (int x = screen_box.min().x(); x < screen_box.max().x(); x++) {
+    for (int y = screen_box.min().y(); y < screen_box.max().y(); y++) {
+      // Convert from a pixel as seen on screen to the world coordinate system
+      Vector2 world_pt = screen2world(Vector2(x, y));
+
+      // p is in pixel coordinates of image i
+      Vector2 p;
+      try {
+        p = MainWidget::world2image(world_pt, image_index);
+      } catch (const std::exception& e) {
+        continue;
+      }
+
+      // Convert to scaled image pixels and snap to integer value
+      p = floor(p/scale_out);
+
+      int px = p.x() - region_out.min().x();
+      int py = p.y() - region_out.min().y();
+      if (px < 0 || py < 0 || px >= sourceImage.width() || py >= sourceImage.height())
+        continue;
+
+      transformedImage.setPixel(x-screen_box.min().x(),
+                              y-screen_box.min().y(),
+                              sourceImage.pixel(px, py));
+    }
+  }
+
+  // Send the QImage object to the painter
+  QRect rect(screen_box.min().x(), screen_box.min().y(),
+             screen_box.width(), screen_box.height());
+  paint->drawImage(rect, transformedImage);
+}
+
   // TODO(oalexan1): This function is too long. Break it into smaller pieces.
   // Especially the georef vs non-georef modes.
   // TODO(oalexan1): The buffer to be rendered can be split into tiles,
@@ -1013,8 +1062,9 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     full_screen_box.grow(floor(world2screen(m_current_view.min())));
     full_screen_box.grow(ceil(world2screen(m_current_view.max())));
 
-    //Stopwatch sw1;
-    //sw1.start();
+    std::cout << "--now in drawImage\n";
+    Stopwatch sw1;
+    sw1.start();
 
     // Draw the images in the desired order
     for (int j = m_beg_image_id; j < m_end_image_id; j++) {
@@ -1051,7 +1101,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
       if (screen_box.min().y() >= screen_box.max().y())
         screen_box.max().y() = screen_box.min().y() + 1;
 
-      // Go from world coordinates to pixels in the second image.
+      // Go from world coordinates to pixels in the current image.
       BBox2 image_box = MainWidget::world2image(curr_world_box, i);
 
       // Grow a bit to integer, as otherwise strange things happen
@@ -1122,87 +1172,14 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
         //vw_out() << "Render time 4 (seconds): " << sw4.elapsed_seconds() << std::endl;
         
       } else {
-        // Overlay georeferenced images
-        //Stopwatch sw5;
-        //sw5.start();
-        
-        // We fetched a bunch of pixels at some scale.
-        // Need to place them on the screen at given projected position.
-        // - To do that we will fill up this QImage object with interpolated data, then paint it.
-        QImage qimg2 = QImage(screen_box.width(), screen_box.height(),
-                              QImage::Format_ARGB32_Premultiplied);
-
-        // Initialize all pixels to transparent
-        for (int col = 0; col < qimg2.width(); col++) {
-          for (int row = 0; row < qimg2.height(); row++) {
-            qimg2.setPixel(col, row,  QColor(0, 0, 0, 0).rgba());
-          }
-        }
-        //sw5.stop();
-        //vw_out() << "Render time 5 (seconds): " << sw5.elapsed_seconds() << std::endl;
-        //Stopwatch sw6;
-        //sw6.start();
-        // TODO(oalexan1): Make the logic below a function
-        // TODO(oalexan1): This may not be thread-safe. Better do it in tiles,
-        // with each tile having its own georef.
-        // TODO(oalexan1): Must render only the pixels that changed
-
-#pragma omp parallel for // this makes a big difference on Linux
-        for (int x = screen_box.min().x(); x < screen_box.max().x(); x++) {
-          for (int y = screen_box.min().y(); y < screen_box.max().y(); y++) {
-
-            // Convert from a pixel as seen on screen to the world coordinate system.
-            Vector2 world_pt = screen2world(Vector2(x, y));
-
-            // p is in pixel coordinates of m_images[i]
-            Vector2 p;
-            try {
-              p = MainWidget::world2image(world_pt, i);
-              //bool is_in = (p[0] >= 0 && p[0] <= m_images[i].img.cols() - 1 &&
-              //              p[1] >= 0 && p[1] <= m_images[i].img.rows() - 1);
-              //if (!is_in) continue; // out of range
-            }catch ( const std::exception & e ) {
-              continue;
-            }
-
-            // Convert to scaled image pixels and snap to integer value
-            // TODO(oalexan1): There is a bug. Try plotting a 3x3 image with a
-            // georef. It will truncate half of the boundary pixels.
-            p = floor(p/scale_out);
-
-            // if (!region_out.contains(p)) continue; // out of range again
-
-            int px = p.x() - region_out.min().x();
-            int py = p.y() - region_out.min().y();
-            if (px < 0 || py < 0 || px >= qimg.width() || py >= qimg.height()) {
-              continue;
-              //vw_throw(ArgumentErr() << "Book-keeping failure.\n");
-            }
-            qimg2.setPixel(x-screen_box.min().x(), // Fill the temp QImage object
-                           y-screen_box.min().y(),
-                           qimg.pixel(px, py));
-          }
-        } // End loop through pixels
-
-        //sw6.stop();
-        //vw_out() << "Render time 6 (seconds): " << sw6.elapsed_seconds() << std::endl;
-
-        //Stopwatch sw7;
-        //sw7.start();
-        
-        // Send the QImage object to the painter
-        QRect rect(screen_box.min().x(), screen_box.min().y(),
-                   screen_box.width(), screen_box.height());
-        paint->drawImage(rect, qimg2);
-
-        //sw7.stop();
-        //vw_out() << "Render time 7 (seconds): " << sw7.elapsed_seconds() << std::endl;
+        MainWidget::renderGeoreferencedImage(paint, qimg, screen_box, 
+                                             region_out, scale_out, i);
       }
 
     } // End loop through input images
 
-    //sw1.stop();
-    //vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << std::endl;
+    sw1.stop();
+    vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << std::endl;
     
     return;
   } // End function drawImage()
