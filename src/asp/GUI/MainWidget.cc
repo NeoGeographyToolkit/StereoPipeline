@@ -1031,7 +1031,7 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
   // Create bicubic interpolator
   ImageViewRef<Vector2> screen2world_cache_interp
     = interpolate(screen2world_cache, BicubicInterpolation(), ConstantEdgeExtension());
-     
+
   // Initialize all pixels to transparent
   for (int col = 0; col < transformedImage.width(); col++) {
     for (int row = 0; row < transformedImage.height(); row++) {
@@ -1141,7 +1141,7 @@ void MainWidget::drawImage(QPainter* paint) {
   for (size_t j = 0; j < draw_order.size(); j++) {
 
     int i = draw_order[j]; // image index
-    
+
     // Load if not loaded so far
     m_images[i].load();
 
@@ -1191,7 +1191,7 @@ void MainWidget::drawImage(QPainter* paint) {
       if (all_drawn)
        continue; // cannot break as the next image may use a different screen box
     }
-   
+
     // Go from world coordinates to pixels in the current image.
     BBox2 image_box = MainWidget::world2image(curr_world_box, i);
 
@@ -1200,12 +1200,12 @@ void MainWidget::drawImage(QPainter* paint) {
     image_box.min() = floor(image_box.min());
     image_box.max() = ceil(image_box.max());
 
-    QImage qimg;
     // Since the image portion contained in image_box could be huge,
     // but the screen area small, render a sub-sampled version of
     // the image for speed.
     // Convert to double before multiplication, to avoid overflow
     // when multiplying large integers.
+    QImage qimg;
     double scale = sqrt((1.0*image_box.width()) * image_box.height())/
       std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
     // Increase the scale a little. This will make the image a little blurrier
@@ -1434,20 +1434,16 @@ void MainWidget::zoomToRegion(vw::BBox2 const& region) {
 // --------------------------------------------------------------
 
 void MainWidget::refreshPixmap() {
-
   // This is an expensive function. It will completely redraw
   // what is on the screen. For that reason, don't draw directly on
   // the screen, but rather into m_pixmap, which we use as a cache.
-
   // If just tiny redrawings are necessary, such as updating the
   // rubberband, simply pull the view from this cache,
   // and update the rubberband on top of it. This technique
   // is a well-known design pattern in Qt.
-
   if (m_zoom_all_to_same_region && m_can_emit_zoom_all_signal) {
     m_can_emit_zoom_all_signal = false;
     emit zoomAllToSameRegionSignal(m_beg_image_id);
-
     // Now we call the parent, which will set the zoom window,
     // and call back here for all widgets.
     return;
@@ -1455,10 +1451,8 @@ void MainWidget::refreshPixmap() {
 
   m_pixmap = QPixmap(size());
   m_pixmap.fill(m_backgroundColor);
-
-  QPainter paint(&m_pixmap);
-  paint.initFrom(this);
-
+  QPainter paint;
+  paint.begin(&m_pixmap);
   MainWidget::drawImage(&paint);
 
   // See the other invocation of drawInterestPoints() for a lengthy note
@@ -1467,9 +1461,10 @@ void MainWidget::refreshPixmap() {
       asp::stereo_settings().pairwise_clean_matches)
     drawInterestPoints(&paint);
 
+  paint.end();  // Make sure to end the painting session
+
   // Invokes MainWidget::PaintEvent().
   update();
-
   return;
 }
 
@@ -2927,13 +2922,13 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
     if (!m_thresh_calc_mode) {
 
       Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
-
       if (!m_profileMode && !m_polyEditMode) {
-        QPainter paint(&m_pixmap);
-        paint.initFrom(this);
+        QPainter paint;
+        paint.begin(&m_pixmap);
         QPoint Q(mouseRelX, mouseRelY);
         paint.setPen(QColor("red"));
         paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little larger
+        paint.end();  // Make sure to end the painting session
       }
 
       bool can_profile = m_profileMode;
