@@ -992,21 +992,61 @@ void MainWidget::resizeEvent(QResizeEvent*) {
   return;
 }
 
-// --------------------------------------------------------------
-//             MainWidget Private Methods
-// --------------------------------------------------------------
-
 void MainWidget::renderGeoreferencedImage(double scale_out,
                                           int image_index,
                                           QPainter* paint,
                                           QImage const& sourceImage,
                                           BBox2i const& screen_box,
                                           BBox2i const& region_out,
-                                          ImageView<int> & screen_image) {
+                                          ImageView<int> & drawn_already) {
+
+  // If all screen pixels are drawn already based on images that should be
+  // on top of this one, no need to draw this image.
+  bool all_drawn = true;
+  #pragma omp parallel for
+  for (int x = screen_box.min().x(); x < screen_box.max().x(); x++) {
+    for (int y = screen_box.min().y(); y < screen_box.max().y(); y++) {
+      if (drawn_already(x, y) == 0) {
+        #pragma omp critical
+        all_drawn = false;
+        break;
+      }
+    }
+  }
+  if (all_drawn)
+    return;
 
   // Create a QImage object to store the transformed image
   QImage transformedImage = QImage(screen_box.width(), screen_box.height(),
-                                 QImage::Format_ARGB32_Premultiplied);
+                                   QImage::Format_ARGB32_Premultiplied);
+
+  // The world2image call can be very expensive. Tabulate it with sampling,
+  // and then invoke it using bicubic interpolation.
+  // This is a speedup.
+  int rate = 5;
+  int cols = screen_box.max().x()/rate + 2 + vw::BicubicInterpolation::pixel_buffer;
+  int rows = screen_box.max().y()/rate + 2 + vw::BicubicInterpolation::pixel_buffer;
+  ImageView<Vector2> screen2world_cache(cols, rows);
+  bool can_cache = true;
+  #pragma omp parallel for
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+      Vector2 screen_pt(col*rate, row*rate);
+      Vector2 world_pt = screen2world(screen_pt);
+      Vector2 p;
+      try {
+        p = MainWidget::world2image(world_pt, image_index);
+      } catch (...) {
+        // Something went wrong, the results won't be reliable
+        #pragma omp critical
+        can_cache = false;
+      }
+      screen2world_cache(col, row) = p;
+    }
+  }
+  // Create bicubic interpolator
+  ImageViewRef<Vector2> screen2world_cache_interp
+    = interpolate(screen2world_cache, BicubicInterpolation(), ConstantEdgeExtension());
 
   // Initialize all pixels to transparent
   for (int col = 0; col < transformedImage.width(); col++) {
@@ -1020,18 +1060,24 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
     for (int y = screen_box.min().y(); y < screen_box.max().y(); y++) {
 
       // Skip pixels that were already drawn
-      if (screen_image(x, y) != 0)
+      if (drawn_already(x, y) != 0)
         continue;
-
-      // Convert from a pixel as seen on screen to the world coordinate system
-      Vector2 world_pt = screen2world(Vector2(x, y));
 
       // p is in pixel coordinates of image i
       Vector2 p;
-      try {
-        p = MainWidget::world2image(world_pt, image_index);
-      } catch (const std::exception& e) {
-        continue;
+      if (can_cache) {
+        double col = double(x)/double(rate);
+        double row = double(y)/double(rate);
+        p = screen2world_cache_interp(col, row);
+      } else {
+        // Convert from a pixel as seen on screen to the world coordinate system
+        Vector2 world_pt = screen2world(Vector2(x, y));
+
+        try {
+          p = MainWidget::world2image(world_pt, image_index);
+        } catch (const std::exception& e) {
+          continue;
+        }
       }
 
       // Convert to scaled image pixels and snap to integer value
@@ -1054,7 +1100,7 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
                                 color.rgba());
 
       // Flag this as drawn. No need to protect this with a lock.
-      screen_image(x, y) = 1;
+      drawn_already(x, y) = 1;
     }
   }
 
@@ -1064,9 +1110,7 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
   paint->drawImage(rect, transformedImage);
 }
 
-// Especially the georef vs non-georef modes.
-// TODO(oalexan1): The buffer to be rendered can be split into tiles,
-// with each tile being rendered in its own thread.
+// Draw the images on the screen
 void MainWidget::drawImage(QPainter* paint) {
 
   // Sometimes we arrive here prematurely, before the window geometry was
@@ -1080,12 +1124,12 @@ void MainWidget::drawImage(QPainter* paint) {
   full_screen_box.grow(ceil(world2screen(m_current_view.max())));
 
   // Keep track of which pixels were drawn. Initialize with zeros.
-  ImageView<int> screen_image;
+  ImageView<int> drawn_already;
   if (m_use_georef) {
-    screen_image.set_size(full_screen_box.max().x(), full_screen_box.max().y());
-    for (int col = 0; col < screen_image.cols(); col++) {
-      for (int row = 0; row < screen_image.rows(); row++) {
-        screen_image(col, row) = 0;
+    drawn_already.set_size(full_screen_box.max().x(), full_screen_box.max().y());
+    for (int col = 0; col < drawn_already.cols(); col++) {
+      for (int row = 0; row < drawn_already.rows(); row++) {
+        drawn_already(col, row) = 0;
       }
     }
   }
@@ -1174,8 +1218,6 @@ void MainWidget::drawImage(QPainter* paint) {
       highlight_nodata = false;
     }
 
-    // Stopwatch sw3;
-    // sw3.start();
     if (m_images[i].m_display_mode == THRESHOLDED_VIEW) {
       m_images[i].thresholded_img.get_image_clip(scale, image_box,
                                                   highlight_nodata,
@@ -1189,7 +1231,6 @@ void MainWidget::drawImage(QPainter* paint) {
       m_images[i].img.get_image_clip(scale, image_box, highlight_nodata,
                                      qimg, scale_out, region_out);
     }
-    // sw3.stop();
 
     // Draw on image screen
     Stopwatch sw4;
@@ -1201,15 +1242,13 @@ void MainWidget::drawImage(QPainter* paint) {
       paint->drawImage(rect, qimg);
     } else {
       MainWidget::renderGeoreferencedImage(scale_out, i, paint, qimg,
-                                           screen_box, region_out, screen_image);
+                                           screen_box, region_out, drawn_already);
     }
-    sw4.stop();
-    std::cout << "Draw image " <<  m_images[i].name << " " << sw4.elapsed_seconds() << " seconds\n";
 
   } // End loop through input images
 
-  // sw1.stop();
-  // vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << std::endl;
+  sw1.stop();
+  vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << "\n";
 
   return;
 } // End function drawImage()
