@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2006-2013, United States Government as represented by the
+//  Copyright (c) 2006-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -121,7 +121,7 @@ Vector2 MainWidget::world2image(Vector2 const& P, int imageIndex) const{
       return flip_in_y(P);
     return m_world2image_geotransforms[imageIndex].point_to_point(flip_in_y(P));
   }
-  
+
   // Image
   if (!m_use_georef)
     return P;
@@ -132,9 +132,9 @@ BBox2 MainWidget::world2image(BBox2 const& R, int imageIndex) const {
 
   bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
 
-  if (R.empty()) 
+  if (R.empty())
     return R;
-  if (m_images.empty()) 
+  if (m_images.empty())
     return R;
 
   if (poly_or_xyz) {
@@ -143,7 +143,7 @@ BBox2 MainWidget::world2image(BBox2 const& R, int imageIndex) const {
       return flip_in_y(R);
     return m_world2image_geotransforms[imageIndex].point_to_point_bbox(flip_in_y(R));
   }
-  
+
   // Image
   if (!m_use_georef)
     return R;
@@ -158,10 +158,10 @@ Vector2 MainWidget::image2world(Vector2 const& P, int imageIndex) const {
   if (poly_or_xyz) {
     if (!m_use_georef)
       return flip_in_y(P);
-    
+
     return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point(P));
   }
-  
+
   if (!m_use_georef)
     return P;
   return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point(P));
@@ -177,9 +177,9 @@ BBox2 MainWidget::image2world(BBox2 const& R, int imageIndex) const {
 
   // Consider the case when the current layer is a polygon.
   // TODO(oalexan1): What if a layer has both an image and a polygon?
-  
+
   if (poly_or_xyz) {
-    if (!m_use_georef) 
+    if (!m_use_georef)
       return flip_in_y(R);
 
     return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point_bbox(R));
@@ -187,7 +187,7 @@ BBox2 MainWidget::image2world(BBox2 const& R, int imageIndex) const {
 
   if (!m_use_georef)
     return R;
-  
+
   return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point_bbox(R));
 }
 
@@ -202,7 +202,7 @@ MainWidget::MainWidget(QWidget *parent,
                         int &editMatchPointVecIndex,
                         chooseFilesDlg * chooseFiles, bool use_georef,
                         bool zoom_all_to_same_region, bool & allowMultipleSelections):
-    QwtScaleWidget(parent), 
+    QwtScaleWidget(parent),
     WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images),
     m_opt(opt), m_chooseFiles(chooseFiles),
     m_output_prefix(output_prefix), // alias
@@ -231,7 +231,7 @@ MainWidget::MainWidget(QWidget *parent,
   m_profileMode     = false;
   m_profilePlot     = NULL;
   m_world_box       = BBox2();
-  
+
   m_mousePrsX = 0;
   m_mousePrsY = 0;
 
@@ -256,21 +256,21 @@ MainWidget::MainWidget(QWidget *parent,
   // Each image can be hillshaded independently of the other ones
   m_hillshade_azimuth   = asp::stereo_settings().hillshade_azimuth;
   m_hillshade_elevation = asp::stereo_settings().hillshade_elevation;
-  
+
   // Image threshold
   m_thresh = -std::numeric_limits<double>::max();
   m_thresh_calc_mode = false;
 
   MainWidget::maybeGenHillshade();
-  
-  // Set data per image 
+
+  // Set data per image
   for (int i = 0; i < num_images; i++) {
 
     m_filesOrder[i] = i; // start by keeping the order of files being read
 
     bool in_range = (m_beg_image_id <= i && i < m_end_image_id);
-    
-    if (!in_range) 
+
+    if (!in_range)
       continue;
 
     // Don't load the files the user wants hidden in preview mode
@@ -279,36 +279,36 @@ MainWidget::MainWidget(QWidget *parent,
     bool delay = !asp::stereo_settings().nvm.empty() || asp::stereo_settings().preview;
     if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name) && delay)
       continue;
-    
+
     // Load if not loaded so far
     m_images[i].load();
-    
+
     if (m_use_georef && !m_images[i].has_georef) {
       popUp("No georeference present in: " + m_images[i].name + ".");
       vw_throw(ArgumentErr() << "Missing georeference.\n");
     }
-  
+
     // Make sure we set these up before the image2world call below!
     if (m_use_georef) {
       m_world2image_geotransforms[i]
-        = vw::cartography::GeoTransform(m_images[m_base_image_id].georef, 
+        = vw::cartography::GeoTransform(m_images[m_base_image_id].georef,
                                         m_images[i].georef);
       m_image2world_geotransforms[i]
-        = vw::cartography::GeoTransform(m_images[i].georef, 
+        = vw::cartography::GeoTransform(m_images[i].georef,
                                         m_images[m_base_image_id].georef);
     }
 
     // Grow the world box to fit all the images
     BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
     m_world_box.grow(B);
-    
+
     // The first existing vector layer in the current widget becomes
     // the one we draw on.  Otherwise we keep m_polyLayerIndex at
     // m_beg_image_id so we store any new polygons in
     // m_images[m_beg_image_id].
     if (m_images[i].m_isPoly && m_polyLayerIndex == m_beg_image_id)
       m_polyLayerIndex = i;
-    
+
   } // end iterating over the images
 
   if (!asp::stereo_settings().zoom_proj_win.empty()) {
@@ -320,29 +320,29 @@ MainWidget::MainWidget(QWidget *parent,
       image_box = proj_win;
     else
       image_box = m_images[m_base_image_id].georef.point_to_pixel_bbox(proj_win);
-    
+
     m_current_view = image2world(image_box, m_base_image_id);
-    
+
     asp::stereo_settings().zoom_proj_win = BBox2(); // no longer needed
   }
-  
+
   // To do: Warn the user if some images have georef while others don't.
 
   // Choose which files to hide/show in the GUI. In previewOrSideBySideWithDialog()
   // mode, see MainWindow() for alternative functionality which requires
   // redrawing the layout.
   if (m_chooseFiles && !previewOrSideBySideWithDialog()) {
-    // When the user clicks on a table entry, say by modifying a 
+    // When the user clicks on a table entry, say by modifying a
     // checkbox, update the display.
     QObject::connect(m_chooseFiles->getFilesTable(), SIGNAL(cellClicked(int, int)),
                       this, SLOT(showFilesChosenByUser(int, int)));
-    
+
     m_chooseFiles->getFilesTable()->setContextMenuPolicy(Qt::CustomContextMenu);
     QObject::connect(m_chooseFiles->getFilesTable(),
                       SIGNAL(customContextMenuRequested(QPoint)),
                       this, SLOT(customMenuRequested(QPoint)));
   }
-  
+
   if (m_chooseFiles && !sideBySideWithDialog()) {
     // When the user clicks on the table header on top to show or hide all
     // When sideBySideWithDialog() is on, do not let every widget trigger this,
@@ -350,7 +350,7 @@ MainWidget::MainWidget(QWidget *parent,
     QObject::connect(m_chooseFiles->getFilesTable()->horizontalHeader(),
                       SIGNAL(sectionClicked(int)), this, SLOT(hideShowAll_widgetVersion()));
   }
-  
+
   // Right-click context menu
   m_ContextMenu = new QMenu();
   //setContextMenuPolicy(Qt::CustomContextMenu);
@@ -372,7 +372,7 @@ MainWidget::MainWidget(QWidget *parent,
   m_showIndices->setChecked(false);
 
   m_mergePolys = m_ContextMenu->addAction("Merge polygons");
-  
+
   // Other options
   m_addMatchPoint      = m_ContextMenu->addAction("Add match point");
   m_deleteMatchPoint   = m_ContextMenu->addAction("Delete match point");
@@ -383,7 +383,7 @@ MainWidget::MainWidget(QWidget *parent,
   m_setHillshadeParams = m_ContextMenu->addAction("View/set hillshade azimuth and elevation");
   m_saveVectorLayerAsShapeFile = m_ContextMenu->addAction("Save vector layer as shape file");
   m_saveVectorLayerAsTextFile = m_ContextMenu->addAction("Save vector layer as text file");
-    
+
   m_saveScreenshot     = m_ContextMenu->addAction("Save screenshot");
   m_setThreshold       = m_ContextMenu->addAction("View/set threshold");
   m_allowMultipleSelections_action
@@ -439,7 +439,7 @@ void MainWidget::customMenuRequested(QPoint pos) {
   // We will pass this index to the slots via this global variable
   m_indicesWithAction.clear();
   m_indicesWithAction.insert(imageIndex);
-  
+
   QMenu *menu=new QMenu(this);
 
   m_toggleHillshadeFromImageList = menu->addAction("Toggle hillshade display");
@@ -448,22 +448,22 @@ void MainWidget::customMenuRequested(QPoint pos) {
 
   if (!sideBySideWithDialog()) {
     // Do not offer these options when the images are side-by-side,
-    // as that will just mess up with their order. 
-  
+    // as that will just mess up with their order.
+
     m_bringImageOnTopFromTable = menu->addAction("Bring image on top");
     connect(m_bringImageOnTopFromTable, SIGNAL(triggered()),
             this, SLOT(bringImageOnTopSlot()));
-    
+
     m_pushImageToBottomFromTable = menu->addAction("Push image to bottom");
     connect(m_pushImageToBottomFromTable, SIGNAL(triggered()),
             this, SLOT(pushImageToBottomSlot()));
-    
+
   }
 
   m_zoomToImageFromTable = menu->addAction("Zoom to image");
   connect(m_zoomToImageFromTable, SIGNAL(triggered()),
           this, SLOT(zoomToImage()));
-  
+
   // If having polygons, make it possible to change their colors
   bool hasPoly = false;
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
@@ -474,11 +474,11 @@ void MainWidget::customMenuRequested(QPoint pos) {
     m_changePolyColor = menu->addAction("Change colors of polygons");
     connect(m_changePolyColor, SIGNAL(triggered()), this, SLOT(changePolyColor()));
   }
-  
+
   menu->exec(filesTable->mapToGlobal(pos));
 }
 
-void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
+void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked) {
 
   // Process user's choice from m_chooseFiles.
   if (!m_chooseFiles)
@@ -495,7 +495,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
   // If we just checked a certain image, it will be shown on top of the other ones.
   QTableWidgetItem *item = filesTable->item(rowClicked, 0);
-  if (item->checkState() == Qt::Checked){
+  if (item->checkState() == Qt::Checked) {
     bringImageOnTop(rowClicked);
   }
 
@@ -506,19 +506,19 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
   } else {
     refreshPixmap();
   }
-  
+
   return;
 }
 
-void MainWidget::zoomToImageInTableCell(int rowClicked, int columnClicked){
+void MainWidget::zoomToImageInTableCell(int rowClicked, int columnClicked) {
   // We will pass this index to the desired slot via this global variable
   m_indicesWithAction.clear();
   m_indicesWithAction.insert(rowClicked);
-  
+
   // Do the actual work for given value
   zoomToImage();
 }
-  
+
 void MainWidget::hideShowAll_widgetVersion() {
 
   if (sideBySideWithDialog()) {
@@ -526,22 +526,22 @@ void MainWidget::hideShowAll_widgetVersion() {
     // the layout and all widgets need to be recreated.
     return;
   }
-  
+
   // Process user's choice from m_chooseFiles.
   if (!m_chooseFiles)
     return;
-  
+
   m_chooseFiles->hideShowAll();
-  
+
   // In either case, reset the order in which the images are displayed
   int num_images = m_images.size();
   m_filesOrder.resize(num_images);
   for (int i = 0; i < num_images; i++)
     m_filesOrder[i] = i;
-  
+
   refreshPixmap();
 }
-  
+
 BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
 
   BBox2 in_box = box; // local copy
@@ -555,7 +555,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     double new_width = in_box.height() * aspect;
     double delta = (new_width - in_box.width())/2.0;
     out_box.min().x() -= delta; out_box.max().x() += delta;
-  }else if (in_box.width() / in_box.height() > aspect) {
+  } else if (in_box.width() / in_box.height() > aspect) {
     // Height needs to grow
     double new_height = in_box.width() / aspect;
     double delta = (new_height - in_box.height())/2.0;
@@ -577,7 +577,7 @@ void MainWidget::setWorldBox(vw::BBox2 const& world_box) {
 void MainWidget::sizeToFit() {
 
   m_current_view = expand_box_to_keep_aspect_ratio(m_world_box);
-  
+
   // If this is the first time we draw the image, so right when
   // we started, invoke update() which will invoke paintEvent().
   // That one will not only call refreshPixmap() but will
@@ -592,16 +592,16 @@ void MainWidget::sizeToFit() {
   }
 }
 
-void MainWidget::viewUnthreshImages(){
+void MainWidget::viewUnthreshImages() {
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++)
     m_images[image_iter].m_display_mode = REGULAR_VIEW;
-  
+
   refreshPixmap();
 }
 
 // The region that is currently viewable, in the first image pixel domain
 BBox2 MainWidget::firstImagePixelBox() const{
-  
+
   if (m_images.size() == 0) {
     // Must never happen
     vw_out() << "Did not expect no images!";
@@ -637,7 +637,7 @@ void MainWidget::viewThreshImages(bool refresh_pixmap) {
 
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++)
       m_images[image_iter].m_display_mode = REGULAR_VIEW;
-    
+
     refreshPixmap();
     return;
   }
@@ -649,14 +649,14 @@ void MainWidget::viewThreshImages(bool refresh_pixmap) {
 
     if (m_images[image_iter].m_isPoly || m_images[image_iter].m_isCsv)
       continue;
-    
+
     double nodata_val = -std::numeric_limits<double>::max();
     vw::read_nodata_val(input_file, nodata_val);
-    
+
     // Do not use max(nodata_val, thresh) as sometimes nodata_val can be larger than data
     nodata_val = m_thresh;
     int num_channels = m_images[image_iter].img.planes();
-    
+
     if (num_channels != 1) {
       popUp("Thresholding makes sense only for single-channel images.");
       m_images[image_iter].m_display_mode = REGULAR_VIEW;
@@ -687,11 +687,11 @@ void MainWidget::viewThreshImages(bool refresh_pixmap) {
 
   // We may not want to refresh the pixmap right away if we are going to
   // update the GUI anyway in proper time
-  if (refresh_pixmap) 
+  if (refresh_pixmap)
     refreshPixmap();
 }
 
-void MainWidget::maybeGenHillshade(){
+void MainWidget::maybeGenHillshade() {
 
   int num_images = m_images.size();
 
@@ -706,13 +706,13 @@ void MainWidget::maybeGenHillshade(){
       m_images[image_iter].m_display_mode = REGULAR_VIEW;
       continue; // silently ignore colormap images
     }
-    
+
     // Cannot hillshade a polygon or xyz data
     if (m_images[image_iter].m_isPoly || m_images[image_iter].m_isCsv) {
       m_images[image_iter].m_display_mode = REGULAR_VIEW;
       continue;
     }
-    
+
     if (!m_images[image_iter].has_georef) {
       popUp("Hill-shading requires georeferenced images.");
       m_images[image_iter].m_display_mode = REGULAR_VIEW;
@@ -766,7 +766,7 @@ void MainWidget::changePolyColor() {
                               polyColor, polyColor);
   if (!ans)
     return;
-  
+
   if (polyColor == "") {
     popUp("The polygonal line color must be set.");
     return;
@@ -786,8 +786,8 @@ void MainWidget::changePolyColor() {
   refreshPixmap();
 }
 
-// Allow the user to select multiple windows. 
-void MainWidget::allowMultipleSelections(){
+// Allow the user to select multiple windows.
+void MainWidget::allowMultipleSelections() {
   m_allowMultipleSelections = !m_allowMultipleSelections;
   m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
   if (!m_allowMultipleSelections) {
@@ -803,29 +803,29 @@ void MainWidget::toggleHillshadeFromImageList() {
       m_images[*it].m_display_mode = REGULAR_VIEW;
     else if (m_images[*it].m_display_mode != HILLSHADED_VIEW)
       m_images[*it].m_display_mode = HILLSHADED_VIEW;
-    
+
     // We will assume if the user wants to see the hillshade
     // status of this image change, he'll also want it on top.
-    bringImageOnTop(*it); 
+    bringImageOnTop(*it);
   }
   m_indicesWithAction.clear();
 
   refreshHillshade();
 }
-  
+
 // This is reached with right-click from the image itself
-void MainWidget::toggleHillshadeImageRightClick(){
+void MainWidget::toggleHillshadeImageRightClick() {
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
     if (m_images[image_iter].m_display_mode == HILLSHADED_VIEW)
       m_images[image_iter].m_display_mode = REGULAR_VIEW;
     else if (m_images[image_iter].m_display_mode != HILLSHADED_VIEW)
       m_images[image_iter].m_display_mode = HILLSHADED_VIEW;
   }
-  
+
   refreshHillshade();
 }
 
-void MainWidget::refreshHillshade(){
+void MainWidget::refreshHillshade() {
   m_thresh_calc_mode = false;
   MainWidget::maybeGenHillshade();
 
@@ -838,7 +838,7 @@ void MainWidget::zoomToImage() {
 
     // We will assume if the user wants to zoom to this image,
     // it should be on top.
-    bringImageOnTop(*it); 
+    bringImageOnTop(*it);
 
     // Set the view window to be the region encompassing the image
     m_current_view = expand_box_to_keep_aspect_ratio
@@ -852,45 +852,45 @@ void MainWidget::zoomToImage() {
   refreshPixmap();
 }
 
-void MainWidget::bringImageOnTopSlot(){
+void MainWidget::bringImageOnTopSlot() {
 
   for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++)
-    bringImageOnTop(*it); 
-  
+    bringImageOnTop(*it);
+
   m_indicesWithAction.clear();
 
   refreshPixmap();
 }
 
-void MainWidget::pushImageToBottomSlot(){
+void MainWidget::pushImageToBottomSlot() {
 
   for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++)
-    pushImageToBottom(*it); 
-      
+    pushImageToBottom(*it);
+
   m_indicesWithAction.clear();
 
   refreshPixmap();
 }
 
-void MainWidget::viewHillshadedImages(bool hillshade_mode){
+void MainWidget::viewHillshadedImages(bool hillshade_mode) {
   MainWidget::setHillshadeMode(hillshade_mode);
   refreshHillshade();
 }
 
 // Each image can be hillshaded independently of the others
-void MainWidget::setHillshadeMode(bool hillshade_mode){
+void MainWidget::setHillshadeMode(bool hillshade_mode) {
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-    if (hillshade_mode) 
+    if (hillshade_mode)
       m_images[image_iter].m_display_mode = HILLSHADED_VIEW;
     else
       m_images[image_iter].m_display_mode = REGULAR_VIEW;
   }
-    
+
 }
 
 // Ensure the current image is displayed. Note that this on its own
 // does not refresh the view as refreshPixmap() is not called.
-void MainWidget::showImage(std::string const& image_name){
+void MainWidget::showImage(std::string const& image_name) {
 
   if (!m_chooseFiles)
     return;
@@ -899,9 +899,9 @@ void MainWidget::showImage(std::string const& image_name){
 }
 
 // The image with the given index will be on top when shown.
-void MainWidget::bringImageOnTop(int image_index){
+void MainWidget::bringImageOnTop(int image_index) {
   auto it = std::find(m_filesOrder.begin(), m_filesOrder.end(), image_index);
-  if (it != m_filesOrder.end()){
+  if (it != m_filesOrder.end()) {
     m_filesOrder.erase(it);
     m_filesOrder.push_back(image_index); // show last, so on top
   }
@@ -911,9 +911,9 @@ void MainWidget::bringImageOnTop(int image_index){
 }
 
 // The image with the given index will be on top when shown.
-void MainWidget::pushImageToBottom(int image_index){
+void MainWidget::pushImageToBottom(int image_index) {
   auto it = std::find(m_filesOrder.begin(), m_filesOrder.end(), image_index);
-  if (it != m_filesOrder.end()){
+  if (it != m_filesOrder.end()) {
     m_filesOrder.erase(it);
     m_filesOrder.insert(m_filesOrder.begin(), image_index); // show first, so at the bottom
   }
@@ -957,7 +957,7 @@ void MainWidget::zoom(double scale) {
   BBox2 current_view = (m_current_view - m_curr_world_pos) / scale
     + m_curr_world_pos;
 
-  if (!current_view.empty()){
+  if (!current_view.empty()) {
     // Check to make sure we haven't hit our zoom limits.
     m_current_view = current_view;
     m_can_emit_zoom_all_signal = true;
@@ -965,7 +965,7 @@ void MainWidget::zoom(double scale) {
   }
 }
 
-void MainWidget::resizeEvent(QResizeEvent*){
+void MainWidget::resizeEvent(QResizeEvent*) {
   QRect v = this->geometry();
   m_window_width  = std::max(v.width(), 1);
   m_window_height = std::max(v.height(), 1);
@@ -973,7 +973,7 @@ void MainWidget::resizeEvent(QResizeEvent*){
   // If we already have a view, keep it but adjust it a bit if the
   // window aspect ratio changed as result of resizing. The
   // corresponding pixel box will be computed automatically.
-  if (m_current_view.empty()) 
+  if (m_current_view.empty())
     m_current_view = expand_box_to_keep_aspect_ratio(m_world_box);
   else
     m_current_view = expand_box_to_keep_aspect_ratio(m_current_view);
@@ -988,7 +988,7 @@ void MainWidget::resizeEvent(QResizeEvent*){
 
   // This is necessary, otherwise the image won't be redrawn
   refreshPixmap();
-      
+
   return;
 }
 
@@ -1054,7 +1054,7 @@ void MainWidget::drawImage(QPainter* paint) {
   // determined. Then, there is nothing to do.
 
   if (m_current_view.empty()) return;
-  
+
   // See where it fits on the screen
   BBox2i full_screen_box;
   full_screen_box.grow(floor(world2screen(m_current_view.min())));
@@ -1075,15 +1075,15 @@ void MainWidget::drawImage(QPainter* paint) {
     if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
       continue;
 
-    // Load if not loaded so far. 
+    // Load if not loaded so far.
     m_images[i].load();
-    
-    // The portion of the image in the current view. 
+
+    // The portion of the image in the current view.
     BBox2 curr_world_box = m_current_view;
     BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
     curr_world_box.crop(B);
 
-    // This is a bugfix for the case when the world boxes 
+    // This is a bugfix for the case when the world boxes
     // of images do not overlap.
     if (curr_world_box.empty())
       continue;
@@ -1109,7 +1109,7 @@ void MainWidget::drawImage(QPainter* paint) {
 
     if (m_images[i].m_isPoly)
       continue; // those will be always drawn on top of images, to be done later
-    
+
     if (m_images[i].m_isCsv) {
       MainWidget::drawScatteredData(paint, i);
       continue; // there is no image, so no point going on
@@ -1135,7 +1135,7 @@ void MainWidget::drawImage(QPainter* paint) {
       // nodata pixels as transparent.
       highlight_nodata = false;
     }
-    
+
     //sw2.stop();
     //vw_out() << "Render time 2 (seconds): " << sw2.elapsed_seconds() << std::endl;
 
@@ -1145,11 +1145,11 @@ void MainWidget::drawImage(QPainter* paint) {
       m_images[i].thresholded_img.get_image_clip(scale, image_box,
                                                   highlight_nodata,
                                                   qimg, scale_out, region_out);
-    }else if (m_images[i].m_display_mode == HILLSHADED_VIEW){
+    } else if (m_images[i].m_display_mode == HILLSHADED_VIEW) {
       m_images[i].hillshaded_img.get_image_clip(scale, image_box,
                                                 highlight_nodata,
                                                 qimg, scale_out, region_out);
-    }else{
+    } else {
       // Original images
       m_images[i].img.get_image_clip(scale, image_box,
                                       highlight_nodata,
@@ -1163,7 +1163,7 @@ void MainWidget::drawImage(QPainter* paint) {
                   screen_box.width(), screen_box.height());
       paint->drawImage(rect, qimg);
     } else {
-      MainWidget::renderGeoreferencedImage(paint, qimg, screen_box, 
+      MainWidget::renderGeoreferencedImage(paint, qimg, screen_box,
                                             region_out, scale_out, i);
     }
 
@@ -1171,16 +1171,16 @@ void MainWidget::drawImage(QPainter* paint) {
 
   sw1.stop();
   vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << std::endl;
-  
+
   return;
 } // End function drawImage()
 
-void MainWidget::drawInterestPoints(QPainter* paint){
+void MainWidget::drawInterestPoints(QPainter* paint) {
 
   // Highlight colors for various actions
   QColor ipColor              = QColor(255,  0,  0); // Red
   QColor ipInvalidColor       = QColor(255,163, 26); // Orange
-  QColor ipAddHighlightColor  = QColor( 64,255,  0); // Green
+  QColor ipAddHighlightColor  = QColor(64,255,  0); // Green
   QColor ipMoveHighlightColor = QColor(255,  0,255); // Magenta
 
   paint->setBrush(Qt::NoBrush);
@@ -1239,7 +1239,7 @@ void MainWidget::drawInterestPoints(QPainter* paint){
         P.y() < 0 || P.y() > m_window_height) {
       continue;
     }
-    
+
     paint->setPen(ipColor); // The default IP color
     paint->setBrush(ipColor); // make the point filled
 
@@ -1249,38 +1249,38 @@ void MainWidget::drawInterestPoints(QPainter* paint){
         paint->setPen(ipInvalidColor);
         paint->setBrush(ipInvalidColor);
       }
-      
+
       // Highlighting the last point
       if (highlight_last && (ip_iter == m_matchlist.getNumPoints(m_beg_image_id)-1)) {
         paint->setPen(ipAddHighlightColor);
         paint->setBrush(ipAddHighlightColor);
       }
-      
+
       if (static_cast<int>(ip_iter) == m_editMatchPointVecIndex) {
         paint->setPen(ipMoveHighlightColor);
         paint->setBrush(ipMoveHighlightColor);
       }
     }
-    
+
     QPoint Q(P.x(), P.y());
     paint->drawEllipse(Q, 2, 2); // Draw the point
 
   } // End loop through points
 } // End function drawInterestPoints
-  
+
 // Draw irregular xyz data to be plotted at (x, y) location with z giving
 // the intensity. May be colorized.
 void MainWidget::drawScatteredData(QPainter* paint, int image_index) {
-  
+
   int r = asp::stereo_settings().plot_point_radius;
 
-  // If set, use --min and --max values. Otherwise, find them and 
+  // If set, use --min and --max values. Otherwise, find them and
   // remove outliers along the way to not skew the plotting range.
   double min_val = asp::stereo_settings().min;
   double max_val = asp::stereo_settings().max;
-  if (std::isnan(min_val) || std::isnan(max_val)) 
+  if (std::isnan(min_val) || std::isnan(max_val))
     findRobustBounds(m_images[image_index].scattered_data, min_val, max_val);
-  
+
   std::map<float, vw::cm::Vector3u> lut_map;
   try {
     vw::cm::parse_color_style(m_images[image_index].colormap, lut_map);
@@ -1290,7 +1290,7 @@ void MainWidget::drawScatteredData(QPainter* paint, int image_index) {
     vw::cm::parse_color_style(m_images[image_index].colormap, lut_map);
   }
   vw::cm::Colormap colormap(lut_map);
-    
+
   for (size_t pt_it = 0; pt_it < m_images[image_index].scattered_data.size(); pt_it++) {
     auto const& P = m_images[image_index].scattered_data[pt_it];
 
@@ -1300,7 +1300,7 @@ void MainWidget::drawScatteredData(QPainter* paint, int image_index) {
 
     // Scale the intensity to [0, 1]
     double s = (P[2] - min_val) / (max_val - min_val);
-    if (max_val <= min_val) 
+    if (max_val <= min_val)
       s = 0.0; // degenerate case
     if (s > 1.0)
       s = 1.0;
@@ -1321,7 +1321,7 @@ void MainWidget::drawScatteredData(QPainter* paint, int image_index) {
     // Draw the ball
     paint->setPen(QPen(c));
     paint->setBrush(QBrush(c));
-    paint->drawEllipse(Q, r, r); 
+    paint->drawEllipse(Q, r, r);
   }
 
   return;
@@ -1331,15 +1331,15 @@ void MainWidget::updateCurrentMousePosition() {
   m_curr_world_pos = screen2world(m_curr_pixel_pos);
 }
 
-void MainWidget::setZoomAllToSameRegion(bool zoom_all_to_same_region){
+void MainWidget::setZoomAllToSameRegion(bool zoom_all_to_same_region) {
   m_zoom_all_to_same_region = zoom_all_to_same_region;
 }
 
-vw::BBox2 MainWidget::current_view(){
+vw::BBox2 MainWidget::current_view() {
   return m_current_view;
 }
 
-void MainWidget::zoomToRegion(vw::BBox2 const& region){
+void MainWidget::zoomToRegion(vw::BBox2 const& region) {
   if (region.empty()) {
     popUp("Cannot zoom to empty region.");
     return;
@@ -1363,7 +1363,7 @@ void MainWidget::refreshPixmap() {
   // and update the rubberband on top of it. This technique
   // is a well-known design pattern in Qt.
 
-  if (m_zoom_all_to_same_region && m_can_emit_zoom_all_signal){
+  if (m_zoom_all_to_same_region && m_can_emit_zoom_all_signal) {
     m_can_emit_zoom_all_signal = false;
     emit zoomAllToSameRegionSignal(m_beg_image_id);
 
@@ -1402,13 +1402,13 @@ void MainWidget::plotPolys(QPainter & paint) {
 // add one more fake image at the end to take care of the polygon
 // we are in the middle of drawing. This extra fake image is a hackish thing
 for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per above
-  
+
   bool currDrawnPoly = (j == m_end_image_id); // last poly is the currently drawn one
-  
+
   int image_it = m_polyLayerIndex; // for currently drawn poly
   if (!currDrawnPoly) {
     image_it = m_filesOrder[j]; // for the other polys
-    
+
     // Don't show files the user wants hidden
     std::string fileName = m_images[image_it].name;
     if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
@@ -1419,10 +1419,10 @@ for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per abov
   auto color_it = m_perImagePolyColor.find(image_it);
   if (!currDrawnPoly && color_it != m_perImagePolyColor.end()) {
     m_images[image_it].color = color_it->second; // save for the future
-    for (size_t polyIter = 0; polyIter < m_images[image_it].polyVec.size(); polyIter++) 
+    for (size_t polyIter = 0; polyIter < m_images[image_it].polyVec.size(); polyIter++)
       m_images[image_it].polyVec[polyIter].set_color(m_images[image_it].color);
   }
-  
+
   // Let polyVec be the polygons for the current image, or,
   // at the end, the polygon we are in the middle of drawing
   // TODO(oalexan1): How to avoid a deep copy?
@@ -1432,33 +1432,33 @@ for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per abov
   } else {
     if (m_currPolyX.empty() || !m_polyEditMode)
       continue;
-    
+
     vw::geometry::dPoly poly;
     poly.reset();
     bool isPolyClosed = false; // because we are in the middle of drawing it
     std::string layer = "";
-    poly.appendPolygon(m_currPolyX.size(),  
-                        vw::geometry::vecPtr(m_currPolyX),  
-                        vw::geometry::vecPtr(m_currPolyY),  
+    poly.appendPolygon(m_currPolyX.size(),
+                        vw::geometry::vecPtr(m_currPolyX),
+                        vw::geometry::vecPtr(m_currPolyY),
                         isPolyClosed, m_polyColor, layer);
     polyVec.push_back(poly);
   }
-  
+
   // Plot the polygon being drawn now, and pre-existing polygons
-  for (size_t polyIter = 0; polyIter < polyVec.size(); polyIter++){
-    
+  for (size_t polyIter = 0; polyIter < polyVec.size(); polyIter++) {
+
     vw::geometry::dPoly poly = polyVec[polyIter]; // make a deep copy
     const std::vector<std::string> & colors = poly.get_colors();
-    
+
     // Convert to world units
     int            numVerts  = poly.get_totalNumVerts();
     double *             xv  = poly.get_xv();
     double *             yv  = poly.get_yv();
-    for (int vIter = 0; vIter < numVerts; vIter++){
-      
+    for (int vIter = 0; vIter < numVerts; vIter++) {
+
       Vector2 P;
       P = projpoint2world(Vector2(xv[vIter], yv[vIter]), image_it);
-      
+
       xv[vIter] = P.x();
       yv[vIter] = P.y();
     }
@@ -1468,7 +1468,7 @@ for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per abov
     if (m_polyEditMode && m_moveVertex->isChecked()) {
       drawVertIndex = 1; // to draw a little square at each movable vertex
       plotPoints = true;
-    }else{
+    } else {
       drawVertIndex = 0;
       plotPoints = false;
     }
@@ -1477,7 +1477,7 @@ for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per abov
     // the first color in the first poly to respect this API. In that function
     // we will iterate over polygons and plot each with its own color.
     // At some point need to revisit if plotPoly() actually needs a color
-    // as an argument or it can always be read from 'poly' itself.      
+    // as an argument or it can always be read from 'poly' itself.
     MainWidget::plotPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
                           m_showIndices->isChecked(), m_lineWidth, drawVertIndex,
                           QColor(colors[0].c_str()), paint, poly);
@@ -1548,22 +1548,22 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   // TODO(oalexan1): All the logic below must be in its own function,
   // called for example plotPolygons().
   // When deleting vertices need to use a georef as well.
-  
+
   bool plotPoints    = false, plotEdges = true, plotFilled = false;
   int  drawVertIndex = 0;
   bool isPolyClosed  = false;
   std::string layer  = "";
-  
+
   // Plot the polygonal line which we are profiling
   if (m_profileMode) {
     vw::geometry::dPoly poly;
-    poly.appendPolygon(m_profileX.size(),  
-                        vw::geometry::vecPtr(m_profileX),  
-                        vw::geometry::vecPtr(m_profileY),  
+    poly.appendPolygon(m_profileX.size(),
+                        vw::geometry::vecPtr(m_profileX),
+                        vw::geometry::vecPtr(m_profileY),
                         isPolyClosed, polyColorStr, layer);
     bool showIndices = false;
     MainWidget::plotPoly(plotPoints, plotEdges, plotFilled, showIndices,
-                          m_lineWidth, drawVertIndex, polyColor, paint,  
+                          m_lineWidth, drawVertIndex, polyColor, paint,
                           poly);
   }
 
@@ -1572,7 +1572,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   // than being redrawn any time the mouse moves, etc. How about polygons
   // actively being edited?
   MainWidget::plotPolys(paint);
-  
+
   // Call another function to handle drawing the interest points
   // This drawing is expensive as it happens every time paintEvent()
   // is called, which is is countless times when the mouse is
@@ -1585,17 +1585,17 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   // ip are drawn in refreshPixmap()
   if (asp::stereo_settings().view_matches)
     drawInterestPoints(&paint);
-  
+
 } // end paint event
 
 // Call paintEvent() on the edges of the rubberband
-void MainWidget::updateRubberBand(QRect & R){
+void MainWidget::updateRubberBand(QRect & R) {
   QRect rect = R.normalized();
   if (rect.width() > 0 || rect.height() > 0) {
-    update(rect.left(),  rect.top(),    rect.width(), 1             );
-    update(rect.left(),  rect.top(),    1,            rect.height() );
-    update(rect.left(),  rect.bottom(), rect.width(), 1             );
-    update(rect.right(), rect.top(),    1,            rect.height() );
+    update(rect.left(),  rect.top(),    rect.width(), 1);
+    update(rect.left(),  rect.top(),    1,            rect.height());
+    update(rect.left(),  rect.bottom(), rect.width(), 1);
+    update(rect.right(), rect.top(),    1,            rect.height());
   }
   return;
 }
@@ -1604,21 +1604,21 @@ void MainWidget::updateRubberBand(QRect & R){
 // Draw n-1 segments in between them. Plot the obtained profile.
 void MainWidget::plotProfile(std::vector<imageData> const& images,
                               // indices in the image to profile
-                              std::vector<double> const& profileX, 
-                              std::vector<double> const& profileY){
+                              std::vector<double> const& profileX,
+                              std::vector<double> const& profileY) {
 
   if (images.empty()) return; // nothing to do
 
   // Create the profile window
-  if (m_profilePlot == NULL) 
+  if (m_profilePlot == NULL)
     m_profilePlot = new ProfilePlotter(this);
 
   int imgInd = m_beg_image_id; // just one image is present
   double nodata_val = images[imgInd].img.get_nodata_val();
-  
+
   m_valsX.clear(); m_valsY.clear();
   int count = 0;
-  
+
   int num_pts = profileX.size();
   for (int pt_iter = 0; pt_iter < num_pts; pt_iter++) {
 
@@ -1635,17 +1635,17 @@ void MainWidget::plotProfile(std::vector<imageData> const& images,
     else
       endP = MainWidget::world2image(Vector2(profileX[pt_iter+1], profileY[pt_iter+1]),
                                       imgInd);
-    
+
     int begX = begP.x(),   begY = begP.y();
     int endX = endP.x(),   endY = endP.y();
     int seg_len = std::abs(begX - endX) + std::abs(begY - endY);
     if (seg_len == 0) seg_len = 1; // ensure it is never empty
     for (int p = 0; p <= seg_len; p++) {
       double t = double(p)/seg_len;
-      int x = round( begX + t*(endX - begX) );
-      int y = round( begY + t*(endY - begY) );
+      int x = round(begX + t*(endX - begX));
+      int y = round(begY + t*(endY - begY));
       bool is_in = (x >= 0 && x <= images[imgInd].img.cols()-1 &&
-                    y >= 0 && y <= images[imgInd].img.rows()-1 );
+                    y >= 0 && y <= images[imgInd].img.rows()-1);
       if (!is_in)
         continue;
 
@@ -1666,16 +1666,16 @@ void MainWidget::plotProfile(std::vector<imageData> const& images,
     m_valsX.resize(1);
     m_valsY.resize(1);
   }
-  
+
   // Wipe whatever was there before
-  m_profilePlot->detachItems(); 
-  
+  m_profilePlot->detachItems();
+
   QwtPlotCurve * curve = new QwtPlotCurve("1D Profile");
   m_profilePlot->setFixedWidth(300);
   m_profilePlot->setWindowTitle("1D Profile");
 
   if (!m_valsX.empty()) {
-    
+
     double min_x = *std::min_element(m_valsX.begin(), m_valsX.end());
     double max_x = *std::max_element(m_valsX.begin(), m_valsX.end());
     double min_y = *std::min_element(m_valsY.begin(), m_valsY.end());
@@ -1691,14 +1691,14 @@ void MainWidget::plotProfile(std::vector<imageData> const& images,
     }
 
     // Plot a point as a fat dot
-    if (num_pts == 1)  {
+    if (num_pts == 1) {
       curve->setStyle(QwtPlotCurve::Dots);
     }
-    
+
     curve->setData(new QwtCPointerData<double>(&m_valsX[0], &m_valsY[0], m_valsX.size()));
     curve->setPen(* new QPen(Qt::red));
     curve->attach(m_profilePlot);
-    
+
     double delta = 0.1;  // expand a bit right to see more x and y labels
     double widx = max_x - min_x;
     double widy = max_y - min_y;
@@ -1719,7 +1719,7 @@ void MainWidget::setProfileMode(bool profile_mode) {
     m_profileX.clear();
     m_profileY.clear();
 
-    // Close the window. 
+    // Close the window.
     if (m_profilePlot != NULL) {
       m_profilePlot->close();
       m_profilePlot->deleteLater();
@@ -1731,7 +1731,7 @@ void MainWidget::setProfileMode(bool profile_mode) {
     // mode checkbox.
     emit uncheckProfileModeCheckbox();
     return;
-  }else{
+  } else {
 
     bool refresh = true;
     setPolyEditMode(false, refresh);
@@ -1739,7 +1739,7 @@ void MainWidget::setProfileMode(bool profile_mode) {
     // Load the data if not loaded already
     for (size_t it = 0; it < m_images.size(); it++)
       m_images[it].load();
-    
+
     // Show the profile window
     MainWidget::plotProfile(m_images, m_profileX, m_profileY);
   }
@@ -1747,7 +1747,7 @@ void MainWidget::setProfileMode(bool profile_mode) {
   refreshPixmap();
 }
 
-void MainWidget::setPolyEditMode(bool polyEditMode, bool refresh){
+void MainWidget::setPolyEditMode(bool polyEditMode, bool refresh) {
   m_polyEditMode = polyEditMode;
 
   // Turn off moving vertices any time we turn on or off poly editing
@@ -1764,36 +1764,36 @@ void MainWidget::setPolyEditMode(bool polyEditMode, bool refresh){
     // mode checkbox.
     emit uncheckPolyEditModeCheckbox();
     return;
-  }else{
+  } else {
     setProfileMode(false);
   }
 
   // On occasions we don't want to force a refresh prematurely, the
   // GUI will take care of it when the layout is created
-  if (refresh) 
+  if (refresh)
     refreshPixmap();
 }
 
 // Convert a length in pixels to a length in world coordinates
-double MainWidget::pixelToWorldDist(double pd){
-  
+double MainWidget::pixelToWorldDist(double pd) {
+
   Vector2 p = screen2world(Vector2(0, 0));
   Vector2 q = screen2world(Vector2(pd, 0));
-  
+
   return norm_2(p-q);
 }
 
-void MainWidget::appendToPolyVec(vw::geometry::dPoly const& P){
-  
+void MainWidget::appendToPolyVec(vw::geometry::dPoly const& P) {
+
   // Append the new polygon to the list of polygons. If we have several
   // clips already, append it to the last clip. If we have no clips,
   // create a new clip.
-  if (m_images[m_polyLayerIndex].polyVec.size() == 0){
+  if (m_images[m_polyLayerIndex].polyVec.size() == 0) {
     m_images[m_polyLayerIndex].polyVec.push_back(P);
-  }else{
+  } else {
     m_images[m_polyLayerIndex].polyVec.back().appendPolygons(P);
   }
-  
+
   return;
 }
 
@@ -1801,7 +1801,7 @@ void MainWidget::appendToPolyVec(vw::geometry::dPoly const& P){
 // the drawn polygon to the list of polygons. This polygon is in the
 // world coordinate system. When we append it, we will convert it to
 // points in the desired geodetic projection.
-void MainWidget::addPolyVert(double px, double py){
+void MainWidget::addPolyVert(double px, double py) {
 
   Vector2 S(px, py); // current point in screen pixels
   int pSize = m_currPolyX.size();
@@ -1812,7 +1812,7 @@ void MainWidget::addPolyVert(double px, double py){
   if (pSize == 0 && m_chooseFiles && m_chooseFiles->isHidden(m_images[m_polyLayerIndex].name)) {
     for (int j = m_beg_image_id; j < m_end_image_id; j++) {
       int i = m_filesOrder[j]; // image index
-      
+
       if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
         continue;
       m_polyLayerIndex = i; // not hidden
@@ -1823,21 +1823,21 @@ void MainWidget::addPolyVert(double px, double py){
   // keep it in world units. Otherwise, if we zoom while the polygon
   // is being drawn, we will not be able to close it properly.
   if (pSize == 0)
-    m_startPix = screen2world(S); 
-  
-  if (pSize <= 0 || norm_2(world2screen(m_startPix) - S) > m_pixelTol ){
-    
+    m_startPix = screen2world(S);
+
+  if (pSize <= 0 || norm_2(world2screen(m_startPix) - S) > m_pixelTol) {
+
     // We did not arrive yet at the starting point of the polygon being
     // drawn. Add the current point.
 
     S = screen2world(S);                    // world coordinates
     m_world_box.grow(S); // to not cut when plotting later
     S = world2projpoint(S, m_polyLayerIndex); // projected units
-    
+
     m_currPolyX.push_back(S.x());
     m_currPolyY.push_back(S.y());
     pSize = m_currPolyX.size();
-    
+
     // This will call paintEvent which will draw the current poly line
     update();
 
@@ -1849,7 +1849,7 @@ void MainWidget::addPolyVert(double px, double py){
   poly.reset();
   bool isPolyClosed = true;
   std::string color = m_images[m_polyLayerIndex].color;
-  if (color == "default") 
+  if (color == "default")
     color = m_polyColor; // if no color was set from the command line
 
   // If the user set a custom color
@@ -1868,17 +1868,17 @@ void MainWidget::addPolyVert(double px, double py){
 
   update(); // redraw the just polygons, not the underlying images
   //refreshPixmap();
-  
+
   return;
 }
 
 // Delete a vertex closest to where the user clicked.
 // TODO(oalexan1): This will fail when different polygons have
 // different georeferences.
-void MainWidget::deleteVertex(){
+void MainWidget::deleteVertex() {
 
   Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-  
+
   double min_x, min_y, min_dist;
   int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
   MainWidget::findClosestPolyVertex(// inputs
@@ -1901,11 +1901,11 @@ void MainWidget::deleteVertex(){
 
   // This will redraw just the polygons, not the pixmap
   update();
-  
+
   return;
 }
 
-void MainWidget::deleteVertices(){
+void MainWidget::deleteVertices() {
 
   if (m_stereoCropWin.empty()) {
     popUp("No region is selected.");
@@ -1914,11 +1914,11 @@ void MainWidget::deleteVertices(){
 
   // This code cannot be moved out to utilities since it calls the
   // function projpoint2world().
-  
+
   for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
-  
+
     for (size_t layerIter = 0; layerIter < m_images[clipIter].polyVec.size(); layerIter++) {
-    
+
       vw::geometry::dPoly & poly     = m_images[clipIter].polyVec[layerIter]; // alias
       int                   numPolys = poly.get_numPolys();
       const int           * numVerts = poly.get_numVerts();
@@ -1929,13 +1929,13 @@ void MainWidget::deleteVertices(){
 
       vw::geometry::dPoly poly_out;
       int start = 0;
-      for (int polyIter = 0; polyIter < numPolys; polyIter++){
-      
+      for (int polyIter = 0; polyIter < numPolys; polyIter++) {
+
         if (polyIter > 0) start += numVerts[polyIter - 1];
         int pSize = numVerts[polyIter];
 
         std::vector<double> out_xv, out_yv;
-        for (int vIter = 0; vIter < pSize; vIter++){
+        for (int vIter = 0; vIter < pSize; vIter++) {
           double  x = xv[start + vIter];
           double  y = yv[start + vIter];
           Vector2 P = projpoint2world(Vector2(x, y), clipIter);
@@ -1943,7 +1943,7 @@ void MainWidget::deleteVertices(){
           // This vertex will be deleted
           if (m_stereoCropWin.contains(P))
             continue;
-          
+
           out_xv.push_back(x);
           out_yv.push_back(y);
         }
@@ -1952,12 +1952,12 @@ void MainWidget::deleteVertices(){
         // degenerate before but becomes degenerate now, skip it.
         // (Polygons which were 1-point before are allowed.)
         if (out_xv.empty() || (pSize >= 3 && out_xv.size() < 3))
-          continue; 
+          continue;
 
         bool isPolyClosed = true;
-        poly_out.appendPolygon(out_xv.size(),  
-                                vw::geometry::vecPtr(out_xv),  
-                                vw::geometry::vecPtr(out_yv),  
+        poly_out.appendPolygon(out_xv.size(),
+                                vw::geometry::vecPtr(out_xv),
+                                vw::geometry::vecPtr(out_yv),
                                 isPolyClosed, colors[polyIter], layers[polyIter]);
       }
 
@@ -1968,11 +1968,11 @@ void MainWidget::deleteVertices(){
 
   // The selection has done its job, wipe it now
   m_stereoCropWin = BBox2();
-  
+
   // This will redraw just the polygons, not the pixmap
   update();
 }
-  
+
 // Find the closest edge in a given set of imageData structures to a
 // given point. This needs to be in the MainWidget class as it needs
 // to know about how to convert from world coordinates to each
@@ -1986,7 +1986,7 @@ void MainWidget::findClosestPolyEdge(// inputs
                                       int & polyIndexInCurrPoly,
                                       int & vertIndexInCurrPoly,
                                       double & minX, double & minY,
-                                      double & minDist){
+                                      double & minDist) {
 
   clipIndex           = -1;
   polyVecIndex        = -1;
@@ -1999,27 +1999,27 @@ void MainWidget::findClosestPolyEdge(// inputs
   Vector2 world_P(world_x0, world_y0);
 
   for (int j = m_beg_image_id; j < m_end_image_id; j++) {
-    
+
     int clipIter = m_filesOrder[j]; // image index
     if (m_chooseFiles && m_chooseFiles->isHidden(m_images[clipIter].name))
       continue; // skip hidden files
-    
+
     double minX0, minY0, minDist0;
     int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
-  
+
     // Convert from world coordinates to given clip coordinates
     Vector2 clip_P = world2projpoint(world_P, clipIter);
-    
+
     vw::gui::findClosestPolyEdge(// inputs
-                                  clip_P.x(), clip_P.y(),  
-                                  imageData[clipIter].polyVec,  
+                                  clip_P.x(), clip_P.y(),
+                                  imageData[clipIter].polyVec,
                                   // outputs
-                                  polyVecIndex0,  
-                                  polyIndexInCurrPoly0,  
-                                  vertIndexInCurrPoly0,  
-                                  minX0, minY0,  
+                                  polyVecIndex0,
+                                  polyIndexInCurrPoly0,
+                                  vertIndexInCurrPoly0,
+                                  minX0, minY0,
                                   minDist0);
-    
+
     // Unless the polygon is empty, convert back to world
     // coordinates, and see if the current distance is smaller than
     // the previous one.
@@ -2029,7 +2029,7 @@ void MainWidget::findClosestPolyEdge(// inputs
       Vector2 closest_P = projpoint2world(Vector2(minX0, minY0),
                                           clipIter);
       minDist0 = norm_2(closest_P - world_P);
-      
+
       if (minDist0 <= minDist) {
         clipIndex           = clipIter;
         polyVecIndex        = polyVecIndex0;
@@ -2056,7 +2056,7 @@ void MainWidget::findClosestPolyVertex(// inputs
                                         int & polyIndexInCurrPoly,
                                         int & vertIndexInCurrPoly,
                                         double & minX, double & minY,
-                                        double & minDist){
+                                        double & minDist) {
   clipIndex           = -1;
   polyVecIndex        = -1;
   polyIndexInCurrPoly = -1;
@@ -2066,9 +2066,9 @@ void MainWidget::findClosestPolyVertex(// inputs
   minDist             = std::numeric_limits<double>::max();
 
   Vector2 world_P(world_x0, world_y0);
-  
-  for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++){
-  
+
+  for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
+
     double minX0, minY0, minDist0;
     int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
 
@@ -2076,13 +2076,13 @@ void MainWidget::findClosestPolyVertex(// inputs
     Vector2 clip_P = world2projpoint(world_P, clipIter);
 
     vw::gui::findClosestPolyVertex(// inputs
-                                    clip_P.x(), clip_P.y(),  
-                                    imageData[clipIter].polyVec,  
+                                    clip_P.x(), clip_P.y(),
+                                    imageData[clipIter].polyVec,
                                     // outputs
-                                    polyVecIndex0,  
-                                    polyIndexInCurrPoly0,  
-                                    vertIndexInCurrPoly0,  
-                                    minX0, minY0,  
+                                    polyVecIndex0,
+                                    polyIndexInCurrPoly0,
+                                    vertIndexInCurrPoly0,
+                                    minX0, minY0,
                                     minDist0);
 
     // Unless the polygon is empty, convert back to world
@@ -2090,11 +2090,11 @@ void MainWidget::findClosestPolyVertex(// inputs
     // the previous one.
     if (polyVecIndex0 >= 0 && polyIndexInCurrPoly0 >= 0 &&
         vertIndexInCurrPoly0 >= 0) {
-      
+
       Vector2 closest_P = projpoint2world(Vector2(minX0, minY0),
                                           clipIter);
       minDist0 = norm_2(closest_P - world_P);
-    
+
       if (minDist0 <= minDist) {
         clipIndex           = clipIter;
         polyVecIndex        = polyVecIndex0;
@@ -2113,17 +2113,17 @@ void MainWidget::findClosestPolyVertex(// inputs
 // Insert intermediate vertex where the mouse right-clicks.
 // TODO(oalexan1): This will fail when different polygons have
 // different georeferences.
-void MainWidget::insertVertex(){
+void MainWidget::insertVertex() {
 
   Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
 
   m_world_box.grow(P); // to not cut when plotting later
-  
+
   // If there is absolutely no polygon, start by creating one
   // with just one point.
   bool allEmpty = true;
   for (size_t clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
-    if (m_images[clipIter].polyVec.size() > 0 && 
+    if (m_images[clipIter].polyVec.size() > 0 &&
         m_images[clipIter].polyVec[0].get_totalNumVerts() > 0) {
       allEmpty = false;
       break;
@@ -2137,7 +2137,7 @@ void MainWidget::insertVertex(){
   }
 
   // The location of the point to be inserted looks more reasonable
-  // when one searches for closest edge, not vertex. 
+  // when one searches for closest edge, not vertex.
   double min_x, min_y, min_dist;
   int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
   MainWidget::findClosestPolyEdge(// inputs
@@ -2161,24 +2161,24 @@ void MainWidget::insertVertex(){
   m_images[clipIndex].polyVec[polyVecIndex].insertVertex(polyIndexInCurrPoly,
                                                           vertIndexInCurrPoly + 1,
                                                           P.x(), P.y());
-  
+
   // This will redraw just the polygons, not the pixmap
   update();
-  
+
   return;
 }
 
 // Merge some polygons and save them in imageData[outIndex]
-void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex){
+void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex) {
 
   std::vector<vw::geometry::dPoly> polyVec;
 
   try {
     // We will infer these from existing polygons
     std::string poly_color, layer_str;
-  
+
     // We must first organize all those user-drawn curves into meaningful polygons.
-    // This can flip orientations and order of polygons. 
+    // This can flip orientations and order of polygons.
     std::vector<OGRGeometry*> ogr_polys;
 
     for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
@@ -2186,21 +2186,21 @@ void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex){
       auto & polyVec = imageData[clipIter].polyVec;
       for (size_t vecIter = 0; vecIter < polyVec.size(); vecIter++) {
 
-        if (poly_color == ""){
+        if (poly_color == "") {
           std::vector<std::string> colors = polyVec[vecIter].get_colors();
-          if (!colors.empty()) 
+          if (!colors.empty())
             poly_color = colors[0];
         }
-    
+
         if (layer_str == "") {
           std::vector<std::string> layers = polyVec[vecIter].get_layers();
-          if (!layers.empty()) 
+          if (!layers.empty())
             layer_str = layers[0];
         }
 
         // Make a copy of the polygons
-        vw::geometry::dPoly poly = polyVec[vecIter]; 
-  
+        vw::geometry::dPoly poly = polyVec[vecIter];
+
         double * xv         = poly.get_xv();
         double * yv         = poly.get_yv();
         const int* numVerts = poly.get_numVerts();
@@ -2215,96 +2215,96 @@ void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex){
           xv[vIter] = P.x();
           yv[vIter] = P.y();
         }
-        
+
         // Iterate over polygon rings in the given polygon set
         int startPos = 0;
-        for (int pIter = 0; pIter < numPolys; pIter++){
-    
+        for (int pIter = 0; pIter < numPolys; pIter++) {
+
           if (pIter > 0) startPos += numVerts[pIter - 1];
           int numCurrPolyVerts = numVerts[pIter];
-    
+
           OGRLinearRing R;
           vw::geometry::toOGR(xv, yv, startPos, numCurrPolyVerts, R);
 
           OGRPolygon * P = new OGRPolygon;
-          if (P->addRing(&R) != OGRERR_NONE )
+          if (P->addRing(&R) != OGRERR_NONE)
             vw_throw(ArgumentErr() << "Failed add ring to polygon.\n");
 
           ogr_polys.push_back(P);
         }
-  
+
       }
     }
-  
+
     // The doc of this function says that the elements in ogr_polys will
     // be taken care of. We are responsible only for the vector of pointers
     // and for the output of this function.
     int pbIsValidGeometry = 0;
-    const char** papszOptions = NULL; 
+    const char** papszOptions = NULL;
     OGRGeometry* good_geom
       = OGRGeometryFactory::organizePolygons(vw::geometry::vecPtr(ogr_polys),
                                               ogr_polys.size(),
                                               &pbIsValidGeometry,
                                               papszOptions);
-  
+
     // Single polygon, nothing to do
-    if (wkbFlatten(good_geom->getGeometryType()) == wkbPolygon || 
+    if (wkbFlatten(good_geom->getGeometryType()) == wkbPolygon ||
         wkbFlatten(good_geom->getGeometryType()) == wkbPoint) {
-      bool append = false; 
+      bool append = false;
       fromOGR(good_geom, poly_color, layer_str, polyVec, append);
-    }else if (wkbFlatten(good_geom->getGeometryType()) == wkbMultiPolygon) {
-    
+    } else if (wkbFlatten(good_geom->getGeometryType()) == wkbMultiPolygon) {
+
       // We can merge
       OGRGeometry * merged_geom = new OGRPolygon;
-    
+
       OGRMultiPolygon *poMultiPolygon = (OGRMultiPolygon*)good_geom;
-    
+
       int numGeom = poMultiPolygon->getNumGeometries();
-      for (int iGeom = 0; iGeom < numGeom; iGeom++){
-      
+      for (int iGeom = 0; iGeom < numGeom; iGeom++) {
+
         const OGRGeometry *currPolyGeom = poMultiPolygon->getGeometryRef(iGeom);
         if (wkbFlatten(currPolyGeom->getGeometryType()) != wkbPolygon) continue;
-      
+
         OGRPolygon *poPolygon = (OGRPolygon *) currPolyGeom;
         OGRGeometry * local_merged = merged_geom->Union(poPolygon);
-      
+
         // Keep the pointer to the new geometry
         if (merged_geom != NULL)
           OGRGeometryFactory::destroyGeometry(merged_geom);
         merged_geom = local_merged;
-      }    
-    
+      }
+
       bool append = false;
       fromOGR(merged_geom, poly_color, layer_str, polyVec, append);
       OGRGeometryFactory::destroyGeometry(merged_geom);
     }
-  
+
     OGRGeometryFactory::destroyGeometry(good_geom);
-      
-  }catch(std::exception &e ){
+
+  } catch(std::exception &e) {
     vw_out() << "OGR failed at " << e.what() << std::endl;
   }
-  
+
   // Wipe all existing polygons and replace with this one
-  for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) 
+  for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++)
     imageData[clipIter].polyVec.clear();
 
   imageData[outIndex].polyVec = polyVec;
 }
 
 // Merge existing polygons
-void MainWidget::mergePolys(){
+void MainWidget::mergePolys() {
   MainWidget::mergePolys(m_images, m_polyLayerIndex);
 }
 
 // Save the currently created vector layer
-void MainWidget::saveVectorLayerAsShapeFile(){
-  
-  if (m_polyLayerIndex < m_beg_image_id || m_polyLayerIndex >= m_end_image_id){
+void MainWidget::saveVectorLayerAsShapeFile() {
+
+  if (m_polyLayerIndex < m_beg_image_id || m_polyLayerIndex >= m_end_image_id) {
     popUp("Images are inconsistent. Cannot save vector layer.");
     return;
   }
-  
+
   std::string shapefile = m_images[m_polyLayerIndex].name;
   shapefile =  boost::filesystem::path(shapefile).replace_extension(".shp").string();
   QString qshapefile = QFileDialog::getSaveFileName(this,
@@ -2313,7 +2313,7 @@ void MainWidget::saveVectorLayerAsShapeFile(){
 
 
   shapefile = qshapefile.toStdString();
-  if (shapefile == "") 
+  if (shapefile == "")
     return;
 
   bool has_geo = m_images[m_polyLayerIndex].has_georef;
@@ -2328,19 +2328,19 @@ void MainWidget::saveVectorLayerAsShapeFile(){
 // Save the currently created vector layer. Its index is m_polyLayerIndex.
 // Other layers are not saved. They may have their own georeferences.
 void MainWidget::saveVectorLayerAsTextFile() {
-  
-  if (m_polyLayerIndex < m_beg_image_id || m_polyLayerIndex >= m_end_image_id){
+
+  if (m_polyLayerIndex < m_beg_image_id || m_polyLayerIndex >= m_end_image_id) {
     popUp("Images are inconsistent. Cannot save vector layer.");
     return;
   }
-  
+
   std::string textFile = m_images[m_polyLayerIndex].name;
   textFile =  boost::filesystem::path(textFile).replace_extension(".txt").string();
   QString qtextFile = QFileDialog::getSaveFileName(this,
                                                   tr("Save text file"), textFile.c_str(),
                                                   tr("(*.txt)"));
   textFile = qtextFile.toStdString();
-  if (textFile == "") 
+  if (textFile == "")
     return;
 
   m_images[m_polyLayerIndex].writePoly(textFile);
@@ -2348,7 +2348,7 @@ void MainWidget::saveVectorLayerAsTextFile() {
 
 // Contour the current image
 bool MainWidget::contourImage() {
-  
+
   int non_poly_image = -1;
   int num_non_poly_images = 0;
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
@@ -2362,24 +2362,24 @@ bool MainWidget::contourImage() {
     return false;
   }
 
-  if (non_poly_image < 0) 
+  if (non_poly_image < 0)
     return true; // Will quietly skip this
 
   m_polyLayerIndex = non_poly_image;
-  
+
   int num_channels = m_images[m_polyLayerIndex].img.planes();
   if (num_channels > 1) {
     popUp("Contouring images makes sense only for single-channel images.");
     return false;
   }
-  
-  if (num_channels == 1) 
+
+  if (num_channels == 1)
     contour_image(m_images[m_polyLayerIndex].img, m_images[m_polyLayerIndex].georef,
                   m_thresh, m_images[m_polyLayerIndex].polyVec);
-  
+
   // This will call paintEvent which will draw the contour
   update();
-  
+
   return true;
 }
 
@@ -2450,7 +2450,7 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
 
   if (m_world_box.empty())
     return;
-  
+
   // The box in world coordinates
   double x_min = m_world_box.min().x();
   double y_min = m_world_box.min().y();
@@ -2464,11 +2464,11 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
     // What on screen looks counter-clockwise, internally is clockwise,
     // because the screen y axis is in fact pointing down.
     // We need to reverse the orientation for the logic below to work properly
-    //currPoly.reverse();  
+    //currPoly.reverse();
     //currPoly.sortBySizeAndMaybeAddBigContainingRect(x_min,  y_min, x_max, y_max);
     //currPoly.reverse();
   }
-  
+
   // Clip the polygon a bit beyond the viewing window, as to not see
   // the edges where the cut took place. It is a bit tricky to
   // decide how much the extra should be.
@@ -2490,13 +2490,13 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
         x_max + extraX, y_max + extraY,
                     // Output
                     clippedPoly);
-  
+
   std::vector<vw::geometry::anno> annotations;
   if (showIndices) {
     clippedPoly.compVertIndexAnno();
     clippedPoly.get_vertIndexAnno(annotations);
   }
-  
+
   const double * xv       = clippedPoly.get_xv();
   const double * yv       = clippedPoly.get_yv();
   const int    * numVerts = clippedPoly.get_numVerts();
@@ -2507,7 +2507,7 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
     = clippedPoly.get_isPolyClosed();
   const std::vector<std::string> & colors
     = clippedPoly.get_colors(); // we ignore these
-  
+
   int start = 0;
 
   for (int pIter = 0; pIter < numPolys; pIter++) {
@@ -2523,13 +2523,13 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
 
     // Determine the orientation of polygons
     double signedArea = 0.0;
-    if (plotFilled && isPolyClosed[pIter]){
+    if (plotFilled && isPolyClosed[pIter]) {
       bool counter_cc = true;
       signedArea = signedPolyArea(pSize, xv + start, yv + start, counter_cc);
     }
 
     QPolygon pa(pSize);
-    for (int vIter = 0; vIter < pSize; vIter++){
+    for (int vIter = 0; vIter < pSize; vIter++) {
 
       Vector2 P = world2screen(Vector2(xv[start + vIter], yv[start + vIter]));
       pa[vIter] = QPoint(P.x(), P.y());
@@ -2556,7 +2556,7 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
         // always down, and because the ESRI shapefile format
         // expects an outer polygon to be clockwise.
         if (signedArea < 0.0)  paint.setBrush(local_color);
-        else                   paint.setBrush( m_backgroundColor );
+        else                   paint.setBrush(m_backgroundColor);
         paint.setPen(Qt::NoPen);
       } else {
         paint.setBrush(Qt::NoBrush);
@@ -2577,7 +2577,7 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
           // called to fill polygons. Don't use it, just draw the
           // edges one by one.
           int n = pa.size();
-          for (int k = 0; k < n; k++){
+          for (int k = 0; k < n; k++) {
             QPolygon pb;
             int x0, y0; pa.point(k, &x0, &y0);       pb << QPoint(x0, y0);
             int x1, y1; pa.point((k+1)%n, &x1, &y1); pb << QPoint(x1, y1);
@@ -2592,15 +2592,15 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
 
   // Plot the annotations
   int numAnno = annotations.size();
-  for (int aIter = 0; aIter < numAnno; aIter++){
+  for (int aIter = 0; aIter < numAnno; aIter++) {
     const anno & A = annotations[aIter];
     // Avoid points close to boundary, as were we clipped artificially
-    if (! (A.x >= x_min && A.x <= x_max && A.y >= y_min && A.y <= y_max ) ) continue;
+    if (! (A.x >= x_min && A.x <= x_max && A.y >= y_min && A.y <= y_max)) continue;
     Vector2 P = world2screen(Vector2(A.x, A.y));
-    paint.setPen( QPen(QColor("gold"), lineWidth) );
+    paint.setPen(QPen(QColor("gold"), lineWidth));
     paint.drawText(P.x(), P.y(), (A.label).c_str());
   } // End plotting annotations
-  
+
   return;
 }
 
@@ -2609,8 +2609,8 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
 // This is robust to zooming in the middle of profiling.
 // TODO: This will function badly when zooming.
 void MainWidget::plotProfilePolyLine(QPainter & paint,
-                                      std::vector<double> const& profileX, 
-                                      std::vector<double> const& profileY){
+                                      std::vector<double> const& profileX,
+                                      std::vector<double> const& profileY) {
 
   if (profileX.empty()) return;
 
@@ -2639,17 +2639,17 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
   m_last_view = m_current_view;
 
   // Check if the user is holding down the crop window key.
-  m_cropWinMode = ((event->buttons  () & Qt::LeftButton     ) &&
+  m_cropWinMode = ((event->buttons  () & Qt::LeftButton) &&
                     (event->modifiers() & Qt::ControlModifier));
 
   m_editMatchPointVecIndex = -1; // Keep this initialized
 
   // If the user is currently editing match points
   if (!m_polyEditMode && m_moveMatchPoint->isChecked()
-      && !m_cropWinMode && asp::stereo_settings().view_matches){
+      && !m_cropWinMode && asp::stereo_settings().view_matches) {
 
     m_editingMatches = true;
-    
+
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
     P = world2image(P, m_base_image_id);
 
@@ -2668,9 +2668,9 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
       emit toggleViewMatchesSignal();
     }
   } // End match point update case
-  
+
   // If the user is currently editing polygons
-  if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode){
+  if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode) {
 
     // Ensure these are always initialized
     m_editPolyVecIndex        = -1;
@@ -2679,7 +2679,7 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
 
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
     m_world_box.grow(P); // to not cut when plotting later
-    
+
     // Find the vertex we want to move
     double min_x, min_y, min_dist;
     MainWidget::findClosestPolyVertex(// inputs
@@ -2693,14 +2693,14 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
 
     // When all the polygons are empty, make sure that at least
     // m_polyLayerIndex is valid.
-    if (m_polyLayerIndex < m_beg_image_id) 
+    if (m_polyLayerIndex < m_beg_image_id)
       m_polyLayerIndex = m_beg_image_id;
-    
+
     // This will redraw just the polygons, not the pixmap
     update();
 
     // The action will continue in mouseMoveEvent()
-    
+
   } // End polygon update case
 
 } // End function mousePressEvent()
@@ -2709,7 +2709,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
 
   QPoint Q = event->pos();
   int mouseMoveX = Q.x(), mouseMoveY = Q.y();
-  
+
   m_curr_pixel_pos = QPoint2Vec(Q);
   updateCurrentMousePosition();
 
@@ -2718,8 +2718,8 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
 
   // The mouse is pressed and moving
 
-  m_cropWinMode = ( (event->buttons  () & Qt::LeftButton) &&
-                    (event->modifiers() & Qt::ControlModifier) );
+  m_cropWinMode = ((event->buttons  () & Qt::LeftButton) &&
+                    (event->modifiers() & Qt::ControlModifier));
 
   // If the user is editing match points
   if (!m_polyEditMode && m_moveMatchPoint->isChecked() && !m_cropWinMode) {
@@ -2727,8 +2727,8 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
     m_editingMatches = true;
 
     // Error checking
-    if ( (m_beg_image_id < 0) || (m_editMatchPointVecIndex < 0) ||
-          (!m_matchlist.pointExists(m_beg_image_id, m_editMatchPointVecIndex)) )
+    if ((m_beg_image_id < 0) || (m_editMatchPointVecIndex < 0) ||
+          (!m_matchlist.pointExists(m_beg_image_id, m_editMatchPointVecIndex)))
       return;
 
     Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
@@ -2750,7 +2750,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
   } // End polygon editing
 
   // If the user is editing polygons
-  if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode){
+  if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode) {
 
     // If moving vertices
     if (m_editPolyVecIndex        < 0 ||
@@ -2808,14 +2808,14 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
 } // End function mouseMoveEvent()
 
 // TODO(oalexan1): Clean up this monster function!
-void MainWidget::mouseReleaseEvent(QMouseEvent *event){
+void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
 
   QPoint mouse_rel_pos = event->pos();
   int mouseRelX = mouse_rel_pos.x(),
       mouseRelY = mouse_rel_pos.y();
 
-  if( (event->buttons  () & Qt::LeftButton) &&
-      (event->modifiers() & Qt::ControlModifier) ){
+  if ((event->buttons  () & Qt::LeftButton) &&
+      (event->modifiers() & Qt::ControlModifier)) {
     m_cropWinMode = true;
   }
 
@@ -2841,12 +2841,12 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
 
   // If the mouse was released close to where it was pressed
   if (std::abs(m_mousePrsX - mouseRelX) < m_pixelTol &&
-      std::abs(m_mousePrsY - mouseRelY) < m_pixelTol ) {
+      std::abs(m_mousePrsY - mouseRelY) < m_pixelTol) {
 
-    if (!m_thresh_calc_mode){
+    if (!m_thresh_calc_mode) {
 
       Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
-      
+
       if (!m_profileMode && !m_polyEditMode) {
         QPainter paint(&m_pixmap);
         paint.initFrom(this);
@@ -2854,26 +2854,26 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
         paint.setPen(QColor("red"));
         paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little larger
       }
-      
+
       bool can_profile = m_profileMode;
-      
+
       // Print pixel coordinates and image value.
-      for (int j = m_beg_image_id; j < m_end_image_id; j++){
-        
+      for (int j = m_beg_image_id; j < m_end_image_id; j++) {
+
         int it = m_filesOrder[j];
-        
+
         // Don't show files the user wants hidden
         std::string fileName = m_images[it].name;
         if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
           continue;
-        
+
         std::string val = "none";
         Vector2 q = world2image(p, it);
-        
+
         int col = floor(q[0]), row = floor(q[1]);
-        
+
         if (col >= 0 && row >= 0 && col < m_images[it].img.cols() &&
-            row < m_images[it].img.rows() ) {
+            row < m_images[it].img.rows()) {
           val = m_images[it].img.get_value_as_str(col, row);
         }
 
@@ -2917,7 +2917,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
         MainWidget::plotProfile(m_images, m_profileX, m_profileY);
 
         // TODO: Why is this buried in the short distance check?
-      } else if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode){
+      } else if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode) {
         // Move vertex
 
         if (m_editPolyVecIndex        < 0 ||
@@ -2945,7 +2945,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
         addPolyVert(mouseRelX, mouseRelY);
       }
 
-    }else{
+    } else {
       // Image threshold mode. If we released the mouse where we
       // pressed it, that means we want the current pixel value
       // to be the threshold if larger than the existing threshold.
@@ -2961,7 +2961,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
         m_thresh_calc_mode = false;
         return;
       }
-      
+
       if (m_use_georef) {
         popUp("Thresholding is not supported when using georeference "
               "information to show images.");
@@ -2976,7 +2976,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
       vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
 
       if (col >= 0 && row >= 0 && col < m_images[m_beg_image_id].img.cols() &&
-          row < m_images[m_beg_image_id].img.rows() ) {
+          row < m_images[m_beg_image_id].img.rows()) {
         double val = m_images[m_beg_image_id].img.get_value_as_double(col, row);
         m_thresh = std::max(m_thresh, val);
       }
@@ -3002,7 +3002,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
 
     refreshPixmap(); // will call paintEvent()
 
-  } else if (m_cropWinMode){
+  } else if (m_cropWinMode) {
 
     // If now we allow multiple selected regions, but we did not allow at
     // the time the crop win was formed, save the crop win before it
@@ -3013,7 +3013,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
         m_selectionRectangles.push_back(m_stereoCropWin);
       }
     }
-    
+
     // User selects the region to use for stereo.  Convert it to world
     // coordinates, and round to integer.  If we use georeferences,
     // the crop win is in projected units for the first image,
@@ -3022,18 +3022,18 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
 
     if (m_allowMultipleSelections && !m_stereoCropWin.empty())
       m_selectionRectangles.push_back(m_stereoCropWin);
-    
-    for (int j = m_beg_image_id; j < m_end_image_id; j++){
-      
+
+    for (int j = m_beg_image_id; j < m_end_image_id; j++) {
+
       int image_it = m_filesOrder[j];
-      
+
       // Don't show files the user wants hidden
       std::string fileName = m_images[image_it].name;
       if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
         continue;
-      
-      BBox2 image_box = world2image(m_stereoCropWin, image_it); 
-      vw_out() << std::setprecision(8) 
+
+      BBox2 image_box = world2image(m_stereoCropWin, image_it);
+      vw_out() << std::setprecision(8)
                 << "src win for    " << m_images[image_it].name << ": "
                 << round(image_box.min().x()) << ' ' << round(image_box.min().y()) << ' '
                 << round(image_box.width())   << ' ' << round(image_box.height())  << std::endl;
@@ -3044,7 +3044,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
         BBox2 point_box;
         if (m_images[image_it].m_isPoly || m_images[image_it].m_isCsv)
           point_box = image_box;
-        else 
+        else
           point_box = m_images[image_it].georef.pixel_to_point_bbox(image_box);
 
         proj_min = point_box.min();
@@ -3055,10 +3055,10 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
                   << m_images[image_it].name << ": "
                   << proj_min.x() << ' ' << proj_max.y() << ' '
                   << proj_max.x() << ' ' << proj_min.y() << std::endl;
-        
+
         Vector2 lonlat_min, lonlat_max;
         BBox2 lonlat_box = m_images[image_it].georef.point_to_lonlat_bbox(point_box);
-        
+
         lonlat_min = lonlat_box.min();
         lonlat_max = lonlat_box.max();
         // Again, miny and maxy are flipped on purpose
@@ -3092,8 +3092,8 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
     m_rubberBand = m_emptyRubberBand;
     updateRubberBand(m_rubberBand);
 
-    m_can_emit_zoom_all_signal = true; 
-      
+    m_can_emit_zoom_all_signal = true;
+
     if (mouseRelX > m_mousePrsX && mouseRelY > m_mousePrsY) {
 
       // Dragging the mouse from upper-left to lower-right zooms in
@@ -3118,7 +3118,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event){
     }
 
   }
-  
+
   // At this stage the user is supposed to release the control key, so
   // we are no longer in crop win mode, even if we were so far.
   m_cropWinMode = false;
@@ -3168,7 +3168,7 @@ void MainWidget::keyPressEvent(QKeyEvent *event) {
   // Save these before we modify the box
   double width  = m_current_view.width();
   double height = m_current_view.height();
-    
+
   double factor = 0.2;  // We will pan by moving by 20%.
   switch (event->key()) {
 
@@ -3232,9 +3232,9 @@ void MainWidget::contextMenuEvent(QContextMenuEvent *event) {
   // Add the saving polygon option even when not editing
   m_saveVectorLayerAsShapeFile->setVisible(true);
   m_saveVectorLayerAsTextFile->setVisible(true);
-  
+
   m_mergePolys->setVisible(m_polyEditMode);
-  
+
   // Refresh this from the variable, before popping up the menu
   m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
 
@@ -3242,18 +3242,18 @@ void MainWidget::contextMenuEvent(QContextMenuEvent *event) {
   // in sideBySideWithDialog() mode, as then we draw the interest points
   // only with refreshPixmap(), which is rare, so user's editing
   // choices won't be reflected in the GUI.
-  m_addMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog()); 
-  m_deleteMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog()); 
+  m_addMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
+  m_deleteMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
   m_moveMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
-  m_toggleHillshadeImageRightClick->setVisible(!m_polyEditMode); 
-  m_setHillshadeParams->setVisible(!m_polyEditMode); 
-  m_setThreshold->setVisible(!m_polyEditMode); 
-  m_allowMultipleSelections_action->setVisible(!m_polyEditMode); 
+  m_toggleHillshadeImageRightClick->setVisible(!m_polyEditMode);
+  m_setHillshadeParams->setVisible(!m_polyEditMode);
+  m_setThreshold->setVisible(!m_polyEditMode);
+  m_allowMultipleSelections_action->setVisible(!m_polyEditMode);
   m_deleteSelection->setVisible(!sideBySideWithDialog());
   m_hideImagesNotInRegion->setVisible(!sideBySideWithDialog());
-  
+
   m_saveScreenshot->setVisible(true); // always visible
-  
+
   m_ContextMenu->popup(mapToGlobal(QPoint(x,y)));
   return;
 }
@@ -3270,7 +3270,7 @@ void MainWidget::viewMatches() {
   update(); // redraw matches on top of existing images
 }
 
-void MainWidget::addMatchPoint(){
+void MainWidget::addMatchPoint() {
 
   if (m_beg_image_id >= static_cast<int>(m_matchlist.getNumImages())) {
     popUp("Number of existing matches is corrupted. Cannot add matches.");
@@ -3308,18 +3308,18 @@ void MainWidget::addMatchPoint(){
     // Will reset the layout before continuing with matches
     asp::stereo_settings().view_matches = true;
     emit toggleViewMatchesSignal();
-  }    
+  }
 }
 
 // We cannot delete match points unless all images have the same number of them.
 void MainWidget::deleteMatchPoint() {
-  
+
   if (m_end_image_id - m_beg_image_id != 1) {
     popUp("Must have just one image in each window to delete matches.");
     return;
   }
 
-  if (m_matchlist.getNumPoints() == 0){
+  if (m_matchlist.getNumPoints() == 0) {
     popUp("No matches to delete.");
     return;
   }
@@ -3329,7 +3329,7 @@ void MainWidget::deleteMatchPoint() {
   P = world2image(P, m_base_image_id);
   const double DISTANCE_LIMIT = 70;
   int min_index = m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
-  
+
   if (min_index < 0) {
     popUp("Did not find a nearby match to delete.");
     return;
@@ -3353,7 +3353,7 @@ void MainWidget::deleteMatchPoint() {
       // Will reset the layout before continuing with matches
       asp::stereo_settings().view_matches = true;
       emit toggleViewMatchesSignal();
-    }    
+    }
   }
 }
 
@@ -3363,7 +3363,7 @@ void MainWidget::deleteSelection() {
   Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
 
   // The main crop win
-  if (m_stereoCropWin.contains(P)){
+  if (m_stereoCropWin.contains(P)) {
     QRect R = bbox2qrect(world2screen(m_stereoCropWin));
     updateRubberBand(R); // mark that later we should redraw this polygonal line
     m_stereoCropWin = BBox2();
@@ -3373,7 +3373,7 @@ void MainWidget::deleteSelection() {
   for (size_t it = 0; it < m_selectionRectangles.size(); it++) {
     if (!m_selectionRectangles[it].contains(P)) {
       curr_rects.push_back(m_selectionRectangles[it]);
-    }else{
+    } else {
       QRect R = bbox2qrect(world2screen(m_selectionRectangles[it]));
       updateRubberBand(R); // mark that later we should redraw this polygonal line
     }
@@ -3384,18 +3384,18 @@ void MainWidget::deleteSelection() {
 }
 
 // Hide images not intersecting given selected region
-void MainWidget::hideImagesNotInRegion(){
+void MainWidget::hideImagesNotInRegion() {
 
   if (!m_chooseFiles)
     return;
-  
+
   if (m_stereoCropWin.empty()) {
     popUp("Must select a region with Control-Mouse before invoking this.");
     return;
   }
-  
-  for (int j = m_beg_image_id; j < m_end_image_id; j++){
-    
+
+  for (int j = m_beg_image_id; j < m_end_image_id; j++) {
+
     int image_it = m_filesOrder[j];
     std::string fileName = m_images[image_it].name;
     BBox2i image_box = world2image(m_stereoCropWin, image_it);
@@ -3407,7 +3407,7 @@ void MainWidget::hideImagesNotInRegion(){
     else
     m_chooseFiles->unhide(fileName);
   }
-  
+
   refreshPixmap();
 
   return;
@@ -3441,9 +3441,9 @@ void MainWidget::setThreshold(double thresh) {
       num_non_poly_images++;
     non_poly_image = image_iter;
   }
-  
+
   if (num_non_poly_images > 1) {
-    if (std::isnan(asp::stereo_settings().nodata_value)) 
+    if (std::isnan(asp::stereo_settings().nodata_value))
       popUp("Must have just one image in each window to set the image threshold.");
     else
       popUp("Must have just one image in each window to use the nodata value option.");
@@ -3467,7 +3467,7 @@ void MainWidget::setPolyColor(std::string const& polyColor) {
   // on an individual layer in the table on the left, it applies to all polygons
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++)
     m_perImagePolyColor[image_iter] = polyColor;
-  
+
   refreshPixmap();
 }
 
@@ -3475,7 +3475,7 @@ std::string MainWidget::getPolyColor() {
   return m_polyColor;
 }
 
-void MainWidget::setLineWidth(int lineWidth){
+void MainWidget::setLineWidth(int lineWidth) {
   m_lineWidth = lineWidth;
   update();
 }
@@ -3485,7 +3485,7 @@ int MainWidget::getLineWidth() {
 }
 
 // Set the azimuth and elevation for hillshaded images
-void MainWidget::setHillshadeParams(){
+void MainWidget::setHillshadeParams() {
 
   std::ostringstream oss;
   oss.precision(17);
@@ -3503,8 +3503,8 @@ void MainWidget::setHillshadeParams(){
     return;
 
   std::istringstream iss(azimuthElevation);
-  double a, e; 
-  if (! (iss >> a >> e) ) {
+  double a, e;
+  if (! (iss >> a >> e)) {
     popUp("Could not read the hillshade azimuth and elevation values.");
     return;
   }
@@ -3518,23 +3518,23 @@ void MainWidget::setHillshadeParams(){
       << ": "
             << m_hillshade_azimuth << ' '
             << m_hillshade_elevation << std::endl;
-    
+
 }
 
 // Save the current view to a file
-void MainWidget::saveScreenshot(){
+void MainWidget::saveScreenshot() {
 
   QString fileName =
     QFileDialog::getSaveFileName(this, tr("Save screenshot"),
                                     "./screenshot.bmp", tr("(*.bmp *.xpm)"));
-  if (fileName.toStdString() == "") 
+  if (fileName.toStdString() == "")
     return;
 
   QImageWriter writer(fileName);
-  if(!writer.write(m_pixmap.toImage())){
+  if (!writer.write(m_pixmap.toImage())) {
     popUp(writer.errorString().toStdString());
   }
-  
+
 }
 
 void MainWidget::setCropWin(vw::BBox2 const& stereoCropWin) {

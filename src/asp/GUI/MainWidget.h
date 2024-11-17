@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2006-2013, United States Government as represented by the
+//  Copyright (c) 2006-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -79,7 +79,7 @@ class QStylePainter;
 namespace vw { namespace gui {
 
   class chooseFilesDlg;
-  
+
   namespace fs = boost::filesystem;
 
    /// This class handles user interaction with the a single image pane.
@@ -117,14 +117,14 @@ namespace vw { namespace gui {
     bool getEditingMatches() const { return m_editingMatches; }
     void setThreshMode(bool turnOn) { m_thresh_calc_mode = turnOn; }
     void plotProfile(std::vector<imageData> const& images,
-                     std::vector<double> const& profileX, 
+                     std::vector<double> const& profileX,
                      std::vector<double> const& profileY);
 
     void drawOneVertex(int x0, int y0, QColor color, int lineWidth,
                        int drawVertIndex, QPainter &paint);
 
     void plotPolys(QPainter & paint);
-    
+
     void plotPoly(bool plotPoints, bool plotEdges,
                   bool plotFilled, bool showIndices, int lineWidth,
                   int drawVertIndex, // 0 is a good choice here
@@ -134,20 +134,20 @@ namespace vw { namespace gui {
 
     //void plotProfilePolyLine(QStylePainter & paint,
     void plotProfilePolyLine(QPainter & paint,
-                             std::vector<double> const& profileX, 
+                             std::vector<double> const& profileX,
                              std::vector<double> const& profileY);
 
     std::set<int> & indicesWithAction() { return m_indicesWithAction; }
 
-    void   setThreshold(double thresh); ///< Set the image threshold 
+    void   setThreshold(double thresh); ///< Set the image threshold
     double getThreshold();            ///< Get the image threshold
 
     void   setLineWidth(int lineWidth); ///< Set the line width for polygons
     int  getLineWidth(); ///< Get the line width for polygons
-    
+
     void   setPolyColor(std::string const& polyColor); ///< Set the color of polygons
     std::string getPolyColor(); ///< Get the color of polygons
-    
+
     void  setZoomAllToSameRegion(bool zoom_all_to_same_region);
     vw::BBox2 current_view();
     void  zoomToRegion (vw::BBox2 const& region);
@@ -156,9 +156,9 @@ namespace vw { namespace gui {
     BBox2 firstImageWorldBox(vw::BBox2 const& image_box) const;
     void setWorldBox(vw::BBox2 const& world_box);
     vw::BBox2 worldBox() const;
-    
+
     void keyPressEvent(QKeyEvent   *event);
-    
+
     void setCropWin(vw::BBox2 const& stereoCropWin);
 
 signals:
@@ -192,7 +192,7 @@ public slots:
     void changePolyColor        (); ///< Change the color of given set of polygons
     void allowMultipleSelections(); ///< Allow the user to select multiple regions
     void deleteSelection        (); ///< Delete an area selected with the mouse at current point
-    void hideImagesNotInRegion  (); ///< Hide images not intersecting a given region 
+    void hideImagesNotInRegion  (); ///< Hide images not intersecting a given region
     void saveVectorLayerAsShapeFile(); ///< Save polygons in current layer as shapefile
     void saveVectorLayerAsTextFile(); ///< Save polygons in current layer as a text file
     bool contourImage           (); ///< Contour an image at a specified threshold
@@ -230,7 +230,7 @@ public slots:
       ~ProfilePlotter() {}
 
     private:
-      void closeEvent(QCloseEvent *){
+      void closeEvent(QCloseEvent *) {
         // Signal to the parent that the window got closed.
         // Turn off profiling.
         bool profile_mode = false;
@@ -265,10 +265,10 @@ public slots:
     BBox2 m_stereoCropWin;
 
     std::vector<BBox2> m_selectionRectangles;
-    
+
     // If we are selecting a crop win to do stereo in
     bool m_cropWinMode;
-    
+
     // If we are in the midst of drawing a profile
     bool m_profileMode;
     std::vector<double> m_profileX, m_profileY; // indices in the image to profile
@@ -281,14 +281,14 @@ public slots:
 
     // Default color when polys are created from scratch
     std::string m_polyColor;
-    
+
     std::map<int, std::string> m_perImagePolyColor;
     int m_lineWidth;
 
     // The box which contains fully all images in the current widget,
     // in world coordinates.
     BBox2 m_world_box;
-    
+
     // The box in world coordinates which has the current view and
     // last view.  This is normally smaller than m_world_box.
     vw::BBox2 m_current_view, m_last_view;
@@ -340,15 +340,15 @@ public slots:
     QAction* m_showIndices;
     QAction* m_mergePolys;
     QAction* m_showPolysFilled;
-    
+
     double m_thresh;
     bool   m_thresh_calc_mode;
 
     std::set<int> m_indicesWithAction;
-    
+
     bool   m_zoom_all_to_same_region; // if all widgets are forced to zoom to same region
     bool & m_allowMultipleSelections; // alias, this is controlled from MainWindow for all widgets
-    bool   m_can_emit_zoom_all_signal; 
+    bool   m_can_emit_zoom_all_signal;
 
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);
@@ -359,7 +359,7 @@ public slots:
     // Draw irregular xyz data to be plotted at (x, y) location with z giving
     // the intensity. May be colorized.
     void drawScatteredData(QPainter* paint, int image_index);
-    
+
     Vector2 world2screen   (Vector2 const&  p) const;
     Vector2 screen2world   (Vector2 const&  p) const;
     BBox2   world2screen   (BBox2   const& R) const;
@@ -371,11 +371,11 @@ public slots:
     // Need this public
     BBox2   image2world    (BBox2   const& R, int imageIndex) const;
   private:
-  
+
    void renderGeoreferencedImage(QPainter* paint, const QImage& sourceImage,
                               const BBox2i& screen_box, const BBox2i& region_out,
                               double scale_out, int image_index);
-  
+
     BBox2   expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
 
     // Find the closest point in a given set of imageData structures to a given point
@@ -384,13 +384,13 @@ public slots:
                                double x0, double y0,
                                std::vector<imageData> const& imageData,
                                // outputs
-                               int & clipIndex, 
+                               int & clipIndex,
                                int & polyVecIndex,
                                int & polyIndexInCurrPoly,
                                int & vertIndexInCurrPoly,
                                double & minX, double & minY,
                                double & minDist);
-    
+
     // Find the closest edge in a given set of imageData structures to a given point.
     void findClosestPolyEdge(// inputs
                              double x0, double y0,
@@ -402,10 +402,10 @@ public slots:
                              int & vertIndexInCurrPoly,
                              double & minX, double & minY,
                              double & minDist);
-    
+
     // Merge some polygons and save them in imageData[outIndex]
     void mergePolys(std::vector<imageData> & imageData, int outIndex);
-    
+
     void updateCurrentMousePosition();
     void updateRubberBand(QRect & R);
     void refreshPixmap();
@@ -415,25 +415,25 @@ public slots:
     void pushImageToBottom(int image_index);
 
     void updateFilesToHide();
-    
+
     // For polygon drawing
     bool        m_polyEditMode;
     int         m_polyLayerIndex; // which of the current images owns the poly vector layer
     vw::Vector2 m_startPix; // The first poly vertex being drawn in world coords
     std::vector<double> m_currPolyX, m_currPolyY;
-    int         m_editPolyVecIndex, m_editIndexInCurrPoly, m_editVertIndexInCurrPoly; 
-    
+    int         m_editPolyVecIndex, m_editIndexInCurrPoly, m_editVertIndexInCurrPoly;
+
     // Points closer than this are in some situations considered equal
     int m_pixelTol;
 
     QColor m_backgroundColor;
-    
+
     double pixelToWorldDist(double pd);
     void   appendToPolyVec (vw::geometry::dPoly const& P);
     void   addPolyVert     (double px, double py);
-    
+
   };
-  
+
 }} // namespace vw::gui
 
 #endif  // __STEREO_GUI_MAIN_WIDGET_H__

@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -27,10 +27,10 @@ std::string fix_millisecond(std::string const& in_str) {
   bool found_dot = false;
   int num_digits_after_dot = 0;
   for (size_t it = 0; it < in_str.size(); it++) {
-    
+
     if (it + 1 < in_str.size()) {
       // Not yet at the last character
-      
+
       if (in_str[it] == '.') {
         // Found the dot
         found_dot = true;
@@ -65,7 +65,7 @@ std::string fix_millisecond(std::string const& in_str) {
         out_str += "0";
         num_digits_after_dot++;
       }
-      
+
     } else {
 
       // The last character is not a digit, it is likely a "Z"
@@ -78,7 +78,7 @@ std::string fix_millisecond(std::string const& in_str) {
       // Append the last character, whatever it is
       out_str += in_str[it];
     }
-    
+
   } // End iterating over characters
 
   return out_str;
@@ -90,12 +90,12 @@ boost::posix_time::ptime parse_time(std::string const& s) {
   // parse the time.
   std::string s2 = s;
   boost::replace_all(s2, "T", " ");
-  
+
   // Ensure there are exactly 6 digits for the millisecond or else
   // Boost will complain.
   s2 = asp::fix_millisecond(s2);
   boost::posix_time::ptime time = boost::posix_time::time_from_string(s2);
-  
+
   return time;
 }
 
@@ -106,5 +106,5 @@ double to_seconds(const boost::posix_time::ptime& pt) {
   boost::posix_time::time_duration diff = pt - epoch;
   return diff.total_microseconds() / 1.0e+6;
 }
-  
+
 } // end namespace asp
