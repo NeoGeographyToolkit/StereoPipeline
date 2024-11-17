@@ -372,10 +372,14 @@ public slots:
     BBox2   image2world    (BBox2   const& R, int imageIndex) const;
   private:
 
-   void renderGeoreferencedImage(QPainter* paint, const QImage& sourceImage,
-                              const BBox2i& screen_box, const BBox2i& region_out,
-                              double scale_out, int image_index);
-
+   void renderGeoreferencedImage(double scale_out, 
+                                 int image_index,
+                                 QPainter* paint, 
+                                 QImage const& sourceImage,
+                                 BBox2i const& screen_box, 
+                                 BBox2i const& region_out,
+                                 ImageView<int> & screen_image);
+                                
     BBox2   expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
 
     // Find the closest point in a given set of imageData structures to a given point

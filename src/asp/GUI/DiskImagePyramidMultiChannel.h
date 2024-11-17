@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2006-2013, United States Government as represented by the
+//  Copyright (c) 2006-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -63,95 +63,6 @@ namespace vw { namespace gui {
   };
   /// Access the global list of temporary files
   TemporaryFiles& temporary_files();
-  
-  // Form a QImage to show on screen. For scalar images, we scale them
-  // and handle the nodata val. For two channel images, interpret the
-  // second channel as mask. If there are 3 or more channels,
-  // interpret those as RGB.
-  
-  template<class PixelT>
-  typename boost::enable_if<boost::is_same<PixelT,double>, void>::type
-  formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-             vw::Vector2 const& approx_bounds,
-             ImageView<PixelT> const& clip, QImage & qimg){
-
-    double min_val = approx_bounds[0];
-    double max_val = approx_bounds[1];
-
-    qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
-#pragma omp parallel for
-    for (int col = 0; col < clip.cols(); col++){
-      for (int row = 0; row < clip.rows(); row++){
-
-        double v = clip(col, row);
-        if (scale_pixels) 
-          v = round(255*(std::max(v, min_val) - min_val)/(max_val-min_val));
-     
-        v = std::min(std::max(0.0, v), 255.0);
-      
-        if (clip(col, row) == nodata_val || std::isnan(clip(col, row)) ){
-        
-          if (!highlight_nodata){
-            // transparent
-            qimg.setPixel(col, row, Qt::transparent);
-          }else{
-            // highlight in red
-            qimg.setPixel(col, row, qRgb(255, 0, 0));
-          }
-        
-        }else{
-          // opaque
-          qimg.setPixel(col, row, QColor(v, v, v, 255).rgba());
-        }
-      }
-    }
-  }
-  
-  template<class PixelT>
-  typename boost::enable_if<boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>, void>::type
-  formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-             vw::Vector2 const& approx_bounds,
-             ImageView<PixelT> const& clip, QImage & qimg){
-
-    qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
-#pragma omp parallel for
-    for (int col = 0; col < clip.cols(); col++){
-      for (int row = 0; row < clip.rows(); row++){
-        Vector<vw::uint8, 2> v = clip(col, row);
-        if ( v[1] > 0 && v == v){ // need the latter for NaN
-          // opaque grayscale
-          qimg.setPixel(col, row, QColor(v[0], v[0], v[0], 255).rgba());
-        }else{
-          // transparent
-          qimg.setPixel(col, row, QColor(0, 0, 0, 0).rgba());
-        }
-      }
-    }
-  }
-
-  template<class PixelT>
-  typename boost::disable_if<boost::mpl::or_<boost::is_same<PixelT,double>,
-                                             boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>>, void>::type
-  formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-             vw::Vector2 const& approx_bounds,
-             ImageView<PixelT> const& clip, QImage & qimg){
-
-    qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
-#pragma omp parallel for
-    for (int col = 0; col < clip.cols(); col++){
-      for (int row = 0; row < clip.rows(); row++){
-        PixelT v = clip(col, row);
-        if (v != v) // NaN, set to transparent
-          qimg.setPixel(col, row, QColor(0, 0, 0, 0).rgba());
-        else if (v.size() == 3) // color
-          qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255).rgba());
-        else if (v.size() > 3) // color or transparent
-          qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255*(v[3] > 0)).rgba());
-        else // grayscale 
-          qimg.setPixel(col, row, QColor(v[0], v[0], v[0], 255).rgba());
-      }
-    }
-  }
 
   // An image class that supports 1 to 3 channels.  We use
   // DiskImagePyramid<double> to be able to use some of the
@@ -182,7 +93,7 @@ namespace vw { namespace gui {
                         QImage & qimg, double & scale_out,
                         vw::BBox2i & region_out) const;
     double get_nodata_val() const;
-    
+
     int32 cols  () const { return m_cols;  }
     int32 rows  () const { return m_rows;  }
     int32 planes() const { return m_num_channels; }
@@ -194,7 +105,7 @@ namespace vw { namespace gui {
     // Return value as string
     std::string get_value_as_str(int32 x, int32 y) const;
   };
-  
+
 }} // namespace vw::gui
 
 #endif  // __STEREO_GUI_DISK_IMAGE_PYRAMID_MULTICHANNEL_H__

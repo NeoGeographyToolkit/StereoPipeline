@@ -996,9 +996,13 @@ void MainWidget::resizeEvent(QResizeEvent*) {
 //             MainWidget Private Methods
 // --------------------------------------------------------------
 
-void MainWidget::renderGeoreferencedImage(QPainter* paint, const QImage& sourceImage,
-                              const BBox2i& screen_box, const BBox2i& region_out,
-                              double scale_out, int image_index) {
+void MainWidget::renderGeoreferencedImage(double scale_out,
+                                          int image_index,
+                                          QPainter* paint,
+                                          QImage const& sourceImage,
+                                          BBox2i const& screen_box,
+                                          BBox2i const& region_out,
+                                          ImageView<int> & screen_image) {
 
   // Create a QImage object to store the transformed image
   QImage transformedImage = QImage(screen_box.width(), screen_box.height(),
@@ -1011,9 +1015,14 @@ void MainWidget::renderGeoreferencedImage(QPainter* paint, const QImage& sourceI
     }
   }
 
-#pragma omp parallel for
+  #pragma omp parallel for
   for (int x = screen_box.min().x(); x < screen_box.max().x(); x++) {
     for (int y = screen_box.min().y(); y < screen_box.max().y(); y++) {
+
+      // Skip pixels that were already drawn
+      if (screen_image(x, y) != 0)
+        continue;
+
       // Convert from a pixel as seen on screen to the world coordinate system
       Vector2 world_pt = screen2world(Vector2(x, y));
 
@@ -1033,9 +1042,19 @@ void MainWidget::renderGeoreferencedImage(QPainter* paint, const QImage& sourceI
       if (px < 0 || py < 0 || px >= sourceImage.width() || py >= sourceImage.height())
         continue;
 
+      // If the pixel is black or transparent, skip it
+      QColor color = sourceImage.pixel(px, py);
+      if (color == QColorConstants::Transparent || color.alpha() == 0)
+        continue;
+      if (color.red() == 0 && color.green() == 0 && color.blue() == 0)
+        continue;
+
       transformedImage.setPixel(x-screen_box.min().x(),
-                              y-screen_box.min().y(),
-                              sourceImage.pixel(px, py));
+                                y-screen_box.min().y(),
+                                color.rgba());
+
+      // Flag this as drawn. No need to protect this with a lock.
+      screen_image(x, y) = 1;
     }
   }
 
@@ -1060,22 +1079,41 @@ void MainWidget::drawImage(QPainter* paint) {
   full_screen_box.grow(floor(world2screen(m_current_view.min())));
   full_screen_box.grow(ceil(world2screen(m_current_view.max())));
 
-  std::cout << "--now in drawImage\n";
+  // Keep track of which pixels were drawn. Initialize with zeros.
+  ImageView<int> screen_image;
+  if (m_use_georef) {
+    screen_image.set_size(full_screen_box.max().x(), full_screen_box.max().y());
+    for (int col = 0; col < screen_image.cols(); col++) {
+      for (int row = 0; row < screen_image.rows(); row++) {
+        screen_image(col, row) = 0;
+      }
+    }
+  }
+
   Stopwatch sw1;
   sw1.start();
 
-  // Draw the images in the desired order
+  // When using georeferenced images we will draw the last image to be drawn
+  // first, so that we skip the pixels from other images that are covered by it.
+  // This is a speedup. Needs to be implemented also without a georef.
+  std::vector<int> draw_order;
   for (int j = m_beg_image_id; j < m_end_image_id; j++) {
     int i = m_filesOrder[j]; // image index
-
-    //Stopwatch sw2;
-    //sw2.start();
 
     // Don't show files the user wants hidden
     if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
       continue;
 
-    // Load if not loaded so far.
+    draw_order.push_back(i);
+  }
+  if (m_use_georef)
+    std::reverse(draw_order.begin(), draw_order.end());
+
+  // Draw the images
+  for (size_t j = 0; j < draw_order.size(); j++) {
+    int i = draw_order[j]; // image index
+
+    // Load if not loaded so far
     m_images[i].load();
 
     // The portion of the image in the current view.
@@ -1136,11 +1174,8 @@ void MainWidget::drawImage(QPainter* paint) {
       highlight_nodata = false;
     }
 
-    //sw2.stop();
-    //vw_out() << "Render time 2 (seconds): " << sw2.elapsed_seconds() << std::endl;
-
-    //Stopwatch sw3;
-    //sw3.start();
+    // Stopwatch sw3;
+    // sw3.start();
     if (m_images[i].m_display_mode == THRESHOLDED_VIEW) {
       m_images[i].thresholded_img.get_image_clip(scale, image_box,
                                                   highlight_nodata,
@@ -1151,26 +1186,30 @@ void MainWidget::drawImage(QPainter* paint) {
                                                 qimg, scale_out, region_out);
     } else {
       // Original images
-      m_images[i].img.get_image_clip(scale, image_box,
-                                      highlight_nodata,
-                                      qimg, scale_out, region_out);
+      m_images[i].img.get_image_clip(scale, image_box, highlight_nodata,
+                                     qimg, scale_out, region_out);
     }
+    // sw3.stop();
 
     // Draw on image screen
+    Stopwatch sw4;
+    sw4.start();
     if (!m_use_georef) {
-      // This is a regular image, no georeference, just pass it to the QT painter
+      // This is a regular image, no georeference, just pass it to the Qt painter
       QRect rect(screen_box.min().x(), screen_box.min().y(),
                   screen_box.width(), screen_box.height());
       paint->drawImage(rect, qimg);
     } else {
-      MainWidget::renderGeoreferencedImage(paint, qimg, screen_box,
-                                            region_out, scale_out, i);
+      MainWidget::renderGeoreferencedImage(scale_out, i, paint, qimg,
+                                           screen_box, region_out, screen_image);
     }
+    sw4.stop();
+    std::cout << "Draw image " <<  m_images[i].name << " " << sw4.elapsed_seconds() << " seconds\n";
 
   } // End loop through input images
 
-  sw1.stop();
-  vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << std::endl;
+  // sw1.stop();
+  // vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << std::endl;
 
   return;
 } // End function drawImage()
