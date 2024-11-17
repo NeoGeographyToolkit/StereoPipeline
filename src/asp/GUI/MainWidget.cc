@@ -1000,22 +1000,6 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
                                           BBox2i const& region_out,
                                           ImageView<int> & drawn_already) {
 
-  // If all screen pixels are drawn already based on images that should be
-  // on top of this one, no need to draw this image.
-  bool all_drawn = true;
-  #pragma omp parallel for
-  for (int x = screen_box.min().x(); x < screen_box.max().x(); x++) {
-    for (int y = screen_box.min().y(); y < screen_box.max().y(); y++) {
-      if (drawn_already(x, y) == 0) {
-        #pragma omp critical
-        all_drawn = false;
-        break;
-      }
-    }
-  }
-  if (all_drawn)
-    return;
-
   // Create a QImage object to store the transformed image
   QImage transformedImage = QImage(screen_box.width(), screen_box.height(),
                                    QImage::Format_ARGB32_Premultiplied);
@@ -1047,7 +1031,7 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
   // Create bicubic interpolator
   ImageViewRef<Vector2> screen2world_cache_interp
     = interpolate(screen2world_cache, BicubicInterpolation(), ConstantEdgeExtension());
-
+     
   // Initialize all pixels to transparent
   for (int col = 0; col < transformedImage.width(); col++) {
     for (int row = 0; row < transformedImage.height(); row++) {
@@ -1155,10 +1139,19 @@ void MainWidget::drawImage(QPainter* paint) {
 
   // Draw the images
   for (size_t j = 0; j < draw_order.size(); j++) {
-    int i = draw_order[j]; // image index
 
+    int i = draw_order[j]; // image index
+    
     // Load if not loaded so far
     m_images[i].load();
+
+    if (m_images[i].m_isPoly)
+      continue; // those will be always drawn on top of images, to be done later
+
+    if (m_images[i].m_isCsv) {
+      MainWidget::drawScatteredData(paint, i);
+      continue; // there is no image, so no point going on
+    }
 
     // The portion of the image in the current view.
     BBox2 curr_world_box = m_current_view;
@@ -1181,6 +1174,24 @@ void MainWidget::drawImage(QPainter* paint) {
     if (screen_box.min().y() >= screen_box.max().y())
       screen_box.max().y() = screen_box.min().y() + 1;
 
+    // If all screen pixels are drawn already based on images that should be
+    // on top of this one, no need to draw this image.
+    if (m_use_georef) {
+      bool all_drawn = true;
+      #pragma omp parallel for
+      for (int x = screen_box.min().x(); x < screen_box.max().x(); x++) {
+        for (int y = screen_box.min().y(); y < screen_box.max().y(); y++) {
+          if (drawn_already(x, y) == 0) {
+            #pragma omp critical
+            all_drawn = false;
+            break;
+          }
+        }
+      }
+      if (all_drawn)
+       continue; // cannot break as the next image may use a different screen box
+    }
+   
     // Go from world coordinates to pixels in the current image.
     BBox2 image_box = MainWidget::world2image(curr_world_box, i);
 
@@ -1188,14 +1199,6 @@ void MainWidget::drawImage(QPainter* paint) {
     // when zooming in too close
     image_box.min() = floor(image_box.min());
     image_box.max() = ceil(image_box.max());
-
-    if (m_images[i].m_isPoly)
-      continue; // those will be always drawn on top of images, to be done later
-
-    if (m_images[i].m_isCsv) {
-      MainWidget::drawScatteredData(paint, i);
-      continue; // there is no image, so no point going on
-    }
 
     QImage qimg;
     // Since the image portion contained in image_box could be huge,
