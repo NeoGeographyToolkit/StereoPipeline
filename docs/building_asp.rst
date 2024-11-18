@@ -83,12 +83,12 @@ below, so this step may need some adjustments.
 
 Set up a work directory::
 
-    buildDir=$HOME/build_asp
-    mkdir -p $buildDir
+    workDir=$HOME/build_asp
+    mkdir -p $workDir
 
 Build VisionWorkbench and Stereo Pipeline::
 
-    cd $buildDir
+    cd $workDir
     envPath=$HOME/miniconda3/envs/asp_deps
     $envPath/bin/git clone                            \
         git@github.com:visionworkbench/visionworkbench.git
@@ -100,12 +100,12 @@ Build VisionWorkbench and Stereo Pipeline::
     $envPath/bin/cmake ..                             \
       -DASP_DEPS_DIR=$envPath                         \
       -DCMAKE_VERBOSE_MAKEFILE=ON                     \
-      -DCMAKE_INSTALL_PREFIX=$buildDir/install        \
+      -DCMAKE_INSTALL_PREFIX=$workDir/install         \
       -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
       -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
     make -j10 && make install
 
-    cd $buildDir
+    cd $workDir
     envPath=$HOME/miniconda3/envs/asp_deps
     $envPath/bin/git clone                            \
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
@@ -117,8 +117,8 @@ Build VisionWorkbench and Stereo Pipeline::
     $envPath/bin/cmake ..                             \
       -DASP_DEPS_DIR=$envPath                         \
       -DCMAKE_VERBOSE_MAKEFILE=ON                     \
-      -DCMAKE_INSTALL_PREFIX=$buildDir/install        \
-      -DVISIONWORKBENCH_INSTALL_DIR=$buildDir/install \
+      -DCMAKE_INSTALL_PREFIX=$workDir/install         \
+      -DVISIONWORKBENCH_INSTALL_DIR=$workDir/install  \
       -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
       -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
     make -j10 && make install
