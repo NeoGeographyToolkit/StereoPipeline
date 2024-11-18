@@ -319,6 +319,10 @@ void prepareClip(double x0, double y0, double x1, double y1, QSize const& imageS
   int beg_y = floor(std::min(y0, y1)), end_y = ceil(std::max(y0, y1));
   BBox2i image_box(beg_x, beg_y, end_x - beg_x, end_y - beg_y);
 
+  // TODO(oalexan1): The block below needs merging with the analogous logic in
+  // MainWidget.cc, and be made more general so that it can handle images with
+  // georeference, as in that file.
+  
   // Since the image portion contained in image_box could be huge, but the
   // screen area small, render a sub-sampled version of the image for speed.
   // Increase the scale a little. This will make the image a little blurrier

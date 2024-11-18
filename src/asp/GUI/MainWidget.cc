@@ -1745,7 +1745,8 @@ void MainWidget::addPolyVert(double px, double py) {
   // This is a bugfix. Before starting drawing, update
   // m_polyLayerIndex to point to a currently visible layer,
   // otherwise it looks as if polygons are invisible.
-  if (pSize == 0 && m_chooseFiles && m_chooseFiles->isHidden(m_images[m_polyLayerIndex].name)) {
+  if (pSize == 0 && m_chooseFiles && 
+      m_chooseFiles->isHidden(m_images[m_polyLayerIndex].name)) {
     for (int j = m_beg_image_id; j < m_end_image_id; j++) {
       int i = m_filesOrder[j]; // image index
 
