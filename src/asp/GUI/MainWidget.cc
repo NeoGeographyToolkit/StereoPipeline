@@ -1811,7 +1811,6 @@ void MainWidget::addPolyVert(double px, double py) {
 // Delete a vertex closest to where the user clicked.
 // TODO(oalexan1): This will fail when different polygons have
 // different georeferences.
-// TODO(oalexan1): Move out this non-gui function.
 void MainWidget::deleteVertex() {
 
   Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
@@ -1915,7 +1914,6 @@ void MainWidget::deleteVertices() {
 // given point. This needs to be in the MainWidget class as it needs
 // to know about how to convert from world coordinates to each
 // imageData coordinates.
-// TODO(oalexan1): Move out this non-gui function.
 void MainWidget::findClosestPolyEdge(// inputs
                                       double world_x0, double world_y0,
                                       std::vector<imageData> const& imageData,
@@ -2110,7 +2108,6 @@ void MainWidget::insertVertex() {
 }
 
 // Merge some polygons and save them in imageData[outIndex]
-// TODO(oalexan1): Move out this non-gui function.
 void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex) {
 
   std::vector<vw::geometry::dPoly> polyVec;
@@ -2178,51 +2175,8 @@ void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex) {
       }
     }
 
-    // The doc of this function says that the elements in ogr_polys will
-    // be taken care of. We are responsible only for the vector of pointers
-    // and for the output of this function.
-    int pbIsValidGeometry = 0;
-    const char** papszOptions = NULL;
-    OGRGeometry* good_geom
-      = OGRGeometryFactory::organizePolygons(vw::geometry::vecPtr(ogr_polys),
-                                              ogr_polys.size(),
-                                              &pbIsValidGeometry,
-                                              papszOptions);
-
-    // Single polygon, nothing to do
-    if (wkbFlatten(good_geom->getGeometryType()) == wkbPolygon ||
-        wkbFlatten(good_geom->getGeometryType()) == wkbPoint) {
-      bool append = false;
-      fromOGR(good_geom, poly_color, layer_str, polyVec, append);
-    } else if (wkbFlatten(good_geom->getGeometryType()) == wkbMultiPolygon) {
-
-      // We can merge
-      OGRGeometry * merged_geom = new OGRPolygon;
-
-      OGRMultiPolygon *poMultiPolygon = (OGRMultiPolygon*)good_geom;
-
-      int numGeom = poMultiPolygon->getNumGeometries();
-      for (int iGeom = 0; iGeom < numGeom; iGeom++) {
-
-        const OGRGeometry *currPolyGeom = poMultiPolygon->getGeometryRef(iGeom);
-        if (wkbFlatten(currPolyGeom->getGeometryType()) != wkbPolygon) continue;
-
-        OGRPolygon *poPolygon = (OGRPolygon *) currPolyGeom;
-        OGRGeometry * local_merged = merged_geom->Union(poPolygon);
-
-        // Keep the pointer to the new geometry
-        if (merged_geom != NULL)
-          OGRGeometryFactory::destroyGeometry(merged_geom);
-        merged_geom = local_merged;
-      }
-
-      bool append = false;
-      fromOGR(merged_geom, poly_color, layer_str, polyVec, append);
-      OGRGeometryFactory::destroyGeometry(merged_geom);
-    }
-
-    OGRGeometryFactory::destroyGeometry(good_geom);
-
+    vw::geometry::mergeOGRPolygons(poly_color, layer_str, ogr_polys, polyVec);
+    
   } catch(std::exception &e) {
     vw_out() << "OGR failed at " << e.what() << std::endl;
   }
@@ -2247,15 +2201,15 @@ void MainWidget::saveVectorLayerAsShapeFile() {
     return;
   }
 
-  std::string shapefile = m_images[m_polyLayerIndex].name;
-  shapefile =  boost::filesystem::path(shapefile).replace_extension(".shp").string();
-  QString qshapefile = QFileDialog::getSaveFileName(this,
-                                                  tr("Save shapefile"), shapefile.c_str(),
+  std::string shapeFile = m_images[m_polyLayerIndex].name;
+  shapeFile =  boost::filesystem::path(shapeFile).replace_extension(".shp").string();
+  QString qShapeFile = QFileDialog::getSaveFileName(this,
+                                                  tr("Save shapefile"), shapeFile.c_str(),
                                                   tr("(*.shp)"));
 
 
-  shapefile = qshapefile.toStdString();
-  if (shapefile == "")
+  shapeFile = qShapeFile.toStdString();
+  if (shapeFile == "")
     return;
 
   bool has_geo = m_images[m_polyLayerIndex].has_georef;
@@ -2263,8 +2217,8 @@ void MainWidget::saveVectorLayerAsShapeFile() {
 
   // Save only polygons in the given layer. Polygons in other layers
   // can have individual georeferences.
-  vw_out() << "Writing: " << shapefile << std::endl;
-  write_shapefile(shapefile, has_geo, geo, m_images[m_polyLayerIndex].polyVec);
+  vw_out() << "Writing: " << shapeFile << std::endl;
+  write_shapefile(shapeFile, has_geo, geo, m_images[m_polyLayerIndex].polyVec);
 }
 
 // Save the currently created vector layer. Its index is m_polyLayerIndex.
