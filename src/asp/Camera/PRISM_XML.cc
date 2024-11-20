@@ -245,7 +245,7 @@ void read_rpy(xercesc::DOMElement      * data_node,
       continue;
     
     // Get the three sub-nodes
-    std::string time_str, ys, ps, rs;
+    std::string time_str, roll, pitch, yaw;
     vw::Vector3 vals;
 
     cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(), time_str);
@@ -253,10 +253,10 @@ void read_rpy(xercesc::DOMElement      * data_node,
 
     // Find the angle subnode
     xercesc::DOMElement* angle_node = get_node<DOMElement>(curr_element, "Angle");
-    cast_xmlch(get_node<DOMElement>(angle_node, "YAW")->getTextContent(), ys);
-    cast_xmlch(get_node<DOMElement>(angle_node, "PITCH")->getTextContent(), ps);
-    cast_xmlch(get_node<DOMElement>(angle_node, "ROLL")->getTextContent(), rs);
-    vals = vw::Vector3(atof(ys.c_str()), atof(ps.c_str()), atof(rs.c_str()));
+    cast_xmlch(get_node<DOMElement>(angle_node, "ROLL")->getTextContent(), roll);
+    cast_xmlch(get_node<DOMElement>(angle_node, "PITCH")->getTextContent(), pitch);
+    cast_xmlch(get_node<DOMElement>(angle_node, "YAW")->getTextContent(), yaw);
+    vals = vw::Vector3(atof(roll.c_str()), atof(pitch.c_str()), atof(yaw.c_str()));
     
     rpy.push_back(vals);
     rpy_times.push_back(time);
