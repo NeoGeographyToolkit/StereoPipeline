@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -70,39 +70,38 @@ struct DemOptions: vw::GdalWriteOptions {
   double      rounding_error;
   std::string target_srs_string;
   vw::BBox2   target_projwin;
-  int         fsaa, dem_hole_fill_len, ortho_hole_fill_len, ortho_hole_fill_extra_len;
+  int         dem_hole_fill_len, ortho_hole_fill_len, ortho_hole_fill_extra_len;
   bool        remove_outliers_with_pct, use_tukey_outlier_removal;
   vw::Vector2 remove_outliers_params;
   double      max_valid_triangulation_error;
   vw::Vector2 median_filter_params;
   int         erode_len;
   std::string csv_format_str, csv_srs, filter;
-  std::string csv_proj4_str; // for backward compatibility 
+  std::string csv_proj4_str; // for backward compatibility
   double      search_radius_factor, sigma_factor, default_grid_size_multiplier;
-  bool        use_surface_sampling;
   bool        has_las_or_csv_or_pcd, auto_proj_center;
   vw::Vector2i max_output_size;
   bool        input_is_projected;
 
   // Output
   std::string out_prefix, output_file_type;
-  
+
   // Constructor
   DemOptions();
 };
 
 // Create an antialiased DEM. This is old code. Needs to be wiped at some point.
 ImageViewRef<PixelGray<float>>
-generate_fsaa_raster(asp::OrthoRasterizerView const& rasterizer, 
+generate_raster(asp::OrthoRasterizerView const& rasterizer,
                      DemOptions const& opt);
 
 void parse_input_clouds_textures(std::vector<std::string> const& files,
                                  DemOptions& opt);
 
-// Convert any LAS or CSV files to ASP tif files. We do some binning
-// to make the spatial data more localized, to improve performance.
-// - We will later wipe these temporary tifs.
-void chip_convert_to_tif(DemOptions& opt, 
+// Convert any LAS or CSV files to ASP tif files. We do some binning to make the
+// spatial data more localized, to improve performance. We will later wipe these
+// temporary tif files.
+void chip_convert_to_tif(DemOptions& opt,
                          asp::CsvConv const& csv_conv,
                          vw::cartography::GeoReference const& csv_georef,
                          std::vector<std::string> & tmp_tifs);

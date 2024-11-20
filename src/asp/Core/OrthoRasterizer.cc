@@ -388,10 +388,9 @@ namespace asp{
     return max_val * cutoff_index / double(hist_size);
   }
 
-  // TODO(oalexan1): Wipe the surface sampling option.
   OrthoRasterizerView::OrthoRasterizerView
   (ImageViewRef<Vector3> point_image, ImageViewRef<double> texture,
-   double search_radius_factor, double sigma_factor, bool use_surface_sampling, int pc_tile_size,
+   double search_radius_factor, double sigma_factor, int pc_tile_size,
    vw::BBox2 const& projwin,
    OutlierRemovalMethod outlier_removal_method,
    Vector2 const& remove_outliers_params,
@@ -409,7 +408,6 @@ namespace asp{
     m_default_spacing_x(0.0), m_default_spacing_y(0.0),
     m_search_radius_factor(search_radius_factor),
     m_sigma_factor(sigma_factor),
-    m_use_surface_sampling(use_surface_sampling),
     m_default_value(0),
     m_minz_as_default(true), m_use_alpha(false),
     m_block_size(pc_tile_size),
@@ -585,23 +583,9 @@ namespace asp{
   // - This function finalizes the spacing and generates a spacing-snapped BBox.
   void OrthoRasterizerView::initialize_spacing(const double spacing) {
 
-    // This must happen after the bounding box was computed, but
-    // before setting the spacing.
-    if (m_use_surface_sampling) {
-      // Old way
-      BBox3 bbox = m_bbox;
-      double bbox_width  = fabs(bbox.max().x() - bbox.min().x());
-      double bbox_height = fabs(bbox.max().y() - bbox.min().y());
-      double input_image_width  = m_point_image.cols();
-      double input_image_height = m_point_image.rows();
-      // The formula below is not so good, its output depends strongly
-      // on how many rows and columns are in the point cloud.
-      m_default_spacing = std::max(bbox_width, bbox_height) / std::max(input_image_width,
-                                                                       input_image_height);
-    } else {
-      // We choose the coarsest of the two spacings
-      m_default_spacing = std::max(m_default_spacing_x, m_default_spacing_y);
-    }
+    // This must happen after the bounding box was computed, but before setting
+    // the spacing. We choose the coarsest of the two spacings
+    m_default_spacing = std::max(m_default_spacing_x, m_default_spacing_y);
 
     // Set the sampling rate (i.e. spacing between pixels)
     this->set_spacing(spacing);
@@ -638,14 +622,13 @@ namespace asp{
   // Function to convert pixel coordinates to the point domain
   BBox3 OrthoRasterizerView::pixel_to_point_bbox(BBox2 const& inbox) const {
     BBox3 outbox = m_snapped_bbox;
-    int d = (int)m_use_surface_sampling;
-    outbox.min().x() = m_snapped_bbox.min().x() + ((double(inbox.min().x() - d))
+    outbox.min().x() = m_snapped_bbox.min().x() + ((double(inbox.min().x()))
                                                    * m_spacing);
-    outbox.max().x() = m_snapped_bbox.min().x() + ((double(inbox.max().x() - d))
+    outbox.max().x() = m_snapped_bbox.min().x() + ((double(inbox.max().x()))
                                                    * m_spacing);
-    outbox.min().y() = m_snapped_bbox.min().y() + ((double(rows() - inbox.max().y() - d))
+    outbox.min().y() = m_snapped_bbox.min().y() + ((double(rows() - inbox.max().y()))
                                                    * m_spacing);
-    outbox.max().y() = m_snapped_bbox.min().y() + ((double(rows() - inbox.min().y() - d))
+    outbox.max().y() = m_snapped_bbox.min().y() + ((double(rows() - inbox.min().y()))
                                                    * m_spacing);
     return outbox;
   }
@@ -664,9 +647,6 @@ namespace asp{
 
     ImageView<float > render_buffer;
     ImageView<double> d_buffer, weights;
-    if (m_use_surface_sampling) {
-      render_buffer.set_size(bbox_1.width(), bbox_1.height());
-    }
 
     // Setup a software renderer and the orthographic view matrix
     vw::stereo::SoftwareRenderer renderer(bbox_1.width(), bbox_1.height(),
@@ -706,16 +686,7 @@ namespace asp{
     }
 
     std::valarray<float> vertices(10), intensities(5);
-
-    if (m_use_surface_sampling) {
-      static const int NUM_COLOR_COMPONENTS  = 1;  // We only need gray scale
-      static const int NUM_VERTEX_COMPONENTS = 2; // DEMs are 2D
-      renderer.Clear(min_val);
-      renderer.SetVertexPointer(NUM_VERTEX_COMPONENTS, &vertices[0]);
-      renderer.SetColorPointer(NUM_COLOR_COMPONENTS, &intensities[0]);
-    } else {
-      point2grid.Clear(min_val);
-    }
+    point2grid.Clear(min_val);
 
     // For each block in the DEM space intersecting local_3d_bbox,
     // find the corresponding blocks in the point cloud space.  We
@@ -752,24 +723,14 @@ namespace asp{
         (*m_num_invalid_pixels) += std::int64_t(bbox.width())*std::int64_t(bbox.height());
       }
 
-      if (m_use_surface_sampling) {
-        return prerasterize_type(render_buffer, BBox2i(-bbox_1.min().x(),
-                                                       -bbox_1.min().y(), cols(), rows()));
-      } else {
-        return prerasterize_type(d_buffer, BBox2i(-bbox_1.min().x(),
-                                                  -bbox_1.min().y(), cols(), rows()));
-      }
+      return prerasterize_type(d_buffer, BBox2i(-bbox_1.min().x(),
+                                                -bbox_1.min().y(), cols(), rows()));
     }
-
-    // This is very important. When doing surface sampling, for each
-    // pixel we need to see its next up and right neighbors.
-    int d = (int)m_use_surface_sampling;
 
     for (MapIterType it = blocks_map.begin(); it != blocks_map.end(); it++) {
 
       BBox2i block = it->second;
 
-      block.max() += Vector2i(d, d);
       block.crop(vw::bounding_box(m_point_image));
 
       // Pull a copy of the input image in memory.  Expand the image
@@ -791,56 +752,20 @@ namespace asp{
 
       typedef ImageView<Vector3>::pixel_accessor PointAcc;
       PointAcc row_acc = point_copy.origin();
-      for (int32 row = 0; row < point_copy.rows()-d; ++row) {
+      for (int32 row = 0; row < point_copy.rows(); row++) {
         PointAcc point_ul = row_acc;
 
-        for (int32 col = 0; col < point_copy.cols()-d; ++col) {
+        for (int32 col = 0; col < point_copy.cols(); col++) {
 
           PointAcc point_ur = point_ul; point_ur.next_col();
           PointAcc point_ll = point_ul; point_ll.next_row();
           PointAcc point_lr = point_ul; point_lr.advance(1,1);
 
-          if (m_use_surface_sampling) {
-
-            // This loop rasterizes a quad indexed by the upper left.
-            if (!boost::math::isnan((*point_ul).z()) &&
-                 !boost::math::isnan((*point_lr).z())) {
-
-              vertices[0] = (*point_ul).x(); // UL
-              vertices[1] = (*point_ul).y();
-              vertices[2] = (*point_ll).x(); // LL
-              vertices[3] = (*point_ll).y();
-              vertices[4] = (*point_lr).x(); // LR
-              vertices[5] = (*point_lr).y();
-              vertices[6] = (*point_ur).x(); // UR
-              vertices[7] = (*point_ur).y();
-              vertices[8] = (*point_ul).x(); // UL
-              vertices[9] = (*point_ul).y();
-
-              intensities[0] = texture_copy(col,  row);
-              intensities[1] = texture_copy(col,row+1);
-              intensities[2] = texture_copy(col+1,  row+1);
-              intensities[3] = texture_copy(col+1,row);
-              intensities[4] = texture_copy(col,row);
-
-              if (!boost::math::isnan((*point_ll).z())) {
-                // triangle 1 is: UL LL LR
-                renderer.DrawPolygon(0, 3);
-              }
-              if (!boost::math::isnan((*point_ur).z())) {
-                // triangle 2 is: LR, UR, UL
-                renderer.DrawPolygon(2, 3);
-              }
-            }
-
-          } else {
-            // The new engine
-            if (!boost::math::isnan(point_copy(col, row).z()) &&
-                 local_3d_bbox.contains(point_copy(col, row))) {
-              point2grid.AddPoint(point_copy(col, row).x(),
-                                  point_copy(col, row).y(),
-                                  texture_copy(col,  row));
-            }
+          if (!boost::math::isnan(point_copy(col, row).z()) &&
+                local_3d_bbox.contains(point_copy(col, row))) {
+            point2grid.AddPoint(point_copy(col, row).x(),
+                                point_copy(col, row).y(),
+                                texture_copy(col,  row));
           }
           point_ul.next_col();
         } // End column loop
@@ -849,24 +774,20 @@ namespace asp{
 
     }
 
-    if (!m_use_surface_sampling)
-      point2grid.normalize();
+    point2grid.normalize();
 
     // The software renderer returns an image which will render
     // upside down in most image formats, so we correct that here.
     // We also introduce transparent pixels into the result where necessary.
     // TODO: Here can do flipping in place.
     ImageView<PixelGray<float>> result;
-    if (m_use_surface_sampling)
-      result = flip_vertical(render_buffer);
-    else
-      result = flip_vertical(d_buffer);
+    result = flip_vertical(d_buffer);
 
     // Loop through result here and count up how many pixels have been
     // changed from the default value.
     std::int64_t num_unset = 0;
-    for (int r=0; r<result.rows(); ++r) {
-      for (int c=0; c<result.cols(); ++c) {
+    for (int r = 0; r < result.rows(); r++) {
+      for (int c = 0; c < result.cols(); c++) {
 
         Vector2i pix = Vector2(c, r) + bbox_1.min();
         if (bbox.contains(pix)) {
