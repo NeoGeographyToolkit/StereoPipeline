@@ -200,10 +200,6 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
      "The value s to be used in the Gaussian exp(-s*(x/grid_size)^2) when computing the DEM. The default is -log(0.25) = 1.3863. A smaller value will result in a smoother terrain.")
     ("default-grid-size-multiplier", po::value(&opt.default_grid_size_multiplier)->default_value(1.0),
      "If the output DEM grid size (--dem-spacing) is not specified, compute it automatically (as the mean ground sample distance), and then multiply it by this number. It is suggested that this number be set to 4 though the default is 1.")
-    ("use-surface-sampling", po::bool_switch(&opt.use_surface_sampling)->default_value(false),
-     "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).")
-    ("fsaa",   po::value<int>(&opt.fsaa)->default_value(1),
-     "Oversampling amount to perform antialiasing (obsolete).")
     ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false),
      "Skip writing a DEM.")
     ("input-is-projected", po::bool_switch(&opt.input_is_projected)->default_value(false), 
@@ -286,24 +282,6 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
   if (opt.out_prefix.empty())
     opt.out_prefix = asp::prefix_from_pointcloud_filename(opt.pointcloud_files[0]);
-
-  if (opt.use_surface_sampling)
-    vw_out(WarningMessage) 
-          << "The --use-surface-sampling option invokes the old algorithm and "
-          << "is obsolete, it will be removed in future versions.\n";
-
-  if (opt.use_surface_sampling && opt.filter != "weighted_average")
-    vw_throw(ArgumentErr() 
-             << "Cannot use surface sampling with any filter of point cloud points.\n");
-
-  if (opt.use_surface_sampling && opt.has_las_or_csv_or_pcd)
-    vw_throw(ArgumentErr() << "Cannot use surface " << "sampling with LAS or CSV files.\n");
-
-  if (opt.fsaa != 1 && !opt.use_surface_sampling){
-    vw_throw(ArgumentErr() 
-             << "The --fsaa option is obsolete. It can be used only with the "
-             << "--use-surface-sampling option which invokes the old algorithm.\n");
-  }
 
   if (opt.dem_hole_fill_len < 0)
     vw_throw(ArgumentErr() << "The value of --dem-hole-fill-len must be non-negative.\n");
@@ -429,8 +407,6 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
     outlier_removal_method = asp::TUKEY_OUTLIER_METHOD; // takes precedence
   
   // Perform the slow initialization that can be shared by all output resolutions
-  Stopwatch sw1;
-  sw1.start();
   vw::Mutex count_mutex; // Need to pass in by pointer due to C++ class restrictions
   
   // Need to pass in by pointer because we can't get back the number from
@@ -438,7 +414,7 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
   std::int64_t num_invalid_pixels = 0;
   asp::OrthoRasterizerView
     rasterizer(proj_points.impl(), select_channel(proj_points.impl(),2),
-               opt.search_radius_factor, opt.sigma_factor, opt.use_surface_sampling,
+               opt.search_radius_factor, opt.sigma_factor,
                asp::ASPGlobalOptions::tri_tile_size(), // to efficiently process the cloud
                opt.target_projwin,
                outlier_removal_method, opt.remove_outliers_params,
@@ -448,10 +424,6 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
                &num_invalid_pixels, &count_mutex,
                TerminalProgressCallback("asp", "Point cloud extent estimation: "));
 
-  sw1.stop();
-  vw_out(DebugMessage,"asp") << "Extent estimation time: " 
-    << sw1.elapsed_seconds() << " s.\n";
-  
   // Perform other rasterizer configuration
   rasterizer.set_use_alpha(opt.has_alpha);
   rasterizer.set_use_minz_as_default(false);
@@ -653,6 +625,7 @@ int main(int argc, char *argv[]) {
     estim_max_error = asp::estim_max_tri_error_and_proj_box(proj_points, error_image,
                                                          opt.remove_outliers_params,
                                                          estim_proj_box);
+
     // Create the DEM
     do_software_rasterization_multi_spacing(proj_points, opt, output_georef, error_image,
                                             estim_max_error, estim_proj_box);

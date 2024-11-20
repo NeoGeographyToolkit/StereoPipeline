@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -35,7 +35,7 @@ namespace asp {
 template<class ImageT>
 void save_image(DemOptions & opt, ImageT img, vw::cartography::GeoReference const& georef,
                 int hole_fill_len, std::string const& imgName) {
-  
+
   // When hole-filling is used, we need to look hole_fill_len beyond
   // the current block.  If the block size is 256, and hole fill len
   // is big, like 512 or 1024, we end up processing a huge block
@@ -52,7 +52,7 @@ void save_image(DemOptions & opt, ImageT img, vw::cartography::GeoReference cons
   // we do a full validation of opt.filter.
   std::string tag = "";
   if (opt.filter != "weighted_average")
-    tag = "-" + opt.filter; 
+    tag = "-" + opt.filter;
 
   std::string output_file = opt.out_prefix + tag + "-" + imgName
     + "." + opt.output_file_type;
@@ -63,7 +63,7 @@ void save_image(DemOptions & opt, ImageT img, vw::cartography::GeoReference cons
     asp::save_with_temp_big_blocks(block_size, output_file, img,
                                     has_georef, georef,
                                     has_nodata, opt.nodata_value, opt, tpc);
-  else 
+  else
     vw::cartography::write_gdal_image(output_file, img, georef, opt, tpc);
 } // End function save_image
 
@@ -74,7 +74,7 @@ struct RoundImagePixelsSkipNoData: public vw::ReturnFixedType<PixelT> {
 
   double m_scale, m_nodata;
 
-  RoundImagePixelsSkipNoData(double scale, double nodata): 
+  RoundImagePixelsSkipNoData(double scale, double nodata):
   m_scale(scale), m_nodata(nodata) {}
 
   PixelT operator() (PixelT const& pt) const {
@@ -86,7 +86,7 @@ struct RoundImagePixelsSkipNoData: public vw::ReturnFixedType<PixelT> {
     // Skip given pixel if any channels are nodata
     int num_channels = PixelNumChannels<PixelT>::value;
     typedef typename CompoundChannelType<PixelT>::type channel_type;
-    for (int c = 0; c < num_channels; c++){
+    for (int c = 0; c < num_channels; c++) {
       if ((double)compound_select_channel<channel_type const&>(pt,c) == m_nodata)
         return pt;
     }
@@ -99,7 +99,7 @@ struct RoundImagePixelsSkipNoData: public vw::ReturnFixedType<PixelT> {
 // If the third component of a vector is NaN, mask that vector as invalid
 template<class VectorT>
 struct NaN2Mask: public ReturnFixedType<PixelMask<VectorT>> {
-  NaN2Mask(){}
+  NaN2Mask() {}
   PixelMask<VectorT> operator() (VectorT const& vec) const {
     if (boost::math::isnan(vec.z()))
       return PixelMask<VectorT>(); // invalid
@@ -111,7 +111,7 @@ struct NaN2Mask: public ReturnFixedType<PixelMask<VectorT>> {
 // Reverse the operation of NaN2Mask
 template<class VectorT>
 struct Mask2NaN: public ReturnFixedType<VectorT> {
-  Mask2NaN(){}
+  Mask2NaN() {}
   VectorT operator() (PixelMask<VectorT> const& pvec) const {
     if (!is_valid(pvec))
       return VectorT(0, 0, std::numeric_limits<typename VectorT::value_type>::quiet_NaN());
@@ -122,7 +122,7 @@ struct Mask2NaN: public ReturnFixedType<VectorT> {
 
 // If the third component of a vector is NaN, assign to it the given no-data value
 struct NaN2NoData: public ReturnFixedType<Vector3> {
-  NaN2NoData(float nodata_val):m_nodata_val(nodata_val){}
+  NaN2NoData(float nodata_val):m_nodata_val(nodata_val) {}
   float m_nodata_val;
   Vector3 operator() (Vector3 const& vec) const {
     if (boost::math::isnan(vec.z()))
@@ -152,7 +152,7 @@ struct ErrorToNED: public ReturnFixedType<Vector3> {
 };
 template <class ImageT>
 UnaryPerPixelView<ImageT, ErrorToNED>
-inline error_to_NED(ImageViewBase<ImageT> const& image, 
+inline error_to_NED(ImageViewBase<ImageT> const& image,
                     vw::cartography::GeoReference const& georef) {
   return UnaryPerPixelView<ImageT, ErrorToNED>(image.impl(), ErrorToNED(georef));
 }
@@ -186,7 +186,7 @@ public:
     m_nodata_value(nodata_value),
     m_image1(image1),
     m_image2(image2),
-    m_image3(image3){}
+    m_image3(image3) {}
 
   inline int32 cols  () const { return m_image1.cols(); }
   inline int32 rows  () const { return m_image1.rows(); }
@@ -198,7 +198,7 @@ public:
 
     Vector3f error(m_image1(i, j), m_image2(i, j), m_image3(i, j));
 
-    if (error[0] == m_nodata_value || error[1] == m_nodata_value || 
+    if (error[0] == m_nodata_value || error[1] == m_nodata_value ||
         error[2] == m_nodata_value) {
       return Vector3f(m_nodata_value, m_nodata_value, m_nodata_value);
     }
@@ -213,7 +213,7 @@ public:
                              m_image2.prerasterize(bbox),
                              m_image3.prerasterize(bbox));
   }
-  template <class DestT> 
+  template <class DestT>
   inline void rasterize(DestT const& dest, BBox2i const& bbox) const {
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
@@ -234,29 +234,28 @@ CombinedAbsView combine_abs_channels(double nodata_value,
 // Save the DEM
 void save_dem(DemOptions & opt,
               vw::cartography::GeoReference const& georef,
-              asp::OrthoRasterizerView& rasterizer, 
+              asp::OrthoRasterizerView& rasterizer,
               Vector2 const& tile_size,
               std::int64_t * num_invalid_pixels) {
 
   // The value stored in num_invalid_pixels will get updated as the DEM is being
   // written to disk. That because OrthoRasterizerView has a pointer to it.
-  // This must be reset before each use. 
+  // This must be reset before each use.
   // TODO(oalexan1): This logic is confusing. Better have two member functions that
   // first reset and later get this number.
   *num_invalid_pixels = 0;
- 
+
    // We use the existing texture channel, which is the height.
-   ImageViewRef<PixelGray<float>> rasterizer_fsaa
-    = generate_fsaa_raster(rasterizer, opt);
+   ImageViewRef<PixelGray<float>> raster_img = generate_raster(rasterizer, opt);
 
   Stopwatch sw2;
   sw2.start();
   ImageViewRef<PixelGray<float>> dem
-    = asp::round_image_pixels_skip_nodata(rasterizer_fsaa, opt.rounding_error,
+    = asp::round_image_pixels_skip_nodata(raster_img, opt.rounding_error,
                                           opt.nodata_value);
 
   int hole_fill_len = opt.dem_hole_fill_len;
-  if (hole_fill_len > 0){
+  if (hole_fill_len > 0) {
     // Note that we first cache the tiles of the rasterized DEM, and
     // fill holes later. This greatly improves the performance.
     dem = apply_mask
@@ -283,23 +282,14 @@ void save_dem(DemOptions & opt,
   // num_invalid_pixels was updated as the DEM was written.
   double num_invalid_pixelsD = *num_invalid_pixels;
 
-  // This is to compensate for the fact that for fsaa > 1 we use a
-  // finer rendering grid than the final one. Later a blur and a
-  // resampling to the original grid will happen, so the actual
-  // count is not as simple as what we do here, but this may be good
-  // enough since the fsaa option is not the default and may need
-  // wiping at some point.
-  if (opt.fsaa > 1)
-    num_invalid_pixelsD = num_invalid_pixelsD / double(opt.fsaa) / double(opt.fsaa);
-  
   // Below we convert to double first and multiply later, to avoid
   // 32-bit integer overflow.
   double num_total_pixels = double(dem_size[0]) * double(dem_size[1]);
 
   double invalid_ratio = num_invalid_pixelsD / num_total_pixels;
-  vw_out() << "Percentage of valid pixels: " 
+  vw_out() << "Percentage of valid pixels: "
             << 100.0*(1.0 - invalid_ratio) << "%\n";
- 
+
   // Wipe after use. This will reset the counter in OrthoRasterizerView.
   *num_invalid_pixels = 0;
 }
@@ -313,14 +303,14 @@ void save_intersection_error(DemOptions & opt,
 
   int hole_fill_len = 0;
   int num_channels = asp::num_channels(opt.pointcloud_files);
-  
+
   if (num_channels == 4 || (num_channels == 6 && has_stddev) || opt.scalar_error) {
     // The error is a scalar (4 channels or 6 channels but last two are stddev),
     // or we want to find the norm of the error.
     ImageViewRef<double> error_channel = asp::point_cloud_error_image(opt.pointcloud_files);
     rasterizer.set_texture(error_channel);
-    ImageViewRef<PixelGray<float>> rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
-    save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
+    ImageViewRef<PixelGray<float>> raster_img = generate_raster(rasterizer, opt);
+    save_image(opt, asp::round_image_pixels_skip_nodata(raster_img,
                                                         opt.rounding_error,
                                                         opt.nodata_value),
                 georef, hole_fill_len, "IntersectionErr");
@@ -330,14 +320,14 @@ void save_intersection_error(DemOptions & opt,
       (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);
     ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
     std::vector<ImageViewRef<PixelGray<float>>>  rasterized(3);
-    for (int ch_index = 0; ch_index < 3; ch_index++){
+    for (int ch_index = 0; ch_index < 3; ch_index++) {
       ImageViewRef<double> ch = select_channel(ned_err, ch_index);
       rasterizer.set_texture(ch);
-      ImageViewRef<PixelGray<float>> rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
+      ImageViewRef<PixelGray<float>> raster_img = generate_raster(rasterizer, opt);
       rasterized[ch_index] =
-        block_cache(rasterizer_fsaa, tile_size, opt.num_threads);
+        block_cache(raster_img, tile_size, opt.num_threads);
     }
-    auto err_vec = asp::combine_abs_channels(opt.nodata_value, rasterized[0], 
+    auto err_vec = asp::combine_abs_channels(opt.nodata_value, rasterized[0],
                                             rasterized[1], rasterized[2]);
     save_image(opt, asp::round_image_pixels_skip_nodata(err_vec,
                               opt.rounding_error, opt.nodata_value),
@@ -355,13 +345,13 @@ void save_intersection_error(DemOptions & opt,
 void save_stddev(DemOptions & opt,
                   vw::cartography::GeoReference const& georef,
                   asp::OrthoRasterizerView& rasterizer) {
-  
+
   int num_channels = asp::num_channels(opt.pointcloud_files);
-  
+
   double rounding_error = 0.0;
   vw_out() << "Not rounding propagated errors (option: --rounding-error) to avoid "
             << "introducing step artifacts.\n";
-  
+
   // Note: We don't throw here. We still would like to write the
   // DRG (later) even if we can't write the stddev.
   if (num_channels != 6) {
@@ -371,24 +361,24 @@ void save_stddev(DemOptions & opt,
     int hole_fill_len = 0;
     ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>
       (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);
-    
+
     ImageViewRef<double> horizontal_stddev_channel = select_channel(point_disk_image, 4);
     rasterizer.set_texture(horizontal_stddev_channel);
-    ImageViewRef<PixelGray<float>> rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
-    save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
+    ImageViewRef<PixelGray<float>> raster_img = generate_raster(rasterizer, opt);
+    save_image(opt, asp::round_image_pixels_skip_nodata(raster_img,
                                                         rounding_error, // local value
                                                         opt.nodata_value),
                 georef, hole_fill_len, "HorizontalStdDev");
-    
+
     ImageViewRef<double> vertical_stddev_channel = select_channel(point_disk_image, 5);
     rasterizer.set_texture(vertical_stddev_channel);
-    rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
-    save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
+    raster_img = generate_raster(rasterizer, opt);
+    save_image(opt, asp::round_image_pixels_skip_nodata(raster_img,
                                                         rounding_error, // local value
                                                         opt.nodata_value),
                 georef, hole_fill_len, "VerticalStdDev");
   }
-  
+
 }
 
 // Save the orthoimage. The texture comes form L.tif instead of the heights.
@@ -398,7 +388,7 @@ void save_ortho(DemOptions & opt,
 
   Stopwatch sw3;
   sw3.start();
-  
+
   // Set the texture channel
   ImageViewRef<PixelGray<float>> texture
     = asp::form_point_cloud_composite<PixelGray<float>>
@@ -421,7 +411,7 @@ void save_ortho(DemOptions & opt,
 
     // If to grow the cloud a bit, to help hole-filling later. This should
     // not be large as it creates artifacts. The main work better
-    // be done by grassfire later. 
+    // be done by grassfire later.
     if (opt.ortho_hole_fill_extra_len > 0) {
       int hole_fill_mode = 2;
       int hole_fill_num_smooth_iter = 3;
@@ -432,14 +422,14 @@ void save_ortho(DemOptions & opt,
                                         hole_fill_extra_len);
 
       // Use big tiles, to reduce the overhead
-      // of expanding each tile by hole size. 
+      // of expanding each tile by hole size.
       int big_block_size = nextpow2(2.0*hole_fill_extra_len);
       big_block_size = std::max(256, big_block_size);
 
       // Cache each hole-filled point cloud tile as likely we will
       // need it again in the future when rasterizing a different
       // portion of the output ortho image.
-      point_image_mask = block_cache(point_image_mask, 
+      point_image_mask = block_cache(point_image_mask,
                                       vw::Vector2(big_block_size, big_block_size),
                                       opt.num_threads);
     }
@@ -451,14 +441,14 @@ void save_ortho(DemOptions & opt,
     point_image = per_pixel_filter(point_image_mask, asp::Mask2NaN<Vector3>());
 
     // When filling holes, use big tiles, to reduce the overhead
-    // of expanding each tile by hole size. 
+    // of expanding each tile by hole size.
     int big_block_size = nextpow2(2.0*hole_fill_len);
     big_block_size = std::max(256, big_block_size);
 
     // Cache each hole-filled point cloud tile as likely we will
     // need it again in the future when rasterizing a different
     // portion of the output ortho image.
-    point_image = block_cache(point_image, 
+    point_image = block_cache(point_image,
                               vw::Vector2(big_block_size, big_block_size),
                               opt.num_threads);
 
@@ -466,15 +456,15 @@ void save_ortho(DemOptions & opt,
     rasterizer.set_point_image(point_image);
   }
 
-  ImageViewRef<PixelGray<float>> rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
-  asp::save_image(opt, rasterizer_fsaa, georef,
+  ImageViewRef<PixelGray<float>> raster_img = generate_raster(rasterizer, opt);
+  asp::save_image(opt, raster_img, georef,
                   0, // no need for a buffer here, as we cache hole-filled tiles
                   "DRG");
   sw3.stop();
   vw_out(DebugMessage,"asp") << "DRG render time: " << sw3.elapsed_seconds() << "\n";
 }
 
-// Rasterize a DEM, and perhaps the error image, orthoimage, stddev, etc. 
+// Rasterize a DEM, and perhaps the error image, orthoimage, stddev, etc.
 // This may be called several times, with different grid sizes.
 void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
                                DemOptions& opt,
@@ -490,14 +480,6 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
   // The affine transform. If the user specified --t_projwin, the transform
   // already incorporated that.
   georef.set_transform(rasterizer.geo_transform());
-
-  // If the user requested FSAA, we temporarily increase the
-  // resolution, apply a blur, then resample to the original
-  // resolution. This results in a DEM with less antialiasing.  Note
-  // that the georef above is set with the spacing before resolution
-  // is increased, which will be the final spacing as well.
-  if (opt.fsaa > 1)
-    rasterizer.set_spacing(rasterizer.spacing() / double(opt.fsaa));
 
   // Fix have pixel offset required if pixel_interpretation is
   // PixelAsArea. We could have done that earlier, but it makes
@@ -517,15 +499,15 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
 
   Vector2 tile_size(vw_settings().default_tile_size(),
                     vw_settings().default_tile_size());
-  
+
   // Write out the DEM. We've set the texture to be the height.
   // This must happen before we set the texture to something else.
   if (!opt.no_dem)
      save_dem(opt, georef, rasterizer, tile_size, num_invalid_pixels);
-  
-  // If the point cloud has propagated stddev affects how we write the error image.   
+
+  // If the point cloud has propagated stddev affects how we write the error image.
   bool has_stddev = asp::has_stddev(opt.pointcloud_files);
-  
+
   // Write triangulation error image if requested
   if (opt.do_error)
     save_intersection_error(opt, has_stddev, georef, tile_size, rasterizer);
@@ -537,10 +519,10 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
              << "cloud file is not in the expected format.\n";
     opt.propagate_errors = false;
   }
-  
+
   if (opt.propagate_errors)
     save_stddev(opt, georef, rasterizer);
-  
+
   // Write out a normalized version of the DEM, if requested (for debugging).
   // Here the DEM is read back and written normalized to a new file.
   if (opt.do_normalize) {
@@ -559,7 +541,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
   // image in irreversible ways.
   if (opt.do_ortho)
    save_ortho(opt, georef, rasterizer);
-  
+
 } // End do_software_rasterization
 
 } // end namespace asp

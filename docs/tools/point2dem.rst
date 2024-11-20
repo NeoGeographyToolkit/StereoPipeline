@@ -578,14 +578,6 @@ Command-line options for point2dem
     Erode input point clouds by this many pixels at boundary (after
     outliers are removed, but before filling in holes).
 
---use-surface-sampling
-    Use the older algorithm, interpret the point cloud as a surface
-    made up of triangles and sample it (prone to aliasing).
-
---fsaa
-    Oversampling amount to perform antialiasing. Obsolete, can be
-    used only in conjunction with ``--use-surface-sampling``.
-
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
