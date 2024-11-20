@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -36,7 +36,7 @@ namespace asp{
 
   enum OutlierRemovalMethod {NO_OUTLIER_REMOVAL_METHOD, PERCENTILE_OUTLIER_METHOD,
                              TUKEY_OUTLIER_METHOD};
-  
+
   using namespace vw;
 
   typedef std::pair<BBox3, BBox2i> BBoxPair;
@@ -81,7 +81,7 @@ namespace asp{
     // everything is triangulated.
 
     // Function to convert pixel coordinates to the point domain
-    BBox3 pixel_to_point_bbox( BBox2 const& px ) const;
+    BBox3 pixel_to_point_bbox(BBox2 const& px) const;
 
   public:
     typedef PixelGray<float> pixel_type;
@@ -134,17 +134,17 @@ namespace asp{
 
     inline pixel_accessor origin() const { return pixel_accessor(*this); }
 
-    inline result_type operator()( int /*i*/, int /*j*/, int /*p*/=0 ) const {
+    inline result_type operator()(int /*i*/, int /*j*/, int /*p*/=0) const {
       vw_throw(NoImplErr() << "OrthoRasterizersView::operator()(double i, double j, int32 p) has not been implemented.");
       return pixel_type();
     }
 
     /// \cond INTERNAL
     typedef CropView<ImageView<pixel_type> > prerasterize_type;
-    prerasterize_type prerasterize( BBox2i const& bbox ) const;
+    prerasterize_type prerasterize(BBox2i const& bbox) const;
 
-    template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
-      vw::rasterize( prerasterize(bbox), dest, bbox );
+    template <class DestT> inline void rasterize(DestT const& dest, BBox2i const& bbox) const {
+      vw::rasterize(prerasterize(bbox), dest, bbox);
     }
     /// \endcond
 
@@ -173,10 +173,10 @@ namespace asp{
     double spacing() const { return m_spacing; }
 
     // Convert the hole fill length from output image pixels to point cloud pixels.
-    int pc_hole_fill_len(int hole_fill_len){
+    int pc_hole_fill_len(int hole_fill_len) {
 
       if (hole_fill_len ==0) return 0;
-        
+
       VW_ASSERT(m_spacing > 0 && m_default_spacing > 0,
                 ArgumentErr() << "Expecting positive DEM spacing.");
       return (int)round((m_spacing/m_default_spacing)*hole_fill_len);
@@ -188,14 +188,14 @@ namespace asp{
     vw::Matrix<double,3,3> geo_transform();
 
     ImageViewRef<Vector3> get_point_image() { return m_point_image; }
-    
+
     void set_point_image(ImageViewRef<Vector3> point_image) {m_point_image = point_image;}
-    
+
   };
 
   /// Snaps the coordinates of a BBox to a grid spacing
   template <size_t N>
-  void snap_bbox(const double spacing, BBox<double, N> &bbox ) {
+  void snap_bbox(const double spacing, BBox<double, N> &bbox) {
     bbox.min() = spacing*floor(bbox.min()/spacing);
     bbox.max() = spacing*ceil (bbox.max()/spacing);
   }
