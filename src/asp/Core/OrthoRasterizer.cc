@@ -34,7 +34,6 @@
 #include <vw/Image/Filter.h>
 #include <vw/Image/InpaintView.h>
 
-#include <asp/Core/SoftwareRenderer.h>
 #include <asp/Core/PointUtils.h>
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/next.hpp>
@@ -645,14 +644,7 @@ namespace asp{
     // Used to find which polygons are actually in the draw space.
     BBox3 local_3d_bbox = pixel_to_point_bbox(bbox_1);
 
-    ImageView<float > render_buffer;
     ImageView<double> d_buffer, weights;
-
-    // Setup a software renderer and the orthographic view matrix
-    vw::stereo::SoftwareRenderer renderer(bbox_1.width(), bbox_1.height(),
-                                          &render_buffer(0,0));
-    renderer.Ortho2D(local_3d_bbox.min().x(), local_3d_bbox.max().x(),
-                     local_3d_bbox.min().y(), local_3d_bbox.max().y());
 
     // Given a DEM grid point, search for cloud points within the
     // circular region of radius equal to grid size. As such, a
