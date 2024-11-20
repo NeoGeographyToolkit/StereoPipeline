@@ -248,8 +248,10 @@ Command-line options
 --use-ref-cams
     Read from disk reference cameras that determine the satellite orientation.
     This assumes the first dataset was created with ``sat_sim`` with the option
-    ``--save-ref-cams``. Otherwise do not use this option. In that case the
-    satellite orientation is estimated based on camera positions.
+    ``--save-ref-cams``. The naming convention assumes the additional ``-ref``
+    string as part of the reference camera names, before the filename extension.
+    Without this option, the satellite orientations are estimated based on
+    camera positions.
 
 --ref-list <string (default: "")>
     When ``--list`` is specified, read the reference cameras from this file.

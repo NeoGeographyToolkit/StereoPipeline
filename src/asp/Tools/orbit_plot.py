@@ -88,7 +88,7 @@ def produce_m(lon, lat, m_meridian_offset=0):
     """
     Produce M matrix which facilitates conversion from Lon-lat (NED) to ECEF coordinates
     From https://github.com/visionworkbench/visionworkbench/blob/master/src/vw/Cartography/Datum.cc#L249
-    This is known as direction cosie matrix
+    This is known as direction cosine matrix
     
     Parameters
     ------------
@@ -585,7 +585,8 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
         ref_cams = read_list(ref_list, camType, extensions)
     else:
       all_opt_cams = sorted(multi_glob(optPrefix + '*' + camType, extensions))
-      ref_cams     = sorted(multi_glob(optPrefix + '*' + camType + '-ref', extensions))
+      # Exclude any opt ref cams. We will use the orig ref cams later.
+      ref_cams     = sorted(multi_glob(optPrefix + '*' + camType + '*-ref', extensions))
       opt_cams     = exclude_ref_cams(all_opt_cams, ref_cams)
       if (not opt.use_ref_cams) and len(ref_cams) > 0:
           print_ref_cam_warning = True
@@ -600,7 +601,7 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
 
   else: 
     all_orig_cams = sorted(multi_glob(origPrefix + '*' + camType, extensions))
-    ref_cams      = sorted(multi_glob(origPrefix + '*' + camType + '-ref', extensions))
+    ref_cams      = sorted(multi_glob(origPrefix + '*' + camType + '*-ref', extensions))
     orig_cams     = exclude_ref_cams(all_orig_cams, ref_cams)
   
   if (not opt.use_ref_cams) and len(ref_cams) > 0:
@@ -809,9 +810,10 @@ parser.add_argument('--orbit-label', dest = 'orbit_label', default = '',
 parser.add_argument('--use-ref-cams', dest = 'use_ref_cams', action='store_true',
                     help='Read from disk reference cameras that determine the satellite ' + 
                     'orientation. This assumes the first dataset was created with '       + 
-                    'sat_sim with the option --save-ref-cams. Otherwise do not use '      + 
-                    'this option. In that case the satellite orientation is estimated '   + 
-                    'based on camera positions.') 
+                    'sat_sim with the option --save-ref-cams. The naming convention '     +
+                    'assumes the additional -ref string as part of the reference camera ' +
+                    'names, before the filename extension. Without this option, the '     +
+                    'satellite orientations are estimated based on camera positions.')
 
 parser.add_argument('--subtract-line-fit', dest = 'subtract_line_fit', action='store_true',
                     help='If set, subtract the best line fit from the curves being '    + 
