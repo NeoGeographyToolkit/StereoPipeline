@@ -87,7 +87,9 @@ point2las (:numref:`point2las`):
 point2dem (:numref:`point2dem`):
   * Adjust the region passed in via the option ``--t_projwin`` so that, as
     usual, the DEM grid coordinates are integer multiples of the grid size.
-  * Handle robustly invalid input points.  
+  * Handle robustly invalid input points.
+  * Remove old options ``--use-surface-sampling`` and ``--fsaa``.
+  * Bugfix for slow performance with dynamic CRS.
 
 image_align (:numref:`image_align`):
   * Let the default alignment method be ``rigid`` rather than ``translation``.

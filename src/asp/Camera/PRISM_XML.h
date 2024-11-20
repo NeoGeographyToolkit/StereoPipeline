@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// Utilties for parsing PRISM .DIMA files in XML format.
+// Utilities for parsing PRISM .DIMA files in XML format.
 
 #ifndef __STEREO_CAMERA_PRISM_XML_H__
 #define __STEREO_CAMERA_PRISM_XML_H__

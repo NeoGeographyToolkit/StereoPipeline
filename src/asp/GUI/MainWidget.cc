@@ -979,8 +979,8 @@ void MainWidget::drawImage(QPainter* paint) {
     }
   }
 
-  Stopwatch sw1;
-  sw1.start();
+  // Stopwatch sw1;
+  // sw1.start();
 
   // When using georeferenced images we will draw the last image to be drawn
   // first, so that we skip the pixels from other images that are covered by it.
@@ -1109,8 +1109,8 @@ void MainWidget::drawImage(QPainter* paint) {
 
   } // End loop through input images
 
-  sw1.stop();
-  vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << "\n";
+  // sw1.stop();
+  // vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << "\n";
 
   return;
 } // End function drawImage()
