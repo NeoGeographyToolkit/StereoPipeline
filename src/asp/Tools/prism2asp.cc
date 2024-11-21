@@ -208,7 +208,7 @@ void extrapolatePosition(vw::cartography::Datum const& datum,
 }
 
 int main(int argc, char * argv[]) {
-    
+  
   Options opt;
   try {
     
@@ -278,17 +278,18 @@ int main(int argc, char * argv[]) {
     double offset_factor = 0.0;
     if (view == "PRISM forward")  {
       pitch = 23.8;
-      offset_factor = 4.81;
+      offset_factor = 7.3; //4.81; // (latter is before adding rpy)
     } else if (view == "PRISM nadir") {
       pitch = 0.0;
-      offset_factor = 3.08;
+      offset_factor = 5.8; // (latter is before adding rpy)
     } else if (view == "PRISM backward") {
       pitch = -23.8;
-      offset_factor = 3.31;
+      offset_factor = 6.0; // 3.31; // (latter is before adding rpy)
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Expecting forward, nadir or backward view. "
                    << "Got: " << view << ".\n");
     }
+    
     // CCD strip image width
     int w = image_size[0];
     int global_offset = (w-32) * offset_factor; // experimentally found
@@ -336,15 +337,24 @@ int main(int argc, char * argv[]) {
       vw::Vector3 down = vw::math::cross_prod(along, across);
       down = down / vw::math::norm_2(down);
       
-      // The camera to world rotation has these vectors as the columns
-      asp::assembleCam2WorldMatrix(along, across, down, cam2world[i]);
-      vw::Matrix3x3 R = asp::rollPitchYaw(roll, pitch, yaw);
+      // The satellite orientation if perfectly aligned with the trajectory
+      vw::Matrix3x3 sat2world;
+      asp::assembleCam2WorldMatrix(along, across, down, sat2world);
+      
+      // Adjust for the measured roll-pitch-yaw of the satellite from the PRISM data
+      vw::Matrix3x3 sat2sat = asp::rollPitchYaw(rpy[i][0], rpy[i][1], rpy[i][2]);
+      
+      // Go from satellite orientation to sensor orientation
+      vw::Matrix3x3 cam2sat = asp::rollPitchYaw(roll, pitch, yaw);
       
       // It looks that the PRISM camera is mounted in reverse, so need to use
       // the inverse of the rotation matrix.
-      cam2world[i] = cam2world[i] * R * vw::math::inverse(asp::rotationXY());
+      vw::Matrix3x3 cam2cam = vw::math::inverse(asp::rotationXY());
+
+      // Put it all together      
+      cam2world[i] = sat2world * sat2sat * cam2sat * cam2cam;
     }
-  
+        
     // Form and save the camera
     asp::CsmModel model;
     asp::populateCsmLinescan(first_line_time, dt_line, 
