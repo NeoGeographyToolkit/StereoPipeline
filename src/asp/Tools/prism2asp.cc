@@ -214,6 +214,77 @@ void extrapolatePosition(vw::cartography::Datum const& datum,
   return;
 }
 
+void createCsmModel(double first_line_time, double dt_line,
+                    double t0_ephem, double dt_ephem, double focal_length, 
+                    double roll, double pitch, double yaw,
+                    std::string              const& view,
+                    vw::Vector2              const& optical_center,
+                    vw::Vector2              const& image_size,
+                    vw::cartography::Datum   const& datum,
+                    std::vector<vw::Vector3> const& positions,
+                    std::vector<vw::Vector3>const & velocities,
+                    std::vector<vw::Vector3> const& rpy,
+                    asp::CsmModel& model) {
+
+  // Create a georeference at the last position
+  vw::cartography::GeoReference georef;
+  produceStereographicGeoref(positions.back(), datum, georef);
+
+  // Assemble the cam2world matrices
+  std::vector<vw::Matrix3x3> cam2world(positions.size());
+  for (size_t i = 0; i < positions.size(); i++) {
+
+    vw::Vector3 beg_pos = positions[i];
+    // Normalized velocity
+    vw::Vector3 vel = velocities[i];
+    vel = vel / vw::math::norm_2(vel);
+    vw::Vector3 end_pos = beg_pos + asp::satSimDelta() * vel;
+
+    vw::Vector3 llh = georef.datum().cartesian_to_geodetic(beg_pos);
+
+    vw::Vector3 beg_proj
+      = georef.geodetic_to_point(georef.datum().cartesian_to_geodetic(beg_pos));
+    vw::Vector3 end_proj
+      = georef.geodetic_to_point(georef.datum().cartesian_to_geodetic(end_pos));
+
+    vw::Vector3 proj_along, proj_across;
+    asp::calcProjAlongAcross(beg_proj, end_proj, proj_along, proj_across);
+
+    vw::Vector3 along, across; // ECEF
+    asp::calcEcefAlongAcross(georef, asp::satSimDelta(),
+                              proj_along, proj_across, beg_proj,
+                              along, across);
+
+    vw::Vector3 down = vw::math::cross_prod(along, across);
+    down = down / vw::math::norm_2(down);
+
+    // The satellite orientation if perfectly aligned with the trajectory
+    vw::Matrix3x3 sat2world;
+    asp::assembleCam2WorldMatrix(along, across, down, sat2world);
+
+    // Adjust for the measured roll-pitch-yaw of the satellite from the PRISM data
+    vw::Matrix3x3 sat2sat = asp::rollPitchYaw(rpy[i][0], rpy[i][1], rpy[i][2]);
+
+    // Go from satellite orientation to sensor orientation
+    vw::Matrix3x3 cam2sat = asp::rollPitchYaw(roll, pitch, yaw);
+
+    // It looks that the PRISM camera is mounted in reverse, so need to use
+    // the inverse of the rotation matrix.
+    vw::Matrix3x3 cam2cam = vw::math::inverse(asp::rotationXY());
+
+    // Put it all together
+    cam2world[i] = sat2world * sat2sat * cam2sat * cam2cam;
+  }
+
+  // Form and save the camera
+  asp::populateCsmLinescan(first_line_time, dt_line,
+                            t0_ephem, dt_ephem,
+                            t0_ephem, dt_ephem,  // for poses
+                            //t0_quat, dt_quat, // for later
+                            focal_length, optical_center, image_size, datum, view,
+                            positions, velocities, cam2world, model);
+}
+
 // TODO(oalexan1): This needs to be modularized
 
 void prism2asp(Options const& opt) {
@@ -307,82 +378,25 @@ void prism2asp(Options const& opt) {
   double dx = 2.5; // resolution in meters
   double focal_length = ht / dx; // focal length in pixels
 
-  // Create a georeference at the last position
-  vw::cartography::GeoReference georef;
-  produceStereographicGeoref(positions.back(), datum, georef);
-
-  // Assemble the cam2world matrices
-  // TODO(oalexan1): This must be a function
-  std::vector<vw::Matrix3x3> cam2world(positions.size());
-  for (size_t i = 0; i < positions.size(); i++) {
-
-    vw::Vector3 beg_pos = positions[i];
-    // Normalized velocity
-    vw::Vector3 vel = velocities[i];
-    vel = vel / vw::math::norm_2(vel);
-    vw::Vector3 end_pos = beg_pos + asp::satSimDelta() * vel;
-
-    vw::Vector3 llh = georef.datum().cartesian_to_geodetic(beg_pos);
-
-      vw::Vector3 beg_proj
-      = georef.geodetic_to_point(georef.datum().cartesian_to_geodetic(beg_pos));
-    vw::Vector3 end_proj
-      = georef.geodetic_to_point(georef.datum().cartesian_to_geodetic(end_pos));
-
-    vw::Vector3 proj_along, proj_across;
-    asp::calcProjAlongAcross(beg_proj, end_proj, proj_along, proj_across);
-
-    vw::Vector3 along, across; // ECEF
-    asp::calcEcefAlongAcross(georef, asp::satSimDelta(),
-                              proj_along, proj_across, beg_proj,
-                              along, across);
-
-    vw::Vector3 down = vw::math::cross_prod(along, across);
-    down = down / vw::math::norm_2(down);
-
-    // The satellite orientation if perfectly aligned with the trajectory
-    vw::Matrix3x3 sat2world;
-    asp::assembleCam2WorldMatrix(along, across, down, sat2world);
-
-    // Adjust for the measured roll-pitch-yaw of the satellite from the PRISM data
-    vw::Matrix3x3 sat2sat = asp::rollPitchYaw(rpy[i][0], rpy[i][1], rpy[i][2]);
-
-    // Go from satellite orientation to sensor orientation
-    vw::Matrix3x3 cam2sat = asp::rollPitchYaw(roll, pitch, yaw);
-
-    // It looks that the PRISM camera is mounted in reverse, so need to use
-    // the inverse of the rotation matrix.
-    vw::Matrix3x3 cam2cam = vw::math::inverse(asp::rotationXY());
-
-    // Put it all together
-    cam2world[i] = sat2world * sat2sat * cam2sat * cam2cam;
-  }
-
-  // Form and save the camera
+  // Create the CSM model
   asp::CsmModel model;
-  asp::populateCsmLinescan(first_line_time, dt_line,
-                            t0_ephem, dt_ephem,
-                            t0_ephem, dt_ephem,  // for poses
-                            //t0_quat, dt_quat, // for later
-                            focal_length, optical_center, image_size, datum, view,
-                            positions, velocities, cam2world, model);
-  vw::vw_out() << "Writing: " << opt.csm_file << "\n";
-  model.saveState(opt.csm_file);
-
+  createCsmModel(first_line_time, dt_line, t0_ephem, dt_ephem, focal_length,
+                 roll, pitch, yaw, view, optical_center, image_size, datum,
+                 positions, velocities, rpy, model);
+  
+  // Read and interpolate the DEM
   vw::ImageViewRef<vw::PixelMask<float>> dem;
   float dem_nodata_val = -std::numeric_limits<float>::max(); // will change
   vw::cartography::GeoReference dem_georef;
   vw::cartography::readGeorefImage(opt.dem, dem_nodata_val, dem_georef, dem);
+  vw::PixelMask<float> nodata_pix(0); nodata_pix.invalidate();
+  vw::ValueEdgeExtension<vw::PixelMask<float>> nodata_ext(nodata_pix); 
+  auto interp_dem = interpolate(dem, vw::BicubicInterpolation(), nodata_ext);
 
   // Upper-left corner
   double lon = -108.1266445, lat = 39.3974048;
   vw::Vector2 dem_pix = dem_georef.lonlat_to_pixel(vw::Vector2(lon, lat));
   std::cout << "--dem pix is " << dem_pix << std::endl;
-  
-  // Interpolate the DEM
-  vw::PixelMask<float> nodata_pix(0); nodata_pix.invalidate();
-  vw::ValueEdgeExtension<vw::PixelMask<float>> nodata_ext(nodata_pix); 
-  auto interp_dem = interpolate(dem, vw::BicubicInterpolation(), nodata_ext);
 
   auto dem_ht = interp_dem(dem_pix[0], dem_pix[1]);
   if (!vw::is_valid(dem_ht))
@@ -394,26 +408,33 @@ void prism2asp(Options const& opt) {
   std::cout << "--xyz is " << xyz << std::endl;
   vw::Vector2 cam_pix = model.point_to_pixel(xyz);
   std::cout << "--cam pix is " << cam_pix << std::endl;
-    
-// vw::Vector3 cam_ctr = camera_model->camera_center(query_pixel);
-// vw::Vector3 cam_dir = camera_model->pixel_to_vector(query_pixel);
-// double height_guess = vw::cartography::demHeightGuess(masked_dem);
+  
+  // The corner pixel is based on NDUMMY_LEFT of first band
+  vw::Vector2 corner_pix(3520, 0);
+  std::cout << "--corner pix is " << corner_pix << std::endl;
+  
+  // vw::Vector3 cam_ctr = camera_model->camera_center(query_pixel);
+  // vw::Vector3 cam_dir = camera_model->pixel_to_vector(query_pixel);
+  // double height_guess = vw::cartography::demHeightGuess(masked_dem);
 
-// // Intersect the ray going from the given camera pixel with a DEM
-// // Use xyz_guess as initial guess and overwrite it with the new value
-// bool treat_nodata_as_zero = false;
-// bool has_intersection = false;
-// double dem_height_error_tol = 1e-3; // 1 mm
-// double max_abs_tol = std::min(dem_height_error_tol, 1e-14);
-// double max_rel_tol = max_abs_tol;
-// int num_max_iter = 100;
-// vw::Vector3 xyz_guess(0, 0, 0);
-// vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
-//   (cam_ctr, cam_dir, masked_dem,
-//     dem_georef, treat_nodata_as_zero,
-//     has_intersection, dem_height_error_tol, 
-//     max_abs_tol, max_rel_tol, 
-//     num_max_iter, xyz_guess, height_guess);
+  // // Intersect the ray going from the given camera pixel with a DEM
+  // // Use xyz_guess as initial guess and overwrite it with the new value
+  // bool treat_nodata_as_zero = false;
+  // bool has_intersection = false;
+  // double dem_height_error_tol = 1e-3; // 1 mm
+  // double max_abs_tol = std::min(dem_height_error_tol, 1e-14);
+  // double max_rel_tol = max_abs_tol;
+  // int num_max_iter = 100;
+  // vw::Vector3 xyz_guess(0, 0, 0);
+  // vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
+  //   (cam_ctr, cam_dir, masked_dem,
+  //     dem_georef, treat_nodata_as_zero,
+  //     has_intersection, dem_height_error_tol, 
+  //     max_abs_tol, max_rel_tol, 
+  //     num_max_iter, xyz_guess, height_guess);
+
+  vw::vw_out() << "Writing: " << opt.csm_file << "\n";
+  model.saveState(opt.csm_file);
 
 }
 
