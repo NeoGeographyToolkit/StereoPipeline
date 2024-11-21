@@ -245,13 +245,11 @@ void save_dem(DemOptions & opt,
   // first reset and later get this number.
   *num_invalid_pixels = 0;
 
-   // We use the existing texture channel, which is the height.
-   ImageViewRef<PixelGray<float>> raster_img = generate_raster(rasterizer, opt);
-
+  // We use the existing texture channel, which is the height.
   Stopwatch sw2;
   sw2.start();
   ImageViewRef<PixelGray<float>> dem
-    = asp::round_image_pixels_skip_nodata(raster_img, opt.rounding_error,
+    = asp::round_image_pixels_skip_nodata(rasterizer.impl(), opt.rounding_error,
                                           opt.nodata_value);
 
   int hole_fill_len = opt.dem_hole_fill_len;
@@ -309,8 +307,7 @@ void save_intersection_error(DemOptions & opt,
     // or we want to find the norm of the error.
     ImageViewRef<double> error_channel = asp::point_cloud_error_image(opt.pointcloud_files);
     rasterizer.set_texture(error_channel);
-    ImageViewRef<PixelGray<float>> raster_img = generate_raster(rasterizer, opt);
-    save_image(opt, asp::round_image_pixels_skip_nodata(raster_img,
+    save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer.impl(),
                                                         opt.rounding_error,
                                                         opt.nodata_value),
                 georef, hole_fill_len, "IntersectionErr");
@@ -323,9 +320,8 @@ void save_intersection_error(DemOptions & opt,
     for (int ch_index = 0; ch_index < 3; ch_index++) {
       ImageViewRef<double> ch = select_channel(ned_err, ch_index);
       rasterizer.set_texture(ch);
-      ImageViewRef<PixelGray<float>> raster_img = generate_raster(rasterizer, opt);
       rasterized[ch_index] =
-        block_cache(raster_img, tile_size, opt.num_threads);
+        block_cache(rasterizer.impl(), tile_size, opt.num_threads);
     }
     auto err_vec = asp::combine_abs_channels(opt.nodata_value, rasterized[0],
                                             rasterized[1], rasterized[2]);
@@ -343,8 +339,8 @@ void save_intersection_error(DemOptions & opt,
 
 // Save horizontal and vertical stddev
 void save_stddev(DemOptions & opt,
-                  vw::cartography::GeoReference const& georef,
-                  asp::OrthoRasterizerView& rasterizer) {
+                 vw::cartography::GeoReference const& georef,
+                 asp::OrthoRasterizerView& rasterizer) {
 
   int num_channels = asp::num_channels(opt.pointcloud_files);
 
@@ -364,16 +360,14 @@ void save_stddev(DemOptions & opt,
 
     ImageViewRef<double> horizontal_stddev_channel = select_channel(point_disk_image, 4);
     rasterizer.set_texture(horizontal_stddev_channel);
-    ImageViewRef<PixelGray<float>> raster_img = generate_raster(rasterizer, opt);
-    save_image(opt, asp::round_image_pixels_skip_nodata(raster_img,
+    save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer.impl(),
                                                         rounding_error, // local value
                                                         opt.nodata_value),
                 georef, hole_fill_len, "HorizontalStdDev");
 
     ImageViewRef<double> vertical_stddev_channel = select_channel(point_disk_image, 5);
     rasterizer.set_texture(vertical_stddev_channel);
-    raster_img = generate_raster(rasterizer, opt);
-    save_image(opt, asp::round_image_pixels_skip_nodata(raster_img,
+    save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer.impl(),
                                                         rounding_error, // local value
                                                         opt.nodata_value),
                 georef, hole_fill_len, "VerticalStdDev");
@@ -456,8 +450,7 @@ void save_ortho(DemOptions & opt,
     rasterizer.set_point_image(point_image);
   }
 
-  ImageViewRef<PixelGray<float>> raster_img = generate_raster(rasterizer, opt);
-  asp::save_image(opt, raster_img, georef,
+  asp::save_image(opt, rasterizer.impl(), georef,
                   0, // no need for a buffer here, as we cache hole-filled tiles
                   "DRG");
   sw3.stop();
@@ -466,7 +459,7 @@ void save_ortho(DemOptions & opt,
 
 // Rasterize a DEM, and perhaps the error image, orthoimage, stddev, etc.
 // This may be called several times, with different grid sizes.
-void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
+void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
                                DemOptions& opt,
                                vw::cartography::GeoReference& georef,
                                std::int64_t * num_invalid_pixels) {
@@ -542,6 +535,6 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
   if (opt.do_ortho)
    save_ortho(opt, georef, rasterizer);
 
-} // End do_software_rasterization
+} // End rasterize_cloud
 
 } // end namespace asp

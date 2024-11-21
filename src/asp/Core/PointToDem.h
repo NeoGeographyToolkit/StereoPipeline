@@ -90,27 +90,22 @@ struct DemOptions: vw::GdalWriteOptions {
   DemOptions();
 };
 
-// Create an antialiased DEM. This is old code. Needs to be wiped at some point.
-ImageViewRef<PixelGray<float>>
-generate_raster(asp::OrthoRasterizerView const& rasterizer,
-                     DemOptions const& opt);
-
 void parse_input_clouds_textures(std::vector<std::string> const& files,
                                  DemOptions& opt);
 
 // Convert any LAS or CSV files to ASP tif files. We do some binning to make the
 // spatial data more localized, to improve performance. We will later wipe these
 // temporary tif files.
-void chip_convert_to_tif(DemOptions& opt,
+void chip_convert_to_tif (DemOptions& opt,
                          asp::CsvConv const& csv_conv,
                          vw::cartography::GeoReference const& csv_georef,
-                         std::vector<std::string> & tmp_tifs);
+                         std::vector<std::string> & tif_files);
 
 // Rasterize a DEM
-void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
-                               DemOptions& opt,
-                               cartography::GeoReference& georef,
-                               std::int64_t * num_invalid_pixels);
+void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
+                     DemOptions& opt,
+                     cartography::GeoReference& georef,
+                     std::int64_t * num_invalid_pixels);
 
 } // end namespace asp
 

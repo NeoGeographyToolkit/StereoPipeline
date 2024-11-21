@@ -42,12 +42,6 @@ DemOptions::DemOptions():
   has_las_or_csv_or_pcd(false), max_output_size(9999999, 9999999),
   auto_proj_center(false), input_is_projected(false) {}
 
-// Create an antialiased DEM. This is old code. Needs to be wiped at some point.
-ImageViewRef<PixelGray<float>>
-generate_raster(asp::OrthoRasterizerView const& rasterizer, DemOptions const& opt) {
-  return rasterizer.impl();
-}
-
 // The files will be input point clouds, and if opt.do_ortho is
 // true, also texture files. If texture files are present, there
 // must be one for each point cloud, and each cloud must have the
@@ -119,11 +113,10 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
       // have the same number of rows and columns.
       DiskImageView<float> cloud(opt.pointcloud_files[i]);
       DiskImageView<float> texture(opt.texture_files[i]);
-      if (cloud.cols() != texture.cols() || cloud.rows() != texture.rows()) {
+      if (cloud.cols() != texture.cols() || cloud.rows() != texture.rows())
         vw_throw(ArgumentErr() << "Point cloud " << opt.pointcloud_files[i]
                                 << " and texture file " << opt.texture_files[i]
                                 << " do not have the same dimensions.\n");
-      }
     }
   }
 
@@ -134,9 +127,9 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 // some binning to make the spatial data more localized, to improve performance.
 // We will later wipe these temporary tif files.
 void chip_convert_to_tif(DemOptions& opt,
-                        asp::CsvConv const& csv_conv,
-                        vw::cartography::GeoReference const& csv_georef,
-                        std::vector<std::string> & tmp_tifs) {
+                         asp::CsvConv const& csv_conv,
+                         vw::cartography::GeoReference const& csv_georef,
+                         std::vector<std::string> & tif_files) {
 
   if (!opt.has_las_or_csv_or_pcd)
     return;
@@ -228,11 +221,11 @@ void chip_convert_to_tif(DemOptions& opt,
       asp::las_or_csv_to_tif(in_file, file_prefix, num_rows, block_size,
                              opt, csv_georef, csv_conv, out_files);
 
-    // Append out_files to all_out_files and to tmp_tifs by inserting
+    // Append out_files to all_out_files and to tif_files by inserting
     // Note that all_out_files will have both PC.tif files and outputs
-    // of las_or_csv_to_tif, while tmp_tifs will have only the latter.
+    // of las_or_csv_to_tif, while tif_files will have only the latter.
     std::copy(out_files.begin(), out_files.end(), std::back_inserter(all_out_files));
-    std::copy(out_files.begin(), out_files.end(), std::back_inserter(tmp_tifs));
+    std::copy(out_files.begin(), out_files.end(), std::back_inserter(tif_files));
   }
 
   // Update the list of all files

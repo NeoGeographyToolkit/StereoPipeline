@@ -392,13 +392,13 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
                  << "Cannot use --auto-proj-center.\n");
 } // end function handle_arguments()
 
-// Wrapper for do_software_rasterization that goes through all spacing values
-void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_points,
-                                             DemOptions& opt,
-                                             cartography::GeoReference& georef,
-                                             ImageViewRef<double> const& error_image,
-                                             double estim_max_error,
-                                             vw::BBox3 const& estim_proj_box) {
+// Wrapper for rasterize_cloud that goes through all spacing values
+void rasterize_cloud_multi_spacing(const ImageViewRef<Vector3>& proj_points,
+                                   DemOptions& opt,
+                                   cartography::GeoReference& georef,
+                                   ImageViewRef<double> const& error_image,
+                                   double estim_max_error,
+                                   vw::BBox3 const& estim_proj_box) {
 
   asp::OutlierRemovalMethod outlier_removal_method = asp::NO_OUTLIER_REMOVAL_METHOD;
   if (opt.remove_outliers_with_pct)
@@ -443,8 +443,7 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
       opt.out_prefix = base_out_prefix;
     else // Write later iterations to a different path.
       opt.out_prefix = base_out_prefix + "_" + vw::num_to_str(i);
-    do_software_rasterization(rasterizer, opt, georef, 
-                              &num_invalid_pixels);
+    rasterize_cloud(rasterizer, opt, georef, &num_invalid_pixels);
   } // End loop through spacings
 
   opt.out_prefix = base_out_prefix; // Restore the original value
@@ -538,8 +537,8 @@ int main(int argc, char *argv[]) {
     //   themselves specify a different datum.
     // - Should all be XYZ format when finished, unless option 
     //  --input-is-projected is set.
-    std::vector<std::string> tmp_tifs;
-    chip_convert_to_tif(opt, csv_conv, csv_georef, tmp_tifs);
+    std::vector<std::string> tif_files;
+    chip_convert_to_tif(opt, csv_conv, csv_georef, tif_files);
 
     // Generate a merged xyz point cloud consisting of all inputs
     // - By now, each input exists in xyz tif format.
@@ -622,17 +621,18 @@ int main(int argc, char *argv[]) {
     // Estimate the proj box size, and the max intersection error (if having an error iamge)
     double estim_max_error = 0.0;
     BBox3 estim_proj_box;
-    estim_max_error = asp::estim_max_tri_error_and_proj_box(proj_points, error_image,
-                                                         opt.remove_outliers_params,
-                                                         estim_proj_box);
+    estim_max_error 
+    = asp::estim_max_tri_error_and_proj_box(proj_points, error_image,
+                                            opt.remove_outliers_params,
+                                            estim_proj_box);
 
     // Create the DEM
-    do_software_rasterization_multi_spacing(proj_points, opt, output_georef, error_image,
-                                            estim_max_error, estim_proj_box);
+    rasterize_cloud_multi_spacing(proj_points, opt, output_georef, error_image,
+                                  estim_max_error, estim_proj_box);
     // Wipe the temporary files
-    for (int i = 0; i < (int)tmp_tifs.size(); i++)
-      if (fs::exists(tmp_tifs[i])) 
-        fs::remove(tmp_tifs[i]);
+    for (size_t i = 0; i < tif_files.size(); i++)
+      if (fs::exists(tif_files[i])) 
+        fs::remove(tif_files[i]);
     
   } ASP_STANDARD_CATCHES;
 
