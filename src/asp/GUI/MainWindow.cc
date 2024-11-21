@@ -242,7 +242,8 @@ bool MainWindow::sanityChecks(int num_images) {
     return false;
   }
   
-  if (num_images <= 1 &&
+  // Need at least two images to view matches, but make an exception for vwip files
+  if (num_images <= 1 && stereo_settings().vwip_files.empty() &&
       (asp::stereo_settings().view_matches ||
        asp::stereo_settings().pairwise_matches ||
        asp::stereo_settings().pairwise_clean_matches)
