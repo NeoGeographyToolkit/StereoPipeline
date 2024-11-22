@@ -44,6 +44,8 @@ in a more accurate transform but a higher chance of failure.
 Usage
 ~~~~~
 
+::
+
      image_mosaic [options] <images> -o output_file_path
 
 Command-line options
