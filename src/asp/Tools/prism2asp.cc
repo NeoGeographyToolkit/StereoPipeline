@@ -96,7 +96,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.dem.empty())
     vw::vw_throw(vw::ArgumentErr() << "Missing the reference DEM.\n");
     
-  // TODO(oalexan1): Add logic to log to file
+  // Create the output directory
+  vw::create_out_dir(opt.csm_file);
+  
+  // Turn on logging to file
+  std::string out_prefix = opt.csm_file;
+  // Remove the extension, which is the text after the last dot
+  size_t pos = out_prefix.rfind(".");
+  if (pos != std::string::npos)
+    out_prefix = out_prefix.substr(0, pos);
+  asp::log_to_file(argc, argv, "", out_prefix);
 
 } // End function handle_arguments
 
@@ -344,26 +353,57 @@ void prism2asp(Options const& opt) {
     vw::vw_throw(vw::ArgumentErr()
       << "The roll-pitch-yaw time range must encompass the image lines time range.\n");
 
-  // Optical offset
+  // Nadir view
+  // Upper-left corner
+  double corner_lon = 0, corner_lat = 0; // will read from xml <Dataset_Frame> (0, 0)
+  // The corner pixel is based on NDUMMY_LEFT of first band
+  vw::Vector2 corner_pix(0, 0);
+  
+  // Optical offset and other heuristics per view
   // TODO(oalexan1): These need refinement. The [Schneider] doc has better values.
   // Offset for the merged image. Subtract 32 as that is the overlap amount
   // between CCDs. Heuristics for now.
   double roll = 0.0, pitch = 0, yaw = 0.0;
   double offset_factor = 0.0;
   if (view == "PRISM forward") {
-    pitch = 23.8;
     offset_factor = 7.3; //4.81; // (latter is before adding rpy)
+    //roll = 0; pitch = 23.8; // nominal
+    roll = 0.020280022559999982;
+    pitch = 23.906335695479999;
+    corner_lon = -108.1339846; corner_lat = 39.3750293; // from xml, wrong
+    corner_pix = vw::Vector2(2304, 0); // from xml, wrong
+    // From inspection
+    corner_lon = -108.13184312172825; corner_lat = 39.381410562321079;
+    corner_pix = vw::Vector2(2325, 0);
   } else if (view == "PRISM nadir") {
-    pitch = 0.0;
+    // Heuristics
     offset_factor = 5.8; // (latter is before adding rpy)
+    //roll = 0; pitch = 0; // nominal
+    roll = -0.017892244040000001;
+    pitch = -0.036843287040000006;
+    // Read from xml
+    corner_lon = -108.1266445;
+    corner_lat = 39.3974048;
+    corner_pix = vw::Vector2(3520, 0);
+  // The corner pixel is based on NDUMMY_LEFT of first band
   } else if (view == "PRISM backward") {
-    pitch = -23.8;
+    roll = 0.0; pitch = -23.8; // nominal
+    roll = 0.038117781239999982; pitch = -23.802336706320002; // empirical
+    corner_lon = -108.1360601; corner_lat = 39.4241022; // from xml, wrong
+    corner_pix = vw::Vector2(4000, 0); // from xml, wrong
+    corner_lon = -108.13848057684356; corner_lat = 39.415530627090277; // visual inspection
+    corner_pix = vw::Vector2(4021, 0); // based on visual inspection
     offset_factor = 6.0; // 3.31; // (latter is before adding rpy)
   } else {
     vw::vw_throw(vw::ArgumentErr() << "Expecting forward, nadir or backward view. "
                   << "Got: " << view << ".\n");
   }
 
+  std::cout << "--corner pix is " << corner_pix << std::endl;
+  std::cout << "initial roll is " << roll << std::endl;
+  std::cout << "initial pitch is " << pitch << std::endl;
+  std::cout << "initial yaw is " << yaw << std::endl;
+  
   // CCD strip image width
   int w = image_size[0];
   int global_offset = (w-32) * offset_factor; // experimentally found
@@ -378,12 +418,6 @@ void prism2asp(Options const& opt) {
   double dx = 2.5; // resolution in meters
   double focal_length = ht / dx; // focal length in pixels
 
-  // Create the CSM model
-  asp::CsmModel model;
-  createCsmModel(first_line_time, dt_line, t0_ephem, dt_ephem, focal_length,
-                 roll, pitch, yaw, view, optical_center, image_size, datum,
-                 positions, velocities, rpy, model);
-  
   // Read and interpolate the DEM
   vw::ImageViewRef<vw::PixelMask<float>> dem;
   float dem_nodata_val = -std::numeric_limits<float>::max(); // will change
@@ -393,46 +427,85 @@ void prism2asp(Options const& opt) {
   vw::ValueEdgeExtension<vw::PixelMask<float>> nodata_ext(nodata_pix); 
   auto interp_dem = interpolate(dem, vw::BicubicInterpolation(), nodata_ext);
 
-  // Upper-left corner
-  double lon = -108.1266445, lat = 39.3974048;
-  vw::Vector2 dem_pix = dem_georef.lonlat_to_pixel(vw::Vector2(lon, lat));
-  std::cout << "--dem pix is " << dem_pix << std::endl;
-
+  vw::Vector2 dem_pix = dem_georef.lonlat_to_pixel(vw::Vector2(corner_lon, corner_lat));
   auto dem_ht = interp_dem(dem_pix[0], dem_pix[1]);
   if (!vw::is_valid(dem_ht))
     vw::vw_throw(vw::ArgumentErr() << "Could not interpolate into the DEM.\n");
   
-  vw::Vector3 llh(lon, lat, dem_ht.child());
+  std::cout.precision(17);
+  std::cout << "--dem pix is " << dem_pix << std::endl;
+
+  vw::Vector3 llh(corner_lon, corner_lat, dem_ht.child());
   std::cout << "llh is " << llh << std::endl;
   vw::Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
   std::cout << "--xyz is " << xyz << std::endl;
+
+  // Create the CSM model
+  std::cout << "--roll is " << roll << std::endl;
+  std::cout << "--pitch is " << pitch << std::endl;
+  asp::CsmModel model;
+  createCsmModel(first_line_time, dt_line, t0_ephem, dt_ephem, focal_length,
+                 roll, pitch, yaw, view, optical_center, image_size, datum,
+                 positions, velocities, rpy, model);
+
   vw::Vector2 cam_pix = model.point_to_pixel(xyz);
   std::cout << "--cam pix is " << cam_pix << std::endl;
   
-  // The corner pixel is based on NDUMMY_LEFT of first band
-  vw::Vector2 corner_pix(3520, 0);
-  std::cout << "--corner pix is " << corner_pix << std::endl;
+  double err = vw::math::norm_2(cam_pix - corner_pix);
+  std::cout << "--err is " << err << std::endl;
+
+  // // A bare-bone minimizer to make the lon-lat corner agree with the pixel corner
+  // double best_roll = roll, best_pitch = pitch;
+  // double best_cost = std::numeric_limits<double>::max();
+  // for (int pass = 0; pass < 15; pass++) {
+      
+  //   int num = 11;  // must be odd to include the initial guess
+  //   double max_angle = 2.0 / pow(double(num - 1.0), double(pass));
+  //   double spacing = 2.0 * max_angle / (num - 1);
+  //   std::vector<double> samples(num);
+  //   for (int i = 0; i < num; i++)
+  //     samples[i] = i * spacing - max_angle;
+
+  //   // Find the best roll and pitch
+  //   for (int ir = 0; ir < num; ir++) {
+  //     double curr_roll = roll + samples[ir];
+      
+  //     for (int ip = 0; ip < num; ip++) {
+  //       double curr_pitch = pitch + samples[ip];
+        
+  //       createCsmModel(first_line_time, dt_line, t0_ephem, dt_ephem, focal_length,
+  //                     curr_roll, curr_pitch, yaw, view, optical_center, image_size,
+  //                     datum, positions, velocities, rpy, model);
+        
+  //       vw::Vector2 cam_pix = model.point_to_pixel(xyz);
+  //       double err = vw::math::norm_2(cam_pix - corner_pix);
+  //       if (err < best_cost) {
+  //         best_cost = err;
+  //         best_roll = curr_roll;
+  //         best_pitch = curr_pitch;
+  //       }
+  //     }
+  //   }
+  //   //std::cout << "--best roll is " << best_roll << std::endl;
+  //   //std::cout << "--best pitch is " << best_pitch << std::endl;
+  //   std::cout << "--best error is " << best_cost << std::endl;
+    
+  //   roll = best_roll;
+  //   pitch = best_pitch;
+  // }
+        
+  // createCsmModel(first_line_time, dt_line, t0_ephem, dt_ephem, focal_length,
+  //                roll, pitch, yaw, view, optical_center, image_size, datum,
+  //                positions, velocities, rpy, model);
+
+  // cam_pix = model.point_to_pixel(xyz);
+  // std::cout << "--cam pix is " << cam_pix << std::endl;
   
-  // vw::Vector3 cam_ctr = camera_model->camera_center(query_pixel);
-  // vw::Vector3 cam_dir = camera_model->pixel_to_vector(query_pixel);
-  // double height_guess = vw::cartography::demHeightGuess(masked_dem);
-
-  // // Intersect the ray going from the given camera pixel with a DEM
-  // // Use xyz_guess as initial guess and overwrite it with the new value
-  // bool treat_nodata_as_zero = false;
-  // bool has_intersection = false;
-  // double dem_height_error_tol = 1e-3; // 1 mm
-  // double max_abs_tol = std::min(dem_height_error_tol, 1e-14);
-  // double max_rel_tol = max_abs_tol;
-  // int num_max_iter = 100;
-  // vw::Vector3 xyz_guess(0, 0, 0);
-  // vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
-  //   (cam_ctr, cam_dir, masked_dem,
-  //     dem_georef, treat_nodata_as_zero,
-  //     has_intersection, dem_height_error_tol, 
-  //     max_abs_tol, max_rel_tol, 
-  //     num_max_iter, xyz_guess, height_guess);
-
+  // err = vw::math::norm_2(cam_pix - corner_pix);
+  // std::cout << "--roll is " << roll << std::endl;
+  // std::cout << "--pitch is " << pitch << std::endl;
+  // std::cout << "--err is " << err << std::endl;
+  
   vw::vw_out() << "Writing: " << opt.csm_file << "\n";
   model.saveState(opt.csm_file);
 
