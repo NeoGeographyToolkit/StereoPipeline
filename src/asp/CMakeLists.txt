@@ -331,11 +331,6 @@ get_all_source_files( "Core/tests" ASP_CORE_TEST_FILES)
 set(ASP_CORE_LIB_DEPENDENCIES ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES}
     ${PDAL_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${CMAKE_DL_LIBS})
 
-# ASP SpiceIO
-get_all_source_files( "SpiceIO"       ASP_SPICEIO_SRC_FILES)
-get_all_source_files( "SpiceIO/tests" ASP_SPICEIO_TEST_FILES)
-set(ASP_SPICEIO_LIB_DEPENDENCIES AspCore ${SPICE_LIBRARIES})
-
 # ASP IsisIO
 get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
 get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
@@ -356,14 +351,14 @@ set(ASP_RIG_LIB_DEPENDENCIES AspCore AspOpenMvg AspPclIO tbb ${OPENCV_LIBRARIES}
 # ASP Camera
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
-set(ASP_CAMERA_LIB_DEPENDENCIES AspCore AspSpiceIO AspIsisIO AspRig ${XERCESC_LIBRARIES}
+set(ASP_CAMERA_LIB_DEPENDENCIES AspCore AspIsisIO AspRig ${XERCESC_LIBRARIES}
     ${CSM_LIBRARIES} ${USGSCSM_LIBRARIES} ${ALE_LIBRARIES})
 
 # ASP Sessions
 ## This code is more complicated and is specified in the lower level file
 get_all_source_files( "Sessions"       ASP_SESSIONS_SRC_FILES)
 get_all_source_files( "Sessions/tests" ASP_SESSIONS_TEST_FILES)
-set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspSpiceIO AspIsisIO AspCamera)
+set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspIsisIO AspCamera)
 
 # ASP GUI
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
@@ -385,7 +380,6 @@ set(ASP_PCLIO_LIB_DEPENDENCIES  pcl_common pcl_io_ply pcl_io
 # Add all of the library subdirectories
 
 add_subdirectory(Core)
-add_subdirectory(SpiceIO)
 if(ASP_HAVE_PKG_ISISIO)
     add_subdirectory(IsisIO)
 endif()

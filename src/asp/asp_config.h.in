@@ -372,9 +372,6 @@
 /* Define to 1 if the pkg package is available */
 #cmakedefine ASP_HAVE_PKG_SPICE 1
 
-/* Define to 1 if the SPICEIO module is available. */
-//#cmakedefine ASP_HAVE_PKG_SPICEIO
-
 /* Define to 1 if the SPICE_SUBDIR package is available. */
 #cmakedefine ASP_HAVE_PKG_SPICE_SUBDIR 1
 

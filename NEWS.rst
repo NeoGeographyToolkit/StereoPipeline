@@ -119,6 +119,7 @@ misc:
     compatibility.
   * Support images with up to 12 bands (channels), up from 6.
   * Support files with the .nitf extension.
+  * Wiped extremely old and unused SPICE logic.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------
