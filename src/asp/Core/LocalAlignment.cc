@@ -436,8 +436,10 @@ namespace asp {
     std::vector<vw::ip::InterestPoint> left_local_ip, right_local_ip;
     size_t number_of_jobs = 1;
     detect_match_ip(left_local_ip, right_local_ip,
-                    crop(left_globally_aligned_image, left_trans_crop_win),
-                    crop(right_globally_aligned_image, right_trans_crop_win), 
+                    vw::pixel_cast<float>(crop(left_globally_aligned_image, 
+                                               left_trans_crop_win)),
+                    vw::pixel_cast<float>(crop(right_globally_aligned_image, 
+                                               right_trans_crop_win)), 
                     stereo_settings().ip_per_tile, number_of_jobs,
                     "", "", // do not save any results to disk  
                     left_nodata_value, right_nodata_value,

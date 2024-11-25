@@ -157,7 +157,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
   DiskImageView<float> image1(rsrc1), image2(rsrc2);
   ImageViewRef<float> image1_norm = image1, image2_norm = image2;
   // Get normalized versions of the images for OpenCV based methods
-  if ((stereo_settings().ip_matching_method != DETECT_IP_METHOD_INTEGRAL) &&
+  if ((stereo_settings().ip_detect_method != DETECT_IP_METHOD_INTEGRAL) &&
       (stats1[0] != stats1[1])) { // Don't normalize if no stats were provided
     vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
     bool do_not_exceed_min_max = false;
@@ -242,15 +242,15 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     vw_out() << "\t    Using epipolar threshold = " << epipolar_threshold << std::endl;
     vw_out() << "\t    IP uniqueness threshold  = " << ip_uniqueness_thresh  << std::endl;
     vw_out() << "\t    Datum:                     " << datum << std::endl;
-    inlier = ip_matching_with_datum(!supports_multi_threading(), 
-                                    !stereo_settings().skip_rough_homography,
-                                     cam1, cam2,
-                                     image1_norm, image2_norm,
-                                     asp::stereo_settings().ip_per_tile,
-                                     datum, match_filename, number_of_jobs,
-                                     epipolar_threshold, ip_uniqueness_thresh,
-                                     left_ip_file, right_ip_file,
-                                     nodata1, nodata2);
+    inlier = match_ip_with_datum(!supports_multi_threading(), 
+                                 !stereo_settings().skip_rough_homography,
+                                 cam1, cam2,
+                                 image1_norm, image2_norm,
+                                 asp::stereo_settings().ip_per_tile,
+                                 datum, match_filename, number_of_jobs,
+                                 epipolar_threshold, ip_uniqueness_thresh,
+                                 left_ip_file, right_ip_file,
+                                 nodata1, nodata2);
   } else { // No datum
     // Run a simpler purely image-based matching function
     double ip_inlier_factor = stereo_settings().ip_inlier_factor;

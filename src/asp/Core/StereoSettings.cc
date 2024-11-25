@@ -123,7 +123,7 @@ namespace asp {
          "How many interest point matches to compute in each image tile (of size "
          "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "
          "than this. See also --matches-per-tile-params.")
-      ("ip-detect-method",          po::value(&global.ip_matching_method)->default_value(0),
+      ("ip-detect-method",          po::value(&global.ip_detect_method)->default_value(0),
        "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
       ("epipolar-threshold",       po::value(&global.epipolar_threshold)->default_value(-1),
                      "Maximum distance from the epipolar line to search for IP matches. Default: automatic calculation.")

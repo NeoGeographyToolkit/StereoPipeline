@@ -26,20 +26,19 @@
 namespace asp {
   
 void BaOptions::copy_to_asp_settings() const {
-  asp::stereo_settings().ip_matching_method         = ip_detect_method;
-  asp::stereo_settings().epipolar_threshold         = epipolar_threshold;
-  asp::stereo_settings().ip_inlier_factor           = ip_inlier_factor;
-  asp::stereo_settings().ip_uniqueness_thresh       = ip_uniqueness_thresh;
-  asp::stereo_settings().num_scales                 = num_scales;
-  asp::stereo_settings().nodata_value               = nodata_value;
-
-  asp::stereo_settings().aster_use_csm = aster_use_csm;
-  asp::stereo_settings().ip_per_tile = ip_per_tile;
-  asp::stereo_settings().ip_per_image = ip_per_image;
-  asp::stereo_settings().matches_per_tile = matches_per_tile;
+  asp::stereo_settings().ip_detect_method        = ip_detect_method;
+  asp::stereo_settings().epipolar_threshold      = epipolar_threshold;
+  asp::stereo_settings().ip_inlier_factor        = ip_inlier_factor;
+  asp::stereo_settings().ip_uniqueness_thresh    = ip_uniqueness_thresh;
+  asp::stereo_settings().num_scales              = num_scales;
+  asp::stereo_settings().nodata_value            = nodata_value;
+  asp::stereo_settings().aster_use_csm           = aster_use_csm;
+  asp::stereo_settings().ip_per_tile             = ip_per_tile;
+  asp::stereo_settings().ip_per_image            = ip_per_image;
+  asp::stereo_settings().matches_per_tile        = matches_per_tile;
   asp::stereo_settings().matches_per_tile_params = matches_per_tile_params;
-  asp::stereo_settings().no_datum = no_datum;
-  asp::stereo_settings().use_least_squares = false; // never true with ba
+  asp::stereo_settings().no_datum                = no_datum;
+  asp::stereo_settings().use_least_squares       = false; // never true with ba
 
   // Note that by default rough homography and tri filtering are disabled
   // as input cameras may be too inaccurate for that.

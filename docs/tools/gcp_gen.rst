@@ -70,10 +70,27 @@ Command-line options
     
 --output-gcp, -o <string (default: "")>
     The output GCP file.
-    
+
 --ip-per-image <integer (default: 20000)>
     How many interest points to detect in each image (the resulting number of
     matches will be much less).
+
+--ip-per-tile <integer (default: 0)>
+    How many interest points to detect in each 1024^2 image tile (default:
+    automatic determination). This is before matching. Not all interest points
+    will have a match. See also ``--matches-per-tile``.
+
+--matches-per-tile <integer (default: 0)>
+    How many interest point matches to compute in each image tile (of size
+    normally 1024^2 pixels). Use a value of ``--ip-per-tile`` a few times larger
+    than this. See also ``--matches-per-tile-params``.
+    
+--matches-per-tile-params <int int (default: 1024 1280)>
+    To be used with ``--matches-per-tile``. The first value is the image tile
+    size for both images. A larger second value allows each right tile to
+    further expand to this size, resulting in the tiles overlapping. This may be
+    needed if the homography alignment between these images is not great, as
+    this transform is used to pair up left and right image tiles.
     
 --num-ransac-iterations <integer (default: 1000)>
     How many iterations to perform in RANSAC when finding interest point matches.

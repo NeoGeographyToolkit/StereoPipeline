@@ -32,6 +32,200 @@ using namespace vw;
 
 namespace asp {
 
+/// Detect interest points
+/// This is not meant to be used directly. Use ip_matching() or
+/// homography_ip_matching().
+void detect_ip(vw::ip::InterestPointList& ip,
+               vw::ImageViewRef<float> const& image,
+               int ip_per_tile, std::string const file_path, double nodata) {
+
+  // Always generate ip, even if they may exist on disk. This is a bugfix for
+  // the case when the images change. 
+   
+  vw::Stopwatch sw1;
+  sw1.start();
+
+  ip.clear();
+
+  // Automatically determine how many ip we need. Can be overridden below
+  // either by --ip-per-image or --ip-per-tile (the latter takes priority).
+  double tile_size = 1024.0;
+  vw::BBox2i box = vw::bounding_box(image.impl());
+  double number_tiles = (box.width() / tile_size) * (box.height() / tile_size);
+
+  int ip_per_image = 5000; // default
+  if (stereo_settings().ip_per_image > 0) 
+    ip_per_image = stereo_settings().ip_per_image; 
+  
+  size_t points_per_tile = double(ip_per_image) / number_tiles;
+  if (points_per_tile > 5000) points_per_tile = 5000;
+  if (points_per_tile < 50  ) points_per_tile = 50;
+
+  // See if to override with ip per tile
+  if (ip_per_tile != 0)
+    points_per_tile = ip_per_tile;
+
+  // Record the current number of ip per tile. Later this can be used
+  // for a subsequent attempt, if this one failed.
+  asp::stereo_settings().ip_per_tile = points_per_tile;
+  
+  vw::vw_out() << "\t    Using " << points_per_tile 
+    << " interest points per tile (1024^2 px).\n";
+
+  const bool has_nodata = !boost::math::isnan(nodata);
+  
+  // Load the detection method from stereo_settings.
+  // - This relies on a direct match in the enum integer value.
+  DetectIpMethod detect_method 
+    = static_cast<DetectIpMethod>(stereo_settings().ip_detect_method);
+
+  // Detect interest points.
+  // - Due to templated types we need to duplicate a bunch of code here
+  if (detect_method == DETECT_IP_METHOD_INTEGRAL) {
+    // Zack's custom detector
+    int num_scales = stereo_settings().num_scales;
+    if (num_scales <= 0) 
+      num_scales = vw::ip::IntegralInterestPointDetector
+        <vw::ip::OBALoGInterestOperator>::IP_DEFAULT_SCALES;
+    else
+      vw::vw_out() << "\t    Using " << num_scales 
+        << " scales in OBALoG interest point detection.\n";
+
+    vw::ip::IntegralAutoGainDetector detector(points_per_tile, num_scales);
+
+    // This detector can't handle a mask so if there is nodata just set those pixels to zero.
+
+    vw::vw_out() << "\t    Detecting IP\n";
+    if (!has_nodata)
+      ip = detect_interest_points(image.impl(), detector, points_per_tile);
+    else
+      ip = detect_interest_points(apply_mask(create_mask_less_or_equal(image.impl(),nodata)), detector, points_per_tile);
+  } else {
+
+    // Initialize the OpenCV detector.  Conveniently we can just pass in the type argument.
+    // - If VW was not build with OpenCV, this call will just throw an exception.
+    vw::ip::OpenCvIpDetectorType cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_SIFT;
+    if (detect_method == DETECT_IP_METHOD_ORB)
+      cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_ORB;
+
+    // The opencv detector only works if the inputs are normalized, so do it here if it was not done before.
+    // - If the images are already normalized most of the data will be in the 0-1 range.
+    // - This normalize option will normalize PER-TILE which has different results than
+    //   the whole-image normalization that ASP normally uses.
+    bool opencv_normalize = stereo_settings().skip_image_normalization;
+    if (stereo_settings().ip_normalize_tiles)
+      opencv_normalize = true;
+    if (opencv_normalize)
+      vw::vw_out() << "\t    Using per-tile image normalization for IP detection...\n";
+
+    bool build_opencv_descriptors = true;
+    vw::ip::OpenCvInterestPointDetector detector(cv_method, opencv_normalize, build_opencv_descriptors, points_per_tile);
+
+    // These detectors do accept a mask so use one if applicable.
+
+    vw::vw_out() << "\t    Detecting IP\n";
+    if (!has_nodata)
+      ip = detect_interest_points(image.impl(), detector, points_per_tile);
+    else
+      ip = detect_interest_points(create_mask_less_or_equal(image.impl(),nodata), detector, points_per_tile);
+  } // End OpenCV case
+
+  sw1.stop();
+  vw::vw_out(vw::DebugMessage,"asp") << "Detect interest points elapsed time: "
+                                     << sw1.elapsed_seconds() << " s." << std::endl;
+
+  if (!boost::math::isnan(nodata)) {
+    vw::vw_out() << "\t    Removing IP near nodata with radius "
+             << stereo_settings().ip_nodata_radius << std::endl;
+    remove_ip_near_nodata(image.impl(), nodata, ip, stereo_settings().ip_nodata_radius);
+  }
+
+  // For the two OpenCV options we already built the descriptors, so
+  // only do this for the integral method.
+  if (detect_method == DETECT_IP_METHOD_INTEGRAL) {
+    vw::Stopwatch sw2;
+    sw2.start();
+    vw::vw_out() << "\t    Building descriptors" << std::endl;
+    vw::ip::SGradDescriptorGenerator descriptor;
+    if (!has_nodata)
+      describe_interest_points(image.impl(), descriptor, ip);
+    else
+      describe_interest_points(apply_mask(create_mask_less_or_equal(image.impl(),nodata)), descriptor, ip);
+    sw2.stop();
+    vw::vw_out(vw::DebugMessage,"asp") << "Building descriptors elapsed time: "
+                                       << sw2.elapsed_seconds() << " s." << std::endl;
+  }
+
+  vw::vw_out() << "\t    Found interest points: " << ip.size() << std::endl;
+
+  // If a file path was provided, record the IP to disk.
+  if (file_path != "") {
+    vw::vw_out() << "\t    Recording interest points to file: " << file_path << std::endl;
+    vw::ip::write_binary_ip_file(file_path, ip);
+  }
+
+  return;
+}
+
+// Detect IP in a pair of images and apply rudimentary filtering.
+// Returns false if either image ended up with zero IP.
+bool detect_ip_pair(vw::ip::InterestPointList& ip1, 
+                    vw::ip::InterestPointList& ip2,  
+                    vw::ImageViewRef<float> const& image1,
+                    vw::ImageViewRef<float> const& image2,
+                    int ip_per_tile,
+                    std::string const left_file_path,
+                    std::string const right_file_path,
+                    double nodata1, double nodata2) {
+
+  vw::Stopwatch sw1;
+  sw1.start();
+
+  // Detect interest points in the two images
+  vw::vw_out() << "\t    Looking for IP in left image.\n";
+  detect_ip(ip1, vw::pixel_cast<float>(image1), ip_per_tile, left_file_path, nodata1);
+  vw::vw_out() << "\t    Looking for IP in right image.\n";
+  detect_ip(ip2, vw::pixel_cast<float>(image2), ip_per_tile, right_file_path, nodata2);
+  
+  if (stereo_settings().ip_debug_images) {
+    vw::vw_out() << "\t    Writing detected IP debug images. " << std::endl;
+    write_ip_debug_image("ASP_IP_detect_debug1.tif", image1, ip1, !boost::math::isnan(nodata1), nodata1);
+    write_ip_debug_image("ASP_IP_detect_debug2.tif", image2, ip2, !boost::math::isnan(nodata2), nodata2);
+  }
+  
+  side_ip_filtering(ip1, ip2, bounding_box(image1), bounding_box(image2));
+  
+  sw1.stop();
+  vw::vw_out() << "Elapsed time in ip detection: " << sw1.elapsed_seconds() << " s.\n";
+
+  return ((ip1.size() > 0) && (ip2.size() > 0));
+}
+
+/// Detect interest points and use a simple matching technique.
+/// This is not meant to be used directly. Use ip_matching().
+void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
+                     std::vector<vw::ip::InterestPoint>& matched_ip2,
+                     vw::ImageViewRef<float> const& image1,
+                     vw::ImageViewRef<float> const& image2,
+                     int ip_per_tile, size_t number_of_jobs,
+                     std::string const left_file_path,
+                     std::string const right_file_path,
+                     double nodata1,
+                     double nodata2,
+                     std::string const& match_file) {
+
+  // Detect interest points in the two images
+  vw::ip::InterestPointList ip1, ip2;
+  detect_ip_pair(ip1, ip2, image1, image2, ip_per_tile,
+                 left_file_path, right_file_path, nodata1, nodata2);
+
+  // Match the ip and save the match file. No epipolar constraint
+  // is used in this mode.
+  match_ip_no_datum(ip1, ip2, image1, image2, number_of_jobs,
+    matched_ip1, matched_ip2, match_file); // outputs
+
+} // End function detect_match_ip
+
 void check_homography_matrix(Matrix<double>       const& H,
                              std::vector<Vector3> const& left_points,
                              std::vector<Vector3> const& right_points,
@@ -964,7 +1158,10 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
 
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   size_t number_of_jobs = 1;
-  detect_match_ip(matched_ip1, matched_ip2, image1,  image2, ip_per_tile, number_of_jobs,
+  detect_match_ip(matched_ip1, matched_ip2, 
+                  vw::pixel_cast<float>(image1),
+                  vw::pixel_cast<float>(image2), 
+                  ip_per_tile, number_of_jobs,
                   left_file_path, right_file_path, nodata1, nodata2);
   
   std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
@@ -1006,6 +1203,8 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
 // This applies only the homography constraint. Not the best.
 // Can optionally restrict the matching to given image bounding boxes,
 // which can result in big efficiency gains.
+// TODO(oalexan1): See if this becomes slow if 
+// detect_match_ip() is de-templatized.
 bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
                             vw::ImageViewRef<float> const& image2,
                             int ip_per_tile,

@@ -828,7 +828,7 @@ bool epipolar_ip_matching(bool single_threaded_camera,
 
   // Match interest points forward/backward .. constraining on epipolar line
   DetectIpMethod detect_method 
-    = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
+    = static_cast<DetectIpMethod>(stereo_settings().ip_detect_method);
 
   // Sanity check
   if (match_per_tile && asp::stereo_settings().matches_per_tile <= 0)
@@ -949,23 +949,22 @@ bool epipolar_ip_matching(bool single_threaded_camera,
 } // End function epipolar_ip_matching
 
 // See the .h file for documentation.
-bool ip_matching_with_datum(
-            bool single_threaded_camera,
-            bool use_rough_homography,
-            vw::camera::CameraModel* cam1,
-            vw::camera::CameraModel* cam2,
-            vw::ImageViewRef<float> const& image1,
-            vw::ImageViewRef<float> const& image2,
-            int ip_per_tile,
-            vw::cartography::Datum const& datum,
-            std::string const& match_filename,
-            size_t number_of_jobs,
-            double epipolar_threshold,
-            double uniqueness_threshold,
-            std::string const left_file_path,
-            std::string const right_file_path,
-            double nodata1,
-            double nodata2) {
+bool match_ip_with_datum(bool single_threaded_camera,
+                         bool use_rough_homography,
+                         vw::camera::CameraModel* cam1,
+                         vw::camera::CameraModel* cam2,
+                         vw::ImageViewRef<float> const& image1,
+                         vw::ImageViewRef<float> const& image2,
+                         int ip_per_tile,
+                         vw::cartography::Datum const& datum,
+                         std::string const& match_filename,
+                         size_t number_of_jobs,
+                         double epipolar_threshold,
+                         double uniqueness_threshold,
+                         std::string const left_file_path,
+                         std::string const right_file_path,
+                         double nodata1,
+                         double nodata2) {
 
   if (use_rough_homography)
     vw_out() << "\t    Using rough homography.\n";
@@ -1064,15 +1063,15 @@ bool ip_matching_with_datum(
 
 // Match the ip and save the match file. No datum or epipolar constraint
 // is used in this mode.
-void match_ip_pair(vw::ip::InterestPointList const& ip1, 
-                   vw::ip::InterestPointList const& ip2,
-                   vw::ImageViewRef<float> const& image1,
-                   vw::ImageViewRef<float> const& image2,
-                   size_t number_of_jobs,
-                   // Outputs
-                   std::vector<vw::ip::InterestPoint>& matched_ip1,
-                   std::vector<vw::ip::InterestPoint>& matched_ip2,
-                   std::string const& match_file) {
+void match_ip_no_datum(vw::ip::InterestPointList const& ip1, 
+                       vw::ip::InterestPointList const& ip2,
+                       vw::ImageViewRef<float> const& image1,
+                       vw::ImageViewRef<float> const& image2,
+                       size_t number_of_jobs,
+                       // Outputs
+                       std::vector<vw::ip::InterestPoint>& matched_ip1,
+                       std::vector<vw::ip::InterestPoint>& matched_ip2,
+                       std::string const& match_file) {
 
 
   matched_ip1.clear(); 
@@ -1085,7 +1084,7 @@ void match_ip_pair(vw::ip::InterestPointList const& ip1,
   std::copy(ip2.begin(), ip2.end(), std::back_inserter(ip2_copy));
 
   DetectIpMethod detect_method 
-    = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
+    = static_cast<DetectIpMethod>(stereo_settings().ip_detect_method);
 
   // Best point must be closer than the next best point
   double uniqueness_threshold = stereo_settings().ip_uniqueness_thresh;

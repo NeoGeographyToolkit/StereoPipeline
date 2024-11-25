@@ -516,7 +516,7 @@ follows::
 
     bundle_adjust A_crop.cub B_crop.cub C_crop.cub D_crop.cub \
       --num-iterations 100 --save-intermediate-cameras        \
-      --ip-per-image 20000 --max-pairwise-matches 1000        \
+      --ip-per-image 20000 --max-pairwise-matches 2000        \
       --min-matches 1 --num-passes 1 -o run_ba/run
     parallel_stereo A_crop.cub B_crop.cub run_full2/run       \
       --subpixel-mode 3 --bundle-adjust-prefix run_ba/run
@@ -563,7 +563,7 @@ mapprojected images. The the process went as follows::
       C_crop_sub10.cub D_crop_sub10.cub --min-matches 1 \
       --num-iterations 100 --save-intermediate-cameras  \
       -o run_ba_sub10/run --ip-per-image 20000          \
-      --max-pairwise-matches 1000 --overlap-limit 50    \
+      --max-pairwise-matches 2000 --overlap-limit 50    \
       --match-first-to-last --num-passes 1              \
       --mapprojected-data                               \
       "$(ls [A-D]_sub10.map.noba.tif) run_sub10_noba/run-DEM.tif"
@@ -1062,10 +1062,10 @@ The ``parallel_bundle_adjust`` tool (:numref:`parallel_bundle_adjust`)
 is employed to co-register the images and correct camera errors. The
 images must be, as mentioned earlier, ordered by Sun azimuth angle.
 
-It is very important to have interest point matches that tie all
-images together. To make the determination of such matches more
-successful, the images were first mapprojected at 1 m/pixel to have
-them in the same perspective. 
+It is very important to have interest point matches that tie all images
+together. To make the determination of such matches more successful, the images
+were first mapprojected at 1 m/pixel (LRO NAC nominal resolution) to have them
+in the same perspective. 
 
 The mapprojected images must all be at the same resolution. Mapprojection should
 be without bundle-adjusted cameras (otherwise the results will be incorrect).
@@ -1089,7 +1089,7 @@ Run bundle adjustment::
       --num-iterations 100                           \
       --num-passes 2                                 \
       --min-matches 1                                \
-      --max-pairwise-matches 1000                    \
+      --max-pairwise-matches 2000                    \
       --camera-weight 0                              \
       --robust-threshold 2                           \
       --tri-weight 0.05                              \
@@ -1106,7 +1106,7 @@ Here more bundle adjustment iterations are desirable,
 but this step takes too long. A large ``--ip-per-image`` can make a
 difference in images with rather different different illumination
 conditions but it can also slow down the process a lot. Note that the
-value of ``--max-pairwise-matches`` was set to 1000. That should
+value of ``--max-pairwise-matches`` was set to 2000. That should
 hopefully create enough matches among any two images. A higher value
 here will make bundle adjustment run slower and use more memory.
 
@@ -1267,7 +1267,7 @@ in bundle adjustment (:numref:`heights_from_dem`)::
     bundle_adjust                                 \
       --image-list image_list.txt                 \
       --camera-list camera_list.txt               \
-      --max-pairwise-matches 1000                 \
+      --max-pairwise-matches 2000                 \
       --min-matches 1                             \
       --skip-matching                             \
       --num-iterations 100                        \

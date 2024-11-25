@@ -961,7 +961,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             allow_unregistered, unregistered);
 
   // Copy the IP settings to the global stereo_settings() object
-  asp::stereo_settings().ip_matching_method       = opt.ip_detect_method;
+  asp::stereo_settings().ip_detect_method         = opt.ip_detect_method;
   asp::stereo_settings().individually_normalize   = opt.individually_normalize;
   asp::stereo_settings().skip_image_normalization = opt.skip_image_normalization;
   asp::stereo_settings().ip_inlier_factor         = opt.ip_inlier_factor;
