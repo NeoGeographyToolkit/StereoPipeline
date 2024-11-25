@@ -41,7 +41,8 @@ namespace asp {
 struct Options: vw::GdalWriteOptions {
   std::string camera_image, ortho_image, dem, output_gcp, output_prefix, match_file;
   double inlier_threshold;
-  int ip_per_image, num_ransac_iterations;
+  int ip_detect_method, ip_per_image, ip_per_tile, matches_per_tile, num_ransac_iterations;
+  vw::Vector2i matches_per_tile_params;
   Options(): ip_per_image(0), num_ransac_iterations(0.0), inlier_threshold(0){}
 };
 
@@ -59,9 +60,25 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The DEM to infer the elevations from.")
     ("output-gcp,o", po::value(&opt.output_gcp)->default_value(""),
      "The output GCP file.")
+    ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
+     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
     ("ip-per-image", po::value(&opt.ip_per_image)->default_value(20000),
      "How many interest points to detect in each image (the resulting number of "
       "matches will be much less).")
+    ("ip-per-tile", po::value(&opt.ip_per_tile)->default_value(0),
+     "How many interest points to detect in each 1024^2 image tile (default: automatic "
+     "determination). This is before matching. Not all interest points will have a match. "
+     "See also --matches-per-tile.")
+    ("matches-per-tile",  po::value(&opt.matches_per_tile)->default_value(0),
+     "How many interest point matches to compute in each image tile (of size "
+     "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "
+     "than this. See also --matches-per-tile-params.")
+    ("matches-per-tile-params",  po::value(&opt.matches_per_tile_params)->default_value(Vector2(1024, 1280), "1024 1280"),
+     "To be used with --matches-per-tile. The first value is the image tile size for both "
+     "images. A larger second value allows each right tile to further expand to this size, "
+     "resulting in the tiles overlapping. This may be needed if the homography alignment "
+     "between these images is not great, as this transform is used to pair up left and "
+     "right image tiles.")
     ("num-ransac-iterations", po::value(&opt.num_ransac_iterations)->default_value(1000),
      "How many iterations to perform in RANSAC when finding interest point matches.")
     ("inlier-threshold", po::value(&opt.inlier_threshold)->default_value(0.0),
@@ -167,22 +184,35 @@ void find_matches(Options & opt,
     vw::vw_out() << "Using specified inlier threshold: " << opt.inlier_threshold 
                 << " pixels.\n";
   }
-  vw::vw_out() << "Searching for " << opt.ip_per_image 
-                << " interest points in each image.\n";
+ 
+  if (opt.ip_per_tile > 0) {
+    vw::vw_out() << "Since --ip-per-tile was set, not using the --ip-per-image option.\n"; 
+    opt.ip_per_image = 0;
+  }
+  
+  if (opt.ip_per_image > 0)
+    vw::vw_out() << "Searching for " << opt.ip_per_image 
+                  << " interest points in each image.\n";
   
   vw_out() << "Matching interest points between: " << camera_image_name << " and "
            << ortho_image_name << "\n";
 
-  // Now find and match interest points. Use ip per image rather than ip per
-  // tile as it is more intuitive that way
-  int ip_per_tile = 0;
-  asp::stereo_settings().ip_per_image = opt.ip_per_image;
+  // These need to be passed to the ip matching function
+  asp::stereo_settings().ip_detect_method      = opt.ip_detect_method;
+  asp::stereo_settings().ip_per_image            = opt.ip_per_image;
+  asp::stereo_settings().ip_per_tile             = opt.ip_per_tile;
+  asp::stereo_settings().ip_per_image            = opt.ip_per_image;
+  asp::stereo_settings().matches_per_tile        = opt.matches_per_tile;
+  asp::stereo_settings().matches_per_tile_params = opt.matches_per_tile_params;
+
+  // TODO(oalexan1): Why one job?
   size_t number_of_jobs = 1;
+
   std::string match_file = ""; // so we do not yet write to disk
   asp::detect_match_ip(matched_ip1, matched_ip2,
                        vw::pixel_cast<float>(camera_image), // cast to float so it compiles
                        vw::pixel_cast<float>(ortho_image),
-                       ip_per_tile, number_of_jobs,
+                       asp::stereo_settings().ip_per_tile , number_of_jobs,
                        "", "", // Do not read ip from disk
                        nodata1, nodata2, match_file);
   
