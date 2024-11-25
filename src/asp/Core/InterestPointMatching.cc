@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -40,8 +40,8 @@ void detect_ip(vw::ip::InterestPointList& ip,
                int ip_per_tile, std::string const file_path, double nodata) {
 
   // Always generate ip, even if they may exist on disk. This is a bugfix for
-  // the case when the images change. 
-   
+  // the case when the images change.
+
   vw::Stopwatch sw1;
   sw1.start();
 
@@ -54,12 +54,12 @@ void detect_ip(vw::ip::InterestPointList& ip,
   double number_tiles = (box.width() / tile_size) * (box.height() / tile_size);
 
   int ip_per_image = 5000; // default
-  if (stereo_settings().ip_per_image > 0) 
-    ip_per_image = stereo_settings().ip_per_image; 
-  
+  if (stereo_settings().ip_per_image > 0)
+    ip_per_image = stereo_settings().ip_per_image;
+
   size_t points_per_tile = double(ip_per_image) / number_tiles;
   if (points_per_tile > 5000) points_per_tile = 5000;
-  if (points_per_tile < 50  ) points_per_tile = 50;
+  if (points_per_tile < 50) points_per_tile = 50;
 
   // See if to override with ip per tile
   if (ip_per_tile != 0)
@@ -68,15 +68,15 @@ void detect_ip(vw::ip::InterestPointList& ip,
   // Record the current number of ip per tile. Later this can be used
   // for a subsequent attempt, if this one failed.
   asp::stereo_settings().ip_per_tile = points_per_tile;
-  
-  vw::vw_out() << "\t    Using " << points_per_tile 
+
+  vw::vw_out() << "\t    Using " << points_per_tile
     << " interest points per tile (1024^2 px).\n";
 
   const bool has_nodata = !boost::math::isnan(nodata);
-  
+
   // Load the detection method from stereo_settings.
   // - This relies on a direct match in the enum integer value.
-  DetectIpMethod detect_method 
+  DetectIpMethod detect_method
     = static_cast<DetectIpMethod>(stereo_settings().ip_detect_method);
 
   // Detect interest points.
@@ -84,11 +84,11 @@ void detect_ip(vw::ip::InterestPointList& ip,
   if (detect_method == DETECT_IP_METHOD_INTEGRAL) {
     // Zack's custom detector
     int num_scales = stereo_settings().num_scales;
-    if (num_scales <= 0) 
+    if (num_scales <= 0)
       num_scales = vw::ip::IntegralInterestPointDetector
         <vw::ip::OBALoGInterestOperator>::IP_DEFAULT_SCALES;
     else
-      vw::vw_out() << "\t    Using " << num_scales 
+      vw::vw_out() << "\t    Using " << num_scales
         << " scales in OBALoG interest point detection.\n";
 
     vw::ip::IntegralAutoGainDetector detector(points_per_tile, num_scales);
@@ -169,8 +169,8 @@ void detect_ip(vw::ip::InterestPointList& ip,
 
 // Detect IP in a pair of images and apply rudimentary filtering.
 // Returns false if either image ended up with zero IP.
-bool detect_ip_pair(vw::ip::InterestPointList& ip1, 
-                    vw::ip::InterestPointList& ip2,  
+bool detect_ip_pair(vw::ip::InterestPointList& ip1,
+                    vw::ip::InterestPointList& ip2,
                     vw::ImageViewRef<float> const& image1,
                     vw::ImageViewRef<float> const& image2,
                     int ip_per_tile,
@@ -186,15 +186,15 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
   detect_ip(ip1, vw::pixel_cast<float>(image1), ip_per_tile, left_file_path, nodata1);
   vw::vw_out() << "\t    Looking for IP in right image.\n";
   detect_ip(ip2, vw::pixel_cast<float>(image2), ip_per_tile, right_file_path, nodata2);
-  
+
   if (stereo_settings().ip_debug_images) {
     vw::vw_out() << "\t    Writing detected IP debug images. " << std::endl;
     write_ip_debug_image("ASP_IP_detect_debug1.tif", image1, ip1, !boost::math::isnan(nodata1), nodata1);
     write_ip_debug_image("ASP_IP_detect_debug2.tif", image2, ip2, !boost::math::isnan(nodata2), nodata2);
   }
-  
+
   side_ip_filtering(ip1, ip2, bounding_box(image1), bounding_box(image2));
-  
+
   sw1.stop();
   vw::vw_out() << "Elapsed time in ip detection: " << sw1.elapsed_seconds() << " s.\n";
 
@@ -233,13 +233,13 @@ void check_homography_matrix(Matrix<double>       const& H,
 
   // Sanity checks. If these fail, most likely the two images are too different
   // for stereo to succeed.
-  if ( indices.size() < std::min( right_points.size(), left_points.size() )/2 ){
+  if (indices.size() < std::min(right_points.size(), left_points.size())/2) {
     vw_out(WarningMessage) << "InterestPointMatching: The number of inliers is less "
                            << "than 1/2 of the number of points. The inputs may be invalid.\n";
   }
 
   double det = fabs(H(0, 0)*H(1, 1) - H(0, 1)*H(1, 0));
-  if (det <= 0.1 || det >= 10.0){
+  if (det <= 0.1 || det >= 10.0) {
     vw_out(WarningMessage) << "InterestPointMatching: The determinant of the 2x2 submatrix "
                            << "of the homography matrix " << H << " is " << det
                            << ". There could be a large scale discrepancy among the input images "
@@ -258,10 +258,10 @@ rough_homography_fit(camera::CameraModel* cam1,
                      camera::CameraModel* cam2,
                      BBox2i const& box1, BBox2i const& box2,
                      cartography::Datum const& datum) {
-    
+
   vw::Stopwatch sw;
   sw.start();
-    
+
   // Bounce several points off the datum and fit an affine.
   std::vector<Vector3> left_points, right_points;
   int num = 100;
@@ -272,32 +272,31 @@ rough_homography_fit(camera::CameraModel* cam1,
   TerminalProgressCallback tpc("", "\tRough homography--> ");
   tpc.report_progress(0);
   double inc_amount = 1.0 / double(num) / double(num);
-    
-  for (int i = 0; i < num; i++ ) {
-    for ( int j = 0; j < num; j++ ) {
+
+  for (int i = 0; i < num; i++) {
+    for (int j = 0; j < num; j++) {
       try {
-        Vector2 l( double(box1.width()  - 1) * i / (num-1.0),
-                   double(box1.height() - 1) * j / (num-1.0) );
+        Vector2 l(double(box1.width()  - 1) * i / (num-1.0),
+                   double(box1.height() - 1) * j / (num-1.0));
 
         Vector3 intersection = cartography::datum_intersection(datum, cam1, l);
-        if ( intersection == Vector3() )
+        if (intersection == Vector3())
           continue;
 
         Vector2 r = cam2->point_to_pixel(intersection);
 
-        if ( box2.contains( r ) ){
-          left_points.push_back(  Vector3(l[0],l[1],1));
-          right_points.push_back( Vector3(r[0],r[1],1));
+        if (box2.contains(r)) {
+          left_points.push_back(Vector3(l[0],l[1],1));
+          right_points.push_back(Vector3(r[0],r[1],1));
         }
-      }
-      catch (...) {}
+      } catch (...) {}
 
       try {
         Vector2 r(double(box2.width()  - 1) * i / (num-1.0),
                   double(box2.height() - 1) * j / (num-1.0));
 
         Vector3 intersection = cartography::datum_intersection(datum, cam2, r);
-        if ( intersection == Vector3() )
+        if (intersection == Vector3())
           continue;
 
         Vector2 l = cam1->point_to_pixel(intersection);
@@ -306,39 +305,38 @@ rough_homography_fit(camera::CameraModel* cam1,
           left_points.push_back(Vector3(l[0],l[1],1));
           right_points.push_back(Vector3(r[0],r[1],1));
         }
-      }
-      catch (...) {}
-      tpc.report_incremental_progress( inc_amount );
+      } catch (...) {}
+      tpc.report_incremental_progress(inc_amount);
     }
   }
   tpc.report_finished();
-  
+
   // At most 5000 points should be enough for rough homography as it is a simple transform.
-  vw::ip::pick_pair_subset(left_points, right_points, 5000); 
+  vw::ip::pick_pair_subset(left_points, right_points, 5000);
 
   vw_out() << "Projected " << left_points.size()
            << " rays for rough homography.\n";
-    
+
   if (left_points.empty() || right_points.empty())
-    vw_throw( ArgumentErr() << "InterestPointMatching: rough_homography_fit failed to generate points! Examine your images, or consider using the options --skip-rough-homography and --no-datum.\n" );
+    vw_throw(ArgumentErr() << "InterestPointMatching: rough_homography_fit failed to generate points! Examine your images, or consider using the options --skip-rough-homography and --no-datum.\n");
 
   // This number is 1/15 by default in stereo, and 0.2 in bundle_adjust. The
   // latter is more tolerant of outliers, but for stereo this can result in a
   // huge search range for disparity, which is not good.
-  double thresh_factor = stereo_settings().ip_inlier_factor; 
+  double thresh_factor = stereo_settings().ip_inlier_factor;
   double inlier_th = norm_2(Vector2(box1.width(),box1.height())) * (1.5*thresh_factor);
 
   int min_inliers = left_points.size()/2;
   bool reduce_num_if_no_fit = true;
-  
+
   // Using 1000 iterations is excessive here given that the these produced
   // interest points are not too noisy. This also takes a long time.
   int num_iter = stereo_settings().ip_num_ransac_iterations/10 + 50; // about 150
-   
+
   vw_out() << "\t    Rough homography inlier threshold: " << inlier_th << "\n";
 
   // Use RANSAC to determine a good homography transform between the images
-  vw_out() << "Estimating rough homography using RANSAC with " 
+  vw_out() << "Estimating rough homography using RANSAC with "
     << num_iter << " iterations.\n";
   typedef math::HomographyFittingFunctor hfit_func;
   math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
@@ -356,7 +354,7 @@ rough_homography_fit(camera::CameraModel* cam1,
   return H;
 }
 
-// TODO(oalexan1): Integrate filter_ip_homog() and homography_rectification().  
+// TODO(oalexan1): Integrate filter_ip_homog() and homography_rectification().
 // Ensure the same parameters are used in both.
 Vector2i homography_rectification(bool adjust_left_image_size,
                                   bool tight_inlier_threshold,
@@ -374,31 +372,31 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   // This number is 1/15 by default in stereo, and 0.2 in bundle_adjust. The
   // latter is more tolerant of outliers, but for stereo this can result in a
   // huge search range for disparity, which is not good.
-  
+
   // TODO(oalexan1): This number can be too large for large images. Maybe need
   // to use the square root of the diagonal of the image size. Also, in some
   // related places a constant factor is used, like 30. Need to make that
   // uniform.
-  double thresh_factor = stereo_settings().ip_inlier_factor; 
+  double thresh_factor = stereo_settings().ip_inlier_factor;
   double inlier_th = norm_2(Vector2(left_size.x(),left_size.y())) * (1.5*thresh_factor);
-  
+
   // When determining matches per tile, a loose threshold can result in inaccurate
   // determination of the homography. We'd rather have it accurate here and throw
-  // away some good matches than the other way around. Later these matches will 
+  // away some good matches than the other way around. Later these matches will
   // be replaced with matches per tile once the homography transform is found.
   if (tight_inlier_threshold) {
     inlier_th = std::min(0.05*norm_2(Vector2(left_size.x(),left_size.y())), inlier_th);
     inlier_th = std::min(inlier_th, 200.0);
     inlier_th = std::max(inlier_th, 5.0);
   }
-  
+
   int min_inliers = left_copy.size()/2;
   bool reduce_num_if_no_fit = true;
-  
+
   vw_out() << "\t    Homography rectification inlier threshold: " << inlier_th << "\n";
   vw_out() << "\t    RANSAC iterations:                         "
            << stereo_settings().ip_num_ransac_iterations << "\n";
-  
+
   // Use RANSAC to determine a good homography transform between the images
   math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric>
     ransac(math::HomographyFittingFunctor(),
@@ -406,10 +404,10 @@ Vector2i homography_rectification(bool adjust_left_image_size,
             stereo_settings().ip_num_ransac_iterations,
             inlier_th, min_inliers, reduce_num_if_no_fit);
   Matrix<double> H;
-  try {   
+  try {
     H = ransac(right_copy, left_copy);
   } catch (std::exception const& e) {
-    vw_throw(ArgumentErr() << "Failed to find a homography matrix. " 
+    vw_throw(ArgumentErr() << "Failed to find a homography matrix. "
              << "Check if your left and right images are similar enough. "
              << "Consider deleting the output directory and restarting with "
              << "a larger --ip-per-tile value.\n"
@@ -418,14 +416,14 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   std::vector<size_t> indices = ransac.inlier_indices(H, right_copy, left_copy);
   vw::vw_out() << "Homography matrix:\n" << H << "\n";
   vw_out() << "Number of inliers: " << indices.size() << ".\n";
-  
+
   // TODO(oalexan1): A percentile-based filter may help here, after finding
   // the inliers. It should be based on estimating H * right - left.
   // That because the inlier threshold is kind of arbitrary.
   // If outliers are found, need to recompute H based on inliers, which is quick.
 
   check_homography_matrix(H, left_copy, right_copy, indices);
-  
+
   // Set right to a homography that has been refined just to our inliers.
   // May be adjusted with a translation below.
   // TODO(oalexan1): It is not clear if adjusting a homography transform's
@@ -475,12 +473,12 @@ Vector2i homography_rectification(bool adjust_left_image_size,
 /// Remove points in/out of a bounding box depending on "remove_outside".
 /// - Returns the number of points removed.
 size_t remove_ip_bbox(vw::BBox2i const& roi, vw::ip::InterestPointList & ip_list,
-                      bool remove_outside){
+                      bool remove_outside) {
   // Loop through all the points
   size_t num_removed = 0;
   vw::ip::InterestPointList::iterator ip;
   for (ip = ip_list.begin(); ip != ip_list.end(); ++ip) {
-    
+
     if (roi.contains(vw::Vector2i(ip->ix,ip->iy)) xor remove_outside) {
       ip = ip_list.erase(ip);
       ++num_removed;
@@ -489,16 +487,16 @@ size_t remove_ip_bbox(vw::BBox2i const& roi, vw::ip::InterestPointList & ip_list
   }
   return num_removed;
 } // End function remove_ip_bbox
-  
-void side_ip_filtering(vw::ip::InterestPointList& ip1, 
-                       vw::ip::InterestPointList& ip2,  
+
+void side_ip_filtering(vw::ip::InterestPointList& ip1,
+                       vw::ip::InterestPointList& ip2,
                        vw::BBox2i const& bbox1, vw::BBox2i const& bbox2) {
-      
+
   // Filter out IP from the opposite sides of the two images.
   // - Would be better to just pass an ROI into the IP detector!
   if (stereo_settings().ip_edge_buffer_percent <= 0)
     return;
-      
+
   // Figure out removal bboxes
   double percent  = static_cast<double>(stereo_settings().ip_edge_buffer_percent)/100.0;
   int   width_left  = floor(static_cast<double>(bbox1.width()) * percent);
@@ -506,31 +504,31 @@ void side_ip_filtering(vw::ip::InterestPointList& ip1,
   BBox2 bbox_left (width_left, 0, bbox1.width()-width_left,  bbox1.height());
   BBox2 bbox_right(0,          0, bbox2.width()-width_right, bbox2.height());
   bool  remove_outside = true;
-    
+
   // Remove the points
   size_t num_removed_left  = remove_ip_bbox(bbox_left,  ip1, remove_outside);
   size_t num_removed_right = remove_ip_bbox(bbox_right, ip2, remove_outside);
   vw_out() << "Removed: " << num_removed_left << " points from the left side of the left image and "
            << num_removed_right << " points from the right side of the right image.\n";
 } // End side IP filtering
-  
-bool tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
+
+bool tri_ip_filtering(std::vector<ip::InterestPoint> const& matched_ip1,
                   std::vector<ip::InterestPoint> const& matched_ip2,
                   vw::camera::CameraModel* cam1,
                   vw::camera::CameraModel* cam2,
-                  std::list<size_t>& valid_indices ) {
+                  std::list<size_t>& valid_indices) {
   typedef std::vector<double> ArrayT;
-  ArrayT error_samples( valid_indices.size() );
+  ArrayT error_samples(valid_indices.size());
 
   // Create the 'error' samples. Which are triangulation error and distance to sphere.
   double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
 
-  stereo::StereoModel model( cam1, cam2, stereo_settings().use_least_squares, angle_tol );
+  stereo::StereoModel model(cam1, cam2, stereo_settings().use_least_squares, angle_tol);
   size_t count = 0;
   const double HIGH_ERROR = 9999999;
-  BOOST_FOREACH( size_t i, valid_indices ) {
-    model( Vector2(matched_ip1[i].x, matched_ip1[i].y),
-           Vector2(matched_ip2[i].x, matched_ip2[i].y), error_samples[count] );
+  BOOST_FOREACH(size_t i, valid_indices) {
+    model(Vector2(matched_ip1[i].x, matched_ip1[i].y),
+           Vector2(matched_ip2[i].x, matched_ip2[i].y), error_samples[count]);
     // The call returns exactly zero error to indicate a failed ray intersection
     //  so replace it in those cases with a very high error
     if (error_samples[count] == 0)
@@ -542,7 +540,7 @@ bool tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
 
   typedef std::vector<std::pair<Vector<double>, Vector<double> > > ClusterT;
   const size_t NUM_CLUSTERS = 2;
-  ClusterT error_clusters = gaussian_clustering<ArrayT>(error_samples.begin(), 
+  ClusterT error_clusters = gaussian_clustering<ArrayT>(error_samples.begin(),
       error_samples.end(), NUM_CLUSTERS);
 
   // The best triangulation error is the one that has the smallest
@@ -551,11 +549,11 @@ bool tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
   // is what we are interested in.OB
   if ((error_clusters.front().second[0] > error_clusters.back().second[0]) &&
       (error_clusters.back().second[0] != std::numeric_limits<double>::epsilon()))
-    std::swap( error_clusters[0], error_clusters[1] );
+    std::swap(error_clusters[0], error_clusters[1]);
 
   // Determine if we just wrote nothing but outliers (the variance
   // on triangulation is too high).
-  if ( error_clusters.front().second[0] > 1e6 ) {
+  if (error_clusters.front().second[0] > 1e6) {
 
     vw_out() << "\t    Unable to find inlier cluster, keeping best 70% of points.\n";
 
@@ -569,15 +567,14 @@ bool tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
     if (last_good_index < sorted_error.size())
       cutoff_value = sorted_error[last_good_index];
     // The maximum triangulation error still applies!
-    if ((asp::stereo_settings().ip_triangulation_max_error > 0) && 
+    if ((asp::stereo_settings().ip_triangulation_max_error > 0) &&
         (cutoff_value > asp::stereo_settings().ip_triangulation_max_error))
       cutoff_value = asp::stereo_settings().ip_triangulation_max_error;
 
     // Treat all points below the new cutoff_value as inliers
     std::list<size_t> filtered_indices;
     size_t c=0;
-    for ( std::list<size_t>::iterator i = valid_indices.begin(); i != valid_indices.end(); i++ )
-      {
+    for (std::list<size_t>::iterator i = valid_indices.begin(); i != valid_indices.end(); i++) {
         if (error_samples[c] < cutoff_value)
           filtered_indices.push_back(*i);
         ++c;
@@ -588,25 +585,25 @@ bool tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
 
   vw_out() << "\t    Inlier cluster:\n"
            << "\t      Triangulation error: " << error_clusters.front().first[0]
-           << " +- " << sqrt( error_clusters.front().second[0] ) << " meters\n";
+           << " +- " << sqrt(error_clusters.front().second[0]) << " meters\n";
 
   // Record indices of points that match our clustering result
-  const double escalar1 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.front().second[0] ); // outside exp of normal eq
-  const double escalar2 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.back().second[0] );
-  const double escalar3 = 1.0 / (2 * error_clusters.front().second[0] ); // inside exp of normal eq
-  const double escalar4 = 1.0 / (2 * error_clusters.back().second[0] );
+  const double escalar1 = 1.0 / sqrt(2.0 * M_PI * error_clusters.front().second[0]); // outside exp of normal eq
+  const double escalar2 = 1.0 / sqrt(2.0 * M_PI * error_clusters.back().second[0]);
+  const double escalar3 = 1.0 / (2 * error_clusters.front().second[0]); // inside exp of normal eq
+  const double escalar4 = 1.0 / (2 * error_clusters.back().second[0]);
   size_t error_idx        = 0;
   size_t prior_valid_size = valid_indices.size();
   size_t outlier_count    = 0;
-  for ( std::list<size_t>::iterator i = valid_indices.begin(); i != valid_indices.end(); i++ ) {
+  for (std::list<size_t>::iterator i = valid_indices.begin(); i != valid_indices.end(); i++) {
     double err_diff_front = error_samples[error_idx]-error_clusters.front().first[0];
     double err_diff_back  = error_samples[error_idx]-error_clusters.back ().first[0];
 
-    if ( !((escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
-           (escalar2 * exp( (-err_diff_back  * err_diff_back ) * escalar4 ) ) ||
-           error_samples[error_idx] < error_clusters.front().first[0]          ) ||
-         ( (asp::stereo_settings().ip_triangulation_max_error > 0) &&
-           (error_samples[error_idx] > asp::stereo_settings().ip_triangulation_max_error) ) ) {
+    if (!((escalar1 * exp((-err_diff_front * err_diff_front) * escalar3)) >
+           (escalar2 * exp((-err_diff_back  * err_diff_back) * escalar4)) ||
+           error_samples[error_idx] < error_clusters.front().first[0]) ||
+         ((asp::stereo_settings().ip_triangulation_max_error > 0) &&
+           (error_samples[error_idx] > asp::stereo_settings().ip_triangulation_max_error))) {
       // It's an outlier!
       //vw_out() << "Removing error_samples["<< error_idx <<"] = " << error_samples[error_idx] << std::endl;
       i = valid_indices.erase(i);
@@ -677,36 +674,36 @@ bool stddev_ip_filtering(std::vector<vw::ip::InterestPoint> const& ip1,
       sum = normalize(sum);
 
       // Project all disparities along the new gradient
-      Vector<double> projections( good_indices.size() );
+      Vector<double> projections(good_indices.size());
       for (size_t j = 0; j < good_indices.size(); j++) {
         projections[j] = dot_prod(disparity_vector[good_indices[j]], sum);
       }
       double mean   = 0;
       double stddev = 0;
-      for ( size_t j = 1; j < good_indices.size(); j++ ) {
+      for (size_t j = 1; j < good_indices.size(); j++) {
         mean += projections[j];
         stddev += projections[j]*projections[j];
       }
       mean /= good_indices.size() - 1;
-      stddev = sqrt( stddev / ( good_indices.size() - 1 ) - mean*mean );
+      stddev = sqrt(stddev / (good_indices.size() - 1) - mean*mean);
 
       double std_distance = fabs(projections[0]-mean)/stddev;
-      if ( std_distance > worse_index.first ) {
+      if (std_distance > worse_index.first) {
         worse_index.first = std_distance;
         worse_index.second = i;
       }
     } // End loop through valid indices
-    if ( worse_index.first > NUM_STD_FILTER ) {
+    if (worse_index.first > NUM_STD_FILTER) {
       std::list<size_t>::iterator it = valid_indices.begin();
-      std::advance( it, worse_index.second );
-      valid_indices.erase( it );
+      std::advance(it, worse_index.second);
+      valid_indices.erase(it);
       deleted_something = true;
       ++num_deleted;
     }
     // If we ended up deleting everything, just quit here and return 0.
     if (valid_indices.empty())
       return 0;
-  } while( deleted_something );
+  } while (deleted_something);
 
   vw_out() << "\t      Removed " << num_deleted << " points in stddev filtering.\n";
   return valid_indices.size();
@@ -722,24 +719,24 @@ size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
                                          vw::Vector2 const & elevation_limit,
                                          vw::BBox2   const & lon_lat_limit,
                                          std::vector<vw::ip::InterestPoint> & ip1_out,
-                                         std::vector<vw::ip::InterestPoint> & ip2_out){
+                                         std::vector<vw::ip::InterestPoint> & ip2_out) {
 
   // Handle case where the elevation or lonlat range are not set
-  const size_t num_ip = ip1_in.size();                              
+  const size_t num_ip = ip1_in.size();
   if (elevation_limit[1] <= elevation_limit[0] && lon_lat_limit.empty()) {
     ip1_out = ip1_in;
     ip2_out = ip2_in;
     return num_ip;
   }
 
-  if (elevation_limit[0] < elevation_limit[1]) 
+  if (elevation_limit[0] < elevation_limit[1])
     vw_out() << "\t    * Applying elevation restriction. Height range: " << elevation_limit[0]
              << " to " << elevation_limit[1] << ".\n";
 
-  if (!lon_lat_limit.empty()) 
+  if (!lon_lat_limit.empty())
     vw_out() << "\t    * Applying lon-lat restriction: " << lon_lat_limit.min()
              << " to " << lon_lat_limit.max() << ".\n";
-    
+
   // Init output vectors
   ip1_out.clear();
   ip2_out.clear();
@@ -749,9 +746,9 @@ size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
   // Set up stereo model
   double angle_tolerance = vw::stereo::StereoModel::robust_1_minus_cos
     (stereo_settings().min_triangulation_angle*M_PI/180);
-  vw::stereo::StereoModel model(left_camera_model, right_camera_model, 
+  vw::stereo::StereoModel model(left_camera_model, right_camera_model,
                                 stereo_settings().use_least_squares, angle_tolerance);
-    
+
   // This function can be called with both unaligned and aligned interest points
   bool aligned_ip = (tx_left.get() != NULL && tx_right != NULL);
 
@@ -769,7 +766,7 @@ size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
       p1 = tx_left->reverse (p1);
       p2 = tx_right->reverse(p2);
     }
-      
+
     // Triangulate
     double err = -1.0;
     Vector3 xyz(0.0, 0.0, 0.0);
@@ -783,29 +780,29 @@ size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
       // Triangulation failed
       continue;
     }
-      
+
     Vector3 llh = datum.cartesian_to_geodetic(xyz);
-    if ( (elevation_limit[0] < elevation_limit[1]) && 
+    if ((elevation_limit[0] < elevation_limit[1]) &&
          ((llh[2] < elevation_limit[0]) || (llh[2] > elevation_limit[1]))) {
       // vw_out() << "Removing IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
       continue;
     }
-      
+
     Vector2 lon_lat = subvector(llh, 0, 2);
-    if ( (!lon_lat_limit.empty()) && (!lon_lat_limit.contains(lon_lat)) ) {
-      continue; 
+    if ((!lon_lat_limit.empty()) && (!lon_lat_limit.contains(lon_lat))) {
+      continue;
     }
-      
+
     // vw_out() << "Keeping IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
     ip1_out.push_back(ip1_in[i]);
     ip2_out.push_back(ip2_in[i]);
   }
   vw_out() << "\t    * Removed " << ip1_in.size() - ip1_out.size()
            << " ip using elevation/lonlat filtering.\n";
-    
+
   return ip1_out.size();
 } // End filter_ip_by_elevation
-  
+
 // Filter ip by triangulation error and height range.
 // This assumes the interest points are for the original images, without alignment
 // or mapprojection.
@@ -818,7 +815,7 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
                              double pct, double factor) {
 
   std::vector<double> tri_errors(ip1.size()), heights(ip1.size());
-    
+
   // Compute the triangulation errors
   double angle_tol = vw::stereo::StereoModel
     ::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
@@ -832,7 +829,7 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
     } catch(...) {
       xyz = Vector3();
     }
-      
+
     // The call returns the zero tri error and zero xyz to indicate a
     // failed ray intersection so replace it in those cases with a
     // very high error.
@@ -860,7 +857,7 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
   double pct_fraction = 1.0 - pct/100.0;
   double b = -1.0, e = -1.0;
   vw::math::find_outlier_brackets(vals, pct_fraction, factor, b, e);
-    
+
   // Apply the outlier threshold
   int count = 0;
   for (size_t i = 0; i < ip1.size(); i++) {
@@ -901,14 +898,14 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
       count++;
     }
   }
-    
+
   vw_out() << "Number (and fraction) of removed outliers by the triangulation error check: "
            << count << " (" << double(count)/ip1.size() << ").\n";
-    
+
   // Copy the outliers in place
   count = 0;
   for (size_t i = 0; i < ip1.size(); i++) {
-    if (tri_errors[i] >= HIGH_ERROR || heights[i] >= HIGH_ERROR) 
+    if (tri_errors[i] >= HIGH_ERROR || heights[i] >= HIGH_ERROR)
       continue;
 
     ip1[count] = ip1[i];
@@ -919,8 +916,8 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
   ip1.resize(count);
   ip2.resize(count);
 }
- 
-// TODO(oalexan1): Integrate filter_ip_homog() and homography_rectification().  
+
+// TODO(oalexan1): Integrate filter_ip_homog() and homography_rectification().
 // Ensure the same parameters are used in both.
 size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
                        std::vector<ip::InterestPoint> const& ip2_in,
@@ -934,7 +931,7 @@ size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
   Stopwatch sw;
   sw.start();
   try {
-    
+
     std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(ip1_in),
       ransac_ip2 = iplist_to_vectorlist(ip2_in);
 
@@ -981,20 +978,20 @@ size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
 void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
                          vw::TransformPtr                 tx_left,
                          vw::TransformPtr                 tx_right,
-                         boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
+                         boost::shared_ptr<vw::camera::CameraModel> left_camera_model,
                          boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
                          std::vector<vw::ip::InterestPoint> & left_aligned_ip,
                          std::vector<vw::ip::InterestPoint> & right_aligned_ip) {
 
   vw_out() << "Filtering interest point matches with --ip-filter-using-dem.\n";
-  
+
   std::string dem_file;
   double max_height_diff = -1.0;
   std::istringstream is(ip_filter_using_dem);
-  if (!(is >> dem_file >> max_height_diff)) 
+  if (!(is >> dem_file >> max_height_diff))
     vw_throw(ArgumentErr() << "Could not parse correctly option --ip-filter-using-dem.\n");
 
-  if (max_height_diff <= 0.0) 
+  if (max_height_diff <= 0.0)
     vw_throw(ArgumentErr() << "Positive height diff value expected in --ip-filter-using-dem.\n");
 
   // Read the DEM and supporting data
@@ -1010,12 +1007,12 @@ void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
   bool has_georef = vw::cartography::read_georeference(dem_georef, dem_file);
   if (!has_georef)
     vw_throw(ArgumentErr() << "There is no georeference information in: "
-             << dem_file << ".\n" );
-  
+             << dem_file << ".\n");
+
   // An invalid pixel value used for edge extension
   PixelMask<float> nodata_pix(0); nodata_pix.invalidate();
-  ValueEdgeExtension<PixelMask<float>> nodata_ext(nodata_pix); 
-  
+  ValueEdgeExtension<PixelMask<float>> nodata_ext(nodata_pix);
+
   // Set up for interpolation. Out-of-range pixels are declared to be invalid.
   ImageViewRef<PixelMask<float>> interp_dem
     = interpolate(dem, BilinearInterpolation(), nodata_ext);
@@ -1070,7 +1067,7 @@ void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
   for (int it = 0; it < num_total; it++) {
     if (invalid_indices.find(it) != invalid_indices.end())
       continue;
-      
+
     left_aligned_ip[good_it]  = left_aligned_ip[it];
     right_aligned_ip[good_it] = right_aligned_ip[it];
     good_it++;
@@ -1078,7 +1075,7 @@ void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
 
   if (good_it != num_valid)
     vw_throw(ArgumentErr() << "Book-keeping failure in ip filtering using DEM.\n");
-    
+
   left_aligned_ip.resize(num_valid);
   right_aligned_ip.resize(num_valid);
 
@@ -1093,7 +1090,7 @@ vw::BBox2 search_range_using_spread(double max_disp_spread,
                                     std::vector<vw::ip::InterestPoint> const& left_ip,
                                     std::vector<vw::ip::InterestPoint> const& right_ip) {
     std::vector<double> dx, dy;
-  
+
     for (size_t i = 0; i < left_ip.size(); i++) {
     double diffX = right_ip[i].x - left_ip[i].x;
     double diffY = right_ip[i].y - left_ip[i].y;
@@ -1102,12 +1099,12 @@ vw::BBox2 search_range_using_spread(double max_disp_spread,
   }
   if (dx.empty())
     vw_throw(vw::ArgumentErr() << "No interest points left.");
-  
+
   std::sort(dx.begin(), dx.end());
   std::sort(dy.begin(), dy.end());
   double mid_x = dx[dx.size()/2]; // median
   double mid_y = dy[dy.size()/2];
-  
+
   double half = max_disp_spread / 2.0;
   vw::BBox2 spread_box(mid_x - half, mid_y - half, max_disp_spread, max_disp_spread);
 
@@ -1118,18 +1115,18 @@ vw::BBox2 search_range_using_spread(double max_disp_spread,
 // (while still having potentially a global alignment applied to them).
 void aligned_ip_from_D_sub(vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> const & sub_disp,
                            vw::Vector2                                   const & upsample_scale,
-                           std::vector<vw::ip::InterestPoint>                  & left_ip, 
+                           std::vector<vw::ip::InterestPoint>                  & left_ip,
                            std::vector<vw::ip::InterestPoint>                  & right_ip) {
 
   left_ip.clear();
   right_ip.clear();
-    
+
   for (int col = 0; col < sub_disp.cols(); col++) {
     for (int row = 0; row < sub_disp.rows(); row++) {
       vw::PixelMask<vw::Vector2f> disp = sub_disp(col, row);
 
       if (!is_valid(disp)) continue;
-        
+
       Vector2 left_pix(col, row);
       Vector2 right_pix = left_pix + disp.child();
 
@@ -1145,7 +1142,7 @@ void aligned_ip_from_D_sub(vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> const &
     }
   }
 }
-  
+
 // Do IP matching, return, the best translation+scale fitting functor.
 vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> const& image1,
                                            vw::ImageView<vw::PixelGray<float>> const& image2,
@@ -1158,12 +1155,12 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
 
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   size_t number_of_jobs = 1;
-  detect_match_ip(matched_ip1, matched_ip2, 
+  detect_match_ip(matched_ip1, matched_ip2,
                   vw::pixel_cast<float>(image1),
-                  vw::pixel_cast<float>(image2), 
+                  vw::pixel_cast<float>(image2),
                   ip_per_tile, number_of_jobs,
                   left_file_path, right_file_path, nodata1, nodata2);
-  
+
   std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
   std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
   vw_out(DebugMessage,"asp") << "\t--> Removed "
@@ -1179,8 +1176,8 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
              vw::math::InterestPointErrorMetric(),
              stereo_settings().ip_num_ransac_iterations,
              10, ransac_ip1.size()/2, true);
-    T = ransac( ransac_ip2, ransac_ip1 );
-    indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
+    T = ransac(ransac_ip2, ransac_ip1);
+    indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1);
   } catch (...) {
     vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
     T = vw::math::identity_matrix<3>();
@@ -1188,9 +1185,9 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
 
   { // Keeping only inliers
     std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
-    for ( size_t i = 0; i < indices.size(); i++ ) {
-      inlier_ip1.push_back( matched_ip1[indices[i]] );
-      inlier_ip2.push_back( matched_ip2[indices[i]] );
+    for (size_t i = 0; i < indices.size(); i++) {
+      inlier_ip1.push_back(matched_ip1[indices[i]]);
+      inlier_ip2.push_back(matched_ip2[indices[i]]);
     }
     matched_ip1 = inlier_ip1;
     matched_ip2 = inlier_ip2;
@@ -1203,8 +1200,6 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
 // This applies only the homography constraint. Not the best.
 // Can optionally restrict the matching to given image bounding boxes,
 // which can result in big efficiency gains.
-// TODO(oalexan1): See if this becomes slow if 
-// detect_match_ip() is de-templatized.
 bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
                             vw::ImageViewRef<float> const& image2,
                             int ip_per_tile,
@@ -1231,7 +1226,7 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
     local_image1 = vw::crop(image1, local_bbox1);
     local_image2 = vw::crop(image2, local_bbox2);
   }
-  
+
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   detect_match_ip(matched_ip1, matched_ip2,
 		  local_image1, local_image2,
@@ -1240,7 +1235,7 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
 		  nodata1, nodata2);
   if (matched_ip1.size() == 0 || matched_ip2.size() == 0)
     return false;
-    
+
   // If we cropped, must shift the interest points back to the original image coordinates
   if (crop) {
     for (size_t i = 0; i < matched_ip1.size(); i++) {
@@ -1259,7 +1254,7 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
                                     inlier_threshold);
   if (num_left == 0)
     return false;
-  
+
   if (stereo_settings().ip_debug_images) {
     vw_out() << "\t    Writing post-homography IP match debug image.\n";
     write_match_image("InterestPointMatching__ip_matching_debug2.tif",
@@ -1301,10 +1296,10 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   // image. If we used the translation from the solved homography with
   // poorly position cameras, the right image might be moved out of frame.
   rough_homography(0,2) = rough_homography(1,2) = 0;
-  vw_out() << "Aligning right to left for IP capture using rough homography: " 
+  vw_out() << "Aligning right to left for IP capture using rough homography: "
 	   << rough_homography << std::endl;
 
-  // Find the image of the right image bounding box after applying the rough homography  
+  // Find the image of the right image bounding box after applying the rough homography
   HomographyTransform rough_trans(rough_homography);
   BBox2i trans_box2 = rough_trans.forward_bbox(box2);
 
@@ -1393,7 +1388,7 @@ void write_match_image(std::string const& out_file_name,
     start *= sub_scale;
     end   *= sub_scale;
     float inc_amt = 1/norm_2(end-start);
-    for (float r=0; r<1.0; r+=inc_amt){
+    for (float r=0; r<1.0; r+=inc_amt) {
       int i = (int)(0.5 + start.x() + r*(end.x()-start.x()));
       int j = (int)(0.5 + start.y() + r*(end.y()-start.y()));
       if (i >=0 && j >=0 && i < comp.cols() && j < comp.rows())

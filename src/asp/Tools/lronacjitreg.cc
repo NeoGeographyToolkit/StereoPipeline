@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -54,7 +54,7 @@ using std::setw;
 /* LROJITREG utility
 
 - Use the correlate tool to determine the mean X and Y offset
-  between the two cubes (which should be almost parallel with 
+  between the two cubes (which should be almost parallel with
   some overlap)
 - Output those two values!
 */
@@ -72,35 +72,35 @@ struct Parameters : vw::GdalWriteOptions {
   Vector2i kernel;
   int   lrthresh;
   int   correlator_type;
-  int   cropWidth;  
+  int   cropWidth;
 };
 
-bool handle_arguments(int argc, char* argv[], Parameters& opt) { 
+bool handle_arguments(int argc, char* argv[], Parameters& opt) {
   po::options_description general_options("Options");
   general_options.add_options()
     ("output-log",          po::value(&opt.rowLogFilePath)->default_value(""), "Explicitly specify the per row output text file")
     ("log",             po::value(&opt.log)->default_value(1.4), "Apply LOG filter with the given sigma, or 0 to disable")
-    ("crop-width",       po::value(&opt.cropWidth)->default_value(200), "Crop images to this width before disparity search")    
+    ("crop-width",       po::value(&opt.cropWidth)->default_value(200), "Crop images to this width before disparity search")
     ("h-corr-min",      po::value(&opt.h_corr_min)->default_value(0), "Minimum horizontal disparity - computed automatically if not set.")
     ("h-corr-max",      po::value(&opt.h_corr_max)->default_value(-1), "Maximum horizontal disparity - computed automatically if not set.")
     ("v-corr-min",      po::value(&opt.v_corr_min)->default_value(0), "Minimum vertical disparity - computed automatically if not set.")
     ("v-corr-max",      po::value(&opt.v_corr_max)->default_value(-1), "Maximum vertical disparity - computed automatically if not set.")
-    ("kernel",          po::value(&opt.kernel   )->default_value(Vector2i(15,15)), "Correlation kernel size")
-    ("lrthresh",        po::value(&opt.lrthresh )->default_value(2), "Left/right correspondence threshold")
+    ("kernel",          po::value(&opt.kernel)->default_value(Vector2i(15,15)), "Correlation kernel size")
+    ("lrthresh",        po::value(&opt.lrthresh)->default_value(2), "Left/right correspondence threshold")
     ("correlator-type", po::value(&opt.correlator_type)->default_value(0), "0 - Abs difference; 1 - Sq Difference; 2 - NormXCorr")
     ("affine-subpix", "Enable affine adaptive sub-pixel correlation (slower, but more accurate)");
-  
+
   general_options.add(vw::GdalWriteOptionsDescription(opt));
-    
+
   po::options_description positional("");
   positional.add_options()
     ("left",  po::value(&opt.leftFilePath))
-    ("right", po::value(&opt.rightFilePath));  
-    
+    ("right", po::value(&opt.rightFilePath));
+
   po::positional_options_description positional_desc;
   positional_desc.add("left",  1);
   positional_desc.add("right", 1);
-  
+
 
   std::string usage("[options] <left> <right>");
   bool allow_unregistered = false;
@@ -108,7 +108,7 @@ bool handle_arguments(int argc, char* argv[], Parameters& opt) {
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+                             allow_unregistered, unregistered);
 
   if (!vm.count("left") || !vm.count("right"))
     vw_throw(ArgumentErr() << "Requires <left> and <right> input in order to proceed.\n\n"
@@ -118,11 +118,11 @@ bool handle_arguments(int argc, char* argv[], Parameters& opt) {
 }
 
 bool determineShifts(Parameters & params, double &dX, double &dY) {
-  
+
   // Verify images are present
   boost::filesystem::path leftBoostPath (params.leftFilePath);
   boost::filesystem::path rightBoostPath(params.rightFilePath);
-  
+
   if (!boost::filesystem::exists(boost::filesystem::path(params.leftFilePath))) {
     printf("Error: input file %s is missing!\n", params.leftFilePath.c_str());
     return false;
@@ -130,15 +130,15 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
     printf("Error: input file %s is missing!\n", params.rightFilePath.c_str());
     return false;
   }
-  
-  
-  // Load both images  
+
+
+  // Load both images
   printf("Loading images left=%s and right=%s...\n",
          params.leftFilePath.c_str(),
          params.rightFilePath.c_str());
   DiskImageView<PixelGray<float> > left_disk_image (params.leftFilePath);
   DiskImageView<PixelGray<float> > right_disk_image(params.rightFilePath);
-  
+
   const int imageWidth      = std::min(left_disk_image.cols(), right_disk_image.cols());
   const int imageHeight     = std::min(left_disk_image.rows(), right_disk_image.rows());
   const int imageTopRow     = 0;
@@ -169,18 +169,18 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
     // Gather interest points and match them
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
     size_t number_of_jobs = 1;
-    detect_match_ip(matched_ip1, matched_ip2, 
-                    vw::pixel_cast<float>(left_crop), 
-                    vw::pixel_cast<float>(right_crop), 
+    detect_match_ip(matched_ip1, matched_ip2,
+                    vw::pixel_cast<float>(left_crop),
+                    vw::pixel_cast<float>(right_crop),
                     points_per_tile,
-                    number_of_jobs, "", "", 
+                    number_of_jobs, "", "",
                     nodata1, nodata2); // TODO: Use IP files?
-    
-    if (matched_ip1.empty() || matched_ip2.empty()){
+
+    if (matched_ip1.empty() || matched_ip2.empty()) {
      ransacSuccess = false;
      printf("Failed to find any matching interest points, defaulting to large search range.\n");
     } else {
-      printf("Found %lu, %lu matched interest points.\n", 
+      printf("Found %lu, %lu matched interest points.\n",
              matched_ip1.size(), matched_ip2.size());
 
       // Filter interest point matches
@@ -194,7 +194,7 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
       try {
         Matrix<double> H(ransac(ransac_ip1, ransac_ip2));
         vw_out() << "ipfind based similarity: " << H << std::endl;
-        
+
         // Use the estimated transform between the images to determine a search offset range
         ipFindXOffset = static_cast<int>(H[0][2]);
         ipFindYOffset = static_cast<int>(H[1][2]);
@@ -203,7 +203,7 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
         vw_out() << "RANSAC solution failed, defaulting to large search range.\n";
         ransacSuccess = false;
       }
-    } // End of successful IP matching 
+    } // End of successful IP matching
 
   } // End ipfind case
 
@@ -224,7 +224,7 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
   }
   if (params.v_corr_min < params.v_corr_max) {
     searchRegion.min()[1] = params.v_corr_min;
-    searchRegion.max()[1] = params.v_corr_max;    
+    searchRegion.max()[1] = params.v_corr_max;
   }
 
   printf("Disparity search image size = %d by %d\n", params.cropWidth, imageHeight);
@@ -236,9 +236,9 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
     corr_type = SQUARED_DIFFERENCE;
   else if (params.correlator_type == 2)
     corr_type = CROSS_CORRELATION;
- 
+
   printf("Running stereo correlation...\n");
-  
+
   // Pyramid Correlation works best rasterizing in 1024^2 chunks
   vw_settings().set_default_tile_size(1024);
 
@@ -262,7 +262,7 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
 
   // Compute the mean horizontal and vertical shifts
   // - Currently disparity_map contains the per-pixel shifts
-  
+
   vw::vw_out() << "Accumulating offsets...\n";
 
   std::ofstream out;
@@ -312,13 +312,13 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
   double meanHorizOffset     = 0.0;
   int    numValidRows        = 0;
   int    totalNumValidPixels = 0;
-  
+
   vw::StdDevAccumulator<float> stdCalcX, stdCalcY;
-  
+
   std::vector<double> rowOffsets(disparity_map.rows());
-  std::vector<double> colOffsets(disparity_map.rows());  
+  std::vector<double> colOffsets(disparity_map.rows());
   for (int row=0; row<disparity_map.rows(); row++) {
-  
+
     // Accumulate the shifts for this row
     vw::StdDevAccumulator<float> stdDevCalcRow;
     double rowSum        = 0.0;
@@ -326,14 +326,14 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
     double stdDevRow     = 0.0;
     int    numValidInRow = 0;
     for (int col=0; col<disparity_map.cols(); col++) {
-    
+
       if (is_valid(disparity_map(col,row))) {
         float dY = disparity_map(col,row)[1]; // Y
         float dX = disparity_map(col,row)[0]; // X
         rowSum += dY;
         colSum += dX;
         ++numValidInRow;
-      
+
         stdCalcX(dX);
         stdCalcY(dY);
 
@@ -351,20 +351,20 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
       colOffsets[row] = colSum / static_cast<double>(numValidInRow);
       stdDevRow = stdDevCalcRow.value();
       totalNumValidPixels += numValidInRow;
-      ++numValidRows;      
+      ++numValidRows;
     }
-    
+
     if (writeLogFile) {
       out << setprecision(4)
-          << setw(5) << row             << ", " 
-          << setw(6) << rowOffsets[row] << ", " 
-          << setw(6) << colOffsets[row] << " Count = " 
-          << setw(3) << numValidInRow   << " Std = " 
-          << setw(4) << stdDevRow << std::endl;    
+          << setw(5) << row             << ", "
+          << setw(6) << rowOffsets[row] << ", "
+          << setw(6) << colOffsets[row] << " Count = "
+          << setw(3) << numValidInRow   << " Std = "
+          << setw(4) << stdDevRow << std::endl;
     }
 
   } // End loop through rows
- 
+
   if (writeLogFile) {
     out << "\n#  **** Registration Data ****\n";
     out << "#   RegFile: " << "" << endl;
@@ -379,7 +379,7 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
       case 2:  out << "CROSS_CORRELATION"   << endl; break;
       default: out << "ABSOLUTE_DIFFERENCE" << endl; break;
     };
-    if(numValidRows > 0) {
+    if (numValidRows > 0) {
       out << "#   Using IpFind result only:   0" << endl;
       out << "#   Average Sample Offset: " << setprecision(4) << stdCalcX.mean()
           << "  StdDev: " << setprecision(4) << stdCalcX.value() << endl;
@@ -400,21 +400,21 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
        }
      }
 
-    out.close();                   
-  }  
-  
+    out.close();
+  }
+
   if ((numValidRows == 0) && (!ransacSuccess)) {
 	  vw::vw_out() << "Error: No valid pixel matches found!\n";
     return false;
   }
-  
+
   // Compute overall mean shift
   meanVertOffset  = stdCalcY.mean();
   meanHorizOffset = stdCalcX.mean();
-  
+
   dX = meanHorizOffset;
   dY = meanVertOffset;
-  
+
   printf("Found %d valid pixels in %d rows\n", totalNumValidPixels, numValidRows);
   return true;
 }
@@ -427,15 +427,15 @@ int main(int argc, char* argv[]) {
       printf("Failed to parse input parameters!\n");
       return 1;
     }
-    
+
     double dX, dY;
     if (determineShifts(params, dX, dY)) {
       // Success, print the results
       printf("Mean sample offset = %lf\n", dX);
       printf("Mean line   offset = %lf\n", dY);
     }
-    
+
   } ASP_STANDARD_CATCHES;
-  
+
   return 0;
 }

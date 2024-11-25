@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -24,7 +24,7 @@
 #include <string>
 
 namespace asp {
-  
+
 void BaOptions::copy_to_asp_settings() const {
   asp::stereo_settings().ip_detect_method        = ip_detect_method;
   asp::stereo_settings().epipolar_threshold      = epipolar_threshold;

@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -76,15 +76,15 @@ using namespace vw::ba;
 // at that time.
 class BaCallback: public ceres::IterationCallback {
 public:
-  
+
   BaCallback(asp::BaOptions const& opt, asp::BAParams const& param_storage):
-    m_opt(opt), m_param_storage(param_storage){}
+    m_opt(opt), m_param_storage(param_storage) {}
 
   virtual ceres::CallbackReturnType operator() (const ceres::IterationSummary& summary) {
     saveUpdatedCameras(m_opt, m_param_storage);
     return ceres::SOLVER_CONTINUE;
   }
-  
+
 private:
   asp::BaOptions const& m_opt;
   asp::BAParams const& m_param_storage;
@@ -104,18 +104,18 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
                     size_t num_uncertainty_residuals,
                     size_t num_tri_residuals,
                     size_t num_cam_pos_residuals,
-                    std::vector<vw::Vector3> const& reference_vec, 
+                    std::vector<vw::Vector3> const& reference_vec,
                     ceres::Problem &problem) {
 
   vw_out() << "Removing outliers.\n";
 
   size_t num_points  = param_storage.num_points();
   size_t num_cameras = param_storage.num_cameras();
-  
+
   // Compute the reprojection error. Adjust for residuals being divided by pixel sigma.
   // Do not use the attenuated residuals due to the loss function.
   std::vector<double> residuals;
-  asp::compute_residuals(opt, crn, param_storage,  cam_residual_counts, pixel_sigmas, 
+  asp::compute_residuals(opt, crn, param_storage,  cam_residual_counts, pixel_sigmas,
                     num_gcp_or_dem_residuals, num_uncertainty_residuals,
                     num_tri_residuals, num_cam_pos_residuals,
                     reference_vec, problem,
@@ -143,16 +143,16 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
 
       // skip existing outliers
       if (param_storage.get_point_outlier(ipt))
-        continue; 
+        continue;
 
       // Skip gcp, those are never outliers no matter what.
       if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
         continue;
 
       // We already encountered this residual in the previous camera
-      if (was_added.find(ipt) != was_added.end()) 
+      if (was_added.find(ipt) != was_added.end())
         continue;
-      
+
       was_added.insert(ipt);
       actual_residuals.push_back(mean_residuals[ipt]);
       //vw_out() << "XYZ residual " << ipt << " = " << mean_residuals[ipt] << std::endl;
@@ -164,10 +164,10 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   double max_pix1 = opt.remove_outliers_params[2];
   double max_pix2 = opt.remove_outliers_params[3];
 
-  double b, e; 
+  double b, e;
   vw::math::find_outlier_brackets(actual_residuals, pct, factor, b, e);
   vw_out() << "Percentile-based outlier bounds: b = " << b << ", e = " << e << ".\n";
-  
+
   // If this is too aggressive, the user can tame it. It is
   // unreasonable to throw out pixel residuals as small as 1 or 2
   // pixels. We will not use the b, because the residuals start at 0.
@@ -175,13 +175,13 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   e = std::min(std::max(e, max_pix1), max_pix2);
 
   vw_out() << "Removing as outliers points with mean reprojection error > " << e << ".\n";
-  
+
   // Add to the outliers by reprojection error. Must repeat the same logic as above.
   // TODO(oalexan1): This removes a 3D point altogether if any reprojection
   // errors for it are big. Need to only remove bad reprojection errors
   // and keep a 3D point if it is left with at least two reprojection residuals.
   int num_outliers_by_reprojection = 0, total = 0;
-  for ( size_t icam = 0; icam < num_cameras; icam++ ) {
+  for (size_t icam = 0; icam < num_cameras; icam++) {
     typedef CameraNode<JFeature>::const_iterator crn_iter;
     for (crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
 
@@ -189,10 +189,10 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
       int ipt = (**fiter).m_point_id;
 
       total++;
-      
+
       // skip existing outliers
       if (param_storage.get_point_outlier(ipt))
-        continue; 
+        continue;
 
       // Skip gcp
       if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
@@ -207,7 +207,7 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   vw_out() << "Removed " << num_outliers_by_reprojection << " outliers out of "
            << total << " interest points by reprojection error. Ratio: "
            << double(num_outliers_by_reprojection) / double(total) <<".\n";
-  
+
   // Remove outliers by elevation limit
   int num_outliers_by_elev_or_lonlat = 0;
   if (opt.elevation_limit[0] < opt.elevation_limit[1] || !opt.lon_lat_limit.empty()) {
@@ -218,33 +218,33 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
         continue; // don't filter out GCP
       if (param_storage.get_point_outlier(ipt))
         continue; // skip outliers
-      
+
       // The GCC coordinate of this point
       const double * point = param_storage.get_point_ptr(ipt);
       Vector3 xyz(point[0], point[1], point[2]);
       Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
-      if (opt.elevation_limit[0] < opt.elevation_limit[1] && 
+      if (opt.elevation_limit[0] < opt.elevation_limit[1] &&
           (llh[2] < opt.elevation_limit[0] ||
            llh[2] > opt.elevation_limit[1])) {
         param_storage.set_point_outlier(ipt, true);
         num_outliers_by_elev_or_lonlat++;
         continue;
       }
-      
+
       Vector2 lon_lat = subvector(llh, 0, 2);
-      if ( !opt.lon_lat_limit.empty() && !opt.lon_lat_limit.contains(lon_lat) ) {
+      if (!opt.lon_lat_limit.empty() && !opt.lon_lat_limit.contains(lon_lat)) {
         param_storage.set_point_outlier(ipt, true);
         num_outliers_by_elev_or_lonlat++;
         continue;
       }
-      
+
     }
     vw_out() << "Removed " << num_outliers_by_elev_or_lonlat
              << " outliers by elevation range and/or lon-lat range.\n";
   }
 
   // Remove outliers by convergence angle
-  if (opt.min_triangulation_angle > 0) 
+  if (opt.min_triangulation_angle > 0)
     asp::filterOutliersByConvergenceAngle(opt, cnet, param_storage);
 
   // Remove outliers based on spatial extent. Be more generous with
@@ -254,12 +254,12 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   double outlier_factor = 2 * opt.remove_outliers_params[1];           // e.g., 6.0.
   std::vector<double> x_vals, y_vals, z_vals;
   for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
-    
+
     if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
       continue; // don't filter out GCP
     if (param_storage.get_point_outlier(ipt))
       continue; // skip outliers
-    
+
     // The GCC coordinate of this point
     const double * point = param_storage.get_point_ptr(ipt);
     x_vals.push_back(point[0]);
@@ -269,17 +269,17 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   vw::BBox3 estim_bdbox;
   asp::estimate_inliers_bbox(pct_factor, pct_factor, pct_factor,
                              outlier_factor,
-                             x_vals, y_vals, z_vals,  
+                             x_vals, y_vals, z_vals,
                              estim_bdbox); // output
-  
+
   int num_box_outliers = 0;
   for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
-    
+
     if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
       continue; // don't filter out GCP
     if (param_storage.get_point_outlier(ipt))
       continue; // skip outliers
-    
+
     // The GCC coordinate of this point
     const double * point = param_storage.get_point_ptr(ipt);
     Vector3 xyz(point[0], point[1], point[2]);
@@ -289,9 +289,9 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
     }
   }
 
-  vw_out() << "Removed " << num_box_outliers << " " 
+  vw_out() << "Removed " << num_box_outliers << " "
            << "outlier(s) based on spatial distribution of triangulated points.\n";
-  
+
   int num_remaining_points = num_points - param_storage.get_num_outliers();
 
   return num_outliers_by_reprojection + num_outliers_by_elev_or_lonlat;
@@ -303,8 +303,8 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
 int do_ba_ceres_one_pass(asp::BaOptions      & opt,
                          asp::CRNJ      const& crn,
                          bool                  first_pass,
-                         bool                  remove_outliers, 
-                         asp::BAParams       & param_storage, 
+                         bool                  remove_outliers,
+                         asp::BAParams       & param_storage,
                          asp::BAParams const & orig_parameters,
                          bool                & convergence_reached,
                          double              & final_cost) {
@@ -313,15 +313,15 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
   int num_cameras = param_storage.num_cameras();
   int num_points  = param_storage.num_points();
 
-  if ((int)crn.size() != num_cameras) 
+  if ((int)crn.size() != num_cameras)
     vw_throw(ArgumentErr() << "Book-keeping error, the size of CameraRelationNetwork "
              << "must equal the number of images.\n");
- 
+
   convergence_reached = true;
 
   if (opt.proj_win != BBox2(0, 0, 0, 0) && (!opt.proj_str.empty()))
     initial_filter_by_proj_win(opt, param_storage, cnet);
-  
+
   // How many times an xyz point shows up in the problem
   std::vector<int> count_map(num_points);
   for (int i = 0; i < num_points; i++) {
@@ -334,8 +334,8 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
   // We will optimize multipliers of the intrinsics. This way each intrinsic
   // changes by a scale specific to it. Note: If an intrinsic starts as 0, it
   // will then stay as 0. This is documented. Can be both useful and confusing.
-  
-  // Prepare for the DEM constraint. 
+
+  // Prepare for the DEM constraint.
   // TODO(oalexan1): Study how to best pass the DEM to avoid the code
   // below not being slow. It is not clear if the DEM tiles are cached
   // when passing around an ImageViewRef.
@@ -354,7 +354,7 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
     vw::vw_out() << "Constraining against DEM: " << opt.heights_from_dem << "\n";
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
     asp::update_tri_pts_from_dem(cnet, crn, outliers, opt.camera_models,
-                               dem_georef, interp_dem, 
+                               dem_georef, interp_dem,
                                // Output
                                dem_xyz_vec);
   }
@@ -370,7 +370,7 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
 
   // Add the various cost functions the solver will optimize over.
   ceres::Problem problem;
-  
+
   // Pixel reprojection error
   std::vector<size_t> cam_residual_counts, num_pixels_per_cam;
   std::vector<std::vector<vw::Vector2>> pixels_per_cam;
@@ -382,13 +382,13 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
                              cnet, param_storage, problem, cam_residual_counts,
                              num_pixels_per_cam, pixels_per_cam, tri_points_per_cam,
                              pixel_sigmas);
-  
+
   // Add ground control points or points based on a DEM constraint
   int num_gcp = 0, num_gcp_or_dem_residuals = 0;
-  asp::addGcpOrDemConstraint(opt, opt.cost_function, opt.use_llh_error, opt.fix_gcp_xyz, 
+  asp::addGcpOrDemConstraint(opt, opt.cost_function, opt.use_llh_error, opt.fix_gcp_xyz,
                              // Outputs
                              cnet, num_gcp, num_gcp_or_dem_residuals,
-                             param_storage, problem);  
+                             param_storage, problem);
 
   // Add camera constraints
   if (opt.camera_weight > 0) {
@@ -437,7 +437,7 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
       double * cam_ptr  = param_storage.get_camera_ptr(icam);
       int param_len = 6; // bundle_adjust and jitter_solve expect different lengths
       double weight = 1.0;
-      ceres::CostFunction* cost_function 
+      ceres::CostFunction* cost_function
         = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, param_len,
                                       opt.camera_position_uncertainty[icam],
                                       weight, opt.datum,
@@ -452,16 +452,16 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
   // constraint per reprojection error.
   int num_cam_pos_residuals = 0;
   if (opt.camera_position_weight > 0)
-    asp::addCamPosCostFun(opt, orig_parameters, pixels_per_cam, 
-                          tri_points_per_cam, pixel_sigmas, orig_cams, 
+    asp::addCamPosCostFun(opt, orig_parameters, pixels_per_cam,
+                          tri_points_per_cam, pixel_sigmas, orig_cams,
                           param_storage, problem, num_cam_pos_residuals);
-  
+
   // Add a cost function meant to tie up to known disparity
   // (option --reference-terrain).
   std::vector<vw::Vector3> reference_vec; // must be persistent
   std::vector<ImageViewRef<DispPixelT>> interp_disp; // must be persistent
-  if (opt.reference_terrain != "") 
-    asp::addReferenceTerrainCostFunction(opt, param_storage, problem, 
+  if (opt.reference_terrain != "")
+    asp::addReferenceTerrainCostFunction(opt, param_storage, problem,
                                          reference_vec, interp_disp);
 
   // Add a ground constraints to keep points close to their initial positions
@@ -470,7 +470,7 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
     asp::addTriConstraint(opt, cnet, crn, opt.image_files, orig_cams,
                           opt.tri_weight, opt.cost_function, opt.tri_robust_threshold,
                           // Outputs
-                          param_storage, problem, num_tri_residuals); 
+                          param_storage, problem, num_tri_residuals);
 
   const size_t MIN_KML_POINTS = 50;
   size_t kmlPointSkip = 30;
@@ -481,25 +481,25 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
     kmlPointSkip = 1;
 
   if (first_pass) {
-    // Save the cnet 
+    // Save the cnet
     if (opt.save_cnet_as_csv) {
       std::string cnet_file = opt.out_prefix + "-cnet.csv";
       vw_out() << "Writing: " << cnet_file << std::endl;
       cnet.write_in_gcp_format(cnet_file, opt.datum);
     }
-    
+
     vw_out() << "Writing initial condition files." << std::endl;
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
-    write_residual_logs(residual_prefix, opt, param_storage, 
+    write_residual_logs(residual_prefix, opt, param_storage,
                         cam_residual_counts, pixel_sigmas,
-                        num_gcp_or_dem_residuals, 
+                        num_gcp_or_dem_residuals,
                         num_uncertainty_residuals, num_tri_residuals,
-                        num_cam_pos_residuals, 
+                        num_cam_pos_residuals,
                         reference_vec, cnet, crn, problem);
 
     std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
     std::string url = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png";
-    param_storage.record_points_to_kml(point_kml_path, opt.datum, 
+    param_storage.record_points_to_kml(point_kml_path, opt.datum,
                          kmlPointSkip, "initial_points", url);
   }
 
@@ -530,7 +530,7 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
     options.linear_solver_type = ceres::DENSE_SCHUR;
   if (num_cameras > 3500) {
     // This is supposed to help with speed in a certain size range
-    options.use_explicit_schur_complement = true; 
+    options.use_explicit_schur_complement = true;
     options.linear_solver_type  = ceres::ITERATIVE_SCHUR;
     options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
@@ -561,15 +561,15 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
   write_residual_logs(residual_prefix, opt, param_storage,
                       cam_residual_counts, pixel_sigmas,
-                      num_gcp_or_dem_residuals, 
+                      num_gcp_or_dem_residuals,
                       num_uncertainty_residuals, num_tri_residuals,
                       num_cam_pos_residuals,
                       reference_vec, cnet, crn, problem);
-  
+
   std::string point_kml_path = opt.out_prefix + "-final_points.kml";
   std::string url
    = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
-  param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip, 
+  param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip,
                                      "final_points", url);
 
   // Outlier filtering
@@ -596,10 +596,10 @@ void runRandomPasses(asp::BaOptions & opt, asp::BAParams & param_storage,
 
   // Back up the output prefix
   std::string orig_out_prefix = opt.out_prefix;
-  
+
   for (int pass = 0; pass < opt.num_random_passes; pass++) {
 
-    vw_out() << "\n--> Running bundle adjust pass " << pass 
+    vw_out() << "\n--> Running bundle adjust pass " << pass
              << " with random initial parameter offsets.\n";
 
     // Randomly distort the original inputs.
@@ -617,7 +617,7 @@ void runRandomPasses(asp::BaOptions & opt, asp::BAParams & param_storage,
     do_ba_ceres_one_pass(opt, crn, first_pass, remove_outliers,
                          param_storage, orig_parameters,
                          convergence_reached, curr_cost);
-    
+
     // Record the parameters of the best result.
     if (curr_cost < best_cost) {
       vw_out() << "  --> Found a better solution using random passes.\n";
@@ -643,10 +643,10 @@ void runRandomPasses(asp::BaOptions & opt, asp::BAParams & param_storage,
     vw::exec_cmd(cmd.c_str());
   }
   opt.out_prefix = orig_out_prefix; // So the cameras are written to the expected paths.
-  
+
   // Copy back to the original parameters
   param_storage = *best_params_ptr;
-  
+
   // Copy back the best cost
   final_cost = best_cost;
 }
@@ -672,7 +672,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     } else if (opt.nvm != "") {
       // Assume the features are stored shifted relative to optical center
       bool nvm_no_shift = false;
-      rig::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift, 
+      rig::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift,
                          cnet, world_to_cam, optical_offsets);// outputs
       // For pinhole and csm frame cameras also read the poses from nvm unless told not to
       if (!opt.no_poses_from_nvm)
@@ -694,7 +694,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
                  << "   increasing the number of interest points per tile using\n "
                  << "   --ip-per-tile, or decreasing --min-matches.\n"
                  << " - Check if your images are similar enough in illumination,\n"
-                 << "   and if they have enough overlap.\n"   
+                 << "   and if they have enough overlap.\n"
                  << "Will continue if ground control points are present.\n";
       }
     }
@@ -706,10 +706,10 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     checkGcpRadius(opt.datum, cnet);
     vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
   }
-  
+
   // If we change the cameras, we must rebuild the control network
   bool cameras_changed = false;
-  
+
   // If camera positions were provided for local inputs, align to them.
   const bool have_est_camera_positions = (opt.camera_position_file != "");
   if ((opt.camera_type == BaCameraType_Pinhole) && have_est_camera_positions) {
@@ -726,7 +726,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   //   require us to be able to adjust our camera model positions.
   //   Otherwise we could init the adjustment values.
   if (opt.gcp_files.size() > 0) {
-    if ((opt.camera_type == BaCameraType_Pinhole) && 
+    if ((opt.camera_type == BaCameraType_Pinhole) &&
         !have_est_camera_positions) {
       if (opt.transform_cameras_using_gcp) {
         asp::transform_cameras_with_indiv_image_gcp(opt.cnet, opt.camera_models);
@@ -739,13 +739,13 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
             cameras_changed = true;
       }
     }
-    
+
     // Issue a warning if the GCPs are far away from the camera coordinates.
     // Do it only if the cameras did not change, as otherwise the cnet is outdated.
-    if (!cameras_changed) 
+    if (!cameras_changed)
       check_gcp_dists(opt.camera_models, opt.cnet, opt.forced_triangulation_distance);
   }
-  
+
   int num_points = cnet.size();
   int num_cameras = opt.image_files.size();
 
@@ -754,50 +754,50 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     vw_out() << "No points to optimize (GCP or otherwise). Cannot continue.\n";
     return;
   }
-  
+
   // Calculate the max length of a distortion vector
-  int max_num_dist_params 
+  int max_num_dist_params
     = asp::calcMaxNumDistParams(opt.camera_models, opt.camera_type,
                                 opt.intrinsics_options, opt.intrinsics_limits);
-  
+
   // This is needed to ensure distortion coefficients are not so small as to not get
-  // optimized. 
+  // optimized.
    if (opt.solve_intrinsics && !opt.apply_initial_transform_only)
-     asp::ensureMinDistortion(opt.camera_models, opt.camera_type, 
+     asp::ensureMinDistortion(opt.camera_models, opt.camera_type,
                               opt.intrinsics_options, opt.min_distortion);
-  
+
   // Create the storage arrays for the variables we will adjust.
   asp::BAParams param_storage(num_points, num_cameras,
                               // Distinguish when we solve for intrinsics
-                              opt.camera_type != BaCameraType_Other, 
-                              max_num_dist_params, 
+                              opt.camera_type != BaCameraType_Other,
+                              max_num_dist_params,
                               opt.intrinsics_options);
 
   // Sync up any camera intrinsics that should be shared. Do this before
   // populating the param storage values.
   cameras_changed = cameras_changed ||
     syncUpInitialSharedParams(opt.camera_type, param_storage, opt.camera_models);
- 
+
   // Fill in the camera and intrinsic parameters.
   std::vector<vw::CamPtr> new_cam_models;
   bool ans = false;
   switch (opt.camera_type) {
     case BaCameraType_Pinhole:
-      ans = init_cams_pinhole(opt, param_storage, 
+      ans = init_cams_pinhole(opt, param_storage,
                               opt.initial_transform_file, opt.initial_transform,
                               new_cam_models); break;
     case BaCameraType_OpticalBar:
-      ans = init_cams_optical_bar(opt, param_storage, 
+      ans = init_cams_optical_bar(opt, param_storage,
                                   opt.initial_transform_file, opt.initial_transform,new_cam_models); break;
     case BaCameraType_CSM: // CSM while optimizing intrinsics
-      ans = init_cams_csm(opt, param_storage, 
+      ans = init_cams_csm(opt, param_storage,
                           opt.initial_transform_file, opt.initial_transform,
                           new_cam_models); break;
     case BaCameraType_Other:
-      ans = init_cams(opt, param_storage, 
+      ans = init_cams(opt, param_storage,
                       opt.initial_transform_file, opt.initial_transform,
                       new_cam_models); break;
-    default: 
+    default:
       vw_throw(ArgumentErr() << "Unknown camera type.\n");
   };
 
@@ -808,7 +808,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     cameras_changed = true;
 
   // When the cameras changed, must re-triangulate the points.
-  // This is much cheaper than rebuilding the control network.  
+  // This is much cheaper than rebuilding the control network.
   if (!opt.apply_initial_transform_only && cameras_changed) {
     vw_out() << "Re-triangulating the control points as the cameras changed.\n";
     // Do not triangulate the GCP or the height-from-dem points
@@ -830,36 +830,36 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
       vw_throw(ArgumentErr() << "Invalid point index.\n");
     param_storage.set_point_outlier(ipt, true);
   }
-  
+
   // Flag outliers in the cnet
   for (int ipt = 0; ipt < num_points; ipt++) {
     if (cnet[ipt].ignore())
       param_storage.set_point_outlier(ipt, true);
   }
-  
+
   // The camera positions and orientations before we float them
   // This includes modifications from any initial transforms that were specified.
   asp::BAParams orig_parameters(param_storage);
 
   bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
-  if (has_datum && (opt.stereo_session == "pinhole") || 
-      (opt.stereo_session == "nadirpinhole")) 
+  if (has_datum && (opt.stereo_session == "pinhole") ||
+      (opt.stereo_session == "nadirpinhole"))
     asp::saveCameraReport(opt, param_storage,  opt.datum, "initial");
-    
+
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   asp::CRNJ crn;
   crn.from_cnet(cnet);
 
   if (opt.num_passes <= 0)
     vw_throw(ArgumentErr() << "Error: Expecting at least one bundle adjust pass.\n");
-  
+
   bool remove_outliers = (opt.num_passes > 1);
   double final_cost = 0.0;
   for (int pass = 0; pass < opt.num_passes; pass++) {
 
     if (opt.apply_initial_transform_only)
       continue;
-      
+
     vw_out() << "--> Bundle adjust pass: " << pass << std::endl;
 
     bool first_pass = (pass == 0);
@@ -874,7 +874,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
       // unless we have less than 10 points, as that one can make too few points.
       std::ostringstream ostr;
       ostr << "Too few points remain after filtering. Number of remaining "
-           << "points is " << num_points_remaining 
+           << "points is " << num_points_remaining
            << ", but value of --min-matches is " << opt.min_matches << ".\n";
       if (opt.isis_cnet != "" && num_points_remaining > 10)
         vw_out(vw::WarningMessage) << ostr.str();
@@ -882,20 +882,20 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
         vw_throw(ArgumentErr() << "Error: " << ostr.str());
     }
   } // End loop through passes
-  
+
   // Running random passes is not the default
   if (!opt.apply_initial_transform_only && opt.num_random_passes > 0)
     runRandomPasses(opt, param_storage, final_cost, crn, remove_outliers, orig_parameters);
-  
+
   // Always save the updated cameras, even if we are not doing any optimization
   saveUpdatedCameras(opt, param_storage);
-  
+
   // If we are only applying an initial transform, we are done
   if (opt.apply_initial_transform_only)
     return;
-      
+
   // Write the GCP stats to a file
-  if (num_gcp > 0) 
+  if (num_gcp > 0)
     param_storage.print_gcp_stats(opt.out_prefix, cnet, opt.datum);
 
   // TODO(oalexan1): Likely orig_cams have the info as opt.camera_models. But need
@@ -911,37 +911,37 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   std::vector<vw::Vector3> opt_cam_positions;
   asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
   asp::calcCameraCenters(optimized_cams, opt_cam_positions);
-  
+
   // Fetch the latest outliers from param_storage and put them in the 'outliers' set
   std::set<int> outliers;
   updateOutliers(cnet, param_storage, outliers);
-  
+
   // Write clean matches and many types of stats. These are done together as
   // they rely on reloading interest point matches, which is expensive.
   bool save_clean_matches = true;
   asp::matchFilesProcessing(cnet,
                             asp::BaBaseOptions(opt), // note the slicing
                             optimized_cams, remove_outliers, outliers, opt.mapproj_dem,
-                            opt.propagate_errors, opt.horizontal_stddev_vec, 
+                            opt.propagate_errors, opt.horizontal_stddev_vec,
                             save_clean_matches, opt.match_files);
 
   // Compute the change in camera centers. For that, we need the original cameras.
   std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";
-  if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
-    asp::saveCameraOffsets(opt.datum, opt.image_files, 
+  if (opt.datum.name() != asp::UNSPECIFIED_DATUM)
+    asp::saveCameraOffsets(opt.datum, opt.image_files,
                            orig_cam_positions, opt_cam_positions,
-                           cam_offsets_file); 
+                           cam_offsets_file);
   else
     vw::vw_out() << "Cannot compute camera offsets as the datum is unspecified.\n";
-    
-  std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";     
+
+  std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";
   asp::saveTriOffsetsPerCamera(opt.image_files, orig_parameters, param_storage, crn,
                                tri_offsets_file);
-  
-  if (has_datum && 
-      (opt.stereo_session == "pinhole") || (opt.stereo_session == "nadirpinhole")) 
+
+  if (has_datum &&
+      (opt.stereo_session == "pinhole") || (opt.stereo_session == "nadirpinhole"))
     saveCameraReport(opt, param_storage, opt.datum, "final");
-  
+
   // Save the updated cnet to ISIS or nvm format. Note that param_storage has
   // the latest triangulated points and outlier info, while the cnet has the
   // initially triangulated points and the interest point matches.
@@ -950,21 +950,21 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   else if (opt.output_cnet_type == "isis-cnet")
     asp::saveIsisCnet(opt.out_prefix, opt.datum, cnet, param_storage);
   else if (opt.output_cnet_type == "nvm") {
-    asp::saveNvm(opt, opt.no_poses_from_nvm, cnet, param_storage, 
+    asp::saveNvm(opt, opt.no_poses_from_nvm, cnet, param_storage,
                   world_to_cam, optical_offsets);
   }
-  
+
 } // end do_ba_ceres
 
 /// Looks in the input camera position file to generate a GCC position for
 /// each input camera.
 /// - If no match is found, the coordinate is (0,0,0)
-int load_estimated_camera_positions(asp::BaOptions &opt, 
+int load_estimated_camera_positions(asp::BaOptions &opt,
                                     std::vector<Vector3> & estimated_camera_gcc) {
   estimated_camera_gcc.clear();
   if (opt.camera_position_file == "")
     return 0;
-  
+
   // Read the input csv file
   asp::CsvConv conv;
   conv.parse_csv_format(opt.csv_format_str, opt.csv_srs);
@@ -980,7 +980,7 @@ int load_estimated_camera_positions(asp::BaOptions &opt,
   // For each input camera, find the matching position in the record list
   const int num_cameras = opt.image_files.size();
   estimated_camera_gcc.resize(num_cameras);
-  
+
   const RecordIter no_match = pos_records.end();
   int num_matches_found = 0;
   for (int i=0; i<num_cameras; i++) {
@@ -998,19 +998,19 @@ int load_estimated_camera_positions(asp::BaOptions &opt,
       }
     }
     if (iter == no_match) {
-      vw_out(WarningMessage) << "Camera file " << file_name 
+      vw_out(WarningMessage) << "Camera file " << file_name
          << " not found in camera position file.\n";
       estimated_camera_gcc[i] = Vector3(0,0,0);
-    }else {
+    } else {
       num_matches_found++;
     }
   } // End loop to find position record for each camera
 
-  return num_matches_found;  
+  return num_matches_found;
 }
 
 void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
-  
+
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str,
     intrinsics_limit_str;
@@ -1049,17 +1049,17 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "min max pairs and are applied in the order [focal length, optical center, other "
      "intrinsics] until all of the limits are used. Check the documentation to determine "
      "how many intrinsic parameters are used for your cameras.")
-    ("camera-position-uncertainty",  
+    ("camera-position-uncertainty",
      po::value(&opt.camera_position_uncertainty_str)->default_value(""),
      "A file having on each line the image name and the horizontal and vertical camera "
      "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
      "cameras to within the given values, potentially at the expense of accuracy.")
-    ("camera-position-uncertainty-power",  
+    ("camera-position-uncertainty-power",
      po::value(&opt.camera_position_uncertainty_power)->default_value(2.0),
      "A higher value makes the cost function rise more steeply when "
      "--camera-position-uncertainty is close to being violated. This is an advanced "
       "option. The default should be good enough.")
-    ("camera-positions", 
+    ("camera-positions",
      po::value(&opt.camera_position_file)->default_value(""),
      "CSV file containing estimated position of each camera in ECEF coordinates. For this "
      "to work well the camera must travel not along linear path, as this data will be used "
@@ -1070,7 +1070,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("init-camera-using-gcp",  po::bool_switch(&opt.init_camera_using_gcp)->default_value(false)->implicit_value(true),
      "Given an image, a pinhole camera lacking correct position and orientation, and a GCP "
      "file, find the pinhole camera with given intrinsics most consistent with the GCP.")
-    ("transform-cameras-with-shared-gcp",  
+    ("transform-cameras-with-shared-gcp",
      po::bool_switch(&opt.transform_cameras_with_shared_gcp)->default_value(false)->implicit_value(true),
      "Given at least 3 GCP, with each seen in at least 2 images, find the triangulated "
      "positions based on pixels values in the GCP, and apply a rotation + translation + "
@@ -1098,9 +1098,9 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "A file having a list of images (separated by spaces or newlines) whose cameras should be fixed during optimization.")
     ("fix-gcp-xyz",       po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
      "If the GCP are highly accurate, use this option to not float them during the optimization.")
-    ("csv-format", 
+    ("csv-format",
      po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
-    ("csv-srs", 
+    ("csv-srs",
      po::value(&opt.csv_srs)->default_value(""),
      "The PROJ or WKT string for interpreting the entries in input CSV files.")
     ("reference-terrain", po::value(&opt.reference_terrain)->default_value(""),
@@ -1123,7 +1123,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "Assuming the cameras have already been bundle-adjusted and aligned to a "
      "known DEM, constrain the triangulated points to be close to this DEM. See also "
      "--heights-from-dem-uncertainty.")
-    ("heights-from-dem-uncertainty", 
+    ("heights-from-dem-uncertainty",
      po::value(&opt.heights_from_dem_uncertainty)->default_value(10.0),
      "The DEM uncertainty (1 sigma, in meters). A smaller value constrain more the "
      "triangulated points to the DEM specified via --heights-from-dem.")
@@ -1175,7 +1175,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "A higher threshold will result in more interest points, but perhaps less unique ones.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1),
      "Remove matched IPs this percentage from the image left/right sides.")
-    ("normalize-ip-tiles", 
+    ("normalize-ip-tiles",
      po::bool_switch(&opt.ip_normalize_tiles)->default_value(false)->implicit_value(true),
      "Individually normalize tiles used for IP detection.")
     ("num-obalog-scales",      po::value(&opt.num_scales)->default_value(-1),
@@ -1183,7 +1183,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("nodata-value",           po::value(&opt.nodata_value)->default_value(nan),
      "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
     ("num-iterations",       po::value(&opt.num_iterations)->default_value(1000),
-     "Set the maximum number of iterations.") 
+     "Set the maximum number of iterations.")
     ("max-iterations",       po::value(&max_iterations_tmp)->default_value(1000),
      "Set the maximum number of iterations.") // alias for num-iterations
     ("parameter-tolerance",  po::value(&opt.parameter_tolerance)->default_value(1e-8),
@@ -1224,14 +1224,14 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "and the number of interest points in the images. The computed "
      "discrepancy is attenuated with --camera-position-robust-threshold. "
      "See --camera-position-uncertainty for a hard constraint.")
-    ("camera-position-robust-threshold", 
+    ("camera-position-robust-threshold",
      po::value(&opt.camera_position_robust_threshold)->default_value(0.1),
      "The robust threshold to attenuate large discrepancies between initial and optimized "
      "camera positions with the option --camera-position-weight. This is less than "
      "--robust-threshold, as the primary goal is to reduce pixel reprojection errors, even "
      "if that results in big differences in the camera positions. It is suggested to not "
      "modify this value, and adjust instead --camera-position-weight.")
-    ("rotation-weight", 
+    ("rotation-weight",
      po::value(&opt.rotation_weight)->default_value(0.0),
      "A higher weight will penalize more rotation deviations from the original "
      "configuration.")
@@ -1269,7 +1269,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       "Options: 'match-files' (match files in ASP's format), 'isis-cnet' (ISIS "
       "jigsaw format), 'nvm' (plain text VisualSfM NVM format). If not set, the same "
       "format as for the input is used.")
-    ("no-poses-from-nvm", 
+    ("no-poses-from-nvm",
       po::bool_switch(&opt.no_poses_from_nvm)->default_value(false)->implicit_value(true),
      "Do not read the camera poses from the NVM file or write them to such a file. "
      "Applicable only with the option --nvm and Pinhole camera models.")
@@ -1291,7 +1291,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "disk.")
     ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
      "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
-    ("remove-outliers-params", 
+    ("remove-outliers-params",
      po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 5.0 8.0", "'pct factor err1 err2'"),
      "Outlier removal based on percentage, when more than one bundle adjustment pass is "
      "used. Triangulated points (that are not GCP) with reprojection error in pixels "
@@ -1312,7 +1312,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "Use as input match files the *-clean.match files from this prefix. This implies "
      "--skip-matching. The order of images in each interest point match file "
      "need not be the same as for input images.")
-    ("update-isis-cubes-with-csm-state", 
+    ("update-isis-cubes-with-csm-state",
      po::bool_switch(&opt.update_isis_cubes_with_csm_state)->default_value(false)->implicit_value(true),
      "Save the model state of optimized CSM cameras as part of the .cub files. Any prior "
      "version and any SPICE data will be deleted. Mapprojected images obtained with prior "
@@ -1331,7 +1331,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "Disable triangulation-based interest points filtering. This obsolete option is ignored as is the default.")
     ("no-datum", po::bool_switch(&opt.no_datum)->default_value(false)->implicit_value(true),
      "Do not assume a reliable datum exists, such as for irregularly shaped bodies.")
-    ("individually-normalize", 
+    ("individually-normalize",
      po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
      "Individually normalize the input images instead of using common values.")
     ("ip-triangulation-max-error",  po::value(&opt.ip_triangulation_max_error)->default_value(-1),
@@ -1403,15 +1403,15 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "resulting in the tiles overlapping. This may be needed if the homography alignment "
      "between these images is not great, as this transform is used to pair up left and "
      "right image tiles.")
-    ("propagate-errors",  
+    ("propagate-errors",
      po::bool_switch(&opt.propagate_errors)->default_value(false)->implicit_value(true),
      "Propagate the errors from the input cameras to the triangulated points for all pairs "
      "of match points, and produce a report having the median, mean, standard deviation, "
      "and number of samples for each camera pair.")
-    ("horizontal-stddev", po::value(&opt.horizontal_stddev)->default_value(0), 
+    ("horizontal-stddev", po::value(&opt.horizontal_stddev)->default_value(0),
      "If positive, propagate this stddev of horizontal ground plane camera uncertainty "
      "through triangulation for all cameras. To be used with --propagate-errors.")
-    ("min-distortion", 
+    ("min-distortion",
      po::value(&opt.min_distortion)->default_value(1e-7),
      "When lens distortion is optimized, all initial distortion parameters that are "
      "smaller in magnitude than this value are set to this value. This is to ensure the "
@@ -1424,7 +1424,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       "(starting with FLANN 1.9.2). The default ('auto') is to use 'kmeans' for "
       "25,000 features or less and 'kdtree' otherwise. This does not apply to ORB "
       "feature matching.")
-    ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
+    ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""),
      "An alias for --csv-srs, for backward compatibility.")
     ("save-vwip", po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
      "Save .vwip files (intermediate files for creating .match files). For "
@@ -1432,11 +1432,11 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "image pair. Must start with an empty output directory for this to work.")
     ("vwip-prefix",  po::value(&opt.vwip_prefix),
      "Save .vwip files with this prefix. This is a private option used by parallel_bundle_adjust.")
-    ("ip-debug-images", 
+    ("ip-debug-images",
      po::bool_switch(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
      "Write debug images to disk when detecting and matching interest points.")
     ;
-    
+
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
@@ -1477,10 +1477,10 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     if (!opt.image_files.empty())
       vw_throw(ArgumentErr() << "The option --image-list was specified, but also "
                << "images or cameras on the command line.\n");
-     
-    // Read image and camera lists. Consider he case of sharing intrinsics per sensor. 
-    read_image_cam_lists(opt.image_list, opt.camera_list, 
-                         opt.image_files, opt.camera_files, 
+
+    // Read image and camera lists. Consider he case of sharing intrinsics per sensor.
+    read_image_cam_lists(opt.image_list, opt.camera_list,
+                         opt.image_files, opt.camera_files,
                          opt.intrinsics_options); // outputs
   } else {
     // The images and cameras are passed on the command line
@@ -1488,7 +1488,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     bool ensure_equal_sizes = true;
     asp::separate_images_from_cameras(images_or_cams,
                                     opt.image_files, opt.camera_files, // outputs
-                                    ensure_equal_sizes); 
+                                    ensure_equal_sizes);
   }
 
   // Sanity checks
@@ -1498,7 +1498,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   if (!opt.mapprojected_data.empty() && !opt.mapprojected_data_list.empty())
     vw_throw(ArgumentErr() << "Cannot specify both --mapprojected-data and "
              << "--mapprojected-data-list.\n");
-  
+
   // Sanity checks
   asp::check_for_duplicates(opt.image_files, opt.camera_files, opt.out_prefix);
   if (opt.image_files.size() != (int)opt.camera_files.size()) {
@@ -1508,7 +1508,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   }
   if (opt.image_files.empty())
     vw_throw(ArgumentErr() << "Missing input image files.\n");
-  
+
   // Guess the session if not provided. Do this as soon as we have
   // the cameras figured out.
   asp::SessionPtr session(NULL);
@@ -1519,7 +1519,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
                         opt.camera_files[0], opt.camera_files[0],
                         opt.out_prefix));
   }
-  
+
   // Reusing match files implies that we skip matching
   if (opt.clean_match_files_prefix != "" || opt.match_files_prefix != "" ||
       opt.isis_cnet != "" || opt.nvm != "")
@@ -1532,21 +1532,21 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     else if (opt.nvm != "")
       opt.output_cnet_type = "nvm";
     else
-      opt.output_cnet_type = "match-files"; 
-  } 
+      opt.output_cnet_type = "match-files";
+  }
   // Sanity check in case the user set this option manually.
-  if (opt.output_cnet_type != "match-files" && opt.output_cnet_type != "isis-cnet" && 
+  if (opt.output_cnet_type != "match-files" && opt.output_cnet_type != "isis-cnet" &&
       opt.output_cnet_type != "nvm")
     vw_throw(ArgumentErr() << "Unknown value for --output-cnet-type: "
                            << opt.output_cnet_type << ".\n");
-  
+
   //  When skipping matching, we are already forced to reuse match
   //  files based on the logic in the code, but here enforce it
   //  explicitly anyway.
-  if (opt.skip_matching) 
+  if (opt.skip_matching)
     opt.force_reuse_match_files = true;
 
-    // Must specify either csv_srs or csv_proj4_str, but not both. The latter is 
+    // Must specify either csv_srs or csv_proj4_str, but not both. The latter is
   // for backward compatibility.
   if (!opt.csv_srs.empty() && !opt.csv_proj4_str.empty())
     vw_throw(ArgumentErr() << "Cannot specify both --csv-srs and --csv-proj4.\n");
@@ -1558,9 +1558,9 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     opt.auto_overlap_params = "";
   }
 
-  // Sanity checks for solving for intrinsics 
+  // Sanity checks for solving for intrinsics
   if (opt.intrinsics_options.share_intrinsics_per_sensor && !opt.solve_intrinsics)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
       << "Must set --solve-intrinsics to solve for intrinsics per sensor.\n");
   if (opt.solve_intrinsics && !inline_adjustments) {
     vw_out() << "Solving for intrinsics, so assuming --inline-adjustments.\n";
@@ -1568,11 +1568,11 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   }
 
   // Work out the camera model type. This must happen before early.
-  // Cameras are not loaded yet. 
+  // Cameras are not loaded yet.
   // TODO(oalexan1): Maybe we need to load cameras by now?
   opt.camera_type = BaCameraType_Other;
-  if (inline_adjustments) { 
-    if ((opt.stereo_session == "pinhole") || 
+  if (inline_adjustments) {
+    if ((opt.stereo_session == "pinhole") ||
         (opt.stereo_session == "nadirpinhole"))
       opt.camera_type = BaCameraType_Pinhole;
     else if (opt.stereo_session == "opticalbar")
@@ -1583,9 +1583,9 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       vw_throw(ArgumentErr() << "Cannot use inline adjustments with session: "
                 << opt.stereo_session << ".\n");
   }
-  
+
   // Sharing intrinsics per sensor is not supported with reference terrain.
-  // It would be too much work to fix the BaDispXyzError() cost function in that 
+  // It would be too much work to fix the BaDispXyzError() cost function in that
   // case. Would need to handle all intrinsics being shared, only shared per sensor,
   // and none being shared. Same with random passes, there also new logic is needed.
   if (opt.intrinsics_options.share_intrinsics_per_sensor) {
@@ -1593,7 +1593,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with "
         << "--reference-terrain.\n");
     if (opt.num_random_passes > 0)
-      vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with " 
+      vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with "
         << "--num-random-passes.\n");
   }
 
@@ -1606,40 +1606,40 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   if (opt.transform_cameras_using_gcp &&
       (!inline_adjustments) &&
       (opt.camera_type != BaCameraType_Pinhole)) {
-    vw_throw( ArgumentErr() << "Transforming cameras using GCP works only for pinhole "
+    vw_throw(ArgumentErr() << "Transforming cameras using GCP works only for pinhole "
               << "cameras and with the --inline-adjustments flag.\n");
   }
-  
+
   if (opt.overlap_list_file != "" && opt.overlap_limit > 0)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
               << "Cannot specify both the overlap limit and the overlap list.\n");
 
   if (opt.overlap_list_file != "" && opt.match_first_to_last > 0)
-    vw_throw( ArgumentErr() 
+    vw_throw(ArgumentErr()
       << "Cannot specify both the overlap limit and --match-first-to-last.\n");
-    
+
   if (opt.overlap_limit < 0)
-    vw_throw( ArgumentErr() << "Must allow search for matches between "
+    vw_throw(ArgumentErr() << "Must allow search for matches between "
       << "at least each image and its subsequent one.\n");
-  
+
   // By default, try to match all of the images!
   if (opt.overlap_limit == 0)
     opt.overlap_limit = opt.image_files.size();
 
   if (int(opt.overlap_list_file != "") + int(!vm["auto-overlap-buffer"].defaulted()) +
       int(opt.auto_overlap_params != "") > 1)
-    vw_throw( ArgumentErr() << "Cannot specify more than one of --overlap-list, "
+    vw_throw(ArgumentErr() << "Cannot specify more than one of --overlap-list, "
               << "--auto-overlap-params, and --auto-overlap-buffer.\n");
 
   opt.have_overlap_list = false;
   if (opt.overlap_list_file != "") {
    opt.have_overlap_list = true;
     if (!fs::exists(opt.overlap_list_file))
-      vw_throw( ArgumentErr() << "The overlap list does not exist.\n");
+      vw_throw(ArgumentErr() << "The overlap list does not exist.\n");
     opt.overlap_list.clear();
     std::string image1, image2;
     std::ifstream ifs(opt.overlap_list_file.c_str());
-    while (ifs >> image1 >> image2){
+    while (ifs >> image1 >> image2) {
       opt.overlap_list.insert(std::make_pair(image1, image2));
       opt.overlap_list.insert(std::make_pair(image2, image1));
     }
@@ -1649,30 +1649,30 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     auto_build_overlap_list(opt, opt.auto_overlap_buffer);
   }
   // The third alternative, --auto-overlap-params will be handled when we have cameras
-  
+
   if (opt.camera_weight < 0.0)
-    vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n");
+    vw_throw(ArgumentErr() << "The camera weight must be non-negative.\n");
 
   if (opt.rotation_weight < 0.0)
-    vw_throw( ArgumentErr() << "The rotation weight must be non-negative.\n");
+    vw_throw(ArgumentErr() << "The rotation weight must be non-negative.\n");
 
   if (opt.camera_position_weight < 0.0)
-    vw_throw( ArgumentErr() << "The camera position weight must be non-negative.\n");
-    
+    vw_throw(ArgumentErr() << "The camera position weight must be non-negative.\n");
+
   if (opt.tri_weight < 0.0)
-    vw_throw( ArgumentErr() << "The triangulation weight must be non-negative.\n");
-  
+    vw_throw(ArgumentErr() << "The triangulation weight must be non-negative.\n");
+
   // NOTE(oalexan1): The reason min_triangulation_angle cannot be 0 is deep inside
   // StereoModel.cc. Better keep it this way than make too many changes there.
   if (opt.min_triangulation_angle <= 0.0)
-    vw_throw( ArgumentErr() << "The minimum triangulation angle must be positive.\n");
-  
+    vw_throw(ArgumentErr() << "The minimum triangulation angle must be positive.\n");
+
   // TODO: Make sure the normal model loading catches this error.
   //if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
-  //  vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
+  //  vw_throw(ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
 
   if ((opt.camera_type == BaCameraType_Other) && opt.solve_intrinsics)
-    vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with "
+    vw_throw(ArgumentErr() << "Solving for intrinsic parameters is only supported with "
               << "pinhole, optical bar, and CSM cameras.\n");
 
   if ((opt.camera_type!=BaCameraType_Pinhole) && opt.approximate_pinhole_intrinsics)
@@ -1685,27 +1685,27 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       opt.camera_type != BaCameraType_Pinhole &&
       opt.camera_type != BaCameraType_CSM     &&
       opt.input_prefix != "")
-    vw_throw( ArgumentErr() << "Can only use initial adjustments with camera type "
+    vw_throw(ArgumentErr() << "Can only use initial adjustments with camera type "
               << "'pinhole', 'csm', or 'other'. Here likely having optical bar cameras.\n");
 
   vw::string_replace(opt.remove_outliers_params_str, ",", " "); // replace any commas
   opt.remove_outliers_params = vw::str_to_vec<vw::Vector<double, 4>>(opt.remove_outliers_params_str);
-  
+
   // Ensure good order
   if (opt.lon_lat_limit != BBox2(0,0,0,0)) {
-    if (opt.lon_lat_limit.min().y() > opt.lon_lat_limit.max().y()) 
-      std::swap( opt.lon_lat_limit.min().y(), opt.lon_lat_limit.max().y());
-    if (opt.lon_lat_limit.min().x() > opt.lon_lat_limit.max().x() ) 
+    if (opt.lon_lat_limit.min().y() > opt.lon_lat_limit.max().y())
+      std::swap(opt.lon_lat_limit.min().y(), opt.lon_lat_limit.max().y());
+    if (opt.lon_lat_limit.min().x() > opt.lon_lat_limit.max().x())
       std::swap(opt.lon_lat_limit.min().x(), opt.lon_lat_limit.max().x());
   }
-  
+
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
-    vw_throw( ArgumentErr() << "When using a camera position file, the csv-format "
+    vw_throw(ArgumentErr() << "When using a camera position file, the csv-format "
               << "option must be set.\n");
 
-  if (opt.max_pairwise_matches <= 0) 
-    vw_throw( ArgumentErr() << "Must have a positive number of max pairwise matches.\n");
-  
+  if (opt.max_pairwise_matches <= 0)
+    vw_throw(ArgumentErr() << "Must have a positive number of max pairwise matches.\n");
+
   // Copy the IP settings to the global stereo_settings() object
   opt.copy_to_asp_settings();
 
@@ -1718,11 +1718,11 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   vw::cartography::GeoReference georef;
   for (size_t it = 0; it < opt.image_files.size(); it++) {
     bool is_good = vw::cartography::read_georeference(georef, opt.image_files[it]);
-      
+
     // Must check the consistency of the datums
     if (is_good && have_datum)
       vw::checkDatumConsistency(opt.datum, georef.datum(), warn_only);
-      
+
     if (is_good && !have_datum) {
       opt.datum = georef.datum();
       opt.datum_str = opt.datum.name();
@@ -1737,7 +1737,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       vw::cartography::GeoReference georef;
       bool is_good = vw::cartography::read_georeference(georef, opt.reference_terrain);
       if (!is_good)
-        vw_throw(ArgumentErr() 
+        vw_throw(ArgumentErr()
                  << "The reference terrain DEM does not have a georeference.\n");
       // Ensure the datum read from the DEM agrees with the one from the cameras/user
       if (is_good && have_datum)
@@ -1750,38 +1750,38 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     }
   }
 
-  if (opt.robust_threshold <= 0.0) 
+  if (opt.robust_threshold <= 0.0)
     vw_throw(ArgumentErr() << "The value of --robust-threshold must be positive.\n");
 
-  if (opt.tri_robust_threshold <= 0.0) 
+  if (opt.tri_robust_threshold <= 0.0)
     vw_throw(ArgumentErr() << "The value of --tri-robust-threshold must be positive.\n");
-  
-  if (opt.camera_position_robust_threshold <= 0.0) 
+
+  if (opt.camera_position_robust_threshold <= 0.0)
     vw_throw(ArgumentErr() << "The value of --camera-position-robust-threshold "
               << "must be positive.\n");
 
   // This is a bug fix. The user by mistake passed in an empty height-from-dem string.
   if (!vm["heights-from-dem"].defaulted() && opt.heights_from_dem.empty())
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The value of --heights-from-dem is empty. "
              << "Then it must not be set at all.\n");
   if (!vm["heights-from-dem-uncertainty"].defaulted() &&
       vm["heights-from-dem"].defaulted())
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The value of --heights-from-dem-uncertainty is set, "
              << "but --heights-from-dem is not set.\n");
-  if (opt.heights_from_dem_uncertainty <= 0.0) 
+  if (opt.heights_from_dem_uncertainty <= 0.0)
     vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be "
               << "positive.\n");
-  if (opt.heights_from_dem_robust_threshold <= 0.0) 
+  if (opt.heights_from_dem_robust_threshold <= 0.0)
     vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be "
               << "positive.\n");
-    
+
   bool have_dem = (!opt.heights_from_dem.empty());
-  
+
   // Try to infer the datum from the heights-from-dem
   std::string dem_file;
-  if (opt.heights_from_dem != "") 
+  if (opt.heights_from_dem != "")
     dem_file = opt.heights_from_dem;
   if (dem_file != "") {
     std::string file_type = asp::get_cloud_type(dem_file);
@@ -1789,13 +1789,13 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       vw::cartography::GeoReference georef;
       bool is_good = vw::cartography::read_georeference(georef, dem_file);
       if (!is_good)
-        vw_throw( ArgumentErr() << "The DEM " << dem_file
+        vw_throw(ArgumentErr() << "The DEM " << dem_file
                   << " does not have a georeference.\n");
 
       // Must check the consistency of the datums
       if (have_datum)
         vw::checkDatumConsistency(opt.datum, georef.datum(), warn_only);
-      
+
       if (opt.datum_str == "") {
         opt.datum = georef.datum();
         opt.datum_str = opt.datum.name();
@@ -1803,7 +1803,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       }
     }
   }
-  
+
   // Set the datum, either based on what the user specified or the axes
   vw::cartography::Datum user_datum;
   bool have_user_datum = false;
@@ -1816,7 +1816,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       opt.datum_str = "";
       have_user_datum = false;
     }
-  } else if (opt.semi_major > 0 && opt.semi_minor > 0){
+  } else if (opt.semi_major > 0 && opt.semi_minor > 0) {
     // Otherwise, if the user set the semi-axes, use that.
     user_datum = cartography::Datum("User Specified Datum",
                                     "User Specified Spheroid",
@@ -1828,40 +1828,40 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   // Must check the consistency of the datums
   if (have_datum && have_user_datum)
     vw::checkDatumConsistency(opt.datum, user_datum, warn_only);
-  
+
   if (!have_datum && have_user_datum) {
     opt.datum = user_datum;
     have_datum = true;
-  }  
-  
+  }
+
   if (opt.datum_str.empty() && have_datum)
     opt.datum_str = opt.datum.name();
 
-  // Try to find the datum from the cameras. 
+  // Try to find the datum from the cameras.
   vw::cartography::Datum cam_datum;
   bool have_cam_datum = asp::datum_from_camera(opt.image_files[0], opt.camera_files[0],
                                                // Outputs
                                                opt.stereo_session, session, cam_datum);
-  
+
   // Must check the consistency of the datums
   warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
   if (have_cam_datum && have_datum)
     vw::checkDatumConsistency(opt.datum, cam_datum, warn_only);
-     
+
   // Otherwise try to set the datum based on cameras. It will not work for Pinhole.
   if (!have_datum && have_cam_datum) {
     opt.datum = cam_datum;
     opt.datum_str = opt.datum.name();
     have_datum = true;
   }
-  
+
   // Many times the datum is mandatory
   if (!have_datum) {
     if (!opt.gcp_files.empty() || !opt.camera_position_file.empty())
-      vw_throw( ArgumentErr() << "When ground control points or a camera position "
+      vw_throw(ArgumentErr() << "When ground control points or a camera position "
                << "file are used, option --datum must be specified.\n");
     if (opt.elevation_limit[0] < opt.elevation_limit[1])
-      vw_throw( ArgumentErr()
+      vw_throw(ArgumentErr()
                 << "When filtering by elevation limit, option --datum must be specified.\n");
   }
 
@@ -1872,11 +1872,11 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
 
   // This is a little clumsy, but need to see whether the user set --max-iterations
   // or --num-iterations. They are aliases to each other.
-  if (!vm["max-iterations"].defaulted() && !vm["num-iterations"].defaulted()) 
-    vw_throw( ArgumentErr() << "Cannot set both --num-iterations and --max-iterations.\n");
+  if (!vm["max-iterations"].defaulted() && !vm["num-iterations"].defaulted())
+    vw_throw(ArgumentErr() << "Cannot set both --num-iterations and --max-iterations.\n");
   if (!vm["max-iterations"].defaulted())
     opt.num_iterations = max_iterations_tmp;
-  
+
   load_intrinsics_options(opt.solve_intrinsics, !vm["intrinsics-to-share"].defaulted(),
                           intrinsics_to_float_str, intrinsics_to_share_str,
                           opt.intrinsics_options);
@@ -1887,9 +1887,9 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   if (opt.apply_initial_transform_only && opt.initial_transform_file == "")
     vw_throw(vw::IOErr() << "Cannot use --apply-initial-transform-only "
               << "without --initial-transform.\n");
-  
+
   if (opt.initial_transform_file != "") {
-    vw_out() << "Reading the alignment transform from: " 
+    vw_out() << "Reading the alignment transform from: "
              << opt.initial_transform_file << "\n";
     vw::read_matrix_as_txt(opt.initial_transform_file, opt.initial_transform);
     if (opt.initial_transform.cols() != 4 || opt.initial_transform.rows() != 4)
@@ -1904,9 +1904,9 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     int val;
     while (is >> val) {
       opt.fixed_cameras_indices.insert(val);
-      if (val < 0 || val >= (int)opt.image_files.size()) 
-        vw_throw( vw::IOErr() << "The camera index to keep fixed " << val
-                              << " is out of bounds.\n" );
+      if (val < 0 || val >= (int)opt.image_files.size())
+        vw_throw(vw::IOErr() << "The camera index to keep fixed " << val
+                              << " is out of bounds.\n");
     }
   }
 
@@ -1916,13 +1916,13 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   if (!opt.fixed_image_list.empty()) {
 
     opt.fixed_cameras_indices.clear();
-    
+
     std::vector<std::string> fixed_images;
     asp::read_list(opt.fixed_image_list, fixed_images);
 
     // Find the indices of all images
     std::map<std::string, int> all_indices;
-    for (size_t image_it = 0; image_it < opt.image_files.size(); image_it++) 
+    for (size_t image_it = 0; image_it < opt.image_files.size(); image_it++)
       all_indices[opt.image_files[image_it]] = image_it;
 
     // Find the indices of images to fix
@@ -1934,35 +1934,35 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       opt.fixed_cameras_indices.insert(map_it->second);
     }
   }
-  
+
   if (opt.reference_terrain != "") {
     std::string file_type = asp::get_cloud_type(opt.reference_terrain);
-    if (file_type == "CSV" && opt.csv_format_str == "") 
+    if (file_type == "CSV" && opt.csv_format_str == "")
       vw_throw(ArgumentErr()
                << "When using a csv reference terrain, "
                << "must specify the csv-format.\n");
     if (!have_datum)
-      vw_throw(ArgumentErr() 
+      vw_throw(ArgumentErr()
                << "When using a reference terrain, must specify the datum.\n");
-    if (opt.disparity_list == "") 
-      vw_throw(ArgumentErr() 
+    if (opt.disparity_list == "")
+      vw_throw(ArgumentErr()
                << "When using a reference terrain, must specify a list "
                << "of disparities.\n");
-    if (opt.max_disp_error <= 0) 
-      vw_throw(ArgumentErr() 
+    if (opt.max_disp_error <= 0)
+      vw_throw(ArgumentErr()
                << "Must specify --max-disp-error in pixels as a positive value.\n");
-    if (opt.reference_terrain_weight < 0) 
-      vw_throw(ArgumentErr() 
+    if (opt.reference_terrain_weight < 0)
+      vw_throw(ArgumentErr()
                << "The value of --reference-terrain-weight must be non-negative.\n");
   }
 
-  if (opt.match_files_prefix != "" && opt.clean_match_files_prefix != "") 
+  if (opt.match_files_prefix != "" && opt.clean_match_files_prefix != "")
     vw_throw(ArgumentErr()
-              << "Cannot specify both --match-files-prefix and " 
+              << "Cannot specify both --match-files-prefix and "
               << "--clean-match-files-prefix.\n");
 
   if (int(opt.proj_win != BBox2(0, 0, 0, 0)) + int(!opt.proj_str.empty()) == 1)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "Must specify both or neither of --proj-win and --proj-str.\n");
 
   if (int(opt.transform_cameras_using_gcp) +
@@ -1974,11 +1974,11 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
 
   if (opt.propagate_errors && !have_datum)
     vw_throw(ArgumentErr() << "Cannot propagate errors without a datum. Set --datum.\n");
-  
+
   if (opt.update_isis_cubes_with_csm_state) {
     // This must happen after the session was auto-detected.
     bool have_csm = (opt.stereo_session == "csm");
-    bool have_cub_input = boost::iends_with(boost::to_lower_copy(opt.image_files[0]), 
+    bool have_cub_input = boost::iends_with(boost::to_lower_copy(opt.image_files[0]),
                                             ".cub");
     if (!have_csm || !have_cub_input)
       vw::vw_throw(vw::ArgumentErr() << "Cannot update ISIS cubes with CSM state "
@@ -1990,25 +1990,25 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   opt.pct_for_overlap = -1.0;
   if (opt.auto_overlap_params != "") {
     std::istringstream is(opt.auto_overlap_params);
-    if (!(is >> opt.dem_file_for_overlap >> opt.pct_for_overlap)) 
-      vw_throw(ArgumentErr() 
+    if (!(is >> opt.dem_file_for_overlap >> opt.pct_for_overlap))
+      vw_throw(ArgumentErr()
                 << "Could not parse correctly option --auto-overlap-params.\n");
       try {
         DiskImageView<float> dem(opt.dem_file_for_overlap);
       } catch (const Exception& e) {
-        vw_throw(ArgumentErr() 
+        vw_throw(ArgumentErr()
                   << "Could not load DEM: " << opt.dem_file_for_overlap << "\n");
       }
       if (opt.pct_for_overlap < 0)
-        vw_throw(ArgumentErr() 
+        vw_throw(ArgumentErr()
                   << "Invalid value for --auto-overlap-params.\n");
   }
-  
-  // If opt.camera_position_uncertainty is non-empty, read this file. It 
+
+  // If opt.camera_position_uncertainty is non-empty, read this file. It
   // has the image name and the uncertainty in the camera position.
   bool have_camera_position_uncertainty = !opt.camera_position_uncertainty_str.empty();
   if (have_camera_position_uncertainty)
-   asp::handleCameraPositionUncertainty(opt, have_datum); 
+   asp::handleCameraPositionUncertainty(opt, have_datum);
 
   // Set camera weight to 0 if camera position weight is positive
   if (opt.camera_position_weight > 0) {
@@ -2018,20 +2018,20 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       opt.camera_weight = 0;
     }
   }
-  
-  if (opt.use_llh_error && !have_datum) 
-    vw::vw_throw(vw::ArgumentErr() 
+
+  if (opt.use_llh_error && !have_datum)
+    vw::vw_throw(vw::ArgumentErr()
               << "Cannot use --use-llh-error without a datum. Set --datum.\n");
-  
+
   return;
 }
 
 // A wrapper around ip matching. Can also work with NULL cameras.
-void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session, 
+void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
                  std::string const& image1_path,  std::string const& image2_path,
                  vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
                  std::string const& match_filename) {
-  
+
   boost::shared_ptr<DiskImageResource>
     rsrc1(vw::DiskImageResourcePtr(image1_path)),
     rsrc2(vw::DiskImageResourcePtr(image2_path));
@@ -2042,21 +2042,21 @@ void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
   asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
 
   // IP matching may not succeed for all pairs
-  
+
   // Get masked views of the images to get statistics from
   DiskImageView<float> image1_view(rsrc1), image2_view(rsrc2);
   ImageViewRef<PixelMask<float>> masked_image1
     = create_mask_less_or_equal(image1_view,  nodata1);
   ImageViewRef<PixelMask<float>> masked_image2
     = create_mask_less_or_equal(image2_view, nodata2);
-  
+
   // Since we computed statistics earlier, this will just be loading files.
   vw::Vector<vw::float32,6> image1_stats, image2_stats;
-  image1_stats = asp::gather_stats(masked_image1, image1_path, 
+  image1_stats = asp::gather_stats(masked_image1, image1_path,
                                    opt.out_prefix, image1_path);
-  image2_stats = asp::gather_stats(masked_image2, image2_path, 
+  image2_stats = asp::gather_stats(masked_image2, image2_path,
                                    opt.out_prefix, image2_path);
-  
+
   // Do not save by default .vwip files as those take space and are
   // not needed after a match file is created. If the user wants them,
   // they must be saved in a subdirectory for each match pair, as
@@ -2065,14 +2065,14 @@ void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
   if (opt.save_vwip) {
       // parallel_bundle_adjust should have set vwip_prefix, but not bundle_adjust itself
     if (opt.vwip_prefix == "")
-      opt.vwip_prefix = opt.out_prefix; 
-    
-    ip_file1 = ip::ip_filename(opt.vwip_prefix, image1_path); 
+      opt.vwip_prefix = opt.out_prefix;
+
+    ip_file1 = ip::ip_filename(opt.vwip_prefix, image1_path);
     ip_file2 = ip::ip_filename(opt.vwip_prefix, image2_path);
     vw::create_out_dir(opt.vwip_prefix);
   }
-  
-  // For mapprojected images and given the overlap params, 
+
+  // For mapprojected images and given the overlap params,
   // can restrict the matching to a smaller region.
   vw::BBox2 bbox1, bbox2;
   if (opt.pct_for_overlap >= 0) {
@@ -2103,8 +2103,8 @@ void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
   // are newer than them.
   session->ip_matching(image1_path, image2_path,
                        Vector2(masked_image1.cols(), masked_image1.rows()),
-                       image1_stats, image2_stats, 
-                       nodata1, nodata2, cam1, cam2, match_filename, 
+                       image1_stats, image2_stats,
+                       nodata1, nodata2, cam1, cam2, match_filename,
                        ip_file1, ip_file2, bbox1, bbox2);
 }
 
@@ -2122,11 +2122,11 @@ void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
 void matches_from_mapproj_images(int i, int j,
                                  asp::BaOptions& opt, asp::SessionPtr session,
                                  std::vector<std::string> const& map_files,
-                                 std::string mapproj_dem, 
+                                 std::string mapproj_dem,
                                  vw::cartography::GeoReference const& dem_georef,
                                  ImageViewRef<PixelMask<double>> & interp_dem,
                                  std::string const& match_filename) {
-  
+
   vw::cartography::GeoReference georef1, georef2;
   vw_out() << "Reading georef from " << map_files[i] << ' ' << map_files[j] << std::endl;
   bool is_good1 = vw::cartography::read_georeference(georef1, map_files[i]);
@@ -2149,7 +2149,7 @@ void matches_from_mapproj_images(int i, int j,
     return;
 
   // If the match file does not exist, create it. The user can create this manually
-  // too. 
+  // too.
   std::string map_match_file = ip::match_filename(opt.out_prefix,
                                                   map_files[i], map_files[j]);
   try {
@@ -2162,7 +2162,7 @@ void matches_from_mapproj_images(int i, int j,
     vw_out(WarningMessage) << e.what() << std::endl;
     return;
   } //End try/catch
-  
+
   if (!boost::filesystem::exists(map_match_file)) {
     vw_out() << "Missing: " << map_match_file << "\n";
     return;
@@ -2172,30 +2172,30 @@ void matches_from_mapproj_images(int i, int j,
   std::vector<ip::InterestPoint> ip1,     ip2;
   std::vector<ip::InterestPoint> ip1_cam, ip2_cam;
   ip::read_binary_match_file(map_match_file, ip1, ip2);
-  
+
   // Undo the map-projection
   vw::CamPtr left_map_proj_cam, right_map_proj_cam;
-  session->read_mapproj_cams(map_files[i], map_files[j], 
+  session->read_mapproj_cams(map_files[i], map_files[j],
                              opt.camera_files[i], opt.camera_files[j],
                              mapproj_dem, session->name(),
                              left_map_proj_cam, right_map_proj_cam);
-  
+
   for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
     vw::ip::InterestPoint P1 = ip1[ip_iter];
     vw::ip::InterestPoint P2 = ip2[ip_iter];
-    if (!asp::projected_ip_to_raw_ip(P1, interp_dem, left_map_proj_cam, 
+    if (!asp::projected_ip_to_raw_ip(P1, interp_dem, left_map_proj_cam,
                                      georef1, dem_georef))
       continue;
     if (!asp::projected_ip_to_raw_ip(P2, interp_dem, right_map_proj_cam,
                                       georef2, dem_georef))
       continue;
-    
+
     ip1_cam.push_back(P1);
     ip2_cam.push_back(P2);
   }
-  
+
   vw_out() << "Saving " << ip1_cam.size() << " matches.\n";
-  
+
   vw_out() << "Writing: " << match_filename << std::endl;
   ip::write_binary_match_file(match_filename, ip1_cam, ip2_cam);
 
@@ -2207,15 +2207,15 @@ void matches_from_mapproj_images(int i, int j,
 /// tying each camera image match to its desired location on the DEM.
 void create_gcp_from_mapprojected_images(asp::BaOptions const& opt) {
 
-  if (opt.instance_index != 0) 
+  if (opt.instance_index != 0)
     return; // only do this for first instance
 
   // Read the map-projected images and the dem
   std::istringstream is(opt.gcp_from_mapprojected);
   std::vector<std::string> image_files;
   std::string file;
-  while (is >> file){
-    image_files.push_back(file); 
+  while (is >> file) {
+    image_files.push_back(file);
   }
   std::string dem_file = image_files.back();
   image_files.erase(image_files.end() - 1); // wipe the dem from the list
@@ -2242,7 +2242,7 @@ void create_gcp_from_mapprojected_images(asp::BaOptions const& opt) {
 
     std::string match_filename = ip::match_filename(opt.out_prefix,
                                                     image_files[i], dem_file);
-    if (!boost::filesystem::exists(match_filename)) 
+    if (!boost::filesystem::exists(match_filename))
       vw_throw(ArgumentErr() << "Missing: " << match_filename << ".\n");
 
     vw_out() << "Reading: " << match_filename << std::endl;
@@ -2261,14 +2261,14 @@ void create_gcp_from_mapprojected_images(asp::BaOptions const& opt) {
   std::string gcp_file;
   for (int i = 0; i < num_images; i++) {
     gcp_file += boost::filesystem::path(opt.image_files[i]).stem().string();
-    if (i < num_images - 1) gcp_file += "__"; 
+    if (i < num_images - 1) gcp_file += "__";
   }
   gcp_file = opt.out_prefix + "-" + gcp_file + ".gcp";
 
   vw_out() << "Writing: " << gcp_file << std::endl;
   std::ofstream output_handle(gcp_file.c_str());
   output_handle.precision(17);
-  
+
   int num_ips = matches[0].size();
   int pts_count = 0;
   for (int p = 0; p < num_ips; p++) { // Loop through IPs
@@ -2350,11 +2350,11 @@ void computeStats(asp::BaOptions const& opt, std::vector<std::string> const& map
 
     // The stats need to be computed for the mapprojected image, if provided
     std::string image_path;
-    if (map_files.empty()) 
+    if (map_files.empty())
       image_path = opt.image_files[index];
     else
       image_path = map_files[index];
-    
+
     // Call a bunch of stuff to get the nodata value
     boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
     float nodata, dummy;
@@ -2372,7 +2372,7 @@ void computeStats(asp::BaOptions const& opt, std::vector<std::string> const& map
     if (opt.auto_overlap_params != "")
       asp::camera_bbox_with_cache(dem_file_for_overlap,
                                   opt.image_files[index], // use the original image
-                                  opt.camera_models[index],  
+                                  opt.camera_models[index],
                                   opt.out_prefix);
   }
   return;
@@ -2384,7 +2384,7 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
                          std::string const& mapproj_dem,
                          std::vector<Vector3> const& estimated_camera_gcc,
                          bool need_no_matches) {
-  
+
   int num_images = opt.image_files.size();
   const bool got_est_cam_positions =
     (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
@@ -2394,16 +2394,16 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
                            !opt.match_files_prefix.empty() ||
                            opt.force_reuse_match_files ||
                            opt.skip_matching);
-  
+
   // Make a list of all the image pairs to find matches for. When using external
   // matches, try to read read both image1__image2 and image2__image1 matches.
   std::vector<std::pair<int,int>> all_pairs;
   if (!need_no_matches)
     asp::determine_image_pairs(// Inputs
-                               opt.overlap_limit, opt.match_first_to_last,  
+                               opt.overlap_limit, opt.match_first_to_last,
                                external_matches,
-                               opt.image_files, got_est_cam_positions, 
-                               opt.position_filter_dist, estimated_camera_gcc, 
+                               opt.image_files, got_est_cam_positions,
+                               opt.position_filter_dist, estimated_camera_gcc,
                                opt.have_overlap_list, opt.overlap_list,
                                // Output
                                all_pairs);
@@ -2426,10 +2426,10 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
   // is not invoked, for now check that things are as expected,
   // so all the matches are used.
   if (opt.instance_count == 1) {
-    if (start_index != 0 || this_count != all_pairs.size()) 
+    if (start_index != 0 || this_count != all_pairs.size())
       vw::vw_throw(vw::ArgumentErr() << "Book-keeping failure in bundle_adjust.\n");
   }
-  
+
   std::vector<std::pair<int,int>> this_instance_pairs;
   for (size_t i=0; i<this_count; i++)
     this_instance_pairs.push_back(all_pairs[i+start_index]);
@@ -2440,41 +2440,41 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
   std::set<std::string> existing_files;
   if (external_matches && !need_no_matches) {
     std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
-                                                opt.match_files_prefix,  
+                                                opt.match_files_prefix,
                                                 opt.out_prefix);
     vw_out() << "Computing the list of existing match files.\n";
     asp::listExistingMatchFiles(prefix, existing_files);
   }
-  
+
   vw::cartography::GeoReference dem_georef;
   ImageViewRef<PixelMask<double>> interp_dem;
   if (mapproj_dem != "")
       asp::create_interp_dem(mapproj_dem, dem_georef, interp_dem);
-  
+
   // Process the selected pairs
   // TODO(oalexan1): This block must be a function.
   for (size_t k = 0; k < this_instance_pairs.size(); k++) {
 
     if (need_no_matches)
       continue;
-    
+
     const int i = this_instance_pairs[k].first;
     const int j = this_instance_pairs[k].second;
-    
+
     std::string const& image1_path  = opt.image_files[i];  // alias
     std::string const& image2_path  = opt.image_files[j];  // alias
     std::string const& camera1_path = opt.camera_files[i]; // alias
     std::string const& camera2_path = opt.camera_files[j]; // alias
-    
+
     // See if perhaps to load match files from a different source
-    std::string match_file 
-      = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
+    std::string match_file
+      = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,
                             opt.out_prefix, image1_path, image2_path);
 
     // The external match file does not exist, don't try to load it
     if (external_matches && existing_files.find(match_file) == existing_files.end())
       continue;
-    
+
     opt.match_files[std::make_pair(i, j)] = match_file;
 
     // If we skip matching (which is the case, among other situations, when
@@ -2491,7 +2491,7 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
           boost::filesystem::exists(match_file))
         inputs_changed = false;
     }
-    
+
     if (!inputs_changed) {
       vw_out() << "\t--> Using cached match file: " << match_file << "\n";
       continue;
@@ -2505,9 +2505,9 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
       vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
     float nodata1, nodata2;
     asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
-    
+
     // Set up the stereo session
-    asp::SessionPtr 
+    asp::SessionPtr
       session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
                                                 opt, image1_path, image2_path,
                                                 camera1_path, camera2_path,
@@ -2515,7 +2515,7 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
 
     // Find matches between image pairs. This may not always succeed.
     try {
-      if (opt.mapprojected_data == "") 
+      if (opt.mapprojected_data == "")
         ba_match_ip(opt, session, image1_path, image2_path,
                     opt.camera_models[i].get(),
                     opt.camera_models[j].get(),
@@ -2549,25 +2549,25 @@ int main(int argc, char* argv[]) {
 
     handle_arguments(argc, argv, opt);
 
-    asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
-                      opt.approximate_pinhole_intrinsics,  
+    asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,
+                      opt.approximate_pinhole_intrinsics,
                       // Outputs
                       opt.stereo_session,
-                      opt.single_threaded_cameras,  
+                      opt.single_threaded_cameras,
                       opt.camera_models);
-    
+
     // Parse data needed for error propagation
     if (opt.propagate_errors)
-      asp::setup_error_propagation(opt.stereo_session, opt.horizontal_stddev, 
+      asp::setup_error_propagation(opt.stereo_session, opt.horizontal_stddev,
                                    opt.camera_models,
                                    opt.horizontal_stddev_vec); // output
-    
+
     // TODO(oalexan1): This must be a function called setup_mapprojected_data()
     // For when we make matches based on mapprojected images. Read mapprojected
     // images and a DEM from either command line or a list.
     std::vector<std::string> map_files;
     std::string mapproj_dem;
-    bool need_no_matches = (opt.apply_initial_transform_only || 
+    bool need_no_matches = (opt.apply_initial_transform_only ||
                             !opt.isis_cnet.empty() || !opt.nvm.empty());
     if (!need_no_matches) {
       if (!opt.mapprojected_data_list.empty()) {
@@ -2577,10 +2577,10 @@ int main(int argc, char* argv[]) {
         std::istringstream is(opt.mapprojected_data);
         std::string file;
         while (is >> file)
-          map_files.push_back(file); 
+          map_files.push_back(file);
       }
       if (!opt.mapprojected_data.empty()) {
-        if (opt.camera_models.size() + 1 != map_files.size()) 
+        if (opt.camera_models.size() + 1 != map_files.size())
           vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
                    << "cameras, and also a DEM.\n");
         // Pull out the dem from the list and create the interp_dem
@@ -2591,15 +2591,15 @@ int main(int argc, char* argv[]) {
     if (!opt.mapprojected_data.empty()) {
       if (!opt.input_prefix.empty() || !opt.initial_transform_file.empty() ||
           need_no_matches)
-        vw_throw(ArgumentErr() 
+        vw_throw(ArgumentErr()
                  << "Cannot use mapprojected data with initial adjustments, "
                  << "an initial transform, or ISIS cnet input.\n");
     }
-  
+
     int num_images = opt.image_files.size();
-  
+
     // Compute stats in the batch of images given by opt.instance_index, etc.
-    bool skip_stats = (need_no_matches || opt.skip_matching || 
+    bool skip_stats = (need_no_matches || opt.skip_matching ||
                        opt.clean_match_files_prefix != ""   ||
                        opt.match_files_prefix != "");
     if (!skip_stats)
@@ -2614,7 +2614,7 @@ int main(int argc, char* argv[]) {
     // Calculate which images overlap
     if (opt.auto_overlap_params != "") {
       opt.have_overlap_list = true;
-      asp::build_overlap_list_based_on_dem(opt.out_prefix,  
+      asp::build_overlap_list_based_on_dem(opt.out_prefix,
                                            opt.dem_file_for_overlap, opt.pct_for_overlap,
                                            opt.image_files, opt.camera_models,
                                            // output
@@ -2628,7 +2628,7 @@ int main(int argc, char* argv[]) {
     // Find or list matches
     findPairwiseMatches(opt, map_files, mapproj_dem,
                         estimated_camera_gcc, need_no_matches);
-    
+
     if (opt.stop_after_matching) {
       vw_out() << "Quitting after matches computation.\n";
       return 0;

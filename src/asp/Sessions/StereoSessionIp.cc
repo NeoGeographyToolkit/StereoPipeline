@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -77,25 +77,25 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     vw_out() << "Using the RPC model instead of the exact ASTER model for interest point "
               << "matching, for speed. This does not affect the accuracy of final results.\n";
     StereoSessionASTER * aster_session = dynamic_cast<StereoSessionASTER*>(this);
-    if (aster_session == NULL) 
-      vw_throw( ArgumentErr() << "ASTER session is expected." );
+    if (aster_session == NULL)
+      vw_throw(ArgumentErr() << "ASTER session is expected.");
     aster_session->rpc_camera_models(left_cam, right_cam);
     cam1 = left_cam.get();
     cam2 = right_cam.get();
   }
 
   // Sanity checks. Must be here since we will use this code in stereo and bundle_adjust.
-  if (asp::stereo_settings().matches_per_tile > 0) {  
+  if (asp::stereo_settings().matches_per_tile > 0) {
 
    if (asp::stereo_settings().ip_per_tile < asp::stereo_settings().matches_per_tile ||
-      asp::stereo_settings().ip_per_image > 0) 
-        vw::vw_throw(vw::ArgumentErr() 
-          << "When setting --matches-per-tile, must set --ip-per-tile to at least " 
+      asp::stereo_settings().ip_per_image > 0)
+        vw::vw_throw(vw::ArgumentErr()
+          << "When setting --matches-per-tile, must set --ip-per-tile to at least "
           << "a factor of that, and do not set --ip-per-image.\n");
 
     Vector2i params = asp::stereo_settings().matches_per_tile_params;
     if (params[0] <= 0 || params[1] < params[0] || params[1] > 2 * params[0])
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
           << "First value in --matches-per-tile-params must be positive, and second one must be no less than first one but no more than twice the first one.\n");
   }
 
@@ -119,18 +119,18 @@ bool StereoSession::ip_matching(std::string const& input_file1,
        stereo_settings().clean_match_files_prefix != "" ||
        stereo_settings().match_files_prefix != ""))
     rebuild = false;
-  if (crop_left || crop_right) 
+  if (crop_left || crop_right)
     rebuild = true;
-    
+
   if (boost::filesystem::exists(match_filename) && !rebuild) {
     vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
     return true;
   }
 
   // If having to rebuild then wipe the old data
-  if (boost::filesystem::exists(left_ip_file)) 
+  if (boost::filesystem::exists(left_ip_file))
     boost::filesystem::remove(left_ip_file);
-  if (boost::filesystem::exists(right_ip_file)) 
+  if (boost::filesystem::exists(right_ip_file))
     boost::filesystem::remove(right_ip_file);
   if (boost::filesystem::exists(match_filename)) {
     vw_out() << "Removing old match file: " << match_filename << "\n";
@@ -139,10 +139,10 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     // --clean-match-files-prefix.
     boost::filesystem::remove(match_filename);
   }
-    
+
   // Create DiskImageResource objects. It is a little messy to make sure
   // it works with SPOT5 which will not work without the camera file
-  // but the camera file does not match if the image is cropped. 
+  // but the camera file does not match if the image is cropped.
   // Ideally there would be a function to make this cleaner.
   boost::shared_ptr<DiskImageResource> rsrc1, rsrc2;
   if (input_file1 == m_left_image_file)
@@ -174,7 +174,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
   // If cameras are null then we cannot use them
   if (cam1 == NULL || cam2 == NULL)
     have_datum = false;
-    
+
   // Jobs set to 2x the number of cores. This is just in case all jobs are not equal.
   // The total number of interest points will be divided up among the jobs.
   size_t number_of_jobs = vw_settings().default_num_threads() * 2;
@@ -183,7 +183,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
 
 #if __APPLE__
   // Fix due to OpenBLAS crashing and/or giving different results
-  // each time. 
+  // each time.
   // TODO(oalexan1): Revisit this.
   number_of_jobs = std::min(int(vw_settings().default_num_threads()), 1);
   vw_out() << "\t    Using " << number_of_jobs << " thread(s) for matching.\n";
@@ -197,7 +197,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
 
     // This is a bugfix. For RPC models, we must never intersect with
     // a datum whose height is outside of the domain of applicability
-    // of the RPC model, as that can lead to very incorrect results.  
+    // of the RPC model, as that can lead to very incorrect results.
     const asp::RPCModel *rpc_cam
       = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(cam1));
     if (rpc_cam != NULL) {
@@ -206,10 +206,10 @@ bool StereoSession::ip_matching(std::string const& input_file1,
       double mid_ht = lonlatheight_offset[2];
       double min_ht = mid_ht - lonlatheight_scale[2];
       double max_ht = mid_ht + lonlatheight_scale[2];
-      if (max_ht < 0) 
+      if (max_ht < 0)
         vw_out() << "Warning: The RPC model maximum height is below the zero datum.\n";
 
-      if (min_ht > 0) 
+      if (min_ht > 0)
         vw_out() << "Warning: The RPC model minimum height is above the zero datum.\n";
 
       if (max_ht < 0 || min_ht > 0) {
@@ -229,20 +229,20 @@ bool StereoSession::ip_matching(std::string const& input_file1,
       }
     } // End RPC case
 
-    // A smaller value here makes IP more unique, but also fewer 
+    // A smaller value here makes IP more unique, but also fewer
     double ip_uniqueness_thresh = stereo_settings().ip_uniqueness_thresh;
 
     // TODO: Improve calculation of epipolar parameter!
     // This computes a distance used for throwing out interest points.
     // - It has to be computed using the entire (not cropped) image size!
-    // A larger value will keep more (but of lower quality) points.     
+    // A larger value will keep more (but of lower quality) points.
     double epipolar_threshold = norm_2(uncropped_image_size)/15;
     if (stereo_settings().epipolar_threshold > 0)
       epipolar_threshold = stereo_settings().epipolar_threshold;
     vw_out() << "\t    Using epipolar threshold = " << epipolar_threshold << std::endl;
     vw_out() << "\t    IP uniqueness threshold  = " << ip_uniqueness_thresh  << std::endl;
     vw_out() << "\t    Datum:                     " << datum << std::endl;
-    inlier = match_ip_with_datum(!supports_multi_threading(), 
+    inlier = match_ip_with_datum(!supports_multi_threading(),
                                  !stereo_settings().skip_rough_homography,
                                  cam1, cam2,
                                  image1_norm, image2_norm,
@@ -281,9 +281,9 @@ bool StereoSession::ip_matching(std::string const& input_file1,
 
   if (!inlier || err != "") {
     boost::filesystem::remove(match_filename);
-    
+
     std::string msg = "Unable to find enough interest point matches in the images. Check if the images are similar enough in illumination and if they have enough overlap.\n";
-    if (err != "") 
+    if (err != "")
       msg += "A more technical error message is as follows.\n" + err;
 
     vw_throw(IOErr() << msg);
@@ -303,7 +303,7 @@ void StereoSession::determine_image_alignment(// Inputs
                                               float left_nodata_value,
                                               float right_nodata_value,
                                               boost::shared_ptr<vw::camera::CameraModel>
-                                              left_cam, 
+                                              left_cam,
                                               boost::shared_ptr<vw::camera::CameraModel>
                                               right_cam,
                                               bool adjust_left_image_size,
@@ -312,14 +312,14 @@ void StereoSession::determine_image_alignment(// Inputs
                                               vw::Matrix<double> & align_right_matrix,
                                               vw::Vector2i & left_size,
                                               vw::Vector2i & right_size) {
-  
+
   // Define the file name containing IP match information.
   std::string match_filename
     = asp::stereo_match_filename(left_cropped_file, right_cropped_file, out_prefix);
-  
+
   std::string left_ip_filename  = ip::ip_filename(out_prefix, left_cropped_file);
   std::string right_ip_filename = ip::ip_filename(out_prefix, right_cropped_file);
-  
+
   // Detect matching interest points between the left and right input images.
   // The output is written directly to a file.
   DiskImageView<float> left_orig_image(left_uncropped_file);
@@ -330,11 +330,11 @@ void StereoSession::determine_image_alignment(// Inputs
                     left_nodata_value, right_nodata_value,
                     left_cam.get(), right_cam.get(),
                     match_filename, left_ip_filename, right_ip_filename);
-  
+
   // Load the interest points results from the file we just wrote
   std::vector<ip::InterestPoint> left_ip, right_ip;
   ip::read_binary_match_file(match_filename, left_ip, right_ip);
-  
+
   // Compute the appropriate alignment matrix based on the input points
   if (stereo_settings().alignment_method == "homography") {
     bool tight_inlier_threshold = false;
@@ -361,7 +361,7 @@ void StereoSession::determine_image_alignment(// Inputs
   // Write out both computed matrices to disk
   write_matrix(out_prefix + "-align-L.exr", align_left_matrix);
   write_matrix(out_prefix + "-align-R.exr", align_right_matrix);
-  
+
   // Because the images are now aligned they are the same size
   right_size = left_size;
 }
@@ -380,19 +380,19 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
   std::string match_filename;
   if (have_aligned_matches)
     match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
-  else 
+  else
     match_filename = asp::stereo_match_filename(opt.session->left_cropped_image(),
                                                 opt.session->right_cropped_image(),
                                                 opt.out_prefix);
   // The interest points must exist by now. But be tolerant of failure, as
   // this functionality is not critical.
   if (!fs::exists(match_filename)) {
-    vw::vw_out(vw::WarningMessage) 
-      << "Cannot estimate the convergence angle, as cannot find the match file: " 
+    vw::vw_out(vw::WarningMessage)
+      << "Cannot estimate the convergence angle, as cannot find the match file: "
       << match_filename << ".\n";
     return;
   }
-  
+
   std::vector<ip::InterestPoint> left_ip, right_ip;
   ip::read_binary_match_file(match_filename, left_ip, right_ip);
 
@@ -414,18 +414,18 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
     vw_out(vw::WarningMessage) << "Could not compute the stereo convergence angle.\n";
     return;
   }
-  
+
   int len = sorted_angles.size();
   vw_out() << "Convergence angle percentiles (in degrees) based on interest point matches:\n";
   vw_out() << "\t"
            << "25% " << sorted_angles[0.25*len] << ", "
            << "50% " << sorted_angles[0.50*len] << ", "
            << "75% " << sorted_angles[0.75*len] << ".\n";
-           
+
    if (sorted_angles[0.50*len] < 5.0)
-      vw_out(vw::WarningMessage) 
+      vw_out(vw::WarningMessage)
         << "The stereo convergence angle is: " << sorted_angles[0.50*len] << " degrees. "
-        << "This is quite low and may result in an empty or unreliable point cloud. " 
+        << "This is quite low and may result in an empty or unreliable point cloud. "
         << "Reduce --min-triangulation-angle to triangulate with very small angles.\n";
 }
 

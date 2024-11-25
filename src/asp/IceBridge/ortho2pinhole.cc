@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -68,17 +68,17 @@ struct Options : public vw::GdalWriteOptions {
   std::string raw_image, ortho_image, input_cam, output_cam, reference_dem, camera_estimate;
   double camera_height, orthoimage_height, ip_inlier_factor, max_translation;
   int    ip_per_tile, ip_detect_method, min_ip;
-  bool   individually_normalize, keep_match_file, write_gcp_file, skip_image_normalization, 
+  bool   individually_normalize, keep_match_file, write_gcp_file, skip_image_normalization,
     show_error, short_circuit, crop_reference_dem;
 
   // Make sure all values are initialized, even though they will be
   // over-written later.
   Options(): camera_height(-1), orthoimage_height(0), ip_per_tile(0),
-             ip_detect_method(0), individually_normalize(false), keep_match_file(false){}
+             ip_detect_method(0), individually_normalize(false), keep_match_file(false) {}
 };
 
 /// Record a set of IP results as ground control points
-void write_gcp_file(Options const& opt, 
+void write_gcp_file(Options const& opt,
                     std::vector<Vector3> const& llh_pts,
                     std::vector<Vector2> const& pixels) {
 
@@ -93,7 +93,7 @@ void write_gcp_file(Options const& opt,
 
     // The ground control point ID
     output_handle << pt_iter;
-    
+
     // Lat, lon, height
     output_handle << ", " << llh[1] << ", " << llh[0] << ", " << llh[2];
 
@@ -105,27 +105,27 @@ void write_gcp_file(Options const& opt,
     output_handle << ", " << pix.x() << ", " << pix.y(); // IP location in image
     output_handle << ", " << 1 << ", " << 1; // Sigma values
     output_handle << std::endl; // Finish the line
-    
+
   } // End loop through IPs
   output_handle.close();
-  
+
 } // End write_gcp_file
-  
+
 
 
 /// Read the camera height above ground from the ortho file, unless it was user-specified.
 double get_cam_height_estimate(Options const& opt) {
   double cam_height = opt.camera_height;
-  if (cam_height < 0){
+  if (cam_height < 0) {
     const std::string alt_key = "Altitude";
     std::string alt_str;
     boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(opt.ortho_image));
     vw::cartography::read_header_string(*rsrc.get(), alt_key, alt_str);
-    if (alt_str == "") 
-      vw_throw( ArgumentErr() << "Cannot find the 'Altitude' metadata in the image: " 
+    if (alt_str == "")
+      vw_throw(ArgumentErr() << "Cannot find the 'Altitude' metadata in the image: "
                               << opt.ortho_image
                   << ". It should then be specified on the command line as --camera-height.\n");
-    
+
     cam_height = atof(alt_str.c_str());
   }
   return cam_height;
@@ -144,16 +144,16 @@ void unpack_parameters(Vector<double> const &C,
 
 /// Find the camera model that best explains the DEM pixel observations
 class OtpSolveLMA : public vw::math::LeastSquaresModelBase<OtpSolveLMA> {
-  
+
   // TODO: Normalize!
   /// The normalized values are in the -1 to 1 range.
   std::vector<vw::Vector3> const& m_gcc_coords;
   std::vector<vw::Vector2> const& m_pixel_coords;
   boost::shared_ptr<CameraModel> m_camera_model;
   mutable size_t m_iter_count;
-  
+
 public:
- 
+
 
   typedef vw::Vector<double> result_type;   // normalized pixels
   typedef result_type        domain_type;   // Camera parameters: x,y,z,
@@ -165,12 +165,12 @@ public:
               boost::shared_ptr<CameraModel> camera_model):
     m_gcc_coords(gcc_coords),
     m_pixel_coords(pixel_coords),
-    m_camera_model(camera_model), m_iter_count(0){
+    m_camera_model(camera_model), m_iter_count(0) {
     std::cout << "Init model with " << m_gcc_coords.size() << " points.\n";
   }
 
   /// Given a set of RPC coefficients, compute the projected pixels.
-  inline result_type operator()( domain_type const& C ) const {
+  inline result_type operator()(domain_type const& C) const {
 
 
     // Set up the camera with the proposed rotation/translation
@@ -180,12 +180,12 @@ public:
     translation = Vector3(C[3], C[4], C[5]);
     Vector3 angles(C[0], C[1], C[2]);
     rotation = axis_angle_to_quaternion(angles);
-    
+
     //std::cout << "Testing translation: " << translation << std::endl;
     //std::cout << "Testing rotation: " << rotation << std::endl;
-    
+
     AdjustedCameraModel adj_cam(m_camera_model, translation, rotation);
-    
+
     // Compute the error scores
     const double NO_VIEW_ERROR = 999;
     const size_t result_size = m_gcc_coords.size() * 2;
@@ -206,11 +206,11 @@ public:
         ++missedPixelCount;
       }
     }
-    
+
     //std::cout << "Iter " << m_iter_count << " -> mean error = " << mean_error/m_gcc_coords.size() << std::endl;
     //std::cout << "Missed pixel count = " << missedPixelCount << std::endl;
     ++m_iter_count;
-    
+
     return result;
   }
 
@@ -235,7 +235,7 @@ int solve_for_cam_adjust(boost::shared_ptr<PinholeModel> camera_model,
   const double rel_tolerance  = 1e-24;
   const int    max_iterations = 2000;
 
-  // Set up with identity transform  
+  // Set up with identity transform
   const size_t NUM_PARAMS = 6;
   Vector<double> seed_params(NUM_PARAMS);
   for (size_t i=0; i<NUM_PARAMS; ++i)
@@ -244,19 +244,19 @@ int solve_for_cam_adjust(boost::shared_ptr<PinholeModel> camera_model,
   // Pack the target pixel observations
   const size_t num_observations = pixel_coords.size()*2;
   Vector<double> packed_observations(num_observations);
-  for(size_t i=0; i<pixel_coords.size(); ++i) {
+  for (size_t i=0; i<pixel_coords.size(); ++i) {
     packed_observations[2*i  ] = pixel_coords[i][0];
     packed_observations[2*i+1] = pixel_coords[i][1];
   }
 
   // Run the observation
   Vector<double> final_params;
-  final_params = math::levenberg_marquardt( lma_model, seed_params, packed_observations,
+  final_params = math::levenberg_marquardt(lma_model, seed_params, packed_observations,
                                             status, abs_tolerance, rel_tolerance,
-                                            max_iterations );
+                                            max_iterations);
 
   if (status < 1) { // This means the solver failed to converge!
-    VW_OUT(DebugMessage, "asp") << "ortho2pinhole: WARNING --> Levenberg-Marquardt solver status = " 
+    VW_OUT(DebugMessage, "asp") << "ortho2pinhole: WARNING --> Levenberg-Marquardt solver status = "
                                 << status << std::endl;
   }
 
@@ -266,14 +266,14 @@ int solve_for_cam_adjust(boost::shared_ptr<PinholeModel> camera_model,
   norm_error = norm_2(final_error);
 
   unpack_parameters(final_params, translation, rotation);
-  
+
   return status;
 }
- 
 
 
 
-   
+
+
 /// Load the DEM and adjust some options depending on DEM statistics.
 void load_reference_dem(Options &opt, boost::shared_ptr<DiskImageResource> const& rsrc_ortho,
                         vw::cartography::GeoReference const& ortho_georef,
@@ -298,19 +298,19 @@ void load_reference_dem(Options &opt, boost::shared_ptr<DiskImageResource> const
 
 
   bool crop_is_success = false;
-  if (opt.crop_reference_dem){
-    
+  if (opt.crop_reference_dem) {
+
     // Crop the DEM to a small area and read fully into memory
-    
+
     DiskImageView<float> tmp_ortho(rsrc_ortho);
     BBox2 ortho_bbox = bounding_box(tmp_ortho);
 
     DiskImageView<float> tmp_dem(opt.reference_dem);
     BBox2 dem_bbox = bounding_box(tmp_dem);
-    
+
     // The GeoTransform will hide the messy details of conversions
     vw::cartography::GeoTransform geotrans(dem_georef, ortho_georef, dem_bbox, ortho_bbox);
-    
+
     // Get the ortho bbox in the DEM pixel domain
     BBox2 crop_box = geotrans.reverse_bbox(ortho_bbox);
     if (crop_box.empty()) {
@@ -318,13 +318,13 @@ void load_reference_dem(Options &opt, boost::shared_ptr<DiskImageResource> const
       ortho_bbox.expand(10000);
       crop_box = geotrans.reverse_bbox(ortho_bbox);
     }
-    
+
     if (!crop_box.empty() && crop_box.width() < 5000 && crop_box.height() < 5000) {
       // It may be empty for a very coarse DEM maybe
-      
+
       crop_box.expand(200); // TODO: Need to think more here
       crop_box.crop(dem_bbox);
-      
+
       if (!crop_box.empty()) {
         ImageView<float> cropped_dem = crop(DiskImageView<float>(opt.reference_dem), crop_box);
         dem = create_mask(cropped_dem, dem_nodata);
@@ -335,18 +335,18 @@ void load_reference_dem(Options &opt, boost::shared_ptr<DiskImageResource> const
 
     vw_out() << "DEM bounding box: " << bounding_box(dem) << std::endl;
   }
-  
-  // Default behavior  
+
+  // Default behavior
   if (!crop_is_success)
     dem = create_mask(DiskImageView<float>(opt.reference_dem), dem_nodata);
 
-  
+
   // Get an estimate of the elevation range in the input image
   const int HEIGHT_SKIP = 500; // The DEM is very low resolution
-  
-  InterpolationView<EdgeExtensionView< ImageViewRef< PixelMask<float> >, 
-                                       ConstantEdgeExtension >, 
-                    BilinearInterpolation> interp_dem = 
+
+  InterpolationView<EdgeExtensionView< ImageViewRef< PixelMask<float> >,
+                                       ConstantEdgeExtension >,
+                    BilinearInterpolation> interp_dem =
       interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
   double max_height = -9999, min_height = 9999999, mean_height=0.0, num_heights = 0;
   for (int r=0; r<rsrc_ortho->rows(); r+=HEIGHT_SKIP) {
@@ -356,7 +356,7 @@ void load_reference_dem(Options &opt, boost::shared_ptr<DiskImageResource> const
       Vector2 ll      = ortho_georef.pixel_to_lonlat(ortho_pix);
       Vector2 dem_pix = dem_georef.lonlat_to_pixel(ll);
       double x = dem_pix.x(), y = dem_pix.y();
-      if (0 <= x && x <= dem.cols() - 1 && 0 <= y && y <= dem.rows() - 1 ) {
+      if (0 <= x && x <= dem.cols() - 1 && 0 <= y && y <= dem.rows() - 1) {
         PixelMask<float> dem_val = interp_dem(x, y);
         if (is_valid(dem_val)) {
           // Accumulate the valid height range
@@ -369,14 +369,14 @@ void load_reference_dem(Options &opt, boost::shared_ptr<DiskImageResource> const
       } // End boundary check
     } // End col loop
   } // End row loop
-  
+
   if (num_heights < 1.0) {
     vw_out() << "No intersection found with the reference DEM!\n";
     return; // No information can be gained in this case.
   }
-  
+
   mean_height = mean_height / num_heights;
-  
+
   // Set a flag if we detect there is a significant amount of elevation change in the image
   const double ELEVATION_CHANGE_THRESHOLD = 40; // Meters
   double elevation_change = max_height - min_height;
@@ -390,10 +390,10 @@ void load_reference_dem(Options &opt, boost::shared_ptr<DiskImageResource> const
     opt.orthoimage_height = mean_height;
     vw_out() << "Estimated orthoimage height to be " << opt.orthoimage_height << std::endl;
   }
-  
+
 } // End load_reference_dem
 
-void load_camera_and_find_ip(Options const& opt, 
+void load_camera_and_find_ip(Options const& opt,
                              boost::shared_ptr<DiskImageResource> const& rsrc_raw,
                              boost::shared_ptr<DiskImageResource> const& rsrc_ortho,
                              std::string const& match_filename,
@@ -407,53 +407,53 @@ void load_camera_and_find_ip(Options const& opt,
                                                        opt.input_cam, opt.input_cam,
                                                        out_prefix));
   asp::get_nodata_values(rsrc_raw, rsrc_ortho, nodata1, nodata2);
-  
+
   cam = session->camera_model(opt.raw_image, opt.input_cam);
-  
+
   // Skip IP finding if the match file exists since the code will re-use it anyways.
   if (boost::filesystem::exists(match_filename)) {
     vw_out() << "Using existing match filename " << match_filename << std::endl;
     return;
   }
-  
+
   try {
     // IP matching may not succeed for all pairs
-    
+
     // Get masked views of the images to get statistics from
     DiskImageView<float> image1_view(rsrc_raw), image2_view(rsrc_ortho);
     ImageViewRef< PixelMask<float> > masked_image1
       = create_mask_less_or_equal(image1_view,  nodata1);
     ImageViewRef< PixelMask<float> > masked_image2
       = create_mask_less_or_equal(image2_view, nodata2);
-    vw::Vector<vw::float32,6> image1_stats 
+    vw::Vector<vw::float32,6> image1_stats
       = asp::gather_stats(masked_image1, "raw", "", opt.raw_image);
-    vw::Vector<vw::float32,6> image2_stats 
+    vw::Vector<vw::float32,6> image2_stats
       = asp::gather_stats(masked_image2, "ortho", "", opt.ortho_image);
-    
+
     session->ip_matching(opt.raw_image, opt.ortho_image,
                          Vector2(masked_image1.cols(), masked_image1.rows()),
                          image1_stats, image2_stats,
                          nodata1, nodata2, cam.get(), cam.get(),
                          match_filename, "", "");
-  } catch ( const std::exception& e ){
-    vw_throw( ArgumentErr()
+  } catch (const std::exception& e) {
+    vw_throw(ArgumentErr()
               << "Could not find interest points between images "
               << opt.raw_image << " and " << opt.ortho_image << "\n" << e.what() << "\n");
   } //End try/catch
- 
+
 } // End load_camera_and_find_ip
 
 
-/// Copy pertinent information from the nav camera estimate to the 
+/// Copy pertinent information from the nav camera estimate to the
 ///  pinhole camera model so that we keep the intrinsic parameters.
 void update_pinhole_from_nav_estimate(vw::camera::PinholeModel *pcam,
                                       vw::camera::PinholeModel const& nav_camera) {
   // Copy the camera position
   pcam->set_camera_center(nav_camera.camera_center());
-  
+
   // Copy the camera orientation, being careful to avoid undiagnosed quaternion/matrix issue.
   pcam->set_camera_pose(nav_camera.get_rotation_matrix());
-  
+
   // Copy the camera<->image transform which nav2cam uses to flip the vertical axis.
   // -> This is not currently happening because our camera model is not properly
   //    handling those parameters!  For now we are messing with the pose instead.
@@ -477,7 +477,7 @@ void get_estimated_camera_position(Options const& opt,
   vw_out() << "Using " << num_pts << " points to create the camera model.\n";
   vw::Matrix<double> points_in(3, num_pts), points_out(3, num_pts);
   typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
-  for (int pt_iter = 0; pt_iter < num_pts; pt_iter++){
+  for (int pt_iter = 0; pt_iter < num_pts; pt_iter++) {
     ColView colIn (points_in,  pt_iter);
     ColView colOut(points_out, pt_iter);
     colIn  = raw_flat_xyz  [pt_iter];
@@ -506,15 +506,15 @@ void get_estimated_camera_position(Options const& opt,
     // Load the estimated camera
     PinholeModel est_cam(opt.camera_estimate);
     std::cout << "est_cam = \n" << est_cam << std::endl;
-      
+
     // If our solution moved too far from the estimated camera, use
     // the estimated position/pose instead.
     double dist = norm_2(pcam->camera_center() - est_cam.camera_center());
-    vw_out() << "Flat affine estimate is " << dist 
+    vw_out() << "Flat affine estimate is " << dist
              << " meters from the input camera estimate.\n";
     if (dist > opt.max_translation) {
       update_pinhole_from_nav_estimate(pcam, est_cam);
-      vw_out() << "Flat affine estimate difference limit is " << opt.max_translation 
+      vw_out() << "Flat affine estimate difference limit is " << opt.max_translation
                << ", using input estimate instead\n";
     }
   } // End have camera estimate case
@@ -537,41 +537,41 @@ double refine_camera_with_dem_pts(Options const& opt,
   const double TARGET_ERROR = 1000; // Error can be quite low but incorrect results tend to be very large
   const double HEIGHT_STEP = 50;
   const int    NUM_SEARCH_STEPS = 6;
-  
+
   // Set up the search elevation offsets
   // - Only use additional offsets if we don't have an estimated camera file.
   std::vector<double> height_offsets;
   height_offsets.push_back(0);
   if (opt.camera_estimate == "") {
     for (int i=1; i<=NUM_SEARCH_STEPS; ++i) {
-      height_offsets.push_back(   i*HEIGHT_STEP);
+      height_offsets.push_back(i*HEIGHT_STEP);
       height_offsets.push_back(-1*i*HEIGHT_STEP);
     }
   }
 
   const size_t max_attempts = height_offsets.size();
- 
+
   size_t attempt_count = 0;
   vw::Matrix3x3 rotation, best_rotation;
   vw::Vector3   translation, best_translation, best_gcc;
   double norm_error = 99999999999;
   double best_error = norm_error;
-  
+
   // Record starting position
   Vector3 initial_center_gcc = pcam->camera_center(Vector2(0,0));
   Vector3 initial_center_llh = dem_georef.datum().cartesian_to_geodetic(initial_center_gcc);
-  
+
   while (attempt_count < max_attempts) {
-  
+
     // Set the camera position
     double new_height = initial_center_llh[2] + height_offsets[attempt_count];
     Vector3 new_llh = initial_center_llh;
     new_llh[2] = new_height;
     Vector3 new_gcc = dem_georef.datum().geodetic_to_cartesian(new_llh);
-    pcam->set_camera_center(new_gcc);    
-  
+    pcam->set_camera_center(new_gcc);
+
     vw_out() << "Running LM solver attempt " << attempt_count << " with starting elevation: " << new_height << std::endl;
-  
+
     // Refine our initial estimate of the camera position using an LM solver with the camera model.
     int status = solve_for_cam_adjust(boost::shared_ptr<PinholeModel>
                                       (pcam, boost::null_deleter()),
@@ -588,7 +588,7 @@ double refine_camera_with_dem_pts(Options const& opt,
 
     // Success case
     vw_out() << "Success: LM solver error = " << norm_error << std::endl;
-    
+
     // Keep track of our best solution
     if (norm_error < best_error) {
         best_rotation    = rotation;
@@ -596,17 +596,17 @@ double refine_camera_with_dem_pts(Options const& opt,
         best_error       = norm_error;
         best_gcc         = new_gcc;
     }
-    
+
     // If the error was very good, stop trying new solutions.
     if ((norm_error < TARGET_ERROR) && !use_extra_caution)
-      break;      
+      break;
 
   } // End solver attempt loop
-  
+
   vw_out() << "Best LM solver error  = " << best_error << std::endl;
 
   // TODO: Make a function for this?
-  // Apply the transform to the camera.     
+  // Apply the transform to the camera.
   Quat rot_q(best_rotation);
   pcam->set_camera_center(best_gcc); // Make sure the adjustment applies to the right center location
   AdjustedCameraModel adj_cam(boost::shared_ptr<PinholeModel>(pcam, boost::null_deleter()),
@@ -615,7 +615,7 @@ double refine_camera_with_dem_pts(Options const& opt,
   Vector3 center = adj_cam.camera_center(Vector2());
   pcam->set_camera_pose(pose); // TODO: There may be a problem here!
   pcam->set_camera_center(center);
-  
+
   if (opt.show_error) { // Print error in pixels for each IP
     for (int i=0; i<num_pts; ++i) {
       Vector2 pixel = pcam->point_to_pixel(ortho_dem_xyz[i]);
@@ -630,13 +630,13 @@ double refine_camera_with_dem_pts(Options const& opt,
 
 
 // Primary task-solving function.
-void ortho2pinhole(Options & opt){
+void ortho2pinhole(Options & opt) {
 
   // Input image handles
   boost::shared_ptr<DiskImageResource>
     rsrc_raw(vw::DiskImageResourcePtr(opt.raw_image)),
     rsrc_ortho(vw::DiskImageResourcePtr(opt.ortho_image));
-  if ( (rsrc_raw->channels() > 1) || (rsrc_ortho->channels() > 1) )
+  if ((rsrc_raw->channels() > 1) || (rsrc_ortho->channels() > 1))
     vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
 
   // Load GeoRef from the ortho image
@@ -655,7 +655,7 @@ void ortho2pinhole(Options & opt){
   if (has_ref_dem) {
     load_reference_dem(opt, rsrc_ortho, ortho_georef, dem, dem_georef, elevation_change_present);
   }
-  
+
 
   // When significant elevation change is present, the homography IP filter is not
   //  accurate and we need to compensate by relaxing our inlier threshold.
@@ -664,8 +664,8 @@ void ortho2pinhole(Options & opt){
     // TODO: Decouple threshold from other params!
     asp::stereo_settings().epipolar_threshold = 150*asp::stereo_settings().ip_inlier_factor * ELEVATION_INLIER_SCALE;
     //asp::stereo_settings().ip_inlier_factor *= ELEVATION_INLIER_SCALE;
-    
-    vw_out() << "Due to elevation change, increasing ip_inlier_factor to " 
+
+    vw_out() << "Due to elevation change, increasing ip_inlier_factor to "
              << asp::stereo_settings().ip_inlier_factor << std::endl;
   }
 
@@ -686,7 +686,7 @@ void ortho2pinhole(Options & opt){
     vw_throw(ArgumentErr() << "Expecting a pinhole camera model.\n");
   }
 
-  if ( !(pcam->camera_pose() == Quaternion<double>(1, 0, 0, 0)) ) {
+  if (!(pcam->camera_pose() == Quaternion<double>(1, 0, 0, 0))) {
     // We like to start with a camera pointing along the z axis. That makes life easy.
     vw_throw(ArgumentErr() << "Expecting the input camera to have identity rotation.\n");
   }
@@ -710,7 +710,7 @@ void ortho2pinhole(Options & opt){
   std::vector<Vector3> raw_flat_xyz,  ortho_flat_xyz, ortho_flat_llh;
   std::vector<Vector3> raw_flat_xyz2, ortho_dem_xyz,  ortho_dem_llh;
   std::vector<Vector2> raw_pixels, raw_pixels2;
-  
+
   // Estimate the relative camera height from the terrain
   // - Make sure the camera always has some room to intersect rays!
   bool use_extra_caution = false;
@@ -721,25 +721,24 @@ void ortho2pinhole(Options & opt){
              << "Forcing the relative camera height to be " << MIN_CAM_HEIGHT << std::endl;
     relative_cam_height = MIN_CAM_HEIGHT;
     use_extra_caution   = true;
-  }
-  else
+  } else
     vw_out() << "Relative cam height = " << relative_cam_height << std::endl;
-  
-  for (size_t ip_iter = 0; ip_iter < raw_ip.size(); ip_iter++){
+
+  for (size_t ip_iter = 0; ip_iter < raw_ip.size(); ip_iter++) {
     try {
       // Get ray from the raw image pixel
       Vector2 raw_pix(raw_ip[ip_iter].x, raw_ip[ip_iter].y);
       Vector3 ctr = pcam->camera_center  (raw_pix);
       Vector3 dir = pcam->pixel_to_vector(raw_pix);
-      
+
       // We assume the ground is flat. Intersect rays going from camera
       // with the plane z = cam_height - orthoimage_height.
       Vector3 point_in = ctr + (relative_cam_height/dir[2])*dir;
-      
+
       // Get lonlat location for this IP IP.
       Vector2 ortho_pix(ortho_ip[ip_iter].x, ortho_ip[ip_iter].y);
       Vector2 ll = ortho_georef.pixel_to_lonlat(ortho_pix);
-      
+
       // Use given assumed height of orthoimage above the datum.
       Vector3 llh(ll[0], ll[1], opt.orthoimage_height);
       Vector3 point_out = ortho_georef.datum().geodetic_to_cartesian(llh);
@@ -748,21 +747,21 @@ void ortho2pinhole(Options & opt){
       ortho_flat_xyz.push_back(point_out);
       ortho_flat_llh.push_back(llh);
       raw_pixels.push_back(raw_pix);
-      
+
       if (!has_ref_dem)
         continue;
-      
+
       // Now let's see if the DEM is any good
-        
-      PixelMask<float> dem_val; 
+
+      PixelMask<float> dem_val;
       dem_val.invalidate();
       Vector2 dem_pix = dem_georef.lonlat_to_pixel(ll);
       double x = dem_pix.x(), y = dem_pix.y();
       // Is this pixel contained in the DEM?
-      if (0 <= x && x <= dem.cols() - 1 && 0 <= y && y <= dem.rows() - 1 ) {
-        InterpolationView<EdgeExtensionView< ImageViewRef< PixelMask<float> >, 
-                                             ConstantEdgeExtension >, 
-                          BilinearInterpolation> interp_dem = 
+      if (0 <= x && x <= dem.cols() - 1 && 0 <= y && y <= dem.rows() - 1) {
+        InterpolationView<EdgeExtensionView< ImageViewRef< PixelMask<float> >,
+                                             ConstantEdgeExtension >,
+                          BilinearInterpolation> interp_dem =
             interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
         dem_val = interp_dem(x, y);
         if (is_valid(dem_val)) {
@@ -775,8 +774,7 @@ void ortho2pinhole(Options & opt){
         }
       } // end considering the reference DEM
 
-    }
-    catch(...){} // Ignore any points which trigger a camera exception
+    } catch(...) {} // Ignore any points which trigger a camera exception
   }
 
   // See if enough points were found
@@ -787,7 +785,7 @@ void ortho2pinhole(Options & opt){
       vw_out() << "Removing: " << match_filename << std::endl;
       boost::filesystem::remove(match_filename);
     }
-    
+
     // If we have the estimated model use that, better than nothing.
     if (opt.camera_estimate != "") {
       PinholeModel est_cam(opt.camera_estimate);
@@ -800,19 +798,19 @@ void ortho2pinhole(Options & opt){
   bool use_dem_points = false;
   if (has_ref_dem) {
     const int MIN_NUM_DEM_POINTS = 8;
-    
+
     if ((num_ip_found > num_dem_ip_found) && (num_dem_ip_found < MIN_NUM_DEM_POINTS)) {
-      vw_out() << "Less than " << MIN_NUM_DEM_POINTS 
+      vw_out() << "Less than " << MIN_NUM_DEM_POINTS
                << " interest points were on the DEM. Igorning the DEM "
                << "and using the constant height: " << opt.orthoimage_height << "\n";
-    }else{ // Use the DEM points
+    } else { // Use the DEM points
       use_dem_points = true;
     }
   }
-  
+
   // Get our best estimate of the camera position
   // - This will be from an affine transform between points or
-  //   just be loaded from an input file.  
+  //   just be loaded from an input file.
   get_estimated_camera_position(opt, use_dem_points, pcam, raw_flat_xyz, ortho_flat_xyz);
 
   Vector3 gcc_cam_est = pcam->camera_center();
@@ -820,14 +818,14 @@ void ortho2pinhole(Options & opt){
   vw_out() << "Non-DEM camera center located at " << llh_cam_est << std::endl;
 
   if (use_dem_points) {
-  
+
     // Use a Lev-Mar solver to refine the camera points using the DEM.
     double refine_error = refine_camera_with_dem_pts(opt, dem_georef, use_extra_caution,
                                                      ortho_dem_xyz, raw_pixels2, pcam);
 
     Vector3 llh_cam_dem = ortho_georef.datum().cartesian_to_geodetic(pcam->camera_center());
     vw_out() << "DEM enhanced camera center located at " << llh_cam_dem << std::endl;
-    
+
     // If an estimate was provided and the DEM optimization moved us too far away from that estimate,
     //  revert back to the input estimate.  Also revert if the error was too high.
     const double MAX_REFINE_ERROR = 4000;
@@ -836,8 +834,7 @@ void ortho2pinhole(Options & opt){
       if (refine_error > MAX_REFINE_ERROR) {
         vw_out() << "Refinement error is too high, reverting to input camera estimate.\n";
         revert_camera = true;
-      }
-      else {
+      } else {
         double dist = norm_2(pcam->camera_center() - gcc_cam_est);
         vw_out() << "Camera distance from estimate is " << dist << std::endl;
         if (dist > opt.max_translation) {
@@ -850,7 +847,7 @@ void ortho2pinhole(Options & opt){
         update_pinhole_from_nav_estimate(pcam, est_cam);
       }
     }
-    
+
   } // End of second pass DEM handling case
 
   vw_out() << "Writing: " << opt.output_cam << std::endl;
@@ -860,16 +857,16 @@ void ortho2pinhole(Options & opt){
   if (opt.write_gcp_file) {
     if (use_dem_points) {
       write_gcp_file(opt, ortho_dem_llh, raw_pixels2);
-    }else {
+    } else {
       write_gcp_file(opt, ortho_flat_llh, raw_pixels);
     }
   }
-    
+
   if (!opt.keep_match_file) {
     vw_out() << "Removing: " << match_filename << std::endl;
     boost::filesystem::remove(match_filename);
   }
-}  
+}
 
 /// If an rgb input image was passed in, convert to a temporary grayscale
 ///  image and work on that instead.
@@ -901,13 +898,13 @@ std::string handle_rgb_input(std::string const& input_path, Options const& opt) 
 
 }
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("camera-estimate",   po::value(&opt.camera_estimate)->default_value(""),
      "An estimated camera model used for location and pose estimate only.")
     ("max-translation",   po::value(&opt.max_translation)->default_value(10.0),
-     "The maximum distance the camera solution is allowed to move from camera-estimate.")     
+     "The maximum distance the camera solution is allowed to move from camera-estimate.")
     ("camera-height",   po::value(&opt.camera_height)->default_value(-1.0),
      "The approximate height above the datum, in meters, at which the camera should be. If not specified, it will be read from the orthoimage metadata.")
     ("orthoimage-height",   po::value(&opt.orthoimage_height)->default_value(0.0),
@@ -937,8 +934,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("crop-reference-dem", po::bool_switch(&opt.crop_reference_dem)->default_value(false)->implicit_value(true),
      "Crop the reference DEM to a generous area to make it faster to load.");
 
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
-  
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
+
   po::options_description positional("");
   positional.add_options()
     ("raw-image",  po::value(&opt.raw_image))
@@ -968,25 +965,25 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::stereo_settings().ip_per_tile              = opt.ip_per_tile;
 
   if (opt.raw_image.empty())
-    vw_throw( ArgumentErr() << "Missing input raw image.\n" << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing input raw image.\n" << usage << general_options);
 
   if (opt.ortho_image.empty())
-    vw_throw( ArgumentErr() << "Missing input ortho image.\n" << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing input ortho image.\n" << usage << general_options);
 
   if (opt.input_cam.empty())
-    vw_throw( ArgumentErr() << "Missing input pinhole camera.\n" << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing input pinhole camera.\n" << usage << general_options);
 
   if (opt.output_cam.empty())
-    vw_throw( ArgumentErr() << "Missing output pinhole camera.\n" << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing output pinhole camera.\n" << usage << general_options);
 
   if (opt.camera_estimate != "") {
     if (!boost::filesystem::exists(opt.camera_estimate)) {
-      vw_throw( ArgumentErr() << "Estimated camera file " << opt.camera_estimate << " does not exist!\n");
-    }    
+      vw_throw(ArgumentErr() << "Estimated camera file " << opt.camera_estimate << " does not exist!\n");
+    }
   }
 
   if (opt.short_circuit && opt.camera_estimate == "")
-    vw_throw( ArgumentErr() << "Estimated camera file is required with the short-circuit option.\n");
+    vw_throw(ArgumentErr() << "Estimated camera file is required with the short-circuit option.\n");
 
   // Create the output directory
   vw::create_out_dir(opt.output_cam);
@@ -1001,30 +998,30 @@ int main(int argc, char* argv[]) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
-   
+    handle_arguments(argc, argv, opt);
+
     if (opt.short_circuit) {
       vw_out() << "Creating camera without using ortho image.\n";
-  
+
       // Load input camera files
       vw_out() << "Loading: " << opt.input_cam << std::endl;
       PinholeModel input_cam(opt.input_cam);
       vw_out() << "Loading: " << opt.camera_estimate << std::endl;
       PinholeModel est_cam(opt.camera_estimate);
-    
+
       // Copy camera position and pose from estimate camera to input camera
       input_cam.set_camera_center(est_cam.camera_center());
       input_cam.set_camera_pose  (est_cam.camera_pose  ());
-    
+
       // Write to output camera
       vw_out() << "Writing: " << opt.output_cam << std::endl;
       input_cam.write(opt.output_cam);
       return 0;
     }
-  
+
     opt.raw_image   = handle_rgb_input(opt.raw_image,   opt);
     opt.ortho_image = handle_rgb_input(opt.ortho_image, opt);
-  
+
     ortho2pinhole(opt);
   } ASP_STANDARD_CATCHES;
   return 0;

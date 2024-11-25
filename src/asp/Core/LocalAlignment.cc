@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -44,7 +44,7 @@ namespace fs = boost::filesystem;
 
 namespace asp {
 
-  // Grow a box to a square size. 
+  // Grow a box to a square size.
   vw::BBox2i grow_box_to_square(vw::BBox2i const& box, int max_size) {
     int width = box.width();
     int height = box.height();
@@ -62,17 +62,17 @@ namespace asp {
   // Grow bbox to square while not exceeding given box
   vw::BBox2i grow_box_to_square_with_constraint(vw::BBox2i const& box, int max_size,
                                                 vw::BBox2i const& max_box) {
-    
+
     BBox2i out_box = box;
     for (int attempt = 0; attempt < 10; attempt++) {
       int width  = box.width();
       int height = box.height();
       BBox2i prev_box = out_box;
       out_box = grow_box_to_square(out_box, max_size);
-      
+
       // Ensure we do not exceed the image bounds
       out_box.crop(max_box);
-      
+
       // TODO(oalexan1): Here need find the bounding box of the valid
       // data and if necessary grow box to make the bounding box of
       // the valid data be as wide and tall as a full tile. As it is,
@@ -80,13 +80,13 @@ namespace asp {
       // an area with no data.
 
       // Stop when the box stops growing
-      if (out_box == prev_box) 
+      if (out_box == prev_box)
         break;
     }
 
     return out_box;
   }
-  
+
   // Estimate the region in the right image corresponding
   // to left_trans_crop_win based on ip in the current box and
   // also by creating ip from D_sub. If cannot find enough such ip,
@@ -100,7 +100,7 @@ namespace asp {
                                      ImageViewRef<PixelGray<float>>  right_globally_aligned_image,
                                      int                             max_tile_size,
                                      double                          right_extra_factor,
-                                     BBox2i                  const & left_trans_crop_win, 
+                                     BBox2i                  const & left_trans_crop_win,
                                      BBox2i                        & right_trans_crop_win) {
 
     vw_out() << "\t--> Reading unaligned interest points.\n";
@@ -118,9 +118,9 @@ namespace asp {
     size_t min_num_ip = 20;
     BBox2i ip_crop_win = left_trans_crop_win;
     int win_size = std::max(left_trans_crop_win.width(), left_trans_crop_win.height());
-    
+
     for (int pass = 0; pass < 2; pass++) {
-      
+
       std::vector<vw::ip::InterestPoint> left_trans_ip, right_trans_ip;
 
       // Read the ip from D_sub and scale them
@@ -131,15 +131,15 @@ namespace asp {
         vw::Vector2 upsample_scale;
         std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
         asp::load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
-        asp::aligned_ip_from_D_sub(sub_disp, upsample_scale,  
+        asp::aligned_ip_from_D_sub(sub_disp, upsample_scale,
                                    left_ip_from_dsub, right_ip_from_dsub);
       }
-      
+
       // Append the ip from D_sub which are in the box
       int num_ip_from_d_sub = 0;
       for (size_t i = 0; i < left_ip_from_dsub.size(); i++) {
         Vector2 left_pt(left_ip_from_dsub[i].x, left_ip_from_dsub[i].y);
-        if (!ip_crop_win.contains(left_pt)) 
+        if (!ip_crop_win.contains(left_pt))
           continue;
 
         // Grow the right box
@@ -156,16 +156,16 @@ namespace asp {
       for (size_t i = 0; i < left_unaligned_ip.size(); i++) {
         Vector2 left_pt (left_unaligned_ip [i].x, left_unaligned_ip [i].y);
         Vector2 right_pt(right_unaligned_ip[i].x, right_unaligned_ip[i].y);
-        
+
         left_pt  = left_global_trans.forward(left_pt);
         right_pt = right_global_trans.forward(right_pt);
-        
-        if (!ip_crop_win.contains(left_pt)) 
+
+        if (!ip_crop_win.contains(left_pt))
           continue;
-        
+
         right_trans_crop_win.grow(right_pt);
-        
-        // Apply the alignment transforms to these ip 
+
+        // Apply the alignment transforms to these ip
         left_trans_ip.push_back(left_unaligned_ip[i]);
         right_trans_ip.push_back(right_unaligned_ip[i]);
         left_trans_ip.back().x  = left_pt.x();
@@ -178,7 +178,7 @@ namespace asp {
       // TODO(oalexan1): if the right box is way too big, so if there
       // are outliers, it needs to be shrank by finding the median of
       // of the ip and shrinking the box around it.
-      
+
       if (stereo_settings().local_alignment_debug) {
         std::cout << "Attempt: " << pass << std::endl;
         std::cout << "Num ip from D_sub: " << num_ip_from_d_sub << std::endl;
@@ -199,7 +199,7 @@ namespace asp {
       right_trans_crop_win = grow_box_to_square_with_constraint
         (right_trans_crop_win, right_extra_factor * max_tile_size,
          vw::bounding_box(right_globally_aligned_image));
-      
+
       if (stereo_settings().local_alignment_debug) {
         std::cout << "Grown right trans crop win " << right_trans_crop_win << std::endl;
         std::string out_match_filename
@@ -207,14 +207,14 @@ namespace asp {
         vw_out() << "Writing match file: " << out_match_filename << "\n";
         vw::ip::write_binary_match_file(out_match_filename, left_trans_ip, right_trans_ip);
       }
-      
-      if (left_trans_ip.size() >= min_num_ip) 
+
+      if (left_trans_ip.size() >= min_num_ip)
         break;
 
       // After each pass, grow the box a bit
       ip_crop_win.expand(win_size/5);
     }
-    
+
     // Round up
     right_trans_crop_win.expand(1);
     right_trans_crop_win.crop(bounding_box(right_globally_aligned_image));
@@ -226,7 +226,7 @@ namespace asp {
                                      Vector2                      const & outlier_removal_params,
                                      vw::HomographyTransform      const & left_global_trans,
                                      vw::HomographyTransform      const & right_global_trans,
-                                     BBox2i                       const & left_trans_crop_win, 
+                                     BBox2i                       const & left_trans_crop_win,
                                      BBox2i                       const & right_trans_crop_win,
                                      vw::camera::CameraModel      const * left_camera_model,
                                      vw::camera::CameraModel      const * right_camera_model,
@@ -235,7 +235,7 @@ namespace asp {
                                      std::vector<vw::ip::InterestPoint> & left_local_ip,
                                      std::vector<vw::ip::InterestPoint> & right_local_ip,
                                      std::vector<size_t>                & ip_inlier_indices) {
-    
+
     // Convert ip to original unaligned and uncropped coordinates
     std::vector<vw::ip::InterestPoint> left_global_ip;
     std::vector<vw::ip::InterestPoint> right_global_ip;
@@ -257,7 +257,7 @@ namespace asp {
       right_global_ip.back().x = right_pt.x();
       right_global_ip.back().y = right_pt.y();
     }
-    
+
     if (stereo_settings().local_alignment_debug) {
       std::string unaligned_match_filename = vw::ip::match_filename(opt.out_prefix
                                                                     + "-cropped-noalign-ip",
@@ -267,10 +267,10 @@ namespace asp {
       vw::ip::write_binary_match_file(unaligned_match_filename, left_global_ip, right_global_ip);
     }
 
-    filter_ip_using_cameras(left_global_ip, right_global_ip,  
+    filter_ip_using_cameras(left_global_ip, right_global_ip,
                             left_camera_model, right_camera_model, datum,
                             outlier_removal_params[0], outlier_removal_params[1]);
-    
+
     // Transform back to tile coordinates
     left_local_ip.clear();
     right_local_ip.clear();
@@ -282,7 +282,7 @@ namespace asp {
 
       left_pt  = left_global_trans.forward(left_pt)   - left_trans_crop_win.min();
       right_pt = right_global_trans.forward(right_pt) - right_trans_crop_win.min();
-      
+
       // First copy all the data from the input ip, then apply the transform
       left_local_ip.push_back(left_global_ip[i]);
       right_local_ip.push_back(right_global_ip[i]);
@@ -290,10 +290,10 @@ namespace asp {
       left_local_ip.back().y  = left_pt.y();
       right_local_ip.back().x = right_pt.x();
       right_local_ip.back().y = right_pt.y();
-      
+
       ip_inlier_indices.push_back(i);
     }
-    
+
   }
 
   // Apply transforms to ip
@@ -330,7 +330,7 @@ namespace asp {
       right_trans_ip.back().x = right_pt.x();
       right_trans_ip.back().y = right_pt.y();
     }
-    
+
   }
 
   // Algorithm to perform local alignment. Approach:
@@ -356,7 +356,7 @@ namespace asp {
                        vw::camera::CameraModel const * left_camera_model,
                        vw::camera::CameraModel const * right_camera_model,
                        vw::cartography::Datum  const & datum,
-                       // Outputs        
+                       // Outputs
                        vw::BBox2i                    & left_trans_crop_win,
                        vw::BBox2i                    & right_trans_crop_win,
                        vw::Matrix<double>            & left_local_mat,
@@ -365,7 +365,7 @@ namespace asp {
                        std::string                   & right_aligned_file,
                        int                           & min_disp,
                        int                           & max_disp) {
-  
+
     // Read the unaligned images
     std::string left_unaligned_file = opt.in_file1;
     std::string right_unaligned_file = opt.in_file2;
@@ -374,13 +374,13 @@ namespace asp {
     // crop win information.
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-    if (crop_left) 
+    if (crop_left)
       left_unaligned_file = opt.out_prefix + "-L-cropped.tif";
-    if (crop_right) 
+    if (crop_right)
       right_unaligned_file = opt.out_prefix + "-R-cropped.tif";
 
     // Read the globally aligned images and alignment transforms
-  
+
     std::string left_globally_aligned_file = opt.out_prefix + "-L.tif";
     std::string right_globally_aligned_file = opt.out_prefix + "-R.tif";
     boost::shared_ptr<DiskImageResource>
@@ -389,9 +389,9 @@ namespace asp {
 
     float left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
     float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
-    if ( left_rsrc->has_nodata_read() )
+    if (left_rsrc->has_nodata_read())
       left_nodata_value  = left_rsrc->nodata_read();
-    if ( right_rsrc->has_nodata_read() )
+    if (right_rsrc->has_nodata_read())
       right_nodata_value = right_rsrc->nodata_read();
 
     // Note that we do not create masked images using nodata values.
@@ -409,7 +409,7 @@ namespace asp {
 
     if (stereo_settings().local_alignment_debug)
       std::cout << "Grown left trans crop win " << left_trans_crop_win << std::endl;
-    
+
     Matrix<double> left_global_mat  = math::identity_matrix<3>();
     Matrix<double> right_global_mat = math::identity_matrix<3>();
     read_matrix(left_global_mat, opt.out_prefix + "-align-L.exr");
@@ -422,7 +422,7 @@ namespace asp {
     // also by creating ip from D_sub.
     estimate_right_trans_crop_win(opt, left_unaligned_file, right_unaligned_file,
                                   left_global_trans, right_global_trans,
-                                  right_globally_aligned_image,  
+                                  right_globally_aligned_image,
                                   max_tile_size, right_extra_factor, left_trans_crop_win,
                                   // Output
                                   right_trans_crop_win);
@@ -430,21 +430,21 @@ namespace asp {
     // TODO(oalexan1): May want to increase here the number of ip per image,
     // from the default of 5000 in InterestPointMatching.cc.
     // But do not introduced hard-coded values.
-    
+
     // Redo ip matching in the current tile. It should be more accurate after alignment
     // and cropping.
     std::vector<vw::ip::InterestPoint> left_local_ip, right_local_ip;
     size_t number_of_jobs = 1;
     detect_match_ip(left_local_ip, right_local_ip,
-                    vw::pixel_cast<float>(crop(left_globally_aligned_image, 
+                    vw::pixel_cast<float>(crop(left_globally_aligned_image,
                                                left_trans_crop_win)),
-                    vw::pixel_cast<float>(crop(right_globally_aligned_image, 
-                                               right_trans_crop_win)), 
+                    vw::pixel_cast<float>(crop(right_globally_aligned_image,
+                                               right_trans_crop_win)),
                     stereo_settings().ip_per_tile, number_of_jobs,
-                    "", "", // do not save any results to disk  
+                    "", "", // do not save any results to disk
                     left_nodata_value, right_nodata_value,
                     "" // do not save any match file to disk
-                    );
+);
 
     if (stereo_settings().local_alignment_debug) {
       // These clips have global but not local alignment
@@ -459,7 +459,7 @@ namespace asp {
                              has_georef, georef,
                              has_nodata, left_nodata_value, opt,
                              TerminalProgressCallback("asp","\t  Left:  "));
-      
+
       std::string right_crop = opt.out_prefix + "-" + "right-crop.tif";
       vw_out() << "\t--> Writing: " << right_crop << "\n";
       block_write_gdal_image(right_crop, crop(right_globally_aligned_image,
@@ -486,7 +486,7 @@ namespace asp {
     // Find the local alignment
     // TODO(oalexan1): May want to do do an initial affine epipolar alignment
     // based on d_sub and preexisting match points, with a bigger outlier factor,
-    // then do an initial rectification, then redo it as below. 
+    // then do an initial rectification, then redo it as below.
     std::vector<size_t> ip_inlier_indices;
     bool crop_to_shared_area = false;
     Vector2i local_trans_aligned_size =
@@ -534,18 +534,18 @@ namespace asp {
       = create_mask_less_or_equal(right_unaligned_image, right_unaligned_nodata_value);
 
     PixelMask<float> nodata_mask = PixelMask<float>(); // invalid value for a PixelMask
-    
+
     // Apply the combined transform to original left and right images,
     // rather than to already transformed images. This way we avoid
     // double interpolation.
-    ImageViewRef<PixelMask<float>> left_aligned_image  
+    ImageViewRef<PixelMask<float>> left_aligned_image
       = vw::transform(left_masked_image,
                   HomographyTransform(combined_left_mat),
                   local_trans_aligned_size.x(), local_trans_aligned_size.y(),
                   ValueEdgeExtension<PixelMask<float>>(nodata_mask),
                   BilinearInterpolation());
 
-    ImageViewRef<PixelMask<float>> right_aligned_image  
+    ImageViewRef<PixelMask<float>> right_aligned_image
       = vw::transform(right_masked_image,
                   HomographyTransform(combined_right_mat),
                   local_trans_aligned_size.x(), local_trans_aligned_size.y(),
@@ -557,7 +557,7 @@ namespace asp {
     // among the two images is sqrt(0.15) = 0.38.
     double det_left = vw::math::det(combined_left_mat);
     double det_right = vw::math::det(combined_right_mat);
-    if (det_left < 0.15 || det_right < 0.15) 
+    if (det_left < 0.15 || det_right < 0.15)
       vw_throw(vw::ArgumentErr() << "Expecting the determinants of local alignment "
                << "transforms to not be too different from 1. Got the values: "
                << det_left << ", " << det_right << ".\n");
@@ -565,14 +565,14 @@ namespace asp {
       vw_out() << "Warning: the determinants of the local alignment transforms "
                << "are too different from 1. Got the  "
                << det_left << ' ' << det_right << ".\n";
-    
+
     // Normalize the locally aligned images
     bool use_percentile_stretch = false;
     bool do_not_exceed_min_max = (session_name == "isis" ||
                                   session_name == "isismapisis");
     asp::normalize_images(stereo_settings().force_use_entire_range,
                           stereo_settings().individually_normalize,
-                          use_percentile_stretch, 
+                          use_percentile_stretch,
                           do_not_exceed_min_max,
                           left_stats, right_stats,
                           left_aligned_image, right_aligned_image);
@@ -585,9 +585,9 @@ namespace asp {
     // somewhere, instead of exceptions being propagated
     // gracefully. It could not be found in reasonable time where the
     // abort was happening.
-    
+
     ImageView<float> left_trans_clip
-      = apply_mask(left_aligned_image, nan_nodata); 
+      = apply_mask(left_aligned_image, nan_nodata);
     ImageView<float> right_trans_clip
       = apply_mask(crop
                    (edge_extend(right_aligned_image,
@@ -597,16 +597,16 @@ namespace asp {
 
     if (alg_name == "msmw" || alg_name == "msmw2") {
       // msmw does not like nan
-      left_trans_clip = apply_mask(create_mask(left_trans_clip, 0), 0); 
-      right_trans_clip = apply_mask(create_mask(right_trans_clip, 0), 0); 
+      left_trans_clip = apply_mask(create_mask(left_trans_clip, 0), 0);
+      right_trans_clip = apply_mask(create_mask(right_trans_clip, 0), 0);
     }
-    
+
     // Write the locally aligned images to disk
     vw::cartography::GeoReference georef;
     bool has_georef = false, has_aligned_nodata = write_nodata;
     std::string left_tile = "left-aligned-tile.tif";
     std::string right_tile = "right-aligned-tile.tif";
-    left_aligned_file = opt.out_prefix + "-" + left_tile; 
+    left_aligned_file = opt.out_prefix + "-" + left_tile;
     vw_out() << "\t--> Writing: " << left_aligned_file << "\n";
     block_write_gdal_image(left_aligned_file, left_trans_clip,
                            has_georef, georef,
@@ -619,15 +619,15 @@ namespace asp {
                            has_georef, georef,
                            has_aligned_nodata, nan_nodata, opt,
                            TerminalProgressCallback("asp","\t  Right:  "));
-    
+
     Vector2 outlier_removal_params = stereo_settings().outlier_removal_params;
 
     // Filter outliers using cameras among the ip in the tile which have the global alignment
-    // applied to them. 
+    // applied to them.
     if (outlier_removal_params[0] < 100.0)
-      filter_local_ip_using_cameras(opt, outlier_removal_params,  
-                                    left_global_trans, right_global_trans,  
-                                    left_trans_crop_win, right_trans_crop_win,  
+      filter_local_ip_using_cameras(opt, outlier_removal_params,
+                                    left_global_trans, right_global_trans,
+                                    left_trans_crop_win, right_trans_crop_win,
                                     left_camera_model, right_camera_model, datum,
                                     // These get modified
                                     left_local_ip, right_local_ip, ip_inlier_indices);
@@ -635,8 +635,8 @@ namespace asp {
     // Apply the local alignment transform to ip in the tile
     std::vector<vw::ip::InterestPoint> left_trans_local_ip;
     std::vector<vw::ip::InterestPoint> right_trans_local_ip;
-    apply_transforms_to_ip(left_local_ip, right_local_ip, ip_inlier_indices,  
-                           left_local_mat, right_local_mat,  
+    apply_transforms_to_ip(left_local_ip, right_local_ip, ip_inlier_indices,
+                           left_local_mat, right_local_mat,
                            // Outputs
                            left_trans_local_ip, right_trans_local_ip);
 
@@ -645,7 +645,7 @@ namespace asp {
     if (outlier_removal_params[0] < 100.0)
       asp::filter_ip_by_disparity(outlier_removal_params[0], outlier_removal_params[1], quiet,
                                   left_trans_local_ip, right_trans_local_ip);
-    
+
     //  Find the disparity search range
     BBox2 disp_range;
     for (size_t it = 0; it < left_trans_local_ip.size(); it++) {
@@ -653,7 +653,7 @@ namespace asp {
       Vector2 right_pt(right_trans_local_ip[it].x, right_trans_local_ip[it].y);
       disp_range.grow(right_pt - left_pt);
     }
-    
+
     if (stereo_settings().local_alignment_debug) {
       std::string local_aligned_match_filename
         = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile);
@@ -661,30 +661,30 @@ namespace asp {
       vw::ip::write_binary_match_file(local_aligned_match_filename, left_trans_local_ip,
                                       right_trans_local_ip);
     }
-    
+
     // Expand the disparity search range a bit
     double disp_width = disp_range.width();
     double disp_extra = disp_width * stereo_settings().disparity_range_expansion_percent / 100.0;
-    
+
     min_disp = floor(disp_range.min().x() - disp_extra/2.0);
     max_disp = ceil(disp_range.max().x()  + disp_extra/2.0);
 
     // TODO(oalexan1): Make this into a function.
     if (stereo_settings().max_disp_spread > 0) {
-      
+
       vw_out() << "Min and max disparities before invoking the --max-disp-spread option: "
                << min_disp << ' ' << max_disp << ".\n";
-      
+
       std::vector<double> diff;
-      for (size_t it = 0; it < left_trans_local_ip.size(); it++) 
+      for (size_t it = 0; it < left_trans_local_ip.size(); it++)
         diff.push_back(right_trans_local_ip[it].x - left_trans_local_ip[it].x);
-      
-      if (diff.empty()) 
+
+      if (diff.empty())
         vw_throw(ArgumentErr() << "No interest points left.");
-      
+
       std::sort(diff.begin(), diff.end());
       double mid_x = diff[diff.size()/2]; // median
-      
+
       double len = stereo_settings().max_disp_spread;
       double half = len / 2.0;
       min_disp = std::max(min_disp, (int)floor(mid_x - half));
@@ -703,9 +703,9 @@ namespace asp {
   // This is some experimental code which may still have some uses.
 
   // Tweak the alignment transforms and their bounds.
-  
+
   BBox2i new_left_win, new_right_win;
-      
+
   for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
     int i = ip_inlier_indices[it];
     Vector2 left_pt = Vector2(left_local_ip [i].x,  left_local_ip [i].y)
@@ -729,7 +729,7 @@ namespace asp {
     Vector2 right_pt = Vector2(right_local_ip [i].x,  right_local_ip [i].y);
     std::cout << "mapped before right " << right_local_trans.forward(right_pt) << std::endl;
   }
-      
+
   // Adjust the transforms given the new windows
   std::cout << "left mat is " << left_local_mat << std::endl;
   Vector3 left_shift(new_left_win.min().x() - left_trans_crop_win.min().x(),
@@ -779,13 +779,13 @@ namespace asp {
 
     // Find the trans box
     BBox2i trans_box;
-        
+
     for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
       int i = ip_inlier_indices[it];
-          
+
       Vector2 left_pt (left_local_ip [i].x, left_local_ip [i].y);
       Vector2 right_pt(right_local_ip[i].x, right_local_ip[i].y);
-          
+
       left_pt  = left_local_trans.forward(left_pt);
       right_pt = right_local_trans.forward(right_pt);
 
@@ -797,11 +797,11 @@ namespace asp {
     // TODO(oalexan1): What if the ip do not cover fully the image tiles
     // and hence we now leave valuable real estate out?
     trans_box.expand(5);
-        
+
     std::cout << "trans box is " << trans_box << std::endl;
 
     // adjust the trans box
-        
+
     left_local_mat (0, 2) -= trans_box.min().x();
     left_local_mat (1, 2) -= trans_box.min().y();
     right_local_mat(0, 2) -= trans_box.min().x();
@@ -812,17 +812,17 @@ namespace asp {
     std::cout << "tran dims after " << local_trans_aligned_size << std::endl;
   }
 #endif
-  
+
   // TODO(oalexan1): if left pix or right pix is invalid in the image,
   // the disparity must be invalid! Test with OpenCV SGBM, libelas, and mgm!
   // Also implement for unalign_2d_disparity.
-  
+
   // Do the same for unalign_2d_disparity.
   // Go from 1D disparity of images with affine epipolar alignment to the 2D
   // disparity by undoing the transforms that applied this alignment.
   void unalign_1d_disparity(// Inputs
-                            vw::ImageViewRef<float> aligned_disp_1d, 
-                            vw::BBox2i const& left_crop_win, 
+                            vw::ImageViewRef<float> aligned_disp_1d,
+                            vw::BBox2i const& left_crop_win,
                             vw::BBox2i const& right_crop_win,
                             vw::math::Matrix<double> const& left_align_mat,
                             vw::math::Matrix<double> const& right_align_mat,
@@ -844,7 +844,7 @@ namespace asp {
     ImageViewRef<PixelMask<float>> interp_aligned_disp_1d
       = interpolate(masked_aligned_disp_1d, BilinearInterpolation(),
                     ValueEdgeExtension<PixelMask<float>>(nodata_mask));
-    
+
     unaligned_disp_2d.set_size(left_crop_win.width(), left_crop_win.height());
 
     for (int col = 0; col < unaligned_disp_2d.cols(); col++) {
@@ -873,38 +873,38 @@ namespace asp {
         // Adjust for the fact that the two tiles before alignment
         // were crops from larger images
         disp_pix += (right_crop_win.min() - left_crop_win.min());
-      
+
         unaligned_disp_2d(col, row).child() = Vector2f(disp_pix.x(), disp_pix.y());
         unaligned_disp_2d(col, row).validate();
-      }   
+      }
     }
-  
+
   }
 
   // Go from 2D disparity of images with affine epipolar alignment to the 2D
   // disparity by undoing the transforms that applied this alignment.
   void unalign_2d_disparity(// Inputs
                             vw::ImageView<vw::PixelMask<vw::Vector2f>> const& aligned_disp_2d,
-                            vw::BBox2i const& left_crop_win, 
+                            vw::BBox2i const& left_crop_win,
                             vw::BBox2i const& right_crop_win,
                             vw::math::Matrix<double> const& left_align_mat,
                             vw::math::Matrix<double> const& right_align_mat,
                             // Output
                             vw::ImageView<vw::PixelMask<vw::Vector2f>> & unaligned_disp_2d) {
-    
+
     vw::HomographyTransform left_align_trans (left_align_mat);
     vw::HomographyTransform right_align_trans(right_align_mat);
 
     PixelMask<vw::Vector2f> nodata_pix;
     nodata_pix.invalidate();
-    
+
     // TODO(oalexan1): Here bilinear interpolation is used. This will
     // make the holes a little bigger where there is no data. Need
     // to figure out if it is desired to fill holes.
     ImageViewRef<vw::PixelMask<vw::Vector2f>> interp_aligned_disp_2d
       = interpolate(aligned_disp_2d, BilinearInterpolation(),
                     ValueEdgeExtension<PixelMask<vw::Vector2f>>(nodata_pix));
-    
+
     unaligned_disp_2d.set_size(left_crop_win.width(), left_crop_win.height());
 
     for (int col = 0; col < unaligned_disp_2d.cols(); col++) {
@@ -913,7 +913,7 @@ namespace asp {
         Vector2 left_trans_pix = left_align_trans.forward(left_pix);
         PixelMask<vw::Vector2f> interp_disp
           = interp_aligned_disp_2d(left_trans_pix.x(), left_trans_pix.y());
-        
+
         if (!is_valid(interp_disp)) {
           unaligned_disp_2d(col, row) = PixelMask<Vector2f>();
           unaligned_disp_2d(col, row).invalidate();
@@ -933,36 +933,36 @@ namespace asp {
         // Adjust for the fact that the two tiles before alignment
         // were crops from larger images
         disp_pix += (right_crop_win.min() - left_crop_win.min());
-      
+
         unaligned_disp_2d(col, row).child() = Vector2f(disp_pix.x(), disp_pix.y());
         unaligned_disp_2d(col, row).validate();
-      }   
+      }
     }
-    
+
   }
-  
+
   // Given an image in one-to-one correspondence with an aligned left image,
   // find its corresponding version for the unaligned left image.
   // disparity by undoing the transforms that applied this alignment.
   void unalign_masked_image(// Inputs
                             vw::ImageView<vw::PixelMask<float>> const& aligned_image,
-                            vw::BBox2i const& left_crop_win, 
+                            vw::BBox2i const& left_crop_win,
                             vw::math::Matrix<double> const& left_align_mat,
                             // Output
                             vw::ImageView<vw::PixelMask<float>> & unaligned_image) {
-    
+
     vw::HomographyTransform left_align_trans(left_align_mat);
 
     PixelMask<float> nodata_pix;
     nodata_pix.invalidate();
-    
+
     // TODO(oalexan1): Here bilinear interpolation is used. This will
     // make the holes a little bigger where there is no data. Need
     // to figure out if it is desired to fill holes.
     ImageViewRef<vw::PixelMask<float>> interp_aligned_image
       = interpolate(aligned_image, BilinearInterpolation(),
                     ValueEdgeExtension<PixelMask<float>>(nodata_pix));
-    
+
     unaligned_image.set_size(left_crop_win.width(), left_crop_win.height());
     for (int col = 0; col < unaligned_image.cols(); col++) {
       for (int row = 0; row < unaligned_image.rows(); row++) {
@@ -970,12 +970,12 @@ namespace asp {
         Vector2 left_trans_pix = left_align_trans.forward(left_pix);
         PixelMask<float> interp_val
           = interp_aligned_image(left_trans_pix.x(), left_trans_pix.y());
-        
+
         unaligned_image(col, row) = interp_val;
       }
     }
   }
-  
+
   // Read the list of external stereo programs (plugins) and extract
   // the path to each such plugin and its library dependencies.
   void parse_plugins_list(std::map<std::string, std::string> & plugins,
@@ -984,45 +984,45 @@ namespace asp {
     // Wipe the outputs
     plugins.clear();
     plugin_libs.clear();
-    
+
     // The plugins are stored in ISISROOT as they are installed with
     // conda. By now the variable ISISROOT should point out to where
     // those are (see asp::set_asp_env_vars()).
 
     // But note that the plugin list is in the ASP install dir, and
     // not in ISISROOT. This only makes a difference in dev mode.
-    
+
     char * isis_root = getenv("ISISROOT");
     if (isis_root == NULL)
       vw_throw(vw::ArgumentErr() << "The variable ISISROOT was not set.\n");
-    
+
     // Get the path to the plugins from the path of the ASP stereo_corr
     // executable asking for it.
     std::string base_path
       = boost::dll::program_location().parent_path().parent_path().string();
     std::string plugin_list = base_path + "/plugins/stereo" + "/plugin_list.txt";
-    
+
     std::ifstream handle;
     handle.open(plugin_list.c_str());
-    if (handle.fail()) 
-      vw_throw( vw::IOErr() << "Unable to open file \"" << plugin_list << "\"" );
-    
+    if (handle.fail())
+      vw_throw(vw::IOErr() << "Unable to open file \"" << plugin_list << "\"");
+
     std::string line;
-    while ( getline(handle, line, '\n') ){
-      
+    while (getline(handle, line, '\n')) {
+
       if (line.size() == 0 || line[0] == '#')
         continue; // skip comment and empty line
-      
+
       std::string plugin_name, plugin_path, plugin_lib;
       std::istringstream is(line);
-      
+
       // Extract the plugin name and path
-      if (!(is >> plugin_name >> plugin_path)) 
+      if (!(is >> plugin_name >> plugin_path))
         continue;
-      
+
       // Make the plugin name lower-case, but not the rest of the values
       boost::to_lower(plugin_name);
-      
+
       // The plugin lib is optional
       is >> plugin_lib;
 
@@ -1034,7 +1034,7 @@ namespace asp {
       }
 
       plugin_lib += std::string(isis_root) + "/lib";
-      
+
       plugins[plugin_name]     = plugin_path;
       plugin_libs[plugin_name] = plugin_lib;
     }
@@ -1049,7 +1049,7 @@ namespace asp {
                                       std::string      & alg_opts) {
 
     std::istringstream iss(stereo_alg);
-    if (!(iss >> alg_name)) 
+    if (!(iss >> alg_name))
       vw_throw(vw::ArgumentErr() << "Cannot parse the stereo algorithm from string: "
                << stereo_alg << ".\n");
 
@@ -1064,15 +1064,15 @@ namespace asp {
 
   // Return true for an option name, which is a dash followed by a non-integer
   bool is_option_name(std::string const& val) {
-    return ( val.size() >= 2 && val[0] == '-' && (val[1] < '0' || val[1] > '9') );
+    return (val.size() >= 2 && val[0] == '-' && (val[1] < '0' || val[1] > '9'));
   }
 
   // Return true if looking at a string having an equal sign
   bool is_env_var_and_val(std::string const& val) {
-    for (size_t it = 0; it < val.size(); it++) 
-      if (val[it] == '=') 
+    for (size_t it = 0; it < val.size(); it++)
+      if (val[it] == '=')
         return true;
-  
+
     return false;
   }
 
@@ -1081,7 +1081,7 @@ namespace asp {
     while (val.size() > 0 && (val.back() == ' ' || val.back() == '\t'))
       val.pop_back();
   }
-  
+
   // From A=b extract A as the name, and b as he value
   void get_env_var_name_and_val(std::string const& in,
                                 std::string & name,
@@ -1098,7 +1098,7 @@ namespace asp {
         continue;
       }
 
-      if (!found_equal) 
+      if (!found_equal)
         name += in[it];
       else
         val += in[it];
@@ -1116,20 +1116,20 @@ namespace asp {
 
     std::string out;
     for (auto it = pos_to_opt.begin(); it != pos_to_opt.end(); it++) {
-      
+
       std::string const& opt = it->second; // alias
 
       auto it2 = opt_map.find(opt);
-      if (it2 == opt_map.end()) 
+      if (it2 == opt_map.end())
         continue;
-      
+
       out += it2->first + sep + it2->second + " ";
     }
 
     rm_trailing_whitespace(out);
     return out;
   }
-  
+
   // Given an input string having algorithm options, like "-v 4", and
   // environmental variables, like "VAL=5", possibly with repetitions,
   // so VAL=5 and VAL=6 can both be present, separate the two kinds
@@ -1147,10 +1147,10 @@ namespace asp {
     env_vars = "";
     option_map.clear();
     env_vars_map.clear();
-    
+
     // Input validation
     for (size_t it = 0; it < input_str.size(); it++) {
-      
+
       if (std::isalnum(input_str[it]) || input_str[it] == ' ' || input_str[it] == '\t' ||
           input_str[it] == '_' || input_str[it] == '+' || input_str[it] == '-' ||
           input_str[it] == '=' || input_str[it] == '.')
@@ -1165,7 +1165,7 @@ namespace asp {
     std::vector<std::string> tokens;
     std::istringstream iss(input_str);
     std::string val;
-    while (iss >> val) 
+    while (iss >> val)
       tokens.push_back(val);
 
     // Ensure that the order is the same as in the input If
@@ -1184,7 +1184,7 @@ namespace asp {
         std::string name, val;
         get_env_var_name_and_val(token, name, val);
         env_vars_map[name] = val;
-        
+
         if (opt_to_pos.find(name) == opt_to_pos.end()) {
           // First time it is encountered
           opt_to_pos[name] = it;
@@ -1194,16 +1194,16 @@ namespace asp {
       } else {
 
         // Must be an option, like -v 3.
-        if (!is_option_name(token)) 
+        if (!is_option_name(token))
           vw_throw(vw::ArgumentErr() << "Expecting an option, so something starting "
                    << "with a dash. Got: " << token << ".\n");
-        
+
         if (opt_to_pos.find(token) == opt_to_pos.end()) {
           // First time it is encountered
           opt_to_pos[token] = it;
           pos_to_opt[it] = token;
         }
-        
+
         // All the tokens that follow and which are not options or env
         // vars must be values for this option
         std::string val = "";
@@ -1229,16 +1229,16 @@ namespace asp {
           // further up does not kick in.
           it = it2;
         }
-        
+
         rm_trailing_whitespace(val);
-        
+
         if (!val.empty())
           option_map[token] = val;
         else
           option_map[token] = "1"; // if an option has no value treat it as a boolean
-      } 
+      }
     }
-    
+
     // Now that the repeated options have been collapsed, put these back in strings
     options  = concatenate_optons(option_map, pos_to_opt, " ");
     env_vars = concatenate_optons(env_vars_map, pos_to_opt, "=");
@@ -1247,15 +1247,15 @@ namespace asp {
   // Call the OpenCV BM or SGBM algorithm
   void call_opencv_bm_or_sgbm(std::string const& left_file,
                               std::string const& right_file,
-                              std::string const& mode, // bm or a flavor of sgbm 
+                              std::string const& mode, // bm or a flavor of sgbm
                               int block_size,
                               int min_disp,
                               int max_disp,
-                              int prefilter_cap, 
-                              int uniqueness_ratio, 
-                              int speckle_size, 
-                              int speckle_range, 
-                              int disp12_diff, 
+                              int prefilter_cap,
+                              int uniqueness_ratio,
+                              int speckle_size,
+                              int speckle_range,
+                              int disp12_diff,
                               int texture_thresh,      // only for BM
                               int P1,                  // only for SGBM
                               int P2,                  // only for SGBM
@@ -1263,7 +1263,7 @@ namespace asp {
                               std::string const& disparity_file,
                               // Output
                               vw::ImageView<float> & out_disp) {
-    
+
     DiskImageView<float> left(left_file);
     DiskImageView<float> right(right_file);
 
@@ -1274,10 +1274,10 @@ namespace asp {
     // Create the bm and sgbm objects. Their parameters will be overwritten later.
     cv::Ptr<cv::StereoBM> bm = cv::StereoBM::create(16, 9);
     cv::Ptr<cv::StereoSGBM> sgbm = cv::StereoSGBM::create(0, 16, 3);
-  
+
     if (block_size < 1 || block_size % 2 != 1)
       vw_throw(ArgumentErr() << "The block size must be positive and odd.\n");
-    
+
     int num_disp = (int) 16 * ceil((max_disp - min_disp) / 16.0);
 
     // Set BM parameters
@@ -1290,9 +1290,9 @@ namespace asp {
     bm->setSpeckleWindowSize(speckle_size);
     bm->setSpeckleRange(speckle_range);
     bm->setDisp12MaxDiff(disp12_diff);
-    
+
     // Set SGBM parameters
-    
+
     int cn = 1; // Number of channels
     sgbm->setBlockSize(block_size);
     sgbm->setMinDisparity(min_disp);
@@ -1304,7 +1304,7 @@ namespace asp {
     sgbm->setSpeckleWindowSize(speckle_size);
     sgbm->setSpeckleRange(speckle_range);
     sgbm->setDisp12MaxDiff(disp12_diff);
-  
+
     vw_out() << "Running OpenCV correlation with "
              << "-mode " << mode << " "
              << "-block_size " << block_size << " "
@@ -1331,7 +1331,7 @@ namespace asp {
 
     // Expand the image with padding, or else OpenCV crops the output
     // disparity, oddly enough. Idea copied from S2P in sgbm.cpp.
-    // Copyright (c) 2012-2013, Gabriele Facciolo
+    // Copyright (c) 2012-2024, Gabriele Facciolo
     // This program is free software: you can use, modify and/or redistribute it
     // under the terms of the simplified BSD License. You should have received a
     // copy of this license along this program. If not, see
@@ -1372,7 +1372,7 @@ namespace asp {
           // disparity map, you need to divide each disp element by 16.
           asp_disp(col, row) = -((float) disp.at<int16_t>(row, col)) / 16.0;
         }
-      
+
         // Where the input image is nan, make the disparity nan too,
         // removing some sgbm artifacts
         if (std::isnan(left(col, row)))
@@ -1395,5 +1395,5 @@ namespace asp {
     // Assign the disparity to the output variable (this should not do a copy).
     out_disp = asp_disp;
   }
-  
+
 } // namespace asp

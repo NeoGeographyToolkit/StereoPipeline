@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -66,7 +66,7 @@ void write_match_image(std::string const& out_file_name,
                              std::string const right_file_path ="",
                              double nodata1 = std::numeric_limits<double>::quiet_NaN(),
                              double nodata2 = std::numeric_limits<double>::quiet_NaN());
-  
+
   // Do IP matching, return, the best translation+scale fitting functor.
   vw::Matrix<double>
     translation_ip_matching(vw::ImageView<vw::PixelGray<float>> const& image1,
@@ -82,7 +82,7 @@ void write_match_image(std::string const& out_file_name,
 
   /// Optionally remove pixels from the opposite sides of the images.
   /// - This is a very simple filter for the left/right image common case.
-  void side_ip_filtering(vw::ip::InterestPointList& ip1, 
+  void side_ip_filtering(vw::ip::InterestPointList& ip1,
                          vw::ip::InterestPointList& ip2,
                          vw::BBox2i const& bbox1, vw::BBox2i const& bbox2);
 
@@ -140,7 +140,7 @@ void write_match_image(std::string const& out_file_name,
   void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
                            vw::TransformPtr                 tx_left,
                            vw::TransformPtr                 tx_right,
-                           boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
+                           boost::shared_ptr<vw::camera::CameraModel> left_camera_model,
                            boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
                            std::vector<vw::ip::InterestPoint> & left_aligned_ip,
                            std::vector<vw::ip::InterestPoint> & right_aligned_ip);
@@ -184,7 +184,7 @@ void write_match_image(std::string const& out_file_name,
   void aligned_ip_from_D_sub(
     vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> const & sub_disp,
     vw::Vector2                                   const & upsample_scale,
-    std::vector<vw::ip::InterestPoint>                  & left_ip, 
+    std::vector<vw::ip::InterestPoint>                  & left_ip,
     std::vector<vw::ip::InterestPoint>                  & right_ip);
 
   // Homography IP matching
@@ -205,7 +205,7 @@ void write_match_image(std::string const& out_file_name,
 
 // Match the ip and save the match file. No epipolar constraint
 // is used in this mode.
-void match_ip_no_datum(vw::ip::InterestPointList const& ip1, 
+void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
                    vw::ip::InterestPointList const& ip2,
                    vw::ImageViewRef<float> const& image1,
                    vw::ImageViewRef<float> const& image2,
@@ -229,8 +229,8 @@ void detect_ip(vw::ip::InterestPointList& ip,
 
 // Detect IP in a pair of images and apply rudimentary filtering.
 // Returns false if either image ended up with zero IP.
-bool detect_ip_pair(vw::ip::InterestPointList& ip1, 
-                    vw::ip::InterestPointList& ip2,  
+bool detect_ip_pair(vw::ip::InterestPointList& ip1,
+                    vw::ip::InterestPointList& ip2,
                     vw::ImageViewRef<float> const& image1,
                     vw::ImageViewRef<float> const& image2,
                     int ip_per_tile,

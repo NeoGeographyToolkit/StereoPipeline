@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2024, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -37,20 +37,20 @@ using namespace vw;
 namespace po = boost::program_options;
 
 namespace asp {
-  
+
 struct Options: vw::GdalWriteOptions {
   std::string camera_image, ortho_image, dem, output_gcp, output_prefix, match_file;
   double inlier_threshold;
   int ip_detect_method, ip_per_image, ip_per_tile, matches_per_tile, num_ransac_iterations;
   vw::Vector2i matches_per_tile_params;
-  Options(): ip_per_image(0), num_ransac_iterations(0.0), inlier_threshold(0){}
+  Options(): ip_per_image(0), num_ransac_iterations(0.0), inlier_threshold(0) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("");
   general_options.add(vw::GdalWriteOptionsDescription(opt));
-  
+
   general_options.add_options()
     ("camera-image", po::value(&opt.camera_image)->default_value(""),
      "The camera image.")
@@ -90,20 +90,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("match-file", po::value(&opt.match_file)->default_value(""),
      "If set, use this match file instead of creating one.")
   ;
-    
+
   po::options_description positional("");
   po::positional_options_description positional_desc;
 
   std::string usage("--camera-image image.tif --ortho-image ortho.tif "
                     "--dem dem.tif -o output.gcp");
-  
+
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
-  
+
   // Sanity checks
   if (opt.camera_image == "")
     vw_throw(ArgumentErr() << "Missing camera image.\n");
@@ -113,23 +113,23 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Missing DEM.\n");
   if (opt.output_gcp == "")
     vw_throw(ArgumentErr() << "Missing output GCP file.\n");
-  
+
   // Create the output directory
   vw::create_out_dir(opt.output_gcp);
-  
-  return;  
+
+  return;
 }
 
 // Filter outliers with RANSAC
-void do_ransac(Options const& opt, 
-               std::vector<ip::InterestPoint> & ip1, 
+void do_ransac(Options const& opt,
+               std::vector<ip::InterestPoint> & ip1,
                std::vector<ip::InterestPoint> & ip2) {
-  
+
   // Convert to 3D points with the third coordinate being 1, obtaining
   // homogeneous coordinates.
   std::vector<vw::Vector3> ip1_vec3 = vw::ip::iplist_to_vectorlist(ip1);
   std::vector<vw::Vector3> ip2_vec3 = vw::ip::iplist_to_vectorlist(ip2);
-  
+
   // RANSAC parameters
   int  min_num_output_inliers = ip1.size()/2;
   bool reduce_num_inliers_if_no_fit = true;
@@ -138,9 +138,9 @@ void do_ransac(Options const& opt,
   vw::Matrix<double> tf;
   std::vector<size_t> indices;
   try {
-    vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor, 
+    vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor,
                                     vw::math::InterestPointErrorMetric>
-      ransac(vw::math::HomographyFittingFunctor(), 
+      ransac(vw::math::HomographyFittingFunctor(),
              vw::math::InterestPointErrorMetric(),
              opt.num_ransac_iterations, opt.inlier_threshold,
              min_num_output_inliers, reduce_num_inliers_if_no_fit);
@@ -151,7 +151,7 @@ void do_ransac(Options const& opt,
              << "RANSAC failed.\n");
   }
   vw::vw_out() << "Homography transform: " << tf << std::endl;
-  
+
   // Keeping only inliers. Overwrite them in place.
   for (size_t i = 0; i < indices.size(); i++) {
     ip1[i] = ip1[indices[i]];
@@ -170,30 +170,30 @@ void find_matches(Options & opt,
                   double nodata1, double nodata2,
                   std::vector<vw::ip::InterestPoint> & matched_ip1,
                   std::vector<vw::ip::InterestPoint> & matched_ip2) {
-  
+
   // Clear the outputs
   matched_ip1.clear();
   matched_ip2.clear();
-  
+
   // If the inlier factor is not set, use 10% of the image diagonal.
   if (opt.inlier_threshold <= 0.0) {
     BBox2i bbox = bounding_box(camera_image);
     opt.inlier_threshold = norm_2(Vector2(bbox.width(), bbox.height())) / 10.0;
     vw::vw_out() << "Setting inlier threshold to: " << opt.inlier_threshold << " pixels.\n";
   } else {
-    vw::vw_out() << "Using specified inlier threshold: " << opt.inlier_threshold 
+    vw::vw_out() << "Using specified inlier threshold: " << opt.inlier_threshold
                 << " pixels.\n";
   }
- 
+
   if (opt.ip_per_tile > 0) {
-    vw::vw_out() << "Since --ip-per-tile was set, not using the --ip-per-image option.\n"; 
+    vw::vw_out() << "Since --ip-per-tile was set, not using the --ip-per-image option.\n";
     opt.ip_per_image = 0;
   }
-  
+
   if (opt.ip_per_image > 0)
-    vw::vw_out() << "Searching for " << opt.ip_per_image 
+    vw::vw_out() << "Searching for " << opt.ip_per_image
                   << " interest points in each image.\n";
-  
+
   vw_out() << "Matching interest points between: " << camera_image_name << " and "
            << ortho_image_name << "\n";
 
@@ -212,10 +212,10 @@ void find_matches(Options & opt,
   asp::detect_match_ip(matched_ip1, matched_ip2,
                        vw::pixel_cast<float>(camera_image), // cast to float so it compiles
                        vw::pixel_cast<float>(ortho_image),
-                       asp::stereo_settings().ip_per_tile , number_of_jobs,
+                       asp::stereo_settings().ip_per_tile, number_of_jobs,
                        "", "", // Do not read ip from disk
                        nodata1, nodata2, match_file);
-  
+
   // Filter outliers with RANSAC
   do_ransac(opt, matched_ip1, matched_ip2);
 
@@ -225,7 +225,7 @@ void find_matches(Options & opt,
     vw_out() << "Writing inlier matches to: " << match_file << std::endl;
     ip::write_binary_match_file(match_file, matched_ip1, matched_ip2);
   }
-      
+
   return;
 }
 
@@ -236,23 +236,23 @@ void gcp_gen(Options & opt) {
   double camera_nodata, ortho_nodata, dem_nodata; // will be initialized next
   bool has_georef_camera = false, has_georef_ortho = false, has_georef_dem = false;
   vw::cartography::GeoReference georef_camera, georef_ortho, georef_dem;
-  asp::load_image(opt.camera_image, camera_image, camera_nodata, 
-                  has_georef_camera, georef_camera);  
-  asp::load_image(opt.ortho_image, ortho_image, ortho_nodata, 
+  asp::load_image(opt.camera_image, camera_image, camera_nodata,
+                  has_georef_camera, georef_camera);
+  asp::load_image(opt.ortho_image, ortho_image, ortho_nodata,
                   has_georef_ortho, georef_ortho);
-  asp::load_image(opt.dem, dem, dem_nodata, 
+  asp::load_image(opt.dem, dem, dem_nodata,
                   has_georef_dem, georef_dem);
 
   vw::vw_out() << "Camera image: " << opt.camera_image << "\n";
   vw::vw_out() << "Ortho image: " << opt.ortho_image << "\n";
   vw::vw_out() << "DEM: " << opt.dem << "\n";
-  
+
   // The ortho and DEM must have a geo reference
   if (!has_georef_ortho)
     vw_throw(ArgumentErr() << "The ortho image must have a georeference.\n");
   if (!has_georef_dem)
     vw_throw(ArgumentErr() << "The DEM must have a georeference.\n");
-    
+
   std::vector<vw::ip::InterestPoint> ip1, ip2;
   if (opt.match_file == "") {
     find_matches(opt, opt.camera_image, opt.ortho_image, camera_image, ortho_image,
@@ -261,7 +261,7 @@ void gcp_gen(Options & opt) {
     vw::vw_out() << "Reading matches from: " << opt.match_file << "\n";
     vw::ip::read_binary_match_file(opt.match_file, ip1, ip2);
   }
-  
+
   // Populate from two vectors of matched interest points
   asp::MatchList matchList;
   matchList.populateFromIpPair(ip1, ip2);
@@ -269,23 +269,23 @@ void gcp_gen(Options & opt) {
   // Write the GCP file
   std::vector<std::string> image_files = {opt.camera_image, opt.ortho_image};
   asp::writeGCP(image_files, opt.output_gcp, opt.dem, matchList);
-  
+
   return;
 }
 
-} // end namespace asp    
+} // end namespace asp
 
 int main(int argc, char *argv[]) {
 
   asp::Options opt;
-  
+
   try {
 
     // Process command line options
     asp::handle_arguments(argc, argv, opt);
 
     asp::gcp_gen(opt);
-    
+
   } ASP_STANDARD_CATCHES;
   return 0;
 }
