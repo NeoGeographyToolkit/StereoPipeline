@@ -82,8 +82,12 @@ etc.
 In this mode, the keys ``n`` and ``p`` can be used to cycle among
 the images.
 
+.. _stereo_gui_other:
+
 Other features
 ~~~~~~~~~~~~~~
+
+The ``stereo_gui`` program can:
 
   - Create and show hillshaded DEMs (:numref:`stereo_gui_hillshade`).
    
@@ -99,8 +103,8 @@ Other features
 
   - Find pixel values and region bounds (:numref:`image_bounds`).
 
-  - Show, add, and edit interest point matches displayed on top of images
-    (:numref:`stereo_gui_view_ip`).
+  - View (:numref:`stereo_gui_view_ip`) and edit (:numref:`stereo_gui_edit_ip`)
+    interest point matches displayed on top of images.
 
   - Load .nvm files having an SfM solution (:numref:`stereo_gui_nvm`).
    
@@ -536,7 +540,10 @@ point". While this is checked, one can move interest points by clicking
 and dragging them within the image extent.  Uncheck "Move match point" to
 stop moving interest points.
 
-The edited interest point matches can be saved from the menu.
+The edited interest point matches can be saved from the *IP matches* menu.
+:numref:`ba_match_files` describes the naming convention (both for
+``bundle_adjust`` and ``parallel_stereo``). Then these programs will be able to
+pick up the produced matches.
 
 If handling *N* images at once becomes too complicated, it is suggested
 to edit the matches one pair at a time.

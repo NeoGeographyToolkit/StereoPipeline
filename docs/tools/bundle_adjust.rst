@@ -568,7 +568,8 @@ These files can be used later by other ``bundle_adjust`` invocations, also by
 (the latter files should end with ``-clean.match``).
 
 Any such files can be inspected with ``stereo_gui``
-(:numref:`stereo_gui_pairwise_matches`).
+(:numref:`stereo_gui_pairwise_matches`) and converted to text with 
+``parse_match_file.py`` (:numref:`parse_match_file`).
 
 .. _jigsaw_cnet:
 

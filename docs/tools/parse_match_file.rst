@@ -11,8 +11,11 @@ other associated information. The first half of the file has interest
 points for the left image, and the second half has corresponding
 points in the right image.
 
+The program can be invoked in reverse, to create a binary match file from a text
+file. Such a match file can be viewed (:numref:`stereo_gui_view_ip`) and edited (:numref:`stereo_gui_edit_ip`) in ``stereo_gui``.
+
 It is assumed that the version of Python in the path has the
-``numpy`` and ``argparse`` packages installed and that
+``numpy`` and ``argparse`` packages installed, and that
 ``parse_match_file.py`` is in the path.
 
 Example::
@@ -34,8 +37,4 @@ matches are created.
 Other functionality which may be used to understand interest points is
 the option ``--save-cnet-as-csv`` in ``bundle_adjust`` which saves the
 interest point matches in the plain text format used by ground control
-points (GCP). This tool also saves a file named
-``final_residuals_pointmap.csv`` in the output directory which has for
-each set of matching interest points the triangulated world position
-and the error of re-projecting such a point back in the cameras
-(:numref:`bundle_adjust`).
+points (GCP). 
