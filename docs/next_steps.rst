@@ -608,13 +608,17 @@ and also likely the projection (``--t_srs``).
      mapproject --tr 0.000038694000978 run_nomap/run-smooth.tif \
        right.cub right_proj.tif
 
-Next, we do stereo with these mapprojected images::
+Next, we do stereo with these mapprojected images, with the mapprojection
+DEM as the last argument::
 
-     parallel_stereo --stereo-algorithm asp_mgm        \
-       --subpixel-mode 9                               \
-       --sgm-collar-size 256                           \
-       left_proj.tif right_proj.tif left.cub right.cub \
-       run_map/run run_nomap/run-smooth.tif
+     parallel_stereo                \
+       --stereo-algorithm asp_mgm   \
+       --subpixel-mode 9            \
+       --sgm-collar-size 256        \
+       left_proj.tif right_proj.tif \
+       left.cub right.cub           \
+       run_map/run                  \
+       run_nomap/run-smooth.tif
 
 Even though we use mapprojected images, we still specified the original images
 as the third and fourth arguments. That because we need the camera information
@@ -713,7 +717,7 @@ input DEM is relative to an ellipsoid and not a geoid
 
 Fill and blur the input DEM if needed (:numref:`dem_mosaic_extrapolate`).
 
-Commands::
+Mapprojection commands::
 
     mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
       --tr 0.5 ref_dem.tif                                      \
@@ -726,13 +730,18 @@ Commands::
       12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF          \
       12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML          \
       right_mapproj.tif
+
+Running ``parallel_stereo`` with these mapprojected images, and the 
+DEM used for mapprojection as the last argument::
       
-    parallel_stereo --subpixel-mode 1                           \
-      --alignment-method none                                   \
-      left_mapproj.tif right_mapproj.tif                        \
-      12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML          \
-      12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML          \
-      dg/dg ref_dem.tif
+    parallel_stereo                                    \
+      --subpixel-mode 1                                \
+      --alignment-method none                          \
+      left_mapproj.tif right_mapproj.tif               \
+      12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
+      12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
+      dg/dg                                            \
+      ref_dem.tif
 
 See :numref:`running-stereo` for more details about the various 
 speed-vs-accuracy tradeoffs.
@@ -776,22 +785,34 @@ etc. Normally this is detected and set automatically.
 The stereo command with mapprojected images when the cameras are
 stored separately is along the lines of::
 
-    parallel_stereo -t rpc --stereo-algorithm asp_mgm  \
-      left.map.tif right.map.tif left.xml right.xml    \
-      run/run ref_dem.tif
+    parallel_stereo              \
+      -t rpc                     \
+      --stereo-algorithm asp_mgm \
+      left.map.tif right.map.tif \
+      left.xml right.xml         \
+      run/run                    \
+      ref_dem.tif
 
 or::
 
-    parallel_stereo -t pinhole --stereo-algorithm asp_mgm  \
-      --subpixel-mode 9                                    \
-      left.map.tif right.map.tif left.tsai right.tsai      \
-      run/run ref_dem.tif
+    parallel_stereo              \
+      -t pinhole                 \
+      --stereo-algorithm asp_mgm \
+      --subpixel-mode 9          \
+      left.map.tif right.map.tif \
+      left.tsai right.tsai       \
+      run/run                    \
+      ref_dem.tif
 
-and when the cameras are embedded in the images, it is::
+When the cameras are embedded in the images, the command is::
 
-    parallel_stereo -t rpc --stereo-algorithm asp_mgm \
-      --subpixel-mode 9                               \
-      left.map.tif right.map.tif run/run ref_dem.tif
+    parallel_stereo              \
+      -t rpc                     \
+      --stereo-algorithm asp_mgm \
+      --subpixel-mode 9          \
+      left.map.tif right.map.tif \
+      run/run                    \
+      ref_dem.tif
 
 If your cameras have been corrected with bundle adjustment
 (:numref:`bundle_adjust`), one should pass ``--bundle-adjust-prefix``
