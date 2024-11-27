@@ -371,7 +371,7 @@ with an output prefix::
 
    stereo_gui left.tif right.tif run/run
 
-and then the match file is loaded from the *IP matches*
+and then the match file is loaded from the *IP matches -> View IP matches*
 menu. (Auto-detection works only when the images are not
 mapprojected, stereo was not run on image clips, and alignment method
 is not ``epipolar`` or ``none``.)
