@@ -117,9 +117,6 @@ namespace asp {
       cam_type = mapproj_cam_type;
       has_geoheader_cam_type = false;
     }
-    if (cam_type == "")
-      vw_throw(ArgumentErr() << "Missing field value for: " << cam_type_key 
-               << " in " << map_file << ".\n");
 
     bool has_geoheader_image = true;
     if (image_file == "") {
@@ -127,7 +124,7 @@ namespace asp {
                                  << " in " << map_file << ".\n";
       image_file = map_file; // should be enough to load the camera 
       has_geoheader_image = false;
-      vw::vw_out(WarningMessage) << "Using: " << image_file << " instead.\n";
+      vw::vw_out(WarningMessage) << "Using image: " << image_file << " instead.\n";
     }
     
     // This is very hard to get right
@@ -143,17 +140,14 @@ namespace asp {
         // camera.
         cam_file = input_cam_file;
       }
-      vw::vw_out(WarningMessage) << "Using: " << cam_file << " instead.\n";  
+      vw::vw_out(WarningMessage) << "Using camera: " << cam_file << " instead.\n";  
     }
-    if (cam_file == "")
-        vw::vw_out(WarningMessage) << "Missing field value for: " << cam_file_key 
-                                   << " in " << map_file << ".\n";
                                  
     if (dem_file == "") {
       vw::vw_out(WarningMessage) << "Missing field value for: " << dem_file_key 
                                  << " in " << map_file << ".\n";
       dem_file = input_dem; // should be enough to load the DEM
-      vw::vw_out(WarningMessage) << "Using: " << dem_file << " instead.\n";
+      vw::vw_out(WarningMessage) << "Using DEM: " << dem_file << " instead.\n";
     }
     
     // The DEM the user provided better be the one used for map projection.

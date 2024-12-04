@@ -1107,8 +1107,12 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
       VW_OUT(DebugMessage,"asp") << "Camera 2 pointing dir: " << cam2_vec << "\n"
                                   << "      dot against pos: " << dot_prod(cam2_vec, cam2_ctr)
                                   << "\n";
-      vw_out() << "Distance between camera centers in meters: "
-                << norm_2(cam1_ctr - cam2_ctr) << ".\n";
+    
+      // For RPC cameras the camera center is not accurate, so don't print it.
+      if (opt.stereo_session != "rpc" && 
+          opt.stereo_session.find("rpcmap") == std::string::npos)
+        vw_out() << "Distance between camera centers: "
+                 << norm_2(cam1_ctr - cam2_ctr) << " meters.\n";
       
       // Can cameras triangulate to point at something in front of them?
       stereo::StereoModel model(camera_model1.get(), camera_model2.get());
