@@ -56,7 +56,6 @@ the same resolution (which is comparable with the ground sample
 distance). The same camera models must be used for mapprojection
 as for stereo, so one should not mix the exact and RPC cameras.
 
-
 Example::
 
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
