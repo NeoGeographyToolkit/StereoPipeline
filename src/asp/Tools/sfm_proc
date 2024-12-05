@@ -1,0 +1,203 @@
+#!/usr/bin/env python
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2013, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+"""
+    Documentation:
+    https://stereopipeline.readthedocs.io/en/latest/tools/sfm_proc.html
+"""
+
+import argparse, glob, os, re, subprocess, sys
+
+# Set up the path to Python modules about to load
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+import asp_system_utils, asp_string_utils, asp_cmd_utils
+asp_system_utils.verify_python_version_is_supported()
+
+def sanityChecks(args):
+
+    if args.image_list == "":
+        raise Exception("The path to the image list was not specified.")
+
+    if args.out_dir == "":
+        raise Exception("The path to the output directory was not specified.")
+
+def processArgs(args):
+    """
+    Set up the parser and parse the args.
+    """
+
+    # Number of arguments before starting to parse them
+    num_input_args = len(sys.argv)
+
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument("--image-list",  dest="image_list", default="",
+      help = "A file listing the input images with EXIF data, one per line.")
+
+    parser.add_argument("--out-dir", dest="out_dir", default="",
+      help="The output directory that will contain the processed data.")
+
+    args, other = parser.parse_known_args()
+
+    # Print the help message if called with no arguments
+    if num_input_args <= 1:
+        parser.print_help()
+        sys.exit(1)
+
+    sanityChecks(args)
+    
+    return args
+
+def extractExif(jpg_file_path):
+    """
+    Extract some EXIF metadata from a JPG file using gdalinfo.
+
+    Args:
+        jpg_file_path (str): Path to the JPG file
+
+    Returns:
+        dict: A dictionary of GPS-related EXIF metadata
+    """
+    try:
+        # Run gdalinfo and capture its output
+        result = subprocess.run(
+            ['gdalinfo', jpg_file_path], 
+            capture_output=True, 
+            text=True, 
+            check=True
+        )
+        
+        # Dictionary to store GPS metadata
+        gps_metadata = {}
+        
+        # Regex patterns for specific GPS fields
+        patterns = {
+            'GPSAltitude': r'EXIF_GPSAltitude=\(([^)]+)\)',
+            'GPSImgDirection': r'EXIF_GPSImgDirection=\(([^)]+)\)',
+            'GPSLatitude': r'EXIF_GPSLatitude=\(([^)]+)\) \(([^)]+)\) \(([^)]+)\)',
+            'GPSLongitude': r'EXIF_GPSLongitude=\(([^)]+)\) \(([^)]+)\) \(([^)]+)\)',
+            'GPSLongitudeRef': r'EXIF_GPSLongitudeRef=(\w+)'
+        }
+        
+        # Extract each GPS field
+        for key, pattern in patterns.items():
+            
+            match = re.search(pattern, result.stdout)
+            if match:
+                if key in ['GPSLatitude', 'GPSLongitude']:
+                    # For latitude and longitude, store as a tuple of three values
+                    deg = float(match.group(1))
+                    min = float(match.group(2))
+                    sec = float(match.group(3))
+                    # sec must be 0
+                    if sec != 0:
+                        raise Exception(f"Unexpected third value for key: " + key)
+                    gps_metadata[key] = deg + min/60.0 + sec/3600.0
+                    
+                else:
+                    # For other fields, store the first match group
+                    gps_metadata[key] = match.group(1)
+        
+        # Check that all fields were present by iterating over the keys of patterns
+        for key in patterns.keys():
+            if key not in gps_metadata:
+                print(f"Missing EXIF field: {key} in file {jpg_file_path}")
+        
+        # If the lowercase value of GPSLongitudeRef is 'w', make the longitude negative
+        if 'GPSLongitudeRef' in gps_metadata and \
+            gps_metadata['GPSLongitudeRef'].lower() == 'w':
+            gps_metadata['GPSLongitude'] = -gps_metadata['GPSLongitude']
+        
+        return gps_metadata
+    
+    except subprocess.CalledProcessError as e:
+        print(f"Error running gdalinfo: {e}")
+        print(f"stderr: {e.stderr}")
+        return {}
+    except FileNotFoundError:
+        print("gdalinfo command not found. Make sure GDAL is installed.")
+        return {}
+    except Exception as e:
+        print(f"Unexpected error extracting GPS metadata: {e}")
+        return {}
+ 
+# Read the input image list. Iterate over images.
+def processImageList(image_list_path, out_dir):
+    print("Extracting EXIF data from images in: " + image_list_path)
+    
+    # Read all image from image_list_path into an array
+    image_list = []
+    with open(image_list_path, 'r') as f:
+        for line in f:
+            image_list.append(line.strip())
+    
+    # Create the output directory if it does not exist
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+        
+    # Save the results in 'extrinsics.txt' in the output directory
+    extrinsics_path = os.path.join(out_dir, 'extrinsics.txt')
+    
+    # Open this for writing
+    with open(extrinsics_path, 'w') as f:
+        f.write("# image, lon, lat, height_above_datum, roll, pitch, yaw\n")
+        f.write("# datum: WGS84\n") # assume the WG84 datum
+        
+        numImages = 0
+        for line in image_list:
+            jpg_file_path = line.strip()
+            print(f"Processing: {jpg_file_path}")
+            
+            # File must exist
+            if not os.path.exists(jpg_file_path):
+                print(f"File does not exist: {jpg_file_path}")
+                continue
+            
+            gps_metadata = extractExif(jpg_file_path)
+            numImages += 1
+            
+            lon = gps_metadata.get('GPSLongitude', 0)
+            lat = gps_metadata.get('GPSLatitude', 0)
+            alt = float(gps_metadata.get('GPSAltitude', 0))
+            
+            # The exif metadata lack the roll and pitch, so we set them to 0
+            roll = 0
+            pitch = 0
+            yaw = float(gps_metadata.get('GPSImgDirection', 0))
+
+            # Append the GPS metadata to the extrinsics file. Use double precision
+            # with 17 digits of precision.
+            f.write(f"{jpg_file_path}, {lon:.17f}, {lat:.17f}, {alt:.17f}, {roll:.17f}, {pitch:.17f}, {yaw:.17f}\n")
+    
+    # Error out if no images were processed
+    if numImages == 0:
+        raise Exception("Could not process any images in the list " + image_list_path)
+    
+    print("Wrote: " + extrinsics_path)
+
+if __name__ == "__main__":
+
+    args = processArgs(sys.argv)
+    
+    processImageList(args.image_list, args.out_dir)
+    

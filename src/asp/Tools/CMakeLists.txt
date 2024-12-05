@@ -17,7 +17,7 @@ set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
                  extract_bag          list_timestamps
                  rig_bracket          texrecon
                  theia_sfm            multi_stereo
-                 historical_helper.py 
+                 sfm_proc             historical_helper.py 
                  bathy_threshold_calc.py 
                  scale_bathy_mask.py
                  crs2crs2grid.py 
