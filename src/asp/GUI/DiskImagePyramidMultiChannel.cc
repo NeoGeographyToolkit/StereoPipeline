@@ -73,7 +73,6 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
         } else {
           // highlight in red
           qimg.setPixel(col, row, qRgb(255, 0, 0));
-          std::cout << "--highlighting nodata " << col << ' ' << row << std::endl;
         }
 
       } else {
@@ -115,7 +114,6 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
            vw::Vector2 const& approx_bounds,
            ImageView<PixelT> const& clip, QImage & qimg) {
 
-  std::cout << "qidm 2\n";
   qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
 
   #pragma omp parallel for
