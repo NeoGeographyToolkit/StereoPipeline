@@ -716,66 +716,6 @@ otherwise the image will show as shifted from its true location::
 
 See :numref:`sfs-lola` for a large-scale example.
 
-.. _sfs_crater_bottoms:
-
-Handling lack of data in shadowed crater bottoms
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-As seen in :numref:`sfs2_fig`, ``sfs`` makes the crater bottoms
-flat in shadowed areas, where is no data. A fix for this is to add a
-new curvature term in the areas in shadow, of the form
-
-.. math::
-
-   \label{curvature}
-     w \left(\frac{\partial^2 \phi}{\partial x^2} + 
-      \frac{\partial^2 \phi}{\partial y^2} - c\right)
-
-to the SfS formulation in :numref:`sfs_formulation`. As an example, running::
-
-    sfs -i run_sub10/run-crop-DEM.tif                               \
-        A_crop_sub10.cub C_crop_sub10.cub D_crop_sub10.cub          \
-        -o sfs_sub10_v2/run                                         \
-        --threads 4 --smoothness-weight 0.12                        \
-        --max-iterations 5 --initial-dem-constraint-weight 0.0001   \
-        --reflectance-type 1                                        \
-        --use-approx-camera-models                                  \
-        --crop-input-images                                         \
-        --bundle-adjust-prefix run_ba_sub10/run                     \
-        --shadow-thresholds '0.002 0.002 0.002'                     \
-        --curvature-in-shadow 0.15 --curvature-in-shadow-weight 0.1 \
-        --lit-curvature-dist 10 --shadow-curvature-dist 5
-
-will produce the terrain in :numref:`sfs2_fix_fig`.
- 
-The curvature ``c`` is given by option ``--curvature-in-shadow``, its
-weight ``w`` by ``--curvature-in-shadow-weight``, and the parameters
-``--lit-curvature-dist`` and ``--shadow-curvature-dist`` help gradually
-phase in this term at the light-shadow interface, this many pixels
-inside each corresponding region.
-
-Some tuning of these parameters should be done depending on the
-resolution.
-
-.. _sfs2_fig:
-.. figure:: images/sfs2.jpg
-   :alt: Another sfs illustration 
-
-   An illustration of ``sfs``. The images are, from left to right, the
-   hill-shaded initial guess DEM for SfS, the hill-shaded DEM obtained
-   from ``sfs``, the "ground truth" DEM, and the first of the images
-   used in SfS map-projected onto the optimized DEM.
-
-.. _sfs2_fix_fig:
-.. figure:: images/sfs2_fix_depth.jpg
-   :alt: SfS with curved crater bottom
-
-   An illustration of adding a curvature term to the SfS cost
-   function, per :numref:`sfs_crater_bottoms`. It can be seen that,
-   compared to the earlier figure, the crater bottom is now curved,
-   rather than flat, but more modeling is needed to ensure a seamless
-   transition.
-
 .. _sfs_borderline:
 
 Handling borderline areas
@@ -812,6 +752,68 @@ the areas in complete shadow after doing SfS.
    lit crater rim) is quite different in the top and bottom halves
    (which appear to be separated by a horizontal ridge), which was
    causing issues for the algorithm.
+
+.. _sfs_crater_bottoms:
+
+Handling lack of data in shadowed crater bottoms
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+As seen in :numref:`sfs2_fig`, ``sfs`` makes the crater bottoms
+flat in shadowed areas, where is no data. 
+
+A *very experimental* way of fixing this is to add a new
+curvature term in the areas in shadow, of the form
+
+.. math::
+
+   \label{curvature}
+     w \left(\frac{\partial^2 \phi}{\partial x^2} + 
+      \frac{\partial^2 \phi}{\partial y^2} - c\right)
+
+to the SfS formulation in :numref:`sfs_formulation`. As an example, running::
+
+    sfs -i run_sub10/run-crop-DEM.tif                               \
+        A_crop_sub10.cub C_crop_sub10.cub D_crop_sub10.cub          \
+        -o sfs_sub10_v2/run                                         \
+        --threads 4 --smoothness-weight 0.12                        \
+        --max-iterations 5 --initial-dem-constraint-weight 0.0001   \
+        --reflectance-type 1                                        \
+        --use-approx-camera-models                                  \
+        --crop-input-images                                         \
+        --bundle-adjust-prefix run_ba_sub10/run                     \
+        --shadow-thresholds '0.002 0.002 0.002'                     \
+        --curvature-in-shadow 0.15 --curvature-in-shadow-weight 0.1 \
+        --lit-curvature-dist 10 --shadow-curvature-dist 5
+
+will produce the terrain in :numref:`sfs2_fix_fig`.
+ 
+The curvature ``c`` is given by option ``--curvature-in-shadow``, its
+weight ``w`` by ``--curvature-in-shadow-weight``, and the parameters
+``--lit-curvature-dist`` and ``--shadow-curvature-dist`` help gradually
+phase in this term at the light-shadow interface, this many pixels
+inside each corresponding region.
+
+Some tuning of these parameters should be done depending on the
+resolution. They could be made larger if no effect is seen.
+
+.. _sfs2_fig:
+.. figure:: images/sfs2.jpg
+   :alt: Another sfs illustration 
+
+   An illustration of ``sfs``. The images are, from left to right, the
+   hill-shaded initial guess DEM for SfS, the hill-shaded DEM obtained
+   from ``sfs``, the "ground truth" DEM, and the first of the images
+   used in SfS map-projected onto the optimized DEM.
+
+.. _sfs2_fix_fig:
+.. figure:: images/sfs2_fix_depth.jpg
+   :alt: SfS with curved crater bottom
+
+   An illustration of adding a curvature term to the SfS cost
+   function, per :numref:`sfs_crater_bottoms`. It can be seen that,
+   compared to the earlier figure, the crater bottom is now curved,
+   rather than flat, but more modeling is needed to ensure a seamless
+   transition.
 
 .. _sfs-lola:
 

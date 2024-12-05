@@ -8,11 +8,13 @@ satellites, around Earth and other planets (:numref:`examples`), robotic rovers
 (:numref:`skysat`), historical images (:numref:`kh4`), with and without accurate
 camera pose information.
 
-It has functionality for structure-from-motion (:numref:`sfm`),
-shape-from-shading (:numref:`sfs_usage`), bundle adjustment
-(:numref:`bundle_adjust`), rig calibration (:numref:`rig_calibrator`), refining
-camera intrinsics (:numref:`floatingintrinsics`), and a versatile GUI shell
-(:numref:`stereo_gui`). 
+It has functionality for 3D terrain creation from stereo (:numref:`tutorial`),
+alignment of point clouds (:numref:`pc_align`), structure-from-motion
+(:numref:`sfm`), shape-from-shading (:numref:`sfs_usage`), bundle adjustment
+(:numref:`bundle_adjust`), solving for jitter (:numref:`jitter_solve`), rig
+calibration (:numref:`rig_calibrator`), refining camera intrinsics
+(:numref:`floatingintrinsics`), GCP generation (:numref:`gcp_gen`,
+:numref:`dem2gcp`), and a versatile GUI shell (:numref:`stereo_gui`).
 
 ASP produces cartographic products, including digital terrain models (DTMs) and
 ortho-projected images (:numref:`builddem`), 3D models (:numref:`point2mesh`),
