@@ -71,7 +71,8 @@ model are shown in :numref:`file_format`.
 Null
 ^^^^
 
-A placeholder model that applies no distortion.
+A placeholder model that applies no distortion. They string ``NULL`` is written
+in the camera file, after the rotation matrix, in lieu of the distortion model.
 
 Tsai
 ^^^^
@@ -91,11 +92,15 @@ a nonlinear solver is used based on Newton's method.
 This is the preferred model, unless the lens has a wide field of view, when
 the Fisheye model should be used (described further below).
 
+An example of how these values are specified in a camera file is in
+:numref:`tsai_dist_example`.
+
 Adjustable Tsai
 ^^^^^^^^^^^^^^^^
   
 A variant of the Tsai model where any number of *K* terms and a skew term
 (alpha) can be used. Can apply the AgiSoft Lens calibration parameters.
+An example of how these values are specified in a camera file is in :numref:`adjustable_tsai_dist_example`.
 
 .. _brown_conrady:
 
@@ -141,6 +146,8 @@ A Brown-Conrady model can be converted to a Tsai model with
 can be refined with bundle adjustment (:numref:`floatingintrinsics`), if having
 several images and many interest point matches.
 
+An example of how these values are specified in a camera file is in :numref:`brown_conrady_dist_example`.
+
 Photometrix
 ^^^^^^^^^^^
 
@@ -174,6 +181,8 @@ model uses non-normalized pixel units, so they are in mm.
 
 These formulas also start with distorted pixels and undistort them, just as
 the Brown-Conrady model. This is not preferred. Use instead the Tsai model.
+
+An example of how these values are specified in a camera file is in :numref:`photometrix_dist_example`.
 
 Fisheye
 ^^^^^^^
@@ -211,6 +220,8 @@ a nonlinear function, which is done with Newton's method.
 
 Care is needed around the origin to avoid division of small numbers.
 
+An example of how these values are specified in a camera file is in :numref:`fisheye_dist_example`.
+
 FOV
 ^^^
 
@@ -246,6 +257,8 @@ The undistortion operation goes in the opposite direction, and an explicit formu
 exists for that. 
 
 Care is needed around the origin to avoid division of small numbers.
+
+An example of how these values are specified in a camera file is in :numref:`fov_dist_example`.
 
 .. _rpc_distortion:
 
@@ -284,7 +297,8 @@ In the latest builds, the RPC undistortion is computed via a solver based on
 Newton's method, as for the fisheye lens distortion model.
 
 An illustration for how to use the RPC lens distortion is in
-:numref:`ba_rpc_distortion`.
+:numref:`ba_rpc_distortion`. An example of how these values are specified in a
+camera file is in :numref:`rpc_dist_example`.
 
 .. _file_format:
 
@@ -348,12 +362,19 @@ may be different for each distortion type.
 Partial samples of each format are shown below. *The part up to and including
 the line having the pitch is the same for all models and not shown in the examples.*
 
-* **Null**
+.. _null_dist_example:
+
+Null
+^^^^
   ::
 
       NULL
 
-* **Tsai**
+.. _tsai_dist_example:
+
+Tsai
+^^^^
+
   ::
 
       TSAI
@@ -363,10 +384,14 @@ the line having the pitch is the same for all models and not shown in the exampl
       p2 = 0.4
       k3 = 1e-3
 
-The ``k3`` parameter is optional in the Tsai model. It is stored last,
-as in OpenCV.
+The ``k3`` parameter is optional in the Tsai model. If not set, its value is 0.
+It is stored last, as in OpenCV.
 
-* **Adjustable Tsai**
+.. _adjustable_tsai_dist_example:
+
+Adjustable Tsai
+^^^^^^^^^^^^^^^^
+
   ::
 
       AdjustableTSAI
@@ -374,7 +399,11 @@ as in OpenCV.
       Tangential Coeff: Vector2(-2.05354e-07, 1.05354e-07)
       Alpha: 0.4
 
-* **Brown-Conrady**
+.. _brown_conrady_dist_example:
+
+Brown-Conrady
+^^^^^^^^^^^^^
+
   ::
 
       BrownConrady
@@ -387,7 +416,10 @@ as in OpenCV.
       p2 = 0.4
       phi = 0.001
 
-* **Photometrix**
+.. _photometrix_dist_example:
+
+Photometrix
+^^^^^^^^^^^
   ::
 
       Photometrix
@@ -401,7 +433,11 @@ as in OpenCV.
       b1 = 0.0
       b2 = 0.0
 
-* **Fisheye**
+.. _fisheye_dist_example:
+
+Fisheye
+^^^^^^^
+
   ::
 
       FISHEYE
@@ -409,8 +445,21 @@ as in OpenCV.
       k2 = 0.038013929764216248
       k3 = -0.058893197165394658
       k4 = 0.02915171342570104
+
+.. _fov_dist_example:
+
+FOV
+^^^
+
+  ::
+
+      FOV
+      k1 = 1.0001
       
-* **RPC**
+.. _rpc_dist_example:
+      
+RPC
+^^^
   ::
 
       RPC
