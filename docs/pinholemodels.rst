@@ -229,7 +229,7 @@ A field-of-view model with a single parameter, for wide-angle lenses.
 
 This is in agreement with ``rig_calibrator`` (:numref:`rig_calibrator`).
 
-The implementation is as follows. Let ``k1`` by the distortion parameter. Given
+The implementation is as follows. Let *k1* by the distortion parameter. Given
 an undistorted pixel, shift it relative to the optical center, divide by the
 focal length, producing pixel (*x, y*). Then, the following equations are
 applied:
@@ -258,7 +258,8 @@ exists for that.
 
 Care is needed around the origin to avoid division of small numbers.
 
-An example of how these values are specified in a camera file is in :numref:`fov_dist_example`.
+An example of how *k1* is specified in a camera file is in
+:numref:`fov_dist_example`.
 
 .. _rpc_distortion:
 
