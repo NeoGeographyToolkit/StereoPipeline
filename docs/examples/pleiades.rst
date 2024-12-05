@@ -69,17 +69,17 @@ Example::
       --tr 0.5             \
       --t_srs "$proj"      \
       ref_dem.tif right.tif right_exact.xml right_map.tif
+      
     parallel_stereo --stereo-algorithm asp_mgm                  \
       left_map.tif right_map.tif left_exact.xml right_exact.xml \
       run_map/run ref_dem.tif
+      
    point2dem run_map/run-PC.tif 
 
-The projection needs to be modified for your area of interest. 
-It is strongly suggested to use a UTM or local stereographic projection.
+The projection needs to be modified for your area of interest. It is strongly
+suggested to use a UTM or local stereographic projection.
 
-The value of the ``--tr`` option is the ground sample distance. It was set to
-0.5 meters, which is representative for Pleiades PAN images. The XML files
-should have the GSD value.
+The value of the ``--tr`` option is the ground sample distance. It is normally 0.5 to 0.7 meters for Pleiades PAN images. The XML files should have the GSD value.
 
 Exact and RPC cameras
 ~~~~~~~~~~~~~~~~~~~~~
