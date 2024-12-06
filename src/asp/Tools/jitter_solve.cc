@@ -1058,8 +1058,8 @@ void jitterSolvePass(int                                 pass,
   } 
 
   int num_cameras = opt.camera_models.size();
-  if (num_cameras < 2)
-    vw_throw(ArgumentErr() << "Expecting at least two input cameras.\n");
+  if (num_cameras < 1)
+    vw_throw(ArgumentErr() << "Expecting at least one input camera.\n");
 
   // Put the triangulated points in a vector. Update the cnet from the DEM,
   // if we have one. Later will add here the anchor points.
@@ -1400,12 +1400,6 @@ void run_jitter_solve(int argc, char* argv[]) {
     }
   }
     
-  if (opt.match_files.empty() && opt.isis_cnet.empty() && opt.nvm.empty())
-    vw::vw_throw(vw::ArgumentErr() 
-             << "No match files, ISIS cnet, or nvm file found. Check if your match "
-             << "files exist and if they satisfy the naming convention "
-             << "<prefix>-<image1>__<image2>.match.\n");
-
   // Build control network and perform triangulation with adjusted input cameras
   ba::ControlNetwork cnet("jitter_solve");
   if (opt.isis_cnet != "") {
@@ -1422,21 +1416,13 @@ void run_jitter_solve(int argc, char* argv[]) {
                          cnet, world_to_cam, optical_offsets); // outputs
   } else {
     bool triangulate_control_points = true;
-    bool success = vw::ba::build_control_network(triangulate_control_points,
-                                                cnet, // output
-                                                opt.camera_models, opt.image_files,
-                                                opt.match_files, opt.min_matches,
-                                                opt.min_triangulation_angle*(M_PI/180.0),
-                                                opt.forced_triangulation_distance,
-                                                opt.max_pairwise_matches);
-    if (!success)
-      vw::vw_throw(vw::ArgumentErr()
-              << "Failed to build a control network. Check the bundle adjustment directory "
-              << "for matches and if the match files satisfy the naming convention. "
-              << "Or, consider removing all .vwip and "
-              << ".match files and increasing the number of interest points "
-              << "using --ip-per-image or --ip-per-tile, or decreasing --min-matches, "
-              << "and then re-running bundle adjustment.\n");
+    vw::ba::build_control_network(triangulate_control_points,
+                                  cnet, // output
+                                  opt.camera_models, opt.image_files,
+                                  opt.match_files, opt.min_matches,
+                                  opt.min_triangulation_angle*(M_PI/180.0),
+                                  opt.forced_triangulation_distance,
+                                  opt.max_pairwise_matches);
   }
   
   if (!opt.gcp_files.empty()) {
@@ -1445,6 +1431,13 @@ void run_jitter_solve(int argc, char* argv[]) {
     vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
   }
   
+  if (cnet.empty())
+      vw::vw_throw(vw::ArgumentErr()
+              << "Failed to build a control network. Check the bundle adjustment directory "
+              << "for matches and if the match files satisfy the naming convention "
+              << "<prefix>-<image1>__<image2>.match. "
+              << "Or, if using an .nvm file, ISIS cnet, or GCP, check those.\n");
+
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   asp::CRNJ crn;
   crn.from_cnet(cnet);
