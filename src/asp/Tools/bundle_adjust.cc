@@ -1381,9 +1381,9 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("force-reuse-match-files", po::bool_switch(&opt.force_reuse_match_files)->default_value(false)->implicit_value(true),
      "Force reusing the match files even if older than the images or cameras. "
      "Then the order of images in each interest point match file need not be the same "
-     "as for input images.")
+     "as for input images. Additional match files will be created if needed.")
     ("skip-matching",    po::bool_switch(&opt.skip_matching)->default_value(false)->implicit_value(true),
-     "Only use image matches which can be loaded from disk. This implies --force-reuse-match-files.")
+     "Only use the match files that can be loaded from disk. This implies --force-reuse-match-files.")
     ("save-intermediate-cameras", po::bool_switch(&opt.save_intermediate_cameras)->default_value(false)->implicit_value(true),
      "Save the values for the cameras at each iteration.")
     ("apply-initial-transform-only", po::bool_switch(&opt.apply_initial_transform_only)->default_value(false)->implicit_value(true),
@@ -2392,7 +2392,6 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
   // When prior matches are used, accept them in any order
   bool external_matches = (!opt.clean_match_files_prefix.empty() ||
                            !opt.match_files_prefix.empty() ||
-                           opt.force_reuse_match_files ||
                            opt.skip_matching);
 
   // Make a list of all the image pairs to find matches for. When using external

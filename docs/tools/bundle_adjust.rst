@@ -41,6 +41,8 @@ The above choices for camera weight and triangulation weight have in the
 meantime become the defaults. These are helpful in preventing the cameras from
 drifting too far from initial locations.
 
+How to use the adjusted cameras is shown in :numref:`ba_use`.
+
 .. _maxar_gcp:
 
 Maxar Earth cameras and GCP
@@ -59,6 +61,8 @@ control points (:numref:`bagcp`)::
       gcp1.gcp gcp2.gcp gcp3.gcp \
       --fix-gcp-xyz              \
       -o run_ba/run 
+
+How to use the adjusted cameras is shown in :numref:`ba_use`.
 
 Using the proper value for ``--datum`` is very important, otherwise the
 longitude-latitude-height values in the GCP files will not be interpreted
@@ -86,6 +90,8 @@ Examples for RPC cameras (:numref:`rpc`). With the cameras stored separately::
 With the cameras embedded in the images::
 
     bundle_adjust -t rpc left.tif right.tif -o run_ba/run
+
+How to use the adjusted cameras is shown in :numref:`ba_use`.
 
 The images can be also passed in via ``--image-list`` and cameras with 
 ``--camera-list``. When the cameras are embedded in the images, the
@@ -117,6 +123,11 @@ set, some functionality will not be available. It will be auto-guessed, either
 based on camera files, input DEM, or camera center (the latter only for Earth,
 Mars, Moon).
 
+The option ``--inline-adjustments`` will save save to disk the optimized cameras
+with adjustments already applied to them. These can be passed directly to
+``parallel_stereo``, without using the original cameras and the adjustments as in
+:numref:`ba_use`.
+
 CSM cameras
 ^^^^^^^^^^^
 
@@ -133,6 +144,9 @@ CSM cameras (:numref:`csm`) can be stored in .json files or in .cub files. After
 bundle adjustment, updated .json camera files will be written to disk, in
 addition to .adjust files. See :numref:`csm_state` and :numref:`embedded_csm`.
 
+Later, use either the original cameras with the computed adjustments
+(:numref:`ba_use`), or the updated cameras without the adjustments.
+
 The datum will be read from the camera files.
 
 Other cameras
@@ -140,6 +154,54 @@ Other cameras
 
 Bundle adjustment supports many other camera models. See :numref:`examples`
 for the various sensor types.
+
+.. _ba_use:
+
+Use of the results
+~~~~~~~~~~~~~~~~~~
+
+This program will write the adjustments to the cameras as ``*.adjust``
+files starting with the specified output prefix
+(:numref:`adjust_files`). In order for ``stereo`` to use the adjusted
+cameras, it should be passed this output prefix via the option
+``--bundle-adjust-prefix``. For example::
+
+     stereo file1.cub file2.cub run_stereo/run \
+       --bundle-adjust-prefix run_ba/run
+
+The same option can be used with mapprojection (this example has the
+cameras in .xml format)::
+
+     mapproject input-DEM.tif image.tif camera.xml mapped_image.tif \
+       --bundle-adjust-prefix run_ba/run
+
+If the ``--inline-adjustments`` option is used, no separate adjustments
+will be written, rather, the tool will save to disk copies of the input
+cameras with adjustments already applied to them. These output cameras
+can then be passed directly to stereo::
+
+     stereo file1.JPG file2.JPG run_ba/run-file1.tsai \
+       run_ba/run-file2.tsai run_stereo/run
+
+When cameras are of CSM type (:numref:`csm`), self-contained optimized cameras
+will be written to disk (:numref:`csm_state`). These can also be appended to the
+.cub files (:numref:`embedded_csm`).
+
+Camera adjustments and applying a transform
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``bundle_adjust`` program can read camera adjustments from a previous run,
+via ``--input-adjustments-prefix string``. Their format is described in
+:numref:`adjust_files`. 
+
+It can also apply to the input cameras a transform as output by ``pc_align``,
+via ``--initial-transform string``. This is useful if a DEM produced by ASP was
+aligned to a ground truth, and it is desired to apply the same alignment to the
+cameras that were used to create that DEM. 
+
+The initial transform can have a rotation, translation, and scale, and it is
+applied after the input adjustments are read, if those are present. An example
+is shown in (:numref:`ba_pc_align`). 
 
 .. _ba_validation:
 
@@ -333,52 +395,6 @@ Using mapprojected images
 For images that have very large variation in elevation, it is suggested to use
 bundle adjustment with the option ``--mapprojected-data`` for creating interest
 point matches. An example is given in :numref:`mapip`.
-
-Use of the results
-~~~~~~~~~~~~~~~~~~
-
-This program will write the adjustments to the cameras as ``*.adjust``
-files starting with the specified output prefix
-(:numref:`adjust_files`). In order for ``stereo`` to use the adjusted
-cameras, it should be passed this output prefix via the option
-``--bundle-adjust-prefix``. For example::
-
-     stereo file1.cub file2.cub run_stereo/run \
-       --bundle-adjust-prefix run_ba/run
-
-The same option can be used with mapprojection (this example has the
-cameras in .xml format)::
-
-     mapproject input-DEM.tif image.tif camera.xml mapped_image.tif \
-       --bundle-adjust-prefix run_ba/run
-
-If the ``--inline-adjustments`` option is used, no separate adjustments
-will be written, rather, the tool will save to disk copies of the input
-cameras with adjustments already applied to them. These output cameras
-can then be passed directly to stereo::
-
-     stereo file1.JPG file2.JPG run_ba/run-file1.tsai \
-       run_ba/run-file2.tsai run_stereo/run
-
-When cameras are of CSM type (:numref:`csm`), self-contained optimized cameras
-will be written to disk (:numref:`csm_state`). These can also be appended to the
-.cub files (:numref:`embedded_csm`).
-
-Camera adjustments and applying a transform
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``bundle_adjust`` program can read camera adjustments from a previous run,
-via ``--input-adjustments-prefix string``. Their format is described in
-:numref:`adjust_files`. 
-
-It can also apply to the input cameras a transform as output by ``pc_align``,
-via ``--initial-transform string``. This is useful if a DEM produced by ASP was
-aligned to a ground truth, and it is desired to apply the same alignment to the
-cameras that were used to create that DEM. 
-
-The initial transform can have a rotation, translation, and scale, and it is
-applied after the input adjustments are read, if those are present. An example
-is shown in (:numref:`ba_pc_align`). 
 
 .. _how_ba_works:
 
@@ -1176,7 +1192,7 @@ Command-line options
 --intrinsics-to-float <string (default: "")>
     If solving for intrinsics and is desired to float only a few of them,
     specify here, in quotes, one or more of: ``focal_length``,
-    ``optical_center``, ``other_intrinsics`` (same as ``distiortion``). Not
+    ``optical_center``, ``other_intrinsics`` (same as ``distortion``). Not
     specifying anything will float all of them. Also can specify ``all`` or
     ``none``. See :numref:`ba_frame_linescan` for controlling these per
     each group of cameras sharing a sensor.
@@ -1184,7 +1200,7 @@ Command-line options
 --intrinsics-to-share <string (default: "")>
     If solving for intrinsics and desired to share only a few of them across all
     cameras, specify here, in quotes, one or more of: ``focal_length``,
-    ``optical_center``, ``other_intrinsics`` (same as ``distiortion``). By
+    ``optical_center``, ``other_intrinsics`` (same as ``distortion``). By
     default all of the intrinsics are shared, so to not share any of them pass
     in an empty string. Also can specify as ``all`` or ``none``. If sharing
     intrinsics per sensor, this option is ignored, as then the sharing is more
@@ -1352,11 +1368,10 @@ Command-line options
 --force-reuse-match-files
     Force reusing the match files even if older than the images or cameras. Then
     the order of images in each interest point match file need not be the same
-    as for input images.  
+    as for input images. Additional match files will be created if needed.
 
 --skip-matching
-    Only use image matches which can be loaded from disk. This implies
-    ``--force-reuse-match-files``. 
+    Only use the match files that be loaded from disk. This implies ``--force-reuse-match-files``. 
 
 --match-files-prefix <string (default: "")>
     Use the match files from this prefix instead of the current output prefix.
