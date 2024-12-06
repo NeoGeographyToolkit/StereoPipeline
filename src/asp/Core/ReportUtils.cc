@@ -65,8 +65,6 @@ void readReportFile(std::string const& report_file,
   std::string line;
   while (std::getline(file, line)) {
 
-    // Make lowercase
-    boost::to_lower(line);
     // Replace all commas with spaces
     boost::replace_all(line, ",", " ");
     // Split the line into tokens

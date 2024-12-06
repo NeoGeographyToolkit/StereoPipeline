@@ -173,6 +173,13 @@ This is illustrated in :numref:`jitter_dg`. The produced interest point
 matches will be, however, between the *original, unprojected images*, as expected
 by the solver. 
 
+It was found experimentally that the *best* dense interest point matches are
+obtained by invoking ``parallel_stereo`` with the options ``--stereo-algorithm
+asp_bm`` and ``--subpixel-mode 1``. The ``asp_mgm`` algorithm
+(:numref:`stereo_alg_overview`), while producing more pleasing results, smears
+somewhat the interest points which makes solving for subpixel-level accurate
+jitter less accurate.
+
 All interest point matches from disparity must be copied to a single directory
 and *renamed according ot the naming convention* (:numref:`ba_match_files`).
 The jitter solver is passed the prefix of these files with the option
@@ -181,7 +188,7 @@ The jitter solver is passed the prefix of these files with the option
 If having more than two images, one can do pairwise stereo to get dense matches.
 For a large number of images this is prohibitive.
 
-*Sparse* interest point matches can work as well if sufficiently
+*Sparse* interest point matches can work *almost* as well if sufficiently
 well-distributed and accurate. Then stereo is not necessary. Use
 ``parallel_bundle_adjust`` with the options ``--ip-detect-method 1`` to create
 subpixel-level accurate matches, and with ``--ip-per-tile 500 --matches-per-tile

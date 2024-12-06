@@ -935,7 +935,6 @@ void load_intrinsics_options(bool        solve_intrinsics,
     print_float_vec(intrinsics_options.float_focus, focus_name);
     print_float_vec(intrinsics_options.float_distortion, dist_name);
   } else {
-    vw_out() << "Intrinsics are shared for all or no cameras.\n";
     vw_out() << center_name << ": "; print_float(intrinsics_options.float_center[0]);
     vw_out() << focus_name  << ": "; print_float(intrinsics_options.float_focus[0]);
     vw_out() << dist_name   << ": "; print_float(intrinsics_options.float_distortion[0]);
