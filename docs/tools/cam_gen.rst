@@ -240,15 +240,15 @@ the command::
 
 will write for each line a camera model named ``img.tsai`` based on these
 measurements of camera position and orientation. The heights are in meters,
-measured above the specified datum. The angles are in degrees, with yaw measured
-from true north. 
+measured above the specified datum. 
+
+The three angles are applied in the order roll, pitch, yaw, starting from the
+camera pointing straight down, which is the camera z axis. The yas is measured
+from the North direction (x axis).
 
 The intrinsics are taken from the sample file, an example of which is in 
 :numref:`file_format`. Only the focal length, optical center, lens distortion,
 and pixel pitch values from such a file are used. 
-
-The three angles are applied in the order roll, pitch, yaw, starting from the
-camera pointing straight down, which is the camera z axis.
 
 The text file passed in to ``--extrinsics`` can have the entries in any order,
 and additional entries as well, as long as there is one-to-one correspondence
