@@ -73,8 +73,8 @@ coordinates during optimization. This is useful when the GCP are very accurate.
 Otherwise set per-GCP sigma.
 
 The residuals for the GCP will be printed at the end of the
-``{output-prefix}-final_residuals_pointmap.csv`` file,
-and flagged with the string ``# GCP`` (:numref:`ba_err_per_point`).
+``final_residuals_pointmap.csv`` file, and flagged with the string ``# GCP``
+(:numref:`ba_err_per_point`).
 
 We invoked the tool with two passes, which also enables removal
 of outliers (see option ``--remove-outliers-params``, :numref:`ba_options`).
@@ -1006,8 +1006,8 @@ Command-line options
     Set the maximum number of iterations.
 
 --parameter-tolerance <double (default: 1e-8)>
-    Stop when the relative error in the variables being optimized
-    is less than this.
+    Stop when the relative error in the variables being optimized is less than
+    this. When ``--solve-intrinsics`` is used, the default is 1e-12.
 
 --overlap-limit <integer (default: 0)>
     Limit the number of subsequent images to search for matches to

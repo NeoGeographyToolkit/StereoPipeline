@@ -507,7 +507,8 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
   ceres::Solver::Options options;
   options.gradient_tolerance  = 1e-16;
   options.function_tolerance  = 1e-16;
-  options.parameter_tolerance = opt.parameter_tolerance; // default is 1e-8
+  options.parameter_tolerance = opt.parameter_tolerance;
+    
   options.max_num_iterations  = opt.num_iterations;
   options.max_num_consecutive_invalid_steps = std::max(5, opt.num_iterations/5); // try hard
   options.minimizer_progress_to_stdout = true;
@@ -1187,7 +1188,8 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("max-iterations",       po::value(&max_iterations_tmp)->default_value(1000),
      "Set the maximum number of iterations.") // alias for num-iterations
     ("parameter-tolerance",  po::value(&opt.parameter_tolerance)->default_value(1e-8),
-     "Stop when the relative error in the variables being optimized is less than this.")
+     "Stop when the relative error in the variables being optimized is less than this. "
+     "When --solve-intrinsics is used, the default is 1e-12.")
     ("overlap-limit",        po::value(&opt.overlap_limit)->default_value(0),
      "Limit the number of subsequent images to search for matches to the current image to this value. By default match all images.")
     ("overlap-list",         po::value(&opt.overlap_list_file)->default_value(""),
@@ -1583,6 +1585,10 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       vw_throw(ArgumentErr() << "Cannot use inline adjustments with session: "
                 << opt.stereo_session << ".\n");
   }
+
+  // Solving for intrinsics requires working harder to push the error down
+  if (opt.solve_intrinsics && vm["parameter-tolerance"].defaulted())
+    opt.parameter_tolerance = 1e-12;
 
   // Sharing intrinsics per sensor is not supported with reference terrain.
   // It would be too much work to fix the BaDispXyzError() cost function in that
