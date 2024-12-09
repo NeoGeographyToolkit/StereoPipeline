@@ -945,6 +945,8 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
                                 color.rgba());
 
       // Flag this as drawn. No need to protect this with a lock.
+      // TODO(oalexan1): Account here for hasCsv, as then this
+      // logic does not work.
       drawn_already(x, y) = 1;
     }
   }
@@ -999,6 +1001,8 @@ void MainWidget::drawImage(QPainter* paint) {
     std::reverse(draw_order.begin(), draw_order.end());
 
   // Draw the images
+  // TODO(oalexan1): Must use a single qimage, that will be updated as we go
+  // over images and scattered points in csv.
   for (size_t j = 0; j < draw_order.size(); j++) {
 
     int i = draw_order[j]; // image index
@@ -1009,6 +1013,12 @@ void MainWidget::drawImage(QPainter* paint) {
     if (m_images[i].m_isPoly)
       continue; // those will be always drawn on top of images, to be done later
 
+    // TODO(oalexan1): Must draw this onto a QImage and then draw the QImage
+    // Onto the same QImage will draw the imgaes.
+    //QImage image;
+    //QPainter local_painter(&image); 
+    // later pass this to the widget painter.
+    // Maybe should replace m_pixmap with qimage.
     if (m_images[i].m_isCsv) {
       MainWidget::drawScatteredData(paint, i);
       continue; // there is no image, so no point going on
@@ -1210,6 +1220,14 @@ void MainWidget::drawInterestPoints(QPainter* paint) {
 
 // Draw irregular xyz data to be plotted at (x, y) location with z giving
 // the intensity. May be colorized.
+// TODO(oalexan1): There is a bug now. Need to record the screen pixels
+// at which drawScatteredData() was called, and then not draw over them.
+// See the caller of this function.
+// It sounds like your problem would be best solved by rendering the widget to a
+// pixmap (within the paint event), and then drawing that pixmap to the screen
+// in the paint event. This way, you can draw the scattered data to the pixmap,
+// and it will be preserved across paint events.
+// https://stackoverflow.com/questions/13058669/how-to-obtain-the-frame-buffer-from-within-qwidgets-paintevent
 void MainWidget::drawScatteredData(QPainter* paint, int image_index) {
 
   int r = asp::stereo_settings().plot_point_radius;
@@ -3412,10 +3430,7 @@ void MainWidget::setHillshadeParams() {
   refreshPixmap();
 
   vw_out() << "Hillshade azimuth and elevation for " << m_images[m_beg_image_id].name
-      << ": "
-            << m_hillshade_azimuth << ' '
-            << m_hillshade_elevation << std::endl;
-
+           << ": " << m_hillshade_azimuth << ' ' << m_hillshade_elevation << "\n";
 }
 
 // Save the current view to a file

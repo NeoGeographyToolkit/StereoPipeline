@@ -90,7 +90,9 @@ point2dem (:numref:`point2dem`):
   * Handle robustly invalid input points.
   * Remove old options ``--use-surface-sampling`` and ``--fsaa``.
   * Bugfix for slow performance with dynamic CRS.
-
+  * Changed the default output nodata-value to -1e+6, as the smallest float
+    may not be displayed accurately by some software.
+    
 image_align (:numref:`image_align`):
   * Let the default alignment method be ``rigid`` rather than ``translation``.
 

@@ -313,7 +313,7 @@ Command-line options for point2dem
 -h, --help
     Display the help message.
 
---nodata-value <float (default: -3.40282347e+38)>
+--nodata-value <float (default: -1e+6)>
     Set the nodata value.
 
 --use-alpha

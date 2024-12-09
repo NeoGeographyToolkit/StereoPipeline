@@ -508,7 +508,6 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
   options.gradient_tolerance  = 1e-16;
   options.function_tolerance  = 1e-16;
   options.parameter_tolerance = opt.parameter_tolerance;
-    
   options.max_num_iterations  = opt.num_iterations;
   options.max_num_consecutive_invalid_steps = std::max(5, opt.num_iterations/5); // try hard
   options.minimizer_progress_to_stdout = true;

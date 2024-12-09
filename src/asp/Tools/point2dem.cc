@@ -141,7 +141,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
   po::options_description general_options("General options");
   general_options.add_options()
-    ("nodata-value",      po::value(&opt.nodata_value)->default_value(-std::numeric_limits<float>::max()),
+    ("nodata-value",      po::value(&opt.nodata_value)->default_value(-1e+6),
              "Set the nodata value.")
     ("use-alpha",         po::bool_switch(&opt.has_alpha)->default_value(false),
              "Create images that have an alpha channel.")
