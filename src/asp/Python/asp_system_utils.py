@@ -294,6 +294,7 @@ def mkdir_p(path):
 # output variable name, the other values are read into the array of
 # variable values.
 def run_and_parse_output(cmd, args, sep, verbose, return_full_lines = False, **kw):
+    
     libexecpath = libexec_path(cmd)
     call = [libexecpath]
     call.extend(args)
@@ -302,7 +303,8 @@ def run_and_parse_output(cmd, args, sep, verbose, return_full_lines = False, **k
         print (asp_string_utils.argListToString(call))
 
     try:
-        p = subprocess.Popen(call, stdout=subprocess.PIPE, universal_newlines=True)
+        p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             universal_newlines=True)
     except OSError as e:
         raise Exception('%s: %s' % (libexecpath, e))
     (stdout, stderr) = p.communicate()
@@ -323,8 +325,11 @@ def run_and_parse_output(cmd, args, sep, verbose, return_full_lines = False, **k
     count = 0
     for line in stdout.split('\n'):
 
-        # Print warning messages to stdout
-        if re.match(r"^Warning", line): print(line)
+        # Do not usually print warnings as they are verbose, and this function
+        # is invoked often. The main processes (such as stereo_pprc) will print
+        # the warnings.
+        if verbose and re.match(r"^Warning", line): 
+            print(line)
 
         if return_full_lines:
             data[count] = line # return the entire line
@@ -345,7 +350,8 @@ def run_with_return_code(cmd, verbose=False):
         print (asp_string_utils.argListToString(cmd))
 
     try:
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             universal_newlines=True)
     except OSError as e:
         print('Error: %s: %s' % ( asp_string_utils.argListToString(cmd), e))
         
