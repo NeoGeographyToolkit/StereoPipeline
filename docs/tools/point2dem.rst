@@ -422,18 +422,21 @@ Command-line options for point2dem
     (in quotes) to generate multiple output files.
 
 --search-radius-factor <float>
-    Multiply this factor by the ``--dem-spacing`` value to get the search
-    radius. The DEM height at a given grid point is obtained as a weighted
+    Multiply this factor by ``--dem-spacing`` to get the search
+    radius. The DEM height at a given grid point is obtained as the weighted
     average of heights of all points in the cloud within search radius of the
-    grid point, with the weights given by a Gaussian. If not specified, the
-    default search radius is max(``dem-spacing``, default_dem_spacing), so the
-    default factor is about 1. See also ``--gaussian-sigma-factor``.
+    grid point, with the weight given by the Gaussian of the distance from the
+    grid point to the cloud point (see ``--gaussian-sigma-factor``). If not
+    specified, the default search radius is the maximum of user-set
+    ``--dem-spacing`` and internally estimated median DEM spacing, so the
+    default factor is about 1.
 
 --gaussian-sigma-factor <float (default: 0)>
     The value :math:`s` to be used in the Gaussian
-    :math:`exp(-s*(x/grid\_size)^2)` when computing the DEM. The
-    default is -log(0.25) = 1.3863.  A smaller value will result
-    in a smoother terrain.
+    :math:`\exp(-s*(x/grid\_size)^2)` when computing the weight to give to a
+    cloud point's contribution to a given DEM grid point, with *x* the
+    distance in meters between the two. The default is -log(0.25) = 1.3863. A
+    smaller value will result in a smoother terrain.
 
 --csv-format <string (default: "")>
     Specify the format of input CSV files as a list of entries

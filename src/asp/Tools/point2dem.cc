@@ -193,13 +193,22 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
      "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. Default: 1/2^10.")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
-     "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
-    ("propagate-errors", po::bool_switch(&opt.propagate_errors)->default_value(false),  
-     "Write files with names {output-prefix}-HorizontalStdDev.tif and {output-prefix}-VerticalStdDev.tif having the gridded stddev produced from bands 5 and 6 of the input point cloud, if this cloud was created with the option --propagate-errors. The same gridding algorithm is used as for creating the DEM.")
+     "Multiply this factor by --dem-spacing to get the search radius. The "
+     "DEM height at a given grid point is obtained as the weighted average of heights "
+     "of all points in the cloud within search radius of the grid point, with the "
+     "weight given by the Gaussian of the distance from the grid point to the cloud "
+     "point (see --gaussian-sigma-factor). If not specified, the default search radius "
+     "is the maximum of user-set ``--dem-spacing`` and internally estimated median DEM "
+     "spacing, so the default factor is about 1.")
     ("gaussian-sigma-factor", po::value(&opt.sigma_factor)->default_value(0.0),
-     "The value s to be used in the Gaussian exp(-s*(x/grid_size)^2) when computing the DEM. The default is -log(0.25) = 1.3863. A smaller value will result in a smoother terrain.")
+     "The value s to be used in the Gaussian exp(-s*(x/grid_size)^2) when computing the "
+     "weight to give to a cloud point contribution to a given DEM grid point, "
+     "with x the distance in meters between the two. The default is -log(0.25) = 1.3863. "
+     "A smaller value will result in a smoother terrain.")
     ("default-grid-size-multiplier", po::value(&opt.default_grid_size_multiplier)->default_value(1.0),
      "If the output DEM grid size (--dem-spacing) is not specified, compute it automatically (as the mean ground sample distance), and then multiply it by this number. It is suggested that this number be set to 4 though the default is 1.")
+    ("propagate-errors", po::bool_switch(&opt.propagate_errors)->default_value(false),  
+     "Write files with names {output-prefix}-HorizontalStdDev.tif and {output-prefix}-VerticalStdDev.tif having the gridded stddev produced from bands 5 and 6 of the input point cloud, if this cloud was created with the option --propagate-errors. The same gridding algorithm is used as for creating the DEM.")
     ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false),
      "Skip writing a DEM.")
     ("input-is-projected", po::bool_switch(&opt.input_is_projected)->default_value(false), 
