@@ -142,14 +142,14 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   po::options_description general_options("General options");
   general_options.add_options()
     ("nodata-value",      po::value(&opt.nodata_value)->default_value(-1e+6),
-             "Set the nodata value.")
+      "Set the nodata value.")
     ("use-alpha",         po::bool_switch(&opt.has_alpha)->default_value(false),
-             "Create images that have an alpha channel.")
+      "Create images that have an alpha channel.")
     ("normalized,n",      po::bool_switch(&opt.do_normalize)->default_value(false),
-             "Also write a normalized version of the DEM (for debugging).")
+      "Also write a normalized version of the DEM (for debugging).")
     ("orthoimage",        po::bool_switch(&opt.do_ortho)->default_value(false),
-             "Write an orthoimage based on the texture files passed in as inputs "
-             "(after the point clouds).")
+      "Write an orthoimage based on the texture files passed in as inputs "
+      "(after the point clouds).")
     ("output-prefix,o",   po::value(&opt.out_prefix),
      "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file.")
