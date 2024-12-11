@@ -700,7 +700,7 @@ def normal_run(prog, opt, args, **kw):
     if code != 0:
         raise Exception('Stereo step ' + kw['msg'] + ' failed')
 
-def keepOnlySpecified(keep_only, out_prefix, subdirs):
+def keepOnlySpecified(keep_only, out_prefix, subdirs, settings):
     """
     Merge all VRTs and wipe any files the user does not want to keep.
     """
@@ -734,6 +734,11 @@ def keepOnlySpecified(keep_only, out_prefix, subdirs):
         return
         
     for f in keep_files:
+    
+        if int(settings['correlator_mode'][0]) != 0 and 'PC.tif' in f:
+           # No PC.tif in correlator-mode 
+           continue
+
         print("Keeping: " + f)
         if isVrt(f):
             f_merged = os.path.splitext(f)[0] + "_merged.tif"
@@ -768,7 +773,7 @@ def keepOnlySpecified(keep_only, out_prefix, subdirs):
     # It looks useful to print the final cloud, as the messages above
     # can be quite verbose.
     pc_file = glob.glob(out_prefix + "-PC.tif")
-    if len(pc_file) > 0:
+    if len(pc_file) > 0 and int(settings['correlator_mode'][0]) == 0:
         print("Output point cloud: " + pc_file[0])
 
 def set_collar_size(new_collar_size, args, settings):
@@ -1265,7 +1270,9 @@ if __name__ == '__main__':
                 sys.exit()
 
             # TODO(oalexan1): Must wipe the subdirs!
-            if int(settings['correlator_mode'][0]) != 0:
+            if int(settings['correlator_mode'][0]) != 0 and \
+                '--num-matches-from-disparity' not in parallel_args and \
+                '--num-matches-from-disp-triplets' not in parallel_args:
                 # Skip triangulation, but continue further down with cleanup.
                 print("Skipping triangulation with --correlator-mode.")
             else:
@@ -1286,14 +1293,15 @@ if __name__ == '__main__':
                 subdirs = create_subdirs_symlink(opt, args, settings)
                 # Run triangulation on multiple machines
                 spawn_to_nodes(step, opt, settings, parallel_args, subdirs)
-                build_vrt('stereo_tri', opt, args, settings, georef, "-PC.tif", "-PC.tif")
+                if int(settings['correlator_mode'][0]) == 0:
+                  build_vrt('stereo_tri', opt, args, settings, georef, "-PC.tif", "-PC.tif")
 
         # If the run concluded successfully, merge and wipe
         if (opt.stop_point > Step.tri):
           if len(subdirs) == 0:
             # If this was not created by now, do it now
             subdirs = create_subdirs_symlink(opt, args, settings)
-          keepOnlySpecified(opt.keep_only, out_prefix, subdirs)
+          keepOnlySpecified(opt.keep_only, out_prefix, subdirs, settings)
                 
        # End main process case
     else:

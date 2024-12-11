@@ -830,10 +830,10 @@ num-matches-from-disp-triplets (*integer*) (default = 0)
     (:numref:`heights_from_dem`).
 
 num-matches-from-disparity (*integer*) (default = 0)
-    Create a match file with roughly this many points uniformly sampled from
-    the stereo disparity. The matches are between original images
-    (that is, before any alignment or map-projection). See also
-    ``num-matches-from-disp-triplets``.
+    Create a match file with roughly this many points uniformly sampled from the
+    stereo disparity. The matches are between original images (that is, before
+    any alignment or map-projection). These can be used in bundle adjustment
+    See also ``num-matches-from-disp-triplets``.
 
 compute-point-cloud-center-only
     Only compute the center of triangulated point cloud and exit. Hence,

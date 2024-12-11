@@ -194,7 +194,9 @@ if __name__ == '__main__':
             if (opt.stop_point <= step):
                 sys.exit()
 
-            if int(settings['correlator_mode'][0]) != 0:
+            if int(settings['correlator_mode'][0]) != 0 and \
+                '--num-matches-from-disparity' not in args and \
+                '--num-matches-from-disp-triplets' not in args:
                 print("Skipping triangulation with --correlator-mode.")
                 sys.exit()
                 

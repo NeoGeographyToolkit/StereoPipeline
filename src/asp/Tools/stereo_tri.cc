@@ -697,6 +697,12 @@ void stereo_triangulation(std::string const& output_prefix,
                            cameras);
     }
 
+    // In correlator mode, can go no further
+    if (asp::stereo_settings().correlator_mode) {
+      vw_out() << "\t--> Skipping triangulation in correlator mode.\n";
+      return;
+    }
+      
     if (is_map_projected)
       vw_out() << "\t--> Inputs are map projected." << std::endl;
 
@@ -776,6 +782,10 @@ void stereo_triangulation(std::string const& output_prefix,
                             left_aligned_bathy_mask, right_aligned_bathy_mask),
          universe_radius_func);
     
+    // In correlator mode, can go no further
+    if (asp::stereo_settings().correlator_mode)
+      return;
+    
     // If we crop the left and right images, at each run we must
     // recompute the cloud center, as the cropping windows may have changed.
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
@@ -835,7 +845,9 @@ void stereo_triangulation(std::string const& output_prefix,
 
 int main(int argc, char* argv[]) {
 
-  if (asp::stereo_settings().correlator_mode) {
+  if (asp::stereo_settings().correlator_mode && 
+      asp::stereo_settings().num_matches_from_disparity <= 0 && 
+      asp::stereo_settings().num_matches_from_disp_triplets <= 0) {
     vw_out() << "The triangulation step is skipped with --correlator-mode.\n";
     return 0;
   }

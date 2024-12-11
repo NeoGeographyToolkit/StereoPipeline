@@ -30,6 +30,11 @@ Example::
 This will create the filtered subpixel disparity
 ``run_corr/run-F.tif`` (:numref:`outputfiles`).
 
+If the options ``--num-matches-from-disparity`` or
+``--num-matches-from-disp-triplets`` are specified, dense matches from disparity
+will be produced (:numref:`stereodefault`). These can be used in bundle adjustment
+(:numref:`dense_ip`).
+
 All the usual options of ``parallel_stereo`` apply. See
 :numref:`nextsteps` for a discussion regarding various quality vs
 speed tradeoffs. Since the images are assumed to be aligned, the
