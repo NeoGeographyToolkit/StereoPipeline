@@ -120,8 +120,11 @@ void filter_D_sub(ASPGlobalOptions const& opt,
     }
   }
   
-  if (dx.empty())
-    vw_throw(ArgumentErr() << "Empty disparity.");
+  // This can happen on occasion with very bad cameras. Just skip the filtering.
+  if (dx.empty()) {
+    vw::vw_out(vw::WarningMessage) << "Filtering did not succeed, skipping.\n";
+    return;
+  }
 
   // Find the outlier brackets based on values in x and y
   double bx = -1.0, ex = -1.0;
@@ -307,6 +310,22 @@ void filter_D_sub(ASPGlobalOptions const& opt,
         sub_pc(col, row)[3] = 0.0;
       }
     }
+  }
+
+  // See how many valid disparity pixels are left
+  int num_valid = 0;
+  for (int col = 0; col < sub_disp.cols(); col++) {
+    for (int row = 0; row < sub_disp.rows(); row++) {
+      if (is_valid(sub_disp(col, row)))
+        num_valid++;
+    }
+  }
+  
+  // If no luck, print a warning and return
+  if (num_valid == 0) {
+    vw::vw_out(vw::WarningMessage) << "No valid disparity values left after filtering. "
+        << "Skipping this step.\n";
+    return;
   }
 
   vw_out() << "Writing filtered D_sub: " << d_sub_file << std::endl;
