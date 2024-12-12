@@ -153,10 +153,8 @@ alignment-method (= affineepipolar, local_epipolar, homography, epipolar, none)
     be horizontal. This speeds of stereo correlation as it greatly
     reduces the area required for searching.
 
-    *Epipolar alignment is only available when calculating the stereo
-    matches using the ``pinhole`` or ``nadirpinhole`` stereo sessions
-    (i.e. when using ``stereo -t pinhole``), and cannot be used when
-    processing other camera types.*
+    Epipolar alignment is *only available* with ``--session-type pinhole`` or
+    ``nadirpinhole`` (:numref:`ps_options`).
 
 global-alignment-threshold (*float*) (default = 10)
     Maximum distance from inlier interest point matches to the
