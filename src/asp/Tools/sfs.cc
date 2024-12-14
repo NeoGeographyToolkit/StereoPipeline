@@ -5587,35 +5587,31 @@ int main(int argc, char* argv[]) {
     
     // Initial albedo. This will be updated later.
     
-    // Compute the initial albedo. This is a constant initially.
-    if (!opt.compute_exposures_only) {
-      // Skip this when computing the exposures only, as this can take a lot of
-      // memory and is not needed in that case.
-      if (opt.input_albedo.empty()) {
-        double initial_albedo = 1.0;
-        for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
-          albedos[0][dem_iter].set_size(dems[0][dem_iter].cols(), dems[0][dem_iter].rows());
-          for (int col = 0; col < albedos[0][dem_iter].cols(); col++) {
-            for (int row = 0; row < albedos[0][dem_iter].rows(); row++) {
-              albedos[0][dem_iter](col, row) = initial_albedo;
-            }
+    // Compute or read the initial albedo.
+    if (opt.input_albedo.empty()) {
+      double initial_albedo = 1.0;
+      for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
+        albedos[0][dem_iter].set_size(dems[0][dem_iter].cols(), dems[0][dem_iter].rows());
+        for (int col = 0; col < albedos[0][dem_iter].cols(); col++) {
+          for (int row = 0; row < albedos[0][dem_iter].rows(); row++) {
+            albedos[0][dem_iter](col, row) = initial_albedo;
           }
         }
-      } else {
-        // Read the input albedo. Only one DEM is supported.
-        if (num_dems != 1)
-          vw::vw_throw(ArgumentErr() << "Only one DEM is supported when reading albedo.\n");
-        // only one level allowed
-        if (levels != 0)
-          vw::vw_throw(ArgumentErr() << "Only one level allowed when reading albedo.\n");  
-        vw::vw_out() << "Reading albedo from: " << opt.input_albedo << "\n";
-        albedos[0][0] = DiskImageView<double>(opt.input_albedo);
-        // Must have the same size as dems[0][0]
-        if (albedos[0][0].cols() != dems[0][0].cols() ||
-            albedos[0][0].rows() != dems[0][0].rows())
-          vw::vw_throw(ArgumentErr() 
-                       << "Albedo image must have the same dimensions as the DEM.\n");
       }
+    } else {
+      // Read the input albedo. Only one DEM is supported.
+      if (num_dems != 1)
+        vw::vw_throw(ArgumentErr() << "Only one DEM is supported when reading albedo.\n");
+      // only one level allowed
+      if (levels != 0)
+        vw::vw_throw(ArgumentErr() << "Only one level allowed when reading albedo.\n");  
+      vw::vw_out() << "Reading albedo from: " << opt.input_albedo << "\n";
+      albedos[0][0] = DiskImageView<double>(opt.input_albedo);
+      // Must have the same size as dems[0][0]
+      if (albedos[0][0].cols() != dems[0][0].cols() ||
+          albedos[0][0].rows() != dems[0][0].rows())
+        vw::vw_throw(ArgumentErr() 
+                      << "Albedo image must have the same dimensions as the DEM.\n");
     }
     
     // Find the mean albedo
@@ -5676,7 +5672,7 @@ int main(int argc, char* argv[]) {
         double exposure = imgmean/refmean/mean_albedo;
         vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
         vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
-        vw_out() << "Local clip estimated exposure for image " << image_iter << " and clip "
+        vw_out() << "Local estimated exposure for image " << image_iter << " and clip "
                  << dem_iter << ": " << exposure << std::endl;
     
         double big = 1e+100; // There's no way image exposure can be bigger than this
