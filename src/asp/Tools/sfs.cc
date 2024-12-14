@@ -186,8 +186,8 @@ namespace vw { namespace camera {
     mutable Vector3 m_mean_dir; // mean vector from camera to ground
     GeoReference m_geo;
     double m_mean_ht;
-    mutable ImageView< PixelMask<Vector3>> m_pixel_to_vec_mat;
-    mutable ImageView< PixelMask<Vector2>> m_point_to_pix_mat;
+    mutable ImageView<PixelMask<Vector3>> m_pixel_to_vec_mat;
+    mutable ImageView<PixelMask<Vector2>> m_point_to_pix_mat;
     double m_approx_table_gridx, m_approx_table_gridy;
     bool m_use_rpc_approximation, m_use_semi_approx;
     vw::Mutex& m_camera_mutex;
@@ -622,11 +622,11 @@ namespace vw { namespace camera {
         return m_rpc_model->point_to_pixel(xyz);
       
       // TODO: What happens if we use bicubic interpolation?
-      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3>>, ConstantEdgeExtension >, BilinearInterpolation> pixel_to_vec_interp
+      InterpolationView<EdgeExtensionView<ImageView<PixelMask<Vector3>>, ConstantEdgeExtension>, BilinearInterpolation> pixel_to_vec_interp
         = interpolate(m_pixel_to_vec_mat, BilinearInterpolation(),
                       ConstantEdgeExtension());
 
-      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector2>>, ConstantEdgeExtension >, BilinearInterpolation> point_to_pix_interp
+      InterpolationView<EdgeExtensionView<ImageView<PixelMask<Vector2>>, ConstantEdgeExtension>, BilinearInterpolation> point_to_pix_interp
         = interpolate(m_point_to_pix_mat, BilinearInterpolation(),
                       ConstantEdgeExtension());
 
@@ -783,7 +783,7 @@ namespace vw { namespace camera {
 #if 0
       // TODO: Is this function invoked? Should just the underlying exact model
       // camera center be used all the time?
-      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3>>, ConstantEdgeExtension >, BilinearInterpolation> camera_center_interp
+      InterpolationView<EdgeExtensionView<ImageView<PixelMask<Vector3>>, ConstantEdgeExtension>, BilinearInterpolation> camera_center_interp
         = interpolate(m_camera_center_mat, BilinearInterpolation(),
                       ConstantEdgeExtension());
       double lx = pix[0] - m_crop_box.min().x();
@@ -837,8 +837,8 @@ namespace vw { namespace camera {
     mutable Vector3 m_mean_dir; // mean vector from camera to ground
     GeoReference m_geo;
     double m_mean_ht;
-    mutable ImageView< PixelMask<Vector3>> m_pixel_to_vec_mat;
-    mutable ImageView< PixelMask<Vector2>> m_point_to_pix_mat;
+    mutable ImageView<PixelMask<Vector3>> m_pixel_to_vec_mat;
+    mutable ImageView<PixelMask<Vector2>> m_point_to_pix_mat;
     double m_approx_table_gridx, m_approx_table_gridy;
     vw::Mutex& m_camera_mutex;
     Vector2 m_uncompValue;
@@ -995,11 +995,11 @@ namespace vw { namespace camera {
     virtual Vector2 point_to_pixel(Vector3 const& xyz) const{
 
       // TODO: What happens if we use bicubic interpolation?
-      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3>>, ConstantEdgeExtension >, BilinearInterpolation> pixel_to_vec_interp
+      InterpolationView<EdgeExtensionView<ImageView<PixelMask<Vector3>>, ConstantEdgeExtension>, BilinearInterpolation> pixel_to_vec_interp
         = interpolate(m_pixel_to_vec_mat, BilinearInterpolation(),
                       ConstantEdgeExtension());
 
-      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector2>>, ConstantEdgeExtension >, BilinearInterpolation> point_to_pix_interp
+      InterpolationView<EdgeExtensionView<ImageView<PixelMask<Vector2>>, ConstantEdgeExtension>, BilinearInterpolation> point_to_pix_interp
         = interpolate(m_point_to_pix_mat, BilinearInterpolation(),
                       ConstantEdgeExtension());
 
@@ -5676,7 +5676,7 @@ int main(int argc, char* argv[]) {
         double exposure = imgmean/refmean/mean_albedo;
         vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
         vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
-        vw_out() << "Local clip estimated exosure for image " << image_iter << " and clip "
+        vw_out() << "Local clip estimated exposure for image " << image_iter << " and clip "
                  << dem_iter << ": " << exposure << std::endl;
     
         double big = 1e+100; // There's no way image exposure can be bigger than this
