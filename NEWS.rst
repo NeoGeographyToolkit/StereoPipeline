@@ -70,6 +70,8 @@ sfs (:numref:`sfs`):
   * Added the program ``image_subset`` for selecting a subset of images that
     have almost the same coverage as the full input set
     (:numref:`image_subset`).
+  * Can ingest a provided albedo map (of same size as input DEM). Option::
+    ``--input-albedo``.
 
 orbit_plot (:numref:`orbit_plot`):
   * Added the options ``--use-rmse``, ``--output-file``.
@@ -92,7 +94,7 @@ point2dem (:numref:`point2dem`):
   * Bugfix for slow performance with dynamic CRS.
   * Changed the default output nodata-value to -1e+6, as the smallest float
     may not be displayed accurately by some software.
-    
+  
 image_align (:numref:`image_align`):
   * Let the default alignment method be ``rigid`` rather than ``translation``.
 

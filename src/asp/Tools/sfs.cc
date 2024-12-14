@@ -186,8 +186,8 @@ namespace vw { namespace camera {
     mutable Vector3 m_mean_dir; // mean vector from camera to ground
     GeoReference m_geo;
     double m_mean_ht;
-    mutable ImageView< PixelMask<Vector3> > m_pixel_to_vec_mat;
-    mutable ImageView< PixelMask<Vector2> > m_point_to_pix_mat;
+    mutable ImageView< PixelMask<Vector3>> m_pixel_to_vec_mat;
+    mutable ImageView< PixelMask<Vector2>> m_point_to_pix_mat;
     double m_approx_table_gridx, m_approx_table_gridy;
     bool m_use_rpc_approximation, m_use_semi_approx;
     vw::Mutex& m_camera_mutex;
@@ -622,11 +622,11 @@ namespace vw { namespace camera {
         return m_rpc_model->point_to_pixel(xyz);
       
       // TODO: What happens if we use bicubic interpolation?
-      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3> >, ConstantEdgeExtension >, BilinearInterpolation> pixel_to_vec_interp
+      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3>>, ConstantEdgeExtension >, BilinearInterpolation> pixel_to_vec_interp
         = interpolate(m_pixel_to_vec_mat, BilinearInterpolation(),
                       ConstantEdgeExtension());
 
-      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector2> >, ConstantEdgeExtension >, BilinearInterpolation> point_to_pix_interp
+      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector2>>, ConstantEdgeExtension >, BilinearInterpolation> point_to_pix_interp
         = interpolate(m_point_to_pix_mat, BilinearInterpolation(),
                       ConstantEdgeExtension());
 
@@ -783,7 +783,7 @@ namespace vw { namespace camera {
 #if 0
       // TODO: Is this function invoked? Should just the underlying exact model
       // camera center be used all the time?
-      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3> >, ConstantEdgeExtension >, BilinearInterpolation> camera_center_interp
+      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3>>, ConstantEdgeExtension >, BilinearInterpolation> camera_center_interp
         = interpolate(m_camera_center_mat, BilinearInterpolation(),
                       ConstantEdgeExtension());
       double lx = pix[0] - m_crop_box.min().x();
@@ -837,8 +837,8 @@ namespace vw { namespace camera {
     mutable Vector3 m_mean_dir; // mean vector from camera to ground
     GeoReference m_geo;
     double m_mean_ht;
-    mutable ImageView< PixelMask<Vector3> > m_pixel_to_vec_mat;
-    mutable ImageView< PixelMask<Vector2> > m_point_to_pix_mat;
+    mutable ImageView< PixelMask<Vector3>> m_pixel_to_vec_mat;
+    mutable ImageView< PixelMask<Vector2>> m_point_to_pix_mat;
     double m_approx_table_gridx, m_approx_table_gridy;
     vw::Mutex& m_camera_mutex;
     Vector2 m_uncompValue;
@@ -995,11 +995,11 @@ namespace vw { namespace camera {
     virtual Vector2 point_to_pixel(Vector3 const& xyz) const{
 
       // TODO: What happens if we use bicubic interpolation?
-      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3> >, ConstantEdgeExtension >, BilinearInterpolation> pixel_to_vec_interp
+      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3>>, ConstantEdgeExtension >, BilinearInterpolation> pixel_to_vec_interp
         = interpolate(m_pixel_to_vec_mat, BilinearInterpolation(),
                       ConstantEdgeExtension());
 
-      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector2> >, ConstantEdgeExtension >, BilinearInterpolation> point_to_pix_interp
+      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector2>>, ConstantEdgeExtension >, BilinearInterpolation> point_to_pix_interp
         = interpolate(m_point_to_pix_mat, BilinearInterpolation(),
                       ConstantEdgeExtension());
 
@@ -1160,7 +1160,7 @@ void compute_image_stats(ImageT const& I1, ImageT const& I2,
 }
 
 struct Options : public vw::GdalWriteOptions {
-  std::string input_dems_str, image_list, camera_list, out_prefix, stereo_session, bundle_adjust_prefix;
+  std::string input_dems_str, image_list, camera_list, out_prefix, stereo_session, bundle_adjust_prefix, input_albedo;
   std::vector<std::string> input_dems, input_images, input_cameras;
   std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposure_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list;
   std::vector<float> shadow_threshold_vec, max_valid_image_vals_vec;
@@ -1732,7 +1732,7 @@ struct SlopeErrEstim {
   int num_a_samples, num_b_samples;
   ImageView<double> * albedo;
   Options * opt;
-  std::vector< std::vector< std::vector<double> > > slope_errs;
+  std::vector<std::vector<std::vector<double>>> slope_errs;
   int image_iter;
   double max_angle;
 };
@@ -2374,6 +2374,9 @@ void sun_angles(Options const& opt,
   else
     azimuth = (180.0/M_PI) * atan2(sun_dir_ned[1], sun_dir_ned[0]);
 
+  // It appears that azimuth = atan(E/N) in the NED system
+  // So, when N = 1 and E = 0, azimuth is 0.
+  
   double L = norm_2(subvector(sun_dir_ned, 0, 2));
   elevation = (180.0/M_PI) * atan2(-sun_dir_ned[2], L);
 }
@@ -2391,7 +2394,7 @@ std::vector<ModelParams>               const * g_model_params = NULL;
 std::vector<std::vector<BBox2i>>       const * g_crop_boxes = NULL;
 std::vector<std::vector<MaskedImgT>>   const * g_masked_images = NULL;
 std::vector<std::vector<DoubleImgT>>   const * g_blend_weights = NULL;
-std::vector<std::vector<boost::shared_ptr<CameraModel>> > * g_cameras = NULL;
+std::vector<std::vector<boost::shared_ptr<CameraModel>>> * g_cameras = NULL;
 double                                       * g_dem_nodata_val = NULL;
 float                                        * g_img_nodata_val = NULL;
 std::vector<double>                          * g_exposures = NULL;
@@ -3675,9 +3678,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("image-list", po::value(&opt.image_list)->default_value(""),
      "A file containing the list of images, when they are too many to specify on the command line. Use space or newline as separator. See also --camera-list and --mapprojected-data-list.")
     ("camera-list", po::value(&opt.camera_list)->default_value(""),
-     "A file containing the list of cameras, when they are too many to specify on the command "
-     "line. If the images have embedded camera information, such as for ISIS, this file must "
-     "be empty but must be specified if --image-list is specified.")
+     "A file containing the list of cameras, when they are too many to specify on the "
+     "command line. If the images have embedded camera information, such as for ISIS, this "
+     "file must be empty but must be specified if --image-list is specified.")
     ("output-prefix,o", po::value(&opt.out_prefix),
      "Prefix for output filenames.")
     ("max-iterations,n", po::value(&opt.max_iterations)->default_value(10),
@@ -3690,6 +3693,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A larger value will try harder to keep the SfS-optimized DEM closer to the initial guess DEM. A value between 0.0001 and 0.001 may work, unless your initial DEM is very unreliable.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
+    ("input-albedo",  po::value(&opt.input_albedo),
+     "The input albedo image, if known. Must have same dimensions as the input DEM. "
+     "Otherwise it is initialized to 1.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
      "Float the albedo for each pixel. Will give incorrect results if only one image is present. The albedo is normalized, its nominal value is 1.")
     ("float-exposure",   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
@@ -3702,13 +3708,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
     ("compute-exposures-only",   po::bool_switch(&opt.compute_exposures_only)->default_value(false)->implicit_value(true),
      "Quit after saving the exposures. This should be done once for a big DEM, before using these for small sub-clips without recomputing them.")
-
     ("save-computed-intensity-only",   po::bool_switch(&opt.save_computed_intensity_only)->default_value(false)->implicit_value(true),
-     "Save the computed (simulated) image intensities for given DEM, "
-     "images, cameras, and reflectance model, without refining the "
-     "DEM. The exposures will be computed along the way unless specified "
-     "via --image-exposures-prefix, and will be saved to <output prefix>-exposures.txt.")
-    
+     "Save the computed (simulated) image intensities for given DEM, images, cameras, and "
+     "reflectance model, without refining the DEM. The measured intensities will be saved "
+     "as well, for comparison. The image exposures will be computed along the way unless "
+     "specified via --image-exposures-prefix, and will be saved in either case to <output "
+     "prefix>-exposures.txt. Same for haze, if applicable.")
     ("estimate-slope-errors",   po::bool_switch(&opt.estimate_slope_errors)->default_value(false)->implicit_value(true),
      "Estimate the error for each slope (normal to the DEM). This is experimental.")
     ("estimate-height-errors",   po::bool_switch(&opt.estimate_height_errors)->default_value(false)->implicit_value(true),
@@ -4092,7 +4097,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.num_haze_coeffs > 0) {
     std::string haze_file = haze_file_name(opt.image_haze_prefix);
     opt.image_haze_vec.clear();
-    std::map< std::string, std::vector<double> > img2haze;
+    std::map< std::string, std::vector<double>> img2haze;
     std::ifstream ish(haze_file.c_str());
     int haze_count = 0;
     while(1) {
@@ -4131,7 +4136,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_out() << "Using haze from: " << haze_file << std::endl;
       for (size_t i = 0; i < opt.input_images.size(); i++) {
         std::string img = opt.input_images[i];
-        std::map< std::string, std::vector<double> >::iterator it = img2haze.find(img);
+        std::map< std::string, std::vector<double>>::iterator it = img2haze.find(img);
         if (it == img2haze.end()) {
           vw_throw(ArgumentErr()
                    << "Could not find the haze for image: " << img << ".\n");
@@ -4285,21 +4290,20 @@ void run_sfs_level(// Fixed inputs
                    std::vector<GeoReference> const& geo,
                    double smoothness_weight,
                    double dem_nodata_val,
-                   std::vector< std::vector<BBox2i>>     const& crop_boxes,
-                   std::vector< std::vector<MaskedImgT>> const& masked_images,
-                   std::vector< std::vector<DoubleImgT>> const& blend_weights,
+                   std::vector<std::vector<BBox2i>>     const& crop_boxes,
+                   std::vector<std::vector<MaskedImgT>> const& masked_images,
+                   std::vector<std::vector<DoubleImgT>> const& blend_weights,
                    GlobalParams const& global_params,
                    std::vector<ModelParams> const & model_params,
-                   std::vector< ImageView<double>> const& orig_dems, 
-                   double initial_albedo,
+                   std::vector<ImageView<double>> const& orig_dems, 
                    ImageView<int> const& lit_image_mask,
                    ImageView<double> const& curvature_in_shadow_weight,
                    // Quantities that will float
-                   std::vector< ImageView<double>> & dems,
-                   std::vector< ImageView<double>> & albedos,
-                   std::vector< std::vector<boost::shared_ptr<CameraModel>>> & cameras,
+                   std::vector<ImageView<double>> & dems,
+                   std::vector<ImageView<double>> & albedos,
+                   std::vector<std::vector<boost::shared_ptr<CameraModel>>> & cameras,
                    std::vector<double> & exposures,
-                   std::vector< std::vector<double>> & haze,
+                   std::vector<std::vector<double>> & haze,
                    std::vector<double> & scaled_sun_posns,
                    std::vector<double> & adjustments,
                    std::vector<double> & reflectance_model_coeffs){
@@ -4355,7 +4359,7 @@ void run_sfs_level(// Fixed inputs
   // We define p and q as the partial derivatives in x in y of the dem.
   // When using the integrability constraint, they are floated as variables
   // in their own right, while constrained to not go too far from the DEM.
-  std::vector< ImageView<Vector2> > pq;  
+  std::vector<ImageView<Vector2>> pq;  
   pq.resize(num_dems);
   if (opt.integrability_weight > 0) {
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
@@ -4583,7 +4587,7 @@ void run_sfs_level(// Fixed inputs
             if (opt.albedo_robust_threshold > 0)
               loss_function_hc = new ceres::CauchyLoss(opt.albedo_robust_threshold);
             ceres::CostFunction* cost_function_hc =
-              AlbedoChangeError::Create(initial_albedo,
+              AlbedoChangeError::Create(albedos[dem_iter](col, row),
                                         opt.albedo_constraint_weight);
             problem.AddResidualBlock(cost_function_hc, loss_function_hc,
                                      &albedos[dem_iter](col, row));
@@ -5034,13 +5038,13 @@ int main(int argc, char* argv[]) {
     // Read the handles to the DEMs. Here we don't load them into
     // memory yet. We will later load into memory only cropped
     // versions if cropping is specified. This is to save on memory.
-    std::vector< ImageViewRef<double>> dem_handles(num_dems);
+    std::vector<ImageViewRef<double>> dem_handles(num_dems);
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) 
       dem_handles[dem_iter] = DiskImageView<double>(opt.input_dems[dem_iter]);
 
     // There are multiple DEM clips, and multiple coarseness levels
     // for each DEM. Same about albedo and georeferences.
-    std::vector< std::vector< ImageView<double> > >
+    std::vector<std::vector<ImageView<double>>>
       orig_dems(levels+1), dems(levels+1), albedos(levels+1);
     std::vector<std::vector<GeoReference>> geos(levels+1);
     for (int level = 0; level <= levels; level++) {
@@ -5489,8 +5493,8 @@ int main(int argc, char* argv[]) {
     }
     
     // Masked images and weights.
-    std::vector<std::vector< std::vector<MaskedImgT> > > masked_images_vec(levels+1);
-    std::vector<std::vector< std::vector<DoubleImgT> > > blend_weights_vec(levels+1);
+    std::vector<std::vector<std::vector<MaskedImgT>>> masked_images_vec(levels+1);
+    std::vector<std::vector<std::vector<DoubleImgT>>> blend_weights_vec(levels+1);
     for (int level = levels; level >= 0; level--) {
       masked_images_vec[level].resize(num_dems);
       blend_weights_vec[level].resize(num_dems);
@@ -5584,19 +5588,49 @@ int main(int argc, char* argv[]) {
     // Initial albedo. This will be updated later.
     
     // Compute the initial albedo. This is a constant initially.
-    double initial_albedo = 1.0;
     if (!opt.compute_exposures_only) {
       // Skip this when computing the exposures only, as this can take a lot of
       // memory and is not needed in that case.
-      for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
-        albedos[0][dem_iter].set_size(dems[0][dem_iter].cols(), dems[0][dem_iter].rows());
-        for (int col = 0; col < albedos[0][dem_iter].cols(); col++) {
-          for (int row = 0; row < albedos[0][dem_iter].rows(); row++) {
-            albedos[0][dem_iter](col, row) = initial_albedo;
+      if (opt.input_albedo.empty()) {
+        double initial_albedo = 1.0;
+        for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
+          albedos[0][dem_iter].set_size(dems[0][dem_iter].cols(), dems[0][dem_iter].rows());
+          for (int col = 0; col < albedos[0][dem_iter].cols(); col++) {
+            for (int row = 0; row < albedos[0][dem_iter].rows(); row++) {
+              albedos[0][dem_iter](col, row) = initial_albedo;
+            }
+          }
+        }
+      } else {
+        // Read the input albedo. Only one DEM is supported.
+        if (num_dems != 1)
+          vw::vw_throw(ArgumentErr() << "Only one DEM is supported when reading albedo.\n");
+        // only one level allowed
+        if (levels != 0)
+          vw::vw_throw(ArgumentErr() << "Only one level allowed when reading albedo.\n");  
+        vw::vw_out() << "Reading albedo from: " << opt.input_albedo << "\n";
+        albedos[0][0] = DiskImageView<double>(opt.input_albedo);
+        // Must have the same size as dems[0][0]
+        if (albedos[0][0].cols() != dems[0][0].cols() ||
+            albedos[0][0].rows() != dems[0][0].rows())
+          vw::vw_throw(ArgumentErr() 
+                       << "Albedo image must have the same dimensions as the DEM.\n");
+      }
+    }
+    
+    // Find the mean albedo
+    double mean_albedo = 0.0, albedo_count = 0.0;
+    for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
+      for (int col = 0; col < dems[0][dem_iter].cols(); col++) {
+        for (int row = 0; row < dems[0][dem_iter].rows(); row++) {
+          if (dems[0][dem_iter](col, row) != dem_nodata_val) {
+            mean_albedo += albedos[0][dem_iter](col, row);
+            albedo_count += 1.0;
           }
         }
       }
     }
+    mean_albedo /= albedo_count;
     
     // We have intensity = albedo * nonlin_reflectance(reflectance, exposure, haze, num_haze_coeffs)
     // Assume that haze is 0 to start with. Find the exposure as
@@ -5639,17 +5673,17 @@ int main(int argc, char* argv[]) {
         // Find it as the analytical minimum using calculus.
         double imgmean, imgstdev, refmean, refstdev;
         compute_image_stats(intensity, reflectance, imgmean, imgstdev, refmean, refstdev);
-        double exposure = imgmean/refmean/initial_albedo;
+        double exposure = imgmean/refmean/mean_albedo;
         vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
         vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
-        vw_out() << "Local exposure for image " << image_iter << " and clip "
+        vw_out() << "Local clip estimated exosure for image " << image_iter << " and clip "
                  << dem_iter << ": " << exposure << std::endl;
     
         double big = 1e+100; // There's no way image exposure can be bigger than this
-        bool is_good = ( 0 < exposure && exposure < big );
+        bool is_good = (0 < exposure && exposure < big);
         if (is_good) {
           exposures_per_dem.push_back(exposure);
-        }else{
+        } else {
           // Skip images with bad exposure. Apparently there is no good
           // imagery in the area.
           opt.skip_images[dem_iter].insert(image_iter);
@@ -5670,7 +5704,10 @@ int main(int argc, char* argv[]) {
     }
     
     // Only overwrite the exposures if we don't have them supplied
-    if (opt.image_exposures_vec.empty()) opt.image_exposures_vec = local_exposures_vec;
+    if (opt.image_exposures_vec.empty()) {
+      vw::vw_out() << "Using the input image exposures.\n";
+      opt.image_exposures_vec = local_exposures_vec;
+    }
 
     for (size_t image_iter = 0; image_iter < opt.image_exposures_vec.size(); image_iter++) {
       vw_out() << "Image exposure for " << opt.input_images[image_iter] << ' '
@@ -5717,6 +5754,7 @@ int main(int argc, char* argv[]) {
     std::vector<ImageView<double>> ground_weights(num_images);
     
     // Note that below we may use the exposures computed at the previous step
+    // TODO(oalexan1): This block must be a function.
     if (opt.save_computed_intensity_only || opt.estimate_slope_errors ||
         opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0 ||
         opt.allow_borderline_data) {
@@ -5740,8 +5778,8 @@ int main(int argc, char* argv[]) {
         double max_height_error  = opt.height_error_params[0];
         int num_height_samples   = opt.height_error_params[1];
         vw_out() << "Maximum height error to examine: " << max_height_error << "\n";
-        vw_out() << "Number of samples to use from 0 to that height: " << num_height_samples
-                 << "\n";
+        vw_out() << "Number of samples to use from 0 to that height: "
+                 << num_height_samples << "\n";
           
         double nodata_height_val = -1.0;
         heightErrEstim = boost::shared_ptr<HeightErrEstim>
@@ -6075,7 +6113,7 @@ int main(int argc, char* argv[]) {
         geos[level][dem_iter] = resample(geos[level-1][dem_iter], sub_scale);
         orig_dems[level][dem_iter]
           = pixel_cast<double>(vw::resample_aa
-                               (pixel_cast< PixelMask<double> >
+                               (pixel_cast< PixelMask<double>>
                                 (orig_dems[level-1][dem_iter]), sub_scale));
         dems[level][dem_iter] = copy(orig_dems[level][dem_iter]);
         
@@ -6207,7 +6245,7 @@ int main(int argc, char* argv[]) {
                     dem_nodata_val, crop_boxes[level],
                     masked_images_vec[level], blend_weights_vec[level],
                     global_params, model_params,
-                    orig_dems[level], initial_albedo,
+                    orig_dems[level],
                     lit_image_mask, curvature_in_shadow_weight,
                     // Quantities that will float
                     dems[level], albedos[level], cameras,

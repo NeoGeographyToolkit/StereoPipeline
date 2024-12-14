@@ -272,12 +272,17 @@ Command-line options for sfs
     Use this prefix to optionally read initial exposures (filename
     is ``<path>-exposures.txt``).
 
+--input-albedo <string (default: "")>
+    The input albedo image, if known. Must have the same dimensions as the input
+    DEM. Otherwise it is initialized to 1.
+    
 --save-computed-intensity-only
-    Save the computed (simulated) image intensities for given DEM,
-    images, cameras, and reflectance model, without refining the
-    DEM. The exposures will be computed along the way unless specified
-    via ``--image-exposures-prefix``, and saved to 
-    <output prefix>-exposures.txt.
+    Save the computed (simulated) image intensities for given DEM, images,
+    cameras, and reflectance model, without refining the DEM. The measured
+    intensities will be saved as well, for comparison. The image exposures will
+    be computed along the way unless specified via ``--image-exposures-prefix``,
+    and will be saved in either case to ``<output prefix>-exposures.txt``. Same
+    for haze, if applicable.
 
 --allow-borderline-data
     At the border of the region where there are no lit pixels in any

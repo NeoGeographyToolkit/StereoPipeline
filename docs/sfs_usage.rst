@@ -1004,10 +1004,10 @@ region. Example::
      --t_projwin -7050.500 -10890.500 -1919.500 -5759.500  \
      M*.map.lowres.tif -o tmp.tif | tee pixel_sum_list.txt
 
-The obtained subset of images must be sorted by illumination
-conditions, that is, the Sun azimuth. This angle is printed when
-running ``sfs`` with the ``--query`` option on the .cub files. Here
-is an example::
+The obtained subset of images must be sorted by illumination conditions, that
+is, the Sun azimuth, measured from true North. This angle is printed when
+running ``sfs`` with the ``--query`` option on the .cub files. Here is an
+example::
 
     M114859732RE.cal.echo.cub       73.1771
     M148012947LE.cal.echo.cub       75.9232
@@ -1426,6 +1426,8 @@ Next, SfS follows, using ``parallel_sfs`` (:numref:`parallel_sfs`)::
       --nodes-list nodes_list.txt             \
       --processes 10                          \
       --threads 4                             \
+      --tile-size 200                         \
+      --padding 50                            \
       --image-list image_list.txt             \
       --camera-list camera_list.txt           \
       --shadow-threshold 0.005                \
@@ -1440,8 +1442,6 @@ Next, SfS follows, using ``parallel_sfs`` (:numref:`parallel_sfs`)::
       --reflectance-type 1                    \
       --max-iterations 5                      \
       --save-sparingly                        \
-      --tile-size 200                         \
-      --padding 50                            \
       -o sfs/run
 
 For this step not all images need to be used, just a representative
