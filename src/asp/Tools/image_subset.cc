@@ -18,6 +18,8 @@
 // Given a set of overlapping georeferenced images, find a small
 // subset with almost the same coverage. This is used in SfS.
 
+// TODO(oalexan1): Add the option proj_win. In that case check
+// that all images have the same projection.
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 
@@ -84,7 +86,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   return;
 }
 
-// Calc the score of adding a new image. Apply the new value to the output image if
+// Calc the score of adding a new image. Apply the new image pixels to the output image if
 // requested.
 double calc_score_apply(std::string const& image_file, 
                         double threshold, bool apply, 
@@ -120,13 +122,14 @@ double calc_score_apply(std::string const& image_file,
   
   // Find the current image bounding box in the output image coordinates
   vw::BBox2 trans_box = geotrans.reverse_bbox(vw::bounding_box(img));
+  
   // Grow to int
   trans_box = vw::grow_bbox_to_int(trans_box);
   
-  // trans_box must be contained within out_box, as that's how out_box was formed
-  if (!out_box.contains(trans_box))
-    vw::vw_throw(vw::ArgumentErr()
-                  << "An image bounding box is not contained in output box.\n"); 
+  // trans_box must be contained within out_box, as out_box is a union of such
+  // boxes. As a precaution, do a crop however, in case numerical issues are
+  // encountered.
+  trans_box.crop(out_box);
 
   // Prepare the image for interpolation   
   vw::PixelMask<float> no_data;
@@ -209,6 +212,10 @@ void run_image_subset(Options const& opt) {
 
     // Convert the bounding box of current image to output pixel coordinates
     vw::BBox2 trans_img_box = geotrans.reverse_bbox(img_box);
+    
+    // Grow to int
+    trans_img_box = vw::grow_bbox_to_int(trans_img_box);
+    
     out_box.grow(trans_img_box);
   } // End loop through DEM files
 
@@ -258,10 +265,13 @@ void run_image_subset(Options const& opt) {
       double score = calc_score_apply(image_files[inner], opt.threshold, apply, 
                                       out_georef, out_img);
       
-      // TODO(oalexan1): If the score is zero, declare this image as not 
-      // useful, as its score will continue to be 0 for future out_img,
-      // since those only grow. This must be tested though.
-        
+      // If the image being inspected now adds nothing, it won't add anything
+      // after we add other images either. So do not look at it again.
+      if (score == 0.0) {
+        inspected[image_files[inner]] = score;
+        continue;
+      }
+
       // Update the best score
       if (score > best_score) {
         best_score = score;
@@ -295,8 +305,12 @@ void run_image_subset(Options const& opt) {
   std::sort(sorted.begin(), sorted.end());
   vw::vw_out() << "Writing: " << opt.out_list << "\n";
   std::ofstream ofs(opt.out_list.c_str());
-  for (int i = sorted.size()-1; i >= 0; i--)
+  for (int i = sorted.size()-1; i >= 0; i--) {
+    // Skip images with zero contribution
+    if (sorted[i].first == 0.0)
+      continue;
     ofs << sorted[i].second << " " << sorted[i].first << "\n";
+  }
   ofs.close();
   
 } // End function run_image_subset()
