@@ -167,7 +167,7 @@ Command-line options
 
 --nearest-neighbor
     Use nearest neighbor interpolation instead of bicubic interpolation. *This
-    is not recommended, as can result in artifacts.*
+    is not recommended, as it can result in artifacts.*
 
 --mo <string>
     Write metadata to the output file. Provide as a string in quotes
