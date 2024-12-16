@@ -121,11 +121,11 @@ if [ ! -d "$binDir" ]; then
     exit 1
 fi
 
-# TODO(oalexan1): Run the tests as a diferent step in the .yml file.
+# TODO(oalexan1): Run the tests as a different step in the .yml file.
 
 # Extract the tests. This tarball has both the scripts, test data,
 # and the expected results.
-# TODO(oalexan1): Must fetch the StreoPipelineTest repo and update
+# TODO(oalexan1): Must fetch the StereoPipelineTest repo and update
 # the scripts extracted from the tarball.
 cd $baseDir
 echo Build done. Now testing.
