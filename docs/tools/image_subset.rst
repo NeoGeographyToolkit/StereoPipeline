@@ -83,6 +83,12 @@ Command-line options
     
 --threshold <double (default: NaN)>
     The image threshold. Pixels no less than this will contribute to the coverage.
+
+--t_projwin <float float float float (default: 0 0 0 0)>
+    Specify a custom extent in projected coordinates in which to evaluate the
+    coverage. The format is ``min_x min_y max_x max_y`` or ``min_x max_y max_x
+    min_y``, with no quotes. In this mode all input images must use the same
+    projection.    
     
 -v, --version
     Display the version of software.

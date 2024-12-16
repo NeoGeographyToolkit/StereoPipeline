@@ -40,6 +40,7 @@ namespace po = boost::program_options;
 struct Options : public vw::GdalWriteOptions {
   std::string image_list_file, out_list; 
   double threshold;
+  vw::BBox2   target_projwin;
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -55,6 +56,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     "of contributing pixels (sorted in decreasing order of contribution).")
    ("threshold", po::value(&opt.threshold)->default_value(nan),
     "The image threshold. Pixels no less than this will contribute to the coverage.")
+   ("t_projwin", po::value(&opt.target_projwin)->default_value(vw::BBox2(), "0 0 0 0"),
+     "Specify a custom extent in projected coordinates in which to evaluate the coverage. "
+     "The format is min_x min_y max_x max_y or min_x max_y max_x min_y, with no quotes. "
+     "In this mode all input images must use the same projection.")
   ;
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -77,6 +82,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (std::isnan(opt.threshold))
     vw::vw_throw(vw::ArgumentErr() << "The threshold must be set.\n");
     
+  // For compatibility with GDAL, we allow the proj win y coordinate to be flipped.
+  // Correct that here.
+  if (opt.target_projwin != vw::BBox2()) {
+    if (opt.target_projwin.min().y() > opt.target_projwin.max().y())
+      std::swap(opt.target_projwin.min().y(), opt.target_projwin.max().y());
+
+    vw::vw_out() << "The overlap analysis restricted to projection box: " 
+      << opt.target_projwin << ".\n";
+  }
+
   // Create the output directory
   vw::create_out_dir(opt.out_list);
 
@@ -88,7 +103,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 // Calc the score of adding a new image. Apply the new image pixels to the output image if
 // requested.
-double calc_score_apply(std::string const& image_file, 
+double calc_score_apply(Options const& opt, std::string const& image_file, 
                         double threshold, bool apply, 
                         vw::cartography::GeoReference const& out_georef,
                         // Output
@@ -122,6 +137,12 @@ double calc_score_apply(std::string const& image_file,
   
   // Find the current image bounding box in the output image coordinates
   vw::BBox2 trans_box = geotrans.reverse_bbox(vw::bounding_box(img));
+  
+  // See if to crop to an area
+  if (opt.target_projwin != vw::BBox2()) {
+    vw::BBox2 proj_pix_box = out_georef.point_to_pixel_bbox(opt.target_projwin);
+    trans_box.crop(proj_pix_box);
+  }
   
   // Grow to int
   trans_box = vw::grow_bbox_to_int(trans_box);
@@ -206,6 +227,12 @@ void run_image_subset(Options const& opt) {
       out_box = img_box;
     }
     
+   if (opt.target_projwin != vw::BBox2() && 
+       georef.get_wkt() != out_georef.get_wkt())
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "All images must have the same projection with the "
+                   << "--t_projwin option.\n");
+
     // The georef transform from current to output image
     vw::cartography::GeoTransform geotrans(out_georef, georef,
                                            out_box, img_box);
@@ -213,6 +240,12 @@ void run_image_subset(Options const& opt) {
     // Convert the bounding box of current image to output pixel coordinates
     vw::BBox2 trans_img_box = geotrans.reverse_bbox(img_box);
     
+    // See if to crop to an area
+    if (opt.target_projwin != vw::BBox2()) {
+      vw::BBox2 proj_pix_box = out_georef.point_to_pixel_bbox(opt.target_projwin);
+      trans_img_box.crop(proj_pix_box);
+    }
+
     // Grow to int
     trans_img_box = vw::grow_bbox_to_int(trans_img_box);
     
@@ -222,6 +255,10 @@ void run_image_subset(Options const& opt) {
   // grow this to int
   out_box = vw::grow_bbox_to_int(out_box);
   
+  // The box must be non-empty
+  if (out_box.empty())
+    vw::vw_throw(vw::ArgumentErr() << "The region of interest is empty.\n");
+
   // Crop the georef to the output box. Adjust the box.
   out_georef = crop(out_georef, out_box);
   out_box.max() -= out_box.min();
@@ -244,6 +281,9 @@ void run_image_subset(Options const& opt) {
   tpc.report_progress(0);
   double inc_amount = 2.0 / (double(num_images) * double(num_images));
   
+  // The no-data score is lower than any possible score
+  double nodata_inspected_score = -std::numeric_limits<float>::max();
+
   // Do as many passes as images
   std::map<std::string, double> inspected;
   for (int pass = 0; pass < num_images; pass++) {
@@ -252,7 +292,7 @@ void run_image_subset(Options const& opt) {
     if (inspected.find(image_files[pass]) != inspected.end())
       continue;
 
-    double best_score = -1.0;
+    double best_score = 0;
     int best_index = 0;
     
     // Inner iteration over all images. Skip the inspected ones.
@@ -262,13 +302,13 @@ void run_image_subset(Options const& opt) {
         continue;
 
       bool apply = false;
-      double score = calc_score_apply(image_files[inner], opt.threshold, apply, 
+      double score = calc_score_apply(opt, image_files[inner], opt.threshold, apply, 
                                       out_georef, out_img);
       
       // If the image being inspected now adds nothing, it won't add anything
       // after we add other images either. So do not look at it again.
       if (score == 0.0) {
-        inspected[image_files[inner]] = score;
+        inspected[image_files[inner]] = nodata_inspected_score;
         continue;
       }
 
@@ -287,7 +327,7 @@ void run_image_subset(Options const& opt) {
     
     // Add the contribution of the best image
     bool apply = true;
-    calc_score_apply(image_files[best_index], opt.threshold, apply, 
+    calc_score_apply(opt, image_files[best_index], opt.threshold, apply, 
                      out_georef, out_img);
     
     // Flag the current image as inspected and store its score
@@ -306,8 +346,8 @@ void run_image_subset(Options const& opt) {
   vw::vw_out() << "Writing: " << opt.out_list << "\n";
   std::ofstream ofs(opt.out_list.c_str());
   for (int i = sorted.size()-1; i >= 0; i--) {
-    // Skip images with zero contribution
-    if (sorted[i].first == 0.0)
+    // Skip images with nodata score
+    if (sorted[i].first == nodata_inspected_score)
       continue;
     ofs << sorted[i].second << " " << sorted[i].first << "\n";
   }
