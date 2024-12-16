@@ -554,23 +554,16 @@ we process just a small portion of the images::
        run_nomap/run
 
 (the crop windows can be determined using ``stereo_gui``,
-:numref:`image_bounds`). The input images have resolution of about 1
-meter, or :math:`3.3 \times 10^{-5}` degrees on the Moon. We create
-the low-resolution DEM using a resolution 40 times as coarse, so we
-use a grid size of 0.0013 degrees (we use degrees since the default
-``point2dem`` projection invoked here is ``longlat``).
+:numref:`image_bounds`). The input images have resolution of about 1 meter,. We
+create the low-resolution DEM using a resolution 40 times as coarse.
+A local stereographic projection is used, with its center found automatically.
 
 ::
 
-     point2dem --search-radius-factor 5 --tr 0.0013 run_nomap/run-PC.tif 
+    point2dem --stereographic --auto-proj-center --tr 40.0 \
+      --search-radius-factor 5 run_nomap/run-PC.tif 
 
-If this terrain is close to the poles, say within 25 degrees of latitude, it is
-advised to use a stereographic projection, centered either at the nearest pole,
-or close to the center of the current DEM. 
-
-The center of this projection can be auto-computed by ``point2dem`` if invoked 
-with the option ``--auto-proj-center``. Or, it can be found in advance
-with ``gdalinfo -stats``, which can then be passed to ``point2dem`` such as::
+Or, the projection center can be passed to ``point2dem`` such as::
 
      point2dem --stereographic --proj-lon <lon_ctr> --proj-lat <lat_ctr> 
 
@@ -605,7 +598,7 @@ and also likely the projection (``--t_srs``).
 
 :: 
 
-     mapproject --tr 0.000038694000978 run_nomap/run-smooth.tif \
+     mapproject --tr 1.0 run_nomap/run-smooth.tif \
        right.cub right_proj.tif
 
 Next, we do stereo with these mapprojected images, with the mapprojection
@@ -629,7 +622,8 @@ point cloud and we want the increased accuracy.
 
 Lastly, we create a DEM at 1 meter resolution::
 
-     point2dem --nodata-value -32768 run_map/run-PC.tif
+     point2dem --stereographic --auto-proj-center --tr 1.0 \
+       run_map/run-PC.tif
 
 We could have used a coarser resolution for the final DEM, such as 4
 meters/pixel, since we won't see detail at the level of 1 meter in this DEM, as
@@ -731,6 +725,12 @@ Mapprojection commands::
       12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML          \
       right_mapproj.tif
 
+If the ``--t_srs`` option is not specified, it will be read from the
+low-resolution input DEM.
+
+The complete list of options for ``mapproject`` is described in
+:numref:`mapproject`.
+
 Running ``parallel_stereo`` with these mapprojected images, and the 
 DEM used for mapprojection as the last argument::
       
@@ -746,18 +746,19 @@ DEM used for mapprojection as the last argument::
 See :numref:`running-stereo` for more details about the various 
 speed-vs-accuracy tradeoffs.
 
-If the ``--t_srs`` option is not specified, it will be read from the
-low-resolution input DEM.
-
-The complete list of options for ``mapproject`` is described in
-:numref:`mapproject`.
-
 In the ``parallel_stereo`` command, we have used ``subpixel-mode 1`` which is
 less accurate but reasonably fast. We have also used
 ``alignment-method none``, since the images are mapprojected onto the
 same terrain with the same resolution, thus no additional alignment is
 necessary. More details about how to set these and other ``parallel_stereo``
 parameters can be found in :numref:`settingoptionsinstereodefault`.
+
+DEM creation (:numref:`point2dem`)::
+
+     point2dem --stereographic \
+       --auto-proj-center      \
+       --tr 0.5                \
+       dg/dg-PC.tif
 
 .. _other-mapproj:
 
@@ -818,6 +819,8 @@ If your cameras have been corrected with bundle adjustment
 (:numref:`bundle_adjust`), one should pass ``--bundle-adjust-prefix``
 to all ``mapproject`` and ``parallel_stereo`` invocations. See also
 :numref:`ba_pc_align` for when alignment was used as well.
+
+Then, ``point2dem`` can be run, as above, to create a DEM.
 
 .. _mapproj_reuse:
 
