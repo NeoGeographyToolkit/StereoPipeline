@@ -62,10 +62,12 @@
 // TODO: Move some code to Core.
 // TODO: Make it work with non-ISIS cameras.
 // TODO: Clean up some of the classes, not all members are needed.
-
+// TODO(oalexan1): Modularize. Make a new SfS dir in the repo.
+// Separate the optimization logic from image operations.
 // Paper suggested by Randy that does both bundle adjustment and sfs
 // at the same time: https://www.sciencedirect.com/science/article/pii/S0924271619302771
-
+// TODO(oalexan1): Must implement initialization of exposure, haze, and also albedo
+// if albedo is modeled, at low-res.
 /// \file sfs.cc
 
 // Turn off warnings from boost and other packages
@@ -1126,8 +1128,8 @@ void callTop() {
   vw_out() << "Memory usage: " << cmd << " " << ans << std::endl;
 }
 
-
 // Compute mean and standard deviation of two images. Do it where both are valid.
+// TODO(oalexan1): Move this out.
 template <class ImageT>
 void compute_image_stats(ImageT const& I1, ImageT const& I2,
                          double & mean1, double & stdev1,
@@ -1235,10 +1237,12 @@ struct ModelParams {
   ~ModelParams(){}
 };
 
-// Make the reflectance nonlinear using a rational function
+// Make the reflectance nonlinear using a rational function.
+// Note that haze[0] is not present below, as it will be added
+// after multiplying this reflectance by albeod.
 double nonlin_reflectance(double reflectance, double exposure,
                           double steepness_factor,
-                          double const* haze, int num_haze_coeffs){
+                          double const* haze, int num_haze_coeffs) {
 
   // Make the exposure smaller. This will result in higher reflectance
   // to compensate, as intensity = exposure * reflectance, hence
@@ -1247,18 +1251,56 @@ double nonlin_reflectance(double reflectance, double exposure,
   exposure /= steepness_factor;
   
   double r = reflectance; // for short
-  if (num_haze_coeffs == 0) return (exposure*r);
-  if (num_haze_coeffs == 1) return (exposure*r + haze[0]);
-  if (num_haze_coeffs == 2) return (exposure*r + haze[0])/(haze[1]*r + 1);
-  if (num_haze_coeffs == 3) return (haze[2]*r*r + exposure*r + haze[0])/(haze[1]*r + 1);
-  if (num_haze_coeffs == 4) return (haze[2]*r*r + exposure*r + haze[0])/(haze[3]*r*r + haze[1]*r + 1);
-  if (num_haze_coeffs == 5) return (haze[4]*r*r*r + haze[2]*r*r + exposure*r + haze[0])/(haze[3]*r*r + haze[1]*r + 1);
-  if (num_haze_coeffs == 6) return (haze[4]*r*r*r + haze[2]*r*r + exposure*r + haze[0])/(haze[5]*r*r*r + haze[3]*r*r + haze[1]*r + 1);
+  if (num_haze_coeffs == 0) 
+    return exposure*r;
+  if (num_haze_coeffs == 1) 
+    return exposure*r;
+  if (num_haze_coeffs == 2) 
+    return exposure*r/(haze[1]*r + 1);
+  if (num_haze_coeffs == 3) 
+    return (haze[2]*r*r + exposure*r)/(haze[1]*r + 1);
+  if (num_haze_coeffs == 4) 
+    return (haze[2]*r*r + exposure*r)/(haze[3]*r*r + haze[1]*r + 1);
+  if (num_haze_coeffs == 5) 
+    return (haze[4]*r*r*r + haze[2]*r*r + exposure*r)/(haze[3]*r*r + haze[1]*r + 1);
+  if (num_haze_coeffs == 6) 
+    return  (haze[4]*r*r*r + haze[2]*r*r + exposure*r) / 
+              (haze[5]*r*r*r + haze[3]*r*r + haze[1]*r + 1);
     
   vw_throw(ArgumentErr() << "Invalid value for the number of haze coefficients.\n");
   return 0;
 }
-                          
+
+// Make the reflectance nonlinear using a rational function
+double calc_intensity(double albedo, double reflectance, double exposure, 
+                      double steepness_factor, double const* haze, int num_haze_coeffs) {
+  return albedo 
+  * nonlin_reflectance(reflectance, exposure, steepness_factor, haze, num_haze_coeffs)
+  + haze[0]; 
+}
+
+// Calc albedo given the intensity.
+double calc_albedo(double intensity, double reflectance, double exposure, 
+                   double steepness_factor, double const* haze, int num_haze_coeffs) {
+ 
+  // First, subtract the base haze coefficient
+  double adjusted_intensity = intensity - haze[0];
+  
+  // Calculate the nonlinear reflectance first
+  double nonlin_ref = nonlin_reflectance(reflectance, exposure, 
+                                         steepness_factor, haze, num_haze_coeffs);
+  
+  // Solve for albedo: intensity = albedo * nonlin_ref + haze[0]
+  // Therefore, albedo = (intensity - haze[0]) / nonlin_ref
+  
+  // Protect against division by zero
+  if (nonlin_ref == 0.0) {
+      return 0.0;  // Or handle this case as appropriate for your application
+  }
+  
+  return adjusted_intensity / nonlin_ref;
+}
+
 enum {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT, HAPKE, ARBITRARY_MODEL, CHARON};
 
 // computes the Lambertian reflectance model (cosine of the light
@@ -1838,8 +1880,9 @@ void estimateSlopeError(Vector3 const& cameraPosition,
       double comp_intensity = albedo(col, row) *
         nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
                            opt.steepness_factor,
-                           &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
-
+                           &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs)
+                      + opt.image_haze_vec[image_iter][0]; // temporary
+        
       if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
         // We exceeded the error budget, hence this is an upper bound on the slope
         slopeErrEstim->slope_errs[col][row][b_iter] = a;
@@ -1958,7 +2001,8 @@ void estimateHeightError(ImageView<double> const& dem,
         double comp_intensity = albedo(col, row) *
           nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
                              opt.steepness_factor,
-                             &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
+                             &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs)
+          + opt.image_haze_vec[image_iter][0]; // temporary
 
         if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
           // We exceeded the error budget, record the dh at which it happens
@@ -2144,7 +2188,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     double comp_intensity = albedo(col, row) *
       nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
                          opt.steepness_factor,
-                         &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
+                         &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs)
+      + opt.image_haze_vec[image_iter][0]; // temporary
 
     // We use twice the discrepancy between the computed and measured intensity
     // as a measure for how far is overall the computed intensity allowed
@@ -2169,7 +2214,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     double comp_intensity = albedo(col, row) *
       nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
                          opt.steepness_factor,
-                         &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
+                         &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs)
+      + opt.image_haze_vec[image_iter][0]; // temporary
     
     // We use twice the discrepancy between the computed and measured intensity
     // as a measure for how far is overall the computed intensity allowed
@@ -2323,10 +2369,28 @@ void save_exposures(std::string const& out_prefix,
   std::string exposure_file = exposure_file_name(out_prefix);
   vw_out() << "Writing: " << exposure_file << std::endl;
   std::ofstream exf(exposure_file.c_str());
-  exf.precision(18);
+  exf.precision(17);
   for (size_t image_iter = 0; image_iter < exposures.size(); image_iter++)
     exf << input_images[image_iter] << " " << exposures[image_iter] << "\n";
   exf.close();
+}
+
+void save_haze(std::string const& out_prefix,
+               std::vector<std::string> const& input_images,
+               std::vector<std::vector<double>> const& haze) {
+
+  std::string haze_file = haze_file_name(out_prefix);
+  vw_out() << "Writing: " << haze_file << std::endl;
+  std::ofstream hzf(haze_file.c_str());
+  hzf.precision(17);
+  for (size_t image_iter = 0; image_iter < haze.size(); image_iter++) {
+    hzf << input_images[image_iter];
+    for (size_t hiter = 0; hiter < haze[image_iter].size(); hiter++)
+      hzf << " " << haze[image_iter][hiter];
+
+    hzf << "\n";
+  }
+  hzf.close();
 }
 
 // Find the sun azimuth and elevation at the lon-lat position of the
@@ -2428,20 +2492,8 @@ public:
     if (!g_opt->save_computed_intensity_only)
       save_exposures(g_opt->out_prefix, g_opt->input_images, *g_exposures);
 
-    if (g_opt->num_haze_coeffs > 0 && !g_opt->save_computed_intensity_only) {
-      std::string haze_file = haze_file_name(g_opt->out_prefix);
-      vw_out() << "Writing: " << haze_file << std::endl;
-      std::ofstream hzf(haze_file.c_str());
-      hzf.precision(18);
-      for (size_t image_iter = 0; image_iter < (*g_haze).size(); image_iter++) {
-        hzf << g_opt->input_images[image_iter];
-        for (size_t hiter = 0; hiter < (*g_haze)[image_iter].size(); hiter++) {
-          hzf << " " << (*g_haze)[image_iter][hiter];
-        }
-        hzf << "\n";
-      }
-      hzf.close();
-    }
+    if (g_opt->num_haze_coeffs > 0 && !g_opt->save_computed_intensity_only)
+      save_haze(g_opt->out_prefix, g_opt->input_images, *g_haze); 
     
     std::string model_coeffs_file = model_coeffs_file_name(g_opt->out_prefix);
     if (!g_opt->save_computed_intensity_only) {
@@ -2633,7 +2685,8 @@ public:
               = (*g_albedo)[dem_iter](col, row) *
               nonlin_reflectance(reflectance(col, row), (*g_exposures)[image_iter],
                                  g_opt->steepness_factor,
-                                 &(*g_haze)[image_iter][0], g_opt->num_haze_coeffs);
+                                 &(*g_haze)[image_iter][0], g_opt->num_haze_coeffs)
+              + (*g_haze)[image_iter][0]; // temporary
           }
         }
 
@@ -2677,8 +2730,8 @@ public:
           for (int row = 0; row < measured_albedo.rows(); row++) {
             if (!is_valid(reflectance(col, row)))
               measured_albedo(col, row) = 1;
-            else
-              measured_albedo(col, row) = intensity(col, row) /
+            else // temporary
+              measured_albedo(col, row) = (intensity(col, row) - (*g_haze)[image_iter][0])/
                 nonlin_reflectance(reflectance(col, row), (*g_exposures)[image_iter],
                                    g_opt->steepness_factor,
                                    &(*g_haze)[image_iter][0], g_opt->num_haze_coeffs);
@@ -2688,14 +2741,6 @@ public:
         vw_out() << "Writing: " << out_albedo_file << std::endl;
         block_write_gdal_image(out_albedo_file, measured_albedo,
                                has_georef, (*g_geo)[dem_iter], has_nodata, 0, *g_opt, tpc);
-
-
-        double imgmean, imgstdev, refmean, refstdev;
-        compute_image_stats(intensity, comp_intensity, imgmean, imgstdev, refmean, refstdev);
-        vw_out() << "meas image mean and std: " << imgmean << ' ' << imgstdev
-                 << std::endl;
-        vw_out() << "comp image mean and std: " << refmean << ' ' << refstdev
-                 << std::endl;
 
         vw_out() << "Exposure for image " << image_iter << ": "
                  << (*g_exposures)[image_iter] << std::endl;
@@ -2833,7 +2878,7 @@ calc_intensity_residual(const F* const exposure,
     }
       
     if (success && is_valid(intensity) && is_valid(reflectance))
-      residuals[0] = ground_weight * (intensity - albedo[0] *
+      residuals[0] = ground_weight * (intensity - haze[0] - albedo[0] * // temporary
                                nonlin_reflectance(reflectance.child(), exposure[0],
                                                   g_opt->steepness_factor,
                                                   haze, g_opt->num_haze_coeffs));
@@ -2851,7 +2896,7 @@ calc_intensity_residual(const F* const exposure,
 }
 
 // Discrepancy between measured and computed intensity.
-// sum_i | I_i - albedo * nonlin_reflectance(reflectance_i, exposures[i], haze, num_haze_coeffs) |^2
+// sum_i | I_i - albedo * nonlin_reflectance(reflectance_i, exposures[i], haze, num_haze_coeffs) - haze[0]|^2 // temporary
 struct IntensityError {
   IntensityError(int col, int row,
                  ImageView<double> const& dem,
@@ -4057,6 +4102,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Initial image exposures, if provided. First read them in a map,
   // as perhaps the initial exposures were created using more images
   // than what we have here. 
+  // TODO(oalexan1): This must be a function.
   std::string exposure_file = exposure_file_name(opt.image_exposure_prefix);
   opt.image_exposures_vec.clear();
   std::map<std::string, double> img2exp;
@@ -4094,10 +4140,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Initial image haze, if provided. First read them in a map,
   // as perhaps the initial haze were created using more images
   // than what we have here. 
+  // TODO(oalexan1): This must be a function.
   if (opt.num_haze_coeffs > 0) {
     std::string haze_file = haze_file_name(opt.image_haze_prefix);
     opt.image_haze_vec.clear();
-    std::map< std::string, std::vector<double>> img2haze;
+    std::map<std::string, std::vector<double>> img2haze;
     std::ifstream ish(haze_file.c_str());
     int haze_count = 0;
     while(1) {
@@ -4124,13 +4171,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
           vw_throw(ArgumentErr() 
                    << "Found unexpected non-zero haze coefficient: " << haze_vec[hiter] << ".\n");
       }
-      
     }
     ish.close();
     if (opt.image_haze_prefix != "" && haze_count == 0) 
       vw_throw(ArgumentErr()
                << "Could not find the haze file: " << haze_file << ".\n");
-
     
     if (haze_count > 0) {
       vw_out() << "Using haze from: " << haze_file << std::endl;
@@ -5628,17 +5673,17 @@ int main(int argc, char* argv[]) {
     }
     mean_albedo /= albedo_count;
     
-    // We have intensity = albedo * nonlin_reflectance(reflectance, exposure, haze, num_haze_coeffs)
+    // We have intensity = albedo * nonlin_reflectance(reflectance, exposure, haze, num_haze_coeffs) + haze[0]
     // Assume that haze is 0 to start with. Find the exposure as
     // mean(intensity)/mean(reflectance)/albedo. Use this to compute an
     // initial exposure and decide based on that which images to
     // skip. If the user provided initial exposures and haze, use those, but
     // still go through the motions to find the images to skip.
     vw_out() << "Computing exposures.\n";
-    std::vector<double> local_exposures_vec(num_images, 0);
+    std::vector<double> local_exposures_vec(num_images, 0), local_haze_vec(num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       
-      std::vector<double> exposures_per_dem;
+      std::vector<double> exposures_per_dem, haze_per_dem;
       for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
         
         if (opt.skip_images[dem_iter].find(image_iter) !=
@@ -5670,6 +5715,7 @@ int main(int argc, char* argv[]) {
         double imgmean, imgstdev, refmean, refstdev;
         compute_image_stats(intensity, reflectance, imgmean, imgstdev, refmean, refstdev);
         double exposure = imgmean/refmean/mean_albedo;
+        double haze = 0.0;
         vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
         vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
         vw_out() << "Local estimated exposure for image " << image_iter << " and clip "
@@ -5679,6 +5725,7 @@ int main(int argc, char* argv[]) {
         bool is_good = (0 < exposure && exposure < big);
         if (is_good) {
           exposures_per_dem.push_back(exposure);
+          haze_per_dem.push_back(haze);
         } else {
           // Skip images with bad exposure. Apparently there is no good
           // imagery in the area.
@@ -5687,12 +5734,15 @@ int main(int argc, char* argv[]) {
         }
       }
       
-      // Out the exposures for this image on all clips, pick the median
+      // Out the exposures and haze for this image on all clips, pick the median
       int len = exposures_per_dem.size();
       if (len > 0) {
         std::sort(exposures_per_dem.begin(), exposures_per_dem.end());
+        std::sort(haze_per_dem.begin(), haze_per_dem.end());
         local_exposures_vec[image_iter] = 
           0.5*(exposures_per_dem[(len-1)/2] + exposures_per_dem[len/2]);
+        local_haze_vec[image_iter] =
+          0.5*(haze_per_dem[(len-1)/2] + haze_per_dem[len/2]);
         //vw_out() << "Median exposure for image " << image_iter << " on all clips: "
         //     << local_exposures_vec[image_iter] << std::endl;
       }
@@ -5710,19 +5760,24 @@ int main(int argc, char* argv[]) {
                << opt.image_exposures_vec[image_iter] << std::endl;
     }
 
-    // Initialize the haze as 0.
+    // Initialize the haze as 0. If computed above, initialize its first coeff.
     if ((!opt.image_haze_vec.empty()) && (int)opt.image_haze_vec.size() != num_images)
       vw_throw(ArgumentErr() << "Expecting as many haze values as images.\n");
     if (opt.image_haze_vec.empty()) {
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
-        // Pad the haze vec
-        std::vector<double> haze_vec;
-        while (haze_vec.size() < g_max_num_haze_coeffs) haze_vec.push_back(0);
-        opt.image_haze_vec.push_back(haze_vec);
+        // Pad the haze vec with zeros
+        std::vector<double> curr_image_haze_vec;
+        while (curr_image_haze_vec.size() < g_max_num_haze_coeffs) 
+          curr_image_haze_vec.push_back(0);
+        curr_image_haze_vec[0] = local_haze_vec[image_iter];
+        opt.image_haze_vec.push_back(curr_image_haze_vec);
       }
     }
     if (opt.compute_exposures_only) {
       save_exposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
+      // TODO(oalexan1): Think of this more
+      if (opt.num_haze_coeffs > 0)
+        save_haze(opt.out_prefix, opt.input_images, opt.image_haze_vec);
       // all done
       return 0;
     }
@@ -5823,7 +5878,8 @@ int main(int argc, char* argv[]) {
               = albedos[0][0](col, row) *
               nonlin_reflectance(reflectance(col, row), opt.image_exposures_vec[image_iter],
                                  opt.steepness_factor,
-                                 &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
+                                 &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs)
+              + opt.image_haze_vec[image_iter][0]; // temporary
           }
         }
         
@@ -6272,5 +6328,4 @@ int main(int argc, char* argv[]) {
 
   sw_total.stop();
   vw_out() << "Total elapsed time: " << sw_total.elapsed_seconds() << " s." << std::endl;
- 
 }
