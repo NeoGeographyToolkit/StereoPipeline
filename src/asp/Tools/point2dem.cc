@@ -350,7 +350,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     if (opt.target_projwin.min().y() > opt.target_projwin.max().y()) {
       std::swap(opt.target_projwin.min().y(), opt.target_projwin.max().y());
     }
-    vw_out() << "Cropping to " << opt.target_projwin << " pt.\n";
+    vw_out() << "Cropping to projection box " << opt.target_projwin << ".\n";
   }
 
   // Must specify either csv_srs or csv_proj4_str, but not both. The latter is 
@@ -365,7 +365,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   // output t_srs string.
   if (!opt.csv_srs.empty() && opt.target_srs_string.empty()) {
     vw_out() << "The --csv-srs option was set, but not --t_srs. Will use the former "
-    "as substitute for the latter.\n";
+             << "as a substitute for the latter.\n";
     opt.target_srs_string = opt.csv_srs;
   }
 
