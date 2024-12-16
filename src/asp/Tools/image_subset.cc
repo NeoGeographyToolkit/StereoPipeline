@@ -18,8 +18,6 @@
 // Given a set of overlapping georeferenced images, find a small
 // subset with almost the same coverage. This is used in SfS.
 
-// TODO(oalexan1): Add the option proj_win. In that case check
-// that all images have the same projection.
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 
