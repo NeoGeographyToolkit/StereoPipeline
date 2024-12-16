@@ -120,7 +120,7 @@ void filter_D_sub(ASPGlobalOptions const& opt,
     }
   }
   
-  // This can happen on occasion with very bad cameras. Just skip the filtering.
+  // This can happen on occasion with very bad data. Just skip the filtering.
   if (dx.empty()) {
     vw::vw_out(vw::WarningMessage) << "Filtering did not succeed, skipping.\n";
     return;
