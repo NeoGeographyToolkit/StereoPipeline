@@ -69,6 +69,9 @@
 // TODO(oalexan1): Remove all floating of cameras from the code and the doc. Use bundle adjust.
 // Then also remove all the logic using unadjusted cameras except the place.
 // Eliminate RPC. CSM is good enough.
+// TODO(oalexan1): Use OpenMP here in ComputeReflectanceAndIntensity.
+// For isis without approx models need to ensure there is one thread.
+// May need to differentiate between single process and multiple processes.
 
 /// \file sfs.cc
 
@@ -5101,7 +5104,8 @@ void estimateExposureHazeAlbedo(Options & opt,
                                 GlobalParams const& global_params,
                                 double gridx, double gridy) {
 
-  std::cout << "--now in estimateExposureHazeAlbedo\n";
+  vw::vw_out() << "Estimating the exposure and haze.\n";
+
   int num_samples = 400; // TODO(oalexan1): Must be exposed
   
   // Only one DEM is supported.
@@ -5116,8 +5120,6 @@ void estimateExposureHazeAlbedo(Options & opt,
   std::vector<ImageView<PixelMask<double>>> reflectance(num_images), intensity(num_images);
   int num_sampled_cols = 0, num_sampled_rows = 0;
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
-    
-    std::cout << "--image iter is " << image_iter << std::endl;
     
     int dem_iter = 0;    
     if (opt.skip_images[dem_iter].find(image_iter) != opt.skip_images[dem_iter].end()) 
@@ -5147,9 +5149,6 @@ void estimateExposureHazeAlbedo(Options & opt,
     num_sampled_rows = reflectance[image_iter].rows();
   }
   
-  std::cout << "--dem cols and rows are " << dem.cols() << ' ' << dem.rows() << std::endl;
-  std::cout << "num sampled cols and rows are " << num_sampled_cols << ' ' << num_sampled_rows << std::endl;
-  
   // Create the inital albedo image, of same size as sampled intensity
   vw::ImageView<double> albedo(num_sampled_cols, num_sampled_rows);
   for (int col = 0; col < albedo.cols(); col++) {
@@ -5162,32 +5161,36 @@ void estimateExposureHazeAlbedo(Options & opt,
   ceres::Problem problem;
   
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
-     for (int col = 0; col < intensity[image_iter].cols(); col++) {
-       for (int row = 0; row < intensity[image_iter].rows(); row++) {
+    for (int col = 0; col < intensity[image_iter].cols(); col++) {
+      for (int row = 0; row < intensity[image_iter].rows(); row++) {
          
-         if (!is_valid(intensity[image_iter](col, row)) ||
-              !is_valid(reflectance[image_iter](col, row)))
-           continue;
-         
-         ceres::CostFunction* cost_function_img =
-           IntensityErrorFixedReflectance::Create(intensity[image_iter](col, row),
-                                                  reflectance[image_iter](col, row),
-                                                  opt.num_haze_coeffs,
-                                                  opt.steepness_factor);
-         
-         ceres::LossFunction* loss_function_img = NULL;
-         if (opt.robust_threshold > 0) 
-           loss_function_img = new ceres::CauchyLoss(opt.robust_threshold);
+       if (!is_valid(intensity[image_iter](col, row)) ||
+            !is_valid(reflectance[image_iter](col, row)))
+          continue;
+        
+        ceres::CostFunction* cost_function_img =
+          IntensityErrorFixedReflectance::Create(intensity[image_iter](col, row),
+                                                reflectance[image_iter](col, row),
+                                                opt.num_haze_coeffs,
+                                                opt.steepness_factor);
+        
+        ceres::LossFunction* loss_function_img = NULL;
+        if (opt.robust_threshold > 0) 
+          loss_function_img = new ceres::CauchyLoss(opt.robust_threshold);
 
-         problem.AddResidualBlock(cost_function_img, 
-                                  loss_function_img,
-                                  &opt.image_exposures_vec[image_iter],
-                                  &opt.image_haze_vec[image_iter][0],
-                                  &albedo(col, row));
+        problem.AddResidualBlock(cost_function_img, 
+                                loss_function_img,
+                                &opt.image_exposures_vec[image_iter],
+                                &opt.image_haze_vec[image_iter][0],
+                                &albedo(col, row));
+        
+        if (!opt.float_albedo)
+          problem.SetParameterBlockConstant(&albedo(col, row));
        }
-     }
+    }
   }
   
+  // Options
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
@@ -5196,24 +5199,23 @@ void estimateExposureHazeAlbedo(Options & opt,
   options.num_threads = opt.num_threads;
   options.linear_solver_type = ceres::SPARSE_SCHUR;
   
+  // Solve the problem
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  vw_out() << summary.FullReport() << "\n" << std::endl;
+  vw_out() << summary.FullReport() << "\n";
   
-        
-  // Save the low-res albedo
-  // TODO(oalexan1): May need to save with resampled georef. This is tricky 
-  // as need to adjust the georef pixel size and the upper-left corner.
-  bool has_georef = false; 
-  bool has_nodata = true;
-  vw::TerminalProgressCallback tpc("asp", ": ");
-  std::string albedo_file = opt.out_prefix + "-lowres-albedo.tif";
-  vw_out() << "Writing: " << albedo_file << "\n";
-  block_write_gdal_image(albedo_file, albedo,
-                         has_georef, geo,
-                         has_nodata, dem_nodata_val,
-                         opt, tpc); 
-  
+  if (opt.float_albedo) {
+    // Save the low-res albedo. No georef is saved as that would need
+    // resampling, which is tricky.
+    bool has_georef = false; 
+    bool has_nodata = true;
+    vw::TerminalProgressCallback tpc("asp", ": ");
+    std::string albedo_file = opt.out_prefix + "-lowres-albedo.tif";
+    vw_out() << "Writing: " << albedo_file << "\n";
+    block_write_gdal_image(albedo_file, albedo, has_georef, geo, has_nodata, dem_nodata_val,
+                           opt, tpc); 
+  }
+    
   return;
 }
 
@@ -5906,9 +5908,9 @@ int main(int argc, char* argv[]) {
         compute_image_stats(intensity, reflectance, imgmean, imgstdev, refmean, refstdev);
         double exposure = imgmean/refmean/mean_albedo;
         double haze = 0.0;
-        vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
-        vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
-        vw_out() << "Local estimated exposure for image " << image_iter << " and clip "
+        //vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
+        //vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
+        vw_out() << "Estimated exposure for image " << image_iter << " and clip "
                  << dem_iter << ": " << exposure << std::endl;
     
         double big = 1e+100; // There's no way image exposure can be bigger than this
