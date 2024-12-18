@@ -426,11 +426,11 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   Vector2i left_size(left_cropped_image.cols(), left_cropped_image.rows());
   Vector2i right_size(right_cropped_image.cols(), right_cropped_image.rows());
   
-  // Set up image masks
-  ImageViewRef<PixelMask<float>> left_masked_image
-    = create_mask_less_or_equal(left_cropped_image, left_nodata_value);
-  ImageViewRef<PixelMask<float>> right_masked_image
-    = create_mask_less_or_equal(right_cropped_image, right_nodata_value);
+  // Set up image masks. If the user provided a custom no-data value, values no
+  // more than that have been masked by now in shared_preprocessing_hook.
+  ImageViewRef<PixelMask<float>> left_masked_image, right_masked_image;
+  left_masked_image = create_mask(left_cropped_image, left_nodata_value);
+  right_masked_image = create_mask(right_cropped_image, right_nodata_value);
   
   // Compute input image statistics. This can be slow so use a timer.
   vw::Stopwatch sw1;
@@ -721,6 +721,16 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
   int ch = asp::stereo_settings().band - 1;
   ImageViewRef<float> left_orig_image = vw::read_channel<float>(left_input_file, ch);
   ImageViewRef<float> right_orig_image = vw::read_channel<float>(right_input_file, ch);
+  
+  // If the user provided a custom no-data value, values no more than that are
+  // masked.
+  float user_nodata = stereo_settings().nodata_value;
+  if (!std::isnan(user_nodata)) {
+    left_orig_image = apply_mask(create_mask_less_or_equal(left_orig_image, user_nodata),
+                                  user_nodata);
+    right_orig_image = apply_mask(create_mask_less_or_equal(right_orig_image, user_nodata),
+                                   user_nodata);
+  }
   
   // See if to crop the images
   if (crop_left) {
@@ -1041,12 +1051,13 @@ std::string StereoSession::right_cropped_image() const{
   
 // Apply epipolar alignment to images, if the camera models are pinhole. This will
 // be reimplemented in StereoSessionPinhole.
-void StereoSession::epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
-                                       vw::ImageViewRef<vw::PixelMask<float>> right_masked_image,
-                                       vw::ValueEdgeExtension<vw::PixelMask<float>> ext_nodata,
-                                       // Outputs
-                                       vw::ImageViewRef<vw::PixelMask<float>> & Limg, 
-                                       vw::ImageViewRef<vw::PixelMask<float>> & Rimg) {
+void StereoSession::
+epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
+                   vw::ImageViewRef<vw::PixelMask<float>> right_masked_image,
+                   vw::ValueEdgeExtension<vw::PixelMask<float>> ext_nodata,
+                   // Outputs
+                   vw::ImageViewRef<vw::PixelMask<float>> & Limg, 
+                   vw::ImageViewRef<vw::PixelMask<float>> & Rimg) {
   vw_throw(ArgumentErr() << "Epipolar alignment is only implemented for pinhole cameras.");
 }
   
@@ -1100,10 +1111,7 @@ void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop,
     right_image_crop = BBox2i(0, 0, right_size[0], right_size[1]);
 }
 
-
-//------------------------------------------------------------------------------
 // Code for handling disk-to-sensor transform
-
 
 // TODO: Move this function somewhere else!
 /// Computes a Map2CamTrans given a DEM, image, and a sensor model.
