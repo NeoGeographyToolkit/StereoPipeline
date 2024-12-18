@@ -1266,9 +1266,8 @@ double calc_albedo(double intensity, double reflectance, double exposure,
   // Therefore, albedo = (intensity - haze[0]) / nonlin_ref
   
   // Protect against division by zero
-  if (nonlin_ref == 0.0) {
-      return 0.0;  // Or handle this case as appropriate for your application
-  }
+  if (nonlin_ref == 0.0)
+      return 0.0;
   
   return adjusted_intensity / nonlin_ref;
 }
@@ -1842,12 +1841,13 @@ void estimateSlopeError(Vector3 const& cameraPosition,
                                                          reflectance_model_coeffs);
       reflectance.validate();
 
-      double comp_intensity = albedo(col, row) *
-        nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
-                           opt.steepness_factor,
-                           &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs)
-                      + opt.image_haze_vec[image_iter][0]; // temporary
-        
+      double comp_intensity = calc_intensity(albedo(col, row), 
+                                             reflectance, 
+                                             opt.image_exposures_vec[image_iter],
+                                             opt.steepness_factor,
+                                             &opt.image_haze_vec[image_iter][0], 
+                                             opt.num_haze_coeffs);
+         
       if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
         // We exceeded the error budget, hence this is an upper bound on the slope
         slopeErrEstim->slope_errs[col][row][b_iter] = a;
@@ -1962,12 +1962,12 @@ void estimateHeightError(ImageView<double> const& dem,
                                                            global_params, phase_angle,
                                                            reflectance_model_coeffs);
         reflectance.validate();
-
-        double comp_intensity = albedo(col, row) *
-          nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
-                             opt.steepness_factor,
-                             &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs)
-          + opt.image_haze_vec[image_iter][0]; // temporary
+        double comp_intensity = calc_intensity(albedo(col, row), 
+                                               reflectance, 
+                                               opt.image_exposures_vec[image_iter],
+                                               opt.steepness_factor,
+                                               &opt.image_haze_vec[image_iter][0], 
+                                               opt.num_haze_coeffs);
 
         if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
           // We exceeded the error budget, record the dh at which it happens
@@ -2150,11 +2150,12 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     int image_iter = slopeErrEstim->image_iter;
     Options & opt = *slopeErrEstim->opt; // alias
     ImageView<double> & albedo = *slopeErrEstim->albedo; // alias
-    double comp_intensity = albedo(col, row) *
-      nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
-                         opt.steepness_factor,
-                         &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs)
-      + opt.image_haze_vec[image_iter][0]; // temporary
+    double comp_intensity = calc_intensity(albedo(col, row), 
+                                           reflectance, 
+                                           opt.image_exposures_vec[image_iter],
+                                           opt.steepness_factor,
+                                           &opt.image_haze_vec[image_iter][0], 
+                                           opt.num_haze_coeffs);
 
     // We use twice the discrepancy between the computed and measured intensity
     // as a measure for how far is overall the computed intensity allowed
@@ -2176,11 +2177,12 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     int image_iter = heightErrEstim->image_iter;
     Options & opt = *heightErrEstim->opt; // alias
     ImageView<double> & albedo = *heightErrEstim->albedo; // alias
-    double comp_intensity = albedo(col, row) *
-      nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
-                         opt.steepness_factor,
-                         &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs)
-      + opt.image_haze_vec[image_iter][0]; // temporary
+    double comp_intensity = calc_intensity(albedo(col, row), 
+                                           reflectance, 
+                                           opt.image_exposures_vec[image_iter],
+                                           opt.steepness_factor,
+                                           &opt.image_haze_vec[image_iter][0], 
+                                           opt.num_haze_coeffs);
     
     // We use twice the discrepancy between the computed and measured intensity
     // as a measure for how far is overall the computed intensity allowed
@@ -2640,12 +2642,12 @@ virtual ceres::CallbackReturnType operator()(const ceres::IterationSummary& summ
     comp_intensity.set_size(reflectance.cols(), reflectance.rows());
     for (int col = 0; col < comp_intensity.cols(); col++) {
       for (int row = 0; row < comp_intensity.rows(); row++) {
-        comp_intensity(col, row)
-          = (*g_albedo)(col, row) *
-          nonlin_reflectance(reflectance(col, row), (*g_exposures)[image_iter],
-                              g_opt->steepness_factor,
-                              &(*g_haze)[image_iter][0], g_opt->num_haze_coeffs)
-          + (*g_haze)[image_iter][0]; // temporary
+        comp_intensity(col, row) = calc_intensity((*g_albedo)(col, row), 
+                                                  reflectance(col, row), 
+                                                  (*g_exposures)[image_iter],
+                                                  g_opt->steepness_factor,
+                                                  &(*g_haze)[image_iter][0], 
+                                                  g_opt->num_haze_coeffs);
       }
     }
 
@@ -2688,11 +2690,11 @@ virtual ceres::CallbackReturnType operator()(const ceres::IterationSummary& summ
       for (int row = 0; row < measured_albedo.rows(); row++) {
         if (!is_valid(reflectance(col, row)))
           measured_albedo(col, row) = 1;
-        else // temporary
-          measured_albedo(col, row) = (intensity(col, row) - (*g_haze)[image_iter][0])/
-            nonlin_reflectance(reflectance(col, row), (*g_exposures)[image_iter],
-                                g_opt->steepness_factor,
-                                &(*g_haze)[image_iter][0], g_opt->num_haze_coeffs);
+        else
+          measured_albedo(col, row) 
+            = calc_albedo(intensity(col, row), reflectance(col, row), 
+                          (*g_exposures)[image_iter], g_opt->steepness_factor,
+                          &(*g_haze)[image_iter][0], g_opt->num_haze_coeffs);
       }
     }
     std::string out_albedo_file = iter_str2 + "-meas-albedo.tif";
@@ -2831,11 +2833,10 @@ calc_intensity_residual(const F* const exposure,
     }
       
     if (success && is_valid(intensity) && is_valid(reflectance))
-      residuals[0] = ground_weight * (intensity - haze[0] - albedo[0] * // temporary
-                               nonlin_reflectance(reflectance.child(), exposure[0],
-                                                  g_opt->steepness_factor,
-                                                  haze, g_opt->num_haze_coeffs));
-    
+      residuals[0] = ground_weight * (intensity - 
+                      calc_intensity(albedo[0], reflectance.child(), exposure[0],
+                                     g_opt->steepness_factor,
+                                     haze, g_opt->num_haze_coeffs));
 
   } catch (const camera::PointToPixelErr& e) {
     // To be able to handle robustly DEMs that extend beyond the camera,
@@ -2848,8 +2849,7 @@ calc_intensity_residual(const F* const exposure,
   return true;
 }
 
-// Discrepancy between measured and computed intensity.
-// sum_i | I_i - albedo * nonlin_reflectance(reflectance_i, exposures[i], haze, num_haze_coeffs) - haze[0]|^2 // temporary
+// Discrepancy between measured and computed intensity. See the formula above.
 struct IntensityError {
   IntensityError(int col, int row,
                  ImageView<double> const& dem,
@@ -3313,7 +3313,7 @@ struct IntensityErrorPQ {
 // Discrepancy between measured and computed intensity. Assume fixed reflectance,
 // as this is only an initial estimate.
 // Cost function is:
-// sum_i | I_i - albedo * nonlin_reflectance(reflectance_i, exposures[i], haze, num_haze_coeffs) - haze[0]|^2 // temporary
+// sum_i | I_i - albedo * nonlin_reflectance(reflectance_i, exposures[i], haze, num_haze_coeffs) - haze[0]|^2
 struct IntensityErrorFixedReflectance {
   IntensityErrorFixedReflectance(PixelMask<float> const& intensity,
                                  PixelMask<float> const& reflectance,
@@ -5850,12 +5850,12 @@ int main(int argc, char* argv[]) {
         comp_intensity.set_size(reflectance.cols(), reflectance.rows());
         for (int col = 0; col < comp_intensity.cols(); col++) {
           for (int row = 0; row < comp_intensity.rows(); row++) {
-            comp_intensity(col, row)
-              = albedos[0](col, row) *
-              nonlin_reflectance(reflectance(col, row), opt.image_exposures_vec[image_iter],
-                                 opt.steepness_factor,
-                                 &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs)
-              + opt.image_haze_vec[image_iter][0]; // temporary
+            comp_intensity(col, row) = calc_intensity(albedos[0](col, row), 
+                                                      reflectance(col, row), 
+                                                      opt.image_exposures_vec[image_iter],
+                                                      opt.steepness_factor,
+                                                      &opt.image_haze_vec[image_iter][0], 
+                                                      opt.num_haze_coeffs);
           }
         }
         
