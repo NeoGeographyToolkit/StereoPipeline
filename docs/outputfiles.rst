@@ -175,7 +175,7 @@ Files created at triangulation
     relatively small, and we save them in single precision (32 bits).
     This origin is saved in the point cloud as well using the tag
     ``POINT_OFFSET`` in the GeoTiff header. To output point clouds using
-    double precision with the origin at the planet center, call
+    double precision with the origin at the planet center (ECEF), call
     ``stereo_tri`` with the option
     ``--save-double-precision-point-cloud``. This can effectively
     double the size of the point cloud.
@@ -185,9 +185,9 @@ Files created at triangulation
     the point cloud will have 6 channels. The first 3 channels store,
     as before, the triangulated points.
 
-\*-PC-center.txt - the point cloud rough center of gravity.
-   Stored in plain text. Has the same information as the
-   ``POINT_OFFSET`` header in ``PC.tif``.
+\*-PC-center.txt - the point cloud local origin (add this to cloud points 
+   to convert them to ECEF). Stored in plain text. Has the same information as
+   the ``POINT_OFFSET`` header in ``PC.tif``.
 
 Other files created at all stages
 ---------------------------------
