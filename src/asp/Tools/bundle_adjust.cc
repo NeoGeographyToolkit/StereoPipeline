@@ -2048,12 +2048,20 @@ void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
 
   // IP matching may not succeed for all pairs
 
-  // Get masked views of the images to get statistics from
-  DiskImageView<float> image1_view(rsrc1), image2_view(rsrc2);
-  ImageViewRef<PixelMask<float>> masked_image1
-    = create_mask_less_or_equal(image1_view,  nodata1);
-  ImageViewRef<PixelMask<float>> masked_image2
-    = create_mask_less_or_equal(image2_view, nodata2);
+  // Get masked views of the images to get statistics from.
+  // If the user provided a custom no-data value, values no more than that are
+  // masked.
+  ImageViewRef<float> image1_view = DiskImageView<float>(rsrc1);
+  ImageViewRef<float> image2_view = DiskImageView<float>(rsrc2);
+  ImageViewRef<PixelMask<float>> masked_image1, masked_image2;
+  float user_nodata = asp::stereo_settings().nodata_value;
+  if (!std::isnan(user_nodata)) {
+    masked_image1 = create_mask_less_or_equal(image1_view, user_nodata);
+    masked_image2 = create_mask_less_or_equal(image2_view, user_nodata);
+  } else {
+    masked_image1 = create_mask(image1_view, nodata1);
+    masked_image2 = create_mask(image2_view, nodata2);
+  }
 
   // Since we computed statistics earlier, this will just be loading files.
   vw::Vector<vw::float32,6> image1_stats, image2_stats;
@@ -2365,10 +2373,15 @@ void computeStats(asp::BaOptions const& opt, std::vector<std::string> const& map
     float nodata, dummy;
     asp::get_nodata_values(rsrc, rsrc, nodata, dummy);
 
-    // Set up the image view
+    // Set up the image view. If the user provided a custom no-data value,
+    // values no more than that are masked.
+    float user_nodata = asp::stereo_settings().nodata_value;
     DiskImageView<float> image_view(rsrc);
-    ImageViewRef< PixelMask<float> > masked_image
-      = create_mask_less_or_equal(image_view,  nodata);
+    ImageViewRef<PixelMask<float>> masked_image;
+    if (!std::isnan(user_nodata))
+      masked_image = create_mask_less_or_equal(image_view, nodata);
+    else
+      masked_image = create_mask(image_view, nodata);
 
     // Use caching function call to compute the image statistics.
     asp::gather_stats(masked_image, image_path, opt.out_prefix, image_path);

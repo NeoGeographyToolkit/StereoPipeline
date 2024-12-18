@@ -443,8 +443,7 @@ namespace asp {
                     stereo_settings().ip_per_tile, number_of_jobs,
                     "", "", // do not save any results to disk
                     left_nodata_value, right_nodata_value,
-                    "" // do not save any match file to disk
-);
+                    ""); // do not save any match file to disk
 
     if (stereo_settings().local_alignment_debug) {
       // These clips have global but not local alignment
@@ -525,13 +524,25 @@ namespace asp {
                              left_unaligned_nodata_value, right_unaligned_nodata_value);
     }
 
-    // Set up image masks
-    DiskImageView<float> left_unaligned_image (left_unaligned_file);
-    DiskImageView<float> right_unaligned_image (right_unaligned_file);
-    ImageViewRef<PixelMask<float>> left_masked_image
-      = create_mask_less_or_equal(left_unaligned_image,  left_unaligned_nodata_value);
-    ImageViewRef<PixelMask<float>> right_masked_image
-      = create_mask_less_or_equal(right_unaligned_image, right_unaligned_nodata_value);
+    // Input images
+    ImageViewRef<float> left_unaligned_image = DiskImageView<float>(left_unaligned_file);
+    ImageViewRef<float> right_unaligned_image = DiskImageView<float>(right_unaligned_file);
+
+    // Set up image masks. If the user provided a custom no-data value, values
+    // no more than that are masked.
+    float user_nodata = asp::stereo_settings().nodata_value;
+    ImageViewRef<PixelMask<float>> left_masked_image, right_masked_image;
+    if (!std::isnan(user_nodata)) {
+      left_masked_image
+        = create_mask_less_or_equal(left_unaligned_image, user_nodata);
+      right_masked_image
+        = create_mask_less_or_equal(right_unaligned_image, user_nodata);
+    } else {
+      left_masked_image
+        = create_mask(left_unaligned_image, left_unaligned_nodata_value);
+      right_masked_image
+        = create_mask(right_unaligned_image, right_unaligned_nodata_value);
+    }
 
     PixelMask<float> nodata_mask = PixelMask<float>(); // invalid value for a PixelMask
 

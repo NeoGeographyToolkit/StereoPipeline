@@ -154,9 +154,19 @@ bool StereoSession::ip_matching(std::string const& input_file1,
   else // Tiff input
     rsrc2 = vw::DiskImageResourcePtr(input_file2);
 
-  DiskImageView<float> image1(rsrc1), image2(rsrc2);
-  ImageViewRef<float> image1_norm = image1, image2_norm = image2;
+  // If the user provided a custom no-data value, values no
+  // more than that are masked. Otherwise, only values equal to no-data are
+  // masked.
+  ImageViewRef<float> image1 = DiskImageView<float>(rsrc1);
+  ImageViewRef<float> image2 = DiskImageView<float>(rsrc2);
+  float user_nodata = stereo_settings().nodata_value;
+  if (!std::isnan(user_nodata)) {
+    image1 = apply_mask(create_mask_less_or_equal(image1, user_nodata), user_nodata);
+    image2 = apply_mask(create_mask_less_or_equal(image2, user_nodata), user_nodata);
+  }
+
   // Get normalized versions of the images for OpenCV based methods
+  ImageViewRef<float> image1_norm = image1, image2_norm = image2;
   if ((stereo_settings().ip_detect_method != DETECT_IP_METHOD_INTEGRAL) &&
       (stats1[0] != stats1[1])) { // Don't normalize if no stats were provided
     vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";

@@ -486,61 +486,11 @@ bool StereoSessionIsis::supports_multi_threading () const {
   return false;
 }
   
-// Only used with mask_flatfield option?
-// TODO(oalexan1): Wipe this logic
-std::string write_shadow_mask(vw::GdalWriteOptions const& opt,
-                              std::string const& output_prefix,
-                              std::string const& input_image,
-                              std::string const& mask_postfix) {
-  // This thresholds at -25000 as the input sub4s for Apollo that I've
-  // processed have a range somewhere between -32000 and +32000. -ZMM
-  DiskImageView<PixelGray<float>> disk_image(input_image);
-  DiskImageView<uint8> disk_mask(output_prefix + mask_postfix);
-  ImageViewRef<uint8> mask = apply_mask(intersect_mask(create_mask(disk_mask),
-                                        create_mask(threshold(disk_image,-25000,0,1.0))));
-  std::string output_mask = output_prefix+mask_postfix.substr(0,mask_postfix.size()-4)+"Debug.tif";
-
-  block_write_gdal_image(output_mask, mask, opt, TerminalProgressCallback("asp","\t  Shadow:"));
-  return output_mask;
-}
-
 // Pre file is a pair of grayscale images.  (ImageView<PixelGray<float> >)
 // Post file is a disparity map.            (ImageView<PixelMask<Vector2f> >)
 void StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
-                     std::string      & output_file) {
+                                           std::string      & output_file) {
   output_file = input_file;
-
-  if (stereo_settings().mask_flatfield) {
-    // ****************************************************
-    // The following code is for Apollo Metric Camera ONLY!
-    // (use at your own risk)
-    // ****************************************************
-    vw_out() << "\t--> Masking pixels that are less than 0.0. "
-             << "(NOTE: Use this option with Apollo Metric Camera frames only!)\n";
-    output_file = this->m_out_prefix + "-R-masked.exr";
-
-    std::string shadowLmask_name = write_shadow_mask(this->m_options,
-                                                     this->m_out_prefix,
-                                                     this->m_left_image_file,  "-lMask.tif");
-    std::string shadowRmask_name = write_shadow_mask(this->m_options,
-                                                     this->m_out_prefix,
-                                                     this->m_right_image_file, "-rMask.tif");
-
-    DiskImageView<uint8> shadowLmask(shadowLmask_name);
-    DiskImageView<uint8> shadowRmask(shadowRmask_name);
-
-    DiskImageView<PixelMask<Vector2f> > disparity_disk_image(input_file);
-    ImageViewRef <PixelMask<Vector2f> > disparity_map
-      = stereo::disparity_mask(disparity_disk_image, shadowLmask, shadowRmask);
-
-    DiskImageResourceOpenEXR disparity_map_rsrc(output_file, disparity_map.format());
-    Vector2i block_size(std::min<size_t>(vw_settings().default_tile_size(), disparity_map.cols()),
-                        std::min<size_t>(vw_settings().default_tile_size(),
-                                         disparity_map.rows()));
-    disparity_map_rsrc.set_block_write_size(block_size);
-    block_write_image(disparity_map_rsrc, disparity_map,
-                      TerminalProgressCallback("asp", "\t--> Saving Mask :"));
-  }
 } // End function pre_filtering_hook()
 
 /// Returns the target datum to use for a given camera model.
@@ -579,19 +529,7 @@ StereoSessionIsis::load_camera_model(std::string const& image_file,
 // Reverse any pre-alignment that was done to the disparity.
 ImageViewRef<PixelMask<Vector2f>>
 StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
-
-  std::string dust_result = input_file;
-  if (stereo_settings().mask_flatfield) {
-    // ****************************************************
-    // The following code is for Apollo Metric Camera ONLY!
-    // (use at your own risk)
-    // ****************************************************
-    vw_out() << "\t--> Masking pixels that appear to be dust. "
-             << "(NOTE: Use this option with Apollo Metric Camera frames only!)\n";
-    asp::photometric_outlier_rejection(this->m_options, this->m_out_prefix, input_file,
-                                       dust_result, stereo_settings().corr_kernel[0]);
-  }
-  return DiskImageView<PixelMask<Vector2f>>(dust_result);
+  return DiskImageView<PixelMask<Vector2f>>(input_file);
 } // End function pre_pointcloud_hook()
   
 }

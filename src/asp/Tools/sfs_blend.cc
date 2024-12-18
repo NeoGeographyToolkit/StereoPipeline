@@ -133,8 +133,8 @@ public:
     ImageView<pixel_type> image_mosaic_crop = crop(m_image_mosaic, biased_box);
 
     // The mask of lit pixels
-    ImageView< PixelMask<pixel_type> > mask = create_mask_less_or_equal(image_mosaic_crop,
-                                                                        m_opt.image_threshold);
+    ImageView<PixelMask<pixel_type>> mask
+      = create_mask_less_or_equal(image_mosaic_crop, m_opt.image_threshold);
     
     // The mask of unlit pixels
     ImageView< PixelMask<pixel_type> > inv_mask = vw::copy(mask);

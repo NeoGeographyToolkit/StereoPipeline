@@ -99,7 +99,7 @@ void detect_ip(vw::ip::InterestPointList& ip,
     if (!has_nodata)
       ip = detect_interest_points(image.impl(), detector, points_per_tile);
     else
-      ip = detect_interest_points(apply_mask(create_mask_less_or_equal(image.impl(),nodata)), detector, points_per_tile);
+      ip = detect_interest_points(apply_mask(create_mask(image.impl(),nodata)), detector, points_per_tile);
   } else {
 
     // Initialize the OpenCV detector.  Conveniently we can just pass in the type argument.
@@ -127,13 +127,13 @@ void detect_ip(vw::ip::InterestPointList& ip,
     if (!has_nodata)
       ip = detect_interest_points(image.impl(), detector, points_per_tile);
     else
-      ip = detect_interest_points(create_mask_less_or_equal(image.impl(),nodata), detector, points_per_tile);
+      ip = detect_interest_points(create_mask(image.impl(),nodata), detector, points_per_tile);
   } // End OpenCV case
 
   sw1.stop();
   vw::vw_out(vw::DebugMessage,"asp") << "Detect interest points elapsed time: "
                                      << sw1.elapsed_seconds() << " s." << std::endl;
-
+  
   if (!boost::math::isnan(nodata)) {
     vw::vw_out() << "\t    Removing IP near nodata with radius "
              << stereo_settings().ip_nodata_radius << std::endl;
@@ -150,7 +150,7 @@ void detect_ip(vw::ip::InterestPointList& ip,
     if (!has_nodata)
       describe_interest_points(image.impl(), descriptor, ip);
     else
-      describe_interest_points(apply_mask(create_mask_less_or_equal(image.impl(),nodata)), descriptor, ip);
+      describe_interest_points(apply_mask(create_mask(image.impl(),nodata)), descriptor, ip);
     sw2.stop();
     vw::vw_out(vw::DebugMessage,"asp") << "Building descriptors elapsed time: "
                                        << sw2.elapsed_seconds() << " s." << std::endl;

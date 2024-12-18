@@ -557,15 +557,22 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     float left_no_data_value, right_no_data_value;
     asp::get_nodata_values(left_rsrc, right_rsrc,
                            left_no_data_value, right_no_data_value); 
-    if (!std::isnan(stereo_settings().nodata_value)){
-      left_no_data_value  = stereo_settings().nodata_value;
-      right_no_data_value = stereo_settings().nodata_value;
+    float user_nodata = asp::stereo_settings().nodata_value;
+    if (!std::isnan(user_nodata)) {
+      left_no_data_value  = user_nodata;
+      right_no_data_value = user_nodata;
     }
 
-    ImageViewRef<PixelMask<PixelGray<float>>> left_masked_image
-      = create_mask_less_or_equal(left_image, left_no_data_value);
-    ImageViewRef<PixelMask<PixelGray<float>>> right_masked_image
-      = create_mask_less_or_equal(right_image, right_no_data_value); 
+    // If the user provided a custom no-data value, values no more than that are
+    // masked.
+    ImageViewRef<PixelMask<PixelGray<float>>> left_masked_image, right_masked_image;
+    if (!std::isnan(user_nodata)) {
+      left_masked_image = create_mask_less_or_equal(left_image, user_nodata);
+      right_masked_image = create_mask_less_or_equal(right_image, user_nodata);
+    } else {
+      left_masked_image = create_mask(left_image, left_no_data_value);
+      right_masked_image = create_mask(right_image, right_no_data_value);
+    }
 
     Vector6f left_stats  = gather_stats(pixel_cast<PixelMask<float>>(left_masked_image), 
                                         "left",

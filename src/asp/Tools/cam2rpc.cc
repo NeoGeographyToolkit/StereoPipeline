@@ -536,7 +536,7 @@ int main(int argc, char *argv[]) {
     // Masked input image
     DiskImageView<float> disk_view(opt.image_file);
     ImageViewRef<PixelMask<float>> input_img
-      = create_mask_less_or_equal(disk_view, opt.input_nodata_value);
+      = create_mask(disk_view, opt.input_nodata_value);
 
     // The bounding box
     BBox2 image_box = bounding_box(disk_view);

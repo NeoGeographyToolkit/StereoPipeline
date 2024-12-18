@@ -120,12 +120,7 @@ namespace asp {
   /// map-projected inputs with the ISIS sensor model.
   class StereoSessionIsisMapIsis: public StereoSessionMapProj  {
   public:
-    StereoSessionIsisMapIsis(){
-      // Supporting this option (or anything else ISIS specific) requires more class refactoring!
-      if (stereo_settings().mask_flatfield)
-        vw::vw_throw( vw::NoImplErr()
-                      << "StereoSessionIsisMapIsis does not support mask_flatfield" );
-    };
+    StereoSessionIsisMapIsis() {};
     virtual ~StereoSessionIsisMapIsis(){};
 
     virtual std::string name() const { return "isismapisis"; }

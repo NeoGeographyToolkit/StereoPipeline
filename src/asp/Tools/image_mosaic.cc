@@ -718,16 +718,15 @@ int main( int argc, char *argv[] ) {
     Vector2i                     output_image_size;
     compute_all_image_positions(opt, transforms, bboxes, output_image_size);
 
-    // TODO: Handle nodata!
     // Get handles to all of the input images.
     size_t num_images = opt.image_files.size();
-    std::vector<ImageViewRef<PixelMask<float> > > images(num_images);
-    double nodata;
-    for (size_t i=0; i<num_images; ++i) {
-      // Apply a nodata mask here.
+    std::vector<ImageViewRef<PixelMask<float>>> images(num_images);
+    double nodata = -std::numeric_limits<float>::max();
+    for (size_t i = 0; i < num_images; i++) {
+      // Apply a nodata mask here
       ImageViewRef<float> temp;
       get_input_image(opt.image_files[i], opt, temp, nodata);
-      images[i] = create_mask_less_or_equal(temp, nodata);
+      images[i] = create_mask(temp, nodata);
     }
 
     // If nodata was not provided, take one from the input images.
