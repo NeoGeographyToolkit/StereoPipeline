@@ -376,66 +376,29 @@ void stereo_filtering(ASPGlobalOptions& opt) {
     if (stereo_settings().filter_mode == 0)
       stereo_settings().rm_cleanup_passes = 0;
 
-    if ( stereo_settings().mask_flatfield ) {
-      ImageViewRef<PixelMask<Vector2f> > filtered_disparity;
-      if ( stereo_settings().rm_cleanup_passes >= 1 )
-      {
-        filtered_disparity =
-          stereo::disparity_mask
-          (MultipleDisparityCleanUp<input_type>()
-           (disparity_disk_image, stereo_settings().rm_cleanup_passes),
-           apply_mask(asp::threaded_edge_mask(left_mask, 0,mask_buffer,1024)),
-           apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024)));
-      }
-      else { // No cleanup passes
-        filtered_disparity =
-          stereo::disparity_mask
-          (disparity_disk_image,
-           apply_mask(asp::threaded_edge_mask(left_mask, 0,mask_buffer,1024)),
-           apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024)));
-      }
-
-      // This is only turned on for apollo. Blob detection doesn't
-      // work too great when tracking a whole lot of spots. HiRISE
-      // seems to keep breaking this so I've keep it turned off.
-      //
-      // The crash happens inside Boost Graph when dealing with
-      // large number of blobs.
-      BlobIndexThreaded bindex( filtered_disparity,
-                                stereo_settings().erode_max_size,
-                                vw::vw_settings().default_tile_size(),
-                                vw::vw_settings().default_num_threads()
-                                );
-      vw_out() << "\t    * Eroding " << bindex.num_blobs() << " islands\n";
+    // No Erosion step
+    if ( stereo_settings().rm_cleanup_passes >= 1 ) {
+      // Apply an outlier removal filter
       write_good_pixel_and_filtered
-        ( ErodeView<ImageViewRef<PixelMask<Vector2f> > >(filtered_disparity,
-                                                         bindex ), opt );
-    } else { // mask_flatfield == false
-      // No Erosion step
-      if ( stereo_settings().rm_cleanup_passes >= 1 ) {
-        // Apply an outlier removal filter
-        write_good_pixel_and_filtered
-          (stereo::disparity_mask
-            (MultipleDisparityCleanUp<input_type>()
-              (disparity_disk_image, stereo_settings().rm_cleanup_passes),
-               apply_mask(asp::threaded_edge_mask(left_mask, 0,mask_buffer,1024)),
-               apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))),
-             opt);
-      }
-      else { // No cleanup passes
-        write_good_pixel_and_filtered
-          (stereo::disparity_mask
-            (
-             texture_aware_disparity_filter(left_disk_image, disparity_disk_image, 
-                                            stereo_settings().median_filter_size,
-                                            stereo_settings().disp_smooth_size+2, // Compute texture a little larger than smooth radius
-                                            stereo_settings().disp_smooth_texture, 
-                                            stereo_settings().disp_smooth_size),
+        (stereo::disparity_mask
+          (MultipleDisparityCleanUp<input_type>()
+            (disparity_disk_image, stereo_settings().rm_cleanup_passes),
               apply_mask(asp::threaded_edge_mask(left_mask, 0,mask_buffer,1024)),
               apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))),
             opt);
-      } // End cleanup passes check
-    } // End mask_flatfield check
+    } else { // No cleanup passes
+      write_good_pixel_and_filtered
+        (stereo::disparity_mask
+          (
+            texture_aware_disparity_filter(left_disk_image, disparity_disk_image, 
+                                          stereo_settings().median_filter_size,
+                                          stereo_settings().disp_smooth_size+2, // Compute texture a little larger than smooth radius
+                                          stereo_settings().disp_smooth_texture, 
+                                          stereo_settings().disp_smooth_size),
+            apply_mask(asp::threaded_edge_mask(left_mask, 0,mask_buffer,1024)),
+            apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))),
+          opt);
+    } // End cleanup passes check
 
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at filtering stage -- could not read input files.\n"
