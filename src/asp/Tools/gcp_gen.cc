@@ -63,7 +63,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The output GCP file.")
     ("gcp-sigma", po::value(&opt.gcp_sigma)->default_value(1.0),
      "The sigma (uncertainty, in meters) to use for the GCPs. A smaller sigma suggests "
-      "a more accurate GCP. See also --fix-gcp-xyz in bundle adjustment.")
+      "a more accurate GCP. See also option --fix-gcp-xyz in bundle adjustment.")
     ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
      "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
     ("ip-per-image", po::value(&opt.ip_per_image)->default_value(20000),

@@ -165,6 +165,11 @@ bool MainWindow::sanityChecks(int num_images) {
     return false;
   }
   
+  if (stereo_settings().gcp_sigma <= 0) {
+    popUp("The GCP sigma must be positive.");
+    return false;
+  }
+  
   // The dem file must exist if not empty. Must also have a georef.
   if (stereo_settings().dem_file != "") {
     try {
@@ -1638,7 +1643,7 @@ void MainWindow::writeGroundControlPoints() {
     asp::writeGCP(m_image_files,  
                   stereo_settings().gcp_file,  
                   stereo_settings().dem_file,
-                  m_matchlist);
+                  m_matchlist, asp::stereo_settings().gcp_sigma);
     m_saved_gcp_and_ip = true;
   } catch (std::exception const& e) {
     popUp(e.what());

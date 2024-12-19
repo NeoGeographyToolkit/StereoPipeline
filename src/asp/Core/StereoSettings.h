@@ -282,7 +282,7 @@ namespace asp {
     bool use_georef;
     bool hillshade;
     int lowest_resolution_subimage_num_pixels;
-    double hillshade_azimuth, hillshade_elevation;
+    double hillshade_azimuth, hillshade_elevation, gcp_sigma;
     bool view_matches, view_several_side_by_side, colorize, preview;
     std::string match_file, gcp_file, dem_file, csv_datum, csv_format_str, csv_srs, nvm, isis_cnet;
     bool delete_temporary_files_on_exit;

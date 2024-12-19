@@ -95,9 +95,9 @@ Command-line options
     The output GCP file.
 
 --gcp-sigma <double (default: 1.0)>
-    The sigma (uncertainty, in meters) to use for the GCPs. A smaller sigma
-    suggests a more accurate GCP. See also ``--fix-gcp-xyz`` in ``bundle_adjust``
-    (:numref:`ba_options`).
+    The sigma (uncertainty, in meters) to use for the GCPs (:numref:`bagcp`). A
+    smaller sigma suggests a more accurate GCP. See also option
+    ``--fix-gcp-xyz`` in ``bundle_adjust`` (:numref:`ba_options`).
     
 --ip-per-image <integer (default: 20000)>
     How many interest points to detect in each image (the resulting number of

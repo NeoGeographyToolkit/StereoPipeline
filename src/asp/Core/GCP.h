@@ -31,7 +31,8 @@ namespace asp {
   void writeGCP(std::vector<std::string> const& image_files,
                 std::string const& gcp_file,
                 std::string const& dem_file,
-                asp::MatchList const& matchlist);
+                asp::MatchList const& matchlist,
+                double xyz_sigma);
 
 } // namespace asp
 

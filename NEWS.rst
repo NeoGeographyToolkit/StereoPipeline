@@ -30,6 +30,7 @@ stereo_gui (:numref:`stereo_gui`):
   * Changing the image threshold updates the display correctly.
   * When creating GCP, ask before quitting without saving them. Save the IP as
     well when GCP are saved.
+  * Added the option ``--gcp-sigma`` for creating GCP.  
   * Big speedup when rendering a stack of georeferenced images.
 
 image_calc (:numref:`image_calc`):

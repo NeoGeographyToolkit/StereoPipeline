@@ -41,7 +41,8 @@ namespace asp {
 void writeGCP(std::vector<std::string> const& image_files,
               std::string const& gcp_file,
               std::string const& dem_file,
-              asp::MatchList const& matchlist) {
+              asp::MatchList const& matchlist,
+              double xyz_sigma) {
   
   using namespace vw;
   
@@ -121,8 +122,7 @@ void writeGCP(std::vector<std::string> const& image_files,
     }
     
     // Write sigma values on the same line
-    output_handle << ", " << 1 << ", " << 1 << ", " << 1; 
-    
+    output_handle << ", " << xyz_sigma << ", " << xyz_sigma << ", " << xyz_sigma;
     // Write the per-image information
     // The last image is the reference image, so we skip it when saving GCPs
     size_t num_images = image_files.size();

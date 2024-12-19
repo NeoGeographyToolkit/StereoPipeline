@@ -571,8 +571,11 @@ to an ellipsoid.
 Open the desired images, the orthoimage, the DEM, and the GCP file to
 be created in the GUI, as follows::
 
-    stereo_gui img1.tif img2.tif img3.tif ortho.tif \
-      --dem-file dem.tif --gcp-file output.gcp      \
+    stereo_gui img1.tif img2.tif img3.tif \
+      ortho.tif                           \
+      --dem-file dem.tif                  \
+      --gcp-file output.gcp               \
+      --gcp-sigma 1.0                     \
       run/run
 
 The orthoimage must be after the images for which GCP will be
@@ -601,8 +604,9 @@ will prompt for their names.
 If having many images, this process can be repeated for several small sets,
 creating several GCP files that can then be passed together to ``bundle_adjust``.
 
-The sigmas for the GCP should be set manually. Or use ``bundle_adjust`` 
-with the option ``--fix-gcp-xyz`` to ensure they are not adjusted.
+The sigmas for the GCP should be set via the option ``--gcp-sigma``. Or use
+``bundle_adjust`` with the option ``--fix-gcp-xyz`` to ensure GCP are kept
+fixed during optimization.
  
 GCP can be visualized in ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
 
@@ -611,9 +615,12 @@ try to automatically detect and load interest point matches as follows::
 
     ipfind img.tif ortho.tif
     ipmatch img.tif ortho.tif
-    stereo_gui img.tif ortho.tif --match-file img__ortho.match \
-      --dem-file dem.tif --gcp-file output.gcp
-    
+    stereo_gui img.tif ortho.tif    \
+      --match-file img__ortho.match \
+      --dem-file dem.tif            \
+      --gcp-file output.gcp         \
+      --gcp-sigma 1.0
+
 Then, the interest points can be inspected and edited as needed, and the GCP
 file can be saved as above. See the documentation of ``ipfind``
 (:numref:`ipfind`) and ``ipmatch`` (:numref:`ipmatch`), for how to increase the
@@ -828,7 +835,12 @@ accept all other ``parallel_stereo`` options as well.
 --gcp-file
     Display the GCP pixel coordinates for this GCP file (implies
     ``--view-matches``).  Also save here GCP if created from the
-    GUI.
+    GUI. See also ``--gcp-sigma``.
+
+--gcp-sigma <double (default: 1.0)>
+    The sigma (uncertainty, in meters) to use for the GCPs (:numref:`bagcp`). A
+    smaller sigma suggests a more accurate GCP. See also option
+    ``--fix-gcp-xyz`` in ``bundle_adjust`` (:numref:`ba_options`).
 
 --dem-file
     Use this DEM when creating GCP from images.

@@ -498,6 +498,9 @@ namespace asp {
        "Display this match file instead of looking one up based on existing conventions (implies --view-matches).")
       ("gcp-file", po::value(&global.gcp_file)->default_value(""),
        "Display the GCP pixel coordinates for this GCP file (implies --view-matches).")
+      ("gcp-sigma", po::value(&global.gcp_sigma)->default_value(1.0),
+       "The sigma (uncertainty, in meters) to use for the GCPs. A smaller sigma suggests "
+       "a more accurate GCP. See also option --fix-gcp-xyz in bundle adjustment.")
       ("dem-file", po::value(&global.dem_file)->default_value(""),
        "Use this DEM when creating GCP from images.")
        ("hide-all",        po::bool_switch(&global.hide_all)->default_value(false)->implicit_value(true),
