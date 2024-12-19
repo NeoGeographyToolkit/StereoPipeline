@@ -2370,8 +2370,9 @@ void computeStats(asp::BaOptions const& opt, std::vector<std::string> const& map
 
     // Call a bunch of stuff to get the nodata value
     boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
-    float nodata, dummy;
-    asp::get_nodata_values(rsrc, rsrc, nodata, dummy);
+    float nodata = -std::numeric_limits<float>::max();
+    float dummy_nodata = nodata;
+    asp::get_nodata_values(rsrc, rsrc, nodata, dummy_nodata);
 
     // Set up the image view. If the user provided a custom no-data value,
     // values no more than that are masked.
@@ -2379,7 +2380,7 @@ void computeStats(asp::BaOptions const& opt, std::vector<std::string> const& map
     DiskImageView<float> image_view(rsrc);
     ImageViewRef<PixelMask<float>> masked_image;
     if (!std::isnan(user_nodata))
-      masked_image = create_mask_less_or_equal(image_view, nodata);
+      masked_image = create_mask_less_or_equal(image_view, user_nodata);
     else
       masked_image = create_mask(image_view, nodata);
 
@@ -2396,7 +2397,7 @@ void computeStats(asp::BaOptions const& opt, std::vector<std::string> const& map
   return;
 }
 
-// TODO(oalexan1): Move to BundleAjustIp.cc
+// TODO(oalexan1): Move to BundleAdustIp.cc
 void findPairwiseMatches(asp::BaOptions & opt, // will change
                          std::vector<std::string> const& map_files,
                          std::string const& mapproj_dem,
