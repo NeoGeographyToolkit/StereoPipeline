@@ -17,11 +17,6 @@ This program can fail if the camera image and orthoimage are not similar enough,
 or if the orthoimage is a mirror-flipped version of the camera image. Manual
 selection of interest points can then be invoked (:numref:`creatinggcp`).
 
-Use the option ``--output-prefix`` to save the interest point matches for
-inspection with ``stereo_gui`` (:numref:`stereo_gui_view_ip`). Consider
-increasing the number of interest points to detect per image and adjusting the
-inlier threshold if the matches are not good enough.
-
 The context and next steps after using this program are discussed in
 :numref:`camera_solve_gcp`.
 
@@ -32,17 +27,45 @@ Example
 
 ::
 
-    gcp_gen --camera-image camera_image.tif \
-      --ortho-image ortho_image.tif         \
-      --dem dem.tif                         \
+    gcp_gen                           \
+      --camera-image camera_image.tif \
+      --ortho-image ortho_image.tif   \
+      --dem dem.tif                   \
+      --gcp-sigma 1.0                 \
+      --output-prefix run/run         \
       -o gcp.gcp
 
 If given several images, the program should be invoked individually
 for each image, thus creating several GCP files. 
 
+For certain datasets, the SIFT interest point detection (method 1) and a smaller
+RANSAC threshold turned out to work better. Here's an alternative invocation,
+also with more interest points per tile::
+
+    gcp_gen                           \
+      --ip-detect-method 1            \
+      --inlier-threshold 50           \
+      --ip-per-tile 1000              \
+      --camera-image camera_image.tif \
+      --ortho-image ortho_image.tif   \
+      --dem dem.tif                   \
+      --output-prefix run/run         \
+      -o gcp.gcp
+
+In some cases, ``--ip-detect-method 2`` (ORB) worked out better than SIFT.
+
 Validation
 ~~~~~~~~~~
 
+Run ``stereo_gui``::
+
+  stereo_gui camera_image.tif ortho_image.tif \
+    run/run-camera_image__ortho_image.match
+
+to inspect the produced match file (see also :numref:`stereo_gui_view_ip`). It
+should show correctly the correspondences. The GCP file can be inspected in
+``stereo_gui`` as well (:numref:`stereo_gui_vwip_gcp`).
+    
 The images and GCP files can be passed together to ``bundle_adjust`` to refine,
 transform, or initialize the camera models (:numref:`ba_use_gcp`).
 
@@ -71,6 +94,11 @@ Command-line options
 --output-gcp, -o <string (default: "")>
     The output GCP file.
 
+--gcp-sigma <double (default: 1.0)>
+    The sigma (uncertainty, in meters) to use for the GCPs. A smaller sigma
+    suggests a more accurate GCP. See also ``--fix-gcp-xyz`` in ``bundle_adjust``
+    (:numref:`ba_options`).
+    
 --ip-per-image <integer (default: 20000)>
     How many interest points to detect in each image (the resulting number of
     matches will be much less).
@@ -100,8 +128,16 @@ Command-line options
     computing interest point matches. A smaller threshold will result in fewer
     inliers. The default is 10% of the image diagonal.
 
+--ip-detect-method <integer (default: 0)>
+    Choose an interest point detection method from: 0 = OBAloG
+    (:cite:`jakkula2010efficient`), 1 = SIFT (from OpenCV), 2 = ORB (from
+    OpenCV). The SIFT method, unlike OBALoG, produces interest points that are
+    accurate to subpixel level. See also :numref:`custom_ip`.
+
 --output-prefix <string (default: "")>
     If set, save the interest point matches using this prefix (for inspection).
+    This will cache any matches found, so those need to be deleted if desired
+    to restart the program with the same output prefix.
 
 --match-file <string (default: "")>
     If set, use this match file instead of creating one.          

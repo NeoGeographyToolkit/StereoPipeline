@@ -70,7 +70,9 @@ sfs (:numref:`sfs`):
   * Added the program ``image_subset`` for selecting a subset of images that
     have almost the same coverage as the full input set
     (:numref:`image_subset`).
-  * Can ingest a provided albedo map (of same size as input DEM). Option::
+  * Bugfix in modeling atmospheric haze.
+  * Remove the ability to work on multiple clips at once, as it was not used.
+  * Can ingest a provided albedo map (of same size as the input DEM). Option:
     ``--input-albedo``.
 
 orbit_plot (:numref:`orbit_plot`):
@@ -95,6 +97,10 @@ point2dem (:numref:`point2dem`):
   * Changed the default output nodata-value to -1e+6, as the smallest float
     may not be displayed accurately by some software.
   
+gcp_gen (:numref:`gcp_gen`):
+  * Make the interest point matching work better by invoking the full 
+    machinery and options from ``bundle_adjust``.
+
 image_align (:numref:`image_align`):
   * Let the default alignment method be ``rigid`` rather than ``translation``.
 
@@ -123,7 +129,10 @@ misc:
     compatibility.
   * Support images with up to 12 bands (channels), up from 6.
   * Support files with the .nitf extension.
+  * Can handle no-data values larger than valid pixel values.
   * Wiped extremely old and unused SPICE logic.
+  * Wiped the unused old option ``--mask-flatfield``. Can use with stereo
+    the option ``--nodata-value`` to mask values no more than this value.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

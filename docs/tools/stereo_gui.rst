@@ -64,11 +64,12 @@ level of zoom.
 The images can be shown either all side-by-side (default), several
 side-by-side (``--view-several-side-by-side``), as tiles on a grid
 (using ``--grid-cols integer``), or on top of each other (using
-``--single-window``), with a dialog to choose among them. In the last
-usage scenario, the option ``--use-georef`` will overlay the images
-correctly if georeference information is present. It is possible to
-switch among these modes, once the GUI has been open, from the
-``View`` menu.
+``--single-window``), with a dialog to choose among them. 
+
+When the images are shown on top of each other, the option ``--use-georef`` will
+overlay the images correctly if georeference information is present. 
+
+It is possible to switch among the various display modes from the ``View`` menu.
 
 When the images are shown side-by-side, the GUI can zoom in all images
 to the same region, for easier comparison among them.

@@ -274,7 +274,7 @@ Command-line options for sfs
 
 --input-albedo <string (default: "")>
     The input albedo image, if known. Must have the same dimensions as the input
-    DEM. Otherwise it is initialized to 1.
+    DEM. Otherwise it is initialized to 1. Can be refined with ``--float-albedo``.
     
 --save-computed-intensity-only
     Save the computed (simulated) image intensities for given DEM, images,

@@ -3745,7 +3745,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
     ("input-albedo",  po::value(&opt.input_albedo),
      "The input albedo image, if known. Must have same dimensions as the input DEM. "
-     "Otherwise it is initialized to 1.")
+     "Otherwise it is initialized to 1. Can be refined with --float-albedo.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
      "Float the albedo for each pixel. Will give incorrect results if only one image is present. The albedo is normalized, its nominal value is 1.")
     ("float-exposure",   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
