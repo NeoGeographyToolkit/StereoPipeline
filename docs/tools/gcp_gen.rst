@@ -135,9 +135,9 @@ Command-line options
     accurate to subpixel level. See also :numref:`custom_ip`.
 
 --output-prefix <string (default: "")>
-    If set, save the interest point matches using this prefix (for inspection).
-    This will cache any matches found, so those need to be deleted if desired
-    to restart the program with the same output prefix.
+    Save the intermediate data, including match files, in this directory. This
+    will cache any matches found, and those will be used to create the GCP file.
+    The match file needs to be deleted if desired to recompute it.
 
 --match-file <string (default: "")>
     If set, use this match file instead of creating one.          
