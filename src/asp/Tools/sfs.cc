@@ -1,5 +1,4 @@
 // __BEGIN_LICENSE__
-// TODO(oalexan1): Sun azimuth!
 //  Copyright (c) 2009-2013, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
@@ -1137,7 +1136,7 @@ void compute_image_stats(ImageT const& I1, ImageT const& I2,
 struct Options : public vw::GdalWriteOptions {
   std::string input_dem, image_list, camera_list, out_prefix, stereo_session, bundle_adjust_prefix, input_albedo;
   std::vector<std::string> input_images, input_cameras;
-  std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposure_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list;
+  std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposure_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list, sun_angles_list;
   std::vector<float> shadow_threshold_vec, max_valid_image_vals_vec;
   std::vector<double> image_exposures_vec;
   std::vector<std::vector<double>> image_haze_vec;
@@ -2356,41 +2355,37 @@ void save_haze(std::string const& out_prefix,
   hzf.close();
 }
 
-// Find the sun azimuth and elevation at the lon-lat position of the
-// center of the DEM. The result can change depending on the DEM.
-void sun_angles(Options const& opt,
-                ImageView<double> const& dem, double nodata_val, GeoReference const& georef,
-                boost::shared_ptr<CameraModel> cam,
-                Vector3 const& sun_pos,
-                double & azimuth, double &elevation){
+// Find lon-lat-height in the center of the DEM
+void calcDemCenterLonLatHeight(ImageView<double> const& dem, double nodata_val,
+                               GeoReference const& georef,
+                               Vector3 & llh) {
 
   int cols = dem.cols(), rows = dem.rows();
   if (cols <= 0 || rows <= 0)
     vw_throw( ArgumentErr() << "Expecting a non-empty DEM.\n" );
-
-  // Find lon-lat-height in the middle of the DEM
+       
   Vector2 ll = georef.pixel_to_lonlat(Vector2(cols/2.0, rows/2.0));
   double height = dem(cols/2.0, rows/2.0);
   if (height == nodata_val)
-    height = 0;
-  Vector3 llh(ll[0], ll[1], height);
+    height = 0.0;
+  
+  llh = vw::Vector3(ll[0], ll[1], height);
+}
+
+// Find the sun azimuth and elevation at the lon-lat position of the
+// center of the DEM. The result can change depending on the DEM.
+void sunAngles(ImageView<double> const& dem, 
+               double nodata_val, GeoReference const& georef,
+               Vector3 const& sun_pos,
+               double & azimuth, double &elevation) {
+
+  // Find lon-lat-height in the center of the DEM
+  vw::Vector3 llh;
+  calcDemCenterLonLatHeight(dem, nodata_val, georef, llh);
 
   Vector3 xyz = georef.datum().geodetic_to_cartesian(llh); // point on the planet
-  Vector3 east(-xyz[1], xyz[0], 0);
-
   Vector3 sun_dir = sun_pos - xyz;
-
-  //double prod = dot_prod(sun_dir, east)
-  //  / sqrt ( dot_prod(east, east) * dot_prod(sun_dir, sun_dir));
-  //double angle = (180.0/M_PI) * acos (prod);
-
-  // Projection in the tangent plane
-  //  Vector3 proj = sun_dir - xyz*dot_prod(sun_dir, xyz)/dot_prod(xyz, xyz);
-
-  //prod = dot_prod(proj, east)
-  //  / sqrt ( dot_prod(east, east) * dot_prod(proj, proj));
-
-  //double angle2 = (180.0/M_PI) * acos (prod);
+  sun_dir = sun_dir / norm_2(sun_dir); // normalize
 
   // Find the sun direction in the North-East-Down coordinate system
   vw::Matrix3x3 Ned2Ecef = georef.datum().lonlat_to_ned_matrix(llh);
@@ -2401,7 +2396,7 @@ void sun_angles(Options const& opt,
   else
     azimuth = (180.0/M_PI) * atan2(sun_dir_ned[1], sun_dir_ned[0]);
 
-  // It appears that azimuth = atan(E/N) in the NED system
+  // azimuth = atan(E/N) in the NED system
   // So, when N = 1 and E = 0, azimuth is 0.
   
   double L = norm_2(subvector(sun_dir_ned, 0, 2));
@@ -3663,17 +3658,16 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
 // TODO(oalexan1): Move to SfsUtils.cc. Also for other read and write functions.
 void readSunPositions(std::string const& sun_positions_list,
                       std::vector<std::string> const& input_images,
+                      vw::ImageView<double> const& dem, 
+                      double nodata_val, 
+                      GeoReference const& georef,
                       std::vector<vw::Vector3> & sun_positions) {
 
   // Initialize the sun position with something (the planet center)
   int num_images = input_images.size();
   sun_positions.resize(num_images);
-  for (int it = 0; it < num_images; it++) {
+  for (int it = 0; it < num_images; it++)
     sun_positions[it] = Vector3();  
-  }
-  
-  if (sun_positions_list == "") 
-    return; // nothing to do
   
   // First read the positions in a map, as they may be out of order
   std::map<std::string, vw::Vector3> sun_positions_map;
@@ -3683,10 +3677,72 @@ void readSunPositions(std::string const& sun_positions_list,
   while (ifs >> filename >> x >> y >> z)
     sun_positions_map[filename] = Vector3(x, y, z);
 
-  if (sun_positions_map.size() != input_images.size())
-    vw_throw(ArgumentErr() << "Expecting to find in file: " << sun_positions_list
-             << " as many sun positions as there are images.\n");
+  // Put the sun positions in sun_positions.
+  for (int it = 0; it < num_images; it++) {
+    auto map_it = sun_positions_map.find(input_images[it]);
+    if (map_it == sun_positions_map.end()) 
+      vw_throw(ArgumentErr() << "Could not read the Sun position from file: "
+               << sun_positions_list << " for image: " << input_images[it] << ".\n");
+
+    sun_positions[it] = map_it->second;
+  }
+}
+
+// TODO(oalexan1): Move to SfsUtils.cc. Also for other read and write functions.
+// Read the sun angles and convert them to sun positions.
+void readSunAngles(std::string const& sun_positions_list,
+                   std::vector<std::string> const& input_images,
+                   vw::ImageView<double> const& dem, 
+                   double nodata_val, 
+                   GeoReference const& georef,
+                   std::vector<vw::Vector3> & sun_positions) {
+
+  // Find lon-lat-height in the center of the DEM
+  vw::Vector3 llh;
+  calcDemCenterLonLatHeight(dem, nodata_val, georef, llh);
+
+  // Point on the planet
+  Vector3 xyz = georef.datum().geodetic_to_cartesian(llh);
+
+  // Find the sun direction in the North-East-Down coordinate system
+  vw::Matrix3x3 Ned2Ecef = georef.datum().lonlat_to_ned_matrix(llh);
+
+  // Initialize the sun position with something (the planet center)
+  int num_images = input_images.size();
+  sun_positions.resize(num_images);
+  for (int it = 0; it < num_images; it++)
+    sun_positions[it] = Vector3();  
   
+  // First read the positions in a map, as they may be out of order
+  std::map<std::string, vw::Vector3> sun_positions_map;
+  std::ifstream ifs(sun_positions_list.c_str());
+  std::string filename;
+  double azimuth, elevation;
+  while (ifs >> filename >> azimuth >> elevation) {
+    
+    // Convert to radians
+    azimuth   *= M_PI/180.0;
+    elevation *= M_PI/180.0;
+    
+    // Find the sun diretion in NED
+    double n = cos(azimuth) * cos(elevation);
+    double e = sin(azimuth) * cos(elevation);
+    double d = -sin(elevation);
+    
+    // Convert the direction to ECEF
+    vw::Vector3 sun_dir = Ned2Ecef * vw::Vector3(n, e, d);
+    
+    // The distance to the Sun
+    double sun_dist = 149597870700; // meters
+    
+    // Add to xyz the direction multiplied by the distance
+    sun_positions_map[filename] = xyz + sun_dist * sun_dir;
+    
+    // The sunAngles() function can be used to verify.
+    // double az, el;
+    // sunAngles(dem, nodata_val, georef, sun_positions_map[filename], az, el);
+  }
+
   // Put the sun positions in sun_positions.
   for (int it = 0; it < num_images; it++) {
     auto map_it = sun_positions_map.find(input_images[it]);
@@ -3770,7 +3826,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("height-error-params", po::value(&opt.height_error_params)->default_value(Vector2(5.0,1000.0), "5.0 1000"),
      "Specify the largest height deviation to examine (in meters), and how many samples to use from 0 to that height.")
     ("sun-positions", po::value(&opt.sun_positions_list)->default_value(""),
-     "A file having on each line an image name and three values in double precision specifying the Sun position in meters in ECEF coordinates (origin is planet center). Use a space as separator. If not provided, these will be read from the camera files for ISIS and CSM models.")
+     "A file having on each line an image name and three values in double precision "
+     "specifying the Sun position in meters in ECEF coordinates (origin is planet center). "
+     "Use a space as separator. If not provided, these will be read from the camera files "
+     "for ISIS and CSM models.")
+    ("sun-angles", po::value(&opt.sun_angles_list)->default_value(""),
+     "A file having on each line an image name and two values in double precision "
+     "specifying the Sun azimuth and elevation in degrees, relative to the center point of "
+     "the input DEM. Use a space as separator. This is an alternative to --sun-positions.")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes, one per image).")
     ("shadow-threshold", po::value(&opt.shadow_threshold)->default_value(-1),
@@ -4314,8 +4377,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                 << "Expecting the haze to be computed and passed in.\n" );
   }
   
-  
-}
+  // Cannot have both sun positions and sun angles
+  if (opt.sun_positions_list.size() > 0 && opt.sun_angles_list.size() > 0) 
+    vw_throw(ArgumentErr() << "Cannot specify both sun positions and sun angles.\n");
+} 
 
 // Sample large DEMs. Keep about num_samples row and column samples.
 // TODO(oalexan1): Move to SfsImageProc.cc
@@ -5201,19 +5266,24 @@ int main(int argc, char* argv[]) {
     if (dems[0].cols() < min_dem_size || dems[0].rows() < min_dem_size)
       vw_throw(ArgumentErr() << "The input DEM is too small.\n");
     
-    // Read the sun positions from a list, if provided. Usually those
-    // are read from the cameras, however, as done further down. 
-    std::vector<vw::Vector3> sun_position;
-    readSunPositions(opt.sun_positions_list, opt.input_images, sun_position);
-    
+    // Read the sun positions from a list, if provided. Otherwise those
+    // are read from the cameras, further down.
+    int num_images = opt.input_images.size();
+    std::vector<vw::Vector3> sun_position(num_images, vw::Vector3());
+    if (opt.sun_positions_list != "") 
+      readSunPositions(opt.sun_positions_list, opt.input_images,
+                       dems[0], dem_nodata_val, geos[0], sun_position);
+    if (opt.sun_angles_list != "") 
+      readSunAngles(opt.sun_angles_list, opt.input_images,
+                    dems[0], dem_nodata_val, geos[0], sun_position);
+      
     // Read in the camera models (and the sun positions, if not read from the list)
     // TODO(oalexan1): Put this in a function called readCameras())
-    int num_images = opt.input_images.size();
     std::vector<boost::shared_ptr<CameraModel>> cameras(num_images);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
     
-      if (opt.skip_images.find(image_iter)
-            != opt.skip_images.end()) continue;
+      if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
+        continue;
     
       asp::SessionPtr session(asp::StereoSessionFactory::create
                   (opt.stereo_session, // in-out
@@ -5241,11 +5311,9 @@ int main(int argc, char* argv[]) {
                   << "Could not read sun positions from list or from camera model files.\n");
         
       // Compute the azimuth and elevation
-      double azimuth, elevation;
-      sun_angles(opt, dems[0], dem_nodata_val, geos[0],
-                  cameras[image_iter],
-                  sun_position[image_iter],
-                  azimuth, elevation);
+      double azimuth = 0.0, elevation = 0.0;
+      sunAngles(dems[0], dem_nodata_val, geos[0], sun_position[image_iter],
+                azimuth, elevation);
 
       // Print this. It will be used to organize the images by illumination
       // for bundle adjustment.
