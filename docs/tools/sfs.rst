@@ -8,6 +8,8 @@ The ``sfs`` tool can add more detail to a DEM using shape-from-shading
 (:numref:`parallel_sfs`) extends ``sfs`` to run using multiple
 processes on multiple machines.
 
+An overview and examples of using this program are in :numref:`sfs_usage`.
+
 Illustration
 ~~~~~~~~~~~~
 
@@ -17,7 +19,7 @@ Illustration
 
    Refining the surface of Comet 67P with shape-from-shading
    (:cite:`jindal2024measuring_v2`). Left: produced terrain. Right: input image.
-   Other examples are listed in :numref:`sfs_usage`.
+   
 
 Usage
 ~~~~~
@@ -39,8 +41,8 @@ Example
        --crop-input-images --bundle-adjust-prefix ba/run  \
         -i input_dem.tif image1.cub image2.cub -o run/run
 
-See many detailed worked-out examples for LRO NAC in :numref:`sfs_usage`,
-and an example for the Kaguya Terrain Camera in :numref:`sfs_kaguya`.
+See many detailed worked-out examples in :numref:`sfs_usage`, including for the
+Moon and Earth.
 
 Inputs
 ~~~~~~
@@ -87,7 +89,7 @@ outputs are:
 In addition, SfS saves intermediate values of many of these quantities
 at each iteration, unless the flag ``--save-sparingly`` is used. SfS
 may also save the "haze" values if this is solved for (see the
-appropriate options below).
+appropriate options below and :numref:`sfs_formulation`).
 
 Command-line options for sfs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -206,13 +208,21 @@ Command-line options for sfs
     Model the fact that some points on the DEM are in the shadow
     (occluded from the Sun).
 
---sun-positions <string>
-    A file having on each line an image name and three values in
-    double precision specifying the Sun position in meters in 
-    ECEF coordinates (origin is planet center). Use a space as
-    separator. If not provided, these will be read from
-    the camera file for ISIS and CSM models. 
+--sun-positions <string (default: "")>
+    A file having on each line an image name and three values in double
+    precision specifying the Sun position in meters in ECEF coordinates (origin
+    is planet center). Use a space as separator. If not provided, these will be
+    read from the camera file for ISIS and CSM models. See also
+    ``--sun-angles``.
 
+--sun-angles <string (default: "")>
+    A file having on each line an image name and two values in double precision
+    specifying the Sun azimuth and elevation in degrees, relative to the center
+    point of the input DEM. Use a space as separator. The azimuth is measured
+    clockwise from the North, and the elevation is measured from the horizon.
+    The site https://www.suncalc.org/ can help find these values. This is an
+    alternative to ``--sun-positions``. 
+    
 --save-dem-with-nodata
     Save a copy of the DEM while using a no-data value at a DEM
     grid point where all images show shadows. To be used if shadow
@@ -367,11 +377,11 @@ Command-line options for sfs
 
 --num-haze-coeffs <integer (default: 0)>
     Set this to 1 to model the problem as ``image = exposure * albedo *
-    reflectance + haze``, where ``haze`` is a single value for each
-    image. This models a small quantity of stray light entering the lens
-    due to scattering and other effects. Use ``--float-haze`` to actually
-    optimize the haze (it starts as 0). It will be written as ``<output prefix>-haze.txt``
-    (ignore all columns of numbers in that file except the first one).
+    reflectance + haze``, where ``haze`` is a single value for each image. This
+    models a small quantity of stray light entering the lens due to scattering
+    and other effects. Use ``--float-haze`` to actually optimize the haze (it
+    starts as 0). It will be written as ``<output prefix>-haze.txt`` (ignore all
+    columns of numbers in that file except the first one).
 
 --float-haze
     If specified, float the haze coefficients as part of the

@@ -3864,11 +3864,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.float_sun_position)
     vw_throw(ArgumentErr() << "Floating sun positions is currently disabled.\n");
   
-  if ( opt.float_haze && opt.num_haze_coeffs == 0 ) 
+  if (opt.float_haze && opt.num_haze_coeffs == 0) 
     vw_throw(ArgumentErr() << "Haze cannot be floated unless there is at least one haze coefficient.\n");
-  if ( opt.image_haze_prefix != "" && opt.num_haze_coeffs == 0  )
+  if (opt.image_haze_prefix != "" && opt.num_haze_coeffs == 0)
     vw_throw(ArgumentErr() << "Haze cannot be read unless there is at least one haze coefficient.\n");
   
+  // There can be 0 or 1 haze coefficients. The modeling of more than one haze
+  // coeffecient needs to be looked into.
+  if (opt.num_haze_coeffs < 0 || opt.num_haze_coeffs > 1) 
+    vw_throw(ArgumentErr() << "Expecting 0 or 1 haze coefficients.\n");
+    
   if (opt.use_rpc_approximation) 
     vw_throw(ArgumentErr() << "The RPC approximation is broken.\n");
 

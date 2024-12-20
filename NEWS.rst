@@ -72,8 +72,10 @@ sfs (:numref:`sfs`):
   * Added the program ``image_subset`` for selecting a subset of images that
     have almost the same coverage as the full input set
     (:numref:`image_subset`).
+  * Added the option ``--sun-angles`` to specify the Sun azimuth and elevation
+    angles.
   * Bugfix in modeling atmospheric haze.
-  * Remove the ability to work on multiple clips at once, as it was not used.
+  * Removed the ability to work on multiple clips at once, as it was not used.
   * Can ingest a provided albedo map (of same size as the input DEM). Option:
     ``--input-albedo``.
 

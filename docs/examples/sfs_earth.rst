@@ -41,7 +41,7 @@ into account as well.
 
 It is likely that other rocky Earth terrains will have similar properties.
 Surfaces with vegetation, fresh snow, or urban areas will be very different,
-and like for those the SfS method will not work well.
+and likely for those the SfS method will not work well.
 
 Input data
 ~~~~~~~~~~
@@ -156,6 +156,21 @@ The produced DEM was smoothed a bit, to reduce the numerical noise::
 
 The resulting DEM can be hillshaded and visualized in ``stereo_gui`` (:numref:`stereo_gui_hillshade`).
 
+Illumination angles
+~~~~~~~~~~~~~~~~~~~
+
+The illumination information was specified in a file named ``sfs_sun_list.txt``,
+with each line having the image name and the Sun azimuth and elevation in
+degrees, in double precision, with a space as separator. The azimuth is measured
+clockwise from the North, and the elevation is measured from the horizon.
+    
+The `SunCalc <https://www.suncalc.org/>`_ site was very useful in determining
+this information, given the coordinates of the site and the image acquisition
+time as stored in the EXIF data. One has to be mindful of local vs UTC time.
+
+It was sufficient to use the same Sun azimuth and elevation for all images
+acquired in quick succession.
+
 Running SfS
 ~~~~~~~~~~~
 
@@ -185,17 +200,6 @@ The raw camera images corresponding to the combined list of all such subsets
 were specified in a file named ``sfs_image_list.txt``. The corresponding camera
 model files were put in the file ``sfs_camera_list.txt``, one per line.
 
-The Sun positions were specified in a file named ``sfs_sun_list.txt``, with each
-line having the image name and the Sun azimuth and elevation in degrees, in
-double precision. The first line in this file should be::
-
-    # image_name azimuth elevation
-    
-The `SunCalc <https://www.suncalc.org/>`_ site was very useful in determining
-this information, given the coordinates of the site and the image acquisition
-time as stored in the EXIF data. It was sufficient to use the same Sun azimuth
-and elevation for all images acquired in quick succession.
-
 The ``sfs`` program was run in two stages on such a tile. First, the DEM was
 kept fixed, while solving for the exposure, atmospheric haze, and albedo.
 
@@ -206,7 +210,7 @@ kept fixed, while solving for the exposure, atmospheric haze, and albedo.
       --robust-threshold 10                 \
       --reflectance-type 0                  \
       --initial-dem-constraint-weight 0.001 \
-      --sun-positions sfs_sun_list.txt      \
+      --sun-angles sfs_sun_list.txt         \
       --image-list sfs_image_list.txt       \
       --camera-list sfs_camera_list.txt     \
       --crop-input-images                   \
@@ -248,7 +252,7 @@ detail.
       --robust-threshold 10                     \
       --reflectance-type 0                      \
       --initial-dem-constraint-weight 0.001     \
-      --sun-positions sfs_sun_list.txt          \
+      --sun-angles sfs_sun_list.txt             \
       --image-list sfs_image_list.txt           \
       --camera-list sfs_camera_list.txt         \
       --crop-input-images                       \

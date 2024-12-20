@@ -11,12 +11,12 @@ roughly the same resolution as the images, and returns a refined DEM.
 The modeling approach is described in :cite:`alexandrov2018multiview`.
 
 The ``sfs`` program works with any cameras supported by ASP, for Earth and other
-planets. The option ``--sun-positions`` can be used to to specify the Sun
-position for each image. For ISIS and CSM cameras, if this option is not set,
-the Sun information is read from the camera files.
+planets. The option ``--sun-angles`` can be used to to specify the Sun
+information for each image. For ISIS and CSM cameras, if this option is not set,
+the needed information is read from the camera files.
 
 The ``sfs`` program can model position-dependent albedo (:numref:`sfs_albedo`),
-exposure values for each camera, atomspheric haze, shadows in the input images,
+exposure values for each camera, atmospheric haze, shadows in the input images,
 and regions in the DEM occluded from the Sun.
 
 A program named ``parallel_sfs`` is provided (:numref:`parallel_sfs`)
@@ -31,7 +31,7 @@ Examples
 --------
 
  - A single image example with LRO NAC Lunar images (:numref:`sfs_single_image`).
- - Small example with multiple LRO NAC images (:numref:`sfs_multiview`).
+ - A small example with multiple LRO NAC images (:numref:`sfs_multiview`).
  - Large-scale SfS with LRO NAC images (:numref:`sfs-lola`).
  - Kaguya Lunar images (:numref:`sfs_kaguya`).
  - Earth example, with atmospheric haze (:numref:`sfs_earth`).
@@ -76,8 +76,7 @@ This program works by minimizing the cost function
 
    \label{cost}
      \int\!\! \int \! \sum_k \left[ I_k(\phi(x, y)) - T_k A(x, y)
-       R_k(\phi(x, y)) \right]^2\,  
-     % R_k(\phi(x, y)) \right]^2\,  \\
+       R_k(\phi(x, y)) - H_k\right]^2\, \\ 
      + \mu \left\|\nabla^2 \phi(x, y) \right\|^2  
      + \lambda  \left[ \phi(x, y) - \phi_0(x, y) \right]^2
      \, dx\, dy.
@@ -88,12 +87,16 @@ from the terrain :math:`\phi(x, y)`, :math:`T_k` is the :math:`k`-th
 image exposure, :math:`A(x, y)` is the per-pixel normalized albedo,
 :math:`R_k(\phi(x, y))` is the reflectance computed from the terrain for
 :math:`k`-th image, :math:`\left\|\nabla^2 \phi(x, y) \right\|^2` is the
-sum of squares of all second-order partial derivatives of :math:`\phi`,
-:math:`\mu > 0` is a smoothness weight, and :math:`\lambda > 0` determines
-how close we should stay to the input terrain :math:`\phi_0` (smaller
-:math:`\mu` will show more detail but may introduce some artifacts, and
-smaller :math:`\lambda` may allow for more flexibility in optimization
-but the terrain may move too far from the input).
+sum of squares of all second-order partial derivatives of :math:`\phi`.
+
+The term :math:`H_k` is the atmospheric haze, which is assumed to be zero
+for the Moon but is modeled for Earth (:numref:`sfs_earth`).
+
+The value :math:`\mu > 0` is a smoothness weight, and :math:`\lambda > 0`
+determines how close we should stay to the input terrain :math:`\phi_0` (smaller
+:math:`\mu` will show more detail but may introduce some artifacts, and smaller
+:math:`\lambda` may allow for more flexibility in optimization but the terrain
+may move too far from the input).
 
 We use either the regular Lambertian reflectance model, or the
 Lunar-Lambertian model :cite:`mcewen1991photometric`, more
@@ -456,7 +459,10 @@ It is important to use appropriate values for the
 be interpreted as lit terrain with a pitch-black color, and the computed
 albedo and terrain will have artifacts.
 
-See :numref:`sfs_outputs` for the location of the computed albedo.
+See :numref:`sfs_outputs` for the produced file having the albedo.
+
+An example showing modeling of albedo and atmospheric haze is in
+:numref:`sfs_earth`.
 
 .. _sfs_multiview:
 
