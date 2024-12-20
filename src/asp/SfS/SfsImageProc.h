@@ -64,6 +64,16 @@ void areInShadow(vw::Vector3 const& sunPos, vw::ImageView<double> const& dem,
                  vw::cartography::GeoReference const& geo,
                  vw::ImageView<float> & shadow);
   
+// Prototype code to identify permanently shadowed areas
+// and deepen the craters there. Needs to be integrated
+// and tested with various shapes of the deepened crater.
+void deepenCraters(std::string const& dem_file,
+                   std::vector<std::string> const& image_files,
+                   double sigma,
+                   std::string const& max_img_file,
+                   std::string const& grass_file,
+                   std::string const& out_dem_file);
+  
 } // end namespace asp
 
 #endif // __SFS_IMAGE_PROC_H__

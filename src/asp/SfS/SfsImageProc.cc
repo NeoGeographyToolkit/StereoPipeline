@@ -28,6 +28,8 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Image/Transform.h>
 #include <vw/Image/InpaintView.h>
+#include <vw/Image/Filter.h>
+#include <vw/Image/NoDataAlg.h>
 
 #include <asp/Core/BundleAdjustUtils.h>
 
@@ -471,5 +473,141 @@ void areInShadow(Vector3 const& sunPos, ImageView<double> const& dem,
     }
   }
 }
+
+// Prototype code to identify permanently shadowed areas
+// and deepen the craters there. Needs to be integrated
+// and tested with various shapes of the deepened crater.
+void deepenCraters(std::string const& dem_file,
+                   std::vector<std::string> const& image_files,
+                   double sigma,
+                   std::string const& max_img_file,
+                   std::string const& grass_file,
+                   std::string const& out_dem_file) {
   
+  float dem_nodata_val = -std::numeric_limits<float>::max();
+  if (vw::read_nodata_val(dem_file, dem_nodata_val))
+    vw_out() << "Dem nodata: " << dem_nodata_val << "\n";
+
+  ImageView<PixelMask<float>> dem (create_mask(DiskImageView<float>(dem_file), dem_nodata_val));
+  vw::cartography::GeoReference georef;
+  if (!read_georeference(georef, dem_file))
+    vw_throw( ArgumentErr() << "The input DEM " << dem_file << " has no georeference.\n" );
+
+  // The maximum of all valid pixel values with no-data where there is no-valid data.
+  ImageView<PixelMask<float>> max_img(dem.cols(), dem.rows());
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      max_img(col, row) = dem_nodata_val;
+      max_img(col, row).invalidate();
+    }
+  }
+  
+  for (int i = 1; i < image_files.size(); i++) {
+
+    std::string img_file = image_files[i];
+    float img_nodata_val = -std::numeric_limits<float>::max();
+    if (vw::read_nodata_val(img_file, img_nodata_val)){
+      vw_out() << "Img nodata: " << img_nodata_val << std::endl;
+    }
+    
+    ImageView<PixelMask<float>> img(create_mask(DiskImageView<float>(img_file), 
+                                                img_nodata_val));
+    if (img.cols() != dem.cols() || img.rows() != dem.rows()) {
+      vw_throw(ArgumentErr() << "Images and DEM must have same size.\n");
+    }
+
+    for (int col = 0; col < img.cols(); col++) {
+      for (int row = 0; row < img.rows(); row++) {
+
+        // Nothing to do if the current image has invalid data
+        if (!is_valid(img(col, row)))
+          continue; 
+
+        // If the output image is not valid yet, copy the current image's valid pixel
+        if (!is_valid(max_img(col, row) && img(col, row).child() > 0)) {
+          max_img(col, row) = img(col, row);
+          continue;
+        }
+
+        // Now both the current image and the output image are valid
+        if (img(col, row).child() > max_img(col, row).child() &&
+            img(col, row).child() > 0) {
+          max_img(col, row) = img(col, row);
+        }
+        
+      }
+    }
+  }
+
+  // At the boundary the intensity is always invalid, but that is due to
+  // computational limitations. Make it valid if we can.
+  // TODO: Test here that the image has at least 3 rows and 3 cols!
+  for (int col = 0; col < max_img.cols(); col++) {
+    for (int row = 0; row < max_img.rows(); row++) {
+      if ( (col == 0 || col == max_img.cols() - 1) ||
+           (row == 0 || row == max_img.rows() - 1) ) {
+        int next_col = col, next_row = row;
+        if (col == 0) next_col = 1;
+        if (col == max_img.cols() - 1) next_col = max_img.cols() - 2;
+        if (row == 0) next_row = 1;
+        if (row == max_img.rows() - 1) next_row = max_img.rows() - 2;
+
+        if (!is_valid(max_img(col, row)) && is_valid(max_img(next_col, next_row))) 
+          max_img(col, row) = max_img(next_col, next_row);
+      }
+    }
+  }
+  
+  GdalWriteOptions opt;
+  bool has_nodata = true, has_georef = true;
+  TerminalProgressCallback tpc("", "\t--> ");
+
+  vw_out() << "Writing: " << max_img_file << "\n";
+  block_write_gdal_image(max_img_file, apply_mask(max_img, dem_nodata_val),
+                         has_georef, georef,
+                         has_nodata, dem_nodata_val,
+                         opt, tpc);
+
+  ImageView<double> grass = grassfire(notnodata(select_channel(max_img, 0), dem_nodata_val));
+
+  // Scale as craters are shallow.
+  // TODO: Need to think of a better algorithm!
+  for (int col = 0; col < grass.cols(); col++) {
+    for (int row = 0; row < grass.rows(); row++) {
+      grass(col, row) *= 0.2;
+    }
+  }
+
+  // Blur with a given sigma
+  ImageView<double> blurred_grass;
+  if (sigma > 0) 
+    blurred_grass = gaussian_filter(grass, sigma);
+  else
+    blurred_grass = copy(grass);
+  
+  vw_out() << "Writing: " << grass_file << "\n";
+
+  bool grass_has_nodata = false;
+  block_write_gdal_image(grass_file, blurred_grass,
+                         has_georef, georef,
+                         grass_has_nodata, dem_nodata_val,
+                         opt, tpc);
+
+  // Bias the DEM by that grassfire height deepening the craters
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (is_valid(dem(col, row))) {
+        dem(col, row).child() -= blurred_grass(col, row);
+      }
+    }
+  }
+
+  vw_out() << "Writing: " << out_dem_file << "\n";
+  block_write_gdal_image(out_dem_file, apply_mask(dem, dem_nodata_val),
+                         has_georef, georef,
+                         has_nodata, dem_nodata_val,
+                         opt, tpc);
+
+}
+
 } // end namespace asp

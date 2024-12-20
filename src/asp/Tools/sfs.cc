@@ -2355,54 +2355,6 @@ void save_haze(std::string const& out_prefix,
   hzf.close();
 }
 
-// Find lon-lat-height in the center of the DEM
-void calcDemCenterLonLatHeight(ImageView<double> const& dem, double nodata_val,
-                               GeoReference const& georef,
-                               Vector3 & llh) {
-
-  int cols = dem.cols(), rows = dem.rows();
-  if (cols <= 0 || rows <= 0)
-    vw_throw( ArgumentErr() << "Expecting a non-empty DEM.\n" );
-       
-  Vector2 ll = georef.pixel_to_lonlat(Vector2(cols/2.0, rows/2.0));
-  double height = dem(cols/2.0, rows/2.0);
-  if (height == nodata_val)
-    height = 0.0;
-  
-  llh = vw::Vector3(ll[0], ll[1], height);
-}
-
-// Find the sun azimuth and elevation at the lon-lat position of the
-// center of the DEM. The result can change depending on the DEM.
-void sunAngles(ImageView<double> const& dem, 
-               double nodata_val, GeoReference const& georef,
-               Vector3 const& sun_pos,
-               double & azimuth, double &elevation) {
-
-  // Find lon-lat-height in the center of the DEM
-  vw::Vector3 llh;
-  calcDemCenterLonLatHeight(dem, nodata_val, georef, llh);
-
-  Vector3 xyz = georef.datum().geodetic_to_cartesian(llh); // point on the planet
-  Vector3 sun_dir = sun_pos - xyz;
-  sun_dir = sun_dir / norm_2(sun_dir); // normalize
-
-  // Find the sun direction in the North-East-Down coordinate system
-  vw::Matrix3x3 Ned2Ecef = georef.datum().lonlat_to_ned_matrix(llh);
-  Vector3 sun_dir_ned = inverse(Ned2Ecef) * sun_dir;
-  
-  if (sun_dir_ned[0] == 0 && sun_dir_ned[1] == 0)
-    azimuth = 0;
-  else
-    azimuth = (180.0/M_PI) * atan2(sun_dir_ned[1], sun_dir_ned[0]);
-
-  // azimuth = atan(E/N) in the NED system
-  // So, when N = 1 and E = 0, azimuth is 0.
-  
-  double L = norm_2(subvector(sun_dir_ned, 0, 2));
-  elevation = (180.0/M_PI) * atan2(-sun_dir_ned[2], L);
-}
-
 // A function to invoke at every iteration of ceres.
 // We need a lot of global variables to do something useful.
 // TODO(oalexan1): These should be class members.
@@ -3655,105 +3607,6 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
   vw_out() << "Grid in x and y in meters: " << gridx << ' ' << gridy << "\n";
 }
 
-// TODO(oalexan1): Move to SfsUtils.cc. Also for other read and write functions.
-void readSunPositions(std::string const& sun_positions_list,
-                      std::vector<std::string> const& input_images,
-                      vw::ImageView<double> const& dem, 
-                      double nodata_val, 
-                      GeoReference const& georef,
-                      std::vector<vw::Vector3> & sun_positions) {
-
-  // Initialize the sun position with something (the planet center)
-  int num_images = input_images.size();
-  sun_positions.resize(num_images);
-  for (int it = 0; it < num_images; it++)
-    sun_positions[it] = Vector3();  
-  
-  // First read the positions in a map, as they may be out of order
-  std::map<std::string, vw::Vector3> sun_positions_map;
-  std::ifstream ifs(sun_positions_list.c_str());
-  std::string filename;
-  double x, y, z;
-  while (ifs >> filename >> x >> y >> z)
-    sun_positions_map[filename] = Vector3(x, y, z);
-
-  // Put the sun positions in sun_positions.
-  for (int it = 0; it < num_images; it++) {
-    auto map_it = sun_positions_map.find(input_images[it]);
-    if (map_it == sun_positions_map.end()) 
-      vw_throw(ArgumentErr() << "Could not read the Sun position from file: "
-               << sun_positions_list << " for image: " << input_images[it] << ".\n");
-
-    sun_positions[it] = map_it->second;
-  }
-}
-
-// TODO(oalexan1): Move to SfsUtils.cc. Also for other read and write functions.
-// Read the sun angles and convert them to sun positions.
-void readSunAngles(std::string const& sun_positions_list,
-                   std::vector<std::string> const& input_images,
-                   vw::ImageView<double> const& dem, 
-                   double nodata_val, 
-                   GeoReference const& georef,
-                   std::vector<vw::Vector3> & sun_positions) {
-
-  // Find lon-lat-height in the center of the DEM
-  vw::Vector3 llh;
-  calcDemCenterLonLatHeight(dem, nodata_val, georef, llh);
-
-  // Point on the planet
-  Vector3 xyz = georef.datum().geodetic_to_cartesian(llh);
-
-  // Find the sun direction in the North-East-Down coordinate system
-  vw::Matrix3x3 Ned2Ecef = georef.datum().lonlat_to_ned_matrix(llh);
-
-  // Initialize the sun position with something (the planet center)
-  int num_images = input_images.size();
-  sun_positions.resize(num_images);
-  for (int it = 0; it < num_images; it++)
-    sun_positions[it] = Vector3();  
-  
-  // First read the positions in a map, as they may be out of order
-  std::map<std::string, vw::Vector3> sun_positions_map;
-  std::ifstream ifs(sun_positions_list.c_str());
-  std::string filename;
-  double azimuth, elevation;
-  while (ifs >> filename >> azimuth >> elevation) {
-    
-    // Convert to radians
-    azimuth   *= M_PI/180.0;
-    elevation *= M_PI/180.0;
-    
-    // Find the sun diretion in NED
-    double n = cos(azimuth) * cos(elevation);
-    double e = sin(azimuth) * cos(elevation);
-    double d = -sin(elevation);
-    
-    // Convert the direction to ECEF
-    vw::Vector3 sun_dir = Ned2Ecef * vw::Vector3(n, e, d);
-    
-    // The distance to the Sun
-    double sun_dist = 149597870700; // meters
-    
-    // Add to xyz the direction multiplied by the distance
-    sun_positions_map[filename] = xyz + sun_dist * sun_dir;
-    
-    // The sunAngles() function can be used to verify.
-    // double az, el;
-    // sunAngles(dem, nodata_val, georef, sun_positions_map[filename], az, el);
-  }
-
-  // Put the sun positions in sun_positions.
-  for (int it = 0; it < num_images; it++) {
-    auto map_it = sun_positions_map.find(input_images[it]);
-    if (map_it == sun_positions_map.end()) 
-      vw_throw(ArgumentErr() << "Could not read the Sun position from file: "
-               << sun_positions_list << " for image: " << input_images[it] << ".\n");
-
-    sun_positions[it] = map_it->second;
-  }
-}
-
 Vector3 sun_position_from_camera(boost::shared_ptr<CameraModel> camera) {
 
   // Remove any adjustment to get to the camera proper
@@ -4583,7 +4436,7 @@ void run_sfs_level(// Fixed inputs
         
       } // end iterating over images
       
-      if (col > 0 && col < dem.cols() -1 && row > 0 && row < dem.rows() -1 ) {
+      if (col > 0 && col < dem.cols() -1 && row > 0 && row < dem.rows() -1) {
         
         // Smoothness penalty. We always add this, even if the weight is 0,
         // to make Ceres not complain about blocks not being set. 
@@ -4603,7 +4456,8 @@ void run_sfs_level(// Fixed inputs
 
         // Add curvature in shadow. Note that we use a per-pixel curvature_in_shadow_weight,
         // to gradually phase it in to avoid artifacts.
-        if (opt.curvature_in_shadow_weight > 0.0 && curvature_in_shadow_weight(col, row) > 0) {
+        if (opt.curvature_in_shadow_weight > 0.0 && 
+            curvature_in_shadow_weight(col, row) > 0) {
           ceres::LossFunction* loss_function_cv = NULL;
           ceres::CostFunction* cost_function_cv =
             CurvatureInShadowError::Create(opt.curvature_in_shadow,
@@ -4831,150 +4685,6 @@ void run_sfs_level(// Fixed inputs
 
   // callTop();
 }
-
-#if 0
-// Prototype code to identify permanently shadowed areas
-// and deepen the craters there. Needs to be integrated
-// and tested with various shapes of the deepened crater.
-// TODO(oalexan1): Move to SfsImageProc.cc
-void deepenCraters() {
-  std::vector<std::string> image;
-
-  std::string dem_file = argv[argc - 1];
-  float dem_nodata_val = -std::numeric_limits<float>::max();
-  if (vw::read_nodata_val(dem_file, dem_nodata_val)){
-    vw_out() << "Dem nodata: " << dem_nodata_val << std::endl;
-  }
-
-  ImageView<PixelMask<float>> dem (create_mask(DiskImageView<float>(dem_file), dem_nodata_val));
-  vw::cartography::GeoReference georef;
-  if (!read_georeference(georef, dem_file))
-    vw_throw( ArgumentErr() << "The input DEM " << dem_file << " has no georeference.\n" );
-
-  // The maximum of all valid pixel values with no-data where there is no-valid data.
-  ImageView<PixelMask<float>> max_img(dem.cols(), dem.rows());
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      max_img(col, row) = dem_nodata_val;
-      max_img(col, row).invalidate();
-    }
-  }
-  
-  for (int i = 1; i < argc - 1; i++) {
-
-    std::string img_file = argv[i];
-    float img_nodata_val = -std::numeric_limits<float>::max();
-    if (vw::read_nodata_val(img_file, img_nodata_val)){
-      vw_out() << "Img nodata: " << img_nodata_val << std::endl;
-    }
-    
-    ImageView<PixelMask<float>> img(create_mask(DiskImageView<float>(img_file), 
-                                                img_nodata_val));
-    if (img.cols() != dem.cols() || img.rows() != dem.rows()) {
-      vw_throw(ArgumentErr() << "Images and DEM must have same size.\n");
-    }
-
-    for (int col = 0; col < img.cols(); col++) {
-      for (int row = 0; row < img.rows(); row++) {
-
-        // Nothing to do if the current image has invalid data
-        if (!is_valid(img(col, row)))
-          continue; 
-
-        // If the output image is not valid yet, copy the current image's valid pixel
-        if (!is_valid(max_img(col, row) && img(col, row).child() > 0)) {
-          max_img(col, row) = img(col, row);
-          continue;
-        }
-
-        // Now both the current image and the output image are valid
-        if (img(col, row).child() > max_img(col, row).child() &&
-            img(col, row).child() > 0) {
-          max_img(col, row) = img(col, row);
-        }
-        
-      }
-    }
-  }
-
-  // At the boundary the intensity is always invalid, but that is due to
-  // computational limitations. Make it valid if we can.
-  // TODO: Test here that the image has at least 3 rows and 3 cols!
-  for (int col = 0; col < max_img.cols(); col++) {
-    for (int row = 0; row < max_img.rows(); row++) {
-      if ( (col == 0 || col == max_img.cols() - 1) ||
-           (row == 0 || row == max_img.rows() - 1) ) {
-        int next_col = col, next_row = row;
-        if (col == 0) next_col = 1;
-        if (col == max_img.cols() - 1) next_col = max_img.cols() - 2;
-        if (row == 0) next_row = 1;
-        if (row == max_img.rows() - 1) next_row = max_img.rows() - 2;
-
-        if (!is_valid(max_img(col, row)) && is_valid(max_img(next_col, next_row))) 
-          max_img(col, row) = max_img(next_col, next_row);
-      }
-    }
-  }
-  
-  std::string max_img_file = "max_img.tif";
-  bool has_nodata = true, has_georef = true;
-  TerminalProgressCallback tpc("", "\t--> ");
-
-  vw_out() << "Writing: " << max_img_file << "\n";
-  
-  block_write_gdal_image(max_img_file, apply_mask(max_img, dem_nodata_val),
-                         has_georef, georef,
-                         has_nodata, dem_nodata_val,
-                         opt, tpc);
-
-  ImageView<double> grass = grassfire(nodata(select_channel(max_img, 0), dem_nodata_val));
-
-  // Scale as craters are shallow.
-  // TODO: Need to think of a better algorithm!
-  for (int col = 0; col < grass.cols(); col++) {
-    for (int row = 0; row < grass.rows(); row++) {
-      grass(col, row) *= 0.2;
-    }
-  }
-
-  // Blur with a given sigma
-  double sigma = atof(getenv("SIGMA"));
-  //blur_weights(grass, sigma);
-  ImageView<double> blurred_grass;
-  if (sigma > 0) 
-    blurred_grass = gaussian_filter(grass, sigma);
-  else
-    blurred_grass = copy(grass);
-  
-  std::string grass_file = "grass.tif";
-  vw_out() << "Writing: " << grass_file << "\n";
-
-  bool grass_has_nodata = false;
-  block_write_gdal_image(grass_file, blurred_grass,
-                         has_georef, georef,
-                         grass_has_nodata, dem_nodata_val,
-                         opt, tpc);
-
-  // Bias the DEM by that grassfire height deepening the craters
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      if (is_valid(dem(col, row))) {
-        dem(col, row).child() -= blurred_grass(col, row);
-      }
-    }
-  }
-
-
-  std::string out_dem_file = "out_dem.tif";
-  vw_out() << "Writing: " << out_dem_file << "\n";
-  
-  block_write_gdal_image(out_dem_file, apply_mask(dem, dem_nodata_val),
-                         has_georef, georef,
-                         has_nodata, dem_nodata_val,
-                         opt, tpc);
-
-}
-#endif
 
 void setUpParams(GlobalParams & global_params, Options & opt) {
   if (opt.reflectance_type == 0)
@@ -5271,11 +4981,11 @@ int main(int argc, char* argv[]) {
     int num_images = opt.input_images.size();
     std::vector<vw::Vector3> sun_position(num_images, vw::Vector3());
     if (opt.sun_positions_list != "") 
-      readSunPositions(opt.sun_positions_list, opt.input_images,
-                       dems[0], dem_nodata_val, geos[0], sun_position);
+      asp::readSunPositions(opt.sun_positions_list, opt.input_images,
+                            dems[0], dem_nodata_val, geos[0], sun_position);
     if (opt.sun_angles_list != "") 
-      readSunAngles(opt.sun_angles_list, opt.input_images,
-                    dems[0], dem_nodata_val, geos[0], sun_position);
+      asp::readSunAngles(opt.sun_angles_list, opt.input_images,
+                         dems[0], dem_nodata_val, geos[0], sun_position);
       
     // Read in the camera models (and the sun positions, if not read from the list)
     // TODO(oalexan1): Put this in a function called readCameras())
@@ -5312,8 +5022,8 @@ int main(int argc, char* argv[]) {
         
       // Compute the azimuth and elevation
       double azimuth = 0.0, elevation = 0.0;
-      sunAngles(dems[0], dem_nodata_val, geos[0], sun_position[image_iter],
-                azimuth, elevation);
+      asp::sunAngles(dems[0], dem_nodata_val, geos[0], sun_position[image_iter],
+                     azimuth, elevation);
 
       // Print this. It will be used to organize the images by illumination
       // for bundle adjustment.

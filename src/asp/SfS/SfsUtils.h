@@ -18,15 +18,38 @@
 // \file SfsUtils.h
 // Basic utilities for SfS
 
-#ifndef __SFS_UTILS_H__
-#define __SFS_UTILS_H__
+#ifndef __ASP_SFS_SFS_UTILS_H__
+#define __ASP_SFS_SFS_UTILS_H__
 
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Image/ImageView.h>
 
 namespace asp {
 
+// Find the Sun azimuth and elevation at the lon-lat position of the
+// center of the DEM. The result can change depending on the DEM.
+void sunAngles(vw::ImageView<double> const& dem, 
+               double nodata_val, 
+               vw::cartography::GeoReference const& georef,
+               vw::Vector3 const& sun_pos,
+               double & azimuth, double & elevation);
+
+// Read sun positions from a file
+void readSunPositions(std::string const& sun_positions_list,
+                      std::vector<std::string> const& input_images,
+                      vw::ImageView<double> const& dem, 
+                      double nodata_val, 
+                      vw::cartography::GeoReference const& georef,
+                      std::vector<vw::Vector3> & sun_positions);
+
+// Read the sun angles (azimuth and elevation) and convert them to sun positions.
+void readSunAngles(std::string const& sun_positions_list,
+                   std::vector<std::string> const& input_images,
+                   vw::ImageView<double> const& dem, 
+                   double nodata_val, 
+                   vw::cartography::GeoReference const& georef,
+                   std::vector<vw::Vector3> & sun_positions);
+
 } // end namespace asp
 
-#endif // __SFS_UTILS_H__
-
-
+#endif // __ASP_SFS_SFS_UTILS_H__

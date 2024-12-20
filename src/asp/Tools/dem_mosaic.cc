@@ -37,6 +37,7 @@
 #include <vw/Image/Algorithms2.h>
 #include <vw/Image/Filter.h>
 #include <vw/Cartography/GeoTransform.h>
+#include <vw/Image/NoDataAlg.h>
 
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/math/special_functions/erf.hpp>
@@ -217,32 +218,6 @@ double S_shape(double x, double M, double L) {
   if (x <= 0) return 0;
   if (x >= M) return M;
   return 0.5*M*(1 + boost::math::erf (0.5*sqrt(M_PI) * (2*x*L/M - L)));
-}
-
-// Function for highlighting spots of data
-template<class PixelT>
-class NotNoDataFunctor {
-  typedef typename CompoundChannelType<PixelT>::type channel_type;
-  channel_type m_nodata;
-  typedef ChannelRange<channel_type> range_type;
-public:
-  NotNoDataFunctor(channel_type nodata) : m_nodata(nodata) {}
-
-  template <class Args> struct result {
-    typedef channel_type type;
-  };
-
-  inline channel_type operator()(channel_type const& val) const {
-    return (val != m_nodata && !std::isnan(val))? range_type::max() : range_type::min();
-  }
-};
-
-template <class ImageT, class NoDataT>
-UnaryPerPixelView<ImageT,UnaryCompoundFunctor<NotNoDataFunctor<typename ImageT::pixel_type>, typename ImageT::pixel_type>  >
-inline notnodata(ImageViewBase<ImageT> const& image, NoDataT nodata) {
-  typedef UnaryCompoundFunctor<NotNoDataFunctor<typename ImageT::pixel_type>, typename ImageT::pixel_type> func_type;
-  func_type func(nodata);
-  return UnaryPerPixelView<ImageT,func_type>(image.impl(), func);
 }
 
 // Set nodata pixels to 0 and valid data pixels to something big.
