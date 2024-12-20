@@ -18,7 +18,7 @@
 /// \file SfsImageProc.cc
 /// Image processing routines for SfS
 
-#include <asp/Core/SfsImageProc.h>
+#include <asp/SfS/SfsImageProc.h>
 
 #include <vw/Core/Log.h>
 #include <vw/Camera/CameraModel.h>

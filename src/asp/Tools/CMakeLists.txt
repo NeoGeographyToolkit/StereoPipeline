@@ -148,7 +148,7 @@ target_link_libraries(rpc_gen AspSessions)
 install(TARGETS rpc_gen DESTINATION libexec)
 
 add_executable(sfs sfs.cc)
-target_link_libraries(sfs ${SOLVER_LIBRARIES} AspSessions)
+target_link_libraries(sfs ${SOLVER_LIBRARIES} AspSfS AspSessions)
 install(TARGETS sfs DESTINATION bin)
 
 add_executable(sfs_blend sfs_blend.cc)

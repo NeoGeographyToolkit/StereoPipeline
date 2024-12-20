@@ -360,6 +360,11 @@ get_all_source_files( "Sessions"       ASP_SESSIONS_SRC_FILES)
 get_all_source_files( "Sessions/tests" ASP_SESSIONS_TEST_FILES)
 set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspIsisIO AspCamera)
 
+# ASP SfS
+get_all_source_files("SfS"       ASP_SfS_SRC_FILES)
+get_all_source_files("SfS/tests" ASP_SfS_TEST_FILES)
+set(ASP_SfS_LIB_DEPENDENCIES AspCore AspCamera ${SOLVER_LIBRARIES})
+
 # ASP GUI
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
@@ -390,6 +395,7 @@ add_subdirectory(Camera)
 add_subdirectory(Sessions)
 add_subdirectory(GUI)
 add_subdirectory(Gotcha)
+add_subdirectory(SfS)
 
 add_subdirectory(PclIO)
 
