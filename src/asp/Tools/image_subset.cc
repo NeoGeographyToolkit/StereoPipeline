@@ -343,7 +343,7 @@ void run_image_subset(Options const& opt) {
   std::sort(sorted.begin(), sorted.end());
   vw::vw_out() << "Writing: " << opt.out_list << "\n";
   std::ofstream ofs(opt.out_list.c_str());
-  for (int i = sorted.size()-1; i >= 0; i--) {
+  for (int i = int(sorted.size()) - 1; i >= 0; i--) {
     // Skip images with nodata score
     if (sorted[i].first == nodata_inspected_score)
       continue;
