@@ -1,37 +1,40 @@
 .. _sfs_usage:
 
-Shape-from-shading examples
-===========================
+Overview of SfS
+---------------
 
-ASP provides a tool, named ``sfs`` (:numref:`sfs`), that can improve
-the level of detail of DEMs created by ASP or any other source using
-*shape-from-shading* (SfS). The tool takes as input one or more images
-and cameras, a DEM at roughly the same resolution as the
-images, and returns a refined DEM. This chapter shows in a lot of
-detail how this tool is to be used.
+ASP provides a tool, named ``sfs`` (:numref:`sfs`), that can improve the level
+of detail of DEMs created by ASP or any other source using *shape-from-shading*
+(SfS). This program takes as input one or more images and cameras, a DEM at
+roughly the same resolution as the images, and returns a refined DEM.
 
-The modeling approach used by this program can be found in
-:cite:`alexandrov2018multiview`.
-
-.. _sfs_overview:
-
-Overview
---------
+The modeling approach is described in :cite:`alexandrov2018multiview`.
 
 The ``sfs`` program works with any cameras supported by ASP, for Earth and other
 planets. The option ``--sun-positions`` can be used to to specify the Sun
 position for each image. For ISIS and CSM cameras, if this option is not set,
 the Sun information is read from the camera files.
 
-A tool named ``parallel_sfs`` is provided (:numref:`parallel_sfs`)
+The ``sfs`` program can model position-dependent albedo (:numref:`sfs_albedo`),
+exposure values for each camera, atomspheric haze, shadows in the input images,
+and regions in the DEM occluded from the Sun.
+
+A program named ``parallel_sfs`` is provided (:numref:`parallel_sfs`)
 that parallelizes ``sfs`` using multiple processes (optionally on
 multiple machines) by splitting the input DEM into tiles with padding,
 running ``sfs`` on each tile, and then blending the results. It was used
 to create DEMs of dimensions 10,000 by 10,000 pixels.
 
-The ``sfs`` program can model position-dependent albedo
-(:numref:`sfs_albedo`), exposure values for each camera, shadows in
-the input images, and regions in the DEM occluded from the Sun.
+.. _sfs_examples:
+
+Examples
+--------
+
+ - A single image example with LRO NAC Lunar images (:numref:`sfs_single_image`).
+ - Small example with multiple LRO NAC images (:numref:`sfs_multiview`).
+ - Large-scale SfS with LRO NAC images (:numref:`sfs-lola`).
+ - Kaguya Lunar images (:numref:`sfs_kaguya`).
+ - Earth example, with atmospheric haze (:numref:`sfs_earth`).
 
 Limitations
 -----------
@@ -47,13 +50,15 @@ the value of the weights it uses.
 As can be seen below, ``sfs`` returns reasonable results on the Moon
 as far as 85 degrees and even 89.6 degrees South.
 
-See an example for Kaguya TC lunar images in :numref:`sfs_kaguya`.
-
 This tool's performance is *mixed* with Mars data. That is likely because Mars
 has very diverse geological properties and an atmosphere which scatters light.
 The program has experimental support for modeling haze and the Hapke model
-(:numref:`sfs`), but this was not thoroughly investigated. The program was used
-successfully for Mercury (:cite:`bertone2023highly`).
+(:numref:`sfs`), but this was not thoroughly investigated. 
+
+An example for Earth is :numref:`sfs_earth`, that shows that our program can
+give plausible results.
+
+The program was employed successfully for Mercury (:cite:`bertone2023highly`).
 
 It is suggested to invoke this tool with a terrain model that is
 already reasonably accurate, and with images with diverse illumination

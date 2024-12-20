@@ -17,8 +17,7 @@ Illustration
 
    Refining the surface of Comet 67P with shape-from-shading
    (:cite:`jindal2024measuring_v2`). Left: produced terrain. Right: input image.
-   Other examples are in :numref:`sfs_usage` (for LRO NAC images), and in
-   :numref:`sfs_kaguya` (for Kaguya Terrain Camera images).
+   Other examples are listed in :numref:`sfs_usage`.
 
 Usage
 ~~~~~

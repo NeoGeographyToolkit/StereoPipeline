@@ -16,7 +16,6 @@ Ames Stereo Pipeline documentation (version |version|)
    sfm
    correlation
    bundle_adjustment
-   sfs_usage
    error_propagation
    experimental
    tools

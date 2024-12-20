@@ -141,6 +141,9 @@ height of the light source. Then toggle hillshading off and then on again.
 Hillshaded images can also be produced with the ``hillshade`` tool
 (:numref:`hillshade`) or with ``gdaldem hillshade`` (:numref:`gdal_tools`).
 
+Images that are both colorized and hillshaded can be created with ``colormap``
+(:numref:`colormap`), and then loaded in this program.
+
 .. _colorize:
 
 Displaying colorized images, with a colorbar and axes

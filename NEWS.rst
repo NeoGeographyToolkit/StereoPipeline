@@ -68,6 +68,7 @@ parallel_stereo (:numref:`parallel_stereo`):
     if these corrections improve or not Pleiades accuracy.
 
 sfs (:numref:`sfs`):
+  * Added an SfS example for Earth (:numref:`sfs_earth`).
   * Added the program ``image_subset`` for selecting a subset of images that
     have almost the same coverage as the full input set
     (:numref:`image_subset`).

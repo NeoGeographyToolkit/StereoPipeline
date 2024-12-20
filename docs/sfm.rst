@@ -595,6 +595,8 @@ features seen in the camera image, GCP can be created with point-and-click in
 as shown in :numref:`initial_terrain`. If the geolocations of image corners are 
 known, use instead ``cam_gen`` (:numref:`cam_gen`).
 
+.. _cam_from_gcp:
+
 Camera creation from GCP
 ^^^^^^^^^^^^^^^^^^^^^^^^
 

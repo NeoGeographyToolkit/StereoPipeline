@@ -62,3 +62,11 @@ for an example using CSM cameras for the MSL rover, without employing SfM.
    examples/rig
    examples/sfm_iss
    examples/msl
+
+Shape-from-Shading
+==================
+
+.. toctree::
+
+   sfs_usage
+   examples/sfs_earth

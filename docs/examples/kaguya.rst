@@ -107,13 +107,15 @@ LOLA RDR product.
 Shape-from-shading with Kaguya TC
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Here it will be illustrated how to run shape-from-shading (:numref:`sfs`) on Kaguya
-TC images. First, ensure that the data are fetched and a stereo terrain is created,
-per :numref:`kaguya_tc`. 
+Here it will be illustrated how to run Shape-from-Shading (:numref:`sfs`) on
+Kaguya TC images. An overview of SfS and examples for other planets are given in
+:numref:`sfs_usage`.
 
-Shape-from-shading expects a DEM with no holes which is also rather smooth. It
-should be at the same ground resolution as the input images, which in this case is 10
-meters per pixel. It is best to have it in a local projection, such as stereographic.
+First, ensure that the data are fetched and a stereo terrain is created, per
+:numref:`kaguya_tc`. Shape-from-shading expects a DEM with no holes which is
+also rather smooth. It should be at the same ground resolution as the input
+images, which in this case is 10 meters per pixel. It is best to have it in a
+local projection, such as stereographic.
 
 We will modify the DEM creation command from above to use a large search radius to fill 
 any holes::
