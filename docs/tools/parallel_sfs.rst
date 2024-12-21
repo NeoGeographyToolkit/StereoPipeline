@@ -50,11 +50,11 @@ Command-line options for ``parallel_sfs``:
     computation benefit from parallelization.
 
 --prep-step <string (default: None)>
-    Run parallel_sfs twice, before mosaicking the final results. First time
+    Run ``parallel_sfs`` twice, before mosaicking the final results. First time
     add these options to the ``sfs`` program. Second time add the options in
     ``--main-step``. Must use this as ``--prep-step="options"``. Without the
-    equal sign it will fail to parse the options because of the Python
-    ``argparse`` module. See an example in :numref:`sfs_earth`.
+    equal sign it will fail to parse the options because of limitations of the
+    Python ``argparse`` module. See an example in :numref:`sfs_earth`.
 
 --main-step <string (default: None)>
     See: ``--prep-step``.

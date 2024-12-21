@@ -241,7 +241,7 @@ def main(argsIn):
       help = 'Run parallel_sfs twice, before mosaicking the final results. First time '
       'add these options to the sfs program. Second time add the options in --main-step.'
       'Must use this as --prep-step="options". Without the equal sign it will fail '
-      'to parse the options because of of the Python argparse module.')
+      'to parse the options because of limitations of the Python argparse module.')
 
     parser.add_argument('--main-step', dest='main_step', default = None,
       help = 'See --prep-step.')

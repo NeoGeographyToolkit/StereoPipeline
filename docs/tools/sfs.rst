@@ -396,6 +396,17 @@ Command-line options for sfs
     is on. The final haze values will be saved to ``<output
     prefix>-haze.txt``.
 
+--read-exposures
+    If set, read the image exposures with the current output prefix.
+    Useful with a repeat invocation. See the options ``--prep-step`` and
+    ``--main-step`` in ``parallel_sfs`` (:numref:`parallel_sfs`).
+
+--read-haze
+    If set, read the haze values with the current output prefix. See also ``--read-exposures``.
+
+--read-albedo
+    If set, read the computed albedo with the current output prefix. See also ``--read-exposures``.    
+     
 --gradient-weight <float (default: 0.0)>
     The weight given to the cost function term which consists of sums
     of squares of first-order derivatives. A larger value will result
