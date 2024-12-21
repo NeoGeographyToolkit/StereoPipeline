@@ -7,18 +7,17 @@ This example shows how to refine a terrain model for Earth using
 Shape-from-Shading (SfS, :numref:`sfs`). An overview and examples for other
 planets are given in :numref:`sfs_usage`.
 
-.. figure:: ../images/earth_input_images.png
+.. figure:: ../images/earth_closeup.png
    :name: earth_input_images
    :alt: earth_input_images
    
-   Close-up of 3 input images, showing the diversity of illumination. Five 
-   sets of images were acquired, at different times of day.
+   Top: Four orthorectified input images showing the diversity of illumination. Bottom left: Hillshaded DEM produced with Agisoft Phtoscan. Bottom right: Hillshaded DEM refined with SfS. It can be seen that the SfS DEM has more detail. This is a small region of the test site.
 
 .. figure:: ../images/earth_stereo_sfs_dem.png
    :name: earth_stereo_sfs_dem
    :alt: earth_stereo_sfs_dem
    
-   Left: Hillshaded input stereo DEM. Right: Produced SfS DEM. It can be seen that the SfS DEM has more detail. No shadow artifacts or strong dependence on albedo are observed.
+   Left: Full-site hillshaded input stereo DEM (10k x 10k pixels at 0.01 m/pixel). Right: Refined full-site SfS DEM. More detail is seen. No shadow artifacts or strong dependence on albedo are observed.
 
 .. figure:: ../images/earth_ortho_sfs_diff.png
    :name: earth_ortho_sfs_diff
@@ -33,6 +32,7 @@ Earth-specific issues
 
 We will produce a terrain model for the *Lunar Surface Proving Ground* (LSPG)
 at the Mojave Air and Space Port in California (35.072321 N, -118.153957 W).
+The site has dimensions of 100 x 100 meters.
 
 This site is meant to mimic the topography and optical properties of Moon's
 surface. It has very strong albedo variations that need modeling. Being on
@@ -46,9 +46,10 @@ and likely for those the SfS method will not work well.
 Input data
 ~~~~~~~~~~
 
-The site was imaged with an UAS flying at an elevation of 100 meters. The images
-are acquired with a color frame camera, looking nadir, with dimensions of 9248 x
-6944 pixels, JPEG-compressed. The ground resolution is 0.01 meters per pixel.
+The site was imaged with an UAS flying at an elevation of about 100 meters. The
+images are acquired with a color frame camera, looking nadir, with dimensions of
+9248 x 6944 pixels, JPEG-compressed. The ground resolution is 0.01 meters per
+pixel.
 
 The camera was carefully calibrated, with its intrinsic parameters (focal
 length, optical center, lens distortion) known.

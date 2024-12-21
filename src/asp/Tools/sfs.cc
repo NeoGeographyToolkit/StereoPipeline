@@ -1136,7 +1136,7 @@ void compute_image_stats(ImageT const& I1, ImageT const& I2,
 struct Options : public vw::GdalWriteOptions {
   std::string input_dem, image_list, camera_list, out_prefix, stereo_session, bundle_adjust_prefix, input_albedo;
   std::vector<std::string> input_images, input_cameras;
-  std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposure_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list, sun_angles_list;
+  std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposures_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list, sun_angles_list;
   std::vector<float> shadow_threshold_vec, max_valid_image_vals_vec;
   std::vector<double> image_exposures_vec;
   std::vector<std::vector<double>> image_haze_vec;
@@ -1151,7 +1151,7 @@ struct Options : public vw::GdalWriteOptions {
     use_rpc_approximation, use_semi_approx,
     crop_input_images, allow_borderline_data, float_dem_at_boundary, boundary_fix,
     fix_dem, float_reflectance_model, float_sun_position, query, save_sparingly,
-    float_haze;
+    float_haze, read_exposures, read_haze, read_albedo;
     
   double smoothness_weight, steepness_factor, curvature_in_shadow,
     curvature_in_shadow_weight,
@@ -3740,7 +3740,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "If using a curvature in shadow, start phasing it in this far from the shadow boundary in the lit region (in units of pixels).")
     ("shadow-curvature-dist", po::value(&opt.shadow_curvature_dist)->default_value(0.0),
      "If using a curvature in shadow, have it fully phased in this far from shadow boundary in the shadow region (in units of pixels).")
-    ("image-exposures-prefix", po::value(&opt.image_exposure_prefix)->default_value(""),
+    ("image-exposures-prefix", po::value(&opt.image_exposures_prefix)->default_value(""),
      "Use this prefix to optionally read initial exposures (filename is <prefix>-exposures.txt).")
     ("model-coeffs-prefix", po::value(&opt.model_coeffs_prefix)->default_value(""),
      "Use this prefix to optionally read model coefficients from a file (filename is <prefix>-model_coeffs.txt).")
@@ -3765,6 +3765,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "An attempt to let the DEM float at the boundary.")
     ("fix-dem",   po::bool_switch(&opt.fix_dem)->default_value(false)->implicit_value(true),
      "Do not float the DEM at all. Useful when floating the model params.")
+    ("read-exposures", po::bool_switch(&opt.read_exposures)->default_value(false)->implicit_value(true),
+     "If specified, read the image exposures with the current output prefix. Useful with a "
+     "repeat invocation.")
+    ("read-haze", po::bool_switch(&opt.read_haze)->default_value(false)->implicit_value(true),
+     "If specified, read the haze values with the current output prefix.")
+    ("read-albedo", po::bool_switch(&opt.read_albedo)->default_value(false)->implicit_value(true),
+     "If specified, read the computed albedo with the current output prefix.")
     ("float-reflectance-model",   po::bool_switch(&opt.float_reflectance_model)->default_value(false)->implicit_value(true),
      "Allow the coefficients of the reflectance model to float (not recommended).")
     ("float-sun-position",   po::bool_switch(&opt.float_sun_position)->default_value(false)->implicit_value(true),
@@ -4019,11 +4026,36 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              << opt.shadow_threshold_vec[i] << ' ' << opt.max_valid_image_vals_vec[i] << std::endl;
   }
 
+  // --read-exposures defines where exposures are read from. Put this as a warning,
+  // otherwise parallel_sfs won't run.
+  if (opt.image_exposures_prefix != "" && opt.read_exposures && 
+      opt.image_exposures_prefix != opt.out_prefix)
+      vw::vw_out(vw::WarningMessage) << "Reading exposures with prefix: " 
+        << opt.out_prefix << " rather than: " << opt.image_exposures_prefix << ".\n";
+  if (opt.read_exposures)
+    opt.image_exposures_prefix = opt.out_prefix;
+  
+  // Same for haze. This one parallel_sfs does not precompute. This may change.
+  if (opt.image_haze_prefix != "" && opt.read_haze)
+    vw_throw(ArgumentErr() 
+             << "Cannot specify both --haze-prefix and --read-haze.\n");
+  // If have opt.read_haze, use the current prefix
+  if (opt.read_haze) 
+    opt.image_haze_prefix = opt.out_prefix;
+  
+  // Same for albedo
+  if (opt.input_albedo != "" && opt.read_albedo)
+    vw_throw(ArgumentErr() 
+             << "Cannot specify both --input-albedo and --read-albedo.\n");
+  // If have opt.read_albedo, use the current prefix albedo
+  if (opt.read_albedo)
+    opt.input_albedo = opt.out_prefix + "-comp-albedo-final.tif";
+          
   // Initial image exposures, if provided. First read them in a map,
   // as perhaps the initial exposures were created using more images
   // than what we have here. 
   // TODO(oalexan1): This must be a function.
-  std::string exposure_file = exposure_file_name(opt.image_exposure_prefix);
+  std::string exposure_file = exposure_file_name(opt.image_exposures_prefix);
   opt.image_exposures_vec.clear();
   std::map<std::string, double> img2exp;
   std::string name;
@@ -4036,7 +4068,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
   ise.close();
   if (exp_count > 0) {
-    vw_out() << "Using exposures from: " << exposure_file << std::endl;
+    vw_out() << "Reading exposures from: " << exposure_file << std::endl;
     for (size_t i = 0; i < opt.input_images.size(); i++) {
       std::string img = opt.input_images[i];
       std::map<std::string, double>::iterator it = img2exp.find(img);
@@ -4045,11 +4077,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                  << "Could not find the exposure for image: " << img << ".\n");
       }
       double exp_val = it->second;
-      vw_out() << "Exposure for " << img << ": " << exp_val << std::endl;
+      // vw_out() << "Exposure for " << img << ": " << exp_val << std::endl;
       opt.image_exposures_vec.push_back(exp_val);
     }
   }
-  if (opt.image_exposure_prefix != "" && exp_count == 0) 
+  if (opt.image_exposures_prefix != "" && exp_count == 0) 
     vw_throw(ArgumentErr()
              << "Could not find the exposures file: " << exposure_file << ".\n");
   
@@ -4098,7 +4130,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                << "Could not find the haze file: " << haze_file << ".\n");
     
     if (haze_count > 0) {
-      vw_out() << "Using haze from: " << haze_file << std::endl;
+      vw_out() << "Reading haze file: " << haze_file << std::endl;
       for (size_t i = 0; i < opt.input_images.size(); i++) {
         std::string img = opt.input_images[i];
         std::map< std::string, std::vector<double>>::iterator it = img2haze.find(img);
@@ -4107,10 +4139,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                    << "Could not find the haze for image: " << img << ".\n");
         }
         std::vector<double> haze_vec = it->second;
-        vw_out() << "Haze for " << img << ":";
-        for (size_t hiter = 0; hiter < haze_vec.size(); hiter++) 
-          vw_out() << " " << haze_vec[hiter];
-        vw_out() << std::endl;
+        // vw_out() << "Haze for " << img << ":";
+        //for (size_t hiter = 0; hiter < haze_vec.size(); hiter++) 
+        //  vw_out() << " " << haze_vec[hiter];
+        //vw_out() << "\n";
         opt.image_haze_vec.push_back(haze_vec);
       }
     }
@@ -4169,7 +4201,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              << "Floating the albedo is ill-posed for just one image without "
              << "the initial DEM constraint or the albedo constraint.\n");
 
-  if (opt.input_images.size() <= 1 && opt.float_exposure && opt.initial_dem_constraint_weight <= 0)
+  if (opt.input_images.size() <= 1 && opt.float_exposure && 
+      opt.initial_dem_constraint_weight <= 0)
     vw_throw(ArgumentErr()
              << "Floating the exposure is ill-posed for just one image.\n");
 
@@ -4250,7 +4283,10 @@ void calcSampleRates(ImageViewRef<double> const& dem, int num_samples,
 
 // Run sfs at a given coarseness level
 void run_sfs_level(// Fixed inputs
-                   int num_iterations, 
+                   int                                num_iterations, 
+                   int                                level,
+                   double                             gridx,
+                   double                             gridy,
                    Options                          & opt,
                    GeoReference               const & geo,
                    double smoothness_weight,
@@ -4284,10 +4320,12 @@ void run_sfs_level(// Fixed inputs
   // Find the grid sizes in meters. Note that dem heights are in
   // meters too, so we treat both horizontal and vertical measurements
   // in same units.
-  double gridx = 0.0, gridy = 0.0;
-  compute_grid_sizes_in_meters(dem, geo, dem_nodata_val, 
-                               sample_col_rate, sample_row_rate,
-                               gridx, gridy);
+  // For coarser levels must recompute the grid size. Note that
+  // the recomputed values are local to this function.
+  if (level > 0)
+    compute_grid_sizes_in_meters(dem, geo, dem_nodata_val, 
+                                 sample_col_rate, sample_row_rate,
+                                 gridx, gridy);
   g_gridx = &gridx;
   g_gridy = &gridy;
 
@@ -4597,7 +4635,7 @@ void run_sfs_level(// Fixed inputs
         if (use_image[image_iter]) problem.SetParameterBlockConstant(&exposures[image_iter]);
       }
     }
-    if (!opt.float_haze){
+    if (!opt.float_haze) {
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
         if (use_image[image_iter]) problem.SetParameterBlockConstant(&haze[image_iter][0]);
       }
@@ -5009,8 +5047,8 @@ int main(int argc, char* argv[]) {
                   opt.input_cameras[image_iter],
                   opt.out_prefix));
 
-      vw_out() << "Loading image and camera: " << opt.input_images[image_iter] << " "
-                <<  opt.input_cameras[image_iter] << ".\n";
+      //vw_out() << "Loading image and camera: " << opt.input_images[image_iter] << " "
+      //          <<  opt.input_cameras[image_iter] << ".\n";
       cameras[image_iter] = session->camera_model(opt.input_images[image_iter],
                                                   opt.input_cameras[image_iter]);
 
@@ -5300,7 +5338,7 @@ int main(int argc, char* argv[]) {
         // Crop to the bounding box of the image
         crop_boxes[0][image_iter].crop(img_bbox);
           
-        vw_out() << "Estimated crop box for image " << opt.input_images[image_iter] << "\n";
+        //vw_out() << "Estimated crop box for image " << opt.input_images[image_iter] << "\n";
         
         if (crop_boxes[0][image_iter].empty()) 
           opt.skip_images.insert(image_iter);
@@ -5446,7 +5484,7 @@ int main(int argc, char* argv[]) {
     // initial exposure and decide based on that which images to
     // skip. If the user provided initial exposures and haze, use those, but
     // still go through the motions to find the images to skip.
-    vw_out() << "Computing exposures.\n";
+    // vw_out() << "Computing exposures.\n";
     std::vector<double> local_exposures_vec(num_images, 0), local_haze_vec(num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       
@@ -5485,13 +5523,13 @@ int main(int argc, char* argv[]) {
         double exposure = imgmean/refmean/mean_albedo;
         local_exposures_vec[image_iter] = exposure;
         local_haze_vec[image_iter] = haze;
-        vw_out() << "Local DEM estimated exposure for image " << image_iter << ": " 
-                  << exposure << "\n";
+        //vw_out() << "Local DEM estimated exposure for image " << image_iter << ": " 
+        //          << exposure << "\n";
       } else {
         // Skip images with bad exposure. Apparently there is no good
         // imagery in the area.
         opt.skip_images.insert(image_iter);
-        vw_out() << "Skip image " << image_iter << " for this DEM.\n";
+        vw_out() << "Skip image with no data " << image_iter << " for this DEM.\n";
       }
     }
     
@@ -6030,7 +6068,7 @@ int main(int argc, char* argv[]) {
       }
       
       run_sfs_level(// Fixed inputs
-                    num_iterations, opt, geos[level],
+                    num_iterations, level, gridx, gridy, opt, geos[level],
                     opt.smoothness_weight*factors[level]*factors[level],
                     dem_nodata_val, crop_boxes[level],
                     masked_images_vec[level], blend_weights_vec[level],
@@ -6050,7 +6088,7 @@ int main(int argc, char* argv[]) {
       // dems[level], but we keep orig_dems[level-1] from the beginning.
       if (level > 0) {
         if (!opt.fix_dem)
-          interp_image(dems[level],    sub_scale, dems[level-1]);
+          interp_image(dems[level], sub_scale, dems[level-1]);
         if (opt.float_albedo)
           interp_image(albedos[level], sub_scale, albedos[level-1]);
       }

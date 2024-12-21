@@ -212,50 +212,67 @@ def main(argsIn):
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument('-i', '--input-dem',  dest='input_dem', default='',
-      help='The input DEM to refine using SfS.')
+      help = 'The input DEM to refine using SfS.')
 
-    parser.add_argument('-o', '--output-prefix',  dest='output_prefix', default='',
-      help='Prefix for output filenames.')
+    parser.add_argument('-o', '--output-prefix',  dest='output_prefix', default='', 
+      help = 'Prefix for output filenames.')
 
-    parser.add_argument('--tile-size',  dest='tileSize', default=300, type=int,
-      help='Size of approximately square tiles to break up processing into (not counting the padding).')
+    parser.add_argument('--tile-size',  dest='tileSize', default=300, type=int, 
+      help = 'Size of approximately square tiles to break ' +
+             'up processing into (not counting the padding).')
 
     parser.add_argument('--padding',  dest='padding', default=50, type=int,
-      help='How much to expand a tile in each direction. This helps with reducing artifacts in the final mosaicked SfS output.')
+      help = 'How much to expand a tile in each direction. This ' +
+             'helps with reducing artifacts in the final mosaicked ' +
+             'SfS output.')
 
-    parser.add_argument("--processes",  dest="numProcesses", type=int, default=None,
-      help="Number of processes to use on each node (the default is for the " + \
-        "program to choose).")
+    parser.add_argument("--processes",  dest="numProcesses", type=int, default=None, 
+      help = "Number of processes to use on each node " +
+             "(the default is for the program to choose).")
 
-    parser.add_argument("--num-processes",  dest="numProcesses2", type=int, default=None,
-      help="Same as --processes. Used for backwards compatibility.")
+    parser.add_argument("--num-processes",  dest="numProcesses2", type=int, default=None, 
+      help = "Same as --processes. Used for backwards compatibility.")
 
     parser.add_argument('--nodes-list', dest='nodesListPath', default=None,
-      help='A file containing the list of computing nodes, one per line. If not provided, run on the local machine.')
+      help = 'A file containing the list of computing nodes, one ' +
+             'per line. If not provided, run on the local machine.')
+
+    parser.add_argument('--prep-step', dest='prep_step', default = None,
+      help = 'Run parallel_sfs twice, before mosaicking the final results. First time '
+      'add these options to the sfs program. Second time add the options in --main-step.'
+      'Must use this as --prep-step="options". Without the equal sign it will fail '
+      'to parse the options because of of the Python argparse module.')
+
+    parser.add_argument('--main-step', dest='main_step', default = None,
+      help = 'See --prep-step.')
 
     parser.add_argument('--parallel-options', dest='parallel_options', 
       default='--sshdelay 0.2',
-      help='Options to pass directly to GNU Parallel.')
+      help = 'Options to pass directly to GNU Parallel.')
 
     parser.add_argument('--threads',  dest='threads', default=8, type=int,
-      help='How many threads each process should use. This will be changed ' + \
-      'to 1 for ISIS cameras when --use-approx-camera-models is not set, ' + \
-      'as ISIS is single-threaded. Not all parts of the computation ' + \
-      'benefit from parallelization.')
+      help = 'How many threads each process should use. This will be ' +
+             'changed to 1 for ISIS cameras when ' +
+             '--use-approx-camera-models is not set, as ISIS is ' +
+             'single-threaded. Not all parts of the computation ' +
+             'benefit from parallelization.')
 
-    parser.add_argument("--resume", action="store_true", default=False, dest="resume",
-      help= "Resume a partially done run. Only process the tiles for which " + \
-      "the desired per-tile output files are missing or invalid (as "  + \
-      "checked by gdalinfo).")
+    parser.add_argument("--resume", action="store_true", default=False, dest="resume", 
+      help = "Resume a partially done run. Only " +
+             "process the tiles for which the desired " +
+             "per-tile output files are missing or " 
+             "invalid (as checked by gdalinfo).")
     
     parser.add_argument('--run-dir', dest='runDir', default=None,
-      help='Directory in which the script is running.')
+      help = 'Directory in which the script is running.')
     
-    parser.add_argument("--suppress-output", action="store_true", default=False,
-      dest="suppressOutput",  help="Suppress output of sub-calls.")
+    parser.add_argument("--suppress-output", action="store_true", default=False, 
+      dest = "suppressOutput", 
+      help = "Suppress output of sub-calls.")
 
-    parser.add_argument('-v', '--version',        dest='version', default=False,
-      action='store_true', help='Display the version of software.')
+    parser.add_argument('-v', '--version',  dest='version', default=False,
+      action = 'store_true', 
+      help = 'Display the version of software.')
     
     # Private options
     parser.add_argument('--pixelStartX', dest='pixelStartX', default=None, type=int,
@@ -269,7 +286,7 @@ def main(argsIn):
 
     # This call handles all the parallel_sfs specific options.
     (options, args) = parser.parse_known_args(argsIn)
-
+    
     if options.version:
         asp_system_utils.print_version_and_exit()
 
@@ -288,18 +305,21 @@ def main(argsIn):
         parser.error("parallel_sfs cannot take the --crop-win option. " +
                       "Crop the input DEM using gdal_translate.\n" );
 
-    if     '--float-exposure'          in argsIn or \
-           '--float-cameras'           in argsIn or \
-           '--float-all-cameras'       in argsIn or \
-           '--float-haze'              in argsIn or \
-           '--float-reflectance-model' in argsIn or \
-           '--float-sun-position'      in argsIn:
-        parser.print_help()
-        parser.error("Cannot float exposures, cameras, or other per-tile quantities, except " +
-                     "for the DEM heights or albedo in parallel_sfs, as different results " +
-                     "will be obtained in different tiles. If desired to float these, do that " +
-                     "on a clip where all images have good coverage, and using the sfs tool.\n");
+    if  '--float-exposure'          in argsIn or \
+        '--float-cameras'           in argsIn or \
+        '--float-all-cameras'       in argsIn or \
+        '--float-haze'              in argsIn or \
+        '--float-reflectance-model' in argsIn or \
+        '--float-sun-position'      in argsIn:
         
+        print("Warning: Floating exposures and other quantities per tile may result " +
+              "in non-unique results.")
+        
+    # Either both or none of options.prep_step and options.main_step must be set
+    if (options.prep_step is None) != (options.main_step is None):
+        parser.print_help()
+        parser.error("Either both or none of --prep-step and --main-step must be set.\n")
+            
     # Any additional arguments need to be forwarded to the sfs function
     options.extraArgs = args
 
@@ -476,13 +496,28 @@ def main(argsIn):
     runDir = asp_system_utils.escape_token(os.getcwd())
     commandList = commandList + ['--run-dir', runDir]
 
+    # For the case when we run this tool twice
+    stepOptions = []
+    if options.prep_step is not None:
+        stepOptions = asp_string_utils.stringToArgList(options.prep_step)
+        
     # Use GNU parallel call to distribute the work across computers
     # - This call will wait until all processes are finished
     verbose = True
     asp_system_utils.runInGnuParallel(options.numProcesses, 
-                                      argumentFilePath, commandList,
+                                      argumentFilePath, 
+                                      commandList + stepOptions,
                                       options.nodesListPath, verbose)
 
+    # For the case when we run this tool twice
+    stepOptions = []
+    if options.main_step is not None:
+        stepOptions = asp_string_utils.stringToArgList(options.main_step)
+        asp_system_utils.runInGnuParallel(options.numProcesses, 
+                                          argumentFilePath, 
+                                          commandList + stepOptions,
+                                          options.nodesListPath, verbose)
+    
     # Mosaic the results
     for it in range(len(perTileFiles)):
         mosaic_results(tileList, outputFolder, outputName, options,
