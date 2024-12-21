@@ -239,7 +239,8 @@ def main(argsIn):
 
     parser.add_argument('--prep-step', dest='prep_step', default = None,
       help = 'Run parallel_sfs twice, before mosaicking the final results. First time '
-      'add these options to the sfs program. Second time add the options in --main-step.'
+      'add these options to the sfs program (after estimating the initial exposures). '
+      'Second time add the options in --main-step.'
       'Must use this as --prep-step="options". Without the equal sign it will fail '
       'to parse the options because of limitations of the Python argparse module.')
 
@@ -330,7 +331,8 @@ def main(argsIn):
     # See what kind of outputs to generate
     perTileFiles = []
     mosaickedFiles = []
-    if ('--estimate-slope-errors' not in argsIn) and ('--estimate-height-errors' not in argsIn):
+    if ('--estimate-slope-errors' not in argsIn) and \
+       ('--estimate-height-errors' not in argsIn):
         # Computed DEM
         perTileFiles  += ['DEM-final.tif']
         mosaickedFiles += ['DEM-final.tif']
@@ -425,23 +427,15 @@ def main(argsIn):
     print('Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + \
           ' = ' + str(numTilesX*numTilesY) + ' tiles.\n')
     
-    # If there is only going to be one output tile, just use the non-parallel call
-    if (numTilesX*numTilesY == 1):
-        cmd = timeCmd + [sfsPath] + options.extraArgs
-        (out, err, status) = asp_system_utils.executeCommand(cmd,
-                                                             suppressOutput=options.suppressOutput)
-        write_cmd_output(options.output_prefix, cmd, out, err, status)
-        return 0
-    
     # Generate a text file that contains the boundaries for each tile
     argumentFilePath = os.path.join(outputFolder, 'argumentList.txt')
     argumentFile     = open(argumentFilePath, 'w')
     for tile in tileList:
-        argumentFile.write( str(tile[0]) + '\t' + str(tile[1]) + '\t' \
-                            + str(tile[2]) + '\t' + str(tile[3]) + '\n')
+        argumentFile.write(str(tile[0]) + '\t' + str(tile[1]) + '\t' \
+                           + str(tile[2]) + '\t' + str(tile[3]) + '\n')
     argumentFile.close()
 
-    # Indicate to GNU Parallel that there are multiple tab-seperated
+    # Indicate to GNU Parallel that there are multiple tab-separated
     # variables in the text file we just wrote
     parallelArgs = ['--colsep', "\\t", '--will-cite', '--env', 'ASP_DEPS_DIR',
                     '--env', 'PATH', '--env', 'LD_LIBRARY_PATH',
@@ -481,8 +475,7 @@ def main(argsIn):
                      '--pixelStartY', '{2}',
                      '--pixelStopX',  '{3}',
                      '--pixelStopY',  '{4}',
-                     '--threads', str(options.threads)
-                     ]
+                     '--threads', str(options.threads)]
     if options.suppressOutput:
         commandList = commandList + ['--suppress-output']
 
@@ -500,9 +493,9 @@ def main(argsIn):
     stepOptions = []
     if options.prep_step is not None:
         stepOptions = asp_string_utils.stringToArgList(options.prep_step)
-        
-    # Use GNU parallel call to distribute the work across computers
-    # - This call will wait until all processes are finished
+    
+    # Use GNU parallel call to distribute the work across computers. Wait until
+    # all processes are finished.
     verbose = True
     asp_system_utils.runInGnuParallel(options.numProcesses, 
                                       argumentFilePath, 

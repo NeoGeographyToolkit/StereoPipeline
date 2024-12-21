@@ -54,8 +54,9 @@ pixel.
 The camera was carefully calibrated, with its intrinsic parameters (focal
 length, optical center, lens distortion) known.
 
-Five sets of images were recorded, at different times of day. Diverse illumination 
-is very important for separating the albedo from ground reflectance and topography.
+Five sets of images were recorded, at different times of day. Diverse
+illumination is very important for separating the albedo from ground reflectance
+and atmospheric effects.
 
 Since SfS processes grayscale data, the red image band was used.
 
@@ -161,9 +162,10 @@ Illumination angles
 ~~~~~~~~~~~~~~~~~~~
 
 The illumination information was specified in a file named ``sfs_sun_list.txt``,
-with each line having the image name and the Sun azimuth and elevation in
-degrees, in double precision, with a space as separator. The azimuth is measured
-clockwise from the North, and the elevation is measured from the horizon.
+with each line having the image name and the Sun azimuth and elevation
+(altitude) in degrees, in double precision, with a space as separator. The
+azimuth is measured clockwise from the North, and the elevation is measured from
+the horizon.
     
 The `SunCalc <https://www.suncalc.org/>`_ site was very useful in determining
 this information, given the coordinates of the site and the image acquisition
@@ -172,19 +174,17 @@ time as stored in the EXIF data. One has to be mindful of local vs UTC time.
 It was sufficient to use the same Sun azimuth and elevation for all images
 acquired in quick succession.
 
-Running SfS
-~~~~~~~~~~~
+Input images
+~~~~~~~~~~~~
 
-The best SfS results were produced by solving for image exposure and atmospheric
-haze on smaller individual clips, rather than global values for these
-parameters. 
+The number of input images can be very large, which can slow down the SfS
+program. It is suggested to divide them into groups, by illumination conditions,
+and ignore those outside the area of interest. ASP has logic that can help
+with that (:numref:`sfs_azimuth`).
 
-For that, the regridded and smoothed initial terrain was broken up into tiles,
-of size 400 x 400 pixels, with additional 50 pixels of overlap on each side.
-
-From each group of images with the same illumination conditions, a subset was
-chosen that covers this tile. That can be done with the ``image_subset`` program
-(:numref:`image_subset`)::
+Out of all images from a given group, a subset should be selected that covers
+the site fully. That can be done by mapprojecting the images onto the DEM, and
+then running the ``image_subset`` program (:numref:`image_subset`)::
 
     image_subset                           \
       --t_projwin min_x min_y max_x max_y  \
@@ -192,86 +192,81 @@ chosen that covers this tile. That can be done with the ``image_subset`` program
       --image-list image_list.txt          \
       -o subset.txt
 
-The input images specified in the input list should be mapprojected. The region
-passed via ``--t_projwin`` have the extent of the DEM clip (it can be found with
-``gdalinfo``, :numref:`gdal_tools`). For a first run, it may be simpler to
-manually identify the relevant images.
+The values passed in via ``--t_projwin`` have the desired region extent (it can
+be found with ``gdalinfo``, :numref:`gdal_tools`), or with ``stereo_gui``. It is
+optional.
 
-The raw camera images corresponding to the combined list of all such subsets
-were specified in a file named ``sfs_image_list.txt``. The corresponding camera
-model files were put in the file ``sfs_camera_list.txt``, one per line.
+For an initial run, it is simpler to manually pick an image from each group.
 
-The ``sfs`` program was run in two stages on such a tile. First, the DEM was
-kept fixed, while solving for the exposure, atmospheric haze, and albedo.
+The raw camera images corresponding to the union of all such subsets
+were put in a file named ``sfs_image_list.txt``. The corresponding camera
+model files were listed in the file ``sfs_camera_list.txt``, one per line.
+These must be in the same order.
 
-::
+Running SfS
+~~~~~~~~~~~
 
-    sfs                                     \
+The best SfS results were produced by first solving for image exposure,
+atmospheric haze, and albedo on individual small overlapping tiles, with the DEM
+fixed, and then refining the albedo and DEM per-tile while keeping the per-tile
+exposure and haze fixed. 
+
+That global values of these parameters were not not as good likely suggests that
+the modeling is not precise enough. The modeling is described in
+:numref:`sfs_formulation`.
+
+This two-step process was run as follows::
+
+    parallel_sfs                            \
+      -i dem.tif                            \
+      --image-list sfs_image_list.txt       \
+      --camera-list sfs_camera_list.txt     \
+      --sun-angles sfs_sun_list.txt         \
+      --processes 6                         \
+      --threads 8                           \
+      --tile-size 200                       \
+      --padding 50                          \
       --smoothness-weight 3                 \
       --robust-threshold 10                 \
       --reflectance-type 0                  \
+      --num-haze-coeffs 1                   \
       --initial-dem-constraint-weight 0.001 \
-      --sun-angles sfs_sun_list.txt         \
-      --image-list sfs_image_list.txt       \
-      --camera-list sfs_camera_list.txt     \
+      --blending-dist 10                    \
       --crop-input-images                   \
       --save-sparingly                      \
-      --num-haze-coeffs 1                   \
       --max-iterations 5                    \
-      --threads 8                           \
-      --float-exposure                      \
-      --float-haze                          \
-      --float-albedo                        \
-      --fix-dem                             \
-      -i dem_tile${i}.tif                   \
-      -o sfs_tile${i}/run
+      --prep-step='--float-exposure
+                   --float-haze
+                   --float-albedo
+                   --fix-dem'               \
+      --main-step='--read-exposures
+                   --read-haze
+                   --read-albedo
+                   --float-albedo'          \
+      -o sfs/run
 
-Here, ``$i`` is the index of the tile.
+The descriptions of these options is in :numref:`parallel_sfs` and :numref:`sfs`. 
+Another example is in :numref:`parallel_sfs_usage`.
 
-The descriptions of these options is in :numref:`sfs`. This program can be very
-sensitive to the smoothness weight. A higher value will produce blurred results,
-while a lower value will result in a noisy output. One could try various values
-for it that differ by a factor of 10 before refining it further.
+This program can be very sensitive to the smoothness weight. A higher value will
+produce blurred results, while a lower value will result in a noisy output. One
+could try various values for it that differ by a factor of 10 before refining it
+further.
 
 The ``--robust-threshold`` parameter is very important for eliminating the
 effect of shadows. Its value should be a fraction of the difference in intensity
 between lit and shadowed pixels. Some experimentation may be needed to find the
-right value. A large value will result in visible shadow artifacts.
+right value. A large value will result in visible shadow artifacts. A smaller
+value may require more iterations and may blur more the output.
+
+It is strongly suggested to first run SfS on a small clip to get an intuition
+for the parameters.
 
 We used the Lambertian reflectance model (``--reflectance-type 0``). For the Moon,
 usually the Lunar-Lambertian model is preferred (value 1).
 
-Then, the DEM was refined together with the albedo produced before, while
-keeping fixed the exposure and haze. Optimizing all these at the same time could
-make the problem under-constrained, though we did not study this in a lot of
-detail.
-
-::
-
-    sfs                                         \
-      --smoothness-weight 3                     \
-      --robust-threshold 10                     \
-      --reflectance-type 0                      \
-      --initial-dem-constraint-weight 0.001     \
-      --sun-angles sfs_sun_list.txt             \
-      --image-list sfs_image_list.txt           \
-      --camera-list sfs_camera_list.txt         \
-      --crop-input-images                       \
-      --save-sparingly                          \
-      --num-haze-coeffs 1                       \
-      --image-exposures-prefix sfs_tile${i}/run \
-      --haze-prefix sfs_tile${i}/run            \
-      --input-albedo                            \
-        sfs_tile${i}/run-comp-albedo-final.tif  \
-      --float-albedo                            \
-      --max-iterations 5                        \
-      --threads 8                               \
-      -i dem_tile${i}.tif                       \
-      -o sfs_tile${i}/run
-
-The produced DEMs per tile have names such as
-``sfs_tile${i}/run-DEM-final.tif``. They were mosaicked together with the
-``dem_mosaic`` program (:numref:`dem_mosaic`).
+The produced DEM will be named ``sfs/run-DEM-final.tif``. Other outputs are
+listed in :numref:`sfs_outputs`.
 
 The results are shown in :numref:`earth_input_images` and below.
 

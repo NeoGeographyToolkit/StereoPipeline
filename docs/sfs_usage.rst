@@ -986,18 +986,17 @@ This will use bilinear interpolation.
 Image selection and sorting by illumination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-By far the hardest part of this exercise is choosing the images. We
-downloaded several hundred of them as described in
-:numref:`fetch_lro_images`, given the desired longitude-latitude
-bounds. The PDS .IMG files were converted to ISIS .cub cameras as in
-:numref:`sfs_single_image`, and they were mapprojected onto the
-reference DEM, initially at a lower resolution to get a preview of
-things (:numref:`sfs_inspection`).
+By far the hardest part of this exercise is choosing the images. We downloaded
+up to 1,400 of them, as described in :numref:`fetch_lro_images`, given the
+desired longitude-latitude bounds. The PDS .IMG files were converted to ISIS
+.cub cameras as in :numref:`sfs_single_image`, and they were mapprojected onto
+the reference DEM, initially at a lower resolution to get a preview of things
+(:numref:`sfs_inspection`).
 
 It is very strongly recommended to use the CSM camera models instead
 of ISIS models (:numref:`sfs_isis_vs_csm`).
 
-Inspection of many hundreds of images and choosing those that have
+Inspection of a large number of images and choosing those that have
 valid pixels in the area of interest can be very arduous. To make this
 easier, we make use of the reporting facility of ``dem_mosaic``
 (:numref:`dem_mosaic`) when invoked with the the option
