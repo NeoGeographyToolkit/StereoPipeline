@@ -31,7 +31,7 @@ Earth-specific issues
 ~~~~~~~~~~~~~~~~~~~~~
 
 We will produce a terrain model for the *Lunar Surface Proving Ground* (LSPG)
-at the Mojave Air and Space Port in California (35.072321 N, -118.153957 W).
+at the Mojave Air and Space Port in California (35.072321 N, 118.153957 W).
 The site has dimensions of 100 x 100 meters.
 
 This site is meant to mimic the topography and optical properties of Moon's
@@ -245,8 +245,10 @@ This two-step process was run as follows::
                    --float-albedo'          \
       -o sfs/run
 
-The descriptions of these options is in :numref:`parallel_sfs` and :numref:`sfs`. 
-Another example is in :numref:`parallel_sfs_usage`.
+This program does the partitioning into tiles, individual processing of tiles,
+and merge of the results. The descriptions of these options is in
+:numref:`parallel_sfs` and :numref:`sfs`. Another example is in
+:numref:`parallel_sfs_usage`.
 
 This program can be very sensitive to the smoothness weight. A higher value will
 produce blurred results, while a lower value will result in a noisy output. One
@@ -260,7 +262,7 @@ right value. A large value will result in visible shadow artifacts. A smaller
 value may require more iterations and may blur more the output.
 
 It is strongly suggested to first run SfS on a small clip to get an intuition
-for the parameters.
+for the parameters (then can use the ``sfs`` program directly).
 
 We used the Lambertian reflectance model (``--reflectance-type 0``). For the Moon,
 usually the Lunar-Lambertian model is preferred (value 1).
@@ -268,5 +270,5 @@ usually the Lunar-Lambertian model is preferred (value 1).
 The produced DEM will be named ``sfs/run-DEM-final.tif``. Other outputs are
 listed in :numref:`sfs_outputs`.
 
-The results are shown in :numref:`earth_input_images` and below.
+The results are shown in :numref:`earth_input_images`.
 

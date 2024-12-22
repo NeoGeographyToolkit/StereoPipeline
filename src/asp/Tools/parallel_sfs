@@ -460,7 +460,7 @@ def main(argsIn):
     # Note: sfs can run with multiple threads on non-ISIS data but we don't use that
     #       functionality here since we call sfs with one tile at a time.
 
-    # No need for more processes than their are tiles!
+    # No need for more processes than tiles
     if options.numProcesses > numTiles:
         options.numProcesses = numTiles
 
