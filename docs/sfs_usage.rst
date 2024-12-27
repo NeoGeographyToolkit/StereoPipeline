@@ -35,6 +35,7 @@ Examples
  - Large-scale SfS with LRO NAC images (:numref:`sfs-lola`).
  - Kaguya Lunar images (:numref:`sfs_kaguya`).
  - Earth example, with atmospheric haze (:numref:`sfs_earth`).
+ - CTX Mars example (:numref:`sfs_ctx`).
 
 Limitations
 -----------
@@ -50,10 +51,8 @@ the value of the weights it uses.
 As can be seen below, ``sfs`` returns reasonable results on the Moon
 as far as 85 degrees and even 89.6 degrees South.
 
-This tool's performance is *mixed* with Mars data. That is likely because Mars
-has very diverse geological properties and an atmosphere which scatters light.
-The program has experimental support for modeling haze and the Hapke model
-(:numref:`sfs`), but this was not thoroughly investigated. 
+SfS was shown to give reasonable results with CTX Mars images
+(:numref:`sfs_ctx`). The improvement is real, but somewhat modest. 
 
 An example for Earth is :numref:`sfs_earth`, that shows that our program can
 give plausible results.
@@ -90,7 +89,7 @@ image exposure, :math:`A(x, y)` is the per-pixel normalized albedo,
 sum of squares of all second-order partial derivatives of :math:`\phi`.
 
 The term :math:`H_k` is the atmospheric haze, which is assumed to be zero
-for the Moon but is modeled for Earth (:numref:`sfs_earth`).
+for the Moon but is modeled for Earth and Mars.
 
 The value :math:`\mu > 0` is a smoothness weight, and :math:`\lambda > 0`
 determines how close we should stay to the input terrain :math:`\phi_0` (smaller
@@ -116,6 +115,7 @@ The exposure value for a camera is computed as the average of the image
 intensity divided by the average reflectance, both computed over the DEM.
 If the problem is parallelized using ``parallel_sfs``, the exposures
 are found just once, over the entire DEM, rather than for each tile.
+The exposures can be optimized while solving for the DEM.
 
 It is important to note that the default Lunar-Lambertian model may
 not be the right choice for other planetary bodies, hence some
@@ -127,7 +127,7 @@ application.
 How to get images
 -----------------
 
-We obtain the images from http://wms.lroc.asu.edu/lroc/search (we search
+We obtain the images from http://wms.lroc.asu.edu/lroc/search (search
 for EDR images of type NACL and NACR).
 
 A faster (but not as complete) interface is provided by
@@ -145,7 +145,8 @@ We advise the following strategy for picking images. First choose a
 small longitude-latitude window in which to perform a search for
 images. Pick two images that are very close in time and with a big
 amount of overlap (ideally they would have consecutive orbit numbers).
-Those can be passed to ASP's ``parallel_stereo`` tool to create an
+A good convergence angle is expected (:numref:`stereo_pairs`).
+Those images can be passed to ASP's ``parallel_stereo`` tool to create an
 initial DEM.  Then, search for other images close to the center of the
 maximum overlap of the first two images. Pick one or more of those,
 ideally with different illumination conditions than the first
@@ -299,7 +300,6 @@ sample distance (GSD) of the images. This will ensure optimal sampling.
 
     point2dem -r moon --stereographic --proj-lon 0  \
       --proj-lat -90 run_full1/run-PC.tif
-
 
 SfS can only be run on a DEM with valid data at each grid point.  The
 DEM obtained above should be opened in ``stereo_gui``, and the bounds
@@ -461,7 +461,7 @@ albedo and terrain will have artifacts.
 
 See :numref:`sfs_outputs` for the produced file having the albedo.
 
-An example showing modeling of albedo and atmospheric haze is in
+An example showing modeling of albedo (and atmospheric haze) is in
 :numref:`sfs_earth`.
 
 .. _sfs_multiview:
@@ -638,17 +638,23 @@ datasets on which we will perform SfS.
 Next we create the "ground truth" DEM from the aligned high-resolution
 point cloud, and crop it to a desired region::
 
-    point2dem -r moon --tr 10 --stereographic --proj-lon 0 --proj-lat -90 \
+    point2dem -r moon --tr 10 --stereographic  \
+      --proj-lon 0 --proj-lat -90              \
       run_full2/run-trans_reference.tif
-    gdal_translate -projwin -15540.7 151403 -14554.5 150473               \
-      run_full2/run-trans_reference-DEM.tif run_full2/run-crop-DEM.tif
+    gdal_translate                             \
+      -projwin -15540.7 151403 -14554.5 150473 \
+      run_full2/run-trans_reference-DEM.tif    \
+      run_full2/run-crop-DEM.tif
 
 We repeat the same steps for the initial guess for SfS::
 
-    point2dem -r moon --tr 10 --stereographic --proj-lon 0 --proj-lat -90 \
+    point2dem -r moon --tr 10 --stereographic  \
+      --proj-lon 0 --proj-lat -90              \
       run_sub10/run-PC.tif
-    gdal_translate -projwin -15540.7 151403 -14554.5 150473               \
-      run_sub10/run-DEM.tif run_sub10/run-crop-DEM.tif
+    gdal_translate                             \
+      -projwin -15540.7 151403 -14554.5 150473 \
+      run_sub10/run-DEM.tif                    \
+      run_sub10/run-crop-DEM.tif
 
 Since our dataset has many shadows, we found that specifying the
 shadow thresholds for the tool improves the results. The thresholds
@@ -783,18 +789,21 @@ curvature term in the areas in shadow, of the form
 
 to the SfS formulation in :numref:`sfs_formulation`. As an example, running::
 
-    sfs -i run_sub10/run-crop-DEM.tif                               \
-        A_crop_sub10.cub C_crop_sub10.cub D_crop_sub10.cub          \
-        -o sfs_sub10_v2/run                                         \
-        --threads 4 --smoothness-weight 0.12                        \
-        --max-iterations 5 --initial-dem-constraint-weight 0.0001   \
-        --reflectance-type 1                                        \
-        --use-approx-camera-models                                  \
-        --crop-input-images                                         \
-        --bundle-adjust-prefix run_ba_sub10/run                     \
-        --shadow-thresholds '0.002 0.002 0.002'                     \
-        --curvature-in-shadow 0.15 --curvature-in-shadow-weight 0.1 \
-        --lit-curvature-dist 10 --shadow-curvature-dist 5
+    sfs -i run_sub10/run-crop-DEM.tif                      \
+        A_crop_sub10.cub C_crop_sub10.cub D_crop_sub10.cub \
+        -o sfs_sub10_v2/run                                \
+        --threads 4 --smoothness-weight 0.12               \
+        --max-iterations 5                                 \
+        --initial-dem-constraint-weight 0.0001             \
+        --reflectance-type 1                               \
+        --use-approx-camera-models                         \
+        --crop-input-images                                \
+        --bundle-adjust-prefix run_ba_sub10/run            \
+        --shadow-thresholds '0.002 0.002 0.002'            \
+        --curvature-in-shadow 0.15                         \
+        --curvature-in-shadow-weight 0.1                   \
+        --lit-curvature-dist 10                            \
+        --shadow-curvature-dist 5
 
 will produce the terrain in :numref:`sfs2_fix_fig`.
  
@@ -1127,8 +1136,7 @@ hence the earliest images (sorted by Sun azimuth angle) may become
 similar to the latest ones. That is the reason above we used the
 option ``--match-first-to-last``.
 
-The ``--auto-overlap-params`` option can be used to
-determine which images overlap.
+The ``--auto-overlap-params`` option can help determine which images overlap.
 
 Note that this invocation may run for more than a day, or even
 more. And it may be necessary to get good convergence. If the process
@@ -1757,22 +1765,21 @@ Here are a few suggestions we have found helpful when running ``sfs``:
 - First determine the appropriate smoothing weight :math:`\mu` by
   running a small clip, and using just one image. A value between 0.06
   and 0.12 seems to work all the time with LRO NAC, even when the
-  images are subsampled. The other weight, :math:`\lambda,` 
+  images are subsampled. The other weight, :math:`\lambda`, 
   that is, the value of ``--initial-dem-constraint-weight``, can be
   set to something small, like :math:`0.0001.` This can be increased to
   :math:`0.001` if noticing that the output DEM strays too far.
 
-- More images with more diverse illumination conditions result in more 
-  accurate terrain. 
+- Having images with diverse illumination conditions results in a more accurate
+  terrain. 
 
-- Floating the albedo (option ``--float-albedo``) can introduce
-  instability and divergence, it should be avoided unless obvious
-  albedo variation is seen in the images. See :numref:`sfs_albedo` for
-  a longer discussion.
+- Floating the albedo (option ``--float-albedo``) can introduce instability and
+  divergence, unless the images have very diverse illumination. See
+  :numref:`sfs_albedo` for a longer discussion.
 
 - Floating the cameras in SfS should be avoided, as bundle adjustment
-  does a better job. Floating the exposures was shown to produce
-  marginal results.
+  does a better job. Floating the exposures was useful for the Earth 
+  example (:numref:`sfs_earth`), but less so for the Moon.
 
 - Floating the DEM at the boundary (option ``--float-dem-at-boundary``)
   is also suggested to be avoided.

@@ -121,9 +121,9 @@ file can create the camera files from scratch (:numref:`cam_from_gcp`).
 
 The images and cameras were then bundle-adjusted (:numref:`bundle_adjust`),
 together with these GCP. The provided DEM was used as a constraint, with the
-options ``--heights-from-dem dem.tif --heights-from-dem-uncertainty 1.0``. The
-latter parameter's value was to give somewhat weight to the DEM than to the
-GCP, though likely the precise values are not important.
+options ``--heights-from-dem dem.tif --heights-from-dem-uncertainty 10.0``. The
+latter parameter's value was to give less weight to the DEM than to the
+GCP (see ``--gcp-sigma`` above), as the GCP are known to be quite accurate.
 
 The ``mapproject`` program (:numref:`mapproject`) was run to verify that the
 produced cameras result in orthoimages that agree well with the input DEM and

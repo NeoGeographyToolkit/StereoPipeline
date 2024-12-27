@@ -70,3 +70,4 @@ Shape-from-Shading
 
    sfs_usage
    examples/sfs_earth
+   examples/sfs_ctx
