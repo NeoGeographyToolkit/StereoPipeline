@@ -28,7 +28,7 @@ Results
    :align: left
    
    A larger area (about 1100 x 1100 pixels, at 6 m/pixel). The site is the Jezero
-   Crater. The top row shows, as before the CTX stereo terrain, CTX SfS-refined
+   Crater. The top row shows, as before, the CTX stereo terrain, CTX SfS-refined
    terrain, and a HiRISE terrain for comparison. The bottom row has the
    difference between the CTX stereo terrain and the HiRISE terrain (left), and the
    difference between the SfS-refined terrain and the HiRISE terrain (right). The
@@ -42,7 +42,7 @@ Results
    :alt: ctx_ortho
    :align: left
    
-   Two CTX orthoimages with different illumination conditions. There are notable 
+   Two input CTX images with different illumination conditions. There are notable 
    lighting differences on the mound in the upper-right area.
 
 Preparation
@@ -82,7 +82,7 @@ with ``dem_mosaic`` (:numref:`dem_mosaic`) and then run ``geodiff`` (:numref:`ge
 to compare the mosaic with each individual DEM. The least consistent DEMs
 should be discarded, and the remaining ones mosaicked together. 
 
-Any holes should be filled and a bit of blur is suggested
+Any holes in the produced DEM should be filled, and a bit of blur is suggested
 (:numref:`dem_mosaic_extrapolate`).
 
 The resulting mosaic will be the input for SfS refinement.
