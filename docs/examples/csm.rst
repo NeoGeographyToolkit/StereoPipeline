@@ -1066,10 +1066,10 @@ CSM model state
 
 CSM cameras are stored in JSON files, in one of the following two formats:
 
-* ISD: It has the transforms from sensor coordinates to J2000, and from
+* *ISD*: This has the transforms from sensor coordinates to J2000, and from
   J2000 to ECEF. 
-* Model state: Then the above-mentioned transforms are combined,
-  and other information is condensed or removed. 
+* *Model state*: In this file the above-mentioned transforms are combined, and
+  other information is condensed or removed. 
    
 The model state files have all the data needed to project ground points into the
 camera and vice-versa, so they are sufficient for any use in ASP. The model state can

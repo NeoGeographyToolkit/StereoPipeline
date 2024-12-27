@@ -189,6 +189,8 @@ Files created at triangulation
    to convert them to ECEF). Stored in plain text. Has the same information as
    the ``POINT_OFFSET`` header in ``PC.tif``.
 
+.. _out_log_files:
+
 Other files created at all stages
 ---------------------------------
 

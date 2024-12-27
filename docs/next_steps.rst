@@ -265,19 +265,17 @@ subpixel refinement *(also 21 pixels square)*.
 Search range determination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Using these settings alone, ASP will attempt to work out the minimum and
-maximum disparity it will search for automatically. However if you wish
-to, you can explicitly set the extent of the search range by adding an option
-such as::
+ASP will attempt to work out the minimum and maximum disparity it will search
+for automatically. The search range can be explicitly set with a command-line
+option such as::
 
-    corr-search -80 -2 20 2
+    --corr-search -80 -2 20 2
 
 These four integers define the minimum horizontal and vertical disparity and
 then the maximum horizontal and vertical disparity (:numref:`corr_section`).
 
-The search range determined automatically can then be tightened using
-the option ``--max-disp-spread`` (:numref:`stereodefault`) before
-full-image resolution happens.
+The search range can be tightened with the option ``--max-disp-spread``
+before full-image resolution happens.
 
 It is suggested that these settings be used only if the run-time is
 high or the inputs are difficult. For more details see
@@ -310,9 +308,7 @@ images as::
      ISIS> parallel_stereo left_image.cub right_image.cub \
                -s stereo.default results/output
 
-For DigitalGlobe/Maxar images the cameras need to be specified separately:
-
-::
+For DigitalGlobe/Maxar images the cameras need to be specified separately::
 
     parallel_stereo left.tif right.tif left.xml right.xml \
       -s stereo.default results/output
@@ -962,10 +958,13 @@ preserves any georeference.
 Dealing with long run-times and failures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If ``stereo_corr`` takes unreasonably long, it may have encountered a
-portion of the image where, due to noise (such as clouds, shadows, etc.)
-the determined search range is much larger than what it should be. 
-
+If ``stereo_corr`` takes unreasonably long, it may have encountered a portion of
+the image where, due to noise (such as clouds, shadows, etc.) the determined
+search range is much larger than what it should be. The search range is
+displayed in a terminal and saved to ``stereo_corr`` log files
+(:numref:`out_log_files`). A width and height over 100 pixels is generally too
+large. 
+  
 In this case it is suggested to mapproject the images
 (:numref:`mapproj-example`). This will make the images more similar and reduce
 the search range. 
@@ -978,11 +977,12 @@ how long each 1024 |times| 1024 pixel tile can take. A good value here
 could be 300 (seconds) or more if your terrain is expected to have
 large height variations.
 
-If using the ``asp_sgm`` or ``asp_mgm`` algorithms, one can use a lower
+With the ``asp_sgm`` or ``asp_mgm`` algorithms, one can use a lower
 value for ``--corr-memory-limit-mb`` (:numref:`asp_sgm`).  One may
 also tighten ``--outlier-removal-params`` (:numref:`stereodefault`),
-or mapproject the images (:numref:`mapproj-example`). A smaller manual
-search range can also be specified (:numref:`search_range2`).
+or mapproject the images (:numref:`mapproj-example`). 
+
+A smaller manual search range can be specified (:numref:`search_range2`).
 
 If a run failed partially during correlation, it can be resumed with
 the ``parallel_stereo`` option ``--resume-at-corr``

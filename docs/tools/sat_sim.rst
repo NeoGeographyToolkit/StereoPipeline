@@ -144,13 +144,16 @@ See :numref:`roll_pitch_yaw_def` for how these angles are defined.
 
 Example invocation::
 
-    sat_sim --dem dem.tif --ortho ortho.tif              \
-    --first 397.1 400.7 450000 --last 397.1 500.7 450000 \
-    --num 5                                              \
-    --roll 0 --pitch 25 --yaw 0                          \
-    --focal-length 450000 --optical-center 500 500       \
-    --image-size 1000 1000                               \
-    -o run/run
+    sat_sim --dem dem.tif         \
+      --ortho ortho.tif           \
+      --first 397.1 400.7 450000  \
+      --last 397.1 500.7 450000   \
+      --num 5                     \
+      --roll 0 --pitch 25 --yaw 0 \
+      --focal-length 450000       \
+      --optical-center 500 500    \
+      --image-size 1000 1000      \
+      -o run/run
 
 See :numref:`orbit_plot` for how to visualize the roll, pitch, and yaw angles of
 the cameras with ``orbit_plot.py``.
@@ -166,14 +169,17 @@ the satellite orbit, then use those to generate the cameras (positioned
 between those endpoints), with the center of the camera ground footprint following 
 the desired ground path. Example::
 
-    sat_sim --dem dem.tif --ortho ortho.tif                 \
-      --first 397.1 400.7 450000 --last 397.1 500.7 450000  \
-      --first-ground-pos 397.1 400.7                        \
-      --last-ground-pos  397.1 500.7                        \
-      --roll 0 --pitch 25 --yaw 0                           \
-      --num 5                                               \
-      --focal-length 450000 --optical-center 500 500        \
-      --image-size 1000 1000                                \
+    sat_sim --dem dem.tif            \
+      --ortho ortho.tif              \
+      --first 397.1 400.7 450000     \
+      --last 397.1 500.7 450000      \
+      --first-ground-pos 397.1 400.7 \
+      --last-ground-pos  397.1 500.7 \
+      --roll 0 --pitch 25 --yaw 0    \
+      --num 5                        \
+      --focal-length 450000          \
+      --optical-center 500 500       \
+      --image-size 1000 1000         \
       -o run/run
 
 Here, unlike in :numref:`sat_sim_nadir`, we will use ``--first`` and ``--last``
