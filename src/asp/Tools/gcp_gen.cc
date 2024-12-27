@@ -27,6 +27,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Core/ImageUtils.h>
 
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Manipulation.h>
@@ -40,10 +41,11 @@ namespace po = boost::program_options;
 namespace asp {
 
 struct Options: vw::GdalWriteOptions {
-  std::string camera_image, ortho_image, dem, output_gcp, output_prefix, match_file;
+  std::string camera_image, ortho_image, mapproj_image, dem, output_gcp, output_prefix, match_file;
   double inlier_threshold, gcp_sigma;
   int ip_detect_method, ip_per_image, ip_per_tile, matches_per_tile, num_ransac_iterations;
   vw::Vector2i matches_per_tile_params;
+  bool individually_normalize;
   Options(): ip_per_image(0), num_ransac_iterations(0.0), inlier_threshold(0) {}
 };
 
@@ -83,6 +85,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "resulting in the tiles overlapping. This may be needed if the homography alignment "
      "between these images is not great, as this transform is used to pair up left and "
      "right image tiles.")
+    ("mapproj-image", po::value(&opt.mapproj_image)->default_value(""),
+     "If interest point matching of the camera image to the orthoimage fails, and this "
+     "image is provided, which is produced by mapprojecting the camera image with a camera "
+     "model onto a DEM, use this for matching to the orthoimage instead, then transfer the "
+     "matches to the camera image. The camera model file and DEM must be available and "
+     "their names will be read from the geoheader of the mapprojected image.")
+    ("individually-normalize",
+     po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
+     "Individually normalize the input images instead of using common values.")
     ("num-ransac-iterations", po::value(&opt.num_ransac_iterations)->default_value(1000),
      "How many iterations to perform in RANSAC when finding interest point matches.")
     ("inlier-threshold", po::value(&opt.inlier_threshold)->default_value(0.0),
@@ -141,11 +152,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 void find_matches(Options & opt,
                   std::string const& camera_image_name, 
                   std::string const& ortho_image_name,
+                  bool is_mapproj,
                   std::vector<vw::ip::InterestPoint> & matched_ip1,
                   std::vector<vw::ip::InterestPoint> & matched_ip2) {
 
-  vw::vw_out() << "Camera image: " << opt.camera_image << "\n";
-  vw::vw_out() << "Ortho image: " << opt.ortho_image << "\n";
+  if (!is_mapproj)
+    vw::vw_out() << "Camera image: " << camera_image_name << "\n";
+  else 
+    vw::vw_out() << "Mapprojected camera image: " << camera_image_name << "\n";
+    
+  vw::vw_out() << "Ortho image: " << ortho_image_name << "\n";
   vw::vw_out() << "DEM: " << opt.dem << "\n";
 
   // Load the DEM
@@ -212,6 +228,7 @@ void find_matches(Options & opt,
   stereo_settings().epipolar_threshold           = opt.inlier_threshold;
   asp::stereo_settings().correlator_mode         = true; // no cameras
   asp::stereo_settings().alignment_method        = "none"; // no alignment
+  asp::stereo_settings().individually_normalize  = opt.individually_normalize;
 
   std::string match_file 
     = vw::ip::match_filename(opt.output_prefix, camera_image_name, ortho_image_name);
@@ -253,15 +270,87 @@ void find_matches(Options & opt,
   return;
 }
 
+// If the matching is done with the mapprojected camera image, undo it. This applies
+// only to ip1, as ip2 is for the ortho image. Both of these may be modified if the
+// mapprojection is not undone successfully for all matches.
+void undo_mapproj(Options & opt,
+                  std::vector<vw::ip::InterestPoint> & ip1,
+                  std::vector<vw::ip::InterestPoint> & ip2) {
+  
+  // Read the needed information from the mapproj header
+  std::string adj_key, img_file_key, cam_type_key, cam_file_key, dem_file_key;
+  std::string adj_prefix, image_file, cam_type, cam_file, dem_file;
+  read_mapproj_header(opt.mapproj_image, 
+                      adj_key, img_file_key, cam_type_key, cam_file_key, dem_file_key,
+                      adj_prefix, image_file, cam_type, cam_file, dem_file);  
+
+  // The image file must match
+  if (image_file != opt.camera_image)
+    vw_throw(ArgumentErr() << "The image file in the mapproj header of " 
+              << opt.mapproj_image << "does not match the camera image.\n");
+
+  // The dem file must be non-empty
+  if (dem_file == "")
+    vw_throw(ArgumentErr() << "The DEM file in the mapproj header of " 
+              << opt.mapproj_image << "is empty.\n");
+  
+  // Load the camera model  
+  asp::SessionPtr session(asp::StereoSessionFactory::create
+                          (cam_type, // may change
+                            opt, image_file, image_file, cam_file, cam_file,
+                            opt.output_prefix));
+  const Vector2 zero_pixel_offset(0,0);
+  vw::CamPtr map_proj_cam = session->load_camera_model(image_file, cam_file,
+                                                       adj_prefix, zero_pixel_offset);
+  
+  // Prepare the DEM for interpolation  
+  vw::cartography::GeoReference dem_georef;
+  ImageViewRef<PixelMask<double>> interp_dem;
+  asp::create_interp_dem(dem_file, dem_georef, interp_dem);
+
+  // Read the mapproj_image georef
+  vw::cartography::GeoReference map_georef;
+  bool has_mapproj_georef 
+    = vw::cartography::read_georeference(map_georef, opt.mapproj_image);
+  if (!has_mapproj_georef)
+    vw_throw(ArgumentErr() << "No georeference found in: " << opt.mapproj_image << ".\n");
+  
+  // Undo the mapprojection. Skip the matches for which cannot do that.
+  std::vector<vw::ip::InterestPoint> local_ip1, local_ip2;
+  for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
+    if (!asp::projected_ip_to_raw_ip(ip1[ip_iter], interp_dem, map_proj_cam,
+                                    map_georef, dem_georef))
+      continue;
+    local_ip1.push_back(ip1[ip_iter]);
+    local_ip2.push_back(ip2[ip_iter]);
+  }
+  
+  // Replace the old IP with the new ones
+  ip1 = local_ip1;
+  ip2 = local_ip2;
+}
+
 void gcp_gen(Options & opt) {
 
   std::vector<vw::ip::InterestPoint> ip1, ip2;
   if (opt.match_file == "") {
-    find_matches(opt, opt.camera_image, opt.ortho_image, ip1, ip2);
+
+    bool is_mapproj = false;
+    if (opt.mapproj_image == "") {
+      find_matches(opt, opt.camera_image, opt.ortho_image, is_mapproj, ip1, ip2);
+    } else {
+      // Consider the advanced --mapproj-image option
+      is_mapproj = true;
+      find_matches(opt, opt.mapproj_image, opt.ortho_image, is_mapproj, ip1, ip2);
+    }
+    
   } else {
     vw::vw_out() << "Reading matches from: " << opt.match_file << "\n";
     vw::ip::read_binary_match_file(opt.match_file, ip1, ip2);
   }
+
+  if (opt.mapproj_image != "")
+    undo_mapproj(opt, ip1, ip2);
 
   // Populate from two vectors of matched interest points
   asp::MatchList matchList;

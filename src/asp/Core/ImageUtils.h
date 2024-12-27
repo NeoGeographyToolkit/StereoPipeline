@@ -22,6 +22,8 @@
 #define __ASP_CORE_IMAGE_UTILS_H__
 
 #include <vw/Image/ImageViewRef.h>
+#include <vw/Camera/CameraModel.h>
+#include <vw/InterestPoint/InterestData.h>
 
 namespace vw {
   namespace cartography {
@@ -36,10 +38,29 @@ void load_image(std::string const& image_file,
                 vw::ImageViewRef<double> & image, double & nodata,
                 bool & has_georef, vw::cartography::GeoReference & georef);
 
-  /// Create a DEM ready to use for interpolation
-  void create_interp_dem(std::string const& dem_file,
-                         vw::cartography::GeoReference & dem_georef,
-                         vw::ImageViewRef<vw::PixelMask<double>> & interp_dem);
+/// Create a DEM ready to use for interpolation
+void create_interp_dem(std::string const& dem_file,
+                        vw::cartography::GeoReference & dem_georef,
+                        vw::ImageViewRef<vw::PixelMask<double>> & interp_dem);
+
+/// Take an interest point from a map projected image and convert it
+/// to the corresponding IP in the original non-map-projected image.
+/// - Return false if the pixel could not be converted.
+bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
+                            vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
+                            vw::CamPtr camera_model,
+                            vw::cartography::GeoReference const& georef,
+                            vw::cartography::GeoReference const& dem_georef);
+
+// Read keywords that describe how the images were map-projected.
+void read_mapproj_header(std::string const& map_file,
+                         // Outputs
+                         std::string & adj_key, std::string & img_file_key,
+                         std::string & cam_type_key, std::string & cam_file_key, 
+                         std::string & dem_file_key,
+                         std::string & adj_prefix,
+                         std::string & image_file, std::string & cam_type,
+                         std::string & cam_file, std::string & dem_file);
 
 } // end namespace asp
 

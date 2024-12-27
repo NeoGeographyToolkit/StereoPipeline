@@ -85,7 +85,7 @@ namespace asp {
         left_max  = left_stats [2] + 2*left_stats [3];
         right_min = right_stats[2] - 2*right_stats[3];
         right_max = right_stats[2] + 2*right_stats[3];
-
+        
         if (do_not_exceed_min_max) {
           // This is important for ISIS which may have special pixels beyond the min and max
           left_min = std::max(left_min,   (double)left_stats[0]);
@@ -105,6 +105,14 @@ namespace asp {
         double low = std::min(left_min, right_min);
         double hi  = std::max(left_max, right_max);
         vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+
+        double std_ratio = std::min(left_stats[3], right_stats[3]) / 
+                           std::max(left_stats[3], right_stats[3]);
+        if (std_ratio < 0.2)
+          vw::vw_out(vw::WarningMessage) 
+            << "The standard deviations of the two images are very different. "
+            << "Consider using the option --individually-normalize.\n";
+
         if (!do_not_exceed_min_max) {
           left_img = normalize(left_img, low, hi, 0.0, 1.0);
           right_img = normalize(right_img, low, hi, 0.0, 1.0);

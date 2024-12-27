@@ -1194,42 +1194,6 @@ void align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
 
 }
 
-/// Take an interest point from a map projected image and convert it
-/// to the corresponding IP in the original non-map-projected image.
-/// - Return false if the pixel could not be converted.
-bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
-                            vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                            vw::CamPtr camera_model,
-                            vw::cartography::GeoReference const& georef,
-                            vw::cartography::GeoReference const& dem_georef) {
-
-  // Get IP coordinate in the DEM
-  Vector2 pix(P.x, P.y);
-  Vector2 ll      = georef.pixel_to_lonlat(pix);
-  Vector2 dem_pix = dem_georef.lonlat_to_pixel(ll);
-  if (!interp_dem.pixel_in_bounds(dem_pix))
-    return false;
-  // Load the elevation from the DEM
-  PixelMask<double> dem_val = interp_dem(dem_pix[0], dem_pix[1]);
-  if (!is_valid(dem_val))
-    return false;
-  Vector3 llh(ll[0], ll[1], dem_val.child());
-  Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
-
-  // Project into the camera
-  Vector2 cam_pix;
-  try {
-   cam_pix = camera_model->point_to_pixel(xyz);
-  } catch(...) {
-    return false; // Don't update the point.
-  }
-  P.x  = cam_pix.x();
-  P.y  = cam_pix.y();
-  P.ix = P.x;
-  P.iy = P.y;
-  return true;
-}
-
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera. Note that all intrinsic parameters are stored as multipliers
 // in asp::BAParams.

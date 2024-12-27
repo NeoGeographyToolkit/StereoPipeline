@@ -205,6 +205,13 @@ namespace asp {
                             vw::CamPtr & left_map_proj_cam, 
                             vw::CamPtr & right_map_proj_cam);
 
+    /// Function to load a specific type of camera model with a pixel offset.
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file, 
+                      std::string const& camera_file,
+                      std::string const& ba_prefix, 
+                      vw::Vector2 pixel_offset) const = 0;
+
   protected: // Variables
 
     vw::GdalWriteOptions m_options;
@@ -247,13 +254,6 @@ namespace asp {
     vw::TransformPtr tx_left_map_trans  () const;
     vw::TransformPtr tx_right_map_trans () const;
 
-    /// Function to load a specific type of camera model with a pixel offset.
-    virtual boost::shared_ptr<vw::camera::CameraModel>
-    load_camera_model(std::string const& image_file, 
-                      std::string const& camera_file,
-                      std::string const& ba_prefix, 
-                      vw::Vector2 pixel_offset) const = 0;
-    
     /// Load an RPC camera model with a pixel offset
     /// - We define it here so it can be used for reading RPC map projection models and also
     ///   so it does not get duplicated in derived RPC sessions.

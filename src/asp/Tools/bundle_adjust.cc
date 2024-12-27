@@ -2048,9 +2048,8 @@ void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
 
   // IP matching may not succeed for all pairs
 
-  // Get masked views of the images to get statistics from.
-  // If the user provided a custom no-data value, values no more than that are
-  // masked.
+  // Get masked views of the images to get statistics from. If the user provided
+  // a custom no-data value, values no more than that are masked.
   ImageViewRef<float> image1_view = DiskImageView<float>(rsrc1);
   ImageViewRef<float> image2_view = DiskImageView<float>(rsrc2);
   ImageViewRef<PixelMask<float>> masked_image1, masked_image2;

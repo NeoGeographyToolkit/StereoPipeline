@@ -540,15 +540,6 @@ void align_cameras_to_ground(std::vector< std::vector<vw::Vector3>> const& xyz,
 			     vw::Vector3 & translation,
 			     double & scale);
 
-/// Take an interest point from a map projected image and convert it
-/// to the corresponding IP in the original non-map-projected image.
-/// - Return false if the pixel could not be converted.
-bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
-                            vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                            vw::CamPtr camera_model,
-                            vw::cartography::GeoReference const& georef,
-                            vw::cartography::GeoReference const& dem_georef);
-
 // TODO(oalexan1): Move the asp namespace to encompass the whole header file
 // Save convergence angle percentiles for each image pair having matches
 void saveConvergenceAngles(std::string const& conv_angles_file,
