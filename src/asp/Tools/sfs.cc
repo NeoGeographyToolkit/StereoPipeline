@@ -16,8 +16,6 @@
 // __END_LICENSE__
 
 // Deal with outliers in image intensity.
-// The rpc approximation should also approximate the adjusted cameras if those won't float.
-// This approximation needs to remember is domain of validity.
 // TODO: Ensure the output DEM is float. Check its no-data value.
 // TODO: Study more floating model coefficients.
 // TODO: Study why using tabulated camera model and multiple resolutions does
@@ -67,7 +65,6 @@
 // SfS camera approx logic, and SfS cost function logic.
 // TODO(oalexan1): Remove all floating of cameras from the code and the doc. Use bundle adjust.
 // Then also remove all the logic using unadjusted cameras except the place.
-// Eliminate RPC. CSM is good enough.
 // TODO(oalexan1): Remove floating sun position
 // TODO(oalexan1): Use OpenMP here in ComputeReflectanceAndIntensity.
 // For isis without approx models need to ensure there is one thread.
@@ -96,7 +93,6 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/SfS/SfsImageProc.h>
-#include <asp/Camera/RPCModelGen.h>
 #include <asp/SfS/SfsUtils.h>
 
 #include <vw/Image/MaskViews.h>
@@ -533,7 +529,7 @@ struct Options : public vw::GdalWriteOptions {
   bool float_albedo, float_exposure, float_cameras, float_all_cameras, model_shadows,
     save_computed_intensity_only, estimate_slope_errors, estimate_height_errors,
     compute_exposures_only, estimate_exposure_haze_albedo,
-    save_dem_with_nodata, use_approx_camera_models, use_rpc_approximation, 
+    save_dem_with_nodata, use_approx_camera_models, 
     crop_input_images, allow_borderline_data, float_dem_at_boundary, boundary_fix,
     fix_dem, float_reflectance_model, float_sun_position, query, save_sparingly,
     float_haze, read_exposures, read_haze, read_albedo;
@@ -543,9 +539,8 @@ struct Options : public vw::GdalWriteOptions {
     lit_curvature_dist, shadow_curvature_dist, gradient_weight,
     blending_power, integrability_weight, smoothness_weight_pq, init_dem_height,
     nodata_val, initial_dem_constraint_weight, albedo_constraint_weight,
-    albedo_robust_threshold,
-    camera_position_step_size, rpc_penalty_weight, rpc_max_error,
-    unreliable_intensity_threshold, robust_threshold, shadow_threshold;
+    albedo_robust_threshold, camera_position_step_size, unreliable_intensity_threshold, 
+    robust_threshold, shadow_threshold;
   vw::BBox2 crop_win;
   vw::Vector2 height_error_params;
   
@@ -562,7 +557,6 @@ struct Options : public vw::GdalWriteOptions {
             estimate_exposure_haze_albedo(false),
             save_dem_with_nodata(false),
             use_approx_camera_models(false),
-            use_rpc_approximation(false),
             crop_input_images(false),
             allow_borderline_data(false), 
             float_dem_at_boundary(false), boundary_fix(false), fix_dem(false),
@@ -574,13 +568,11 @@ struct Options : public vw::GdalWriteOptions {
             gradient_weight(0.0), integrability_weight(0), smoothness_weight_pq(0),
             initial_dem_constraint_weight(0.0),
             albedo_constraint_weight(0.0), albedo_robust_threshold(0.0),
-            camera_position_step_size(1.0), rpc_penalty_weight(0.0),
-            rpc_max_error(0.0),
-            unreliable_intensity_threshold(0.0),
+            camera_position_step_size(1.0), unreliable_intensity_threshold(0.0),
             crop_win(BBox2i(0, 0, 0, 0)){}
 };
 
-struct GlobalParams{
+struct GlobalParams {
   int reflectanceType;
   // Two parameters used in the formula for the Lunar-Lambertian
   // reflectance
@@ -2993,12 +2985,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save a copy of the DEM while using a no-data value at a DEM grid point where all images show shadows. To be used if shadow thresholds are set.")
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
      "Use approximate camera models for speed. Only with ISIS .cub cameras.")
-    ("use-rpc-approximation",   po::bool_switch(&opt.use_rpc_approximation)->default_value(false)->implicit_value(true),
-     "Use RPC approximations for the camera models instead of approximate tabulated camera models (invoke with --use-approx-camera-models). This is broken and should not be used.")
-    ("rpc-penalty-weight", po::value(&opt.rpc_penalty_weight)->default_value(0.1),
-     "The RPC penalty weight to use to keep the higher-order RPC coefficients small, if the RPC model approximation is used. Higher penalty weight results in smaller such coefficients.")
-    ("rpc-max-error", po::value(&opt.rpc_max_error)->default_value(2),
-     "Skip the current camera if the maximum error between a camera model and its RPC approximation is larger than this.")
     ("coarse-levels", po::value(&opt.coarse_levels)->default_value(0),
      "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids. It is suggested to not use this option.")
     ("max-coarse-iterations", po::value(&opt.max_coarse_iterations)->default_value(10),
@@ -3160,14 +3146,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Haze cannot be read unless there is at least one haze coefficient.\n");
   
   // There can be 0 or 1 haze coefficients. The modeling of more than one haze
-  // coeffecient needs to be looked into.
+  // coefficient needs to be looked into.
   if (opt.num_haze_coeffs < 0 || opt.num_haze_coeffs > g_max_num_haze_coeffs)
     vw_throw(ArgumentErr() << "Expecting up to " << g_max_num_haze_coeffs
              << " haze coefficients.\n");
     
-  if (opt.use_rpc_approximation) 
-    vw_throw(ArgumentErr() << "The RPC approximation is broken.\n");
-
   // Curvature in shadow params
   if (opt.curvature_in_shadow < 0.0 || opt.curvature_in_shadow_weight < 0.0) 
     vw_throw(ArgumentErr() << "Cannot have negative curvature in shadow or its weight.\n");
@@ -3182,13 +3165,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "The steepness factor must be positive.\n");    
 
   if (opt.compute_exposures_only || opt.estimate_exposure_haze_albedo) {
-    if (opt.use_approx_camera_models ||
-        opt.use_rpc_approximation ||
-        opt.crop_input_images) {
+    if (opt.use_approx_camera_models || opt.crop_input_images) {
       vw_out(WarningMessage) << "When computing exposures only, not using approximate "
                              << "camera models or cropping input images.\n";
       opt.use_approx_camera_models = false;
-      opt.use_rpc_approximation = false;
       opt.crop_input_images = false;
       opt.blending_dist = 0;
       opt.allow_borderline_data = false;
@@ -3514,18 +3494,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.coarse_levels = 0;
     }
 
-    if (opt.use_approx_camera_models ||
-        opt.use_rpc_approximation ||
-        opt.crop_input_images) {
-      vw_out(WarningMessage) << "Not using approximate camera models or cropping input images.\n";
+    // Need the exact cameras as they span the full DEM
+    if (opt.use_approx_camera_models || opt.crop_input_images) {
       opt.use_approx_camera_models = false;
-      opt.use_rpc_approximation = false;
       opt.crop_input_images = false;
     }
-    
-    //if (opt.image_exposures_vec.empty())
-    //  vw_throw( ArgumentErr()
-    // << "Expecting the exposures to be computed and passed in.\n" );
     
     if (opt.num_haze_coeffs > 0 && opt.image_haze_vec.empty())
       vw_throw( ArgumentErr()
@@ -4347,12 +4320,10 @@ int main(int argc, char* argv[]) {
       vw_throw(ArgumentErr() << "The input DEM is too small.\n");
 
     // This check must be here, after we find the session
-    if (opt.stereo_session != "isis" && 
-        (opt.use_approx_camera_models || opt.use_rpc_approximation)) {
+    if (opt.stereo_session != "isis" && opt.use_approx_camera_models) {
       vw_out() << "Computing approximate models works only with ISIS cameras. "
-               << "Ignoring that option.\n";
+               << "Ignoring this option.\n";
       opt.use_approx_camera_models = false;
-      opt.use_rpc_approximation = false;
     }
 
     // Since we may float the cameras, ensure our camera models are
@@ -4449,12 +4420,7 @@ int main(int argc, char* argv[]) {
         // Compared original and unadjusted models
         double max_curr_err = 0.0;
 
-        // TODO: No need to test how unadjusted models compare for RPC,
-        // test only the adjusted models. 
         if (model_is_valid) {
-          // Recompute the crop box, can be done more reliably here
-          if (opt.use_rpc_approximation)
-            cam_ptr->crop_box() = BBox2();
           for (int col = 0; col < dems[0].cols(); col++) {
             for (int row = 0; row < dems[0].rows(); row++) {
               Vector2 ll = geos[0].pixel_to_lonlat(Vector2(col, row));
@@ -4476,7 +4442,7 @@ int main(int argc, char* argv[]) {
           vw_out() << "Invalid camera model.\n";
         }
         
-        if (max_curr_err > opt.rpc_max_error || !model_is_valid) {
+        if (max_curr_err > 2.0 || !model_is_valid) {
           // This is a bugfix. When the DEM clip does not intersect the image,
           // the approx camera model has incorrect values.
           if (model_is_valid)
@@ -4489,15 +4455,6 @@ int main(int argc, char* argv[]) {
 
         max_approx_err = std::max(max_approx_err, max_curr_err);
       
-        if (opt.use_rpc_approximation && !cam_ptr->crop_box().empty()){
-          // Grow the box just a bit more, to ensure we still see
-          // enough of the images during optimization.
-          double extra = 0.2;
-          double extrax = extra*cam_ptr->crop_box().width();
-          double extray = extra*cam_ptr->crop_box().height();
-          cam_ptr->crop_box().min() -= Vector2(extrax, extray);
-          cam_ptr->crop_box().max() += Vector2(extrax, extray);
-        }
         cam_ptr->crop_box().crop(img_bbox);
         vw_out() << "Crop box dimensions: " << cam_ptr->crop_box() << std::endl;
   

@@ -232,16 +232,6 @@ Command-line options for sfs
     Use approximate camera models for speed. Only with ISIS .cub
     cameras.
 
---use-rpc-approximation
-    Use RPC approximations for the camera models instead of approximate
-    tabulated camera models (invoke with ``--use-approx-camera-models``).
-    This is broken and should not be used.
-
---rpc-penalty-weight <float (default: 0.1)>
-    The RPC penalty weight to use to keep the higher-order RPC
-    coefficients small, if the RPC model approximation is used.
-    Higher penalty weight results in smaller such coefficients.
-
 --coarse-levels <integer (default: 0)>
     Solve the problem on a grid coarser than the original by a
     factor of 2 to this power, then refine the solution on finer

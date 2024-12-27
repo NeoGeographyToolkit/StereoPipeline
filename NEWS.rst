@@ -79,6 +79,8 @@ sfs (:numref:`sfs`):
   * Removed the ability to work on multiple clips at once, as it was not used.
   * Can ingest a provided albedo map (of same size as the input DEM). Option:
     ``--input-albedo``.
+  * Removed the RPC approximation. Option ``--use-approx-camera-models`` should 
+    be used instead with ISIS cameras.
 
 orbit_plot (:numref:`orbit_plot`):
   * Added the options ``--use-rmse``, ``--output-file``.

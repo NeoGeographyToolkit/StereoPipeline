@@ -59,9 +59,8 @@ Some of these images will be used to create terrain models with stereo. Any
 stereo pair should have similar illumination and a non-small convergence angle
 (about 30 degrees is feasible for CTX). See :numref:`stereo_pairs`.
 
-We worked with about a dozen images from the Jezero Crater. The full dataset is
-for this area had 115 images. It is recommended to fetch a lot of images first and
-then select a subset after inspection.
+The full dataset for this area had 115 images. It is recommended to fetch a
+lot of images first and then select a subset after inspection.
 
 The Sun azimuth angle was between -141.5 and -72.8 degrees. This is diverse
 enough, but a larger range would have been preferable. No data with the Sun
@@ -156,8 +155,8 @@ and the reference HiRISE DEM appear to be somewhat inconsistent. Making this
 value smaller resulted in the SfS DEM being in less agreement with HiRISE.
 
 Somewhat surprisingly, the plain Lambertian reflectance (``--reflectance-type 0``)
-worked about the same as the Lunar-Lambertian model (``--reflectance-type 1``),
-with the Hapke model with default parameters (``--reflectance-type 2``) doing
+worked about the same as the Lunar-Lambertian model (type 1),
+with the Hapke model with default parameters (type 2) doing
 just a very tiny bit better.
 
 Co-optimizing the reflectance model coefficients (option
