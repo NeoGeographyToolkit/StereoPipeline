@@ -94,6 +94,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/SfS/SfsImageProc.h>
 #include <asp/SfS/SfsUtils.h>
+#include <asp/SfS/SfsCamera.h>
 
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/AntiAliasing.h>
@@ -139,7 +140,7 @@ using namespace vw::cartography;
 typedef ImageViewRef<PixelMask<float>> MaskedImgT;
 typedef ImageViewRef<double> DoubleImgT;
 
-namespace vw { namespace camera {
+namespace asp {
 
   // A base approx camera model class that will factor out some functionality
   // from the two approx camera model classes we have below.
@@ -182,12 +183,10 @@ namespace vw { namespace camera {
     
   };
 
-  // This class provides an approximation for an adjusted ISIS camera
-  // model around a current DEM. Keeping the cameras fixed allows the
-  // domain of approximation to be narrower so using less memory. The
-  // algorithm works by tabulation of point_to_pixel and
+  // This class provides an approximation for an ASP camera model around a small
+  // DEM. The algorithm works by tabulation of point_to_pixel and
   // pixel_to_vector values at the mean dem height.
-  class ApproxAdjustedCameraModel: public ApproxBaseCameraModel {
+  class ApproxCameraModel: public ApproxBaseCameraModel {
     mutable Vector3 m_mean_dir; // mean vector from camera to ground
     GeoReference m_geo;
     double m_mean_ht;
@@ -246,7 +245,7 @@ namespace vw { namespace camera {
     
   public:
 
-    ApproxAdjustedCameraModel(AdjustedCameraModel const& exact_adjusted_camera,
+    ApproxCameraModel(AdjustedCameraModel const& exact_adjusted_camera,
                               boost::shared_ptr<CameraModel> exact_unadjusted_camera,
                               BBox2i img_bbox, 
                               ImageView<double> const& dem,
@@ -264,7 +263,7 @@ namespace vw { namespace camera {
       
       if (dynamic_cast<AdjustedCameraModel*>(exact_unadjusted_camera.get()) != NULL)
         vw_throw( ArgumentErr()
-                  << "ApproxAdjustedCameraModel: Expecting an unadjusted camera model.\n");
+                  << "ApproxCameraModel: Expecting an unadjusted camera model.\n");
 
       // Compute the mean DEM height.
       // We expect all DEM entries to be valid.
@@ -274,7 +273,7 @@ namespace vw { namespace camera {
         for (int row = 0; row < dem.rows(); row++) {
           if (dem(col, row) == nodata_val)
             vw_throw( ArgumentErr()
-                      << "ApproxAdjustedCameraModel: Expecting a DEM without nodata values.\n");
+                      << "ApproxCameraModel: Expecting a DEM without nodata values.\n");
           m_mean_ht += dem(col, row);
           num += 1.0;
         }
@@ -289,7 +288,7 @@ namespace vw { namespace camera {
 
       if (m_approx_table_gridx == 0 || m_approx_table_gridy == 0) {
         vw_throw( ArgumentErr()
-                  << "ApproxAdjustedCameraModel: Expecting a positive grid size.\n");
+                  << "ApproxCameraModel: Expecting a positive grid size.\n");
       }
 
       // Expand the box, as later the DEM will change. 
@@ -406,7 +405,7 @@ namespace vw { namespace camera {
       return pix;
     }
 
-    virtual ~ApproxAdjustedCameraModel(){}
+    virtual ~ApproxCameraModel(){}
     virtual std::string type() const{ return "ApproxSfSCamera"; }
 
     // This is used rarely. Return the exact camera vector.
@@ -429,7 +428,7 @@ namespace vw { namespace camera {
 
   };
   
-}}
+} // end namespace asp
 
 // Get the memory usage for the given process. This is for debugging, not used
 // in production code. It does not work on OSX.
@@ -4360,10 +4359,11 @@ int main(int argc, char* argv[]) {
         Stopwatch sw;
         sw.start();
         boost::shared_ptr<CameraModel> apcam
-          (new ApproxAdjustedCameraModel(exact_adjusted_camera, exact_unadjusted_camera,
-                                        img_bbox,
-                                        dems[0], geos[0],
-                                        dem_nodata_val, camera_mutex));
+          (new asp::ApproxCameraModel(exact_adjusted_camera, 
+                                              exact_unadjusted_camera,
+                                              img_bbox,
+                                              dems[0], geos[0],
+                                              dem_nodata_val, camera_mutex));
         cameras[image_iter] = apcam;
         
         sw.stop();
@@ -4372,10 +4372,11 @@ int main(int argc, char* argv[]) {
         
         // callTop();
 
-        // Cast the pointer back to ApproxBaseCameraModel as we need that.
-        ApproxBaseCameraModel* cam_ptr = dynamic_cast<ApproxBaseCameraModel*>(apcam.get());
+        // Cast the pointer back to ApproxCameraModel as we need that.
+        asp::ApproxCameraModel* cam_ptr 
+          = dynamic_cast<asp::ApproxCameraModel*>(apcam.get());
         if (cam_ptr == NULL) 
-          vw_throw( ArgumentErr() << "Expecting a ApproxBaseCameraModel." );
+          vw_throw(ArgumentErr() << "Expecting an ApproxCameraModel.");
 
         bool model_is_valid = cam_ptr->model_is_valid();
         
@@ -5038,9 +5039,10 @@ int main(int argc, char* argv[]) {
       Vector3 translation, axis_angle;
       Vector2 pixel_offset;
 
+      // TODO(oalexan1): Must remove adjustments and multi-level
       if (opt.use_approx_camera_models) {
-        ApproxAdjustedCameraModel * aapcam
-          = dynamic_cast<ApproxAdjustedCameraModel*>(cameras[image_iter].get());
+        asp::ApproxCameraModel * aapcam
+          = dynamic_cast<asp::ApproxCameraModel*>(cameras[image_iter].get());
         if (aapcam == NULL)
           vw_throw(ArgumentErr() << "Expecting an approximate camera model.\n");
         AdjustedCameraModel acam = aapcam->exact_adjusted_camera();
