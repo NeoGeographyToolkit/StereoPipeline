@@ -182,8 +182,6 @@ namespace vw { namespace camera {
     
   };
 
-  // TODO(oalexan1): Must use the adjusted model in the camera center
-  // and camera pose functions!
   // This class provides an approximation for an adjusted ISIS camera
   // model around a current DEM. Keeping the cameras fixed allows the
   // domain of approximation to be narrower so using less memory. The
@@ -392,35 +390,16 @@ namespace vw { namespace camera {
 
         // If out of range, return the exact result. This should be very slow.
         // The hope is that it will be very rare.
-        if (out_of_range){
-          vw::Mutex::Lock lock(m_camera_mutex);
-          g_num_locks++;
-          if (g_warning_count < g_max_warning_count) {
-            g_warning_count++;
-            vw_out(WarningMessage) << "Pixel outside of range. Current values and range: "  << ' '
-                                   << x << ' ' << y << ' '
-                                   << m_pixel_to_vec_mat.cols() << ' ' << m_pixel_to_vec_mat.rows()
-                                   << std::endl;
-          }
+        if (out_of_range)
           return m_exact_adjusted_camera.point_to_pixel(xyz);
-        }
         
         PixelMask<Vector3> masked_dir = pixel_to_vec_interp(x, y);
         PixelMask<Vector2> masked_pix = point_to_pix_interp(x, y);
         if (is_valid(masked_dir) && is_valid(masked_pix)) {
           dir = masked_dir.child();
           pix = masked_pix.child();
-        }else{
-          {
-            vw::Mutex::Lock lock(m_camera_mutex);
-            g_num_locks++;
-            if (g_warning_count < g_max_warning_count) {
-              g_warning_count++;
-              vw_out(WarningMessage) << "Invalid ground to camera direction: "
-                                     << masked_dir << ' ' << masked_pix << std::endl;
-            }
-            return m_exact_adjusted_camera.point_to_pixel(xyz);
-          }
+        } else {
+          return m_exact_adjusted_camera.point_to_pixel(xyz);
         }
       }
 
@@ -428,41 +407,24 @@ namespace vw { namespace camera {
     }
 
     virtual ~ApproxAdjustedCameraModel(){}
-    virtual std::string type() const{ return "ApproxAdjustedIsis"; }
+    virtual std::string type() const{ return "ApproxSfSCamera"; }
 
+    // This is used rarely. Return the exact camera vector.
     virtual Vector3 pixel_to_vector(Vector2 const& pix) const {
-
       vw::Mutex::Lock lock(m_camera_mutex);
-      g_num_locks++;
-      if (g_warning_count < g_max_warning_count) {
-        g_warning_count++;
-        vw_out(WarningMessage) << "Invoked exact camera model pixel_to_vector for pixel: "
-                               << pix << std::endl;
-      }
-      // TODO(oalexan1): Put here the exact adjusted camera!
-      return this->exact_unadjusted_camera()->pixel_to_vector(pix);
+      return m_exact_adjusted_camera.pixel_to_vector(pix);
     }
 
-    virtual Vector3 camera_center(Vector2 const& pix) const{
-      // It is tricky to approximate the camera center
-      // TODO(oalexan1): Must apply the adjustment here?
+    // Return the exact camera center
+    virtual Vector3 camera_center(Vector2 const& pix) const {
       vw::Mutex::Lock lock(m_camera_mutex);
-      g_num_locks++;
-      // TODO(oalexan1): Put here the exact adjusted camera!
-      return this->exact_unadjusted_camera()->camera_center(pix);
+      return m_exact_adjusted_camera.camera_center(pix);
     }
 
-    virtual Quat camera_pose(Vector2 const& pix) const{
-      // TODO(oalexan1): Must apply the adjustment here?!!!
+    // Return the exact camera pose
+    virtual Quat camera_pose(Vector2 const& pix) const {
       vw::Mutex::Lock lock(m_camera_mutex);
-      g_num_locks++;
-      if (g_warning_count < g_max_warning_count) {
-        g_warning_count++;
-        vw_out(WarningMessage) << "Invoked the camera pose function for pixel: "
-                               << pix << std::endl;
-      }
-      // TODO(oalexan1): Put here the exact adjusted camera!
-      return this->exact_unadjusted_camera()->camera_pose(pix);
+      return m_exact_adjusted_camera.camera_pose(pix);
     }
 
   };
