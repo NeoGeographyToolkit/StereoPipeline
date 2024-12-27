@@ -13,10 +13,6 @@ The approach is to find interest point matches between the camera image (which
 does not have a georeference) and orthoimage (which does), infer the geolocation
 of those points from the orthoimage, and their elevation from the DEM.
 
-This program can fail if the camera image and orthoimage are not similar enough,
-or if the orthoimage is a mirror-flipped version of the camera image. Manual
-selection of interest points can then be invoked (:numref:`creatinggcp`).
-
 The context and next steps after using this program are discussed in
 :numref:`camera_solve_gcp`.
 
@@ -54,6 +50,28 @@ also with more interest points per tile::
 
 In some cases, ``--ip-detect-method 2`` (ORB) worked out better than SIFT.
 
+Advanced usage
+~~~~~~~~~~~~~~
+
+If the extent of the raw camera image is very different than the orthoimage,
+or if the camera image appears to be a mirror-flipped version of the orthoimage,
+this program can fail. 
+
+In that case, it is recommended to mapproject (:numref:`mapproject`) the raw
+camera image onto a DEM, and pass in the mapprojected image as a helper to this
+tool, with the option::
+
+    --mapproj-image mapproj_image.tif
+
+If needed, both the mapprojected image and orthoimage can be cropped first to a
+shared area.
+
+If the camera image and orthoimage have very different ranges of pixel values,
+use the option ``--individual-normalize``.
+
+If no luck, manual selection of interest points can be invoked
+(:numref:`creatinggcp`).
+    
 Validation
 ~~~~~~~~~~
 
@@ -119,6 +137,10 @@ Command-line options
     further expand to this size, resulting in the tiles overlapping. This may be
     needed if the homography alignment between these images is not great, as
     this transform is used to pair up left and right image tiles.
+  
+--individually-normalize
+    Individually normalize the input images instead of using common
+    values.
     
 --num-ransac-iterations <integer (default: 1000)>
     How many iterations to perform in RANSAC when finding interest point matches.
