@@ -159,8 +159,7 @@ namespace asp {
     BBox2i m_img_bbox;
     mutable BBox2 m_point_box, m_crop_box;
     bool m_model_is_valid;
-    boost::shared_ptr<CameraModel> m_exact_unadjusted_camera;
-    AdjustedCameraModel m_exact_adjusted_camera;
+    AdjustedCameraModel m_exact_camera;
     
     void comp_entries_in_table() const {
       for (int x = m_begX; x <= m_endX; x++) {
@@ -180,9 +179,9 @@ namespace asp {
           Vector2 pix;
           Vector3 vec;
           try {
-            pix = m_exact_adjusted_camera.point_to_pixel(xyz);
+            pix = m_exact_camera.point_to_pixel(xyz);
             //if (true || m_img_bbox.contains(pix))  // Need to think more here
-            vec = m_exact_adjusted_camera.pixel_to_vector(pix);
+            vec = m_exact_camera.pixel_to_vector(pix);
             //else
             // success = false;
             
@@ -209,25 +208,19 @@ namespace asp {
     
   public:
 
-    ApproxCameraModel(AdjustedCameraModel const& exact_adjusted_camera,
-                              boost::shared_ptr<CameraModel> exact_unadjusted_camera,
-                              BBox2i img_bbox, 
-                              ImageView<double> const& dem,
-                              GeoReference const& geo,
-                              double nodata_val,
-                              vw::Mutex &camera_mutex):
+    ApproxCameraModel(AdjustedCameraModel const& exact_camera,
+                      BBox2i img_bbox, 
+                      ImageView<double> const& dem,
+                      GeoReference const& geo,
+                      double nodata_val,
+                      vw::Mutex & camera_mutex):
       m_geo(geo), m_camera_mutex(camera_mutex),
-      m_exact_adjusted_camera(exact_adjusted_camera),
-      m_exact_unadjusted_camera(exact_unadjusted_camera),
+      m_exact_camera(exact_camera),
       m_img_bbox(img_bbox), m_model_is_valid(true) {
 
       int big = 1e+8;
       m_uncompValue = Vector2(-big, -big);
       
-      if (dynamic_cast<AdjustedCameraModel*>(exact_unadjusted_camera.get()) != NULL)
-        vw_throw( ArgumentErr()
-                  << "ApproxCameraModel: Expecting an unadjusted camera model.\n");
-
       // Compute the mean DEM height. We expect all DEM entries to be valid.
       m_mean_ht = 0;
       double num = 0.0;
@@ -334,7 +327,7 @@ namespace asp {
               g_warning_count++;
               vw_out(WarningMessage) << "3D point is inside the planet.\n";
             }
-            return m_exact_adjusted_camera.point_to_pixel(xyz);
+            return m_exact_camera.point_to_pixel(xyz);
           }
         }
 
@@ -352,7 +345,7 @@ namespace asp {
         // If out of range, return the exact result. This should be very slow.
         // The hope is that it will be very rare.
         if (out_of_range)
-          return m_exact_adjusted_camera.point_to_pixel(xyz);
+          return m_exact_camera.point_to_pixel(xyz);
         
         PixelMask<Vector3> masked_dir = pixel_to_vec_interp(x, y);
         PixelMask<Vector2> masked_pix = point_to_pix_interp(x, y);
@@ -360,7 +353,7 @@ namespace asp {
           dir = masked_dir.child();
           pix = masked_pix.child();
         } else {
-          return m_exact_adjusted_camera.point_to_pixel(xyz);
+          return m_exact_camera.point_to_pixel(xyz);
         }
       }
 
@@ -373,19 +366,19 @@ namespace asp {
     // This is used rarely. Return the exact camera vector.
     virtual Vector3 pixel_to_vector(Vector2 const& pix) const {
       vw::Mutex::Lock lock(m_camera_mutex);
-      return m_exact_adjusted_camera.pixel_to_vector(pix);
+      return m_exact_camera.pixel_to_vector(pix);
     }
 
     // Return the exact camera center
     virtual Vector3 camera_center(Vector2 const& pix) const {
       vw::Mutex::Lock lock(m_camera_mutex);
-      return m_exact_adjusted_camera.camera_center(pix);
+      return m_exact_camera.camera_center(pix);
     }
 
     // Return the exact camera pose
     virtual Quat camera_pose(Vector2 const& pix) const {
       vw::Mutex::Lock lock(m_camera_mutex);
-      return m_exact_adjusted_camera.camera_pose(pix);
+      return m_exact_camera.camera_pose(pix);
     }
     
     // The range of pixels in the image we are actually expected to use.
@@ -400,12 +393,8 @@ namespace asp {
       return m_model_is_valid;
     }
     
-    boost::shared_ptr<CameraModel> exact_unadjusted_camera() const {
-      return m_exact_unadjusted_camera;
-    }
-    
-    AdjustedCameraModel exact_adjusted_camera() const {
-      return m_exact_adjusted_camera;
+    AdjustedCameraModel exact_camera() const {
+      return m_exact_camera;
     }
 
   }; // end class ApproxCameraModel
@@ -4329,11 +4318,8 @@ int main(int argc, char* argv[]) {
             != opt.skip_images.end()) continue;
     
         // Here we make a copy, since soon cameras[image_iter] will be overwritten
-        AdjustedCameraModel exact_adjusted_camera
+        AdjustedCameraModel exact_camera
           = *dynamic_cast<AdjustedCameraModel*>(cameras[image_iter].get());
-
-        boost::shared_ptr<CameraModel>
-          exact_unadjusted_camera = exact_adjusted_camera.unadjusted_model();
 
         vw_out() << "Creating an approximate camera model for "
                 << opt.input_images[image_iter] << "\n";
@@ -4341,10 +4327,8 @@ int main(int argc, char* argv[]) {
         Stopwatch sw;
         sw.start();
         boost::shared_ptr<CameraModel> apcam;
-        apcam.reset(new asp::ApproxCameraModel(exact_adjusted_camera, 
-                                              exact_unadjusted_camera,
-                                              img_bbox,
-                                              dems[0], geos[0],
+        apcam.reset(new asp::ApproxCameraModel(exact_camera, 
+                                              img_bbox, dems[0], geos[0],
                                               dem_nodata_val, camera_mutex));
         cameras[image_iter] = apcam;
         
@@ -4362,7 +4346,7 @@ int main(int argc, char* argv[]) {
 
         bool model_is_valid = cam_ptr->model_is_valid();
         
-        // Compared original and unadjusted models
+        // Compared original and approximate models
         double max_curr_err = 0.0;
 
         if (model_is_valid) {
@@ -4373,7 +4357,7 @@ int main(int argc, char* argv[]) {
                 (Vector3(ll[0], ll[1], dems[0](col, row)));
 
               // Test how the exact and approximate models compare
-              Vector2 pix3 = exact_adjusted_camera.point_to_pixel(xyz);
+              Vector2 pix3 = exact_camera.point_to_pixel(xyz);
               Vector2 pix4 = cameras[image_iter]->point_to_pixel(xyz);
               max_curr_err = std::max(max_curr_err, norm_2(pix3 - pix4));
 
@@ -5027,7 +5011,7 @@ int main(int argc, char* argv[]) {
           = dynamic_cast<asp::ApproxCameraModel*>(cameras[image_iter].get());
         if (aapcam == NULL)
           vw_throw(ArgumentErr() << "Expecting an approximate camera model.\n");
-        AdjustedCameraModel acam = aapcam->exact_adjusted_camera();
+        AdjustedCameraModel acam = aapcam->exact_camera();
         translation = acam.translation();
         axis_angle = acam.rotation().axis_angle();
         pixel_offset = acam.pixel_offset();
