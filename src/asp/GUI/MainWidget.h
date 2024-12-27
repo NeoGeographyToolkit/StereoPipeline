@@ -204,6 +204,8 @@ public slots:
     void mergePolys             (); ///< Merge existing polygons
     void saveScreenshot         (); ///< Save a screenshot of the current imagery
 
+    void refreshPixmap(); /// Draw the image   
+
   protected:
 
     // Setup
@@ -385,7 +387,6 @@ public slots:
 
     void updateCurrentMousePosition();
     void updateRubberBand(QRect & R);
-    void refreshPixmap();
     void maybeGenHillshade();
     void showImage        (std::string const& image_name);
     void bringImageOnTop  (int image_index);

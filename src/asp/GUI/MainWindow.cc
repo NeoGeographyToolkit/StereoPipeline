@@ -2042,7 +2042,7 @@ void MainWindow::viewOtherImage(int delta) {
 
   if (m_view_type == VIEW_IN_SINGLE_WINDOW && !previewOrSideBySideWithDialog() && 
       m_widgets.size() == 1 && mw(m_widgets[0]))
-    mw(m_widgets[0])->sizeToFit();
+    mw(m_widgets[0])->refreshPixmap();
   else if (previewOrSideBySideWithDialog())
     createLayout();
   
