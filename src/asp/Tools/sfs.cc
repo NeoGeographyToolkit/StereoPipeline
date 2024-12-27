@@ -142,51 +142,10 @@ typedef ImageViewRef<double> DoubleImgT;
 
 namespace asp {
 
-  // A base approx camera model class that will factor out some functionality
-  // from the two approx camera model classes we have below.
-  class ApproxBaseCameraModel: public CameraModel {
-
-  protected:
-    BBox2i m_img_bbox;
-    mutable BBox2 m_point_box, m_crop_box;
-    bool m_model_is_valid;
-    boost::shared_ptr<CameraModel> m_exact_unadjusted_camera;
-    AdjustedCameraModel m_exact_adjusted_camera;
-
-  public:
-
-    ApproxBaseCameraModel(AdjustedCameraModel const& exact_adjusted_camera,
-                          boost::shared_ptr<CameraModel> exact_unadjusted_camera,
-                          BBox2i img_bbox): m_exact_adjusted_camera(exact_adjusted_camera),
-                                            m_exact_unadjusted_camera(exact_unadjusted_camera),
-                                            m_img_bbox(img_bbox){}
-    
-    // The range of pixels in the image we are actually expected to use.
-    // Note that the function returns an alias, so that we can modify the
-    // crop box from outside.
-    BBox2 & crop_box(){
-      m_crop_box.crop(m_img_bbox);
-      return m_crop_box;
-    }
-
-    bool model_is_valid() {
-      return m_model_is_valid;
-    }
-    
-    boost::shared_ptr<CameraModel> exact_unadjusted_camera() const{
-      return m_exact_unadjusted_camera;
-    }
-    
-    AdjustedCameraModel exact_adjusted_camera() const{
-      return m_exact_adjusted_camera;
-    }
-    
-  };
-
   // This class provides an approximation for an ASP camera model around a small
   // DEM. The algorithm works by tabulation of point_to_pixel and
   // pixel_to_vector values at the mean dem height.
-  class ApproxCameraModel: public ApproxBaseCameraModel {
+  class ApproxCameraModel: public vw::camera::CameraModel {
     mutable Vector3 m_mean_dir; // mean vector from camera to ground
     GeoReference m_geo;
     double m_mean_ht;
@@ -197,8 +156,13 @@ namespace asp {
     Vector2 m_uncompValue;
     mutable int m_begX, m_endX, m_begY, m_endY;
     mutable int m_count;
+    BBox2i m_img_bbox;
+    mutable BBox2 m_point_box, m_crop_box;
+    bool m_model_is_valid;
+    boost::shared_ptr<CameraModel> m_exact_unadjusted_camera;
+    AdjustedCameraModel m_exact_adjusted_camera;
     
-    void comp_entries_in_table() const{
+    void comp_entries_in_table() const {
       for (int x = m_begX; x <= m_endX; x++) {
         for (int y = m_begY; y <= m_endY; y++) {
       
@@ -252,11 +216,10 @@ namespace asp {
                               GeoReference const& geo,
                               double nodata_val,
                               vw::Mutex &camera_mutex):
-      ApproxBaseCameraModel(exact_adjusted_camera, exact_unadjusted_camera, img_bbox),
-      m_geo(geo), m_camera_mutex(camera_mutex) {
-
-      // Initialize members of the base class
-      m_model_is_valid = true;
+      m_geo(geo), m_camera_mutex(camera_mutex),
+      m_exact_adjusted_camera(exact_adjusted_camera),
+      m_exact_unadjusted_camera(exact_unadjusted_camera),
+      m_img_bbox(img_bbox), m_model_is_valid(true) {
 
       int big = 1e+8;
       m_uncompValue = Vector2(-big, -big);
@@ -265,8 +228,7 @@ namespace asp {
         vw_throw( ArgumentErr()
                   << "ApproxCameraModel: Expecting an unadjusted camera model.\n");
 
-      // Compute the mean DEM height.
-      // We expect all DEM entries to be valid.
+      // Compute the mean DEM height. We expect all DEM entries to be valid.
       m_mean_ht = 0;
       double num = 0.0;
       for (int col = 0; col < dem.cols(); col++) {
@@ -425,8 +387,28 @@ namespace asp {
       vw::Mutex::Lock lock(m_camera_mutex);
       return m_exact_adjusted_camera.camera_pose(pix);
     }
+    
+    // The range of pixels in the image we are actually expected to use.
+    // Note that the function returns an alias, so that we can modify the
+    // crop box from outside.
+    BBox2 & crop_box() {
+      m_crop_box.crop(m_img_bbox);
+      return m_crop_box;
+    }
 
-  };
+    bool model_is_valid() {
+      return m_model_is_valid;
+    }
+    
+    boost::shared_ptr<CameraModel> exact_unadjusted_camera() const {
+      return m_exact_unadjusted_camera;
+    }
+    
+    AdjustedCameraModel exact_adjusted_camera() const {
+      return m_exact_adjusted_camera;
+    }
+
+  }; // end class ApproxCameraModel
   
 } // end namespace asp
 
@@ -4358,8 +4340,8 @@ int main(int argc, char* argv[]) {
         BBox2i img_bbox = crop_boxes[0][image_iter];
         Stopwatch sw;
         sw.start();
-        boost::shared_ptr<CameraModel> apcam
-          (new asp::ApproxCameraModel(exact_adjusted_camera, 
+        boost::shared_ptr<CameraModel> apcam;
+        apcam.reset(new asp::ApproxCameraModel(exact_adjusted_camera, 
                                               exact_unadjusted_camera,
                                               img_bbox,
                                               dems[0], geos[0],
@@ -5212,4 +5194,3 @@ int main(int argc, char* argv[]) {
   
   return 0;
 }
-
