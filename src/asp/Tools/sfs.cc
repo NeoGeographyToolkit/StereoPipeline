@@ -23,7 +23,6 @@
 // TODO: When using approx camera, we assume the DEM and image grids are very similar.
 // TODO: Remove warning from the approx camera
 // TODO: Make it possible to initialize a DEM from scratch.
-// TODO: Study more the multi-resolution approach.
 // TODO: Must specify in the SfS doc that the Lunar-Lambertian model fails at poles
 // TODO: If this code becomes multi-threaded, need to keep in mind
 // that camera models are shared and modified, so
@@ -32,20 +31,11 @@
 // TODO: Study if blurring the input images improves the fit.
 // TODO: Add --orthoimage option, and make it clear where the final DEM is.
 // Same for albedo. The other info should be printed only in debug mode.
-// Implement multi-grid for SfS, it should help with bad initial DEM and bad
-// camera alignment.
-// TODO: Save final DEM and final ortho images.
-// Say that if the camera are bundle adjusted, sfs can further improve
-// the camera positions to make the results more self consistent,
-// but this works only if the cameras are reasonably accurate to start with.
-// TODO: Study the effect of reading the images as double as opposed to float.
 // TODO: Study the effect of using bicubic interpolation.
 // TODO: Study phaseCoeffC1, etc.
 // TODO: Find a good automatic value for the smoothness weight.
-// TODO: How to change the smoothness weight if resolution changes?
 // How to change the smoothness weight if the number of images changes?
 // TODO: Investigate the sign of the normal.
-// TODO: Loop over all images when doing sfs.
 // TODO: Check that we are within image boundaries when interpolating.
 // TODO: Radiometric calibration of images.
 // TODO: Add various kind of loss function.
@@ -114,9 +104,6 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-int g_num_locks = 0;
-int g_warning_count = 0;
-int g_max_warning_count = 1000;
 const size_t g_num_model_coeffs = 16;
 const size_t g_max_num_haze_coeffs = 6; // see nonlin_reflectance()
 
@@ -544,7 +531,7 @@ double computeArbitraryLambertianReflectanceFromNormal(Vector3 const& sunPos,
   double reflectance;
 
   double len = dot_prod(normal, normal);
-  if (abs(len - 1.0) > 1.0e-4)
+  if (std::abs(len - 1.0) > 1.0e-4)
     vw::vw_throw(vw::ArgumentErr() 
                  << "Expecting unit normal in the reflectance computation.\n");
 
@@ -1379,75 +1366,66 @@ void save_haze(std::string const& out_prefix,
 }
 
 // A function to invoke at every iteration of ceres.
-// We need a lot of global variables to do something useful.
-// TODO(oalexan1): These should be class members.
-Options const                    * g_opt = NULL;
-ImageView<double>                * g_dem = NULL;
-ImageView<Vector2>               * g_pq = NULL;
-ImageView<double>                * g_albedo = NULL;
-cartography::GeoReference const  * g_geo = NULL;
-GlobalParams const               * g_global_params = NULL;
-std::vector<vw::Vector3>  const  * g_sun_position = NULL;
-std::vector<BBox2i>       const  * g_crop_boxes = NULL;
-std::vector<MaskedImgT>   const  * g_masked_images = NULL;
-std::vector<DoubleImgT>   const  * g_blend_weights = NULL;
-std::vector<vw::CamPtr>          * g_cameras = NULL;
-double                           * g_dem_nodata_val = NULL;
-float                            * g_img_nodata_val = NULL;
-std::vector<double>              * g_exposures = NULL;
-std::vector<std::vector<double>> * g_haze = NULL;
-double                           * g_max_dem_height = NULL;
-double                           * g_gridx = NULL;
-double                           * g_gridy = NULL;
-double                           * g_reflectance_model_coeffs = NULL;
-int g_iter = -1;
-bool g_final_iter = false;
-
-// When floating the camera position and orientation, multiply the
-// position variables by this factor times
-// opt.camera_position_step_size to give it a greater range in
-// searching (it makes more sense to wiggle the camera position by say
-// 1 meter than by a tiny fraction of one millimeter).
-double g_position_scale_factor = 1e+6;
-
 class SfsCallback: public ceres::IterationCallback {
-
 public:
 
-virtual ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
+// Constructor to initialize references to the necessary data
+SfsCallback(Options const& opt,
+            ImageView<double>& dem,
+            ImageView<Vector2>& pq,
+            ImageView<double>& albedo,
+            cartography::GeoReference const& geo,
+            GlobalParams const& global_params,
+            std::vector<vw::Vector3> const& sun_position,
+            std::vector<BBox2i> const& crop_boxes,
+            std::vector<MaskedImgT> const& masked_images,
+            std::vector<DoubleImgT> const& blend_weights,
+            std::vector<vw::CamPtr>& cameras,
+            double& dem_nodata_val,
+            float& img_nodata_val,
+            std::vector<double>& exposures,
+            std::vector<std::vector<double>>& haze,
+            double& max_dem_height,
+            double& gridx,
+            double& gridy,
+            std::vector<double> & reflectance_model_coeffs):
+  opt(opt), dem(dem), pq(pq), albedo(albedo), geo(geo), global_params(global_params),
+  sun_position(sun_position), crop_boxes(crop_boxes), masked_images(masked_images),
+  blend_weights(blend_weights), cameras(cameras), dem_nodata_val(dem_nodata_val),
+  img_nodata_val(img_nodata_val), exposures(exposures), haze(haze),
+  max_dem_height(max_dem_height), gridx(gridx), gridy(gridy),
+  reflectance_model_coeffs(reflectance_model_coeffs),
+  iter(-1), final_iter(false) {}
 
-  g_iter++;
+  virtual ceres::CallbackReturnType operator()(const ceres::IterationSummary& 
+                                               summary) override {
+  iter++;
 
-  vw_out() << "Finished iteration: " << g_iter << std::endl;
+  vw_out() << "Finished iteration: " << iter << std::endl;
   // callTop();
 
-  if (!g_opt->save_computed_intensity_only)
-    save_exposures(g_opt->out_prefix, g_opt->input_images, *g_exposures);
+  if (!opt.save_computed_intensity_only)
+    save_exposures(opt.out_prefix, opt.input_images, exposures);
 
-  if (g_opt->num_haze_coeffs > 0 && !g_opt->save_computed_intensity_only)
-    save_haze(g_opt->out_prefix, g_opt->input_images, *g_haze); 
-  
-  std::string model_coeffs_file = model_coeffs_file_name(g_opt->out_prefix);
-  if (!g_opt->save_computed_intensity_only) {
+  if (opt.num_haze_coeffs > 0 && !opt.save_computed_intensity_only)
+    save_haze(opt.out_prefix, opt.input_images, haze);
+
+  std::string model_coeffs_file = model_coeffs_file_name(opt.out_prefix);
+  if (!opt.save_computed_intensity_only) {
     vw_out() << "Writing: " << model_coeffs_file << std::endl;
     std::ofstream mcf(model_coeffs_file.c_str());
-    mcf.precision(18);
-    for (size_t coeff_iter = 0; coeff_iter < g_num_model_coeffs; coeff_iter++){
-      mcf << g_reflectance_model_coeffs[coeff_iter] << " ";
+    mcf.precision(17);
+    for (size_t coeff_iter = 0; coeff_iter < g_num_model_coeffs; coeff_iter++) {
+      mcf << reflectance_model_coeffs[coeff_iter] << " ";
     }
     mcf << "\n";
     mcf.close();
   }
-    
-  //vw_out() << "Model coefficients: "; 
-  //for (size_t i = 0; i < g_num_model_coeffs; i++)
-  //  vw_out() << g_reflectance_model_coeffs[i] << " ";
-  //vw_out() << std::endl;
-  
+
   std::ostringstream os;
-  if (!g_final_iter) {
-    os << "-iter" << g_iter;
-  }else{
+  if (!final_iter) {
+    os << "-iter" << iter;
+  } else {
     os << "-final";
   }
 
@@ -1455,126 +1433,126 @@ virtual ceres::CallbackReturnType operator()(const ceres::IterationSummary& summ
 
   // The DEM with no-data where there are no valid image pixels
   ImageView<double> dem_nodata;
-  if (g_opt->save_dem_with_nodata) {
-    dem_nodata = ImageView<double>((*g_dem).cols(), (*g_dem).rows());
-    fill(dem_nodata, *g_dem_nodata_val);
+  if (opt.save_dem_with_nodata) {
+    dem_nodata = ImageView<double>(dem.cols(), dem.rows());
+    fill(dem_nodata, dem_nodata_val);
   }
-      
+
   bool has_georef = true, has_nodata = true;
   TerminalProgressCallback tpc("asp", ": ");
-  if ( (!g_opt->save_sparingly || g_final_iter) && !g_opt->save_computed_intensity_only ) {
-    std::string out_dem_file = g_opt->out_prefix + "-DEM"
+  if ( (!opt.save_sparingly || final_iter) && !opt.save_computed_intensity_only ) {
+    std::string out_dem_file = opt.out_prefix + "-DEM"
       + iter_str + ".tif";
     vw_out() << "Writing: " << out_dem_file << std::endl;
-    block_write_gdal_image(out_dem_file, *g_dem, has_georef, *g_geo,
-                            has_nodata, *g_dem_nodata_val,
-                            *g_opt, tpc);
+    block_write_gdal_image(out_dem_file, dem, has_georef, geo,
+                          has_nodata, dem_nodata_val,
+                          opt, tpc);
   }
-    
-  if ((!g_opt->save_sparingly || (g_final_iter && g_opt->float_albedo)) &&
-      !g_opt->save_computed_intensity_only ) {
-    std::string out_albedo_file = g_opt->out_prefix + "-comp-albedo"
+
+  if ((!opt.save_sparingly || (final_iter && opt.float_albedo)) &&
+      !opt.save_computed_intensity_only ) {
+    std::string out_albedo_file = opt.out_prefix + "-comp-albedo"
       + iter_str + ".tif";
     vw_out() << "Writing: " << out_albedo_file << std::endl;
-    block_write_gdal_image(out_albedo_file, *g_albedo, has_georef,
-                           *g_geo,
-                           has_nodata, *g_dem_nodata_val,
-                           *g_opt, tpc);
+    block_write_gdal_image(out_albedo_file, albedo, has_georef,
+                          geo,
+                          has_nodata, dem_nodata_val,
+                          opt, tpc);
   }
 
   // Print reflectance and other things
-  for (size_t image_iter = 0; image_iter < (*g_masked_images).size(); image_iter++) {
+  for (size_t image_iter = 0; image_iter < masked_images.size(); image_iter++) {
 
-    if (g_opt->skip_images.find(image_iter) != g_opt->skip_images.end())
+    if (opt.skip_images.find(image_iter) != opt.skip_images.end())
       continue;
-  
+
     ImageView<PixelMask<double>> reflectance, intensity, comp_intensity;
     ImageView<double> ground_weight;
 
     std::string out_camera_file
-      = asp::bundle_adjust_file_name(g_opt->out_prefix,
-                                      g_opt->input_images[image_iter],
-                                      g_opt->input_cameras[image_iter]);
-      
-    if (g_opt->save_sparingly && !g_opt->save_dem_with_nodata) 
+      = asp::bundle_adjust_file_name(opt.out_prefix,
+                                      opt.input_images[image_iter],
+                                      opt.input_cameras[image_iter]);
+
+    if (opt.save_sparingly && !opt.save_dem_with_nodata)
       continue; // don't write too many things
-      
+
     // Manufacture an output prefix for the other data associated with this camera
     std::string iter_str2 = fs::path(out_camera_file).replace_extension("").string();
     iter_str2 += iter_str;
-  
+
     // Compute reflectance and intensity with optimized DEM
     int sample_col_rate = 1, sample_row_rate = 1;
-    computeReflectanceAndIntensity(*g_dem, *g_pq, *g_geo,
-                                    g_opt->model_shadows,
-                                    *g_max_dem_height,
-                                    *g_gridx, *g_gridy,
-                                    sample_col_rate, sample_row_rate,
-                                    (*g_sun_position)[image_iter],
-                                    *g_global_params,
-                                    (*g_crop_boxes)[image_iter],
-                                    (*g_masked_images)[image_iter],
-                                    (*g_blend_weights)[image_iter],
-                                    (*g_cameras)[image_iter].get(),
-                                    reflectance, intensity, ground_weight, 
-                                    g_reflectance_model_coeffs);
+    computeReflectanceAndIntensity(dem, pq, geo,
+                                  opt.model_shadows,
+                                  max_dem_height,
+                                  gridx, gridy,
+                                  sample_col_rate, sample_row_rate,
+                                  sun_position[image_iter],
+                                  global_params,
+                                  crop_boxes[image_iter],
+                                  masked_images[image_iter],
+                                  blend_weights[image_iter],
+                                  cameras[image_iter].get(),
+                                  reflectance, intensity, ground_weight,
+                                  &reflectance_model_coeffs[0]); // Pass the address of the first element
 
     // dem_nodata equals to dem if the image has valid pixels and no shadows
-    if (g_opt->save_dem_with_nodata) {
+    if (opt.save_dem_with_nodata) {
       for (int col = 0; col < reflectance.cols(); col++) {
         for (int row = 0; row < reflectance.rows(); row++) {
-          if (is_valid(reflectance(col, row))) 
-            dem_nodata(col, row) = (*g_dem)(col, row);
+          if (is_valid(reflectance(col, row)))
+            dem_nodata(col, row) = dem(col, row);
         }
       }
     }
 
-    if (g_opt->save_sparingly)
+    if (opt.save_sparingly)
       continue;
 
     // Find the computed intensity
     comp_intensity.set_size(reflectance.cols(), reflectance.rows());
     for (int col = 0; col < comp_intensity.cols(); col++) {
       for (int row = 0; row < comp_intensity.rows(); row++) {
-        comp_intensity(col, row) = calc_intensity((*g_albedo)(col, row), 
-                                                  reflectance(col, row), 
-                                                  (*g_exposures)[image_iter],
-                                                  g_opt->steepness_factor,
-                                                  &(*g_haze)[image_iter][0], 
-                                                  g_opt->num_haze_coeffs);
+        comp_intensity(col, row) = calc_intensity(albedo(col, row),
+                                                  reflectance(col, row),
+                                                  exposures[image_iter],
+                                                  opt.steepness_factor,
+                                                  &haze[image_iter][0],
+                                                  opt.num_haze_coeffs);
       }
     }
 
     std::string out_meas_intensity_file = iter_str2 + "-meas-intensity.tif";
     vw_out() << "Writing: " << out_meas_intensity_file << std::endl;
     block_write_gdal_image(out_meas_intensity_file,
-                            apply_mask(intensity, *g_img_nodata_val),
-                            has_georef, *g_geo, has_nodata,
-                            *g_img_nodata_val, *g_opt, tpc);
+                          apply_mask(intensity, img_nodata_val),
+                          has_georef, geo, has_nodata,
+                          img_nodata_val, opt, tpc);
 
     std::string out_comp_intensity_file = iter_str2 + "-comp-intensity.tif";
     vw_out() << "Writing: " << out_comp_intensity_file << std::endl;
     block_write_gdal_image(out_comp_intensity_file,
-                            apply_mask(comp_intensity, *g_img_nodata_val),
-                            has_georef, (*g_geo), has_nodata, *g_img_nodata_val,
-                            *g_opt, tpc);
+                          apply_mask(comp_intensity, img_nodata_val),
+                          has_georef, geo, has_nodata, img_nodata_val,
+                          opt, tpc);
 
-    if (g_opt->save_computed_intensity_only) 
+    if (opt.save_computed_intensity_only)
       continue; // don't write too many things
 
     std::string out_weight_file = iter_str2 + "-blending-weight.tif";
     vw_out() << "Writing: " << out_weight_file << std::endl;
     block_write_gdal_image(out_weight_file,
-                            ground_weight,
-                            has_georef, *g_geo, has_nodata, *g_img_nodata_val,
-                            *g_opt, tpc);
+                          ground_weight,
+                          has_georef, geo, has_nodata, img_nodata_val,
+                          opt, tpc);
 
     std::string out_reflectance_file = iter_str2 + "-reflectance.tif";
     vw_out() << "Writing: " << out_reflectance_file << std::endl;
     block_write_gdal_image(out_reflectance_file,
-                            apply_mask(reflectance, *g_img_nodata_val),
-                            has_georef, *g_geo, has_nodata, *g_img_nodata_val,
-                            *g_opt, tpc);
+                          apply_mask(reflectance, img_nodata_val),
+                          has_georef, geo, has_nodata, img_nodata_val,
+                          opt, tpc);
 
     // Find the measured normalized albedo, after correcting for
     // reflectance.
@@ -1585,46 +1563,75 @@ virtual ceres::CallbackReturnType operator()(const ceres::IterationSummary& summ
         if (!is_valid(reflectance(col, row)))
           measured_albedo(col, row) = 1;
         else
-          measured_albedo(col, row) 
-            = calc_albedo(intensity(col, row), reflectance(col, row), 
-                          (*g_exposures)[image_iter], g_opt->steepness_factor,
-                          &(*g_haze)[image_iter][0], g_opt->num_haze_coeffs);
+          measured_albedo(col, row)
+            = calc_albedo(intensity(col, row), reflectance(col, row),
+                          exposures[image_iter], opt.steepness_factor,
+                          &haze[image_iter][0], opt.num_haze_coeffs);
       }
     }
     std::string out_albedo_file = iter_str2 + "-meas-albedo.tif";
     vw_out() << "Writing: " << out_albedo_file << std::endl;
     block_write_gdal_image(out_albedo_file, measured_albedo,
-                            has_georef, (*g_geo), has_nodata, 0, *g_opt, tpc);
+                          has_georef, geo, has_nodata, 0, opt, tpc);
 
     vw_out() << "Exposure for image " << image_iter << ": "
-              << (*g_exposures)[image_iter] << std::endl;
+            << exposures[image_iter] << std::endl;
 
-    if (g_opt->num_haze_coeffs > 0) {
+    if (opt.num_haze_coeffs > 0) {
       vw_out() << "Haze for image " << image_iter << ":";
-      for (size_t hiter = 0; hiter < (*g_haze)[image_iter].size(); hiter++) {
-        vw_out() << " " << (*g_haze)[image_iter][hiter];
+      for (size_t hiter = 0; hiter < haze[image_iter].size(); hiter++) {
+        vw_out() << " " << haze[image_iter][hiter];
       }
       vw_out() << std::endl;
     }
   } // end loop through images
-    
-  if (g_opt->save_dem_with_nodata && (!g_opt->save_sparingly || g_final_iter)) {
-    std::string out_dem_nodata_file = g_opt->out_prefix + "-DEM-nodata"
+
+  if (opt.save_dem_with_nodata && (!opt.save_sparingly || final_iter)) {
+    std::string out_dem_nodata_file = opt.out_prefix + "-DEM-nodata"
       + iter_str + ".tif";
     vw_out() << "Writing: " << out_dem_nodata_file << std::endl;
     TerminalProgressCallback tpc("asp", ": ");
-    block_write_gdal_image(out_dem_nodata_file, dem_nodata, has_georef, *g_geo,
-                           has_nodata, *g_dem_nodata_val, *g_opt, tpc);
+    block_write_gdal_image(out_dem_nodata_file, dem_nodata, has_georef, geo,
+                          has_nodata, dem_nodata_val, opt, tpc);
   }
-    
+
   return ceres::SOLVER_CONTINUE;
 } // end callback function
+
+void set_final_iter(bool is_final_iter) {
+  final_iter = is_final_iter;
+}
+  
+private:
+  // Class members storing references to the data
+  Options const& opt;
+  ImageView<double>& dem;
+  ImageView<Vector2>& pq;
+  ImageView<double>& albedo;
+  cartography::GeoReference const& geo;
+  GlobalParams const& global_params;
+  std::vector<vw::Vector3> const& sun_position;
+  std::vector<BBox2i> const& crop_boxes;
+  std::vector<MaskedImgT> const& masked_images;
+  std::vector<DoubleImgT> const& blend_weights;
+  std::vector<vw::CamPtr>& cameras;
+  double& dem_nodata_val;
+  float& img_nodata_val;
+  std::vector<double>& exposures;
+  std::vector<std::vector<double>>& haze;
+  double& max_dem_height;
+  double& gridx;
+  double& gridy;
+  std::vector<double> reflectance_model_coeffs;
+  int iter;
+  bool final_iter;
 };
 
 // See SmoothnessError() for the definitions of bottom, top, etc.
 template <typename F, typename G>
 inline bool
-calc_intensity_residual(const F* const exposure,
+calc_intensity_residual(Options const& opt,
+                        const F* const exposure,
                         const F* const haze,
                         const G* const left,
                         const G* const center,
@@ -1676,19 +1683,19 @@ calc_intensity_residual(const F* const exposure,
                                      m_crop_box, m_image, m_blend_weight, m_camera.get(),
                                      reflectance, intensity, ground_weight, reflectance_model_coeffs);
       
-    if (g_opt->unreliable_intensity_threshold > 0){
-      if (is_valid(intensity) && intensity.child() <= g_opt->unreliable_intensity_threshold &&
+    if (opt.unreliable_intensity_threshold > 0){
+      if (is_valid(intensity) && intensity.child() <= opt.unreliable_intensity_threshold &&
           intensity.child() >= 0) {
         ground_weight *=
-          pow(intensity.child()/g_opt->unreliable_intensity_threshold, 2.0);
+          pow(intensity.child()/opt.unreliable_intensity_threshold, 2.0);
       }
     }
       
     if (success && is_valid(intensity) && is_valid(reflectance))
       residuals[0] = ground_weight * (intensity - 
                       calc_intensity(albedo[0], reflectance.child(), exposure[0],
-                                     g_opt->steepness_factor,
-                                     haze, g_opt->num_haze_coeffs));
+                                     opt.steepness_factor,
+                                     haze, opt.num_haze_coeffs));
 
   } catch (const camera::PointToPixelErr& e) {
     // To be able to handle robustly DEMs that extend beyond the camera,
@@ -1703,7 +1710,8 @@ calc_intensity_residual(const F* const exposure,
 
 // Discrepancy between measured and computed intensity. See the formula above.
 struct IntensityError {
-  IntensityError(int col, int row,
+  IntensityError(Options const& opt,
+                 int col, int row,
                  ImageView<double> const& dem,
                  cartography::GeoReference const& geo,
                  bool model_shadows,
@@ -1716,6 +1724,7 @@ struct IntensityError {
                  MaskedImgT const& image,
                  DoubleImgT const& blend_weight,
                  boost::shared_ptr<CameraModel> const& camera):
+    m_opt(opt),
     m_col(col), m_row(row), m_dem(dem), m_geo(geo),
     m_model_shadows(model_shadows),
     m_camera_position_step_size(camera_position_step_size),
@@ -1743,7 +1752,8 @@ struct IntensityError {
     // For this error we do not use p and q, hence just use a placeholder.
     bool use_pq = false;
     const F * const pq = NULL;
-    return calc_intensity_residual(exposure, haze,
+    return calc_intensity_residual(m_opt, 
+                                   exposure, haze,
                                    left, center, right, bottom, top,
                                    use_pq, pq, albedo, 
                                    reflectance_model_coeffs,
@@ -1765,7 +1775,7 @@ struct IntensityError {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(int col, int row,
+  static ceres::CostFunction* Create(Options const& opt, int col, int row,
                                      ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
                                      bool model_shadows,
@@ -1780,7 +1790,7 @@ struct IntensityError {
                                      boost::shared_ptr<CameraModel> const& camera) {
     return (new ceres::NumericDiffCostFunction<IntensityError,
             ceres::CENTRAL, 1, 1, g_max_num_haze_coeffs, 1, 1, 1, 1, 1, 1, g_num_model_coeffs>
-            (new IntensityError(col, row, dem, geo,
+            (new IntensityError(opt, col, row, dem, geo,
                                 model_shadows,
                                 camera_position_step_size,
                                 max_dem_height,
@@ -1789,6 +1799,7 @@ struct IntensityError {
                                 crop_box, image, blend_weight, camera)));
   }
 
+  Options const& m_opt;
   int m_col, m_row;
   ImageView<double>                 const & m_dem;            // alias
   cartography::GeoReference         const & m_geo;            // alias
@@ -1807,7 +1818,7 @@ struct IntensityError {
 // A variation of the intensity error where only the DEM is floated
 // TODO(oalexan1): Wipe this as it did not improve anything
 struct IntensityErrorFloatDemOnly {
-  IntensityErrorFloatDemOnly(int col, int row,
+  IntensityErrorFloatDemOnly(Options const& opt, int col, int row,
                              ImageView<double> const& dem,
                              double albedo,
                              double * reflectance_model_coeffs, 
@@ -1824,7 +1835,7 @@ struct IntensityErrorFloatDemOnly {
                              MaskedImgT const& image,
                              DoubleImgT const& blend_weight,
                              boost::shared_ptr<CameraModel> const& camera):
-    m_col(col), m_row(row), m_dem(dem),
+    m_opt(opt), m_col(col), m_row(row), m_dem(dem),
     m_albedo(albedo), m_reflectance_model_coeffs(reflectance_model_coeffs),
     m_exposure(exposure), m_haze(haze), m_geo(geo),
     m_model_shadows(model_shadows),
@@ -1850,7 +1861,7 @@ struct IntensityErrorFloatDemOnly {
     bool use_pq = false;
     const F * const pq = NULL;
 
-    return calc_intensity_residual(m_exposure, m_haze,
+    return calc_intensity_residual(m_opt, m_exposure, m_haze,
                                    left, center, right, bottom, top,
                                    use_pq, pq,
                                    &m_albedo, 
@@ -1873,7 +1884,7 @@ struct IntensityErrorFloatDemOnly {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(int col, int row,
+  static ceres::CostFunction* Create(Options const& opt, int col, int row,
                                      ImageView<double> const& dem,
                                      double albedo,
                                      double * reflectance_model_coeffs, 
@@ -1892,7 +1903,7 @@ struct IntensityErrorFloatDemOnly {
                                      boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityErrorFloatDemOnly,
             ceres::CENTRAL, 1, 1, 1, 1, 1, 1>
-            (new IntensityErrorFloatDemOnly(col, row, dem,
+            (new IntensityErrorFloatDemOnly(opt, col, row, dem,
                                             albedo, reflectance_model_coeffs,
                                             exposure, haze, geo,
                                             model_shadows,
@@ -1903,6 +1914,7 @@ struct IntensityErrorFloatDemOnly {
                                             crop_box, image, blend_weight, camera)));
   }
 
+  Options                           const& m_opt;
   int                                       m_col, m_row;
   ImageView<double>                 const & m_dem;            // alias
   double                                    m_albedo;
@@ -1925,7 +1937,7 @@ struct IntensityErrorFloatDemOnly {
 // A variation of IntensityError where albedo, dem, and model params are fixed.
 // TODO(oalexan1): Wipe this as it did not improve anything
 struct IntensityErrorFixedMost {
-  IntensityErrorFixedMost(int col, int row,
+  IntensityErrorFixedMost(Options const& opt, int col, int row,
                           ImageView<double> const& dem,
                           double albedo,
                           double * reflectance_model_coeffs, 
@@ -1940,7 +1952,7 @@ struct IntensityErrorFixedMost {
                           MaskedImgT const& image,
                           DoubleImgT const& blend_weight,
                           boost::shared_ptr<CameraModel> const& camera):
-    m_col(col), m_row(row), m_dem(dem),
+    m_opt(opt), m_col(col), m_row(row), m_dem(dem),
     m_albedo(albedo), m_reflectance_model_coeffs(reflectance_model_coeffs), 
     m_geo(geo),
     m_model_shadows(model_shadows),
@@ -1963,7 +1975,7 @@ struct IntensityErrorFixedMost {
     bool use_pq = false;
     const F * const pq = NULL;
     
-    return calc_intensity_residual(exposure, haze,
+    return calc_intensity_residual(m_opt, exposure, haze,
                                    &m_dem(m_col-1, m_row),            // left
                                    &m_dem(m_col, m_row),              // center
                                    &m_dem(m_col+1, m_row),            // right
@@ -1990,7 +2002,7 @@ struct IntensityErrorFixedMost {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(int col, int row,
+  static ceres::CostFunction* Create(Options const& opt, int col, int row,
                                      ImageView<double> const& dem,
                                      double albedo,
                                      double * reflectance_model_coeffs, 
@@ -2007,7 +2019,8 @@ struct IntensityErrorFixedMost {
                                      boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityErrorFixedMost,
             ceres::CENTRAL, 1, 1, g_max_num_haze_coeffs>
-            (new IntensityErrorFixedMost(col, row, dem, albedo, reflectance_model_coeffs, geo,
+            (new IntensityErrorFixedMost(opt, col, row, dem, albedo, 
+                                         reflectance_model_coeffs,  geo,
                                          model_shadows,
                                          camera_position_step_size,
                                          max_dem_height,
@@ -2016,6 +2029,7 @@ struct IntensityErrorFixedMost {
                                          crop_box, image, blend_weight, camera)));
   }
 
+  Options                           const& m_opt;
   int m_col, m_row;
   ImageView<double>                 const & m_dem;            // alias
   double                                    m_albedo;
@@ -2036,7 +2050,7 @@ struct IntensityErrorFixedMost {
 // A variant of the intensity error when we float the partial derviatives
 // in x and in y of the dem, which we call p and q.  
 struct IntensityErrorPQ {
-  IntensityErrorPQ(int col, int row,
+  IntensityErrorPQ(Options const& opt, int col, int row,
                    ImageView<double> const& dem,
                    cartography::GeoReference const& geo,
                    bool model_shadows,
@@ -2049,7 +2063,7 @@ struct IntensityErrorPQ {
                    MaskedImgT const& image,
                    DoubleImgT const& blend_weight,
                    boost::shared_ptr<CameraModel> const& camera):
-    m_col(col), m_row(row), m_dem(dem), m_geo(geo),
+    m_opt(opt), m_col(col), m_row(row), m_dem(dem), m_geo(geo),
     m_model_shadows(model_shadows),
     m_camera_position_step_size(camera_position_step_size),
     m_max_dem_height(max_dem_height),
@@ -2073,7 +2087,7 @@ struct IntensityErrorPQ {
     bool use_pq = true;
 
     F v = 0;
-    return calc_intensity_residual(exposure, haze, &v, center_h, &v, &v, &v,
+    return calc_intensity_residual(m_opt, exposure, haze, &v, center_h, &v, &v, &v,
                                    use_pq, pq, albedo, 
                                    reflectance_model_coeffs,
                                    m_col, m_row,  
@@ -2094,7 +2108,7 @@ struct IntensityErrorPQ {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(int col, int row,
+  static ceres::CostFunction* Create(Options const& opt, int col, int row,
                                      ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
                                      bool model_shadows,
@@ -2109,7 +2123,7 @@ struct IntensityErrorPQ {
                                      boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityErrorPQ,
             ceres::CENTRAL, 1, 1, g_max_num_haze_coeffs, 1, 2, 1, g_num_model_coeffs>
-            (new IntensityErrorPQ(col, row, dem, geo,
+            (new IntensityErrorPQ(opt, col, row, dem, geo,
                                   model_shadows,
                                   camera_position_step_size,
                                   max_dem_height,
@@ -2118,6 +2132,7 @@ struct IntensityErrorPQ {
                                   crop_box, image, blend_weight, camera)));
   }
 
+  Options                            const& m_opt;
   int m_col, m_row;
   ImageView<double>                 const & m_dem;            // alias
   cartography::GeoReference         const & m_geo;            // alias
@@ -2384,7 +2399,8 @@ struct IntegrabilityError {
 // A cost function that will penalize deviating too much from the original DEM height.
 struct HeightChangeError {
   HeightChangeError(double orig_height, double initial_dem_constraint_weight):
-    m_orig_height(orig_height), m_initial_dem_constraint_weight(initial_dem_constraint_weight){}
+    m_orig_height(orig_height), 
+    m_initial_dem_constraint_weight(initial_dem_constraint_weight){}
 
   template <typename T>
   bool operator()(const T* const center, T* residuals) const {
@@ -2763,7 +2779,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
   
   if (opt.blending_dist > 0 && !opt.crop_input_images) 
-    vw_throw(ArgumentErr() << "A blending distance is only supported with --crop-input-images.\n");
+    vw_throw(ArgumentErr() 
+             << "A blending distance is only supported with --crop-input-images.\n");
   
   if (opt.allow_borderline_data && !opt.crop_input_images)
     vw_throw(ArgumentErr() << "Option --allow-borderline-data needs option "
@@ -3077,8 +3094,10 @@ void run_sfs(// Fixed quantities
              double                             gridy,
              Options                          & opt,
              GeoReference               const & geo,
-             double smoothness_weight,
-             double dem_nodata_val,
+             double                             smoothness_weight,
+             double                             max_dem_height,
+             double                             dem_nodata_val,
+             float                              img_nodata_val,
              std::vector<BBox2i>        const & crop_boxes,
              std::vector<MaskedImgT>    const & masked_images,
              std::vector<DoubleImgT>    const & blend_weights,
@@ -3103,21 +3122,6 @@ void run_sfs(// Fixed quantities
   int sample_col_rate = 0, sample_row_rate = 0;
   calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
   
-  g_gridx = &gridx;
-  g_gridy = &gridy;
-
-  double max_dem_height = -std::numeric_limits<double>::max();
-  if (opt.model_shadows) {
-    // Find the max DEM height
-    for (int col = 0; col < dem.cols(); col++) {
-      for (int row = 0; row < dem.rows(); row++) {
-        if (dem(col, row) > max_dem_height)
-          max_dem_height = dem(col, row);
-      }
-    }
-  }
-  g_max_dem_height = &max_dem_height;
-
   // See if a given image is used in at least one clip or skipped in
   // all of them
   std::vector<bool> use_image(num_images, false);
@@ -3176,7 +3180,7 @@ void run_sfs(// Fixed quantities
         
         if (float_dem_only) {
           ceres::CostFunction* cost_function_img =
-            IntensityErrorFloatDemOnly::Create(col, row,
+            IntensityErrorFloatDemOnly::Create(opt, col, row,
                                                dem,
                                                albedo(col, row), 
                                                &reflectance_model_coeffs[0],
@@ -3199,30 +3203,30 @@ void run_sfs(// Fixed quantities
                                     &dem(col, row-1)); // top
         } else if (opt.integrability_weight == 0) {
           ceres::CostFunction* cost_function_img =
-            IntensityError::Create(col, row, dem, geo,
-                                    opt.model_shadows,
-                                    opt.camera_position_step_size,
-                                    max_dem_height,
-                                    gridx, gridy,
-                                    global_params, sun_position[image_iter],
-                                    crop_boxes[image_iter],
-                                    masked_images[image_iter],
-                                    blend_weights[image_iter],
-                                    cameras[image_iter]);
+            IntensityError::Create(opt, col, row, dem, geo,
+                                   opt.model_shadows,
+                                   opt.camera_position_step_size,
+                                   max_dem_height,
+                                   gridx, gridy,
+                                   global_params, sun_position[image_iter],
+                                   crop_boxes[image_iter],
+                                   masked_images[image_iter],
+                                   blend_weights[image_iter],
+                                   cameras[image_iter]);
           problem.AddResidualBlock(cost_function_img, loss_function_img,
-                                    &exposures[image_iter],       // exposure
-                                    &haze[image_iter][0],         // haze
-                                    &dem(col-1, row),  // left
-                                    &dem(col, row),    // center
-                                    &dem(col+1, row),  // right
-                                    &dem(col, row+1),  // bottom
-                                    &dem(col, row-1),  // top
-                                    &albedo(col, row), // albedo
-                                    &reflectance_model_coeffs[0]);
+                                   &exposures[image_iter],       // exposure
+                                   &haze[image_iter][0],         // haze
+                                   &dem(col-1, row),  // left
+                                   &dem(col, row),    // center
+                                   &dem(col+1, row),  // right
+                                   &dem(col, row+1),  // bottom
+                                   &dem(col, row-1),  // top
+                                   &albedo(col, row), // albedo
+                                   &reflectance_model_coeffs[0]);
         } else {
           // Use the integrability constraint
           ceres::CostFunction* cost_function_img =
-            IntensityErrorPQ::Create(col, row, dem, geo,
+            IntensityErrorPQ::Create(opt, col, row, dem, geo,
                                       opt.model_shadows,
                                       opt.camera_position_step_size,
                                       max_dem_height,
@@ -3331,10 +3335,8 @@ void run_sfs(// Fixed quantities
           if (opt.albedo_robust_threshold > 0)
             loss_function_hc = new ceres::CauchyLoss(opt.albedo_robust_threshold);
           ceres::CostFunction* cost_function_hc =
-            AlbedoChangeError::Create(albedo(col, row),
-                                      opt.albedo_constraint_weight);
-          problem.AddResidualBlock(cost_function_hc, loss_function_hc,
-                                    &albedo(col, row));
+            AlbedoChangeError::Create(albedo(col, row), opt.albedo_constraint_weight);
+          problem.AddResidualBlock(cost_function_hc, loss_function_hc, &albedo(col, row));
         }
       }
       
@@ -3423,24 +3425,13 @@ void run_sfs(// Fixed quantities
   options.num_threads = opt.num_threads;
   options.linear_solver_type = ceres::SPARSE_SCHUR;
 
-  // Use a callback function at every iteration
-  SfsCallback callback;
+  SfsCallback callback(opt, dem, pq, albedo, geo, global_params, sun_position, 
+                      crop_boxes, masked_images, blend_weights, cameras, 
+                      dem_nodata_val, img_nodata_val, exposures, haze, 
+                      max_dem_height, gridx, gridy, reflectance_model_coeffs); 
+  
   options.callbacks.push_back(&callback);
   options.update_state_every_iteration = true;
-
-  // A bunch of global variables to use in the callback
-  g_dem            = &dem;
-  g_pq             = &pq;
-  g_albedo         = &albedo;
-  g_geo            = &geo;
-  g_global_params  = &global_params;
-  g_sun_position   = &sun_position;
-  g_crop_boxes     = &crop_boxes;
-  g_masked_images  = &masked_images;
-  g_blend_weights  = &blend_weights;
-  g_cameras        = &cameras;
-  g_iter           = -1; // reset the iterations
-  g_final_iter     = false;
 
   // Solve the problem if asked to do iterations. Otherwise
   // just keep the DEM at the initial guess, while saving
@@ -3450,7 +3441,7 @@ void run_sfs(// Fixed quantities
     ceres::Solve(options, &problem, &summary);
 
   // Save the final results
-  g_final_iter = true;
+  callback.set_final_iter(true);
   ceres::IterationSummary callback_summary;
   callback(callback_summary);
   
@@ -3645,7 +3636,6 @@ int main(int argc, char* argv[]) {
   sw_total.start();
   
   Options opt;
-  g_opt = &opt;
   try {
     handle_arguments(argc, argv, opt);
 
@@ -3658,7 +3648,6 @@ int main(int argc, char* argv[]) {
     // Set up model information
     GlobalParams global_params;
     setUpParams(global_params, opt);
-    g_reflectance_model_coeffs = &opt.model_coeffs_vec[0];
     
     // Manage no-data
     double dem_nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
@@ -3673,7 +3662,6 @@ int main(int argc, char* argv[]) {
       dem_nodata_val = opt.nodata_val;
       vw_out() << "Over-riding the DEM nodata value with: " << dem_nodata_val << "\n";
     }
-    g_dem_nodata_val = &dem_nodata_val;
     
     // Read the handle to the DEM. Here we don't load the DEM into
     // memory yet. We will later load into memory only a crop,
@@ -4031,7 +4019,6 @@ int main(int argc, char* argv[]) {
                                      opt.max_valid_image_vals_vec[image_iter]);
       }
     }
-    g_img_nodata_val = &img_nodata_val;
 
     // Find the grid sizes in meters. Note that dem heights are in
     // meters too, so we treat both horizontal and vertical
@@ -4045,8 +4032,6 @@ int main(int argc, char* argv[]) {
     compute_grid_sizes_in_meters(dem, geo, dem_nodata_val,
                                  sample_col_rate, sample_row_rate,
                                  gridx, gridy); // outputs
-    g_gridx = &gridx;
-    g_gridy = &gridy;
 
     // Find the max DEM height
     double max_dem_height = -std::numeric_limits<double>::max();
@@ -4059,7 +4044,6 @@ int main(int argc, char* argv[]) {
         }
       }
     }
-    g_max_dem_height = &max_dem_height;
     
     // Compute or read the initial albedo.
     vw::ImageView<double> albedo;
@@ -4414,8 +4398,6 @@ int main(int argc, char* argv[]) {
         vw_out() << "\n";
       }
     }
-    g_exposures        = &opt.image_exposures_vec;
-    g_haze             = &opt.image_haze_vec;
 
     if (opt.allow_borderline_data) {
       int cols = dem.cols(), rows = dem.rows();
@@ -4511,9 +4493,9 @@ int main(int argc, char* argv[]) {
     orig_dem = copy(dem);
     
     run_sfs(// Fixed quantities
-            opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight,
-            dem_nodata_val, crop_boxes, masked_images, blend_weights,
-            global_params, sun_position, orig_dem,
+            opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight, 
+            max_dem_height, dem_nodata_val, img_nodata_val,  crop_boxes, masked_images, 
+            blend_weights, global_params, sun_position, orig_dem,
             lit_image_mask, curvature_in_shadow_weight,
             // Variable quantities
             dem, albedo, cameras, opt.image_exposures_vec, opt.image_haze_vec,
