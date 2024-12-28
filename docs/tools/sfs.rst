@@ -160,15 +160,6 @@ Command-line options for sfs
     Float the exposure for each image. Will give incorrect results
     if only one image is present. It usually gives marginal results.
 
---float-cameras
-    Float the camera pose for each image except the first one. It is
-    suggested that this option be avoided and bundle adjustment
-    be used instead.
-
---float-all-cameras
-    Float the camera pose for each image, including the first
-    one. Experimental. It is suggested to avoid this option.
-
 --shadow-thresholds <arg>
     Optional shadow thresholds for the input images (a list of real
     values in quotes, one per image).
@@ -314,10 +305,6 @@ Command-line options for sfs
 --nodata-value <float (default: nan)>
     Use this as the DEM no-data value, over-riding what is in the
     initial guess DEM.
-
---float-dem-at-boundary
-    Allow the DEM values at the boundary of the region to also float
-    (not advised).
 
 --fix-dem
     Do not float the DEM at all.  Useful when floating the model params.

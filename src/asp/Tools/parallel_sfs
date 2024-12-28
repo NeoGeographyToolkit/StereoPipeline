@@ -307,12 +307,8 @@ def main(argsIn):
                       "Crop the input DEM using gdal_translate.\n" );
 
     if  '--float-exposure'          in argsIn or \
-        '--float-cameras'           in argsIn or \
-        '--float-all-cameras'       in argsIn or \
         '--float-haze'              in argsIn or \
-        '--float-reflectance-model' in argsIn or \
-        '--float-sun-position'      in argsIn:
-        
+        '--float-reflectance-model' in argsIn:
         print("Warning: Floating exposures and other quantities per tile may result " +
               "in non-unique results.")
         

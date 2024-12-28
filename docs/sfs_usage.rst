@@ -685,11 +685,7 @@ Then, we run ``sfs``::
       --min-blend-size 20                                \
       --shadow-thresholds '0.00162484 0.0012166 0.000781663'
 
-It is suggested to not vary the cameras with ``sfs`` (option
-``--float-cameras``), as that should be done by bundle adjustment, and
-``sfs`` will likely not arrive at a good solution for the cameras on
-its own. Varying the exposures (option ``--float-exposure``) is likely
-also unnecessary.
+Varying the exposures and haze is not suggested in a first attempt.
 
 Note the two "blending" parameters, those help where there are seams
 or light-shadow boundaries. The precise numbers may need
@@ -1777,11 +1773,7 @@ Here are a few suggestions we have found helpful when running ``sfs``:
   divergence, unless the images have very diverse illumination. See
   :numref:`sfs_albedo` for a longer discussion.
 
-- Floating the cameras in SfS should be avoided, as bundle adjustment
-  does a better job. Floating the exposures was useful for the Earth 
-  example (:numref:`sfs_earth`), but less so for the Moon.
-
-- Floating the DEM at the boundary (option ``--float-dem-at-boundary``)
-  is also suggested to be avoided.
+-  Floating the exposures was useful for the Earth and Mars examples, but less
+   so for the Moon.
 
  .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN
