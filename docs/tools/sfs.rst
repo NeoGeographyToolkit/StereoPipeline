@@ -223,15 +223,6 @@ Command-line options for sfs
     Use approximate camera models for speed. Only with ISIS .cub
     cameras.
 
---coarse-levels <integer (default: 0)>
-    Solve the problem on a grid coarser than the original by a
-    factor of 2 to this power, then refine the solution on finer
-    grids. Experimental. It is suggested to not use this option.
-
---max-coarse-iterations <integer (default: 10)>
-    How many iterations to do at levels of resolution coarser than
-    the final result.
-
 --crop-input-images
     Crop the images to a region that was computed to be large enough
     and keep them fully in memory, for speed.

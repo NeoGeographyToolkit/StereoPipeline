@@ -178,7 +178,7 @@ void compute_image_stats(ImageT const& I1, ImageT const& I2,
 
 }
 
-struct Options : public vw::GdalWriteOptions {
+struct Options: public vw::GdalWriteOptions {
   std::string input_dem, image_list, camera_list, out_prefix, stereo_session, bundle_adjust_prefix, input_albedo;
   std::vector<std::string> input_images, input_cameras;
   std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposures_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list, sun_angles_list;
@@ -187,8 +187,7 @@ struct Options : public vw::GdalWriteOptions {
   std::vector<std::vector<double>> image_haze_vec;
   std::vector<double> model_coeffs_vec;
   std::set<int> skip_images;
-  int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels,
-    blending_dist, min_blend_size, num_haze_coeffs;
+  int max_iterations, reflectance_type, blending_dist, min_blend_size, num_haze_coeffs;
   bool float_albedo, float_exposure, model_shadows,
     save_computed_intensity_only, estimate_slope_errors, estimate_height_errors,
     compute_exposures_only, estimate_exposure_haze_albedo,
@@ -206,8 +205,8 @@ struct Options : public vw::GdalWriteOptions {
   vw::BBox2 crop_win;
   vw::Vector2 height_error_params;
   
-  Options(): max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
-            coarse_levels(0), blending_dist(0), blending_power(2.0),
+  Options(): max_iterations(0), reflectance_type(0),
+            blending_dist(0), blending_power(2.0),
             min_blend_size(0), num_haze_coeffs(0),
             float_albedo(false), float_exposure(false), model_shadows(false), 
             save_computed_intensity_only(false),
@@ -1402,7 +1401,6 @@ double                           * g_gridx = NULL;
 double                           * g_gridy = NULL;
 double                           * g_reflectance_model_coeffs = NULL;
 int g_iter = -1;
-int g_level = -1;
 bool g_final_iter = false;
 
 // When floating the camera position and orientation, multiply the
@@ -1452,11 +1450,6 @@ virtual ceres::CallbackReturnType operator()(const ceres::IterationSummary& summ
   }else{
     os << "-final";
   }
-
-  // Note that for level 0 we don't append the level as part of
-  // the filename. This way, whether we have levels or not,
-  // the lowest level is always named consistently.
-  if ((*g_opt).coarse_levels > 0 && g_level > 0) os << "-level" << g_level;
 
   std::string iter_str = os.str();
 
@@ -2590,10 +2583,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save a copy of the DEM while using a no-data value at a DEM grid point where all images show shadows. To be used if shadow thresholds are set.")
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
      "Use approximate camera models for speed. Only with ISIS .cub cameras.")
-    ("coarse-levels", po::value(&opt.coarse_levels)->default_value(0),
-     "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids. It is suggested to not use this option.")
-    ("max-coarse-iterations", po::value(&opt.max_coarse_iterations)->default_value(10),
-     "How many iterations to do at levels of resolution coarser than the final result.")
     ("crop-input-images",   po::bool_switch(&opt.crop_input_images)->default_value(false)->implicit_value(true),
      "Crop the images to a region that was computed to be large enough, and keep them fully in memory, for speed.")
     ("blending-dist", po::value(&opt.blending_dist)->default_value(0),
@@ -2784,10 +2773,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw::vw_throw(vw::ArgumentErr()
                  << "Option --allow-borderline-data needs a positive --blending-dist.\n");
 
-  if (opt.allow_borderline_data && opt.coarse_levels > 0) 
-    vw::vw_throw(vw::ArgumentErr() << "Option --allow-borderline-data cannot be "
-                 << "used with multiple coarseness levels.\n");
-  
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -3023,10 +3008,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Expecting a positive value for camera-position-step-size.\n");
   }
 
-  if (opt.coarse_levels < 0) {
-    vw_throw(ArgumentErr() << "Expecting the number of levels to be non-negative.\n");
-  }
-
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
@@ -3061,18 +3042,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   if (opt.save_computed_intensity_only || opt.estimate_slope_errors || 
       opt.estimate_height_errors) {
-    if (opt.max_iterations > 0 || opt.max_coarse_iterations > 0) {
-      vw_out(WarningMessage) << "Using 0 iterations.\n";
-      opt.max_iterations = 0;
-      opt.max_coarse_iterations = 0;
-    }
-    //if (!opt.model_shadows) 
-    //  vw_out(WarningMessage) << "It is suggested that --model-shadows be used.\n";
-
-    if (opt.coarse_levels > 0) {
-      vw_out(WarningMessage) << "Using 0 coarse levels.\n";
-      opt.coarse_levels = 0;
-    }
+    
+    // No iterations    
+    opt.max_iterations = 0;
 
     // Need the exact cameras as they span the full DEM
     if (opt.use_approx_camera_models || opt.crop_input_images) {
@@ -3098,31 +3070,30 @@ void calcSampleRates(ImageViewRef<double> const& dem, int num_samples,
   sample_row_rate = std::max((int)round(dem.rows()/double(num_samples)), 1);
 }
 
-// Run sfs at a given coarseness level
-void run_sfs_level(// Fixed inputs
-                   int                                num_iterations, 
-                   int                                level,
-                   double                             gridx,
-                   double                             gridy,
-                   Options                          & opt,
-                   GeoReference               const & geo,
-                   double smoothness_weight,
-                   double dem_nodata_val,
-                   std::vector<BBox2i>        const & crop_boxes,
-                   std::vector<MaskedImgT>    const & masked_images,
-                   std::vector<DoubleImgT>    const & blend_weights,
-                   GlobalParams               const & global_params,
-                   std::vector<vw::Vector3>   const & sun_position,
-                   ImageView<double>          const & orig_dem,
-                   ImageView<int>             const & lit_image_mask,
-                   ImageView<double>          const & curvature_in_shadow_weight,
-                   // Quantities that will float
-                   ImageView<double>                & dem,
-                   ImageView<double>                & albedo,
-                   std::vector<vw::CamPtr>          & cameras,
-                   std::vector<double>              & exposures,
-                   std::vector<std::vector<double>> & haze,
-                   std::vector<double>              & reflectance_model_coeffs) {
+// Run sfs
+void run_sfs(// Fixed quantities
+             int                                num_iterations, 
+             double                             gridx,
+             double                             gridy,
+             Options                          & opt,
+             GeoReference               const & geo,
+             double smoothness_weight,
+             double dem_nodata_val,
+             std::vector<BBox2i>        const & crop_boxes,
+             std::vector<MaskedImgT>    const & masked_images,
+             std::vector<DoubleImgT>    const & blend_weights,
+             GlobalParams               const & global_params,
+             std::vector<vw::Vector3>   const & sun_position,
+             ImageView<double>          const & orig_dem,
+             ImageView<int>             const & lit_image_mask,
+             ImageView<double>          const & curvature_in_shadow_weight,
+             // Variable quantities
+             ImageView<double>                & dem,
+             ImageView<double>                & albedo,
+             std::vector<vw::CamPtr>          & cameras,
+             std::vector<double>              & exposures,
+             std::vector<std::vector<double>> & haze,
+             std::vector<double>              & reflectance_model_coeffs) {
 
   int num_images = opt.input_images.size();
   ceres::Problem problem;
@@ -3132,15 +3103,6 @@ void run_sfs_level(// Fixed inputs
   int sample_col_rate = 0, sample_row_rate = 0;
   calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
   
-  // Find the grid sizes in meters. Note that dem heights are in
-  // meters too, so we treat both horizontal and vertical measurements
-  // in same units.
-  // For coarser levels must recompute the grid size. Note that
-  // the recomputed values are local to this function.
-  if (level > 0)
-    compute_grid_sizes_in_meters(dem, geo, dem_nodata_val, 
-                                 sample_col_rate, sample_row_rate,
-                                 gridx, gridy);
   g_gridx = &gridx;
   g_gridy = &gridy;
 
@@ -3477,7 +3439,7 @@ void run_sfs_level(// Fixed inputs
   g_masked_images  = &masked_images;
   g_blend_weights  = &blend_weights;
   g_cameras        = &cameras;
-  g_iter           = -1; // reset the iterations for each level
+  g_iter           = -1; // reset the iterations
   g_final_iter     = false;
 
   // Solve the problem if asked to do iterations. Otherwise
@@ -3557,8 +3519,8 @@ void setUpParams(GlobalParams & global_params, Options & opt) {
 // Also find the sampled albedo along the way.
 // TODO(oalexan1): Move this to SfsCostFun.cc.
 void estimateExposureHazeAlbedo(Options & opt,
-                                std::vector<MaskedImgT> const& masked_images_vec,
-                                std::vector<DoubleImgT> const& blend_weights_vec,
+                                std::vector<MaskedImgT> const& masked_images,
+                                std::vector<DoubleImgT> const& blend_weights,
                                 ImageView<double> const& dem,
                                 double mean_albedo,
                                 double dem_nodata_val,
@@ -3596,8 +3558,8 @@ void estimateExposureHazeAlbedo(Options & opt,
                                    sun_position[image_iter],
                                    global_params,
                                    crop_boxes[image_iter],
-                                   masked_images_vec[image_iter],
-                                   blend_weights_vec[image_iter],
+                                   masked_images[image_iter],
+                                   blend_weights[image_iter],
                                    cameras[image_iter].get(),
                                    reflectance[image_iter], intensity[image_iter],
                                    ground_weight,
@@ -3713,17 +3675,10 @@ int main(int argc, char* argv[]) {
     }
     g_dem_nodata_val = &dem_nodata_val;
     
-    // Prepare for multiple levels
-    int levels = opt.coarse_levels;
-
     // Read the handle to the DEM. Here we don't load the DEM into
     // memory yet. We will later load into memory only a crop,
     // if cropping is specified. This is to save on memory.
     ImageViewRef<double> dem_handle = DiskImageView<double>(opt.input_dem);
-
-    // There are multiple coarseness levels for the DEM. Same about albedo and georeferences.
-    std::vector<ImageView<double>> orig_dems(levels+1), dems(levels+1), albedos(levels+1);
-    std::vector<GeoReference> geos(levels+1);
 
     // This must be done before the DEM is cropped. This stats is
     // queried from parallel_sfs.
@@ -3736,12 +3691,13 @@ int main(int argc, char* argv[]) {
     opt.crop_win.crop(bounding_box(dem_handle));
     
     // Read the georeference 
-    if (!read_georeference(geos[0], opt.input_dem))
+    vw::cartography::GeoReference geo;
+    if (!read_georeference(geo, opt.input_dem))
         vw_throw(ArgumentErr() << "The input DEM has no georeference.\n");
       
     // This is a bug fix. The georef pixel size in y must be negative
     // for the DEM to be oriented correctly. 
-    if (geos[0].transform()(1, 1) > 0)
+    if (geo.transform()(1, 1) > 0)
       vw_throw(ArgumentErr() << "The input DEM has a positive pixel size in y. "
                 << "This is unexpected. Normally it is negative since the (0, 0) "
                 << "pixel is in the upper-left. Check your DEM pixel size with "
@@ -3750,21 +3706,22 @@ int main(int argc, char* argv[]) {
     // Crop the DEM and georef if requested to given box.  The
     // cropped DEM (or uncropped if no cropping happens) is fully
     // loaded in memory.
+    vw::ImageView<double> dem, orig_dem;
     if (!opt.crop_win.empty()) {
-      dems[0] = crop(dem_handle, opt.crop_win);
-      geos[0] = crop(geos[0], opt.crop_win);
+      dem = crop(dem_handle, opt.crop_win);
+      geo = crop(geo, opt.crop_win);
     } else {
-      dems[0] = dem_handle; // load in memory
+      dem = dem_handle; // load in memory
     }
   
     // This can be useful
-    vw_out() << "DEM cols and rows: " << dems[0].cols()  << ' ' << dems[0].rows() << "\n";
+    vw_out() << "DEM cols and rows: " << dem.cols()  << ' ' << dem.rows() << "\n";
 
     // See if to use provided initial DEM height    
     if (!boost::math::isnan(opt.init_dem_height)) {
-      for (int col = 0; col < dems[0].cols(); col++) {
-        for (int row = 0; row < dems[0].rows(); row++) {
-          dems[0](col, row) = opt.init_dem_height;
+      for (int col = 0; col < dem.cols(); col++) {
+        for (int row = 0; row < dem.rows(); row++) {
+          dem(col, row) = opt.init_dem_height;
         }
       }
     }
@@ -3775,14 +3732,14 @@ int main(int argc, char* argv[]) {
     std::vector<vw::Vector3> sun_position(num_images, vw::Vector3());
     if (opt.sun_positions_list != "") 
       asp::readSunPositions(opt.sun_positions_list, opt.input_images,
-                            dems[0], dem_nodata_val, geos[0], sun_position);
+                            dem, dem_nodata_val, geo, sun_position);
     if (opt.sun_angles_list != "") 
       asp::readSunAngles(opt.sun_angles_list, opt.input_images,
-                         dems[0], dem_nodata_val, geos[0], sun_position);
+                         dem, dem_nodata_val, geo, sun_position);
       
     // Read in the camera models (and the sun positions, if not read from the list)
     // TODO(oalexan1): Put this in a function called readCameras())
-    std::vector<boost::shared_ptr<CameraModel>> cameras(num_images);
+    std::vector<vw::CamPtr> cameras(num_images);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
     
       if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
@@ -3815,7 +3772,7 @@ int main(int argc, char* argv[]) {
         
       // Compute the azimuth and elevation
       double azimuth = 0.0, elevation = 0.0;
-      asp::sunAngles(dems[0], dem_nodata_val, geos[0], sun_position[image_iter],
+      asp::sunAngles(dem, dem_nodata_val, geo, sun_position[image_iter],
                      azimuth, elevation);
 
       // Print this. It will be used to organize the images by illumination
@@ -3837,10 +3794,10 @@ int main(int argc, char* argv[]) {
 
     // Refuse to run if there are no-data values or if the DEM is too small
     int min_dem_size = 5;
-    for (int col = 0; col < dems[0].cols(); col++) {
-      for (int row = 0; row < dems[0].rows(); row++) {
-        if (dems[0](col, row) == dem_nodata_val ||
-            std::isnan(dems[0](col, row))) {
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
+        if (dem(col, row) == dem_nodata_val ||
+            std::isnan(dem(col, row))) {
           vw_throw(ArgumentErr() 
                     << "Found a no-data or NaN pixel in the DEM. Cannot continue. "
                     << "The dem_mosaic tool can be used to fill in holes. Then "
@@ -3848,7 +3805,7 @@ int main(int argc, char* argv[]) {
         }
       }
     }
-    if (dems[0].cols() < min_dem_size || dems[0].rows() < min_dem_size)
+    if (dem.cols() < min_dem_size || dem.rows() < min_dem_size)
       vw_throw(ArgumentErr() << "The input DEM is too small.\n");
 
     // This check must be here, after we find the session
@@ -3881,21 +3838,14 @@ int main(int argc, char* argv[]) {
       }
     }
     
-    // Prepare for working at multiple levels
-    int factor = 2;
-    std::vector<int> factors;
-    factors.push_back(1);
-    for (int level = 1; level <= levels; level++)
-      factors.push_back(factors[level-1]*factor);
-    
     // We won't load the full images, just portions restricted
     // to the area we we will compute the DEM.
-    std::vector<std::vector<BBox2i>> crop_boxes(levels+1);
+    std::vector<BBox2i> crop_boxes(num_images);
     
     // The crop box starts as the original image bounding box. We'll shrink it later.
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       std::string img_file = opt.input_images[image_iter];
-      crop_boxes[0].push_back(bounding_box(DiskImageView<float>(img_file)));
+      crop_boxes[image_iter] = vw::bounding_box(DiskImageView<float>(img_file));
     }
     
     // Ensure that no two threads can access an ISIS camera at the same time.
@@ -3912,8 +3862,7 @@ int main(int argc, char* argv[]) {
     
       for (int image_iter = 0; image_iter < num_images; image_iter++){
       
-        if (opt.skip_images.find(image_iter)
-            != opt.skip_images.end()) continue;
+        if (opt.skip_images.find(image_iter) != opt.skip_images.end()) continue;
     
         // Here we make a copy, since soon cameras[image_iter] will be overwritten
         vw::camera::AdjustedCameraModel exact_camera
@@ -3921,13 +3870,12 @@ int main(int argc, char* argv[]) {
 
         vw_out() << "Creating an approximate camera model for "
                 << opt.input_images[image_iter] << "\n";
-        BBox2i img_bbox = crop_boxes[0][image_iter];
+        BBox2i img_bbox = crop_boxes[image_iter];
         Stopwatch sw;
         sw.start();
         boost::shared_ptr<CameraModel> apcam;
-        apcam.reset(new asp::ApproxCameraModel(exact_camera, 
-                                              img_bbox, dems[0], geos[0],
-                                              dem_nodata_val, camera_mutex));
+        apcam.reset(new asp::ApproxCameraModel(exact_camera, img_bbox, dem, geo,
+                                               dem_nodata_val, camera_mutex));
         cameras[image_iter] = apcam;
         
         sw.stop();
@@ -3948,11 +3896,11 @@ int main(int argc, char* argv[]) {
         double max_curr_err = 0.0;
 
         if (model_is_valid) {
-          for (int col = 0; col < dems[0].cols(); col++) {
-            for (int row = 0; row < dems[0].rows(); row++) {
-              Vector2 ll = geos[0].pixel_to_lonlat(Vector2(col, row));
-              Vector3 xyz = geos[0].datum().geodetic_to_cartesian
-                (Vector3(ll[0], ll[1], dems[0](col, row)));
+          for (int col = 0; col < dem.cols(); col++) {
+            for (int row = 0; row < dem.rows(); row++) {
+              Vector2 ll = geo.pixel_to_lonlat(Vector2(col, row));
+              Vector3 xyz = geo.datum().geodetic_to_cartesian
+                (Vector3(ll[0], ll[1], dem(col, row)));
 
               // Test how the exact and approximate models compare
               Vector2 pix3 = exact_camera.point_to_pixel(xyz);
@@ -3973,7 +3921,7 @@ int main(int argc, char* argv[]) {
           // This is a bugfix. When the DEM clip does not intersect the image,
           // the approx camera model has incorrect values.
           if (model_is_valid)
-            vw_out() << "Error is too big.\n";
+            vw_out() << "Error of camera approximation is too big.\n";
           vw_out() << "Skip image " << image_iter << "\n";
           opt.skip_images.insert(image_iter);
           cam_ptr->crop_box() = BBox2();
@@ -3987,10 +3935,10 @@ int main(int argc, char* argv[]) {
   
         // Copy the crop box
         if (opt.crop_input_images)
-          crop_boxes[0][image_iter].crop(cam_ptr->crop_box());
+          crop_boxes[image_iter].crop(cam_ptr->crop_box());
 
         // Skip images which result in empty crop boxes
-        if (crop_boxes[0][image_iter].empty()) {
+        if (crop_boxes[image_iter].empty()) {
           opt.skip_images.insert(image_iter);
         }
         
@@ -4010,64 +3958,42 @@ int main(int argc, char* argv[]) {
             != opt.skip_images.end()) continue;
 
         // Store the full image box, and initialize the crop box to an empty box
-        BBox2i img_bbox = crop_boxes[0][image_iter];
-        crop_boxes[0][image_iter] = BBox2i();
+        BBox2i img_bbox = crop_boxes[image_iter];
+        crop_boxes[image_iter] = BBox2i();
         
-        for (int col = 0; col < dems[0].cols(); col++) {
-          for (int row = 0; row < dems[0].rows(); row++) {
-            Vector2 ll = geos[0].pixel_to_lonlat(Vector2(col, row));
-            Vector3 xyz = geos[0].datum().geodetic_to_cartesian
-              (Vector3(ll[0], ll[1], dems[0](col, row)));
+        for (int col = 0; col < dem.cols(); col++) {
+          for (int row = 0; row < dem.rows(); row++) {
+            Vector2 ll = geo.pixel_to_lonlat(Vector2(col, row));
+            Vector3 xyz = geo.datum().geodetic_to_cartesian
+              (Vector3(ll[0], ll[1], dem(col, row)));
             
             Vector2 pix = cameras[image_iter]->point_to_pixel(xyz);
-            crop_boxes[0][image_iter].grow(pix); 
+            crop_boxes[image_iter].grow(pix); 
           }
         }
 
         // Double the box dimensions, just in case. Later the SfS heights
-        // may change, and we may need to see beyond the given box
+        // may change, and we may need to see beyond the given box.
+        // TODO(oalexan1): This is likely excessive.
         double extraFactor = 0.5;
-        double extrax = extraFactor * crop_boxes[0][image_iter].width();
-        double extray = extraFactor * crop_boxes[0][image_iter].height();
-        crop_boxes[0][image_iter].min() -= Vector2(extrax, extray);
-        crop_boxes[0][image_iter].max() += Vector2(extrax, extray);
+        double extrax = extraFactor * crop_boxes[image_iter].width();
+        double extray = extraFactor * crop_boxes[image_iter].height();
+        crop_boxes[image_iter].min() -= Vector2(extrax, extray);
+        crop_boxes[image_iter].max() += Vector2(extrax, extray);
 
         // Crop to the bounding box of the image
-        crop_boxes[0][image_iter].crop(img_bbox);
+        crop_boxes[image_iter].crop(img_bbox);
           
         //vw_out() << "Estimated crop box for image " << opt.input_images[image_iter] << "\n";
         
-        if (crop_boxes[0][image_iter].empty()) 
+        if (crop_boxes[image_iter].empty()) 
           opt.skip_images.insert(image_iter);
       }
     } // end the case of cropping the input images
 
-    // Compute the boxes at lower resolutions
-    // Make the crop boxes lower left corner be multiple of 2^level
-    int last_factor = factors.back();
-    for (int image_iter = 0; image_iter < num_images; image_iter++){
-      if (!crop_boxes[0][image_iter].empty()) {
-        Vector2i mn = crop_boxes[0][image_iter].min();
-        crop_boxes[0][image_iter].min()
-          = last_factor*(floor(mn/double(last_factor)));
-      }
-    }
-    
-    // Crop boxes at the coarser resolutions
-    for (int image_iter = 0; image_iter < num_images; image_iter++){
-      for (int level = 1; level <= levels; level++) {
-        crop_boxes[level]
-          .push_back(crop_boxes[0][image_iter]/factors[level]);
-      }
-    }
-    
-    // Masked images and weights.
-    std::vector<std::vector<MaskedImgT>> masked_images_vec(levels+1);
-    std::vector<std::vector<DoubleImgT>> blend_weights_vec(levels+1);
-    for (int level = levels; level >= 0; level--) {
-      masked_images_vec[level].resize(num_images);
-      blend_weights_vec[level].resize(num_images);
-    }
+    // Masked images and weights
+    std::vector<MaskedImgT> masked_images(num_images);
+    std::vector<DoubleImgT> blend_weights(num_images);
     
     float img_nodata_val = -std::numeric_limits<float>::max();
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
@@ -4082,10 +4008,10 @@ int main(int argc, char* argv[]) {
       float shadow_thresh = opt.shadow_threshold_vec[image_iter];
       if (opt.crop_input_images) {
         // Make a copy in memory for faster access
-        if (!crop_boxes[0][image_iter].empty()) {
+        if (!crop_boxes[image_iter].empty()) {
           ImageView<float> cropped_img = 
-            crop(DiskImageView<float>(img_file), crop_boxes[0][image_iter]);
-          masked_images_vec[0][image_iter]
+            crop(DiskImageView<float>(img_file), crop_boxes[image_iter]);
+          masked_images[image_iter]
             = create_pixel_range_mask2(cropped_img,
                                         std::max(img_nodata_val, shadow_thresh),
                                         opt.max_valid_image_vals_vec[image_iter]);
@@ -4093,13 +4019,13 @@ int main(int argc, char* argv[]) {
           // Compute blending weights only when cropping the
           // images. Otherwise the weights are too huge.
           if (opt.blending_dist > 0)
-            blend_weights_vec[0][image_iter]
-              = asp::blendingWeights(masked_images_vec[0][image_iter],
+            blend_weights[image_iter]
+              = asp::blendingWeights(masked_images[image_iter],
                                      opt.blending_dist, opt.blending_power,
                                      opt.min_blend_size);
         }
       }else{
-        masked_images_vec[0][image_iter]
+        masked_images[image_iter]
           = create_pixel_range_mask2(DiskImageView<float>(img_file),
                                      std::max(img_nodata_val, shadow_thresh),
                                      opt.max_valid_image_vals_vec[image_iter]);
@@ -4114,9 +4040,9 @@ int main(int argc, char* argv[]) {
     // Sample large DEMs. Keep about 200 row and column samples.
     int num_samples = 200;
     int sample_col_rate = 0, sample_row_rate = 0;
-    calcSampleRates(dems[0], num_samples, sample_col_rate, sample_row_rate);
+    calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
     double gridx = 0.0, gridy = 0.0;
-    compute_grid_sizes_in_meters(dems[0], geos[0], dem_nodata_val,
+    compute_grid_sizes_in_meters(dem, geo, dem_nodata_val,
                                  sample_col_rate, sample_row_rate,
                                  gridx, gridy); // outputs
     g_gridx = &gridx;
@@ -4125,10 +4051,10 @@ int main(int argc, char* argv[]) {
     // Find the max DEM height
     double max_dem_height = -std::numeric_limits<double>::max();
     if (opt.model_shadows) {
-      for (int col = 0; col < dems[0].cols(); col++) {
-        for (int row = 0; row < dems[0].rows(); row++) {
-          if (dems[0](col, row) > max_dem_height) {
-            max_dem_height = dems[0](col, row);
+      for (int col = 0; col < dem.cols(); col++) {
+        for (int row = 0; row < dem.rows(); row++) {
+          if (dem(col, row) > max_dem_height) {
+            max_dem_height = dem(col, row);
           }
         }
       }
@@ -4136,32 +4062,31 @@ int main(int argc, char* argv[]) {
     g_max_dem_height = &max_dem_height;
     
     // Compute or read the initial albedo.
+    vw::ImageView<double> albedo;
     if (opt.input_albedo.empty()) {
       double initial_albedo = 1.0;
-      albedos[0].set_size(dems[0].cols(), dems[0].rows());
-      for (int col = 0; col < albedos[0].cols(); col++) {
-        for (int row = 0; row < albedos[0].rows(); row++) {
-          albedos[0](col, row) = initial_albedo;
+      albedo.set_size(dem.cols(), dem.rows());
+      for (int col = 0; col < albedo.cols(); col++) {
+        for (int row = 0; row < albedo.rows(); row++) {
+          albedo(col, row) = initial_albedo;
         }
       }
     } else {
-      // Read the input albedo.
-      if (levels != 0)
-        vw::vw_throw(ArgumentErr() << "Only one level allowed when reading albedo.\n");  
+      // Read the input albedo
       vw::vw_out() << "Reading albedo from: " << opt.input_albedo << "\n";
-      albedos[0] = DiskImageView<double>(opt.input_albedo);
-      // Must have the same size as dems[0]
-      if (albedos[0].cols() != dems[0].cols() || albedos[0].rows() != dems[0].rows())
+      albedo = DiskImageView<double>(opt.input_albedo);
+      // Must have the same size as dem
+      if (albedo.cols() != dem.cols() || albedo.rows() != dem.rows())
         vw::vw_throw(ArgumentErr() 
                       << "Albedo image must have the same dimensions as the DEM.\n");
     }
     
     // Find the mean albedo
     double mean_albedo = 0.0, albedo_count = 0.0;
-    for (int col = 0; col < dems[0].cols(); col++) {
-      for (int row = 0; row < dems[0].rows(); row++) {
-        if (dems[0](col, row) != dem_nodata_val) {
-          mean_albedo += albedos[0](col, row);
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
+        if (dem(col, row) != dem_nodata_val) {
+          mean_albedo += albedo(col, row);
           albedo_count += 1.0;
         }
       }
@@ -4184,20 +4109,20 @@ int main(int argc, char* argv[]) {
       // Sample large DEMs. Keep about 200 row and column samples.
       int num_samples = 200;
       int sample_col_rate = 0, sample_row_rate = 0;
-      calcSampleRates(dems[0], num_samples, sample_col_rate, sample_row_rate);
+      calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
 
       ImageView<PixelMask<double>> reflectance, intensity;
       ImageView<double> ground_weight;
       ImageView<Vector2> pq; // no need for these just for initialization
       
-      computeReflectanceAndIntensity(dems[0], pq, geos[0],
+      computeReflectanceAndIntensity(dem, pq, geo,
                                       opt.model_shadows, max_dem_height,
                                       gridx, gridy, sample_col_rate, sample_row_rate,
                                       sun_position[image_iter],
                                       global_params,
-                                      crop_boxes[0][image_iter],
-                                      masked_images_vec[0][image_iter],
-                                      blend_weights_vec[0][image_iter],
+                                      crop_boxes[image_iter],
+                                      masked_images[image_iter],
+                                      blend_weights[image_iter],
                                       cameras[image_iter].get(),
                                       reflectance, intensity, ground_weight,
                                       &opt.model_coeffs_vec[0]);
@@ -4245,10 +4170,10 @@ int main(int argc, char* argv[]) {
     if (opt.estimate_exposure_haze_albedo) {
       // TODO(oalexan1): Check if --num-haze-coeffs is non-zero.
       // TODO(oalexan1): This should work even if albedo is not modeled.
-      estimateExposureHazeAlbedo(opt, masked_images_vec[0], blend_weights_vec[0],
-                                 dems[0], mean_albedo, dem_nodata_val,
-                                 geos[0], cameras, max_dem_height,
-                                 crop_boxes[0], sun_position,
+      estimateExposureHazeAlbedo(opt, masked_images, blend_weights,
+                                 dem, mean_albedo, dem_nodata_val,
+                                 geo, cameras, max_dem_height,
+                                 crop_boxes, sun_position,
                                  global_params, gridx, gridy);
     }
     
@@ -4270,10 +4195,7 @@ int main(int argc, char* argv[]) {
     // in shadow, so when this image is zero.
     ImageView<int> lit_image_mask;
     if (opt.curvature_in_shadow_weight > 0.0) {
-      if (levels > 0) 
-        vw_throw(ArgumentErr() << "Enforcing positive curvature in shadow does not work "
-                 << "with a positive number of coarseness levels.\n");
-      lit_image_mask.set_size(dems[0].cols(), dems[0].rows());
+      lit_image_mask.set_size(dem.cols(), dem.rows());
       for (int col = 0; col < lit_image_mask.cols(); col++) {
         for (int row = 0; row < lit_image_mask.rows(); row++) {
           lit_image_mask(col, row) = 0; // no valid points originally
@@ -4303,8 +4225,8 @@ int main(int argc, char* argv[]) {
         int num_a_samples = 90; // Sample the 0 to 90 degree range with this many samples
         int num_b_samples = 360; // sample the 0 to 360 degree range with this many samples
         slopeErrEstim = boost::shared_ptr<SlopeErrEstim>
-          (new SlopeErrEstim(dems[0].cols(), dems[0].rows(),
-                             num_a_samples, num_b_samples, &albedos[0], &opt));
+          (new SlopeErrEstim(dem.cols(), dem.rows(),
+                             num_a_samples, num_b_samples, &albedo, &opt));
       }
       
       boost::shared_ptr<HeightErrEstim> heightErrEstim = boost::shared_ptr<HeightErrEstim>(NULL);
@@ -4317,9 +4239,9 @@ int main(int argc, char* argv[]) {
           
         double nodata_height_val = -1.0;
         heightErrEstim = boost::shared_ptr<HeightErrEstim>
-          (new HeightErrEstim(dems[0].cols(), dems[0].rows(),
+          (new HeightErrEstim(dem.cols(), dem.rows(),
                               num_height_samples, max_height_error, nodata_height_val,
-                              &albedos[0], &opt));
+                              &albedo, &opt));
       }
       
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
@@ -4331,14 +4253,14 @@ int main(int argc, char* argv[]) {
 
         // Find the reflectance and measured intensity (and work towards estimating the slopes
         // if asked to).
-        computeReflectanceAndIntensity(dems[0], pq, geos[0],
+        computeReflectanceAndIntensity(dem, pq, geo,
                                        opt.model_shadows, max_dem_height,
                                        gridx, gridy, sample_col_rate, sample_row_rate,
                                        sun_position[image_iter],
                                        global_params,
-                                       crop_boxes[0][image_iter],
-                                       masked_images_vec[0][image_iter],
-                                       blend_weights_vec[0][image_iter],
+                                       crop_boxes[image_iter],
+                                       masked_images[image_iter],
+                                       blend_weights[image_iter],
                                        cameras[image_iter].get(),
                                        reflectance, meas_intensity, ground_weight,
                                        &opt.model_coeffs_vec[0],
@@ -4356,7 +4278,7 @@ int main(int argc, char* argv[]) {
         comp_intensity.set_size(reflectance.cols(), reflectance.rows());
         for (int col = 0; col < comp_intensity.cols(); col++) {
           for (int row = 0; row < comp_intensity.rows(); row++) {
-            comp_intensity(col, row) = calc_intensity(albedos[0](col, row), 
+            comp_intensity(col, row) = calc_intensity(albedo(col, row), 
                                                       reflectance(col, row), 
                                                       opt.image_exposures_vec[image_iter],
                                                       opt.steepness_factor,
@@ -4397,14 +4319,14 @@ int main(int argc, char* argv[]) {
           vw_out() << "Writing: " << out_meas_intensity_file << std::endl;
           block_write_gdal_image(out_meas_intensity_file,
                                  apply_mask(meas_intensity, img_nodata_val),
-                                 has_georef, geos[0], has_nodata,
+                                 has_georef, geo, has_nodata,
                                  img_nodata_val, opt, tpc);
           
           std::string out_comp_intensity_file = local_prefix + "-comp-intensity.tif";
           vw_out() << "Writing: " << out_comp_intensity_file << std::endl;
           block_write_gdal_image(out_comp_intensity_file,
                                  apply_mask(comp_intensity, img_nodata_val),
-                                 has_georef, geos[0], has_nodata, img_nodata_val,
+                                 has_georef, geo, has_nodata, img_nodata_val,
                                  opt, tpc);
         }
 
@@ -4441,7 +4363,7 @@ int main(int argc, char* argv[]) {
         std::string slope_error_file = opt.out_prefix + "-slope-error.tif";
         vw_out() << "Writing: " << slope_error_file << std::endl;
         block_write_gdal_image(slope_error_file,
-                               slope_error, has_georef, geos[0], has_nodata,
+                               slope_error, has_georef, geo, has_nodata,
                                nodata_slope_value, opt, tpc);
       }
 
@@ -4468,7 +4390,7 @@ int main(int argc, char* argv[]) {
         vw_out() << "Writing: " << height_error_file << std::endl;
         block_write_gdal_image(height_error_file,
                                height_error,
-                               has_georef, geos[0],
+                               has_georef, geo,
                                has_nodata, heightErrEstim->nodata_height_val,
                                opt, tpc);
       }
@@ -4496,10 +4418,10 @@ int main(int argc, char* argv[]) {
     g_haze             = &opt.image_haze_vec;
 
     if (opt.allow_borderline_data) {
-      int cols = dems[0].cols(), rows = dems[0].rows();
+      int cols = dem.cols(), rows = dem.rows();
       asp::adjustBorderlineDataWeights(cols, rows, opt.blending_dist, opt.blending_power,
                                        vw::GdalWriteOptions(opt), // slice
-                                       geos[0],
+                                       geo,
                                        opt.skip_images,
                                        opt.out_prefix, // for debug data
                                        opt.input_images, opt.input_cameras, 
@@ -4520,16 +4442,16 @@ int main(int argc, char* argv[]) {
         vw::read_nodata_val(img_file, img_nodata_val);
         float shadow_thresh = 0.0; // Note how the shadow thresh is now 0, unlike before
         // Make a copy in memory for faster access
-        if (!crop_boxes[0][image_iter].empty()) {
+        if (!crop_boxes[image_iter].empty()) {
           ImageView<float> cropped_img = 
-            crop(DiskImageView<float>(img_file), crop_boxes[0][image_iter]);
-          masked_images_vec[0][image_iter]
+            crop(DiskImageView<float>(img_file), crop_boxes[image_iter]);
+          masked_images[image_iter]
             = create_pixel_range_mask2(cropped_img,
                                         std::max(img_nodata_val, shadow_thresh),
                                         opt.max_valid_image_vals_vec[image_iter]);
 
           // Overwrite the blending weights with ground weights
-          blend_weights_vec[0][image_iter] = copy(ground_weights[image_iter]);
+          blend_weights[image_iter] = copy(ground_weights[image_iter]);
         }
       }
 
@@ -4544,7 +4466,7 @@ int main(int argc, char* argv[]) {
       std::string lit_image_mask_file = opt.out_prefix + "-lit_image_mask.tif";
       vw_out() << "Writing: " << lit_image_mask_file << std::endl;
       block_write_gdal_image(lit_image_mask_file, lit_image_mask,
-                             has_georef, geos[0], has_nodata, nodata_val, opt, tpc);
+                             has_georef, geo, has_nodata, nodata_val, opt, tpc);
 
       // Form the curvature_in_shadow_weight image. It will start at 0
       // at distance opt.lit_curvature_dist from the shadow
@@ -4571,159 +4493,31 @@ int main(int argc, char* argv[]) {
         + "-curvature_in_shadow_weight.tif";
       vw_out() << "Writing: " << curvature_in_shadow_weight_file << std::endl;
       block_write_gdal_image(curvature_in_shadow_weight_file, curvature_in_shadow_weight,
-                             has_georef, geos[0], has_nodata, nodata_val, opt, tpc);
+                             has_georef, geo, has_nodata, nodata_val, opt, tpc);
     }
     
     // For images that we don't use, wipe the cameras and all other
     // info, as those take up memory (the camera is a table). 
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       if (opt.skip_images.find(image_iter) != opt.skip_images.end()) {
-        masked_images_vec[0][image_iter] = ImageView<PixelMask<float>>();
-        blend_weights_vec[0][image_iter] = ImageView<double>();
+        masked_images[image_iter] = ImageView<PixelMask<float>>();
+        blend_weights[image_iter] = ImageView<double>();
         cameras[image_iter] = boost::shared_ptr<CameraModel>();
       }
     }
     
-    // Prepare data at each coarseness level
     // orig_dems will keep the input DEMs and won't change. Keep to the optimized
     // DEMs close to orig_dems. Make a deep copy below.
-    orig_dems[0] = copy(dems[0]);
+    orig_dem = copy(dem);
     
-    double sub_scale = 1.0/factor;
-
-    for (int level = 1; level <= levels; level++) {
-      geos[level] = resample(geos[level-1], sub_scale);
-      orig_dems[level]
-        = pixel_cast<double>(vw::resample_aa
-                              (pixel_cast< PixelMask<double>>
-                              (orig_dems[level-1]), sub_scale));
-      dems[level] = copy(orig_dems[level]);
-      
-      // CERES won't be happy with tiny DEMs
-      if (dems[level].cols() < min_dem_size || dems[level].rows()
-          < min_dem_size) {
-        levels = std::max(0, level-1);
-        vw_out(WarningMessage) << "Reducing the number of coarse levels to "
-                                << levels << ".\n";
-        geos.resize(levels+1);
-        orig_dems.resize(levels+1);
-        dems.resize(levels+1);
-        albedos.resize(levels+1);
-        masked_images_vec.resize(levels+1);
-        blend_weights_vec.resize(levels+1);
-        factors.resize(levels+1);
-        break;
-      }
-
-      albedos[level]
-        = pixel_cast<double>(vw::resample_aa
-                              (pixel_cast< PixelMask<double>>
-                              (albedos[level-1]), sub_scale));
-
-      // We must write the subsampled images to disk, and then read
-      // them back, as VW cannot access individual pixels of the
-      // monstrosities created using the logic below, and even if it
-      // could, it is best if resampling is done once, and offline,
-      // rather than redoing it each time within the optimization
-      // loop.
-      for (int image_iter = 0; image_iter < num_images; image_iter++) {
-
-        if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
-          continue;
-      
-        fs::path image_path(opt.input_images[image_iter]);
-        std::ostringstream os; os << "-level" << level;
-        std::string sub_image = opt.out_prefix + "-"
-          + image_path.stem().string() + os.str() + ".tif";
-        vw_out() << "Writing subsampled image: " << sub_image << "\n";
-        bool has_img_georef = false;
-        GeoReference img_georef;
-        bool has_img_nodata = true;
-        int tile_size = 256;
-        int sub_threads = 1;
-        TerminalProgressCallback tpc("asp", ": ");
-        vw::cartography::block_write_gdal_image
-          (sub_image,
-            apply_mask
-            (block_rasterize
-            (vw::cache_tile_aware_render
-              (vw::resample_aa
-              (masked_images_vec[level-1][image_iter], sub_scale),
-              Vector2i(tile_size, tile_size) * sub_scale),
-              Vector2i(tile_size, tile_size), sub_threads), img_nodata_val),
-            has_img_georef, img_georef, has_img_nodata, img_nodata_val, opt, tpc);
-          
-        // Read it right back
-        if (opt.crop_input_images) {
-          // Read it fully in memory, as we cropped it before
-          ImageView<float> memory_img = copy(DiskImageView<float>(sub_image));
-          masked_images_vec[level][image_iter] = create_mask(memory_img, img_nodata_val);
-        }else{
-          // Read just a handle, as the full image could be huge
-          masked_images_vec[level][image_iter]
-            = create_mask(DiskImageView<float>(sub_image), img_nodata_val);
-        }
-      
-        if (blend_weights_vec[level-1][image_iter].cols() > 0 &&
-            blend_weights_vec[level-1][image_iter].rows() > 0 ) {
-          fs::path weight_path(opt.input_images[image_iter]);
-          std::string sub_weight = opt.out_prefix + "-wt-"
-            + weight_path.stem().string() + os.str() + ".tif";
-          vw_out() << "Writing subsampled weight: " << sub_weight << "\n";
-        
-          vw::cartography::block_write_gdal_image
-            (sub_weight,
-              apply_mask
-              (block_rasterize
-              (vw::cache_tile_aware_render
-                (vw::resample_aa
-                (create_mask(blend_weights_vec[level-1][image_iter],
-                              dem_nodata_val), sub_scale),
-                Vector2i(tile_size,tile_size) * sub_scale),
-                Vector2i(tile_size, tile_size), sub_threads), dem_nodata_val),
-              has_img_georef, img_georef, has_img_nodata, dem_nodata_val, opt, tpc);
-
-          ImageView<double> memory_weight = copy(DiskImageView<double>(sub_weight));
-          blend_weights_vec[level][image_iter] = memory_weight;
-        }
-      }
-    }
-    
-    // Start going from the coarsest to the finest level
-    for (int level = levels; level >= 0; level--) {
-
-      g_level = level;
-
-      int num_iterations;
-      if (level == 0)
-        num_iterations = opt.max_iterations;
-      else
-        num_iterations = opt.max_coarse_iterations;
-
-      run_sfs_level(// Fixed inputs
-                    num_iterations, level, gridx, gridy, opt, geos[level],
-                    opt.smoothness_weight*factors[level]*factors[level],
-                    dem_nodata_val, crop_boxes[level],
-                    masked_images_vec[level], blend_weights_vec[level],
-                    global_params, sun_position,
-                    orig_dems[level],
-                    lit_image_mask, curvature_in_shadow_weight,
-                    // Quantities that will float
-                    dems[level], albedos[level], cameras,
-                    opt.image_exposures_vec, opt.image_haze_vec,
-                    opt.model_coeffs_vec);
-
-      // TODO: Study this. Discarding the coarse DEM and exposure so
-      // keeping only the cameras seem to work better.
-      // Note that we overwrite dems[level-1] by resampling the coarser
-      // dems[level], but we keep orig_dems[level-1] from the beginning.
-      if (level > 0) {
-        if (!opt.fix_dem)
-          interp_image(dems[level], sub_scale, dems[level-1]);
-        if (opt.float_albedo)
-          interp_image(albedos[level], sub_scale, albedos[level-1]);
-      }
-    }
+    run_sfs(// Fixed quantities
+            opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight,
+            dem_nodata_val, crop_boxes, masked_images, blend_weights,
+            global_params, sun_position, orig_dem,
+            lit_image_mask, curvature_in_shadow_weight,
+            // Variable quantities
+            dem, albedo, cameras, opt.image_exposures_vec, opt.image_haze_vec,
+            opt.model_coeffs_vec);
 
   } ASP_STANDARD_CATCHES;
   
