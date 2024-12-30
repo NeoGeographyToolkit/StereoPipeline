@@ -1,8 +1,3 @@
-.. _sfm:
-
-SfM examples with orbital images
-================================
-
 The Structure-from-Motion (SfM) ASP tool ``camera_solve`` offers
 several ways to find the pose of frame camera images that do
 not come with any attached pose metadata. This can be useful with

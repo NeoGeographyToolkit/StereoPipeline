@@ -48,6 +48,8 @@ struct Options: vw::GdalWriteOptions {
 
 
 /// Get a list of matched IP, looking in certain image regions.
+// TODO(oalexan1): Use, as in gcp_gen, the stereo session ip_matching() function,
+// which also does normalization and allows for other ip matching algorithms.
 void find_matches(std::string const& image_file1, std::string const& image_file2,
                   ImageViewRef<double> image1, ImageViewRef<double> image2,
                   double nodata1, double nodata2,

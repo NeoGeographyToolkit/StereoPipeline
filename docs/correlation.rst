@@ -1,7 +1,7 @@
 .. _correlation:
 
-Technical discussion
-====================
+Advanced stereo topics
+======================
 
 In this chapter we will dive much deeper into understanding the core
 algorithms in the Stereo Pipeline. We start with an overview of the five

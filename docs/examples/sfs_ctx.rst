@@ -17,25 +17,24 @@ Results
    :alt: ctx_sfs_zoom_in
    :align: left
    
-   A small area is shown, with images from left to right depicting: (a) a
-   terrain model produced with CTX images and stereo, (b) the same terrain refined
-   with SfS and CTX images, (c) corresponding terrain produced with stereo with
-   HiRISE images. SfS adds notably more detail to the CTX DEM.
+   From left to right: (a) a terrain model produced with CTX images and stereo, (b)
+   the same terrain refined with SfS and CTX images, (c) corresponding terrain
+   produced with stereo with HiRISE images. SfS adds notably more detail to the CTX
+   DEM.
 
 .. figure:: ../images/ctx_sfs_dem_err.png
    :name: ctx_sfs_dem_err
    :alt: ctx_sfs_dem_err
    :align: left
    
-   A larger area (about 1100 x 1100 pixels, at 6 m/pixel). The site is the Jezero
-   Crater. The top row shows, as before, the CTX stereo terrain, CTX SfS-refined
-   terrain, and a HiRISE terrain for comparison. The bottom row has the
-   difference between the CTX stereo terrain and the HiRISE terrain (left), and the
-   difference between the SfS-refined terrain and the HiRISE terrain (right). The
-   SfS-refined terrain shows somewhat improved agreement with the HiRISE terrain.
-   The range of colors is from -10 to 10 meters. There seems to be some local
-   vertical bias between the CTX and HiRISE terrains that is unrelated to SfS
-   refinement.
+   A larger area (about 1100 x 1100 pixels, at 6 m/pixel). The site is inside the
+   Jezero Crater. The top row shows, as before, the CTX stereo terrain, CTX
+   SfS-refined terrain, and a HiRISE terrain for comparison. The bottom row has the
+   differences to the HiRISE stereo DEM of the the CTX stereo DEM (left) and SfS-refined
+   DEM (right). The SfS-refined terrain shows somewhat improved agreement with
+   the HiRISE terrain. The range of colors is from -10 to 10 meters. There seems to
+   be some local vertical bias between the CTX and HiRISE terrains that is
+   unrelated to SfS refinement.
 
 .. figure:: ../images/ctx_ortho.png
    :name: ctx_ortho
@@ -166,3 +165,18 @@ The value of ``--smoothness-weight`` could have been increased a bit, as
 some numerical noise is visible. 
 
 The results are in :numref:`sfs_ctx_results`.
+
+Further thoughts
+~~~~~~~~~~~~~~~~
+
+The shadows were not modeled here. Given that the Sun was rather high in the sky,
+with various azimuth and elevation values, their effect is likely not very
+strong. Pixels in shadows can be given less weight with the ``sfs`` parameter
+``--robust-threshold``. This will penalize pixels for which the disagreement
+between the simulated and measured images is roughly more than this
+quantity. See :numref:`sfs_earth` for an example and discussion.
+
+The disagreement between the stereo CTX and HiRISE terrains (that is seen even
+before SfS) can be made smaller by individually aligning SfS-refined small tiles
+(with overlap) to HiRISE, followed by mosaicking. That can make it easier to see
+where SfS still needs improvement. 

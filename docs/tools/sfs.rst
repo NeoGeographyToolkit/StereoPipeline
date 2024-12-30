@@ -71,6 +71,9 @@ outputs are:
  - ``run/run-exposures.txt`` - computed exposures for the images. These can be passed
    back to ``sfs`` via ``--image-exposures-prefix``.
 
+ - ``run/run-haze.txt`` - computed haze values for the images. These can be passed
+   back to ``sfs`` via ``--haze-prefix``.
+   
  - ``run/run-<image>-final-meas-intensity.tif`` - For each input image, this
    has the actual (measured) image values at each refined DEM grid point. 
 
@@ -278,7 +281,7 @@ Command-line options for sfs
     file (filename is ``<path>-model_coeffs.txt``).
 
 --model-coeffs <string of space-separated numbers>
-    Use the model coefficients specified as a list of numbers in
+    Use the reflectance model coefficients specified as a list of numbers in
     quotes. For example:
 
     * Lunar-Lambertian: O, A, B, C, would be ``"1 -0.019 0.000242 -0.00000146"``
@@ -345,15 +348,12 @@ Command-line options for sfs
 
 --num-haze-coeffs <integer (default: 0)>
     Set this to 1 to model the problem as ``image = exposure * albedo *
-    reflectance + haze``, where ``haze`` is a single value for each image. This
-    models a small quantity of stray light entering the lens due to scattering
-    and other effects. Use ``--float-haze`` to actually optimize the haze (it
-    starts as 0). It will be written as ``<output prefix>-haze.txt`` (ignore all
-    columns of numbers in that file except the first one).
+    reflectance + haze``, where ``haze`` is a single value for each image
+    (:numref:`sfs_formulation`).
 
 --float-haze
-    If specified, float the haze coefficients as part of the
-    optimization, if haze is modeled, so if ``--num-haze-coeffs`` is 1.
+    If specified, float the haze coefficients as part of the optimization (if
+    ``--num-haze-coeffs`` is 1).
 
 --haze-prefix <string (default: "")>
     Use this prefix to read initial haze values (filename is
@@ -365,12 +365,15 @@ Command-line options for sfs
     prefix>-haze.txt``.
 
 --read-exposures
-    If set, read the image exposures with the current output prefix.
-    Useful with a repeat invocation. See the options ``--prep-step`` and
-    ``--main-step`` in ``parallel_sfs`` (:numref:`parallel_sfs`).
+    If set, read the image exposures with the current output prefix. Useful with
+    a repeat invocation from ``parallel_sfs``, when with this option the
+    exposures of the current tile are read, and not for the whole site. See the
+    options ``--prep-step`` and ``--main-step`` in ``parallel_sfs``
+    (:numref:`parallel_sfs`).
 
 --read-haze
-    If set, read the haze values with the current output prefix. See also ``--read-exposures``.
+    If set, read the haze values with the current output prefix. See also
+    ``--read-exposures``.
 
 --read-albedo
     If set, read the computed albedo with the current output prefix. See also ``--read-exposures``.    

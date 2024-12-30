@@ -13,10 +13,9 @@ Ames Stereo Pipeline documentation (version |version|)
    next_steps
    tips_tricks
    examples
-   sfm
-   correlation
    bundle_adjustment
    error_propagation
+   correlation
    experimental
    tools
    stereodefault
