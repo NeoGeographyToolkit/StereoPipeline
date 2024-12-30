@@ -1,3 +1,6 @@
+Camera solving overview
+-----------------------
+
 The Structure-from-Motion (SfM) ASP tool ``camera_solve`` offers
 several ways to find the pose of frame camera images that do
 not come with any attached pose metadata. This can be useful with
@@ -16,9 +19,6 @@ ASP offers another tool to build reconstructions, named ``theia_sfm``
 (:numref:`theia_sfm`). That one more geared to work with a rig
 mounted on a robot (:numref:`rig_calibrator`). See examples
 of that in :numref:`rig_examples`.
-
-Camera solving overview
------------------------
 
 The ``camera_solve`` tool is implemented as a Python wrapper around two other
 tools that we ship. The first of these is `TheiaSfM
