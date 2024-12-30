@@ -43,6 +43,39 @@ using namespace vw;
 
 namespace asp {
 
+// Compute mean and standard deviation of two images. Do it where both are valid.
+void calcJointStats(vw::ImageView<vw::PixelMask<double>> const& I1, 
+                    vw::ImageView<vw::PixelMask<double>> const& I2,
+                    double & mean1, double & std1,
+                    double & mean2, double & std2) {
+
+  if (I1.cols() != I2.cols() || I1.rows() != I2.rows()) 
+    vw_throw(ArgumentErr() << "Expecting two input images of same size.\n");
+  
+  mean1 = 0; std1 = 0;
+  mean2 = 0; std2 = 0;
+  
+  double sum1 = 0.0, sum2 = 0.0, sum1_sq = 0.0, sum2_sq = 0.0, count = 0.0;
+  for (int col = 0; col < I1.cols(); col++) {
+    for (int row = 0; row < I1.rows(); row++) {
+      
+      if (!is_valid(I1(col, row)) || !is_valid(I2(col, row))) continue;
+                    
+      count++;
+      
+      double val1 = I1(col, row); sum1 += val1; sum1_sq += val1*val1;
+      double val2 = I2(col, row); sum2 += val2; sum2_sq += val2*val2;
+    }
+  }
+
+  if (count > 0) {
+    mean1 = sum1/count; std1 = sqrt(sum1_sq/count - mean1*mean1);
+    mean2 = sum2/count; std2 = sqrt(sum2_sq/count - mean2*mean2);
+  }
+
+  return;
+}
+
 // Given a set of images of same dimensions, find the per-pixel maximum.
 void maxImage(int cols, int rows,
               std::set<int> const& skip_images,

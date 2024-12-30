@@ -56,15 +56,8 @@
 
 // Turn off warnings from boost and other packages
 #if defined(__GNUC__) || defined(__GNUG__)
-#define LOCAL_GCC_VERSION (__GNUC__ * 10000             \
-                           + __GNUC_MINOR__ * 100       \
-                           + __GNUC_PATCHLEVEL__)
-#if LOCAL_GCC_VERSION >= 40600
 #pragma GCC diagnostic push
-#endif
-#if LOCAL_GCC_VERSION >= 40202
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
-#endif
 #endif
 
 #include <asp/Core/Macros.h>
@@ -77,6 +70,7 @@
 #include <asp/SfS/SfsImageProc.h>
 #include <asp/SfS/SfsUtils.h>
 #include <asp/SfS/SfsCamera.h>
+#include <asp/SfS/SfsReflectanceModel.h>
 
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/AntiAliasing.h>
@@ -95,9 +89,7 @@
 #include<sys/types.h>
 
 #if defined(__GNUC__) || defined(__GNUG__)
-#if LOCAL_GCC_VERSION >= 40600
 #pragma GCC diagnostic pop
-#endif
 #undef LOCAL_GCC_VERSION
 #endif
 
@@ -105,11 +97,13 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 const size_t g_num_model_coeffs = 16;
-const size_t g_max_num_haze_coeffs = 6; // see nonlin_reflectance()
+const size_t g_max_num_haze_coeffs = 6; // see nonlinReflectance()
 
 // If the blend weight is ground weight, rather than image weight,
 // use it as it is, without projecting into camera and interpolating.
 // It is a lot of work to pass this all over the place.
+// TODO(oalexan1): Pass this properly. Use bool opt_allow_borderline_data,
+// pass it along with bool model_shadows. Will need a testcase.
 bool g_blend_weight_is_ground_weight = false;
 
 using namespace vw;
@@ -118,6 +112,8 @@ using namespace vw::cartography;
 
 typedef ImageViewRef<PixelMask<float>> MaskedImgT;
 typedef ImageViewRef<double> DoubleImgT;
+
+using namespace asp;
 
 // Get the memory usage for the given process. This is for debugging, not used
 // in production code. It does not work on OSX.
@@ -129,40 +125,7 @@ void callTop() {
   
   std::string cmd = "top -b -n 1 | grep -i ' sfs' | grep -i '" + os.str() + "'";
   std::string ans = vw::exec_cmd(cmd.c_str());
-  vw_out() << "Memory usage: " << cmd << " " << ans << std::endl;
-}
-
-// Compute mean and standard deviation of two images. Do it where both are valid.
-// TODO(oalexan1): Move this out.
-template <class ImageT>
-void compute_image_stats(ImageT const& I1, ImageT const& I2,
-                         double & mean1, double & stdev1,
-                         double & mean2, double & stdev2) {
-
-  if (I1.cols() != I2.cols() || I1.rows() != I2.rows()) 
-    vw_throw(ArgumentErr() << "Expecting two input images of same size.\n");
-  
-  mean1 = 0; stdev1 = 0;
-  mean2 = 0; stdev2 = 0;
-  
-  double sum1 = 0.0, sum2 = 0.0, sum1_sq = 0.0, sum2_sq = 0.0, count = 0.0;
-  for (int col = 0; col < I1.cols(); col++){
-    for (int row = 0; row < I1.rows(); row++){
-      
-      if (!is_valid(I1(col, row)) || !is_valid(I2(col, row))) continue;
-                    
-      count++;
-      
-      double val1 = I1(col, row); sum1 += val1; sum1_sq += val1*val1;
-      double val2 = I2(col, row); sum2 += val2; sum2_sq += val2*val2;
-    }
-  }
-
-  if (count > 0){
-    mean1 = sum1/count; stdev1 = sqrt(sum1_sq/count - mean1*mean1);
-    mean2 = sum2/count; stdev2 = sqrt(sum2_sq/count - mean2*mean2);
-  }
-
+  vw_out() << "Memory usage: " << cmd << " " << ans << "\n";
 }
 
 struct Options: public vw::GdalWriteOptions {
@@ -217,481 +180,8 @@ struct Options: public vw::GdalWriteOptions {
             crop_win(BBox2i(0, 0, 0, 0)){}
 };
 
-struct GlobalParams {
-  int reflectanceType;
-  // Two parameters used in the formula for the Lunar-Lambertian
-  // reflectance
-  double phaseCoeffC1, phaseCoeffC2;
-};
-
-// Make the reflectance nonlinear using a rational function.
-// Note that haze[0] is not present below, as it will be added
-// after multiplying this reflectance by albeod.
-double nonlin_reflectance(double reflectance, double exposure,
-                          double steepness_factor,
-                          double const* haze, int num_haze_coeffs) {
-
-  // Make the exposure smaller. This will result in higher reflectance
-  // to compensate, as intensity = exposure * reflectance, hence
-  // steeper terrain. Things become more complicated if the haze
-  // and nonlinear reflectance is modeled.
-  exposure /= steepness_factor;
-  
-  double r = reflectance; // for short
-  if (num_haze_coeffs == 0) 
-    return exposure * r;
-  if (num_haze_coeffs == 1) 
-    return exposure * r;
-  if (num_haze_coeffs == 2) 
-    return exposure * r /(haze[1]*r + 1);
-  if (num_haze_coeffs == 3) 
-    return exposure * (r + haze[2])/(haze[1]*r + 1);
-  if (num_haze_coeffs == 4) 
-    return exposure * (haze[3]*r*r + r + haze[2])/(haze[1]*r + 1);
-  if (num_haze_coeffs == 5) 
-    return exposure * (haze[3]*r*r + r + haze[2])/(haze[4]*r*r + haze[1]*r + 1);
-  if (num_haze_coeffs == 6) 
-    return exposure * (haze[5]*r*r*r + haze[3]*r*r + r + haze[2])/(haze[4]*r*r + haze[1]*r + 1);
-    
-  vw_throw(ArgumentErr() << "Invalid value for the number of haze coefficients.\n");
-  return 0;
-}
-
-// Make the reflectance nonlinear using a rational function
-double calc_intensity(double albedo, double reflectance, double exposure, 
-                      double steepness_factor, double const* haze, int num_haze_coeffs) {
-  return albedo 
-  * nonlin_reflectance(reflectance, exposure, steepness_factor, haze, num_haze_coeffs)
-  + haze[0]; 
-}
-
-// Calc albedo given the intensity.
-double calc_albedo(double intensity, double reflectance, double exposure, 
-                   double steepness_factor, double const* haze, int num_haze_coeffs) {
- 
-  // First, subtract the base haze coefficient
-  double adjusted_intensity = intensity - haze[0];
-  
-  // Calculate the nonlinear reflectance first
-  double nonlin_ref = nonlin_reflectance(reflectance, exposure, 
-                                         steepness_factor, haze, num_haze_coeffs);
-  
-  // Solve for albedo: intensity = albedo * nonlin_ref + haze[0]
-  // Therefore, albedo = (intensity - haze[0]) / nonlin_ref
-  
-  // Protect against division by zero
-  if (nonlin_ref == 0.0)
-      return 0.0;
-  
-  return adjusted_intensity / nonlin_ref;
-}
-
-enum {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT, HAPKE, ARBITRARY_MODEL, CHARON};
-
-// computes the Lambertian reflectance model (cosine of the light
-// direction and the normal to the Moon) Vector3 sunpos: the 3D
-// coordinates of the Sun relative to the center of the Moon Vector2
-// lon_lat is a 2D vector. First element is the longitude and the
-// second the latitude.
-// Author: Ara Nefian
-double
-computeLambertianReflectanceFromNormal(Vector3 sunPos, Vector3 xyz,
-                                       Vector3 normal) {
-  double reflectance;
-  Vector3 sunDirection = normalize(sunPos-xyz);
-
-  reflectance = sunDirection[0]*normal[0] + sunDirection[1]*normal[1] + sunDirection[2]*normal[2];
-
-  return reflectance;
-}
-
-double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
-                                                   Vector3 const& viewPos,
-                                                   Vector3 const& xyz,
-                                                   Vector3 const& normal,
-                                                   double phaseCoeffC1,
-                                                   double phaseCoeffC2,
-                                                   double & alpha,
-                                                   const double * reflectance_model_coeffs) {
-  double reflectance;
-  double L;
-
-  double len = dot_prod(normal, normal);
-  if (abs(len - 1.0) > 1.0e-4)
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "Expecting unit normal in the reflectance computation.\n");
-
-  //compute /mu_0 = cosine of the angle between the light direction and the surface normal.
-  //sun coordinates relative to the xyz point on the Moon surface
-  Vector3 sunDirection = normalize(sunPos-xyz);
-  double mu_0 = dot_prod(sunDirection, normal);
-
-  //double tol = 0.3;
-  //if (mu_0 < tol) {
-  //  // Sun is too low, reflectance is too close to 0, the albedo will be inaccurate
-  //  return 0.0;
-  // }
-
-  //compute  /mu = cosine of the angle between the viewer direction and the surface normal.
-  //viewer coordinates relative to the xyz point on the Moon surface
-  Vector3 viewDirection = normalize(viewPos-xyz);
-  double mu = dot_prod(viewDirection,normal);
-
-  //compute the phase angle (alpha) between the viewing direction and the light source direction
-  double deg_alpha;
-  double cos_alpha;
-
-  double tol = 1e-8;
-  cos_alpha = dot_prod(sunDirection, viewDirection);
-  if ((cos_alpha > 1 + tol) || (cos_alpha < -1 - tol))
-    vw::vw_throw(vw::ArgumentErr() << "cos(alpha) error.\n");
-
-  alpha     = acos(cos_alpha);  // phase angle in radians
-  deg_alpha = alpha*180.0/M_PI; // phase angle in degrees
-
-  //printf("deg_alpha = %f\n", deg_alpha);
-
-  // Bob Gaskell's model
-  //L = exp(-deg_alpha/60.0);
-
-  // Alfred McEwen's model
-  double O = reflectance_model_coeffs[0]; // 1
-  double A = reflectance_model_coeffs[1]; //-0.019;
-  double B = reflectance_model_coeffs[2]; // 0.000242;//0.242*1e-3;
-  double C = reflectance_model_coeffs[3]; // -0.00000146;//-1.46*1e-6;
-
-  L = O + A*deg_alpha + B*deg_alpha*deg_alpha + C*deg_alpha*deg_alpha*deg_alpha;
- 
-  //printf(" deg_alpha = %f, L = %f\n", deg_alpha, L);
-
-  //if (mu_0 < 0.0){
-  //  return 0.0;
-  // }
-
-  //  if (mu < 0.0){ //emission angle is > 90
-  //  mu = 0.0;
-  //}
-
-  //if (mu_0 + mu == 0){
-  //  //printf("negative reflectance\n");
-  //  return 0.0;
-  //}
-  //else{
-  reflectance = 2*L*mu_0/(mu_0+mu) + (1-L)*mu_0;
-  //}
-  
-  //if (mu < 0 || mu_0 < 0 || mu_0 + mu <= 0 ||  reflectance <= 0 || reflectance != reflectance){
-  if (mu_0 + mu == 0 || reflectance != reflectance){
-    return 0.0;
-  }
-
-  // Attempt to compensate for points on the terrain being too bright
-  // if the sun is behind the spacecraft as seen from those points.
-
-  //reflectance *= std::max(0.4, exp(-alpha*alpha));
-  reflectance *= ( exp(-phaseCoeffC1*alpha) + phaseCoeffC2 );
-
-  return reflectance;
-}
-
-// Hapke's model. See: An Experimental Study of Light Scattering by Large,
-// Irregular Particles Audrey F. McGuire, Bruce W. Hapke. 1995. The reflectance
-// used is R(g), in equation above Equation 21. The p(g) function is given by
-// Equation (14), yet this one uses an old convention. The updated p(g) is given
-// in: Spectrophotometric properties of materials observed by Pancam on the Mars
-// Exploration Rovers: 1. Spirit. JR Johnson, 2006. We Use the two-term p(g),
-// and the parameter c, not c'=1-c. We also use the values of w(=omega), b, and
-// c from that table.
-
-// Note that we use the updated Hapke model, having the term B(g). This one is
-// given in "Modeling spectral and bidirectional reflectance", Jacquemoud, 1992.
-// It has the params B0 and h. The ultimate reference is probably Hapke, 1986,
-// having all pieces in one place, but that one is not available. 
-
-// We use mostly the parameter values for omega, b, c, B0 and h from: Surface
-// reflectance of Mars observed by CRISM/MRO: 2. Estimation of surface
-// photometric properties in Gusev Crater and Meridiani Planum by J. Fernando.
-// See equations (1), (2) and (4) in that paper.
-
-// Example values for the params: w=omega=0.68, b=0.17, c=0.62, B0=0.52, h=0.52.
-
-// We don't use equation (3) from that paper, we use instead what they call
-// the formula H93, which is the H(x) from McGuire and Hapke 1995 mentioned
-// above. See the complete formulas below.
-
-// The Fernando paper has a factor S, which is not present in the 1992
-// Jacquemoud paper, so we don't use it either here.
-double computeHapkeReflectanceFromNormal(Vector3 const& sunPos,
-                                         Vector3 const& viewPos,
-                                         Vector3 const& xyz,
-                                         Vector3 const& normal,
-                                         double phaseCoeffC1,
-                                         double phaseCoeffC2,
-                                         double & alpha,
-                                         const double * reflectance_model_coeffs) {
-
-  double len = dot_prod(normal, normal);
-  if (abs(len - 1.0) > 1.0e-4){
-    std::cerr << "Error: Expecting unit normal in the reflectance computation, in "
-              << __FILE__ << " at line " << __LINE__ << std::endl;
-    exit(1);
-  }
-
-  //compute mu_0 = cosine of the angle between the light direction and the surface normal.
-  //sun coordinates relative to the xyz point on the Moon surface
-  Vector3 sunDirection = normalize(sunPos-xyz);
-  double mu_0 = dot_prod(sunDirection, normal);
-
-  //compute mu = cosine of the angle between the viewer direction and the surface normal.
-  //viewer coordinates relative to the xyz point on the Moon surface
-  Vector3 viewDirection = normalize(viewPos-xyz);
-  double mu = dot_prod(viewDirection,normal);
-
-  //compute the phase angle (g) between the viewing direction and the light source direction
-  // in radians
-  double cos_g = dot_prod(sunDirection, viewDirection);
-  double g = acos(cos_g);  // phase angle in radians
-
-  // Hapke params
-  double omega = std::abs(reflectance_model_coeffs[0]); // also known as w
-  double b     = std::abs(reflectance_model_coeffs[1]);
-  double c     = std::abs(reflectance_model_coeffs[2]);
-  // The older Hapke model lacks the B0 and h terms
-  double B0    = std::abs(reflectance_model_coeffs[3]);
-  double h     = std::abs(reflectance_model_coeffs[4]);   
-
-  double J = 1.0; // does not matter, we'll factor out the constant scale as camera exposures anyway
-  
-  // The P(g) term
-  double Pg 
-    = (1.0 - c) * (1.0 - b*b) / pow(1.0 + 2.0*b*cos_g + b*b, 1.5)
-    + c         * (1.0 - b*b) / pow(1.0 - 2.0*b*cos_g + b*b, 1.5);
-    
-  // The B(g) term
-  double Bg = B0 / ( 1.0 + (1.0/h)*tan(g/2.0) );
-
-  double H_mu0 = (1.0 + 2*mu_0) / (1.0 + 2*mu_0 * sqrt(1.0 - omega));
-  double H_mu  = (1.0 + 2*mu  ) / (1.0 + 2*mu   * sqrt(1.0 - omega));
-
-  // The reflectance
-  double R = (J*omega/4.0/M_PI) * ( mu_0/(mu_0+mu) ) * ( (1.0 + Bg)*Pg + H_mu0*H_mu - 1.0 );
-  
-  return R;
-}
-
-// Use the following model:
-// Reflectance = f(alpha) * A * mu_0 /(mu_0 + mu) + (1-A) * mu_0
-// The value of A is either 1 (the so-called lunar-model), or A=0.7.
-// f(alpha) = 0.63.
-double computeCharonReflectanceFromNormal(Vector3 const& sunPos,
-                                          Vector3 const& viewPos,
-                                          Vector3 const& xyz,
-                                          Vector3 const& normal,
-                                          double phaseCoeffC1,
-                                          double phaseCoeffC2,
-                                          double & alpha,
-                                          const double * reflectance_model_coeffs) {
-
-  double len = dot_prod(normal, normal);
-  if (abs(len - 1.0) > 1.0e-4)
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "Expecting unit normal in the reflectance computation.\n");
-
-  //compute mu_0 = cosine of the angle between the light direction and the surface normal.
-  //sun coordinates relative to the xyz point on the Moon surface
-  Vector3 sunDirection = normalize(sunPos-xyz);
-  double mu_0 = dot_prod(sunDirection, normal);
-
-  //compute mu = cosine of the angle between the viewer direction and the surface normal.
-  //viewer coordinates relative to the xyz point on the Moon surface
-  Vector3 viewDirection = normalize(viewPos-xyz);
-  double mu = dot_prod(viewDirection,normal);
-
-  // Charon model params
-  double A       = std::abs(reflectance_model_coeffs[0]); // albedo 
-  double f_alpha = std::abs(reflectance_model_coeffs[1]); // phase function 
-
-  double reflectance = f_alpha*A*mu_0 / (mu_0 + mu) + (1.0 - A)*mu_0;
-  
-  if (mu_0 + mu == 0 || reflectance != reflectance){
-    return 0.0;
-  }
-
-  return reflectance;
-}
-
-double computeArbitraryLambertianReflectanceFromNormal(Vector3 const& sunPos,
-                                                       Vector3 const& viewPos,
-                                                       Vector3 const& xyz,
-                                                       Vector3 const& normal,
-                                                       double phaseCoeffC1,
-                                                       double phaseCoeffC2,
-                                                       double & alpha,
-                                                       const double * reflectance_model_coeffs) {
-  double reflectance;
-
-  double len = dot_prod(normal, normal);
-  if (std::abs(len - 1.0) > 1.0e-4)
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "Expecting unit normal in the reflectance computation.\n");
-
-  //compute /mu_0 = cosine of the angle between the light direction and the surface normal.
-  //sun coordinates relative to the xyz point on the Moon surface
-  //Vector3 sunDirection = -normalize(sunPos-xyz);
-  Vector3 sunDirection = normalize(sunPos-xyz);
-  double mu_0 = dot_prod(sunDirection, normal);
-
-  //double tol = 0.3;
-  //if (mu_0 < tol){
-  //  // Sun is too low, reflectance is too close to 0, the albedo will be inaccurate
-  //  return 0.0;
-  // }
-
-  //compute mu = cosine of the angle between the viewer direction and the surface normal.
-  //viewer coordinates relative to the xyz point on the Moon surface
-  Vector3 viewDirection = normalize(viewPos-xyz);
-  double mu = dot_prod(viewDirection,normal);
-
-  //compute the phase angle (alpha) between the viewing direction and the light source direction
-  double deg_alpha;
-  double cos_alpha;
-
-  cos_alpha = dot_prod(sunDirection,viewDirection);
-  if ((cos_alpha > 1)||(cos_alpha< -1)){
-    printf("cos_alpha error\n");
-  }
-
-  alpha     = acos(cos_alpha);  // phase angle in radians
-  deg_alpha = alpha*180.0/M_PI; // phase angle in degrees
-
-  //printf("deg_alpha = %f\n", deg_alpha);
-
-  //Bob Gaskell's model
-  //L = exp(-deg_alpha/60.0);
-
-  //Alfred McEwen's model
-  double O1 = reflectance_model_coeffs[0]; // 1
-  double A1 = reflectance_model_coeffs[1]; // -0.019;
-  double B1 = reflectance_model_coeffs[2]; // 0.000242;//0.242*1e-3;
-  double C1 = reflectance_model_coeffs[3]; // -0.00000146;//-1.46*1e-6;
-  double D1 = reflectance_model_coeffs[4]; 
-  double E1 = reflectance_model_coeffs[5]; 
-  double F1 = reflectance_model_coeffs[6]; 
-  double G1 = reflectance_model_coeffs[7]; 
-
-  double O2 = reflectance_model_coeffs[8];  // 1
-  double A2 = reflectance_model_coeffs[9];  // -0.019;
-  double B2 = reflectance_model_coeffs[10]; // 0.000242;//0.242*1e-3;
-  double C2 = reflectance_model_coeffs[11]; // -0.00000146;//-1.46*1e-6;
-  double D2 = reflectance_model_coeffs[12]; 
-  double E2 = reflectance_model_coeffs[13]; 
-  double F2 = reflectance_model_coeffs[14]; 
-  double G2 = reflectance_model_coeffs[15]; 
-  
-  double L1 = O1 + A1*deg_alpha + B1*deg_alpha*deg_alpha + C1*deg_alpha*deg_alpha*deg_alpha;
-  double K1 = D1 + E1*deg_alpha + F1*deg_alpha*deg_alpha + G1*deg_alpha*deg_alpha*deg_alpha;
-  if (K1 == 0) K1 = 1;
-    
-  double L2 = O2 + A2*deg_alpha + B2*deg_alpha*deg_alpha + C2*deg_alpha*deg_alpha*deg_alpha;
-  double K2 = D2 + E2*deg_alpha + F2*deg_alpha*deg_alpha + G2*deg_alpha*deg_alpha*deg_alpha;
-  if (K2 == 0) K2 = 1;
-  
-  //printf(" deg_alpha = %f, L = %f\n", deg_alpha, L);
-
-  //if (mu_0 < 0.0){
-  //  return 0.0;
-  // }
-
-  //  if (mu < 0.0){ //emission angle is > 90
-  //  mu = 0.0;
-  //}
-
-  //if (mu_0 + mu == 0){
-  //  //printf("negative reflectance\n");
-  //  return 0.0;
-  //}
-  //else{
-  reflectance = 2*L1*mu_0/(mu_0+mu)/K1 + (1-L2)*mu_0/K2;
-  //}
-  
-  //if (mu < 0 || mu_0 < 0 || mu_0 + mu <= 0 ||  reflectance <= 0 || reflectance != reflectance){
-  if (mu_0 + mu == 0 || reflectance != reflectance){
-    return 0.0;
-  }
-
-  // Attempt to compensate for points on the terrain being too bright
-  // if the sun is behind the spacecraft as seen from those points.
-
-  //reflectance *= std::max(0.4, exp(-alpha*alpha));
-  reflectance *= ( exp(-phaseCoeffC1*alpha) + phaseCoeffC2 );
-
-  return reflectance;
-}
-
-double ComputeReflectance(Vector3 const& cameraPosition,
-                          Vector3 const& normal, Vector3 const& xyz,
-                          vw::Vector3 const& sun_position,
-                          GlobalParams const& global_params,
-                          double & phase_angle,
-                          const double * reflectance_model_coeffs) {
-  double input_img_reflectance;
-
-  switch ( global_params.reflectanceType )
-    {
-    case LUNAR_LAMBERT:
-      input_img_reflectance
-        = computeLunarLambertianReflectanceFromNormal(sun_position,
-                                                      cameraPosition,
-                                                      xyz,  normal,
-                                                      global_params.phaseCoeffC1,
-                                                      global_params.phaseCoeffC2,
-                                                      phase_angle, // output
-                                                      reflectance_model_coeffs);
-      break;
-    case ARBITRARY_MODEL:
-      input_img_reflectance
-        = computeArbitraryLambertianReflectanceFromNormal(sun_position,
-                                                          cameraPosition,
-                                                          xyz,  normal,
-                                                          global_params.phaseCoeffC1,
-                                                          global_params.phaseCoeffC2,
-                                                          phase_angle, // output
-                                                          reflectance_model_coeffs);
-      break;
-    case HAPKE:
-      input_img_reflectance
-        = computeHapkeReflectanceFromNormal(sun_position,
-                                            cameraPosition,
-                                            xyz,  normal,
-                                            global_params.phaseCoeffC1,
-                                            global_params.phaseCoeffC2,
-                                            phase_angle, // output
-                                            reflectance_model_coeffs);
-      break;
-    case CHARON:
-      input_img_reflectance
-        = computeCharonReflectanceFromNormal(sun_position,
-                                             cameraPosition,
-                                             xyz,  normal,
-                                             global_params.phaseCoeffC1,
-                                             global_params.phaseCoeffC2,
-                                             phase_angle, // output
-                                             reflectance_model_coeffs);
-      break;
-    case LAMBERT:
-      input_img_reflectance
-        = computeLambertianReflectanceFromNormal(sun_position,
-                                                 xyz, normal);
-      break;
-
-    default:
-      input_img_reflectance = 1;
-    }
-
-  return input_img_reflectance;
-}
-
 // Use this struct to keep track of height errors.
+// TODO(oalexan1): Move to SfsErrorEstim.h
 struct HeightErrEstim {
 
   HeightErrEstim(int num_cols, int num_rows, int num_height_samples_in,
@@ -726,6 +216,7 @@ struct HeightErrEstim {
 };
 
 // Use this struct to keep track of slope errors.
+// TODO(oalexan1): Move to SfsErrorEstim.h
 struct SlopeErrEstim {
 
   SlopeErrEstim(int num_cols, int num_rows, int num_a_samples_in, int num_b_samples_in,
@@ -760,11 +251,12 @@ struct SlopeErrEstim {
 // Given the normal (slope) to the SfS DEM, find how different
 // a slope can be from this before the computed intensity
 // due to that slope is bigger than max_intensity_err.
+// TODO(oalexan1): Move to SfsErrorEstim.h
 void estimateSlopeError(Vector3 const& cameraPosition,
                         Vector3 const& normal, Vector3 const& xyz,
                         vw::Vector3 const& local_sun_position,
-                        GlobalParams const& global_params,
-                        const double * reflectance_model_coeffs,
+                        ReflParams const& refl_params,
+                        const double * refl_coeffs,
                         double meas_intensity,
                         double max_intensity_err,
                         int col, int row, int image_iter,
@@ -848,19 +340,17 @@ void estimateSlopeError(Vector3 const& cameraPosition,
         vw_throw( LogicErr() << "Book-keeping error in slope estimation.\n" );
 
       // Compute the reflectance with the given normal
-      double phase_angle = 0.0;
-      PixelMask<double> reflectance = ComputeReflectance(cameraPosition,
-                                                         w, xyz, local_sun_position,
-                                                         global_params, phase_angle,
-                                                         reflectance_model_coeffs);
+      PixelMask<double> reflectance = calcReflectance(cameraPosition,
+                                                      w, xyz, local_sun_position,
+                                                      refl_params, refl_coeffs);
       reflectance.validate();
 
-      double comp_intensity = calc_intensity(albedo(col, row), 
-                                             reflectance, 
-                                             opt.image_exposures_vec[image_iter],
-                                             opt.steepness_factor,
-                                             &opt.image_haze_vec[image_iter][0], 
-                                             opt.num_haze_coeffs);
+      double comp_intensity = calcIntensity(albedo(col, row), 
+                                            reflectance, 
+                                            opt.image_exposures_vec[image_iter],
+                                            opt.steepness_factor,
+                                            &opt.image_haze_vec[image_iter][0], 
+                                            opt.num_haze_coeffs);
          
       if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
         // We exceeded the error budget, hence this is an upper bound on the slope
@@ -875,12 +365,13 @@ void estimateSlopeError(Vector3 const& cameraPosition,
 // Given the normal (height) to the SfS DEM, find how different
 // a height can be from this before the computed intensity
 // due to that height is bigger than max_intensity_err.
+// TODO(oalexan1): Move to SfsErrorEstim.h
 void estimateHeightError(ImageView<double> const& dem,
                          vw::cartography::GeoReference const& geo,
                          Vector3 const& cameraPosition,
                          vw::Vector3 const& local_sun_position,
-                         GlobalParams const& global_params,
-                         const double * reflectance_model_coeffs,
+                         ReflParams const& refl_params,
+                         const double * refl_coeffs,
                          double meas_intensity,
                          double max_intensity_err,
                          int col, int row, int image_iter,
@@ -970,18 +461,16 @@ void estimateHeightError(ImageView<double> const& dem,
 
         Vector3 normal = -normalize(cross_prod(dx, dy)); // so normal points up
 
-        double phase_angle = 0.0;
-        PixelMask<double> reflectance = ComputeReflectance(cameraPosition,
-                                                           normal, base, local_sun_position,
-                                                           global_params, phase_angle,
-                                                           reflectance_model_coeffs);
+        PixelMask<double> reflectance = calcReflectance(cameraPosition,
+                                                        normal, base, local_sun_position,
+                                                        refl_params, refl_coeffs);
         reflectance.validate();
-        double comp_intensity = calc_intensity(albedo(col, row), 
-                                               reflectance, 
-                                               opt.image_exposures_vec[image_iter],
-                                               opt.steepness_factor,
-                                               &opt.image_haze_vec[image_iter][0], 
-                                               opt.num_haze_coeffs);
+        double comp_intensity = calcIntensity(albedo(col, row), 
+                                              reflectance, 
+                                              opt.image_exposures_vec[image_iter],
+                                              opt.steepness_factor,
+                                              &opt.image_haze_vec[image_iter][0], 
+                                              opt.num_haze_coeffs);
 
         if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
           // We exceeded the error budget, record the dh at which it happens
@@ -999,6 +488,7 @@ void estimateHeightError(ImageView<double> const& dem,
   }
 }
 
+// TODO(oalexan1): Move to SfsReflectanceModel.h
 bool computeReflectanceAndIntensity(double left_h, double center_h, double right_h,
                                     double bottom_h, double top_h,
                                     bool use_pq, double p, double q, // dem partial derivatives
@@ -1009,7 +499,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
                                     double max_dem_height,
                                     double gridx, double gridy,
                                     vw::Vector3  const & sun_position,
-                                    GlobalParams const & global_params,
+                                    ReflParams const & refl_params,
                                     BBox2i       const & crop_box,
                                     MaskedImgT   const & image,
                                     DoubleImgT   const & blend_weight,
@@ -1017,7 +507,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
                                     PixelMask<double>  & reflectance,
                                     PixelMask<double>  & intensity,
                                     double             & ground_weight,
-                                    const double       * reflectance_model_coeffs,
+                                    const double       * refl_coeffs,
                                     SlopeErrEstim      * slopeErrEstim = NULL,
                                     HeightErrEstim     * heightErrEstim = NULL) {
 
@@ -1083,7 +573,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     pix = camera->point_to_pixel(base);
     
     // Need camera center only for Lunar Lambertian
-    if (global_params.reflectanceType != LAMBERT)
+    if (refl_params.reflectanceType != LAMBERT)
       cameraPosition = camera->camera_center(pix);
     
   } catch(...){
@@ -1093,11 +583,9 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     return false;
   }
   
-  double phase_angle = 0.0;
-  reflectance = ComputeReflectance(cameraPosition,
-                                   normal, base, sun_position,
-                                   global_params, phase_angle,
-                                   reflectance_model_coeffs);
+  reflectance = calcReflectance(cameraPosition,
+                                normal, base, sun_position,
+                                refl_params, refl_coeffs);
   reflectance.validate();
 
 
@@ -1119,7 +607,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 
   if (g_blend_weight_is_ground_weight) {
     if (blend_weight.cols() != dem.cols() || blend_weight.rows() != dem.rows()) 
-      vw::vw_throw(vw::ArgumentErr() << "Ground weight must have the same size as the DEM.\n");
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Ground weight must have the same size as the DEM.\n");
     ground_weight = blend_weight(col, row);
   } else {
     InterpolationView<EdgeExtensionView<DoubleImgT, ConstantEdgeExtension>, BilinearInterpolation>
@@ -1157,12 +646,12 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     int image_iter = slopeErrEstim->image_iter;
     Options & opt = *slopeErrEstim->opt; // alias
     ImageView<double> & albedo = *slopeErrEstim->albedo; // alias
-    double comp_intensity = calc_intensity(albedo(col, row), 
-                                           reflectance, 
-                                           opt.image_exposures_vec[image_iter],
-                                           opt.steepness_factor,
-                                           &opt.image_haze_vec[image_iter][0], 
-                                           opt.num_haze_coeffs);
+    double comp_intensity = calcIntensity(albedo(col, row), 
+                                          reflectance, 
+                                          opt.image_exposures_vec[image_iter],
+                                          opt.steepness_factor,
+                                          &opt.image_haze_vec[image_iter][0], 
+                                          opt.num_haze_coeffs);
 
     // We use twice the discrepancy between the computed and measured intensity
     // as a measure for how far is overall the computed intensity allowed
@@ -1170,8 +659,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
     estimateSlopeError(cameraPosition,
                        normal, base, sun_position,
-                       global_params,
-                       reflectance_model_coeffs,
+                       refl_params,
+                       refl_coeffs,
                        intensity.child(),
                        max_intensity_err,
                        col, row, image_iter,
@@ -1184,12 +673,12 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     int image_iter = heightErrEstim->image_iter;
     Options & opt = *heightErrEstim->opt; // alias
     ImageView<double> & albedo = *heightErrEstim->albedo; // alias
-    double comp_intensity = calc_intensity(albedo(col, row), 
-                                           reflectance, 
-                                           opt.image_exposures_vec[image_iter],
-                                           opt.steepness_factor,
-                                           &opt.image_haze_vec[image_iter][0], 
-                                           opt.num_haze_coeffs);
+    double comp_intensity = calcIntensity(albedo(col, row), 
+                                          reflectance, 
+                                          opt.image_exposures_vec[image_iter],
+                                          opt.steepness_factor,
+                                          &opt.image_haze_vec[image_iter][0], 
+                                          opt.num_haze_coeffs);
     
     // We use twice the discrepancy between the computed and measured intensity
     // as a measure for how far is overall the computed intensity allowed
@@ -1197,8 +686,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
 
     estimateHeightError(dem, geo,  
-                        cameraPosition, sun_position,  global_params,  
-                        reflectance_model_coeffs, intensity.child(),  
+                        cameraPosition, sun_position,  refl_params,  
+                        refl_coeffs, intensity.child(),  
                         max_intensity_err, col, row, image_iter, opt,  albedo,  
                         heightErrEstim);
   }
@@ -1206,6 +695,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   return true;
 }
 
+// TODO(oalexan1): Move to SfsReflectanceModel.h
 void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     ImageView<Vector2> const& pq,
                                     cartography::GeoReference const& geo,
@@ -1214,7 +704,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     double gridx, double gridy,
                                     int sample_col_rate, int sample_row_rate,
                                     vw::Vector3 const& sun_position,
-                                    GlobalParams const& global_params,
+                                    ReflParams const& refl_params,
                                     BBox2i const& crop_box,
                                     MaskedImgT const  & image,
                                     DoubleImgT const  & blend_weight,
@@ -1222,7 +712,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     ImageView<PixelMask<double>> & reflectance,
                                     ImageView<PixelMask<double>> & intensity,
                                     ImageView<double>            & ground_weight,
-                                    const double   * reflectance_model_coeffs,
+                                    const double   * refl_coeffs,
                                     SlopeErrEstim  * slopeErrEstim = NULL,
                                     HeightErrEstim * heightErrEstim = NULL) {
   
@@ -1295,12 +785,12 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                      col, row, dem, geo,
                                      model_shadows, max_dem_height,
                                      gridx, gridy,
-                                     sun_position, global_params,
+                                     sun_position, refl_params,
                                      crop_box, image, blend_weight, camera,
                                      reflectance(col_sample, row_sample),
                                      intensity(col_sample, row_sample),
                                      ground_weight(col_sample, row_sample),
-                                     reflectance_model_coeffs,
+                                     refl_coeffs,
                                      slopeErrEstim,
                                      heightErrEstim);
     }
@@ -1309,7 +799,8 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
   return;
 }
 
-std::string exposure_file_name(std::string const& prefix){
+// TODO(oalexan1): Move to SfsUtils.h
+std::string exposure_file_name(std::string const& prefix) {
   return prefix + "-exposures.txt";
 }
 
@@ -1323,6 +814,7 @@ std::string model_coeffs_file_name(std::string const& prefix) {
 
 // Form a finer resolution image with given dimensions from a coarse image.
 // Use constant edge extension.
+// TODO(oalexan1): Move to SfsUtils.h
 void interp_image(ImageView<double> const& coarse_image, double scale,
                   ImageView<double> & fine_image){
 
@@ -1335,6 +827,7 @@ void interp_image(ImageView<double> const& coarse_image, double scale,
   }
 }
 
+// TODO(oalexan1): Move to SfsUtils.h
 void save_exposures(std::string const& out_prefix,
                     std::vector<std::string> const& input_images,
                     std::vector<double> const& exposures){
@@ -1347,6 +840,7 @@ void save_exposures(std::string const& out_prefix,
   exf.close();
 }
 
+// TODO(oalexan1): Move to SfsUtils.h
 void save_haze(std::string const& out_prefix,
                std::vector<std::string> const& input_images,
                std::vector<std::vector<double>> const& haze) {
@@ -1370,9 +864,10 @@ class SfsCallback: public ceres::IterationCallback {
 public:
 
 // Constructor to initialize references to the necessary data
+// TODO(oalexan1): Move to SfsCostFun.h
 SfsCallback(Options const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
             ImageView<double>& albedo, cartography::GeoReference const& geo, 
-            GlobalParams const& global_params, std::vector<vw::Vector3> const& sun_position,
+            ReflParams const& refl_params, std::vector<vw::Vector3> const& sun_position,
             std::vector<BBox2i> const& crop_boxes, 
             std::vector<MaskedImgT> const& masked_images,
             std::vector<DoubleImgT> const& blend_weights,
@@ -1380,13 +875,13 @@ SfsCallback(Options const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
             double& dem_nodata_val, float& img_nodata_val,
             std::vector<double>& exposures, std::vector<std::vector<double>>& haze,
             double& max_dem_height, double& gridx, double& gridy,
-            std::vector<double> & reflectance_model_coeffs):
-  opt(opt), dem(dem), pq(pq), albedo(albedo), geo(geo), global_params(global_params),
+            std::vector<double> & refl_coeffs):
+  opt(opt), dem(dem), pq(pq), albedo(albedo), geo(geo), refl_params(refl_params),
   sun_position(sun_position), crop_boxes(crop_boxes), masked_images(masked_images),
   blend_weights(blend_weights), cameras(cameras), dem_nodata_val(dem_nodata_val),
   img_nodata_val(img_nodata_val), exposures(exposures), haze(haze),
   max_dem_height(max_dem_height), gridx(gridx), gridy(gridy),
-  reflectance_model_coeffs(reflectance_model_coeffs),
+  refl_coeffs(refl_coeffs),
   iter(-1), final_iter(false) {}
 
   virtual ceres::CallbackReturnType operator()(const ceres::IterationSummary& 
@@ -1394,7 +889,6 @@ SfsCallback(Options const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
   iter++;
 
   vw_out() << "Finished iteration: " << iter << std::endl;
-  // callTop();
 
   if (!opt.save_computed_intensity_only)
     save_exposures(opt.out_prefix, opt.input_images, exposures);
@@ -1408,7 +902,7 @@ SfsCallback(Options const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
     std::ofstream mcf(model_coeffs_file.c_str());
     mcf.precision(17);
     for (size_t coeff_iter = 0; coeff_iter < g_num_model_coeffs; coeff_iter++) {
-      mcf << reflectance_model_coeffs[coeff_iter] << " ";
+      mcf << refl_coeffs[coeff_iter] << " ";
     }
     mcf << "\n";
     mcf.close();
@@ -1480,13 +974,13 @@ SfsCallback(Options const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
                                   gridx, gridy,
                                   sample_col_rate, sample_row_rate,
                                   sun_position[image_iter],
-                                  global_params,
+                                  refl_params,
                                   crop_boxes[image_iter],
                                   masked_images[image_iter],
                                   blend_weights[image_iter],
                                   cameras[image_iter].get(),
                                   reflectance, intensity, ground_weight,
-                                  &reflectance_model_coeffs[0]); // Pass the address of the first element
+                                  &refl_coeffs[0]); // Pass the address of the first element
 
     // dem_nodata equals to dem if the image has valid pixels and no shadows
     if (opt.save_dem_with_nodata) {
@@ -1505,12 +999,12 @@ SfsCallback(Options const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
     comp_intensity.set_size(reflectance.cols(), reflectance.rows());
     for (int col = 0; col < comp_intensity.cols(); col++) {
       for (int row = 0; row < comp_intensity.rows(); row++) {
-        comp_intensity(col, row) = calc_intensity(albedo(col, row),
-                                                  reflectance(col, row),
-                                                  exposures[image_iter],
-                                                  opt.steepness_factor,
-                                                  &haze[image_iter][0],
-                                                  opt.num_haze_coeffs);
+        comp_intensity(col, row) = calcIntensity(albedo(col, row),
+                                                 reflectance(col, row),
+                                                 exposures[image_iter],
+                                                 opt.steepness_factor,
+                                                 &haze[image_iter][0],
+                                                 opt.num_haze_coeffs);
       }
     }
 
@@ -1552,9 +1046,9 @@ SfsCallback(Options const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
           measured_albedo(col, row) = 1;
         else
           measured_albedo(col, row)
-            = calc_albedo(intensity(col, row), reflectance(col, row),
-                          exposures[image_iter], opt.steepness_factor,
-                          &haze[image_iter][0], opt.num_haze_coeffs);
+            = calcAlbedo(intensity(col, row), reflectance(col, row),
+                         exposures[image_iter], opt.steepness_factor,
+                         &haze[image_iter][0], opt.num_haze_coeffs);
       }
     }
     std::string out_albedo_file = iter_str2 + "-meas-albedo.tif";
@@ -1597,7 +1091,7 @@ private:
   ImageView<Vector2>& pq;
   ImageView<double>& albedo;
   cartography::GeoReference const& geo;
-  GlobalParams const& global_params;
+  ReflParams const& refl_params;
   std::vector<vw::Vector3> const& sun_position;
   std::vector<BBox2i> const& crop_boxes;
   std::vector<MaskedImgT> const& masked_images;
@@ -1610,12 +1104,13 @@ private:
   double& max_dem_height;
   double& gridx;
   double& gridy;
-  std::vector<double> reflectance_model_coeffs;
+  std::vector<double> refl_coeffs;
   int iter;
   bool final_iter;
 };
 
 // See SmoothnessError() for the definitions of bottom, top, etc.
+// TODO(oalexan1): Move to SfsCostFun.h
 template <typename F, typename G>
 inline bool
 calc_intensity_residual(Options const& opt, 
@@ -1624,21 +1119,21 @@ calc_intensity_residual(Options const& opt,
                         const G* const bottom, const G* const top,
                         bool use_pq, const G* const pq, // dem partial derivatives
                         const G* const albedo,
-                        const G* const reflectance_model_coeffs, 
-                        int m_col, int m_row,
-                        ImageView<double>         const & m_dem,            // alias
-                        cartography::GeoReference const & m_geo,            // alias
-                        bool                              m_model_shadows,
-                        double                            m_camera_position_step_size,
-                        double                    const & m_max_dem_height, // alias
-                        double                            m_gridx,
-                        double                            m_gridy,
-                        GlobalParams              const & m_global_params,  // alias
-                        vw::Vector3               const & m_sun_position,   // alias
-                        BBox2i                            m_crop_box,
-                        MaskedImgT                const & m_image,          // alias
-                        DoubleImgT                const & m_blend_weight,   // alias
-                        vw::CamPtr                const & m_camera,         // alias
+                        const G* const refl_coeffs, 
+                        int col, int row,
+                        ImageView<double>         const & dem,            // alias
+                        cartography::GeoReference const & geo,            // alias
+                        bool                              model_shadows,
+                        double                            camera_position_step_size,
+                        double                    const & max_dem_height, // alias
+                        double                            gridx,
+                        double                            gridy,
+                        ReflParams              const & refl_params,  // alias
+                        vw::Vector3               const & sun_position,   // alias
+                        BBox2i                            crop_box,
+                        MaskedImgT                const & image,          // alias
+                        DoubleImgT                const & blend_weight,   // alias
+                        vw::CamPtr                const & camera,         // alias
                         F* residuals) {
   
   // Default residuals. Using here 0 rather than some big number tuned out to
@@ -1659,14 +1154,14 @@ calc_intensity_residual(Options const& opt,
       computeReflectanceAndIntensity(left[0], center[0], right[0],
                                      bottom[0], top[0],
                                      use_pq, p, q,
-                                     m_col, m_row,  m_dem, m_geo,
-                                     m_model_shadows, m_max_dem_height,
-                                     m_gridx, m_gridy,
-                                     m_sun_position,  m_global_params,
-                                     m_crop_box, m_image, m_blend_weight, m_camera.get(),
-                                     reflectance, intensity, ground_weight, reflectance_model_coeffs);
+                                     col, row,  dem, geo,
+                                     model_shadows, max_dem_height,
+                                     gridx, gridy,
+                                     sun_position,  refl_params,
+                                     crop_box, image, blend_weight, camera.get(),
+                                     reflectance, intensity, ground_weight, refl_coeffs);
       
-    if (opt.unreliable_intensity_threshold > 0){
+    if (opt.unreliable_intensity_threshold > 0) {
       if (is_valid(intensity) && intensity.child() <= opt.unreliable_intensity_threshold &&
           intensity.child() >= 0) {
         ground_weight *=
@@ -1676,9 +1171,9 @@ calc_intensity_residual(Options const& opt,
       
     if (success && is_valid(intensity) && is_valid(reflectance))
       residuals[0] = ground_weight * (intensity - 
-                      calc_intensity(albedo[0], reflectance.child(), exposure[0],
-                                     opt.steepness_factor,
-                                     haze, opt.num_haze_coeffs));
+                      calcIntensity(albedo[0], reflectance.child(), exposure[0],
+                                    opt.steepness_factor,
+                                    haze, opt.num_haze_coeffs));
 
   } catch (const camera::PointToPixelErr& e) {
     // To be able to handle robustly DEMs that extend beyond the camera,
@@ -1692,6 +1187,7 @@ calc_intensity_residual(Options const& opt,
 }
 
 // Discrepancy between measured and computed intensity. See the formula above.
+// TODO(oalexan1): Move to SfsCostFun.h
 struct IntensityError {
   IntensityError(Options const& opt, int col, int row,
                  ImageView<double> const& dem,
@@ -1700,7 +1196,7 @@ struct IntensityError {
                  double camera_position_step_size,
                  double const& max_dem_height, // note: this is an alias
                  double gridx, double gridy,
-                 GlobalParams const& global_params,
+                 ReflParams const& refl_params,
                  vw::Vector3 const& sun_position,
                  BBox2i const& crop_box,
                  MaskedImgT const& image,
@@ -1712,7 +1208,7 @@ struct IntensityError {
     m_camera_position_step_size(camera_position_step_size),
     m_max_dem_height(max_dem_height),
     m_gridx(gridx), m_gridy(gridy),
-    m_global_params(global_params),
+    m_refl_params(refl_params),
     m_sun_position(sun_position),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
@@ -1723,7 +1219,7 @@ struct IntensityError {
   bool operator()(const F* const exposure, const F* const haze,
                   const F* const left, const F* const center, const F* const right,
                   const F* const bottom, const F* const top,
-                  const F* const albedo, const F* const reflectance_model_coeffs,
+                  const F* const albedo, const F* const refl_coeffs,
                   F* residuals) const {
 
     // For this error we do not use p and q, hence just use a placeholder.
@@ -1732,7 +1228,7 @@ struct IntensityError {
     return calc_intensity_residual(m_opt, exposure, haze,
                                    left, center, right, bottom, top,
                                    use_pq, pq, albedo, 
-                                   reflectance_model_coeffs,
+                                   refl_coeffs,
                                    m_col, m_row,  
                                    m_dem,  // alias
                                    m_geo,  // alias
@@ -1740,7 +1236,7 @@ struct IntensityError {
                                    m_camera_position_step_size,  
                                    m_max_dem_height,  // alias
                                    m_gridx, m_gridy,  
-                                   m_global_params,   // alias
+                                   m_refl_params,   // alias
                                    m_sun_position,    // alias
                                    m_crop_box,  
                                    m_image,           // alias
@@ -1758,7 +1254,7 @@ struct IntensityError {
                                      double camera_position_step_size,
                                      double const& max_dem_height, // alias
                                      double gridx, double gridy,
-                                     GlobalParams const& global_params,
+                                     ReflParams const& refl_params,
                                      vw::Vector3 const& sun_position,
                                      BBox2i const& crop_box,
                                      MaskedImgT const& image,
@@ -1771,7 +1267,7 @@ struct IntensityError {
                                 camera_position_step_size,
                                 max_dem_height,
                                 gridx, gridy,
-                                global_params, sun_position,
+                                refl_params, sun_position,
                                 crop_box, image, blend_weight, camera)));
   }
 
@@ -1783,7 +1279,7 @@ struct IntensityError {
   double                                    m_camera_position_step_size;
   double                            const & m_max_dem_height; // alias
   double                                    m_gridx, m_gridy;
-  GlobalParams                      const & m_global_params;  // alias
+  ReflParams                      const & m_refl_params;  // alias
   vw::Vector3                       const & m_sun_position;   // alias
   BBox2i                                    m_crop_box;
   MaskedImgT                        const & m_image;          // alias
@@ -1792,12 +1288,12 @@ struct IntensityError {
 };
 
 // A variation of the intensity error where only the DEM is floated
-// TODO(oalexan1): Wipe this as it did not improve anything
+// TODO(oalexan1): Wipe this as it did not improve speed, but test first. Unlikely it improves memory usage, but need to test. If useful, move to SfsCostFun.h
 struct IntensityErrorFloatDemOnly {
   IntensityErrorFloatDemOnly(Options const& opt, int col, int row,
                              ImageView<double> const& dem,
                              double albedo,
-                             double * reflectance_model_coeffs, 
+                             double * refl_coeffs, 
                              double * exposure, 
                              double * haze, 
                              cartography::GeoReference const& geo,
@@ -1805,20 +1301,20 @@ struct IntensityErrorFloatDemOnly {
                              double camera_position_step_size,
                              double const& max_dem_height, // note: this is an alias
                              double gridx, double gridy,
-                             GlobalParams const& global_params,
+                             ReflParams const& refl_params,
                              vw::Vector3 const& sun_position,
                              BBox2i const& crop_box,
                              MaskedImgT const& image,
                              DoubleImgT const& blend_weight,
                              boost::shared_ptr<CameraModel> const& camera):
     m_opt(opt), m_col(col), m_row(row), m_dem(dem),
-    m_albedo(albedo), m_reflectance_model_coeffs(reflectance_model_coeffs),
+    m_albedo(albedo), m_refl_coeffs(refl_coeffs),
     m_exposure(exposure), m_haze(haze), m_geo(geo),
     m_model_shadows(model_shadows),
     m_camera_position_step_size(camera_position_step_size),
     m_max_dem_height(max_dem_height),
     m_gridx(gridx), m_gridy(gridy),
-    m_global_params(global_params),
+    m_refl_params(refl_params),
     m_sun_position(sun_position),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
@@ -1841,7 +1337,7 @@ struct IntensityErrorFloatDemOnly {
                                    left, center, right, bottom, top,
                                    use_pq, pq,
                                    &m_albedo, 
-                                   m_reflectance_model_coeffs,
+                                   m_refl_coeffs,
                                    m_col, m_row,  
                                    m_dem,  // alias
                                    m_geo,  // alias
@@ -1849,7 +1345,7 @@ struct IntensityErrorFloatDemOnly {
                                    m_camera_position_step_size,  
                                    m_max_dem_height,  // alias
                                    m_gridx, m_gridy,  
-                                   m_global_params,   // alias
+                                   m_refl_params,   // alias
                                    m_sun_position,    // alias
                                    m_crop_box,  
                                    m_image,           // alias
@@ -1863,7 +1359,7 @@ struct IntensityErrorFloatDemOnly {
   static ceres::CostFunction* Create(Options const& opt, int col, int row,
                                      ImageView<double> const& dem,
                                      double albedo,
-                                     double * reflectance_model_coeffs, 
+                                     double * refl_coeffs, 
                                      double * exposure, 
                                      double * haze, 
                                      vw::cartography::GeoReference const& geo,
@@ -1871,7 +1367,7 @@ struct IntensityErrorFloatDemOnly {
                                      double camera_position_step_size,
                                      double const& max_dem_height, // alias
                                      double gridx, double gridy,
-                                     GlobalParams const& global_params,
+                                     ReflParams const& refl_params,
                                      vw::Vector3 const& sun_position,
                                      BBox2i const& crop_box,
                                      MaskedImgT const& image,
@@ -1880,13 +1376,13 @@ struct IntensityErrorFloatDemOnly {
     return (new ceres::NumericDiffCostFunction<IntensityErrorFloatDemOnly,
             ceres::CENTRAL, 1, 1, 1, 1, 1, 1>
             (new IntensityErrorFloatDemOnly(opt, col, row, dem,
-                                            albedo, reflectance_model_coeffs,
+                                            albedo, refl_coeffs,
                                             exposure, haze, geo,
                                             model_shadows,
                                             camera_position_step_size,
                                             max_dem_height,
                                             gridx, gridy,
-                                            global_params, sun_position,
+                                            refl_params, sun_position,
                                             crop_box, image, blend_weight, camera)));
   }
 
@@ -1894,7 +1390,7 @@ struct IntensityErrorFloatDemOnly {
   int                               m_col, m_row;
   ImageView<double>         const & m_dem;            // alias
   double                            m_albedo;
-  double                          * m_reflectance_model_coeffs;
+  double                          * m_refl_coeffs;
   double                          * m_exposure;
   double                          * m_haze;
   cartography::GeoReference const & m_geo;            // alias
@@ -1902,7 +1398,7 @@ struct IntensityErrorFloatDemOnly {
   double                            m_camera_position_step_size;
   double                    const & m_max_dem_height; // alias
   double                            m_gridx, m_gridy;
-  GlobalParams              const & m_global_params;  // alias
+  ReflParams              const & m_refl_params;  // alias
   vw::Vector3               const & m_sun_position;   // alias
   BBox2i                            m_crop_box;
   MaskedImgT                const & m_image;          // alias
@@ -1911,31 +1407,33 @@ struct IntensityErrorFloatDemOnly {
 }; // end class IntensityErrorFloatDemOnly
 
 // A variation of IntensityError where albedo, dem, and model params are fixed.
-// TODO(oalexan1): Wipe this as it did not improve anything
+// TODO(oalexan1): Wipe this as it did not improve anything. 
+// TODO(oalexan1): Check if improves memory usage at least. In either case,
+// move to SfsCostFun.h.
 struct IntensityErrorFixedMost {
   IntensityErrorFixedMost(Options const& opt, int col, int row,
                           ImageView<double> const& dem,
                           double albedo,
-                          double * reflectance_model_coeffs, 
+                          double * refl_coeffs, 
                           cartography::GeoReference const& geo,
                           bool model_shadows,
                           double camera_position_step_size,
                           double const& max_dem_height, // note: this is an alias
                           double gridx, double gridy,
-                          GlobalParams const& global_params,
+                          ReflParams const& refl_params,
                           vw::Vector3 const& sun_position,
                           BBox2i const& crop_box,
                           MaskedImgT const& image,
                           DoubleImgT const& blend_weight,
                           boost::shared_ptr<CameraModel> const& camera):
     m_opt(opt), m_col(col), m_row(row), m_dem(dem),
-    m_albedo(albedo), m_reflectance_model_coeffs(reflectance_model_coeffs), 
+    m_albedo(albedo), m_refl_coeffs(refl_coeffs), 
     m_geo(geo),
     m_model_shadows(model_shadows),
     m_camera_position_step_size(camera_position_step_size),
     m_max_dem_height(max_dem_height),
     m_gridx(gridx), m_gridy(gridy),
-    m_global_params(global_params),
+    m_refl_params(refl_params),
     m_sun_position(sun_position),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
@@ -1943,9 +1441,7 @@ struct IntensityErrorFixedMost {
 
   // See SmoothnessError() for the definitions of bottom, top, etc.
   template <typename F>
-  bool operator()(const F* const exposure,
-                  const F* const haze,
-                  F* residuals) const {
+  bool operator()(const F* const exposure, const F* const haze, F* residuals) const {
 
     // For this error we do not use p and q, hence just use a placeholder.
     bool use_pq = false;
@@ -1959,7 +1455,7 @@ struct IntensityErrorFixedMost {
                                    &m_dem(m_col, m_row-1),            // top
                                    use_pq, pq,
                                    &m_albedo,
-                                   m_reflectance_model_coeffs,
+                                   m_refl_coeffs,
                                    m_col, m_row,  
                                    m_dem,  // alias
                                    m_geo,  // alias
@@ -1967,7 +1463,7 @@ struct IntensityErrorFixedMost {
                                    m_camera_position_step_size,  
                                    m_max_dem_height,  // alias
                                    m_gridx, m_gridy,  
-                                   m_global_params,  // alias
+                                   m_refl_params,  // alias
                                    m_sun_position,  // alias
                                    m_crop_box,  
                                    m_image,  // alias
@@ -1981,13 +1477,13 @@ struct IntensityErrorFixedMost {
   static ceres::CostFunction* Create(Options const& opt, int col, int row,
                                      ImageView<double> const& dem,
                                      double albedo,
-                                     double * reflectance_model_coeffs, 
+                                     double * refl_coeffs, 
                                      vw::cartography::GeoReference const& geo,
                                      bool model_shadows,
                                      double camera_position_step_size,
                                      double const& max_dem_height, // alias
                                      double gridx, double gridy,
-                                     GlobalParams const& global_params,
+                                     ReflParams const& refl_params,
                                      vw::Vector3 const& sun_position,
                                      BBox2i const& crop_box,
                                      MaskedImgT const& image,
@@ -1996,12 +1492,12 @@ struct IntensityErrorFixedMost {
     return (new ceres::NumericDiffCostFunction<IntensityErrorFixedMost,
             ceres::CENTRAL, 1, 1, g_max_num_haze_coeffs>
             (new IntensityErrorFixedMost(opt, col, row, dem, albedo, 
-                                         reflectance_model_coeffs,  geo,
+                                         refl_coeffs,  geo,
                                          model_shadows,
                                          camera_position_step_size,
                                          max_dem_height,
                                          gridx, gridy,
-                                         global_params, sun_position,
+                                         refl_params, sun_position,
                                          crop_box, image, blend_weight, camera)));
   }
 
@@ -2009,13 +1505,13 @@ struct IntensityErrorFixedMost {
   int                                       m_col, m_row;
   ImageView<double>                 const & m_dem;            // alias
   double                                    m_albedo;
-  double                                  * m_reflectance_model_coeffs; 
+  double                                  * m_refl_coeffs; 
   cartography::GeoReference         const & m_geo;            // alias
   bool                                      m_model_shadows;
   double                                    m_camera_position_step_size;
   double                            const & m_max_dem_height; // alias
   double                                    m_gridx, m_gridy;
-  GlobalParams                      const & m_global_params;  // alias
+  ReflParams                      const & m_refl_params;  // alias
   vw::Vector3                       const & m_sun_position;   // alias
   BBox2i                                    m_crop_box;
   MaskedImgT                        const & m_image;          // alias
@@ -2025,6 +1521,9 @@ struct IntensityErrorFixedMost {
 
 // A variant of the intensity error when we float the partial derivatives
 // in x and in y of the dem, which we call p and q.  
+// TODO(oalexan1): Move to SfsCostFun.h
+// TODO(oalexan1): Validate again if this gives better results as compared to
+// usual intensity error.
 struct IntensityErrorPQ {
   IntensityErrorPQ(Options const& opt, int col, int row,
                    ImageView<double> const& dem,
@@ -2033,7 +1532,7 @@ struct IntensityErrorPQ {
                    double camera_position_step_size,
                    double const& max_dem_height, // note: this is an alias
                    double gridx, double gridy,
-                   GlobalParams const& global_params,
+                   ReflParams const& refl_params,
                    vw::Vector3 const& sun_position,
                    BBox2i const& crop_box,
                    MaskedImgT const& image,
@@ -2044,7 +1543,7 @@ struct IntensityErrorPQ {
     m_camera_position_step_size(camera_position_step_size),
     m_max_dem_height(max_dem_height),
     m_gridx(gridx), m_gridy(gridy),
-    m_global_params(global_params),
+    m_refl_params(refl_params),
     m_sun_position(sun_position),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
@@ -2057,7 +1556,7 @@ struct IntensityErrorPQ {
                   const F* const center_h,
                   const F* const pq,                 // array of length 2 
                   const F* const albedo,
-                  const F* const reflectance_model_coeffs,
+                  const F* const refl_coeffs,
                   F* residuals) const {
 
     bool use_pq = true;
@@ -2065,7 +1564,7 @@ struct IntensityErrorPQ {
     F v = 0;
     return calc_intensity_residual(m_opt, exposure, haze, &v, center_h, &v, &v, &v,
                                    use_pq, pq, albedo, 
-                                   reflectance_model_coeffs,
+                                   refl_coeffs,
                                    m_col, m_row,  
                                    m_dem,  // alias
                                    m_geo,  // alias
@@ -2073,7 +1572,7 @@ struct IntensityErrorPQ {
                                    m_camera_position_step_size,  
                                    m_max_dem_height,  // alias
                                    m_gridx, m_gridy,  
-                                   m_global_params,   // alias
+                                   m_refl_params,   // alias
                                    m_sun_position,    // alias
                                    m_crop_box,  
                                    m_image,           // alias
@@ -2091,7 +1590,7 @@ struct IntensityErrorPQ {
                                      double camera_position_step_size,
                                      double const& max_dem_height, // alias
                                      double gridx, double gridy,
-                                     GlobalParams const& global_params,
+                                     ReflParams const& refl_params,
                                      vw::Vector3 const& sun_position,
                                      BBox2i const& crop_box,
                                      MaskedImgT const& image,
@@ -2104,7 +1603,7 @@ struct IntensityErrorPQ {
                                   camera_position_step_size,
                                   max_dem_height,
                                   gridx, gridy,
-                                  global_params, sun_position,
+                                  refl_params, sun_position,
                                   crop_box, image, blend_weight, camera)));
   }
 
@@ -2116,7 +1615,7 @@ struct IntensityErrorPQ {
   double                                    m_camera_position_step_size;
   double                            const & m_max_dem_height; // alias
   double                                    m_gridx, m_gridy;
-  GlobalParams                      const & m_global_params;  // alias
+  ReflParams                      const & m_refl_params;  // alias
   vw::Vector3                       const & m_sun_position;   // alias
   BBox2i                                    m_crop_box;
   MaskedImgT                        const & m_image;          // alias
@@ -2125,9 +1624,8 @@ struct IntensityErrorPQ {
 };
 
 // Discrepancy between measured and computed intensity. Assume fixed reflectance,
-// as this is only an initial estimate.
-// Cost function is:
-// sum_i | I_i - albedo * nonlin_reflectance(reflectance_i, exposures[i], haze, num_haze_coeffs) - haze[0]|^2
+// as this is only an initial estimate. See calcIntensity() for the formula.
+// TODO(oalexan1): Move to SfsCostFun.h
 struct IntensityErrorFixedReflectance {
   IntensityErrorFixedReflectance(PixelMask<float> const& intensity,
                                  PixelMask<float> const& reflectance,
@@ -2147,8 +1645,8 @@ struct IntensityErrorFixedReflectance {
       return true;
     }
     
-    residuals[0] = calc_intensity(albedo[0], m_reflectance, exposure[0],
-                                  m_steepness_factor, haze, m_num_haze_coeffs) 
+    residuals[0] = calcIntensity(albedo[0], m_reflectance, exposure[0],
+                                 m_steepness_factor, haze, m_num_haze_coeffs) 
                  - m_intensity;
     
     return true;
@@ -2186,7 +1684,7 @@ struct IntensityErrorFixedReflectance {
 //
 // See https://en.wikipedia.org/wiki/Finite_difference
 // for the obtained formulas.
-
+// TODO(oalexan1): Move to SfsCostFun.h
 struct SmoothnessError {
   SmoothnessError(double smoothness_weight, double gridx, double gridy):
     m_smoothness_weight(smoothness_weight),
@@ -2229,6 +1727,7 @@ struct SmoothnessError {
 
 // We will use finite differences to compute these. See
 // SmoothnessError() for more details.
+// TODO(oalexan1): Move to SfsCostFun.h
 struct GradientError {
   GradientError(double gradient_weight, double gridx, double gridy):
     m_gradient_weight(gradient_weight), m_gridx(gridx), m_gridy(gridy) {}
@@ -2264,6 +1763,7 @@ struct GradientError {
 // Try to make the DEM in shadow have positive curvature. The error term is
 // (curvature_weight *(terrain_xx + terrain_xy - curvature))^2 in the shadow,
 // and not used in lit areas.
+// TODO(oalexan1): Move to SfsCostFun.h
 struct CurvatureInShadowError {
   CurvatureInShadowError(double curvature_in_shadow, double curvature_in_shadow_weight,
                          double gridx, double gridy):
@@ -2337,9 +1837,8 @@ struct SmoothnessErrorPQ {
 // independently optimized gradients p and q, and the partial
 // derivatives of the dem, here denoted by u.
 // error = integrability_weight * ( (u_x - p)^2 + (u_y - q)^2 )
-
 // See SmoothnessError for the notation below. 
-
+// TODO(oalexan1): Move to SfsCostFun.h
 struct IntegrabilityError {
   IntegrabilityError(double integrability_weight, double gridx, double gridy):
     m_integrability_weight(integrability_weight),
@@ -2373,6 +1872,7 @@ struct IntegrabilityError {
 
 
 // A cost function that will penalize deviating too much from the original DEM height.
+// TODO(oalexan1): Move to SfsCostFun.h
 struct HeightChangeError {
   HeightChangeError(double orig_height, double initial_dem_constraint_weight):
     m_orig_height(orig_height), 
@@ -2397,6 +1897,7 @@ struct HeightChangeError {
 };
 
 // A cost function that will penalize deviating too much from the initial albedo.
+// TODO(oalexan1): Move to SfsCostFun.h
 struct AlbedoChangeError {
   AlbedoChangeError(double initial_albedo, double albedo_constraint_weight):
     m_initial_albedo(initial_albedo), m_albedo_constraint_weight(albedo_constraint_weight){}
@@ -2421,6 +1922,7 @@ struct AlbedoChangeError {
 // Given a DEM, estimate the median grid size in x and in y in meters.
 // Given that the DEM heights are in meters as well, having these grid sizes
 // will make it possible to handle heights and grids in same units.
+// TODO(oalexan1): Move to SfsUtils.h
 void compute_grid_sizes_in_meters(ImageView<double> const& dem,
                                   GeoReference const& geo, double nodata_val,
                                   int sample_col_rate, int sample_row_rate,
@@ -2478,6 +1980,7 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
   vw_out() << "Grid in x and y in meters: " << gridx << ' ' << gridy << "\n";
 }
 
+// TODO(oalexan1): Move to SfsUtils.h
 Vector3 sun_position_from_camera(boost::shared_ptr<CameraModel> camera) {
 
   // Remove any adjustment to get to the camera proper
@@ -2600,11 +2103,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("model-coeffs-prefix", po::value(&opt.model_coeffs_prefix)->default_value(""),
      "Use this prefix to optionally read model coefficients from a file (filename is <prefix>-model_coeffs.txt).")
     ("model-coeffs", po::value(&opt.model_coeffs)->default_value(""),
-     "Use the model coefficients specified as a list of numbers in quotes. Lunar-Lambertian: O, A, B, C, e.g., '1 -0.019 0.000242 -0.00000146'. Hapke: omega, b, c, B0, h, e.g., '0.68 0.17 0.62 0.52 0.52'. Charon: A, f(alpha), e.g., '0.7 0.63'.")
+     "Use the reflectance model coefficients specified as a list of numbers in quotes. Lunar-Lambertian: O, A, B, C, e.g., '1 -0.019 0.000242 -0.00000146'. Hapke: omega, b, c, B0, h, e.g., '0.68 0.17 0.62 0.52 0.52'. Charon: A, f(alpha), e.g., '0.7 0.63'.")
     ("num-haze-coeffs", po::value(&opt.num_haze_coeffs)->default_value(0),
-     "Set this to 1 to model the problem as image = exposure * albedo * reflectance + haze, where haze is a single value for each image. This models a small quantity of stray light entering the lens due to scattering and other effects. Use --float-haze to actually optimize the haze (it starts as 0). It will be written as <output-prefix>-haze.txt (ignore all columns of numbers in that file except the first one).")
-    ("float-haze",   po::bool_switch(&opt.float_haze)->default_value(false)->implicit_value(true),
-     "If specified, float the haze coefficients as part of the optimization, if haze is modeled, so if --num-haze-coeffs is 1.")
+     "Set this to 1 to model the problem as image = exposure * albedo * reflectance + "
+     "haze, where haze is a single value for each image.")
+    ("float-haze", 
+     po::bool_switch(&opt.float_haze)->default_value(false)->implicit_value(true),
+     "If specified, float the haze coefficients as part of the optimization, if "
+     "--num-haze-coeffs is 1.")
     ("haze-prefix", po::value(&opt.image_haze_prefix)->default_value(""),
      "Use this prefix to read initial haze values (filename is <haze-prefix>-haze.txt). The file format is the same as what the tool writes itself, when triggered by the earlier options. If haze is modeled, it will be initially set to 0 unless read from such a file, and will be floated or not depending on whether --float-haze is on. The final haze values will be saved to <output prefix>-haze.txt.")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
@@ -3077,7 +2583,7 @@ void run_sfs(// Fixed quantities
              std::vector<BBox2i>        const & crop_boxes,
              std::vector<MaskedImgT>    const & masked_images,
              std::vector<DoubleImgT>    const & blend_weights,
-             GlobalParams               const & global_params,
+             ReflParams               const & refl_params,
              std::vector<vw::Vector3>   const & sun_position,
              ImageView<double>          const & orig_dem,
              ImageView<int>             const & lit_image_mask,
@@ -3088,7 +2594,7 @@ void run_sfs(// Fixed quantities
              std::vector<vw::CamPtr>          & cameras,
              std::vector<double>              & exposures,
              std::vector<std::vector<double>> & haze,
-             std::vector<double>              & reflectance_model_coeffs) {
+             std::vector<double>              & refl_coeffs) {
 
   int num_images = opt.input_images.size();
   ceres::Problem problem;
@@ -3159,14 +2665,14 @@ void run_sfs(// Fixed quantities
             IntensityErrorFloatDemOnly::Create(opt, col, row,
                                                dem,
                                                albedo(col, row), 
-                                               &reflectance_model_coeffs[0],
+                                               &refl_coeffs[0],
                                                &exposures[image_iter], &haze[image_iter][0],
                                                geo,
                                                opt.model_shadows,
                                                opt.camera_position_step_size,
                                                max_dem_height,
                                                gridx, gridy,
-                                               global_params, sun_position[image_iter],
+                                               refl_params, sun_position[image_iter],
                                                crop_boxes[image_iter],
                                                masked_images[image_iter],
                                                blend_weights[image_iter],
@@ -3184,7 +2690,7 @@ void run_sfs(// Fixed quantities
                                    opt.camera_position_step_size,
                                    max_dem_height,
                                    gridx, gridy,
-                                   global_params, sun_position[image_iter],
+                                   refl_params, sun_position[image_iter],
                                    crop_boxes[image_iter],
                                    masked_images[image_iter],
                                    blend_weights[image_iter],
@@ -3198,7 +2704,7 @@ void run_sfs(// Fixed quantities
                                    &dem(col, row+1),  // bottom
                                    &dem(col, row-1),  // top
                                    &albedo(col, row), // albedo
-                                   &reflectance_model_coeffs[0]);
+                                   &refl_coeffs[0]);
         } else {
           // Use the integrability constraint
           ceres::CostFunction* cost_function_img =
@@ -3207,7 +2713,7 @@ void run_sfs(// Fixed quantities
                                       opt.camera_position_step_size,
                                       max_dem_height,
                                       gridx, gridy,
-                                      global_params, sun_position[image_iter],
+                                      refl_params, sun_position[image_iter],
                                       crop_boxes[image_iter],
                                       masked_images[image_iter],
                                       blend_weights[image_iter],
@@ -3218,7 +2724,7 @@ void run_sfs(// Fixed quantities
                                     &dem(col, row),       // center
                                     &pq(col, row)[0],      // pq
                                     &albedo(col, row),    // albedo
-                                    &reflectance_model_coeffs[0]);   // reflectance 
+                                    &refl_coeffs[0]);   // reflectance 
         }
         
       } // end iterating over images
@@ -3383,7 +2889,7 @@ void run_sfs(// Fixed quantities
     
     // If to float the reflectance model coefficients
     if (!opt.float_reflectance_model && num_used > 0)
-      problem.SetParameterBlockConstant(&reflectance_model_coeffs[0]);
+      problem.SetParameterBlockConstant(&refl_coeffs[0]);
   }
   
   if (opt.num_threads > 1 && opt.stereo_session == "isis"  && !opt.use_approx_camera_models) {
@@ -3401,10 +2907,10 @@ void run_sfs(// Fixed quantities
   options.num_threads = opt.num_threads;
   options.linear_solver_type = ceres::SPARSE_SCHUR;
 
-  SfsCallback callback(opt, dem, pq, albedo, geo, global_params, sun_position, 
-                      crop_boxes, masked_images, blend_weights, cameras, 
-                      dem_nodata_val, img_nodata_val, exposures, haze, 
-                      max_dem_height, gridx, gridy, reflectance_model_coeffs); 
+  SfsCallback callback(opt, dem, pq, albedo, geo, refl_params, sun_position, 
+                       crop_boxes, masked_images, blend_weights, cameras, 
+                       dem_nodata_val, img_nodata_val, exposures, haze, 
+                       max_dem_height, gridx, gridy, refl_coeffs); 
   
   options.callbacks.push_back(&callback);
   options.update_state_every_iteration = true;
@@ -3422,31 +2928,30 @@ void run_sfs(// Fixed quantities
   callback(callback_summary);
   
   vw_out() << summary.FullReport() << "\n" << std::endl;
-
-  // callTop();
 }
 
-void setUpParams(GlobalParams & global_params, Options & opt) {
+// TODO(oalexan1): Move this to SfsReflectance.cc
+void setupReflectance(ReflParams & refl_params, Options & opt) {
   if (opt.reflectance_type == 0)
-    global_params.reflectanceType = LAMBERT;
+    refl_params.reflectanceType = LAMBERT;
   else if (opt.reflectance_type == 1)
-    global_params.reflectanceType = LUNAR_LAMBERT;
+    refl_params.reflectanceType = LUNAR_LAMBERT;
   else if (opt.reflectance_type == 2)
-    global_params.reflectanceType = HAPKE;
+    refl_params.reflectanceType = HAPKE;
   else if (opt.reflectance_type == 3)
-    global_params.reflectanceType = ARBITRARY_MODEL;
+    refl_params.reflectanceType = ARBITRARY_MODEL;
   else if (opt.reflectance_type == 4)
-    global_params.reflectanceType = CHARON;
+    refl_params.reflectanceType = CHARON;
   else
     vw_throw( ArgumentErr() << "Expecting Lambertian or Lunar-Lambertian reflectance." );
-  global_params.phaseCoeffC1 = 0; 
-  global_params.phaseCoeffC2 = 0;
+  refl_params.phaseCoeffC1 = 0; 
+  refl_params.phaseCoeffC2 = 0;
   
   // Default model coefficients, unless they were read already
   if (opt.model_coeffs_vec.empty()) {
     opt.model_coeffs_vec.resize(g_num_model_coeffs);
-    if (global_params.reflectanceType == LUNAR_LAMBERT ||
-        global_params.reflectanceType == ARBITRARY_MODEL ) {
+    if (refl_params.reflectanceType == LUNAR_LAMBERT ||
+        refl_params.reflectanceType == ARBITRARY_MODEL ) {
       // Lunar lambertian or its crazy experimental generalization
       opt.model_coeffs_vec.resize(g_num_model_coeffs);
       opt.model_coeffs_vec[0] = 1;
@@ -3465,17 +2970,17 @@ void setUpParams(GlobalParams & global_params, Options & opt) {
       opt.model_coeffs_vec[13] = 0;
       opt.model_coeffs_vec[14] = 0;
       opt.model_coeffs_vec[15] = 0;
-    }else if (global_params.reflectanceType == HAPKE) {
+    }else if (refl_params.reflectanceType == HAPKE) {
       opt.model_coeffs_vec[0] = 0.68; // omega (also known as w)
       opt.model_coeffs_vec[1] = 0.17; // b
       opt.model_coeffs_vec[2] = 0.62; // c
       opt.model_coeffs_vec[3] = 0.52; // B0
       opt.model_coeffs_vec[4] = 0.52; // h
-    }else if (global_params.reflectanceType == CHARON) {
+    }else if (refl_params.reflectanceType == CHARON) {
       opt.model_coeffs_vec.resize(g_num_model_coeffs);
       opt.model_coeffs_vec[0] = 0.7; // A
       opt.model_coeffs_vec[1] = 0.63; // f(alpha)
-    }else if (global_params.reflectanceType != LAMBERT) {
+    }else if (refl_params.reflectanceType != LAMBERT) {
       vw_throw( ArgumentErr() << "The Hapke model coefficients were not set. "
                 << "Use the --model-coeffs option." );
     }
@@ -3496,7 +3001,7 @@ void estimateExposureHazeAlbedo(Options & opt,
                                 double & max_dem_height,
                                 std::vector<BBox2i> const& crop_boxes,
                                 std::vector<vw::Vector3> const& sun_position,
-                                GlobalParams const& global_params,
+                                ReflParams const& refl_params,
                                 double gridx, double gridy) {
 
   vw::vw_out() << "Estimating the exposure and haze.\n";
@@ -3523,7 +3028,7 @@ void estimateExposureHazeAlbedo(Options & opt,
                                    opt.model_shadows, max_dem_height,
                                    gridx, gridy, sample_col_rate, sample_row_rate,
                                    sun_position[image_iter],
-                                   global_params,
+                                   refl_params,
                                    crop_boxes[image_iter],
                                    masked_images[image_iter],
                                    blend_weights[image_iter],
@@ -3606,6 +3111,7 @@ void estimateExposureHazeAlbedo(Options & opt,
   return;
 }
 
+// TODO(oalexan1): Modularize this long function
 int main(int argc, char* argv[]) {
 
   Stopwatch sw_total;
@@ -3622,8 +3128,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Set up model information
-    GlobalParams global_params;
-    setUpParams(global_params, opt);
+    ReflParams refl_params;
+    setupReflectance(refl_params, opt);
     
     // Manage no-data
     double dem_nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
@@ -3704,6 +3210,7 @@ int main(int argc, char* argv[]) {
     // Read in the camera models (and the sun positions, if not read from the list)
     // TODO(oalexan1): Put this in a function called readCameras())
     std::vector<vw::CamPtr> cameras(num_images);
+    // TODO(oalexan1): First part can be replaced with calling load_cameras()
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
     
       if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
@@ -3816,8 +3323,6 @@ int main(int argc, char* argv[]) {
     // Declare the lock here, as we want it to live until the end of the program. 
     vw::Mutex camera_mutex;
 
-    // callTop();
-    
     // If to use approximate camera models or to crop input images
     if (opt.use_approx_camera_models) {
 
@@ -3846,8 +3351,6 @@ int main(int argc, char* argv[]) {
         vw_out() << "Approximate model generation time: " << sw.elapsed_seconds()
                 << " s." << std::endl;
         
-        // callTop();
-
         // Cast the pointer back to ApproxCameraModel as we need that.
         asp::ApproxCameraModel* cam_ptr 
           = dynamic_cast<asp::ApproxCameraModel*>(apcam.get());
@@ -4053,12 +3556,12 @@ int main(int argc, char* argv[]) {
     }
     mean_albedo /= albedo_count;
     
-    // We have intensity = albedo * nonlin_reflectance(reflectance, exposure, haze, num_haze_coeffs) + haze[0]
     // Assume that haze is 0 to start with. Find the exposure as
     // mean(intensity)/mean(reflectance)/albedo. Use this to compute an
     // initial exposure and decide based on that which images to
     // skip. If the user provided initial exposures and haze, use those, but
     // still go through the motions to find the images to skip.
+    // See the intensity formula in calcIntensity().
     // vw_out() << "Computing exposures.\n";
     std::vector<double> local_exposures_vec(num_images, 0), local_haze_vec(num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
@@ -4079,7 +3582,7 @@ int main(int argc, char* argv[]) {
                                       opt.model_shadows, max_dem_height,
                                       gridx, gridy, sample_col_rate, sample_row_rate,
                                       sun_position[image_iter],
-                                      global_params,
+                                      refl_params,
                                       crop_boxes[image_iter],
                                       masked_images[image_iter],
                                       blend_weights[image_iter],
@@ -4089,8 +3592,8 @@ int main(int argc, char* argv[]) {
       
       // TODO: Below is not the optimal way of finding the exposure!
       // Find it as the analytical minimum using calculus.
-      double imgmean, imgstdev, refmean, refstdev;
-      compute_image_stats(intensity, reflectance, imgmean, imgstdev, refmean, refstdev);
+      double imgmean, imgstd, refmean, refstd;
+      asp::calcJointStats(intensity, reflectance, imgmean, imgstd, refmean, refstd);
       double haze = 0.0;
   
       if (imgmean > 0 && refmean > 0) {
@@ -4134,7 +3637,7 @@ int main(int argc, char* argv[]) {
                                  dem, mean_albedo, dem_nodata_val,
                                  geo, cameras, max_dem_height,
                                  crop_boxes, sun_position,
-                                 global_params, gridx, gridy);
+                                 refl_params, gridx, gridy);
     }
     
     for (size_t image_iter = 0; image_iter < opt.image_exposures_vec.size(); image_iter++) {
@@ -4211,13 +3714,13 @@ int main(int argc, char* argv[]) {
         if (opt.estimate_height_errors) 
           heightErrEstim->image_iter = image_iter;
 
-        // Find the reflectance and measured intensity (and work towards estimating the slopes
-        // if asked to).
+        // Find the reflectance and measured intensity (and work towards
+        // estimating the slopes if asked to).
         computeReflectanceAndIntensity(dem, pq, geo,
                                        opt.model_shadows, max_dem_height,
                                        gridx, gridy, sample_col_rate, sample_row_rate,
                                        sun_position[image_iter],
-                                       global_params,
+                                       refl_params,
                                        crop_boxes[image_iter],
                                        masked_images[image_iter],
                                        blend_weights[image_iter],
@@ -4238,7 +3741,7 @@ int main(int argc, char* argv[]) {
         comp_intensity.set_size(reflectance.cols(), reflectance.rows());
         for (int col = 0; col < comp_intensity.cols(); col++) {
           for (int row = 0; row < comp_intensity.rows(); row++) {
-            comp_intensity(col, row) = calc_intensity(albedo(col, row), 
+            comp_intensity(col, row) = calcIntensity(albedo(col, row), 
                                                       reflectance(col, row), 
                                                       opt.image_exposures_vec[image_iter],
                                                       opt.steepness_factor,
@@ -4464,14 +3967,14 @@ int main(int argc, char* argv[]) {
       }
     }
     
-    // orig_dems will keep the input DEMs and won't change. Keep to the optimized
-    // DEMs close to orig_dems. Make a deep copy below.
+    // orig_dem will keep the input DEMs and won't change. Keep to the optimized
+    // DEMs close to orig_dem. Make a deep copy below.
     orig_dem = copy(dem);
     
     run_sfs(// Fixed quantities
             opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight, 
             max_dem_height, dem_nodata_val, img_nodata_val,  crop_boxes, masked_images, 
-            blend_weights, global_params, sun_position, orig_dem,
+            blend_weights, refl_params, sun_position, orig_dem,
             lit_image_mask, curvature_in_shadow_weight,
             // Variable quantities
             dem, albedo, cameras, opt.image_exposures_vec, opt.image_haze_vec,

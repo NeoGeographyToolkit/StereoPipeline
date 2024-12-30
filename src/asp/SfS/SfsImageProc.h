@@ -34,6 +34,12 @@ namespace vw {
 #include <vector>
 namespace asp {
 
+// Compute mean and standard deviation of two images. Do it where both are valid.
+void calcJointStats(vw::ImageView<vw::PixelMask<double>> const& I1, 
+                    vw::ImageView<vw::PixelMask<double>> const& I2,
+                    double & mean1, double & std1,
+                    double & mean2, double & std2);
+
 // See the .cc file for the documentation.
 void adjustBorderlineDataWeights(int cols, int rows,
                                  int blending_dist, double blending_power,
