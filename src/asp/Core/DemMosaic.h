@@ -21,7 +21,16 @@
 #ifndef __ASP_CORE_DEM_MOSAIC_H__
 #define __ASP_CORE_DEM_MOSAIC_H__
 
+#include <vw/Image/ImageView.h>
+
 namespace asp {
+
+void blurWeights(vw::ImageView<double> & weights, double sigma);
+
+void applyExternalWeights(std::string const& weight_file,
+                          double min_weight, bool invert_weights,
+                          vw::BBox2i const& in_box,
+                          vw::ImageView<double>& local_wts);
 
 } // end namespace asp
 

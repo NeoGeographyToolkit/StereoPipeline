@@ -117,7 +117,13 @@ image_align (:numref:`image_align`):
 
 cam_gen (:numref:`cam_gen`):
   * Added the option ``--camera-center``.
-  
+ 
+dem_mosaic (:numref:`dem_mosaic`):
+  * Added the option ``--weight-list`` for blending DEMs given external weights
+    (:numref:`dem_mosaic_external_weights`).
+  * Renamed the option ``--dem-list-file`` to ``--dem-list``. The old option
+    is kept for backward compatibility.
+
 misc:
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
     optimized camera file names (or adjustments). Can be passed in back to

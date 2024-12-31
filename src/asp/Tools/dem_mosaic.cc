@@ -222,54 +222,6 @@ struct BigOrZero: public ReturnFixedType<PixelT> {
   }
 };
 
-void blur_weights(ImageView<double> & weights, double sigma) {
-
-  if (sigma <= 0)
-    return;
-
-  // Blur the weights. To try to make the weights not drop much at the
-  // boundary, expand the weights with zero, blur, crop back to the
-  // original region.
-
-  // It is highly important to note that blurring can increase the weights
-  // at the boundary, even with the extension done above. Erosion before
-  // blurring does not help with that, as for weights with complicated
-  // boundary erosion can wipe things in a non-uniform way leaving
-  // huge holes. To get smooth weights, if really desired one should
-  // use the weights-exponent option.
-
-  int half_kernel = vw::compute_kernel_size(sigma)/2;
-  int extra = half_kernel + 1; // to guarantee we stay zero at boundary
-
-  int cols = weights.cols(), rows = weights.rows();
-
-  ImageView<double> extra_wts(cols + 2*extra, rows + 2*extra);
-  fill(extra_wts, 0);
-  for (int col = 0; col < cols; col++) {
-    for (int row = 0; row < rows; row++) {
-      if (weights(col,row) > 0)
-        extra_wts(col + extra, row + extra) = weights(col, row);
-      else
-        extra_wts(col + extra, row + extra) = 0;
-    }
-  }
-
-  ImageView<double> blurred_wts = gaussian_filter(extra_wts, sigma);
-
-  // Copy back.  The weights must not grow. In particular, where the
-  // original weights were zero, the new weights must also be zero, as
-  // at those points there is no DEM data.
-  for (int col = 0; col < cols; col++) {
-    for (int row = 0; row < rows; row++) {
-      if (weights(col, row) > 0) {
-        weights(col, row) = blurred_wts(col + extra, row + extra);
-      }
-      //weights(col, row) = std::min(weights(col, row), blurred_wts(col + extra, row + extra));
-    }
-  }
-
-}
-
 // Given the corners in the projected space, find the pixel corners. Here needed
 // some custom logic, so BBox2 GeoReference::point_to_pixel_bbox() could not be
 // used.
@@ -277,8 +229,8 @@ BBox2 custom_point_to_pixel_bbox(GeoReference const& georef, BBox2 const& ptbox)
 
   vw::BBox2 pix_box;
   vw::Vector2 cr[] = {ptbox.min(), ptbox.max(),
-		  vw::Vector2(ptbox.min().x(), ptbox.max().y()),
-		  vw::Vector2(ptbox.max().x(), ptbox.min().y())};
+                      vw::Vector2(ptbox.min().x(), ptbox.max().y()),
+                      vw::Vector2(ptbox.max().x(), ptbox.min().y())};
   for (int icr = 0; icr < (int)(sizeof(cr)/sizeof(Vector2)); icr++)
     pix_box.grow(georef.point_to_pixel(cr[icr]));
   
@@ -496,7 +448,7 @@ void priorityBlend(double out_nodata_value,
 
   // Blur the weights
   for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
-    blur_weights(weight_vec[clip_iter], weights_blur_sigma);
+    asp::blurWeights(weight_vec[clip_iter], weights_blur_sigma);
 
   // Raise to power
   if (weights_exp != 1) {
@@ -1069,7 +1021,7 @@ public:
       // Blur the weights. If priority blending length is on, we'll do the blur later,
       // after weights from different DEMs are combined.
       if (m_opt.weights_blur_sigma > 0 && !use_priority_blend)
-        blur_weights(local_wts, m_opt.weights_blur_sigma);
+        asp::blurWeights(local_wts, m_opt.weights_blur_sigma);
 
       // Raise to the power. Note that when priority blending length is positive, we
       // delay this process.
@@ -1092,60 +1044,17 @@ public:
       vw_out() << "Writing: " << os.str() << "\n";
       bool has_georef = true, has_nodata = true;
       block_write_gdal_image(os.str(), local_wts,
-			     has_georef, georef,
-			     has_nodata, -100,
-			     vw::GdalWriteOptions(),
-			     TerminalProgressCallback("asp", ""));
+                 has_georef, georef,
+                 has_nodata, -100,
+                 vw::GdalWriteOptions(),
+                 TerminalProgressCallback("asp", ""));
 #endif
 
-      // TODO(oalexan1): Must be a function
-      if (!m_opt.weight_files.empty()) {
-         // Multiply by the external weights
-         DiskImageResourceGDAL rsrc(m_opt.weight_files[dem_iter]);
-         DiskImageView<double> disk_weight(rsrc);
-         ImageView<double> external_weight = crop(disk_weight, in_box);
+      // Apply external weights
+      if (!m_opt.weight_files.empty()) 
+        asp::applyExternalWeights(m_opt.weight_files[dem_iter], m_opt.min_weight,
+                                  m_opt.invert_weights, in_box, local_wts);
 
-         // Must have the same size as the dem
-         if (external_weight.cols() != dem.cols() || external_weight.rows() != dem.rows())
-           vw_throw(ArgumentErr() << "The weight file " << m_opt.weight_files[dem_iter]
-                       << " must have the same size as the corresponding DEM.\n");
-            
-         // Any no-data weights will be set to 0         
-         double weight_nodata = -std::numeric_limits<double>::max();
-         if (rsrc.has_nodata_read())
-            weight_nodata = rsrc.nodata_read();
-         external_weight = apply_mask(create_mask(external_weight, weight_nodata),
-                                      weight_nodata);
-        
-         // Limit from below
-         if (m_opt.min_weight > 0) {
-           for (int col = 0; col < external_weight.cols(); col++) {
-             for (int row = 0; row < external_weight.rows(); row++) {
-               external_weight(col, row) 
-                = std::max(external_weight(col, row), m_opt.min_weight);
-             }
-           }
-         }
-         
-         // See if to invert the weight
-         if (m_opt.invert_weights) {
-           for (int col = 0; col < external_weight.cols(); col++) {
-             for (int row = 0; row < external_weight.rows(); row++) {
-               if (external_weight(col, row) > 0)
-                external_weight(col, row) = 1.0 / external_weight(col, row);
-             }
-           }
-         }
-          
-         // Multiply the local weights by the external weights
-         for (int col = 0; col < dem.cols(); col++) {
-           for (int row = 0; row < dem.rows(); row++) {
-             local_wts(col, row) *= external_weight(col, row);
-           }
-         }
-      }
-
-      // TODO(oalexan1): This must be a function
       // Set the weights in the alpha channel
       for (int col = 0; col < dem.cols(); col++) {
         for (int row = 0; row < dem.rows(); row++) {
@@ -1401,22 +1310,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("Options");
   general_options.add_options()
     ("dem-list,l", po::value<std::string>(&opt.dem_list),
-	   "A text file listing the DEM files to mosaic, one per line.")
+     "A text file listing the DEM files to mosaic, one per line.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix. One or more tiles will be written with this prefix. Alternatively, an exact output file can be specified, with a .tif extension.")
     ("tile-size",       po::value<int>(&opt.tile_size)->default_value(1000000),
-	   "The maximum size of output DEM tile files to write, in pixels.")
+     "The maximum size of output DEM tile files to write, in pixels.")
     ("tile-index",      po::value<int>(&opt.tile_index),
      "The index of the tile to save (starting from zero). When this program is invoked, it will print out how many tiles are there. Default: save all tiles.")
     ("tile-list",      po::value(&opt.tile_list_str)->default_value(""),
      "List of tile indices (in quotes) to save. A tile index starts from 0.")
     ("priority-blending-length", po::value<int>(&opt.priority_blending_len)->default_value(0),
-	   "If positive, keep unmodified values from the earliest available DEM except a band this wide measured in pixels inward of its boundary where blending with subsequent DEMs will happen.")
+     "If positive, keep unmodified values from the earliest available DEM except a band this wide measured in pixels inward of its boundary where blending with subsequent DEMs will happen.")
     ("no-border-blend", po::bool_switch(&opt.no_border_blend)->default_value(false),
-	   "Only apply blending around holes, don't blend at image borders.  Not compatible with centerline weights.")
+     "Only apply blending around holes, don't blend at image borders.  Not compatible with centerline weights.")
     ("tr",              po::value(&opt.tr),
-	   "Output grid size, that is, the DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.")
+     "Output grid size, that is, the DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.")
     ("t_srs",           po::value(&opt.target_srs_string)->default_value(""),
-	   "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ). If not provided, use the one from the first DEM to be mosaicked.")
+     "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ). If not provided, use the one from the first DEM to be mosaicked.")
     ("t_projwin",       po::value(&opt.projwin),
      "Limit the mosaic to this region, with the corners given in georeferenced coordinates "
      "(xmin ymin xmax ymax). Max is exclusive. See the ``--tap`` option if desired to apply "
@@ -1428,43 +1337,44 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "not have the half-a-pixel extra extent this tool has). If this "
      "option is not set, the input grids determine the output grid.")
     ("first",   po::bool_switch(&opt.first)->default_value(false),
-	   "Keep the first encountered DEM value (in the input order).")
+     "Keep the first encountered DEM value (in the input order).")
     ("last",    po::bool_switch(&opt.last)->default_value(false),
-	   "Keep the last encountered DEM value (in the input order).")
+     "Keep the last encountered DEM value (in the input order).")
     ("min",     po::bool_switch(&opt.min)->default_value(false),
-	   "Keep the smallest encountered DEM value.")
+     "Keep the smallest encountered DEM value.")
     ("max",     po::bool_switch(&opt.max)->default_value(false),
-	   "Keep the largest encountered DEM value.")
+     "Keep the largest encountered DEM value.")
     ("mean",    po::bool_switch(&opt.mean)->default_value(false),
-	   "Find the mean DEM value.")
+     "Find the mean DEM value.")
     ("stddev",    po::bool_switch(&opt.stddev)->default_value(false),
-	   "Find the standard deviation of the DEM values.")
+     "Find the standard deviation of the DEM values.")
     ("median",  po::bool_switch(&opt.median)->default_value(false),
-	   "Find the median DEM value (this can be memory-intensive, fewer threads are suggested).")
+     "Find the median DEM value (this can be memory-intensive, fewer threads are suggested).")
     ("nmad",  po::bool_switch(&opt.nmad)->default_value(false),
-	   "Find the normalized median absolute deviation DEM value (this can be memory-intensive, fewer threads are suggested).")
+      "Find the normalized median absolute deviation DEM value (this can be memory-intensive, fewer threads are suggested).")
     ("count",   po::bool_switch(&opt.count)->default_value(false),
      "Each pixel is set to the number of valid DEM heights at that pixel.")
     ("weight-list", po::value<std::string>(&opt.weight_list),
-	   "A text file listing external weights to use in blending, one per line. These "
-     "are multiplied by the internal weights to ensure seamless blending. The weights "
+     "A text file having a list of external weight files to use in blending, one per line. "
+     "These are multiplied by the internal weights to ensure seamless blending. The weights "
      "must be in one-to-one correspondence with the DEMs to be mosaicked.")
     ("invert-weights", po::bool_switch(&opt.invert_weights)->default_value(false),    
-      "Use 1/weight instead of weight in blending, with --weight-list.")
+     "Use 1/weight instead of weight in blending, with --weight-list.")
     ("min-weight", po::value<double>(&opt.min_weight)->default_value(0.0),
-      "Limit from below with this value the weights provided with --weight-list.")
+     "Limit from below with this value the weights provided with --weight-list.")
     ("hole-fill-length", po::value(&opt.hole_fill_len)->default_value(0),
-	   "Maximum dimensions of a hole in the DEM to fill, in pixels. See also --fill-search-radius.")
-     ("fill-search-radius",   po::value(&opt.fill_search_radius)->default_value(0.0),
-      "Fill an invalid pixel with a weighted average of pixel values within this radius in pixels. The weight is 1/(factor * dist^power + 1), where the distance is measured in pixels. See an example in the doc. See also --fill-power, --fill-percent and --fill-num-passes.")
-      ("fill-power", po::value(&opt.fill_power)->default_value(8.0),
-      "Power exponent to use when filling nodata values with --fill-search-radius.")
-      ("fill-percent", po::value(&opt.fill_percent)->default_value(10.0),
-      "Fill an invalid pixel using weighted values of neighbors only if the percentage of valid pixels within the radius given by --fill-search-radius is at least this")
-      ("fill-num-passes", po::value(&opt.fill_num_passes)->default_value(0),
-      "Fill invalid values using --fill-search-radius this many times.")
-    ("erode-length",    po::value<int>(&opt.erode_len)->default_value(0),
-	   "Erode the DEM by this many pixels at boundary.")
+     "Maximum dimensions of a hole in the DEM to fill, in pixels. See also "
+     "--fill-search-radius.")
+    ("fill-search-radius",   po::value(&opt.fill_search_radius)->default_value(0.0),
+     "Fill an invalid pixel with a weighted average of pixel values within this radius in pixels. The weight is 1/(factor * dist^power + 1), where the distance is measured in pixels. See an example in the doc. See also --fill-power, --fill-percent and --fill-num-passes.")
+    ("fill-power", po::value(&opt.fill_power)->default_value(8.0),
+     "Power exponent to use when filling nodata values with --fill-search-radius.")
+    ("fill-percent", po::value(&opt.fill_percent)->default_value(10.0),
+     "Fill an invalid pixel using weighted values of neighbors only if the percentage of valid pixels within the radius given by --fill-search-radius is at least this")
+    ("fill-num-passes", po::value(&opt.fill_num_passes)->default_value(0),
+     "Fill invalid values using --fill-search-radius this many times.")
+    ("erode-length", po::value<int>(&opt.erode_len)->default_value(0),
+     "Erode the DEM by this many pixels at boundary.")
     ("block-max", po::bool_switch(&opt.block_max)->default_value(false),
      "For each block of size --block-size, keep the DEM with the largest sum of values in the block.")
     ("georef-tile-size",    po::value<double>(&opt.geo_tile_size),
@@ -1489,7 +1399,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("propagate-nodata", po::bool_switch(&opt.propagate_nodata)->default_value(false),
      "Set a pixel to nodata if any input DEM is also nodata at that location.")
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
-     "Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts).")
+     "Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts). This value also helps determine how to "
+     "plateau the blending weights inwards, away from the DEM boundary.")
     ("block-size",      po::value<int>(&opt.block_size)->default_value(0), "A large value can result in increased memory usage.")
     ("save-dem-weight",      po::value<int>(&opt.save_dem_weight),
      "Save the weight image that tracks how much the input DEM with given index contributed to the output mosaic at each pixel (smallest index is 0).")
@@ -1502,7 +1413,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("save-index-map",   po::bool_switch(&opt.save_index_map)->default_value(false),
      "For each output pixel, save the index of the input DEM it came from (applicable only for --first, --last, --min, --max, --median, and --nmad). A text file with the index assigned to each input DEM is saved as well.")
     ("dem-list-file", po::value<std::string>(&opt.dem_list_file),
-	   "Alias for --dem-list, kept for backward compatibility.")
+     "Alias for --dem-list, kept for backward compatibility.")
     ;
 
   // Use in GdalWriteOptions '--tif-tile-size' rather than '--tile-size', to not conflict
@@ -1830,7 +1741,7 @@ int main(int argc, char *argv[]) {
     if (opt.out_nodata_value < static_cast<double>(-std::numeric_limits<RealT>::max()) ||
         RealT(opt.out_nodata_value)  != double(opt.out_nodata_value)) {
       vw_out() << "The no-data value cannot be represented exactly as a float. "
-	       << "Changing it to the smallest float.\n";
+           << "Changing it to the smallest float.\n";
       opt.out_nodata_value = static_cast<double>(-std::numeric_limits<RealT>::max());
     }
 
@@ -1966,7 +1877,7 @@ int main(int argc, char *argv[]) {
       
     // See if to lump all mosaic in just a given file, rather than creating tiles.
     bool write_to_precise_file = (opt.out_prefix.size() >= 4 &&
-				   opt.out_prefix.substr(opt.out_prefix.size()-4, 4) == ".tif");
+                   opt.out_prefix.substr(opt.out_prefix.size()-4, 4) == ".tif");
       
     int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
     int num_tiles_y = (int)ceil((double)rows/double(opt.tile_size));
@@ -1978,14 +1889,14 @@ int main(int argc, char *argv[]) {
     
     if (opt.tile_index >= num_tiles) {
       vw_out() << "Tile with index: " << opt.tile_index
-	             << " is out of bounds." << "\n";
+                 << " is out of bounds." << "\n";
       return 0;
     }
 
     if (num_tiles > 1 && write_to_precise_file) 
       vw_throw(ArgumentErr() << "Cannot fit all mosaic in the given output file name. "
-	       << "Hence specify an output prefix instead, and then multiple "
-	       << "tiles will be created.\n");
+           << "Hence specify an output prefix instead, and then multiple "
+           << "tiles will be created.\n");
     
     // If to use a range
     if (!opt.tile_list.empty() && opt.tile_index >= 0) 
@@ -2005,8 +1916,8 @@ int main(int argc, char *argv[]) {
       int tile_index_y = tile_id / num_tiles_x;
       int tile_index_x = tile_id - tile_index_y*num_tiles_x;
       BBox2i tile_box(tile_index_x*opt.tile_size,
-		      tile_index_y*opt.tile_size,
-		      opt.tile_size, opt.tile_size);
+              tile_index_y*opt.tile_size,
+              opt.tile_size, opt.tile_size);
 
       // Bounding box of this tile in pixels in the output image
       tile_box.crop(BBox2i(0, 0, cols, rows));
@@ -2129,7 +2040,7 @@ int main(int argc, char *argv[]) {
                              num_valid_pixels, count_mutex),
                tile_box);
       GeoReference crop_georef = crop(mosaic_georef, tile_box.min().x(),
-				      tile_box.min().y());
+                      tile_box.min().y());
       // Update the lon-lat box given that we know the final georef and image size
       crop_georef.ll_box_from_pix_box(BBox2i(0, 0, cols, rows));
       
@@ -2144,31 +2055,31 @@ int main(int argc, char *argv[]) {
                                        has_nodata, opt.out_nodata_value, opt, tpc);
       else if (opt.output_type == "Byte") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-				       per_pixel_filter(out_dem, RoundAndClamp<uint8, RealT>()),
+                       per_pixel_filter(out_dem, RoundAndClamp<uint8, RealT>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<uint8>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "UInt16") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-				       per_pixel_filter(out_dem, RoundAndClamp<uint16, RealT>()),
+                       per_pixel_filter(out_dem, RoundAndClamp<uint16, RealT>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<uint16>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "Int16") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-				       per_pixel_filter(out_dem, RoundAndClamp<int16, RealT>()),
+                       per_pixel_filter(out_dem, RoundAndClamp<int16, RealT>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<int16>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "UInt32") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-				       per_pixel_filter(out_dem, RoundAndClamp<uint32, RealT>()),
+                       per_pixel_filter(out_dem, RoundAndClamp<uint32, RealT>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<uint32>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "Int32") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-				       per_pixel_filter(out_dem, RoundAndClamp<int32, RealT>()),
+                       per_pixel_filter(out_dem, RoundAndClamp<int32, RealT>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<int32>(opt.out_nodata_value),
                                        opt, tpc);

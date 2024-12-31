@@ -113,6 +113,47 @@ This uses no blending. Also supported are the options ``--first``,
 ``--last``, ``--min``, ``--max``, ``--stddev``, ``--median``, ``--nmad``,
 and ``--count``.
 
+.. _dem_mosaic_external_weights:
+
+External weights
+^^^^^^^^^^^^^^^^
+
+The default behavior of ``dem_mosaic`` is to blend the DEMs using a weighted
+average with internal weights that decrease to zero towards the boundary of the DEM
+and plateau inwards, away from the boundary (see ``--extra-crop-length`` and
+``--weights-exponent``). 
+
+If, for example, the DEMs are known to have different vertical uncertainties
+(:numref:`error_propagation`), these gridded uncertainties
+(:numref:`export_stddev`) can be used as external weights. These weights can be
+inverted (to ensure that a larger weight is given to a smaller vertical
+uncertainty), then multiplied by the internal weights before blending.
+                                        
+Example::
+
+    ls stereo_runs/*/run-DEM.tif > stereo_runs/dem_list.txt
+    ls stereo_runs/*/run-VerticalStdDev.tif > stereo_runs/vert_list.txt
+
+    dem_mosaic                                \
+      --dem-list stereo_runs/dem_list.txt     \
+      --weight-list stereo_runs/vert_list.txt \
+      --invert-weights                        \
+      -o stereo_runs/weighted_mosaic.tif
+
+In addition to the option ``--invert-weights``, the option ``--min-weight`` can
+help ensure that the weights are not too small (before being inverted).
+
+The weights must be in one-to-one correspondence with the DEMs to be mosaicked.
+Any weight value that equals the no-data value will be ignored.
+
+Another candidate for the weight could be the triangulation error
+(:numref:`point2dem_ortho_err`). The ``--min-weight`` option is strongly
+encouraged in this case, as an extremely small triangulation error many not
+suggest high reliability alone. 
+
+The ``image_calc`` program (:numref:`image_calc`) can help devise schemas for
+how various uncertainty measures could be combined into a single weight image.
+
 Regridding
 ^^^^^^^^^^
 
@@ -218,8 +259,8 @@ or::
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
--l, --dem-list-file <string>
-    Text file listing the DEM files to mosaic, one per line.
+-l, --dem-list <string>
+    A text file listing the DEM files to mosaic, one per line.
 
 -o, --output-prefix <string>
     Specify the output prefix. One or more tiles will be written
@@ -318,6 +359,18 @@ Command-line options
 --erode-length <integer (default: 0)>
     Erode the DEM by this many pixels at boundary.
 
+--weight-list <string (default: "")>
+    A text file having a list of external weight files to use in blending, one
+    per line. These are multiplied by the internal weights to ensure seamless
+    blending. The weights must be in one-to-one correspondence with the DEMs to
+    be mosaicked. See :numref:`dem_mosaic_external_weights`.
+
+--invert-weights
+    Use 1/weight instead of weight in blending, with ``--weight-list``.
+
+--min-weight <double (default: 0.0)>
+    Limit from below with this value the weights provided with ``--weight-list``.
+    
 --georef-tile-size <double>
     Set the tile size in georeferenced (projected) units (e.g.,
     degrees or meters).
@@ -351,9 +404,11 @@ Command-line options
     A larger value will blur more. Default: No blur.
 
 --extra-crop-length <integer (default: 200)>
-    Crop the DEMs this far from the current tile (measured in pixels)
-    before blending them (a small value may result in artifacts).
-
+    Crop the DEMs this far from the current tile (measured in pixels) before
+    blending them (a small value may result in artifacts). This value also helps
+    determine how to plateau the blending weights inwards, away from the DEM
+    boundary.
+     
 --nodata-threshold <float>
     Values no larger than this number will be interpreted as no-data.
 
