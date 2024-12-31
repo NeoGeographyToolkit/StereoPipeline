@@ -65,6 +65,8 @@ ASP normally auto-guesses the planet (datum), otherwise the option ``-r`` can
 be used. If desired to change the output no-data value (which can also
 be inspected with ``gdalinfo``), use the options ``--nodata-value``.
 
+.. _point2dem_ortho_err:
+
 Orthoimage and error image
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

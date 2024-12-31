@@ -223,7 +223,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
   po::options_description positional("");
   positional.add_options()
-    ("input-files", po::value< std::vector<std::string> >(), "Input files");
+    ("input-files", po::value<std::vector<std::string>>(), "Input files");
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
@@ -239,7 +239,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   if (vm.count("input-files") == 0)
     vw_throw(ArgumentErr() << "Missing input point clouds.\n" << usage << general_options);
     
-  std::vector<std::string> input_files = vm["input-files"].as< std::vector<std::string> >();
+  std::vector<std::string> input_files = vm["input-files"].as<std::vector<std::string>>();
   parse_input_clouds_textures(input_files, opt);
 
   if (opt.median_filter_params[0] < 0 || opt.median_filter_params[1] < 0)

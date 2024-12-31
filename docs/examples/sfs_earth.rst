@@ -246,7 +246,7 @@ This two-step process was run as follows::
       -o sfs/run
 
 This program does the partitioning into tiles, individual processing of tiles,
-and merge of the results. The descriptions of these options is in
+and merging of the results. The descriptions of these options is in
 :numref:`parallel_sfs` and :numref:`sfs`. Another example is in
 :numref:`parallel_sfs_usage`.
 

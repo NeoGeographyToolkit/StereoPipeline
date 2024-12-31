@@ -259,8 +259,8 @@ computations have only 16 digits of precision.
 Validation for Maxar (DigitalGlobe) linescan cameras
 ----------------------------------------------------
 
-The horizontal stddev values propagated through triangulation are on
-the order of 3 meters.
+The horizontal stddev values propagated through triangulation for  Maxar
+(DigitalGlobe) linescan cameras are usually on the order of 3 meters.
 
 The obtained vertical stddev varies very strongly with the convergence
 angle, and is usually, 5-10 meters, and perhaps more for stereo pairs
