@@ -18,19 +18,11 @@
 /// \file dem_mosaic.cc
 ///
 
-// A tool to mosaic and blend DEMs, and output the mosaic as tiles.
-
-// Note 1: In practice, the tool may be more efficient if the entire
-// mosaic is written out as one single large image, rather than being
-// broken up into tiles. To achieve that, just specify to the tool a
-// very large tile size, and use 0 for the tile index in the command
-// line options.
-
-// Note 2: The tool can be high on memory usage, so processes for
-// individual tiles may need to be run on separate machines.
+// A program to merge several DEMs into one.
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <asp/Core/DemMosaic.h>
 
 #include <vw/FileIO/DiskImageManager.h>
 #include <vw/Image/InpaintView.h>
@@ -52,7 +44,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <time.h>
 #include <limits>
 #include <algorithm>
 
@@ -314,9 +305,9 @@ GeoReference read_georef(std::string const& file) {
 }
 
 struct Options: vw::GdalWriteOptions {
-  std::string dem_list_file, out_prefix, target_srs_string,
-    output_type, tile_list_str, this_dem_as_reference;
-  std::vector<std::string> dem_files;
+  std::string dem_list, out_prefix, target_srs_string,
+    output_type, tile_list_str, this_dem_as_reference, weight_list, dem_list_file;
+  std::vector<std::string> dem_files, weight_files;
   double tr, geo_tile_size;
   bool   has_out_nodata, force_projwin;
   double out_nodata_value;
@@ -324,10 +315,10 @@ struct Options: vw::GdalWriteOptions {
          extra_crop_len, hole_fill_len, block_size, save_dem_weight,
          fill_num_passes;
   double weights_exp, weights_blur_sigma, dem_blur_sigma;
-  double nodata_threshold, fill_search_radius, fill_power, fill_percent;
+  double nodata_threshold, fill_search_radius, fill_power, fill_percent, min_weight;
   bool   first, last, min, max, block_max, mean, stddev, median, nmad,
-    count, tap, save_index_map, use_centerline_weights,
-         first_dem_as_reference, propagate_nodata, no_border_blend;
+    count, tap, save_index_map, use_centerline_weights, first_dem_as_reference, 
+    propagate_nodata, no_border_blend, invert_weights;
   std::set<int> tile_list;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), force_projwin(false), 
@@ -339,7 +330,8 @@ struct Options: vw::GdalWriteOptions {
              first(false), last(false), min(false), max(false), block_max(false),
              mean(false), stddev(false), median(false), nmad(false),
              count(false), save_index_map(false), tap(false),
-             use_centerline_weights(false), first_dem_as_reference(false), projwin(BBox2()) {}
+             use_centerline_weights(false), first_dem_as_reference(false), projwin(BBox2()),
+             invert_weights(false) {}
 };
 
 /// Return the number of no-blending options selected.
@@ -1106,6 +1098,53 @@ public:
 			     TerminalProgressCallback("asp", ""));
 #endif
 
+      // TODO(oalexan1): Must be a function
+      if (!m_opt.weight_files.empty()) {
+         // Multiply by the external weights
+         DiskImageResourceGDAL rsrc(m_opt.weight_files[dem_iter]);
+         DiskImageView<double> disk_weight(rsrc);
+         ImageView<double> external_weight = crop(disk_weight, in_box);
+
+         // Must have the same size as the dem
+         if (external_weight.cols() != dem.cols() || external_weight.rows() != dem.rows())
+           vw_throw(ArgumentErr() << "The weight file " << m_opt.weight_files[dem_iter]
+                       << " must have the same size as the corresponding DEM.\n");
+            
+         // Any no-data weights will be set to 0         
+         double weight_nodata = -std::numeric_limits<double>::max();
+         if (rsrc.has_nodata_read())
+            weight_nodata = rsrc.nodata_read();
+         external_weight = apply_mask(create_mask(external_weight, weight_nodata),
+                                      weight_nodata);
+        
+         // Limit from below
+         if (m_opt.min_weight > 0) {
+           for (int col = 0; col < external_weight.cols(); col++) {
+             for (int row = 0; row < external_weight.rows(); row++) {
+               external_weight(col, row) 
+                = std::max(external_weight(col, row), m_opt.min_weight);
+             }
+           }
+         }
+         
+         // See if to invert the weight
+         if (m_opt.invert_weights) {
+           for (int col = 0; col < external_weight.cols(); col++) {
+             for (int row = 0; row < external_weight.rows(); row++) {
+               if (external_weight(col, row) > 0)
+                external_weight(col, row) = 1.0 / external_weight(col, row);
+             }
+           }
+         }
+          
+         // Multiply the local weights by the external weights
+         for (int col = 0; col < dem.cols(); col++) {
+           for (int row = 0; row < dem.rows(); row++) {
+             local_wts(col, row) *= external_weight(col, row);
+           }
+         }
+      }
+
       // TODO(oalexan1): This must be a function
       // Set the weights in the alpha channel
       for (int col = 0; col < dem.cols(); col++) {
@@ -1124,9 +1163,8 @@ public:
                      // Outputs
                      tile, weights, weight_modifier, saved_weight, index_map);
 
-      // For the median option, keep a copy of the output tile for each input DEM!
-      // Also do it for max per block.
-      // - This will be memory intensive. 
+      // For the median option, keep a copy of the output tile for each input DEM.
+      // Also do it for max per block. This will be memory intensive. 
       if (m_opt.median || m_opt.nmad || m_opt.block_max) {
         tile_vec.push_back(copy(tile));
         dem_vec.push_back(dem_name);
@@ -1362,8 +1400,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("Options");
   general_options.add_options()
-    ("dem-list-file,l", po::value<std::string>(&opt.dem_list_file),
-	   "Text file listing the DEM files to mosaic, one per line.")
+    ("dem-list,l", po::value<std::string>(&opt.dem_list),
+	   "A text file listing the DEM files to mosaic, one per line.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix. One or more tiles will be written with this prefix. Alternatively, an exact output file can be specified, with a .tif extension.")
     ("tile-size",       po::value<int>(&opt.tile_size)->default_value(1000000),
 	   "The maximum size of output DEM tile files to write, in pixels.")
@@ -1407,7 +1445,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 	   "Find the normalized median absolute deviation DEM value (this can be memory-intensive, fewer threads are suggested).")
     ("count",   po::bool_switch(&opt.count)->default_value(false),
      "Each pixel is set to the number of valid DEM heights at that pixel.")
-    ("hole-fill-length",   po::value(&opt.hole_fill_len)->default_value(0),
+    ("weight-list", po::value<std::string>(&opt.weight_list),
+	   "A text file listing external weights to use in blending, one per line. These "
+     "are multiplied by the internal weights to ensure seamless blending. The weights "
+     "must be in one-to-one correspondence with the DEMs to be mosaicked.")
+    ("invert-weights", po::bool_switch(&opt.invert_weights)->default_value(false),    
+      "Use 1/weight instead of weight in blending, with --weight-list.")
+    ("min-weight", po::value<double>(&opt.min_weight)->default_value(0.0),
+      "Limit from below with this value the weights provided with --weight-list.")
+    ("hole-fill-length", po::value(&opt.hole_fill_len)->default_value(0),
 	   "Maximum dimensions of a hole in the DEM to fill, in pixels. See also --fill-search-radius.")
      ("fill-search-radius",   po::value(&opt.fill_search_radius)->default_value(0.0),
       "Fill an invalid pixel with a weighted average of pixel values within this radius in pixels. The weight is 1/(factor * dist^power + 1), where the distance is measured in pixels. See an example in the doc. See also --fill-power, --fill-percent and --fill-num-passes.")
@@ -1424,8 +1470,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("georef-tile-size",    po::value<double>(&opt.geo_tile_size),
      "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
     ("output-nodata-value", po::value<double>(&opt.out_nodata_value),
-     "No-data value to use on output. Default: use the one from the first DEM to be mosaicked.")
-    ("ot",  po::value(&opt.output_type)->default_value("Float32"), "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.")
+     "No-data value to use on output. Default: use the one from the first DEM to be "
+     "mosaicked.")
+    ("ot",  po::value(&opt.output_type)->default_value("Float32"), 
+     "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If "
+     "the output type is a kind of integer, values are rounded and then clamped to the "
+     "limits of that type.")
     ("weights-blur-sigma", po::value<double>(&opt.weights_blur_sigma)->default_value(5.0),
      "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending. Set to 0 to not use blurring.")
     ("weights-exponent",   po::value<double>(&opt.weights_exp)->default_value(2.0),
@@ -1450,23 +1500,35 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("force-projwin", po::bool_switch(&opt.force_projwin)->default_value(false),
      "Make the output mosaic fill precisely the specified projwin, by padding it if necessary and aligning the output grid to the region.")
     ("save-index-map",   po::bool_switch(&opt.save_index_map)->default_value(false),
-     "For each output pixel, save the index of the input DEM it came from (applicable only for --first, --last, --min, --max, --median, and --nmad). A text file with the index assigned to each input DEM is saved as well.");
+     "For each output pixel, save the index of the input DEM it came from (applicable only for --first, --last, --min, --max, --median, and --nmad). A text file with the index assigned to each input DEM is saved as well.")
+    ("dem-list-file", po::value<std::string>(&opt.dem_list_file),
+	   "Alias for --dem-list, kept for backward compatibility.")
+    ;
 
   // Use in GdalWriteOptions '--tif-tile-size' rather than '--tile-size', to not conflict
   // with the '--tile-size' definition used by this tool.
   bool adjust_tile_size_opt = true; 
   general_options.add(vw::GdalWriteOptionsDescription(opt, adjust_tile_size_opt));
-  
-  po::options_description positional("");
-  po::positional_options_description positional_desc;
 
-  std::string usage("[options] <dem files or -l dem_files_list.txt> -o output_file_prefix");
-  bool allow_unregistered = true;
+  // The input DEM files are either specified as positional arguments or in a list,
+  // via --dem-list.  
+  po::options_description positional("");
+  positional.add_options()
+    ("dem-files", po::value<std::vector<std::string>>(), "Input DEM files");
+  po::positional_options_description positional_desc;
+  positional_desc.add("dem-files", -1);
+
+  std::string usage("[options] <dem files or -l dem_list.txt> -o output.tif");
+  bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered);
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
+
+  opt.dem_files.clear();
+  if (vm.count("dem-files") != 0)
+    opt.dem_files = vm["dem-files"].as<std::vector<std::string>>();
 
   // Error checking
   if (opt.out_prefix == "")
@@ -1519,8 +1581,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
          << usage << general_options);
 
   if (opt.geo_tile_size < 0)
-    vw_throw(ArgumentErr() << "The size of a tile in georeferenced units must not be negative.\n"
-                           << usage << general_options);
+    vw_throw(ArgumentErr() 
+             << "The size of a tile in georeferenced units must not be negative.\n"
+             << usage << general_options);
 
   if (noblend && opt.priority_blending_len > 0) {
     vw_throw(ArgumentErr()
@@ -1578,28 +1641,35 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              << "but the priority blending length works by internally hollowing out "
              << "the non-priority DEMs before blending.\n");
 
+  // Cannot have both --dem-list and --dem-list-file. The latter is for backward
+  // compatibility.
+  if (opt.dem_list != "" && opt.dem_list_file != "")
+    vw_throw(ArgumentErr() << "Cannot have both --dem-list and --dem-list-file.\n");
+  if (opt.dem_list_file != "") {
+    opt.dem_list = opt.dem_list_file;
+    opt.dem_list_file = "";
+  }
+  
   // Read the DEMs
-  if (opt.dem_list_file != "") { // Get them from a list
+  if (opt.dem_list != "") { // Get them from a list
 
-    if (!unregistered.empty())
+    if (!opt.dem_files.empty()) {
+      // Concatenate all the options into a single string
+      std::string extra_list = ""; 
+      for (size_t s = 0; s < opt.dem_files.size(); s++)
+        extra_list += opt.dem_files[s];
       vw::vw_throw(vw::ArgumentErr() 
                    << "The DEMs were specified via a list. There were however "
-                   << "extraneous files or options passed in.\n");
+                   << "extraneous files or options passed in: " << extra_list << ".\n");
+    }
 
-    std::ifstream is(opt.dem_list_file.c_str());
-    std::string file;
-    while (is >> file)
-      opt.dem_files.push_back(file);
+    asp::read_list(opt.dem_list, opt.dem_files);
     if (opt.dem_files.empty())
       vw_throw(ArgumentErr() << "No DEM files to mosaic.\n");
-    is.close();
 
-  } else{  // Get them from the command line
-
-    if (unregistered.empty())
-      vw_throw(ArgumentErr() << "No input DEMs were specified.\n"
-			     << usage << general_options);
-    opt.dem_files = unregistered;
+  } else {  // Get them from the command line
+    if (opt.dem_files.empty())
+      vw_throw(ArgumentErr() << "No input DEMs were specified.\n");
   }
 
   if (opt.this_dem_as_reference != "" && opt.first_dem_as_reference) {
@@ -1667,10 +1737,72 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   opt.tile_list.clear();
   std::istringstream os(opt.tile_list_str);
   int val;
-  while (os >> val) {
+  while (os >> val)
     opt.tile_list.insert(val);
+
+  // Sanity checks for --first-dem-as-reference
+  if (opt.first_dem_as_reference) {
+    if (opt.target_srs_string != "" || opt.tr > 0 || opt.projwin != BBox2()) 
+      vw_throw(ArgumentErr()
+                << "Cannot change the projection, spacing, or output box, if the first DEM "
+                << "is to be used as reference.\n");
+    if (opt.first  || opt.last || opt.min    || opt.max || opt.mean || 
+        opt.median || opt.nmad || opt.stddev ||
+        opt.priority_blending_len > 0 || //opt.save_dem_weight >= 0 ||
+        !boost::math::isnan(opt.nodata_threshold)) {
+      vw_throw(ArgumentErr()
+                << "Cannot do anything except regular blending if the first DEM "
+                << "is to be used as reference.\n");
+    }
   }
   
+
+  // Handle the option --weight-list.
+  if (opt.weight_list != "") {
+    
+    if (noblend || opt.priority_blending_len > 0 ||
+        !boost::math::isnan(opt.nodata_threshold))
+      vw_throw(ArgumentErr()
+                << "Cannot do anything except regular blending with the option "
+                << "--weight-list.\n");
+    
+    asp::read_list(opt.weight_list, opt.weight_files);
+    
+    // Must have the same number of weights as DEMs
+    if (opt.weight_files.size() != opt.dem_files.size())
+      vw_throw(ArgumentErr() << "The number of weights in the file " << opt.weight_list
+                             << " must match the number of DEMs.\n");
+      
+    // Read each DEM temporarily and each weight to get their sizes and georefs. Those
+    // must agree.
+    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++) {
+      DiskImageView<double> dem(opt.dem_files[dem_iter]);
+      DiskImageView<double> weight(opt.weight_files[dem_iter]);
+      
+      // Check cols and rows
+      if (dem.cols() != weight.cols() || dem.rows() != weight.rows())
+        vw_throw(ArgumentErr() << "The DEM " << opt.dem_files[dem_iter] << " and its weight "
+                 << opt.weight_files[dem_iter] << " have different dimensions.\n");
+
+      vw::cartography::GeoReference dem_georef, weight_georef;
+      bool has_dem_georef = vw::cartography::read_georeference(dem_georef, 
+                                                               opt.dem_files[dem_iter]);
+      bool has_weight_georef = vw::cartography::read_georeference(weight_georef, 
+                                                                  opt.weight_files[dem_iter]);
+      if (!has_dem_georef)
+        vw_throw(ArgumentErr() << "The DEM " << opt.dem_files[dem_iter] 
+                 << " has no georeference.\n");
+      if (!has_weight_georef)
+        vw_throw(ArgumentErr() << "The weight " << opt.weight_files[dem_iter] 
+                 << " has no georeference.\n");
+      
+      // Must have the same wkt string
+      if (dem_georef.get_wkt() != weight_georef.get_wkt())
+        vw_throw(ArgumentErr() << "The DEM " << opt.dem_files[dem_iter] 
+                 << " and its weight " << opt.weight_files[dem_iter] 
+                 << " have different georeferences.\n");  
+    }  
+   }
 } // End function handle_arguments
 
 int main(int argc, char *argv[]) {
@@ -1710,21 +1842,6 @@ int main(int argc, char *argv[]) {
     // By default the output georef is equal to the first input georef
     GeoReference mosaic_georef = read_georef(opt.dem_files[0]);
 
-    if (opt.first_dem_as_reference) {
-      if (opt.target_srs_string != "" || opt.tr > 0 || opt.projwin != BBox2()) 
-        vw_throw(ArgumentErr()
-                 << "Cannot change the projection, spacing, or output box, if the first DEM "
-                 << "is to be used as reference.\n");
-      if (opt.first  || opt.last || opt.min    || opt.max || opt.mean || 
-          opt.median || opt.nmad || opt.stddev ||
-          opt.priority_blending_len > 0 || //opt.save_dem_weight >= 0 ||
-          !boost::math::isnan(opt.nodata_threshold)) {
-        vw_throw(ArgumentErr()
-                 << "Cannot do anything except regular blending if the first DEM "
-                 << "is to be used as reference.\n");
-      }
-    }
-  
     double spacing = opt.tr;
     if (opt.target_srs_string != "" && spacing <= 0) {
         vw_throw(ArgumentErr()
