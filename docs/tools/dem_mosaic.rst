@@ -128,6 +128,9 @@ If, for example, the DEMs are known to have different vertical uncertainties
 (:numref:`export_stddev`) can be used as external weights. These weights can be
 inverted (to ensure that a larger weight is given to a smaller vertical
 uncertainty), then multiplied by the internal weights before blending.
+
+A larger stereo convergence angle (:numref:`stereo_pairs`) results in less
+vertical uncertainty.
                                         
 Example::
 
@@ -439,7 +442,7 @@ Command-line options
     Set the system cache size, in MB.
 
 --no-bigtiff
-    Tell GDAL to not create bigtiffs.
+    Tell GDAL to not create BigTIFF files.
 
 --tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.

@@ -1,30 +1,36 @@
+About SfM
+---------
+
+This chapter discusses how to create a terrain model (DEM) if there exist two or
+more images, and the camera models may not be fully known. This can be useful
+with aerial, hand-held, and historical images. 
+
+In general, this requires solving a Structure-from-Motion (SfM) problem. 
+This is described in detail in this chapter. 
+
+If the images have known metadata, such as stored in the EXIF header 
+or from other sources, SfM can be avoided. That is discussed in the UAS
+example (:numref:`sfm_uas`).
+
+If preexisting orthoimages and DEMs are available, it is possible to also avoid
+SfM by first creating a GCP file and then the camera models based on that
+(:numref:`camera_solve_gcp`).
+
+If the longitude and latitude of the corners of all images are known, see
+:numref:`cam_gen`.
+
 Camera solving overview
 -----------------------
 
-The Structure-from-Motion (SfM) ASP tool ``camera_solve`` offers
-several ways to find the pose of frame camera images that do
-not come with any attached pose metadata. This can be useful with
-aerial, hand-held, and historical images for which such information
-may be incomplete or inaccurate.
+The ``camera_solve`` program (:numref:`camera_solve`) offers several ways to
+find the pose of frame camera images that do not come with any attached pose
+metadata, or when information may be incomplete or inaccurate.
 
-An overview of ``camera_solve`` and examples are provided in this chapter.
-Reference information for this tool can be found in :numref:`camera_solve`.
-
-This program can be optionally bypassed if, for example, 
-a similar orthoimage and a DEM are available (:numref:`camera_solve_gcp`),
-or if the longitude and latitude of the corners of all images are known
-(:numref:`cam_gen`).
-
-ASP offers another tool to build reconstructions, named ``theia_sfm``
-(:numref:`theia_sfm`). That one more geared to work with a rig
-mounted on a robot (:numref:`rig_calibrator`). See examples
-of that in :numref:`rig_examples`.
-
-The ``camera_solve`` tool is implemented as a Python wrapper around two other
+The ``camera_solve`` program is a Python script invoking two other
 tools that we ship. The first of these is `TheiaSfM
 <http://www.theia-sfm.org/index.html>`_. It generates initial camera position
 estimates in a local coordinate space. The second one is ``bundle_adjust``
-(:numref:`bundle_adjust`).  This program improves the solution to account for
+(:numref:`bundle_adjust`). This program improves the solution to account for
 lens distortion and transforms the solution from local to global coordinates by
 making use of additional input data.
 
@@ -37,7 +43,8 @@ intrinsic parameters if you have access to the camera in question.
 
 The ``rig_calibrator`` (:numref:`rig_calibrator`) program can calibrate a rig
 with one more cameras based on data acquired in situ, without a calibration
-target. It can handle a mix of optical images and depth clouds.
+target. It can handle a mix of optical images and depth clouds. That program 
+has its own SfM script called ``theia_sfm`` (:numref:`theia_sfm`).
 
 The ``bundle_adjust`` program can also solve for the intrinsics, without using a
 rig or a calibration target. It can optionally constrain the solution against
@@ -288,12 +295,16 @@ angle and number of matches between any two images in a given set
 (:numref:`ba_conv_angle`).
 
 That data can be used to decide on promising stereo pairs to consider
-(:numref:`stereo_pairs`). After pairwise stereo and DEM creation is run, the
-DEMs can be mosaicked together with ``dem_mosaic`` (:numref:`dem_mosaic`). 
+(:numref:`stereo_pairs`). Pairwise stereo and DEM creation are run, as in
+:numref:`tutorial`.
+
+The DEMs can be mosaicked together with ``dem_mosaic`` (:numref:`dem_mosaic`). 
+To give more weight in mosaicking to DEMs with a larger convergence angle, 
+see :numref:`dem_mosaic_external_weights`.
 
 The input DEMs should agree quite well if the intrinsics are accurate, there is
 enough overlap between the images, many interest point matches were found, and
-the cameras were bundle-adjusted (with GCP). Refining intrinsics is discussed
+the cameras were bundle-adjusted. Refining intrinsics is discussed
 in :numref:`floatingintrinsics`.
 
 The produced mosaicked DEM (and cameras) can be aligned to a reference terrain with
@@ -475,15 +486,16 @@ Terrain creation
 
 Run ``parallel_stereo`` (:numref:`parallel_stereo`) on the DMS images::
 
-   parallel_stereo -t nadirpinhole             \
-     --sgm-collar-size 256                     \
-     --skip-rough-homography                   \
-     --stereo-algorithm asp_mgm                \
-     --subpixel-mode 9                         \
-     --sgm-collar-size 256                     \
-     2009_11_05_02948.JPG 2009_11_05_02949.JPG \
-     out/2009_11_05_02948.JPG.final.tsai       \
-     out/2009_11_05_02949.JPG.final.tsai       \
+   parallel_stereo -t nadirpinhole       \
+     --sgm-collar-size 256               \
+     --skip-rough-homography             \
+     --stereo-algorithm asp_mgm          \
+     --subpixel-mode 9                   \
+     --sgm-collar-size 256               \
+     2009_11_05_02948.JPG                \
+     2009_11_05_02949.JPG                \
+     out/2009_11_05_02948.JPG.final.tsai \
+     out/2009_11_05_02949.JPG.final.tsai \
      st_run/out
 
 Create a DEM and orthoimage from the stereo results with ``point2dem``
@@ -506,6 +518,8 @@ Create a DEM from the LVIS data::
      --tr 30                                         \
      --search-radius-factor 2.0                      \
      -o lvis
+
+How to combine multiple DEMs is described in :numref:`sfm_multiview`.
 
 Terrain alignment
 ^^^^^^^^^^^^^^^^^
@@ -688,3 +702,65 @@ The poses of the produced camera models can be jointly optimized with
 
 Optionally, the intrinsics can be refined as well. Detailed recipes are in
 :numref:`floatingintrinsics`. 
+
+.. _sfm_uas:
+
+UAS example
+-----------
+
+The following example demonstrates how to produce camera models and a joint DEM
+from images taken by a UAS (Unmanned Aerial System). It is assumed
+that:
+
+ - The images store in the EXIF metadata the camera center longitude, latitude,
+   height above the datum, and yaw angle (the ``GPSImgDirection`` field),
+   relative to the North direction. Alternatively, this information (and
+   perhaps also camera roll and pitch) is available in a list.
+   
+ - The camera looks generally downward. This is not a strong assumption but
+   makes it easier to determine which images overlap with which.
+
+ - A Frame (Pinhole) camera (:numref:`pinholemodels`) is used, with known
+   intrinsics. If those are not known, it is shown below how to estimate 
+   them and then refine them later.
+
+The general Structure-from-Motion (SfM) approach is described in
+:numref:`sfm`.
+
+The metadata is extracted from the EXIF header with the ``sfm_proc`` program
+(:numref:`sfm_proc`)::
+
+    ls images/*.JPG > images/image_list.txt
+    sfm_proc                             \
+      --image-list images/image_list.txt \
+      --out-dir cameras
+   
+This writes the file ``cameras/extrinsics.txt``, having the above-mentioned
+information. The file can be produced in other ways as well. Its format and how
+it is used to create the camera models is shown in :numref:`cam_gen_extrinsics`.
+
+That invocation needs the camera intrinsics, including the focal length and 
+optical center in pixel units, and the lens distortion parameters. 
+
+If the focal length is not known, it is suggested to estimate it from the
+``EXIF_FocalLengthIn35mmFilm`` field in the EXIF header, if available. 
+For example, this field has the value ``46``, and the image width is known 
+to be 9248 pixels, the following gives an estimate for the focal length in
+pixels::
+
+  focal_length = 46.0 * 9248.0 / 35.0 = 12154.51428571
+  
+The optical center can be set to half the image dimensions. The lens distortion
+coefficients can be set to 0 for an initial estimate.
+
+The produced rough camera models can be validated as shown in
+:numref:`cam_gen_validation`. That will require an external DEM,
+that can be found as described in :numref:`initial_terrain`, and
+which may need an adjustment as shown in :numref:`conv_to_ellipsoid`.
+
+The camera models can be refined with ``bundle_adjust`` with fixed intrinsics,
+as shown in :numref:`kaguya_ba_initial_ba`. The intrinsics can be refined later,
+(:numref:`floatingintrinsics`).
+
+The cameras can be used to create and then merge DEMs, per
+:numref:`sfm_multiview`.

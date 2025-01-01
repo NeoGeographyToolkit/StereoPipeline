@@ -41,8 +41,8 @@ rig), and :numref:`rig_examples` (using a rig and robot images).
 
 .. _sfm:
 
-SfM examples with orbital images
-================================
+SfM examples
+============
    
 .. toctree::
    

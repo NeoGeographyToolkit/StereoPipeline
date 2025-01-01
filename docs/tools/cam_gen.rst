@@ -238,9 +238,10 @@ the command::
     --sample-file sample.tsai   \
     --datum WGS84
 
-will write for each line a camera model named ``img.tsai`` based on these
-measurements of camera position and orientation. The heights are in meters,
-measured above the specified datum. 
+will write for each line a camera model based on these measurements of camera
+position and orientation. The heights are in meters, measured above the
+specified datum. The camera model file is obtained from the image name 
+by replacing the extension with ``.tsai``.
 
 The three angles are applied in the order roll, pitch, yaw, starting from the
 camera pointing straight down, which is the camera z axis. The yas is measured
@@ -257,9 +258,10 @@ lines. All the desired named columns must exist, with these precise names.
 Comma and space can be used as separators. Empty lines and lines starting with
 the pound sign are ignored.
 
-Such functionality can be helpful for processing images acquired with an aircraft
-that records its position and orientation (:numref:`sfmicebridge`).
-          
+Such functionality can be helpful for processing images acquired with an
+aircraft that records metadata in a list (:numref:`sfmicebridge`), or in EXIF
+(:numref:`sfm_uas`).
+
 Further refinement
 ~~~~~~~~~~~~~~~~~~
 
@@ -281,13 +283,13 @@ See :numref:`kaguya_ba` regarding optimizing camera intrinsics.
 Validation
 ~~~~~~~~~~
 
-It is strongly suggested to mapproject the image onto the obtained
+It is strongly suggested to mapproject the image with the obtained
 camera to verify if it projects where expected::
 
      mapproject dem.tif img.tif img.tsai img_map.tif
 
 The output ``img_map.tif`` can be overlaid onto the hillshaded DEM in
-``stereo_gui``.
+``stereo_gui`` (:numref:`stereo_gui`).
 
 Use ``cam_test`` program (:numref:`cam_test`) for sanity checks. This is 
 particularly helpful when ``cam_gen`` is used to approximate a prior 

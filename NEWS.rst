@@ -67,6 +67,10 @@ parallel_stereo (:numref:`parallel_stereo`):
     (these are enabled by default for WorldView cameras only). It is not clear
     if these corrections improve or not Pleiades accuracy.
 
+sfm (:numref:`sfm`):
+  * Added an example for processing data acquired with an UAS, with known
+    metadata (:numref:`sfm_uas`).
+    
 sfs (:numref:`sfs`):
   * Added an SfS example for Earth (:numref:`sfs_earth`).
   * Added a CTX Mars example (:numref:`sfs_ctx`).

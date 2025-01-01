@@ -270,10 +270,9 @@ matches can be inspected with ``stereo_gui``
 DEM creation
 ^^^^^^^^^^^^
 
-Pairwise stereo then can be run among overlapping image pairs
-(:numref:`nextsteps`), with ``dem_mosaic`` (:numref:`dem_mosaic`) used
-for mosaicking the obtained DEMs. It may be necessary to eliminate the pairwise
-DEMs which are created with images that barely overlap before mosaicking.
+How to decide which pairs of images to choose for stereo and how to combine
+the resulting DEMs taking into account the stereo convergence angle is
+described in :numref:`sfm_multiview`.
 
 .. _skysat_video:
 
