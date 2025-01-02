@@ -19,11 +19,11 @@
 // The reflectance models used by SfS.
 
 #include <asp/SfS/SfsReflectanceModel.h>
+#include <vw/Cartography/GeoReference.h>
 
 namespace asp {
 
 using namespace vw;
-
 
 // Computes the Lambertian reflectance model (cosine of the light
 // direction and the normal to the Moon) Vector3 sunpos: the 3D
@@ -431,5 +431,63 @@ double nonlinReflectance(double reflectance, double exposure,
   vw_throw(ArgumentErr() << "Invalid value for the number of haze coefficients.\n");
   return 0;
 }
+
+// Calculate current ECEF position and normal vector for a given DEM pixel.
+// This is an auxiliary function needed to compute the reflectance.
+void calcPointAndNormal(int col, int row,
+                        double left_h, double center_h, double right_h,
+                        double bottom_h, double top_h,
+                        bool use_pq, double p, double q, // dem partial derivatives
+                        vw::cartography::GeoReference const& geo,
+                        double gridx, double gridy,
+                        // Outputs
+                        vw::Vector3 & xyz, vw::Vector3 & normal) {
+
+  if (use_pq) {
+    // p is defined as (right_h - left_h)/(2*gridx)
+    // so, also, p = (right_h - center_h)/gridx
+    // Hence, we get the formulas below in terms of p and q.
+    right_h  = center_h + gridx*p;
+    left_h   = center_h - gridx*p;
+    top_h    = center_h + gridy*q;
+    bottom_h = center_h - gridy*q;
+  }
+
+  // The xyz position at the center grid point
+  vw::Vector2 lonlat = geo.pixel_to_lonlat(Vector2(col, row));
+  double h = center_h;
+  vw::Vector3 lonlat3(lonlat(0), lonlat(1), h);
+  xyz = geo.datum().geodetic_to_cartesian(lonlat3);
+
+  // The xyz position at the left grid point
+  lonlat = geo.pixel_to_lonlat(Vector2(col-1, row));
+  h = left_h;
+  lonlat3 = vw::Vector3(lonlat(0), lonlat(1), h);
+  vw::Vector3 left = geo.datum().geodetic_to_cartesian(lonlat3);
+
+  // The xyz position at the right grid point
+  lonlat = geo.pixel_to_lonlat(Vector2(col+1, row));
+  h = right_h;
+  lonlat3 = vw::Vector3(lonlat(0), lonlat(1), h);
+  vw::Vector3 right = geo.datum().geodetic_to_cartesian(lonlat3);
+
+  // The xyz position at the bottom grid point
+  lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
+  h = bottom_h;
+  lonlat3 = vw::Vector3(lonlat(0), lonlat(1), h);
+  vw::Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
+
+  // The xyz position at the top grid point
+  lonlat = geo.pixel_to_lonlat(Vector2(col, row-1));
+  h = top_h;
+  lonlat3 = vw::Vector3(lonlat(0), lonlat(1), h);
+  vw::Vector3 top = geo.datum().geodetic_to_cartesian(lonlat3);
+
+  // four-point normal (centered)
+  vw::Vector3 dx = right - left;
+  vw::Vector3 dy = bottom - top;
+
+  normal = -normalize(cross_prod(dx, dy)); // so normal points up
+}  
 
 } // end namespace asp

@@ -22,6 +22,10 @@
 #define __ASP_SFS_SFS_REFLECTANCE_MODEL_H__
 
 #include <vw/Math/Vector.h>
+namespace vw { namespace cartography {
+  class GeoReference;
+}} // namespace vw::cartography
+
 namespace asp {
 
 enum REFL_TYPE {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT, HAPKE, ARBITRARY_MODEL, CHARON};
@@ -55,6 +59,17 @@ double calcIntensity(double albedo, double reflectance, double exposure,
 // Calc albedo given the intensity. See calcIntensity().
 double calcAlbedo(double intensity, double reflectance, double exposure, 
                   double steepness_factor, double const* haze, int num_haze_coeffs);
+
+// Calculate current ECEF position and normal vector for a given DEM pixel.
+// This is an auxiliary function needed to compute the reflectance.
+void calcPointAndNormal(int col, int row,
+                        double left_h, double center_h, double right_h,
+                        double bottom_h, double top_h,
+                        bool use_pq, double p, double q, // dem partial derivatives
+                        vw::cartography::GeoReference const& geo,
+                        double gridx, double gridy,
+                        // Outputs
+                        vw::Vector3 & xyz, vw::Vector3 & normal);
 
 } // end namespace asp
 

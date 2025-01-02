@@ -254,7 +254,7 @@ struct SlopeErrEstim {
 // TODO(oalexan1): Move to SfsErrorEstim.h
 void estimateSlopeError(Vector3 const& cameraPosition,
                         Vector3 const& normal, Vector3 const& xyz,
-                        vw::Vector3 const& local_sun_position,
+                        vw::Vector3 const& sunPosition,
                         ReflParams const& refl_params,
                         const double * refl_coeffs,
                         double meas_intensity,
@@ -341,7 +341,7 @@ void estimateSlopeError(Vector3 const& cameraPosition,
 
       // Compute the reflectance with the given normal
       PixelMask<double> reflectance = calcReflectance(cameraPosition,
-                                                      w, xyz, local_sun_position,
+                                                      w, xyz, sunPosition,
                                                       refl_params, refl_coeffs);
       reflectance.validate();
 
@@ -369,12 +369,14 @@ void estimateSlopeError(Vector3 const& cameraPosition,
 void estimateHeightError(ImageView<double> const& dem,
                          vw::cartography::GeoReference const& geo,
                          Vector3 const& cameraPosition,
-                         vw::Vector3 const& local_sun_position,
+                         vw::Vector3 const& sunPosition,
                          ReflParams const& refl_params,
                          const double * refl_coeffs,
                          double meas_intensity,
                          double max_intensity_err,
-                         int col, int row, int image_iter,
+                         int col, int row, 
+                         double grid_x, double grid_y,
+                         int image_iter,
                          Options & opt,
                          ImageView<double> & albedo,
                          HeightErrEstim * heightErrEstim){
@@ -423,46 +425,14 @@ void estimateHeightError(ImageView<double> const& dem,
         double bottom_h = dem(col,     row + 1) + bottom_dh;
         double top_h    = dem(col,     row - 1) + top_dh;
 
-        // TODO(oalexan1): Make this into a function to avoid code duplication!
+        vw::Vector3 xyz, normal;
+        bool use_pq = false;
+        double p = 0.0, q = 0.0;
+        calcPointAndNormal(col, row, left_h, center_h, right_h, bottom_h, top_h,
+                           use_pq, p, q, geo, grid_x, grid_y, xyz, normal);
         
-        // The xyz position at the center grid point
-        Vector2 lonlat = geo.pixel_to_lonlat(Vector2(col, row));
-        double h = center_h;
-        Vector3 lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-        Vector3 base = geo.datum().geodetic_to_cartesian(lonlat3);
-
-        // The xyz position at the left grid point
-        lonlat = geo.pixel_to_lonlat(Vector2(col-1, row));
-        h = left_h;
-        lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-        Vector3 left = geo.datum().geodetic_to_cartesian(lonlat3);
-
-        // The xyz position at the right grid point
-        lonlat = geo.pixel_to_lonlat(Vector2(col+1, row));
-        h = right_h;
-        lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-        Vector3 right = geo.datum().geodetic_to_cartesian(lonlat3);
-
-        // The xyz position at the bottom grid point
-        lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
-        h = bottom_h;
-        lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-        Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
-
-        // The xyz position at the top grid point
-        lonlat = geo.pixel_to_lonlat(Vector2(col, row-1));
-        h = top_h;
-        lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-        Vector3 top = geo.datum().geodetic_to_cartesian(lonlat3);
-
-        // four-point normal (centered)
-        Vector3 dx = right - left;
-        Vector3 dy = bottom - top;
-
-        Vector3 normal = -normalize(cross_prod(dx, dy)); // so normal points up
-
         PixelMask<double> reflectance = calcReflectance(cameraPosition,
-                                                        normal, base, local_sun_position,
+                                                        normal, xyz, sunPosition,
                                                         refl_params, refl_coeffs);
         reflectance.validate();
         double comp_intensity = calcIntensity(albedo(col, row), 
@@ -488,8 +458,6 @@ void estimateHeightError(ImageView<double> const& dem,
   }
 }
 
-// TODO(oalexan1): Move to SfsReflectanceModel.h
-// TODO(oalexan1): First part of this must be a function called calcPointAndNormal()
 bool computeReflectanceAndIntensity(double left_h, double center_h, double right_h,
                                     double bottom_h, double top_h,
                                     bool use_pq, double p, double q, // dem partial derivatives
@@ -499,7 +467,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
                                     bool model_shadows,
                                     double max_dem_height,
                                     double gridx, double gridy,
-                                    vw::Vector3  const & sun_position,
+                                    vw::Vector3  const & sunPosition,
                                     ReflParams const & refl_params,
                                     BBox2i       const & crop_box,
                                     MaskedImgT   const & image,
@@ -520,58 +488,16 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   if (col >= dem.cols() - 1 || row >= dem.rows() - 1) return false;
   if (crop_box.empty()) return false;
 
-  if (use_pq) {
-    // p is defined as (right_h - left_h)/(2*gridx)
-    // so, also, p = (right_h - center_h)/gridx
-    // Hence, we get the formulas below in terms of p and q.
-    right_h  = center_h + gridx*p;
-    left_h   = center_h - gridx*p;
-    top_h    = center_h + gridy*q;
-    bottom_h = center_h - gridy*q;
-  }
-
-  // The xyz position at the center grid point
-  Vector2 lonlat = geo.pixel_to_lonlat(Vector2(col, row));
-  double h = center_h;
-  Vector3 lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-  Vector3 base = geo.datum().geodetic_to_cartesian(lonlat3);
-
-  // The xyz position at the left grid point
-  lonlat = geo.pixel_to_lonlat(Vector2(col-1, row));
-  h = left_h;
-  lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-  Vector3 left = geo.datum().geodetic_to_cartesian(lonlat3);
-
-  // The xyz position at the right grid point
-  lonlat = geo.pixel_to_lonlat(Vector2(col+1, row));
-  h = right_h;
-  lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-  Vector3 right = geo.datum().geodetic_to_cartesian(lonlat3);
-
-  // The xyz position at the bottom grid point
-  lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
-  h = bottom_h;
-  lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-  Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
-
-  // The xyz position at the top grid point
-  lonlat = geo.pixel_to_lonlat(Vector2(col, row-1));
-  h = top_h;
-  lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-  Vector3 top = geo.datum().geodetic_to_cartesian(lonlat3);
-
-  // four-point normal (centered)
-  Vector3 dx = right - left;
-  Vector3 dy = bottom - top;
-
-  Vector3 normal = -normalize(cross_prod(dx, dy)); // so normal points up
+  vw::Vector3 xyz, normal;
+  calcPointAndNormal(col, row, left_h, center_h, right_h, bottom_h, top_h,
+                     use_pq, p, q, geo, gridx, gridy, xyz, normal);
 
   // Update the camera position for the given pixel (camera position
   // is pixel-dependent for linescan cameras).
   Vector2 pix;
   Vector3 cameraPosition;
   try {
-    pix = camera->point_to_pixel(base);
+    pix = camera->point_to_pixel(xyz);
     
     // Need camera center only for Lunar Lambertian
     if (refl_params.reflectanceType != LAMBERT)
@@ -585,7 +511,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   }
   
   reflectance = calcReflectance(cameraPosition,
-                                normal, base, sun_position,
+                                normal, xyz, sunPosition,
                                 refl_params, refl_coeffs);
   reflectance.validate();
 
@@ -631,7 +557,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   }
 
   if (model_shadows) {
-    bool inShadow = asp::isInShadow(col, row, sun_position,
+    bool inShadow = asp::isInShadow(col, row, sunPosition,
                                     dem, max_dem_height, gridx, gridy,
                                     geo);
 
@@ -658,15 +584,10 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     // as a measure for how far is overall the computed intensity allowed
     // to diverge from the measured intensity
     double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
-    estimateSlopeError(cameraPosition,
-                       normal, base, sun_position,
-                       refl_params,
-                       refl_coeffs,
-                       intensity.child(),
-                       max_intensity_err,
-                       col, row, image_iter,
-                       opt, albedo,
-                       slopeErrEstim);
+    estimateSlopeError(cameraPosition, normal, xyz, sunPosition,
+                       refl_params, refl_coeffs, intensity.child(), 
+                       max_intensity_err, col, row, image_iter,
+                       opt, albedo, slopeErrEstim);
   }
   
   if (heightErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
@@ -687,9 +608,11 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
 
     estimateHeightError(dem, geo,  
-                        cameraPosition, sun_position,  refl_params,  
+                        cameraPosition, sunPosition,  refl_params,  
                         refl_coeffs, intensity.child(),  
-                        max_intensity_err, col, row, image_iter, opt,  albedo,  
+                        max_intensity_err, 
+                        col, row, gridx, gridy, 
+                        image_iter, opt, albedo,  
                         heightErrEstim);
   }
   
@@ -704,7 +627,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     double & max_dem_height, // alias
                                     double gridx, double gridy,
                                     int sample_col_rate, int sample_row_rate,
-                                    vw::Vector3 const& sun_position,
+                                    vw::Vector3 const& sunPosition,
                                     ReflParams const& refl_params,
                                     BBox2i const& crop_box,
                                     MaskedImgT const  & image,
@@ -786,7 +709,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                      col, row, dem, geo,
                                      model_shadows, max_dem_height,
                                      gridx, gridy,
-                                     sun_position, refl_params,
+                                     sunPosition, refl_params,
                                      crop_box, image, blend_weight, camera,
                                      reflectance(col_sample, row_sample),
                                      intensity(col_sample, row_sample),
@@ -808,7 +731,7 @@ public:
 // TODO(oalexan1): Move to SfsCostFun.h
 SfsCallback(Options const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
             ImageView<double>& albedo, cartography::GeoReference const& geo, 
-            ReflParams const& refl_params, std::vector<vw::Vector3> const& sun_position,
+            ReflParams const& refl_params, std::vector<vw::Vector3> const& sunPosition,
             std::vector<BBox2i> const& crop_boxes, 
             std::vector<MaskedImgT> const& masked_images,
             std::vector<DoubleImgT> const& blend_weights,
@@ -818,7 +741,7 @@ SfsCallback(Options const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
             double& max_dem_height, double& gridx, double& gridy,
             std::vector<double> & refl_coeffs):
   opt(opt), dem(dem), pq(pq), albedo(albedo), geo(geo), refl_params(refl_params),
-  sun_position(sun_position), crop_boxes(crop_boxes), masked_images(masked_images),
+  sunPosition(sunPosition), crop_boxes(crop_boxes), masked_images(masked_images),
   blend_weights(blend_weights), cameras(cameras), dem_nodata_val(dem_nodata_val),
   img_nodata_val(img_nodata_val), exposures(exposures), haze(haze),
   max_dem_height(max_dem_height), gridx(gridx), gridy(gridy),
@@ -914,7 +837,7 @@ SfsCallback(Options const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
                                   max_dem_height,
                                   gridx, gridy,
                                   sample_col_rate, sample_row_rate,
-                                  sun_position[image_iter],
+                                  sunPosition[image_iter],
                                   refl_params,
                                   crop_boxes[image_iter],
                                   masked_images[image_iter],
@@ -1033,7 +956,7 @@ private:
   ImageView<double>& albedo;
   cartography::GeoReference const& geo;
   ReflParams const& refl_params;
-  std::vector<vw::Vector3> const& sun_position;
+  std::vector<vw::Vector3> const& sunPosition;
   std::vector<BBox2i> const& crop_boxes;
   std::vector<MaskedImgT> const& masked_images;
   std::vector<DoubleImgT> const& blend_weights;
@@ -1070,7 +993,7 @@ calc_intensity_residual(Options const& opt,
                         double                            gridx,
                         double                            gridy,
                         ReflParams              const & refl_params,  // alias
-                        vw::Vector3               const & sun_position,   // alias
+                        vw::Vector3               const & sunPosition,   // alias
                         BBox2i                            crop_box,
                         MaskedImgT                const & image,          // alias
                         DoubleImgT                const & blend_weight,   // alias
@@ -1098,7 +1021,7 @@ calc_intensity_residual(Options const& opt,
                                      col, row,  dem, geo,
                                      model_shadows, max_dem_height,
                                      gridx, gridy,
-                                     sun_position,  refl_params,
+                                     sunPosition,  refl_params,
                                      crop_box, image, blend_weight, camera.get(),
                                      reflectance, intensity, ground_weight, refl_coeffs);
       
@@ -1138,7 +1061,7 @@ struct IntensityError {
                  double const& max_dem_height, // note: this is an alias
                  double gridx, double gridy,
                  ReflParams const& refl_params,
-                 vw::Vector3 const& sun_position,
+                 vw::Vector3 const& sunPosition,
                  BBox2i const& crop_box,
                  MaskedImgT const& image,
                  DoubleImgT const& blend_weight,
@@ -1150,7 +1073,7 @@ struct IntensityError {
     m_max_dem_height(max_dem_height),
     m_gridx(gridx), m_gridy(gridy),
     m_refl_params(refl_params),
-    m_sun_position(sun_position),
+    m_sunPosition(sunPosition),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
     m_camera(camera) {}
@@ -1178,7 +1101,7 @@ struct IntensityError {
                                    m_max_dem_height,  // alias
                                    m_gridx, m_gridy,  
                                    m_refl_params,   // alias
-                                   m_sun_position,    // alias
+                                   m_sunPosition,    // alias
                                    m_crop_box,  
                                    m_image,           // alias
                                    m_blend_weight,    // alias
@@ -1196,7 +1119,7 @@ struct IntensityError {
                                      double const& max_dem_height, // alias
                                      double gridx, double gridy,
                                      ReflParams const& refl_params,
-                                     vw::Vector3 const& sun_position,
+                                     vw::Vector3 const& sunPosition,
                                      BBox2i const& crop_box,
                                      MaskedImgT const& image,
                                      DoubleImgT const& blend_weight,
@@ -1208,7 +1131,7 @@ struct IntensityError {
                                 camera_position_step_size,
                                 max_dem_height,
                                 gridx, gridy,
-                                refl_params, sun_position,
+                                refl_params, sunPosition,
                                 crop_box, image, blend_weight, camera)));
   }
 
@@ -1221,7 +1144,7 @@ struct IntensityError {
   double                            const & m_max_dem_height; // alias
   double                                    m_gridx, m_gridy;
   ReflParams                      const & m_refl_params;  // alias
-  vw::Vector3                       const & m_sun_position;   // alias
+  vw::Vector3                       const & m_sunPosition;   // alias
   BBox2i                                    m_crop_box;
   MaskedImgT                        const & m_image;          // alias
   DoubleImgT                        const & m_blend_weight;   // alias
@@ -1243,7 +1166,7 @@ struct IntensityErrorFloatDemOnly {
                              double const& max_dem_height, // note: this is an alias
                              double gridx, double gridy,
                              ReflParams const& refl_params,
-                             vw::Vector3 const& sun_position,
+                             vw::Vector3 const& sunPosition,
                              BBox2i const& crop_box,
                              MaskedImgT const& image,
                              DoubleImgT const& blend_weight,
@@ -1256,7 +1179,7 @@ struct IntensityErrorFloatDemOnly {
     m_max_dem_height(max_dem_height),
     m_gridx(gridx), m_gridy(gridy),
     m_refl_params(refl_params),
-    m_sun_position(sun_position),
+    m_sunPosition(sunPosition),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
     m_camera(camera) {}
@@ -1287,7 +1210,7 @@ struct IntensityErrorFloatDemOnly {
                                    m_max_dem_height,  // alias
                                    m_gridx, m_gridy,  
                                    m_refl_params,   // alias
-                                   m_sun_position,    // alias
+                                   m_sunPosition,    // alias
                                    m_crop_box,  
                                    m_image,           // alias
                                    m_blend_weight,    // alias
@@ -1309,7 +1232,7 @@ struct IntensityErrorFloatDemOnly {
                                      double const& max_dem_height, // alias
                                      double gridx, double gridy,
                                      ReflParams const& refl_params,
-                                     vw::Vector3 const& sun_position,
+                                     vw::Vector3 const& sunPosition,
                                      BBox2i const& crop_box,
                                      MaskedImgT const& image,
                                      DoubleImgT const& blend_weight,
@@ -1323,7 +1246,7 @@ struct IntensityErrorFloatDemOnly {
                                             camera_position_step_size,
                                             max_dem_height,
                                             gridx, gridy,
-                                            refl_params, sun_position,
+                                            refl_params, sunPosition,
                                             crop_box, image, blend_weight, camera)));
   }
 
@@ -1340,7 +1263,7 @@ struct IntensityErrorFloatDemOnly {
   double                    const & m_max_dem_height; // alias
   double                            m_gridx, m_gridy;
   ReflParams              const & m_refl_params;  // alias
-  vw::Vector3               const & m_sun_position;   // alias
+  vw::Vector3               const & m_sunPosition;   // alias
   BBox2i                            m_crop_box;
   MaskedImgT                const & m_image;          // alias
   DoubleImgT                const & m_blend_weight;   // alias
@@ -1362,7 +1285,7 @@ struct IntensityErrorFixedMost {
                           double const& max_dem_height, // note: this is an alias
                           double gridx, double gridy,
                           ReflParams const& refl_params,
-                          vw::Vector3 const& sun_position,
+                          vw::Vector3 const& sunPosition,
                           BBox2i const& crop_box,
                           MaskedImgT const& image,
                           DoubleImgT const& blend_weight,
@@ -1375,7 +1298,7 @@ struct IntensityErrorFixedMost {
     m_max_dem_height(max_dem_height),
     m_gridx(gridx), m_gridy(gridy),
     m_refl_params(refl_params),
-    m_sun_position(sun_position),
+    m_sunPosition(sunPosition),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
     m_camera(camera) {}
@@ -1405,7 +1328,7 @@ struct IntensityErrorFixedMost {
                                    m_max_dem_height,  // alias
                                    m_gridx, m_gridy,  
                                    m_refl_params,  // alias
-                                   m_sun_position,  // alias
+                                   m_sunPosition,  // alias
                                    m_crop_box,  
                                    m_image,  // alias
                                    m_blend_weight,  // alias
@@ -1425,7 +1348,7 @@ struct IntensityErrorFixedMost {
                                      double const& max_dem_height, // alias
                                      double gridx, double gridy,
                                      ReflParams const& refl_params,
-                                     vw::Vector3 const& sun_position,
+                                     vw::Vector3 const& sunPosition,
                                      BBox2i const& crop_box,
                                      MaskedImgT const& image,
                                      DoubleImgT const& blend_weight,
@@ -1438,7 +1361,7 @@ struct IntensityErrorFixedMost {
                                          camera_position_step_size,
                                          max_dem_height,
                                          gridx, gridy,
-                                         refl_params, sun_position,
+                                         refl_params, sunPosition,
                                          crop_box, image, blend_weight, camera)));
   }
 
@@ -1453,7 +1376,7 @@ struct IntensityErrorFixedMost {
   double                            const & m_max_dem_height; // alias
   double                                    m_gridx, m_gridy;
   ReflParams                      const & m_refl_params;  // alias
-  vw::Vector3                       const & m_sun_position;   // alias
+  vw::Vector3                       const & m_sunPosition;   // alias
   BBox2i                                    m_crop_box;
   MaskedImgT                        const & m_image;          // alias
   DoubleImgT                        const & m_blend_weight;   // alias
@@ -1474,7 +1397,7 @@ struct IntensityErrorPQ {
                    double const& max_dem_height, // note: this is an alias
                    double gridx, double gridy,
                    ReflParams const& refl_params,
-                   vw::Vector3 const& sun_position,
+                   vw::Vector3 const& sunPosition,
                    BBox2i const& crop_box,
                    MaskedImgT const& image,
                    DoubleImgT const& blend_weight,
@@ -1485,7 +1408,7 @@ struct IntensityErrorPQ {
     m_max_dem_height(max_dem_height),
     m_gridx(gridx), m_gridy(gridy),
     m_refl_params(refl_params),
-    m_sun_position(sun_position),
+    m_sunPosition(sunPosition),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
     m_camera(camera) {}
@@ -1514,7 +1437,7 @@ struct IntensityErrorPQ {
                                    m_max_dem_height,  // alias
                                    m_gridx, m_gridy,  
                                    m_refl_params,   // alias
-                                   m_sun_position,    // alias
+                                   m_sunPosition,    // alias
                                    m_crop_box,  
                                    m_image,           // alias
                                    m_blend_weight,    // alias
@@ -1532,7 +1455,7 @@ struct IntensityErrorPQ {
                                      double const& max_dem_height, // alias
                                      double gridx, double gridy,
                                      ReflParams const& refl_params,
-                                     vw::Vector3 const& sun_position,
+                                     vw::Vector3 const& sunPosition,
                                      BBox2i const& crop_box,
                                      MaskedImgT const& image,
                                      DoubleImgT const& blend_weight,
@@ -1544,7 +1467,7 @@ struct IntensityErrorPQ {
                                   camera_position_step_size,
                                   max_dem_height,
                                   gridx, gridy,
-                                  refl_params, sun_position,
+                                  refl_params, sunPosition,
                                   crop_box, image, blend_weight, camera)));
   }
 
@@ -1557,7 +1480,7 @@ struct IntensityErrorPQ {
   double                            const & m_max_dem_height; // alias
   double                                    m_gridx, m_gridy;
   ReflParams                      const & m_refl_params;  // alias
-  vw::Vector3                       const & m_sun_position;   // alias
+  vw::Vector3                       const & m_sunPosition;   // alias
   BBox2i                                    m_crop_box;
   MaskedImgT                        const & m_image;          // alias
   DoubleImgT                        const & m_blend_weight;   // alias
@@ -2392,6 +2315,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.skip_images.insert(val);
   }
 
+  // estimate height errors and integrability constraint are mutually exclusive
+  if (opt.estimate_height_errors && opt.integrability_weight > 0) 
+    vw_throw(ArgumentErr() 
+             << "Cannot estimate height errors when using the integrability constraint.\n");
+
   if (opt.estimate_slope_errors && opt.estimate_height_errors) 
     vw_throw(ArgumentErr() 
              << "Cannot estimate both slope and height error at the same time.");
@@ -2436,7 +2364,7 @@ void run_sfs(// Fixed quantities
              std::vector<MaskedImgT>    const & masked_images,
              std::vector<DoubleImgT>    const & blend_weights,
              ReflParams               const & refl_params,
-             std::vector<vw::Vector3>   const & sun_position,
+             std::vector<vw::Vector3>   const & sunPosition,
              ImageView<double>          const & orig_dem,
              ImageView<int>             const & lit_image_mask,
              ImageView<double>          const & curvature_in_shadow_weight,
@@ -2524,7 +2452,7 @@ void run_sfs(// Fixed quantities
                                                opt.camera_position_step_size,
                                                max_dem_height,
                                                gridx, gridy,
-                                               refl_params, sun_position[image_iter],
+                                               refl_params, sunPosition[image_iter],
                                                crop_boxes[image_iter],
                                                masked_images[image_iter],
                                                blend_weights[image_iter],
@@ -2542,7 +2470,7 @@ void run_sfs(// Fixed quantities
                                    opt.camera_position_step_size,
                                    max_dem_height,
                                    gridx, gridy,
-                                   refl_params, sun_position[image_iter],
+                                   refl_params, sunPosition[image_iter],
                                    crop_boxes[image_iter],
                                    masked_images[image_iter],
                                    blend_weights[image_iter],
@@ -2565,7 +2493,7 @@ void run_sfs(// Fixed quantities
                                       opt.camera_position_step_size,
                                       max_dem_height,
                                       gridx, gridy,
-                                      refl_params, sun_position[image_iter],
+                                      refl_params, sunPosition[image_iter],
                                       crop_boxes[image_iter],
                                       masked_images[image_iter],
                                       blend_weights[image_iter],
@@ -2759,7 +2687,7 @@ void run_sfs(// Fixed quantities
   options.num_threads = opt.num_threads;
   options.linear_solver_type = ceres::SPARSE_SCHUR;
 
-  SfsCallback callback(opt, dem, pq, albedo, geo, refl_params, sun_position, 
+  SfsCallback callback(opt, dem, pq, albedo, geo, refl_params, sunPosition, 
                        crop_boxes, masked_images, blend_weights, cameras, 
                        dem_nodata_val, img_nodata_val, exposures, haze, 
                        max_dem_height, gridx, gridy, refl_coeffs); 
@@ -2852,7 +2780,7 @@ void estimateExposureHazeAlbedo(Options & opt,
                                 std::vector<vw::CamPtr> const& cameras,
                                 double & max_dem_height,
                                 std::vector<BBox2i> const& crop_boxes,
-                                std::vector<vw::Vector3> const& sun_position,
+                                std::vector<vw::Vector3> const& sunPosition,
                                 ReflParams const& refl_params,
                                 double gridx, double gridy) {
 
@@ -2879,7 +2807,7 @@ void estimateExposureHazeAlbedo(Options & opt,
     computeReflectanceAndIntensity(dem, pq, geo,
                                    opt.model_shadows, max_dem_height,
                                    gridx, gridy, sample_col_rate, sample_row_rate,
-                                   sun_position[image_iter],
+                                   sunPosition[image_iter],
                                    refl_params,
                                    crop_boxes[image_iter],
                                    masked_images[image_iter],
@@ -3051,13 +2979,13 @@ int main(int argc, char* argv[]) {
     // Read the sun positions from a list, if provided. Otherwise those
     // are read from the cameras, further down.
     int num_images = opt.input_images.size();
-    std::vector<vw::Vector3> sun_position(num_images, vw::Vector3());
+    std::vector<vw::Vector3> sunPosition(num_images, vw::Vector3());
     if (opt.sun_positions_list != "") 
       asp::readSunPositions(opt.sun_positions_list, opt.input_images,
-                            dem, dem_nodata_val, geo, sun_position);
+                            dem, dem_nodata_val, geo, sunPosition);
     if (opt.sun_angles_list != "") 
       asp::readSunAngles(opt.sun_angles_list, opt.input_images,
-                         dem, dem_nodata_val, geo, sun_position);
+                         dem, dem_nodata_val, geo, sunPosition);
       
     // Read in the camera models (and the sun positions, if not read from the list)
     // TODO(oalexan1): Put this in a function called readCameras())
@@ -3084,17 +3012,17 @@ int main(int argc, char* argv[]) {
 
       // TODO(oalexan1): Put this in a function called readSunPosition()
       // Read the sun position from the camera if it is was not read from the list
-      if (sun_position[image_iter] == Vector3())
-        sun_position[image_iter] = asp::sunPositionFromCamera(cameras[image_iter]);
+      if (sunPosition[image_iter] == Vector3())
+        sunPosition[image_iter] = asp::sunPositionFromCamera(cameras[image_iter]);
 
       // Sanity check
-      if (sun_position[image_iter] == Vector3())
+      if (sunPosition[image_iter] == Vector3())
         vw_throw(ArgumentErr()
                   << "Could not read sun positions from list or from camera model files.\n");
         
       // Compute the azimuth and elevation
       double azimuth = 0.0, elevation = 0.0;
-      asp::sunAngles(dem, dem_nodata_val, geo, sun_position[image_iter],
+      asp::sunAngles(dem, dem_nodata_val, geo, sunPosition[image_iter],
                      azimuth, elevation);
 
       // Print this. It will be used to organize the images by illumination
@@ -3103,7 +3031,7 @@ int main(int argc, char* argv[]) {
       // the images by azimuth angle, use high precision below.
       vw_out().precision(17);
       vw_out() << "Sun position for: " << opt.input_images[image_iter] << " is "
-                << sun_position[image_iter] << "\n";
+                << sunPosition[image_iter] << "\n";
       vw_out() << "Sun azimuth and elevation for: "
                 << opt.input_images[image_iter] << " are " << azimuth
                 << " and " << elevation << " degrees.\n";
@@ -3432,7 +3360,7 @@ int main(int argc, char* argv[]) {
       computeReflectanceAndIntensity(dem, pq, geo,
                                       opt.model_shadows, max_dem_height,
                                       gridx, gridy, sample_col_rate, sample_row_rate,
-                                      sun_position[image_iter],
+                                      sunPosition[image_iter],
                                       refl_params,
                                       crop_boxes[image_iter],
                                       masked_images[image_iter],
@@ -3487,7 +3415,7 @@ int main(int argc, char* argv[]) {
       estimateExposureHazeAlbedo(opt, masked_images, blend_weights,
                                  dem, mean_albedo, dem_nodata_val,
                                  geo, cameras, max_dem_height,
-                                 crop_boxes, sun_position,
+                                 crop_boxes, sunPosition,
                                  refl_params, gridx, gridy);
     }
     
@@ -3570,7 +3498,7 @@ int main(int argc, char* argv[]) {
         computeReflectanceAndIntensity(dem, pq, geo,
                                        opt.model_shadows, max_dem_height,
                                        gridx, gridy, sample_col_rate, sample_row_rate,
-                                       sun_position[image_iter],
+                                       sunPosition[image_iter],
                                        refl_params,
                                        crop_boxes[image_iter],
                                        masked_images[image_iter],
@@ -3825,7 +3753,7 @@ int main(int argc, char* argv[]) {
     run_sfs(// Fixed quantities
             opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight, 
             max_dem_height, dem_nodata_val, img_nodata_val,  crop_boxes, masked_images, 
-            blend_weights, refl_params, sun_position, orig_dem,
+            blend_weights, refl_params, sunPosition, orig_dem,
             lit_image_mask, curvature_in_shadow_weight,
             // Variable quantities
             dem, albedo, cameras, opt.image_exposures_vec, opt.image_haze_vec,
