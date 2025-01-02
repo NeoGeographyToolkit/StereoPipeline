@@ -743,8 +743,8 @@ That invocation needs the camera intrinsics, including the focal length and
 optical center in pixel units, and the lens distortion parameters. 
 
 If the focal length is not known, it is suggested to estimate it from the
-``EXIF_FocalLengthIn35mmFilm`` field in the EXIF header, if available. 
-For example, this field has the value ``46``, and the image width is known 
+``FocalLengthIn35mmFilm`` field in the EXIF header, if available. 
+For example, if this has the value ``46``, and the image width is known 
 to be 9248 pixels, the following gives an estimate for the focal length in
 pixels::
 
@@ -762,5 +762,5 @@ The camera models can be refined with ``bundle_adjust`` with fixed intrinsics,
 as shown in :numref:`kaguya_ba_initial_ba`. The intrinsics can be refined later,
 (:numref:`floatingintrinsics`).
 
-The cameras can be used to create and then merge DEMs, per
+The images and produced cameras can be used to create and then merge DEMs, per
 :numref:`sfm_multiview`.

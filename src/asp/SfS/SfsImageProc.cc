@@ -643,4 +643,73 @@ void deepenCraters(std::string const& dem_file,
 
 }
 
+// Sample large DEMs. Keep about num_samples row and column samples.
+void calcSampleRates(vw::ImageViewRef<double> const& dem, int num_samples,
+                     int & sample_col_rate, int & sample_row_rate) {
+  sample_col_rate = std::max((int)round(dem.cols()/double(num_samples)), 1);
+  sample_row_rate = std::max((int)round(dem.rows()/double(num_samples)), 1);
+}
+
+// Given a DEM, estimate the median grid size in x and in y in meters.
+// Given that the DEM heights are in meters as well, having these grid sizes
+// will make it possible to handle heights and grids in same units.
+void calcGsd(vw::ImageView<double> const& dem,
+             vw::cartography::GeoReference const& geo, double nodata_val,
+             int sample_col_rate, int sample_row_rate,
+             double & gridx, double & gridy) {
+
+  // Initialize the outputs
+  gridx = 0; gridy = 0;
+
+  // Estimate the median height
+  std::vector<double> heights;
+  for (int col = 0; col < dem.cols(); col += sample_col_rate) {
+    for (int row = 0; row < dem.rows(); row += sample_row_rate) {
+      double h = dem(col, row);
+      if (h == nodata_val) continue;
+      heights.push_back(h);
+    }
+  }
+  double median_height = 0.0;
+  int len = heights.size();
+  if (len > 0) {
+    std::sort(heights.begin(), heights.end());
+    median_height = 0.5*(heights[(len-1)/2] + heights[len/2]);
+  }
+
+  // Find the grid sizes by estimating the Euclidean distances
+  // between points of a DEM at constant height.
+  std::vector<double> gridx_vec, gridy_vec;
+  for (int col = 0; col < dem.cols() - 1; col += sample_col_rate) {
+    for (int row = 0; row < dem.rows() - 1; row += sample_row_rate) {
+
+      // The xyz position at the center grid point
+      Vector2 lonlat = geo.pixel_to_lonlat(Vector2(col, row));
+      Vector3 lonlat3 = Vector3(lonlat(0), lonlat(1), median_height);
+      Vector3 base = geo.datum().geodetic_to_cartesian(lonlat3);
+
+      // The xyz position at the right grid point
+      lonlat = geo.pixel_to_lonlat(Vector2(col+1, row));
+      lonlat3 = Vector3(lonlat(0), lonlat(1), median_height);
+      Vector3 right = geo.datum().geodetic_to_cartesian(lonlat3);
+
+      // The xyz position at the bottom grid point
+      lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
+      lonlat3 = Vector3(lonlat(0), lonlat(1), median_height);
+      Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
+
+      gridx_vec.push_back(norm_2(right-base));
+      gridy_vec.push_back(norm_2(bottom-base));
+    }
+  }
+
+  // Median grid size
+  if (!gridx_vec.empty()) 
+    gridx = gridx_vec[gridx_vec.size()/2];
+  if (!gridy_vec.empty()) 
+    gridy = gridy_vec[gridy_vec.size()/2];
+  
+  return;
+}
+
 } // end namespace asp

@@ -23,6 +23,7 @@
 
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Image/ImageView.h>
+#include <vw/Camera/CameraModel.h>
 
 namespace asp {
 
@@ -49,6 +50,23 @@ void readSunAngles(std::string const& sun_positions_list,
                    double nodata_val, 
                    vw::cartography::GeoReference const& georef,
                    std::vector<vw::Vector3> & sun_positions);
+
+// Query an ISIS or CSM camera to find the Sun position
+vw::Vector3 sunPositionFromCamera(vw::CamPtr camera);
+
+std::string exposureFileName(std::string const& prefix);
+std::string hazeFileName(std::string const& prefix);
+std::string modelCoeffsFileName(std::string const& prefix);
+
+// Save the exposures to a file
+void saveExposures(std::string const& out_prefix,
+                   std::vector<std::string> const& input_images,
+                   std::vector<double> const& exposures);
+
+// Save the haze to a file
+void saveHaze(std::string const& out_prefix,
+              std::vector<std::string> const& input_images,
+              std::vector<std::vector<double>> const& haze);
 
 } // end namespace asp
 

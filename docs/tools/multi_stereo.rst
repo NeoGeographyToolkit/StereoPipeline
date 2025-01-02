@@ -118,15 +118,16 @@ as well. Here's a recipe which works reasonably well::
       --max_ray_length $maxDistanceFromCamera
       --voxel_size 0.01"
 
-    multi_stereo --rig_config rig_out/rig_config.txt \
-      --camera_poses rig_out/cameras.txt             \
-      --undistorted_crop_win '1100 700'              \
-      --rig_sensor nav_cam                           \
-      --first_step stereo                            \
-      --last_step  mesh_gen                          \
-      --stereo_options "$stereo_opts"                \
-      --pc_filter_options "$pc_filter_opts"          \
-      --mesh_gen_options "$mesh_gen_opts"            \
+    multi_stereo                            \
+      --rig_config rig_out/rig_config.txt   \
+      --camera_poses rig_out/cameras.txt    \
+      --undistorted_crop_win '1100 700'     \
+      --rig_sensor nav_cam                  \
+      --first_step stereo                   \
+      --last_step  mesh_gen                 \
+      --stereo_options "$stereo_opts"       \
+      --pc_filter_options "$pc_filter_opts" \
+      --mesh_gen_options "$mesh_gen_opts"   \
       --out_dir stereo_out
 
 The surface resolution of the cameras is on the order of 1 mm (0.001

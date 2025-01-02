@@ -44,7 +44,7 @@
 // TODO: Clean up some of the classes, not all members are needed.
 // TODO(oalexan1): Must implement initialization of exposure, haze, and also albedo
 // if albedo is modeled, at low-res.
-// TODO(oalexan1): Modularize. Make a new SfS dir in the repo.
+// TODO(oalexan1): Modularize. 
 // TODO(oalexan1): Separate the optimization logic from image operations.
 // TODO(oalexan1): Move image logic to SfsImageProc.cc. Add 
 // SfS cost function file.
@@ -489,6 +489,7 @@ void estimateHeightError(ImageView<double> const& dem,
 }
 
 // TODO(oalexan1): Move to SfsReflectanceModel.h
+// TODO(oalexan1): First part of this must be a function called calcPointAndNormal()
 bool computeReflectanceAndIntensity(double left_h, double center_h, double right_h,
                                     double bottom_h, double top_h,
                                     bool use_pq, double p, double q, // dem partial derivatives
@@ -799,66 +800,6 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
   return;
 }
 
-// TODO(oalexan1): Move to SfsUtils.h
-std::string exposure_file_name(std::string const& prefix) {
-  return prefix + "-exposures.txt";
-}
-
-std::string haze_file_name(std::string const& prefix){
-  return prefix + "-haze.txt";
-}
-
-std::string model_coeffs_file_name(std::string const& prefix) {
-  return prefix + "-model_coeffs.txt";
-}
-
-// Form a finer resolution image with given dimensions from a coarse image.
-// Use constant edge extension.
-// TODO(oalexan1): Move to SfsUtils.h
-void interp_image(ImageView<double> const& coarse_image, double scale,
-                  ImageView<double> & fine_image){
-
-  ImageViewRef<double> coarse_interp = interpolate(coarse_image,
-                                                   BicubicInterpolation(), ConstantEdgeExtension());
-  for (int col = 0; col < fine_image.cols(); col++) {
-    for (int row = 0; row < fine_image.rows(); row++) {
-      fine_image(col, row) = coarse_interp(col*scale, row*scale);
-    }
-  }
-}
-
-// TODO(oalexan1): Move to SfsUtils.h
-void save_exposures(std::string const& out_prefix,
-                    std::vector<std::string> const& input_images,
-                    std::vector<double> const& exposures){
-  std::string exposure_file = exposure_file_name(out_prefix);
-  vw_out() << "Writing: " << exposure_file << std::endl;
-  std::ofstream exf(exposure_file.c_str());
-  exf.precision(17);
-  for (size_t image_iter = 0; image_iter < exposures.size(); image_iter++)
-    exf << input_images[image_iter] << " " << exposures[image_iter] << "\n";
-  exf.close();
-}
-
-// TODO(oalexan1): Move to SfsUtils.h
-void save_haze(std::string const& out_prefix,
-               std::vector<std::string> const& input_images,
-               std::vector<std::vector<double>> const& haze) {
-
-  std::string haze_file = haze_file_name(out_prefix);
-  vw_out() << "Writing: " << haze_file << std::endl;
-  std::ofstream hzf(haze_file.c_str());
-  hzf.precision(17);
-  for (size_t image_iter = 0; image_iter < haze.size(); image_iter++) {
-    hzf << input_images[image_iter];
-    for (size_t hiter = 0; hiter < haze[image_iter].size(); hiter++)
-      hzf << " " << haze[image_iter][hiter];
-
-    hzf << "\n";
-  }
-  hzf.close();
-}
-
 // A function to invoke at every iteration of ceres.
 class SfsCallback: public ceres::IterationCallback {
 public:
@@ -891,12 +832,12 @@ SfsCallback(Options const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
   vw_out() << "Finished iteration: " << iter << std::endl;
 
   if (!opt.save_computed_intensity_only)
-    save_exposures(opt.out_prefix, opt.input_images, exposures);
+    asp::saveExposures(opt.out_prefix, opt.input_images, exposures);
 
   if (opt.num_haze_coeffs > 0 && !opt.save_computed_intensity_only)
-    save_haze(opt.out_prefix, opt.input_images, haze);
+    asp::saveHaze(opt.out_prefix, opt.input_images, haze);
 
-  std::string model_coeffs_file = model_coeffs_file_name(opt.out_prefix);
+  std::string model_coeffs_file = asp::modelCoeffsFileName(opt.out_prefix);
   if (!opt.save_computed_intensity_only) {
     vw_out() << "Writing: " << model_coeffs_file << std::endl;
     std::ofstream mcf(model_coeffs_file.c_str());
@@ -1919,87 +1860,6 @@ struct AlbedoChangeError {
   double m_initial_albedo, m_albedo_constraint_weight;
 };
 
-// Given a DEM, estimate the median grid size in x and in y in meters.
-// Given that the DEM heights are in meters as well, having these grid sizes
-// will make it possible to handle heights and grids in same units.
-// TODO(oalexan1): Move to SfsUtils.h
-void compute_grid_sizes_in_meters(ImageView<double> const& dem,
-                                  GeoReference const& geo, double nodata_val,
-                                  int sample_col_rate, int sample_row_rate,
-                                  double & gridx, double & gridy) {
-
-  // Initialize the outputs
-  gridx = 0; gridy = 0;
-
-  // Estimate the median height
-  std::vector<double> heights;
-  for (int col = 0; col < dem.cols(); col += sample_col_rate) {
-    for (int row = 0; row < dem.rows(); row += sample_row_rate) {
-      double h = dem(col, row);
-      if (h == nodata_val) continue;
-      heights.push_back(h);
-    }
-  }
-  double median_height = 0.0;
-  int len = heights.size();
-  if (len > 0) {
-    std::sort(heights.begin(), heights.end());
-    median_height = 0.5*(heights[(len-1)/2] + heights[len/2]);
-  }
-
-  // Find the grid sizes by estimating the Euclidean distances
-  // between points of a DEM at constant height.
-  std::vector<double> gridx_vec, gridy_vec;
-  for (int col = 0; col < dem.cols() - 1; col += sample_col_rate) {
-    for (int row = 0; row < dem.rows() - 1; row += sample_row_rate) {
-
-      // The xyz position at the center grid point
-      Vector2 lonlat = geo.pixel_to_lonlat(Vector2(col, row));
-      Vector3 lonlat3 = Vector3(lonlat(0), lonlat(1), median_height);
-      Vector3 base = geo.datum().geodetic_to_cartesian(lonlat3);
-
-      // The xyz position at the right grid point
-      lonlat = geo.pixel_to_lonlat(Vector2(col+1, row));
-      lonlat3 = Vector3(lonlat(0), lonlat(1), median_height);
-      Vector3 right = geo.datum().geodetic_to_cartesian(lonlat3);
-
-      // The xyz position at the bottom grid point
-      lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
-      lonlat3 = Vector3(lonlat(0), lonlat(1), median_height);
-      Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
-
-      gridx_vec.push_back(norm_2(right-base));
-      gridy_vec.push_back(norm_2(bottom-base));
-    }
-  }
-
-  // Median grid size
-  if (!gridx_vec.empty()) gridx = gridx_vec[gridx_vec.size()/2];
-  if (!gridy_vec.empty()) gridy = gridy_vec[gridy_vec.size()/2];
-  
-  vw_out() << "Grid in x and y in meters: " << gridx << ' ' << gridy << "\n";
-}
-
-// TODO(oalexan1): Move to SfsUtils.h
-Vector3 sun_position_from_camera(boost::shared_ptr<CameraModel> camera) {
-
-  // Remove any adjustment to get to the camera proper
-  boost::shared_ptr<CameraModel> ucam = unadjusted_model(camera);
-
-  // Try isis
-  IsisCameraModel* isis_cam = dynamic_cast<IsisCameraModel*>(ucam.get());
-  if (isis_cam != NULL)
-    return isis_cam->sun_position();
-
-  // Try csm
-  asp::CsmModel* csm_cam = dynamic_cast<asp::CsmModel*>(ucam.get());
-  if (csm_cam != NULL)
-    return csm_cam->sun_position();
-
-  // No luck. Later there will be a complaint.
-  return vw::Vector3();
-}
-
 void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
@@ -2375,7 +2235,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // as perhaps the initial exposures were created using more images
   // than what we have here. 
   // TODO(oalexan1): This must be a function.
-  std::string exposure_file = exposure_file_name(opt.image_exposures_prefix);
+  std::string exposure_file = asp::exposureFileName(opt.image_exposures_prefix);
   opt.image_exposures_vec.clear();
   std::map<std::string, double> img2exp;
   std::string name;
@@ -2414,7 +2274,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // than what we have here. 
   // TODO(oalexan1): This must be a function.
   if (opt.num_haze_coeffs > 0) {
-    std::string haze_file = haze_file_name(opt.image_haze_prefix);
+    std::string haze_file = asp::hazeFileName(opt.image_haze_prefix);
     opt.image_haze_vec.clear();
     std::map<std::string, std::vector<double>> img2haze;
     std::ifstream ish(haze_file.c_str());
@@ -2479,7 +2339,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Initial model coefficients, if provided in the file
   if (opt.model_coeffs_prefix != "") {
-    std::string model_coeffs_file = model_coeffs_file_name(opt.model_coeffs_prefix);
+    std::string model_coeffs_file = asp::modelCoeffsFileName(opt.model_coeffs_prefix);
     vw_out() << "Reading model coefficients from file: " << model_coeffs_file << std::endl;
     std::ifstream ism(model_coeffs_file.c_str());
     opt.model_coeffs_vec.clear();
@@ -2561,14 +2421,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Cannot specify both sun positions and sun angles.\n");
 } 
 
-// Sample large DEMs. Keep about num_samples row and column samples.
-// TODO(oalexan1): Move to SfsImageProc.cc
-void calcSampleRates(ImageViewRef<double> const& dem, int num_samples,
-                     int & sample_col_rate, int & sample_row_rate) {
-  sample_col_rate = std::max((int)round(dem.cols()/double(num_samples)), 1);
-  sample_row_rate = std::max((int)round(dem.rows()/double(num_samples)), 1);
-}
-
 // Run sfs
 void run_sfs(// Fixed quantities
              int                                num_iterations, 
@@ -2602,7 +2454,7 @@ void run_sfs(// Fixed quantities
   // Sample large DEMs. Keep about 200 row and column samples.
   int num_samples = 200;
   int sample_col_rate = 0, sample_row_rate = 0;
-  calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
+  asp::calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
   
   // See if a given image is used in at least one clip or skipped in
   // all of them
@@ -3020,7 +2872,7 @@ void estimateExposureHazeAlbedo(Options & opt,
       
     // Sample large DEMs.
     int sample_col_rate = 0, sample_row_rate = 0;
-    calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
+    asp::calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
 
     ImageView<double> ground_weight;
     ImageView<Vector2> pq; // no need for these just for initialization
@@ -3233,8 +3085,7 @@ int main(int argc, char* argv[]) {
       // TODO(oalexan1): Put this in a function called readSunPosition()
       // Read the sun position from the camera if it is was not read from the list
       if (sun_position[image_iter] == Vector3())
-        sun_position[image_iter]
-          = sun_position_from_camera(cameras[image_iter]);
+        sun_position[image_iter] = asp::sunPositionFromCamera(cameras[image_iter]);
 
       // Sanity check
       if (sun_position[image_iter] == Vector3())
@@ -3506,11 +3357,11 @@ int main(int argc, char* argv[]) {
     // Sample large DEMs. Keep about 200 row and column samples.
     int num_samples = 200;
     int sample_col_rate = 0, sample_row_rate = 0;
-    calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
+    asp::calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
     double gridx = 0.0, gridy = 0.0;
-    compute_grid_sizes_in_meters(dem, geo, dem_nodata_val,
-                                 sample_col_rate, sample_row_rate,
-                                 gridx, gridy); // outputs
+    asp::calcGsd(dem, geo, dem_nodata_val, sample_col_rate, sample_row_rate,
+                 gridx, gridy); // outputs
+    vw_out() << "DEM grid in x and y in meters: " << gridx << ' ' << gridy << "\n";
 
     // Find the max DEM height
     double max_dem_height = -std::numeric_limits<double>::max();
@@ -3572,7 +3423,7 @@ int main(int argc, char* argv[]) {
       // Sample large DEMs. Keep about 200 row and column samples.
       int num_samples = 200;
       int sample_col_rate = 0, sample_row_rate = 0;
-      calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
+      asp::calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
 
       ImageView<PixelMask<double>> reflectance, intensity;
       ImageView<double> ground_weight;
@@ -3646,10 +3497,10 @@ int main(int argc, char* argv[]) {
     }
 
     if (opt.compute_exposures_only || opt.estimate_exposure_haze_albedo) {
-      save_exposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
+      asp::saveExposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
       // TODO(oalexan1): Think of this more
       if (opt.num_haze_coeffs > 0)
-        save_haze(opt.out_prefix, opt.input_images, opt.image_haze_vec);
+        asp::saveHaze(opt.out_prefix, opt.input_images, opt.image_haze_vec);
       // all done
       return 0;
     }
@@ -3862,7 +3713,7 @@ int main(int argc, char* argv[]) {
       
     if (opt.save_computed_intensity_only || opt.estimate_slope_errors ||
         opt.estimate_height_errors) {
-      save_exposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
+      asp::saveExposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
       // All done
       return 0;
     }

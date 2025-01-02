@@ -80,6 +80,16 @@ void deepenCraters(std::string const& dem_file,
                    std::string const& grass_file,
                    std::string const& out_dem_file);
   
+// Sample large DEMs. Keep about num_samples row and column samples.
+void calcSampleRates(vw::ImageViewRef<double> const& dem, int num_samples,
+                     int & sample_col_rate, int & sample_row_rate);
+
+// Estimate the GSD of a DEM in meters
+void calcGsd(vw::ImageView<double> const& dem,
+             vw::cartography::GeoReference const& geo, double nodata_val,
+             int sample_col_rate, int sample_row_rate,
+             double & gridx, double & gridy);
+
 } // end namespace asp
 
 #endif // __SFS_IMAGE_PROC_H__

@@ -19,6 +19,8 @@
 // Basic utilities for SfS
 
 #include <asp/SfS/SfsUtils.h>
+#include <asp/IsisIO/IsisCameraModel.h>
+#include <asp/Camera/CsmModel.h>
 
 #include <string>
 #include <map>
@@ -175,5 +177,70 @@ void readSunAngles(std::string const& sun_positions_list,
     sun_positions[it] = map_it->second;
   }
 }
+
+// Query an ISIS or CSM camera to find the Sun position
+vw::Vector3 sunPositionFromCamera(vw::CamPtr camera) {
+
+  // Remove any adjustment to get to the camera proper
+  vw::CamPtr ucam = unadjusted_model(camera);
+
+  // Try isis
+  vw::camera::IsisCameraModel* isis_cam 
+    = dynamic_cast<vw::camera::IsisCameraModel*>(ucam.get());
+  if (isis_cam != NULL)
+    return isis_cam->sun_position();
+
+  // Try csm
+  asp::CsmModel* csm_cam = dynamic_cast<asp::CsmModel*>(ucam.get());
+  if (csm_cam != NULL)
+    return csm_cam->sun_position();
+
+  // No luck. Later there will be a complaint.
+  return vw::Vector3();
+}
+
+std::string exposureFileName(std::string const& prefix) {
+  return prefix + "-exposures.txt";
+}
+
+std::string hazeFileName(std::string const& prefix) {
+  return prefix + "-haze.txt";
+}
   
+std::string modelCoeffsFileName(std::string const& prefix) {
+  return prefix + "-model_coeffs.txt";
+}
+  
+// Save the exposures to a file
+void saveExposures(std::string const& out_prefix,
+                   std::vector<std::string> const& input_images,
+                   std::vector<double> const& exposures) {
+  std::string exposure_file = exposureFileName(out_prefix);
+  vw_out() << "Writing: " << exposure_file << std::endl;
+  std::ofstream exf(exposure_file.c_str());
+  exf.precision(17);
+  for (size_t image_iter = 0; image_iter < exposures.size(); image_iter++)
+    exf << input_images[image_iter] << " " << exposures[image_iter] << "\n";
+  exf.close();
+}
+
+// Save the haze to a file
+void saveHaze(std::string const& out_prefix,
+              std::vector<std::string> const& input_images,
+              std::vector<std::vector<double>> const& haze) {
+
+  std::string haze_file = hazeFileName(out_prefix);
+  vw_out() << "Writing: " << haze_file << std::endl;
+  std::ofstream hzf(haze_file.c_str());
+  hzf.precision(17);
+  for (size_t image_iter = 0; image_iter < haze.size(); image_iter++) {
+    hzf << input_images[image_iter];
+    for (size_t hiter = 0; hiter < haze[image_iter].size(); hiter++)
+      hzf << " " << haze[image_iter][hiter];
+
+    hzf << "\n";
+  }
+  hzf.close();
+}
+
 } // end namespace asp

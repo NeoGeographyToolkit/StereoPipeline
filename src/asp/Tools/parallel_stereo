@@ -1118,13 +1118,13 @@ if __name__ == '__main__':
     parallel_args = sys.argv # shallow copy
     
     # Individual tools may use these options, but then they confuse parallel_stereo.
-    # They are usually encountered in log files.
+    # They are usually encountered in log files and can be passed in by mistake.
     if '--compute-point-cloud-center-only' in parallel_args:
       raise Exception('Option --compute-point-cloud-center-only is not ' + \
-                      'supported. Use stereo_tri instead.')
+                      'supported in parallel_stereo. Use stereo_tri instead.')
     if '--compute-low-res-disparity-only' in parallel_args:
         raise Exception('Option --compute-low-res-disparity-only is not ' + \
-                        'supported. Use stereo_corr instead.')
+                        'supported in parallel_stereo. Use stereo_corr instead.')
 
     # See if to resume at triangulation. This logic must happen after we figured
     # if we need padded tiles, otherwise the bookkeeping will be wrong.
@@ -1147,10 +1147,10 @@ if __name__ == '__main__':
     # needed, including for multiview stereo.
     if opt.tile_id is None:
 
-        # We get here when the script is started. The current running
-        # process has become the management process that spawns other
-        # copies of itself on other machines. This block will only do
-        # actual work when we hit a non-multiprocess step like PPRC or FLTR.
+        # We get here when the script is started. The current running process
+        # has become the management process that spawns other copies of itself
+        # on other machines. This block will only do actual work when we hit a
+        # non-multiprocess step like pprc or fltr.
 
         # Wipe options which we will override.
         asp_cmd_utils.wipe_option(parallel_args, '-e', 1)
