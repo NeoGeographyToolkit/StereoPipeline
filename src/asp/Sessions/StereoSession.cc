@@ -1167,19 +1167,19 @@ getTransformFromMapProject(std::string input_dem_path,
     // just once per run, and in a main process rather than in parallel.
     // TODO(oalexan1): Move this out.
     input_dem_path = out_prefix + "-" + tag + "-ortho-dem.tif";
-    dem_georef = image_georef;
     // projection box
     vw::BBox2 img_bbox = vw::bounding_box(img);
     std::cout << "img_bbox = " << img_bbox << std::endl;
-    vw::BBox2 dem_proj_box = image_georef.pixel_to_point_bbox(img_bbox);
-    std::cout << "dem_proj_box = " << dem_proj_box << std::endl;
+    vw::BBox2 img_proj_box = image_georef.pixel_to_point_bbox(img_bbox);
+    std::cout << "img_proj_box = " << img_proj_box << std::endl;
     
-    // DEM size
+    // Number of pixels and grid size of the DEM. The DEM need not be big. Its
+    // has constant height anyway. It must encompass the image.
+    dem_georef = image_georef;
     double num = 100.0;
-    double proj_width = dem_proj_box.width();
-    double proj_height = dem_proj_box.height();
-    double factor = 2.0; // To make the box larger than need be
-    double tr = factor * std::max(proj_width/num, proj_height/num);
+    double proj_width = img_proj_box.width();
+    double proj_height = img_proj_box.height();
+    double tr = std::max(proj_width/num, proj_height/num);
     std::cout << "--tr is " << tr << std::endl;
     
     // Set up the transform
@@ -1191,17 +1191,55 @@ getTransformFromMapProject(std::string input_dem_path,
     T(0, 0) = tr; 
     T(1, 1) = -tr;
     dem_georef.set_transform(T);
-    // Expand a bit
-    dem_proj_box.min() = tr * floor(dem_proj_box.min()/tr);
-    dem_proj_box.max() = tr * ceil(dem_proj_box.max()/tr);
-    dem_georef = vw::cartography::crop(dem_georef, dem_proj_box);
-    vw::ImageView<float> dem(num, num);
-    // Set all values to the given height
-    for (int col = 0; col < num; col++) {
-      for (int row = 0; row < num; row++) {
+
+    // The DEM box will be a bit bigger to ensure it fully covers the image
+    double s = 5.0;
+    vw::BBox2 dem_proj_box = img_proj_box;
+    dem_proj_box.min() = tr * (floor(dem_proj_box.min()/tr) - vw::Vector2(s, s));
+    dem_proj_box.max() = tr * (ceil(dem_proj_box.max()/tr) + vw::Vector2(s, s));
+    
+    std::cout << "--dem proj box 1 = " << dem_proj_box << std::endl;
+    
+    // This crop will ensure that the pixel interpretation (PixelAsArea or
+    // PixelAsPoint) is respected.
+    vw::Vector2 pix1 = dem_georef.point_to_pixel(dem_proj_box.min());
+    vw::Vector2 pix2 = dem_georef.point_to_pixel(dem_proj_box.max());
+    std::cout << "--dem pix1 = " << pix1 << std::endl;
+    std::cout << "--dem pix2 = " << pix2 << std::endl;
+    vw::BBox2 dem_pix_box;
+    dem_pix_box.grow(pix1);
+    dem_pix_box.grow(pix2);
+    dem_georef = vw::cartography::crop(dem_georef, dem_pix_box);
+
+    // Recompute the corner pixels after the crop
+    pix1 = dem_georef.point_to_pixel(dem_proj_box.min());
+    pix2 = dem_georef.point_to_pixel(dem_proj_box.max());
+    std::cout << "--dem pix1 = " << pix1 << std::endl;
+    std::cout << "--dem pix2 = " << pix2 << std::endl;
+    dem_pix_box = vw::BBox2();
+    dem_pix_box.grow(pix1);
+    dem_pix_box.grow(pix2);
+    std::cout << "--dem pix box is " << dem_pix_box << std::endl;
+    
+    // Create the DEM with given corner pixels and set all values to the given
+    // height
+    vw::ImageView<float> dem(dem_pix_box.width(), dem_pix_box.height());
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
         dem(col, row) = dem_height;
       }
     }
+
+    // Sanity check
+    dem_proj_box = dem_georef.pixel_to_point_bbox(vw::bounding_box(dem));
+    std::cout << "--dem proj box 2 is " << dem_proj_box << std::endl;
+    
+    if (!dem_proj_box.contains(img_proj_box)) 
+      vw_throw(ArgumentErr() << "The DEM box does not fully cover the image box.");
+
+    vw::BBox2 dem_proj_box2 = dem_georef.pixel_to_point_bbox(vw::bounding_box(dem));
+    std::cout << "--dem projbox 2 = " << dem_proj_box2 << std::endl;
+    
      
     vw::vw_out() << "Writing DEM: " << input_dem_path << "\n";
     bool has_georef = true, has_nodata = true;
