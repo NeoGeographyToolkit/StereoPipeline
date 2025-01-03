@@ -211,6 +211,16 @@ namespace asp {
         po::bool_switch(&global.accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
        "Accept the DEM provided on the command line as the one mapprojection was done with, "
        "even if it disagrees with the DEM recorded in the geoheaders of input images.")
+      ("allow-different-mapproject-gsd",   
+       po::bool_switch(&global.allow_different_mapproject_gsd)->default_value(false)->implicit_value(true),
+       "Allow the left and right mapprojected images to have different GSD. This is "
+       "for backward compatibility, and is not recommended.")
+      ("ortho-heights",  
+       po::value(&global.ortho_heights)->default_value(Vector2(g_nan_val, g_nan_val), 
+                                                       "nan nan"),
+       "It is assumed that the left and right input images have been mapprojected onto "
+       "surfaces with the provided heights above a datum. The datum is read from the "
+       "image geoheaders.") 
       
       // For bathymetry correction
       ("left-bathy-mask", po::value(&global.left_bathy_mask),
@@ -223,10 +233,7 @@ namespace asp {
        "The index of refraction of water to be used in bathymetry correction. (Must be specified and bigger than 1.)")
       ("output-cloud-type", po::value(&global.output_cloud_type)->default_value("all"),
        "When bathymetry correction is used, return only the triangulated cloud of points where the bathymetry correction was applied (option: 'bathy'), where it was not applied (option: 'topo'), or the full cloud (option: 'all'). The default is 'all'.")
-      ("allow-different-mapproject-gsd",   
-       po::bool_switch(&global.allow_different_mapproject_gsd)->default_value(false)->implicit_value(true),
-       "Allow the left and right mapprojected images to have different GSD. This is "
-       "for backward compatibility, and is not recommended.");
+      ;
   }
 
   CorrelationDescription::CorrelationDescription() : po::options_description("Correlation options") {

@@ -85,13 +85,13 @@ namespace asp {
   // Read keywords that describe how the images were map-projected.
   // Do sanity checks.
   void read_mapproj_header(std::string const& map_file,
-                            std::string const& input_cam_file,
-                            std::string const& input_dem,
-                            std::string const& session_name,
-                            // Outputs
-                            std::string & adj_prefix,
-                            std::string & image_file, std::string & cam_type,
-                            std::string & cam_file, std::string & dem_file) { 
+                           std::string const& input_cam_file,
+                           std::string const& input_dem,
+                           std::string const& session_name,
+                           // Outputs
+                           std::string & adj_prefix,
+                           std::string & image_file, std::string & cam_type,
+                           std::string & cam_file, std::string & dem_file) { 
 
     // Call a lower-level function to do the reading
     std::string adj_key, img_file_key, cam_type_key, cam_file_key, dem_file_key;
@@ -146,10 +146,14 @@ namespace asp {
       dem_file = input_dem; // should be enough to load the DEM
       vw::vw_out(WarningMessage) << "Using DEM: " << dem_file << " instead.\n";
     }
+
+    vw::Vector2 heights = asp::stereo_settings().ortho_heights;
+    bool have_heights = (!std::isnan(heights[0]) && !std::isnan(heights[1]));
     
     // The DEM the user provided better be the one used for map projection.
     // Give an error, as the results can be very different with the wrong DEM.
-    if (input_dem != dem_file && !asp::stereo_settings().accept_provided_mapproj_dem)
+    if (input_dem != dem_file && !asp::stereo_settings().accept_provided_mapproj_dem 
+        && !have_heights)
       vw::vw_throw(ArgumentErr() 
           << "The DEM used for map projection is different from the one "
           << "provided currently.\n"
@@ -170,10 +174,10 @@ namespace asp {
   // used as an approximation. If that fails, create a new session from scratch
   // and load the camera model with that.
   void StereoSession::read_mapproj_cam(std::string const& image_file, 
-                                        std::string const& cam_file,
-                                        std::string const& adj_prefix, 
-                                        std::string const& cam_type,
-                                        vw::CamPtr & map_proj_cam) {
+                                       std::string const& cam_file,
+                                       std::string const& adj_prefix, 
+                                       std::string const& cam_type,
+                                       vw::CamPtr & map_proj_cam) {
 
     const Vector2 zero_pixel_offset(0,0);
     
@@ -232,6 +236,18 @@ namespace asp {
     read_mapproj_header(right_image_file, right_camera_file, input_dem, session_name,
                         r_adj_prefix, r_image_file, r_cam_type, r_cam_file, r_dem_file);
   
+    vw::Vector2 heights = asp::stereo_settings().ortho_heights;
+    bool have_heights = (!std::isnan(heights[0]) && !std::isnan(heights[1]));
+    if (have_heights) {
+      // For ortho-ready images it is assumed the mapprojection was done
+      // with the original cameras and no bundle adjustment prefix was used.
+      l_cam_file = left_camera_file;
+      r_cam_file = right_camera_file;
+      if (l_adj_prefix != "" || r_adj_prefix != "")
+        vw_throw(ArgumentErr() << "StereoSession: Expect no bundle adjustment prefix "
+                 << "in ortho images geoheaders.\n");
+    }
+
     vw_out() << "Mapprojected images bundle adjustment prefixes: " 
               << l_adj_prefix << ' ' << r_adj_prefix << std::endl;
     vw_out() << "Mapprojection cameras: " << l_cam_file << ' ' << r_cam_file << "\n";
@@ -246,8 +262,9 @@ namespace asp {
               << "projection camera model inside input files.");
 
     // Double check that we can read the DEM and that it has cartographic information.
-    VW_ASSERT(!input_dem.empty(), InputErr() << "StereoSession: Require input DEM.");
-    if (!boost::filesystem::exists(input_dem))
+    if (input_dem.empty() && !have_heights)
+       vw_throw(ArgumentErr() << "StereoSession: An input DEM is required.");
+    if (!boost::filesystem::exists(input_dem) && !have_heights)
       vw_throw(ArgumentErr() << "StereoSession: DEM '" << input_dem << "' does not exist.");
   }
 
@@ -1112,23 +1129,92 @@ void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop,
 
 // TODO: Move this function somewhere else!
 /// Computes a Map2CamTrans given a DEM, image, and a sensor model.
-inline vw::TransformPtr
-getTransformFromMapProject(const std::string &input_dem_path,
+// Can take a DEM height instead of a DEM file.
+vw::TransformPtr
+getTransformFromMapProject(std::string input_dem_path,
                            const std::string &img_file_path,
-                           boost::shared_ptr<vw::camera::CameraModel> map_proj_model_ptr) {
+                           vw::CamPtr map_proj_model_ptr,
+                           vw::GdalWriteOptions const& options,
+                           std::string const& tag, 
+                           std::string const& out_prefix, 
+                           double dem_height) {                       
 
-  // Read in data necessary for the Map2CamTrans object
-  cartography::GeoReference dem_georef, image_georef;
-  if (!read_georeference(dem_georef, input_dem_path))
-    vw_throw(ArgumentErr() << "The DEM \"" << input_dem_path
-              << "\" lacks georeferencing information.");
+  // If the input DEM is empty, the dem height must not be nan
+  if (input_dem_path.empty() && std::isnan(dem_height))
+    vw_throw(ArgumentErr() << "Must provide either a DEM file or a DEM height.");
+  // But must have just one
+  if (!input_dem_path.empty() && !std::isnan(dem_height))
+    vw_throw(ArgumentErr() 
+             << "Must provide either a DEM file or a DEM height, not both.");
+
+  std::cout << "--input image path: " << img_file_path << std::endl;
+  std::cout << "--input DEM path: " << input_dem_path << std::endl;
+  std::cout << "--out prefix: " << out_prefix << std::endl;
+  std::cout << "--dem height: " << dem_height << std::endl;
+  
+  DiskImageView<float> img(img_file_path);
+  vw::cartography::GeoReference image_georef;
   if (!read_georeference(image_georef, img_file_path))
     vw_throw(ArgumentErr() << "The image \"" << img_file_path
               << "\" lacks georeferencing information.");
 
+  // Read in data necessary for the Map2CamTrans object
+  // TODO(oalexan1): Move this out
+  vw::cartography::GeoReference dem_georef;
+  if (!std::isnan(dem_height)) {
+    // Prepare a DEM file in the output prefix directory. If one exists
+    // and extends beyond image footprint, use it. Ideally this is created
+    // just once per run, and in a main process rather than in parallel.
+    // TODO(oalexan1): Move this out.
+    input_dem_path = out_prefix + "-" + tag + "-ortho-dem.tif";
+    dem_georef = image_georef;
+    // projection box
+    vw::BBox2 img_bbox = vw::bounding_box(img);
+    std::cout << "img_bbox = " << img_bbox << std::endl;
+    vw::BBox2 dem_proj_box = image_georef.pixel_to_point_bbox(img_bbox);
+    std::cout << "dem_proj_box = " << dem_proj_box << std::endl;
+    
+    // DEM size
+    double num = 100.0;
+    double proj_width = dem_proj_box.width();
+    double proj_height = dem_proj_box.height();
+    double factor = 2.0; // To make the box larger than need be
+    double tr = factor * std::max(proj_width/num, proj_height/num);
+    std::cout << "--tr is " << tr << std::endl;
+    
+    // Set up the transform
+    vw::Matrix3x3 T = dem_georef.transform();
+    if (T(0,0) <= 0.0 || T(1, 1) >= 0.0) 
+      vw_throw(ArgumentErr() << "Nonstandard orthoimage encountered. The "
+               "pixel size must be positive in x and negative in y. Offending image: "
+                << img_file_path);
+    T(0, 0) = tr; 
+    T(1, 1) = -tr;
+    dem_georef.set_transform(T);
+    // Expand a bit
+    dem_proj_box.min() = tr * floor(dem_proj_box.min()/tr);
+    dem_proj_box.max() = tr * ceil(dem_proj_box.max()/tr);
+    dem_georef = vw::cartography::crop(dem_georef, dem_proj_box);
+    vw::ImageView<float> dem(num, num);
+    // Set all values to the given height
+    for (int col = 0; col < num; col++) {
+      for (int row = 0; row < num; row++) {
+        dem(col, row) = dem_height;
+      }
+    }
+     
+    vw::vw_out() << "Writing DEM: " << input_dem_path << "\n";
+    bool has_georef = true, has_nodata = true;
+    vw::TerminalProgressCallback tpc("asp", ": ");
+    double nodata = -1e+6;
+    vw::cartography::block_write_gdal_image(input_dem_path, dem, has_georef, dem_georef,
+                                            has_nodata, nodata, options, tpc);
+  }
+  
+  if (!read_georeference(dem_georef, input_dem_path))
+    vw_throw(ArgumentErr() << "No georeference found in DEM: " << input_dem_path);
   bool call_from_mapproject = false;
-  DiskImageView<float> img(img_file_path);
-  return vw::TransformPtr(new cartography::Map2CamTrans(map_proj_model_ptr.get(),
+  return vw::TransformPtr(new vw::cartography::Map2CamTrans(map_proj_model_ptr.get(),
                                    image_georef, dem_georef, input_dem_path,
                                    Vector2(img.cols(), img.rows()),
                                    call_from_mapproject));
@@ -1160,19 +1246,27 @@ vw::TransformPtr StereoSession::tx_identity() const {
 }
 
 vw::TransformPtr StereoSession::tx_left_map_trans() const {
+  
   std::string left_map_proj_image = this->left_cropped_image();
   if (!m_left_map_proj_model)
     vw_throw(ArgumentErr() << "Map projection model not loaded for image "
               << left_map_proj_image);
-  return getTransformFromMapProject(m_input_dem, left_map_proj_image, m_left_map_proj_model);
+  return getTransformFromMapProject(m_input_dem, left_map_proj_image, 
+                                    m_left_map_proj_model,
+                                    m_options, "left", m_out_prefix,
+                                    asp::stereo_settings().ortho_heights[0]);
 }
 
 vw::TransformPtr StereoSession::tx_right_map_trans() const {
+  
   std::string right_map_proj_image = this->right_cropped_image();
   if (!m_right_map_proj_model)
     vw_throw(ArgumentErr() << "Map projection model not loaded for image "
               << right_map_proj_image);
-  return getTransformFromMapProject(m_input_dem, right_map_proj_image, m_right_map_proj_model);
+  return getTransformFromMapProject(m_input_dem, right_map_proj_image,
+                                    m_right_map_proj_model,
+                                    m_options, "right", m_out_prefix,
+                                    asp::stereo_settings().ortho_heights[1]);
 }
 
 // Load an RPC model. Any adjustment in ba_prefix and pixel_offset

@@ -405,12 +405,17 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
 
   std::vector<ip::InterestPoint> left_ip, right_ip;
   ip::read_binary_match_file(match_filename, left_ip, right_ip);
-
+  
   if (have_aligned_matches) {
+    // Create the transforms ahead of time for clarity. When these are created
+    // as part of unalign_ip() arguments, the creation order seems in reverse.
+    auto left_tx = opt.session->tx_left();
+    auto right_tx = opt.session->tx_right();
+
     // Unalign the interest point matches
     std::vector<vw::ip::InterestPoint> unaligned_left_ip, unaligned_right_ip;
-    asp::unalign_ip(opt.session->tx_left(), opt.session->tx_right(),
-                    left_ip, right_ip, unaligned_left_ip, unaligned_right_ip);
+    asp::unalign_ip(left_tx, right_tx, left_ip, right_ip,
+                    unaligned_left_ip, unaligned_right_ip);
     left_ip  = unaligned_left_ip;
     right_ip = unaligned_right_ip;
   }

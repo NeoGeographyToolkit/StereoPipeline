@@ -167,7 +167,19 @@ namespace asp {
       }
     }
     
+    vw::Vector2 heights = asp::stereo_settings().ortho_heights;
+    bool have_heights = (!std::isnan(heights[0]) && !std::isnan(heights[1]));
+    
     if (allow_map_promote) {
+      
+      // The case of images mapprojected onto some surface of constant height
+      if (have_heights) {
+        size_t pos = actual_session_type.find("map");
+        if (pos != std::string::npos)
+          actual_session_type = actual_session_type.substr(0, pos); // wipe map and after
+        actual_session_type = actual_session_type + "map" + actual_session_type;
+      }
+
       if (!input_dem.empty() && actual_session_type == "dg") {
         // User says DG but also gives a DEM.
         // Mapprojection can happen either with DG or RPC cameras
@@ -178,23 +190,18 @@ namespace asp {
           actual_session_type = "dgmapdg";
         else
           actual_session_type = "dgmaprpc"; // used also when l_cam_type is empty
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: " 
-          << actual_session_type << ".\n";
       }
       if (!input_dem.empty() && actual_session_type == "rpc") {
         // User says RPC but also gives a DEM.
         actual_session_type = "rpcmaprpc";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: rpcmaprpc.\n";
       }
       if (!input_dem.empty() && actual_session_type == "pinhole") {
         // User says PINHOLE but also gives a DEM.
         actual_session_type = "pinholemappinhole";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pinholemappinhole.\n";
       }
       if (!input_dem.empty() && actual_session_type == "opticalbar") {
         // User says OPTICAL BAR but also gives a DEM.
         actual_session_type = "opticalbarmapopticalbar";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: opticalbarmapopticalbar.\n";
       }
       if (!input_dem.empty() && actual_session_type == "csm") {
         // User says CSM but also gives a DEM.
@@ -205,18 +212,14 @@ namespace asp {
           actual_session_type = "csmmaprpc";
         else
           actual_session_type = "csmmapcsm"; // used also when l_cam_type is empty
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: " 
-          << actual_session_type << ".\n";
       }
       if (!input_dem.empty() && actual_session_type == "isis") {
         // User says ISIS but also gives a DEM.
         actual_session_type = "isismapisis";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: isismapisis.\n";
       }
       if (!input_dem.empty() && actual_session_type == "spot5") {
         // User says SPOT5 but also gives a DEM.
         actual_session_type = "spot5maprpc";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: spot5maprpc.\n";
       }
       if (!input_dem.empty() && actual_session_type == "aster") {
         // User says ASTER but also gives a DEM.
@@ -228,20 +231,16 @@ namespace asp {
           actual_session_type = "astermapaster";
         else
           actual_session_type = "astermaprpc"; // used also when l_cam_type is empty
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: " 
-          << actual_session_type << ".\n";
       }
       if (!input_dem.empty() && actual_session_type == "pleiades") {
         // User says Pleiades but also gives a DEM.
         actual_session_type = "pleiadesmappleiades";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pleiadesmappleiades.\n";
       }
       
       // Quietly switch from nadirpinhole to pinhole for mapprojected images
       if (!input_dem.empty() && actual_session_type == "nadirpinhole") {
         // User says nadirpinhole but also gives a DEM.
         actual_session_type = "pinholemappinhole";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pinhole.\n";
       }
       
     } // End map promotion section
@@ -261,8 +260,7 @@ namespace asp {
     // We should know the session type by now.
     VW_ASSERT(!actual_session_type.empty(),
               vw::ArgumentErr() << "Could not determine stereo session type. "
-              << "Please set it explicitly using the -t switch.\n"
-              << "See the parallel_stereo documentation for options.\n");
+              << "Please set it explicitly with the --session-type option.\n");
     
     if (!total_quiet)
       vw::vw_out() << "Using session: " << actual_session_type << "\n";

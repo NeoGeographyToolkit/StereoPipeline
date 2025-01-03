@@ -883,13 +883,22 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
 
   // Error checking
 
-  const bool dem_provided = !opt.input_dem.empty();
-
+  bool dem_provided = !opt.input_dem.empty();
+   
+  vw::Vector2 heights = asp::stereo_settings().ortho_heights;
+  bool have_heights = (!std::isnan(heights[0]) && !std::isnan(heights[1]));
+  if (have_heights && dem_provided)
+    vw_throw(ArgumentErr() 
+             << "The option --ortho-heights expects no DEM as input argument.\n");
+ 
+  // We will work as if the images were mapprojected 
+  if (have_heights)
+    dem_provided = true;
+       
   // Seed mode valid values
-  if (stereo_settings().seed_mode > 3) {
+  if (stereo_settings().seed_mode > 3)
     vw_throw(ArgumentErr() << "Invalid value for --corr-seed-mode: "
               << stereo_settings().seed_mode << ".\n");
-  }
 
   if (stereo_settings().seed_mode == 2) {
 
@@ -926,11 +935,18 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     auto M2 = georef2.transform();
     // The diagonal terms of these must be equal.
     double tol = 1e-10;
-    if (std::abs(M1(0, 0) - M2(0, 0)) > tol || std::abs(M1(1, 1) - M2(1, 1)) > tol)
-      vw::vw_throw(vw::ArgumentErr() 
-               << "The input mapprojected images must have the same resolution for best "
-               << "results. This can be overriden with the option: "
+    if (std::abs(M1(0, 0) - M2(0, 0)) > tol || std::abs(M1(1, 1) - M2(1, 1)) > tol) {
+      if (!have_heights)
+        vw::vw_throw(vw::ArgumentErr() 
+               << "The input mapprojected images must have the same ground resolution "
+               << "for best results. This can be overriden with the option "
                << "--allow-different-mapproject-gsd, but is not recommended.\n");
+      else 
+        vw::vw_out(vw::WarningMessage) 
+          << "The input mapprojected images have different ground resolutions: "
+          << M1(0, 0) << " and " << M2(0, 0) 
+          << ". For accurate results these should be similar.\n";
+    }
   }
   
   // If the images are map-projected, we need an input DEM, as we use the ASP

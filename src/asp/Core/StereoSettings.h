@@ -145,6 +145,7 @@ namespace asp {
     vw::Vector2i matches_per_tile_params;
     int band;
     bool allow_different_mapproject_gsd;
+    vw::Vector2 ortho_heights;
     
     int disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
 

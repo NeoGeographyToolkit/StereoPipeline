@@ -139,7 +139,7 @@ namespace asp {
                       std::string const& ba_prefix, 
                       vw::Vector2 pixel_offset) const {
     return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),
-                                 image_file, camera_file, ba_prefix, pixel_offset);
+                               image_file, camera_file, ba_prefix, pixel_offset);
     }
     
   };
@@ -212,7 +212,7 @@ namespace asp {
                       std::string const& ba_prefix,
                       vw::Vector2 pixel_offset) const {
     return load_adjusted_model(m_camera_loader.load_csm_camera_model(camera_file),
-                                 image_file, camera_file, ba_prefix, pixel_offset);
+                               image_file, camera_file, ba_prefix, pixel_offset);
     }
   };
 
@@ -238,7 +238,7 @@ namespace asp {
                       std::string const& ba_prefix,
                       vw::Vector2 pixel_offset) const {
     return load_adjusted_model(m_camera_loader.load_csm_camera_model(camera_file),
-                                 image_file, camera_file, ba_prefix, pixel_offset);
+                               image_file, camera_file, ba_prefix, pixel_offset);
     }
   };
 
@@ -261,7 +261,7 @@ namespace asp {
                       std::string const& ba_prefix,
                       vw::Vector2 pixel_offset) const {
     return load_adjusted_model(m_camera_loader.load_spot5_camera_model(camera_file),
-                                 image_file, camera_file, ba_prefix, pixel_offset);
+                               image_file, camera_file, ba_prefix, pixel_offset);
     }
     
   };
@@ -285,7 +285,7 @@ namespace asp {
                       std::string const& ba_prefix,
                       vw::Vector2 pixel_offset) const {
     return load_adjusted_model(m_camera_loader.load_ASTER_camera_model(camera_file),
-                                 image_file, camera_file, ba_prefix, pixel_offset);
+                               image_file, camera_file, ba_prefix, pixel_offset);
     }
     
   };
@@ -334,7 +334,7 @@ namespace asp {
                       std::string const& ba_prefix,
                       vw::Vector2 pixel_offset) const {
     return load_adjusted_model(m_camera_loader.load_pleiades_camera_model(camera_file),
-                                 image_file, camera_file, ba_prefix, pixel_offset);
+                               image_file, camera_file, ba_prefix, pixel_offset);
     }
     
   };
