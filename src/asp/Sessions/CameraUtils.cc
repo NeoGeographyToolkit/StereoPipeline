@@ -23,7 +23,9 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/DemUtils.h>
 
+#include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Core/Exception.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/CameraUtilities.h>
@@ -408,5 +410,45 @@ void parseStereoRuns(std::string const& prefix_file,
   
 }
 
+// Computes a Map2CamTrans given a DEM, image, and a sensor model. Can take a
+// DEM height instead of a DEM file.
+vw::TransformPtr
+transformFromMapProject(std::string dem_path,
+                        const std::string &img_file_path,
+                        vw::CamPtr map_proj_model_ptr,
+                        vw::GdalWriteOptions const& options,
+                        std::string const& tag, 
+                        std::string const& out_prefix, 
+                        double dem_height) {
+
+  // If the input DEM is empty, the dem height must not be nan
+  if (dem_path.empty() && std::isnan(dem_height))
+    vw::vw_throw(vw::ArgumentErr() << "Must provide either a DEM file or a DEM height.");
+  // But must have just one
+  if (!dem_path.empty() && !std::isnan(dem_height))
+    vw::vw_throw(vw::ArgumentErr() 
+      << "Must provide either a DEM file or a DEM height, not both.");
+  
+  vw::DiskImageView<float> img(img_file_path);
+  vw::cartography::GeoReference image_georef;
+  if (!read_georeference(image_georef, img_file_path))
+    vw::vw_throw(vw::ArgumentErr() << "Missing georeference in image: " << img_file_path);
+
+  // For an orthoimage without a DEM, prepare one, unless it was already made.
+  // The produced dem will be at location dem_path.
+  if (!std::isnan(dem_height))
+    asp::setupOrCheckDem(options, img, image_georef, tag, out_prefix, dem_height,
+                         dem_path);
+  
+  // Read in data necessary for the Map2CamTrans object
+  vw::cartography::GeoReference dem_georef;
+  if (!read_georeference(dem_georef, dem_path))
+    vw::vw_throw(vw::ArgumentErr() << "No georeference found in DEM: " << dem_path);
+  bool call_from_mapproject = false;
+  return vw::TransformPtr(new vw::cartography::Map2CamTrans(map_proj_model_ptr.get(),
+                                   image_georef, dem_georef, dem_path,
+                                   vw::Vector2(img.cols(), img.rows()),
+                                   call_from_mapproject));
+}
 
 } // end namespace asp

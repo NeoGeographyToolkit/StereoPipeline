@@ -19,12 +19,12 @@
 ///
 
 #include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/CameraUtils.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Core/ImageUtils.h>
-#include <asp/Sessions/CameraUtils.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
@@ -585,7 +585,7 @@ void StereoSession::pre_filtering_hook(std::string const& input_file,
   output_file = input_file;
 }
 
-ImageViewRef<PixelMask<Vector2f> >
+ImageViewRef<PixelMask<Vector2f>>
 StereoSession::pre_pointcloud_hook(std::string const& input_file) {
   return DiskImageView<PixelMask<Vector2f> >(input_file);
 }
@@ -1125,179 +1125,6 @@ void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop,
     right_image_crop = BBox2i(0, 0, right_size[0], right_size[1]);
 }
 
-// Prepare a DEM file for an orthoimage without one
-void setupDem(vw::ImageViewRef<float> img,
-              vw::cartography::GeoReference const& image_georef,
-              std::string const& tag, 
-              std::string const& out_prefix, 
-              double dem_height,
-              // Outputs
-              std::string & dem_path,
-              double & dem_nodata,
-              vw::cartography::GeoReference & dem_georef,
-              vw::ImageView<float> & dem) {
-
-  dem_path = out_prefix + "-" + tag + "-ortho-dem.tif";
-  dem_nodata = -1e+6;
-  
-  // projection box
-  vw::BBox2 img_bbox = vw::bounding_box(img);
-  vw::BBox2 img_proj_box = image_georef.pixel_to_point_bbox(img_bbox);
-  
-  // Number of pixels and grid size of the DEM. The DEM need not be big. Its
-  // has constant height anyway. It must encompass the image.
-  dem_georef = image_georef;
-  double num = 100.0;
-  double proj_width = img_proj_box.width();
-  double proj_height = img_proj_box.height();
-  double tr = std::max(proj_width/num, proj_height/num);
-  
-  // Set up the transform
-  vw::Matrix3x3 T = dem_georef.transform();
-  if (T(0,0) <= 0.0 || T(1, 1) >= 0.0) 
-    vw_throw(ArgumentErr() << "Nonstandard orthoimage encountered. The "
-              "pixel size must be positive in x and negative in y.");
-  T(0, 0) = tr; 
-  T(1, 1) = -tr;
-  dem_georef.set_transform(T);
-
-  // The DEM box will be a bit bigger to ensure it fully covers the image
-  double s = 5.0;
-  vw::BBox2 dem_proj_box = img_proj_box;
-  dem_proj_box.min() = tr * (floor(dem_proj_box.min()/tr) - vw::Vector2(s, s));
-  dem_proj_box.max() = tr * (ceil(dem_proj_box.max()/tr) + vw::Vector2(s, s));
-  
-  // This crop will make the upper-left DEM pixel agree with dem_proj_box, and
-  // also ensure that the pixel interpretation (PixelAsArea or PixelAsPoint)
-  // is respected.
-  vw::Vector2 pix1 = dem_georef.point_to_pixel(dem_proj_box.min());
-  vw::Vector2 pix2 = dem_georef.point_to_pixel(dem_proj_box.max());
-  vw::BBox2 dem_pix_box;
-  dem_pix_box.grow(pix1);
-  dem_pix_box.grow(pix2);
-  dem_georef = vw::cartography::crop(dem_georef, dem_pix_box);
-
-  // Recompute the corner pixels after the crop
-  pix1 = dem_georef.point_to_pixel(dem_proj_box.min());
-  pix2 = dem_georef.point_to_pixel(dem_proj_box.max());
-  dem_pix_box = vw::BBox2();
-  dem_pix_box.grow(pix1);
-  dem_pix_box.grow(pix2);
-  
-  // Create the DEM with given corner pixels and set all values to the given
-  // height
-  dem = vw::ImageView<float>(dem_pix_box.width(), dem_pix_box.height());
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      dem(col, row) = dem_height;
-    }
-  }
-
-  // Sanity check
-  dem_proj_box = dem_georef.pixel_to_point_bbox(vw::bounding_box(dem));
-  if (!dem_proj_box.contains(img_proj_box)) 
-    vw_throw(ArgumentErr() << "The DEM box does not fully cover the image box.");
-}
-
-// Prepare a DEM file for an orthoimage without one, or check that it was already made
-void setupOrCheckDem(vw::GdalWriteOptions const& options,
-                     vw::ImageViewRef<float> img,
-                     vw::cartography::GeoReference const& image_georef,
-                     std::string const& tag, 
-                     std::string const& out_prefix, 
-                     double dem_height,
-                     // Outputs
-                     std::string & dem_path) {
-
-  vw::ImageView<float> dem;
-  double dem_nodata = -std::numeric_limits<float>::max(); // will change
-  vw::cartography::GeoReference dem_georef;
-
-  // Set it up, but don't write to to disk yet                     
-  setupDem(img, image_georef, tag, out_prefix, dem_height,
-            dem_path, dem_nodata, dem_georef, dem);
-
-  // See how it agrees with what is on disk
-  bool good_already = false;
-  if (fs::exists(dem_path)) {
-    vw::DiskImageView<float> input_dem(dem_path);
-    vw::cartography::GeoReference input_dem_georef;
-    bool has_georef = read_georeference(input_dem_georef, dem_path);
-    
-    bool has_same_values = true;
-    for (int col = 0; col < input_dem.cols(); col++) {
-      for (int row = 0; row < input_dem.rows(); row++) {
-        // Here need to be careful with numerical precision
-        if (std::abs(input_dem(col, row) - float(dem_height)) > 1e-6) {
-          has_same_values = false;
-          break;
-        }
-      }
-      if (!has_same_values) break;
-    } 
-    
-    if (has_georef && has_same_values && 
-        dem.cols() == input_dem.cols() && 
-        dem.rows() == input_dem.rows() &&
-        dem_georef.get_wkt() == input_dem_georef.get_wkt())
-      good_already = true;
-  }
-
-  if (!good_already) {
-    vw::vw_out() << "Writing mapprojection DEM for " << tag << " image: " << dem_path << "\n";
-    bool has_georef = true, has_nodata = true;
-    vw::TerminalProgressCallback tpc("asp", ": ");
-    vw::cartography::block_write_gdal_image(dem_path, dem, has_georef, dem_georef,
-                                            has_nodata, dem_nodata, options, tpc);
-  } else {
-    vw::vw_out() << "Mapprojection DEM for " << tag << " image: " 
-      << dem_path << "\n";
-  }
-}
-
-// TODO: Move this function somewhere else!
-// Code for handling disk-to-sensor transform
-/// Computes a Map2CamTrans given a DEM, image, and a sensor model.
-// Can take a DEM height instead of a DEM file.
-vw::TransformPtr
-getTransformFromMapProject(std::string dem_path,
-                           const std::string &img_file_path,
-                           vw::CamPtr map_proj_model_ptr,
-                           vw::GdalWriteOptions const& options,
-                           std::string const& tag, 
-                           std::string const& out_prefix, 
-                           double dem_height) {                       
-
-  // If the input DEM is empty, the dem height must not be nan
-  if (dem_path.empty() && std::isnan(dem_height))
-    vw_throw(ArgumentErr() << "Must provide either a DEM file or a DEM height.");
-  // But must have just one
-  if (!dem_path.empty() && !std::isnan(dem_height))
-    vw_throw(ArgumentErr() 
-             << "Must provide either a DEM file or a DEM height, not both.");
-  
-  DiskImageView<float> img(img_file_path);
-  vw::cartography::GeoReference image_georef;
-  if (!read_georeference(image_georef, img_file_path))
-    vw_throw(ArgumentErr() << "Missing georeference in image: " << img_file_path);
-
-  if (!std::isnan(dem_height)) {
-    // For an orthoimage without a DEM, prepare one, unless it was already made.
-    // The produced dem will be at location dem_path.
-    setupOrCheckDem(options, img, image_georef, tag, out_prefix, dem_height,
-                    dem_path);
-  }
-  
-  // Read in data necessary for the Map2CamTrans object
-  vw::cartography::GeoReference dem_georef;
-  if (!read_georeference(dem_georef, dem_path))
-    vw_throw(ArgumentErr() << "No georeference found in DEM: " << dem_path);
-  bool call_from_mapproject = false;
-  return vw::TransformPtr(new vw::cartography::Map2CamTrans(map_proj_model_ptr.get(),
-                                   image_georef, dem_georef, dem_path,
-                                   Vector2(img.cols(), img.rows()),
-                                   call_from_mapproject));
-}
 
 vw::TransformPtr StereoSession::tx_left_homography() const {
   Matrix<double> tx = math::identity_matrix<3>();
@@ -1330,10 +1157,10 @@ vw::TransformPtr StereoSession::tx_left_map_trans() const {
   if (!m_left_map_proj_model)
     vw_throw(ArgumentErr() << "Map projection model not loaded for image "
               << left_map_proj_image);
-  return getTransformFromMapProject(m_input_dem, left_map_proj_image, 
-                                    m_left_map_proj_model,
-                                    m_options, "left", m_out_prefix,
-                                    asp::stereo_settings().ortho_heights[0]);
+  return asp::transformFromMapProject(m_input_dem, left_map_proj_image, 
+                                      m_left_map_proj_model,
+                                      m_options, "left", m_out_prefix,
+                                      asp::stereo_settings().ortho_heights[0]);
 }
 
 vw::TransformPtr StereoSession::tx_right_map_trans() const {
@@ -1342,10 +1169,10 @@ vw::TransformPtr StereoSession::tx_right_map_trans() const {
   if (!m_right_map_proj_model)
     vw_throw(ArgumentErr() << "Map projection model not loaded for image "
               << right_map_proj_image);
-  return getTransformFromMapProject(m_input_dem, right_map_proj_image,
-                                    m_right_map_proj_model,
-                                    m_options, "right", m_out_prefix,
-                                    asp::stereo_settings().ortho_heights[1]);
+  return asp::transformFromMapProject(m_input_dem, right_map_proj_image,
+                                      m_right_map_proj_model,
+                                      m_options, "right", m_out_prefix,
+                                      asp::stereo_settings().ortho_heights[1]);
 }
 
 // Load an RPC model. Any adjustment in ba_prefix and pixel_offset

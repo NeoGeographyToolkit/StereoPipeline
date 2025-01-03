@@ -26,12 +26,31 @@
 #include <iostream>
 #include <string>
 
+// Forward declarations
+namespace vw {
+  namespace cartography {
+    class GeoReference;
+  }
+  class GdalWriteOptions;
+}
+
 namespace asp {
 
 // Given an image pixel, trace a ray to the ground and find the intersection.
 void queryPixel(std::string const& dem_file, vw::CamPtr camera_model,
                 vw::Vector2 const& query_pixel);
 
+
+// Prepare a DEM file that encompasses a given image and with a given height,
+// or reuse the one already available if agrees with what is intended.
+void setupOrCheckDem(vw::GdalWriteOptions const& options,
+                     vw::ImageViewRef<float> img,
+                     vw::cartography::GeoReference const& image_georef,
+                     std::string const& tag, 
+                     std::string const& out_prefix, 
+                     double dem_height,
+                     // Outputs
+                     std::string & dem_path);
 
 } //end namespace asp
 

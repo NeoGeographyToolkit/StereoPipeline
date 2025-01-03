@@ -78,6 +78,17 @@ void parseStereoRuns(std::string              const& prefix_file,
                      std::vector<vw::TransformPtr> & right_trans,
                      std::vector<std::string>      & disp_files);
 
+// Computes a Map2CamTrans given a DEM, image, and a sensor model. Can take a
+// DEM height instead of a DEM file.
+vw::TransformPtr
+transformFromMapProject(std::string dem_path,
+                        const std::string &img_file_path,
+                        vw::CamPtr map_proj_model_ptr,
+                        vw::GdalWriteOptions const& options,
+                        std::string const& tag, 
+                        std::string const& out_prefix, 
+                        double dem_height);
+
 } // end namespace asp
 
 #endif // __STEREO_SESSION_CAMERA_UTILS_H__
