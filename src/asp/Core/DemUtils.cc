@@ -93,7 +93,7 @@ void setupDem(vw::ImageViewRef<float> img,
               std::string & dem_path,
               double & dem_nodata,
               vw::cartography::GeoReference & dem_georef,
-              vw::ImageView<float> & dem) {
+              vw::ImageView<double> & dem) {
 
   dem_path = out_prefix + "-" + tag + "-ortho-dem.tif";
   dem_nodata = -1e+6;
@@ -145,7 +145,7 @@ void setupDem(vw::ImageViewRef<float> img,
   
   // Create the DEM with given corner pixels and set all values to the given
   // height
-  dem = vw::ImageView<float>(dem_pix_box.width(), dem_pix_box.height());
+  dem = vw::ImageView<double>(dem_pix_box.width(), dem_pix_box.height());
   for (int col = 0; col < dem.cols(); col++) {
     for (int row = 0; row < dem.rows(); row++) {
       dem(col, row) = dem_height;
@@ -168,8 +168,12 @@ void setupOrCheckDem(vw::GdalWriteOptions const& options,
                      double dem_height,
                      // Outputs
                      std::string & dem_path) {
-
-  vw::ImageView<float> dem;
+  
+  // Using a DEM in double precision is better than float, as otherwise heights
+  // such as 20.1 are not saved accurately enough as floats (stray digits show
+  // up at the end).
+  
+  vw::ImageView<double> dem;
   double dem_nodata = -std::numeric_limits<float>::max(); // will change
   vw::cartography::GeoReference dem_georef;
 
@@ -180,15 +184,14 @@ void setupOrCheckDem(vw::GdalWriteOptions const& options,
   // See how it agrees with what is on disk
   bool good_already = false;
   if (fs::exists(dem_path)) {
-    vw::DiskImageView<float> input_dem(dem_path);
+    vw::DiskImageView<double> input_dem(dem_path);
     vw::cartography::GeoReference input_dem_georef;
     bool has_georef = read_georeference(input_dem_georef, dem_path);
     
     bool has_same_values = true;
     for (int col = 0; col < input_dem.cols(); col++) {
       for (int row = 0; row < input_dem.rows(); row++) {
-        // Here need to be careful with numerical precision
-        if (std::abs(input_dem(col, row) - float(dem_height)) > 1e-6) {
+        if (std::abs(input_dem(col, row) - dem_height) > 1e-6) {
           has_same_values = false;
           break;
         }

@@ -241,7 +241,6 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
       vw::TransformPtr tx_left = opt.session->tx_left();
       vw::TransformPtr tx_right = opt.session->tx_right();
-      
       boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
       opt.session->camera_models(left_camera_model, right_camera_model);
       const bool use_sphere_for_non_earth = true;
@@ -356,7 +355,10 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
     bool use_sphere_for_non_earth = true;
     cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
                                                       use_sphere_for_non_earth);
-    asp::filter_ip_by_lonlat_and_elevation(opt.session->tx_left(), opt.session->tx_right(),
+    // Set up the transforms before the call to avoid indeterminate behavior
+    auto tx_left = opt.session->tx_left(); 
+    auto tx_right = opt.session->tx_right();
+    asp::filter_ip_by_lonlat_and_elevation(tx_left, tx_right, 
                                            left_camera_model.get(),
                                            right_camera_model.get(),
                                            datum, in_left_ip, in_right_ip,
@@ -381,8 +383,10 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   if (stereo_settings().ip_filter_using_dem != "" &&
       !stereo_settings().correlator_mode          &&
       opt.session->have_datum()) {
+    auto tx_left = opt.session->tx_left();
+    auto tx_right = opt.session->tx_right();
     ip_filter_using_dem(stereo_settings().ip_filter_using_dem,  
-                        opt.session->tx_left(), opt.session->tx_right(),  
+                        tx_left, tx_right,
                         left_camera_model, right_camera_model,  
                         matched_left_ip,  matched_right_ip);
   }
