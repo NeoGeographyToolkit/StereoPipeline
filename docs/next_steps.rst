@@ -872,6 +872,31 @@ would be wrong if it was specified.
 
 An example without mapprojected images is shown in :numref:`bathy_reuse_run`.
 
+.. _mapproj_ortho:
+
+Stereo with ortho-ready images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some vendors offer images that have been mapprojected onto surfaces 
+of constant height above a datum. An example is Maxar's OR2A product.
+
+The stereo command for such images is::
+
+    parallel_stereo                  \
+      -t dg                          \
+      --stereo-algorithm asp_mgm     \
+      --ortho-heights 23.5 27.6      \
+      left_ortho.tif right_ortho.tif \
+      left.xml right.xml             \
+      run/run
+
+Here, the values passed in via ``--ortho-heights`` are the heights above the
+datum that were used to mapproject the images. The datum is read from the
+geoheader of the images.
+
+DEMs with such heights are created in the output directory, then the usual
+workflow of stereo with mapprojected images takes place.
+
 .. _diagnosing_problems:
 
 Diagnosing problems

@@ -66,6 +66,8 @@ parallel_stereo (:numref:`parallel_stereo`):
     ``--enable-velocity-aberration-correction`` for Pleiades linescan cameras
     (these are enabled by default for WorldView cameras only). It is not clear
     if these corrections improve or not Pleiades accuracy.
+  * Enable stereo with vendor-supplied images that have been mapprojected onto
+    surfaces of constant height above a datum (:numref:`mapproj_ortho`).
 
 sfm (:numref:`sfm`):
   * Added an example for processing data acquired with an UAS, with known
