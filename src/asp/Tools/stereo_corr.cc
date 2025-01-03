@@ -238,7 +238,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     if (stereo_settings().outlier_removal_params[0] < 100.0 &&
         opt.session->have_datum()                           &&
         !stereo_settings().correlator_mode) {
-
+      
       vw::TransformPtr tx_left = opt.session->tx_left();
       vw::TransformPtr tx_right = opt.session->tx_right();
       boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;

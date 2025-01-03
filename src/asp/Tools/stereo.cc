@@ -731,10 +731,6 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
              << stereo_settings().corr_timeout << ".\n";
   }
 
-  if (stereo_settings().correlator_mode && !opt.input_dem.empty())
-    vw_throw(ArgumentErr() << "Error: With --correlator-mode, use only two "
-              << "input images and no reference DEM.\n");
-    
   // TODO: Modify SGM tile sizes?
   
   vw::stereo::CorrelationAlgorithm stereo_alg
@@ -975,7 +971,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
   }
 
   // Check that if the user provided a dem that we are using a map projection method
-  if (dem_provided && !opt.session->uses_map_projected_inputs() && !corr_only) {
+  if (dem_provided && !opt.session->isMapProjected() && !corr_only) {
     vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: "
                             << opt.session->name() << ".\n");
   }

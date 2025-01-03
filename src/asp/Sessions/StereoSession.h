@@ -57,23 +57,18 @@ namespace asp {
     typedef StereoSession* (*construct_func)();
 
     /// General init function.
-    void initialize (vw::GdalWriteOptions const& options,
-                     std::string const& left_image_file,
-                     std::string const& right_image_file,
-                     std::string const& left_camera_file,
-                     std::string const& right_camera_file,
-                     std::string const& out_prefix,
-                     std::string const& input_dem);
+    void initialize(vw::GdalWriteOptions const& options,
+                    std::string const& left_image_file,
+                    std::string const& right_image_file,
+                    std::string const& left_camera_file,
+                    std::string const& right_camera_file,
+                    std::string const& out_prefix,
+                    std::string const& input_dem);
 
     // The next set of functions describe characteristics of the derived session class.
     // - These could be made in to some sort of static constant if needed.
-    virtual bool isMapProjected() const { return false; } // TODO: Delete?
-    virtual bool uses_map_projected_inputs() const {return isMapProjected();}
-    virtual bool requires_input_dem       () const {return isMapProjected();}
-    virtual bool supports_image_alignment () const {return !isMapProjected(); }
-    
+    virtual bool isMapProjected() const { return false; }
     virtual bool have_datum() const;
-    
     virtual bool supports_multi_threading () const {
       return true;
     }
@@ -109,10 +104,11 @@ namespace asp {
     // If both left-image-crop-win and right-image-crop win are specified,
     // we crop the images to these boxes, and hence the need to keep
     // the upper-left corners of the crop windows to handle the cameras correctly.
-    static vw::Vector2 camera_pixel_offset(std::string const& input_dem,
-                                           std::string const& left_image_file,
-                                           std::string const& right_image_file,
-                                           std::string const& curr_image_file);
+    static vw::Vector2 
+    camera_pixel_offset(bool isMapProjected,
+                        std::string const& left_image_file,
+                        std::string const& right_image_file,
+                        std::string const& curr_image_file);
 
     // If we have adjusted camera models, load them. The adjustment
     // may be in the rotation matrix, camera center, or pixel offset.

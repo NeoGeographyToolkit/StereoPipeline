@@ -389,7 +389,7 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
     vw_out() << "Loading camera model: " << image_file << ' ' << camera_file << "\n";
 
   // Retrieve the pixel offset (if any) to cropped images
-  vw::Vector2 pixel_offset = camera_pixel_offset(m_input_dem,
+  vw::Vector2 pixel_offset = camera_pixel_offset(isMapProjected(),
                                                  m_left_image_file,
                                                  m_right_image_file,
                                                  image_file);
@@ -1218,14 +1218,14 @@ StereoSession::load_rpc_camera_model(std::string const& image_file,
 } // End function load_rpc_camera_model
 
 // Return the camera pixel offset, if having --left-image-crop-win and same for right.
-vw::Vector2 StereoSession::camera_pixel_offset(std::string const& input_dem,
+vw::Vector2 StereoSession::camera_pixel_offset(bool isMapProjected,
                                                std::string const& left_image_file,
                                                std::string const& right_image_file,
-                                               std::string const& curr_image_file){
+                                               std::string const& curr_image_file) {
   // For map-projected images we don't apply a pixel offset.
   // When we need to do stereo on cropped images, we just
   // crop the images together with their georeferences.
-  if (input_dem != "")
+  if (isMapProjected)
     return Vector2(0, 0);
 
   bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));

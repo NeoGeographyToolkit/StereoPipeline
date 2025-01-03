@@ -65,11 +65,14 @@ namespace asp {
 
     /// Pinhole camera model loading function which handles the case of epipolar alignment.
     static boost::shared_ptr<vw::camera::CameraModel>
-    load_adj_pinhole_model(std::string const& image_file,      std::string const& camera_file,
-                           std::string const& left_image_file,  std::string const& right_image_file,
-                           std::string const& left_camera_file, std::string const& right_camera_file,
+    load_adj_pinhole_model(std::string const& image_file,      
+                           std::string const& camera_file,
+                           std::string const& left_image_file,
+                           std::string const& right_image_file,
+                           std::string const& left_camera_file, 
+                           std::string const& right_camera_file,
                            std::string const& ba_prefix, 
-                           std::string const& input_dem);
+                           bool isMapProjected);
 
     /// Transforms from the aligned image coordinates back to coordinates in the camera models.
     /// - Note that for epipolar aligned images these return identity transforms since the 

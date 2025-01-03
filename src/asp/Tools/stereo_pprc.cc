@@ -352,7 +352,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     // mask, and vice-versa to reduce noise, if the images
     // are map-projected.
     vw_out() << "Writing masks: " << left_mask_file << ' ' << right_mask_file << ".\n";
-    if (has_left_georef && has_right_georef && !opt.input_dem.empty()) {
+    if (has_left_georef && has_right_georef && opt.session->isMapProjected()) {
       
       // Write with big blocks. Small blocks results in slow writing and great
       // memory usage. The latter is likely because there's a memory leak

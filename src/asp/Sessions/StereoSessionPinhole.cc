@@ -57,8 +57,7 @@ StereoSessionPinhole::load_camera_model
   return load_adj_pinhole_model(image_file, camera_file,
                                 m_left_image_file,  m_right_image_file,
                                 m_left_camera_file, m_right_camera_file,
-                                ba_prefix,
-                                m_input_dem);
+                                ba_prefix, isMapProjected());
 }
 
 // Apply epipolar alignment to images, if the camera models are pinhole
@@ -120,10 +119,12 @@ void StereoSessionPinhole::get_unaligned_camera_models(
                                  std::string ba_prefix) const{
 
   // Retrieve the pixel offset (if any) to cropped images
-  vw::Vector2 left_pixel_offset  = camera_pixel_offset(m_input_dem, m_left_image_file,
-                                                       m_right_image_file, m_left_image_file);
-  vw::Vector2 right_pixel_offset = camera_pixel_offset(m_input_dem, m_left_image_file,
-                                                       m_right_image_file, m_right_image_file);
+  vw::Vector2 left_pixel_offset
+   = camera_pixel_offset(isMapProjected(), m_left_image_file, m_right_image_file, 
+                         m_left_image_file);
+  vw::Vector2 right_pixel_offset
+     = camera_pixel_offset(isMapProjected(), m_left_image_file, m_right_image_file, 
+                           m_right_image_file);
 
   // Load the camera models adjusted for cropping
   
@@ -142,16 +143,14 @@ StereoSessionPinhole::load_adj_pinhole_model(std::string const& image_file,
                                              std::string const& left_camera_file,
                                              std::string const& right_camera_file,
                                              std::string const& ba_prefix,
-                                             std::string const& input_dem){
+                                             bool isMapProjected) { 
 
   // Unfortunately the pinhole case is more complicated since the left
   // and right files are inter-dependent.
 
   // Retrieve the pixel offset (if any) to cropped images
-  vw::Vector2 pixel_offset = camera_pixel_offset(input_dem,
-                                                 left_image_file,
-                                                 right_image_file,
-                                                 image_file);
+  vw::Vector2 pixel_offset 
+    = camera_pixel_offset(isMapProjected, left_image_file, right_image_file, image_file);
   
   if (stereo_settings().alignment_method != "epipolar") {
     // Not epipolar, just load the camera model.
