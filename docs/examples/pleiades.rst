@@ -4,8 +4,8 @@ Pleiades
 --------
 
 ASP supports the 1A/1B and NEO satellites from Airbus Pleiades. For NEO, see
-:numref:`pleiades_neo` for additional notes. ASP works only with primary
-(non-ortho) images.
+:numref:`pleiades_neo` for additional notes. ASP also supports the Pleiades ortho
+products, if the projection was done on a surface of constant height  (:numref:`pleiades_projected`).
 
 The Airbus Pleiades data have both an exact linescan camera model and an
 approximate RPC model (:numref:`rpc`). These are stored in separate files. The
@@ -121,6 +121,26 @@ Several peculiarities make the Pleiades NEO data different from 1A/1B (:numref:`
 - The tabulated positions and orientations may start slightly after the first image line and end slightly before the last image line. If these scenarios are encountered, linear extrapolation based on two immediate values is used to fill in the missing values and a warning is printed for each such operation.
 - There is no field for standard deviation of the ground locations of pixels projected from the cameras, so error propagation is not possible unless such a value is specified manually (:numref:`error_propagation`).
 - The RPC camera models for a stereo triplet can be rather inconsistent with each other, resulting in large triangulation error. It is suggested to use instead the exact linescan camera model.
+
+.. _pleiades_projected:
+
+Pleiades projected images
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Airbus offers Pleiades ortho images, that are projected onto a surface of constant
+height above a datum. These products contain the string ``PRJ`` in the image and
+camera names, and have the ``PHR_PROJECTED`` keyword in the XML camera files.
+
+The projection height is stored in the ``DIM*PRJ*.XML`` camera model files,
+in the ``Bounding_Polygon`` field, in the ``<H>`` tag. This height is in meters,
+above the WGS84 ellipsoid.
+
+To process such data with ASP, use the provided RPC camera models, while passing
+the heights for the left and right images as part of the ``--ortho-height`` option,
+together with the option ``-t rpc``. See :numref:`mapproj_ortho` for details.
+
+ASP does not support Airbus images that are orthorectified with a 3D terrain
+model, as that terrain model is not known.
 
 .. _airbus_tiled:
 

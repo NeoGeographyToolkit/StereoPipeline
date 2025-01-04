@@ -877,10 +877,11 @@ An example without mapprojected images is shown in :numref:`bathy_reuse_run`.
 Stereo with ortho-ready images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Some vendors offer images that have been mapprojected onto surfaces 
-of constant height above a datum. An example is Maxar's OR2A product.
+Some vendors offer images that have been projected onto surfaces 
+of constant height above a datum. Examples are Maxar's OR2A product
+and the Airbus Pleiades ortho product (:numref:`pleiades_projected`).
 
-The stereo command for such images is::
+The stereo command for Maxar (DigitalGlobe) data is::
 
     parallel_stereo                  \
       -t dg                          \
@@ -890,12 +891,14 @@ The stereo command for such images is::
       left.xml right.xml             \
       run/run
 
-Here, the values passed in via ``--ortho-heights`` are the heights above the
+The values passed in via ``--ortho-heights`` are the heights above the
 datum that were used to mapproject the images. The datum is read from the
 geoheader of the images.
 
-DEMs with such heights are created in the output directory, then the usual
-workflow of stereo with mapprojected images takes place.
+For Pleiades data and RPC cameras use instead ``-t rpc``.
+
+Helper DEMs with such heights are created in the output directory, then the
+usual workflow of stereo with mapprojected images takes place.
 
 .. _diagnosing_problems:
 

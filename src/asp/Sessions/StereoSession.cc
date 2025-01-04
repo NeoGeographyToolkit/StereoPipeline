@@ -225,17 +225,9 @@ namespace asp {
                                         vw::CamPtr & left_map_proj_cam, 
                                         vw::CamPtr & right_map_proj_cam) {
 
-    // Load the name of the camera model, session, and DEM used in mapprojection
-    // based on the record in that image. Load the bundle adjust prefix from the
-    // mapprojected image. It can be empty, when such a prefix was not used in
-    // mapprojection. 
     std::string l_adj_prefix, r_adj_prefix, l_image_file, r_image_file,
     l_cam_type, r_cam_type, l_cam_file, r_cam_file, l_dem_file, r_dem_file;
-    read_mapproj_header(left_image_file, left_camera_file, input_dem, session_name,
-                        l_adj_prefix, l_image_file, l_cam_type, l_cam_file, l_dem_file);
-    read_mapproj_header(right_image_file, right_camera_file, input_dem, session_name,
-                        r_adj_prefix, r_image_file, r_cam_type, r_cam_file, r_dem_file);
-  
+
     vw::Vector2 heights = asp::stereo_settings().ortho_heights;
     bool have_heights = (!std::isnan(heights[0]) && !std::isnan(heights[1]));
     if (have_heights) {
@@ -246,6 +238,15 @@ namespace asp {
       if (l_adj_prefix != "" || r_adj_prefix != "")
         vw_throw(ArgumentErr() << "StereoSession: Expect no bundle adjustment prefix "
                  << "in ortho images geoheaders.\n");
+    } else {
+      // Load the name of the camera model, session, and DEM used in mapprojection
+      // based on the record in that image. Load the bundle adjust prefix from the
+      // mapprojected image. It can be empty, when such a prefix was not used in
+      // mapprojection. 
+      read_mapproj_header(left_image_file, left_camera_file, input_dem, session_name,
+                          l_adj_prefix, l_image_file, l_cam_type, l_cam_file, l_dem_file);
+      read_mapproj_header(right_image_file, right_camera_file, input_dem, session_name,
+                          r_adj_prefix, r_image_file, r_cam_type, r_cam_file, r_dem_file);
     }
 
     vw_out() << "Mapprojected images bundle adjustment prefixes: " 
