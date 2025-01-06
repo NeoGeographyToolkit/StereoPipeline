@@ -17,11 +17,12 @@ EGM2008, relative to the WGS84 datum ellipsoid (see the `NGA Office of Geomatics
 <https://www.ngs.noaa.gov/GEOID/GEOID09/>`_, which is relative to the NAD83
 ellipsoid.
 
-The Mars areoid is `MOLA MEGDR <https://pds-geosciences.wustl.edu/mgs/mgs-m-mola-5-megdr-l3-v1/mgsl_300x/meg016/>`_. When importing it
-into ASP, we adjusted the areoid height values to be relative to the IAU
-reference spheroid for Mars of radius 3,396,190 m. The areoid at that
-source was relative to the Mars radius of 3,396,000 m. Yet ``dem_geoid``
-can adjust correctly Mars DEMs created in respect to either spheroid.
+The Mars areoid is `MOLA MEGDR
+<https://pds-geosciences.wustl.edu/mgs/mgs-m-mola-5-megdr-l3-v1/mgsl_300x/meg016/>`_.
+When importing it into ASP, we adjusted the areoid height values to be relative
+to the IAU reference spheroid for Mars of radius 3,396,190 m. The areoid at that
+source was relative to the Mars radius of 3,396,000 m. Yet ``dem_geoid`` can
+adjust correctly Mars DEMs created in respect to either spheroid.
 
 Example: Go from a DEM in respect to the WGS84 datum to one in respect
 to the EGM2008 geoid::
