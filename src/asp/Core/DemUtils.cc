@@ -172,7 +172,6 @@ void setupOrCheckDem(vw::GdalWriteOptions const& options,
   // Using a DEM in double precision is better than float, as otherwise heights
   // such as 20.1 are not saved accurately enough as floats (stray digits show
   // up at the end).
-  
   vw::ImageView<double> dem;
   double dem_nodata = -std::numeric_limits<float>::max(); // will change
   vw::cartography::GeoReference dem_georef;
@@ -184,14 +183,15 @@ void setupOrCheckDem(vw::GdalWriteOptions const& options,
   // See how it agrees with what is on disk
   bool good_already = false;
   if (fs::exists(dem_path)) {
-    vw::DiskImageView<double> input_dem(dem_path);
-    vw::cartography::GeoReference input_dem_georef;
-    bool has_georef = read_georeference(input_dem_georef, dem_path);
+
+    vw::DiskImageView<double> disk_dem(dem_path);
+    vw::cartography::GeoReference disk_dem_georef;
+    bool has_georef = read_georeference(disk_dem_georef, dem_path);
     
     bool has_same_values = true;
-    for (int col = 0; col < input_dem.cols(); col++) {
-      for (int row = 0; row < input_dem.rows(); row++) {
-        if (std::abs(input_dem(col, row) - dem_height) > 1e-6) {
+    for (int col = 0; col < disk_dem.cols(); col++) {
+      for (int row = 0; row < disk_dem.rows(); row++) {
+        if (std::abs(disk_dem(col, row) - dem_height) > 1e-6) {
           has_same_values = false;
           break;
         }
@@ -200,10 +200,19 @@ void setupOrCheckDem(vw::GdalWriteOptions const& options,
     } 
     
     if (has_georef && has_same_values && 
-        dem.cols() == input_dem.cols() && 
-        dem.rows() == input_dem.rows() &&
-        dem_georef.get_wkt() == input_dem_georef.get_wkt())
+        dem_georef.get_wkt() == disk_dem_georef.get_wkt())
       good_already = true;
+      
+    // The DEM on disk should not be smaller in extent than the one we want to
+    // write. It is not clear if when tiles are run in parallel the images
+    // are cropped, but in that case the DEM on disk could be bigger, and we
+    // don't want to overwrite the DEM in parallel.
+    vw::BBox2 disk_box = vw::bounding_box(disk_dem);
+    vw::BBox2 disk_proj_box = disk_dem_georef.pixel_to_point_bbox(disk_box);
+    vw::BBox2 curr_bbox = vw::bounding_box(dem);
+    vw::BBox2 curr_proj_box = dem_georef.pixel_to_point_bbox(curr_bbox);
+    if (!disk_proj_box.contains(curr_proj_box))
+      good_already = false;
   }
 
   if (!good_already) {
