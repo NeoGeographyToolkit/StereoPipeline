@@ -11,15 +11,13 @@ adjustment simply subtracts from the DEM height the geoid height
 (correcting, if need be, for differences in dimensions between the DEM
 and geoid datum ellipsoids).
 
-Three geoids and one areoid are supported. The Earth geoids are: EGM96
-and EGM2008, relative to the WGS84 datum ellipsoid
-(http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm96/egm96.html,
-http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm2008/egm08_wgs84.html)
-and NAVD88, relative to the NAD83 datum ellipsoid
-(http://www.ngs.noaa.gov/GEOID/GEOID09/).
+Three geoids and one areoid are supported. The Earth geoids are EGM96 and
+EGM2008, relative to the WGS84 datum ellipsoid (see the `NGA Office of Geomatics
+<https://earth-info.nga.mil/index.php?dir=wgs84&action=wgs84>`_), and `NAVD88
+<https://www.ngs.noaa.gov/GEOID/GEOID09/>`_, which is relative to the NAD83
+ellipsoid.
 
-The Mars areoid is MOLA MEGDR
-(http://geo.pds.nasa.gov/missions/mgs/megdr.html). When importing it
+The Mars areoid is `MOLA MEGDR <https://pds-geosciences.wustl.edu/mgs/mgs-m-mola-5-megdr-l3-v1/mgsl_300x/meg016/>`_. When importing it
 into ASP, we adjusted the areoid height values to be relative to the IAU
 reference spheroid for Mars of radius 3,396,190 m. The areoid at that
 source was relative to the Mars radius of 3,396,000 m. Yet ``dem_geoid``
