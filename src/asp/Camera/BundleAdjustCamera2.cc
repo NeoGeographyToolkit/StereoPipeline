@@ -24,16 +24,16 @@
 // TODO(oalexan1): Move most of BundleAdjustCamera.h code to here, and put it
 // all in the asp namespace. 
 
-#include <asp/Camera/BundleAdjustCamera.h>
-#include <asp/Camera/CsmModel.h>
-#include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
+#include <asp/IsisIO/IsisInterface.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/CameraErrorPropagation.h>
-#include <asp/IsisIO/IsisInterface.h>
-#include <asp/Core/StereoSettings.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Core/CameraUtils.h>
+#include <asp/Core/IpMatchingAlgs.h>
+#include <asp/Core/StereoSettings.h>
 
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/LensDistortion.h>

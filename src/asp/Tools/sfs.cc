@@ -65,7 +65,7 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Camera/CsmModel.h>
-#include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Core/CameraUtils.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/SfS/SfsImageProc.h>
 #include <asp/SfS/SfsUtils.h>

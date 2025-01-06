@@ -25,6 +25,7 @@
 #include <asp/Camera/RPCModel.h>
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Core/ImageUtils.h>
+#include <asp/Core/CameraUtils.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
@@ -235,9 +236,8 @@ namespace asp {
       // with the original cameras and no bundle adjustment prefix was used.
       l_cam_file = left_camera_file;
       r_cam_file = right_camera_file;
-      if (l_adj_prefix != "" || r_adj_prefix != "")
-        vw_throw(ArgumentErr() << "StereoSession: Expect no bundle adjustment prefix "
-                 << "in ortho images geoheaders.\n");
+      l_cam_type = session_name;
+      r_cam_type = session_name;
     } else {
       // Load the name of the camera model, session, and DEM used in mapprojection
       // based on the record in that image. Load the bundle adjust prefix from the
@@ -1217,101 +1217,6 @@ StereoSession::load_rpc_camera_model(std::string const& image_file,
           << " or " << camera_file << ".\n"
 	   << err1 << "\n" << err2 << "\n" << msg);
 } // End function load_rpc_camera_model
-
-// Return the camera pixel offset, if having --left-image-crop-win and same for right.
-vw::Vector2 StereoSession::camera_pixel_offset(bool isMapProjected,
-                                               std::string const& left_image_file,
-                                               std::string const& right_image_file,
-                                               std::string const& curr_image_file) {
-  // For map-projected images we don't apply a pixel offset.
-  // When we need to do stereo on cropped images, we just
-  // crop the images together with their georeferences.
-  if (isMapProjected)
-    return Vector2(0, 0);
-
-  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-  if (!crop_left && !crop_right)
-    return Vector2(0, 0); // No offset needed
-    
-  vw::Vector2 left_pixel_offset(0, 0), right_pixel_offset(0, 0);
-  if (crop_left) left_pixel_offset  = stereo_settings().left_image_crop_win.min();
-  if (crop_right) right_pixel_offset = stereo_settings().right_image_crop_win.min();
-  
-  if (curr_image_file == left_image_file)
-    return left_pixel_offset;
-  else if (curr_image_file == right_image_file)
-    return right_pixel_offset;
-  else
-    // If the image files were not specified, no offset and no error.
-    if ((left_image_file != "") || (right_image_file != ""))
-      vw_throw(ArgumentErr() 
-               << "Supplied image file does not match left or right image file.");
-
-  return Vector2(0, 0);
-}
-
-boost::shared_ptr<vw::camera::CameraModel>
-StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-                                  std::string const& image_file,
-                                  std::string const& camera_file,
-                                  std::string const& ba_prefix, 
-                                  vw::Vector2 const& pixel_offset) {
-
-  // Any tool using adjusted camera models must pre-populate the
-  // prefix at which to find them.
-  if (ba_prefix == "" && pixel_offset == vw::Vector2())
-    return cam; // Return the unadjusted cameras if there is no adjustment
-
-  Vector3 position_correction;
-  Quat pose_correction;
-
-  // These must start initialized. Note that we may have a pixel
-  // offset passed in from outside, or a pixel offset and scale
-  // that we read from an adjust file. We will throw an error
-  // below if both scenarios happen.
-  Vector2 local_pixel_offset = pixel_offset;
-  double local_scale = 1.0;
-
-  // Ensure these vectors are populated even when there are no corrections to read,
-  // as we may still have pixel offset.
-  position_correction = Vector3();
-  pose_correction = Quat(math::identity_matrix<3>());
-
-  if (ba_prefix != "") { // If a bundle adjustment file was specified
-
-    // Get full BA file path
-    std::string adjust_file = asp::bundle_adjust_file_name(ba_prefix, image_file, camera_file);
-
-    if (!boost::filesystem::exists(adjust_file))
-      vw_throw(InputErr() << "Missing adjusted camera model: " << adjust_file << ".\n");
-
-    vw_out() << "Using adjusted camera model: " << adjust_file << std::endl;
-    asp::read_adjustments(adjust_file, position_correction, pose_correction,
-			  local_pixel_offset, local_scale); // these will change
-
-    if (local_pixel_offset != Vector2() || local_scale != 1.0) {
-      // We read a custom scale and pixel offset passed by the user. But then
-      // the pixel offset passed in by the caller is not valid. Instead of
-      // sorting things out simply refuse to allow this scenario.
-      if (pixel_offset != Vector2()) {
-        vw_throw(InputErr() << "Cannot use crop win functionality with custom "
-                 << "scale and pixel offset in .adjust files.\n");
-      }
-    }else{
-      // In this case we have local_pixel_offset == (0, 0) local_scale == 1.0.
-      // So use the pixel_offset passed in by the caller. Scale will stay at 1.0.
-      local_pixel_offset = pixel_offset;
-    }
-
-  } // End case for parsing bundle adjustment file
-
-  // Create the adjusted camera model object with the info we loaded
-  return boost::shared_ptr<camera::CameraModel>
-             (new vw::camera::AdjustedCameraModel(cam, position_correction,
-                                                 pose_correction, local_pixel_offset,
-                                                 local_scale));
-}
 
 /// Function to apply a functor to each pixel of an input image.
 /// Traverse the image row by row.

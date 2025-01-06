@@ -101,25 +101,6 @@ namespace asp {
                      vw::BBox2i const& bbox1 = vw::BBox2i(),
                      vw::BBox2i const& bbox2 = vw::BBox2i());
 
-    // If both left-image-crop-win and right-image-crop win are specified,
-    // we crop the images to these boxes, and hence the need to keep
-    // the upper-left corners of the crop windows to handle the cameras correctly.
-    static vw::Vector2 
-    camera_pixel_offset(bool isMapProjected,
-                        std::string const& left_image_file,
-                        std::string const& right_image_file,
-                        std::string const& curr_image_file);
-
-    // If we have adjusted camera models, load them. The adjustment
-    // may be in the rotation matrix, camera center, or pixel offset.
-    // Otherwise return unadjusted cameras.
-    static boost::shared_ptr<vw::camera::CameraModel>
-    load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-                        std::string const& image_file,
-                        std::string const& camera_file,
-                        std::string const& ba_pref,
-                        vw::Vector2 const& pixel_offset);
-
     // Returns the target datum to use for a given camera model.
     // Can be overridden by derived classes.
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,

@@ -18,6 +18,7 @@
 /// \file BundleAdjustUtils.cc
 ///
 
+#include <asp/Core/CameraUtils.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/ImageUtils.h>
 
@@ -41,51 +42,6 @@ using namespace vw::ba;
 namespace fs = boost::filesystem;
 
 namespace asp {
-
-// Read adjustments
-// TODO(oalexan1): Integrate with the VW function for that
-void read_adjustments(std::string const& filename,
-                      vw::Vector3      & position_correction,
-                      Quat             & pose_correction,
-                      Vector2          & pixel_offset,
-                      double           & scale) {
-
-  // Initialize the outputs
-  pixel_offset = Vector2();
-  scale = 1.0;
-  
-  Vector3 pos;
-  Vector4 q_buf;
-  std::ifstream istr(filename.c_str());
-
-  // Read the adjustments
-  if (!(istr >> pos[0] >> pos[1] >> pos[2] 
-             >> q_buf[0] >> q_buf[1] >> q_buf[2] >> q_buf[3])) 
-    vw::vw_throw(vw::ArgumentErr() << "Failed to read adjustments from: " 
-                 << filename << ".\n");
-
-  // The adjustments may have an offset and a scale
-  double a, b, c;
-  if (istr >> a >> b >> c){
-    pixel_offset = Vector2(a, b);
-    scale = c;
-  }
-  
-  position_correction = pos;
-  pose_correction = Quat(q_buf);
-}
-
-void write_adjustments(std::string const& filename,
-                       Vector3 const& position_correction,
-                       Quat const& pose_correction) {
-  std::ofstream ostr(filename.c_str());
-  ostr.precision(17);
-  ostr << position_correction[0] << " " << position_correction[1] << " "
-       << position_correction[2] << "\n";
-  ostr << pose_correction.w() << " " << pose_correction.x() << " "
-       << pose_correction.y() << " " << pose_correction.z() << " " << "\n";
-  ostr.close();
-}
 
 void compute_stereo_residuals(std::vector<vw::CamPtr> const& camera_models,
                               ControlNetwork const& cnet) {
@@ -134,7 +90,8 @@ vw::BBox2 camera_bbox_with_cache(std::string const& dem_file,
     if (ifs >> min_x >> min_y >> max_x >> max_y) {
       box.min() = vw::Vector2(min_x, min_y);
       box.max() = vw::Vector2(max_x, max_y);
-      vw_out() << "Read cached ground footprint bbox from: " << box_path << ":\n" << box << "\n";
+      vw_out() << "Read cached ground footprint bbox from: " << box_path << ":\n" 
+               << box << "\n";
       return box;
     }
   }
@@ -236,31 +193,6 @@ void build_overlap_list_based_on_dem(std::string const& out_prefix,
   }
 
   return;
-}
-
-// Convert dir1/image1.cub or dir1/image1.xml to out-prefix-image1.adjust
-std::string bundle_adjust_file_name(std::string const& prefix,
-                                    std::string const& input_img,
-                                    std::string const& input_cam) {
-
-  // Create the adjusted camera file name from the original camera filename,
-  // unless it is empty, and then use the image file name.
-  std::string file = input_cam;
-  if (file == "")
-    file = input_img;
-
-  // Find the basename using boost
-  file = fs::path(file).filename().string();
-
-  // Find the last dot in the file name. If not found, set it to the length of
-  // the string.
-  size_t dot = file.rfind(".");
-  if (dot == std::string::npos)
-    dot = file.size();
-  // Find the substring until the dot
-  file = file.substr(0, dot);
-  
-  return prefix + "-" + file + ".adjust";
 }
 
 /// Ensure that the basename (without extension) of all images, camera files, or

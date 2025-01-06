@@ -22,11 +22,12 @@
 // all in the asp namespace. 
 
 #include <asp/Camera/BundleAdjustCamera.h>
-#include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
+#include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Camera/CameraResectioning.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/Covariance.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/CameraUtils.h>
 #include <asp/Core/ImageUtils.h>
 
 #include <vw/BundleAdjustment/CameraRelation.h>

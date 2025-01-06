@@ -55,18 +55,6 @@ const int PIXEL_SIZE      = 2;
 
 typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRNJ;
   
-  /// Read both kinds of adjustments
-  void read_adjustments(std::string const& filename,
-                        vw::Vector3      & position_correction,
-                        vw::Quat         & pose_correction,
-                        vw::Vector2      & pixel_offset, 
-                        double           & scale);
-
-  /// Write global adjustments
-  // TODO(oalexan1): This should be unified with analogous logic in VW
-  void write_adjustments(std::string const& filename,
-                         vw::Vector3 const& position_correction,
-                         vw::Quat    const& pose_correction);
 
   ///
   void compute_stereo_residuals(std::vector<boost::shared_ptr<vw::camera::CameraModel>>
@@ -97,12 +85,6 @@ typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRNJ;
                 std::vector<vw::CamPtr> const& camera_models,
                 std::set<std::pair<std::string, std::string>> & overlap_list);
 
-  /// Create the adjusted camera file name from the original camera filename,
-  /// unless it is empty, and then use the image file name.
-  /// - Convert dir1/image1.cub to out-prefix-image1.adjust
-  std::string bundle_adjust_file_name(std::string const& prefix, std::string const& input_img,
-                                      std::string const& input_cam);
-  
   /// Ensure that no images, camera files, or adjustment names are duplicate.
   /// That will cause the output files to overwrite each other!
   void check_for_duplicates(std::vector<std::string> const& image_files,

@@ -19,6 +19,7 @@
 /// Image processing routines for SfS
 
 #include <asp/SfS/SfsImageProc.h>
+#include <asp/Core/CameraUtils.h>
 
 #include <vw/Core/Log.h>
 #include <vw/Camera/CameraModel.h>
@@ -30,8 +31,6 @@
 #include <vw/Image/InpaintView.h>
 #include <vw/Image/Filter.h>
 #include <vw/Image/NoDataAlg.h>
-
-#include <asp/Core/BundleAdjustUtils.h>
 
 #include <boost/filesystem.hpp>
 

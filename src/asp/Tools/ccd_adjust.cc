@@ -24,7 +24,7 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <asp/Core/InterestPointMatching.h>
-#include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Core/CameraUtils.h>
 #include <asp/Tools/ccd_adjust.h>
 
 // Turn off warnings from eigen

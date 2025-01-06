@@ -24,6 +24,7 @@
 #define __STEREO_SESSION_GDAL_H__
 
 #include <asp/Sessions/StereoSession.h>
+#include <asp/Core/CameraUtils.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/CsmModel.h>
@@ -46,7 +47,7 @@ namespace asp {
   //----------------------------------------------------------
 
   // Stereo session for Digital Globe images.
-  class StereoSessionDG : public StereoSessionGdal {
+  class StereoSessionDG: public StereoSessionGdal {
 
   public:
     StereoSessionDG(){}
@@ -59,7 +60,7 @@ namespace asp {
     
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel>
+    virtual vw::CamPtr
     load_camera_model(std::string const& image_file, 
                       std::string const& camera_file,
                       std::string const& ba_prefix, 
@@ -85,7 +86,7 @@ namespace asp {
 
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel>
+    virtual vw::CamPtr
     load_camera_model(std::string const& image_file, 
                       std::string const& camera_file,
                       std::string const& ba_prefix, 
@@ -119,7 +120,7 @@ namespace asp {
 
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel>
+    virtual vw::CamPtr
     load_camera_model(std::string const& image_file, 
                       std::string const& camera_file,
                       std::string const& ba_prefix,
@@ -143,7 +144,7 @@ namespace asp {
     
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel>
+    virtual vw::CamPtr
     load_camera_model(std::string const& image_file,
                       std::string const& camera_file,
                       std::string const& ba_prefix,
@@ -167,7 +168,7 @@ namespace asp {
     
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel>
+    virtual vw::CamPtr
     load_camera_model(std::string const& image_file,
                       std::string const& camera_file,
                       std::string const& ba_prefix,
@@ -191,7 +192,7 @@ namespace asp {
     
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel>
+    virtual vw::CamPtr
     load_camera_model(std::string const& image_file,
                       std::string const& camera_file,
                       std::string const& ba_prefix,

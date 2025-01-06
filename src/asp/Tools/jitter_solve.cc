@@ -27,6 +27,7 @@
 
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Sessions/CameraUtils.h>
+#include <asp/IsisIO/IsisInterface.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/BundleAdjustCamera.h>
@@ -34,19 +35,19 @@
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveUtils.h>
 #include <asp/Rig/rig_config.h>
+#include <asp/Rig/nvm.h>
 #include <asp/Camera/JitterSolveRigUtils.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/BundleAdjustResiduals.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/CameraUtils.h>
 #include <asp/Core/BundleAdjustUtils.h>
-#include <asp/Core/IpMatchingAlgs.h> // Lightweight header for matching algorithms
+#include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/PointUtils.h>
-#include <asp/IsisIO/IsisInterface.h>
-#include <asp/Rig/nvm.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>

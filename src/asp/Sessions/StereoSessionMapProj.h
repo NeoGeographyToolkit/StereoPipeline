@@ -27,6 +27,7 @@
 #include <asp/Sessions/StereoSessionGdal.h>
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Core/CameraUtils.h>
 #include <vw/Image/Transform.h>
 
 namespace asp {
@@ -162,10 +163,10 @@ namespace asp {
                       std::string const& camera_file,
                       std::string const& ba_prefix, 
                       vw::Vector2 pixel_offset) const {
-      return StereoSessionPinhole::load_adj_pinhole_model(image_file, camera_file,
-                                    m_left_image_file, m_right_image_file,
-                                    m_left_camera_file, m_right_camera_file,
-                                    ba_prefix, isMapProjected());
+      return asp::load_adj_pinhole_model(image_file, camera_file,
+                                         m_left_image_file, m_right_image_file,
+                                         m_left_camera_file, m_right_camera_file,
+                                         ba_prefix, isMapProjected());
     }
   };
 
