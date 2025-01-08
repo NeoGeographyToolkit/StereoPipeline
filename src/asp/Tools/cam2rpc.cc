@@ -159,9 +159,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     // Set the srs string into georef.
     if (!opt.target_srs_string.empty()) {
       vw::cartography::GeoReference georef;
-      bool have_input_georef = false;
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, opt.datum,
-                          have_input_georef, georef);
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, opt.datum, georef);
       opt.datum = georef.datum();
     }
 

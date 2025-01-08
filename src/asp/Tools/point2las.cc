@@ -305,8 +305,7 @@ int main(int argc, char *argv[]) {
       if (have_user_datum || !opt.target_srs_string.empty()) {
         // Set the srs string into georef
         asp::set_srs_string(opt.target_srs_string,
-                            have_user_datum, datum,
-                            have_input_georef, georef);
+                            have_user_datum, datum, georef);
         is_geodetic = true;
         datum = georef.datum();
       }

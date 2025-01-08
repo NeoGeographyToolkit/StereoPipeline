@@ -152,7 +152,6 @@ namespace asp {
   ///   EPSG codes and URLs like http://spatialreference.org/ref/iau2000/49900/
   void set_srs_string(std::string srs_string, bool have_user_datum,
                       vw::cartography::Datum const& user_datum,
-                      bool have_input_georef,
                       vw::cartography::GeoReference & georef);
 
   //---------------------------------------------------------------------------

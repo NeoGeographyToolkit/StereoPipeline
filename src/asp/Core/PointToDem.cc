@@ -23,6 +23,7 @@
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/Filter.h>
 #include <vw/Image/InpaintView.h>
+#include <vw/Cartography/Utm.h>
 
 #include <boost/filesystem.hpp>
 
@@ -126,10 +127,12 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 // Convert any LAS, CSV, PCD, or unorganized TIF files to ASP tif files. We do
 // some binning to make the spatial data more localized, to improve performance.
 // We will later wipe these temporary tif files.
-void chip_convert_to_tif(DemOptions& opt,
+void chip_convert_to_tif(DemOptions const& opt,
                          asp::CsvConv const& csv_conv,
                          vw::cartography::GeoReference const& csv_georef,
-                         std::vector<std::string> & tif_files) {
+                         // Outputs
+                         std::vector<std::string> & pc_files, 
+                         std::vector<std::string> & conv_files) {
 
   if (!opt.has_las_or_csv_or_pcd)
     return;
@@ -138,9 +141,9 @@ void chip_convert_to_tif(DemOptions& opt,
   sw.start();
 
   // Error checking for CSV
-  int num_files = opt.pointcloud_files.size();
+  int num_files = pc_files.size();
   for (int i = 0; i < num_files; i++) {
-    if (!asp::is_csv(opt.pointcloud_files[i]))
+    if (!asp::is_csv(pc_files[i]))
       continue;
     if (opt.csv_format_str == "")
       vw_throw(ArgumentErr() << "CSV files were passed in, but the "
@@ -149,7 +152,7 @@ void chip_convert_to_tif(DemOptions& opt,
 
   // Extract georef info from PC or las files.
   vw::cartography::GeoReference pc_georef;
-  bool have_pc_georef = asp::georef_from_pc_files(opt.pointcloud_files, pc_georef);
+  bool have_pc_georef = asp::georef_from_pc_files(pc_files, pc_georef);
 
   if (!have_pc_georef) // if we have no georef so far, the csv georef is our best guess.
     pc_georef = csv_georef;
@@ -161,9 +164,9 @@ void chip_convert_to_tif(DemOptions& opt,
   // to right for the purpose of creating the DEM, we waste little space.
   std::int64_t num_rows = 0;
   for (int i = 0; i < num_files; i++) {
-    if (asp::is_las_or_csv_or_pcd(opt.pointcloud_files[i]))
+    if (asp::is_las_or_csv_or_pcd(pc_files[i]))
       continue;
-    DiskImageView<float> img(opt.pointcloud_files[i]);
+    DiskImageView<float> img(pc_files[i]);
     // Record the max number of rows across all input tifs
     num_rows = std::max(num_rows, std::int64_t(img.rows()));
   }
@@ -172,7 +175,7 @@ void chip_convert_to_tif(DemOptions& opt,
   if (num_rows == 0) {
     std::int64_t max_num_pts = 0;
     for (int i = 0; i < num_files; i++) {
-      std::string file = opt.pointcloud_files[i];
+      std::string file = pc_files[i];
       if (asp::is_las(file))
         max_num_pts = std::max(max_num_pts, asp::las_file_size(file));
       if (asp::is_csv(file))
@@ -195,13 +198,13 @@ void chip_convert_to_tif(DemOptions& opt,
   std::vector<std::string> all_out_files;
   for (int i = 0; i < num_files; i++) {
 
-    if (!asp::is_las_or_csv_or_pcd(opt.pointcloud_files[i]) && !opt.input_is_projected) {
+    if (!asp::is_las_or_csv_or_pcd(pc_files[i]) && !opt.input_is_projected) {
       // Skip organized tif files
-      all_out_files.push_back(opt.pointcloud_files[i]);
+      all_out_files.push_back(pc_files[i]);
       continue;
     }
 
-    std::string in_file = opt.pointcloud_files[i];
+    std::string in_file = pc_files[i];
     std::cout << "Processing file: " << in_file << std::endl;
     std::string stem    = fs::path(in_file).stem().string();
     std::string suffix;
@@ -214,27 +217,105 @@ void chip_convert_to_tif(DemOptions& opt,
     // TODO: This if statement should not be needed, the function should handle it!
     // Perform the actual conversion to a tif file
     std::vector<std::string> out_files;
+    vw::GdalWriteOptions l_opt = opt; // Copy the write options
     if (asp::is_las(in_file))
       asp::las_or_csv_to_tif(in_file, file_prefix, num_rows, block_size,
-                             opt, pc_georef, csv_conv, out_files);
+                             l_opt, pc_georef, csv_conv, out_files);
     else // CSV, PCD, unordered projected TIF
       asp::las_or_csv_to_tif(in_file, file_prefix, num_rows, block_size,
-                             opt, csv_georef, csv_conv, out_files);
+                             l_opt, csv_georef, csv_conv, out_files);
 
-    // Append out_files to all_out_files and to tif_files by inserting
+    // Append out_files to all_out_files and to conv_files by inserting
     // Note that all_out_files will have both PC.tif files and outputs
-    // of las_or_csv_to_tif, while tif_files will have only the latter.
+    // of las_or_csv_to_tif, while conv_files will have only the latter.
     std::copy(out_files.begin(), out_files.end(), std::back_inserter(all_out_files));
-    std::copy(out_files.begin(), out_files.end(), std::back_inserter(tif_files));
+    std::copy(out_files.begin(), out_files.end(), std::back_inserter(conv_files));
   }
 
   // Update the list of all files
-  opt.pointcloud_files = all_out_files;
+  pc_files = all_out_files;
 
   sw.stop();
   vw_out(DebugMessage,"asp") << "LAS or CSV to TIF conversion time: "
                              << sw.elapsed_seconds() << " seconds.\n";
 
 } // End function chip_convert_to_tif
+
+// Auto-computed local projection 
+void setAutoProj(double lat, double lon, 
+                 vw::cartography::GeoReference & output_georef) {
+
+  std::string datum = output_georef.datum().name();
+  if (datum.find("WGS_1984") != std::string::npos) {
+    
+    vw::cartography::Datum user_datum = output_georef.datum();
+    if (lat > 84) 
+      output_georef.set_proj4_projection_str("+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs");
+    else if (lat < -80)
+      output_georef.set_proj4_projection_str("+proj=stere +lat_0=-90 +lat_ts=-70 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs");
+    else 
+     output_georef.set_UTM(vw::cartography::getUTMZone(lat, lon));
+     
+  } else {
+    output_georef.set_stereographic(lat, lon, 1, 0, 0);
+  }
+  
+  return;
+}
+
+// Set the projection based on options. By now opt.proj_lon and opt.proj_lat
+// should have been set. 
+void setProjection(DemOptions const& opt, cartography::GeoReference & output_georef) {
+  
+  // Can set a projection either via a string or via options
+  if (!opt.target_srs_string.empty() && opt.target_srs_string != "auto")
+    vw::vw_throw(ArgumentErr()
+                << "Using a projection with --t_srs precludes settting it in other ways.");
+  
+  // Shorten notation
+  double lon = opt.proj_lon, lat = opt.proj_lat, s = opt.proj_scale;
+  double e = opt.false_easting, n = opt.false_northing;
+     
+  switch (opt.projection) {
+    case SINUSOIDAL:           
+      output_georef.set_sinusoidal(lon, e, n); 
+      break;
+    case MERCATOR:             
+      output_georef.set_mercator(lat, lon, s, e, n); 
+      break;
+    case TRANSVERSEMERCATOR:   
+      output_georef.set_transverse_mercator(lat, lon, s, e, n); 
+      break;
+    case ORTHOGRAPHIC:         
+      output_georef.set_orthographic(lat, lon, e, n); 
+      break;
+    case STEREOGRAPHIC:        
+      output_georef.set_stereographic(lat, lon, s, e, n); 
+      break;
+    case OSTEREOGRAPHIC:       
+      output_georef.set_oblique_stereographic(lat, lon, s, e, n); 
+      break;
+    case GNOMONIC:             
+      output_georef.set_gnomonic(lat, lon, s, e, n); 
+      break;
+    case LAMBERTAZIMUTHAL:     
+      output_georef.set_lambert_azimuthal(lat, lon, e, n); 
+      break;
+    case UTM:                  
+      output_georef.set_UTM(opt.utm_zone); 
+      break;
+    case GEOGRAPHIC:           
+      output_georef.set_geographic(); 
+      break;
+    case AUTO_DETERMINED:   
+      setAutoProj(lat, lon, output_georef);
+      break;
+    default:
+      // Throw an error if the projection is not set
+      vw::vw_throw(ArgumentErr() << "No projection was set.\n");
+  }
+  
+  return;
+} 
 
 } // end namespace asp

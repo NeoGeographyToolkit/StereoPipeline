@@ -190,6 +190,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
 // above datum, and either a utm zone or a custom PROJ string,
 // pass that info into the georeference for the purpose of converting
 // later from easting and northing to lon and lat.
+// TODO(oalexan1): This is fragile. It can quietly default to WGS84.
 bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
 
   bool success = false;
@@ -202,10 +203,9 @@ bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
                              << "\nPlease check if you are using an Earth datum.\n");
     }
   } else if (this->csv_srs != "") { // Not UTM, with PROJ string
-    bool have_user_datum = false, have_input_georef = false;
+    bool have_user_datum = false;
     Datum user_datum;
-    asp::set_srs_string(this->csv_srs, have_user_datum, user_datum,
-                        have_input_georef, georef);
+    asp::set_srs_string(this->csv_srs, have_user_datum, user_datum, georef);
     success = true;
   }
 

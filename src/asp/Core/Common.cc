@@ -708,7 +708,6 @@ asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
 // TODO(oalexan1): Move this to VW in the cartography module
 void asp::set_srs_string(std::string srs_string, bool have_user_datum,
                          vw::cartography::Datum const& user_datum,
-                         bool have_input_georef,
                          vw::cartography::GeoReference & georef) {
 
   // When an EPSG code is provided, store the name so that

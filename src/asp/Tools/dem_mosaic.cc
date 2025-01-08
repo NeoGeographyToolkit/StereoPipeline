@@ -1762,10 +1762,9 @@ int main(int argc, char *argv[]) {
 
     if (opt.target_srs_string != "") {
       // Set the srs string into georef.
-      bool have_user_datum = false, have_input_georef = false;
+      bool have_user_datum = false;
       Datum user_datum;
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum,
-                          have_input_georef, mosaic_georef);
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, mosaic_georef);
     }
 
     // Use desired spacing if user-specified

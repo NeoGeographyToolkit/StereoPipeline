@@ -451,10 +451,10 @@ int main(int argc, char* argv[]) {
 
     // User specified the proj4 string for the output georeference
     if (opt.target_srs_string != "") {
-      bool  have_user_datum = false, have_input_georef = false;
+      bool have_user_datum = false;
       Datum user_datum;
       asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum,
-                          have_input_georef, target_georef);
+                          target_georef);
     }
 
     // The user datum and DEM datum must agree

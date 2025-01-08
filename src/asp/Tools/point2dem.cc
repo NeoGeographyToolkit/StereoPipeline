@@ -69,7 +69,7 @@ void split_number_string(const std::string &input, std::vector<double> &output) 
 void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
   std::string dem_spacing1, dem_spacing2;
-
+  double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description manipulation_options("Manipulation options");
   manipulation_options.add_options()
     ("x-offset",       po::value(&opt.lon_offset)->default_value(0), 
@@ -89,9 +89,9 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
   po::options_description projection_options("Projection options");
   projection_options.add_options()
-    ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), 
-     "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ). If not provided, will be read from the point cloud, if available.")
-    ("t_projwin",     po::value(&opt.target_projwin),
+    ("t_srs", po::value(&opt.target_srs_string)->default_value(""), 
+     "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ). If not provided, will be read from the point cloud, if available, or auto-determined.")
+    ("t_projwin", po::value(&opt.target_projwin),
      "Specify a custom extent in georeferenced coordinates. This will be adjusted "
       "to ensure that the grid points are placed at integer multiples of the grid "
       "size.")
@@ -124,20 +124,22 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
      "Save using a Lambert azimuthal projection.")
     ("utm",        po::value(&opt.utm_zone),
      "Save using a UTM projection with the given zone.")
-    ("proj-lat",   po::value(&opt.proj_lat)->default_value(0),
-     "The center of projection latitude (if applicable).")
-    ("proj-lon",   po::value(&opt.proj_lon)->default_value(0),
-     "The center of projection longitude (if applicable).")
-    ("auto-proj-center", po::bool_switch(&opt.auto_proj_center)->default_value(false),
-     "Automatically compute the projection center, when the projection is "
-     "stereographic, etc. Use the median longitude and latitude of cloud "
-     "points. This overrides the values of --proj-lon and --proj-lat.")
+    ("geographic", "Save using the geographic projection (longitude and latitude). "
+      "Recommended only close to the equator.")
+    ("proj-lon",   po::value(&opt.proj_lon)->default_value(nan),
+     "The center of projection longitude. If not specified, it will be computed "
+     "automatically based on the estimated point cloud median.")
+    ("proj-lat",   po::value(&opt.proj_lat)->default_value(nan),
+     "The center of projection latitude. See also --proj-lon.")
     ("proj-scale", po::value(&opt.proj_scale)->default_value(1),
      "The projection scale (if applicable).")
     ("false-easting", po::value(&opt.false_easting)->default_value(0),
      "The projection false easting (if applicable).")
     ("false-northing", po::value(&opt.false_northing)->default_value(0),
-     "The projection false northing (if applicable).");
+     "The projection false northing (if applicable).")
+    ("auto-proj-center", po::bool_switch(&opt.auto_proj_center)->default_value(false),
+     "Automatically compute the projection center, unless --proj-lon and --proj-lat "
+     "are set. This is now the default, so this option is obsolete.");
 
   po::options_description general_options("General options");
   general_options.add_options()
@@ -242,14 +244,19 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   std::vector<std::string> input_files = vm["input-files"].as<std::vector<std::string>>();
   parse_input_clouds_textures(input_files, opt);
 
-  if (opt.median_filter_params[0] < 0 || opt.median_filter_params[1] < 0)
-    vw_throw(ArgumentErr() << "The parameters for median-based filtering "
-                            << "must be non-negative.\n");
-
   // This is a bug fix. The user by mistake passed in an empty projection string.
   if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
     vw_throw(ArgumentErr() 
              << "The value of --t_srs is empty. Then it must not be set at all.\n");
+  
+  if (opt.median_filter_params[0] < 0 || opt.median_filter_params[1] < 0)
+    vw_throw(ArgumentErr() << "The parameters for median-based filtering "
+                            << "must be non-negative.\n");
+
+  // If opt.target_srs is upper-case "auto", make it lowercase. Do not touch
+  // this string otherwise as PROJ complains.
+  if (boost::to_lower_copy(opt.target_srs_string) == "auto")
+    opt.target_srs_string = "auto";
   
   if (opt.has_las_or_csv_or_pcd && opt.median_filter_params[0] > 0 &&
       opt.median_filter_params[1] > 0)
@@ -333,10 +340,10 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
               << "Invalid values were provided for outlier removal params.\n");
   }
 
-  if (opt.input_is_projected && opt.auto_proj_center)
-    vw_throw(ArgumentErr() << "Cannot use both --input-is-projected and "
-             << "--auto-proj-center.\n");
-  
+  // opt.proj_lon and opt.proj_lat must either both be set or not
+  if (std::isnan(opt.proj_lon) != std::isnan(opt.proj_lat))
+    vw_throw(ArgumentErr() << "Must set both or neither of --proj-lon and --proj-lat.\n");
+    
   if (opt.max_valid_triangulation_error > 0) {
     // Since the user passed in a threshold, will use that to rm
     // outliers, instead of using the percentage.
@@ -369,6 +376,16 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     opt.target_srs_string = opt.csv_srs;
   }
 
+  // If csv_srs is empty, use --t_srs as a substitute.
+  if (opt.csv_srs.empty() && !opt.target_srs_string.empty() && 
+      opt.target_srs_string != "auto")
+    opt.csv_srs = opt.target_srs_string;
+
+  // This option is now the default so it is obsolete
+  if (opt.auto_proj_center)
+    vw::vw_out(WarningMessage) 
+      << "The --auto-proj-center option is now the default and need not be set.\n";
+    
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -392,13 +409,9 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   else if (vm.count("gnomonic"))              opt.projection = GNOMONIC;
   else if (vm.count("lambert-azimuthal"))     opt.projection = LAMBERTAZIMUTHAL;
   else if (vm.count("utm"))                   opt.projection = UTM;
-  else                                        opt.projection = PLATECARREE; // Default
+  else if (vm.count("geographic"))            opt.projection = GEOGRAPHIC;
+  else                                        opt.projection = AUTO_DETERMINED;
 
-  // Sanity check
-  if (opt.auto_proj_center && opt.projection == PLATECARREE)
-    vw::vw_throw(ArgumentErr() 
-                 << "No projection was set (such as --stereographic). "
-                 << "Cannot use --auto-proj-center.\n");
 } // end function handle_arguments()
 
 // Wrapper for rasterize_cloud that goes through all spacing values
@@ -458,87 +471,26 @@ void rasterize_cloud_multi_spacing(const ImageViewRef<Vector3>& proj_points,
   opt.out_prefix = base_out_prefix; // Restore the original value
 }
 
-// Set the projection based on options
-void set_projection(DemOptions const& opt, cartography::GeoReference & output_georef) {
-  
-  // Can set a projection either via a string or via options
-  if (!opt.target_srs_string.empty())
-    vw::vw_throw(ArgumentErr()
-                << "The --t_srs option must not be used when setting a projection.\n");
-
-  switch (opt.projection) {
-    case SINUSOIDAL:           output_georef.set_sinusoidal           (opt.proj_lon,                               opt.false_easting, opt.false_northing); break;
-    case MERCATOR:             output_georef.set_mercator             (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-    case TRANSVERSEMERCATOR:   output_georef.set_transverse_mercator  (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-    case ORTHOGRAPHIC:         output_georef.set_orthographic         (opt.proj_lat, opt.proj_lon,                 opt.false_easting, opt.false_northing); break;
-    case STEREOGRAPHIC:        output_georef.set_stereographic        (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-    case OSTEREOGRAPHIC:       output_georef.set_oblique_stereographic(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-    case GNOMONIC:             output_georef.set_gnomonic             (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-    case LAMBERTAZIMUTHAL:     output_georef.set_lambert_azimuthal    (opt.proj_lat, opt.proj_lon,                 opt.false_easting, opt.false_northing); break;
-    case UTM:                  output_georef.set_UTM(opt.utm_zone); break;
-    default: // lonlat projection
-      break;
-  }
-  
-  return;
-} 
-
 int main(int argc, char *argv[]) {
+  
   DemOptions opt;
   try {
     handle_arguments(argc, argv, opt);
 
-    // Set up the georeferencing information. We specify everything
-    // here except for the affine transform, which is defined later once
-    // we know the bounds of the orthorasterizer view.  However, we can
-    // still reproject the points in the point image without the affine
-    // transform because this projection never requires us to convert to
-    // or from pixel space.
-    GeoReference output_georef;
-
-    // See if we can get a georef from any of the input pc files
-    GeoReference pc_georef;
-    bool have_input_georef = asp::georef_from_pc_files(opt.pointcloud_files, pc_georef);
-    if (have_input_georef)
-      output_georef = pc_georef;
-
-    // See if the user specified the datum outside of the srs string
+    // Need to know for both CSV and point cloud parsing if have the user datum
     cartography::Datum user_datum;
     bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
                                                 opt.datum, user_datum);
 
-    // If the data was left in cartesian coordinates, we need to give
-    // the DEM a projection that uses some physical units (meters),
-    // rather than lon, lat. Otherwise, we honor the user's requested
-    // projection and convert the points if necessary.
-    // Do not quietly assume an Earth datum, the user must set it.
-    if (opt.target_srs_string.empty()) {
-      if (have_user_datum)
-        output_georef.set_datum(user_datum);
-      else if (!have_input_georef && opt.datum == "")
-        vw::vw_throw(vw::ArgumentErr()
-                     << "A datum, projection, or semi-axes must be set.\n");
-      set_projection(opt, output_georef);
-    } else {
-      // Set the user-specified the target srs_string into georef
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum,
-                          have_input_georef, output_georef);
-    }
-
-    // If the csv PROJ string is empty, use the output georef wkt
-    if (opt.csv_srs.empty())
-      opt.csv_srs = output_georef.get_wkt();
-    
     // Configure a CSV converter object according to the input parameters
     asp::CsvConv csv_conv;
     csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_srs); // Modifies csv_conv
     vw::cartography::GeoReference csv_georef;
-    csv_conv.parse_georef(csv_georef);
-
-    // The provided datums must not be too different  
-    bool warn_only = false; 
-    if (!opt.csv_srs.empty())
-      vw::checkDatumConsistency(output_georef.datum(), csv_georef.datum(), warn_only);
+    // TODO(oalexan1): The logic below is fragile. Check all locations
+    // where parse_georef is called and see if a datum always exists.
+    if (have_user_datum)
+      csv_georef.set_datum(user_datum); // Set the datum
+    csv_conv.parse_georef(csv_georef); // This alone may not set the datum always
 
     // Convert any input LAS, CSV, PCD, or unorganized projected TIF files to
     // ASP's point cloud tif format
@@ -546,11 +498,12 @@ int main(int argc, char *argv[]) {
     //   themselves specify a different datum.
     // - Should all be XYZ format when finished, unless option 
     //  --input-is-projected is set.
-    std::vector<std::string> tif_files;
-    chip_convert_to_tif(opt, csv_conv, csv_georef, tif_files);
+    std::vector<std::string> conv_files;
+    chip_convert_to_tif(opt, csv_conv, csv_georef, 
+                        opt.pointcloud_files, conv_files); // outputs
 
-    // Generate a merged xyz point cloud consisting of all inputs
-    // - By now, each input exists in xyz tif format.
+    // Generate a merged xyz point cloud consisting of all inputs. By now, each
+    // input exists in xyz tif format.
     ImageViewRef<Vector3> point_image
       = asp::form_point_cloud_composite<Vector3>(opt.pointcloud_files,
                                                  ASP_MAX_SUBBLOCK_SIZE);
@@ -568,7 +521,7 @@ int main(int argc, char *argv[]) {
     // Set up the error image
     ImageViewRef<double> error_image;
     if (opt.remove_outliers_with_pct || opt.use_tukey_outlier_removal ||
-        opt.max_valid_triangulation_error > 0.0){
+        opt.max_valid_triangulation_error > 0.0) {
       error_image = asp::point_cloud_error_image(opt.pointcloud_files);
       
       if (error_image.rows() == 0 || error_image.cols() == 0) {
@@ -580,27 +533,58 @@ int main(int argc, char *argv[]) {
       }
     }
     
-    // TODO(oalexan1): Do we need anywhere here the lon-lat window?
-    // E.g.: georef.ll_box_from_pix_box(image_bbox);
-    
-    // Determine if we should be using a longitude range between
-    // [-180, 180] or [0,360]. The former is used, unless the latter
-    // results in a tighter range of longitudes, such as when crossing
-    // the international date line.
-    vw::BBox2 lonlat_box = asp::estim_lonlat_box(point_image, output_georef.datum());
-    output_georef.set_image_ll_box(lonlat_box);
-    
-    // TODO: Do we need the recenter code now that we have this?
-    // TODO: Modify other code so we don't have to handle this one special case!
-    // Forcing the georef object outside its comfort zone is not safe for all projections!
+    // Set up the georeferencing information. We specify everything
+    // here except for the affine transform, which is defined later once
+    // we know the bounds of the orthorasterizer view.  However, we can
+    // still reproject the points in the point image without the affine
+    // transform because this projection never requires us to convert to
+    // or from pixel space.
+    GeoReference output_georef;
 
-    if (opt.auto_proj_center) {
-      // Find the median lon lat and reapply this to the georef. Must be done
-      // after estimating the lonlat box.
-      asp::median_lon_lat(point_image, output_georef, opt.proj_lon, opt.proj_lat);
-      set_projection(opt, output_georef);
+    // See if we can get a georef from any of the input pc files
+    GeoReference pc_georef;
+    bool have_input_georef = asp::georef_from_pc_files(opt.pointcloud_files, pc_georef);
+    if (have_input_georef)
+      output_georef = pc_georef;
+
+    // If the user set --t_srs, set the output georef to that. If not, set up
+    // the datum for now, and then will set the projection later.
+    if (opt.target_srs_string.empty() || opt.target_srs_string == "auto") {
+      if (have_user_datum)
+        output_georef.set_datum(user_datum);
+      else if (!have_input_georef && opt.datum == "")
+        vw::vw_throw(vw::ArgumentErr()
+                     << "A datum, projection, or semi-axes must be set.\n");
+    } else {
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, output_georef);
+    }
+
+    // Determine if we should be using a longitude range between [-180, 180] or
+    // [0, 360]. The former is used, unless the latter results in a tighter
+    // range of longitudes, such as when crossing the international date line.
+    // This logic needs the datum only, which is set up by now.
+    vw::BBox2 lonlat_box;
+    if (!opt.input_is_projected) {
+      lonlat_box = asp::estim_lonlat_box(point_image, output_georef.datum());
+      output_georef.set_image_ll_box(lonlat_box);
     }
     
+    // Finalize setting the projection. This is is normally auto-determined.
+    if ((opt.target_srs_string.empty() || opt.target_srs_string == "auto")
+        && !opt.input_is_projected) {
+      // Find the median lon lat and reapply this to the georef. Must be done
+      // after estimating the lonlat box.
+      if (std::isnan(opt.proj_lon) && std::isnan(opt.proj_lat))
+        asp::median_lon_lat(point_image, output_georef, opt.proj_lon, opt.proj_lat);
+      // Auto-determine the projection
+      setProjection(opt, output_georef);
+    }
+    
+    // The provided datums must not be too different  
+    bool warn_only = false; 
+    if (!opt.csv_srs.empty())
+      vw::checkDatumConsistency(output_georef.datum(), csv_georef.datum(), warn_only);
+
     // Convert xyz points to projected points
     // - The cartesian_to_geodetic call converts invalid (0,0,0,0) points to NaN,
     //   which is checked for in the OrthoRasterizer class.
@@ -638,10 +622,10 @@ int main(int argc, char *argv[]) {
     // Create the DEM
     rasterize_cloud_multi_spacing(proj_points, opt, output_georef, error_image,
                                   estim_max_error, estim_proj_box);
-    // Wipe the temporary files
-    for (size_t i = 0; i < tif_files.size(); i++)
-      if (fs::exists(tif_files[i])) 
-        fs::remove(tif_files[i]);
+    // Wipe the temporary converted files
+    for (size_t i = 0; i < conv_files.size(); i++)
+      if (fs::exists(conv_files[i])) 
+        fs::remove(conv_files[i]);
     
   } ASP_STANDARD_CATCHES;
 

@@ -1465,11 +1465,9 @@ void initial_filter_by_proj_win(asp::BaBaseOptions          & opt,
   // datum radii, which is confusing. Use asp::set_srs_string().
   vw::cartography::GeoReference georef;
   bool have_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
-  bool have_input_georef = false;
-  asp::set_srs_string(opt.proj_str, have_datum, opt.datum,
-                      have_input_georef, georef);
+  asp::set_srs_string(opt.proj_str, have_datum, opt.datum, georef);
 
-  int num_points  = param_storage.num_points();
+  int num_points = param_storage.num_points();
   for (int i = 0; i < num_points; i++) {
       
     if (param_storage.get_point_outlier(i))

@@ -47,7 +47,8 @@ enum ProjectionType {
   GNOMONIC,
   LAMBERTAZIMUTHAL,
   UTM,
-  PLATECARREE // has no effect, this is the default
+  GEOGRAPHIC,
+  AUTO_DETERMINED
 };
 
 struct DemOptions: vw::GdalWriteOptions {
@@ -96,16 +97,21 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 // Convert any LAS or CSV files to ASP tif files. We do some binning to make the
 // spatial data more localized, to improve performance. We will later wipe these
 // temporary tif files.
-void chip_convert_to_tif (DemOptions& opt,
+void chip_convert_to_tif(DemOptions const& opt,
                          asp::CsvConv const& csv_conv,
                          vw::cartography::GeoReference const& csv_georef,
-                         std::vector<std::string> & tif_files);
+                         std::vector<std::string> & pc_files, 
+                         std::vector<std::string> & conv_files);
 
 // Rasterize a DEM
 void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
                      DemOptions& opt,
                      cartography::GeoReference& georef,
                      std::int64_t * num_invalid_pixels);
+
+// Set the projection based on options. By now opt.proj_lon and opt.proj_lat
+// should have been set. 
+void setProjection(DemOptions const& opt, cartography::GeoReference & output_georef);
 
 } // end namespace asp
 
