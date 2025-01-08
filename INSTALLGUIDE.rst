@@ -5,7 +5,7 @@ Precompiled binaries are available for the stable releases and the
 current development build. Stereo Pipeline can also be compiled from
 source, but this is not recommended (:numref:`building_asp`).
 
-.. _precompiled_binaries:
+.. _release:
 
 Precompiled binaries
 --------------------
@@ -189,7 +189,7 @@ Fetching pre-compiled ASP with conda
 ------------------------------------
 
 *The latest ASP release (3.4.0, June 19, 2024) is available only as binaries*.
-See :numref:`precompiled_binaries` for how to fetch them.
+See :numref:`release` for how to fetch them.
 
 The reason is that the latest ISIS conda release (8.0.3) has dependencies that
 are incompatible with what ASP expects. This will be rectified in the next ASP
@@ -205,7 +205,7 @@ The ASP 3.3.0 release (August 16, 2023) can be installed via conda, together
 with ISIS 8.0.0.
 
 ASP conda packages do not exist for ARM64 Mac (M1/M2). See
-:numref:`precompiled_binaries` for how this and platforms may be handled.
+:numref:`release` for how this and platforms may be handled.
 
 To install ``conda``, see:
 
@@ -259,7 +259,7 @@ Install ASP with the command::
      stereo-pipeline==3.3.0
 
 This will install ASP 3.3.0 together with ISIS 8.0.0. Note that the *latest
-build* (:numref:`precompiled_binaries`) may have more features and fixes than
+build* (:numref:`release`) may have more features and fixes than
 this official release.
 
 Alternatively, consider using ``mamba`` instead of ``conda``. It is
@@ -272,7 +272,7 @@ Run::
 to activate the environment in any new shell. This should put the ASP binaries
 in the path, and will also initialize the ``PROJ_DATA`` environment variable
 that is needed for the PROJ library. Or, set the PATH variable as in
-:numref:`precompiled_binaries`.
+:numref:`release`.
   
 Post-installation
 ~~~~~~~~~~~~~~~~~

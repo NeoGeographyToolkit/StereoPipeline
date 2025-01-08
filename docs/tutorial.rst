@@ -38,8 +38,8 @@ other alignment methods and stereo algorithms.
 
 Then normally one would create a DEM (:numref:`point2dem`)::
   
-      point2dem --stereographic --auto-proj-center results/run-PC.tif
-      
+      point2dem --auto-proj-center results/run-PC.tif
+
 Here it is assumed that the ``PATH`` and ``ISISDATA`` environmental
 variables have been set, as shown in :numref:`installation`. 
 
@@ -114,11 +114,12 @@ to process it are as follows:
 
 The crop windows from above will show up as red rectangles.
 
-Choose from the menu ``Run -> Run parallel_stereo``. When finished,
-quit the GUI and run from the command line::
+Choose from the menu ``Run -> Run parallel_stereo``. When finished, quit the GUI
+and run ``point2dem`` (:numref:`point2dem`) from the command line::
 
-    point2dem --stereographic --auto-proj-center \
-      --errorimage run/run-PC.tif --orthoimage run/run-L.tif
+    point2dem --auto-proj-center  \
+      --errorimage run/run-PC.tif \
+      --orthoimage run/run-L.tif
 
 Open the computed DEM and orthoimage as::
 
@@ -191,10 +192,10 @@ data with tools specific for each mission.
 Once the ``.cub`` files are obtained, it is possible to run
 ``parallel_stereo`` right away, and create a DEM::
 
-     ISIS> parallel_stereo E0201461.cub M0100115.cub    \
-             --alignment-method affineepipolar          \
+     ISIS> parallel_stereo E0201461.cub M0100115.cub   \
+             --alignment-method affineepipolar         \
              -s stereo.default.example results/output
-     ISIS> point2dem --stereographic --auto-proj-center \
+     ISIS> point2dem --auto-proj-center                \
              results/output-PC.tif
 
 In this case, the first thing ``parallel_stereo`` does is to
@@ -206,7 +207,7 @@ If your data has steep slopes, mapprojection can improve the results.
 See :numref:`mapproj-example` and :numref:`mapproj_with_cam2map`. 
 
 When creating a DEM, it is suggested to use a local projection
-(:numref:`point2dem`), especially towards poles.
+(:numref:`point2dem_proj`).
 
 See :numref:`nextsteps` for a more in-depth discussion of stereo
 algorithms.
@@ -305,7 +306,7 @@ you use affine epipolar alignment to reduce the search range. Commands::
       12FEB16101327.r50.tif 12FEB16101426.r50.tif         \
       12FEB16101327.r50.xml 12FEB16101426.r50.xml         \
       run/run
-    point2dem --stereographic --auto-proj-center run-PC.tif
+    point2dem --auto-proj-center run-PC.tif
 
 As discussed in :numref:`tutorial`, one can experiment with various
 tradeoffs of quality versus run time by using various stereo
@@ -313,7 +314,8 @@ algorithms, and use stereo in parallel or from a GUI. For more
 details, see :numref:`nextsteps`.
 
 How to create a DEM and visualize the results of stereo is described in
-:numref:`visualising`.
+:numref:`visualising`. Choosing a projection is discussed in
+:numref:`point2dem_proj`.
 
 .. figure:: images/examples/dg/wv_tutorial.png
    :name: fig:dg-example

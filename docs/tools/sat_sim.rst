@@ -36,10 +36,11 @@ Use given cameras
 ^^^^^^^^^^^^^^^^^
 ::
   
-    sat_sim --dem dem.tif --ortho ortho.tif          \
-    --camera-list camera_list.txt                    \
-    --image-size 800 600                             \
-    -o run/run
+    sat_sim --dem dem.tif           \
+      --ortho ortho.tif             \
+      --camera-list camera_list.txt \
+      --image-size 800 600          \
+      -o run/run
 
 The camera names in the list should be one per line. The produced image names
 will be created from camera names by keeping the filename (without directory
@@ -603,11 +604,12 @@ the area of interest. It is suggested to create it using stereo
 The stereo cloud should be converted to a DEM, preferably in the local
 stereographic projection, using a grid size that is perhaps 4 times the ground
 sample distance (GSD). For example, for images having a GSD of 0.4 meters, a
-command as follows may work (adjust the actual projection center and datum to your
-location)::
+command as follows may work::
 
-  proj='+proj=stere +lat_0=-25.34361 +lon_0=131.0329 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'
-  point2dem --t_srs "$proj" --tr 1.6 run/run-PC.tif
+  point2dem --auto-proj-center --tr 1.6 run/run-PC.tif
+
+See :numref:`point2dem_proj` for a discussion regarding the projection of the
+produced DEM.
 
 The ``dem_mosaic`` (:numref:`dem_mosaic`) tool can be used to fill holes in the
 DEM, using either the ``--hole-fill-length`` or ``--fill-search-radius`` option.
@@ -630,16 +632,19 @@ or bilinear interpolation is suggested), and cropped to desired area with
 This assumes that the two DEMs being blended are reasonably well-aligned.
 Otherwise, alignment may be needed (:numref:`pc_align`).
 
-One can also use such a third party DEM if no stereo DEM can be produced. 
+One can also use such a third-party DEM if no stereo DEM can be produced. 
 
 The orthoimage can be obtained by mapprojecting (:numref:`mapproject`) a
 satellite image onto the DEM at the native resolution of the image::
 
-    mapproject --t_srs "$proj" --tr 0.4 -t rpc filled-DEM.tif \
+    mapproject -t rpc filled-DEM.tif \
       image.tif image.xml ortho.tif
 
 Here we assumed a WorldView satellite, so option ``-t rpc`` was used. See
 :numref:`other-mapproj` for how to handle other satellites.
+
+The resolution and projection can be set via ``--tr`` and ``--t_srs`` if need
+be.
 
 Output files
 ^^^^^^^^^^^^

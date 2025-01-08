@@ -48,6 +48,9 @@ Then, these are converted to ISIS .cub files and ``parallel_stereo`` is run::
     
     parallel_stereo FC21A0010191_11286212239F1T.cub \
       FC21A0010192_11286212639F1T.cub stereo/stereo
+      
+A DEM is then created with ``point2dem`` (:numref:`point2dem`)::
+    
     point2dem stereo-PC.tif --orthoimage stereo-L.tif \
       --t_srs "+proj=eqc +lat_ts=-11.5 +a=280000 +b=229000 +units=m"
 

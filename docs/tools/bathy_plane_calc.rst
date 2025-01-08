@@ -211,12 +211,16 @@ example, from a stereo pair, and the shapefile delineating the
 water-land interface be drawn on top of an orthoimage created with the
 same stereo pair. The commands for that can be as follows::
 
-     parallel_stereo -t dg left.tif right.tif left.xml right.xml \
+     parallel_stereo -t dg        \
+        left.tif right.tif        \
+        left.xml right.xml        \
        run/run
-     point2dem --orthoimage run/run-PC.tif run/run-L.tif
+     point2dem --auto-proj-center \
+       --orthoimage run/run-L.tif \
+       run/run-PC.tif 
 
-See :numref:`nextsteps` for a discussion about various
-speed-vs-quality choices.
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices
+in stereo, and the ``point2dem`` documentation in :numref:`point2dem`.
 
 Here is an example of a shapefile created on top of an orthoimage:
 

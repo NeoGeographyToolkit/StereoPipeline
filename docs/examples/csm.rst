@@ -163,12 +163,15 @@ Running stereo
       left.cub right.cub left.json right.json  \
       run/run
 
+See :numref:`nextsteps` for a discussion about various
+speed-vs-quality choices when running stereo.
+
+This is followed by creation of a DEM (:numref:`point2dem`)
+and products that can be visualized (:numref:`genhillshade`)::
+
     point2dem run/run-PC.tif --orthoimage run/run-L.tif 
     hillshade run/run-DEM.tif 
     colormap run/run-DEM.tif -s run/run-DEM_HILLSHADE.tif 
-
-See :numref:`nextsteps` for a discussion about various
-speed-vs-quality choices when running stereo.
 
 .. figure:: ../images/CSM_Frame.png
    :name: CSM_Frame_example
@@ -248,31 +251,43 @@ Running stereo
 
 ::
 
-    parallel_stereo --stereo-algorithm asp_mgm         \
-      --subpixel-mode 9                                \
-       left.cub right.cub left.json right.json run/run    
-    point2dem -r mars --stereographic --proj-lon 77.4  \
-       --proj-lat 18.4 run/run-PC.tif
+    parallel_stereo --stereo-algorithm asp_mgm \
+      --subpixel-mode 9                        \
+       left.cub right.cub left.json right.json \
+       run/run 
 
 Check the stereo convergence angle as printed during preprocessing
 (:numref:`stereo_pairs`). If that angle is small, the results are not
 going to be great.
 
 See :numref:`nextsteps` for a discussion about various stereo
-algorithms and speed-vs-quality choices.
+algorithms and speed-vs-quality choices. 
+
+The fancier MGM algorithm could be used by running this example with
+``--stereo-algorithm asp_mgm``.
 
 The actual stereo session used is ``csm``, and here it will be
-auto-detected based on the extension of the camera files. For
-``point2dem`` we chose to use a stereographic projection centered at
-some point in the area of interest. The fancier MGM algorithm could be
-used by running this example with ``--stereo-algorithm asp_mgm``.
+auto-detected based on the extension of the camera files.
+
+Next, a DEM is produced (:numref:`point2dem`)::
+       
+    point2dem -r mars --stereographic \
+      --proj-lon 77.4 --proj-lat 18.4 \
+      run/run-PC.tif
+
+For ``point2dem`` we chose to use a stereographic projection centered at
+some point in the area of interest. See :numref:`point2dem_proj`
+for how how a projection for the DEM can be auto-determined.
 
 One can also run ``parallel_stereo`` with mapprojected images
 (:numref:`mapproj-example`). The first step would be to create a
 low-resolution smooth DEM from the previous cloud::
 
-     point2dem  -r mars --stereographic --proj-lon 77.4 \
-       --proj-lat 18.4 run/run-PC.tif --tr 120          \
+     point2dem -r mars                 \
+       --stereographic                 \
+       --proj-lon 77.4 --proj-lat 18.4 \
+        --tr 120                       \
+       run/run-PC.tif                  \
        -o run/run-smooth
 
 followed by mapprojecting onto it and redoing stereo::
@@ -475,15 +490,19 @@ Running stereo
       M119923055ME.json M119929852ME.json        \
       run/run
 
-    point2dem run/run-PC.tif --orthoimage run/run-L.tif 
-    hillshade run/run-DEM.tif 
-    colormap run/run-DEM.tif -s run/run-DEM_HILLSHADE.tif 
-
 As printed by ``stereo_pprc``, the convergence angle is about 27
 degrees, which is a good number.
 
 See :numref:`nextsteps` for a discussion about various stereo
 speed-vs-quality choices.
+
+A DEM is produced with ``point2dem`` (:numref:`point2dem`), and other products
+are made for visualization (:numref:`visualising`)::
+
+    point2dem --stereographic --auto-proj-center \
+      run/run-PC.tif --orthoimage run/run-L.tif 
+    hillshade run/run-DEM.tif 
+    colormap run/run-DEM.tif -s run/run-DEM_HILLSHADE.tif 
 
 .. figure:: ../images/CSM_WAC.png
    :name: CSM_WAC_example
@@ -502,24 +521,28 @@ re-running stereo, per (:numref:`mapproj-example`).
 
 ::
 
-    point2dem --tr 0.03 run/run-PC.tif --search-radius-factor 5 -o \
-      run/run-low-res
-    mapproject --tr 0.0025638 run/run-low-res-DEM.tif              \
+    point2dem --stereographic --auto-proj-center       \
+      --tr 800 run/run-PC.tif --search-radius-factor 5 \
+      -o run/run-low-res
+    mapproject --tr 80 run/run-low-res-DEM.tif         \
       M119923055ME.cub M119923055ME.json M119923055ME.map.tif 
-    mapproject --tr 0.0025638 run/run-low-res-DEM.tif              \
-      M119929852ME.cub M119929852ME.json M119929852ME.map.tif    
-    parallel_stereo --stereo-algorithm asp_mgm                     \
-      M119923055ME.map.tif M119929852ME.map.tif                    \
-      M119923055ME.json M119929852ME.json                          \
-      run_map/run run/run-low-res-DEM.tif    
-    point2dem run_map/run-PC.tif --orthoimage run_map/run-L.tif 
+    mapproject --tr 80 run/run-low-res-DEM.tif         \
+      M119929852ME.cub M119929852ME.json M119929852ME.map.tif 
+    parallel_stereo --stereo-algorithm asp_mgm         \
+      M119923055ME.map.tif M119929852ME.map.tif        \
+      M119923055ME.json M119929852ME.json              \
+      run_map/run run/run-low-res-DEM.tif 
+    point2dem --stereographic --auto-proj-center       \
+      run_map/run-PC.tif --orthoimage run_map/run-L.tif 
     hillshade run_map/run-DEM.tif 
     colormap run_map/run-DEM.tif -s run_map/run-DEM_HILLSHADE.tif 
 
-To create the low-resolution DEM we used a grid size which is about 10
-times coarser than the one for the DEM created earlier. Note that the
-same resolution is used when mapprojecting both images; that is very
-important to avoid a large search range in stereo later. This is discussed
+To create the low-resolution DEM we used a grid size of 800 m,
+which is coarser by a factor of about 8 compared to the nominal WAC
+resolution of 100 / pixel. 
+
+Note that the same resolution is used when mapprojecting both images; that is
+very important to avoid a large search range in stereo later. This is discussed
 in more detail in :numref:`mapproj-example`.
 
 .. figure:: ../images/CSM_WAC_mapproj.png
@@ -705,7 +728,7 @@ It is simpler to first run a clip with ``stereo_gui``
 The stereo convergence angle for this pair is 18.4 degrees which is
 rather decent.
 
-Create a colorized DEM and orthoimage::
+Create a colorized DEM and orthoimage (:numref:`point2dem`)::
 
     point2dem run/run-PC.tif --orthoimage run/run-L.tif 
     hillshade run/run-DEM.tif 

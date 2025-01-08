@@ -15,7 +15,8 @@ The ``point2mesh`` program requires a point cloud file or a DEM, and an
 optional texture file. For example, it can be used with
 ``output-prefix-PC.tif`` and ``output-prefix-L.tif``, as output by
 ``stereo``, or otherwise with ``output-prefix-DEM.tif`` and
-``output-prefix-DRG.tif``, with the latter two output by ``point2dem``.
+``output-prefix-DRG.tif``, with the latter two output by ``point2dem``
+(:numref:`point2dem`).
 
 When a texture file is not provided, a constant texture is applied. (A
 mesh viewer will still show a color variation that depends on the
@@ -34,12 +35,15 @@ frame rate of the 3D viewer and affect performance.
 
 The ``--texture-step-size`` flag sets the texture sub-sampling rate.
 For visualization it may be preferable for the produced cloud to be
-rather coarse but for the texture overlayed on it to have higher
+rather coarse but for the texture overlaid on it to have higher
 resolution. This program enforces that the cloud subsampling rate be a
 multiple of the texture subsampling rate, hence the sampled texture
 indices are a superset of the point cloud indices.
 
-Examples::
+Examples
+~~~~~~~~
+
+::
 
     point2mesh --center --point-cloud-step-size 4  \
       --texture-step-size 2 output-prefix-PC.tif   \
@@ -57,11 +61,12 @@ float32 precision, may render the mesh with artifacts without this
 option.
 
 (Note that older versions of MeshLab may have a hard time opening a
-mesh if your output prefix is a directory. In that case either open
+mesh if the output prefix is a directory. In that case either open
 the mesh from the GUI or change to that directory having the ``.obj``
 file first and invoke MeshLab there.)
 
-Command-line options for point2mesh:
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
 -s, --point-cloud-step-size <integer (default: 10)>
     Sample by picking one out of these many samples from the point cloud.

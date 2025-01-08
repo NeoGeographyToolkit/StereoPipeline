@@ -30,7 +30,7 @@ On a PBS system, one can have a script as follows::
       run/run
 
     # Run point2dem
-    point2dem run/run-PC.tif 
+    point2dem --auto-proj-center run/run-PC.tif 
 
 Note the two special environmental variables ``PBS_O_WORKDIR`` and ``PBS_NODEFILE``
 which refer to the current work directory in which the script is started, and the

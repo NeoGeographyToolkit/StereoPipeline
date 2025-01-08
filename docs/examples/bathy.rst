@@ -199,7 +199,7 @@ the water plane found before.
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices.
 
-This is followed by creating a DEM::
+This is followed by creating a DEM (:numref:`point2dem`)::
 
     point2dem run_bathy/run-PC.tif --orthoimage run_bathy/run-L.tif 
 

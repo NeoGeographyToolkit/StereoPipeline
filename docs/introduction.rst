@@ -130,7 +130,7 @@ stereo reconstruction and bundle adjustment can be best used together to
 produce high quality results. You are welcome to contact us if you have
 any questions (:numref:`get-help`).
 
-Software Foundations
+Software foundations
 --------------------
 
 NASA Vision Workbench
@@ -172,7 +172,7 @@ captured by just about any NASA mission.
 
 .. _get-help:
 
-Getting Help and Reporting Bugs
+Getting help and reporting bugs
 -------------------------------
 
 All bugs, feature requests, and general discussion should be posted on
@@ -188,7 +188,7 @@ to:
 When you submit a bug report, it may be helpful to attach the logs
 output by ``parallel_stereo`` and other tools (:numref:`logging`).
 
-Typographical Conventions
+Typographical conventions
 -------------------------
 
 Names of programs that are meant to be run on the command line are

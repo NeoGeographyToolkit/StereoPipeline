@@ -49,10 +49,10 @@ edit the .img files and change level 3 to level 2. That can be done with::
 
 Then run::
 
-     ISIS> hrsc2isis from=h1995_0000_s13.img to=h1995_0000_s13.cub
-     ISIS> hrsc2isis from=h1995_0000_s23.img to=h1995_0000_s23.cub
-     ISIS> spiceinit from=h1995_0000_s13.cub ckpredicted=true
-     ISIS> spiceinit from=h1995_0000_s23.cub ckpredicted=true
+    hrsc2isis from=h1995_0000_s13.img to=h1995_0000_s13.cub
+    hrsc2isis from=h1995_0000_s23.img to=h1995_0000_s23.cub
+    spiceinit from=h1995_0000_s13.cub ckpredicted=true
+    spiceinit from=h1995_0000_s23.cub ckpredicted=true
      
 Here we added the ``ckpredicted=true`` flag to ``spiceinit``. Adding
 ``web=true`` can help avoid downloading the kernels, if this works. See the
@@ -67,10 +67,17 @@ experiment running stereo on a small region with ``stereo_gui``
 
 The suggested command to run on the full images is::
 
-     ISIS> parallel_stereo h1995_0000_s13.cub  h1995_0000_s23.cub \
-             --stereo-algorithm 2 --cost-mode 3 mgm/out
-     ISIS> point2dem --stereographic --auto-proj-center \
-             mgm/out-PC.tif         
+    parallel_stereo h1995_0000_s13.cub h1995_0000_s23.cub \
+      --stereo-algorithm asp_mgm                          \
+      --cost-mode 3                                       \
+      mgm/out
 
 See :numref:`nextsteps` for other stereo algorithms, and information on
 tradeoffs between them.
+
+A DEM is created with ``point2dem`` (:numref:`point2dem`)::
+
+    point2dem                            \
+      --stereographic --auto-proj-center \
+      mgm/out-PC.tif 
+

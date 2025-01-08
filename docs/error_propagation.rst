@@ -100,8 +100,11 @@ algorithm as for computing the DEM heights.
 
 Example::
 
-    point2dem --t_srs <projection string> --tr <grid size> \
-      --propagate-errors run/run-PC.tif
+    point2dem                     \
+      --t_srs <projection string> \
+      --tr <grid size>            \
+      --propagate-errors          \
+      run/run-PC.tif
 
 This will produce the files ``run/run-HorizontalStdDev.tif`` and
 ``run/run-VerticalStdDev.tif`` alongside the output DEM, ``run/run-DEM.tif``.
@@ -162,16 +165,24 @@ Example
 
 For Maxar (DigitalGlobe) linescan cameras::
 
-    parallel_stereo --alignment-method local_epipolar \
-      --stereo-algorithm asp_mgm --subpixel-mode 9    \
-      -t dg --propagate-errors                        \
+    parallel_stereo                     \
+      --alignment-method local_epipolar \
+      --stereo-algorithm asp_mgm        \
+      --subpixel-mode 9                 \
+      -t dg                             \
+      --propagate-errors                \
       left.tif right.tif left.xml right.xml 
       run/run
-   point2dem --tr 1.6                                            \
-     --t_srs "+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs" \
-     --propagate-errors run/run-PC.tif
+      
+   proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
+   
+   point2dem --tr 1.6                   \
+     --t_srs "$proj"                    \
+     --propagate-errors                 \
+     run/run-PC.tif
 
-The projection and grid size above are dependent on the dataset. 
+The projection and grid size above are dependent on the dataset. For steep
+slopes, consider using mapprojection (:numref:`mapproj-example`).
 
 Alternatively, the input horizontal stddev values for the cameras
 can be set as::
@@ -315,4 +326,3 @@ The created DEMs (with nominal and then with biased cameras) can have
 their heights compared using the ``geodiff --absolute`` command
 (:numref:`geodiff`). We found a height difference that is very similar
 to the vertical standard deviation produced earlier.
-

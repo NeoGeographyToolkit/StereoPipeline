@@ -295,7 +295,7 @@ angle and number of matches between any two images in a given set
 (:numref:`ba_conv_angle`).
 
 That data can be used to decide on promising stereo pairs to consider
-(:numref:`stereo_pairs`). Pairwise stereo and DEM creation are run, as in
+(:numref:`stereo_pairs`). Pairwise stereo and DEM creation can be run, as in
 :numref:`tutorial`.
 
 The DEMs can be mosaicked together with ``dem_mosaic`` (:numref:`dem_mosaic`). 
@@ -501,9 +501,13 @@ Run ``parallel_stereo`` (:numref:`parallel_stereo`) on the DMS images::
 Create a DEM and orthoimage from the stereo results with ``point2dem``
 (:numref:`point2dem`)::
 
-   point2dem --datum WGS_1984                    \
-     --stereographic --proj-lon 0 --proj-lat -90 \
-     st_run/out-PC.tif --orthoimage st_run/out-L.tif
+   point2dem --datum WGS_1984 \
+     --auto-proj-center       \
+     st_run/out-PC.tif        \
+     --orthoimage st_run/out-L.tif
+
+This will auto-guess an UTM or polar stereographic projection 
+(:numref:`point2dem_proj`).
 
 Colorize and hillshade the DEM::
      
@@ -513,7 +517,7 @@ Create a DEM from the LVIS data::
 
    point2dem ILVIS2_AQ2009_1105_R1408_055812.TXT     \
      --datum WGS_1984                                \
-     --stereographic --proj-lon 0 --proj-lat -90     \
+     --auto-proj-center                              \
      --csv-format "5:lat 4:lon 6:height_above_datum" \
      --tr 30                                         \
      --search-radius-factor 2.0                      \

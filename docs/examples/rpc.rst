@@ -66,6 +66,16 @@ images. The stereo command is then::
       left.tif right.tif         \
       results/run
 
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+
+For terrains having steep slopes, we recommend that images be mapprojected onto
+an existing DEM before running stereo. This is described in
+:numref:`mapproj-example`.
+
+Next, ``point2dem`` (:numref:`point2dem`) is run::
+
+    point2dem --auto-proj-center results/run-PC.tif
+    
 For some cameras the RPC coefficients are stored in separate files ending in
 .RPB or \_RPC.TXT (or in lower-case). These will be loaded automatically and
 should not be specified in the stereo command. 
@@ -83,12 +93,6 @@ command is::
       left.tif right.tif         \
       left.xml right.xml         \
       results/run
-
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
-
-For terrains having steep slopes, we recommend that images be mapprojected onto
-an existing DEM before running stereo. This is described in
-:numref:`mapproj-example`.
 
 The RPC cameras can be bundle-adjusted (:numref:`bundle_adjust`).
 

@@ -484,7 +484,7 @@ zipped package having all ASP tools and needed libraries (this includes the ISIS
 libraries but not the ISIS tools). 
 
 Such a build is created for each release and also daily. These are posted on the
-GitHub release page (:numref:`precompiled_binaries`). 
+GitHub release page (:numref:`release`). 
 
 ASP uses a custom build system. It can be downloaded with ``git`` from:
 
@@ -554,7 +554,7 @@ The `StereoPipeline test suite
 comprehensive tests for the ASP tools.
 
 This functionality creates the daily builds, which are then
-uploaded to the GitHub release page (:numref:`precompiled_binaries`). 
+uploaded to the GitHub release page (:numref:`release`). 
 
 Push the release to GitHub
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

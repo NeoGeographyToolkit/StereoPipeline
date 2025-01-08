@@ -106,6 +106,8 @@ point2las (:numref:`point2las`):
   * Added the options ``--save-intensity-from-image`` and ``--save-stddev``.
 
 point2dem (:numref:`point2dem`):
+  * The default projection for WGS84 is now UTM / polar stereographic. 
+    For other datums it is local stereographic (:numref:`point2dem_proj`).
   * Adjust the region passed in via the option ``--t_projwin`` so that, as
     usual, the DEM grid coordinates are integer multiples of the grid size.
   * Handle robustly invalid input points.
@@ -337,7 +339,7 @@ parallel_stereo (:numref:`parallel_stereo`):
 point2dem (:numref:`point2dem`):
   * Added the option ``--auto-proj-center``, to automatically compute the
     projection center for stereographic and other projections
-    (:numref:`point2dem_auto_proj_center`).
+    (:numref:`point2dem_proj`).
   * When the lon-lat projection is used, the output DEM longitude range
     is always in [-180, 180], unless using [0, 360] results in a smaller range
     (such as when crossing the 180 degree meridian).

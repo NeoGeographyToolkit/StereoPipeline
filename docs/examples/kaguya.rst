@@ -85,7 +85,7 @@ For datasets with very oblique illumination, ``--subpixel-mode 2``
 Run ``point2dem`` (:numref:`point2dem`) to get a DEM. Consider using the
 stereographic projection centered at the region of interest::
 
-    point2dem --stereographic --proj-lon 93.8 --proj-lat 3.5 \
+    point2dem --stereographic --auto-proj-center \
       --tr 10 stereo/run-PC.tif
 
 See :numref:`sfs_kaguya_example` for a clip of the produced DEM.
@@ -120,8 +120,9 @@ local projection, such as stereographic.
 We will modify the DEM creation command from above to use a large search radius to fill 
 any holes::
 
-    point2dem --stereographic --proj-lon 93.8 --proj-lat 3.5 \
-        --tr 10 --search-radius-factor 10 stereo/run-PC.tif
+    point2dem --stereographic --auto-proj-center \
+      --tr 10 --search-radius-factor 10          \
+      stereo/run-PC.tif
 
 (adjust the projection center for your location).
 

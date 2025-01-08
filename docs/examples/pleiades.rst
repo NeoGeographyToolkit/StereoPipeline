@@ -76,7 +76,8 @@ Example::
    point2dem run_map/run-PC.tif 
 
 The projection needs to be modified for your area of interest. It is strongly
-suggested to use a UTM or local stereographic projection.
+suggested to use an auto-determined UTM or polar stereographic projection
+(:numref:`point2dem_proj`).
 
 The value of the ``--tr`` option is the ground sample distance. It is normally
 0.5 to 0.7 meters for Pleiades PAN images. The XML files should have the GSD

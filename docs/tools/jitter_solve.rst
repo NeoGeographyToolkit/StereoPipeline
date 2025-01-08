@@ -325,7 +325,8 @@ and the MOLA csv file as::
 This will give a median difference of 3 meters, which is about right, given the
 uncertainties in these datasets.
 
-A DEM can can also be created from MOLA data as::
+A DEM can can also be created from MOLA data with ``point2dem``
+(:numref:`point2dem`)::
 
     point2dem -r mars --tr 500            \
       --stereographic --auto-proj-center  \
@@ -396,7 +397,7 @@ more details.
 See :numref:`nextsteps` for a discussion about various speed-vs-quality choices
 for stereo. Consider using mapprojected images (:numref:`mapproj-example`).
 
-We chose to use here a local stereographic projection (:numref:`point2dem`). 
+We chose to use here a local stereographic projection (:numref:`point2dem_proj`). 
 
 This DEM was aligned to MOLA and recreated, as::
 
@@ -741,6 +742,8 @@ created (:numref:`jitter_ip`), to be used later to solve for jitter.
     point2dem --tr 0.4 --t_srs "$proj" --errorimage \ 
       run_1_2_map/run-PC.tif
 
+A discussion regarding the projection to use above is in :numref:`point2dem_proj`.
+
 Alignment
 ^^^^^^^^^
 
@@ -1007,6 +1010,8 @@ DEM creation::
       --errorimage            \
       ${outPrefix}-PC.tif
 
+See :numref:`point2dem_proj` for a discussion of the projection to use.
+
 Colorize the triangulation (ray intersection) error, and create some
 image pyramids for inspection later::
 
@@ -1212,6 +1217,9 @@ signal::
 We chose to use option ``--num-matches-from-disparity`` to create a large and
 uniformly distributed set of interest point matches. That is necessary because
 the jitter that we will solve for has rather high frequency.
+
+See :numref:`point2dem_proj` for a discussion of the projection to use in DEM
+creation.
 
 .. figure:: ../images/aster_dem_ortho_error.png
    :name: aster_dem_ortho_error

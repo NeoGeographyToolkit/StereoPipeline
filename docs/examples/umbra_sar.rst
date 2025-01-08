@@ -88,12 +88,12 @@ The ``asp_mgm`` algorithm worked much better than the default ``asp_bm``
 (:numref:`stereo_alg_overview`).
 
 A terrain model was produced with ``point2dem`` (:numref:`point2dem`),
-in a local stereographic projection::
+in a local UTM projection (:numref:`point2dem_proj`)::
 
-    point2dem --stereographic \
-      --auto-proj-center      \
-      --errorimage            \
-      --tr 2.0                \
+    point2dem            \
+      --auto-proj-center \
+      --errorimage       \
+      --tr 2.0           \
       stereo/run-PC.tif
 
 To compare with a preexisting terrain, we fetched a portion of the

@@ -467,7 +467,7 @@ First, assume, for example, that the reference is ``ref.tif``, and
 the ASP DEM is created *without* bundle adjustment, as::
 
     parallel_stereo left.tif right.tif left.xml right.xml output/run
-    point2dem output/run-PC.tif
+    point2dem --auto-proj-center output/run-PC.tif
 
 It is very important to distinguish the cases when the obtained DEM is
 the first or second argument of ``pc_align``.

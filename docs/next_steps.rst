@@ -550,11 +550,10 @@ we process just a small portion of the images::
        run_nomap/run
 
 (the crop windows can be determined using ``stereo_gui``,
-:numref:`image_bounds`). The input images have resolution of about 1 meter,. We
-create the low-resolution DEM using a resolution 40 times as coarse.
-A local stereographic projection is used, with its center found automatically.
+:numref:`image_bounds`). The input images have resolution of about 1 meter. 
 
-::
+We create the low-resolution DEM using a resolution 40 times as coarse,
+with a local stereographic projection::
 
     point2dem --stereographic --auto-proj-center --tr 40.0 \
       --search-radius-factor 5 run_nomap/run-PC.tif 
@@ -565,6 +564,7 @@ Or, the projection center can be passed to ``point2dem`` such as::
 
 Some experimentation with the parameters used by ``point2dem`` may be necessary
 for this low-resolution DEM to be smooth enough and with no holes.
+For Earth, a projection such as UTM can be used.
 
 We used ``--search-radius-factor 5`` to expand the DEM a
 bit, to counteract future erosion at image boundary in stereo due to
@@ -616,18 +616,21 @@ the low-resolution DEM we used for mapprojection. We have used here
 ``--subpixel-mode 9`` with the ``asp_mgm`` algorithm as this will be the final
 point cloud and we want the increased accuracy.
 
-Lastly, we create a DEM at 1 meter resolution::
+See :numref:`running-stereo` for more details about the various 
+speed-vs-accuracy tradeoffs for stereo.
 
-     point2dem --stereographic --auto-proj-center --tr 1.0 \
+Lastly, we create a DEM at 1 meter resolution with ``point2dem``
+(:numref:`point2dem`)::
+
+     point2dem --stereographic \
+       --auto-proj-center      \
+       --tr 1.0                \
        run_map/run-PC.tif
 
 We could have used a coarser resolution for the final DEM, such as 4
 meters/pixel, since we won't see detail at the level of 1 meter in this DEM, as
 the stereo process is lossy. This is explained in more detail in
 :numref:`post-spacing`.
-
-See :numref:`running-stereo` for more details about the various 
-speed-vs-accuracy tradeoffs.
 
 In :numref:`mapproj-example-fig` we show the effect of using
 mapprojected images on accuracy of the final DEM.
@@ -709,20 +712,28 @@ Fill and blur the input DEM if needed (:numref:`dem_mosaic_extrapolate`).
 
 Mapprojection commands::
 
-    mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
-      --tr 0.5 ref_dem.tif                                      \
-      12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF          \
-      12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML          \
+    proj='+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs'
+
+    mapproject -t rpc                                  \
+      --t_srs "$proj"                                  \
+      --tr 0.5                                         \
+      ref_dem.tif                                      \
+      12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF \
+      12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
       left_mapproj.tif
 
-    mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
-      --tr 0.5 ref_dem.tif                                      \
-      12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF          \
-      12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML          \
+    mapproject -t rpc                                  \
+      --t_srs "$proj"                                  \
+      --tr 0.5                                         \
+      ref_dem.tif                                      \
+      12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF \
+      12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
       right_mapproj.tif
 
-If the ``--t_srs`` option is not specified, it will be read from the
-low-resolution input DEM.
+If the ``--t_srs`` option is not specified, the projection string will be read
+from the low-resolution input DEM.
+
+The zone of the UTM projection depends on the location of the images.
 
 The complete list of options for ``mapproject`` is described in
 :numref:`mapproject`.
@@ -731,7 +742,8 @@ Running ``parallel_stereo`` with these mapprojected images, and the
 DEM used for mapprojection as the last argument::
       
     parallel_stereo                                    \
-      --subpixel-mode 1                                \
+      --stereo-algorithm asp_mgm                       \
+      --subpixel-mode 9                                \
       --alignment-method none                          \
       left_mapproj.tif right_mapproj.tif               \
       12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
@@ -742,19 +754,17 @@ DEM used for mapprojection as the last argument::
 See :numref:`running-stereo` for more details about the various 
 speed-vs-accuracy tradeoffs.
 
-In the ``parallel_stereo`` command, we have used ``subpixel-mode 1`` which is
-less accurate but reasonably fast. We have also used
-``alignment-method none``, since the images are mapprojected onto the
-same terrain with the same resolution, thus no additional alignment is
+We have used ``alignment-method none``, since the images are mapprojected onto
+the same terrain with the same resolution, thus no additional alignment is
 necessary. More details about how to set these and other ``parallel_stereo``
 parameters can be found in :numref:`settingoptionsinstereodefault`.
 
 DEM creation (:numref:`point2dem`)::
 
-     point2dem --stereographic \
-       --auto-proj-center      \
-       --tr 0.5                \
-       dg/dg-PC.tif
+     point2dem --tr 0.5 dg/dg-PC.tif
+
+This DEM will inherit the projection from the mapprojected images. To auto-guess
+a local UTM projection, see :numref:`point2dem_proj`.
 
 .. _other-mapproj:
 
@@ -1219,35 +1229,19 @@ above::
 Building a digital elevation model and ortho image
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``point2dem`` program (:numref:`point2dem`) creates a Digital
-Elevation Model (DEM) from the point cloud file.
+Running the ``point2dem`` program (:numref:`point2dem`)::
 
-::
+     point2dem --auto-proj-center results/output-PC.tif
 
-     point2dem --stereographic --auto-proj-center results/output-PC.tif
-     
+will creates a Digital Elevation Model (DEM) named ``results/output-DEM.tif``.
 
-The resulting TIFF file is mapprojected and will contain georeference
-information stored as a GeoTIFF header.
+The default projection will be in units of meters. See :numref:`point2dem_proj`
+for how to set a projection or how auto-guessing it works. The planetary 
+body is usually auto-guessed as well, or can be set explicitly with the 
+an option such as ``-r mars``.
 
-The default projection is geographic (latitude and longitude), which is not
-great at the poles. Hence above we used a local stereographic projection. See
-:numref:`point2dem` for how to use other projections.
-
-The tool will infer the datum and projection from the input images, if
-present. You can explicitly specify a coordinate system (e.g., mercator,
-sinusoidal) and a reference spheroid (i.e., calculated for the Moon,
-Mars, or Earth). Alternatively, the datum semi-axes can be set, or a
-WKT or PROJ string can be passed in via ``--t_srs``.
-
-::
-
-     point2dem -r mars results/output-PC.tif
-
-The output DEM will be named ``results/output-DEM.tif``. It can be
-imported into a variety of GIS platforms. The DEM can be transformed
-into a hill-shaded image for visualization (:numref:`genhillshade`).
-The DEM can be examined in ``stereo_gui``, as::
+The DEM can be transformed into a hill-shaded image for visualization
+(:numref:`genhillshade`). The DEM can be examined in ``stereo_gui``, as::
 
     stereo_gui --hillshade results/output-DEM.tif
 
@@ -1256,7 +1250,9 @@ images onto the DEM. To do this, invoke ``point2dem`` just as before,
 but add the ``--orthoimage`` option and specify the use of the left
 image file as the texture file to use for the projection::
 
-     point2dem results/output-PC.tif --orthoimage results/output-L.tif
+     point2dem --auto-proj-center \
+       results/output-PC.tif      \
+       --orthoimage results/output-L.tif
 
 The texture file ``L.tif`` must always be specified after the point
 cloud file ``PC.tif`` in this command.
@@ -1347,8 +1343,9 @@ format for the interchange of 3-dimensional point cloud data. The tool
 Generating color hillshade maps
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Once you have generated a DEM file, you can use the ``colormap`` and
-``hillshade`` tools to create colorized and/or shaded relief images.
+Once you have generated a DEM file, you can use the ``colormap``
+(:numref:`colormap`) and ``hillshade`` (:numref:`hillshade`) programs to create
+colorized and/or shaded relief images.
 
 To create a colorized version of the DEM, you need only specify the DEM
 file to use. The colormap is applied to the full range of the DEM, which
@@ -1380,9 +1377,6 @@ invoked with the option ``--hillshade``.
 
 See :numref:`hrad-color` showing the images obtained with these
 commands.
-
-The complete documentation for ``colormap`` is in :numref:`colormap`,
-and for ``hillshade`` in :numref:`hillshade`.
 
 .. _hrad-color:
 
@@ -1557,9 +1551,10 @@ Multi-view stereo
 ~~~~~~~~~~~~~~~~~
 
 ASP supports multi-view stereo at the triangulation stage. This mode is
-somewhat experimental, and not used widely. We have obtained higher
-quality results by doing pairwise stereo and merging the results, as
-described later on in this section.
+*discouraged*. 
+
+Better quality results are found by doing pairwise stereo and merging the
+results (:numref:`sfm_multiview`).
 
 In the multiview scenario, the first image is set as reference,
 disparities are computed from it to all the other images, and then joint
@@ -1594,23 +1589,5 @@ minimal distance between rays. For multi-view stereo this error is much
 less amenable to interpretation than for two-view stereo, since the
 number of valid rays corresponding to a given feature can vary across
 the image, which results in discontinuities in the intersection error.
-
-Other ways of combining multiple images
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-As an alternative to multi-view stereo, point clouds can be generated
-from multiple stereo pairs, and then a single DEM can be created with
-``point2dem`` (:numref:`builddem`). Or, multiple DEMs can be
-created, then combined into a single DEM with ``dem_mosaic``
-(:numref:`dem_mosaic`).
-
-In both of these approaches, the point clouds could be registered to a
-trusted dataset using ``pc_align`` before creating a combined terrain
-model (:numref:`pc-align-example`).
-
-The advantage of creating separate DEMs and then merging them (after
-alignment) with ``dem_mosaic``, compared to multiview triangulation, is
-that this approach will not create visible seams, while likely it will
-still increase the accuracy compared to the individual input DEMs.
 
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

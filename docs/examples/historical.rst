@@ -301,19 +301,16 @@ in stereo.
 DEM generation and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Next, a DEM is created::
+Next, a DEM is created, with an auto-determined UTM or polar
+stereographic projection (:numref:`point2dem`)::
 
-     point2dem --stereographic --proj-lon 100.50792 --proj-lat 31.520417 \
+     point2dem --auto-proj-center \
        --tr 30 stereo_small_mgm/run-PC.tif
 
-Here we chose to use a stereographic projection, with its center
-not too far from the area of interest. This has the advantage that the grid
-size (``--tr``) is then expressed in meters, which is more intuitive
-than if it is in fraction of a degree as when the ``longlat`` projection
-is used. 
+The grid size (``--tr``) is in meters. 
 
-This will create a very rough initial DEM. It is sufficient however to
-align and compare with the SRTM DEM::
+The produced DEM could be rough. It is sufficient however to align and compare
+with the SRTM DEM::
 
      pc_align --max-displacement -1                                      \
        --initial-transform-from-hillshading similarity                   \
@@ -321,8 +318,9 @@ align and compare with the SRTM DEM::
        --max-num-source-points 1000 --max-num-reference-points 1000      \
        dem.tif stereo_small_mgm/run-DEM.tif -o stereo_small_mgm/run
 
-     point2dem --stereographic --proj-lon 100.50792 --proj-lat 31.520417 \
-       --tr 30 stereo_small_mgm/run-trans_source.tif
+     point2dem --auto-proj-center \
+       --tr 30                    \
+       stereo_small_mgm/run-trans_source.tif
 
 This will hopefully create a DEM aligned to the underlying SRTM. Consider
 examining in ``stereo_gui`` the left and right hillshaded files produced
@@ -338,7 +336,7 @@ re-grid the SRTM DEM to the same resolution, which can be done as::
        --num-iterations 0 --max-num-source-points 1000                     \
        --max-num-reference-points 1000 --save-transformed-source-points
 
-     point2dem --stereographic --proj-lon 100.50792 --proj-lat 31.520417   \
+     point2dem --auto-proj-center \
        --tr 120 dem/dem-trans_source.tif
 
 You can then try to align the newly obtained coarser SRTM DEM to the
@@ -595,6 +593,10 @@ downsampling applied to the input images.
       bundle_small_new/out-out-6001_small.tsai                         \
       st_small_new/out
 
+A DEM is created with ``point2dem`` (:numref:`point2dem`)::
+
+    point2dem --auto-proj-center st_small_new/out-PC.tif
+
 The above may produce a DEM with many holes. It is strongly suggested to run
 stereo with *mapprojected images* (:numref:`mapproj-example`). Use the ``asp_mgm``
 algorithm. See also :numref:`nextsteps` for a discussion about various
@@ -817,3 +819,5 @@ which the random initial parameter values are chosen from. Note that
 ``--num-passes`` is intended to filter out bad interest points while
 ``--num-random-passes`` tries out multiple random starting seeds to see
 which one leads to the result with the lowest error.
+
+After this, stereo and DEM creation is run as earlier.

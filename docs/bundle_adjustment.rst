@@ -728,7 +728,7 @@ Evaluating agreement between the DEMs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Overlay the produced DEMs and check for any misalignment. This may happen 
-if there are insufficient interest points or if the unmodelled distortion 
+if there are insufficient interest points or if the unmodeled distortion 
 is large.
 
 Create a blended average DEM from the produced DEMs using the

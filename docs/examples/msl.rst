@@ -371,7 +371,8 @@ This can be made into a DEM with ``point2dem`` (:numref:`point2dem`)::
     --search-radius-factor 0.5 \
     ground.csv
 
-Ensure the correct planet radii and datum are used. 
+Ensure the correct planet radii and datum are used. The projection can be
+auto-determined (:numref:`point2dem_proj`).
 
 Then, following the procedure :numref:`creatinggcp`, features can be picked in
 the images and tied to some of the corners of this box, creating GCP files,
@@ -397,7 +398,7 @@ cameras and the prior DEM as a constraint (:numref:`kaguya_ba`), while refining
 the intrinsics. It is suggested to use a value of ``--heights-from-dem-uncertainty``
 maybe as low as 0.1 or 0.01, if desired to fit tightly to the prior DEM.
 
-The intersection error for each DEM (:numref:`point2dem`) can help evaluate the
+The triangulation error for each DEM (:numref:`point2dem`) can help evaluate the
 accuracy of the intrinsics. The ``geodiff`` program (:numref:`geodiff`), can be
 used to assess the vertical agreement between DEMs.
 

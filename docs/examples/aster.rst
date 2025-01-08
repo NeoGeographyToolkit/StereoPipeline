@@ -96,15 +96,14 @@ default in the future.
 See :numref:`nextsteps` for a discussion about various stereo algorithms and
 speed-vs-quality choices.
 
-This is followed by DEM creation with ``point2dem``::
+This is followed by DEM creation with ``point2dem`` (:numref:`point2dem`)::
 
-     point2dem -r earth --stereographic --auto-proj-center \
+     point2dem -r earth --auto-proj-center \
        out_stereo/run-PC.tif
 
 This will create a DEM named ``out_stereo/run-DEM.tif`` using an auto-guessed
-local stereographic projection with auto-guessed resolution (about 15 m / pixel,
-the image ground sample distance). See the ``point2dem`` documentation in
-:numref:`point2dem` for more details about how to run this program.
+local UTM or polar stereographic projection (:numref:`point2dem_proj`), with an
+auto-guessed resolution (about 15 m / pixel, the image ground sample distance).
 
 Visualize the DEM with ``stereo_gui`` (:numref:`stereo_gui`)::
 
@@ -118,41 +117,45 @@ before, followed by mapprojection onto a coarser and smoother version of the
 obtained DEM, and then redoing stereo with mapprojected images (per the
 suggestions in :numref:`mapproj-example`).
 
-::
+Initial stereo::
 
-     # Initial stereo
-     parallel_stereo -t aster         \
-       --stereo-algorithm asp_mgm     \
-       --subpixel-mode 9              \
-       --aster-use-csm                \
-        out-Band3N.tif out-Band3B.tif \
-        out-Band3N.xml out-Band3B.xml \
-        out_stereo/run
+    parallel_stereo -t aster         \
+      --stereo-algorithm asp_mgm     \
+      --subpixel-mode 9              \
+      --aster-use-csm                \
+       out-Band3N.tif out-Band3B.tif \
+       out-Band3N.xml out-Band3B.xml \
+       out_stereo/run
 
-     # Create a low-resolution smooth DEM at 200 meters/pixel
-     point2dem -r earth --stereographic --auto-proj-center \
-       --tr 200 out_stereo/run-PC.tif -o out_stereo/run-200m
+Create a low-resolution smooth DEM at 200 meters/pixel::
 
-     # Mapproject onto this DEM at 15 meters/pixel
-     mapproject --tr 15 --aster-use-csm \
-       out_stereo/run-200m-DEM.tif      \
-       out-Band3N.tif out-Band3N.xml out-Band3N_proj.tif
-     mapproject --tr 15 --aster-use-csm \
-       out_stereo/run-200m-DEM.tif      \
-       out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif
+    point2dem -r earth --auto-proj-center \
+      --tr 200 out_stereo/run-PC.tif      \
+      -o out_stereo/run-200m
+
+Mapproject onto this DEM at 15 meters/pixel::
+
+    mapproject --tr 15 --aster-use-csm \
+      out_stereo/run-200m-DEM.tif      \
+      out-Band3N.tif out-Band3N.xml out-Band3N_proj.tif
+    mapproject --tr 15 --aster-use-csm \
+      out_stereo/run-200m-DEM.tif      \
+      out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif
      
-     # Run parallel_stereo with the mapprojected images
-     parallel_stereo -t aster                  \
-       --stereo-algorithm asp_mgm              \
-       --subpixel-mode 9                       \
-       --aster-use-csm                         \
-       out-Band3N_proj.tif out-Band3B_proj.tif \
-       out-Band3N.xml out-Band3B.xml           \
-       out_stereo_proj/run                     \
-       out_stereo/run-200m-DEM.tif
+Run parallel_stereo with the mapprojected images::
 
-     # Create the final DEM
-     point2dem -r earth --stereographic --auto-proj-center \
+    parallel_stereo -t aster                  \
+      --stereo-algorithm asp_mgm              \
+      --subpixel-mode 9                       \
+      --aster-use-csm                         \
+      out-Band3N_proj.tif out-Band3B_proj.tif \
+      out-Band3N.xml out-Band3B.xml           \
+      out_stereo_proj/run                     \
+      out_stereo/run-200m-DEM.tif
+
+Create the final DEM::
+
+    point2dem -r earth --auto-proj-center \
       out_stereo_proj/run-PC.tif
 
 It is very important to use the same resolution (option ``--tr``) for both
@@ -162,7 +165,7 @@ and reduces the processing time (:numref:`mapproj-res`).
 One could consider mapprojecting at a higher resolution, for example, at 10
 meters/pixel.
 
-It is suggested to also create and inspect the intersection error image
+It is suggested to also create and inspect the triangulation error image
 (:numref:`point2dem`). If it is large (comparable to ground sample distance),
 the cameras should be bundle-adjusted first (:numref:`bundle_adjust`).
 

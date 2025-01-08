@@ -766,8 +766,8 @@ The command::
 agree with a given DEM. That can be especially useful if bundle
 adjustment was invoked with the ``--heights-from-dem`` option.
 
-One can also invoke ``point2dem`` with the above ``--csv-format``
-option to grid these files to create a coarse DEM (also for the
+One can also invoke ``point2dem`` (:numref:`point2dem`) with the above
+``--csv-format`` option to grid these files to create a coarse DEM (also for the
 error residuals).
 
 The final triangulated positions can be used for alignment with
@@ -845,8 +845,8 @@ meters.
 This operation will use the cameras after bundle adjustment. Invoke with
 ``--num-iterations 0`` for the original cameras.
 
-It is instructive to compare these with their dense counterparts, as produced
-by ``point2dem``.
+It is instructive to compare these uncertainties with their dense counterparts,
+as produced by ``point2dem`` (:numref:`export_stddev`).
 
 .. _ba_cam_pose:
 

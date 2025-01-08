@@ -291,15 +291,15 @@ The crop windows above were chosen with ``stereo_gui`` (:numref:`stereo_gui`).
 
 Next we create a DEM. We use the stereographic projection since this dataset is
 very close to the South Pole. Normally a projection centered close to area of
-interest is suggested.
-
-It is very important that the resolution of the DEM be comparable to the ground
-sample distance (GSD) of the images. This will ensure optimal sampling.
+interest is suggested (:numref:`point2dem_proj`).
 
 ::
 
     point2dem -r moon --stereographic --proj-lon 0  \
       --proj-lat -90 run_full1/run-PC.tif
+
+It is very important that the resolution of the DEM be comparable to the ground
+sample distance (GSD) of the images. This will ensure optimal sampling.
 
 SfS can only be run on a DEM with valid data at each grid point.  The
 DEM obtained above should be opened in ``stereo_gui``, and the bounds

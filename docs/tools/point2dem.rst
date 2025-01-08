@@ -3,22 +3,19 @@
 point2dem
 ---------
 
-The ``point2dem`` program produces a digital elevation model (DEM) in
-the GeoTIFF format and/or an orthographic image from a set of point
-clouds. The clouds can be created by the ``parallel_stereo`` command
-(:numref:`parallel_stereo`), or be in LAS or CSV format.
+The ``point2dem`` program produces a digital elevation model (DEM) in the
+GeoTIFF format and/or an orthographic image from a set of point clouds. The
+clouds can be created by ``parallel_stereo`` (:numref:`parallel_stereo`), or be
+in LAS or CSV format.
 
 The heights in the produced DEM are relative to a datum (ellipsoid). 
 They are calculated by weighted averaging around each grid point
 of the heights of points in the cloud (see ``--search-radius-factor``).
 
-The output DEM is by default in the geographic coordinate system (longitude and
-latitude).  Any projection can be specified via the ``--t_srs`` option. The grid
-size is set with ``--tr`` for the given projection.
-
-The grid points are placed at integer multiples of the grid size, and the
-created DEM has a ground footprint that is outwardly larger by half a grid pixel
-than the bounding box of the grid points.
+The grid size is set with ``--tr`` for the given projection. The grid points are
+placed at integer multiples of the grid size, and the created DEM has a ground
+footprint that is outwardly larger by half a grid pixel than the bounding box of
+the grid points. If not set, the grid size is estimated automatically.
 
 A custom extent can be specified with the option ``--t_projwin``. This will be
 adjusted to ensure, as above, that the grid points are placed at integer
@@ -29,41 +26,65 @@ visualized with ``stereo_gui`` (:numref:`stereo_gui`), mosaicked with
 ``dem_mosaic`` (:numref:`dem_mosaic`), or analyzed with GDAL tools
 (:numref:`gdal_tools`).
 
+.. _point2dem_proj:
+
+Determination of projection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use the option ``--t_srs`` to set a desired output projection. The projection
+should be local to the current area of interest.
+
+If this is not set, the ``point2dem`` program inherits the projection from the
+input images, if those are mapprojected (:numref:`mapproj-example`). If the
+input is a LAS file having a projection, that will be used. If the input is a
+CSV file, the projection from ``--csv-srs`` will be used. 
+
+If none of these are applicable, in the latest ASP (:numref:`release`),
+``point2dem`` automatically finds a good local projection in meters. For ASP
+3.4.0 and earlier, the default projection was geographic. 
+
+For Earth, with the WGS84 datum, the projection is set to UTM with an
+auto-computed zone, except for latitudes above 84° North and below 80° South,
+where the `NSDIC polar stereographic projections
+<https://nsidc.org/data/user-resources/help-center/guide-nsidcs-polar-stereographic-projection>`_
+are used.
+
+For other Earth datums and other planetary bodies, the automatic determination
+produces a local stereographic projection. The projection center is found
+by computing the median of a sample of points in the cloud.
+
+To ensure the automatic projection determination is always invoked, use
+``--t_srs auto``.
+
+See the options ``--stereographic``, ``--orthographic``, ``--proj-lon``,
+``--proj-lat`` for other ways to set the projection.
+
 Examples
 ~~~~~~~~
 
-When creating an DEM it is very important to pick a projection 
-that is appropriate for the region of interest. The default
-projection is geographic (longitude and latitude), which is not 
-good for regions close to the poles. In such cases, it is best
-to pick a stereographic projection.
-
-.. _point2dem_auto_proj_center:
-
-Auto-guess projection center
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Local stereographic projection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Create a DEM for Mars in a local stereographic projection, auto-guessing
 the projection center and grid size.
 
 ::
 
-    point2dem -r mars --stereographic \
-      --auto-proj-center              \
+    point2dem -r mars    \
+      --stereographic    \
+      --auto-proj-center \
       run/run-PC.tif
 
-This creates ``run/run-DEM.tif``, which is a GeoTIFF file, with each
-32-bit floating point pixel value being the height above the datum
-(ellipsoid). The datum is saved in the geoheader and can be seen with
-``gdalinfo`` (:numref:`gdal_tools`).
+This creates ``run/run-DEM.tif``, which is a GeoTIFF file, with each 32-bit
+floating point pixel value being the height above the datum (ellipsoid). The
+datum and projection are saved in the geoheader and can be seen with ``gdalinfo
+-proj4`` (:numref:`gdal_tools`).
 
-In this case the stereographic projection was used, and its center was
-auto-guessed as the median longitude and latitude of the 
-points in the cloud. The grid size was also auto-guessed.
+ASP normally auto-guesses the planet (datum), otherwise the option ``-r`` can be
+used. 
 
-ASP normally auto-guesses the planet (datum), otherwise the option ``-r`` can
-be used. If desired to change the output no-data value (which can also
-be inspected with ``gdalinfo``), use the options ``--nodata-value``.
+If desired to change the output no-data value (which can also be inspected with
+``gdalinfo``), use the options ``--nodata-value``.
 
 .. _point2dem_ortho_err:
 
@@ -72,15 +93,18 @@ Orthoimage and error image
 
 ::
 
-    point2dem run/run-PC.tif -r moon --errorimage \
-        --orthoimage run/run-L.tif
+    point2dem -r moon            \
+      --auto-proj-center         \
+      run/run-PC.tif             \
+      --orthoimage run/run-L.tif \
+      --errorimage
 
-This produced the DEM, in the default geographic projection (longitude and
-latitude, which sometimes is problematic).
+This produced a lunar DEM. The projection is found as in
+:numref:`point2dem_proj`.
 
-Then, the left aligned image was used to create an orthoimage, by
-orthographically projecting it onto the DEM. The resulting ``run/run-DRG.tif``
-file will be saved as a GeoTIFF image with the same geoheader as the DEM.
+The left aligned image was used to create an orthoimage, by orthographically
+projecting it onto the DEM. The resulting ``run/run-DRG.tif`` file will be saved
+as a GeoTIFF image with the same geoheader as the DEM.
 
 In addition, the file ``run/run-IntersectionErr.tif`` is created,
 based on the 4th band of the ``PC.tif`` file, having the gridded
@@ -98,7 +122,8 @@ Specify a projection string
 
 ::
 
-    point2dem --tr '+proj=sinu +R=3396190 +no_defs' run/run-PC.tif
+    point2dem --t_srs '+proj=sinu +R=3396190 +no_defs' \
+      run/run-PC.tif
 
 This is the sinusoidal projection for Mars. The option ``gdalinfo --proj4``
 can find the projection string in a GeoTIFF file.
@@ -108,16 +133,15 @@ Custom grid size with geographic projection
 
 ::
 
-    point2dem -r earth --tr 0.0001 run/run-PC.tif
+    point2dem -r earth --geographic --tr 0.0001 run/run-PC.tif
 
-It is important to note that the grid size here, passed to ``--tr``,
-is in degrees, because the default projection is in degrees. If you
-set your projection with ``--t_projwin`` and it is in meters, the
-value of ``--tr`` will be in meters too, so a reasonable value may be
-``--tr 0.5``, perhaps.  It is best to let the grid size be computed
-automatically, so not specifying ``--tr`` at all, or otherwise use a
-multiple of the automatically determined grid size
-(:numref:`post-spacing`).
+It is important to note that here the grid size passed to ``--tr``, is in
+degrees, rather than meters, because the projection is geographic. This
+projection is *not recommended* except close to the equator.
+
+It is best to let the grid size be computed automatically, so not specifying
+``--tr`` at all, or otherwise use a multiple of the automatically determined
+grid size (:numref:`post-spacing`).
 
 If desired to change the range of longitudes from [0, 360] to [-180,
 180], or vice-versa, post-process obtained DEM with ``image_calc``
@@ -133,6 +157,8 @@ Polar stereographic projection
        --proj-lon 0 --proj-lat -90 \
        run/run-PC.tif
 
+.. _point2dem_utm:
+
 UTM projection
 ^^^^^^^^^^^^^^
 
@@ -145,10 +171,13 @@ Or::
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
     point2dem --t_srs "$proj" run/run-PC.tif
 
-The zone for the UTM projection depends on the region of interest.
+The zone for the UTM projection depends on the region of interest. It can be
+auto-guessed (:numref:`point2dem_proj`). The `Geoplanner
+<https://www.geoplaner.com/>`_ website is a reliable source for UTM zone
+information.
 
-See the options ``--sinusoidal``, ``--mercator``, etc., in :numref:`point2dem_options`
-for how to set other projections.
+See the options ``--sinusoidal``, ``--mercator``, etc., in
+:numref:`point2dem_options` for how to set other projections.
     
 Multiple clouds, including CSV and LAS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -156,13 +185,20 @@ Multiple clouds, including CSV and LAS
 ::
 
      point2dem -r earth                              \
-       --dem-spacing 0.001                           \
+       --dem-spacing 10                              \
        --csv-format 1:lon,2:lat,3:height_above_datum \
        in1.las in2.csv run/run-PC.tif -o combined 
 
 Here LAS, CSV, and TIF point clouds (the latter obtained with
-``parallel_stereo``) are fused together into a single DEM. The option
-``--dem-spacing`` is an alias for ``--tr``. See also ``--csv-srs``.
+``parallel_stereo``) are fused together into a single DEM. 
+
+The CSV file is in longitude, latitude, and height above datum format, but the
+produced DEM will be in a projection in meters, unless borrowed from the LAS
+file or explicitly set with ``--t_srs`` (:numref:`point2dem_proj`).
+
+The option ``--dem-spacing`` is an alias for ``--tr``. 
+
+See also ``--csv-srs``.
 
 If it is desired to use the ``--orthoimage`` option with multiple
 clouds, the clouds need to be specified first, followed by the
@@ -346,6 +382,7 @@ Command-line options for point2dem
 --t_srs <string (default: "")>
     Specify the output projection as a GDAL projection string (WKT, GeoJSON, or
     PROJ). If not provided, will be read from the point cloud, if available.
+    See :numref:`point2dem_proj` for details.
 
 --t_projwin <xmin ymin xmax ymax>
     Specify a custom extent in georeferenced coordinates. This will be adjusted
@@ -358,14 +395,14 @@ Command-line options for point2dem
     ``--semi-minor-axis``.
     Options:
 
-    - WGS_1984
+    - WGS84 (WGS_1984)
+    - WGS72
+    - NAD83
+    - NAD27
+    - Earth (alias for WGS84)
     - D_MOON (1,737,400 meters)
     - D_MARS (3,396,190 meters)
     - MOLA (3,396,000 meters)
-    - NAD83
-    - WGS72
-    - NAD27
-    - Earth (alias for WGS_1984)
     - Mars (alias for D_MARS)
     - Moon (alias for D_MOON)
 
@@ -403,19 +440,26 @@ Command-line options for point2dem
     Save using a Lambert azimuthal projection.
 
 --utm <zone>
-    Save using a UTM projection with the given zone.
+    Save using a UTM projection with the given zone (:numref:`point2dem_utm`).
 
---proj-lat <float (default: 0)>
-    The center of projection latitude (if applicable).
+--geographic
+    Save using the geographic projection (longitude and latitude).
+    Recommended only close to the equator.
 
---proj-lon <float (default: 0)>
-    The center of projection longitude (if applicable).
+--proj-lon <float (default: NaN)>
+    The center of projection longitude. If not specified, it will be computed
+    automatically based on the estimated point cloud median (option
+    ``--auto-proj-center``).
+
+--proj-lat <float (default: NaN)>
+    The center of projection latitude. See also ``--proj-lon``.
 
 --auto-proj-center
-    Automatically compute the projection center, when the projection is
-    stereographic, etc. Use the median longitude and latitude of cloud points.
-    This overrides the values of ``--proj-lon`` and ``--proj-lat``. 
-    
+    Automatically compute the projection center, based on the median of a sample
+    of points in the cloud, unless ``--proj-lon`` and ``--proj-lat`` are set.
+    This is the default in the latest build, but should be set for ASP 3.4.0 and
+    earlier.
+
 -s, --tr, --dem-spacing <float (default: 0)>
     Set output DEM resolution (in target georeferenced units per
     pixel). These units may be in degrees or meters, depending on your
@@ -455,7 +499,8 @@ Command-line options for point2dem
 
 --csv-srs <string (default: "")>
     The PROJ or WKT string to use to interpret the entries in input CSV files.
-    If not specified, ``--t_srs`` will be used.
+    If not specified, ``--t_srs`` will be used. See also
+    :numref:`point2dem_proj`.
 
 --filter <string (default: "weighted_average")>
     The filter to apply to the heights of the cloud points within

@@ -540,21 +540,16 @@ reuse the filtered match points created by bundle adjustment, with the
        ba/run-run-v${i}.tsai ba/run-run-v${j}.tsai \
        --clean-match-files-prefix ba/run           \
        $st/run
-     point2dem --stereographic --proj-lon 253.90793 --proj-lat 39.47021 \
+     point2dem --auto-proj-center \
        --tr 4 --errorimage $st/run-PC.tif
 
 (Repeat this for other values of :math:`i`.)
 
 See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+See :numref:`point2dem_proj` about DEM projection determination.
 
-Here we chose to use a stereographic projection in ``point2dem``
-centered at a point somewhere in the area of interest, in order to
-create the DEM in units of meter. One can can also use a different
-projection that can be passed to the option ``--t_srs``, or if doing
-as above, the center of the projection would need to change if working
-on a different region.
-
-It is important to examine the mean intersection error for each DEM::
+It is important to examine the mean triangulation error
+(:numref:`triangulation_error`) for each DEM::
 
      gdalinfo -stats stereo_v12/run-IntersectionErr.tif | grep Mean
 
@@ -572,7 +567,7 @@ Mosaicking and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 If more than one image pair was used, the obtained DEMs can be
-mosaicked::
+mosaicked with ``dem_mosaic`` (:numref:`dem_mosaic`)::
 
      dem_mosaic stereo_v12/run-DEM.tif stereo_v23/run-DEM.tif \
        stereo_v34/run-DEM.tif -o mosaic.tif
@@ -591,7 +586,9 @@ It is important to look at the errors printed by this tool before and
 after alignment, as well as details about the alignment that was
 applied. The obtained aligned cloud can be made into a DEM again::
 
-     point2dem --stereographic --proj-lon 253.90793 --proj-lat 39.47021 --tr 4  \
+     point2dem            \
+       --auto-proj-center \
+       --tr 4             \
        align/run-trans_source.tif
 
 The absolute difference before and after alignment can be found as
@@ -654,8 +651,9 @@ Then run ``parallel_stereo`` with the mapprojected images, such as::
        --session-type pinhole --alignment-method none              \
        --cost-mode 4 --stereo-algorithm asp_mgm --corr-seed-mode 1 \
        stereo_map_v${i}${j}/run ref_dem.tif
-     point2dem --stereographic --proj-lon 253.90793                \
-       --proj-lat 39.47021 --tr 4 --errorimage                     \
+
+     point2dem --auto-proj-center \
+       --tr 4 --errorimage        \
        stereo_map_v${i}${j}/run-PC.tif
 
 It is important to note that here we used the cameras that were aligned
