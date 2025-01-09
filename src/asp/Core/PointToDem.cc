@@ -241,12 +241,12 @@ void chip_convert_to_tif(DemOptions const& opt,
 
 } // End function chip_convert_to_tif
 
-// Auto-computed local projection 
+// Auto-compute a local projection. It is assumed that the datum is known.
 void setAutoProj(double lat, double lon, 
                  vw::cartography::GeoReference & output_georef) {
 
-  std::string datum = output_georef.datum().name();
-  if (datum.find("WGS_1984") != std::string::npos) {
+  vw::cartography::Datum datum = output_georef.datum();
+  if (datum.name().find("WGS_1984") != std::string::npos) {
     
     vw::cartography::Datum user_datum = output_georef.datum();
     if (lat > 84) 
@@ -275,6 +275,8 @@ void setProjection(DemOptions const& opt, cartography::GeoReference & output_geo
   // Shorten notation
   double lon = opt.proj_lon, lat = opt.proj_lat, s = opt.proj_scale;
   double e = opt.false_easting, n = opt.false_northing;
+
+  vw::cartography::Datum datum = output_georef.datum();
      
   switch (opt.projection) {
     case SINUSOIDAL:           
@@ -314,6 +316,14 @@ void setProjection(DemOptions const& opt, cartography::GeoReference & output_geo
       // Throw an error if the projection is not set
       vw::vw_throw(ArgumentErr() << "No projection was set.\n");
   }
+  
+  // Must re-apply the datum name, otherwise it gets lost. 
+  // TODO(oalexan1): This fix should go deeper. Likely all the way to 
+  // set_wkt(). But this will need very careful testing as that may 
+  // have unintended consequences.
+  std::string lc_datum_name = boost::to_lower_copy(output_georef.datum().name());
+  if (lc_datum_name.find("unknown") != std::string::npos)
+    output_georef.set_datum(datum);
   
   return;
 } 

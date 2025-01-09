@@ -52,6 +52,7 @@ echo "Pushing the updated tarball to the cloud"
 repo=git@github.com:NeoGeographyToolkit/StereoPipelineTest.git  
 gh=/home/oalexan1/miniconda3/envs/gh/bin/gh
 tag=0.0.1
+echo Wipe the old tests and upload the new ones
 $gh release -R $repo delete $tag # wipe old tarball
 notes="Update test results"
 $gh release -R $repo create $tag $binaries --title $tag --notes "$notes" # upload new

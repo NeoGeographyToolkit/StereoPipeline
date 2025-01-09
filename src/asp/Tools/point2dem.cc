@@ -570,8 +570,9 @@ int main(int argc, char *argv[]) {
     }
     
     // Finalize setting the projection. This is is normally auto-determined.
-    if ((opt.target_srs_string.empty() || opt.target_srs_string == "auto")
-        && !opt.input_is_projected) {
+    if ((opt.target_srs_string.empty() || opt.target_srs_string == "auto") &&
+        (!have_input_georef || !output_georef.is_projected()) &&
+        !opt.input_is_projected) {
       // Find the median lon lat and reapply this to the georef. Must be done
       // after estimating the lonlat box.
       if (std::isnan(opt.proj_lon) && std::isnan(opt.proj_lat))

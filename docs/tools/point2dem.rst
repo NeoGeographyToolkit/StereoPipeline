@@ -35,9 +35,12 @@ Use the option ``--t_srs`` to set a desired output projection. The projection
 should be local to the current area of interest.
 
 If this is not set, the ``point2dem`` program inherits the projection from the
-input images, if those are mapprojected (:numref:`mapproj-example`). If the
-input is a LAS file having a projection, that will be used. If the input is a
-CSV file, the projection from ``--csv-srs`` will be used. 
+input images, if those are mapprojected (:numref:`mapproj-example`) and the
+projection is not geographic. 
+
+If the input is a LAS file having a projection that is not geographic, that will
+be used. If the input is a CSV file, the projection from ``--csv-srs`` will be
+used. 
 
 If none of these are applicable, in the latest ASP (:numref:`release`),
 ``point2dem`` automatically finds a good local projection in meters. For ASP
