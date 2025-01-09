@@ -569,16 +569,17 @@ int main(int argc, char *argv[]) {
       output_georef.set_image_ll_box(lonlat_box);
     }
     
-    // Finalize setting the projection. This is is normally auto-determined.
-    if ((opt.target_srs_string.empty() || opt.target_srs_string == "auto") &&
-        (!have_input_georef || !output_georef.is_projected()) &&
-        !opt.input_is_projected) {
-      // Find the median lon lat and reapply this to the georef. Must be done
-      // after estimating the lonlat box.
-      if (std::isnan(opt.proj_lon) && std::isnan(opt.proj_lat))
-        asp::median_lon_lat(point_image, output_georef, opt.proj_lon, opt.proj_lat);
-      // Auto-determine the projection
-      setProjection(opt, output_georef);
+    // Finalize setting the projection. The doc spells out the logic.
+    if (!opt.input_is_projected) {
+      bool good_input_geo = have_input_georef && output_georef.is_projected();
+      if ((opt.target_srs_string.empty() && !good_input_geo) ||
+           opt.target_srs_string == "auto") {
+        
+        if (std::isnan(opt.proj_lon) && std::isnan(opt.proj_lat)) // estimate proj center
+          asp::median_lon_lat(point_image, output_georef, opt.proj_lon, opt.proj_lat);
+        // Auto-determine the projection
+        setProjection(opt, output_georef);
+      }
     }
     
     // The provided datums must not be too different  

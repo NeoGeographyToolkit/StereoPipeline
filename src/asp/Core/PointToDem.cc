@@ -276,8 +276,6 @@ void setProjection(DemOptions const& opt, cartography::GeoReference & output_geo
   double lon = opt.proj_lon, lat = opt.proj_lat, s = opt.proj_scale;
   double e = opt.false_easting, n = opt.false_northing;
 
-  vw::cartography::Datum datum = output_georef.datum();
-     
   switch (opt.projection) {
     case SINUSOIDAL:           
       output_georef.set_sinusoidal(lon, e, n); 
@@ -316,14 +314,6 @@ void setProjection(DemOptions const& opt, cartography::GeoReference & output_geo
       // Throw an error if the projection is not set
       vw::vw_throw(ArgumentErr() << "No projection was set.\n");
   }
-  
-  // Must re-apply the datum name, otherwise it gets lost. 
-  // TODO(oalexan1): This fix should go deeper. Likely all the way to 
-  // set_wkt(). But this will need very careful testing as that may 
-  // have unintended consequences.
-  std::string lc_datum_name = boost::to_lower_copy(output_georef.datum().name());
-  if (lc_datum_name.find("unknown") != std::string::npos)
-    output_georef.set_datum(datum);
   
   return;
 } 
