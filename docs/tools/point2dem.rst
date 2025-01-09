@@ -34,21 +34,24 @@ Determination of projection
 Use the option ``--t_srs`` to set a desired output projection. The projection
 should be local to the current area of interest.
 
-If this is not set, the ``point2dem`` program inherits the projection from the
-input images, if those are mapprojected (:numref:`mapproj-example`) and the
-projection is not geographic. 
+If this is not set:
 
-If the input is a LAS file having a projection that is not geographic, that will
-be used. If the input is a CSV file, the projection from ``--csv-srs`` will be
-used. 
+ - The ``point2dem`` program inherits the projection from the input images, if
+   those are mapprojected (:numref:`mapproj-example`) and the projection is not
+   geographic. 
+
+ - If the input is a LAS file having a projection that is not geographic, that
+   will be used. 
+   
+ - If the input is a CSV file, the projection from ``--csv-srs`` will be used. 
 
 If none of these are applicable, in the latest ASP (:numref:`release`),
 ``point2dem`` automatically finds a good local projection in meters. For ASP
 3.4.0 and earlier, the default projection was geographic. 
 
-For Earth, with the WGS84 datum, the projection is set to UTM with an
-auto-computed zone, except for latitudes above 84° North and below 80° South,
-where the `NSDIC polar stereographic projections
+For Earth, with the WGS84 datum, the auto-determined projection is UTM
+with an auto-computed zone, except for latitudes above 84° North and below 80°
+South, where the `NSDIC polar stereographic projections
 <https://nsidc.org/data/user-resources/help-center/guide-nsidcs-polar-stereographic-projection>`_
 are used.
 
@@ -56,8 +59,8 @@ For other Earth datums and other planetary bodies, the automatic determination
 produces a local stereographic projection. The projection center is found
 by computing the median of a sample of points in the cloud.
 
-To ensure the automatic projection determination is always invoked, use
-``--t_srs auto``.
+To ensure the automatic projection determination is always invoked, overriding
+all other cases from above, use ``--t_srs auto``.
 
 See the options ``--stereographic``, ``--orthographic``, ``--proj-lon``,
 ``--proj-lat`` for other ways to set the projection.

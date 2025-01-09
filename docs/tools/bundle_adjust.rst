@@ -665,8 +665,8 @@ camera, and their count, are written to::
   {output-prefix}-initial_residuals_stats.txt
   {output-prefix}-final_residuals_stats.txt
  
-It is very important to ensure all cameras have a small reprojection error,
-ideally under 1 pixel, as otherwise this means that the cameras are not
+It is very important to ensure all cameras have a small final reprojection
+error, ideally under 1 pixel, as otherwise this means that the cameras are not
 well-registered to each other, or that systematic effects exist, such as
 uncorrected lens distortion.
 
