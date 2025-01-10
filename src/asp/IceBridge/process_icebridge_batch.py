@@ -1368,7 +1368,7 @@ def doWork(options, args, logger):
 
     # STEREO
     
-    # Call stereo seperately on each pair of cameras and create a DEM
+    # Call stereo separately on each pair of cameras and create a DEM
 
     # Check if we have all of the stereo output files
     prefixes              = []

@@ -76,7 +76,7 @@ def getImageStats(imagePath):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
     textOutput, err = p.communicate()
     
-    # Statistics are computed seperately for each band
+    # Statistics are computed separately for each band
     bandStats = []
     band = 0
     while (True): # Loop until we run out of bands

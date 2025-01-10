@@ -146,7 +146,7 @@ namespace vw { namespace gui {
     vw::GdalWriteOptions m_opt;
     std::string               m_output_prefix;
     double                    m_widRatio;    // ratio of sidebar to entire win wid
-    std::vector<QWidget*>     m_widgets;     // one of these for each seperate image pane.
+    std::vector<QWidget*>     m_widgets;     // one of these for each separate image pane.
     chooseFilesDlg *          m_chooseFiles; // left sidebar for selecting files
 
     QMenu *m_file_menu;

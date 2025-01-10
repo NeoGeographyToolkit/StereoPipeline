@@ -46,13 +46,13 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 struct Options : public vw::GdalWriteOptions {
-  Options() : seperate_camera_files(true) {}
+  Options() : separate_camera_files(true) {}
   // Input
   std::vector<std::string> input_files;
   std::string stereo_session, path_to_outside_model, bundle_adjust_prefix;
 
   // Settings
-  bool seperate_camera_files, write_csv, load_camera_solve, hide_labels;
+  bool separate_camera_files, write_csv, load_camera_solve, hide_labels;
   std::string datum;
   double model_scale; ///< Size scaling applied to 3D models
   int    linescan_line; ///< Show the camera position at this line
@@ -64,14 +64,14 @@ struct Options : public vw::GdalWriteOptions {
 
 
 // TODO: Eliminate bool input and move somewhere else.
-/// Seperates a list of files into camera files and image files.
+/// Separates a list of files into camera files and image files.
 /// - The camera files may be the same as the image files.
 size_t split_files_list(std::vector<std::string> const& input_files,
                         std::vector<std::string>      & image_files, 
                         std::vector<std::string>      & camera_files,
-                        const bool seperate_camera_files) {
+                        const bool separate_camera_files) {
 
-  size_t num_cameras = seperate_camera_files ? input_files.size()/2 : input_files.size();
+  size_t num_cameras = separate_camera_files ? input_files.size()/2 : input_files.size();
   vw_out() << "Number of cameras: " << num_cameras << std::endl;
   
   // Split the list of image files and camera files
@@ -79,7 +79,7 @@ size_t split_files_list(std::vector<std::string> const& input_files,
   camera_files.resize(num_cameras);
   for (size_t i = 0, store=0; store < num_cameras; ++store) {
     image_files[store] = input_files[i];
-    if (seperate_camera_files){ // Camera file comes after the image file
+    if (separate_camera_files){ // Camera file comes after the image file
       camera_files[store] = input_files[i+1];
       i += 2;
     } else { // Camera file is the same as the image file

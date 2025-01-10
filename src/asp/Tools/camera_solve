@@ -672,7 +672,7 @@ def main(argsIn):
         parser.add_option('--calib-file',  dest='camera_param_paths', default=None,
                    help=('Path to an ASP compatible .tsai file containing camera model information.'+
                         ' See the ASP documentation for details.  The position and pose information will be ignored.'+
-                        ' If you want to use a unique file for each input image, pass a space seperated list of files'+
+                        ' If you want to use a unique file for each input image, pass a space separated list of files'+
                         ' surrounded by quotes.'))
         parser.add_option('--gcp-file',  dest='gcp_path', default=None,
                                          help='Path to file containing Ground Control Points')

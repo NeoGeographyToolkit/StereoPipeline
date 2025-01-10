@@ -25,7 +25,7 @@ function main(do_find, dirs, pitches, plotid)
       dy_file_paths = [dy_file_paths, dy_path];
    end
    
-   % Seperately handle dx then dy
+   % Separately handle dx then dy
    do_plot(do_find, dx_file_paths, pitches, plotid);
    title('x');
    
@@ -188,7 +188,7 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
          color_index = rem(r-1, length(colors))+1;
          brush_index = floor((r-1) / length(colors))+1;
          line_color = [brushes{brush_index}, colors{color_index}];
-         vertical_offset = sep_size*(r+1); % Visually seperate the plots
+         vertical_offset = sep_size*(r+1); % Visually separate the plots
          plot(Y + vertical_offset, line_color);
       end
    end % End loop through stored files
