@@ -409,8 +409,8 @@ void calc_llh_bbox_from_dem(Options & opt, vw::CamPtr cam,
     opt.height_range[1] = std::max(opt.height_range[1], llh[2]);
   }
   
-  vw::vw_out() << "Computed lon-lat range: " << opt.lon_lat_range << std::endl;
-  vw::vw_out() << "Computed height range: " << opt.height_range << std::endl;
+  vw::vw_out() << "Computed lon-lat range: " << opt.lon_lat_range << "\n";
+  vw::vw_out() << "Computed height range: " << opt.height_range << "\n";
   
   return;
 }
@@ -546,7 +546,7 @@ int main(int argc, char *argv[]) {
       calc_llh_bbox_from_dem(opt, cam, image_box, input_img);
 
     // Put this here, after peeking inside the DEM with calc_llh_bbox_from_dem()
-    vw_out() << "Datum: " << opt.datum << std::endl;
+    vw_out() << "Datum: " << opt.datum << "\n";
 
     // Generate point pairs
     std::vector<Vector3> all_llh;
@@ -591,30 +591,23 @@ int main(int argc, char *argv[]) {
       pixel_box -= shift;
     }
 
-    // We need this line for other tools
-    vw_out() << "Computing the pixel crop box for the image (corner and dimensions).\n";
-    vw_out() << "crop_box "
-             << crop_box.min().x() << ' ' << crop_box.min().y() << ' '
-             << crop_box.max().x() << ' ' << crop_box.max().y() << std::endl;
-
     if (opt.save_tif) {
-
       ImageViewRef<PixelMask<float>> output_img = input_img;
       if (!opt.no_crop) 
         output_img = crop(input_img, crop_box);
 
       std::string out_img_file = fs::path(opt.output_rpc).replace_extension("tif").string();
-      vw_out() << "Writing: " << out_img_file << std::endl;
+      vw_out() << "Writing: " << out_img_file << "\n";
 
       GeoReference img_geo;
       bool has_img_geo = false;
+      vw::TerminalProgressCallback tpc("asp", "\t-->: ");
       vw::cartography::block_write_gdal_image(out_img_file,
                                               apply_mask(output_img, opt.output_nodata_value),
                                               has_img_geo, img_geo,
                                               opt.has_output_nodata,
                                               opt.output_nodata_value,
-                                              opt,
-                                              TerminalProgressCallback("asp", "\t-->: "));
+                                              opt, tpc);
     }
 
     if (opt.skip_computing_rpc) 
@@ -626,8 +619,8 @@ int main(int argc, char *argv[]) {
     Vector2 pixel_scale  = (pixel_box.max() - pixel_box.min())/2.0; // half range 
     Vector2 pixel_offset = (pixel_box.max() + pixel_box.min())/2.0; // center point
 
-    vw_out() << "Lon-lat-height box for the RPC approx: " << llh_box   << std::endl;
-    vw_out() << "Camera pixel box for the RPC approx (after crop): " << pixel_box << std::endl;
+    vw_out() << "Lon-lat-height box for the RPC approx: " << llh_box   << "\n";
+    vw_out() << "Camera pixel box for the RPC approx (after crop): " << pixel_box << "\n";
 
     Vector<double> normalized_llh;
     Vector<double> normalized_pixels;
@@ -653,12 +646,10 @@ int main(int argc, char *argv[]) {
 
     // Find the RPC coefficients
     asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
-    std::string output_prefix = "";
     vw_out() << "Generating the RPC approximation using " << num_total_pts 
              << " point pairs.\n";
     asp::gen_rpc(// Inputs
-                 opt.penalty_weight, output_prefix,
-                 normalized_llh, normalized_pixels,
+                 opt.penalty_weight, normalized_llh, normalized_pixels,
                  llh_scale, llh_offset, pixel_scale, pixel_offset,
                  // Outputs
                  line_num, line_den, samp_num, samp_den);
@@ -688,7 +679,7 @@ int main(int argc, char *argv[]) {
     datum_georef.set_datum(opt.datum);
     std::string datum_wkt = datum_georef.get_wkt();
     
-    vw_out() << "Writing: " << opt.output_rpc << std::endl;
+    vw_out() << "Writing: " << opt.output_rpc << "\n";
     std::ofstream ofs(opt.output_rpc.c_str());
     ofs.precision(18);
 

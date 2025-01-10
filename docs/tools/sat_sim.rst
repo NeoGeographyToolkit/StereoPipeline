@@ -418,8 +418,8 @@ also model along-track jitter.
       --optical-center 500 500           \
       --image-size 1000 1000             \
       --sensor-type linescan             \
-      --jitter-frequency 5               \
       --velocity 7500                    \
+      --jitter-frequency 5               \
       --horizontal-uncertainty '0 2 0'   \
       --jitter-phase "0.4 0.8 1.2"       \
       -o jitter2/run

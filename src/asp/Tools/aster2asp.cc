@@ -668,34 +668,20 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
   
   // Find the RPC coefficients
   asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
-  std::string output_prefix = "";
   asp::gen_rpc(// Inputs
-               penalty_weight, output_prefix,
-               normalized_llh, normalized_pixels,  
+               penalty_weight, normalized_llh, normalized_pixels,  
                llh_scale, llh_offset, pixel_scale, pixel_offset,
                // Outputs
                line_num, line_den, samp_num, samp_den);
   
-#if 0
-  // Dump the output to stdout
-  asp::print_vec("pixel_scale",  pixel_scale );
-  asp::print_vec("pixel_offset", pixel_offset);
-  asp::print_vec("llh_scale",    llh_scale   );
-  asp::print_vec("llh_offset",   llh_offset  );
-  asp::print_vec("line_num",     line_num    );
-  asp::print_vec("line_den",     line_den    );
-  asp::print_vec("samp_num",     samp_num    );
-  asp::print_vec("samp_den",     samp_den    );
-#endif
-
   DiskImageView<float> input_img(image_file);
   std::int64_t image_cols = input_img.cols();
   std::int64_t image_rows = input_img.rows();
   
   save_xml(image_cols, image_rows, lattice_mat,
-	   sight_mat, world_sight_mat, sat_pos,
-	   llh_scale, llh_offset, pixel_scale, pixel_offset,  
-           line_num, line_den, samp_num, samp_den,  
+           sight_mat, world_sight_mat, sat_pos,
+           llh_scale, llh_offset, pixel_scale, pixel_offset,
+           line_num, line_den, samp_num, samp_den,
            out_cam_file);
 }
 

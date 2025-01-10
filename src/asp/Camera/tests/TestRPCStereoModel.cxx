@@ -19,7 +19,7 @@
 // TestRPCStereoModel.h
 
 
-// This also contains the RPCModel tests so they should be seperated out some time.
+// This also contains the RPCModel tests so they should be separated out some time.
 
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoModel.h>

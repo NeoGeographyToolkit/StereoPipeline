@@ -385,11 +385,11 @@ std::string write_optical_bar_output_file(asp::BaBaseOptions const& opt, int ica
   return cam_file;
 }
 
-// Write a CSM camera file to disk. Assumes that the intriniscs are optimized.
+// Write a CSM camera file to disk. Assumes that the intrinsics are optimized.
 // Return the path to the saved file.
-std::string write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
-                           vw::cartography::Datum const& datum,
-                           asp::BAParams const& param_storage) {
+std::string saveCsmUpdateIntr(asp::BaBaseOptions const& opt, int icam,
+                              vw::cartography::Datum const& datum,
+                              asp::BAParams const& param_storage) {
 
   // Get the output file path
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
@@ -429,10 +429,10 @@ std::string write_csm_output_file(asp::BaBaseOptions const& opt, int icam,
   return cam_file;
 }
 
-/// Write a csm camera state file to disk. Assumes no intrinsics are optimized.
-std::string write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int icam,
-                                   std::string const& adjustFile, 
-                                   asp::BAParams const& param_storage) {
+/// Write an updated csm camera state file to disk. Assumes no intrinsics are optimized.
+std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
+                           std::string const& adjustFile, 
+                           asp::BAParams const& param_storage) {
   
   CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
   AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
@@ -446,7 +446,7 @@ std::string write_csm_output_file_no_intr(asp::BaBaseOptions const& opt, int ica
   // Save a transformed copy of the camera model
   boost::shared_ptr<asp::CsmModel> out_cam;
   csm_model->deep_copy(out_cam);
-  out_cam ->applyTransform(ecef_transform);
+  out_cam->applyTransform(ecef_transform);
   out_cam->saveState(csmFile);
 
   if (opt.update_isis_cubes_with_csm_state) {
@@ -1163,7 +1163,7 @@ std::string saveUpdatedCamera(asp::BaBaseOptions const& opt,
       break;
     case BaCameraType_CSM:
       // When solving for intrinsics and using CSM
-      cam_file = write_csm_output_file(opt, icam, opt.datum, param_storage);
+      cam_file = saveCsmUpdateIntr(opt, icam, opt.datum, param_storage);
       break;
     case BaCameraType_Other: {
         // TODO(oalexan1): Make this into a function and move it out.
@@ -1189,7 +1189,7 @@ std::string saveUpdatedCamera(asp::BaBaseOptions const& opt,
         if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades" ||
             opt.stereo_session == "dg"  ||
             (opt.stereo_session == "aster" && asp::stereo_settings().aster_use_csm))
-          cam_file = write_csm_output_file_no_intr(opt, icam, adjust_file, param_storage);
+          cam_file = saveUpdatedCsm(opt, icam, adjust_file, param_storage);
       }
       break;
     default:

@@ -304,7 +304,6 @@ int main( int argc, char* argv[] ) {
     RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
     gen_rpc(// Inputs
             opt.penalty_weight,
-            opt.output_prefix,
             normalized_geodetics, normalized_pixels,  
             llh_scale, llh_offset, uv_scale, uv_offset,
             // Outputs

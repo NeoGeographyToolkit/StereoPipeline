@@ -25,17 +25,15 @@
 
 namespace asp {
 
-  /// Unpack the 78 RPC coefficients from one long vector into four seperate vectors.
+  /// Unpack the 78 RPC coefficients from one long vector into four separate vectors.
   void unpackCoeffs(vw::Vector<double> const& C,
                     RPCModel::CoeffVec& lineNum, RPCModel::CoeffVec& lineDen,
-                    RPCModel::CoeffVec& sampNum, RPCModel::CoeffVec& sampDen
-                    );
+                    RPCModel::CoeffVec& sampNum, RPCModel::CoeffVec& sampDen);
 
-  /// Pack the 78 RPC coefficients from four seperate vectors into one long vector.
+  /// Pack the 78 RPC coefficients from four separate vectors into one long vector.
   void packCoeffs( RPCModel::CoeffVec const& lineNum, RPCModel::CoeffVec const& lineDen,
                    RPCModel::CoeffVec const& sampNum, RPCModel::CoeffVec const& sampDen,
-                   vw::Vector<double> & C
-                   );
+                   vw::Vector<double> & C);
 
   /// Find the best-fitting RPC coefficients for the camera transform
   /// mapping a set of normalized geodetics to a set of normalized pixel values.
@@ -105,10 +103,14 @@ namespace asp {
       // - These values are attached to the end of the output vector
       int count = RPCModel::IMAGE_COORD_SIZE*numPts; 
       vw::Vector<int,20> coeff_order = RPCModel::get_coeff_order(); // This ranges from 1 to 3
-      for (int i = 4; i < (int)lineNum.size(); i++)  result[count++] = m_wt*lineNum[i] * (coeff_order[i]-1);
-      for (int i = 4; i < (int)lineDen.size(); i++)  result[count++] = m_wt*lineDen[i] * (coeff_order[i]-1);
-      for (int i = 4; i < (int)sampNum.size(); i++)  result[count++] = m_wt*sampNum[i] * (coeff_order[i]-1);
-      for (int i = 4; i < (int)sampDen.size(); i++)  result[count++] = m_wt*sampDen[i] * (coeff_order[i]-1);
+      for (int i = 4; i < (int)lineNum.size(); i++)
+        result[count++] = m_wt*lineNum[i] * (coeff_order[i]-1);
+      for (int i = 4; i < (int)lineDen.size(); i++)
+        result[count++] = m_wt*lineDen[i] * (coeff_order[i]-1);
+      for (int i = 4; i < (int)sampNum.size(); i++)
+        result[count++] = m_wt*sampNum[i] * (coeff_order[i]-1);
+      for (int i = 4; i < (int)sampDen.size(); i++)
+        result[count++] = m_wt*sampDen[i] * (coeff_order[i]-1);
 
       VW_ASSERT((int)result.size() == count, vw::ArgumentErr() << "Book-keeping error.\n");
 
@@ -123,21 +125,14 @@ namespace asp {
   /// Dump a vector to a text file, one value per row.
   void print_vec_to_file(std::string const& path, vw::Vector<double> const& vals);
   
-  void write_levmar_solver_results(std::string const& output_prefix, int status,
-                                   vw::Vector<double> const& initial_params,
-                                   vw::Vector<double> const& final_params,
-                                   vw::Vector<double> const& actual_observation,
-                                   RpcSolveLMA const& lma_model);
-  
-  int find_solution_from_seed(RpcSolveLMA    const& lma_model,
+  int find_solution_from_seed(RpcSolveLMA        const& lma_model,
                               vw::Vector<double> const& seed_params,
                               vw::Vector<double> const& actual_observations,
                               vw::Vector<double>      & final_params,
-                              double              & norm_error);
+                              double                  & norm_error);
   
   void gen_rpc(// Inputs
                double penalty_weight,
-               std::string    const& output_prefix,
                vw::Vector<double> const& normalized_geodetics,
                vw::Vector<double> const& normalized_pixels,
                vw::Vector3 const& llh_scale,

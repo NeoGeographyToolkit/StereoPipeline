@@ -349,7 +349,6 @@ int main( int argc, char *argv[] ) {
     RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
     asp::gen_rpc(// Inputs
                  opt.penalty_weight,
-                 "", // Only need to pass in an output prefix to log solver output
                  normalized_geodetics, normalized_pixels,  
                  llh_scale, llh_offset, uv_scale, uv_offset,
                  // Outputs

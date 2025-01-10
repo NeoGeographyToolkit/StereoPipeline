@@ -1100,15 +1100,15 @@ also be embedded in ISIS cubes (:numref:`embedded_csm`).
 
 The `usgscsm_cam_test
 <https://github.com/DOI-USGS/usgscsm/blob/main/docs/source/tools/usgscsm_cam_test.rst>`_
-program, which ASP ships, can convert any CSM camera to model state.
+program (shipped with ASP) can read any of these and write back a model state.
 
 ASP's bundle adjustment program (:numref:`bundle_adjust`) normally writes plain
-text ``.adjust`` files which encode how the position and orientation of the
+text ``.adjust`` files that encode how the position and orientation of the
 cameras were modified (:numref:`adjust_files`). If invoked for CSM cameras,
 additional files with extension ``.adjusted_state.json`` are saved in the same
 output directory, which contain the model state from the input CSM cameras with
-the optimization adjustments applied to them (use zero iterations in
-``bundle_adjust`` to save the states of the original cameras).
+the optimization adjustments applied to them. Use zero iterations in
+``bundle_adjust`` to save the states of the original cameras.
 
 This functionality is implemented for all USGS CSM sensors, so, for ``frame``,
 ``linescan``, ``pushframe``, and ``SAR`` models.
