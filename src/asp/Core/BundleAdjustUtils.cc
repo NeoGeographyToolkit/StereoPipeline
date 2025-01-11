@@ -540,4 +540,24 @@ std::string csmStateFile(std::string const& adjustFile) {
   return csmFile;
 }
 
+// Manufacture an RPC state file from an adjust file. Use the extension
+// from the input RPC file.
+std::string rpcStateFile(std::string const& inputCamFile, 
+                         std::string const& adjustFile) {
+
+  // Find the extension from the inputCamFile
+  std::string inputExt = boost::filesystem::path(inputCamFile).extension().string();
+   
+  std::string rpcFile = adjustFile;
+  
+  // If the suffix we want to add is already present, remove it first
+  std::string suff = ".adjusted_rpc";
+  auto it = rpcFile.find(suff);
+  if (it != std::string::npos)
+    rpcFile.replace(it, suff.size(), "");
+  
+  rpcFile = boost::filesystem::path(rpcFile).replace_extension(suff + inputExt).string();
+  return rpcFile;
+}
+
 } // end namespace asp

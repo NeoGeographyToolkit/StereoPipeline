@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 #include <asp/Camera/RPCModelGen.h>
 #include <asp/Camera/RPCModel.h>
 #include <vw/Math/Geometry.h>

@@ -27,6 +27,7 @@
 #include <asp/IsisIO/IsisInterface.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/RPC_XML.h>
+#include <asp/Camera/RPCModel.h>
 #include <asp/Camera/CameraErrorPropagation.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmModel.h>
@@ -493,26 +494,40 @@ std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
                            std::string const& adjustFile, 
                            asp::BAParams const& param_storage) {
   
-  //std::cout << "--now in saveUpdatedRpc" << std::endl;
+  
+  std::cout << "--now in saveUpdatedRpc" << std::endl;
+  
+  std::string imageFile = opt.image_files[icam];
+  std::cout << "--image file is " << imageFile << std::endl;
+  vw::DiskImageView<float> image(imageFile);
+  std::cout << "--image size is " << image.cols() << ' ' << image.rows() << std::endl;
+   
   std::string inputCamFile = opt.camera_files[icam];
   
   // If empty, just return the adjust file
   if (inputCamFile.empty())
     return adjustFile;
   
-  // std::cout << "--input cam file is " << inputCamFile << std::endl;
+  std::cout << "--input cam file is " << inputCamFile << std::endl;
    
-  // CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-  // AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
-  //                             cam_adjust.position(), cam_adjust.pose());
+  CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+  AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+                               cam_adjust.position(), cam_adjust.pose());
   
-  // vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
-  // std::string rpcFile = adjustFile;
+  vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
+  std::cout << "--ecef transform is " << ecef_transform << std::endl;
   
-  //std::string rpcFile          = asp::rpcStateFile(adjustFile);
-  // asp::RpcModel * rpc_model    = asp::rpc_model(opt.camera_models[icam], 
-  //                                               opt.stereo_session);
-
+  std::string rpcFile = asp::rpcStateFile(inputCamFile, adjustFile);
+  std::cout << "--rpc file is " << rpcFile << std::endl;
+  
+  // Get the underlying RPC model  
+  asp::RPCModel * rpc = dynamic_cast<asp::RPCModel*>
+    (vw::camera::unadjusted_model(opt.camera_models[icam]).get());
+  if (rpc == NULL)
+    vw_throw(ArgumentErr() << "Expecting an RPC camera.\n");
+      
+  std::cout << "--model is " << rpc << std::endl;
+  
   // // Save a transformed copy of the camera model
   // boost::shared_ptr<asp::RpcModel> out_cam;
   // rpc_model->deep_copy(out_cam);
@@ -534,7 +549,7 @@ std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
   //   asp:isis::saveRpcStateToIsisCube(image_name, plugin_name, model_name, model_state);
   // }
   
-  // return rpcFile;
+  return rpcFile;
 }
 
 // Write a camera adjustment file to disk, and potentially a camera file with

@@ -27,8 +27,9 @@
 #include <asp/Core/FileUtils.h>
 #include <asp/Camera/RPCModelGen.h>
 #include <asp/Core/PointUtils.h>
-#include <vw/FileIO/DiskImageView.h>
+#include <asp/Camera/RpcUtils.h>
 
+#include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Cartography/Datum.h>
@@ -201,60 +202,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Must have at least 2 samples in each dimension.\n");
 }
 
-// Add pixel and llh samples along the perimeter and diagonals of image_box.
-// Constrain by the ll box.
-void add_perimeter_diag_points(BBox2 const& image_box, 
-                               vw::CamPtr cam,
-                               vw::cartography::Datum const& datum,
-                               BBox2 const& ll, // lon-lat box
-                               Vector2 const& H, // height range
-                               // Outputs (append to these)
-                               std::vector<Vector3> & all_llh,
-                               std::vector<Vector2> & all_pixels) {
-
-  // Reduce the max by 1, as sample_float_box() assumes the max is not exclusive
-  BBox2 b = image_box;
-  b.max() -= Vector2(1, 1);
-
-  // Calc samples on box perimeter and diagonals
-  // Add on the perimeter a non-small portion of points we added so far throughout
-  int num_steps = std::max(100, int(all_llh.size()/10));
-  std::vector<vw::Vector2> points;
-  vw::cartography::sample_float_box(b, points, num_steps);
-  
-  // Use only the min and max heights
-  for (size_t i = 0; i < H.size(); i++) {
-    double h = H[i];
-
-    for (size_t j = 0; j < points.size(); j++) {
-      vw::Vector2 pix = points[j];
-      
-      double semi_major = datum.semi_major_axis() + h;
-      double semi_minor = datum.semi_minor_axis() + h;
-      vw::Vector3 intersection;
-      try {
-        intersection 
-          = vw::cartography::datum_intersection(semi_major, semi_minor, 
-                                                cam->camera_center(pix), 
-                                                cam->pixel_to_vector(pix));
-        if (intersection == vw::Vector3())
-          continue;
-      } catch (...) {
-        continue;
-      }
-
-      vw::Vector3 llh = datum.cartesian_to_geodetic(intersection);
-      
-      // Must be contained in the lon-lat box
-      if (!ll.contains(Vector2(llh[0], llh[1])))
-        continue;
-        
-      all_llh.push_back(llh);
-      all_pixels.push_back(pix);
-    }
-  }
-
-}
 
 // Add pixel and llh samples along the perimeter and diagonals of image_box.
 // using the DEM.
@@ -415,58 +362,6 @@ void calc_llh_bbox_from_dem(Options & opt, vw::CamPtr cam,
   return;
 }
 
-// Sample the llh box and shoot the 3D points into the camera.
-// Filter by image box.
-void sample_llh_bbox(Options const& opt, vw::CamPtr cam,
-                     BBox2 const& image_box,
-                     // Outputs
-                     std::vector<Vector3> & all_llh,
-                     std::vector<Vector2> & all_pixels) {
-
-  // Wipe the outputs
-  all_llh.clear();
-  all_pixels.clear();
-
-  vw_out() << "Sampling the ground points and camera pixels.\n";
-  double inc_amount = 1.0 / double(opt.num_samples);
-
-  BBox2 ll = opt.lon_lat_range; // shortcut
-  Vector2 H = opt.height_range;
-  double delta_lon = (ll.max()[0] - ll.min()[0])/double(opt.num_samples);
-  double delta_lat = (ll.max()[1] - ll.min()[1])/double(opt.num_samples);
-  double delta_ht  = (H[1] - H[0])/double(opt.num_samples);
-  vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  tpc.report_progress(0);
-  for (double lon = ll.min()[0]; lon <= ll.max()[0]; lon += delta_lon) {
-    for (double lat = ll.min()[1]; lat <= ll.max()[1]; lat += delta_lat) {
-      for (double ht = H[0]; ht <= H[1]; ht += delta_ht) {
-
-        Vector3 llh(lon, lat, ht);
-        Vector3 xyz = opt.datum.geodetic_to_cartesian(llh);
-
-        // Go back to llh. This is a bugfix for the 360 deg offset problem.
-        llh = opt.datum.cartesian_to_geodetic(xyz);
-
-        Vector2 cam_pix;
-        try {
-          // The point_to_pixel function can be capricious
-          cam_pix = cam->point_to_pixel(xyz);
-        } catch(...) {
-          continue;
-        }
-        if (image_box.contains(cam_pix)) {
-          all_llh.push_back(llh);
-          all_pixels.push_back(cam_pix);
-        }
-
-      }
-    }
-    tpc.report_incremental_progress(inc_amount);
-  }
-  tpc.report_finished();
-  
-}
-
 int main(int argc, char *argv[]) {
 
   Options opt;
@@ -551,13 +446,15 @@ int main(int argc, char *argv[]) {
     // Generate point pairs
     std::vector<Vector3> all_llh;
     std::vector<Vector2> all_pixels;
-    sample_llh_bbox(opt, cam, image_box, 
-                    all_llh, all_pixels); // outputs
+    asp::sample_llh_pix_bbox(opt.lon_lat_range, opt.height_range, opt.num_samples,
+                             opt.datum, cam, image_box, 
+                             all_llh, all_pixels); // outputs
     
     // Add points for pixels along the perimeter and diagonals of image_box. Constrain
     // by the ll box.
-    add_perimeter_diag_points(image_box, cam, opt.datum, opt.lon_lat_range, opt.height_range,
-                              all_llh, all_pixels); // outputs
+    asp::add_perimeter_diag_points(image_box, opt.datum, cam, opt.lon_lat_range, 
+                                   opt.height_range,
+                                   all_llh, all_pixels); // outputs
 
     // The pixel box
     BBox2 pixel_box;
