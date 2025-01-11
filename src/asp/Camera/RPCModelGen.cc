@@ -66,6 +66,59 @@ void packCoeffs(RPCModel::CoeffVec const& lineNum, RPCModel::CoeffVec const& lin
   return;
 }
 
+// Given a set of RPC coefficients, compute the projected pixels. The input is
+// the RPC coefficients, packed in a vector. For each normalized geodetic,
+// compute the normalized pixel value. This will be the output. Add the
+// penalization terms to the output. See the note later in the code.
+RpcSolveLMA::result_type RpcSolveLMA::operator()(RpcSolveLMA::domain_type const& C) const {
+
+  // Unpack all the RPC model coefficients from the input vector C
+  RPCModel::CoeffVec lineNum, lineDen, sampNum, sampDen;
+  unpackCoeffs(C, lineNum, lineDen, sampNum, sampDen);
+
+  // Initialize the output vector
+  int numPts = m_normalizedGeodetics.size()/RPCModel::GEODETIC_COORD_SIZE;
+  result_type result;
+  result.set_size(m_normalizedPixels.size());
+  
+  // Loop through each test point
+  for (int i = 0; i < numPts; i++){
+    // Unpack the normalized geodetic coordinates
+    vw::Vector3 G = subvector(m_normalizedGeodetics, RPCModel::GEODETIC_COORD_SIZE*i, 
+                              RPCModel::GEODETIC_COORD_SIZE);
+    
+    // Project the normalized geodetic coordinate into the RPC camera to get a normalized pixel
+    vw::Vector2 pxn = RPCModel::normalized_geodetic_to_normalized_pixel(G, lineNum, lineDen,
+                                                                        sampNum, sampDen);
+          
+    // Pack the normalized pixel into the output result vector
+    subvector(result, RPCModel::IMAGE_COORD_SIZE*i, RPCModel::IMAGE_COORD_SIZE) = pxn;
+
+  }
+
+  // There are 4*20 - 2 = 78 coefficients we optimize. Of those, 2
+  // are 0-th degree, 4*3 = 12 are 1st degree, and the rest, 78 - 12
+  // - 2 = 64 are higher degree.  Per Hartley, we'll add for each
+  // such coefficient c, a term K*c in the cost function vector,
+  // where K is a large number. This will penalize large values in
+  // the higher degree coefficients.
+  // - These values are attached to the end of the output vector
+  int count = RPCModel::IMAGE_COORD_SIZE*numPts; 
+  vw::Vector<int,20> coeff_order = RPCModel::get_coeff_order(); // This ranges from 1 to 3
+  for (int i = 4; i < (int)lineNum.size(); i++)
+    result[count++] = m_wt*lineNum[i] * (coeff_order[i]-1);
+  for (int i = 4; i < (int)lineDen.size(); i++)
+    result[count++] = m_wt*lineDen[i] * (coeff_order[i]-1);
+  for (int i = 4; i < (int)sampNum.size(); i++)
+    result[count++] = m_wt*sampNum[i] * (coeff_order[i]-1);
+  for (int i = 4; i < (int)sampDen.size(); i++)
+    result[count++] = m_wt*sampDen[i] * (coeff_order[i]-1);
+
+  VW_ASSERT((int)result.size() == count, vw::ArgumentErr() << "Book-keeping error.\n");
+
+  return result;
+}
+  
 // Print out a name followed by the vector of values
 void print_vec(std::string const& name, Vector<double> const& vals) {
   std::cout.precision(16);
