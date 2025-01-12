@@ -302,10 +302,12 @@ int main( int argc, char* argv[] ) {
 
     // Find the RPC coefficients
     RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
+    bool refine_only = false;
     gen_rpc(// Inputs
             opt.penalty_weight,
             normalized_geodetics, normalized_pixels,  
             llh_scale, llh_offset, uv_scale, uv_offset,
+            refine_only,
             // Outputs
             line_num, line_den, samp_num, samp_den);
     

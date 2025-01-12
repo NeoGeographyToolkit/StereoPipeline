@@ -229,6 +229,39 @@ void initRpcAsAffine(// Inputs
   samp_den[0] = 1.0;
   line_den[0] = 1.0;
 }
+
+// Form the normalized llh and pixel arrays that will be as inputs to the RPC solver
+// Form the normalized llh and pixel arrays that will be as inputs to the RPC solver
+void normalizeLlhPix(std::vector<vw::Vector3> const& all_llh,
+                     std::vector<vw::Vector2> const& all_pixels,
+                     vw::Vector3 const& llh_scale, vw::Vector3 const& llh_offset,
+                     vw::Vector2 const& pixel_scale, vw::Vector2 const& pixel_offset,
+                     // Outputs
+                     vw::Vector<double> & normalized_llh, 
+                     vw::Vector<double> & normalized_pixels) {
+
+  // Allocate the inputs, including with space for the penalty terms, that are
+  // zero for now.
+  int num_total_pts = all_llh.size();
+  normalized_llh.set_size(asp::RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
+  normalized_pixels.set_size(asp::RPCModel::IMAGE_COORD_SIZE*num_total_pts
+                              + asp::RpcSolveLMA::NUM_PENALTY_TERMS);
+
+  for (size_t i = 0; i < normalized_pixels.size(); i++)
+    normalized_pixels[i] = 0.0; 
+
+  // Form the arrays of normalized pixels and normalized llh
+  for (int pt = 0; pt < num_total_pts; pt++) {
+    // Normalize the pixel to the [-1, 1] range
+    vw::Vector3 llh_n   = elem_quot(all_llh[pt] - llh_offset, llh_scale);
+    vw::Vector2 pixel_n = elem_quot(all_pixels[pt] - pixel_offset, pixel_scale);
+    vw::math::subvector(normalized_llh, asp::RPCModel::GEODETIC_COORD_SIZE*pt,
+              asp::RPCModel::GEODETIC_COORD_SIZE) = llh_n;
+    vw::math::subvector(normalized_pixels, asp::RPCModel::IMAGE_COORD_SIZE*pt,
+              asp::RPCModel::IMAGE_COORD_SIZE) = pixel_n;
+  }
+  
+}
   
 void gen_rpc(// Inputs
              double penalty_weight,
@@ -238,6 +271,7 @@ void gen_rpc(// Inputs
              Vector3 const& llh_offset,
              Vector2 const& uv_scale,
              Vector2 const& uv_offset,
+             bool refine_only,
              // Outputs
              RPCModel::CoeffVec & line_num,
              RPCModel::CoeffVec & line_den,
@@ -254,10 +288,11 @@ void gen_rpc(// Inputs
     = (double)RpcSolveLMA::NUM_PENALTY_TERMS / (double)normalized_pixels.size();
   double penalty_adjustment = penalty_weight_fraction / native_penalty_fraction;
 
-  // Initialize the RPC model with an affine transform
-  initRpcAsAffine(normalized_geodetics, normalized_pixels,
-                  llh_scale, llh_offset, uv_scale, uv_offset,
-                  line_num, line_den, samp_num, samp_den);      
+  // Initialize the RPC model with an affine transform, unless asked to refine only
+  if (!refine_only)
+    initRpcAsAffine(normalized_geodetics, normalized_pixels,
+                    llh_scale, llh_offset, uv_scale, uv_offset,
+                    line_num, line_den, samp_num, samp_den);      
   
   // Initialize the model
   Vector<double> startGuess;

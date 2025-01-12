@@ -641,14 +641,16 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
   if (lattice_mat.empty() || sight_mat.empty()     ||
       lattice_mat.size()     != sight_mat.size()   ||
       lattice_mat[0].size() != sight_mat[0].size()) {
-    vw_throw( ArgumentErr() << "Inconsistent lattice point and sight vector information.\n");
+    vw_throw(ArgumentErr() 
+             << "Inconsistent lattice point and sight vector information.\n");
   }
 
   // Read the satellite positions
   std::vector<Vector3> sat_pos;
   asp::read_3d_points(sat_pos_file, sat_pos);
   if (sat_pos.size() != sight_mat.size()) 
-    vw_throw( ArgumentErr() << "Inconsistent satellite position and sight vector information.\n");
+    vw_throw(ArgumentErr() 
+             << "Inconsistent satellite position and sight vector information.\n");
     
   Vector3 llh_scale, llh_offset;
   Vector2 pixel_scale, pixel_offset;
@@ -668,9 +670,11 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
   
   // Find the RPC coefficients
   asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
+  bool refine_only = false;
   asp::gen_rpc(// Inputs
                penalty_weight, normalized_llh, normalized_pixels,  
                llh_scale, llh_offset, pixel_scale, pixel_offset,
+               refine_only,
                // Outputs
                line_num, line_den, samp_num, samp_den);
   

@@ -28,6 +28,8 @@
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/RPCModel.h>
+#include <asp/Camera/RpcUtils.h> // TODO(oalexan1): temporary, remove
+#include <asp/Camera/RPCModelGen.h> // temporary
 #include <asp/Camera/CameraErrorPropagation.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmModel.h>
@@ -520,14 +522,83 @@ std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
   std::string rpcFile = asp::rpcStateFile(inputCamFile, adjustFile);
   std::cout << "--rpc file is " << rpcFile << std::endl;
   
-  // Get the underlying RPC model  
-  asp::RPCModel * rpc = dynamic_cast<asp::RPCModel*>
-    (vw::camera::unadjusted_model(opt.camera_models[icam]).get());
+  // Get the underlying RPC model
+  vw::CamPtr unadjCam = vw::camera::unadjusted_model(opt.camera_models[icam]);
+  asp::RPCModel * rpc = dynamic_cast<asp::RPCModel*>(unadjCam.get());
   if (rpc == NULL)
     vw_throw(ArgumentErr() << "Expecting an RPC camera.\n");
+  
+  // TODO(oalexan1): Must make copy of the RPC model, apply the transform to it.
+  // That logic needs to be in a function in the RPC gen code.
+  // Then it should be called here.
+  
+  // Do that, then review and push all the code so far.
       
   std::cout << "--model is " << rpc << std::endl;
   
+  vw::Vector3 llh_offset = rpc->lonlatheight_offset();
+  std::cout << "--llh offset is " << llh_offset << std::endl;
+  vw::Vector3 llh_scale = rpc->lonlatheight_scale();
+  std::cout << "--llh scale is " << llh_scale << std::endl;
+  
+  vw::cartography::Datum datum = rpc->datum();
+  std::cout << "--datum is " << datum << std::endl;
+  
+  vw::Vector2 pixel_offset = rpc->xy_offset();
+  std::cout << "--pixel offset is " << pixel_offset << std::endl;
+  vw::Vector2 pixel_scale = rpc->xy_scale();
+  
+  BBox2 image_box = vw::bounding_box(image);
+  std::cout << "--pixel box is " << image_box << std::endl;
+  
+  vw::BBox2 lon_lat_range;
+  lon_lat_range.min() = subvector(llh_offset - llh_scale, 0, 2);
+  lon_lat_range.max() = subvector(llh_offset + llh_scale, 0, 2);
+  std::cout << "--ll range is " << lon_lat_range << std::endl;
+  vw::Vector2 height_range;
+  height_range[0] = llh_offset[2] - llh_scale[2];
+  height_range[1] = llh_offset[2] + llh_scale[2];
+  std::cout << "--h range is " << height_range << std::endl;
+
+  int num_samples = 20; // TODO(oalexan1): Think about this
+    
+  // Generate point pairs
+  std::vector<Vector3> all_llh;
+  std::vector<Vector2> all_pixels;
+  asp::sample_llh_pix_bbox(lon_lat_range, height_range, num_samples,
+                            datum, unadjCam, image_box, 
+                            all_llh, all_pixels); // outputs
+  // Add points for pixels along the perimeter and diagonals of image_box. Constrain
+  // by the ll box.
+  asp::add_perimeter_diag_points(image_box, datum, unadjCam, lon_lat_range, 
+                                 height_range,
+                                 all_llh, all_pixels); // outputs
+  
+  double penalty_weight = 1e-4;
+  // TODO(oalexan1): Think of the best way to set this.
+  std::cout << "--penalty weight is " << penalty_weight << std::endl;
+  
+  // Form the vectors of normalized llh and pixel values
+  Vector<double> normalized_llh;
+  Vector<double> normalized_pixels;
+  asp::normalizeLlhPix(all_llh, all_pixels, llh_scale, llh_offset, 
+                       pixel_scale, pixel_offset,
+                       normalized_llh, normalized_pixels); // outputs
+
+  asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
+  line_num = rpc->line_num_coeff();
+  line_den = rpc->line_den_coeff();
+  samp_num = rpc->sample_num_coeff();
+  samp_den = rpc->sample_den_coeff();
+  
+  bool refine_only = true;
+  asp::gen_rpc(// Inputs
+                opt.penalty_weight, normalized_llh, normalized_pixels,
+                llh_scale, llh_offset, pixel_scale, pixel_offset,
+                refine_only,
+                // Outputs
+                line_num, line_den, samp_num, samp_den);
+
   // // Save a transformed copy of the camera model
   // boost::shared_ptr<asp::RpcModel> out_cam;
   // rpc_model->deep_copy(out_cam);
@@ -573,12 +644,6 @@ std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
                                     cam_adjust.pose());
 
   std::string cam_file = adjust_file;
-
-  #pragma omp critical
-  {
-    std::cout << "---session is " << opt.stereo_session << std::endl;
-    std::cout << "--input cam file is " << opt.camera_files[icam] << std::endl;
-  }
     
   // For CSM camera models export, in addition, the JSON state with the
   // adjustment applied to it. This applies when not solving for intrinsics and

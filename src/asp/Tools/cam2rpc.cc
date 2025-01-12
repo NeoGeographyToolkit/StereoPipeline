@@ -449,7 +449,6 @@ int main(int argc, char *argv[]) {
     asp::sample_llh_pix_bbox(opt.lon_lat_range, opt.height_range, opt.num_samples,
                              opt.datum, cam, image_box, 
                              all_llh, all_pixels); // outputs
-    
     // Add points for pixels along the perimeter and diagonals of image_box. Constrain
     // by the ll box.
     asp::add_perimeter_diag_points(image_box, opt.datum, cam, opt.lon_lat_range, 
@@ -519,35 +518,22 @@ int main(int argc, char *argv[]) {
     vw_out() << "Lon-lat-height box for the RPC approx: " << llh_box   << "\n";
     vw_out() << "Camera pixel box for the RPC approx (after crop): " << pixel_box << "\n";
 
+    // Form the vectors of normalized llh and pixel values
     Vector<double> normalized_llh;
     Vector<double> normalized_pixels;
-    int num_total_pts = all_llh.size();
-    normalized_llh.set_size(asp::RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
-    normalized_pixels.set_size(asp::RPCModel::IMAGE_COORD_SIZE*num_total_pts
-                               + asp::RpcSolveLMA::NUM_PENALTY_TERMS);
-    for (size_t i = 0; i < normalized_pixels.size(); i++) {
-      // Important: The extra penalty terms are all set to zero here.
-      normalized_pixels[i] = 0.0; 
-    }
-
-    // Form the arrays of normalized pixels and normalized llh
-    for (int pt = 0; pt < num_total_pts; pt++) {
-      // Normalize the pixel to -1 <> 1 range
-      Vector3 llh_n   = elem_quot(all_llh[pt]    - llh_offset,   llh_scale);
-      Vector2 pixel_n = elem_quot(all_pixels[pt] - pixel_offset, pixel_scale);
-      subvector(normalized_llh, asp::RPCModel::GEODETIC_COORD_SIZE*pt,
-                asp::RPCModel::GEODETIC_COORD_SIZE) = llh_n;
-      subvector(normalized_pixels, asp::RPCModel::IMAGE_COORD_SIZE*pt,
-                asp::RPCModel::IMAGE_COORD_SIZE) = pixel_n;
-    }
+    asp::normalizeLlhPix(all_llh, all_pixels, llh_scale, llh_offset, 
+                         pixel_scale, pixel_offset,
+                         normalized_llh, normalized_pixels); // outputs
 
     // Find the RPC coefficients
     asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
-    vw_out() << "Generating the RPC approximation using " << num_total_pts 
+    vw_out() << "Generating the RPC approximation using " << all_llh.size()
              << " point pairs.\n";
+    bool refine_only = false;
     asp::gen_rpc(// Inputs
                  opt.penalty_weight, normalized_llh, normalized_pixels,
                  llh_scale, llh_offset, pixel_scale, pixel_offset,
+                 refine_only,
                  // Outputs
                  line_num, line_den, samp_num, samp_den);
 
