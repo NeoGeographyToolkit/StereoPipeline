@@ -16,8 +16,11 @@
 // __END_LICENSE__
 
 #include <asp/Camera/RPCModelGen.h>
+#include <asp/Camera/RpcUtils.h>
 #include <asp/Camera/RPCModel.h>
+
 #include <vw/Math/Geometry.h>
+#include <vw/Math/BBox.h>
 
 using namespace vw;
 
@@ -314,6 +317,80 @@ void gen_rpc(// Inputs
   // If we ever want to improve our results further we should
   // experiment with multiple starting seeds
   unpackCoeffs(solution, line_num, line_den, samp_num, samp_den);
+}
+
+// Produce a transformed RPC model
+asp::RPCModel transformRpc(asp::RPCModel const& rpc_model, 
+                           vw::Matrix4x4 const& transform,
+                           vw::BBox2 const& image_box) {
+
+  vw::Vector3 llh_offset = rpc_model.lonlatheight_offset();
+  std::cout << "--llh offset is " << llh_offset << std::endl;
+  vw::Vector3 llh_scale = rpc_model.lonlatheight_scale();
+  std::cout << "--llh scale is " << llh_scale << std::endl;
+  
+  vw::cartography::Datum datum = rpc_model.datum();
+  std::cout << "--datum is " << datum << std::endl;
+  
+  vw::Vector2 pixel_offset = rpc_model.xy_offset();
+  std::cout << "--pixel offset is " << pixel_offset << std::endl;
+  vw::Vector2 pixel_scale = rpc_model.xy_scale();
+  
+  std::cout << "--pixel box is " << image_box << std::endl;
+  
+  vw::BBox2 lon_lat_range;
+  lon_lat_range.min() = subvector(llh_offset - llh_scale, 0, 2);
+  lon_lat_range.max() = subvector(llh_offset + llh_scale, 0, 2);
+  std::cout << "--ll range is " << lon_lat_range << std::endl;
+  vw::Vector2 height_range;
+  height_range[0] = llh_offset[2] - llh_scale[2];
+  height_range[1] = llh_offset[2] + llh_scale[2];
+  std::cout << "--h range is " << height_range << std::endl;
+
+  // Make a copy of the camera as a smart pointer
+  vw::CamPtr cam(new asp::RPCModel(rpc_model));
+  
+  int num_samples = 20; // TODO(oalexan1): Think about this
+
+  // Generate point pairs
+  std::vector<Vector3> all_llh;
+  std::vector<Vector2> all_pixels;
+  asp::sample_llh_pix_bbox(lon_lat_range, height_range, num_samples,
+                            datum, cam, image_box, 
+                            all_llh, all_pixels); // outputs
+  // Add points for pixels along the perimeter and diagonals of image_box. Constrain
+  // by the ll box.
+  asp::add_perimeter_diag_points(image_box, datum, cam, lon_lat_range, 
+                                 height_range,
+                                 all_llh, all_pixels); // outputs
+  
+  double penalty_weight = 1e-4;
+  // TODO(oalexan1): Think of the best way to set this.
+  std::cout << "--penalty weight is " << penalty_weight << std::endl;
+  
+  // Form the vectors of normalized llh and pixel values
+  Vector<double> normalized_llh;
+  Vector<double> normalized_pixels;
+  asp::normalizeLlhPix(all_llh, all_pixels, llh_scale, llh_offset, 
+                       pixel_scale, pixel_offset,
+                       normalized_llh, normalized_pixels); // outputs
+
+  asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
+  line_num = rpc_model.line_num_coeff();
+  line_den = rpc_model.line_den_coeff();
+  samp_num = rpc_model.sample_num_coeff();
+  samp_den = rpc_model.sample_den_coeff();
+  
+  bool refine_only = true;
+  asp::gen_rpc(// Inputs
+                penalty_weight, normalized_llh, normalized_pixels,
+                llh_scale, llh_offset, pixel_scale, pixel_offset,
+                refine_only,
+                // Outputs
+                line_num, line_den, samp_num, samp_den);
+
+  std::cout << "--temporary rpc model is " << rpc_model << std::endl;
+  return rpc_model;
 }
 
 } // end namespace asp

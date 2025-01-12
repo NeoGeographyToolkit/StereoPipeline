@@ -22,6 +22,7 @@
 
 #include <asp/Camera/RPCModel.h>
 #include <vw/Math/LevenbergMarquardt.h>
+#include <vw/Math/BBox.h>
 
 namespace asp {
 
@@ -101,6 +102,10 @@ void gen_rpc(// Inputs
               RPCModel::CoeffVec & samp_num,
               RPCModel::CoeffVec & samp_den);
 
+// Produce a transformed RPC model
+RPCModel transformRpc(RPCModel const& rpc_model, 
+                      vw::Matrix4x4 const& transform,
+                      vw::BBox2 const& image_box);
 } // end namespace asp
 
 #endif //__STEREO_CAMERA_RPC_MODEL_GEN_H__

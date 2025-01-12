@@ -51,26 +51,25 @@ namespace asp {
     // These integers show up in a lot of RPC code
     static const int GEODETIC_COORD_SIZE = 3;
     static const int IMAGE_COORD_SIZE    = 2;
-
     static const int NUM_RPC_COEFFS = 78; // Total number of RPC coefficients
 
     typedef vw::Vector<double,20> CoeffVec;
 
     /// Construct from a GDAL image or an .RPB file.
-    RPCModel( std::string const& filename );
+    RPCModel(std::string const& filename);
     
-    RPCModel( vw::DiskImageResourceGDAL* resource );
-    RPCModel( vw::cartography::Datum const& datum,
-              CoeffVec    const& line_num_coeff,
-              CoeffVec    const& line_den_coeff,
-              CoeffVec    const& samp_num_coeff,
-              CoeffVec    const& samp_den_coeff,
-              vw::Vector2 const& xy_offset,
-              vw::Vector2 const& xy_scale,
-              vw::Vector3 const& lonlatheight_offset,
-              vw::Vector3 const& lonlatheight_scale,
-              double err_bias = 0.0,
-              double err_rand = 0.0);
+    RPCModel(vw::DiskImageResourceGDAL* resource);
+    RPCModel(vw::cartography::Datum const& datum,
+             CoeffVec    const& line_num_coeff,
+             CoeffVec    const& line_den_coeff,
+             CoeffVec    const& samp_num_coeff,
+             CoeffVec    const& samp_den_coeff,
+             vw::Vector2 const& xy_offset,
+             vw::Vector2 const& xy_scale,
+             vw::Vector3 const& lonlatheight_offset,
+             vw::Vector3 const& lonlatheight_scale,
+             double err_bias = 0.0,
+             double err_rand = 0.0);
 
     virtual std::string type() const { return "RPC"; }
     virtual ~RPCModel() {}
@@ -83,6 +82,9 @@ namespace asp {
     virtual vw::Vector2 point_to_pixel ( vw::Vector3 const& point ) const;
     virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix   ) const;
     virtual vw::Vector3 camera_center  ( vw::Vector2 const& pix   ) const;
+
+   // Apply a transform to an RPC model
+   void applyTransform(vw::Matrix4x4 const& transform);
 
     static vw::Vector2 normalized_geodetic_to_normalized_pixel
       (vw::Vector3 const& normalized_geodetic,
