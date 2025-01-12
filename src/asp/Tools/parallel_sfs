@@ -160,21 +160,25 @@ def runSfs(options, outputFolder, outputName, perTileFiles):
 
 def mosaic_results(tileList, outputFolder, outputName, options, inFile, outFile):
 
-    # Create the list of final DEMs that get created at the end 
-    outputDems = []
-    for tile in tileList:
-        tileName = tile[4]
-        tilePrefix = generateTilePrefix(outputFolder, tileName, outputName)
-        # TODO(oalexan1): At some point this command will become too big.
-        # Need to keep these in a list.
-        outputDems.append(tilePrefix + '-' + inFile)
-         
-    # Mosaic the outputs using dem_mosaic
+    # Final mosaicked result
     finalDem = options.output_prefix + '-' + outFile
+    
+    # Create the list of DEMs to mosaic
+    demList = finalDem
+    demList = re.sub(r'\.\w+$', '', demList)
+    demList += '-list.txt'
+    with open(demList, 'w') as f:
+        for tile in tileList:
+            tileName = tile[4]
+            tilePrefix = generateTilePrefix(outputFolder, tileName, outputName)
+            demFile = tilePrefix + '-' + inFile
+            f.write(demFile + '\n')
+                 
+    # Mosaic the outputs using dem_mosaic
     dem_mosaic_path = asp_system_utils.bin_path('dem_mosaic')
     dem_mosaic_args = ['--weights-exponent', '2', '--use-centerline-weights',
-                       '-o', finalDem]
-    cmd = timeCmd + [dem_mosaic_path] + outputDems + dem_mosaic_args
+                       '--dem-list', demList, '-o', finalDem]
+    cmd = timeCmd + [dem_mosaic_path] + dem_mosaic_args
     asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
 def write_cmd_output(output_prefix, cmd, out, err, status):
