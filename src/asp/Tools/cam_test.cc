@@ -214,231 +214,246 @@ void rpc_datum_sanity_check(std::string const& cam_file,
   }
 }
 
-int main(int argc, char *argv[]) {
+void run_cam_test(Options & opt) {
+  
+  // Load cam1
+  std::string out_prefix;
+  std::string default_session1 = opt.session1; // save it before it changes
+  asp::SessionPtr cam1_session(asp::StereoSessionFactory::create
+                              (opt.session1, // may change
+                              opt,
+                              opt.image_file, opt.image_file,
+                              opt.cam1_file, opt.cam1_file,
+                              out_prefix));
+  boost::shared_ptr<vw::camera::CameraModel> cam1_model
+    = cam1_session->camera_model(opt.image_file, opt.cam1_file);
 
-  Options opt;
-  try {
-    handle_arguments(argc, argv, opt);
+  // Load cam2
+  std::string default_session2 = opt.session2; // save it before it changes
+  asp::SessionPtr cam2_session(asp::StereoSessionFactory::create
+                          (opt.session2, // may change
+                          opt,
+                          opt.image_file, opt.image_file,
+                          opt.cam2_file, opt.cam2_file,
+                          out_prefix));
+  boost::shared_ptr<vw::camera::CameraModel> cam2_model
+    = cam2_session->camera_model(opt.image_file, opt.cam2_file);
 
-    // Load cam1
-    std::string out_prefix;
-    std::string default_session1 = opt.session1; // save it before it changes
-    asp::SessionPtr cam1_session(asp::StereoSessionFactory::create
-                               (opt.session1, // may change
-                                opt,
-                                opt.image_file, opt.image_file,
-                                opt.cam1_file, opt.cam1_file,
-                                out_prefix));
-    boost::shared_ptr<vw::camera::CameraModel> cam1_model
-      = cam1_session->camera_model(opt.image_file, opt.cam1_file);
+  bool found_datum = false;
+  vw::cartography::Datum datum;
+  if (opt.datum != "") {
+    // Use the datum specified by the user
+    datum.set_well_known_datum(opt.datum);
+    found_datum = true;
+  }
 
-    // Load cam2
-    std::string default_session2 = opt.session2; // save it before it changes
-    asp::SessionPtr cam2_session(asp::StereoSessionFactory::create
-                           (opt.session2, // may change
-                            opt,
-                            opt.image_file, opt.image_file,
-                            opt.cam2_file, opt.cam2_file,
-                            out_prefix));
-    boost::shared_ptr<vw::camera::CameraModel> cam2_model
-      = cam2_session->camera_model(opt.image_file, opt.cam2_file);
-
-    bool found_datum = false;
-    vw::cartography::Datum datum;
-    if (opt.datum != "") {
-      // Use the datum specified by the user
-      datum.set_well_known_datum(opt.datum);
-      found_datum = true;
-    }
-
-    // See if the first camera has a datum    
-    vw::cartography::Datum cam_datum;
-    bool warn_only = true; // warn about differences in the datums
-    bool found_cam_datum = asp::datum_from_camera(opt.image_file, opt.cam1_file,
-                                                   // Outputs
-                                                   opt.session1, cam1_session, cam_datum);
-    if (found_datum && found_cam_datum)
-      vw::checkDatumConsistency(datum, cam_datum, warn_only);
-     
-     if (!found_datum && found_cam_datum) {
-      datum = cam_datum;
-      found_datum = true;
-    }
-       
-    // Same for the second camera
-    found_cam_datum = asp::datum_from_camera(opt.image_file, opt.cam2_file,
-                                             // Outputs
-                                             opt.session2, cam2_session, cam_datum);   
-    if (found_datum && found_cam_datum)
-      vw::checkDatumConsistency(datum, cam_datum, warn_only);
+  // See if the first camera has a datum    
+  vw::cartography::Datum cam_datum;
+  bool warn_only = true; // warn about differences in the datums
+  bool found_cam_datum = asp::datum_from_camera(opt.image_file, opt.cam1_file,
+                                                  // Outputs
+                                                  opt.session1, cam1_session, cam_datum);
+  if (found_datum && found_cam_datum)
+    vw::checkDatumConsistency(datum, cam_datum, warn_only);
     
     if (!found_datum && found_cam_datum) {
-      datum = cam_datum;
-      found_datum = true;
+    datum = cam_datum;
+    found_datum = true;
+  }
+      
+  // Same for the second camera
+  found_cam_datum = asp::datum_from_camera(opt.image_file, opt.cam2_file,
+                                            // Outputs
+                                            opt.session2, cam2_session, cam_datum);   
+  if (found_datum && found_cam_datum)
+    vw::checkDatumConsistency(datum, cam_datum, warn_only);
+  
+  if (!found_datum && found_cam_datum) {
+    datum = cam_datum;
+    found_datum = true;
+  }
+  
+  if (!found_datum)
+    vw_throw(ArgumentErr() << "Could not find the datum. Set --datum or use "
+              << "the nadirpinhole session (for cameras relative to a planet).\n"); 
+  vw_out() << "Using datum: " << datum << std::endl;
+
+  // Sanity check
+  if (norm_2(cam1_model->camera_center(Vector2())) < datum.semi_major_axis() ||
+      norm_2(cam2_model->camera_center(Vector2())) < datum.semi_major_axis())   
+          vw::vw_out(vw::WarningMessage) << "First or second camera center is below "
+          << "the datum semi-major axis. Check your data. Consider using "
+          << "the --datum and/or --height-above-datum options.\n"; 
+
+  if (opt.session1 == opt.session2 && (default_session1 == "" || default_session2 == ""))
+    vw_throw(ArgumentErr() << "The session names for both cameras "
+              << "were guessed as: '" << opt.session1 << "'. It is suggested that they be "
+              << "explicitly specified using --session1 and --session2.\n");
+
+  // Sanity checks for RPC cameras
+  if (opt.session1 == "rpc")
+    rpc_datum_sanity_check(opt.cam1_file, opt.height_above_datum, 
+                            vw::camera::unadjusted_model(cam1_model.get()));
+  if (opt.session2 == "rpc")
+    rpc_datum_sanity_check(opt.cam2_file, opt.height_above_datum,
+                            vw::camera::unadjusted_model(cam2_model.get()));
+
+  if (opt.test_error_propagation && opt.session1 == "dg" && opt.session2 == "dg") {
+    testErrorPropagation(opt, datum, cam1_model, cam2_model);
+    return;
+  }
+
+  // Find the input image dimensions
+  int image_cols = 0, image_rows = 0;
+  try {
+    DiskImageView<float> image(opt.image_file);
+    image_cols = image.cols();
+    image_rows = image.rows();
+  } catch(const std::exception& e) {
+    // For CSM-to-CSM ground-to-image and image-to-ground comparisons only,
+    // the camera has the dimensions if the .cub image is missing.
+    asp::CsmModel * csm_model
+      = dynamic_cast<asp::CsmModel*>(vw::camera::unadjusted_model(cam1_model.get()));
+    if (csm_model != NULL) {
+      image_cols = csm_model->get_image_size()[0];
+      image_rows = csm_model->get_image_size()[1];
+    } else {
+      vw::vw_throw(ArgumentErr() << e.what());
     }
-    
-    if (!found_datum)
-      vw_throw(ArgumentErr() << "Could not find the datum. Set --datum or use "
-               << "the nadirpinhole session (for cameras relative to a planet).\n"); 
-    vw_out() << "Using datum: " << datum << std::endl;
+  }
+  vw_out() << "Image dimensions: " << image_cols << ' ' << image_rows << std::endl;
 
-    // Sanity check
-    if (norm_2(cam1_model->camera_center(Vector2())) < datum.semi_major_axis() ||
-        norm_2(cam2_model->camera_center(Vector2())) < datum.semi_major_axis())   
-            vw::vw_out(vw::WarningMessage) << "First or second camera center is below "
-            << "the datum semi-major axis. Check your data. Consider using "
-            << "the --datum and/or --height-above-datum options.\n"; 
+  BBox2 image_box(0, 0, image_cols, image_rows);
+  std::cout << "Image box: " << image_box << std::endl;
+  
+  vw::camera::AdjustedCameraModel * acam = 
+    dynamic_cast<vw::camera::AdjustedCameraModel*>(cam1_model.get());
+  if (acam == NULL) {
+     // throw
+     vw::vw_throw(vw::ArgumentErr() << "Expecting an adjusted camera model.\n");
+  }
+  
+  bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
 
-    if (opt.session1 == opt.session2 && (default_session1 == "" || default_session2 == ""))
-      vw_throw(ArgumentErr() << "The session names for both cameras "
-               << "were guessed as: '" << opt.session1 << "'. It is suggested that they be "
-               << "explicitly specified using --session1 and --session2.\n");
+  Stopwatch sw;
+  sw.start();
 
-    // Sanity checks for RPC cameras
-    if (opt.session1 == "rpc")
-      rpc_datum_sanity_check(opt.cam1_file, opt.height_above_datum, 
-                             vw::camera::unadjusted_model(cam1_model.get()));
-    if (opt.session2 == "rpc")
-      rpc_datum_sanity_check(opt.cam2_file, opt.height_above_datum,
-                             vw::camera::unadjusted_model(cam2_model.get()));
+  double major_axis = datum.semi_major_axis() + opt.height_above_datum;
+  double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
+  
+  // Iterate over the image
+  std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff, nocsm_vs_csm_diff;
+  int num_failed = 0;
+  for (int col = 0; col < image_cols; col += opt.sample_rate) {
+    for (int row = 0; row < image_rows; row += opt.sample_rate) {
 
-    if (opt.test_error_propagation && opt.session1 == "dg" && opt.session2 == "dg") {
-      testErrorPropagation(opt, datum, cam1_model, cam2_model);
-      return 0;
-    }
-
-    // Find the input image dimensions
-    int image_cols = 0, image_rows = 0;
-    try {
-      DiskImageView<float> image(opt.image_file);
-      image_cols = image.cols();
-      image_rows = image.rows();
-    } catch(const std::exception& e) {
-      // For CSM-to-CSM ground-to-image and image-to-ground comparisons only,
-      // the camera has the dimensions if the .cub image is missing.
-      asp::CsmModel * csm_model
-        = dynamic_cast<asp::CsmModel*>(vw::camera::unadjusted_model(cam1_model.get()));
-      if (csm_model != NULL) {
-        image_cols = csm_model->get_image_size()[0];
-        image_rows = csm_model->get_image_size()[1];
-      } else {
-        vw::vw_throw(ArgumentErr() << e.what());
-      }
-    }
-    vw_out() << "Image dimensions: " << image_cols << ' ' << image_rows << std::endl;
-
-    bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
-
-    Stopwatch sw;
-    sw.start();
-
-    double major_axis = datum.semi_major_axis() + opt.height_above_datum;
-    double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
-    
-    // Iterate over the image
-    std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff, nocsm_vs_csm_diff;
-    int num_failed = 0;
-    for (int col = 0; col < image_cols; col += opt.sample_rate) {
-      for (int row = 0; row < image_rows; row += opt.sample_rate) {
-
-        try {
-          Vector2 image_pix(col + opt.subpixel_offset, row + opt.subpixel_offset);
-          if (single_pix)
-            image_pix = opt.single_pixel;
-
-          if (opt.print_per_pixel_results || single_pix)
-            vw_out() << "Pixel: " << image_pix << "\n";
-
-          Vector3 cam1_ctr = cam1_model->camera_center(image_pix);
-          Vector3 cam2_ctr = cam2_model->camera_center(image_pix);
-          ctr_diff.push_back(norm_2(cam1_ctr - cam2_ctr));
-
-          if (opt.print_per_pixel_results)
-            vw_out() << "Camera center diff: " << ctr_diff.back() << std::endl;
-
-          Vector3 cam1_dir = cam1_model->pixel_to_vector(image_pix);
-          Vector3 cam2_dir = cam2_model->pixel_to_vector(image_pix);
-          dir_diff.push_back(norm_2(cam1_dir - cam2_dir));
-
-          if (opt.print_per_pixel_results)
-            vw_out() << "Camera direction diff: " << dir_diff.back() << std::endl;
-
-          // Shoot a ray from the cam1 camera, intersect it with the
-          // given height above datum, and project it back into the cam2
-          // camera.
-          Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
-                                                            cam1_ctr, cam1_dir);
-          Vector2 cam2_pix = cam2_model->point_to_pixel(xyz);
-          cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
-
-          if (opt.print_per_pixel_results)
-            vw_out() << "cam1 to cam2 pixel diff: " << image_pix - cam2_pix << std::endl;
-
-          // Turn CSM on and off and see the effect on the pixel
-          if (opt.aster_vs_csm) {
-            asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-            Vector2 cam2_pix2 = cam2_model->point_to_pixel(xyz);
-            asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-            nocsm_vs_csm_diff.push_back(norm_2(cam2_pix - cam2_pix2));
-          }
-
-          // Shoot a ray from the cam2 camera, intersect it with the
-          // given height above the datum, and project it back into the
-          // cam1 camera.
-          xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
-                                                    cam2_ctr, cam2_dir);
-          Vector2 cam1_pix = cam1_model->point_to_pixel(xyz);
-          cam2_to_cam1_diff.push_back(norm_2(image_pix - cam1_pix));
-
-          if (opt.print_per_pixel_results)
-            vw_out() << "cam2 to cam1 pixel diff: " << image_pix - cam1_pix << "\n\n";
-
-          if (opt.aster_vs_csm) {
-            asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-            Vector2 cam1_pix2 = cam1_model->point_to_pixel(xyz);
-            asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-            nocsm_vs_csm_diff.push_back(norm_2(cam1_pix - cam1_pix2));
-          }
-        } catch (...) {
-          // Failure to compute these operations can occur for pinhole cameras
-          num_failed++;
-        }  
-
+      try {
+        Vector2 image_pix(col + opt.subpixel_offset, row + opt.subpixel_offset);
         if (single_pix)
-          break;
-      }
+          image_pix = opt.single_pixel;
+
+        if (opt.print_per_pixel_results || single_pix)
+          vw_out() << "Pixel: " << image_pix << "\n";
+
+        Vector3 cam1_ctr = cam1_model->camera_center(image_pix);
+        Vector3 cam2_ctr = cam2_model->camera_center(image_pix);
+        ctr_diff.push_back(norm_2(cam1_ctr - cam2_ctr));
+
+        if (opt.print_per_pixel_results)
+          vw_out() << "Camera center diff: " << ctr_diff.back() << std::endl;
+
+        Vector3 cam1_dir = cam1_model->pixel_to_vector(image_pix);
+        Vector3 cam2_dir = cam2_model->pixel_to_vector(image_pix);
+        dir_diff.push_back(norm_2(cam1_dir - cam2_dir));
+
+        if (opt.print_per_pixel_results)
+          vw_out() << "Camera direction diff: " << dir_diff.back() << std::endl;
+
+        // Shoot a ray from the cam1 camera, intersect it with the
+        // given height above datum, and project it back into the cam2
+        // camera.
+        Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+                                                          cam1_ctr, cam1_dir);
+        Vector2 cam2_pix = cam2_model->point_to_pixel(xyz);
+        cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
+
+        if (opt.print_per_pixel_results)
+          vw_out() << "cam1 to cam2 pixel diff: " << image_pix - cam2_pix << std::endl;
+
+        // Turn CSM on and off and see the effect on the pixel
+        if (opt.aster_vs_csm) {
+          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
+          Vector2 cam2_pix2 = cam2_model->point_to_pixel(xyz);
+          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
+          nocsm_vs_csm_diff.push_back(norm_2(cam2_pix - cam2_pix2));
+        }
+
+        // Shoot a ray from the cam2 camera, intersect it with the
+        // given height above the datum, and project it back into the
+        // cam1 camera.
+        xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+                                                  cam2_ctr, cam2_dir);
+        Vector2 cam1_pix = cam1_model->point_to_pixel(xyz);
+        cam2_to_cam1_diff.push_back(norm_2(image_pix - cam1_pix));
+
+        if (opt.print_per_pixel_results)
+          vw_out() << "cam2 to cam1 pixel diff: " << image_pix - cam1_pix << "\n\n";
+
+        if (opt.aster_vs_csm) {
+          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
+          Vector2 cam1_pix2 = cam1_model->point_to_pixel(xyz);
+          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
+          nocsm_vs_csm_diff.push_back(norm_2(cam1_pix - cam1_pix2));
+        }
+      } catch (...) {
+        // Failure to compute these operations can occur for pinhole cameras
+        num_failed++;
+      }  
 
       if (single_pix)
         break;
     }
 
-    sw.stop();
-    vw_out() << "Number of samples: " << ctr_diff.size() << "\n";
-    if (num_failed > 0)
-      vw_out() << "Number of failed samples (not counted above): " << num_failed << "\n";
+    if (single_pix)
+      break;
+  }
 
-    print_diffs("cam1 to cam2 camera direction diff norm", dir_diff);
-    print_diffs("cam1 to cam2 camera center diff (meters)", ctr_diff);
-    print_diffs("cam1 to cam2 pixel diff", cam1_to_cam2_diff);
-    print_diffs("cam2 to cam1 pixel diff", cam2_to_cam1_diff);
-    if (opt.aster_vs_csm)
-      print_diffs("No-csm vs csm pixel diff", nocsm_vs_csm_diff);
+  sw.stop();
+  vw_out() << "Number of samples: " << ctr_diff.size() << "\n";
+  if (num_failed > 0)
+    vw_out() << "Number of failed samples (not counted above): " << num_failed << "\n";
 
-    // If either session is rpc, warn that the camera center may not be accurate
-    if (opt.session1 == "rpc" || opt.session2 == "rpc") {
-      vw::vw_out() << "\n"; // separate from the diffs
-      vw::vw_out(vw::WarningMessage) 
-        << "For RPC cameras, the concept of camera center is not well-defined, "
-        << "so the result for that should be ignored.\n"; 
-    }
-    
-    double elapsed_sec = sw.elapsed_seconds();
-    vw_out() << "\nElapsed time per sample: " << 1e+6 * elapsed_sec/ctr_diff.size()
-             << " milliseconds.\n";
+  print_diffs("cam1 to cam2 camera direction diff norm", dir_diff);
+  print_diffs("cam1 to cam2 camera center diff (meters)", ctr_diff);
+  print_diffs("cam1 to cam2 pixel diff", cam1_to_cam2_diff);
+  print_diffs("cam2 to cam1 pixel diff", cam2_to_cam1_diff);
+  if (opt.aster_vs_csm)
+    print_diffs("No-csm vs csm pixel diff", nocsm_vs_csm_diff);
 
-    if (elapsed_sec < 5)
-      vw_out() << "It is suggested to adjust the sample rate to produce more samples "
-               << "if desired to evaluate more accurately the elapsed time per sample.\n";
+  // If either session is rpc, warn that the camera center may not be accurate
+  if (opt.session1 == "rpc" || opt.session2 == "rpc") {
+    vw::vw_out() << "\n"; // separate from the diffs
+    vw::vw_out(vw::WarningMessage) 
+      << "For RPC cameras, the concept of camera center is not well-defined, "
+      << "so the result for that should be ignored.\n"; 
+  }
+  
+  double elapsed_sec = sw.elapsed_seconds();
+  vw_out() << "\nElapsed time per sample: " << 1e+6 * elapsed_sec/ctr_diff.size()
+            << " milliseconds.\n";
+
+  if (elapsed_sec < 5)
+    vw_out() << "It is suggested to adjust the sample rate to produce more samples "
+              << "if desired to evaluate more accurately the elapsed time per sample.\n";
+}
+
+int main(int argc, char *argv[]) {
+
+  Options opt;
+  try {
+
+    handle_arguments(argc, argv, opt);
+    run_cam_test(opt);
 
   } ASP_STANDARD_CATCHES;
 
