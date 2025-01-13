@@ -75,8 +75,8 @@ void print_vec_to_file(std::string const& path, vw::Vector<double> const& vals);
 // Form the normalized llh and pixel arrays that will be as inputs to the RPC solver
 void normalizeLlhPix(std::vector<vw::Vector3> const& all_llh,
                      std::vector<vw::Vector2> const& all_pixels,
-                     vw::Vector3 const& llh_scale, vw::Vector3 const& llh_offset,
-                     vw::Vector2 const& pixel_scale, vw::Vector2 const& pixel_offset,
+                     vw::Vector3 const& llh_offset, vw::Vector3 const& llh_scale, 
+                     vw::Vector2 const& pixel_offset, vw::Vector2 const& pixel_scale, 
                      // Outputs
                      vw::Vector<double> & normalized_llh, 
                      vw::Vector<double> & normalized_pixels);
@@ -87,14 +87,11 @@ int find_solution_from_seed(RpcSolveLMA        const& lma_model,
                             vw::Vector<double>      & final_params,
                             double                  & norm_error);
 
+// Find the best-fit RPC given the normalized geodetic and pixel values
 void gen_rpc(// Inputs
               double penalty_weight,
               vw::Vector<double> const& normalized_geodetics,
               vw::Vector<double> const& normalized_pixels,
-              vw::Vector3 const& llh_scale,
-              vw::Vector3 const& llh_offset,
-              vw::Vector2 const& uv_scale,
-              vw::Vector2 const& uv_offset,
               bool refine_only,
               // Outputs
               RPCModel::CoeffVec & line_num,

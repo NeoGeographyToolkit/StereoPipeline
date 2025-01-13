@@ -521,8 +521,8 @@ int main(int argc, char *argv[]) {
     // Form the vectors of normalized llh and pixel values
     Vector<double> normalized_llh;
     Vector<double> normalized_pixels;
-    asp::normalizeLlhPix(all_llh, all_pixels, llh_scale, llh_offset, 
-                         pixel_scale, pixel_offset,
+    asp::normalizeLlhPix(all_llh, all_pixels, llh_offset, llh_scale,
+                         pixel_offset, pixel_scale,
                          normalized_llh, normalized_pixels); // outputs
 
     // Find the RPC coefficients
@@ -532,7 +532,6 @@ int main(int argc, char *argv[]) {
     bool refine_only = false;
     asp::gen_rpc(// Inputs
                  opt.penalty_weight, normalized_llh, normalized_pixels,
-                 llh_scale, llh_offset, pixel_scale, pixel_offset,
                  refine_only,
                  // Outputs
                  line_num, line_den, samp_num, samp_den);

@@ -157,6 +157,7 @@ int find_solution_from_seed(RpcSolveLMA    const& lma_model,
   int status;
 
   // Use the L-M solver to optimize the RPC model coefficient values.
+  // TODO(oalexan1): This is too tight and too slow
   const double abs_tolerance  = 1e-24;
   const double rel_tolerance  = 1e-24;
   const int    max_iterations = 2000;
@@ -180,10 +181,6 @@ int find_solution_from_seed(RpcSolveLMA    const& lma_model,
 void initRpcAsAffine(// Inputs
                      Vector<double> const& normalized_geodetics,
                      Vector<double> const& normalized_pixels,
-                     Vector3 const& llh_scale,
-                     Vector3 const& llh_offset,
-                     Vector2 const& uv_scale,
-                     Vector2 const& uv_offset,
                      // Outputs
                      RPCModel::CoeffVec & line_num,
                      RPCModel::CoeffVec & line_den,
@@ -235,17 +232,17 @@ void initRpcAsAffine(// Inputs
 
 // Form the normalized llh and pixel arrays that will be as inputs to the RPC solver
 // Form the normalized llh and pixel arrays that will be as inputs to the RPC solver
-void normalizeLlhPix(std::vector<vw::Vector3> const& all_llh,
-                     std::vector<vw::Vector2> const& all_pixels,
-                     vw::Vector3 const& llh_scale, vw::Vector3 const& llh_offset,
-                     vw::Vector2 const& pixel_scale, vw::Vector2 const& pixel_offset,
+void normalizeLlhPix(std::vector<vw::Vector3> const& llh_vec,
+                     std::vector<vw::Vector2> const& pix_vec,
+                     vw::Vector3 const& llh_offset, vw::Vector3 const& llh_scale, 
+                     vw::Vector2 const& pixel_offset, vw::Vector2 const& pixel_scale, 
                      // Outputs
                      vw::Vector<double> & normalized_llh, 
                      vw::Vector<double> & normalized_pixels) {
 
-  // Allocate the inputs, including with space for the penalty terms, that are
-  // zero for now.
-  int num_total_pts = all_llh.size();
+  // Allocate the inputs, including with space for the penalty terms in the
+  // normalized pixels, that are zero for now.
+  int num_total_pts = llh_vec.size();
   normalized_llh.set_size(asp::RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
   normalized_pixels.set_size(asp::RPCModel::IMAGE_COORD_SIZE*num_total_pts
                               + asp::RpcSolveLMA::NUM_PENALTY_TERMS);
@@ -256,8 +253,8 @@ void normalizeLlhPix(std::vector<vw::Vector3> const& all_llh,
   // Form the arrays of normalized pixels and normalized llh
   for (int pt = 0; pt < num_total_pts; pt++) {
     // Normalize the pixel to the [-1, 1] range
-    vw::Vector3 llh_n   = elem_quot(all_llh[pt] - llh_offset, llh_scale);
-    vw::Vector2 pixel_n = elem_quot(all_pixels[pt] - pixel_offset, pixel_scale);
+    vw::Vector3 llh_n   = elem_quot(llh_vec[pt] - llh_offset, llh_scale);
+    vw::Vector2 pixel_n = elem_quot(pix_vec[pt] - pixel_offset, pixel_scale);
     vw::math::subvector(normalized_llh, asp::RPCModel::GEODETIC_COORD_SIZE*pt,
               asp::RPCModel::GEODETIC_COORD_SIZE) = llh_n;
     vw::math::subvector(normalized_pixels, asp::RPCModel::IMAGE_COORD_SIZE*pt,
@@ -266,14 +263,11 @@ void normalizeLlhPix(std::vector<vw::Vector3> const& all_llh,
   
 }
   
+// Find the best-fit RPC given the normalized geodetic and pixel values
 void gen_rpc(// Inputs
              double penalty_weight,
              Vector<double> const& normalized_geodetics,
              Vector<double> const& normalized_pixels,
-             Vector3 const& llh_scale,
-             Vector3 const& llh_offset,
-             Vector2 const& uv_scale,
-             Vector2 const& uv_offset,
              bool refine_only,
              // Outputs
              RPCModel::CoeffVec & line_num,
@@ -287,14 +281,13 @@ void gen_rpc(// Inputs
   // The percentage of the error that the penalty weights should represent
   double penalty_weight_fraction = penalty_weight;
   // Fraction with no adjustment
-  double native_penalty_fraction
+double native_penalty_fraction
     = (double)RpcSolveLMA::NUM_PENALTY_TERMS / (double)normalized_pixels.size();
   double penalty_adjustment = penalty_weight_fraction / native_penalty_fraction;
 
   // Initialize the RPC model with an affine transform, unless asked to refine only
   if (!refine_only)
     initRpcAsAffine(normalized_geodetics, normalized_pixels,
-                    llh_scale, llh_offset, uv_scale, uv_offset,
                     line_num, line_den, samp_num, samp_den);      
   
   // Initialize the model
@@ -319,78 +312,159 @@ void gen_rpc(// Inputs
   unpackCoeffs(solution, line_num, line_den, samp_num, samp_den);
 }
 
+// Extract the 3x3 rotation matrix R and 3D translation vector T from a 4x4 ECEF
+// transformation matrix.
+void extractRotTrans(vw::Matrix4x4 const& ecef_transform,
+                     vw::Matrix3x3& R, vw::Vector3& T) {
+
+   // Extract the 3x3 rotation submatrix
+   R = submatrix(ecef_transform, 0, 0, 3, 3);
+   
+   // Extract the translation vector from the last column 
+   T[0] = ecef_transform(0, 3);
+   T[1] = ecef_transform(1, 3); 
+   T[2] = ecef_transform(2, 3);
+}
+
+// Transform a vector of lon-lat-height coordinates in place using a rotation matrix and translation vector
+void transformLlhVec(std::vector<vw::Vector3> const& llh,
+                     vw::Matrix3x3 const& R, vw::Vector3 const& T,
+                     vw::cartography::Datum const& datum,
+                     std::vector<vw::Vector3> & trans_llh) {
+
+  // Resize the output
+  trans_llh.resize(llh.size());                          
+
+  // Iterate in i over llh
+  for (size_t i = 0; i < llh.size(); i++) {
+    
+    // Convert from LLH to ECEF XYZ
+    Vector3 xyz = datum.geodetic_to_cartesian(llh[i]);
+    
+    // Apply rotation and translation
+    Vector3 transformed_xyz = R * xyz + T;
+    
+    // Convert back to LLH and store in trans_llh
+    trans_llh[i] = datum.cartesian_to_geodetic(transformed_xyz);
+  }
+}
+
+// Apply a transform to a box in lon-lat-height coordinates
+void transformLlhBox(vw::Vector3 const& llh_offset_in,
+                              Vector3 const& llh_scale_in, 
+                              vw::Matrix3x3 const& R,
+                              vw::Vector3 const& T,
+                              vw::cartography::Datum const& datum,
+                              // Outputs
+                              vw::Vector3& llh_offset_out,
+                              vw::Vector3& llh_scale_out) {
+
+   // First reconstruct the min/max bounds from offset and scale
+   Vector3 llh_min = llh_offset_in - llh_scale_in;
+   Vector3 llh_max = llh_offset_in + llh_scale_in;
+
+   // Convert min/max to cartesian
+   Vector3 xyz_min = datum.geodetic_to_cartesian(llh_min);
+   Vector3 xyz_max = datum.geodetic_to_cartesian(llh_max);
+
+   // Apply transform to both points
+   Vector3 xyz_min_trans = R * xyz_min + T;
+   Vector3 xyz_max_trans = R * xyz_max + T;
+
+   // Convert transformed points back to llh
+   Vector3 llh_min_trans = datum.cartesian_to_geodetic(xyz_min_trans);
+   Vector3 llh_max_trans = datum.cartesian_to_geodetic(xyz_max_trans);
+
+   // Calculate new offset and scale from transformed min/max
+   llh_offset_out = (llh_max_trans + llh_min_trans) / 2.0;
+   llh_scale_out = (llh_max_trans - llh_min_trans) / 2.0;
+}
+
 // Produce a transformed RPC model
 asp::RPCModel transformRpc(asp::RPCModel const& rpc_model, 
                            vw::Matrix4x4 const& transform,
                            vw::BBox2 const& image_box) {
 
-  vw::Vector3 llh_offset = rpc_model.lonlatheight_offset();
-  std::cout << "--llh offset is " << llh_offset << std::endl;
-  vw::Vector3 llh_scale = rpc_model.lonlatheight_scale();
-  std::cout << "--llh scale is " << llh_scale << std::endl;
-  
+  vw::Vector3 llh_offset       = rpc_model.lonlatheight_offset();
+  vw::Vector3 llh_scale        = rpc_model.lonlatheight_scale();
+  vw::Vector2 pixel_offset     = rpc_model.xy_offset();
+  vw::Vector2 pixel_scale      = rpc_model.xy_scale();
   vw::cartography::Datum datum = rpc_model.datum();
-  std::cout << "--datum is " << datum << std::endl;
-  
-  vw::Vector2 pixel_offset = rpc_model.xy_offset();
-  std::cout << "--pixel offset is " << pixel_offset << std::endl;
-  vw::Vector2 pixel_scale = rpc_model.xy_scale();
-  
-  std::cout << "--pixel box is " << image_box << std::endl;
   
   vw::BBox2 lon_lat_range;
   lon_lat_range.min() = subvector(llh_offset - llh_scale, 0, 2);
   lon_lat_range.max() = subvector(llh_offset + llh_scale, 0, 2);
-  std::cout << "--ll range is " << lon_lat_range << std::endl;
   vw::Vector2 height_range;
   height_range[0] = llh_offset[2] - llh_scale[2];
   height_range[1] = llh_offset[2] + llh_scale[2];
-  std::cout << "--h range is " << height_range << std::endl;
 
-  // Make a copy of the camera as a smart pointer
-  vw::CamPtr cam(new asp::RPCModel(rpc_model));
-  
+  // Generate point pairs and add pixels along image perimeter and diagonals
+  std::vector<Vector3> llh_vec;
+  std::vector<Vector2> pix_vec;
+  vw::CamPtr cam(new asp::RPCModel(rpc_model)); // a copy as required by the api
   int num_samples = 20; // TODO(oalexan1): Think about this
-
-  // Generate point pairs
-  std::vector<Vector3> all_llh;
-  std::vector<Vector2> all_pixels;
-  asp::sample_llh_pix_bbox(lon_lat_range, height_range, num_samples,
-                            datum, cam, image_box, 
-                            all_llh, all_pixels); // outputs
-  // Add points for pixels along the perimeter and diagonals of image_box. Constrain
-  // by the ll box.
-  asp::add_perimeter_diag_points(image_box, datum, cam, lon_lat_range, 
-                                 height_range,
-                                 all_llh, all_pixels); // outputs
+  asp::sample_llh_pix_bbox(lon_lat_range, height_range, num_samples, datum, cam, image_box,
+                           llh_vec, pix_vec); // outputs
+  asp::add_perimeter_diag_points(image_box, datum, cam, lon_lat_range, height_range,
+                                 llh_vec, pix_vec); // outputs
   
-  double penalty_weight = 1e-4;
+  // Apply the transform to the llh vector and extent
+  vw::Matrix3x3 R;
+  vw::Vector3 T;
+  extractRotTrans(transform, R, T);
+  std::vector<Vector3> llh_vec_trans;
+  transformLlhVec(llh_vec, R, T, datum, llh_vec_trans);
+  vw::Vector3 llh_offset_trans, llh_scale_trans;
+  transformLlhBox(llh_offset, llh_scale, R, T, datum,
+                  llh_offset_trans, llh_scale_trans); // outputs
+
   // TODO(oalexan1): Think of the best way to set this.
+  double penalty_weight = 1e-4;
   std::cout << "--penalty weight is " << penalty_weight << std::endl;
   
-  // Form the vectors of normalized llh and pixel values
-  Vector<double> normalized_llh;
+  // Form the vectors of transformed normalized llh and pixel values
+  Vector<double> normalized_llh_trans;
   Vector<double> normalized_pixels;
-  asp::normalizeLlhPix(all_llh, all_pixels, llh_scale, llh_offset, 
-                       pixel_scale, pixel_offset,
-                       normalized_llh, normalized_pixels); // outputs
+  asp::normalizeLlhPix(llh_vec_trans, pix_vec, 
+                       llh_offset_trans, llh_scale_trans, pixel_offset, pixel_scale, 
+                       normalized_llh_trans, normalized_pixels); // outputs
 
+  // Form the transformed RPC model by fitting to the transformed normalized llh
   asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
   line_num = rpc_model.line_num_coeff();
   line_den = rpc_model.line_den_coeff();
   samp_num = rpc_model.sample_num_coeff();
   samp_den = rpc_model.sample_den_coeff();
-  
   bool refine_only = true;
-  asp::gen_rpc(// Inputs
-                penalty_weight, normalized_llh, normalized_pixels,
-                llh_scale, llh_offset, pixel_scale, pixel_offset,
-                refine_only,
-                // Outputs
-                line_num, line_den, samp_num, samp_den);
+  asp::gen_rpc(penalty_weight, normalized_llh_trans, normalized_pixels, refine_only,
+               line_num, line_den, samp_num, samp_den); // outputs
+  asp::RPCModel rpc_trans(datum, line_num, line_den, samp_num, samp_den,
+                          pixel_offset, pixel_scale, llh_offset_trans, llh_scale_trans);
 
-  std::cout << "--temporary rpc model is " << rpc_model << std::endl;
-  return rpc_model;
+  // Find the error of applying the adjustments inline as opposed to externally
+  // TODO(oalexan1): Must validate with external samples
+  double max_pix_err = 0;
+  for (size_t i = 0; i < llh_vec.size(); i++) {
+    Vector3 llh = llh_vec[i];
+    Vector3 xyz = datum.geodetic_to_cartesian(llh);
+  
+    Vector3 llh_trans = llh_vec_trans[i];
+    Vector3 xyz_trans = datum.geodetic_to_cartesian(llh_trans);
+    
+    Vector2 cam_pix1, cam_pix2;
+    try {
+      cam_pix1 = rpc_model.point_to_pixel(xyz);
+      cam_pix2 = rpc_trans.point_to_pixel(xyz_trans);
+    } catch (...) {
+      continue;
+    }
+    
+    max_pix_err = std::max(max_pix_err, norm_2(cam_pix1 - cam_pix2));
+  }
+  std::cout << "Inline vs external adjustment discrepancy for the RPC model: " << max_pix_err 
+            << " pixels\n";
+  
+  return rpc_trans;
 }
 
 } // end namespace asp

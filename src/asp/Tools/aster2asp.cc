@@ -673,7 +673,6 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
   bool refine_only = false;
   asp::gen_rpc(// Inputs
                penalty_weight, normalized_llh, normalized_pixels,  
-               llh_scale, llh_offset, pixel_scale, pixel_offset,
                refine_only,
                // Outputs
                line_num, line_den, samp_num, samp_den);
