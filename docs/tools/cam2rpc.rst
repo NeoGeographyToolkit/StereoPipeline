@@ -12,12 +12,6 @@ the RPC model will be saved in the TIF format.
 The produced RPC camera can be restricted to a given ground or pixel box.
 In either case it will be consistent with the image portion that is saved.
 
-The obtained RPC models and images can be used with ``stereo`` (when the
-latter is invoked with ``--session-type rpc`` and the correct datum is
-specified via ``--datum``). These can also be passed to the third-party
-``S2P`` and ``SETSM`` stereo software, though both of these packages
-work for Earth only.
-
 The accuracy of RPC models generally degrades if expected to cover very
 large regions. Hence, they can be used piecewise, and the obtained
 terrain models from ASP can be then mosaicked together using
@@ -40,6 +34,20 @@ defined is saved::
 
     cam2rpc input.tif input.tsai output.xml --session-type nadirpinhole   \
       --dem-file DEM.tif --save-tif-image --image-crop-box 90 70 5511 3675
+
+Uses
+~~~~
+
+The obtained RPC models and (potentially cropped) images can be used with the
+ASP tools when invoked with ``--session-type rpc``. The datum is usually read
+from the ``<RPC_DATUM>`` field, but can be also set with ``--datum``.
+
+These can also be passed to the third-party ``S2P`` and ``SETSM`` stereo
+software, though both of these packages work for Earth only.
+
+The produced RPC model file can be read by GDAL (including ``gdalinfo``,
+:numref:`gdal_tools`) if has the same name as the image but with the .xml
+extension, and no analogously named ``.rpb`` or ``_RPC.txt`` files are present.
 
 Validation
 ~~~~~~~~~~

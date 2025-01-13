@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -23,8 +23,8 @@
 /// RPCs." Proceedings of ASPRS 2004 Conference, Denver, Colorado, May,
 /// 2004.
 
-/// Digital Globe images (and others) often include an RPC camera model 
-/// definition.  The RPC model is less complicated than the full Digital 
+/// Digital Globe images (and others) often include an RPC camera model
+/// definition.  The RPC model is less complicated than the full Digital
 /// Globe camera model.
 
 #ifndef __STEREO_CAMERA_RPC_MODEL_H__
@@ -57,7 +57,7 @@ namespace asp {
 
     /// Construct from a GDAL image or an .RPB file.
     RPCModel(std::string const& filename);
-    
+
     RPCModel(vw::DiskImageResourceGDAL* resource);
     RPCModel(vw::cartography::Datum const& datum,
              CoeffVec    const& line_num_coeff,
@@ -74,14 +74,18 @@ namespace asp {
     virtual std::string type() const { return "RPC"; }
     virtual ~RPCModel() {}
 
+    // Save the RPC model to an XML file. This is similar to the WorldView format.
+    // GDAL can read it.
+    void saveXML(std::string const& filename) const;
+    
     /// Populate this object from a .RPB file.
-    void load_rpb_file( std::string const& filename);
+    void load_rpb_file(std::string const& filename);
 
     // Standard Access Methods. The concept of camera_center does not
     // apply well to RPC, we just return an arbitrary point on the ray.
-    virtual vw::Vector2 point_to_pixel ( vw::Vector3 const& point ) const;
-    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix   ) const;
-    virtual vw::Vector3 camera_center  ( vw::Vector2 const& pix   ) const;
+    virtual vw::Vector2 point_to_pixel (vw::Vector3 const& point) const;
+    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const;
+    virtual vw::Vector3 camera_center  (vw::Vector2 const& pix) const;
 
    // Apply a transform to an RPC model
    void applyTransform(vw::Matrix4x4 const& transform);
@@ -89,13 +93,12 @@ namespace asp {
     static vw::Vector2 normalized_geodetic_to_normalized_pixel
       (vw::Vector3 const& normalized_geodetic,
        CoeffVec    const& line_num_coeff,   CoeffVec const& line_den_coeff,
-       CoeffVec    const& sample_num_coeff, CoeffVec const& sample_den_coeff
-      );
+       CoeffVec    const& sample_num_coeff, CoeffVec const& sample_den_coeff);
 
     vw::Vector2 normalized_geodetic_to_normalized_pixel
-      ( vw::Vector3 const& normalized_geodetic ) const;
+      (vw::Vector3 const& normalized_geodetic) const;
 
-    vw::Vector2 geodetic_to_pixel( vw::Vector3 const& geodetic ) const;
+    vw::Vector2 geodetic_to_pixel(vw::Vector3 const& geodetic) const;
 
     // Access to constants
     vw::cartography::Datum const& datum   () const { return m_datum;               }
@@ -109,29 +112,29 @@ namespace asp {
     vw::Vector3 const& lonlatheight_scale () const { return m_lonlatheight_scale;  }
 
     /// Returns a vector containing the order of each of the terms a CoeffVec applies to.
-    static vw::Vector<int,20> get_coeff_order();
+    static vw::Vector<int, 20> get_coeff_order();
 
     // Helper methods used for triangulation and projection
-    static CoeffVec calculate_terms( vw::Vector3 const& normalized_geodetic );
-    static vw::Matrix<double, 20, 2> terms_Jacobian2( vw::Vector3 const& normalized_geodetic );
-    static vw::Matrix<double, 20, 3> terms_Jacobian3( vw::Vector3 const& normalized_geodetic );
-    static CoeffVec quotient_Jacobian( CoeffVec const& c, CoeffVec const& d,
-                                       CoeffVec const& u );
+    static CoeffVec calculate_terms(vw::Vector3 const& normalized_geodetic);
+    static vw::Matrix<double, 20, 2> terms_Jacobian2(vw::Vector3 const& normalized_geodetic);
+    static vw::Matrix<double, 20, 3> terms_Jacobian3(vw::Vector3 const& normalized_geodetic);
+    static CoeffVec quotient_Jacobian(CoeffVec const& c, CoeffVec const& d,
+                                       CoeffVec const& u);
     static vw::Matrix3x3 normalization_Jacobian(vw::Vector3 const& q);
 
-    vw::Matrix<double, 2, 3> geodetic_to_pixel_Jacobian (vw::Vector3 const& geodetic ) const;
+    vw::Matrix<double, 2, 3> geodetic_to_pixel_Jacobian (vw::Vector3 const& geodetic) const;
     vw::Matrix<double, 2, 3> geodetic_to_pixel_numerical_Jacobian (vw::Vector3 const& geodetic, double tol) const;
-    vw::Matrix<double, 2, 2> normalized_geodetic_to_pixel_Jacobian(vw::Vector3 const& normalized_geodetic ) const;
+    vw::Matrix<double, 2, 2> normalized_geodetic_to_pixel_Jacobian(vw::Vector3 const& normalized_geodetic) const;
 
     /// Given a pixel (the projection of a point in 3D space onto the camera image)
-    /// and the value of the height of the point, find the lonlat of the point 
+    /// and the value of the height of the point, find the lonlat of the point
     /// using Newton's method. The user may provide a guess for the lonlat.
     vw::Vector2 image_to_ground(vw::Vector2 const& pixel, double height,
                                 vw::Vector2 lonlat_guess = vw::Vector2(0.0, 0.0)) const;
 
     /// Find a point which gets projected onto the current pixel,
     /// and the direction of the ray going through that point.
-    void point_and_dir(vw::Vector2 const& pix, vw::Vector3 & P, vw::Vector3 & dir ) const;
+    void point_and_dir(vw::Vector2 const& pix, vw::Vector3 & P, vw::Vector3 & dir) const;
 
     // Will be read only for DG RPC camera models and set to 0 for the rest
     double m_err_bias, m_err_rand;
@@ -147,7 +150,7 @@ namespace asp {
     vw::Vector3 m_lonlatheight_offset;
     vw::Vector3 m_lonlatheight_scale;
 
-    void initialize( vw::DiskImageResourceGDAL* resource );
+    void initialize(vw::DiskImageResourceGDAL* resource);
   };
 
   std::ostream& operator<<(std::ostream& os, const RPCModel& rpc);

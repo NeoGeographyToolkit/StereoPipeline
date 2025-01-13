@@ -588,4 +588,68 @@ namespace asp {
        << "Geodetic Scale: "   << rpc.lonlatheight_scale();
     return os;
   }
-}
+
+  // Save the RPC model to an XML file. This is similar to the WorldView format.
+  // GDAL can read it.
+  void RPCModel::saveXML(std::string const& filename) const {
+    
+    std::string lineoffset   = vw::num_to_str(xy_offset().y());
+    std::string sampoffset   = vw::num_to_str(xy_offset().x());
+    std::string latoffset    = vw::num_to_str(lonlatheight_offset().y());
+    std::string longoffset   = vw::num_to_str(lonlatheight_offset().x());
+    std::string heightoffset = vw::num_to_str(lonlatheight_offset().z());
+
+    std::string linescale   = vw::num_to_str(xy_scale().y());
+    std::string sampscale   = vw::num_to_str(xy_scale().x());
+    std::string latscale    = vw::num_to_str(lonlatheight_scale().y());
+    std::string longscale   = vw::num_to_str(lonlatheight_scale().x());
+    std::string heightscale = vw::num_to_str(lonlatheight_scale().z());
+
+    std::string linenumcoef = vw::vec_to_str(line_num_coeff());
+    std::string linedencoef = vw::vec_to_str(line_den_coeff());
+    std::string sampnumcoef = vw::vec_to_str(sample_num_coeff());
+    std::string sampdencoef = vw::vec_to_str(sample_den_coeff());
+
+    std::string datum_wkt = m_datum.get_wkt();
+    
+    vw_out() << "Writing: " << filename << "\n";
+    std::ofstream ofs(filename.c_str());
+    ofs.precision(17);
+
+    ofs << "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
+    ofs << "<isd>\n";
+    ofs << "    <RPB>\n";
+    ofs << "        <IMAGE>\n";
+    ofs << "	        <ERRBIAS>" << m_err_bias << "</ERRBIAS>\n";
+    ofs << "	        <ERRRAND>" << m_err_rand << "</ERRRAND>\n";
+    ofs << "            <RPC_DATUM>"   << datum_wkt << "</RPC_DATUM>\n";
+    ofs << "            <LINEOFFSET>"      << lineoffset   << "</LINEOFFSET>\n";
+    ofs << "            <SAMPOFFSET>"      << sampoffset   << "</SAMPOFFSET>\n";
+    ofs << "            <LATOFFSET>"       << latoffset    << "</LATOFFSET>\n";
+    ofs << "            <LONGOFFSET>"      << longoffset   << "</LONGOFFSET>\n";
+    ofs << "            <HEIGHTOFFSET>"    << heightoffset << "</HEIGHTOFFSET>\n";
+    ofs << "            <LINESCALE>"       << linescale    << "</LINESCALE>\n";
+    ofs << "            <SAMPSCALE>"       << sampscale    << "</SAMPSCALE>\n";
+    ofs << "            <LATSCALE>"        << latscale     << "</LATSCALE>\n";
+    ofs << "            <LONGSCALE>"       << longscale    << "</LONGSCALE>\n";
+    ofs << "            <HEIGHTSCALE>"     << heightscale  << "</HEIGHTSCALE>\n";
+    ofs << "            <LINENUMCOEFList>\n";
+    ofs << "                <LINENUMCOEF>" << linenumcoef  << "</LINENUMCOEF>\n";
+    ofs << "            </LINENUMCOEFList>\n";
+    ofs << "            <LINEDENCOEFList>\n";
+    ofs << "                <LINEDENCOEF>" << linedencoef  << "</LINEDENCOEF>\n";
+    ofs << "            </LINEDENCOEFList>\n";
+    ofs << "            <SAMPNUMCOEFList>\n";
+    ofs << "                <SAMPNUMCOEF>" << sampnumcoef  << "</SAMPNUMCOEF>\n";
+    ofs << "            </SAMPNUMCOEFList>\n";
+    ofs << "            <SAMPDENCOEFList>\n";
+    ofs << "                <SAMPDENCOEF>" << sampdencoef  << "</SAMPDENCOEF>\n";
+    ofs << "            </SAMPDENCOEFList>\n";
+    ofs << "        </IMAGE>\n";
+    ofs << "    </RPB>\n";
+    ofs << "</isd>\n";
+    ofs.close();
+  }
+
+} // end namespace asp
+

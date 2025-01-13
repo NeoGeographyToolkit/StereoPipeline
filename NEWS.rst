@@ -98,6 +98,7 @@ orbit_plot (:numref:`orbit_plot`):
 cam2rpc (:numref:`cam2rpc`):
   * When a DEM is passed in, sample not just the DEM surface but its bounding
     box, to create a more robust RPC model.
+  * The produced RPC file has been streamlined to a minimum of metadata.
 
 point2las (:numref:`point2las`):
   * Replaced the option ``--triangulation-error-factor`` for saving the triangulation
