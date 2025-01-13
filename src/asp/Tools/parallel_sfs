@@ -200,7 +200,7 @@ def main(argsIn):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
         baseHelp, err = p.communicate()
     except OSError:
-        print("Error: Unable to find the required sfs tool!")
+        print("Error: Unable to find the required sfs program.")
         return -1
 
     # Extract the version and help text

@@ -194,7 +194,7 @@ Command-line options for sfs
     ``prefix>-height-error.tif``. No SfS DEM is computed. This uncertainty may
     be somewhat optimistic (:cite:`jindal2024measuring_v2`).
 
---height-error-params <double integer (default: 5.0 1000)>
+--height-error-params <double integer (default: 5.0 250)>
     Specify the largest height deviation to examine (in meters), and
     how many samples to use from 0 to that height.
 
