@@ -495,31 +495,21 @@ std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
                            std::string const& adjustFile, 
                            asp::BAParams const& param_storage) {
   
-  std::cout << "--now in saveUpdatedRpc" << std::endl;
-  
   std::string imageFile = opt.image_files[icam];
-  std::cout << "--image file is " << imageFile << std::endl;
   vw::DiskImageView<float> image(imageFile);
   BBox2 image_box = vw::bounding_box(image);
-
-  std::cout << "--image size is " << image.cols() << ' ' << image.rows() << std::endl;
   std::string inputCamFile = opt.camera_files[icam];
   
   // If the camera file is empty, just return the adjust file
   if (inputCamFile.empty())
     return adjustFile;
   
-  std::cout << "--input cam file is " << inputCamFile << std::endl;
-   
   CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
   AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
                                cam_adjust.position(), cam_adjust.pose());
   
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
-  std::cout << "--ecef transform is " << ecef_transform << std::endl;
-  
   std::string rpcFile = asp::rpcStateFile(inputCamFile, adjustFile);
-  std::cout << "--rpc file is " << rpcFile << std::endl;
   
   // Get the underlying RPC model
   vw::CamPtr unadjCam = vw::camera::unadjusted_model(opt.camera_models[icam]);

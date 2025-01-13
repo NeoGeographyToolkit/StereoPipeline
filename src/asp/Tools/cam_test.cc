@@ -323,18 +323,6 @@ void run_cam_test(Options & opt) {
   }
   vw_out() << "Image dimensions: " << image_cols << ' ' << image_rows << std::endl;
 
-  BBox2 image_box(0, 0, image_cols, image_rows);
-  std::cout << "Image box: " << image_box << std::endl;
-  
-  vw::camera::AdjustedCameraModel * acam = 
-    dynamic_cast<vw::camera::AdjustedCameraModel*>(cam1_model.get());
-  if (acam == NULL) {
-     // throw
-     vw::vw_throw(vw::ArgumentErr() << "Expecting an adjusted camera model.\n");
-  }
-  
-  bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
-
   Stopwatch sw;
   sw.start();
 
@@ -342,7 +330,9 @@ void run_cam_test(Options & opt) {
   double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
   
   // Iterate over the image
-  std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff, nocsm_vs_csm_diff;
+  bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
+  std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff;
+  std::vector<double> nocsm_vs_csm_diff;
   int num_failed = 0;
   for (int col = 0; col < image_cols; col += opt.sample_rate) {
     for (int row = 0; row < image_rows; row += opt.sample_rate) {

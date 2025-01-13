@@ -86,7 +86,7 @@ namespace asp {
     if (has_image_extension(filename)) {
       boost::scoped_ptr<DiskImageResourceGDAL> s_ptr(new DiskImageResourceGDAL(filename));
       initialize(s_ptr.get());
-    }else{
+    } else {
       // Throw an error. It will be caught, but it will get printed
       // only if no other approaches turn out to work later on.
       vw_throw(ArgumentErr() << "Not an image file: " << filename);

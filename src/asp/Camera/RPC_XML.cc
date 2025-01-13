@@ -484,15 +484,14 @@ void asp::RPCXML::read_from_file(std::string const& name) {
     parser->parse(name.c_str());
     xmlDoc = parser->getDocument();
     elementRoot = xmlDoc->getDocumentElement();
-  }catch(...){
-    vw_throw(ArgumentErr() << "XML file \"" << name << "\" is invalid.\n");
+  } catch (...) {
+    vw_throw(ArgumentErr() << "XML file: " << name << " is invalid.\n");
   }
 
   // Try to parse the bounding box but keep going if we fail.
   try {
     parse_bbox(elementRoot);
-  }catch(...){
-    VW_OUT(vw::DebugMessage, "asp") << "RPCXML: Warning -> Unable to parse the bounding box" << std::endl;
+  } catch (...) {
   }
 
   try {
