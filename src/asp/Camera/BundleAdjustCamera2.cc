@@ -504,7 +504,7 @@ std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
                               cam_adjust.position(), cam_adjust.pose());
   
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
-  std::string rpcFile = asp::rpcStateFile(adjustFile);
+  std::string rpcFile = asp::rpcAdjustedFile(adjustFile);
   
   // Get the underlying RPC model
   vw::CamPtr unadjCam = vw::camera::unadjusted_model(opt.camera_models[icam]);

@@ -542,7 +542,7 @@ std::string csmStateFile(std::string const& adjustFile) {
 
 // Manufacture an RPC state file from an adjust file. Use the .xml extension
 // for the output file.
-std::string rpcStateFile(std::string const& adjustFile) {
+std::string rpcAdjustedFile(std::string const& adjustFile) {
 
   std::string rpcFile = adjustFile;
   
