@@ -68,6 +68,8 @@ namespace asp {
     m_sample_num_coeff = CoeffVec(gdal_rpc.adfSAMP_NUM_COEFF);
     m_sample_den_coeff = CoeffVec(gdal_rpc.adfSAMP_DEN_COEFF);
 
+    m_err_bias = gdal_rpc.dfERR_BIAS;
+    m_err_rand = gdal_rpc.dfERR_RAND;
   }
 
   RPCModel::RPCModel(std::string const& filename) {
@@ -122,6 +124,7 @@ namespace asp {
 
   void RPCModel::load_rpb_file(std::string const& filename) {
     //vw_out() << "Reading RPC model from RPB file, defaulting to WGS84 datum.\n";
+    
     m_datum.set_well_known_datum("WGS84");
     std::ifstream f(filename.c_str());
 
@@ -143,7 +146,7 @@ namespace asp {
       try {
         // Break up the line
         boost::split(tokens, line, boost::is_any_of("=,;"));
-      
+        
         // Parse keywords
         if (line.find("lineOffset") != std::string::npos)
           m_xy_offset[1] = atof(tokens[1].c_str());
@@ -165,55 +168,69 @@ namespace asp {
           m_lonlatheight_scale[0] = atof(tokens[1].c_str());
         if (line.find("heightScale") != std::string::npos)
           m_lonlatheight_scale[2] = atof(tokens[1].c_str());
+          
+        if (line.find("errBias") != std::string::npos)
+          m_err_bias = atof(tokens[1].c_str());
+        if (line.find("errRand") != std::string::npos)
+          m_err_rand = atof(tokens[1].c_str());
 
-        // Handle the RPC coefficients.
+        // Start of a coefficient sequence
+        if (line.find("lineNumCoef") != std::string::npos) {
+          lineNumCoeffs = true;
+          continue;
+        } else if (line.find("lineDenCoef") != std::string::npos) {
+          lineDenCoeffs = true;
+          continue;
+        } else if (line.find("sampNumCoef") != std::string::npos) {
+          sampNumCoeffs = true;
+          continue;
+        } else if (line.find("sampDenCoef") != std::string::npos) {
+          sampDenCoeffs = true;        
+          continue;
+        }
+
+        // Handle the RPC coefficients
         if (lineNumCoeffs) {
           m_line_num_coeff[coeff_index] = atof(tokens[0].c_str());
-          ++coeff_index;
+          coeff_index++;
         }
         if (lineDenCoeffs) {
           m_line_den_coeff[coeff_index] = atof(tokens[0].c_str());
-          ++coeff_index;
+          coeff_index++;
         }
         if (sampNumCoeffs) {
           m_sample_num_coeff[coeff_index] = atof(tokens[0].c_str());
-          ++coeff_index;
+          coeff_index++;
         }
         if (sampDenCoeffs) {
           m_sample_den_coeff[coeff_index] = atof(tokens[0].c_str());
-          ++coeff_index;
+          coeff_index++;
         }
 
-        // Start of a coefficient sequence
-        if (line.find("lineNumCoef") != std::string::npos)
-          lineNumCoeffs = true;
-        if (line.find("lineDenCoef") != std::string::npos)
-          lineDenCoeffs = true;
-        if (line.find("sampNumCoef") != std::string::npos)
-          sampNumCoeffs = true;
-        if (line.find("sampDenCoef") != std::string::npos)
-          sampDenCoeffs = true;        
-      
-        // Done reading a coefficient sequence.
+        // Done reading a coefficient sequence
         if (line.find(")") != std::string::npos) {
           lineNumCoeffs = false;
           lineDenCoeffs = false;
           sampNumCoeffs = false;
           sampDenCoeffs = false;
+          
           if (coeff_index > max_coeff_index)
             max_coeff_index = coeff_index;
+            
           coeff_index = 0;
         }
+
       } catch(...) {
         vw_throw(ArgumentErr() << "Error reading file " << filename
                  << ", line = "  << line);
       }
     } // End loop through lines.
     f.close();
+    
     // Basic error check
     if (max_coeff_index != 20)
       vw_throw(ArgumentErr() << "Error reading file " << filename
-               << ", loaded wrong number of coefficients!");
+               << ", loaded wrong number of coefficients.");
   }
 
   // All of these implementations are largely inspired by the GDAL

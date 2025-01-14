@@ -135,8 +135,7 @@ typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRNJ;
   std::string csmStateFile(std::string const& adjustFile);
   
   // Manufacture an RPC state file from an adjust file
-  std::string rpcStateFile(std::string const& inputCamFile, 
-                           std::string const& adjustFile);
+  std::string rpcStateFile(std::string const& adjustFile);
   
 } // end namespace asp
 
