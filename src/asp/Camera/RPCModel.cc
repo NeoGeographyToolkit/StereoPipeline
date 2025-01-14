@@ -612,7 +612,6 @@ namespace asp {
 
     std::string datum_wkt = m_datum.get_wkt();
     
-    vw_out() << "Writing: " << filename << "\n";
     std::ofstream ofs(filename.c_str());
     ofs.precision(17);
 
@@ -620,9 +619,9 @@ namespace asp {
     ofs << "<isd>\n";
     ofs << "    <RPB>\n";
     ofs << "        <IMAGE>\n";
-    ofs << "	        <ERRBIAS>" << m_err_bias << "</ERRBIAS>\n";
-    ofs << "	        <ERRRAND>" << m_err_rand << "</ERRRAND>\n";
-    ofs << "            <RPC_DATUM>"   << datum_wkt << "</RPC_DATUM>\n";
+    ofs << "            <RPC_DATUM>"       << datum_wkt << "</RPC_DATUM>\n";
+    ofs << "            <ERRBIAS>"         << m_err_bias << "</ERRBIAS>\n";
+    ofs << "            <ERRRAND>"         << m_err_rand << "</ERRRAND>\n";
     ofs << "            <LINEOFFSET>"      << lineoffset   << "</LINEOFFSET>\n";
     ofs << "            <SAMPOFFSET>"      << sampoffset   << "</SAMPOFFSET>\n";
     ofs << "            <LATOFFSET>"       << latoffset    << "</LATOFFSET>\n";
@@ -652,4 +651,3 @@ namespace asp {
   }
 
 } // end namespace asp
-

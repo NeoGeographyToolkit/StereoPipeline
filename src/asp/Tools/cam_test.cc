@@ -46,7 +46,8 @@ namespace fs = boost::filesystem;
 
 
 struct Options : vw::GdalWriteOptions {
-  std::string image_file, cam1_file, cam2_file, session1, session2, bundle_adjust_prefix, datum;
+  std::string image_file, cam1_file, cam2_file, session1, session2, bundle_adjust_prefix,
+  cam1_bundle_adjust_prefix, cam2_bundle_adjust_prefix, datum;
   int sample_rate; // use one out of these many pixels
   double subpixel_offset, height_above_datum;
   bool print_per_pixel_results, aster_use_csm, aster_vs_csm,
@@ -91,6 +92,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Compare projecting into the camera without and with using the CSM model for ASTER.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Adjust the cameras using this prefix.")
+    ("cam1-bundle-adjust-prefix", po::value(&opt.cam1_bundle_adjust_prefix),
+     "Adjust the first camera using this prefix.")
+    ("cam2-bundle-adjust-prefix", po::value(&opt.cam2_bundle_adjust_prefix),
+     "Adjust the first camera using this prefix.")
     ("test-error-propagation", po::bool_switch(&opt.test_error_propagation)->default_value(false)->implicit_value(true),
      "Test computing the stddev (see --propagate-errors). This is an undocumented developer option.")
     ;
@@ -120,10 +125,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.aster_use_csm = true;
   asp::stereo_settings().aster_use_csm = opt.aster_use_csm;
 
-  // Need this to be able to load adjusted camera models. This must be set
-  // before loading the cameras.
-  asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
-
+  // If either cam1_adjust_prefix or cam2_adjust_prefix is set, then
+  // must not set bundle_adjust_prefix. Throw an error then.
+  if (opt.cam1_bundle_adjust_prefix != "" || opt.cam2_bundle_adjust_prefix != "") {
+    if (opt.bundle_adjust_prefix != "")
+      vw_throw(ArgumentErr() << "Cannot set both --bundle-adjust-prefix and "
+               "--cam1-bundle-adjust-prefix or --cam2-bundle-adjust-prefix.\n");
+  } else {
+    // Need this to be able to load adjusted camera models. This must be set
+    // before loading the cameras.
+    asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
+  }
+  
   if (opt.test_error_propagation)
     asp::stereo_settings().propagate_errors = true;
 }
@@ -216,9 +229,14 @@ void rpc_datum_sanity_check(std::string const& cam_file,
 
 void run_cam_test(Options & opt) {
   
+  bool indiv_adjust_prefix = (opt.cam1_bundle_adjust_prefix != "" || 
+                              opt.cam2_bundle_adjust_prefix != "");
+  
   // Load cam1
   std::string out_prefix;
   std::string default_session1 = opt.session1; // save it before it changes
+  if (indiv_adjust_prefix) 
+    asp::stereo_settings().bundle_adjust_prefix = opt.cam1_bundle_adjust_prefix;
   asp::SessionPtr cam1_session(asp::StereoSessionFactory::create
                               (opt.session1, // may change
                               opt,
@@ -230,6 +248,8 @@ void run_cam_test(Options & opt) {
 
   // Load cam2
   std::string default_session2 = opt.session2; // save it before it changes
+  if (indiv_adjust_prefix) 
+    asp::stereo_settings().bundle_adjust_prefix = opt.cam2_bundle_adjust_prefix;
   asp::SessionPtr cam2_session(asp::StereoSessionFactory::create
                           (opt.session2, // may change
                           opt,
@@ -239,6 +259,9 @@ void run_cam_test(Options & opt) {
   boost::shared_ptr<vw::camera::CameraModel> cam2_model
     = cam2_session->camera_model(opt.image_file, opt.cam2_file);
 
+  if (indiv_adjust_prefix) 
+    asp::stereo_settings().bundle_adjust_prefix = ""; // reset
+    
   bool found_datum = false;
   vw::cartography::Datum datum;
   if (opt.datum != "") {

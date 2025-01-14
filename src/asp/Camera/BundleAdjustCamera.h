@@ -85,7 +85,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   std::string overlap_list_file, auto_overlap_params, datum_str, proj_str,
     csv_format_str, csv_srs, csv_proj4_str, disparity_list, stereo_prefix_list;
   bool have_overlap_list, propagate_errors, match_first_to_last, single_threaded_cameras, 
-    update_isis_cubes_with_csm_state;
+    update_isis_cubes_with_csm_state, save_adjusted_rpc;
   double forced_triangulation_distance, min_triangulation_angle, max_init_reproj_error, 
     robust_threshold, parameter_tolerance;
   double heights_from_dem_uncertainty, reference_terrain_weight, 

@@ -2,6 +2,8 @@ Changes since the last release
 ------------------------------
 
 bundle_adjust (:numref:`bundle_adjust`):
+  * Added the option ``--save-adjusted-rpc`` to save RPC cameras with adjustments
+    applied to them (:numref:`rpc_and_ba`).
   * Added the option ``--min-distortion`` to ensure small distortion parameters
     get optimized.
   * Compensate for the images in the input nvm being potentially in different

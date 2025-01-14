@@ -79,6 +79,8 @@ The residuals for the GCP will be printed at the end of the
 We invoked the tool with two passes, which also enables removal
 of outliers (see option ``--remove-outliers-params``, :numref:`ba_options`).
 
+.. _ba_rpc:
+
 RPC cameras and image lists
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -91,7 +93,9 @@ With the cameras embedded in the images::
 
     bundle_adjust -t rpc left.tif right.tif -o run_ba/run
 
-How to use the adjusted cameras is shown in :numref:`ba_use`.
+How to use the adjusted cameras is shown in :numref:`ba_use`. How to produce RPC
+cameras with the adjustments applied to them is discussed in
+:numref:`rpc_and_ba`.
 
 The images can be also passed in via ``--image-list`` and cameras with 
 ``--camera-list``. When the cameras are embedded in the images, the
@@ -1299,7 +1303,12 @@ Command-line options
     files. Any prior version and any SPICE data will be deleted.
     Mapprojected images obtained with prior version of the cameras
     must no longer be used in stereo.
-        
+
+--save-adjusted-rpc
+    In addition to external adjustments to the input cameras, save RPC cameras
+    with the adjustments applied to them, in XML format. This recomputes the RPC
+    models (:numref:`rpc_and_ba`).
+            
 --min-triangulation-angle <degrees (default: 0.1)>
     Filter as outlier any triangulation point for which all rays converging to
     it have an angle less than this (measured in degrees). This happens on

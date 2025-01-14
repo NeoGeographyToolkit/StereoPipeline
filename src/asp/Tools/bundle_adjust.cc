@@ -1318,6 +1318,10 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "Save the model state of optimized CSM cameras as part of the .cub files. Any prior "
      "version and any SPICE data will be deleted. Mapprojected images obtained with prior "
      "version of the cameras must no longer be used in stereo.")
+    ("save-adjusted-rpc",
+     po::bool_switch(&opt.save_adjusted_rpc)->default_value(false)->implicit_value(true),
+     "In addition to external adjustments to the input cameras, save RPC cameras with "
+     "the adjustments applied to them, in XML format. This recomputes the RPC models.")
     ("enable-rough-homography",
      po::bool_switch(&opt.enable_rough_homography)->default_value(false)->implicit_value(true),
      "Enable the step of performing datum-based rough homography for interest point matching. This is best used with reasonably reliable input cameras and a wide footprint on the ground.")

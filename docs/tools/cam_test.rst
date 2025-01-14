@@ -121,6 +121,12 @@ Command-line options
 --bundle-adjust-prefix  <string (default = "")>
     Adjust the cameras using this prefix.
 
+--cam1-bundle-adjust-prefix <string (default = "")>
+    Adjust the first camera using this prefix.
+
+--cam2-bundle-adjust-prefix <string (default = "")>
+    Adjust the second camera using this prefix.
+    
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
 

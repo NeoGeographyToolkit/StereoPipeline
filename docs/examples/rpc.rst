@@ -105,6 +105,34 @@ See :numref:`other-mapproj` for how ``parallel_stereo`` is invoked
 with mapprojected images when the cameras are stored either separately
 or part of the images.
 
+.. _rpc_and_ba:
+
+RPC and bundle adjustment
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It is suggested to run bundle adjustment (:numref:`bundle_adjust`) before
+stereo, to ensure the cameras are self-consistent. An example is in
+:numref:`ba_rpc`.
+
+Bundle adjustment produces ``.adjust`` files that have rotation and translation
+adjustments to the original cameras. In addition, the ``bundle_adjust`` option
+``--save-adjusted-rpc`` can save new RPC cameras, with the adjustments already
+applied to them. 
+
+These are saved in the ``bundle_adjust`` output directory, with names ending in
+``.adjusted_rpc.xml``. These cameras can be used in ASP and third-party
+software.
+
+Any produced adjusted RPC model file can be read by GDAL (including
+``gdalinfo``, :numref:`gdal_tools`) if it is renamed to have the same name as
+the image but with the ``.xml`` extension, and no analogously named ``.RPB`` or
+``_RPC.txt`` files are present that may take precedence. See 
+the `GeoTiff documentation
+<https://gdal.org/en/stable/drivers/raster/gtiff.html#georeferencing>`_.
+
+Applying the adjustments refits the RPC models, and should create cameras that
+agree well with the ones with the adjustments applied externally.
+
 Creation of RPC cameras
 ~~~~~~~~~~~~~~~~~~~~~~~
 

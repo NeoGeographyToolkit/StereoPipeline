@@ -155,7 +155,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BAParams & param_stor
 
   for (int icam=0; icam < num_cameras; icam++) {
     PinholeModel* pin_ptr = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
-    vw::vw_out() << "Loading input model: " << *pin_ptr << std::endl;
+    vw::vw_out() << "Loading input model: " << *pin_ptr << "\n";
 
     // Make a deep copy of the camera, including of the lens distortion
     PinholeModel pin_cam = *pin_ptr;
@@ -165,7 +165,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BAParams & param_stor
       std::string adjust_file
         = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[icam],
                                        opt.camera_files[icam]);
-      vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
+      vw_out() << "Reading input adjustment: " << adjust_file << "\n";
       CameraAdjustment adjustment;
       adjustment.read_from_adjust_file(adjust_file);
 
@@ -225,7 +225,7 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BAParams & param_
   for (int icam=0; icam < num_cameras; icam++) {
     vw::camera::OpticalBarModel* bar_ptr
       = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
-    vw::vw_out() << "Loading input model: " << *bar_ptr << std::endl;
+    vw::vw_out() << "Loading input model: " << *bar_ptr << "\n";
     pack_optical_bar_to_arrays(*bar_ptr, icam, param_storage);
   } // End loop through cameras
 
@@ -275,7 +275,7 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
       std::string adjust_file
         = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[icam],
                                        opt.camera_files[icam]);
-      vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
+      vw_out() << "Reading input adjustment: " << adjust_file << "\n";
       CameraAdjustment adjustment;
       adjustment.read_from_adjust_file(adjust_file);
 
@@ -341,9 +341,8 @@ std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
   #pragma omp critical
   {
     // Ensure this text is not messed up when writing in parallel
-
-    vw::vw_out() << "Writing: " << cam_file << std::endl;
-    vw::vw_out() << "Writing output model: " << out_cam << std::endl;
+    vw::vw_out() << "Writing: " << cam_file << "\n";
+    vw::vw_out() << "Writing output model: " << out_cam << "\n";
 
     bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
     if (has_datum) {
@@ -385,8 +384,8 @@ std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
   {
     // Ensure this text is not messed up when writing in parallel
     
-    vw::vw_out() << "Writing: " << cam_file << std::endl;
-    vw::vw_out() << "Writing output model: " << out_cam << std::endl;
+    vw::vw_out() << "Writing: " << cam_file << "\n";
+    vw::vw_out() << "Writing output model: " << out_cam << "\n";
 
     bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
     if (has_datum) {
@@ -442,9 +441,10 @@ std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
     std::string plugin_name = out_cam->plugin_name();
     std::string model_name  = out_cam->model_name();
     std::string model_state = out_cam->model_state();
+    #pragma omp critical
     {
       // Ensure this text is not messed up when writing in parallel
-      vw::vw_out() << "Adding updated CSM state to image file: " << image_name << std::endl;
+      vw::vw_out() << "Adding updated CSM state to image file: " << image_name << "\n";
     }
     asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
   }
@@ -517,35 +517,16 @@ std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
   if (rpc == NULL)
     vw_throw(ArgumentErr() << "Expecting an RPC camera.\n");
   
-  // Produced a transformed copy of the RPC model
+  #pragma omp critical
+  {
+    // Ensure this text is not messed up when writing in parallel
+    vw::vw_out() << "Saving adjusted RPC model: " << rpcFile << "\n";
+  }
+
+  // Produced a transformed copy of the RPC model. This can be slow.
   asp::RPCModel trans_rpc = asp::transformRpc(*rpc, ecef_transform, image_box);
-  
-  // TODO(oalexan1): Must make copy of the RPC model, apply the transform to it.
-  // That logic needs to be in a function in the RPC gen code.
-  // Then it should be called here.
-  
-  // Do that, then review and push all the code so far.
 
-  // // Save a transformed copy of the camera model
-  // boost::shared_ptr<asp::RpcModel> out_cam;
-  // rpc_model->deep_copy(out_cam);
-  // out_cam->applyTransform(ecef_transform);
-  // out_cam->saveState(rpcFile);
-
-  // if (opt.update_isis_cubes_with_rpc_state) {
-  //   // Save the RPC state to the image file. Wipe any spice info.
-  //   std::string image_name = opt.image_files[icam]; 
-  //   std::string plugin_name = out_cam->plugin_name();
-  //   std::string model_name  = out_cam->model_name();
-  //   std::string model_state = out_cam->model_state();
-  //   #pragma omp critical
-  //   {
-  //     // Ensure this text is not messed up when writing in parallel
-  //     vw::vw_out() << "Adding updated RPC state to image file: " << image_name << "\n";
-  //   }
-    
-  //   asp:isis::saveRpcStateToIsisCube(image_name, plugin_name, model_name, model_state);
-  // }
+  trans_rpc.saveXML(rpcFile);
   
   return rpcFile;
 }
@@ -562,7 +543,7 @@ std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
   #pragma omp critical
   {
     // Ensure this text is not messed up when writing in parallel
-    vw::vw_out() << "Writing: " << adjust_file << std::endl;
+    vw::vw_out() << "Writing: " << adjust_file << "\n";
   }
 
   // The cam_file will be overwritten below for CSM cameras
@@ -579,7 +560,7 @@ std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
       opt.stereo_session == "dg"  ||
       (opt.stereo_session == "aster" && asp::stereo_settings().aster_use_csm))
     cam_file = saveUpdatedCsm(opt, icam, adjust_file, param_storage);
-  else if (opt.stereo_session == "rpc")
+  else if (opt.stereo_session == "rpc" && opt.save_adjusted_rpc)
     cam_file = saveUpdatedRpc(opt, icam, adjust_file, param_storage);
   
   return cam_file;
@@ -660,7 +641,7 @@ void read_image_cam_lists(std::string const& image_list,
   }
 
   intrinsics_opts.num_sensors = image_lists.size();
-  vw_out() << "Number of sensors: " << intrinsics_opts.num_sensors << std::endl;
+  vw_out() << "Number of sensors: " << intrinsics_opts.num_sensors << "\n";
 
   // Must have the same number of cameras as images
   if (images.size() != cameras.size())
@@ -1170,7 +1151,7 @@ void auto_build_overlap_list(asp::BaBaseOptions &opt, double lonlat_buffer) {
       // - TODO: Use polygon intersection instead of bounding boxes!
       if (bbox_i.intersects(bbox_j)) {
         vw_out() << "Predicted overlap between images " << opt.image_files[i]
-                 << " and " << opt.image_files[j] << std::endl;
+                 << " and " << opt.image_files[j] << "\n";
         opt.overlap_list.insert(StringPair(opt.image_files[i], opt.image_files[j]));
         opt.overlap_list.insert(StringPair(opt.image_files[j], opt.image_files[i]));
         ++num_overlaps;
@@ -1329,12 +1310,12 @@ void saveUpdatedCameras(asp::BaBaseOptions const& opt,
 
   // Write the image lists
   std::string img_list_file = opt.out_prefix + "-image_list.txt";
-  vw::vw_out() << "Writing: " << img_list_file << std::endl;
+  vw::vw_out() << "Writing: " << img_list_file << "\n";
   asp::write_list(img_list_file, opt.image_files);
   
   // Write the camera lists
   std::string cam_list_file = opt.out_prefix + "-camera_list.txt";
-  vw::vw_out() << "Writing: " << cam_list_file << std::endl;
+  vw::vw_out() << "Writing: " << cam_list_file << "\n";
   asp::write_list(cam_list_file, cam_files);
   
   return;

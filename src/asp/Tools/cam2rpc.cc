@@ -537,6 +537,7 @@ int main(int argc, char *argv[]) {
                  line_num, line_den, samp_num, samp_den);
 
     // Form and save the model
+    vw::vw_out() << "Writing: " << opt.output_rpc << "\n";
     vw::cartography::Datum datum(opt.datum);
     asp::RPCModel rpc(datum, line_num, line_den, samp_num, samp_den,
                       pixel_offset, pixel_scale, llh_offset, llh_scale);

@@ -157,13 +157,12 @@ int find_solution_from_seed(RpcSolveLMA    const& lma_model,
   int status;
 
   // Use the L-M solver to optimize the RPC model coefficient values.
-  // TODO(oalexan1): This is too tight and too slow
-  const double abs_tolerance  = 1e-24;
-  const double rel_tolerance  = 1e-24;
-  const int    max_iterations = 2000;
+  double abs_tolerance  = 1e-10;
+  double rel_tolerance  = 1e-10;
+  int    max_iterations = 1000;
   final_params = math::levenberg_marquardt(lma_model, seed_params, actual_observations,
-                                            status, abs_tolerance, rel_tolerance,
-                                            max_iterations);
+                                           status, abs_tolerance, rel_tolerance,
+                                           max_iterations);
 
   if (status < 1) { // This means the solver failed to converge
     VW_OUT(DebugMessage, "asp") 
@@ -418,9 +417,10 @@ asp::RPCModel transformRpc(asp::RPCModel const& rpc_model,
   transformLlhBox(llh_offset, llh_scale, R, T, datum,
                   llh_offset_trans, llh_scale_trans); // outputs
 
-  // TODO(oalexan1): Think of the best way to set this.
+  // This penalty weight is rather small. In practice it was not a problem. The
+  // input camera should be sampled well and then an overfit should not be a
+  // concern.
   double penalty_weight = 1e-4;
-  std::cout << "--penalty weight is " << penalty_weight << std::endl;
   
   // Form the vectors of transformed normalized llh and pixel values
   Vector<double> normalized_llh_trans;
@@ -439,18 +439,17 @@ asp::RPCModel transformRpc(asp::RPCModel const& rpc_model,
   asp::gen_rpc(penalty_weight, normalized_llh_trans, normalized_pixels, refine_only,
                line_num, line_den, samp_num, samp_den); // outputs
   asp::RPCModel rpc_trans(datum, line_num, line_den, samp_num, samp_den,
-                          pixel_offset, pixel_scale, llh_offset_trans, llh_scale_trans);
+                          pixel_offset, pixel_scale, llh_offset_trans, llh_scale_trans,
+                          rpc_model.m_err_bias, rpc_model.m_err_rand);
 
+#if 0
   // Find the error of applying the adjustments inline as opposed to externally
-  // TODO(oalexan1): Must validate with external samples
   double max_pix_err = 0;
   for (size_t i = 0; i < llh_vec.size(); i++) {
     Vector3 llh = llh_vec[i];
     Vector3 xyz = datum.geodetic_to_cartesian(llh);
-  
     Vector3 llh_trans = llh_vec_trans[i];
     Vector3 xyz_trans = datum.geodetic_to_cartesian(llh_trans);
-    
     Vector2 cam_pix1, cam_pix2;
     try {
       cam_pix1 = rpc_model.point_to_pixel(xyz);
@@ -458,11 +457,11 @@ asp::RPCModel transformRpc(asp::RPCModel const& rpc_model,
     } catch (...) {
       continue;
     }
-    
     max_pix_err = std::max(max_pix_err, norm_2(cam_pix1 - cam_pix2));
   }
   std::cout << "Inline vs external adjustment discrepancy for the RPC model: " << max_pix_err 
             << " pixels\n";
+#endif
   
   return rpc_trans;
 }
