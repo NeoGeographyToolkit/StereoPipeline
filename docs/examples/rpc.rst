@@ -42,13 +42,11 @@ tiles.
 Examples
 ~~~~~~~~
 
-A sample stereo pair can be downloaded from from GeoEye's website at
-:cite:`geoeye:samples`. When we accessed the site, we downloaded a GeoEye-1
-image of Hobart, Australia. As previously stated in :numref:`dg_tutorial`, these
-types of images are not ideal for ASP. This is both a forest and a urban area
-which makes correlation difficult. ASP was designed more for modeling bare rock
-and ice. Any results we produce in other environments is a bonus but is not our
-objective.
+Here we work with a GeoEye dataset for Hobart, Australia. As previously stated
+in :numref:`dg_tutorial`, these types of images are not ideal for ASP. This is
+both a forest and a urban area which makes correlation difficult. ASP was
+designed more for modeling bare rock and ice. Any results we produce in other
+environments is a bonus but is not our objective.
 
 .. figure:: ../images/examples/geoeye/GeoEye_CloseUp_triple.png
    :name: geoeye-nomap-example
@@ -107,20 +105,21 @@ or part of the images.
 
 .. _rpc_and_ba:
 
-RPC and bundle adjustment
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Adjusted RPC cameras
+~~~~~~~~~~~~~~~~~~~~
 
 It is suggested to run bundle adjustment (:numref:`bundle_adjust`) before
 stereo, to ensure the cameras are self-consistent. An example is in
 :numref:`ba_rpc`.
 
 Bundle adjustment produces ``.adjust`` files that have rotation and translation
-adjustments to the original cameras. In addition, the ``bundle_adjust`` option
-``--save-adjusted-rpc`` can save new RPC cameras, with the adjustments already
-applied to them. 
+adjustments to the original cameras. 
+
+In addition, the ``bundle_adjust`` option ``--save-adjusted-rpc`` can save new
+RPC cameras, with the adjustments already applied to them. 
 
 These are saved in the ``bundle_adjust`` output directory, with names ending in
-``.adjusted_rpc.xml``. These cameras can be used in ASP and third-party
+``.adjusted_rpc.xml``. These cameras can be used with ASP and third-party
 software.
 
 Any produced adjusted RPC model file can be read by GDAL (including

@@ -724,12 +724,9 @@ that:
  - The camera looks generally downward. This is not a strong assumption but
    makes it easier to determine which images overlap with which.
 
- - A Frame (Pinhole) camera (:numref:`pinholemodels`) is used, with known
-   intrinsics. If those are not known, it is shown below how to estimate 
-   them and then refine them later.
-
-The general Structure-from-Motion (SfM) approach is described in
-:numref:`sfm`.
+ - The camera is Frame (Pinhole) (:numref:`pinholemodels`), with known
+   intrinsics. If those are not known, it is shown below how to estimate them
+   and then refine them later.
 
 The metadata is extracted from the EXIF header with the ``sfm_proc`` program
 (:numref:`sfm_proc`)::
@@ -740,11 +737,13 @@ The metadata is extracted from the EXIF header with the ``sfm_proc`` program
       --out-dir cameras
    
 This writes the file ``cameras/extrinsics.txt``, having the above-mentioned
-information. The file can be produced in other ways as well. Its format and how
-it is used to create the camera models is shown in :numref:`cam_gen_extrinsics`.
+information. This file can also be created manually if the needed data are 
+stored in other ways. 
 
-That invocation needs the camera intrinsics, including the focal length and 
-optical center in pixel units, and the lens distortion parameters. 
+The format of this file and how to use the ``cam_gen`` program to create the
+camera models is shown in :numref:`cam_gen_extrinsics`. That program needs the
+camera intrinsics, including the focal length and optical center in pixel units,
+and the lens distortion parameters. 
 
 If the focal length is not known, it is suggested to estimate it from the
 ``FocalLengthIn35mmFilm`` field in the EXIF header, if available. 
@@ -763,8 +762,11 @@ that can be found as described in :numref:`initial_terrain`, and
 which may need an adjustment as shown in :numref:`conv_to_ellipsoid`.
 
 The camera models can be refined with ``bundle_adjust`` with fixed intrinsics,
-as shown in :numref:`kaguya_ba_initial_ba`. The intrinsics can be refined later,
+as shown in :numref:`kaguya_ba_initial_ba`. The intrinsics can be refined later
 (:numref:`floatingintrinsics`).
 
 The images and produced cameras can be used to create and then merge DEMs, per
 :numref:`sfm_multiview`.
+
+The general Structure-from-Motion (SfM) approach is described in
+:numref:`sfm`.

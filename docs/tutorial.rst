@@ -255,19 +255,18 @@ for the sensor geometry, velocity aberration and atmospheric
 refraction (:numref:`dg_csm`).
 
 In the next two sections we will show how to process unmodified and
-map-projected variants of WorldView images. The images we are using
-is from the free stereo pair labeled "System-Ready (1B) Stereo, 50cm"
-which captures the city of Stockholm, found on DigitalGlobe/Maxar's website 
-(https://www.digitalglobe.com/samples). These images represent a
+map-projected variants of WorldView images. These images represent a
 non-ideal problem for us since this is an urban location, but at least
 you should be able to download these images yourself and follow along.
 
 Supported products
 ------------------
 
-ASP can only process Level 1B satellite images, and cannot process
-DigitalGlobe's aerial images or orthorectified images (see the `product info 
-<https://securewatchdocs.maxar.com/en-us/Orders/Orders_ProductInfo.htm>`_).
+ASP can only process DigitalGlobe / Maxar Level 1B satellite images, and there
+is experimental support for View-Ready OR2A images (see
+:numref:`mapproj_ortho`). ASP cannot handle images that are orthorectified onto
+a DEM. See the `list of products
+<https://securewatchdocs.maxar.com/en-us/Orders/Orders_ProductInfo.htm>`_.
 
 .. _rawdg:
 
