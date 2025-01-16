@@ -113,14 +113,13 @@ stereo, to ensure the cameras are self-consistent. An example is in
 :numref:`ba_rpc`.
 
 Bundle adjustment produces ``.adjust`` files that have rotation and translation
-adjustments to the original cameras. 
+adjustments to the original cameras. These can be passed to other ASP tools via
+the ``--bundle-adjust-prefix`` option. 
 
-In addition, the ``bundle_adjust`` option ``--save-adjusted-rpc`` can save new
-RPC cameras, with the adjustments already applied to them. 
-
-These are saved in the ``bundle_adjust`` output directory, with names ending in
-``.adjusted_rpc.xml``. These cameras can be used with ASP and third-party
-software.
+To make new RPC cameras, with the adjustments already applied to them, use the
+``bundle_adjust`` option ``--save-adjusted-rpc``. These are saved in the
+``bundle_adjust`` output directory, with names ending in ``.adjusted_rpc.xml``.
+These cameras can be used with ASP and third-party software.
 
 Any produced adjusted RPC model file can be read by GDAL (including
 ``gdalinfo``, :numref:`gdal_tools`) if it is renamed to have the same name as

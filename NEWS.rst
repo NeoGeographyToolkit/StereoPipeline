@@ -22,7 +22,7 @@ jitter_solve (:numref:`jitter_solve`):
   * Added the option ``--camera-position-uncertainty`` (:numref:`jitter_camera`).
   * Can constrain against a sparse point cloud (:numref:`jitter_ref_terrain`).
   * Added the option ``--smoothness-weight`` to control high-frequency changes
-    in the camera orientations in linescan cameras. This is on by default.
+    in the camera orientations in linescan cameras.
   * Can use GCP files.
   * Can read a control network from an nvm file.
   * Write the stereo convergence angles. Can write registration errors on the

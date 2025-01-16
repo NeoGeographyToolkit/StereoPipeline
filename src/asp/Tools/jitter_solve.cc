@@ -314,12 +314,13 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "Weight image for anchor points. Limits where anchor points are placed and their "
      "weight. These weights are additionally multiplied by --anchor-weight. See also "
      "--weight-image.")
-     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(1.0),
+     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.0),
       "A weight to penalize high-frequency changes in the sequence of orientations "
       "in the linescan cameras being optimized. This is internally adjusted based "
-      "on the initial curvature of the sequence of orientations. The default "
-      "should be good enough. A higher value will make the solution smoother but "
-      "may impede convergence.")
+      "on the initial curvature of the sequence of orientations. A value of 0.01 "
+      "to 0.1 is recommended. This may impede convergence if high. Use with "
+      "--camera-position-weight 1e+6 or so, to constrain the camera positions, "
+      "to ensure that does not interfere with constraining the orientations.")
     ("initial-camera-constraint", 
      po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
      "When constraining roll and yaw, measure these not in the satellite along-track/ "
