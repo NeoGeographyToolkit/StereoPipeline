@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -83,20 +83,20 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
      "Trace a ray from this input image pixel (values start from 0) to the ground. "
      "Print the intersection point with the DEM as lon, lat, height, then "
      "as DEM column, row, height. Quit afterwards.")
-    ("aster-use-csm", 
+    ("aster-use-csm",
      po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with ASTER cameras (-t aster).")
     ("parse-options", po::bool_switch(&opt.parseOptions)->default_value(false),
      "Parse the options and print the results. Used by the mapproject script.")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
-  
+
   po::options_description positional("");
   positional.add_options()
     ("dem",          po::value(&opt.dem_file))
     ("camera-image", po::value(&opt.image_file))
     ("camera-model", po::value(&opt.camera_file))
-    ("output-image" , po::value(&opt.output_file));
+    ("output-image", po::value(&opt.output_file));
 
   po::positional_options_description positional_desc;
   positional_desc.add("dem",          1);
@@ -111,21 +111,21 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
-  
-  if ( !vm.count("dem") || !vm.count("camera-image") || !vm.count("camera-model") )
+
+  if (!vm.count("dem") || !vm.count("camera-image") || !vm.count("camera-model"))
     vw_throw(ArgumentErr() << "Not all of the input DEM, image, and camera were specified.\n"
              << usage << general_options);
-  
+
   // If exactly three files were passed in, the last one must be the output file and the image file
   // must contain the camera model.
-  if ( !vm.count("output-image") && vm.count("camera-model") ) {
+  if (!vm.count("output-image") && vm.count("camera-model")) {
     opt.output_file = opt.camera_file;
     opt.camera_file = "";
   }
 
   // This is a bug fix. The user by mistake passed in an empty projection string.
   if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The value of --t_srs is empty. Then it must not be set at all.\n");
 
   if (asp::has_cam_extension(opt.output_file))
@@ -133,36 +133,36 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
 
   if (opt.parseOptions) {
     // For the benefit of mapproject
-    vw_out() << "dem," << opt.dem_file << std::endl;
-    vw_out() << "image," << opt.image_file << std::endl;
-    vw_out() << "camera," << opt.camera_file << std::endl;
-    vw_out() << "output_file," << opt.output_file << std::endl;
+    vw_out() << "dem," << opt.dem_file << "\n";
+    vw_out() << "image," << opt.image_file << "\n";
+    vw_out() << "camera," << opt.camera_file << "\n";
+    vw_out() << "output_file," << opt.output_file << "\n";
     exit(0);
   }
-  
+
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
   asp::stereo_settings().aster_use_csm = opt.aster_use_csm;
-  
+
   if (fs::path(opt.dem_file).extension() != "") {
     // A path to a real DEM file was provided, load it!
     GeoReference dem_georef;
     bool has_georef = vw::cartography::read_georeference(dem_georef, opt.dem_file);
     if (!has_georef)
-      vw_throw( ArgumentErr() << "There is no georeference information in: "
-                              << opt.dem_file << ".\n" );
+      vw_throw(ArgumentErr() << "There is no georeference information in: "
+                             << opt.dem_file << ".\n");
 
     // Make sure the user did not actually pass in an RGB image
     boost::shared_ptr<DiskImageResource> dem_rsrc = vw::DiskImageResourcePtr(opt.dem_file);
     ImageFormat dem_fmt = dem_rsrc->format();
     const int num_input_channels = num_channels(dem_fmt.pixel_format);
     if (num_input_channels > 2)
-      vw_throw( ArgumentErr() << "Too many channels in: " << opt.dem_file << ".\n" );
+      vw_throw(ArgumentErr() << "Too many channels in: " << opt.dem_file << ".\n");
 
     // Store the datum from the DEM
     // TODO (oalexan1): Storing the datum name is fragile.
-    asp::stereo_settings().datum = dem_georef.datum().name(); 
+    asp::stereo_settings().datum = dem_georef.datum().name();
   }
 
   return;
@@ -172,17 +172,16 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
 Vector2 demPixToCamPix(Vector2i const& dem_pixel,
                       boost::shared_ptr<camera::CameraModel> const& camera_model,
                       ImageViewRef<DemPixelT> const& dem,
-                      GeoReference const &dem_georef)
-{
+                      GeoReference const &dem_georef) {
   Vector2 lonlat = dem_georef.point_to_lonlat(dem_georef.pixel_to_point(dem_pixel));
-  //vw_out() << "lonlat = " << lonlat << std::endl;
+  //vw_out() << "lonlat = " << lonlat << "\n";
   DemPixelT height = dem(dem_pixel[0], dem_pixel[1]);
   Vector3 xyz = dem_georef.datum().geodetic_to_cartesian
                     (Vector3(lonlat[0], lonlat[1], height.child()));
-  //vw_out() << "xyz = " << xyz << std::endl;
+  //vw_out() << "xyz = " << xyz << "\n";
   // Throws if the projection fails ???
   Vector2i camera_pixel = camera_model->point_to_pixel(xyz);
-  //vw_out() << "camera_pixel = " << camera_pixel << std::endl;
+  //vw_out() << "camera_pixel = " << camera_pixel << "\n";
   return camera_pixel;
 }
 
@@ -196,8 +195,8 @@ void expandBboxToContainCornerIntersections(vw::CamPtr camera_model,
                                             BBox2 & bbox_on_ground) {
   // Each of the corners of the DEM
   std::vector<Vector2> dem_pixel_list(4);
-  dem_pixel_list[0] = Vector2(0,            0           );
-  dem_pixel_list[1] = Vector2(dem.cols()-1, 0           );
+  dem_pixel_list[0] = Vector2(0,            0);
+  dem_pixel_list[1] = Vector2(dem.cols()-1, 0);
   dem_pixel_list[2] = Vector2(dem.cols()-1, dem.rows()-1);
   dem_pixel_list[3] = Vector2(0,            dem.rows()-1);
 
@@ -210,20 +209,13 @@ void expandBboxToContainCornerIntersections(vw::CamPtr camera_model,
       // Get the point on the ground
       Vector2 groundLoc = dem_georef.pixel_to_point(dem_pixel);
 
-      // If there was in intersection...
-      if ( (cam_pixel.x() >= 0)              && (cam_pixel.y() > 0) &&
-           (cam_pixel.x() <  image_size.x()) && (cam_pixel.y() < image_size.y()) ) {
-        //Vector2 lonlat    = dem_georef.point_to_lonlat(dem_georef.pixel_to_point(dem_pixel));
-        // Expand the ground bbox to contain in
+      // If there was in intersection
+      if ((cam_pixel.x() >= 0)              && (cam_pixel.y() > 0) &&
+           (cam_pixel.x() <  image_size.x()) && (cam_pixel.y() < image_size.y())) {
         bbox_on_ground.grow(groundLoc);
-        //vw_out() << "Grow --> " << groundLoc  << std::endl;
+      } else {
       }
-      else{
-        //vw_out() << "Miss! "  << std::endl;
-      }
-    }catch(...){
-      //vw_out() << "Bad projection! "  << std::endl;
-    } // If a point failed to project
+    } catch(...) {} // projection failed
   } // End loop through DEM points
 
 }
@@ -234,7 +226,7 @@ void calc_target_geom(// Inputs
                       Vector2i const& image_size,
                       boost::shared_ptr<camera::CameraModel> const& camera_model,
                       ImageViewRef<DemPixelT> const& dem,
-                      GeoReference const& dem_georef, 
+                      GeoReference const& dem_georef,
                       bool datum_dem,
                       asp::MapprojOptions const & opt,
                       // Outputs
@@ -254,7 +246,7 @@ void calc_target_geom(// Inputs
                           image_size.x(), image_size.y(), auto_res, quick);
   } catch (std::exception const& e) {
     if (opt.target_projwin == BBox2() || calc_target_res) {
-      vw_throw( ArgumentErr()
+      vw_throw(ArgumentErr()
                 << e.what() << "\n"
                 << "Check your inputs. Or try specifying --t_projwin and --tr values.\n");
     }
@@ -270,10 +262,10 @@ void calc_target_geom(// Inputs
       current_resolution = opt.mpp; // Use units of meters
     } else { // Not projected, GDC coordinates only.
       // Use units of degrees. Lat/lon degrees are different so, this should be avoided.
-      current_resolution = 1/opt.ppd; 
+      current_resolution = 1/opt.ppd;
     }
   }
-  
+
   // Print the GSD with full precision, as it may be employed with other images
   vw_out() << std::setprecision(17) << "Output pixel size: " << current_resolution << "\n";
 
@@ -287,10 +279,9 @@ void calc_target_geom(// Inputs
       std::swap(cam_box.min().y(), cam_box.max().y());
     // The adjustments below are to make the maximum
     // non-exclusive.
-    cam_box.max().x() -= current_resolution; 
+    cam_box.max().x() -= current_resolution;
     cam_box.max().y() -= current_resolution;
   }
-
 
   // In principle the corners of the projection box can be
   // arbitrary.  However, we will force them to be at integer
@@ -319,7 +310,7 @@ void calc_target_geom(// Inputs
   T(0,0) = current_resolution;  // Set col/X conversion to meters per pixel
   T(1,1) = -current_resolution;  // Set row/Y conversion to meters per pixel with a vertical flip (increasing row = down in Y)
   T(1,2) = cam_box.max().y();       // The maximum projected Y coordinate is the starting offset
-  if (target_georef.pixel_interpretation() == GeoReference::PixelAsArea) { 
+  if (target_georef.pixel_interpretation() == GeoReference::PixelAsArea) {
     // Meaning point [0][0] equals location (0.5, 0.5)
     T(0,2) -= 0.5 * current_resolution; // Apply a small shift to the offsets
     T(1,2) += 0.5 * current_resolution;
@@ -333,9 +324,9 @@ void calc_target_geom(// Inputs
   target_image_size.grow(target_georef.point_to_pixel(cam_box.max()));
   target_image_size.min() = round(target_image_size.min());
   target_image_size.max() = round(target_image_size.max());
-  
+
   // Last adjustment, to ensure 0 0 is always in the box corner
-  target_georef = crop(target_georef, target_image_size.min().x(), 
+  target_georef = crop(target_georef, target_image_size.min().x(),
                        target_image_size.min().y());
 
   return;
@@ -346,7 +337,7 @@ int main(int argc, char* argv[]) {
   asp::MapprojOptions opt;
   try {
     handle_arguments(argc, argv, opt);
-  
+
     // TODO: Replace this using the new CameraModelLoader functions. But those
     // may not have the session guessing logic.
 
@@ -362,12 +353,12 @@ int main(int argc, char* argv[]) {
                         opt.output_file,
                         "", // Do not use a DEM to not make the session mapprojected
                         false)); // Do not allow promotion from normal to map projected session
-    
-    if ( opt.output_file.empty() )
-      vw_throw( ArgumentErr() << "Missing output filename.\n" );
+
+    if (opt.output_file.empty())
+      vw_throw(ArgumentErr() << "Missing output filename.\n");
 
     // Additional checks once the stereo session is determined.
-    
+
     if (opt.stereo_session == "perusat")
       vw_out(WarningMessage) << "Images map-projected using the '" << opt.stereo_session
                              << "' camera model cannot be used later for stereo. "
@@ -377,20 +368,20 @@ int main(int argc, char* argv[]) {
     // If nothing else works
     // TODO(oalexan1): Likely StereoSessionFactory already have this logic.
     if (boost::iends_with(boost::to_lower_copy(opt.camera_file), ".xml") &&
-         opt.stereo_session == "" )
+         opt.stereo_session == "")
       opt.stereo_session = "rpc";
 
     // Initialize the camera model
     opt.camera_model = session->camera_model(opt.image_file, opt.camera_file);
 
     opt.multithreaded_model = session->supports_multi_threading();
-      
+
     {
       // Safety check that the users are not trying to map project map
       // projected images. This should not be an error as sometimes
       // even raw images have some half-baked georeference attached to them.
       GeoReference dummy_georef;
-      bool has_georef = vw::cartography::read_georeference( dummy_georef, opt.image_file );
+      bool has_georef = vw::cartography::read_georeference(dummy_georef, opt.image_file);
       if (has_georef)
         vw_out(WarningMessage) << "Your input camera image is already map-"
                                << "projected. The expected input is required "
@@ -412,18 +403,18 @@ int main(int argc, char* argv[]) {
 
       bool has_georef = vw::cartography::read_georeference(dem_georef, opt.dem_file);
       if (!has_georef)
-        vw_throw( ArgumentErr() << "There is no georeference information in: "
-                  << opt.dem_file << ".\n" );
+        vw_throw(ArgumentErr() << "There is no georeference information in: "
+                  << opt.dem_file << ".\n");
 
       boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResourcePtr(opt.dem_file));
 
       // If we have a nodata value, create a mask.
       DiskImageView<float> dem_disk_image(opt.dem_file);
-      if (dem_rsrc->has_nodata_read()){
+      if (dem_rsrc->has_nodata_read()) {
         dem = create_mask(dem_disk_image, dem_rsrc->nodata_read());
-      }else{
+      } else {
         dem = pixel_cast<DemPixelT>(dem_disk_image);
-      }      
+      }
     } else {
       // Projecting to a datum instead of a DEM
       datum_dem = true;
@@ -436,13 +427,12 @@ int main(int argc, char* argv[]) {
       if ((llr_camera_loc[0] < 0) && (llr_camera_loc[0] > -180))
         lonstart = -180;
       dem_georef = GeoReference(Datum(datum_name),
-                                // Need adjustments to work at boundaries!
+                                // Need adjustments to work at boundaries
                                 vw::Matrix3x3(1,  0, lonstart-0.5,
                                               0, -1, 90+0.5,
-                                              0,  0,  1) );
+                                              0,  0,  1));
       dem = constant_view(PixelMask<float>(opt.datum_offset), 360.0, 180.0);
-      vw_out() << "\t--> Using flat datum \"" << datum_name << "\" as elevation model.\n";
-      //std::cout << "dem_georef = " << dem_georef << std::endl;
+      vw_out() << "\t--> Using flat datum: " << datum_name << " as elevation model.\n";
     }
     // Finished setting up the datum
 
@@ -460,30 +450,30 @@ int main(int argc, char* argv[]) {
     // The user datum and DEM datum must agree
     bool warn_only = false;
     vw::checkDatumConsistency(dem_georef.datum(), target_georef.datum(), warn_only);
-     
+
     // Find the target resolution based --tr, --mpp, and --ppd if provided. Do
     // the math to convert pixel-per-degree to meter-per-pixel and vice-versa.
     int sum = (!std::isnan(opt.tr)) + (!std::isnan(opt.mpp)) + (!std::isnan(opt.ppd));
     if (sum >= 2)
-      vw::vw_throw(vw::ArgumentErr() 
-               << "Must specify at most one of the options: --tr, --mpp, --ppd.\n" );
+      vw::vw_throw(vw::ArgumentErr()
+               << "Must specify at most one of the options: --tr, --mpp, --ppd.\n");
 
     double radius = target_georef.datum().semi_major_axis();
     if (!std::isnan(opt.tr)) { // --tr was set
       if (target_georef.is_projected()) {
-        if (std::isnan(opt.mpp)) opt.mpp = opt.tr; // User must have provided be meters per pixel
-      }else {
-        if (std::isnan(opt.ppd)) opt.ppd = 1.0/opt.tr; // User must have provided degrees per pixel
+        if (std::isnan(opt.mpp)) 
+          opt.mpp = opt.tr; // User must have provided be m / pixel
+      } else {
+        if (std::isnan(opt.ppd)) 
+          opt.ppd = 1.0/opt.tr; // User must have provided degrees per pixel
       }
     }
-    
-    if (!std::isnan(opt.mpp)){ // Meters per pixel was set
-      if (std::isnan(opt.ppd)) opt.ppd = 2.0*M_PI*radius/(360.0*opt.mpp);
-    }
-    if (!std::isnan(opt.ppd)){ // Pixels per degree was set
-      if (std::isnan(opt.mpp)) opt.mpp = 2.0*M_PI*radius/(360.0*opt.ppd);
-    }
-    
+
+    if (!std::isnan(opt.mpp) && std::isnan(opt.ppd)) // Meters per pixel was set
+      opt.ppd = 2.0*M_PI*radius/(360.0*opt.mpp);
+    if (!std::isnan(opt.ppd) && std::isnan(opt.mpp)) // Pixels per degree was set
+      opt.mpp = 2.0*M_PI*radius/(360.0*opt.ppd);
+
     bool user_provided_resolution = (!std::isnan(opt.ppd));
     bool     calc_target_res = !user_provided_resolution;
     Vector2i image_size      = vw::file_image_size(opt.image_file);
@@ -495,7 +485,7 @@ int main(int argc, char* argv[]) {
                      opt, cam_box, target_georef);
 
     // Set a high precision, as the numbers can come out big for UTM
-    vw_out() << std::setprecision(17) << "Projected space bounding box: " << cam_box << std::endl;
+    vw_out() << std::setprecision(17) << "Projected space bounding box: " << cam_box << "\n";
 
     // Compute output image size in pixels using bounding box in output projected space
     BBox2i target_image_size = target_georef.point_to_pixel_bbox(cam_box);
@@ -512,51 +502,51 @@ int main(int argc, char* argv[]) {
     int virtual_image_height = target_image_size.max().y();
 
     // Shrink output image BB if an output image BB was passed in
-    GeoReference croppedGeoRef  = target_georef;
-    BBox2i       croppedImageBB = target_image_size;
+    GeoReference crop_georef = target_georef;
+    BBox2i crop_bbox = target_image_size;
     if (opt.target_pixelwin != BBox2()) {
       // Replace with passed-in bounding box
-      croppedImageBB = opt.target_pixelwin;
+      crop_bbox = opt.target_pixelwin;
 
       // Update output georeference to match the reduced image size
-      croppedGeoRef = vw::cartography::crop(target_georef, croppedImageBB);
+      crop_georef = vw::cartography::crop(target_georef, crop_bbox);
     }
 
     // Important: Don't modify the line below, we count on it in the Python
     // mapproject program.
     vw_out() << "Output image size:\n";
     vw_out() << std::setprecision(17) << "(width: " << virtual_image_width
-             << " height: " << virtual_image_height << ")" << std::endl;
+             << " height: " << virtual_image_height << ")" << "\n";
 
-    // Print an explanation for a potential problem.    
+    // Print an explanation for a potential problem.
     if (virtual_image_width <= 0 || virtual_image_height <= 0)
-      vw_throw( ArgumentErr() << "Computed output image size is not positive. "
+      vw_throw(ArgumentErr() << "Computed output image size is not positive. "
                 << "This can happen if the projection is in meters while the "
-                << "grid size is either in degrees or too large for the given input.\n" );
+                << "grid size is either in degrees or too large for the given input.\n");
 
     // Form the lon-lat bounding box of the output image. This helps with
     // geotransform operations and should be done any time a georef is modified.
     BBox2 image_bbox(0, 0, virtual_image_width, virtual_image_height);
-    croppedGeoRef.ll_box_from_pix_box(image_bbox);
+    crop_georef.ll_box_from_pix_box(image_bbox);
 
     if (opt.isQuery) { // Quit before we do any image work
       vw_out() << "Query finished, exiting mapproject tool.\n";
       return 0;
     }
-    
+
     // For certain pinhole camera models the reverse check can make map
     // projection very slow, so we disable it here.  The check is very important
     // for computing the bounding box safely but we don't really need it when
     // projecting the pixels back in to the camera.
-    boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
+    boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr =
                 boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_model);
     if (pinhole_ptr)
       pinhole_ptr->set_do_point_to_pixel_check(false);
 
     // Project the image depending on image format.
-    project_image(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
-                  virtual_image_width, virtual_image_height, croppedImageBB);
-    
+    project_image(opt, dem_georef, target_georef, crop_georef, image_size,
+                  virtual_image_width, virtual_image_height, crop_bbox);
+
   } ASP_STANDARD_CATCHES;
 
   return 0;

@@ -36,6 +36,7 @@
 #include <vw/Math/EulerAngles.h>
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Cartography/DatumUtils.h>
+#include <vw/Core/StringUtils.h>
 
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <limits>
@@ -45,26 +46,6 @@ using namespace asp;
 using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-
-// TODO: Move this somewhere?
-// Parses a string containing a list of numbers
-void split_number_string(const std::string &input, std::vector<double> &output) {
-
-  // Get a space delimited string
-  std::string delimiter = " ";
-  std::string s = input;
-  std::replace(s.begin(), s.end(), ',', ' ');
-
-  double val;
-  std::stringstream stream(s);
-  while (stream >> val)
-    output.push_back(val);
-  
-  // If the input is non-empty but the output is empty, that means
-  // an invalid string was passed.
-  if (!input.empty() && output.empty())
-    vw_throw(ArgumentErr() << "Invalid value for the DEM spacing: " << input << "\n");
-}
 
 void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
@@ -274,7 +255,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     dem_spacing1 = dem_spacing2; // Now we can just use dem_spacing1
 
   // Extract the list of numbers from the input string
-  split_number_string(dem_spacing1, opt.dem_spacing);
+  vw::split_number_string(dem_spacing1, opt.dem_spacing);
   
   // Check for for non-positive input
   for (size_t i = 0; i < opt.dem_spacing.size(); i++) {

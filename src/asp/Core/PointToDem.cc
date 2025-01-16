@@ -205,7 +205,7 @@ void chip_convert_to_tif(DemOptions const& opt,
     }
 
     std::string in_file = pc_files[i];
-    std::cout << "Processing file: " << in_file << std::endl;
+    vw::vw_out() << "Processing file: " << in_file << "\n";
     std::string stem    = fs::path(in_file).stem().string();
     std::string suffix;
     if (opt.out_prefix.find(stem) != std::string::npos)
@@ -242,6 +242,8 @@ void chip_convert_to_tif(DemOptions const& opt,
 } // End function chip_convert_to_tif
 
 // Auto-compute a local projection. It is assumed that the datum is known.
+// For Earth, use UTM or polar stereographic. For other datums, use
+// local stereographic.
 void setAutoProj(double lat, double lon, 
                  vw::cartography::GeoReference & output_georef) {
 

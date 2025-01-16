@@ -655,7 +655,7 @@ void MainWindow::createLayout() {
 
   // Set new layout
   QGridLayout *layout = new QGridLayout(centralWidget);
-  layout->addWidget (splitter, 0, 0, 0);
+  layout->addWidget(splitter, 0, 0);
   centralWidget->setLayout(layout);
 
   if (asp::stereo_settings().view_matches)
