@@ -19,11 +19,11 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/PointCloudProcessing.h>
 #include <asp/Core/PdalUtils.h>
+#include <asp/Core/CartographyUtils.h>
 
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/Filter.h>
 #include <vw/Image/InpaintView.h>
-#include <vw/Cartography/Utm.h>
 
 #include <boost/filesystem.hpp>
 
@@ -240,30 +240,6 @@ void chip_convert_to_tif(DemOptions const& opt,
                              << sw.elapsed_seconds() << " seconds.\n";
 
 } // End function chip_convert_to_tif
-
-// Auto-compute a local projection. It is assumed that the datum is known.
-// For Earth, use UTM or polar stereographic. For other datums, use
-// local stereographic.
-void setAutoProj(double lat, double lon, 
-                 vw::cartography::GeoReference & output_georef) {
-
-  vw::cartography::Datum datum = output_georef.datum();
-  if (datum.name().find("WGS_1984") != std::string::npos) {
-    
-    vw::cartography::Datum user_datum = output_georef.datum();
-    if (lat > 84) 
-      output_georef.set_proj4_projection_str("+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs");
-    else if (lat < -80)
-      output_georef.set_proj4_projection_str("+proj=stere +lat_0=-90 +lat_ts=-70 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs");
-    else 
-     output_georef.set_UTM(vw::cartography::getUTMZone(lat, lon));
-     
-  } else {
-    output_georef.set_stereographic(lat, lon, 1, 0, 0);
-  }
-  
-  return;
-}
 
 // Set the projection based on options. By now opt.proj_lon and opt.proj_lat
 // should have been set. 
