@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -73,7 +73,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dem-file",   po::value(&opt.dem_file)->default_value(""),
      "Instead of using a longitude-latitude-height box, sample the surface of this DEM.");
 
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -92,36 +92,35 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 			    positional, positional_desc, usage,
 			    allow_unregistered, unregistered);
 
-  if ( opt.image_file.empty() )
-    vw_throw( ArgumentErr() << "Missing input image.\n" << usage << general_options );
+  if (opt.image_file.empty())
+    vw_throw(ArgumentErr() << "Missing input image.\n" << usage << general_options);
 
-  if (boost::iends_with(opt.image_file, ".cub") && opt.stereo_session == "" )
+  if (boost::iends_with(opt.image_file, ".cub") && opt.stereo_session == "")
     opt.stereo_session = "isis";
 
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
- 
+
   // Must specify the DEM or the datum somehow
   if (opt.dem_file.empty() && opt.datum_str.empty() && opt.target_srs_string.empty())
-    vw_throw( ArgumentErr() << "Need to provide a DEM, a datum, or a t_srs string.\n" << usage << general_options );
-
+    vw_throw(ArgumentErr() << "Need to provide a DEM, a datum, or a t_srs string.\n" << usage << general_options);
 
   //// Convert from width and height to min and max
   //if (!opt.image_crop_box.empty()) {
   //  BBox2 b = opt.image_crop_box; // make a copy
   //  opt.image_crop_box = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
   //}
-  
+
   // This is a bug fix. The user by mistake passed in an empty projection string.
   if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The value of --t_srs is empty. Then it must not be set at all.\n");
-  
+
 }
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   try {
@@ -135,16 +134,16 @@ int main( int argc, char *argv[] ) {
                         opt.camera_file, opt.camera_file,
                         "",
                         "",
-                        false) ); // Do not allow promotion from normal to map projected session
+                        false)); // Do not allow promotion from normal to map projected session
 
-    if ( opt.camera_file.empty() )
-      vw_throw( ArgumentErr() << "Missing input camera.\n" );
+    if (opt.camera_file.empty())
+      vw_throw(ArgumentErr() << "Missing input camera.\n");
 
-   
+
     boost::shared_ptr<CameraModel> cam = session->camera_model(opt.image_file, opt.camera_file);
 
     // The input nodata value
-    float input_nodata_value = -std::numeric_limits<float>::max(); 
+    float input_nodata_value = -std::numeric_limits<float>::max();
     vw::read_nodata_val(opt.image_file, input_nodata_value);
 
     // Just get the image size
@@ -152,13 +151,13 @@ int main( int argc, char *argv[] ) {
 
     //    // The bounding box -> Add this feature in the future!
     //    BBox2 image_box = bounding_box(input_img);
-    //    if (!opt.image_crop_box.empty()) 
+    //    if (!opt.image_crop_box.empty())
     //      image_box.crop(opt.image_crop_box);
-    
+
     // Perform the computation
-    
+
     GeoReference target_georef;
-    
+
     BBox2 footprint_bbox;
     float mean_gsd=0;
     std::vector<Vector3> coords;
@@ -178,32 +177,34 @@ int main( int argc, char *argv[] ) {
         Vector3 proj_coord(coords2[i][0], coords2[i][1], 0.0);
         coords.push_back(target_georef.point_to_geodetic(proj_coord));
       }
-      
+
     } else { // DEM provided, intersect with it.
 
       // Load the DEM
-      float dem_nodata_val = -std::numeric_limits<float>::max(); 
+      float dem_nodata_val = -std::numeric_limits<float>::max();
       vw::read_nodata_val(opt.dem_file, dem_nodata_val);
-      ImageViewRef< PixelMask<double> > dem = create_mask
-        (channel_cast<double>(DiskImageView<float>(opt.dem_file)), dem_nodata_val);
-      
+      ImageViewRef<PixelMask<float>> dem
+        = create_mask(DiskImageView<float>(opt.dem_file), dem_nodata_val);
+
       GeoReference dem_georef;
       if (!read_georeference(dem_georef, opt.dem_file))
-        vw_throw( ArgumentErr() << "Missing georef.\n");
+        vw_throw(ArgumentErr() << "Missing georef.\n");
 
       target_georef = dem_georef; // return box in this projection
       vw_out() << "Using georef: " << target_georef << std::endl;
-      
-      footprint_bbox = camera_bbox(dem, dem_georef, target_georef, cam,
-                                   image_size[0], image_size[1], mean_gsd, opt.quick, &coords);
+
+      footprint_bbox = camera_bbox(dem, dem_georef,
+                                   target_georef, cam,
+                                   image_size[0], image_size[1],
+                                   mean_gsd, opt.quick, &coords);
       for (size_t i=0; i<coords.size(); ++i)
         coords[i] = target_georef.datum().cartesian_to_geodetic(coords[i]);
     }
-    
-    // Print out the results    
+
+    // Print out the results
     vw_out() << "Computed footprint bounding box:\n" << footprint_bbox << std::endl;
     vw_out() << "Computed mean gsd: " << mean_gsd << std::endl;
- 
+
     if (opt.output_kml == "")
       return 0;
 
@@ -214,18 +215,18 @@ int main( int argc, char *argv[] ) {
 
     // Placemark Style
     const bool HIDE_LABELS = true;
-    kml.append_style( "dot", "", 1.2,
-                      "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png", 
+    kml.append_style("dot", "", 1.2,
+                      "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png",
                       HIDE_LABELS);
-    kml.append_style( "dot_highlight", "", 1.4,
+    kml.append_style("dot_highlight", "", 1.4,
                       "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
-    kml.append_stylemap( "placemark", "dot",
-                         "dot_highlight" ); 
-    
+    kml.append_stylemap("placemark", "dot",
+                         "dot_highlight");
+
     kml.append_line(coords, "intersections", "placemark");
-    vw_out() << "Writing: " << opt.output_kml << std::endl; 
+    vw_out() << "Writing: " << opt.output_kml << std::endl;
     kml.close_kml();
-    
+
   } ASP_STANDARD_CATCHES;
 
   return 0;

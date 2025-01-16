@@ -174,14 +174,11 @@ Vector2 demPixToCamPix(Vector2i const& dem_pixel,
                       ImageViewRef<DemPixelT> const& dem,
                       GeoReference const &dem_georef) {
   Vector2 lonlat = dem_georef.point_to_lonlat(dem_georef.pixel_to_point(dem_pixel));
-  //vw_out() << "lonlat = " << lonlat << "\n";
   DemPixelT height = dem(dem_pixel[0], dem_pixel[1]);
   Vector3 xyz = dem_georef.datum().geodetic_to_cartesian
                     (Vector3(lonlat[0], lonlat[1], height.child()));
-  //vw_out() << "xyz = " << xyz << "\n";
   // Throws if the projection fails ???
   Vector2i camera_pixel = camera_model->point_to_pixel(xyz);
-  //vw_out() << "camera_pixel = " << camera_pixel << "\n";
   return camera_pixel;
 }
 
@@ -200,7 +197,7 @@ void expandBboxToContainCornerIntersections(vw::CamPtr camera_model,
   dem_pixel_list[2] = Vector2(dem.cols()-1, dem.rows()-1);
   dem_pixel_list[3] = Vector2(0,            dem.rows()-1);
 
-  for (int i=0; i<4; ++i) {
+  for (int i=0; i<4; i++) {
     try{
       // Project the DEM corner into the input image
       Vector2 dem_pixel = dem_pixel_list[i];
@@ -210,10 +207,9 @@ void expandBboxToContainCornerIntersections(vw::CamPtr camera_model,
       Vector2 groundLoc = dem_georef.pixel_to_point(dem_pixel);
 
       // If there was in intersection
-      if ((cam_pixel.x() >= 0)              && (cam_pixel.y() > 0) &&
-           (cam_pixel.x() <  image_size.x()) && (cam_pixel.y() < image_size.y())) {
+      if (cam_pixel.x() >= 0 && cam_pixel.y() > 0 &&
+          cam_pixel.x() < image_size.x() && cam_pixel.y() < image_size.y()) {
         bbox_on_ground.grow(groundLoc);
-      } else {
       }
     } catch(...) {} // projection failed
   } // End loop through DEM points

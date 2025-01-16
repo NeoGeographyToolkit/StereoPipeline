@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -23,24 +23,24 @@ namespace asp {
 // Auto-compute a local projection. It is assumed that the datum is known.
 // For Earth, use UTM or polar stereographic. For other datums, use
 // local stereographic.
-void setAutoProj(double lat, double lon, 
+void setAutoProj(double lat, double lon,
                  vw::cartography::GeoReference & output_georef) {
 
   vw::cartography::Datum datum = output_georef.datum();
   if (datum.name().find("WGS_1984") != std::string::npos) {
-    
+
     vw::cartography::Datum user_datum = output_georef.datum();
-    if (lat > 84) 
+    if (lat > 84)
       output_georef.set_proj4_projection_str("+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs");
     else if (lat < -80)
       output_georef.set_proj4_projection_str("+proj=stere +lat_0=-90 +lat_ts=-70 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs");
-    else 
+    else
      output_georef.set_UTM(vw::cartography::getUTMZone(lat, lon));
-     
+
   } else {
     output_georef.set_stereographic(lat, lon, 1, 0, 0);
   }
-  
+
   return;
 }
 
