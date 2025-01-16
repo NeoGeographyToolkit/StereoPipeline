@@ -694,7 +694,8 @@ void calcAnchorPoints(Options                         const & opt,
         Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
           (opt.camera_models[icam]->camera_center(pix),
            opt.camera_models[icam]->pixel_to_vector(pix),
-           interp_anchor_dem, anchor_georef, treat_nodata_as_zero, has_intersection,
+           vw::pixel_cast<vw::PixelMask<float>>(interp_anchor_dem), anchor_georef, 
+           treat_nodata_as_zero, has_intersection,
            height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
 
         if (!has_intersection || dem_xyz == Vector3())

@@ -410,7 +410,8 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
       Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
         (camera_models[icam]->camera_center(observation),
          camera_models[icam]->pixel_to_vector(observation),
-         interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+         vw::pixel_cast<vw::PixelMask<float>>(interp_dem), 
+         dem_georef, treat_nodata_as_zero, has_intersection,
          height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
 
       if (!has_intersection) 

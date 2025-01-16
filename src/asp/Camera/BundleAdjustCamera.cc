@@ -1387,7 +1387,8 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
     Vector3 left_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
       (optimized_cams[left_cam_index]->camera_center(left_pix),
        optimized_cams[left_cam_index]->pixel_to_vector(left_pix),
-       interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+       vw::pixel_cast<vw::PixelMask<float>>(interp_dem), dem_georef, 
+       treat_nodata_as_zero, has_intersection,
        height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
     if (!has_intersection) 
       continue;
@@ -1398,7 +1399,8 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
     Vector3 right_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
       (optimized_cams[right_cam_index]->camera_center(right_pix),
        optimized_cams[right_cam_index]->pixel_to_vector(right_pix),
-       interp_dem, dem_georef, treat_nodata_as_zero, has_intersection,
+       vw::pixel_cast<vw::PixelMask<float>>(interp_dem), dem_georef, 
+       treat_nodata_as_zero, has_intersection,
        height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
     if (!has_intersection) 
       continue;
