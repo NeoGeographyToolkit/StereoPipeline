@@ -937,7 +937,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
                << "The input mapprojected images must have the same ground resolution "
                << "for best results. This can be overriden with the option "
                << "--allow-different-mapproject-gsd, but is not recommended.\n");
-      else 
+      else // Have no choice, the vendor produced them that way
         vw::vw_out(vw::WarningMessage) 
           << "The input mapprojected images have different ground resolutions: "
           << M1(0, 0) << " and " << M2(0, 0) 
