@@ -33,7 +33,7 @@ namespace asp {
 struct MapprojOptions: vw::GdalWriteOptions {
   // Input
   std::string dem_file, image_file, camera_file, output_file, stereo_session,
-    bundle_adjust_prefix;
+    bundle_adjust_prefix, ref_map;
   bool isQuery, noGeoHeaderInfo, nearest_neighbor, parseOptions, aster_use_csm;
   bool multithreaded_model; // This is set based on the session type
   

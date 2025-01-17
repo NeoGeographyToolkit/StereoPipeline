@@ -109,15 +109,21 @@ Mapproject with the CSM camera model (:numref:`csm`)::
 
     mapproject -t csm DEM.tif image.cub camera.json output.tif
 
-Mapproject with no DEM
-^^^^^^^^^^^^^^^^^^^^^^
+.. _mapproj_refmap:
 
-Mapproject onto the surface of zero height above a datum::
+Preexisting projection and grid size
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-     mapproject -t rpc WGS84 image.tif image.xml output.tif
+The projection and grid size of a given mapprojected image can be borrowed when
+mapprojecting another image::
 
-Valid datum names include WGS84, NAD83, NAD27, D_MOON, D_MARS, and
-MOLA.
+    mapproject -t rpc                \
+      --ref-map image1_map.tif       \
+      DEM.tif image2.tif camera2.xml \
+      image2_map.tif
+      
+This becomes important for stereo, when the two input mapprojected images
+must share these attributes (:numref:`mapproj-example`).
 
 Multiple camera models
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -127,6 +133,16 @@ an approximate RPC model. The RPC model is somewhat faster to use.
 
 To choose between these with ``mapproject``, invoke it either with ``-t dg``
 or ``-t rpc``. See :numref:`dg_tutorial` for more information.
+
+Mapproject with no DEM
+^^^^^^^^^^^^^^^^^^^^^^
+
+Mapproject onto the surface of zero height above a datum::
+
+     mapproject -t rpc WGS84 image.tif image.xml output.tif
+
+Valid datum names include WGS84, NAD83, NAD27, D_MOON, D_MARS, and
+MOLA.
 
 .. _mapproj_metadata:
 
@@ -141,7 +157,9 @@ The output image will have the following metadata saved to its geoheader:
    * ``CAMERA_FILE``, the camera file used on input. Can be empty if the camera is contained within the input image.
    * ``DEM_FILE``, the DEM used in mapprojection.
 
-These metadata values are used to undo the mapprojection in stereo triangulation (:numref:`mapproj_reuse`). The geoheader can be inspected with ``gdalinfo`` (:numref:`gdal_tools`).
+These metadata values are used to undo the mapprojection in stereo triangulation
+(:numref:`mapproj_reuse`). The geoheader can be inspected with ``gdalinfo``
+(:numref:`gdal_tools`).
 
 In addition, if the cameras have been bundle-adjusted, the translation and
 quaternion rotation from the .adjust file will be saved to the fields
@@ -205,6 +223,10 @@ Command-line options
     Use the camera adjustment obtained by previously running
     bundle_adjust with this output prefix.
 
+--ref-map <filename>
+    Read the projection and grid size from this mapprojected image
+    (:numref:`mapproj_refmap`).
+    
 --ot <type (default: Float32)>
     Output data type, when the input is single channel. Supported
     types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the

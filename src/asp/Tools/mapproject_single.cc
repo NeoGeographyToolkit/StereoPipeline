@@ -35,6 +35,7 @@
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Cartography/PointImageManipulation.h>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -74,7 +75,13 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
      "Limit the mapprojected image to this region, with the corners given in pixels (xmin ymin xmax ymax). Max is exclusive.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
-    ("ot",  po::value(&opt.output_type)->default_value("Float32"), "Output data type, when the input is single channel. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type. This option will be ignored for multi-channel images, when the output type is set to be the same as the input type.")
+    ("ref-map", po::value(&opt.ref_map)->default_value(""),
+     "Read the projection and grid size from this mapprojected image.")
+    ("ot",  po::value(&opt.output_type)->default_value("Float32"), 
+     "Output data type, when the input is single channel. Supported types: Byte, UInt16, "
+     "Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are "
+     "rounded and then clamped to the limits of that type. This option will be ignored for "
+     "multi-channel images, when the output type is set to be the same as the input type.")
     ("nearest-neighbor", po::bool_switch(&opt.nearest_neighbor)->default_value(false),
      "Use nearest neighbor interpolation.  Useful for classification images.")
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
@@ -145,6 +152,24 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
   asp::stereo_settings().aster_use_csm = opt.aster_use_csm;
+
+  if (!opt.ref_map.empty()) {
+    // Ensure that --ref-map and --t_srs are not both set
+    if (!opt.target_srs_string.empty())
+      vw_throw(ArgumentErr() << "Cannot specify both --ref-map and --t_srs.\n");
+    if (!std::isnan(opt.tr))
+      vw_throw(ArgumentErr() << "Cannot specify both --ref-map and --tr.\n");
+
+    // Read the georeference from the reference map and get its wkt
+    GeoReference ref_map_georef;
+    bool has_georef = vw::cartography::read_georeference(ref_map_georef, opt.ref_map);
+    if (!has_georef)
+      vw_throw(ArgumentErr() << "The reference map has no georeference.\n");
+    opt.target_srs_string = ref_map_georef.get_wkt();
+    
+    // Set opt.tr
+    opt.tr = ref_map_georef.transform()(0, 0);
+  }
 
   if (fs::path(opt.dem_file).extension() != "") {
     // A path to a real DEM file was provided, load it!
@@ -237,7 +262,7 @@ void calc_target_geom(// Inputs
   // - This call WILL intersect pixels outside the dem valid area!
   // - TODO: Modify this function to optionally disable intersection outside the DEM
   float auto_res = -1.0;  // will be updated
-  bool quick = proj_on_datum; // No actual DEM so have to be quick
+  bool quick = proj_on_datum; // Quick mode when no actual DEM
   try {
     cam_box = camera_bbox(dem, dem_georef, target_georef, camera_model,
                           image_size.x(), image_size.y(), auto_res, quick);
@@ -328,6 +353,31 @@ void calc_target_geom(// Inputs
 
   return;
 }
+
+// Automatic projection determination
+void calcAutoProj(GeoReference const& dem_georef,
+                  vw::CamPtr camera_model,
+                  Vector2i const& image_size,
+                  bool proj_on_datum,
+                  vw::ImageViewRef<DemPixelT> const& dem,
+                  GeoReference& target_georef) {
+
+  float auto_res = false; 
+  bool quick = proj_on_datum; // Quick mode when no actual DEM
+  std::vector<vw::Vector3> *coords = NULL;
+  int num_samples = 100; // enough for projection center determination
+  BBox2 cam_box = camera_bbox(dem, dem_georef, target_georef, camera_model,
+                    image_size.x(), image_size.y(), auto_res, quick, coords, num_samples);
+  
+  BBox2 ll_box = target_georef.point_to_lonlat_bbox(cam_box);
+  if (ll_box.empty())
+    vw_throw(ArgumentErr() << "Failed to determine the output projection.\n");
+
+  // The projection center is the box center
+  vw::Vector2 lonlat_ctr = (ll_box.min() + ll_box.max()) / 2.0;
+
+  asp::setAutoProj(lonlat_ctr.y(), lonlat_ctr.x(), target_georef);
+}                               
 
 int main(int argc, char* argv[]) {
 
@@ -440,21 +490,9 @@ int main(int argc, char* argv[]) {
 
     if ((opt.target_srs_string.empty() && !target_georef.is_projected()) ||
         boost::to_lower_copy(opt.target_srs_string) == "auto") {
-       // TODO(oalexan1): This must be a function
-       // Automatic projection determination as we do not have a non-long-lat projection
-       float auto_res = false; 
-       bool quick = proj_on_datum; // No actual DEM so have to be quick
-       std::vector<vw::Vector3> *coords = NULL;
-       int num_samples = 100; // enough for projection center determination
-       BBox2 cam_box = camera_bbox(dem, dem_georef, target_georef, opt.camera_model,
-                          image_size.x(), image_size.y(), auto_res, quick, coords, num_samples);
-       BBox2 ll_box = target_georef.point_to_lonlat_bbox(cam_box);
-       // Must not be empty
-       if (ll_box.empty())
-         vw_throw(ArgumentErr() << "Failed to determine the output projection.\n");
-         // let ll be box midpoint
-        vw::Vector2 lonlat_ctr = (ll_box.min() + ll_box.max()) / 2.0;
-        asp::setAutoProj(lonlat_ctr.y(), lonlat_ctr.x(), target_georef);
+       // Automatic projection determination
+       calcAutoProj(dem_georef, opt.camera_model, image_size, proj_on_datum, dem, 
+                    target_georef); // output
     } else if (!opt.target_srs_string.empty()) {
       // Use specified proj4 string for the output georeference
       bool have_user_datum = false;
