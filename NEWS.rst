@@ -13,6 +13,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     (:numref:`ba_mapproj_dem`).
 
 mapproject (:numref:`mapproject`):
+  * If the input DEM is in the ``longlat`` projection, a projection 
+    in meters is auto-determined (:numref:`mapproj_auto_proj`).
   * Add the option ``--query-pixel``.
 
 jitter_solve (:numref:`jitter_solve`):

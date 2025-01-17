@@ -32,7 +32,7 @@ Determination of projection
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use the option ``--t_srs`` to set a desired output projection. The projection
-should be local to the current area of interest.
+should be local to the area of interest, in units of meter.
 
 If this is not set:
 

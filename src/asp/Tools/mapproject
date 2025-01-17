@@ -125,7 +125,8 @@ def writeSingleTile(options):
             i += 1
 
     # Just call the command for a single tile.
-    cmd = ['mapproject_single',  '--t_pixelwin', str(startX), str(startY), str(stopX), str(stopY),
+    cmd = ['mapproject_single', '--t_pixelwin', 
+           str(startX), str(startY), str(stopX), str(stopY),
            options.demPath, options.imagePath, options.cameraPath, tilePath]
     if options.noGeoHeaderInfo:
         cmd += ['--no-geoheader-info']

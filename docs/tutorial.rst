@@ -159,8 +159,7 @@ usually via a ``conda activate`` command which sets the ``ISISROOT``
 and ``ISISDATA`` environment variables; we will denote this state with
 the ``ISIS>`` prompt.
 
-Then you can use 
-the ``mocproc`` program, as follows::
+Then you can use the ``mocproc`` program, as follows::
 
      ISIS> mocproc from=M0100115.imq to=M0100115.cub Mapping=NO
      ISIS> mocproc from=E0201461.imq to=E0201461.cub Mapping=NO

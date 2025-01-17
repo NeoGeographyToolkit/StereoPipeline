@@ -3,8 +3,8 @@
 mapproject
 ----------
 
-The tool ``mapproject`` is used to orthorectify (map-project) a camera image
-onto a DEM or datum. ASP is able to use map-projected images to run stereo, see
+The tool ``mapproject`` is used to orthorectify (mapproject) a camera image
+onto a DEM or datum. ASP is able to use mapprojected images to run stereo, see
 :numref:`mapproj-example`.
 
 The ``mapproject`` program can be run using multiple processes and can be
@@ -31,54 +31,102 @@ from the ``--t_srs`` option. If the grid size is not set, it will be
 estimated as the mean *ground sampling distance (GSD)*.  See the
 ``--tr`` option for how this affects the extent of the output image.
 
-If the resulting mapprojected images are used for stereo, it is very strongly
-suggested to use the same grid size for all images (:numref:`mapproj-res`).
+If the resulting mapprojected images are used for stereo, all mapprojected
+images should have the same grid size and projection (:numref:`mapproj-res`).
+
+.. _mapproj_auto_proj:
+
+Determination of projection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use the option ``--t_srs`` to set a desired output projection. The projection
+should be local to the area of interest, in units of meter.
+
+If this is not set, the projection from the DEM will be used, unless it is the
+``longlat`` projection. In that case a good output projection is
+auto-determined.
+
+For Earth, with the WGS84 datum, the auto-determined projection is UTM
+with an auto-computed zone, except for latitudes above 84° North and below 80°
+South, where the `NSDIC polar stereographic projections
+<https://nsidc.org/data/user-resources/help-center/guide-nsidcs-polar-stereographic-projection>`_
+are used.
+
+For other Earth datums and other planetary bodies, the automatic determination
+produces a local stereographic projection. The projection center is found
+by a median calculation based on of a sample of image pixels.
+
+To ensure the automatic projection determination is always invoked, overriding
+all other cases from above, use ``--t_srs auto``.
+
+The same projection and grid size should be explicitly set for all images passed to 
+in stereo (:numref:`mapproj-example`).
 
 Examples
 ~~~~~~~~
 
-Mapproject assuming the ``longlat`` projection and setting the grid
-size in degrees::
+Earth image with auto projection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-     mapproject --tr 0.0001 DEM.tif image.tif camera.tsai output.tif
+Mapproject an image with a pinhole camera (:numref:`pinholemodels`), with a grid
+size of 2 meters, for Earth (WGS84)::
 
-Map-project a .cub file (it has both image and camera information) for the Moon.
-Use a custom stereographic projection::
+     mapproject --tr 2.0 DEM.tif image.tif camera.tsai output.tif
 
-    proj="+proj=stere +lat_0=-85.3643 +lon_0=31.2387 +R=1737400 +units=m +no_defs"
+If the DEM has a ``longlat`` projection, a projection in meters is found first 
+(:numref:`mapproj_auto_proj`).
+
+Moon image with a custom projection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Mapproject a .cub file (:numref:`moc_tutorial`). Such a file has both image and
+camera information. The planetary body is the the Moon. Use a custom
+stereographic projection::
+
+    proj="+proj=stere +lat_0=-85.364 +lon_0=31.238 +R=1737400 +units=m +no_defs"
 
 The grid size is set to 1 meter/pixel::
 
     mapproject --tr 1.0 --t_srs "$proj" DEM.tif image.cub output.tif
 
-Map-project an image file with associated .xml camera file. Use bundle-adjusted cameras
-(:numref:`bundle_adjust`)::
+RPC camera with bundle adjustment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Mapproject an image file with an RPC camera model (:numref:`rpc`) in XML format.
+Use bundle-adjusted cameras (:numref:`bundle_adjust`)::
 
      mapproject -t rpc --bundle-adjust-prefix ba/run \
-       DEM.tif image.tif image.xml output.tif
+       DEM.tif image.tif camera.xml output.tif
 
-See :numref:`rpc` for other ways of specifying the camera model.
+Here, the grid size is auto-determined.
 
-Mapproject using the CSM camera model (:numref:`csm`)::
+See :numref:`rpc` for other ways of specifying the RPC camera model.
 
-    mapproject DEM.tif image.cub camera.json output.tif
+CSM camera
+^^^^^^^^^^
 
-Mapproject onto a datum rather than a DEM::
+Mapproject with the CSM camera model (:numref:`csm`)::
 
-     mapproject WGS84 image.tif image.xml output.tif
+    mapproject -t csm DEM.tif image.cub camera.json output.tif
+
+Mapproject with no DEM
+^^^^^^^^^^^^^^^^^^^^^^
+
+Mapproject onto the surface of zero height above a datum::
+
+     mapproject -t rpc WGS84 image.tif image.xml output.tif
 
 Valid datum names include WGS84, NAD83, NAD27, D_MOON, D_MARS, and
 MOLA.
 
-If processing DigitalGlobe images, both the rigorous DG model
-(``-t dg``) and its RPC approximation (``-t rpc``) from the XML metadata
-file can be used for map projection. In practice, the latter is
-recommended for most applications. The former is slightly more accurate,
-but much slower.
+Multiple camera models
+^^^^^^^^^^^^^^^^^^^^^^
 
-If desired to change the range of longitudes from [0, 360] to [-180,
-180], or vice-versa, post-process obtained mapprojected image with
-``image_calc`` (:numref:`image_calc`).
+A DigitalGlobe / Maxar camera file has both an exact linescan model and 
+an approximate RPC model. The RPC model is somewhat faster to use. 
+
+To choose between these with ``mapproject``, invoke it either with ``-t dg``
+or ``-t rpc``. See :numref:`dg_tutorial` for more information.
 
 .. _mapproj_metadata:
 
@@ -121,11 +169,11 @@ Command-line options
 
 --t_srs <string (default: "")>
     Specify the output projection as a GDAL projection string (WKT, GeoJSON, or
-    PROJ). If not provided, use the one from the DEM.
+    PROJ). See :numref:`mapproj_auto_proj` for details.
 
 --tr <float>
     Set the output file resolution (ground sample distance) in target
-    georeferenced units per pixel. This may be in degrees or meters,
+    georeferenced units per pixel. This may be in meters or degrees,
     depending on your projection. The center of each output pixel
     will be at integer multiples of this grid size (hence the output
     image will extend for an additional half a pixel at each edge).
@@ -145,12 +193,12 @@ Command-line options
     ``rpc`` if it is desired to later do stereo with the ``dg`` session.
 
 --t_projwin <xmin ymin xmax ymax>
-    Limit the map-projected image to this region, with the corners
+    Limit the mapprojected image to this region, with the corners
     given in georeferenced coordinates (xmin ymin xmax ymax). Max
     is exclusive.
 
 --t_pixelwin <xmin ymin xmax ymax>
-    Limit the map-projected image to this region, with the corners
+    Limit the mapprojected image to this region, with the corners
     given in pixels (xmin ymin xmax ymax). Max is exclusive.
 
 --bundle-adjust-prefix <name>
