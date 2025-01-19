@@ -523,23 +523,6 @@ void transform_cameras_with_indiv_image_gcp
   (boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
    std::vector<vw::CamPtr> & camera_models);
 
-// Given original cams in sfm_cams and individually scaled cameras in
-// aux_cams, get the median scale change from the first set to the second one.
-// It is important to do the median, since scaling the cameras individually
-// is a bit of a shaky business.
-double find_median_scale_change(std::vector<vw::camera::PinholeModel> const & sfm_cams,
-				std::vector<vw::camera::PinholeModel> const & aux_cams,
-				std::vector< std::vector<vw::Vector3>> const& xyz);
-// Given some GCP so that at least two images have at at least three GCP each,
-// but each GCP is allowed to show in one image only, use the GCP
-// to transform cameras to ground coordinates.
-void align_cameras_to_ground(std::vector< std::vector<vw::Vector3>> const& xyz,
-			     std::vector< std::vector<vw::Vector2>> const& pix,
-			     std::vector<vw::camera::PinholeModel> & sfm_cams,
-			     vw::Matrix3x3 & rotation, 
-			     vw::Vector3 & translation,
-			     double & scale);
-
 // TODO(oalexan1): Move the asp namespace to encompass the whole header file
 // Save convergence angle percentiles for each image pair having matches
 void saveConvergenceAngles(std::string const& conv_angles_file,
