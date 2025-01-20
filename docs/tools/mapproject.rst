@@ -59,8 +59,8 @@ by a median calculation based on of a sample of image pixels.
 To ensure the automatic projection determination is always invoked, overriding
 all other cases from above, use ``--t_srs auto``.
 
-The same projection and grid size should be explicitly set for all images passed to 
-in stereo (:numref:`mapproj-example`).
+All mapprojected images passed to stereo should use the same projection and grid
+size (:numref:`mapproj-example`).
 
 Examples
 ~~~~~~~~
@@ -168,7 +168,7 @@ having mapprojection be reproducible if the separately stored ``.adjust`` files
 are not available.
 
 These fields are editable with ``image_calc`` (:numref:`image_calc_metadata`),
-but this is not recommended except for very experimental work.
+but this is not recommended.
 
 Usage
 ~~~~~
@@ -182,33 +182,20 @@ Usage
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
---nodata-value <float(default: -32768)>
-    No-data value to use unless specified in the input image.
-
 --t_srs <string (default: "")>
     Specify the output projection as a GDAL projection string (WKT, GeoJSON, or
     PROJ). See :numref:`mapproj_auto_proj` for details.
 
 --tr <float>
     Set the output file resolution (ground sample distance) in target
-    georeferenced units per pixel. This may be in meters or degrees,
-    depending on your projection. The center of each output pixel
-    will be at integer multiples of this grid size (hence the output
-    image will extend for an additional half a pixel at each edge).
+    georeferenced units per pixel. This may be in meters or degrees, depending
+    on your projection. The center of each output pixel will be at integer
+    multiples of this grid size (hence the output image will extend for an
+    additional half a pixel at each edge).
 
---mpp <float>
-    Set the output file resolution in meters per pixel.
-
---ppd <float>
-    Set the output file resolution in pixels per degree.
-
---datum-offset <float>
-    When projecting to a datum instead of a DEM, add this elevation
-    offset to the datum.
-
--t, --session-type <pinhole|isis|rpc>
-    Select the stereo session type to use for processing. Choose
-    ``rpc`` if it is desired to later do stereo with the ``dg`` session.
+-t, --session-type <string>
+    Select the stereo session type to use for processing. 
+    See :numref:`ps_options` for the list of types.
 
 --t_projwin <xmin ymin xmax ymax>
     Limit the mapprojected image to this region, with the corners
@@ -226,6 +213,34 @@ Command-line options
 --ref-map <filename>
     Read the projection and grid size from this mapprojected image
     (:numref:`mapproj_refmap`).
+
+--processes <integer>
+    Number of processes to use on each node (the default is for the
+    program to choose).
+
+--num-processes <integer>
+    Same as --processes. Used for backwards compatibility.
+
+--nodes-list
+    List of available computing nodes to use. If not set, use the local
+    machine. See also :numref:`pbs_slurm`.
+
+--tile-size
+    Size of square tiles to break up processing into. Each tile is run
+    by an individual process. The default is 1024 pixels for ISIS
+    cameras, as then each process is single-threaded, and 5120 pixels
+    for other cameras, as such a process is multi-threaded, and disk
+    I/O becomes a bigger consideration.
+    
+--mpp <float>
+    Set the output file resolution in meters per pixel.
+
+--ppd <float>
+    Set the output file resolution in pixels per degree.
+
+--datum-offset <float>
+    When projecting to a datum instead of a DEM, add this elevation
+    offset to the datum.
     
 --ot <type (default: Float32)>
     Output data type, when the input is single channel. Supported
@@ -245,24 +260,6 @@ Command-line options
     ``VAR1=VALUE1 VAR2=VALUE2``.  Neither the variable names nor
     the values should contain spaces.
 
---processes <integer>
-    Number of processes to use on each node (the default is for the
-    program to choose).
-
---num-processes <integer>
-    Same as --processes. Used for backwards compatibility.
-
---nodes-list
-    List of available computing nodes to use. If not set, use the local
-    machine. See also :numref:`pbs_slurm`.
-
---tile-size
-    Size of square tiles to break up processing into. Each tile is run
-    by an individual process. The default is 1024 pixels for ISIS
-    cameras, as then each process is single-threaded, and 5120 pixels
-    for other cameras, as such a process is multi-threaded, and disk
-    I/O becomes a bigger consideration.
-
 --query-projection
     Display the computed projection information and estimated ground
     sample distance (pixel size on the ground), and quit.
@@ -280,6 +277,9 @@ Command-line options
     write the camera model type, the bundle adjustment prefix used,
     the rotation and translation from the .adjust file, the DEM it
     mapprojected onto, and the value of the ``--mo`` option.
+
+--nodata-value <float(default: -32768)>
+    No-data value to use unless specified in the input image.
 
 --suppress-output
     Suppress output from sub-processes.

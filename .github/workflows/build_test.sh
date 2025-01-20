@@ -140,6 +140,8 @@ tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 # Note: If the test results change, a new tarball with latest scripts and test
 # results must be uploaded. That is done by running the script:
 # StereoPipeline/.github/workflows/update_mac_tests.sh
+# in the directory having the Mac artifact fetched from the cloud,
+# that is, the tarball StereoPipelineTest.tar.gz.
 
 # Go to the test dir
 if [ ! -d "$testDir" ]; then
