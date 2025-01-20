@@ -77,9 +77,14 @@ void load_camera(std::string const& image_file,
     if (approximate_pinhole_intrinsics) {
       boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(camera_model);
+      // Must be non-null
+      if (pinhole_ptr.get() == NULL) 
+        vw::vw_throw(vw::ArgumentErr() << "Expecting a pinhole camera model.\n");
       // Replace lens distortion with fast approximation
-      vw::camera::update_pinhole_for_fast_point2pixel<vw::camera::TsaiLensDistortion>
-        (*(pinhole_ptr.get()), vw::file_image_size(image_file));
+      bool force_conversion = false;
+      *pinhole_ptr.get()
+        = vw::camera::fitPinholeModel(pinhole_ptr.get(), vw::file_image_size(image_file),
+                                      "TsaiLensDistortion", force_conversion);
     }
   } catch (const std::exception& e) {
     vw::vw_out() << e.what() << "\n";
