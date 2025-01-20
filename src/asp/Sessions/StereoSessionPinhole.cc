@@ -20,7 +20,7 @@
 ///
 
 #include <asp/Sessions/StereoSessionPinhole.h>
-#include <asp/Core/CameraUtils.h>
+#include <asp/Core/BaseCameraUtils.h>
 
 #include <vw/Math/BBox.h>
 #include <vw/Math/Geometry.h>
@@ -188,18 +188,17 @@ epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
 
     // Transform the input images to be as if they were captured by the
     //  epipolar-aligned camera models, aligning the two images.
-    get_epipolar_transformed_pinhole_images(m_left_camera_file, m_right_camera_file,
-                                            left_cam, right_cam,
-                                            left_masked_image, right_masked_image,
-                                            left_image_in_roi, right_image_in_roi,
-                                            left_out_size, right_out_size,
-                                            Limg, Rimg,
-                                            ext_nodata,
-                                            BilinearInterpolation());
+    epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
+                                left_cam, right_cam,
+                                left_masked_image, right_masked_image,
+                                left_image_in_roi, right_image_in_roi,
+                                left_out_size, right_out_size,
+                                Limg, Rimg,
+                                ext_nodata);
 
   } else { // Handle CAHV derived models
     camera_models(left_cam, right_cam);
-    get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
+    epipolar_transformed_cahv_images(m_left_camera_file, m_right_camera_file,
                                     left_cam, right_cam,
                                     left_masked_image, right_masked_image,
                                     Limg, Rimg, ext_nodata);

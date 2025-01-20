@@ -21,7 +21,7 @@
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/BundleAdjustUtils.h>
-#include <asp/Core/CameraUtils.h>
+#include <asp/Core/BaseCameraUtils.h>
 
 #include <vw/Camera/OrbitalCorrections.h>
 #include <vw/Cartography/GeoReference.h>

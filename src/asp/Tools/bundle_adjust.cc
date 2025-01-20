@@ -1459,9 +1459,12 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
-  // Do this check first, as the output prefix is needed to log to file
+  // Do this check first, as the output prefix is needed to log to file. This
+  // will be triggered when called with no arguments, so print the general
+  // options, which functions as the help message.
   if (opt.out_prefix.empty())
-    vw::vw_throw(vw::ArgumentErr() << "Missing output prefix.\n");
+    vw_throw(ArgumentErr() << "Missing the output prefix.\n" << usage 
+             << general_options);
 
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);

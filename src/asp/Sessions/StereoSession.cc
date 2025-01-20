@@ -25,7 +25,7 @@
 #include <asp/Camera/RPCModel.h>
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Core/ImageUtils.h>
-#include <asp/Core/CameraUtils.h>
+#include <asp/Core/BaseCameraUtils.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>

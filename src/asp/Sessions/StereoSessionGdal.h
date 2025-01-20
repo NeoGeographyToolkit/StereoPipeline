@@ -24,7 +24,7 @@
 #define __STEREO_SESSION_GDAL_H__
 
 #include <asp/Sessions/StereoSession.h>
-#include <asp/Core/CameraUtils.h>
+#include <asp/Core/BaseCameraUtils.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/CsmModel.h>

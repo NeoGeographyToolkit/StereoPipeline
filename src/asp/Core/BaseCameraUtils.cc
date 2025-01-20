@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <asp/Core/CameraUtils.h>
+#include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/StereoSettings.h>
 
 #include <vw/Core/Exception.h>

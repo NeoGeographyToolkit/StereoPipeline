@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file CameraUtils.h
 /// Camera utilities that need the stereo session
 

@@ -42,7 +42,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/Core/CameraUtils.h>
+#include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/CameraTransforms.h>
@@ -360,9 +360,12 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   // recent outlier filtering.
   asp::stereo_settings().ip_edge_buffer_percent = opt.ip_edge_buffer_percent;
 
-  // Do this check first, as the output prefix is needed to log to file
+  // Do this check first, as the output prefix is needed to log to file. This
+  // will be triggered when called with no arguments, so print the general
+  // options, which functions as the help message.
   if (opt.out_prefix == "") 
-    vw_throw(ArgumentErr() << "Must specify the output prefix.\n" << usage << "\n");
+    vw_throw(ArgumentErr() << "Missing the output prefix.\n" << usage 
+             << general_options);
 
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);

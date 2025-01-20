@@ -66,74 +66,6 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 
-// Solve for best fitting camera that projects given xyz locations at
-// given pixels. If cam_weight > 0, try to constrain the camera height
-// above datum at the value of cam_height.
-// If camera center weight is given, use that to constrain the
-// camera center, not just its height.
-template <class CAM>
-class CameraSolveLMA_Ht: public vw::math::LeastSquaresModelBase<CameraSolveLMA_Ht<CAM>> {
-  std::vector<vw::Vector3> const& m_xyz;
-  CAM m_camera_model;
-  double m_cam_height, m_cam_weight, m_cam_ctr_weight;
-  vw::cartography::Datum m_datum;
-  Vector3 m_input_cam_ctr;
-  
-public:
-
-  typedef vw::Vector<double>    result_type;   // pixel residuals
-  typedef vw::Vector<double, 6> domain_type;   // camera parameters (camera center and axis angle)
-  typedef vw::Matrix<double> jacobian_type;
-
-  /// Instantiate the solver with a set of xyz to pixel pairs and a pinhole model
-  CameraSolveLMA_Ht(std::vector<vw::Vector3> const& xyz,
-                    CAM const& camera_model,
-                    double cam_height, double cam_weight, double cam_ctr_weight,
-                    vw::cartography::Datum const& datum):
-    m_xyz(xyz),
-    m_camera_model(camera_model), 
-    m_cam_height(cam_height), m_cam_weight(cam_weight), m_cam_ctr_weight(cam_ctr_weight),
-    m_datum(datum), m_input_cam_ctr(m_camera_model.camera_center(vw::Vector2())) {}
-
-  /// Given the camera, project xyz into it
-  inline result_type operator()(domain_type const& C) const {
-
-    // Create the camera model
-    CAM camera_model = m_camera_model;  // make a copy local to this function
-    vector_to_camera(camera_model, C);  // update its parameters
-
-    int xyz_len = m_xyz.size();
-    size_t result_size = xyz_len * 2;
-    if (m_cam_weight > 0)
-      result_size += 1;
-    else if (m_cam_ctr_weight > 0)
-      result_size += 3; // penalize deviation from original camera center
-     
-    // See where the xyz coordinates project into the camera.
-    result_type result;
-    result.set_size(result_size);
-    for (size_t i = 0; i < xyz_len; i++) {
-      Vector2 pixel = camera_model.point_to_pixel(m_xyz[i]);
-      result[2*i  ] = pixel[0];
-      result[2*i+1] = pixel[1];
-    }
-
-    if (m_cam_weight > 0) {
-      // Try to make the camera stay at given height
-      Vector3 cam_ctr = subvector(C, 0, 3);
-      Vector3 llh = m_datum.cartesian_to_geodetic(cam_ctr);
-      result[2*xyz_len] = m_cam_weight*(llh[2] - m_cam_height);
-    } else if (m_cam_ctr_weight > 0) {
-      // Try to make the camera stay close to given center
-      Vector3 cam_ctr = subvector(C, 0, 3);
-      for (int it = 0; it < 3; it++) 
-        result[2*xyz_len + it] = m_cam_ctr_weight*(m_input_cam_ctr[it] - cam_ctr[it]);
-    }
-    
-    return result;
-  }
-}; // End class CameraSolveLMA_Ht
-
 /// Find the best camera that fits the current GCP
 void fit_camera_to_xyz_ht(Vector3 const& parsed_camera_center, // may not be known
                           Vector3 const& input_camera_center, // may not be known
@@ -216,53 +148,14 @@ void fit_camera_to_xyz_ht(Vector3 const& parsed_camera_center, // may not be kno
   // Solve a little optimization problem to make the points on the ground project
   // as much as possible exactly into the image corners.
   if (refine_camera) {
-    Vector<double> out_vec; // must copy to this structure
-    int residual_len = pixel_values.size();
-
-    if (cam_weight > 0.0) 
-      residual_len += 1; // for camera height residual
-   else if (cam_ctr_weight > 0)
-     residual_len += 3; // for camera center residual
- 
-    // Copy the image pixels
-    out_vec.set_size(residual_len);
-    for (size_t corner_it = 0; corner_it < pixel_values.size(); corner_it++) 
-      out_vec[corner_it] = pixel_values[corner_it];
-
-    // Use 0 for the remaining fields corresponding to camera height or 
-    // camera center constraint
-    for (int it = pixel_values.size(); it < residual_len; it++)
-      out_vec[it] = 0.0;
-      
-    const double abs_tolerance  = 1e-24;
-    const double rel_tolerance  = 1e-24;
-    const int    max_iterations = 2000;
-    int status = 0;
-    Vector<double> final_params;
-    Vector<double> seed;
-      
-    if (camera_type == "opticalbar") {
-      CameraSolveLMA_Ht<vw::camera::OpticalBarModel>
-        lma_model(xyz_vec, *((vw::camera::OpticalBarModel*)out_cam.get()),
-		    cam_height, cam_weight, cam_ctr_weight, datum);
-      camera_to_vector(*((vw::camera::OpticalBarModel*)out_cam.get()), seed);
-      final_params = math::levenberg_marquardt(lma_model, seed, out_vec,
-					       status, abs_tolerance, rel_tolerance,
-					       max_iterations);
-      vector_to_camera(*((vw::camera::OpticalBarModel*)out_cam.get()), final_params);
-    
-    } else if (camera_type == "pinhole") {
-
-      CameraSolveLMA_Ht<PinholeModel> lma_model(xyz_vec, *((PinholeModel*)out_cam.get()),
-                                                cam_height, cam_weight, cam_ctr_weight, datum);
-      camera_to_vector(*((PinholeModel*)out_cam.get()), seed);
-      final_params = math::levenberg_marquardt(lma_model, seed, out_vec,
-					       status, abs_tolerance, rel_tolerance,
-					       max_iterations);
-      vector_to_camera(*((PinholeModel*)out_cam.get()), final_params);
-    }
-    if (status < 1)
-      vw_out() << "The Levenberg-Marquardt solver failed. Results may be inaccurate.\n";
+    if (camera_type == "opticalbar")
+      fitOpticalBar(xyz_vec, cam_height, cam_weight, cam_ctr_weight, datum, pixel_values, 
+                             *((vw::camera::OpticalBarModel*)out_cam.get()));
+    else if (camera_type == "pinhole")
+      fitPinhole(xyz_vec, cam_height, cam_weight, cam_ctr_weight, datum, pixel_values, 
+                          *((PinholeModel*)out_cam.get()));
+    else 
+      vw_throw(ArgumentErr() << "Unknown camera type: " << camera_type << ".\n");
 
     if (verbose) {
       vw_out() << "Errors of pixel projection in the camera with refined pose:\n";

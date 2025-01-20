@@ -18,7 +18,7 @@
 /// \file BundleAdjustUtils.cc
 ///
 
-#include <asp/Core/CameraUtils.h>
+#include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/ImageUtils.h>
 

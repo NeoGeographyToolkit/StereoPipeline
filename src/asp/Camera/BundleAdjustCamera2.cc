@@ -33,7 +33,7 @@
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/BundleAdjustCamera.h>
-#include <asp/Core/CameraUtils.h>
+#include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/StereoSettings.h>
 

@@ -15,8 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#ifndef __CORE_CAMERA_UTILS_H__
-#define __CORE_CAMERA_UTILS_H__
+// Low-level camera utilities
+
+#ifndef __CORE_BASE_CAMERA_UTILS_H__
+#define __CORE_BASE_CAMERA_UTILS_H__
 
 #include <vw/Camera/CameraModel.h>
 
@@ -62,5 +64,4 @@ vw::Vector2 camera_pixel_offset(bool isMapProjected,
 
 } //end namespace asp
 
-#endif//__CORE_CAMERA_UTILS_H__
-
+#endif//__CORE_BASE_CAMERA_UTILS_H__

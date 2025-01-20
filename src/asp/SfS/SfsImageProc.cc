@@ -19,7 +19,7 @@
 /// Image processing routines for SfS
 
 #include <asp/SfS/SfsImageProc.h>
-#include <asp/Core/CameraUtils.h>
+#include <asp/Core/BaseCameraUtils.h>
 
 #include <vw/Core/Log.h>
 #include <vw/Camera/CameraModel.h>
