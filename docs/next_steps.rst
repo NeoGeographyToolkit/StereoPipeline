@@ -900,17 +900,16 @@ An example without mapprojected images is shown in :numref:`bathy_reuse_run`.
 Stereo with ortho-ready images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Some vendors offer images that have been projected onto surfaces of constant
+Some vendors offer orthoimages that have been projected onto surfaces of constant
 height above a datum. Examples are Maxar's OR2A product and the Airbus Pleiades
-ortho product. The processing of such images is as follows.
+ortho product. These can be processed with ASP after some preparation.
 
-The orthoimages must be regridded to the smaller of the two pixel sizes,
-with a command such as::
+The orthoimages may have different pixel sizes (as read with ``gdalinfo``,
+:numref:`gdal_tools`). The coarser one must be regridded to the pixel size of
+the finer one, with a command such as::
 
   gdalwarp -r cubicspline -overwrite -tr 0.4 0.4 \ 
     ortho.tif ortho_regrid.tif 
-
-and the same for the right image.
 
 The orthoimages must have the same projection, in units of meters (such as UTM).
 If these are different, the desired projection string can be added to the
@@ -920,6 +919,7 @@ both images to a region, add the option ``-te <xmin> <ymin> <xmax> <ymax>``.
 The stereo command is::
 
     parallel_stereo                    \
+      -t rpc                           \
       --stereo-algorithm asp_mgm       \
       --ortho-heights 23.5 27.6        \
       left_regrid.tif right_regrid.tif \
@@ -927,7 +927,7 @@ The stereo command is::
       run/run
 
 The values passed in via ``--ortho-heights`` are the heights above the
-datum that were used to mapproject the images. The datum is read from the
+datum that were used to project the images. The datum is read from the
 geoheader of the images.
 
 For Maxar OR2A data (as evidenced by the ``ORStandard2A`` tag in the XML camera
@@ -940,8 +940,9 @@ camera files.
 For Pleiades data, the needed values need to be looked up as described in
 :numref:`pleiades_projected`, and then set as above.
 
-Maxar / DigitalGlobe camera files may contain both exact linescan models and RPC
-models. To choose one, set above ``-t dg`` or ``-t rpc`` (:numref:`ps_options`).
+All products we encountered (both Maxar and Airbus Pleiades) employed the RPC
+camera model. If that model is of a different type, adjust the ``-t`` option
+above (:numref:`ps_options`).
 
 After stereo, ``point2dem`` (:numref:`point2dem`) is run as usual. It is
 suggested to inspect the triangulation error created by that program, and to
