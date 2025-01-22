@@ -128,15 +128,21 @@ Several peculiarities make the Pleiades NEO data different from 1A/1B (:numref:`
 Pleiades projected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Airbus offers Pleiades ortho images, that are projected onto a surface of constant
-height above a datum. These products contain the string ``PRJ`` in the image and
-camera names, and have the ``PHR_PROJECTED`` keyword in the XML camera files.
+Airbus offers Pleiades ortho images, that are projected onto a surface of
+constant height above a datum. A pair of such images can be used for stereo
+and terrain creation.
 
-The projection height is stored in the ``DIM*PRJ*.XML`` camera model files,
-in the ``Bounding_Polygon`` field, in the ``<H>`` tag. This height is in meters,
-above the WGS84 ellipsoid.
+Each ortho image comes with two XML files. The first, with the ``DIM`` prefix,
+stores the projection height, in the ``Bounding_Polygon`` XML field, in the
+``H`` subfield. This height is in meters, above the WGS84 ellipsoid. This file
+lacks the camera model, unlike the earlier products.
 
-How to process such data with ASP is discussed in :numref:`mapproj_ortho`.
+The second XML file starts with the ``RPC`` prefix and contains the RPC camera
+model. 
+
+Given two such images forming a stereo pair, the heights should be manually read
+from the ``DIM`` camera files. Then, ``parallel_stereo`` should be invoked with
+the RPC camera files, as discussed in :numref:`mapproj_ortho`.
 
 ASP does not support Airbus images that are orthorectified with a 3D terrain
 model, as that terrain model is not known.
