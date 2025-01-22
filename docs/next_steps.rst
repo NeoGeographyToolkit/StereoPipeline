@@ -902,29 +902,24 @@ Stereo with ortho-ready images
 
 Some vendors offer images that have been projected onto surfaces of constant
 height above a datum. Examples are Maxar's OR2A product and the Airbus Pleiades
-ortho product (:numref:`pleiades_projected`).
+ortho product. The processing of such images is as follows.
 
-The processing of such  images is as follows. First, a clip could be cut from each,
-if needed, with ``gdal_translate -projwin`` (:numref:`gdal_tools`).
-
-Inspect the pixel size (GSD) of the two ortho images. It is strongly suggested to bring them
-to the same pixel size, which should be intermediate between the original images,
+The orthoimages must be regridded to the smaller of the two pixel sizes,
 with a command such as::
 
   gdalwarp -r cubicspline -overwrite -tr 0.4 0.4 \ 
-    left_ortho.tif left_regrid.tif 
+    ortho.tif ortho_regrid.tif 
 
-and the same for the right image. Otherwise the results of stereo will be not great.
+and the same for the right image.
 
 The orthoimages must have the same projection, in units of meters (such as UTM).
-If these are different, the desired projection string can be added to the ``gdalwarp``
-command above via the option ``-t_srs``.
+If these are different, the desired projection string can be added to the
+``gdalwarp`` command above via the option ``-t_srs``. If desired to also clip
+both images to a region, add the option ``-te <xmin> <ymin> <xmax> <ymax>``.
  
-The stereo command for Maxar (DigitalGlobe) data with linescan (exact) cameras
-is::
+The stereo command is::
 
     parallel_stereo                    \
-      -t dg                            \
       --stereo-algorithm asp_mgm       \
       --ortho-heights 23.5 27.6        \
       left_regrid.tif right_regrid.tif \
@@ -933,17 +928,24 @@ is::
 
 The values passed in via ``--ortho-heights`` are the heights above the
 datum that were used to mapproject the images. The datum is read from the
-geoheader of the images. The heights should be looked up in the metadata.
+geoheader of the images.
 
-Maxar may ship such data with RPC cameras only. Then, use above ``-t rpc``.
-The heights are found in the ``<TERRAINHAE>`` field in each XML camera model.
+For Maxar OR2A data (as evidenced by the ``ORStandard2A`` tag in the XML camera
+files), the option ``--ortho-heights`` need not be set, as the entries will be
+auto-populated from the ``<TERRAINHAE>`` field in the camera files.
 
-For Pleiades data and RPC cameras use instead ``-t rpc``. How to find
-the heights is mentioned in :numref:`pleiades_projected`.
+The option ``--ortho-heights``, if set, takes priority over fields in those
+camera files.
+
+For Pleiades data, the needed values need to be looked up as described in
+:numref:`pleiades_projected`, and then set as above.
+
+Maxar / DigitalGlobe camera files may contain both exact linescan models and RPC
+models. To choose one, set above ``-t dg`` or ``-t rpc`` (:numref:`ps_options`).
 
 After stereo, ``point2dem`` (:numref:`point2dem`) is run as usual. It is
 suggested to inspect the triangulation error created by that program, and to
-compare with a prior terrain, such as obtained as in :numref:`initial_terrain`.
+compare with a prior terrain, such as in :numref:`initial_terrain`.
 
 .. _diagnosing_problems:
 

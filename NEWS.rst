@@ -61,6 +61,8 @@ parallel_stereo (:numref:`parallel_stereo`):
   * It is possible to mapproject either with ``dg`` or ``rpc`` cameras
     when using mapprojected images in stereo with DigitalGlobe / Maxar
     cameras (:numref:`dg-mapproj`).
+  * Enable stereo with vendor-supplied images that have been mapprojected onto
+    surfaces of constant height above a datum (:numref:`mapproj_ortho`).
   * Added the option ``--band`` to process a given band (channel) from
     multispectral images (:numref:`stereodefault`).  
   * Skip tiles for which there is no valid low-resolution disparity.
@@ -72,8 +74,6 @@ parallel_stereo (:numref:`parallel_stereo`):
     ``--enable-velocity-aberration-correction`` for Pleiades linescan cameras
     (these are enabled by default for WorldView cameras only). It is not clear
     if these corrections improve or not Pleiades accuracy.
-  * Enable stereo with vendor-supplied images that have been mapprojected onto
-    surfaces of constant height above a datum (:numref:`mapproj_ortho`).
 
 sfm (:numref:`sfm`):
   * Added an example for processing data acquired with an UAS, with known

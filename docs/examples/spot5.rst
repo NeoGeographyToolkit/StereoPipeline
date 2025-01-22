@@ -62,10 +62,10 @@ This is followed by DEM creation with ``point2dem`` (:numref:`point2dem`)::
 
     point2dem st_run/out-PC.tif
 
-For terrains with steep slopes, it is strongly suggested to do stereo with
-mapprojected images (:numref:`mapproj-example`). In order to do so, you must
-first use the ``add_spot_rpc`` tool to generate an RPC model approximation of
-the SPOT5 sensor model.
+For terrains with steep slopes, it is strongly suggested to run stereo with
+mapprojected images (:numref:`mapproj-example`). For that, first use the
+``add_spot_rpc`` tool to generate an RPC model approximation of the SPOT5 sensor
+model.
 
 ::
 

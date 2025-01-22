@@ -181,7 +181,7 @@ Command-line options
     - pinhole      -- ground-level cameras, not assuming a datum
       (:numref:`mer-example`). A datum can be set, however, with ``--datum``.
     - isis         -- with planetary images stored in .cub files (:numref:`moc_tutorial`)
-    - dg           -- with Digital Globe exact linescan cameras (:numref:`dg_tutorial`), which are implemented as CSM (:numref:`dg_csm`)
+    - dg           -- with Maxar / DigitalGlobe exact linescan cameras (:numref:`dg_tutorial`), which are implemented as CSM (:numref:`dg_csm`)
     - rpc          -- with any RPC cameras (:numref:`rpc`)
     - spot5        -- SPOT 5 exact linescan camera (:numref:`spot5`)
     - aster        -- exact ASTER camera model (:numref:`aster`)

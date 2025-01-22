@@ -34,6 +34,7 @@ using namespace vw;
 namespace asp {
 
   void RPCModel::initialize(DiskImageResourceGDAL* resource) {
+    
     // Extract the datum (by means of georeference)
     cartography::GeoReference georef;
     cartography::read_georeference(georef, *resource);
@@ -43,6 +44,8 @@ namespace asp {
     m_err_bias = 0.0;
     m_err_rand = 0.0;
 
+    m_terrain_height = std::numeric_limits<double>::quiet_NaN();
+    
     // Extract RPC Info
     boost::shared_ptr<GDALDataset> dataset = resource->get_dataset_ptr();
     if (!dataset)
@@ -70,6 +73,8 @@ namespace asp {
 
     m_err_bias = gdal_rpc.dfERR_BIAS;
     m_err_rand = gdal_rpc.dfERR_RAND;
+    
+    m_terrain_height = std::numeric_limits<double>::quiet_NaN();
   }
 
   RPCModel::RPCModel(std::string const& filename) {
@@ -77,7 +82,9 @@ namespace asp {
     // Initialize to 0
     m_err_bias = 0.0;
     m_err_rand = 0.0;
-
+  
+    m_terrain_height = std::numeric_limits<double>::quiet_NaN();
+    
     std::string ext = get_extension(filename);
     if (ext == ".rpb") {
       load_rpb_file(filename);
@@ -110,7 +117,8 @@ namespace asp {
                      Vector2           const& xy_scale,
                      Vector3           const& lonlatheight_offset,
                      Vector3           const& lonlatheight_scale,
-                     double err_bias, double err_rand):
+                     double err_bias, double err_rand,
+                     double terrain_height):
     m_datum(datum), 
     m_line_num_coeff(line_num_coeff),
     m_line_den_coeff(line_den_coeff), 
@@ -120,7 +128,8 @@ namespace asp {
     m_xy_scale(xy_scale), 
     m_lonlatheight_offset(lonlatheight_offset),
     m_lonlatheight_scale(lonlatheight_scale),
-    m_err_bias(err_bias), m_err_rand(err_rand) {}
+    m_err_bias(err_bias), m_err_rand(err_rand),
+    m_terrain_height(terrain_height) {}
 
   void RPCModel::load_rpb_file(std::string const& filename) {
     //vw_out() << "Reading RPC model from RPB file, defaulting to WGS84 datum.\n";
@@ -131,6 +140,9 @@ namespace asp {
     // Initialize to 0
     m_err_bias = 0.0;
     m_err_rand = 0.0;
+    
+    // Initialize to NaN
+    m_terrain_height = std::numeric_limits<double>::quiet_NaN();
     
     std::string line;
     std::vector<std::string> tokens;
@@ -501,7 +513,7 @@ namespace asp {
     }
 
     // 10 iterations should be enough for Newton's method to converge
-    for (int iter = 0; iter < 10; iter++){
+    for (int iter = 0; iter < 10; iter++) {
 
       Vector3 normalized_geodetic;
       normalized_geodetic[0] = normalized_lonlat[0];
@@ -538,7 +550,6 @@ namespace asp {
       + subvector(m_lonlatheight_offset, 0, 2);
 
     return lonlat;
-
   }
 
   void RPCModel::point_and_dir(Vector2 const& pix, Vector3 & P, Vector3 & dir) const {

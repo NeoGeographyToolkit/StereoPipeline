@@ -69,7 +69,8 @@ namespace asp {
              vw::Vector3 const& lonlatheight_offset,
              vw::Vector3 const& lonlatheight_scale,
              double err_bias = 0.0,
-             double err_rand = 0.0);
+             double err_rand = 0.0,
+             double terrain_height = std::numeric_limits<double>::quiet_NaN());
 
     virtual std::string type() const { return "RPC"; }
     virtual ~RPCModel() {}
@@ -138,6 +139,9 @@ namespace asp {
 
     // Will be read only for DG RPC camera models and set to 0 for the rest
     double m_err_bias, m_err_rand;
+    
+    // The height used for ortho images (for Maxar and Pleiades)
+    double m_terrain_height;
 
   private:
     vw::cartography::Datum m_datum;

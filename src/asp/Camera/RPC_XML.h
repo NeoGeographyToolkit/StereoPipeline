@@ -166,14 +166,14 @@ namespace asp {
   };
 
   /// Reads from Digital Globe XML format
-  class RPCXML : public BitChecker {
+  class RPCXML: public BitChecker {
     boost::shared_ptr<RPCModel> m_rpc;
     vw::BBox3 m_lat_lon_height_box;
 
     void parse_vector( xercesc::DOMElement* node,
                        vw::Vector<double,20> & vec );
 
-    void parse_rpb( xercesc::DOMElement* node ); ///< Digital Globe XML
+    void parse_rpb(xercesc::DOMElement* root); ///< Digital Globe XML
     void parse_rational_function_model( xercesc::DOMElement* node ); ///< Pleiades / Astrium
     void parse_perusat_model( xercesc::DOMElement* node ); ///< PeruSat-1
 
@@ -185,6 +185,9 @@ namespace asp {
     // TODO: Why is this function in this class?
     void parse_bbox( xercesc::DOMElement* node ); ///< Read the valid sensor model bounds
 
+    // Parse the terrain height (only for ortho-ready images)
+    double parse_terrain_height(xercesc::DOMElement* node);
+    
     /// Return a pointer to the loaded RPC model.
     RPCModel* rpc_ptr() const;
     /// Get the GDC bounding box that the RPC model is valid for.

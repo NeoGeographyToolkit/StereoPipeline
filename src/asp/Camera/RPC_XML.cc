@@ -495,11 +495,12 @@ void asp::RPCXML::read_from_file(std::string const& name) {
   }
 
   try {
-    parse_rpb(get_node<DOMElement>(elementRoot, "RPB"));
+    parse_rpb(elementRoot);
     return;
   } catch (vw::IOErr const& e) {
     // Possibly RPB doesn't exist
   }
+  
   try {
     // Pleiades/Astrium RPC
     parse_rational_function_model(get_node<DOMElement>(elementRoot, "Rational_Function_Model"));
@@ -554,9 +555,45 @@ void asp::RPCXML::parse_bbox(xercesc::DOMElement* root_node) {
   //VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
 }
 
+double asp::RPCXML::parse_terrain_height(xercesc::DOMElement* root_node) {
+
+  double terrain_height = std::numeric_limits<double>::quiet_NaN();
+  
+  DOMElement* imd_node  = get_node<DOMElement>(root_node, "IMD");
+  std::string image_descriptor;
+  try {
+    cast_xmlch(get_node<DOMElement>(imd_node, "IMAGEDESCRIPTOR")->getTextContent(), image_descriptor);
+  } catch (...) {
+    // image_descriptor may not exist
+    return terrain_height;
+  }
+  
+  // Descriptor must equal "ORStandard2A" for the terrain height to be valid
+  if (boost::to_lower_copy(image_descriptor) !=
+      boost::to_lower_copy(std::string("ORStandard2A"))) 
+    return terrain_height;
+  
+  // Get the MAP_PROJECTED_PRODUCT node
+  DOMElement* map_projected_product_node = NULL;
+  try {
+    map_projected_product_node = get_node<DOMElement>(imd_node, "MAP_PROJECTED_PRODUCT");
+    
+    // Get the TERRAINHAE field
+    cast_xmlch(get_node<DOMElement>(map_projected_product_node, "TERRAINHAE")->getTextContent(), terrain_height);
+  } catch (...) {
+    // MAP_PROJECTED_PRODUCT may not exist
+    return terrain_height;
+  }
+  
+  return terrain_height;
+}
+
 // Parse the RPB node. Used for DG XML files.
-void asp::RPCXML::parse_rpb(xercesc::DOMElement* node) {
-  DOMElement* image = get_node<DOMElement>(node, "IMAGE");
+void asp::RPCXML::parse_rpb(xercesc::DOMElement* root) {
+  
+  DOMElement* rpb = get_node<DOMElement>(root, "RPB");
+  
+  DOMElement* image = get_node<DOMElement>(rpb, "IMAGE");
 
   // Pieces that will go into the RPC Model
   Vector<double,20> line_num_coeff, line_den_coeff, samp_num_coeff, samp_den_coeff;
@@ -596,6 +633,14 @@ void asp::RPCXML::parse_rpb(xercesc::DOMElement* node) {
     err_rand = 0.0;
   }
   
+  // Try to parse the terrain height, but keep going if we fail.
+  double terrain_height = std::numeric_limits<double>::quiet_NaN();
+  try {
+    terrain_height = parse_terrain_height(root);
+  } catch (...) {
+  }
+
+  
   // The RPC_DATUM field is only written by cam2rpc
   try {
     // For backward compatibility  
@@ -630,7 +675,7 @@ void asp::RPCXML::parse_rpb(xercesc::DOMElement* node) {
                            samp_num_coeff, samp_den_coeff,
                            xy_offset, xy_scale,
                            geodetic_offset, geodetic_scale,
-                           err_bias, err_rand));
+                           err_bias, err_rand, terrain_height));
 }
 
 // Pleiades/Astrium RPC
@@ -769,7 +814,7 @@ void asp::read_xml(std::string const& filename,
     DOMDocument* xmlDoc = parser->getDocument();
     DOMElement* elementRoot = xmlDoc->getDocumentElement();
 
-    try{ // This is optional information, not present in all XML files.
+    try { // This is optional information, not present in all XML files.
       rpc.parse_bbox(elementRoot); // Load the bounding box information.
     } catch(...){}
 
@@ -903,12 +948,6 @@ bool asp::approximate_wv_georeference(std::string  const& wv_xml_path,
   if (!asp::read_WV_XML_corners(wv_xml_path, pixel_corners, lonlat_corners))
     return false;
   
-  std::cout << "Read in these corners:\n";
-  for(size_t i=0; i<pixel_corners.size(); ++i) {
-    std::cout << pixel_corners[i] << "  --->   " << lonlat_corners[i] << std::endl;
-  }
-
-
   // Convert the corners into homogenous coordinates so that the fitter will accept them.
   const size_t NUM_CORNERS = 4; 
   std::vector<Vector3> pixel_corners3 (NUM_CORNERS), 
@@ -920,8 +959,6 @@ bool asp::approximate_wv_georeference(std::string  const& wv_xml_path,
     lonlat_corners3[i].x() = lonlat_corners[i].x();
     lonlat_corners3[i].y() = lonlat_corners[i].y();
     lonlat_corners3[i].z() = 1.0;
-    
-    std::cout << pixel_corners3[i] << "  --->   " << lonlat_corners3[i] << std::endl;
   }
 
   // Compute the perspective transform
@@ -929,11 +966,11 @@ bool asp::approximate_wv_georeference(std::string  const& wv_xml_path,
   vw::math::HomographyFittingFunctor fitter;
   Matrix<double> transform = fitter(pixel_corners3, lonlat_corners3);
   
-  std::cout << "Computed approximate transform: \n" << transform << std::endl;
-
   // Construct the approximated GeoReference
   approx_georef.set_geographic(); // Set to 'lonlat' projection
   approx_georef.set_transform(transform);
+
+  vw::vw_out() << "Computed approximate transform: \n" << transform << "\n";
 
   return true;
 }
@@ -947,7 +984,7 @@ bool asp::read_wv_georeference(GeoReference      &georef,
   if (read_georeference(georef, rsrc))
     return true;
     
-  std::cout << "Trying to read georef from xml file: " << xml_path << std::endl;
+  vw::vw_out() << "Read georeference from xml file: " << xml_path << "\n";
     
   // TODO: Should this verify that the image size is correct?
 

@@ -136,9 +136,7 @@ The projection height is stored in the ``DIM*PRJ*.XML`` camera model files,
 in the ``Bounding_Polygon`` field, in the ``<H>`` tag. This height is in meters,
 above the WGS84 ellipsoid.
 
-To process such data with ASP, use the provided RPC camera models, while passing
-the heights for the left and right images as part of the ``--ortho-height`` option,
-together with the option ``-t rpc``. See :numref:`mapproj_ortho` for details.
+How to process such data with ASP is discussed in :numref:`mapproj_ortho`.
 
 ASP does not support Airbus images that are orthorectified with a 3D terrain
 model, as that terrain model is not known.

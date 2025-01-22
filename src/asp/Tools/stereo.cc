@@ -916,7 +916,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
   GeoReference georef1, georef2;
   bool has_georef1 = vw::cartography::read_georeference(georef1, opt.in_file1);
   bool has_georef2 = vw::cartography::read_georeference(georef2, opt.in_file2);
-  if (dem_provided && (!has_georef1 || !has_georef2)){
+  if (dem_provided && (!has_georef1 || !has_georef2)) {
     vw_throw(ArgumentErr() << "The images are not map-projected, "
               << "cannot use the provided DEM: " << opt.input_dem << "\n");
   }
@@ -931,18 +931,11 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     auto M2 = georef2.transform();
     // The diagonal terms of these must be equal.
     double tol = 1e-10;
-    if (std::abs(M1(0, 0) - M2(0, 0)) > tol || std::abs(M1(1, 1) - M2(1, 1)) > tol) {
-      if (!have_heights)
+    if (std::abs(M1(0, 0) - M2(0, 0)) > tol || std::abs(M1(1, 1) - M2(1, 1)) > tol)
         vw::vw_throw(vw::ArgumentErr() 
                << "The input mapprojected images must have the same ground resolution "
                << "for best results. This can be overriden with the option "
                << "--allow-different-mapproject-gsd, but is not recommended.\n");
-      else // Have no choice, the vendor produced them that way
-        vw::vw_out(vw::WarningMessage) 
-          << "The input mapprojected images have different ground resolutions: "
-          << M1(0, 0) << " and " << M2(0, 0) 
-          << ". For accurate results these should be similar.\n";
-    }
   }
   
   // If the images are map-projected, we need an input DEM, as we use the ASP

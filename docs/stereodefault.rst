@@ -111,10 +111,9 @@ band <int (default: -1)>
     band and print a warning.
 
 ortho-heights <double double (default: NaN NaN)>
-    It is assumed that the left and right input images have been mapprojected onto
-    surfaces with these heights above a datum. The datum is read from the
-    image geoheaders. This can be used with Maxar's OR2A product. An 
-    example is in :numref:`mapproj_ortho`.
+    It is assumed that the left and right input images have been mapprojected
+    onto surfaces with these heights above a datum. The datum is read from the
+    image geoheaders. See :numref:`mapproj_ortho`.
     
 .. _image_alignment:
 
