@@ -33,24 +33,39 @@ into the ``bundle_adjust`` tool with the same file name even if they are
 in different folders. A simple workaround is to create symbolic links to
 the original header files with different names::
 
-    ln -s  front/SEGMT01/METADATA.DIM front/SEGMT01/METADATA_FRONT.DIM
-    ln -s  back/SEGMT01/METADATA.DIM  back/SEGMT01/METADATA_BACK.DIM
-    bundle_adjust -t spot5                                            \
-      front/SEGMT01/IMAGERY.BIL back/SEGMT01/IMAGERY.BIL              \
-      front/SEGMT01/METADATA_FRONT.DIM back/SEGMT01/METADATA_BACK.DIM \
+    ln -s front/SEGMT01/METADATA.DIM front/SEGMT01/METADATA_FRONT.DIM
+    ln -s back/SEGMT01/METADATA.DIM  back/SEGMT01/METADATA_BACK.DIM
+    
+Then run bundle adjustment (:numref:`bundle_adjust`)::
+
+    bundle_adjust -t spot5             \
+      front/SEGMT01/IMAGERY.BIL        \
+      back/SEGMT01/IMAGERY.BIL         \
+      front/SEGMT01/METADATA_FRONT.DIM \
+      back/SEGMT01/METADATA_BACK.DIM   \
       -o ba_run/out
-    parallel_stereo -t spot5                                          \
-      front/SEGMT01/IMAGERY.BIL back/SEGMT01/IMAGERY.BIL              \ 
-      front/SEGMT01/METADATA_FRONT.DIM back/SEGMT01/METADATA_BACK.DIM \ 
-      st_run/out --bundle-adjust-prefix ba_run/out
+      
+Run ``parallel_stereo`` (:numref:`parallel_stereo`) with the adjusted cameras::
+
+    parallel_stereo -t spot5            \
+      front/SEGMT01/IMAGERY.BIL         \
+      back/SEGMT01/IMAGERY.BIL          \
+      front/SEGMT01/METADATA_FRONT.DIM  \
+      back/SEGMT01/METADATA_BACK.DIM    \
+      --bundle-adjust-prefix ba_run/out \
+      st_run/out 
 
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices of the stereo algorithms.
 
-One can also mapproject the SPOT5 images before they are passed to
-``parallel_stereo``. In order to do so, you must first use the
-``add_spot_rpc`` tool to generate an RPC model approximation of the
-SPOT5 sensor model.
+This is followed by DEM creation with ``point2dem`` (:numref:`point2dem`)::
+
+    point2dem st_run/out-PC.tif
+
+For terrains with steep slopes, it is strongly suggested to do stereo with
+mapprojected images (:numref:`mapproj-example`). In order to do so, you must
+first use the ``add_spot_rpc`` tool to generate an RPC model approximation of
+the SPOT5 sensor model.
 
 ::
 
@@ -60,27 +75,48 @@ SPOT5 sensor model.
 This will append the RPC model to the existing file. If the output
 is a separate file, only the RPC model will be saved to the new file.
 
-Then use the ``spot5maprpc`` session type when running parallel_stereo
-on the mapprojected images. See the note in :numref:`mapproj-example`
-about perhaps reducing the resolution of the DEM to mapproject onto if
-ghosting artifacts are seen in the produced DEM.
+Then use the ``spot5maprpc`` session type when running parallel_stereo on the
+mapprojected images. See the note in :numref:`mapproj-example` about perhaps
+reducing the resolution of the DEM to mapproject onto (and perhaps blurring it)
+if ghosting artifacts are seen in the produced DEM.
 
-::
+Mapprojection (:numref:`mapproject`)::
 
-    mapproject --tr gridSize sample_dem.tif front/SEGMT01/IMAGERY.BIL   \
-      front/SEGMT01/METADATA.DIM front_map_proj.tif -t rpc
-    mapproject --tr gridSize sample_dem.tif back/SEGMT01/IMAGERY.BIL    \
-      back/SEGMT01/METADATA.DIM back_map_proj.tif -t rpc
-    parallel_stereo -t spot5maprpc front_map_proj.tif back_map_proj.tif \ 
-      front/SEGMT01/METADATA.DIM back/SEGMT01/METADATA.DIM              \ 
-      st_run/out sample_dem.tif
+    mapproject -t rpc            \
+      --tr gridSize              \
+      sample_dem.tif             \
+      front/SEGMT01/IMAGERY.BIL  \
+      front/SEGMT01/METADATA.DIM \
+      front_map_proj.tif
+      
+    mapproject -t rpc              \
+      --ref-map front_map_proj.tif \
+      sample_dem.tif               \
+      back/SEGMT01/IMAGERY.BIL     \
+      back/SEGMT01/METADATA.DIM    \
+      back_map_proj.tif
+      
+Notice how we used the option ``--ref-map`` to ensure the second mapprojected
+image uses the same grid size and projection as the first one. In older versions
+of ASP, one must specify for both images the same projection in meters (such as
+UTM), via ``--t_srs``, and the same grid size, via ``--tr``. 
 
-Notice how we used the same resolution (option ``--tr``) for both
-images when mapprojecting. That helps making the resulting images more
-similar and reduces the processing time (:numref:`mapproj-res`).
+Stereo::
 
-See :numref:`nextsteps` for a discussion about various
-speed-vs-quality choices of the stereo algorithms.
+    parallel_stereo -t spot5maprpc \
+      front_map_proj.tif           \
+      back_map_proj.tif            \
+      front/SEGMT01/METADATA.DIM   \
+      back/SEGMT01/METADATA.DIM    \
+      st_run_map/out               \
+      sample_dem.tif
+
+DEM creation::
+      
+    point2dem st_run_map/out-PC.tif
+
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices
+of the stereo algorithms.
 
 .. figure:: ../images/examples/spot5_figure.png
    :name: spot5_output

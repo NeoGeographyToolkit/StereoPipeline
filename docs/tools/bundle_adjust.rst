@@ -434,9 +434,9 @@ either as a single set for all cameras or individually
 (:numref:`floatingintrinsics`), or per group of cameras (:numref:`kaguya_ba`).
 
 Triangulated points can be constrained via ``--tri-weight``
-(:numref:`ba_ground_constraints`) or ``--heights-from-dem``
-(:numref:`heights_from_dem`). The camera positions can be constrained as well
-(:numref:`ba_cam_constraints`).
+(:numref:`ba_ground_constraints`) or ``--heights-from-dem`` (with a
+*well-aligned* prior DEM, :numref:`heights_from_dem`). The camera positions can
+be constrained as well (:numref:`ba_cam_constraints`).
 
 Ground control points can be employed to incorporate measurements as part of the
 constraints (:numref:`bagcp`).

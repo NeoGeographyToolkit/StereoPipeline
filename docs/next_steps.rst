@@ -900,28 +900,50 @@ An example without mapprojected images is shown in :numref:`bathy_reuse_run`.
 Stereo with ortho-ready images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Some vendors offer images that have been projected onto surfaces 
-of constant height above a datum. Examples are Maxar's OR2A product
-and the Airbus Pleiades ortho product (:numref:`pleiades_projected`).
+Some vendors offer images that have been projected onto surfaces of constant
+height above a datum. Examples are Maxar's OR2A product and the Airbus Pleiades
+ortho product (:numref:`pleiades_projected`).
 
-The stereo command for Maxar (DigitalGlobe) data is::
+The processing of such  images is as follows. First, a clip could be cut from each,
+if needed, with ``gdal_translate -projwin`` (:numref:`gdal_tools`).
 
-    parallel_stereo                  \
-      -t dg                          \
-      --stereo-algorithm asp_mgm     \
-      --ortho-heights 23.5 27.6      \
-      left_ortho.tif right_ortho.tif \
-      left.xml right.xml             \
+Inspect the pixel size (GSD) of the two ortho images. It is strongly suggested to bring them
+to the same pixel size, which should be intermediate between the original images,
+with a command such as::
+
+  gdalwarp -r cubicspline -overwrite -tr 0.4 0.4 \ 
+    left_ortho.tif left_regrid.tif 
+
+and the same for the right image. Otherwise the results of stereo will be not great.
+
+The orthoimages must have the same projection, in units of meters (such as UTM).
+If these are different, the desired projection string can be added to the ``gdalwarp``
+command above via the option ``-t_srs``.
+ 
+The stereo command for Maxar (DigitalGlobe) data with linescan (exact) cameras
+is::
+
+    parallel_stereo                    \
+      -t dg                            \
+      --stereo-algorithm asp_mgm       \
+      --ortho-heights 23.5 27.6        \
+      left_regrid.tif right_regrid.tif \
+      left.xml right.xml               \
       run/run
 
 The values passed in via ``--ortho-heights`` are the heights above the
 datum that were used to mapproject the images. The datum is read from the
-geoheader of the images.
+geoheader of the images. The heights should be looked up in the metadata.
 
-For Pleiades data and RPC cameras use instead ``-t rpc``.
+Maxar may ship such data with RPC cameras only. Then, use above ``-t rpc``.
+The heights are found in the ``<TERRAINHAE>`` field in each XML camera model.
 
-Helper DEMs with such heights are created in the output directory, then the
-usual workflow of stereo with mapprojected images takes place.
+For Pleiades data and RPC cameras use instead ``-t rpc``. How to find
+the heights is mentioned in :numref:`pleiades_projected`.
+
+After stereo, ``point2dem`` (:numref:`point2dem`) is run as usual. It is
+suggested to inspect the triangulation error created by that program, and to
+compare with a prior terrain, such as obtained as in :numref:`initial_terrain`.
 
 .. _diagnosing_problems:
 
