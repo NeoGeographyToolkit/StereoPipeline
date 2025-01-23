@@ -471,6 +471,7 @@ void asp::RPCXML::parse_vector(xercesc::DOMElement* node,
 asp::RPCXML::RPCXML() : BitChecker(2) {}
 
 void asp::RPCXML::read_from_file(std::string const& name) {
+  
   boost::scoped_ptr<XercesDOMParser> parser(new XercesDOMParser());
   parser->setValidationScheme(XercesDOMParser::Val_Always);
   parser->setDoNamespaces(true);
@@ -479,7 +480,7 @@ void asp::RPCXML::read_from_file(std::string const& name) {
 
   DOMDocument* xmlDoc;
   DOMElement* elementRoot;
-
+  
   try{
     parser->parse(name.c_str());
     xmlDoc = parser->getDocument();
@@ -591,8 +592,15 @@ double asp::RPCXML::parse_terrain_height(xercesc::DOMElement* root_node) {
 // Parse the RPB node. Used for DG XML files.
 void asp::RPCXML::parse_rpb(xercesc::DOMElement* root) {
   
+  // Try to parse the terrain height, but keep going if we fail.
+  double terrain_height = std::numeric_limits<double>::quiet_NaN();
+  try {
+    terrain_height = parse_terrain_height(root);
+  } catch (...) {
+  }
+
+  // Parse rpb
   DOMElement* rpb = get_node<DOMElement>(root, "RPB");
-  
   DOMElement* image = get_node<DOMElement>(rpb, "IMAGE");
 
   // Pieces that will go into the RPC Model
@@ -632,14 +640,6 @@ void asp::RPCXML::parse_rpb(xercesc::DOMElement* root) {
   } catch(...) {
     err_rand = 0.0;
   }
-  
-  // Try to parse the terrain height, but keep going if we fail.
-  double terrain_height = std::numeric_limits<double>::quiet_NaN();
-  try {
-    terrain_height = parse_terrain_height(root);
-  } catch (...) {
-  }
-
   
   // The RPC_DATUM field is only written by cam2rpc
   try {
@@ -802,15 +802,14 @@ void asp::read_xml(std::string const& filename,
   if (!fs::exists(filename))
     vw_throw(ArgumentErr() << "XML file \"" << filename << "\" does not exist.");
 
-  try{
+  try {
     boost::scoped_ptr<XercesDOMParser> parser(new XercesDOMParser());
     parser->setValidationScheme(XercesDOMParser::Val_Always);
     parser->setDoNamespaces(true);
     boost::scoped_ptr<ErrorHandler> errHandler(new HandlerBase());
     parser->setErrorHandler(errHandler.get());
-
+  
     parser->parse(filename.c_str());
-
     DOMDocument* xmlDoc = parser->getDocument();
     DOMElement* elementRoot = xmlDoc->getDocumentElement();
 
@@ -822,8 +821,7 @@ void asp::read_xml(std::string const& filename,
     for (XMLSize_t i = 0; i < children->getLength(); i++) {
       DOMNode* curr_node = children->item(i);
       if (curr_node->getNodeType() == DOMNode::ELEMENT_NODE) {
-        DOMElement* curr_element =
-          dynamic_cast<DOMElement*>(curr_node);
+        DOMElement* curr_element = dynamic_cast<DOMElement*>(curr_node);
 
         std::string tag(XMLString::transcode(curr_element->getTagName()));
         if (tag == "GEO")
@@ -835,11 +833,11 @@ void asp::read_xml(std::string const& filename,
         else if (tag == "IMD")
           img.parse(curr_element);
         else if (tag == "RPB")
-          rpc.parse(curr_element);
+          rpc.parse(elementRoot); // must go to the parent
       }
     }
-  } catch (const std::exception& e) {                
-    vw_throw(ArgumentErr() << e.what() << " XML file \"" << filename << "\" is invalid.\n");
+  } catch (const std::exception& e) {
+    vw_throw(ArgumentErr() << e.what() << " XML file:" << filename << " is invalid.\n");
   }
 
 }
