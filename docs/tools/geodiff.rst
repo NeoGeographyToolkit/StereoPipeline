@@ -59,9 +59,6 @@ Command-line options
 --absolute
     Output the absolute difference as opposed to just the difference.
 
---float
-    Output using float (32 bit) instead of using doubles (64 bit).
-
 --csv-format <string>
     Specify the format of input CSV files as a list of entries
     column_index:column_type (indices start from 1).  Examples:
@@ -95,6 +92,10 @@ Command-line options
 
 --no-bigtiff
     Tell GDAL to not create bigtiffs.
+
+--float
+    Output using float (32 bit) instead of using doubles (64 bit).
+    This is now the default, and this option is obsolete.
 
 --tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.

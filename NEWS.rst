@@ -165,6 +165,8 @@ misc:
   * Wiped extremely old and unused SPICE logic.
   * Wiped the unused old option ``--mask-flatfield``. Can use with stereo
     the option ``--nodata-value`` to mask values no more than this value.
+  * The ``geodiff`` program output image is with float pixels, rather than
+    in double precision.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

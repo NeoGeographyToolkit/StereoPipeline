@@ -69,8 +69,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                         "The no-data value to use, unless present in the DEM geoheaders.")
     ("output-prefix,o", po::value(&opt.output_prefix),                            
                         "Specify the output prefix.")
-    ("float",           po::bool_switch(&opt.use_float)->default_value(false),    
-                        "Output using float (32 bit) instead of using doubles (64 bit).")
+    ("float", po::bool_switch(&opt.use_float)->default_value(false),    
+     "Output using float (32 bit) instead of using doubles (64 bit). This is now "
+     "the default, and this option is obsolete.")
     ("absolute",        po::bool_switch(&opt.use_absolute)->default_value(false), 
      "Output the absolute difference as opposed to just the difference.")
     ("csv-format",     po::value(&opt.csv_format_str)->default_value(""),
@@ -108,7 +109,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       + "__" + fs::path(opt.dem2_file).stem().string();
 
   vw::create_out_dir(opt.output_prefix);
-  
+
+  // Make this the default. There is no reason to have double-precision differences,
+  // and they are huge.
+  opt.use_float = true;
+    
   // Must specify either csv_srs or csv_proj4_str, but not both. The latter is 
   // for backward compatibility.
   if (!opt.csv_srs.empty() && !opt.csv_proj4_str.empty())
