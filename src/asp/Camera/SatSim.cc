@@ -1583,9 +1583,9 @@ void genCamerasImages(float ortho_nodata_val,
   // even though if all sensors are of the same time it would be enough to call
   // it once.
   asp::genCamPoses(opt, dem_georef, dem, height_guess, have_rig,
-                      // Outputs
-                      first_pos, first_line_time, orbit_len, positions, cam2world, 
-                      cam2world_no_jitter, ref_cam2world, cam_times, rig);
+                   // Outputs
+                   first_pos, first_line_time, orbit_len, positions, cam2world, 
+                   cam2world_no_jitter, ref_cam2world, cam_times, rig);
 
   // In genCamPoses() the rig may have been updated. Fetch the latest.
   Eigen::Affine3d ref2sensor = Eigen::Affine3d::Identity();

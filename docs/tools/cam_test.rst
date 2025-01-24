@@ -36,8 +36,7 @@ Compare ISIS to CSM cameras::
     cam_test --image input.cub --cam1 input.cub --cam2 input.json \
       --sample-rate 5000
 
-Compare the exact and RPC model stored in the same Digital
-Globe file::
+Compare the exact and RPC model stored in the same DigitalGlobe / Maxar file::
 
     cam_test --image input.tif --cam1 input.xml --cam2 input.xml \
       --session1 dg --session2 rpc --sample-rate 1000

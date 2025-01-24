@@ -308,10 +308,12 @@ void run_cam_test(Options & opt) {
           << "the datum semi-major axis. Check your data. Consider using "
           << "the --datum and/or --height-above-datum options.\n"; 
 
-  if (opt.session1 == opt.session2 && (default_session1 == "" || default_session2 == ""))
-    vw_throw(ArgumentErr() << "The session names for both cameras "
+  if (opt.session1 == opt.session2 && (default_session1 == "" || default_session2 == "") &&
+     (opt.session1 == "dg"))
+    vw::vw_out(vw::WarningMessage) << "The session names for both cameras "
               << "were guessed as: '" << opt.session1 << "'. It is suggested that they be "
-              << "explicitly specified using --session1 and --session2.\n");
+              << "explicitly specified using --session1 and --session2, as a DigitalGlobe "
+              << "camera file may contain both exact linescan and RPC cameras.\n";
 
   // Sanity checks for RPC cameras
   if (opt.session1 == "rpc")
