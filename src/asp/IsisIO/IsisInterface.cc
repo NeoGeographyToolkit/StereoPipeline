@@ -139,9 +139,7 @@ vw::Vector3 IsisInterface::sun_position(vw::Vector2 const& pix) const {
 vw::Vector3 IsisInterface::target_radii() const {
   Isis::Distance radii[3];
   m_camera->radii(radii);
-  return Vector3(radii[0].meters(),
-                  radii[1].meters(),
-                  radii[2].meters());
+  return Vector3(radii[0].meters(), radii[1].meters(), radii[2].meters());
 }
 
 std::string IsisInterface::target_name() const {
@@ -150,13 +148,12 @@ std::string IsisInterface::target_name() const {
 
 // Manufacture a datum
 vw::cartography::Datum IsisInterface::get_datum_isis(bool use_sphere_for_non_earth) const {
-      
+  
   vw::Vector3 radii = this->target_radii();
-  double radius1 = (radii[0] + radii[1]) / 2; // average the x and y axes (semi-major) 
+  double radius1 = (radii[0] + radii[1]) / 2.0; // average the x and y axes (semi-major) 
   double radius2 = radius1;
-  if (!use_sphere_for_non_earth) {
+  if (!use_sphere_for_non_earth)
     radius2 = radii[2]; // the z radius (semi-minor axis)
-  }
   
   vw::cartography::Datum datum("D_" + this->target_name(), this->target_name(),
                                "Reference Meridian", radius1, radius2, 0);

@@ -1495,8 +1495,8 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     std::vector<std::string> images_or_cams = opt.image_files;
     bool ensure_equal_sizes = true;
     asp::separate_images_from_cameras(images_or_cams,
-                                    opt.image_files, opt.camera_files, // outputs
-                                    ensure_equal_sizes);
+                                      opt.image_files, opt.camera_files, // outputs
+                                      ensure_equal_sizes);
   }
 
   // Sanity checks

@@ -26,6 +26,7 @@
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/BaseCameraUtils.h>
+#include <asp/IsisIO/IsisCameraModel.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
@@ -288,17 +289,26 @@ bool StereoSession::have_datum() const {
 vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* cam,
                                                 bool use_sphere_for_non_earth) const {
   
-
   if (!stereo_settings().datum.empty()) 
     return vw::cartography::Datum(stereo_settings().datum);
-  
+
+  // For ISIS, can query the camera. This code is invoked for stereo with
+  // mapprojected ISIS cameras, as that use the mapprojected session, and not
+  // the ISIS one. In the latter case the ISIS session has this own
+  // implementation of this function.
+  vw::camera::IsisCameraModel const* isis_cam 
+    = dynamic_cast<vw::camera::IsisCameraModel const*>(unadjusted_model(cam));
+  if (isis_cam != NULL) 
+    return isis_cam->get_datum_isis(use_sphere_for_non_earth);
+
   // Otherwise guess the datum based on the camera position.
   // If no luck, it will return the default WGS84 datum.
+  // TODO(oalexan1): This may result in a bad datum for other planets.
   double cam_center_radius 
       = norm_2(cam->camera_center(vw::Vector2()));
   vw::cartography::Datum datum;
   asp::guessDatum(cam_center_radius, datum);
-    
+   
   return datum;
 }
 
@@ -314,7 +324,7 @@ vw::cartography::GeoReference StereoSession::get_georef() {
 
   bool has_datum = false;
   vw::cartography::Datum datum;
-  if (!stereo_settings().correlator_mode) {
+  if (!stereo_settings().correlator_mode && !asp::stereo_settings().no_datum) {
     has_datum = true;
     vw::CamPtr cam = this->camera_model(m_left_image_file, m_left_camera_file);
     // Spherical datum for non-Earth, as done usually. Used
