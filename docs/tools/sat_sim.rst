@@ -322,9 +322,11 @@ specify it as::
 Here we used an approximation of :math:`\pi/2` radians, which is 90 degrees,
 for the 45 Hz frequency, and 0 radians for the 100 Hz frequency. 
 
-The values can also be separatedy by commas, without spaces, then the quotes are
+The values can also be separated by commas, without spaces, then the quotes are
 not necessary. See :numref:`sat_sim_options` for more information on these
 options.
+
+Jitter can be applied to existing cameras as well (:numref:`sat_sim_perturb`). 
 
 A useful test is compare a camera without jitter with the corresponding one with
 jitter.  For that, project a pixel from the first camera to the datum, and
@@ -554,8 +556,8 @@ name being ``my_cam``.
 Perturbing existing cameras
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This program can apply a jitter perturbation to a sequence of given Pinhole
-cameras.
+This program can apply a jitter perturbation (:numref:`sat_sim_jitter_model`)
+to a sequence of given Pinhole cameras (:numref:`pinholemodels`).
 
 If more than one sequence is present, such as nadir-looking and forward-looking
 cameras, ``sat_sim`` should be called separately for each one.
@@ -577,6 +579,10 @@ Example::
 
 If an input image is named ``camDir/camName.tsai`` and the output prefix is
 ``run/run``, the output camera will be saved as ``run/run-camName.tsai``.
+
+The list of written cameras is saved in a file named ``run/run-cameras.txt``.
+That list can be passed to ``bundle_adjust`` (:numref:`bundle_adjust`) and
+``jitter_solve`` (:numref:`jitter_solve`).
 
 .. _roll_pitch_yaw_def:
 

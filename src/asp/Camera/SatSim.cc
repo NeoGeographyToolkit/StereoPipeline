@@ -1104,6 +1104,8 @@ void perturbCameras(SatSimOptions const& opt,
   if (cam_names.size() != cams.size())
     vw::vw_throw(vw::ArgumentErr() << "Expecting as many camera names as cameras.\n");
   
+  std::vector<std::string> out_cam_names(cam_names.size());
+  
   // Previous and current projected camera centers
   vw::Vector3 prev_proj_ctr(0, 0, 0), curr_proj_ctr(0, 0, 0);
   
@@ -1152,13 +1154,16 @@ void perturbCameras(SatSimOptions const& opt,
     vw::vw_out() << "Writing: " << camName << "\n";
     pin->write(camName);
  
+    out_cam_names[i] = camName;
+    
     // The current camera becomes the previous one for next time
     prev_proj_ctr = curr_proj_ctr;
   }
 
-  // No rig
-  bool have_rig = false;
-  Eigen::Affine3d ref2sensor = Eigen::Affine3d::Identity();
+  // Write the list
+  std::string cam_list = opt.out_prefix + "-cameras" + suffix + ".txt"; 
+  vw::vw_out() << "Writing: " << cam_list << "\n";
+  asp::write_list(cam_list, out_cam_names);
 
   return;
 }
