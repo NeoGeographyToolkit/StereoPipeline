@@ -44,14 +44,12 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-
-struct Options : vw::GdalWriteOptions {
+struct Options: vw::GdalWriteOptions {
   std::string image_file, cam1_file, cam2_file, session1, session2, bundle_adjust_prefix,
   cam1_bundle_adjust_prefix, cam2_bundle_adjust_prefix, datum;
-  int sample_rate; // use one out of these many pixels
+  int sample_rate;
   double subpixel_offset, height_above_datum;
-  bool print_per_pixel_results, aster_use_csm, aster_vs_csm,
-    test_error_propagation;
+  bool print_per_pixel_results, aster_use_csm, aster_vs_csm, test_error_propagation;
   vw::Vector2 single_pixel;
 
   Options() {}

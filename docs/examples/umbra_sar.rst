@@ -4,7 +4,7 @@ Umbra SAR
 ---------
 
 Here we describe processing Synthetic Aperture Radar (SAR) images for Earth
-produced by `Umbra <https://help.umbra.space/product-guide>`_. An example for
+produced by `Umbra <https://help.umbra.space/product-guide>`_. A SAR example for
 the Moon is in :numref:`csm_minirf`.
 
 Overview
