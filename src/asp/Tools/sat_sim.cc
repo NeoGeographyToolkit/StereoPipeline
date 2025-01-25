@@ -39,7 +39,8 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
   po::options_description general_options("General options");
   general_options.add_options()
     ("dem", po::value(&opt.dem_file)->default_value(""), "Input DEM file.")
-    ("ortho", po::value(&opt.ortho_file)->default_value(""), "Input georeferenced image file.")
+    ("ortho", po::value(&opt.ortho_file)->default_value(""), 
+     "Input georeferenced image file.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix. All the "
     "files that are saved will start with this prefix.")
     ("camera-list", po::value(&opt.camera_list)->default_value(""),
@@ -167,6 +168,9 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
        "orientation, with the center view direction closest to the ground point at "
        "--first-ground-pos. A unique value for each orbit is suggested. A large value "
        "(millions), may result in numerical issues.")
+     ("perturb-cameras",
+      po::bool_switch(&opt.perturb_cameras)->default_value(false)->implicit_value(true),
+      "Apply a perturbation to existing cameras.")
      ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
       "When intersecting a ray with a DEM, use this as the height error tolerance "
       "(measured in meters). It is expected that the default will be always good enough.")
@@ -190,8 +194,10 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
+  // When invoked with no arguments or no output prefix, display the help message.
   if (opt.out_prefix == "")
-    vw::vw_throw(vw::ArgumentErr() << "Missing output prefix.\n");
+    vw::vw_throw(vw::ArgumentErr() << "Missing output prefix.\n"
+                 << usage << general_options);
 
   // Create the output directory based on the output prefix
   vw::create_out_dir(opt.out_prefix);
@@ -202,9 +208,12 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
   // Some functions use google logging
   google::InitGoogleLogging(argv[0]);
 
-  if (opt.dem_file == "" || opt.ortho_file == "")
-    vw::vw_throw(vw::ArgumentErr() << "Missing input DEM and/or ortho image.\n");
-
+  if (opt.dem_file == "")
+    vw::vw_throw(vw::ArgumentErr() << "Missing input DEM.\n");
+    
+  if (opt.ortho_file == "" && !opt.perturb_cameras)
+    vw::vw_throw(vw::ArgumentErr() << "Missing input ortho image.\n");
+  
   bool have_rig = !opt.rig_config.empty();
   if (have_rig && opt.camera_list != "")
     vw::vw_throw(vw::ArgumentErr() 
@@ -221,14 +230,14 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
     vw::vw_out() << "Will model time as a rig was specified.\n";
   }
 
-  if (!have_rig) {  
+  if (!have_rig && !opt.perturb_cameras) {  
     if (std::isnan(opt.image_size[0]) || std::isnan(opt.image_size[1]))
       vw::vw_throw(vw::ArgumentErr() << "The image size must be specified.\n");
     if (opt.image_size[0] <= 1 || opt.image_size[1] <= 1)
       vw::vw_throw(vw::ArgumentErr() << "The image size must be at least 2 x 2.\n");
   }
   
-  if (opt.camera_list != "" && opt.no_images)
+  if (opt.camera_list != "" && opt.no_images && !opt.perturb_cameras)
     vw::vw_throw(vw::ArgumentErr() << "The --camera-list and --no-images options "
       "cannot be used together.\n");
   
@@ -333,10 +342,10 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
 
     bool have_roll_pitch_yaw = !std::isnan(opt.roll) && !std::isnan(opt.pitch) &&
       !std::isnan(opt.yaw);
-    if (!have_roll_pitch_yaw)
+    if (!have_roll_pitch_yaw && !opt.perturb_cameras)
       vw::vw_throw(vw::ArgumentErr() << "Modelling jitter requires specifying --roll, --pitch, and --yaw.\n");
     
-    if (opt.camera_list != "") 
+    if (opt.camera_list != "" && !opt.perturb_cameras)
       vw::vw_throw(vw::ArgumentErr() << "The --camera-list option must not be set "
         << "when modeling jitter.\n");
 
@@ -362,7 +371,8 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
       
       if (opt.horizontal_uncertainty[0] < 0 || opt.horizontal_uncertainty[1] < 0 ||
           opt.horizontal_uncertainty[2] < 0)
-        vw::vw_throw(vw::ArgumentErr() << "The horizontal uncertainty must be non-negative.\n");
+        vw::vw_throw(vw::ArgumentErr() 
+                     << "The horizontal uncertainty must be non-negative.\n");
     }
 
     // Check that all jitter frequencies are not NaN and positive
@@ -453,6 +463,35 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
     }
   }
 
+  if (opt.perturb_cameras) {
+    // must have camera list
+    if (opt.camera_list.empty())
+      vw::vw_throw(vw::ArgumentErr() << "Must have camera list to perturb cameras.\n");
+      
+    // Sensor type must be pinhole
+    if (opt.sensor_type != "pinhole")
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Perturbing cameras is only supported for pinhole cameras.\n");
+      
+    // Must not have a rig
+    if (!opt.rig_config.empty())
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Perturbing cameras is not supported for rigs.\n");
+    
+    // Must set the satellite velocity
+    if (std::isnan(opt.velocity))
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Must set the satellite velocity to perturb cameras.\n");
+    
+    // The jitter frequency must be set and not NaN
+    if (opt.jitter_frequency.empty() || std::isnan(opt.jitter_frequency[0]))
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Must set the jitter frequency to perturb cameras.\n");
+      
+    // No images will be created
+    opt.no_images = true;
+  }
+  
  // Blur sigma must be non-negative
  if (opt.blur_sigma < 0)
    vw::vw_throw(vw::ArgumentErr() << "The blur sigma must be non-negative.\n");
@@ -478,7 +517,8 @@ int main(int argc, char *argv[]) {
     vw::ImageViewRef<vw::PixelMask<float>> ortho;
     float ortho_nodata_val = -std::numeric_limits<float>::max(); // will change
     vw::cartography::GeoReference ortho_georef;
-    vw::cartography::readGeorefImage(opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
+    if (!opt.perturb_cameras)
+      vw::cartography::readGeorefImage(opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
 
     std::vector<std::string> cam_names;
     std::vector<vw::CamPtr> cams;
@@ -491,6 +531,10 @@ int main(int argc, char *argv[]) {
         asp::readPinholeCameras(opt, cam_names, cams);
       else
         asp::readLinescanCameras(opt, cam_names, cams);
+      
+      if (opt.perturb_cameras)
+        asp::perturbCameras(opt, suffix, dem_georef, cam_names, cams);
+        
       // Generate images
       if (!opt.no_images)
         asp::genImages(opt, external_cameras, cam_names, cams, suffix, dem_georef, dem, 
@@ -511,8 +555,7 @@ int main(int argc, char *argv[]) {
       asp::genRigCamerasImages(opt, rig, dem_georef, dem, height_guess, 
                                ortho_georef, ortho, ortho_nodata_val);
     }
-     
-     
+
     if (!opt.rig_config.empty())
       asp::writeRelRig(opt.out_prefix, rig);
 

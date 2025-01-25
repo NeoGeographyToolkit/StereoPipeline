@@ -236,7 +236,7 @@ public:
 
     result_type result;
     result[0] = err;
-    // vw::vw_out() << "t = " << t << ", err = " << err << std::endl;
+    // vw::vw_out() << "t = " << t << ", err = " << err << "\n";
     return result;
   }
 };
@@ -279,8 +279,8 @@ void findBestProjCamLocation
     double t2 = param_scale_factor * l2;
     P1 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
     P2 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
-    vw::vw_out() << "Param scale factor is " << param_scale_factor << std::endl;
-    vw::vw_out() << "Distance must be 1 meter: " << norm_2(P1 - P2) << std::endl;
+    vw::vw_out() << "Param scale factor is " << param_scale_factor << "\n";
+    vw::vw_out() << "Distance must be 1 meter: " << norm_2(P1 - P2) << "\n";
   }
 #endif
 
@@ -296,12 +296,12 @@ void findBestProjCamLocation
   double spacing = 1000.0 / slope;
 #if 0
   // Verification that spacing is correct
-  vw::vw_out() << "Spacing is " << spacing << std::endl;
+  vw::vw_out() << "Spacing is " << spacing << "\n";
   {
     double t1 = 0, t2 = spacing;
     P1 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
     P2 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
-    vw::vw_out() << "Distance must be 100 meters: " << norm_2(P2 - P1) << std::endl;
+    vw::vw_out() << "Distance must be 100 meters: " << norm_2(P2 - P1) << "\n";
   }
 #endif
 
@@ -385,7 +385,7 @@ void findBestProjCamLocation
 // Turning this off, as the minimum cost function may be far from zero.
 // May need to add some other check here.
   if (std::abs(model(best_len)[0]) > 1.0) {
-    vw::vw_out() << "Abs of model value is " << std::abs(model(best_len)[0]) << std::endl;
+    vw::vw_out() << "Abs of model value is " << std::abs(model(best_len)[0]) << "\n";
     // vw::vw_throw(vw::ArgumentErr() << "Error: The solver for finding correct ends of "
     //   << "orbital segment did not converge to a good solution. Check your DEM, " 
     //   << "roll, pitch, yaw, and ground path endpoints.\n");
@@ -401,6 +401,7 @@ void findBestProjCamLocation
 // coordinates. 1e+5 points are used to approximate the orbit length. Should be
 // enough. This gets slow when using 1e+6 points.
 // TODO(oalexan1): This may not be accurate enough for very long orbit segments.
+// TODO(oalexan1): The number of samples better depend on orbit length.
 double calcOrbitLength(vw::Vector3 const& first_proj, vw::Vector3 const& last_proj,
                        vw::cartography::GeoReference const& dem_georef) {
 
@@ -636,7 +637,7 @@ vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
     double f = opt.jitter_frequency[freq_iter];
     double v = opt.velocity;
     double T = v / f; // period in meters
-
+    
     // Iterate over roll, pitch, and yaw
     for (int c = 0; c < 3; c++) {
       int index = 3 * freq_iter + c;
@@ -917,7 +918,7 @@ void genCamPoses(SatSimOptions & opt,
   // Good to print these
   vw::vw_out() << "Orbit length between the first and last inclination-adjusted cameras: " 
      << orbit_len << " meters.\n"; 
-  vw::vw_out() << "Number of camera samples: " << opt.num_cameras << "." << std::endl;
+  vw::vw_out() << "Number of camera samples: " << opt.num_cameras << "." << "\n";
 
   // We did a sanity check to ensure that when opt.jitter_frequency is set,
   // opt.velocity and and opt.horizontal_uncertainty are also set and not NaN.
@@ -1008,7 +1009,8 @@ void genCamPoses(SatSimOptions & opt,
     // Camera position in ECEF
     positions[i] = P;
     
-    // The camera to world rotation has these vectors as the columns
+    // The camera to world rotation has these vectors as the columns.
+    // For now the camera is pointing down.
     asp::assembleCam2WorldMatrix(along, across, down, cam2world[i]);
 
     // Save this before applying adjustments as below. These two 
@@ -1073,11 +1075,11 @@ std::string camPrefix(SatSimOptions const& opt, int iFrame, double timestamp, bo
 
 // A function to read Pinhole cameras from disk
 void readPinholeCameras(SatSimOptions const& opt, 
-    std::vector<std::string> & cam_names,
-    std::vector<vw::CamPtr> & cams) {
+                        std::vector<std::string> & cam_names,
+                        std::vector<vw::CamPtr> & cams) {
 
   // Read the camera names
-  vw::vw_out() << "Reading: " << opt.camera_list << std::endl;
+  vw::vw_out() << "Reading: " << opt.camera_list << "\n";
   asp::read_list(opt.camera_list, cam_names);
 
   // Sanity check
@@ -1087,6 +1089,76 @@ void readPinholeCameras(SatSimOptions const& opt,
   cams.resize(cam_names.size());
   for (int i = 0; i < int(cam_names.size()); i++)
     cams[i] = vw::CamPtr(new vw::camera::PinholeModel(cam_names[i]));
+
+  return;
+}
+
+// A function to perturb the cameras. A lot of logic is in asp::genCamPoses().
+void perturbCameras(SatSimOptions const& opt, 
+                    std::string const& suffix,
+                    vw::cartography::GeoReference const& georef,
+                    std::vector<std::string> const& cam_names,
+                    std::vector<vw::CamPtr> & cams) {
+
+  // Must have as many cam names as cameras
+  if (cam_names.size() != cams.size())
+    vw::vw_throw(vw::ArgumentErr() << "Expecting as many camera names as cameras.\n");
+  
+  // Previous and current projected camera centers
+  vw::Vector3 prev_proj_ctr(0, 0, 0), curr_proj_ctr(0, 0, 0);
+  
+  // Length along orbit from first to current camera
+  double orbitLen = 0.0;
+  
+  for (int i = 0; i < int(cam_names.size()); i++) {
+    
+    // Camera must be pinhole
+    vw::camera::PinholeModel * pin 
+      = dynamic_cast<vw::camera::PinholeModel*>(cams[i].get());
+    if (pin == NULL)
+      vw::vw_throw(vw::ArgumentErr() << "Expecting a Pinhole camera for: " 
+                   << cam_names[i] << "\n");
+
+    vw::Vector3 cam_ctr = pin->camera_center(vw::Vector2());
+    vw::Matrix<double,3,3> cam2world = pin->get_rotation_matrix();
+    
+    vw::Vector3 llh = georef.datum().cartesian_to_geodetic(cam_ctr);
+
+    // It is assume that the satellite points nadir. The camera is attached
+    // to the satellite body at potentially an angle.
+    vw::Matrix3x3 sat2world = georef.datum().lonlat_to_ned_matrix(llh);
+    vw::Matrix3x3 cam2sat = inverse(sat2world) * cam2world;
+    
+    // The camera center in projected coordinates
+    subvector(curr_proj_ctr, 0, 2) = georef.lonlat_to_point(subvector(llh, 0, 2)); 
+    curr_proj_ctr[2] = llh[2];
+    
+    // The orbit length from the first to the current camera
+    if (i > 0)
+      orbitLen += calcOrbitLength(prev_proj_ctr, curr_proj_ctr, georef);
+    
+    // Jitter amplitude at the current location
+    vw::Vector3 jitter_amp = calcJitterAmplitude(opt, curr_proj_ctr, orbitLen);
+
+    // The jitter vibration is applied to the camera in the satellite frame
+    vw::Matrix3x3 R_rpy = asp::rollPitchYaw(jitter_amp[0], jitter_amp[1], jitter_amp[2]);
+    cam2world = sat2world * R_rpy * cam2sat;
+    
+    // Replace the camera rotation
+    pin->set_camera_pose(cam2world);
+    
+    // Will save the camera with the output prefix
+    std::string camName = opt.out_prefix + "-" + fs::path(cam_names[i]).filename().string();
+    vw::vw_out() << "Writing: " << camName << "\n";
+    pin->write(camName);
+ 
+    // The current camera becomes the previous one for next time
+    prev_proj_ctr = curr_proj_ctr;
+  }
+
+  // No rig
+  bool have_rig = false;
+  Eigen::Affine3d ref2sensor = Eigen::Affine3d::Identity();
 
   return;
 }
@@ -1222,7 +1294,7 @@ void genPinholeCameras(SatSimOptions          const& opt,
     if (opt.save_ref_cams) {
       bool isRef = true;
       std::string refCamName = camPrefix(opt, i, cam_times[i], isRef, isFrame, suffix) + ext;
-      vw::vw_out() << "Writing: " << refCamName << std::endl;
+      vw::vw_out() << "Writing: " << refCamName << "\n";
       if (opt.save_as_csm)
         csmRefCam.saveState(refCamName);
       else
@@ -1234,7 +1306,7 @@ void genPinholeCameras(SatSimOptions          const& opt,
   // Otherwise the same file may be written by multiple processes. 
   if (!skipCamera(0, opt)) {
     std::string cam_list = opt.out_prefix + "-cameras" + suffix + ".txt"; 
-    vw::vw_out() << "Writing: " << cam_list << std::endl;
+    vw::vw_out() << "Writing: " << cam_list << "\n";
     asp::write_list(cam_list, cam_names);
   } else {
      // Print a warning message that the list won't be saved
@@ -1496,7 +1568,7 @@ void genImages(SatSimOptions      const& opt,
     // Increase the tile size, as otherwise this code becomes very slow
     // since a time-consuming camera box calculation happens in each tile.
     // TODO(oalexan1): Figure out why the slowdown.
-    vw::vw_out() << "Writing: " << image_names[i] << std::endl;
+    vw::vw_out() << "Writing: " << image_names[i] << "\n";
     bool has_georef = false; // the produced image is raw, it has no georef
     bool has_nodata = true;
     SatSimOptions local_opt = opt;
@@ -1517,7 +1589,7 @@ void genImages(SatSimOptions      const& opt,
   if (opt.sensor_type == "pinhole") {
     if (!skipCamera(0, opt)) {
       std::string image_list = opt.out_prefix + "-images" + suffix + ".txt"; 
-      vw::vw_out() << "Writing: " << image_list << std::endl;
+      vw::vw_out() << "Writing: " << image_list << "\n";
       asp::write_list(image_list, image_names);
     } else {
       // Print a warning message that the list won't be saved
@@ -1595,10 +1667,10 @@ void genCamerasImages(float ortho_nodata_val,
   // Sequence of camera names and cameras for one sensor
   std::vector<std::string> cam_names; 
   std::vector<vw::CamPtr> cams;
-  // The suffix is needed to distinguish the cameras and images for each sensor
+  // The suffix is needed to distinguish the cameras and images for each rig sensor
   if (opt.sensor_type == "pinhole")
     asp::genPinholeCameras(opt, dem_georef, positions, cam2world, ref_cam2world,
-                            cam_times, have_rig, ref2sensor, suffix, cam_names, cams);
+                           cam_times, have_rig, ref2sensor, suffix, cam_names, cams);
   else
     asp::genLinescanCameras(first_line_time, orbit_len, dem_georef, dem, first_pos, 
                             positions, cam2world, cam2world_no_jitter, ref_cam2world, 

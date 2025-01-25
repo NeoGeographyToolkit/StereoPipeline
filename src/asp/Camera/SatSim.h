@@ -53,14 +53,22 @@ struct SatSimOptions: vw::GdalWriteOptions {
   std::vector<double> jitter_frequency, jitter_amplitude, jitter_phase, horizontal_uncertainty;
   std::string jitter_frequency_str, jitter_amplitude_str, jitter_phase_str, 
     horizontal_uncertainty_str, rig_config, sensor_name;
-  bool no_images, save_ref_cams, non_square_pixels, save_as_csm, model_time;
+  bool no_images, save_ref_cams, non_square_pixels, save_as_csm, model_time,
+    perturb_cameras;
   SatSimOptions() {}
 };
 
 // A function to read the cameras from a file
 void readPinholeCameras(SatSimOptions const& opt, 
-    std::vector<std::string> & cam_names,
-    std::vector<vw::CamPtr> & cams);
+                        std::vector<std::string> & cam_names,
+                        std::vector<vw::CamPtr> & cams);
+
+// A function to perturb the cameras
+void perturbCameras(SatSimOptions const& opt, 
+                    std::string const& suffix,
+                    vw::cartography::GeoReference const& georef,
+                    std::vector<std::string> const& cam_names,
+                    std::vector<vw::CamPtr> & cams);
 
 // Generate a prefix for produced image and camera names.
 std::string camPrefix(SatSimOptions const& opt, int iFrame, double timestamp, bool isRef,
