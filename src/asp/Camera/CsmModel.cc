@@ -1275,5 +1275,52 @@ bool CsmModel::isFrameCam() const {
   return true;
 }
 
-} // end namespace asp
+// Get the datum from the CSM model. It is suggested to use if possible
+// the function StereoSessionCsm::get_datum() which calls this one, as
+// that one also knows about the image and can find the datum name.
+// If the spheroid name is not known, use "unknown".
+vw::cartography::Datum CsmModel::get_datum_csm(std::string spheroid_name, 
+                                               bool use_sphere_for_non_earth) const {
 
+  std::string datum_name = "D_" + spheroid_name; // may be refined later
+
+  // Read the ellipsoid radii
+  vw::Vector3 radii = this->target_radii();
+  double radius1 = (radii[0] + radii[1]) / 2; // average the x and y axes (semi-major) 
+  double radius2 = radius1;
+
+  // Auto-guess the datum if not available
+  vw::cartography::Datum wgs84("WGS84");
+  vw::cartography::Datum moon("D_MOON");
+  vw::cartography::Datum mars("D_MARS");
+  bool is_wgs84 = (std::abs(wgs84.semi_major_axis() - radius1)  < 1e-7 &&
+                   std::abs(wgs84.semi_minor_axis() - radii[2]) < 1e-7);
+  bool is_moon =  (std::abs(moon.semi_major_axis()  - radius1)  < 1e-7 &&
+                   std::abs(moon.semi_minor_axis()  - radii[2]) < 1e-7);
+  bool is_mars =  (std::abs(mars.semi_major_axis()  - radius1)  < 1e-7 &&
+                   std::abs(mars.semi_minor_axis()  - radii[2]) < 1e-7);
+  
+  if (boost::to_lower_copy(spheroid_name).find("unknown") != std::string::npos ||
+      spheroid_name.empty()) {
+    // Unknown datum. Try to fill in the name from above.
+    if (is_wgs84)
+      return wgs84;
+    if (is_moon)
+      return moon;
+    if (is_mars)
+      return mars;
+  }
+  
+  // For Earth always use two radii. The logic below should distinguish Venus.
+  bool has_earth_radius = (std::abs(radius1/wgs84.semi_major_axis() - 1.0) < 0.05);
+  if (!use_sphere_for_non_earth || has_earth_radius)
+    radius2 = radii[2]; // let the semi-minor axis be distinct from the semi-major axis
+  
+  vw::cartography::Datum datum(datum_name, spheroid_name,
+                               "Reference Meridian", radius1, radius2, 0);
+  
+  return datum;
+  
+}
+
+} // end namespace asp

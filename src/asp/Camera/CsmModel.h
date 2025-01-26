@@ -25,6 +25,7 @@
 #define __STEREO_CAMERA_CSM_MODEL_H__
 
 #include <vw/Camera/CameraModel.h>
+#include <vw/Cartography/Datum.h>
 
 #include <usgscsm/Distortion.h>
 
@@ -181,6 +182,13 @@ namespace asp {
     // Ensure the linescan model quaternions are always normalized and do not
     // suddenly flip sign
     void normalizeLinescanQuaternions();
+    
+    // Get the datum from the CSM model. It is suggested to use if possible
+    // the function StereoSessionCsm::get_datum() which calls this one, as
+    // that one also knows about the image and can find the datum name.
+    // If the spheroid name is not known, use "unknown".
+    vw::cartography::Datum get_datum_csm(std::string spheroid_name, 
+                                         bool use_sphere_for_non_earth) const;
     
   protected:
 

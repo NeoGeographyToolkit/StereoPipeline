@@ -407,20 +407,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (!opt.sample_file.empty()) {
     // Guess the datum from the camera model
     asp::SessionPtr session;
+    std::string local_session_str = ""; // may be different than input camera session 
     vw::cartography::Datum cam_datum;
     bool found_cam_datum = false;
-    try {
-      found_cam_datum = asp::datum_from_camera(opt.image_file, opt.sample_file,
-                                           // Outputs
-                                           opt.stereo_session, session, cam_datum);
-    } catch (std::exception const& e) {
-      // Use here an empty session, as the sample file need not be the same type
-      // as the input camera.
-      std::string local_session = "";
-      found_cam_datum = asp::datum_from_camera(opt.image_file, opt.sample_file,
-                                               // Outputs
-                                               local_session, session, cam_datum);
-    }
+    found_cam_datum = asp::datum_from_camera(opt.image_file, opt.sample_file,
+                                          // Outputs
+                                          local_session_str, session, cam_datum);
 
     // For pinhole session the guessed datum may be unreliable, so warn only
     bool warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
@@ -700,7 +692,7 @@ void manufacture_cam(Options & opt, int wid, int hgt, vw::CamPtr & out_cam) {
     opticalbar_cam->set_optical_center(Vector2(wid/2.0, hgt/2.0));
     out_cam = opticalbar_cam;
   } else if (opt.camera_type == "pinhole") { // csm frame comes here too
-
+    
     std::string sample_ext = get_extension(opt.sample_file);
     if (opt.sample_file != "" && sample_ext == ".json") {
       // Read the intrinsics from the csm file. The distortion will be set later.

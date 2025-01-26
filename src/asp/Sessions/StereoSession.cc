@@ -23,6 +23,7 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/RPCModel.h>
+#include <asp/Camera/CsmModel.h>
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/BaseCameraUtils.h>
@@ -301,6 +302,21 @@ vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* c
   if (isis_cam != NULL) 
     return isis_cam->get_datum_isis(use_sphere_for_non_earth);
 
+  // Do same for csm
+  asp::CsmModel const* csm_cam 
+    = dynamic_cast<asp::CsmModel const*>(unadjusted_model(cam));
+  if (csm_cam != NULL)
+    return csm_cam->get_datum_csm("unknown", use_sphere_for_non_earth);
+  
+  // Same for RPC
+  asp::RPCModel const* rpc_cam
+     = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(cam));
+  if (rpc_cam != NULL) 
+     return rpc_cam->datum();  
+  
+  // TODO(oalexan1): Need to find a systematic way of handling all
+  // these cases.
+      
   // Otherwise guess the datum based on the camera position.
   // If no luck, it will return the default WGS84 datum.
   // TODO(oalexan1): This may result in a bad datum for other planets.
@@ -324,7 +340,7 @@ vw::cartography::GeoReference StereoSession::get_georef() {
 
   bool has_datum = false;
   vw::cartography::Datum datum;
-  if (!stereo_settings().correlator_mode && !asp::stereo_settings().no_datum) {
+  if (!stereo_settings().correlator_mode) {
     has_datum = true;
     vw::CamPtr cam = this->camera_model(m_left_image_file, m_left_camera_file);
     // Spherical datum for non-Earth, as done usually. Used
@@ -335,8 +351,9 @@ vw::cartography::GeoReference StereoSession::get_georef() {
 
   // Sanity check
   if (has_georef && has_datum) {
-    // For pinhole the guessed datum may be unreliable, so warn only
-    bool warn_only = (this->name().find("pinhole") != std::string::npos);
+    // This check is very important, as it prevents a mixup of datums from 
+    // different planets. The guessed datum may be unreliable, so always warn only. 
+    bool warn_only = true;
     vw::checkDatumConsistency(georef.datum(), datum, warn_only);
   }
   

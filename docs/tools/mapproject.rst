@@ -55,6 +55,7 @@ are used.
 For other Earth datums and other planetary bodies, the automatic determination
 produces a local stereographic projection. The projection center is found
 by a median calculation based on of a sample of image pixels.
+Or consider using the cylindrical equal area projection.
 
 To ensure the automatic projection determination is always invoked, overriding
 all other cases from above, use ``--t_srs auto``.
