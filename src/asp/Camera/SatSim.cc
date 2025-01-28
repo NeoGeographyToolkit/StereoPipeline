@@ -1151,8 +1151,25 @@ void perturbCameras(SatSimOptions const& opt,
     
     // Will save the camera with the output prefix
     std::string camName = opt.out_prefix + "-" + fs::path(cam_names[i]).filename().string();
-    vw::vw_out() << "Writing: " << camName << "\n";
-    pin->write(camName);
+    
+    if (!opt.save_as_csm) {
+      // Save the camera as pinhole
+      vw::vw_out() << "Writing: " << camName << "\n";
+      pin->write(camName);
+    } else {
+      // Save as CSM
+      asp::CsmModel * csmPtr = new asp::CsmModel;
+      vw::cartography::Datum d = georef.datum();
+      csmPtr->createFrameModel(*pin,
+                               opt.image_size[0], opt.image_size[1],
+                               d.semi_major_axis(), d.semi_minor_axis());
+      cams[i] = vw::CamPtr(csmPtr); // will own this pointer
+      
+      // Replace extension with .json
+      camName = fs::path(camName).replace_extension(".json").string();
+      vw::vw_out() << "Writing: " << camName << "\n";
+      csmPtr->saveState(camName);
+    }
  
     out_cam_names[i] = camName;
     

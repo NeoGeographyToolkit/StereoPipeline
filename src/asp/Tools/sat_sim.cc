@@ -230,7 +230,7 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
     vw::vw_out() << "Will model time as a rig was specified.\n";
   }
 
-  if (!have_rig && !opt.perturb_cameras) {  
+  if (!have_rig && (!opt.perturb_cameras || opt.save_as_csm)) {
     if (std::isnan(opt.image_size[0]) || std::isnan(opt.image_size[1]))
       vw::vw_throw(vw::ArgumentErr() << "The image size must be specified.\n");
     if (opt.image_size[0] <= 1 || opt.image_size[1] <= 1)

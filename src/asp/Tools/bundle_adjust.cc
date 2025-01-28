@@ -1435,6 +1435,9 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "Save .vwip files (intermediate files for creating .match files). For "
      "parallel_bundle_adjust these will be saved in subdirectories, as they depend on the "
      "image pair. Must start with an empty output directory for this to work.")
+    ("ip-nodata-radius",          po::value(&opt.ip_nodata_radius)->default_value(4),
+     "Remove IP near nodata with this radius, in pixels.")
+    
     ("vwip-prefix",  po::value(&opt.vwip_prefix),
      "Save .vwip files with this prefix. This is a private option used by parallel_bundle_adjust.")
     ("ip-debug-images",

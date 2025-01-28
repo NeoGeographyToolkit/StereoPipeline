@@ -47,7 +47,7 @@ struct BaOptions: public asp::BaBaseOptions {
   int ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, 
-    auto_overlap_buffer, pct_for_overlap, min_distortion;
+    auto_overlap_buffer, pct_for_overlap, min_distortion, ip_nodata_radius;
   bool skip_rough_homography, enable_rough_homography, disable_tri_filtering,
     enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
     force_reuse_match_files, no_poses_from_nvm, save_cnet_as_csv, aster_use_csm;

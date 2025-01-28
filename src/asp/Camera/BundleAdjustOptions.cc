@@ -61,6 +61,8 @@ void BaOptions::copy_to_asp_settings() const {
   asp::stereo_settings().ip_normalize_tiles         = ip_normalize_tiles;
   asp::stereo_settings().flann_method               = flann_method;
   asp::stereo_settings().propagate_errors           = propagate_errors;
+  asp::stereo_settings().ip_nodata_radius           = ip_nodata_radius;
+  
   // The setting below is not used, but populate it for completeness
   asp::stereo_settings().horizontal_stddev          = vw::Vector2(horizontal_stddev,
                                                                   horizontal_stddev);
