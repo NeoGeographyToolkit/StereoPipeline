@@ -1540,6 +1540,9 @@ Command-line options
     ``kmeans`` for 25,000 features or less and ``kdtree`` otherwise. This does
     not apply to ORB feature matching.
 
+--ip-nodata-radius <integer (default: 4)>
+    Remove IP near nodata with this radius, in pixels.
+
 --save-vwip
     Save .vwip files (intermediate files for creating .match
     files). For ``parallel_bundle_adjust`` these will be saved in

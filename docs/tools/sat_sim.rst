@@ -584,6 +584,9 @@ The list of written cameras is saved in a file named ``run/run-cameras.txt``.
 That list can be passed to ``bundle_adjust`` (:numref:`bundle_adjust`) and
 ``jitter_solve`` (:numref:`jitter_solve`).
 
+To save the perturbed cameras in CSM model state format, add the option
+``--save-as-csm`` and specify the image dimensions (``--image-size``).
+
 .. _roll_pitch_yaw_def:
 
 Roll, pitch, and yaw
