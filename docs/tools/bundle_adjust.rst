@@ -1266,6 +1266,10 @@ Command-line options
 --heights-from-dem-uncertainty <double (default: 10.0)>
     The DEM uncertainty (1 sigma, in meters). A smaller value constrains more the
     triangulated points to the DEM specified via ``--heights-from-dem``.
+    The discrepancy between a triangulated point and corresponding point on the 
+    DEM is divided by this uncertainty to make it dimensionless, before being
+    added to the cost function (:numref:`how_ba_works`). See also 
+    ``--heights-from-dem-robust-threshold``.
 
 --heights-from-dem-robust-threshold <double (default: 0.1)> 
     The robust threshold to use keep the triangulated points close to the DEM if

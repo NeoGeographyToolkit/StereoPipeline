@@ -630,6 +630,10 @@ vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
                                 vw::Vector3   const& curr_proj, // curr proj camera pos
                                 double signed_dist) { // distance from ref_proj
 
+  // Seed the random number generator. This will be reproducible each time the
+  // program is run, but will be different for each set of input cameras.
+  srand(vw::math::norm_2(curr_proj));
+  
   double height_above_datum = curr_proj[2]; // curr satellite height
   vw::Vector3 amp(0, 0, 0);
 
@@ -657,8 +661,12 @@ vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
         a = a * 180.0 / M_PI;
       }
       
-      // Compute the jitter, in degrees. Add the phase.
-      amp[c] += a * sin(signed_dist * 2.0 * M_PI / T + opt.jitter_phase[index]);
+      // Compute the jitter, in degrees. Add the phase. For a random perturbation
+      // make it between -a and a.
+      if (!opt.random_pose_perturbation)
+        amp[c] += a * sin(signed_dist * 2.0 * M_PI / T + opt.jitter_phase[index]);
+      else 
+        amp[c] += a * (2 * double(rand())/double(RAND_MAX) - 1.0);
     }
 
   } // End loop through frequencies
