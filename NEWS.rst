@@ -47,7 +47,7 @@ image_calc (:numref:`image_calc`):
 sat_sim (:numref:`sat_sim`):
   * Added the option ``--rig-sensor-rotation-angles``, to be able to produce
     a rig to desired specifications (:numref:`sat_sim_rig_adjust`).
-  * Can apply a periodic or random perturbation to poses of given cameras
+  * Can apply a periodic or random perturbation to given cameras
     (:numref:`sat_sim_perturb`).
 
   * Added the option ``--blur-sigma``, to blur the simulated images. This can

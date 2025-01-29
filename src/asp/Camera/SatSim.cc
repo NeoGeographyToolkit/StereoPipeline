@@ -632,7 +632,8 @@ vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
 
   // Seed the random number generator. This will be reproducible each time the
   // program is run, but will be different for each set of input cameras.
-  srand(vw::math::norm_2(curr_proj));
+  if (opt.random_pose_perturbation)
+    srand(vw::math::norm_2(curr_proj));
   
   double height_above_datum = curr_proj[2]; // curr satellite height
   vw::Vector3 amp(0, 0, 0);
@@ -1148,7 +1149,9 @@ void perturbCameras(SatSimOptions const& opt,
       orbitLen += calcOrbitLength(prev_proj_ctr, curr_proj_ctr, georef);
     
     // Jitter amplitude at the current location
-    vw::Vector3 jitter_amp = calcJitterAmplitude(opt, curr_proj_ctr, orbitLen);
+    vw::Vector3 jitter_amp(0, 0, 0);
+    if (std::isnan(opt.random_position_perturbation))
+      jitter_amp = calcJitterAmplitude(opt, curr_proj_ctr, orbitLen);
 
     // The jitter vibration is applied to the camera in the satellite frame
     vw::Matrix3x3 R_rpy = asp::rollPitchYaw(jitter_amp[0], jitter_amp[1], jitter_amp[2]);
@@ -1156,6 +1159,18 @@ void perturbCameras(SatSimOptions const& opt,
     
     // Replace the camera rotation
     pin->set_camera_pose(cam2world);
+    
+    if (!std::isnan(opt.random_position_perturbation)) {
+      // Seed the random number generator to ensure being in a different location
+      // in orbit results in a different perturbation for same camera index.
+      srand(vw::math::norm_2(curr_proj_ctr));
+      vw::Vector3 perturbation;
+      for (int c = 0; c < 3; c++)
+        perturbation[c] = (2 * double(rand())/double(RAND_MAX) - 1.0) 
+                          * opt.random_position_perturbation;
+      
+      pin->set_camera_center(cam_ctr + perturbation);
+    }
     
     // Will save the camera with the output prefix
     std::string camName = opt.out_prefix + "-" + fs::path(cam_names[i]).filename().string();

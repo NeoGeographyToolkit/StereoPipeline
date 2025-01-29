@@ -175,6 +175,9 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
        po::bool_switch(&opt.random_pose_perturbation)->default_value(false)->implicit_value(true),
        "Apply a random pose perturbation to existing cameras, with the amplitude " 
        "specified by --horizontal-uncertainty.")
+     ("random-position-perturbation", po::value(&opt.random_position_perturbation)->default_value(NaN),
+      "Apply a random position perturbation to existing camera centers, with the given "
+      "magnitude, in meters.")
      ("dem-height-error-tol", po::value(&opt.dem_height_error_tol)->default_value(0.001),
       "When intersecting a ray with a DEM, use this as the height error tolerance "
       "(measured in meters). It is expected that the default will be always good enough.")
@@ -212,8 +215,16 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
   // Some functions use google logging
   google::InitGoogleLogging(argv[0]);
 
-  bool have_perturb = opt.perturb_cameras || opt.random_pose_perturbation;
+  bool have_perturb = opt.perturb_cameras || opt.random_pose_perturbation ||
+                      !std::isnan(opt.random_position_perturbation);
   
+  // Only one of the three options above must be set
+  if (int(opt.perturb_cameras) + int(opt.random_pose_perturbation) +
+      int(!std::isnan(opt.random_position_perturbation)) > 1)
+    vw::vw_throw(vw::ArgumentErr() << "Only one of --perturb-cameras, "
+                 "--random-pose-perturbation, and --random-position-perturbation "
+                 "can be set.\n");
+    
   if (opt.dem_file == "")
     vw::vw_throw(vw::ArgumentErr() << "Missing input DEM.\n");
     
@@ -343,20 +354,22 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
     vw::vw_throw(vw::ArgumentErr() 
       << "Cannot specify both jitter uncertainty and jitter amplitude.\n");
 
-  bool model_jitter = (!std::isnan(opt.jitter_frequency[0]) || have_perturb);
+  bool have_pose_perturb = opt.random_pose_perturbation || opt.perturb_cameras;
+  bool model_jitter = (!std::isnan(opt.jitter_frequency[0]) || have_pose_perturb);
   if (model_jitter) {
 
     bool have_roll_pitch_yaw = !std::isnan(opt.roll) && !std::isnan(opt.pitch) &&
       !std::isnan(opt.yaw);
-    if (!have_roll_pitch_yaw && !have_perturb)
+    if (!have_roll_pitch_yaw && !have_pose_perturb)
       vw::vw_throw(vw::ArgumentErr() << "Modelling jitter requires specifying --roll, --pitch, and --yaw.\n");
     
-    if (opt.camera_list != "" && !have_perturb)
+    if (opt.camera_list != "" && !have_pose_perturb)
       vw::vw_throw(vw::ArgumentErr() << "The --camera-list option must not be set "
         << "when modeling jitter.\n");
 
     // See if the user specified either horizontal uncertainty or jitter amplitude
-    if (opt.horizontal_uncertainty_str.empty() && opt.jitter_amplitude_str.empty()) 
+    if (opt.horizontal_uncertainty_str.empty() && opt.jitter_amplitude_str.empty() &&
+        std::isnan(opt.random_position_perturbation))
       vw::vw_throw(vw::ArgumentErr() << "Must specify either horizontal uncertainty "
         << "or jitter amplitude.\n");
 
@@ -383,7 +396,8 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
 
     // Check that all jitter frequencies are not NaN and positive
     for (size_t i = 0; i < opt.jitter_frequency.size(); i++) {
-      if (std::isnan(opt.jitter_frequency[i]) && !opt.random_pose_perturbation)
+      if (std::isnan(opt.jitter_frequency[i]) && !opt.random_pose_perturbation &&
+          std::isnan(opt.random_position_perturbation))
         vw::vw_throw(vw::ArgumentErr() << "The jitter frequency must be specified.\n");
       if (opt.jitter_frequency[i] <= 0)
         vw::vw_throw(vw::ArgumentErr() << "The jitter frequency must be positive.\n");
@@ -495,7 +509,8 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
       vw::vw_throw(vw::ArgumentErr() 
                    << "Must set the jitter frequency to perturb cameras.\n");
     
-    if (std::isnan(opt.velocity) || opt.velocity <= 0.0)
+    if ((std::isnan(opt.velocity) || opt.velocity <= 0.0) && 
+        std::isnan(opt.random_position_perturbation))
       vw::vw_throw(vw::ArgumentErr() << "The satellite velocity must be set and positive if "
                    << "perturbing existing cameras.\n");
   
@@ -528,7 +543,8 @@ int main(int argc, char *argv[]) {
     vw::ImageViewRef<vw::PixelMask<float>> ortho;
     float ortho_nodata_val = -std::numeric_limits<float>::max(); // will change
     vw::cartography::GeoReference ortho_georef;
-    bool have_perturb = opt.perturb_cameras || opt.random_pose_perturbation;
+    bool have_perturb = opt.perturb_cameras || opt.random_pose_perturbation ||
+                        !std::isnan(opt.random_position_perturbation);
 
     if (!have_perturb)
       vw::cartography::readGeorefImage(opt.ortho_file, ortho_nodata_val, ortho_georef, ortho);
