@@ -141,6 +141,7 @@ dem_mosaic (:numref:`dem_mosaic`):
     (:numref:`dem_mosaic_external_weights`).
   * Renamed the option ``--dem-list-file`` to ``--dem-list``. The old option
     is kept for backward compatibility.
+  * Can handle DEMs with NaN values.
 
 misc:
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and

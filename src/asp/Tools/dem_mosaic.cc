@@ -613,7 +613,7 @@ void processDemTile(Options const& opt,
         // In these cases, the saved weight will be 1 or 0, since either
         // a given DEM gives it all, or nothing at all.
         if (opt.save_dem_weight >= 0 && (opt.first || opt.last ||
-                                        opt.min   || opt.max))
+                                         opt.min   || opt.max))
           saved_weight(c, r) = (opt.save_dem_weight == dem_iter);
 
         // In these cases, the saved weight will be 1 or 0, since either
@@ -855,7 +855,6 @@ public:
     }
 
     ImageView<double> first_dem;
-    ImageView<double> local_wts_orig;
 
     // Loop through all input DEMs
     for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++) {
@@ -919,15 +918,23 @@ public:
           }
         }
       }
+      
+      // NaN values get set to no-data. This is a bugfix.
+      for (int col = 0; col < dem.cols(); col++) {
+        for (int row = 0; row < dem.rows(); row++) {
+          if (std::isnan(dem(col, row)[0])) {
+            dem(col, row)[0] = nodata_value;
+          }
+        }
+      }
 
       if (m_opt.first_dem_as_reference && dem_iter == 0) {
         //TODO: Should be a function!
         // Convert to the output nodata value
         for (int col = 0; col < first_dem.cols(); col++) {
           for (int row = 0; row < first_dem.rows(); row++) {
-            if (first_dem(col, row) == nodata_value) {
+            if (first_dem(col, row) == nodata_value || std::isnan(first_dem(col, row))) 
               first_dem(col, row) = m_opt.out_nodata_value;
-            }
           }
         }
       }
@@ -976,8 +983,7 @@ public:
       ImageView<double> local_wts
        = grassfire(notnodata(select_channel(dem, 0), nodata_value),
                    m_opt.no_border_blend);
-       
-      local_wts_orig = local_wts;
+
       if (m_opt.use_centerline_weights) {
         // Erode based on grassfire weights, and then overwrite the grassfire
         // weights with centerline weights
