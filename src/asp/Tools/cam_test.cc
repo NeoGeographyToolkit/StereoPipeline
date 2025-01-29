@@ -176,8 +176,11 @@ void testErrorPropagation(Options const& opt,
 
     // Shoot a ray from the cam1 camera, intersect it with the
     // given height above datum
-    triPt = vw::cartography::datum_intersection(major_axis, minor_axis,
-                                                      cam1_ctr, cam1_dir);
+    triPt = vw::cartography::datum_intersection(major_axis, minor_axis, cam1_ctr, cam1_dir);
+    
+    // Skip invalid intersections
+    if (triPt == Vector3(0, 0, 0))
+      continue;
 
     // Project to second camera
     pix2 = cam2_model->point_to_pixel(triPt);
@@ -387,6 +390,10 @@ void run_cam_test(Options & opt) {
         // camera.
         Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
                                                           cam1_ctr, cam1_dir);
+        // Skip invalid intersections
+        if (xyz == Vector3(0, 0, 0))
+          continue;
+          
         Vector2 cam2_pix = cam2_model->point_to_pixel(xyz);
         cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
 
@@ -406,6 +413,10 @@ void run_cam_test(Options & opt) {
         // cam1 camera.
         xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
                                                   cam2_ctr, cam2_dir);
+        // Skip invalid intersections
+        if (xyz == Vector3(0, 0, 0))
+          continue;
+          
         Vector2 cam1_pix = cam1_model->point_to_pixel(xyz);
         cam2_to_cam1_diff.push_back(norm_2(image_pix - cam1_pix));
 
