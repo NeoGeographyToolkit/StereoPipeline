@@ -304,7 +304,7 @@ camera. See :numref:`ba_options` for usage.
 
 When using hard constraints in bundle adjustment, caution should be exercised as
 they can impact the optimization process. It is not recommended to set
-uncertainties below 0.2 meters, as this may result in slow convergence or even
+uncertainties below 1 meter, as this may result in slow convergence or even
 failure to converge. It is better be generous with the uncertainties in either
 case.
 

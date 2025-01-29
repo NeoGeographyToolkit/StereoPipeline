@@ -154,7 +154,7 @@ than ``bundle_adjust``, as there are very many pairs of images to match.
     --tri-weight 0.1                          \
     --tri-robust-threshold 0.1                \
     --rotation-weight 0                       \
-    --camera-position-weight 1000             \
+    --camera-position-weight 0                \
     --auto-overlap-params "ref.tif 15"        \
     --min-matches 5                           \
     --remove-outliers-params '75.0 3.0 20 20' \
@@ -170,17 +170,19 @@ validate the created cameras.
 See :numref:`pbs_slurm` for more details on running ASP tools on multiple
 machines. 
 
-The ``--tri-weight`` option (:numref:`ba_ground_constraints`) prevents the
-cameras from moving too much (a lower weight value will constrain less). The
-value of ``--tri-robust-threshold`` (0.1) is intentionally set to be less than
-the one used for ``--robust-threshold`` (0.5) to ensure pixel reprojection
-errors are always given a higher priority than triangulation errors. 
-
-The ``--camera-position-weight`` value was set to a large number to keep the
-camera positions fixed  during bundle adjustment. This is important as 
+The ``--camera-position-weight`` can be set to a large number to keep the
+camera positions move little during bundle adjustment. This is important if 
 it is assumed that the camera positions are already accurate and it is desired
 to only refine the camera orientations. Such a constraint can prevent bundle
 adjustment from converging to a solution, so should be used with great care.
+See :numref:`ba_cam_constraints`.
+
+The ``--tri-weight`` option (:numref:`ba_ground_constraints`) prevents the
+triangulated points from moving too much (a lower weight value will constrain
+less). The value of ``--tri-robust-threshold`` (0.1) is intentionally set to be
+less than the one used for ``--robust-threshold`` (0.5) to ensure pixel
+reprojection errors are always given a higher priority than triangulation
+errors. See :numref:`ba_ground_constraints`.
 
 The ``--rotation-weight`` value was set to 0, so the camera orientations can
 change with no restrictions. See :numref:`ba_cam_constraints` for a discussion
@@ -237,7 +239,7 @@ Use ``stereo_gui`` to inspect the reprojection errors in the final
    the Skysat triplet). Plotted with ``orbit_plot.py`` (:numref:`orbit_plot`). The
    best linear fit of this data before bundle adjustment was subtracted to
    emphasize the differences, which are very small. The cameras centers were
-   very constrained and did not change. Yet, see
+   *tightly constrained* here with a large camera position weight. Yet, see
    :numref:`skysat_stereo_grand_mesa_pointmap` for the effect on the
    reprojection errors.
 
