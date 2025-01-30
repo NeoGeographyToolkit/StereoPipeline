@@ -483,10 +483,10 @@ can experiment on a clip with values of 5 and 10 for sigma, for example.
 Grid size and projection
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-It is very important to specify the *same* grid size (ground sample distance)
-and projection string when mapprojecting the images (options ``--tr`` and
-``--t_srs`` for ``mapproject``, :numref:`mapproject`), to avoid big search range
-issues later in correlation.
+It is very important to specify the *same* grid size (ground sample distance,
+ground resolution) and projection string when mapprojecting the images (options
+``--tr`` and ``--t_srs`` for ``mapproject``, :numref:`mapproject`), to avoid big
+search range issues later in correlation.
 
 Normally, ``mapproject`` is rather good at auto-guessing the resolution,
 so this tool can be invoked with no specification of the resolution 
@@ -494,7 +494,7 @@ for the left image, then then ``gdalinfo`` can be used to find
 the obtained pixel size, and that value can be used with the right image.
 
 In the latest build ASP, these quantities can be borrowed from the first 
-image with the option ``--ref-map`` (:numref:`mapproj_refmap`).
+mapprojected image with the option ``--ref-map`` (:numref:`mapproj_refmap`).
 
 Invoking ``mapproject`` with the ``--query-projection`` option will print the
 estimated ground sample distance (output pixel size) without doing the
