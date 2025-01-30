@@ -125,6 +125,11 @@ namespace asp {
                           std::string const& distortionType = "", 
                           std::vector<double> const& distortion = std::vector<double>());
 
+    // Approximate conversion to a pinhole model. Will be exact only for the rad-tan
+    // lens distortion and no unusual line or sample adjustments in CSM. Compare
+    // these with cam_test.
+    vw::camera::PinholeModel pinhole() const;
+    
     // Sun position in ECEF
     vw::Vector3 sun_position() const;
 

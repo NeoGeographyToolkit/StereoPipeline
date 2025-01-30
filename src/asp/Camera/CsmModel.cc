@@ -22,6 +22,7 @@
 #include <asp/Camera/CsmUtils.h>
 
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Camera/LensDistortion.h>
 
 #include <boost/dll.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
@@ -955,6 +956,58 @@ void CsmModel::createFrameModel(vw::camera::PinholeModel const& pin_model,
                          pin_model.camera_center(), 
                          pin_model.get_rotation_matrix(),
                          distortionType, distortion);
+}
+
+// Approximate conversion to a pinhole model. Will be exact only for the radtan
+// lens distortion and no unusual line or sample adjustments in CSM. Compare
+// these with cam_test.
+vw::camera::PinholeModel CsmModel::pinhole() const {
+  
+  // Camera center
+  double x = 0, y = 0, z = 0;
+  this->frame_position(x, y, z);
+  vw::Vector3 cam_ctr(x, y, z);
+  
+  // Camera orientation
+  double qx = 0, qy = 0, qz = 0, qw = 0;
+  this->frame_quaternion(qx, qy, qz, qw);
+  Eigen::Quaterniond q(qw, qx, qy, qz);
+  Eigen::Matrix3d R = q.toRotationMatrix();
+  vw::Matrix3x3 cam_rot;
+  for (int r = 0; r < 3; r++)
+    for (int c = 0; c < 3; c++)
+      cam_rot(r, c) = R(r, c);
+  
+  // Focal length and optical center
+  double f = this->focal_length();
+  vw::Vector2 optical_center = this->optical_center();
+
+  // Create a pinhole model with zero distortion
+  double pitch = 1.0;
+  vw::camera::PinholeModel pin(cam_ctr, cam_rot, f, f, 
+                               optical_center[0], optical_center[1],
+                               NULL, pitch);
+
+  // Distortion
+  DistortionType dist_type = this->distortion_type();
+  if (dist_type == DistortionType::RADTAN) {
+
+    // Must have 5 coefficients
+    std::vector<double> dist = this->distortion();
+    if (dist.size() != 5)
+      vw_throw(ArgumentErr() << "Expected 5 distortion coefficients for radtan model.\n");
+
+    // Copy to VW vector
+    vw::Vector<double> coeffs;
+    coeffs.set_size(dist.size());
+    for (size_t i = 0; i < dist.size(); i++)
+      coeffs[i] = dist[i];
+      
+    vw::camera::TsaiLensDistortion distModel(coeffs);
+    pin.set_lens_distortion(&distModel);
+  }
+  
+  return pin;
 }
 
 // Must have some macros here to avoid a lot of boilerplate code
