@@ -133,7 +133,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to "
      "accept this point as valid. It must be a positive value.")
     ("max-initial-reprojection-error", 
-     po::value(&opt.max_init_reproj_error)->default_value(10),
+     po::value(&opt.max_init_reproj_error)->default_value(20),
      "Filter as outliers triangulated points project using initial cameras with error more "
      "than this, measured in pixels. Since jitter corrections are supposed to be small and "
      "cameras bundle-adjusted by now, this value need not be too big. Does not apply to "
@@ -1040,7 +1040,7 @@ void jitterSolvePass(int                                 pass,
     asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
     vw::checkDatumConsistency(opt.datum, dem_georef.datum(), warn_only);
     asp::update_tri_pts_from_dem(cnet, crn, outliers, opt.camera_models,
-                               dem_georef, interp_dem,  
+                               dem_georef, interp_dem,
                                // Output
                                dem_xyz_vec);
   }

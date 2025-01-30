@@ -800,7 +800,7 @@ Solve for jitter::
       --match-files-prefix dense/run          \
       --num-iterations 20                     \
       --max-pairwise-matches 100000           \
-      --max-initial-reprojection-error 10     \
+      --max-initial-reprojection-error 20     \
       --tri-weight 0.1                        \
       --tri-robust-threshold 0.1              \
       --num-lines-per-position    200         \
@@ -1748,7 +1748,7 @@ suggested:
   as that will be almost all of them.
 - Be generous with outlier filtering when there is a lot of jitter. Use,
   for example, ``--remove-outliers-params '75.0 3.0 10 10'`` in ``bundle_adjust``
-  and ``--max-initial-reprojection-error 10`` in ``jitter_solve``.
+  and ``--max-initial-reprojection-error 20`` in ``jitter_solve``.
 - The option ``--heights-from-dem`` should be used (:numref:`heights_from_dem`). 
 - Use ``--match-files-prefix`` instead of ``--clean-match-files-prefix`` in
   ``jitter_solve``, as maybe bundle adjustment filtered out too many good matches
@@ -2157,7 +2157,7 @@ Command-line options for jitter_solve
     NVM format. This can be used with any images and cameras supported by ASP.
     Camera poses will not be read from the NVM file.
     
---max-initial-reprojection-error <integer (default: 10)> 
+--max-initial-reprojection-error <integer (default: 20)> 
     Filter as outliers triangulated points project using initial cameras with 
     error more than this, measured in pixels. Since jitter corrections are 
     supposed to be small and cameras bundle-adjusted by now, this value 
