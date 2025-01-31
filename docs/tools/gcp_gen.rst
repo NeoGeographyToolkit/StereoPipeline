@@ -50,6 +50,9 @@ also with more interest points per tile::
 
 In some cases, ``--ip-detect-method 2`` (ORB) worked out better than SIFT.
 
+This program produces a match file at the output prefix location, which will
+be reused next time the program is run with the same inputs. 
+
 Advanced usage
 ~~~~~~~~~~~~~~
 
@@ -68,6 +71,11 @@ shared area.
 
 If the camera image and orthoimage have very different ranges of pixel values,
 use the option ``--individual-normalize``.
+
+A match file for this program, between the mapprojected image and orthoimage,
+can be produced with dense stereo correlation (:numref:`correlator-mode`). If
+renamed to follow the naming convention (:numref:`ba_match_files`), it will be
+picked up by this program.
 
 If no luck, manual selection of interest points can be invoked
 (:numref:`creatinggcp`).
