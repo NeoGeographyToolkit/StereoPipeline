@@ -20,7 +20,6 @@
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Image/ImageViewBase.h>
-#include <vw/Image/MaskViews.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/InterestPoint/InterestData.h>

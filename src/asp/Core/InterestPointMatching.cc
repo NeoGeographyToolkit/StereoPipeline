@@ -20,6 +20,7 @@
 #include <vw/InterestPoint/InterestPointUtils.h>
 #include <vw/Math/GaussianClustering.h>
 #include <vw/Math/RANSAC.h>
+#include <vw/Image/MaskViews.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Mosaic/ImageComposite.h>

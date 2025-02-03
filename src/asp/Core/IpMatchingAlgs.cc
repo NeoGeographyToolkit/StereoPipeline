@@ -115,6 +115,27 @@ void compute_ip_LR(std::string const & out_prefix) {
   ImageViewRef<float> left_image  = DiskImageView<float>(left_rsrc);
   ImageViewRef<float> right_image = DiskImageView<float>(right_rsrc);
 
+  // Mask the nodata
+  ImageViewRef<PixelMask<float>> left_masked_image
+    = create_mask(left_image, left_nodata_value);
+  ImageViewRef<PixelMask<float>> right_masked_image
+    = create_mask(right_image, right_nodata_value);
+  
+  // Read the masks
+  std::string left_mask_file  = out_prefix + "-lMask.tif";
+  std::string right_mask_file = out_prefix + "-rMask.tif";
+  ImageViewRef<PixelMask<uint8>> left_mask 
+    = create_mask(DiskImageView<uint8>(left_mask_file), 0);
+  ImageViewRef<PixelMask<uint8>> right_mask
+    = create_mask(DiskImageView<uint8>(right_mask_file), 0);
+    
+  // It is important to apply the masks so that not to find interest points
+  // in areas where the images are invalid.
+  left_masked_image = intersect_mask(left_masked_image, left_mask);
+  right_masked_image = intersect_mask(right_masked_image, right_mask);
+  left_image = apply_mask(left_masked_image, left_nodata_value);
+  right_image = apply_mask(right_masked_image, right_nodata_value);
+  
   // No interest point operations have been performed before
   vw_out() << "\t    * Detecting interest points.\n";
 
