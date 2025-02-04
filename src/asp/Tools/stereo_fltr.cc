@@ -469,14 +469,6 @@ int main(int argc, char* argv[]) {
     vw_out() << "\n[ " << current_posix_time_string()
              << " ]: Stage 4 --> FILTERING\n";
 
-    // This is probably the right place in which to warn the user about
-    // new hole filling behavior.
-    vw_out(WarningMessage)
-      << "Hole-filling is disabled by default in stereo_fltr. "
-      << "It is suggested to use instead point2dem's analogous "
-      << "functionality. It can be re-enabled using "
-      << "--enable-fill-holes." << endl;
-
     stereo_register_sessions();
 
     bool verbose = false;

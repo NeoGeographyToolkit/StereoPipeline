@@ -128,6 +128,12 @@ void compute_ip_LR(std::string const & out_prefix) {
     = create_mask(DiskImageView<uint8>(left_mask_file), 0);
   ImageViewRef<PixelMask<uint8>> right_mask
     = create_mask(DiskImageView<uint8>(right_mask_file), 0);
+   
+  // The logic further down cannot handle NaN, so fix that
+  if (std::isnan(left_nodata_value)) 
+    left_nodata_value = -std::numeric_limits<float>::max();
+  if (std::isnan(right_nodata_value))
+    right_nodata_value = -std::numeric_limits<float>::max();
     
   // It is important to apply the masks so that not to find interest points
   // in areas where the images are invalid.

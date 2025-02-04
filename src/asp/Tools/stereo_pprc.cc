@@ -307,10 +307,10 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     BlobHolder LB, RB;
     if (!std::isnan(left_threshold) && !std::isnan(right_threshold)) {
       ImageViewRef<PixelMask<uint8>> left_thresh_mask
-        = LB.mask_and_fill_holes(left_image,  left_threshold);
+        = LB.mask_and_fill_holes(left_image, left_threshold);
       ImageViewRef<PixelMask<uint8>> right_thresh_mask
         = RB.mask_and_fill_holes(right_image, right_threshold);
-      left_mask  = intersect_mask(left_mask,  left_thresh_mask );
+      left_mask  = intersect_mask(left_mask, left_thresh_mask);
       right_mask = intersect_mask(right_mask, right_thresh_mask);
     }
 
