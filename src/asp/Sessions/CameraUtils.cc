@@ -217,7 +217,7 @@ bool datum_from_camera(std::string const& image_file,
   if (!success && !asp::stereo_settings().no_datum && !stereo_settings().correlator_mode) {
     double cam_center_radius = norm_2(cam->camera_center(vw::Vector2()));
     success = guessDatum(cam_center_radius, datum);
-    if (success) 
+    if (success)
       vw::vw_out() << "Guessed the datum from camera position.\n";
   }
   

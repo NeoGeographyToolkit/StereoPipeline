@@ -310,10 +310,9 @@ void ccd_adjust(std::vector<std::string> const& image_files,
     vw_out() << "Found a valid solution, but did not reach the actual minimum." << std::endl;
   }
 
-  std::cout << "--ofsets: " << std::endl;
-  for (size_t ioff = 0; ioff < ccd_offsets_vec.size(); ioff++) {
-    std::cout << ccd_offsets_vec[ioff] << std::endl;
-  }
+  std::cout << "Offsets:\n";
+  for (size_t ioff = 0; ioff < ccd_offsets_vec.size(); ioff++)
+    std::cout << ccd_offsets_vec[ioff] << "\n";
 
 #if 0
   // Save the adjustments. We will recover them later based on the output prefix.

@@ -1858,10 +1858,12 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
                                                // Outputs
                                                opt.stereo_session, session, cam_datum);
 
-  // Must check the consistency of the datums
-  warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
-  if (have_cam_datum && have_datum)
-    vw::checkDatumConsistency(opt.datum, cam_datum, warn_only);
+  // Must check the consistency of the datums. Skip that for pinhole cameras
+  // if we already have a prior datum, as the result of that could be wrong
+  // and it would just confuse the user.
+  bool have_pinhole = (opt.stereo_session.find("pinhole") != std::string::npos);
+  if (have_cam_datum && have_datum && !have_pinhole)
+    vw::checkDatumConsistency(opt.datum, cam_datum, have_pinhole);
 
   // Otherwise try to set the datum based on cameras. It will not work for Pinhole.
   if (!have_datum && have_cam_datum) {

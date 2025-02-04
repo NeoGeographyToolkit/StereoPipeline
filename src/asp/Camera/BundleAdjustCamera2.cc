@@ -342,14 +342,11 @@ std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
   {
     // Ensure this text is not messed up when writing in parallel
     vw::vw_out() << "Writing: " << cam_file << "\n";
-    vw::vw_out() << "Writing output model: " << out_cam << "\n";
-
     bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
-    if (has_datum) {
+    if (has_datum)
       vw::vw_out() << "Camera center for " << cam_file << ": "
                     << datum.cartesian_to_geodetic(out_cam.camera_center())
                     << " (longitude, latitude, height above datum(m))\n\n";
-    }
   }
     
   out_cam.write(cam_file);
@@ -383,16 +380,12 @@ std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
   #pragma omp critical
   {
     // Ensure this text is not messed up when writing in parallel
-    
     vw::vw_out() << "Writing: " << cam_file << "\n";
-    vw::vw_out() << "Writing output model: " << out_cam << "\n";
-
     bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
-    if (has_datum) {
+    if (has_datum)
       vw::vw_out() << "Camera center for " << cam_file << ": "
                     << datum.cartesian_to_geodetic(out_cam.camera_center())
                     << " (longitude, latitude, height above datum(m))\n\n";
-    }
   }
   
   out_cam.write(cam_file);
