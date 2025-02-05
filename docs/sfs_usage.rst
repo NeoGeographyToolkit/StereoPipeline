@@ -612,7 +612,7 @@ Run stereo and create a DEM::
 This will create a point cloud named ``run_sub10/run-PC.tif`` and
 a DEM ``run_sub10/run-DEM.tif``.
 
-It is strongly suggested to mapproject the bundle-adjusted images
+It is *strongly suggested* to mapproject the bundle-adjusted images
 onto this DEM and verify that the obtained images agree::
 
    for f in A B C D; do 

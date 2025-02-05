@@ -1612,8 +1612,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                 (opt.fill_search_radius > 0) + (opt.erode_len > 0);
   if (num_ops > 1) 
     vw_throw(ArgumentErr() << "Cannot fill holes (based on size or search radius), blur, "
-                           << "and erode the input DEM at the same time.\n" 
-                           << usage << general_options);
+                           << "and erode the input DEM at the same time.\n");
   
   if (num_ops > 0 && 
       (opt.target_srs_string != "" || opt.tr > 0 || opt.dem_files.size() > 1 ||
@@ -1622,9 +1621,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
        << "blur, or erode, if there is more than one input DEM, or reprojection, "
        << "or priority blending is desired. These operations should be done "
        << "one at a time as there may be issues due to the fact each input DEM has "
-       << "its own grid size and also the order of operations.\n"
-       << usage << general_options);
+       << "its own grid size and also the order of operations.\n");
 
+  if (opt.priority_blending_len > 0 &&
+      (opt.tap || opt.force_projwin || !opt.projwin.empty() || !opt.weight_list.empty() ||
+       opt.invert_weights || opt.min_weight > 0 || opt.propagate_nodata || 
+       opt.first_dem_as_reference || !opt.this_dem_as_reference.empty()))
+    vw::vw_throw(vw::ArgumentErr() 
+             << "The option --priority-blending-length should not be mixed with other "
+             << "options. Do each operation individually.\n");
+  
   // print warning usign vw warning message
   if (opt.fill_search_radius > 30)
     vw_out(vw::WarningMessage) << "The fill search radius is large. "
