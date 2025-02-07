@@ -123,9 +123,46 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 }
 
-
 void run_nuth(Options const& opt) {
-  std::cout << "--now in run_nuth\n";
+
+  vw::vw_out() << "Reference DEM: " << opt.ref << "\n";
+  vw::vw_out() << "Source DEM: " << opt.src << "\n";
+  
+  // The ref DEM must have a georeference
+  vw::cartography::GeoReference ref_georef, src_georef;
+  bool has_ref_georef = vw::cartography::read_georeference(ref_georef, opt.ref);
+  bool has_src_georef = vw::cartography::read_georeference(src_georef, opt.src);
+  if (!has_ref_georef || !has_src_georef)
+    vw::vw_throw(vw::ArgumentErr() << "The input DEMs must have georeferences.\n");
+  
+  // The georeferences must be in projected coordinates
+  if (!ref_georef.is_projected() || !src_georef.is_projected())
+    vw::vw_throw(vw::ArgumentErr() 
+      << "The input DEMs must be in a projected coordinate system, in units of meter. "
+      << "Use gdalwarp with the option -r cubic to reproject them. "
+      << "Consider using an equidistant or UTM projection.\n");
+
+  // Reference and source DEM resolutions
+  double ref_tr = ref_georef.transform()(0, 0);
+  double src_tr = src_georef.transform()(0, 0);
+  vw::vw_out() << "Reference DEM grid size: " << ref_tr << " meters.\n";
+  vw::vw_out() << "Source DEM grid size: " << src_tr << " meters.\n";
+
+  // Prefer the reference resolution to be smaller
+  if (ref_tr > src_tr)
+    vw::vw_out(vw::WarningMessage) 
+      << "The reference DEM resolution is larger than the source DEM resolution. "
+      << "This may lead to suboptimal results. It is strongly suggest to swap the "
+      << "reference and source DEMs.\n";
+  
+  // The (1, 1) value in both transforms must be negative, as otherwise this a
+  // non-standard transform that we do not handle.
+  if (ref_georef.transform()(1, 1) >= 0 || src_georef.transform()(1, 1) >= 0)
+    vw::vw_throw(vw::ArgumentErr() 
+      << "The input DEMs must have y direction pointing down, so the second coordinate "
+      << " of the pixel size in the geoheader be negative. The provided input DEMs "
+      << " are not standard and are not supported.\n");
+
 }
 
 int main(int argc, char *argv[]) {
@@ -133,6 +170,9 @@ int main(int argc, char *argv[]) {
   Options opt;
   try {
 
+    // TODO(oalexan1): Need to convert from boost conventions to dem_align.py
+    // conventions. Example: instead of --poly-order use -polyorder, and instead
+    // of --max-offset use -max_offset, etc. 
     handle_arguments(argc, argv, opt);
     run_nuth(opt);
 
