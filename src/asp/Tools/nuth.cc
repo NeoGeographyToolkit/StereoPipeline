@@ -62,19 +62,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("res", po::value(&opt.res)->default_value("mean"),
      "Regrid the input DEMs to this resolution given the resolutions of input datasets. "
      "Options: min, max, mean, common_scale_factor.")
-    ("slope-lim", po::value(&opt.slope_lim)->default_value(vw::Vector2(0.1, 40.0), 
-                                                           "0.1, 40.0"),
+    ("slope-lim", 
+     po::value(&opt.slope_lim)->default_value(vw::Vector2(0.1, 40.0), "0.1, 40.0"),
      "Minimum and maximum surface slope limits to consider (degrees).")
     ("max-iter", po::value(&opt.max_iter)->default_value(30),
      "Maximum number of iterations, if tolerance is not reached.")
-    ("help,h", "Display this help message.")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   po::positional_options_description positional_desc;
 
-  std::string usage("");
+  std::string usage("-r ref_dem.tif -s src_dem.tif -o output_prefix [options]\n");
 
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
@@ -83,10 +82,40 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
+  // On failure print the usage as well, for when the command is called with no
+  // arguments.
   if (opt.out_prefix == "")
     vw::vw_throw(vw::ArgumentErr() << "The output prefix was not set.\n"
              << usage << general_options);
 
+  // The ref and src DEMs must be provided.
+  if (opt.ref == "" || opt.src == "")
+    vw::vw_throw(vw::ArgumentErr() << "The reference and source DEMs must be provided.\n");
+
+  // The poly order must be positive.
+  if (opt.poly_order < 1)
+    vw::vw_throw(vw::ArgumentErr() << "The polynomial order must be at least 1.\n");
+  
+  // The tol must be positive.
+  if (opt.tol <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "The tolerance must be positive.\n");
+  
+  // Max offset must be positive. Same with max_dz.
+  if (opt.max_offset <= 0.0 || opt.max_dz <= 0.0)
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "The maximum horizontal and vertical offsets must be positive.\n");
+
+  // Check that res is one of the allowed values.
+  if (opt.res != "min" && opt.res != "max" && opt.res != "mean" &&
+      opt.res != "common_scale_factor")
+    vw::vw_throw(vw::ArgumentErr() << "Unknown value for --res: " << opt.res << ".\n");
+  
+  // Check that slope limits are positive and in the right order.
+  if (opt.slope_lim[0] <= 0.0 || opt.slope_lim[1] <= 0.0 || 
+      opt.slope_lim[0] >= opt.slope_lim[1])
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "The slope limits must be positive and in increasing order.\n");
+    
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -95,7 +124,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 }
 
 
-void run_nuth(Options & opt) {
+void run_nuth(Options const& opt) {
   std::cout << "--now in run_nuth\n";
 }
 
