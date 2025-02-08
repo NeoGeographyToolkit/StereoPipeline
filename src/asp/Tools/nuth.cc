@@ -15,13 +15,23 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// C++ implementation of the Nuth and Kaab alginment method from:
+// C++ implementation of the Nuth and Kaab alignment method from:
 // https://github.com/dshean/demcoreg/tree/master
+
+// TODO(oalexan1): Implement tilt correction.
+// TODO(oalexan1): For now the algo is reimplemented precisely. Later we can
+// deal with improvements.
+// TODO(oalexan1): It is assumed both input DEMs are equally dense. The work
+// will happen in the source DEM domain. Later we can deal with the case when
+// we want it done in the reference DEM domain. This is temporary.
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/DemUtils.h>
 
+#include <vw/Cartography/GeoTransform.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Exception.h>
 #include <vw/Core/Stopwatch.h>
 
@@ -126,7 +136,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 void run_nuth(Options const& opt) {
 
   vw::vw_out() << "Reference DEM: " << opt.ref << "\n";
-  vw::vw_out() << "Source DEM: " << opt.src << "\n";
+  vw::vw_out() << "Source DEM:    " << opt.src << "\n";
   
   // The ref DEM must have a georeference
   vw::cartography::GeoReference ref_georef, src_georef;
@@ -141,6 +151,16 @@ void run_nuth(Options const& opt) {
       << "The input DEMs must be in a projected coordinate system, in units of meter. "
       << "Use gdalwarp with the option -r cubic to reproject them. "
       << "Consider using an equidistant or UTM projection.\n");
+
+  // We don't support datum changes
+  if (std::abs(ref_georef.datum().semi_major_axis()
+               - src_georef.datum().semi_major_axis()) > 0.1 ||
+      std::abs(ref_georef.datum().semi_minor_axis()
+               - src_georef.datum().semi_minor_axis()) > 0.1 ||
+      ref_georef.datum().meridian_offset() != src_georef.datum().meridian_offset())
+    vw::vw_throw(vw::NoImplErr() 
+                 << "The input DEMs must have the same datum radii and meridian "
+                 << "Use gdalwarp -r cubic to reproject to a shared datum.");
 
   // Reference and source DEM resolutions
   double ref_tr = ref_georef.transform()(0, 0);
@@ -163,6 +183,68 @@ void run_nuth(Options const& opt) {
       << " of the pixel size in the geoheader be negative. The provided input DEMs "
       << " are not standard and are not supported.\n");
 
+  // Read the DEMs and their no-data values as double
+  vw::DiskImageResourceGDAL ref_rsrc(opt.ref), src_rsrc(opt.src);
+  double ref_nodata = -std::numeric_limits<double>::max();
+  double src_nodata = ref_nodata;
+  if (ref_rsrc.has_nodata_read())
+    ref_nodata = ref_rsrc.nodata_read();
+  if (src_rsrc.has_nodata_read())
+    src_nodata = src_rsrc.nodata_read(); 
+  vw:: DiskImageView<double> ref_dem(ref_rsrc), src_dem(src_rsrc);
+  
+  // Copying verbatim from dem_align.py: Use original source dataset coordinate
+  // system. Potentially issues with distortion and xyz/tiltcorr offsets for
+  // DEMs with large extent.
+  // TODO(oalexan1): Here is where dem_align.py starts assuming that 
+  // one works in the source DEM domain. 
+  vw::cartography::GeoReference local_georef = src_georef;
+  std::string local_srs = local_georef.get_wkt();
+  std::cout << "--> Using local SRS: " << local_srs << std::endl; 
+
+  // Transform the second DEM's bounding box to first DEM's pixels
+  vw::BBox2i src_crop_box = bounding_box(src_dem);
+  vw::cartography::GeoTransform gt(ref_georef, src_georef);
+  vw::BBox2i ref2src_box = gt.forward_bbox(bounding_box(ref_dem));
+  src_crop_box.crop(ref2src_box);
+
+  if (src_crop_box.empty()) 
+    vw::vw_throw(vw::ArgumentErr() << "The two DEMs do not have a common area.\n");
+
+  // Crop the src DEM to the shared box, then transform and crop the ref DEM.
+  // to src DEM domain. Use bicubic interpolation for the transform.
+  // TODO(oalexan1): This will need changing when the grids are not the same.
+  vw::ImageViewRef<vw::PixelMask<double>> src_crop 
+    = vw::crop(create_mask(src_dem, src_nodata), src_crop_box);
+  vw::ImageViewRef<vw::PixelMask<double>> ref_trans 
+    = asp::warpCrop(ref_dem, ref_nodata, src_georef, ref_georef, src_crop_box, 
+                    "bicubic");
+  
+  // Recall that we work in the src domain
+  vw::cartography::GeoReference crop_georef 
+    = vw::cartography::crop(local_georef, src_crop_box);
+  
+  // Write the cropped and warped ref
+  vw::TerminalProgressCallback ref_tpc("asp", ": ");
+  bool has_ref_no_data = true;
+  std::string ref_crop_file = opt.out_prefix + "-ref-crop.tif"; 
+  vw::vw_out() << "Writing: " << ref_crop_file << "\n";
+  vw::cartography::block_write_gdal_image(ref_crop_file,
+                                          vw::apply_mask(ref_trans, ref_nodata),
+                                          has_ref_georef, crop_georef,
+                                          has_ref_no_data, ref_nodata,
+                                          opt, ref_tpc);
+  // Write the cropped src
+  vw::TerminalProgressCallback src_tpc("asp", ": ");
+  bool has_src_no_data = true;
+  std::string src_crop_file = opt.out_prefix + "-src-crop.tif";
+  vw::vw_out() << "Writing: " << src_crop_file << "\n";
+  vw::cartography::block_write_gdal_image(src_crop_file,
+                                          vw::apply_mask(src_crop, src_nodata),
+                                          has_src_georef, crop_georef,
+                                          has_src_no_data, src_nodata,
+                                          opt, src_tpc);
+  
 }
 
 int main(int argc, char *argv[]) {

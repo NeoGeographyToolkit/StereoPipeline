@@ -20,6 +20,9 @@
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/Cartography/PointImageManipulation.h>
+#include <vw/Cartography/GeoTransform.h>
+#include <vw/Image/Filter.h>
 
 namespace fs = boost::filesystem;
 
@@ -225,6 +228,67 @@ void setupOrCheckDem(vw::GdalWriteOptions const& options,
     vw::vw_out() << "Mapprojection DEM for " << tag << " image: " 
       << dem_path << "\n";
   }
+}
+
+// Function to convert a masked geodetic vector to a masked altitude vector.
+// This returns the 3rd component of the input vector while taking into
+// account the mask.
+class MGeodeticToMAltitude: public vw::ReturnFixedType<vw::PixelMask<double>> {
+public:
+  vw::PixelMask<double> operator()(vw::PixelMask<vw::Vector3> const& v) const {
+    if (!vw::is_valid(v))
+      return vw::PixelMask<double>();
+
+    return vw::PixelMask<double>(v.child()[2]);
+  }
+};
+
+// Function to mask NaN pixels 
+class MaskNaN: public vw::ReturnFixedType<vw::PixelMask<double>> {
+public:
+  vw::PixelMask<double> operator()(vw::PixelMask<double> const& v) const {
+    if (!vw::is_valid(v) || std::isnan(v.child()))
+      return vw::PixelMask<double>();
+
+    return v;
+  }
+};
+
+// Given two DEMs, warp the second one to the first one's georef, and crop
+// to a pixel box in first DEM's coordinates.
+vw::ImageViewRef<vw::PixelMask<double>> 
+  warpCrop(vw::ImageViewRef<double> dem2, 
+           double dem2_nodata,
+           vw::cartography::GeoReference const& dem1_georef,
+           vw::cartography::GeoReference const& dem2_georef,
+           vw::BBox2i const& crop_box,
+           std::string const& interp_type) {
+  
+  if (crop_box.empty()) 
+    vw::vw_throw(vw::ArgumentErr() << "The two DEMs do not have a common area.\n");
+  
+  auto masked_dem2 = vw::create_mask(dem2, dem2_nodata);
+  
+  // Prepare the image for applying the geotransform
+  auto dem2_alt = vw::per_pixel_filter(vw::cartography::dem_to_geodetic(masked_dem2, 
+                                                                        dem2_georef),
+                                       MGeodeticToMAltitude());
+  auto ext = vw::ValueEdgeExtension<vw::PixelMask<double>>(vw::PixelMask<double>());
+  
+  vw::ImageViewRef<vw::PixelMask<double>> warped_dem2;
+  if (interp_type == "bilinear") 
+    warped_dem2 = vw::cartography::geo_transform(dem2_alt, dem2_georef, dem1_georef, ext,
+                                                 vw::BilinearInterpolation());
+  else if (interp_type == "bicubic") 
+    warped_dem2 = vw::cartography::geo_transform(dem2_alt, dem2_georef, dem1_georef, ext,
+                                                 vw::BicubicInterpolation());
+  else 
+    vw::vw_throw(vw::ArgumentErr() << "Unknown interpolation type: " << interp_type << ".\n");
+  
+  vw::ImageViewRef<vw::PixelMask<double>> dem2_trans 
+    = vw::per_pixel_filter(vw::crop(warped_dem2, crop_box), MaskNaN());
+  
+  return dem2_trans;
 }
 
 } //end namespace asp

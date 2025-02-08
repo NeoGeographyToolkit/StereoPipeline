@@ -52,6 +52,17 @@ void setupOrCheckDem(vw::GdalWriteOptions const& options,
                      // Outputs
                      std::string & dem_path);
 
+// Given two DEMs, warp the second one to the first one's georef, and crop
+// to a pixel box in first DEM's coordinates.
+vw::ImageViewRef<vw::PixelMask<double>> 
+  warpCrop(vw::ImageViewRef<double> dem2, 
+           double dem2_nodata,
+           vw::cartography::GeoReference const& dem1_georef,
+           vw::cartography::GeoReference const& dem2_georef,
+           vw::BBox2i const& crop_box,
+           std::string const& interp_type);
+
+
 } //end namespace asp
 
 #endif//__CORE_DEM_UTILS_H__

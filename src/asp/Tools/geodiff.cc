@@ -15,12 +15,12 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/DemUtils.h>
+
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/PointImageManipulation.h>
-
 
 using std::endl;
 using std::string;
@@ -33,29 +33,7 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-// Function to convert a masked geodetic vector to a masked altitude vector
-class MGeodeticToMAltitude : public ReturnFixedType<PixelMask<double>> {
-public:
-  PixelMask<double> operator()(PixelMask<Vector3> const& v) const {
-    if (!is_valid(v)) {
-      return PixelMask<double>();
-    }
-    return PixelMask<double>(v.child()[2]);
-  }
-};
-
-// Function to mask NaN pixels 
-class MaskNaN : public ReturnFixedType<PixelMask<double>> {
-public:
-  PixelMask<double> operator()(PixelMask<double> const& v) const {
-    if (!is_valid(v) || std::isnan(v.child())) {
-      return PixelMask<double>();
-    }
-    return v;
-  }
-};
-
-struct Options : vw::GdalWriteOptions {
+struct Options: vw::GdalWriteOptions {
   string dem1_file, dem2_file, output_prefix, csv_format_str, csv_srs, csv_proj4_str;
   double nodata_value;
 
@@ -65,18 +43,18 @@ struct Options : vw::GdalWriteOptions {
 void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
-    ("nodata-value",    po::value(&opt.nodata_value)->default_value(-32768),      
-                        "The no-data value to use, unless present in the DEM geoheaders.")
-    ("output-prefix,o", po::value(&opt.output_prefix),                            
-                        "Specify the output prefix.")
-    ("float", po::bool_switch(&opt.use_float)->default_value(false),    
+    ("nodata-value", po::value(&opt.nodata_value)->default_value(-32768),
+     "The no-data value to use, unless present in the DEM geoheaders.")
+    ("output-prefix,o", po::value(&opt.output_prefix),
+     "Specify the output prefix.")
+    ("float", po::bool_switch(&opt.use_float)->default_value(false),
      "Output using float (32 bit) instead of using doubles (64 bit). This is now "
      "the default, and this option is obsolete.")
-    ("absolute",        po::bool_switch(&opt.use_absolute)->default_value(false), 
+    ("absolute", po::bool_switch(&opt.use_absolute)->default_value(false),
      "Output the absolute difference as opposed to just the difference.")
-    ("csv-format",     po::value(&opt.csv_format_str)->default_value(""),
+    ("csv-format", po::value(&opt.csv_format_str)->default_value(""),
      asp::csv_opt_caption().c_str())
-    ("csv-srs",      po::value(&opt.csv_srs)->default_value(""), 
+    ("csv-srs", po::value(&opt.csv_srs)->default_value(""), 
      "The projection string to use to interpret the entries in input CSV files. If not set, "
      "it will be borrowed from the DEM.")
     ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
@@ -85,8 +63,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description positional("");
   positional.add_options()
-    ("dem1", po::value(&opt.dem1_file), "Explicitly specify the first dem")
-    ("dem2", po::value(&opt.dem2_file), "Explicitly specify the second dem");
+    ("dem1", po::value(&opt.dem1_file), "Explicitly specify the first DEM.")
+    ("dem2", po::value(&opt.dem2_file), "Explicitly specify the second DEM.");
 
   po::positional_options_description positional_desc;
   positional_desc.add("dem1", 1);
@@ -173,36 +151,28 @@ void dem2dem_diff(Options& opt) {
   georef_sanity_checks(dem1_georef, dem2_georef);
 
   // Generate a bounding box that is the minimum of the two BBox areas
-  BBox2 crop_box = bounding_box(dem1_disk_image_view);
+  BBox2i crop_box = bounding_box(dem1_disk_image_view);
 
   // Transform the second DEM's bounding box to first DEM's pixels
   GeoTransform gt(dem2_georef, dem1_georef);
-  BBox2 box21 = gt.forward_bbox(bounding_box(dem2_disk_image_view));
+  BBox2i box21 = gt.forward_bbox(bounding_box(dem2_disk_image_view));
   crop_box.crop(box21);
 
   if (crop_box.empty()) 
     vw_throw(ArgumentErr() << "The two DEMs do not have a common area.\n");
-    
-  ImageViewRef<PixelMask<double>> dem2_trans =
-    per_pixel_filter(crop(geo_transform
-                          (per_pixel_filter(dem_to_geodetic
-                                            (create_mask(dem2_disk_image_view, dem2_nodata),
-                                             dem2_georef),
-                                            MGeodeticToMAltitude()),
-                           dem2_georef, dem1_georef,
-                           ValueEdgeExtension<PixelMask<double>>(PixelMask<double>())),
-                          crop_box), MaskNaN());
+
+  // Crop the first DEM to the shared box, then transform and crop the second DEM
+  ImageViewRef<PixelMask<double>> dem1_crop 
+    = crop(create_mask(dem1_disk_image_view, dem1_nodata), crop_box);
+  ImageViewRef<PixelMask<double>> dem2_trans 
+    = asp::warpCrop(dem2_disk_image_view, dem2_nodata, dem1_georef, dem2_georef, crop_box, 
+                    "bilinear");
   
   ImageViewRef<double> difference;
-  if (opt.use_absolute) {
-    difference =
-      apply_mask(abs(crop(create_mask(dem1_disk_image_view, dem1_nodata), crop_box) - dem2_trans),
-                 opt.nodata_value);
-  } else {
-    difference =
-      apply_mask(crop(create_mask(dem1_disk_image_view, dem1_nodata), crop_box) - dem2_trans,
-                 opt.nodata_value);
-  }
+  if (opt.use_absolute)
+    difference = apply_mask(abs(dem1_crop - dem2_trans), opt.nodata_value);
+  else
+    difference = apply_mask(dem1_crop - dem2_trans, opt.nodata_value);
     
   GeoReference crop_georef = crop(dem1_georef, crop_box);
     
