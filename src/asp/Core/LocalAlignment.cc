@@ -19,17 +19,22 @@
 /// \file LocalAlignment.cc
 ///
 
-#include <vw/Math/Transform.h>
-#include <vw/Image/PixelMask.h>
-#include <vw/Image/Interpolation.h>
-
 #include <asp/Core/LocalAlignment.h>
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/AffineEpipolar.h>
-#include <asp/Core/InterestPointMatching.h>  // Slow-to-compile header
-#include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
+#include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/OpenCVUtils.h>
 #include <asp/Core/DisparityProcessing.h>
+#include <asp/Core/StereoSettings.h>
+
+#include <vw/Math/Transform.h>
+#include <vw/Image/PixelMask.h>
+#include <vw/Image/Interpolation.h>
+#include <vw/InterestPoint/InterestPointUtils.h>
+#include <vw/InterestPoint/Matcher.h>
+#include <vw/InterestPoint/MatcherIO.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgcodecs.hpp>

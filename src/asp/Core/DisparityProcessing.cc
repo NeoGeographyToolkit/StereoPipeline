@@ -20,12 +20,14 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/DisparityProcessing.h>
 #include <vw/Math/Transform.h>
+
 #include <vw/Stereo/StereoModel.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/Stereo/StereoView.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/MatcherIO.h>
 
 using namespace vw;
 using namespace vw::cartography;

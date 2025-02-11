@@ -18,6 +18,10 @@
 
 /// \file lronacjitreg.cc
 ///
+#include <asp/Core/DemDisparity.h>
+#include <asp/Core/InterestPointMatching.h>
+#include <asp/Tools/stereo.h>
+
 #include <vw/Math/Functors.h>
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageMath.h>
@@ -30,10 +34,8 @@
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/Correlate.h>
-
-#include <asp/Core/DemDisparity.h>
-#include <asp/Core/InterestPointMatching.h>
-#include <asp/Tools/stereo.h>
+#include <vw/Math/RANSAC.h>
+#include <vw/Math/Geometry.h>
 
 #include <iomanip>
 

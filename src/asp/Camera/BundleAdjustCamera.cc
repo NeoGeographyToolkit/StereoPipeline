@@ -31,7 +31,7 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Cartography/CameraBBox.h>
-#include <vw/InterestPoint/Matcher.h>
+#include <vw/InterestPoint/MatcherIO.h>
 #include <vw/FileIO/KML.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Math/Statistics.h>

@@ -23,19 +23,25 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/StereoSettings.h>
 
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Algorithms2.h>
 #include <vw/Image/AlgorithmFunctions.h>
 #include <vw/Image/Manipulation.h>
+#include <vw/Image/Interpolation.h>
 #include <vw/FileIO/FileUtils.h>
+#include <vw/InterestPoint/MatcherIO.h>
+#include <vw/Math/Geometry.h>
+#include <vw/Math/RANSAC.h>
+#include <vw/Image/Filter.h>
+#include <vw/Image/Transform.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 
 #include <limits>
-
 
 using namespace vw;
 namespace po = boost::program_options;

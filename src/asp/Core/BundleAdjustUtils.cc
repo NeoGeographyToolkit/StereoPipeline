@@ -30,7 +30,7 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/BundleAdjustment/CameraRelation.h>
-#include <vw/InterestPoint/Matcher.h>
+#include <vw/InterestPoint/MatcherIO.h>
 
 #include <string>
 

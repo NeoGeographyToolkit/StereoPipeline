@@ -42,7 +42,7 @@
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>
 #include <vw/FileIO/MatrixIO.h>
-#include <vw/InterestPoint/Matcher.h>
+#include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/DatumUtils.h>

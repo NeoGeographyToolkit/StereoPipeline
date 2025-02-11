@@ -18,22 +18,11 @@
 #ifndef __ASP_CORE_INTEREST_POINT_MATCHING_H__
 #define __ASP_CORE_INTEREST_POINT_MATCHING_H__
 
-#include <vw/Core/Stopwatch.h>
 #include <vw/Image/ImageViewBase.h>
 #include <vw/Camera/CameraModel.h>
-#include <vw/InterestPoint/Matcher.h>
 #include <vw/InterestPoint/InterestData.h>
-#include <vw/InterestPoint/IntegralDetector.h>
-#include <vw/InterestPoint/InterestPointUtils.h>
 #include <vw/Cartography/Datum.h>
-#include <vw/Math/RANSAC.h>
-#include <vw/Math/Geometry.h>
-#include <vw/FileIO/FileUtils.h>
-#include <vw/Core/Stopwatch.h>
-
-#include <asp/Core/StereoSettings.h>
-#include <boost/foreach.hpp>
-#include <boost/math/special_functions/fpclassify.hpp>
+#include <vw/Math/Transform.h>
 
 namespace asp {
 

@@ -24,7 +24,7 @@
 #include <vw/Image/UtilityViews.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
-#include <vw/InterestPoint/Matcher.h>
+#include <vw/InterestPoint/MatcherIO.h>
 #include <asp/Core/IpMatchingAlgs.h>        // Lightweight header
 #include <asp/Sessions/CameraUtils.h>
 #include <vw/FileIO/DiskImageUtils.h>

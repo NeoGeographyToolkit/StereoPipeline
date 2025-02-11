@@ -21,6 +21,12 @@
 /// \file StereoSessionIp.cc
 ///
 #include <asp/Sessions/StereoSessionASTER.h>
+#include <asp/Sessions/StereoSession.h>
+#include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/IpMatchingAlgs.h>
+#include <asp/Core/AffineEpipolar.h>
+#include <asp/Camera/RPCModel.h>
+
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
 #include <vw/Math/Vector.h>
@@ -31,12 +37,8 @@
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
-
-#include <asp/Sessions/StereoSession.h>
-#include <asp/Core/InterestPointMatching.h> // Slow-to-compile ip header
-#include <asp/Core/IpMatchingAlgs.h>        // Lightweight ip header
-#include <asp/Core/AffineEpipolar.h>
-#include <asp/Camera/RPCModel.h>
+#include <vw/InterestPoint/MatcherIO.h>
+#include <vw/FileIO/MatrixIO.h>
 
 #include <boost/filesystem/operations.hpp>
 

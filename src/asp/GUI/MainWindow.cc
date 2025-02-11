@@ -39,7 +39,7 @@
 #include <vw/Image/Statistics.h>
 #include <vw/Image/PixelMask.h>
 #include <vw/InterestPoint/InterestData.h>
-#include <vw/InterestPoint/Matcher.h>
+#include <vw/InterestPoint/MatcherIO.h>
 
 #include <boost/filesystem/path.hpp>
 

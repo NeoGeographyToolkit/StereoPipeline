@@ -16,12 +16,16 @@
 // __END_LICENSE__
 
 #include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/StereoSettings.h>
+
 #include <vw/Math/GaussianClustering.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Mosaic/ImageComposite.h>
 #include <vw/Image/AlgorithmFunctions.h>
+#include <vw/InterestPoint/MatcherIO.h>
+#include <vw/InterestPoint/Matcher.h>
 #include <vw/Math/RandomSet.h> // TODO(oalexan1): Rm this when moving the random subset code
 #include <vw/Core/Stopwatch.h>
 

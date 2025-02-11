@@ -35,7 +35,7 @@
 #include <vw/Cartography/Hillshade.h>
 #include <vw/Core/RunOnce.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
-#include <vw/InterestPoint/Matcher.h> // Needed for vw::ip::match_filename
+#include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Geometry/dPoly.h>
 #include <vw/Cartography/shapeFile.h>
 #include <vw/Core/Stopwatch.h>

@@ -19,6 +19,14 @@
 // https://github.com/ethz-asl/libpointmatcher
 // Released under the BSD 3-Clause.
 
+#include <asp/Core/Common.h>
+#include <asp/Core/Macros.h>
+#include <asp/Core/PointUtils.h>
+#include <asp/Core/InterestPointMatching.h>
+#include <asp/PcAlign/pc_align_utils.h>
+#include <asp/PcAlign/pc_align_ceres.h>
+#include <asp/PcAlign/pc_align_fgr.h>
+
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/EulerAngles.h>
 #include <vw/FileIO/DiskImageView.h>
@@ -27,13 +35,8 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Core/CmdUtils.h>
-#include <asp/Core/Common.h>
-#include <asp/Core/Macros.h>
-#include <asp/Core/PointUtils.h>
-#include <asp/Core/InterestPointMatching.h>
-#include <asp/PcAlign/pc_align_utils.h>
-#include <asp/PcAlign/pc_align_ceres.h>
-#include <asp/PcAlign/pc_align_fgr.h>
+#include <vw/Math/Geometry.h>
+#include <vw/InterestPoint/MatcherIO.h>
 
 #include <limits>
 #include <cstring>
@@ -55,7 +58,7 @@ using namespace PointMatcherSupport;
 const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the largest double
 
 /// Options container for the pc_align tool
-struct Options : public vw::GdalWriteOptions {
+struct Options: public vw::GdalWriteOptions {
   // Input
   string reference, source, init_transform_file, alignment_method, config_file,
     datum, csv_format_str, csv_srs, match_file, hillshade_options,

@@ -18,13 +18,14 @@
 /// \file tif_mosaic.cc
 ///
 
-
-#include <vw/FileIO/DiskImageUtils.h>
-#include <vw/Image/Algorithms2.h>
-
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/InterestPointMatching.h>
+
+#include <vw/FileIO/DiskImageUtils.h>
+#include <vw/Image/Algorithms2.h>
+#include <vw/Image/Interpolation.h>
+#include <vw/Image/Filter.h>
 
 using namespace vw;
 namespace po = boost::program_options;

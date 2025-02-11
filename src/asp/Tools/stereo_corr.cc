@@ -18,23 +18,23 @@
 /// \file stereo_corr.cc
 ///
 
-#include <vw/Stereo/CorrelationView.h>
-#include <vw/Stereo/CostFunctions.h>
-#include <vw/Stereo/DisparityMap.h>
-#include <vw/Core/StringUtils.h>
-#include <vw/InterestPoint/Matcher.h>
-#include <vw/Stereo/Correlation.h>
-
 #include <asp/Core/DisparityProcessing.h>
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/InterestPointMatching.h>
-#include <asp/Core/IpMatchingAlgs.h>         // Lightweight header
+#include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/LocalAlignment.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Tools/stereo.h>
 
-#include <boost/process/env.hpp>
+#include <vw/Stereo/CorrelationView.h>
+#include <vw/Stereo/CostFunctions.h>
+#include <vw/Stereo/DisparityMap.h>
+#include <vw/Core/StringUtils.h>
+#include <vw/InterestPoint/MatcherIO.h>
+#include <vw/Stereo/Correlation.h>
+#include <vw/Core/Stopwatch.h>
 
+#include <boost/process/env.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;

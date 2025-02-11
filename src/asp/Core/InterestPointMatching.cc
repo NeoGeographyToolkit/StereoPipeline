@@ -16,8 +16,12 @@
 // __END_LICENSE__
 
 #include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/StereoSettings.h>
 
+#include <vw/InterestPoint/IntegralDetector.h>
 #include <vw/InterestPoint/InterestPointUtils.h>
+#include <vw/InterestPoint/Matcher.h>
+#include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Math/GaussianClustering.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/Image/MaskViews.h>
@@ -26,6 +30,11 @@
 #include <vw/Mosaic/ImageComposite.h>
 #include <vw/Image/AlgorithmFunctions.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/Math/Geometry.h>
+#include <vw/FileIO/FileUtils.h>
+
+#include <boost/foreach.hpp>
+#include <boost/math/special_functions/fpclassify.hpp>
 
 // Some of the implementation is in InterestPointMatching2.cc
 

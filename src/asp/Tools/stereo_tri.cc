@@ -40,7 +40,7 @@
 #include <vw/Stereo/StereoView.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Image/Filter.h>
-#include <vw/InterestPoint/Matcher.h>
+#include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Cartography/Map2CamTrans.h>
 
 #include <xercesc/util/PlatformUtils.hpp>

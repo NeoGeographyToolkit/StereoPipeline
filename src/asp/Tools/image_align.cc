@@ -19,16 +19,22 @@
 ///
 /// Tool for aligning a second image to a first image.
 
+#include <asp/Core/Common.h>
+#include <asp/Core/Macros.h>
+#include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/ImageUtils.h>
+#include <asp/Core/StereoSettings.h>
+
+#include <vw/Image/Interpolation.h>
+#include <vw/Image/Filter.h>
+#include <vw/Image/Transform.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/PixelTypeInfo.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/Math/Geometry.h>
-
-#include <asp/Core/Common.h>
-#include <asp/Core/Macros.h>
-#include <asp/Core/InterestPointMatching.h>
-#include <asp/Core/ImageUtils.h>
+#include <vw/InterestPoint/MatcherIO.h>
+#include <vw/Math/RANSAC.h>
 
 using namespace vw;
 namespace po = boost::program_options;

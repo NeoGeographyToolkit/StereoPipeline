@@ -34,6 +34,7 @@
 #include <vw/Image/PixelTypeInfo.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/Math/Geometry.h>
+#include <vw/InterestPoint/MatcherIO.h>
 
 using namespace vw;
 namespace po = boost::program_options;

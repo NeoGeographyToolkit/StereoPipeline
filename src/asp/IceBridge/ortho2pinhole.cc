@@ -30,10 +30,14 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/InterestPointMatching.h>
+
+#include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Cartography/GeoTransform.h>
-#include <boost/core/null_deleter.hpp>
+#include <vw/Math/Geometry.h>
+#include <vw/Core/Stopwatch.h>
 
+#include <boost/core/null_deleter.hpp>
 
 // Turn off warnings from eigen
 #if defined(__GNUC__) || defined(__GNUG__)

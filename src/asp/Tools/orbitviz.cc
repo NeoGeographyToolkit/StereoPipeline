@@ -22,6 +22,7 @@
 #include <vw/FileIO/KML.h>
 #include <vw/FileIO/FileUtils.h>
 #include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/MatcherIO.h>
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
