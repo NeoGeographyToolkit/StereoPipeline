@@ -143,6 +143,9 @@ dem_mosaic (:numref:`dem_mosaic`):
     is kept for backward compatibility.
   * Can handle DEMs with NaN values.
 
+parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
+  * Bugfix for load-balancing.
+
 misc:
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
     optimized camera file names (or adjustments). Can be passed in back to
@@ -171,6 +174,7 @@ misc:
     the option ``--nodata-value`` to mask values no more than this value.
   * The ``geodiff`` program output image is with float pixels, rather than
     in double precision.
+  * Have the OpenCV interest point detectors respect the ``--threads`` option.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

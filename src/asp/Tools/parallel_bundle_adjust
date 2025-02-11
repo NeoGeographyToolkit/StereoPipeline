@@ -16,11 +16,6 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-# TODO: The same behavior as bundle adjust should be used when dealing
-# with pre-existing match files. This tool recreates them if cannot
-# find them in the subdirectory for each subtask even though they
-# exist in the final location.
-
 import sys, argparse, subprocess, re, os, math, time, glob, shutil, math, copy
 import os.path as P
 
@@ -106,10 +101,9 @@ def get_best_procs_threads(step):
 
     return (num_procs, num_threads)
 
-def get_num_instances(args):
-    '''Determine the number of total instances that the work will be split over.'''
+def get_num_images(args):
+    '''Return the number of input images. There are several cases to consider.'''
 
-    # For now we use a number of instances equal to the number of images.
     count = 0
 
     # TODO(oalexan1): This is very fragile logic.
@@ -164,11 +158,9 @@ def get_subfolder_prefix(output_folder, instance_index):
 # Launch GNU Parallel for all tiles, it will take care of distributing
 # the jobs across the nodes and load balancing. The way we accomplish
 # this is by calling this same script but with --instance_index <num>.
-def spawn_to_nodes(step, output_prefix, argsIn):
+def spawn_to_nodes(step, num_instances, output_prefix, argsIn):
 
     args = copy.copy(argsIn)
-
-    num_instances = get_num_instances(args)
 
     if opt.processes is None or opt.threads is None:
         # The user did not specify these. We will find the best
@@ -255,8 +247,7 @@ def spawn_to_nodes(step, output_prefix, argsIn):
         os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
 def run_job(prog, args, instance_index, **kw):
-    '''Wrapper to run a command.
-       Set instance_index=-1 if only one instance will be called.'''
+    '''Wrapper to run a command. Set instance_index=-1 if only one instance will be called.'''
 
     binpath = bin_path(prog)
     call    = [binpath]
@@ -292,47 +283,6 @@ def run_job(prog, args, instance_index, **kw):
         raise Exception('%s: %s' % (binpath, e))
     if code != 0:
         raise Exception('Bundle adjust step ' + kw['msg'] + ' failed')
-
-def distribute_or_gather_files(output_prefix, ext, num_instances):
-    '''The .stats (and camera footprint bbox files) files get distributed to all folders.
-       The .match files get symlinked to the main folder.
-       No longer used as files are no longer saved in sudirectories.
-       '''
-
-    output_folder = os.path.dirname(output_prefix)
-    sub_prefixes = [get_subfolder_prefix(output_folder, i) for i in range(num_instances)]
-
-    if ext == '.match':
-
-        for pre in sub_prefixes:
-
-            # Sym link match files from subdirectories to the output directory.
-            # This takes a lot of care to get right.
-            files = glob.glob(pre + '*' + ext)
-            for f in files:
-                src_file = os.path.relpath(f, output_folder)
-                dst_file = output_prefix + f[len(pre):]
-
-                # First wipe any existing file
-                if os.path.exists(dst_file):
-                   os.remove(dst_file)
-
-                # Create sym link
-                os.symlink(src_file, dst_file)
-
-    else: # Stats files
-        # Find all the statistics files
-        stats_files = glob.glob(output_folder + '/*' + ext)
-
-        # Duplicate them in each of the subfolders, creating them if needed.
-        # - We could link them but these are tiny files so don't bother.
-        for f in stats_files:
-            base_name = f.replace(output_prefix,'')
-            for s in sub_prefixes:
-                sub_folder = os.path.dirname(s)
-                new_path = s + base_name
-                asp_system_utils.mkdir_p(os.path.dirname(new_path))
-                shutil.copyfile(f, new_path)
 
 class ParallelBaStep:
     # The ids of individual parallel_bundle_adjust steps
@@ -441,9 +391,6 @@ if __name__ == '__main__':
         if opt.isisroot  is not None: os.environ['ISISROOT' ] = opt.isisroot
         if opt.isisdata is not None: os.environ['ISISDATA'] = opt.isisdata
 
-    num_nodes     = get_num_nodes(opt.nodes_list)
-    num_instances = get_num_instances(args)
-
     if opt.version:
         args.append('-v')
 
@@ -479,22 +426,32 @@ if __name__ == '__main__':
             if (opt.stop_point <= step):
                 sys.exit()
 
-            # Spawn statistics processes to nodes.
-            spawn_to_nodes(step, output_prefix, self_args)
+            # Spawn statistics processes to nodes
+            num_images = get_num_images(self_args)
+            spawn_to_nodes(step, num_images, output_prefix, self_args)
 
         # Matching
         step = ParallelBaStep.matching
-        if ( opt.entry_point <= step):
+        if (opt.entry_point <= step):
             if (opt.stop_point <= step):
                 sys.exit()
 
-            # Spawn statistics processes to subdir for nodes.
-            spawn_to_nodes(step, output_prefix, self_args)
+            # To do load-balancing properly, need to know how many pairs
+            # of images we expect to match. This depends on --auto-overlap-params,
+            # etc.
+            sep = ","
+            settings = run_and_parse_output("bundle_adjust", 
+                                            args + ['--query-num-image-pairs'], 
+                                            sep, opt.verbose)
+            num_image_pairs = int(settings["num_image_pairs"][0])
+       
+            # Spawn matching to nodes
+            spawn_to_nodes(step, num_image_pairs, output_prefix, self_args)
 
         # Optimization
         step = ParallelBaStep.optimization
         if (opt.entry_point <= step):
-            if ( opt.stop_point <= step ):
+            if (opt.stop_point <= step):
                 sys.exit()
             args.extend(['--skip-matching'])
             run_job('bundle_adjust', args, instance_index=-1, msg='%d: Optimizing' % step)
@@ -503,19 +460,19 @@ if __name__ == '__main__':
     else:
 
         # This process was spawned by GNU Parallel with a given
-        # value of opt.tile_id. Launch the job for that tile.
+        # value of instance_index. It will do the actual work.
         if opt.verbose:
             print("Running on machine: ", os.uname())
 
         try:
             args.extend(['--instance-index', str(opt.instance_index)])
 
-            if ( opt.entry_point == ParallelBaStep.statistics ):
+            if (opt.entry_point == ParallelBaStep.statistics):
                 args.extend(['--stop-after-statistics'])
                 run_job('bundle_adjust', args, opt.instance_index,
                         msg='%d: Statistics' % opt.entry_point)
 
-            if ( opt.entry_point == ParallelBaStep.matching ):
+            if (opt.entry_point == ParallelBaStep.matching):
                 args.extend(['--stop-after-matching'])
                 run_job('bundle_adjust', args, opt.instance_index,
                         msg='%d: Matching' % opt.entry_point)

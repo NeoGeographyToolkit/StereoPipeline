@@ -50,7 +50,8 @@ struct BaOptions: public asp::BaBaseOptions {
     auto_overlap_buffer, pct_for_overlap, min_distortion, ip_nodata_radius;
   bool skip_rough_homography, enable_rough_homography, disable_tri_filtering,
     enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
-    force_reuse_match_files, no_poses_from_nvm, save_cnet_as_csv, aster_use_csm;
+    force_reuse_match_files, no_poses_from_nvm, save_cnet_as_csv, aster_use_csm,
+    query_num_image_pairs;
   vw::Vector2 elevation_limit;   // Expected range of elevation to limit results to.
   vw::BBox2 lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
   vw::Matrix<double> initial_transform;
@@ -70,7 +71,7 @@ struct BaOptions: public asp::BaBaseOptions {
              pct_for_overlap(-1), skip_rough_homography(false),
              individually_normalize(false), use_llh_error(false), 
              force_reuse_match_files(false), no_poses_from_nvm(false),
-             save_cnet_as_csv(false), aster_use_csm(false) {}
+             save_cnet_as_csv(false), aster_use_csm(false), query_num_image_pairs(false) {}
 
   /// Bundle adjustment settings that must be passed to the asp settings
   void copy_to_asp_settings() const;

@@ -1437,7 +1437,9 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "image pair. Must start with an empty output directory for this to work.")
     ("ip-nodata-radius",          po::value(&opt.ip_nodata_radius)->default_value(4),
      "Remove IP near nodata with this radius, in pixels.")
-    
+    ("query-num-image-pairs", 
+     po::bool_switch(&opt.query_num_image_pairs)->default_value(false)->implicit_value(true), 
+     "Print how many image pairs need to find matches for, and exit.")
     ("vwip-prefix",  po::value(&opt.vwip_prefix),
      "Save .vwip files with this prefix. This is a private option used by parallel_bundle_adjust.")
     ("ip-debug-images",
@@ -2437,6 +2439,12 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
                                // Output
                                all_pairs);
 
+  // Need this information in parallel_bundle_adjust for load balancing.
+  if (opt.query_num_image_pairs) {
+    vw::vw_out() << "num_image_pairs," << all_pairs.size() << "\n";
+    exit(0);
+  }
+    
   // Assign the matches which this instance should compute.
   // This is for when called from parallel_bundle_adjust.
   size_t per_instance = all_pairs.size() / opt.instance_count; // Round down
