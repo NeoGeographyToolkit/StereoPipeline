@@ -29,12 +29,14 @@
 #include <asp/Core/StereoSettings.h>
 
 #include <vw/Math/Transform.h>
+#include <vw/Image/Transform.h>
 #include <vw/Image/PixelMask.h>
 #include <vw/Image/Interpolation.h>
 #include <vw/InterestPoint/InterestPointUtils.h>
-#include <vw/InterestPoint/Matcher.h>
 #include <vw/InterestPoint/MatcherIO.h>
+#include <vw/FileIO/MatrixIO.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/FileIO/DiskImageUtils.h>
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgcodecs.hpp>

@@ -47,11 +47,10 @@
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <vw/InterestPoint/Descriptor.h>
-#include <vw/InterestPoint/Detector.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/Image/Filter.h>
 
 // Boost
 #include <boost/filesystem.hpp>
