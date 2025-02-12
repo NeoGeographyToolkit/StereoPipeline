@@ -1862,7 +1862,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
      "Use approximate camera models for speed. Only with ISIS .cub cameras.")
     ("crop-input-images",   po::bool_switch(&opt.crop_input_images)->default_value(false)->implicit_value(true),
-     "Crop the images to a region that was computed to be large enough, and keep them fully in memory, for speed.")
+     "Crop the images to a region that was computed to be large enough, and keep them fully in memory, for speed. This is the default in the latest builds.")
     ("blending-dist", po::value(&opt.blending_dist)->default_value(0),
      "Give less weight to image pixels close to no-data or boundary values. Enabled only when crop-input-images is true, for performance reasons. Blend over this many pixels.")
     ("blending-power", po::value(&opt.blending_power)->default_value(2.0),
@@ -1933,7 +1933,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "smoothness weight to a very small value.")
     ("save-sparingly",   po::bool_switch(&opt.save_sparingly)->default_value(false)->implicit_value(true),
      "Avoid saving any results except the adjustments and the DEM, as that's a lot of files.")
-    ("camera-position-step-size", po::value(&opt.camera_position_step_size)->default_value(1.0),
+    ("camera-position-step-size", 
+     po::value(&opt.camera_position_step_size)->default_value(1.0),
      "Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).");
 
   general_options.add( vw::GdalWriteOptionsDescription(opt) );
@@ -1959,6 +1960,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.input_dem.empty())
     vw_throw(ArgumentErr() << "Missing the input DEM.\n");
 
+  // Always crop the input images. This has been validated enough that it works well.
+  // There is no reason to fully load images in memory except for computing exposures,
+  // when this option will be disabled automatically.
+  opt.crop_input_images = true;
+  
   // Separate the cameras from the images
   std::vector<std::string> inputs = opt.input_images;
 
@@ -3058,6 +3064,12 @@ int main(int argc, char* argv[]) {
     if (dem.cols() < min_dem_size || dem.rows() < min_dem_size)
       vw_throw(ArgumentErr() << "The input DEM is too small.\n");
 
+    // This check must happen before loading images but after we know the DEM size
+    if ((dem.cols() > 500 || dem.rows() > 500) && !opt.compute_exposures_only &&
+        !opt.estimate_exposure_haze_albedo && !opt.save_computed_intensity_only)
+      vw::vw_out(vw::WarningMessage) << "The input DEM is large and this program "
+        << "may run out of memory. Use parallel_sfs instead, with small tiles.\n";
+        
     // This check must be here, after we find the session
     if (opt.stereo_session != "isis" && opt.use_approx_camera_models) {
       vw_out() << "Computing approximate models works only with ISIS cameras. "

@@ -228,7 +228,8 @@ Command-line options for sfs
 
 --crop-input-images
     Crop the images to a region that was computed to be large enough
-    and keep them fully in memory, for speed.
+    and keep them fully in memory, for speed. This is the default
+    in the latest builds.
 
 --blending-dist <integer (default: 0)>
     Give less weight to image pixels close to no-data or boundary

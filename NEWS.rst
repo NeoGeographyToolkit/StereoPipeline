@@ -100,6 +100,7 @@ sfs (:numref:`sfs`):
     the cameras beforehand, in bundle adjustment. 
   * Removed obsolete options ``--float-dem-at-boundary``,
     ``--float-sun-position``, ``--coarse-levels``.
+  * Have option ``--crop-input-images`` be always on. 
 
 orbit_plot (:numref:`orbit_plot`):
   * Added the options ``--use-rmse``, ``--output-file``.
