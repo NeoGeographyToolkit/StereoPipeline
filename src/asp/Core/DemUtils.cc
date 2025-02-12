@@ -23,6 +23,7 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Image/Filter.h>
+#include <vw/Math/Functors.h>
 
 namespace fs = boost::filesystem;
 
@@ -289,6 +290,68 @@ vw::ImageViewRef<vw::PixelMask<double>>
     = vw::per_pixel_filter(vw::crop(warped_dem2, crop_box), MaskNaN());
   
   return dem2_trans;
+}
+
+// Given a DEM, estimate the median grid size in x and in y in meters.
+// Given that the DEM heights are in meters as well, having these grid sizes
+// will make it possible to handle heights and grids in same units.
+void calcGsd(vw::ImageViewRef<double> const& dem,
+             vw::cartography::GeoReference const& geo, double nodata_val,
+             int sample_col_rate, int sample_row_rate,
+             double & gridx, double & gridy) {
+
+  // Initialize the outputs
+  gridx = 0; gridy = 0;
+
+  // Estimate the median height
+  std::vector<double> heights;
+  for (int col = 0; col < dem.cols(); col += sample_col_rate) {
+    for (int row = 0; row < dem.rows(); row += sample_row_rate) {
+      double h = dem(col, row);
+      if (h == nodata_val) continue;
+      heights.push_back(h);
+    }
+  }
+  double median_height = 0.0;
+  int len = heights.size();
+  if (len > 0) {
+    std::sort(heights.begin(), heights.end());
+    median_height = 0.5*(heights[(len-1)/2] + heights[len/2]);
+  }
+
+  // Find the grid sizes by estimating the Euclidean distances
+  // between points of a DEM at constant height.
+  std::vector<double> gridx_vec, gridy_vec;
+  for (int col = 0; col < dem.cols() - 1; col += sample_col_rate) {
+    for (int row = 0; row < dem.rows() - 1; row += sample_row_rate) {
+
+      // The xyz position at the center grid point
+      vw::Vector2 lonlat = geo.pixel_to_lonlat(vw::Vector2(col, row));
+      vw::Vector3 lonlat3 = vw::Vector3(lonlat(0), lonlat(1), median_height);
+      vw::Vector3 base = geo.datum().geodetic_to_cartesian(lonlat3);
+
+      // The xyz position at the right grid point
+      lonlat = geo.pixel_to_lonlat(vw::Vector2(col+1, row));
+      lonlat3 = vw::Vector3(lonlat(0), lonlat(1), median_height);
+      vw::Vector3 right = geo.datum().geodetic_to_cartesian(lonlat3);
+
+      // The xyz position at the bottom grid point
+      lonlat = geo.pixel_to_lonlat(vw::Vector2(col, row+1));
+      lonlat3 = vw::Vector3(lonlat(0), lonlat(1), median_height);
+      vw::Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
+
+      gridx_vec.push_back(vw::math::norm_2(right-base));
+      gridy_vec.push_back(vw::math::norm_2(bottom-base));
+    }
+  }
+
+  // Median grid size
+  if (!gridx_vec.empty()) 
+    gridx = vw::math::destructive_median(gridx_vec);
+  if (!gridy_vec.empty()) 
+    gridy = vw::math::destructive_median(gridy_vec);
+  
+  return;
 }
 
 } //end namespace asp

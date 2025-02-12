@@ -84,12 +84,6 @@ void deepenCraters(std::string const& dem_file,
 void calcSampleRates(vw::ImageViewRef<double> const& dem, int num_samples,
                      int & sample_col_rate, int & sample_row_rate);
 
-// Estimate the GSD of a DEM in meters
-void calcGsd(vw::ImageView<double> const& dem,
-             vw::cartography::GeoReference const& geo, double nodata_val,
-             int sample_col_rate, int sample_row_rate,
-             double & gridx, double & gridy);
-
 } // end namespace asp
 
 #endif // __SFS_IMAGE_PROC_H__

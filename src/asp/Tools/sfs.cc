@@ -62,15 +62,16 @@
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/Camera/CsmModel.h>
+#include <asp/Core/DemUtils.h>
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/SfS/SfsImageProc.h>
 #include <asp/SfS/SfsUtils.h>
 #include <asp/SfS/SfsCamera.h>
 #include <asp/SfS/SfsReflectanceModel.h>
+#include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/IsisIO/IsisCameraModel.h>
+#include <asp/Camera/CsmModel.h>
 
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/AntiAliasing.h>

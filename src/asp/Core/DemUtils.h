@@ -63,6 +63,12 @@ vw::ImageViewRef<vw::PixelMask<double>>
            std::string const& interp_type);
 
 
+// Estimate the GSD of a DEM in meters
+void calcGsd(vw::ImageViewRef<double> const& dem,
+             vw::cartography::GeoReference const& geo, double nodata_val,
+             int sample_col_rate, int sample_row_rate,
+             double & gridx, double & gridy);
+
 } //end namespace asp
 
 #endif//__CORE_DEM_UTILS_H__
