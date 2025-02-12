@@ -56,9 +56,6 @@ def check_system_memory(opt, args, settings):
         if alg == VW_CORRELATION_BM or alg >= VW_CORRELATION_OTHER:
             return
 
-        # Use a command line call to estimate the amount of free memory
-        freemem_mb = list(map(int, os.popen('free -m').readlines()[-2].split()[1:]))[2]
-
         # This is the processor count code, won't work if other
         #  machines have a different processor count.
         num_procs = opt.processes
@@ -73,12 +70,10 @@ def check_system_memory(opt, args, settings):
         baseline_mem    = (num_tile_pixels*est_bytes_per_pixel) / bytes_per_mb
         sgm_ram_limit   = int(settings['corr_memory_limit_mb'][0])
         ram_per_process = baseline_mem + sgm_ram_limit
-        est_ram_usage   = num_procs * ram_per_process
+        est_ram_usage   = int(num_procs * ram_per_process)
 
-        if est_ram_usage > freemem_mb:
-            print('Warning: Estimated maximum memory consumption is '
-                  + str(est_ram_usage) + 'mb but only ' + str(freemem_mb)
-                  + 'mb of free memory is detected.  To lower memory use, '
+        print('Warning: Estimated maximum memory consumption is '
+                  + str(est_ram_usage) + ' MB. To lower memory use, '
                   + 'consider reducing the number of processes or lowering '
                   + '--corr-memory-limit-mb.')
 
@@ -575,7 +570,6 @@ def spawn_to_nodes(step, opt, settings, args, subdirs):
         os.environ['ASP_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']
         os.environ['LD_LIBRARY_PATH'] = ''
         
-    # Run 'parallel'
     asp_system_utils.generic_run(cmd, opt.verbose)
 
     # Undo the above
