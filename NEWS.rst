@@ -156,8 +156,8 @@ misc:
   * When creating dense interest point matches from disparity and mapprojected
     images, the match file reflects the name of the original unprojected images
     (:numref:`dense_ip`).
-  * Bugfix for a crash with the ``asp_mgm`` algorithm when the disparity search
-    range is large.
+  * Bugfix for a crash with the ``asp_sgm`` and ``asp_mgm`` algorithms when the 
+    disparity search range is large.
   * Print the stereo convergence angle in ``stereo_pprc`` with mapprojected
     images and with epipolar alignment. These are the remaining cases that were
     not handled before.
