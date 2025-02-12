@@ -155,7 +155,7 @@ def get_num_images(args):
 def get_subfolder_prefix(output_folder, instance_index):
     return os.path.join(output_folder, 'sub_idx_'+str(instance_index), 'run')
 
-# Launch GNU Parallel for all tiles, it will take care of distributing
+# Launch GNU Parallel for instances. It will take care of distributing
 # the jobs across the nodes and load balancing. The way we accomplish
 # this is by calling this same script but with --instance_index <num>.
 def spawn_to_nodes(step, num_instances, output_prefix, argsIn):
