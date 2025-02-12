@@ -133,6 +133,34 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 }
 
+void computeNuthOffset(vw::ImageViewRef<vw::PixelMask<double>> const& ref_trans,
+                       vw::ImageViewRef<vw::PixelMask<double>> const& src_crop,
+                       vw::cartography::GeoReference const& crop_georef,
+                       double ref_nodata, double src_nodata,
+                       double max_offset, double max_dz, vw::Vector2 const& slope_lim) {
+
+std::cout << "--max offset is " << max_offset << std::endl;
+  
+  // Estimate the ground resolution
+  double gridx = 0.0, gridy = 0.0;
+  int sample_rate = std::min(ref_trans.cols(), ref_trans.rows()) / 10;
+  if (sample_rate < 1) 
+    sample_rate = 1;
+  std::cout << "--ref trans cols and rows are: " << ref_trans.cols() << " " << ref_trans.rows() << "\n";
+  std::cout << "--sample rate is " << sample_rate << std::endl;
+  asp::calcGsd(vw::apply_mask(ref_trans, ref_nodata), crop_georef, ref_nodata,
+               sample_rate, sample_rate, gridx, gridy);
+  std::cout << "--grid x is " << gridx << " grid y is " << gridy << std::endl;
+  // average grid size
+  double res = (gridx + gridy) / 2.0;
+  std::cout << "--res is " << res << std::endl;
+  
+  int max_offset_px = int(max_offset/res) + 1;
+  vw::Vector2i pad(max_offset_px, max_offset_px);
+  std::cout << "max offset pix is " << max_offset_px << std::endl;
+  std::cout << "pad is " << pad << std::endl;
+}
+
 void run_nuth(Options const& opt) {
 
   vw::vw_out() << "Reference DEM: " << opt.ref << "\n";
@@ -194,10 +222,12 @@ void run_nuth(Options const& opt) {
   vw:: DiskImageView<double> ref_dem(ref_rsrc), src_dem(src_rsrc);
   
   // Copying verbatim from dem_align.py: Use original source dataset coordinate
-  // system. Potentially issues with distortion and xyz/tiltcorr offsets for
+  // system. Potentially issues with distortion and xyz / tilt corr offsets for
   // DEMs with large extent.
+  
   // TODO(oalexan1): Here is where dem_align.py starts assuming that 
   // one works in the source DEM domain. 
+  
   vw::cartography::GeoReference local_georef = src_georef;
   std::string local_srs = local_georef.get_wkt();
   std::cout << "--> Using local SRS: " << local_srs << std::endl; 
@@ -223,7 +253,8 @@ void run_nuth(Options const& opt) {
   // Recall that we work in the src domain
   vw::cartography::GeoReference crop_georef 
     = vw::cartography::crop(local_georef, src_crop_box);
-  
+
+#if 0  
   // Write the cropped and warped ref
   vw::TerminalProgressCallback ref_tpc("asp", ": ");
   bool has_ref_no_data = true;
@@ -244,6 +275,11 @@ void run_nuth(Options const& opt) {
                                           has_src_georef, crop_georef,
                                           has_src_no_data, src_nodata,
                                           opt, src_tpc);
+#endif
+
+  // Compute the Nuth offset
+  computeNuthOffset(ref_trans, src_crop, crop_georef, ref_nodata, src_nodata,
+                    opt.max_offset, opt.max_dz, opt.slope_lim);  
   
 }
 
