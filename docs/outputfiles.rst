@@ -207,8 +207,8 @@ Other files created at all stages
 \*-<program name>-resource-usage.txt - resource usage files
     For Linux, write such a file for each ``parallel_stereo`` subprocess. It
     contains the elapsed time and memory usage, as output by ``/usr/bin/time``.
-    As for log files, these can be written to tile subdirectories that are 
-    deleted after a successful run.
+    These are written to tile subdirectories, and are deleted after a successful
+    run. See the ``--keep-only`` option for how to keep all files.
 
 .. _poly_files:
 
