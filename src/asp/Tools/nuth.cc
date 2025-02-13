@@ -34,6 +34,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Exception.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/Math/Functors.h>
 
 #include <boost/program_options.hpp>
 
@@ -133,35 +134,120 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 }
 
-void computeNuthOffset(vw::ImageViewRef<vw::PixelMask<double>> const& ref_trans,
-                       vw::ImageViewRef<vw::PixelMask<double>> const& src_crop,
-                       vw::cartography::GeoReference const& crop_georef,
-                       double ref_nodata, double src_nodata,
-                       double max_offset, double max_dz, vw::Vector2 const& slope_lim) {
-
-std::cout << "--max offset is " << max_offset << std::endl;
+// Find the valid pixels
+// TODO(oalexan1): Move this to NuthUtils.cc
+long long validCount(vw::ImageView<vw::PixelMask<double>> const& img) {
   
-  // Estimate the ground resolution
-  double gridx = 0.0, gridy = 0.0;
-  int sample_rate = std::min(ref_trans.cols(), ref_trans.rows()) / 10;
-  if (sample_rate < 1) 
-    sample_rate = 1;
-  std::cout << "--ref trans cols and rows are: " << ref_trans.cols() << " " << ref_trans.rows() << "\n";
-  std::cout << "--sample rate is " << sample_rate << std::endl;
-  asp::calcGsd(vw::apply_mask(ref_trans, ref_nodata), crop_georef, ref_nodata,
-               sample_rate, sample_rate, gridx, gridy);
-  std::cout << "--grid x is " << gridx << " grid y is " << gridy << std::endl;
-  // average grid size
-  double res = (gridx + gridy) / 2.0;
-  std::cout << "--res is " << res << std::endl;
+  long long count = 0;
+  for (int col = 0; col < img.cols(); col++) {
+    for (int row = 0; row < img.rows(); row++) {
+      if (is_valid(img(col, row)))
+        count++;
+    }
+  }
   
-  int max_offset_px = int(max_offset/res) + 1;
-  vw::Vector2i pad(max_offset_px, max_offset_px);
-  std::cout << "max offset pix is " << max_offset_px << std::endl;
-  std::cout << "pad is " << pad << std::endl;
+  return count;
 }
 
-void run_nuth(Options const& opt) {
+// Compute the median of the valid pixels
+// TODO(oalexan1): Move this to NuthUtils.cc
+double maskedMedian(vw::ImageView<vw::PixelMask<double>> const& img) {
+
+  // Allocate enough space first  
+  std::vector<double> vals(img.cols()*img.rows());
+  vals.clear();
+  
+  for (int col = 0; col < img.cols(); col++) {
+    for (int row = 0; row < img.rows(); row++) {
+      if (is_valid(img(col, row)))
+        vals.push_back(img(col, row).child());
+    }
+  }
+  
+  if (vals.empty())
+    vw::vw_throw(vw::ArgumentErr() << "No valid pixels found in median calculation.\n");
+  
+  return vw::math::destructive_median(vals);
+}
+
+// Comput normalized median absolute deviation
+// TODO(oalexan1): Move this to NuthUtils.cc
+double normalizedMad(vw::ImageView<vw::PixelMask<double>> const& img, 
+                     double median) {
+  
+  // Compute the median absolute deviation
+  std::vector<double> vals(img.cols()*img.rows());
+  vals.clear();
+  for (int col = 0; col < img.cols(); col++) {
+    for (int row = 0; row < img.rows(); row++) {
+      if (is_valid(img(col, row)))
+        vals.push_back(std::abs(img(col, row).child() - median));
+    }
+  }
+  
+  if (vals.empty())
+    vw::vw_throw(vw::ArgumentErr() << "No valid pixels found in MAD calculation.\n");
+  
+  double mad = vw::math::destructive_median(vals);
+
+  // The normalization factor is to make this equivalent to the standard deviation  
+  return  1.4826 * mad;
+}
+
+// Filter outside this range
+// TODO(oalexan1): Move this to NuthUtils.cc
+void rangeFilter(vw::ImageView<vw::PixelMask<double>> & diff, 
+                 double min_val, double max_val) {
+
+  for (int col = 0; col < diff.cols(); col++) {
+    for (int row = 0; row < diff.rows(); row++) {
+      if (is_valid(diff(col, row)) && 
+          (diff(col, row).child() < min_val || diff(col, row).child() > max_val))
+        diff(col, row).invalidate();
+    }
+  }
+}
+
+// Filter by normalized median absolute deviation with given factor
+// TODO(oalexan1): Move this to NuthUtils.cc
+void madFilter(vw::ImageView<vw::PixelMask<double>> & diff, double outlier_factor) {
+  
+  double median = maskedMedian(diff);
+  double mad = normalizedMad(diff, median);
+  double min_val = median - outlier_factor * mad;
+  double max_val = median + outlier_factor * mad;
+  rangeFilter(diff, min_val, max_val);
+}
+
+// Filter outliers by range and then by normalized median absolute deviation
+// TODO(oalexan1): Move this to NuthUtils.cc
+void rangeMadFilter(vw::ImageView<vw::PixelMask<double>> & diff, 
+                    double outlier_factor,
+                    double max_dz) {
+
+  double origCount = validCount(diff);
+
+  // Filter out diff whose magnitude is greater than max_dz    
+  rangeFilter(diff, -max_dz, max_dz);
+  
+  // Apply normalized mad filter with given factor
+  madFilter(diff, outlier_factor);
+  
+  double finalCount = validCount(diff);
+  
+  // Find the percentage, and round it to 2 decimal places
+  double removedPct = 100.0 * (origCount - finalCount) / origCount;
+  removedPct = std::round(removedPct * 100.0) / 100.0;
+  vw::vw_out() << "Percentage of samples removed as outliers: " << removedPct << "%\n";
+}
+
+// Put the above logic in a function that prepares the data
+void prepareData(Options const& opt, 
+                  vw::ImageView<vw::PixelMask<double>> & ref_copy,
+                  vw::ImageView<vw::PixelMask<double>> & src_copy,
+                  double & ref_nodata, double & src_nodata,
+                  vw::cartography::GeoReference & crop_georef) {
+                  
 
   vw::vw_out() << "Reference DEM: " << opt.ref << "\n";
   vw::vw_out() << "Source DEM:    " << opt.src << "\n";
@@ -213,8 +299,8 @@ void run_nuth(Options const& opt) {
 
   // Read the DEMs and their no-data values as double
   vw::DiskImageResourceGDAL ref_rsrc(opt.ref), src_rsrc(opt.src);
-  double ref_nodata = -std::numeric_limits<double>::max();
-  double src_nodata = ref_nodata;
+  ref_nodata = -std::numeric_limits<double>::max();
+  src_nodata = ref_nodata;
   if (ref_rsrc.has_nodata_read())
     ref_nodata = ref_rsrc.nodata_read();
   if (src_rsrc.has_nodata_read())
@@ -230,7 +316,6 @@ void run_nuth(Options const& opt) {
   
   vw::cartography::GeoReference local_georef = src_georef;
   std::string local_srs = local_georef.get_wkt();
-  std::cout << "--> Using local SRS: " << local_srs << std::endl; 
 
   // Transform the second DEM's bounding box to first DEM's pixels
   vw::BBox2i src_crop_box = bounding_box(src_dem);
@@ -250,9 +335,10 @@ void run_nuth(Options const& opt) {
     = asp::warpCrop(ref_dem, ref_nodata, src_georef, ref_georef, src_crop_box, 
                     "bicubic");
   
-  // Recall that we work in the src domain
-  vw::cartography::GeoReference crop_georef 
-    = vw::cartography::crop(local_georef, src_crop_box);
+  // Recall that we work in the src domain. 
+  // TODO(oalexan1): This will need to change.
+  vw::vw_out() << "Working in cropped source domain. Regrid the reference DEM.\n";
+  crop_georef = vw::cartography::crop(local_georef, src_crop_box);
 
 #if 0  
   // Write the cropped and warped ref
@@ -277,8 +363,65 @@ void run_nuth(Options const& opt) {
                                           opt, src_tpc);
 #endif
 
+  // TODO(oalexan1): Keeping the DEMs on disk will require changing a lot 
+  // of code. For now we keep them in memory.
+  vw::vw_out() << "Reading the input DEMs in memory for faster processing.\n";
+  ref_copy = ref_trans;
+  src_copy = src_crop;
+}
+
+// Compute the Nuth offset. By now the DEMs have been regrided to the same
+// resolution and use the same projection. 
+void computeNuthOffset(vw::ImageView<vw::PixelMask<double>> const& ref,
+                       vw::ImageView<vw::PixelMask<double>> const& src,
+                       vw::cartography::GeoReference const& crop_georef,
+                       double ref_nodata, double src_nodata,
+                       double max_offset, double max_dz, vw::Vector2 const& slope_lim) {
+
+  // Ref and src must have the same size
+  if (ref.cols() != src.cols() || ref.rows() != src.rows())
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "The reference and source DEMs must have the same size.\n"); 
+    
+  // Estimate the ground resolution
+  double gridx = 0.0, gridy = 0.0;
+  int sample_rate = std::min(ref.cols(), ref.rows()) / 50;
+  if (sample_rate < 1) 
+    sample_rate = 1;
+  asp::calcGsd(vw::apply_mask(ref, ref_nodata), crop_georef, ref_nodata,
+               sample_rate, sample_rate, gridx, gridy);
+  double res = (gridx + gridy) / 2.0;
+  if (res <= 0.0)
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Could not estimate the DEM grid size. Check if your input clouds "
+                 "are dense enough and with solid overlap.\n");
+    
+  int max_offset_px = int(max_offset/res) + 1;
+  vw::Vector2i pad(max_offset_px, max_offset_px);
+  
+  // Find the diff
+  vw::ImageView<vw::PixelMask<double>> diff(src.cols(), src.rows());
+  for (int col = 0; col < src.cols(); col++) {
+    for (int row = 0; row < src.rows(); row++) {
+       diff(col, row) = src(col, row) - ref(col, row);
+    }
+  }
+  
+  double outlier_factor = 3.0;
+  rangeMadFilter(diff, outlier_factor, max_dz);
+}
+
+void run_nuth(Options const& opt) {
+
+  // Load and prepare the data
+  vw::ImageView<vw::PixelMask<double>> ref_copy, src_copy;
+  double ref_nodata = -std::numeric_limits<double>::max();
+  double src_nodata = ref_nodata;
+  vw::cartography::GeoReference crop_georef;
+  prepareData(opt, ref_copy, src_copy, ref_nodata, src_nodata, crop_georef);
+   
   // Compute the Nuth offset
-  computeNuthOffset(ref_trans, src_crop, crop_georef, ref_nodata, src_nodata,
+  computeNuthOffset(ref_copy, src_copy, crop_georef, ref_nodata, src_nodata,
                     opt.max_offset, opt.max_dz, opt.slope_lim);  
   
 }
