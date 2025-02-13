@@ -19,8 +19,8 @@
 // https://github.com/dshean/demcoreg/tree/master
 
 // TODO(oalexan1): Implement tilt correction.
-// TODO(oalexan1): For now the algo is reimplemented precisely. Later we can
-// deal with improvements.
+// Implement --initial-transform and computing final transform in ECEF.
+// TODO(oalexan1): Integrate in pc_align.
 // TODO(oalexan1): It is assumed both input DEMs are equally dense. The work
 // will happen in the source DEM domain. Later we can deal with the case when
 // we want it done in the reference DEM domain. This is temporary.
@@ -172,15 +172,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw::vw_throw(vw::ArgumentErr() << "The output prefix was not set.\n"
              << usage << general_options);
 
-  // The ref and src DEMs must be provided.
+  // The ref and src DEMs must be provided
   if (opt.ref == "" || opt.src == "")
     vw::vw_throw(vw::ArgumentErr() << "The reference and source DEMs must be provided.\n");
 
-  // The poly order must be positive.
+  // The poly order must be positive
   if (opt.poly_order < 1)
     vw::vw_throw(vw::ArgumentErr() << "The polynomial order must be at least 1.\n");
   
-  // The tol must be positive.
+  // The tol must be positive
   if (opt.tol <= 0)
     vw::vw_throw(vw::ArgumentErr() << "The tolerance must be positive.\n");
   
@@ -189,12 +189,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw::vw_throw(vw::ArgumentErr() 
                  << "The maximum horizontal and vertical offsets must be positive.\n");
 
-  // Check that res is one of the allowed values.
+  // Check that res is one of the allowed values
   if (opt.res != "min" && opt.res != "max" && opt.res != "mean" &&
       opt.res != "common_scale_factor")
     vw::vw_throw(vw::ArgumentErr() << "Unknown value for --res: " << opt.res << ".\n");
   
-  // Check that slope limits are positive and in the right order.
+  // Check that slope limits are positive and in the right order
   if (opt.slope_lim[0] <= 0.0 || opt.slope_lim[1] <= 0.0 || 
       opt.slope_lim[0] >= opt.slope_lim[1])
     vw::vw_throw(vw::ArgumentErr() 
@@ -207,7 +207,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 }
 
-// Find the valid pixels
+// Find the valid pixels. Use long long, to avoid integer overflow.
 // TODO(oalexan1): Move this to NuthUtils.cc
 long long validCount(vw::ImageView<vw::PixelMask<double>> const& img) {
   
@@ -314,25 +314,27 @@ void rangeMadFilter(vw::ImageView<vw::PixelMask<double>> & diff,
   vw::vw_out() << "Percentage of samples removed as outliers: " << removedPct << "%\n";
 }
 
-// Calculate the DEM slope in degrees at a given location.
+// Calculate the DEM slope and aspect in degrees at a given location.
 // The code below is adapted from GDAL.
 // https://github.com/OSGeo/gdal/blob/46412f0fb7df3f0f71c6c31ff0ae97b7cef6fa61/apps/gdaldem_lib.cpp#L1284C1-L1301C1
+//https://github.com/OSGeo/gdal/blob/46412f0fb7df3f0f71c6c31ff0ae97b7cef6fa61/apps/gdaldem_lib.cpp#L1363
 // It looks to be an approximation of the Zevenbergen and Thorne method, not the
 // real thing.
-vw::PixelMask<double> 
-SlopeZevenbergenThorneAlg(vw::ImageView<vw::PixelMask<double>> const& dem,
-                          vw::cartography::GeoReference const& georef,
-                          int col, int row) {
+void SlopeAspectZevenbergenThorneAlg(vw::ImageView<vw::PixelMask<double>> const& dem,
+                                     vw::cartography::GeoReference const& georef,
+                                     int col, int row,
+                                     vw::PixelMask<double> & slope,
+                                     vw::PixelMask<double> & aspect) {
 
-  // The slope starts with same dimensions and invalid
-  vw::PixelMask<double> slope;
+  // The slope and aspect start as invalid
   slope.invalidate();
+  aspect.invalidate();
   
   int num_cols = dem.cols(), num_rows = dem.rows();
   
   // If the pixel is at the border, return invalid
   if (col <= 0 || row <= 0 || col >= num_cols - 1 || row >= num_rows - 1)
-    return slope;
+    return;
   
   // Form the afWin vector with the pixel values
   std::vector<double> afWin(9);
@@ -342,9 +344,12 @@ SlopeZevenbergenThorneAlg(vw::ImageView<vw::PixelMask<double>> const& dem,
       
       auto val = dem(col + icol, row + irow);
       
-      // If invalid, return invalid right away
-      if (!is_valid(val))
-        return slope;
+      // If invalid, return invalid right away. Note how we check here only
+      // either icol or irow being zero, as we don't use the diagonal values.
+      // The original Zevenbergen and Thorne method uses those values,
+      // but the GDAL implementation does not.
+      if (!is_valid(val) && (icol == 0 || irow == 0))
+        return;
         
       afWin[count] = val.child();
       count++;
@@ -356,37 +361,57 @@ SlopeZevenbergenThorneAlg(vw::ImageView<vw::PixelMask<double>> const& dem,
   vw::Vector2 right_pt = georef.pixel_to_point(vw::Vector2(col + 1, row));
   double grid_x = vw::math::norm_2(right_pt - left_pt) / 2.0;
 
-  // Same for y.
+  // Same for y
   vw::Vector2 top_pt = georef.pixel_to_point(vw::Vector2(col, row - 1));
   vw::Vector2 bottom_pt = georef.pixel_to_point(vw::Vector2(col, row + 1));
   double grid_y = vw::math::norm_2(bottom_pt - top_pt) / 2.0;
   
-  // From GDAL
+  // Compute the slope
   double dx = (afWin[3] - afWin[5]) / grid_x;
   double dy = (afWin[7] - afWin[1]) / grid_y;
   double key = dx * dx + dy * dy;
-
+  // The division by 2 is needed because that's how centered differences are found
   slope = atan(sqrt(key)/2.0) * 180.0 / M_PI;
   slope.validate();
-  
-  // Original GDAL code
-  // atan(sqrt(key) / (2 * psData->scale)) * kdfRadiansToDegrees
 
-  return slope;
+  // Compute the aspect   
+  // TODO(oalexan1): It is not clear if need to divide by grid_x or grid_y here.
+  // The GDAL code does not, but I think it should. These grid sizes are usually 
+  // about the same in projected coordinates, so likely it does not matter.
+  dx = afWin[5] - afWin[3];
+  dy = afWin[7] - afWin[1];  
+  if (dx == 0 && dy == 0) {
+    aspect.invalidate();
+    return;
+  }
+  double a = atan2(dy, -dx) * 180.0 / M_PI;
+  // Using the logic for when psData->bAngleAsAzimuth is true
+  if (a > 90.0)
+      a = 450.0 - a;
+  else
+      a = 90.0 - a;  
+  if (a >= 360.0)
+    a -= 360.0;
+    
+  aspect = a;
+  aspect.validate();  
 }
 
-// Calculate the DEM slope in degrees. Use the same logic as gdaldem. 
-void calcSlope(vw::ImageView<vw::PixelMask<double>> const& dem, 
-               vw::cartography::GeoReference const& georef,
-               // Outputs
-               vw::ImageView<vw::PixelMask<double>> & slope) {
+// Calculate the DEM slope and aspect in degrees. Use the same logic as gdaldem. 
+void calcSlopeAspect(vw::ImageView<vw::PixelMask<double>> const& dem, 
+                     vw::cartography::GeoReference const& georef,
+                     // Outputs
+                     vw::ImageView<vw::PixelMask<double>> & slope,
+                     vw::ImageView<vw::PixelMask<double>> & aspect) {
 
-  // Allocate space for the output slope
+  // Allocate space for the output slope and aspect
   slope.set_size(dem.cols(), dem.rows());
+  aspect.set_size(dem.cols(), dem.rows());
   
   for (int col = 0; col < dem.cols(); col++) {
     for (int row = 0; row < dem.rows(); row++) {
-      slope(col, row) = SlopeZevenbergenThorneAlg(dem, georef, col, row);
+      SlopeAspectZevenbergenThorneAlg(dem, georef, col, row, 
+                                      slope(col, row), aspect(col, row)); // outputs
     }
   }
 
@@ -398,7 +423,6 @@ void prepareData(Options const& opt,
                   vw::ImageView<vw::PixelMask<double>> & src_copy,
                   double & ref_nodata, double & src_nodata,
                   vw::cartography::GeoReference & crop_georef) {
-                  
 
   vw::vw_out() << "Reference DEM: " << opt.ref << "\n";
   vw::vw_out() << "Source DEM:    " << opt.src << "\n";
@@ -433,6 +457,16 @@ void prepareData(Options const& opt,
   vw::vw_out() << "Reference DEM grid size: " << ref_tr << " meters.\n";
   vw::vw_out() << "Source DEM grid size: " << src_tr << " meters.\n";
 
+  // Sanity check. This code was not tested with different grid sizes in x and y.
+  double ref_tr_y = ref_georef.transform()(1, 1);
+  double src_tr_y = src_georef.transform()(1, 1);
+  double ref_err  = std::abs(std::abs(ref_tr_y/ref_tr) - 1.0);
+  double src_err  = std::abs(std::abs(src_tr_y/src_tr) - 1.0);
+  if (ref_err > 1e-2 || src_err > 1e-2)
+    vw::vw_throw(vw::NoImplErr() 
+                 << "The input DEM grid sizes in x and y do not agree. Please reproject "
+                 << "the DEMs with gdalwarp -r cubic.\n");
+  
   // Prefer the reference resolution to be smaller
   if (ref_tr > src_tr)
     vw::vw_out(vw::WarningMessage) 
@@ -571,12 +605,13 @@ void run_nuth(Options const& opt) {
   vw::cartography::GeoReference crop_georef;
   prepareData(opt, ref_copy, src_copy, ref_nodata, src_nodata, crop_georef);
   
-  // Calculate the slope of the src_copy DEM
-  vw::ImageView<vw::PixelMask<double>> slope;
-  calcSlope(src_copy, crop_georef, slope);
+  // Calculate the slope and aspect of the src_copy DEM
+  vw::ImageView<vw::PixelMask<double>> slope, aspect;
+  calcSlopeAspect(src_copy, crop_georef, slope, aspect);
 
 #if 1  
   // Write the slope
+  {
   vw::TerminalProgressCallback src_tpc("asp", ": ");
   bool has_src_no_data = true, has_src_georef = true;
   std::string src_slope_file = opt.out_prefix + "-src-slope.tif";
@@ -586,6 +621,19 @@ void run_nuth(Options const& opt) {
                                           has_src_georef, crop_georef,
                                           has_src_no_data, src_nodata,
                                           opt, src_tpc);
+  }
+  // Write the aspect
+  {
+  vw::TerminalProgressCallback src_tpc("asp", ": ");
+  bool has_src_no_data = true, has_src_georef = true;
+  std::string src_aspect_file = opt.out_prefix + "-src-aspect.tif";
+  vw::vw_out() << "Writing: " << src_aspect_file << "\n";
+  vw::cartography::block_write_gdal_image(src_aspect_file,
+                                          vw::apply_mask(aspect, src_nodata),
+                                          has_src_georef, crop_georef,
+                                          has_src_no_data, src_nodata,
+                                          opt, src_tpc);
+  }
 #endif  
 
   // Compute the Nuth offset
