@@ -38,6 +38,79 @@
 
 #include <boost/program_options.hpp>
 
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <Eigen/Core>
+#include <ceres/ceres.h>
+
+double DegToRad(double deg) {
+  return deg * M_PI / 180.0;
+}
+
+// Function for fitting Nuth and Kaab (2011)
+// Can use phasor addition, but need to change conversion to offset dx and dy
+// https://stackoverflow.com/questions/12397412/i-know-scipy-curve-fit-can-do-better?rq=1
+double nuth_func(double x, double a, double b, double c) {
+  double y = a * cos(DegToRad(b-x)) + c;
+  return y;
+}
+
+// An error function minimizing the error of projecting an xyz point
+// into a given CSM linescan camera pixel. The variables of optimization are a
+// portion of the position and quaternion variables affected by this, and the 
+// triangulation point.
+const int NUM_RES = 2;
+const int NUM_PARAMS = 3;
+struct LsPixelReprojErr {
+  LsPixelReprojErr(vw::Vector2 const& observation, double weight,
+                   int begQuatIndex, int endQuatIndex, 
+                   int begPosIndex, int endPosIndex):
+    m_observation(observation), m_weight(weight),
+    m_begQuatIndex(begQuatIndex), m_endQuatIndex(endQuatIndex),
+    m_begPosIndex(begPosIndex),   m_endPosIndex(endPosIndex) {}
+
+  // The implementation is further down
+  bool operator()(double const * const * parameters, double * residuals) const {
+    
+    // Can use parameters[i][j]
+    
+    residuals[0] = 0;
+    residuals[1] = 0;
+    
+    return true;
+  } 
+
+  // Factory to hide the construction of the CostFunction object from the client code.
+  static ceres::CostFunction* Create(vw::Vector2 const& observation, double weight,
+                                     int begQuatIndex, int endQuatIndex,
+                                     int begPosIndex, int endPosIndex) {
+
+    // TODO(oalexan1): Try using here the analytical cost function
+    ceres::DynamicNumericDiffCostFunction<LsPixelReprojErr>* cost_function =
+      new ceres::DynamicNumericDiffCostFunction<LsPixelReprojErr>
+      (new LsPixelReprojErr(observation, weight, 
+                                  begQuatIndex, endQuatIndex,
+                                  begPosIndex, endPosIndex));
+
+    // The residual size is always the same.
+    cost_function->SetNumResiduals(NUM_RES);
+
+    // Add a parameter block for each quaternion and each position
+    for (int it = begQuatIndex; it < endQuatIndex; it++)
+      cost_function->AddParameterBlock(NUM_PARAMS);
+
+    return cost_function;
+  }
+
+private:
+  vw::Vector2 m_observation; // The pixel observation for this camera/point pair
+  double m_weight;
+  int m_begQuatIndex, m_endQuatIndex;
+  int m_begPosIndex, m_endPosIndex;
+}; // End class LsPixelReprojErr
+
+
 namespace po = boost::program_options;
 
 struct Options: vw::GdalWriteOptions {
@@ -241,6 +314,84 @@ void rangeMadFilter(vw::ImageView<vw::PixelMask<double>> & diff,
   vw::vw_out() << "Percentage of samples removed as outliers: " << removedPct << "%\n";
 }
 
+// Calculate the DEM slope in degrees at a given location.
+// The code below is adapted from GDAL.
+// https://github.com/OSGeo/gdal/blob/46412f0fb7df3f0f71c6c31ff0ae97b7cef6fa61/apps/gdaldem_lib.cpp#L1284C1-L1301C1
+// It looks to be an approximation of the Zevenbergen and Thorne method, not the
+// real thing.
+vw::PixelMask<double> 
+SlopeZevenbergenThorneAlg(vw::ImageView<vw::PixelMask<double>> const& dem,
+                          vw::cartography::GeoReference const& georef,
+                          int col, int row) {
+
+  // The slope starts with same dimensions and invalid
+  vw::PixelMask<double> slope;
+  slope.invalidate();
+  
+  int num_cols = dem.cols(), num_rows = dem.rows();
+  
+  // If the pixel is at the border, return invalid
+  if (col <= 0 || row <= 0 || col >= num_cols - 1 || row >= num_rows - 1)
+    return slope;
+  
+  // Form the afWin vector with the pixel values
+  std::vector<double> afWin(9);
+  int count = 0;
+  for (int irow = -1; irow <= 1; irow++) {
+    for (int icol = -1; icol <= 1; icol++) {
+      
+      auto val = dem(col + icol, row + irow);
+      
+      // If invalid, return invalid right away
+      if (!is_valid(val))
+        return slope;
+        
+      afWin[count] = val.child();
+      count++;
+    }
+  }
+  
+  // To find the local grid size in x, convert pixels to projected coordinates.
+  vw::Vector2 left_pt = georef.pixel_to_point(vw::Vector2(col - 1, row));
+  vw::Vector2 right_pt = georef.pixel_to_point(vw::Vector2(col + 1, row));
+  double grid_x = vw::math::norm_2(right_pt - left_pt) / 2.0;
+
+  // Same for y.
+  vw::Vector2 top_pt = georef.pixel_to_point(vw::Vector2(col, row - 1));
+  vw::Vector2 bottom_pt = georef.pixel_to_point(vw::Vector2(col, row + 1));
+  double grid_y = vw::math::norm_2(bottom_pt - top_pt) / 2.0;
+  
+  // From GDAL
+  double dx = (afWin[3] - afWin[5]) / grid_x;
+  double dy = (afWin[7] - afWin[1]) / grid_y;
+  double key = dx * dx + dy * dy;
+
+  slope = atan(sqrt(key)/2.0) * 180.0 / M_PI;
+  slope.validate();
+  
+  // Original GDAL code
+  // atan(sqrt(key) / (2 * psData->scale)) * kdfRadiansToDegrees
+
+  return slope;
+}
+
+// Calculate the DEM slope in degrees. Use the same logic as gdaldem. 
+void calcSlope(vw::ImageView<vw::PixelMask<double>> const& dem, 
+               vw::cartography::GeoReference const& georef,
+               // Outputs
+               vw::ImageView<vw::PixelMask<double>> & slope) {
+
+  // Allocate space for the output slope
+  slope.set_size(dem.cols(), dem.rows());
+  
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      slope(col, row) = SlopeZevenbergenThorneAlg(dem, georef, col, row);
+    }
+  }
+
+}
+
 // Put the above logic in a function that prepares the data
 void prepareData(Options const& opt, 
                   vw::ImageView<vw::PixelMask<double>> & ref_copy,
@@ -340,7 +491,7 @@ void prepareData(Options const& opt,
   vw::vw_out() << "Working in cropped source domain. Regrid the reference DEM.\n";
   crop_georef = vw::cartography::crop(local_georef, src_crop_box);
 
-#if 0  
+#if 1  
   // Write the cropped and warped ref
   vw::TerminalProgressCallback ref_tpc("asp", ": ");
   bool has_ref_no_data = true;
@@ -419,11 +570,29 @@ void run_nuth(Options const& opt) {
   double src_nodata = ref_nodata;
   vw::cartography::GeoReference crop_georef;
   prepareData(opt, ref_copy, src_copy, ref_nodata, src_nodata, crop_georef);
-   
+  
+  // Calculate the slope of the src_copy DEM
+  vw::ImageView<vw::PixelMask<double>> slope;
+  calcSlope(src_copy, crop_georef, slope);
+
+#if 1  
+  // Write the slope
+  vw::TerminalProgressCallback src_tpc("asp", ": ");
+  bool has_src_no_data = true, has_src_georef = true;
+  std::string src_slope_file = opt.out_prefix + "-src-slope.tif";
+  vw::vw_out() << "Writing: " << src_slope_file << "\n";
+  vw::cartography::block_write_gdal_image(src_slope_file,
+                                          vw::apply_mask(slope, src_nodata),
+                                          has_src_georef, crop_georef,
+                                          has_src_no_data, src_nodata,
+                                          opt, src_tpc);
+#endif  
+
   // Compute the Nuth offset
   computeNuthOffset(ref_copy, src_copy, crop_georef, ref_nodata, src_nodata,
                     opt.max_offset, opt.max_dz, opt.slope_lim);  
   
+
 }
 
 int main(int argc, char *argv[]) {
