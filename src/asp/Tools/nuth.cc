@@ -52,65 +52,40 @@ inline double DegToRad(double deg) {
 // Function for fitting Nuth and Kaab (2011)
 // Can use phasor addition, but need to change conversion to offset dx and dy
 // https://stackoverflow.com/questions/12397412/i-know-scipy-curve-fit-can-do-better?rq=1
-double nuth_func(double x, double a, double b, double c) {
-  double y = a * cos(DegToRad(b-x)) + c;
-  return y;
+// Remove the template
+inline double nuth_func(double x, double a, double b, double c) {
+  return a * cos(DegToRad(b-x)) + c;
 }
 
-// An error function minimizing the error of projecting an xyz point
-// into a given CSM linescan camera pixel. The variables of optimization are a
-// portion of the position and quaternion variables affected by this, and the 
-// triangulation point.
-const int NUM_RES = 2;
-const int NUM_PARAMS = 3;
-struct LsPixelReprojErr {
-  LsPixelReprojErr(vw::Vector2 const& observation, double weight,
-                   int begQuatIndex, int endQuatIndex, 
-                   int begPosIndex, int endPosIndex):
-    m_observation(observation), m_weight(weight),
-    m_begQuatIndex(begQuatIndex), m_endQuatIndex(endQuatIndex),
-    m_begPosIndex(begPosIndex),   m_endPosIndex(endPosIndex) {}
+// Cost functor for Nuth and Kaab function
+struct NuthResidual {
 
-  // The implementation is further down
-  bool operator()(double const * const * parameters, double * residuals) const {
-    
-    // Can use parameters[i][j]
-    
-    residuals[0] = 0;
-    residuals[1] = 0;
-    
+  NuthResidual(double x, double y): m_x(x), m_y(y) {}
+
+  bool operator()(double const * const * params, double * residuals) const {
+    // params[0][0] = a, params[0][1] = b, params[0][2] = c
+    double predicted = nuth_func(m_x, params[0][0], params[0][1], params[0][2]);
+    residuals[0] = predicted - m_y;
     return true;
-  } 
+  }
 
   // Factory to hide the construction of the CostFunction object from the client code.
-  static ceres::CostFunction* Create(vw::Vector2 const& observation, double weight,
-                                     int begQuatIndex, int endQuatIndex,
-                                     int begPosIndex, int endPosIndex) {
-
-    // TODO(oalexan1): Try using here the analytical cost function
-    ceres::DynamicNumericDiffCostFunction<LsPixelReprojErr>* cost_function =
-      new ceres::DynamicNumericDiffCostFunction<LsPixelReprojErr>
-      (new LsPixelReprojErr(observation, weight, 
-                                  begQuatIndex, endQuatIndex,
-                                  begPosIndex, endPosIndex));
-
-    // The residual size is always the same.
-    cost_function->SetNumResiduals(NUM_RES);
-
-    // Add a parameter block for each quaternion and each position
-    for (int it = begQuatIndex; it < endQuatIndex; it++)
-      cost_function->AddParameterBlock(NUM_PARAMS);
-
+  static ceres::CostFunction* CreateNuthCostFunction(double x, double y) {
+    
+    ceres::DynamicNumericDiffCostFunction<NuthResidual>* cost_function
+      = new ceres::DynamicNumericDiffCostFunction<NuthResidual>(new NuthResidual(x, y));
+      
+    // The residual size is 1
+    cost_function->SetNumResiduals(1);
+    
+    // Add a parameter block for each parameter
+    cost_function->AddParameterBlock(3);
+    
     return cost_function;
   }
 
-private:
-  vw::Vector2 m_observation; // The pixel observation for this camera/point pair
-  double m_weight;
-  int m_begQuatIndex, m_endQuatIndex;
-  int m_begPosIndex, m_endPosIndex;
-}; // End class LsPixelReprojErr
-
+  double m_x, m_y;
+}; // End class NuthResidual
 
 namespace po = boost::program_options;
 
@@ -713,7 +688,8 @@ void binStats(vw::ImageView<vw::PixelMask<double>> const& x,
 
 // Compute the Nuth offset. By now the DEMs have been regrided to the same
 // resolution and use the same projection. 
-void computeNuthOffset(vw::ImageView<vw::PixelMask<double>> const& ref,
+void computeNuthOffset(Options const& opt,
+                       vw::ImageView<vw::PixelMask<double>> const& ref,
                        vw::ImageView<vw::PixelMask<double>> const& src,
                        vw::cartography::GeoReference const& crop_georef,
                        double ref_nodata, double src_nodata,
@@ -783,10 +759,12 @@ void computeNuthOffset(vw::ImageView<vw::PixelMask<double>> const& ref,
   double median_diff = maskedMedian(diff);
   double median_slope = maskedMedian(slope);
   double c_seed = (median_diff/tan(DegToRad(median_slope)));
+  vw::Vector3 x0(0, 0, c_seed);
 
   std::cout << "median_diff: " << median_diff << std::endl;
   std::cout << "median_slope: " << median_slope << std::endl;
   std::cout << "c_seed: " << c_seed << std::endl;
+  std::cout << "x0: " << x0 << std::endl;
   
   // For invalid diff make the slope and aspect invalid
   intersectValid(slope, diff);
@@ -843,7 +821,66 @@ void computeNuthOffset(vw::ImageView<vw::PixelMask<double>> const& ref,
   std::vector<vw::PixelMask<double>> masked_bin_median;
   binStats(xdata, ydata, "median", numBins, binRange, 
            masked_bin_median, bin_edges, bin_centers); // outputs
-}
+  
+  int min_bin_sample_count = 9;
+  vw::vw_out() << "min_bin_sample_count: " << min_bin_sample_count << "\n";
+  // TODO(oalexan1): Must not use masked_bin_count and bins with less than
+  // min_bin_sample_count
+  
+  // Form a Ceres optimization problem. Will fit a curve to 
+  // bin centers and bin medians, while taking into acount the bin count
+  // and min_bin_sample_count.
+  ceres::Problem problem;
+  
+  // Add residuals
+  for (int i = 0; i < numBins; i++) {
+    
+    if (!is_valid(masked_bin_median[i]) || !is_valid(masked_bin_count[i]))
+      continue;
+   
+     // Skip bin count less than min_bin_sample_count
+     if (masked_bin_count[i].child() < min_bin_sample_count)
+       continue;
+        
+    // The residual is the difference between the data and the model
+    // fit = optimization.curve_fit(nuth_func, bin_centers, bin_med, x0)[0]
+    ceres::CostFunction* cost_function = 
+      NuthResidual::CreateNuthCostFunction(bin_centers[i], masked_bin_median[i].child()); 
+    // loss
+    ceres::LossFunction* loss_function = NULL;
+    problem.AddResidualBlock(cost_function, loss_function, &x0[0]);
+  }
+  
+  ceres::Solver::Options options;
+  options.gradient_tolerance  = 1e-16;
+  options.function_tolerance  = 1e-16;
+  options.parameter_tolerance = 1e-12;
+  options.max_num_iterations  = opt.max_iter;
+  options.max_num_consecutive_invalid_steps = std::max(5, opt.max_iter/5); // try hard
+  options.minimizer_progress_to_stdout = true;
+  options.num_threads = 1;
+  options.linear_solver_type = ceres::DENSE_SCHUR; // good for small problems
+  
+  vw::vw_out() << "Solving the Nuth offset problem.\n";
+  vw::vw_out() << "Using max iterations: " << options.max_num_iterations << "\n";
+  vw::vw_out() << "Using number of threads: " << options.num_threads << "\n";
+  vw::vw_out() << "Not using a robust cost function.\n";
+  
+  // TODO(oalexan1): Add robust cost function?
+  
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+  vw::vw_out() << summary.FullReport() << "\n";
+  
+  if (summary.termination_type == ceres::NO_CONVERGENCE) {
+    // Print a clarifying message, so the user does not think that the algorithm failed.
+    vw::vw_out() << "Found a valid solution, but did not reach the actual minimum. This "
+                 << "is expected and likely the produced solution is good enough.\n";
+  }
+
+  std::cout << "--final solution: " << x0 << "\n";
+    
+} // End function computeNuthOffset
 
 void run_nuth(Options const& opt) {
 
@@ -855,7 +892,7 @@ void run_nuth(Options const& opt) {
   prepareData(opt, ref_copy, src_copy, ref_nodata, src_nodata, crop_georef);
   
   // Compute the Nuth offset
-  computeNuthOffset(ref_copy, src_copy, crop_georef, ref_nodata, src_nodata,
+  computeNuthOffset(opt, ref_copy, src_copy, crop_georef, ref_nodata, src_nodata,
                     opt.max_offset, opt.max_dz, opt.slope_lim);  
   
 }
