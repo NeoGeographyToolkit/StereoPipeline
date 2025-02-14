@@ -44,7 +44,7 @@
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 
-double DegToRad(double deg) {
+inline double DegToRad(double deg) {
   return deg * M_PI / 180.0;
 }
 
@@ -267,6 +267,48 @@ double normalizedMad(vw::ImageView<vw::PixelMask<double>> const& img,
   return  1.4826 * mad;
 }
 
+// Find the mean of valid pixels.
+// TODO(oalexan1): Move this to NuthUtils.cc
+double maskedMean(vw::ImageView<vw::PixelMask<double>> const& img) {
+  
+  double sum = 0.0;
+  long long count = 0;
+  for (int col = 0; col < img.cols(); col++) {
+    for (int row = 0; row < img.rows(); row++) {
+      if (is_valid(img(col, row))) {
+        sum += img(col, row).child();
+        count++;
+      }
+    }
+  }
+  
+  if (count == 0)
+    return 0.0;
+  
+  return sum / count;
+}
+
+// Find the std dev of valid pixels.
+// TODO(oalexan1): Move this to NuthUtils.cc
+double maskedStdDev(vw::ImageView<vw::PixelMask<double>> const& img, double mean) {
+  
+  double sum = 0.0;
+  long long count = 0;
+  for (int col = 0; col < img.cols(); col++) {
+    for (int row = 0; row < img.rows(); row++) {
+      if (is_valid(img(col, row))) {
+        sum += (img(col, row).child() - mean) * (img(col, row).child() - mean);
+        count++;
+      }
+    }
+  }
+  
+  if (count == 0)
+    return 0.0;
+  
+  return sqrt(sum / count);
+}
+  
 // Filter outside this range
 // TODO(oalexan1): Move this to NuthUtils.cc
 void rangeFilter(vw::ImageView<vw::PixelMask<double>> & diff, 
@@ -281,21 +323,33 @@ void rangeFilter(vw::ImageView<vw::PixelMask<double>> & diff,
   }
 }
 
+// Invalidate pixels in first image that are invalid in second image
+void intersectValid(vw::ImageView<vw::PixelMask<double>> & img1, 
+                    vw::ImageView<vw::PixelMask<double>> const& img2) {
+  
+  for (int col = 0; col < img1.cols(); col++) {
+    for (int row = 0; row < img1.rows(); row++) {
+      if (!is_valid(img2(col, row)))
+        img1(col, row).invalidate();
+    }
+  }
+}
+
 // Filter by normalized median absolute deviation with given factor
 // TODO(oalexan1): Move this to NuthUtils.cc
-void madFilter(vw::ImageView<vw::PixelMask<double>> & diff, double outlier_factor) {
+void madFilter(vw::ImageView<vw::PixelMask<double>> & diff, double outlierFactor) {
   
   double median = maskedMedian(diff);
   double mad = normalizedMad(diff, median);
-  double min_val = median - outlier_factor * mad;
-  double max_val = median + outlier_factor * mad;
+  double min_val = median - outlierFactor * mad;
+  double max_val = median + outlierFactor * mad;
   rangeFilter(diff, min_val, max_val);
 }
 
 // Filter outliers by range and then by normalized median absolute deviation
 // TODO(oalexan1): Move this to NuthUtils.cc
 void rangeMadFilter(vw::ImageView<vw::PixelMask<double>> & diff, 
-                    double outlier_factor,
+                    double outlierFactor,
                     double max_dz) {
 
   double origCount = validCount(diff);
@@ -304,7 +358,7 @@ void rangeMadFilter(vw::ImageView<vw::PixelMask<double>> & diff,
   rangeFilter(diff, -max_dz, max_dz);
   
   // Apply normalized mad filter with given factor
-  madFilter(diff, outlier_factor);
+  madFilter(diff, outlierFactor);
   
   double finalCount = validCount(diff);
   
@@ -319,7 +373,7 @@ void rangeMadFilter(vw::ImageView<vw::PixelMask<double>> & diff,
 // https://github.com/OSGeo/gdal/blob/46412f0fb7df3f0f71c6c31ff0ae97b7cef6fa61/apps/gdaldem_lib.cpp#L1284C1-L1301C1
 //https://github.com/OSGeo/gdal/blob/46412f0fb7df3f0f71c6c31ff0ae97b7cef6fa61/apps/gdaldem_lib.cpp#L1363
 // It looks to be an approximation of the Zevenbergen and Thorne method, not the
-// real thing.
+// real thing. Using same logic for consistency.
 void SlopeAspectZevenbergenThorneAlg(vw::ImageView<vw::PixelMask<double>> const& dem,
                                      vw::cartography::GeoReference const& georef,
                                      int col, int row,
@@ -563,6 +617,9 @@ void computeNuthOffset(vw::ImageView<vw::PixelMask<double>> const& ref,
                        double ref_nodata, double src_nodata,
                        double max_offset, double max_dz, vw::Vector2 const& slope_lim) {
 
+  // TODO(oalexan1): Implement the regrid here as in the dem_align.py code.
+  vw::vw_out() << "Must regrid each time at this stage, as the georef will change.\n";
+  
   // Ref and src must have the same size
   if (ref.cols() != src.cols() || ref.rows() != src.rows())
     vw::vw_throw(vw::ArgumentErr() 
@@ -592,8 +649,81 @@ void computeNuthOffset(vw::ImageView<vw::PixelMask<double>> const& ref,
     }
   }
   
-  double outlier_factor = 3.0;
-  rangeMadFilter(diff, outlier_factor, max_dz);
+  double outlierFactor = 3.0;
+  rangeMadFilter(diff, outlierFactor, max_dz);
+  
+  // Calculate the slope and aspect of the src_copy DEM
+  vw::ImageView<vw::PixelMask<double>> slope, aspect;
+  calcSlopeAspect(src, crop_georef, slope, aspect);
+  
+  std::cout << "--slope lim: " << slope_lim << std::endl;
+  std::cout << "number of valid slopes: " << validCount(slope) << "\n";
+  
+  // Filter slopes by range
+  rangeFilter(slope, slope_lim[0], slope_lim[1]);
+  
+  std::cout << "--number of valid slopes after range filter: " << validCount(slope) << "\n";
+  std::cout << "number of diff before filter by slope and aspect: " << validCount(diff) << "\n";
+  
+  // Invalidate diffs with invalid slope or aspect
+  intersectValid(diff, slope);
+  intersectValid(diff, aspect);
+  
+  std::cout << "number of diff after filter by slope: " << validCount(diff) << "\n";
+  std::cout << "number of diff after filter by aspect: " << validCount(diff) << "\n";
+  
+  // Important sanity check
+  int minCount = 100;
+  if (validCount(diff) < minCount)
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Too little valid data left after filtering.\n");
+      
+  double median_diff = maskedMedian(diff);
+  double median_slope = maskedMedian(slope);
+  double c_seed = (median_diff/tan(DegToRad(median_slope)));
+
+  std::cout << "median_diff: " << median_diff << std::endl;
+  std::cout << "median_slope: " << median_slope << std::endl;
+  std::cout << "c_seed: " << c_seed << std::endl;
+  
+  // For invalid diff make the slope and aspect invalid
+  intersectValid(slope, diff);
+  intersectValid(aspect, diff);
+
+  // Form xdata and ydata. We don't bother removing the flagged invalid pixels.
+  // xdata = aspect[common_mask].data
+  // ydata = (diff[common_mask]/np.tan(np.deg2rad(slope[common_mask]))).data
+  vw::ImageView<vw::PixelMask<double>> xdata = copy(aspect);
+  vw::ImageView<vw::PixelMask<double>> ydata(src.cols(), src.rows());
+  for (int col = 0; col < src.cols(); col++) {
+    for (int row = 0; row < src.rows(); row++) {
+      
+      ydata(col, row).invalidate();
+      if (is_valid(diff(col, row)) && is_valid(slope(col, row)) && 
+          slope(col, row).child() != 0) {
+        ydata(col, row) 
+          = diff(col, row).child() / tan(DegToRad(slope(col, row).child()));
+        ydata(col, row).validate();
+      }
+    }
+  }
+  
+  // Filter outliers in y by mean and std dev
+  outlierFactor = 3.0;
+  double mean_y = maskedMean(ydata);
+  double std_dev_y = maskedStdDev(ydata, mean_y);
+  double rmin = mean_y - outlierFactor * std_dev_y;
+  double rmax = mean_y + outlierFactor * std_dev_y;
+  
+  std::cout << "mean_y: " << mean_y << std::endl;
+  std::cout << "std_dev_y: " << std_dev_y << std::endl;
+  std::cout << "range for y: " << rmin << ' ' << rmax << std::endl;
+  std::cout << "before filtring num of y is " << validCount(ydata) << std::endl;
+
+  rangeFilter(ydata, rmin, rmax);
+
+  std::cout << "after filtring num of y is " << validCount(ydata) << std::endl;
+  
 }
 
 void run_nuth(Options const& opt) {
@@ -605,11 +735,13 @@ void run_nuth(Options const& opt) {
   vw::cartography::GeoReference crop_georef;
   prepareData(opt, ref_copy, src_copy, ref_nodata, src_nodata, crop_georef);
   
-  // Calculate the slope and aspect of the src_copy DEM
-  vw::ImageView<vw::PixelMask<double>> slope, aspect;
-  calcSlopeAspect(src_copy, crop_georef, slope, aspect);
+  // Compute the Nuth offset
+  computeNuthOffset(ref_copy, src_copy, crop_georef, ref_nodata, src_nodata,
+                    opt.max_offset, opt.max_dz, opt.slope_lim);  
+  
+}
 
-#if 1  
+#if 0  
   // Write the slope
   {
   vw::TerminalProgressCallback src_tpc("asp", ": ");
@@ -635,13 +767,6 @@ void run_nuth(Options const& opt) {
                                           opt, src_tpc);
   }
 #endif  
-
-  // Compute the Nuth offset
-  computeNuthOffset(ref_copy, src_copy, crop_georef, ref_nodata, src_nodata,
-                    opt.max_offset, opt.max_dz, opt.slope_lim);  
-  
-
-}
 
 int main(int argc, char *argv[]) {
 
