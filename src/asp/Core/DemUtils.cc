@@ -260,20 +260,20 @@ public:
 vw::ImageViewRef<vw::PixelMask<double>> 
   warpCrop(vw::ImageViewRef<double> dem2, 
            double dem2_nodata,
-           vw::cartography::GeoReference const& dem1_georef,
            vw::cartography::GeoReference const& dem2_georef,
-           vw::BBox2i const& crop_box,
+           vw::cartography::GeoReference const& dem1_georef,
+           vw::BBox2i const& dem1_crop_box,
            std::string const& interp_type) {
   
-  if (crop_box.empty()) 
+  if (dem1_crop_box.empty()) 
     vw::vw_throw(vw::ArgumentErr() << "The two DEMs do not have a common area.\n");
   
   auto masked_dem2 = vw::create_mask(dem2, dem2_nodata);
   
   // Prepare the image for applying the geotransform
-  auto dem2_alt = vw::per_pixel_filter(vw::cartography::dem_to_geodetic(masked_dem2, 
-                                                                        dem2_georef),
-                                       MGeodeticToMAltitude());
+  // TODO(oalexan1): Why go from elevations to geodetic and then back?
+  auto dem2_geo = vw::cartography::dem_to_geodetic(masked_dem2, dem2_georef);
+  auto dem2_alt = vw::per_pixel_filter(dem2_geo, MGeodeticToMAltitude());
   auto ext = vw::ValueEdgeExtension<vw::PixelMask<double>>(vw::PixelMask<double>());
   
   vw::ImageViewRef<vw::PixelMask<double>> warped_dem2;
@@ -287,7 +287,7 @@ vw::ImageViewRef<vw::PixelMask<double>>
     vw::vw_throw(vw::ArgumentErr() << "Unknown interpolation type: " << interp_type << ".\n");
   
   vw::ImageViewRef<vw::PixelMask<double>> dem2_trans 
-    = vw::per_pixel_filter(vw::crop(warped_dem2, crop_box), MaskNaN());
+    = vw::per_pixel_filter(vw::crop(warped_dem2, dem1_crop_box), MaskNaN());
   
   return dem2_trans;
 }

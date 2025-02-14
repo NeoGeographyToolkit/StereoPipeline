@@ -52,7 +52,6 @@ inline double DegToRad(double deg) {
 // Function for fitting Nuth and Kaab (2011)
 // Can use phasor addition, but need to change conversion to offset dx and dy
 // https://stackoverflow.com/questions/12397412/i-know-scipy-curve-fit-can-do-better?rq=1
-// Remove the template
 inline double nuth_func(double x, double a, double b, double c) {
   return a * cos(DegToRad(b-x)) + c;
 }
@@ -447,6 +446,110 @@ void calcSlopeAspect(vw::ImageView<vw::PixelMask<double>> const& dem,
 
 }
 
+// Group y-values into bins based on their corresponding x-values and computes
+// a statistic (like mean, sum, etc.) for each bin. This reimplements
+// scipy.stats.binned_statistic. Do not return bin number, as we don't need it.
+// Also some stats that are not needed were not implemented.
+void binnedStatistics(vw::ImageView<vw::PixelMask<double>> const& x, 
+                      vw::ImageView<vw::PixelMask<double>> const& y,
+                      std::string stat, int nbins, 
+                      vw::Vector2 const& bin_range,
+                      // Outputs
+                      std::vector<double> & bin_stat,
+                      std::vector<double> & bin_edges) {
+
+  // x and y must have the same size
+  if (x.cols() != y.cols() || x.rows() != y.rows())
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "The x and y images must have the same size.\n");
+  
+  double bin_width = (bin_range[1] - bin_range[0]) / nbins;
+  
+  // Resize output vectors
+  bin_stat.resize(nbins);
+  bin_edges.resize(nbins + 1);
+
+  for (int i = 0; i <= nbins; i++)
+    bin_edges[i] = bin_range[0] + i * bin_width;
+
+  // Accumulate the values in each bin
+  std::vector<std::vector<double>> bin_values(nbins);
+  for (int col = 0; col < x.cols(); col++) {
+    for (int row = 0; row < x.rows(); row++) {
+      
+      if (!is_valid(x(col, row)) || !is_valid(y(col, row)))
+        continue; // Skip invalid pixels
+      
+      // Skip values outside range
+      if (x(col, row).child() < bin_range[0] || x(col, row).child() > bin_range[1])
+        continue;
+      
+      // Bin index  
+      int bin_index = (int)std::floor((x(col, row).child() - bin_range[0]) / bin_width);
+      if (bin_index >= nbins) // This can happen due to numerical errors
+        bin_index = nbins - 1;
+      if (bin_index < 0)
+        bin_index = 0;
+        
+      bin_values[bin_index].push_back(y(col, row).child());
+    }
+  }
+  
+  // Compute the statistic for each bin
+  for (int i = 0; i < nbins; i++) {
+    
+    if (bin_values[i].empty()) {
+      bin_stat[i] = std::numeric_limits<double>::quiet_NaN();
+      continue;
+    }
+    
+    if (stat == "mean")
+      bin_stat[i] = vw::math::mean(bin_values[i]);
+     else if (stat == "count")
+       bin_stat[i] = bin_values[i].size();
+     else if (stat == "median")
+       bin_stat[i] = vw::math::destructive_median(bin_values[i]);
+    else
+      vw::vw_throw(vw::ArgumentErr() << "Invalid statistic: " << stat << ".\n");
+   }
+}
+
+// Put y values in bins determined by x values. Return stats in each bin,
+// bin centers, and bin edges.
+// TODO(oalexan1): Merge this into the above function.
+void binStats(vw::ImageView<vw::PixelMask<double>> const& x, 
+              vw::ImageView<vw::PixelMask<double>> const& y,
+              std::string stat, int nbins, 
+              vw::Vector2 const& bin_range,
+              // Outputs
+              std::vector<vw::PixelMask<double>> & masked_bin_stat,
+              std::vector<double> & bin_edges,
+              std::vector<double> & bin_centers) {
+  
+  std::vector<double> bin_stat;
+  binnedStatistics(x, y, stat, nbins, bin_range, 
+                   bin_stat, bin_edges); // outputs
+  
+  double bin_width = (bin_range[1] - bin_range[0]) / nbins;
+  
+  // To get the bin center shift right by half a bin width. Skip the last edge.
+  // There are as many bin centers as there are bins
+  bin_centers.resize(nbins);
+  for (int i = 0; i < nbins; i++)
+    bin_centers[i] = bin_edges[i] + bin_width / 2.0;
+ 
+  // Form the output masked bin stat
+  // TODO(oalexan1): This is not needed. Just use 0 when there is no data.
+  masked_bin_stat.resize(nbins);
+  for (int i = 0; i < nbins; i++) {
+    masked_bin_stat[i].invalidate();
+    if (!std::isnan(bin_stat[i])) {
+      masked_bin_stat[i].child() = bin_stat[i];
+      masked_bin_stat[i].validate();
+    }
+  }
+}
+
 // Put the above logic in a function that prepares the data
 void prepareData(Options const& opt, 
                   vw::ImageView<vw::PixelMask<double>> & ref_copy,
@@ -547,7 +650,7 @@ void prepareData(Options const& opt,
   vw::ImageViewRef<vw::PixelMask<double>> src_crop 
     = vw::crop(create_mask(src_dem, src_nodata), src_crop_box);
   vw::ImageViewRef<vw::PixelMask<double>> ref_trans 
-    = asp::warpCrop(ref_dem, ref_nodata, src_georef, ref_georef, src_crop_box, 
+    = asp::warpCrop(ref_dem, ref_nodata, ref_georef, src_georef, src_crop_box, 
                     "bicubic");
   
   // Recall that we work in the src domain. 
@@ -583,107 +686,8 @@ void prepareData(Options const& opt,
   vw::vw_out() << "Reading the input DEMs in memory for faster processing.\n";
   ref_copy = ref_trans;
   src_copy = src_crop;
-}
-
-// Group y-values into bins based on their corresponding x-values and computes
-// a statistic (like mean, sum, etc.) for each bin. This reimplements
-// scipy.stats.binned_statistic. Do not return bin number, as we don't need it.
-// Also some stats that are not needed were not implemented.
-void binnedStatistics(vw::ImageView<vw::PixelMask<double>> const& x, 
-                      vw::ImageView<vw::PixelMask<double>> const& y,
-                      std::string stat, int nbins, 
-                      vw::Vector2 const& bin_range,
-                      // Outputs
-                      std::vector<double> & bin_stat,
-                      std::vector<double> & bin_edges) {
-
-  // x and y must have the same size
-  if (x.cols() != y.cols() || x.rows() != y.rows())
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "The x and y images must have the same size.\n");
   
-  double bin_width = (bin_range[1] - bin_range[0]) / nbins;
-  
-  // Resize output vectors
-  bin_stat.resize(nbins);
-  bin_edges.resize(nbins + 1);
-
-  for (int i = 0; i <= nbins; i++)
-    bin_edges[i] = bin_range[0] + i * bin_width;
-
-  // Accumulate the values in each bin
-  std::vector<std::vector<double>> bin_values(nbins);
-  for (int col = 0; col < x.cols(); col++) {
-    for (int row = 0; row < x.rows(); row++) {
-      
-      if (!is_valid(x(col, row)) || !is_valid(y(col, row)))
-        continue; // Skip invalid pixels
-      
-      // Skip values outside range
-      if (x(col, row).child() < bin_range[0] || x(col, row).child() > bin_range[1])
-        continue;
-      
-      // Bin index  
-      int bin_index = (int)std::floor((x(col, row).child() - bin_range[0]) / bin_width);
-      if (bin_index >= nbins) // This can happen due to numerical errors
-        bin_index = nbins - 1;
-      if (bin_index < 0)
-        bin_index = 0;
-        
-      bin_values[bin_index].push_back(y(col, row).child());
-    }
-  }
-  
-  // Compute the statistic for each bin
-  for (int i = 0; i < nbins; i++) {
-    
-    if (bin_values[i].empty()) {
-      bin_stat[i] = std::numeric_limits<double>::quiet_NaN();
-      continue;
-    }
-    
-    if (stat == "mean")
-      bin_stat[i] = vw::math::mean(bin_values[i]);
-     else if (stat == "count")
-       bin_stat[i] = bin_values[i].size();
-     else if (stat == "median")
-       bin_stat[i] = vw::math::destructive_median(bin_values[i]);
-    else
-      vw::vw_throw(vw::ArgumentErr() << "Invalid statistic: " << stat << ".\n");
-   }
-}
-
-// Wrapper function that does a bit more work
-void binStats(vw::ImageView<vw::PixelMask<double>> const& x, 
-              vw::ImageView<vw::PixelMask<double>> const& y,
-              std::string stat, int nbins, 
-              vw::Vector2 const& bin_range,
-              // Outputs
-              std::vector<vw::PixelMask<double>> & masked_bin_stat,
-              std::vector<double> & bin_edges,
-              std::vector<double> & bin_centers) {
-  
-  std::vector<double> bin_stat;
-  binnedStatistics(x, y, stat, nbins, bin_range, 
-                   bin_stat, bin_edges); // outputs
-  
-  double bin_width = (bin_range[1] - bin_range[0]) / nbins;
-  
-  // To get the bin center shift right by half a bin width. Skip the last edge.
-  // There are as many bin centers as there are bins
-  bin_centers.resize(nbins);
-  for (int i = 0; i < nbins; i++)
-    bin_centers[i] = bin_edges[i] + bin_width / 2.0;
- 
-  // Form the output masked bin stat
-  masked_bin_stat.resize(nbins);
-  for (int i = 0; i < nbins; i++) {
-    masked_bin_stat[i].invalidate();
-    if (!std::isnan(bin_stat[i])) {
-      masked_bin_stat[i].child() = bin_stat[i];
-      masked_bin_stat[i].validate();
-    }
-  }
+  // This code also exports crop_georef
 }
 
 // Compute the Nuth offset. By now the DEMs have been regrided to the same
@@ -863,6 +867,7 @@ void computeNuthOffset(Options const& opt,
   
   vw::vw_out() << "Solving the Nuth offset problem.\n";
   vw::vw_out() << "Using max iterations: " << options.max_num_iterations << "\n";
+  // TODO(oalexan1): Number of threads need to change
   vw::vw_out() << "Using number of threads: " << options.num_threads << "\n";
   vw::vw_out() << "Not using a robust cost function.\n";
   

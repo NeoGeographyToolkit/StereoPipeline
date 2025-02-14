@@ -150,23 +150,23 @@ void dem2dem_diff(Options& opt) {
   
   georef_sanity_checks(dem1_georef, dem2_georef);
 
-  // Generate a bounding box that is the minimum of the two BBox areas
-  BBox2i crop_box = bounding_box(dem1_disk_image_view);
-
-  // Transform the second DEM's bounding box to first DEM's pixels
+  // Generate a bounding box that is the minimum of the two BBox areas. For
+  // that, first transform the second DEM's bounding box to first DEM's
+  // coordinates.
+  BBox2i dem1_crop_box = bounding_box(dem1_disk_image_view);
   GeoTransform gt(dem2_georef, dem1_georef);
   BBox2i box21 = gt.forward_bbox(bounding_box(dem2_disk_image_view));
-  crop_box.crop(box21);
-
-  if (crop_box.empty()) 
+  dem1_crop_box.crop(box21);
+  if (dem1_crop_box.empty()) 
     vw_throw(ArgumentErr() << "The two DEMs do not have a common area.\n");
 
   // Crop the first DEM to the shared box, then transform and crop the second DEM
+  // to same box. Use bilinear interpolation for the transform.
   ImageViewRef<PixelMask<double>> dem1_crop 
-    = crop(create_mask(dem1_disk_image_view, dem1_nodata), crop_box);
+    = crop(create_mask(dem1_disk_image_view, dem1_nodata), dem1_crop_box);
   ImageViewRef<PixelMask<double>> dem2_trans 
-    = asp::warpCrop(dem2_disk_image_view, dem2_nodata, dem1_georef, dem2_georef, crop_box, 
-                    "bilinear");
+    = asp::warpCrop(dem2_disk_image_view, dem2_nodata, dem2_georef,
+                    dem1_georef, dem1_crop_box, "bilinear");
   
   ImageViewRef<double> difference;
   if (opt.use_absolute)
@@ -174,7 +174,7 @@ void dem2dem_diff(Options& opt) {
   else
     difference = apply_mask(dem1_crop - dem2_trans, opt.nodata_value);
     
-  GeoReference crop_georef = crop(dem1_georef, crop_box);
+  GeoReference crop_georef = crop(dem1_georef, dem1_crop_box);
     
   std::string output_file = opt.output_prefix + "-diff.tif";
   vw_out() << "Writing difference file: " << output_file << "\n";

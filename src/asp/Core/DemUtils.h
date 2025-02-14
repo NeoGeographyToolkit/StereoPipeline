@@ -57,11 +57,10 @@ void setupOrCheckDem(vw::GdalWriteOptions const& options,
 vw::ImageViewRef<vw::PixelMask<double>> 
   warpCrop(vw::ImageViewRef<double> dem2, 
            double dem2_nodata,
-           vw::cartography::GeoReference const& dem1_georef,
            vw::cartography::GeoReference const& dem2_georef,
-           vw::BBox2i const& crop_box,
+           vw::cartography::GeoReference const& dem1_georef,
+           vw::BBox2i const& dem1_crop_box,
            std::string const& interp_type);
-
 
 // Estimate the GSD of a DEM in meters
 void calcGsd(vw::ImageViewRef<double> const& dem,
