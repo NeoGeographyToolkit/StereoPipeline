@@ -659,36 +659,37 @@ void computeNuthOffset(Options const& opt,
                        vw::cartography::GeoReference const& ref_georef,
                        vw::cartography::GeoReference const& src_georef,
                        double ref_nodata, double src_nodata,
-                       double max_offset, double max_dz, vw::Vector2 const& slope_lim) {
+                       double max_offset, double max_dz, 
+                       vw::Vector2 const& slope_lim) {
 
   // TODO(oalexan1): Implement the regrid here as in the dem_align.py code.
   vw::vw_out() << "Must regrid each time at this stage, as the georef will change.\n";
   
   // Warp and crop the source DEM to the reference DEM domain and read in memory
   vw::BBox2i ref_crop_box = vw::bounding_box(ref);
-  vw::ImageView<vw::PixelMask<double>> src 
+  vw::ImageView<vw::PixelMask<double>> src_warp 
      = copy(asp::warpCrop(src_disk, src_nodata, src_georef, ref_georef, ref_crop_box, 
                           "bicubic"));
   
   // Ref and src must have the same size
-  if (ref.cols() != src.cols() || ref.rows() != src.rows())
+  if (ref.cols() != src_warp.cols() || ref.rows() != src_warp.rows())
     vw::vw_throw(vw::ArgumentErr() 
                  << "The reference and source DEMs must have the same size.\n"); 
     
   // Find the diff
-  vw::ImageView<vw::PixelMask<double>> diff(src.cols(), src.rows());
-  for (int col = 0; col < src.cols(); col++) {
-    for (int row = 0; row < src.rows(); row++) {
-       diff(col, row) = src(col, row) - ref(col, row);
+  vw::ImageView<vw::PixelMask<double>> diff(src_warp.cols(), src_warp.rows());
+  for (int col = 0; col < src_warp.cols(); col++) {
+    for (int row = 0; row < src_warp.rows(); row++) {
+       diff(col, row) = src_warp(col, row) - ref(col, row);
     }
   }
   
   double outlierFactor = 3.0;
   rangeMadFilter(diff, outlierFactor, max_dz);
   
-  // Calculate the slope and aspect of the src_copy DEM
+  // Calculate the slope and aspect of the src_warp_copy DEM
   vw::ImageView<vw::PixelMask<double>> slope, aspect;
-  calcSlopeAspect(src, ref_georef, slope, aspect);
+  calcSlopeAspect(src_warp, ref_georef, slope, aspect);
   
   std::cout << "--slope lim: " << slope_lim << std::endl;
   std::cout << "number of valid slopes: " << validCount(slope) << "\n";
@@ -730,9 +731,9 @@ void computeNuthOffset(Options const& opt,
   // xdata = aspect[common_mask].data
   // ydata = (diff[common_mask]/np.tan(np.deg2rad(slope[common_mask]))).data
   vw::ImageView<vw::PixelMask<double>> xdata = copy(aspect);
-  vw::ImageView<vw::PixelMask<double>> ydata(src.cols(), src.rows());
-  for (int col = 0; col < src.cols(); col++) {
-    for (int row = 0; row < src.rows(); row++) {
+  vw::ImageView<vw::PixelMask<double>> ydata(src_warp.cols(), src_warp.rows());
+  for (int col = 0; col < src_warp.cols(); col++) {
+    for (int row = 0; row < src_warp.rows(); row++) {
       
       ydata(col, row).invalidate();
       if (is_valid(diff(col, row)) && is_valid(slope(col, row)) && 
