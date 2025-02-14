@@ -552,16 +552,16 @@ void binStats(vw::ImageView<vw::PixelMask<double>> const& x,
 
 // Put the above logic in a function that prepares the data
 void prepareData(Options const& opt, 
-                  vw::ImageView<vw::PixelMask<double>> & ref_copy,
-                  vw::ImageView<vw::PixelMask<double>> & src_copy,
+                  vw::ImageView<vw::PixelMask<double>> & ref,
+                  vw::ImageViewRef<double> & src_disk,
                   double & ref_nodata, double & src_nodata,
-                  vw::cartography::GeoReference & crop_georef) {
+                  vw::cartography::GeoReference & ref_georef,
+                  vw::cartography::GeoReference & src_georef) {
 
   vw::vw_out() << "Reference DEM: " << opt.ref << "\n";
   vw::vw_out() << "Source DEM:    " << opt.src << "\n";
   
-  // The ref DEM must have a georeference
-  vw::cartography::GeoReference ref_georef, src_georef;
+  // The DEMs must have a georeference
   bool has_ref_georef = vw::cartography::read_georeference(ref_georef, opt.ref);
   bool has_src_georef = vw::cartography::read_georeference(src_georef, opt.src);
   if (!has_ref_georef || !has_src_georef)
@@ -615,7 +615,7 @@ void prepareData(Options const& opt,
       << " of the pixel size in the geoheader be negative. The provided input DEMs "
       << " are not standard and are not supported.\n");
 
-  // Read the DEMs and their no-data values as double
+  // Read the no-data values
   vw::DiskImageResourceGDAL ref_rsrc(opt.ref), src_rsrc(opt.src);
   ref_nodata = -std::numeric_limits<double>::max();
   src_nodata = ref_nodata;
@@ -623,100 +623,23 @@ void prepareData(Options const& opt,
     ref_nodata = ref_rsrc.nodata_read();
   if (src_rsrc.has_nodata_read())
     src_nodata = src_rsrc.nodata_read(); 
-  vw:: DiskImageView<double> ref_dem(ref_rsrc), src_dem(src_rsrc);
   
-  // TODO(oalexan1): Wipe all the old commented out code below.
-  // Copying verbatim from dem_align.py: Use original source dataset coordinate
-  // system. Potentially issues with distortion and xyz / tilt corr offsets for
-  // DEMs with large extent.
-  
-  // TODO(oalexan1): Here is where dem_align.py starts assuming that 
-  // one works in the source DEM domain. 
-  
-  //vw::cartography::GeoReference local_georef = src_georef;
-  //std::string local_srs = local_georef.get_wkt();
+  // Read the ref image fully in memory
+  ref = copy(create_mask(vw::DiskImageView<double>(opt.ref), ref_nodata));
 
-  // Transform the second DEM's bounding box to first DEM's pixels
-  // vw::BBox2i src_crop_box = bounding_box(src_dem);
-  // vw::cartography::GeoTransform gt(ref_georef, src_georef);
-  // vw::BBox2i ref2src_box = gt.forward_bbox(bounding_box(ref_dem));
-  // src_crop_box.crop(ref2src_box);
-  // if (src_crop_box.empty()) 
-  //   vw::vw_throw(vw::ArgumentErr() << "The two DEMs do not have a common area.\n");
-
-  // Crop the src DEM to the shared box, then transform and crop the ref DEM.
-  // to src DEM domain. Use bicubic interpolation for the transform.
-  // TODO(oalexan1): This will need changing when the grids are not the same.
-  // vw::ImageViewRef<vw::PixelMask<double>> src_crop 
-  //   = vw::crop(create_mask(src_dem, src_nodata), src_crop_box);
-  // vw::ImageViewRef<vw::PixelMask<double>> ref_trans 
-  //   = asp::warpCrop(ref_dem, ref_nodata, ref_georef, src_georef, src_crop_box, 
-  //                   "bicubic");
-
-  vw::BBox2i ref_crop_box = vw::bounding_box(ref_dem);
-  vw::ImageViewRef<vw::PixelMask<double>> src_trans 
-     = asp::warpCrop(src_dem, src_nodata, src_georef, ref_georef, ref_crop_box, 
-                    "bicubic");
+  // Get a handle to the source image on disk. We will warp it and read it in memory
+  // as needed, when it is being shifted.
+  src_disk = vw::DiskImageView<double>(opt.src);
   
-  //vw::vw_out() << "Working in cropped source domain. Regrid the reference DEM.\n";
-  //crop_georef = vw::cartography::crop(local_georef, src_crop_box);
-  crop_georef = ref_georef;
-  
-#if 1  
-  // Write the cropped and warped ref
-  vw::TerminalProgressCallback ref_tpc("asp", ": ");
-  bool has_ref_no_data = true;
-  std::string ref_crop_file = opt.out_prefix + "-ref-crop.tif"; 
-  vw::vw_out() << "Writing: " << ref_crop_file << "\n";
-  vw::cartography::block_write_gdal_image(ref_crop_file,
-                                          vw::apply_mask(ref_dem, ref_nodata),
-                                          has_ref_georef, crop_georef,
-                                          has_ref_no_data, ref_nodata,
-                                          opt, ref_tpc);
-  // Write the cropped src
-  vw::TerminalProgressCallback src_tpc("asp", ": ");
-  bool has_src_no_data = true;
-  std::string src_crop_file = opt.out_prefix + "-src-crop.tif";
-  vw::vw_out() << "Writing: " << src_crop_file << "\n";
-  vw::cartography::block_write_gdal_image(src_crop_file,
-                                          vw::apply_mask(src_trans, src_nodata),
-                                          has_src_georef, crop_georef,
-                                          has_src_no_data, src_nodata,
-                                          opt, src_tpc);
-#endif
-
-  // TODO(oalexan1): Keeping the DEMs on disk will require changing a lot 
-  // of code. For now we keep them in memory.
-  vw::vw_out() << "Reading the input DEMs in memory for faster processing.\n";
-  ref_copy = ref_dem;
-  src_copy = src_trans;
-  
-  // This code also exports crop_georef
-}
-
-// Compute the Nuth offset. By now the DEMs have been regrided to the same
-// resolution and use the same projection. 
-void computeNuthOffset(Options const& opt,
-                       vw::ImageView<vw::PixelMask<double>> const& ref,
-                       vw::ImageView<vw::PixelMask<double>> const& src,
-                       vw::cartography::GeoReference const& crop_georef,
-                       double ref_nodata, double src_nodata,
-                       double max_offset, double max_dz, vw::Vector2 const& slope_lim) {
-
-  // TODO(oalexan1): Implement the regrid here as in the dem_align.py code.
-  vw::vw_out() << "Must regrid each time at this stage, as the georef will change.\n";
-  
-  // Ref and src must have the same size
-  if (ref.cols() != src.cols() || ref.rows() != src.rows())
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "The reference and source DEMs must have the same size.\n"); 
-    
+  // TODO(oalexan1): Crop the reference given the extent of the source
+  // and estimated max movement.
+#if 0  
   // Estimate the ground resolution
   double gridx = 0.0, gridy = 0.0;
   int sample_rate = std::min(ref.cols(), ref.rows()) / 50;
   if (sample_rate < 1) 
     sample_rate = 1;
-  asp::calcGsd(vw::apply_mask(ref, ref_nodata), crop_georef, ref_nodata,
+  asp::calcGsd(vw::apply_mask(ref, ref_nodata), ref_georef, ref_nodata,
                sample_rate, sample_rate, gridx, gridy);
   double res = (gridx + gridy) / 2.0;
   if (res <= 0.0)
@@ -725,8 +648,33 @@ void computeNuthOffset(Options const& opt,
                  "are dense enough and with solid overlap.\n");
     
   int max_offset_px = int(max_offset/res) + 1;
-  vw::Vector2i pad(max_offset_px, max_offset_px);
+#endif  
+}
+
+// Compute the Nuth offset. By now the DEMs have been regrided to the same
+// resolution and use the same projection. 
+void computeNuthOffset(Options const& opt,
+                       vw::ImageView<vw::PixelMask<double>> const& ref,
+                       vw::ImageViewRef<double> const& src_disk,
+                       vw::cartography::GeoReference const& ref_georef,
+                       vw::cartography::GeoReference const& src_georef,
+                       double ref_nodata, double src_nodata,
+                       double max_offset, double max_dz, vw::Vector2 const& slope_lim) {
+
+  // TODO(oalexan1): Implement the regrid here as in the dem_align.py code.
+  vw::vw_out() << "Must regrid each time at this stage, as the georef will change.\n";
   
+  // Warp and crop the source DEM to the reference DEM domain and read in memory
+  vw::BBox2i ref_crop_box = vw::bounding_box(ref);
+  vw::ImageView<vw::PixelMask<double>> src 
+     = copy(asp::warpCrop(src_disk, src_nodata, src_georef, ref_georef, ref_crop_box, 
+                          "bicubic"));
+  
+  // Ref and src must have the same size
+  if (ref.cols() != src.cols() || ref.rows() != src.rows())
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "The reference and source DEMs must have the same size.\n"); 
+    
   // Find the diff
   vw::ImageView<vw::PixelMask<double>> diff(src.cols(), src.rows());
   for (int col = 0; col < src.cols(); col++) {
@@ -740,7 +688,7 @@ void computeNuthOffset(Options const& opt,
   
   // Calculate the slope and aspect of the src_copy DEM
   vw::ImageView<vw::PixelMask<double>> slope, aspect;
-  calcSlopeAspect(src, crop_georef, slope, aspect);
+  calcSlopeAspect(src, ref_georef, slope, aspect);
   
   std::cout << "--slope lim: " << slope_lim << std::endl;
   std::cout << "number of valid slopes: " << validCount(slope) << "\n";
@@ -838,6 +786,7 @@ void computeNuthOffset(Options const& opt,
   // Form a Ceres optimization problem. Will fit a curve to 
   // bin centers and bin medians, while taking into acount the bin count
   // and min_bin_sample_count.
+  // TODO(oalexan1): The logic below must be a function named fitCurveToBins().
   ceres::Problem problem;
   
   // Add residuals
@@ -894,19 +843,46 @@ void computeNuthOffset(Options const& opt,
 void run_nuth(Options const& opt) {
 
   // Load and prepare the data
-  vw::ImageView<vw::PixelMask<double>> ref_copy, src_copy;
+  vw::ImageView<vw::PixelMask<double>> ref;
+  vw::ImageViewRef<double> src_disk;
   double ref_nodata = -std::numeric_limits<double>::max();
   double src_nodata = ref_nodata;
-  vw::cartography::GeoReference crop_georef;
-  prepareData(opt, ref_copy, src_copy, ref_nodata, src_nodata, crop_georef);
+  vw::cartography::GeoReference ref_georef, src_georef;
+  prepareData(opt, ref, src_disk, ref_nodata, src_nodata, ref_georef, src_georef);
   
   // Compute the Nuth offset
-  computeNuthOffset(opt, ref_copy, src_copy, crop_georef, ref_nodata, src_nodata,
+  computeNuthOffset(opt, ref, src_disk, ref_georef, src_georef, ref_nodata, src_nodata,
                     opt.max_offset, opt.max_dz, opt.slope_lim);  
   
 }
 
 #if 0  
+  // Write the cropped and warped ref
+  {
+  vw::TerminalProgressCallback ref_tpc("asp", ": ");
+  bool has_ref_no_data = true;
+  std::string ref_crop_file = opt.out_prefix + "-ref-crop.tif"; 
+  vw::vw_out() << "Writing: " << ref_crop_file << "\n";
+  vw::cartography::block_write_gdal_image(ref_crop_file,
+                                          vw::apply_mask(ref_dem, ref_nodata),
+                                          has_ref_georef, ref_georef,
+                                          has_ref_no_data, ref_nodata,
+                                          opt, ref_tpc);
+  }
+    
+  // Write the cropped src
+  { 
+  vw::TerminalProgressCallback src_tpc("asp", ": ");
+  bool has_src_no_data = true;
+  std::string src_crop_file = opt.out_prefix + "-src-crop.tif";
+  vw::vw_out() << "Writing: " << src_crop_file << "\n";
+  vw::cartography::block_write_gdal_image(src_crop_file,
+                                          vw::apply_mask(src_trans, src_nodata),
+                                          has_src_georef, ref_georef,
+                                          has_src_no_data, src_nodata,
+                                          opt, src_tpc);
+  }
+
   // Write the slope
   {
   vw::TerminalProgressCallback src_tpc("asp", ": ");
@@ -915,10 +891,11 @@ void run_nuth(Options const& opt) {
   vw::vw_out() << "Writing: " << src_slope_file << "\n";
   vw::cartography::block_write_gdal_image(src_slope_file,
                                           vw::apply_mask(slope, src_nodata),
-                                          has_src_georef, crop_georef,
+                                          has_src_georef, ref_georef,
                                           has_src_no_data, src_nodata,
                                           opt, src_tpc);
   }
+
   // Write the aspect
   {
   vw::TerminalProgressCallback src_tpc("asp", ": ");
@@ -927,7 +904,7 @@ void run_nuth(Options const& opt) {
   vw::vw_out() << "Writing: " << src_aspect_file << "\n";
   vw::cartography::block_write_gdal_image(src_aspect_file,
                                           vw::apply_mask(aspect, src_nodata),
-                                          has_src_georef, crop_georef,
+                                          has_src_georef, ref_georef,
                                           has_src_no_data, src_nodata,
                                           opt, src_tpc);
   }
