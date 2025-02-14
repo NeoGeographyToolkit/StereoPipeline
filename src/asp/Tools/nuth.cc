@@ -625,6 +625,7 @@ void prepareData(Options const& opt,
     src_nodata = src_rsrc.nodata_read(); 
   vw:: DiskImageView<double> ref_dem(ref_rsrc), src_dem(src_rsrc);
   
+  // TODO(oalexan1): Wipe all the old commented out code below.
   // Copying verbatim from dem_align.py: Use original source dataset coordinate
   // system. Potentially issues with distortion and xyz / tilt corr offsets for
   // DEMs with large extent.
@@ -632,32 +633,35 @@ void prepareData(Options const& opt,
   // TODO(oalexan1): Here is where dem_align.py starts assuming that 
   // one works in the source DEM domain. 
   
-  vw::cartography::GeoReference local_georef = src_georef;
-  std::string local_srs = local_georef.get_wkt();
+  //vw::cartography::GeoReference local_georef = src_georef;
+  //std::string local_srs = local_georef.get_wkt();
 
   // Transform the second DEM's bounding box to first DEM's pixels
-  vw::BBox2i src_crop_box = bounding_box(src_dem);
-  vw::cartography::GeoTransform gt(ref_georef, src_georef);
-  vw::BBox2i ref2src_box = gt.forward_bbox(bounding_box(ref_dem));
-  src_crop_box.crop(ref2src_box);
-
-  if (src_crop_box.empty()) 
-    vw::vw_throw(vw::ArgumentErr() << "The two DEMs do not have a common area.\n");
+  // vw::BBox2i src_crop_box = bounding_box(src_dem);
+  // vw::cartography::GeoTransform gt(ref_georef, src_georef);
+  // vw::BBox2i ref2src_box = gt.forward_bbox(bounding_box(ref_dem));
+  // src_crop_box.crop(ref2src_box);
+  // if (src_crop_box.empty()) 
+  //   vw::vw_throw(vw::ArgumentErr() << "The two DEMs do not have a common area.\n");
 
   // Crop the src DEM to the shared box, then transform and crop the ref DEM.
   // to src DEM domain. Use bicubic interpolation for the transform.
   // TODO(oalexan1): This will need changing when the grids are not the same.
-  vw::ImageViewRef<vw::PixelMask<double>> src_crop 
-    = vw::crop(create_mask(src_dem, src_nodata), src_crop_box);
-  vw::ImageViewRef<vw::PixelMask<double>> ref_trans 
-    = asp::warpCrop(ref_dem, ref_nodata, ref_georef, src_georef, src_crop_box, 
+  // vw::ImageViewRef<vw::PixelMask<double>> src_crop 
+  //   = vw::crop(create_mask(src_dem, src_nodata), src_crop_box);
+  // vw::ImageViewRef<vw::PixelMask<double>> ref_trans 
+  //   = asp::warpCrop(ref_dem, ref_nodata, ref_georef, src_georef, src_crop_box, 
+  //                   "bicubic");
+
+  vw::BBox2i ref_crop_box = vw::bounding_box(ref_dem);
+  vw::ImageViewRef<vw::PixelMask<double>> src_trans 
+     = asp::warpCrop(src_dem, src_nodata, src_georef, ref_georef, ref_crop_box, 
                     "bicubic");
   
-  // Recall that we work in the src domain. 
-  // TODO(oalexan1): This will need to change.
-  vw::vw_out() << "Working in cropped source domain. Regrid the reference DEM.\n";
-  crop_georef = vw::cartography::crop(local_georef, src_crop_box);
-
+  //vw::vw_out() << "Working in cropped source domain. Regrid the reference DEM.\n";
+  //crop_georef = vw::cartography::crop(local_georef, src_crop_box);
+  crop_georef = ref_georef;
+  
 #if 1  
   // Write the cropped and warped ref
   vw::TerminalProgressCallback ref_tpc("asp", ": ");
@@ -665,7 +669,7 @@ void prepareData(Options const& opt,
   std::string ref_crop_file = opt.out_prefix + "-ref-crop.tif"; 
   vw::vw_out() << "Writing: " << ref_crop_file << "\n";
   vw::cartography::block_write_gdal_image(ref_crop_file,
-                                          vw::apply_mask(ref_trans, ref_nodata),
+                                          vw::apply_mask(ref_dem, ref_nodata),
                                           has_ref_georef, crop_georef,
                                           has_ref_no_data, ref_nodata,
                                           opt, ref_tpc);
@@ -675,7 +679,7 @@ void prepareData(Options const& opt,
   std::string src_crop_file = opt.out_prefix + "-src-crop.tif";
   vw::vw_out() << "Writing: " << src_crop_file << "\n";
   vw::cartography::block_write_gdal_image(src_crop_file,
-                                          vw::apply_mask(src_crop, src_nodata),
+                                          vw::apply_mask(src_trans, src_nodata),
                                           has_src_georef, crop_georef,
                                           has_src_no_data, src_nodata,
                                           opt, src_tpc);
@@ -684,8 +688,8 @@ void prepareData(Options const& opt,
   // TODO(oalexan1): Keeping the DEMs on disk will require changing a lot 
   // of code. For now we keep them in memory.
   vw::vw_out() << "Reading the input DEMs in memory for faster processing.\n";
-  ref_copy = ref_trans;
-  src_copy = src_crop;
+  ref_copy = ref_dem;
+  src_copy = src_trans;
   
   // This code also exports crop_georef
 }
