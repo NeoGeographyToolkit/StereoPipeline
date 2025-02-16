@@ -115,6 +115,10 @@ target_link_libraries(n_align
   AspPcAlignFgr)
 install(TARGETS n_align DESTINATION bin)
 
+add_executable(nuth nuth.cc) 
+target_link_libraries(nuth AspSessions AspPcAlignCeres ${SOLVER_LIBRARIES})
+install(TARGETS nuth DESTINATION bin)
+
 add_executable(pansharp pansharp.cc)
 target_link_libraries(pansharp AspSessions)
 install(TARGETS pansharp DESTINATION bin)
@@ -234,10 +238,6 @@ install(TARGETS bathy_plane_calc DESTINATION bin)
 add_executable(cam_test cam_test.cc) 
 target_link_libraries(cam_test AspSessions)
 install(TARGETS cam_test DESTINATION bin)
-
-add_executable(nuth nuth.cc) 
-target_link_libraries(nuth AspSessions)
-install(TARGETS nuth DESTINATION bin)
 
 add_executable(sat_sim sat_sim.cc) 
 target_link_libraries(sat_sim AspSessions)

@@ -25,10 +25,6 @@
 // Procrustes Analysis into an ICP framework by Toldo, Roberto and
 // Beinat, Alberto and Crosilla, Fabio.
 
-// Here some code is used that is part of the Fast Global Registration
-// software, https://github.com/IntelVCL/FastGlobalRegistration which
-// is released under the MIT License (MIT).  
-
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>

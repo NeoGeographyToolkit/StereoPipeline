@@ -28,12 +28,12 @@
 // we want it done in the reference DEM domain. This is temporary.
 // TODO(oalexan1): Stopping tol of 0.01 seems too high. Let it be 0.001 meters.
 // TODO(oalexan1): Is it worth reading ref and source as double?
-// TODO(oalexan1): Put a robust cost function in Ceres?
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/DemUtils.h>
+#include <asp/PcAlign/NuthFit.h>
 
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
@@ -48,54 +48,12 @@
 
 #include <boost/program_options.hpp>
 #include <Eigen/Core>
-#include <ceres/ceres.h>
 #include <omp.h>
 
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <thread>
-
-inline double DegToRad(double deg) {
-  return deg * M_PI / 180.0;
-}
-
-// Function for fitting Nuth and Kaab (2011)
-// Can use phasor addition, but need to change conversion to offset dx and dy
-// https://stackoverflow.com/questions/12397412/i-know-scipy-curve-fit-can-do-better?rq=1
-inline double nuth_func(double x, double a, double b, double c) {
-  return a * cos(DegToRad(b-x)) + c;
-}
-
-// Cost functor for Nuth and Kaab function
-struct NuthResidual {
-
-  NuthResidual(double x, double y): m_x(x), m_y(y) {}
-
-  bool operator()(double const * const * params, double * residuals) const {
-    // params[0][0] = a, params[0][1] = b, params[0][2] = c
-    double predicted = nuth_func(m_x, params[0][0], params[0][1], params[0][2]);
-    residuals[0] = predicted - m_y;
-    return true;
-  }
-
-  // Factory to hide the construction of the CostFunction object from the client code.
-  static ceres::CostFunction* CreateNuthCostFunction(double x, double y) {
-    
-    ceres::DynamicNumericDiffCostFunction<NuthResidual>* cost_function
-      = new ceres::DynamicNumericDiffCostFunction<NuthResidual>(new NuthResidual(x, y));
-      
-    // The residual size is 1
-    cost_function->SetNumResiduals(1);
-    
-    // Add a parameter block for each parameter
-    cost_function->AddParameterBlock(3);
-    
-    return cost_function;
-  }
-
-  double m_x, m_y;
-}; // End class NuthResidual
 
 namespace po = boost::program_options;
 
@@ -205,6 +163,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
+}
+
+inline double DegToRad(double deg) {
+  return deg * M_PI / 180.0;
 }
 
 // Put the above logic in a function that prepares the data
@@ -468,45 +430,11 @@ void computeNuthOffset(Options const& opt,
   std::vector<double> bin_median;
   vw::binnedStatistics(xdata, ydata, "median", numBins, binRange, 
                        bin_median, bin_edges, bin_centers); // outputs
+  
+  // Find the best fit. This refines fit_params.
+  asp::nuthFit(bin_count, bin_centers, bin_median, opt.inner_iter, opt.num_threads,
+               fit_params);
 
-  int min_bin_sample_count = 9;
-  
-  // Form a Ceres optimization problem. Will fit a curve to 
-  // bin centers and bin medians, while taking into acount the bin count
-  // and min_bin_sample_count.
-  // TODO(oalexan1): The logic below must be a function named fitCurveToBins().
-  ceres::Problem problem;
-  
-  // Add residuals
-  for (int i = 0; i < numBins; i++) {
-    
-     // Skip bin count less than min_bin_sample_count
-     if (bin_count[i] < min_bin_sample_count)
-       continue;
-        
-    // The residual is the difference between the data and the model
-    // fit = optimization.curve_fit(nuth_func, bin_centers, bin_med, fit_params)[0]
-    ceres::CostFunction* cost_function = 
-      NuthResidual::CreateNuthCostFunction(bin_centers[i], bin_median[i]);
-    
-    ceres::LossFunction* loss_function = NULL;
-    problem.AddResidualBlock(cost_function, loss_function, &fit_params[0]);
-  }
-  
-  ceres::Solver::Options options;
-  options.gradient_tolerance  = 1e-16;
-  options.function_tolerance  = 1e-16;
-  options.parameter_tolerance = 1e-12;
-  options.max_num_iterations  = opt.inner_iter;
-  options.max_num_consecutive_invalid_steps = std::max(5, opt.inner_iter/5); // try hard
-  options.minimizer_progress_to_stdout = false; // verbose
-  options.num_threads = opt.num_threads;
-  options.linear_solver_type = ceres::SPARSE_SCHUR;
-  
-  ceres::Solver::Summary summary;
-  ceres::Solve(options, &problem, &summary);
-  // vw::vw_out() << summary.FullReport() << "\n"; // verbose
-  
 } // End function computeNuthOffset
 
 void run_nuth(Options const& opt) {

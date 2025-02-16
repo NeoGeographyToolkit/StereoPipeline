@@ -1,5 +1,6 @@
 # This must surely be complied with C++17.
-add_library(AspPcAlignCeres SHARED pc_align_ceres.cc pc_align_utils.h pc_align_utils.cc)
+add_library(AspPcAlignCeres SHARED pc_align_ceres.cc pc_align_utils.h 
+            pc_align_utils.cc NuthFit.h NuthFit.cc)
 set_target_properties(AspPcAlignCeres PROPERTIES LINKER_LANGUAGE CXX)
 target_compile_options(AspPcAlignCeres PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++17>)
 target_link_libraries(AspPcAlignCeres 
