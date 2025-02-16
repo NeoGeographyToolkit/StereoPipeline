@@ -37,19 +37,17 @@ namespace asp{
   enum OutlierRemovalMethod {NO_OUTLIER_REMOVAL_METHOD, PERCENTILE_OUTLIER_METHOD,
                              TUKEY_OUTLIER_METHOD};
 
-  using namespace vw;
-
-  typedef std::pair<BBox3, BBox2i> BBoxPair;
+  typedef std::pair<vw::BBox3, vw::BBox2i> BBoxPair;
 
   /// Given a point image and corresponding texture, this class
   /// bins and averages the point cloud on a regular grid over the [x,y]
   /// plane of the point image; producing an evenly sampled ortho-image
   /// with interpolated z values.
   class OrthoRasterizerView:
-    public ImageViewBase<OrthoRasterizerView> {
-    ImageViewRef<Vector3> m_point_image;
-    ImageViewRef<float>   m_texture;
-    BBox3   m_bbox, m_snapped_bbox; // bounding box of point cloud
+    public vw::ImageViewBase<OrthoRasterizerView> {
+    vw::ImageViewRef<vw::Vector3> m_point_image;
+    vw::ImageViewRef<float>   m_texture;
+    vw::BBox3  m_bbox, m_snapped_bbox; // bounding box of point cloud
     double  m_spacing;         // point cloud units (usually m or deg) per pixel
     double  m_default_spacing; // if user did not specify spacing
     double  m_default_spacing_x;
@@ -60,11 +58,11 @@ namespace asp{
     bool    m_minz_as_default;
     bool    m_use_alpha;
     int     m_block_size;
-    BBox2   m_projwin;
-    ImageViewRef<double> const& m_error_image;
-    double  m_error_cutoff;
-    Vector2 m_median_filter_params;
-    int     m_erode_len;
+    vw::BBox2 m_projwin;
+    vw::ImageViewRef<double> const& m_error_image;
+    double m_error_cutoff;
+    vw::Vector2 m_median_filter_params;
+    int m_erode_len;
     asp::FilterType m_filter;
     double m_percentile;
     double m_default_grid_size_multiplier;
@@ -80,34 +78,34 @@ namespace asp{
     // everything is triangulated.
 
     // Function to convert pixel coordinates to the point domain
-    BBox3 pixel_to_point_bbox(BBox2 const& px) const;
+    vw::BBox3 pixel_to_point_bbox(vw::BBox2 const& px) const;
 
   public:
-    typedef PixelGray<float> pixel_type;
-    typedef const PixelGray<float> result_type;
-    typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
+    typedef vw::PixelGray<float> pixel_type;
+    typedef const vw::PixelGray<float> result_type;
+    typedef vw::ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
 
     /// Constructor. Must call initialize_spacing before using the object!!!
-    OrthoRasterizerView(ImageViewRef<Vector3> point_image,
-                        ImageViewRef<double > texture,
+    OrthoRasterizerView(vw::ImageViewRef<vw::Vector3> point_image,
+                        vw::ImageViewRef<double > texture,
                         double  search_radius_factor,
                         double  sigma_factor,
                         int     pc_tile_size,
                         vw::BBox2 const& projwin,
                         OutlierRemovalMethod outlier_removal_method,
-                        Vector2 const& remove_outliers_params,
-                        ImageViewRef<double> const& error_image,
+                        vw::Vector2 const& remove_outliers_params,
+                        vw::ImageViewRef<double> const& error_image,
                         double  estim_max_error,
                         vw::BBox3 const& estim_proj_box,
                         double  max_valid_triangulation_error,
-                        Vector2 median_filter_params,
+                        vw::Vector2 median_filter_params,
                         int     erode_len,
                         bool    has_las_or_csv,
                         std::string const& filter,
                         double  default_grid_size_multiplier,
                         std::int64_t * num_invalid_pixels,
                         vw::Mutex *count_mutex,
-                        const ProgressCallback& progress);
+                        const vw::ProgressCallback& progress);
 
     /// This must be called before the object can be used!
     void initialize_spacing(double spacing=0.0);
@@ -120,28 +118,39 @@ namespace asp{
     void set_texture(TextureViewT texture) {
       VW_ASSERT(texture.impl().cols() == m_point_image.cols() &&
                 texture.impl().rows() == m_point_image.rows(),
-      ArgumentErr() << "Orthorasterizer: set_texture() failed."
+      vw::ArgumentErr() << "Orthorasterizer: set_texture() failed."
                     << " Texture dimensions must match point image dimensions.");
-      m_texture = channel_cast<float>(channels_to_planes(texture.impl()));
+      m_texture = vw::channel_cast<float>(vw::channels_to_planes(texture.impl()));
     }
 
-    inline int32 cols() const {return (int)round((fabs(m_snapped_bbox.max().x() - m_snapped_bbox.min().x()) / m_spacing)) + 1;}
-    inline int32 rows() const {return (int)round((fabs(m_snapped_bbox.max().y() - m_snapped_bbox.min().y()) / m_spacing)) + 1;}
+    inline int cols() const {
+      return (int)round((fabs(m_snapped_bbox.max().x() - m_snapped_bbox.min().x()) / m_spacing)) + 1;
+      }
+    inline int rows() const {
+      return (int)round((fabs(m_snapped_bbox.max().y() - m_snapped_bbox.min().y()) / m_spacing)) + 1;
+    }
 
-    inline int32 planes() const { return 1; }
+    inline int planes() const {
+       return 1; 
+    }
 
-    inline pixel_accessor origin() const { return pixel_accessor(*this); }
+    inline pixel_accessor origin() const { 
+      return pixel_accessor(*this); 
+    }
 
     inline result_type operator()(int /*i*/, int /*j*/, int /*p*/=0) const {
-      vw_throw(NoImplErr() << "OrthoRasterizersView::operator()(double i, double j, int32 p) has not been implemented.");
+      vw::vw_throw(vw::NoImplErr() 
+                   << "OrthoRasterizersView::operator()(double i, double j, int p) "
+                   << "has not been implemented.");
       return pixel_type();
     }
 
     /// \cond INTERNAL
-    typedef CropView<ImageView<pixel_type> > prerasterize_type;
-    prerasterize_type prerasterize(BBox2i const& bbox) const;
+    typedef vw::CropView<vw::ImageView<pixel_type> > prerasterize_type;
+    prerasterize_type prerasterize(vw::BBox2i const& bbox) const;
 
-    template <class DestT> inline void rasterize(DestT const& dest, BBox2i const& bbox) const {
+    template <class DestT> 
+    inline void rasterize(DestT const& dest, vw::BBox2i const& bbox) const {
       vw::rasterize(prerasterize(bbox), dest, bbox);
     }
     /// \endcond
@@ -176,24 +185,26 @@ namespace asp{
       if (hole_fill_len ==0) return 0;
 
       VW_ASSERT(m_spacing > 0 && m_default_spacing > 0,
-                ArgumentErr() << "Expecting positive DEM spacing.");
+                vw::ArgumentErr() << "Expecting positive DEM spacing.");
       return (int)round((m_spacing/m_default_spacing)*hole_fill_len);
     }
 
-    BBox3 bounding_box() const { return m_snapped_bbox; }
+    vw::BBox3 bounding_box() const { return m_snapped_bbox; }
 
     // Return the affine georeferencing transform.
     vw::Matrix<double,3,3> geo_transform();
 
-    ImageViewRef<Vector3> get_point_image() { return m_point_image; }
+    vw::ImageViewRef<vw::Vector3> get_point_image() { return m_point_image; }
 
-    void set_point_image(ImageViewRef<Vector3> point_image) {m_point_image = point_image;}
+    void set_point_image(vw::ImageViewRef<vw::Vector3> point_image) {
+      m_point_image = point_image;
+    }
 
   };
 
   /// Snaps the coordinates of a BBox to a grid spacing
   template <size_t N>
-  void snap_bbox(const double spacing, BBox<double, N> &bbox) {
+  void snap_bbox(const double spacing, vw::BBox<double, N> &bbox) {
     bbox.min() = spacing*floor(bbox.min()/spacing);
     bbox.max() = spacing*ceil (bbox.max()/spacing);
   }

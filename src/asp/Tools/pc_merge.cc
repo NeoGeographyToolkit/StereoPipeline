@@ -38,7 +38,6 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-
 struct Options : vw::GdalWriteOptions {
   // Input
   std::vector<std::string> pointcloud_files;
@@ -119,10 +118,11 @@ Vector3 determine_output_shift(std::vector<std::string> const& pc_files, Options
   for (size_t i=0; i<pc_files.size(); ++i) {
     // Read in the shift from each cloud and accumulate them
     std::string shift_str;
-    boost::shared_ptr<vw::DiskImageResource> rsrc( new vw::DiskImageResourceGDAL(pc_files[i]) );
-    if (vw::cartography::read_header_string(*rsrc.get(), asp::ASP_POINT_OFFSET_TAG_STR, shift_str)){
+    boost::shared_ptr<vw::DiskImageResource> 
+      rsrc(new vw::DiskImageResourceGDAL(pc_files[i]));
+    if (vw::cartography::read_header_string(*rsrc.get(), asp::ASP_POINT_OFFSET_TAG_STR, shift_str)) {
       //std::cout << "shift string = " << shift_str << std::endl;
-      shift += asp::str_to_vec<vw::Vector3>(shift_str);
+      shift += vw::str_to_vec<vw::Vector3>(shift_str);
       shift_count += 1.0;
     }
   }

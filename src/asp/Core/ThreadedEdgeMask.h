@@ -72,15 +72,14 @@ namespace asp {
       }
 
       void operator()() {
-        using namespace vw;
 
         // Rasterizing local tile
-        ImageView<typename ViewT::pixel_type> copy(crop(m_view, m_bbox));
+        vw::ImageView<typename ViewT::pixel_type> copy(crop(m_view, m_bbox));
 
         { // Detecting Edges
           // Search left and right side
-          for (int32 j = 0; j < copy.rows(); ++j) { // Loop up through the rows in the local tile
-            int32 i = 0;
+          for (int j = 0; j < copy.rows(); ++j) { // Loop up through the rows in the local tile
+            int i = 0;
             while (i < copy.cols() && copy(i,j) == m_mask_value) // Move from left to right in row by STEP_SIZE
               i += STEP_SIZE;                                      //    until we hit an invalid pixel
             if (i > 0) i -= STEP_SIZE;                           // Walk back one step if we are not at col 0
@@ -104,8 +103,8 @@ namespace asp {
             m_right[j] = i;
           }
                                                                    // Now find the first valid rows from the bottom
-          for (int32 i = 0; i < copy.cols(); ++i) {
-            int32 j = 0;
+          for (int i = 0; i < copy.cols(); ++i) {
+            int j = 0;
             while (j < copy.rows() && copy(i,j) == m_mask_value)
               j += STEP_SIZE;
             if (j > 0)
@@ -133,8 +132,8 @@ namespace asp {
         }
 
         { // Merging result back into global perspective
-          int32 l = 0;
-          for (int32 j = m_bbox.min()[1];                      // Loop through rows
+          int l = 0;
+          for (int j = m_bbox.min()[1];                      // Loop through rows
                 j < m_bbox.max()[1]; j++) {
             if (m_left[l] == -1) {                            // Skip rows with no pixels
               l++; continue;
@@ -147,7 +146,7 @@ namespace asp {
           }
 
           l = 0;
-          for (int32 i = m_bbox.min()[0];                       // Loop through columns
+          for (int i = m_bbox.min()[0];                       // Loop through columns
                 i < m_bbox.max()[0]; i++) {
             if (m_top[l] == -1) {                              // Skip columns with no pixels
               l++; continue;
@@ -205,7 +204,6 @@ namespace asp {
                           vw::int32 block_size = vw::vw_settings().default_tile_size()):
       m_view(view), m_left(new vw::int32[view.rows()]), m_right(new vw::int32[view.rows()]),
       m_top(new vw::int32[view.cols()]), m_bottom(new vw::int32[view.cols()]) {
-      using namespace vw;
 
       std::fill(m_left.get(),   m_left.get  ()+view.rows(), view.cols());
       std::fill(m_right.get(),  m_right.get ()+view.rows(), 0);
@@ -213,23 +211,23 @@ namespace asp {
       std::fill(m_bottom.get(), m_bottom.get()+view.cols(), 0);
 
       // Calculating edges in parallel
-      FifoWorkQueue queue(vw_settings().default_num_threads());
-      std::vector<BBox2i> bboxes = subdivide_bbox(m_view, block_size, block_size);
+      vw::FifoWorkQueue queue(vw::vw_settings().default_num_threads());
+      std::vector<vw::BBox2i> bboxes = subdivide_bbox(m_view, block_size, block_size);
 
       // Figure out an ideal search step size. Smaller means we're
       // more likely to catch small features. Bigger step size means
       // will move a lot faster.
-      int32 search_step = norm_2(Vector2i(m_view.cols(),m_view.rows())) / 500;
+      int search_step = vw::math::norm_2(vw::Vector2i(m_view.cols(),m_view.rows())) / 500;
       if (search_step < 1)
         search_step = 1;
       if (search_step > 10) 
         search_step = 10;
-      VW_OUT(DebugMessage, "threadededgemask") << "Setting search step to "
+      vw::vw_out(vw::DebugMessage, "threadededgemask") << "Setting search step to "
                                                << search_step << std::endl;
                                               
       // Find the outermost valid pixel coming in from each line/direction.
-      BOOST_FOREACH(BBox2i const& box, bboxes) {
-        VW_OUT(DebugMessage, "threadededgemask") 
+      BOOST_FOREACH(vw::BBox2i const& box, bboxes) {
+        vw::vw_out(vw::DebugMessage, "threadededgemask") 
           << "Created EdgeMaskTask for " << box << std::endl;
         boost::shared_ptr<EdgeMaskTask> 
           task(new EdgeMaskTask(m_view, mask_value, search_step, box, 

@@ -106,12 +106,12 @@ void chip_convert_to_tif(DemOptions const& opt,
 // Rasterize a DEM
 void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
                      DemOptions& opt,
-                     cartography::GeoReference& georef,
+                     vw::cartography::GeoReference& georef,
                      std::int64_t * num_invalid_pixels);
 
 // Set the projection based on options. By now opt.proj_lon and opt.proj_lat
 // should have been set. 
-void setProjection(DemOptions const& opt, cartography::GeoReference & output_georef);
+void setProjection(DemOptions const& opt, vw::cartography::GeoReference & output_georef);
 
 } // end namespace asp
 

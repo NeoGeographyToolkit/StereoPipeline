@@ -544,22 +544,22 @@ struct VectorNorm: public vw::ReturnFixedType<double> {
 template<int num_ch>
 vw::ImageViewRef<double> error_norm(std::vector<std::string> const& pc_files) {
 
-  using namespace vw;
-  VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
+  VW_ASSERT(pc_files.size() >= 1, vw::ArgumentErr() << "Expecting at least one file.\n");
 
   const int beg_ech = 3; // errors start at this channel
   const int num_ech = num_ch - beg_ech; // number of error channels
-  ImageViewRef<Vector<double, num_ch>> point_disk_image
-    = asp::form_point_cloud_composite<Vector<double, num_ch>>
+  vw::ImageViewRef<vw::Vector<double, num_ch>> point_disk_image
+    = asp::form_point_cloud_composite<vw::Vector<double, num_ch>>
     (pc_files, ASP_MAX_SUBBLOCK_SIZE);
-  ImageViewRef<Vector<double, num_ech>> error_channels =
-    select_channels<num_ech, num_ch, double>(point_disk_image, beg_ech);
+  vw::ImageViewRef<vw::Vector<double, num_ech>> error_channels =
+    vw::select_channels<num_ech, num_ch, double>(point_disk_image, beg_ech);
 
-  return per_pixel_filter(error_channels, VectorNorm<Vector<double, num_ech>>());
+  return vw::per_pixel_filter(error_channels, VectorNorm<vw::Vector<double, num_ech>>());
 }
 
 // Get a handle to the error image given a set of point clouds with 4 or 6 bands
-vw::ImageViewRef<double> point_cloud_error_image(std::vector<std::string> const& pointcloud_files);
+vw::ImageViewRef<double> 
+point_cloud_error_image(std::vector<std::string> const& pointcloud_files);
 
 } // End namespace asp
 
