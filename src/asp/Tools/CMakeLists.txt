@@ -96,23 +96,16 @@ target_link_libraries(pc_merge AspSessions)
 install(TARGETS pc_merge DESTINATION bin)
 
 add_executable(pc_align pc_align.cc)
-target_compile_options(pc_align PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++17>)
 target_link_libraries(pc_align 
   ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES}
   ${FASTGLOBALREGISTRATION_LIBRARIES}
   AspPcAlignFgr AspPcAlignCeres ${SOLVER_LIBRARIES} AspSessions)
 install(TARGETS pc_align DESTINATION bin)
 
-# TODO(oalexan1): Switch to C++17 when FLANN is updated.
-# Note: This lib/exec must not depend on any libraries that set the C++ 17 flag,
-# as those will override the C++ 14 flag.
 add_executable(n_align n_align.cc)
-target_compile_options(n_align PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>)
 target_link_libraries(n_align
-  AspSessions
   ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES}
-  ${FASTGLOBALREGISTRATION_LIBRARIES}
-  AspPcAlignFgr)
+  AspPcAlignCeres ${SOLVER_LIBRARIES} AspSessions)
 install(TARGETS n_align DESTINATION bin)
 
 add_executable(nuth nuth.cc) 
