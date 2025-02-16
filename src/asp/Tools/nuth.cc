@@ -19,15 +19,16 @@
 // https://github.com/dshean/demcoreg/tree/master
 
 // TODO(oalexan1): Implement tilt correction.
-// Implement --initial-transform and computing final transform in ECEF.
+// TODO(oalexan1): Implement --initial-transform and computing final transform in ECEF.
 // TODO(oalexan1): Integrate in pc_align.
+// TODO(oalexan1): Save the final aligned cloud.
+// TODO(oalexan1): Save the final transform.
 // TODO(oalexan1): It is assumed both input DEMs are equally dense. The work
 // will happen in the source DEM domain. Later we can deal with the case when
 // we want it done in the reference DEM domain. This is temporary.
-// TODO(oalexan1): Stopping tol of 0.1 seems too high. Let it be 0.001 meters.
-// TODO(oalexan1): Need to convert from boost conventions to dem_align.py
-// conventions. Example: instead of --poly-order use -polyorder, and instead
-// of --max-offset use -max_offset, etc. 
+// TODO(oalexan1): Stopping tol of 0.01 seems too high. Let it be 0.001 meters.
+// TODO(oalexan1): Is it worth reading ref and source as double?
+// TODO(oalexan1): Put a robust cost function in Ceres?
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
@@ -42,15 +43,18 @@
 #include <vw/Math/Statistics.h>
 #include <vw/Image/MaskedImageAlgs.h>
 #include <vw/Cartography/SlopeAspect.h>
+#include <vw/Core/Settings.h>
+#include <vw/Core/Stopwatch.h>
 
 #include <boost/program_options.hpp>
-
 #include <Eigen/Core>
 #include <ceres/ceres.h>
+#include <omp.h>
 
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <thread>
 
 inline double DegToRad(double deg) {
   return deg * M_PI / 180.0;
@@ -97,7 +101,7 @@ namespace po = boost::program_options;
 
 struct Options: vw::GdalWriteOptions {
   std::string ref, src, out_prefix, res;
-  int poly_order, max_iter;
+  int poly_order, max_iter, inner_iter;
   double tol, max_offset, max_dz;
   bool tiltcorr;
   vw::Vector2 slope_lim;
@@ -116,7 +120,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Output prefix for writing all produced files.")
     ("poly-order", po::value(&opt.poly_order)->default_value(1), 
      "Specify the order of the polynomial fit.")
-    ("tol", po::value(&opt.tol)->default_value(0.1),
+    ("tol", po::value(&opt.tol)->default_value(0.01),
       "Stop when iterative translation magnitude is below this tolerance (meters).")
     ("max-offset", po::value(&opt.max_offset)->default_value(100.0),
      "Maximum expected horizontal translation magnitude (meters).")
@@ -131,8 +135,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("slope-lim", 
      po::value(&opt.slope_lim)->default_value(vw::Vector2(0.1, 40.0), "0.1, 40.0"),
      "Minimum and maximum surface slope limits to consider (degrees).")
-    ("max-iter", po::value(&opt.max_iter)->default_value(30),
+    ("max-iter", po::value(&opt.max_iter)->default_value(50),
      "Maximum number of iterations, if tolerance is not reached.")
+    ("inner-iter", po::value(&opt.inner_iter)->default_value(10),
+      "Maximum number of iterations for the inner loop, when finding the best "
+      "fit parameters for the current translation.")
+      ("num-threads", po::value(&opt.num_threads)->default_value(0),
+      "Number of threads to use.")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -181,7 +190,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.slope_lim[0] >= opt.slope_lim[1])
     vw::vw_throw(vw::ArgumentErr() 
                  << "The slope limits must be positive and in increasing order.\n");
-    
+  
+  if (opt.tiltcorr)
+    vw::vw_throw(vw::NoImplErr() << "Tilt correction is not implemented yet.\n");
+     
+  // TODO(oalexan1): Sort out the number of threads. Now it comes from .vwrc.
+
+  // Set the number of threads for OpenMP.  
+  omp_set_dynamic(0);
+  omp_set_num_threads(opt.num_threads);
+   
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -189,32 +207,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 }
 
-// Filter outliers by range and then by normalized median absolute deviation
-void rangeMadFilter(vw::ImageView<vw::PixelMask<double>> & diff, 
-                    double outlierFactor,
-                    double max_dz) {
-
-  double origCount = vw::validCount(diff);
-
-  // Filter out diff whose magnitude is greater than max_dz    
-  vw::rangeFilter(diff, -max_dz, max_dz);
-  
-  // Apply normalized mad filter with given factor
-  vw::madFilter(diff, outlierFactor);
-  
-  double finalCount = vw::validCount(diff);
-  
-  // Find the percentage, and round it to 2 decimal places
-  double removedPct = 100.0 * (origCount - finalCount) / origCount;
-  removedPct = std::round(removedPct * 100.0) / 100.0;
-  vw::vw_out() << "Percentage of samples removed as outliers: " << removedPct << "%\n";
-}
-
-
 // Put the above logic in a function that prepares the data
 void prepareData(Options const& opt, 
                   vw::ImageView<vw::PixelMask<double>> & ref,
-                  vw::ImageViewRef<double> & src_disk,
+                  vw::ImageView<vw::PixelMask<double>> & src,
                   double & ref_nodata, double & src_nodata,
                   vw::cartography::GeoReference & ref_georef,
                   vw::cartography::GeoReference & src_georef) {
@@ -285,12 +281,12 @@ void prepareData(Options const& opt,
   if (src_rsrc.has_nodata_read())
     src_nodata = src_rsrc.nodata_read(); 
   
-  // Read the ref image fully in memory
+  // Read the ref and source images fully in memory, for speed
   ref = copy(create_mask(vw::DiskImageView<double>(opt.ref), ref_nodata));
 
   // Get a handle to the source image on disk. We will warp it and read it in memory
   // as needed, when it is being shifted.
-  src_disk = vw::DiskImageView<double>(opt.src);
+  src = copy(create_mask(vw::DiskImageView<double>(opt.src), src_nodata));
   
   // TODO(oalexan1): Crop the reference given the extent of the source
   // and estimated max movement.
@@ -312,33 +308,32 @@ void prepareData(Options const& opt,
 #endif  
 }
 
-// Compute the Nuth offset. By now the DEMs have been regrided to the same
-// resolution and use the same projection. 
-void computeNuthOffset(Options const& opt,
-                       vw::ImageView<vw::PixelMask<double>> const& ref,
-                       vw::ImageViewRef<double> const& src_disk,
-                       vw::cartography::GeoReference const& ref_georef,
-                       vw::cartography::GeoReference const& src_georef,
-                       double ref_nodata, double src_nodata,
-                       double max_offset, double max_dz, 
-                       vw::Vector2 const& slope_lim,
-                       double dx_total, double dy_total, double dz_total,
-                       // Outputs
-                       vw::Vector3 & fit_params,
-                       double & median_diff) {
-                        
-  // Find shifted src, and interpolate it onto same grid as ref.
-  // TODO(oalexan1): This must be a function.
+// Warp the source DEM to the reference DEM's georef, while applying a
+// translation defined in the projected space of the reference DEM.
+void shiftWarp(int ref_cols, int ref_rows, 
+               vw::ImageView<vw::PixelMask<double>> const& src,
+               vw::cartography::GeoReference const& ref_georef,
+               vw::cartography::GeoReference const& src_georef,
+               double src_nodata,
+               double dx_total, double dy_total, double dz_total,
+               // Outputs
+               vw::ImageView<vw::PixelMask<double>> & src_warp) {
+  
+  // Set up the no-data extrapolation value
   vw::PixelMask<double> nodata_val;
   nodata_val.invalidate();
   auto nodata_ext = vw::ValueEdgeExtension<vw::PixelMask<double>>(nodata_val);
+  
   vw::ImageViewRef<vw::PixelMask<double>> src_interp 
-    = vw::interpolate(vw::create_mask(src_disk, src_nodata),
-                      vw::BicubicInterpolation(), nodata_ext);
-  vw::ImageView<vw::PixelMask<double>> src_warp(ref.cols(), ref.rows());
+    = vw::interpolate(src, vw::BicubicInterpolation(), nodata_ext);
+
+  src_warp.set_size(ref_cols, ref_rows);
   vw::cartography::GeoTransform gt(ref_georef, src_georef);
-  for (int col = 0; col < ref.cols(); col++) {
-    for (int row = 0; row < ref.rows(); row++) {
+  
+  // Interpolate  
+  #pragma omp parallel for
+  for (int col = 0; col < ref_cols; col++) {
+    for (int row = 0; row < ref_rows; row++) {
       vw::Vector2 ref_pix(col, row);
       
       // Convert to projected coordinates
@@ -360,6 +355,30 @@ void computeNuthOffset(Options const& opt,
       src_warp(col, row) += dz_total;
     }
   }
+
+  return;
+}
+
+// Compute the Nuth offset. By now the DEMs have been regrided to the same
+// resolution and use the same projection. 
+void computeNuthOffset(Options const& opt,
+                       vw::ImageView<vw::PixelMask<double>> const& ref,
+                       vw::ImageView<vw::PixelMask<double>> const& src,
+                       vw::cartography::GeoReference const& ref_georef,
+                       vw::cartography::GeoReference const& src_georef,
+                       double ref_nodata, double src_nodata,
+                       double max_offset, double max_dz, 
+                       vw::Vector2 const& slope_lim,
+                       double dx_total, double dy_total, double dz_total,
+                       // Outputs
+                       vw::Vector3 & fit_params,
+                       double & median_diff) {
+                        
+  // Find shifted src, and interpolate it onto same grid as ref.
+  vw::ImageView<vw::PixelMask<double>> src_warp;
+  shiftWarp(ref.cols(), ref.rows(), src, ref_georef, src_georef, src_nodata,
+            dx_total, dy_total, dz_total, 
+            src_warp); // output
   
   // Ref and src must have the same size
   if (ref.cols() != src_warp.cols() || ref.rows() != src_warp.rows())
@@ -374,8 +393,11 @@ void computeNuthOffset(Options const& opt,
     }
   }
   
+  // Filter out diff whose magnitude is greater than max_dz    
+  // Apply normalized mad filter with given factor
   double outlierFactor = 3.0;
-  rangeMadFilter(diff, outlierFactor, max_dz);
+  vw::rangeFilter(diff, -max_dz, max_dz);
+  vw::madFilter(diff, outlierFactor);
   
   // Calculate the slope and aspect of the src_warp_copy DEM
   vw::ImageView<vw::PixelMask<double>> slope, aspect;
@@ -394,12 +416,11 @@ void computeNuthOffset(Options const& opt,
     vw::vw_throw(vw::ArgumentErr() 
                  << "Too little valid data left after filtering.\n");
   
-  // This will be returned
-  median_diff = vw::maskedMedian(diff);
-  
+  // Find the initial guess to fit_params
+  median_diff = vw::maskedMedian(diff); // will return
   double median_slope = vw::maskedMedian(slope);
   double c_seed = (median_diff/tan(DegToRad(median_slope)));
-  vw::Vector3 x0(0, 0, c_seed);
+  fit_params = vw::Vector3(0, 0, c_seed); // will update later and return
 
   // For invalid diff make the slope and aspect invalid
   vw::intersectValid(slope, diff);
@@ -433,11 +454,10 @@ void computeNuthOffset(Options const& opt,
   // Filter y by range, and then apply to x
   vw::rangeFilter(ydata, rmin, rmax);
   vw::intersectValid(xdata, ydata);
-
+  
   // Prepare for binning
   int numBins = 360;
-  vw::Vector2 binRange(0.0, 360.0);
-  double binWidth = 1.0;
+  vw::Vector2 binRange(0.0, numBins);
 
   // Bin counts
   std::vector<double> bin_count, bin_edges, bin_centers;
@@ -450,7 +470,6 @@ void computeNuthOffset(Options const& opt,
                        bin_median, bin_edges, bin_centers); // outputs
 
   int min_bin_sample_count = 9;
-  vw::vw_out() << "min_bin_sample_count: " << min_bin_sample_count << "\n";
   
   // Form a Ceres optimization problem. Will fit a curve to 
   // bin centers and bin medians, while taking into acount the bin count
@@ -466,72 +485,55 @@ void computeNuthOffset(Options const& opt,
        continue;
         
     // The residual is the difference between the data and the model
-    // fit = optimization.curve_fit(nuth_func, bin_centers, bin_med, x0)[0]
+    // fit = optimization.curve_fit(nuth_func, bin_centers, bin_med, fit_params)[0]
     ceres::CostFunction* cost_function = 
       NuthResidual::CreateNuthCostFunction(bin_centers[i], bin_median[i]);
     
     ceres::LossFunction* loss_function = NULL;
-    problem.AddResidualBlock(cost_function, loss_function, &x0[0]);
+    problem.AddResidualBlock(cost_function, loss_function, &fit_params[0]);
   }
   
   ceres::Solver::Options options;
   options.gradient_tolerance  = 1e-16;
   options.function_tolerance  = 1e-16;
   options.parameter_tolerance = 1e-12;
-  options.max_num_iterations  = opt.max_iter;
-  options.max_num_consecutive_invalid_steps = std::max(5, opt.max_iter/5); // try hard
-  options.minimizer_progress_to_stdout = true;
-  options.num_threads = 1;
-  options.linear_solver_type = ceres::DENSE_SCHUR; // good for small problems
-  
-  vw::vw_out() << "Solving the Nuth offset problem.\n";
-  vw::vw_out() << "Using max iterations: " << options.max_num_iterations << "\n";
-  // TODO(oalexan1): Number of threads need to change
-  vw::vw_out() << "Using number of threads: " << options.num_threads << "\n";
-  vw::vw_out() << "Not using a robust cost function.\n";
-  
-  // TODO(oalexan1): Add robust cost function?
+  options.max_num_iterations  = opt.inner_iter;
+  options.max_num_consecutive_invalid_steps = std::max(5, opt.inner_iter/5); // try hard
+  options.minimizer_progress_to_stdout = false; // verbose
+  options.num_threads = opt.num_threads;
+  options.linear_solver_type = ceres::SPARSE_SCHUR;
   
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  vw::vw_out() << summary.FullReport() << "\n";
+  // vw::vw_out() << summary.FullReport() << "\n"; // verbose
   
-  if (summary.termination_type == ceres::NO_CONVERGENCE) {
-    // Print a clarifying message, so the user does not think that the algorithm failed.
-    vw::vw_out() << "Found a valid solution, but did not reach the actual minimum. This "
-                 << "is expected and likely the produced solution is good enough.\n";
-  }
-
-  // This will be returned
-  fit_params = x0;
 } // End function computeNuthOffset
 
 void run_nuth(Options const& opt) {
 
   // Load and prepare the data
-  vw::ImageView<vw::PixelMask<double>> ref;
-  vw::ImageViewRef<double> src_disk;
+  vw::ImageView<vw::PixelMask<double>> ref, src;
   double ref_nodata = -std::numeric_limits<double>::max();
   double src_nodata = ref_nodata;
   vw::cartography::GeoReference ref_georef, src_georef;
-  prepareData(opt, ref, src_disk, ref_nodata, src_nodata, ref_georef, src_georef);
+  prepareData(opt, ref, src, ref_nodata, src_nodata, ref_georef, src_georef);
   
   double dx_total = 0, dy_total = 0, dz_total = 0;
   int iter = 1;
   
   while (1) {
     
-    std::cout << "Iteration: " << iter << "\n";
+    vw::vw_out() << "Iteration: " << iter << "\n";
     
     // Compute the Nuth offset
     vw::Vector3 fit_params;
     double median_diff = 0.0; // will be returned
-    computeNuthOffset(opt, ref, src_disk, ref_georef, src_georef, ref_nodata, src_nodata,
+    computeNuthOffset(opt, ref, src, ref_georef, src_georef, ref_nodata, src_nodata,
                       opt.max_offset, opt.max_dz, opt.slope_lim,
                       dx_total, dy_total, dz_total, // inputs
                       fit_params, median_diff); // outputs
     
-    // Note: minus signs here since we are computing dz=(src-ref), but adjusting src
+    // Note: minus signs here since we are computing dz = src-ref, but adjusting src
     double dx = -fit_params[0] * sin(DegToRad(fit_params[1]));
     double dy = -fit_params[0] * cos(DegToRad(fit_params[1]));
     double dz = -median_diff;
@@ -541,7 +543,7 @@ void run_nuth(Options const& opt) {
     dz_total += dz;
     iter++;
     
-    std::cout << "--accum dx dy dz: " << dx_total << ' ' << dy_total << ' ' << dz_total << "\n";
+    vw::vw_out() << "Translation: " << dx_total << ' ' << dy_total << ' ' << dz_total << "\n";
     
     double change_len = vw::math::norm_2(vw::Vector3(dx, dy, dz));
     if (iter > opt.max_iter || change_len < opt.tol)
