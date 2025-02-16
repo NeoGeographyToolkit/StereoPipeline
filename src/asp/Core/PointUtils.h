@@ -46,6 +46,11 @@ const int ASP_MAX_SUBBLOCK_SIZE = 128;
 
 namespace asp {
 
+  /// String we use in ASP written point cloud files to indicate that an offset
+  ///  has been subtracted out from the points.
+  // Note: We use this constant in the python code as well
+  const std::string ASP_POINT_OFFSET_TAG_STR = "POINT_OFFSET";
+
   class BaseOptions;
 
   /// A Data structure which converts from CSV to Cartesian and vice-versa.
@@ -400,6 +405,26 @@ vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& 
     out_image = subtract_shift(out_image, -shift);
 
   return out_image;
+}
+
+/// Round pixels in given image to multiple of given rounding_error.
+template <class VecT>
+struct RoundImagePixels: public vw::ReturnFixedType<VecT> {
+  double m_rounding_error;
+  RoundImagePixels(double rounding_error):m_rounding_error(rounding_error){
+    VW_ASSERT(m_rounding_error > 0.0,
+                vw::ArgumentErr() << "Rounding error must be positive.");
+  }
+  VecT operator() (VecT const& pt) const {
+    return m_rounding_error*round(pt/m_rounding_error);
+  }
+};
+template <class ImageT>
+vw::UnaryPerPixelView<ImageT, RoundImagePixels<typename ImageT::pixel_type> >
+inline round_image_pixels(vw::ImageViewBase<ImageT> const& image,
+                        double rounding_error) {
+  return vw::UnaryPerPixelView<ImageT, RoundImagePixels<typename ImageT::pixel_type> >
+    (image.impl(), RoundImagePixels<typename ImageT::pixel_type>(rounding_error));
 }
 
 /// Block write image while subtracting a given value from all pixels
