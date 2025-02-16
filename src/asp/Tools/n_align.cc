@@ -258,7 +258,7 @@ void print_cloud(std::vector<vw::Vector3> const& cloud) {
   }
 }
 
-void sort_and_make_unqiue(std::vector<vw::Vector3> & cloud) {
+void sort_and_make_unique(std::vector<vw::Vector3> & cloud) {
   std::sort(cloud.begin(), cloud.end(), triplet_less);
   std::vector<vw::Vector3>::iterator it = std::unique(cloud.begin(), cloud.end());
   cloud.resize(std::distance(cloud.begin(), it));
@@ -401,7 +401,7 @@ int main(int argc, char *argv[]) {
     // Read the clouds
     for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
       //read_cloud(opt.cloud_files[cloudIter], clouds[cloudIter], shifts[cloudIter]);
-      sort_and_make_unqiue(clouds[cloudIter]);
+      sort_and_make_unique(clouds[cloudIter]);
     }
 
     // Read any initial transforms, either using a prefix or an explicit list
