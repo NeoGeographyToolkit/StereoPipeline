@@ -24,6 +24,10 @@
 // TODO(oalexan1): It is assumed both input DEMs are equally dense. The work
 // will happen in the source DEM domain. Later we can deal with the case when
 // we want it done in the reference DEM domain. This is temporary.
+// TODO(oalexan1): Stopping tol of 0.1 seems too high. Let it be 0.001 meters.
+// TODO(oalexan1): Need to convert from boost conventions to dem_align.py
+// conventions. Example: instead of --poly-order use -polyorder, and instead
+// of --max-offset use -max_offset, etc. 
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
@@ -36,14 +40,17 @@
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/Functors.h>
 #include <vw/Math/Statistics.h>
+#include <vw/Image/MaskedImageAlgs.h>
+#include <vw/Cartography/SlopeAspect.h>
 
 #include <boost/program_options.hpp>
+
+#include <Eigen/Core>
+#include <ceres/ceres.h>
 
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <Eigen/Core>
-#include <ceres/ceres.h>
 
 inline double DegToRad(double deg) {
   return deg * M_PI / 180.0;
@@ -156,7 +163,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw::vw_throw(vw::ArgumentErr() << "The polynomial order must be at least 1.\n");
   
   // The tol must be positive
-  if (opt.tol <= 0)
+  if (opt.tol <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "The tolerance must be positive.\n");
   
   // Max offset must be positive. Same with max_dz.
@@ -182,160 +189,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 }
 
-// Find the valid pixels. Use long long, to avoid integer overflow.
-// TODO(oalexan1): Move this to NuthUtils.cc
-long long validCount(vw::ImageView<vw::PixelMask<double>> const& img) {
-  
-  long long count = 0;
-  for (int col = 0; col < img.cols(); col++) {
-    for (int row = 0; row < img.rows(); row++) {
-      if (is_valid(img(col, row)))
-        count++;
-    }
-  }
-  
-  return count;
-}
-
-// Compute the median of the valid pixels
-// TODO(oalexan1): Move this to NuthUtils.cc
-double maskedMedian(vw::ImageView<vw::PixelMask<double>> const& img) {
-
-  // Allocate enough space first  
-  std::vector<double> vals(img.cols()*img.rows());
-  vals.clear();
-  
-  for (int col = 0; col < img.cols(); col++) {
-    for (int row = 0; row < img.rows(); row++) {
-      if (is_valid(img(col, row)))
-        vals.push_back(img(col, row).child());
-    }
-  }
-  
-  if (vals.empty())
-    vw::vw_throw(vw::ArgumentErr() << "No valid pixels found in median calculation.\n");
-  
-  return vw::math::destructive_median(vals);
-}
-
-// Comput normalized median absolute deviation
-// TODO(oalexan1): Move this to NuthUtils.cc
-double normalizedMad(vw::ImageView<vw::PixelMask<double>> const& img, 
-                     double median) {
-  
-  // Compute the median absolute deviation
-  std::vector<double> vals(img.cols()*img.rows());
-  vals.clear();
-  for (int col = 0; col < img.cols(); col++) {
-    for (int row = 0; row < img.rows(); row++) {
-      if (is_valid(img(col, row)))
-        vals.push_back(std::abs(img(col, row).child() - median));
-    }
-  }
-  
-  if (vals.empty())
-    vw::vw_throw(vw::ArgumentErr() << "No valid pixels found in MAD calculation.\n");
-  
-  double mad = vw::math::destructive_median(vals);
-
-  // The normalization factor is to make this equivalent to the standard deviation  
-  return  1.4826 * mad;
-}
-
-// Find the mean of valid pixels.
-// TODO(oalexan1): Move this to NuthUtils.cc
-double maskedMean(vw::ImageView<vw::PixelMask<double>> const& img) {
-  
-  double sum = 0.0;
-  long long count = 0;
-  for (int col = 0; col < img.cols(); col++) {
-    for (int row = 0; row < img.rows(); row++) {
-      if (is_valid(img(col, row))) {
-        sum += img(col, row).child();
-        count++;
-      }
-    }
-  }
-  
-  if (count == 0)
-    return 0.0;
-  
-  return sum / count;
-}
-
-// Find the std dev of valid pixels.
-// TODO(oalexan1): Move this to NuthUtils.cc
-double maskedStdDev(vw::ImageView<vw::PixelMask<double>> const& img, double mean) {
-  
-  double sum = 0.0;
-  long long count = 0;
-  for (int col = 0; col < img.cols(); col++) {
-    for (int row = 0; row < img.rows(); row++) {
-      if (is_valid(img(col, row))) {
-        sum += (img(col, row).child() - mean) * (img(col, row).child() - mean);
-        count++;
-      }
-    }
-  }
-  
-  if (count == 0)
-    return 0.0;
-  
-  return sqrt(sum / count);
-}
-  
-// Filter outside this range
-// TODO(oalexan1): Move this to NuthUtils.cc
-void rangeFilter(vw::ImageView<vw::PixelMask<double>> & diff, 
-                 double min_val, double max_val) {
-
-  for (int col = 0; col < diff.cols(); col++) {
-    for (int row = 0; row < diff.rows(); row++) {
-      if (is_valid(diff(col, row)) && 
-          (diff(col, row).child() < min_val || diff(col, row).child() > max_val))
-        diff(col, row).invalidate();
-    }
-  }
-}
-
-// Invalidate pixels in first image that are invalid in second image
-void intersectValid(vw::ImageView<vw::PixelMask<double>> & img1, 
-                    vw::ImageView<vw::PixelMask<double>> const& img2) {
-  
-  for (int col = 0; col < img1.cols(); col++) {
-    for (int row = 0; row < img1.rows(); row++) {
-      if (!is_valid(img2(col, row)))
-        img1(col, row).invalidate();
-    }
-  }
-}
-
-// Filter by normalized median absolute deviation with given factor
-// TODO(oalexan1): Move this to NuthUtils.cc
-void madFilter(vw::ImageView<vw::PixelMask<double>> & diff, double outlierFactor) {
-  
-  double median = maskedMedian(diff);
-  double mad = normalizedMad(diff, median);
-  double min_val = median - outlierFactor * mad;
-  double max_val = median + outlierFactor * mad;
-  rangeFilter(diff, min_val, max_val);
-}
-
 // Filter outliers by range and then by normalized median absolute deviation
-// TODO(oalexan1): Move this to NuthUtils.cc
 void rangeMadFilter(vw::ImageView<vw::PixelMask<double>> & diff, 
                     double outlierFactor,
                     double max_dz) {
 
-  double origCount = validCount(diff);
+  double origCount = vw::validCount(diff);
 
   // Filter out diff whose magnitude is greater than max_dz    
-  rangeFilter(diff, -max_dz, max_dz);
+  vw::rangeFilter(diff, -max_dz, max_dz);
   
   // Apply normalized mad filter with given factor
-  madFilter(diff, outlierFactor);
+  vw::madFilter(diff, outlierFactor);
   
-  double finalCount = validCount(diff);
+  double finalCount = vw::validCount(diff);
   
   // Find the percentage, and round it to 2 decimal places
   double removedPct = 100.0 * (origCount - finalCount) / origCount;
@@ -343,212 +210,6 @@ void rangeMadFilter(vw::ImageView<vw::PixelMask<double>> & diff,
   vw::vw_out() << "Percentage of samples removed as outliers: " << removedPct << "%\n";
 }
 
-// Calculate the DEM slope and aspect in degrees at a given location.
-// The code below is adapted from GDAL.
-// https://github.com/OSGeo/gdal/blob/46412f0fb7df3f0f71c6c31ff0ae97b7cef6fa61/apps/gdaldem_lib.cpp#L1284C1-L1301C1
-//https://github.com/OSGeo/gdal/blob/46412f0fb7df3f0f71c6c31ff0ae97b7cef6fa61/apps/gdaldem_lib.cpp#L1363
-// It looks to be an approximation of the Zevenbergen and Thorne method, not the
-// real thing. Using same logic for consistency.
-void SlopeAspectZevenbergenThorneAlg(vw::ImageView<vw::PixelMask<double>> const& dem,
-                                     vw::cartography::GeoReference const& georef,
-                                     int col, int row,
-                                     vw::PixelMask<double> & slope,
-                                     vw::PixelMask<double> & aspect) {
-
-  // The slope and aspect start as invalid
-  slope.invalidate();
-  aspect.invalidate();
-  
-  int num_cols = dem.cols(), num_rows = dem.rows();
-  
-  // If the pixel is at the border, return invalid
-  if (col <= 0 || row <= 0 || col >= num_cols - 1 || row >= num_rows - 1)
-    return;
-  
-  // Form the afWin vector with the pixel values
-  std::vector<double> afWin(9);
-  int count = 0;
-  for (int irow = -1; irow <= 1; irow++) {
-    for (int icol = -1; icol <= 1; icol++) {
-      
-      auto val = dem(col + icol, row + irow);
-      
-      // If invalid, return invalid right away. Note how we check here only
-      // either icol or irow being zero, as we don't use the diagonal values.
-      // The original Zevenbergen and Thorne method uses those values,
-      // but the GDAL implementation does not.
-      if (!is_valid(val) && (icol == 0 || irow == 0))
-        return;
-        
-      afWin[count] = val.child();
-      count++;
-    }
-  }
-  
-  // To find the local grid size in x, convert pixels to projected coordinates.
-  vw::Vector2 left_pt = georef.pixel_to_point(vw::Vector2(col - 1, row));
-  vw::Vector2 right_pt = georef.pixel_to_point(vw::Vector2(col + 1, row));
-  double grid_x = vw::math::norm_2(right_pt - left_pt) / 2.0;
-
-  // Same for y
-  vw::Vector2 top_pt = georef.pixel_to_point(vw::Vector2(col, row - 1));
-  vw::Vector2 bottom_pt = georef.pixel_to_point(vw::Vector2(col, row + 1));
-  double grid_y = vw::math::norm_2(bottom_pt - top_pt) / 2.0;
-  
-  // Compute the slope
-  double dx = (afWin[3] - afWin[5]) / grid_x;
-  double dy = (afWin[7] - afWin[1]) / grid_y;
-  double key = dx * dx + dy * dy;
-  // The division by 2 is needed because that's how centered differences are found
-  slope = atan(sqrt(key)/2.0) * 180.0 / M_PI;
-  slope.validate();
-
-  // Compute the aspect   
-  // TODO(oalexan1): It is not clear if need to divide by grid_x or grid_y here.
-  // The GDAL code does not, but I think it should. These grid sizes are usually 
-  // about the same in projected coordinates, so likely it does not matter.
-  dx = afWin[5] - afWin[3];
-  dy = afWin[7] - afWin[1];  
-  if (dx == 0 && dy == 0) {
-    aspect.invalidate();
-    return;
-  }
-  double a = atan2(dy, -dx) * 180.0 / M_PI;
-  // Using the logic for when psData->bAngleAsAzimuth is true
-  if (a > 90.0)
-      a = 450.0 - a;
-  else
-      a = 90.0 - a;  
-  if (a >= 360.0)
-    a -= 360.0;
-    
-  aspect = a;
-  aspect.validate();  
-}
-
-// Calculate the DEM slope and aspect in degrees. Use the same logic as gdaldem. 
-void calcSlopeAspect(vw::ImageView<vw::PixelMask<double>> const& dem, 
-                     vw::cartography::GeoReference const& georef,
-                     // Outputs
-                     vw::ImageView<vw::PixelMask<double>> & slope,
-                     vw::ImageView<vw::PixelMask<double>> & aspect) {
-
-  // Allocate space for the output slope and aspect
-  slope.set_size(dem.cols(), dem.rows());
-  aspect.set_size(dem.cols(), dem.rows());
-  
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      SlopeAspectZevenbergenThorneAlg(dem, georef, col, row, 
-                                      slope(col, row), aspect(col, row)); // outputs
-    }
-  }
-
-}
-
-// Group y-values into bins based on their corresponding x-values and computes
-// a statistic (like mean, sum, etc.) for each bin. This reimplements
-// scipy.stats.binned_statistic. Do not return bin number, as we don't need it.
-// Also some stats that are not needed were not implemented.
-void binnedStatistics(vw::ImageView<vw::PixelMask<double>> const& x, 
-                      vw::ImageView<vw::PixelMask<double>> const& y,
-                      std::string stat, int nbins, 
-                      vw::Vector2 const& bin_range,
-                      // Outputs
-                      std::vector<double> & bin_stat,
-                      std::vector<double> & bin_edges) {
-
-  // x and y must have the same size
-  if (x.cols() != y.cols() || x.rows() != y.rows())
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "The x and y images must have the same size.\n");
-  
-  double bin_width = (bin_range[1] - bin_range[0]) / nbins;
-  
-  // Resize output vectors
-  bin_stat.resize(nbins);
-  bin_edges.resize(nbins + 1);
-
-  for (int i = 0; i <= nbins; i++)
-    bin_edges[i] = bin_range[0] + i * bin_width;
-
-  // Accumulate the values in each bin
-  std::vector<std::vector<double>> bin_values(nbins);
-  for (int col = 0; col < x.cols(); col++) {
-    for (int row = 0; row < x.rows(); row++) {
-      
-      if (!is_valid(x(col, row)) || !is_valid(y(col, row)))
-        continue; // Skip invalid pixels
-      
-      // Skip values outside range
-      if (x(col, row).child() < bin_range[0] || x(col, row).child() > bin_range[1])
-        continue;
-      
-      // Bin index  
-      int bin_index = (int)std::floor((x(col, row).child() - bin_range[0]) / bin_width);
-      if (bin_index >= nbins) // This can happen due to numerical errors
-        bin_index = nbins - 1;
-      if (bin_index < 0)
-        bin_index = 0;
-        
-      bin_values[bin_index].push_back(y(col, row).child());
-    }
-  }
-  
-  // Compute the statistic for each bin
-  for (int i = 0; i < nbins; i++) {
-    
-    if (bin_values[i].empty()) {
-      bin_stat[i] = std::numeric_limits<double>::quiet_NaN();
-      continue;
-    }
-    
-    if (stat == "mean")
-      bin_stat[i] = vw::math::mean(bin_values[i]);
-     else if (stat == "count")
-       bin_stat[i] = bin_values[i].size();
-     else if (stat == "median")
-       bin_stat[i] = vw::math::destructive_median(bin_values[i]);
-    else
-      vw::vw_throw(vw::ArgumentErr() << "Invalid statistic: " << stat << ".\n");
-   }
-}
-
-// Put y values in bins determined by x values. Return stats in each bin,
-// bin centers, and bin edges.
-// TODO(oalexan1): Merge this into the above function.
-void binStats(vw::ImageView<vw::PixelMask<double>> const& x, 
-              vw::ImageView<vw::PixelMask<double>> const& y,
-              std::string stat, int nbins, 
-              vw::Vector2 const& bin_range,
-              // Outputs
-              std::vector<vw::PixelMask<double>> & masked_bin_stat,
-              std::vector<double> & bin_edges,
-              std::vector<double> & bin_centers) {
-  
-  std::vector<double> bin_stat;
-  binnedStatistics(x, y, stat, nbins, bin_range, 
-                   bin_stat, bin_edges); // outputs
-  
-  double bin_width = (bin_range[1] - bin_range[0]) / nbins;
-  
-  // To get the bin center shift right by half a bin width. Skip the last edge.
-  // There are as many bin centers as there are bins
-  bin_centers.resize(nbins);
-  for (int i = 0; i < nbins; i++)
-    bin_centers[i] = bin_edges[i] + bin_width / 2.0;
- 
-  // Form the output masked bin stat
-  // TODO(oalexan1): This is not needed. Just use 0 when there is no data.
-  masked_bin_stat.resize(nbins);
-  for (int i = 0; i < nbins; i++) {
-    masked_bin_stat[i].invalidate();
-    if (!std::isnan(bin_stat[i])) {
-      masked_bin_stat[i].child() = bin_stat[i];
-      masked_bin_stat[i].validate();
-    }
-  }
-}
 
 // Put the above logic in a function that prepares the data
 void prepareData(Options const& opt, 
@@ -660,16 +321,45 @@ void computeNuthOffset(Options const& opt,
                        vw::cartography::GeoReference const& src_georef,
                        double ref_nodata, double src_nodata,
                        double max_offset, double max_dz, 
-                       vw::Vector2 const& slope_lim) {
-
-  // TODO(oalexan1): Implement the regrid here as in the dem_align.py code.
-  vw::vw_out() << "Must regrid each time at this stage, as the georef will change.\n";
-  
-  // Warp and crop the source DEM to the reference DEM domain and read in memory
-  vw::BBox2i ref_crop_box = vw::bounding_box(ref);
-  vw::ImageView<vw::PixelMask<double>> src_warp 
-     = copy(asp::warpCrop(src_disk, src_nodata, src_georef, ref_georef, ref_crop_box, 
-                          "bicubic"));
+                       vw::Vector2 const& slope_lim,
+                       double dx_total, double dy_total, double dz_total,
+                       // Outputs
+                       vw::Vector3 & fit_params,
+                       double & median_diff) {
+                        
+  // Find shifted src, and interpolate it onto same grid as ref.
+  // TODO(oalexan1): This must be a function.
+  vw::PixelMask<double> nodata_val;
+  nodata_val.invalidate();
+  auto nodata_ext = vw::ValueEdgeExtension<vw::PixelMask<double>>(nodata_val);
+  vw::ImageViewRef<vw::PixelMask<double>> src_interp 
+    = vw::interpolate(vw::create_mask(src_disk, src_nodata),
+                      vw::BicubicInterpolation(), nodata_ext);
+  vw::ImageView<vw::PixelMask<double>> src_warp(ref.cols(), ref.rows());
+  vw::cartography::GeoTransform gt(ref_georef, src_georef);
+  for (int col = 0; col < ref.cols(); col++) {
+    for (int row = 0; row < ref.rows(); row++) {
+      vw::Vector2 ref_pix(col, row);
+      
+      // Convert to projected coordinates
+      vw::Vector2 proj_pt = ref_georef.pixel_to_point(ref_pix);
+      
+      // We want to shift src by this much in projected coordinates
+      // So shift this proj pt in reverse and find the corresponding pixel in src
+      proj_pt -= vw::Vector2(dx_total, dy_total);
+      
+      // Convert back to pixel coordinates, in the ref domain, as that
+      // is where all operations take place.
+      ref_pix = ref_georef.point_to_pixel(proj_pt);
+      
+      // go to src domain
+      vw::Vector2 src_pix = gt.forward(ref_pix);
+      src_warp(col, row) = src_interp(src_pix[0], src_pix[1]);
+      
+      // Add the vertical offset
+      src_warp(col, row) += dz_total;
+    }
+  }
   
   // Ref and src must have the same size
   if (ref.cols() != src_warp.cols() || ref.rows() != src_warp.rows())
@@ -689,43 +379,31 @@ void computeNuthOffset(Options const& opt,
   
   // Calculate the slope and aspect of the src_warp_copy DEM
   vw::ImageView<vw::PixelMask<double>> slope, aspect;
-  calcSlopeAspect(src_warp, ref_georef, slope, aspect);
-  
-  std::cout << "--slope lim: " << slope_lim << std::endl;
-  std::cout << "number of valid slopes: " << validCount(slope) << "\n";
+  vw::cartography::calcSlopeAspect(src_warp, ref_georef, slope, aspect);
   
   // Filter slopes by range
-  rangeFilter(slope, slope_lim[0], slope_lim[1]);
-  
-  std::cout << "--number of valid slopes after range filter: " << validCount(slope) << "\n";
-  std::cout << "number of diff before filter by slope and aspect: " << validCount(diff) << "\n";
+  vw::rangeFilter(slope, slope_lim[0], slope_lim[1]);
   
   // Invalidate diffs with invalid slope or aspect
-  intersectValid(diff, slope);
-  intersectValid(diff, aspect);
-  
-  std::cout << "number of diff after filter by slope: " << validCount(diff) << "\n";
-  std::cout << "number of diff after filter by aspect: " << validCount(diff) << "\n";
+  vw::intersectValid(diff, slope);
+  vw::intersectValid(diff, aspect);
   
   // Important sanity check
   int minCount = 100;
   if (validCount(diff) < minCount)
     vw::vw_throw(vw::ArgumentErr() 
                  << "Too little valid data left after filtering.\n");
-      
-  double median_diff = maskedMedian(diff);
-  double median_slope = maskedMedian(slope);
+  
+  // This will be returned
+  median_diff = vw::maskedMedian(diff);
+  
+  double median_slope = vw::maskedMedian(slope);
   double c_seed = (median_diff/tan(DegToRad(median_slope)));
   vw::Vector3 x0(0, 0, c_seed);
 
-  std::cout << "median_diff: " << median_diff << std::endl;
-  std::cout << "median_slope: " << median_slope << std::endl;
-  std::cout << "c_seed: " << c_seed << std::endl;
-  std::cout << "x0: " << x0 << std::endl;
-  
   // For invalid diff make the slope and aspect invalid
-  intersectValid(slope, diff);
-  intersectValid(aspect, diff);
+  vw::intersectValid(slope, diff);
+  vw::intersectValid(aspect, diff);
 
   // Form xdata and ydata. We don't bother removing the flagged invalid pixels.
   // xdata = aspect[common_mask].data
@@ -747,42 +425,32 @@ void computeNuthOffset(Options const& opt,
   
   // Filter outliers in y by mean and std dev
   outlierFactor = 3.0;
-  double mean_y = maskedMean(ydata);
-  double std_dev_y = maskedStdDev(ydata, mean_y);
+  double mean_y = vw::maskedMean(ydata);
+  double std_dev_y = vw::maskedStdDev(ydata, mean_y);
   double rmin = mean_y - outlierFactor * std_dev_y;
   double rmax = mean_y + outlierFactor * std_dev_y;
   
-  std::cout << "mean_y: " << mean_y << std::endl;
-  std::cout << "std_dev_y: " << std_dev_y << std::endl;
-  std::cout << "range for y: " << rmin << ' ' << rmax << std::endl;
-  std::cout << "before filtring num of y is " << validCount(ydata) << std::endl;
-
   // Filter y by range, and then apply to x
-  rangeFilter(ydata, rmin, rmax);
-  intersectValid(xdata, ydata);
+  vw::rangeFilter(ydata, rmin, rmax);
+  vw::intersectValid(xdata, ydata);
 
-  std::cout << "after filtring num of y is " << validCount(ydata) << std::endl;
-  
   // Prepare for binning
   int numBins = 360;
   vw::Vector2 binRange(0.0, 360.0);
   double binWidth = 1.0;
 
   // Bin counts
-  std::vector<double> bin_edges, bin_centers;
-  std::vector<vw::PixelMask<double>> masked_bin_count;
-  binStats(xdata, ydata, "count", numBins, binRange, 
-           masked_bin_count, bin_edges, bin_centers); // outputs
+  std::vector<double> bin_count, bin_edges, bin_centers;
+  vw::binnedStatistics(xdata, ydata, "count", numBins, binRange, 
+                       bin_count, bin_edges, bin_centers); // outputs  
   
   // Bin medians
-  std::vector<vw::PixelMask<double>> masked_bin_median;
-  binStats(xdata, ydata, "median", numBins, binRange, 
-           masked_bin_median, bin_edges, bin_centers); // outputs
-  
+  std::vector<double> bin_median;
+  vw::binnedStatistics(xdata, ydata, "median", numBins, binRange, 
+                       bin_median, bin_edges, bin_centers); // outputs
+
   int min_bin_sample_count = 9;
   vw::vw_out() << "min_bin_sample_count: " << min_bin_sample_count << "\n";
-  // TODO(oalexan1): Must not use masked_bin_count and bins with less than
-  // min_bin_sample_count
   
   // Form a Ceres optimization problem. Will fit a curve to 
   // bin centers and bin medians, while taking into acount the bin count
@@ -793,18 +461,15 @@ void computeNuthOffset(Options const& opt,
   // Add residuals
   for (int i = 0; i < numBins; i++) {
     
-    if (!is_valid(masked_bin_median[i]) || !is_valid(masked_bin_count[i]))
-      continue;
-   
      // Skip bin count less than min_bin_sample_count
-     if (masked_bin_count[i].child() < min_bin_sample_count)
+     if (bin_count[i] < min_bin_sample_count)
        continue;
         
     // The residual is the difference between the data and the model
     // fit = optimization.curve_fit(nuth_func, bin_centers, bin_med, x0)[0]
     ceres::CostFunction* cost_function = 
-      NuthResidual::CreateNuthCostFunction(bin_centers[i], masked_bin_median[i].child()); 
-    // loss
+      NuthResidual::CreateNuthCostFunction(bin_centers[i], bin_median[i]);
+    
     ceres::LossFunction* loss_function = NULL;
     problem.AddResidualBlock(cost_function, loss_function, &x0[0]);
   }
@@ -837,8 +502,8 @@ void computeNuthOffset(Options const& opt,
                  << "is expected and likely the produced solution is good enough.\n";
   }
 
-  std::cout << "--final solution: " << x0 << "\n";
-    
+  // This will be returned
+  fit_params = x0;
 } // End function computeNuthOffset
 
 void run_nuth(Options const& opt) {
@@ -851,10 +516,47 @@ void run_nuth(Options const& opt) {
   vw::cartography::GeoReference ref_georef, src_georef;
   prepareData(opt, ref, src_disk, ref_nodata, src_nodata, ref_georef, src_georef);
   
-  // Compute the Nuth offset
-  computeNuthOffset(opt, ref, src_disk, ref_georef, src_georef, ref_nodata, src_nodata,
-                    opt.max_offset, opt.max_dz, opt.slope_lim);  
+  double dx_total = 0, dy_total = 0, dz_total = 0;
+  int iter = 1;
   
+  while (1) {
+    
+    std::cout << "Iteration: " << iter << "\n";
+    
+    // Compute the Nuth offset
+    vw::Vector3 fit_params;
+    double median_diff = 0.0; // will be returned
+    computeNuthOffset(opt, ref, src_disk, ref_georef, src_georef, ref_nodata, src_nodata,
+                      opt.max_offset, opt.max_dz, opt.slope_lim,
+                      dx_total, dy_total, dz_total, // inputs
+                      fit_params, median_diff); // outputs
+    
+    // Note: minus signs here since we are computing dz=(src-ref), but adjusting src
+    double dx = -fit_params[0] * sin(DegToRad(fit_params[1]));
+    double dy = -fit_params[0] * cos(DegToRad(fit_params[1]));
+    double dz = -median_diff;
+    
+    dx_total += dx;
+    dy_total += dy;
+    dz_total += dz;
+    iter++;
+    
+    std::cout << "--accum dx dy dz: " << dx_total << ' ' << dy_total << ' ' << dz_total << "\n";
+    
+    double change_len = vw::math::norm_2(vw::Vector3(dx, dy, dz));
+    if (iter > opt.max_iter || change_len < opt.tol)
+      break;
+  }
+  
+  // TODO(oalexan1): Print here how many iterations it took and final incremental change.
+  
+  // Warning. Not sure if it should be an error.
+  double horiz_total = vw::math::norm_2(vw::Vector2(dx_total, dy_total));
+  if (horiz_total > opt.max_offset) 
+    vw::vw_out(vw::WarningMessage)
+      << "Total horizontal offset is: " << horiz_total << " meters. It exceeds the "
+      << "specified max_offset: " << opt.max_offset << " meters. Consider increasing "
+      << "the --max-offset argument.\n";
 }
 
 #if 0  
@@ -916,9 +618,6 @@ int main(int argc, char *argv[]) {
   Options opt;
   try {
 
-    // TODO(oalexan1): Need to convert from boost conventions to dem_align.py
-    // conventions. Example: instead of --poly-order use -polyorder, and instead
-    // of --max-offset use -max_offset, etc. 
     handle_arguments(argc, argv, opt);
     run_nuth(opt);
 
