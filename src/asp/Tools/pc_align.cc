@@ -877,7 +877,7 @@ void adjust_and_intersect_ref_source_boxes(BBox2 & ref_box, BBox2 & source_box,
   ref_box -= Vector2(lon_offset, 0);
   
   // Extra adjustments. These are needed since pixel_to_lonlat and
-  // cartesian_to_geodetic can disagree by 360 degress. Adjust ref
+  // cartesian_to_geodetic can disagree by 360 degrees. Adjust ref
   // to source and vice-versa.
   adjust_lonlat_bbox(reference, ref_box);
   adjust_lonlat_bbox(source, source_box);
