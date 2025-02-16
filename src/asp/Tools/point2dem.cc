@@ -47,6 +47,10 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+/// To help with compression, round to about 1mm, but
+/// use for rounding a number with few digits in binary.
+const double APPROX_ONE_MM = 1.0/1024.0;
+
 void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
   std::string dem_spacing1, dem_spacing2;
@@ -173,7 +177,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
      "The projection string to use to interpret the entries in input CSV files. If not set, --t_srs will be used.")
     ("filter",      po::value(&opt.filter)->default_value("weighted_average"), 
      "The filter to apply to the heights of the cloud points within a given circular neighborhood when gridding (its radius is controlled via --search-radius-factor). Options: weighted_average (default), min, max, mean, median, stddev, count (number of points), nmad (= 1.4826 * median(abs(X - median(X)))), n-pct (where n is a real value between 0 and 100, for example, 80-pct, meaning, 80th percentile). Except for the default, the name of the filter will be added to the obtained DEM file name, e.g., output-min-DEM.tif.")
-    ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
+    ("rounding-error", po::value(&opt.rounding_error)->default_value(APPROX_ONE_MM),
      "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. Default: 1/2^10.")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
      "Multiply this factor by --dem-spacing to get the search radius. The "

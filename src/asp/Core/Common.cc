@@ -377,23 +377,6 @@ std::string asp::current_posix_time_string() {
   return boost::posix_time::to_simple_string(boost::posix_time::second_clock::local_time());
 }
 
-// Unless user-specified, compute the rounding error for a given
-// planet (a point on whose surface is given by 'shift'). Return an
-// inverse power of 2, 1/2^10 for Earth and proportionally less for
-// smaller bodies.
-double asp::get_rounding_error(vw::Vector3 const& shift, double rounding_error) {
-
-  // Do nothing if the user specified it.
-  if (rounding_error > 0.0) return rounding_error;
-
-  double len = norm_2(shift);
-  VW_ASSERT(len > 0,  vw::ArgumentErr()
-            << "Expecting positive length in get_rounding_error().");
-  rounding_error = 1.5e-10*len;
-    rounding_error = pow(2.0, round(log(rounding_error)/log(2.0)));
-    return rounding_error;
-}
-
 // Run a system command and append the output to a given file
 void asp::run_cmd_app_to_file(std::string cmd, std::string file){
   std::string full_cmd;

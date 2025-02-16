@@ -609,9 +609,9 @@ namespace asp {
   // This handles options which are not in stereo_settings(), but
   // rather in 'opt'. So they are not config options set in
   // stereo.default but only command-line options.
-  void addAspGlobalOptions(boost::program_options::options_description & descripton,
+  void addAspGlobalOptions(boost::program_options::options_description & description,
                            ASPGlobalOptions & opt) {
-    descripton.add_options()
+    description.add_options()
       ("session-type,t",      po::value(&opt.stereo_session),
        "Select the stereo session type to use for processing. "
        "Usually the program can select this automatically by the file extension, "
@@ -683,6 +683,22 @@ namespace asp {
     return !(search_range.min() == Vector2() &&
               search_range.max() == Vector2());
   }
+
+  /// Custom readers for Boost program options
+  class asp_config_file_iterator : public boost::program_options::detail::common_config_file_iterator {
+    boost::shared_ptr<std::basic_istream<char> > is;
+  private:
+    bool getline(std::string& s); // Used to precondition string before reading
+  public:
+    asp_config_file_iterator() {
+      found_eof();
+    }
+
+    // Creates a config file parser for the specified stream.
+    asp_config_file_iterator(std::basic_istream<char>& is,
+                             const std::set<std::string>& allowed_options,
+                             bool allow_unregistered = false);
+  };
 
   bool asp_config_file_iterator::getline(std::string& s) {
     std::string ws;

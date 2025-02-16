@@ -407,6 +407,15 @@ vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& 
   return out_image;
 }
 
+/// Don't round pixels in point2dem for bodies of radius smaller than
+/// this in meters. Do it though in stereo_tri, see get_rounding_error().
+const double MIN_RADIUS_FOR_ROUNDING = 1e+6; // 1000 km
+
+/// Unless user-specified, compute the rounding error for a given
+/// planet (a point on whose surface is given by 'shift'). Return an
+/// inverse power of 2, 1/2^10 for Earth and proportionally less for smaller bodies.
+double get_rounding_error(vw::Vector3 const& shift, double rounding_error);
+
 /// Round pixels in given image to multiple of given rounding_error.
 template <class VecT>
 struct RoundImagePixels: public vw::ReturnFixedType<VecT> {

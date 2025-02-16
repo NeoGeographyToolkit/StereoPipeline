@@ -156,19 +156,6 @@ namespace asp {
 
   //---------------------------------------------------------------------------
 
-  /// To help with compression, round to about 1mm, but
-  /// use for rounding a number with few digits in binary.
-  const double APPROX_ONE_MM = 1.0/1024.0;
-
-  /// Don't round pixels in point2dem for bodies of radius smaller than
-  /// this in meters. Do it though in stereo_tri, see get_rounding_error().
-  const double MIN_RADIUS_FOR_ROUNDING = 1e+6; // 1000 km
-
-  /// Unless user-specified, compute the rounding error for a given
-  /// planet (a point on whose surface is given by 'shift'). Return an
-  /// inverse power of 2, 1/2^10 for Earth and proportionally less for smaller bodies.
-  double get_rounding_error(vw::Vector3 const& shift, double rounding_error);
-
   // Often times, we'd like to save an image to disk by using big
   // blocks, for performance reasons, then re-write it with desired blocks.
   // TODO(oalexan1): Move this somewhere else.
