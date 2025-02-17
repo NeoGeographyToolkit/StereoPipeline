@@ -26,7 +26,6 @@
 // TODO(oalexan1): It is assumed both input DEMs are equally dense. The work
 // will happen in the source DEM domain. Later we can deal with the case when
 // we want it done in the reference DEM domain. This is temporary.
-// TODO(oalexan1): Stopping tol of 0.01 seems too high. Let it be 0.001 meters.
 // TODO(oalexan1): Is it worth reading ref and source as double?
 // TODO(oalexan1): Merely including Common.h results in 10 seconds extra compile time.
 
@@ -84,8 +83,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Output prefix for writing all produced files.")
     ("slope-lim", 
      po::value(&opt.slope_lim)->default_value(vw::Vector2(0.1, 40.0), "0.1, 40.0"),
+     "Minimum and maximum surface slope limits to consider (degrees).")
     ("tol", po::value(&opt.tol)->default_value(0.001),
-      "Stop when the addition to the computed translation at given iteration has magnitude below this tolerance (meters).")
+     "Stop when the addition to the computed translation at given iteration has magnitude "
+     "below this tolerance (meters).")
     ("max-offset", po::value(&opt.max_offset)->default_value(100.0),
      "Maximum expected horizontal translation magnitude (meters).")
     ("max-dz", po::value(&opt.max_dz)->default_value(100.0),
@@ -100,7 +101,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("res", po::value(&opt.res)->default_value("mean"),
      "Regrid the input DEMs to this resolution given the resolutions of input datasets. "
      "Options: min, max, mean, common_scale_factor.")
-     "Minimum and maximum surface slope limits to consider (degrees).")
     ("max-iter", po::value(&opt.max_iter)->default_value(50),
      "Maximum number of iterations, if tolerance is not reached.")
     ("poly-order", po::value(&opt.poly_order)->default_value(1), 
