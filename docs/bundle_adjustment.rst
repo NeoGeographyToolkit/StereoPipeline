@@ -241,7 +241,8 @@ early such attempt, better approaches will be suggested below::
        -o run_ba_intr/run
 
 See :numref:`heights_from_dem` for how to use a DEM as a constraint.
-That is very recommended.
+See :numref:`dense_ip` for how to create dense interest points.
+These are *very recommended*.
 
 It is important to note that only the non-zero intrinsics will be
 optimized, and the step size used in optimizing a certain intrinsic
@@ -379,8 +380,8 @@ outliers, as the input DEM may not be that accurate, and then if tying
 too much to it some valid matches be be flagged as outliers otherwise,
 perhaps.
 
-It is suggested to use dense interest points (:numref:`dense_ip`), and adjust
-``--max-pairwise-matches`` to not throw some of them out. We set
+It is *strongly suggested* to use dense interest points (:numref:`dense_ip`),
+and adjust ``--max-pairwise-matches`` to not throw some of them out. We set
 ``--camera-position-weight 0``, as hopefully the DEM constraint is enough to
 constrain the solution.
 
@@ -817,9 +818,10 @@ bundle adjustment command becomes::
 See :numref:`heights_from_dem` for the option ``--heights-from-dem``, and 
 :numref:`bundle_adjust` for the documentation of all options above.
 
-If large errors are still left at the image periphery, decrease
-``--heights-from-dem-uncertainty``. Also consider adding more images 
-overlapping with the current ones.
+If large errors are still left at the image periphery, adjust
+``--heights-from-dem-uncertainty``. If a small value of this is used with an
+inaccurate prior DEM, it will make the results worse. Also consider adding more
+images overlapping with the current ones.
 
 .. figure:: images/kaguya_intrinsics_opt_example.png
    :name: kaguya_intrinsics_opt_example
@@ -1056,6 +1058,9 @@ We will float the intrinsics for the frame cameras, and keep the linescan intrin
 Optimizing the optical center may not be necessary, as this intrinsic parameter
 may correlate with the position of the cameras, and these are not easy to
 separate. Optimizing this may produce an implausible optical center.
+
+Dense matches from disparity would likely result in better results
+(:numref:`dense_ip`).
 
 .. _ba_frame_linescan_results:
 
