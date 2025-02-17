@@ -364,7 +364,7 @@ void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
 
 /// Save the transform and its inverse.
 void write_transforms(Options const& opt,
-                     PointMatcher<RealT>::Matrix const& T){
+                     PointMatcher<RealT>::Matrix const& T) {
 
   string transFile = opt.out_prefix + "-transform.txt";
   vw_out() << "Writing: " << transFile << endl;

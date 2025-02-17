@@ -28,6 +28,7 @@
 // we want it done in the reference DEM domain. This is temporary.
 // TODO(oalexan1): Stopping tol of 0.01 seems too high. Let it be 0.001 meters.
 // TODO(oalexan1): Is it worth reading ref and source as double?
+// TODO(oalexan1): Merely including Common.h results in 10 seconds extra compile time.
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
@@ -45,6 +46,9 @@
 #include <vw/Cartography/SlopeAspect.h>
 #include <vw/Core/Settings.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/Math/RandomSet.h>
+#include <vw/Math/Geometry.h>
+#include <vw/FileIO/MatrixIO.h>
 
 #include <boost/program_options.hpp>
 #include <Eigen/Core>
@@ -61,7 +65,7 @@ struct Options: vw::GdalWriteOptions {
   std::string ref, src, out_prefix, res;
   int poly_order, max_iter, inner_iter;
   double tol, max_offset, max_dz;
-  bool tiltcorr;
+  bool tiltcorr, compute_translation_only;
   vw::Vector2 slope_lim;
   Options() {}
 };
@@ -84,6 +88,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Maximum expected horizontal translation magnitude (meters).")
     ("max-dz", po::value(&opt.max_dz)->default_value(100.0),
      "Maximum expected vertical offset in meters, used to filter outliers.")
+    ("compute-translation-only", 
+     po::bool_switch(&opt.compute_translation_only)->default_value(false),
+     "When converting the translation in projected space to ECEF, assume the resulting "
+     "transform is a translation only.")
     ("tiltcorr", po::bool_switch(&opt.tiltcorr)->default_value(false),
      "After a preliminary translation, fit a polynomial to residual elevation offsets "
      "and remove.")
@@ -222,7 +230,7 @@ void prepareData(Options const& opt,
   // Prefer the reference resolution to be smaller
   if (ref_tr > src_tr)
     vw::vw_out(vw::WarningMessage) 
-      << "The reference DEM resolution is larger than the source DEM resolution. "
+      << "The reference DEM grid size is larger than of the source DEM. "
       << "This may lead to suboptimal results. It is strongly suggest to swap the "
       << "reference and source DEMs.\n";
   
@@ -276,7 +284,6 @@ void shiftWarp(int ref_cols, int ref_rows,
                vw::ImageView<vw::PixelMask<double>> const& src,
                vw::cartography::GeoReference const& ref_georef,
                vw::cartography::GeoReference const& src_georef,
-               double src_nodata,
                double dx_total, double dy_total, double dz_total,
                // Outputs
                vw::ImageView<vw::PixelMask<double>> & src_warp) {
@@ -321,6 +328,91 @@ void shiftWarp(int ref_cols, int ref_rows,
   return;
 }
 
+// Convert a translation in projected coordinates that aligns the source to the
+// reference to a rotation + translation transform in ECEF. Make use of the
+// filtered differences we employed to find the translation.
+void calcEcefTransform(vw::ImageView<vw::PixelMask<double>> const& ref,
+                       vw::ImageView<vw::PixelMask<double>> const& diff,
+                       vw::cartography::GeoReference const& ref_georef,
+                       double dx_total, double dy_total, double dz_total,
+                       bool compute_translation_only,
+                       // Outputs
+                       vw::Matrix<double> & ecef_transform) {
+  
+  std::vector<vw::Vector3> ref_pts, src_pts;
+  
+  for (int col = 0; col < ref.cols(); col++) {
+    for (int row = 0; row < ref.rows(); row++) {
+      
+      vw::Vector2 ref_pix(col, row);
+      vw::PixelMask<double> ht = ref(col, row);
+      if (!is_valid(ht)) 
+        continue;
+      if (!is_valid(diff(col, row))) 
+        continue;
+      
+      // Convert to projected coordinates, then to ECEF
+      vw::Vector2 ref_pt = ref_georef.pixel_to_point(ref_pix);
+      vw::Vector2 ref_lon_lat = ref_georef.point_to_lonlat(ref_pt);
+      vw::Vector3 ref_ecef = ref_georef.datum().geodetic_to_cartesian
+        (vw::Vector3(ref_lon_lat[0], ref_lon_lat[1], ht.child()));
+
+      // Same for the source. Must go back to the source domain, in x, y, z.
+      vw::Vector2 src_pt = ref_pt - vw::Vector2(dx_total, dy_total);
+      vw::Vector2 src_lon_lat = ref_georef.point_to_lonlat(src_pt);
+      vw::Vector3 src_ecef = ref_georef.datum().geodetic_to_cartesian
+        (vw::Vector3(src_lon_lat[0], src_lon_lat[1], ht.child() - dz_total));
+  
+      ref_pts.push_back(ref_ecef);
+      src_pts.push_back(src_ecef);      
+    }
+  }
+
+  // This will not be robust unless we have a lot of samples
+  int minSamples = 10;
+  if (ref_pts.size() < minSamples)
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Too few valid samples to compute the ECEF transform.\n");
+  
+  // A subset should be enough
+  std::vector<int> sampleIndices;
+  int maxSamples = 100000;  
+  vw::math::pick_random_indices_in_range(ref_pts.size(), maxSamples, sampleIndices);
+  
+  // Keep only the samples in the vectors. Copy in-place.
+  int numSamples = sampleIndices.size();
+  for (int i = 0; i < numSamples; i++) {
+    ref_pts[i] = ref_pts[sampleIndices[i]];
+    src_pts[i] = src_pts[sampleIndices[i]];
+  }
+  ref_pts.resize(numSamples);
+  src_pts.resize(numSamples);
+  
+  // It is safe to assume by now that there are no outliers in the data, given 
+  // how much filtering we did.
+  vw::Matrix<double, 3, 3> rotation;
+  vw::Vector<double, 3> translation;
+  double scale = 1.0;
+  std::string transform_type = "rigid";
+  if (compute_translation_only)
+    transform_type = "translation";
+  vw::math::find_3D_transform_no_outliers(src_pts, ref_pts,
+                                          rotation, translation, scale, // outputs
+                                          transform_type);
+  
+  // We do a rigid transform, as that's all Nuth supports.
+  if (scale != 1.0)
+    vw::vw_throw(vw::NoImplErr() << "Found an unexpected scale factor.\n");
+    
+  // Put in the 4x4 matrix format
+  ecef_transform.set_size(4, 4);
+  submatrix(ecef_transform, 0, 0, 3, 3) = rotation;
+  for (int i = 0; i < 3; i++)
+    ecef_transform(i, 3) = translation[i];
+  
+  return;
+}
+
 // Compute the Nuth offset. By now the DEMs have been regrided to the same
 // resolution and use the same projection. 
 void computeNuthOffset(Options const& opt,
@@ -332,13 +424,15 @@ void computeNuthOffset(Options const& opt,
                        double max_offset, double max_dz, 
                        vw::Vector2 const& slope_lim,
                        double dx_total, double dy_total, double dz_total,
+                       bool calc_ecef_transform,
                        // Outputs
                        vw::Vector3 & fit_params,
-                       double & median_diff) {
+                       double & median_diff,
+                       vw::Matrix<double> & ecef_transform) {
                         
   // Find shifted src, and interpolate it onto same grid as ref.
   vw::ImageView<vw::PixelMask<double>> src_warp;
-  shiftWarp(ref.cols(), ref.rows(), src, ref_georef, src_georef, src_nodata,
+  shiftWarp(ref.cols(), ref.rows(), src, ref_georef, src_georef,
             dx_total, dy_total, dz_total, 
             src_warp); // output
   
@@ -435,6 +529,12 @@ void computeNuthOffset(Options const& opt,
   asp::nuthFit(bin_count, bin_centers, bin_median, opt.inner_iter, opt.num_threads,
                fit_params);
 
+  // Call this here to make use of well-filtered diff
+  if (calc_ecef_transform)
+    calcEcefTransform(ref, diff, ref_georef, dx_total, dy_total, dz_total, 
+                      opt.compute_translation_only,
+                      ecef_transform); // output 
+    
 } // End function computeNuthOffset
 
 void run_nuth(Options const& opt) {
@@ -447,19 +547,26 @@ void run_nuth(Options const& opt) {
   prepareData(opt, ref, src, ref_nodata, src_nodata, ref_georef, src_georef);
   
   double dx_total = 0, dy_total = 0, dz_total = 0;
+  vw::Vector3 fit_params;
+  double median_diff = 0.0; // will be returned
   int iter = 1;
+  double change_len = -1.0;
+ 
+   // The ECEF transform is needed only at the end
+  vw::Matrix<double> ecef_transform;
+  ecef_transform.set_size(4, 4);
+  ecef_transform.set_identity();
+  bool calc_ecef_transform = false;
   
   while (1) {
     
     vw::vw_out() << "Iteration: " << iter << "\n";
     
     // Compute the Nuth offset
-    vw::Vector3 fit_params;
-    double median_diff = 0.0; // will be returned
     computeNuthOffset(opt, ref, src, ref_georef, src_georef, ref_nodata, src_nodata,
                       opt.max_offset, opt.max_dz, opt.slope_lim,
-                      dx_total, dy_total, dz_total, // inputs
-                      fit_params, median_diff); // outputs
+                      dx_total, dy_total, dz_total, calc_ecef_transform,
+                      fit_params, median_diff, ecef_transform); // outputs
     
     // Note: minus signs here since we are computing dz = src-ref, but adjusting src
     double dx = -fit_params[0] * sin(DegToRad(fit_params[1]));
@@ -471,14 +578,23 @@ void run_nuth(Options const& opt) {
     dz_total += dz;
     iter++;
     
-    vw::vw_out() << "Translation: " << dx_total << ' ' << dy_total << ' ' << dz_total << "\n";
-    
-    double change_len = vw::math::norm_2(vw::Vector3(dx, dy, dz));
-    if (iter > opt.max_iter || change_len < opt.tol)
+    change_len = vw::math::norm_2(vw::Vector3(dx, dy, dz));
+    if (iter > opt.max_iter) {
+      vw::vw_out() << "Reached the maximum number of iterations, before convergence.\n";
       break;
+    }
+    
+    if (change_len < opt.tol) {
+      vw::vw_out() << "Reached the prescribed tolerance.\n";
+      break;
+    }
   }
   
-  // TODO(oalexan1): Print here how many iterations it took and final incremental change.
+  vw::vw_out() << "Final projected space translation: " 
+    << dx_total << ' ' << dy_total << ' ' << dz_total << "\n";
+  vw::vw_out() << "Number of iterations: " << iter << "\n";
+  vw::vw_out() << "Norm of last incremental addition to the translation: " 
+    << change_len << "\n";
   
   // Warning. Not sure if it should be an error.
   double horiz_total = vw::math::norm_2(vw::Vector2(dx_total, dy_total));
@@ -487,6 +603,25 @@ void run_nuth(Options const& opt) {
       << "Total horizontal offset is: " << horiz_total << " meters. It exceeds the "
       << "specified max_offset: " << opt.max_offset << " meters. Consider increasing "
       << "the --max-offset argument.\n";
+    
+   // Calc the ECEF transform given the latest dx, dy, dz, and filtered diffs.
+   calc_ecef_transform = true;
+   computeNuthOffset(opt, ref, src, ref_georef, src_georef, ref_nodata, src_nodata,
+                     opt.max_offset, opt.max_dz, opt.slope_lim,
+                     dx_total, dy_total, dz_total, calc_ecef_transform,
+                     fit_params, median_diff, ecef_transform); // outputs 
+   
+   // Save the transform
+   // TODO(oalexan1): This code will go away after this is integrated into pc_align.
+   std::string transFile = opt.out_prefix + "-transform.txt";
+   vw::vw_out() << "Writing source-to-ref ECEF transform to: " << transFile << "\n";
+   vw::write_matrix_as_txt(transFile, ecef_transform); 
+
+   // It is convenient to have the inverse too   
+   std::string iTransFile = opt.out_prefix + "-inverse-transform.txt";
+   vw::Matrix<double> iEcefTransform = vw::math::inverse(ecef_transform);
+   vw::vw_out() << "Writing ref-to-source ECEF transform to: " << iTransFile << "\n";
+   vw::write_matrix_as_txt(iTransFile, iEcefTransform);
 }
 
 #if 0  
