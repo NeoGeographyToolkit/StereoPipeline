@@ -1189,9 +1189,9 @@ Command-line options
     in the GCP file (or DEM uncertainty) are applied accordingly.
 
 --solve-intrinsics
-    Optimize intrinsic camera parameters. Only used for pinhole,
-    optical bar, and CSM (frame and linescan) cameras. This implies 
-    ``--inline-adjustments``.
+    Optimize intrinsic camera parameters. Only used for pinhole, optical bar,
+    and CSM (frame and linescan) cameras. This implies ``--inline-adjustments``.
+    See :numref:`heights_from_dem` for an example.
 
 --intrinsics-to-float <string (default: "")>
     If solving for intrinsics and is desired to float only a few of them,
