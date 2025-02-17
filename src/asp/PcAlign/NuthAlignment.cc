@@ -28,6 +28,7 @@
 // we want it done in the reference DEM domain. This is temporary.
 // TODO(oalexan1): Is it worth reading ref and source as double?
 // TODO(oalexan1): Merely including Common.h results in 10 seconds extra compile time.
+// TODO(oalexan1): What to do about opt.res, opt.polyorder, tiltcorr.
 
 #include <asp/Core/Common.h>
 #include <asp/PcAlign/NuthFit.h>
@@ -45,7 +46,6 @@
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/RandomSet.h>
 #include <vw/Math/Geometry.h>
-#include <vw/FileIO/MatrixIO.h>
 
 #include <boost/program_options.hpp>
 #include <Eigen/Core>
@@ -63,61 +63,47 @@ namespace asp {
 struct Options: vw::GdalWriteOptions {
   std::string ref, src, out_prefix, res;
   int poly_order, max_iter, inner_iter;
-  double tol, max_offset, max_dz;
+  double tol, max_horiz_offset, max_vert_offset, max_displacement;
   bool tiltcorr, compute_translation_only;
   vw::Vector2 slope_lim;
   Options() {}
 };
 
+// Parse the arguments. Some where set by now directly into opt.
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
-  // TODO(oalexan1):  Must pass in --threads.
-  
+  double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("General options");
   general_options.add_options()
-    ("ref,r", po::value(&opt.ref)->default_value(""),
-     "Reference DEM.")
-    ("src,s", po::value(&opt.src)->default_value(""),
-     "Source DEM to align to the reference.")
-    ("output-prefix,o", po::value(&opt.out_prefix)->default_value(""), 
-     "Output prefix for writing all produced files.")
     ("slope-lim", 
      po::value(&opt.slope_lim)->default_value(vw::Vector2(0.1, 40.0), "0.1, 40.0"),
      "Minimum and maximum surface slope limits to consider (degrees).")
     ("tol", po::value(&opt.tol)->default_value(0.001),
      "Stop when the addition to the computed translation at given iteration has magnitude "
      "below this tolerance (meters).")
-    ("max-offset", po::value(&opt.max_offset)->default_value(100.0),
+    ("max-horizontal-offset", po::value(&opt.max_horiz_offset)->default_value(nan),
      "Maximum expected horizontal translation magnitude (meters).")
-    ("max-dz", po::value(&opt.max_dz)->default_value(100.0),
+    ("max-vertical-offset", po::value(&opt.max_vert_offset)->default_value(nan),
      "Maximum expected vertical offset in meters, used to filter outliers.")
-    ("compute-translation-only", 
-     po::bool_switch(&opt.compute_translation_only)->default_value(false),
-     "When converting the translation in projected space to ECEF, assume the resulting "
-     "transform is a translation only.")
+    ("num-inner-iter", po::value(&opt.inner_iter)->default_value(10),
+      "Maximum number of iterations for the inner loop, when finding the best "
+      "fit parameters for the current translation.")
+    // The options below are not yet supported
     ("tiltcorr", po::bool_switch(&opt.tiltcorr)->default_value(false),
      "After a preliminary translation, fit a polynomial to residual elevation offsets "
      "and remove.")
     ("res", po::value(&opt.res)->default_value("mean"),
      "Regrid the input DEMs to this resolution given the resolutions of input datasets. "
      "Options: min, max, mean, common_scale_factor.")
-    ("max-iter", po::value(&opt.max_iter)->default_value(50),
-     "Maximum number of iterations, if tolerance is not reached.")
     ("poly-order", po::value(&opt.poly_order)->default_value(1), 
      "Specify the order of the polynomial fit.")
-    ("num-inner-iter", po::value(&opt.inner_iter)->default_value(10),
-      "Maximum number of iterations for the inner loop, when finding the best "
-      "fit parameters for the current translation.")
-    ("num-threads", po::value(&opt.num_threads)->default_value(0),
-      "Number of threads to use.")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   po::positional_options_description positional_desc;
-
-  std::string usage("-r ref_dem.tif -s src_dem.tif -o output_prefix [options]\n");
-
+  std::string usage; // not used
+   
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -125,11 +111,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
-  // On failure print the usage as well, for when the command is called with no
-  // arguments.
   if (opt.out_prefix == "")
-    vw::vw_throw(vw::ArgumentErr() << "The output prefix was not set.\n"
-             << usage << general_options);
+    vw::vw_throw(vw::ArgumentErr() << "The output prefix was not set.\n");
 
   // The ref and src DEMs must be provided
   if (opt.ref == "" || opt.src == "")
@@ -142,9 +125,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // The tol must be positive
   if (opt.tol <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "The tolerance must be positive.\n");
-  
-  // Max offset must be positive. Same with max_dz.
-  if (opt.max_offset <= 0.0 || opt.max_dz <= 0.0)
+
+  // If horizontal and vertical offset are NaN (so, not set), use max_displacement
+  if (std::isnan(opt.max_horiz_offset))
+     opt.max_horiz_offset = opt.max_displacement;
+  if (std::isnan(opt.max_vert_offset))
+      opt.max_vert_offset = opt.max_displacement;
+         
+  // All these offsets must be positive
+  if (opt.max_displacement <= 0.0)
+    vw::vw_throw(vw::ArgumentErr() << "The maximum displacement must be positive.\n");
+  if (opt.max_horiz_offset <= 0.0 || opt.max_vert_offset <= 0.0)
     vw::vw_throw(vw::ArgumentErr() 
                  << "The maximum horizontal and vertical offsets must be positive.\n");
 
@@ -233,8 +224,8 @@ void prepareData(Options const& opt,
   if (ref_tr > src_tr)
     vw::vw_out(vw::WarningMessage) 
       << "The reference DEM grid size is larger than of the source DEM. "
-      << "This may lead to suboptimal results. It is strongly suggest to swap the "
-      << "reference and source DEMs.\n";
+      << "This may lead to suboptimal results. It is strongly suggest to "
+      << "swap or regrid the reference and source DEMs.\n";
   
   // The (1, 1) value in both transforms must be negative, as otherwise this a
   // non-standard transform that we do not handle.
@@ -276,7 +267,7 @@ void prepareData(Options const& opt,
                  << "Could not estimate the DEM grid size. Check if your input clouds "
                  "are dense enough and with solid overlap.\n");
     
-  int max_offset_px = int(max_offset/res) + 1;
+  int max_horiz_offset_px = int(max_horiz_offset/res) + 1;
 #endif  
 }
 
@@ -339,7 +330,7 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<double>> const& ref,
                        double dx_total, double dy_total, double dz_total,
                        bool compute_translation_only,
                        // Outputs
-                       vw::Matrix<double> & ecef_transform) {
+                       Eigen::MatrixXd & ecef_transform) {
   
   std::vector<vw::Vector3> ref_pts, src_pts;
   
@@ -406,9 +397,13 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<double>> const& ref,
   if (scale != 1.0)
     vw::vw_throw(vw::NoImplErr() << "Found an unexpected scale factor.\n");
     
-  // Put in the 4x4 matrix format
-  ecef_transform.set_size(4, 4);
-  submatrix(ecef_transform, 0, 0, 3, 3) = rotation;
+  // Copy the rotation and translation
+  ecef_transform.setIdentity(4, 4);
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 3; j++) {
+      ecef_transform(i, j) = rotation(i, j);
+    }
+  }
   for (int i = 0; i < 3; i++)
     ecef_transform(i, 3) = translation[i];
   
@@ -423,14 +418,14 @@ void computeNuthOffset(Options const& opt,
                        vw::cartography::GeoReference const& ref_georef,
                        vw::cartography::GeoReference const& src_georef,
                        double ref_nodata, double src_nodata,
-                       double max_offset, double max_dz, 
+                       double max_horiz_offset, double max_vert_offset, 
                        vw::Vector2 const& slope_lim,
                        double dx_total, double dy_total, double dz_total,
                        bool calc_ecef_transform,
                        // Outputs
                        vw::Vector3 & fit_params,
                        double & median_diff,
-                       vw::Matrix<double> & ecef_transform) {
+                       Eigen::MatrixXd & ecef_transform) {
                         
   // Find shifted src, and interpolate it onto same grid as ref.
   vw::ImageView<vw::PixelMask<double>> src_warp;
@@ -451,10 +446,10 @@ void computeNuthOffset(Options const& opt,
     }
   }
   
-  // Filter out diff whose magnitude is greater than max_dz    
+  // Filter out diff whose magnitude is greater than max_vert_offset    
   // Apply normalized mad filter with given factor
   double outlierFactor = 3.0;
-  vw::rangeFilter(diff, -max_dz, max_dz);
+  vw::rangeFilter(diff, -max_vert_offset, max_vert_offset);
   vw::madFilter(diff, outlierFactor);
   
   // Calculate the slope and aspect of the src_warp_copy DEM
@@ -539,6 +534,29 @@ void computeNuthOffset(Options const& opt,
     
 } // End function computeNuthOffset
 
+// Given a command-line string, form argc and argv. In addition to pointers,
+// will also store the strings in argv_str, to ensure permanence.
+void formArgcArgv(std::string const& cmd,
+                  int & argc,
+                  std::vector<char*> & argv,
+                  std::vector<std::string> & argv_str) {
+
+  // Break by space and read into argv
+  argv_str.clear();
+  argv_str.push_back("nuthAlignment"); // program name
+  std::istringstream iss(cmd);
+  std::string word;
+  while (iss >> word) 
+    argv_str.push_back(word);
+  
+  argc = argv_str.size();  
+  argv.resize(argc);
+  for (int i = 0; i < argc; i++)
+    argv[i] = &argv_str[i][0];
+  
+  return;
+} // End function formArgcArgv
+
 Eigen::MatrixXd nuthAlignment(std::string const& ref_file, 
                               std::string const& src_file, 
                               std::string const& out_prefix, 
@@ -548,41 +566,23 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
                               bool compute_translation_only,
                               std::string const& nuth_options) { 
 
+  // Pass some of these directly to opt
   Options opt;
   opt.ref = ref_file;
   opt.src = src_file;
   opt.out_prefix = out_prefix;
-  opt.compute_translation_only = compute_translation_only;
-  
-  opt.max_dz = max_displacement;
-  std::cout << "--must fix dz here--" << std::endl;
-  opt.max_offset = max_displacement;
-  std::cout << "--must fix offset here--" << std::endl;
+  opt.max_displacement = max_displacement;
   opt.max_iter = num_iterations;
   opt.num_threads = num_threads;
-  
-  std::cout << "--temporarily setting these--" << std::endl;
-  opt.tol = 0.001;
-  opt.poly_order = 1;
-  
-  std::cout << "--poly order: " << opt.poly_order << std::endl;
-  opt.tiltcorr = false;
-  std::cout << "--temporary setting--" << std::endl;
-  opt.slope_lim = vw::Vector2(0.1, 40.0);
-  
-  opt.inner_iter = 10;
-  std::cout << "--opt inner iter: " << opt.inner_iter << std::endl;
-  std::cout << "--slope lim: " << opt.slope_lim << std::endl;  
-  std::cout << "--opt.tol: " << opt.tol << std::endl;
-  std::cout << "--must fix here--" << std::endl;
-  std::cout << "--opt.max_dz: " << opt.max_dz << std::endl;
-  std::cout << "--nuth options: " << nuth_options << std::endl;
-  std::cout << "--max displacement: " << max_displacement << std::endl;
-  std::cout << "--must parse!\n";
-  
-  std::cout << "--must validate options!\n";
-  //handle_arguments(argc, argv, opt);
+  opt.compute_translation_only = compute_translation_only;
 
+  // Parse the others from nuth_options, or defaults are used.
+  int argc = 0;
+  std::vector<char*> argv;
+  std::vector<std::string> argv_str;
+  formArgcArgv(nuth_options, argc, argv, argv_str);
+  handle_arguments(argc, &argv[0], opt);
+  
   // Load and prepare the data
   vw::ImageView<vw::PixelMask<double>> ref, src;
   double ref_nodata = -std::numeric_limits<double>::max();
@@ -590,16 +590,15 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   vw::cartography::GeoReference ref_georef, src_georef;
   prepareData(opt, ref, src, ref_nodata, src_nodata, ref_georef, src_georef);
   
+  // Initialize
   double dx_total = 0, dy_total = 0, dz_total = 0;
   vw::Vector3 fit_params;
   double median_diff = 0.0; // will be returned
   int iter = 1;
   double change_len = -1.0;
  
-   // The ECEF transform is needed only at the end
-  vw::Matrix<double> ecef_transform;
-  ecef_transform.set_size(4, 4);
-  ecef_transform.set_identity();
+  // The ECEF transform is not needed yet
+  Eigen::MatrixXd ecef_transform = Eigen::MatrixXd::Identity(4, 4);
   bool calc_ecef_transform = false;
   
   while (1) {
@@ -608,7 +607,7 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
     
     // Compute the Nuth offset
     computeNuthOffset(opt, ref, src, ref_georef, src_georef, ref_nodata, src_nodata,
-                      opt.max_offset, opt.max_dz, opt.slope_lim,
+                      opt.max_horiz_offset, opt.max_vert_offset, opt.slope_lim,
                       dx_total, dy_total, dz_total, calc_ecef_transform,
                       fit_params, median_diff, ecef_transform); // outputs
     
@@ -634,46 +633,21 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
     }
   }
   
-  vw::vw_out() << "Final projected space translation: " 
-    << dx_total << ' ' << dy_total << ' ' << dz_total << "\n";
-  
   // Warning. Not sure if it should be an error.
   double horiz_total = vw::math::norm_2(vw::Vector2(dx_total, dy_total));
-  if (horiz_total > opt.max_offset) 
+  if (horiz_total > opt.max_horiz_offset) 
     vw::vw_out(vw::WarningMessage)
       << "Total horizontal offset is: " << horiz_total << " meters. It exceeds the "
-      << "specified max_offset: " << opt.max_offset << " meters. Consider increasing "
-      << "the --max-offset argument.\n";
+      << "specified max horizontal offset: " << opt.max_horiz_offset << " meters. Consider increasing the --max-horizontal-offset value.\n";
     
    // Calc the ECEF transform given the latest dx, dy, dz, and filtered diffs.
-   std::cout << "--use eigen right away--" << std::endl;
    calc_ecef_transform = true;
    computeNuthOffset(opt, ref, src, ref_georef, src_georef, ref_nodata, src_nodata,
-                     opt.max_offset, opt.max_dz, opt.slope_lim,
+                     opt.max_horiz_offset, opt.max_vert_offset, opt.slope_lim,
                      dx_total, dy_total, dz_total, calc_ecef_transform,
                      fit_params, median_diff, ecef_transform); // outputs 
    
-   // Save the transform
-   // TODO(oalexan1): This code will go away after this is integrated into pc_align.
-   std::string transFile = opt.out_prefix + "-transform.txt";
-   vw::vw_out() << "Writing source-to-ref ECEF transform to: " << transFile << "\n";
-   vw::write_matrix_as_txt(transFile, ecef_transform); 
-
-   // It is convenient to have the inverse too   
-   std::string iTransFile = opt.out_prefix + "-inverse-transform.txt";
-   vw::Matrix<double> iEcefTransform = vw::math::inverse(ecef_transform);
-   vw::vw_out() << "Writing ref-to-source ECEF transform to: " << iTransFile << "\n";
-   vw::write_matrix_as_txt(iTransFile, iEcefTransform);
-   
-   // Convert to Eigen::MatrixXd
-   Eigen::MatrixXd ecef_transform_eigen(4, 4);
-   for (int r = 0; r < 4; r++) {
-     for (int c = 0; c < 4; c++) {
-       ecef_transform_eigen(r, c) = ecef_transform(r, c);
-     }
-   }
-   
-   return ecef_transform_eigen;
+   return ecef_transform;
 }
 
 #if 0  
