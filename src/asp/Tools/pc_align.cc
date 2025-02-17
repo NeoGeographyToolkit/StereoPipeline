@@ -989,8 +989,8 @@ int main( int argc, char *argv[] ) {
           * opt.init_transform;
     }
 
-    // We will use ref_box to bound the source points, and vice-versa.
-    // Decide how many samples to pick to estimate these boxes.
+    // Find the intersection of ref and source bounding boxs. This does not need
+    // a lot of samples as it is expanded by max_disp in either case.
     BBox2 ref_box, source_box, trans_ref_box, trans_source_box;
     if (!opt.skip_shared_box_estimation) {
       Stopwatch sw0;
@@ -998,7 +998,7 @@ int main( int argc, char *argv[] ) {
       int num_sample_pts = std::max(4000000,
                                     std::max(opt.max_num_source_points,
                                              opt.max_num_reference_points)/4);
-      num_sample_pts = std::min(9000000, num_sample_pts); // avoid being slow
+      num_sample_pts = std::min(1.0e+6, 1.0 * num_sample_pts); // avoid being slow
       
       // Compute GDC bounding box of the source and reference clouds.
       vw_out() << "Computing the bounding boxes of the reference and source points using " 
@@ -1007,10 +1007,10 @@ int main( int argc, char *argv[] ) {
       PointMatcher<RealT>::Matrix inv_init_trans = opt.init_transform.inverse();
       calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                                 opt.reference, opt.max_disp, inv_init_trans,
-                                ref_box, trans_ref_box);
+                                ref_box, trans_ref_box); // outputs
       calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                                 opt.source, opt.max_disp, opt.init_transform,
-                                source_box, trans_source_box);
+                                source_box, trans_source_box); // outputs
       sw0.stop();
       vw_out() << "Computation of bounding boxes took " 
               << sw0.elapsed_seconds() << " s\n";
