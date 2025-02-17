@@ -61,18 +61,18 @@ void load_las_multi_attempt(std::string const& file_name,
 }
 
 // Load xyz points from disk into a matrix with 4 columns. Last column is just ones.
-void load_cloud(std::string const& file_name,
-               std::int64_t num_points_to_load,
-               vw::BBox2 const& lonlat_box,
-               bool calc_shift,
-               vw::Vector3 & shift,
-               vw::cartography::GeoReference const& geo,
-               CsvConv const& csv_conv,
-               bool   & is_lola_rdr_format,
-               double & median_longitude,
-               bool verbose,
-               DoubleMatrix & data) {
-
+void load_cloud_as_mat(std::string const& file_name,
+                       std::int64_t num_points_to_load,
+                       vw::BBox2 const& lonlat_box,
+                       bool calc_shift,
+                       vw::Vector3 & shift,
+                       vw::cartography::GeoReference const& geo,
+                       CsvConv const& csv_conv,
+                       bool   & is_lola_rdr_format,
+                       double & median_longitude,
+                       bool verbose,
+                       DoubleMatrix & data) {
+ 
   if (verbose)
     vw::vw_out() << "Reading: " << file_name << std::endl;
 
@@ -124,9 +124,9 @@ void load_cloud(std::string const& file_name,
   data.featureLabels = form_labels<RealT>(DIM);
   PointMatcherSupport::validateFile(file_name);
 
-  load_cloud(file_name, num_points_to_load,  lonlat_box,  calc_shift,  
-	    shift,  geo,  csv_conv,  is_lola_rdr_format,  median_longitude,  
-	    verbose,  data.features);
+  load_cloud_as_mat(file_name, num_points_to_load,  lonlat_box,  calc_shift,
+                    shift,  geo,  csv_conv,  is_lola_rdr_format,  median_longitude,
+                    verbose,  data.features);
   
 }
 

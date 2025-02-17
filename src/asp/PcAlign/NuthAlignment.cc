@@ -153,17 +153,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.tiltcorr)
     vw::vw_throw(vw::NoImplErr() << "Tilt correction is not implemented yet.\n");
      
-  // TODO(oalexan1): Sort out the number of threads. Now it comes from .vwrc.
+  // TODO(oalexan1): Sort out the number of threads. Now it comes from .vwrc if
+  // not set.
 
   // Set the number of threads for OpenMP.  
   omp_set_dynamic(0);
   omp_set_num_threads(opt.num_threads);
-   
-  // Create the output directory
-  vw::create_out_dir(opt.out_prefix);
-
-  // Turn on logging to file
-  asp::log_to_file(argc, argv, "", opt.out_prefix);
 }
 
 inline double DegToRad(double deg) {
@@ -178,9 +173,6 @@ void prepareData(Options const& opt,
                   vw::cartography::GeoReference & ref_georef,
                   vw::cartography::GeoReference & src_georef) {
 
-  vw::vw_out() << "Reference DEM: " << opt.ref << "\n";
-  vw::vw_out() << "Source DEM:    " << opt.src << "\n";
-  
   // The DEMs must have a georeference
   bool has_ref_georef = vw::cartography::read_georeference(ref_georef, opt.ref);
   bool has_src_georef = vw::cartography::read_georeference(src_georef, opt.src);
@@ -207,8 +199,6 @@ void prepareData(Options const& opt,
   // Reference and source DEM resolutions
   double ref_tr = ref_georef.transform()(0, 0);
   double src_tr = src_georef.transform()(0, 0);
-  vw::vw_out() << "Reference DEM grid size: " << ref_tr << " meters.\n";
-  vw::vw_out() << "Source DEM grid size: " << src_tr << " meters.\n";
 
   // Sanity check. This code was not tested with different grid sizes in x and y.
   double ref_tr_y = ref_georef.transform()(1, 1);
