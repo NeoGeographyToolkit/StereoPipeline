@@ -97,20 +97,13 @@ install(TARGETS pc_merge DESTINATION bin)
 
 add_executable(pc_align pc_align.cc)
 target_link_libraries(pc_align 
-  ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES}
-  ${FASTGLOBALREGISTRATION_LIBRARIES}
-  AspPcAlignFgr AspPcAlignCeres ${SOLVER_LIBRARIES} AspSessions)
+  AspPcAlign AspSessions)
 install(TARGETS pc_align DESTINATION bin)
 
 add_executable(n_align n_align.cc)
 target_link_libraries(n_align
-  ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES}
-  AspPcAlignCeres ${SOLVER_LIBRARIES} AspSessions)
+  AspPcAlign AspSessions)
 install(TARGETS n_align DESTINATION bin)
-
-add_executable(nuth nuth.cc) 
-target_link_libraries(nuth AspSessions AspPcAlignCeres ${SOLVER_LIBRARIES})
-install(TARGETS nuth DESTINATION bin)
 
 add_executable(pansharp pansharp.cc)
 target_link_libraries(pansharp AspSessions)

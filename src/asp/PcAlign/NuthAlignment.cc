@@ -29,11 +29,9 @@
 // TODO(oalexan1): Is it worth reading ref and source as double?
 // TODO(oalexan1): Merely including Common.h results in 10 seconds extra compile time.
 
-#include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Core/StereoSettings.h>
-#include <asp/Core/DemUtils.h>
 #include <asp/PcAlign/NuthFit.h>
+#include <asp/PcAlign/NuthAlignment.h>
 
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
@@ -60,6 +58,8 @@
 
 namespace po = boost::program_options;
 
+namespace asp {
+  
 struct Options: vw::GdalWriteOptions {
   std::string ref, src, out_prefix, res;
   int poly_order, max_iter, inner_iter;
@@ -539,7 +539,49 @@ void computeNuthOffset(Options const& opt,
     
 } // End function computeNuthOffset
 
-void run_nuth(Options const& opt) {
+Eigen::MatrixXd nuthAlignment(std::string const& ref_file, 
+                              std::string const& src_file, 
+                              std::string const& out_prefix, 
+                              double max_displacement,
+                              int num_iterations,
+                              int num_threads,
+                              bool compute_translation_only,
+                              std::string const& nuth_options) { 
+
+  Options opt;
+  opt.ref = ref_file;
+  opt.src = src_file;
+  opt.out_prefix = out_prefix;
+  opt.compute_translation_only = compute_translation_only;
+  
+  opt.max_dz = max_displacement;
+  std::cout << "--must fix dz here--" << std::endl;
+  opt.max_offset = max_displacement;
+  std::cout << "--must fix offset here--" << std::endl;
+  opt.max_iter = num_iterations;
+  opt.num_threads = num_threads;
+  
+  std::cout << "--temporarily setting these--" << std::endl;
+  opt.tol = 0.001;
+  opt.poly_order = 1;
+  
+  std::cout << "--poly order: " << opt.poly_order << std::endl;
+  opt.tiltcorr = false;
+  std::cout << "--temporary setting--" << std::endl;
+  opt.slope_lim = vw::Vector2(0.1, 40.0);
+  
+  opt.inner_iter = 10;
+  std::cout << "--opt inner iter: " << opt.inner_iter << std::endl;
+  std::cout << "--slope lim: " << opt.slope_lim << std::endl;  
+  std::cout << "--opt.tol: " << opt.tol << std::endl;
+  std::cout << "--must fix here--" << std::endl;
+  std::cout << "--opt.max_dz: " << opt.max_dz << std::endl;
+  std::cout << "--nuth options: " << nuth_options << std::endl;
+  std::cout << "--max displacement: " << max_displacement << std::endl;
+  std::cout << "--must parse!\n";
+  
+  std::cout << "--must validate options!\n";
+  //handle_arguments(argc, argv, opt);
 
   // Load and prepare the data
   vw::ImageView<vw::PixelMask<double>> ref, src;
@@ -604,6 +646,7 @@ void run_nuth(Options const& opt) {
       << "the --max-offset argument.\n";
     
    // Calc the ECEF transform given the latest dx, dy, dz, and filtered diffs.
+   std::cout << "--use eigen right away--" << std::endl;
    calc_ecef_transform = true;
    computeNuthOffset(opt, ref, src, ref_georef, src_georef, ref_nodata, src_nodata,
                      opt.max_offset, opt.max_dz, opt.slope_lim,
@@ -621,6 +664,16 @@ void run_nuth(Options const& opt) {
    vw::Matrix<double> iEcefTransform = vw::math::inverse(ecef_transform);
    vw::vw_out() << "Writing ref-to-source ECEF transform to: " << iTransFile << "\n";
    vw::write_matrix_as_txt(iTransFile, iEcefTransform);
+   
+   // Convert to Eigen::MatrixXd
+   Eigen::MatrixXd ecef_transform_eigen(4, 4);
+   for (int r = 0; r < 4; r++) {
+     for (int c = 0; c < 4; c++) {
+       ecef_transform_eigen(r, c) = ecef_transform(r, c);
+     }
+   }
+   
+   return ecef_transform_eigen;
 }
 
 #if 0  
@@ -677,15 +730,4 @@ void run_nuth(Options const& opt) {
   }
 #endif  
 
-int main(int argc, char *argv[]) {
-
-  Options opt;
-  try {
-
-    handle_arguments(argc, argv, opt);
-    run_nuth(opt);
-
-  } ASP_STANDARD_CATCHES;
-
-  return 0;
-}
+} // end namespace asp

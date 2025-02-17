@@ -376,6 +376,12 @@ get_all_source_files( "Gotcha/tests" ASP_GOTCHA_TEST_FILES)
 set(ASP_GOTCHA_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${OPENCV_LIBRARIES} 
     ${Boost_LIBRARIES})
 
+# ASP PcAlign
+get_all_source_files("PcAlign" ASP_PC_ALIGN_SRC_FILES)
+get_all_source_files("PcAlign/tests" ASP_PC_ALIGN_TEST_FILES)
+set(ASP_PC_ALIGN_LIB_DEPENDENCIES ${SOLVER_LIBRARIES} ${LIBPOINTMATCHER_LIBRARIES}
+    ${LIBNABO_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} AspSessions)
+
 # ASP PclIO
 get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
 get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
@@ -398,8 +404,6 @@ add_subdirectory(Gotcha)
 add_subdirectory(SfS)
 
 add_subdirectory(PclIO)
-
-# ASP PcAlign library. Used by pc_align and bundle_adjust
 add_subdirectory(PcAlign)
 
 # Add the non-library subdirectories
