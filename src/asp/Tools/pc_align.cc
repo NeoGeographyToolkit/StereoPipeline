@@ -1066,6 +1066,49 @@ int main( int argc, char *argv[] ) {
                << sw1.elapsed_seconds() << " s\n";
     //ref_point_cloud.save(outputBaseFile + "_ref.vtk");
 
+    // So far we shifted by first point in reference point cloud to reduce
+    // the magnitude of all loaded points. Now that we have loaded all
+    // points, shift one more time, to place the centroid of the
+    // reference at the origin.
+    // Note: If this code is ever converting to using floats,
+    // the operation below needs to be re-implemented to be accurate.
+    int numRefPts = ref_point_cloud.features.cols();
+    Eigen::VectorXd meanRef = ref_point_cloud.features.rowwise().sum() / numRefPts;
+    ref_point_cloud.features.topRows(DIM).colwise()    -= meanRef.head(DIM);
+    for (int row = 0; row < DIM; row++)
+      shift[row] += meanRef(row); // Update the shift variable as well as the points
+    if (opt.verbose)
+      vw_out() << "Data shifted internally by subtracting: " << shift << "\n";
+
+    // The point clouds are shifted, so shift the initial transform as well.
+    PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
+
+    // If the reference point cloud came from a DEM, also load the data in DEM format.
+    cartography::GeoReference dem_georef;
+    vw::ImageViewRef<PixelMask<float>> reference_dem_ref;
+    if (opt.use_dem_distances()) {
+      // Load the dem, then wrap it inside an ImageViewRef object. This is done
+      // because the actual DEM type cannot be created without being
+      // initialized.
+      InterpolationReadyDem 
+      reference_dem(load_interpolation_ready_dem(opt.reference, dem_georef));
+      reference_dem_ref.reset(reference_dem);
+    }
+
+    // Filter the reference and initialize the reference tree
+    double elapsed_time;
+    PM::ICP icp; // libpointmatcher object
+
+    Stopwatch sw3;
+    if (opt.verbose)
+      vw_out() << "Building the reference cloud tree.\n";
+    sw3.start();
+    icp.initRefTree(ref_point_cloud, alignment_method_fallback(opt.alignment_method),
+		    opt.highest_accuracy, false /*opt.verbose*/);
+    sw3.stop();
+    if (opt.verbose)
+      vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " s\n";
+
     // Load the subsampled source point cloud. If the user wants
     // to filter gross outliers in the source points based on
     // max_disp, load a lot more points than asked, filter based on
@@ -1085,55 +1128,10 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Loading the source point cloud took "
                << sw2.elapsed_seconds() << " s\n";
 
-    // So far we shifted by first point in reference point cloud to reduce
-    // the magnitude of all loaded points. Now that we have loaded all
-    // points, shift one more time, to place the centroid of the
-    // reference at the origin.
-    // Note: If this code is ever converting to using floats,
-    // the operation below needs to be re-implemented to be accurate.
-    int numRefPts = ref_point_cloud.features.cols();
-    Eigen::VectorXd meanRef = ref_point_cloud.features.rowwise().sum() / numRefPts;
-    ref_point_cloud.features.topRows(DIM).colwise()    -= meanRef.head(DIM);
-    source_point_cloud.features.topRows(DIM).colwise() -= meanRef.head(DIM);
-    for (int row = 0; row < DIM; row++)
-      shift[row] += meanRef(row); // Update the shift variable as well as the points
-    if (opt.verbose)
-      vw_out() << "Data shifted internally by subtracting: " << shift << "\n";
-
-    // The point clouds are shifted, so shift the initial transform as well.
-    PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
-
-    // If the reference point cloud came from a DEM, also load the data in DEM format.
-    cartography::GeoReference dem_georef;
-    vw::ImageViewRef<PixelMask<float>> reference_dem_ref;
-    if (opt.use_dem_distances()) {
-      vw_out() << "Loading reference as DEM." << endl;
-      // Load the dem, then wrap it inside an ImageViewRef object.
-      // - This is done because the actual DEM type cannot be created without being initialized.
-      InterpolationReadyDem reference_dem(load_interpolation_ready_dem(opt.reference, dem_georef));
-      reference_dem_ref.reset(reference_dem);
-    }
-
-    // Now all of the input data is loaded.
-
-    // Filter the reference and initialize the reference tree
-    double elapsed_time;
-    PM::ICP icp; // libpointmatcher object
-
-    Stopwatch sw3;
-    if (opt.verbose)
-      vw_out() << "Building the reference cloud tree.\n";
-    sw3.start();
-    icp.initRefTree(ref_point_cloud, alignment_method_fallback(opt.alignment_method),
-		    opt.highest_accuracy, false /*opt.verbose*/);
-    sw3.stop();
-    if (opt.verbose)
-      vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " s\n";
-
     // Apply the initial guess transform to the source point cloud.
     apply_transform_to_cloud(initT, source_point_cloud);
     
-    // Filter gross outliers
+    // Filter gross outliers in the source point cloud with max_disp
     PointMatcher<RealT>::Matrix beg_errors;
     if (opt.max_disp > 0.0)
       filter_source_cloud(ref_point_cloud, source_point_cloud, icp,
