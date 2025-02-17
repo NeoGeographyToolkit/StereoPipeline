@@ -72,6 +72,8 @@ struct Options: vw::GdalWriteOptions {
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
+  // TODO(oalexan1):  Must pass in --threads.
+  
   po::options_description general_options("General options");
   general_options.add_options()
     ("ref,r", po::value(&opt.ref)->default_value(""),
@@ -80,10 +82,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Source DEM to align to the reference.")
     ("output-prefix,o", po::value(&opt.out_prefix)->default_value(""), 
      "Output prefix for writing all produced files.")
-    ("poly-order", po::value(&opt.poly_order)->default_value(1), 
-     "Specify the order of the polynomial fit.")
-    ("tol", po::value(&opt.tol)->default_value(0.01),
-      "Stop when iterative translation magnitude is below this tolerance (meters).")
+    ("slope-lim", 
+     po::value(&opt.slope_lim)->default_value(vw::Vector2(0.1, 40.0), "0.1, 40.0"),
+    ("tol", po::value(&opt.tol)->default_value(0.001),
+      "Stop when the addition to the computed translation at given iteration has magnitude below this tolerance (meters).")
     ("max-offset", po::value(&opt.max_offset)->default_value(100.0),
      "Maximum expected horizontal translation magnitude (meters).")
     ("max-dz", po::value(&opt.max_dz)->default_value(100.0),
@@ -98,15 +100,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("res", po::value(&opt.res)->default_value("mean"),
      "Regrid the input DEMs to this resolution given the resolutions of input datasets. "
      "Options: min, max, mean, common_scale_factor.")
-    ("slope-lim", 
-     po::value(&opt.slope_lim)->default_value(vw::Vector2(0.1, 40.0), "0.1, 40.0"),
      "Minimum and maximum surface slope limits to consider (degrees).")
     ("max-iter", po::value(&opt.max_iter)->default_value(50),
      "Maximum number of iterations, if tolerance is not reached.")
-    ("inner-iter", po::value(&opt.inner_iter)->default_value(10),
+    ("poly-order", po::value(&opt.poly_order)->default_value(1), 
+     "Specify the order of the polynomial fit.")
+    ("num-inner-iter", po::value(&opt.inner_iter)->default_value(10),
       "Maximum number of iterations for the inner loop, when finding the best "
       "fit parameters for the current translation.")
-      ("num-threads", po::value(&opt.num_threads)->default_value(0),
+    ("num-threads", po::value(&opt.num_threads)->default_value(0),
       "Number of threads to use.")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -592,9 +594,6 @@ void run_nuth(Options const& opt) {
   
   vw::vw_out() << "Final projected space translation: " 
     << dx_total << ' ' << dy_total << ' ' << dz_total << "\n";
-  vw::vw_out() << "Number of iterations: " << iter << "\n";
-  vw::vw_out() << "Norm of last incremental addition to the translation: " 
-    << change_len << "\n";
   
   // Warning. Not sure if it should be an error.
   double horiz_total = vw::math::norm_2(vw::Vector2(dx_total, dy_total));
