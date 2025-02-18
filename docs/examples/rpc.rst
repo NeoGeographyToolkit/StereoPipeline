@@ -121,11 +121,11 @@ To make new RPC cameras, with the adjustments already applied to them, use the
 ``bundle_adjust`` output directory, with names ending in ``.adjusted_rpc.xml``.
 These cameras can be used with ASP and third-party software.
 
-Any produced adjusted RPC model file can be read by GDAL (including
-``gdalinfo``, :numref:`gdal_tools`) if it is renamed to have the same name as
-the image but with the ``.xml`` extension, and no analogously named ``.RPB`` or
-``_RPC.txt`` files are present that may take precedence. See 
-the `GeoTiff documentation
+Any produced adjusted RPC model file can be loaded by GDAL when reading an image
+(including with ``gdalinfo``, :numref:`gdal_tools`) if it is renamed to have the same
+name as the image but with the ``.xml`` extension, and no analogously named
+``.RPB`` or ``_RPC.txt`` files are present that may take precedence. See the
+`GeoTiff documentation
 <https://gdal.org/en/stable/drivers/raster/gtiff.html#georeferencing>`_.
 
 Applying the adjustments refits the RPC models, and should create cameras that

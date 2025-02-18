@@ -1053,18 +1053,23 @@ how long each 1024 |times| 1024 pixel tile can take. A good value here
 could be 300 (seconds) or more if your terrain is expected to have
 large height variations.
 
-With the ``asp_sgm`` or ``asp_mgm`` algorithms, one can use a lower
-value for ``--corr-memory-limit-mb`` (:numref:`asp_sgm`).  One may
-also tighten ``--outlier-removal-params`` (:numref:`stereodefault`),
-or mapproject the images (:numref:`mapproj-example`). 
+With the ``asp_sgm`` or ``asp_mgm`` algorithms, set a value 
+for ``--corr-memory-limit-mb`` (:numref:`asp_sgm`) for the number 
+of megabytes of memory to use for each correlation process.
+This needs to take into account how much memory is available 
+and how many processes are running in parallel per node.
+
+To remove outliers one can tighten ``--outlier-removal-params``
+(:numref:`stereodefault`), or mapproject the images (:numref:`mapproj-example`). 
 
 A smaller manual search range can be specified (:numref:`search_range2`).
+In particular, with mapprojected images, the option ``--max-disp-spread``
+can be very useful (:numref:`corr_section`).
 
-If a run failed partially during correlation, it can be resumed with
-the ``parallel_stereo`` option ``--resume-at-corr``
-(:numref:`parallel_stereo`). A ran can be started at the triangulation
-stage after making changes to the cameras while reusing a previous run
-with the option ``--prev-run-prefix``.
+If a run failed partially during correlation, it can be resumed with the
+``parallel_stereo`` option ``--resume-at-corr`` (:numref:`parallel_stereo`). A
+ran can be started at the triangulation stage after making changes to the
+cameras while reusing a previous run with the option ``--prev-run-prefix``.
 
 If a run failed due to running out of memory with
 ``asp_mgm``/``asp_sgm``, also consider lowering the value of
@@ -1145,21 +1150,29 @@ point in the reference (fixed) point cloud.
    70 m west, and 175 m vertically, goodness of fit between MOLA and the
    CTX model was increased substantially.
 
-Here is an example. Recall that the denser cloud is specified first, and that
-this program is very sensitive to the value of ``--max-displacement``
+Here is an example. Recall that the denser *reference* cloud is specified first,
+the sparser *source* cloud to be aligned is specified second, and that this
+program is very sensitive to the value of ``--max-displacement``
 (:numref:`pc_align_max_displacement`)::
 
     pc_align --max-displacement 200           \
       --datum MOLA                            \
+      --save-transformed-source-points        \
       --save-inv-transformed-reference-points \
       --csv-format '1:lon 2:lat 3:radius_m'   \
       stereo-PC.tif mola.csv                  \
       -o align/run
 
+The cloud ``mola.csv`` will be transformed to the coordinate system 
+of ``stereo-PC.tif`` and saved as ``run/run-trans_source.csv``.
+
 The cloud ``stereo-PC.tif`` will be transformed to to the coordinate system of
 ``mola.csv`` and saved as ``align/run-trans_reference.tif``. It can 
 then be gridded with ``point2dem`` (:numref:`point2dem`) and compared to
 ``mola.csv`` using ``geodiff`` (:numref:`geodiff`).
+
+Validation and error metrics are discussed in :numref:`pc_align_validation`
+and :numref:`pc_align_error`.
 
 It is important to note here that there are two widely used Mars datums, and if
 your CSV file has, unlike above, the heights relative to a datum, the correct
