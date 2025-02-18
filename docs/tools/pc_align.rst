@@ -115,14 +115,19 @@ The Nuth and Kaab alignment method (:cite:`nuth2011co`) can be subpixel-level
 accurate. It is accessible with ``--alignment-method nuth``. The implementation
 is based on `dem_align.py  <https://github.com/dshean/demcoreg>`_.
 
-It is assumed that the input clouds are dense and detailed DEMs.
+It is assumed that:
+
+  - The input clouds are dense and detailed DEMs
+  - The DEMs have a lot of overlap
+  - The alignment transform is a pure translation in projected coordinates.
+
+If the last two assumptions do not hold, consider using a different alignment
+algorithm first. The resulting aligned source point cloud needs to be regridded
+with ``point2dem``, and then the alignment further refined with this method.
 
 The order of inputs should be so that the the reference DEM (the first input)
 has a grid size that is no bigger than of the second DEM. The second DEM
 will be interpolated to the grid of the first one.
-
-If the translation between clouds is not small, consider using a different
-alignment algorithm first (:numref:`prevtrans`).
 
 Both DEMs should be in projected coordinates, so in units of meters, and with
 the same datum. Otherwise, regridding can be done with ``gdalwarp -r cubic``
@@ -131,8 +136,18 @@ the same datum. Otherwise, regridding can be done with ``gdalwarp -r cubic``
 
 The DEMs should fit fully in memory, with some margin.
 
+The produced alignment transform will be converted to a rotation + translation
+transform around the planet center (ECEF coordinates), for consistency with the
+other alignment methods. It will be an ECEF translation if the option
+``--compute-translation-only`` is set.
+
 Additional options can be passed in via ``--nuth-options``
 (:numref:`nuth_options`).
+
+This alignment method does not support the ``--initial-transform`` option,
+because it computes the alignment transform in projected coordinates of the
+reference DEM, and in that space an external ECEF transform cannot be applied
+exactly.
 
 .. _fgr:
 

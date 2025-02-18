@@ -17,18 +17,12 @@
 
 // C++ implementation of the Nuth and Kaab alignment method from:
 // https://github.com/dshean/demcoreg/tree/master
+// Paper: https://tc.copernicus.org/articles/5/271/2011/
 
-// TODO(oalexan1): Implement tilt correction.
-// TODO(oalexan1): Implement --initial-transform and computing final transform in ECEF.
-// TODO(oalexan1): Integrate in pc_align.
-// TODO(oalexan1): Save the final aligned cloud.
-// TODO(oalexan1): Save the final transform.
-// TODO(oalexan1): It is assumed both input DEMs are equally dense. The work
-// will happen in the source DEM domain. Later we can deal with the case when
-// we want it done in the reference DEM domain. This is temporary.
 // TODO(oalexan1): Is it worth reading ref and source as double?
 // TODO(oalexan1): Merely including Common.h results in 10 seconds extra compile time.
-// TODO(oalexan1): What to do about opt.res, opt.polyorder, tiltcorr.
+// TODO(oalexan1): Implement tilt correction.
+// TODO(oalexan1): What to do about opt.res, opt.polyorder.
 
 #include <asp/Core/Common.h>
 #include <asp/PcAlign/NuthFit.h>
@@ -68,7 +62,7 @@ struct Options: vw::GdalWriteOptions {
   Options() {}
 };
 
-// Parse the arguments. Some where set by now directly into opt.
+// Parse the arguments. Some were set by now directly into opt.
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
   double nan = std::numeric_limits<double>::quiet_NaN();
@@ -270,14 +264,12 @@ void shiftWarp(int ref_cols, int ref_rows,
                // Outputs
                vw::ImageView<vw::PixelMask<double>> & src_warp) {
   
-  // Set up the no-data extrapolation value
+  // Set up the interpolation
   vw::PixelMask<double> nodata_val;
   nodata_val.invalidate();
   auto nodata_ext = vw::ValueEdgeExtension<vw::PixelMask<double>>(nodata_val);
-  
   vw::ImageViewRef<vw::PixelMask<double>> src_interp 
     = vw::interpolate(src, vw::BicubicInterpolation(), nodata_ext);
-
   src_warp.set_size(ref_cols, ref_rows);
   vw::cartography::GeoTransform gt(ref_georef, src_georef);
   
@@ -542,6 +534,8 @@ void formArgcArgv(std::string const& cmd,
   return;
 } // End function formArgcArgv
 
+// Compute the Nuth alignment transform in projected coordinates and then
+// convert it to an ECEF transform.
 Eigen::MatrixXd nuthAlignment(std::string const& ref_file, 
                               std::string const& src_file, 
                               std::string const& out_prefix, 
@@ -568,6 +562,11 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   formArgcArgv(nuth_options, argc, argv, argv_str);
   handle_arguments(argc, &argv[0], opt);
   
+  // If no iterations, return the identity
+  Eigen::MatrixXd ecef_transform = Eigen::MatrixXd::Identity(4, 4);
+  if (opt.max_iter == 0)
+    return ecef_transform;
+  
   // Load and prepare the data
   vw::ImageView<vw::PixelMask<double>> ref, src;
   double ref_nodata = -std::numeric_limits<double>::max();
@@ -582,10 +581,6 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   int iter = 1;
   double change_len = -1.0;
   vw::ImageView<vw::PixelMask<double>> diff;
-  
-  // The ECEF transform is not needed yet
-  Eigen::MatrixXd ecef_transform = Eigen::MatrixXd::Identity(4, 4);
-  bool calc_ecef_transform = false;
   
   while (1) {
     

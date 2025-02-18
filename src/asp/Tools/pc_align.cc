@@ -199,7 +199,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "The max-displacement option was not set. "
               << "Use -1 if it is desired not to use it.\n");
 
-  if ( opt.num_iter < 0 )
+  if (opt.num_iter < 0)
     vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n");
 
   if ( (opt.semi_major_axis != 0 && opt.semi_minor_axis == 0) ||
@@ -831,10 +831,12 @@ void apply_transform_to_cloud(PointMatcher<RealT>::Matrix const& T, DP & point_c
   }
 }
 
-// Load, filter, transform, and resample the source point cloud
+// Load, filter, transform, and resample the source point cloud. The input
+// clouds and transform have been shifted by the provided shift value. The 
+// same shift will be applied to the produced source cloud.
 void processSourceCloud(Options                       const& opt,
                         DP                            const& ref_point_cloud,
-                        PointMatcher<RealT>::Matrix   const& initT,
+                        PointMatcher<RealT>::Matrix   const& shiftInitT,
                         vw::cartography::GeoReference const& dem_georef,
                         vw::cartography::GeoReference const& geo,
                         asp::CsvConv                  const& csv_conv,
@@ -878,7 +880,7 @@ void processSourceCloud(Options                       const& opt,
                 << sw.elapsed_seconds() << " s\n";
 
     // Apply the initial guess transform to the source point cloud.
-    apply_transform_to_cloud(initT, source_point_cloud);
+    apply_transform_to_cloud(shiftInitT, source_point_cloud);
     
     // Filter gross outliers in the source point cloud with max_disp
     try {
@@ -1165,7 +1167,7 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Data shifted internally by subtracting: " << shift << "\n";
 
     // The point clouds are shifted, so shift the initial transform as well.
-    PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
+    PointMatcher<RealT>::Matrix shiftInitT = apply_shift(opt.init_transform, shift);
 
     // If the reference point cloud came from a DEM, also load the data in DEM format.
     cartography::GeoReference dem_georef;
@@ -1195,9 +1197,9 @@ int main( int argc, char *argv[] ) {
 
    // Load, filter, transform, and resample the source point cloud
    DP source_point_cloud;
-   processSourceCloud(opt, ref_point_cloud, initT, dem_georef, geo, csv_conv, source_box,
-                      reference_dem_ref, is_lola_rdr_format, mean_source_longitude,
-                      icp, shift, 
+   processSourceCloud(opt, ref_point_cloud, shiftInitT, dem_georef, geo, csv_conv, 
+                      source_box, reference_dem_ref, is_lola_rdr_format, 
+                      mean_source_longitude, icp, shift, 
                       source_point_cloud); // output
 
     // Make the libpointmatcher error message clearer
@@ -1251,6 +1253,8 @@ int main( int argc, char *argv[] ) {
                                opt.max_disp, opt.num_iter,
                                opt.num_threads, opt.compute_translation_only,
                                opt.nuth_options);
+        // Nuth does not use the shift, so apply it after it is returned.
+        T = apply_shift(T, shift);
       } else if (opt.alignment_method == "fgr") {
         T = fgr_alignment(source_point_cloud, ref_point_cloud, opt.fgr_options);
       } else if (opt.alignment_method == "point-to-plane" ||
@@ -1291,7 +1295,7 @@ int main( int argc, char *argv[] ) {
     Vector3 source_ctr_vec, source_ctr_llh;
     Vector3 trans_xyz, trans_ned, trans_llh;
     vw::Matrix3x3 NedToEcef;
-    calc_translation_vec(initT, source_point_cloud, trans_source_point_cloud, shift,
+    calc_translation_vec(shiftInitT, source_point_cloud, trans_source_point_cloud, shift,
                          geo.datum(), source_ctr_vec, source_ctr_llh,
                          trans_xyz, trans_ned, trans_llh, NedToEcef);
 
@@ -1305,11 +1309,9 @@ int main( int argc, char *argv[] ) {
     if (opt.verbose)
       vw_out() << "Final error computation took " << elapsed_time << " s\n";
 
-    // We must apply to T the initial guess transform
-    PointMatcher<RealT>::Matrix combinedT = T * initT;
-
-    // Go back to the original coordinate system, undoing the shift
-    PointMatcher<RealT>::Matrix globalT = apply_shift(combinedT, -shift);
+    // Go back to the original coordinate system, by applying the shifted initial
+    // transform to the shifted computed transform and then undoing the shift.
+    PointMatcher<RealT>::Matrix globalT = apply_shift(T * shiftInitT, -shift);
 
     // Print statistics
     vw_out() << std::setprecision(16)
@@ -1331,11 +1333,10 @@ int main( int argc, char *argv[] ) {
                  << "cloud with any initial transform applied to it and the "
                  << "source cloud after alignment to the reference: " 
                  << max_obtained_disp << " m" << "\n";
-    if (opt.max_disp > 0 && opt.max_disp < max_obtained_disp) {
+    if (opt.max_disp > 0 && opt.max_disp < max_obtained_disp)
       vw_out() << "Warning: The input --max-displacement value is smaller than the "
                << "final observed displacement. It may be advised to increase the former "
                << "and rerun the tool.\n";
-    }
 
     // Swap lat and lon, as we want to print lat first
     std::swap(trans_llh[0], trans_llh[1]);
