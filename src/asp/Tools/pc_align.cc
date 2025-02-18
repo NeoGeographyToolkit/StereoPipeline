@@ -86,7 +86,7 @@ struct Options: public vw::GdalWriteOptions {
   bool use_dem_distances() const { return ( (asp::get_cloud_type(this->reference) == "DEM") && !dont_use_dem_distances); }
 };
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("initial-transform",        po::value(&opt.init_transform_file)->default_value(""),
@@ -163,7 +163,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   //("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
   // "Print debug information");
 
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -309,9 +309,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     if (opt.initial_rotation_angle != 0)
       vw_throw(ArgumentErr()
           << "Nuth and Kaab alignment cannot be used with an initial rotation angle.\n");
-     
-     // There is no need to estimate the shared box with Nuth 
-     opt.skip_shared_box_estimation = true;
+
+     opt.max_num_reference_points /= 10;
+     opt.max_num_reference_points = std::max(1000000, opt.max_num_reference_points);
+     vw::vw_out() << "For Nuth and Kaab alignment, a smaller reference cloud is "
+        << "sufficient. Reducing --max-num-reference-points by about 10x, to: " 
+        << opt.max_num_reference_points << ".\n";
   }
       
   int num_iter  = opt.initial_transform_ransac_params[0];
@@ -319,7 +322,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (num_iter < 1 || factor <= 0.0)
     vw_throw( ArgumentErr() << "Invalid values were provided for "
               << "--initial-transform-ransac-params.\n");
-    
 }
 
 /// Compute output statistics for pc_align
@@ -568,7 +570,7 @@ void update_best_error(std::vector<double>         const& dem_errors,
 /// Compute the distance from source_point_cloud to the reference points.
 double compute_registration_error(DP          const& ref_point_cloud,
                                   DP               & source_point_cloud, // Should not be modified
-                                  PM::ICP          & pm_icp_object, // Must already be initialized
+                                  PM::ICP          & pm_icp_object,
                                   vw::Vector3 const& shift,
                                   vw::cartography::GeoReference        const& dem_georef,
                                   vw::ImageViewRef< PixelMask<float> > const& dem_ref,
@@ -1207,7 +1209,6 @@ int main( int argc, char *argv[] ) {
     
     PointMatcher<RealT>::Matrix beg_errors;
     try {
-      std::cout << "--fix here for nuth\n";
       elapsed_time = compute_registration_error(ref_point_cloud, source_point_cloud, icp,
                                                 shift, dem_georef, reference_dem_ref,
                                                 opt, beg_errors);

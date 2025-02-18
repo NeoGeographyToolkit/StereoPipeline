@@ -43,7 +43,6 @@
 #include <vw/Image/MaskedImageAlgs.h>
 #include <vw/Cartography/SlopeAspect.h>
 #include <vw/Core/Settings.h>
-#include <vw/Core/Stopwatch.h>
 #include <vw/Math/RandomSet.h>
 #include <vw/Math/Geometry.h>
 
@@ -78,7 +77,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("slope-lim", 
      po::value(&opt.slope_lim)->default_value(vw::Vector2(0.1, 40.0), "0.1, 40.0"),
      "Minimum and maximum surface slope limits to consider (degrees).")
-    ("tol", po::value(&opt.tol)->default_value(0.001),
+    ("tol", po::value(&opt.tol)->default_value(0.01),
      "Stop when the addition to the computed translation at given iteration has magnitude "
      "below this tolerance (meters).")
     ("max-horizontal-offset", po::value(&opt.max_horiz_offset)->default_value(nan),
@@ -324,8 +323,12 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<double>> const& ref,
   
   std::vector<vw::Vector3> ref_pts, src_pts;
   
-  for (int col = 0; col < ref.cols(); col++) {
-    for (int row = 0; row < ref.rows(); row++) {
+  // The images can be huge. A sample is enough here.
+  int col_rate = std::max(ref.cols() / 1000, 1);
+  int row_rate = std::max(ref.rows() / 1000, 1);
+  
+  for (int col = 0; col < ref.cols(); col += col_rate) {
+    for (int row = 0; row < ref.rows(); row += row_rate) {
       
       vw::Vector2 ref_pix(col, row);
       vw::PixelMask<double> ht = ref(col, row);
@@ -411,12 +414,11 @@ void computeNuthOffset(Options const& opt,
                        double max_horiz_offset, double max_vert_offset, 
                        vw::Vector2 const& slope_lim,
                        double dx_total, double dy_total, double dz_total,
-                       bool calc_ecef_transform,
                        // Outputs
+                       vw::ImageView<vw::PixelMask<double>> & diff,
                        vw::Vector3 & fit_params,
-                       double & median_diff,
-                       Eigen::MatrixXd & ecef_transform) {
-                        
+                       double & median_diff) {
+
   // Find shifted src, and interpolate it onto same grid as ref.
   vw::ImageView<vw::PixelMask<double>> src_warp;
   shiftWarp(ref.cols(), ref.rows(), src, ref_georef, src_georef,
@@ -429,7 +431,7 @@ void computeNuthOffset(Options const& opt,
                  << "The reference and source DEMs must have the same size.\n"); 
     
   // Find the diff
-  vw::ImageView<vw::PixelMask<double>> diff(src_warp.cols(), src_warp.rows());
+  diff.set_size(src_warp.cols(), src_warp.rows());
   for (int col = 0; col < src_warp.cols(); col++) {
     for (int row = 0; row < src_warp.rows(); row++) {
        diff(col, row) = src_warp(col, row) - ref(col, row);
@@ -515,13 +517,6 @@ void computeNuthOffset(Options const& opt,
   // Find the best fit. This refines fit_params.
   asp::nuthFit(bin_count, bin_centers, bin_median, opt.inner_iter, opt.num_threads,
                fit_params);
-
-  // Call this here to make use of well-filtered diff
-  if (calc_ecef_transform)
-    calcEcefTransform(ref, diff, ref_georef, dx_total, dy_total, dz_total, 
-                      opt.compute_translation_only,
-                      ecef_transform); // output 
-    
 } // End function computeNuthOffset
 
 // Given a command-line string, form argc and argv. In addition to pointers,
@@ -586,7 +581,8 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   double median_diff = 0.0; // will be returned
   int iter = 1;
   double change_len = -1.0;
- 
+  vw::ImageView<vw::PixelMask<double>> diff;
+  
   // The ECEF transform is not needed yet
   Eigen::MatrixXd ecef_transform = Eigen::MatrixXd::Identity(4, 4);
   bool calc_ecef_transform = false;
@@ -598,8 +594,8 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
     // Compute the Nuth offset
     computeNuthOffset(opt, ref, src, ref_georef, src_georef, ref_nodata, src_nodata,
                       opt.max_horiz_offset, opt.max_vert_offset, opt.slope_lim,
-                      dx_total, dy_total, dz_total, calc_ecef_transform,
-                      fit_params, median_diff, ecef_transform); // outputs
+                      dx_total, dy_total, dz_total, 
+                      diff, fit_params, median_diff); // outputs
     
     // Note: minus signs here since we are computing dz = src-ref, but adjusting src
     double dx = -fit_params[0] * sin(DegToRad(fit_params[1]));
@@ -630,13 +626,11 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
       << "Total horizontal offset is: " << horiz_total << " meters. It exceeds the "
       << "specified max horizontal offset: " << opt.max_horiz_offset << " meters. Consider increasing the --max-horizontal-offset value.\n";
     
-   // Calc the ECEF transform given the latest dx, dy, dz, and filtered diffs.
-   calc_ecef_transform = true;
-   computeNuthOffset(opt, ref, src, ref_georef, src_georef, ref_nodata, src_nodata,
-                     opt.max_horiz_offset, opt.max_vert_offset, opt.slope_lim,
-                     dx_total, dy_total, dz_total, calc_ecef_transform,
-                     fit_params, median_diff, ecef_transform); // outputs 
-   
+  // Compute the ECEF transform
+  calcEcefTransform(ref, diff, ref_georef, dx_total, dy_total, dz_total, 
+                    opt.compute_translation_only,
+                    ecef_transform); // output 
+    
    return ecef_transform;
 }
 
