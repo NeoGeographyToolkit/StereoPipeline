@@ -638,7 +638,6 @@ void filter_source_cloud(DP          const& ref_point_cloud,
     vw_out() << "Filtering gross outliers took " << sw.elapsed_seconds() << " s\n";
 }
 
-
 Eigen::Matrix3d vw_matrix3_to_eigen(vw::Matrix3x3 const& vw_matrix) {
   Eigen::Matrix3d out;
   out(0,0) = vw_matrix(0,0);
@@ -830,6 +829,83 @@ void apply_transform_to_cloud(PointMatcher<RealT>::Matrix const& T, DP & point_c
   }
 }
 
+// Load, filter, transform, and resample the source point cloud
+void processSourceCloud(Options                       const& opt,
+                        DP                            const& ref_point_cloud,
+                        PointMatcher<RealT>::Matrix   const& initT,
+                        vw::cartography::GeoReference const& dem_georef,
+                        vw::cartography::GeoReference const& geo,
+                        asp::CsvConv                  const& csv_conv,
+                        BBox2                         const& source_box,
+                        vw::ImageViewRef<PixelMask<float>> reference_dem_ref,
+                        bool is_lola_rdr_format,
+                        double mean_source_longitude,
+                        // These won't change but cannot be const
+                        PM::ICP      & icp,
+                        vw::Vector3  & shift,
+                        // Output
+                        DP           & source_point_cloud) {
+
+  // Do two attempts, in case too few points are left after filtering. This can
+  // happen if the source cloud is very different from the reference cloud.
+  std::string tag = "";
+  for (int attempt = 1; attempt <= 2; attempt++) {
+    
+    source_point_cloud = DP(); // Clear the output
+
+    int big_num = 1.0e+6;
+    if (attempt == 2) {
+      big_num = 50.0e+6;
+      tag = "(second attempt) ";
+    }
+      
+    int num_source_pts = opt.max_num_source_points;
+    if (opt.max_disp > 0.0)
+      num_source_pts = std::max((1+attempt) * num_source_pts, big_num);
+    
+    // Use the same shift used for the reference point cloud    
+    bool calc_shift = false; 
+    Stopwatch sw;
+    sw.start();
+    load_cloud(opt.source, num_source_pts, source_box, 
+        calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+        mean_source_longitude, opt.verbose, source_point_cloud);
+    sw.stop();
+    if (opt.verbose)
+      vw_out() << "Loading the source point cloud " << tag << "took "
+                << sw.elapsed_seconds() << " s\n";
+
+    // Apply the initial guess transform to the source point cloud.
+    apply_transform_to_cloud(initT, source_point_cloud);
+    
+    // Filter gross outliers in the source point cloud with max_disp
+    try {
+      // This can throw an exception if the resulting cloud is empty 
+      if (opt.max_disp > 0.0)
+        filter_source_cloud(ref_point_cloud, source_point_cloud, icp,
+                          shift, dem_georef, reference_dem_ref, opt);
+    } catch (std::exception const& e) {
+      vw_out() << "Not enough points left in the source cloud after filtering. "
+               << "Try loading more.\n";  
+      continue;
+    }
+    
+    random_pc_subsample(opt.max_num_source_points, source_point_cloud.features);
+    vw_out() << "Reducing number of source points to: "
+              << source_point_cloud.features.cols() << "\n";
+  
+    if (source_point_cloud.features.cols() >= opt.max_num_source_points)
+      break;
+    
+    if (attempt == 1)   
+      vw_out() << "Not enough points left in the source cloud after filtering. "
+               << "Try loading more.\n";  
+  }
+  
+  // Write the point cloud to disk for debugging
+  //debug_save_point_cloud(ref_point_cloud, geo, shift, "ref.csv");
+  //dump_bin("ref.bin", ref_point_cloud);
+}
 
 // Convert a north-east-down vector at a given location to a vector in reference
 // to the center of the Earth and create a translation matrix from that vector. 
@@ -1041,8 +1117,14 @@ int main( int argc, char *argv[] ) {
         adjust_and_intersect_ref_source_boxes(trans_ref_box, source_box, 
                                               opt.reference, opt.source);
       }
-      vw_out() << "Intersection reference box:  " << ref_box    << "\n";
-      vw_out() << "Intersection source    box:  " << source_box << "\n";
+      if (ref_box == source_box) {
+        // Leave some space here to align the text to the earlier printouts
+        vw_out() << "Intersection box:     " << ref_box    << "\n";
+      } else {
+        // This can happen when the projections are offset by 360 degrees
+        vw_out() << "Intersection reference box: " << ref_box    << "\n";
+        vw_out() << "Intersection source    box: " << source_box << "\n";
+      }
     }
     
     // Load the point clouds. We will shift both point clouds by the
@@ -1109,41 +1191,12 @@ int main( int argc, char *argv[] ) {
     if (opt.verbose)
       vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " s\n";
 
-    // Load the subsampled source point cloud. If the user wants
-    // to filter gross outliers in the source points based on
-    // max_disp, load a lot more points than asked, filter based on
-    // max_disp, then resample to the number desired by the user.
-    int num_source_pts = opt.max_num_source_points;
-    if (opt.max_disp > 0.0)
-      num_source_pts = max(num_source_pts, 50000000);
-    calc_shift = false; // Use the same shift used for the reference point cloud
-    Stopwatch sw2;
-    sw2.start();
-    DP source_point_cloud;
-    load_cloud(opt.source, num_source_pts, source_box, 
-	      calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-	      mean_source_longitude, opt.verbose, source_point_cloud);
-    sw2.stop();
-    if (opt.verbose)
-      vw_out() << "Loading the source point cloud took "
-               << sw2.elapsed_seconds() << " s\n";
-
-    // Apply the initial guess transform to the source point cloud.
-    apply_transform_to_cloud(initT, source_point_cloud);
-    
-    // Filter gross outliers in the source point cloud with max_disp
-    PointMatcher<RealT>::Matrix beg_errors;
-    if (opt.max_disp > 0.0)
-      filter_source_cloud(ref_point_cloud, source_point_cloud, icp,
-                          shift, dem_georef, reference_dem_ref, opt);
-    
-    random_pc_subsample(opt.max_num_source_points, source_point_cloud.features);
-    vw_out() << "Reducing number of source points to "
-             << source_point_cloud.features.cols() << endl;
-
-    // Write the point cloud to disk for debugging
-    //debug_save_point_cloud(ref_point_cloud, geo, shift, "ref.csv");
-    //dump_bin("ref.bin", ref_point_cloud);
+   // Load, filter, transform, and resample the source point cloud
+   DP source_point_cloud;
+   processSourceCloud(opt, ref_point_cloud, initT, dem_georef, geo, csv_conv, source_box,
+                      reference_dem_ref, is_lola_rdr_format, mean_source_longitude,
+                      icp, shift, 
+                      source_point_cloud); // output
 
     // Make the libpointmatcher error message clearer
     std::string libpointmatcher_error = "no point to minimize";
@@ -1152,6 +1205,7 @@ int main( int argc, char *argv[] ) {
        "--max-displacement value to something somewhat larger than the expected "
        "length of the displacement that may be needed to align the clouds.\n";
     
+    PointMatcher<RealT>::Matrix beg_errors;
     try {
       std::cout << "--fix here for nuth\n";
       elapsed_time = compute_registration_error(ref_point_cloud, source_point_cloud, icp,
