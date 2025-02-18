@@ -81,9 +81,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Stop when the addition to the computed translation at given iteration has magnitude "
      "below this tolerance (meters).")
     ("max-horizontal-offset", po::value(&opt.max_horiz_offset)->default_value(nan),
-     "Maximum expected horizontal translation magnitude (meters).")
+     "Maximum expected horizontal translation magnitude (meters). Used to filter outliers.")
     ("max-vertical-offset", po::value(&opt.max_vert_offset)->default_value(nan),
-     "Maximum expected vertical offset in meters, used to filter outliers.")
+     "Maximum expected vertical translation (meters). Used to filter outliers.")
     ("num-inner-iter", po::value(&opt.inner_iter)->default_value(10),
       "Maximum number of iterations for the inner loop, when finding the best "
       "fit parameters for the current translation.")

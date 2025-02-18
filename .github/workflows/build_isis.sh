@@ -161,7 +161,7 @@ cmake                                          \
   ..
 make -j10 install
 
-# libpointmacher
+# libpointmatcher
 cd 
 export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 conda activate asp_deps

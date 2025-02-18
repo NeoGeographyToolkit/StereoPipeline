@@ -125,24 +125,17 @@ were too large.
 Fetching a ground truth DEM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To create initial cameras to use with these images, and to later refine
-and validate the terrain model made from them, we will need a ground
-truth source. Several good sets of DEMs exist, including SRTM, ASTER,
-and TanDEM-X. Here we will work with SRTM, which provides DEMs with a
-30-meter post spacing. The bounds of the region of interest are inferred
-from the tables with meta-information from above. We will use ``wget``
-to fetch https://e4ftl01.cr.usgs.gov/provisional/MEaSUREs/NASADEM/Eurasia/hgt_merge/n31e099.hgt.zip
-
-and also tiles ``n31e100`` and ``n31e101``. After unzipping, these can
-be merged and cropped as follows::
-
-     dem_mosaic n*.hgt --t_projwin 99.6 31.5 102 31 -o dem.tif
-
-Determining these bounds and the visualization of all images and DEMs
-can be done in ``stereo_gui``.
+To create initial cameras to use with these images, and to later refine and
+validate the terrain model made from them, we will need a ground truth source.
+Several good sets of DEMs exist, including SRTM, ASTER, and TanDEM-X
+(:numref:`initial_terrain`). Here we will work with SRTM, which provides DEMs
+with a 30-meter grid size. The bounds of the region of interest are inferred
+from the tables with meta-information from above. 
 
 The SRTM DEM must be adjusted to be relative to the WGS84 datum, as discussed in
 :numref:`conv_to_ellipsoid`.
+
+The visualization of all images and DEMs can be done in ``stereo_gui``.
 
 Creating camera files
 ~~~~~~~~~~~~~~~~~~~~~
@@ -309,38 +302,33 @@ stereographic projection (:numref:`point2dem`)::
 
 The grid size (``--tr``) is in meters. 
 
-The produced DEM could be rough. It is sufficient however to align and compare
-with the SRTM DEM::
+The produced DEM could be rough. It is sufficient however to align
+to the SRTM DEM by hillshading the two and finding matching features::
 
-     pc_align --max-displacement -1                                      \
-       --initial-transform-from-hillshading similarity                   \
-       --save-transformed-source-points --num-iterations 0               \
-       --max-num-source-points 1000 --max-num-reference-points 1000      \
-       dem.tif stereo_small_mgm/run-DEM.tif -o stereo_small_mgm/run
+     pc_align --max-displacement -1                    \
+       --initial-transform-from-hillshading similarity \
+       --save-transformed-source-points                \
+       --num-iterations 0                              \
+       dem.tif stereo_small_mgm/run-DEM.tif            \
+       -o stereo_small_mgm/run
+
+The resulting aligned cloud can be regridded as::
 
      point2dem --auto-proj-center \
        --tr 30                    \
        stereo_small_mgm/run-trans_source.tif
 
-This will hopefully create a DEM aligned to the underlying SRTM. Consider
-examining in ``stereo_gui`` the left and right hillshaded files produced
+Consider examining in ``stereo_gui`` the left and right hillshaded files produced
 by ``pc_align`` and the match file among them, to ensure tie points among
 the two DEMs were found properly (:numref:`stereo_gui_view_ip`). 
 
 There is a chance that this may fail as the two DEMs to align could be too
-different. In that case, one can re-run ``point2dem`` to re-create the
-DEM to align with a coarser resolution, say with ``--tr 120``, then
-re-grid the SRTM DEM to the same resolution, which can be done as::
+different. In that case, the two DEMs can be regridded as in :numref:`regrid`,
+say with a grid size of 120 meters. The newly obtained coarser SRTM DEM can be
+aligned to the coarser DEM from stereo.
 
-     pc_align --max-displacement -1 dem.tif dem.tif -o dem/dem             \
-       --num-iterations 0 --max-num-source-points 1000                     \
-       --max-num-reference-points 1000 --save-transformed-source-points
-
-     point2dem --auto-proj-center \
-       --tr 120 dem/dem-trans_source.tif
-
-You can then try to align the newly obtained coarser SRTM DEM to the
-coarser DEM from stereo.
+The alignment transform could later be refined or applied to the initial clouds
+(:numref:`prevtrans`).
 
 Floating the intrinsics
 ~~~~~~~~~~~~~~~~~~~~~~~

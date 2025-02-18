@@ -102,8 +102,10 @@ sfs (:numref:`sfs`):
     ``--float-sun-position``, ``--coarse-levels``.
   * Have option ``--crop-input-images`` be always on. 
 
-orbit_plot (:numref:`orbit_plot`):
-  * Added the options ``--use-rmse``, ``--output-file``.
+pc_align (:numref:`pc_align`):
+  * Added the Nuth and Kaab algorithm (:numref:`nuth`).
+  * Speed up the computation of shared bounding box and loading of source
+    points.
 
 cam2rpc (:numref:`cam2rpc`):
   * When a DEM is passed in, sample not just the DEM surface but its bounding
@@ -146,6 +148,9 @@ dem_mosaic (:numref:`dem_mosaic`):
 
 parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
   * Bugfix for load-balancing.
+
+orbit_plot (:numref:`orbit_plot`):
+  * Added the options ``--use-rmse``, ``--output-file``.
 
 misc:
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
@@ -2458,7 +2463,7 @@ RELEASE 2.3.0, 19 November, 2013
 TOOLS:
 
 - Added pc_align, a tool for aligning point clouds, using the
-  libpointmacher library
+  libpointmatcher library
   (https://github.com/ethz-asl/libpointmatcher). Sparse and dense
   point clouds are supported, as well as DEMs. Two ICP methods are
   supported, point-to-plane and point-to-point. Memory and processing

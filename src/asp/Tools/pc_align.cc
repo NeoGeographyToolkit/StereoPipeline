@@ -263,7 +263,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.alignment_method != "least-squares"             &&
       opt.alignment_method != "similarity-least-squares")
     vw_throw( ArgumentErr() << "Only the following alignment methods are supported: "
-	    << "point-to-plane, point-to-point, similarity-point-to-point, "
+        << "point-to-plane, point-to-point, similarity-point-to-point, "
       << "similarity-point-to-plane, fgr, least-squares, and similarity-least-squares.\n");
 
   if (opt.alignment_method != "point-to-plane"            &&
@@ -278,18 +278,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
   
   if ((opt.alignment_method == "least-squares" ||
-	opt.alignment_method == "similarity-least-squares")
+    opt.alignment_method == "similarity-least-squares")
        && asp::get_cloud_type(opt.reference) != "DEM")
     vw_throw( ArgumentErr()
-	      << "Least squares alignment can be used only when the "
-	      << "reference cloud is a DEM.\n" );
+          << "Least squares alignment can be used only when the "
+          << "reference cloud is a DEM.\n" );
 
   if (opt.alignment_method == "nuth") {
          
     if (asp::get_cloud_type(opt.reference) != "DEM" ||
         asp::get_cloud_type(opt.source)    != "DEM")
       vw_throw(ArgumentErr()
-	        << "Nuth and Kaab alignment can be used only when both "
+          << "Nuth and Kaab alignment can be used only when both "
           << "the reference and source clouds are DEMs.\n");
       
     if (!opt.init_transform_file.empty() ||
@@ -952,8 +952,8 @@ vw::Vector3 estimate_ref_cloud_centroid(vw::cartography::GeoReference const& geo
   // reliably.
   int num_sample_pts = 1000000;
   load_cloud(file_name, num_sample_pts, dummy_box,
-	     calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-	     median_longitude, verbose, points);
+         calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+         median_longitude, verbose, points);
 
 
   int numRefPts = points.features.cols();
@@ -1188,7 +1188,7 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Building the reference cloud tree.\n";
     sw3.start();
     icp.initRefTree(ref_point_cloud, alignment_method_fallback(opt.alignment_method),
-		    opt.highest_accuracy, false /*opt.verbose*/);
+            opt.highest_accuracy, false /*opt.verbose*/);
     sw3.stop();
     if (opt.verbose)
       vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " s\n";
@@ -1271,11 +1271,10 @@ int main( int argc, char *argv[] ) {
                  << icp.errorMinimizer->getWeightedPointUsedRatio() << endl;
       } else if (opt.alignment_method == "least-squares" ||
                 opt.alignment_method == "similarity-least-squares") {
-        /// Compute alignment using least squares
-	      T = least_squares_alignment(source_point_cloud, shift,
+        // Compute alignment using least squares
+        T = least_squares_alignment(source_point_cloud, shift,
                                     dem_georef, reference_dem_ref, opt.alignment_method,
                                     opt.num_iter, opt.num_threads);
-
       } else
         vw_throw( ArgumentErr() << "Unknown alignment method: " << opt.alignment_method);
     }
@@ -1293,7 +1292,7 @@ int main( int argc, char *argv[] ) {
     Vector3 trans_xyz, trans_ned, trans_llh;
     vw::Matrix3x3 NedToEcef;
     calc_translation_vec(initT, source_point_cloud, trans_source_point_cloud, shift,
-			 geo.datum(), source_ctr_vec, source_ctr_llh,
+                         geo.datum(), source_ctr_vec, source_ctr_llh,
                          trans_xyz, trans_ned, trans_llh, NedToEcef);
 
     // For each point, compute the distance to the nearest reference point.

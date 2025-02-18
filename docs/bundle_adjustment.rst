@@ -1127,7 +1127,7 @@ For each stereo invocation, add options along the lines of::
 
 or::
 
-     --num-matches-from-disp-triplets 10000
+    --num-matches-from-disp-triplets 10000
 
 in order to create such a match file.
 

@@ -3,21 +3,13 @@
 pc_align
 --------
 
-This tool can be used to align two point clouds. The algorithms employed
-are one of the several flavors of Iterative Closest Point (ICP), based
-on the ``libpointmatcher`` library :cite:`Pomerleau12comp`:
+The ``pc_align`` programs aligns two point clouds. The supported algorithms are
+Iterative Closest Point (:numref:`pc_icp`), Nuth and Kaab (:numref:`nuth`), Fast
+Global Registration (:numref:`fgr`), and feature-based alignment
+(:numref:`pc_hillshade`).
 
-    https://github.com/ethz-asl/libpointmatcher
-
-It also implements the Fast Global Registration algorithm from:
-
-    https://github.com/IntelVCL/FastGlobalRegistration
-
-In addition, it supports feature-based alignment (terrains are
-hillshaded and interest point matches are found among them), and
-alignment using least squares. It can handle a scale change in addition
-to rotations and translations. For joint alignment of more than two
-clouds, the related tool ``n_align`` can be used (:numref:`n_align`).
+Some of the provided ICP implementations can handle a scale change, in addition
+to rotations and translations. 
 
 Usage::
 
@@ -28,12 +20,10 @@ The denser cloud must be the first one to be passed to this tool. This
 program is very sensitive to the value of ``--max-displacement``
 (:numref:`pc_align_max_displacement`).
 
-An example of using this tool is in :numref:`pc-align-example`. Evaluation of
-alignment is discussed in :numref:`pc_align_error` and
-:numref:`pc_align_validation`.
+An example is in :numref:`pc-align-example`. Validation and error metrics are
+discussed in :numref:`pc_align_validation` and :numref:`pc_align_error`.
 
-See the related tool ``image_align`` (:numref:`image_align`) 
-for performing alignment of images.
+See the related program ``image_align`` (:numref:`image_align`).
 
 Several important things need to be kept in mind if ``pc_align`` is to
 be used successfully and give accurate results, as described below.
@@ -80,12 +70,24 @@ out *after* this operation. The observed maximum displacement is also
 between the source points with this transform applied and the source
 points after alignment to the reference.
 
-
 .. _align-method:
 
 Alignment method
 ~~~~~~~~~~~~~~~~
 
+The alignment method can be set with the option ``--alignment-method``
+(:numref:`pc_align_options`). The default is ``point-to-plane`` ICP.
+
+.. _pc_icp:
+
+ICP algorithms
+^^^^^^^^^^^^^^
+
+ASP provides several flavors of the Iterative Closest Point (ICP) algorithm,
+with the implementation given by the `libpointmatcher
+<https://github.com/ethz-asl/libpointmatcher>`_ library
+(:cite:`Pomerleau12comp`).
+    
 The default alignment method is Point-to-Plane ICP, which may be more
 robust to large translations than Point-to-Point ICP, though the latter
 can be good enough if the input point clouds have small alignment errors
@@ -95,54 +97,99 @@ Point-to-Plane ICP at all points rather than about a tenth of them. This
 option is not necessary most of the time, but may result in better
 alignment at the expense of using more memory and processing time.
 
-The default alignment transform is rigid, that is, a combination of
-rotation and translation. With Point-to-Point ICP, it is also possible
-to solve for a scale change (to obtain a so-called ``similarity
-transform``). It is suggested this approach be used only when a scale
-change is expected. It can be turned on by setting
+The default alignment transform is rigid, that is, a combination of rotation and
+translation. It is also possible to solve for a scale change, by setting
 ``--alignment-method`` to ``similarity-point-to-plane`` or
-``similarity-point-to-point``. (The first of these is better than the
-second one.)
+``similarity-point-to-point``. The first of these works better than the second
+one.
 
-For very large scale difference or translation among the two clouds,
-both of these algorithms may fail. If the clouds are DEMs, one may
-specify the option ``--initial-transform-from-hillshading string``
-which will hillshade the two DEMs, find interest point matches among
-them, and use that to compute an initial transform between the
-clouds (:numref:`prevtrans`), which may or may not contain scale,
-after which the earlier algorithms will be applied to refine the
-transform. See an example in :numref:`kh4_align`. 
+If the translation between the point clouds is very large, see
+:numref:`pc_hillshade`.
+
+.. _nuth:
+
+Nuth and Kaab
+^^^^^^^^^^^^^
+
+The Nuth and Kaab alignment method (:cite:`nuth2011co`) can be subpixel-level
+accurate. It is accessible with ``--alignment-method nuth``. The implementation
+is based on `dem_align.py  <https://github.com/dshean/demcoreg>`_.
+
+It is assumed that the input clouds are dense and detailed DEMs.
+
+The order of inputs should be so that the the reference DEM (the first input)
+has a grid size that is no bigger than of the second DEM. The second DEM
+will be interpolated to the grid of the first one.
+
+If the translation between clouds is not small, consider using a different
+alignment algorithm first (:numref:`prevtrans`).
+
+Both DEMs should be in projected coordinates, so in units of meters, and with
+the same datum. Otherwise, regridding can be done with ``gdalwarp -r cubic``
+(:numref:`gdal_tools`). LAS files can be regridded with ``point2dem``
+(:numref:`point2dem`).
+
+The DEMs should fit fully in memory, with some margin.
+
+Additional options can be passed in via ``--nuth-options``
+(:numref:`nuth_options`).
+
+.. _fgr:
+
+FGR algorithm
+^^^^^^^^^^^^^
+
+The `Fast Global Registration
+<https://github.com/IntelVCL/FastGlobalRegistration>`_ (FGR) algorithm can be
+called with ``--alignment-method fgr``, and is customizable via
+``--fgr-options`` (:numref:`pc_align_options`).
+
+This approach can perform better than ICP when the clouds are close enough to
+each other but there is a large number of outliers, since it does a cross-check.
+
+When the clouds are far, another algorithm can be employed to bring them 
+closer first (:numref:`prevtrans`).
+
+.. _pc_hillshade:
+
+Feature-based alignment
+^^^^^^^^^^^^^^^^^^^^^^^
+
+If the clouds differ by a large translation or scale factor, alignment can fail.
+If the clouds are DEMs, one may specify the option
+``--initial-transform-from-hillshading string`` which will hillshade the two
+DEMs, find interest point matches among them, and use that to compute an initial
+transform between the clouds, which may or may not contain scale.
+
+This transform can be passed as an initial guess to the other alignment
+algorithms (:numref:`prevtrans`). See an example in :numref:`kh4_align`. 
  
-This functionality is implemented with ASP's ``hillshade``,
-``ipfind``, and ``ipmatch`` tools, and ``pc_align`` has options to
-pass flags to these programs, such as to increase the number interest
-points being found, if the defaults are not sufficient. If the two
-clouds look too different for interest point matching to work, they
-perhaps can be re-gridded to use the same (coarser) grid, as described
-in :numref:`regrid`, to obtain the initial transform which can then
-be applied to the original clouds. 
+This functionality is implemented with ASP's ``hillshade``, ``ipfind``, and
+``ipmatch`` tools. The ``pc_align`` options ``--hillshade-options``,
+``--ipfind-options``, and ``--ipmatch-options`` can be used to pass options to
+to these programs, such as to increase the number interest points being found,
+if the defaults are not sufficient. See :numref:`pc_align_options`.
 
-A non-ICP algorithm supported by ASP is *Fast Global Registration*,
-accessible with ``--alignment-method fgr``, and customizable using the
-``--fgr-options`` field (see the table below for more details). This
-approach can perform better than ICP when the clouds are close enough to
-each other but there is a large number of outliers, since it does a
-cross-check, so it can function with very large ``--max-displacement``.
-It does worse if the clouds need a big shift to align.
+If the two clouds look too different for interest point matching to work, they
+perhaps can be re-gridded to use the same (coarser) grid, as described in
+:numref:`regrid`. The produced transform will be applicable to the original
+clouds.
 
-This one is being advertised as less sensitive to outliers, hence it
-should give good results with a larger value of the maximum
-displacement.
+.. _pc_least_squares:
+
+Least squares
+^^^^^^^^^^^^^
 
 Another option is to use least squares (with outlier handling using a
 robust cost function) to find the transform, if the reference cloud is a
-DEM. For this, one should specify the alignment method as
-``least-squares`` or ``similarity-least-squares`` (the latter also
-solves for scale). It is suggested that the input clouds be very close
-or otherwise the ``--initial-transform`` option be used, for the method
-to converge, and use perhaps on the order of 10-20 iterations and a
-smaller value for ``--max-num-source-points`` (perhaps a few thousand)
-for this approach to converge reasonably fast.
+DEM. This is an *experimental mode* that is *not recommended*.
+
+For this, one should specify the alignment method as ``least-squares`` or
+``similarity-least-squares`` (the latter also solves for scale). It is suggested
+that the input clouds be very close or otherwise the ``--initial-transform``
+option be used, for the method to converge, and use perhaps on the order of
+10-20 iterations and a smaller value for ``--max-num-source-points`` (perhaps a
+few thousand) for this approach to converge reasonably fast.
 
 File formats
 ~~~~~~~~~~~~
@@ -199,19 +246,19 @@ system to another one's, as shown in :numref:`ba_pc_align`.
 Applying an initial transform
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The transform output by ``pc_align`` can be supplied back to the tool
-as an initial guess via the ``--initial-transform`` option, with the
-same clouds as earlier, or some supersets or subsets of them. If it is
-desired to simply apply this transform without further work, one can
+The ``pc_align``-produced transform (:numref:`alignmenttransform`) can be
+supplied back to the tool as an initial guess via the ``--initial-transform``
+option, with the same clouds as earlier, or some supersets or subsets of them.
+If it is desired to apply this transform without further refinement, one can
 specify ``--num-iterations 0``.
 
-This may be useful, for example, in first finding the alignment
-transform over a smaller, more reliable region (e.g., over rock,
-excluding moving ice), then applying it over the entire available
-dataset. To illustrate this, consider a DEM, named ``dem.tif``, obtained
-with ASP, from whom just a portion, ``dem_crop.tif`` is known to have
-reliable measurements, which are stored, for example, in a file called
-``meas.csv``. Hence, ``pc_align`` is first used on the smaller DEM, as::
+An initial transform can be found, for example, based on hillshading the two
+clouds (:numref:`pc_hillshade`).
+
+To illustrate applying a transform, consider a DEM, named ``dem.tif``, obtained
+with ASP, from which just a portion, ``dem_crop.tif`` is known to have reliable
+measurements, which are stored, for example, in a file called ``meas.csv``.
+Hence, ``pc_align`` is first used on the smaller DEM, as::
 
     pc_align <other options> dem_crop.tif meas.csv -o run/run
 
@@ -436,22 +483,27 @@ transform is supported, both for the initial transform and for the alignment.
 
 .. _regrid:
 
-Creating a point cloud from a DEM
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Regrid a DEM
+~~~~~~~~~~~~
 
 Given a DEM, if one invokes ``pc_align`` as follows::
 
     pc_align dem.tif dem.tif --max-displacement -1 --num-iterations 0 \
        --save-transformed-source-points -o run/run
 
-this will create a point cloud out of the DEM. This cloud can then be
-re-gridded using ``point2dem`` at a lower resolution or with a different
-projection.
+this will create a point cloud out of the DEM. This cloud can then be re-gridded
+using ``point2dem`` (:numref:`point2dem`), with desired grid size and projection. 
+
+Alternatively, the ``gdalwarp`` program (:numref:`gdal_tools`) can be employed
+for regridding, with an option such as ``-r cubic``. 
+
+The ``point2dem`` approach is preferable if the output grid size is very coarse,
+as this tool does binning in a neighborhood, rather than interpolation.
 
 .. _ba_pc_align:
 
-Applying the pc_align transform to cameras
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Applying a transform to cameras
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If ``pc_align`` is used to align a DEM obtained with ASP to a preexisting
 reference DEM or other cloud, the obtained alignment transform can be applied to
@@ -554,13 +606,16 @@ you can try is to convert an input point cloud into a smoothed DEM. Use
 fill in holes in the DEM. For some input data this can significantly
 improve alignment accuracy.
 
+.. _pc_align_options:
+
 Command-line options for pc_align
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 --num-iterations <integer (default: 1000)>
     Maximum number of iterations.
 
 --max-displacement <float>
-    Maximum expected displacement (horizonal + vertical) of source
+    Maximum expected displacement (horizontal + vertical) of source
     points as result of alignment, in meters (after the initial guess
     transform is applied to the source points).  Used for removing
     gross outliers in the source (movable) point cloud.
@@ -581,10 +636,11 @@ Command-line options for pc_align
     discarding gross outliers).
 
 --alignment-method <string (default: "point-to-plane")>
-    The type of iterative closest point method to use.  Choices:
-    point-to-plane, point-to-point, similarity-point-to-plane,
-    similarity-point-to-point, fgr, least-squares,
-    similarity-least-squares.
+    Alignment method. Options: ``point-to-plane``, ``point-to-point``,
+    ``similarity-point-to-plane``, ``similarity-point-to-point``
+    (:numref:`pc_icp`), ``nuth`` (:numref:`nuth`), ``fgr`` (:numref:`fgr`),
+    ``least-squares``, ``similarity-least-squares``
+    (:numref:`pc_least_squares`).
 
 --highest-accuracy
     Compute with highest accuracy for point-to-plane (can be much slower).
@@ -655,14 +711,14 @@ Command-line options for pc_align
     also specified, the translation gets applied after the rotation.
 
 --initial-transform-from-hillshading <string>
-    If both input clouds are DEMs, find interest point matches among
-    their hillshaded versions, and use them to compute an initial
-    transform to apply to the source cloud before proceeding with
-    alignment.  Specify here the type of transform, as one of:
-    'similarity' (rotation + translation + scale), 'rigid' (rotation
-    + translation) or 'translation'. See the options further down 
-    for tuning this. The alignment algorithm can refine the scale
-    if set to ``similarity-point-to-plane``, etc.
+    If both input clouds are DEMs, find interest point matches among their
+    hillshaded versions, and use them to compute an initial transform to apply
+    to the source cloud before proceeding with alignment
+    (:numref:`pc_hillshade`).  Specify here the type of transform, as one of:
+    ``rigid`` (rotation + translation), ``translation``, or ``similarity``
+    (rotation + translation + scale). See the options further down for tuning
+    this. The alignment algorithm can refine the scale later if set to
+    ``similarity-point-to-plane``, etc.
 
 --hillshade-options
     Options to pass to the ``hillshade`` program when computing the
@@ -692,11 +748,14 @@ Command-line options for pc_align
     It may be desired to change ``--initial-transform-ransac-params``
     if it rejects as outliers some manual matches.
 
---fgr-options
-    Options to pass to the Fast Global Registration algorithm, if
-    used. Default: ``div_factor: 1.4 use_absolute_scale: 0
-    max_corr_dist: 0.025 iteration_number: 100 tuple_scale: 0.95
-    tuple_max_cnt: 10000``.
+--nuth-options <string (default: "")>
+    Options to pass to the Nuth and Kaab algorithm. Set in quotes. 
+    See :ref:`nuth_options` for more details.
+    
+--fgr-options <string>
+    Options to pass to the Fast Global Registration (FGR) algorithm. Set in
+    quotes. Default: "div_factor: 1.4 use_absolute_scale: 0 max_corr_dist: 0.025
+    iteration_number: 100 tuple_scale: 0.95 tuple_max_cnt: 10000".
 
 --diff-rotation-error <float (default: 1e-8)>
     Change in rotation amount below which the algorithm will stop
@@ -743,4 +802,39 @@ Command-line options for pc_align
 -h, --help
     Display this help message.
 
+.. _nuth_options:
+
+Options for Nuth and Kaab 
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Nuth and Kaab algorithm (:numref:`nuth`) accepts the regular ``pc_align``
+options ``--max-displacement``, ``--num-iterations``,
+``--compute-translation-only``, ``--threads``.
+
+In addition, it can be tuned via the ``--nuth-options`` argument. Its value is a
+string in quotes, with spaces as separators. Example:: 
+
+    --nuth-options "--slope-lim 0.1 40.0 --tol 0.01"
+
+Default values will be used for any unspecified options. The options are:
+
+--slope-lim <float float (default: 0.1 40.0)>
+    Minimum and maximum surface slope limits to consider (degrees).
+    
+--tol <float (default: 0.01)>
+    Stop when the addition to the alignment translation at given iteration has
+    magnitude below this tolerance (meters).
+
+--max-horizontal-offset <float>
+    Maximum expected horizontal translation magnitude (meters). Used to filter
+    outliers. If not set, use the value in ``--max-displacement``.
+
+--max-vertical-offset <float>
+    Maximum expected vertical translation in meters (meters). Used to filter
+    outliers. If not set, use the value in ``--max-displacement``.
+
+--num-inner-iter <integer (default: 10)>
+    Maximum number of iterations for the inner loop, when finding the best fit
+    parameters for the current translation.
+    
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN
