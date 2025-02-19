@@ -1006,7 +1006,7 @@ Command-line options
     number, by selecting a random subset, if needed. This happens
     when setting up the optimization, and before outlier filtering.
 
---num-iterations <integer (default: 100)>
+--num-iterations <integer (default: 1000)>
     Set the maximum number of iterations.
 
 --parameter-tolerance <double (default: 1e-8)>
@@ -1238,14 +1238,13 @@ Command-line options
     kept.
 
 --remove-outliers-params <'pct factor err1 err2' (default: '75.0 3.0 5.0 8.0')>
-    Outlier removal based on percentage, when more than one bundle
-    adjustment pass is used.  Triangulated points (that are not
-    GCP) with reprojection error in pixels larger than: 
-    *min(max(<pct>-th percentile \* <factor>, <err1>), <err2>)*
-    will be removed as outliers.  Hence, never remove errors smaller
-    than *<err1>* but always remove those bigger than *<err2>*. Specify as
-    a list in quotes. Also remove outliers based on distribution
-    of interest point matches and triangulated points.
+    Outlier removal based on percentage, when more than one bundle adjustment
+    pass is used.  Triangulated points (that are not GCP) with reprojection
+    error in pixels larger than: *min(max(<pct>-th percentile \* <factor>,
+    <err1>), <err2>)* will be removed as outliers.  Hence, never remove pixel
+    reprojection errors smaller than *<err1>* but always remove those bigger
+    than *<err2>*. Specify as a list in quotes. Also remove outliers based on
+    distribution of interest point matches and triangulated points.
 
 --elevation-limit <min max>
     Remove as outliers interest points (that are not GCP) for which
