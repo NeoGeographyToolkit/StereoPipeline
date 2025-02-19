@@ -1541,6 +1541,10 @@ the DEMs, as created ``stereo_gui``::
       ref_sub4.tif sfs_dem_sub4.tif -o align_sub4/run   \
       --num-iterations 0 --max-displacement -1
 
+Another option is to use the Nuth and Kaab ``pc_align`` algorithm, as it can be
+more accurate than the default ``point-to-plane`` ICP method (:numref:`nuth`).
+That is available in the latest build (:numref:`release`).
+
 That alignment transform can then be applied to the full SfS DEM::
 
     pc_align --initial-transform align_sub4/run-transform.txt      \
