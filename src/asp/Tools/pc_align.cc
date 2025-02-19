@@ -310,10 +310,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw(ArgumentErr()
           << "Nuth and Kaab alignment cannot be used with an initial rotation angle.\n");
 
-     opt.max_num_reference_points /= 10;
+     opt.max_num_reference_points /= 25;
      opt.max_num_reference_points = std::max(1000000, opt.max_num_reference_points);
      vw::vw_out() << "For Nuth and Kaab alignment, a smaller reference cloud is "
-        << "sufficient. Reducing --max-num-reference-points by about 10x, to: " 
+        << "sufficient. Reducing --max-num-reference-points by about 25x, to: " 
         << opt.max_num_reference_points << ".\n";
   }
       

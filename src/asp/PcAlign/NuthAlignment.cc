@@ -34,8 +34,8 @@
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/Functors.h>
 #include <vw/Math/Statistics.h>
-#include <vw/Image/MaskedImageAlgs.h>
-#include <vw/Cartography/SlopeAspect.h>
+#include <asp/PcAlign/MaskedImageAlgs.h>
+#include <asp/PcAlign/SlopeAspect.h>
 #include <vw/Core/Settings.h>
 #include <vw/Math/RandomSet.h>
 #include <vw/Math/Geometry.h>
@@ -142,7 +142,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.slope_lim[0] >= opt.slope_lim[1])
     vw::vw_throw(vw::ArgumentErr() 
                  << "The slope limits must be positive and in increasing order.\n");
-  
+
   if (opt.tiltcorr)
     vw::vw_throw(vw::NoImplErr() << "Tilt correction is not implemented yet.\n");
      
@@ -320,7 +320,7 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<float>> const& ref,
   // The images can be huge. A sample is enough here.
   int col_rate = std::max(ref.cols() / 1000, 1);
   int row_rate = std::max(ref.rows() / 1000, 1);
-  
+  #pragma omp parallel for
   for (int col = 0; col < ref.cols(); col += col_rate) {
     for (int row = 0; row < ref.rows(); row += row_rate) {
       
@@ -343,11 +343,15 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<float>> const& ref,
       vw::Vector3 src_ecef = ref_georef.datum().geodetic_to_cartesian
         (vw::Vector3(src_lon_lat[0], src_lon_lat[1], ht.child() - dz_total));
   
-      ref_pts.push_back(ref_ecef);
-      src_pts.push_back(src_ecef);      
+      #pragma omp critical
+      {
+        ref_pts.push_back(ref_ecef);
+        src_pts.push_back(src_ecef);
+      }
+      
     }
   }
-
+  
   // This will not be robust unless we have a lot of samples
   int minSamples = 10;
   if (ref_pts.size() < minSamples)
@@ -432,11 +436,12 @@ void computeNuthOffset(Options const& opt,
        diff(col, row) = src_warp(col, row) - ref(col, row);
     }
   }
-  
+   
   // Filter out diff whose magnitude is greater than max_vert_offset    
   // Apply normalized mad filter with given factor
   double outlierFactor = 3.0;
   vw::rangeFilter(diff, -max_vert_offset, max_vert_offset);
+  
   vw::madFilter(diff, outlierFactor);
   
   // Calculate the slope and aspect of the src_warp_copy DEM
@@ -469,7 +474,8 @@ void computeNuthOffset(Options const& opt,
   // Form xdata and ydata. We don't bother removing the flagged invalid pixels.
   // xdata = aspect[common_mask].data
   // ydata = (diff[common_mask]/np.tan(np.deg2rad(slope[common_mask]))).data
-  vw::ImageView<vw::PixelMask<float>> xdata = copy(aspect);
+  // Make xdata an alias, to save on memory
+  vw::ImageView<vw::PixelMask<float>> & xdata = aspect;
   vw::ImageView<vw::PixelMask<float>> ydata(src_warp.cols(), src_warp.rows());
   for (int col = 0; col < src_warp.cols(); col++) {
     for (int row = 0; row < src_warp.rows(); row++) {
@@ -483,7 +489,7 @@ void computeNuthOffset(Options const& opt,
       }
     }
   }
-  
+   
   // Filter outliers in y by mean and std dev
   outlierFactor = 3.0;
   double mean_y = vw::maskedMean(ydata);
@@ -575,6 +581,7 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   double ref_nodata = -std::numeric_limits<double>::max();
   double src_nodata = ref_nodata;
   vw::cartography::GeoReference ref_georef, src_georef;
+  // start stopwatch
   prepareData(opt, ref, src, ref_nodata, src_nodata, ref_georef, src_georef);
   
   // Initialize
@@ -628,7 +635,7 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   calcEcefTransform(ref, diff, ref_georef, dx_total, dy_total, dz_total, 
                     opt.compute_translation_only,
                     ecef_transform); // output 
-    
+     
    return ecef_transform;
 }
 

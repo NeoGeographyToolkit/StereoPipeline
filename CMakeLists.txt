@@ -6,7 +6,6 @@ if(APPLE)
     # Needed for conda build on OSX with conda
     cmake_policy(SET CMP0025 NEW) 
 endif(APPLE)
-    
 
 # Make it possible to append to these from the command line
 set(CMAKE_CXX_FLAGS "" CACHE STRING "")
