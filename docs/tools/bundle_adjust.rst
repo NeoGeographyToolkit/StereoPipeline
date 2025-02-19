@@ -1240,10 +1240,13 @@ Command-line options
 --remove-outliers-params <'pct factor err1 err2' (default: '75.0 3.0 5.0 8.0')>
     Outlier removal based on percentage, when more than one bundle adjustment
     pass is used.  Triangulated points (that are not GCP) with reprojection
-    error in pixels larger than: *min(max(<pct>-th percentile \* <factor>,
-    <err1>), <err2>)* will be removed as outliers.  Hence, never remove pixel
-    reprojection errors smaller than *<err1>* but always remove those bigger
-    than *<err2>*. Specify as a list in quotes. Also remove outliers based on
+    error in pixels larger than::
+    
+        min(max(pct-th percentile * factor, err1), err2)
+    
+    will be removed as outliers.  Hence, never remove pixel
+    reprojection errors smaller than ``err1`` but always remove those bigger
+    than ``err2``. Specify as a list in quotes. Also remove outliers based on
     distribution of interest point matches and triangulated points.
 
 --elevation-limit <min max>
