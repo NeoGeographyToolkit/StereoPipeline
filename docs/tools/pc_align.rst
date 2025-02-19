@@ -122,24 +122,28 @@ It is assumed that:
   - The alignment transform is a pure translation in projected coordinates.
 
 If the last two assumptions do not hold, consider using a different alignment
-algorithm first. The resulting aligned source point cloud needs to be regridded
-with ``point2dem``, and then the alignment further refined with this method.
+algorithm first (for example, :numref:`pc_hillshade` in combination with ICP).
+The resulting aligned source point cloud needs to be regridded with
+``point2dem``, and then the alignment further refined with this method.
 
 The order of inputs should be so that the the reference DEM (the first input)
 has a grid size that is no bigger than of the second DEM. The second DEM
 will be interpolated to the grid of the first one.
 
-Both DEMs should be in projected coordinates, so in units of meters, and with
-the same datum. Otherwise, regridding can be done with ``gdalwarp -r cubic``
-(:numref:`gdal_tools`). LAS files can be regridded with ``point2dem``
-(:numref:`point2dem`).
-
-The DEMs should fit fully in memory, with some margin.
+Both DEMs should be in projected coordinates, so with the grid size measured in
+meters, and with the same datum. Otherwise, regridding can be done with
+``gdalwarp -r cubic`` (:numref:`gdal_tools`). LAS files can be regridded with
+``point2dem`` (:numref:`point2dem`).
 
 The produced alignment transform will be converted to a rotation + translation
 transform around the planet center (ECEF coordinates), for consistency with the
 other alignment methods. It will be an ECEF translation if the option
 ``--compute-translation-only`` is set.
+
+The DEMs should fit fully in memory, with a solid margin. Large DEMs with good
+relief could be regridded (with cubic interpolation) to a 2x coarser grid, which
+would still result in a good alignment. Any produced transform can be applied to
+the original DEMs (:numref:`prevtrans`).
 
 Additional options can be passed in via ``--nuth-options``
 (:numref:`nuth_options`).
