@@ -150,18 +150,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // not set.
 
   // Set the number of threads for OpenMP.  
+  int processor_count = std::thread::hardware_concurrency();
   omp_set_dynamic(0);
-  omp_set_num_threads(opt.num_threads);
+  omp_set_num_threads(processor_count);
+  vw::vw_out() << "Using " << processor_count << " threads with OpenMP.\n";
 }
 
 inline double DegToRad(double deg) {
   return deg * M_PI / 180.0;
 }
 
-// Put the above logic in a function that prepares the data
+// Put the above logic in a function that prepares the data.
 void prepareData(Options const& opt, 
-                  vw::ImageView<vw::PixelMask<double>> & ref,
-                  vw::ImageView<vw::PixelMask<double>> & src,
+                  vw::ImageView<vw::PixelMask<float>> & ref,
+                  vw::ImageView<vw::PixelMask<float>> & src,
                   double & ref_nodata, double & src_nodata,
                   vw::cartography::GeoReference & ref_georef,
                   vw::cartography::GeoReference & src_georef) {
@@ -228,11 +230,11 @@ void prepareData(Options const& opt,
     src_nodata = src_rsrc.nodata_read(); 
   
   // Read the ref and source images fully in memory, for speed
-  ref = copy(create_mask(vw::DiskImageView<double>(opt.ref), ref_nodata));
+  ref = copy(create_mask(vw::DiskImageView<float>(opt.ref), ref_nodata));
 
   // Get a handle to the source image on disk. We will warp it and read it in memory
   // as needed, when it is being shifted.
-  src = copy(create_mask(vw::DiskImageView<double>(opt.src), src_nodata));
+  src = copy(create_mask(vw::DiskImageView<float>(opt.src), src_nodata));
   
   // TODO(oalexan1): Crop the reference given the extent of the source
   // and estimated max movement.
@@ -257,18 +259,18 @@ void prepareData(Options const& opt,
 // Warp the source DEM to the reference DEM's georef, while applying a
 // translation defined in the projected space of the reference DEM.
 void shiftWarp(int ref_cols, int ref_rows, 
-               vw::ImageView<vw::PixelMask<double>> const& src,
+               vw::ImageView<vw::PixelMask<float>> const& src,
                vw::cartography::GeoReference const& ref_georef,
                vw::cartography::GeoReference const& src_georef,
                double dx_total, double dy_total, double dz_total,
                // Outputs
-               vw::ImageView<vw::PixelMask<double>> & src_warp) {
+               vw::ImageView<vw::PixelMask<float>> & src_warp) {
   
   // Set up the interpolation
-  vw::PixelMask<double> nodata_val;
+  vw::PixelMask<float> nodata_val;
   nodata_val.invalidate();
-  auto nodata_ext = vw::ValueEdgeExtension<vw::PixelMask<double>>(nodata_val);
-  vw::ImageViewRef<vw::PixelMask<double>> src_interp 
+  auto nodata_ext = vw::ValueEdgeExtension<vw::PixelMask<float>>(nodata_val);
+  vw::ImageViewRef<vw::PixelMask<float>> src_interp 
     = vw::interpolate(src, vw::BicubicInterpolation(), nodata_ext);
   src_warp.set_size(ref_cols, ref_rows);
   vw::cartography::GeoTransform gt(ref_georef, src_georef);
@@ -305,8 +307,8 @@ void shiftWarp(int ref_cols, int ref_rows,
 // Convert a translation in projected coordinates that aligns the source to the
 // reference to a rotation + translation transform in ECEF. Make use of the
 // filtered differences we employed to find the translation.
-void calcEcefTransform(vw::ImageView<vw::PixelMask<double>> const& ref,
-                       vw::ImageView<vw::PixelMask<double>> const& diff,
+void calcEcefTransform(vw::ImageView<vw::PixelMask<float>> const& ref,
+                       vw::ImageView<vw::PixelMask<float>> const& diff,
                        vw::cartography::GeoReference const& ref_georef,
                        double dx_total, double dy_total, double dz_total,
                        bool compute_translation_only,
@@ -323,7 +325,7 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<double>> const& ref,
     for (int row = 0; row < ref.rows(); row += row_rate) {
       
       vw::Vector2 ref_pix(col, row);
-      vw::PixelMask<double> ht = ref(col, row);
+      vw::PixelMask<float> ht = ref(col, row);
       if (!is_valid(ht)) 
         continue;
       if (!is_valid(diff(col, row))) 
@@ -396,10 +398,11 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<double>> const& ref,
 }
 
 // Compute the Nuth offset. By now the DEMs have been regrided to the same
-// resolution and use the same projection. 
+// resolution and use the same projection. All data is kept as float,
+// but the calculations are done in double precision, for accuracy.
 void computeNuthOffset(Options const& opt,
-                       vw::ImageView<vw::PixelMask<double>> const& ref,
-                       vw::ImageView<vw::PixelMask<double>> const& src,
+                       vw::ImageView<vw::PixelMask<float>> const& ref,
+                       vw::ImageView<vw::PixelMask<float>> const& src,
                        vw::cartography::GeoReference const& ref_georef,
                        vw::cartography::GeoReference const& src_georef,
                        double ref_nodata, double src_nodata,
@@ -407,12 +410,12 @@ void computeNuthOffset(Options const& opt,
                        vw::Vector2 const& slope_lim,
                        double dx_total, double dy_total, double dz_total,
                        // Outputs
-                       vw::ImageView<vw::PixelMask<double>> & diff,
+                       vw::ImageView<vw::PixelMask<float>> & diff,
                        vw::Vector3 & fit_params,
                        double & median_diff) {
 
   // Find shifted src, and interpolate it onto same grid as ref.
-  vw::ImageView<vw::PixelMask<double>> src_warp;
+  vw::ImageView<vw::PixelMask<float>> src_warp;
   shiftWarp(ref.cols(), ref.rows(), src, ref_georef, src_georef,
             dx_total, dy_total, dz_total, 
             src_warp); // output
@@ -437,7 +440,7 @@ void computeNuthOffset(Options const& opt,
   vw::madFilter(diff, outlierFactor);
   
   // Calculate the slope and aspect of the src_warp_copy DEM
-  vw::ImageView<vw::PixelMask<double>> slope, aspect;
+  vw::ImageView<vw::PixelMask<float>> slope, aspect;
   vw::cartography::calcSlopeAspect(src_warp, ref_georef, slope, aspect);
   
   // Filter slopes by range
@@ -466,8 +469,8 @@ void computeNuthOffset(Options const& opt,
   // Form xdata and ydata. We don't bother removing the flagged invalid pixels.
   // xdata = aspect[common_mask].data
   // ydata = (diff[common_mask]/np.tan(np.deg2rad(slope[common_mask]))).data
-  vw::ImageView<vw::PixelMask<double>> xdata = copy(aspect);
-  vw::ImageView<vw::PixelMask<double>> ydata(src_warp.cols(), src_warp.rows());
+  vw::ImageView<vw::PixelMask<float>> xdata = copy(aspect);
+  vw::ImageView<vw::PixelMask<float>> ydata(src_warp.cols(), src_warp.rows());
   for (int col = 0; col < src_warp.cols(); col++) {
     for (int row = 0; row < src_warp.rows(); row++) {
       
@@ -496,7 +499,7 @@ void computeNuthOffset(Options const& opt,
   int numBins = 360;
   vw::Vector2 binRange(0.0, numBins);
 
-  // Bin counts
+  // Bin counts. Keep these are double as they are small.
   std::vector<double> bin_count, bin_edges, bin_centers;
   vw::binnedStatistics(xdata, ydata, "count", numBins, binRange, 
                        bin_count, bin_edges, bin_centers); // outputs  
@@ -568,7 +571,7 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
     return ecef_transform;
   
   // Load and prepare the data
-  vw::ImageView<vw::PixelMask<double>> ref, src;
+  vw::ImageView<vw::PixelMask<float>> ref, src;
   double ref_nodata = -std::numeric_limits<double>::max();
   double src_nodata = ref_nodata;
   vw::cartography::GeoReference ref_georef, src_georef;
@@ -580,7 +583,7 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   double median_diff = 0.0; // will be returned
   int iter = 1;
   double change_len = -1.0;
-  vw::ImageView<vw::PixelMask<double>> diff;
+  vw::ImageView<vw::PixelMask<float>> diff;
   
   while (1) {
     
