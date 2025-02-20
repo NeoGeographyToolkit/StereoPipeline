@@ -1460,7 +1460,6 @@ Next, SfS follows, using ``parallel_sfs`` (:numref:`parallel_sfs`)::
       --image-list ba_align_ref/run-image_list.txt   \
       --camera-list ba_align_ref/run-camera_list.txt \
       --shadow-threshold 0.005                       \
-      --bundle-adjust-prefix ba_align_ref/run        \
       --use-approx-camera-models                     \
       --crop-input-images                            \
       --blending-dist 10                             \
