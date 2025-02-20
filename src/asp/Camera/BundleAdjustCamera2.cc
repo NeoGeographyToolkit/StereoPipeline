@@ -1599,6 +1599,11 @@ void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
       param_storage.set_point_outlier(ipt, true);
       num_outliers_by_conv_angle++;
     }
+    
+    if (opt.max_triangulation_angle > 0 && max_angle > opt.max_triangulation_angle) {
+      param_storage.set_point_outlier(ipt, true);
+      num_outliers_by_conv_angle++;
+    }
   }
   
   int num_pts = param_storage.num_points();

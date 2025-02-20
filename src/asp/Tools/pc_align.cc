@@ -729,7 +729,7 @@ initial_transform_from_match_file(std::string const& ref_file,
                                   std::string const& source_file,
                                   std::string const& match_file,
                                   std::string const& hillshading_transform,
-                                  Vector2 initial_transform_ransac_params){
+                                  Vector2 initial_transform_ransac_params) {
   
   if (asp::get_cloud_type(ref_file) != "DEM" || asp::get_cloud_type(source_file) != "DEM")
     vw_throw(ArgumentErr() 

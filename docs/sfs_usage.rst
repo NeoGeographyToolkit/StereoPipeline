@@ -1557,7 +1557,10 @@ the DEMs, as created ``stereo_gui``::
 
 Another option is to use the Nuth and Kaab ``pc_align`` algorithm, as it can be
 more accurate than the default ``point-to-plane`` ICP method (:numref:`nuth`).
-That is available in the latest build (:numref:`release`).
+This is available in the latest build (:numref:`release`).
+
+Or, one can try to align based on dense correlation of hillshaded images
+(:numref:`pc_corr`).
 
 That alignment transform can then be applied to the full SfS DEM::
 

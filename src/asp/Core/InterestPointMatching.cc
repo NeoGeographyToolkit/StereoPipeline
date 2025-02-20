@@ -584,10 +584,10 @@ bool tri_ip_filtering(std::vector<ip::InterestPoint> const& matched_ip1,
     // Treat all points below the new cutoff_value as inliers
     std::list<size_t> filtered_indices;
     size_t c=0;
-    for (std::list<size_t>::iterator i = valid_indices.begin(); i != valid_indices.end(); i++) {
+    for (auto i = valid_indices.begin(); i != valid_indices.end(); i++) {
         if (error_samples[c] < cutoff_value)
           filtered_indices.push_back(*i);
-        ++c;
+        c++;
       }
     valid_indices = filtered_indices;
     return (!valid_indices.empty());

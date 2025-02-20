@@ -1318,12 +1318,9 @@ Command-line options
 --min-triangulation-angle <degrees (default: 0.1)>
     Filter as outlier any triangulation point for which all rays converging to
     it have an angle less than this (measured in degrees). This happens on
-    loading the match files and after each optimization pass. This should be used
-    cautiously with very uncertain input cameras.
-
---ip-triangulation-max-error <float>
-    When matching IP, filter out any pairs with a triangulation
-    error higher than this.
+    loading the match files and after each optimization pass. This should be
+    used cautiously with very uncertain input cameras. See also
+    ``--forced-triangulation-distance`` and ``--max-triangulation-angle``.
 
 --forced-triangulation-distance <meters>
     When triangulation fails, for example, when input cameras are inaccurate or
@@ -1538,6 +1535,16 @@ Command-line options
     transported by disparity to the right image differ by the
     projection of xyz in the right image by more than this value
     in pixels.
+
+--max-triangulation-angle <double (default: -1.0)>
+    Filter as outlier any triangulation points for which the maximum angle of
+    rays converging to it are more than this (measured in degrees). Set to a
+    positive value. See also ``--min-triangulation-angle``.
+    
+--ip-triangulation-max-error <float>
+    When matching IP, filter out any pairs with a triangulation error higher
+    than this. The triangulation error is the shortest distance between rays.
+    This gets used only when the usual triangulation error filtering fails.
 
 --flann-method <string (default = "auto")>
     Choose the FLANN method for matching interest points. Options: ``kmeans``:

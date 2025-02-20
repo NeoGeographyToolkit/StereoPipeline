@@ -183,6 +183,9 @@ transform between the clouds, which may or may not contain scale.
 
 This transform can be passed as an initial guess to the other alignment
 algorithms (:numref:`prevtrans`). See an example in :numref:`kh4_align`. 
+
+The related correlation-based alignment method is described in
+:numref:`pc_corr`.
  
 This functionality is implemented with ASP's ``hillshade``, ``ipfind``, and
 ``ipmatch`` tools. The ``pc_align`` options ``--hillshade-options``,
@@ -194,6 +197,53 @@ If the two clouds look too different for interest point matching to work, they
 perhaps can be re-gridded to use the same (coarser) grid, as described in
 :numref:`regrid`. The produced transform will be applicable to the original
 clouds.
+
+.. _pc_corr:
+
+Correlation-based alignment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Given two DEMs with the same grid size that look visually similar when
+hillshaded, the dense image correlation can be found between the hillshaded
+images, and that can be employed to align the clouds. That goes as follows.
+
+Hillshading happens with the ``hillshade`` program (:numref:`hillshade`)::
+
+    hillshade ref.tif -o ref_hill.tif
+    hillshade src.tif -o src_hill.tif
+
+Image correlation is performed (:numref:`correlator-mode`)::
+
+    parallel_stereo --correlator-mode    \
+      --ip-per-image 40000               \
+      ref_hill.tif src_hill.tif          \
+      --num-matches-from-disparity 40000 \
+      run_corr/run
+
+Stereo correlation can take a long time. It can be run over several nodes
+(:numref:`pbs_slurm`). The option ``--max-disp-spread`` can help with reducing
+the search range (:numref:`corr_section`). A value like 50 is likely adequate. 
+
+This produces a dense match file (:numref:`dense_ip`), that can 
+be passed to ``pc_align``::
+
+    matchFile=run_corr/run-disp-ref_hill__src_hill.match
+    pc_align                                     \
+      --max-displacement -1                      \
+      --num-iterations 0                         \
+      --max-num-reference-points 1000000         \
+      --match-file $matchFile                    \
+      --initial-transform-from-hillshading rigid \
+      --initial-transform-ransac-params 1000 3   \
+      --save-transformed-source-points           \
+      ref.tif src.tif                            \
+      -o run_align/run
+
+The resulting aligned cloud ``run_align/run-trans_source.tif`` can be regridded
+with ``point2dem`` and same grid size and projection as the input DEMs, and
+evaluate if it moved as expected. 
+
+The related method in :numref:`pc_hillshade` uses sparse features from hillshading.
 
 .. _pc_least_squares:
 

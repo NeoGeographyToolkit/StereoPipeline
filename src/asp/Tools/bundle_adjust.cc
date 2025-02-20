@@ -1348,6 +1348,9 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
       "it have an angle less than this (measured in degrees). This happens on "
       "loading the match files and after each optimization pass. This should be used "
       "cautiously with very uncertain input cameras.")
+    ("max-triangulation-angle", po::value(&opt.max_triangulation_angle)->default_value(-1.0),
+     "Filter as outlier any triangulation points for which the maximum angle of rays "
+     "converging to it are more than this (measured in degrees). Set to a positive value.")
     ("forced-triangulation-distance", po::value(&opt.forced_triangulation_distance)->default_value(-1),
      "When triangulation fails, for example, when input cameras are inaccurate, "
      "artificially create a triangulation point this far ahead of the camera, "

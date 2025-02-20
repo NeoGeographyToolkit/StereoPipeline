@@ -6,6 +6,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     applied to them (:numref:`rpc_and_ba`).
   * Added the option ``--min-distortion`` to ensure small distortion parameters
     get optimized.
+  * Added the option ``--max-triangulation-angle``.
   * Compensate for the images in the input nvm being potentially in different
     order than the images specified on the command line.  
   * The report file measuring statistics of registration errors on the ground
@@ -104,6 +105,8 @@ sfs (:numref:`sfs`):
 
 pc_align (:numref:`pc_align`):
   * Added the Nuth and Kaab algorithm (:numref:`nuth`).
+  * Added an example of how to use dense image correlation for alignment
+    (:numref:`pc_corr`).
   * Speed up the computation of shared bounding box and loading of source
     points.
 
