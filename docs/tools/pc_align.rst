@@ -111,20 +111,21 @@ If the translation between the point clouds is very large, see
 Nuth and Kaab
 ^^^^^^^^^^^^^
 
-The Nuth and Kaab alignment method (:cite:`nuth2011co`) can be subpixel-level
+The Nuth and Kaab alignment method (:cite:`nuth2011co`) can be sub-grid-size
 accurate. It is accessible with ``--alignment-method nuth``. The implementation
 is based on `dem_align.py  <https://github.com/dshean/demcoreg>`_.
 
 It is assumed that:
 
-  - The input clouds are dense and detailed DEMs
+  - The input clouds are dense and detailed DEMs with notable relief
   - The DEMs have a lot of overlap
   - The alignment transform is a pure translation in projected coordinates.
 
 If the last two assumptions do not hold, consider using a different alignment
-algorithm first (for example, :numref:`pc_hillshade` in combination with ICP).
-The resulting aligned source point cloud needs to be regridded with
-``point2dem``, and then the alignment further refined with this method.
+algorithm first (for example, feature-based alignment in combination with ICP,
+:numref:`pc_hillshade`). The resulting aligned source point cloud needs to be
+regridded with ``point2dem``, and then the alignment further refined with this
+method.
 
 The order of inputs should be so that the the reference DEM (the first input)
 has a grid size that is no bigger than of the second DEM. The second DEM
