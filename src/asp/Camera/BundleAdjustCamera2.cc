@@ -575,7 +575,7 @@ void read_image_cam_lists(std::string const& image_list,
 
     // Use the images as cameras if no camera list is provided. Sometimes the
     // images have camera information.
-    if (camera_list.empty())
+    if (!camera_list.empty())
       asp::read_list(camera_list, cameras);
     if (cameras.empty())
       cameras = images;
