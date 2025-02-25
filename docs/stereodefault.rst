@@ -56,7 +56,7 @@ epipolar-threshold <double (default: unspecified)>
     range estimate, try setting this value to a small number, perhaps
     in the low double digits.
 
-ip-inlier-factor <double (default: 1.0/15)>
+ip-inlier-factor <double (default: 0.2)>
     A higher factor will result in more interest points, but perhaps also more
     outliers and a bigger search range. It is important to note that this
     parameter overlaps somewhat in scope and effect with
@@ -256,8 +256,10 @@ datum (default = "")
     based on camera centers (for Earth, Mars, and Moon).
 
 no-datum
-    Do not assume a reliable datum exists, such as for irregularly
-    shaped bodies.
+    Do not assume a reliable datum exists, such as for irregularly shaped bodies
+    or when at the ground level. This is also helpful when the input cameras are
+    not very accurate, as the datum is used to do some camera-based filtering of
+    interest points.
 
 skip-rough-homography 
     Skip the step of performing datum-based rough homography if it
@@ -553,7 +555,7 @@ sgm-search-buffer (*integer integer*) (default = 4 4)
     but will increase the chance of blunders. It is not recommended to
     reduce either value below 2.
 
-corr-memory-limit-mb (*integer*) (default = 6144)
+corr-memory-limit-mb (*integer*) (default = 5120)
     Restrict the amount of memory used by the correlation step to be
     slightly above this value. This only really affects SGM/MGM which
     use a pair of large memory buffer in their computation. The total

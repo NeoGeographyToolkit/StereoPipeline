@@ -61,7 +61,7 @@ Command-line options for ``ortho2pinhle``:
       Don't create a camera model if fewer than this many interest point matches
       were found.
       
---ip-inlier-factor <double (default: 1.0/15.0)>
+--ip-inlier-factor <double (default: 0.2)>
       Interest points inlier factor.
       
 --individually-normalize

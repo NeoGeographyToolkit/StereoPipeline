@@ -266,11 +266,10 @@ bool StereoSession::ip_matching(std::string const& input_file1,
   } else { // No datum
     // Run a simpler purely image-based matching function
     double ip_inlier_factor = stereo_settings().ip_inlier_factor;
-    // Inlier factor is 1.0/15 by default in stereo, and 0.2 in bundle_adjust.
-    // The later is more tolerant of outliers.
-    // TODO(oalexan1): A threshold proportional to image diagonal, like in other
-    // places, make more sense.
-    int inlier_threshold = round(ip_inlier_factor*150.0);
+    // --ip-inlier-factor is 0.2 in bundle_adjust and stereo. 
+    // The default value below should be 200. Lower values were observed
+    // to filter too many inliers.
+    int inlier_threshold = round(1000.0 * ip_inlier_factor);
 
     // HACK: If the otherwise unused epipolar threshold is set, use it as
     // the inlier threshold.

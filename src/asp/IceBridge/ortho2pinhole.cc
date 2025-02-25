@@ -919,7 +919,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Interest point detection algorithm (0: Integral OBALoG, 1: OpenCV SIFT (default), 2: OpenCV ORB.")
     ("minimum-ip",             po::value(&opt.min_ip)->default_value(5),
      "Don't create a camera model if fewer than this many interest point matches were found.")
-    ("ip-inlier-factor",   po::value(&opt.ip_inlier_factor)->default_value(1.0/15.0),
+    ("ip-inlier-factor",   po::value(&opt.ip_inlier_factor)->default_value(0.2),
      "Interest points inlier factor.")
     ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
      "Individually normalize the input images instead of using common values.")

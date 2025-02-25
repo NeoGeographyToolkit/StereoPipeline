@@ -153,6 +153,9 @@ namespace asp {
     vw::Vector2 heights = asp::stereo_settings().ortho_heights;
     bool have_heights = (!std::isnan(heights[0]) && !std::isnan(heights[1]));
     
+    // TODO(oalexan1): When do not have heights, the dem_file must be non-empty
+    // and must exist.
+    
     // The DEM the user provided better be the one used for map projection.
     // Give an error, as the results can be very different with the wrong DEM.
     if (input_dem != dem_file && !asp::stereo_settings().accept_provided_mapproj_dem 

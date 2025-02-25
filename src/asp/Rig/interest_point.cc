@@ -1969,7 +1969,7 @@ void savePairwiseConvergenceAngles(// Inputs
   std::cout << "Writing: " << conv_angles_file << std::endl;
   std::ofstream ofs(conv_angles_file.c_str());
   ofs << "# Convergence angle percentiles (in degrees) for each image pair having matches\n";
-  ofs << "# left_image right_image 25% 50% 75% num_angles_per_pair\n";
+  ofs << "# left_image right_image 25% 50% 75% num_matches\n";
   ofs.precision(17);
   for (auto it = conv_angles.begin(); it != conv_angles.end(); it++) {
 

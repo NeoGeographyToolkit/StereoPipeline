@@ -150,6 +150,8 @@ dem_mosaic (:numref:`dem_mosaic`):
   * Can handle DEMs with NaN values.
 
 parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
+  * Set by default the number of processes per node to be a quarter of the
+    number of cores, and 4 threads per process.
   * Bugfix for load-balancing.
 
 orbit_plot (:numref:`orbit_plot`):
@@ -184,6 +186,8 @@ misc:
   * The ``geodiff`` program output image is with float pixels, rather than
     in double precision.
   * Have the OpenCV interest point detectors respect the ``--threads`` option.
+  * Have ``bundle_adjust`` and ``parallel_stereo`` use same
+    ``--ip-inlier-factor`` value by default.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------
@@ -1529,8 +1533,7 @@ bundle_adjust
    * Increased the default ``--num-ransac-iterations`` to 1000 from 100
      so that the solver tries harder to find a fit.
      Increased default ``--ip-inlier-factor`` from 1/15 to 0.2 to help
-     with getting more interest points for steep terrain with the
-     pinhole session.
+     with getting more interest points for steep terrain.
    * Increased the default ``--ip-uniqueness-threshold`` from 0.7 
      to 0.8 to allow for more interest points.
    * Option to filter interest points by elevation limit and lon-lat limit

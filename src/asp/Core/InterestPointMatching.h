@@ -209,8 +209,7 @@ void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
                        DETECT_IP_METHOD_ORB      = 2};
 
 /// Detect interest points
-/// This is not meant to be used directly. Use ip_matching() or
-/// homography_ip_matching().
+/// This is not meant to be used directly. Use ip_matching().
 void detect_ip(vw::ip::InterestPointList& ip,
                vw::ImageViewRef<float> const& image,
                int ip_per_tile, std::string const file_path, double nodata);

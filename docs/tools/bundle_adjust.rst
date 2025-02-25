@@ -304,8 +304,8 @@ camera. See :numref:`ba_options` for usage.
 
 When using hard constraints in bundle adjustment, caution should be exercised as
 they can impact the optimization process. It is not recommended to set
-uncertainties below 1 meter, as this may result in slow convergence or even
-failure to converge. It is better be generous with the uncertainties in either
+uncertainties below 1 - 10 meters, as this may result in slow convergence or even
+failure to converge. It is better to overestimate the uncertainties in either
 case.
 
 It is suggested to examine the camera change report
@@ -892,9 +892,12 @@ The file::
 will have the percentiles (25%, 50%, 75%, 85%, 95%) of these distances for each
 image against the rest, in meters.
 
-This is an advanced metric that is very helpful if the images are expected to be 
-well-registered to each other and to the DEM, and if the DEM is accurate.
-Consider inspecting first the files mentioned earlier in :numref:`ba_out_files`.
+Do *not* use this option for any initial evaluation of bundle adjustment. 
+Inspect instead the files mentioned earlier in :numref:`ba_out_files`. 
+
+This very advanced metric is only helpful if the images are expected to be 
+well-registered to each other and to the DEM, which is not the case without 
+explicit prior alignment. This also expects a rather accurate DEM.
 
 The 50th percentiles should be on the order of 1 GSD or less.
 
@@ -1285,7 +1288,7 @@ Command-line options
     and compute their distance, then percentiles of such distances for each
     image vs the rest and each image pair. This is done after bundle adjustment
     and outlier removal. Measured in meters. See :numref:`ba_mapproj_dem` for
-    more details.
+    more details. Not related to ``--mapprojected-data``.
 
 --csv-format <string>
     Specify the format of input CSV files as a list of entries
@@ -1413,10 +1416,10 @@ Command-line options
     obsolete option is ignored as is the default.
 
 --no-datum
-    Do not assume a reliable datum exists, such as for irregularly
-    shaped bodies or when at the ground level. This is also helpful
-    when the input cameras are not very accurate, as this option
-    is used to do some camera-based filtering of interest points.
+    Do not assume a reliable datum exists, such as for irregularly shaped bodies
+    or when at the ground level. This is also helpful when the input cameras are
+    not very accurate, as the datum is used to do some camera-based filtering of
+    interest points.
 
 --mapprojected-data <string>
     Given map-projected versions of the input images and the DEM they were
@@ -1487,8 +1490,9 @@ Command-line options
     If this option isn't given, it will default to an automatic determination.
 
 --ip-inlier-factor <double (default: 0.2)>
-    A higher factor will result in more interest points, but perhaps
-    also more outliers.
+    Inlier factor used to remove outliers with homography filtering and RANSAC.
+    A higher factor will result in more interest points, but perhaps also more
+    outliers.
 
 --ip-uniqueness-threshold <double (default: 0.8)>
     A higher threshold will result in more interest points, but

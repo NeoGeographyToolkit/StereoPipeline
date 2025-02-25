@@ -152,7 +152,7 @@ void compute_ip_LR(std::string const & out_prefix) {
   // be an issue with mapprojected images.
   // TODO(oalexan1): Must use everywhere a single choice of parameters
   // for ip matching with homography.
-  const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default
+  const int inlier_threshold = 1000.0 * thresh_factor; // 200 by default
   size_t number_of_jobs = 1;
   bool success = asp::homography_ip_matching(left_image, right_image,
                                         asp::stereo_settings().ip_per_tile,

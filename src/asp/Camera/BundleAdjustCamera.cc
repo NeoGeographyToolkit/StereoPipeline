@@ -1158,7 +1158,7 @@ void saveConvergenceAngles(std::string const& conv_angles_file,
   std::ofstream ofs (conv_angles_file.c_str());
   ofs.precision(8);
   ofs << "# Convergence angle percentiles (in degrees) for each image pair having matches\n";
-  ofs << "# left_image right_image 25% 50% 75% num_angles_per_pair\n";
+  ofs << "# left_image right_image 25% 50% 75% num_matches\n";
   for (size_t conv_it = 0; conv_it < convAngles.size(); conv_it++) {
     auto const & c = convAngles[conv_it]; // alias
     ofs << imageFiles[c.left_cam_index] << ' ' << imageFiles[c.right_cam_index] << ' '

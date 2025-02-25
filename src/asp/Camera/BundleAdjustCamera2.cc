@@ -572,15 +572,11 @@ void read_image_cam_lists(std::string const& image_list,
       camera_list.find(",") == std::string::npos) {
     // Single list, so just read the lists as usual, and return
     asp::read_list(image_list, images);
-    if (camera_list.empty()) {
-      // This is usual for ISIS cameras.
-      vw_out() << "An image list was provided but not a camera list.\n";
-    } else {
+
+    // Use the images as cameras if no camera list is provided. Sometimes the
+    // images have camera information.
+    if (camera_list.empty())
       asp::read_list(camera_list, cameras);
-    }
-    
-    // If there are no cameras, use the images instead. Hopefully they have
-    // embedded camera models.
     if (cameras.empty())
       cameras = images;
     

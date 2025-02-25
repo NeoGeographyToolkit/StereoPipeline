@@ -1138,7 +1138,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "If specified, mapproject every pair of matched interest points onto this DEM "
      "and compute their distance, then percentiles of such distances for each image "
      "vs the rest and each image pair. This is done after bundle adjustment "
-     "and outlier removal. Measured in meters.")
+     "and outlier removal. Measured in meters. Not related to --mapprojected-data.")
     ("weight-image", po::value(&opt.weight_image)->default_value(""),
      "Given a georeferenced image with float values, for each initial triangulated "
      "point find its location in the image and closest pixel value. Multiply the "
@@ -1170,7 +1170,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("epipolar-threshold",      po::value(&opt.epipolar_threshold)->default_value(-1),
      "Maximum distance from the epipolar line to search for IP matches. Default: automatic calculation. A higher values will result in more matches.")
     ("ip-inlier-factor",        po::value(&opt.ip_inlier_factor)->default_value(0.2),
-     "A higher factor will result in more interest points, but perhaps also more outliers. This is used only with homography alignment, such as for the pinhole session.")
+     "A higher factor will result in more interest points, but perhaps also more outliers.")
     ("ip-uniqueness-threshold", po::value(&opt.ip_uniqueness_thresh)->default_value(0.8),
      "A higher threshold will result in more interest points, but perhaps less unique ones.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1),
@@ -2160,9 +2160,8 @@ void matches_from_mapproj_images(int i, int j,
   vw_out() << "Reading georef from " << map_files[i] << ' ' << map_files[j] << std::endl;
   bool is_good1 = vw::cartography::read_georeference(georef1, map_files[i]);
   bool is_good2 = vw::cartography::read_georeference(georef2, map_files[j]);
-  if (!is_good1 || !is_good2) {
+  if (!is_good1 || !is_good2)
     vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
-  }
 
   std::string image1_path  = opt.image_files[i];
   std::string image2_path  = opt.image_files[j];
@@ -2620,10 +2619,14 @@ int main(int argc, char* argv[]) {
           map_files.push_back(file);
       }
       if (!opt.mapprojected_data.empty()) {
-        if (opt.camera_models.size() + 1 != map_files.size())
+        
+        // TODO(oalexan1): Allow here an empty mapprojected DEM, to be read
+        // later from individual images. This would however need changes
+        // in read_mapproj_header and other places.        
+        if (opt.image_files.size() + 1 != map_files.size())
           vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
-                   << "cameras, and also a DEM.\n");
-        // Pull out the dem from the list and create the interp_dem
+            << "cameras, and potentially a DEM at the end of the mapprojected list.\n");
+        // Pull out the dem from the list. Could be empty.
         mapproj_dem = map_files.back();
         map_files.erase(map_files.end() - 1);
       }

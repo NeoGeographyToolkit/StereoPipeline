@@ -330,11 +330,13 @@ rough_homography_fit(camera::CameraModel* cam1,
   if (left_points.empty() || right_points.empty())
     vw_throw(ArgumentErr() << "InterestPointMatching: rough_homography_fit failed to generate points! Examine your images, or consider using the options --skip-rough-homography and --no-datum.\n");
 
-  // This number is 1/15 by default in stereo, and 0.2 in bundle_adjust. The
-  // latter is more tolerant of outliers, but for stereo this can result in a
-  // huge search range for disparity, which is not good.
+  // The --ip-inlier-factor is 0.2 by default in stereo and bundle_adjust. 
+  // This results in inlier_th = 0.1 * diagonal. May be too high for large images,
+  // but the rough homography is well-behaved, since it uses cameras, and not
+  // interest points, so it should be fine.
   double thresh_factor = stereo_settings().ip_inlier_factor;
-  double inlier_th = norm_2(Vector2(box1.width(),box1.height())) * (1.5*thresh_factor);
+  double inlier_th = norm_2(Vector2(box1.width(), box1.height())) * (0.5 * thresh_factor);
+  inlier_th = std::max(inlier_th, 30.0); // don't allow it to be too small
 
   int min_inliers = left_points.size()/2;
   bool reduce_num_if_no_fit = true;
@@ -388,7 +390,7 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   // related places a constant factor is used, like 30. Need to make that
   // uniform.
   double thresh_factor = stereo_settings().ip_inlier_factor;
-  double inlier_th = norm_2(Vector2(left_size.x(),left_size.y())) * (1.5*thresh_factor);
+  double inlier_th = norm_2(Vector2(left_size.x(),left_size.y())) * (0.5*thresh_factor);
 
   // When determining matches per tile, a loose threshold can result in inaccurate
   // determination of the homography. We'd rather have it accurate here and throw
@@ -397,7 +399,7 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   if (tight_inlier_threshold) {
     inlier_th = std::min(0.05*norm_2(Vector2(left_size.x(),left_size.y())), inlier_th);
     inlier_th = std::min(inlier_th, 200.0);
-    inlier_th = std::max(inlier_th, 5.0);
+    inlier_th = std::max(inlier_th, 50.0);
   }
 
   int min_inliers = left_copy.size()/2;
@@ -1223,7 +1225,6 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
                             vw::BBox2i const& bbox2) {
 
   vw_out() << "\t--> Matching interest points using homography.\n";
-
   // See if to restrict cropping to smaller regions
   vw::ImageViewRef<float> local_image1 = image1;
   vw::ImageViewRef<float> local_image2 = image2;
