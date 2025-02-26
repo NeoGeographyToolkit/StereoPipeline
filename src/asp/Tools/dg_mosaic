@@ -644,6 +644,8 @@ def main():
             parser.add_option("--cache-size", dest="cache_size", type="int",
                               default=1024,
                               help="Set the system cache size, in MB, for each process.")
+            parser.add_option("--threads", dest="threads", type="int", default=4,
+                              help="How many threads to use.")
             parser.add_option("--band", dest="band", type="int",
                               help="Which band to use (for multi-spectral images).")
             parser.add_option("--input-nodata-value", dest="input_nodata_value", type="float",
@@ -692,15 +694,17 @@ def main():
 
         except optparse.OptionError as msg:
             raise Usage(msg)
-
+    
         if options.output_prefix == "":
             options.output_prefix = args[0].split('-')[-1].split('.')[0]
         if options.output_prefix == "":
             die('\nERROR: Empty output prefix. Please set it via the ' + \
                 '--output-prefix option', code=2)
         out_dir=os.path.dirname(options.output_prefix)
-        if len(out_dir)==0: out_dir='.'
-        if not os.path.exists(out_dir): os.makedirs(out_dir)
+        if len(out_dir)==0: 
+            out_dir='.'
+        if not os.path.exists(out_dir): 
+            os.makedirs(out_dir)
 
         # Read these fields from each XML, and then find the average
         # or min or max value for each field.
@@ -1047,7 +1051,7 @@ def main():
 
             tif_file = options.output_prefix + suffix + ".tif";
             mosaic_cmd = "tif_mosaic"
-            mosaic_args = ['--threads', str(4),
+            mosaic_args = ['--threads', str(options.threads),
                            '--cache-size', str(options.cache_size),
                            '--output-image', tif_file,
                            '--ot', options.output_type,

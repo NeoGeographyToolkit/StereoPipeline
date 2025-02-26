@@ -77,6 +77,9 @@ Command-line options for dg_mosaic:
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB, for each process.
 
+--threads <integer (default: 4)>
+    How many threads to use.
+    
 --band integer
     Which band to use (for multi-spectral images).
 
