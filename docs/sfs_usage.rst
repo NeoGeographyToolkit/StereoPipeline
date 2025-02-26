@@ -1190,14 +1190,18 @@ and then apply this alignment to the cameras.
 Examine the file having the stereo convergence angles for each pair of images as
 produced by bundle adjustment (:numref:`ba_conv_angle`). Eliminate those with a
 convergence angle of under 10 degrees or so, and sort the rest in decreasing
-number of matches (if not enough pairs left, can decrease this angle to 5
+number of matches (if not enough pairs left, can decrease this angle to 3 - 5
 degrees).
 
-Produce a few dozen stereo DEMs. It is very important that the camera
-adjustments created so far are used in stereo, by passing them via
-``--bundle-adjust-prefix``. Or, with CSM cameras, can use the latest optimized
-cameras instead, without the ``--bundle-adjust-prefix`` option. Stereo with
-mapprojected images is preferable (:numref:`mapproj-example`).
+Produce 30 - 100 stereo DEMs from the stereo pairs with
+non-small convergence angles. These must *cover well* the full site, even if
+there are missing areas in between. This helps with consistent alignment. 
+
+It is very important that the camera adjustments created so far are used in
+stereo, by passing them via ``--bundle-adjust-prefix``. Or, with CSM cameras,
+can use the latest optimized cameras instead, without the
+``--bundle-adjust-prefix`` option. Stereo with mapprojected images is preferable
+(:numref:`mapproj-example`).
 
 So, the stereo command can look as follows::
 
@@ -1221,10 +1225,14 @@ average should not be more than 1 meter.
 The created DEMs can be mosaicked with ``dem_mosaic``
 (:numref:`dem_mosaic`) as::
 
-    dem_mosaic -o stereo_mosaic.tif dem1.tif dem2.tif ...
+    dem_mosaic -o stereo_mosaic.tif --dem-list stereo_dem_list.txt
 
-The ``geodiff`` program (:numref:`geodiff`) can help inspect how well the
-individual DEMs agree with their mosaic. This can help catch problems early.
+It is strongly suggested to use the ``geodiff`` program (:numref:`geodiff`) to
+inspect how well the individual DEMs agree with their mosaic. This can help
+catch problems early.
+
+Overlay and inspect the produced stereo DEM mosaic and the reference DEM in
+``stereo_gui``. 
 
 Align the mosaicked DEM to the initial LOLA terrain in ``ref.tif``
 using ``pc_align`` (:numref:`pc_align`)::
@@ -1251,9 +1259,11 @@ and grid size as before.
 
 This DEM should be hillshaded and overladed on top of the LOLA DEM and
 see if there is any noticeable shift, which would be a sign of
-alignment not being successful. The ``geodiff`` tool can be used to
-examine any discrepancy among the two (:numref:`geodiff`), followed by
-``colormap`` (:numref:`colormap`) and inspection in ``stereo_gui``.
+alignment not being successful. 
+
+The ``geodiff`` tool should be used to examine any discrepancy among the two
+(:numref:`geodiff`), followed by ``colormap`` (:numref:`colormap`) and
+inspection in ``stereo_gui``.
 
 If happy with the results, the alignment transform can be applied
 to the cameras. With CSM cameras, that goes as follows::
@@ -1308,7 +1318,6 @@ in bundle adjustment (:numref:`heights_from_dem`)::
       --save-intermediate-cameras                 \
       --heights-from-dem ref.tif                  \
       --heights-from-dem-uncertainty 10.0         \
-      --heights-from-dem-robust-threshold 0.1     \
       --mapproj-dem ref.tif                       \
       --remove-outliers-params "75.0 3.0 100 100" \
       --match-first-to-last                       \
@@ -1327,11 +1336,9 @@ misregistered images (see below).
 The switch ``--save-intermediate cameras`` is helpful, as before, if
 desired to stop if things take too long.
 
-The value used for ``--heights-from-dem-uncertainty`` may need some
-experimentation. A good range is likely 2 - 10 meters. Making it very small may
-result in a tight coupling to the reference DEM at the expense of
-self-consistency between the cameras. Yet making it too high may not constrain
-sufficiently the cameras to the ground. See also :numref:`heights_from_dem`.
+The value used for ``--heights-from-dem-uncertainty`` should not be small, as it
+may result in a tight coupling to the reference DEM at the expense of
+self-consistency between the cameras. See also :numref:`heights_from_dem`.
 
 .. _sfs_registration_validation:
 
@@ -1363,22 +1370,19 @@ images. Bundle adjustment created a report file with the name::
 
      ba_align_ref/run-mapproj_match_offset_stats.txt
 
-which greatly simplifies this job. See :numref:`ba_mapproj_dem` for
-its description.
+which greatly simplifies this job. This file shows how much each mapprojected
+image disagrees with the rest, in meters. See :numref:`ba_mapproj_dem` for
+details.
 
-This file shows how much each mapprojected image disagrees with the rest, in
-meters. 
+Images with low count in this report can be thrown out. If the 85th percentile
+of registration errors for an image is over 1.5 meters (assuming a 1 meter
+ground resolution), it likely registered badly. Those can be deprioritized.
 
-Images with too few matches (say under 100), should be thrown out. If
-the 85th percentile of registration errors for an image is over 1.5
-meters (assuming a 1 meter ground resolution), it likely registered
-badly. Those can be thrown out too.
-
-However, the more images are eliminated, the more one risks loss of
-coverage. It is suggested to sort the images in increasing order of
-these percentiles, and create a few candidate sets, with each set
-having a different threshold for what is considered an acceptable
-registration error. For example, use cutoffs of 1.25 m, 1.5 m, 1.75 m.
+The more images are eliminated, the more one risks loss of coverage. It is
+suggested to sort the images in increasing order of 85th percentile of
+misregistration error, and create a few candidate sets, with each set having a
+different threshold for what is considered an acceptable registration error. For
+example, use cutoffs of 1.25 m, 1.5 m, 1.75 m.
 
 Create the maximally lit mosaic for each of these and overlay them
 in ``stereo_gui``. Inspect them carefully. Choose the set which

@@ -890,7 +890,7 @@ The file::
     {output-prefix}-mapproj_match_offset_stats.txt
 
 will have the percentiles (25%, 50%, 75%, 85%, 95%) of these distances for each
-image against the rest, in meters.
+image against the rest, in meters, and their count.
 
 Do *not* use this option for any initial evaluation of bundle adjustment. 
 Inspect instead the files mentioned earlier in :numref:`ba_out_files`. 
