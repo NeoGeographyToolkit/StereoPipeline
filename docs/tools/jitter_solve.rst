@@ -710,11 +710,11 @@ was used (``-t rpc``).
 Stereo
 ^^^^^^
 
-Stereo was done with the ``asp_mgm`` algorithm. It was very important
-to use ``--subpixel-mode 9``. Using ``--subpixel-mode 1`` was
-resulting in subpixel artifacts which were dominating the jitter. Mode
-3 (or 2) would have worked as well but it is a lot slower. It also appears
-that it is preferable to use mapprojected images than some other
+Stereo was done with the ``asp_mgm`` algorithm. It was very important to use
+``--subpixel-mode 1``. Using ``--subpixel-mode 9`` could not resolve jitter as
+well. Subpixel mode 3 (or 2) would have worked as well but it is a lot slower. 
+
+It also appears that it is preferable to use mapprojected images than some other
 alignment methods as those would result in more subpixel artifacts which would
 obscure the jitter signal which we will solve for.
 
@@ -731,10 +731,11 @@ created (:numref:`jitter_ip`), to be used later to solve for jitter.
       --nodes-list nodes_list.txt                  \
       --ip-per-image 10000                         \
       --stereo-algorithm asp_mgm                   \
-      --subpixel-mode 9                            \
+      --subpixel-mode 1                            \
       --processes 6                                \
       --alignment-method none                      \
       --num-matches-from-disparity 60000           \
+      --bundle-adjust-prefix ba/run                \
       --keep-only '.exr L.tif F.tif PC.tif .match' \
       1.map.tif 2.map.tif 1.xml 2.xml              \
       run_1_2_map/run                              \
