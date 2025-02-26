@@ -236,6 +236,7 @@ namespace asp {
 
     vw::Vector2 heights = asp::stereo_settings().ortho_heights;
     bool have_heights = (!std::isnan(heights[0]) && !std::isnan(heights[1]));
+    
     if (have_heights) {
       // For ortho-ready images it is assumed the mapprojection was done
       // with the original cameras and no bundle adjustment prefix was used.
@@ -243,6 +244,12 @@ namespace asp {
       r_cam_file = right_camera_file;
       l_cam_type = session_name;
       r_cam_type = session_name;
+      
+      // If not having cameras, use the images
+      if (l_cam_file == "")
+        l_cam_file = left_image_file;
+      if (r_cam_file == "")
+        r_cam_file = right_image_file;
     } else {
       // Load the name of the camera model, session, and DEM used in mapprojection
       // based on the record in that image. Load the bundle adjust prefix from the

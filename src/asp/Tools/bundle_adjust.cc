@@ -2625,7 +2625,7 @@ int main(int argc, char* argv[]) {
         // in read_mapproj_header and other places.        
         if (opt.image_files.size() + 1 != map_files.size())
           vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
-            << "cameras, and potentially a DEM at the end of the mapprojected list.\n");
+            << "cameras and a DEM at the end of the mapprojected list.\n");
         // Pull out the dem from the list. Could be empty.
         mapproj_dem = map_files.back();
         map_files.erase(map_files.end() - 1);
