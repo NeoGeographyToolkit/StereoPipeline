@@ -692,15 +692,13 @@ understood by careful reading of your provider's documents.
    Example colorized height map and ortho image output.
 
 A DigitalGlobe/Maxar camera file contains both an exact (linescan) camera
-model and an approximate RPC camera model. For a long time ASP preferred
-to use the RPC model for mapprojection, as it was much faster than the exact
-model. 
+model and an approximate RPC camera model.
 
-With ASP 3.4.0, the exact model has been greatly sped up, and any of these
-models can be used for mapprojection. Triangulation will happen either way with
-the exact model. 
-
-In this example, we use the RPC model for mapprojection (``-t rpc``).
+In this example, we use the RPC model for mapprojection (``-t rpc``). In recent
+ASP the exact linescan model is almost as fast and can be used instead (``-t
+dg``). Triangulation will happen either way with the exact model. Mapprojection
+does not need the precise model as it can be seen as a form of
+orthorectification that is undone when needed.
 
 It is *strongly suggested* to use a local projection for the mapprojection,
 especially around poles, as there the default longitude-latitude

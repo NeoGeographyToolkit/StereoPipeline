@@ -131,7 +131,7 @@ Smoothness constraint
 
 The option ``--smoothness-weight`` constraints how much each sequence of
 linescan poses can change in curvature relative to the initial values. 
-More details are in :numref:`jitter_options`.
+This can prevent convergence. More details are in :numref:`jitter_options`.
 
 Resampling the poses
 ~~~~~~~~~~~~~~~~~~~~
@@ -695,13 +695,17 @@ Mapprojection of the two images (:numref:`mapproj-example`)::
 
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
     for i in 1 2; do
-      mapproject -t rpc                         \
+      mapproject -t dg                          \
       --nodes-list nodes_list.txt               \
       --tr 0.4                                  \
       --t_srs "$proj"                           \
       --bundle-adjust-prefix ba/run             \
       ref.tif ${i}.tif ${i}.xml ${i}.map.ba.tif
     done
+
+Here the exact cameras were used for mapprojection (option ``-t dg``). In
+earlier versions of ASP this was slow, and the faster RPC model
+was used (``-t rpc``). 
 
 Stereo
 ^^^^^^
@@ -723,7 +727,6 @@ created (:numref:`jitter_ip`), to be used later to solve for jitter.
 ::
 
     parallel_stereo                                \
-      -t dgmaprpc                                  \
       --max-disp-spread 100                        \
       --nodes-list nodes_list.txt                  \
       --ip-per-image 10000                         \
@@ -1369,8 +1372,9 @@ Then, ``jitter_solve`` can be used to solve for the jitter. It can be invoked
 with the images not having jitter and the cameras having the jitter. 
 
 It is suggested to use the roll and yaw constraints (``--roll-weight`` and
-``--yaw-weight``, with values on the order of 1e+5), to keep these angles in
-check while correcting the pitch jitter.
+``--yaw-weight``, with values on the order of 1e+4), to keep these angles in
+check while correcting the pitch jitter. Note that with non-synthetic cameras,
+need to add the ``--initial-camera-constraint`` option.
 
 The ``--heights-from-dem`` option should be used as well, to tie the solution to
 the reference DEM. 
@@ -1592,6 +1596,7 @@ ensure movement only for the pitch angle::
         -o jitter_solve/run
 
 The value of ``--heights-from-dem-uncertainty`` should be chosen with care.
+For non-synthetic cameras, need to add the option ``--initial-camera-constraint``.
 
 We used ``--max-pairwise-matches 3000`` as the linescan camera has many
 matches with each frame camera image, and there are many such frame camera
@@ -2199,8 +2204,9 @@ Command-line options for jitter_solve
     A file having on each line the image name and the horizontal and vertical
     camera position uncertainty (1 sigma, in meters). This strongly constrains
     the movement of cameras to within the given values, potentially at the
-    expense of accuracy. See :numref:`ba_cam_constraints` for details. 
-    See also ``--camera-position-uncertainty-power``.
+    expense of accuracy. It is better to overestimate these. See
+    :numref:`ba_cam_constraints` for details. See also
+    ``--camera-position-uncertainty-power``.
     
 --camera-position-uncertainty-power <double (default: 2.0)>
     A higher value makes the cost function rise more steeply when
@@ -2239,9 +2245,10 @@ Command-line options for jitter_solve
 
 --yaw-weight <double (default: 0.0)>
     A weight to penalize the deviation of camera yaw orientation as measured
-    from the along-track direction. Pass in a large value, such as 1e+5. This is
+    from the along-track direction. Pass in a large value, such as 1e+4. This is
     best used only with linescan cameras created with ``sat_sim``
-    (:ref:`sat_sim`). 
+    (:ref:`sat_sim`). With non-synthetic cameras, add the
+    ``--initial-camera-constraint`` option.
 
 --initial-camera-constraint
     When constraining roll and yaw, measure these not in the satellite
