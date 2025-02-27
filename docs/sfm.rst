@@ -94,6 +94,11 @@ First, download with ``wget`` the two images at::
   http://apollo.sese.asu.edu/data/metric/AS15/png/AS15-M-0114_MED.png
   http://apollo.sese.asu.edu/data/metric/AS15/png/AS15-M-0115_MED.png
 
+Convert these to TIF::
+
+  gdal_translate AS15-M-0114_MED.png AS15-M-0114_MED.tif
+  gdal_translate AS15-M-0115_MED.png AS15-M-0115_MED.tif
+
 .. figure:: images/examples/pinhole/AS15-M-combined.png
    :name: pinhole-a15-input-images
 
@@ -148,7 +153,7 @@ up nicely with the center of the image. Before we try to solve for the
 camera positions we can run a simple tool to check the quality of our
 camera model file::
 
-   undistort_image AS15-M-0114_MED.png metric_model.tsai \
+   undistort_image AS15-M-0114_MED.tif metric_model.tsai \
      -o corrected_414.tif
 
 It is difficult to tell if the distortion model is correct by using this
@@ -171,7 +176,7 @@ Creation of cameras in an arbitrary coordinate system
 If we do not see any obvious problems we can go ahead and run the
 ``camera_solve`` tool::
 
-    camera_solve out/ AS15-M-0114_MED.png AS15-M-0115_MED.png \
+    camera_solve out/ AS15-M-0114_MED.tif AS15-M-0115_MED.tif \
       --theia-overrides '--matching_strategy=CASCADE_HASHING' \
       --datum D_MOON --calib-file metric_model.tsai
 
@@ -226,7 +231,7 @@ This may not be as robust as the earlier approach. Consider the option
 Solving for cameras when using GCP::
 
     camera_solve out_gcp/                                     \
-      AS15-M-0114_MED.png AS15-M-0115_MED.png                 \
+      AS15-M-0114_MED.tif AS15-M-0115_MED.tif                 \
       --datum D_MOON --calib-file metric_model.tsai           \
       --theia-overrides '--matching_strategy=CASCADE_HASHING' \
       --gcp-file ground_control_points.gcp
@@ -250,10 +255,10 @@ Running stereo
 ::
 
     parallel_stereo                          \
-      AS15-M-0114_MED.png                    \
-      AS15-M-0115_MED.png                    \
-      out_gcp/AS15-M-0114_MED.png.final.tsai \
-      out_gcp/AS15-M-0115_MED.png.final.tsai \
+      AS15-M-0114_MED.tif                    \
+      AS15-M-0115_MED.tif                    \
+      out_gcp/AS15-M-0114_MED.tif.final.tsai \
+      out_gcp/AS15-M-0115_MED.tif.final.tsai \
       -t pinhole                             \
       --skip-rough-homography                \
       --stereo-algorithm asp_mgm             \
