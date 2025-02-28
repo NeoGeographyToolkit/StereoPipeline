@@ -236,14 +236,12 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 
 } // End function detect_match_ip
 
-void check_homography_matrix(Matrix<double>       const& H,
-                             std::vector<Vector3> const& left_points,
-                             std::vector<Vector3> const& right_points,
-                             std::vector<size_t>  const& indices) {
+void check_homography_matrix(Matrix<double> const& H,
+                             int left_size, int right_size, int num_inliers) {
 
   // Sanity checks. If these fail, most likely the two images are too different
   // for stereo to succeed.
-  if (indices.size() < std::min(right_points.size(), left_points.size())/2) {
+  if (num_inliers < std::min(left_size, right_size)/2) {
     vw_out(WarningMessage) << "InterestPointMatching: The number of inliers is less "
                            << "than 1/2 of the number of points. The inputs may be invalid.\n";
   }
@@ -357,7 +355,7 @@ rough_homography_fit(camera::CameraModel* cam1,
 
   Matrix<double> H = ransac(right_points, left_points);
   std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
-  check_homography_matrix(H, left_points, right_points, indices);
+  check_homography_matrix(H, left_points.size(), right_points.size(), indices.size());
   vw_out() << "Number of inliers: " << indices.size() << ".\n";
 
   sw.stop();
@@ -366,8 +364,51 @@ rough_homography_fit(camera::CameraModel* cam1,
   return H;
 }
 
-// TODO(oalexan1): Integrate filter_ip_homog() and homography_rectification().
-// Ensure the same parameters are used in both.
+// Filter ip with homography. This is a wrapper around RANSAC.
+void filter_ip_homog(std::vector<vw::ip::InterestPoint> const& ip1_in,
+                     std::vector<vw::ip::InterestPoint> const& ip2_in,
+                     double inlier_th,
+                     // Outputs
+                     vw::Matrix<double> & H,
+                     std::vector<size_t> & indices) {
+
+  // Initialize the outputs
+  H.set_identity();
+  indices.clear();
+  
+  vw::vw_out() << "\t    Filtering interest point matches using homography.\n";
+  try {
+
+    std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(ip1_in),
+      ransac_ip2 = iplist_to_vectorlist(ip2_in);
+
+    int min_inliers = ransac_ip1.size()/2;
+    bool reduce_num_if_no_fit = true;
+
+    vw_out() << "\t    Homography ip filter inlier threshold: " << inlier_th << "\n";
+    vw_out() << "\t    RANSAC iterations:                     "
+             << stereo_settings().ip_num_ransac_iterations << "\n";
+
+    typedef math::RandomSampleConsensus<math::HomographyFittingFunctor,
+      math::InterestPointErrorMetric> RansacT;
+    RansacT ransac(math::HomographyFittingFunctor(),
+                   math::InterestPointErrorMetric(),
+                   stereo_settings().ip_num_ransac_iterations,
+                   inlier_th,
+                   min_inliers, reduce_num_if_no_fit);
+    H = ransac(ransac_ip2, ransac_ip1); // 2 then 1 is used here for legacy reasons
+    indices = ransac.inlier_indices(H, ransac_ip2, ransac_ip1);
+    vw::vw_out() << "Homography matrix:\n" << H << "\n";
+    vw_out() << "Number of inliers: " << indices.size() << ".\n";
+  } catch (const math::RANSACErr& e) {
+    vw_out() << "RANSAC failed: " << e.what() << "\n";
+    return;
+  }
+
+}
+
+// Compute the homography matrix (in right_matrix). The left matrix
+// will have a translation corresponding to a crop.
 Vector2i homography_rectification(bool adjust_left_image_size,
                                   bool tight_inlier_threshold,
                                   Vector2i const& left_size,
@@ -376,10 +417,6 @@ Vector2i homography_rectification(bool adjust_left_image_size,
                                   std::vector<ip::InterestPoint> const& right_ip,
                                   vw::Matrix<double>& left_matrix,
                                   vw::Matrix<double>& right_matrix) {
-
-  // Reformat the interest points for RANSAC
-  std::vector<Vector3>  right_copy = iplist_to_vectorlist(right_ip),
-    left_copy  = iplist_to_vectorlist(left_ip);
 
   // This number is 1/15 by default in stereo, and 0.2 in bundle_adjust. The
   // latter is more tolerant of outliers, but for stereo this can result in a
@@ -402,39 +439,17 @@ Vector2i homography_rectification(bool adjust_left_image_size,
     inlier_th = std::max(inlier_th, 50.0);
   }
 
-  int min_inliers = left_copy.size()/2;
-  bool reduce_num_if_no_fit = true;
-
-  vw_out() << "\t    Homography rectification inlier threshold: " << inlier_th << "\n";
-  vw_out() << "\t    RANSAC iterations:                         "
-           << stereo_settings().ip_num_ransac_iterations << "\n";
-
-  // Use RANSAC to determine a good homography transform between the images
-  math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric>
-    ransac(math::HomographyFittingFunctor(),
-            math::InterestPointErrorMetric(),
-            stereo_settings().ip_num_ransac_iterations,
-            inlier_th, min_inliers, reduce_num_if_no_fit);
-  Matrix<double> H;
-  try {
-    H = ransac(right_copy, left_copy);
-  } catch (std::exception const& e) {
-    vw_throw(ArgumentErr() << "Failed to find a homography matrix. "
-             << "Check if your left and right images are similar enough. "
-             << "Consider deleting the output directory and restarting with "
-             << "a larger --ip-per-tile value.\n"
-             << "RANSAC error: " << e.what() << "\n");
-  }
-  std::vector<size_t> indices = ransac.inlier_indices(H, right_copy, left_copy);
-  vw::vw_out() << "Homography matrix:\n" << H << "\n";
-  vw_out() << "Number of inliers: " << indices.size() << ".\n";
-
+ Matrix<double> H;
+ std::vector<size_t> indices;
+ filter_ip_homog(left_ip, right_ip, inlier_th, 
+                 H, indices); // outputs
+  
   // TODO(oalexan1): A percentile-based filter may help here, after finding
   // the inliers. It should be based on estimating H * right - left.
   // That because the inlier threshold is kind of arbitrary.
   // If outliers are found, need to recompute H based on inliers, which is quick.
 
-  check_homography_matrix(H, left_copy, right_copy, indices);
+  check_homography_matrix(H, left_ip.size(), right_ip.size(), indices.size());
 
   // Set right to a homography that has been refined just to our inliers.
   // May be adjusted with a translation below.
@@ -929,61 +944,6 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
   ip2.resize(count);
 }
 
-// TODO(oalexan1): Integrate filter_ip_homog() and homography_rectification().
-// Ensure the same parameters are used in both.
-size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
-                       std::vector<ip::InterestPoint> const& ip2_in,
-                       std::vector<ip::InterestPoint>      & ip1_out,
-                       std::vector<ip::InterestPoint>      & ip2_out,
-                       int inlier_threshold) {
-
-  vw::vw_out() << "Filtering interest point matches using homography.\n";
-  std::vector<size_t> indices;
-  Matrix<double> H;
-  Stopwatch sw;
-  sw.start();
-  try {
-
-    std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(ip1_in),
-      ransac_ip2 = iplist_to_vectorlist(ip2_in);
-
-    vw_out() << "\t    Homography ip filter inlier threshold: " << inlier_threshold << "\n";
-    vw_out() << "\t    RANSAC iterations:                     "
-             << stereo_settings().ip_num_ransac_iterations << "\n";
-    typedef math::RandomSampleConsensus<math::HomographyFittingFunctor,
-      math::InterestPointErrorMetric> RansacT;
-    int min_inliers = ransac_ip1.size()/2;
-    bool reduce_num_if_no_fit = true;
-    RansacT ransac(math::HomographyFittingFunctor(),
-                   math::InterestPointErrorMetric(),
-                   stereo_settings().ip_num_ransac_iterations,
-                   inlier_threshold,
-                   min_inliers, reduce_num_if_no_fit);
-    H = ransac(ransac_ip2, ransac_ip1); // 2 then 1 is used here for legacy reasons
-    indices = ransac.inlier_indices(H, ransac_ip2, ransac_ip1);
-    vw::vw_out() << "Homography matrix:\n" << H << "\n";
-    vw_out() << "Number of inliers: " << indices.size() << ".\n";
-  } catch (const math::RANSACErr& e) {
-    vw_out() << "RANSAC failed: " << e.what() << "\n";
-    return false;
-  }
-  sw.stop();
-  vw_out() << "RANSAC time: " << sw.elapsed_seconds() << " seconds.\n";
-
-  // Assemble the remaining interest points
-  const size_t num_left = indices.size();
-  std::vector<ip::InterestPoint> final_ip1, final_ip2;
-  ip1_out.resize(num_left);
-  ip2_out.resize(num_left);
-  for (size_t i = 0; i < num_left; i++) {
-    size_t index = indices[i];
-    ip1_out[i] = ip1_in[index];
-    ip2_out[i] = ip2_in[index];
-  }
-
-  return num_left;
-}
-
 // Filter IP using a given DEM and max height difference.  Assume that
 // the interest points have alignment applied to them (either via a
 // transform or from mapprojection).
@@ -1260,12 +1220,25 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
   }
 
   // Filter the interest points using a homography constraint
-  std::vector<ip::InterestPoint> final_ip1, final_ip2;
-  size_t num_left = filter_ip_homog(matched_ip1, matched_ip2, final_ip1, final_ip2,
-                                    inlier_threshold);
+  Stopwatch sw;
+  sw.start();
+  Matrix<double> H;
+  std::vector<size_t> indices;
+  filter_ip_homog(matched_ip1, matched_ip2, inlier_threshold, 
+                  H, indices); // outputs
+  sw.stop();
+  vw_out() << "Filtering time: " << sw.elapsed_seconds() << " seconds.\n";
+  int num_left = indices.size();
   if (num_left == 0)
     return false;
 
+  // Form the filtered interest points
+  std::vector<ip::InterestPoint> final_ip1(num_left), final_ip2(num_left);
+  for (size_t i = 0; i < num_left; i++) {
+    final_ip1[i] = matched_ip1[indices[i]];
+    final_ip2[i] = matched_ip2[indices[i]];
+  }
+    
   if (stereo_settings().ip_debug_images) {
     vw_out() << "\t    Writing post-homography IP match debug image.\n";
     write_match_image("InterestPointMatching__ip_matching_debug2.tif",

@@ -114,14 +114,6 @@ void write_match_image(std::string const& out_file_name,
                                vw::cartography::Datum  const& datum,
                                double pct, double factor);
 
-  /// Filter IP points by how reasonably the disparity can change along rows
-  /// - Returns the number of points remaining after filtering.
-  size_t filter_ip_homog(std::vector<vw::ip::InterestPoint> const& ip1_in,
-                         std::vector<vw::ip::InterestPoint> const& ip2_in,
-                         std::vector<vw::ip::InterestPoint>      & ip1_out,
-                         std::vector<vw::ip::InterestPoint>      & ip2_out,
-                         int inlier_threshold = 1);
-
   // Filter IP using a given DEM and max height difference.  Assume that
   // the interest points have alignment applied to them (either via a
   // transform or from mapprojection).
