@@ -137,6 +137,8 @@ void read_mapproj_header(std::string const& map_file,
   vw::cartography::read_header_string(*rsrc.get(), cam_file_key, cam_file);
   vw::cartography::read_header_string(*rsrc.get(), dem_file_key, dem_file);
   
+  // This is important. When writing, have to write something, so use NONE,
+  // but on reading, if the string is NONE, make it empty.
   if (adj_prefix == "NONE") 
     adj_prefix = "";
 } 

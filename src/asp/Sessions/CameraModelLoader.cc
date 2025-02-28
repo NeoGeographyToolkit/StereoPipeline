@@ -71,6 +71,7 @@ CameraModelLoader::load_pinhole_camera_model(std::string const& path) const {
 // - TODO: Move to another file
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_rpc_camera_model(std::string const& path) const {
+  
   // Try the default loading method
   RPCModel* rpc_model = NULL;
   try {
@@ -79,8 +80,8 @@ CameraModelLoader::load_rpc_camera_model(std::string const& path) const {
     rpc_model = new RPCModel(*rpc_xml.rpc_ptr()); // Copy the value
   } catch (...) {
   }
-  if (!rpc_model){ // The default loading method failed, try the backup method.
-    rpc_model = new RPCModel(path); // This is for reading RPC data via the GDAL driver from image files.
+  if (!rpc_model) { // The default loading method failed, try the backup method.
+    rpc_model = new RPCModel(path); // Invoke the GDAL driver for the image file
   }
   
   // We don't catch an error here because the user will need to

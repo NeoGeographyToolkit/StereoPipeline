@@ -17,6 +17,7 @@
 
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/ImageUtils.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
@@ -87,7 +88,26 @@ vw::CamPtr load_adjusted_model(vw::CamPtr cam,
   if (ba_prefix != "") { // If a bundle adjustment file was specified
 
     // Get full BA file path
-    std::string adjust_file = asp::bundle_adjust_file_name(ba_prefix, image_file, camera_file);
+    std::string adjust_file 
+      = asp::bundle_adjust_file_name(ba_prefix, image_file, camera_file);
+
+    // This is a fix for when what is passed in is a mapprojected image. Need to
+    // peek and find the raw image and camera file names in the provided image
+    // geoheader.
+    if (!boost::filesystem::exists(adjust_file)) {
+      std::string adj_key, img_file_key, cam_type_key, cam_file_key, dem_file_key;
+      std::string adj_prefix_raw, image_file_raw, cam_type, cam_file_raw, dem_file;
+      asp::read_mapproj_header(image_file, adj_key, img_file_key, cam_type_key, 
+                               cam_file_key, dem_file_key,
+                               adj_prefix_raw, image_file_raw, cam_type,
+                               cam_file_raw, dem_file);
+      if (image_file_raw != "") {
+        // Note here that we could not find the adjust file.
+        vw::vw_out() << "Could not find: adjusted camera model: " << adjust_file << "\n";
+        adjust_file = asp::bundle_adjust_file_name(ba_prefix, image_file_raw, 
+                                                    cam_file_raw);
+      }
+    }
 
     if (!boost::filesystem::exists(adjust_file))
       vw_throw(InputErr() << "Missing adjusted camera model: " << adjust_file << ".\n");

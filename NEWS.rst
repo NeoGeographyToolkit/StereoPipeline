@@ -188,6 +188,8 @@ misc:
   * Have the OpenCV interest point detectors respect the ``--threads`` option.
   * Have ``bundle_adjust`` and ``parallel_stereo`` use same
     ``--ip-inlier-factor`` value by default.
+  * Bugfix for loading camera adjustments when mapprojected images are passed 
+    in, rather than the raw ones.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

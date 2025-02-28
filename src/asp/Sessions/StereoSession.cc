@@ -87,14 +87,14 @@ namespace asp {
 
   // Read keywords that describe how the images were map-projected.
   // Do sanity checks.
-  void read_mapproj_header(std::string const& map_file,
-                           std::string const& input_cam_file,
-                           std::string const& input_dem,
-                           std::string const& session_name,
-                           // Outputs
-                           std::string & adj_prefix,
-                           std::string & image_file, std::string & cam_type,
-                           std::string & cam_file, std::string & dem_file) { 
+  void read_mapproj_header_session(std::string const& map_file,
+                                   std::string const& input_cam_file,
+                                   std::string const& input_dem,
+                                   std::string const& session_name,
+                                   // Outputs
+                                   std::string & adj_prefix,
+                                   std::string & image_file, std::string & cam_type,
+                                   std::string & cam_file, std::string & dem_file) { 
 
     // Call a lower-level function to do the reading
     std::string adj_key, img_file_key, cam_type_key, cam_file_key, dem_file_key;
@@ -186,7 +186,6 @@ namespace asp {
                                        vw::CamPtr & map_proj_cam) {
 
     const Vector2 zero_pixel_offset(0,0);
-    
     try {
       if (cam_type == "rpc") {
         map_proj_cam = load_rpc_camera_model(image_file, cam_file,
@@ -255,10 +254,12 @@ namespace asp {
       // based on the record in that image. Load the bundle adjust prefix from the
       // mapprojected image. It can be empty, when such a prefix was not used in
       // mapprojection. 
-      read_mapproj_header(left_image_file, left_camera_file, input_dem, session_name,
-                          l_adj_prefix, l_image_file, l_cam_type, l_cam_file, l_dem_file);
-      read_mapproj_header(right_image_file, right_camera_file, input_dem, session_name,
-                          r_adj_prefix, r_image_file, r_cam_type, r_cam_file, r_dem_file);
+      read_mapproj_header_session(left_image_file, left_camera_file, input_dem, 
+                                  session_name, l_adj_prefix, l_image_file, l_cam_type, 
+                                  l_cam_file, l_dem_file);
+      read_mapproj_header_session(right_image_file, right_camera_file, input_dem, 
+                                  session_name, r_adj_prefix, r_image_file, r_cam_type, 
+                                  r_cam_file, r_dem_file);
     }
 
     vw_out() << "Mapprojected images bundle adjustment prefixes: " 
