@@ -143,3 +143,26 @@ Earth, Moon and Mars are supported).
 In such situations, the planet datum must be passed to the tools reading the RPC
 models, via the ``--datum`` option. 
 
+Triangulation with RPC cameras
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An RPC camera model is a black-box model, rather than one using rigorous camera
+geometry. It is only able to compute a pixel value in the camera given a point
+on the ground. 
+
+For triangulation, it is necessary to be able to calculate a ray emanating
+from a given pixel going to the ground. With RPC cameras, a somewhat indirect 
+method is used.
+
+A ray is found by determining with a solver two points on the ground that
+project into the same pixel, with both points within the lon-lat-height box of
+the RPC model (at maximum and minimum height, respectively). Another ray is
+found the same way for the second image. Then, the two rays are then intersected
+as usual.
+
+Note that the RPC model does not have the concept of camera center. This is set
+to a point in the lon-lat-height box that projects into the pixel (0, 0) in the
+camera (at maximum height in the box). This is not a serious problem as long as 
+the camera centers are not used for modeling the orbit or controlling the camera
+location. Bundle adjustment and terrain reconstruction are not affected.
+
