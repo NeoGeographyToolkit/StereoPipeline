@@ -96,8 +96,8 @@ First, download with ``wget`` the two images at::
 
 Convert these to TIF::
 
-  gdal_translate AS15-M-0114_MED.png AS15-M-0114_MED.tif
-  gdal_translate AS15-M-0115_MED.png AS15-M-0115_MED.tif
+    gdal_translate AS15-M-0114_MED.png AS15-M-0114_MED.tif
+    gdal_translate AS15-M-0115_MED.png AS15-M-0115_MED.tif
 
 .. figure:: images/examples/pinhole/AS15-M-combined.png
    :name: pinhole-a15-input-images
