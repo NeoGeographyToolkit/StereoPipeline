@@ -1,23 +1,31 @@
 #!/bin/bash
 
-# To update the Mac dependencies, or create new ones, run the ssh.yml action
-# (for interactive use) or build_isis.yml (batch). Some dependencies can be
-# fetched with conda, and others need to be built. They should be installed in 
-# /Users/runner/miniconda3/envs. 
-# See https://stereopipeline.readthedocs.io/en/latest/building_asp.html
-# for more details.
+# To update the Mac dependencies or create new ones, in manual (interactive)
+# mode, run the ssh.yml action followed by running a subset of the commands in
+# build_isis.sh. In batch mode, run the action build_isis.yml, which will call
+# build_isis.sh.
+
+# Some dependencies can be fetched with conda, and others need to be built. They
+# should be installed in /Users/runner/miniconda3/envs. See
+# https://stereopipeline.readthedocs.io/en/latest/building_asp.html for more
+# details.
 
 # In manual mode, when done, and before exiting, save the dependencies as follows:
 #   mkdir -p ~/work/StereoPipeline/packages
 #   /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
 #     /Users/runner/miniconda3/envs
 
-# Then, from a local machine, which need not be a mac, run this script. 
+# After quitting the action, the tarball will be saved as an artifact. 
+
+# Then, from a local machine, which need not be a Mac, run this script. 
+# It will fetch the tarball from the cloud and then push it as a release
+# to permanent location, with given tag.
 
 # The tag set here must match the tag in build_test.sh and build_isis.sh. If
-# changing here, must later change in the other places.
+# changing here, must later change in the other places. If not changing the tag
+# name, the dependencies with this tag will be overwritten.
 
-# tag=mac_conda_env8 
+# tag=mac_conda_env8 # change here to use a new tag name
 # workflow="ssh.yml" # manual workflow
 # #workflow="build_isis.yml" # automatic workflow
 # $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
