@@ -142,7 +142,7 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
 
   // This is a fatal error
   if (!csv_conv.is_configured())
-    vw::vw_throw(vw::ArgumentErr() << "The CSV format string is not set.\n");
+    vw::vw_throw(vw::ArgumentErr() << "Must set option --csv-format.\n");
 
   // TODO(oalexan1): We parse these guessed file types manually but we should
   // use a CsvConv object to do it!

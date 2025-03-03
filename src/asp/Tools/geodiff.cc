@@ -205,7 +205,7 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   
   if (opt.csv_format_str == "")
     vw_throw(ArgumentErr() << "CSV files were passed in, but the "
-             << "CSV format string was not set.\n");
+             << "option --csv-format was not set.\n");
 
   // Read the DEM
   DiskImageView<double> dem(dem_file);

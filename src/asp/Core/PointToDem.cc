@@ -146,8 +146,8 @@ void chip_convert_to_tif(DemOptions const& opt,
     if (!asp::is_csv(pc_files[i]))
       continue;
     if (opt.csv_format_str == "")
-      vw_throw(ArgumentErr() << "CSV files were passed in, but the "
-                             << "CSV format string was not set.\n");
+      vw_throw(ArgumentErr() 
+               << "CSV files were passed in, but the option --csv-format was not set.\n");
   }
 
   // Extract georef info from PC or las files.
