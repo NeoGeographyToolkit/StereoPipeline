@@ -1821,6 +1821,8 @@ void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
     // on demand only, as that can be large.
     mapproj_dem = copy(left_map2cam->m_dem);
     
+    // TODO(oalexan1): This must be a member function. It uses very detailed
+    // info from the class.
     left_map2cam->set_use_cache(false);
     left_map2cam->m_masked_dem = vw::create_mask(mapproj_dem, 
                                                  left_map2cam->m_nodata);

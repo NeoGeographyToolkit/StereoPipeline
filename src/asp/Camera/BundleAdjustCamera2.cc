@@ -2070,9 +2070,7 @@ void handleCameraPositionUncertainty(asp::BaBaseOptions & opt, bool have_datum) 
   while (ifs >> image_name >> horiz >> vert) {
     auto it = image_name_to_index.find(image_name);
     if (it == image_name_to_index.end())
-      vw_throw(ArgumentErr() << "Image " << image_name 
-                << " as read from " << opt.camera_position_uncertainty_str
-                << " is not among the input images.\n");
+      continue; // skip images having uncertainty that are not in the image list
     int index = it->second;
     opt.camera_position_uncertainty[index] = Vector2(horiz, vert);
   }
