@@ -381,9 +381,12 @@ too much to it some valid matches be be flagged as outliers otherwise,
 perhaps.
 
 It is *strongly suggested* to use dense interest points (:numref:`dense_ip`),
-and adjust ``--max-pairwise-matches`` to not throw some of them out. We set
-``--camera-position-weight 0``, as hopefully the DEM constraint is enough to
-constrain the solution.
+and have ``--max-pairwise-matches`` large enough to not throw some of them out.
+We set ``--camera-position-weight 0``, as hopefully the DEM constraint is enough
+to constrain the solution.
+
+One should be careful with setting ``--heights-from-dem-uncertainty``. Having
+it larger will ensure it does not prevent convergence.
 
 The implementation of ``--heights-from-dem`` is as follows. Rays from matching
 interest points are intersected with this DEM, and the average of the produced
@@ -817,6 +820,9 @@ bundle adjustment command becomes::
 
 See :numref:`heights_from_dem` for the option ``--heights-from-dem``, and 
 :numref:`bundle_adjust` for the documentation of all options above.
+
+If only a single sensor exists, the option ``--intrinsics-to-share`` should be
+set.
 
 If large errors are still left at the image periphery, adjust
 ``--heights-from-dem-uncertainty``. If a small value of this is used with an
