@@ -81,8 +81,8 @@ Create cub files and initialize the kernels::
     dawnfc2isis from = left.IMG  to = left.cub  target = VESTA
     dawnfc2isis from = right.IMG to = right.cub target = VESTA
 
-    spiceinit from = left.cub  shape = ellipsoid
-    spiceinit from = right.cub shape = ellipsoid
+    spiceinit from = left.cub
+    spiceinit from = right.cub
 
 The ``target`` field is likely no longer needed in newer versions of
 ISIS.
@@ -210,41 +210,19 @@ as can be seen in :numref:`create_csm_dawn` and :numref:`create_csm_sar`.
 
 Run the ISIS ``spiceinit`` command on the .cub files as::
 
-    spiceinit from = left.cub  shape = ellipsoid
-    spiceinit from = right.cub shape = ellipsoid
+    spiceinit from = left.cub
+    spiceinit from = right.cub
 
-Create a conda environment for the ``ale`` package::
+To create CSM cameras, run::
 
-    conda create -c conda-forge -n ale_env python=3.6 ale  
-    conda activate ale_env
-
-(other versions of Python may result in a runtime error later). 
-
-Create a Python script named ``gen_csm_linescan.py``::
-
-    #!/usr/bin/python
+    $ISISROOT/bin/isd_generate left.cub
+    $ISISROOT/bin/isd_generate right.cub
     
-    import ale, os, sys
-    
-    # Get the input cub
-    cub_file = sys.argv[1]
-    
-    # Form the output cub
-    isd_file = os.path.splitext(cub_file)[0] + '.json'
-    
-    print("Reading: " + cub_file)
-    usgscsm_str = ale.loads(cub_file)
-    
-    print("Writing: " + isd_file)
-    with open(isd_file, 'w') as isd_file:
-        isd_file.write(usgscsm_str)
-
-Assuming that conda installed this environment in the default location,
-run::
-
-    $HOME/miniconda3/envs/ale_env/bin/python gen_csm_linescan.py camera.cub
-
 This will produce ``left.json`` and ``right.json``.
+
+This command assumes that the ALE package is installed. See the `isd_generate
+manual
+<https://astrogeology.usgs.gov/docs/getting-started/using-ale/isd-generate/>`_.
 
 Running stereo
 ^^^^^^^^^^^^^^
@@ -633,7 +611,7 @@ Create .cub files::
     mrf2isis from = right.lbl to = right.cub
 
 Run ``spiceinit``. Setting the shape to the ellipsoid makes it easier
-to do image-to-ground computations and is strongly suggested::
+to do image-to-ground computations::
 
     spiceinit from = left.cub  shape = ellipsoid
     spiceinit from = right.cub shape = ellipsoid

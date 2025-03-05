@@ -67,7 +67,7 @@ correction. Here are the steps, illustrated on one image::
 
     f=M104318871LE
     lronac2isis from = ${f}.IMG     to = ${f}.cub
-    spiceinit   from = ${f}.cub shape = ellipsoid
+    spiceinit   from = ${f}.cub
     lronaccal   from = ${f}.cub     to = ${f}.cal.cub
     lronacecho  from = ${f}.cal.cub to = ${f}.cal.echo.cub
 
