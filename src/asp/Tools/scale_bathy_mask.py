@@ -70,7 +70,7 @@ pan_width, pan_height = asp_image_utils.getImageSize(pan_image)
 
 # gdal_translate with options
 gdt = 'gdal_translate -co compress=lzw -co TILED=yes -co INTERLEAVE=BAND ' + \
-      '-co BLOCKXSIZE=256 -co BLOCKYSIZE=256 '
+      '-co BLOCKXSIZE=256 -co BLOCKYSIZE=256 -co BIGTIFF=YES '
 
 # Scale up the mask. Cast to float32.
 cmd = gdt + '-outsize 400% 400% -ot float32 ' + ms_mask + " " + tmp_pan_mask
