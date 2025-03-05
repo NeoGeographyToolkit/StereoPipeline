@@ -2792,8 +2792,8 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
           val = m_images[it].img.get_value_as_str(col, row);
         }
 
-        vw_out() << "Pixel and value: " << m_images[it].name << " "
-                  << col << ' ' << row << ' ' << val << "\n";
+        vw_out() << "Pixel and value: " << m_images[it].name << " ("
+                  << col << ", " << row << ") " << val << "\n";
 
         update();
 

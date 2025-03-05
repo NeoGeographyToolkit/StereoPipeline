@@ -288,12 +288,12 @@ void undo_mapproj(Options & opt,
   // The image file must match
   if (image_file != opt.camera_image)
     vw_throw(ArgumentErr() << "The image file in the mapproj header of " 
-              << opt.mapproj_image << "does not match the camera image.\n");
+              << opt.mapproj_image << " does not match the camera image.\n");
 
   // The dem file must be non-empty
   if (dem_file == "")
     vw_throw(ArgumentErr() << "The DEM file in the mapproj header of " 
-              << opt.mapproj_image << "is empty.\n");
+              << opt.mapproj_image << " is empty.\n");
   
   // Load the camera model  
   asp::SessionPtr session(asp::StereoSessionFactory::create

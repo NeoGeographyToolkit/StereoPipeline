@@ -579,23 +579,23 @@ void disp_or_matches_work(std::string const& output_prefix,
   // use those for the match file. That because the matches are between
   // the original images, not the map-projected ones.
   std::string img_file_key = "INPUT_IMAGE_FILE"; 
-  std::string left_image = opt.in_file1, right_image = opt.in_file2;
+  std::string left_raw_image = opt.in_file1, right_raw_image = opt.in_file2;
   {
     std::string img_file;  
     boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(opt.in_file1));
     vw::cartography::read_header_string(*rsrc.get(), img_file_key, img_file);
     if (!img_file.empty()) 
-      left_image = img_file;
+      left_raw_image = img_file;
   }
   {
     std::string img_file;
     boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(opt.in_file2));
     vw::cartography::read_header_string(*rsrc.get(), img_file_key, img_file);
     if (!img_file.empty())
-      right_image = img_file; 
+      right_raw_image = img_file; 
   }
   std::string match_file = ip::match_filename(output_prefix + "-disp",
-                                              left_image, right_image);
+                                              left_raw_image, right_raw_image);
       
   // Pull matches from disparity.
   if (stereo_settings().num_matches_from_disparity > 0 && 
@@ -606,13 +606,17 @@ void disp_or_matches_work(std::string const& output_prefix,
       
   if (stereo_settings().num_matches_from_disparity > 0) {
     bool gen_triplets = false;
-    compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
+    compute_matches_from_disp(opt, disparity_maps[0], 
+                              left_raw_image, right_raw_image,
+                              left_trans, right_trans, match_file,
                               stereo_settings().num_matches_from_disparity,
                               gen_triplets, is_map_projected);
   }
   if (stereo_settings().num_matches_from_disp_triplets > 0) {
     bool gen_triplets = true;
-    compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
+    compute_matches_from_disp(opt, disparity_maps[0], 
+                              left_raw_image, right_raw_image,
+                              left_trans, right_trans, match_file,
                               stereo_settings().num_matches_from_disp_triplets,
                               gen_triplets, is_map_projected);
   }
