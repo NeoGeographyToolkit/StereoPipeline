@@ -186,8 +186,7 @@ The reconstruction can be visualized as::
 
 One may need to zoom out to see all cameras. See an illustration in :numref:`view_reconstruction`.
 
-The next example, in :numref:`sfmicebridge`, discusses how to avoid SfM
-altogether.
+:numref:`camera_solve_gcp` discusses how to avoid SfM altogether.
  
 .. _sfm_world_coords:
 
@@ -248,6 +247,9 @@ Increase the value of ``--robust-threshold`` in ``bundle_adjust``
 if desired to bring down the big residuals in that file at the expense
 of increasing the smaller ones. Consider also deleting GCP corresponding
 to large residuals, as those may be inaccurate.
+
+In recent ASP, one or more GCP files can be passed in without setting
+``--gcp-file``. They should end in ``.gcp``.
 
 Running stereo
 ^^^^^^^^^^^^^^

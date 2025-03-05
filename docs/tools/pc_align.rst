@@ -119,7 +119,8 @@ It is assumed that:
 
   - The input clouds are dense and detailed DEMs with notable relief
   - The DEMs have a lot of overlap
-  - The alignment transform is a pure translation in projected coordinates.
+  - The alignment transform is a pure translation in projected coordinates (both
+    horizontal and vertical).
 
 If the last two assumptions do not hold, consider using a different alignment
 algorithm first (for example, feature-based alignment in combination with ICP,
@@ -141,10 +142,16 @@ transform around the planet center (ECEF coordinates), for consistency with the
 other alignment methods. It will be an ECEF translation if the option
 ``--compute-translation-only`` is set.
 
-The DEMs should fit fully in memory, with a solid margin. Large DEMs with good
-relief could be regridded (with cubic interpolation) to a 2x coarser grid, which
-would still result in a good alignment. Any produced transform can be applied to
-the original DEMs (:numref:`prevtrans`).
+The DEMs should fit fully in memory, with a solid margin. 
+
+Large DEMs with good relief could be regridded (with cubic interpolation) to a
+2x coarser grid, which would still result in a good alignment. That goes as
+follows, for any input DEM::
+
+  gdal_translate -r average -outsize 50% 50% input.tif output.tif
+
+Any produced transform with lower-resolution DEMs can be applied to the original
+DEMs (:numref:`prevtrans`).
 
 Additional options can be passed in via ``--nuth-options``
 (:numref:`nuth_options`).
@@ -177,7 +184,7 @@ Feature-based alignment
 
 If the clouds differ by a large translation or scale factor, alignment can fail.
 If the clouds are DEMs, one may specify the option
-``--initial-transform-from-hillshading string`` which will hillshade the two
+``--initial-transform-from-hillshading`` which will hillshade the two
 DEMs, find interest point matches among them, and use that to compute an initial
 transform between the clouds, which may or may not contain scale.
 
@@ -192,6 +199,10 @@ This functionality is implemented with ASP's ``hillshade``, ``ipfind``, and
 ``--ipfind-options``, and ``--ipmatch-options`` can be used to pass options to
 to these programs, such as to increase the number interest points being found,
 if the defaults are not sufficient. See :numref:`pc_align_options`.
+
+The match file having the correspondences between the two hillshaded DEMs is
+saved in the output directory and can be inspected. It can also be created
+or edited manually (:numref:`manual-align`).
 
 If the two clouds look too different for interest point matching to work, they
 perhaps can be re-gridded to use the same (coarser) grid, as described in
@@ -243,7 +254,11 @@ The resulting aligned cloud ``run_align/run-trans_source.tif`` can be regridded
 with ``point2dem`` and same grid size and projection as the input DEMs, and
 evaluate if it moved as expected. 
 
-The related method in :numref:`pc_hillshade` uses sparse features from hillshading.
+This method will fail if the input DEMs do not overlap a lot when overlaid with
+georeference information. 
+
+The related method in :numref:`pc_hillshade` uses sparse features from
+hillshading, and can handle a large translation between the clouds.
 
 .. _pc_least_squares:
 
@@ -541,8 +556,9 @@ computed as an initial guess transform (and one can stop there if
 For that, the input point clouds should be first converted to DEMs using
 ``point2dem``, unless in that format already. Then, ``stereo_gui`` can be called
 to create manual point correspondences (interest point matches) from the
-reference to the source DEM (hence they should be displayed in the GUI in this
-order, from left to right, and one can hillshade them to see features better).
+reference to the source DEM (:numref:`stereo_gui_edit_ip`). The DEMs should be
+displayed in the GUI with the reference DEM on the left, and should be
+hillshaded. 
 
 Once the match file is saved to disk, it can be passed to ``pc_align`` via the
 ``--match-file`` option, which will compute an initial transform (whose type is
@@ -743,9 +759,10 @@ Command-line options for pc_align
     assumed, with the units being in meters), ``'5:lon 6:lat 7:radius_m'``
     (longitude and latitude are in degrees, the radius is measured in meters
     from planet center), ``'3:lat 2:lon 1:height_above_datum'``, ``'1:easting
-    2:northing 3:height_above_datum'`` (need to set ``--csv-srs``; the height
-    above datum is in meters). Can also use ``radius_km`` for ``column_type``,
-    when it is again measured from planet center.
+    2:northing 3:height_above_datum'`` (for the latter need to also set
+    ``--csv-srs``). The height above datum is in meters. Can also use
+    ``radius_km`` for ``column_type``, when it is again measured from planet
+    center.
 
 --csv-srs <string>
     The PROJ or WKT string to use to interpret the entries in input CSV
@@ -811,12 +828,12 @@ Command-line options for pc_align
     factor will reject more outliers. 
 
 --match-file
-    Compute an initial transform from the source to the reference
-    point cloud using manually selected point correspondences
-    (obtained for example using stereo_gui). The type of transform
-    can be set via ``--initial-transform-from-hillshading string``.
-    It may be desired to change ``--initial-transform-ransac-params``
-    if it rejects as outliers some manual matches.
+    Compute an initial transform from the source to the reference point cloud
+    given interest point matches from the reference to the source DEM in this
+    file. This file can be produced manually, in ``stereo_gui``
+    (:numref:`manual-align`), or automatically, as in :numref:`pc_hillshade` or
+    :numref:`pc_corr`. See also ``--initial-transform-from-hillshading``
+    and ``--initial-transform-ransac-params``.
 
 --nuth-options <string (default: "")>
     Options to pass to the Nuth and Kaab algorithm. Set in quotes. 

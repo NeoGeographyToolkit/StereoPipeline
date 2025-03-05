@@ -85,8 +85,8 @@ Command-line options
     pass a space separated list of files surrounded by quotes.
 
 --gcp-file <filename>
-    Path to a ground control point file. This allows the tool to
-    generate cameras in a global coordinate system.
+    Obsolete option for specifying GCP. One or more GCP files will be
+    recognized and loaded if ending with .gcp, without this option.
 
 --bundle-adjust-params <string>
     Additional parameters (in single quotes) to pass to the
