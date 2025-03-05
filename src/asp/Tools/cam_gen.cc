@@ -425,6 +425,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   }
 
+  vw::vw_out() << "Using datum: " << opt.datum << "\n";
+  
   // If we cannot read the data from a DEM, must know the datum
   if (!opt.planet_pinhole && opt.reference_dem.empty() && opt.datum_str.empty())
     vw_throw(ArgumentErr() << "Must provide either a reference DEM or a datum.\n");
@@ -1280,8 +1282,11 @@ int main(int argc, char * argv[]) {
 
     // Interpolated dem. May not always exist.
     ImageViewRef<PixelMask<float>> interp_dem;
+  
     // Georeference. At least the datum will exist.
     vw::cartography::GeoReference geo;
+    geo.set_datum(opt.datum); // may change later
+
     // Input camera
     vw::CamPtr input_camera_ptr(NULL);
     // Output camera
@@ -1325,6 +1330,7 @@ int main(int argc, char * argv[]) {
         DiskImageView<float> img(opt.image_file);
         int width = img.cols(), height = img.rows();
         asp::CsmModel csm;
+        
         csm.createFrameModel(*pin, width, height,
                              geo.datum().semi_major_axis(), geo.datum().semi_minor_axis(),
                              opt.distortion_type, opt.distortion);
