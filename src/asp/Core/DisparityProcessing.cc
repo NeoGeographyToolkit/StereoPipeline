@@ -729,10 +729,7 @@ void unalign_disparity(bool is_map_projected,
 }
 
 // A class whose operator() takes as input a pixel in the left aligned image,
-// and returns a pixel in the right unaligned image, via the disparity from the
-// left aligned image to the right aligned image. This will be used to map pixels
-// from the right unaligned image to the left aligned image, and from there to 
-// the left unaligned image.
+// and returns a pixel in the right aligned image, via the disparity.
 struct DispMap {
   // The transforms are from unaligned (raw) to aligned (transformed) images.
   vw::TransformPtr const& m_left_trans;
@@ -746,7 +743,7 @@ struct DispMap {
   int m_map_row_bin_len, m_map_col_bin_len;
   
   // Extent of values of operator(). It is the size of the right raw image.
-  vw::BBox2i m_right_box; 
+  vw::BBox2i m_map_val_box; 
   
   typedef typename DispImageType::pixel_type DispPixelT;
 
@@ -779,94 +776,108 @@ struct DispMap {
     if (trans_right_pix != trans_right_pix)
       vw::vw_throw(vw::ArgumentErr() << "NaN encountered.\n");
     
-    vw::Vector2 right_raw_pix = m_right_trans->reverse(trans_right_pix);
-
-    // Negative and nan pixel is invalid
-    if (right_raw_pix[0] < 0 || right_raw_pix[1] < 0 || right_raw_pix != right_raw_pix)
-      vw::vw_throw(vw::ArgumentErr() << "Invalid right pixel.\n");
-    
-    return right_raw_pix;
+    return trans_right_pix;
   }
   
-  // Find the bounding box of the right raw (unaligned) image. It is the box of
-  // values of operator(). Then find an approximate tabulated inverse map.
+  // Find the bounding box of map values, that is, of operator(). Then find an
+  // approximate tabulated inverse map.
+  // TODO(oalexan1): This is generic. Move it out. Expose the table size.
+  // It can be empty if not desired.
   void mapSetup() {
     
-    m_right_box = vw::BBox2i();
-    int num_samples = 100;
-    int col_step = std::max(1, m_disp.cols() / num_samples);
-    int row_step = std::max(1, m_disp.rows() / num_samples);
-    std::cout << "--col step is " << col_step << std::endl;
-    std::cout << "--row step is " << row_step << std::endl;
-    for (int col = 0; col < m_disp.cols(); col += col_step) {
-      for (int row = 0; row < m_disp.rows(); row += row_step) {
-        try {
-          vw::Vector2 right_pix = operator()(vw::Vector2(col, row));
-          m_right_box.grow(right_pix);
-        } catch(...) {
-          continue;
-        }
-      }
-    }
-    
-    // The box must be non-empty
-    if (m_right_box.empty())
-      vw::vw_throw(vw::ArgumentErr() << "Empty bounding box of function values.\n");
-      
-    std::cout << "--map extent is " << m_right_box << "\n";
-    
-   // An that for a right pixel gives an estimate
-   // for the left pixel that maps to it. Its size cannot be big
-    // TODO(oalexan1): Must be a function. The table size should be a parameter.
-    m_inv_map.set_size(200, 200);
-    // Set each pixel to (-1, -1), so invalid
-    // TODO(oalexan1): NaN would work better for general maps.
+    // A table that for a right pixel gives an estimate for the left pixel that
+    // maps to it. Its size cannot be big as this is slow. Init as NaN.
+    m_inv_map.set_size(100, 100);
     double nan = std::numeric_limits<double>::quiet_NaN();
     for (int col = 0; col < m_inv_map.cols(); col++) {
       for (int row = 0; row < m_inv_map.rows(); row++) {
         m_inv_map(col, row) = vw::Vector2(nan, nan);
       }
     }
+
+    // Cache the values of operator() as we wil need them twice. Init as NaN.
+    vw::ImageView<vw::Vector2> fwd_map_cache(m_inv_map.cols(), m_inv_map.rows());
+    for (int col = 0; col < m_inv_map.cols(); col++) {
+      for (int row = 0; row < m_inv_map.rows(); row++) {
+        fwd_map_cache(col, row) = vw::Vector2(nan, nan);
+      }
+    }
+
+    int col_step = std::max(1, int(m_disp.cols() / m_inv_map.cols()));
+    int row_step = std::max(1, int(m_disp.rows() / m_inv_map.rows()));
+
+    // Estimate the bounding box of map values    
+    m_map_val_box = vw::BBox2i();
+    vw_out() << "Sampling the disparity.\n";
+    vw::TerminalProgressCallback tpc("asp", "\t--> ");
+    double inc_amount = 1.0 / (m_disp.cols() / col_step);
+    tpc.report_progress(0);
+    for (int col = 0; col < m_disp.cols(); col += col_step) {
+      for (int row = 0; row < m_disp.rows(); row += row_step) {
+        try {
+          vw::Vector2 map_val = operator()(vw::Vector2(col, row));
+          m_map_val_box.grow(map_val);
+          
+          // Cache the values
+          int col_sub = col / col_step;
+          int row_sub = row / row_step;
+          if (col_sub < 0 || col_sub >= m_inv_map.cols() ||
+              row_sub < 0 || row_sub >= m_inv_map.rows())
+            continue;
+          fwd_map_cache(col_sub, row_sub) = map_val;
+        } catch(...) {
+          continue;
+        }
+      }
+      tpc.report_incremental_progress(inc_amount);
+    }
+    tpc.report_finished();
     
-    m_map_col_bin_len = std::max(m_right_box.width()  / m_inv_map.cols(), 1);
-    m_map_row_bin_len = std::max(m_right_box.height() / m_inv_map.rows(), 1);
-    std::cout << "--row bin len is " << m_map_row_bin_len << std::endl;
-    std::cout << "--col bin len is " << m_map_col_bin_len << std::endl;
+    // The box must be non-empty
+    if (m_map_val_box.empty())
+      vw::vw_throw(vw::ArgumentErr() << "Empty bounding box of function values.\n");
+      
+    // TODO(oalexan1): The code below must be a function
+        
+    m_map_col_bin_len = std::max(m_map_val_box.width()  / m_inv_map.cols(), 1);
+    m_map_row_bin_len = std::max(m_map_val_box.height() / m_inv_map.rows(), 1);
     
-    // Sample the input at a finer rate than at what we will collect the output.
-    // Hoping that way to get a good estimate of the inverse map.
-    col_step = std::max(1, int(0.5 * m_disp.cols() / m_inv_map.cols()));
-    row_step = std::max(1, int(0.5 * m_disp.rows() / m_inv_map.rows()));
-    std::cout << "--col step is " << col_step << std::endl;
-    std::cout << "--row step is " << row_step << std::endl;
-    
-    std::cout << "--Must sample more finely if the user wants a lot of matches.\n";
     // So, if the user wants 800 x 800 matches, sampling here with 200 x 200 may
     // be not too bad.
     for (int col = 0; col < m_disp.cols(); col += col_step) {
       for (int row = 0; row < m_disp.rows(); row += row_step) {
         try {
-          vw::Vector2 left_pix(col, row);
-          vw::Vector2 right_pix = operator()(left_pix);
+          vw::Vector2 map_input(col, row);
           
+          int col_sub = col / col_step;
+          int row_sub = row / row_step;
+          if (col_sub < 0 || col_sub >= m_inv_map.cols() ||
+              row_sub < 0 || row_sub >= m_inv_map.rows())
+            continue;
+          vw::Vector2 map_val = fwd_map_cache(col_sub, row_sub);
+          
+          // Must not be nan
+          if (std::isnan(map_val[0]) || std::isnan(map_val[1]))
+            continue;
+            
           // Find the bin
-          vw::Vector2i bin = findBin(right_pix);
-          m_inv_map(bin[0], bin[1]) = left_pix;
+          vw::Vector2i bin = findBin(map_val);
+          m_inv_map(bin[0], bin[1]) = map_input;
         } catch(...) {
           continue;
         }    
       }
     }
+
+    return;
   }
   
   // Factor out the logic for finding the bin
-  // TODO(oalexan1): Here assuming pixels are non-negative.
-  // Need to make it more general.
   // TODO(oalexan1): Make notation more general. Use X for input space, 
   // Y for output space. Remove the "right" and "disp" from the names.
   vw::Vector2i findBin(vw::Vector2 const& right_pix) const {
-    int bin_col = round((right_pix[0] - m_right_box.min().x()) / double(m_map_col_bin_len));
-    int bin_row = round((right_pix[1] - m_right_box.min().y()) / double(m_map_row_bin_len));
+    int bin_col = round((right_pix[0] - m_map_val_box.min().x()) / double(m_map_col_bin_len));
+    int bin_row = round((right_pix[1] - m_map_val_box.min().y()) / double(m_map_row_bin_len));
     
     if (bin_col < 0)
       bin_col = 0;
@@ -942,7 +953,8 @@ vw::Vector<double> numericalJacobian(vw::Vector2 const& P,
 
 // TODO(oalexan1): Move to a new file in VW, called NewtonRaphson.h.
 // Use it both here and in LensDistortion.cc
-// For disparity, 10 pixels should be good. Surely no less than 1 pixel.
+// For disparity, the step size better not be less than 3 pixels, as the disparity 
+// is not that smooth.
 vw::Vector2 newtonRaphson(vw::Vector2 const& Y,
                           vw::Vector2 const& initX,
                           DispMap const& func,
@@ -980,7 +992,6 @@ vw::Vector2 newtonRaphson(vw::Vector2 const& Y,
       J = numericalJacobian(X, step, func);
     } catch(...) {
       // Something went wrong. Cannot continue. Return most recent result.
-      //std::cout << "--failed to eval jac\n";
       return bestX;
     }
     
@@ -996,11 +1007,8 @@ vw::Vector2 newtonRaphson(vw::Vector2 const& Y,
     X -= DX;
     
     // If DX is small enough, we are done
-    // TODO(oalexan1): Must expose the tolerance
-    if (norm_2(DX) < tol) {
-      //std::cout << "tol reached, with norm = " << norm_2(DX) << std::endl;
+    if (norm_2(DX) < tol)
       return X;
-    }
     
     count++;
   }
@@ -1016,6 +1024,8 @@ vw::Vector2 newtonRaphson(vw::Vector2 const& Y,
 // bigger than 1 will be passed in if too few matches are found.
 void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
                                    DispImageType    const& disp,
+                                   std::string const& left_raw_image,
+                                   std::string const& right_raw_image, 
                                    vw::TransformPtr const& left_trans,
                                    vw::TransformPtr const& right_trans,
                                    int max_num_matches,
@@ -1080,10 +1090,10 @@ void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
 
   } else {
 
-    // First create ip with left_ip being at integer multiple of bin size.
-    // Then do the same for right_ip. This way there is a symmetry
-    // and predictable location for ip. So if three images overlap,
-    // a feature can often be seen in many of them whether a given
+    // Create ip with left_ip being at integer multiple of bin size in the left
+    // raw image. Then do the same for right_ip in right raw image. This way
+    // there is a symmetry and predictable location for ip. So if three images
+    // overlap, a feature can often be seen in many of them whether a given
     // image is left in some pairs or right in some others.
 
     // Note that the code above is modified in subtle ways.
@@ -1100,12 +1110,9 @@ void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
     double step = 3.0; // 3 pixels
     double tol = 0.1; // 0.1 pixels
     
-    // Load the left unaligned image 
-    DiskImageView<float> left_img(opt.in_file1);
-    
-    // Need these to not insert an ip twice, as then bundle_adjust
-    // will wipe both copies
-    std::map<double, double> left_done, right_done;
+    // Load the left and right unaligned image 
+    DiskImageView<float> left_img(left_raw_image);
+    DiskImageView<float> right_img(right_raw_image);
     
     // Start with the left
     {
@@ -1116,20 +1123,18 @@ void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
       // Use doubles to avoid integer overflow
       double num_pixels = double(left_img.cols()) * double(left_img.rows());
       double den = std::min(double(max_num_matches), num_pixels) * multiplier;
-      double bin_len = sqrt(num_pixels/den);
+      double bin_len = round(sqrt(num_pixels/den));
       bin_len = std::max(1.0, bin_len);
 
       int lenx = round(left_img.cols()/bin_len); lenx = std::max(1, lenx);
       int leny = round(left_img.rows()/bin_len); leny = std::max(1, leny);
 
-      // Iterate over bins.
-
       vw_out() << "Finding left-to-right matches based on disparity.\n";
       vw::TerminalProgressCallback tpc("asp", "\t--> ");
       double inc_amount = 1.0 / double(lenx);
       tpc.report_progress(0);
-
-#if 1      
+      
+#if 1     
       for (int binx = 0; binx <= lenx; binx++) {
 
         int posx = binx*bin_len; // integer multiple of bin length
@@ -1141,14 +1146,10 @@ void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
           if (posx >= left_img.cols() || posy >= left_img.rows()) 
             continue;
 
+          // Raw left image pixel    
           Vector2 left_pix(posx, posy);
-          Vector2 trans_left_pix, trans_right_pix, right_pix;
           
-          // Make the left pixel go to the aligned domain. Find the corresponding
-          // aligned right pixel. And make that one go to the right raw image domain.
-          // left_pix is unaligned left pixel, while trans_left_pix is the aligned one.
-          // This one is no longer integer, so need to interpolate to find its
-          // disparity.
+          Vector2 trans_left_pix;
           try {
             trans_left_pix = left_trans->forward(left_pix);
           } catch(...) {
@@ -1157,23 +1158,27 @@ void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
           if (trans_left_pix[0] < 0 || trans_left_pix[0] >= disp.cols()) continue;
           if (trans_left_pix[1] < 0 || trans_left_pix[1] >= disp.rows()) continue;
           
-          DispPixelT dpix = interp_disp(trans_left_pix[0], trans_left_pix[1]);
-          if (!is_valid(dpix))
+          // TODO(oalexan1): Split the non-triplet code to separate function.
+          // TODO(oalexan1): For triplet code, the two cases must be merged
+          // into a single function, as very little differs.
+          vw::Vector2 trans_right_pix;
+          try {
+            trans_right_pix = dmap(trans_left_pix);
+          } catch(...) {
             continue;
-          trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
-          right_pix = right_trans->reverse(trans_right_pix);
-
-          // TODO(oalexan1): The logic below needs to be wiped.
-          // Add this ip unless found already. This is clumsy, but we
-          // can't use a set since there is no ordering for pairs.
-          std::map<double, double>::iterator it;
-          it = left_done.find(left_pix.x());
-          if (it != left_done.end() && it->second == left_pix.y()) continue; 
-          it = right_done.find(right_pix.x());
-          if (it != right_done.end() && it->second == right_pix.y()) continue; 
-          left_done[left_pix.x()] = left_pix.y();
-          right_done[right_pix.x()] = right_pix.y();
+          }
+          // Skip nan
+          if (std::isnan(trans_right_pix[0]) || std::isnan(trans_right_pix[1]))
+            continue;
           
+          // Right unaligned pixel  
+          vw::Vector2 right_pix = right_trans->reverse(trans_right_pix);
+          
+          // Must fit within image box
+          if (right_pix[0] < 0 || right_pix[0] > right_img.cols() - 1) continue;
+          if (right_pix[1] < 0 || right_pix[1] > right_img.rows() - 1) continue;
+
+          // Store the match pair
           ip::InterestPoint lip(left_pix.x(), left_pix.y());
           ip::InterestPoint rip(right_pix.x(), right_pix.y());
           left_ip.push_back(lip); 
@@ -1190,16 +1195,13 @@ void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
     
     // Now create ip in predictable locations for the right image. This is hard,
     // as the disparity goes from left to right, so we need to examine every disparity.
-    typedef typename DispImageType::pixel_type DispPixelT;
     {
-      // Load the right unaligned image
-      DiskImageView<float> right_img(opt.in_file2);
     
       double num_pixels = double(right_img.cols()) * double(right_img.rows());
       double den = std::min(double(max_num_matches), num_pixels) * multiplier;
       // The bin len must be integer here
-      int bin_len = round(sqrt(num_pixels/den));
-      bin_len = std::max(1, bin_len);
+      double bin_len = round(sqrt(num_pixels/den));
+      bin_len = std::max(1.0, bin_len);
 
       int lenx = round(right_img.cols()/bin_len); lenx = std::max(1, lenx);
       int leny = round(right_img.rows()/bin_len); leny = std::max(1, leny);
@@ -1225,14 +1227,22 @@ void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
           // Raw right image pixel  
           Vector2 right_pix(posx, posy);  
           
+          vw::Vector2 trans_right_pix;
+          try {
+            trans_right_pix = right_trans->forward(right_pix);
+          } catch(...) {
+            continue;
+          }
+          
           // Find the left aligned pixel that maps to this right pixel.
           // Skip if nan.
-          vw::Vector2 left_guess = dmap.approxInverse(right_pix);
+          vw::Vector2 left_guess = dmap.approxInverse(trans_right_pix);
           if (std::isnan(left_guess[0]) || std::isnan(left_guess[1]))
             continue;
           
           // Refined guess
-          vw::Vector2 trans_left_pix = newtonRaphson(right_pix, left_guess, dmap, step, tol);
+          vw::Vector2 trans_left_pix = newtonRaphson(trans_right_pix, left_guess, 
+                                                     dmap, step, tol);
           if (std::isnan(trans_left_pix[0]) || std::isnan(trans_left_pix[1]))
             continue;
             
@@ -1242,7 +1252,7 @@ void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
             check_right_pix = dmap(trans_left_pix);
             
             // Must be close to the original right pixel
-            if (norm_2(check_right_pix - right_pix) > 0.1)
+            if (norm_2(check_right_pix - trans_right_pix) > 0.1)
               continue;
 
           } catch(...) {
@@ -1283,6 +1293,8 @@ void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
 /// in more than two images. This helps with bundle adjustment.
 void compute_matches_from_disp(ASPGlobalOptions const& opt,
                                DispImageType    const& disp,
+                               std::string const& left_raw_image,
+                               std::string const& right_raw_image, 
                                vw::TransformPtr const& left_trans,
                                vw::TransformPtr const& right_trans,
                                std::string      const& match_file,
@@ -1290,27 +1302,34 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
                                bool gen_triplets, bool is_map_projected) {
 
   std::vector<vw::ip::InterestPoint> left_ip, right_ip;
-
-  // Call the aux function
-  std::cout << "--Must fix here!\n";
-  std::cout << "--must do a fast sample first!\n";
-  double multiplier = 1.0; // overestimate, to compensate for under-delivering
+  double multiplier = 1.0;
+  
   // TODO(oalexan1): Can do something more clever here. For example, can first
   // try to get a quick sample, compare with expected number, and based on that
   // estimate the multiplier.
-  compute_matches_from_disp_aux(opt, disp, left_trans, right_trans,
+  compute_matches_from_disp_aux(opt, disp, 
+                                left_raw_image, right_raw_image,
+                                left_trans, right_trans,
                                 max_num_matches, gen_triplets, is_map_projected,
                                 multiplier, left_ip, right_ip);
-  // double ratio = double(left_ip.size())/double(max_num_matches);
-  // ratio = std::max(1e-8, ratio);
-  // if (ratio < 0.9) {
-  //   vw_out() << "The number of matches is way less than the requested value. "
-  //            << "Trying again.\n";
-  //   multiplier = 1.0/ratio;
-  //   compute_matches_from_disp_aux(opt, disp, left_trans, right_trans,
-  //                                 max_num_matches, gen_triplets, is_map_projected,
-  //                                 multiplier, left_ip, right_ip);
-  // }
+  
+  if (!gen_triplets) {
+    // TODO(oalexan1): This logic will go away once smarter preliminary sampling
+    // is in place, per above. Note that when triplets are created, there is 
+    // a lot of expensive sampling done first, and that should happen only once.
+    double ratio = double(left_ip.size())/double(max_num_matches);
+    ratio = std::max(0.01, ratio);
+    if (ratio < 0.9) {
+      vw_out() << "The number of matches is way less than the requested value. "
+              << "Trying again.\n";
+      multiplier = 1.0/ratio;
+      compute_matches_from_disp_aux(opt, disp, 
+                                    left_raw_image, right_raw_image,
+                                    left_trans, right_trans,
+                                    max_num_matches, gen_triplets, is_map_projected,
+                                    multiplier, left_ip, right_ip);
+    }
+  }
   
   vw_out() << "Writing: " << match_file << std::endl;
   ip::write_binary_match_file(match_file, left_ip, right_ip);

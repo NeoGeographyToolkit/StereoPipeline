@@ -73,6 +73,8 @@ namespace asp {
   /// in more than two images. This helps with bundle adjustment.
   void compute_matches_from_disp(ASPGlobalOptions const& opt,
                                  DispImageType    const& disp,
+                                 std::string const& left_raw_image,
+                                 std::string const& right_raw_image, 
                                  vw::TransformPtr const& left_trans,
                                  vw::TransformPtr const& right_trans,
                                  std::string      const& match_file,
