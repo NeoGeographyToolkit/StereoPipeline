@@ -170,10 +170,6 @@ def spawn_to_nodes(step, num_instances, output_prefix, argsIn):
         procs   = opt.processes
         threads = opt.threads
 
-    # Need not have more processes than instances.
-    if procs > num_instances:
-        procs = num_instances
-
     asp_cmd_utils.wipe_option(args, '--processes', 1)
     asp_cmd_utils.wipe_option(args, '--threads', 1)
     args.extend(['--processes', str(procs)])
