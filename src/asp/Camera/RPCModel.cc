@@ -15,13 +15,15 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+#include <asp/Camera/RPCModel.h>
+#include <asp/Core/Common.h>
+
 #include <vw/Math/Vector.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
-#include <asp/Camera/RPCModel.h>
-#include <asp/Core/Common.h>
+#include <vw/FileIO/FileTypes.h>
 
 #include <gdal.h>
 #include <gdal_priv.h>
@@ -85,14 +87,14 @@ namespace asp {
   
     m_terrain_height = std::numeric_limits<double>::quiet_NaN();
     
-    std::string ext = get_extension(filename);
+    std::string ext = vw::get_extension(filename);
     if (ext == ".rpb") {
       load_rpb_file(filename);
       return;
     }
 
     // Must have this check, otherwise GDAL prints an error.
-    if (has_image_extension(filename)) {
+    if (vw::has_image_extension(filename)) {
       boost::scoped_ptr<DiskImageResourceGDAL> s_ptr(new DiskImageResourceGDAL(filename));
       initialize(s_ptr.get());
     } else {

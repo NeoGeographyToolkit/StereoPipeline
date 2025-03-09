@@ -20,15 +20,10 @@
 // shapefile logic, or DiskImagePyramid read from GuiUtilities.h.
 // These may need to be moved to separate files.
 
-#include <string>
-#include <vector>
-#include <QPolygon>
-#include <QtGui>
-#include <QtWidgets>
-#include <ogrsf_frmts.h>
-
-// For contours
-#include <opencv2/imgproc.hpp>
+#include <asp/GUI/GuiUtilities.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/PointUtils.h>
+#include <asp/GUI/chooseFilesDlg.h>
 
 #include <vw/Image/Algorithms.h>
 #include <vw/Cartography/GeoTransform.h>
@@ -39,11 +34,18 @@
 #include <vw/Geometry/dPoly.h>
 #include <vw/Cartography/shapeFile.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/FileIO/FileTypes.h>
 
-#include <asp/GUI/GuiUtilities.h>
-#include <asp/Core/StereoSettings.h>
-#include <asp/Core/PointUtils.h>
-#include <asp/GUI/chooseFilesDlg.h>
+#include <QPolygon>
+#include <QtGui>
+#include <QtWidgets>
+#include <ogrsf_frmts.h>
+
+// For contours
+#include <opencv2/imgproc.hpp>
+
+#include <string>
+#include <vector>
 
 using namespace vw;
 using namespace vw::gui;
@@ -243,7 +245,7 @@ void contour_image(DiskImagePyramidMultiChannel const& img,
 bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
                                 std::string const& file){
 
-  if (!asp::has_shp_extension(file))
+  if (!vw::has_shp_extension(file))
     vw_throw(ArgumentErr() << "Expecting a shapefile as input, got: " << file << ".\n");
   
   bool has_georef;
@@ -257,7 +259,7 @@ bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
 bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
                                          std::string const& file){
 
-  if (asp::has_shp_extension(file)) 
+  if (vw::has_shp_extension(file)) 
     return read_georef_from_shapefile(georef, file);
   
   return vw::cartography::read_georeference(georef, file);
@@ -341,7 +343,7 @@ void findClosestPolyEdge(// inputs
 // Return true if the extension is .csv or .txt
 // TODO(oalexan1): Move this to Common.cc
 bool hasCsv(std::string const& fileName) {
-  std::string ext = get_extension(fileName);
+  std::string ext = vw::get_extension(fileName);
   if (ext == ".csv" || ext == ".txt")
     return true;
   
@@ -689,7 +691,7 @@ void imageData::load() {
   
   std::string default_poly_color = "green"; // default, will be overwritten later
   
-  if (asp::has_shp_extension(name)) {
+  if (vw::has_shp_extension(name)) {
     // Read a shape file
     std::string poly_color = default_poly_color;
     if (color != "default" && color != "") 
@@ -834,7 +836,7 @@ void imageData::writePoly(std::string const& polyFile) {
 // The two functions below are very slow if used per pixel, so we cache their
 // values in member variables. Never call these directly.
 bool imageData::isPolyInternal(std::string const& name, std::string const& style) const {
-  return (asp::has_shp_extension(name) ||
+  return (vw::has_shp_extension(name) ||
           (vw::gui::hasCsv(name) &&
            (style == "poly" || style == "fpoly" || style == "line")));
 }

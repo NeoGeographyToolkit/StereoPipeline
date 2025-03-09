@@ -31,6 +31,7 @@
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/FileIO/FileTypes.h>
 
 // Can't do much about warnings in boost except to hide them
 #pragma GCC diagnostic push
@@ -1164,8 +1165,8 @@ bool skip_image_normalization(ASPGlobalOptions const& opt) {
   bool is_good = (!crop_left && !crop_right                    &&
                   stereo_settings().alignment_method == "none" &&
                   stereo_settings().cost_mode == 2             &&
-                  has_tif_or_ntf_extension(opt.in_file1)       &&
-                  has_tif_or_ntf_extension(opt.in_file2));
+                  vw::has_tif_or_ntf_extension(opt.in_file1)       &&
+                  vw::has_tif_or_ntf_extension(opt.in_file2));
 
   if (!is_good) 
     vw_throw(ArgumentErr()

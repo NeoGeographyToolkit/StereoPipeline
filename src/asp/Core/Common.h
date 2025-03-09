@@ -57,36 +57,6 @@ namespace asp {
 
   class ASPGlobalOptions; // forward declaration
   
-  /// Returns true if the filename ends in .isd or .json.
-  bool has_isd_extension(std::string const& path);
-
-  /// Returns true if the file has an extension which can contain a camera model
-  bool has_cam_extension(std::string const& input);
-
-  /// Returns true if the file has an extension which can contain a pinhole camera model
-  bool has_pinhole_extension(std::string const& input);
-
-  /// Returns true if the file has an extension which can contain an image
-  bool has_image_extension(std::string const& input);
-
-  /// Returns true if the file has an extension which is tif or ntf
-  bool has_tif_or_ntf_extension(std::string const& input);
-  
-  /// If it ends with _rpc.txt or _RPC.TXT
-  bool has_rpc_txt_extension(std::string const& input);
-
-  /// Returns true for a shapefile
-  bool has_shp_extension(std::string const& input);
-
-  /// Returns true if all of the input files have the given extension.
-  bool all_files_have_extension(std::vector<std::string> const& files, std::string const& ext);
-  
-  /// Makes a vector containing all files in the input vector with an extension.
-  /// - If prune_input_list is set, matching files are removed from the input list.
-  std::vector<std::string>
-  get_files_with_ext(std::vector<std::string>& files, std::string const& ext, 
-                      bool prune_input_list);
-
   /// Given a list of images/cameras and/or lists of such things, put the images
   /// and the cameras in separate vectors.
   void separate_images_from_cameras(std::vector<std::string> const& inputs,

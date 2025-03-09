@@ -47,6 +47,7 @@
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Cartography/DatumUtils.h>
+#include <vw/FileIO/FileTypes.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -339,7 +340,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if ((opt.camera_type == "opticalbar") && (opt.sample_file == ""))
     vw_throw(ArgumentErr() << "opticalbar type must use a sample camera file.\n");
 
-  std::string out_ext = get_extension(opt.out_camera);
+  std::string out_ext = vw::get_extension(opt.out_camera);
   if (out_ext != ".tsai" && out_ext != ".json")
     vw_throw(ArgumentErr() << "The output camera file must end with .tsai or .json.\n");
 
@@ -576,7 +577,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   }
 
-  std::string input_ext = get_extension(opt.input_camera);
+  std::string input_ext = vw::get_extension(opt.input_camera);
 
   // Note that optical center can be negative (for some SkySat products).
   if (!opt.planet_pinhole &&
@@ -695,7 +696,7 @@ void manufacture_cam(Options & opt, int wid, int hgt, vw::CamPtr & out_cam) {
     out_cam = opticalbar_cam;
   } else if (opt.camera_type == "pinhole") { // csm frame comes here too
     
-    std::string sample_ext = get_extension(opt.sample_file);
+    std::string sample_ext = vw::get_extension(opt.sample_file);
     if (opt.sample_file != "" && sample_ext == ".json") {
       // Read the intrinsics from the csm file. The distortion will be set later.
       asp::CsmModel csm(opt.sample_file);
@@ -1306,7 +1307,7 @@ int main(int argc, char * argv[]) {
     } else if (opt.camera_type == "pinhole") {
       vw::camera::PinholeModel* pin = NULL;
       boost::shared_ptr<vw::camera::PinholeModel> input_pin;
-      std::string out_ext = get_extension(opt.out_camera);
+      std::string out_ext = vw::get_extension(opt.out_camera);
       if (opt.exact_tsai_to_csm_conv) {
         // Get the input pinhole model, to be converted below exactly to CSM
         input_pin.reset(new vw::camera::PinholeModel(opt.input_camera));

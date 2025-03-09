@@ -25,13 +25,14 @@
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Sessions/StereoSessionASTER.h>
-
-#include <asp/IsisIO/IsisInterface.h>
-#include <vw/FileIO/DiskImageResourceRaw.h>
-#include <vw/Camera/CameraUtilities.h>
 #include <asp/Camera/SPOT_XML.h>
 #include <asp/Camera/ASTER_XML.h>
+#include <asp/IsisIO/IsisInterface.h>
+
+#include <vw/FileIO/DiskImageResourceRaw.h>
+#include <vw/Camera/CameraUtilities.h>
 #include <vw/Camera/OpticalBarModel.h>
+#include <vw/FileIO/FileTypes.h>
 
 namespace asp {
 
@@ -101,8 +102,8 @@ StereoSession* StereoSessionFactory::create(std::string      & session_type, // 
   bool quiet = true;
   boost::to_lower(actual_session_type);
   if (actual_session_type.empty()) {
-    if (asp::has_pinhole_extension(left_camera_file) ||
-        asp::has_pinhole_extension(right_camera_file)) {
+    if (vw::has_pinhole_extension(left_camera_file) ||
+        vw::has_pinhole_extension(right_camera_file)) {
       // There can be several types of .tsai files
       std::string error_pinhole, error_opticalbar;
       try {
@@ -124,8 +125,8 @@ StereoSession* StereoSessionFactory::create(std::string      & session_type, // 
                     << error_opticalbar);
         }
       }
-    } else if (asp::has_isd_extension(left_camera_file) ||
-                asp::has_isd_extension(right_camera_file)) {
+    } else if (vw::has_isd_extension(left_camera_file) ||
+                vw::has_isd_extension(right_camera_file)) {
       actual_session_type = "csm";
     } else if (boost::iends_with(boost::to_lower_copy(left_image_file), ".cub") &&
                 asp::isis::IsisCubeHasCsmBlob(left_image_file)) {

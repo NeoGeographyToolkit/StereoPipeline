@@ -15,22 +15,16 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+#include <asp/Core/Common.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/asp_date_config.h>
+
 #include <vw/Core/Log.h>
 #include <vw/Core/System.h>
 #include <vw/Math/BBox.h>
 #include <vw/FileIO/DiskImageResource.h>
-#include <asp/Core/Common.h>
-#include <asp/Core/StereoSettings.h>
-
-#include <asp/asp_date_config.h>
-
-#include <map>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <unistd.h>
-
-#include <gdal_version.h>
+#include <vw/FileIO/FileUtils.h>
+#include <vw/FileIO/FileTypes.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -42,9 +36,16 @@
 #include <boost/algorithm/string/replace.hpp>
 
 // TODO(oalexan1): Move this to VW in the cartography module.
+#include <gdal_version.h>
 #if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
 #include "ogr_spatialref.h"
 #endif
+
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <unistd.h>
 
 // These variables must never go out of scope or else the
 // environmental variables set by them using putenv() will disappear.
@@ -56,8 +57,8 @@ namespace asp {
   char QT_PLUGIN_PATH_ENV_STR[COMMON_BUF_SIZE];
   char GDAL_DATA_ENV_STR[COMMON_BUF_SIZE];
   char GDAL_DRIVER_PATH_ENV_STR[COMMON_BUF_SIZE];
-  char PROJ_LIB_ENV_STR[COMMON_BUF_SIZE]; // older api
-  char PROJ_DATA_ENV_STR[COMMON_BUF_SIZE]; // newer api
+  char PROJ_LIB_ENV_STR[COMMON_BUF_SIZE]; // older proj api
+  char PROJ_DATA_ENV_STR[COMMON_BUF_SIZE]; // newer proj api
   char LC_ALL_STR[COMMON_BUF_SIZE];
   char LANG_STR[COMMON_BUF_SIZE];
 }
@@ -65,94 +66,6 @@ namespace asp {
 using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-
-bool asp::has_isd_extension(std::string const& path) {
-  std::string ext = vw::get_extension(path);
-  return ((ext == ".json") || (ext == ".isd"));
-}
-
-// If it ends with _rpc.txt or _RPC.TXT
-bool asp::has_rpc_txt_extension(std::string const& input) {
-  if (boost::iends_with(input, "_rpc.txt")) 
-    return true;
-  return false;
-}
-
-bool asp::has_cam_extension(std::string const& input) {
-  std::string ext = get_extension(input);
-  if (has_pinhole_extension(input) ||
-      has_isd_extension(input)     ||
-      ext == ".cub" || ext == ".xml" || ext == ".dim" ||
-      ext == ".rpb" || asp::has_rpc_txt_extension(input))
-    return true;
-  return false;
-}
-
-bool asp::has_pinhole_extension(std::string const& input) {
-  std::string ext = get_extension(input);
-  if (ext == ".cahvor"  || ext == ".cahv"    ||
-       ext == ".pin"     || ext == ".pinhole" ||
-       ext == ".tsai"    || ext == ".cmod"    ||
-       ext == ".cahvore")
-    return true;
-  return false;
-}
-
-bool asp::has_image_extension(std::string const& input) {
-  std::string ext = get_extension(input);
-  if (ext == ".tif"  || ext == ".tiff" || 
-      ext == ".ntf" || ext == ".nitf" ||
-       ext == ".png"  || ext == ".jpeg" ||
-       ext == ".jpg"  || ext == ".jp2"  ||
-       ext == ".img"  || ext == ".cub"  ||
-       ext == ".bip"  || ext == ".bil"  ||ext == ".bsq")
-    return true;
-  return false;
-}
-
-bool asp::has_tif_or_ntf_extension(std::string const& input) {
-  std::string ext = get_extension(input);
-  if (ext == ".tif"  || ext == ".tiff" || 
-      ext == ".ntf" || ext == ".nitf")
-    return true;
-  return false;
-}
-
-bool asp::has_shp_extension(std::string const& input) {
-  std::string ext = get_extension(input);
-  if (ext == ".shp")
-    return true;
-  return false;
-}
-
-bool asp::all_files_have_extension(std::vector<std::string> const& files, 
-                                   std::string const& ext) {
-  for (size_t i = 0; i < files.size(); i++){
-    if (! boost::iends_with(boost::to_lower_copy(files[i]), ext))
-      return false;
-  }
-  return true;
-}
-
-std::vector<std::string>
-asp::get_files_with_ext(std::vector<std::string>& files, std::string const& ext, 
-                        bool prune_input_list) {
-  std::vector<std::string> match_files;
-  std::vector<std::string>::iterator it = files.begin();
-  while (it != files.end()) {
-    if (boost::iends_with(boost::to_lower_copy(*it), ext)) { // Match
-      match_files.push_back(*it);
-      if (prune_input_list) // Clear match from the input list
-        it = files.erase(it);
-      else
-        it++;
-    } else {// No match
-      it++;
-    }
-  } // End loop through input list
-
-  return match_files;
-}
 
 // Given a vector of files, with each file being an image, camera,
 // or a text file having images or cameras, return the list of
@@ -166,7 +79,7 @@ void readImagesCamsOrLists(std::vector<std::string> const & in,
 
   for (size_t i = 0; i < in.size(); i++) {
 
-    if (asp::has_image_extension(in[i]) || asp::has_cam_extension(in[i])) {
+    if (vw::has_image_extension(in[i]) || vw::has_cam_extension(in[i])) {
     
       // Simply append the image or camera to the list
       out.push_back(in[i]);
@@ -226,9 +139,9 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
   images.clear();
   cameras.clear();
   for (size_t i = 0; i < inputs2.size(); i++) {
-    if (has_image_extension(inputs2[i]))
+    if (vw::has_image_extension(inputs2[i]))
       images.push_back(inputs2[i]);
-    else if (has_cam_extension(inputs2[i]))
+    else if (vw::has_cam_extension(inputs2[i]))
       cameras.push_back(inputs2[i]);
     else if (boost::iends_with(inputs2[i], ".adjust"))
       vw_throw(ArgumentErr() << "The file " << inputs2[i] << " is an adjustment. "
@@ -252,10 +165,10 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
   bool has_nocub  = false;
   bool has_cam    = false;
   for (size_t i = 0; i < inputs2.size(); i++) {
-    std::string ext = get_extension(inputs2[i]);
+    std::string ext = vw::get_extension(inputs2[i]);
     if (ext == ".cub")                      has_cub   = true;
     if (ext != ".cub")                      has_nocub = true;
-    if (asp::has_cam_extension(inputs2[i])) has_cam   = true;
+    if (vw::has_cam_extension(inputs2[i])) has_cam   = true;
   }
   
   // Let the first half of the data be images, and the second half be cameras.
@@ -276,14 +189,14 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
   
   // Verification for images
   for (size_t i = 0; i < images.size(); i++) {
-    if (!has_image_extension(images[i])) {
+    if (!vw::has_image_extension(images[i])) {
       vw_throw(ArgumentErr() << "Expecting an image, got: " << images[i] << ".\n");
     }
   }
 
   // Verification for cameras
   for (size_t i = 0; i < cameras.size(); i++) {
-    if (!has_cam_extension(cameras[i])) {
+    if (!vw::has_cam_extension(cameras[i])) {
       vw_throw(ArgumentErr() << "Expecting a camera, got: " << cameras[i] << ".\n");
     }
   }
@@ -337,7 +250,7 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
   prefix = files.back(); // Dem, if present, was already popped off the back.
 
   // An output prefix cannot be an image or a camera
-  if (asp::has_image_extension(prefix) || asp::has_cam_extension(prefix) || prefix == "") {
+  if (vw::has_image_extension(prefix) || vw::has_cam_extension(prefix) || prefix == "") {
     // Throw here, as we don't want this printed in stereo_gui
     vw_throw(ArgumentErr() << "Invalid output prefix: " << prefix << ".\n");
   }
@@ -1054,12 +967,10 @@ namespace program_options {
     try {
       BBox3 output(Vector3(boost::lexical_cast<double>(cvalues[0]),
                             boost::lexical_cast<double>(cvalues[1]),
-                            boost::lexical_cast<double>(cvalues[2])
-),
+                            boost::lexical_cast<double>(cvalues[2])),
                    Vector3(boost::lexical_cast<double>(cvalues[3]),
                             boost::lexical_cast<double>(cvalues[4]),
-                            boost::lexical_cast<double>(cvalues[5])
-));
+                            boost::lexical_cast<double>(cvalues[5])));
       v = output;
     } catch (boost::bad_lexical_cast const& e) {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));

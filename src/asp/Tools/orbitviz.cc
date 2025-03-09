@@ -19,11 +19,6 @@
 /// \file orbitviz.cc
 /// Show the positions of the cameras above the planet in kml format.
 
-#include <vw/FileIO/KML.h>
-#include <vw/FileIO/FileUtils.h>
-#include <vw/InterestPoint/InterestData.h>
-#include <vw/InterestPoint/MatcherIO.h>
-
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSessionFactory.h>
@@ -31,6 +26,12 @@
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 #include <asp/IsisIO/IsisCameraModel.h>
 #endif
+
+#include <vw/FileIO/KML.h>
+#include <vw/FileIO/FileUtils.h>
+#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/MatcherIO.h>
+#include <vw/FileIO/FileTypes.h>
 
 #include <iomanip>
 
@@ -106,7 +107,7 @@ size_t get_files_from_solver_folder(std::string                 const& solver_fo
   // Identify the image extension
   std::string image_ext = "";
   for (size_t i=0; i<solver_files.size(); ++i) {
-    if (asp::has_image_extension(solver_files[i])) {
+    if (vw::has_image_extension(solver_files[i])) {
       image_ext = get_extension(solver_files[i], false);
       break;
     }

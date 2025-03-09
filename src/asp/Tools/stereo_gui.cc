@@ -34,6 +34,7 @@
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Core/CmdUtils.h>
+#include <vw/FileIO/FileTypes.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Core/DemDisparity.h>
 #include <asp/GUI/MainWindow.h>
@@ -231,30 +232,30 @@ void readImageNames(std::vector<std::string> const& all_files,
       is_image = true;
     } catch(std::exception & e){
       if (file.empty() || file[0] == '-') continue;
-      if (get_extension(file) == ".match") {
+      if (vw::get_extension(file) == ".match") {
         // Found a match file
         stereo_settings().match_file = file;
         is_image = false;
-      } else if (get_extension(file) == ".vwip") {
+      } else if (vw::get_extension(file) == ".vwip") {
         // Found a vwip file
         stereo_settings().vwip_files.push_back(file);
         is_image = false;
-      } else if (get_extension(file) == ".gcp") {
+      } else if (vw::get_extension(file) == ".gcp") {
         // Found a gcp file
         stereo_settings().gcp_file = file;
         is_image = false;
-      } else if (get_extension(file) == ".nvm") {
+      } else if (vw::get_extension(file) == ".nvm") {
         // Found an nvm file
         if (!stereo_settings().nvm.empty()) // sanity check
           vw_out() << "Multiple nvm files specified. Will load only: " << file << "\n";
         stereo_settings().nvm  = file;
         is_image = false;
-      } else if (asp::has_shp_extension(file)) {
+      } else if (vw::has_shp_extension(file)) {
         // See if this is a shape file
         is_image = true; // will load it in the same struct as for images
       } else if (vw::gui::hasCsv(file)) {
         is_image = true; // will load it in the same struct as for images
-      } else if (has_cam_extension(file)) {
+      } else if (vw::has_cam_extension(file)) {
         // We will get here for all cameras except .cub, which
         // is both an image and a camera and was picked up by
         // now. Don't print an error in this case as this is

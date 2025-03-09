@@ -36,6 +36,7 @@
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Cartography/PointImageManipulation.h>
+#include <vw/FileIO/FileTypes.h>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -136,7 +137,7 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
     vw_throw(ArgumentErr()
              << "The value of --t_srs is empty. Then it must not be set at all.\n");
 
-  if (asp::has_cam_extension(opt.output_file))
+  if (vw::has_cam_extension(opt.output_file))
     vw_throw(ArgumentErr() << "The output file is a camera. Check your inputs.\n");
 
   if (opt.parseOptions) {

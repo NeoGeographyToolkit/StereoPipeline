@@ -56,6 +56,7 @@
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Camera/CameraImage.h>
 #include <vw/Cartography/DatumUtils.h>
+#include <vw/FileIO/FileTypes.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/UsgsAstroFrameSensorModel.h>
@@ -381,7 +382,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
 
   // Separate out GCP files
   bool rm_from_input_list = true;
-  opt.gcp_files = asp::get_files_with_ext(opt.image_files, ".gcp", rm_from_input_list);
+  opt.gcp_files = vw::get_files_with_ext(opt.image_files, ".gcp", rm_from_input_list);
   int num_gcp_files = opt.gcp_files.size();
   if (num_gcp_files > 0)
     vw_out() << "Found " << num_gcp_files << " GCP files.\n";
@@ -522,7 +523,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     // Must have --csv-format unless the reference terrain is a DEM
     if (opt.csv_format_str.empty()) {
       vw::cartography::GeoReference georef;
-      bool has_georef = asp::has_image_extension(opt.reference_terrain) &&
+      bool has_georef = vw::has_image_extension(opt.reference_terrain) &&
                         vw::cartography::read_georeference(georef, opt.reference_terrain);
       if (!has_georef)
         vw_throw(ArgumentErr() 

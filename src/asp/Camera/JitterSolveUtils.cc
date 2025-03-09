@@ -27,6 +27,8 @@
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/UsgsAstroFrameSensorModel.h>
 
+#include <vw/FileIO/FileTypes.h>
+
 #include <boost/filesystem.hpp>
 
 namespace fs = boost::filesystem;
@@ -49,7 +51,7 @@ void readGroupStructure(std::vector<std::string> const & image_lists,
   for (size_t i = 0; i < image_lists.size(); i++) {
 
     // The case when we have a standalone image
-    if (asp::has_image_extension(image_lists[i])) {
+    if (vw::has_image_extension(image_lists[i])) {
       cam2group[image_count] = group_count;
       group_count++;
       image_count++;
@@ -68,7 +70,7 @@ void readGroupStructure(std::vector<std::string> const & image_lists,
     // Add a new group, and let all images in the list be in that group
     bool has_images = false;
     for (size_t j = 0; j < image_names.size(); j++) {
-      if (!asp::has_image_extension(image_names[j]))
+      if (!vw::has_image_extension(image_names[j]))
         continue;
       if (!fs::exists(image_names[j])) // additional robustness check
         continue; 

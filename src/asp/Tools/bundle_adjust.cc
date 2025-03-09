@@ -51,6 +51,7 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/LensDistortion.h>
 #include <vw/Camera/OpticalBarModel.h>
+#include <vw/FileIO/FileTypes.h>
 
 // Can't do much about warnings in boost except to hide them
 #pragma GCC diagnostic push
@@ -1485,7 +1486,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
 
   // Separate out GCP files
   bool rm_from_input_list = true;
-  opt.gcp_files = asp::get_files_with_ext(opt.image_files, ".gcp", rm_from_input_list);
+  opt.gcp_files = vw::get_files_with_ext(opt.image_files, ".gcp", rm_from_input_list);
 
   // Handle the situation when the images and cameras are in lists
   if (!opt.image_list.empty()) {
@@ -1688,7 +1689,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     vw_throw(ArgumentErr() << "The minimum triangulation angle must be positive.\n");
 
   // TODO: Make sure the normal model loading catches this error.
-  //if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
+  //if (opt.create_pinhole && !vw::has_pinhole_extension(opt.camera_files[0]))
   //  vw_throw(ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
 
   if ((opt.camera_type == BaCameraType_Other) && opt.solve_intrinsics)

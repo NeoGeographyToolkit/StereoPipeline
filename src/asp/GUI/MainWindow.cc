@@ -40,6 +40,7 @@
 #include <vw/Image/PixelMask.h>
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/InterestPoint/MatcherIO.h>
+#include <vw/FileIO/FileTypes.h>
 
 #include <boost/filesystem/path.hpp>
 
@@ -361,7 +362,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     
     // Accept shape files and csv files alongside images
     if (!is_image &&
-        !asp::has_shp_extension(local_images[i]) &&
+        !vw::has_shp_extension(local_images[i]) &&
         !vw::gui::hasCsv(local_images[i]))
       continue;
 
