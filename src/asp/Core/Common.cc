@@ -213,62 +213,6 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
   return;
 }
 
-/// Parse the list of files specified as positional arguments on the command line
-// The format is:  <N image paths> [N camera model paths] <output prefix> [input DEM path]
-bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
-                                    std::vector<std::string>       &image_paths,
-                                    std::vector<std::string>       &camera_paths,
-                                    std::string                    &prefix,
-                                    std::string                    &dem_path) {
-  // Init outputs
-  image_paths.clear();
-  camera_paths.clear();
-  prefix   = "";
-  dem_path = "";
-
-  // Find the input DEM, if any
-  std::vector<std::string> files = filesIn; // Make a local copy to work with
-  std::string input_dem;
-  bool has_georef = false;
-  try{ // Just try to load the last file path as a dem
-    cartography::GeoReference georef;
-    has_georef = read_georeference(georef, files.back());
-  } catch(...) {}
-  
-  if (has_georef) { // I guess it worked
-    dem_path = files.back();
-    files.pop_back();
-  }else{ // We tried to load the prefix, there is no dem.
-    dem_path = "";
-  }
-  if (files.size() < 3) {
-    vw_throw(ArgumentErr() << "Expecting at least three inputs to stereo.\n");
-    return false;
-  }
-  
-  // Find the output prefix
-  prefix = files.back(); // Dem, if present, was already popped off the back.
-
-  // An output prefix cannot be an image or a camera
-  if (vw::has_image_extension(prefix) || vw::has_cam_extension(prefix) || prefix == "") {
-    // Throw here, as we don't want this printed in stereo_gui
-    vw_throw(ArgumentErr() << "Invalid output prefix: " << prefix << ".\n");
-  }
-  files.pop_back();
-
-  // Now there are N images and possibly N camera paths
-  bool ensure_equal_sizes = false;
-  asp::separate_images_from_cameras(files, image_paths, camera_paths, ensure_equal_sizes);
-
-  // The output prefix must not exist as a file.
-  if (fs::exists(prefix))
-      vw_out(WarningMessage)
-        << "It appears that the output prefix exists as a file: "
-        << prefix << ". Perhaps this was not intended.\n";
-
-  return true;
-}
-
 /// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
 /// so it may have some items there beforehand.
 void asp::parse_append_metadata(std::string const& metadata,

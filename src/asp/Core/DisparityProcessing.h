@@ -53,9 +53,16 @@ namespace asp {
                     std::string const& d_sub_file,
                     vw::Vector2 const& outlier_removal_params);
   
-  // Filter D_sub by reducing its spread around the median
-  void filter_D_sub_using_spread(ASPGlobalOptions const& opt, std::string const& d_sub_file,
-                                 double max_disp_spread);
+  // Filter D_sub by reducing its spread around the median. Return the count of
+  // removed pixels.
+  int dispSpreadFilter(vw::ImageView<vw::PixelMask<vw::Vector2f>> & sub_disp,
+                      double max_disp_spread,
+                      vw::Vector2 const& upsample_scale);
+  
+  // Filter D_sub by reducing its spread around the median. Read from disk,
+  // filter, write back to disk.
+  void dispSpreadFilterIO(ASPGlobalOptions const& opt, std::string const& d_sub_file,
+                          double max_disp_spread);
   
   // Take a given disparity and make it between the original unaligned images
   void unalign_disparity(bool is_map_projected,

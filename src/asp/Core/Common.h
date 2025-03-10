@@ -64,13 +64,6 @@ namespace asp {
 				    std::vector<std::string>      & cameras,
 				    bool ensure_equal_sizes);
   
-  /// Parse the list of files specified as positional arguments on the command lin
-  bool parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
-                                 std::vector<std::string>       &image_paths,
-                                 std::vector<std::string>       &camera_paths,
-                                 std::string                    &prefix,
-                                 std::string                    &dem_path);
-
   /// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
   /// so it may have some items there beforehand.
   void parse_append_metadata(std::string const& metadata,

@@ -446,6 +446,12 @@ max-disp-spread (*double*) (default = -1.0)
     is very steep. With mapprojected images this likely should
     be under 100-200 pixels.
     
+    In the latest build of ASP, if this is set, it will be applied in each
+    process that computes the disparity. In older ASP, the existing
+    low-resolution disparity needs to be deleted before restarting a run with
+    this option. That disparity also needs to be deleted if it is desired to
+    relax or no longer use this option.
+    
 corr-search-limit (*integer integer integer integer*)
     Set these parameters to constrain the search range that
     ``parallel_stereo`` automatically computes when ``corr-search`` is

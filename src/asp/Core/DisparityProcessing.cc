@@ -341,19 +341,17 @@ void filter_D_sub(ASPGlobalOptions const& opt,
   
 } 
 
-// Filter D_sub by reducing its spread around the median
-void filter_D_sub_using_spread(ASPGlobalOptions const& opt, std::string const& d_sub_file,
-                               double max_disp_spread) {
+// Filter D_sub by reducing its spread around the median. Return the count of
+// removed pixels.
+int dispSpreadFilter(vw::ImageView<vw::PixelMask<vw::Vector2f>> & sub_disp,
+                     double max_disp_spread,
+                     vw::Vector2 const& upsample_scale) {
   
   if (max_disp_spread <= 0.0)
-    return;
-
+    return 0.0;
+  
   vw_out() << "Filtering outliers in D_sub based on --max-disp-spread.\n";
   
-  vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
-  vw::Vector2 upsample_scale;
-  asp::load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
-
   std::vector<double> dx, dy;
   for (int col = 0; col < sub_disp.cols(); col++) {
     for (int row = 0; row < sub_disp.rows(); row++) {
@@ -379,8 +377,10 @@ void filter_D_sub_using_spread(ASPGlobalOptions const& opt, std::string const& d
   // Do not throw an error, as sometimes the disparity is empty because
   // some other filtering may have removed all points in degenerate cases.
   // Just continue with the run and hope for the best.
-  if (dx.empty())
+  if (dx.empty()) {
     vw::vw_out(vw::WarningMessage) << "Empty disparity. Will not continue with filtering.\n";
+    return 0;
+  }
   
   std::sort(dx.begin(), dx.end());
   std::sort(dy.begin(), dy.end());
@@ -417,8 +417,25 @@ void filter_D_sub_using_spread(ASPGlobalOptions const& opt, std::string const& d
     }
   }
 
+  return count;
+}
+
+// Filter D_sub by reducing its spread around the median. Read from disk, filter,
+// and write back to disk.
+void dispSpreadFilterIO(ASPGlobalOptions const& opt, std::string const& d_sub_file,
+                        double max_disp_spread) {
+  
+  if (max_disp_spread <= 0.0)
+    return;
+  
+  vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
+  vw::Vector2 upsample_scale;
+  asp::load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
+
+  int filteredCount = dispSpreadFilter(sub_disp, max_disp_spread, upsample_scale);
+  double ratio = double(filteredCount) / (sub_disp.cols() * sub_disp.rows());
   vw_out() << "Number (and fraction) of removed outliers by the disp spread check: "
-           << count << " (" << double(count)/(sub_disp.cols() * sub_disp.rows()) << ").\n";
+           << filteredCount << " (" << ratio << ").\n";
     
   vw_out() << "Writing filtered D_sub: " << d_sub_file << std::endl;
   block_write_gdal_image(d_sub_file, sub_disp, opt,
@@ -1177,7 +1194,7 @@ void compute_matches_from_disp_aux(ASPGlobalOptions const& opt,
           // Must fit within image box
           if (right_pix[0] < 0 || right_pix[0] > right_img.cols() - 1) continue;
           if (right_pix[1] < 0 || right_pix[1] > right_img.rows() - 1) continue;
-
+          
           // Store the match pair
           ip::InterestPoint lip(left_pix.x(), left_pix.y());
           ip::InterestPoint rip(right_pix.x(), right_pix.y());

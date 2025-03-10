@@ -73,18 +73,14 @@ SemiGlobalMatcher::SgmSubpixelMode get_sgm_subpixel_mode() {
 }
 
 // Read the search range from D_sub, and scale it to the full image
-void read_search_range_from_D_sub(std::string const& d_sub_file,
-                                  ASPGlobalOptions const& opt,
+void read_search_range_from_D_sub(vw::ImageView<vw::PixelMask<vw::Vector2f>> const& sub_disp,
+                                  vw::Vector2 const& upsample_scale,
                                   bool verbose) {
 
   // No D_sub is generated or should be used for seed mode 0.
   if (stereo_settings().seed_mode == 0)
     return;
 
-  vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
-  vw::Vector2 upsample_scale;
-  asp::load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
-  
   BBox2 search_range = stereo::get_disparity_range(sub_disp);
   search_range.min() = floor(elem_prod(search_range.min(), upsample_scale));
   search_range.max() = ceil (elem_prod(search_range.max(), upsample_scale));
@@ -253,7 +249,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     }
 
     if (stereo_settings().max_disp_spread > 0.0)
-      filter_D_sub_using_spread(opt, d_sub_file, stereo_settings().max_disp_spread);
+      asp::dispSpreadFilterIO(opt, d_sub_file, stereo_settings().max_disp_spread);
     
   } else if (stereo_settings().seed_mode == 2) {
 
@@ -272,8 +268,13 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
   // Read this to print some text while still in low-res disparity
   // computation mode.  Next time we call this it will be per
   // individual tile so it will go to different log files.
-  bool verbose = true;
-  read_search_range_from_D_sub(d_sub_file, opt, verbose);
+  if (stereo_settings().seed_mode > 0) {
+    bool verbose = true;
+    ImageView<PixelMask<Vector2f>> sub_disp;
+    vw::Vector2 upsample_scale;
+    load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
+    read_search_range_from_D_sub(sub_disp, upsample_scale, verbose);
+  }
 
 } // End produce_lowres_disparity
 
@@ -582,7 +583,8 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     bool inputs_changed = (!is_latest_timestamp(sub_disp_file, opt.in_file1,  opt.in_file2,
                                                 opt.cam_file1, opt.cam_file2));
 
-    bool rebuild = crop_left || crop_right || inputs_changed;
+    bool rebuild = crop_left || crop_right || inputs_changed || 
+                   (asp::stereo_settings().max_disp_spread > 0.0);
 
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
@@ -807,8 +809,35 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   std::string d_sub_file  = opt.out_prefix + "-D_sub.tif";
   std::string spread_file = opt.out_prefix + "-D_sub_spread.tif";
 
+  // Load D_sub
+  ImageView<PixelMask<Vector2f>> sub_disp;
+  vw::Vector2 upsample_scale;
+  if (stereo_settings().seed_mode > 0)
+    load_D_sub_and_scale(opt.out_prefix, d_sub_file, sub_disp, upsample_scale);
+  
+  // Load D_sub_spread
+  DispImageRef sub_disp_spread;
+  if (stereo_settings().seed_mode == 2 ||  stereo_settings().seed_mode == 3) {
+    // D_sub_spread is mandatory for seed_mode 2 and 3.
+    sub_disp_spread = DiskImageView<PixelMask<Vector2f>>(spread_file);
+  } else if (stereo_settings().seed_mode == 1) {
+    // D_sub_spread is optional for seed_mode 1, we use it only if it is provided.
+    if (fs::exists(spread_file)) {
+      try {
+        sub_disp_spread = DiskImageView<PixelMask<Vector2f>>(spread_file);
+      }
+      catch (...) {}
+    }
+  }
+
+  // If the user set --max-disp-spread, filter by it again in each process,
+  // as maybe the D_sub on disk was from an older run with this filter not
+  // applied.
+  if (asp::stereo_settings().seed_mode > 0 && asp::stereo_settings().max_disp_spread > 0.0)
+    asp::dispSpreadFilter(sub_disp, asp::stereo_settings().max_disp_spread, upsample_scale);
+    
   bool verbose = false; // We already printed the message above
-  read_search_range_from_D_sub(d_sub_file, opt, verbose);
+  read_search_range_from_D_sub(sub_disp, upsample_scale, verbose);
 
   // If the user specified a search range limit, apply it here.
   if ((stereo_settings().corr_search_limit.min() != Vector2i()) || 
@@ -818,8 +847,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
              << stereo_settings().search_range << "\n";
   }
 
-  // Load up for the actual native resolution processing
-
+  // Load data for full-resolution processing
   std::string left_image_file = opt.out_prefix + "-L.tif";
   std::string right_image_file = opt.out_prefix + "-R.tif";
   
@@ -832,30 +860,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
     Rmask(opt.out_prefix + "-rMask.tif");
-  ImageView<PixelMask<Vector2f>> sub_disp;
   
-  if (stereo_settings().seed_mode > 0) {
-    if (!load_D_sub(d_sub_file, sub_disp)) {
-      std::string msg = "Could not read " + d_sub_file + ".";
-      if (stereo_settings().skip_low_res_disparity_comp)
-        msg += "\nPerhaps one should disable --skip-low-res-disparity-comp.";
-      vw_throw(ArgumentErr() << msg << "\n");
-    }
-  }
-  DispImageRef sub_disp_spread;
-  if (stereo_settings().seed_mode == 2 ||  stereo_settings().seed_mode == 3){
-    // D_sub_spread is mandatory for seed_mode 2 and 3.
-    sub_disp_spread = DiskImageView<PixelMask<Vector2f>>(spread_file);
-  }else if (stereo_settings().seed_mode == 1){
-    // D_sub_spread is optional for seed_mode 1, we use it only if it is provided.
-    if (fs::exists(spread_file)) {
-      try {
-        sub_disp_spread = DiskImageView<PixelMask<Vector2f>>(spread_file);
-      }
-      catch (...) {}
-    }
-  }
-
   stereo::CostFunctionType cost_mode = get_cost_mode_value();
   Vector2i kernel_size = stereo_settings().corr_kernel;
   BBox2i left_trans_crop_win = stereo_settings().trans_crop_win;
