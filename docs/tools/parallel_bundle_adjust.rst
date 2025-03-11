@@ -56,11 +56,12 @@ Command-line options for ``parallel_bundle_adjust``:
     Display the commands being executed.
 
 --processes <integer>
-    The number of processes to use per node. The default is to use
-    as many processes as cores.
+    The number of processes per node. The default is a quarter of the number of
+    cores on the head node.
 
 --threads <integer>
-    The number of threads to use.
+    The number of threads per process. The default is the number of cores on the
+    head node over the number of processes.
 
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB, for each process.

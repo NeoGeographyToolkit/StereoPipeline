@@ -73,31 +73,31 @@ def get_num_nodes(nodes_list):
 
     return num_nodes
 
-def get_best_procs_threads(step):
+def get_best_procs_threads():
     # Decide the best number of processes to use on a node, and how
-    # many threads to use for each process.  There used to be some
-    # fancy logic, see below, but it does not work well. ASP mostly
-    # uses 100% CPU per process the vast majority of the time, even
-    # when invoked with a lot of threads.  Not sure why. The file
-    # system could be the bottleneck.  As such, it is faster to just
-    # use many processes and one thread per process.
+    # many threads to use for each process. Too many processes
+    # may result in too much memory usage.
 
     # We assume all machines have the same number of CPUs (cores)
     num_cpus = get_num_cpus()
-
-    # Respect user's choice for the number of processes
-    num_procs = num_cpus
+    
+    # Auto-compute the number of processes unless set.
     if opt.processes is not None:
         num_procs = opt.processes
-
+    else:
+        num_procs = int(round(num_cpus/4.0))
+    if num_procs < 1:
+        num_procs = 1
+    
     # Same for the number of threads.
-    num_threads = 1
     if opt.threads is not None:
         num_threads = opt.threads
-
-    if opt.verbose:
-        print("For stage %d, using %d threads and %d processes." %
-              (step, num_threads, num_procs))
+    else:
+        num_threads = int(math.ceil(float(num_cpus)/num_procs))
+    if num_threads < 1:
+        num_threads = 1
+    
+    print("Using %d threads and %d processes." % (num_threads, num_procs))
 
     return (num_procs, num_threads)
 
@@ -107,7 +107,7 @@ def get_num_images(args):
     count = 0
 
     # TODO(oalexan1): This is very fragile logic.
-    IMAGE_EXTENSIONS = ['.tif', '.tiff', '.ntf', '.png', '.jpeg', '.jpg',
+    IMAGE_EXTENSIONS = ['.tif', '.tiff', '.ntf', '.nitf', '.png', '.jpeg', '.jpg',
                         '.jp2', '.img', '.cub', '.bip', '.bil', '.bsq']
     for a in args:
         lc = a.lower()
@@ -165,19 +165,19 @@ def spawn_to_nodes(step, num_instances, output_prefix, argsIn):
     if opt.processes is None or opt.threads is None:
         # The user did not specify these. We will find the best
         # for their system.
-        (procs, threads) = get_best_procs_threads(step)
+        (num_procs, num_threads) = get_best_procs_threads()
     else:
-        procs   = opt.processes
-        threads = opt.threads
+        num_procs   = opt.processes
+        num_threads = opt.threads
 
     # Need not have more processes than instances.
-    if procs > num_instances:
-        procs = num_instances
+    if num_procs > num_instances:
+        num_procs = num_instances
 
     asp_cmd_utils.wipe_option(args, '--processes', 1)
     asp_cmd_utils.wipe_option(args, '--threads', 1)
-    args.extend(['--processes', str(procs)])
-    args.extend(['--threads', str(threads)])
+    args.extend(['--processes', str(num_procs)])
+    args.extend(['--threads', str(num_threads)])
     args.extend(['--instance-count', str(num_instances)])
 
     # For convenience store the instance index list in a file that
@@ -193,7 +193,7 @@ def spawn_to_nodes(step, num_instances, output_prefix, argsIn):
     # TODO(oalexan1): Run 'parallel' using the runInGnuParallel() function call,
     # when the ASP_LIBRARY_PATH trick can be fully encapsulated in the
     # asp_system_utils.py code rather than being needed for each tool.
-    cmd = ['parallel', '--will-cite', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'ASP_DEPS_DIR', '-u', '--max-procs', str(procs), '-a', instance_list]
+    cmd = ['parallel', '--will-cite', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'ASP_DEPS_DIR', '-u', '--max-procs', str(num_procs), '-a', instance_list]
     if which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')
 
@@ -309,24 +309,26 @@ if __name__ == '__main__':
     # For step 3 (optimization), the script does the work itself.
 
     p = argparse.ArgumentParser(usage=usage)
-    p.add_argument('--nodes-list',           dest='nodes_list', default=None,
+    p.add_argument('--nodes-list', dest='nodes_list', default=None,
                  help='The list of computing nodes, one per line. ' + \
                  'If not provided, run on the local machine.')
-    p.add_argument('--processes',            dest='processes', default=None,
-                 type=int, help='The number of processes to use per node.')
+    p.add_argument('--processes', dest='processes', default=None, type=int, 
+                   help='The number of processes to use per node. The default is ' + \
+                   'a quarter of the number of cores on the head node.')
     p.add_argument('--threads', dest='threads', default=None,
-                 type=int, help='The number of threads to use.')
+                 type=int, help='The number of threads  per process. The default is ' + \
+                 'the number of cores on the head node over the number of processes.')
     p.add_argument('-e', '--entry-point',    dest='entry_point', default=0,
                    help = "Bundle adjustment entry point (start at this stage). " + \
                    "Options: statistics = 0, matching = 1, optimization = 2.",
                    type=int)
-    p.add_argument('--stop-point',           dest='stop_point',  default=3,
+    p.add_argument('--stop-point', dest='stop_point',  default=3,
                    help = "Bundle adjustment stop point (stop *before* this stage). " + \
                    "Options: statistics = 0, matching = 1, optimization = 2, all = 3.",
                    type=int)
     p.add_argument('--parallel-options', dest='parallel_options', default='--sshdelay 0.2',
                    help='Options to pass directly to GNU Parallel.')
-    p.add_argument('-v', '--version',        dest='version', default=False,
+    p.add_argument('-v', '--version', dest='version', default=False,
                  action='store_true', help='Display the version of software.')
     p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
                  help='Display the commands being executed.')
@@ -361,9 +363,6 @@ if __name__ == '__main__':
 
     # Ensure our 'parallel' is not out of date
     check_parallel_version()
-
-    if opt.threads is None:
-        opt.threads = get_num_cpus()
 
     if opt.instance_index is None:
         # When the script is started, set some options from the
