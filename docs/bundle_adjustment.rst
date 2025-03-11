@@ -175,11 +175,13 @@ Mixing frame and linescan cameras is discussed in :numref:`ba_frame_linescan`.
 A first attempt at floating the intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This section is only an introduction of how to float the intrinsics. Detailed
-examples are further down. It is very strongly suggested to ensure that a good
-number of images exists, they have a lot of overlap, that the cameras have been
-already bundle-adjusted with intrinsics fixed and aligned to a DEM
-(:numref:`ba_pc_align`). Such a DEM should be used as a constraint. 
+This section is *only an introduction* of how to float the intrinsics. Detailed
+examples are further down. 
+
+It is very strongly suggested to ensure that a good number of images exists,
+they have a lot of overlap, that the cameras have been already bundle-adjusted
+with intrinsics fixed and aligned to a DEM (:numref:`ba_pc_align`). Such a DEM
+should be used as a constraint. 
 
 Note that when solving for intrinsics, ``bundle_adjust`` will by default
 optimize all intrinsic parameters and will share them across all cameras. This
@@ -242,7 +244,7 @@ early such attempt, better approaches will be suggested below::
 
 See :numref:`heights_from_dem` for how to use a DEM as a constraint.
 See :numref:`dense_ip` for how to create dense interest points.
-These are *very recommended*.
+Both of these are *very recommended*.
 
 It is important to note that only the non-zero intrinsics will be
 optimized, and the step size used in optimizing a certain intrinsic
@@ -358,12 +360,15 @@ instead ``--heights-from-dem-uncertainty``.
 If a triangulated point is not close to the reference DEM, bundle adjustment
 falls back to the ``--tri-weight`` constraint.
 
-Here is an example. As in the earlier section, *we assume that the cameras and
-the terrain are already aligned*::
+Here is an example when we solve for intrinsics with a DEM constraint. As in the
+earlier section, *we assume that the cameras and the terrain are already
+aligned*::
 
      bundle_adjust -t nadirpinhole               \
        --inline-adjustments                      \
        --solve-intrinsics                        \
+       --intrinsics-to-float all                 \
+       --intrinsics-to-share all                 \
        --camera-position-weight 0                \
        --max-pairwise-matches 20000              \
        --heights-from-dem dem.tif                \
@@ -1120,12 +1125,14 @@ use ``--ip-detect-method 1``.
 Dense and uniformly distributed interest points
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Dense and uniformly distributed interest points can be created during stereo. If
-having many images, that will mean many combinations of stereo pairs. 
+Dense and uniformly distributed interest points can be created during stereo
+(:numref:`tutorial`). If having many images, that will mean many combinations of
+stereo pairs. A representative set of stereo pairs between all images is usually
+sufficient.
 
 The resulting interest points will be between the *original, unprojected and
 unaligned images*. This is true even when stereo itself is done with
-*mapprojected images*.
+mapprojected images.
 
 For each stereo invocation, add options along the lines of::
 
@@ -1135,10 +1142,15 @@ or::
 
     --num-matches-from-disp-triplets 10000
 
-in order to create such a match file.
+in order to create such a match file. 
 
-Only the first approach is supported with mapprojected images. See
-:numref:`triangulation_options` for more details. 
+The latter option will ensure that, when there are more than two images, a
+portion of the matches will result in triangulated points that are formed by at
+least 3 rays, which can be quite important for bundle adjustment. This number of
+rays is recorded as the last field in the ``pointmap.csv`` report files
+(:numref:`ba_err_per_point`).
+
+In the latest ASP (:numref:`release`), these options are equivalent. 
 
 The produced match file name is named along the lines of::
 
@@ -1149,15 +1161,16 @@ mapprojected, the latest ASP (post version 3.4.0) will instead adjust the match
 file name to reflect the original, unprojected image names, as the matches are
 between those images. 
 
-In either case, the produced match files must be copied to the same directory,
-and *use the standard naming convention* for the original image names
-(:numref:`ba_match_files`). The match files must be passed to ``bundle_adjust``
-via the ``--match-files-prefix`` option. In this example, the prefix would be
-``run/run-disp``.
+In either case, the produced match files must be copied from individual stereo
+runs to the same directory, and *use the standard naming convention* for the
+original image names (:numref:`ba_match_files`). The match files must be passed
+to ``bundle_adjust`` via the ``--match-files-prefix`` option. In this example,
+the prefix would be ``run/run-disp``.
 
-Invoke ``bundle_adjust`` with an option along the lines of
-``--max-pairwise-matches 20000`` (or larger) to ensure that on reading the
-interest points the full set is kept. 
+Invoke ``bundle_adjust`` a value of ``--max-pairwise-matches`` that is *at least
+twice* the number of matches created here to ensure they are all kept.
+
+These options are formally described in :numref:`triangulation_options`. 
 
 Interest points from mapprojected images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

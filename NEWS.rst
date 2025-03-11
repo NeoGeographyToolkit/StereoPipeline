@@ -2,6 +2,9 @@ Changes since the last release
 ------------------------------
 
 bundle_adjust (:numref:`bundle_adjust`):
+  * Replaced the algorithm for creating control networks when there are more
+    than two images. Notably more features in more than two images now can be
+    found.
   * Added the option ``--save-adjusted-rpc`` to save RPC cameras with adjustments
     applied to them (:numref:`rpc_and_ba`).
   * Added the option ``--min-distortion`` to ensure small distortion parameters
@@ -12,7 +15,12 @@ bundle_adjust (:numref:`bundle_adjust`):
   * The report file measuring statistics of registration errors on the ground
     got broken up into errors per image and per image pair
     (:numref:`ba_mapproj_dem`).
-
+  
+parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
+   * The default number of processes per node is 1/4 of the number of cores on
+     the head node, and the default number of threads per process is the number
+     of cores on the head node over the number of processes.
+     
 mapproject (:numref:`mapproject`):
   * If the input DEM is in the ``longlat`` projection, a projection 
     in meters is auto-determined (:numref:`mapproj_auto_proj`).
@@ -62,6 +70,9 @@ parallel_stereo (:numref:`parallel_stereo`):
     (:numref:`existing_terrain`).
   * If the number of matches from disparity is much less than requested, try to
     find more matches. This usually brings their number in the ballpark.
+  * The option ``--num-matches-from-disparity`` was made equivalent to   
+    ``--num-matches-from-disp-triplets``, and the triplet logic now works 
+    with mapprojected images (:numref:`dense_ip`).
   * It is possible to mapproject either with ``dg`` or ``rpc`` cameras
     when using mapprojected images in stereo with DigitalGlobe / Maxar
     cameras (:numref:`dg-mapproj`).

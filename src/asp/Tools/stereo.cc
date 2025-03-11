@@ -720,6 +720,22 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
     vw_throw(ArgumentErr() << "Cannot use --num-matches-from-disparity or "
               << "--num-matches-from-disp-triplets with epipolar alignment.\n");
 
+  // Cannot have both matches from disparity and triplets
+  if (stereo_settings().num_matches_from_disparity > 0 &&
+      stereo_settings().num_matches_from_disp_triplets > 0)
+    vw_throw(ArgumentErr() << "Cannot have both --num-matches-from-disparity and "
+              << "--num-matches-from-disp-triplets.\n");
+  
+  // In the latest ASP always create triplets
+  if (stereo_settings().num_matches_from_disparity > 0) {
+    vw::vw_out(vw::WarningMessage) 
+      << "The option --num-matches-from-disparity is equivalent to "
+      << "--num-matches-from-disp-triplets.\n"; 
+    stereo_settings().num_matches_from_disp_triplets 
+      = stereo_settings().num_matches_from_disparity;
+   stereo_settings().num_matches_from_disparity = 0; 
+  }
+    
   // Ensure good order
   BBox2 & b = stereo_settings().lon_lat_limit; // alias
   if (b != BBox2(0,0,0,0)) {
