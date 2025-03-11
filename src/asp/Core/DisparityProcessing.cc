@@ -1099,6 +1099,8 @@ void noTripletsMatches(ASPGlobalOptions const& opt,
     tpc.report_incremental_progress(inc_amount);
   }
   tpc.report_finished();
+  
+  vw_out() << "Computed " << left_ip.size() << " matches.\n";
 }
   
 // TODO(oalexan1): Merge the triplets logic into main logic
@@ -1116,14 +1118,16 @@ void tripletsMatches(ASPGlobalOptions const& opt,
                      vw::TransformPtr const& left_trans,
                      vw::TransformPtr const& right_trans,
                      int max_num_matches,
-                     double multiplier, 
+                     bool append,
                      // Output
                      std::vector<vw::ip::InterestPoint> & left_ip, 
                      std::vector<vw::ip::InterestPoint> & right_ip) {
-
-  // Clear the outputs
-  left_ip.clear();
-  right_ip.clear();
+  
+  if (!append) {
+    // Clear the outputs
+    left_ip.clear();
+    right_ip.clear();
+  }
 
   // The step size is a bit large as the disparity may not be smooth
   double step = 3.0; // 3 pixels
@@ -1141,18 +1145,19 @@ void tripletsMatches(ASPGlobalOptions const& opt,
     
     // Use doubles to avoid integer overflow
     double num_pixels = double(left_img.cols()) * double(left_img.rows());
-    double den = std::min(double(max_num_matches), num_pixels) * multiplier;
+    // Multiply by 0.5 as this should yield only half of the total
+    double den = 0.5 * std::min(double(max_num_matches), num_pixels);
     double bin_len = round(sqrt(num_pixels/den));
     bin_len = std::max(1.0, bin_len);
-
     int lenx = round(left_img.cols()/bin_len); lenx = std::max(1, lenx);
     int leny = round(left_img.rows()/bin_len); leny = std::max(1, leny);
+    int lr_count = 0;
 
-    vw_out() << "Finding left-to-right matches based on disparity.\n";
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
     double inc_amount = 1.0 / double(lenx);
+    vw_out() << "Finding left-to-right matches based on disparity.\n";
     tpc.report_progress(0);
-    
+
     for (int binx = 0; binx <= lenx; binx++) {
 
       int posx = binx*bin_len; // integer multiple of bin length
@@ -1179,7 +1184,6 @@ void tripletsMatches(ASPGlobalOptions const& opt,
         if (trans_left_pix[1] < 0 || trans_left_pix[1] >= dmap.rows()) 
           continue;
         
-        // TODO(oalexan1): Split the non-triplet code to separate function.
         // TODO(oalexan1): For triplet code, the two cases must be merged
         // into a single function, as very little differs.
         vw::Vector2 trans_right_pix;
@@ -1204,31 +1208,30 @@ void tripletsMatches(ASPGlobalOptions const& opt,
         ip::InterestPoint rip(right_pix.x(), right_pix.y());
         left_ip.push_back(lip); 
         right_ip.push_back(rip);
+        lr_count++;
       }
       
       tpc.report_incremental_progress(inc_amount);
     }
     tpc.report_finished();
+    
+    vw::vw_out() << "Found " << lr_count << " left-to-right matches.\n";
   }
   
-  vw::vw_out() << "Found " << left_ip.size() << " left-to-right matches.\n";
-  
-  // Now create ip in predictable locations for the right image. This is hard,
-  // as the disparity goes from left to right, so we need to examine every disparity.
+  // Now create ip in predictable locations for the right image. Need to 
+  // invert the disparity with a solver.
   {
-  
     double num_pixels = double(right_img.cols()) * double(right_img.rows());
-    double den = std::min(double(max_num_matches), num_pixels) * multiplier;
-    // The bin len must be integer here
+    // Multiply by 0.5 as this should yield only half of the total
+    double den = 0.5 * std::min(double(max_num_matches), num_pixels);
     double bin_len = round(sqrt(num_pixels/den));
     bin_len = std::max(1.0, bin_len);
-
     int lenx = round(right_img.cols()/bin_len); lenx = std::max(1, lenx);
     int leny = round(right_img.rows()/bin_len); leny = std::max(1, leny);
+    int rl_count = 0;
 
     vw_out() << "Finding right-to-left matches based on disparity.\n";
-    int rl_count = 0;
-    
+      
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
     double inc_amount = 1.0 / double(lenx);
     tpc.report_progress(0);
@@ -1300,8 +1303,9 @@ void tripletsMatches(ASPGlobalOptions const& opt,
     vw::vw_out() << "Found " << rl_count << " right-to-left matches.\n";
   } // end considering right-to-left matches
     
+  vw_out() << "Computed " << left_ip.size() << " total matches.\n";
+  
   // TODO(oalexan1): How to ensure a lot more triplets are kept?
-  vw_out() << "Determined " << left_ip.size() << " interest point matches from disparity.\n";
 }
 
 /// Bin the disparities, and from each bin get a disparity value.
@@ -1321,42 +1325,73 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
                                bool gen_triplets, bool is_map_projected) {
 
   std::vector<vw::ip::InterestPoint> left_ip, right_ip;
-  double multiplier = 1.0;
   
-  // TODO(oalexan1): Can do something more clever here. For example, can first
-  // try to get a quick sample, compare with expected number, and based on that
-  // estimate the multiplier.
   if (gen_triplets) {
     
     // Construct the DispMap object. This will do some sampling that will take time.
     DispMap dmap(disp);
-
+    
+    // Try to get more matches than expected. All image pairs need to use the
+    // same logic consistently, that is why this is not dynamically adjusted
+    // for the current image pair.
+    double factor = 1.3;
+    int num_matches_extra = factor * max_num_matches;
+    vw::vw_out() << "Internally multiplying the number of matches by " << factor
+      << " to compensate for their usually less than expected number.\n";
+    bool append = false;
     tripletsMatches(opt, dmap, left_raw_image, right_raw_image,
-                    left_trans, right_trans, max_num_matches, 
-                    multiplier, left_ip, right_ip);
+                    left_trans, right_trans, num_matches_extra, append, 
+                    left_ip, right_ip);
+    
+    // If not enough matches, add more. Must compare with the original expected
+    // number of matches. Do not remove the existing matches, as the goal is to
+    // get matches in the same locations for another image pair sharing an image
+    // with this one.
+    if (left_ip.size() < 0.9 * max_num_matches) {
+      vw::vw_out(vw::WarningMessage)
+        << "The number of matches is way less than expected. Will add more matches. "
+        << "The additional ones will not result in triplets. To ensure that, "
+        << "rerun this step for all image pairs with a larger requested number "
+        << "of matches.\n";
+        
+      // This number was carefully chosen to get a good number of matches,
+      // taking into account the ratio between what we exepcted and what we got
+      // before.
+      double ratio = std::max(0.01, double(left_ip.size())/double(num_matches_extra));
+      int num_matches_extra2 = round((max_num_matches - left_ip.size())/ratio);
+      
+      // Ensure we do not pass the same number as before as that would duplicate
+      // the matches.
+      double ratio2 = num_matches_extra2 / double(num_matches_extra);
+      if (std::abs(ratio2 - 1.0) < 0.1)
+        num_matches_extra2 *= 1.1;
+      append = true;
+      tripletsMatches(opt, dmap, left_raw_image, right_raw_image,
+                      left_trans, right_trans, num_matches_extra2, append, 
+                      left_ip, right_ip);
+    }
   
   } else {
-    // TODO(oalexan1): This logic will go away once smarter preliminary sampling
-    // is in place, per above. Note that when triplets are created, there is 
-    // a lot of expensive sampling done first, and that should happen only once.
-
+    
     // First try naively to get the requested number of matches.
+    double multiplier = 1.0;
     noTripletsMatches(opt, disp, left_trans, right_trans, max_num_matches, 
                       multiplier, left_ip, right_ip);
     
-    // If too few matches are found, try again with a larger multiplier.
+    // If too few matches are found, try again with a larger multiplier,
+    // replacing the earlier matches.
     double ratio = double(left_ip.size())/double(max_num_matches);
     ratio = std::max(0.01, ratio);
     if (ratio < 0.9) {
-      vw_out() << "The number of matches is way less than the requested value. "
-              << "Trying again.\n";
+      vw_out() << "The number of matches is way less than requested. "
+               << "Trying again.\n";
       multiplier = 1.0/ratio;
       noTripletsMatches(opt, disp, left_trans, right_trans, max_num_matches, 
                         multiplier, left_ip, right_ip);
     }
   }
   
-  vw_out() << "Writing: " << match_file << std::endl;
+  vw_out() << "Writing: " << match_file << "\n";
   ip::write_binary_match_file(match_file, left_ip, right_ip);
 }
   
