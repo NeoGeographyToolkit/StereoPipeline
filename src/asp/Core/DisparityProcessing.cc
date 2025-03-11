@@ -746,16 +746,14 @@ void unalign_disparity(bool is_map_projected,
 }
 
 // A class whose operator() takes as input a pixel in the left aligned image,
-// and returns a pixel in the right aligned image, via the disparity.
+// and returns a pixel in the right aligned image, via interpolation into the
+// disparity. It supports internal sampling to speed up its inverse.
 struct DispMap {
-  // The transforms are from unaligned (raw) to aligned (transformed) images.
-  vw::TransformPtr const& m_left_trans;
-  vw::TransformPtr const& m_right_trans;
   DispImageType m_disp;
   vw::ImageViewRef<vw::PixelMask<vw::Vector<float, 2>>> m_interp_disp;
   
-  // Tabulated inverse map. Has one value per patch, so it is coarse.
-  // It is used to find an initial guess.
+  // Sampled inverse map. Has one value per patch, so it is coarse.
+  // It is used to find an initial guess for the inverse.
   vw::ImageView<vw::Vector2> m_inv_map;
   int m_map_row_bin_len, m_map_col_bin_len;
   
@@ -765,10 +763,7 @@ struct DispMap {
   typedef typename DispImageType::pixel_type DispPixelT;
 
   // Constructor
-  DispMap(vw::TransformPtr const& left_trans,
-          vw::TransformPtr const& right_trans,
-          DispImageType const& disp): m_left_trans(left_trans),
-          m_right_trans(right_trans), m_disp(disp) {
+  DispMap(DispImageType const& disp): m_disp(disp) {
     
     DispPixelT invalid_disp; invalid_disp.invalidate();
     vw::ValueEdgeExtension<DispPixelT> invalid_ext(invalid_disp);
@@ -776,7 +771,15 @@ struct DispMap {
     
     mapSetup();
   }
-   
+  
+  int cols() const {
+    return m_disp.cols();
+  } 
+  
+  int rows() const {
+    return m_disp.rows();
+  }
+  
   // The map that we want to invert: it maps aligned left pixels to unaligned
   // (raw) right pixels.  
   // This will throw an exception if it cannot compute the right pixel.
@@ -1107,9 +1110,9 @@ void noTripletsMatches(ASPGlobalOptions const& opt,
 // overlap, a feature can often be seen in many of them whether a given
 // image is left in some pairs or right in some others.
 void tripletsMatches(ASPGlobalOptions const& opt,
-                     DispImageType    const& disp,
-                     std::string const& left_raw_image,
-                     std::string const& right_raw_image, 
+                     DispMap          const& dmap,
+                     std::string      const& left_raw_image,
+                     std::string      const& right_raw_image, 
                      vw::TransformPtr const& left_trans,
                      vw::TransformPtr const& right_trans,
                      int max_num_matches,
@@ -1121,8 +1124,6 @@ void tripletsMatches(ASPGlobalOptions const& opt,
   // Clear the outputs
   left_ip.clear();
   right_ip.clear();
-
-  DispMap dmap(left_trans, right_trans, disp);
 
   // The step size is a bit large as the disparity may not be smooth
   double step = 3.0; // 3 pixels
@@ -1172,8 +1173,11 @@ void tripletsMatches(ASPGlobalOptions const& opt,
         } catch(...) {
           continue;
         }
-        if (trans_left_pix[0] < 0 || trans_left_pix[0] >= disp.cols()) continue;
-        if (trans_left_pix[1] < 0 || trans_left_pix[1] >= disp.rows()) continue;
+        
+        if (trans_left_pix[0] < 0 || trans_left_pix[0] >= dmap.cols()) 
+          continue;
+        if (trans_left_pix[1] < 0 || trans_left_pix[1] >= dmap.rows()) 
+          continue;
         
         // TODO(oalexan1): Split the non-triplet code to separate function.
         // TODO(oalexan1): For triplet code, the two cases must be merged
@@ -1323,7 +1327,11 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
   // try to get a quick sample, compare with expected number, and based on that
   // estimate the multiplier.
   if (gen_triplets) {
-    tripletsMatches(opt, disp, left_raw_image, right_raw_image,
+    
+    // Construct the DispMap object. This will do some sampling that will take time.
+    DispMap dmap(disp);
+
+    tripletsMatches(opt, dmap, left_raw_image, right_raw_image,
                     left_trans, right_trans, max_num_matches, 
                     multiplier, left_ip, right_ip);
   
