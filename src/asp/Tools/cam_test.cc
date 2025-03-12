@@ -275,8 +275,8 @@ void run_cam_test(Options & opt) {
   vw::cartography::Datum cam_datum;
   bool warn_only = true; // warn about differences in the datums
   bool found_cam_datum = asp::datum_from_camera(opt.image_file, opt.cam1_file,
-                                                  // Outputs
-                                                  opt.session1, cam1_session, cam_datum);
+                                                // Outputs
+                                                opt.session1, cam1_session, cam_datum);
   if (found_datum && found_cam_datum)
     vw::checkDatumConsistency(datum, cam_datum, warn_only);
     
@@ -303,10 +303,11 @@ void run_cam_test(Options & opt) {
   vw_out() << "Using datum: " << datum << std::endl;
 
   // Sanity check
-  if (norm_2(cam1_model->camera_center(Vector2())) < datum.semi_major_axis() ||
-      norm_2(cam2_model->camera_center(Vector2())) < datum.semi_major_axis())   
+  vw::Vector3 llh1 = datum.cartesian_to_geodetic(cam1_model->camera_center(Vector2()));
+  vw::Vector3 llh2 = datum.cartesian_to_geodetic(cam2_model->camera_center(Vector2()));
+  if (llh1[2] < 0 || llh2[2] < 0)
           vw::vw_out(vw::WarningMessage) << "First or second camera center is below "
-          << "the datum semi-major axis. Check your data. Consider using "
+          << "the zero datum surface. Check your data. Consider using "
           << "the --datum and/or --height-above-datum options.\n"; 
 
   if (opt.session1 == opt.session2 && (default_session1 == "" || default_session2 == "") &&
