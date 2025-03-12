@@ -289,6 +289,18 @@ void calc_target_geom(// Inputs
     }
   }
 
+  // Important sanity checks
+  if (current_resolution < 0.001 * auto_res)
+        vw::vw_throw(vw::ArgumentErr() 
+          << "The user-set grid size (option --tr) is so small that likely it is in degrees, "
+          << "while meters are expected.\n");
+  // For a lesser discrepancy, just print a warning.
+  if (current_resolution < 0.1 * auto_res)
+    vw_out(vw::WarningMessage) 
+          << "The user-provided grid size (--tr) is " << current_resolution << ", "
+          << "which is smaller than the auto-estimated grid size of " 
+          << auto_res << ". Likely the resulting mapprojected image will not be accurate.\n";
+
   // Print the GSD with full precision, as it may be employed with other images
   vw_out() << std::setprecision(17) << "Output pixel size: " << current_resolution << "\n";
 

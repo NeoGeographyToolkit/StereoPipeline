@@ -585,7 +585,19 @@ namespace asp{
     // This must happen after the bounding box was computed, but before setting
     // the spacing. We choose the coarsest of the two spacings
     m_default_spacing = std::max(m_default_spacing_x, m_default_spacing_y);
-
+    
+    if (spacing > 0 && m_default_spacing > 0 && spacing < m_default_spacing) {
+      if (spacing < 0.001 * m_default_spacing)
+        vw::vw_throw(vw::ArgumentErr() 
+          << "The user-provided grid size (--tr) is so small that likely it is in degrees, "
+          << "while meters are expected.\n");
+        // For a lesser discrepancy, just print a warning.
+        vw_out(vw::WarningMessage) 
+          << "The user-provided grid size (--tr) is " << spacing << ", "
+          << "which is smaller than the auto-estimated grid size of " 
+          << m_default_spacing << ". Likely the DEM will not be accurate.\n";
+    }
+        
     // Set the sampling rate (i.e. spacing between pixels)
     this->set_spacing(spacing);
     VW_OUT(DebugMessage,"asp") << "Pixel spacing is " << m_spacing << " pnt/px\n";
