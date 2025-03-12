@@ -659,7 +659,7 @@ For each camera image, run bundle adjustment with this data::
       --init-camera-using-gcp     \
       --threads 1                 \
       --camera-weight 0           \
-      --max-iterations 100        \
+      --num-iterations 100        \
       --robust-threshold 2        \
       -o ba/run
 
@@ -668,6 +668,8 @@ This will write the desired correctly oriented camera file as
 individual output prefix.
 
 The datum field must be adjusted depending on the planet.
+
+.. _cam_gcp_validation:
 
 Validation
 ^^^^^^^^^^

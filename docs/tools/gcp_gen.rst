@@ -53,6 +53,9 @@ In some cases, ``--ip-detect-method 2`` (ORB) worked out better than SIFT.
 This program produces a match file at the output prefix location, which will
 be reused next time the program is run with the same inputs. 
 
+A detailed application of this program for registration is shown in
+:numref:`change3`.
+
 Advanced usage
 ~~~~~~~~~~~~~~
 

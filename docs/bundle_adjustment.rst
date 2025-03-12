@@ -270,12 +270,12 @@ to 0, if it appears that the solver is not aggressive enough, or it may
 need to be increased if perhaps it overfits. This will become less of a
 concern if there is some ground truth, as discussed later.
 
-Next, one can run ``parallel_stereo`` as before, with the new cameras,
-and see if the obtained solution is more acceptable, that is, if the
-intersection error is smaller. It is good to note that a preliminary
-investigation can already be made right after bundle adjustment, by
-looking at the residual error files before and after bundle
-adjustment. They are in the output directory, with names::
+Next, one can run ``parallel_stereo`` as before, with the new cameras, and see
+if the obtained solution is more acceptable, that is, if the intersection error
+is smaller. It is good to note that a preliminary investigation can already be
+made right after bundle adjustment, by looking at the residual error files
+before and after bundle adjustment. They are in the ``bundle_adjust`` output
+directory, with names::
 
      initial_residuals_pointmap.csv
      final_residuals_pointmap.csv
@@ -1012,7 +1012,7 @@ Also examine the pairwise matches in ``stereo_gui``
 and that the errors are pushed down uniformly.
 
 Dense interest points produced from stereo may be necessary
-(:numref:`dense_ip`).
+(:numref:`dense_ip`). An example using these is in :numref:`change_opt`.
 
 Evaluation of terrain models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

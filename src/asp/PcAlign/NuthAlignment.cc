@@ -592,9 +592,8 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   double change_len = -1.0;
   vw::ImageView<vw::PixelMask<float>> diff;
   
+  vw::vw_out() << "Iteration and change in transform (meters)\n";
   while (1) {
-    
-    vw::vw_out() << "Iteration: " << iter << "\n";
     
     // Compute the Nuth offset
     computeNuthOffset(opt, ref, src, ref_georef, src_georef, ref_nodata, src_nodata,
@@ -610,9 +609,12 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
     dx_total += dx;
     dy_total += dy;
     dz_total += dz;
-    iter++;
     
     change_len = vw::math::norm_2(vw::Vector3(dx, dy, dz));
+
+    vw::vw_out() << iter << '\t' << change_len << "\n";
+    
+    iter++;
     if (iter > opt.max_iter) {
       vw::vw_out() << "Reached the maximum number of iterations, before convergence.\n";
       break;

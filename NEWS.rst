@@ -64,6 +64,8 @@ sat_sim (:numref:`sat_sim`):
   
 parallel_stereo (:numref:`parallel_stereo`):
   * Added an example of processing Umbra SAR images (:numref:`umbra_sar`).
+  * Added an example of refining intrinsics and stereo with Chang'e 3 images
+    (:numref:`change3`).
   * The initial low-resolution disparity from a DEM works with mapprojected
     images (:numref:`d_sub_dem`).
   * Added a discussion of various ways ASP can make use of existing terrain data
