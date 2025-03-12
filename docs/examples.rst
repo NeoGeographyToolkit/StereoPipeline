@@ -36,6 +36,7 @@ rig), and :numref:`rig_examples` (using a rig and robot images).
    examples/spot5
    examples/skysat
    examples/historical
+   examples/change3
    examples/bathy
    examples/umbra_sar
 
