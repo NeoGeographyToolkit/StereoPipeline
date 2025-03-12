@@ -293,6 +293,7 @@ Bundle adjustment is run::
       --heights-from-dem ref/ref_blur.tif                     \
       --heights-from-dem-uncertainty 100                      \
       --match-files-prefix dense_matches/run-disp             \
+      --max-pairwise-matches 50000                            \
       --num-iterations 50                                     \
       -o ba_dense/run
 

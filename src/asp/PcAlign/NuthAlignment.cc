@@ -609,9 +609,7 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
     dx_total += dx;
     dy_total += dy;
     dz_total += dz;
-    
     change_len = vw::math::norm_2(vw::Vector3(dx, dy, dz));
-
     vw::vw_out() << iter << '\t' << change_len << "\n";
     
     iter++;

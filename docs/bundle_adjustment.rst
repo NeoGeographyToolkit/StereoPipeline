@@ -783,7 +783,7 @@ produced from disparity are necessary* (:numref:`dense_ip`).
 
 For example, if the input dataset consists of 6 overlapping stereo pairs, stereo
 can be run between each left image and every other right image, producing 36
-sets of dense interest points. 
+sets of dense interest points. See an example in :numref:`change3`.
 
 The interest point file names must be changed to respect the *naming convention*
 (:numref:`ba_match_files`), reflecting the names of the raw images, then passed
@@ -1012,7 +1012,7 @@ Also examine the pairwise matches in ``stereo_gui``
 and that the errors are pushed down uniformly.
 
 Dense interest points produced from stereo may be necessary
-(:numref:`dense_ip`). An example using these is in :numref:`change_opt`.
+(:numref:`dense_ip`). An example using these is in :numref:`change3`.
 
 Evaluation of terrain models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1169,6 +1169,9 @@ the prefix would be ``run/run-disp``.
 
 Invoke ``bundle_adjust`` a value of ``--max-pairwise-matches`` that is *at least
 twice* the number of matches created here to ensure they are all kept.
+
+A detailed example of using dense matches for bundle adjustment is in
+:numref:`change3`.
 
 These options are formally described in :numref:`triangulation_options`. 
 
