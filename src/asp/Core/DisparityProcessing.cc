@@ -28,6 +28,7 @@
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/InterestPoint/MatcherIO.h>
+#include <vw/Math/NewtonRaphson.h>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -747,7 +748,8 @@ void unalign_disparity(bool is_map_projected,
 
 // A class whose operator() takes as input a pixel in the left aligned image,
 // and returns a pixel in the right aligned image, via interpolation into the
-// disparity. It supports internal sampling to speed up its inverse.
+// disparity. It supports internal sampling to speed up the computation
+// of its inverse via Newton-Raphson.
 struct DispMap {
   DispImageType m_disp;
   vw::ImageViewRef<vw::PixelMask<vw::Vector<float, 2>>> m_interp_disp;
@@ -783,7 +785,7 @@ struct DispMap {
   // The map that we want to invert: it maps aligned left pixels to unaligned
   // (raw) right pixels.  
   // This will throw an exception if it cannot compute the right pixel.
-  vw::Vector2 operator()(vw::Vector2 const& trans_left_pix) const {
+  virtual vw::Vector2 operator()(vw::Vector2 const& trans_left_pix) const {
     
     // Interpolated disparity
     DispPixelT dpix = m_interp_disp(trans_left_pix[0], trans_left_pix[1]);
@@ -801,8 +803,8 @@ struct DispMap {
   
   // Find the bounding box of map values, that is, of operator(). Then find an
   // approximate tabulated inverse map.
-  // TODO(oalexan1): This is generic. Move it out. Expose the table size.
-  // It can be empty if not desired.
+  // TODO(oalexan1): This could be made generic and moved out. Expose the table
+  // size. It can be empty if not desired.
   void mapSetup() {
     
     // A table that for a right pixel gives an estimate for the left pixel that
@@ -857,13 +859,9 @@ struct DispMap {
     if (m_map_val_box.empty())
       vw::vw_throw(vw::ArgumentErr() << "Empty bounding box of function values.\n");
       
-    // TODO(oalexan1): The code below must be a function
-        
+    // Tabulate the inverse map.
     m_map_col_bin_len = std::max(m_map_val_box.width()  / m_inv_map.cols(), 1);
     m_map_row_bin_len = std::max(m_map_val_box.height() / m_inv_map.rows(), 1);
-    
-    // So, if the user wants 800 x 800 matches, sampling here with 200 x 200 may
-    // be not too bad.
     for (int col = 0; col < m_disp.cols(); col += col_step) {
       for (int row = 0; row < m_disp.rows(); row += row_step) {
         try {
@@ -892,10 +890,11 @@ struct DispMap {
     return;
   }
   
-  // Factor out the logic for finding the bin
+  // Find the bin.
   // TODO(oalexan1): Make notation more general. Use X for input space, 
   // Y for output space. Remove the "right" and "disp" from the names.
   vw::Vector2i findBin(vw::Vector2 const& right_pix) const {
+    
     int bin_col = round((right_pix[0] - m_map_val_box.min().x()) / double(m_map_col_bin_len));
     int bin_row = round((right_pix[1] - m_map_val_box.min().y()) / double(m_map_row_bin_len));
     
@@ -911,14 +910,15 @@ struct DispMap {
     return vw::Vector2(bin_col, bin_row);
   }
 
-  // The approximate inverse based on tabulated values. It could be nan.  
+  // The approximate inverse based on tabulated values. It can return nan.
   vw::Vector2 approxInverse(vw::Vector2 const& right_pix) const {
+    
     vw::Vector2i bin = findBin(right_pix);
     
     // Find the closest non-nan value, starting at the current bin and expanding
     double nan = std::numeric_limits<double>::quiet_NaN();
     vw::Vector2 val(nan, nan);
-    int max_dist = 2;
+    int max_dist = 3; // how far to look
     for (int dist = 0; dist <= max_dist; dist++) {
       for (int col = bin[0] - dist; col <= bin[0] + dist; col++) {
         for (int row = bin[1] - dist; row <= bin[1] + dist; row++) {
@@ -936,106 +936,6 @@ struct DispMap {
     return val;  
   }
 };
-
-// Find the Jacobian of a function at a given point using numerical
-// differentiation. The step depends on the application. Here we
-// are mapping image pixels to image pixels, so the step is 10 pixels.
-// This can throw exceptions.
-// TODO(oalexan1): Must integrate with Newton's method in lens distortion.
-vw::Vector<double> numericalJacobian(vw::Vector2 const& P,
-                                     double step, 
-                                     DispMap const& func) {
-
-  // The Jacobian has 4 elements.
-  vw::Vector<double> jacobian(4);
-  
-  // First column
-  vw::Vector2 JX = (func(P + vw::Vector2(step, 0)) - 
-                    func(P - vw::Vector2(step, 0))) / (2*step);
-  // Second column
-  vw::Vector2 JY = (func(P + vw::Vector2(0, step)) - 
-                    func(P - vw::Vector2(0, step))) / (2*step);
-  
-  // Put in the jacobian matrix
-  jacobian[0] = JX[0];
-  jacobian[1] = JY[0];
-  jacobian[2] = JX[1];
-  jacobian[3] = JY[1];  
-  
-  return jacobian;
-}
-
-// Find X solving func(X) - Y = 0. Use the Newton-Raphson method. Update X as:
-//   X - (func(X) - Y) * J^-1
-// where J is the Jacobian of func(X). This does not check for success. In the
-// worst case it will return the initial guess. The step size is very dependent
-// on the properties of the function, and should be chosen carefully.
-
-// TODO(oalexan1): Move to a new file in VW, called NewtonRaphson.h.
-// Use it both here and in LensDistortion.cc
-// For disparity, the step size better not be less than 3 pixels, as the disparity 
-// is not that smooth.
-vw::Vector2 newtonRaphson(vw::Vector2 const& Y,
-                          vw::Vector2 const& initX,
-                          DispMap const& func,
-                          double step,
-                          double tol) {
-   
-  // Start with initial guess
-  vw::Vector2 X = initX;
-
-  // If an iteration fail, will fall back to best found so far.
-  // This is unlikely, but cannot be ruled out.
-  vw::Vector2 bestX = X;
-  double best_err = std::numeric_limits<double>::max();
-  
-  int count = 1, maxTries = 20;
-  while (count < maxTries) {
-    
-    vw::Vector2 F;
-    try {
-      F = func(X) - Y;
-      
-      if (norm_2(F) < best_err) {
-        best_err = norm_2(F);
-        bestX = X;
-      }
-      
-    } catch (...) {
-      // Something went wrong. Cannot continue. Return most recent result.
-      return bestX;
-    }
-    
-    // Compute the Jacobian
-    vw::Vector<double> J(4);
-    try {
-      J = numericalJacobian(X, step, func);
-    } catch(...) {
-      // Something went wrong. Cannot continue. Return most recent result.
-      return bestX;
-    }
-    
-    // Find the determinant
-    double det = J[0]*J[3] - J[1]*J[2];
-    if (std::abs(det) < 1e-6 || std::isnan(det)) 
-      return bestX; // bad determinant. Cannot continue. Return most recent result.
-     
-    // Update X
-    vw::Vector2 DX;
-    DX[0] = (J[3]*F[0] - J[1]*F[1]) / det;
-    DX[1] = (J[0]*F[1] - J[2]*F[0]) / det;
-    X -= DX;
-    
-    // If DX is small enough, we are done
-    if (norm_2(DX) < tol)
-      return X;
-    
-    count++;
-  }
-  
-  // Fallback result, if the loop did not finish
-  return bestX;
-}
 
 // Auxiliary function to compute matches from disparity. A multiplier
 // bigger than 1 will be passed in if too few matches are found.
@@ -1103,14 +1003,12 @@ void noTripletsMatches(ASPGlobalOptions const& opt,
   vw_out() << "Computed " << left_ip.size() << " matches.\n";
 }
   
-// TODO(oalexan1): Merge the triplets logic into main logic
-// TODO(oalexan1): Break this up into two parts: l-r and r-l.
-
 // Create ip with left_ip being at integer multiple of bin size in the left
 // raw image. Then do the same for right_ip in right raw image. This way
 // there is a symmetry and predictable location for ip. So if three images
 // overlap, a feature can often be seen in many of them whether a given
 // image is left in some pairs or right in some others.
+// TODO(oalexan1): Break this up into two parts: l-r and r-l.
 void tripletsMatches(ASPGlobalOptions const& opt,
                      DispMap          const& dmap,
                      std::string      const& left_raw_image,
@@ -1129,7 +1027,8 @@ void tripletsMatches(ASPGlobalOptions const& opt,
     right_ip.clear();
   }
 
-  // The step size is a bit large as the disparity may not be smooth
+  // Quantities for inverting the disparity with the Newton-Raphson method. The
+  // step size is a bit large as the disparity may not be smooth.
   double step = 3.0; // 3 pixels
   double tol = 0.1; // 0.1 pixels
   
@@ -1263,9 +1162,9 @@ void tripletsMatches(ASPGlobalOptions const& opt,
         if (std::isnan(left_guess[0]) || std::isnan(left_guess[1]))
           continue;
         
-        // Refined guess
-        vw::Vector2 trans_left_pix = newtonRaphson(trans_right_pix, left_guess, 
-                                                    dmap, step, tol);
+        // Refine the guess with Newton-Raphson
+        vw::math::NewtonRaphson nr(dmap);
+        vw::Vector2 trans_left_pix = nr.solve(left_guess, trans_right_pix, step, tol);
         if (std::isnan(trans_left_pix[0]) || std::isnan(trans_left_pix[1]))
           continue;
           
@@ -1275,7 +1174,7 @@ void tripletsMatches(ASPGlobalOptions const& opt,
           check_right_pix = dmap(trans_left_pix);
           
           // Must be close to the original right pixel
-          if (norm_2(check_right_pix - trans_right_pix) > 0.1)
+          if (norm_2(check_right_pix - trans_right_pix) > tol)
             continue;
 
         } catch(...) {
