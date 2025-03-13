@@ -1655,4 +1655,3 @@ If exporting match files from an ISIS control network (option
 saved, as ASP uses GCP files for that. Saved match files will have the rest of
 the matches, and clean match files will have only the inliers. Any sigma values
 and surface points from the control network will not be saved. 
-
