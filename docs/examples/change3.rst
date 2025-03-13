@@ -238,8 +238,8 @@ More validation strategies are discussed in :numref:`cam_gcp_validation`.
   Mapprojected and masked Chang'e 3 image 1801 overlaid on top of the LRO NAC
   mapprojected image. The masked pixels are shown as transparent. A careful
   inspection shows good initial agreement, but some local deformation is seen,
-  which is due to lens distortion not being modeled yet. This will be fixed
-  later.
+  which is likely due to some tilt and lens distortion not being modeled yet.
+  This will be fixed later.
 
 .. _change_opt:
 
@@ -321,11 +321,11 @@ for stereo (:numref:`stereo_pairs`).
 The Chang'e 3 images are not going to produce a good DEM between themselves,
 because of the very small convergence angle, as mentioned earlier.
 
-A DEM is created, at 4 meters per pixel with ``point2dem`` (:numref:`point2dem`)::
+A DEM is created, at 4 meters per pixel, with ``point2dem`` (:numref:`point2dem`)::
 
-    point2dem --tr 4.0 \
-    --errorimage       \
-    stereo_map_opt_1801_lro/run-PC.tif
+    point2dem --tr 4.0   \
+      --errorimage       \
+      stereo_map_opt_1801_lro/run-PC.tif
     
 It is good to inspect the resulting triangulation error image to ensure lens
 distortion was solved for and no systematic errors are present
@@ -336,7 +336,7 @@ The produced DEM can be aligned to the original DEM with ``pc_align``
 
     pc_align --max-displacement 100           \
       --save-inv-transformed-reference-points \
-      --alignment-method nuth                 \
+      --alignment-method point-to-plane       \
       stereo_map_opt_1801_lro/run-DEM.tif     \
       ref/ref.tif                             \
       -o align/run
@@ -350,10 +350,20 @@ misalignment is seen.
 
 .. figure:: ../images/change3_lro_dem.png
   
-  Left: The produced aligned DEM. Right: the original LRO NAC DEM.
-  The Chang'e 3 images are are at a lower resolution, and somewhat
-  differ in illumination from the LRO NAC image, so the quality 
-  of the resulting DEM is lower. However, the larger features are 
-  captured correctly, and the alignment is also very good.
+  Left: The produced aligned DEM with frame 1801. Right: the original LRO NAC DEM.
+  The Chang'e 3 images are are at a lower resolution, and somewhat differ in
+  illumination from the LRO NAC image, so the quality of the resulting DEM is
+  lower. However, the larger features are captured correctly, and the alignment is
+  also very good.
 
+.. figure:: ../images/change3_many_over_lro.png
 
+  From top to bottom, the mapprojected Chang'e images 1780, 1801, 1831, 1861,
+  1891, and 1910, with the LRO NAC image in the background. These have been
+  pixel-level registered to each other, to the LRO NAC image, and to the LRO NAC
+  DEM. The footprint of the images is decreasing along the sequence, and the
+  resolution is increasing, as the lander is descending. Here the procedure
+  from above was repeated for more images, and the alignment was done with 
+  the mosaic of produced DEMs.
+
+  
