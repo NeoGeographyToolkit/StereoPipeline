@@ -3,21 +3,20 @@
 Chang'e 3 landing camera
 ------------------------
 
-This example discusses processing  
-`Chang'e 3 <https://en.wikipedia.org/wiki/Chang%27e_3>`_ landing camera images.
-
-This camera was mounted at the bottom of the lander and acquired images during
-the descent phase.
+This example discusses processing `Chang'e 3
+<https://en.wikipedia.org/wiki/Chang%27e_3>`_ landing camera images. This camera
+was mounted at the bottom of the lander and acquired images during the descent
+phase.
 
 The images we inspected had a very small convergence angle
 (:numref:`stereo_pairs`), of under 1.5 degrees, which resulted in an unreliable
 terrain model. 
 
-Here we show how these images can be registered to LRO NAC images
-(:numref:`lronac-example`), how to refine the landing camera intrinsics, and how
-to produce a terrain model from a stereo pair consisting of a Chang'e landing
-camera image and an LRO NAC image with similar illumination. This results in
-elimination of lens distortion and misalignment errors between the two datasets. 
+Here we show how these images can be precisely registered to an LRO NAC image
+(:numref:`lronac-example`), how to refine the landing camera intrinsics
+including lens distortion, and how to produce an aligned terrain model from a
+stereo pair between a Chang'e landing camera image and an LRO NAC image
+with similar illumination.
 
 The `Chang'e3 landing video <https://www.youtube.com/watch?v=sKYrAM3EJh8>`_ is
 very helpful when it comes to deciding which images to process.
@@ -355,9 +354,31 @@ misalignment is seen.
   lower. However, the larger features are captured correctly, and the alignment is
   also very good.
 
-The figure below extends this exercise for more images. GCP were found for each
-image. Pairwise dense matches were found between each image and the next, and
-between each image and the LRO NAC image. 
+Multi-image registration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The approach for registering a longer sequence of Chang'e 3 images to each other and to 
+LRO NAC is very similar.
+
+GCP are computed automatically for each image. Pairwise dense matches are found
+between each image and the next, and between each image and the LRO NAC image.
+Bundle adjustment can be run as above, while optimizing the intrinsics.
+
+Stereo is run between each Chang'e 3 image and the LRO NAC image, with the optimized
+cameras. The resulting DEMs can be merged with ``dem_mosaic``, and the produced mosaic
+is aligned to the original LRO NAC DEM with ``pc_align``. 
+
+The alignment transform is applied to the optimized cameras
+(:numref:`ba_pc_align`). The images with the resulting cameras are mapprojected
+onto the original LRO NAC DEM. If needed, the bundle adjustment from above can
+be rerun with the now well-aligned cameras and a lower
+``--heights-from-dem-uncertainty``.
+
+For a very long sequence of images this method can become impractical. In that
+case, the intrinsics that are optimized as demonstrated earlier can be
+used with Structure-from-Motion (:numref:`sfm`). Just a few well-distributed GCP
+may be needed to transform the cameras. DEM creation and alignment refinement
+can be as earlier.
 
 .. figure:: ../images/change3_many_over_lro.png
 

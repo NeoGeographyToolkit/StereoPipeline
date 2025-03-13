@@ -20,15 +20,14 @@ differ. Significant differences between image characteristics
 increases the likelihood of stereo matching error and artifacts, and
 these errors will propagate through to the resulting data products.
 
-The ``parallel_stereo`` and ``bundle_adjust`` programs compute the
-convergence angle for input cameras. In stereo that happens at the
-preprocessing stage (:numref:`entrypoints`), with the result
-printed on the screen and saved to the log file. In ``bundle_adjust``
-this computation takes place after the optimization of the cameras
-finishes, and the results are saved to a file on disk
-(:numref:`ba_out_files`). To find good stereo pairs, one can run
-bundle adjustment on a large set of images and pick a pair with a
-decent convergence angle.
+The ``parallel_stereo`` and ``bundle_adjust`` programs compute the convergence
+angle for input cameras. In stereo that happens at the preprocessing and
+triangulation stages (:numref:`entrypoints`), with the result printed on the
+screen and saved to the log files. In ``bundle_adjust`` this computation takes
+place after the optimization of the cameras finishes, and the results are saved
+to a file on disk (:numref:`ba_out_files`). To find good stereo pairs, one can
+run bundle adjustment on a large set of images and pick a pair with a decent
+convergence angle.
 
 Although images do not need to be mapprojected before running the
 ``parallel_stereo`` program, we recommend that you do run ``cam2map`` (or
