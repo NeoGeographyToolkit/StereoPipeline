@@ -742,7 +742,7 @@ void unalign_disparity(bool is_map_projected,
      TerminalProgressCallback("asp", "\t--> Undist disp:"));
   
   sw.stop();
-  vw_out() << "Unaligning disparity elapsed time: " << sw.elapsed_seconds() << " seconds.\n";
+  vw_out() << "Unaligning disparity elapsed time: " << sw.elapsed_seconds() << " s.\n";
   
 }
 
@@ -785,7 +785,7 @@ struct DispMap {
   // The map that we want to invert: it maps aligned left pixels to unaligned
   // (raw) right pixels.  
   // This will throw an exception if it cannot compute the right pixel.
-  virtual vw::Vector2 operator()(vw::Vector2 const& trans_left_pix) const {
+  vw::Vector2 operator()(vw::Vector2 const& trans_left_pix) const {
     
     // Interpolated disparity
     DispPixelT dpix = m_interp_disp(trans_left_pix[0], trans_left_pix[1]);
@@ -831,8 +831,10 @@ struct DispMap {
     // Estimate the bounding box of map values    
     m_map_val_box = vw::BBox2i();
     vw_out() << "Sampling the disparity.\n";
+    vw::Stopwatch sw;
+    sw.start();
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
-    double inc_amount = 1.0 / (m_disp.cols() / col_step);
+    double inc_amount = 1.0 / (m_disp.cols() / double(col_step));
     tpc.report_progress(0);
     for (int col = 0; col < m_disp.cols(); col += col_step) {
       for (int row = 0; row < m_disp.rows(); row += row_step) {
@@ -854,6 +856,8 @@ struct DispMap {
       tpc.report_incremental_progress(inc_amount);
     }
     tpc.report_finished();
+    sw.stop();
+    vw::vw_out() << "Sampling elapsed time: " << sw.elapsed_seconds() << " s.\n";
     
     // The box must be non-empty
     if (m_map_val_box.empty())
@@ -1027,6 +1031,17 @@ void tripletsMatches(ASPGlobalOptions const& opt,
     right_ip.clear();
   }
 
+  // Turn off caching for Map2CamTrans. When the samples are far apart the
+  // caching does not help, and only introduces extra overhead.
+  vw::cartography::Map2CamTrans* left_map2cam = 
+    dynamic_cast<vw::cartography::Map2CamTrans*>(left_trans.get());
+  if (left_map2cam != NULL)
+    left_map2cam->set_use_cache(false);
+  vw::cartography::Map2CamTrans* right_map2cam = 
+    dynamic_cast<vw::cartography::Map2CamTrans*>(right_trans.get());
+  if (right_map2cam != NULL)
+    right_map2cam->set_use_cache(false);
+
   // Quantities for inverting the disparity with the Newton-Raphson method. The
   // step size is a bit large as the disparity may not be smooth.
   double step = 3.0; // 3 pixels
@@ -1037,11 +1052,9 @@ void tripletsMatches(ASPGlobalOptions const& opt,
   DiskImageView<float> right_img(right_raw_image);
   
   // Start with the left
+  vw::Stopwatch sw1;
+  sw1.start();
   {
-    // TODO(oalexan1): Turn off caching in map2cam.
-    // TODO(oalexan1): Make multi-threaded. This will require reading the DEM 
-    // in memory.
-    
     // Use doubles to avoid integer overflow
     double num_pixels = double(left_img.cols()) * double(left_img.rows());
     // Multiply by 0.5 as this should yield only half of the total
@@ -1053,7 +1066,7 @@ void tripletsMatches(ASPGlobalOptions const& opt,
     int lr_count = 0;
 
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
-    double inc_amount = 1.0 / double(lenx);
+    double inc_amount = 1.0 / double(lenx + 1.0);
     vw_out() << "Finding left-to-right matches based on disparity.\n";
     tpc.report_progress(0);
 
@@ -1063,14 +1076,13 @@ void tripletsMatches(ASPGlobalOptions const& opt,
 
       for (int biny = 0; biny <= leny; biny++) {
 
-        int posy = biny*bin_len; // integer multiple of bin length
+        int posy = biny * bin_len; // integer multiple of bin length
 
         if (posx >= left_img.cols() || posy >= left_img.rows()) 
           continue;
 
-        // Raw left image pixel    
+        // Raw and trans left image pixel    
         Vector2 left_pix(posx, posy);
-        
         Vector2 trans_left_pix;
         try {
           trans_left_pix = left_trans->forward(left_pix);
@@ -1095,7 +1107,7 @@ void tripletsMatches(ASPGlobalOptions const& opt,
         if (std::isnan(trans_right_pix[0]) || std::isnan(trans_right_pix[1]))
           continue;
         
-        // Right unaligned pixel  
+        // Right raw (unaligned) pixel  
         vw::Vector2 right_pix = right_trans->reverse(trans_right_pix);
         
         // Must fit within image box
@@ -1113,12 +1125,15 @@ void tripletsMatches(ASPGlobalOptions const& opt,
       tpc.report_incremental_progress(inc_amount);
     }
     tpc.report_finished();
-    
     vw::vw_out() << "Found " << lr_count << " left-to-right matches.\n";
   }
+  sw1.stop();
+  vw_out() << "Left-to-right matches elapsed time: " << sw1.elapsed_seconds() << " s.\n";
   
   // Now create ip in predictable locations for the right image. Need to 
   // invert the disparity with a solver.
+  vw::Stopwatch sw2;
+  sw2.start();
   {
     double num_pixels = double(right_img.cols()) * double(right_img.rows());
     // Multiply by 0.5 as this should yield only half of the total
@@ -1132,12 +1147,12 @@ void tripletsMatches(ASPGlobalOptions const& opt,
     vw_out() << "Finding right-to-left matches based on disparity.\n";
       
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
-    double inc_amount = 1.0 / double(lenx);
+    double inc_amount = 1.0 / double(lenx + 1.0);
     tpc.report_progress(0);
 
     for (int binx = 0; binx <= lenx; binx++) {
 
-      int posx = binx*bin_len; // integer multiple of bin length
+      int posx = binx * bin_len; // integer multiple of bin length
 
       for (int biny = 0; biny <= leny; biny++) {
 
@@ -1146,9 +1161,8 @@ void tripletsMatches(ASPGlobalOptions const& opt,
         if (posx >= right_img.cols() || posy >= right_img.rows()) 
           continue;
         
-        // Raw right image pixel  
+        // Raw and trans right image pixel  
         Vector2 right_pix(posx, posy);  
-        
         vw::Vector2 trans_right_pix;
         try {
           trans_right_pix = right_trans->forward(right_pix);
@@ -1168,20 +1182,17 @@ void tripletsMatches(ASPGlobalOptions const& opt,
         if (std::isnan(trans_left_pix[0]) || std::isnan(trans_left_pix[1]))
           continue;
           
-        // Check
+        // Check if the solution is good enough
         vw::Vector2 check_right_pix;
         try {
           check_right_pix = dmap(trans_left_pix);
-          
-          // Must be close to the original right pixel
           if (norm_2(check_right_pix - trans_right_pix) > tol)
             continue;
-
         } catch(...) {
           continue;
         }
         
-        // Left unaligned pixel
+        // Left raw (unaligned) pixel
         vw::Vector2 left_pix = left_trans->reverse(trans_left_pix);
         
         // Must be in left raw image bounds
@@ -1198,10 +1209,11 @@ void tripletsMatches(ASPGlobalOptions const& opt,
       tpc.report_incremental_progress(inc_amount);
     }
     tpc.report_finished();
-    
     vw::vw_out() << "Found " << rl_count << " right-to-left matches.\n";
   } // end considering right-to-left matches
-    
+  sw2.stop();
+  vw::vw_out() << "Right-to-left matches elapsed time: " << sw2.elapsed_seconds() << " s.\n";
+
   vw_out() << "Computed " << left_ip.size() << " total matches.\n";
   
   // TODO(oalexan1): How to ensure a lot more triplets are kept?
