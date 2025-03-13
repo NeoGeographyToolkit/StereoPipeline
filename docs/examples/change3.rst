@@ -365,5 +365,3 @@ misalignment is seen.
   resolution is increasing, as the lander is descending. Here the procedure
   from above was repeated for more images, and the alignment was done with 
   the mosaic of produced DEMs.
-
-  
