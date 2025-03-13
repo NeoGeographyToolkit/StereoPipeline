@@ -657,7 +657,6 @@ For each camera image, run bundle adjustment with this data::
       --datum WGS84               \
       --inline-adjustments        \
       --init-camera-using-gcp     \
-      --threads 1                 \
       --camera-weight 0           \
       --num-iterations 100        \
       --robust-threshold 2        \

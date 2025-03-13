@@ -198,7 +198,6 @@ This is done with ``bundle_adjust`` (:numref:`bundle_adjust`) as::
     --datum D_MOON          \
     --inline-adjustments    \
     --init-camera-using-gcp \
-    --threads 1             \
     --camera-weight 0       \
     --num-iterations 100    \
     -o ba/run
@@ -297,7 +296,7 @@ Bundle adjustment is run::
       --num-iterations 50                                     \
       -o ba_dense/run
 
-The value of ``--heights-from-dem-uncertainty`` is set to 200 meters, as
+The value of ``--heights-from-dem-uncertainty`` is set to 100 meters, as
 we know that the input cameras are not yet aligned to the input DEM,
 so this accounts for the misregistration. This option would fail
 for very large misregistration, when a preliminary alignment 
@@ -356,12 +355,18 @@ misalignment is seen.
   lower. However, the larger features are captured correctly, and the alignment is
   also very good.
 
+The figure below extends this exercise for more images. GCP were found for each
+image. Pairwise dense matches were found between each image and the next, and
+between each image and the LRO NAC image. 
+
 .. figure:: ../images/change3_many_over_lro.png
 
   From top to bottom, the mapprojected Chang'e images 1780, 1801, 1831, 1861,
   1891, and 1910, with the LRO NAC image in the background. These have been
   pixel-level registered to each other, to the LRO NAC image, and to the LRO NAC
   DEM. The footprint of the images is decreasing along the sequence, and the
-  resolution is increasing, as the lander is descending. Here the procedure
-  from above was repeated for more images, and the alignment was done with 
-  the mosaic of produced DEMs.
+  resolution is increasing, as the lander is descending. A portion of the data 
+  was cropped on the right to remove the noise do to the lander body and to make
+  it easier to evaluate the registration visually.
+
+  
