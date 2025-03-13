@@ -350,6 +350,7 @@ public slots:
    void renderGeoreferencedImage(double scale_out, 
                                  int image_index,
                                  QPainter* paint, 
+                                 bool has_csv,
                                  QImage const& sourceImage,
                                  BBox2i const& screen_box, 
                                  BBox2i const& region_out,

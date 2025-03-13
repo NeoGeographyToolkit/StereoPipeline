@@ -854,6 +854,7 @@ void MainWidget::resizeEvent(QResizeEvent*) {
 void MainWidget::renderGeoreferencedImage(double scale_out,
                                           int image_index,
                                           QPainter* paint,
+                                          bool has_csv,
                                           QImage const& sourceImage,
                                           BBox2i const& screen_box,
                                           BBox2i const& region_out,
@@ -904,8 +905,8 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
   for (int x = screen_box.min().x(); x < screen_box.max().x(); x++) {
     for (int y = screen_box.min().y(); y < screen_box.max().y(); y++) {
 
-      // Skip pixels that were already drawn
-      if (drawn_already(x, y) != 0)
+      // Skip pixels that were already drawn. Cannot handle csv files.
+      if (drawn_already(x, y) != 0 && !has_csv)
         continue;
 
       // p is in pixel coordinates of image i
@@ -947,7 +948,8 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
       // Flag this as drawn. No need to protect this with a lock.
       // TODO(oalexan1): Account here for hasCsv, as then this
       // logic does not work.
-      drawn_already(x, y) = 1;
+      if (!has_csv)
+        drawn_already(x, y) = 1;
     }
   }
 
@@ -986,8 +988,10 @@ void MainWidget::drawImage(QPainter* paint) {
 
   // When using georeferenced images we will draw the last image to be drawn
   // first, so that we skip the pixels from other images that are covered by it.
-  // This is a speedup. Needs to be implemented also without a georef.
+  // This is a speedup. Needs to be implemented also without a georef and when
+  // there exist csv files (which will be tricky).
   std::vector<int> draw_order;
+  bool has_csv = false;
   for (int j = m_beg_image_id; j < m_end_image_id; j++) {
     int i = m_filesOrder[j]; // image index
 
@@ -996,12 +1000,15 @@ void MainWidget::drawImage(QPainter* paint) {
       continue;
 
     draw_order.push_back(i);
+    
+    if (m_images[i].m_isCsv)
+      has_csv = true;
   }
-  if (m_use_georef)
+  if (m_use_georef && !has_csv)
     std::reverse(draw_order.begin(), draw_order.end());
-
+  
   // Draw the images
-  // TODO(oalexan1): Must use a single qimage, that will be updated as we go
+  // TODO(oalexan1): Must use a single QImage, that will be updated as we go
   // over images and scattered points in csv.
   for (size_t j = 0; j < draw_order.size(); j++) {
 
@@ -1018,7 +1025,7 @@ void MainWidget::drawImage(QPainter* paint) {
     //QImage image;
     //QPainter local_painter(&image); 
     // later pass this to the widget painter.
-    // Maybe should replace m_pixmap with qimage.
+    // Maybe should replace m_pixmap with QImage.
     if (m_images[i].m_isCsv) {
       MainWidget::drawScatteredData(paint, i);
       continue; // there is no image, so no point going on
@@ -1113,7 +1120,7 @@ void MainWidget::drawImage(QPainter* paint) {
                   screen_box.width(), screen_box.height());
       paint->drawImage(rect, qimg);
     } else {
-      MainWidget::renderGeoreferencedImage(scale_out, i, paint, qimg,
+      MainWidget::renderGeoreferencedImage(scale_out, i, paint, has_csv, qimg,
                                            screen_box, region_out, drawn_already);
     }
 
