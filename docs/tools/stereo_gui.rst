@@ -274,6 +274,13 @@ kind.
 When reading polygons and georeferenced images from disk, choose "View
 as georeferenced images" to plot the polygons on top of the images.
 
+.. figure:: ../images/stereo_gui_poly.png
+   :name: stereo_gui_poly
+   :alt: stereo_gui_poly
+
+A polygon drawn on top of a georeferenced image, in the "move vertices" editing
+mode.
+
 Plain-text polygon files
 ^^^^^^^^^^^^^^^^^^^^^^^^
 

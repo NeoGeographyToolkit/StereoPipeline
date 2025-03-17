@@ -709,7 +709,9 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
        stereo_settings().num_matches_from_disp_triplets > 0))
     vw_throw(ArgumentErr() << "Cannot use --num-matches-from-disparity or "
               << "--num-matches-from-disp-triplets with --left-image-crop-win or "
-              << "--right-image-crop-win.\n");
+              << "--right-image-crop-win. The alternative is to manually crop "
+              << "the left and right images while keeping the upper-left corner. "
+              << "Otherwise the results would be incorrect.\n");
 
   // This does not work because tx_left() and tx_right() return the identity for
   // this alignment method. See StereoSessionPinhole::tx_left() for more

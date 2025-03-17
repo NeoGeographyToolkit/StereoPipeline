@@ -854,6 +854,10 @@ be reused with a whole new set of choices, with only the triangulation step
 needing to be redone. That because the correlation between the images is still
 valid when the cameras change. 
 
+This works best when the cameras do not change a lot after the initial run is
+made. Otherwise, it is better to redo the mapprojection and the full run from
+scratch.
+
 As an example, in the scenario in :numref:`dg-mapproj`, we mapprojected with 
 the RPC camera model, so with ``-t rpc``, and no bundle adjustment. For stereo,
 one can use ``-t dg`` or ``-t rpc``, and add or not ``--bundle-adjust-prefix``.

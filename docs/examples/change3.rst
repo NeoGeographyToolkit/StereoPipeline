@@ -375,10 +375,14 @@ be rerun with the now well-aligned cameras and a lower
 ``--heights-from-dem-uncertainty``.
 
 For a very long sequence of images this method can become impractical. In that
-case, the intrinsics that are optimized as demonstrated earlier can be
-used with Structure-from-Motion (:numref:`sfm`). Just a few well-distributed GCP
-may be needed to transform the cameras. DEM creation and alignment refinement
-can be as earlier.
+case, the intrinsics that are optimized as demonstrated earlier for a short
+stretch can be used with Structure-from-Motion (:numref:`sfm`) on the full
+sequence. Just a few well-distributed GCP may be needed to transform the cameras
+to ground coordinates. DEM creation and alignment refinement can be as earlier. 
+
+If the intrinsics are not optimized, then dense matches are not required, and
+the sparse matches produced ``camera_solve`` in SfM or by ``bundle_adjust``
+should be enough. 
 
 .. figure:: ../images/change3_many_over_lro.png
 
@@ -387,7 +391,7 @@ can be as earlier.
   pixel-level registered to each other, to the LRO NAC image, and to the LRO NAC
   DEM. The footprint of the images is decreasing along the sequence, and the
   resolution is increasing, as the lander is descending. A portion of the data 
-  was cropped on the right to remove the noise do to the lander body and to make
+  was cropped on the right to remove the noise due to the lander body and to make
   it easier to evaluate the registration visually.
 
   

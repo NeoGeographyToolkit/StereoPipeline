@@ -982,12 +982,12 @@ The linescan cameras can be converted to CSM format using ``cam_gen`` as well
 (:numref:`cam_gen_linescan`). This does not find a best-fit model, but rather
 reads the linescan sensor poses and intrinsics from the input file.  
 
-We will assume we have two frame camera images sharing intrinsics, named
-``frame1.tif`` and ``frame2.tif``, and two linescan camera images, for which
-will not enforce that the intrinsics are shared. They can even be from different
-vendors. The linescan intrinsics will be kept fixed. Assume these files are
-named ``linescan1.tif`` and ``linescan2.tif``. The camera names will have the
-same convention, but ending in ``.json``.
+We will assume in this basic example that we have two frame camera images
+sharing intrinsics, named ``frame1.tif`` and ``frame2.tif``, and two linescan
+camera images, for which will not enforce that the intrinsics are shared. They
+can even be from different vendors. The linescan intrinsics will be kept fixed.
+Assume these files are named ``linescan1.tif`` and ``linescan2.tif``. The camera
+names will have the same convention, but ending in ``.json``.
 
 Initial bundle adjustment
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1000,9 +1000,9 @@ Ensure consistent order of the images and cameras, both here and in the next
 steps. This will guarantee that all generated match files will be used. The
 order here will be ``frame1``, ``frame2``, ``linescan1``, ``linescan2``.
 
-It is very strongly suggested to examine the stereo convergence angles 
-(:numref:`ba_conv_angle`). The angles between each frame pair and each linescan
-pair better be at least 15 degrees, to ensure a robust solution.
+It is very strongly suggested to examine the stereo convergence angles
+(:numref:`ba_conv_angle`). At least some of them should be at least 10-15
+degrees, to ensure a robust solution.
 
 Also examine the pairwise matches in ``stereo_gui``
 (:numref:`stereo_gui_pairwise_matches`), the final residuals per camera
@@ -1011,7 +1011,7 @@ Also examine the pairwise matches in ``stereo_gui``
 (:numref:`plot_csv`). The goal is to ensure well-distributed features,
 and that the errors are pushed down uniformly.
 
-Dense interest points produced from stereo may be necessary
+Dense interest points produced from stereo are strongly suggested
 (:numref:`dense_ip`). An example using these is in :numref:`change3`.
 
 Evaluation of terrain models
@@ -1070,8 +1070,7 @@ Optimizing the optical center may not be necessary, as this intrinsic parameter
 may correlate with the position of the cameras, and these are not easy to
 separate. Optimizing this may produce an implausible optical center.
 
-Dense matches from disparity would likely result in better results
-(:numref:`dense_ip`).
+Dense matches from disparity are strongly recommended (:numref:`dense_ip`).
 
 .. _ba_frame_linescan_results:
 

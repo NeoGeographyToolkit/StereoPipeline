@@ -640,6 +640,11 @@ unless the measurements are ground data taken from a planet's orbit.
 Interfacing with bundle_adjust
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+This program's program's output control network in .nvm format (including camera
+poses and interest point matches between the images) can be read by
+``bundle_adjust`` (:numref:`bundle_adjust`), and vice-versa. The details are in
+:numref:`ba_nvm`.
+
 The optimized cameras produced with ``rig_calibrator`` can be saved in the ASP
 Pinhole format (:numref:`pinholemodels`) with the option
 ``--save_pinhole_cameras``.
@@ -653,12 +658,6 @@ while the list of input images will be in::
   rig_out/image_list.txt
 
 Here and below we assume that the output directory is ``rig_out``.
-
-These datasets, together with the output NVM file having the control
-network, can be read with ``bundle_adjust`` as described in :numref:`ba_nvm`.
-
-That program will then produce an updated NVM file that can be passed
-back to this tool.
 
 If ``rig_calibrator`` is called with the option ``--save_matches``, it will save
 the inlier interest point matches in the ASP ``bundle_adjust``

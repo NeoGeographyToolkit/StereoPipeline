@@ -390,20 +390,18 @@ min-num-ip (*integer*) (default = 20)
     Automatic search range estimation will quit if at least this many
     interest points are not detected.
 
-cost-mode (= 0,1,2,3,4)
-    (default = 2 for ASP_BM and 4 for ASP_SGM and ASP_MGM)
-    This defines the cost function used during integer correlation.
-    Squared difference is the fastest cost function. However it comes
-    at the price of not being resilient against noise. Absolute
-    difference is the next fastest and is a better choice. Normalized
-    cross correlation is the slowest but is designed to be more robust
-    against image intensity changes and slight lighting differences.
-    Normalized cross correlation is about 2x slower than absolute
-    difference and about 3x slower than squared difference. The census
-    transform :cite:`zabih1994census` and ternary census
-    transform :cite:`hua2016texture` can only be used with
-    the ASP_SGM and ASP_MGM correlators. See :numref:`asp_sgm` for
-    details.
+cost-mode (= 0, 1, 2, 3, 4)
+    The default is 2 for the ``asp_bm`` algorithm and 4 for ``asp_sgm`` and
+    ``asp_mgm``. This defines the cost function used during integer correlation.
+    Squared difference is the fastest cost function. However it comes at the
+    price of not being resilient against noise. Absolute difference is the next
+    fastest and is a better choice. Normalized cross correlation is the slowest
+    but is designed to be more robust against image intensity changes and slight
+    lighting differences. Normalized cross correlation is about 2x slower than
+    absolute difference and about 3x slower than squared difference. The census
+    transform :cite:`zabih1994census` and ternary census transform
+    :cite:`hua2016texture` can only be used with the ASP_SGM and ASP_MGM
+    correlators. See :numref:`asp_sgm` for details.
 
     | 0 - absolute difference
     | 1 - squared difference
@@ -411,13 +409,14 @@ cost-mode (= 0,1,2,3,4)
     | 3 - census transform
     | 4 - ternary census transform
 
-corr-kernel (*integer integer*) (default = 21 21)
-    These option determine the size (in pixels) of the correlation
-    kernel used in the initialization step. A different size can be set
-    in the horizontal and vertical directions, but square correlation
-    kernels are almost always used in practice. (The kernel size is at
-    most 9 x 9 with ``--stereo-algorithm asp_mgm`` or ``asp_sgm``, and
-    ``--cost-mode`` 3 and 4.)
+corr-kernel (*integer integer*)
+    The default is  21 x 21 for the ``asp_bm`` algorithm and 5 x 5 for the
+    ``asp_sgm`` and ``asp_mgm`` algorithms (:numref:`asp_sgm`). This option
+    determine the size (in pixels) of the correlation kernel used in the
+    initialization step. A different size can be set in the horizontal and
+    vertical directions, but square correlation kernels are almost always used
+    in practice. The kernel size is at most 9 x 9 with ``--stereo-algorithm
+    asp_mgm`` or ``asp_sgm``. 
 
 corr-search (*integer integer integer integer*)
     These parameters determine the size of the initial correlation

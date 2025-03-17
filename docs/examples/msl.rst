@@ -48,6 +48,9 @@ assumptions may not hold for images produced at different times. Moreover, after
 the rover changes position, there is usually a large perspective difference and
 little overlap with earlier images.
 
+Prior work
+~~~~~~~~~~
+
 A very useful reference on processing MSL images is :cite:`caravaca20203d`. It
 uses the commercial Agisoft Photoscan software. To help with matching the
 images, that paper uses the global position and orientation of each image and
@@ -55,9 +58,6 @@ projects these onto the ground. Such data is not fully present in the .LBL files
 in PDS, as those contain only local coordinates, and would necessitate queering
 the SPICE database.  It also incorporates lower-resolution "TRAV" images to tie
 the data together.
-
-In the current example only a small set of data from a single day is
-used.
 
 .. _msl_image_prep:
 
@@ -396,7 +396,8 @@ produced DEMs to the prior DEM, apply the alignment transform to the cameras
 (:numref:`ba_pc_align`), then redo the bundle-adjustment with the aligned
 cameras and the prior DEM as a constraint (:numref:`kaguya_ba`), while refining
 the intrinsics. It is suggested to use a value of ``--heights-from-dem-uncertainty``
-maybe as low as 0.1 or 0.01, if desired to fit tightly to the prior DEM.
+maybe as low as 0.1 or 0.01, if desired to fit tightly to the prior DEM. This may come,
+however, at the cost of internal consistency.
 
 The triangulation error for each DEM (:numref:`point2dem`) can help evaluate the
 accuracy of the intrinsics. The ``geodiff`` program (:numref:`geodiff`), can be
