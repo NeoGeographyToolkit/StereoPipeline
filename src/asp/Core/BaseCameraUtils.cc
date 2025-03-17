@@ -101,12 +101,9 @@ vw::CamPtr load_adjusted_model(vw::CamPtr cam,
                                cam_file_key, dem_file_key,
                                adj_prefix_raw, image_file_raw, cam_type,
                                cam_file_raw, dem_file);
-      if (image_file_raw != "") {
-        // Note here that we could not find the adjust file.
-        vw::vw_out() << "Could not find: adjusted camera model: " << adjust_file << "\n";
+      if (image_file_raw != "")
         adjust_file = asp::bundle_adjust_file_name(ba_prefix, image_file_raw, 
                                                     cam_file_raw);
-      }
     }
 
     if (!boost::filesystem::exists(adjust_file))

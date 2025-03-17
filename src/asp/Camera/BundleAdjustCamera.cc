@@ -38,6 +38,7 @@
 #include <vw/Math/Geometry.h>
 #include <vw/Math/Functors.h>
 #include <vw/Camera/CameraUtilities.h>
+#include <vw/Camera/LensDistortion.h>
 
 #include <boost/random/uniform_int_distribution.hpp>
 

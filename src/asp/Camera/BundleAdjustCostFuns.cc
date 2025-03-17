@@ -23,6 +23,8 @@
 #include <asp/Camera/BaseCostFuns.h>
 #include <asp/Core/DataLoader.h>
 #include <vw/Camera/CameraImage.h>
+#include <vw/Camera/LensDistortion.h>
+#include <vw/Camera/CameraUtilities.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 
 using namespace vw;
@@ -68,6 +70,16 @@ vw::Vector2 AdjustedCameraBundleModel::evaluate(
 
   // We must not allow one bad point to ruin the optimization
   return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
+}
+
+PinholeBundleModel::PinholeBundleModel(boost::shared_ptr<vw::camera::PinholeModel> cam):
+  m_underlying_camera(cam) {}
+
+// The number of lens distortion parameters.
+int PinholeBundleModel::num_dist_params() const {
+  vw::Vector<double> lens_params
+    = m_underlying_camera->lens_distortion()->distortion_parameters();
+  return lens_params.size();
 }
 
 std::vector<int> PinholeBundleModel::get_block_sizes() const {
@@ -127,6 +139,14 @@ vw::Vector2 PinholeBundleModel::evaluate(
 
   // Do not allow one bad pixel value to ruin the whole problem
   return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
+}
+
+OpticalBarBundleModel::OpticalBarBundleModel(
+    boost::shared_ptr<vw::camera::OpticalBarModel> cam):
+    m_underlying_camera(cam) {}
+
+int OpticalBarBundleModel::num_intrinsic_params() const {
+   return asp::NUM_CENTER_PARAMS + asp::NUM_FOCUS_PARAMS + asp::NUM_OPTICAL_BAR_EXTRA_PARAMS;
 }
 
 std::vector<int> OpticalBarBundleModel::get_block_sizes() const {

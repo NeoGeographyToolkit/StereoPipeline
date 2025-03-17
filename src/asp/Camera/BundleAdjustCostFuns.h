@@ -20,7 +20,6 @@
 
 // Ceres cost functions used by bundle_adjust.
 
-#include <vw/Camera/CameraUtilities.h>
 #include <vw/Camera/OpticalBarModel.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/BundleAdjustCamera.h>
@@ -109,18 +108,13 @@ private:
 class PinholeBundleModel: public CeresBundleModelBase {
 public:
 
-  PinholeBundleModel(boost::shared_ptr<vw::camera::PinholeModel> cam)
-    : m_underlying_camera(cam) {}
-
+  PinholeBundleModel(boost::shared_ptr<vw::camera::PinholeModel> cam);
+  
   /// The number of lens distortion parameters.
-  int num_dist_params() const {
-    vw::Vector<double> lens_params
-      = m_underlying_camera->lens_distortion()->distortion_parameters();
-    return lens_params.size();
-  }
+  int num_dist_params() const;
 
+ // Center, focus, and lens distortion
   virtual int num_intrinsic_params() const {
-    // Center, focus, and lens distortion
     return asp::NUM_CENTER_PARAMS + asp::NUM_FOCUS_PARAMS + num_dist_params(); 
   }
 
@@ -149,14 +143,11 @@ private:
 class OpticalBarBundleModel: public CeresBundleModelBase {
 public:
 
-  OpticalBarBundleModel(boost::shared_ptr<vw::camera::OpticalBarModel> cam)
-    : m_underlying_camera(cam) {}
+  OpticalBarBundleModel(boost::shared_ptr<vw::camera::OpticalBarModel> cam);
 
-  virtual int num_intrinsic_params() const {
-    // Center, focus, and extra optical bar parameters
-    return asp::NUM_CENTER_PARAMS + asp::NUM_FOCUS_PARAMS + asp::NUM_OPTICAL_BAR_EXTRA_PARAMS;
-  }
-
+  // Center, focus, and extra optical bar parameters
+  virtual int num_intrinsic_params() const;
+  
   /// Return the number of Ceres input parameter blocks.
   /// - (camera), (point), (center), (focus), (other intrinsic parameters)
   virtual int num_parameter_blocks() const {return 5;}
@@ -394,7 +385,7 @@ struct RotTransError {
   RotTransError(double const* orig_cam, double rotation_weight, double translation_weight):
     m_orig_cam(DATA_SIZE), m_rotation_weight(rotation_weight),
     m_translation_weight(translation_weight) {
-    for (int i=0; i<DATA_SIZE; ++i)
+    for (int i = 0; i < DATA_SIZE; i++)
         m_orig_cam[i] = orig_cam[i];
     }
 

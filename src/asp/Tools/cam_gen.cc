@@ -38,6 +38,7 @@
 #include <vw/Core/StringUtils.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/CameraUtilities.h>
+#include <vw/Camera/LensDistortion.h>
 #include <vw/Cartography/CameraDatumFit.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
