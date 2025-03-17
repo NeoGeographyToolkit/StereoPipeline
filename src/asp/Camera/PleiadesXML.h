@@ -28,10 +28,8 @@
 #include <vw/Core/Log.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
-#include <vw/Math/Geometry.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Camera/Extrinsics.h>
-#include <asp/Core/Common.h>
 
 #include <vector>
 #include <string>

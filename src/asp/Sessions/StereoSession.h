@@ -26,7 +26,6 @@
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/Transform.h>
 #include <vw/Camera/CameraModel.h>
-#include <vw/Stereo/StereoModel.h>
 
 #include <boost/shared_ptr.hpp>
 #include <asp/Core/ImageNormalization.h>

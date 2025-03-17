@@ -23,6 +23,13 @@
 #include <vw/Math/Matrix.h>
 #include <vw/Math/Vector.h>
 
+// Forward declaration
+namespace vw {
+  namespace cartography {
+    class Datum;
+  }
+}
+
 namespace asp {
 
 class CsmModel;

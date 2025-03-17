@@ -32,7 +32,6 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Camera/Extrinsics.h>
-#include <asp/Core/Common.h>
 #include <asp/Camera/TimeProcessing.h>
 
 #include <vector>

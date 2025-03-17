@@ -21,7 +21,6 @@
 #ifndef __STEREO_GUI_MAINWINDOW_H__
 #define __STEREO_GUI_MAINWINDOW_H__
 
-#include <asp/Core/Common.h>
 #include <asp/Core/MatchList.h>
 #include <asp/GUI/GuiUtilities.h>
 

@@ -29,17 +29,11 @@
 #include <vw/Math/Matrix.h>
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/BBox.h>
-#include <vw/Math/Geometry.h>
-#include <vw/Cartography/GeoReference.h>
-#include <vw/Camera/CameraModel.h>
-#include <vw/Camera/Extrinsics.h>
-#include <asp/Core/Common.h>
 
 #include <vector>
 #include <string>
 
 #include <boost/smart_ptr/scoped_ptr.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 
 // Special forward declare so we can hide the Xerces headers.
 #include <xercesc/util/XercesDefs.hpp> // Needed for this XERCES macro

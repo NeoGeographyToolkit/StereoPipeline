@@ -15,17 +15,18 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <vw/Core/Exception.h>          // for ArgumentErr, vw_throw, etc
-#include <vw/Math/Quaternion.h>         // for Quat, Quaternion
-#include <vw/Math/Vector.h>             // for Vector, Vector3, Vector4, etc
-#include <vw/Cartography/Datum.h>       // for Datum
-#include <vw/FileIO/DiskImageResourceGDAL.h>
-
 #include <asp/Camera/XMLBase.h>
 #include <asp/Camera/PeruSatXML.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/XMLBase.h>
 #include <asp/Camera/TimeProcessing.h>
+
+#include <vw/Core/Exception.h>          // for ArgumentErr, vw_throw, etc
+#include <vw/Math/Quaternion.h>         // for Quat, Quaternion
+#include <vw/Math/Vector.h>             // for Vector, Vector3, Vector4, etc
+#include <vw/Cartography/Datum.h>       // for Datum
+#include <vw/FileIO/DiskImageResourceGDAL.h>
+#include <vw/Core/StringUtils.h>
 
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>

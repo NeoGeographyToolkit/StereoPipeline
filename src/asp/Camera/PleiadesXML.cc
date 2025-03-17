@@ -19,16 +19,17 @@
 // 1A/1B: airbus-pleiades-imagery-user-guide-15042021.pdf.
 // NEO:   2022.03_PleiadesNeo_UserGuide_20220322.pdf
 
-#include <vw/Core/Exception.h>          // for ArgumentErr, vw_throw, etc
-#include <vw/Math/Vector.h>             // for Vector, Vector3, Vector4, etc
-#include <vw/Cartography/Datum.h>       // for Datum
-#include <vw/FileIO/DiskImageResourceGDAL.h>
-
 #include <asp/Camera/XMLBase.h>
 #include <asp/Camera/PleiadesXML.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/XMLBase.h>
 #include <asp/Camera/TimeProcessing.h>
+
+#include <vw/Core/Exception.h>          // for ArgumentErr, vw_throw, etc
+#include <vw/Math/Vector.h>             // for Vector, Vector3, Vector4, etc
+#include <vw/Cartography/Datum.h>       // for Datum
+#include <vw/FileIO/DiskImageResourceGDAL.h>
+#include <vw/Core/StringUtils.h>
 
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>

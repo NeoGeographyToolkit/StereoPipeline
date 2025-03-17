@@ -25,8 +25,6 @@
 #ifndef __PC_ALIGN_UTILS_H__
 #define __PC_ALIGN_UTILS_H__
 
-#include <asp/Core/Common.h>
-#include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/EigenUtils.h>
 

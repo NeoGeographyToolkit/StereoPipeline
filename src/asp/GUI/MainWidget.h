@@ -61,7 +61,6 @@
 #include <vw/Geometry/dPoly.h>
 
 // ASP
-#include <asp/Core/Common.h>
 #include <asp/Core/MatchList.h>
 #include <asp/GUI/GuiUtilities.h>
 #include <asp/GUI/WidgetBase.h>

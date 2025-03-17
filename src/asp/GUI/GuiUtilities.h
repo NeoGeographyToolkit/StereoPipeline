@@ -34,7 +34,6 @@
 #include <QPoint>
 
 // ASP
-#include <asp/Core/Common.h>
 #include <asp/GUI/DiskImagePyramidMultiChannel.h>
 
 // Vision Workbench

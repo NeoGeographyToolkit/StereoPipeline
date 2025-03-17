@@ -20,8 +20,6 @@
 ///
 /// Warning: This code was written with only the Apollo Metric data in mind
 
-#include <asp/Core/StereoSettings.h>
-#include <asp/Core/Common.h>
 #include <asp/Core/PhotometricOutlier.h>
 
 #include <vw/Image/AlgorithmFunctions.h>
