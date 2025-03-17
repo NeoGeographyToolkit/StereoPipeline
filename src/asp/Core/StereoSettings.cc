@@ -240,35 +240,37 @@ namespace asp {
   CorrelationDescription::CorrelationDescription() : po::options_description("Correlation options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
-      ("prefilter-mode",         po::value(&global.pre_filter_mode)->default_value(2),
+      ("prefilter-mode", po::value(&global.pre_filter_mode)->default_value(2),
        "Filter used to prepare images before performing correlation. Used only with the "
        "asp_bm algorithm. Options: 0 (none), 1 (subtracted mean), 2 (LoG).")
       ("prefilter-kernel-width", po::value(&global.slogW)->default_value(1.5),
        "Sigma value for Gaussian kernel used with prefilter modes 1 and 2.")
-      ("corr-seed-mode",         po::value(&global.seed_mode)->default_value(1),
+      ("corr-seed-mode", po::value(&global.seed_mode)->default_value(1),
         "Correlation seed strategy. [0 None, 1 Use low-res disparity from stereo, 2 Use low-res disparity from provided DEM (see disparity-estimation-dem), 3 Use low-res disparity produced by sparse_disp (in development)]")
-      ("min-num-ip",             po::value(&global.min_num_ip)->default_value(20),
+      ("min-num-ip", po::value(&global.min_num_ip)->default_value(20),
        "The minimum number of interest points which must be found to estimate the search range.")
       ("corr-sub-seed-percent",  po::value(&global.seed_percent_pad)->default_value(0.25),
-                     "Expand the search range by this factor when computing the low-resolution disparity.")
-      ("cost-mode",              po::value(&global.cost_mode)->default_value(2),
-                     "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation, 3 Census Transform (SGM only), 4 Ternary Census Transform (SGM only)]")
-      ("xcorr-threshold",        po::value(&global.xcorr_threshold)->default_value(2.0),
-                     "L-R vs R-L agreement threshold in pixels.")
-      ("min-xcorr-level",        po::value(&global.min_xcorr_level)->default_value(0),
-                     "Minimum level to run xcorr check on (SGM only).")
-      ("save-left-right-disparity-difference",   po::bool_switch(&global.save_lr_disp_diff)->default_value(false)->implicit_value(true),
+        "Expand the search range by this factor when computing the low-resolution disparity.")
+      ("cost-mode", po::value(&global.cost_mode)->default_value(2),
+        "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation, 3 Census Transform (SGM only), 4 Ternary Census Transform (SGM only)]")
+      ("xcorr-threshold", po::value(&global.xcorr_threshold)->default_value(2.0),
+        "L-R vs R-L agreement threshold in pixels.")
+      ("min-xcorr-level", po::value(&global.min_xcorr_level)->default_value(0),
+        "Minimum level to run xcorr check on (SGM only).")
+      ("save-left-right-disparity-difference",
+       po::bool_switch(&global.save_lr_disp_diff)->default_value(false)->implicit_value(true),
        "Save the discrepancy between left-to-right and right-to-left disparities. See the doc for more info.")
       
-      ("corr-kernel",            po::value(&global.corr_kernel)->default_value(Vector2i(21,21),"21 21"),
-                    "Kernel size used for integer correlator.")
-      ("corr-search",            po::value(&global.search_range)->default_value(BBox2(0,0,0,0), "auto"),
+      ("corr-kernel", po::value(&global.corr_kernel)->default_value(Vector2i(21,21),"21 21"),
+        "Kernel size used for integer correlator.")
+      ("corr-search", po::value(&global.search_range)->default_value(BBox2(0,0,0,0), "auto"),
        "Disparity search range. Specify in format: hmin vmin hmax vmax.")
-      ("max-disp-spread",      po::value(&global.max_disp_spread)->default_value(-1.0),
+      ("max-disp-spread", po::value(&global.max_disp_spread)->default_value(-1.0),
        "If positive, limit the spread of the disparity to this value (horizontally and vertically, centered at the median value). Do not specify together with --corr-search-limit.")
 
-      ("corr-search-limit",      po::value(&global.corr_search_limit)->default_value(BBox2(0,0,0,0), "auto"),
-                     "Limit the automatically computed disparity search range to these bounds, specified as: hmin vmin hmax vmax. See also --max-disp-spread.")
+      ("corr-search-limit", 
+       po::value(&global.corr_search_limit)->default_value(BBox2(0,0,0,0), "auto"),
+       "Limit the automatically computed disparity search range to these bounds, specified as: hmin vmin hmax vmax. See also --max-disp-spread.")
       ("ip-filter-using-dem",        po::value(&global.ip_filter_using_dem)->default_value(""),
        "Filter as outliers interest point matches whose triangulated height differs by more than given value from the height at the same location for the given DEM. All heights are in meters.  Specify as: '<dem file> <height diff>. Example: 'dem.tif 50.0'.")
       ("elevation-limit",        po::value(&global.elevation_limit)->default_value(Vector2(0,0), "auto"),

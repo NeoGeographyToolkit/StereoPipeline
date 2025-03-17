@@ -20,7 +20,8 @@
 ///
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/InterestPointMatching.h>
-#include <asp/Tools/stereo.h>
+#include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 
 #include <vw/Math/Functors.h>
 #include <vw/Image/ImageView.h>
@@ -29,6 +30,7 @@
 #include <vw/Image/Manipulation.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
+#include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
@@ -52,6 +54,8 @@ using namespace asp;
 using std::endl;
 using std::setprecision;
 using std::setw;
+
+namespace po = boost::program_options;
 
 /* LROJITREG utility
 

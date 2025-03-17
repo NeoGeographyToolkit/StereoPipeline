@@ -22,6 +22,7 @@
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <asp/Core/GdalUtils.h>
 #include <asp/Core/DemMosaic.h>
 
 #include <vw/FileIO/DiskImageManager.h>

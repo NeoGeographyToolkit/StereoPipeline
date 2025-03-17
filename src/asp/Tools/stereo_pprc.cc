@@ -17,6 +17,13 @@
 
 /// \file stereo_pprc.cc
 ///
+#include <asp/Tools/stereo.h>
+#include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Core/Macros.h>
+#include <asp/Core/IpMatchingAlgs.h>
+#include <asp/Sessions/CameraUtils.h>
+
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/BlobIndex.h>
 #include <vw/Image/InpaintView.h>
@@ -25,13 +32,9 @@
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/InterestPoint/MatcherIO.h>
-#include <asp/Core/IpMatchingAlgs.h>        // Lightweight header
-#include <asp/Sessions/CameraUtils.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/Functors.h>
-#include <asp/Tools/stereo.h>
-#include <asp/Sessions/StereoSession.h>
-#include <asp/Sessions/StereoSessionFactory.h>
+
 #include <xercesc/util/PlatformUtils.hpp>
 #include <asp/Core/ThreadedEdgeMask.h>
 

@@ -119,38 +119,6 @@ namespace asp {
 
   //---------------------------------------------------------------------------
 
-  // Often times, we'd like to save an image to disk by using big
-  // blocks, for performance reasons, then re-write it with desired blocks.
-  // TODO(oalexan1): Move this somewhere else.
-  template <class ImageT>
-  void save_with_temp_big_blocks(int big_block_size,
-                                 const std::string &filename,
-                                 vw::ImageViewBase<ImageT> const& img,
-                                 bool has_georef,
-                                 vw::cartography::GeoReference const& georef,
-                                 bool has_nodata, double nodata,
-                                 vw::GdalWriteOptions & opt,
-                                 vw::ProgressCallback const& tpc){
-
-    vw::Vector2 orig_block_size = opt.raster_tile_size;
-    opt.raster_tile_size = vw::Vector2(big_block_size, big_block_size);
-    block_write_gdal_image(filename, img, has_georef, georef, has_nodata, nodata, opt, tpc);
-
-    if (opt.raster_tile_size != orig_block_size){
-      std::string tmp_file
-        = boost::filesystem::path(filename).replace_extension(".tmp.tif").string();
-      boost::filesystem::rename(filename, tmp_file);
-      vw::DiskImageView<typename ImageT::pixel_type> tmp_img(tmp_file);
-      opt.raster_tile_size = orig_block_size;
-      vw::vw_out() << "Re-writing with blocks of size: "
-                   << opt.raster_tile_size[0] << " x " << opt.raster_tile_size[1] << ".\n";
-      vw::cartography::block_write_gdal_image(filename, tmp_img, has_georef, georef,
-                                  has_nodata, nodata, opt, tpc);
-      boost::filesystem::remove(tmp_file);
-    }
-    return;
-  }
-
 } // end namespace asp
 
 // Custom Boost Program Options validators for VW/ASP types

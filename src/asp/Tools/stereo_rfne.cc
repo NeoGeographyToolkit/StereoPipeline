@@ -21,6 +21,7 @@
 
 #include <asp/Tools/stereo.h>
 #include <asp/Sessions/StereoSession.h>
+#include <asp/Core/Macros.h>
 
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CostFunctions.h>

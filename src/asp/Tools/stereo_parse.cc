@@ -21,6 +21,8 @@
 /// This program is to allow python access to stereo settings.
 
 #include <asp/Tools/stereo.h>
+#include <asp/Core/Macros.h>
+
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/CorrelationView.h>

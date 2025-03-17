@@ -15,19 +15,18 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file stereo.h
 ///
 
 #ifndef __ASP_STEREO_H__
 #define __ASP_STEREO_H__
 
-#include <boost/algorithm/string.hpp>
-
-
 #include <asp/Core/StereoSettings.h>
-#include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+
+#include <vw/FileIO/GdalWriteOptions.h>
+#include <vw/Math/BBox.h>
+
+#include <boost/algorithm/string.hpp>
 
 // Support for ISIS image files
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
@@ -61,6 +60,8 @@ enum { PREPROCESSING = 0,
 // Allows FileIO to correctly read/write these pixel types
 namespace asp {
 
+  struct ASPGlobalOptions;
+  
   /// Transform the crop window to be in reference to L.tif
   vw::BBox2i transformed_crop_win(ASPGlobalOptions const& opt);
 
@@ -87,7 +88,6 @@ namespace asp {
   /// Checks for obvious user mistakes
   /// - Throws if any incompatible settings are found.
   void user_safety_checks(ASPGlobalOptions const& opt);
-
 
   bool skip_image_normalization(ASPGlobalOptions const& opt);
 

@@ -24,6 +24,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/GdalUtils.h>
 
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Algorithms2.h>

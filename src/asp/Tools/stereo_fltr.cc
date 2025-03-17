@@ -19,6 +19,7 @@
 /// \file stereo_fltr.cc
 ///
 #include <asp/Tools/stereo.h>
+#include <asp/Core/Macros.h>
 
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/Algorithms.h>

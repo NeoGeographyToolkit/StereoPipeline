@@ -34,11 +34,13 @@
 // tiles which overlap with the inner area of the current tile, and
 // blend the results.
 
+#include <asp/Tools/stereo.h>
+#include <asp/Core/Macros.h>
+
 #include <vw/Image/ImageMath.h>
 #include <vw/FileIO/DiskImageUtils.h>
-
+#include <vw/Cartography/GeoReference.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <asp/Tools/stereo.h>
 #include <boost/filesystem.hpp>
 
 using namespace vw;

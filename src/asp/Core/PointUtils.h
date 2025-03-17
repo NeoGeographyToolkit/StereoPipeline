@@ -22,7 +22,7 @@
 #ifndef __ASP_CORE_POINT_UTILS_H__
 #define __ASP_CORE_POINT_UTILS_H__
 
-#include <asp/Core/Common.h>
+#include <asp/Core/GdalUtils.h>
 
 #include <vw/Core/Functors.h>
 #include <vw/Image/PerPixelViews.h>
@@ -31,6 +31,8 @@
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Mosaic/ImageComposite.h>
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/Core/StringUtils.h>
 
 #include <string>
 
@@ -45,11 +47,6 @@ const int ASP_POINT_CLOUD_TILE_LEN = 2048;
 const int ASP_MAX_SUBBLOCK_SIZE = 128;
 
 namespace asp {
-
-  /// String we use in ASP written point cloud files to indicate that an offset
-  ///  has been subtracted out from the points.
-  // Note: We use this constant in the python code as well
-  const std::string ASP_POINT_OFFSET_TAG_STR = "POINT_OFFSET";
 
   class BaseOptions;
 
@@ -356,154 +353,6 @@ namespace asp {
   }; // End class PcdReader
 
 // Template function definitions
-
-// Specialized functions for reading/writing images with a shift.
-// The shift is meant to bring the pixel values closer to origin,
-// with goal of saving the pixels as float instead of double.
-
-/// Subtract a given shift from first 3 components of given vector image.
-/// Skip pixels for which the first 3 components are (0, 0, 0).
-template <class VecT>
-struct SubtractShift: public vw::ReturnFixedType<VecT> {
-  vw::Vector3 m_shift;
-  SubtractShift(vw::Vector3 const& shift):m_shift(shift){}
-  VecT operator() (VecT const& pt) const {
-    VecT lpt = pt;
-    int len = std::min(3, (int)lpt.size());
-    if (subvector(lpt, 0, len) != subvector(vw::Vector3(), 0, len))
-      subvector(lpt, 0, len) -= subvector(m_shift, 0, len);
-    return lpt;
-  }
-};
-template <class ImageT>
-vw::UnaryPerPixelView<ImageT, SubtractShift<typename ImageT::pixel_type>>
-inline subtract_shift(vw::ImageViewBase<ImageT> const& image,
-                      vw::Vector3 const& shift) {
-  return vw::UnaryPerPixelView<ImageT, SubtractShift<typename ImageT::pixel_type>>
-    (image.impl(), SubtractShift<typename ImageT::pixel_type>(shift));
-}
-
-template<int m>
-vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& filename) {
-
-  vw::Vector3 shift;
-  std::string shift_str;
-  boost::shared_ptr<vw::DiskImageResource> rsrc
-    (new vw::DiskImageResourceGDAL(filename));
-  bool success = vw::cartography::read_header_string(*rsrc.get(),
-                                                     asp::ASP_POINT_OFFSET_TAG_STR,
-                                                     shift_str);
-  if (success)
-    shift = vw::str_to_vec<vw::Vector3>(shift_str);
-
-  // Read the first m channels
-  vw::ImageViewRef<vw::Vector<double, m>> out_image 
-    = vw::read_channels<m, double>(filename, 0);
-
-  // Add the shift back to the first several channels.
-  if (shift != vw::Vector3())
-    out_image = subtract_shift(out_image, -shift);
-
-  return out_image;
-}
-
-/// Don't round pixels in point2dem for bodies of radius smaller than
-/// this in meters. Do it though in stereo_tri, see get_rounding_error().
-const double MIN_RADIUS_FOR_ROUNDING = 1e+6; // 1000 km
-
-/// Unless user-specified, compute the rounding error for a given
-/// planet (a point on whose surface is given by 'shift'). Return an
-/// inverse power of 2, 1/2^10 for Earth and proportionally less for smaller bodies.
-double get_rounding_error(vw::Vector3 const& shift, double rounding_error);
-
-/// Round pixels in given image to multiple of given rounding_error.
-template <class VecT>
-struct RoundImagePixels: public vw::ReturnFixedType<VecT> {
-  double m_rounding_error;
-  RoundImagePixels(double rounding_error):m_rounding_error(rounding_error){
-    VW_ASSERT(m_rounding_error > 0.0,
-                vw::ArgumentErr() << "Rounding error must be positive.");
-  }
-  VecT operator() (VecT const& pt) const {
-    return m_rounding_error*round(pt/m_rounding_error);
-  }
-};
-template <class ImageT>
-vw::UnaryPerPixelView<ImageT, RoundImagePixels<typename ImageT::pixel_type> >
-inline round_image_pixels(vw::ImageViewBase<ImageT> const& image,
-                        double rounding_error) {
-  return vw::UnaryPerPixelView<ImageT, RoundImagePixels<typename ImageT::pixel_type> >
-    (image.impl(), RoundImagePixels<typename ImageT::pixel_type>(rounding_error));
-}
-
-/// Block write image while subtracting a given value from all pixels
-/// and casting the result to float, while rounding to nearest mm.
-template <class ImageT>
-void block_write_approx_gdal_image(const std::string &filename,
-                                    vw::Vector3 const& shift,
-                                    double rounding_error,
-                                    vw::ImageViewBase<ImageT> const& image,
-                                    bool has_georef,
-                                    vw::cartography::GeoReference const& georef,
-                                    bool has_nodata, double nodata,
-                                    vw::GdalWriteOptions const& opt,
-                                    vw::ProgressCallback const& progress_callback
-                                    = vw::ProgressCallback::dummy_instance(),
-                                    std::map<std::string, std::string> const& keywords =
-                                    std::map<std::string, std::string>()) {
-
-  if (norm_2(shift) > 0) {
-
-    // Add the point shift to keywords
-    std::map<std::string, std::string> local_keywords = keywords;
-    local_keywords[ASP_POINT_OFFSET_TAG_STR] = vw::vec_to_str(shift);
-
-    block_write_gdal_image(filename,
-                            vw::channel_cast<float>
-                            (round_image_pixels(subtract_shift(image.impl(), shift),
-                                                get_rounding_error(shift, rounding_error))),
-                            has_georef, georef, has_nodata, nodata,
-                            opt, progress_callback, local_keywords);
-
-  }else{
-    block_write_gdal_image(filename, image, has_georef, georef,
-                            has_nodata, nodata, opt,
-                            progress_callback, keywords);
-  }
-
-}
-
-/// Single-threaded write image while subtracting a given value from
-/// all pixels and casting the result to float.
-template <class ImageT>
-void write_approx_gdal_image(const std::string &filename,
-                              vw::Vector3 const& shift,
-                              double rounding_error,
-                              vw::ImageViewBase<ImageT> const& image,
-                              bool has_georef,
-                              vw::cartography::GeoReference const& georef,
-                              bool has_nodata, double nodata,
-                              vw::GdalWriteOptions const& opt,
-                              vw::ProgressCallback const& progress_callback
-                              = vw::ProgressCallback::dummy_instance(),
-                              std::map<std::string, std::string> const& keywords =
-                              std::map<std::string, std::string>()) {
-
-  if (norm_2(shift) > 0){
-    // Add the point shift to keywords
-    std::map<std::string, std::string> local_keywords = keywords;
-    local_keywords[ASP_POINT_OFFSET_TAG_STR] = vw::vec_to_str(shift);
-    write_gdal_image(filename,
-                      vw::channel_cast<float>
-                      (round_image_pixels(subtract_shift(image.impl(), shift),
-                                          get_rounding_error(shift, rounding_error))),
-                      has_georef, georef, has_nodata, nodata,
-                      opt, progress_callback, local_keywords);
-  }else{
-    write_gdal_image(filename, image, has_georef, georef,
-                      has_nodata, nodata, opt, progress_callback, keywords);
-  }
-}
 
 /// Read given files and form an image composite.
 template<class PixelT>

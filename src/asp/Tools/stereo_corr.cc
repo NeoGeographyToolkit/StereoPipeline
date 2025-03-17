@@ -25,6 +25,7 @@
 #include <asp/Core/LocalAlignment.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Tools/stereo.h>
+#include <asp/Core/Macros.h>
 
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>

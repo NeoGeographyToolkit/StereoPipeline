@@ -25,6 +25,21 @@
 // It uses the Euclidean distance to the boundary, which is better
 // than the Manhattan distance employed by grassfire.
 
+#include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
+#include <asp/Core/GdalUtils.h>
+
+#include <vw/FileIO/DiskImageManager.h>
+#include <vw/Image/InpaintView.h>
+#include <vw/Image/Algorithms2.h>
+#include <vw/Image/Filter.h>
+#include <vw/Cartography/GeoTransform.h>
+
+#include <boost/math/special_functions/fpclassify.hpp>
+#include <boost/math/special_functions/erf.hpp>
+#include <boost/program_options.hpp>
+#include <boost/filesystem/convenience.hpp>
+
 #include <iostream>
 #include <fstream>
 #include <iomanip>
@@ -36,20 +51,6 @@
 #include <time.h>
 #include <limits>
 #include <algorithm>
-
-#include <vw/FileIO/DiskImageManager.h>
-#include <vw/Image/InpaintView.h>
-#include <vw/Image/Algorithms2.h>
-#include <vw/Image/Filter.h>
-#include <vw/Cartography/GeoTransform.h>
-#include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
-
-#include <boost/math/special_functions/fpclassify.hpp>
-#include <boost/math/special_functions/erf.hpp>
-#include <boost/program_options.hpp>
-
-#include <boost/filesystem/convenience.hpp>
 
 using namespace std;
 using namespace vw;

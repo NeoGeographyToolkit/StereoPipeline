@@ -21,6 +21,19 @@
 #include <QApplication>
 #include <QWidget>
 
+#include <asp/Tools/stereo.h>
+#include <asp/Core/DemDisparity.h>
+#include <asp/GUI/MainWindow.h>
+#include <asp/GUI/GuiUtilities.h>
+#include <asp/Core/Macros.h>
+
+#include <vw/Stereo/PreFilter.h>
+#include <vw/Stereo/CorrelationView.h>
+#include <vw/Stereo/CostFunctions.h>
+#include <vw/Stereo/DisparityMap.h>
+#include <vw/Core/CmdUtils.h>
+#include <vw/FileIO/FileTypes.h>
+
 // Can't do much about warnings in boost except to hide them
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -29,16 +42,6 @@
 #include <boost/accumulators/statistics.hpp>
 #pragma GCC diagnostic pop
 
-#include <vw/Stereo/PreFilter.h>
-#include <vw/Stereo/CorrelationView.h>
-#include <vw/Stereo/CostFunctions.h>
-#include <vw/Stereo/DisparityMap.h>
-#include <vw/Core/CmdUtils.h>
-#include <vw/FileIO/FileTypes.h>
-#include <asp/Tools/stereo.h>
-#include <asp/Core/DemDisparity.h>
-#include <asp/GUI/MainWindow.h>
-#include <asp/GUI/GuiUtilities.h>
 #include <xercesc/util/PlatformUtils.hpp>
 #include <omp.h>
 #include <thread>

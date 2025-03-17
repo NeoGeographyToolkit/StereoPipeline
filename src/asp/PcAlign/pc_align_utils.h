@@ -25,7 +25,6 @@
 #ifndef __PC_ALIGN_UTILS_H__
 #define __PC_ALIGN_UTILS_H__
 
-#include <asp/Core/PointUtils.h>
 #include <asp/Core/EigenUtils.h>
 
 #include <vw/FileIO/DiskImageView.h>
@@ -34,6 +33,8 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/Quaternion.h>
+#include <vw/FileIO/GdalWriteOptions.h>
+#include <vw/Image/Interpolation.h>
 
 #include <limits>
 #include <cstring>
@@ -167,35 +168,6 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                             vw::cartography::GeoReference const& geo,
                             CsvConv const& csv_conv,
                             PointMatcher<RealT>::Matrix const& T);
-
-/// Save a transformed point cloud with N bands
-template<int n> // Number of bands
-void save_trans_point_cloud_n(vw::GdalWriteOptions const& opt,
-                              vw::cartography::GeoReference const& geo,
-                              std::string input_file,
-                              std::string output_file,
-                              PointMatcher<RealT>::Matrix const& T){
-
-  // We will try to save the transformed cloud with a georef. Try to get it from
-  // the input cloud, or otherwise from the "global" georef.
-  vw::cartography::GeoReference curr_geo;
-  bool has_georef = vw::cartography::read_georeference(curr_geo, input_file);
-  if (!has_georef && geo.datum().name() != UNSPECIFIED_DATUM){
-    has_georef = true;
-    curr_geo = geo;
-  }
-
-  // There is no nodata
-  bool has_nodata = false;
-  double nodata = -std::numeric_limits<float>::max(); // smallest float
-
-  vw::ImageViewRef<vw::Vector<double, n>> point_cloud = read_asp_point_cloud<n>(input_file);
-  vw::cartography::block_write_gdal_image(output_file,
-                              per_pixel_filter(point_cloud, TransformPC(T)),
-                              has_georef, curr_geo,
-                              has_nodata, nodata,
-                              opt, vw::TerminalProgressCallback("asp", "\t--> "));
-}
 
 /// A type for interpolation from a masked DEM object.
 typedef vw::InterpolationView<vw::EdgeExtensionView<vw::ImageViewRef<vw::PixelMask<float>>,

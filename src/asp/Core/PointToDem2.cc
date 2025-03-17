@@ -17,6 +17,7 @@
 
 #include <asp/Core/PointToDem.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/GdalUtils.h>
 
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/Filter.h>
