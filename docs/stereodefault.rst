@@ -419,22 +419,26 @@ corr-kernel (*integer integer*)
     asp_mgm`` or ``asp_sgm``. 
 
 corr-search (*integer integer integer integer*)
-    These parameters determine the size of the initial correlation
-    search range. The ideal search range depends on a variety of
-    factors ranging from how the images were pre-aligned to the
-    resolution and range of disparities seen in a given image pair.
-    This search range is successively refined during initialization, so
-    it is often acceptable to set a large search range that is
-    guaranteed to contain all of the disparities in a given image.
-    However, setting tighter bounds on the search can sometimes reduce
-    the number of erroneous matches, so it can be advantageous to tune
-    the search range for a particular data set.
+    These parameters determine the size of the initial correlation search range.
+    The ideal search range depends on a variety of factors ranging from how the
+    images were pre-aligned to the resolution and range of disparities seen in a
+    given image pair. This search range is successively refined during
+    initialization, so it is often acceptable to set a large search range that
+    is guaranteed to contain all of the disparities in a given image. However,
+    setting tighter bounds on the search can sometimes reduce the number of
+    erroneous matches, so it can be advantageous to tune the search range for a
+    particular data set.
 
     These four integers define the minimum horizontal and vertical
     disparity and then the maximum horizontal and vertical disparity.
 
-    If this option is not provided, ``parallel_stereo`` will make an
-    attempt to guess its search range using interest points.
+    With this option and with ``alignment-method`` being ``none`` or
+    ``epipolar``, ``parallel_stereo`` will continue even if interest point
+    matching fails. In either case, interest point matches will not be used to
+    initialize the search range. 
+    
+    See also the option ``corr-search-limit``. That is used to constrain
+    any produced search range, rather than initialize it as here.
 
 max-disp-spread (*double*) (default = -1.0)
     If positive, limit the spread of the disparity to this value
@@ -452,17 +456,14 @@ max-disp-spread (*double*) (default = -1.0)
     relax or no longer use this option.
     
 corr-search-limit (*integer integer integer integer*)
-    Set these parameters to constrain the search range that
-    ``parallel_stereo`` automatically computes when ``corr-search`` is
-    not set. This setting is useful when you have a good idea of the
-    alignment quality in the vertical direction but not in the
-    horizontal direction. For example, when using pinhole frame
-    cameras with epipolar alignment the actual vertical search range
-    may be much smaller than the automatically computed search range.
+    Set these parameters to constrain the disparity search range, whether it was
+    produced based on interest point matches, with ``corr-search``, or other
+    methods (:numref:`d_sub`). This limit is applied before both the
+    low-resolution and full-resolution disparity computation.
+    
+    The interpretation of the four values are as for ``corr-search``.
+    
     See also ``--max-disp-spread``.
-
-    The interpretation of these four integers is as for
-    ``corr-search``.
 
 ip-filter-using-dem (*string*) (default = "")
     Filter as outliers interest point matches whose triangulated

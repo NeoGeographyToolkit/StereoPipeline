@@ -81,7 +81,10 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Enable stereo with vendor-supplied images that have been mapprojected onto
     surfaces of constant height above a datum (:numref:`mapproj_ortho`).
   * Added the option ``--band`` to process a given band (channel) from
-    multispectral images (:numref:`stereodefault`).  
+    multispectral images (:numref:`stereodefault`).
+  * With alignment methods ``none`` and ``epipolar``, the option
+    ``--corr-search`` will work even when interest point matching fails
+    (:numref:`corr_section`).    
   * Skip tiles for which there is no valid low-resolution disparity.
   * Throw an error if the left and right mapprojected images have different
     resolutions, as this can lead to incorrect results.

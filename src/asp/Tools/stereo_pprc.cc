@@ -596,8 +596,20 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   // When alignment method is none or epipolar, no ip were created so far, so
   // produce them now.
   if (stereo_settings().alignment_method == "none" ||
-      stereo_settings().alignment_method == "epipolar")
-    asp::compute_ip_LR(opt.out_prefix);
+      stereo_settings().alignment_method == "epipolar") {
+    try {
+        asp::compute_ip_LR(opt.out_prefix);
+      } catch (const std::exception& e) {
+        if (!asp::stereo_settings().search_range.empty()) {
+          // If the user provided a search range, we must have the IP.
+          vw_out() << "Could not compute interest points. The error was:\n";
+          vw_out() << e.what() << "\n";
+          vw_out() << "Will continue, given that --corr-search was set.\n";
+      } else {
+        vw::vw_throw(vw::ArgumentErr() << e.what() << "\n");
+      }
+    }
+  }
     
 } // End function stereo_preprocessing
 

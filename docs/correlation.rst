@@ -393,14 +393,19 @@ help fill in regions of the image where no match was found.
 Search range determination
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In some circumstances, the low-resolution disparity ``D_sub.tif`` may
-fail to get computed, or it may be inaccurate. This can happen for
-example if only very small features are present in the original images,
-and they disappear during the resampling that is necessary to obtain
-``D_sub.tif``. In this case, it is possible to set ``corr-seed-mode`` to
-0, and manually set a search range to use for full-resolution
-correlation via the parameter ``corr-search``. In ``stereo.default``
-(:numref:`stereodefault`) this parameter's entry will look like::
+In some circumstances, the low-resolution disparity ``D_sub.tif`` computation
+may fail, or it may be inaccurate. This can happen for example if only very
+small features are present in the original images, and they disappear during the
+resampling that is necessary to obtain ``D_sub.tif``. 
+
+In this case, it is possible to set ``corr-seed-mode`` from the default of 1 to
+the values of 2 or 3, that will use a DEM or sample the full-resolution images
+to produce a low-resolution disparity (:numref:`d_sub`).
+
+Or, set ``corr-seed-mode`` to 0, and manually specify a search range to use for
+full-resolution correlation via the parameter ``corr-search``. In
+``stereo.default`` (:numref:`stereodefault`) this parameter's entry will look
+like::
 
            corr-search -80 -2 20 2
 

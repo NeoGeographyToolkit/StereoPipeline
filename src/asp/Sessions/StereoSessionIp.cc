@@ -304,25 +304,23 @@ bool StereoSession::ip_matching(std::string const& input_file1,
 } // End function ip_matching()
 
 // Find ip matches and determine the alignment matrices
-void StereoSession::determine_image_alignment(// Inputs
-                                              std::string  const& out_prefix,
-                                              std::string  const& left_cropped_file,
-                                              std::string  const& right_cropped_file,
-                                              std::string  const& left_uncropped_file,
-                                              vw::Vector6f const& left_stats,
-                                              vw::Vector6f const& right_stats,
-                                              float left_nodata_value,
-                                              float right_nodata_value,
-                                              boost::shared_ptr<vw::camera::CameraModel>
-                                              left_cam,
-                                              boost::shared_ptr<vw::camera::CameraModel>
-                                              right_cam,
-                                              bool adjust_left_image_size,
-                                              // In-out
-                                              vw::Matrix<double> & align_left_matrix,
-                                              vw::Matrix<double> & align_right_matrix,
-                                              vw::Vector2i & left_size,
-                                              vw::Vector2i & right_size) {
+void StereoSession::imageAlignment(// Inputs
+                                   std::string  const& out_prefix,
+                                   std::string  const& left_cropped_file,
+                                   std::string  const& right_cropped_file,
+                                   std::string  const& left_uncropped_file,
+                                   vw::Vector6f const& left_stats,
+                                   vw::Vector6f const& right_stats,
+                                   float left_nodata_value,
+                                   float right_nodata_value,
+                                   vw::CamPtr left_cam,
+                                   vw::CamPtr right_cam,
+                                   bool adjust_left_image_size,
+                                   // In-out
+                                   vw::Matrix<double> & align_left_matrix,
+                                   vw::Matrix<double> & align_right_matrix,
+                                   vw::Vector2i & left_size,
+                                   vw::Vector2i & right_size) {
 
   // Define the file name containing IP match information.
   std::string match_filename

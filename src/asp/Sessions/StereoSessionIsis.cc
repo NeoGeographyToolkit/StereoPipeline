@@ -455,16 +455,15 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
 
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     this->camera_models(left_cam, right_cam);
-    determine_image_alignment(// Inputs
-                              m_out_prefix, left_cropped_file, right_cropped_file,  
-                              left_input_file,
-                              left_stats, right_stats, left_nodata_value, right_nodata_value,  
-                              left_cam, right_cam,
-                              adjust_left_image_size,  
-                              // In-out
-                              align_left_matrix, align_right_matrix, left_size, right_size);
+    imageAlignment(// Inputs
+                   m_out_prefix, left_cropped_file, right_cropped_file,  
+                   left_input_file,
+                   left_stats, right_stats, left_nodata_value, right_nodata_value,  
+                   left_cam, right_cam,
+                   adjust_left_image_size,  
+                   // In-out
+                   align_left_matrix, align_right_matrix, left_size, right_size);
   } // End alignment block
-
 
   // Apply alignment and normalization
   bool will_apply_user_nodata = (will_apply_user_nodata_left || will_apply_user_nodata_right);

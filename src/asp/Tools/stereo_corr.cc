@@ -319,9 +319,7 @@ BBox2 get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
   return BBox2(search_minI, search_maxI);
 }
 
-/// Use existing interest points to compute a search range
-/// - This function could use improvement!
-/// - Should it be used in all cases?
+/// Use existing interest points to compute a search range, when --seed-mode is 1.
 BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_filename) {
 
   vw_out() << "\t--> Using interest points to determine search window.\n";
@@ -535,24 +533,24 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     // Do nothing as we will compute the search range based on D_sub
   } else if (stereo_settings().seed_mode == 3) {
     // Do nothing as low-res disparity (D_sub) is already provided by sparse_disp
-  } else { // Regular seed mode
+  } else { // Regular seed mode. Also arrives here fro seed-mode 0. See note in caller.
 
-  // Load IP from disk
-  std::string match_filename;
-  bool have_aligned_matches = (stereo_settings().alignment_method == "none" ||
-                               stereo_settings().alignment_method == "epipolar");
-  if (have_aligned_matches)
-    match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
-  else 
-    match_filename = asp::stereo_match_filename(opt.session->left_cropped_image(),
-                                                opt.session->right_cropped_image(),
-                                                opt.out_prefix);
-  // The interest points must exist by now
-  if (!fs::exists(match_filename))
-    vw_throw(ArgumentErr() << "Missing IP matches file: " << match_filename);
-    
-    // This function applies filtering to find good points
-    stereo_settings().search_range = approximate_search_range(opt, match_filename);
+    // Load IP from disk
+    std::string match_filename;
+    bool have_aligned_matches = (stereo_settings().alignment_method == "none" ||
+                                  stereo_settings().alignment_method == "epipolar");
+    if (have_aligned_matches)
+      match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
+    else 
+      match_filename = asp::stereo_match_filename(opt.session->left_cropped_image(),
+                                                  opt.session->right_cropped_image(),
+                                                  opt.out_prefix);
+    // The interest points must exist by now
+    if (!fs::exists(match_filename))
+      vw_throw(ArgumentErr() << "Missing IP matches file: " << match_filename);
+      
+      // This function applies filtering to find good points
+      stereo_settings().search_range = approximate_search_range(opt, match_filename);
 
   } // End of case where we had to calculate the search range
 
@@ -739,14 +737,8 @@ public:
         vw_out() << "\t--> Local search range constrained to: "
                  << local_search_range << "\n";
       }
-
-      VW_OUT(DebugMessage, "stereo") 
-        << "SeededCorrelatorView("<< bbox << ") local search range "
-        << local_search_range << " vs " << stereo_settings().search_range << "\n";
-
-    } else{ // seed mode == 0
+    } else { // seed mode == 0
       local_search_range = stereo_settings().search_range;
-      VW_OUT(DebugMessage,"stereo") << "Searching with " << stereo_settings().search_range << "\n";
     }
 
     SemiGlobalMatcher::SgmSubpixelMode sgm_subpixel_mode = get_sgm_subpixel_mode();

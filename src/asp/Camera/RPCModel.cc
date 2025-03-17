@@ -502,14 +502,15 @@ namespace asp {
 
     Vector2 normalized_pixel = elem_quot(pixel - m_xy_offset, m_xy_scale);
 
-    // Initial guess for the normalized lon and lat
-    if (lonlat_guess == Vector2(0.0, 0.0))
-      lonlat_guess = subvector(m_lonlatheight_offset, 0, 2);
+    vw::Vector2 ll_off   = subvector(m_lonlatheight_offset, 0, 2);  
+    vw::Vector2 ll_scale = subvector(m_lonlatheight_scale, 0, 2);
 
-    Vector2 normalized_lonlat = elem_quot(lonlat_guess - subvector(m_lonlatheight_offset, 0, 2),
-                                          subvector(m_lonlatheight_scale, 0, 2));
+    if (lonlat_guess == Vector2(0.0, 0.0))
+      lonlat_guess = ll_off; // initial guess
+
+    vw::Vector2 normalized_lonlat = elem_quot(lonlat_guess - ll_off, ll_scale);
     double len = norm_2(normalized_lonlat);
-    if (len != len || len > 1.5){
+    if (len != len || len > 1.5) {
       // If the input guess is NaN or unreasonable, use 0 as initial guess
       normalized_lonlat = Vector2(0.0, 0.0);
     }
@@ -548,8 +549,7 @@ namespace asp {
 
     }
 
-    Vector2 lonlat = elem_prod(normalized_lonlat, subvector(m_lonlatheight_scale, 0, 2))
-      + subvector(m_lonlatheight_offset, 0, 2);
+    Vector2 lonlat = elem_prod(normalized_lonlat, ll_scale) + ll_off;
 
     return lonlat;
   }
@@ -566,7 +566,8 @@ namespace asp {
     // Given the pixel and elevation, estimate lon-lat.
     // Use m_lonlatheight_offset as initial guess for lonlat_up,
     // and then use lonlat_up as initial guess for lonlat_dn.
-    Vector2 lonlat_up = image_to_ground(pix, height_up, subvector(m_lonlatheight_offset, 0, 2));
+    vw::Vector2 ll_off = subvector(m_lonlatheight_offset, 0, 2);
+    Vector2 lonlat_up = image_to_ground(pix, height_up, ll_off);
     Vector2 lonlat_dn = image_to_ground(pix, height_dn, lonlat_up);
 
     Vector3 geo_up = Vector3(lonlat_up[0], lonlat_up[1], height_up);

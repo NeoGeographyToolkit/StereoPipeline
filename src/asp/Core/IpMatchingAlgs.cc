@@ -155,11 +155,11 @@ void compute_ip_LR(std::string const & out_prefix) {
   const int inlier_threshold = 1000.0 * thresh_factor; // 200 by default
   size_t number_of_jobs = 1;
   bool success = asp::homography_ip_matching(left_image, right_image,
-                                        asp::stereo_settings().ip_per_tile,
-                                        inlier_threshold, match_filename,
-                                        number_of_jobs,
-                                        left_ip_filename, right_ip_filename,
-                                        left_nodata_value, right_nodata_value);
+                                             asp::stereo_settings().ip_per_tile,
+                                             inlier_threshold, match_filename,
+                                             number_of_jobs,
+                                             left_ip_filename, right_ip_filename,
+                                             left_nodata_value, right_nodata_value);
 
   if (!success)
     vw_throw(ArgumentErr() << "Could not find interest points.\n");
