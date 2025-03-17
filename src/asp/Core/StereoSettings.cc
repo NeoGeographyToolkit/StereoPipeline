@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -45,10 +45,10 @@ namespace {
 namespace asp {
 
 StereoSettings& stereo_settings() {
-  stereo_settings_once.run( init_stereo_settings );
+  stereo_settings_once.run(init_stereo_settings);
 
   // Ensure StereoSettings are initialized
-  if ( !(*stereo_settings_ptr).initialized_stereo_settings) {
+  if (!(*stereo_settings_ptr).initialized_stereo_settings) {
     // This call must happen first, otherwise we get into infinite
     // recursion.
     stereo_settings_ptr->initialized_stereo_settings = true;
@@ -73,15 +73,15 @@ void StereoSettings::initialize(vw::GdalWriteOptions & opt) {
   // below we use empty command line options.
 
   po::options_description l_opts("");
-  l_opts.add( asp::generate_config_file_options( opt ) );
+  l_opts.add(asp::generate_config_file_options(opt));
       po::variables_map l_vm;
   try {
     int l_argc = 1; const char* l_argv[] = {""};
-      po::store( po::command_line_parser( l_argc, l_argv ).options(l_opts).style( po::command_line_style::unix_style ).run(), l_vm );
-      po::notify( l_vm );
+      po::store(po::command_line_parser(l_argc, l_argv).options(l_opts).style(po::command_line_style::unix_style).run(), l_vm);
+      po::notify(l_vm);
   } catch (po::error const& e) {
-    vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
-                  << e.what() << "\n" << l_opts );
+    vw::vw_throw(vw::ArgumentErr() << "Error parsing input:\n"
+                  << e.what() << "\n" << l_opts);
   }
 }
 
@@ -92,15 +92,15 @@ StereoSettings::StereoSettings() {
   initialized_stereo_settings = false;
 
   use_least_squares = false;
-  
+
   default_corr_timeout = 900; // in seconds
-  
+
   nodata_value = g_nan_val;
 }
 
 // Define our options that are available
 // ----------------------------------------------------------
-PreProcessingDescription::PreProcessingDescription(): 
+PreProcessingDescription::PreProcessingDescription():
   po::options_description("Preprocessing options") {
 
   StereoSettings& global = stereo_settings();
@@ -209,21 +209,21 @@ PreProcessingDescription::PreProcessingDescription():
       "If --right-image-crop-win is used, replaced the right image cropped to that window with this clip.")
     ("aster-use-csm", po::bool_switch(&global.aster_use_csm)->default_value(false)->implicit_value(true),
       "Use the CSM model with ASTER cameras (-t aster).")
-    ("accept-provided-mapproj-dem", 
+    ("accept-provided-mapproj-dem",
       po::bool_switch(&global.accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
       "Accept the DEM provided on the command line as the one mapprojection was done with, "
       "even if it disagrees with the DEM recorded in the geoheaders of input images.")
-    ("allow-different-mapproject-gsd",   
+    ("allow-different-mapproject-gsd",
       po::bool_switch(&global.allow_different_mapproject_gsd)->default_value(false)->implicit_value(true),
       "Allow the left and right mapprojected images to have different GSD. This is "
       "for backward compatibility, and is not recommended.")
-    ("ortho-heights",  
-      po::value(&global.ortho_heights)->default_value(Vector2(g_nan_val, g_nan_val), 
+    ("ortho-heights",
+      po::value(&global.ortho_heights)->default_value(Vector2(g_nan_val, g_nan_val),
       "nan nan"),
       "It is assumed that the left and right input images have been mapprojected onto "
       "surfaces with the provided heights above a datum. The datum is read from the "
-      "image geoheaders.") 
-    
+      "image geoheaders.")
+
     // For bathymetry correction
     ("left-bathy-mask", po::value(&global.left_bathy_mask),
       "Mask to use for the left image when doing bathymetry.")
@@ -238,9 +238,9 @@ PreProcessingDescription::PreProcessingDescription():
     ;
 }
 
-CorrelationDescription::CorrelationDescription(): 
+CorrelationDescription::CorrelationDescription():
   po::options_description("Correlation options") {
-  
+
   StereoSettings& global = stereo_settings();
   (*this).add_options()
     ("prefilter-mode", po::value(&global.pre_filter_mode)->default_value(2),
@@ -263,7 +263,7 @@ CorrelationDescription::CorrelationDescription():
     ("save-left-right-disparity-difference",
       po::bool_switch(&global.save_lr_disp_diff)->default_value(false)->implicit_value(true),
       "Save the discrepancy between left-to-right and right-to-left disparities. See the doc for more info.")
-    
+
     ("corr-kernel", po::value(&global.corr_kernel)->default_value(Vector2i(21,21),"21 21"),
       "Kernel size used for integer correlator.")
     ("corr-search", po::value(&global.search_range)->default_value(BBox2(0,0,0,0), "auto"),
@@ -272,7 +272,7 @@ CorrelationDescription::CorrelationDescription():
     ("max-disp-spread", po::value(&global.max_disp_spread)->default_value(-1.0),
       "If positive, limit the spread of the disparity to this value (horizontally and vertically, centered at the median value). Do not specify together with --corr-search-limit.")
 
-    ("corr-search-limit", 
+    ("corr-search-limit",
       po::value(&global.corr_search_limit)->default_value(BBox2(0,0,0,0), "auto"),
       "Limit the automatically computed disparity search range to these bounds, specified as: hmin vmin hmax vmax. See also --max-disp-spread.")
     ("ip-filter-using-dem", po::value(&global.ip_filter_using_dem)->default_value(""),
@@ -289,31 +289,31 @@ CorrelationDescription::CorrelationDescription():
     //  "Minimum number of pixels to be matched to keep sample (for filter mode 2).")
     //("rm-threshold", po::value(&global.rm_threshold)->default_value(3),
     // "Maximum distance between samples to be considered still matched (for filter mode 2).")
-    ("rm-quantile-percentile",  
+    ("rm-quantile-percentile",
       po::value(&global.rm_quantile_percentile)->default_value(0.85),
       "Filter out pixels in D_sub where disparity > multiple*quantile.")
     ("rm-quantile-multiple", po::value(&global.rm_quantile_multiple)->default_value(-1),
     "Filter out pixels in D_sub where disparity > multiple*quantile. Set to a positive "
     "value to enable.")
-    ("skip-low-res-disparity-comp", 
+    ("skip-low-res-disparity-comp",
       po::bool_switch(&global.skip_low_res_disparity_comp)->default_value(false)->implicit_value(true),
     "Skip the low-resolution disparity computation. This option is invoked from "
     "parallel_stereo.")
     ("compute-low-res-disparity-only", po::bool_switch(&global.compute_low_res_disparity_only)->default_value(false)->implicit_value(true),
     "Compute only the low-resolution disparity, skip the full-resolution disparity "
     "computation.")
-    ("disparity-estimation-dem", 
+    ("disparity-estimation-dem",
       po::value(&global.disparity_estimation_dem)->default_value(""),
       "The DEM to use in estimating the low-resolution disparity "
       "(when corr-seed-mode is 2).")
-    ("disparity-estimation-dem-error", 
+    ("disparity-estimation-dem-error",
       po::value(&global.disparity_estimation_dem_error)->default_value(0.0),
       "Error, or uncertainty, in meters, of the disparity estimation DEM.")
-    ("disparity-estimation-sample-rate", 
+    ("disparity-estimation-sample-rate",
       po::value(&global.disparity_estimation_sample_rate)->default_value(1),
       "Use one out of this many samples along each row and column, "
       "for ---corr-seed-mode 2.")
-    ("corr-timeout", 
+    ("corr-timeout",
       po::value(&global.corr_timeout)->default_value(global.default_corr_timeout),
       "Correlation timeout for an image tile, in seconds.")
     ("stereo-algorithm",
@@ -338,21 +338,21 @@ CorrelationDescription::CorrelationDescription():
     "Save the results of more intermediate steps when doing local alignment.");
 
    po::options_description backwards_compat_options("Aliased backwards compatibility options");
-   
+
   // Do not add default values here. They may override the values set
   // earlier for these variables.
   backwards_compat_options.add_options()
-    ("h-kernel", po::value(&global.corr_kernel[0]       ), "Correlation kernel width.")
-    ("v-kernel", po::value(&global.corr_kernel[1]       ), "Correlation kernel height.")
+    ("h-kernel", po::value(&global.corr_kernel[0]), "Correlation kernel width.")
+    ("v-kernel", po::value(&global.corr_kernel[1]), "Correlation kernel height.")
     ("h-corr-min", po::value(&global.search_range.min()[0]), "Correlation window size min x.")
     ("h-corr-max", po::value(&global.search_range.max()[0]), "Correlation window size max x.")
     ("v-corr-min", po::value(&global.search_range.min()[1]), "Correlation window size min y.")
     ("v-corr-max", po::value(&global.search_range.max()[1]), "Correlation window size max y.");
-  (*this).add( backwards_compat_options );
+  (*this).add(backwards_compat_options);
 }
 
 SubpixelDescription::SubpixelDescription(): po::options_description("Subpixel options") {
-  
+
   StereoSettings& global = stereo_settings();
   (*this).add_options()
     ("subpixel-mode", po::value(&global.subpixel_mode)->default_value(1),
@@ -378,13 +378,13 @@ SubpixelDescription::SubpixelDescription(): po::options_description("Subpixel op
       "Maximum number of affine optimization iterations for EMSubpixelCorrelator.")
     ("subpixel-pyramid-levels", po::value(&global.subpixel_pyramid_levels)->default_value(3),
       "Number of pyramid levels for EMSubpixelCorrelator.");
-  (*this).add( experimental_subpixel_options );
+  (*this).add(experimental_subpixel_options);
 
   po::options_description backwards_compat_options("Aliased backwards compatibility options");
   backwards_compat_options.add_options()
     ("subpixel-h-kernel", po::value(&global.subpixel_kernel[0]), "Subpixel kernel width.")
     ("subpixel-v-kernel", po::value(&global.subpixel_kernel[1]), "Subpixel kernel height.");
-  (*this).add( backwards_compat_options );
+  (*this).add(backwards_compat_options);
 }
 
 FilteringDescription::FilteringDescription(): po::options_description("Filtering options") {
@@ -430,12 +430,12 @@ FilteringDescription::FilteringDescription(): po::options_description("Filtering
   backwards_compat_options.add_options()
     ("rm-h-half-kern", po::value(&global.rm_half_kernel[0]), "Filter kernel half width.")
     ("rm-v-half-kern", po::value(&global.rm_half_kernel[1]), "Filter kernel half height.");
-  (*this).add( backwards_compat_options );
+  (*this).add(backwards_compat_options);
 }
 
-TriangulationDescription::TriangulationDescription(): 
+TriangulationDescription::TriangulationDescription():
   po::options_description("Triangulation options") {
-    
+
   StereoSettings& global = stereo_settings();
   (*this).add_options()
     ("universe-center", po::value(&global.universe_center)->default_value("None"),
@@ -446,26 +446,26 @@ TriangulationDescription::TriangulationDescription():
       "Radius of outer boundary of universe in meters (remove points with radius larger than that).")
     ("min-triangulation-angle", po::value(&global.min_triangulation_angle)->default_value(-1.0),
       "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid. It must be positive. The internal default is somewhat less than 1 degree.")
-  ("max-valid-triangulation-error", 
+  ("max-valid-triangulation-error",
     po::value(&global.max_valid_triangulation_error)->default_value(0),
       "If positive, points with triangulation error larger than this will be removed from the cloud. Measured in meters.")
     ("bundle-adjust-prefix", po::value(&global.bundle_adjust_prefix),
       "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
     ("propagate-errors", po::bool_switch(&global.propagate_errors)->default_value(false)->implicit_value(true),
       "Propagate the errors from the input cameras to the triangulated point cloud.")
-    ("horizontal-stddev", 
-     po::value(&global.horizontal_stddev)->default_value(Vector2(0, 0), "0 0"), 
+    ("horizontal-stddev",
+     po::value(&global.horizontal_stddev)->default_value(Vector2(0, 0), "0 0"),
      "If positive, propagate these left and right camera horizontal ground plane stddev through triangulation. To be used with --propagate-errors.")
-    
+
     ("position-covariance-factor", po::value(&global.position_covariance_factor)->default_value(1.0),
       "Multiply the satellite position covariances by this number before propagating them to the triangulated point cloud. Applicable only to Maxar(DigitalGlobe) linescan cameras.")
     ("orientation-covariance-factor", po::value(&global.orientation_covariance_factor)->default_value(1.0),
       "Multiply the satellite quaternion covariances by this number before propagating them to the triangulated point cloud. Applicable only to Maxar(DigitalGlobe) linescan cameras.")
-    
+
     ("unalign-disparity", po::bool_switch(&global.unalign_disparity)->default_value(false)->implicit_value(true),
       "Take the computed disparity, and compute the disparity between unaligned images.")
     ("num-matches-from-disparity", po::value(&global.num_matches_from_disparity)->default_value(0), "Create a match file with this many points uniformly sampled from the stereo disparity. The matches are between original images (that is, before any alignment or map-projection). See also num-matches-from-disp-triplets.")
-    ("num-matches-from-disp-triplets", po::value(&global.num_matches_from_disp_triplets)->default_value(0), 
+    ("num-matches-from-disp-triplets", po::value(&global.num_matches_from_disp_triplets)->default_value(0),
       "Create a match file with this many points uniformly sampled from the stereo "
       "disparity, while making sure that if there are more than two images, a set of ground "
       "features are represented by matches in at least three of them. See the documentation "
@@ -475,24 +475,24 @@ TriangulationDescription::TriangulationDescription():
       "How much to round the output point cloud values, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. Default: 1/2^10 for Earth and proportionally less for smaller bodies, unless error propagation happens, when it is set by default to 1e-8 meters, to avoid introducing step artifacts in these errors.")
     ("save-double-precision-point-cloud", po::bool_switch(&global.save_double_precision_point_cloud)->default_value(false)->implicit_value(true),
       "Save the final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at twice the storage).")
-    
+
     ("compute-point-cloud-center-only", po::bool_switch(&global.compute_point_cloud_center_only)->default_value(false)->implicit_value(true),
       "Only compute the center of triangulated point cloud and exit.")
     ("skip-point-cloud-center-comp", po::bool_switch(&global.skip_point_cloud_center_comp)->default_value(false)->implicit_value(true),
       "Skip the computation of the point cloud center. This option is invoked from parallel_stereo.")
     ("compute-error-vector", po::bool_switch(&global.compute_error_vector)->default_value(false)->implicit_value(true),
       "Compute the triangulation error vector, not just its length.")
-    ("enable-atmospheric-refraction-correction", 
+    ("enable-atmospheric-refraction-correction",
       po::bool_switch(&global.enable_atmospheric_refraction_correction)->default_value(false)->implicit_value(true),
       "Enable atmospheric refraction correction for Pleiades linescan cameras. By default, "
       "such a correction is enabled only for WorldView linescan cameras.")
-    ("enable-velocity-aberration-correction", 
+    ("enable-velocity-aberration-correction",
       po::bool_switch(&global.enable_velocity_aberration_correction)->default_value(false)->implicit_value(true),
       "Enable velocity aberration correction for Pleiades linescan cameras. By default, "
       "such a correction is enabled only for WorldView linescan cameras.")
     // TODO(oalexan1): Wipe the least squares triangulation approach. Not used.
     ("use-least-squares", po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
-      "Use rigorous least squares triangulation. This is slow for ISIS processes.")      
+      "Use rigorous least squares triangulation. This is slow for ISIS processes.")
     ;
 }
 
@@ -540,7 +540,7 @@ GUIDescription::GUIDescription(): po::options_description("GUI options") {
     ("nvm", po::value(&global.nvm)->default_value(""),
       "Load this .nvm file having interest point matches. See also --nvm-no-shift. "
       "The rig_calibrator program can create such files. This option implies "
-      "--pairwise-matches, --preview, and a larger value of " 
+      "--pairwise-matches, --preview, and a larger value of "
       "--lowest-resolution-subimage-num-pixels.")
     ("nvm-no-shift", po::bool_switch(&global.nvm_no_shift)->default_value(false)->implicit_value(true),
       "Assume that the image features in the input nvm file were saved without "
@@ -565,7 +565,7 @@ GUIDescription::GUIDescription(): po::options_description("GUI options") {
       "When plotting points from CSV files, let each point be drawn as a filled ball with this radius, in pixels.")
     ("font-size", po::value(&global.font_size)->default_value(9),
       "Set the font size.")
-    ("no-georef", 
+    ("no-georef",
       po::bool_switch(&global.no_georef)->default_value(false)->implicit_value(true),
       "Do not use georeference information when displaying the data, even when it exists.")
       ;
@@ -575,7 +575,7 @@ GUIDescription::GUIDescription(): po::options_description("GUI options") {
 ParseDescription::ParseDescription(): po::options_description("stereo_parse options") {
   StereoSettings& global = stereo_settings();
   (*this).add_options()
-  ("parallel-tile-size", 
+  ("parallel-tile-size",
       po::value(&global.parallel_tile_size)->default_value(Vector2i(0,0),"0 0"),
     "Create tiles with these dimensions that are needed for parallel_stereo. Skip the "
     "tiles that, after being padded, do not contain valid disparities.")
@@ -617,7 +617,7 @@ ParallelDescription::ParallelDescription(): po::options_description("parallel_st
       "Options to pass directly to GNU Parallel. Use quotes around this string.");
 }
 
-UndocOptsDescription::UndocOptsDescription(): 
+UndocOptsDescription::UndocOptsDescription():
   po::options_description("Undocumented options") {
   StereoSettings& global = stereo_settings();
   (*this).add_options()
@@ -639,9 +639,9 @@ void addAspGlobalOptions(boost::program_options::options_description & descripti
     ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"),
       "Explicitly specify the stereo.default file to use.");
 }
-  
+
 po::options_description generate_config_file_options(vw::GdalWriteOptions& opt) {
-  
+
   po::options_description cfg_options;
   cfg_options.add(vw::GdalWriteOptionsDescription(opt));
   cfg_options.add(PreProcessingDescription());
@@ -659,7 +659,7 @@ po::options_description generate_config_file_options(vw::GdalWriteOptions& opt) 
 
 void StereoSettings::validate() {
   using namespace boost::algorithm;
-  
+
   to_lower(alignment_method);
   trim(alignment_method);
   VW_ASSERT(alignment_method == "none"       || alignment_method == "homography" ||
@@ -766,7 +766,7 @@ asp_config_file_iterator::asp_config_file_iterator(
   const std::set<std::string>& allowed_options,
   bool allow_unregistered):
     po::detail::common_config_file_iterator(allowed_options, allow_unregistered) {
-      
+
   this->is.reset(&is, po::detail::null_deleter());
   get();
 }
@@ -792,7 +792,7 @@ parse_asp_config_file(std::basic_istream<char>& is, const po::options_descriptio
   std::copy(asp_config_file_iterator(is, allowed_options, allow_unregistered),
             asp_config_file_iterator(),
             std::back_inserter(parsed.options));
-  
+
   // Convert char strings into desired type
   return po::basic_parsed_options<char>(parsed);
 }
