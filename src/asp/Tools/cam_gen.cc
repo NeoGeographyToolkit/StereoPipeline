@@ -220,7 +220,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("output-camera-file,o", po::value(&opt.out_camera), 
-     "Specify the output camera file with a .tsai or .json extension.")
+     "Specify the output camera file.")
     ("camera-type", po::value(&opt.camera_type)->default_value("pinhole"), "Specify the camera type. Options are: pinhole (default), opticalbar, linescan, and rpc.")
     ("lon-lat-values", po::value(&opt.lon_lat_values_str)->default_value(""),
     "A (quoted) string listing numbers, separated by commas or spaces, "

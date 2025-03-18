@@ -3,11 +3,11 @@
 cam2rpc
 -------
 
-This tool is used to generate an approximate RPC model for any camera
-model supported by ASP, in a given longitude-latitude-height region for
-a given datum, or for a terrain covered by a given DEM. If
-``--save-tif-image`` is specified, the image portion corresponding to
-the RPC model will be saved in the TIF format.
+This tool is used to generate an approximate RPC model (:numref:`rpc`) for any
+camera model supported by ASP, in a given longitude-latitude-height region for a
+given datum, or for a terrain covered by a given DEM. If ``--save-tif-image`` is
+specified, the image portion corresponding to the RPC model will be saved in the
+TIF format.
 
 The produced RPC camera can be restricted to a given ground or pixel box.
 In either case it will be consistent with the image portion that is saved.
@@ -15,7 +15,7 @@ In either case it will be consistent with the image portion that is saved.
 The accuracy of RPC models generally degrades if expected to cover very
 large regions. Hence, they can be used piecewise, and the obtained
 terrain models from ASP can be then mosaicked together using
-``dem_mosaic``.
+``dem_mosaic`` (:numref:`dem_mosaic`).
 
 Examples
 ~~~~~~~~

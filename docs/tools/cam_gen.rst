@@ -271,8 +271,8 @@ See :numref:`cam_gen_validation` for how to validate the created cameras.
 Export RPC
 ^^^^^^^^^^
 
-If the input image has an associated RPC camera model, whether embedded 
-in the image, or in a separate file with an .RPB or _RPC.TXT suffix,
+If the input image has an associated RPC camera model (:numref:`rpc`), whether
+embedded in the image, or in a separate file with an .RPB or _RPC.TXT suffix,
 the ``cam_gen`` program can export it to a separate XML file, as follows::
 
     cam_gen             \
@@ -346,7 +346,7 @@ Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
 -o, --output-camera-file <string (default: "")>
-    Specify the output camera file with a .tsai or .json extension.
+    Specify the output camera file.
 
 --camera-type <string (default: "pinhole")>
     Specify the output camera type. Options: ``pinhole``,  ``opticalbar``,
