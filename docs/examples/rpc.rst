@@ -124,12 +124,21 @@ These cameras can be used with ASP and third-party software.
 Any produced adjusted RPC model file can be loaded by GDAL when reading an image
 (including with ``gdalinfo``, :numref:`gdal_tools`) if it is renamed to have the same
 name as the image but with the ``.xml`` extension, and no analogously named
-``.RPB`` or ``_RPC.txt`` files are present that may take precedence. See the
+``.RPB`` or ``_RPC.txt`` files are present that *may take precedence*. See the
 `GeoTiff documentation
 <https://gdal.org/en/stable/drivers/raster/gtiff.html#georeferencing>`_.
 
 Applying the adjustments refits the RPC models, and should create cameras that
 agree well with the ones with the adjustments applied externally.
+
+It is strongly suggested to use the ``cam_test`` program to see how well an
+input RPC camera agrees with itself, and the same for testing with the RPC
+camera produced as documented here against itself (:numref:`cam_test`). If
+``bundle_adjust`` is invoked with 0 iterations, the input RPC and produced RPC
+should also agree well as no adjustment happened.
+
+To export an existing RPC camera to XML format without refitting it, use
+``cam_gen`` (:numref:`cam_gen_rpc`).
 
 Creation of RPC cameras
 ~~~~~~~~~~~~~~~~~~~~~~~

@@ -221,6 +221,8 @@ adjustment to both.
 If desired to create linescan cameras to given specifications, use instead
 ``sat_sim`` (:numref:`sat_sim`).
 
+See :numref:`cam_gen_validation` for how to validate the created cameras.
+
 .. _cam_gen_extrinsics:
 
 Geodetic coordinates and angles
@@ -261,6 +263,39 @@ the pound sign are ignored.
 Such functionality can be helpful for processing images acquired with an
 aircraft that records metadata in a list (:numref:`sfmicebridge`), or in EXIF
 (:numref:`sfm_uas`).
+
+See :numref:`cam_gen_validation` for how to validate the created cameras.
+
+.. _cam_gen_rpc:
+
+Export RPC
+^^^^^^^^^^
+
+If the input image has an associated RPC camera model, whether embedded 
+in the image, or in a separate file with an .RPB or _RPC.TXT suffix,
+the ``cam_gen`` program can export it to a separate XML file, as follows::
+
+    cam_gen             \
+      --camera-type rpc \
+      input.tif         \
+      -o output.xml
+
+An input camera in XML format can be explicitly specified via
+``--input-camera``, if not embedded in the image. Example::
+
+    cam_gen                     \
+      --camera-type rpc         \
+      input.tif                 \
+      --input-camera camera.xml \
+      -o output.xml
+
+See the `GeoTiff RPC documentation
+<https://gdal.org/en/stable/drivers/raster/gtiff.html#georeferencing>`_ for how
+the RPC model associated with an image is specified, and regarding the *order of
+lookup* if several candidates exist.
+
+To create an RPC camera model from another camera type, or to refit an existing
+one, use ``cam2rpc`` (:numref:`cam2rpc`).
 
 Further refinement
 ~~~~~~~~~~~~~~~~~~
@@ -315,7 +350,7 @@ Command-line options
 
 --camera-type <string (default: "pinhole")>
     Specify the output camera type. Options: ``pinhole``,  ``opticalbar``,
-    ``linescan``. For linescan usage see :numref:`cam_gen_linescan`.
+    ``linescan`` (:numref:`cam_gen_linescan`), ``rpc`` (:numref:`cam_gen_rpc`).
 
 --lon-lat-values <string (default: "")>
     A (quoted) string listing numbers, separated by commas or spaces,

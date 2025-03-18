@@ -81,6 +81,12 @@ Usage
 
      cam2rpc [options] <camera-image> <camera-model> <output-rpc>
 
+See also
+~~~~~~~~
+
+To export an existing RPC camera to a file in XML format, use ``cam_gen``
+(:numref:`cam_gen_rpc`).
+
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 

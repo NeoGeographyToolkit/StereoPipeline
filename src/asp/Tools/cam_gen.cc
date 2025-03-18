@@ -30,6 +30,7 @@
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/CsmModelFit.h>
+#include <asp/Camera/RPCModel.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Core/ReportUtils.h>
 #include <asp/Core/CameraTransforms.h>
@@ -218,8 +219,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("");
   general_options.add_options()
-    ("output-camera-file,o", po::value(&opt.out_camera), "Specify the output camera file with a .tsai or .json extension.")
-    ("camera-type", po::value(&opt.camera_type)->default_value("pinhole"), "Specify the camera type. Options are: pinhole (default), opticalbar, and linescan.")
+    ("output-camera-file,o", po::value(&opt.out_camera), 
+     "Specify the output camera file with a .tsai or .json extension.")
+    ("camera-type", po::value(&opt.camera_type)->default_value("pinhole"), "Specify the camera type. Options are: pinhole (default), opticalbar, linescan, and rpc.")
     ("lon-lat-values", po::value(&opt.lon_lat_values_str)->default_value(""),
     "A (quoted) string listing numbers, separated by commas or spaces, "
     "having the longitude and latitude (alternating and in this "
@@ -334,16 +336,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
   if (opt.camera_type != "pinhole" && opt.camera_type != "opticalbar" &&
-      opt.camera_type != "linescan")
-    vw_throw(ArgumentErr() << "Only pinhole, opticalbar, and linescan "
+      opt.camera_type != "linescan" && opt.camera_type != "rpc")
+    vw_throw(ArgumentErr() << "Only pinhole, opticalbar, linescan, and rpc "
                << "cameras are supported.\n");
 
   if ((opt.camera_type == "opticalbar") && (opt.sample_file == ""))
     vw_throw(ArgumentErr() << "opticalbar type must use a sample camera file.\n");
 
   std::string out_ext = vw::get_extension(opt.out_camera);
-  if (out_ext != ".tsai" && out_ext != ".json")
-    vw_throw(ArgumentErr() << "The output camera file must end with .tsai or .json.\n");
+  if (out_ext != ".tsai" && out_ext != ".json" && opt.camera_type != "rpc")
+    vw_throw(ArgumentErr() << "For the given inputs, the output camera file must end "
+             << "with .tsai or .json.\n");
 
   if (opt.camera_type == "linescan" && out_ext != ".json")
     vw_throw(ArgumentErr() << "An output linescan camera must end with .json.\n");
@@ -351,11 +354,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.camera_type == "opticalbar" && out_ext != ".tsai")
     vw_throw(ArgumentErr() << "An output optical bar camera must be in .tsai format.\n");
 
+  if (opt.camera_type == "rpc" && out_ext != ".xml")
+    vw_throw(ArgumentErr() << "An output RPC camera must be in .xml format.\n");
+    
   // Create the output directory
   vw::create_out_dir(opt.out_camera);
 
-  // The rest of the logic does not apply to linescan cameras
-  if (opt.camera_type == "linescan")
+  // The rest of the logic does not apply to linescan and rpc cameras
+  if (opt.camera_type == "linescan" || opt.camera_type == "rpc")
     return;
 
   // Planet's custom format
@@ -1209,6 +1215,31 @@ void save_linescan(Options & opt) {
   csm_cam->saveState(opt.out_camera);
 }
 
+void save_rpc(Options & opt) {
+
+  // Load the cameras. Must use the RPC session even if a linescan model exists as well
+  // in the file, such as for WorldView images.
+  opt.stereo_session = "rpc";
+  std::string out_prefix = ""; 
+  asp::SessionPtr session(asp::StereoSessionFactory::create
+                     (opt.stereo_session, // may change
+                      opt,
+                      opt.image_file, opt.image_file,
+                      opt.input_camera, opt.input_camera,
+                      out_prefix));
+
+  boost::shared_ptr<CameraModel> camera_model 
+    = session->camera_model(opt.image_file, opt.input_camera);
+  
+  asp::RPCModel const* rpc_cam 
+    = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(camera_model.get()));
+  if (rpc_cam == NULL)
+    vw_throw(ArgumentErr() << "Expecting an RPC camera.\n");
+  
+  vw::vw_out() << "Writing: " << opt.out_camera << "\n";
+  rpc_cam->saveXML(opt.out_camera);
+}
+
 // See --extrinsics.
 void camerasFromExtrinsics(Options const& opt) {
 
@@ -1271,6 +1302,12 @@ int main(int argc, char * argv[]) {
       // The linescan workflow is very different than the rest of the code,
       // as only camera conversion is done.
       save_linescan(opt);
+      return 0;
+    }
+    
+    // Same for rpc
+    if (opt.camera_type == "rpc") {
+      save_rpc(opt);
       return 0;
     }
 
