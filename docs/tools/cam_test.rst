@@ -117,10 +117,10 @@ Command-line options
     meters).
 
 --bundle-adjust-prefix <string (default = "")>
-    Adjust the cameras using this prefix.
+    Adjust the cameras using this prefix (:numref:`bundle_adjust`).
 
 --cam1-bundle-adjust-prefix <string (default = "")>
-    Adjust the first camera using this prefix (:numref:`bundle_adjust`).
+    Adjust the first camera using this prefix.
 
 --cam2-bundle-adjust-prefix <string (default = "")>
     Adjust the second camera using this prefix.

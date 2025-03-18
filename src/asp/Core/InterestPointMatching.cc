@@ -400,6 +400,8 @@ void filter_ip_homog(std::vector<vw::ip::InterestPoint> const& ip1_in,
     indices = ransac.inlier_indices(H, ransac_ip2, ransac_ip1);
     vw::vw_out() << "Homography matrix:\n" << H << "\n";
     vw_out() << "Number of inliers: " << indices.size() << ".\n";
+    check_homography_matrix(H, ransac_ip1.size(), ransac_ip2.size(), indices.size());
+    
   } catch (const math::RANSACErr& e) {
     vw_out() << "RANSAC failed: " << e.what() << "\n";
     return;
