@@ -84,8 +84,8 @@ We will also fetch an `LRO NAC DEM
 <https://pds.lroc.asu.edu/data/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/DATA/SDP/NAC_DTM/CHANGE3/NAC_DTM_CHANGE3.TIF>`_
 produced specifically for this landing site. We call it ``ref/ref.tif``.
 
-The LRO NAC image is very large, and sometimes images are also scanned in
-reverse direction, appearing mirror-flipped. These result in failure in finding
+The LRO NAC image is very large, and sometimes also scanned in
+reverse direction, appearing mirror-flipped. This can result in failure in finding
 matching features for registration. To make the work easier, we will mapproject
 the needed image portion onto this DEM. 
 

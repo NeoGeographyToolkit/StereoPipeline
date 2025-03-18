@@ -76,17 +76,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("print-per-pixel-results", po::bool_switch(&opt.print_per_pixel_results)->default_value(false)->implicit_value(true),
      "Print the results at each pixel.")
     ("height-above-datum",   po::value(&opt.height_above_datum)->default_value(0.0),
-     "Let the ground be obtained from the datum for this camera by "
-     "adding to its radii this value (the units are meters).")
+     "Let the ground surface be at this height above the datum (measured in meters).")
     ("datum", po::value(&opt.datum),
      "Set the datum. This will override the datum from the input cameras. Usually needed "
-     "only for Pinhole cameras for non-Earth planets, when the camera does not have "
-     "the datum information. Options: WGS_1984, D_MOON (1,737,400 meters), "
-     "D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, "
-     "and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-    ("aster-use-csm", po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
+     "only for Pinhole cameras, when the camera does not have the datum information. "
+     "Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA "
+     "(3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars "
+     "(=D_MARS), Moon (=D_MOON).")
+    ("aster-use-csm", 
+     po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with ASTER cameras (-t aster).")
-    ("aster-vs-csm", po::bool_switch(&opt.aster_vs_csm)->default_value(false)->implicit_value(true),
+    ("aster-vs-csm", 
+     po::bool_switch(&opt.aster_vs_csm)->default_value(false)->implicit_value(true),
      "Compare projecting into the camera without and with using the CSM model for ASTER.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Adjust the cameras using this prefix.")
@@ -95,7 +96,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("cam2-bundle-adjust-prefix", po::value(&opt.cam2_bundle_adjust_prefix),
      "Adjust the first camera using this prefix.")
     ("test-error-propagation", po::bool_switch(&opt.test_error_propagation)->default_value(false)->implicit_value(true),
-     "Test computing the stddev (see --propagate-errors). This is an undocumented developer option.")
+     "Test computing the stddev (see --propagate-errors). This is an undocumented "
+     "developer option.")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 

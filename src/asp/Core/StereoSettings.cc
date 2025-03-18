@@ -267,8 +267,7 @@ CorrelationDescription::CorrelationDescription():
     ("corr-kernel", po::value(&global.corr_kernel)->default_value(Vector2i(21,21),"21 21"),
       "Kernel size used for integer correlator.")
     ("corr-search", po::value(&global.search_range)->default_value(BBox2(0,0,0,0), "auto"),
-    "Disparity search range. Specify in format: hmin vmin hmax vmax. The doc has more "
-    "info.")
+    "Disparity search range. Will be used to find low-resolution disparity. Specify in format: hmin vmin hmax vmax. The doc has more info.")
     ("max-disp-spread", po::value(&global.max_disp_spread)->default_value(-1.0),
       "If positive, limit the spread of the disparity to this value (horizontally and vertically, centered at the median value). Do not specify together with --corr-search-limit.")
 

@@ -476,7 +476,7 @@ def getCameraGsdAndBounds(imagePath, cameraPath, logger, referenceDem=None, proj
     # Extract the bounding box from the output text
     print(textOutput)
     m = re.findall(
-          r"Origin: \(([0-9e\-\.\+]*), ([0-9e\-\.\+]*)\) width: ([0-9e\-\.\+]*) height: ([0-9e\-\.\+]*)",
+          r"Min: \(([0-9e\-\.\+]*), ([0-9e\-\.\+]*)\) width: ([0-9e\-\.\+]*) height: ([0-9e\-\.\+]*)",
           textOutput)
     if (len(m) != 1) and (len(m[0]) != 4): # An unknown error occurred, move on.
         raise Exception('Unable to compute GSD for file: ' + cameraPath)    

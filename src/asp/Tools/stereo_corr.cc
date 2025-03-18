@@ -121,6 +121,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
   Vector2 downsample_scale(double(left_sub.cols()) / double(Lmask.cols()),
                            double(left_sub.rows()) / double(Lmask.rows()));
+
   double mean_scale = (downsample_scale[0] + downsample_scale[1]) / 2.0;
 
   // Compute the initial search range in the subsampled image
@@ -519,7 +520,8 @@ void lowres_correlation(ASPGlobalOptions & opt) {
 
   // Working out search range if need be
   if (stereo_settings().is_search_defined()) {
-    vw_out() << "\t--> Using user-defined search range.\n";
+    vw_out() << "\t--> Using user-defined search range: " 
+      << stereo_settings().search_range << "\n";
 
     // Update user provided search range based on input crops
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
@@ -1539,7 +1541,7 @@ int main(int argc, char* argv[]) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
-
+    
     stereo_register_sessions();
 
     bool verbose = false;

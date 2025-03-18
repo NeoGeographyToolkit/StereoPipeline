@@ -105,23 +105,22 @@ Command-line options
 --print-per-pixel-results
     Print the results at each pixel.
 
---height-above-datum <double (default: 0.0)>
-    Let the ground be obtained from the datum for this camera by 
-    adding to its radii this value (the units are meters).
-
 --datum <string>
-    Set the datum. This will override the datum from the input cameras. 
-    Usually needed only for Pinhole cameras for non-Earth planets, when 
-    the camera does not have the datum information. Options: WGS_1984, 
-    D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA 
-    (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth 
-    (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).
+    Set the datum. This will override the datum from the input cameras. Usually
+    needed only for Pinhole cameras, when the camera does not have the datum
+    information. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190
+    meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted:
+    Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).
 
---bundle-adjust-prefix  <string (default = "")>
+--height-above-datum <double (default: 0.0)>
+    Let the ground surface be at this height above the datum (measured in
+    meters).
+
+--bundle-adjust-prefix <string (default = "")>
     Adjust the cameras using this prefix.
 
 --cam1-bundle-adjust-prefix <string (default = "")>
-    Adjust the first camera using this prefix.
+    Adjust the first camera using this prefix (:numref:`bundle_adjust`).
 
 --cam2-bundle-adjust-prefix <string (default = "")>
     Adjust the second camera using this prefix.

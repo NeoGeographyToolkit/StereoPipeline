@@ -420,6 +420,11 @@ corr-kernel (*integer integer*)
 
 corr-search (*integer integer integer integer*)
     These parameters determine the size of the initial correlation search range.
+    It will be used to find the low-resolution disparity (:numref:`d_sub`),
+    which will then be used to find the full-resolution disparity
+    (:numref:`stereo_corr`). This is an advanced parameter. Normally, the search
+    range is automatically determined based on interest point matches.
+     
     The ideal search range depends on a variety of factors ranging from how the
     images were pre-aligned to the resolution and range of disparities seen in a
     given image pair. This search range is successively refined during

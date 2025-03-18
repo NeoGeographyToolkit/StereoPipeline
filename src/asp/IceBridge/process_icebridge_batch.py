@@ -837,7 +837,7 @@ def getWidthAndMemUsageFromStereoOutput(outputText, errorText):
     elapsed         = "-1"
     out             = outputText + "\n" + errorText
     for line in out.split('\n'):
-        m = re.match("^.*?Search\s+Range:.*?Origin:.*?width:\s*(\d+)", line, re.IGNORECASE)
+        m = re.match("^.*?Search\s+Range:.*?Min:.*?width:\s*(\d+)", line, re.IGNORECASE)
         if m:
             corrSearchWidth = float(m.group(1))
             successParsintStats = True
