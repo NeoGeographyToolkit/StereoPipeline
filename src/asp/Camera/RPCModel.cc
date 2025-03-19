@@ -262,12 +262,12 @@ namespace asp {
     Vector3 normalized_geodetic =
       elem_quot(geodetic - m_lonlatheight_offset, m_lonlatheight_scale);
 
-    Vector2 normalized_pixel = normalized_geodetic_to_normalized_pixel(normalized_geodetic);
+    Vector2 normalized_pixel = normalizedLlhToPix(normalized_geodetic);
 
     return elem_prod(normalized_pixel, m_xy_scale) + m_xy_offset;
   }
 
-  Vector2 RPCModel::normalized_geodetic_to_normalized_pixel
+  Vector2 RPCModel::normalizedLlhToPix
   (Vector3 const& normalized_geodetic,
    RPCModel::CoeffVec const& line_num_coeff,
    RPCModel::CoeffVec const& line_den_coeff,
@@ -283,10 +283,10 @@ namespace asp {
     return normalized_pixel;
   }
 
-  Vector2 RPCModel::normalized_geodetic_to_normalized_pixel
+  Vector2 RPCModel::normalizedLlhToPix
   (Vector3 const& normalized_geodetic) const {
 
-    return normalized_geodetic_to_normalized_pixel(normalized_geodetic,
+    return normalizedLlhToPix(normalized_geodetic,
                                                    m_line_num_coeff,
                                                    m_line_den_coeff,
                                                    m_sample_num_coeff,
@@ -445,17 +445,17 @@ namespace asp {
     return J;
   }
 
-  Matrix<double, 2, 2> RPCModel::normalized_geodetic_to_pixel_Jacobian(Vector3 const& normalized_geodetic) const {
+// This function is different from geodetic_to_pixel_Jacobian() in several respects:
 
-    // This function is different from geodetic_to_pixel_Jacobian() in several respects:
+// 1. The input is the normalized geodetic, and the derivatives
+//    are in respect to the normalized geodetic as well.
 
-    // 1. The input is the normalized geodetic, and the derivatives
-    //    are in respect to the normalized geodetic as well.
+// 2. The derivatives are taken only in respect to the first two
+//    variables (normalized lon and lat, no height).
 
-    // 2. The derivatives are taken only in respect to the first two
-    //    variables (normalized lon and lat, no height).
+// 3. The output is in normalized pixels (see m_xy_scale and m_xy_offset).
 
-    // 3. The output is in normalized pixels (see m_xy_scale and m_xy_offset).
+  Matrix<double, 2, 2> RPCModel::normalizedLlhToPixJac(Vector3 const& normalized_geodetic) const {
 
     CoeffVec term = calculate_terms(normalized_geodetic);
 
@@ -494,11 +494,13 @@ namespace asp {
   // Intersect the ray from the given pixel with surface at this
   // height above the datum.  Use Newton's method. The obtained
   // intersection point must project back into the pixel.
+  // TODO(oalexan1): Replace the solver here with the logic in
+  // vw/Math/NewtonRaphson.h.
   Vector2 RPCModel::image_to_ground(Vector2 const& pixel, double height,
                                     Vector2 lonlat_guess) const {
 
     // The absolute tolerance is experimental, needs more investigation
-    double abs_tolerance = 1e-6;
+    double abs_tolerance = 1e-10;
 
     Vector2 normalized_pixel = elem_quot(pixel - m_xy_offset, m_xy_scale);
 
@@ -510,10 +512,6 @@ namespace asp {
 
     vw::Vector2 normalized_lonlat = elem_quot(lonlat_guess - ll_off, ll_scale);
     double len = norm_2(normalized_lonlat);
-    if (len != len || len > 1.5) {
-      // If the input guess is NaN or unreasonable, use 0 as initial guess
-      normalized_lonlat = Vector2(0.0, 0.0);
-    }
 
     // 10 iterations should be enough for Newton's method to converge
     for (int iter = 0; iter < 10; iter++) {
@@ -523,8 +521,8 @@ namespace asp {
       normalized_geodetic[1] = normalized_lonlat[1];
       normalized_geodetic[2] = (height - m_lonlatheight_offset[2])/m_lonlatheight_scale[2];
 
-      Vector2              p = normalized_geodetic_to_normalized_pixel(normalized_geodetic);
-      Matrix<double, 2, 2> J = normalized_geodetic_to_pixel_Jacobian(normalized_geodetic);
+      vw::Vector2 p = normalizedLlhToPix(normalized_geodetic);
+      Matrix<double, 2, 2> J = normalizedLlhToPixJac(normalized_geodetic);
 
       // The inverse matrix computed analytically
       double det = J[0][0]*J[1][1] - J[0][1]*J[1][0];
@@ -533,20 +531,20 @@ namespace asp {
       invJ[0][1] = -J[0][1];
       invJ[1][0] = -J[1][0];
       invJ[1][1] =  J[0][0];
-      // TODO(oalexan1): What if det is close to 0?
       invJ /= det;
+      
+      if (det == 0.0)
+        break;
 
       // Newton's method for F(x) = y is
       // x = x - J^{-1}(F(x) - y)
       Vector2 error_try = p - normalized_pixel;
-      normalized_lonlat -= invJ*error_try;
+      normalized_lonlat -= invJ * error_try;
 
       // Absolute error convergence criterion
-      double  norm_try = norm_2(error_try);
-      if (norm_try < abs_tolerance) {
+      double norm_try = norm_2(error_try);
+      if (norm_try < abs_tolerance)
         break;
-      }
-
     }
 
     Vector2 lonlat = elem_prod(normalized_lonlat, ll_scale) + ll_off;
@@ -557,11 +555,16 @@ namespace asp {
   void RPCModel::point_and_dir(Vector2 const& pix, Vector3 & P, Vector3 & dir) const {
 
     // For an RPC model there is no defined origin so it and the ray need to be computed.
+    // Try to have the ray end points not too far from the center of the valid region.
+    // This can make a difference if the region is tall and the rays are curved.
+    const double VERT_SCALE_FACTOR = 0.9; // - The virtual center should be above the terrain
+    double delta = m_lonlatheight_scale[2]*VERT_SCALE_FACTOR; // measured in meters
+    delta = std::min(delta, 50.0);
+    delta = std::max(delta, 0.1);
 
     // Center of valid region to bottom of valid region (normalized)
-    const double VERT_SCALE_FACTOR = 0.9; // - The virtual center should be above the terrain
-    double  height_up = m_lonlatheight_offset[2] + m_lonlatheight_scale[2]*VERT_SCALE_FACTOR;
-    double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2]*VERT_SCALE_FACTOR;
+    double  height_up = m_lonlatheight_offset[2] + delta;
+    double  height_dn = m_lonlatheight_offset[2] - delta;
 
     // Given the pixel and elevation, estimate lon-lat.
     // Use m_lonlatheight_offset as initial guess for lonlat_up,

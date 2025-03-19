@@ -133,9 +133,19 @@ agree well with the ones with the adjustments applied externally.
 
 It is strongly suggested to use the ``cam_test`` program to see how well an
 input RPC camera agrees with itself, and the same for testing with the RPC
-camera produced as documented here against itself (:numref:`cam_test`). If
-``bundle_adjust`` is invoked with 0 iterations, the input RPC and produced RPC
-should also agree well as no adjustment happened.
+camera produced as documented here against itself (:numref:`cam_test`). With
+this program, choose the value of the option ``--height-above-datum`` to be not
+too far from the height offset in the RPC model, or surely within the
+acceptable height range of the RPC model, as given by the hight offset and
+height scale.
+
+This refitting will not work well for Umbra SAR cameras (:numref:`umbra_sar`),
+where the height scale parameter is very large and the RPC fit does not work 
+in the full-height box, but only in a small range around the height offset.
+ 
+If ``bundle_adjust`` is invoked with 0 iterations, the input RPC and refit
+RPC should also be tested for agreement, as then they in principle should be
+about the same.
 
 To export an existing RPC camera to XML format without refitting it, use
 ``cam_gen`` (:numref:`cam_gen_rpc`).
@@ -152,6 +162,8 @@ Earth, Moon and Mars are supported).
 In such situations, the planet datum must be passed to the tools reading the RPC
 models, via the ``--datum`` option. 
 
+.. _rpc_tri:
+
 Triangulation with RPC cameras
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -165,9 +177,17 @@ method is used.
 
 A ray is found by determining with a solver two points on the ground that
 project into the same pixel, with both points within the lon-lat-height box of
-the RPC model (at maximum and minimum height, respectively). Another ray is
-found the same way for the second image. Then, the two rays are then intersected
-as usual.
+the RPC model.
+
+In the latest ASP, these points are picked at +/- min(50.0, ``height_scale``)
+meters from the height offset specified in the RPC model. A larger range does
+not make a difference, except for situations when the modeled rays may be
+curved, such as for SAR (:numref:`umbra_sar`). In earlier ASP versions, the
+points were picked at +/- 0.9 times the height scale, which worked well enough
+except for SAR.
+
+Another ray is found the same way for the second image. Then, the two rays are
+then intersected as usual.
 
 Note that the RPC model does not have the concept of camera center. This is set
 to a point in the lon-lat-height box that projects into the pixel (0, 0) in the

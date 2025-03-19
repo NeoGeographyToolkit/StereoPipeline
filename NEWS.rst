@@ -175,6 +175,7 @@ orbit_plot (:numref:`orbit_plot`):
   * Added the options ``--use-rmse``, ``--output-file``.
 
 misc:
+  * The logic for triangulation with RPC cameras changed (:numref:`rpc_tri`).
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
     optimized camera file names (or adjustments). Can be passed in back to
     any of these tools (:numref:`ba_out_cams`).

@@ -90,7 +90,7 @@ RpcSolveLMA::result_type RpcSolveLMA::operator()(RpcSolveLMA::domain_type const&
                               RPCModel::GEODETIC_COORD_SIZE);
     
     // Project the normalized geodetic coordinate into the RPC camera to get a normalized pixel
-    vw::Vector2 pxn = RPCModel::normalized_geodetic_to_normalized_pixel(G, lineNum, lineDen,
+    vw::Vector2 pxn = RPCModel::normalizedLlhToPix(G, lineNum, lineDen,
                                                                         sampNum, sampDen);
           
     // Pack the normalized pixel into the output result vector

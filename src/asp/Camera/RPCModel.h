@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// RPC model and triangulation. Following the paper:
 
 /// Jacek Grodecki, Gene Dial and James Lutes, "Mathematical Model for
@@ -91,13 +90,13 @@ namespace asp {
    // Apply a transform to an RPC model
    void applyTransform(vw::Matrix4x4 const& transform);
 
-    static vw::Vector2 normalized_geodetic_to_normalized_pixel
+    static vw::Vector2 normalizedLlhToPix
       (vw::Vector3 const& normalized_geodetic,
        CoeffVec    const& line_num_coeff,   CoeffVec const& line_den_coeff,
        CoeffVec    const& sample_num_coeff, CoeffVec const& sample_den_coeff);
 
-    vw::Vector2 normalized_geodetic_to_normalized_pixel
-      (vw::Vector3 const& normalized_geodetic) const;
+    // Normalized lon-lat-height to normalized pixel
+    vw::Vector2 normalizedLlhToPix(vw::Vector3 const& normalized_geodetic) const;
 
     vw::Vector2 geodetic_to_pixel(vw::Vector3 const& geodetic) const;
 
@@ -125,7 +124,7 @@ namespace asp {
 
     vw::Matrix<double, 2, 3> geodetic_to_pixel_Jacobian (vw::Vector3 const& geodetic) const;
     vw::Matrix<double, 2, 3> geodetic_to_pixel_numerical_Jacobian (vw::Vector3 const& geodetic, double tol) const;
-    vw::Matrix<double, 2, 2> normalized_geodetic_to_pixel_Jacobian(vw::Vector3 const& normalized_geodetic) const;
+    vw::Matrix<double, 2, 2> normalizedLlhToPixJac(vw::Vector3 const& normalized_geodetic) const;
 
     /// Given a pixel (the projection of a point in 3D space onto the camera image)
     /// and the value of the height of the point, find the lonlat of the point
