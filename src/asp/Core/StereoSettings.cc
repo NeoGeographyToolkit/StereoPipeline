@@ -188,11 +188,13 @@ PreProcessingDescription::PreProcessingDescription():
       "D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. "
       "Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON). If not set, "
       "will be auto-guessed based on camera centers (for Earth, Mars, and Moon).")
-    ("match-files-prefix", po::value(&global.match_files_prefix)->default_value(""),
+    ("match-files-prefix", 
+     po::value(&global.match_files_prefix)->default_value(""),
       "Use the match file from this prefix. Normally contains match files "
       "created with bundle_adjust or parallel_stereo.")
-    ("clean-match-files-prefix", po::value(&global.clean_match_files_prefix)->default_value(""),
-      "Use as input match file the *-clean.match file from this prefix (this had the "
+    ("clean-match-files-prefix", 
+     po::value(&global.clean_match_files_prefix)->default_value(""),
+      "Use as input the *-clean.match file from this prefix (this had the "
       "outliers filtered out).")
     ("band", po::value(&global.band)->default_value(-1),
       "Use this band (channel) from input images if more than one. The band count starts "

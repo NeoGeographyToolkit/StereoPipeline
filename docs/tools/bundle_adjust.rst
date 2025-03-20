@@ -583,9 +583,12 @@ where the image names are without the directory name and extension. Excessively
 long image names will be truncated.
 
 These files can be used later by other ``bundle_adjust`` invocations, also by
-``parallel_stereo`` and ``jitter_solve``, with the options
-``--match-files-prefix`` and ``--clean-match-files-prefix``
-(the latter files should end with ``-clean.match``).
+``parallel_stereo`` and ``jitter_solve``, with the option ``--match-files-prefix``.
+
+Bundle adjustment also produces outlier-filtered versions of these files, that
+end with ``-clean.match``. These can be used with the option
+``--clean-match-files-prefix``. The option ``--remove-outliers-params`` controls
+the outlier filtering.
 
 Any such files can be inspected with ``stereo_gui``
 (:numref:`stereo_gui_pairwise_matches`) and converted to text with 
@@ -1390,13 +1393,17 @@ Command-line options
 
 --match-files-prefix <string (default: "")>
     Use the match files from this prefix instead of the current output prefix.
-    This implies ``--skip-matching``. The order of images in each interest
-    point match file need not be the same as for input images.  
+    See the naming convention in :numref:`ba_match_files`. This implies
+    ``--skip-matching``. The order of images in each interest point match file
+    need not be the same as for input images. See also
+    ``--clean-match-files-prefix``.
 
 --clean-match-files-prefix <string (default: "")>
-    Use as input match files the \*-clean.match files from this prefix.
+    Use as input the ``*-clean.match`` files from this prefix.
     This implies ``--skip-matching``. The order of images in each interest
     point match file need not be the same as for input images.
+    Only one of ``--match-files-prefix`` and ``--clean-match-files-prefix``
+    can be set.
 
 --enable-rough-homography
     Enable the step of performing datum-based rough homography for

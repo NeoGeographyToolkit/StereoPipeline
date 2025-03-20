@@ -84,13 +84,15 @@ force-reuse-match-files
     cameras.
 
 match-files-prefix <string (default: unspecified)>
-    Use the match file from this prefix. Normally contains match files
-    created with ``bundle_adjust`` or ``parallel_stereo``. Works only
-    with non-mapprojected images.
+    Use the match file with this prefix. Normally match files are created with
+    ``bundle_adjust`` or ``parallel_stereo``. Works only with non-mapprojected
+    images. See the naming convention in :numref:`ba_match_files`. See also
+    ``--clean-match-files-prefix``. Only one of these two options can be
+    specified.
 
 clean-match-files-prefix <string (default: unspecified)>
     Use as input match file the ``*-clean.match`` file from this prefix
-    (this had the outliers filtered out). See also
+    (this had the outliers filtered out by ``bundle_adjust``). See also
     ``match-files-prefix``.
 
 matches-per-tile <int (default: unspecified)>

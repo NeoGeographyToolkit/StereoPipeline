@@ -1307,13 +1307,13 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("lon-lat-limit", po::value(&opt.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
      "Remove as outliers interest points (that are not GCP) for which the longitude and latitude of the triangulated position (after cameras are optimized) are outside of this range. Specify as: min_lon min_lat max_lon max_lat.")
     ("match-files-prefix",  po::value(&opt.match_files_prefix)->default_value(""),
-     "Use the match files from this prefix instead of the current output prefix. This "
-     "implies --skip-matching. The order of images in each interest point match file "
-     "need not be the same as for input images.")
+     "Use the match files from this prefix instead of the current output prefix. See the "
+     "naming convention in the documentation. This implies --skip-matching. The order of "
+     "images in each interest point match file need not be the same as for input images. "
+     "See also --clean-match-files-prefix. Only one of these two options can be specified.")
     ("clean-match-files-prefix",  po::value(&opt.clean_match_files_prefix)->default_value(""),
-     "Use as input match files the *-clean.match files from this prefix. This implies "
-     "--skip-matching. The order of images in each interest point match file "
-     "need not be the same as for input images.")
+     "Use as input the *-clean.match file from this prefix (this had the "
+     "outliers filtered out by bundle_adjust). See also match-files-prefix.")
     ("update-isis-cubes-with-csm-state",
      po::bool_switch(&opt.update_isis_cubes_with_csm_state)->default_value(false)->implicit_value(true),
      "Save the model state of optimized CSM cameras as part of the .cub files. Any prior "
