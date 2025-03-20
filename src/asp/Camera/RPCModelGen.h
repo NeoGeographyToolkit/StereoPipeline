@@ -102,7 +102,8 @@ void gen_rpc(// Inputs
 // Produce a transformed RPC model
 RPCModel transformRpc(RPCModel const& rpc_model, 
                       vw::Matrix4x4 const& transform,
-                      vw::BBox2 const& image_box);
+                      vw::BBox2 const& image_box,
+                      double & pixel_err);
 } // end namespace asp
 
 #endif //__STEREO_CAMERA_RPC_MODEL_GEN_H__

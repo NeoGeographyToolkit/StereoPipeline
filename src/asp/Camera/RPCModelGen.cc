@@ -382,8 +382,12 @@ void transformLlhBox(vw::Vector3 const& llh_offset_in,
 // Produce a transformed RPC model
 asp::RPCModel transformRpc(asp::RPCModel const& rpc_model, 
                            vw::Matrix4x4 const& transform,
-                           vw::BBox2 const& image_box) {
+                           vw::BBox2 const& image_box,
+                           double & pixel_err) {
 
+  // Initialize the output pixel error
+  pixel_err = 0.0;
+  
   vw::Vector3 llh_offset       = rpc_model.lonlatheight_offset();
   vw::Vector3 llh_scale        = rpc_model.lonlatheight_scale();
   vw::Vector2 pixel_offset     = rpc_model.xy_offset();
@@ -442,9 +446,7 @@ asp::RPCModel transformRpc(asp::RPCModel const& rpc_model,
                           pixel_offset, pixel_scale, llh_offset_trans, llh_scale_trans,
                           rpc_model.m_err_bias, rpc_model.m_err_rand);
 
-#if 0
   // Find the error of applying the adjustments inline as opposed to externally
-  double max_pix_err = 0;
   for (size_t i = 0; i < llh_vec.size(); i++) {
     Vector3 llh = llh_vec[i];
     Vector3 xyz = datum.geodetic_to_cartesian(llh);
@@ -457,11 +459,8 @@ asp::RPCModel transformRpc(asp::RPCModel const& rpc_model,
     } catch (...) {
       continue;
     }
-    max_pix_err = std::max(max_pix_err, norm_2(cam_pix1 - cam_pix2));
+    pixel_err = std::max(pixel_err, norm_2(cam_pix1 - cam_pix2));
   }
-  std::cout << "Inline vs external adjustment discrepancy for the RPC model: " << max_pix_err 
-            << " pixels\n";
-#endif
   
   return rpc_trans;
 }

@@ -510,7 +510,20 @@ std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
   }
 
   // Produced a transformed copy of the RPC model. This can be slow.
-  asp::RPCModel trans_rpc = asp::transformRpc(*rpc, ecef_transform, image_box);
+  double pixel_err = 0.0;
+  asp::RPCModel trans_rpc = asp::transformRpc(*rpc, ecef_transform, image_box, pixel_err);
+
+  #pragma omp critical
+  {
+    vw::vw_out() << "Discrepancy between the initial RPC model with the external adjustment "
+      << "and the refit model incorporating the adjustment for image: " 
+      << imageFile << " is " << pixel_err  << " pixels.\n";
+    if (pixel_err > 1.0)
+       vw::vw_out(vw::WarningMessage) << "The adjusted RPC model is not accurate enough. "
+        << "Use the original RPC model with external adjustments as applied via "
+        << "--bundle-adjust-prefix. Test the original model self-consistency with "
+        << "cam_test with --height-above-datum within valid RPC height range.\n";
+  }
 
   trans_rpc.saveXML(rpcFile);
   
