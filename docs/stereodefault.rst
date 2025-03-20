@@ -87,7 +87,7 @@ match-files-prefix <string (default: unspecified)>
     Use the match file with this prefix. Normally match files are created with
     ``bundle_adjust`` or ``parallel_stereo``. Works only with non-mapprojected
     images. See the naming convention in :numref:`ba_match_files`. See also
-    ``--clean-match-files-prefix``. Only one of these two options can be
+    ``clean-match-files-prefix``. Only one of these two options can be
     specified.
 
 clean-match-files-prefix <string (default: unspecified)>
