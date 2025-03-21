@@ -48,7 +48,7 @@
 // TODO(oalexan1): Separate the optimization logic from image operations.
 // TODO(oalexan1): Move image logic to SfsImageProc.cc. Add 
 // SfS cost function file.
-// TODO(oalexan1): Use OpenMP here in ComputeReflectanceAndIntensity.
+// TODO(oalexan1): Use OpenMP in ComputeReflectanceAndIntensity.
 // For isis without approx models need to ensure there is one thread.
 // May need to differentiate between single process and multiple processes.
 
@@ -138,10 +138,11 @@ struct Options: public vw::GdalWriteOptions {
   std::vector<std::vector<double>> image_haze_vec;
   std::vector<double> model_coeffs_vec;
   std::set<int> skip_images;
-  int max_iterations, reflectance_type, blending_dist, min_blend_size, num_haze_coeffs;
+  int max_iterations, reflectance_type, blending_dist, min_blend_size, num_haze_coeffs,
+    num_samples_for_estim;
   bool float_albedo, float_exposure, model_shadows,
     save_computed_intensity_only, estimate_slope_errors, estimate_height_errors,
-    compute_exposures_only, estimate_exposure_haze_albedo,
+    compute_exposures_only, estim_exposure_haze_albedo,
     save_dem_with_nodata, use_approx_camera_models, 
     crop_input_images, allow_borderline_data, fix_dem, float_reflectance_model, 
     query, save_sparingly, float_haze, read_exposures, read_haze, read_albedo;
@@ -159,12 +160,13 @@ struct Options: public vw::GdalWriteOptions {
   Options(): max_iterations(0), reflectance_type(0),
             blending_dist(0), blending_power(2.0),
             min_blend_size(0), num_haze_coeffs(0),
+            num_samples_for_estim(0),
             float_albedo(false), float_exposure(false), model_shadows(false), 
             save_computed_intensity_only(false),
             estimate_slope_errors(false),
             estimate_height_errors(false),
             compute_exposures_only(false),
-            estimate_exposure_haze_albedo(false),
+            estim_exposure_haze_albedo(false),
             save_dem_with_nodata(false),
             use_approx_camera_models(false),
             crop_input_images(false),
@@ -459,27 +461,28 @@ void estimateHeightError(ImageView<double> const& dem,
   }
 }
 
-bool computeReflectanceAndIntensity(double left_h, double center_h, double right_h,
-                                    double bottom_h, double top_h,
-                                    bool use_pq, double p, double q, // dem partial derivatives
-                                    int col, int row,
-                                    ImageView<double>         const& dem,
-                                    cartography::GeoReference const& geo,
-                                    bool model_shadows,
-                                    double max_dem_height,
-                                    double gridx, double gridy,
-                                    vw::Vector3  const & sunPosition,
-                                    ReflParams const & refl_params,
-                                    BBox2i       const & crop_box,
-                                    MaskedImgT   const & image,
-                                    DoubleImgT   const & blend_weight,
-                                    CameraModel  const * camera,
-                                    PixelMask<double>  & reflectance,
-                                    PixelMask<double>  & intensity,
-                                    double             & ground_weight,
-                                    const double       * refl_coeffs,
-                                    SlopeErrEstim      * slopeErrEstim = NULL,
-                                    HeightErrEstim     * heightErrEstim = NULL) {
+// Compute the reflectance and intensity at a single pixel.
+bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
+                             double bottom_h, double top_h,
+                             bool use_pq, double p, double q, // dem partial derivatives
+                             int col, int row,
+                             ImageView<double>         const& dem,
+                             cartography::GeoReference const& geo,
+                             bool model_shadows,
+                             double max_dem_height,
+                             double gridx, double gridy,
+                             vw::Vector3  const & sunPosition,
+                             ReflParams const & refl_params,
+                             BBox2i       const & crop_box,
+                             MaskedImgT   const & image,
+                             DoubleImgT   const & blend_weight,
+                             CameraModel  const * camera,
+                             PixelMask<double>  & reflectance,
+                             PixelMask<double>  & intensity,
+                             double             & ground_weight,
+                             const double       * refl_coeffs,
+                             SlopeErrEstim      * slopeErrEstim = NULL,
+                             HeightErrEstim     * heightErrEstim = NULL) {
 
   // Set output values
   reflectance = 0.0; reflectance.invalidate();
@@ -620,6 +623,9 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   return true;
 }
 
+// The value stored in the output intensity(i, j) is the one at entry
+// (i - 1) * sample_col_rate + 1, (j - 1) * sample_row_rate + 1
+// in the full image. For i = 0 or j = 0 invalid values are stored.
 // TODO(oalexan1): Move to SfsReflectanceModel.h
 void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     ImageView<Vector2> const& pq,
@@ -704,20 +710,20 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
         pval = pq(col, row)[0];
         qval = pq(col, row)[1];
       }
-      computeReflectanceAndIntensity(dem(col-1, row), dem(col, row), dem(col+1, row),
-                                     dem(col, row+1), dem(col, row-1),
-                                     use_pq, pval, qval,
-                                     col, row, dem, geo,
-                                     model_shadows, max_dem_height,
-                                     gridx, gridy,
-                                     sunPosition, refl_params,
-                                     crop_box, image, blend_weight, camera,
-                                     reflectance(col_sample, row_sample),
-                                     intensity(col_sample, row_sample),
-                                     ground_weight(col_sample, row_sample),
-                                     refl_coeffs,
-                                     slopeErrEstim,
-                                     heightErrEstim);
+      calcPixReflectanceInten(dem(col-1, row), dem(col, row), dem(col+1, row),
+                              dem(col, row+1), dem(col, row-1),
+                              use_pq, pval, qval,
+                              col, row, dem, geo,
+                              model_shadows, max_dem_height,
+                              gridx, gridy,
+                              sunPosition, refl_params,
+                              crop_box, image, blend_weight, camera,
+                              reflectance(col_sample, row_sample),
+                              intensity(col_sample, row_sample),
+                              ground_weight(col_sample, row_sample),
+                              refl_coeffs,
+                              slopeErrEstim,
+                              heightErrEstim);
     }
   }
   
@@ -1016,7 +1022,7 @@ calc_intensity_residual(Options const& opt,
     }
     
     bool success =
-      computeReflectanceAndIntensity(left[0], center[0], right[0],
+      calcPixReflectanceInten(left[0], center[0], right[0],
                                      bottom[0], top[0],
                                      use_pq, p, q,
                                      col, row,  dem, geo,
@@ -1824,7 +1830,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "as well, for comparison. The image exposures will be computed along the way unless "
      "specified via --image-exposures-prefix, and will be saved in either case to <output "
      "prefix>-exposures.txt. Same for haze, if applicable.")
-     ("estimate-exposure-haze-albedo", po::bool_switch(&opt.estimate_exposure_haze_albedo)->default_value(false)->implicit_value(true),
+     ("estimate-exposure-haze-albedo", 
+      po::bool_switch(&opt.estim_exposure_haze_albedo)->default_value(false)->implicit_value(true),
       "Estimate the exposure, haze, and albedo for each image. This is experimental.")
     ("estimate-slope-errors",   po::bool_switch(&opt.estimate_slope_errors)->default_value(false)->implicit_value(true),
      "Estimate the error for each slope (normal to the DEM). This is experimental.")
@@ -1897,6 +1904,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "--num-haze-coeffs is 1.")
     ("haze-prefix", po::value(&opt.image_haze_prefix)->default_value(""),
      "Use this prefix to read initial haze values (filename is <haze-prefix>-haze.txt). The file format is the same as what the tool writes itself, when triggered by the earlier options. If haze is modeled, it will be initially set to 0 unless read from such a file, and will be floated or not depending on whether --float-haze is on. The final haze values will be saved to <output prefix>-haze.txt.")
+    ("num-samples-for-estim", po::value(&opt.num_samples_for_estim)->default_value(200),
+     "Number of samples to use for estimating the exposure, haze, and albedo. A large "
+     "value will result in a more accurate estimate, but will take a lot more memory.")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this value for initial DEM heights (measured in meters, relative to the datum). "
      "An input DEM still needs to be provided for georeference information.")
@@ -2034,7 +2044,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.steepness_factor <= 0.0) 
     vw_throw(ArgumentErr() << "The steepness factor must be positive.\n");    
 
-  if (opt.compute_exposures_only || opt.estimate_exposure_haze_albedo) {
+  if (opt.compute_exposures_only || opt.estim_exposure_haze_albedo) {
     if (opt.use_approx_camera_models || opt.crop_input_images) {
       vw_out(WarningMessage) << "When computing exposures only, not using approximate "
                              << "camera models or cropping input images.\n";
@@ -2387,9 +2397,8 @@ void run_sfs(// Fixed quantities
   ceres::Problem problem;
   
   // Sample large DEMs. Keep about 200 row and column samples.
-  int num_samples = 200;
   int sample_col_rate = 0, sample_row_rate = 0;
-  asp::calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
+  asp::calcSampleRates(dem, opt.num_samples_for_estim, sample_col_rate, sample_row_rate);
   
   // See if a given image is used in at least one clip or skipped in
   // all of them
@@ -2774,27 +2783,94 @@ void setupReflectance(ReflParams & refl_params, Options & opt) {
   }
 }
 
+// Compute a full-resolution image by specific interpolation into a low-resolution 
+// one. The full-res image may not fit in memory, so we need to compute it in tiles.
+// See computeReflectanceAndIntensity() for low-res vs full-res relationship.
+// TODO(oalexan1): Move this to SfsImageProc.cc.
+class SfsInterpView: public ImageViewBase<SfsInterpView> {
+  int m_full_res_cols, m_full_res_rows;
+  int m_sample_col_rate, m_sample_row_rate;
+  vw::ImageView<float> const& m_lowres_img;
+  typedef float PixelT;
+
+public:
+  SfsInterpView(int full_res_cols, int full_res_rows,
+                int sample_col_rate, int sample_row_rate,
+                vw::ImageView<float> const& lowres_img): 
+    m_full_res_cols(full_res_cols), m_full_res_rows(full_res_rows),
+    m_sample_col_rate(sample_col_rate), m_sample_row_rate(sample_row_rate),
+    m_lowres_img(lowres_img) {
+  }
+  
+  typedef PixelT pixel_type;
+  typedef PixelT result_type;
+  typedef ProceduralPixelAccessor<SfsInterpView> pixel_accessor;
+
+  inline int32 cols() const { return m_full_res_cols; }
+  inline int32 rows() const { return m_full_res_rows; }
+  inline int32 planes() const { return 1; }
+
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
+
+  inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+    vw_throw(NoImplErr() << "SfsInterpView::operator()(...) is not implemented");
+    return pixel_type();
+  }
+
+  typedef CropView<ImageView<pixel_type>> prerasterize_type;
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+
+    vw::InterpolationView<vw::EdgeExtensionView<vw::ImageView<float>,
+      vw::ConstantEdgeExtension>, vw::BilinearInterpolation> 
+      interp_lowres_img 
+        = vw::interpolate(m_lowres_img,
+                          vw::BilinearInterpolation(),
+                          vw::ConstantEdgeExtension());
+
+    ImageView<result_type> tile(bbox.width(), bbox.height());
+    for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
+      for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
+        double valx = (col - 1.0) / double(m_sample_col_rate) + 1.0;
+        double valy = (row - 1.0) / double(m_sample_row_rate) + 1.0;
+        tile(col - bbox.min().x(), row - bbox.min().y())
+          = interp_lowres_img(valx, valy);
+      }
+    }
+    
+    return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
+                             cols(), rows());
+  }
+
+  template <class DestT>
+  inline void rasterize(DestT const& dest, BBox2i bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
+  }
+};
+
 // Find the best-fit exposure and haze given the input sampled image and reflectance.
 // Also find the sampled albedo along the way.
 // TODO(oalexan1): Move this to SfsCostFun.cc.
-void estimateExposureHazeAlbedo(Options & opt,
-                                std::vector<MaskedImgT> const& masked_images,
-                                std::vector<DoubleImgT> const& blend_weights,
-                                ImageView<double> const& dem,
-                                double mean_albedo,
-                                double dem_nodata_val,
-                                vw::cartography::GeoReference const& geo,
-                                std::vector<vw::CamPtr> const& cameras,
-                                double & max_dem_height,
-                                std::vector<BBox2i> const& crop_boxes,
-                                std::vector<vw::Vector3> const& sunPosition,
-                                ReflParams const& refl_params,
-                                double gridx, double gridy) {
+void estimExposureHazeAlbedo(Options & opt,
+                             std::vector<MaskedImgT> const& masked_images,
+                             std::vector<DoubleImgT> const& blend_weights,
+                             ImageView<double> const& dem,
+                             double mean_albedo,
+                             vw::cartography::GeoReference const& geo,
+                             std::vector<vw::CamPtr> const& cameras,
+                             double & max_dem_height,
+                             std::vector<BBox2i> const& crop_boxes,
+                             std::vector<vw::Vector3> const& sunPosition,
+                             ReflParams const& refl_params,
+                             double gridx, double gridy) {
 
-  vw::vw_out() << "Estimating the exposure and haze.\n";
+  vw::vw_out() << "Estimating the exposure, haze, albedo.\n";
+  if (!opt.float_albedo)
+    vw::vw_out() << "The albedo is fixed.\n";
 
-  int num_samples = 400; // TODO(oalexan1): Must be exposed
-  
+  // Sample large DEMs
+  int sample_col_rate = 0, sample_row_rate = 0;
+  asp::calcSampleRates(dem, opt.num_samples_for_estim, sample_col_rate, sample_row_rate);
+
   int num_images = opt.input_images.size();
   std::vector<double> local_exposures_vec(num_images, 0), local_haze_vec(num_images, 0);
   
@@ -2804,11 +2880,7 @@ void estimateExposureHazeAlbedo(Options & opt,
     
     if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
       continue;
-      
-    // Sample large DEMs.
-    int sample_col_rate = 0, sample_row_rate = 0;
-    asp::calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
-
+     
     ImageView<double> ground_weight;
     ImageView<Vector2> pq; // no need for these just for initialization
     computeReflectanceAndIntensity(dem, pq, geo,
@@ -2844,14 +2916,14 @@ void estimateExposureHazeAlbedo(Options & opt,
       for (int row = 0; row < intensity[image_iter].rows(); row++) {
          
        if (!is_valid(intensity[image_iter](col, row)) ||
-            !is_valid(reflectance[image_iter](col, row)))
+           !is_valid(reflectance[image_iter](col, row)))
           continue;
         
         ceres::CostFunction* cost_function_img =
           IntensityErrorFixedReflectance::Create(intensity[image_iter](col, row),
-                                                reflectance[image_iter](col, row),
-                                                opt.num_haze_coeffs,
-                                                opt.steepness_factor);
+                                                 reflectance[image_iter](col, row),
+                                                 opt.num_haze_coeffs,
+                                                 opt.steepness_factor);
         
         ceres::LossFunction* loss_function_img = NULL;
         if (opt.robust_threshold > 0) 
@@ -2863,6 +2935,10 @@ void estimateExposureHazeAlbedo(Options & opt,
                                 &opt.image_haze_vec[image_iter][0],
                                 &albedo(col, row));
         
+        // If zero haze coefficients are used, fix the haze
+        if (opt.num_haze_coeffs == 0)
+          problem.SetParameterBlockConstant(&opt.image_haze_vec[image_iter][0]);
+          
         if (!opt.float_albedo)
           problem.SetParameterBlockConstant(&albedo(col, row));
        }
@@ -2883,18 +2959,22 @@ void estimateExposureHazeAlbedo(Options & opt,
   ceres::Solve(options, &problem, &summary);
   vw_out() << summary.FullReport() << "\n";
   
-  if (opt.float_albedo) {
-    // Save the low-res albedo. No georef is saved as that would need
-    // resampling, which is tricky.
-    bool has_georef = false; 
-    bool has_nodata = true;
-    vw::TerminalProgressCallback tpc("asp", ": ");
-    std::string albedo_file = opt.out_prefix + "-lowres-albedo.tif";
-    vw_out() << "Writing: " << albedo_file << "\n";
-    block_write_gdal_image(albedo_file, albedo, has_georef, geo, has_nodata, dem_nodata_val,
-                           opt, tpc); 
-  }
-    
+  // Up-sample the estimated albedo to full-res dimensions with bilinear interpolation.
+  bool has_georef = true; 
+  bool has_nodata = true;
+  double albedo_nodata_val = -1e+6; // large but reasonable
+  vw::TerminalProgressCallback tpc("asp", ": ");
+  std::string albedo_file = opt.out_prefix + "-albedo-estim.tif";
+  vw::vw_out() << "Up-sampling the estimated albedo to input DEM dimensions.\n";
+  vw_out() << "Writing: " << albedo_file << "\n";
+  block_write_gdal_image(albedo_file, 
+                         SfsInterpView(dem.cols(), dem.rows(),
+                                       sample_col_rate, sample_row_rate,
+                                       albedo),
+                         has_georef, geo, has_nodata, albedo_nodata_val,
+                         opt, tpc); 
+
+  // The haze and exposures will be saved outside this function.    
   return;
 }
 
@@ -2907,12 +2987,6 @@ int main(int argc, char* argv[]) {
   Options opt;
   try {
     handle_arguments(argc, argv, opt);
-
-    if (opt.compute_exposures_only && !opt.image_exposures_vec.empty()) {
-      // TODO: This needs to be adjusted if haze is computed.
-      vw_out() << "Exposures exist.";
-      return 0;
-    }
 
     // Set up model information
     ReflParams refl_params;
@@ -3067,7 +3141,7 @@ int main(int argc, char* argv[]) {
 
     // This check must happen before loading images but after we know the DEM size
     if ((dem.cols() > 500 || dem.rows() > 500) && !opt.compute_exposures_only &&
-        !opt.estimate_exposure_haze_albedo && !opt.save_computed_intensity_only)
+        !opt.estim_exposure_haze_albedo && !opt.save_computed_intensity_only)
       vw::vw_out(vw::WarningMessage) << "The input DEM is large and this program "
         << "may run out of memory. Use parallel_sfs instead, with small tiles.\n";
         
@@ -3296,9 +3370,8 @@ int main(int argc, char* argv[]) {
     // measurements in same units.
     
     // Sample large DEMs. Keep about 200 row and column samples.
-    int num_samples = 200;
     int sample_col_rate = 0, sample_row_rate = 0;
-    asp::calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
+    asp::calcSampleRates(dem, opt.num_samples_for_estim, sample_col_rate, sample_row_rate);
     double gridx = 0.0, gridy = 0.0;
     asp::calcGsd(dem, geo, dem_nodata_val, sample_col_rate, sample_row_rate,
                  gridx, gridy); // outputs
@@ -3362,25 +3435,24 @@ int main(int argc, char* argv[]) {
         continue;
       
       // Sample large DEMs. Keep about 200 row and column samples.
-      int num_samples = 200;
       int sample_col_rate = 0, sample_row_rate = 0;
-      asp::calcSampleRates(dem, num_samples, sample_col_rate, sample_row_rate);
+      asp::calcSampleRates(dem, opt.num_samples_for_estim, sample_col_rate, sample_row_rate);
 
       ImageView<PixelMask<double>> reflectance, intensity;
       ImageView<double> ground_weight;
       ImageView<Vector2> pq; // no need for these just for initialization
       
       computeReflectanceAndIntensity(dem, pq, geo,
-                                      opt.model_shadows, max_dem_height,
-                                      gridx, gridy, sample_col_rate, sample_row_rate,
-                                      sunPosition[image_iter],
-                                      refl_params,
-                                      crop_boxes[image_iter],
-                                      masked_images[image_iter],
-                                      blend_weights[image_iter],
-                                      cameras[image_iter].get(),
-                                      reflectance, intensity, ground_weight,
-                                      &opt.model_coeffs_vec[0]);
+                                     opt.model_shadows, max_dem_height,
+                                     gridx, gridy, sample_col_rate, sample_row_rate,
+                                     sunPosition[image_iter],
+                                     refl_params,
+                                     crop_boxes[image_iter],
+                                     masked_images[image_iter],
+                                     blend_weights[image_iter],
+                                     cameras[image_iter].get(),
+                                     reflectance, intensity, ground_weight,
+                                     &opt.model_coeffs_vec[0]);
       
       // TODO: Below is not the optimal way of finding the exposure!
       // Find it as the analytical minimum using calculus.
@@ -3403,10 +3475,8 @@ int main(int argc, char* argv[]) {
     }
     
     // Only overwrite the exposures if we don't have them supplied
-    if (opt.image_exposures_vec.empty()) {
-      vw::vw_out() << "Using the input image exposures.\n";
+    if (opt.image_exposures_vec.empty())
       opt.image_exposures_vec = local_exposures_vec;
-    }
 
     // Initialize the haze as 0. If computed above, initialize its first coeff.
     if ((!opt.image_haze_vec.empty()) && (int)opt.image_haze_vec.size() != num_images)
@@ -3422,22 +3492,21 @@ int main(int argc, char* argv[]) {
       }
     }
     
-    if (opt.estimate_exposure_haze_albedo) {
-      // TODO(oalexan1): Check if --num-haze-coeffs is non-zero.
-      // TODO(oalexan1): This should work even if albedo is not modeled.
-      estimateExposureHazeAlbedo(opt, masked_images, blend_weights,
-                                 dem, mean_albedo, dem_nodata_val,
-                                 geo, cameras, max_dem_height,
-                                 crop_boxes, sunPosition,
-                                 refl_params, gridx, gridy);
-    }
+    // TODO(oalexan1): Check if --num-haze-coeffs is non-zero.
+    // TODO(oalexan1): This should work even if albedo is not modeled.
+    if (opt.estim_exposure_haze_albedo)
+      estimExposureHazeAlbedo(opt, masked_images, blend_weights,
+                              dem, mean_albedo, 
+                              geo, cameras, max_dem_height,
+                              crop_boxes, sunPosition,
+                              refl_params, gridx, gridy);
     
-    for (size_t image_iter = 0; image_iter < opt.image_exposures_vec.size(); image_iter++) {
-      vw_out() << "Image exposure for " << opt.input_images[image_iter] << ' '
-               << opt.image_exposures_vec[image_iter] << std::endl;
-    }
+    // for (size_t image_iter = 0; image_iter < opt.image_exposures_vec.size(); image_iter++) {
+    //   vw_out() << "Image exposure for " << opt.input_images[image_iter] << ' '
+    //            << opt.image_exposures_vec[image_iter] << std::endl;
+    // }
 
-    if (opt.compute_exposures_only || opt.estimate_exposure_haze_albedo) {
+    if (opt.compute_exposures_only || opt.estim_exposure_haze_albedo) {
       asp::saveExposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
       // TODO(oalexan1): Think of this more
       if (opt.num_haze_coeffs > 0)
@@ -3534,11 +3603,11 @@ int main(int argc, char* argv[]) {
         for (int col = 0; col < comp_intensity.cols(); col++) {
           for (int row = 0; row < comp_intensity.rows(); row++) {
             comp_intensity(col, row) = calcIntensity(albedo(col, row), 
-                                                      reflectance(col, row), 
-                                                      opt.image_exposures_vec[image_iter],
-                                                      opt.steepness_factor,
-                                                      &opt.image_haze_vec[image_iter][0], 
-                                                      opt.num_haze_coeffs);
+                                                     reflectance(col, row), 
+                                                     opt.image_exposures_vec[image_iter],
+                                                     opt.steepness_factor,
+                                                     &opt.image_haze_vec[image_iter][0], 
+                                                     opt.num_haze_coeffs);
           }
         }
         
