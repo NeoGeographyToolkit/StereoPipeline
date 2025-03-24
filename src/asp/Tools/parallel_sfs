@@ -397,6 +397,9 @@ def main(argsIn):
         print("Computing exposures.\n")
         cmd = timeCmd + [sfsPath] + options.extraArgs
         # Add the option to compute the exposures, if not there already
+        # TODO(oalexan1): Must handle the case when there is also haze
+        # and albedo to compute. Must also test if only haze or if only
+        # floating albedo is enabled.
         if '--compute-exposures-only' not in options.extraArgs:
             cmd += ['--compute-exposures-only']
         asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)

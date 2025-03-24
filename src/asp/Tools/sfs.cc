@@ -1830,6 +1830,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "as well, for comparison. The image exposures will be computed along the way unless "
      "specified via --image-exposures-prefix, and will be saved in either case to <output "
      "prefix>-exposures.txt. Same for haze, if applicable.")
+     // TODO(oalexan1): --estimate-exposure-haze-albedo needs to replace
+     // --compute-exposures-only, with the latter used for backward
+     // compatibility. The doc needs to explain that when haze and albedo are
+     // used, then those are estimated too. Then, parallel_stereo must read
+     // per tile the estimated haze and albedo.
      ("estimate-exposure-haze-albedo", 
       po::bool_switch(&opt.estim_exposure_haze_albedo)->default_value(false)->implicit_value(true),
       "Estimate the exposure, haze, and albedo for each image. This is experimental.")
@@ -1859,7 +1864,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(-1.0),
      "If positive, set the threshold for the robust measured-to-simulated intensity difference (using the Cauchy loss). Any difference much larger than this will be penalized. A good value may be 5% to 25% of the average image value or the same fraction of the computed image exposure values.")
     ("albedo-constraint-weight", po::value(&opt.albedo_constraint_weight)->default_value(0),
-     "If floating the albedo, a larger value will try harder to keep the optimized albedo close to the nominal value of 1.")
+     "If floating the albedo, a larger value will try harder to keep the optimized albedo "
+     "close to the initial albedo. See also --input-albedo and --albedo-robust-threshold.")
     ("albedo-robust-threshold", po::value(&opt.albedo_robust_threshold)->default_value(0),
      "If floating the albedo and this threshold is positive, apply a Cauchy loss with this threshold to the product of the albedo difference and the albedo constraint weight.")
     ("unreliable-intensity-threshold", po::value(&opt.unreliable_intensity_threshold)->default_value(0.0),
@@ -3009,23 +3015,40 @@ int main(int argc, char* argv[]) {
     // Read the handle to the DEM. Here we don't load the DEM into
     // memory yet. We will later load into memory only a crop,
     // if cropping is specified. This is to save on memory.
-    ImageViewRef<double> dem_handle = DiskImageView<double>(opt.input_dem);
-
+    ImageViewRef<double> full_dem = DiskImageView<double>(opt.input_dem);
+    ImageViewRef<double> full_albedo;
+    // TODO(oalexan1): albedo per tile needs to go when the workflow is improved.
+    // This is needed to support for now the --prep-step and --main-step
+    // options, and longer term, that is likely the wrong way of doing things
+    // and will be removed.
+    bool albedo_per_tile = false; // true if reading global DEM but tile-only albedo
+    if (!opt.input_albedo.empty()) {
+      vw::vw_out() << "Reading albedo from: " << opt.input_albedo << "\n";
+      full_albedo = DiskImageView<double>(opt.input_albedo);
+      // Must have the same size as dem
+      if (full_albedo.cols() != full_dem.cols() || full_albedo.rows() != full_dem.rows())
+        albedo_per_tile = true;
+    }
+    
     // This must be done before the DEM is cropped. This stats is
     // queried from parallel_sfs.
     if (opt.query) {
-      vw_out() << "dem_cols, " << dem_handle.cols() << "\n";
-      vw_out() << "dem_rows, " << dem_handle.rows() << "\n";
+      vw_out() << "dem_cols, " << full_dem.cols() << "\n";
+      vw_out() << "dem_rows, " << full_dem.rows() << "\n";
     }
-
+    
     // Adjust the crop win
-    opt.crop_win.crop(bounding_box(dem_handle));
+    opt.crop_win.crop(bounding_box(full_dem));
     
     // Read the georeference 
-    vw::cartography::GeoReference geo;
+    vw::cartography::GeoReference geo, albedo_geo;
     if (!read_georeference(geo, opt.input_dem))
         vw_throw(ArgumentErr() << "The input DEM has no georeference.\n");
-      
+    if (!opt.input_albedo.empty()) {
+      if (!read_georeference(albedo_geo, opt.input_dem))
+        vw_throw(ArgumentErr() << "The input DEM has no georeference.\n");
+    }
+
     // This is a bug fix. The georef pixel size in y must be negative
     // for the DEM to be oriented correctly. 
     if (geo.transform()(1, 1) > 0)
@@ -3034,17 +3057,49 @@ int main(int argc, char* argv[]) {
                 << "pixel is in the upper-left. Check your DEM pixel size with "
                 << "gdalinfo. Cannot continue.\n");
       
-    // Crop the DEM and georef if requested to given box.  The
-    // cropped DEM (or uncropped if no cropping happens) is fully
-    // loaded in memory.
-    vw::ImageView<double> dem, orig_dem;
+    // Crop the DEM and georef if requested to given box. Same for albedo.
+    // In either case, read the needed portion fully in memory.
+    vw::ImageView<double> dem, orig_dem, albedo;
+    std::string full_dem_wkt = geo.get_wkt(); 
     if (!opt.crop_win.empty()) {
-      dem = crop(dem_handle, opt.crop_win);
+      dem = crop(full_dem, opt.crop_win);
       geo = crop(geo, opt.crop_win);
+      if (!opt.input_albedo.empty()) {
+        if (!albedo_per_tile) {
+          albedo = crop(full_albedo, opt.crop_win);
+          albedo_geo = crop(albedo_geo, opt.crop_win);
+        } else {
+          albedo = full_albedo;
+        }
+      }
     } else {
-      dem = dem_handle; // load in memory
+      // No cropping
+      dem = full_dem;
+      if (!opt.input_albedo.empty())
+        albedo = full_albedo;
     }
   
+    // Initialize the albedo if not read from disk
+    if (opt.input_albedo.empty()) {
+      double initial_albedo = 1.0;
+      albedo.set_size(dem.cols(), dem.rows());
+      for (int col = 0; col < albedo.cols(); col++) {
+        for (int row = 0; row < albedo.rows(); row++) {
+          albedo(col, row) = initial_albedo;
+        }
+      }
+      albedo_geo = geo;
+    }
+    
+    // Albedo and DEM must have same dimensions and georef
+    if (albedo.cols() != dem.cols() || albedo.rows() != dem.rows())
+      vw_throw(ArgumentErr() 
+               << "The albedo image must have the same dimensions as the DEM.\n");
+    if (geo.get_wkt() != albedo_geo.get_wkt())
+      vw::vw_throw(vw::ArgumentErr() 
+                    << "The input DEM has a different georeference "
+                    << "from the input albedo image.\n");
+        
     // This can be useful
     vw_out() << "DEM cols and rows: " << dem.cols()  << ' ' << dem.rows() << "\n";
 
@@ -3387,26 +3442,6 @@ int main(int argc, char* argv[]) {
           }
         }
       }
-    }
-    
-    // Compute or read the initial albedo.
-    vw::ImageView<double> albedo;
-    if (opt.input_albedo.empty()) {
-      double initial_albedo = 1.0;
-      albedo.set_size(dem.cols(), dem.rows());
-      for (int col = 0; col < albedo.cols(); col++) {
-        for (int row = 0; row < albedo.rows(); row++) {
-          albedo(col, row) = initial_albedo;
-        }
-      }
-    } else {
-      // Read the input albedo
-      vw::vw_out() << "Reading albedo from: " << opt.input_albedo << "\n";
-      albedo = DiskImageView<double>(opt.input_albedo);
-      // Must have the same size as dem
-      if (albedo.cols() != dem.cols() || albedo.rows() != dem.rows())
-        vw::vw_throw(ArgumentErr() 
-                      << "Albedo image must have the same dimensions as the DEM.\n");
     }
     
     // Find the mean albedo

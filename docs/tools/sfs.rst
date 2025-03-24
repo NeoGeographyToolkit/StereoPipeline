@@ -141,8 +141,8 @@ Command-line options for sfs
     0.001 may work, unless your initial DEM is very unreliable.
 
 --albedo-constraint-weight <float (default: 0)>
-    If floating the albedo, a larger value will try harder to keep
-    the optimized albedo close to the nominal value of 1. See also
+    If floating the albedo, a larger value will try harder to keep the optimized
+    albedo close to the initial albedo. See also: ``--input-albedo`` and 
     ``--albedo-robust-threshold``.
 
 --albedo-robust-threshold <float (default: 0)>
@@ -251,7 +251,9 @@ Command-line options for sfs
 --compute-exposures-only
     Quit after saving the exposures. This should be done once for
     a big DEM, before using these for small sub-clips without
-    recomputing them.
+    recomputing them. The exposures will be saved to
+    ``<output prefix>-exposures.txt``. The number of samples along
+    input DEM rows and columns is ``--num-samples-for-estim``.
 
 --image-exposures-prefix <path>
     Use this prefix to optionally read initial exposures (filename
@@ -365,6 +367,10 @@ Command-line options for sfs
     is on. The final haze values will be saved to ``<output
     prefix>-haze.txt``.
 
+--num-samples-for-estim <integer (default: 200)>
+    Number of samples to use for estimating the exposure, haze, and albedo. A large
+    value will result in a more accurate estimate, but will take a lot more memory.
+    
 --read-exposures
     If set, read the image exposures with the current output prefix. Useful with
     a repeat invocation from ``parallel_sfs``, when with this option the

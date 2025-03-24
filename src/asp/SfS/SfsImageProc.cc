@@ -645,6 +645,10 @@ void deepenCraters(std::string const& dem_file,
 // Sample large DEMs. Keep about num_samples row and column samples.
 void calcSampleRates(vw::ImageViewRef<double> const& dem, int num_samples,
                      int & sample_col_rate, int & sample_row_rate) {
+
+  if (num_samples <= 0) 
+    vw_throw(ArgumentErr() << "Expecting a positive number of samples.\n");
+    
   sample_col_rate = std::max((int)round(dem.cols()/double(num_samples)), 1);
   sample_row_rate = std::max((int)round(dem.rows()/double(num_samples)), 1);
 }
