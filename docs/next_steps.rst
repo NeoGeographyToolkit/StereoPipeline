@@ -462,6 +462,8 @@ with the command::
 
 This will create ``dem-adj.tif``.
 
+.. _dem_prep:
+
 Hole-filling and smoothing the input DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

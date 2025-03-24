@@ -314,7 +314,7 @@ def main(argsIn):
         '--float-haze'              in argsIn or \
         '--float-reflectance-model' in argsIn:
         print("Warning: Floating exposures and other quantities per tile may result " +
-              "in non-unique results.")
+              "in non-globally consistent results.")
         
     # Either both or none of options.prep_step and options.main_step must be set
     if (options.prep_step is None) != (options.main_step is None):

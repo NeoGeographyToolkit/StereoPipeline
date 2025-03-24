@@ -26,22 +26,25 @@ when an IMAGERY.BIL file has a corresponding METADATA file.
 A sample SPOT5 image can be found at at
 http://www.geo-airbusds.com/en/23-sample-imagery.
 
-One issue to watch out for is that SPOT5 data typically comes in a
-standard directory structure where the image and header files always
-have the same name. The header (camera model) files cannot be passed
-into the ``bundle_adjust`` tool with the same file name even if they are
-in different folders. A simple workaround is to create symbolic links to
-the original header files with different names::
+Image preparation
+~~~~~~~~~~~~~~~~~
 
-    ln -s front/SEGMT01/METADATA.DIM front/SEGMT01/METADATA_FRONT.DIM
-    ln -s back/SEGMT01/METADATA.DIM  back/SEGMT01/METADATA_BACK.DIM
+SPOT5 datasets come in a directory structure where the front and back images
+have the same name, without the path, and the same for the camera files. This
+conflicts with the ``bundle_adjust`` assumptions. 
 
-The same should be done for image files, for consistency. 
+A simple workaround is to rename the images and cameras::
 
-Alternatively, the images and cameras can just be renamed to have different
-names.
+    mv front/SEGMT01/METADATA.BIL front/SEGMT01/METADATA_FRONT.BIL
+    mv back/SEGMT01/METADATA.BIL  back/SEGMT01/METADATA_BACK.BIL
+
+    mv front/SEGMT01/METADATA.DIM front/SEGMT01/METADATA_FRONT.DIM
+    mv back/SEGMT01/METADATA.DIM  back/SEGMT01/METADATA_BACK.DIM
+
+Stereo with raw images
+^^^^^^^^^^^^^^^^^^^^^^
     
-Then run bundle adjustment (:numref:`bundle_adjust`)::
+Run bundle adjustment (:numref:`bundle_adjust`)::
 
     bundle_adjust -t spot5             \
       front/SEGMT01/IMAGERY_FRONT.BIL  \
@@ -49,6 +52,8 @@ Then run bundle adjustment (:numref:`bundle_adjust`)::
       front/SEGMT01/METADATA_FRONT.DIM \
       back/SEGMT01/METADATA_BACK.DIM   \
       -o ba_run/out
+
+It is not clear if SPOT5 images benefit from bundle adjustment.
       
 Run ``parallel_stereo`` (:numref:`parallel_stereo`) with the adjusted cameras::
 
@@ -68,6 +73,9 @@ This is followed by DEM creation with ``point2dem`` (:numref:`point2dem`)::
 
     point2dem st_run/out-PC.tif
 
+Stereo with mapprojected images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 For terrains with steep slopes, it is strongly suggested to run stereo with
 mapprojected images (:numref:`mapproj-example`). For that, first use the
 ``add_spot_rpc`` tool to generate an RPC model approximation of the SPOT5 sensor
@@ -84,11 +92,16 @@ This will append the RPC model to the existing file. If the output
 is a separate file, only the RPC model will be saved to the new file.
 
 Then use the ``spot5maprpc`` session type when running parallel_stereo on the
-mapprojected images. See the note in :numref:`mapproj-example` about perhaps
-reducing the resolution of the DEM to mapproject onto (and perhaps blurring it)
-if ghosting artifacts are seen in the produced DEM.
+mapprojected images. 
 
-Mapprojection (:numref:`mapproject`)::
+Ensure that any external DEM is adjusted, if needed, to be relative the
+ellipsoid (:numref:`conv_to_ellipsoid`).
+
+See the note in :numref:`dem_prep` about perhaps reducing the resolution of the
+DEM to mapproject onto (and perhaps blurring it) if ghosting artifacts are seen
+in the produced DEM.
+
+The mapprojection step is next (:numref:`mapproject`)::
 
     mapproject -t rpc                   \
       --bundle-adjust-prefix ba_run/out \
@@ -132,7 +145,7 @@ DEM creation::
 See :numref:`nextsteps` for a discussion about various speed-vs-quality choices
 of the stereo algorithms.
 
-If desired not to use bundle adjustment, then need not use the option ``--bundle-adjust-prefix``.
+If desired not to use bundle adjustment, then need not set the option ``--bundle-adjust-prefix``.
 
 .. figure:: ../images/examples/spot5_figure.png
    :name: spot5_output

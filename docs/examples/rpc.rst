@@ -181,10 +181,11 @@ the RPC model.
 
 In the latest ASP build (:numref:`release`), these points are picked at +/-
 min(50.0, ``height_scale``) meters from the height offset specified in the RPC
-model. A larger range does not make a difference, except for situations when the
-modeled rays may be curved, such as for SAR (:numref:`umbra_sar`). In earlier
-ASP versions, the points were picked at +/- 0.9 times the height scale, which
-worked well enough except for SAR.
+model. A larger range does not make a difference, except for situations when
+``height_scale`` does not represent correctly the actual height range the RPC
+model was fit on, such as for Umbra SAR (:numref:`umbra_sar`). In earlier ASP
+versions, the points were picked at +/- 0.9 times the height scale, which worked
+well enough except for SAR.
 
 Another ray is found the same way for the second image. Then, the two rays are
 intersected as usual.

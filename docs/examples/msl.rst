@@ -87,16 +87,18 @@ A .cub file obtained with the left navcam sensor will have a name like::
 while for the right sensor the prefix will be instead ``NRB``. The
 full-resolution images have ``_F`` as part of their name, as above.
 
-We will convert the .cub files to the PNG format so that they can be
-understood by image-processing programs. The ``rig_calibrator``
-convention will be used, of storing each sensor's data in its own
-subdirectory (:numref:`rig_data_conv`). We will name the
-left and right navcam sensors ``lnav`` and ``rnav``. Then, the conversion
-commands are along the lines of::
+We will convert the .cub files to the TIF format so that they can be understood
+by ``theia_sfm``. The ``rig_calibrator`` convention will be used, of storing
+each sensor's data in its own subdirectory (:numref:`rig_data_conv`). We will
+name the left and right navcam sensors ``lnav`` and ``rnav``. Then, the
+conversion commands are along the lines of::
 
     mkdir -p SOL00597/lnav
     isis2std from = SOL00597/left_image.cub \
-      to = SOL00597/lnav/left_image.png
+      to = SOL00597/lnav/left_image.tif
+
+Each produced image will have a timestamp, with the same value for the
+left and right navcam images taken at the same time. 
 
 Image selection
 ~~~~~~~~~~~~~~~
@@ -145,7 +147,7 @@ with an additional identical block for the ``rnav`` sensor (without
 SfM map creation
 ~~~~~~~~~~~~~~~~
 
-Given the data and rig configuration, the image names in .png format
+Given the data and rig configuration, the image names in .tif format
 were put in a list, with one entry per line.  The ``theia_sfm``
 program (:numref:`theia_sfm`) was run to find initial camera poses::
 

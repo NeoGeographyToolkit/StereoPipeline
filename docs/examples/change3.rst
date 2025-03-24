@@ -18,11 +18,11 @@ including lens distortion, and how to produce an aligned terrain model from a
 stereo pair between a Chang'e landing camera image and an LRO NAC image
 with similar illumination.
 
-The `Chang'e3 landing video <https://www.youtube.com/watch?v=sKYrAM3EJh8>`_ is
-very helpful when it comes to deciding which images to process.
-
 Fetching the Chang'e 3 images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The `Chang'e3 landing video <https://www.youtube.com/watch?v=sKYrAM3EJh8>`_ is
+very helpful when it comes to deciding which images to process.
 
 The images are available from China's `Lunar Planetary Data Release System
 <https://moon.bao.ac.cn/ce5web/searchOrder_dataSearchData.search>`_. Select the
@@ -84,8 +84,8 @@ We will also fetch an `LRO NAC DEM
 <https://pds.lroc.asu.edu/data/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/DATA/SDP/NAC_DTM/CHANGE3/NAC_DTM_CHANGE3.TIF>`_
 produced specifically for this landing site. We call it ``ref/ref.tif``.
 
-The LRO NAC image is very large, and sometimes also scanned in
-reverse direction, appearing mirror-flipped. This can result in failure in finding
+The LRO NAC images are very large, and sometimes also scanned in reverse
+direction, appearing mirror-flipped. This can result in failure in finding
 matching features for registration. To make the work easier, we will mapproject
 the needed image portion onto this DEM. 
 
