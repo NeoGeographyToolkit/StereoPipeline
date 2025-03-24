@@ -957,6 +957,8 @@ See :numref:`initial_sfs_dem` for how to create an initial DEM using stereo.
 A stereo DEM can also be blended with the LOLA DEM using ``dem_mosaic``
 (after alignment, :numref:`sfs_ground_align`).
 
+.. _terrain_bounds:
+
 Terrain bounds
 ^^^^^^^^^^^^^^
 
@@ -1702,7 +1704,14 @@ Blending the SfS result with the initial terrain
 
 After computing a satisfactory SfS DEM, it can be processed to replace
 the values in the permanently shadowed areas with values from the
-original LOLA DEM, with a transition region. That can be done as::
+original LOLA DEM, with a transition region. 
+
+This process will fail unless the SfS DEM and the LOLA DEM have the same grid.
+How to prepare the initial terrain is described in
+:numref:`sfs_initial_terrain`, and more details about bounds are in
+:numref:`terrain_bounds`. A workaround is suggested later in this section.
+
+The blending can be done as::
 
     sfs_blend --lola-dem lola_dem.tif --sfs-dem sfs_dem.tif      \
       --max-lit-image-mosaic max_lit.tif --image-threshold 0.005 \
@@ -1729,18 +1738,18 @@ above-mentioned sigma. No blending happens for shadowed regions of
 dimensions less than ``--min-blend-size``, where the SfS DEM is
 kept. See :numref:`sfs_blend` for more details.
 
-Note that if one tries to blend an SfS terrain obtained after
-``pc_align``, that won't have the same extent as the LOLA terrain,
-which will make this command fail. It is suggested that the input LOLA
-terrain be prepared with ``gdalwarp -te <corners>`` as described
-earlier, and then the SfS terrain be regenerated starting with this
-terrain, with any desired transform applied to the cameras before
-``parallel_sfs`` is rerun, and then the extent of the LOLA and SfS
-terrains will agree. Or, though this is not recommended, the SfS
-terrain which exists so far and the LOLA terrain can both be
-interpolated using the same ``gdalwarp -te <corners>`` command, or with 
-``dem_mosaic --tap`` as mentioned above.) Any invocation of ``gdalwarp``
-should be used with bicubic or other smooth interpolation.
+If ``sfs_blend`` fails due to the grids not matching, it is suggested that the
+input LOLA terrain be prepared with ``gdalwarp -te <corners>`` as described in
+:numref:`sfs_initial_terrain`, and then the SfS terrain be regenerated starting
+with this terrain, with any desired transform applied to the cameras before
+``parallel_sfs`` is rerun, and then the extent of the LOLA and SfS terrains will
+agree. 
+
+Or, the SfS terrain which exists so far (``sfs_dem.tif``), the LOLA terrain
+(``lola_dem.tif``), and the maximally lit mosaic (``max_lit.tif``) can all be
+resampled to the same grid with ``gdalwarp`` with the ``--te`` and ``-r
+cubicspline`` options, or with ``dem_mosaic --tap``, before invoking
+``sfs_blend``.
 
 Creation of mask of SfS pixels
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
