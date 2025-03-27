@@ -1143,13 +1143,17 @@ or::
 
 in order to create such a match file. 
 
-The latter option will ensure that, when there are more than two images, a
-portion of the matches will result in triangulated points that are formed by at
-least 3 rays, which can be quite important for bundle adjustment. This number of
-rays is recorded as the last field in the ``pointmap.csv`` report files
-(:numref:`ba_err_per_point`).
+The latter option will ensure that, when there are more than two images, a dense
+subset of features within area of overlap will have corresponding matches in
+more than two images, with a single triangulated point on the ground for each
+such matching feature set. If having many such stereo pairs, some triangulated
+points will be represented with matches in all images.
 
-In the latest ASP (:numref:`release`), these options are equivalent. 
+This can be quite important for bundle adjustment. This number of features for
+each triangulated point is the last field in the ``pointmap.csv`` report files
+(:numref:`ba_err_per_point`). 
+
+In the latest ASP (:numref:`release`), these options are equivalent.
 
 The produced match file name is named along the lines of::
 
