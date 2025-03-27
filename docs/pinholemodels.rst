@@ -46,8 +46,8 @@ times the pitch, while :math:`cv` is often the image height in pixels
 times the pitch, though there are situations when these can be quite
 different.
 
-A few sample Pinhole models are shown later in the text. The underlying
-mathematical model is described in :numref:`pinholemath`.
+The camera position and orientation are recorded in the fields *C* and
+*R*. The underlying mathematical model is in :numref:`pinholemath`.
 
 Along with the basic Pinhole camera parameters, a lens distortion model
 can be added. Normally the distortion model is applied after the pixels
@@ -55,10 +55,9 @@ are shifted to be relative to the principal point and divided by the
 focal length, at least for the radial-tangential (Tsai), fisheye, FOV,
 and RPC models. See the Brown-Conrady model for an exception.  
 
-The following lens distortion models are currently supported. (The
-formulas below may miss some small details; the implementation in
-``LensDistortion.cc`` in VisionWorkbench should be the final
-reference.)
+The lens distortion models are enumerated in :numref:`pinhole_distortion`.
+
+A sample Pinhole model is in :numref:`file_format`.
 
 .. _pinhole_distortion:
 
@@ -501,7 +500,7 @@ model file input option and observe the rotation of the 3D model.
 How the pinhole model is applied
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-As mentioned in :numref:`file_format`, the ASP Pinhole models store the focal
+As mentioned in :numref:`pinholemodels`, the ASP Pinhole models store the focal
 length as :math:`fu` and :math:`fv`, the optical center :math:`(cu, cv)` (which
 is the pixel location at which the ray coming from the center of the camera is
 perpendicular to the image plane, in units of the pixel pitch), the vector
