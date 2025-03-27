@@ -1413,9 +1413,6 @@ several causes:
  - There are not enough images of intermediate illumination to tie the
    data together.
  - Some images may have bad jitter (:numref:`sfs_jitter`).
- - Lower-resolution images with large footprint may not register well.
-   The command ``mapproject --query-projection`` can be used to find 
-   the ground sample distance (resolution) of an image.
 
 Here are several possible strategies, apart from the high-level
 overview earlier in :numref:`sfs-lola`:
@@ -1427,8 +1424,8 @@ overview earlier in :numref:`sfs-lola`:
  - Crop all mapprojected images produced with bundle-adjusted cameras to a small
    site, and overlay them while sorted by illumination (solar azimuth angle).
    See for which images the registration failure occurs.
- - Inspect the match files for unprojected images (.match and
-   -clean.match) in ``stereo_gui`` (:numref:`stereo_gui`). Perhaps
+ - Inspect the match files for unprojected images (``.match`` and
+   ``clean.match``) in ``stereo_gui`` (:numref:`stereo_gui`). Perhaps
    there were not enough matches or too many of them were thrown
    out as outliers.
  - Fallback to a smaller subset of images which are self-consistent,
@@ -1437,13 +1434,12 @@ overview earlier in :numref:`sfs-lola`:
    conditions and to increase coverage.
  - Change some bundle adjustment parameters.
 
-If no luck, break up a large site into 4 quadrants, and create a
-solution for each. If these are individually self-consistent and
-consistent with the ground, but have some misregistration
-among them, do a combined bundle adjustment using the .adjust files
-for the quadrants as initial guesses by copying them to a single
-directory. Ensure that the match files cover the combined region in
-that case.
+If no luck, break up a large site into 4 quadrants, and create a solution for
+each. If these are individually self-consistent and consistent with the ground,
+but have some misregistration among them, do a combined bundle adjustment using
+the optimized cameras or .adjust files for the quadrants as initial guesses by
+copying them to a single directory. Ensure that the match files cover the
+combined region in that case.
 
 If some optimized camera files occur in more than one quadrant, a certain
 quadrant may be chosen as an anchor, and its cameras files be given
@@ -1456,6 +1452,12 @@ The ``image_align`` program (:numref:`image_align`) was reported to be of help i
 co-registering images. Note however that failure of registration is almost
 surely because not all images are connected together using tie points, or the
 images are consistent with each other but not with the ground.
+
+If all fails, a fully separate SfS terrain could be produced for each quadrant,
+with generous overlap. Then, hillshade-based alignment may be used to reconcile
+the solutions (:numref:`pc_corr`). This could be applied only on clips that have the
+overlap, and the resulting alignment transform could be applied to the cameras,
+as earlier, and then perhaps SfS redone per quadrant with updated cameras. 
 
 .. _parallel_sfs_usage:
 
