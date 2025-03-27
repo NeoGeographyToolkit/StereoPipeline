@@ -1231,7 +1231,9 @@ The created DEMs can be mosaicked with ``dem_mosaic``
 
 It is strongly suggested to use the ``geodiff`` program (:numref:`geodiff`) to
 inspect how well the individual DEMs agree with their mosaic. This can help
-catch problems early.
+catch problems early. If most DEMs agree well with the mosaic, but some are way
+off, this may need investigation, or the bad ones can be thrown out, and the
+mosaic redone.
 
 Overlay and inspect the produced stereo DEM mosaic and the reference DEM in
 ``stereo_gui``. 
@@ -1245,9 +1247,9 @@ using ``pc_align`` (:numref:`pc_align`)::
       -o run_align/run 
 
 The output 50th *error percentile of smallest errors* as printed by
-this tool should be under 1-2 meters, and ideally less. Otherwise
+this tool should be under 1-5 meters, and ideally less. Otherwise
 likely something is not right, and the registration of images may fail
-later.
+later. 
 
 The ``pc_align`` tool can be quite sensitive to the
 ``--max-displacement`` value. It should be somewhat larger than the
@@ -1300,6 +1302,8 @@ dozen mapprojected images::
 
 Then individual images can be toggled on and off.
 
+.. _sfs_ba_refine:
+
 Registration refinement
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1342,7 +1346,7 @@ The value used for ``--heights-from-dem-uncertainty`` should not be small, as it
 may result in a tight coupling to the reference DEM at the expense of
 self-consistency between the cameras. See also :numref:`heights_from_dem`.
 
-.. _sfs_registration_validation:
+.. _sfs_reg_valid:
 
 Validation of registration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1396,6 +1400,9 @@ See also the earlier section of validation of bundle adjustment
 (:numref:`sfs_ba_validation`). That one discusses a report file
 that measures the errors in the pixel space rather than on the ground.
 
+Further refinement and re-validation can be done after solving for jitter,
+but this is a more advanced topic (:numref:`sfs_jitter`). 
+
 When registration fails
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1405,7 +1412,7 @@ several causes:
  - Images were not sorted by illumination in bundle adjustment.
  - There are not enough images of intermediate illumination to tie the
    data together.
- - Some images may have bad jitter (:numref:`jitter_solve`).
+ - Some images may have bad jitter (:numref:`sfs_jitter`).
  - Lower-resolution images with large footprint may not register well.
    The command ``mapproject --query-projection`` can be used to find 
    the ground sample distance (resolution) of an image.
@@ -1416,7 +1423,7 @@ overview earlier in :numref:`sfs-lola`:
  - See if many mapprojected images are misregistered with the DEM. If 
    yes, bundle adjustment and/or alignment failed and needs to be redone.
  - Throw out images with a high error in report files
-   (:numref:`sfs_registration_validation`, :numref:`sfs_ba_validation`).
+   (:numref:`sfs_reg_valid`, :numref:`sfs_ba_validation`).
  - Crop all mapprojected images produced with bundle-adjusted cameras to a small
    site, and overlay them while sorted by illumination (solar azimuth angle).
    See for which images the registration failure occurs.
@@ -1656,7 +1663,7 @@ One can use the ``--absolute`` option for this tool and then invoke
 DEM should not differ from the reference DEM by more than 1-2 meters.
 
 It is also suggested to produce produce a maximally-list mosaic, as in
-:numref:`sfs_registration_validation`. This should not look too
+:numref:`sfs_reg_valid`. This should not look too
 different if projecting on the initial guess DEM or on the refined one
 created with SfS.
 
@@ -1785,6 +1792,69 @@ diverse-enough illumination conditions, compare the produced
 terrain models, and see how that compares with the estimated
 uncertainty map.
 
+.. _sfs_jitter:
+
+Solving for jitter
+^^^^^^^^^^^^^^^^^^
+
+If the bundle adjustment with a terrain constraint from :numref:`sfs_ba_refine`
+produced well-registered images, as validated in :numref:`sfs_reg_valid`, but
+some jitter is seen in the triangulation error of pairwise stereo DEMs in
+:numref:`sfs_ground_align`, the adventurous user may try to see if the cameras
+can be further refined by solving for jitter (:numref:`jitter_solve`).
+
+At this stage the images should already be well-aligned with the reference DEM.
+We will take the last batch of optimized cameras stored in ``ba_align_ref`` 
+from :numref:`sfs_ba_refine`, and run the jitter command as::
+
+    jitter_solve                                     \
+      --image-list ba_align_ref/run-image_list.txt   \
+      --camera-list ba_align_ref/run-camera_list.txt \
+      --match-files-prefix ba/run                    \
+      --num-lines-per-position 500                   \
+      --num-lines-per-orientation 500                \
+      --max-pairwise-matches 10000                   \
+      --min-matches 1                                \
+      --min-triangulation-angle 1e-10                \
+      --num-iterations 50                            \
+      --num-passes 2                                 \
+      --max-initial-reprojection-error 50            \
+      --overlap-limit 5000                           \
+      --parameter-tolerance 1e-12                    \
+      --heights-from-dem ref.tif                     \
+      --heights-from-dem-uncertainty 10.0            \
+      --anchor-dem ref.tif                           \
+      --num-anchor-points-per-tile 50                \
+      --num-anchor-points-extra-lines 2000           \
+      --anchor-weight 0.05                           \
+      --mapproj-dem ref.tif                          \
+      -o jitter_align_ref/run
+
+It is important to compare this with the bundle adjustment command 
+in :numref:`sfs_ba_refine`.
+
+We used a lot more pairwise matches, as jitter is a finer-grained operation.
+We went back to the full set of matches in ``ba``, before outlier filtering
+and before selecting a subset of them. This may potentially consume 
+a lot of memory and take a lot of time. The number of matches can 
+be reduced in those cases.
+
+We assume the cameras in ``ba_align_ref`` are in CSM format, with the
+adjustments and alignment already applied to them.
+
+The option ``--mapproj-dem`` will result, as before, in a report file, 
+named::
+
+  jitter_align_ref/run-mapproj_match_offset_stats.txt
+  
+that can be compared with the one from bundle adjustment. Hopefully
+the median registration errors go down somewhat. 
+
+The validation can proceed as earlier, in :numref:`sfs_reg_valid`.
+
+Stereo DEMs can be produced with the updated cameras and compared to the earlier
+ones.
+ 
 .. _sfsinsights:
 
 Insights for getting the most of SfS
@@ -1810,4 +1880,5 @@ Here are a few suggestions we have found helpful when running ``sfs``:
 -  Floating the exposures was useful for the Earth and Mars examples, but less
    so for the Moon.
 
+ 
  .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN
