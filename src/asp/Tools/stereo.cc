@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -49,17 +49,17 @@ namespace asp {
 BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
 
   BBox2i b = stereo_settings().left_image_crop_win;
-  boost::shared_ptr<vw::DiskImageResource> rsrc = 
+  boost::shared_ptr<vw::DiskImageResource> rsrc =
           vw::DiskImageResourcePtr(opt.in_file1);
   DiskImageView<PixelGray<float>> left_image(rsrc);
   BBox2i full_box = bounding_box(left_image);
   if (b == BBox2i(0, 0, 0, 0)) {
 
     // No box was provided. Use the full box.
-    if ( fs::exists(opt.out_prefix+"-L.tif") ){
+    if (fs::exists(opt.out_prefix+"-L.tif")) {
       DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
       b = bounding_box(L_img);
-    }else{
+    } else {
       b = full_box; // To not have an empty box
     }
 
@@ -68,7 +68,7 @@ BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
     // Ensure that the region is inside the maximum theoretical region
     b.crop(full_box);
 
-    if ( fs::exists(opt.out_prefix+"-align-L.exr") ){
+    if (fs::exists(opt.out_prefix+"-align-L.exr")) {
       Matrix<double> align_left_matrix = math::identity_matrix<3>();
       read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
       b = HomographyTransform(align_left_matrix).forward_bbox(b);
@@ -87,7 +87,7 @@ BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
 
 // Handle the arguments for the multiview case. The logic used to break up the
 // command line arguments for all images/cameras into command line arguments for
-// pairs of image/cameras is fragile. 
+// pairs of image/cameras is fragile.
 
 void handle_multiview(int argc, char* argv[],
                       int num_pairs,
@@ -126,11 +126,11 @@ void handle_multiview(int argc, char* argv[],
   // Store the options and their values (that is, not the input files).
   for (int s = 0; s < (int)files.size(); s++)
     file_set.insert(files[s]);
-  for (int s = 1; s < argc; s++){
+  for (int s = 1; s < argc; s++) {
     if (file_set.find(argv[s]) == file_set.end())
       options.push_back(argv[s]);
   }
-  
+
   // Must signal to the children runs that they are part of a multiview run
   std::string opt_str = "--part-of-multiview-run";
   auto it = find(options.begin(), options.end(), opt_str);
@@ -224,8 +224,8 @@ void handle_multiview(int argc, char* argv[],
   } // end loop through pairs
 
   // Sanity checks specific to multiview
-  
-  if (stereo_settings().propagate_errors) 
+
+  if (stereo_settings().propagate_errors)
     vw::vw_throw(vw::ArgumentErr() << "Error propagation is not "
                   << "implemented for more than two images.\n");
 
@@ -236,7 +236,7 @@ void handle_multiview(int argc, char* argv[],
               << "instead the stereo/parallel_stereo scripts with desired entry points.\n");
 
   // This must happen after StereoSession is initialized
-  if (opt_vec[0].session->do_bathymetry()) 
+  if (opt_vec[0].session->do_bathymetry())
     vw_throw(ArgumentErr() << "Bathymetry correction does not work with "
               << "multiview stereo.\n");
 
@@ -244,19 +244,19 @@ void handle_multiview(int argc, char* argv[],
 }
 
 // If --trans-crop-win is in the input arguments, this is means that we are running
-// stereo for a tile  
+// stereo for a tile
 bool is_tile_run(int argc, char* argv[]) {
   for (int s = 1; s < argc; s++) {
-    if (std::string(argv[s]) == "--trans-crop-win") 
+    if (std::string(argv[s]) == "--trans-crop-win")
       return true;
   }
-  
+
   return false;
 }
 
 // Save some info that will be useful for peeking at ar un
 void save_run_info(ASPGlobalOptions const& opt,
-                   std::vector<std::string> const& images, 
+                   std::vector<std::string> const& images,
                    std::vector<std::string> const& cameras,
                    std::string const& input_dem) {
 
@@ -264,16 +264,16 @@ void save_run_info(ASPGlobalOptions const& opt,
   std::ofstream ostr(info_file.c_str());
   if (!ostr.good())
     vw_throw(ArgumentErr() << "Failed to open: " << info_file << "\n");
-    
+
   // Print the images
   ostr << "images: ";
-  for (int i = 0; i < (int)images.size(); i++) 
+  for (int i = 0; i < (int)images.size(); i++)
     ostr << images[i] << " ";
   ostr << "\n";
 
   // Print the cameras
   ostr << "cameras: ";
-  for (int i = 0; i < (int)cameras.size(); i++) 
+  for (int i = 0; i < (int)cameras.size(); i++)
     ostr << cameras[i] << " ";
   ostr << "\n";
 
@@ -284,19 +284,19 @@ void save_run_info(ASPGlobalOptions const& opt,
   ostr << "output_prefix: " << opt.out_prefix << "\n";
 
   // Print the alignment method
-  ostr << "alignment_method: " << stereo_settings().alignment_method << "\n"; 
+  ostr << "alignment_method: " << stereo_settings().alignment_method << "\n";
 
   // Print the stereo session
   ostr << "stereo_session: " << opt.stereo_session << "\n";
 
   // Print left-image-crop-win
   auto l = stereo_settings().left_image_crop_win;
-  ostr << "left_image_crop_win: " << l.min().x() << " " << l.min().y() << " " 
+  ostr << "left_image_crop_win: " << l.min().x() << " " << l.min().y() << " "
       << l.width() << " " << l.height() << "\n";
 
   // Print right-image-crop-win
   auto r = stereo_settings().right_image_crop_win;
-  ostr << "right_image_crop_win: " << r.min().x() << " " << r.min().y() << " " 
+  ostr << "right_image_crop_win: " << r.min().x() << " " << r.min().y() << " "
       << r.width() << " " << r.height() << "\n";
 }
 
@@ -321,18 +321,18 @@ bool parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
     cartography::GeoReference georef;
     has_georef = read_georeference(georef, files.back());
   } catch(...) {}
-  
+
   if (has_georef) { // I guess it worked
     dem_path = files.back();
     files.pop_back();
-  }else{ // We tried to load the prefix, there is no dem.
+  } else { // We tried to load the prefix, there is no dem.
     dem_path = "";
   }
   if (files.size() < 3) {
     vw_throw(ArgumentErr() << "Expecting at least three inputs to stereo.\n");
     return false;
   }
-  
+
   // Find the output prefix
   prefix = files.back(); // Dem, if present, was already popped off the back.
 
@@ -389,10 +389,10 @@ void parse_multiview(int argc, char* argv[],
 
   // Add note on the alignment method. If done in handle_arguments, it will be
   // printed twice.
-  if (stereo_settings().correlator_mode) 
+  if (stereo_settings().correlator_mode)
     vw_out() << "Running in correlator mode. The alignment method is: "
               << stereo_settings().alignment_method << ".\n";
-  
+
   // Extract all the positional elements
   std::vector<std::string> images, cameras;
   std::string input_dem;
@@ -412,21 +412,21 @@ void parse_multiview(int argc, char* argv[],
     handle_arguments(argc, argv, opt_vec[0], additional_options,
                     is_multiview, files, usage, exit_early);
   } else {
-    handle_multiview(argc, argv, num_pairs, files, images, cameras, output_prefix, input_dem, 
+    handle_multiview(argc, argv, num_pairs, files, images, cameras, output_prefix, input_dem,
                      additional_options, verbose, exit_early, usage,
                      opt_vec); // output
   }
-  
+
   // For each stereo command not in a tile, print the run info
   if (!is_tile_run(argc, argv))
     save_run_info(opt_vec[0], images, cameras, input_dem);
-  
+
   return;
 }
 
 // Parse data needed for error propagation
 void setup_error_propagation(ASPGlobalOptions const& opt) {
-  
+
   // A bugfix for the propagated errors not being saved with enough digits
   if (stereo_settings().point_cloud_rounding_error > 0) {
     vw_out(WarningMessage) << "Option --point-cloud-rounding-error is set to " <<
@@ -436,12 +436,12 @@ void setup_error_propagation(ASPGlobalOptions const& opt) {
       stereo_settings().point_cloud_rounding_error = 1.0e-8;
       vw_out() << "Round triangulated points to "
                 << stereo_settings().point_cloud_rounding_error << " meters. "
-                << "(Option: --point-cloud-rounding-error.) "  
+                << "(Option: --point-cloud-rounding-error.) "
                 << "This is much finer rounding than usual, motivated by the "
                 << "fact that the propagated errors vary slowly and will be "
                 << "saved with step artifacts otherwise.\n";
   }
-  
+
   vw::Vector2 & v = asp::stereo_settings().horizontal_stddev; // alias, will modify
   bool message_printed = false; // will print the message only once
   if (v[0] == 0 && v[1] == 0) {
@@ -451,8 +451,8 @@ void setup_error_propagation(ASPGlobalOptions const& opt) {
     v[0] = asp::horizontalStDevFromCamera(camera_model1, message_printed);
     v[1] = asp::horizontalStDevFromCamera(camera_model2, message_printed);
   }
-  
-  asp::horizontalStdDevCheck(v, opt.session->name());  
+
+  asp::horizontalStdDevCheck(v, opt.session->name());
 }
 
 // Parse input command line arguments
@@ -477,7 +477,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description all_general_options("");
-  all_general_options.add(general_options_sub );
+  all_general_options.add(general_options_sub);
   all_general_options.add(generate_config_file_options(opt));
 
   po::options_description positional_options("");
@@ -506,7 +506,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
     positional_desc.add("input-dem",          1);
   }
 
-  usage = 
+  usage =
    "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n"
    "  Extensions are automatically added to the output files.\n"
    "  Camera model arguments may be optional for some stereo session types (e.g., isis).\n"
@@ -536,7 +536,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
                                     cfg_options), vm);
     po::notify(vm);
   } catch (po::error const& e) {
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
                   << "Error parsing configuration file:\n" << e.what() << "\n");
   }
 
@@ -547,7 +547,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   if (stereo_settings().correlator_mode) {
     // Images are assumed aligned, unless alignment is explicitly requested.
     if (vm["alignment-method"].defaulted())
-      stereo_settings().alignment_method = "none"; 
+      stereo_settings().alignment_method = "none";
     opt.stereo_session = "rpc";  // since inputs are images this seems simpler
     if (stereo_settings().propagate_errors)
       vw::vw_throw(vw::ArgumentErr() << "Cannot propagate errors in correlator mode.\n");
@@ -555,15 +555,15 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
 
   // Make sure that algorithm 0 is same as asp_bm, etc.
   boost::to_lower(stereo_settings().stereo_algorithm);
-  if (stereo_settings().stereo_algorithm == "0") 
+  if (stereo_settings().stereo_algorithm == "0")
     stereo_settings().stereo_algorithm = "asp_bm";
-  else if (stereo_settings().stereo_algorithm == "1") 
+  else if (stereo_settings().stereo_algorithm == "1")
     stereo_settings().stereo_algorithm = "asp_sgm";
-  else if (stereo_settings().stereo_algorithm == "2") 
+  else if (stereo_settings().stereo_algorithm == "2")
     stereo_settings().stereo_algorithm = "asp_mgm";
-  else if (stereo_settings().stereo_algorithm == "3") 
+  else if (stereo_settings().stereo_algorithm == "3")
     stereo_settings().stereo_algorithm = "asp_final_mgm";
-  
+
   // Add the options to the usage
   std::ostringstream os;
   os << usage << general_options;
@@ -606,9 +606,9 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   // Turn on logging to file, except for stereo_parse, as that one is called
   // all the time.
   std::string prog_name = extract_prog_name(argv[0]);
-  if (prog_name.find("stereo_parse") == std::string::npos) 
+  if (prog_name.find("stereo_parse") == std::string::npos)
     asp::log_to_file(argc, argv, opt.stereo_default_filename, opt.out_prefix);
-  
+
   // There are two crop win boxes, in respect to original left
   // image, named left_image_crop_win, and in respect to the
   // transformed left image (L.tif), named trans_crop_win. We use
@@ -617,7 +617,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   // from parallel_stereo.
 
   // Interpret the the last two coordinates of the crop win boxes as
-  // width and height rather than max_x and max_y. 
+  // width and height rather than max_x and max_y.
   BBox2i bl = stereo_settings().left_image_crop_win;
   BBox2i br = stereo_settings().right_image_crop_win;
   BBox2i bt = stereo_settings().trans_crop_win;
@@ -630,12 +630,12 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
 
   int num_left_bands = vw::get_num_channels(opt.in_file1);
   int num_right_bands = vw::get_num_channels(opt.in_file2);
-  
+
   // Ensure the crop windows are always contained in the images.
   boost::shared_ptr<vw::DiskImageResource> left_resource, right_resource;
   left_resource  = vw::DiskImageResourcePtr(opt.in_file1);
   right_resource = vw::DiskImageResourcePtr(opt.in_file2);
-  
+
   // For multi-band images, this will only read the first band. This is enough
   // for now as we do only bounding box checks. During stereo preprocessing, the
   // images will be opened again and the correct band will be used.
@@ -652,7 +652,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
     vw_throw(ArgumentErr() << "Invalid left crop window specified!\n");
   if (crop_right && stereo_settings().right_image_crop_win.empty())
     vw_throw(ArgumentErr() << "Invalid right crop window specified!\n");
-  
+
   // Make sure the trans_crop_win value is correct going forwards.
   if (!crop_left) {
     // The crop window after transforming the left image via
@@ -661,20 +661,20 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
       stereo_settings().trans_crop_win = transformed_crop_win(opt);
 
     // Intersect with L.tif which is the transformed and processed left image.
-    if ( fs::exists(opt.out_prefix+"-L.tif") ){
+    if (fs::exists(opt.out_prefix+"-L.tif")) {
       DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
       stereo_settings().trans_crop_win.crop(bounding_box(L_img));
     }
   } else {
     // If left_image_crop_win is specified, as can be see in
     // StereoSession::preprocessing_hook(), we actually
-    // physically crop the image.  The trans_crop_win as passed 
-    // here from parallel_stereo will already be a tile in the 
-    // cropped image. So we just use it as it is. If it is not defined, 
+    // physically crop the image.  The trans_crop_win as passed
+    // here from parallel_stereo will already be a tile in the
+    // cropped image. So we just use it as it is. If it is not defined,
     // we set it to the entire cropped image.
     if (stereo_settings().trans_crop_win == BBox2i(0, 0, 0, 0)) {
       stereo_settings().trans_crop_win = bounding_box(left_image);
-      if ( fs::exists(opt.out_prefix+"-L.tif") ){
+      if (fs::exists(opt.out_prefix+"-L.tif")) {
         DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
         stereo_settings().trans_crop_win = bounding_box(L_img);
       }
@@ -684,12 +684,12 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   // If not using crop wins but the crop image exists, then things won't go well.
   if (!crop_left && !crop_right &&
       (fs::exists(opt.out_prefix+"-L-cropped.tif") ||
-        fs::exists(opt.out_prefix+"-R-cropped.tif"))) 
+        fs::exists(opt.out_prefix+"-R-cropped.tif")))
     vw_throw(ArgumentErr() << "The current output prefix '" << opt.out_prefix
               << "' has an old run which used --left-image-crop-win, "
               << "but the current run does not. Results will be incorrect. "
               << "Use a new output prefix.");
-  
+
   // TODO: May need to update this check for individual crop cases.
   // Sanity check. Don't run it if we have L-cropped.tif or R-cropped.tif,
   // in that case we have ran the gui before, and the sizes of the subimages
@@ -697,14 +697,14 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   if ((stereo_settings().trans_crop_win.width () <= 0 ||
         stereo_settings().trans_crop_win.height() <= 0) &&
       !fs::exists(opt.out_prefix+"-L-cropped.tif")     &&
-      !fs::exists(opt.out_prefix+"-R-cropped.tif") ){
+      !fs::exists(opt.out_prefix+"-R-cropped.tif")) {
     vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n");
   }
 
   // For time being the crop wins are not taken into account when
   // matches are produced from disparity, and the results are wrong.
   // Therefore, disable this.
-  if ((crop_left || crop_right) && 
+  if ((crop_left || crop_right) &&
       (stereo_settings().num_matches_from_disparity > 0 ||
        stereo_settings().num_matches_from_disp_triplets > 0))
     vw_throw(ArgumentErr() << "Cannot use --num-matches-from-disparity or "
@@ -727,31 +727,31 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
       stereo_settings().num_matches_from_disp_triplets > 0)
     vw_throw(ArgumentErr() << "Cannot have both --num-matches-from-disparity and "
               << "--num-matches-from-disp-triplets.\n");
-  
+
   // In the latest ASP always create triplets
   if (stereo_settings().num_matches_from_disparity > 0) {
-    vw::vw_out(vw::WarningMessage) 
+    vw::vw_out(vw::WarningMessage)
       << "The option --num-matches-from-disparity is equivalent to "
-      << "--num-matches-from-disp-triplets.\n"; 
-    stereo_settings().num_matches_from_disp_triplets 
+      << "--num-matches-from-disp-triplets.\n";
+    stereo_settings().num_matches_from_disp_triplets
       = stereo_settings().num_matches_from_disparity;
-   stereo_settings().num_matches_from_disparity = 0; 
+   stereo_settings().num_matches_from_disparity = 0;
   }
-    
+
   // Ensure good order
   BBox2 & b = stereo_settings().lon_lat_limit; // alias
   if (b != BBox2(0,0,0,0)) {
-    if (b.min().y() > b.max().y()) 
+    if (b.min().y() > b.max().y())
       std::swap(b.min().y(), b.max().y());
-    if (b.min().x() > b.max().x()) 
+    if (b.min().x() > b.max().x())
       std::swap(b.min().x(), b.max().x());
   }
 
   if (!stereo_settings().match_files_prefix.empty() &&
-      !stereo_settings().clean_match_files_prefix.empty()) 
+      !stereo_settings().clean_match_files_prefix.empty())
     vw_throw(ArgumentErr() << "Cannot specify both --match-files-prefix and "
               << "--clean-match-files-prefix.\n");
-  
+
   if (!stereo_settings().corr_search_limit.empty() && stereo_settings().max_disp_spread > 0)
     vw_throw(ArgumentErr() << "Cannot specify both --corr-search-limit and "
               << "--max-disp-spread.\n");
@@ -759,33 +759,33 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   // Verify that there is only one channel per input image
   if (asp::skip_image_normalization(opt) &&
     (num_left_bands > 1 || num_right_bands > 1))
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "Error: Cannot skip image normalization if the input images "
              << "have more than one band (channel).\n\n");
 
   // Print a warning if more than one band exists and the band was not set.
-  if (stereo_settings().band == -1 && 
+  if (stereo_settings().band == -1 &&
       (num_left_bands > 1 || num_right_bands > 1)) {
     vw_out(WarningMessage) << "The input images have more than one band (channel), "
                             << "but the --band option was not set. Using band 1.\n";
     stereo_settings().band = 1;
   }
-  
+
   // Having printed the warning, set the band to 1 if it was not set.
   if (stereo_settings().band == -1)
     stereo_settings().band = 1;
-  
-  // Sanity check  
-  if (stereo_settings().band <= 0 || 
+
+  // Sanity check
+  if (stereo_settings().band <= 0 ||
       stereo_settings().band > num_left_bands ||
       stereo_settings().band > num_right_bands)
-    vw_throw(ArgumentErr() << "The value of --band is out of range.\n");    
-      
+    vw_throw(ArgumentErr() << "The value of --band is out of range.\n");
+
   if ((stereo_settings().bundle_adjust_prefix != "") &&
       (stereo_settings().alignment_method == "epipolar"))
     vw_throw(ArgumentErr() << "Error: Epipolar alignment does not support using a "
               << "bundle adjust prefix.\n");
-  
+
   // Replace normal default values with these when SGM is enabled.
   // - TODO: Move these somewhere easier to find!
   const int SGM_DEFAULT_SUBPIXEL_MODE        = 12; // Blend
@@ -802,15 +802,15 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   if (stereo_settings().stereo_algorithm == "mgm" &&
       stereo_settings().corr_timeout == stereo_settings().default_corr_timeout) {
       stereo_settings().corr_timeout = 10 * stereo_settings().default_corr_timeout;
-    vw_out() << "For the original mgm algorithm increasing the --corr-timeout to: " 
+    vw_out() << "For the original mgm algorithm increasing the --corr-timeout to: "
              << stereo_settings().corr_timeout << ".\n";
   }
 
   // TODO: Modify SGM tile sizes?
-  
+
   vw::stereo::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
-  
+
   if (stereo_alg > vw::stereo::VW_CORRELATION_BM) {
     // If these parameters were not specified by the user, override
     // the normal default values.  Note that by setting
@@ -832,7 +832,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
       stereo_settings().disp_smooth_size = SGM_DEFAULT_TEXTURE_SMOOTH_SIZE;
     if (vm["texture-smooth-scale"].defaulted())
       stereo_settings().disp_smooth_texture = SGM_DEFAULT_TEXTURE_SMOOTH_SCALE;
-    if (vm["subpixel-mode"].defaulted()) 
+    if (vm["subpixel-mode"].defaulted())
       stereo_settings().subpixel_mode = SGM_DEFAULT_SUBPIXEL_MODE;
 
     // This is for the case when settings are read from stereo.default. Print
@@ -842,7 +842,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
                               << "the default suggested value for "
                               << "rm-cleanup-passes is "
                               << SGM_DEFAULT_RM_CLEANUP_PASSES << ". "
-                              << "Got instead " << stereo_settings().rm_cleanup_passes 
+                              << "Got instead " << stereo_settings().rm_cleanup_passes
                               << ".\n";
     if (stereo_settings().median_filter_size != SGM_DEFAULT_MEDIAN_FILTER_SIZE)
       vw_out(WarningMessage) << "When using a stereo algorithm rather than asp_bm, "
@@ -878,7 +878,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
     if (vm["cost-mode"].defaulted() || stereo_alg >= vw::stereo::VW_CORRELATION_OTHER)
       stereo_settings().cost_mode = SGM_DEFAULT_COST_MODE;
     if (vm["corr-kernel"].defaulted() || stereo_alg >= vw::stereo::VW_CORRELATION_OTHER)
-      stereo_settings().corr_kernel 
+      stereo_settings().corr_kernel
         = Vector2i(SGM_DEFAULT_KERNELSIZE, SGM_DEFAULT_KERNELSIZE);
 
     // This is a fix for the user setting cost-mode in stereo.default, when
@@ -886,10 +886,10 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
     // 3 or 4 for asp_sgm / asp_mgm, as it produced junk.
     if (stereo_settings().cost_mode != 3 && stereo_settings().cost_mode != 4)
       vw_throw(ArgumentErr() << "When using the asp_sgm or asp_mgm "
-              << "stereo algorithm, cost-mode must be 3 or 4. " 
+              << "stereo algorithm, cost-mode must be 3 or 4. "
               << "Check your stereo.default or command-line options.\n");
     // Also do not allow corr-kernel to be outside of [3, 9]
-    if (stereo_settings().corr_kernel[0] < 3 || stereo_settings().corr_kernel[0] > 9) 
+    if (stereo_settings().corr_kernel[0] < 3 || stereo_settings().corr_kernel[0] > 9)
       vw_throw(ArgumentErr() << "For the asp_sgm / asp_mgm algorithm, "
         << "the corr kernel size must be between 3 and 9 (inclusive). "
         << "Check your stereo.default or command-line options.\n");
@@ -902,7 +902,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   if (!using_tiles) {
     // No need for a collar when we are not using tiles.
     stereo_settings().sgm_collar_size = 0;
-  } 
+  }
 
   if (stereo_alg >= vw::stereo::VW_CORRELATION_OTHER &&
       stereo_settings().alignment_method != "local_epipolar") {
@@ -910,9 +910,9 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
               << "used only with alignment method local_epipolar.\n");
   }
 
-  if (exit_early) 
+  if (exit_early)
     return;
-  
+
   // The StereoSession call automatically determines the type of object to
   // create from the input parameters. In correlator mode there are no cameras,
   // so don't print the session.
@@ -928,7 +928,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   // Load the cameras. They will be cached in the session.
   boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
   opt.session->camera_models(camera_model1, camera_model2);
-  
+
   // Run a set of checks to make sure the settings are compatible.
   user_safety_checks(opt);
 
@@ -959,17 +959,17 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
   // Error checking
 
   bool dem_provided = !opt.input_dem.empty();
-   
+
   vw::Vector2 heights = asp::stereo_settings().ortho_heights;
   bool have_heights = (!std::isnan(heights[0]) && !std::isnan(heights[1]));
   if (have_heights && dem_provided)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The option --ortho-heights expects no DEM as input argument.\n");
- 
-  // We will work as if the images were mapprojected 
+
+  // We will work as if the images were mapprojected
   if (have_heights)
     dem_provided = true;
-       
+
   // Seed mode valid values
   if (stereo_settings().seed_mode > 3)
     vw_throw(ArgumentErr() << "Invalid value for --corr-seed-mode: "
@@ -978,16 +978,16 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
   if (stereo_settings().seed_mode == 2) {
 
     if (stereo_settings().disparity_estimation_dem_error <= 0.0)
-      vw_throw(ArgumentErr() 
+      vw_throw(ArgumentErr()
         << "For --corr-seed-mode 2, the value of disparity-estimation-dem-error "
         << "must be positive.");
-      
+
     if (stereo_settings().disparity_estimation_dem.empty())
-      vw_throw(ArgumentErr() 
+      vw_throw(ArgumentErr()
         << "For --corr-seed-mode 2, must set --disparity-estimation-dem.\n");
-  
+
     if (stereo_settings().alignment_method == "epipolar")
-      vw_throw(ArgumentErr() 
+      vw_throw(ArgumentErr()
         << "For --corr-seed-mode 2, cannot use epipolar alignment.\n");
   }
 
@@ -1011,28 +1011,28 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     // The diagonal terms of these must be equal.
     double tol = 1e-10;
     if (std::abs(M1(0, 0) - M2(0, 0)) > tol || std::abs(M1(1, 1) - M2(1, 1)) > tol)
-        vw::vw_throw(vw::ArgumentErr() 
+        vw::vw_throw(vw::ArgumentErr()
                << "The input mapprojected images must have the same ground resolution "
                << "for best results. This can be overriden with the option "
                << "--allow-different-mapproject-gsd, but is not recommended.\n");
   }
-  
+
   // If the images are map-projected, we need an input DEM, as we use the ASP
   // flow with map-projected images.
   bool corr_only = stereo_settings().correlator_mode;
   if (has_georef1 && has_georef2 && !dem_provided && !corr_only) {
-    
-    // If we can identify the DEM these were map-projected from, that's a fatal 
-    // error.  
-    std::string l_dem_file, r_dem_file; 
-    std::string dem_file_key = "DEM_FILE"; 
-    boost::shared_ptr<vw::DiskImageResource> 
+
+    // If we can identify the DEM these were map-projected from, that's a fatal
+    // error.
+    std::string l_dem_file, r_dem_file;
+    std::string dem_file_key = "DEM_FILE";
+    boost::shared_ptr<vw::DiskImageResource>
       l_rsrc(new vw::DiskImageResourceGDAL(opt.in_file1));
     vw::cartography::read_header_string(*l_rsrc.get(), dem_file_key, l_dem_file);
-    boost::shared_ptr<vw::DiskImageResource> 
+    boost::shared_ptr<vw::DiskImageResource>
       r_rsrc(new vw::DiskImageResourceGDAL(opt.in_file2));
     vw::cartography::read_header_string(*r_rsrc.get(), dem_file_key, r_dem_file);
-    if (l_dem_file != "" || r_dem_file != "") 
+    if (l_dem_file != "" || r_dem_file != "")
       vw_throw(ArgumentErr() << "The input images appear to be map-projected, "
                 << "but no DEM was provided. Please provide a DEM.\n");
 
@@ -1061,7 +1061,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
   }
 
   if (stereo_settings().subpixel_kernel[0]%2 == 0 ||
-      stereo_settings().subpixel_kernel[1]%2 == 0   ){
+      stereo_settings().subpixel_kernel[1]%2 == 0) {
     vw_throw(ArgumentErr() << "The entries of subpixel-kernel must be odd numbers.\n");
   }
 
@@ -1071,13 +1071,13 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
 
   // For external algorithms we will still use the MGM algorithm for low-res
-  // disparity, so cost mode of 3 and 4 is fine unless for regular block matching. 
+  // disparity, so cost mode of 3 and 4 is fine unless for regular block matching.
   if (stereo_alg == vw::stereo::VW_CORRELATION_BM) {
     if (stereo_settings().cost_mode == 3 || stereo_settings().cost_mode == 4)
       vw_throw(ArgumentErr() << "Cannot use the census transform with "
                 << "the ASP_BM block matching algorithm.\n");
   }
-  
+
   if (stereo_settings().cost_mode > 4)
     vw_throw(ArgumentErr() << "Unknown value " << stereo_settings().cost_mode
               << " for cost-mode.\n");
@@ -1096,17 +1096,24 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
   }
 
   if (opt.session->do_bathymetry()) {
-    if (stereo_settings().refraction_index <= 1.0) 
-      vw_throw(ArgumentErr() << "The water index of refraction to be used in "
-                << "bathymetry correction must be bigger than 1.\n");
 
-    if (stereo_settings().bathy_plane == "") 
-      vw_throw(ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
+     // If only the topo cloud needs computing, will use only the info from the
+     // left and right bathy masks, so does not need the refraction index and
+     // the bathy plane.
+     if (asp::stereo_settings().output_cloud_type != "topo") {
 
-    // Sanity check reading the bathy plane
-    std::vector<BathyPlaneSettings> bathy_plane_set;
-    read_bathy_plane_set(stereo_settings().bathy_plane, bathy_plane_set);
-    
+      if (stereo_settings().refraction_index <= 1.0)
+        vw_throw(ArgumentErr() << "The water index of refraction to be used in "
+                  << "bathymetry correction must be bigger than 1.\n");
+
+      if (stereo_settings().bathy_plane == "")
+        vw_throw(ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
+
+      // Sanity check reading the bathy plane
+      std::vector<BathyPlaneSettings> bathy_plane_set;
+      read_bathy_plane_set(stereo_settings().bathy_plane, bathy_plane_set);
+    }
+
     if (opt.session->name() != "dg" &&
         opt.session->name() != "rpc" &&
         opt.session->name() != "dgmaprpc" &&
@@ -1120,16 +1127,16 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     if (stereo_settings().alignment_method != "homography"     &&
         stereo_settings().alignment_method != "affineepipolar" &&
         stereo_settings().alignment_method != "local_epipolar" &&
-        stereo_settings().alignment_method != "none") 
+        stereo_settings().alignment_method != "none")
       vw_throw(ArgumentErr() << "Bathymetry correction only works with alignment methods "
                 << "homography, affineepipolar, local_epipolar, and none.\n");
-    
+
   }
 
-  if (opt.session->do_bathymetry() && stereo_settings().propagate_errors) 
+  if (opt.session->do_bathymetry() && stereo_settings().propagate_errors)
     vw_throw(ArgumentErr() << "Error propagation is not implemented when "
               << "bathymetry is modeled.\n");
-  
+
   // Need the percentage to be more than 50 as we look at the range [100 - pct, pct].
   if (stereo_settings().outlier_removal_params[0] <= 50.0)
     vw_throw(ArgumentErr() << "The --outlier-removal-params percentage must be more than 50.\n");
@@ -1137,24 +1144,24 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     vw_throw(ArgumentErr() << "The --outlier-removal-params factor must be positive.\n");
 
   if (stereo_settings().save_lr_disp_diff) {
-    
-    if (stereo_settings().xcorr_threshold < 0.0) 
+
+    if (stereo_settings().xcorr_threshold < 0.0)
       vw_throw(ArgumentErr() << "Must have a non-negative value of --xcorr-threshold "
                 << "to be able to use --save-left-right-disparity-difference.\n");
 
-    if (stereo_alg >= vw::stereo::VW_CORRELATION_OTHER) 
+    if (stereo_alg >= vw::stereo::VW_CORRELATION_OTHER)
       vw_throw(ArgumentErr() << "Can use --save-left-right-disparity-difference "
                 << "only with stereo algorithms asp_bm, asp_sgm, asp_mgm, and "
                 << "asp_final_mgm.\n");
   }
 
-  if (!std::isnan(stereo_settings().nodata_value) && stereo_settings().nodata_value < 0) 
+  if (!std::isnan(stereo_settings().nodata_value) && stereo_settings().nodata_value < 0)
      vw::vw_throw(vw::ArgumentErr() << "The value of nodata must be non-negative.\n");
 
-  if (stereo_settings().propagate_errors && stereo_settings().compute_error_vector) 
+  if (stereo_settings().propagate_errors && stereo_settings().compute_error_vector)
     vw::vw_throw(vw::ArgumentErr() << "Cannot use option --error-vector for computing "
                   << "the triangulation error vector when propagating errors (covariances) "
-                  << "from cameras, as those are stored instead in " 
+                  << "from cameras, as those are stored instead in "
                   << "bands 5 and 6.\n");
 
   // Camera checks
@@ -1162,10 +1169,10 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     try {
       // Note. Cameras are loaded just once, and repeated invocation of camera_models()
       // will not reload them. Hence this check does not incur a performance hit
-      // due to loading of the cameras. 
+      // due to loading of the cameras.
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt.session->camera_models(camera_model1, camera_model2);
-      
+
       Vector3 cam1_ctr = camera_model1->camera_center(Vector2());
       Vector3 cam2_ctr = camera_model2->camera_center(Vector2());
       Vector3 cam1_vec = camera_model1->pixel_to_vector(Vector2());
@@ -1177,7 +1184,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
           << "\tYou should double check your given camera\n"
           << "\tmodels as most likely stereo won't be able\n"
           << "\tto triangulate or perform epipolar rectification.\n";
-      
+
       // Developer friendly help
       VW_OUT(DebugMessage,"asp") << "Camera 1 location: " << cam1_ctr << "\n"
                                   << "   in estimated Lon Lat Rad: "
@@ -1191,13 +1198,13 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
       VW_OUT(DebugMessage,"asp") << "Camera 2 pointing dir: " << cam2_vec << "\n"
                                   << "      dot against pos: " << dot_prod(cam2_vec, cam2_ctr)
                                   << "\n";
-    
+
       // For RPC cameras the camera center is not accurate, so don't print it.
-      if (opt.stereo_session != "rpc" && 
+      if (opt.stereo_session != "rpc" &&
           opt.stereo_session.find("rpcmap") == std::string::npos)
         vw_out() << "Distance between camera centers: "
                  << norm_2(cam1_ctr - cam2_ctr) << " meters.\n";
-      
+
       // Can cameras triangulate to point at something in front of them?
       stereo::StereoModel model(camera_model1.get(), camera_model2.get());
       double error;
@@ -1211,7 +1218,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
           << "You should double-check your input cameras as most likely stereo "
           << "will not be able to triangulate.\n";
       }
-      
+
     } catch (const std::exception& e) {
       // Don't throw an error here. There are legitimate reasons as to
       // why the first checks may fail. For example, the top left pixel
@@ -1220,7 +1227,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
       vw_out(DebugMessage,"asp") << e.what() << std::endl;
     }
   } // end camera checks
-  
+
 } // End user_safety_checks
 
 // See if user's request to skip image normalization can be
@@ -1228,9 +1235,9 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
 // to work with with mapprojected images. It is also not documented.
 bool skip_image_normalization(ASPGlobalOptions const& opt) {
 
-  if (!stereo_settings().skip_image_normalization) 
+  if (!stereo_settings().skip_image_normalization)
     return false;
-  
+
   bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
   bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
@@ -1242,7 +1249,7 @@ bool skip_image_normalization(ASPGlobalOptions const& opt) {
                   vw::has_tif_or_ntf_extension(opt.in_file1)   &&
                   vw::has_tif_or_ntf_extension(opt.in_file2));
 
-  if (!is_good) 
+  if (!is_good)
     vw_throw(ArgumentErr()
               << "Cannot skip image normalization unless there is no alignment, "
               << "no use of --left-image-crop-win and --right-image-crop-win, "
@@ -1262,26 +1269,26 @@ vw::stereo::CorrelationAlgorithm stereo_alg_to_num(std::string alg) {
   boost::to_lower(alg);
 
   // Sanity check
-  if (alg == "") 
+  if (alg == "")
     vw_throw(ArgumentErr() << "No stereo algorithm was specified.\n");
-  
-  if (alg.rfind("0", 0) == 0 || alg.rfind("asp_bm", 0) == 0) 
+
+  if (alg.rfind("0", 0) == 0 || alg.rfind("asp_bm", 0) == 0)
     return vw::stereo::VW_CORRELATION_BM;
-  
-  if (alg.rfind("1", 0) == 0 || alg.rfind("asp_sgm", 0) == 0) 
+
+  if (alg.rfind("1", 0) == 0 || alg.rfind("asp_sgm", 0) == 0)
     return vw::stereo::VW_CORRELATION_SGM;
-  
-  if (alg.rfind("2", 0) == 0 || alg.rfind("asp_mgm", 0) == 0) 
+
+  if (alg.rfind("2", 0) == 0 || alg.rfind("asp_mgm", 0) == 0)
     return vw::stereo::VW_CORRELATION_MGM;
-  
-  if (alg.rfind("3", 0) == 0 || alg.rfind("asp_final_mgm", 0) == 0) 
+
+  if (alg.rfind("3", 0) == 0 || alg.rfind("asp_final_mgm", 0) == 0)
     return vw::stereo::VW_CORRELATION_FINAL_MGM;
 
   // Sanity check. Any numerical values except 0, 1, 2, 3 are not accepted.
   int num = atof(alg.c_str());
-  if (num < 0 || num > 3) 
+  if (num < 0 || num > 3)
     vw_throw(ArgumentErr() << "Unknown algorithm: " << alg << ".\n");
-  
+
   // An external stereo algorithm
   return vw::stereo::VW_CORRELATION_OTHER;
 }

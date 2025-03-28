@@ -190,9 +190,23 @@ public:
                 0 <= irpix.y() && irpix.y() < m_right_aligned_bathy_mask.rows() &&
                 !is_valid(m_right_aligned_bathy_mask(irpix.x(), irpix.y())));
 
-    // See if we actually need to do anything
-    if ((m_cloud_type == BATHY_CLOUD && !do_bathy) ||
-        (m_cloud_type == TOPO_CLOUD && do_bathy)) {
+    if (m_cloud_type == TOPO_CLOUD) {
+      if (!do_bathy) {
+        // We are on dry land. Triangulate as before. In this mode
+        // the bathy plane may not even exist.
+        subvector(result, 0, 3) = m_stereo_model(pixVec, errorVec);
+        subvector(result, 3, 3) = errorVec;
+        return result;
+      } else {
+        // We are under water, but we are not interested in the bathy
+        // point cloud. Return no-data.
+        subvector(result, 0, 3) = Vector3(0, 0, 0);
+        subvector(result, 3, 3) = Vector3(0, 0, 0);
+        return result;
+      }
+    }
+
+    if ((m_cloud_type == BATHY_CLOUD && !do_bathy)) {
       // There is no point in continuing, as we won't get what is asked
       subvector(result, 0, 3) = Vector3(0, 0, 0);
       subvector(result, 3, 3) = Vector3(0, 0, 0);
@@ -759,10 +773,11 @@ void stereo_triangulation(std::string const& output_prefix,
     std::vector<BathyPlaneSettings> bathy_plane_set;
     ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
     if (bathy_correct) {
+
       if (disparity_maps.size() != 1)
         vw_throw(ArgumentErr() 
                  << "Bathymetry correction does not work with multiview stereo.\n");
-      read_bathy_plane_set(stereo_settings().bathy_plane, bathy_plane_set);
+
       opt_vec[0].session->read_aligned_bathy_masks(left_aligned_bathy_mask,
                                                    right_aligned_bathy_mask); 
       
@@ -771,8 +786,11 @@ void stereo_triangulation(std::string const& output_prefix,
         vw_throw( ArgumentErr() << "The dimensions of disparity and left "
                   << "aligned bathymetry mask must agree.\n");
       
-      // Pass bathy data to the stereo model
-      bathy_stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane_set);
+      // The bathy plane is needed only for the underwater component
+      if (asp::stereo_settings().output_cloud_type != "topo") {
+        read_bathy_plane_set(stereo_settings().bathy_plane, bathy_plane_set);
+        bathy_stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane_set);
+      }
     }
 
     // Used to find the datum for the given planet
