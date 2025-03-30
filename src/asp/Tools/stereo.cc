@@ -1114,15 +1114,8 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
       read_bathy_plane_set(stereo_settings().bathy_plane, bathy_plane_set);
     }
 
-    if (opt.session->name() != "dg" &&
-        opt.session->name() != "rpc" &&
-        opt.session->name() != "dgmaprpc" &&
-        opt.session->name() != "rpcmaprpc" &&
-        opt.session->name() != "nadirpinhole" &&
-        opt.session->name() != "pinholemappinhole")
-      vw_throw(ArgumentErr() << "Bathymetry correction only works with dg, rpc, and "
-                << "nadirpinhole sessions, and mapprojected images for these. Got: "
-                << opt.session->name() << ".\n");
+    if (opt.session->name().find("isis") != std::string::npos)
+      vw_throw(ArgumentErr() << "Bathymetry correction does not work with ISIS cameras.\n");
 
     if (stereo_settings().alignment_method != "homography"     &&
         stereo_settings().alignment_method != "affineepipolar" &&
