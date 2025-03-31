@@ -1534,6 +1534,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
       // Load it
       vw_out() << "Loading match file: " << match_file << std::endl;
       ip::read_binary_match_file(match_file, left_ip, right_ip);
+      vw_out() << "Read: " << left_ip.size() << " matches.\n";
     } catch(...) {
       // Having this pop-up for a large number of images is annoying
       vw_out() << "Cannot find the match file with given images and output prefix.\n";

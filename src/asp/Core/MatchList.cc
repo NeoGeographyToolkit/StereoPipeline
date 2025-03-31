@@ -304,6 +304,7 @@ void populateMatchFiles(std::vector<std::string> const& image_files,
              image_files[i]);
       leftIndex = i - 1;
       vw::ip::read_binary_match_file(trial_match, left, right);
+      vw::vw_out() << "Read " << left.size() << " matches from " << trial_match << "\n";
 
     } catch(...) {
       // Look in default location 2, match from first file to this file.
@@ -312,6 +313,7 @@ void populateMatchFiles(std::vector<std::string> const& image_files,
                image_files[i]);
         leftIndex = 0;
         vw::ip::read_binary_match_file(trial_match, left, right);
+        vw::vw_out() << "Read " << left.size() << " matches from " << trial_match << "\n";
 
       } catch(...) {
         // Default locations failed, Start with a blank match file.
@@ -378,9 +380,10 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
 
     std::vector<vw::ip::InterestPoint> left, right;
     try {
-      vw_out() << "Reading binary match file: " << match_file << std::endl;
+      vw_out() << "Reading binary match file: " << match_file << "\n";
       ip::read_binary_match_file(match_file, left, right);
-    }catch(...){
+      vw::vw_out() << "Read " << left.size() << " matches.\n";
+    } catch(...) {
       vw_out() << "IP load failed, leaving default invalid IP\n";
       continue;
     }
