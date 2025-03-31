@@ -124,7 +124,7 @@ namespace asp {
 
     vw::Matrix<double, 2, 3> geodetic_to_pixel_Jacobian (vw::Vector3 const& geodetic) const;
     vw::Matrix<double, 2, 3> geodetic_to_pixel_numerical_Jacobian (vw::Vector3 const& geodetic, double tol) const;
-    vw::Matrix<double, 2, 2> normalizedLlhToPixJac(vw::Vector3 const& normalized_geodetic) const;
+    vw::Vector<double> normalizedLlhToPixJac(vw::Vector3 const& normalized_geodetic) const;
 
     /// Given a pixel (the projection of a point in 3D space onto the camera image)
     /// and the value of the height of the point, find the lonlat of the point
@@ -142,6 +142,10 @@ namespace asp {
     // The height used for ortho images (for Maxar and Pleiades)
     double m_terrain_height;
 
+    // Quantities used to normalize lon-lat-height before applying the RPC model
+    vw::Vector3 m_lonlatheight_offset;
+    vw::Vector3 m_lonlatheight_scale;
+
   private:
     vw::cartography::Datum m_datum;
 
@@ -150,8 +154,6 @@ namespace asp {
                 m_sample_num_coeff, m_sample_den_coeff;
     vw::Vector2 m_xy_offset;
     vw::Vector2 m_xy_scale;
-    vw::Vector3 m_lonlatheight_offset;
-    vw::Vector3 m_lonlatheight_scale;
 
     void initialize(vw::DiskImageResourceGDAL* resource);
   };
