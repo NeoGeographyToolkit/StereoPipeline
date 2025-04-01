@@ -49,7 +49,7 @@ boost::posix_time::ptime parse_dg_time(std::string str) {
 }
 
 vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
-
+  
   // Parse the Digital Globe XML file
   GeometricXML geo;
   AttitudeXML  att;
@@ -57,14 +57,24 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
   ImageXML     img;
   RPCXML       rpc;
 
+  // Check that cameras end in .xml.
+  std::string ext = boost::filesystem::path(path).extension().string();
+  boost::algorithm::to_lower(ext);
+  if (ext != ".xml")
+    vw::vw_throw(vw::ArgumentErr() 
+      << "Digital Globe camera files must end in .xml. Likely need to specify "
+      << "another session type than -t dg.\n");
+    
   try {
     read_xml(path, geo, att, eph, img, rpc);
-  } catch (const std::exception& e){
-    vw::vw_throw(vw::ArgumentErr() << "Invalid Digital Globe XML file: " << path << ". "
-                 << "If you are not using Digital Globe images, you may "
-                 << "need to specify the session type, such as -t rpc, "
-                 << "-t rpcmaprpc, -t aster, etc.\n"
-		 << e.what() << "\n");
+  } catch (...) {
+    // The XML parser may throw exceptions other than std::exception. Catch them
+    // all here.
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Invalid Digital Globe XML file: " << path << ". "
+                 << "If you are not using Digital Globe cameras, you may "
+                 << "need to specify the appropriate session type, such as -t rpc, "
+                 << "-t rpcmaprpc, -t aster, etc.\n");
   }
 
   // For WV, only Stereo1B and Basic1B products are supported. Users
