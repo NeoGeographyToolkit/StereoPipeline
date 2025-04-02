@@ -443,7 +443,7 @@ having the latest refinements and alignment::
       --max-initial-reprojection-error 20      \
       --heights-from-dem ref_dem.tif           \
       --heights-from-dem-uncertainty 20.0      \
-      --num-iterations 20                      \
+      --num-iterations 50                      \
       --num-anchor-points 0                    \
       --anchor-weight 0                        \
       --tri-weight 0.1                         \
@@ -802,7 +802,7 @@ Solve for jitter::
       1.xml 2.xml                             \
       --input-adjustments-prefix align/run    \
       --match-files-prefix dense/run          \
-      --num-iterations 20                     \
+      --num-iterations 50                     \
       --max-pairwise-matches 100000           \
       --max-initial-reprojection-error 20     \
       --tri-weight 0.1                        \
@@ -1074,7 +1074,7 @@ cameras were accurate enough, so these steps were skipped.
       1.tif 1.tif                              \
       2.xml 2.xml                              \
       --match-files-prefix matches/run         \
-      --num-iterations 20                      \
+      --num-iterations 50                      \
       --max-pairwise-matches 100000            \
       --max-initial-reprojection-error 20      \
       --tri-weight 0.1                         \
@@ -1311,7 +1311,7 @@ Solve for jitter with the aligned cameras::
       --num-lines-per-position 100                    \
       --num-lines-per-orientation 100                 \
       --max-initial-reprojection-error 20             \
-      --num-iterations 20                             \
+      --num-iterations 50                             \
       --match-files-prefix jitter/run                 \
       --heights-from-dem ref.tif                      \
       --heights-from-dem-uncertainty 10               \
@@ -1546,7 +1546,7 @@ Run bundle adjustment to get interest point matches::
     parallel_bundle_adjust                           \
         --processes 10                               \
         --nodes-list nodes_list.txt                  \
-        --num-iterations 20                          \
+        --num-iterations 50                          \
         --ip-detect-method 1                         \
         --tri-weight 0.1                             \
         --camera-weight 0                            \
@@ -1579,7 +1579,7 @@ Solve for jitter with a ground constraint. Use roll and yaw constraints, to
 ensure movement only for the pitch angle:: 
 
     jitter_solve                                 \
-        --num-iterations 20                      \
+        --num-iterations 50                      \
         --max-pairwise-matches 3000              \
         --clean-match-files-prefix               \
           ba/run                                 \
@@ -1776,7 +1776,7 @@ images and cameras are created with ``sat_sim`` (:numref:`sat_sim_rig`).
         --forced-triangulation-distance 500000  \
         --min-matches 1                         \
         --min-triangulation-angle 1e-10         \
-        --num-iterations 20                     \
+        --num-iterations 50                     \
         --max-pairwise-matches 50000            \
         --match-files-prefix ba/run             \
         --max-initial-reprojection-error 100    \
@@ -1869,7 +1869,7 @@ Example usage::
   jitter_solve                                    \
     --max-pairwise-matches 50000                  \
     --match-files-prefix ba/run                   \
-    --num-iterations 20                           \
+    --num-iterations 50                           \
     --reference-terrain lidar.csv                 \
     --max-num-reference-points 50000              \
     --reference-terrain-uncertainty 10            \
@@ -1892,7 +1892,7 @@ disk in CSV format and should be examined (:numref:`jitter_ref_err`). Also
 examine the pixel reprojection errors (:numref:`jitter_tri_err`).
 
 The solver may be slow for very large runs. Then decreasing the number of
-iterations to 10 or 5 will help. The number of reference points can be decreased
+iterations to 10 or so will help. The number of reference points can be decreased
 as well.
 
 .. _jitter_out_files:
