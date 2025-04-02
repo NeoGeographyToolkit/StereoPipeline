@@ -807,8 +807,8 @@ Solve for jitter::
       --max-initial-reprojection-error 20     \
       --tri-weight 0.1                        \
       --tri-robust-threshold 0.1              \
-      --num-lines-per-position    200         \
-      --num-lines-per-orientation 200         \
+      --num-lines-per-position    400         \
+      --num-lines-per-orientation 400         \
       --heights-from-dem ref.tif              \
       --heights-from-dem-uncertainty 10       \
       --num-anchor-points 10000               \
@@ -1334,6 +1334,10 @@ in evaluating how well the jitter solver worked, even before rerunning stereo.
    Pixel reprojection errors (:numref:`jitter_out_files`) before (left) and
    after (right) solving for jitter. Compare with the ray intersection error
    in :numref:`aster_jitter_intersection_err`.
+
+Here, ``--num-lines-per-position`` and ``--num-lines-per-orientation`` are quite
+low. This may result in high-frequency oscillations in the produced DEM. If so,
+these need to be increased by 2x or 4x.
 
 Then, ``parallel_stereo`` and ``point2dem`` can be run again, with the new
 cameras created in the ``jitter`` directory. The ``--prev-run-prefix`` option
@@ -2107,7 +2111,8 @@ Command-line options for jitter_solve
 --num-lines-per-orientation
     Resample the input camera orientations, using this many lines per
     produced orientation. If not set, use the orientations from the
-    CSM file as they are.
+    CSM file as they are. Small values may result in high-frequency
+    oscillations.
 
 --tri-weight <double (default: 0.1)>
     The weight to give to the constraint that optimized triangulated points stay
