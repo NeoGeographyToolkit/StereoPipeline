@@ -1027,7 +1027,8 @@ Command-line options
 --overlap-list <string>
     A file containing a list of image pairs, one pair per line,
     separated by a space, which are expected to overlap. Matches
-    are then computed only among the images in each pair.
+    are then computed only among the images in each pair. The order 
+    in which pairs are specified is not important.
 
 --auto-overlap-params <string (default: "")>
     Determine which camera images overlap by finding the bounding boxes of their
@@ -1433,9 +1434,10 @@ Command-line options
     mapprojected onto, create interest point matches between the mapprojected
     images, unproject and save those matches, then continue with bundle
     adjustment. Existing match files will be reused. Specify the mapprojected
-    images and the DEM as a string in quotes, separated by spaces. The DEM must
-    be the last file. See :numref:`mapip` for an example. It is suggested to use
-    this with ``--auto-overlap-params.``
+    images and the DEM as a string in quotes, separated by spaces. The order
+    must be same as for the input images. The DEM must be the last file. See
+    :numref:`mapip` for an example. It is suggested to use this with
+    ``--auto-overlap-params.``
    
 --save-intermediate-cameras
     Save the values for the cameras at each iteration.
@@ -1462,8 +1464,9 @@ Command-line options
 
 --mapprojected-data-list
     A file containing the list of mapprojected images and the DEM (see
-    ``--mapprojected-data``), when they are too many to specify on the
-    command line. The DEM must be the last entry.
+    ``--mapprojected-data``), when they are too many to specify on the command
+    line. The order must be the same as for input images. The DEM must be the
+    last entry.
 
 --proj-win
     Flag as outliers input triangulated points not in this proj
