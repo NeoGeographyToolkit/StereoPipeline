@@ -603,7 +603,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
         if (!asp::stereo_settings().search_range.empty()) {
           // If the user provided a search range, we must have the IP.
           vw_out() << "Could not compute interest points. The error was:\n";
-          vw_out() << e.what() << "\n";
+          vw_out() << e.what();
           vw_out() << "Will continue, given that --corr-search was set.\n";
       } else {
         vw::vw_throw(vw::ArgumentErr() << e.what() << "\n");
