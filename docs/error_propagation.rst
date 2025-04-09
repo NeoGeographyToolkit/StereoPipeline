@@ -38,10 +38,10 @@ If this option is not set, the following strategies are used:
    (in the *Absolute Horizontal Accuracy* section of the camera
    model), and it is used as the horizontal stddev.
 
- - For Maxar (DigitalGlobe) RPC cameras (:numref:`rpc`), the values
-   ``ERRBIAS`` and ``ERRRAND`` are read from each camera model
-   file. The square root of sum of squares of these quantities is the
-   input horizontal stddev for a camera.
+ - For RPC cameras (:numref:`rpc`), the values ``ERRBIAS`` and ``ERRRAND`` are
+   read, whether set in XML files or as part of metadata that GDAL understands.
+   The square root of sum of squares of these quantities is the input horizontal
+   stddev for a camera.
 
  - For Maxar (DigitalGlobe) linescan cameras (:numref:`dg_tutorial`), 
    the inputs are the satellite position and orientation covariances,
