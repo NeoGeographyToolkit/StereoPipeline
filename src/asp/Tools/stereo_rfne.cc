@@ -42,10 +42,10 @@ using namespace asp;
 using namespace std;
 
 template <class Image1T, class Image2T>
-ImageViewRef<PixelMask<Vector2f> >
+ImageViewRef<PixelMask<Vector2f>>
 refine_disparity(Image1T const& left_image,
                  Image2T const& right_image,
-                 ImageViewRef< PixelMask<Vector2f> > const& integer_disp,
+                 ImageViewRef<PixelMask<Vector2f>> const& integer_disp,
                  ASPGlobalOptions const& opt, bool verbose){
 
   ImageViewRef<PixelMask<Vector2f>> refined_disp = integer_disp;
@@ -78,9 +78,9 @@ refine_disparity(Image1T const& left_image,
       vw_out() << "\t--> Using parabola subpixel mode.\n";
 
     refined_disp = parabola_subpixel(integer_disp,
-                                      left_image, right_image,
-                                      prefilter_mode, stereo_settings().slogW,
-                                      stereo_settings().subpixel_kernel);
+                                     left_image, right_image,
+                                     prefilter_mode, stereo_settings().slogW,
+                                     stereo_settings().subpixel_kernel);
     
   } // End parabola cases
   if (stereo_settings().subpixel_mode == 2) {
@@ -233,7 +233,7 @@ public:
     return pixel_type();
   }
 
-  typedef CropView<ImageView<pixel_type> > prerasterize_type;
+  typedef CropView<ImageView<pixel_type>> prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
     ImageView<pixel_type> tile_disparity;
     bool verbose = false;
@@ -254,20 +254,29 @@ public:
 
 template <class Image1T, class Image2T, class SeedDispT>
 PerTileRfne<Image1T, Image2T, SeedDispT>
-per_tile_rfne(ImageViewBase<Image1T  > const& left,
-               ImageViewBase<Image2T  > const& right,
-               ImageViewBase<SeedDispT> const& integer_disp,
-               ImageViewBase<SeedDispT> const& sub_disp,
-               ASPGlobalOptions const& opt) {
+per_tile_rfne(ImageViewBase<Image1T> const& left,
+              ImageViewBase<Image2T> const& right,
+              ImageViewBase<SeedDispT> const& integer_disp,
+              ImageViewBase<SeedDispT> const& sub_disp,
+              ASPGlobalOptions const& opt) {
   typedef PerTileRfne<Image1T, Image2T, SeedDispT> return_type;
   return return_type(left.impl(), right.impl(), integer_disp.impl(), sub_disp.impl(), opt);
 }
 
+// Enable conversion from images with float pixels to images with
+// PixelGray<float> pixels.
+class GrayCast: public ReturnFixedType<PixelGray<float>> {
+public:
+  PixelGray<float> operator()(float v) const {
+    return PixelGray<float>(v);
+  }
+};
+
 void stereo_refinement(ASPGlobalOptions const& opt) {
 
-  ImageViewRef<PixelGray<float>> left_image, right_image;
-  ImageViewRef<PixelMask<Vector2f> > input_disp;
-  ImageViewRef<PixelMask<Vector2f> > sub_disp;
+  ImageViewRef<float> left_image, right_image;
+  ImageViewRef<PixelMask<Vector2f>> input_disp;
+  ImageViewRef<PixelMask<Vector2f>> sub_disp;
   string left_image_file  = opt.out_prefix+"-L.tif";
   string right_image_file = opt.out_prefix+"-R.tif";
   string left_mask_file   = opt.out_prefix+"-lMask.tif";
@@ -276,8 +285,8 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
   int kernel_size = std::max(stereo_settings().subpixel_kernel[0],
                              stereo_settings().subpixel_kernel[1]);
   
-  left_image  = DiskImageView<PixelGray<float>>(left_image_file);
-  right_image = DiskImageView<PixelGray<float>>(right_image_file);
+  left_image  = DiskImageView<float>(left_image_file);
+  right_image = DiskImageView<float>(right_image_file);
   
   // It is better to fill no-data pixels with an average from
   // neighbors than to use no-data values in processing. This is a
@@ -299,16 +308,16 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
   std::string blend_file = opt.out_prefix + "-B.tif";
   
   if (stereo_settings().subpix_from_blend) { // Read the stereo_blend output file
-    input_disp = DiskImageView< PixelMask<Vector2f> >(blend_file);
+    input_disp = DiskImageView<PixelMask<Vector2f>>(blend_file);
   } else {
     // Read the stereo_corr output file
     boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(disp_file));
     ChannelTypeEnum disp_data_type = rsrc->channel_type();
     if (disp_data_type == VW_CHANNEL_INT32)
-      input_disp = pixel_cast<PixelMask<Vector2f> >
+      input_disp = pixel_cast<PixelMask<Vector2f>>
         (DiskImageView< PixelMask<Vector2i> >(disp_file));
     else // File on disk is float
-      input_disp = DiskImageView< PixelMask<Vector2f> >(disp_file);
+      input_disp = DiskImageView<PixelMask<Vector2f>>(disp_file);
   }
   
   bool skip_img_norm = asp::skip_image_normalization(opt);
@@ -317,12 +326,12 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
     // Images were not normalized in pre-processing. Must do so now
     // as bayes_em_subpixel assumes them to be normalized.
     ImageViewRef<uint8> left_mask,  right_mask;
-    left_mask    = DiskImageView<uint8>(left_mask_file);
-    right_mask   = DiskImageView<uint8>(right_mask_file);
+    left_mask  = DiskImageView<uint8>(left_mask_file);
+    right_mask = DiskImageView<uint8>(right_mask_file);
     
-    ImageViewRef< PixelMask< PixelGray<float> > > Limg
+    ImageViewRef<PixelMask<float>> Limg
       = copy_mask(left_image, create_mask(left_mask));
-    ImageViewRef< PixelMask< PixelGray<float> > > Rimg
+    ImageViewRef<PixelMask<float>> Rimg
       = copy_mask(right_image, create_mask(right_mask));
 
     Vector<float32> left_stats, right_stats;
@@ -348,16 +357,24 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
 
   // The whole goal of this block it to go through the motions of
   // refining disparity solely for the purpose of printing
-  // the relevant messages.
+  // the relevant messages once, rather than per tile, as in the 
+  // processing below.
   bool verbose = true;
   ImageView<PixelGray<float>> left_dummy(1, 1), right_dummy(1, 1);
   ImageView<PixelMask<Vector2f>> dummy_disp(1, 1);
   refine_disparity(left_dummy, right_dummy, dummy_disp, opt, verbose);
 
+  // The images must be explicitly converted to have PixelGray<float>
+  // pixels.
+  ImageViewRef<PixelGray<float>> left_gray
+    =  per_pixel_filter(left_image, GrayCast());
+  ImageViewRef<PixelGray<float>> right_gray
+    =  per_pixel_filter(right_image, GrayCast());
+
   ImageViewRef<PixelMask<Vector2f>> refined_disp
-    = crop(per_tile_rfne(left_image, right_image, 
-                         input_disp, sub_disp, opt), 
-           stereo_settings().trans_crop_win);
+     = crop(per_tile_rfne(left_gray, right_gray,
+                          input_disp, sub_disp, opt), 
+            stereo_settings().trans_crop_win);
   
   cartography::GeoReference left_georef;
   bool   has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");
