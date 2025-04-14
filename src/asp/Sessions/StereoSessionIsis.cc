@@ -266,6 +266,8 @@ void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
 // need to do this, is for ASP to get image intensity values in
 // the range of 0-1. To some extent we are compressing the dynamic
 // range, but we try to minimize that.
+// TODO(oalexan1): This function must be merged gather_stats(). That will
+// alow merging of ISIS and non-ISIS preprocessing_hook() functions.
 ImageViewRef<PixelMask<float>>
 find_ideal_isis_range(ImageViewRef<float> const& image,
                       boost::shared_ptr<DiskImageResourceIsis> isis_rsrc,

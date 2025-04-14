@@ -1311,6 +1311,9 @@ void for_each_pixel_columnwise(const vw::ImageViewBase<ViewT> &view_, FuncT &fun
 // - If prefix and image_path is set, will cache the results to a file.
 // For efficiency, the image must be traversed either rowwise or columnwise,
 // depending on how it is stored on disk.
+// TODO(oalexan1): This function must take into account ISIS special
+// pixels from StereoSessionIsis::preprocessing_hook(). Then, must eliminate
+// that function in favor of a single preprocessing_hook() in the base class.
 vw::Vector6f gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
                           std::string const& tag,
                           std::string const& prefix,
@@ -1349,7 +1352,8 @@ vw::Vector6f gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
       boost::shared_ptr<DiskImageResource> rsrc (DiskImageResourcePtr(image_path));
       block_size  = rsrc->block_read_size();
     }
-    // print a warning that procesing can be slow if any of the block size coords are bigger than 5120
+    // Print a warning that processing can be slow if any of the block size
+    // coords are bigger than 5120 pixels.
     if (block_size[0] > 5120 || block_size[1] > 5120) {
       vw_out(WarningMessage) << "Image " << image_path
         << " has block sizes of dimensions " << block_size[0] << " x " << block_size[1]

@@ -59,28 +59,32 @@ void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
 
   return;
 }
-  
-/// Normalize the intensity of two images based on input statistics
-void normalize_images(bool force_use_entire_range,
+
+// Calculate the min and max values for the two images,
+// given several ways of integrating them.
+void calcPairMinMax(bool force_use_entire_range,
                       bool individually_normalize,
                       bool use_percentile_stretch,
                       bool do_not_exceed_min_max,
                       vw::Vector6f const& left_stats,
                       vw::Vector6f const& right_stats,
-                      vw::ImageViewRef<vw::PixelMask<float>> & left_img,
-                      vw::ImageViewRef<vw::PixelMask<float>> & right_img) {
-  
+                      // Outputs
+                      double & left_min,
+                      double & left_max,
+                      double & right_min,
+                      double & right_max) {
+
+  // Initialize
+  left_min = -1.0;
+  left_max = -1.0;
+  right_min = -1.0;
+  right_max = -1.0;
+
   // These arguments must contain: (min, max, mean, std)
-  VW_ASSERT(left_stats.size() == 6 && right_stats.size() == 6,
-            vw::ArgumentErr() << "Expecting a vector of size 6 in normalize_images()\n");
+  if (left_stats.size() != 6 || right_stats.size() != 6)
+    vw::vw_throw(vw::ArgumentErr() 
+      << "Expecting an image stats vector of size 6 in normalize_images().\n");
 
-  // If the input stats don't contain the stddev, must use the entire range version.
-  // - This should only happen when normalizing ISIS images for ip_matching purposes.
-  if ((left_stats[3] == 0) || (right_stats[3] == 0))
-    force_use_entire_range = true;
-
-  double left_min = -1.0, left_max = -1.0, right_min = -1.0, right_max = -1.0;
-  
   if (force_use_entire_range) { // Stretch between the min and max values
     if (individually_normalize) {
       left_min = left_stats[0];
@@ -102,6 +106,24 @@ void normalize_images(bool force_use_entire_range,
       right_max = right_stats[5];
     } else {
       // Two standard deviation stretch
+      
+      // Standard deviation must be positive
+      if (left_stats[3] == 0 || right_stats[3] == 0)
+        vw::vw_throw(vw::ArgumentErr() 
+          << "The image stats do not have a positive stddev. "
+          << "Try using the option --force-use-entire-range.\n");
+        
+        // This is an important check for when images come from different
+        // sensors and have vastly different standard deviations.
+        if (!individually_normalize) {
+          double std_ratio = std::min(left_stats[3], right_stats[3]) / 
+                              std::max(left_stats[3], right_stats[3]);
+          if (std_ratio < 0.2)
+            vw::vw_out(vw::WarningMessage) 
+              << "The standard deviations of some images are very different. "
+              << "Consider using the option --individually-normalize.\n";
+        }
+        
       left_min  = left_stats [2] - 2*left_stats [3];
       left_max  = left_stats [2] + 2*left_stats [3];
       right_min = right_stats[2] - 2*right_stats[3];
@@ -115,33 +137,42 @@ void normalize_images(bool force_use_entire_range,
       right_min = left_min;
       right_max = left_max;
     }
-
-    if (do_not_exceed_min_max) {
-      // This is important for ISIS which may have special pixels beyond the min and max
-      left_min = std::max(left_min,   (double)left_stats[0]);
-      left_max = std::min(left_max,   (double)left_stats[1]);
-      right_min = std::max(right_min, (double)right_stats[0]);
-      right_max = std::min(right_max, (double)right_stats[1]);
-    }
   }
   
-  // The images are normalized so most pixels fall into this range,
-  // but the data is not clamped so some pixels can fall outside this range.
-  if (individually_normalize > 0) {
+  if (do_not_exceed_min_max) {
+    // This is important for ISIS which may have special pixels beyond the min and max
+    left_min = std::max(left_min,   (double)left_stats[0]);
+    left_max = std::min(left_max,   (double)left_stats[1]);
+    right_min = std::max(right_min, (double)right_stats[0]);
+    right_max = std::min(right_max, (double)right_stats[1]);
+  }
+
+  return;
+}
+
+/// Normalize the intensity of two images based on input statistics
+void normalize_images(bool force_use_entire_range,
+                      bool individually_normalize,
+                      bool use_percentile_stretch,
+                      bool do_not_exceed_min_max,
+                      vw::Vector6f const& left_stats,
+                      vw::Vector6f const& right_stats,
+                      vw::ImageViewRef<vw::PixelMask<float>> & left_img,
+                      vw::ImageViewRef<vw::PixelMask<float>> & right_img) {
+
+  // Get the min and max values for the two images  
+  double left_min = -1.0, left_max = -1.0, right_min = -1.0, right_max = -1.0;
+  calcPairMinMax(force_use_entire_range, individually_normalize,
+                 use_percentile_stretch, do_not_exceed_min_max,
+                 left_stats, right_stats,
+                 // Outputs
+                 left_min, left_max, right_min, right_max);
+
+  if (individually_normalize > 0)
     vw::vw_out() << "\t--> Individually normalize images\n";
-  } else { // Normalize using the same stats
+  else // Normalize using the same stats
     vw::vw_out() << "\t--> Normalizing globally to: [" 
                  << left_min << " " << left_max << "]\n";
-
-    // This is an important check for when images come from different
-    // sensors and have vastly different standard deviations.
-    double std_ratio = std::min(left_stats[3], right_stats[3]) / 
-                         std::max(left_stats[3], right_stats[3]);
-    if (std_ratio < 0.2)
-      vw::vw_out(vw::WarningMessage) 
-        << "The standard deviations of the two images are very different. "
-        << "Consider using the option --individually-normalize.\n";
-  }
   
   left_img = normalize(left_img, left_min, left_max, 0.0, 1.0);
   right_img = normalize(right_img, right_min, right_max, 0.0, 1.0);
