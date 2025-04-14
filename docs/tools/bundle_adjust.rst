@@ -164,32 +164,39 @@ for the various sensor types.
 Use of the results
 ~~~~~~~~~~~~~~~~~~
 
-This program will write the adjustments to the cameras as ``*.adjust``
-files starting with the specified output prefix
-(:numref:`adjust_files`). In order for ``stereo`` to use the adjusted
-cameras, it should be passed this output prefix via the option
+This program will write the adjustments to the cameras as ``*.adjust`` files
+starting with the specified output prefix (:numref:`adjust_files`). 
+
+In order for ``parallel_stereo`` to use the adjusted cameras, it should be
+passed the ``bundle_adjust`` output prefix via the option
 ``--bundle-adjust-prefix``. For example::
 
-     stereo file1.cub file2.cub run_stereo/run \
+     parallel_stereo file1.cub file2.cub run_stereo/run \
        --bundle-adjust-prefix run_ba/run
 
-The same option can be used with mapprojection (this example has the
-cameras in .xml format)::
+The same option can be used with mapprojection (:numref:`mapproject`) and some
+other tools. Example (for cameras in .xml format):: 
 
-     mapproject input-DEM.tif image.tif camera.xml mapped_image.tif \
-       --bundle-adjust-prefix run_ba/run
+    mapproject --bundle-adjust-prefix run_ba/run \
+      input-DEM.tif image.tif camera.xml mapped_image.tif
 
-If the ``--inline-adjustments`` option is used, no separate adjustments
-will be written, rather, the tool will save to disk copies of the input
-cameras with adjustments already applied to them. These output cameras
-can then be passed directly to stereo::
+For Pinhole (:numref:`pinholemodels`) and OpticalBar (:numref:`panoramic`)
+cameras, if the ``--inline-adjustments`` option is used, no separate adjustments
+will be written, rather, the tool will save to disk copies of the input cameras
+with adjustments already applied to them. These output cameras can then be
+passed directly to ``parallel_stereo``::
 
-     stereo file1.JPG file2.JPG run_ba/run-file1.tsai \
-       run_ba/run-file2.tsai run_stereo/run
+    parallel_stereo                               \
+      file1.JPG file2.JPG                         \
+      run_ba/run-file1.tsai run_ba/run-file2.tsai \
+      run_stereo/run
 
 When cameras are of CSM type (:numref:`csm`), self-contained optimized cameras
 will be written to disk (:numref:`csm_state`). These can also be appended to the
 .cub files (:numref:`embedded_csm`).
+
+To pass adjustments to ``bundle_adjust`` itself, use the option
+``--input-adjustments-prefix``.
 
 Camera adjustments and applying a transform
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -882,18 +889,19 @@ with this data's interpretation.
 Registration errors on the ground
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the option ``--mapproj-dem`` (with a DEM file as a value) is specified, each
-pair of interest point matches (after bundle adjustment and outlier removal)
-will be projected onto this DEM. Ideally, matching interest points should
-converge onto the same ground point, so the distance between the projections on
-the ground measures the amount of misregistration.
+If the option ``--mapproj-dem`` (with a DEM file as a value) is specified, for
+each pair of interest point matches (after bundle adjustment and outlier
+removal) rays will be traced with the optimized cameras, that will be
+intersected with this DEM. Ideally, these rays should meet the DEM at the
+same location, so distance between the intersection points measures the amount
+of misregistration.
 
 The file::
 
     {output-prefix}-mapproj_match_offset_stats.txt
 
-will have the percentiles (25%, 50%, 75%, 85%, 95%) of these distances for each
-image against the rest, in meters, and their count.
+will have the percentiles (25%, 50%, 75%, 85%, 95%) of these distances for all
+matches in each image against all other images, in meters, and their count.
 
 Do *not* use this option for any initial evaluation of bundle adjustment. 
 Inspect instead the files mentioned earlier in :numref:`ba_out_files`. 
@@ -917,7 +925,7 @@ The full report will be saved to::
 
 having the longitude, latitude, and height above datum of the midpoint of each
 pair of projected points, and the above-mentioned distance between these
-projections (in meters).
+intersection points with the DEM (in meters).
 
 This file is very analogous to the ``pointmap.csv`` file, except that
 these errors are measured on the ground in meters, and not in the cameras
@@ -929,13 +937,15 @@ as a scatterplot (:numref:`plot_csv`).
 Format of .adjust files
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Unless ``bundle_adjust`` is invoked with the ``--inline-adjustments``
-option, when it modifies the cameras in-place, it will save the camera
-adjustments in ``.adjust`` files using the specified output prefix.
-Such a file stores a translation *T* as *x, y, z* (measured in
-meters) and a rotation *R* as a quaternion in the order *w, x, y,
-z*. The rotation is around the camera center *C* for pixel (0, 0)
-(for a linescan camera the camera center depends on the pixel).
+The ``bundle_adjust`` program normally saves external adjustments to the input
+cameras, or in some cases it creates standalone cameras with adjustments applied
+internally (:numref:`ba_use`). 
+
+An external adjustment is stored in a ``.adjust`` file. It has a translation *T*
+as *x, y, z* (measured in meters) and a rotation *R* as a quaternion in the
+order *w, x, y, z*. The rotation is around the camera center *C* for pixel (0,
+0) (for a linescan camera the camera center depends on the pixel). These are
+applied on top of initial cameras.
 
 Hence, if *P* is a point in ECEF, that is, the world in which the camera
 exists, and an adjustment is applied to the camera, projecting *P* 
@@ -949,10 +959,9 @@ Note that currently the camera center *C* is not exposed in the
 ``.adjust`` file, so external tools cannot recreate this
 transform. This will be rectified at a future time.
 
-Adjustments are relative to the initial cameras, so a starting
+Adjustments are relative to the initial cameras, so a nominal
 adjustment has the zero translation and identity rotation (quaternion
-1, 0, 0, 0).  Pre-existing adjustments can be specified with
-``--input-adjustments-prefix``.
+1, 0, 0, 0).  
 
 .. _ba_options:
 
@@ -1122,7 +1131,9 @@ Command-line options
     Choose an interest point detection method from: 0 = OBAloG
     (:cite:`jakkula2010efficient`), 1 = SIFT (from OpenCV), 2 = ORB (from
     OpenCV). The SIFT method, unlike OBALoG, produces interest points that are
-    accurate to subpixel level. See also :numref:`custom_ip`.
+    accurate to subpixel level. Remove any existing ``.vwip`` files before
+    recomputing interest points with a different method. See also
+    :numref:`custom_ip`.
 
 --matches-per-tile <int (default: unspecified)>
     How many interest point matches to compute in each image tile (of size
@@ -1570,11 +1581,16 @@ Command-line options
 --ip-nodata-radius <integer (default: 4)>
     Remove IP near nodata with this radius, in pixels.
 
+--accept-provided-mapproj-dem
+    Accept the DEM provided on the command line as the one mapprojection was
+    done with, even if it disagrees with the DEM recorded in the geoheaders of
+    input images.
+
 --save-vwip
-    Save .vwip files (intermediate files for creating .match
-    files). For ``parallel_bundle_adjust`` these will be saved in
-    subdirectories, as they depend on the image pair.
-    Must start with an empty output directory for this to work.
+    FIX HERE
+    Save ``.vwip`` files (intermediate files for creating ``.match`` files).
+    Such files are currently always created, unless rough homography is enabled,
+    so this option is obsolete and is ignored.
 
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined
