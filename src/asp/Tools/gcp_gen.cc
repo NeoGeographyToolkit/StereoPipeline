@@ -28,6 +28,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/ImageUtils.h>
+#include <asp/Core/ImageNormalization.h>
 
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Manipulation.h>

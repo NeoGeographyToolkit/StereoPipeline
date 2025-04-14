@@ -23,6 +23,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Sessions/CameraUtils.h>
+#include <asp/Core/ImageNormalization.h>
 
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/BlobIndex.h>

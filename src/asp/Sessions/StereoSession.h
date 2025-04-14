@@ -28,7 +28,6 @@
 #include <vw/Camera/CameraModel.h>
 
 #include <boost/shared_ptr.hpp>
-#include <asp/Core/ImageNormalization.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/StereoSettings.h>

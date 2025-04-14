@@ -26,6 +26,7 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Core/ImageUtils.h>
+#include <asp/Core/ImageNormalization.h>
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 

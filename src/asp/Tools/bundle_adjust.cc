@@ -36,6 +36,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/IpMatchingAlgs.h> // Lightweight header for ip matching
 #include <asp/Core/ImageUtils.h>
+#include <asp/Core/ImageNormalization.h>
 #include <asp/Core/OutlierProcessing.h>
 #include <asp/Core/BundleAdjustUtils.h>
 

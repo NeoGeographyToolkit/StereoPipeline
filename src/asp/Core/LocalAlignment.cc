@@ -27,6 +27,7 @@
 #include <asp/Core/OpenCVUtils.h>
 #include <asp/Core/DisparityProcessing.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/ImageNormalization.h>
 
 #include <vw/Math/Transform.h>
 #include <vw/Image/Transform.h>
