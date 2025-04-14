@@ -721,13 +721,13 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
   check_files.push_back(right_input_file);
   check_files.push_back(m_left_camera_file);
   check_files.push_back(m_right_camera_file);
-  bool rebuild = (!is_latest_timestamp(left_output_file, check_files) ||
-                  !is_latest_timestamp(right_output_file, check_files));
+  bool rebuild = (!first_is_newer(left_output_file, check_files) ||
+                  !first_is_newer(right_output_file, check_files));
 
   if (do_bathy) {
     rebuild = (rebuild ||
-               (!is_latest_timestamp(left_aligned_bathy_mask(), check_files) ||
-                !is_latest_timestamp(right_aligned_bathy_mask(), check_files)));
+               (!first_is_newer(left_aligned_bathy_mask(), check_files) ||
+                !first_is_newer(right_aligned_bathy_mask(), check_files)));
   }
 
   // Consider the case of multi-band images
@@ -940,8 +940,8 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
   bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
   bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
-  bool rebuild = (!is_latest_timestamp(left_aligned_bathy_mask(), check_files) ||
-                  !is_latest_timestamp(right_aligned_bathy_mask(), check_files));
+  bool rebuild = (!first_is_newer(left_aligned_bathy_mask(), check_files) ||
+                  !first_is_newer(right_aligned_bathy_mask(), check_files));
 
   if (!rebuild && !crop_left && !crop_right) {
     try {
@@ -1333,7 +1333,7 @@ vw::Vector6f gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
   }
 
   // Check if this stats file was computed after any image modifications.
-  if ((use_cache && asp::is_latest_timestamp(cache_path, image_path)) ||
+  if ((use_cache && asp::first_is_newer(cache_path, image_path)) ||
       (stereo_settings().force_reuse_match_files && fs::exists(cache_path))) {
     vw_out(InfoMessage) << "\t--> Reading statistics from file " + cache_path << std::endl;
     Vector<float32> stats;

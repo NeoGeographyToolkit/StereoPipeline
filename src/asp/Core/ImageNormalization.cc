@@ -61,7 +61,6 @@ void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
 }
   
 /// Normalize the intensity of two images based on input statistics
-inline 
 void normalize_images(bool force_use_entire_range,
                       bool individually_normalize,
                       bool use_percentile_stretch,

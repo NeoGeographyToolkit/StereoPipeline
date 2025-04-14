@@ -114,8 +114,8 @@ bool StereoSession::ip_matching(std::string const& input_file1,
   // the output directory.
   bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
   bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-  bool rebuild = (!is_latest_timestamp(match_filename, input_file1, input_file2,
-                                       m_left_camera_file, m_right_camera_file));
+  bool rebuild = (!first_is_newer(match_filename, input_file1, input_file2,
+                                  m_left_camera_file, m_right_camera_file));
   if (!crop_left && !crop_right &&
       (stereo_settings().force_reuse_match_files ||
        stereo_settings().clean_match_files_prefix != "" ||
@@ -128,11 +128,16 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
     return true;
   }
-
-  // If having to rebuild then wipe the old data
-  if (boost::filesystem::exists(left_ip_file))
+  
+  // If any cropping is done, or if the vwip file is old, or of using rough
+  // homography, then remove the old vwip files.
+  if (boost::filesystem::exists(left_ip_file) && 
+      (crop_left || crop_right || !first_is_newer(left_ip_file, input_file1) ||
+       !asp::stereo_settings().skip_rough_homography))
     boost::filesystem::remove(left_ip_file);
-  if (boost::filesystem::exists(right_ip_file))
+  if (boost::filesystem::exists(right_ip_file) && 
+      (crop_left || crop_right || !first_is_newer(right_ip_file, input_file2) ||
+       !asp::stereo_settings().skip_rough_homography))
     boost::filesystem::remove(right_ip_file);
   if (boost::filesystem::exists(match_filename)) {
     vw_out() << "Removing old match file: " << match_filename << "\n";
@@ -156,19 +161,24 @@ bool StereoSession::ip_matching(std::string const& input_file1,
   else // Tiff input
     rsrc2 = vw::DiskImageResourcePtr(input_file2);
 
-  // If the user provided a custom no-data value, values no
-  // more than that are masked. Otherwise, only values equal to no-data are
-  // masked.
+  // Open the images
   ImageViewRef<float> image1 = DiskImageView<float>(rsrc1);
   ImageViewRef<float> image2 = DiskImageView<float>(rsrc2);
+  
+  // If the user provided a custom no-data value, values no more than that are
+  // masked. Otherwise, only values equal to no-data are masked.
+  ImageViewRef<PixelMask<float>> masked_image1, masked_image2; 
   float user_nodata = stereo_settings().nodata_value;
-  if (!std::isnan(user_nodata)) {
-    image1 = apply_mask(create_mask_less_or_equal(image1, user_nodata), user_nodata);
-    image2 = apply_mask(create_mask_less_or_equal(image2, user_nodata), user_nodata);
+    if (!std::isnan(user_nodata)) {
+    masked_image1 = create_mask_less_or_equal(image1, user_nodata);
+    masked_image2 = create_mask_less_or_equal(image2, user_nodata);
+  } else {
+    // Mask the no-data values in the images
+    masked_image1 = create_mask(image1, nodata1);
+    masked_image2 = create_mask(image2, nodata2);
   }
 
   // Get normalized versions of the images for OpenCV based methods
-  ImageViewRef<float> image1_norm = image1, image2_norm = image2;
   if ((stereo_settings().ip_detect_method != DETECT_IP_METHOD_INTEGRAL) &&
       (stats1[0] != stats1[1])) { // Don't normalize if no stats were provided
     vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
@@ -177,8 +187,8 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                           stereo_settings().individually_normalize,
                           true, // Use percentile based stretch for ip matching
                           do_not_exceed_min_max,
-                          stats1,      stats2,
-                          image1_norm, image2_norm);
+                          stats1, stats2,
+                          masked_image1, masked_image2);
   }
 
   bool have_datum = this->have_datum();
@@ -257,7 +267,8 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     inlier = match_ip_with_datum(!supports_multi_threading(),
                                  !stereo_settings().skip_rough_homography,
                                  cam1, cam2,
-                                 image1_norm, image2_norm,
+                                 apply_mask(masked_image1, nodata1),
+                                 apply_mask(masked_image2, nodata2),
                                  asp::stereo_settings().ip_per_tile,
                                  datum, match_filename, number_of_jobs,
                                  epipolar_threshold, ip_uniqueness_thresh,
@@ -278,11 +289,14 @@ bool StereoSession::ip_matching(std::string const& input_file1,
       inlier_threshold = stereo_settings().epipolar_threshold;
 
     vw_out() << "\t    Not using a datum in interest point matching.\n";
-    inlier = homography_ip_matching(image1_norm, image2_norm,
+    bool use_cached_ip = true; // When ip should not be cached they were already wiped
+    inlier = homography_ip_matching(apply_mask(masked_image1, nodata1),
+                                    apply_mask(masked_image2, nodata2),
                                     asp::stereo_settings().ip_per_tile,
                                     inlier_threshold,
                                     match_filename, number_of_jobs,
                                     left_ip_file, right_ip_file,
+                                    use_cached_ip,
                                     nodata1, nodata2, bbox1, bbox2);
   }
 

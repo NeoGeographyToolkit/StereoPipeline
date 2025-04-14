@@ -40,18 +40,33 @@
 
 using namespace vw;
 
+namespace fs = boost::filesystem;
 namespace asp {
 
-/// Detect interest points
-/// This is not meant to be used directly. Use ip_matching() or
-/// homography_ip_matching().
+// Detect interest points. Use a cached ip file if available and if the
+// use_cached_ip flag is set. This is not meant to be used directly. Use
+// ip_matching() or homography_ip_matching(). The caller is responsible for
+// checking if this cached file is not older than the input image. 
 void detect_ip(vw::ip::InterestPointList& ip,
                vw::ImageViewRef<float> const& image,
-               int ip_per_tile, std::string const file_path, double nodata) {
+               int ip_per_tile, std::string const vwip_file, 
+               double nodata, 
+               bool use_cached_ip) {
+  if (use_cached_ip && fs::exists(vwip_file)) {
 
-  // Always generate ip, even if they may exist on disk. This is a bugfix for
-  // the case when the images change.
-
+    // Sanity check for when the vwip need to be redone     
+    if ((asp::stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0) ||
+         asp::stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0)) ||
+         !asp::stereo_settings().skip_rough_homography) 
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Cannot use cached ip with --left-image-crop-win, "
+                   << "--right-image-crop-win, or --skip-rough-homography.\n");
+    
+    vw::vw_out() << "\t    Loading cached interest points file: " << vwip_file << "\n";
+    ip = vw::ip::read_binary_ip_file_list(vwip_file);
+    return;
+  }
+  
   vw::Stopwatch sw1;
   sw1.start();
 
@@ -166,12 +181,12 @@ void detect_ip(vw::ip::InterestPointList& ip,
                                        << sw2.elapsed_seconds() << " s." << std::endl;
   }
 
-  vw::vw_out() << "\t    Found interest points: " << ip.size() << std::endl;
+  vw::vw_out() << "\t    Number of interest points: " << ip.size() << std::endl;
 
-  // If a file path was provided, record the IP to disk.
-  if (file_path != "") {
-    vw::vw_out() << "\t    Recording interest points to file: " << file_path << std::endl;
-    vw::ip::write_binary_ip_file(file_path, ip);
+  // If a file path was provided, record the IP (before matching) to disk.
+  if (vwip_file != "") {
+    vw::vw_out() << "\t    Writing interest points: " << vwip_file << "\n";
+    vw::ip::write_binary_ip_file(vwip_file, ip);
   }
 
   return;
@@ -184,18 +199,21 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
                     vw::ImageViewRef<float> const& image1,
                     vw::ImageViewRef<float> const& image2,
                     int ip_per_tile,
-                    std::string const left_file_path,
-                    std::string const right_file_path,
-                    double nodata1, double nodata2) {
+                    std::string const left_vwip_file,
+                    std::string const right_vwip_file,
+                    double nodata1, double nodata2,
+                    bool use_cached_ip) {
 
   vw::Stopwatch sw1;
   sw1.start();
 
   // Detect interest points in the two images
   vw::vw_out() << "\t    Looking for IP in left image.\n";
-  detect_ip(ip1, vw::pixel_cast<float>(image1), ip_per_tile, left_file_path, nodata1);
+  detect_ip(ip1, vw::pixel_cast<float>(image1), ip_per_tile, left_vwip_file, nodata1,
+            use_cached_ip);
   vw::vw_out() << "\t    Looking for IP in right image.\n";
-  detect_ip(ip2, vw::pixel_cast<float>(image2), ip_per_tile, right_file_path, nodata2);
+  detect_ip(ip2, vw::pixel_cast<float>(image2), ip_per_tile, right_vwip_file, nodata2,
+            use_cached_ip);
 
   if (stereo_settings().ip_debug_images) {
     vw::vw_out() << "\t    Writing detected IP debug images. " << std::endl;
@@ -218,8 +236,9 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
                      vw::ImageViewRef<float> const& image1,
                      vw::ImageViewRef<float> const& image2,
                      int ip_per_tile, size_t number_of_jobs,
-                     std::string const left_file_path,
-                     std::string const right_file_path,
+                     std::string const left_vwip_file,
+                     std::string const right_vwip_file,
+                     bool use_cached_ip,
                      double nodata1,
                      double nodata2,
                      std::string const& match_file) {
@@ -227,7 +246,8 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
   // Detect interest points in the two images
   vw::ip::InterestPointList ip1, ip2;
   detect_ip_pair(ip1, ip2, image1, image2, ip_per_tile,
-                 left_file_path, right_file_path, nodata1, nodata2);
+                 left_vwip_file, right_vwip_file, nodata1, nodata2,
+                 use_cached_ip);
 
   // Match the ip and save the match file. No epipolar constraint
   // is used in this mode.
@@ -1121,19 +1141,22 @@ void aligned_ip_from_D_sub(vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> const &
 vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> const& image1,
                                            vw::ImageView<vw::PixelGray<float>> const& image2,
                                            int ip_per_tile,
-                                           std::string const  left_file_path,
-                                           std::string const  right_file_path,
+                                           std::string const  left_vwip_file,
+                                           std::string const  right_vwip_file,
                                            double nodata1, double nodata2) {
 
   using namespace vw;
 
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   size_t number_of_jobs = 1;
+  bool use_cached_ip = false;
   detect_match_ip(matched_ip1, matched_ip2,
                   vw::pixel_cast<float>(image1),
                   vw::pixel_cast<float>(image2),
                   ip_per_tile, number_of_jobs,
-                  left_file_path, right_file_path, nodata1, nodata2);
+                  left_vwip_file, right_vwip_file, 
+                  use_cached_ip,
+                  nodata1, nodata2);
 
   std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
   std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
@@ -1180,8 +1203,9 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
                             int inlier_threshold,
                             std::string const& match_filename,
                             size_t number_of_jobs,
-                            std::string const  left_file_path,
-                            std::string const  right_file_path,
+                            std::string const  left_vwip_file,
+                            std::string const  right_vwip_file,
+                            bool use_cached_ip,
                             double nodata1, double nodata2,
                             vw::BBox2i const& bbox1,
                             vw::BBox2i const& bbox2) {
@@ -1198,14 +1222,16 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
     local_bbox2.crop(bounding_box(image2));
     local_image1 = vw::crop(image1, local_bbox1);
     local_image2 = vw::crop(image2, local_bbox2);
+    use_cached_ip = false; // cannot use cached ip when cropping
   }
 
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   detect_match_ip(matched_ip1, matched_ip2,
-		  local_image1, local_image2,
-		  ip_per_tile, number_of_jobs,
-		  left_file_path, right_file_path,
-		  nodata1, nodata2);
+                  local_image1, local_image2,
+                  ip_per_tile, number_of_jobs,
+                  left_vwip_file, right_vwip_file,
+                  use_cached_ip,
+                  nodata1, nodata2);
   if (matched_ip1.size() == 0 || matched_ip2.size() == 0)
     return false;
 
@@ -1256,17 +1282,17 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
 // Detect interest points. Return also the rough homography that aligns the right image
 // to the left.
 bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
-  vw::camera::CameraModel* cam2,
-  vw::ImageViewRef<float> const& image1,
-  vw::ImageViewRef<float> const& image2,
-  int ip_per_tile,
-  vw::cartography::Datum const& datum,
-  std::string const left_file_path,
-  double nodata1, double nodata2,
-  // Outputs
-  vw::ip::InterestPointList& ip1,
-  vw::ip::InterestPointList& ip2,
-  vw::Matrix<double> &rough_homography) {
+                            vw::camera::CameraModel* cam2,
+                            vw::ImageViewRef<float> const& image1,
+                            vw::ImageViewRef<float> const& image2,
+                            int ip_per_tile,
+                            vw::cartography::Datum const& datum,
+                            std::string const left_vwip_file,
+                            double nodata1, double nodata2,
+                            // Outputs
+                            vw::ip::InterestPointList& ip1,
+                            vw::ip::InterestPointList& ip2,
+                            vw::Matrix<double> & rough_homography) {
 
   BBox2i box1 = bounding_box(image1), box2 = bounding_box(image2);
 
@@ -1314,12 +1340,13 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   //   and stop them from being masked out.
   // TODO(oalexan1): Would it be better to pass masked images and use interpolation?
   auto ext = ValueEdgeExtension<float>(boost::math::isnan(nodata2) ? 0 : nodata2);
-  std::string right_file_path = ""; // Don't record IP from transformed images
+  std::string right_vwip_file = ""; // Don't record IP from transformed images
+  bool use_cached_ip = false;
   if (!detect_ip_pair(ip1, ip2, image1,
                       crop(transform(image2, rough_trans, ext,
                                      NearestPixelInterpolation()), trans_box2),
-                      ip_per_tile, left_file_path, right_file_path,
-                      nodata1, nodata2)) {
+                      ip_per_tile, left_vwip_file, right_vwip_file,
+                      nodata1, nodata2, use_cached_ip)) {
     vw_out() << "Unable to detect interest points." << std::endl;
     return false;
   }

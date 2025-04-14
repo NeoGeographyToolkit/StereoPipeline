@@ -102,8 +102,8 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "produced position and velocity. If not set, use the positions and velocities "
      "from the CSM file as they are.")
     ("num-lines-per-orientation", po::value(&opt.num_lines_per_orientation)->default_value(-1),
-     "Resample the input camera orientations, using this many lines per produced orientation. "
-     "If not set, use the orientations from the CSM file as they are.")
+     "Resample the input camera orientations, using this many lines per produced "
+     "orientation. If not set, use the orientations from the CSM file as they are.")
     ("match-first-to-last",
      po::bool_switch(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
      "Match first several images to last several images by extending the logic of "
@@ -332,7 +332,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "coordinate system. The goal is the same, to penalize deviations that are not "
      "aligned with satellite pitch.")
     ("accept-provided-mapproj-dem", 
-     po::bool_switch(&opt.accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
+     po::bool_switch(&asp::stereo_settings().accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
      "Accept the DEM provided on the command line as the one mapprojection was done with, "
      "even if it disagrees with the DEM recorded in the geoheaders of input images.")
     ;

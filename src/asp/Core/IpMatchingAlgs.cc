@@ -82,7 +82,7 @@ void compute_ip_LR(std::string const & out_prefix) {
 
   bool crop_left  = (asp::stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
   bool crop_right = (asp::stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-  bool rebuild = (!is_latest_timestamp(match_filename, ref_list) || crop_left || crop_right);
+  bool rebuild = (!first_is_newer(match_filename, ref_list) || crop_left || crop_right);
   if (!crop_left && !crop_right &&
       (asp::stereo_settings().force_reuse_match_files ||
        asp::stereo_settings().clean_match_files_prefix != "" ||
@@ -154,11 +154,13 @@ void compute_ip_LR(std::string const & out_prefix) {
   // for ip matching with homography.
   const int inlier_threshold = 1000.0 * thresh_factor; // 200 by default
   size_t number_of_jobs = 1;
+  bool use_cached_ip = false;
   bool success = asp::homography_ip_matching(left_image, right_image,
                                              asp::stereo_settings().ip_per_tile,
                                              inlier_threshold, match_filename,
                                              number_of_jobs,
                                              left_ip_filename, right_ip_filename,
+                                             use_cached_ip,
                                              left_nodata_value, right_nodata_value);
 
   if (!success)

@@ -581,8 +581,8 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     std::string sub_disp_file = opt.out_prefix + "-D_sub.tif";
 
     // Also need to rebuild if the inputs changed after the mask files were produced.
-    bool inputs_changed = (!is_latest_timestamp(sub_disp_file, opt.in_file1,  opt.in_file2,
-                                                opt.cam_file1, opt.cam_file2));
+    bool inputs_changed = (!first_is_newer(sub_disp_file, opt.in_file1,  opt.in_file2,
+                                           opt.cam_file1, opt.cam_file2));
 
     bool rebuild = crop_left || crop_right || inputs_changed || 
                    (asp::stereo_settings().max_disp_spread > 0.0);

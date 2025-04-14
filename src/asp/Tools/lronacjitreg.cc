@@ -175,12 +175,13 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
     // Gather interest points and match them
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
     size_t number_of_jobs = 1;
+    bool use_cached_ip = false;
     detect_match_ip(matched_ip1, matched_ip2,
                     vw::pixel_cast<float>(left_crop),
                     vw::pixel_cast<float>(right_crop),
                     points_per_tile,
-                    number_of_jobs, "", "",
-                    nodata1, nodata2); // TODO: Use IP files?
+                    number_of_jobs, "", "", use_cached_ip,
+                    nodata1, nodata2);
 
     if (matched_ip1.empty() || matched_ip2.empty()) {
      ransacSuccess = false;

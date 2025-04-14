@@ -1436,11 +1436,15 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""),
      "An alias for --csv-srs, for backward compatibility.")
     ("save-vwip", po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
-     "Save .vwip files (intermediate files for creating .match files). For "
-     "parallel_bundle_adjust these will be saved in subdirectories, as they depend on the "
-     "image pair. Must start with an empty output directory for this to work.")
-    ("ip-nodata-radius",          po::value(&opt.ip_nodata_radius)->default_value(4),
+     "Save .vwip files (intermediate files for creating .match files). Such files are "
+     "currently always created, unless rough homography is enabled, so this "
+     "option is obsolete and is ignored.")
+    ("ip-nodata-radius", po::value(&opt.ip_nodata_radius)->default_value(4),
      "Remove IP near nodata with this radius, in pixels.")
+    ("accept-provided-mapproj-dem", 
+     po::bool_switch(&asp::stereo_settings().accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
+     "Accept the DEM provided on the command line as the one mapprojection was done with, "
+     "even if it disagrees with the DEM recorded in the geoheaders of input images.")
     ("query-num-image-pairs", 
      po::bool_switch(&opt.query_num_image_pairs)->default_value(false)->implicit_value(true), 
      "Print how many image pairs need to find matches for, and exit.")
@@ -2087,21 +2091,21 @@ void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
   image2_stats = asp::gather_stats(masked_image2, image2_path,
                                    opt.out_prefix, image2_path);
 
-  // Do not save by default .vwip files as those take space and are
-  // not needed after a match file is created. If the user wants them,
-  // they must be saved in a subdirectory for each match pair, as
-  // .vwip files change depending on the pair.
-  std::string ip_file1 = "", ip_file2 = "";
-  if (opt.save_vwip) {
-      // parallel_bundle_adjust should have set vwip_prefix, but not bundle_adjust itself
+  // Rough homography cannot use / cache vwip
+  std::string vwip_file1, vwip_file2; 
+  if (opt.enable_rough_homography) {
+    vw::vw_out(vw::WarningMessage)
+      << "Option --enable-rough-homography is set. Will not save interest "
+      << "point matches per image before matching (vwip), as these depend "
+      << "on the pair of images used.\n";
+  } else {
     if (opt.vwip_prefix == "")
       opt.vwip_prefix = opt.out_prefix;
-
-    ip_file1 = ip::ip_filename(opt.vwip_prefix, image1_path);
-    ip_file2 = ip::ip_filename(opt.vwip_prefix, image2_path);
+    vwip_file1 = ip::ip_filename(opt.vwip_prefix, image1_path);
+    vwip_file2 = ip::ip_filename(opt.vwip_prefix, image2_path);
     vw::create_out_dir(opt.vwip_prefix);
   }
-
+  
   // For mapprojected images and given the overlap params,
   // can restrict the matching to a smaller region.
   vw::BBox2 bbox1, bbox2;
@@ -2135,7 +2139,7 @@ void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
                        Vector2(masked_image1.cols(), masked_image1.rows()),
                        image1_stats, image2_stats,
                        nodata1, nodata2, cam1, cam2, match_filename,
-                       ip_file1, ip_file2, bbox1, bbox2);
+                       vwip_file1, vwip_file2, bbox1, bbox2);
 }
 
 //==================================================================================
@@ -2234,6 +2238,7 @@ void matches_from_mapproj_images(int i, int j,
 /// from each map-projected image to the DEM it was map-projected onto,
 /// project those matches back into the camera image, and create gcp
 /// tying each camera image match to its desired location on the DEM.
+// TODO(oalexan1): This needs to be moved out.
 void create_gcp_from_mapprojected_images(asp::BaOptions const& opt) {
 
   if (opt.instance_index != 0)
@@ -2522,9 +2527,9 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
     // files are recent.
     bool inputs_changed = false;
     if (!opt.skip_matching) {
-      inputs_changed = (!asp::is_latest_timestamp(match_file,
-                                                  image1_path,  image2_path,
-                                                  camera1_path, camera2_path));
+      inputs_changed = (!asp::first_is_newer(match_file,
+                                             image1_path,  image2_path,
+                                             camera1_path, camera2_path));
 
       // We make an exception and not rebuild if explicitly asked
       if (asp::stereo_settings().force_reuse_match_files &&

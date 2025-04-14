@@ -979,6 +979,7 @@ bool match_ip_with_datum(bool single_threaded_camera,
   // Undo the alignment transform in the ip before returning, and return the transform.
   vw::ip::InterestPointList ip1, ip2;
   vw::Matrix<double> rough_homography = vw::math::identity_matrix<3>();
+  bool use_cached_ip = false;
   if (use_rough_homography) 
     detect_ip_aligned_pair(cam1, cam2, image1, image2,
                            ip_per_tile, datum, left_file_path, nodata1, nodata2,
@@ -986,7 +987,7 @@ bool match_ip_with_datum(bool single_threaded_camera,
   else
      detect_ip_pair(ip1, ip2, image1, image2,
                  ip_per_tile, left_file_path, right_file_path,
-                 nodata1, nodata2);
+                 nodata1, nodata2, use_cached_ip);
 
   // Match the detected IPs which are in the original image coordinates.
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;

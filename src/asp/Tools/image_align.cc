@@ -80,12 +80,14 @@ void find_matches(std::string const& image_file1, std::string const& image_file2
   int ip_per_tile = 0;
   asp::stereo_settings().ip_per_image = opt.ip_per_image;
   size_t number_of_jobs = 1;
+  bool use_cached_ip = false;
   // Now find and match interest points in the selected regions
   asp::detect_match_ip(matched_ip1, matched_ip2,
                        vw::pixel_cast<float>(image1), // cast to float so it compiles
                        vw::pixel_cast<float>(image2),
                        ip_per_tile, number_of_jobs,
                        "", "", // Do not read ip from disk
+                       use_cached_ip,
                        nodata1, nodata2, match_file);
 
   return;

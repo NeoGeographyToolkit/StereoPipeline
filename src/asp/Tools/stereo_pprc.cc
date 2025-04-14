@@ -189,8 +189,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   in_file_list.push_back(opt.in_file2);
   in_file_list.push_back(opt.cam_file1);
   in_file_list.push_back(opt.cam_file2);
-  bool inputs_changed = (!is_latest_timestamp(left_mask_file,  in_file_list) ||
-                         !is_latest_timestamp(right_mask_file, in_file_list));
+  bool inputs_changed = (!first_is_newer(left_mask_file,  in_file_list) ||
+                         !first_is_newer(right_mask_file, in_file_list));
 
   bool rebuild = crop_left || crop_right || inputs_changed;
   try {
@@ -422,10 +422,10 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   std::string lmsub = opt.out_prefix+"-lMask_sub.tif";
   std::string rmsub = opt.out_prefix+"-rMask_sub.tif";
 
-  inputs_changed = (!is_latest_timestamp(lsub,  in_file_list ) ||
-                    !is_latest_timestamp(rsub,  in_file_list)  ||
-                    !is_latest_timestamp(lmsub, in_file_list ) ||
-                    !is_latest_timestamp(rmsub, in_file_list )  );
+  inputs_changed = (!first_is_newer(lsub,  in_file_list) ||
+                    !first_is_newer(rsub,  in_file_list) ||
+                    !first_is_newer(lmsub, in_file_list) ||
+                    !first_is_newer(rmsub, in_file_list));
 
   // We must always redo the subsampling if we are allowed to crop the images
   rebuild = crop_left || crop_right || inputs_changed;

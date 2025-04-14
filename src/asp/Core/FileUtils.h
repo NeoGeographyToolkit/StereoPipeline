@@ -30,15 +30,15 @@ namespace asp {
   /// Return true if the first file exists and is newer than all of the other files.
   /// - Also returns false if any files are missing.
   /// - If a blank "" file is passed in it is ignored.
-  bool is_latest_timestamp(std::string              const& test_file, 
-                           std::vector<std::string> const& other_files);
+  bool first_is_newer(std::string              const& test_file, 
+                      std::vector<std::string> const& other_files);
   // Convenience wrappers.
-  bool is_latest_timestamp(std::string const& test_file, std::string const& f1);
-  bool is_latest_timestamp(std::string const& test_file, 
-                           std::string const& f1, std::string const& f2);
-  bool is_latest_timestamp(std::string const& test_file, 
-                           std::string const& f1, std::string const& f2,
-                           std::string const& f3, std::string const& f4);
+  bool first_is_newer(std::string const& test_file, std::string const& f1);
+  bool first_is_newer(std::string const& test_file, 
+                      std::string const& f1, std::string const& f2);
+  bool first_is_newer(std::string const& test_file, 
+                      std::string const& f1, std::string const& f2,
+                      std::string const& f3, std::string const& f4);
 
   void read_1d_points(std::string const& file, std::vector<double> & points);
   void read_2d_points(std::string const& file, std::vector<vw::Vector2> & points);
