@@ -40,19 +40,16 @@ void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
                         float & left_nodata_value,
                         float & right_nodata_value);
 
-// Calculate the min and max values for the two images,
-// given several ways of integrating them.
-void calcPairMinMax(bool force_use_entire_range,
-                      bool individually_normalize,
-                      bool use_percentile_stretch,
-                      bool do_not_exceed_min_max,
-                      vw::Vector6f const& left_stats,
-                      vw::Vector6f const& right_stats,
-                      // Outputs
-                      double & left_min,
-                      double & left_max,
-                      double & right_min,
-                      double & right_max);
+// Calculate the min and max for all images to normalize, while respecting
+// given options.
+void calcImageSeqMinMax(bool force_use_entire_range,
+                        bool individually_normalize,
+                        bool use_percentile_stretch,
+                        bool do_not_exceed_min_max,
+                        std::vector<vw::Vector6f> const& image_stats,
+                        // Outputs
+                        std::vector<double> & min_vals,
+                        std::vector<double> & max_vals);
 
 /// Normalize the intensity of two images based on input statistics
 void normalize_images(bool force_use_entire_range,
