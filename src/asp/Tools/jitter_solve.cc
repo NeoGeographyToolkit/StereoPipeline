@@ -79,7 +79,7 @@ struct Options: public asp::BaBaseOptions {
   std::string anchor_dem, rig_config;
   int num_anchor_points_extra_lines;
   bool initial_camera_constraint, fix_rig_translations, fix_rig_rotations,
-    use_initial_rig_transforms, accept_provided_mapproj_dem;
+    use_initial_rig_transforms;
   double quat_norm_weight, anchor_weight, roll_weight, yaw_weight, smoothness_weight;
   std::map<int, int> cam2group;
 };
@@ -352,8 +352,8 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
-  // Stereo settings must be set after the command line arguments are parsed
-  asp::stereo_settings().accept_provided_mapproj_dem = opt.accept_provided_mapproj_dem;
+  // Stereo settings must be set after the command line arguments are parsed.
+  
   // Set this before loading cameras, as jitter can be modeled only with CSM
   // cameras.
   asp::stereo_settings().aster_use_csm = true;
