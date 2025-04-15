@@ -179,13 +179,13 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     masked_image2 = create_mask(image2, nodata2);
   }
 
-  // Get normalized versions of the images for OpenCV based methods
-  if ((stereo_settings().ip_detect_method != DETECT_IP_METHOD_INTEGRAL) &&
-      (stats1[0] != stats1[1])) { // Don't normalize if no stats were provided
+  // Get normalized versions of the images for OpenCV based methods.
+  // Similar logic is used in bundle_adjust per image.
+  if (asp::openCvDetectMethod()) {
     vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
     asp::normalize_images(stereo_settings().force_use_entire_range,
                           stereo_settings().individually_normalize,
-                          asp::usePercentileStretch(),
+                          asp::openCvDetectMethod(),
                           asp::doNotExceedMinMax(),
                           stats1, stats2,
                           masked_image1, masked_image2);

@@ -66,10 +66,9 @@ void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
   return;
 }
 
-// If to use a percentile stretch when normalizing images. Will be used in multiple 
-// places.
-bool usePercentileStretch() {
-   return (asp::stereo_settings().ip_detect_method != DETECT_IP_METHOD_INTEGRAL);
+// For OpenCV image detectors some things are a bit different. Used in a few places.
+bool openCvDetectMethod() {
+  return (asp::stereo_settings().ip_detect_method != DETECT_IP_METHOD_INTEGRAL);
 }
 
 // If it is allowed to exceed the min and max values when normalizing images.
@@ -241,7 +240,7 @@ void calcNormalizationBounds(std::string const& out_prefix,
   std::vector<double> min_vals, max_vals;
   asp::calcImageSeqMinMax(asp::stereo_settings().force_use_entire_range, 
                           asp::stereo_settings().individually_normalize,
-                          asp::usePercentileStretch(),
+                          asp::openCvDetectMethod(),
                           asp::doNotExceedMinMax(),
                           image_stats,
                           // Outputs
@@ -254,5 +253,34 @@ void calcNormalizationBounds(std::string const& out_prefix,
     out << image_files[i] << " " << min_vals[i] << " " << max_vals[i] << "\n";
   
 } // end function calcNormalizationBounds()
+
+// Read normalization bounds into std::map
+void readNormalizationBounds(std::string const& boundsFile,
+                             std::vector<std::string> const& image_files,
+                             std::map<std::string, vw::Vector2> & bounds_map) {
+
+  std::ifstream in(boundsFile.c_str());
+  if (!in) {
+    vw::vw_throw(vw::IOErr() << "Unable to open normalization bounds file: " 
+      << boundsFile << "\n");
+  }
+  
+  std::string image_file;
+  double min_val, max_val;
+  while (in >> image_file >> min_val >> max_val) {
+    vw::Vector2 bounds(min_val, max_val);
+    bounds_map[image_file] = bounds;
+  }
+  
+  // Check that data for all images was read
+  for (size_t i = 0; i < image_files.size(); i++) {
+    std::string image_file = image_files[i];
+    if (bounds_map.find(image_file) == bounds_map.end()) {
+      vw::vw_throw(vw::IOErr() << "Normalization bounds not found for image: " 
+        << image_file << "\n");
+    }
+  }
+  
+} // end function readNormalizationBounds()
 
 } // end namespace asp

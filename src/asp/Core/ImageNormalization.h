@@ -39,9 +39,8 @@ void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
                         float & left_nodata_value,
                         float & right_nodata_value);
 
-// If to use a percentile stretch when normalizing images. Will be used in multiple 
-// places.
-bool usePercentileStretch();
+// For OpenCV image detectors some things are a bit different. Used in a few places.
+bool openCvDetectMethod();
 
 // If it is allowed to exceed the min and max values when normalizing images.
 // TODO(oalexan1): This now returns false. This must be switched to true, and
@@ -74,6 +73,11 @@ void normalize_images(bool force_use_entire_range,
 void calcNormalizationBounds(std::string const& out_prefix, 
                              std::vector<std::string> const& image_files,
                              std::string const& boundsFile); 
+
+// Read normalization bounds into std::map
+void readNormalizationBounds(std::string const& boundsFile,
+                             std::vector<std::string> const& image_files,
+                             std::map<std::string, vw::Vector2> & bounds_map);
 
 } // end namespace asp
 

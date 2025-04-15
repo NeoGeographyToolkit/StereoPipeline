@@ -28,7 +28,7 @@ namespace asp {
 // This file contains the bundle adjust options and some other needed functions.
 // The ones shared with jitter_solve.cc are in asp::BaBaseOptions.
 struct BaOptions: public asp::BaBaseOptions {
-  std::string cnet_file, vwip_prefix,
+  std::string cnet_file,
     cost_function, mapprojected_data, gcp_from_mapprojected;
   int ip_per_tile, ip_per_image, matches_per_tile;
   double overlap_exponent, ip_triangulation_max_error;
@@ -38,7 +38,7 @@ struct BaOptions: public asp::BaBaseOptions {
     transform_cameras_with_shared_gcp, transform_cameras_using_gcp,
     fix_gcp_xyz, solve_intrinsics, 
     ip_normalize_tiles, ip_debug_images, stop_after_stats, 
-    calc_normalization_bounds, stop_after_matching,
+    calc_normalization_bounds, calc_ip, stop_after_matching,
     skip_matching, apply_initial_transform_only, save_vwip;
   std::string camera_position_file, initial_transform_file, dem_file_for_overlap;
   double semi_major, semi_minor, position_filter_dist;

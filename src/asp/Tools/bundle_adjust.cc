@@ -39,6 +39,7 @@
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/OutlierProcessing.h>
 #include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Core/InterestPointMatching.h>
 
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>
@@ -1384,16 +1385,6 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "The number of bundle_adjustment processes being run in parallel.")
     ("instance-index",      po::value(&opt.instance_index)->default_value(0),
      "The index of this parallel bundle adjustment process.")
-    ("stop-after-statistics",    
-      po::bool_switch(&opt.stop_after_stats)->default_value(false)->implicit_value(true),
-     "Quit after computing image statistics.")
-    ("stop-after-matching",
-      po::bool_switch(&opt.stop_after_matching)->default_value(false)->implicit_value(true),
-     "Quit after writing all match files.")
-    ("calc-normalization-bounds",
-     po::bool_switch(&opt.calc_normalization_bounds)->default_value(false)->implicit_value(true),
-     "This is called in parallel_bundle_adjust just once to calculate all image bounds "
-     "for normalization, after statistics were computed by separate processes.") 
     ("force-reuse-match-files", po::bool_switch(&opt.force_reuse_match_files)->default_value(false)->implicit_value(true),
      "Force reusing the match files even if older than the images or cameras. "
      "Then the order of images in each interest point match file need not be the same "
@@ -1452,14 +1443,26 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      po::bool_switch(&asp::stereo_settings().accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
      "Accept the DEM provided on the command line as the one mapprojection was done with, "
      "even if it disagrees with the DEM recorded in the geoheaders of input images.")
-    ("query-num-image-pairs", 
-     po::bool_switch(&opt.query_num_image_pairs)->default_value(false)->implicit_value(true), 
-     "Print how many image pairs need to find matches for, and exit.")
-    ("vwip-prefix",  po::value(&opt.vwip_prefix),
-     "Save .vwip files with this prefix. This is a private option used by parallel_bundle_adjust.")
+    ("stop-after-statistics",    
+      po::bool_switch(&opt.stop_after_stats)->default_value(false)->implicit_value(true),
+     "Quit after computing image statistics.")
+    ("stop-after-matching",
+      po::bool_switch(&opt.stop_after_matching)->default_value(false)->implicit_value(true),
+     "Quit after writing all match files.")
+    ("calc-normalization-bounds",
+     po::bool_switch(&opt.calc_normalization_bounds)->default_value(false)->implicit_value(true),
+     "This is called in parallel_bundle_adjust just once to calculate all image bounds "
+     "for normalization, after statistics were computed by separate processes.") 
+    ("calc-ip",
+     po::bool_switch(&opt.calc_ip)->default_value(false)->implicit_value(true),
+     "Compute interest points for each image. This is before interest point matching."
+     "This is called by parallel_bundle_adjust with multiple processes.")
     ("ip-debug-images",
      po::bool_switch(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
      "Write debug images to disk when detecting and matching interest points.")
+    ("query-num-image-pairs", 
+     po::bool_switch(&opt.query_num_image_pairs)->default_value(false)->implicit_value(true), 
+     "Print how many image pairs need to find matches for, and exit.")
     ;
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -2057,11 +2060,11 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     vw::vw_throw(vw::ArgumentErr()
               << "Cannot use --use-llh-error without a datum. Set --datum.\n");
 
-  if (opt.calc_normalization_bounds &&
+  if ((opt.calc_normalization_bounds || opt.calc_ip) &&
       (opt.stop_after_stats || opt.stop_after_matching))
     vw::vw_throw(vw::ArgumentErr()
-              << "Cannot use --calc-normalization-bounds with --stop-after-stats or "
-              << "--stop-after-matching.\n");
+              << "Cannot use --calc-normalization-bounds or --calc-ip with "
+              << "--stop-after-stats or --stop-after-matching.\n");
 
   return;
 }
@@ -2112,11 +2115,8 @@ void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
       << "point matches per image before matching (vwip), as these depend "
       << "on the pair of images used.\n";
   } else {
-    if (opt.vwip_prefix == "")
-      opt.vwip_prefix = opt.out_prefix;
-    vwip_file1 = ip::ip_filename(opt.vwip_prefix, image1_path);
-    vwip_file2 = ip::ip_filename(opt.vwip_prefix, image2_path);
-    vw::create_out_dir(opt.vwip_prefix);
+    vwip_file1 = ip::ip_filename(opt.out_prefix, image1_path);
+    vwip_file2 = ip::ip_filename(opt.out_prefix, image2_path);
   }
   
   // For mapprojected images and given the overlap params,
@@ -2380,12 +2380,23 @@ void create_gcp_from_mapprojected_images(asp::BaOptions const& opt) {
 }
 
 // Compute statistics for the designated range of images (or mapprojected
-// images), and perhaps the footprints. In parallel_bundle_adjust this is 
-// called separately for different ranges.
-void computeStats(asp::BaOptions const& opt, std::vector<std::string> const& map_files,
-                  std::string const& dem_file_for_overlap) {
+// images), and perhaps the footprints. Or, compute the ip per image (before
+// matching). These distinct operations use much shared logic, so are put in the
+// same function. In parallel_bundle_adjust this function is called separately
+// for different ranges.
+void computeStatsOrIp(asp::BaOptions const& opt, 
+                      std::vector<std::string> const& files_for_stats,
+                      std::string const& dem_file_for_overlap, 
+                      std::string const& normalization_bounds_file, 
+                      bool calcIp) {
 
-  int num_images = opt.image_files.size();
+  int num_images = files_for_stats.size();
+  if (num_images != opt.image_files.size())
+    vw_throw(ArgumentErr() << "Book-keeping error in number of images.\n");
+
+  std::map<std::string, vw::Vector2> bounds_map;
+  if (calcIp)
+    asp::readNormalizationBounds(normalization_bounds_file, files_for_stats, bounds_map);
 
   // Assign the images which this instance should compute statistics for.
   std::vector<size_t> image_stats_indices;
@@ -2397,11 +2408,7 @@ void computeStats(asp::BaOptions const& opt, std::vector<std::string> const& map
     size_t index = image_stats_indices[i];
 
     // The stats need to be computed for the mapprojected image, if provided
-    std::string image_path;
-    if (map_files.empty())
-      image_path = opt.image_files[index];
-    else
-      image_path = map_files[index];
+    std::string image_path = files_for_stats[index];
 
     // Call a bunch of stuff to get the nodata value
     boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
@@ -2420,15 +2427,37 @@ void computeStats(asp::BaOptions const& opt, std::vector<std::string> const& map
       masked_image = create_mask(image_view, nodata);
 
     // Use caching function call to compute the image statistics.
-    asp::gather_stats(masked_image, image_path, opt.out_prefix, image_path);
+    if (calcIp)
+      asp::gather_stats(masked_image, image_path, opt.out_prefix, image_path);
 
     // Compute and cache the camera footprint bbox
-    if (opt.auto_overlap_params != "")
+    if (opt.auto_overlap_params != "" && !calcIp)
       asp::camera_bbox_with_cache(dem_file_for_overlap,
                                   opt.image_files[index], // use the original image
                                   opt.camera_models[index],
                                   opt.out_prefix);
+    if (calcIp) {
+      // This closely resembles the logic in normalize_images() and
+      // ip_matching(), but done per image.
+      if (asp::openCvDetectMethod()) {
+        vw::Vector2 bounds = bounds_map[image_path];
+        masked_image = normalize(masked_image, bounds[0], bounds[1], 0.0, 1.0);
+      }
+      
+      // Detect ip and write them to file. Skip if cached ip newer than image exist.
+      vw::ip::InterestPointList ip;
+      std::string vwip_file = ip::ip_filename(opt.out_prefix, image_path);
+      bool use_cached_ip = false;
+      if (fs::exists(vwip_file) && first_is_newer(vwip_file, image_path))
+        use_cached_ip = true;
+      asp::detect_ip(ip, 
+                     apply_mask(masked_image, nodata),
+                     asp::stereo_settings().ip_per_tile,
+                     vwip_file, nodata, use_cached_ip);
+      
+    }  
   }
+  
   return;
 }
 
@@ -2659,8 +2688,14 @@ int main(int argc, char* argv[]) {
                  << "an initial transform, or ISIS cnet input.\n");
     }
 
-    int num_images = opt.image_files.size();
+    // The stats need to be for the mapprojected image, if provided
+    std::vector<std::string> files_for_stats = opt.image_files;
+    if (!map_files.empty())
+      files_for_stats = map_files;
 
+    // The file having the image normalization bounds  
+    std::string boundsFile = opt.out_prefix + "-normalization-bounds.txt";  
+    
     // Compute stats in the batch of images given by opt.instance_index, etc.
     // Skip this in several situations, including when we just want to accumulate
     // the stats for the images in the list.
@@ -2668,8 +2703,10 @@ int main(int argc, char* argv[]) {
                        opt.clean_match_files_prefix != ""   ||
                        opt.match_files_prefix != ""         ||
                        opt.calc_normalization_bounds);
+    bool calcIp = false;
     if (!skip_stats)
-      computeStats(opt, map_files, opt.dem_file_for_overlap);
+      computeStatsOrIp(opt, files_for_stats, opt.dem_file_for_overlap, 
+                       boundsFile, calcIp);
 
     if (opt.stop_after_stats) {
       vw_out() << "Quitting after statistics computation.\n";
@@ -2677,14 +2714,22 @@ int main(int argc, char* argv[]) {
       return 0;
     }
 
-    // The stats need to be for the mapprojected image, if provided
-    std::vector<std::string> files_for_stats = opt.image_files;
-    if (!map_files.empty())
-      files_for_stats = map_files;
-    std::string boundsFile = opt.out_prefix + "-normalization-bounds.txt";  
+    // Compute normalization bounds if requested. This is done in a separate
+    // process in parallel_bundle_adjust.
     if (opt.calc_normalization_bounds) {
       calcNormalizationBounds(opt.out_prefix, files_for_stats, boundsFile);
       vw_out() << "Quitting after calculating normalization bounds.\n";
+      xercesc::XMLPlatformUtils::Terminate();
+      return 0;
+    }
+
+    // Compute ip if requested. This is done in multiple processes in 
+    // parallel_bundle_adjust.
+    if (opt.calc_ip) {
+      bool calcIp = true;
+      computeStatsOrIp(opt, files_for_stats, opt.dem_file_for_overlap,
+                       boundsFile, calcIp);
+      vw_out() << "Quitting after computing interest points.\n";
       xercesc::XMLPlatformUtils::Terminate();
       return 0;
     }
