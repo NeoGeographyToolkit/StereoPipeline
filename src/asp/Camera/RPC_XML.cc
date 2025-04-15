@@ -480,8 +480,8 @@ void asp::RPCXML::read_from_file(std::string const& name) {
 
   DOMDocument* xmlDoc;
   DOMElement* elementRoot;
-  
-  try{
+
+  try {
     parser->parse(name.c_str());
     xmlDoc = parser->getDocument();
     elementRoot = xmlDoc->getDocumentElement();
@@ -504,7 +504,8 @@ void asp::RPCXML::read_from_file(std::string const& name) {
   
   try {
     // Pleiades/Astrium RPC
-    parse_rational_function_model(get_node<DOMElement>(elementRoot, "Rational_Function_Model"));
+    DOMElement* model = get_node<DOMElement>(elementRoot, "Rational_Function_Model");
+    parse_rational_function_model(model);
     return;
   } catch (vw::IOErr const& e) {
     // Possibly Rational_Function_Model doesn't work
@@ -518,7 +519,8 @@ void asp::RPCXML::read_from_file(std::string const& name) {
     // No luck
   }
 
-  vw_throw(vw::NotFoundErr() << "Couldn't find RPB or Rational_Function_Model tag inside XML file.");
+  vw_throw(vw::NotFoundErr() 
+           << "Couldn't find RPB or Rational_Function_Model tag inside XML file.");
 }
 
 void asp::RPCXML::parse_bbox(xercesc::DOMElement* root_node) {
@@ -680,10 +682,26 @@ void asp::RPCXML::parse_rpb(xercesc::DOMElement* root) {
 
 // Pleiades/Astrium RPC
 void asp::RPCXML::parse_rational_function_model(xercesc::DOMElement* node) {
-  DOMElement* inverse_model =
-    get_node<DOMElement>(node, "Inverse_Model"); // Inverse model
-  // takes ground to image.
-  DOMElement* rfmvalidity  = get_node<DOMElement>(node, "RFM_Validity");
+  
+  DOMElement* inverse_model;
+
+  try {
+    inverse_model = get_node<DOMElement>(node, "Inverse_Model");
+  } catch (...) {
+    // For some models, need to get Global_RFM first
+    DOMElement* global_model = get_node<DOMElement>(node, "Global_RFM");
+    inverse_model = get_node<DOMElement>(global_model, "Inverse_Model");
+  }
+  
+  // Get the RFM validity node
+  DOMElement* rfm_validity;
+  try {
+    rfm_validity = get_node<DOMElement>(node, "RFM_Validity");
+  } catch (...) {
+    // For some models, need to get Global_RFM first
+    DOMElement* global_model = get_node<DOMElement>(node, "Global_RFM");
+    rfm_validity = get_node<DOMElement>(global_model, "RFM_Validity");
+  } 
 
   // Pieces that will go into the RPC Model
   Vector<double,20> line_num_coeff, line_den_coeff, samp_num_coeff, samp_den_coeff;
@@ -700,17 +718,17 @@ void asp::RPCXML::parse_rational_function_model(xercesc::DOMElement* node) {
   for (size_t i = 0; i < line_den_coeff.size(); i++) 
     parse_index(inverse_model, "LINE_DEN_COEFF_", i, line_den_coeff);
 
-  cast_xmlch(get_node<DOMElement>(rfmvalidity, "LONG_SCALE" )->getTextContent(), geodetic_scale.x());
-  cast_xmlch(get_node<DOMElement>(rfmvalidity, "LAT_SCALE"  )->getTextContent(), geodetic_scale.y());
-  cast_xmlch(get_node<DOMElement>(rfmvalidity, "HEIGHT_SCALE")->getTextContent(), geodetic_scale.z());
-  cast_xmlch(get_node<DOMElement>(rfmvalidity, "LONG_OFF"   )->getTextContent(), geodetic_offset.x());
-  cast_xmlch(get_node<DOMElement>(rfmvalidity, "LAT_OFF"    )->getTextContent(), geodetic_offset.y());
-  cast_xmlch(get_node<DOMElement>(rfmvalidity, "HEIGHT_OFF" )->getTextContent(), geodetic_offset.z());
+  cast_xmlch(get_node<DOMElement>(rfm_validity, "LONG_SCALE" )->getTextContent(), geodetic_scale.x());
+  cast_xmlch(get_node<DOMElement>(rfm_validity, "LAT_SCALE"  )->getTextContent(), geodetic_scale.y());
+  cast_xmlch(get_node<DOMElement>(rfm_validity, "HEIGHT_SCALE")->getTextContent(), geodetic_scale.z());
+  cast_xmlch(get_node<DOMElement>(rfm_validity, "LONG_OFF"   )->getTextContent(), geodetic_offset.x());
+  cast_xmlch(get_node<DOMElement>(rfm_validity, "LAT_OFF"    )->getTextContent(), geodetic_offset.y());
+  cast_xmlch(get_node<DOMElement>(rfm_validity, "HEIGHT_OFF" )->getTextContent(), geodetic_offset.z());
 
-  cast_xmlch(get_node<DOMElement>(rfmvalidity, "SAMP_SCALE")->getTextContent(), xy_scale.x());
-  cast_xmlch(get_node<DOMElement>(rfmvalidity, "LINE_SCALE")->getTextContent(), xy_scale.y());
-  cast_xmlch(get_node<DOMElement>(rfmvalidity, "SAMP_OFF" )->getTextContent(), xy_offset.x());
-  cast_xmlch(get_node<DOMElement>(rfmvalidity, "LINE_OFF" )->getTextContent(), xy_offset.y());
+  cast_xmlch(get_node<DOMElement>(rfm_validity, "SAMP_SCALE")->getTextContent(), xy_scale.x());
+  cast_xmlch(get_node<DOMElement>(rfm_validity, "LINE_SCALE")->getTextContent(), xy_scale.y());
+  cast_xmlch(get_node<DOMElement>(rfm_validity, "SAMP_OFF" )->getTextContent(), xy_offset.x());
+  cast_xmlch(get_node<DOMElement>(rfm_validity, "LINE_OFF" )->getTextContent(), xy_offset.y());
 
   xy_offset -= Vector2i(1,1);
 
