@@ -183,12 +183,10 @@ bool StereoSession::ip_matching(std::string const& input_file1,
   if ((stereo_settings().ip_detect_method != DETECT_IP_METHOD_INTEGRAL) &&
       (stats1[0] != stats1[1])) { // Don't normalize if no stats were provided
     vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
-    bool do_not_exceed_min_max = false;
-    bool use_percentile_stretch = true;
     asp::normalize_images(stereo_settings().force_use_entire_range,
                           stereo_settings().individually_normalize,
-                          use_percentile_stretch,
-                          do_not_exceed_min_max,
+                          asp::usePercentileStretch(),
+                          asp::doNotExceedMinMax(),
                           stats1, stats2,
                           masked_image1, masked_image2);
   }

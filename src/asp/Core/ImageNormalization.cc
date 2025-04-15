@@ -15,15 +15,21 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <vw/FileIO/DiskImageResource.h>
-#include <vw/Core/Log.h>
-
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/InterestPointMatching.h>
+
+#include <vw/FileIO/DiskImageResource.h>
+#include <vw/Core/Log.h>
+#include <vw/Image/Algorithms.h>
+#include <vw/FileIO/DiskImageUtils.h>
+
+#include <boost/filesystem.hpp>
 
 #include <limits>
 
 using namespace vw;
+namespace fs = boost::filesystem;
 
 namespace asp {
   
@@ -60,13 +66,26 @@ void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
   return;
 }
 
+// If to use a percentile stretch when normalizing images. Will be used in multiple 
+// places.
+bool usePercentileStretch() {
+   return (asp::stereo_settings().ip_detect_method != DETECT_IP_METHOD_INTEGRAL);
+}
+
+// If it is allowed to exceed the min and max values when normalizing images.
+// TODO(oalexan1): This now returns false. This must be switched to true, and
+// must integrate the logic for ISIS cub files where it is always true.
+bool doNotExceedMinMax() {
+  return false;
+}
+
 // Calculate the min and max for all images to normalize, while respecting
 // given options.
 void calcImageSeqMinMax(bool force_use_entire_range,
                         bool individually_normalize,
                         bool use_percentile_stretch,
                         bool do_not_exceed_min_max,
-                        std::vector<vw::Vector6f> const& image_stats,
+                        std::vector<vw::Vector<float>> const& image_stats,
                         // Outputs
                         std::vector<double> & min_vals,
                         std::vector<double> & max_vals) {
@@ -164,14 +183,14 @@ void normalize_images(bool force_use_entire_range,
                       bool individually_normalize,
                       bool use_percentile_stretch,
                       bool do_not_exceed_min_max,
-                      vw::Vector6f const& left_stats,
-                      vw::Vector6f const& right_stats,
+                      vw::Vector<float> const& left_stats,
+                      vw::Vector<float> const& right_stats,
                       vw::ImageViewRef<vw::PixelMask<float>> & left_img,
                       vw::ImageViewRef<vw::PixelMask<float>> & right_img) {
 
   // Get the min and max values for the two images  
   std::vector<double> min_vals, max_vals;
-  std::vector<vw::Vector6f> image_stats = {left_stats, right_stats};
+  std::vector<vw::Vector<float>> image_stats = {left_stats, right_stats};
   calcImageSeqMinMax(force_use_entire_range, individually_normalize,
                      use_percentile_stretch, do_not_exceed_min_max,
                      image_stats,
@@ -179,15 +198,61 @@ void normalize_images(bool force_use_entire_range,
                      min_vals, max_vals);
   
   if (individually_normalize > 0)
-    vw::vw_out() << "\t--> Individually normalize images\n";
+    vw::vw_out() << "\t--> Individually normalize images.\n";
   else // Normalize using the same stats
-    vw::vw_out() << "\t--> Normalizing globally to: [" 
+    vw::vw_out() << "\t--> Normalize images globally.\n";
+  
+  vw::vw_out() << "Left image value bounds: [" 
                  << min_vals[0] << " " << max_vals[0] << "]\n";
+  vw::vw_out() << "Right image value bounds: [" 
+                 << min_vals[1] << " " << max_vals[1] << "]\n";
   
   left_img = normalize(left_img, min_vals[0], max_vals[0], 0.0, 1.0);
   right_img = normalize(right_img, min_vals[1], max_vals[1], 0.0, 1.0);
 
   return;
 }
+
+// This is called by parallel_bundle_adjust just once to accumulate all stats that
+// were done by individual processes.
+void calcNormalizationBounds(std::string const& out_prefix, 
+                             std::vector<std::string> const& image_files,
+                             std::string const& boundsFile) { 
+
+  int num_images = image_files.size();
+
+  std::vector<vw::Vector<float>> image_stats(num_images); 
+  // Assign the images which this instance should compute statistics for.
+  for (int i = 0; i < num_images; i++) {
+
+    std::string image_path = image_files[i];
+    std::string stats_path 
+      = out_prefix + '-' + fs::path(image_path).stem().string() + "-stats.tif";
+    
+    // Read the stats
+    vw::read_vector(image_stats[i], stats_path);
+  
+    // Sanity check
+    if (image_stats[i].size() != 6)
+      vw::vw_throw(vw::ArgumentErr() 
+        << "Expecting an image stats vector of size 6.\n");
+  }
+
+  std::vector<double> min_vals, max_vals;
+  asp::calcImageSeqMinMax(asp::stereo_settings().force_use_entire_range, 
+                          asp::stereo_settings().individually_normalize,
+                          asp::usePercentileStretch(),
+                          asp::doNotExceedMinMax(),
+                          image_stats,
+                          // Outputs
+                          min_vals, max_vals);
+
+  vw::vw_out() << "Writing: " << boundsFile << "\n";
+  std::ofstream out(boundsFile.c_str());
+  out.precision(17);
+  for (int i = 0; i < num_images; i++)
+    out << image_files[i] << " " << min_vals[i] << " " << max_vals[i] << "\n";
+  
+} // end function calcNormalizationBounds()
 
 } // end namespace asp

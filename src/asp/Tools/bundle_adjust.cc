@@ -34,7 +34,7 @@
 #include <asp/Rig/nvm.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/Core/IpMatchingAlgs.h> // Lightweight header for ip matching
+#include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/OutlierProcessing.h>
@@ -1384,10 +1384,16 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "The number of bundle_adjustment processes being run in parallel.")
     ("instance-index",      po::value(&opt.instance_index)->default_value(0),
      "The index of this parallel bundle adjustment process.")
-    ("stop-after-statistics",    po::bool_switch(&opt.stop_after_stats)->default_value(false)->implicit_value(true),
+    ("stop-after-statistics",    
+      po::bool_switch(&opt.stop_after_stats)->default_value(false)->implicit_value(true),
      "Quit after computing image statistics.")
-    ("stop-after-matching",    po::bool_switch(&opt.stop_after_matching)->default_value(false)->implicit_value(true),
+    ("stop-after-matching",
+      po::bool_switch(&opt.stop_after_matching)->default_value(false)->implicit_value(true),
      "Quit after writing all match files.")
+    ("calc-normalization-bounds",
+     po::bool_switch(&opt.calc_normalization_bounds)->default_value(false)->implicit_value(true),
+     "This is called in parallel_bundle_adjust just once to calculate all image bounds "
+     "for normalization, after statistics were computed by separate processes.") 
     ("force-reuse-match-files", po::bool_switch(&opt.force_reuse_match_files)->default_value(false)->implicit_value(true),
      "Force reusing the match files even if older than the images or cameras. "
      "Then the order of images in each interest point match file need not be the same "
@@ -2051,6 +2057,12 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     vw::vw_throw(vw::ArgumentErr()
               << "Cannot use --use-llh-error without a datum. Set --datum.\n");
 
+  if (opt.calc_normalization_bounds &&
+      (opt.stop_after_stats || opt.stop_after_matching))
+    vw::vw_throw(vw::ArgumentErr()
+              << "Cannot use --calc-normalization-bounds with --stop-after-stats or "
+              << "--stop-after-matching.\n");
+
   return;
 }
 
@@ -2367,8 +2379,9 @@ void create_gcp_from_mapprojected_images(asp::BaOptions const& opt) {
 
 }
 
-// Compute statistics for the designated images (or mapprojected
-// images), and perhaps the footprints.
+// Compute statistics for the designated range of images (or mapprojected
+// images), and perhaps the footprints. In parallel_bundle_adjust this is 
+// called separately for different ranges.
 void computeStats(asp::BaOptions const& opt, std::vector<std::string> const& map_files,
                   std::string const& dem_file_for_overlap) {
 
@@ -2649,14 +2662,29 @@ int main(int argc, char* argv[]) {
     int num_images = opt.image_files.size();
 
     // Compute stats in the batch of images given by opt.instance_index, etc.
+    // Skip this in several situations, including when we just want to accumulate
+    // the stats for the images in the list.
     bool skip_stats = (need_no_matches || opt.skip_matching ||
                        opt.clean_match_files_prefix != ""   ||
-                       opt.match_files_prefix != "");
+                       opt.match_files_prefix != ""         ||
+                       opt.calc_normalization_bounds);
     if (!skip_stats)
       computeStats(opt, map_files, opt.dem_file_for_overlap);
 
     if (opt.stop_after_stats) {
       vw_out() << "Quitting after statistics computation.\n";
+      xercesc::XMLPlatformUtils::Terminate();
+      return 0;
+    }
+
+    // The stats need to be for the mapprojected image, if provided
+    std::vector<std::string> files_for_stats = opt.image_files;
+    if (!map_files.empty())
+      files_for_stats = map_files;
+    std::string boundsFile = opt.out_prefix + "-normalization-bounds.txt";  
+    if (opt.calc_normalization_bounds) {
+      calcNormalizationBounds(opt.out_prefix, files_for_stats, boundsFile);
+      vw_out() << "Quitting after calculating normalization bounds.\n";
       xercesc::XMLPlatformUtils::Terminate();
       return 0;
     }
