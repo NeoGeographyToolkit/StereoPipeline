@@ -1315,7 +1315,9 @@ in bundle adjustment (:numref:`heights_from_dem`)::
     bundle_adjust                                 \
       --image-list ba_align/run-image_list.txt    \
       --camera-list ba_align/run-camera_list.txt  \
+      --match-files-prefix ba/run                 \
       --max-pairwise-matches 2000                 \
+      --match-first-to-last                       \
       --min-matches 1                             \
       --skip-matching                             \
       --num-iterations 100                        \
@@ -1326,8 +1328,6 @@ in bundle adjustment (:numref:`heights_from_dem`)::
       --heights-from-dem-uncertainty 10.0         \
       --mapproj-dem ref.tif                       \
       --remove-outliers-params "75.0 3.0 100 100" \
-      --match-first-to-last                       \
-      --match-files-prefix ba/run                 \
       -o ba_align_ref/run
 
 Note how we use the match files with the original ``ba/run`` prefix,
@@ -1812,16 +1812,17 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
     jitter_solve                                     \
       --image-list ba_align_ref/run-image_list.txt   \
       --camera-list ba_align_ref/run-camera_list.txt \
-      --match-files-prefix ba/run                    \
       --num-lines-per-position 500                   \
       --num-lines-per-orientation 500                \
+      --match-files-prefix ba/run                    \
       --max-pairwise-matches 10000                   \
+      --match-first-to-last                          \
       --min-matches 1                                \
       --min-triangulation-angle 1e-10                \
       --num-iterations 50                            \
       --num-passes 2                                 \
       --max-initial-reprojection-error 50            \
-      --overlap-limit 5000                           \
+      --overlap-limit 10000                          \
       --parameter-tolerance 1e-12                    \
       --heights-from-dem ref.tif                     \
       --heights-from-dem-uncertainty 10.0            \

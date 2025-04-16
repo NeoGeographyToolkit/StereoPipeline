@@ -83,7 +83,12 @@ triangulated points are not close to the DEM given by this option.
 The DEM constraint is preferred, if a decent DEM that is well-aligned with the
 cameras is available.
 
-The implementation is the same as for bundle adjustment
+If the difference between the stereo DEM before jitter correction and the
+reference DEM is large, the value of ``--heights-from-dem-uncertainty`` should
+be increased. If the reference DEM has systematic differences, such as due to
+vegetation, this constraint may need to be omitted. An example is shown in :numref:`jitter_pleiades`.
+
+The implementation of this constraint is the same as for bundle adjustment
 (:numref:`heights_from_dem`). 
 
 This solver can also use a sparse point cloud as a constraint. This is 
@@ -656,7 +661,7 @@ Bundle adjustment
 ^^^^^^^^^^^^^^^^^
 
 Bundle adjustment was invoked first to reduce any gross errors between
-the cameras::
+the cameras. This commands expects raw (not mapprojected) images::
 
     bundle_adjust                               \
       -t dg                                     \
@@ -795,7 +800,7 @@ from mapprojected images.
 See :numref:`jitter_ip` for a longer explanation regarding dense and sparse
 interest point matches.
 
-Solve for jitter::
+Solve for jitter. This commands expects raw (not mapprojected) images::
 
     jitter_solve                              \
       1.tif 2.tif                             \
@@ -810,15 +815,17 @@ Solve for jitter::
       --num-lines-per-position    400         \
       --num-lines-per-orientation 400         \
       --heights-from-dem ref.tif              \
-      --heights-from-dem-uncertainty 10       \
+      --heights-from-dem-uncertainty 20       \
       --num-anchor-points 10000               \
       --num-anchor-points-extra-lines 500     \
       --anchor-dem ref.tif                    \
       --anchor-weight 0.1                     \
     -o jitter/run
 
-See :numref:`jitter_camera` regarding camera constraints.
-See :numref:`jitter_anchor_points` regarding anchor points.
+The value of ``--heights-from-dem-uncertainty`` is very important. See
+:numref:`jitter_dem_constraint` regarding the DEM constraint,
+:numref:`jitter_camera` regarding camera constraints, and
+:numref:`jitter_anchor_points` regarding anchor points. 
 
 The report files mentioned in :numref:`jitter_out_files` can be very helpful
 in evaluating how well the jitter solver worked, even before rerunning stereo.
@@ -1096,8 +1103,7 @@ in evaluating how well the jitter solver worked, even before rerunning stereo.
 Next, we invoke the solver with the same initial data, but with a constraint
 tying to the reference DEM, with the option ``--heights-from-dem ref-adj.tif``.
 Since the difference between the created stereo DEM and the reference DEM is on
-the order of 5-10 meters, we will use ``--heights-from-dem-uncertainty 10``
-(this could be decreased somewhat). 
+the order of 5-10 meters, we will use ``--heights-from-dem-uncertainty 20``. 
 
 .. figure:: ../images/pleiades_err.png
    :name: pleiades_err
@@ -1314,13 +1320,12 @@ Solve for jitter with the aligned cameras::
       --num-iterations 50                             \
       --match-files-prefix jitter/run                 \
       --heights-from-dem ref.tif                      \
-      --heights-from-dem-uncertainty 10               \
+      --heights-from-dem-uncertainty 20               \
       --num-anchor-points 0                           \
       --anchor-weight 0.0                             \
       -o jitter/run
 
-The DEM uncertainty constraint was set to 10, as the image GSD is 15 meters.
-This can be reduced to 5 meters, likely.
+The DEM uncertainty constraint was set to 20, as the image GSD is 15 meters.
 
 See :numref:`jitter_camera` for a discussion of camera constraints,
 and :numref:`jitter_anchor_points` regarding anchor points.
@@ -2372,6 +2377,11 @@ Command-line options for jitter_solve
     Match the first several images to last several images by extending
     the logic of ``--overlap-limit`` past the last image to the earliest
     ones.
+
+--accept-provided-mapproj-dem
+    Accept the DEM provided on the command line as the one mapprojection was
+    done with, even if it disagrees with the DEM recorded in the geoheaders of
+    input images.
 
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined

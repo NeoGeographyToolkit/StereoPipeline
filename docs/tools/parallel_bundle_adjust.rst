@@ -42,7 +42,8 @@ Command-line options for ``parallel_bundle_adjust``:
 
 -e, --entry-point <integer (default: 0)>
     Bundle adjustment entry point (start at this stage).
-    Options: statistics = 0, matching = 1, optimization = 2.
+    Options: statistics and interest points per image = 0, 
+    interest point matching = 1, optimization = 2.
 
 --stop-point <integer(default: 3)>
     Bundle adjustment stop point (stop *before* this stage).

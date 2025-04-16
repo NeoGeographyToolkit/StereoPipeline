@@ -622,12 +622,15 @@ then, the alignment is applied to cameras the following way::
       --initial-transform align/run-transform.txt       \
       --apply-initial-transform-only -o ba_align/run
 
-This should create the adjusted cameras incorporating the alignment
+This should create the camera adjustments incorporating the alignment
 transform::
 
      ba_align/run-left.adjust, ba_align/run-right.adjust
 
 (see :numref:`adjust_files` for discussion of .adjust files). 
+
+For CSM cameras, this will also create stand-alone ``model state`` cameras with
+adjustments already applied to them (:numref:`csm_state`).
 
 If ``pc_align`` was invoked with the two clouds in reverse order, the
 transform to use is::

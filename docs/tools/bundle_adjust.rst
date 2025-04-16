@@ -1587,10 +1587,8 @@ Command-line options
     input images.
 
 --save-vwip
-    FIX HERE
-    Save ``.vwip`` files (intermediate files for creating ``.match`` files).
-    Such files are currently always created, unless rough homography is enabled,
-    so this option is obsolete and is ignored.
+    Save ``.vwip`` files (interest point matches per image, before matching).
+    This option is currently ignored as ``.vwip`` are always saved.
 
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined

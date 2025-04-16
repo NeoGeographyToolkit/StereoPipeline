@@ -39,11 +39,12 @@ Uses
 ~~~~
 
 The obtained RPC models and (potentially cropped) images can be used with the
-ASP tools when invoked with ``--session-type rpc``. The datum is usually read
-from the ``<RPC_DATUM>`` field, but can be also set with ``--datum``.
+ASP tools when invoked with ``--session-type rpc``. The datum is read from the
+``<RPC_DATUM>`` field, as written by ``cam2rpc``. It is suggested to also
+pass it via the ``--datum`` option.
 
-These can also be passed to the third-party ``S2P`` and ``SETSM`` stereo
-software, though both of these packages work for Earth only.
+The RPC models should work with the third-party ``S2P`` and ``SETSM`` stereo
+software. Note that both of these packages are for Earth only.
 
 The produced RPC model file can be read by GDAL (including ``gdalinfo``,
 :numref:`gdal_tools`) if has the same name as the image but with the .xml

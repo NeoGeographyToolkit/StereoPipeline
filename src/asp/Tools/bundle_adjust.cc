@@ -1434,7 +1434,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""),
      "An alias for --csv-srs, for backward compatibility.")
     ("save-vwip", po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
-     "Save .vwip files (intermediate files for creating .match files). This option "
+     "Save .vwip files (interest point matches per image, before matching). This option "
      "is currently ignored as .vwip are always saved.")
     ("ip-nodata-radius", po::value(&opt.ip_nodata_radius)->default_value(4),
      "Remove IP near nodata with this radius, in pixels.")

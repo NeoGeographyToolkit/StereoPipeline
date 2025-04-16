@@ -45,7 +45,8 @@ ip-detect-method <integer (default: 0)>
     0 = Custom OBAloG (:cite:`jakkula2010efficient`) implementation (default), 1
     = SIFT implementation from OpenCV, 2 = ORB implementation from OpenCV. The 
     SIFT method, unlike OBALoG, produces interest points that are accurate
-    to subpixel level.
+    to subpixel level. Remove any existing ``.vwip`` files before recomputing
+    interest points with a different method. 
 
 epipolar-threshold <double (default: unspecified)>
     Maximum distance in pixels from the epipolar line to search for

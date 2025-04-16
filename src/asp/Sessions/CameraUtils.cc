@@ -192,7 +192,7 @@ bool datum_from_camera(std::string const& image_file,
   
   std::string out_prefix = "run";
 
-  // Look for a non-pinole camera, as a pinhole camera does not have a datum
+  // Look for a non-pinhole camera, as a pinhole camera does not have a datum
   bool success = false;
   double cam_center_radius = 0.0;
   if (session.get() == NULL) {

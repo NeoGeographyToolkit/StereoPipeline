@@ -28,7 +28,7 @@ as the orthoimage.
 
 More context is given in :numref:`sfmicebridge`.
 
-Command-line options for ``ortho2pinhle``:
+Command-line options for ``ortho2pinhole``:
 
 --camera-estimate <string (default: "")>
       An estimated camera model used for location and pose estimate only.
@@ -55,8 +55,9 @@ Command-line options for ``ortho2pinhle``:
       
 --ip-detect-method <integer (default: 1)>
       Interest point detection algorithm (0: Integral OBALoG, 1: OpenCV SIFT
-      (default), 2: OpenCV ORB.
-                                          
+      (default), 2: OpenCV ORB.  Remove any existing ``.vwip`` files before
+      recomputing interest points with a different method.
+
 --minimum-ip <integer (default: 5)>
       Don't create a camera model if fewer than this many interest point matches
       were found.

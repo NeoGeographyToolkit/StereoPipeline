@@ -32,7 +32,7 @@ struct BaOptions: public asp::BaBaseOptions {
     cost_function, mapprojected_data, gcp_from_mapprojected;
   int ip_per_tile, ip_per_image, matches_per_tile;
   double overlap_exponent, ip_triangulation_max_error;
-  int instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
+  int num_parallel_jobs, job_id, num_random_passes, ip_num_ransac_iterations;
   bool save_intermediate_cameras, approximate_pinhole_intrinsics,
     init_camera_using_gcp, disable_pinhole_gcp_init,
     transform_cameras_with_shared_gcp, transform_cameras_using_gcp,

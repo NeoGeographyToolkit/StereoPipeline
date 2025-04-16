@@ -20,6 +20,10 @@ parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
    * The default number of processes per node is 1/4 of the number of cores on
      the head node, and the default number of threads per process is the number
      of cores on the head node over the number of processes.
+   * The number of launched jobs is number of nodes times number of processes
+     per node. This appears best for load balancing.  
+   * Create interest points (before matching) once per image, not each time per
+     image pair. This speeds up the processing.
      
 mapproject (:numref:`mapproject`):
   * If the input DEM is in the ``longlat`` projection, a projection 
@@ -208,6 +212,8 @@ misc:
     ``--ip-inlier-factor`` value by default.
   * Bugfix for loading camera adjustments when mapprojected images are passed 
     in, rather than the raw ones.
+  * Can read Airbus Pleiades RPC XML files that have both a "global" and a
+    "partial" camera model. The global one will be used.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------
