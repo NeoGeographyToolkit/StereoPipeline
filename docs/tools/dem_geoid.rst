@@ -15,8 +15,9 @@ This program can also perform the reverse adjustment.
 
 Supported geoids
 ~~~~~~~~~~~~~~~~~
-Three geoids and one areoid are supported. The Earth geoids are EGM96 and
-EGM2008, relative to the WGS84 datum ellipsoid (see the `NGA Office of Geomatics
+Three geoids and one areoid are supported (also custom geoids). The Earth
+geoids are EGM96 and EGM2008, relative to the WGS84 datum ellipsoid (see the
+`NGA Office of Geomatics
 <https://earth-info.nga.mil/index.php?dir=wgs84&action=wgs84>`_), and `NAVD88
 <https://www.ngs.noaa.gov/GEOID/GEOID09/>`_, which is relative to the NAD83
 ellipsoid.
