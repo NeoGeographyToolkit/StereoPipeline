@@ -33,6 +33,26 @@ def wipe_option(options, opt, n):
         for i in range(n):
             if r < len(options): del options[r]
 
+def replace_opt_val(argv, opt, old_val, new_val):
+    # In the array 'options', find the entry with value 'opt'.
+    # If the value that follows is 'old_val', replace it with 'new_val'.
+    
+    # Find the index of opt in argv
+    try:
+        r = argv.index(opt)
+    except:
+        return argv
+    
+    # There must be another value after the option
+    if r+1 >= len(argv):
+        raise CmdRunException("Option " + opt + " has no value")
+  
+    # Replace the value
+    if argv[r+1] == str(old_val):
+        argv[r+1] = str(new_val)
+    
+    return argv
+
 class CmdRunException(Exception):
     '''Exception type indicating an error with a cmd call'''
     pass

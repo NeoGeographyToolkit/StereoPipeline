@@ -289,24 +289,64 @@ def run_job(prog, args, instance_index, **kw):
         raise Exception('Bundle adjust step ' + kw['msg'] + ' failed')
 
 class ParallelBaStep:
-    # The ids of individual parallel_bundle_adjust steps
-    statistics   = 0
-    matching     = 1
-    optimization = 2
+    # The ids of individual parallel_bundle_adjust steps. What the user
+    # sets as the statistics step, internally has 3 sub-steps:
+    # A. Compute image statistics
+    # B. Compute normalization bounds.
+    # C. Compute interest points per image.
+    # This will be taken into account when parsing user options.
+    statistics     = 100 
+    bounds         = 110 
+    interest_point = 120
+    matching       = 200
+    optimization   = 300
+    all            = 400
 
+def remapSteps(argv):
+  # Replace:
+  #  - user step 1 with internal interest_point step (and all steps before it)
+  #  - user step 2 with internal matching step
+  #  - user step 3 with internal optimization step
+  # See also: ParallelBaStep class.
+  for opt in ['-e', '--entry-point', '--stop-point']:
+    argv = asp_cmd_utils.replace_opt_val(argv, opt, 0, ParallelBaStep.interest_point)
+    argv = asp_cmd_utils.replace_opt_val(argv, opt, 1, ParallelBaStep.matching)
+    argv = asp_cmd_utils.replace_opt_val(argv, opt, 2, ParallelBaStep.optimization)
+    argv = asp_cmd_utils.replace_opt_val(argv, opt, 3, ParallelBaStep.all)
+  return argv    
+
+def remapOptAux(val):
+  # Same logic as in remapSteps, but for the parsed options.
+  if val == 0: val = ParallelBaStep.interest_point
+  if val == 1: val = ParallelBaStep.matching
+  if val == 2: val = ParallelBaStep.optimization
+  if val == 3: val = ParallelBaStep.all
+
+  # Sanity check
+  if val < ParallelBaStep.statistics:
+    raise Exception("Invalid entry or stop point: " + str(val))
+  
+  return val
+
+def remapOpt(opt):
+  # Same logic as in remapSteps, but for the parsed options.
+  opt.entry_point = remapOptAux(opt.entry_point)
+  opt.stop_point  = remapOptAux(opt.stop_point)
+  return opt
+   
 if __name__ == '__main__':
     usage = '''parallel_bundle_adjust <images> <cameras> <optional ground control points> -o <output prefix> [options]
         Camera model arguments may be optional for some stereo
         session types (e.g. isis). See bundle_adjust for all options.\n''' + get_asp_version()
-
+    
     # A wrapper for bundle_adjust which computes image statistics and IP matches
     #  in parallel across multiple machines.  The final bundle_adjust step is
     #  performed on a single machine.
 
     # Algorithm: When the script is started, it starts one copy of
-    # itself on each node during steps 1 and 2 (statistics, matching).
+    # itself on each node during steps before optimization. 
     # Those scripts in turn start actual jobs on those nodes.
-    # For step 3 (optimization), the script does the work itself.
+    # For the optimization step, the script does the work itself.
 
     p = argparse.ArgumentParser(usage=usage)
     p.add_argument('--nodes-list', dest='nodes_list', default=None,
@@ -318,9 +358,11 @@ if __name__ == '__main__':
     p.add_argument('--threads', dest='threads', default=None,
                  type=int, help='The number of threads  per process. The default is ' + \
                  'the number of cores on the head node over the number of processes.')
-    p.add_argument('-e', '--entry-point',    dest='entry_point', default=0,
+    p.add_argument('-e', '--entry-point', 
+                   dest='entry_point', default=0,
                    help = "Bundle adjustment entry point (start at this stage). " + \
-                   "Options: statistics = 0, matching = 1, optimization = 2.",
+                   "Options: statistics and interest points per image = 0, " + \
+                   "interest point matching = 1, optimization = 2.",
                    type=int)
     p.add_argument('--stop-point', dest='stop_point',  default=3,
                    help = "Bundle adjustment stop point (stop *before* this stage). " + \
@@ -354,6 +396,10 @@ if __name__ == '__main__':
     args = clean_args(args)
     output_prefix = get_output_prefix(args)
 
+    # Remap to internal steps
+    sys.argv = remapSteps(sys.argv)    
+    opt = remapOpt(opt)
+ 
     if opt.version:
         asp_system_utils.print_version_and_exit()
 
@@ -362,7 +408,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # Ensure our 'parallel' is not out of date
-    check_parallel_version()
+    asp_system_utils.check_parallel_version()
 
     if opt.instance_index is None:
         # When the script is started, set some options from the
@@ -422,25 +468,40 @@ if __name__ == '__main__':
            print("Skipping statistics and matching based on input options.")
            if opt.entry_point < ParallelBaStep.optimization:
               opt.entry_point = ParallelBaStep.optimization
-            
-        # Statistics
-        step = ParallelBaStep.statistics
+        
+        # Sanity check
+        if (opt.entry_point < ParallelBaStep.statistics or 
+            opt.stop_point  < ParallelBaStep.statistics):
+          raise Exception("Invalid entry or stop point.")
+
+        # Statistics, bounds per image, interest points per image
+        step = ParallelBaStep.interest_point
         if (opt.entry_point <= step):
             if (opt.stop_point <= step):
                 sys.exit()
 
             # Spawn statistics processes to nodes
             num_images = get_num_images(self_args)
-            spawn_to_nodes(step, num_images, output_prefix, self_args)
-
+            spawn_to_nodes(ParallelBaStep.statistics, num_images, output_prefix, self_args)
+            
+            # Run the bounds step as a single process
+            args.extend(['--skip-matching'])
+            run_job('bundle_adjust', args + ['--calc-normalization-bounds'],
+                    instance_index=-1, 
+                    msg='%d: Normalization bounds' % step)
+            
+            # Spawn interest point processes to nodes
+            spawn_to_nodes(ParallelBaStep.interest_point, num_images, output_prefix,
+                           self_args)
+            
         # Matching
         step = ParallelBaStep.matching
         if (opt.entry_point <= step):
             if (opt.stop_point <= step):
                 sys.exit()
 
-            # To do load-balancing properly, need to know how many pairs
-            # of images we expect to match. This depends on --auto-overlap-params,
+            # To do load-balancing properly, need to know how many pairs of
+            # images we expect to match. This depends on --auto-overlap-params,
             # etc.
             sep = ","
             settings = run_and_parse_output("bundle_adjust", 
@@ -474,11 +535,20 @@ if __name__ == '__main__':
                 args.extend(['--stop-after-statistics'])
                 run_job('bundle_adjust', args, opt.instance_index,
                         msg='%d: Statistics' % opt.entry_point)
+                
+            # The bounds step will not be done in parallel so is not here
+
+            if (opt.entry_point == ParallelBaStep.interest_point):
+                args.extend(['--calc-ip'])
+                run_job('bundle_adjust', args, opt.instance_index,
+                        msg='%d: Interest point' % opt.entry_point)
 
             if (opt.entry_point == ParallelBaStep.matching):
                 args.extend(['--stop-after-matching'])
                 run_job('bundle_adjust', args, opt.instance_index,
                         msg='%d: Matching' % opt.entry_point)
+            
+            # The optimization step will not be done in parallel so is not here
 
         except Exception as e:
             die(e)

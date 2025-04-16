@@ -984,7 +984,7 @@ if __name__ == '__main__':
         die('\nERROR: Missing input files', code=2)
 
     # Ensure our 'parallel' is not out of date
-    check_parallel_version()
+    asp_system_utils.check_parallel_version()
 
     if opt.tile_id is None and opt.resume_at_corr:
         print("Resuming at the correlation stage.")

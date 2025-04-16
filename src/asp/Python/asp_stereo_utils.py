@@ -100,6 +100,7 @@ def clean_args(args):
     return args
 
 # TODO(oalexan1): Move to asp_cmd_utils.py
+# TODO(oalexan1): Run parallel_bundle_adjust with no options and see this fail.
 def get_option(options, opt, n):
     # In the array 'options', find and return the entry with value 'opt'
     #  and the next n values.
