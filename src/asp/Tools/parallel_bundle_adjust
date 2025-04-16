@@ -152,12 +152,9 @@ def get_num_images(args):
 
     return count
 
-def get_subfolder_prefix(output_folder, instance_index):
-    return os.path.join(output_folder, 'sub_idx_'+str(instance_index), 'run')
-
-# Launch GNU Parallel for instances. It will take care of distributing
-# the jobs across the nodes and load balancing. The way we accomplish
-# this is by calling this same script but with --instance_index <num>.
+# Launch the jobs with GNU Parallel. It will take care of distributing the jobs
+# across the nodes and load balancing. The way we accomplish this is by calling
+# this same script but with --job-id <num>.
 def spawn_to_nodes(step, num_nodes, output_prefix, argsIn):
 
     args = copy.copy(argsIn)
@@ -171,25 +168,25 @@ def spawn_to_nodes(step, num_nodes, output_prefix, argsIn):
         num_threads = opt.threads
 
     # Number of jobs to run in parallel to ensure all nodes are busy.
-    num_instances = num_nodes * num_procs
+    num_parallel_jobs = num_nodes * num_procs
     
-    # Need not have more processes than instances.
+    # Need not have more processes than jobs to run on them.
     # TODO(oalexan1): Wipe this
-    #if num_procs > num_instances:
-    #     num_procs = num_instances
+    #if num_procs > num_parallel_jobs:
+    #     num_procs = num_parallel_jobs
 
     asp_cmd_utils.wipe_option(args, '--processes', 1)
     asp_cmd_utils.wipe_option(args, '--threads', 1)
     args.extend(['--processes', str(num_procs)])
     args.extend(['--threads', str(num_threads)])
-    args.extend(['--instance-count', str(num_instances)])
+    args.extend(['--num-parallel-jobs', str(num_parallel_jobs)])
 
-    # For convenience store the instance index list in a file that
+    # For convenience store the list of job ids in a file that
     # will be passed to GNU parallel. Keep this in the run directory.
     asp_system_utils.mkdir_p(os.path.dirname(output_prefix))
-    instance_list = output_prefix + '-instance-list.txt'
-    f = open(instance_list, 'w')
-    for i in range(num_instances):
+    job_list = output_prefix + '-job-list.txt'
+    f = open(job_list, 'w')
+    for i in range(num_parallel_jobs):
         f.write("%d\n" % i)
     f.close()
 
@@ -197,8 +194,8 @@ def spawn_to_nodes(step, num_nodes, output_prefix, argsIn):
     # TODO(oalexan1): Run 'parallel' using the runInGnuParallel() function call,
     # when the ASP_LIBRARY_PATH trick can be fully encapsulated in the
     # asp_system_utils.py code rather than being needed for each tool.
-    cmd = ['parallel', '--will-cite', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'ASP_DEPS_DIR', '-u', '--max-procs', str(num_procs), '-a', instance_list]
-    if which(cmd[0]) is None:
+    cmd = ['parallel', '--will-cite', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'ASP_DEPS_DIR', '-u', '--max-procs', str(num_procs), '-a', job_list]
+    if asp_system_utils.which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')
 
     if opt.nodes_list is not None:
@@ -229,7 +226,7 @@ def spawn_to_nodes(step, num_nodes, output_prefix, argsIn):
                " ".join(args_copy)            + \
                " --entry-point " + str(start) + \
                " --stop-point " + str(stop) 
-    args_str += " --instance-index {}"
+    args_str += " --job-id {}"
     cmd += [args_str]
 
     # This is a bugfix for RHEL 8. The 'parallel' program fails to start with ASP's
@@ -254,14 +251,14 @@ def spawn_to_nodes(step, num_nodes, output_prefix, argsIn):
     if 'ASP_LIBRARY_PATH' in os.environ:
         os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
-def run_job(prog, args, instance_index, **kw):
-    '''Wrapper to run a command. Set instance_index=-1 if only one instance will be called.'''
+def run_job(prog, args, job_id, **kw):
+    '''Wrapper to run a command. Set job_id=-1 if only one job will be called.'''
 
     binpath = bin_path(prog)
     call    = [binpath]
     call.extend(args)
 
-    if instance_index < 0: # Only one instance will be used
+    if job_id < 0: # Only one job will process everything
         if opt.threads is not None:
             asp_cmd_utils.wipe_option(call, '--threads', 1)
             call.extend(['--threads', str(opt.threads)])
@@ -271,14 +268,6 @@ def run_job(prog, args, instance_index, **kw):
         if opt.threads is not None:
             asp_cmd_utils.wipe_option(call, '--threads', 1)
             call.extend(['--threads', str(opt.threads)])
-
-        if ('--stop-after-statistics' not in args) and ('--save-vwip' in args):
-            # Must create a custom subdirectory for .vwip files,
-            # as those are different for each pair.
-            output_prefix = get_output_prefix(args)
-            output_folder = os.path.dirname(output_prefix)
-            sub_prefix    = get_subfolder_prefix(output_folder, instance_index)
-            set_option(call, '--vwip-prefix', [sub_prefix])
 
     if opt.dryrun:
         print('%s' % ' '.join(call))
@@ -345,8 +334,8 @@ if __name__ == '__main__':
                  help='Display the commands being executed.')
 
     # Internal variables below.
-    # The index of the spawned process, 0 <= instance_index < processes.
-    p.add_argument('--instance-index', dest='instance_index', default=None, type=int,
+    # The index of the spawned process, 0 <= job_id < processes.
+    p.add_argument('--job-id', dest='job_id', default=None, type=int,
                  help=argparse.SUPPRESS)
     # Directory where the job is running
     p.add_argument('--work-dir', dest='work_dir', default=None,
@@ -375,7 +364,7 @@ if __name__ == '__main__':
     # Ensure our 'parallel' is not out of date
     asp_system_utils.check_parallel_version()
 
-    if opt.instance_index is None:
+    if opt.job_id is None:
         # When the script is started, set some options from the
         # environment which we will pass to the scripts we spawn
         # 1. Set the work directory
@@ -408,7 +397,7 @@ if __name__ == '__main__':
     if opt.version:
         args.append('-v')
 
-    if opt.instance_index is None:
+    if opt.job_id is None:
 
         # We get here when the script is started. The current running
         # process has become the management process that spawns other
@@ -454,7 +443,7 @@ if __name__ == '__main__':
             # Run the bounds step as a single process
             args.extend(['--skip-matching']) # this will also skip stats
             run_job('bundle_adjust', args + ['--calc-normalization-bounds'],
-                    instance_index=-1, 
+                    job_id=-1, 
                     msg='%d: Normalization bounds' % step)
             
             # Spawn interest point processes to nodes
@@ -489,34 +478,34 @@ if __name__ == '__main__':
             if (opt.stop_point <= step):
                 sys.exit()
             args.extend(['--skip-matching'])
-            run_job('bundle_adjust', args, instance_index=-1, msg='%d: Optimizing' % step)
+            run_job('bundle_adjust', args, job_id=-1, msg='%d: Optimizing' % step)
 
             # End main process case
     else:
 
         # This process was spawned by GNU Parallel with a given
-        # value of instance_index. It will do the actual work.
+        # value of job_id. It will do the actual work.
         if opt.verbose:
             print("Running on machine: ", os.uname())
 
         try:
-            args.extend(['--instance-index', str(opt.instance_index)])
+            args.extend(['--job-id', str(opt.job_id)])
 
             if (opt.entry_point == ParallelBaStep.statistics):
                 args.extend(['--stop-after-statistics'])
-                run_job('bundle_adjust', args, opt.instance_index,
+                run_job('bundle_adjust', args, opt.job_id,
                         msg='%d: Statistics' % opt.entry_point)
                 
             # The bounds step will not be done in parallel so is not here
 
             if (opt.entry_point == ParallelBaStep.interest_point):
                 args.extend(['--calc-ip'])
-                run_job('bundle_adjust', args, opt.instance_index,
+                run_job('bundle_adjust', args, opt.job_id,
                         msg='%d: Interest point' % opt.entry_point)
 
             if (opt.entry_point == ParallelBaStep.matching):
                 args.extend(['--stop-after-matching'])
-                run_job('bundle_adjust', args, opt.instance_index,
+                run_job('bundle_adjust', args, opt.job_id,
                         msg='%d: Matching' % opt.entry_point)
             
             # The optimization step will not be done in parallel so is not here

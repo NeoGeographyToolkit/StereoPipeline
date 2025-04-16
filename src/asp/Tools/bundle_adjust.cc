@@ -1381,10 +1381,10 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "Save the control network containing all interest points in the format used by ground control points, so it can be inspected. The triangulated points are before optimization.")
     ("gcp-from-mapprojected-images", po::value(&opt.gcp_from_mapprojected)->default_value(""),
      "Given map-projected versions of the input images, the DEM the were mapprojected onto, and interest point matches among all of these created in stereo_gui, create GCP for the input images to align them better to the DEM. This is experimental and not documented.")
-    ("instance-count",      po::value(&opt.instance_count)->default_value(1),
-     "The number of bundle_adjustment processes being run in parallel.")
-    ("instance-index",      po::value(&opt.instance_index)->default_value(0),
-     "The index of this parallel bundle adjustment process.")
+    ("num-parallel-jobs", po::value(&opt.num_parallel_jobs)->default_value(1),
+     "The number of bundle_adjustment processes being run in parallel over all nodes.")
+    ("job-id", po::value(&opt.job_id)->default_value(0),
+     "The id of this parallel bundle adjustment job.")
     ("force-reuse-match-files", po::bool_switch(&opt.force_reuse_match_files)->default_value(false)->implicit_value(true),
      "Force reusing the match files even if older than the images or cameras. "
      "Then the order of images in each interest point match file need not be the same "
@@ -1434,9 +1434,8 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""),
      "An alias for --csv-srs, for backward compatibility.")
     ("save-vwip", po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
-     "Save .vwip files (intermediate files for creating .match files). Such files are "
-     "currently always created, unless rough homography is enabled, so this "
-     "option is obsolete and is ignored.")
+     "Save .vwip files (intermediate files for creating .match files). This option "
+     "is currently ignored as .vwip are always saved.")
     ("ip-nodata-radius", po::value(&opt.ip_nodata_radius)->default_value(4),
      "Remove IP near nodata with this radius, in pixels.")
     ("accept-provided-mapproj-dem", 
@@ -2254,8 +2253,8 @@ void matches_from_mapproj_images(int i, int j,
 // TODO(oalexan1): This needs to be moved out.
 void create_gcp_from_mapprojected_images(asp::BaOptions const& opt) {
 
-  if (opt.instance_index != 0)
-    return; // only do this for first instance
+  if (opt.job_id != 0)
+    return; // only do this for the first job when running in parallel
 
   // Read the map-projected images and the dem
   std::istringstream is(opt.gcp_from_mapprojected);
@@ -2398,9 +2397,9 @@ void computeStatsOrIp(asp::BaOptions const& opt,
   if (calcIp)
     asp::readNormalizationBounds(normalization_bounds_file, files_for_stats, bounds_map);
 
-  // Assign the images which this instance should compute statistics for.
+  // Assign the images which this job should compute statistics for.
   std::vector<size_t> image_stats_indices;
-  for (size_t i = opt.instance_index; i < num_images; i += opt.instance_count)
+  for (size_t i = opt.job_id; i < num_images; i += opt.num_parallel_jobs)
     image_stats_indices.push_back(i);
 
   for (size_t i = 0; i < image_stats_indices.size(); i++) {
@@ -2495,32 +2494,30 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
     vw::vw_out() << "num_image_pairs," << all_pairs.size() << "\n";
     exit(0);
   }
-    
-  // Assign the matches which this instance should compute.
-  // This is for when called from parallel_bundle_adjust.
-  size_t per_instance = all_pairs.size() / opt.instance_count; // Round down
-  size_t remainder    = all_pairs.size() % opt.instance_count;
-  size_t start_index  = 0, this_count = 0;
-  for (size_t i = 0; i <= opt.instance_index; i++) {
-    this_count = per_instance;
-    if (i < remainder)
-      ++this_count;
-    start_index += this_count;
-  }
-  start_index -= this_count;
 
-  // TODO(oalexan1): The above logic is confusing. It is some
-  // kind of partitioning. At least when parallel_bundle_adjust
-  // is not invoked, for now check that things are as expected,
-  // so all the matches are used.
-  if (opt.instance_count == 1) {
-    if (start_index != 0 || this_count != all_pairs.size())
+  // Assign the pairs (match files) which this job should compute, when called
+  // from parallel_bundle_adjust. TODO(oalexan1): It is hard to understand the
+  // logic here.  
+  size_t per_job = all_pairs.size() / opt.num_parallel_jobs; // Round down
+  size_t remainder = all_pairs.size() % opt.num_parallel_jobs;
+  size_t curr_job_start_index = 0, curr_job_num_tasks = 0;
+  for (size_t i = 0; i <= opt.job_id; i++) {
+    curr_job_num_tasks = per_job;
+    if (i < remainder)
+      curr_job_num_tasks++;
+    curr_job_start_index += curr_job_num_tasks;
+  }
+  curr_job_start_index -= curr_job_num_tasks;
+
+  // Sanity check
+  if (opt.num_parallel_jobs == 1) {
+    if (curr_job_start_index != 0 || curr_job_num_tasks != all_pairs.size())
       vw::vw_throw(vw::ArgumentErr() << "Book-keeping failure in bundle_adjust.\n");
   }
 
-  std::vector<std::pair<int,int>> this_instance_pairs;
-  for (size_t i=0; i<this_count; i++)
-    this_instance_pairs.push_back(all_pairs[i+start_index]);
+  std::vector<std::pair<int,int>> curr_job_pairs;
+  for (size_t i = 0; i < curr_job_num_tasks; i++)
+    curr_job_pairs.push_back(all_pairs[i+curr_job_start_index]);
 
   // When using match-files-prefix or clean_match_files_prefix, form the list of
   // match files, rather than searching for them exhaustively on disk, which can
@@ -2541,13 +2538,13 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
 
   // Process the selected pairs
   // TODO(oalexan1): This block must be a function.
-  for (size_t k = 0; k < this_instance_pairs.size(); k++) {
+  for (size_t k = 0; k < curr_job_pairs.size(); k++) {
 
     if (need_no_matches)
       continue;
 
-    const int i = this_instance_pairs[k].first;
-    const int j = this_instance_pairs[k].second;
+    const int i = curr_job_pairs[k].first;
+    const int j = curr_job_pairs[k].second;
 
     std::string const& image1_path  = opt.image_files[i];  // alias
     std::string const& image2_path  = opt.image_files[j];  // alias
@@ -2696,7 +2693,7 @@ int main(int argc, char* argv[]) {
     // The file having the image normalization bounds  
     std::string boundsFile = opt.out_prefix + "-normalization-bounds.txt";  
     
-    // Compute stats in the batch of images given by opt.instance_index, etc.
+    // Compute stats in the batch of images given by opt.job_id, etc.
     // Skip this in several situations, including when we just want to accumulate
     // the stats for the images in the list.
     bool skip_stats = (need_no_matches || opt.skip_matching ||
@@ -2726,8 +2723,7 @@ int main(int argc, char* argv[]) {
 
     // Compute ip if requested. This is done in multiple processes in 
     // parallel_bundle_adjust. For standalone bundle_adjust, this will
-    // happen when matching occurs.
-    // TODO(oalexan1): Need to ensure it happens in bundle_adjust too.
+    // happen when matching occurs, which is then serial.
     if (opt.calc_ip) {
       bool calcIp = true;
       computeStatsOrIp(opt, files_for_stats, opt.dem_file_for_overlap,
