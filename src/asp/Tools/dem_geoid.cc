@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -14,7 +14,6 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // __END_LICENSE__
-
 
 /// \file dem_geoid.cc
 ///
@@ -39,7 +38,6 @@ namespace fs = boost::filesystem;
 
 using namespace vw;
 using namespace vw::cartography;
-using namespace std;
 
 /// Image view which adds or subtracts the ellipsoid/geoid difference
 ///  from elevations in a DEM image.
@@ -48,7 +46,7 @@ class DemGeoidView : public ImageViewBase<DemGeoidView<ImageT>> {
   ImageT                m_img;    // The DEM
   GeoReference   const& m_georef; // alias
   bool                  m_is_egm2008;
-  vector<double> const& m_egm2008_grid; // Special variable storing EGM2008 data
+  std::vector<double> const& m_egm2008_grid; // Special variable storing EGM2008 data
   ImageViewRef<PixelMask<double>> const& m_geoid; // Interpolation view of the geoid
   GeoReference const& m_geoid_georef; // alias
   bool     m_reverse_adjustment; // If true, convert from orthometric height to geoid height
@@ -61,9 +59,8 @@ public:
   typedef double result_type;
   typedef ProceduralPixelAccessor<DemGeoidView> pixel_accessor;
 
-
   DemGeoidView(ImageT const& img, GeoReference const& georef,
-               bool is_egm2008, vector<double> const& egm2008_grid,
+               bool is_egm2008, std::vector<double> const& egm2008_grid,
                ImageViewRef<PixelMask<double> > const& geoid,
                GeoReference const& geoid_georef, bool reverse_adjustment,
                double correction, double nodata_val):
@@ -72,7 +69,7 @@ public:
     m_geoid(geoid), m_geoid_georef(geoid_georef),
     m_reverse_adjustment(reverse_adjustment),
     m_correction(correction),
-    m_nodata_val(nodata_val){}
+    m_nodata_val(nodata_val) {}
 
   inline int32 cols  () const { return m_img.cols(); }
   inline int32 rows  () const { return m_img.rows(); }
@@ -80,9 +77,9 @@ public:
 
   inline pixel_accessor origin() const { return pixel_accessor(*this); }
 
-  inline result_type operator()( size_t col, size_t row, size_t p=0 ) const {
+  inline result_type operator()(size_t col, size_t row, size_t p=0) const {
 
-    if ( m_img(col, row, p) == m_nodata_val )
+    if (m_img(col, row, p) == m_nodata_val)
       return m_nodata_val; // Skip invalid pixels
 
     Vector2 lonlat = m_georef.pixel_to_lonlat(Vector2(col, row));
@@ -92,34 +89,30 @@ public:
     //lonlat[0] = -152;   lonlat[1] = 66;   // Alaska
     //lonlat[0] = -155.5; lonlat[1] = 19.5; // Hawaii
 
-    // TODO: Does the GeoRef class handle this now?
-
     // Need to carefully wrap lonlat to the [0, 360) x [-90, 90) box.
     // Note that lon = 25, lat = 91 is the same as lon = 180 + 25, lat = 89
     // as we go through the North pole and show up on the other side.
-    while ( fabs(lonlat[1]) > 90.0 ){
-      if ( lonlat[1] > 90.0 ){
+    // TODO: Does the GeoRef class handle this now?
+    while (std::abs(lonlat[1]) > 90.0) {
+      if (lonlat[1] > 90.0) {
         lonlat[1] = 180.0 - lonlat[1];
         lonlat[0] += 180.0;
       }
-      if ( lonlat[1] < -90.0 ){
+      if (lonlat[1] < -90.0) {
         lonlat[1] = -180.0 - lonlat[1];
         lonlat[0] += 180.0;
       }
     }
-    while( lonlat[0] <   0.0  ) lonlat[0] += 360.0;
-    while( lonlat[0] >= 360.0 ) lonlat[0] -= 360.0;
-
-
+    while (lonlat[0] <   0.0)  lonlat[0] += 360.0;
+    while (lonlat[0] >= 360.0) lonlat[0] -= 360.0;
 
     result_type geoid_height = 0.0;
-    if (m_is_egm2008){
-      int nr = m_geoid.rows(), 
-          nc = m_geoid.cols();
+    if (m_is_egm2008) {
+      int nr = m_geoid.rows(), nc = m_geoid.cols();
       // Call fortran function from "geoid" mini external library
       egm2008_call_interp_(&nr, &nc, (double*)&m_egm2008_grid[0],
                            &lonlat[0], &lonlat[1], &geoid_height);
-    }else{
+    } else {
       // Use our own interpolation into the geoid image
       Vector2  pix = m_geoid_georef.lonlat_to_pixel(lonlat);
       PixelMask<double> interp_val = m_geoid(pix[0], pix[1]);
@@ -142,14 +135,14 @@ public:
 
   /// \cond INTERNAL
   typedef DemGeoidView<typename ImageT::prerasterize_type> prerasterize_type;
-  inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
-    return prerasterize_type( m_img.prerasterize(bbox), m_georef,
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+    return prerasterize_type(m_img.prerasterize(bbox), m_georef,
                               m_is_egm2008, m_egm2008_grid,
                               m_geoid, m_geoid_georef, m_reverse_adjustment,
-                              m_correction, m_nodata_val );
+                              m_correction, m_nodata_val);
   }
-  template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
-    vw::rasterize( prerasterize(bbox), dest, bbox );
+  template <class DestT> inline void rasterize(DestT const& dest, BBox2i const& bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
   }
   /// \endcond
 };
@@ -157,20 +150,20 @@ public:
 // Helper function which uses the class above.
 template <class ImageT>
 DemGeoidView<ImageT>
-dem_geoid( ImageViewBase<ImageT> const& img, GeoReference const& georef,
-           bool is_egm2008, vector<double> & egm2008_grid,
+dem_geoid(ImageViewBase<ImageT> const& img, GeoReference const& georef,
+           bool is_egm2008, std::vector<double> & egm2008_grid,
            ImageViewRef<PixelMask<double> > const& geoid,
            GeoReference const& geoid_georef, bool reverse_adjustment,
            double correction, double nodata_val) {
-  return DemGeoidView<ImageT>( img.impl(), georef,
+  return DemGeoidView<ImageT>(img.impl(), georef,
                                is_egm2008, egm2008_grid,
                                geoid, geoid_georef,
-                               reverse_adjustment, correction, nodata_val );
+                               reverse_adjustment, correction, nodata_val);
 }
 
 /// Parameters for this tool
 struct Options : vw::GdalWriteOptions {
-  string dem_path, geoid, out_prefix;
+  std::string dem_path, geoid, out_prefix;
   double nodata_value;
   bool   use_double; // Otherwise use float
   bool   reverse_adjustment;
@@ -179,7 +172,7 @@ struct Options : vw::GdalWriteOptions {
 // Get the absolute path to the geoid. It is normally in the share/geoids
 // directory of the ASP distribution, but in dev mode the directory
 // having the geoids can be set via the ASP_GEOID_DIR env var.
-string get_geoid_full_path(std::string const& prog_name, std::string const& geoid_file){
+std::string get_geoid_full_path(std::string const& prog_name, std::string const& geoid_file) {
 
   // Convert to absolute path first, to avoid issues when prog_name
   // is simply "dem_geoid" with no path, when subsequent operations on
@@ -191,31 +184,33 @@ string get_geoid_full_path(std::string const& prog_name, std::string const& geoi
   else
     geoid_dir = boost::dll::program_location().parent_path().parent_path() / fs::path("share")
       / fs::path("geoids");
-  
+
   fs::path geoid_path = geoid_dir / fs::path(geoid_file);
-  if (!fs::exists(geoid_path)) 
-    vw_throw( ArgumentErr() << "Could not find the geoid: " << geoid_path.string()
+  if (!fs::exists(geoid_path))
+    vw_throw(ArgumentErr() << "Could not find the geoid: " << geoid_path.string()
               << ". Set export ASP_GEOID_DIR=/path/to/share/geoids\n");
 
   return geoid_path.string();
 }
 
-void handle_arguments( int argc, char *argv[], Options& opt ){
+void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("");
   general_options.add_options()
-    ("nodata_value",    po::value(&opt.nodata_value)->default_value(-32768),
-         "The value of no-data pixels, unless specified in the DEM.")
-    ("geoid",           po::value(&opt.geoid), 
-        "Specify the geoid to use for the given datum. For WGS84 use EGM96 or EGM2008. Default: EGM96. For Mars use MOLA or leave blank. For NAD83 use NAVD88 or leave blank. When not specified it will be auto-detected.")
+    ("nodata_value", po::value(&opt.nodata_value)->default_value(-32768),
+     "The value of no-data pixels, unless specified in the DEM.")
+    ("geoid", po::value(&opt.geoid),
+     "Specify the geoid to use for the given datum. For WGS84 use EGM96 or EGM2008. "
+     "Default: EGM96. For Mars use MOLA or leave blank. For NAD83 use NAVD88 or leave "
+     "blank. When not specified it will be auto-detected.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
-    ("double",          po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
-         "Output using double precision (64 bit) instead of float (32 bit).")
+    ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
+     "Output using double precision (64 bit) instead of float (32 bit).")
     ("reverse-adjustment",
-                        po::bool_switch(&opt.reverse_adjustment)->default_value(false)->implicit_value(true),
-        "Go from DEM relative to the geoid to DEM relative to the ellipsoid.");
+       po::bool_switch(&opt.reverse_adjustment)->default_value(false)->implicit_value(true),
+     "Go from DEM relative to the geoid to DEM relative to the ellipsoid.");
 
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -224,21 +219,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
   po::positional_options_description positional_desc;
   positional_desc.add("dem", 1);
 
-  string usage("[options] <dem>");
+  std::string usage("[options] <dem>");
   bool allow_unregistered = false;
-  vector<string> unregistered;
+  std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered);
 
-  if ( opt.dem_path.empty() )
-    vw_throw( ArgumentErr() << "Requires <dem> in order to proceed.\n\n"
-              << usage << general_options );
+  if (opt.dem_path.empty())
+    vw_throw(ArgumentErr() << "Requires <dem> in order to proceed.\n\n"
+              << usage << general_options);
 
   boost::to_lower(opt.geoid);
 
-  if ( opt.out_prefix.empty() )
+  if (opt.out_prefix.empty())
     opt.out_prefix = fs::path(opt.dem_path).stem().string();
 
   // Create the output directory
@@ -287,83 +282,83 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 // We store the tabulated values as a tif file, and modified
 // the routine to be callable from this executable.
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   try {
     std::string prog_name = argv[0];
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     bool reverse_adjustment = opt.reverse_adjustment;
 
     // Read the DEM to adjust
     DiskImageResourceGDAL dem_rsrc(opt.dem_path);
     double dem_nodata_val = opt.nodata_value;
-    if ( dem_rsrc.has_nodata_read() ) {
+    if (dem_rsrc.has_nodata_read()) {
       dem_nodata_val = dem_rsrc.nodata_read();
       vw_out() << "\tFound input nodata value for " << opt.dem_path << ": "
-               << dem_nodata_val << endl;
+               << dem_nodata_val << "\n";
     }
     DiskImageView<double> dem_img(dem_rsrc);
     GeoReference dem_georef;
     bool has_georef = read_georeference(dem_georef, dem_rsrc);
     if (!has_georef)
-      vw_throw( ArgumentErr() << "Missing georeference for DEM: " << opt.dem_path << "\n" );
+      vw_throw(ArgumentErr() << "Missing georeference for DEM: " << opt.dem_path << "\n");
 
-    
     // TODO: Improve this handling so it can read DEMS with relevant EPSG codes, etc.
-    
+
     // Find out the datum from the DEM. If we fail, we do an educated guess.
-    string datum_name = dem_georef.datum().name();
-    string lname      = boost::to_lower_copy(datum_name);
-    string geoid_file;
+    std::string datum_name = dem_georef.datum().name();
+    std::string lname      = boost::to_lower_copy(datum_name);
+    std::string geoid_file;
     bool is_wgs84 = false, is_mola = false;
-    if ( lname == "wgs_1984" || lname == "wgs 1984" || lname == "wgs1984" ||
-         lname == "wgs84"    || lname == "world geodetic system 1984" ){
+    if (lname == "wgs_1984" || lname == "wgs 1984" || lname == "wgs1984" ||
+         lname == "wgs84"    || lname == "world geodetic system 1984") {
       is_wgs84 = true;
-    }else if (lname == "north_american_datum_1983"){
+    } else if (lname == "north_american_datum_1983") {
       geoid_file = "navd88.tif";
-    }else if (lname == "d_mars"){
+    } else if (lname == "d_mars") {
       is_mola = true;
-    }else if ( fabs( dem_georef.datum().semi_major_axis() - 6378137.0 ) < 500.0){
+    } else if (std::abs(dem_georef.datum().semi_major_axis() - 6378137.0) < 500.0) {
       // Guess Earth
       vw_out(WarningMessage) << "Unknown datum: " << datum_name << ". Guessing: WGS_1984.\n";
       is_wgs84 = true;
-    }else if ( fabs( dem_georef.datum().semi_major_axis() - 3396190.0) < 500.0){
+    } else if (std::abs(dem_georef.datum().semi_major_axis() - 3396190.0) < 500.0) {
       // Guess Mars
       vw_out(WarningMessage) << "Unknown datum: " << datum_name << ". Guessing: D_MARS.\n";
       is_mola = true;
-    }else{
-      vw_throw( ArgumentErr() << "Cannot apply geoid adjustment to DEM relative to datum: "
-                << datum_name << "\n");
+    } else {
+      vw_throw(ArgumentErr() 
+               << "Cannot apply geoid adjustment to DEM relative to datum: "
+               << datum_name << "\n");
     }
 
     // Ensure that the value of --geoid is compatible with the datum from the DEM.
     // Only WGS_1984 datums can be used with EGM geoids, only the NAD83 datum
     // can be used with NAVD88, and only MOLA can be used with Mars.
     bool is_egm2008 = false;
-    if (is_wgs84){
-      if (opt.geoid == "egm2008"){
+    if (is_wgs84) {
+      if (opt.geoid == "egm2008") {
         is_egm2008 = true;
         geoid_file = "egm2008.jp2";
-      }else if (opt.geoid == "egm96" || opt.geoid == "")
+      } else if (opt.geoid == "egm96" || opt.geoid == "")
         geoid_file = "egm96-5.jp2"; // The default WGS84 geoid option
       else
-        vw_throw( ArgumentErr() << "The datum is WGS84. The only supported options for the geoid are EGM96 and EGM2008. Got instead: " << opt.geoid << ".\n");
-    }else if (lname == "north_american_datum_1983"){
+        vw_throw(ArgumentErr() << "The datum is WGS84. The only supported options for the geoid are EGM96 and EGM2008. Got instead: " << opt.geoid << ".\n");
+    } else if (lname == "north_american_datum_1983") {
       if (opt.geoid != "" && opt.geoid != "navd88")
-        vw_throw( ArgumentErr() << "The datum is North_American_Datum_1983. "
+        vw_throw(ArgumentErr() << "The datum is North_American_Datum_1983. "
                                 << "Hence the value of the --geoid option must be either "
                                 << "empty (auto-detected) or NAVD88. Got instead: "
                                 << opt.geoid << ".\n");
-    }else if (is_mola){
+    } else if (is_mola) {
       if (opt.geoid != "" && opt.geoid != "mola")
-        vw_throw( ArgumentErr() << "Detected a Mars DEM. In that case, the "
+        vw_throw(ArgumentErr() << "Detected a Mars DEM. In that case, the "
                                 << "value of the --geoid option must be either empty "
                                 << "(auto-detected) or MOLA. Got instead: " << opt.geoid << ".\n");
 
-    }else if (opt.geoid != "")
-      vw_throw( ArgumentErr() << "The geoid value: " << opt.geoid
+    } else if (opt.geoid != "")
+      vw_throw(ArgumentErr() << "The geoid value: " << opt.geoid
                               << " is applicable only for the WGS_1984 datum.\n");
 
     if (is_mola)
@@ -371,28 +366,27 @@ int main( int argc, char *argv[] ) {
 
     // Find where we keep the information for this geoid
     geoid_file = get_geoid_full_path(prog_name, geoid_file);
-    vw_out() << "Adjusting the DEM using the geoid: " << geoid_file << endl;
+    vw_out() << "Adjusting the DEM using the geoid: " << geoid_file << "\n";
 
     // Read the geoid containing the adjustments. Read it in memory
     // entirely to dramatically speed up the computations.
-    double geoid_nodata_val = numeric_limits<float>::quiet_NaN();
+    double geoid_nodata_val = std::numeric_limits<float>::quiet_NaN();
     DiskImageResourceGDAL geoid_rsrc(geoid_file);
-    if ( geoid_rsrc.has_nodata_read() ) {
+    if (geoid_rsrc.has_nodata_read())
       geoid_nodata_val = geoid_rsrc.nodata_read();
-    }
     ImageView<float> geoid_img = DiskImageView<float>(geoid_rsrc);
     GeoReference geoid_georef;
     read_georeference(geoid_georef, geoid_rsrc);
 
-    if (is_wgs84 && !is_egm2008){
-      // Convert the egm96 int16 JPEG2000-encoded geoid to float.
-      double a =  0, 
+    if (is_wgs84 && !is_egm2008) {
+      // Convert the EGM96 int16 JPEG2000-encoded geoid to float.
+      double a =  0,
              b =  65534, // TODO: What is this?
-             c = -108, 
-             d =  86, 
+             c = -108,
+             d =  86,
              s = (d-c)/(b-a);
-      for (int col = 0; col < geoid_img.cols(); col++){
-        for (int row = 0; row < geoid_img.rows(); row++){
+      for (int col = 0; col < geoid_img.cols(); col++) {
+        for (int row = 0; row < geoid_img.rows(); row++) {
           geoid_img(col, row) = s*(geoid_img(col, row) - a) + c;
         }
       }
@@ -401,18 +395,18 @@ int main( int argc, char *argv[] ) {
     // The EGM2008 case is special. Then, we don't do bicubic interpolation into
     // geoid_img, rather, we invoke some Fortran routine, which gives more accurate results.
     // And we scale the int16 JPEG2000-encoded geoid to float.
-    vector<double> egm2008_grid;
-    if (is_egm2008){
-      double a  =  0,  
+    std::vector<double> egm2008_grid;
+    if (is_egm2008) {
+      double a  =  0,
              b  =  65534, // TODO: What is this?
-             c  = -107, 
-             d  =  86, 
+             c  = -107,
+             d  =  86,
              s  = (d-c)/(b-a);
-      int    nr = geoid_img.rows(), 
+      int    nr = geoid_img.rows(),
              nc = geoid_img.cols();
       egm2008_grid.resize(nr*nc);
-      for (int col = 0; col < nc; col++){
-        for (int row = 0; row < nr; row++){
+      for (int col = 0; col < nc; col++) {
+        for (int row = 0; row < nr; row++) {
           double val = geoid_img(col, row);
           val = s*(val - a) + c;
           egm2008_grid[row + col*nr] = val; // that is, egm2008_grid(row, col) = val;
@@ -425,27 +419,25 @@ int main( int argc, char *argv[] ) {
     // a sphere, such on mars, as otherwise a uniform correction won't work.
     double major_correction = 0.0;
     double minor_correction = 0.0;
-    if (!is_egm2008){
+    if (!is_egm2008) {
       major_correction = geoid_georef.datum().semi_major_axis() - dem_georef.datum().semi_major_axis();
       minor_correction = geoid_georef.datum().semi_minor_axis() - dem_georef.datum().semi_minor_axis();
     }
-    if (major_correction != 0){
-      if (fabs(1.0 - minor_correction/major_correction) > 1.0e-5){
-        vw_throw( ArgumentErr() << "The input DEM and geoid datums are incompatible. "
-                  << "Cannot apply geoid adjustment.\n" );
+    if (major_correction != 0) {
+      if (std::abs(1.0 - minor_correction/major_correction) > 1e-5) {
+        vw_throw(ArgumentErr() << "The input DEM and geoid datums are incompatible. "
+                  << "Cannot apply geoid adjustment.\n");
       }
-      vw_out(WarningMessage) << "Will compensate for the fact that the input DEM and geoid datums "
-                             << "axis lengths differ.\n";
+      vw_out(WarningMessage)
+        << "Will compensate for the fact that the input DEM and geoid datums "
+        << "axis lengths differ.\n";
     }
 
     // Put an interpolation and mask wrapper around the input geoid file
     ImageViewRef<PixelMask<double> > geoid
-      = interpolate(create_mask( pixel_cast<double>(geoid_img), 
-                                 geoid_nodata_val ),
+      = interpolate(create_mask(pixel_cast<double>(geoid_img),
+                                geoid_nodata_val),
                     BicubicInterpolation(), ZeroEdgeExtension());
-
-    //vw_out() << "Input DEM georef: " << dem_georef << std::endl;
-    //vw_out() << "Geoid georef: " << geoid_georef << std::endl;
 
     // Set up conversion image view
     ImageViewRef<double> adj_dem = dem_geoid(dem_img, dem_georef,
@@ -453,28 +445,29 @@ int main( int argc, char *argv[] ) {
                                              geoid, geoid_georef,
                                              reverse_adjustment, major_correction, dem_nodata_val);
 
-    string adj_dem_file = opt.out_prefix + "-adj.tif";
-    vw_out() << "Writing adjusted DEM: " << adj_dem_file << endl;
+    std::string adj_dem_file = opt.out_prefix + "-adj.tif";
+    vw_out() << "Writing adjusted DEM: " << adj_dem_file << "\n";
 
     std::map<std::string, std::string> keywords;
     keywords["GEOID"] = opt.geoid;
-    // GdalWriteOptions geo_opt; // this will crash with big tiffs
-    // Why even use a separate GdalWriteOptions object here?
 
-    if ( opt.use_double ) {
+    auto tpc = TerminalProgressCallback("asp", "\t--> Applying DEM adjustment: ");
+    bool have_georef = true, have_nodata = true;
+
+    if (opt.use_double) {
       // Output as double
-      block_write_gdal_image(adj_dem_file, adj_dem, true, dem_georef,true, dem_nodata_val, opt,
-                             TerminalProgressCallback("asp", "\t--> Applying DEM adjustment: "),
-                             keywords);
-    }else{
+      block_write_gdal_image(adj_dem_file, adj_dem,
+                             have_georef, dem_georef,
+                             have_nodata, dem_nodata_val,
+                             opt, tpc, keywords);
+    } else {
       // Output as float
-      ImageViewRef<float> adj_dem_float = channel_cast<float>( adj_dem );
-
-      block_write_gdal_image(adj_dem_file, adj_dem_float, true, dem_georef,true, dem_nodata_val, opt,
-                             TerminalProgressCallback("asp", "\t--> Applying DEM adjustment: "),
-                             keywords);
+      ImageViewRef<float> adj_dem_float = channel_cast<float>(adj_dem);
+      block_write_gdal_image(adj_dem_file, adj_dem_float,
+                             have_georef, dem_georef,
+                             have_nodata, dem_nodata_val,
+                             opt, tpc, keywords);
     }
-
 
   } ASP_STANDARD_CATCHES;
 
