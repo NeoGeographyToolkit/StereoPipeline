@@ -68,9 +68,9 @@ Command-line options for dem_geoid
     it will be auto-detected. See also ``--geoid-path``.
 
 --geoid-path <string (default = "")>
-    Specify the path to a custom GeoTiff file having the geoid correction. 
-    Values from this file will be subtracted from the DEM values in order
-    to convert from ellipsoid to geoid heights. 
+    Specify the path to a custom GeoTiff file having the geoid correction, in
+    units of meter. Values from this file will be subtracted from the DEM values
+    in order to convert from ellipsoid to geoid heights. 
     
 -o, --output-prefix <name>
     Specify the output file prefix.
