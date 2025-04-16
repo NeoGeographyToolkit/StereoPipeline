@@ -294,46 +294,13 @@ class ParallelBaStep:
     # A. Compute image statistics
     # B. Compute normalization bounds.
     # C. Compute interest points per image.
-    # This will be taken into account when parsing user options.
-    statistics     = 100 
-    bounds         = 110 
-    interest_point = 120
-    matching       = 200
-    optimization   = 300
-    all            = 400
+    statistics     = 0
+    bounds         = 0.1
+    interest_point = 0.2
+    matching       = 1
+    optimization   = 2
+    all            = 3
 
-def remapSteps(argv):
-  # Replace:
-  #  - user step 1 with internal interest_point step (and all steps before it)
-  #  - user step 2 with internal matching step
-  #  - user step 3 with internal optimization step
-  # See also: ParallelBaStep class.
-  for opt in ['-e', '--entry-point', '--stop-point']:
-    argv = asp_cmd_utils.replace_opt_val(argv, opt, 0, ParallelBaStep.interest_point)
-    argv = asp_cmd_utils.replace_opt_val(argv, opt, 1, ParallelBaStep.matching)
-    argv = asp_cmd_utils.replace_opt_val(argv, opt, 2, ParallelBaStep.optimization)
-    argv = asp_cmd_utils.replace_opt_val(argv, opt, 3, ParallelBaStep.all)
-  return argv    
-
-def remapOptAux(val):
-  # Same logic as in remapSteps, but for the parsed options.
-  if val == 0: val = ParallelBaStep.interest_point
-  if val == 1: val = ParallelBaStep.matching
-  if val == 2: val = ParallelBaStep.optimization
-  if val == 3: val = ParallelBaStep.all
-
-  # Sanity check
-  if val < ParallelBaStep.statistics:
-    raise Exception("Invalid entry or stop point: " + str(val))
-  
-  return val
-
-def remapOpt(opt):
-  # Same logic as in remapSteps, but for the parsed options.
-  opt.entry_point = remapOptAux(opt.entry_point)
-  opt.stop_point  = remapOptAux(opt.stop_point)
-  return opt
-   
 if __name__ == '__main__':
     usage = '''parallel_bundle_adjust <images> <cameras> <optional ground control points> -o <output prefix> [options]
         Camera model arguments may be optional for some stereo
@@ -359,15 +326,13 @@ if __name__ == '__main__':
                  type=int, help='The number of threads  per process. The default is ' + \
                  'the number of cores on the head node over the number of processes.')
     p.add_argument('-e', '--entry-point', 
-                   dest='entry_point', default=0,
+                   dest='entry_point', default=0, type = float,
                    help = "Bundle adjustment entry point (start at this stage). " + \
                    "Options: statistics and interest points per image = 0, " + \
-                   "interest point matching = 1, optimization = 2.",
-                   type=int)
-    p.add_argument('--stop-point', dest='stop_point',  default=3,
+                   "interest point matching = 1, optimization = 2.")
+    p.add_argument('--stop-point', dest='stop_point',  default=3, type = float,
                    help = "Bundle adjustment stop point (stop *before* this stage). " + \
-                   "Options: statistics = 0, matching = 1, optimization = 2, all = 3.",
-                   type=int)
+                   "Options: statistics = 0, matching = 1, optimization = 2, all = 3.")
     p.add_argument('--parallel-options', dest='parallel_options', default='--sshdelay 0.2',
                    help='Options to pass directly to GNU Parallel.')
     p.add_argument('-v', '--version', dest='version', default=False,
@@ -396,10 +361,6 @@ if __name__ == '__main__':
     args = clean_args(args)
     output_prefix = get_output_prefix(args)
 
-    # Remap to internal steps
-    sys.argv = remapSteps(sys.argv)    
-    opt = remapOpt(opt)
- 
     if opt.version:
         asp_system_utils.print_version_and_exit()
 

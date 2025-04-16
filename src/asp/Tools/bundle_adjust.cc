@@ -2393,7 +2393,7 @@ void computeStatsOrIp(asp::BaOptions const& opt,
   int num_images = files_for_stats.size();
   if (num_images != opt.image_files.size())
     vw_throw(ArgumentErr() << "Book-keeping error in number of images.\n");
-
+  
   std::map<std::string, vw::Vector2> bounds_map;
   if (calcIp)
     asp::readNormalizationBounds(normalization_bounds_file, files_for_stats, bounds_map);
@@ -2427,7 +2427,7 @@ void computeStatsOrIp(asp::BaOptions const& opt,
       masked_image = create_mask(image_view, nodata);
 
     // Use caching function call to compute the image statistics.
-    if (calcIp)
+    if (!calcIp)
       asp::gather_stats(masked_image, image_path, opt.out_prefix, image_path);
 
     // Compute and cache the camera footprint bbox
@@ -2703,6 +2703,7 @@ int main(int argc, char* argv[]) {
                        opt.clean_match_files_prefix != ""   ||
                        opt.match_files_prefix != ""         ||
                        opt.calc_normalization_bounds);
+
     bool calcIp = false;
     if (!skip_stats)
       computeStatsOrIp(opt, files_for_stats, opt.dem_file_for_overlap, 
