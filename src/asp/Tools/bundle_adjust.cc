@@ -2725,7 +2725,9 @@ int main(int argc, char* argv[]) {
     }
 
     // Compute ip if requested. This is done in multiple processes in 
-    // parallel_bundle_adjust.
+    // parallel_bundle_adjust. For standalone bundle_adjust, this will
+    // happen when matching occurs.
+    // TODO(oalexan1): Need to ensure it happens in bundle_adjust too.
     if (opt.calc_ip) {
       bool calcIp = true;
       computeStatsOrIp(opt, files_for_stats, opt.dem_file_for_overlap,
