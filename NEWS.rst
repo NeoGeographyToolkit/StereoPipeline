@@ -170,10 +170,8 @@ dem_mosaic (:numref:`dem_mosaic`):
     is kept for backward compatibility.
   * Can handle DEMs with NaN values.
 
-parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
-  * Set by default the number of processes per node to be a quarter of the
-    number of cores, and 4 threads per process.
-  * Bugfix for load-balancing.
+dem_geoid (:numref:`dem_geoid`):
+  * Accept a custom geoid correction via ``--geoid-path``.
 
 orbit_plot (:numref:`orbit_plot`):
   * Added the options ``--use-rmse``, ``--output-file``.

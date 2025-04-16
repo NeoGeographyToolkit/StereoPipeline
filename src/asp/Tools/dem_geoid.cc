@@ -27,9 +27,11 @@ extern "C" {
                             double* flon, double* flat, double* val);
 }
 
-#include <vw/Image/Interpolation.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+
+#include <vw/Image/Interpolation.h>
+#include <vw/Cartography/GeoReferenceResourceGDAL.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/dll.hpp>
@@ -43,13 +45,13 @@ using namespace vw::cartography;
 ///  from elevations in a DEM image.
 template <class ImageT>
 class DemGeoidView : public ImageViewBase<DemGeoidView<ImageT>> {
-  ImageT                m_img;    // The DEM
-  GeoReference   const& m_georef; // alias
-  bool                  m_is_egm2008;
+  ImageT m_img;    // The DEM
+  GeoReference const& m_georef; // alias
+  bool m_is_egm2008;
   std::vector<double> const& m_egm2008_grid; // Special variable storing EGM2008 data
   ImageViewRef<PixelMask<double>> const& m_geoid; // Interpolation view of the geoid
   GeoReference const& m_geoid_georef; // alias
-  bool     m_reverse_adjustment; // If true, convert from orthometric height to geoid height
+  bool     m_reverse_adjustment; // If true, convert from geoid to ellipsoid heights
   double   m_correction;
   double   m_nodata_val;
 
@@ -61,7 +63,7 @@ public:
 
   DemGeoidView(ImageT const& img, GeoReference const& georef,
                bool is_egm2008, std::vector<double> const& egm2008_grid,
-               ImageViewRef<PixelMask<double> > const& geoid,
+               ImageViewRef<PixelMask<double>> const& geoid,
                GeoReference const& geoid_georef, bool reverse_adjustment,
                double correction, double nodata_val):
     m_img(img), m_georef(georef),
@@ -152,7 +154,7 @@ template <class ImageT>
 DemGeoidView<ImageT>
 dem_geoid(ImageViewBase<ImageT> const& img, GeoReference const& georef,
            bool is_egm2008, std::vector<double> & egm2008_grid,
-           ImageViewRef<PixelMask<double> > const& geoid,
+           ImageViewRef<PixelMask<double>> const& geoid,
            GeoReference const& geoid_georef, bool reverse_adjustment,
            double correction, double nodata_val) {
   return DemGeoidView<ImageT>(img.impl(), georef,
@@ -163,7 +165,7 @@ dem_geoid(ImageViewBase<ImageT> const& img, GeoReference const& georef,
 
 /// Parameters for this tool
 struct Options : vw::GdalWriteOptions {
-  std::string dem_path, geoid, out_prefix;
+  std::string dem_path, geoid, geoid_path, out_prefix;
   double nodata_value;
   bool   use_double; // Otherwise use float
   bool   reverse_adjustment;
@@ -203,6 +205,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Specify the geoid to use for the given datum. For WGS84 use EGM96 or EGM2008. "
      "Default: EGM96. For Mars use MOLA or leave blank. For NAD83 use NAVD88 or leave "
      "blank. When not specified it will be auto-detected.")
+    ("geoid-path", po::value(&opt.geoid_path),
+     "Specify the path to a custom GeoTiff file having the geoid correction. "
+      "Values from this file will be subtracted from the DEM values in order "
+      "to convert from ellipsoid to geoid heights.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
      "Output using double precision (64 bit) instead of float (32 bit).")
@@ -232,6 +238,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << usage << general_options);
 
   boost::to_lower(opt.geoid);
+  
+  if (!opt.geoid.empty() && !opt.geoid_path.empty())
+    vw_throw(ArgumentErr() << "Cannot specify both --geoid and --geoid-path.\n");
 
   if (opt.out_prefix.empty())
     opt.out_prefix = fs::path(opt.dem_path).stem().string();
@@ -241,7 +250,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
-
 }
 
 /// Given a DEM, with each height value relative to the datum
@@ -305,68 +313,81 @@ int main(int argc, char *argv[]) {
     if (!has_georef)
       vw_throw(ArgumentErr() << "Missing georeference for DEM: " << opt.dem_path << "\n");
 
-    // TODO: Improve this handling so it can read DEMS with relevant EPSG codes, etc.
+    // TODO: Improve this handling so it can read DEMs with relevant EPSG codes, etc.
 
     // Find out the datum from the DEM. If we fail, we do an educated guess.
     std::string datum_name = dem_georef.datum().name();
     std::string lname      = boost::to_lower_copy(datum_name);
     std::string geoid_file;
     bool is_wgs84 = false, is_mola = false;
-    if (lname == "wgs_1984" || lname == "wgs 1984" || lname == "wgs1984" ||
-         lname == "wgs84"    || lname == "world geodetic system 1984") {
-      is_wgs84 = true;
-    } else if (lname == "north_american_datum_1983") {
-      geoid_file = "navd88.tif";
-    } else if (lname == "d_mars") {
-      is_mola = true;
-    } else if (std::abs(dem_georef.datum().semi_major_axis() - 6378137.0) < 500.0) {
-      // Guess Earth
-      vw_out(WarningMessage) << "Unknown datum: " << datum_name << ". Guessing: WGS_1984.\n";
-      is_wgs84 = true;
-    } else if (std::abs(dem_georef.datum().semi_major_axis() - 3396190.0) < 500.0) {
-      // Guess Mars
-      vw_out(WarningMessage) << "Unknown datum: " << datum_name << ". Guessing: D_MARS.\n";
-      is_mola = true;
-    } else {
-      vw_throw(ArgumentErr() 
-               << "Cannot apply geoid adjustment to DEM relative to datum: "
-               << datum_name << "\n");
-    }
+    if (opt.geoid_path == "") {
 
+      if (lname == "wgs_1984" || lname == "wgs 1984" || lname == "wgs1984" ||
+          lname == "wgs84"    || lname == "world geodetic system 1984") {
+        is_wgs84 = true;
+      } else if (lname == "north_american_datum_1983") {
+        geoid_file = "navd88.tif";
+      } else if (lname == "d_mars") {
+        is_mola = true;
+      } else if (std::abs(dem_georef.datum().semi_major_axis() - 6378137.0) < 500.0) {
+        // Guess Earth
+        vw_out(WarningMessage) << "Unknown datum: " << datum_name 
+          << ". Guessing: WGS_1984.\n";
+        is_wgs84 = true;
+      } else if (std::abs(dem_georef.datum().semi_major_axis() - 3396190.0) < 500.0) {
+        // Guess Mars
+        vw_out(WarningMessage) << "Unknown datum: " << datum_name << ". Guessing: D_MARS.\n";
+        is_mola = true;
+      } else if (opt.geoid_path == "") {
+        vw_throw(ArgumentErr() 
+                << "Cannot apply geoid adjustment to DEM relative to datum: "
+                << datum_name << "\n");
+      }
+    }
+    
     // Ensure that the value of --geoid is compatible with the datum from the DEM.
     // Only WGS_1984 datums can be used with EGM geoids, only the NAD83 datum
     // can be used with NAVD88, and only MOLA can be used with Mars.
     bool is_egm2008 = false;
-    if (is_wgs84) {
-      if (opt.geoid == "egm2008") {
-        is_egm2008 = true;
-        geoid_file = "egm2008.jp2";
-      } else if (opt.geoid == "egm96" || opt.geoid == "")
-        geoid_file = "egm96-5.jp2"; // The default WGS84 geoid option
-      else
-        vw_throw(ArgumentErr() << "The datum is WGS84. The only supported options for the geoid are EGM96 and EGM2008. Got instead: " << opt.geoid << ".\n");
-    } else if (lname == "north_american_datum_1983") {
-      if (opt.geoid != "" && opt.geoid != "navd88")
-        vw_throw(ArgumentErr() << "The datum is North_American_Datum_1983. "
-                                << "Hence the value of the --geoid option must be either "
-                                << "empty (auto-detected) or NAVD88. Got instead: "
-                                << opt.geoid << ".\n");
-    } else if (is_mola) {
-      if (opt.geoid != "" && opt.geoid != "mola")
-        vw_throw(ArgumentErr() << "Detected a Mars DEM. In that case, the "
-                                << "value of the --geoid option must be either empty "
-                                << "(auto-detected) or MOLA. Got instead: " << opt.geoid << ".\n");
+    if (opt.geoid_path == "") {
+      if (is_wgs84) {
+        if (opt.geoid == "egm2008") {
+          is_egm2008 = true;
+          geoid_file = "egm2008.jp2";
+        } else if (opt.geoid == "egm96" || opt.geoid == "")
+          geoid_file = "egm96-5.jp2"; // The default WGS84 geoid option
+        else
+          vw_throw(ArgumentErr() << "The datum is WGS84. The only supported options for the geoid are EGM96 and EGM2008. Got instead: " << opt.geoid << ".\n");
+      } else if (lname == "north_american_datum_1983") {
+        if (opt.geoid != "" && opt.geoid != "navd88")
+          vw_throw(ArgumentErr() << "The datum is North_American_Datum_1983. "
+                                  << "Hence the value of the --geoid option must be either "
+                                  << "empty (auto-detected) or NAVD88. Got instead: "
+                                  << opt.geoid << ".\n");
+      } else if (is_mola) {
+        if (opt.geoid != "" && opt.geoid != "mola")
+          vw_throw(ArgumentErr() << "Detected a Mars DEM. In that case, the "
+                                  << "value of the --geoid option must be either empty "
+                                  << "(auto-detected) or MOLA. Got instead: " << opt.geoid << ".\n");
 
-    } else if (opt.geoid != "")
-      vw_throw(ArgumentErr() << "The geoid value: " << opt.geoid
-                              << " is applicable only for the WGS_1984 datum.\n");
+      } else if (opt.geoid != "")
+        vw_throw(ArgumentErr() << "The geoid value: " << opt.geoid
+                                << " is applicable only for the WGS_1984 datum.\n");
 
-    if (is_mola)
-      geoid_file = "mola_areoid.tif";
-
+      if (is_mola)
+        geoid_file = "mola_areoid.tif";
+    }
+    
     // Find where we keep the information for this geoid
-    geoid_file = get_geoid_full_path(prog_name, geoid_file);
-    vw_out() << "Adjusting the DEM using the geoid: " << geoid_file << "\n";
+    if (opt.geoid_path == "")
+      geoid_file = get_geoid_full_path(prog_name, geoid_file);
+    else
+      geoid_file = opt.geoid_path;
+    vw_out() << "Adjusting the DEM using the geoid correction: " << geoid_file << "\n";
+    
+    // These files usually go beyond [0, 360) in longitude, which can trigger
+    // a waring that is not helpful here.                                      
+    vw::cartography::silence_warning_for_non_normal_georef(geoid_file);
 
     // Read the geoid containing the adjustments. Read it in memory
     // entirely to dramatically speed up the computations.
@@ -376,7 +397,10 @@ int main(int argc, char *argv[]) {
       geoid_nodata_val = geoid_rsrc.nodata_read();
     ImageView<float> geoid_img = DiskImageView<float>(geoid_rsrc);
     GeoReference geoid_georef;
-    read_georeference(geoid_georef, geoid_rsrc);
+    bool has_geoid_georef = read_georeference(geoid_georef, geoid_rsrc);
+    if (!has_geoid_georef)
+      vw_throw(ArgumentErr() << "Missing georeference for geoid correction file: " 
+               << geoid_file << "\n");
 
     if (is_wgs84 && !is_egm2008) {
       // Convert the EGM96 int16 JPEG2000-encoded geoid to float.
@@ -423,18 +447,25 @@ int main(int argc, char *argv[]) {
       major_correction = geoid_georef.datum().semi_major_axis() - dem_georef.datum().semi_major_axis();
       minor_correction = geoid_georef.datum().semi_minor_axis() - dem_georef.datum().semi_minor_axis();
     }
-    if (major_correction != 0) {
-      if (std::abs(1.0 - minor_correction/major_correction) > 1e-5) {
+    
+    // The DEM and geoid correction are supposed to differ only in minor ways,
+    // such as a constant shift.
+    if (major_correction != 0 || minor_correction != 0) {
+      double den = std::max(std::abs(major_correction),
+                            std::abs(minor_correction));
+      if (std::abs(1.0 - minor_correction/den) > 1e-5 ||
+          std::abs(1.0 - major_correction/den) > 1e-5 ||
+          den > 1000.0) {
         vw_throw(ArgumentErr() << "The input DEM and geoid datums are incompatible. "
                   << "Cannot apply geoid adjustment.\n");
       }
       vw_out(WarningMessage)
-        << "Will compensate for the fact that the input DEM and geoid datums "
+        << "Will compensate for the fact that the input DEM and geoid correction datums "
         << "axis lengths differ.\n";
     }
 
     // Put an interpolation and mask wrapper around the input geoid file
-    ImageViewRef<PixelMask<double> > geoid
+    ImageViewRef<PixelMask<double>> geoid
       = interpolate(create_mask(pixel_cast<double>(geoid_img),
                                 geoid_nodata_val),
                     BicubicInterpolation(), ZeroEdgeExtension());
@@ -449,7 +480,10 @@ int main(int argc, char *argv[]) {
     vw_out() << "Writing adjusted DEM: " << adj_dem_file << "\n";
 
     std::map<std::string, std::string> keywords;
-    keywords["GEOID"] = opt.geoid;
+    if (opt.geoid_path == "")
+      keywords["GEOID"] = opt.geoid;
+    else
+      keywords["GEOID"] = opt.geoid_path;
 
     auto tpc = TerminalProgressCallback("asp", "\t--> Applying DEM adjustment: ");
     bool have_georef = true, have_nodata = true;
