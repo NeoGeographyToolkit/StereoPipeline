@@ -865,11 +865,6 @@ Command-line options for pc_align
     Do not estimate the shared bounding box of the two clouds. This estimation
     can be costly for large clouds but helps with eliminating outliers.
     
---config-file <file.yaml>
-    This is an advanced option. Read the alignment parameters from
-    a configuration file, in the format expected by libpointmatcher,
-    over-riding the command-line options.
-
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.

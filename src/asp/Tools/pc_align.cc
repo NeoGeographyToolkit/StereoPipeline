@@ -61,7 +61,7 @@ const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the larg
 /// Options container for the pc_align tool
 struct Options: public vw::GdalWriteOptions {
   // Input
-  string reference, source, init_transform_file, alignment_method, config_file,
+  string reference, source, init_transform_file, alignment_method, 
     datum, csv_format_str, csv_srs, match_file, hillshade_options,
     ipfind_options, ipmatch_options, nuth_options, fgr_options, csv_proj4_str;
   Vector2 initial_transform_ransac_params;
@@ -155,8 +155,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("skip-shared-box-estimation", po::bool_switch(&opt.skip_shared_box_estimation)->default_value(false)->implicit_value(true),
      "Do not estimate the shared bounding box of the two clouds. This estimation "
      "can be costly for large clouds but helps with eliminating outliers.")
-    ("config-file", po::value(&opt.config_file)->default_value(""),
-     "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.")
     ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
      "An alias for --csv-srs, for backward compatibility.");
 
@@ -1228,21 +1226,13 @@ int main( int argc, char *argv[] ) {
     // Set up the ICP object
     Stopwatch sw4;
     sw4.start();
+    bool verbose = false;
     PointMatcher<RealT>::Matrix Id = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
-    if (opt.config_file == "") {
-      // Read the options from the command line
-      icp.setParams(opt.out_prefix, opt.num_iter, opt.outlier_ratio,
-                    (2.0*M_PI/360.0)*opt.diff_rotation_err, // convert to radians
-                    opt.diff_translation_err, alignment_method_fallback(opt.alignment_method),
-                    false/*opt.verbose*/);
-    } else {
-      vw_out() << "Will read the options from: " << opt.config_file << endl;
-      ifstream ifs(opt.config_file.c_str());
-      if (!ifs.good())
-        vw_throw( ArgumentErr() << "Cannot open configuration file: "
-                  << opt.config_file << "\n" );
-      icp.loadFromYaml(ifs);
-    }
+    icp.setParams(opt.out_prefix, opt.num_iter, opt.outlier_ratio,
+                  (2.0*M_PI/360.0)*opt.diff_rotation_err, // convert to radians
+                  opt.diff_translation_err, 
+                  alignment_method_fallback(opt.alignment_method),
+                  verbose);
 
     // Compute the transformation to align the source to reference.
     // We bypass calling ICP if the user explicitly asks for 0 iterations.
