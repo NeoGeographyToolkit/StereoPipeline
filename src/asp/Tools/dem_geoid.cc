@@ -398,7 +398,7 @@ int main(int argc, char *argv[]) {
     ImageView<float> geoid_img = DiskImageView<float>(geoid_rsrc);
     GeoReference geoid_georef;
     bool has_geoid_georef = read_georeference(geoid_georef, geoid_rsrc);
-    if (!has_geoid_georef)
+    if (!has_geoid_georef && !is_egm2008)
       vw_throw(ArgumentErr() << "Missing georeference for geoid correction file: " 
                << geoid_file << "\n");
 
@@ -450,12 +450,13 @@ int main(int argc, char *argv[]) {
     
     // The DEM and geoid correction are supposed to differ only in minor ways,
     // such as a constant shift.
+    bool is_navd88 = (geoid_file.find("navd88.tif") != std::string::npos);
     if (major_correction != 0 || minor_correction != 0) {
       double den = std::max(std::abs(major_correction),
                             std::abs(minor_correction));
-      if (std::abs(1.0 - minor_correction/den) > 1e-5 ||
+      if ((std::abs(1.0 - minor_correction/den) > 1e-5 ||
           std::abs(1.0 - major_correction/den) > 1e-5 ||
-          den > 1000.0) {
+          den > 1000.0) && !is_navd88) {
         vw_throw(ArgumentErr() << "The input DEM and geoid datums are incompatible. "
                   << "Cannot apply geoid adjustment.\n");
       }
