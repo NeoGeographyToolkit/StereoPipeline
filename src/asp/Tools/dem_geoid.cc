@@ -457,8 +457,14 @@ int main(int argc, char *argv[]) {
       if ((std::abs(1.0 - minor_correction/den) > 1e-5 ||
           std::abs(1.0 - major_correction/den) > 1e-5 ||
           den > 1000.0) && !is_navd88) {
-        vw_throw(ArgumentErr() << "The input DEM and geoid datums are incompatible. "
-                  << "Cannot apply geoid adjustment.\n");
+        vw_throw(ArgumentErr() 
+           << "The input DEM and geoid datums are incompatible. "
+           << "Cannot apply geoid adjustment.\n"
+           << std::setprecision(17)
+           << "DEM major semi-axis: " << dem_georef.datum().semi_major_axis() << "\n"
+           << "DEM minor semi-axis: " << dem_georef.datum().semi_minor_axis() << "\n"
+           << "Geoid major semi-axis: " << geoid_georef.datum().semi_major_axis() << "\n"
+           << "Geoid minor semi-axis: " << geoid_georef.datum().semi_minor_axis() << "\n");
       }
       vw_out(WarningMessage)
         << "Will compensate for the fact that the input DEM and geoid correction datums "
