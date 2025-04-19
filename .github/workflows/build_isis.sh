@@ -282,7 +282,8 @@ mkdir -p ${BIN_DIR}
 
 # libelas
 cd 
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+export PREFIX=$(ls -d ~/*conda3/envs/asp_deps)
+export PATH=$PREFIX/bin:$PATH
 conda activate asp_deps
 git clone https://github.com/NeoGeographyToolkit/libelas.git
 cd libelas
@@ -297,12 +298,15 @@ if [ "$(uname)" = "Darwin" ]; then
 else
     EXT='.so'
 fi
+
 # build
 mkdir -p build
 cd build
-cmake .. -DTIFF_LIBRARY_RELEASE="${PREFIX}/lib/libtiff${EXT}" \
-    -DTIFF_INCLUDE_DIR="${PREFIX}/include"                    \
-    -DCMAKE_CXX_FLAGS="-I${PREFIX}/include"
+cmake ..                                               \
+  -DTIFF_LIBRARY_RELEASE="${PREFIX}/lib/libtiff${EXT}" \
+  -DTIFF_INCLUDE_DIR="${PREFIX}/include"               \
+  -DCMAKE_CXX_FLAGS="-I${PREFIX}/include"
+  
 make -j${CPU_COUNT}
 # Copy the 'elas' tool to the plugins subdir meant for it
 BIN_DIR=${PREFIX}/plugins/stereo/elas/bin
@@ -401,6 +405,7 @@ else
   cc_comp=x86_64-conda_cos6-linux-gnu-gcc
   cxx_comp=x86_64-conda_cos6-linux-gnu-g++
 fi
+conda install -c conda-forge openblas
 export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 git clone https://github.com/visionworkbench/visionworkbench.git
 cd visionworkbench

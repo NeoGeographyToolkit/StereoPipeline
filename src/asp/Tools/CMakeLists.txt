@@ -105,6 +105,16 @@ target_link_libraries(n_align
   AspPcAlign AspSessions)
 install(TARGETS n_align DESTINATION bin)
 
+# This must be built with C++14 as otherwise it fails. Must be set
+# after the standard is set for the entire library.
+set_source_files_properties(
+    n_align.cc
+    PROPERTIES
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF # Keep consistent if desired
+    COMPILE_FLAGS "-std=c++14"
+)
+
 add_executable(pansharp pansharp.cc)
 target_link_libraries(pansharp AspSessions)
 install(TARGETS pansharp DESTINATION bin)

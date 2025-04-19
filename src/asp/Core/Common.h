@@ -83,9 +83,6 @@ namespace asp {
                    std::string stereo_default_filename,
                    std::string output_prefix);
 
-  /// Set env variables for some of ASP's dependencies
-  void set_asp_env_vars();
-  
   /// Write a vector of strings from a file, one per line.
   void write_list(std::string const& file, std::vector<std::string> const & list);
 

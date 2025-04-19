@@ -1005,9 +1005,8 @@ namespace asp {
     plugins.clear();
     plugin_libs.clear();
 
-    // The plugins are stored in ISISROOT as they are installed with
-    // conda. By now the variable ISISROOT should point out to where
-    // those are (see asp::set_asp_env_vars()).
+    // The plugins are stored in ISISROOT as they are installed with conda.
+    // Needed env variables, including ISISROOT, are set in stereo_corr.
 
     // But note that the plugin list is in the ASP install dir, and
     // not in ISISROOT. This only makes a difference in dev mode.

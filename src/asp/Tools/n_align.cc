@@ -110,10 +110,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("align-to-first-cloud", po::bool_switch(&opt.align_to_first_cloud)->default_value(false)->implicit_value(true),
      "Align the other clouds to the first one, rather than to their common centroid.")
     ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
-     "An alias for --csv-srs, for backward compatibility.");
+     "An alias for --csv-srs, for backward compatibility.")
     ("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
-     "Print the alignment error after each iteration.");
-    
+     "Print the alignment error after each iteration.")
+    ;
+
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");

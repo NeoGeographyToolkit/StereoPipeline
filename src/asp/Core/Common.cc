@@ -17,6 +17,8 @@
 
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/EnvUtils.h>
+
 #include <asp/asp_date_config.h>
 
 #include <vw/Core/Log.h>
@@ -52,6 +54,7 @@
 // Use C style strings, rather than std::string, as then putenv() and
 // getenv() give valgrind warnings.
 namespace asp {
+  // TODO(oalexan1): Wipe al these
   const int COMMON_BUF_SIZE = 5120;
   char ISISROOT_ENV_STR[COMMON_BUF_SIZE];
   char QT_PLUGIN_PATH_ENV_STR[COMMON_BUF_SIZE];
@@ -358,11 +361,11 @@ void asp::log_to_file(int argc, char *argv[],
 // For the tarball build, some of this logic is duplicated in the script
 // in BinaryBuilder/dist-add/libexec/libexec-funcs.sh which is then called
 // by the wrapper.
-void asp::set_asp_env_vars() {
+namespace asp {
+void set_asp_env_vars() {
     
   // Find the path to the base of the package and see if it works.
   std::string base_dir = boost::dll::program_location().parent_path().parent_path().string();
-
   if (!fs::exists(base_dir + "/IsisPreferences")) {
     base_dir = ASP_DEPS_DIR; // This is defined at compile time
     if (!fs::exists(base_dir + "/IsisPreferences")) {
@@ -380,26 +383,24 @@ void asp::set_asp_env_vars() {
   // Set ISISROOT and check for IsisPreferences
   // ISISROOT_ENV_STR = "ISISROOT=" + base_dir;
   snprintf(ISISROOT_ENV_STR, COMMON_BUF_SIZE, "ISISROOT=%s", base_dir.c_str());
-  if (putenv(ISISROOT_ENV_STR) != 0) 
-    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << ISISROOT_ENV_STR << "\n");
+  asp::setEnvVar("ISISROOT", base_dir);
   if (!fs::exists(std::string(getenv("ISISROOT")) + "/IsisPreferences")) 
     vw::vw_throw(vw::ArgumentErr() << "Cannot find IsisPreferences in "
                  << getenv("ISISROOT"));
-
+  
   // Set QT_PLUGIN_PATH as the path to /plugins
   // QT_PLUGIN_PATH_ENV_STR = "QT_PLUGIN_PATH=" + base_dir + "/plugins";
   snprintf(QT_PLUGIN_PATH_ENV_STR, COMMON_BUF_SIZE, "QT_PLUGIN_PATH=%s%s",
            base_dir.c_str(), "/plugins");
-  if (putenv(QT_PLUGIN_PATH_ENV_STR) != 0) 
-    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << QT_PLUGIN_PATH_ENV_STR << "\n");
+  asp::setEnvVar("QT_PLUGIN_PATH", base_dir + "/plugins");
   if (!fs::exists(std::string(getenv("QT_PLUGIN_PATH"))))
-    vw::vw_throw(vw::ArgumentErr() << "Cannot find Qt plugins in " << getenv("QT_PLUGIN_PATH"));
-  
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find Qt plugins in " 
+                 << getenv("QT_PLUGIN_PATH"));
+
   // Set GDAL_DATA and check for share/gdal
   snprintf(GDAL_DATA_ENV_STR, COMMON_BUF_SIZE, "GDAL_DATA=%s%s",
            base_dir.c_str(), "/share/gdal");
-  if (putenv(GDAL_DATA_ENV_STR) != 0) 
-    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << GDAL_DATA_ENV_STR << "\n");
+  asp::setEnvVar("GDAL_DATA", base_dir + "/share/gdal");  
   if (!fs::exists(std::string(getenv("GDAL_DATA")))) 
     vw::vw_throw(vw::ArgumentErr() << "Cannot find GDAL data in "
                  << getenv("GDAL_DATA"));
@@ -409,18 +410,13 @@ void asp::set_asp_env_vars() {
   // TODO(oalexan1): Figure out why this happens.
   snprintf(GDAL_DRIVER_PATH_ENV_STR, COMMON_BUF_SIZE, "GDAL_DRIVER_PATH=%s%s:%s%s",
            base_dir.c_str(), "/lib/gdalplugins", base_dir.c_str(), "/lib");
-  if (putenv(GDAL_DRIVER_PATH_ENV_STR) != 0) 
-    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << GDAL_DRIVER_PATH_ENV_STR << "\n");
-  //if (!fs::exists(std::string(getenv("GDAL_DRIVER_PATH")))) 
-  //  vw::vw_throw(vw::ArgumentErr() << "Cannot find GDAL plugins in "
-  //               << getenv("GDAL_DRIVER_PATH"));
+  asp::setEnvVar("GDAL_DRIVER_PATH", base_dir + "/lib/gdalplugins:" + base_dir + "/lib");  
   
   // Older proj api
   // Set PROJ_LIB and check for share/proj
   snprintf(PROJ_LIB_ENV_STR, COMMON_BUF_SIZE, "PROJ_LIB=%s%s",
            base_dir.c_str(), "/share/proj");
-  if (putenv(PROJ_LIB_ENV_STR) != 0) 
-    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << PROJ_LIB_ENV_STR << "\n");
+  asp::setEnvVar("PROJ_LIB", base_dir + "/share/proj");
   if (!fs::exists(std::string(getenv("PROJ_LIB")))) 
     vw::vw_throw(vw::ArgumentErr() << "Cannot find PROJ data in "
                  << getenv("PROJ_LIB"));
@@ -429,8 +425,7 @@ void asp::set_asp_env_vars() {
   // Set PROJ_DATA and check for share/proj
   snprintf(PROJ_DATA_ENV_STR, COMMON_BUF_SIZE, "PROJ_DATA=%s%s",
            base_dir.c_str(), "/share/proj");
-  if (putenv(PROJ_DATA_ENV_STR) != 0) 
-    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << PROJ_DATA_ENV_STR << "\n");
+  asp::setEnvVar("PROJ_DATA", base_dir + "/share/proj");
   if (!fs::exists(std::string(getenv("PROJ_DATA")))) 
     vw::vw_throw(vw::ArgumentErr() << "Cannot find PROJ data in "
                  << getenv("PROJ_DATA"));
@@ -439,13 +434,13 @@ void asp::set_asp_env_vars() {
   // ISIS choking on a decimal separator which shows up as a comma for 
   // some reason.
   snprintf(LC_ALL_STR, COMMON_BUF_SIZE, "LC_ALL=en_US.UTF-8");
-  if (putenv(LC_ALL_STR) != 0) 
-    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << LC_ALL_STR << "\n");
-  snprintf(LANG_STR, COMMON_BUF_SIZE, "LANG=en_US.UTF-8");
-  if (putenv(LANG_STR) != 0) 
-    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << LANG_STR << "\n");
-}
+  asp::setEnvVar("LC_ALL", "en_US.UTF-8");  
   
+  snprintf(LANG_STR, COMMON_BUF_SIZE, "LANG=en_US.UTF-8");
+  asp::setEnvVar("LANG", "en_US.UTF-8");
+}
+} // end namespace asp
+
 // User should only put the arguments to their application in the
 // usage_comment argument. We'll finish filling in the repeated information.
 po::variables_map
@@ -475,7 +470,7 @@ asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
   
   usage_comment = ostr.str();
 
-  set_asp_env_vars();
+  asp::set_asp_env_vars();
   
   // We distinguish between all_public_options, which is all the
   // options we must parse, even if we don't need some of them, and

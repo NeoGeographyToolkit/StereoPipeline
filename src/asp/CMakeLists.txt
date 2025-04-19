@@ -9,8 +9,6 @@ include(Utilities) # Contains functions
 set(VISIONWORKBENCH_INSTALL_DIR "" CACHE FILEPATH "Path to the user-built and installed VisionWorkbench")
 set(ASP_DEPS_DIR "" CACHE FILEPATH "Path to the conda environment that has the ASP dependencies")
 
-set(ASP_ENABLE_SSE "1" CACHE BOOL "Allow SSE optimizations.")
-
 if ("${ASP_DEPS_DIR}" STREQUAL "")
   message(FATAL_ERROR "You need to set ASP_DEPS_DIR")
 endif()
@@ -64,12 +62,25 @@ SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib" ${CMAKE_INSTALL_RPATH} ${ASP_DEPS_DIR}/
 set(Boost_USE_STATIC_LIBS   OFF)
 set(Boost_USE_MULTITHREADED ON)
 
-if (ASP_ENABLE_SSE)
-    message(STATUS, "Enabling SSE")
-else() # If disabled, set up for compatibility with older systems.
-    message(STATUS, "Disaling SSE")
+# Enable/disable SSE optimizations
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+  set(VW_ENABLE_SSE 0)
+else()
+  set(VW_ENABLE_SSE 1)
+endif()
+if (VW_ENABLE_SSE)
+  set(CXXFLAGS "${CXXFLAGS} -msse4.1")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1")
+  message(STATUS "Enabling SSE")
+else()
+  if (CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    message(STATUS "SSE optimizations are not available on Mac Arm.")
+  else()
+    # Older Intel CPUs do not support SSE4.1
+    message(STATUS, "Disabling SSE.")
     set(CXXFLAGS "${CXXFLAGS} -mno-sse4.1")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mno-sse4.1")
+  endif()
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -176,6 +187,9 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
       
 find_external_library(LAPACK ${ASP_DEPS_DIR} "" "lapack;blas" REQUIRED)
 set(VW_HAVE_PKG_FLAPACK 1) # This specifies that it is a Fortran derived version
+
+# Required for GLog
+add_definitions(-DGLOG_USE_GLOG_EXPORT)
 
 find_external_library(FLANN   ${ASP_DEPS_DIR} "" "flann_cpp" REQUIRED)
 find_external_library(LZ4     ${ASP_DEPS_DIR} "" "lz4"       REQUIRED)

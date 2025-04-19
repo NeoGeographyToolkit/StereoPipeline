@@ -26,6 +26,7 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/EnvUtils.h>
 
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
@@ -35,13 +36,11 @@
 #include <vw/Stereo/Correlation.h>
 #include <vw/Core/Stopwatch.h>
 
-#include <boost/process/env.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
 using namespace vw::stereo;
 using namespace asp;
-namespace bp = boost::process;
 
 typedef vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> DispImageRef;
 
@@ -1383,12 +1382,11 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       std::string plugin_lib = it2->second;
 
       // Set up the environemnt
-      bp::environment e = boost::this_process::environment();
-      e["LD_LIBRARY_PATH"] = plugin_lib;   // For Linux
-      e["DYLD_LIBRARY_PATH"] = plugin_lib; // For OSX
+      asp::setEnvVar("LD_LIBRARY_PATH", plugin_lib);   // For Linux
+      asp::setEnvVar("DYLD_LIBRARY_PATH", plugin_lib); // For OSX
       vw_out() << "Path to libraries: " << plugin_lib << std::endl;
       for (auto it = env_vars_map.begin(); it != env_vars_map.end(); it++)
-        e[it->first] = it->second;
+        asp::setEnvVar(it->first, it->second);
       
       // Call an external program which will write the disparity to disk
       std::string cmd = plugin_path + " " + options + " " 
@@ -1407,15 +1405,6 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       // Use a system call
       system(cmd.c_str());
       
-      // TODO(oalexan1): Timeout no longer works in recent boost versions on Mac.
-      //bp::child c(cmd, e);
-      //std::error_code ec;
-      // if (!c.wait_for(std::chrono::seconds(timeout), ec)) {
-      //   vw_out() << "\n" << "Timeout reached. Process terminated after "
-      //            << timeout << " seconds. See the --corr-timeout option.\n";
-      //   c.terminate(ec);
-      // }      
-        
       // Read the disparity from disk. This may fail, for example, the
       // disparity may time out or it may not have good data. In that
       // case just make an empty disparity, as we don't want
