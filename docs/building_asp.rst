@@ -222,8 +222,8 @@ Packages to build
 Many additional package need to be built, using ``conda build``. These packages
 can be downloaded with ``git clone`` from:
 
-  https://github.com/NeoGeographyToolkit/geoid-feedstock.git
   https://github.com/NeoGeographyToolkit/htdp-feedstock.git
+  https://github.com/NeoGeographyToolkit/geoid-feedstock.git
   https://github.com/NeoGeographyToolkit/fgr-feedstock.git
   https://github.com/NeoGeographyToolkit/libnabo-feedstock.git
   https://github.com/NeoGeographyToolkit/libpointmatcher-feedstock.git
@@ -283,29 +283,34 @@ the appropriate version for those dependencies.
 It is very important to also ensure there is a new version for this package at
 the top of ``meta.yaml``.
 
+Set the solver to ``libmamba``, for speed::
+
+    conda config --set solver libmamba
+
+This may be the default in more recent versions of conda.
+    
 Each of the packages above can be built, in the order specified in
 :numref:`conda_build_order`, as follows::
 
     conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
       -c conda-forge gdal-feedstock
 
-It is strongly suggested to use ``conda mambabuild`` instead of ``conda build``,
-as it is much faster. (Note: the above is not a mistake, the command is in fact ``conda mambabuild``, rather than ``mamba build``.)
-
 Upload the produced packages to the ``nasa-ames-stereo-pipeline`` channel by
 first logging in, via the command:
 
 ::
     
-    anaconda login
+    anaconda login nasa-ames-stereo-pipeline
 
-and specifying the channel as the user name, and then running a
-command along the lines:
+The ``anaconda`` tool may have its own dependencies and may need to be 
+installed in a different environment.
+
+Run a command along the lines:
 
 ::
 
     anaconda upload \
-      $HOME/miniconda3/envs/asp_deps/conda-bld/linux-64/mypackage.tar.bz2
+      $HOME/miniconda3/envs/asp_deps/conda-bld/linux-64/MyPackage.tar.bz2
 
 (Use above the path echoed on the screen by the ``conda build``
 command.)
@@ -322,8 +327,7 @@ After a package is uploaded, it can be installed in the existing
       -c conda-forge                           \
       libelas=asp3.3.0
 
-It is strongly suggested to try using ``mamba install`` instead of 
-``conda install``, as it is much faster.
+If this is slow, check if the solver is set to ``libmamba``. 
  
 To list all packages in that channel, do::
 

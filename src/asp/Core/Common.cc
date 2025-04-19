@@ -34,7 +34,6 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
-#include <boost/dll.hpp>
 #include <boost/algorithm/string/replace.hpp>
 
 // TODO(oalexan1): Move this to VW in the cartography module.
@@ -48,23 +47,6 @@
 #include <string>
 #include <vector>
 #include <unistd.h>
-
-// These variables must never go out of scope or else the
-// environmental variables set by them using putenv() will disappear.
-// Use C style strings, rather than std::string, as then putenv() and
-// getenv() give valgrind warnings.
-namespace asp {
-  // TODO(oalexan1): Wipe al these
-  const int COMMON_BUF_SIZE = 5120;
-  char ISISROOT_ENV_STR[COMMON_BUF_SIZE];
-  char QT_PLUGIN_PATH_ENV_STR[COMMON_BUF_SIZE];
-  char GDAL_DATA_ENV_STR[COMMON_BUF_SIZE];
-  char GDAL_DRIVER_PATH_ENV_STR[COMMON_BUF_SIZE];
-  char PROJ_LIB_ENV_STR[COMMON_BUF_SIZE]; // older proj api
-  char PROJ_DATA_ENV_STR[COMMON_BUF_SIZE]; // newer proj api
-  char LC_ALL_STR[COMMON_BUF_SIZE];
-  char LANG_STR[COMMON_BUF_SIZE];
-}
 
 using namespace vw;
 namespace po = boost::program_options;
@@ -352,95 +334,6 @@ void asp::log_to_file(int argc, char *argv[],
   vw_log().add(current_log);
 }
 
-// A function to set the environmental variables ISISROOT, QT_PLUGIN_PATH,
-// GDAL_DATA, and PROJ_LIB. In packaged build mode, set these with the help of the
-// base directory of the distribution.
-// In dev mode, use the ASP_DEPS_DIR macro or otherwise the
-// ASP_DEPS_DIR environmental variable. These are needed especially for the
-// conda build, when the ASP executables don't have a wrapper around them.
-// For the tarball build, some of this logic is duplicated in the script
-// in BinaryBuilder/dist-add/libexec/libexec-funcs.sh which is then called
-// by the wrapper.
-namespace asp {
-void set_asp_env_vars() {
-    
-  // Find the path to the base of the package and see if it works.
-  std::string base_dir = boost::dll::program_location().parent_path().parent_path().string();
-  if (!fs::exists(base_dir + "/IsisPreferences")) {
-    base_dir = ASP_DEPS_DIR; // This is defined at compile time
-    if (!fs::exists(base_dir + "/IsisPreferences")) {
-      // If nothing works, try the ASP_DEPS_DIR env variable
-      char * ptr = getenv("ASP_DEPS_DIR");
-      if (ptr) 
-        base_dir = ptr;
-      if (ptr == NULL || !fs::exists(base_dir + "/IsisPreferences")) {
-        vw::vw_throw(vw::ArgumentErr() << "Cannot find the directory having IsisPreferences. "
-                     << "Try setting it as the environmental variable ASP_DEPS_DIR.");
-      }
-    }
-  }
-
-  // Set ISISROOT and check for IsisPreferences
-  // ISISROOT_ENV_STR = "ISISROOT=" + base_dir;
-  snprintf(ISISROOT_ENV_STR, COMMON_BUF_SIZE, "ISISROOT=%s", base_dir.c_str());
-  asp::setEnvVar("ISISROOT", base_dir);
-  if (!fs::exists(std::string(getenv("ISISROOT")) + "/IsisPreferences")) 
-    vw::vw_throw(vw::ArgumentErr() << "Cannot find IsisPreferences in "
-                 << getenv("ISISROOT"));
-  
-  // Set QT_PLUGIN_PATH as the path to /plugins
-  // QT_PLUGIN_PATH_ENV_STR = "QT_PLUGIN_PATH=" + base_dir + "/plugins";
-  snprintf(QT_PLUGIN_PATH_ENV_STR, COMMON_BUF_SIZE, "QT_PLUGIN_PATH=%s%s",
-           base_dir.c_str(), "/plugins");
-  asp::setEnvVar("QT_PLUGIN_PATH", base_dir + "/plugins");
-  if (!fs::exists(std::string(getenv("QT_PLUGIN_PATH"))))
-    vw::vw_throw(vw::ArgumentErr() << "Cannot find Qt plugins in " 
-                 << getenv("QT_PLUGIN_PATH"));
-
-  // Set GDAL_DATA and check for share/gdal
-  snprintf(GDAL_DATA_ENV_STR, COMMON_BUF_SIZE, "GDAL_DATA=%s%s",
-           base_dir.c_str(), "/share/gdal");
-  asp::setEnvVar("GDAL_DATA", base_dir + "/share/gdal");  
-  if (!fs::exists(std::string(getenv("GDAL_DATA")))) 
-    vw::vw_throw(vw::ArgumentErr() << "Cannot find GDAL data in "
-                 << getenv("GDAL_DATA"));
-
-  // Set GDAL_DRIVER_PATH and check for share/gdal. There are two locations, because
-  // BinaryBuilder moves the plugins from lib/gdalplugins to lib.
-  // TODO(oalexan1): Figure out why this happens.
-  snprintf(GDAL_DRIVER_PATH_ENV_STR, COMMON_BUF_SIZE, "GDAL_DRIVER_PATH=%s%s:%s%s",
-           base_dir.c_str(), "/lib/gdalplugins", base_dir.c_str(), "/lib");
-  asp::setEnvVar("GDAL_DRIVER_PATH", base_dir + "/lib/gdalplugins:" + base_dir + "/lib");  
-  
-  // Older proj api
-  // Set PROJ_LIB and check for share/proj
-  snprintf(PROJ_LIB_ENV_STR, COMMON_BUF_SIZE, "PROJ_LIB=%s%s",
-           base_dir.c_str(), "/share/proj");
-  asp::setEnvVar("PROJ_LIB", base_dir + "/share/proj");
-  if (!fs::exists(std::string(getenv("PROJ_LIB")))) 
-    vw::vw_throw(vw::ArgumentErr() << "Cannot find PROJ data in "
-                 << getenv("PROJ_LIB"));
-
-  // Newer proj api
-  // Set PROJ_DATA and check for share/proj
-  snprintf(PROJ_DATA_ENV_STR, COMMON_BUF_SIZE, "PROJ_DATA=%s%s",
-           base_dir.c_str(), "/share/proj");
-  asp::setEnvVar("PROJ_DATA", base_dir + "/share/proj");
-  if (!fs::exists(std::string(getenv("PROJ_DATA")))) 
-    vw::vw_throw(vw::ArgumentErr() << "Cannot find PROJ data in "
-                 << getenv("PROJ_DATA"));
-
-  // Force the US English locale as long as ASP is running to avoid
-  // ISIS choking on a decimal separator which shows up as a comma for 
-  // some reason.
-  snprintf(LC_ALL_STR, COMMON_BUF_SIZE, "LC_ALL=en_US.UTF-8");
-  asp::setEnvVar("LC_ALL", "en_US.UTF-8");  
-  
-  snprintf(LANG_STR, COMMON_BUF_SIZE, "LANG=en_US.UTF-8");
-  asp::setEnvVar("LANG", "en_US.UTF-8");
-}
-} // end namespace asp
-
 // User should only put the arguments to their application in the
 // usage_comment argument. We'll finish filling in the repeated information.
 po::variables_map
@@ -470,6 +363,7 @@ asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
   
   usage_comment = ostr.str();
 
+  // Set a handful of of env vars for ISIS, GDAL, PROJ
   asp::set_asp_env_vars();
   
   // We distinguish between all_public_options, which is all the

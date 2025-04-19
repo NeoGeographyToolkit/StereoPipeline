@@ -26,6 +26,8 @@ namespace asp {
 // which is not problematic, as putenv().
 void setEnvVar(std::string const& var, std::string const& val);
 
+// Set some env vars needed by all ASP programs. See the .cc for details.
+void set_asp_env_vars();
 
 } //end namespace asp
 
