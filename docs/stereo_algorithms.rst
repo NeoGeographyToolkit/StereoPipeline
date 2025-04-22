@@ -717,11 +717,10 @@ Any such algorithm must be a program to be invoked as::
     myprog <options> left_image.tif right_image.tif \
       output_disparity.tif
 
-Here, as often assumed in the computer vision community, the input
-images ``left_image.tif`` and ``right_image.tif`` are expected to be
-small image clips with epipolar alignment applied to them so that the
-epipolar lines are horizontal and the resulting disparity only need to
-be searched in the ``x`` direction (along each row). The images must
+Here, as often assumed in the computer vision community, ``left_image.tif`` and
+``right_image.tif`` are small image clips with epipolar alignment applied to
+them, so that the epipolar lines are horizontal and the resulting disparity only
+need to be searched in the ``x`` direction (along each row). The images must
 have the same size. (ASP will take care of preparing these images.)
 
 The images must be in the TIF format, with pixel values being of the
@@ -774,7 +773,7 @@ ASP, blended together, then ASP will continue with the steps of
 disparity filtering and triangulation.
 
 It may be helpful to visit one of such subdirectories, examine the
-``stereo_corr`` log file which will show how precisely the program was
-called, and also look at its input image tiles and output disparity
-stored there.
-
+``stereo_corr`` log file which will show how precisely the program was called,
+and also look at its input image tiles and output disparity stored there. Note
+such auxiliary data is removed by default, unless ``parallel_stereo`` is called
+with the option ``--keep-only unchanged`` (:numref:`parallel_stereo`).
