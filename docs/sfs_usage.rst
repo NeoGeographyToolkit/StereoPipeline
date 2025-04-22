@@ -926,23 +926,24 @@ Resample the DEM to 1 m/pixel using ``gdalwarp``
 The values passed to ``-te`` are the bounds of the area of interest. 
 See a discussion about them below.
 
+The DEM grid size should be not too different from the *ground sample
+distance (GSD)* of the images, for optimal results. That one can be found
+with ``mapproject`` (:numref:`mapproject`).
+
 It is suggested to use a `stereographic projection
-<https://proj.org/operations/projections/stere.html>`_ centered around
-the area of interest when resampling the terrain. For example, set::
+<https://proj.org/operations/projections/stere.html>`_. It should 
+be a polar one, if around the poles, or otherwise centered at 
+the area of interest. For example, set::
 
     proj="+proj=stere +lat_0=-85.3643 +lon_0=31.2387 +R=1737400 +units=m +no_defs"
 
-then run ``gdalwarp`` with the option ``-t_srs "$proj"``.
+then run ``gdalwarp`` with the additional option ``-t_srs "$proj"``.
 
 The interpolated DEM was created with bicubic spline interpolation,
 which is preferable to the default nearest neighbor interpolation, and
 it was saved internally using blocks of size 256 x 256, which ASP
 handles better than the GDAL default with each block as tall or wide
 as a row or column.
-
-The DEM grid size should be not too different from the *ground sample
-distance (GSD)* of the images, for optimal results. That one can be found
-with ``mapproject`` (:numref:`mapproject`).
 
 Inspect this DEM with ``stereo_gui`` (:numref:`stereo_gui`) in hillshade mode.
 Any spikes or other artifacts should be blurred, such as by running::
