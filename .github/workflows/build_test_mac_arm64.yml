@@ -29,8 +29,9 @@ jobs:
       run: ./.github/workflows/build_test.sh
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
-      with: 
-         name: StereoPipeline-${{ runner.os }}
+      with:
+         # This must be in sync with BinaryBuilder/auto_build
+         name: StereoPipeline-Artifact-build_test_mac_arm64
          path: ~/work/StereoPipeline/packages
          retention-days: 2
       continue-on-error: true
