@@ -1,28 +1,14 @@
 #!/bin/bash
 
-# Fetch the ASP depenedencies
-tag=mac_conda_env8
-wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
-/usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
-
-# The ASP dependencies at the location above are updated using the script
-# save_mac_deps.sh. See that script for more info.
-
-# Check that base dir is StereoPipeline
+# Record the location where the script is running, which should
+# be the base of the StereoPipeline repo. This must happen first.
 aspRepoDir=$(pwd) # same as $HOME/work/StereoPipeline/StereoPipeline
 if [ "$(basename $aspRepoDir)" != "StereoPipeline" ]; then
+    # Check that base dir is StereoPipeline
     echo "Error: Directory: $aspRepoDir is not StereoPipeline"
     exit 1
 fi
-
-envName=asp_deps
-envPath=$HOME/miniconda3/envs/${envName}
-export PATH=$envPath/bin:$PATH
-if [ ! -d "$envPath" ]; then
-    echo "Error: Directory: $envPath does not exist"
-    exit 1
-fi
-
+# Other variables
 baseDir=$(dirname $aspRepoDir) # one level up
 installDir=$baseDir/install
 
@@ -30,8 +16,42 @@ installDir=$baseDir/install
 packageDir=$baseDir/packages
 testDir=$baseDir/StereoPipelineTest
 
-# Set up the compiler
+# Throw an error unless on a Mac
 isMac=$(uname -s | grep Darwin)
+if [ "$isMac" == "" ]; then
+    echo "This script is for Mac only"
+    exit 1
+fi
+
+# See if this is Arm64 or Intel x64
+isArm64=$(uname -m | grep arm64)
+
+# The ASP dependencies at the location below are updated using the script
+# save_mac_deps.sh. See that script for more info.
+# TODO(oalexan1): Reconcile these two
+if [ "$isArm64" != "" ]; then
+    echo "Platform: Arm64 Mac"
+    tag=asp_deps_mac_arm64_v1
+    env_name=isis_dev
+else
+    echo "Platform: Intel Mac"
+    tag=asp_deps_mac_x64_v1
+    envName=asp_deps
+fi
+
+# Fetch and unzip
+wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
+/usr/bin/time tar xzf asp_deps.tar.gz -C $HOME > /dev/null 2>&1 # this is verbose
+
+# The env can be in miniconda3 or anaconda3  
+envPath=$(ls -d $HOME/*conda3/envs/${envName})
+if [ ! -d "$envPath" ]; then
+    echo "Error: Directory: $envPath does not exist"
+    exit 1
+fi
+export PATH=$envPath/bin:$PATH
+
+# Set up the compiler
 if [ "$isMac" != "" ]; then
   cc_comp=clang
   cxx_comp=clang++
@@ -39,8 +59,12 @@ else
   cc_comp=x86_64-conda_cos6-linux-gnu-gcc
   cxx_comp=x86_64-conda_cos6-linux-gnu-g++
 fi
+echo cc_comp=$cc_comp
+echo cxx_comp=$cxx_comp
 
 # Build visionworkbench
+# TODO(oalexan1): Use here BinaryBuilder/build.py, just as for Linux.
+
 mkdir -p $baseDir
 cd $baseDir
 git clone https://github.com/visionworkbench/visionworkbench.git
@@ -57,7 +81,8 @@ $envPath/bin/cmake ..                             \
 echo Building VisionWorkbench
 make -j10 install > /dev/null 2>&1 # this is too verbose
 
-# Log of the build, for inspection in case it fails
+# Log of the build, for inspection, in case it fails.
+# This will resume from earlier.
 out_build_vw=$(pwd)/output_build_vw.txt
 make install > $out_build_vw 2>&1
 tail -n 500 $out_build_vw
@@ -80,7 +105,6 @@ ans=$?
 if [ "$ans" -ne 0 ]; then
     echo "Error: StereoPipeline build failed"
     # Do not exit so we can save the build log
-    #exit 1
 fi
 
 # Log of the build, for inspection in case it fails
@@ -88,14 +112,15 @@ out_build_asp=$(pwd)/output_build_asp.txt
 make install > $out_build_asp 2>&1
 tail -n 500 $out_build_asp
 
-# Package with BinaryBuilder
+# Package with BinaryBuilder. The Mac Arm and Mac x84 use
+# different paths to the python environment.
 echo Packaging the build
 cd $baseDir
 git clone https://github.com/NeoGeographyToolkit/BinaryBuilder
 cd BinaryBuilder
 ./make-dist.py $installDir \
   --asp-deps-dir $envPath  \
-  --python-env $HOME/miniconda3/envs/python_isis8
+  --python-env $(ls -d $HOME/*conda3/envs/python*)
 # Prepare the package for upload
 mkdir -p $packageDir
 mv -fv Stereo* $packageDir
@@ -106,9 +131,8 @@ tarBall=$(ls StereoPipeline-*.tar.bz2 | head -n 1)
 if [ "$tarBall" == "" ]; then
   echo Cannot find the packaged ASP tarball
   # Do not exit so we can save the build log
-  #exit 1
 fi
-tar xjfv $tarBall > /dev/null 2>&1 # this is verbose
+/usr/bin/time tar xjf $tarBall > /dev/null 2>&1 # this is verbose
 
 # Path to executables
 binDir=$packageDir/$tarBall
@@ -139,9 +163,10 @@ tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 
 # Note: If the test results change, a new tarball with latest scripts and test
 # results must be uploaded. That is done by running the script:
-# StereoPipeline/.github/workflows/update_mac_tests.sh
-# in the directory having the Mac artifact fetched from the cloud,
-# that is, the tarball StereoPipelineTest.tar.gz.
+# StereoPipeline/.github/workflows/update_mac_tests.sh in the local directory
+# having the Mac artifact fetched from the cloud, that is, the directory having
+# the tarball StereoPipelineTest.tar.gz. That artifact will be uploaded further
+# down.
 
 # Go to the test dir
 if [ ! -d "$testDir" ]; then

@@ -1,41 +1,58 @@
 #!/bin/bash
 
 # To update the Mac dependencies or create new ones, in manual (interactive)
-# mode, run the ssh.yml action followed by running a subset of the commands in
-# build_isis.sh. In batch mode, run the action build_isis.yml, which will call
-# build_isis.sh.
+# mode, run the ssh.yml action to get ssh access to a Mac cloud instance.
 
-# Some dependencies can be fetched with conda, and others need to be built. They
-# should be installed in /Users/runner/miniconda3/envs. See
-# https://stereopipeline.readthedocs.io/en/latest/building_asp.html for more
-# details.
+# Then, fetch and/or build the dependencies. See 
+# https://stereopipeline.readthedocs.io/en/latest/building_asp.html
+# for a high-level overview.
 
-# In manual mode, when done, and before exiting, save the dependencies as follows:
+# Ideally all dependencies are built and then installed as conda packages.
+# The script build_isis.sh has the commands for how build dependencies
+# manually, if needed to understand failures when using conda.
+
+# The updated dependencies should be installed in /Users/runner/miniconda3/envs. 
+
+# When done, and before exiting, save the dependencies, such as:
 #   mkdir -p ~/work/StereoPipeline/packages
+#   cd $HOME
 #   /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
-#     /Users/runner/miniconda3/envs
+#     *conda3/envs
 
-# After quitting the action, the tarball will be saved as an artifact. 
+# After quitting the action (exiting the shell), the tarball will be saved as an
+# artifact. Upload progress can be monitored in GitHub Actions. 
 
 # Then, from a local machine, which need not be a Mac, run this script. 
 # It will fetch the tarball from the cloud and then push it as a release
 # to permanent location, with given tag.
 
-# The tag set here must match the tag in build_test.sh and build_isis.sh. If
-# changing here, must later change in the other places. If not changing the tag
-# name, the dependencies with this tag will be overwritten.
+# This tarball will be used to build VisionWorkplace and ASP. See the script
+# build_test.sh.
 
-# tag=mac_conda_env8 # change here to use a new tag name
-# workflow="ssh.yml" # manual workflow
-# #workflow="build_isis.yml" # automatic workflow
-# $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
+# The tag set here must match the tag in build_test.sh and build_isis.sh. If
+# changing here, must later change in the other places.
 
 # This script will overwrite the dependencies. If in doubt, use it with a new
 # tag, as the dependencies are very hard to recreate.
 
+# How to run this script:
+
+# For Mac x64:
+# tag=asp_deps_mac_x64_v1
+# workflow="ssh.yml" # manual workflow
+# #workflow="build_isis.yml" # automatic workflow
+# $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
+
+# For Mac Arm64:
+# tag=asp_deps_mac_arm64_v1
+# workflow="ssh_mac_arm.yml" # manual workflow
+# $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
+
 # For linux, the dependencies from the local machine can be saved as follows.
 # tag=linux_conda_env7
 # $HOME/projects/StereoPipeline/.github/workflows/save_linux_deps.sh $tag
+# TODO(oalexan1): Check if on Linux the dependencies are also saved
+# relative to the home directory or not.
 
 # Check usage
 if [ "$#" -lt 2 ]; then
@@ -43,14 +60,19 @@ if [ "$#" -lt 2 ]; then
     exit 1
 fi
 
-# The workflow that saved the dependencies as artifact (ssh.yml or build_isis.yml)
+# The workflow that saved the dependencies as artifact. Options:
+# ssh.yml, ssh_mac_arm.yml, build_isis.yml
 workflow=$1; shift
 
 # The tag to use to save the dependencies. Must then use this tag
 # to fetch the dependencies in build_test.sh and build_isis.sh.
 tag=$1; shift 
 
-gh=/home/oalexan1/miniconda3/envs/gh/bin/gh
+# The GitHub CLI tool. Can be installed in a new conda environment
+# named 'gh' as follows:
+# conda create -n gh -c conda-forge gh
+
+gh=$(ls -d $HOME/*conda3/envs/gh/bin/gh)
 repo=git@github.com:NeoGeographyToolkit/StereoPipeline.git
 
 # Query the ${workflow}. Must check that that the top-most run is successful
@@ -91,6 +113,6 @@ echo If present, deleting the old release for tag: $tag
 $gh release -R $repo delete $tag 2>/dev/null # hide any error message for missing release
 
 # Upload the new version
-notes="$tag"
+notes="Build dependencies: $tag"
 echo Uploading a new version for tag: $tag
 /usr/bin/time $gh release -R $repo create $tag $binaries --title $tag --notes "$notes"

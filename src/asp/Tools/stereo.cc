@@ -465,7 +465,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   // Add options whose values are stored in ASPGlobalOptions rather than in stereo_settings()
   po::options_description general_options_sub("");
   addAspGlobalOptions(general_options_sub, opt);
-
+  
   // We distinguish between all_general_options, which is all the
   // options we must parse, even if we don't need some of them, and
   // general_options, which are the options specifically used by the
@@ -572,9 +572,11 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   // For multiview, just store the files and return. Must happen after logging
   // starts, as logging for multiview is done in subdirectories. In multiview
   // mode, the logic further down will be later called for each pair.
+  // When called with no arguments, print the help message.
   if (is_multiview) {
     if (vm.count("input-files") == 0)
-      vw_throw(ArgumentErr() << "Missing input arguments.\n");
+      vw_throw(ArgumentErr() << "Missing input arguments.\n"
+       << usage << general_options);
     input_files = vm["input-files"].as<std::vector<std::string>>();
     return;
   }

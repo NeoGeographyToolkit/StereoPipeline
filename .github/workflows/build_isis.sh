@@ -21,7 +21,7 @@ else
 fi
 
 # Fetch the ASP dependencies. Must keep $tag in sync with build_test.sh.
-tag=mac_conda_env8
+tag=asp_deps_mac_x64_v1
 wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 /usr/bin/time tar xzf asp_deps.tar.gz -C / > /dev/null 2>&1 # this is verbose
 
