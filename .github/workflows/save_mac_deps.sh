@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # To update the Mac dependencies or create new ones, in manual (interactive)
-# mode, run the ssh.yml action to get ssh access to a Mac cloud instance.
+# mode, run the ssh.yml / ssh_mac_arm.yml action to get ssh access to a Mac
+# cloud instance.
 
-# Then, fetch and/or build the dependencies. See 
+# Then, fetch/build/update the dependencies. See 
 # https://stereopipeline.readthedocs.io/en/latest/building_asp.html
 # for a high-level overview.
 
@@ -110,7 +111,7 @@ repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
 
 # Wipe any old version
 echo If present, deleting the old release for tag: $tag
-$gh release -R $repo delete $tag 2>/dev/null # hide any error message for missing release
+$gh release -R $repo delete $tag -y 2>/dev/null # hide any error message for missing release
 
 # Upload the new version
 notes="Build dependencies: $tag"

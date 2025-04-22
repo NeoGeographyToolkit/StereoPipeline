@@ -32,7 +32,7 @@ isArm64=$(uname -m | grep arm64)
 if [ "$isArm64" != "" ]; then
     echo "Platform: Arm64 Mac"
     tag=asp_deps_mac_arm64_v1
-    env_name=isis_dev
+    envName=isis_dev
 else
     echo "Platform: Intel Mac"
     tag=asp_deps_mac_x64_v1
