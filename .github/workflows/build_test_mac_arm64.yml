@@ -1,18 +1,10 @@
-name: build_test
+name: build_test_mac_arm64
 on:
   workflow_dispatch:
 
-# Build and test ASP on macOS. Triggered via gh.
-
-# on:
-#   push:
-#     branches: [ "master" ]
-#   pull_request:
-#     branches: [ "master" ]
-
 jobs:
   build:
-    runs-on: macos-13
+    runs-on: macos-latest
     steps:
     - uses: actions/checkout@v3
     # No caching of dependencies, as the cache does not change when it is

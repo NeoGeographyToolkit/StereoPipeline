@@ -5,26 +5,26 @@
 # back to the cloud.
 
 # The tarball having the tests
-f=StereoPipelineTest.tar.gz
+data=StereoPipelineTest.tar
 
 # Check if it exists
-if [ ! -f "$f" ]; then
+if [ ! -f "$data" ]; then
   # Maybe it is in a subdir. That happens when fetching the artifact.
-  ans=$(ls */$f | head -n 1)
+  ans=$(ls */$data | head -n 1)
   if [ "$ans" != "" ]; then
     cd $(dirname $ans)
   fi
 fi
 
 # Check again
-if [ ! -f "$f" ]; then  
-  echo "Error: File: $f does not exist"
+if [ ! -f "$data" ]; then  
+  echo "Error: File: $data does not exist"
   exit 1
 fi
 
 # Extract
-echo "Extracting $f"
-tar xzfv $f > /dev/null 2>&1 # this is verbose
+echo "Extracting $data"
+tar xzfv $data > /dev/null 2>&1 # this is verbose
 if [ ! -d "StereoPipelineTest" ]; then
   echo "Error: Directory: StereoPipelineTest does not exist"
   exit 1
@@ -45,15 +45,20 @@ done
 chmod a+x StereoPipelineTest/bin/* StereoPipelineTest/*/*sh
 
 echo "Creating a new tarball"
-binaries=StereoPipelineTest.tar
-tar cfv $binaries StereoPipelineTest 
+tar cfv $data StereoPipelineTest 
+
+# Make sure the gh tool is executable
+gh=$(ls -d $HOME/*conda3/envs/gh/bin/gh)
+if [ ! -x "$gh" ]; then
+  echo "Error: Cannot find gh"
+  exit 1
+fi
 
 echo "Pushing the updated tarball to the cloud"
 repo=git@github.com:NeoGeographyToolkit/StereoPipelineTest.git  
-gh=/home/oalexan1/miniconda3/envs/gh/bin/gh
 tag=0.0.1
 echo Wipe the old tests and upload the new ones
-$gh release -R $repo delete $tag # wipe old tarball
+$gh release -R $repo delete $tag -y # wipe old tarball
 notes="Update test results"
-$gh release -R $repo create $tag $binaries --title $tag --notes "$notes" # upload new
+$gh release -R $repo create $tag $data --title $tag --notes "$notes" # upload new
 

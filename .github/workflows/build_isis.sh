@@ -320,6 +320,7 @@ export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 conda install -c conda-forge                      \
   rocksdb=8.5.3 rapidjson=1.1.0                   \
   ilmbase=2.5.5 openexr=2.5.5 imath -y
+# Note: For Mac may need to build openexr from source  
 git clone https://github.com/NeoGeographyToolkit/MultiView.git --recursive
 cd MultiView
 # Must have ssh authentication set up for github
@@ -336,6 +337,7 @@ $PREFIX/bin/cmake ..                              \
     -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp     \
     -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp  \
     -DMULTIVIEW_DEPS_DIR=${PREFIX}                \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13           \
     -DCMAKE_VERBOSE_MAKEFILE=ON                   \
     -DCMAKE_CXX_FLAGS='-O3 -std=c++11 -Wno-error' \
     -DCMAKE_C_FLAGS='-O3 -Wno-error'              \
@@ -344,28 +346,56 @@ $PREFIX/bin/cmake ..                              \
 make -j4
 make install
 
+# OpenEXR
+# Build from source, to ensure the proper version of ilmbase is used
+# git clone git@github.com:NeoGeographyToolkit/openexr-feedstock.git
+# conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge openexr-feedstock
+# conda install -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge --force-reinstall openexr 
+wget https://github.com/AcademySoftwareFoundation/openexr/archive/v2.5.5.tar.gz
+cd openexr-2.5.5
+mkdir build && cd build
+conda activate isis_dev
+export PREFIX=$(ls -d ~/*conda3/envs/{asp_deps,isis_dev})
+if [ ! -d "$PREFIX" ]; then
+  echo "Error: $PREFIX does not exist. Exiting."
+  #exit 1
+fi
+$PREFIX/bin/cmake ..  \
+  -DCMAKE_BUILD_TYPE=Release \
+   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp     \
+   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp  \
+  -DCMAKE_PREFIX_PATH=$PREFIX \
+  -DCMAKE_VERBOSE_MAKEFILE=ON    \
+  -DCMAKE_CXX_FLAGS='-O3 -std=c++11 -w' \
+  -DCMAKE_C_FLAGS='-O3 -w' \
+  -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10
+
 # Build OpenImageIO. This is for debugging. Normally it would be built as part
 # of MultiView. Note: The lengthy command below gets truncated if pasted in a
 # terminal on github.
 cd
-git clone https://github.com/NeoGeographyToolkit/oiio.git
+#git clone https://github.com/NeoGeographyToolkit/oiio.git
+git clone git@github.com:NeoGeographyToolkit/oiio.git
 cd oiio
 mkdir build && cd build
-
-${ILMBASE_LIBRARIES} ${OPENEXR_LIBRARIES} ${ZLIB_LIBRARIES})
-
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+export PREFIX=$(ls -d ~/*conda3/envs/{asp_deps,isis_dev})
+if [ ! -d "$PREFIX" ]; then
+  echo "Error: $PREFIX does not exist. Exiting."
+  #exit 1
+fi
 $PREFIX/bin/cmake ..  \
   -Wdev \
   -DCMAKE_BUILD_TYPE=Release \
+   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp     \
+   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp  \
   -DCMAKE_PREFIX_PATH=$PREFIX \
-  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp \
-  -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp  \
   -DMULTIVIEW_DEPS_DIR=${PREFIX} \
   -DCMAKE_VERBOSE_MAKEFILE=ON    \
   -DCMAKE_CXX_FLAGS='-O3 -std=c++11 -w' \
   -DCMAKE_C_FLAGS='-O3 -w' \
   -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10 \
   -DBUILD_SHARED_LIBS=ON \
   -DUSE_PYTHON=OFF  \
   -DUSE_OPENCV=OFF  \

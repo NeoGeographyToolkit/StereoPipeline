@@ -1,0 +1,36 @@
+name: build_test_mac_x64
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-13
+    steps:
+    - uses: actions/checkout@v3
+    # No caching of dependencies, as the cache does not change when it is
+    # modified, and it can expire. See build_test.sh how to fetch an
+    # offline tarball with dependencies, and how to update that one if need
+    # be.
+    # - name: Cache conda
+    #   id: cache-conda
+    #   uses: actions/cache@v3
+    #   env:
+    #     cache-name: cache-conda
+    #   with:
+    #     path: |
+    #       /usr/local/miniconda/envs
+    #     key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/miniconda.json') }}
+    #     restore-keys: |
+    #       ${{ runner.os }}-build-${{ env.cache-name }}-
+    #       ${{ runner.os }}-build-
+    #       ${{ runner.os }}-
+    - name: build_test
+      # Build and test ASP
+      run: ./.github/workflows/build_test.sh
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with: 
+         name: StereoPipeline-${{ runner.os }}
+         path: ~/work/StereoPipeline/packages
+         retention-days: 2
+      continue-on-error: true

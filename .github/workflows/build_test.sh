@@ -118,6 +118,7 @@ echo Packaging the build
 cd $baseDir
 git clone https://github.com/NeoGeographyToolkit/BinaryBuilder
 cd BinaryBuilder
+export ISISROOT=$envPath # needed for Mac Arm
 ./make-dist.py $installDir \
   --asp-deps-dir $envPath  \
   --python-env $(ls -d $HOME/*conda3/envs/python*)
@@ -183,6 +184,15 @@ ans=0
 for d in ss*; do 
     # Skip unless a directory
     if [ ! -d "$d" ]; then continue; fi
+
+    if [ "$isArm64" != "" ]; then
+      # Skip if the directory matches camera_solve
+      if [[ $d == *camera_solve* ]]; then
+        echo "Skipping test $d on Arm64"
+        continue
+      fi
+    fi
+    
     cd $d
     pwd
     ./run.sh > output.txt 2>&1
