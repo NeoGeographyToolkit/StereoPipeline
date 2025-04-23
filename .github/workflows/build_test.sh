@@ -166,7 +166,7 @@ tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 # results must be uploaded. That is done by running the script:
 # StereoPipeline/.github/workflows/update_mac_tests.sh in the local directory
 # having the Mac artifact fetched from the cloud, that is, the directory having
-# the tarball StereoPipelineTest.tar.gz. That artifact will be uploaded further
+# the tarball StereoPipelineTest.tar. That artifact will be uploaded further
 # down.
 
 # Go to the test dir
