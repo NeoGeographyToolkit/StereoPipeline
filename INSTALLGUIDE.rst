@@ -38,8 +38,13 @@ The latest additions are documented in :numref:`news`.
 MacOS
 ~~~~~
 
-ASP builds are produced for MacOS, with the Intel processor. ASP was verified to
-work on the Arm M1/M2 processor using Rosetta 2.
+ASP builds are produced for MacOS, with the Intel processor. These were verified
+to work on the Arm M1/M2 processor under Rosetta 2.
+
+An *experimental* native daily build is available for the Arm M1/M2 architecture
+at the link above (``arm64-OSX.tar.bz2``). This has all ASP
+algorithms except the minor ``libelas`` stereo algorithm (:numref:`libelas`)
+and the ``camera_solve`` SfM program (:numref:`camera_solve`). 
 
 The installation steps are the same as for Linux. It is important to 
 note that:
@@ -47,7 +52,7 @@ note that:
 - An error may be shown about not being able to verify the developers. That can
   be overridden in the Privacy & Security settings of the system.
  
-- Running the programs the first time will be slow, as Rosetta will
+- Running the Intel build the first time will be slow, as Rosetta will
   translate them to the native architecture. Subsequent runs will be
   faster.
 

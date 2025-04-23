@@ -23,6 +23,10 @@
 
 import argparse, glob, os, re, shutil, subprocess, sys, platform
 
+# This must be before importing numpy
+if platform.system() == "Darwin" and platform.machine() == "arm64":
+    raise Exception("Theia does not work on MacOS Arm64.")
+
 # Set up the path to Python modules about to load
 basepath    = os.path.abspath(sys.path[0])
 pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
@@ -46,7 +50,7 @@ def sanityChecks(args):
 
     if args.out_dir == "":
         raise Exception("The path to the output directory was not specified.")
-
+    
 def processArgs(args, base_dir):
     """
     Set up the parser and parse the args.

@@ -23,7 +23,7 @@ pinhole camera models using Theia and ASP.
 '''
 
 import sys, os, re
-import shutil, subprocess, string, time, errno, optparse, glob, shlex
+import shutil, subprocess, string, time, errno, optparse, glob, shlex, platform
 #import register_local_cameras
 
 if sys.version_info < (2, 6, 0):
@@ -676,6 +676,9 @@ def main(argsIn):
         print('Did not detect required executables!  Check your PATH and ASP installation.')
         return -1
 
+    if platform.system() == "Darwin" and platform.machine() == "arm64":
+        raise Exception("Theia does not work on MacOS Arm64.")
+        
     try:
 
         # Use parser that ignores unknown options

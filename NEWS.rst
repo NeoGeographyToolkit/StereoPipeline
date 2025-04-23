@@ -1,6 +1,9 @@
 Changes since the last release
 ------------------------------
 
+New platform: An experimental native Mac M1/M2 Arm64 build is available
+(:numref:`release`).
+  
 bundle_adjust (:numref:`bundle_adjust`):
   * Replaced the algorithm for creating control networks when there are more
     than two images. Notably more features in more than two images now can be

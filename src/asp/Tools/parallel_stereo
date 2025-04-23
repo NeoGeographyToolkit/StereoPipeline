@@ -16,7 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-import sys, argparse, subprocess, re, os, math, time, glob, shutil, math
+import sys, argparse, subprocess, re, os, math, time, glob, shutil, math, platform
 import os.path as P
 
 # Set up the path to Python modules about to load
@@ -1029,6 +1029,11 @@ if __name__ == '__main__':
     sep = ","
     settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
     out_prefix = settings['out_prefix'][0]
+
+    if settings['stereo_algorithm'][0].lower() == 'libelas' and \
+       platform.system() == "Darwin" and platform.machine() == "arm64":
+       raise Exception('The stereo algorithm ' + \
+                        settings['stereo_algorithm'][0] + ' is not supported on Mac Arm.')
 
     # In the master process, need to create the list of nodes. Must happen
     # after we are in the work dir and have out_prefix. This ensures
