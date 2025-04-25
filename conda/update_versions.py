@@ -18,16 +18,16 @@
 # __END_LICENSE__
 
 '''
-Use dependency versions from a conda enviornment .yaml file to update
+Use dependency versions from a conda environment .yaml file to update
 a recipe/meta.yaml file of a given package. Such an input file can
 be created from the given environment with:
-conda env export > myenv.yaml
+conda env export > myEnv.yaml
 '''
 
 import sys, os, re
 
 if len(sys.argv) < 3:
-    print("Usage: " + os.path.basename(sys.argv[0]) + " input.yaml mypackage-feedstock")
+    print("Usage: " + os.path.basename(sys.argv[0]) + " input.yaml myPackage-feedstock")
     sys.exit(1)
     
 inFile = sys.argv[1]
@@ -89,7 +89,10 @@ for it in range(len(lines)):
         separator = " "
         
     if old_version == "":
-        # If there was no version before, don't put one now
+        # If there was no version before, print a warning, as sometimes the
+        # version chosen later won't be the expected one.
+        print("Warning: For package " + package + ", no version was specified, "
+              "this may lead to unexpected results.")
         continue
     
     if not package in conda_env:
