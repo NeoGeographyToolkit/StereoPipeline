@@ -26,12 +26,10 @@ the archive, and run the executables in the ``bin`` subdirectory as::
 
 The result of the last command should be a help message.
 
-To permanently add the ASP executable subdirectory to your PATH,
-add the following line to your shell configuration (e.g.,
-``~/.bashrc``), replacing ``/path/to/StereoPipeline/bin`` with the
-location on your filesystem::
+To permanently add the ASP executable subdirectory to your PATH, add to your
+shell configuration (e.g., ``~/.bashrc``), a line similar to::
 
-    export PATH=${PATH}:/path/to/StereoPipeline/bin
+    export PATH="${PATH}":"/path/to/StereoPipeline/bin"
 
 The latest additions are documented in :numref:`news`.
 

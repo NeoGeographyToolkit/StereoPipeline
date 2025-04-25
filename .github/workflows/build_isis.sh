@@ -18,21 +18,24 @@
 
 # Alternatively, from within the ssh session on GitHub, the dependencies can be
 # saved as follows. This needs fetching gh and doing auth.
+conda create -n gh -c conda-forge gh
+gh=$(ls -d $HOME/*conda3/envs/gh/bin/gh)
+$gh auth login
 binaries=~/work/StereoPipeline/packages/asp_deps.tar.gz # save in the right dir
 mkdir -p $(dirname $binaries)
 cd $HOME
-/usr/bin/time tar cfz $binaries miniconda3
+/usr/bin/time tar cfz $binaries $(ls -d miniconda3/envs/*)
 repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
 tag=asp_deps_mac_x64_v3
-gh release -R $repo delete $tag -y
-gh release -R $repo create $tag $binaries --notes "$tag" --title "$tag" 
+$gh release -R $repo delete $tag -y # Wipe the old release. Careful here.
+$gh release -R $repo create $tag $binaries --notes "$tag" --title "$tag" 
 
 # Move from the source dir to the home dir
 cd
 
-# Set up the compiler. Using a known compiler that is 
-# in the environment ensures there are no surprizes
-# when later conda-build is employed with same compiler.
+# Set up the compiler. Using a known compiler that is in the environment ensures
+# there are no surprises when later conda-build is employed with the same
+# compiler.
 isMac=$(uname -s | grep Darwin)
 if [ "$isMac" != "" ]; then
   cc_comp=clang
@@ -48,6 +51,9 @@ cd $HOME
 wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 /usr/bin/time tar xzf asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 
+conda init bash
+source ~/.bash_profile
+
 # Build ale. It is assumed the compiler is set up as above. May need to save the
 # current ~/.ssh/id_rsa.pub key to Github in the user settings for recursive
 # cloning of the submodules to work.
@@ -57,7 +63,7 @@ cd ale
 git submodule update --recursive # if refreshing the repo later
 #git rebase origin/main
 git reset --hard 0ba7b24
-export PREFIX=$HOME/miniconda3/envs/asp_deps
+export PREFIX=$HOME/miniconda3/envs/isis8.3.0
 export PATH=$PREFIX/bin:$PATH
 mkdir -p build && cd build
 cmake ..                                         \
@@ -80,7 +86,7 @@ git submodule update --recursive # if refreshing the repo later
 #git rebase origin/main
 git reset --hard 568ea46
 mkdir -p build && cd build
-export PREFIX=$HOME/miniconda3/envs/asp_deps
+export PREFIX=$HOME/miniconda3/envs/isis8.3.0
 export PATH=$PREFIX/bin:$PATH
 cmake ..                                         \
   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp      \
@@ -104,7 +110,7 @@ cd ISIS3
 mkdir build
 cd build
 export ISISROOT=$PWD
-export PREFIX=$HOME/miniconda3/envs/asp_deps
+export PREFIX=$HOME/miniconda3/envs/isis8.3.0
 export PATH=$PREFIX/bin:$PATH
 ext=.so
 if [ "$(uname)" = "Darwin" ]; then
@@ -145,7 +151,7 @@ exit 0
 # Turn on the steps below only if starting from scratch
 if [ 1 -eq 0 ]; then 
   echo Wiping old env
-  /bin/rm -rf /Users/runner/miniconda3/envs/asp_deps
+  /bin/rm -rf /Users/runner/miniconda3/envs/isis8.3.0
 
   # Fetch the isis env
   /bin/rm -f isis_environment.yml
@@ -167,7 +173,7 @@ conda install -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge g
 
 # libnabo
 cd
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/isis8.3.0
 git clone https://github.com/oleg-alexandrov/libnabo.git
 cd libnabo
 mkdir build && cd build
@@ -187,29 +193,26 @@ make -j10 install
 
 # libpointmatcher
 cd 
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
-conda activate asp_deps
+export PREFIX=$HOME/miniconda3/envs/isis8.3.0
 git clone https://github.com/oleg-alexandrov/libpointmatcher.git
 cd libpointmatcher
 mkdir build && cd build
 cmake                                          \
   -DCMAKE_BUILD_TYPE=Release                   \
-  -DCMAKE_CXX_FLAGS='-O3 -std=c++11'           \
+  -DCMAKE_CXX_COMPILER_ARCHITECTURE_ID=x64     \
+  -DCMAKE_CXX_FLAGS="-O3 -std=c++17"           \
   -DCMAKE_C_FLAGS='-O3'                        \
-  -DCMAKE_INSTALL_PREFIX:PATH=${PREFIX}        \
-  -DEIGEN_INCLUDE_DIR=${PREFIX}/include/eigen3 \
+  -DCMAKE_INSTALL_PREFIX=${PREFIX}             \
+  -DCMAKE_VERBOSE_MAKEFILE=ON                  \
   -DCMAKE_PREFIX_PATH=${PREFIX}                \
-  -DBoost_DIR=${PREFIX}/lib                    \
-  -DBoost_INCLUDE_DIR:PATH=${PREFIX}/include   \
-  -DLIBNABO_INSTALL_DIR=${PREFIX}              \
+  -DCMAKE_VERBOSE_MAKEFILE=ON                  \
   -DBUILD_SHARED_LIBS=ON                       \
-  -DCMAKE_VERBOSE_MAKEFILE=ON                  \
-  -DUSE_SYSTEM_YAML_CPP=OFF                    \
+  -DEIGEN_INCLUDE_DIR=${PREFIX}/include/eigen3 \
+  -DBoost_DIR=${PREFIX}/lib                    \
+  -DBoost_INCLUDE_DIR=${PREFIX}/include        \
   -DBoost_NO_BOOST_CMAKE=OFF                   \
-  -DCMAKE_VERBOSE_MAKEFILE=ON                  \
   -DBoost_DEBUG=ON                             \
   -DBoost_DETAILED_FAILURE_MSG=ON              \
-  -DCMAKE_CXX_COMPILER_ARCHITECTURE_ID=x64     \
   -DBoost_NO_SYSTEM_PATHS=ON                   \
   ..
 make -j 10 install
@@ -218,7 +221,7 @@ make -j 10 install
 cd
 git clone https://github.com/oleg-alexandrov/FastGlobalRegistration.git
 cd FastGlobalRegistration
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/isis8.3.0
 export SRC_DIR=$(pwd)
 mkdir build && cd build
 CUSTOM_SOURCE_DIR=${SRC_DIR}/source
@@ -242,7 +245,7 @@ mkdir -p ${LIB_DIR}
 
 #s2p
 cd
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/isis8.3.0
 conda activate asp_deps
 conda install -c conda-forge -y fftw=3.3.10   
 git clone https://github.com/oleg-alexandrov/s2p.git --recursive
@@ -306,7 +309,7 @@ mkdir -p ${BIN_DIR}
 
 # libelas
 cd 
-export PREFIX=$(ls -d ~/*conda3/envs/asp_deps)
+export PREFIX=$(ls -d ~/*conda3/envs/isis8.3.0)
 export PATH=$PREFIX/bin:$PATH
 conda activate asp_deps
 git clone https://github.com/NeoGeographyToolkit/libelas.git
@@ -340,7 +343,7 @@ mkdir -p ${BIN_DIR}
 # Multiview
 cd
 conda activate asp_deps
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/isis8.3.0
 conda install -c conda-forge                      \
   rocksdb=8.5.3 rapidjson=1.1.0                   \
   ilmbase=2.5.5 openexr=2.5.5 imath -y
@@ -369,6 +372,72 @@ $PREFIX/bin/cmake ..                              \
 
 make -j4
 make install
+
+# PDAL
+git clone https://github.com/PDAL/PDAL.git
+cd PDAL
+git checkout 2.6.0
+mkdir build
+cd build
+export PREFIX=/Users/runner/miniconda3/envs/isis8.3.0
+if [ "$(uname)" = "Darwin" ]; then
+    EXT='.dylib'
+else
+    EXT='.so'
+fi
+isMac=$(uname -s | grep Darwin)
+if [ "$isMac" != "" ]; then
+    cc_comp=clang
+    cxx_comp=clang++
+else
+    cc_comp=gcc
+    cxx_comp=g++
+fi
+ldflags="-Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib -lgeotiff -lcurl -lssl -lxml2 -lcrypto -lzstd -lz"
+cmake ${CMAKE_ARGS}                                      \
+  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp              \
+  -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp           \
+  -DBUILD_SHARED_LIBS=ON                                 \
+  -DCMAKE_BUILD_TYPE=Release                             \
+  -DCMAKE_INSTALL_PREFIX=$PREFIX                         \
+  -DCMAKE_PREFIX_PATH=$PREFIX                            \
+  -DDIMBUILDER_EXECUTABLE=$DIMBUILDER                    \
+  -DBUILD_PLUGIN_I3S=OFF                                 \
+  -DBUILD_PLUGIN_TRAJECTORY=OFF                          \
+  -DBUILD_PLUGIN_E57=OFF                                 \
+  -DBUILD_PLUGIN_PGPOINTCLOUD=ON                         \
+  -DBUILD_PLUGIN_ICEBRIDGE=OFF                           \
+  -DBUILD_PLUGIN_NITF=OFF                                \
+  -DBUILD_PLUGIN_TILEDB=ON                               \
+  -DBUILD_PLUGIN_HDF=ON                                  \
+  -DBUILD_PLUGIN_DRACO=OFF                               \
+  -DENABLE_CTEST=OFF                                     \
+  -DWITH_TESTS=OFF                                       \
+  -DWITH_ZLIB=ON                                         \
+  -DWITH_ZSTD=ON                                         \
+  -DWITH_LASZIP=ON                                       \
+  -DWITH_LAZPERF=ON                                      \
+  -DCMAKE_VERBOSE_MAKEFILE=ON                            \
+  -DCMAKE_CXX17_STANDARD_COMPILE_OPTION="-std=c++17"     \
+  -DCMAKE_VERBOSE_MAKEFILE=ON                            \
+  -DWITH_TESTS=OFF                                       \
+  -DCMAKE_EXE_LINKER_FLAGS="$ldflags"                    \
+  -DDIMBUILDER_EXECUTABLE=dimbuilder                     \
+  -DBUILD_PLUGIN_DRACO:BOOL=OFF                          \
+  -DOPENSSL_ROOT_DIR=${PREFIX}                           \
+  -DLIBXML2_INCLUDE_DIR=${PREFIX}/include/libxml2        \
+  -DLIBXML2_LIBRARIES=${PREFIX}/lib/libxml2${EXT}        \
+  -DLIBXML2_XMLLINT_EXECUTABLE=${PREFIX}/bin/xmllint     \
+  -DGDAL_LIBRARY=${PREFIX}/lib/libgdal${EXT}             \
+  -DGDAL_CONFIG=${PREFIX}/bin/gdal-config                \
+  -DZLIB_INCLUDE_DIR:PATH=${PREFIX}/include              \
+  -DZLIB_LIBRARY:FILEPATH=${PREFIX}/lib/libz${EXT}       \
+  -DCURL_INCLUDE_DIR=${PREFIX}/include                   \
+  -DPostgreSQL_LIBRARY_RELEASE=${PREFIX}/lib/libpq${EXT} \
+  -DCURL_LIBRARY_RELEASE=${PREFIX}/lib/libcurl${EXT}     \
+  -DPROJ_INCLUDE_DIR:PATH=${PREFIX}/include              \
+  -DPROJ_LIBRARY:FILEPATH=${PREFIX}/lib/libproj${EXT}    \
+  ..
 
 # OpenEXR
 # Build from source, to ensure the proper version of ilmbase is used
@@ -526,7 +595,7 @@ else
   cxx_comp=x86_64-conda_cos6-linux-gnu-g++
 fi
 conda install -c conda-forge openblas
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/isis8.3.0
 git clone https://github.com/visionworkbench/visionworkbench.git
 cd visionworkbench
 mkdir -p build
@@ -552,7 +621,7 @@ else
   cc_comp=x86_64-conda_cos6-linux-gnu-gcc
   cxx_comp=x86_64-conda_cos6-linux-gnu-g++
 fi
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+export PREFIX=/Users/runner/miniconda3/envs/isis8.3.0
 git clone https://github.com/NeoGeographyToolkit/StereoPipeline.git
 cd StereoPipeline
 mkdir -p build
@@ -569,7 +638,7 @@ make -j10 install > /dev/null 2>&1 # this is too verbose
 
 # Activate conda
 source  /Users/runner/.bash_profile 
-conda activate base 
+conda activate anaconda 
 conda search -c nasa-ames-stereo-pipeline  --override-channels  --platform osx-64
 
 # Install anaconda client and conda build separately
@@ -590,7 +659,7 @@ conda activate isis8.3.0; conda env export > isis8.3.0.yaml
 # geoid
 git clone https://github.com/NeoGeographyToolkit/geoid-feedstock.git
 python StereoPipeline/conda/update_versions.py isis8.3.0.yaml geoid-feedstock
-conda activate base
+conda activate anaconda
 conda build -c nasa-ames-stereo-pipeline -c conda-forge geoid-feedstock
 anaconda upload /Users/runner/miniconda3/conda-bld/osx-64/geoid-1.0_asp3.5.0-2.conda         
 /Users/runner/miniconda3/bin/conda  install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0 geoid=1.0_asp3.5.0
@@ -630,7 +699,7 @@ cd ~/work/StereoPipeline
 conda activate isis8.3.0; conda env export > isis8.3.0.yaml
 git clone https://github.com/NeoGeographyToolkit/libnabo-feedstock.git
 python StereoPipeline/conda/update_versions.py isis8.3.0.yaml libnabo-feedstock 
-conda activate base
+conda activate anaconda
 conda build -c nasa-ames-stereo-pipeline -c conda-forge libnabo-feedstock
 ~/miniconda3/bin/anaconda upload /Users/runner/miniconda3/conda-bld/osx-64/libnabo-asp3.5.0-h01edc0c_1.conda
 ~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0 libnabo
@@ -638,7 +707,7 @@ conda build -c nasa-ames-stereo-pipeline -c conda-forge libnabo-feedstock
 # fgr
 git clone https://github.com/NeoGeographyToolkit/fgr-feedstock.git
 python StereoPipeline/conda/update_versions.py isis8.3.0.yaml fgr-feedstock
-conda activate base
+conda activate anaconda
 conda build -c nasa-ames-stereo-pipeline -c conda-forge fgr-feedstock
 anaconda upload  /Users/runner/miniconda3/conda-bld/osx-64/fgr-asp3.5.0-h01edc0c_0.conda 
 ~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0 fgr
@@ -648,10 +717,19 @@ cd ~/work/StereoPipeline
 conda activate isis8.3.0; conda env export > isis8.3.0.yaml
 git clone https://github.com/NeoGeographyToolkit/libpointmatcher-feedstock.git
 python StereoPipeline/conda/update_versions.py isis8.3.0.yaml libpointmatcher-feedstock
-conda activate base
+conda activate anaconda
 conda build -c nasa-ames-stereo-pipeline -c conda-forge libpointmatcher-feedstock
 anaconda upload /Users/runner/miniconda3/conda-bld/osx-64/libpointmatcher-asp3.5.0-ha5a8b8e_0.conda
 ~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0 libpointmatcher
+
+# pdal
+cd ~/work/StereoPipeline
+conda activate isis8.3.0; conda env export > isis8.3.0.yaml
+git clone https://github.com/NeoGeographyToolkit/pdal-feedstock.git
+python StereoPipeline/conda/update_versions.py isis8.3.0.yaml pdal-feedstock
+# Do not use ASP GDAL so exclude the ASP channel
+conda activate anaconda
+conda build -c conda-forge pdal-feedstock
 
 # s2p
 cd ~/work/StereoPipeline
@@ -677,3 +755,5 @@ conda activate isis8.3.0; conda env export > isis8.3.0.yaml
 git clone https://github.com/NeoGeographyToolkit/multiview-feedstock.git
 python StereoPipeline/conda/update_versions.py isis8.3.0.yaml multiview-feedstock
 conda build -c nasa-ames-stereo-pipeline -c conda-forge multiview-feedstock
+~/miniconda3/bin/anaconda upload  /Users/runner/miniconda3/conda-bld/osx-64/multiview-asp_3.5.0-py310_0.conda 
+~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0 multiview

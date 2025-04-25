@@ -57,6 +57,9 @@ The `conda-provided compilers
 <https://conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_
 should be installed in the environment, if not present already.
 
+New versions of clang tend to break a lot third-party code. On occasion it is
+necessary to downgrade to compilers a few years old, such as clang 17.
+
 ::
 
     conda install -c conda-forge compilers
@@ -77,8 +80,8 @@ below, so this step may need some adjustments.
       cc_comp=clang
       cxx_comp=clang++
     else
-      cc_comp=x86_64-conda_cos6-linux-gnu-gcc
-      cxx_comp=x86_64-conda_cos6-linux-gnu-g++
+      cc_comp=gcc
+      cxx_comp=g++
     fi
 
 Set up a work directory::
@@ -293,7 +296,7 @@ Each of the packages above can be built, in the order specified in
 :numref:`conda_build_order`, as follows::
 
     conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
-      -c conda-forge gdal-feedstock
+      -c conda-forge fgr-feedstock
 
 Upload the produced packages to the ``nasa-ames-stereo-pipeline`` channel by
 first logging in, via the command:

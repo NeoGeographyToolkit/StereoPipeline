@@ -65,9 +65,23 @@ for line in lines:
 # Update the lines in the output ile
 outHandle = open(outFile, 'r')
 lines = outHandle.readlines()
+inDepSection = False
 for it in range(len(lines)):
 
     line = lines[it]
+    
+    if 'requirements:' in line:
+        # We are at the beginning of the dependencies
+        inDepSection = True
+        continue
+     
+    if not inDepSection:
+        # We are not in the dependencies section
+        continue
+           
+    if 'test:' in line:
+        # We are at the end of the dependencies
+        break
 
     # Ignore comments
     m = re.match(r'^\#', line)

@@ -14,7 +14,7 @@ measured from the North direction, is read from the field ``EXIF_GPSImgDirection
 The fields ``EXIF_GPSLongitude``, ``EXIF_GPSLatitude``, ``EXIF_GPSAltitude``, and
 ``EXIF_GPSLongitudeRef`` are read for the other data mentioned earlier.
 
-An example is in :numref:`uas_example`.
+An example is in :numref:`sfm_uas`.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
