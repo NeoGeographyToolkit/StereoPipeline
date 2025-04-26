@@ -50,14 +50,13 @@ namespace asp {
   // matrix. Hence we get a matrix of vectors.
   template<class StreamT, class VectorT>
   void read_matrix_from_stream(std::string const & file,
-                               StreamT & str, std::vector< std::vector<VectorT> > & mat){
+                               StreamT & str, std::vector<std::vector<VectorT>> & mat) {
     mat.clear();
     bool first_row = true;
-    int max_len = 2048;
-    char line[max_len];
     int num_cols = 0;
     std::vector<VectorT> row;
-    while (str.getline(line, 2048)){
+    char line[2048];
+    while (str.getline(line, 2048)) {
 
       // An empty line or one starting with a space is a separator
       if ( (line[0] == '\0' || line[0] == ' ') && !row.empty()) {
@@ -89,8 +88,7 @@ namespace asp {
         if (! (is >> v[p]) ){
           vw::vw_throw( vw::ArgumentErr() << "Failed parsing " << v.size()
                         << " elements from line " << std::string(line)
-                        << " in file " << file << "\n"
-                        );
+                        << " in file " << file << "\n");
         }
       }
 

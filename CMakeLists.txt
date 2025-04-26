@@ -11,10 +11,9 @@ endif(APPLE)
 set(CMAKE_CXX_FLAGS "" CACHE STRING "")
 set(CMAKE_C_FLAGS "" CACHE STRING "")
 
-# cmake fails without the -L flag in CMAKE_CXX_FLAGS, oddly enough.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++17 -DNDEBUG")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
-set(CMAKE_EXE_LINKER_FLAGS "-pthread -lpthread")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread -lpthread")
 
 if (APPLE)
     # A workaround for the clang included with conda build

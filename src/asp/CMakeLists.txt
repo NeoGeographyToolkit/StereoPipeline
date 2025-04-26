@@ -16,6 +16,9 @@ endif()
 # Where to search for dependencies
 set(CMAKE_PREFIX_PATH "${ASP_DEPS_DIR}")
 
+# This needed for some libs represented as -lmylib
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${ASP_DEPS_DIR}/lib")
+
 find_package(Threads REQUIRED)
 
 # Put the search for Boost early on, to ensure that the Conda version
@@ -136,7 +139,6 @@ foreach(n ${VW_LIBNAMES})
 endforeach(n)
 
 include_directories(${VISIONWORKBENCH_INCLUDE_DIR})
-#link_directories(${VISIONWORKBENCH_LIBRARY_DIR})
 
 message("Searching for Qt.")
 # QT is complicated to use and should go through find_package
@@ -239,7 +241,7 @@ endif()
 find_external_library(CSM ${ASP_DEPS_DIR} "csm" "csmapi" REQUIRED)
 
 # Link to libusgscsm. This makes it disappear from the list of CSM
-# plugins, presubably because it is found at link time now,
+# plugins, presumably because it is found at link time now,
 # but things still work. This is is necessary since we need to peek into
 # usgscsm by bypassing the csm interface.
 # Have to use a global variable to peek in the subdir where this lib is stored.
@@ -306,7 +308,7 @@ set(VW_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES}
     ${PROJ4_LIBRARIES} ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} 
     ${PNG_LIBRARIES} ${FLANN_LIBRARIES} ${LZ4_LIBRARIES})
 set(ISIS_3RD_PARTY_LIBS Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} 
-    ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES})
+    ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES} ${PCL_LIBRARIES} ${TBB_LIBRARIES})
 
 # These are needed for rig_calibrator
 # MVE
@@ -399,8 +401,8 @@ set(ASP_PC_ALIGN_LIB_DEPENDENCIES ${SOLVER_LIBRARIES} ${LIBPOINTMATCHER_LIBRARIE
 # ASP PclIO
 get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
 get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
-set(ASP_PCLIO_LIB_DEPENDENCIES  pcl_common pcl_io_ply pcl_io
-    AspCore ${VISIONWORKBENCH_LIBRARIES})
+set(ASP_PCLIO_LIB_DEPENDENCIES 
+    pcl_common pcl_io_ply pcl_io ${VISIONWORKBENCH_LIBRARIES})
 
 # Add all of the library subdirectories
 
