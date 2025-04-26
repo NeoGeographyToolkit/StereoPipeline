@@ -24,9 +24,20 @@ $gh auth login
 binaries=~/work/StereoPipeline/packages/asp_deps.tar.gz # save in the right dir
 mkdir -p $(dirname $binaries)
 cd $HOME
-/usr/bin/time tar cfz $binaries $(ls -d miniconda3/envs/*)
+/usr/bin/time tar cfz $binaries $(ls -d miniconda3/envs/* |grep -E "isis|python|gh")
 repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
 tag=asp_deps_mac_x64_v3
+$gh release -R $repo delete $tag -y # Wipe the old release. Careful here.
+$gh release -R $repo create $tag $binaries --notes "$tag" --title "$tag" 
+
+# Alternatively, save the asp_deps env
+cd $HOME
+gh=$(ls -d $HOME/*conda3/envs/gh/bin/gh)
+binaries=~/work/StereoPipeline/packages/asp_deps.tar.gz # save in the right dir
+mkdir -p $(dirname $binaries)
+/usr/bin/time tar cfz $binaries $(ls -d miniconda3/envs/* |grep -E "asp_deps|python|gh")
+repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
+tag=asp_deps_mac_x64_v4
 $gh release -R $repo delete $tag -y # Wipe the old release. Careful here.
 $gh release -R $repo create $tag $binaries --notes "$tag" --title "$tag" 
 
@@ -36,13 +47,12 @@ cd
 # Set up the compiler. Using a known compiler that is in the environment ensures
 # there are no surprises when later conda-build is employed with the same
 # compiler.
-isMac=$(uname -s | grep Darwin)
-if [ "$isMac" != "" ]; then
-  cc_comp=clang
-  cxx_comp=clang++
+if [ "$(uname)" = "Darwin" ]; then
+    cc_comp=clang
+    cxx_comp=clang++
 else
-  cc_comp=gcc
-  cxx_comp=g++
+    cc_comp=x86_64-conda-linux-gnu-gcc
+    cxx_comp=x86_64-conda-linux-gnu-g++
 fi
 
 # Fetch the ASP dependencies. Must keep $tag in sync with build_test.sh.
@@ -99,9 +109,6 @@ cmake ..                                         \
   -DCMAKE_INSTALL_PREFIX=${PREFIX}
 make -j 20 install
 
-# Stop here this time. Other dependencies have been built.
-exit 0
-
 # Build ISIS3
 cd
 git clone https://github.com/DOI-USGS/ISIS3.git     
@@ -157,10 +164,10 @@ if [ 1 -eq 0 ]; then
   /bin/rm -f isis_environment.yml
   wget https://raw.githubusercontent.com/NeoGeographyToolkit/StereoPipeline/master/.github/isis_environment.yml
 
-  # Create the asp_deps env
-  echo Creating a new asp_deps env
-  conda env create -n asp_deps -f isis_environment.yml 
-  conda activate asp_deps
+  # Create the isis8.3.0 env
+  echo Creating a new isis8.3.0 env
+  conda env create -n isis8.3.0 -f isis_environment.yml 
+  conda activate isis8.3.0
 fi
 
 # Install some needed tools
@@ -246,7 +253,7 @@ mkdir -p ${LIB_DIR}
 #s2p
 cd
 export PREFIX=/Users/runner/miniconda3/envs/isis8.3.0
-conda activate asp_deps
+conda activate isis8.3.0
 conda install -c conda-forge -y fftw=3.3.10   
 git clone https://github.com/oleg-alexandrov/s2p.git --recursive
 cd s2p
@@ -311,7 +318,7 @@ mkdir -p ${BIN_DIR}
 cd 
 export PREFIX=$(ls -d ~/*conda3/envs/isis8.3.0)
 export PATH=$PREFIX/bin:$PATH
-conda activate asp_deps
+conda activate isis8.3.0
 git clone https://github.com/NeoGeographyToolkit/libelas.git
 cd libelas
 # Set the env
@@ -342,7 +349,7 @@ mkdir -p ${BIN_DIR}
 
 # Multiview
 cd
-conda activate asp_deps
+conda activate isis8.3.0
 export PREFIX=/Users/runner/miniconda3/envs/isis8.3.0
 conda install -c conda-forge                      \
   rocksdb=8.5.3 rapidjson=1.1.0                   \
@@ -385,13 +392,12 @@ if [ "$(uname)" = "Darwin" ]; then
 else
     EXT='.so'
 fi
-isMac=$(uname -s | grep Darwin)
-if [ "$isMac" != "" ]; then
+if [ "$(uname)" = "Darwin" ]; then
     cc_comp=clang
     cxx_comp=clang++
 else
-    cc_comp=gcc
-    cxx_comp=g++
+    cc_comp=x86_64-conda-linux-gnu-gcc
+    cxx_comp=x86_64-conda-linux-gnu-c++
 fi
 ldflags="-Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib -lgeotiff -lcurl -lssl -lxml2 -lcrypto -lzstd -lz"
 cmake ${CMAKE_ARGS}                                      \
@@ -448,7 +454,7 @@ wget https://github.com/AcademySoftwareFoundation/openexr/archive/v2.5.5.tar.gz
 cd openexr-2.5.5
 mkdir build && cd build
 conda activate isis_dev
-export PREFIX=$(ls -d ~/*conda3/envs/{asp_deps,isis_dev})
+export PREFIX=$(ls -d ~/*conda3/envs/{isis8.3.0,isis_dev})
 if [ ! -d "$PREFIX" ]; then
   echo "Error: $PREFIX does not exist. Exiting."
   #exit 1
@@ -553,14 +559,7 @@ opt=""
 if [[ $target_platform =~ osx.* ]]; then
 	opt="-DTBB_LIBRARY=${PREFIX}/lib/libtbb.12.dylib -DTBB_MALLOC_LIBRARY=${PREFIX}/lib/libtbbmalloc.2.dylib"
 fi
-isMac=$(uname -s | grep Darwin)
-if [ "$isMac" != "" ]; then
-    cc_comp=clang
-    cxx_comp=clang++
-else
-    cc_comp=gcc
-    cxx_comp=g++
-fi
+# Set up the cc_comp compiler as above
 # Enforce a compiler we know to work
 cmake ..                                               \
     -DCMAKE_BUILD_TYPE=Release                         \
@@ -584,49 +583,37 @@ conda create -n python_isis8 python=3.12.0 numpy=1.26.2 -y
 
 # Build visionworkbench
 cd 
-conda activate asp_deps
-# Set up the compiler
-isMac=$(uname -s | grep Darwin)
-if [ "$isMac" != "" ]; then
-  cc_comp=clang
-  cxx_comp=clang++
-else
-  cc_comp=x86_64-conda_cos6-linux-gnu-gcc
-  cxx_comp=x86_64-conda_cos6-linux-gnu-g++
-fi
-conda install -c conda-forge openblas
+conda activate isis8.3.0
+# Set up the cc_comp compiler as above
+# conda install -c conda-forge openblas
+cd ~/work/StereoPipeline
 export PREFIX=/Users/runner/miniconda3/envs/isis8.3.0
 git clone https://github.com/visionworkbench/visionworkbench.git
 cd visionworkbench
 mkdir -p build
 cd build
-$PREFIX/bin/cmake ..                         \
+cmake ..                                     \
   -DASP_DEPS_DIR=$PREFIX                     \
   -DCMAKE_VERBOSE_MAKEFILE=ON                \
   -DCMAKE_INSTALL_PREFIX=$PREFIX             \
-  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp \
+  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp  \
   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp
 echo Building VisionWorkbench
 make -j10 install
 
 # Build StereoPipeline
 cd
-conda activate asp_deps
-# Set up the compiler
-isMac=$(uname -s | grep Darwin)
-if [ "$isMac" != "" ]; then
-  cc_comp=clang
-  cxx_comp=clang++
-else
-  cc_comp=x86_64-conda_cos6-linux-gnu-gcc
-  cxx_comp=x86_64-conda_cos6-linux-gnu-g++
-fi
+conda activate isis8.3.0
+# Set up the cc_comp compiler as above
 export PREFIX=/Users/runner/miniconda3/envs/isis8.3.0
+cd ~/work
+mkdir copy_for_build
+cd copy_for_build
 git clone https://github.com/NeoGeographyToolkit/StereoPipeline.git
 cd StereoPipeline
 mkdir -p build
 cd build
-$PREFIX/bin/cmake ..                         \
+cmake ..                                     \
   -DASP_DEPS_DIR=$PREFIX                     \
   -DCMAKE_VERBOSE_MAKEFILE=ON                \
   -DCMAKE_INSTALL_PREFIX=$PREFIX             \
@@ -654,6 +641,14 @@ cat ~/.ssh/id_rsa.pub
 cd ~/work/StereoPipeline
 conda activate isis8.3.0; conda env export > isis8.3.0.yaml
 
+# conda env export > ~/miniconda3/envs/asp_deps/asp_deps.yaml.bk
+
+# To create an env, it appears important to use the flexible channel prioritiy.
+# Below creating the final asp_deps env, after ensuring all dependencies are good.
+conda config --set channel_priority flexible
+conda env create \
+  -n asp_deps -f isis8.3.0.yaml
+
 # See the top of document for how to save / fetch a tarball with dependencies
 
 # geoid
@@ -675,26 +670,22 @@ conda build -c conda-forge -c nasa-ames-stereo-pipeline ilmbase-feedstock
 /Users/runner/miniconda3/bin/conda  install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0 ilmbase=2.5.5
 
 # openexr
+cd ~/work/StereoPipeline
 https://github.com/NeoGeographyToolkit/openexr-feedstock.git
 python StereoPipeline/conda/update_versions.py isis8.3.0.yaml openexr-feedstock
 ~/miniconda3/bin/anaconda upload upload /Users/runner/miniconda3/conda-bld/osx-64/openexr-2.5.5-ha5a8b8e_0.conda
 /Users/runner/miniconda3/bin/conda  install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0  nasa-ames-stereo-pipeline::openexr=2.5.5
 
 # htdp
+cd ~/work/StereoPipeline
 git clone https://github.com/NeoGeographyToolkit/htdp-feedstock.git
 python StereoPipeline/conda/update_versions.py isis8.3.0.yaml htdp-feedstock
 conda build -c conda-forge -c nasa-ames-stereo-pipeline htdp-feedstock
 ~/miniconda3/bin/anaconda upload upload /Users/runner/miniconda3/conda-bld/osx-64/htdp-1.0_asp3.5.0-1.conda
 /Users/runner/miniconda3/bin/conda  install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0  nasa-ames-stereo-pipeline::htdp=1.0_asp3.5.0
 
-# visionworkbench
-git clone https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
-python StereoPipeline/conda/update_versions.py isis8.3.0.yaml visionworkbench-feedstock
-conda build -c conda-forge -c nasa-ames-stereo-pipeline visionworkbench-feedstock 2>&1 | tee output.txt
-~/miniconda3/bin/anaconda upload upload /Users/runner/miniconda3/conda-bld/osx-64/visionworkbench-asp3.5.0-0.conda
-~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0 visionworkbench
-
 # libnabo
+cd ~/work/StereoPipeline
 cd ~/work/StereoPipeline
 conda activate isis8.3.0; conda env export > isis8.3.0.yaml
 git clone https://github.com/NeoGeographyToolkit/libnabo-feedstock.git
@@ -705,6 +696,7 @@ conda build -c nasa-ames-stereo-pipeline -c conda-forge libnabo-feedstock
 ~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0 libnabo
 
 # fgr
+cd ~/work/StereoPipeline
 git clone https://github.com/NeoGeographyToolkit/fgr-feedstock.git
 python StereoPipeline/conda/update_versions.py isis8.3.0.yaml fgr-feedstock
 conda activate anaconda
@@ -757,3 +749,28 @@ python StereoPipeline/conda/update_versions.py isis8.3.0.yaml multiview-feedstoc
 conda build -c nasa-ames-stereo-pipeline -c conda-forge multiview-feedstock
 ~/miniconda3/bin/anaconda upload  /Users/runner/miniconda3/conda-bld/osx-64/multiview-asp_3.5.0-py310_0.conda 
 ~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0 multiview
+
+# visionworkbench
+cd ~/work/StereoPipeline
+git clone https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
+conda activate isis8.3.0; conda env export > isis8.3.0.yaml
+python StereoPipeline/conda/update_versions.py isis8.3.0.yaml visionworkbench-feedstock
+conda activate anaconda
+conda build -c conda-forge -c nasa-ames-stereo-pipeline visionworkbench-feedstock 2>&1 |tee output_debug.txt
+~/miniconda3/bin/anaconda upload upload /Users/runner/miniconda3/conda-bld/osx-64/visionworkbench-asp3.5.0-0.conda
+~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0 visionworkbench
+
+# StereoPipeline
+conda config --set channel_priority flexible
+cd ~/work/StereoPipeline
+git clone https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
+#conda activate isis8.3.0; conda env export > isis8.3.0.yaml
+conda activate asp_deps; conda env export > asp_deps.yaml
+python StereoPipeline/conda/update_versions.py asp_deps.yaml stereopipeline-feedstock
+conda activate anaconda
+# conda build -c conda-forge -c nasa-ames-stereo-pipeline stereopipeline-feedstock 2>&1 |tee output_debug.txt
+conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
+      -c conda-forge stereopipeline-feedstock 2>&1 |tee output_debug.txt
+~/miniconda3/bin/anaconda upload upload /Users/runner/miniconda3/conda-bld/osx-64/visionworkbench-asp3.5.0-0.conda
+~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n isis8.3.0 visionworkbench
+

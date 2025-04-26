@@ -35,7 +35,7 @@ if [ "$isArm64" != "" ]; then
     envName=isis_dev
 else
     echo "Platform: Intel Mac"
-    tag=asp_deps_mac_x64_v1
+    tag=asp_deps_mac_x64_v4
     envName=asp_deps
 fi
 
@@ -52,12 +52,12 @@ fi
 export PATH=$envPath/bin:$PATH
 
 # Set up the compiler
-if [ "$isMac" != "" ]; then
-  cc_comp=clang
-  cxx_comp=clang++
+if [ "$(uname)" = "Darwin" ]; then
+    cc_comp=clang
+    cxx_comp=clang++
 else
-  cc_comp=x86_64-conda_cos6-linux-gnu-gcc
-  cxx_comp=x86_64-conda_cos6-linux-gnu-g++
+    cc_comp=x86_64-conda-linux-gnu-gcc
+    cxx_comp=x86_64-conda-linux-gnu-g++
 fi
 echo cc_comp=$cc_comp
 echo cxx_comp=$cxx_comp
