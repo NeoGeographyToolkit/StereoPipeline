@@ -350,8 +350,8 @@ set(ASP_CORE_LIB_DEPENDENCIES ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES}
 # ASP IsisIO
 get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
 get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
-set(ASP_ISISIO_LIB_DEPENDENCIES  AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
-                                 ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
+set(ASP_ISISIO_LIB_DEPENDENCIES AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
+                                ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
 
 # ASP OpenMVG
 get_all_source_files( "OpenMVG" ASP_OPENMVG_SRC_FILES)
@@ -402,7 +402,7 @@ set(ASP_PC_ALIGN_LIB_DEPENDENCIES ${SOLVER_LIBRARIES} ${LIBPOINTMATCHER_LIBRARIE
 get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
 get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
 set(ASP_PCLIO_LIB_DEPENDENCIES 
-    pcl_common pcl_io_ply pcl_io ${VISIONWORKBENCH_LIBRARIES})
+    pcl_common pcl_io_ply pcl_io ${VISIONWORKBENCH_LIBRARIES} AspCore)
 
 # Add all of the library subdirectories
 
