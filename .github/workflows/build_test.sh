@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# This is run by GitHub Actions to build and test the Mac version of ASP.
+# See build_helper.sh for detailed build commands for ASP and its dependencies.
+
 # Record the location where the script is running, which should
 # be the base of the StereoPipeline repo. This must happen first.
 aspRepoDir=$(pwd) # same as $HOME/work/StereoPipeline/StereoPipeline
