@@ -9,7 +9,7 @@
 # for a high-level overview.
 
 # Ideally all dependencies are built and then installed as conda packages.
-# The script build_isis.sh has the commands for how build dependencies
+# The script build_helper.sh has the commands for how build dependencies
 # manually, if needed to understand failures when using conda.
 
 # The updated dependencies should be installed in /Users/runner/miniconda3/envs. 
@@ -30,7 +30,7 @@
 # This tarball will be used to build VisionWorkplace and ASP. See the script
 # build_test.sh.
 
-# The tag set here must match the tag in build_test.sh and build_isis.sh. If
+# The tag set here must match the tag in build_test.sh and build_helper.sh. If
 # changing here, must later change in the other places.
 
 # This script will overwrite the dependencies. If in doubt, use it with a new
@@ -66,7 +66,7 @@ fi
 workflow=$1; shift
 
 # The tag to use to save the dependencies. Must then use this tag
-# to fetch the dependencies in build_test.sh and build_isis.sh.
+# to fetch the dependencies in build_test.sh and build_helper.sh.
 tag=$1; shift 
 
 # The GitHub CLI tool. Can be installed in a new conda environment
@@ -106,7 +106,7 @@ fi
 
 # Add the tarball of dependencies as a release
 # Can use a new tag here, or overwrite the existing tarball
-# If making a new one, must make sure to update the tag in build_test.sh and build_isis.sh
+# If making a new one, must make sure to update the tag in build_test.sh and build_helper.sh
 repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
 
 # Wipe any old version
