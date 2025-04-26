@@ -260,19 +260,19 @@ target_link_libraries(pc_filter AspPclIO AspSessions)
 install(TARGETS pc_filter DESTINATION bin)
 
 add_executable(rig_calibrator rig_calibrator.cc)
-target_link_libraries(rig_calibrator AspRig)
+target_link_libraries(rig_calibrator AspRig AspPclIO AspSessions)
 install(TARGETS rig_calibrator DESTINATION bin)
 
 add_executable(undistort_image_texrecon undistort_image_texrecon.cc)
-target_link_libraries(undistort_image_texrecon AspRig)
+target_link_libraries(undistort_image_texrecon AspRig AspPclIO AspSessions)
 install(TARGETS undistort_image_texrecon DESTINATION bin)
 
 add_executable(sfm_submap sfm_submap.cc)
-target_link_libraries(sfm_submap AspRig)
+target_link_libraries(sfm_submap AspRig AspPclIO AspSessions)
 install(TARGETS sfm_submap DESTINATION bin)
 
 add_executable(sfm_merge sfm_merge.cc)
-target_link_libraries(sfm_merge AspRig)
+target_link_libraries(sfm_merge AspRig AspPclIO AspSessions)
 install(TARGETS sfm_merge DESTINATION bin)
 
 add_executable(dem2gcp dem2gcp.cc)
