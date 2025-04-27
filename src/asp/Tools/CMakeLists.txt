@@ -20,7 +20,6 @@ set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
                  sfm_proc             historical_helper.py 
                  bathy_threshold_calc.py 
                  scale_bathy_mask.py
-                 crs2crs2grid.py 
                  orbit_plot.py)
 
 foreach(p ${PYTHON_TOOLS})
