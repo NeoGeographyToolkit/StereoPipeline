@@ -3,8 +3,9 @@ cmake_minimum_required (VERSION 3.15.5)
 project(StereoPipeline)
 
 if(APPLE)
-    # Needed for conda build on OSX with conda
+    # Needed for conda build on OSX
     cmake_policy(SET CMP0025 NEW) 
+    set(CMAKE_OSX_DEPLOYMENT_TARGET 10.13)
 endif(APPLE)
 
 # Make it possible to append to these from the command line

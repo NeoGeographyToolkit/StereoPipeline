@@ -183,7 +183,7 @@ int run_dem2gcp(int argc, char * argv[]) {
   match_files[std::make_pair(0, 1)] = opt.match_file;
   int min_matches = 0;
   double min_triangulation_angle = 1e-10;
-  bool forced_triangulation_distance = -1.0;
+  double forced_triangulation_distance = -1.0;
   int max_pairwise_matches = 1e6;
   bool success = vw::ba::build_control_network(triangulate_control_points,
                                                cnet, camera_models,

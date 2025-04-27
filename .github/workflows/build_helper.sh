@@ -72,7 +72,7 @@ cmake ..                                         \
   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp   \
   -DALE_USE_EXTERNAL_EIGEN=ON                    \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10            \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13            \
   -DALE_USE_EXTERNAL_JSON=ON                     \
   -DALE_BUILD_DOCS=OFF                           \
   -DALE_BUILD_TESTS=OFF                          \
@@ -93,7 +93,7 @@ export PATH=$PREFIX/bin:$PATH
 cmake ..                                         \
   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp   \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10            \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13            \
   -DUSGSCSM_EXTERNAL_DEPS=ON                     \
   -DUSGSCSM_BUILD_DOCS=OFF                       \
   -DUSGSCSM_BUILD_TESTS=OFF                      \
@@ -460,7 +460,7 @@ $PREFIX/bin/cmake ..  \
   -DCMAKE_CXX_FLAGS='-O3 -std=c++11 -w' \
   -DCMAKE_C_FLAGS='-O3 -w' \
   -DCMAKE_INSTALL_PREFIX=${PREFIX} \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
 
 # Build OpenImageIO. This is for debugging. Normally it would be built as part
 # of MultiView. Note: The lengthy command below gets truncated if pasted in a
@@ -485,7 +485,7 @@ $PREFIX/bin/cmake ..  \
   -DCMAKE_CXX_FLAGS='-O3 -std=c++11 -w' \
   -DCMAKE_C_FLAGS='-O3 -w' \
   -DCMAKE_INSTALL_PREFIX=${PREFIX} \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10 \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 \
   -DBUILD_SHARED_LIBS=ON \
   -DUSE_PYTHON=OFF  \
   -DUSE_OPENCV=OFF  \
@@ -615,19 +615,16 @@ cmake ..                                     \
 echo Building StereoPipeline
 make -j10 install > /dev/null 2>&1 # this is too verbose
 
-# Activate conda
-source  /Users/runner/.bash_profile 
-conda activate anaconda 
-conda search -c nasa-ames-stereo-pipeline  --override-channels  --platform osx-64
-
 # Install anaconda client and conda build separately
 # create a new tool env for that
 conda create -n anaconda -c conda-forge -c defaults -y anaconda-client conda-build
-conda activate anaconda
 
-# Authenticate
-cat ~/.ssh/id_rsa.pub 
-# Add to github ssh keys
+# Activate anaconda
+source  /Users/runner/.bash_profile 
+conda activate anaconda 
+
+# Search for packages
+conda search -c nasa-ames-stereo-pipeline --override-channels --platform osx-64
 
 # Save current dependencies
 cd ~/work/StereoPipeline
@@ -679,7 +676,6 @@ conda build -c conda-forge -c nasa-ames-stereo-pipeline htdp-feedstock
 
 # libnabo
 cd ~/work/StereoPipeline
-cd ~/work/StereoPipeline
 conda activate asp_deps; conda env export > asp_deps.yaml
 git clone https://github.com/NeoGeographyToolkit/libnabo-feedstock.git
 python StereoPipeline/conda/update_versions.py asp_deps.yaml libnabo-feedstock 
@@ -691,6 +687,7 @@ conda build -c nasa-ames-stereo-pipeline -c conda-forge libnabo-feedstock
 # fgr
 cd ~/work/StereoPipeline
 git clone https://github.com/NeoGeographyToolkit/fgr-feedstock.git
+conda activate asp_deps; conda env export > asp_deps.yaml
 python StereoPipeline/conda/update_versions.py asp_deps.yaml fgr-feedstock
 conda activate anaconda
 conda build -c nasa-ames-stereo-pipeline -c conda-forge fgr-feedstock
@@ -757,18 +754,17 @@ conda build -c conda-forge -c nasa-ames-stereo-pipeline visionworkbench-feedstoc
 conda config --set channel_priority flexible
 cd ~/work/StereoPipeline
 git clone https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
-#conda activate asp_deps; conda env export > asp_deps.yaml
 conda activate asp_deps; conda env export > asp_deps.yaml
-conda install -c conda-forge pbzip2 chrpath cmake parallel
 python StereoPipeline/conda/update_versions.py asp_deps.yaml stereopipeline-feedstock
 conda activate anaconda
 # conda build -c conda-forge -c nasa-ames-stereo-pipeline stereopipeline-feedstock 2>&1 |tee output_debug.txt
 conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
       -c conda-forge stereopipeline-feedstock 2>&1 |tee output_debug.txt
-~/miniconda3/bin/anaconda upload upload /Users/runner/miniconda3/conda-bld/osx-64/visionworkbench-asp3.5.0-0.conda
-~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n asp_deps visionworkbench
+~/miniconda3/bin/anaconda upload upload 
+~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n asp_deps 
 
-# Prepare for packaging
+# Prepare for packaging the tarball
+conda install -c conda-forge pbzip2 chrpath cmake parallel
 conda create -c conda-forge -n python_isis8 python=3.10.13 numpy=1.26.4
 
 # Package with BinaryBuilder. The Mac Arm and Mac x84 use
