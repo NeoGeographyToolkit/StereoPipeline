@@ -13,50 +13,30 @@ in :numref:`installation`.
 Building ASP without conda
 --------------------------
 
-The dependencies for the *latest development version* of ASP are a available as
-a `binary tarball <https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/>`_.
+All dependencies for the *latest development version* of ASP are a available as
+a `binary tarball
+<https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/>`_. This has
+binaries for ASP itself, but that is not a problem for rebuilding ASP.
 
-Building the *prior ASP 3.3.0 release* (:numref:`conda_intro`) without conda
-entails downloading all the ASP dependencies with conda first as pre-compiled
-binaries, then pulling the VisionWorkbench and Stereo Pipeline source code from
-GitHub, and building locally. This is suggested only for the very adventurous
-user.
+Alternatively, the Stereo Pipeline repository provides the full environment for
+the latest official ASP release in the ``conda`` subdirectory.  It can be installed
+with conda, such as::
 
-The environments having the ASP dependencies are in the ``conda``
-directory of the Stereo Pipeline repository, as above. After
-downloading those, one can run on Linux::
+    conda env create -n asp_deps -f asp_3.5.0_linux_env.yaml
 
-    conda env create -n asp_deps -f asp_deps_3.3.0_linux_env.yaml
-
-or on the Mac::
-
-    conda env create -n asp_deps -f asp_deps_3.3.0_osx_env.yaml
+on Linux, and similarly on the Mac.
 
 This will create an ``asp_deps`` environment. Activate it with::
 
     conda activate asp_deps
 
-Some of the .la files created by conda point to other .la files that
-are not available. For that reason, those files should be edited to
-replace::
-
-    /path/to/libmylibrary.la
-
-with::
-
-    -L/path/to -lmylibrary
-
-This can be done as::
-
-    cd ~/miniconda3/envs/asp_deps/lib
-    mkdir -p backup
-    cp -fv  *.la backup # back these up
-    perl -pi -e "s#(/[^\s]*?lib)/lib([^\s]+).la#-L\$1 -l\$2#g" *.la
+On rare occasions conda packages have files of the form ``libMyLib.la`` that
+have incorrect paths. Any such files are not needed in either case and
+should be deleted.
 
 The `conda-provided compilers
 <https://conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_
-should be installed in the environment, if not present already. Otherwise they can
-be installed as::
+should be in the environment already. If needed, they can be installed as::
 
     conda install -c conda-forge compilers
 
@@ -319,7 +299,7 @@ After a package is uploaded, it can be installed in the existing
     conda install -c nasa-ames-stereo-pipeline \
       -c usgs-astrogeology                     \
       -c conda-forge                           \
-      libelas=asp3.3.0
+      libelas
 
 If this is slow, check if the solver is set to ``libmamba``. 
  
@@ -367,7 +347,7 @@ and its dependencies, from source and with ``conda``.
 .. _build_asp_doc:
 
 Building the documentation
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ASP documentation is written in ReStructured Text and is built
 with the Sphinx-Doc system (https://www.sphinx-doc.org) with 
@@ -387,9 +367,9 @@ of conflict with other dependencies. Also, Sphinx version 4 seems to
 have trouble compiling our documentation, hence a lower version is
 used here.
 
-The ``docs`` directory contains the root of the documentation. Running ``make
-html`` will create the HTML version of the documentation in the ``_build``
-subdirectory.
+The ``docs`` directory contains the root of the documentation. Running there
+``make html`` will create the HTML version of the documentation in the
+``_build`` subdirectory.
 
 Building the PDF documentation is no longer supported. 
 
@@ -417,9 +397,9 @@ https://semver.org for guidance.
 Update the documentation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Search all documentation for the old version number for ASP and ISIS (such as
-8.3.0) and replace it with the new version numbers. This includes files in the
-base directory, not just in ``docs``.
+Search all documentation for the old version number for ASP (such as 3.5.0) and
+ISIS (such as 8.3.0) and replace it with the new version numbers. This includes
+files in the base directory, not just in ``docs``.
 
 Update NEWS.rst. Add the release date on top, along the lines of prior releases
 (see further down in that file). This file must have a detailed log of all
@@ -431,8 +411,8 @@ Update the copyright year in the README.rst file.
 Commit and tag
 ~~~~~~~~~~~~~~
 
-Commit all changes. Tag the release in the VisionWorkbench and ASP repos.
-Example:: 
+Commit all changes. Tag the release in *both* the VisionWorkbench and
+StereoPipeline repos. Example:: 
 
   git tag 3.5.0
   git push origin 3.5.0 # commit to your branch
@@ -460,27 +440,23 @@ It is suggested to save a complete record of all packages that went into this co
 release, as sometimes conda may have issues solving for the dependencies or it may 
 return a non-unique solution.
 
-The conda environment having the given ASP release can be exported as::
+The conda environment having the given ASP release can be saved in the
+StereoPipeline repo as::
 
     conda activate asp
     conda env export > StereoPipeline/conda/asp_3.5.0_linux_env.yaml
 
-This was for Linux, and it works analogously on OSX. How to recreate ASP
-from this file is described in :numref:`conda_intro`.
+This was for Linux, and it works analogously on OSX. 
 
-It is suggested to commit these in to the ASP repository, in the ``conda``
-subfolder. These files can be checked in after the release is already tagged,
-built, and tested.
-
-An example for how to use this file to create the environment having the ASP
-dependencies in :numref:`build_from_source`.
+How to recreate ASP from this file is described in :numref:`conda_intro`. How to
+use this file to build ASP is shown in :numref:`building_asp`.
 
 .. _build_binaries:
 
 Building self-contained binaries
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In addition to creating a conda package, it is also convenient and ship a
+In addition to creating a conda package, it is also convenient to ship a
 zipped package having all ASP tools and needed libraries (this includes the ISIS
 libraries but not the ISIS tools). 
 
@@ -570,17 +546,17 @@ the release.*
 *Do not delete and recreate the release* (:numref:`zenodo`). It is fine to
 upload the binaries after a release is created, and delete and re-upload them.
 
-The GitHub tool ``gh`` can be used to push the binaries to the release. 
-Here's an example usage::
+The GitHub tool ``gh`` can be invoked to push the binaries to the release.
+Example::
 
-  cd BinaryBuilder
-  for file in StereoPipeline-3.5.0-Linux.tar.bz2 \
-              StereoPipeline-3.5.0-OSX.tar.bz2; do
+  cd BinaryBuilder/asp_tarballs
+  for file in StereoPipeline-3.5.0-2025-04-28-x86_64-Linux.tar.bz2 \
+              StereoPipeline-3.5.0-2025-04-28-x86_64-OSX.tar.bz2; do
     gh release upload 3.5.0 $file \
       -R git@github.com:NeoGeographyToolkit/StereoPipeline.git   
   done
 
-Alternatively, these can be uploaded manually.
+Alternatively, these can be uploaded from a web browser.
 
 .. _zenodo:
 

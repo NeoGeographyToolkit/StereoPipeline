@@ -1,6 +1,10 @@
 RELEASE 3.5.0, April 28, 2025
 -----------------------------
 
+DOI: `10.5281/zenodo.15298734 <https://zenodo.org/records/15298734>`_
+
+Stable release doc: https://stereopipeline.readthedocs.io/en/stable/index.html
+
 *New platform*: An experimental native Mac M1/M2 Arm64 build is available
 (:numref:`release`).
   

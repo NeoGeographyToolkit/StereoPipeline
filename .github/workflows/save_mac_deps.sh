@@ -50,10 +50,8 @@
 # $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
 
 # For linux, the dependencies from the local machine can be saved as follows.
-# tag=linux_conda_env7
+# tag=asp_deps_linux_v1
 # $HOME/projects/StereoPipeline/.github/workflows/save_linux_deps.sh $tag
-# TODO(oalexan1): Check if on Linux the dependencies are also saved
-# relative to the home directory or not.
 
 # Check usage
 if [ "$#" -lt 2 ]; then
@@ -114,6 +112,6 @@ echo If present, deleting the old release for tag: $tag
 $gh release -R $repo delete $tag -y 2>/dev/null # hide any error message for missing release
 
 # Upload the new version
-notes="Build dependencies: $tag"
+notes="Full tarball of ASP dependencies (tag: $tag)"
 echo Uploading a new version for tag: $tag
 /usr/bin/time $gh release -R $repo create $tag $binaries --title $tag --notes "$notes"

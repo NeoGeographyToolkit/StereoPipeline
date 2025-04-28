@@ -10,18 +10,23 @@ fi
 
 tag=$1; shift
 
-# Create the tarball of dependencies
+# Create the tarball of dependencies. This likely includes
+# a pre-built ASP itself, but that is not a problem.
 tarball=asp_deps_linux.tar.gz
+cd $HOME
 /usr/bin/time tar cfz $tarball \
-  /home/oalexan1/miniconda3/envs/asp_deps \
-  /home/oalexan1/miniconda3/envs/python_isis8
+  miniconda3/envs/asp_deps     \
+  miniconda3/envs/python_isis8
 
-gh=/home/oalexan1/miniconda3/envs/gh/bin/gh
+# Set up GitHub CLI
+gh=$HOME/miniconda3/envs/gh/bin/gh
 repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
+
+# Run $gh auth to authenticate
 
 # Wipe old version
 $gh release -R $repo delete $tag 
-notes="$tag"
 
 # Save the tarball as a release
+notes="Full tarball of ASP dependencies (tag: $tag)"
 /usr/bin/time $gh release -R $repo create $tag $tarball --title $tag --notes "$notes"

@@ -46,7 +46,10 @@ fi
 
 # Fetch the ASP dependencies. Must keep $tag in sync with build_test.sh.
 # See above for how to update the dependencies.
-tag=asp_deps_mac_x64_v4 # sync up with the one in build_test.sh
+tag=asp_deps_mac_x64_v4 # Mac Intel. Sync up tag with build_test.sh.
+# tag=asp_deps_mac_arm64_v1 # Mac Arm. Sync up tag with build_test.sh.
+# tag=asp_deps_linux_v1 # Linux.
+
 cd $HOME
 wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 /usr/bin/time tar xzf asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
@@ -175,9 +178,7 @@ fi
 cd
 conda install -c conda-forge -y parallel pbzip2
 
-# Install the needed packages
-cd
-conda install -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge geoid=1.0_isis7 -y
+# Build the needed packages
 
 # libnabo
 cd
