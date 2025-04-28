@@ -183,7 +183,7 @@ dem_geoid (:numref:`dem_geoid`):
 orbit_plot (:numref:`orbit_plot`):
   * Added the options ``--use-rmse``, ``--output-file``.
 
-isis (`planetary_images`):
+isis (:numref:`planetary_images`):
   * Upgraded to ISIS 8.3.0.
 
 misc:

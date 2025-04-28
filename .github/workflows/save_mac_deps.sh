@@ -112,6 +112,6 @@ echo If present, deleting the old release for tag: $tag
 $gh release -R $repo delete $tag -y 2>/dev/null # hide any error message for missing release
 
 # Upload the new version
-notes="Full tarball of ASP dependencies (tag: $tag)"
+notes="Full tarball of latest ASP dev build dependencies"
 echo Uploading a new version for tag: $tag
 /usr/bin/time $gh release -R $repo create $tag $binaries --title $tag --notes "$notes"

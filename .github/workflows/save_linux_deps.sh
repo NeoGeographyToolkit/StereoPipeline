@@ -12,7 +12,7 @@ tag=$1; shift
 
 # Create the tarball of dependencies. This likely includes
 # a pre-built ASP itself, but that is not a problem.
-tarball=asp_deps_linux.tar.gz
+tarball=asp_deps.tar.gz
 cd $HOME
 /usr/bin/time tar cfz $tarball \
   miniconda3/envs/asp_deps     \
@@ -28,5 +28,5 @@ repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
 $gh release -R $repo delete $tag 
 
 # Save the tarball as a release
-notes="Full tarball of ASP dependencies (tag: $tag)"
+notes="Full tarball of latest ASP dev build dependencies"
 /usr/bin/time $gh release -R $repo create $tag $tarball --title $tag --notes "$notes"
