@@ -46,7 +46,7 @@ fi
 
 # Fetch the ASP dependencies. Must keep $tag in sync with build_test.sh.
 # See above for how to update the dependencies.
-tag=asp_deps_mac_x64_v4
+tag=asp_deps_mac_x64_v4 # sync up with the one in build_test.sh
 cd $HOME
 wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 /usr/bin/time tar xzf asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
@@ -55,6 +55,15 @@ wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${ta
 conda init bash
 source ~/.bash_profile
 conda activate asp_deps
+
+# Install anaconda client and conda build separately
+# TODO(oalexan1): Have these further subdivided into separate envs.
+# Save the anaconda_env client on exit. Do not save the conda-build env,
+# as that one can have huge partial builds.
+conda create -n anaconda -c conda-forge -c defaults -y anaconda-client conda-build
+# Activate anaconda env
+source  /Users/runner/.bash_profile 
+conda activate anaconda 
 
 # Build ale. It is assumed the compiler is set up as above. May need to save the
 # current ~/.ssh/id_rsa.pub key to Github in the user settings for recursive
@@ -168,7 +177,7 @@ conda install -c conda-forge -y parallel pbzip2
 
 # Install the needed packages
 cd
-conda install -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge geoid=1.0_isis7 htdp=1.0_isis7 -y
+conda install -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge geoid=1.0_isis7 -y
 
 # libnabo
 cd
@@ -439,9 +448,6 @@ cmake ${CMAKE_ARGS}                                      \
 
 # OpenEXR
 # Build from source, to ensure the proper version of ilmbase is used
-# git clone git@github.com:NeoGeographyToolkit/openexr-feedstock.git
-# conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge openexr-feedstock
-# conda install -c nasa-ames-stereo-pipeline -c usgs-astrogeology -c conda-forge --force-reinstall openexr 
 wget https://github.com/AcademySoftwareFoundation/openexr/archive/v2.5.5.tar.gz
 cd openexr-2.5.5
 mkdir build && cd build
@@ -615,14 +621,6 @@ cmake ..                                     \
 echo Building StereoPipeline
 make -j10 install > /dev/null 2>&1 # this is too verbose
 
-# Install anaconda client and conda build separately
-# create a new tool env for that
-conda create -n anaconda -c conda-forge -c defaults -y anaconda-client conda-build
-
-# Activate anaconda
-source  /Users/runner/.bash_profile 
-conda activate anaconda 
-
 # Search for packages
 conda search -c nasa-ames-stereo-pipeline --override-channels --platform osx-64
 
@@ -639,6 +637,7 @@ conda env create \
   -n asp_deps -f asp_deps.yaml
 
 # See the top of document for how to save / fetch a tarball with dependencies
+# See also for how to install conda-build and anaconda client.
 
 # geoid
 cd ~/work/StereoPipeline
@@ -666,13 +665,13 @@ python StereoPipeline/conda/update_versions.py asp_deps.yaml openexr-feedstock
 ~/miniconda3/bin/anaconda upload upload /Users/runner/miniconda3/conda-bld/osx-64/openexr-2.5.5-ha5a8b8e_0.conda
 /Users/runner/miniconda3/bin/conda  install -c nasa-ames-stereo-pipeline -c conda-forge -n asp_deps  nasa-ames-stereo-pipeline::openexr=2.5.5
 
-# htdp
-cd ~/work/StereoPipeline
-git clone https://github.com/NeoGeographyToolkit/htdp-feedstock.git
-python StereoPipeline/conda/update_versions.py asp_deps.yaml htdp-feedstock
-conda build -c conda-forge -c nasa-ames-stereo-pipeline htdp-feedstock
-~/miniconda3/bin/anaconda upload upload /Users/runner/miniconda3/conda-bld/osx-64/htdp-1.0_asp3.5.0-1.conda
-/Users/runner/miniconda3/bin/conda  install -c nasa-ames-stereo-pipeline -c conda-forge -n asp_deps  nasa-ames-stereo-pipeline::htdp=1.0_asp3.5.0
+# # htdp (this got removed from the ASP distribution)
+# cd ~/work/StereoPipeline
+# git clone https://github.com/NeoGeographyToolkit/htdp-feedstock.git
+# python StereoPipeline/conda/update_versions.py asp_deps.yaml htdp-feedstock
+# conda build -c conda-forge -c nasa-ames-stereo-pipeline htdp-feedstock
+# ~/miniconda3/bin/anaconda upload upload /Users/runner/miniconda3/conda-bld/osx-64/htdp-1.0_asp3.5.0-1.conda
+# /Users/runner/miniconda3/bin/conda  install -c nasa-ames-stereo-pipeline -c conda-forge -n asp_deps  nasa-ames-stereo-pipeline::htdp=1.0_asp3.5.0
 
 # libnabo
 cd ~/work/StereoPipeline
@@ -757,10 +756,9 @@ git clone https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
 conda activate asp_deps; conda env export > asp_deps.yaml
 python StereoPipeline/conda/update_versions.py asp_deps.yaml stereopipeline-feedstock
 conda activate anaconda
-# conda build -c conda-forge -c nasa-ames-stereo-pipeline stereopipeline-feedstock 2>&1 |tee output_debug.txt
 conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
       -c conda-forge stereopipeline-feedstock 2>&1 |tee output_debug.txt
-~/miniconda3/bin/anaconda upload upload 
+~/miniconda3/bin/anaconda upload
 ~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n asp_deps 
 
 # Prepare for packaging the tarball

@@ -1,7 +1,7 @@
-Changes since the last release
-------------------------------
+RELEASE 3.5.0, April 28, 2025
+-----------------------------
 
-New platform: An experimental native Mac M1/M2 Arm64 build is available
+*New platform*: An experimental native Mac M1/M2 Arm64 build is available
 (:numref:`release`).
   
 bundle_adjust (:numref:`bundle_adjust`):
@@ -179,6 +179,9 @@ dem_geoid (:numref:`dem_geoid`):
 orbit_plot (:numref:`orbit_plot`):
   * Added the options ``--use-rmse``, ``--output-file``.
 
+isis (`planetary_images`):
+  * Upgraded to ISIS 8.3.0.
+
 misc:
   * The logic for triangulation with RPC cameras changed (:numref:`rpc_tri`).
   * In ``bundle_adjust`` and ``jitter_solve``, save the lists of images and
@@ -215,6 +218,8 @@ misc:
     in, rather than the raw ones.
   * Can read Airbus Pleiades RPC XML files that have both a "global" and a
     "partial" camera model. The global one will be used.
+  * Dependence on package ``htdp`` removed. This was needed for
+    ``datum_convert``.
 
 RELEASE 3.4.0, June 19, 2024
 ----------------------------

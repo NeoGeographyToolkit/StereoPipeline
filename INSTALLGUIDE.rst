@@ -21,8 +21,8 @@ from:
 No installation steps or administrative rights are necessary.  Extract
 the archive, and run the executables in the ``bin`` subdirectory as::
 
-    tar xvf StereoPipeline-3.4.0-2024-06-19-x86_64-Linux.tar.bz2
-    ./StereoPipeline-3.4.0-2024-06-19-x86_64-Linux/bin/stereo --help
+    tar xvf StereoPipeline-3.5.0-2025-04-28-x86_64-Linux.tar.bz2
+    ./StereoPipeline-3.5.0-2025-04-28-x86_64-Linux/bin/stereo --help
 
 The result of the last command should be a help message.
 
@@ -66,8 +66,8 @@ the same as for Linux.
 Conda and docker
 ----------------
 
-The latest ASP release (3.4.0) is available only as binaries. The 3.3.0 release
-can be installed via conda (:numref:`conda_intro`).
+The latest ASP release (3.5.0) can be installed with conda
+(:numref:`conda_intro`).
 
 ASP can be installed with Docker (`instructions
 <https://github.com/uw-cryo/asp-binder>`_).
@@ -83,9 +83,8 @@ Earth, or aerial images.
 Planetary images
 ~~~~~~~~~~~~~~~~
 
-If you plan to process images from NASA's spacecraft that are
-exploring other planets, you will need to install ISIS and its data.
-Summary of the steps:
+To process images from NASA's spacecraft that are exploring other planets,
+install ISIS and its data. Summary of the steps:
 
 #. Fetch ISIS binaries and install, following
    https://github.com/DOI-USGS/ISIS3#installation
@@ -106,14 +105,7 @@ Summary of the steps:
    
    Check that you have the directory ``$ISISDATA/base``.
 
-#. Extract Stereo Pipeline::
-
-     tar xvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.bz2
-
-#. Add Stereo Pipeline to your path:
-
-   - bash: ``export PATH="/path/to/StereoPipeline/bin:${PATH}"``
-   - csh:  ``setenv PATH "/path/to/StereoPipeline/bin:${PATH}"``
+#. Install Stereo Pipeline and set the ``PATH`` variable as above.
 
 #. Try it out. See :numref:`lronac_csm` for a quick Lunar example which does not
    require installing ISIS or it supporting data as above,
@@ -191,24 +183,11 @@ the processing time should go down. Both ``gdalinfo`` and
 Fetching pre-compiled ASP with conda
 ------------------------------------
 
-*The latest ASP release (3.4.0, June 19, 2024) is available only as binaries*.
-See :numref:`release` for how to fetch them.
+The ASP 3.5.0 release (April 28, 2025) can be installed via conda, together 
+with ISIS 8.3.0 (:numref:`planetary_images`).
 
-The reason is that the latest ISIS conda release (8.0.3) has dependencies that
-are incompatible with what ASP expects. This will be rectified in the next ASP
-and ISIS releases.
-
-See :numref:`news` for what changed between releases.
-
-The latest ISIS can be installed via conda in a separate location
-(:numref:`planetary_images`). ASP's internal libraries are based on the
-ISIS source code (circa June 15, 2024), after the ISIS 8.0.3 release.
-
-The ASP 3.3.0 release (August 16, 2023) can be installed via conda, together 
-with ISIS 8.0.0.
-
-ASP conda packages do not exist for ARM64 Mac (M1/M2). See
-:numref:`release` for how this and platforms may be handled.
+ASP conda packages do not exist for ARM64 Mac (M1/M2). A binary daily build is
+provided, however (:numref:`release`).
 
 To install ``conda``, see:
 
@@ -253,15 +232,22 @@ to ensure that the order of channels is::
 *Not having the channels in this order is likely to result in failure to install
 ASP.*
 
+The command::
+
+    conda config --set channel_priority flexible
+
+is suggested, before running ``conda``, if the installation fails. It appears that
+for some versions of conda the strict order results in packages not being found.
+
 Install ASP with the command::
 
     conda install                 \
      -c nasa-ames-stereo-pipeline \
      -c usgs-astrogeology         \
      -c conda-forge               \
-     stereo-pipeline==3.3.0
+     stereo-pipeline==3.5.0
 
-This will install ASP 3.3.0 together with ISIS 8.0.0. Note that the *latest
+This will install ASP 3.5.0 together with ISIS 8.3.0. Note that the *latest
 build* (:numref:`release`) may have more features and fixes than
 this official release.
 
@@ -277,6 +263,33 @@ in the path, and will also initialize the ``PROJ_DATA`` environment variable
 that is needed for the PROJ library. Or, set the PATH variable as in
 :numref:`release`.
   
+Using a precise list of packages
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some variability may exist in the precise dependencies fetched by conda. For the
+record, the full environment for this release can be found as a set of .yaml
+files in the ``conda`` subdirectory of the Stereo Pipeline GitHub repository.
+So, alternatively, the installation can happen as follows.
+
+First, set::
+
+  conda config --set channel_priority flexible
+
+as apparently otherwise conda will not be able to reconcile the packages.
+
+Then, on Linux, run::
+
+    conda env create -n asp -f asp_3.5.0_linux_env.yaml
+
+and analogously on Mac.
+
+Run, as before::
+
+    conda activate asp
+
+For how to build ASP, without and with conda, see :numref:`build_from_source`
+and :numref:`conda_build`.
+
 Post-installation
 ~~~~~~~~~~~~~~~~~
 
@@ -300,27 +313,3 @@ variable to your existing data area).
 
 For more information see the `ISIS installation instructions
 <https://github.com/USGS-Astrogeology/ISIS3>`_ and :numref:`planetary_images`. 
-
-Using a precise list of packages
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-*This section applies to the prior ASP 3.3.0 release* (:numref:`conda_intro`). 
-
-Some variability may exist in the precise dependencies fetched by
-conda. For the record, the full environment for this release can be
-found as a set of .yaml files in the ``conda`` subdirectory of the
-Stereo Pipeline GitHub repository. So, alternatively, the installation
-can happen as::
-
-    conda env create -n asp -f asp_3.3.0_linux_env.yaml
-
-or::
-
-    conda env create -n asp -f asp_3.3.0_osx_env.yaml
-
-depending on your platform. Then invoke, as earlier::
-
-    conda activate asp
-
-For how to build ASP, without and with conda, see
-:numref:`build_from_source` and :numref:`conda_build`.

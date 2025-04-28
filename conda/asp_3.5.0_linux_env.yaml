@@ -54,6 +54,7 @@ dependencies:
   - ceres-solver=2.2.0=h30ec75d_2
   - certifi=2025.1.31=pyhd8ed1ab_0
   - cfitsio=4.3.0=hbdc6101_0
+  - chrpath=0.16=h7f98852_1002
   - cmake=3.27.9=hcfe8598_0
   - compilers=1.9.0=ha770c72_0
   - csm=3.0.3.3=h84d6215_1
@@ -121,7 +122,6 @@ dependencies:
   - harfbuzz=7.3.0=hdb3a94d_0
   - hdf4=4.2.15=h501b40f_6
   - hdf5=1.14.1=nompi_h4f84152_100
-  - htdp=1.0_asp3.5.0=1
   - icu=72.1=hcb278e6_0
   - idna=3.10=pyhd8ed1ab_1
   - ilmbase=2.5.5=h3fd9d12_1
@@ -181,6 +181,7 @@ dependencies:
   - libgfortran5=14.2.0=hf1ad2bd_2
   - libglib=2.78.1=hebfc3b9_0
   - libglu=9.0.0=hac7e632_1003
+  - libglvnd=1.7.0=ha4b6fd6_2
   - libglvnd-cos7-x86_64=1.0.1=ha675448_1106
   - libglvnd-glx-cos7-x86_64=1.0.1=ha675448_1106
   - libgomp=14.2.0=h767d61c_2
@@ -237,6 +238,7 @@ dependencies:
   - libwebp=1.3.1=hbf2b3c1_0
   - libwebp-base=1.3.1=hd590300_0
   - libxcb=1.15=h0b41bf4_0
+  - libxcrypt=4.4.36=hd590300_1
   - libxkbcommon=1.6.0=h5d7e998_0
   - libxml2=2.11.5=h0d562d8_0
   - libzip=1.10.1=h2629f0a_3
@@ -254,7 +256,7 @@ dependencies:
   - mpg123=1.32.9=hc50e24c_0
   - msgpack-python=1.1.0=py311hd18a35c_0
   - multidict=6.4.3=py311h2dc5d0c_0
-  - multiview=asp_3.4.0_alpha=py311_0
+  - multiview=asp_3.5.0=py311_2
   - mysql=8.0.33=h27aab58_2
   - mysql-client=8.0.33=h545f5f4_2
   - mysql-common=8.0.33=hf1915f5_2
@@ -280,9 +282,12 @@ dependencies:
   - p11-kit=0.24.1=hc5aa10d_0
   - pandas=2.2.3=py311h7db5c69_3
   - pango=1.50.14=heaa33ce_1
+  - parallel=20250422=ha770c72_0
+  - pbzip2=1.1.13=h1fcc475_2
   - pcl=1.13.1=hd129add_1
   - pcre2=10.40=hc3806b6_0
   - pdal=2.6.0_asp3.5.0=py311h3fd9d12_1
+  - perl=5.32.1=7_hd590300_perl5
   - pip=25.0.1=pyh8b19718_0
   - pixman=0.44.2=h29eaf8c_0
   - plio=1.6.0=pyh12aca89_0
@@ -321,6 +326,7 @@ dependencies:
   - spiceypy=6.0.0=pyhd8ed1ab_2
   - sqlalchemy=2.0.40=py311h9ecbd09_0
   - sqlite=3.49.1=h9eae976_2
+  - stereo-pipeline=3.5.0=2
   - suitesparse=5.10.1=h5a4f163_3
   - superlu=5.2.2=h00795ac_0
   - svt-av1=1.7.0=h59595ed_0
@@ -384,3 +390,4 @@ dependencies:
   - yarl=1.20.0=py311h2dc5d0c_0
   - zlib=1.3.1=hb9d3cd8_2
   - zstd=1.5.7=hb8e6e7a_2
+prefix: /home/oalexan1/miniconda3/envs/asp_deps

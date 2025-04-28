@@ -273,29 +273,22 @@ This tool can be customized with the ``parallel_stereo`` switch
 Installation of sparse_disp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``sparse_disp`` tool is written in Python, and it depends on a
-version of GDAL that is newer than what we support in ASP and on other
-Python modules that we don't ship. It is suggested to to use the Conda
-Python management system at
+The ``sparse_disp`` tool is written in Python, and makes use of the ``gdal``,
+``numpy``, and ``scipy`` packages. To use it, these packages must be installed
+with ``conda``. 
 
-  https://docs.conda.io/en/latest/miniconda.html
+It is very important to use the same version of ``python``, ``numpy``, and
+``gdal`` as in ASP. Hence, make adjustments below and then run::
 
-to install these dependencies. This can be done as follows::
-
-    conda create --name sparse_disp -c conda-forge python=3.12 gdal=3.8
-    conda activate sparse_disp
-    conda install -c conda-forge scipy
-
-Assuming that you used the default installation path for ``conda``, which is
-``$HOME/miniconda3``, before running the ``parallel_stereo`` command, as shown
-above, one needs to set::
-
-    export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.12/site-packages
-
-It is very important that the same version of Python be used here as
-the one shipped with ASP. Note that if GDAL is fetched from a
-different repository than conda-forge, one may run into issues with
-dependencies not being correct, and then it will fail at runtime.
+    conda create -n sparse_disp c conda-forge      \
+      python=3.11.6 numpy=1.26.4 gdal=3.7.1 scipy
+      
+ASP can be told where to look for these packages with a line such as::
+      
+    export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.11/site-packages
+    
+Here, also need to adjust appropriately the ``conda`` installation location 
+and ``python`` version.
 
 .. _d_sub_skip:
 

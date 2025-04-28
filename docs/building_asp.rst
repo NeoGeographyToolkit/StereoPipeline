@@ -55,14 +55,14 @@ This can be done as::
 
 The `conda-provided compilers
 <https://conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_
-should be installed in the environment, if not present already.
-
-New versions of clang tend to break a lot third-party code. On occasion it is
-necessary to downgrade to compilers a few years old, such as clang 17.
-
-::
+should be installed in the environment, if not present already. Otherwise they can
+be installed as::
 
     conda install -c conda-forge compilers
+
+New versions of clang tend to break a lot third-party code. On occasion it is
+necessary to downgrade to compilers, especially ``clang``, which is also needed
+to maintain compatibility with ISIS.
 
 Ensure that ``parallel``, ``cmake>=3.15.5`` and ``pbzip2`` are installed::
 
@@ -75,13 +75,12 @@ below, so this step may need some adjustments.
 
 ::
 
-    isMac=$(uname -s | grep Darwin)
-    if [ "$isMac" != "" ]; then
+   if [ "$(uname)" = "Darwin" ]; then
       cc_comp=clang
       cxx_comp=clang++
     else
-      cc_comp=gcc
-      cxx_comp=g++
+      cc_comp=x86_64-conda-linux-gnu-gcc
+      cxx_comp=x86_64-conda-linux-gnu-g++
     fi
 
 Set up a work directory::
@@ -89,7 +88,7 @@ Set up a work directory::
     workDir=$HOME/build_asp
     mkdir -p $workDir
 
-Build VisionWorkbench and Stereo Pipeline::
+Build VisionWorkbench and Stereo Pipeline version 3.5.0::
 
     cd $workDir
     envPath=$HOME/miniconda3/envs/asp_deps
@@ -97,7 +96,7 @@ Build VisionWorkbench and Stereo Pipeline::
         git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
     # Build a specific version
-    git checkout 3.3.0
+    git checkout 3.5.0
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                             \
@@ -114,7 +113,7 @@ Build VisionWorkbench and Stereo Pipeline::
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
     # Build a specific version
-    git checkout 3.3.0
+    git checkout 3.5.0
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                             \
@@ -130,9 +129,6 @@ Build VisionWorkbench and Stereo Pipeline::
 
 Building ASP and its dependencies with conda
 --------------------------------------------
-
-*This section applies only to the prior ASP 3.3.0 release*
-(:numref:`conda_intro`).
 
 This page is meant for advanced users of ASP and maintainers who would
 like to use conda to rebuild ASP and all its dependencies. It is
@@ -155,14 +151,14 @@ Search for the latest available ISIS conda package::
   
     conda search -c usgs-astrogeology --override-channels isis
 
-Here it was found that ISIS version 8.0.0 was the latest, which we
+Here it was found that ISIS version 8.3.0 was the latest, which we
 will assume throughout the rest of this document. This needs to be
 adjusted for your circumstances.
 
 Create a conda environment for this version of ISIS::
 
-     conda create -n isis8.0.0
-     conda activate isis8.0.0
+     conda create -n isis8.3.0
+     conda activate isis8.3.0
 
 Add these channels to conda::
 
@@ -179,28 +175,16 @@ order and above all other channels, except perhaps the
 
 Install the desired version of ISIS::
 
-    conda install isis==8.0.0
+    conda install isis==8.3.0
 
-Search and install the latest version of the ``usgscsm`` package,
-for example, as::
-
-    conda search -c conda-forge --override-channels usgscsm
-    conda install -c conda-forge usgscsm==1.7.0
-
-If that package is too old, consider rebuilding it, following
-the recipe at:
-
-    https://github.com/NeoGeographyToolkit/usgscsm-feedstock
-
-See :numref:`packages_to_build` for how to fetch and build this.
-  
-Install the version of PDAL that is compatible with current ISIS::
+Install the version of PDAL that is compatible with current ISIS
+(may already exist as part of latest ISIS)::
 
     conda install -c conda-forge pdal==2.6.0
 
 Save the current environment as follows::
 
-    conda env export > isis8.0.0.yaml
+    conda env export > isis8.3.0.yaml
 
 Fetching the build tools
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -209,6 +193,9 @@ We will create a new ``tools`` environment to have all the tools we
 will need. These could be appended to the earlier environment, but it
 is less likely to to have issues with dependency conflicts if these
 are kept separate.
+
+It is very strongly suggested to install the same versions of compilers
+as what ISIS uses, and ensure the same versions are in every recipe below.
 
 ::
 
@@ -225,7 +212,6 @@ Packages to build
 Many additional package need to be built, using ``conda build``. These packages
 can be downloaded with ``git clone`` from:
 
-  https://github.com/NeoGeographyToolkit/htdp-feedstock.git
   https://github.com/NeoGeographyToolkit/geoid-feedstock.git
   https://github.com/NeoGeographyToolkit/fgr-feedstock.git
   https://github.com/NeoGeographyToolkit/libnabo-feedstock.git
@@ -234,21 +220,26 @@ can be downloaded with ``git clone`` from:
   https://github.com/NeoGeographyToolkit/libelas-feedstock.git
   https://github.com/NeoGeographyToolkit/multiview-feedstock
   https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
-  https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
 
-Also, per the earlier note, consider rebuilding ``usgscsm`` if
-there there are updates in its GitHub repository which are not yet
-released on conda-forge.
+Temporarily, for the ASP 3.5.0 release, a few more dependencies exist::
+
+  https://github.com/NeoGeographyToolkit/ilmbase-feedstock.git
+  https://github.com/NeoGeographyToolkit/openexr-feedstock.git
+  https://github.com/NeoGeographyToolkit/pdal-feedstock.git
+
+Lastly, the recipe for ASP itself::
+
+  https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
 
 Synchronize the versions with the existing environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For each of the above feedstocks, check the ``recipe/meta.yaml`` file
 and ensure all dependencies are in sync with what is in the file
-``isis8.0.0.yaml`` generated earlier. This can be done automatically
+``isis8.3.0.yaml`` generated earlier. This can be done automatically
 with a provided script in the ASP repository::
 
-     python StereoPipeline/conda/update_versions.py isis8.0.0.yaml \
+     python StereoPipeline/conda/update_versions.py isis8.3.0.yaml \
        gdal-feedstock
 
 and the same for the other packages.
@@ -266,7 +257,7 @@ leave the values as they were before modified by this script.
 
 In the ``visionworkbench`` and ``stereopipeline`` recipes update the
 ``git_tag`` value to reflect the desired commit from the Git
-history. 
+history, or leave it as is if desired to build the latest code.
 
 When making an ASP release, one can tag the commit based on
 which the release happens in the VisionWorkbench and StereoPipeline
@@ -323,7 +314,7 @@ package with the same name and version. Be careful not to overwrite
 a package that is meant to be used with a prior version of ASP.
 
 After a package is uploaded, it can be installed in the existing
-``isis8.0.0`` environment as::
+``isis8.3.0`` environment as::
 
     conda install -c nasa-ames-stereo-pipeline \
       -c usgs-astrogeology                     \
@@ -366,15 +357,26 @@ the one in :numref:`build_from_source`, the dependencies can be looked
 up in the ``meta.yaml`` files for these conda packages, after fetching
 them according to :numref:`packages_to_build`.
 
+Helper scripts
+~~~~~~~~~~~~~~
+
+The ``.github/workflows`` directory in the ``StereoPipeline`` repository has a
+few helper scripts that show in detail the commands that are run to build ASP
+and its dependencies, from source and with ``conda``.
+
 .. _build_asp_doc:
 
 Building the documentation
 --------------------------
 
-The ASP documentation is encoded in ReStructured Text and is built
+The ASP documentation is written in ReStructured Text and is built
 with the Sphinx-Doc system (https://www.sphinx-doc.org) with 
 sphinxcontrib-bibtex (https://sphinxcontrib-bibtex.readthedocs.io).
-These packages can be installed and activated as follows::
+
+Documentation for the latest build and latest release is available online
+at https://stereopipeline.readthedocs.io/en/latest/.
+
+To build the documentation locally, install these packages such as:: 
 
     conda create -n sphinx -c conda-forge python=3.6 \
       sphinx=3.5.4 sphinxcontrib-bibtex=2.1.4  
@@ -385,15 +387,15 @@ of conflict with other dependencies. Also, Sphinx version 4 seems to
 have trouble compiling our documentation, hence a lower version is
 used here.
 
-In order to build the PDF (but not the HTML) document, a full
-LaTeX distribution is also necessary, such as TeX Live. 
-
 The ``docs`` directory contains the root of the documentation. Running ``make
-html`` will create the HTML version of the documentation in the _build
+html`` will create the HTML version of the documentation in the ``_build``
 subdirectory.
 
+Building the PDF documentation is no longer supported. 
+
 If the documentation builds well locally but fails to update on the web, see the
-`build status page <https://readthedocs.org/projects/stereopipeline/builds/>`_.
+`cloud build status page
+<https://readthedocs.org/projects/stereopipeline/builds/>`_.
 
 .. _asp_release_guide:
 
@@ -416,7 +418,7 @@ Update the documentation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Search all documentation for the old version number for ASP and ISIS (such as
-8.0.0) and replace it with the new version numbers. This includes files in the
+8.3.0) and replace it with the new version numbers. This includes files in the
 base directory, not just in ``docs``.
 
 Update NEWS.rst. Add the release date on top, along the lines of prior releases
@@ -432,9 +434,9 @@ Commit and tag
 Commit all changes. Tag the release in the VisionWorkbench and ASP repos.
 Example:: 
 
-  git tag 3.4.0
-  git push origin 3.4.0 # commit to your branch
-  git push god    3.4.0 # commit to main branch
+  git tag 3.5.0
+  git push origin 3.5.0 # commit to your branch
+  git push god    3.5.0 # commit to main branch
 
 (Here it is assumed that ``origin`` points to your own fork and ``god``
 points to the parent repository.)
@@ -442,9 +444,9 @@ points to the parent repository.)
 If more commits were made and it is desired to apply this tag to a
 different commit, first remove the exiting tag with::
 
-  git tag -d 3.4.0
-  git push origin :refs/tags/3.4.0
-  git push god    :refs/tags/3.4.0
+  git tag -d 3.5.0
+  git push origin :refs/tags/3.5.0
+  git push god    :refs/tags/3.5.0
 
 Build ASP with conda
 ~~~~~~~~~~~~~~~~~~~~
@@ -454,9 +456,6 @@ See :numref:`conda_build`.
 Save a record of the conda packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-*This section applies only to the prior ASP 3.3.0 release*
-(:numref:`conda_intro`).
-
 It is suggested to save a complete record of all packages that went into this conda
 release, as sometimes conda may have issues solving for the dependencies or it may 
 return a non-unique solution.
@@ -464,15 +463,10 @@ return a non-unique solution.
 The conda environment having the given ASP release can be exported as::
 
     conda activate asp
-    conda env export > asp_3.3.0_linux_env.yaml
+    conda env export > StereoPipeline/conda/asp_3.5.0_linux_env.yaml
 
 This was for Linux, and it works analogously on OSX. How to recreate ASP
 from this file is described in :numref:`conda_intro`.
-
-A file can also be made that lacks the entries for ASP and visionworkbench, so
-keeping only the dependencies. It can be saved with a name like
-``asp_3.3.0_linux_deps.yaml`` (also edit it and change the name of the
-environment). 
 
 It is suggested to commit these in to the ASP repository, in the ``conda``
 subfolder. These files can be checked in after the release is already tagged,
@@ -500,8 +494,9 @@ ASP uses a custom build system. It can be downloaded with ``git`` from:
 Create a conda environment that has the dependencies for building ASP, as
 described in :numref:`build_from_source`. Assume it is called ``asp_deps``.
 
-Install the C, C++, and Fortran compilers, ``cmake>=3.15.5``, ``pbzip2``,
-``parallel``, and for Linux also the ``chrpath`` tool, as outlined on that page.
+Install the C, C++, and Fortran compilers (same versions as for ISIS),
+``cmake>=3.15.5``, ``pbzip2``, ``parallel``, and for Linux also the ``chrpath``
+tool, as outlined on that page.
 
 Go to the directory ``BinaryBuilder``, and run::
 
@@ -532,11 +527,6 @@ Note that different versions of these may be needed for Linux and OSX.
 The ``conda list`` command within the ``asp_deps`` environment 
 can be used to look up the desired versions.
 
-Prepare the documentation
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Follow the instructions in :numref:`build_asp_doc`. 
-
 Package the build
 ~~~~~~~~~~~~~~~~~
 
@@ -563,6 +553,11 @@ comprehensive tests for the ASP tools.
 This functionality creates the daily builds, which are then
 uploaded to the GitHub release page (:numref:`release`). 
 
+Prepare the documentation
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Follow the instructions in :numref:`build_asp_doc`.
+
 Push the release to GitHub
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -579,9 +574,9 @@ The GitHub tool ``gh`` can be used to push the binaries to the release.
 Here's an example usage::
 
   cd BinaryBuilder
-  for file in StereoPipeline-3.4.0-Linux.tar.bz2 \
-              StereoPipeline-3.4.0-OSX.tar.bz2; do
-    gh release upload 3.4.0 $file \
+  for file in StereoPipeline-3.5.0-Linux.tar.bz2 \
+              StereoPipeline-3.5.0-OSX.tar.bz2; do
+    gh release upload 3.5.0 $file \
       -R git@github.com:NeoGeographyToolkit/StereoPipeline.git   
   done
 
@@ -635,6 +630,6 @@ Post-release work
 Update the version number in ``src/CMakeLists.txt`` in boh the VisionWorkbench
 and ASP repositories.  
 
-If version 3.4.0 just got released, we expect that the next feature release will
-likely be be 3.5.0. The version tag should be updated to 3.5.0-alpha in
+If version 3.5.0 just got released, we expect that the next feature release will
+likely be be 3.6.0. The version tag should be updated to 3.6.0-alpha in
 anticipation (see https://semver.org for guidance).
