@@ -23,10 +23,6 @@
 
 import argparse, glob, os, re, shutil, subprocess, sys, platform
 
-# This must be before importing numpy
-if platform.system() == "Darwin" and platform.machine() == "arm64":
-    raise Exception("Theia does not work on MacOS Arm64.")
-
 # Set up the path to Python modules about to load
 basepath    = os.path.abspath(sys.path[0])
 pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
@@ -35,7 +31,7 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-import asp_rig_utils
+import asp_rig_utils, asp_system_utils
 
 def sanityChecks(args):
 
@@ -254,9 +250,8 @@ def write_with_full_path(nvm_file, final_nvm_file,
     
 if __name__ == "__main__":
 
-    # The directory having as subdirs bin, lib, etc. 
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
-
+    base_dir = asp_system_utils.findTheiaInstallDir()
+    
     # Set the path to OpenIO. This will not be needed when this dependency is removed
     os.environ['OIIO_LIBRARY_PATH'] = base_dir + "/lib"
 
@@ -297,7 +292,7 @@ if __name__ == "__main__":
            "--calibration_file", calib_file,
            "--output_reconstruction", reconstruction_file,
            "--matching_working_directory", matching_dir,
-           "--intrinsics_to_optimize", "NONE"]
+           "--intrinsics_to_optimize", "NONE", "-v", "2"]
     asp_rig_utils.run_cmd(cmd)
     
     nvm_file = reconstruction_file + ".nvm"

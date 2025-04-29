@@ -45,7 +45,7 @@
 # $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
 
 # For Mac Arm64:
-# tag=asp_deps_mac_arm64_v1
+# tag=asp_deps_mac_arm64_v2
 # workflow="ssh_mac_arm.yml" # manual workflow
 # $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
 

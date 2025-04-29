@@ -1,3 +1,13 @@
+Changes since last release
+---------------------------
+
+camera_solve (:numref:`camera_solve`):
+  * Works on Mac Arm.
+  * Removed dependency on OpenImageIO. 
+
+misc:
+  * Added minimum system requirements for running ASP (:numref:`system_rec`).
+
 RELEASE 3.5.0, April 28, 2025
 -----------------------------
 

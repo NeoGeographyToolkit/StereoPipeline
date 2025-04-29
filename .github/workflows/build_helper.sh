@@ -24,9 +24,10 @@ $gh auth login
 binaries=~/work/StereoPipeline/packages/asp_deps.tar.gz # save in the right dir
 mkdir -p $(dirname $binaries)
 cd $HOME
-/usr/bin/time tar cfz $binaries $(ls -d miniconda3/envs/* |grep -E "asp_deps|python|gh")
+/usr/bin/time tar cfz $binaries $(ls -d *conda3/envs/* |grep -E "asp_deps|python|gh|isis_dev")
 repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
 tag=asp_deps_mac_x64_v4 # will wipe and recreate this
+#tag=asp_deps_mac_arm64_v2 # will wipe and recreate this
 $gh release -R $repo delete $tag -y # Wipe the old release. Careful here.
 /usr/bin/time $gh release -R $repo create $tag $binaries --notes "$tag" --title "$tag" 
 
@@ -352,7 +353,7 @@ mkdir -p ${BIN_DIR}
 # Multiview
 cd
 conda activate asp_deps
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+export PREFIX=$HOME/miniconda3/envs/asp_deps
 conda install -c conda-forge                      \
   rocksdb=8.5.3 rapidjson=1.1.0                   \
   ilmbase=2.5.5 openexr=2.5.5 imath -y
@@ -375,7 +376,7 @@ $PREFIX/bin/cmake ..                              \
     -DMULTIVIEW_DEPS_DIR=${PREFIX}                \
     -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13           \
     -DCMAKE_VERBOSE_MAKEFILE=ON                   \
-    -DCMAKE_CXX_FLAGS='-O3 -std=c++11 -Wno-error' \
+    -DCMAKE_CXX_FLAGS="-O3 -std=c++11 -Wno-error -I${PREFIX}/include" \
     -DCMAKE_C_FLAGS='-O3 -Wno-error'              \
     -DCMAKE_INSTALL_PREFIX=${PREFIX}
 
@@ -737,7 +738,7 @@ conda activate asp_deps; conda env export > asp_deps.yaml
 git clone https://github.com/NeoGeographyToolkit/multiview-feedstock.git
 python StereoPipeline/conda/update_versions.py asp_deps.yaml multiview-feedstock
 conda build -c nasa-ames-stereo-pipeline -c conda-forge multiview-feedstock
-~/miniconda3/bin/anaconda upload  /Users/runner/miniconda3/conda-bld/osx-64/multiview-asp_3.5.0-py310_0.conda 
+~/miniconda3/bin/anaconda upload /Users/runner/miniconda3/conda-bld/osx-64/multiview-asp_3.5.0-py310_0.conda 
 ~/miniconda3/bin/conda install -c nasa-ames-stereo-pipeline -c conda-forge -n asp_deps multiview
 
 # visionworkbench

@@ -40,9 +40,8 @@ ASP builds are produced for MacOS, with the Intel processor. These were verified
 to work on the Arm M1/M2 processor under Rosetta 2.
 
 An *experimental* native daily build is available for the Arm M1/M2 architecture
-at the link above (``arm64-OSX.tar.bz2``). This has all ASP
-algorithms except the minor ``libelas`` stereo algorithm (:numref:`libelas`)
-and the ``camera_solve`` SfM program (:numref:`camera_solve`). 
+at the link above (``arm64-OSX.tar.bz2``). This has all ASP logic
+except the minor ``libelas`` stereo algorithm (:numref:`libelas`).
 
 The installation steps are the same as for Linux. It is important to 
 note that:
@@ -126,6 +125,22 @@ Aerial and historical images
 Fetch the software as above. Processing images without accurate camera
 pose information is described in :numref:`sfm`. See also examples for 
 declassified satellite images in :numref:`kh4`.
+
+.. _system_rec:
+
+System requirements
+-------------------
+
+To run ASP, a computer cluster sharing storage and connected via ssh is needed
+(:numref:`pbs_slurm`).
+
+As a rule of thumb, for images on the order of 20,000 x 20,000 pixels, a machine
+with 40 GB of RAM 16 cores could likely produce a terrain model in 4 - 20 hours.
+There is a lot of uncertainty here, and much depends on the choice of the stereo
+algorithm (:numref:`stereo_alg_overview`), and if mapprojection is employed
+(:numref:`mapproj-example`).
+
+1 TB of storage or more is suggested.
 
 Common errors
 -------------

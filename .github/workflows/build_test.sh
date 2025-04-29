@@ -34,7 +34,7 @@ isArm64=$(uname -m | grep arm64)
 # TODO(oalexan1): Reconcile these two
 if [ "$isArm64" != "" ]; then
     echo "Platform: Arm64 Mac"
-    tag=asp_deps_mac_arm64_v1
+    tag=asp_deps_mac_arm64_v2
     envName=isis_dev
 else
     echo "Platform: Intel Mac"
@@ -188,14 +188,6 @@ for d in ss*; do
     # Skip unless a directory
     if [ ! -d "$d" ]; then continue; fi
 
-    if [ "$isArm64" != "" ]; then
-      # Skip if the directory matches camera_solve
-      if [[ $d == *camera_solve* ]]; then
-        echo "Skipping test $d on Arm64"
-        continue
-      fi
-    fi
-    
     cd $d
     pwd
     ./run.sh > output.txt 2>&1

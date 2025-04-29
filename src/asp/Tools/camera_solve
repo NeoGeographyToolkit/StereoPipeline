@@ -40,7 +40,11 @@ sys.path.insert(0, libexecpath)
 
 import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
 
-# Prepend to system PATH
+# Prepend the path to build_reconstruction (for local dev builds)
+base_dir = asp_system_utils.findTheiaInstallDir()
+os.environ["PATH"] = os.path.join(base_dir, 'bin') + os.pathsep + os.environ["PATH"]
+
+# Prepend libexecpath (for packaged ASP)
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
 def get_paths_with_extension(input_list, output_folder, new_extension, prefix=""):
@@ -337,7 +341,7 @@ def build_reconstruction(options):
 
     if (not os.path.exists(options.theia_output_path)) or options.overwrite:
         abs_flag_path = os.path.abspath(flagfile_path)
-        cmd = ['build_reconstruction', '--flagfile', abs_flag_path]
+        cmd = ['build_reconstruction', '--flagfile', abs_flag_path, '-v', '2']
         verbose = False
         print (' '.join(cmd))
         asp_system_utils.generic_run(cmd, verbose)
@@ -676,9 +680,6 @@ def main(argsIn):
         print('Did not detect required executables!  Check your PATH and ASP installation.')
         return -1
 
-    if platform.system() == "Darwin" and platform.machine() == "arm64":
-        raise Exception("Theia does not work on MacOS Arm64.")
-        
     try:
 
         # Use parser that ignores unknown options

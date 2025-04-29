@@ -9,8 +9,11 @@ it will be shown how to run this program on a *Portable Batch System*
 (*PBS*) setup, such as NASA Pleiades, and on a *Simple Linux Utility
 for Resource Management* (*SLURM*) system.
 
-In either of these, it is assumed that all compute nodes share storage
+In either of these, it is assumed that all compute nodes share disk storage
 space and are able communicate with ssh without password.
+
+PBS
+~~~
 
 On a PBS system, one can have a script as follows::
 
@@ -51,6 +54,9 @@ per bash shell conventions.
 
 It is strongly suggested to learn what each of the above options does
 and adjust them for your needs.
+
+SLURM
+~~~~~
 
 With SLURM, a script as follows can work::
 

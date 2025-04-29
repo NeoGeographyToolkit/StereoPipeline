@@ -518,4 +518,26 @@ def generic_run(cmd, verbose):
     if code != 0:
             raise Exception('Failed to run: ' + cmd_str)
 
+def findTheiaInstallDir():
+    """
+    Find the Theia installation directory. 
     
+    For packaged builds, this will be based on the path to the current
+    executable.
+    
+    For a dev build, it is easier to use the ISISROOT environment variable,
+    which is usually set.
+    """
+    
+    installDir = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
+
+    if not os.path.exists(installDir + "/bin/build_reconstruction"):
+        if 'ISISROOT' in os.environ:
+            installDir = os.environ['ISISROOT']
+
+    if not os.path.exists(installDir + "/bin/build_reconstruction"):
+       raise Exception("Cannot find the Theia build_reconstruction binary. " + \
+                       "Set the environment variable ISISROOT to point to the " + \
+                       "installation directory for ASP dependencies, including Theia.")
+
+    return installDir
