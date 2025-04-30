@@ -741,7 +741,6 @@ created (:numref:`jitter_ip`), to be used later to solve for jitter.
       --alignment-method none                      \
       --num-matches-from-disparity 60000           \
       --bundle-adjust-prefix ba/run                \
-      --keep-only '.exr L.tif F.tif PC.tif .match' \
       1.map.tif 2.map.tif 1.xml 2.xml              \
       run_1_2_map/run                              \
       ref.tif
@@ -875,7 +874,6 @@ Run stereo::
       --subpixel-mode 9                                    \
       --processes 6                                        \
       --alignment-method none                              \
-      --keep-only '.exr L.tif F.tif PC.tif map.tif .match' \
       1.jitter.map.tif 2.jitter.map.tif                    \
       jitter/run-1.adjusted_state.json                     \
       jitter/run-2.adjusted_state.json                     \
@@ -903,7 +901,6 @@ computing. The commands in the previous section can be replaced with::
       --subpixel-mode 9                                    \
       --processes 6                                        \
       --alignment-method none                              \
-      --keep-only '.exr L.tif F.tif PC.tif map.tif .match' \
       --prev-run-prefix run_1_2_map/run                    \
       1.map.tif 2.map.tif                                  \
       jitter/run-1.adjusted_state.json                     \

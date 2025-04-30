@@ -642,7 +642,7 @@ Command-line options for point2dem
     Set the system cache size, in MB.
 
 --no-bigtiff
-    Tell GDAL to not create BigTIFF files.
+    Tell GDAL to not create BigTiff files.
 
 --tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.

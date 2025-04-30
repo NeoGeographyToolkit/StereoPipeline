@@ -963,7 +963,7 @@ accept all other ``parallel_stereo`` options as well.
     Image tile size used for multi-threaded processing.
 
 --no-bigtiff
-    Tell GDAL to not create BigTIFF files.
+    Tell GDAL to not create BigTiff files.
 
 --tif-compress <string (default = "LZW")>
     TIFF compression method. Options: None, LZW, Deflate, Packbits.

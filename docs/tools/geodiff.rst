@@ -91,7 +91,7 @@ Command-line options
     Image tile size used for multi-threaded processing.
 
 --no-bigtiff
-    Tell GDAL to not create bigtiffs.
+    Tell GDAL to not create BigTiff files.
 
 --float
     Output using float (32 bit) instead of using doubles (64 bit).

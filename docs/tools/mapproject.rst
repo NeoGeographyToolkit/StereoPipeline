@@ -296,7 +296,7 @@ Command-line options
     Use the CSM model with ASTER cameras (``-t aster``).
     
 --no-bigtiff
-    Tell GDAL to not create bigtiffs.
+    Tell GDAL to not create BigTiff files.
 
 --tif-compress <None|LZW|Deflate|Packbits>
     TIFF compression method.

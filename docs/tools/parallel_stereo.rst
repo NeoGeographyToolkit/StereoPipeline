@@ -256,14 +256,14 @@ Command-line options
     :numref:`bathy_reuse_run` for an example.
 
 --keep-only <string (default: "all_combined")>
-    If set to ``all_combined``, which is the default, at the end of a
-    successful run combine the results from subdirectories into ``.tif``
-    files with the given output prefix, and delete the
-    subdirectories. If set to ``essential``, keep only ``PC.tif`` and the
-    files needed to recreate it (those ending with ``.exr``, ``-L.tif``,
-    ``-F.tif``). If set to ``unchanged``, keep the run directory as it
-    is. For fine-grained control, specify a quoted list of suffixes of
-    files to keep, such as ``".exr .match -L.tif -PC.tif"``.
+    If set to ``all_combined``, which is the default, at the end of a successful
+    run combine the results from subdirectories into ``.tif`` files with the
+    given output prefix, and delete the subdirectories. If set to ``essential``,
+    keep only ``PC.tif`` and the files needed to recreate it (those ending with
+    ``L.txt``, ``R.txt``, ``.exr``, ``-L.tif``, ``-F.tif``). If set to
+    ``unchanged``, keep the run directory as it is. For fine-grained control,
+    specify a quoted list of suffixes of files to keep, such as 
+    ``"L.txt R.txt .exr .match -L.tif -PC.tif"``.
                                       
 --verbose
     Display the commands being executed.
@@ -285,7 +285,7 @@ Command-line options
     Image tile size used for multi-threaded processing.
 
 --no-bigtiff
-    Tell GDAL to not create bigtiffs.
+    Tell GDAL to not create BigTiff files.
 
 --tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.

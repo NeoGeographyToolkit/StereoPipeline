@@ -56,7 +56,7 @@ Command-line options for ``hillshade``:
     Image tile size used for multi-threaded processing.
 
 --no-bigtiff
-    Tell GDAL to not create bigtiffs.
+    Tell GDAL to not create BigTiff files.
 
 --tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.

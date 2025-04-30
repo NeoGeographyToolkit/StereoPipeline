@@ -17,7 +17,7 @@ ASP distributes in the ``bin`` directory the following `GDAL
 
 and a handful of other ones.
 
-These executables are compiled with JPEG2000 and BigTIFF support, and
+These executables are compiled with JPEG2000 and BigTiff support, and
 can handle NTF images in addition to most image formats. They can be
 used to see image statistics, crop and scale images, build virtual
 mosaics, reproject DEMs, etc.

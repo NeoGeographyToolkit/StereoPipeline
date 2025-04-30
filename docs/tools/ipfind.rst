@@ -34,10 +34,10 @@ Command-line options for ipfind:
     in OpenCV. OBALoG is from :cite:`jakkula2010efficient`. 
     IAGD (Integral Auto Gain Detector) is a variant of OBALoG.
 
---descriptor-generator <sift|orb|sgrad|sgrad2|patch|pca (default: sift)>
+--descriptor-generator <sift|orb|sgrad|sgrad2|patch (default: sift)>
     Choose a descriptor generator. Some descriptors work only with
     certain interest point operators (for example, for 'OBALoG' use
-    'sgrad', 'sgrad2', 'patch', and 'pca').
+    'sgrad', 'sgrad2', 'patch').
 
 --ip-per-image <integer>
     Set the maximum number of IP to find in the whole image. If not
@@ -96,7 +96,7 @@ Command-line options for ipfind:
     Image tile size used for multi-threaded processing.
 
 --no-bigtiff
-    Tell GDAL to not create bigtiffs.
+    Tell GDAL to not create BigTiff files.
 
 --tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.
