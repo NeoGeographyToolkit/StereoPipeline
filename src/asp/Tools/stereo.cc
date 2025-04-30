@@ -45,41 +45,26 @@ using namespace vw::cartography;
 
 namespace asp {
 
-// Transform the crop window to be in reference to L.tif
+// Transform the crop window to be in reference to L.tif. When --left-image-crop-win
+// is set, different logic is used, which may need to be integrated here.
 BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
 
-  BBox2i b = stereo_settings().left_image_crop_win;
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  if (crop_left)
+    vw::vw_throw(ArgumentErr() << "Function transformed_crop_win() "
+               << "should not be called with --left-image-crop-win.\n");
+
+  BBox2i b;
   boost::shared_ptr<vw::DiskImageResource> rsrc =
           vw::DiskImageResourcePtr(opt.in_file1);
   DiskImageView<PixelGray<float>> left_image(rsrc);
   BBox2i full_box = bounding_box(left_image);
-  if (b == BBox2i(0, 0, 0, 0)) {
-
-    // No box was provided. Use the full box.
-    if (fs::exists(opt.out_prefix+"-L.tif")) {
-      DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
-      b = bounding_box(L_img);
-    } else {
-      b = full_box; // To not have an empty box
-    }
-
+  
+  if (fs::exists(opt.out_prefix+"-L.tif")) {
+    DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
+    b = bounding_box(L_img);
   } else {
-
-    // Ensure that the region is inside the maximum theoretical region
-    b.crop(full_box);
-
-    if (fs::exists(opt.out_prefix+"-align-L.exr")) {
-      Matrix<double> align_left_matrix = math::identity_matrix<3>();
-      read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
-      b = HomographyTransform(align_left_matrix).forward_bbox(b);
-    }
-
-    if (fs::exists(opt.out_prefix+"-L.tif")) {
-      // Intersect with L.tif which is the transformed and processed left image
-      DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
-      b.crop(bounding_box(L_img));
-    }
-
+    b = full_box; // To not have an empty box
   }
 
   return b;
@@ -661,7 +646,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
     // affine epipolar or homography alignment.
     if (stereo_settings().trans_crop_win == BBox2i(0, 0, 0, 0))
       stereo_settings().trans_crop_win = transformed_crop_win(opt);
-
+      
     // Intersect with L.tif which is the transformed and processed left image.
     if (fs::exists(opt.out_prefix+"-L.tif")) {
       DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");

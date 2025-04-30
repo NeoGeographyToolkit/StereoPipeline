@@ -15,8 +15,7 @@ Building ASP without conda
 
 All dependencies for the *latest development version* of ASP are a available as
 a `binary tarball
-<https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/>`_. This has
-binaries for ASP itself, but that is not a problem for rebuilding ASP.
+<https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/>`_.
 
 Alternatively, the Stereo Pipeline repository provides the full environment for
 the latest official ASP release in the ``conda`` subdirectory.  It can be installed
@@ -29,6 +28,9 @@ on Linux, and similarly on the Mac.
 This will create an ``asp_deps`` environment. Activate it with::
 
     conda activate asp_deps
+
+Any header files in the ``include/vw`` and ``include/asp`` directories
+should be deleted to not interfere with compilation. 
 
 On rare occasions conda packages have files of the form ``libMyLib.la`` that
 have incorrect paths. Any such files are not needed in either case and

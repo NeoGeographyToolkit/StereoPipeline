@@ -29,6 +29,7 @@
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/IsisIO/IsisCameraModel.h>
+#include <asp/Core/AlignmentUtils.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
@@ -998,26 +999,12 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
     vw_throw(NoImplErr() << "Could not read: " << left_aligned_file);
 
   // Read alignment matrices
-  Matrix<double> align_left_matrix = math::identity_matrix<3>();
-  std::string left_matrix_file = this->m_out_prefix + "-align-L.exr";
-  if (stereo_settings().alignment_method == "affineepipolar" ||
-      stereo_settings().alignment_method == "local_epipolar") {
-    if (boost::filesystem::exists(left_matrix_file))
-      read_matrix(align_left_matrix, left_matrix_file);
-    else
-      vw_throw(NoImplErr() << "Could not read: " << left_matrix_file);
-  }
-
-  Matrix<double> align_right_matrix = math::identity_matrix<3>();
-  std::string right_matrix_file = this->m_out_prefix + "-align-R.exr";
-  if (stereo_settings().alignment_method == "homography"     ||
-      stereo_settings().alignment_method == "affineepipolar" ||
-      stereo_settings().alignment_method == "local_epipolar") {
-    if (boost::filesystem::exists(right_matrix_file))
-      read_matrix(align_right_matrix, right_matrix_file);
-    else
-      vw_throw(NoImplErr() << "Could not read " << right_matrix_file);
-  }
+  vw::Matrix<double> align_left_matrix 
+   = asp::alignmentMatrix(this->m_out_prefix, asp::stereo_settings().alignment_method,
+                              "left");
+  vw::Matrix<double> align_right_matrix
+   = asp::alignmentMatrix(this->m_out_prefix, asp::stereo_settings().alignment_method,
+                              "right");
 
   // Generate aligned versions of the masks according to the options.
   ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
@@ -1161,22 +1148,16 @@ void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop,
 
 
 vw::TransformPtr StereoSession::tx_left_homography() const {
-  Matrix<double> tx = math::identity_matrix<3>();
-  if (stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar" ||
-       stereo_settings().alignment_method == "local_epipolar") {
-    read_matrix(tx, m_out_prefix + "-align-L.exr");
-  }
+  vw::Matrix<double> tx 
+    = asp::alignmentMatrix(m_out_prefix, asp::stereo_settings().alignment_method,
+                           "left");
   return vw::TransformPtr(new vw::HomographyTransform(tx));
 }
 
 vw::TransformPtr StereoSession::tx_right_homography() const {
-  Matrix<double> tx = math::identity_matrix<3>();
-  if (stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar" ||
-       stereo_settings().alignment_method == "local_epipolar") {
-    read_matrix(tx, m_out_prefix + "-align-R.exr");
-  }
+  vw::Matrix<double> tx
+    = asp::alignmentMatrix(m_out_prefix, asp::stereo_settings().alignment_method,
+                           "right");
   return vw::TransformPtr(new vw::HomographyTransform(tx));
 }
 

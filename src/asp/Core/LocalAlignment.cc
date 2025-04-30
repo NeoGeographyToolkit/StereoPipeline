@@ -28,6 +28,7 @@
 #include <asp/Core/DisparityProcessing.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/ImageNormalization.h>
+#include <asp/Core/AlignmentUtils.h>
 
 #include <vw/Math/Transform.h>
 #include <vw/Image/Transform.h>
@@ -418,10 +419,12 @@ namespace asp {
     if (stereo_settings().local_alignment_debug)
       std::cout << "Grown left trans crop win " << left_trans_crop_win << std::endl;
 
-    Matrix<double> left_global_mat  = math::identity_matrix<3>();
-    Matrix<double> right_global_mat = math::identity_matrix<3>();
-    read_matrix(left_global_mat, opt.out_prefix + "-align-L.exr");
-    read_matrix(right_global_mat, opt.out_prefix + "-align-R.exr");
+    vw::Matrix<double> left_global_mat
+       = asp::alignmentMatrix(opt.out_prefix, asp::stereo_settings().alignment_method,
+                              "left");
+    vw::Matrix<double> right_global_mat
+       = asp::alignmentMatrix(opt.out_prefix, asp::stereo_settings().alignment_method,
+                              "right");
     vw::HomographyTransform left_global_trans(left_global_mat);
     vw::HomographyTransform right_global_trans(right_global_mat);
 
@@ -437,7 +440,7 @@ namespace asp {
 
     // TODO(oalexan1): May want to increase here the number of ip per image,
     // from the default of 5000 in InterestPointMatching.cc.
-    // But do not introduced hard-coded values.
+    // But do not introduce hard-coded values.
 
     // Redo ip matching in the current tile. It should be more accurate after alignment
     // and cropping.

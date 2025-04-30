@@ -133,7 +133,11 @@ refine_disparity(Image1T const& left_image,
                    stereo_settings().subpixel_max_levels);
 
   } else if (stereo_settings().subpixel_mode == 6) {
-    // Affine and Bayes subpixel refinement always use the LogPreprocessingFilter...
+    
+    // This no longer works. Support for .exr files will be removed anyway.
+    vw::vw_throw(NoImplErr() << "Subpixel mode 6 support has been removed.\n");
+#if 0    
+    // Affine and Bayes subpixel refinement always use the LogPreprocessingFilter.
     if (verbose) {
       vw_out() << "\t--> Using EM Subpixel mode "
                << stereo_settings().subpixel_mode << "\n";
@@ -172,6 +176,7 @@ refine_disparity(Image1T const& left_image,
     refined_disp =
       per_pixel_filter(em_disparity_disk_image,
                        EMCorrelator::ExtractDisparityFunctor());
+#endif      
   } // End of subpixel mode selection
 
   if ((stereo_settings().subpixel_mode < 0) || (stereo_settings().subpixel_mode > 5)) {
