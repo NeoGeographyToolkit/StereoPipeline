@@ -174,15 +174,11 @@ will need. These could be appended to the earlier environment, but it
 is less likely to to have issues with dependency conflicts if these
 are kept separate.
 
-It is very strongly suggested to install the same versions of compilers
-as what ISIS uses, and ensure the same versions are in every recipe below.
-
 ::
 
     conda create -n tools
     conda activate tools
-    conda install -c conda-forge anaconda-client conda-build \
-      conda-verify
+    conda install -c conda-forge anaconda-client conda-build
 
 .. _packages_to_build:
 
@@ -201,13 +197,13 @@ can be downloaded with ``git clone`` from:
   https://github.com/NeoGeographyToolkit/multiview-feedstock
   https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
 
-Temporarily, for the ASP 3.5.0 release, a few more dependencies exist::
+Temporarily, for the ASP 3.5.0 release, a few more dependencies exist:
 
   https://github.com/NeoGeographyToolkit/ilmbase-feedstock.git
   https://github.com/NeoGeographyToolkit/openexr-feedstock.git
   https://github.com/NeoGeographyToolkit/pdal-feedstock.git
 
-Lastly, the recipe for ASP itself::
+Lastly, the recipe for ASP itself:
 
   https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
 
@@ -236,13 +232,9 @@ It is suggested to examine the changed ``meta.yaml``, and if in doubt,
 leave the values as they were before modified by this script. 
 
 In the ``visionworkbench`` and ``stereopipeline`` recipes update the
-``git_tag`` value to reflect the desired commit from the Git
+``git_tag`` value to reflect the desired commit or tag from the Git
 history, or leave it as is if desired to build the latest code.
-
-When making an ASP release, one can tag the commit based on
-which the release happens in the VisionWorkbench and StereoPipeline
-repositories, and then that tag can be used in the ``git_tag`` field.
-See :numref:`asp_release_guide` for more details.
+See :numref:`asp_release_guide` regarding tagging.
 
 Later on, after the packages are built and tested, ensure that all the
 changes to the feedstock repositories are checked in.
@@ -284,33 +276,39 @@ Run a command along the lines:
 ::
 
     anaconda upload \
-      $HOME/miniconda3/envs/asp_deps/conda-bld/linux-64/MyPackage.tar.bz2
+      $HOME/miniconda3/envs/asp_deps/conda-bld/linux-64/myPackage.tar.bz2
 
 (Use above the path echoed on the screen by the ``conda build``
 command.)
 
-Use the ``--force`` option if desired to overwrite any existing
-package with the same name and version. Be careful not to overwrite
-a package that is meant to be used with a prior version of ASP.
+Using the ``--force`` option to overwrite any existing package with the same
+name and version is discouraged. Sometimes this causes conda to claim the package
+checksum is wrong and it cannot be installed. 
 
-After a package is uploaded, it can be installed in the existing
-``isis8.3.0`` environment as::
+It is better to increment the build number in the ``meta.yaml`` file
+before rebuilding a package. 
 
-    conda install -c nasa-ames-stereo-pipeline \
-      -c usgs-astrogeology                     \
-      -c conda-forge                           \
-      libelas
+After a package is uploaded, it can be installed in the desired environment as::
+
+    conda install                  \
+      -c nasa-ames-stereo-pipeline \
+      -c usgs-astrogeology         \
+      -c conda-forge               \
+      -n myEnv                     \
+      myPackage=myVersion=myBuildNo
 
 If this is slow, check if the solver is set to ``libmamba``. 
  
-To list all packages in that channel, do::
+To list all packages in the channel, do::
 
     conda search -c nasa-ames-stereo-pipeline --override-channels
 
 To delete a package from this channel, run::
 
-    anaconda remove nasa-ames-stereo-pipeline/mypackage/myversion
+    anaconda remove nasa-ames-stereo-pipeline/myPackage/myVersion
   
+This is strongly discouraged. 
+
 .. _conda_build_order:
 
 Order of building the packages

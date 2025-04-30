@@ -157,15 +157,7 @@ fi
 # the scripts extracted from the tarball.
 cd $baseDir
 echo Build done. Now testing.
-echo See if there is wget
-which wget
 wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
-
-echo second attempt
-wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar
-
-echo will list
-ls -altrdh *
 
 # Check if we got the tarball
 if [ ! -f "StereoPipelineTest.tar" ]; then

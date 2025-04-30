@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # To update the Mac dependencies or create new ones, in manual (interactive)
-# mode, run the ssh.yml / ssh_mac_arm.yml action to get ssh access to a Mac
-# cloud instance.
+# mode, run the ssh_mac_x64.yml / ssh_mac_arm.yml action to get ssh access to a
+# Mac cloud instance.
 
 # Then, fetch/build/update the dependencies. See 
 # https://stereopipeline.readthedocs.io/en/latest/building_asp.html
@@ -39,18 +39,17 @@
 # How to run this script:
 
 # For Mac x64:
-# tag=asp_deps_mac_x64_v5 # sync up here with build_test.sh
-# workflow="ssh.yml" # manual workflow
-# #workflow="build_isis.yml" # automatic workflow
+# tag=asp_deps_mac_x64_xxx # sync up here with build_test.sh
+# workflow="ssh_mac_x64.yml"
 # $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
 
 # For Mac Arm64:
-# tag=asp_deps_mac_arm64_v2 # sync up here with build_test.sh
-# workflow="ssh_mac_arm.yml" # manual workflow
+# tag=asp_deps_mac_arm64_xxx # sync up here with build_test.sh
+# workflow="ssh_mac_arm.yml"
 # $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
 
 # For linux, the dependencies from the local machine can be saved as follows.
-# tag=asp_deps_linux_v2
+# tag=asp_deps_linux_xxx # change here
 # $HOME/projects/StereoPipeline/.github/workflows/save_linux_deps.sh $tag
 
 # Check usage
@@ -60,7 +59,7 @@ if [ "$#" -lt 2 ]; then
 fi
 
 # The workflow that saved the dependencies as artifact. Options:
-# ssh.yml, ssh_mac_arm.yml, build_isis.yml
+# ssh_mac_x64.yml, ssh_mac_arm.yml
 workflow=$1; shift
 
 # The tag to use to save the dependencies. Must then use this tag
