@@ -39,18 +39,18 @@
 # How to run this script:
 
 # For Mac x64:
-# tag=asp_deps_mac_x64_v1
+# tag=asp_deps_mac_x64_v5 # sync up here with build_test.sh
 # workflow="ssh.yml" # manual workflow
 # #workflow="build_isis.yml" # automatic workflow
 # $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
 
 # For Mac Arm64:
-# tag=asp_deps_mac_arm64_v2
+# tag=asp_deps_mac_arm64_v2 # sync up here with build_test.sh
 # workflow="ssh_mac_arm.yml" # manual workflow
 # $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
 
 # For linux, the dependencies from the local machine can be saved as follows.
-# tag=asp_deps_linux_v1
+# tag=asp_deps_linux_v2
 # $HOME/projects/StereoPipeline/.github/workflows/save_linux_deps.sh $tag
 
 # Check usage

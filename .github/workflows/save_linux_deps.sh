@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # Run this on a local machine to save the current dependencies as a release.
+# This will wipe the old version with the same tag. See save_mac_deps.sh for
+# more info.
 
 # Check usage 
 if [ "$#" -lt 1 ]; then
