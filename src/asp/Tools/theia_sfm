@@ -252,9 +252,6 @@ if __name__ == "__main__":
 
     base_dir = asp_system_utils.findTheiaInstallDir()
     
-    # Set the path to OpenIO. This will not be needed when this dependency is removed
-    os.environ['OIIO_LIBRARY_PATH'] = base_dir + "/lib"
-
     # TODO(oalexan1): Setting the dynamic library path this way is fragile, but
     # I can't think of any better solution, and otherwise it fails to find the lib.
     if 'Darwin' in platform.system():

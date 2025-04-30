@@ -796,13 +796,6 @@ def main(argsIn):
 
     startTime = time.time()
 
-    # Set this env variable to find some libraries. At some point OIIO will be replaced
-    # with OpenCV.
-    key = 'OIIO_LIBRARY_PATH'
-    if key not in os.environ:
-        progPath = asp_system_utils.which("build_reconstruction")
-        os.environ[key] = os.path.dirname(os.path.dirname(progPath)) + '/lib'
-
     # Step 1: Call Theia's build_reconstruction tool.
     # Theia's reconstruction tool sometimes fails for no apparent reason but
     #  this does not happen often.  If it fails, try a few more times

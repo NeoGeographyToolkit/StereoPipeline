@@ -157,7 +157,16 @@ fi
 # the scripts extracted from the tarball.
 cd $baseDir
 echo Build done. Now testing.
+echo See if there is wget
+which wget
 wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
+
+echo second attempt
+wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar
+
+echo will list
+ls -altrdh *
+
 # Check if we got the tarball
 if [ ! -f "StereoPipelineTest.tar" ]; then
     echo "Error: File: StereoPipelineTest.tar does not exist"
@@ -216,7 +225,7 @@ mkdir -p $packageDir
     
 # Save the resulting test results as part of the artifacts
 # This helps with debugging later
-(cd $testDir/..; tar czf $packageDir/$(basename $testDir).tar.gz $(basename $testDir))
+(cd $testDir/..; tar cf $packageDir/$(basename $testDir).tar $(basename $testDir))
 
 # Save these logs as part of the artifacts
 cp -rfv $out_build_vw $out_build_asp $reportFile $packageDir

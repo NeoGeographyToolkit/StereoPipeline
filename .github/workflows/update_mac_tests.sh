@@ -30,6 +30,8 @@ if [ ! -d "StereoPipelineTest" ]; then
   exit 1
 fi
 
+# Here may need to do some manual inspections
+
 # Update the failed tests (each 'gold' is overwritten with 'run').
 # This assumes that the "run" directories are trusted to be correct.
 echo "Updating the tests"
