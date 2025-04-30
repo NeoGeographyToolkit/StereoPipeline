@@ -382,8 +382,8 @@ void StereoSession::imageAlignment(// Inputs
              << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
   }
   // Write out both computed matrices to disk
-  write_matrix(out_prefix + "-align-L.exr", align_left_matrix);
-  write_matrix(out_prefix + "-align-R.exr", align_right_matrix);
+  write_matrix_as_txt(out_prefix + "-align-L.txt", align_left_matrix);
+  write_matrix_as_txt(out_prefix + "-align-R.txt", align_right_matrix);
 
   // Because the images are now aligned they are the same size
   right_size = left_size;

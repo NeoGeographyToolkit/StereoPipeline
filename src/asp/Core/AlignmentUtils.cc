@@ -26,13 +26,11 @@ namespace fs = boost::filesystem;
 namespace asp {
 
 std::string leftAlignFile(std::string const& out_prefix) {
-  std::cout << "---will return align-L.exr\n";
-  return out_prefix + "-align-L.exr";
+  return out_prefix + "-align-L.txt";
 }
 
 std::string rightAlignFile(std::string const& out_prefix) {
-  std::cout << "--will return align-R.exr\n";
-  return out_prefix + "-align-R.exr"; 
+  return out_prefix + "-align-R.txt"; 
 }
 
 // These are kept for backward compatibility and will be removed
@@ -51,23 +49,31 @@ vw::Matrix<double> alignmentMatrix(std::string const& out_prefix,
                                    std::string const& alignment_method,
                                    std::string const& side) {
  
-  std::string align_file;
-  if (side == "left")
+  std::string align_file, align_file_exr;
+  if (side == "left") {
     align_file = leftAlignFile(out_prefix);
-  else if (side == "right")
+    align_file_exr = leftAlignExrFile(out_prefix);
+  } else if (side == "right") {
     align_file = rightAlignFile(out_prefix);
-  else
+    align_file_exr = rightAlignExrFile(out_prefix);
+  } else {
     vw::vw_throw(vw::ArgumentErr() << "Invalid side: " << side << "\n");
-
+  }
+  
   // Initalize with the identity matrix      
   vw::Matrix<double> align_matrix = vw::math::identity_matrix<3>();
 
   if (alignment_method == "homography" ||
       alignment_method == "affineepipolar" ||
       alignment_method == "local_epipolar") {
-    if (!fs::exists(align_file))
-      vw::vw_throw(vw::ArgumentErr() << "Could not read: " << align_file);
-    vw::read_matrix(align_matrix, align_file);
+    if (fs::exists(align_file)) // read alignment matrix from text file
+      vw::read_matrix_as_txt(align_file, align_matrix);
+    else if (fs::exists(align_file_exr)) // read exr, for backward compatibility
+      vw::read_matrix(align_matrix, align_file_exr);
+    else
+      vw::vw_throw(vw::IOErr() << "Could not read alignment matrix from: "
+                 << align_file << " or " << align_file_exr << "\n");
+    
   }
 
   return align_matrix;

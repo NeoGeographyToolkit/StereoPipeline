@@ -5,8 +5,16 @@ camera_solve (:numref:`camera_solve`):
   * Works on Mac Arm.
   * Removed dependency on OpenImageIO. 
 
+parallel_stereo (:numref:`parallel_stereo`):
+  * Left and right alignment matrices are now saved in plain text format. Older
+    .exr files are still read. Support for them will be removed in the next
+    release (:numref:`outputfiles`).
+     
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
+  * Turned off experimental ``--subpixel-mode 6`` as it is failing to run
+    (:numref:`subpixel_options`).
+  * Unused ``pca`` mode in ``ipfind`` got removed.
 
 RELEASE 3.5.0, April 28, 2025
 -----------------------------

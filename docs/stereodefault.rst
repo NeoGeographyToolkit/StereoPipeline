@@ -644,7 +644,7 @@ subpixel-mode (*integer*) (default = auto)
     | 3 - affine window 
     | 4 - phase correlation 
     | 5 - Lucas-Kanade method (experimental)
-    | 6 - affine adaptive window, Bayes EM with Gamma Noise Distribution (experimental) 
+    | 6 - affine adaptive window, Bayes EM with Gamma Noise Distribution (turned off) 
     | 7 - SGM None 
     | 8 - SGM linear 
     | 9 - SGM Poly4 

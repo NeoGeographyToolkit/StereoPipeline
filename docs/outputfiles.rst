@@ -71,11 +71,11 @@ Files created in preprocessing
 \*-rMask.tif - mask for right rectified image
     See \*-lMask.tif, above.
 
-\*-align-L.exr - left alignment matrix
+\*-align-L.txt - left alignment matrix
     The 3 |times| 3 affine transformation matrices that are used
     to warp the left and right images to roughly align them. This
-    file and \*-align-R.exr are only generated if ``alignment-method``
-    is not ``none`` in the ``stereo.default`` file. Normally, a
+    file and \*-align-R.txt are only generated if ``alignment-method``
+    is not ``none`` or ``epipolar`` (:numref:`stereodefault`). Normally, a
     single transform is enough to warp one image to another (for
     example, the right image to the left). The reason we use two
     transforms is the following: after the right image is warped
@@ -83,8 +83,11 @@ Files created in preprocessing
     so that the origin (0, 0) in the left image would correspond
     to the same location in the right image. This will somewhat
     improve the efficiency of subsequent processing.
+    
+    The older .exr format is still supported on reading but will be removed in
+    the future. 
 
-\*-align-R.exr - right alignment matrix. See \*-align-L.exr, above.
+\*-align-R.txt - right alignment matrix. See \*-align-L.txt, above.
 
 \*bathy_mask\*.tif - data related to water-land masks, for stereo with
     shallow water (:numref:`shallow_water_bathy`).
