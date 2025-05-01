@@ -3,7 +3,7 @@
 dem_geoid
 ---------
 
-This tool takes as input a DEM whose height values are relative to the datum
+This program takes as input a DEM whose height values are relative to the datum
 ellipsoid, and adjusts those values to be relative to the equipotential surface
 of the planet (geoid on Earth, areoid on Mars, etc.).
 
@@ -15,6 +15,7 @@ This program can also perform the reverse adjustment.
 
 Supported geoids
 ~~~~~~~~~~~~~~~~~
+
 Three geoids and one areoid are supported (also custom geoids). The Earth
 geoids are EGM96 and EGM2008, relative to the WGS84 datum ellipsoid (see the
 `NGA Office of Geomatics
@@ -29,18 +30,20 @@ to the IAU reference spheroid for Mars of radius 3,396,190 m. The areoid at tha
 source was relative to the Mars radius of 3,396,000 m. Yet ``dem_geoid`` can
 adjust correctly Mars DEMs created in respect to either spheroid.
 
+.. _custom_geoid:
+
 Custom geoids
 ~~~~~~~~~~~~~
 
 The ``dem_geoid`` program can work with a provided geoid correction GeoTiff
 file, with the option ``--geoid-path`` (:numref:`dem_geoid_cmd_opts`).
 
-As an example, this `Moon geoid correction
-<https://github.com/NeoGeographyToolkit/StereoPipeline/releases/download/geoid1.0/gggrx_1200b_meDE430_L002_L900_16ppd.tif>`_,
-from :cite:`goossens2020high`, has been adapted to work with this program.
+As an example, `this Moon geoid correction
+<https://github.com/NeoGeographyToolkit/StereoPipeline/releases/download/geoid1.0/gggrx_1200b_meDE430_L002_L900_16ppd.tif>`_ has been adapted 
+from :cite:`goossens2020high` to work with this program.
 
-The ``dem_geoid`` program uses bicubic interpolation into the geoid correction
-file. The ``gdalwarp`` program (:numref:`gdal_tools`) can be used to resample
+The ``dem_geoid`` program employs bicubic interpolation into the geoid correction
+file. The ``gdalwarp`` program (:numref:`gdal_tools`) can resample
 any such file to a fine-enough resolution and with the desired interpolation
 method before passing it to this program.
 
@@ -71,7 +74,8 @@ Command-line options for dem_geoid
 --geoid-path <string (default = "")>
     Specify the path to a custom GeoTiff file having the geoid correction, in
     units of meter. Values from this file will be subtracted from the DEM values
-    in order to convert from ellipsoid to geoid heights. 
+    in order to convert from ellipsoid to geoid heights. See
+    :numref:`custom_geoid`.
     
 -o, --output-prefix <name>
     Specify the output file prefix.
