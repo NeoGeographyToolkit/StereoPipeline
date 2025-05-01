@@ -59,7 +59,12 @@ option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # Make sure installed files can find installed libraries
-SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib" ${CMAKE_INSTALL_RPATH} ${ASP_DEPS_DIR}/lib)
+if (APPLE)
+  SET(CMAKE_INSTALL_RPATH "@loader_path/../lib" ${CMAKE_INSTALL_RPATH})
+elseif (UNIX)
+  SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib" ${CMAKE_INSTALL_RPATH})
+endif()
+SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${ASP_DEPS_DIR}/lib)
 
 # Fixed options
 set(Boost_USE_STATIC_LIBS   OFF)

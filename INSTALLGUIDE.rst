@@ -40,8 +40,8 @@ ASP builds are produced for MacOS, with the Intel processor. These were verified
 to work on the Arm M1/M2 processor under Rosetta 2.
 
 An *experimental* native daily build is available for the Arm M1/M2 architecture
-at the link above (``arm64-OSX.tar.bz2``). This has all ASP logic
-except the minor ``libelas`` stereo algorithm (:numref:`libelas`).
+at the link above (``arm64-OSX``). This has all ASP logic except the minor
+``libelas`` stereo algorithm (:numref:`libelas`).
 
 The installation steps are the same as for Linux. It is important to 
 note that:
@@ -201,7 +201,7 @@ Fetching pre-compiled ASP with conda
 The ASP 3.5.0 release (April 28, 2025) can be installed via conda, together 
 with ISIS 8.3.0 (:numref:`planetary_images`).
 
-ASP conda packages do not exist for ARM64 Mac (M1/M2). A binary daily build is
+ASP conda packages do not exist for the newer Mac M1/M2. A binary daily build is
 provided, however (:numref:`release`).
 
 To install ``conda``, see:
