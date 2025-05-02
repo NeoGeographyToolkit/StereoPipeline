@@ -132,9 +132,9 @@ The ``parallel_sfs`` (:numref:`parallel_sfs`) command was::
       --image-list image_list.txt            \
       --camera-list camera_list.txt          \
       --smoothness-weight 0.01               \
+      --initial-dem-constraint-weight 0.0002 \
       --reflectance-type 0                   \
       --num-haze-coeffs 1                    \
-      --initial-dem-constraint-weight 0.0002 \
       --max-iterations 5                     \
       --float-exposure                       \
       --float-haze                           \

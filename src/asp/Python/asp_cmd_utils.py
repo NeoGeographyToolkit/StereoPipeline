@@ -53,6 +53,21 @@ def replace_opt_val(argv, opt, old_val, new_val):
     
     return argv
 
+def option_val(argv, opt):
+  # Find the value that follows the option 'opt' in the array 'argv'.
+  # If the value is not found, return None.
+  try:
+    r = argv.index(opt)
+  except:
+    return None
+  
+  # There must be another value after the option
+  if r+1 >= len(argv):
+     return None
+    
+  # Return the value
+  return argv[r+1]   
+  
 class CmdRunException(Exception):
     '''Exception type indicating an error with a cmd call'''
     pass

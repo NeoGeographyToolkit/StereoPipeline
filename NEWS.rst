@@ -9,7 +9,12 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Left and right alignment matrices are now saved in plain text format. Older
     .exr files are still read. Support for them will be removed in the next
     release (:numref:`outputfiles`).
-     
+
+parallel_sfs (:numref:`parallel_sfs`):
+   * When albedo and / or haze is modeled, initial estimates for these are
+     produced for the full site, just as it was so far done for exposures,
+     before using them per tile (when they can be further optimized).
+
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
   * Turned off experimental ``--subpixel-mode 6`` as it is failing to run

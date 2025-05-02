@@ -1504,11 +1504,13 @@ SfS should work fine with a few hundred input images, but it can be slow.
 It is best to avoid images with very low illumination angles as those
 can result in artifacts in the produced SfS terrain.
 
-The first step that will happen when this is launched is computing the image
-exposures. This is a serial step running on a single node, but is reasonably
-fast. The exposures can be computed ahead of time by using the flag
-``--compute-exposures-only`` in this tool. Then the computed exposures can be
-passed to the command above via the ``--image-exposures-prefix`` option.
+The first step that will happen, when this program is launched, is computing the
+image exposures, and, if applicable, the initial haze values and albedo. See the
+option ``--estimate-exposure-haze-albedo`` in ``sfs`` for more details.
+
+Then the computed exposures (also haze and albedo, if applicable) are passed to
+each tile that is run in parallel. All these are further optimized per tile if
+``--float-exposure``, ``--float-haze``, and/or ``--float-albedo`` are used.
 
 The option ``--allow-borderline-data`` improves the level of detail
 close to permanently shadowed areas. See :numref:`sfs_borderline`.

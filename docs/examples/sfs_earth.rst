@@ -206,16 +206,12 @@ These must be in the same order.
 Running SfS
 ~~~~~~~~~~~
 
-The best SfS results were produced by first solving for image exposure,
-atmospheric haze, and albedo on individual small overlapping tiles, with the DEM
-fixed, and then refining the albedo and DEM per-tile while keeping the per-tile
-exposure and haze fixed. 
+The best SfS results were produced by first estimating the image exposures, haze,
+and a low-resolution albedo for the full site, then refining all these further
+per tile. 
 
-That global values of these parameters were not not as good likely suggests that
-the modeling is not precise enough. The modeling is described in
-:numref:`sfs_formulation`.
-
-This two-step process was run as follows::
+This all done under the hood by ``parallel_sfs`` (:numref:`parallel_sfs`) in the
+latest build (:numref:`release`). The command is::
 
     parallel_sfs                            \
       -i dem.tif                            \
@@ -226,29 +222,17 @@ This two-step process was run as follows::
       --threads 8                           \
       --tile-size 200                       \
       --padding 50                          \
+      --blending-dist 10                    \
       --smoothness-weight 3                 \
       --robust-threshold 10                 \
       --reflectance-type 0                  \
       --num-haze-coeffs 1                   \
       --initial-dem-constraint-weight 0.001 \
-      --blending-dist 10                    \
+      --albedo-robust-threshold 0.025       \
       --crop-input-images                   \
       --save-sparingly                      \
       --max-iterations 5                    \
-      --prep-step='--float-exposure
-                   --float-haze
-                   --float-albedo
-                   --fix-dem'               \
-      --main-step='--read-exposures
-                   --read-haze
-                   --read-albedo
-                   --float-albedo'          \
       -o sfs/run
-
-This program does the partitioning into tiles, individual processing of tiles,
-and merging of the results. The descriptions of these options is in
-:numref:`parallel_sfs` and :numref:`sfs`. Another example is in
-:numref:`parallel_sfs_usage`.
 
 This program can be very sensitive to the smoothness weight. A higher value will
 produce blurred results, while a lower value will result in a noisy output. One

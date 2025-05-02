@@ -1822,22 +1822,21 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Float the exposure for each image. Will give incorrect results if only one image is present. It usually gives marginal results.")
     ("model-shadows",   po::bool_switch(&opt.model_shadows)->default_value(false)->implicit_value(true),
      "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
-    ("compute-exposures-only",   po::bool_switch(&opt.compute_exposures_only)->default_value(false)->implicit_value(true),
-     "Quit after saving the exposures. This should be done once for a big DEM, before using these for small sub-clips without recomputing them.")
     ("save-computed-intensity-only",   po::bool_switch(&opt.save_computed_intensity_only)->default_value(false)->implicit_value(true),
      "Save the computed (simulated) image intensities for given DEM, images, cameras, and "
      "reflectance model, without refining the DEM. The measured intensities will be saved "
      "as well, for comparison. The image exposures will be computed along the way unless "
      "specified via --image-exposures-prefix, and will be saved in either case to <output "
      "prefix>-exposures.txt. Same for haze, if applicable.")
-     // TODO(oalexan1): --estimate-exposure-haze-albedo needs to replace
-     // --compute-exposures-only, with the latter used for backward
-     // compatibility. The doc needs to explain that when haze and albedo are
-     // used, then those are estimated too. Then, parallel_stereo must read
-     // per tile the estimated haze and albedo.
-     ("estimate-exposure-haze-albedo", 
+    ("estimate-exposure-haze-albedo", 
       po::bool_switch(&opt.estim_exposure_haze_albedo)->default_value(false)->implicit_value(true),
-      "Estimate the exposure, haze, and albedo for each image. This is experimental.")
+     "Estimate the exposure for each image, the haze for each image (if "
+     "--num-haze-coeffs is positive), and the global low-resolution albedo (if "
+     "--float-albedo is on), then quit. This operation samples the input DEM "
+     "based on --num-samples-for-estim. The produced estimated exposure, haze, "
+     "and initial albedo are described in the doc.")
+    ("compute-exposures-only", po::bool_switch(&opt.compute_exposures_only)->default_value(false)->implicit_value(true),
+     "This older option is equivalent to --estimate-exposure-haze-albedo.")
     ("estimate-slope-errors",   po::bool_switch(&opt.estimate_slope_errors)->default_value(false)->implicit_value(true),
      "Estimate the error for each slope (normal to the DEM). This is experimental.")
     ("estimate-height-errors",   po::bool_switch(&opt.estimate_height_errors)->default_value(false)->implicit_value(true),
@@ -2050,6 +2049,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.steepness_factor <= 0.0) 
     vw_throw(ArgumentErr() << "The steepness factor must be positive.\n");    
 
+  // The options --compute-exposures-only and --estimate-exposure-haze-albedo
+  // are equivalent.
+  if (opt.compute_exposures_only)
+    opt.estim_exposure_haze_albedo = true;
+  if (opt.estim_exposure_haze_albedo)
+    opt.compute_exposures_only = true;
+    
   if (opt.compute_exposures_only || opt.estim_exposure_haze_albedo) {
     if (opt.use_approx_camera_models || opt.crop_input_images) {
       vw_out(WarningMessage) << "When computing exposures only, not using approximate "
@@ -2854,7 +2860,8 @@ public:
 };
 
 // Find the best-fit exposure and haze given the input sampled image and reflectance.
-// Also find the sampled albedo along the way.
+// Also find the sampled albedo along the way. The albedo will be optimized
+// only if --float-albedo is on. Otherwise it will be kept at the nominal value.
 // TODO(oalexan1): Move this to SfsCostFun.cc.
 void estimExposureHazeAlbedo(Options & opt,
                              std::vector<MaskedImgT> const& masked_images,
@@ -2965,21 +2972,24 @@ void estimExposureHazeAlbedo(Options & opt,
   ceres::Solve(options, &problem, &summary);
   vw_out() << summary.FullReport() << "\n";
   
-  // Up-sample the estimated albedo to full-res dimensions with bilinear interpolation.
-  bool has_georef = true; 
-  bool has_nodata = true;
-  double albedo_nodata_val = -1e+6; // large but reasonable
-  vw::TerminalProgressCallback tpc("asp", ": ");
-  std::string albedo_file = opt.out_prefix + "-albedo-estim.tif";
-  vw::vw_out() << "Up-sampling the estimated albedo to input DEM dimensions.\n";
-  vw_out() << "Writing: " << albedo_file << "\n";
-  block_write_gdal_image(albedo_file, 
-                         SfsInterpView(dem.cols(), dem.rows(),
-                                       sample_col_rate, sample_row_rate,
-                                       albedo),
-                         has_georef, geo, has_nodata, albedo_nodata_val,
-                         opt, tpc); 
-
+  if (opt.float_albedo) {
+    // Up-sample the estimated albedo to full-res dimensions with bilinear
+    // interpolation. This is not needed and not used if albedo is not floated.
+    bool has_georef = true; 
+    bool has_nodata = true;
+    double albedo_nodata_val = -1e+6; // large but reasonable
+    vw::TerminalProgressCallback tpc("asp", ": ");
+    std::string albedo_file = opt.out_prefix + "-albedo-estim.tif";
+    vw::vw_out() << "Up-sampling the estimated albedo to input DEM dimensions.\n";
+    vw_out() << "Writing: " << albedo_file << "\n";
+    block_write_gdal_image(albedo_file, 
+                          SfsInterpView(dem.cols(), dem.rows(),
+                                        sample_col_rate, sample_row_rate,
+                                        albedo),
+                          has_georef, geo, has_nodata, albedo_nodata_val,
+                          opt, tpc); 
+  }
+  
   // The haze and exposures will be saved outside this function.    
   return;
 }
@@ -3529,7 +3539,8 @@ int main(int argc, char* argv[]) {
     
     // TODO(oalexan1): Check if --num-haze-coeffs is non-zero.
     // TODO(oalexan1): This should work even if albedo is not modeled.
-    if (opt.estim_exposure_haze_albedo)
+    if (opt.estim_exposure_haze_albedo && 
+        (opt.float_albedo || opt.num_haze_coeffs > 0))
       estimExposureHazeAlbedo(opt, masked_images, blend_weights,
                               dem, mean_albedo, 
                               geo, cameras, max_dem_height,

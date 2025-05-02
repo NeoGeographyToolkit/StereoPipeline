@@ -65,15 +65,22 @@ outputs are:
 
  - ``run/run-DEM-final.tif`` - The refined SfS DEM.
 
- - ``run/run-comp-albedo-final.tif`` - The computed albedo. All its values are 1 unless
-   the option ``--float-albedo`` is used. 
-
  - ``run/run-exposures.txt`` - computed exposures for the images. These can be passed
    back to ``sfs`` via ``--image-exposures-prefix``.
 
  - ``run/run-haze.txt`` - computed haze values for the images. These can be passed
-   back to ``sfs`` via ``--haze-prefix``.
+   back to ``sfs`` via ``--haze-prefix``. Only created if ``--num-haze-coeffs`` is
+   positive.
    
+ - ``run-albedo-estim.tif`` - The estimated initial albedo (if
+   ``--float-albedo`` is on). It is produced by sampling the DEM with option
+   ``--num-samples-for-estim``, then interpolated to all DEM pixels. Can be
+   passed to ``sfs`` via ``--input-albedo``. Normally ``parallel_sfs`` takes
+   care of the initial estimation and passing this along.
+
+ - ``run/run-comp-albedo-final.tif`` - The computed albedo. All its values are 1
+   unless the option ``--float-albedo`` is used. 
+
  - ``run/run-<image>-final-meas-intensity.tif`` - For each input image, this
    has the actual (measured) image values at each refined DEM grid point. 
 
@@ -248,12 +255,15 @@ Command-line options for sfs
     this. This avoids losing data around small holes, but the solution
     may become less smooth.
 
+--estimate-exposure-haze-albedo
+    Estimate the exposure for each image, the haze for each image (if
+    ``--num-haze-coeffs`` is positive), and the global low-resolution albedo (if
+    ``--float-albedo`` is on), then quit. This operation samples the input DEM
+    based on ``--num-samples-for-estim``. The produced estimated exposure, haze,
+    and initial albedo are described in :numref:`sfs_outputs`.
+    
 --compute-exposures-only
-    Quit after saving the exposures. This should be done once for
-    a big DEM, before using these for small sub-clips without
-    recomputing them. The exposures will be saved to
-    ``<output prefix>-exposures.txt``. The number of samples along
-    input DEM rows and columns is ``--num-samples-for-estim``.
+    This older option is equivalent to ``--estimate-exposure-haze-albedo``.
 
 --image-exposures-prefix <path>
     Use this prefix to optionally read initial exposures (filename

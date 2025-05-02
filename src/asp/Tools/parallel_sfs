@@ -358,9 +358,11 @@ def main(argsIn):
         mosaickedFiles += ['height-error.tif']
 
     if options.resume:
-        if '--compute-exposures-only' in options.extraArgs:
+        if '--compute-exposures-only' in options.extraArgs \
+        or '--estimate-exposure-haze-albedo' in options.extraArgs:
             parser.print_help()
-            parser.error("The --resume option cannot be used to compute the exposures.\n")
+            parser.error("The --resume option cannot be used to compute the " + \
+                         "exposures, haze, albedo.\n")
 
     # Handle the situation that both --processes and --num-processes can happen
     if (options.numProcesses is not None) and (options.numProcesses2 is not None):
@@ -390,11 +392,12 @@ def main(argsIn):
 
     # Otherwise this is the original called process and there are multiple steps to go through
 
-    # Compute the exposures based on the full DEM if not specified and
-    # missing. Save them to disk. They will be read when SfS runs on
-    # each small DEM tile.
+    # Compute the exposures, haze, initial albedo based on the full DEM if not
+    # specified and missing. Save them to disk. They will be read when SfS runs
+    # on each small DEM tile.
+    estimatedExposureHazeAlbedo = False
     if '--image-exposures-prefix' not in options.extraArgs:
-        print("Computing exposures.\n")
+        print("Computing exposures (and haze and initial albedo, if applicable).\n")
         cmd = timeCmd + [sfsPath] + options.extraArgs
         # Add the option to compute the exposures, if not there already
         # TODO(oalexan1): Must handle the case when there is also haze
@@ -402,11 +405,44 @@ def main(argsIn):
         # floating albedo is enabled.
         if '--compute-exposures-only' not in options.extraArgs:
             cmd += ['--compute-exposures-only']
+        if '--estimate-exposure-haze-albedo' not in options.extraArgs:
+            # Not strictly needed as it is equivalent to the above.
+            cmd += ['--estimate-exposure-haze-albedo']
         asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
         options.extraArgs += ['--image-exposures-prefix', options.output_prefix]
+        estimatedExposureHazeAlbedo = True
 
-    if '--compute-exposures-only' in options.extraArgs:
-        print("Finished computing exposures.")
+    # If the haze prefix is not set, and have a non-zero number of haze coeffs,
+    # must estimate the haze, unless done already
+    if '--haze-prefix' not in options.extraArgs:
+      # TODO(oalexan1): Must test!
+      numHazeCoeffs = asp_cmd_utils.option_val(options.extraArgs, '--num-haze-coeffs')
+      if numHazeCoeffs is not None and numHazeCoeffs != '0':
+        if not estimatedExposureHazeAlbedo:
+            print("Estimating haze.\n")
+            cmd = timeCmd + [sfsPath] + options.extraArgs
+            if '--estimate-exposure-haze-albedo' not in options.extraArgs:
+              cmd += ['--estimate-exposure-haze-albedo']
+            asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+            estimatedExposureHazeAlbedo = True 
+        # By now the haze should have been computed in either case
+        options.extraArgs += ['--haze-prefix', options.output_prefix]
+     
+    # Same about estimating albedo, if we want to float albedo and was not provided
+    if '--input-albedo' not in options.extraArgs and '--float-albedo' in options.extraArgs:
+        if not estimatedExposureHazeAlbedo:
+            print("Estimating albedo.\n")
+            cmd = timeCmd + [sfsPath] + options.extraArgs
+            if '--estimate-exposure-haze-albedo' not in options.extraArgs:
+                cmd += ['--estimate-exposure-haze-albedo']
+            asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+            estimatedExposureHazeAlbedo = True
+        # By now the albedo should have been computed in either case
+        options.extraArgs += ['--input-albedo', options.output_prefix + "-albedo-estim.tif"]
+        
+    if '--compute-exposures-only' in options.extraArgs or \
+       '--estimate-exposure-haze-albedo' in options.extraArgs:
+        print("Finished computing exposure, haze, albedo.")
         return
     
     # What is the size of the DEM on which to do SfS

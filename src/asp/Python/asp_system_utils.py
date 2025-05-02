@@ -45,7 +45,7 @@ def verify_python_version_is_supported():
 def print_version_and_exit():
     prog = libexec_path("stereo_parse") # get the full path
     cmd = prog + " --version"
-    ans = os.system(cmd)
+    os.system(cmd)
     sys.exit(0)
 
 def get_prog_version(prog):
@@ -62,7 +62,6 @@ def get_prog_version(prog):
         raise Exception("Checking " + prog + " version caused errors")
 
     # This is a fix for sometimes GNU Parallel printing a warning at the beginning
-    found = False
     for line in out.split("\n"):
         m = re.match(r"^.*?warning", line, re.IGNORECASE)
         if m: 
@@ -88,7 +87,6 @@ def get_num_cpus():
         num_cpus = cpu_count()
 
     return num_cpus
-
 
 def checkIfToolExists(toolName):
     """Returns true if the system knows about the utility with this name (it is on the PATH)."""
