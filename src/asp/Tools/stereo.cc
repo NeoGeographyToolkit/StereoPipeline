@@ -1135,9 +1135,6 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
                 << "asp_final_mgm.\n");
   }
 
-  if (!std::isnan(stereo_settings().nodata_value) && stereo_settings().nodata_value < 0)
-     vw::vw_throw(vw::ArgumentErr() << "The value of nodata must be non-negative.\n");
-
   if (stereo_settings().propagate_errors && stereo_settings().compute_error_vector)
     vw::vw_throw(vw::ArgumentErr() << "Cannot use option --error-vector for computing "
                   << "the triangulation error vector when propagating errors (covariances) "

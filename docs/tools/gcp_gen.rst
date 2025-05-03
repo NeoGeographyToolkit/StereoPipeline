@@ -18,8 +18,8 @@ The context and next steps after using this program are discussed in
 
 See the related program named ``dem2gcp`` (:numref:`dem2gcp`).
 
-Example
-~~~~~~~
+Examples
+~~~~~~~~
 
 ::
 
@@ -27,6 +27,7 @@ Example
       --camera-image camera_image.tif \
       --ortho-image ortho_image.tif   \
       --dem dem.tif                   \
+      --individual-normalize          \
       --gcp-sigma 1.0                 \
       --output-prefix run/run         \
       -o gcp.gcp
@@ -36,7 +37,7 @@ for each image, thus creating several GCP files.
 
 For certain datasets, the SIFT interest point detection (method 1) and a smaller
 RANSAC threshold turned out to work better. Here's an alternative invocation,
-also with more interest points per tile::
+also with more interest points per tile, and individually normalizing the images::
 
     gcp_gen                           \
       --ip-detect-method 1            \
@@ -53,8 +54,8 @@ In some cases, ``--ip-detect-method 2`` (ORB) worked out better than SIFT.
 This program produces a match file at the output prefix location, which will
 be reused next time the program is run with the same inputs. 
 
-A detailed application of this program for registration is shown in
-:numref:`change3`.
+A couple of detailed applications of this program for registration are shown in
+:numref:`change3` (Chang'e 3) and :numref:`junocam` (JunoCam).
 
 Advanced usage
 ~~~~~~~~~~~~~~
