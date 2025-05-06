@@ -1145,9 +1145,9 @@ If ``bundle_adjust`` (:numref:`bundle_adjust`) or ``jitter_solve``
 or specified separately, and the flag ``--update-isis-cubes-with-csm-state`` is
 set, then the optimized model states will be saved back to the ISIS cubes, while
 the SPICE and other obsolete information from the cubes will be deleted.
-(Note that the and `spiceinit
+(Note that `spiceinit
 <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/spiceinit/spiceinit.html>`_
-program can restore the cubes.)
+can restore the cubes.)
 
 Separate model state files in the JSON format will be saved by ``bundle_adjust``
 as well, as done without this option.
