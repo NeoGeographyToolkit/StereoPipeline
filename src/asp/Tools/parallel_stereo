@@ -1245,16 +1245,17 @@ if __name__ == '__main__':
                 subdirs = create_subdirs_symlink(opt, args, settings)
                 spawn_to_nodes(step, opt, settings, parallel_args, subdirs)
 
-        # Filtering
-        step = Step.fltr
-        if (opt.entry_point <= step):
-            if (opt.stop_point <= step):
-                sys.exit()
             try:
                 build_vrt('stereo_rfne', opt, args, settings, georef, "-RD.tif", "-RD.tif")
             except Exception as e:
                 # Make the error message more informative
                 raise Exception('Failed to build a VRT from */*RD.tif files. Must redo at least the refinement step. Additional error message: ' + str(e))
+                
+        # Filtering
+        step = Step.fltr
+        if (opt.entry_point <= step):
+            if (opt.stop_point <= step):
+                sys.exit()
                 
             normal_run('stereo_fltr', opt, args, msg='%d: Filtering' % step)
             create_subdirs_symlink(opt, args, settings) # symlink F.tif
