@@ -177,16 +177,17 @@ We ran ``parallel_stereo`` on each pair of images having ``34C00001`` vs
     r=JNCR_2021158_34C00002_V01_0010
     pref=stereo_map/${l}_${r}/run
 
-    parallel_stereo                 \
-      map/$l.map.tif map/$r.map.tif \
-      img/$l.cub img/$r.cub         \
-      --bundle-adjust-prefix ba/run \
-      --ip-per-image 20000          \
-      --stereo-algorithm asp_mgm    \
-      --subpixel-mode 9             \
-      --subpixel-kernel 7 7         \
-      --nodata-value 0              \
-      ${pref}                       \
+    parallel_stereo                      \
+      map/$l.map.tif map/$r.map.tif      \
+      img/$l.cub img/$r.cub              \
+      --bundle-adjust-prefix ba/run      \
+      --ip-per-image 20000               \
+      --stereo-algorithm asp_mgm         \
+      --subpixel-mode 9                  \
+      --subpixel-kernel 7 7              \
+      --nodata-value 0                   \
+      --num-matches-from-disparity 10000 \
+      ${pref}                            \
       ref/flat_dem.tif
 
 Here we used a small ``subpixel-kernel`` of 7 x 7 pixels, to ensure as little as
@@ -216,16 +217,119 @@ This was followed by mosaicking of DEMs and orthoimages with ``dem_mosaic``
 .. figure:: ../images/junocam_dem_drg.png
 
   Left: Mosaicked DEM created from stereo of JunCam images. The color range
-  corresponds to elevations between about -2500 and 1300 meters. Right: produced
+  corresponds to elevations between about -1500 and 1500 meters. Right: produced
   JunoCam orthoimage overlaid on top of the Voyager-Galileo global mosaic.
 
 The results of this processing are shown in the figure above. Three things are notable:
 
   - The image registration is pixel-level.
-  - There are some gaps/seams at the top and bottom. Those can be eliminated
+  - There are some seams at the top and bottom. Those can be eliminated
     with more images.
   - There are systematic artifacts in the elevations.
   
 The latter issue is likely due to not well-modeled distortion and TDI effects,
-given the JunoCam camera design.
+given the JunoCam camera design. This will be fixed in the next section.
 
+Intrinsics refinement
+~~~~~~~~~~~~~~~~~~~~~
+
+.. _junocam_opt:
+.. figure:: ../images/junocam_dem_opt.png
+
+  Left: The earlier mosaicked DEM created from stereo of JunCam images. Right:
+  the produced DEM after optimizing the lens distortion with a DEM constraint.
+  The same range of elevations is used as earlier. The systematic artifacts are
+  much less pronounced.
+
+To address the systematic elevation artifacts, we will refine the intrinsics and
+extrinsics of the cameras, while using the zero elevation DEM as a ground
+constraint (with an uncertainty).
+
+The approach in :numref:`ba_frame_linescan` is followed.
+
+We will make use of dense matches from disparity, as in :numref:`dense_ip`. The
+option for that, ``--num-matches-from-disparity``, was already set in the stereo
+runs above. 
+
+These matches will augment existing sparse matches in the ``ba`` directory. For
+that, first the sparse matches will be copied to a new directory, called
+``dense_matches``. Then, we will copy on top the small number of dense matches
+from each stereo directory above, while removing the string ``-disp`` from each
+such file name, and ensuring each corresponding sparse match file is overwritten.
+
+It is necessary to create CSM cameras (:numref:`csm`) for the JunoCam images, to
+be able to optimize the intrinsics. For the first camera, that is done with the
+``cam_gen`` program (:numref:`cam_gen`), with a command such as::
+
+    cam_gen img/JNCR_2021158_34C00001_V01_0010.cub          \
+      --input-camera img/JNCR_2021158_34C00001_V01_0010.cub \
+      --reference-dem ref/flat_dem.tif                      \
+      --focal-length 1480.5905405405405405                  \
+      --optical-center 814.21 600.0                         \
+      --pixel-pitch 1                                       \
+      --refine-camera                                       \
+      --refine-intrinsics distortion                        \
+      -o csm/JNCR_2021158_34C00001_V01_0010.json
+      
+The values for the focal length (in pixels) and optical center (in pixels) were
+obtained by peeking in the .cub file metadata.
+
+The resulting lens distortion model is not the one for JunoCam, which has two
+distortion parameters, but rather the OpenCV radial-tangential model with five
+parameters (:numref:`csm_frame_def`).
+
+The ``cam_test`` program (:numref:`cam_test`) can help validate that the camera
+is converted well. 
+
+The intrinsics of this camera are transferred without further optimization 
+to the other cameras as::
+
+    sample=csm/JNCR_2021158_34C00001_V01_0010.json
+    for f in                                         \
+      img/JNCR_2021158_34C0000[1-2]_V01_0009.cub     \
+      img/JNCR_2021158_34C0000[1-2]_V01_001[0-3].cub \
+      ; do 
+      g=${f/.cub/.json}
+      g=csm/$(basename $g)
+      cam_gen $f                                     \
+        --input-camera $f                            \
+        --sample-file $sample                        \
+        --reference-dem ref/flat_dem.tif             \
+        --pixel-pitch 1                              \
+        --refine-camera                              \
+        --refine-intrinsics none                     \
+        -o $g
+    done
+
+Next, bundle adjustment is run, with the previously optimized adjustments that
+reflect the registration to the reference Voyager-Galileo mosaic::
+
+    bundle_adjust                                     \
+      img/JNCR_2021158_34C0000[1-2]_V01_0009.cub      \
+      img/JNCR_2021158_34C0000[1-2]_V01_001[0-3].cub  \
+      csm/JNCR_2021158_34C0000[1-2]_V01_0009.json     \
+      csm/JNCR_2021158_34C0000[1-2]_V01_001[0-3].json \
+      --input-adjustments-prefix ba/run               \
+      --match-files-prefix dense_matches/run          \
+      --num-iterations 50                             \
+      --solve-intrinsics                              \
+      --intrinsics-to-float all                       \
+      --intrinsics-to-share all                       \
+      --heights-from-dem ref/flat_dem.tif             \
+      --heights-from-dem-uncertainty 5000             \
+      gcp/*.gcp                                       \
+      -o ba_rfne/run
+
+Lastly, stereo is run with the optimized model state camera files
+(:numref:`csm_state`) saved in ``ba_rfne``.
+
+
+The result is in :numref:`junocam_opt`.
+
+It was found that better DEMs are produced by re-mapprojecting with latest
+cameras and re-running stereo from scratch, rather than reusing stereo runs with
+the option ``--prev-run-prefix`` (:numref:`parallel_stereo`). Likely that is
+because the cameras change in non-small ways.
+
+With ISIS 9.0.0 and later, a CSM file produced as above can be embedded in 
+the .cub file to be used with ISIS (:numref:`embedded_csm`).

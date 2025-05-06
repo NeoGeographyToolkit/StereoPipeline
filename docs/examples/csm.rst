@@ -1144,16 +1144,22 @@ If ``bundle_adjust`` (:numref:`bundle_adjust`) or ``jitter_solve``
 (:numref:`jitter_solve`) is run with CSM cameras, either embedded in ISIS cubes
 or specified separately, and the flag ``--update-isis-cubes-with-csm-state`` is
 set, then the optimized model states will be saved back to the ISIS cubes, while
-the SPICE and other obsolete information from the cubes will be deleted
-(``spiceinit`` can be used to restore the cubes). Separate model state files in
-the JSON format will be saved as well, as done without this option.
+the SPICE and other obsolete information from the cubes will be deleted.
+(Note that the and `spiceinit
+<https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/spiceinit/spiceinit.html>`_
+program can restore the cubes.)
+
+Separate model state files in the JSON format will be saved by ``bundle_adjust``
+as well, as done without this option.
 
 Note that if images are mapprojected with certain camera files, and then those
 camera files are updated in-place, this will result in wrong results if stereo
-is run with the mapprojected images and updated cameras.
+is run with the old mapprojected images and updated cameras.
   
-See also the `csminit
+The `csminit
 <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/csminit/csminit.html>`_
-and `spiceinit
-<https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/spiceinit/spiceinit.html>`_
-documentation.
+program can also embed a .json model state file into a .cub file (in ISIS
+9.0.0 and later). Example::
+
+    csminit from = img.cub state = csm.json
+
