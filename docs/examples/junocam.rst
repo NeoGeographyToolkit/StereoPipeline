@@ -323,7 +323,6 @@ reflect the registration to the reference Voyager-Galileo mosaic::
 Lastly, stereo is run with the optimized model state camera files
 (:numref:`csm_state`) saved in ``ba_rfne``.
 
-
 The result is in :numref:`junocam_opt`.
 
 It was found that better DEMs are produced by re-mapprojecting with latest

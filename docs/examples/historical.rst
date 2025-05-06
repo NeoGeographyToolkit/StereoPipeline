@@ -414,8 +414,7 @@ solution.
 Then one can create a new DEM from the optimized camera models and see
 if it is an improvement.
 
-Another example of using RPC and an illustration is in
-`:numref:`kh7_fig`. 
+Another example of using RPC and an illustration is in :numref:`kh7_fig`.
 
 .. _kh7:
 
