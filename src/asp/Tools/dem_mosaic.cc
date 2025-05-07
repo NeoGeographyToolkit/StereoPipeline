@@ -35,7 +35,6 @@
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/math/special_functions/erf.hpp>
 #include <boost/program_options.hpp>
-#include <boost/filesystem/convenience.hpp>
 
 #include <iostream>
 #include <fstream>

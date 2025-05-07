@@ -30,7 +30,6 @@
 #include <vw/Stereo/EMSubpixelCorrelatorView.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/FileIO/DiskImageResource.h>
-#include <vw/FileIO/DiskImageResourceOpenEXR.h>
 #include <vw/Image/InpaintView.h>
 #include <vw/FileIO/DiskImageUtils.h>
 

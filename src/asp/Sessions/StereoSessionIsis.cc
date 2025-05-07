@@ -42,7 +42,6 @@
 #include <vw/Image/Transform.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
-#include <vw/FileIO/DiskImageResourceOpenEXR.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Camera/CameraModel.h>
