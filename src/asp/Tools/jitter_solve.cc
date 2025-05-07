@@ -27,7 +27,6 @@
 
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Sessions/CameraUtils.h>
-#include <asp/IsisIO/IsisInterface.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/BundleAdjustCamera.h>
@@ -957,48 +956,6 @@ void formTriVec(std::vector<Vector3> const& dem_xyz_vec,
       tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
   }
   return;
-}
-
-// TODO(oalexan1): Move this to a separate file
-void saveCsmCameras(std::string const& out_prefix,
-                    std::string const& stereo_session, 
-                    std::vector<std::string> const& image_files,
-                    std::vector<std::string> const& camera_files,
-                    std::vector<vw::CamPtr>  const& camera_models,
-                    bool update_isis_cubes_with_csm_state) {
-
-  int num_cameras = camera_models.size();
-  std::vector<std::string> cam_files(num_cameras);
-  for (int icam = 0; icam < num_cameras; icam++) {
-    std::string adjustFile = asp::bundle_adjust_file_name(out_prefix,
-                                                          image_files[icam],
-                                                          camera_files[icam]);
-    std::string csmFile = asp::csmStateFile(adjustFile);
-    asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], stereo_session);
-    csm_cam->saveState(csmFile);
-    cam_files[icam] = csmFile;
-
-    if (update_isis_cubes_with_csm_state) {
-      // Save the CSM state to the image file. Wipe any spice info.
-      std::string image_name = image_files[icam]; 
-      std::string plugin_name = csm_cam->plugin_name();
-      std::string model_name  = csm_cam->model_name();
-      std::string model_state = csm_cam->model_state();
-      vw::vw_out() << "Adding updated CSM state to image file: " << image_name << std::endl;
-      asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
-    }
-  }
-  
-  // Write the image lists
-  std::string img_list_file = out_prefix + "-image_list.txt";
-  vw::vw_out() << "Writing: " << img_list_file << std::endl;
-  asp::write_list(img_list_file, image_files);
-  
-  // Write the camera lists
-  std::string cam_list_file = out_prefix + "-camera_list.txt";
-  vw::vw_out() << "Writing: " << cam_list_file << std::endl;
-  asp::write_list(cam_list_file, cam_files);
-  
 }
 
 // Run one pass of solving for jitter. At each pass the cameras we have so far

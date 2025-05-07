@@ -117,6 +117,8 @@ namespace asp {
   
   };
 
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+
   /// Specialization of the StereoSessionGDAL class to use (ISIS)
   /// map-projected inputs with the ISIS sensor model.
   class StereoSessionIsisMapIsis: public StereoSessionMapProj  {
@@ -144,6 +146,8 @@ namespace asp {
     }
     
   };
+
+#endif // defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 
   /// Specialization of the StereoSessionGDAL class to use Pinhole
   /// map-projected inputs with the Pinhole sensor model.

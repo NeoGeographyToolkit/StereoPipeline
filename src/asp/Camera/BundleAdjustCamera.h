@@ -635,6 +635,14 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
 void saveUpdatedCameras(asp::BaBaseOptions const& opt, 
                         asp::BAParams const& param_storage);
 
+// Save CSM cameras
+void saveCsmCameras(std::string const& out_prefix,
+                    std::string const& stereo_session, 
+                    std::vector<std::string> const& image_files,
+                    std::vector<std::string> const& camera_files,
+                    std::vector<vw::CamPtr>  const& camera_models,
+                    bool update_isis_cubes_with_csm_state);
+
 // Find the average for the gsd for all pixels whose rays intersect at the given
 // triangulated point. This is used in jitter solving.
 void estimateGsdPerTriPoint(std::vector<std::string> const& images, 

@@ -22,7 +22,11 @@
 #ifndef __BUNDLE_ADJUST_ISIS_H__
 #define __BUNDLE_ADJUST_ISIS_H__
 
+#include <asp/asp_config.h>
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 #include <isis/ControlNet.h>
+#endif // ASP_HAVE_PKG_ISISIO
 
 #include <boost/shared_ptr.hpp>
 
@@ -45,11 +49,19 @@ struct BAParams;
 
 // Use this struct to collect all the data needed to handle an ISIS cnet.
 struct IsisCnetData {
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   Isis::ControlNetQsp isisCnet;
+#endif // ASP_HAVE_PKG_ISISIO
+
   std::set<int> isisOutliers; // rejected or ignored points are flagged as outliers
   
   IsisCnetData() {
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     isisCnet = Isis::ControlNetQsp(NULL);
+#endif // ASP_HAVE_PKG_ISISIO
+
     isisOutliers.clear();
   }
 };

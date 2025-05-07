@@ -19,6 +19,8 @@
 
 // Utilities for handling ISIS's jigsaw control network format.
 
+#include <asp/asp_config.h>
+
 #include <asp/Camera/BundleAdjustIsis.h>
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Camera/BaseCostFuns.h>
@@ -27,6 +29,7 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Core/Exception.h>
 
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 #include <isis/ControlNet.h>
 #include <isis/SurfacePoint.h>
 #include <isis/Progress.h>
@@ -41,6 +44,7 @@
 #include <isis/Camera.h>
 #include <isis/Cube.h>
 #include <isis/FileName.h>
+#endif // ASP_HAVE_PKG_ISISIO
 
 #include <boost/shared_ptr.hpp>
 
@@ -54,6 +58,8 @@
 // final coordinates of the control points and residuals for each measurement.
 // It also must have serial numbers, apriori sigma, apriori surface points, etc.
 namespace asp {
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 
 // ISIS cnet measures have an additional 0.5 added to them
 const double ISIS_CNET_TO_ASP_OFFSET = -0.5;
@@ -126,6 +132,103 @@ void readIsisCameras(std::vector<std::string> const& image_files,
   }
 }
 
+// Add a given control point to the ISIS cnet. Update the outlier counter.
+void addIsisControlPoint(Isis::ControlNet & icnet,
+                         vw::ba::ControlNetwork const& cnet,
+                         asp::BAParams const& param_storage,
+                         std::vector<boost::shared_ptr<Isis::Camera>> const& cameras,
+                         std::vector<std::string> const& serialNumbers,
+                         int ipt, int& numOutliers) {
+
+  // Sanity check for cnet and param_storage
+  if (cnet.size() != param_storage.num_points())
+    vw_throw(vw::ArgumentErr() 
+             << "addIsisControlPoint: cnet and param_storage have different sizes.\n");
+  if (ipt >= cnet.size() || ipt >= param_storage.num_points())
+    vw_throw(vw::ArgumentErr() 
+             << "addIsisControlPoint: ipt is too large.\n");
+    
+  Isis::ControlPoint *point = new Isis::ControlPoint();
+  if (param_storage.get_point_outlier(ipt)) {
+    point->SetIgnored(true); // better set it to ignored as well
+    point->SetRejected(true);
+    numOutliers++;
+  } else {    
+    point->SetRejected(false);
+  }
+  
+  // The bundle_adjust convention is that a point is fixed if its sigma is 
+  // asp::FIXED_GCP_SIGMA. Otherwise it is constrained by sigma.
+  vw::Vector3 sigma = cnet[ipt].sigma(); // point sigma
+  double s = asp::FIXED_GCP_SIGMA;
+  if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint) {
+    if (sigma == vw::Vector3(s, s, s)) {
+      point->SetType(Isis::ControlPoint::Fixed);
+    } else {
+      point->SetType(Isis::ControlPoint::Constrained);
+    }
+  } else {
+    point->SetType(Isis::ControlPoint::Free);
+  }
+  
+  // Set the point id
+  std::ostringstream os;
+  os << "point_" << ipt;
+  point->SetId(QString::fromStdString(os.str()));
+  
+  // Set apriori position from the input cnet
+  Isis::SurfacePoint A;
+  vw::Vector3 a = cnet[ipt].position();
+  A.SetRectangular(Isis::Displacement(a[0], Isis::Displacement::Meters),
+                   Isis::Displacement(a[1], Isis::Displacement::Meters),
+                   Isis::Displacement(a[2], Isis::Displacement::Meters),
+                   Isis::Distance(sigma[0], Isis::Distance::Meters),
+                   Isis::Distance(sigma[1], Isis::Distance::Meters),
+                   Isis::Distance(sigma[2], Isis::Distance::Meters));
+  point->SetAprioriSurfacePoint(A);
+  
+  // Set the optimized (adjusted) position  
+  Isis::SurfacePoint P;
+  const double * asp_point = param_storage.get_point_ptr(ipt); // ecef, meters
+  P.SetRectangular(Isis::Displacement(asp_point[0], Isis::Displacement::Meters),
+                    Isis::Displacement(asp_point[1], Isis::Displacement::Meters),
+                    Isis::Displacement(asp_point[2], Isis::Displacement::Meters),
+                    Isis::Distance(sigma[0], Isis::Distance::Meters),
+                    Isis::Distance(sigma[1], Isis::Distance::Meters),
+                    Isis::Distance(sigma[2], Isis::Distance::Meters));
+  point->SetAdjustedSurfacePoint(P);
+
+  // Add the measures, and their sigmas
+  for (auto m_iter = cnet[ipt].begin(); m_iter != cnet[ipt].end(); m_iter++) {
+    
+    int cid = m_iter->image_id();
+    vw::Vector2 sigma = m_iter->sigma();
+    
+    // Must add 0.5 to the ASP measure to get the ISIS measure
+    double col = m_iter->position()[0] - ISIS_CNET_TO_ASP_OFFSET;
+    double row = m_iter->position()[1] - ISIS_CNET_TO_ASP_OFFSET;
+
+    Isis::ControlMeasure *measurement = new Isis::ControlMeasure();
+    measurement->SetCoordinate(col, row, Isis::ControlMeasure::RegisteredSubPixel);
+    measurement->SetType(Isis::ControlMeasure::RegisteredSubPixel);
+    measurement->SetAprioriSample(col);
+    measurement->SetAprioriLine(row);
+    measurement->SetIgnored(false);
+    measurement->SetRejected(false);
+    measurement->SetSampleSigma(sigma[0]);
+    measurement->SetLineSigma(sigma[1]);
+    measurement->SetResidual(0.0, 0.0);
+    measurement->SetCubeSerialNumber(QString::fromStdString(serialNumbers[cid]));
+    measurement->SetCamera(cameras[cid].get());
+
+    point->Add(measurement);
+  }
+  
+  icnet.AddPoint(point);
+}
+
+#endif // ASP_HAVE_PKG_ISISIO
+
 // Load an ISIS cnet file and copy it to an ASP control network. The ISIS cnet
 // will be used when saving the updated cnet. Keep these cnets one-to-one,
 // though later the ASP cnet may also have GCP.
@@ -134,6 +237,8 @@ void loadIsisCnet(std::string const& isisCnetFile,
                   // Outputs
                   vw::ba::ControlNetwork & cnet,
                   IsisCnetData & isisCnetData) {
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 
   // Reset the outputs
   cnet = vw::ba::ControlNetwork("ASP_control_network");
@@ -306,103 +411,10 @@ void loadIsisCnet(std::string const& isisCnetFile,
                  << " ignored points. Flag as outliers.\n";
                  
   vw::vw_out() << "Loaded " << cnet.size() << " control points.\n";
+
+#endif // ASP_HAVE_PKG_ISISIO
   
   return;    
-}
-
-// Add a given control point to the ISIS cnet. Update the outlier counter.
-void addIsisControlPoint(Isis::ControlNet & icnet,
-                         vw::ba::ControlNetwork const& cnet,
-                         asp::BAParams const& param_storage,
-                         std::vector<boost::shared_ptr<Isis::Camera>> const& cameras,
-                         std::vector<std::string> const& serialNumbers,
-                         int ipt, int& numOutliers) {
-
-  // Sanity check for cnet and param_storage
-  if (cnet.size() != param_storage.num_points())
-    vw_throw(vw::ArgumentErr() 
-             << "addIsisControlPoint: cnet and param_storage have different sizes.\n");
-  if (ipt >= cnet.size() || ipt >= param_storage.num_points())
-    vw_throw(vw::ArgumentErr() 
-             << "addIsisControlPoint: ipt is too large.\n");
-    
-  Isis::ControlPoint *point = new Isis::ControlPoint();
-  if (param_storage.get_point_outlier(ipt)) {
-    point->SetIgnored(true); // better set it to ignored as well
-    point->SetRejected(true);
-    numOutliers++;
-  } else {    
-    point->SetRejected(false);
-  }
-  
-  // The bundle_adjust convention is that a point is fixed if its sigma is 
-  // asp::FIXED_GCP_SIGMA. Otherwise it is constrained by sigma.
-  vw::Vector3 sigma = cnet[ipt].sigma(); // point sigma
-  double s = asp::FIXED_GCP_SIGMA;
-  if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint) {
-    if (sigma == vw::Vector3(s, s, s)) {
-      point->SetType(Isis::ControlPoint::Fixed);
-    } else {
-      point->SetType(Isis::ControlPoint::Constrained);
-    }
-  } else {
-    point->SetType(Isis::ControlPoint::Free);
-  }
-  
-  // Set the point id
-  std::ostringstream os;
-  os << "point_" << ipt;
-  point->SetId(QString::fromStdString(os.str()));
-  
-  // Set apriori position from the input cnet
-  Isis::SurfacePoint A;
-  vw::Vector3 a = cnet[ipt].position();
-  A.SetRectangular(Isis::Displacement(a[0], Isis::Displacement::Meters),
-                   Isis::Displacement(a[1], Isis::Displacement::Meters),
-                   Isis::Displacement(a[2], Isis::Displacement::Meters),
-                   Isis::Distance(sigma[0], Isis::Distance::Meters),
-                   Isis::Distance(sigma[1], Isis::Distance::Meters),
-                   Isis::Distance(sigma[2], Isis::Distance::Meters));
-  point->SetAprioriSurfacePoint(A);
-  
-  // Set the optimized (adjusted) position  
-  Isis::SurfacePoint P;
-  const double * asp_point = param_storage.get_point_ptr(ipt); // ecef, meters
-  P.SetRectangular(Isis::Displacement(asp_point[0], Isis::Displacement::Meters),
-                    Isis::Displacement(asp_point[1], Isis::Displacement::Meters),
-                    Isis::Displacement(asp_point[2], Isis::Displacement::Meters),
-                    Isis::Distance(sigma[0], Isis::Distance::Meters),
-                    Isis::Distance(sigma[1], Isis::Distance::Meters),
-                    Isis::Distance(sigma[2], Isis::Distance::Meters));
-  point->SetAdjustedSurfacePoint(P);
-
-  // Add the measures, and their sigmas
-  for (auto m_iter = cnet[ipt].begin(); m_iter != cnet[ipt].end(); m_iter++) {
-    
-    int cid = m_iter->image_id();
-    vw::Vector2 sigma = m_iter->sigma();
-    
-    // Must add 0.5 to the ASP measure to get the ISIS measure
-    double col = m_iter->position()[0] - ISIS_CNET_TO_ASP_OFFSET;
-    double row = m_iter->position()[1] - ISIS_CNET_TO_ASP_OFFSET;
-
-    Isis::ControlMeasure *measurement = new Isis::ControlMeasure();
-    measurement->SetCoordinate(col, row, Isis::ControlMeasure::RegisteredSubPixel);
-    measurement->SetType(Isis::ControlMeasure::RegisteredSubPixel);
-    measurement->SetAprioriSample(col);
-    measurement->SetAprioriLine(row);
-    measurement->SetIgnored(false);
-    measurement->SetRejected(false);
-    measurement->SetSampleSigma(sigma[0]);
-    measurement->SetLineSigma(sigma[1]);
-    measurement->SetResidual(0.0, 0.0);
-    measurement->SetCubeSerialNumber(QString::fromStdString(serialNumbers[cid]));
-    measurement->SetCamera(cameras[cid].get());
-
-    point->Add(measurement);
-  }
-  
-  icnet.AddPoint(point);
 }
 
 // Update an ISIS cnet with the latest info on triangulated points
@@ -412,6 +424,8 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
                          vw::ba::ControlNetwork const& cnet,
                          asp::BAParams const& param_storage,
                          IsisCnetData & isisCnetData) {
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 
   // Sanity check
   if (param_storage.num_points() != cnet.size())
@@ -514,6 +528,10 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
   vw::vw_out() << "Writing ISIS control network: " << cnetFile << "\n"; 
   QString qCnetFile = QString::fromStdString(cnetFile);
   icnet->Write(qCnetFile);
+  
+#endif // ASP_HAVE_PKG_ISISIO
+
+  return;  
 }
 
 // Create from scratch and and save an ISIS cnet from a given control network
@@ -522,6 +540,8 @@ void saveIsisCnet(std::string const& outputPrefix,
                   vw::cartography::Datum const& datum,
                   vw::ba::ControlNetwork const& cnet,
                   asp::BAParams const& param_storage) {
+  
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   
   // Sanity check
   if (param_storage.num_points() != cnet.size())
@@ -556,6 +576,8 @@ void saveIsisCnet(std::string const& outputPrefix,
   std::string cnetFile = outputPrefix + ".net";
   vw::vw_out() << "Writing ISIS control network: " << cnetFile << "\n"; 
   icnet.Write(QString::fromStdString(cnetFile));
+
+#endif // ASP_HAVE_PKG_ISISIO
 
   return;
 }
