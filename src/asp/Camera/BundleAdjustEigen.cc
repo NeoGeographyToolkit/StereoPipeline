@@ -219,10 +219,12 @@ void saveNvm(asp::BaBaseOptions                const& opt,
     calcOpticalOffsets(opt.image_files, optimized_cams, optical_offsets);
     
   // Write the nvm
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   std::string nvm_file = opt.out_prefix + ".nvm"; 
   rig::nvmData nvm;
   rig::cnetToNvm(cnet, optical_offsets, world_to_cam, nvm, tri_vec, outliers);
   rig::writeNvm(nvm, nvm_file);
+#endif // ASP_HAVE_PKG_ISISIO
 }
 
 // Given pinhole cameras and camera-to-world transforms, update the camera poses

@@ -207,41 +207,41 @@ find_external_library(PNG     ${ASP_DEPS_DIR} "" "png;png16" REQUIRED)
 find_external_library(TIFF    ${ASP_DEPS_DIR} "" "tiff"      REQUIRED)
 find_external_library(GEOTIFF ${ASP_DEPS_DIR} "" "geotiff"   REQUIRED)
 find_external_library(GDAL    ${ASP_DEPS_DIR} "" "gdal"      REQUIRED)
-set(ILMBASE_LIB_NAMES Half Iex Imath IlmThread)
-find_external_library(ILMBASE ${ASP_DEPS_DIR} "" "${ILMBASE_LIB_NAMES}" REQUIRED)
-find_external_library(OPENEXR ${ASP_DEPS_DIR} "OpenEXR" "IlmImf;IlmThread" REQUIRED)
+# set(ILMBASE_LIB_NAMES Half Iex Imath IlmThread)
+# find_external_library(ILMBASE ${ASP_DEPS_DIR} "" "${ILMBASE_LIB_NAMES}" REQUIRED)
+# find_external_library(OPENEXR ${ASP_DEPS_DIR} "OpenEXR" "IlmImf;IlmThread" REQUIRED)
 
 find_external_library(SPICE ${ASP_DEPS_DIR} "cspice" "cspice" REQUIRED)
-find_external_library(GEOID ${ASP_DEPS_DIR} "" "egm2008" REQUIRED)
+# find_external_library(GEOID ${ASP_DEPS_DIR} "" "egm2008" REQUIRED)
 find_external_library(XERCESC ${ASP_DEPS_DIR} "" "xerces-c" REQUIRED)
 find_external_library(PROTOBUF ${ASP_DEPS_DIR} "" "protobuf" REQUIRED)
-find_external_library(EMBREE ${ASP_DEPS_DIR} "" "embree3" REQUIRED)
+# find_external_library(EMBREE ${ASP_DEPS_DIR} "" "embree3" REQUIRED)
 
 find_external_library(EIGEN ${ASP_DEPS_DIR} "eigen3" "" REQUIRED)
 find_external_library(CERES ${ASP_DEPS_DIR} "ceres" "ceres" REQUIRED)
-find_external_library(LIBNABO ${ASP_DEPS_DIR} "nabo" "nabo" REQUIRED)
-find_external_library(LIBPOINTMATCHER ${ASP_DEPS_DIR} "" "pointmatcher" REQUIRED)
-find_external_library(FASTGLOBALREGISTRATION ${ASP_DEPS_DIR} "FastGlobalRegistration" "FastGlobalRegistrationLib" REQUIRED)
+# find_external_library(LIBNABO ${ASP_DEPS_DIR} "nabo" "nabo" REQUIRED)
+# find_external_library(LIBPOINTMATCHER ${ASP_DEPS_DIR} "" "pointmatcher" REQUIRED)
+# find_external_library(FASTGLOBALREGISTRATION ${ASP_DEPS_DIR} "FastGlobalRegistration" "FastGlobalRegistrationLib" REQUIRED)
 find_external_library(GFLAGS ${ASP_DEPS_DIR} "gflags" "gflags" REQUIRED)
 find_external_library(GLOG ${ASP_DEPS_DIR} "glog" "glog" REQUIRED)
-find_external_library(ARMADILLO ${ASP_DEPS_DIR} "" "armadillo" REQUIRED)
-find_external_library(ISIS ${ASP_DEPS_DIR} "isis" "isis" REQUIRED)
+# find_external_library(ARMADILLO ${ASP_DEPS_DIR} "" "armadillo" REQUIRED)
+# find_external_library(ISIS ${ASP_DEPS_DIR} "isis" "isis" REQUIRED)
 
-if(ASP_HAVE_PKG_ISIS)
-  # Pull the ISIS version. It is on the first line before the first space.
-  file(STRINGS "${ASP_DEPS_DIR}/isis_version.txt" ISIS_VERSION_LINE LIMIT_COUNT 1)
-  # Split by space, save to list
-  string(REPLACE " " ";" ISIS_VERSION_LIST ${ISIS_VERSION_LINE}) 
-  # Get the first element
-  list(GET ISIS_VERSION_LIST 0 ISIS_VERSION)
-  set(ASP_HAVE_PKG_ISISIO 1)
-  message(STATUS "Found ISIS version: ${ISIS_VERSION}")
+# if(ASP_HAVE_PKG_ISIS)
+#   # Pull the ISIS version. It is on the first line before the first space.
+#   file(STRINGS "${ASP_DEPS_DIR}/isis_version.txt" ISIS_VERSION_LINE LIMIT_COUNT 1)
+#   # Split by space, save to list
+#   string(REPLACE " " ";" ISIS_VERSION_LIST ${ISIS_VERSION_LINE}) 
+#   # Get the first element
+#   list(GET ISIS_VERSION_LIST 0 ISIS_VERSION)
+#   set(ASP_HAVE_PKG_ISISIO 1)
+#   message(STATUS "Found ISIS version: ${ISIS_VERSION}")
     
   # Some ISIS headers include Qt headers in a way that requires the include below
   include_directories("${ASP_DEPS_DIR}/include/qt")
   include_directories("${ASP_DEPS_DIR}/include/qt/QtCore")
   include_directories("${ASP_DEPS_DIR}/include/qt/QtXml")
-endif()
+# endif()
 
 find_external_library(CSM ${ASP_DEPS_DIR} "csm" "csmapi" REQUIRED)
 
@@ -308,21 +308,26 @@ find_external_library(TBB ${ASP_DEPS_DIR} "" "${TBB_LIB_NAMES}" REQUIRED)
 #find_external_library(VTK ${ASP_DEPS_DIR} "vtk-9.1" "${VTK_LIB_NAMES}" REQUIRED)
 
 # For convenience, list some libraries that VW and ISIS depend on.
-set(VW_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} 
-    ${OPENEXR_LIBRARIES} ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  
+set(VW_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} 
+    #${ILMBASE_LIBRARIES} ${OPENEXR_LIBRARIES} 
+    ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  
     ${PROJ4_LIBRARIES} ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} 
     ${PNG_LIBRARIES} ${FLANN_LIBRARIES} ${LZ4_LIBRARIES})
-set(ISIS_3RD_PARTY_LIBS Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} 
-    ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES} ${PCL_LIBRARIES} ${TBB_LIBRARIES})
+set(ISIS_3RD_PARTY_LIBS Qt5::Core 
+    #${EMBREE_LIBRARIES} 
+    ${PROTOBUF_LIBRARIES} 
+    ${QWT_LIBRARIES} 
+    #${ARMADILLO_LIBRARIES} 
+    ${PCL_LIBRARIES} ${TBB_LIBRARIES})
 
-# These are needed for rig_calibrator
-# MVE
-set(MVE_LIB_NAMES mveUtil mveCore mveOgl mveDmrecon)
-find_external_library(MVE ${ASP_DEPS_DIR} "mve" "${MVE_LIB_NAMES}" REQUIRED)
-# Rayint only has headers, no libraries
-find_external_library(RAYINT ${ASP_DEPS_DIR} "rayint" "" REQUIRED)
-# texture reconstruction
-find_external_library(TEXRECON ${ASP_DEPS_DIR} "" "texture_reconstruction" REQUIRED)
+# # These are needed for rig_calibrator
+# # MVE
+# set(MVE_LIB_NAMES mveUtil mveCore mveOgl mveDmrecon)
+# find_external_library(MVE ${ASP_DEPS_DIR} "mve" "${MVE_LIB_NAMES}" REQUIRED)
+# # Rayint only has headers, no libraries
+# find_external_library(RAYINT ${ASP_DEPS_DIR} "rayint" "" REQUIRED)
+# # texture reconstruction
+# find_external_library(TEXRECON ${ASP_DEPS_DIR} "" "texture_reconstruction" REQUIRED)
 
 # Libraries use paths like "asp/src/Core/Common.h" so we just need to
 # add this one include path. These must take precedence over anything
@@ -352,39 +357,43 @@ get_all_source_files( "Core/tests" ASP_CORE_TEST_FILES)
 set(ASP_CORE_LIB_DEPENDENCIES ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES}
     ${PDAL_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${CMAKE_DL_LIBS})
 
-# ASP IsisIO
-get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
-get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
-set(ASP_ISISIO_LIB_DEPENDENCIES AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
-                                ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
+# # ASP IsisIO
+# get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
+# get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
+# set(ASP_ISISIO_LIB_DEPENDENCIES AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
+#                                 ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
 
 # ASP OpenMVG
 get_all_source_files( "OpenMVG" ASP_OPENMVG_SRC_FILES)
 get_all_source_files( "OpenMVG/tests" ASP_OPENMVG_TEST_FILES)
 set(ASP_OPENMVG_LIB_DEPENDENCIES "")
 
-# ASP Rig
-get_all_source_files("Rig"       ASP_RIG_SRC_FILES)
-get_all_source_files("Rig/tests" ASP_RIG_TEST_FILES)
-set(ASP_RIG_LIB_DEPENDENCIES AspCore AspOpenMvg AspPclIO tbb ${OPENCV_LIBRARIES}
-    ${SOLVER_LIBRARIES} ${MVE_LIBRARIES} ${RAYINT_LIBRARIES} ${TEXRECON_LIBRARIES})
+# # ASP Rig
+# get_all_source_files("Rig"       ASP_RIG_SRC_FILES)
+# get_all_source_files("Rig/tests" ASP_RIG_TEST_FILES)
+# set(ASP_RIG_LIB_DEPENDENCIES AspCore AspOpenMvg AspPclIO tbb ${OPENCV_LIBRARIES}
+#     ${SOLVER_LIBRARIES} ${MVE_LIBRARIES} ${RAYINT_LIBRARIES} ${TEXRECON_LIBRARIES})
 
 # ASP Camera
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
-set(ASP_CAMERA_LIB_DEPENDENCIES AspCore AspIsisIO AspRig ${XERCESC_LIBRARIES}
+set(ASP_CAMERA_LIB_DEPENDENCIES AspCore 
+    # AspIsisIO AspRig 
+    ${XERCESC_LIBRARIES}
     ${CSM_LIBRARIES} ${USGSCSM_LIBRARIES} ${ALE_LIBRARIES})
 
 # ASP Sessions
 ## This code is more complicated and is specified in the lower level file
 get_all_source_files( "Sessions"       ASP_SESSIONS_SRC_FILES)
 get_all_source_files( "Sessions/tests" ASP_SESSIONS_TEST_FILES)
-set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspIsisIO AspCamera)
+set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore 
+    #AspIsisIO 
+    AspCamera)
 
-# ASP SfS
-get_all_source_files("SfS"       ASP_SfS_SRC_FILES)
-get_all_source_files("SfS/tests" ASP_SfS_TEST_FILES)
-set(ASP_SfS_LIB_DEPENDENCIES AspCore AspCamera ${SOLVER_LIBRARIES})
+# # ASP SfS
+# get_all_source_files("SfS"       ASP_SfS_SRC_FILES)
+# get_all_source_files("SfS/tests" ASP_SfS_TEST_FILES)
+# set(ASP_SfS_LIB_DEPENDENCIES AspCore AspCamera ${SOLVER_LIBRARIES})
 
 # ASP GUI
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
@@ -397,35 +406,35 @@ get_all_source_files( "Gotcha/tests" ASP_GOTCHA_TEST_FILES)
 set(ASP_GOTCHA_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${OPENCV_LIBRARIES} 
     ${Boost_LIBRARIES})
 
-# ASP PcAlign
-get_all_source_files("PcAlign" ASP_PC_ALIGN_SRC_FILES)
-get_all_source_files("PcAlign/tests" ASP_PC_ALIGN_TEST_FILES)
-set(ASP_PC_ALIGN_LIB_DEPENDENCIES ${SOLVER_LIBRARIES} ${LIBPOINTMATCHER_LIBRARIES}
-    ${LIBNABO_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} AspSessions)
+# # ASP PcAlign
+# get_all_source_files("PcAlign" ASP_PC_ALIGN_SRC_FILES)
+# get_all_source_files("PcAlign/tests" ASP_PC_ALIGN_TEST_FILES)
+# set(ASP_PC_ALIGN_LIB_DEPENDENCIES ${SOLVER_LIBRARIES} ${LIBPOINTMATCHER_LIBRARIES}
+#     ${LIBNABO_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} AspSessions)
 
-# ASP PclIO
-get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
-get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
-set(ASP_PCLIO_LIB_DEPENDENCIES 
-    pcl_common pcl_io_ply pcl_io ${VISIONWORKBENCH_LIBRARIES} AspCore)
+# # ASP PclIO
+# get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
+# get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
+# set(ASP_PCLIO_LIB_DEPENDENCIES 
+#     pcl_common pcl_io_ply pcl_io ${VISIONWORKBENCH_LIBRARIES} AspCore)
 
 # Add all of the library subdirectories
 
 add_subdirectory(Core)
-if(ASP_HAVE_PKG_ISISIO)
-    add_subdirectory(IsisIO)
-endif()
-add_subdirectory(Rig)
+# if(ASP_HAVE_PKG_ISISIO)
+#     add_subdirectory(IsisIO)
+# endif()
+# add_subdirectory(Rig)
 add_subdirectory(OpenMVG)
 add_subdirectory(Camera)
 
 add_subdirectory(Sessions)
 add_subdirectory(GUI)
 add_subdirectory(Gotcha)
-add_subdirectory(SfS)
+#add_subdirectory(SfS)
 
-add_subdirectory(PclIO)
-add_subdirectory(PcAlign)
+# add_subdirectory(PclIO)
+# add_subdirectory(PcAlign)
 
 # Add the non-library subdirectories
 add_subdirectory(Python)

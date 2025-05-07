@@ -17,6 +17,9 @@
 
 // Functions invoked in jitter_solve.cc that use a rig.
 
+#include <asp/asp_config.h>
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+
 #include <asp/Rig/rig_config.h>
 #include <asp/Rig/image_lookup.h>
 #include <asp/Rig/transform_utils.h>
@@ -766,3 +769,5 @@ void updateLinescanWithRig(UsgsAstroLsSensorModel const& ref_ls_cam,
 }
 
 } // end namespace asp
+
+#endif // ASP_HAVE_PKG_ISISIO

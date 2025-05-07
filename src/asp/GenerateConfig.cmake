@@ -65,7 +65,7 @@ check_cxx_symbol_exists(getpwuid        "pwd.h;sys/types.h"    ASP_HAVE_GETPWUID
 # If we made it to here we can build these modules
 set(ASP_HAVE_PKG_CORE 1)
 set(ASP_HAVE_PKG_CAMERA 1)
-set(ASP_HAVE_PKG_ISISIO 1)
+set(ASP_HAVE_PKG_ISISIO 0)
 set(ASP_HAVE_PKG_SESSIONS 1)
 set(ASP_HAVE_PKG_GUI 1)
 set(ASP_HAVE_PKG_TOOLS 1)

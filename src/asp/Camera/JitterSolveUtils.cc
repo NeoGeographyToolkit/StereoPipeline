@@ -209,6 +209,8 @@ void updateCameras(bool                                have_rig,
     // Current frame cam parameters. Will be updated for rig. 
     double * frame_arr = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
 
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+
     if (have_rig) {
       auto rig_info = rig_cam_info[icam];
       int ref_cam   = rig_info.ref_cam_index;
@@ -241,6 +243,7 @@ void updateCameras(bool                                have_rig,
                                     frame_arr); // output
       }
     } 
+#endif // ASP_HAVE_PKG_ISISIO
     
     if (frame_model != NULL) {
       // Update the frame camera model based on frame camera params

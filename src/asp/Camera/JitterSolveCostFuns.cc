@@ -18,6 +18,10 @@
 // Cost functions used in solving for jitter. These need access to the camera models,
 // so they are stored in the Camera folder.
 
+#include <asp/asp_config.h>
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Camera/BaseCostFuns.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
@@ -2163,3 +2167,6 @@ void addSmoothnessConstraint(asp::BaBaseOptions               const& opt,
 }
 
 } // end namespace asp
+
+#endif // ASP_HAVE_PKG_ISISIO
+

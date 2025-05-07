@@ -1728,6 +1728,8 @@ void genCamerasImages(float ortho_nodata_val,
 
 }
 
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+
 // Generate the cameras and images for a rig
 void genRigCamerasImages(SatSimOptions          & opt,
             rig::RigSet                         & rig,
@@ -1803,5 +1805,7 @@ void writeRelRig(std::string const& out_prefix, rig::RigSet const& rig) {
   rig::writeRigConfig(ref_rig_config, have_rig, ref_rig);
   
 }
+ 
+#endif // ASP_HAVE_PKG_ISISIO
             
 } // end namespace asp
