@@ -217,7 +217,7 @@ This was followed by mosaicking of DEMs and orthoimages with ``dem_mosaic``
 .. figure:: ../images/junocam_dem_drg.png
 
   Left: Mosaicked DEM created from stereo of JunCam images. The color range
-  corresponds to elevations between about -1500 and 1500 meters. Right: produced
+  corresponds to elevations between -1500 and 1500 meters. Right: produced
   JunoCam orthoimage overlaid on top of the Voyager-Galileo global mosaic.
 
 The results of this processing are shown in the figure above. Three things are notable:
@@ -238,8 +238,8 @@ Intrinsics refinement
 
   Left: The earlier mosaicked DEM created from stereo of JunCam images. Right:
   the produced DEM after optimizing the lens distortion with a DEM constraint.
-  The same range of elevations is used as earlier. The systematic artifacts are
-  much less pronounced.
+  These are plotted with the same range of of elevations (-1500 to 1500 meters).
+  The systematic artifacts are much less pronounced.
 
 To address the systematic elevation artifacts, we will refine the intrinsics and
 extrinsics of the cameras, while using the zero elevation DEM as a ground

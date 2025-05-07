@@ -259,8 +259,7 @@ Command-line options for sfs
     Estimate the exposure for each image, the haze for each image (if
     ``--num-haze-coeffs`` is positive), and the global low-resolution albedo (if
     ``--float-albedo`` is on), then quit. This operation samples the input DEM
-    based on ``--num-samples-for-estim``. The produced estimated exposure, haze,
-    and initial albedo are described in :numref:`sfs_outputs`.
+    based on ``--num-samples-for-estim``. The produced files are described in :numref:`sfs_outputs`.
     
 --compute-exposures-only
     This older option is equivalent to ``--estimate-exposure-haze-albedo``.

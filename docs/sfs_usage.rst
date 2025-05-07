@@ -1137,6 +1137,11 @@ option ``--match-first-to-last``.
 
 The ``--auto-overlap-params`` option can help determine which images overlap.
 
+If having an estimate how how accurate initial camera positions are, the option
+``--camera-position-uncertainty`` is suggested. If this uncertainty is is too
+small, it can prevent convergence. For LRO NAC, perhaps 100 - 500 m is a good
+value. See also :numref:`ba_camera_offsets`.
+
 Note that this invocation may run for more than a day, or even
 more. And it may be necessary to get good convergence. If the process
 gets interrupted, or the user gives up on waiting, the adjustments
@@ -1506,7 +1511,7 @@ can result in artifacts in the produced SfS terrain.
 
 The first step that will happen, when this program is launched, is computing the
 image exposures, and, if applicable, the initial haze values and albedo. See the
-option ``--estimate-exposure-haze-albedo`` in ``sfs`` for more details.
+option ``--estimate-exposure-haze-albedo`` in :numref:`sfs` for more details.
 
 Then the computed exposures (also haze and albedo, if applicable) are passed to
 each tile that is run in parallel. All these are further optimized per tile if
