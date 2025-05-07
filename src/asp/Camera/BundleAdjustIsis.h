@@ -32,6 +32,7 @@
 
 #include <string>
 #include <map>
+#include <set>
 
 namespace vw {
   namespace ba {

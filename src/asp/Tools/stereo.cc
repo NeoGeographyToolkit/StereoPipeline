@@ -23,6 +23,11 @@
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Camera/CameraErrorPropagation.h>
 
+// Support for ISIS image files
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#include <asp/IsisIO/DiskImageResourceIsis.h>
+#endif
+
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Stereo/StereoView.h>
 #include <vw/Stereo/PreFilter.h>
@@ -935,10 +940,12 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
 // Register Session types
 void stereo_register_sessions() {
   // Register the Isis file handler with the Vision Workbench DiskImageResource system.
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   DiskImageResource::register_file_type(".cub",
                                         DiskImageResourceIsis::type_static(),
                                         &DiskImageResourceIsis::construct_open,
                                         &DiskImageResourceIsis::construct_create);
+#endif
 }
 
 void user_safety_checks(ASPGlobalOptions const& opt) {

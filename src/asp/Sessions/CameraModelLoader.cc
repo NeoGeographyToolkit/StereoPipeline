@@ -21,8 +21,6 @@
 
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/IsisIO/Equation.h>
-#include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/LinescanSpotModel.h>
@@ -32,6 +30,11 @@
 #include <asp/Sessions/CameraModelLoader.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#include <asp/IsisIO/Equation.h>
+#include <asp/IsisIO/IsisCameraModel.h>
+#endif // ASP_HAVE_PKG_ISISIO
 
 #include <vw/Camera/Extrinsics.h>
 #include <vw/Camera/CameraUtilities.h>
@@ -161,9 +164,12 @@ CameraModelLoader::load_csm_camera_model(std::string const& path) const {
   }
   
   // The CSM model is embedded in the cub file
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   std::string modelState = asp::isis::csmStateFromIsisCube(path);
   bool recreateModel = true; 
   cam_ptr->setModelFromStateString(modelState, recreateModel);
+#endif // ASP_HAVE_PKG_ISISIO
+
   return vw::CamPtr(cam_ptr);
 }
 

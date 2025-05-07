@@ -473,54 +473,6 @@ $PREFIX/bin/cmake ..  \
   -DCMAKE_INSTALL_PREFIX=${PREFIX} \
   -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
 
-# TODO(oalexan1): Wipe this when confirmed it was fully eliminated
-# from the requirements.
-# Build OpenImageIO. This is for debugging. Normally it would be built as part
-# of MultiView. Note: The lengthy command below gets truncated if pasted in a
-# terminal on github.
-conda install -c conda-forge 'cmake>=3.20' compilers 
-cd ~/work/StereoPipeline/
-#git clone https://github.com/NeoGeographyToolkit/oiio.git
-git clone git@github.com:NeoGeographyToolkit/oiio.git
-cd oiio
-mkdir -p build && cd build
-export PREFIX=$HOME/miniconda3/envs/asp_deps
-if [ ! -d "$PREFIX" ]; then
-  echo "Error: $PREFIX does not exist. Exiting."
-  #exit 1
-fi
-$PREFIX/bin/cmake ..  \
-  -Wdev \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_PREFIX_PATH=$PREFIX \
-  -DMULTIVIEW_DEPS_DIR=${PREFIX} \
-  -DCMAKE_VERBOSE_MAKEFILE=ON    \
-  -DCMAKE_CXX_FLAGS='-O3 -std=c++11 -w' \
-  -DCMAKE_C_FLAGS='-O3 -w' \
-  -DCMAKE_INSTALL_PREFIX=${PREFIX} \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 \
-  -DBUILD_SHARED_LIBS=ON \
-  -DUSE_PYTHON=OFF  \
-  -DUSE_OPENCV=OFF  \
-  -DUSE_QT=OFF      \
-  -DUSE_DICOM=OFF   \
-  -DUSE_NUKE=OFF    \
-  -DUSE_LIBRAW=OFF  \
-  -DOIIO_BUILD_TESTS=OFF \
-  -DOIIO_BUILD_TOOLS=OFF \
-  -DUSE_OPENGL=OFF  \
-  -DOIIO_THREAD_ALLOW_DCLP=OFF \
-  -DEMBEDPLUGINS=OFF \
-  -DUSE_QT=OFF      \
-  -DUSE_FIELD3D=OFF \
-  -DUSE_OPENVDB=OFF \
-  -DUSE_OCIO=OFF    \
-  -DUSE_TBB=OFF     \
-  -DPROJECT_IS_TOP_LEVEL=OFF \
-  -DBUILD_DOCS=OFF   \
-  -DINSTALL_DOCS=OFF  \
-  -DINSTALL_FONTS=OFF
-
 # Build theia
 cd ~/work/StereoPipeline
 conda install -c conda-forge vlfeat
@@ -610,7 +562,7 @@ make -j10 install
 cd
 conda activate asp_deps
 # Set up the cc_comp compiler as above
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+export PREFIX=$HOME/miniconda3/envs/asp_deps
 cd ~/work
 mkdir copy_for_build
 cd copy_for_build

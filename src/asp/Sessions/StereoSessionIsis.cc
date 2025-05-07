@@ -18,6 +18,10 @@
 /// \file StereoSessionIsis.cc
 ///
 
+#include <asp/asp_config.h>
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+
 // Stereo Pipeline
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/PhotometricOutlier.h>
@@ -66,8 +70,6 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 namespace fs = boost::filesystem;
-
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 
 // // Allows FileIO to correctly read/write these pixel types
 // namespace vw {

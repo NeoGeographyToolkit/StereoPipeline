@@ -28,11 +28,6 @@
 
 #include <boost/algorithm/string.hpp>
 
-// Support for ISIS image files
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-#include <asp/IsisIO/DiskImageResourceIsis.h>
-#endif
-
 // This has only the definition of an enum
 #include <vw/Stereo/CorrelationAlgorithms.h>
 
