@@ -13,8 +13,7 @@ parallel_stereo (:numref:`parallel_stereo`):
 
 parallel_sfs (:numref:`parallel_sfs`):
    * When albedo and / or haze is modeled, initial estimates for these are
-     produced for the full site, just as it was so far done for exposures,
-     before using them per tile (when they can be further optimized).
+     produced for the full site (:numref:`parallel_sfs_usage`).
 
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).

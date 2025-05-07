@@ -115,6 +115,8 @@ the DEM footprint covers fully the area of interest.
 
 See :numref:`cam_gen_validation` for how to validate the created cameras.
 
+.. _skysat_bundle_adjustment:
+
 Bundle adjustment
 ^^^^^^^^^^^^^^^^^
 
