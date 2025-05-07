@@ -24,7 +24,6 @@
 // TODO(oalexan1): Move most of BundleAdjustCamera.h code to here, and put it
 // all in the asp namespace. 
 
-#include <asp/IsisIO/IsisInterface.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/RPCModel.h>
@@ -36,6 +35,11 @@
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/asp_config.h>
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#include <asp/IsisIO/IsisInterface.h>
+#endif // ASP_HAVE_PKG_ISISIO
 
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/LensDistortion.h>
@@ -46,7 +50,6 @@
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 
 #include <boost/algorithm/string.hpp>
-
 #include <string>
 
 using namespace vw;
@@ -437,7 +440,9 @@ std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
       // Ensure this text is not messed up when writing in parallel
       vw::vw_out() << "Adding updated CSM state to image file: " << image_name << "\n";
     }
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
+#endif // ASP_HAVE_PKG_ISISIO
   }
   
   return cam_file;
@@ -475,7 +480,9 @@ std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
       vw::vw_out() << "Adding updated CSM state to image file: " << image_name << "\n";
     }
     
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
+#endif // ASP_HAVE_PKG_ISISIO
   }
   
   return csmFile;
@@ -1340,8 +1347,10 @@ void saveCsmCameras(std::string const& out_prefix,
       std::string plugin_name = csm_cam->plugin_name();
       std::string model_name  = csm_cam->model_name();
       std::string model_state = csm_cam->model_state();
-      vw::vw_out() << "Adding updated CSM state to image file: " << image_name << std::endl;
+      vw::vw_out() << "Adding updated CSM state to image file: " << image_name << "\n";
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
       asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
+#endif // ASP_HAVE_PKG_ISISIO
     }
   }
   

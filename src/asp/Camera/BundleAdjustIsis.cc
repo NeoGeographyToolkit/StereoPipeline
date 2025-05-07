@@ -19,12 +19,11 @@
 
 // Utilities for handling ISIS's jigsaw control network format.
 
-#include <asp/asp_config.h>
-
 #include <asp/Camera/BundleAdjustIsis.h>
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Camera/BaseCostFuns.h>
 #include <asp/Core/Common.h>
+#include <asp/asp_config.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Core/Exception.h>
