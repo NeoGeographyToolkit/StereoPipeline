@@ -1438,10 +1438,10 @@ class SynImageView: public vw::ImageViewBase<SynImageView> {
   SatSimOptions const& m_opt;
   vw::CamPtr m_cam;
   vw::cartography::GeoReference m_dem_georef; // make a copy to be thread-safe
-  vw::ImageViewRef<vw::PixelMask<float>> const& m_dem;
+  vw::ImageViewRef<vw::PixelMask<float>> m_dem;
   double m_height_guess;
   vw::cartography::GeoReference m_ortho_georef; // make a copy to be thread-safe
-  vw::ImageViewRef<vw::PixelMask<float>> const& m_ortho;
+  vw::ImageViewRef<vw::PixelMask<float>> m_ortho;
   float m_ortho_nodata_val;
 
 public:
@@ -1728,6 +1728,8 @@ void genCamerasImages(float ortho_nodata_val,
 
 }
 
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+
 // Generate the cameras and images for a rig
 void genRigCamerasImages(SatSimOptions          & opt,
             rig::RigSet                         & rig,
@@ -1803,5 +1805,7 @@ void writeRelRig(std::string const& out_prefix, rig::RigSet const& rig) {
   rig::writeRigConfig(ref_rig_config, have_rig, ref_rig);
   
 }
+ 
+#endif // ASP_HAVE_PKG_ISISIO
             
 } // end namespace asp
