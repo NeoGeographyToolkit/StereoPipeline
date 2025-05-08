@@ -257,19 +257,19 @@ set(LIB_SUBDIR "") # No longer needed
 # ALE
 find_external_library(ALE ${ASP_DEPS_DIR} "ale" "ale" REQUIRED)
 
-# PCL
-# The PCL include directory is include/pcl-x.xx
-file(GLOB PCL_DIRS "${ASP_DEPS_DIR}/include/pcl-*") # all matches
-list(GET PCL_DIRS 0 PCL_DIR) # first entry
-if (NOT PCL_DIR) # must exist
-  message(FATAL_ERROR "Could not find the PCL include directory.")
-endif()
-get_filename_component(PCL_INC_DIR ${PCL_DIR} NAME) # extract pcl-x.xx
-set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
-                  pcl_kdtree pcl_keypoints pcl_ml pcl_octree pcl_recognition
-                  pcl_registration pcl_sample_consensus pcl_search pcl_segmentation
-                  pcl_stereo pcl_surface pcl_tracking)
-find_external_library(PCL ${ASP_DEPS_DIR} "${PCL_INC_DIR}" "${PCL_LIB_NAMES}" REQUIRED)
+# # PCL
+# # The PCL include directory is include/pcl-x.xx
+# file(GLOB PCL_DIRS "${ASP_DEPS_DIR}/include/pcl-*") # all matches
+# list(GET PCL_DIRS 0 PCL_DIR) # first entry
+# if (NOT PCL_DIR) # must exist
+#   message(FATAL_ERROR "Could not find the PCL include directory.")
+# endif()
+# get_filename_component(PCL_INC_DIR ${PCL_DIR} NAME) # extract pcl-x.xx
+# set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
+#                   pcl_kdtree pcl_keypoints pcl_ml pcl_octree pcl_recognition
+#                   pcl_registration pcl_sample_consensus pcl_search pcl_segmentation
+#                   pcl_stereo pcl_surface pcl_tracking)
+# find_external_library(PCL ${ASP_DEPS_DIR} "${PCL_INC_DIR}" "${PCL_LIB_NAMES}" REQUIRED)
 
 # OpenCV 
 set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
@@ -318,7 +318,8 @@ set(ISIS_3RD_PARTY_LIBS Qt5::Core
     ${PROTOBUF_LIBRARIES} 
     ${QWT_LIBRARIES} 
     #${ARMADILLO_LIBRARIES} 
-    ${PCL_LIBRARIES} ${TBB_LIBRARIES})
+    #${PCL_LIBRARIES} 
+    ${TBB_LIBRARIES})
 
 # # These are needed for rig_calibrator
 # # MVE
@@ -395,16 +396,16 @@ set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore
 # get_all_source_files("SfS/tests" ASP_SfS_TEST_FILES)
 # set(ASP_SfS_LIB_DEPENDENCIES AspCore AspCamera ${SOLVER_LIBRARIES})
 
-# ASP GUI
-get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
-get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
-set(ASP_GUI_LIB_DEPENDENCIES AspCore AspCamera Qt5::Core Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
+# # ASP GUI
+# get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
+# get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
+# set(ASP_GUI_LIB_DEPENDENCIES AspCore AspCamera Qt5::Core Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
 
-# ASP Gotcha
-get_all_source_files( "Gotcha"       ASP_GOTCHA_SRC_FILES)
-get_all_source_files( "Gotcha/tests" ASP_GOTCHA_TEST_FILES)
-set(ASP_GOTCHA_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${OPENCV_LIBRARIES} 
-    ${Boost_LIBRARIES})
+# # ASP Gotcha
+# get_all_source_files( "Gotcha"       ASP_GOTCHA_SRC_FILES)
+# get_all_source_files( "Gotcha/tests" ASP_GOTCHA_TEST_FILES)
+# set(ASP_GOTCHA_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${OPENCV_LIBRARIES} 
+#     ${Boost_LIBRARIES})
 
 # # ASP PcAlign
 # get_all_source_files("PcAlign" ASP_PC_ALIGN_SRC_FILES)
@@ -429,8 +430,8 @@ add_subdirectory(OpenMVG)
 add_subdirectory(Camera)
 
 add_subdirectory(Sessions)
-add_subdirectory(GUI)
-add_subdirectory(Gotcha)
+# add_subdirectory(GUI)
+# add_subdirectory(Gotcha)
 #add_subdirectory(SfS)
 
 # add_subdirectory(PclIO)
