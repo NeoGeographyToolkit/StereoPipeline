@@ -202,13 +202,13 @@
 #cmakedefine ASP_HAVE_PKG_INTEL_LAPACK 1
 
 /* Define to 1 if the ISIS package is available. */
-#cmakedefine ASP_HAVE_PKG_ISIS 1
+#cmakedefine ASP_HAVE_PKG_ISIS 0
 
 /* Define to 1 if the ISIS3RDPARTY package is available. */
 #cmakedefine ASP_HAVE_PKG_ISIS3RDPARTY 1
 
 /* Define to 1 if the ISISIO module is available. */
-#cmakedefine ASP_HAVE_PKG_ISISIO 1
+#cmakedefine ASP_HAVE_PKG_ISISIO 0
 
 /* Define to 1 if the JP2 package is available. */
 #cmakedefine ASP_HAVE_PKG_JP2 1

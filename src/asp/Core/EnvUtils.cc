@@ -53,6 +53,9 @@ void set_asp_env_vars() {
     
   // Find the path to the base of the package and see if it works.
   std::string base_dir = boost::dll::program_location().parent_path().parent_path().string();
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+  // Set ISISROOT and check for IsisPreferences
   if (!fs::exists(base_dir + "/IsisPreferences")) {
     base_dir = ASP_DEPS_DIR; // This is defined at compile time
     if (!fs::exists(base_dir + "/IsisPreferences")) {
@@ -66,15 +69,18 @@ void set_asp_env_vars() {
       }
     }
   }
-
-  // Set ISISROOT and check for IsisPreferences
   asp::setEnvVar("ISISROOT", base_dir);
   if (!fs::exists(std::string(getenv("ISISROOT")) + "/IsisPreferences")) 
     vw::vw_throw(vw::ArgumentErr() << "Cannot find IsisPreferences in "
                  << getenv("ISISROOT"));
+#endif // ASP_HAVE_PKG_ISISIO
   
   // Set QT_PLUGIN_PATH as the path to /plugins
   asp::setEnvVar("QT_PLUGIN_PATH", base_dir + "/plugins");
+  if (!fs::exists(std::string(getenv("QT_PLUGIN_PATH")))) {
+    base_dir = ASP_DEPS_DIR; // This is defined at compile time
+    asp::setEnvVar("QT_PLUGIN_PATH", base_dir + "/plugins");
+  }
   if (!fs::exists(std::string(getenv("QT_PLUGIN_PATH"))))
     vw::vw_throw(vw::ArgumentErr() << "Cannot find Qt plugins in " 
                  << getenv("QT_PLUGIN_PATH"));
