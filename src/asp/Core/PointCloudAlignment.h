@@ -23,6 +23,9 @@
 #ifndef __ASP_CORE_POINT_CLOUD_ALIGNMENT_H__
 #define __ASP_CORE_POINT_CLOUD_ALIGNMENT_H__
 
+#include <asp/asp_config.h>
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+
 #include <asp/Core/EigenUtils.h> // defines DoubleMatrix
 #include <pointmatcher/PointMatcher.h> // defines PointMatcher
 
@@ -58,5 +61,7 @@ void apply_transform_to_las(std::string const& input_file,
                             PointMatcher<asp::RealT>::Matrix const& T);
 
 } // End namespace asp
+
+#endif // ASP_HAVE_PKG_ISISIO
 
 #endif // __ASP_CORE_POINT_CLOUD_ALIGNMENT_H__

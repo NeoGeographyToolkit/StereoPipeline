@@ -19,6 +19,9 @@
 
 /// \file PointCloudAlignment.cc
 
+#include <asp/asp_config.h>
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+
 #include <asp/Core/PointCloudAlignment.h>
 #include <pointmatcher/PointMatcher.h>
 #include <asp/Core/PdalUtils.h>
@@ -350,3 +353,5 @@ void apply_transform_to_las(std::string const& input_file,
 }
 
 } // end namespace asp
+
+#endif // ASP_HAVE_PKG_ISISIO
