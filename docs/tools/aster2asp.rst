@@ -21,7 +21,7 @@ Usage::
 
      aster2asp <input directory> -o <output prefix>
 
-The tool will apply the existing radiometric corrections to the the
+The tool will apply the existing radiometric corrections to the
 images, and save two images with Float32 pixels with names like
 ``out-Band3N.tif`` and ``out-Band3B.tif``. Based on the metadata
 mentioned earlier, it will create approximate RPC camera models in XML

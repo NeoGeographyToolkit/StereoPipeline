@@ -81,7 +81,7 @@ Moon image with a custom projection
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Mapproject a .cub file (:numref:`moc_tutorial`). Such a file has both image and
-camera information. The planetary body is the the Moon. Use a custom
+camera information. The planetary body is the Moon. Use a custom
 stereographic projection::
 
     proj="+proj=stere +lat_0=-85.364 +lon_0=31.238 +R=1737400 +units=m +no_defs"

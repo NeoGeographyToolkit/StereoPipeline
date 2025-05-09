@@ -1376,7 +1376,7 @@ Command-line options
     Given at least 3 GCP, with each seen in at least 2 images,
     find the triangulated positions based on pixels values in the GCP,
     and apply a rotation + translation + scale transform to the entire
-    camera system so that the the triangulated points get
+    camera system so that the triangulated points get
     mapped to the ground coordinates in the GCP.
 
 --transform-cameras-using-gcp

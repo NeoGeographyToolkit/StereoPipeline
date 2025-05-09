@@ -30,7 +30,7 @@ Results
    A larger area (about 1100 x 1100 pixels, at 6 m/pixel). The site is inside the
    Jezero Crater. The top row shows, as before, the CTX stereo terrain, CTX
    SfS-refined terrain, and a HiRISE terrain for comparison. The bottom row has the
-   differences to the HiRISE stereo DEM of the the CTX stereo DEM (left) and SfS-refined
+   differences to the HiRISE stereo DEM of the CTX stereo DEM (left) and SfS-refined
    DEM (right). The SfS-refined terrain shows somewhat improved agreement with
    the HiRISE terrain. The range of colors is from -10 to 10 meters. There seems to
    be some local vertical bias between the CTX and HiRISE terrains that is

@@ -155,7 +155,7 @@ Example::
     --refine-intrinsics focal_length,distortion \
     -o output.json
 
-Here it was assumed that the the pixel pitch was 1. For pinhole cameras the
+Here it was assumed that the pixel pitch was 1. For pinhole cameras the
 pixel pitch can also be in millimeters, but then the focal length and optical
 center must be in the same units. In either case, upon conversion to CSM Frame
 cameras, the input focal length and optical center are divided by the pixel

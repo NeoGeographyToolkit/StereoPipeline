@@ -207,7 +207,7 @@ residuals created by ``bundle_adjust`` for each interest point
 
 This will use the longitude and latitude as the position, and will
 determine a color based on the 4th field in this file (the error) and
-the the min and max values specified above (which correspond to blue
+the min and max values specified above (which correspond to blue
 and red in the colorized plot, respectively). 
 
 Files whose name contain the strings ``match_offsets`` and ``anchor_points``

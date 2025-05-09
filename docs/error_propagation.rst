@@ -225,7 +225,7 @@ To find the horizontal variance component, consider the upper-left
 horizontal covariances represent an ellipse. The radius of the circle
 with the same area is found, which is the square root of the product
 of ellipse semiaxes, which is the product of the eigenvalues of this
-symmetric matrix, or its determinant. So, the the horizontal component
+symmetric matrix, or its determinant. So, the horizontal component
 of the covariance is defined as the square root of the upper-left
 :math:`2 \times 2` bock of the NED covariance matrix.
 

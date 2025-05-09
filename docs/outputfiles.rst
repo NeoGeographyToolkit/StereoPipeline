@@ -97,15 +97,20 @@ Files created during correlation
     Computed at the correlation stage. Not recomputed when a run is
     resumed. The options ``--corr-seed-mode 2`` and ``3`` also produce
     \*-D_sub_spread.tif, which has the spread of this disparity.
+     It is in the same format as ``D.tif`` (below).
     
 \*-D.tif - Full-resolution disparity map produced from the low-resolution disparity.
     It contains integer values of disparity that are used to seed the
     subsequent sub-pixel correlation phase. It is largely unfiltered,
     and may contain some bad matches.
 
-    Disparity map files are stored in OpenEXR format as 3-channel, 32-bit
-    floating point images. (Channel 0 = horizontal disparity, channel 1 =
-    vertical disparity, and channel 2 = good pixel mask.)
+    Disparity map files are stored in TIF format as 3-channel, 32-bit
+    floating point images. Channel 0 = horizontal disparity, channel 1 =
+    vertical disparity, and channel 2 = good pixel mask.
+    
+    The ``disparitydebug`` program (:numref:`disparitydebug`) can help inspect
+    these. Or the bands can be extracted and visualized as in
+    :numref:`mask_disparity`.
 
 \*-L-R-disp-diff.tif - the discrepancy between left-to-right and right-to-left
     disparities. See option ``--save-left-right-disparity-difference``
@@ -121,7 +126,7 @@ Files created during blending
 
 \*-B.tif - disparity map blending the D.tif results from all tiles. Will be 
     produced unless using the ``asp_bm`` stereo algorithm without local 
-    epipolar alignment.
+    epipolar alignment.  It is in the same format as ``D.tif`` (above).
 
 Files created during refinement
 -------------------------------
@@ -129,7 +134,8 @@ Files created during refinement
 \*-RD.tif - disparity map after sub-pixel correlation
     This file contains the disparity map after sub-pixel refinement.
     Pixel values now have sub-pixel precision, and some outliers have
-    been rejected by the sub-pixel matching process.
+    been rejected by the sub-pixel matching process.  It is 
+    in the same format as ``D.tif`` (above).
 
 File created during filtering
 -----------------------------
@@ -142,7 +148,7 @@ File created during filtering
     The filtered, sub-pixel disparity map with outliers removed (and
     holes filled with the inpainting algorithm if ``FILL_HOLES`` is
     on). This is the final version of the disparity map. It is 
-    in the OpenEXR format as the other disparities.
+    in the same format as ``D.tif`` (above).
 
 \*-GoodPixelMap.tif - map of good pixels. 
     An image showing which pixels were matched by the stereo

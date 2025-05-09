@@ -128,7 +128,7 @@ algorithm first (for example, feature-based alignment in combination with ICP,
 regridded with ``point2dem``, and then the alignment further refined with this
 method.
 
-The order of inputs should be so that the the reference DEM (the first input)
+The order of inputs should be so that the reference DEM (the first input)
 has a grid size that is no bigger than of the second DEM. The second DEM
 will be interpolated to the grid of the first one.
 

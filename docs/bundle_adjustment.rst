@@ -396,7 +396,7 @@ perhaps.
 The implementation of ``--heights-from-dem`` is as follows. Rays from matching
 interest points are intersected with this DEM, and the average of the produced
 points is projected vertically onto the DEM. This is declared to be the
-intersection point of the rays, and the the triangulated points being optimized
+intersection point of the rays, and the triangulated points being optimized
 are constrained via ``--heights-from-dem-uncertainty`` to be close to this
 point. 
 

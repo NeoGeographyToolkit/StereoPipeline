@@ -10,7 +10,7 @@ to right, with each block coming from an individual CCD sensor
 camera or in the subsequent processing, the image blocks are offset in
 respect to each other in both row and column directions by a subpixel
 amount. These so-called *CCD boundary artifacts* are not visible in
-the images but manifest themselves as discontinuities in the the DEMs
+the images but manifest themselves as discontinuities in the DEMs
 obtained with ASP.
 
 The tool named ``wv_correct`` is able to significantly attenuate these

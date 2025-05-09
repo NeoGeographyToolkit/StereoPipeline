@@ -91,7 +91,7 @@ Then ``bundle_adjust`` was run::
 The cameras are embedded in the images, so they are not specified separately.
 
 Alternatively, one can try the SIFT feature detection method
-(``--ip-detect-method 1``) rather the the default (method 0). One may also
+(``--ip-detect-method 1``) rather the default (method 0). One may also
 search for more interest point matches with an option such as ``--ip-per-tile``.
 SAR images can be noisy and features hard to find. More features may not always
 result in more matches if they are inaccurate.

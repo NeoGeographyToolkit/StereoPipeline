@@ -214,7 +214,7 @@ This program can read interest point matches in the ISIS control network format,
 using the option ``--isis-cnet``, and from an NVM file, with the option
 ``--nvm``. 
 
-See :numref:`control_network` in the the ``bundle_adjust``  manual for more details
+See :numref:`control_network` in the ``bundle_adjust``  manual for more details
 about control networks. Unlike that program, ``jitter_solve`` does not save an
 updated control network, as this tool changes the triangulated points only in
 very minor ways. Camera poses from NVM files are not read either.
@@ -1146,7 +1146,7 @@ are available here. The jitter pattern, including its frequency, turned out to
 be quite different in each the stereo pair we tried, but the solver was able to
 minimize it in all cases.
 
-Fetch and prepare the the data as documented in :numref:`aster_fetch`. Here we will
+Fetch and prepare the data as documented in :numref:`aster_fetch`. Here we will
 work with dataset ``AST_L1A_00301062002090416_20231023221708_3693``.
 
 A reference Copernicus DEM can be downloaded per :numref:`initial_terrain`. Use

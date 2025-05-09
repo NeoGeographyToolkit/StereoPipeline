@@ -584,7 +584,7 @@ This DEM can be hole-filled and blurred with ``dem_mosaic`` if needed
 ``run_nomap/run-smooth.tif``. Inspect the result. It should be smooth and with
 no holes.
 
-Next, we mapproject the left image onto this DEM with the the ``mapproject`` program
+Next, we mapproject the left image onto this DEM with the ``mapproject`` program
 (:numref:`mapproject`):: 
 
      mapproject run_nomap/run-smooth.tif \

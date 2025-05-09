@@ -25,7 +25,7 @@ preferred to use NAVCAM images, as those have less distortion than the HAZCAM.
 Recipe
 ^^^^^^
 
-Download the data from the the `PDS Image Atlas <https://pds-imaging.jpl.nasa.gov/search/>`_. 
+Download the data from the `PDS Image Atlas <https://pds-imaging.jpl.nasa.gov/search/>`_. 
 
 ::
 

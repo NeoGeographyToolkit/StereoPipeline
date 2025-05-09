@@ -556,7 +556,7 @@ We run bundle adjustment and parallel_stereo with the subsampled
 images using commands analogous to the above. It was quite challenging
 to find match points, hence the ``--mapprojected-data`` option in
 ``bundle_adjust`` was used, to find interest matches among
-mapprojected images. The the process went as follows::
+mapprojected images. The process went as follows::
 
     # Prepare mapprojected images (see note in the text below)
     parallel_stereo A_crop_sub10.cub B_crop_sub10.cub \
@@ -1007,7 +1007,7 @@ of ISIS models (:numref:`sfs_isis_vs_csm`).
 Inspection of a large number of images and choosing those that have
 valid pixels in the area of interest can be very arduous. To make this
 easier, we make use of the reporting facility of ``dem_mosaic``
-(:numref:`dem_mosaic`) when invoked with the the option
+(:numref:`dem_mosaic`) when invoked with the option
 ``--block-max``, with a large value of ``--block-size`` (larger than
 the image size), and using the ``--t_projwin`` option to specify the
 region of interest (in ``stereo_gui`` one can find this region by
@@ -1580,7 +1580,6 @@ the DEMs, as created ``stereo_gui``::
 
 Another option is to use the Nuth and Kaab ``pc_align`` algorithm, as it can be
 more accurate than the default ``point-to-plane`` ICP method (:numref:`nuth`).
-This is available in the latest build (:numref:`release`).
 
 Or, one can try to align based on dense correlation of hillshaded images
 (:numref:`pc_corr`).
