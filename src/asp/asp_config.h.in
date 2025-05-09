@@ -252,9 +252,6 @@
 /* Define to 1 if the OPENCV package is available. */
 #cmakedefine ASP_HAVE_PKG_OPENCV 1
 
-/* Define to 1 if the OPENEXR package is available. */
-#cmakedefine ASP_HAVE_PKG_OPENEXR 1
-
 /* Define to 1 if the OPEN_MPI package is available. */
 #cmakedefine ASP_HAVE_PKG_OPEN_MPI 1
 
@@ -295,7 +292,7 @@
 //#cmakedefine ASP_HAVE_PKG_POINT2MESH
 
 /* Define to 1 if the PROJ4 package is available. */
-#cmakedefine ASP_HAVE_PKG_PROJ4 1
+#cmakedefine ASP_HAVE_PKG_PROJ 1
 
 /* Define to 1 if the PROTOBUF package is available. */
 #cmakedefine ASP_HAVE_PKG_PROTOBUF 1

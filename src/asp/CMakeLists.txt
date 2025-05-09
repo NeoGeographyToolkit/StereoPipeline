@@ -192,7 +192,7 @@ add_definitions(-DGLOG_USE_GLOG_EXPORT)
 find_external_library(FLANN   ${ASP_DEPS_DIR} "" "flann_cpp" REQUIRED)
 find_external_library(LZ4     ${ASP_DEPS_DIR} "" "lz4"       REQUIRED)
 find_external_library(Z       ${ASP_DEPS_DIR} "" "z"         REQUIRED)
-find_external_library(PROJ4   ${ASP_DEPS_DIR} "" "proj"      REQUIRED)
+find_external_library(PROJ    ${ASP_DEPS_DIR} "" "proj"      REQUIRED)
 find_external_library(JPEG    ${ASP_DEPS_DIR} "" "jpeg"      REQUIRED)
 find_external_library(PNG     ${ASP_DEPS_DIR} "" "png;png16" REQUIRED)
 find_external_library(TIFF    ${ASP_DEPS_DIR} "" "tiff"      REQUIRED)
@@ -308,12 +308,15 @@ find_external_library(TBB ${ASP_DEPS_DIR} "" "${TBB_LIB_NAMES}" REQUIRED)
 #find_external_library(VTK ${ASP_DEPS_DIR} "vtk-9.1" "${VTK_LIB_NAMES}" REQUIRED)
 
 # For convenience, list some libraries that ASP deneds on
-set(ASP_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} 
-    ${OPENEXR_LIBRARIES} ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  
-    ${PROJ4_LIBRARIES} ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} 
+set(ASP_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES}
+    ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  
+    ${PROJ_LIBRARIES} ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} 
     ${PNG_LIBRARIES} ${FLANN_LIBRARIES} ${LZ4_LIBRARIES}
     Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} 
     ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES} ${PCL_LIBRARIES} ${TBB_LIBRARIES})
+if (USE_OPENEXR)
+  list(APPEND ASP_3RD_PARTY_LIBS ${OPENEXR_LIBRARIES} ${ILMBASE_LIBRARIES})
+endif()
 
 # These are needed for rig_calibrator
 # MVE

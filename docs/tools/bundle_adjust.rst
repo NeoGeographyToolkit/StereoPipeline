@@ -776,9 +776,9 @@ The command::
     geodiff --absolute --csv-format '1:lon 2:lat 3:height_above_datum' \
       {output-prefix}-final_residuals_pointmap.csv dem.tif
 
-(:numref:`geodiff`) can be called to evaluate how well the residuals
-agree with a given DEM. That can be especially useful if bundle
-adjustment was invoked with the ``--heights-from-dem`` option.
+(:numref:`geodiff`) can be called to evaluate how well the residuals agree with
+a given DEM. That can be especially useful if bundle adjustment was invoked with
+the ``--heights-from-dem`` option (:numref:`heights_from_dem`).
 
 One can also invoke ``point2dem`` (:numref:`point2dem`) with the above
 ``--csv-format`` option to grid these files to create a coarse DEM (also for the
@@ -909,7 +909,8 @@ Inspect instead the files mentioned earlier in :numref:`ba_out_files`.
 This very advanced metric is only helpful if the images are expected to be 
 well-registered to each other and to the DEM, which is not the case without 
 explicit prior alignment. This also expects a rather accurate DEM, and
-for bundle adjustment to be invoked with the option ``--heights-from-dem``.
+for bundle adjustment to be invoked with the option ``--heights-from-dem``
+(:numref:`heights_from_dem`).
 
 The 50th percentiles should be on the order of 1 GSD or less.
 
@@ -925,8 +926,8 @@ The full report will be saved to::
     {output-prefix}-mapproj_match_offsets.txt
 
 having the longitude, latitude, and height above datum of the midpoint of each
-pair of projected points, and the above-mentioned distance between these
-intersection points with the DEM (in meters).
+pair of intersection points with the DEM, and the distance between them (in
+meters).
 
 This file is very analogous to the ``pointmap.csv`` file, except that
 these errors are measured on the ground in meters, and not in the cameras

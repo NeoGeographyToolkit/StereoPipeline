@@ -63,13 +63,13 @@ conda activate asp_deps
 # Install anaconda client. Will save the anaconda_env client on exit.
 conda create -n anaconda -c conda-forge -c defaults -y anaconda-client
 # Activate anaconda env
-source  /Users/runner/.bash_profile 
+source /Users/runner/.bash_profile 
 conda activate anaconda 
 
 # Install conda-build in a separate environment. Do not save it on exit as it
 # can have huge partial builds.
 conda create -n build -c conda-forge -c defaults -y conda-build
-source  /Users/runner/.bash_profile 
+source  /Users/runner/.bash_profile
 conda activate build
 
 # Build ale. It is assumed the compiler is set up as above. May need to save the
@@ -94,7 +94,7 @@ cmake ..                                         \
   -DALE_BUILD_TESTS=OFF                          \
   -DCMAKE_VERBOSE_MAKEFILE=TRUE                  \
   -DCMAKE_INSTALL_PREFIX=${PREFIX}
-make -j 20 install
+make -j${CPU_COUNT} install
 
 # Build usgscsm. It is assumed the compiler is set up as above.
 cd 
@@ -115,14 +115,14 @@ cmake ..                                         \
   -DUSGSCSM_BUILD_TESTS=OFF                      \
   -DCMAKE_VERBOSE_MAKEFILE=TRUE                  \
   -DCMAKE_INSTALL_PREFIX=${PREFIX}
-make -j 20 install
+make -j${CPU_COUNT} install
 
 # Build ISIS3
 cd
 git clone https://github.com/DOI-USGS/ISIS3.git     
 cd ISIS3
 # Use latest, not 8.0.3, as that one does not compile.
-mkdir build
+mkdir -p build
 cd build
 export ISISROOT=$PWD
 export PREFIX=$HOME/miniconda3/envs/asp_deps
@@ -209,32 +209,31 @@ cp -fv *tif *jp2 ${GEOID_DIR}
 # libnabo
 cd
 export PREFIX=/Users/runner/miniconda3/envs/asp_deps
-git clone https://github.com/oleg-alexandrov/libnabo.git
+git clone https://github.com/NeoGeographyToolkit/libnabo.git
 cd libnabo
-mkdir build && cd build
+mkdir -p build && cd build
 cmake                                          \
   -DCMAKE_BUILD_TYPE=Release                   \
   -DCMAKE_CXX_FLAGS='-O3 -std=c++11'           \
   -DCMAKE_C_FLAGS='-O3'                        \
-  -DCMAKE_INSTALL_PREFIX:PATH=${PREFIX}        \
+  -DCMAKE_INSTALL_PREFIX=${PREFIX}             \
   -DEIGEN_INCLUDE_DIR=${PREFIX}/include/eigen3 \
   -DCMAKE_PREFIX_PATH=${PREFIX}                \
   -DBoost_DIR=${PREFIX}/lib                    \
-  -DBoost_INCLUDE_DIR:PATH=${PREFIX}/include   \
+  -DBoost_INCLUDE_DIR=${PREFIX}/include        \
   -DBUILD_SHARED_LIBS=ON                       \
   -DCMAKE_VERBOSE_MAKEFILE=ON                  \
   ..
-make -j10 install
+make -j${CPU_COUNT} install
 
 # libpointmatcher
 cd 
 export PREFIX=$HOME/miniconda3/envs/asp_deps
-git clone https://github.com/oleg-alexandrov/libpointmatcher.git
+git clone https://github.com/NeoGeographyToolkit/libpointmatcher.git
 cd libpointmatcher
-mkdir build && cd build
+mkdir -p build && cd build
 cmake                                          \
   -DCMAKE_BUILD_TYPE=Release                   \
-  -DCMAKE_CXX_COMPILER_ARCHITECTURE_ID=x64     \
   -DCMAKE_CXX_FLAGS="-O3 -std=c++17"           \
   -DCMAKE_C_FLAGS='-O3'                        \
   -DCMAKE_INSTALL_PREFIX=${PREFIX}             \
@@ -250,16 +249,14 @@ cmake                                          \
   -DBoost_DETAILED_FAILURE_MSG=ON              \
   -DBoost_NO_SYSTEM_PATHS=ON                   \
   ..
-make -j 10 install
+make -j${CPU_COUNT} install
 
 # fgr
-cd
-git clone https://github.com/oleg-alexandrov/FastGlobalRegistration.git
+cd $SRC_DIR
+git clone https://github.com/NeoGeographyToolkit/FastGlobalRegistration.git
 cd FastGlobalRegistration
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
-export SRC_DIR=$(pwd)
-mkdir build && cd build
-CUSTOM_SOURCE_DIR=${SRC_DIR}/source
+FGR_SOURCE_DIR=$(pwd)/source
+mkdir -p build && cd build
 INC_FLAGS="-I${PREFIX}/include/eigen3 -I${PREFIX}/include -O3 -L${PREFIX}/lib -lflann_cpp -llz4 -O3 -std=c++11"
 cmake                                        \
   -DCMAKE_BUILD_TYPE=Release                 \
@@ -268,22 +265,22 @@ cmake                                        \
   -DCMAKE_PREFIX_PATH=${PREFIX}              \
   -DCMAKE_VERBOSE_MAKEFILE=ON                \
   -DFastGlobalRegistration_LINK_MODE=SHARED  \
-  ${CUSTOM_SOURCE_DIR}
-make -j10
+  ${FGR_SOURCE_DIR}
+make -j${CPU_COUNT}
 # Install
-INC_DIR=${PREFIX}/include/FastGlobalRegistration
-mkdir -p ${INC_DIR}
-/bin/cp -fv ${CUSTOM_SOURCE_DIR}/FastGlobalRegistration/app.h ${INC_DIR}
-LIB_DIR=${PREFIX}/lib
-mkdir -p ${LIB_DIR}
-/bin/cp -fv FastGlobalRegistration/libFastGlobalRegistrationLib* ${LIB_DIR}
+FGR_INC_DIR=${PREFIX}/include/FastGlobalRegistration
+mkdir -p ${FGR_INC_DIR}
+/bin/cp -fv ${FGR_SOURCE_DIR}/FastGlobalRegistration/app.h ${FGR_INC_DIR}
+FGR_LIB_DIR=${PREFIX}/lib
+mkdir -p ${FGR_LIB_DIR}
+/bin/cp -fv FastGlobalRegistration/libFastGlobalRegistrationLib* ${FGR_LIB_DIR}
 
 #s2p
 cd
 export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 conda activate asp_deps
 conda install -c conda-forge -y fftw=3.3.10   
-git clone https://github.com/oleg-alexandrov/s2p.git --recursive
+git clone https://github.com/NeoGeographyToolkit/s2p.git --recursive
 cd s2p
 # update recursive submodules
 git submodule update --init --recursive
@@ -381,37 +378,29 @@ conda activate asp_deps
 export PREFIX=$HOME/miniconda3/envs/asp_deps
 conda install -c conda-forge \
   rocksdb rapidjson
-# Note: For Mac may need to build openexr from source  
 git clone https://github.com/NeoGeographyToolkit/MultiView.git --recursive
 cd MultiView
 # Must have ssh authentication set up for github
 git submodule update --init --recursive
 mkdir -p build && cd build
-# # For OSX use a custom location for TBB. This is a fix for a conflict with embree.
-# # When that package gets updated to version 3 or 4 this may become unnecesary.
-# opt=""
-# if [[ $target_platform =~ osx.* ]]; then
-# 	opt="-DTBB_LIBRARY=${PREFIX}/lib/libtbb.12.dylib -DTBB_MALLOC_LIBRARY=${PREFIX}/lib/libtbbmalloc.2.dylib"
-# fi
-$PREFIX/bin/cmake ..                              \
+cmake ..                                          \
     -DCMAKE_BUILD_TYPE=Release                    \
     -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp     \
     -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp  \
     -DMULTIVIEW_DEPS_DIR=${PREFIX}                \
     -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13           \
     -DCMAKE_VERBOSE_MAKEFILE=ON                   \
+    -DCMAKE_MODULE_PATH=$PREFIX/share/pcl-1.13/Modules \
     -DCMAKE_CXX_FLAGS="-O3 -std=c++11 -Wno-error -I${PREFIX}/include" \
     -DCMAKE_C_FLAGS='-O3 -Wno-error'              \
     -DCMAKE_INSTALL_PREFIX=${PREFIX}
-
-make -j4
-make install
+make -j${CPU_COUNT} install
 
 # PDAL
 git clone https://github.com/PDAL/PDAL.git
 cd PDAL
 git checkout 2.6.0
-mkdir build
+mkdir -p build
 cd build
 export PREFIX=/Users/runner/miniconda3/envs/asp_deps
 if [ "$(uname)" = "Darwin" ]; then
@@ -477,22 +466,22 @@ cmake ${CMAKE_ARGS}                                      \
 # Build from source, to ensure the proper version of ilmbase is used
 wget https://github.com/AcademySoftwareFoundation/openexr/archive/v2.5.5.tar.gz
 cd openexr-2.5.5
-mkdir build && cd build
+mkdir -p build && cd build
 conda activate isis_dev
 export PREFIX=$(ls -d ~/*conda3/envs/{asp_deps,isis_dev})
 if [ ! -d "$PREFIX" ]; then
   echo "Error: $PREFIX does not exist. Exiting."
   #exit 1
 fi
-$PREFIX/bin/cmake ..  \
-  -DCMAKE_BUILD_TYPE=Release \
-   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp     \
-   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp  \
-  -DCMAKE_PREFIX_PATH=$PREFIX \
-  -DCMAKE_VERBOSE_MAKEFILE=ON    \
-  -DCMAKE_CXX_FLAGS='-O3 -std=c++11 -w' \
-  -DCMAKE_C_FLAGS='-O3 -w' \
-  -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+$PREFIX/bin/cmake ..                            \
+  -DCMAKE_BUILD_TYPE=Release                    \
+   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp    \
+   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp \
+  -DCMAKE_PREFIX_PATH=$PREFIX                   \
+  -DCMAKE_VERBOSE_MAKEFILE=ON                   \
+  -DCMAKE_CXX_FLAGS='-O3 -std=c++11 -w'         \
+  -DCMAKE_C_FLAGS='-O3 -w'                      \
+  -DCMAKE_INSTALL_PREFIX=${PREFIX}              \
   -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
 
 # Build theia
@@ -531,7 +520,7 @@ conda install -c conda-forge \
    rapidjson=1.1.0 \
    rocksdb=8.5.3 
 git clone	git@github.com:NeoGeographyToolkit/MultiView.git
-mkdir build && cd build
+mkdir -p build && cd build
 # For OSX use a custom location for TBB. This is a fix for a conflict with embree.
 # When that package gets updated to version 3 or 4 this may become unnecessary.
 opt=""
@@ -552,8 +541,7 @@ cmake ..                                               \
     -DCMAKE_INSTALL_PREFIX=${PREFIX}                   \
 	$opt
 # Build
-make -j${CPU_COUNT}
-make install
+make -j${CPU_COUNT} install
 
 # Make the python env
 echo Creating a new python_isis8 env
@@ -578,7 +566,7 @@ cmake ..                                     \
   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp  \
   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp
 echo Building VisionWorkbench
-make -j10 install
+make -j${CPU_COUNT} install
 
 # Build StereoPipeline
 cd
@@ -600,7 +588,7 @@ cmake ..                                     \
   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp  \
   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp
 echo Building StereoPipeline
-make -j10 install > /dev/null 2>&1 # this is too verbose
+make -j${CPU_COUNT} install > /dev/null 2>&1 # this is too verbose
 
 # Search for packages
 conda search -c nasa-ames-stereo-pipeline --override-channels --platform osx-64
@@ -614,8 +602,7 @@ conda activate asp_deps; conda env export > asp_deps.yaml
 # To create an env, it appears important to use the flexible channel prioritiy.
 # Below creating the final asp_deps env, after ensuring all dependencies are good.
 conda config --set channel_priority flexible
-conda env create \
-  -n asp_deps -f asp_deps.yaml
+conda env create -n asp_deps -f asp_deps.yaml
 
 # See the top of document for how to save / fetch a tarball with dependencies
 # See also for how to install conda-build and anaconda client.
@@ -645,14 +632,6 @@ https://github.com/NeoGeographyToolkit/openexr-feedstock.git
 python StereoPipeline/conda/update_versions.py asp_deps.yaml openexr-feedstock
 ~/miniconda3/bin/anaconda upload upload /Users/runner/miniconda3/conda-bld/osx-64/openexr-2.5.5-ha5a8b8e_0.conda
 /Users/runner/miniconda3/bin/conda  install -c nasa-ames-stereo-pipeline -c conda-forge -n asp_deps  nasa-ames-stereo-pipeline::openexr=2.5.5
-
-# # htdp (this got removed from the ASP distribution)
-# cd ~/work/StereoPipeline
-# git clone https://github.com/NeoGeographyToolkit/htdp-feedstock.git
-# python StereoPipeline/conda/update_versions.py asp_deps.yaml htdp-feedstock
-# conda build -c conda-forge -c nasa-ames-stereo-pipeline htdp-feedstock
-# ~/miniconda3/bin/anaconda upload upload /Users/runner/miniconda3/conda-bld/osx-64/htdp-1.0_asp3.5.0-1.conda
-# /Users/runner/miniconda3/bin/conda  install -c nasa-ames-stereo-pipeline -c conda-forge -n asp_deps  nasa-ames-stereo-pipeline::htdp=1.0_asp3.5.0
 
 # libnabo
 cd ~/work/StereoPipeline
@@ -764,4 +743,3 @@ echo pythonPath=$pythonPath
 ./make-dist.py $installDir \
   --asp-deps-dir $envPath  \
   --python-env $(ls -d $HOME/*conda3/envs/python*)
-

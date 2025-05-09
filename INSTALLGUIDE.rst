@@ -199,10 +199,7 @@ Fetching pre-compiled ASP with conda
 ------------------------------------
 
 The ASP 3.5.0 release (April 28, 2025) can be installed via conda, together 
-with ISIS 8.3.0 (:numref:`planetary_images`).
-
-ASP conda packages do not exist for the newer Mac M1/M2. A binary daily build is
-provided, however (:numref:`release`).
+with ISIS 8.3.0 (:numref:`planetary_images`). For Mac Arm, see further down.
 
 To install ``conda``, see:
 
@@ -260,14 +257,20 @@ Install ASP with the command::
      -c nasa-ames-stereo-pipeline \
      -c usgs-astrogeology         \
      -c conda-forge               \
-     stereo-pipeline==3.5.0
+     stereo-pipeline=3.5.0
 
 This will install ASP 3.5.0 together with ISIS 8.3.0. Note that the *latest
 build* (:numref:`release`) may have more features and fixes than
 this official release.
 
-Alternatively, consider using ``mamba`` instead of ``conda``. It is
-must faster though it is not always guaranteed to work. 
+An experimental ASP conda package for the Mac Arm processors is available, but
+without ISIS, for the time being. The package name is
+``stereo-pipeline=3.5.0_no_isis``. An Arm binary daily build is provided, however
+(:numref:`release`). That one has ISIS but Apple's security policies may prevent
+it from running, unless the user overrides them.
+
+Alternatively, consider using ``mamba`` instead of ``conda`` for the
+installation. It is must faster though it is not always guaranteed to work. 
 
 Run::
 

@@ -380,24 +380,25 @@ aligned*::
        run_align/run-run-right.tsai              \
        -o run_ba_hts_from_dem/run
 
+One should be careful with setting ``--heights-from-dem-uncertainty``. Having
+it larger will ensure it does not prevent convergence.
+
+It is *strongly suggested* to use dense interest points (:numref:`dense_ip`), if
+solving for intrinsics, and have ``--max-pairwise-matches`` large enough to not
+throw some of them out. We set ``--camera-position-weight 0``, as hopefully the
+DEM constraint is enough to constrain the solution.
+
 Here we were rather generous with the parameters for removing
 outliers, as the input DEM may not be that accurate, and then if tying
 too much to it some valid matches be be flagged as outliers otherwise,
 perhaps.
 
-It is *strongly suggested* to use dense interest points (:numref:`dense_ip`),
-and have ``--max-pairwise-matches`` large enough to not throw some of them out.
-We set ``--camera-position-weight 0``, as hopefully the DEM constraint is enough
-to constrain the solution.
-
-One should be careful with setting ``--heights-from-dem-uncertainty``. Having
-it larger will ensure it does not prevent convergence.
-
 The implementation of ``--heights-from-dem`` is as follows. Rays from matching
 interest points are intersected with this DEM, and the average of the produced
 points is projected vertically onto the DEM. This is declared to be the
 intersection point of the rays, and the the triangulated points being optimized
-can then be constrained to not vary too much from this location on the DEM.
+are constrained via ``--heights-from-dem-uncertainty`` to be close to this
+point. 
 
 It is important to note that this heuristic may not be accurate if the rays have
 a large intersection error. But, since bundle adjustment usually has two passes,
@@ -412,9 +413,9 @@ floating the intrinsics, in the SkySat processing example (:numref:`skysat`),
 using Pinhole cameras, and with linescan Lunar images with variable illumination
 (:numref:`sfs-lola`).
 
-Here we assumed all intrinsics are shared. See
-:numref:`kaguya_ba` for how to have several groups of
-intrinsics. See also the option ``--intrinsics-to-share``.
+Here we assumed all intrinsics are shared. See :numref:`kaguya_ba` for how to
+have several groups of intrinsics. See also the option
+``--intrinsics-to-share``.
 
 It is suggested to look at the documentation of all the options
 above and adjust them for your use case.
