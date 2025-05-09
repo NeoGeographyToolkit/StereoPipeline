@@ -184,6 +184,28 @@ conda install -c conda-forge -y parallel pbzip2
 
 # Build the needed packages
 
+# geoid
+cd
+wget https://github.com/NeoGeographyToolkit/StereoPipeline/releases/download/geoid1.0/geoids.tgz
+tar xzf geoids.tgz
+cd geoids
+if [ "$(uname)" = "Darwin" ]; then
+    LIB_FLAG='-dynamiclib'
+    EXT='.dylib'
+else
+    LIB_FLAG='-shared'
+    EXT='.so'
+fi
+# Build
+${FC} ${FFLAGS} -fPIC -O3 -c interp_2p5min.f
+${FC} ${LDFLAGS} ${LIB_FLAG} -o libegm2008${EXT} interp_2p5min.o
+# Install
+mkdir -p ${PREFIX}/lib
+cp -fv libegm2008.* ${PREFIX}/lib
+GEOID_DIR=${PREFIX}/share/geoids
+mkdir -p ${GEOID_DIR}
+cp -fv *tif *jp2 ${GEOID_DIR}
+
 # libnabo
 cd
 export PREFIX=/Users/runner/miniconda3/envs/asp_deps
@@ -320,7 +342,7 @@ mkdir -p ${BIN_DIR}
     3rdparty/msmw2/build/libstereo_newversion/iip_stereo_correlation_multi_win2_newversion \
     ${BIN_DIR}/msmw2
 
-# libelas
+# libelas (does not work on Mac Arm)
 cd 
 export PREFIX=$(ls -d ~/*conda3/envs/asp_deps)
 export PATH=$PREFIX/bin:$PATH
@@ -357,9 +379,8 @@ mkdir -p ${BIN_DIR}
 cd
 conda activate asp_deps
 export PREFIX=$HOME/miniconda3/envs/asp_deps
-conda install -c conda-forge                      \
-  rocksdb=8.5.3 rapidjson=1.1.0                   \
-  ilmbase=2.5.5 openexr=2.5.5 imath -y
+conda install -c conda-forge \
+  rocksdb rapidjson
 # Note: For Mac may need to build openexr from source  
 git clone https://github.com/NeoGeographyToolkit/MultiView.git --recursive
 cd MultiView
@@ -452,6 +473,7 @@ cmake ${CMAKE_ARGS}                                      \
   ..
 
 # OpenEXR
+# This will be removed from ASP
 # Build from source, to ensure the proper version of ilmbase is used
 wget https://github.com/AcademySoftwareFoundation/openexr/archive/v2.5.5.tar.gz
 cd openexr-2.5.5
@@ -742,3 +764,4 @@ echo pythonPath=$pythonPath
 ./make-dist.py $installDir \
   --asp-deps-dir $envPath  \
   --python-env $(ls -d $HOME/*conda3/envs/python*)
+

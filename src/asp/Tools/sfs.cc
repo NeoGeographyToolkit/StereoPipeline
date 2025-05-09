@@ -70,8 +70,11 @@
 #include <asp/SfS/SfsCamera.h>
 #include <asp/SfS/SfsReflectanceModel.h>
 #include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Camera/CsmModel.h>
+
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#include <asp/IsisIO/IsisCameraModel.h>
+#endif // ASP_HAVE_PKG_ISIS
 
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/AntiAliasing.h>

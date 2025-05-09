@@ -19,8 +19,11 @@
 // Basic utilities for SfS
 
 #include <asp/SfS/SfsUtils.h>
-#include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Camera/CsmModel.h>
+
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#include <asp/IsisIO/IsisCameraModel.h>
+#endif // ASP_HAVE_PKG_ISIS
 
 #include <string>
 #include <map>
@@ -184,11 +187,13 @@ vw::Vector3 sunPositionFromCamera(vw::CamPtr camera) {
   // Remove any adjustment to get to the camera proper
   vw::CamPtr ucam = unadjusted_model(camera);
 
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   // Try isis
   vw::camera::IsisCameraModel* isis_cam 
     = dynamic_cast<vw::camera::IsisCameraModel*>(ucam.get());
   if (isis_cam != NULL)
     return isis_cam->sun_position();
+#endif // ASP_HAVE_PKG_ISIS
 
   // Try csm
   asp::CsmModel* csm_cam = dynamic_cast<asp::CsmModel*>(ucam.get());

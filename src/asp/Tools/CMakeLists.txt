@@ -75,7 +75,7 @@ target_link_libraries(hsv_merge AspCore AspSessions)
 install(TARGETS hsv_merge DESTINATION bin)
 
 add_executable(lronacjitreg lronacjitreg.cc)
-target_link_libraries(lronacjitreg AspIsisIO AspSessions)
+target_link_libraries(lronacjitreg AspSessions)
 install(TARGETS lronacjitreg DESTINATION bin)
 
 add_executable(mapproject_single mapproject_single.cc)

@@ -28,9 +28,9 @@
 #include <asp/Camera/ASTER_XML.h>
 #include <asp/asp_config.h>
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/IsisInterface.h>
-#endif // ASP_HAVE_PKG_ISISIO
+#endif // ASP_HAVE_PKG_ISIS
 
 #include <vw/FileIO/DiskImageResourceRaw.h>
 #include <vw/Camera/CameraUtilities.h>
@@ -131,7 +131,7 @@ StereoSession* StereoSessionFactory::create(std::string      & session_type, // 
     } else if (vw::has_isd_extension(left_camera_file) ||
                 vw::has_isd_extension(right_camera_file)) {
       actual_session_type = "csm";
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
     } else if (boost::iends_with(boost::to_lower_copy(left_image_file), ".cub") &&
                 asp::isis::IsisCubeHasCsmBlob(left_image_file)) {
       // This is a cub file that has a CSM model inside of of it
@@ -139,7 +139,7 @@ StereoSession* StereoSessionFactory::create(std::string      & session_type, // 
         vw::vw_throw(vw::ArgumentErr() << "Found a CSM model in " << left_image_file
                   << " but not in " << right_image_file << ".\n");
       actual_session_type = "csm";
-#endif // ASP_HAVE_PKG_ISISIO
+#endif // ASP_HAVE_PKG_ISIS
     } else if (boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
                 boost::iends_with(boost::to_lower_copy(right_image_file ), ".cub") ||
                 boost::iends_with(boost::to_lower_copy(left_camera_file ), ".cub") ||
@@ -349,7 +349,7 @@ StereoSession* StereoSessionFactory::create(std::string      & session_type, // 
       session = StereoSessionASTERMapRPC::construct();
   else if (actual_session_type == "pleiadesmappleiades")
       session = StereoSessionPleiadesMapPleiades::construct();
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   else if (actual_session_type == "isis")
     session = StereoSessionIsis::construct();
   else if (actual_session_type == "isismapisis")

@@ -23,7 +23,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/IsisCameraModel.h>
 #endif
 
@@ -303,7 +303,7 @@ int main(int argc, char* argv[]) {
         csv_handle << image_files[i] << ", ";
 
         // Add the ISIS camera serial number if applicable
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
         boost::shared_ptr<IsisCameraModel> isis_cam =
           boost::dynamic_pointer_cast<IsisCameraModel>(current_camera);
         if ( isis_cam != NULL ) {

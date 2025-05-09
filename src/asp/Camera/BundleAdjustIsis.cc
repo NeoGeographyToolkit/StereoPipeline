@@ -28,7 +28,7 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Core/Exception.h>
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <isis/ControlNet.h>
 #include <isis/SurfacePoint.h>
 #include <isis/Progress.h>
@@ -43,7 +43,7 @@
 #include <isis/Camera.h>
 #include <isis/Cube.h>
 #include <isis/FileName.h>
-#endif // ASP_HAVE_PKG_ISISIO
+#endif // ASP_HAVE_PKG_ISIS
 
 #include <boost/shared_ptr.hpp>
 
@@ -58,7 +58,7 @@
 // It also must have serial numbers, apriori sigma, apriori surface points, etc.
 namespace asp {
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 
 // ISIS cnet measures have an additional 0.5 added to them
 const double ISIS_CNET_TO_ASP_OFFSET = -0.5;
@@ -226,7 +226,7 @@ void addIsisControlPoint(Isis::ControlNet & icnet,
   icnet.AddPoint(point);
 }
 
-#endif // ASP_HAVE_PKG_ISISIO
+#endif // ASP_HAVE_PKG_ISIS
 
 // Load an ISIS cnet file and copy it to an ASP control network. The ISIS cnet
 // will be used when saving the updated cnet. Keep these cnets one-to-one,
@@ -237,7 +237,7 @@ void loadIsisCnet(std::string const& isisCnetFile,
                   vw::ba::ControlNetwork & cnet,
                   IsisCnetData & isisCnetData) {
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 
   // Reset the outputs
   cnet = vw::ba::ControlNetwork("ASP_control_network");
@@ -411,7 +411,7 @@ void loadIsisCnet(std::string const& isisCnetFile,
                  
   vw::vw_out() << "Loaded " << cnet.size() << " control points.\n";
 
-#endif // ASP_HAVE_PKG_ISISIO
+#endif // ASP_HAVE_PKG_ISIS
   
   return;    
 }
@@ -424,7 +424,7 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
                          asp::BAParams const& param_storage,
                          IsisCnetData & isisCnetData) {
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 
   // Sanity check
   if (param_storage.num_points() != cnet.size())
@@ -528,7 +528,7 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
   QString qCnetFile = QString::fromStdString(cnetFile);
   icnet->Write(qCnetFile);
   
-#endif // ASP_HAVE_PKG_ISISIO
+#endif // ASP_HAVE_PKG_ISIS
 
   return;  
 }
@@ -540,7 +540,7 @@ void saveIsisCnet(std::string const& outputPrefix,
                   vw::ba::ControlNetwork const& cnet,
                   asp::BAParams const& param_storage) {
   
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   
   // Sanity check
   if (param_storage.num_points() != cnet.size())
@@ -576,7 +576,7 @@ void saveIsisCnet(std::string const& outputPrefix,
   vw::vw_out() << "Writing ISIS control network: " << cnetFile << "\n"; 
   icnet.Write(QString::fromStdString(cnetFile));
 
-#endif // ASP_HAVE_PKG_ISISIO
+#endif // ASP_HAVE_PKG_ISIS
 
   return;
 }

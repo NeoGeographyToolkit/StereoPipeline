@@ -420,7 +420,7 @@ asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
 #if defined(VW_COMMIT_ID)
     ostr << "    Build ID: " << VW_COMMIT_ID << "\n";
 #endif
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
     ostr << "  USGS ISIS " << ASP_ISIS_VERSION << "\n";
 #endif
     ostr << "  Boost C++ Libraries " << ASP_BOOST_VERSION << "\n";

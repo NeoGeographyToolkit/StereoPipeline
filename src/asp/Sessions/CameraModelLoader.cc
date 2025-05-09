@@ -31,10 +31,10 @@
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/Equation.h>
 #include <asp/IsisIO/IsisCameraModel.h>
-#endif // ASP_HAVE_PKG_ISISIO
+#endif // ASP_HAVE_PKG_ISIS
 
 #include <vw/Camera/Extrinsics.h>
 #include <vw/Camera/CameraUtilities.h>
@@ -137,7 +137,7 @@ CameraModelLoader::load_ASTER_camera_model(std::string const& path) const {
 // Load an ISIS camera model
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_isis_camera_model(std::string const& path) const {
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   return vw::CamPtr(new vw::camera::IsisCameraModel(path));
 #endif
   // If ISIS was not enabled in the build, just throw an exception.
@@ -164,11 +164,11 @@ CameraModelLoader::load_csm_camera_model(std::string const& path) const {
   }
   
   // The CSM model is embedded in the cub file
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   std::string modelState = asp::isis::csmStateFromIsisCube(path);
   bool recreateModel = true; 
   cam_ptr->setModelFromStateString(modelState, recreateModel);
-#endif // ASP_HAVE_PKG_ISISIO
+#endif // ASP_HAVE_PKG_ISIS
 
   return vw::CamPtr(cam_ptr);
 }

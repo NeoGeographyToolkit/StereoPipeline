@@ -44,7 +44,7 @@ public:
 };
 
 typedef ::testing::Types<StereoSessionDG, StereoSessionDGMapRPC, StereoSessionRPC,
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
                          StereoSessionIsis,
 #endif
                          StereoSessionPinhole, StereoSessionNadirPinhole> SessionTypes;
@@ -67,7 +67,7 @@ TEST( Instantiation, Names ) {
   sessions.push_back( StereoSessionDG::construct() );
   sessions.push_back( StereoSessionDGMapRPC::construct() );
   sessions.push_back( StereoSessionRPC::construct() );
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   sessions.push_back( StereoSessionIsis::construct() );
 #endif
   sessions.push_back( StereoSessionPinhole::construct() );

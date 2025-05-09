@@ -25,7 +25,7 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/asp_config.h>
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 
 namespace asp {
 
@@ -75,6 +75,6 @@ namespace asp {
 
 } // end namespace asp
 
-#endif  // ASP_HAVE_PKG_ISISIO
+#endif  // ASP_HAVE_PKG_ISIS
 
 #endif // __STEREO_SESSION_ISIS_H__

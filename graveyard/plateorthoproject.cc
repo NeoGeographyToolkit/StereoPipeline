@@ -166,7 +166,7 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
   Vector3 camera_lla = cartography::xyz_to_lon_lat_radius( camera_center );
   vw_out() << "\tLoaded Camera Location: " << camera_lla << " [deg deg meters]\n";
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   // Normalize between 0->1.
   if ( opt.session == "isis" ) {
     DiskImageResourceIsis isis_rsrc( opt.camera_image );

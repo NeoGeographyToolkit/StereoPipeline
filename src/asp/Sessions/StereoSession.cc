@@ -29,9 +29,9 @@
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/BaseCameraUtils.h>
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/IsisCameraModel.h>
-#endif // ASP_HAVE_PKG_ISISIO
+#endif // ASP_HAVE_PKG_ISIS
 
 #include <asp/Core/AlignmentUtils.h>
 
@@ -308,12 +308,12 @@ vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* c
   // mapprojected ISIS cameras, as that use the mapprojected session, and not
   // the ISIS one. In the latter case the ISIS session has this own
   // implementation of this function.
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   vw::camera::IsisCameraModel const* isis_cam
     = dynamic_cast<vw::camera::IsisCameraModel const*>(unadjusted_model(cam));
   if (isis_cam != NULL)
     return isis_cam->get_datum_isis(use_sphere_for_non_earth);
-#endif // ASP_HAVE_PKG_ISISIO
+#endif // ASP_HAVE_PKG_ISIS
 
   // Do same for csm
   asp::CsmModel const* csm_cam

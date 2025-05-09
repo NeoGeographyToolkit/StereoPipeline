@@ -908,7 +908,8 @@ Inspect instead the files mentioned earlier in :numref:`ba_out_files`.
 
 This very advanced metric is only helpful if the images are expected to be 
 well-registered to each other and to the DEM, which is not the case without 
-explicit prior alignment. This also expects a rather accurate DEM.
+explicit prior alignment. This also expects a rather accurate DEM, and
+for bundle adjustment to be invoked with the option ``--heights-from-dem``.
 
 The 50th percentiles should be on the order of 1 GSD or less.
 

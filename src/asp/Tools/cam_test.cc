@@ -32,9 +32,12 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/CsmModel.h>
-#include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Camera/Covariance.h>
 #include <asp/Sessions/CameraUtils.h>
+
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#include <asp/IsisIO/IsisCameraModel.h>
+#endif // ASP_HAVE_PKG_ISIS
 
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/Core/Stopwatch.h>

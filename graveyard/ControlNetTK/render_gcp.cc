@@ -32,7 +32,7 @@ namespace fs = boost::filesystem;
 using namespace vw;
 
 // Support for ISIS image files
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #endif
 
@@ -75,7 +75,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 int main( int argc, char *argv[] ) {
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   // Register the Isis file handler with the Vision Workbench
   // DiskImageResource system.
   DiskImageResource::register_file_type(".cub",

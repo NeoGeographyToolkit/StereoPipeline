@@ -20,7 +20,7 @@
 
 #include <asp/asp_config.h>
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 
 // Stereo Pipeline
 #include <asp/Core/AffineEpipolar.h>
@@ -536,4 +536,4 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
   
 }
 
-#endif  // ASP_HAVE_PKG_ISISIO
+#endif  // ASP_HAVE_PKG_ISIS

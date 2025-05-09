@@ -9,6 +9,12 @@ include(Utilities) # Contains functions
 set(VISIONWORKBENCH_INSTALL_DIR "" CACHE FILEPATH "Path to the user-built and installed VisionWorkbench")
 set(ASP_DEPS_DIR "" CACHE FILEPATH "Path to the conda environment that has the ASP dependencies")
 
+# If VW was not built and installed separately, it should have been
+# built and installed in ASP_DEPS_DIR.
+if (NOT VISIONWORKBENCH_INSTALL_DIR)
+  set(VISIONWORKBENCH_INSTALL_DIR ${ASP_DEPS_DIR})
+endif()
+
 if ("${ASP_DEPS_DIR}" STREQUAL "")
   message(FATAL_ERROR "You need to set ASP_DEPS_DIR")
 endif()
@@ -25,32 +31,21 @@ find_package(Threads REQUIRED)
 # is found before we point to the BB folder.
 message("Searching for Boost.")
 set(REQUIRED_BOOST_LIBS program_options system filesystem regex date_time thread iostreams)
-if (ASP_DEPS_DIR) # Look in that directory
-  set(Boost_ROOT       "${ASP_DEPS_DIR}")
-  set(Boost_LIBRARYDIR "${ASP_DEPS_DIR}/lib")
-  set(Boost_INCLUDEDIR "${ASP_DEPS_DIR}/include")
-  set(Boost_NO_SYSTEM_PATHS ON) # Do not search anywhere else
-  set(Boost_DEBUG ON)
-  set(Boost_DETAILED_FAILURE_MSG ON)
-  #set(CMAKE_CXX_COMPILER_ARCHITECTURE_ID "x64")
-endif()  
-# Now search for Boost using the available information
-find_package(Boost REQUIRED COMPONENTS ${REQUIRED_BOOST_LIBS})
-
-if(Boost_FOUND)
+set(Boost_ROOT       "${ASP_DEPS_DIR}")
+set(Boost_LIBRARYDIR "${ASP_DEPS_DIR}/lib")
+set(Boost_INCLUDEDIR "${ASP_DEPS_DIR}/include")
+set(Boost_NO_SYSTEM_PATHS ON) # Do not search anywhere else
+set(Boost_DEBUG ON)
+set(Boost_DETAILED_FAILURE_MSG ON)
+set(Boost_USE_STATIC_LIBS   OFF)
+set(Boost_USE_MULTITHREADED ON)
+find_package(Boost CONFIG REQUIRED COMPONENTS ${REQUIRED_BOOST_LIBS})
+if (Boost_FOUND)
     message("Successfully found Boost.")
-    message("Boost include dir = ${Boost_INCLUDE_DIR}")
-    message("Boost library dir = ${Boost_LIBRARY_DIRS}")
-    message("Boost libraries   = ${Boost_LIBRARIES}")
+    message("Boost libraries = ${Boost_LIBRARIES}")
+    message("Boost dir: ${Boost_DIR}")
     include_directories(${Boost_INCLUDE_DIR})
-    link_directories(${Boost_LIBRARY_DIRS})
 endif(Boost_FOUND)
-
-# If VW was not built and installed separately, it should have been
-# built and installed in ASP_DEPS_DIR.
-if (NOT VISIONWORKBENCH_INSTALL_DIR)
-  set(VISIONWORKBENCH_INSTALL_DIR ${ASP_DEPS_DIR})
-endif()
 
 # Custom options
 option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
@@ -65,10 +60,6 @@ elseif (UNIX)
   SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib" ${CMAKE_INSTALL_RPATH})
 endif()
 SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${ASP_DEPS_DIR}/lib)
-
-# Fixed options
-set(Boost_USE_STATIC_LIBS   OFF)
-set(Boost_USE_MULTITHREADED ON)
 
 # Enable/disable SSE optimizations
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
@@ -207,9 +198,14 @@ find_external_library(PNG     ${ASP_DEPS_DIR} "" "png;png16" REQUIRED)
 find_external_library(TIFF    ${ASP_DEPS_DIR} "" "tiff"      REQUIRED)
 find_external_library(GEOTIFF ${ASP_DEPS_DIR} "" "geotiff"   REQUIRED)
 find_external_library(GDAL    ${ASP_DEPS_DIR} "" "gdal"      REQUIRED)
-set(ILMBASE_LIB_NAMES Half Iex Imath IlmThread)
-find_external_library(ILMBASE ${ASP_DEPS_DIR} "" "${ILMBASE_LIB_NAMES}" REQUIRED)
-find_external_library(OPENEXR ${ASP_DEPS_DIR} "OpenEXR" "IlmImf;IlmThread" REQUIRED)
+
+if (USE_OPENEXR)
+  set(ILMBASE_LIB_NAMES Half Iex Imath IlmThread)
+  find_external_library(ILMBASE ${ASP_DEPS_DIR} "" "${ILMBASE_LIB_NAMES}" REQUIRED)
+  find_external_library(OPENEXR ${ASP_DEPS_DIR} "OpenEXR" "IlmImf;IlmThread" REQUIRED)
+else()
+  message(STATUS "OpenEXR will not be used.")
+endif()
 
 find_external_library(SPICE ${ASP_DEPS_DIR} "cspice" "cspice" REQUIRED)
 find_external_library(GEOID ${ASP_DEPS_DIR} "" "egm2008" REQUIRED)
@@ -225,22 +221,26 @@ find_external_library(FASTGLOBALREGISTRATION ${ASP_DEPS_DIR} "FastGlobalRegistra
 find_external_library(GFLAGS ${ASP_DEPS_DIR} "gflags" "gflags" REQUIRED)
 find_external_library(GLOG ${ASP_DEPS_DIR} "glog" "glog" REQUIRED)
 find_external_library(ARMADILLO ${ASP_DEPS_DIR} "" "armadillo" REQUIRED)
-find_external_library(ISIS ${ASP_DEPS_DIR} "isis" "isis" REQUIRED)
 
-if(ASP_HAVE_PKG_ISIS)
+if (USE_ISIS)
+  find_external_library(ISIS ${ASP_DEPS_DIR} "isis" "isis" REQUIRED)
+  
   # Pull the ISIS version. It is on the first line before the first space.
   file(STRINGS "${ASP_DEPS_DIR}/isis_version.txt" ISIS_VERSION_LINE LIMIT_COUNT 1)
   # Split by space, save to list
   string(REPLACE " " ";" ISIS_VERSION_LIST ${ISIS_VERSION_LINE}) 
   # Get the first element
   list(GET ISIS_VERSION_LIST 0 ISIS_VERSION)
-  set(ASP_HAVE_PKG_ISISIO 1)
   message(STATUS "Found ISIS version: ${ISIS_VERSION}")
     
   # Some ISIS headers include Qt headers in a way that requires the include below
   include_directories("${ASP_DEPS_DIR}/include/qt")
   include_directories("${ASP_DEPS_DIR}/include/qt/QtCore")
   include_directories("${ASP_DEPS_DIR}/include/qt/QtXml")
+  set(ASP_HAVE_PKG_ISIS 1)
+else()
+  message(STATUS "ISIS not found. Some features will be disabled.")
+  set(ASP_HAVE_PKG_ISIS 0)
 endif()
 
 find_external_library(CSM ${ASP_DEPS_DIR} "csm" "csmapi" REQUIRED)
@@ -307,12 +307,12 @@ find_external_library(TBB ${ASP_DEPS_DIR} "" "${TBB_LIB_NAMES}" REQUIRED)
 #                     vtkloguru-9.1)
 #find_external_library(VTK ${ASP_DEPS_DIR} "vtk-9.1" "${VTK_LIB_NAMES}" REQUIRED)
 
-# For convenience, list some libraries that VW and ISIS depend on.
-set(VW_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} 
+# For convenience, list some libraries that ASP deneds on
+set(ASP_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} 
     ${OPENEXR_LIBRARIES} ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  
     ${PROJ4_LIBRARIES} ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} 
-    ${PNG_LIBRARIES} ${FLANN_LIBRARIES} ${LZ4_LIBRARIES})
-set(ISIS_3RD_PARTY_LIBS Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} 
+    ${PNG_LIBRARIES} ${FLANN_LIBRARIES} ${LZ4_LIBRARIES}
+    Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} 
     ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES} ${PCL_LIBRARIES} ${TBB_LIBRARIES})
 
 # These are needed for rig_calibrator
@@ -349,14 +349,16 @@ set(SOLVER_LIBRARIES ${CERES_LIBRARIES} ${GLOG_LIBRARIES} ${GFLAGS_LIBRARIES})
 # ASP Core
 get_all_source_files( "Core"       ASP_CORE_SRC_FILES)
 get_all_source_files( "Core/tests" ASP_CORE_TEST_FILES)
-set(ASP_CORE_LIB_DEPENDENCIES ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES}
+set(ASP_CORE_LIB_DEPENDENCIES ${ASP_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES}
     ${PDAL_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${CMAKE_DL_LIBS})
 
-# ASP IsisIO
-get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
-get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
-set(ASP_ISISIO_LIB_DEPENDENCIES AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
-                                ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
+# Isis
+if (USE_ISIS)
+  get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
+  get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
+  set(ASP_ISISIO_LIB_DEPENDENCIES AspCore ${ASP_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
+                               ${ASP_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
+endif()
 
 # ASP OpenMVG
 get_all_source_files( "OpenMVG" ASP_OPENMVG_SRC_FILES)
@@ -372,14 +374,17 @@ set(ASP_RIG_LIB_DEPENDENCIES AspCore AspOpenMvg AspPclIO tbb ${OPENCV_LIBRARIES}
 # ASP Camera
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
-set(ASP_CAMERA_LIB_DEPENDENCIES AspCore AspIsisIO AspRig ${XERCESC_LIBRARIES}
+set(ASP_CAMERA_LIB_DEPENDENCIES AspCore AspRig ${XERCESC_LIBRARIES}
     ${CSM_LIBRARIES} ${USGSCSM_LIBRARIES} ${ALE_LIBRARIES})
+if (USE_ISIS)
+  set(ASP_CAMERA_LIB_DEPENDENCIES ${ASP_CAMERA_LIB_DEPENDENCIES} AspIsisIO)
+endif()
 
 # ASP Sessions
 ## This code is more complicated and is specified in the lower level file
 get_all_source_files( "Sessions"       ASP_SESSIONS_SRC_FILES)
 get_all_source_files( "Sessions/tests" ASP_SESSIONS_TEST_FILES)
-set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspIsisIO AspCamera)
+set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspCamera)
 
 # ASP SfS
 get_all_source_files("SfS"       ASP_SfS_SRC_FILES)
@@ -412,7 +417,7 @@ set(ASP_PCLIO_LIB_DEPENDENCIES
 # Add all of the library subdirectories
 
 add_subdirectory(Core)
-if(ASP_HAVE_PKG_ISISIO)
+if (USE_ISIS)
     add_subdirectory(IsisIO)
 endif()
 add_subdirectory(Rig)
