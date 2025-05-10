@@ -295,9 +295,6 @@ void deleteKeywords(Isis::Cube *cube) {
 bool IsisCubeHasCsmBlob(std::string const& cubeFile) {
   
   QString qCubeFile = QString::fromStdString(cubeFile);
-  Isis::Process p;
-  Isis::CubeAttributeInput inAtt;
-  
   QString access = "r";
   Isis::Cube cube(qCubeFile, access);
   return cube.hasBlob("CSMState", "String");
@@ -362,6 +359,9 @@ void saveCsmStateToIsisCube(std::string const& cubeFile,
   cube->write(csmStateBlob);
   Isis::CameraFactory::Create(*cube);
   p.WriteHistory(*cube);
+  
+  // Note: It appears that one need not deallocate the cube, at least it is not
+  // done in ISIS code and the comments do not mention needing that.
 }
 
 }} // end namespace asp::isis
