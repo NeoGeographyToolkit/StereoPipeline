@@ -20,6 +20,8 @@ misc:
   * Turned off experimental ``--subpixel-mode 6`` as it is failing to run
     (:numref:`subpixel_options`).
   * Unused ``pca`` mode in ``ipfind`` got removed.
+  * Bugfix for modifying the creation time of ISIS cubes when it was meant to
+    only read them.
 
 RELEASE 3.5.0, April 28, 2025
 -----------------------------

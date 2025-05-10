@@ -30,6 +30,11 @@ Example::
 This will create the filtered subpixel disparity
 ``run_corr/run-F.tif`` (:numref:`outputfiles`).
 
+If the expected search range is known, it can be specified with the option
+``--corr-search`` (:numref:`corr_section`). Low resolution disparity computation
+can be skipped with ``--corr-seed-mode 0``. These ca be helpful if interest
+point matching or low-res disparity are problematic. 
+
 If the options ``--num-matches-from-disparity`` or
 ``--num-matches-from-disp-triplets`` are specified, dense matches from disparity
 will be produced (:numref:`stereodefault`). These can be used in bundle adjustment

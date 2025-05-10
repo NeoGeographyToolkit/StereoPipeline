@@ -49,6 +49,7 @@ using namespace vw;
 namespace asp {namespace isis { 
                                
 IsisInterface::IsisInterface(std::string const& file) {
+  
   // Opening labels and camera
   Isis::FileName ifilename(QString::fromStdString(file));
   m_label.reset(new Isis::Pvl());
@@ -68,12 +69,14 @@ IsisInterface::IsisInterface(std::string const& file) {
 IsisInterface::~IsisInterface() {}
 
 IsisInterface* IsisInterface::open(std::string const& filename) {
+  
   // Opening Labels (This should be done somehow though labels)
   Isis::FileName ifilename(QString::fromStdString(filename));
   Isis::Pvl label;
   label.read(ifilename.expanded());
 
-  Isis::Cube tempCube(QString::fromStdString(filename));
+  QString access = "r";
+  Isis::Cube tempCube(QString::fromStdString(filename), access);
   Isis::Camera* camera = Isis::CameraFactory::Create(tempCube);
 
   IsisInterface* result;
@@ -294,10 +297,10 @@ bool IsisCubeHasCsmBlob(std::string const& cubeFile) {
   QString qCubeFile = QString::fromStdString(cubeFile);
   Isis::Process p;
   Isis::CubeAttributeInput inAtt;
-  Isis::Cube *cube = p.SetInputCube(qCubeFile, inAtt, Isis::ReadWrite);
   
-  // Hopefully the memory of cube is freed when p goes out of scope.  
-  return cube->hasBlob("CSMState", "String");
+  QString access = "r";
+  Isis::Cube cube(qCubeFile, access);
+  return cube.hasBlob("CSMState", "String");
 }
 
 // Read the CSM state (a string) from a cube file. Throw an exception if
@@ -305,22 +308,21 @@ bool IsisCubeHasCsmBlob(std::string const& cubeFile) {
 std::string csmStateFromIsisCube(std::string const& cubeFile) {
     
   QString qCubeFile = QString::fromStdString(cubeFile);
-  Isis::Process p;
-  Isis::CubeAttributeInput inAtt;
-  Isis::Cube *cube = p.SetInputCube(qCubeFile, inAtt, Isis::ReadWrite);
-  
-  if (!cube->hasBlob("CSMState", "String"))
+  QString access = "r";
+  Isis::Cube cube(qCubeFile, access);
+  if (!cube.hasBlob("CSMState", "String"))
     vw::vw_throw( vw::ArgumentErr() << "Cannot find the CSM state in: "
                   << cubeFile << "\n");
 
   Isis::Blob csmStateBlob("CSMState", "String");
-  cube->read(csmStateBlob);
+  cube.read(csmStateBlob);
 
   // Copy precisely the number of characters in the blob. This prevents copying junk,
   // which can result in a parse error later.
   int len = csmStateBlob.Size();
   std::string buf(len, ' ');
   memcpy(&buf[0], csmStateBlob.getBuffer(), len);
+
   return buf;
 }
 

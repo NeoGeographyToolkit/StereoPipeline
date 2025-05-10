@@ -96,8 +96,8 @@ Files created during correlation
 \*-D_sub.tif - Low-resolution initial disparity (:numref:`d_sub`). 
     Computed at the correlation stage. Not recomputed when a run is
     resumed. The options ``--corr-seed-mode 2`` and ``3`` also produce
-    \*-D_sub_spread.tif, which has the spread of this disparity.
-     It is in the same format as ``D.tif`` (below).
+    \*-D_sub_spread.tif, which has the spread of this disparity. It is 
+    in the same format as ``D.tif`` (below).
     
 \*-D.tif - Full-resolution disparity map produced from the low-resolution disparity.
     It contains integer values of disparity that are used to seed the

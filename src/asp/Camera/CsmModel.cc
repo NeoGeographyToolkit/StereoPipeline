@@ -181,10 +181,9 @@ std::string CsmModel::get_csm_plugin_folder() {
 // of other inapplicable libraries. Hence just pick that one.  One day
 // we will have a dedicated plugins directory.
 size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
+
   plugins.clear();
-
   const std::string folder = get_csm_plugin_folder();
-
   std::string ext;
   std::vector<std::string> potential_plugins;
   std::string platform = std::string(BOOST_PLATFORM);
@@ -587,10 +586,13 @@ void CsmModel::setModelFromStateString(std::string const& model_state,
 
   // Get the plugin name
   csm::PluginList plugins = csm::Plugin::getList();
-  if (plugins.size() != 1)
-    vw::vw_throw(vw::ArgumentErr() << "Expected to find one CSM plugin, found: "
-                 << plugins.size() << ". Some logic may need revisiting.\n");
+  if (plugins.size() == 0)
+    vw::vw_throw(vw::ArgumentErr() << "Could not find CSM plugins.\n");
     
+  if (plugins.size() > 1)
+    vw::vw_out(vw::WarningMessage) 
+      << "Expected to find one CSM plugin, found: " << plugins.size() << ".\n";
+
   for (auto iter = plugins.begin(); iter != plugins.end(); iter++) {
     const csm::Plugin* csm_plugin = (*iter);
     m_plugin_name = csm_plugin->getPluginName();
