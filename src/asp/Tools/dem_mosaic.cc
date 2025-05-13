@@ -18,7 +18,8 @@
 /// \file dem_mosaic.cc
 ///
 
-// A program to merge several DEMs into one.
+// A program to merge several DEMs into one. The inputs are usually float. The
+// processing happens in double precision.
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
@@ -51,10 +52,6 @@ using namespace vw; // TODO(oalexan1): Remove this namespace
 using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-
-// This tool casts all input DEMs to float. The processing is done in double
-// precision though. 
-typedef float RealT;
 
 // This is used for various tolerances
 double g_tol = 1e-6;
@@ -716,7 +713,7 @@ void processMedianOrNmad(BBox2i const& bbox,
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
   int m_cols, m_rows, m_bias;
   Options                   const& m_opt;              // alias
-  DiskImageManager<RealT>        & m_imgMgr;           // alias
+  DiskImageManager<float>        & m_imgMgr;           // alias
   std::vector<GeoReference> const& m_georefs;          // alias
   GeoReference                     m_out_georef;
   std::vector<double>       const& m_nodata_values;    // alias
@@ -727,7 +724,7 @@ class DemMosaicView: public ImageViewBase<DemMosaicView>{
 public:
   DemMosaicView(int cols, int rows, int bias,
                 Options                   const& opt,
-                DiskImageManager<RealT>        & imgMgr,
+                DiskImageManager<float>        & imgMgr,
                 std::vector<GeoReference> const& georefs,
                 GeoReference              const& out_georef,
                 std::vector<double>       const& nodata_values,
@@ -776,7 +773,7 @@ public:
   }
 
   // Boilerplate
-  typedef RealT      pixel_type;
+  typedef float      pixel_type;
   typedef pixel_type result_type;
   typedef ProceduralPixelAccessor<DemMosaicView> pixel_accessor;
   inline int cols  () const { return m_cols; }
@@ -1215,8 +1212,8 @@ public:
 
     // Return the tile we created with fake borders to make it look
     // the size of the entire output image. So far we operated
-    // on doubles, here we cast to RealT.
-    return prerasterize_type(pixel_cast<RealT>(tile),
+    // on doubles, here we cast to float.
+    return prerasterize_type(pixel_cast<float>(tile),
                              -bbox.min().x(), -bbox.min().y(),
                              cols(), rows());
   } // end function prerasterize
@@ -1255,7 +1252,7 @@ void load_dem_bounding_boxes(Options       const& opt,
 
     // Open a handle to this DEM file
     DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
-    DiskImageView<RealT>  img(opt.dem_files[dem_iter]);
+    DiskImageView<float>  img(opt.dem_files[dem_iter]);
     GeoReference          georef = read_georef(opt.dem_files[dem_iter]);
     BBox2i                pixel_box = bounding_box(img);
 
@@ -1646,13 +1643,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     // Set a default out_nodata_value, but remember that this is
     // set internally, not by the user.
     opt.has_out_nodata = false;
-    opt.out_nodata_value = -std::numeric_limits<RealT>::max();
+    opt.out_nodata_value = -std::numeric_limits<float>::max();
   } else {
     opt.has_out_nodata = true;
   }
 
   // Cast this to float. All our nodata are float.
-  opt.nodata_threshold = RealT(opt.nodata_threshold);
+  opt.nodata_threshold = float(opt.nodata_threshold);
 
   // Parse the list of tiles to save. First replace commas and semicolons by a space.
   std::replace(opt.tile_list_str.begin(), opt.tile_list_str.end(), ',', ' ');
@@ -1745,16 +1742,16 @@ int main(int argc, char *argv[]) {
       // Since the DEMs have float pixels, we must read the no-data as
       // float as well. (this is a bug fix). Yet we store it in a
       // double, as we will cast the DEM pixels to double as well.
-      if (in_rsrc.has_nodata_read()) opt.out_nodata_value = RealT(in_rsrc.nodata_read());
+      if (in_rsrc.has_nodata_read()) opt.out_nodata_value = float(in_rsrc.nodata_read());
     }
 
     // Watch for underflow, if mixing doubles and float. Particularly problematic
     // is when the nodata_value cannot be represented exactly as a float.
-    if (opt.out_nodata_value < static_cast<double>(-std::numeric_limits<RealT>::max()) ||
-        RealT(opt.out_nodata_value)  != double(opt.out_nodata_value)) {
+    if (opt.out_nodata_value < static_cast<double>(-std::numeric_limits<float>::max()) ||
+        float(opt.out_nodata_value)  != double(opt.out_nodata_value)) {
       vw_out() << "The no-data value cannot be represented exactly as a float. "
            << "Changing it to the smallest float.\n";
-      opt.out_nodata_value = static_cast<double>(-std::numeric_limits<RealT>::max());
+      opt.out_nodata_value = static_cast<double>(-std::numeric_limits<float>::max());
     }
 
     vw_out() << "Using output no-data value: " << opt.out_nodata_value << "\n";
@@ -1782,7 +1779,7 @@ int main(int argc, char *argv[]) {
     // Use desired spacing if user-specified
     if (spacing > 0.0) {
       // Get lonlat bounding box of the first DEM.
-      DiskImageView<RealT> dem0(opt.dem_files[0]);
+      DiskImageView<float> dem0(opt.dem_files[0]);
       BBox2 llbox0 = mosaic_georef.pixel_to_lonlat_bbox(bounding_box(dem0));
       
       // Reset transform with user provided spacing.
@@ -1941,7 +1938,7 @@ int main(int argc, char *argv[]) {
     std::vector<double>       nodata_values;
     std::vector<GeoReference> georefs;
     std::vector<std::string>  loaded_dems;
-    DiskImageManager<RealT>   imgMgr;
+    DiskImageManager<float>   imgMgr;
 
     BBox2i output_dem_box = BBox2i(0, 0, cols, rows); // output DEM box
     
@@ -1991,13 +1988,13 @@ int main(int argc, char *argv[]) {
         // open more handles.
         DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
         if (in_rsrc.has_nodata_read())
-          curr_nodata_value = RealT(in_rsrc.nodata_read());
+          curr_nodata_value = float(in_rsrc.nodata_read());
       } catch(std::exception const& e) {
         // Try again
         imgMgr.freeup_handles_not_thread_safe();
         DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
         if (in_rsrc.has_nodata_read())
-          curr_nodata_value = RealT(in_rsrc.nodata_read());
+          curr_nodata_value = float(in_rsrc.nodata_read());
       }
       
       loaded_dems.push_back(opt.dem_files[dem_iter]);
@@ -2043,7 +2040,7 @@ int main(int argc, char *argv[]) {
       long long int num_valid_pixels; // Will be populated when saving to disk
       vw::Mutex count_mutex; // to lock when updating num_valid_pixels
 
-      ImageViewRef<RealT> out_dem
+      ImageViewRef<float> out_dem
         = crop(DemMosaicView(cols, rows, bias, opt,
                              imgMgr, georefs,
                              mosaic_georef, nodata_values,
@@ -2066,31 +2063,31 @@ int main(int argc, char *argv[]) {
                                        has_nodata, opt.out_nodata_value, opt, tpc);
       else if (opt.output_type == "Byte") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-                       per_pixel_filter(out_dem, RoundAndClamp<uint8, RealT>()),
+                       per_pixel_filter(out_dem, RoundAndClamp<uint8, float>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<uint8>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "UInt16") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-                       per_pixel_filter(out_dem, RoundAndClamp<uint16, RealT>()),
+                       per_pixel_filter(out_dem, RoundAndClamp<uint16, float>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<uint16>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "Int16") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-                       per_pixel_filter(out_dem, RoundAndClamp<int16, RealT>()),
+                       per_pixel_filter(out_dem, RoundAndClamp<int16, float>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<int16>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "UInt32") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-                       per_pixel_filter(out_dem, RoundAndClamp<uint32, RealT>()),
+                       per_pixel_filter(out_dem, RoundAndClamp<uint32, float>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<uint32>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "Int32") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-                       per_pixel_filter(out_dem, RoundAndClamp<int32, RealT>()),
+                       per_pixel_filter(out_dem, RoundAndClamp<int32, float>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<int32>(opt.out_nodata_value),
                                        opt, tpc);
