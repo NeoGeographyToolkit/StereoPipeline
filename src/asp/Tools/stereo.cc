@@ -78,7 +78,6 @@ BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
 // Handle the arguments for the multiview case. The logic used to break up the
 // command line arguments for all images/cameras into command line arguments for
 // pairs of image/cameras is fragile.
-
 void handle_multiview(int argc, char* argv[],
                       int num_pairs,
                       std::vector<std::string> const& files,
@@ -244,7 +243,7 @@ bool is_tile_run(int argc, char* argv[]) {
   return false;
 }
 
-// Save some info that will be useful for peeking at ar un
+// Save some info that will be useful for peeking at a run
 void save_run_info(ASPGlobalOptions const& opt,
                    std::vector<std::string> const& images,
                    std::vector<std::string> const& cameras,
@@ -324,24 +323,28 @@ bool parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
   }
 
   // Find the output prefix
-  prefix = files.back(); // Dem, if present, was already popped off the back.
-
-  // An output prefix cannot be an image or a camera
-  if (vw::has_image_extension(prefix) || vw::has_cam_extension(prefix) || prefix == "") {
-    // Throw here, as we don't want this printed in stereo_gui
-    vw_throw(ArgumentErr() << "Invalid output prefix: " << prefix << ".\n");
-  }
+  prefix = files.back(); // the dem, if present, was already popped off the back.
   files.pop_back();
 
-  // Now there are N images and possibly N camera paths
-  bool ensure_equal_sizes = false;
-  asp::separate_images_from_cameras(files, image_paths, camera_paths, ensure_equal_sizes);
+  // parallel_stereo must be able to run with a tile output prefix. That program
+  // does not understand all the stereo options, so, it delegates to the
+  // underlying stereo executables to do this switch.
+  if (asp::stereo_settings().output_prefix_override != "")
+    prefix = asp::stereo_settings().output_prefix_override;
+  
+  // An output prefix cannot be an image or a camera
+  if (vw::has_image_extension(prefix) || vw::has_cam_extension(prefix) || prefix == "")
+    vw_throw(ArgumentErr() << "Invalid output prefix: " << prefix << ".\n");
 
-  // The output prefix must not exist as a file.
+  // The output prefix must not exist as a file
   if (fs::exists(prefix))
       vw_out(WarningMessage)
         << "It appears that the output prefix exists as a file: "
         << prefix << ". Perhaps this was not intended.\n";
+
+  // Now there are N images and possibly N camera paths
+  bool ensure_equal_sizes = false;
+  asp::separate_images_from_cameras(files, image_paths, camera_paths, ensure_equal_sizes);
 
   return true;
 }
@@ -572,13 +575,16 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   }
 
   // Re-use the logic in parse_multiview_cmd_files, but just for two images/cameras.
+  // TODO(oalexan1): This convoluted logic where the files vector is produced 
+  // from opt.in_file1, etc., then parsed, then copied back to these, needs to change.
+  // Likely vm["input-files"] already has this vector.
   std::vector<std::string> files;
   std::vector<std::string> images, cameras;
   if (!opt.in_file1.empty())   files.push_back(opt.in_file1);
   if (!opt.in_file2.empty())   files.push_back(opt.in_file2);
   if (!opt.cam_file1.empty())  files.push_back(opt.cam_file1);
   if (!opt.cam_file2.empty())  files.push_back(opt.cam_file2);
-  if (!opt.out_prefix.empty()) files.push_back(opt.out_prefix);
+  if (!opt.out_prefix.empty()) files.push_back(opt.out_prefix); // will change
   if (!opt.input_dem.empty())  files.push_back(opt.input_dem);
   if (!parse_multiview_cmd_files(files, // inputs
                                   images, cameras, opt.out_prefix, opt.input_dem)) // outputs

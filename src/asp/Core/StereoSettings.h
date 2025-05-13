@@ -162,9 +162,7 @@ namespace asp {
     int band;
     bool allow_different_mapproject_gsd;
     vw::Vector2 ortho_heights;
-
-    int disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
-
+    std::string output_prefix_override; // override the output prefix with this 
     std::string flann_method; // The method to use for FLANN matching
 
     // This option will be the default in the future and then it will go away
@@ -172,8 +170,6 @@ namespace asp {
     bool accept_provided_mapproj_dem;
 
     // Correlation options
-
-
     float slogW;                      ///< Preprocessing filter width
     vw::uint16 pre_filter_mode;       // 0 = None
                                       // 1 = Gaussian Blur
@@ -188,7 +184,9 @@ namespace asp {
 
     int   min_num_ip;                 ///< Minimum number of IP's needed for search range estimation.
 
-    float seed_percent_pad;           ///< Pad amound towards the IP found
+    float seed_percent_pad;           ///< Pad amount towards the IP found
+    float disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
+
     vw::uint16 cost_mode;             // 0 = absolute difference
                                       // 1 = squared difference
                                       // 2 = normalized cross correlation
@@ -203,6 +201,7 @@ namespace asp {
     std::string  ip_filter_using_dem; // Filter using given DEM and height difference
     vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
     vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
+
 
     int corr_max_levels;     // Max pyramid levels to process. 0 hits only once.
     double max_disp_spread;    // Max disparity spread

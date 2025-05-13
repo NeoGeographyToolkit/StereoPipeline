@@ -22,6 +22,8 @@ misc:
   * Unused ``pca`` mode in ``ipfind`` got removed.
   * Bugfix for modifying the creation time of ISIS cubes when it was meant to
     only read them.
+  * Bugfix for when ``parallel_stereo`` has the same value for the output prefix
+    and bundle adjustment prefix.
 
 RELEASE 3.5.0, April 28, 2025
 -----------------------------

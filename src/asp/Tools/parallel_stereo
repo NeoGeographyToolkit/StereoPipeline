@@ -569,7 +569,7 @@ def spawn_to_nodes(step, opt, settings, args, subdirs):
     if 'LD_LIBRARY_PATH' in os.environ:
         os.environ['ASP_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']
         os.environ['LD_LIBRARY_PATH'] = ''
-        
+
     asp_system_utils.generic_run(cmd, opt.verbose)
 
     # Undo the above
@@ -593,7 +593,7 @@ def tile_run(prog, args, opt, settings, tile, **kw):
     
     try:
         # Get tile folder
-        tile_dir_string = tile_dir(settings['out_prefix'][0], tile) + "/" + tile.name_str()
+        tile_dir_prefix = tile_dir(settings['out_prefix'][0], tile) + "/" + tile.name_str()
 
         # When using SGM correlation, increase the output tile size.
         # - The output image will contain more populated pixels but 
@@ -616,8 +616,10 @@ def tile_run(prog, args, opt, settings, tile, **kw):
             asp_cmd_utils.wipe_option(call, '--threads', 1)
             call.extend(['--threads', str(opt.threads_multi)])
 
-        cmd = call + ['--trans-crop-win'] + adjusted_tile.as_array() # append the region to process
-        cmd[cmd.index(settings['out_prefix'][0])] = tile_dir_string # out prefix for this tile
+        cmd = call + ['--trans-crop-win'] + adjusted_tile.as_array() # append the tile
+        # This is a bugfix for output prefix being same as bundle-adjust-prefix.
+        # Let the stereo executables parse these.
+        cmd += ['--output-prefix-override', tile_dir_prefix]
 
         if opt.dryrun:
             print(" ".join(cmd))
@@ -628,13 +630,13 @@ def tile_run(prog, args, opt, settings, tile, **kw):
         # See if perhaps we can skip correlation
         if prog == 'stereo_corr' and opt.resume_at_corr:
 
-            D = tile_dir_string + '-D.tif'
+            D = tile_dir_prefix + '-D.tif'
             if (not os.path.islink(D)) and asp_system_utils.is_valid_image(D):
                 # The disparity D.tif is valid and not a symlink. No need
                 # to recreate it.
                 return
 
-            Dnosym = tile_dir_string + '-Dnosym.tif'
+            Dnosym = tile_dir_prefix + '-Dnosym.tif'
             if (not os.path.islink(Dnosym)) and asp_system_utils.is_valid_image(Dnosym):
                 # In a previous run D.tif was renamed to Dnosym.tif
                 # and D.tif was made into a symlink. Still good.
@@ -659,7 +661,7 @@ def tile_run(prog, args, opt, settings, tile, **kw):
 
         if len(timeCmd) > 0:
             print(err)
-            usage_file = tile_dir_string + "-" + prog + "-resource-usage.txt"  
+            usage_file = tile_dir_prefix + "-" + prog + "-resource-usage.txt"
             with open(usage_file, 'w') as f:
                 f.write(err)
 

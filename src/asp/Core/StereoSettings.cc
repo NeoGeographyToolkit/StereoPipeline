@@ -181,8 +181,6 @@ PreProcessingDescription::PreProcessingDescription():
       "further expand to this size, resulting in the tiles overlapping. This may be "
       "needed if the homography alignment between these images is not great, as "
       "this transform is used to pair up left and right image tiles.")
-    ("disparity-range-expansion-percent", po::value(&global.disparity_range_expansion_percent)->default_value(20),
-      "Expand the disparity range estimated from interest points by this percentage before computing the stereo correlation with local epipolar alignment.")
     ("datum", po::value(&global.datum)->default_value(""),
       "Set the planet datum. Options: WGS_1984, D_MOON (1,737,400 meters), "
       "D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. "
@@ -225,6 +223,9 @@ PreProcessingDescription::PreProcessingDescription():
       "It is assumed that the left and right input images have been mapprojected onto "
       "surfaces with the provided heights above a datum. The datum is read from the "
       "image geoheaders.")
+    ("output-prefix-override", 
+     po::value(&global.output_prefix_override)->default_value(""),
+      "Override the output prefix with this value. Needed during parallel stereo.")
 
     // For bathymetry correction
     ("left-bathy-mask", po::value(&global.left_bathy_mask),
@@ -256,6 +257,8 @@ CorrelationDescription::CorrelationDescription():
       "The minimum number of interest points which must be found to estimate the search range.")
     ("corr-sub-seed-percent", po::value(&global.seed_percent_pad)->default_value(0.25),
       "Expand the search range by this factor when computing the low-resolution disparity.")
+    ("disparity-range-expansion-percent", po::value(&global.disparity_range_expansion_percent)->default_value(20.0),
+      "Expand the disparity range estimated from interest points by this percentage before computing the stereo correlation with local epipolar alignment.")
     ("cost-mode", po::value(&global.cost_mode)->default_value(2),
       "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation, 3 Census Transform (SGM only), 4 Ternary Census Transform (SGM only)]")
     ("xcorr-threshold", po::value(&global.xcorr_threshold)->default_value(2.0),
