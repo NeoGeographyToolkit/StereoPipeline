@@ -35,15 +35,13 @@
 #include <io/LasWriter.hpp>
 #include <pdal/SpatialReference.hpp>
 
-using namespace vw;
 using namespace vw::cartography;
-using namespace pdal::filters;
 
 // Read through las points in streaming fashion. When a given amount is collected,
 // write a chip to disk. 
-namespace pdal {
+namespace asp {
   
-class PDAL_DLL ChipMaker: public Writer, public Streamable {
+class PDAL_DLL ChipMaker: public pdal::Writer, public pdal::Streamable {
 
 public:
 
@@ -61,7 +59,7 @@ std::string getName() const { return "chip maker"; }
     m_tile_len(tile_len), m_chip_size(chip_size), 
     m_has_georef(has_georef), m_georef(georef), m_opt(opt),
     m_out_prefix(out_prefix), m_out_files(out_files),
-    m_tile_count(0), m_buf(PointBuffer()) {}
+    m_tile_count(0), m_buf(vw::PointBuffer()) {}
 
 ~ChipMaker() {} 
 
@@ -75,7 +73,7 @@ private:
   std::string m_out_prefix; // output files will start with this prefix 
   std::vector<std::string> & m_out_files; // alias, used for output
   std::int64_t m_tile_count;
-  PointBuffer m_buf;
+  vw::PointBuffer m_buf;
   
   // Call this when the buffer is full or when we are done reading.
   // Organize the points in small chips, with points in each chip
@@ -86,10 +84,9 @@ private:
       return;
 
     // Make the chips
-    // TODO(oalexan1): Move Chipper to vw namespace. It is not a pdal class.
-    vw::ImageView<Vector3> Img;
-    pdal::filters::Chipper(m_buf, m_chip_size, m_has_georef, m_georef,
-            m_tile_len, m_tile_len, Img);
+    vw::ImageView<vw::Vector3> Img;
+    vw::Chipper(m_buf, m_chip_size, m_has_georef, m_georef,
+                m_tile_len, m_tile_len, Img);
 
     // Create a file of the form tile with index m_tile_count
     std::ostringstream os;
@@ -97,7 +94,7 @@ private:
     std::string out_file = os.str();
     m_out_files.push_back(out_file);
     
-    vw::vw_out() << "Writing temporary file: " << out_file << std::endl;    
+    vw::vw_out() << "Writing temporary file: " << out_file << "\n";
     bool has_nodata = false;
     double nodata = -std::numeric_limits<double>::max();
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
@@ -110,12 +107,12 @@ private:
   } 
   
   // This will be called for each point in the cloud.
-  virtual bool processOne(PointRef& point) {
+  virtual bool processOne(pdal::PointRef& point) {
     
     // Current point
-    vw::Vector3 pt(point.getFieldAs<double>(Dimension::Id::X),
-                   point.getFieldAs<double>(Dimension::Id::Y),
-                   point.getFieldAs<double>(Dimension::Id::Z));
+    vw::Vector3 pt(point.getFieldAs<double>(pdal::Dimension::Id::X),
+                   point.getFieldAs<double>(pdal::Dimension::Id::Y),
+                   point.getFieldAs<double>(pdal::Dimension::Id::Z));
     m_buf.push_back(pt);
     // If the buffer is full, process it
     std::int64_t max_num_pts_to_read = m_tile_len * m_tile_len;
@@ -126,16 +123,16 @@ private:
   }
 
   // To be called after all the points are read.
-  virtual void done(PointTableRef table) {
+  virtual void done(pdal::PointTableRef table) {
     // Process the rest of the points
     processBuf();
   }
 
   // Part of the API, not used here.
-  virtual void writeView(const PointViewPtr view) {
-    throw pdal_error("The writeView() function must not be called in streaming mode.");
+  virtual void writeView(const pdal::PointViewPtr view) {
+    throw pdal::pdal_error("The writeView() function must not be called in streaming mode.");
   }
-  virtual void addArgs(ProgramArgs& args) {}
+  virtual void addArgs(pdal::ProgramArgs& args) {}
   virtual void initialize() {}
   ChipMaker& operator=(const ChipMaker&) = delete;
   ChipMaker(const ChipMaker&) = delete;
@@ -143,336 +140,332 @@ private:
 
 };
 
-} // end namespace pdal
-
-namespace asp {
-
-  class CsvReader: public BaseReader {
-    std::string  m_csv_file;
-    asp::CsvConv m_csv_conv;
-    bool         m_is_first_line;
-    bool         m_has_valid_point;
-    Vector3      m_curr_point;
-    std::ifstream * m_ifs;
-    
-  public:
-
-    CsvReader(std::string const & csv_file,
-              asp::CsvConv const& csv_conv,
-              GeoReference const& georef):
-        m_csv_file(csv_file), m_csv_conv(csv_conv),
-        m_is_first_line(true), m_has_valid_point(false) {
-
-      // We will convert from projected space to xyz, unless points
-      // are already in this format.
-      m_has_georef = (m_csv_conv.format != asp::CsvConv::XYZ);
-
-      m_georef      = georef;
-      m_num_points  = asp::csv_file_size(m_csv_file);
-
-      m_ifs = new std::ifstream (m_csv_file.c_str());
-      if (!*m_ifs)
-        vw_throw(vw::IOErr() << "Unable to open file: " << m_csv_file << "\n");
-
-      VW_ASSERT(m_csv_conv.csv_format_str != "",
-                ArgumentErr() << "CsvReader: The CSV format was not specified.\n");
-    }
-
-    virtual bool ReadNextPoint() {
-
-      std::string line;
-      asp::CsvConv::CsvRecord vals;
-
-      // Keep on reading, until a valid point is hit or the end of the file
-      // is reached.
-      while (1) {
-        m_has_valid_point = static_cast<bool>(getline(*m_ifs, line, '\n'));
-        if (!m_has_valid_point) 
-          return m_has_valid_point; // reached end of file
-
-        vals = m_csv_conv.parse_csv_line(m_is_first_line, m_has_valid_point, line);
-       
-        // Will return projected point and height or xyz. We really
-        // prefer projected points, as then the chipper will have an
-        // easier time grouping spatially points close together, as it
-        // operates the first two coordinates.
-        bool return_point_height = true;
-        try {
-          m_curr_point 
-            = m_csv_conv.csv_to_cartesian_or_point_height(vals, m_georef, return_point_height);
-        } catch (...) {
-          // This is a bug fix. Skip points out of bounds.
-          continue;
-        }   
-        
-        // Found a valid point 
-        if (m_has_valid_point)
-          break;
-      }
-
-      return m_has_valid_point;
-    }
-
-    virtual Vector3 GetPoint() {
-      return m_curr_point;
-    }
-
-    virtual ~CsvReader() {
-      delete m_ifs;
-      m_ifs = NULL;
-    }
-
-  }; // End class CsvReader
-
-  // Read unordered points from a Tif image. They will be organized into chips.
-  class TifReader: public BaseReader {
-    ImageViewRef<Vector3> m_img;
-    bool m_has_valid_point;
-    vw::Vector3 m_curr_point;
-    std::vector<BBox2i> m_blocks;
-    ImageView<Vector3> m_block_img;
-    // Use int64_t to avoid overflow
-    std::int64_t m_block_count;
-    std::int64_t m_block_len;
-    std::int64_t m_point_count_in_block;
-    std::int64_t m_total_point_count;
-
-  public:
-
-    TifReader(std::string const & tif_file): 
-      m_has_valid_point(false), m_block_count(0), m_point_count_in_block(0), m_block_len(0),
-      m_total_point_count(0) {
-        
-      // Must ensure there are at least 3 channels in the image
-      {
-        DiskImageResourceGDAL rsrc(tif_file);
-        int num_channels = rsrc.channels();
-        if (num_channels < 3)
-          vw_throw(ArgumentErr() << "TifReader: Expecting at least 3 channels "
-                   << "in the image.\n");
-      }
-      
-      // Read the first 3 channels       
-      std::vector<std::string> tif_files;
-      tif_files.push_back(tif_file);
-      m_img = asp::form_point_cloud_composite<Vector3>(tif_files, ASP_MAX_SUBBLOCK_SIZE);
-      
-      // Compute the number of points in the image. To avoid integer overflow,
-      // cast first to int64_t.  
-      m_num_points = std::int64_t(m_img.cols()) * std::int64_t(m_img.rows());
-      
-      // Reading points one by one is very inefficient. We will read them in blocks.
-      int block_size = 1024;
-      m_blocks = subdivide_bbox(vw::bounding_box(m_img), block_size, block_size);
-    }
-
-    virtual bool ReadNextPoint() {
-      
-      if (m_total_point_count >= m_num_points) {
-        // No more points to read
-        m_curr_point = Vector3();
-        m_has_valid_point = false;
-        return m_has_valid_point;
-      }
-      
-      if (m_block_img.cols() == 0 || m_point_count_in_block >= m_block_len) {
-        
-        // Sanity checks
-        if (m_block_count >= (int64_t)m_blocks.size())
-          vw_throw(ArgumentErr() << "TifReader: Unexpected end of file.\n");
-        
-        // Read the next block
-        BBox2i block = m_blocks[m_block_count];
-        
-        // The block must be contained within the bounding box and be non-empty
-        if (block.empty() || !vw::bounding_box(m_img).contains(block))
-          vw_throw(ArgumentErr() << "TifReader: Invalid block.\n");
-        
-        m_block_img = crop(m_img, block);
-        m_block_len = std::int64_t(block.width()) * std::int64_t(block.height());
-        m_point_count_in_block = 0;
-        m_block_count++;
-      }
-      
-      // Find the row and column of the current point
-      int col = m_point_count_in_block % m_block_img.cols();
-      int row = m_point_count_in_block / m_block_img.cols();
-      
-      // Get the element
-      m_curr_point = m_block_img(col, row);
-      
-      // Set the zero point to nan. Usually a scanner uses this value
-      // if it cannot get a valid reading.
-      if (m_curr_point == Vector3()) {
-        double nan = std::numeric_limits<double>::quiet_NaN();
-        m_curr_point = Vector3(nan, nan, nan);
-      }
-      
-      // Increment the counters
-      m_point_count_in_block++;
-      m_total_point_count++;
-      
-      m_has_valid_point = true;
-      return m_has_valid_point;
-    }
-
-    virtual Vector3 GetPoint() {
-      return m_curr_point;
-    }
-
-    virtual ~TifReader() {
-    }
-
-  }; // End class TifReader
-
-  // TODO(oalexan1): Consider using PDAL for PCD files too.
-  void PcdReader::read_header() {
-    // Open the file as text
-    std::ifstream handle;
-    handle.open(m_pcd_file.c_str());
-    if (handle.fail()) {
-      vw_throw( vw::IOErr() << "Unable to open file \"" << m_pcd_file << "\"" );
-    }
-    // Start checking all of the header elements
-    bool valid = true;
-    std::string line, dummy, value;
-    std::getline(handle, line);     
-    while (line[0] == '#') // Skip initial comment lines
-      std::getline(handle, line);
-    // Check the header version - we only support one kind for now.
-    boost::to_lower(line);
-    if (line.find("version 0.7") == std::string::npos) {
-      vw_out() << "Error: Unsupported PCD file version: " << line << std::endl;
-      valid = false;
-    }
-    // Verify the fields
-    std::getline(handle, line);
-    boost::to_lower(line);
-    if (line.find("fields x y z") == std::string::npos) {
-      vw_out() << "Error: Unsupported PCD fields: " << line << std::endl;
-      valid = false;
-    }
-    // Get some other information, no checking here...
-    handle >> dummy >> m_size_bytes;
-    std::getline(handle, line); // Go to the next line
-    if ((m_size_bytes != 4) && (m_size_bytes != 8)) {
-      vw_out() << "Error: Unsupported byte size: " << m_size_bytes << std::endl;
-      valid = false;
-    }
-    handle >> dummy >> m_type;
-    std::getline(handle, line); // Go to the next line
-    if (m_type == 'F')
-      m_type = 'f';
-    if (m_type != 'f') {
-      vw_out() << "Error: Currently only Float type PCD files are supported!\n";
-      valid = false;
-    }
-    
-    // Get size info
-    int width, height, count;
-    handle >> dummy >> count;
-    std::getline(handle, line); // Go to the next line
-    if (count != 1) {
-      vw_out() << "Error: Unsupported PCD count: " << count << std::endl;
-      valid = false;
-    }
-    handle >> dummy >> width >> dummy >> height;
-    std::getline(handle, line); // Skip viewpoint line
-    std::getline(handle, line);
-    handle >> dummy >> m_num_points;
-    if (m_num_points != (static_cast<size_t>(width*height))) {
-      vw_out() << "Error: PCD point count error!\n";
-      valid = false;
-    }
-    // Get the type of file, ascii or binary
-    handle >> dummy >> value;
-    boost::to_lower(value);
-    m_binary_format = (value != "ascii");
-    
-    if (handle.fail()) {
-      vw_out() << "Error: PCD read error!\n";
-      valid = false;
-    }
-    
-    m_header_length_bytes = handle.tellg();
-    
-    // Stop reading the header file
-    handle.close();
-    if (!valid)
-      vw_throw(ArgumentErr() << "Fatal error reading PCD file: " << m_pcd_file);
-  }
+class CsvReader: public BaseReader {
+  std::string  m_csv_file;
+  asp::CsvConv m_csv_conv;
+  bool         m_is_first_line;
+  bool         m_has_valid_point;
+  vw::Vector3  m_curr_point;
+  std::ifstream * m_ifs;
   
-  PcdReader::PcdReader(std::string const & pcd_file)
-    : m_pcd_file(pcd_file), m_has_valid_point(false) {
+public:
 
-    // For now PCD files are required to be in XYZ GCC format.
-    m_has_georef = false;
+  CsvReader(std::string const & csv_file,
+            asp::CsvConv const& csv_conv,
+            GeoReference const& georef):
+      m_csv_file(csv_file), m_csv_conv(csv_conv),
+      m_is_first_line(true), m_has_valid_point(false) {
 
-    read_header();      
-    
-    // Open the file for data reading in the proper format then skip past the header
-    if (m_binary_format)
-      m_ifs = new std::ifstream ( m_pcd_file.c_str(), std::ios_base::binary);
-    else
-      m_ifs = new std::ifstream ( m_pcd_file.c_str());
+    // We will convert from projected space to xyz, unless points
+    // are already in this format.
+    m_has_georef = (m_csv_conv.format != asp::CsvConv::XYZ);
 
-    m_ifs->seekg(m_header_length_bytes);
+    m_georef      = georef;
+    m_num_points  = asp::csv_file_size(m_csv_file);
+
+    m_ifs = new std::ifstream (m_csv_file.c_str());
+    if (!*m_ifs)
+      vw::vw_throw(vw::IOErr() << "Unable to open file: " << m_csv_file << "\n");
+
+    VW_ASSERT(m_csv_conv.csv_format_str != "",
+              vw::ArgumentErr() << "CsvReader: The CSV format was not specified.\n");
   }
 
-  bool PcdReader::ReadNextPoint() {
+  virtual bool ReadNextPoint() {
 
-    // Check if there is more data
-    if (!m_ifs->good()) {
-      m_has_valid_point = false;
-      return false;
+    std::string line;
+    asp::CsvConv::CsvRecord vals;
+
+    // Keep on reading, until a valid point is hit or the end of the file
+    // is reached.
+    while (1) {
+      m_has_valid_point = static_cast<bool>(getline(*m_ifs, line, '\n'));
+      if (!m_has_valid_point) 
+        return m_has_valid_point; // reached end of file
+
+      vals = m_csv_conv.parse_csv_line(m_is_first_line, m_has_valid_point, line);
+      
+      // Will return projected point and height or xyz. We really
+      // prefer projected points, as then the chipper will have an
+      // easier time grouping spatially points close together, as it
+      // operates the first two coordinates.
+      bool return_point_height = true;
+      try {
+        m_curr_point 
+          = m_csv_conv.csv_to_cartesian_or_point_height(vals, m_georef, return_point_height);
+      } catch (...) {
+        // This is a bug fix. Skip points out of bounds.
+        continue;
+      }   
+      
+      // Found a valid point 
+      if (m_has_valid_point)
+        break;
     }
 
-    if (m_binary_format) {
-
-      if (m_size_bytes == 4) { // -> float
-        float x, y, z;
-        m_ifs->read(reinterpret_cast<char*>(&x), m_size_bytes);
-        m_ifs->read(reinterpret_cast<char*>(&y), m_size_bytes);
-        m_ifs->read(reinterpret_cast<char*>(&z), m_size_bytes);
-        m_curr_point = Vector3(x, y, z);
-      }else { // 8 bytes -> double
-        double x, y, z;
-        m_ifs->read(reinterpret_cast<char*>(&x), m_size_bytes);
-        m_ifs->read(reinterpret_cast<char*>(&y), m_size_bytes);
-        m_ifs->read(reinterpret_cast<char*>(&z), m_size_bytes);
-        m_curr_point = Vector3(x, y, z);          
-      }
-    
-    } else { // Text format
-
-      // Read in the next point
-      double x, y, z;
-      (*m_ifs) >> x >> y >> z;
-      m_curr_point = Vector3(x, y, z);
-    }
-    
-    // Make sure the reads succeeded
-    if (m_ifs->fail()) {
-      m_has_valid_point = false;
-      return false;
-    }
-    
-    return true;
+    return m_has_valid_point;
   }
 
-  Vector3 PcdReader::GetPoint(){
+  virtual vw::Vector3 GetPoint() {
     return m_curr_point;
   }
 
-  PcdReader::~PcdReader(){
+  virtual ~CsvReader() {
     delete m_ifs;
     m_ifs = NULL;
   }
 
-  std::int64_t pcd_file_size(std::string const& file) {
-    PcdReader reader(file);
-    return reader.m_num_points;
+}; // End class CsvReader
+
+// Read unordered points from a Tif image. They will be organized into chips.
+class TifReader: public BaseReader {
+  vw::ImageViewRef<vw::Vector3> m_img;
+  bool m_has_valid_point;
+  vw::Vector3 m_curr_point;
+  std::vector<vw::BBox2i> m_blocks;
+  vw::ImageView<vw::Vector3> m_block_img;
+  // Use int64_t to avoid overflow
+  std::int64_t m_block_count;
+  std::int64_t m_block_len;
+  std::int64_t m_point_count_in_block;
+  std::int64_t m_total_point_count;
+
+public:
+
+  TifReader(std::string const & tif_file): 
+    m_has_valid_point(false), m_block_count(0), m_point_count_in_block(0), m_block_len(0),
+    m_total_point_count(0) {
+      
+    // Must ensure there are at least 3 channels in the image
+    {
+      vw::DiskImageResourceGDAL rsrc(tif_file);
+      int num_channels = rsrc.channels();
+      if (num_channels < 3)
+        vw::vw_throw(vw::ArgumentErr() << "TifReader: Expecting at least 3 channels "
+                  << "in the image.\n");
+    }
+    
+    // Read the first 3 channels       
+    std::vector<std::string> tif_files;
+    tif_files.push_back(tif_file);
+    m_img = asp::form_point_cloud_composite<vw::Vector3>(tif_files, ASP_MAX_SUBBLOCK_SIZE);
+    
+    // Compute the number of points in the image. To avoid integer overflow,
+    // cast first to int64_t.  
+    m_num_points = std::int64_t(m_img.cols()) * std::int64_t(m_img.rows());
+    
+    // Reading points one by one is very inefficient. We will read them in blocks.
+    int block_size = 1024;
+    m_blocks = vw::subdivide_bbox(vw::bounding_box(m_img), block_size, block_size);
   }
+
+  virtual bool ReadNextPoint() {
+    
+    if (m_total_point_count >= m_num_points) {
+      // No more points to read
+      m_curr_point = vw::Vector3();
+      m_has_valid_point = false;
+      return m_has_valid_point;
+    }
+    
+    if (m_block_img.cols() == 0 || m_point_count_in_block >= m_block_len) {
+      
+      // Sanity checks
+      if (m_block_count >= (int64_t)m_blocks.size())
+        vw::vw_throw(vw::ArgumentErr() << "TifReader: Unexpected end of file.\n");
+      
+      // Read the next block
+      vw::BBox2i block = m_blocks[m_block_count];
+      
+      // The block must be contained within the bounding box and be non-empty
+      if (block.empty() || !vw::bounding_box(m_img).contains(block))
+        vw::vw_throw(vw::ArgumentErr() << "TifReader: Invalid block.\n");
+      
+      m_block_img = crop(m_img, block);
+      m_block_len = std::int64_t(block.width()) * std::int64_t(block.height());
+      m_point_count_in_block = 0;
+      m_block_count++;
+    }
+    
+    // Find the row and column of the current point
+    int col = m_point_count_in_block % m_block_img.cols();
+    int row = m_point_count_in_block / m_block_img.cols();
+    
+    // Get the element
+    m_curr_point = m_block_img(col, row);
+    
+    // Set the zero point to nan. Usually a scanner uses this value
+    // if it cannot get a valid reading.
+    if (m_curr_point == vw::Vector3()) {
+      double nan = std::numeric_limits<double>::quiet_NaN();
+      m_curr_point = vw::Vector3(nan, nan, nan);
+    }
+    
+    // Increment the counters
+    m_point_count_in_block++;
+    m_total_point_count++;
+    
+    m_has_valid_point = true;
+    return m_has_valid_point;
+  }
+
+  virtual vw::Vector3 GetPoint() {
+    return m_curr_point;
+  }
+
+  virtual ~TifReader() {
+  }
+
+}; // End class TifReader
+
+// TODO(oalexan1): Consider using PDAL for PCD files too.
+void PcdReader::read_header() {
+  // Open the file as text
+  std::ifstream handle;
+  handle.open(m_pcd_file.c_str());
+  if (handle.fail()) {
+    vw_throw( vw::IOErr() << "Unable to open file \"" << m_pcd_file << "\"" );
+  }
+  // Start checking all of the header elements
+  bool valid = true;
+  std::string line, dummy, value;
+  std::getline(handle, line);     
+  while (line[0] == '#') // Skip initial comment lines
+    std::getline(handle, line);
+  // Check the header version - we only support one kind for now.
+  boost::to_lower(line);
+  if (line.find("version 0.7") == std::string::npos) {
+    vw::vw_out() << "Error: Unsupported PCD file version: " << line << "\n";
+    valid = false;
+  }
+  // Verify the fields
+  std::getline(handle, line);
+  boost::to_lower(line);
+  if (line.find("fields x y z") == std::string::npos) {
+    vw::vw_out() << "Error: Unsupported PCD fields: " << line << "\n";
+    valid = false;
+  }
+  // Get some other information, no checking here...
+  handle >> dummy >> m_size_bytes;
+  std::getline(handle, line); // Go to the next line
+  if ((m_size_bytes != 4) && (m_size_bytes != 8)) {
+    vw::vw_out() << "Error: Unsupported byte size: " << m_size_bytes << "\n";
+    valid = false;
+  }
+  handle >> dummy >> m_type;
+  std::getline(handle, line); // Go to the next line
+  if (m_type == 'F')
+    m_type = 'f';
+  if (m_type != 'f') {
+    vw::vw_out() << "Error: Currently only Float type PCD files are supported.\n";
+    valid = false;
+  }
+  
+  // Get size info
+  int width, height, count;
+  handle >> dummy >> count;
+  std::getline(handle, line); // Go to the next line
+  if (count != 1) {
+    vw::vw_out() << "Error: Unsupported PCD count: " << count << "\n";
+    valid = false;
+  }
+  handle >> dummy >> width >> dummy >> height;
+  std::getline(handle, line); // Skip viewpoint line
+  std::getline(handle, line);
+  handle >> dummy >> m_num_points;
+  if (m_num_points != (static_cast<size_t>(width*height))) {
+    vw::vw_out() << "Error: PCD point count error!\n";
+    valid = false;
+  }
+  // Get the type of file, ascii or binary
+  handle >> dummy >> value;
+  boost::to_lower(value);
+  m_binary_format = (value != "ascii");
+  
+  if (handle.fail()) {
+    vw::vw_out() << "Error: PCD read error!\n";
+    valid = false;
+  }
+  
+  m_header_length_bytes = handle.tellg();
+  
+  // Stop reading the header file
+  handle.close();
+  if (!valid)
+    vw::vw_throw(vw::ArgumentErr() << "Fatal error reading PCD file: " << m_pcd_file);
+}
+
+PcdReader::PcdReader(std::string const & pcd_file)
+  : m_pcd_file(pcd_file), m_has_valid_point(false) {
+
+  // For now PCD files are required to be in XYZ GCC format.
+  m_has_georef = false;
+
+  read_header();      
+  
+  // Open the file for data reading in the proper format then skip past the header
+  if (m_binary_format)
+    m_ifs = new std::ifstream ( m_pcd_file.c_str(), std::ios_base::binary);
+  else
+    m_ifs = new std::ifstream ( m_pcd_file.c_str());
+
+  m_ifs->seekg(m_header_length_bytes);
+}
+
+bool PcdReader::ReadNextPoint() {
+
+  // Check if there is more data
+  if (!m_ifs->good()) {
+    m_has_valid_point = false;
+    return false;
+  }
+
+  if (m_binary_format) {
+
+    if (m_size_bytes == 4) { // -> float
+      float x, y, z;
+      m_ifs->read(reinterpret_cast<char*>(&x), m_size_bytes);
+      m_ifs->read(reinterpret_cast<char*>(&y), m_size_bytes);
+      m_ifs->read(reinterpret_cast<char*>(&z), m_size_bytes);
+      m_curr_point = vw::Vector3(x, y, z);
+    }else { // 8 bytes -> double
+      double x, y, z;
+      m_ifs->read(reinterpret_cast<char*>(&x), m_size_bytes);
+      m_ifs->read(reinterpret_cast<char*>(&y), m_size_bytes);
+      m_ifs->read(reinterpret_cast<char*>(&z), m_size_bytes);
+      m_curr_point = vw::Vector3(x, y, z);          
+    }
+  
+  } else { // Text format
+
+    // Read in the next point
+    double x, y, z;
+    (*m_ifs) >> x >> y >> z;
+    m_curr_point = vw::Vector3(x, y, z);
+  }
+  
+  // Make sure the reads succeeded
+  if (m_ifs->fail()) {
+    m_has_valid_point = false;
+    return false;
+  }
+  
+  return true;
+}
+
+vw::Vector3 PcdReader::GetPoint(){
+  return m_curr_point;
+}
+
+PcdReader::~PcdReader(){
+  delete m_ifs;
+  m_ifs = NULL;
+}
+
+std::int64_t pcd_file_size(std::string const& file) {
+  PcdReader reader(file);
+  return reader.m_num_points;
+}
   
 /// Create a Tif file from a point cloud. The file will be created block by
 /// block, when it needs to be written to disk. In each block the points will
@@ -481,7 +474,7 @@ namespace asp {
 /// sequentially. The LAS file is handled separately, as PDAL does not have a
 /// function for getting a point. The point cloud is in CSV or PCL format,
 /// with PCL not tested yet.
-class CloudToTif: public ImageViewBase<CloudToTif> {
+class CloudToTif: public vw::ImageViewBase<CloudToTif> {
 
   typedef vw::Vector3 PixelT;
 
@@ -493,27 +486,27 @@ public:
 
   typedef PixelT pixel_type;
   typedef PixelT result_type;
-  typedef ProceduralPixelAccessor<CloudToTif> pixel_accessor;
+  typedef vw::ProceduralPixelAccessor<CloudToTif> pixel_accessor;
 
   CloudToTif(asp::BaseReader * reader, int image_rows, 
                 int image_cols, int block_size):
     m_reader(reader), m_rows(image_rows), m_cols(image_cols),
     m_block_size(block_size) {}
 
-  inline int32 cols  () const { return m_cols; }
-  inline int32 rows  () const { return m_rows; }
-  inline int32 planes() const { return 1; }
+  inline vw::int32 cols  () const { return m_cols; }
+  inline vw::int32 rows  () const { return m_rows; }
+  inline vw::int32 planes() const { return 1; }
 
   inline pixel_accessor origin() const { return pixel_accessor(*this); }
 
   inline result_type operator()(size_t i, size_t j, size_t p=0) const {
-    vw_throw(NoImplErr() 
-              << "CloudToTif::operator(...) has not been implemented.\n");
+    vw::vw_throw(vw::NoImplErr() 
+                 << "CloudToTif::operator(...) has not been implemented.\n");
     return result_type();
   }
 
-  typedef CropView<ImageView<PixelT>> prerasterize_type;
-  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+  typedef vw::CropView<vw::ImageView<PixelT>> prerasterize_type;
+  inline prerasterize_type prerasterize(vw::BBox2i const& bbox) const {
 
     // Read a chunk of the las file, and store it in the current tile.
 
@@ -521,13 +514,13 @@ public:
     std::int64_t num_rows = bbox.height();
 
     VW_ASSERT((num_rows % m_block_size == 0) && (num_cols % m_block_size == 0),
-              ArgumentErr() << "CloudToTif: Expecting the number of rows and columns "
+              vw::ArgumentErr() << "CloudToTif: Expecting the number of rows and columns "
                             << "to be a multiple of the block size.\n");
 
     // Read the specified number of points from the file
     std::int64_t max_num_pts_to_read = num_cols * num_rows;
     std::int64_t count = 0;
-    PointBuffer in;
+    vw::PointBuffer in;
     while (m_reader->ReadNextPoint()) {
       in.push_back(m_reader->GetPoint());
       count++;
@@ -538,18 +531,18 @@ public:
     // Take the points just read, and put them in groups by spatial
     // location, so that later point2dem does not need to read every
     // input point when writing a given tile, but only certain groups.
-    ImageView<Vector3> Img;
-    Chipper(in, m_block_size, m_reader->m_has_georef, m_reader->m_georef,
+    vw::ImageView<vw::Vector3> Img;
+    vw::Chipper(in, m_block_size, m_reader->m_has_georef, m_reader->m_georef,
             num_cols, num_rows, Img);
 
     VW_ASSERT(num_cols == Img.cols() && num_rows == Img.rows(),
-              ArgumentErr() << "CloudToTif: Size mis-match.\n");
+              vw::ArgumentErr() << "CloudToTif: Size mis-match.\n");
 
     return crop(Img, -bbox.min().x(), -bbox.min().y(), cols(), rows());
   }
 
   template <class DestT>
-  inline void rasterize(DestT const& dest, BBox2i const& bbox) const {
+  inline void rasterize(DestT const& dest, vw::BBox2i const& bbox) const {
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
 
@@ -574,10 +567,10 @@ void las_or_csv_to_tif(std::string const& in_file,
   out_files.clear();
     
   // To do: Study performance for large files when this number changes
-  Vector2i tile_size(ASP_POINT_CLOUD_TILE_LEN, ASP_POINT_CLOUD_TILE_LEN);
+  vw::Vector2i tile_size(ASP_POINT_CLOUD_TILE_LEN, ASP_POINT_CLOUD_TILE_LEN);
 
   // Temporarily change the raster tile size
-  Vector2 original_tile_size = opt.raster_tile_size;
+  vw::Vector2 original_tile_size = opt.raster_tile_size;
   opt.raster_tile_size = tile_size;
 
   boost::shared_ptr<asp::BaseReader> reader_ptr;
@@ -594,7 +587,7 @@ void las_or_csv_to_tif(std::string const& in_file,
   else if (asp::is_las(in_file))
      reader_ptr = boost::shared_ptr<asp::BaseReader>(); // set, but not used
   else
-    vw_throw( ArgumentErr() << "Unknown file type: " << in_file << "\n");
+    vw::vw_throw(vw::ArgumentErr() << "Unknown file type: " << in_file << "\n");
 
   // Compute the dimensions of the image we are about to create. The LAS
   // files use PDAL, which require separate handling.
@@ -630,8 +623,8 @@ void las_or_csv_to_tif(std::string const& in_file,
     int buf_size = 100;
     pdal::FixedPointTable t(buf_size);
     pdal_reader.prepare(t);
-    pdal::ChipMaker writer(ASP_POINT_CLOUD_TILE_LEN, block_size, has_georef, las_georef, 
-                           opt, out_prefix, out_files);
+    asp::ChipMaker writer(ASP_POINT_CLOUD_TILE_LEN, block_size, has_georef, las_georef, 
+                          opt, out_prefix, out_files);
     pdal::Options write_options;
     writer.setOptions(write_options);
     writer.setInput(pdal_reader);
@@ -654,14 +647,13 @@ void las_or_csv_to_tif(std::string const& in_file,
           
     // Create the image. This will also separate it into chips, with each
     // chip having points that are spatially close together.
-    ImageViewRef<Vector3> Img = asp::CloudToTif(reader_ptr.get(), image_rows, 
-                                                image_cols, block_size);
+    vw::ImageViewRef<vw::Vector3> Img 
+      = asp::CloudToTif(reader_ptr.get(), image_rows, image_cols, block_size);
     // Must use a thread only, as we read the input file serially
     std::string out_file = out_prefix + ".tif"; 
-    vw_out() << "Writing spatially ordered data: " 
-             << out_file << std::endl;
+    vw::vw_out() << "Writing spatially ordered data: " << out_file << "\n";
     vw::cartography::write_gdal_image(out_file, Img, opt,
-                                      TerminalProgressCallback("asp", "\t--> "));
+                                      vw::TerminalProgressCallback("asp", "\t--> "));
     out_files.push_back(out_file);
   }
   

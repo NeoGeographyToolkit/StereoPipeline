@@ -236,7 +236,8 @@ void StreamedCloud::done(PointTableRef table) {
 
 // A class to read a point cloud from a file point by point, without
 // loading it fully in memory. The points are printed to the screen.
-// This can be used as a template for other readers.
+// This can be used as a template for other readers, such as the 
+// LasLoader class.
 class PDAL_DLL StreamProcessor: public Writer, public Streamable {
 
 public:
