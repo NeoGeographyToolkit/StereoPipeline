@@ -26,7 +26,7 @@
 namespace asp {
  
 /// Compute alignment using FGR
-PointMatcher<RealT>::Matrix fgr_alignment(DP const & source_point_cloud, 
+PointMatcher<double>::Matrix fgr_alignment(DP const & source_point_cloud, 
                                           DP const & ref_point_cloud, 
                                           std::string const& fgr_options);
 

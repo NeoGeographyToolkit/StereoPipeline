@@ -55,7 +55,7 @@ std::int64_t load_las(std::string const& file_name,
 // Apply a given transform to a LAS file and save it.
 void apply_transform_to_las(std::string const& input_file,
                             std::string const& output_file,
-                            PointMatcher<asp::RealT>::Matrix const& T);
+                            PointMatcher<double>::Matrix const& T);
 
 } // End namespace asp
 

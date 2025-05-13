@@ -28,7 +28,7 @@
 
 #include <asp/Core/PdalUtils.h>
 #include <vw/Cartography/GeoReference.h>
-#include <vw/Core/ProgressCallback.h>   // for TerminalProgressCallback
+#include <vw/Core/ProgressCallback.h>
 
 #include <pdal/PointView.hpp>
 #include <pdal/PointTable.hpp>

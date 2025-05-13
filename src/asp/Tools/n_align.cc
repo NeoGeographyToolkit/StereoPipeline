@@ -58,7 +58,7 @@ using namespace std;
 using namespace vw::cartography;
 using namespace asp;
 
-typedef PointMatcher<RealT> PM;
+typedef PointMatcher<double> PM;
 typedef PM::DataPoints DP;
 
 // TODO: Figure out these magic numbers

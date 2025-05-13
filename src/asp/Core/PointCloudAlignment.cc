@@ -181,7 +181,7 @@ public:
   TransformFilter(std::int64_t num_total_points, 
                   bool has_georef, 
                   vw::cartography::GeoReference const& georef,
-                  PointMatcher<asp::RealT>::Matrix const& T): 
+                  PointMatcher<double>::Matrix const& T): 
         m_has_georef(has_georef), m_georef(georef), m_T(T), 
         m_tpc(vw::TerminalProgressCallback("asp", "\t--> ")) {
     
@@ -238,7 +238,7 @@ private:
     
   bool m_has_georef;
   vw::cartography::GeoReference m_georef;
-  PointMatcher<asp::RealT>::Matrix m_T;
+  PointMatcher<double>::Matrix m_T;
   std::int64_t m_spacing;
   double m_inc_amount;
   std::int64_t m_count;
@@ -291,7 +291,7 @@ std::int64_t load_las(std::string const& file_name,
 // Apply a given transform to a LAS file and save it.
 void apply_transform_to_las(std::string const& input_file,
                             std::string const& output_file,
-                            PointMatcher<asp::RealT>::Matrix const& T) {
+                            PointMatcher<double>::Matrix const& T) {
 
   // buf_size is the number of points that will be
   // processed and kept in this table at the same time. 
