@@ -119,32 +119,36 @@ make -j${CPU_COUNT} install
 
 # Build ISIS3
 cd
-git clone https://github.com/DOI-USGS/ISIS3.git     
+conda install -c conda-forge cmake doxygen \
+  c-compiler=1.7.0 cxx-compiler=1.7.0 \
+  fortran-compiler=1.7.0
+git clone https://github.com/DOI-USGS/ISIS3.git 
 cd ISIS3
-# Use latest, not 8.0.3, as that one does not compile.
 mkdir -p build
 cd build
 export ISISROOT=$PWD
-export PREFIX=$HOME/miniconda3/envs/asp_deps
+#export PREFIX=$HOME/miniconda3/envs/asp_deps
+export PREFIX=$CONDA_PREFIX
 export PATH=$PREFIX/bin:$PATH
+export ISISTESTDATA=$HOME/isis_test_data
+conda env config vars set ISISTESTDATA=$ISISTESTDATA
 ext=.so
 if [ "$(uname)" = "Darwin" ]; then
     ext=.dylib
 fi
-/bin/rm -fv $PREFIX/version # to ensure the build does not fail
-$PREFIX/bin/cmake                                  \
- -GNinja                                           \
- -DJP2KFLAG=OFF                                    \
- -Dpybindings=OFF                                  \
- -DbuildTests=OFF -DCMAKE_BUILD_TYPE=Release       \
- -DEMBREE_INCLUDE_DIR=$PREFIX/include              \
- -DEMBREE_LIBRARY=$PREFIX/lib/libembree3$ext       \
- -DPCL_INCLUDE_DIR=$PREFIX/include/pcl-1.13        \
- -DOPENCV_INCLUDE_DIR:PATH=$PREFIX/include/opencv4 \
- -DCMAKE_INSTALL_PREFIX=$PREFIX                    \
+cmake                                             \
+ -GNinja                                          \
+ -DJP2KFLAG=OFF                                   \
+ -Dpybindings=OFF                                 \
+ -DbuildTests=ON                                  \
+ -DCMAKE_BUILD_TYPE=Release                       \
+ -DBULLET_DEFINITIONS="-DBT_USE_DOUBLE_PRECISION" \
+ -DOPENCV_INCLUDE_DIR=$PREFIX/include/opencv4     \
+ -DPCL_INCLUDE_DIR=${PREFIX}/include/pcl-1.15     \
+ -DCMAKE_INSTALL_PREFIX=$PREFIX                   \
  ../isis
-export NINJAJOBS=4; /usr/bin/time ninja install -j $NINJAJOBS # osx
-#/usr/bin/time ninja install -j 14 # linux
+#export NINJAJOBS=4; /usr/bin/time ninja install -j $NINJAJOBS # osx
+/usr/bin/time ninja install
 
 # Create a tarball with the updated packages. It will be uploaded as an
 # artifact. The destination directory is set in the .yml file.
@@ -261,7 +265,7 @@ INC_FLAGS="-I${PREFIX}/include/eigen3 -I${PREFIX}/include -O3 -L${PREFIX}/lib -l
 cmake                                        \
   -DCMAKE_BUILD_TYPE=Release                 \
   -DCMAKE_CXX_FLAGS="${INC_FLAGS}"           \
-  -DCMAKE_INSTALL_PREFIX:PATH=${PREFIX}      \
+  -DCMAKE_INSTALL_PREFIX=${PREFIX}           \
   -DCMAKE_PREFIX_PATH=${PREFIX}              \
   -DCMAKE_VERBOSE_MAKEFILE=ON                \
   -DFastGlobalRegistration_LINK_MODE=SHARED  \
@@ -305,11 +309,12 @@ cd $baseDir
 cd 3rdparty/msmw
 mkdir -p build
 cd build
-cmake .. -DCMAKE_C_FLAGS="$CFLAGS" -DCMAKE_CXX_FLAGS="$CFLAGS" \
-    -DPNG_LIBRARY_RELEASE="${PREFIX}/lib/libpng${EXT}"     \
-    -DTIFF_LIBRARY_RELEASE="${PREFIX}/lib/libtiff${EXT}"   \
-    -DZLIB_LIBRARY_RELEASE="${PREFIX}/lib/libz${EXT}"      \
-    -DJPEG_LIBRARY="${PREFIX}/lib/libjpeg${EXT}"
+cmake .. \
+  -DCMAKE_C_FLAGS="$CFLAGS" -DCMAKE_CXX_FLAGS="$CFLAGS"  \
+  -DPNG_LIBRARY_RELEASE="${PREFIX}/lib/libpng${EXT}"     \
+  -DTIFF_LIBRARY_RELEASE="${PREFIX}/lib/libtiff${EXT}"   \
+  -DZLIB_LIBRARY_RELEASE="${PREFIX}/lib/libz${EXT}"      \
+  -DJPEG_LIBRARY="${PREFIX}/lib/libjpeg${EXT}"
 make -j${CPU_COUNT}
 cd $baseDir
 # msmw2
@@ -452,12 +457,12 @@ cmake ${CMAKE_ARGS}                                      \
   -DLIBXML2_XMLLINT_EXECUTABLE=${PREFIX}/bin/xmllint     \
   -DGDAL_LIBRARY=${PREFIX}/lib/libgdal${EXT}             \
   -DGDAL_CONFIG=${PREFIX}/bin/gdal-config                \
-  -DZLIB_INCLUDE_DIR:PATH=${PREFIX}/include              \
+  -DZLIB_INCLUDE_DIR=${PREFIX}/include                   \
   -DZLIB_LIBRARY:FILEPATH=${PREFIX}/lib/libz${EXT}       \
   -DCURL_INCLUDE_DIR=${PREFIX}/include                   \
   -DPostgreSQL_LIBRARY_RELEASE=${PREFIX}/lib/libpq${EXT} \
   -DCURL_LIBRARY_RELEASE=${PREFIX}/lib/libcurl${EXT}     \
-  -DPROJ_INCLUDE_DIR:PATH=${PREFIX}/include              \
+  -DPROJ_INCLUDE_DIR=${PREFIX}/include                   \
   -DPROJ_LIBRARY:FILEPATH=${PREFIX}/lib/libproj${EXT}    \
   ..
 
