@@ -780,7 +780,7 @@ bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ba::ControlN
 
   // Populate matrices containing the current and known camera positions.
   vw::Matrix<double> points_in(3, num_matches_found), points_out(3, num_matches_found);
-  typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
+  typedef vw::math::MatrixCol<vw::Matrix<double>> ColView;
   int index = 0;
   for (int i=0; i<num_cameras; i++) {
     // Skip cameras with no matching record

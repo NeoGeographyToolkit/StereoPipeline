@@ -20,9 +20,12 @@
 /// \file PointCloudAlignment.cc
 
 #include <asp/Core/PointCloudAlignment.h>
-#include <pointmatcher/PointMatcher.h>
 #include <asp/Core/PdalUtils.h>
+#include <asp/Core/EigenUtils.h>
 
+#include <vw/Cartography/GeoReference.h>
+
+// PDAL includes
 #include <io/LasReader.hpp>
 #include <pdal/Streamable.hpp>
 #include <pdal/PointView.hpp>
@@ -45,7 +48,7 @@ public:
             bool verbose, bool calc_shift,
             // Outputs
             std::int64_t & num_total_points, vw::Vector3 & shift, 
-            asp::DoubleMatrix & data):
+            Eigen::MatrixXd & data):
   m_file_name(file_name),
   m_num_points_to_load(num_points_to_load),
   m_lonlat_box(lonlat_box),
@@ -96,7 +99,7 @@ private:
   // Aliases, to be returned to the caller
   std::int64_t & m_num_total_points;
   vw::Vector3 & m_shift;
-  asp::DoubleMatrix & m_data;
+  Eigen::MatrixXd & m_data;
   
   virtual void addArgs(ProgramArgs& args) {}
   virtual void initialize() {}
@@ -181,7 +184,7 @@ public:
   TransformFilter(std::int64_t num_total_points, 
                   bool has_georef, 
                   vw::cartography::GeoReference const& georef,
-                  PointMatcher<double>::Matrix const& T): 
+                  Eigen::MatrixXd const& T): 
         m_has_georef(has_georef), m_georef(georef), m_T(T), 
         m_tpc(vw::TerminalProgressCallback("asp", "\t--> ")) {
     
@@ -238,7 +241,7 @@ private:
     
   bool m_has_georef;
   vw::cartography::GeoReference m_georef;
-  PointMatcher<double>::Matrix m_T;
+  Eigen::MatrixXd m_T;
   std::int64_t m_spacing;
   double m_inc_amount;
   std::int64_t m_count;
@@ -258,7 +261,7 @@ std::int64_t load_las(std::string const& file_name,
                       bool calc_shift,
                       // Outputs
                       vw::Vector3 & shift,
-                      DoubleMatrix & data) {
+                      Eigen::MatrixXd & data) {
   
   // Set the input point cloud    
   pdal::Options read_options;
@@ -291,7 +294,7 @@ std::int64_t load_las(std::string const& file_name,
 // Apply a given transform to a LAS file and save it.
 void apply_transform_to_las(std::string const& input_file,
                             std::string const& output_file,
-                            PointMatcher<double>::Matrix const& T) {
+                            Eigen::MatrixXd const& T) {
 
   // buf_size is the number of points that will be
   // processed and kept in this table at the same time. 

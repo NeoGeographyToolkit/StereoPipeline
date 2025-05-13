@@ -32,7 +32,7 @@
 namespace asp {
  
 /// Compute least squares alignment, using Ceres
-PointMatcher<double>::Matrix
+Eigen::MatrixXd
 least_squares_alignment(DP const& source_point_cloud, // Should not be modified
 			vw::Vector3 const& point_cloud_shift,
 			vw::cartography::GeoReference        const& dem_georef,

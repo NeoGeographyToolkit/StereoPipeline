@@ -65,7 +65,7 @@ struct Options: public vw::GdalWriteOptions {
     datum, csv_format_str, csv_srs, match_file, hillshade_options,
     ipfind_options, ipmatch_options, nuth_options, fgr_options, csv_proj4_str;
   Vector2 initial_transform_ransac_params;
-  PointMatcher<double>::Matrix init_transform;
+  Eigen::MatrixXd init_transform;
   int    num_iter,
          max_num_reference_points,
          max_num_source_points;
@@ -244,7 +244,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   // Read the initial transform
-  opt.init_transform = PointMatcher<double>::Matrix::Identity(DIM + 1, DIM + 1);
+  opt.init_transform = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
   if (opt.init_transform_file != ""){
     asp::read_transform(opt.init_transform, opt.init_transform_file);
     vw_out() << std::setprecision(16) << "Initial guess transform:\n" 
@@ -323,7 +323,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 }
 
 /// Compute output statistics for pc_align
-void calc_stats(string label, PointMatcher<double>::Matrix const& dists) {
+void calc_stats(string label, Eigen::MatrixXd const& dists) {
 
   VW_ASSERT(dists.rows() == 1,
             LogicErr() << "Expecting only one row.");
@@ -403,14 +403,14 @@ void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
 
 /// Save the transform and its inverse.
 void write_transforms(Options const& opt,
-                     PointMatcher<double>::Matrix const& T) {
+                     Eigen::MatrixXd const& T) {
 
   string transFile = opt.out_prefix + "-transform.txt";
   vw_out() << "Writing: " << transFile << endl;
   write_transform(T, transFile);
 
   string iTransFile = opt.out_prefix + "-inverse-transform.txt";
-  PointMatcher<double>::Matrix invT = T.inverse();
+  Eigen::MatrixXd invT = T.inverse();
   vw_out() << "Writing: " << iTransFile << endl;
   write_transform(invT, iTransFile);
 }
@@ -418,7 +418,7 @@ void write_transforms(Options const& opt,
 /// Save the lon, lat, radius/height, and error. Use a format
 /// consistent with the input CSV format.
 void save_errors(DP const& point_cloud,
-                 PointMatcher<double>::Matrix const& errors,
+                 Eigen::MatrixXd const& errors,
                  string const& output_file,
                  Vector3 const& shift,
                  GeoReference const& geo,
@@ -510,7 +510,7 @@ void calcErrorsWithDem(DP                                 const& point_cloud,
 }
 
 /// Filters out all points from point_cloud with an error entry higher than cutoff
-void filterPointsByError(DP & point_cloud, PointMatcher<double>::Matrix &errors,
+void filterPointsByError(DP & point_cloud, Eigen::MatrixXd &errors,
                          double cutoff) {
 
   DP input_copy = point_cloud; // Make a copy of the input DP object
@@ -548,7 +548,7 @@ void filterPointsByError(DP & point_cloud, PointMatcher<double>::Matrix &errors,
 
 /// Updates an LPM error matrix to use the DEM-based error for each point if it is lower.
 void update_best_error(std::vector<double>         const& dem_errors,
-                       PointMatcher<double>::Matrix      & lpm_errors) {
+                       Eigen::MatrixXd      & lpm_errors) {
   std::int64_t num_points = lpm_errors.cols();
   if (dem_errors.size() != static_cast<size_t>(num_points))
     vw_throw( LogicErr() << "Error: error size does not match point count size!\n");
@@ -573,7 +573,7 @@ double compute_registration_error(DP          const& ref_point_cloud,
                                   vw::cartography::GeoReference        const& dem_georef,
                                   vw::ImageViewRef< PixelMask<float> > const& dem_ref,
                                   Options const& opt,
-                                  PointMatcher<double>::Matrix &error_matrix) {
+                                  Eigen::MatrixXd &error_matrix) {
   Stopwatch sw;
   sw.start();
 
@@ -615,7 +615,7 @@ void filter_source_cloud(DP          const& ref_point_cloud,
   if (opt.verbose)
     vw_out() << "Filtering gross outliers" << endl;
 
-  PointMatcher<double>::Matrix error_matrix;
+  Eigen::MatrixXd error_matrix;
   try {
     if (opt.use_dem_distances()) {
       // Compute the registration error using the best available means
@@ -722,7 +722,7 @@ std::string find_matches_from_hillshading(Options & opt, std::string const& curr
 }
 
 // Compute an initial source to reference transform based on tie points (interest point matches).
-PointMatcher<double>::Matrix
+Eigen::MatrixXd
 initial_transform_from_match_file(std::string const& ref_file,
                                   std::string const& source_file,
                                   std::string const& match_file,
@@ -813,7 +813,7 @@ initial_transform_from_match_file(std::string const& ref_file,
                               initial_transform_ransac_params);
 
   // Convert to pc_align transform format.
-  PointMatcher<double>::Matrix globalT = Eigen::MatrixXd::Identity(DIM+1, DIM+1);
+  Eigen::MatrixXd globalT = Eigen::MatrixXd::Identity(DIM+1, DIM+1);
   globalT.block(0, 0, DIM, DIM) = vw_matrix3_to_eigen(rotation*scale);
   globalT.block(0, DIM, DIM, 1) = vw_vector3_to_eigen(translation);
 
@@ -823,7 +823,7 @@ initial_transform_from_match_file(std::string const& ref_file,
   return globalT;
 }
 
-void apply_transform_to_cloud(PointMatcher<double>::Matrix const& T, DP & point_cloud){
+void apply_transform_to_cloud(Eigen::MatrixXd const& T, DP & point_cloud){
   for (int col = 0; col < point_cloud.features.cols(); col++) {
     point_cloud.features.col(col) = T*point_cloud.features.col(col);
   }
@@ -834,7 +834,7 @@ void apply_transform_to_cloud(PointMatcher<double>::Matrix const& T, DP & point_
 // same shift will be applied to the produced source cloud.
 void processSourceCloud(Options                       const& opt,
                         DP                            const& ref_point_cloud,
-                        PointMatcher<double>::Matrix   const& shiftInitT,
+                        Eigen::MatrixXd   const& shiftInitT,
                         vw::cartography::GeoReference const& dem_georef,
                         vw::cartography::GeoReference const& geo,
                         asp::CsvConv                  const& csv_conv,
@@ -911,7 +911,7 @@ void processSourceCloud(Options                       const& opt,
 
 // Convert a north-east-down vector at a given location to a vector in reference
 // to the center of the Earth and create a translation matrix from that vector. 
-PointMatcher<double>::Matrix 
+Eigen::MatrixXd 
 ned_to_cartesian_transform(vw::cartography::Datum const& datum,
                            std::string& ned_str, 
                            vw::Vector3 const & location){
@@ -923,7 +923,7 @@ ned_to_cartesian_transform(vw::cartography::Datum const& datum,
   vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(loc_llh);
   vw::Vector3 xyz_shift = NedToEcef * ned;
   
-  PointMatcher<double>::Matrix T = PointMatcher<double>::Matrix::Identity(DIM + 1, DIM + 1);
+  Eigen::MatrixXd T = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
 
   // Append the transform
   for (int row = 0; row < DIM; row++)
@@ -1051,7 +1051,7 @@ int main( int argc, char *argv[] ) {
       vw::Vector3 centroid = estimate_ref_cloud_centroid(geo, csv_conv, opt.reference);
 
       // Ignore any other initializations so far
-      opt.init_transform = PointMatcher<double>::Matrix::Identity(DIM + 1, DIM + 1);
+      opt.init_transform = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
 
       // Form the rotation around the axis
       Eigen::Vector3d axis(centroid[0], centroid[1], centroid[2]);
@@ -1082,7 +1082,7 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Computing the bounding boxes of the reference and source points using " 
                << num_sample_pts << " sample points.\n";
 
-      PointMatcher<double>::Matrix inv_init_trans = opt.init_transform.inverse();
+      Eigen::MatrixXd inv_init_trans = opt.init_transform.inverse();
       calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                                 opt.reference, opt.max_disp, inv_init_trans,
                                 ref_box, trans_ref_box); // outputs
@@ -1165,7 +1165,7 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Data shifted internally by subtracting: " << shift << "\n";
 
     // The point clouds are shifted, so shift the initial transform as well.
-    PointMatcher<double>::Matrix shiftInitT = apply_shift(opt.init_transform, shift);
+    Eigen::MatrixXd shiftInitT = apply_shift(opt.init_transform, shift);
 
     // If the reference point cloud came from a DEM, also load the data in DEM format.
     cartography::GeoReference dem_georef;
@@ -1207,7 +1207,7 @@ int main( int argc, char *argv[] ) {
        "--max-displacement value to something somewhat larger than the expected "
        "length of the displacement that may be needed to align the clouds.\n";
     
-    PointMatcher<double>::Matrix beg_errors;
+    Eigen::MatrixXd beg_errors;
     try {
       elapsed_time = compute_registration_error(ref_point_cloud, source_point_cloud, icp,
                                                 shift, dem_georef, reference_dem_ref,
@@ -1227,7 +1227,7 @@ int main( int argc, char *argv[] ) {
     Stopwatch sw4;
     sw4.start();
     bool verbose = false;
-    PointMatcher<double>::Matrix Id = PointMatcher<double>::Matrix::Identity(DIM + 1, DIM + 1);
+    Eigen::MatrixXd Id = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
     icp.setParams(opt.out_prefix, opt.num_iter, opt.outlier_ratio,
                   (2.0*M_PI/360.0)*opt.diff_rotation_err, // convert to radians
                   opt.diff_translation_err, 
@@ -1236,7 +1236,7 @@ int main( int argc, char *argv[] ) {
 
     // Compute the transformation to align the source to reference.
     // We bypass calling ICP if the user explicitly asks for 0 iterations.
-    PointMatcher<double>::Matrix T = Id;
+    Eigen::MatrixXd T = Id;
     if (opt.num_iter > 0) {
       if (opt.alignment_method == "nuth") {
         T = asp::nuthAlignment(opt.reference, opt.source, opt.out_prefix, 
@@ -1290,7 +1290,7 @@ int main( int argc, char *argv[] ) {
                          trans_xyz, trans_ned, trans_llh, NedToEcef);
 
     // For each point, compute the distance to the nearest reference point.
-    PointMatcher<double>::Matrix end_errors;
+    Eigen::MatrixXd end_errors;
     elapsed_time 
       = compute_registration_error(ref_point_cloud, trans_source_point_cloud, icp,
                                    shift, dem_georef, reference_dem_ref, opt, 
@@ -1301,7 +1301,7 @@ int main( int argc, char *argv[] ) {
 
     // Go back to the original coordinate system, by applying the shifted initial
     // transform to the shifted computed transform and then undoing the shift.
-    PointMatcher<double>::Matrix globalT = apply_shift(T * shiftInitT, -shift);
+    Eigen::MatrixXd globalT = apply_shift(T * shiftInitT, -shift);
 
     // Print statistics
     vw_out() << std::setprecision(16)

@@ -93,7 +93,7 @@ void export_to_fgr(DP const & data, fgr::Points& pts, fgr::Feature & feat){
 }
   
 /// Compute alignment using FGR
-PointMatcher<double>::Matrix fgr_alignment(DP const & source_point_cloud, 
+Eigen::MatrixXd fgr_alignment(DP const & source_point_cloud, 
                                           DP const & ref_point_cloud, 
                                           std::string const& fgr_options) {
 
@@ -128,7 +128,7 @@ PointMatcher<double>::Matrix fgr_alignment(DP const & source_point_cloud,
   Eigen::Matrix4f S = app.GetOutputTrans();
 
   // Export the transform
-  PointMatcher<double>::Matrix T = PointMatcher<double>::Matrix::Identity(DIM + 1, DIM + 1);
+  Eigen::MatrixXd T = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
   if (T.cols() != S.cols() || T.rows() != S.rows()) 
     vw_throw( LogicErr() << "Error: size mis-match in FGR.\n");
   for (int row = 0; row < T.rows(); row++) {

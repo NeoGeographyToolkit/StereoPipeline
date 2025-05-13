@@ -79,7 +79,7 @@ void pick_at_most_m_unique_elems_from_n_elems(std::int64_t m, std::int64_t n,
 }
 
 // Return at most m random points out of the input point cloud.
-void random_pc_subsample(std::int64_t m, DoubleMatrix& points){
+void random_pc_subsample(std::int64_t m, Eigen::MatrixXd& points){
 
   std::int64_t n = points.cols();
   std::vector<std::int64_t> elems;
@@ -98,7 +98,7 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
                           bool calc_shift, vw::Vector3 & shift,
                           vw::cartography::GeoReference const& geo, CsvConv const& csv_conv,
                           bool & is_lola_rdr_format, double & median_longitude,
-                          bool verbose, DoubleMatrix & data) {
+                          bool verbose, Eigen::MatrixXd & data) {
 
   // Note: The input CsvConv object is responsible for parsing out the
   //       type of information contained in the CSV file.
@@ -344,7 +344,7 @@ void load_csv(std::string const& file_name,
                  bool & is_lola_rdr_format,
                  double & median_longitude,
                  bool verbose,
-                 DoubleMatrix & data){
+                 Eigen::MatrixXd & data){
 
   std::int64_t num_total_points = load_csv_aux(file_name, num_points_to_load,
                                       lonlat_box,
@@ -374,7 +374,7 @@ template<typename DemPixelType>
 void load_dem_pixel_type(std::string const& file_name,
                          std::int64_t num_points_to_load, vw::BBox2 const& lonlat_box,
                          bool calc_shift, vw::Vector3 & shift,
-                         bool verbose, DoubleMatrix & data){
+                         bool verbose, Eigen::MatrixXd & data){
   
   data.conservativeResize(DIM+1, num_points_to_load);
 
@@ -476,7 +476,7 @@ void load_dem_pixel_type(std::string const& file_name,
 void load_dem(std::string const& file_name,
               std::int64_t num_points_to_load, vw::BBox2 const& lonlat_box,
               bool calc_shift, vw::Vector3 & shift,
-              bool verbose, DoubleMatrix & data){
+              bool verbose, Eigen::MatrixXd & data){
 
   boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(file_name) );
   vw::ImageFormat image_fmt = dem_rsrc->format();
@@ -502,7 +502,7 @@ vw::int64 load_pc_aux(std::string const& file_name,
                       bool calc_shift,
                       vw::Vector3 & shift,
                       vw::cartography::GeoReference const& geo,
-                      bool verbose, DoubleMatrix & data){
+                      bool verbose, Eigen::MatrixXd & data){
 
   data.conservativeResize(DIM+1, num_points_to_load);
 
@@ -569,7 +569,7 @@ void load_pc(std::string const& file_name,
              bool calc_shift,
              vw::Vector3 & shift,
              vw::cartography::GeoReference const& geo,
-             bool verbose, DoubleMatrix & data){
+             bool verbose, Eigen::MatrixXd & data){
 
   vw::int64 num_total_points = load_pc_aux(file_name, num_points_to_load,
                                           lonlat_box, calc_shift, shift,

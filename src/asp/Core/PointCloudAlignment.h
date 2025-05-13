@@ -23,8 +23,7 @@
 #ifndef __ASP_CORE_POINT_CLOUD_ALIGNMENT_H__
 #define __ASP_CORE_POINT_CLOUD_ALIGNMENT_H__
 
-#include <asp/Core/EigenUtils.h> // defines DoubleMatrix
-#include <pointmatcher/PointMatcher.h> // defines PointMatcher
+#include <Eigen/Dense>
 
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
@@ -50,12 +49,12 @@ std::int64_t load_las(std::string const& file_name,
                       bool calc_shift,
                       // Outputs
                       vw::Vector3 & shift,
-                      DoubleMatrix & data);
+                      Eigen::MatrixXd & data);
 
 // Apply a given transform to a LAS file and save it.
 void apply_transform_to_las(std::string const& input_file,
                             std::string const& output_file,
-                            PointMatcher<double>::Matrix const& T);
+                            Eigen::MatrixXd const& T);
 
 } // End namespace asp
 

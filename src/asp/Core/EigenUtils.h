@@ -34,14 +34,12 @@ namespace asp {
 
 class CsvConv; // Forward declaration
   
-typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> DoubleMatrix;
-
 // Note: Just changing 3 to 2 below won't be enough to make the code
 // work with 2D point clouds. There are some Vector3's all over the place.
 const int DIM = 3;
 
 // Return at most m random points out of the input point cloud.
-void random_pc_subsample(std::int64_t m, DoubleMatrix& points);
+void random_pc_subsample(std::int64_t m, Eigen::MatrixXd& points);
   
 // Load a csv file, perhaps sub-sampling it along the way
 void load_csv(std::string const& file_name,
@@ -53,13 +51,13 @@ void load_csv(std::string const& file_name,
               asp::CsvConv const& csv_conv,
               bool & is_lola_rdr_format,
               double & median_longitude, bool verbose,
-              DoubleMatrix & data);
+              Eigen::MatrixXd & data);
   
 // Load a DEM, perhaps subsampling it along the way
 void load_dem(std::string const& file_name,
               std::int64_t num_points_to_load, vw::BBox2 const& lonlat_box,
               bool calc_shift, vw::Vector3 & shift, bool verbose, 
-              DoubleMatrix & data);
+              Eigen::MatrixXd & data);
 
 // Load an ASP point cloud, perhaps subsampling it along the way  
 void load_pc(std::string const& file_name,
@@ -68,7 +66,7 @@ void load_pc(std::string const& file_name,
              bool calc_shift,
              vw::Vector3 & shift,
              vw::cartography::GeoReference const& geo,
-             bool verbose, DoubleMatrix & data);
+             bool verbose, Eigen::MatrixXd & data);
 
 // Find the best-fitting plane to a set of points. It will throw an
 // error if called with less than 3 points.

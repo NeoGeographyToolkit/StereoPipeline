@@ -46,7 +46,7 @@ void load_csv_or_dem(std::string const& csv_format_str, std::string const& csv_s
   bool      is_lola_rdr_format;
   double    mean_longitude;
   bool      verbose = true;
-  asp::DoubleMatrix data;
+  Eigen::MatrixXd data;
   
   // Read the reference terrain
   vw_out() << "Loading at most " << max_num_reference_points << " points from "

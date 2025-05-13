@@ -82,7 +82,7 @@ struct PointToDemError {
 };
 
 /// Compute alignment using least squares
-PointMatcher<double>::Matrix
+Eigen::MatrixXd
 least_squares_alignment(DP const& source_point_cloud, // Should not be modified
 			vw::Vector3 const& point_cloud_shift,
 			vw::cartography::GeoReference        const& dem_georef,
@@ -137,7 +137,7 @@ least_squares_alignment(DP const& source_point_cloud, // Should not be modified
   extract_rotation_translation(&transform[0], rotation, translation);
   vw::Matrix<double,3,3> rot_matrix = rotation.rotation_matrix();
   
-  PointMatcher<double>::Matrix T = PointMatcher<double>::Matrix::Identity(DIM + 1, DIM + 1);
+  Eigen::MatrixXd T = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
   for (int row = 0; row < DIM; row++){
     for (int col = 0; col < DIM; col++){
       T(row, col) = scale*rot_matrix(col, row);

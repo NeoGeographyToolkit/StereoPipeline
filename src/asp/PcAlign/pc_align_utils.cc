@@ -39,7 +39,7 @@ void load_las_multi_attempt(std::string const& file_name,
                             bool calc_shift,
                             vw::Vector3 & shift,
                             vw::cartography::GeoReference const& geo,
-                            bool verbose, DoubleMatrix & data){
+                            bool verbose, Eigen::MatrixXd & data){
 
   std::int64_t num_total_points 
     = load_las(file_name, num_points_to_load, lonlat_box, geo, verbose, calc_shift,
@@ -72,7 +72,7 @@ void load_cloud_as_mat(std::string const& file_name,
                        bool   & is_lola_rdr_format,
                        double & median_longitude,
                        bool verbose,
-                       DoubleMatrix & data) {
+                       Eigen::MatrixXd & data) {
  
   if (verbose)
     vw::vw_out() << "Reading: " << file_name << std::endl;
@@ -141,7 +141,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                CsvConv const& csv_conv,
                                std::string const& file_name,
                                double max_disp,
-                               PointMatcher<double>::Matrix const transform,
+                               Eigen::MatrixXd const transform,
                                vw::BBox2 & out_box, 
                                vw::BBox2 & trans_out_box) {
 
@@ -169,7 +169,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
              calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
              median_longitude, verbose, points);
 
-  bool has_transform = (transform != PointMatcher<double>::Matrix::Identity(DIM + 1, DIM + 1));
+  bool has_transform = (transform != Eigen::MatrixXd::Identity(DIM + 1, DIM + 1));
 
   // For the first point, figure out how much shift in lonlat a small
   // shift in XYZ produces.  We will use this to expand out from the
@@ -282,7 +282,7 @@ double calc_stddev(std::vector<double> const& errs, double mean){
 
 // Compute the translation vector from the source points (before any initial alignment
 // applied to them), and the source points after alignment.   
-void calc_translation_vec(PointMatcher<double>::Matrix const& initT,
+void calc_translation_vec(Eigen::MatrixXd const& initT,
                           DP const& source, DP const& trans_source,
                           vw::Vector3 & shift, // from planet center to current origin
                           vw::cartography::Datum const& datum,
@@ -298,7 +298,7 @@ void calc_translation_vec(PointMatcher<double>::Matrix const& initT,
     = source.features.rowwise().sum() / source.features.cols();
 
   // Undo the initial transform, if any 
-  PointMatcher<double>::Matrix invInitT = initT.inverse();
+  Eigen::MatrixXd invInitT = initT.inverse();
   source_ctr = invInitT*source_ctr;
 
   // The center of gravity of the source points after aligning to the reference cloud
@@ -354,7 +354,7 @@ void save_trans_point_cloud_n(vw::GdalWriteOptions const& opt,
                               vw::cartography::GeoReference const& geo,
                               std::string input_file,
                               std::string output_file,
-                              PointMatcher<double>::Matrix const& T){
+                              Eigen::MatrixXd const& T){
 
   // We will try to save the transformed cloud with a georef. Try to get it from
   // the input cloud, or otherwise from the "global" georef.
@@ -386,7 +386,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                             std::string out_prefix,
                             vw::cartography::GeoReference const& geo,
                             CsvConv const& csv_conv,
-                            PointMatcher<double>::Matrix const& T){
+                            Eigen::MatrixXd const& T){
 
   std::string file_type = get_cloud_type(input_file);
 
@@ -726,7 +726,7 @@ bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float> > const& dem,
 // transform becomes y2 + s = A*(x2 + s) + b, or
 // y2 = A*x2 + b + A*s - s. Encode the obtained transform into another
 // 4x4 matrix T2.
-PointMatcher<double>::Matrix apply_shift(PointMatcher<double>::Matrix const& T,
+Eigen::MatrixXd apply_shift(Eigen::MatrixXd const& T,
                                         vw::Vector3 const& shift){
 
   VW_ASSERT(T.cols() == 4 && T.rows() == 4,
@@ -739,7 +739,7 @@ PointMatcher<double>::Matrix apply_shift(PointMatcher<double>::Matrix const& T,
   for (int i = 0; i < 3; i++) s(i, 0) = shift[i];
 
   Eigen::MatrixXd b2 = b + A*s - s;
-  PointMatcher<double>::Matrix T2 = T;
+  Eigen::MatrixXd T2 = T;
   T2.block(0, 3, 3, 1) = b2;
 
   return T2;

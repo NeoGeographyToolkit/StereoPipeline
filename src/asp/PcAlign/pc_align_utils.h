@@ -86,7 +86,7 @@ void load_cloud_as_mat(std::string const& file_name,
                        bool   & is_lola_rdr_format,
                        double & median_longitude,
                        bool verbose,
-                       DoubleMatrix & data);
+                       Eigen::MatrixXd & data);
 
 /// Load a file from disk and convert to libpointmatcher's format
 void load_cloud(std::string const& file_name,
@@ -110,7 +110,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                CsvConv const& csv_conv,
                                std::string const& file_name,
                                double max_disp,
-                               PointMatcher<double>::Matrix const transform,
+                               Eigen::MatrixXd const transform,
                                vw::BBox2 & out_box, 
                                vw::BBox2 & trans_out_box);
   
@@ -121,7 +121,7 @@ double calc_mean(std::vector<double> const& errs, int len);
 double calc_stddev(std::vector<double> const& errs, double mean);
 
 /// Calculate translation vector between the centers two point clouds
-void calc_translation_vec(PointMatcher<double>::Matrix const& initT,
+void calc_translation_vec(Eigen::MatrixXd const& initT,
                           DP const& source, DP const& trans_source,
                           vw::Vector3 & shift, // from planet center to current origin
                           vw::cartography::Datum const& datum,
@@ -136,12 +136,12 @@ void calc_translation_vec(PointMatcher<double>::Matrix const& initT,
 double calc_max_displacement(DP const& source, DP const& trans_source);
 
 /// Apply a transformation matrix to a Vector3 in homogenous coordinates
-vw::Vector3 apply_transform(PointMatcher<double>::Matrix const& T, vw::Vector3 const& P);
+vw::Vector3 apply_transform(Eigen::MatrixXd const& T, vw::Vector3 const& P);
 
 /// Apply a transform to the first three coordinates of the cloud
 struct TransformPC: public vw::UnaryReturnSameType {
-  PointMatcher<double>::Matrix m_T;
-  TransformPC(PointMatcher<double>::Matrix const& T):m_T(T){}
+  Eigen::MatrixXd m_T;
+  TransformPC(Eigen::MatrixXd const& T): m_T(T){}
   inline vw::Vector<double> operator()(vw::Vector<double> const& pt) const {
 
     vw::Vector<double> P = pt; // local copy
@@ -165,7 +165,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                             std::string out_prefix,
                             vw::cartography::GeoReference const& geo,
                             CsvConv const& csv_conv,
-                            PointMatcher<double>::Matrix const& T);
+                            Eigen::MatrixXd const& T);
 
 /// A type for interpolation from a masked DEM object.
 typedef vw::InterpolationView<vw::EdgeExtensionView<vw::ImageViewRef<vw::PixelMask<float>>,
@@ -197,8 +197,7 @@ bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float>> const& dem,
 /// closer to origin. In the coordinates (x2 = x - s, y2 = y - s) the
 /// transform becomes y2 + s = A*(x2 + s) + b, or
 /// y2 = A*x2 + b + A*s - s. Encode the obtained transform into another 4x4 matrix T2.
-PointMatcher<double>::Matrix apply_shift(PointMatcher<double>::Matrix const& T,
-                                        vw::Vector3 const& shift);
+Eigen::MatrixXd apply_shift(Eigen::MatrixXd const& T, vw::Vector3 const& shift);
 
 // Sometime the box we computed with cartesian_to_geodetic is offset
 // from the box computed with pixel_to_lonlat by 360 degrees.
