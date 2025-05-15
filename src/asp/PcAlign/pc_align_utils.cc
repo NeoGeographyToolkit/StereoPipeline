@@ -17,10 +17,6 @@
 
 // This tool uses libpointmatcher for alignment. BSD license.
 // https://github.com/ethz-asl/libpointmatcher
-// Copyright (c) 2010--2012,
-// Francois Pomerleau and Stephane Magnenat, ASL, ETHZ, Switzerland
-// You can contact the authors at <f dot pomerleau at gmail dot com> and
-// <stephane at magnenat dot net>
 
 #include <asp/PcAlign/pc_align_utils.h>
 #include <asp/Core/PointUtils.h>
@@ -33,7 +29,25 @@ namespace asp {
 
 using namespace vw;
 
-void load_las_multi_attempt(std::string const& file_name,
+// Generate labels compatible with libpointmatcher
+PLabels form_labels(int dim) {
+
+  PLabels labels;
+  typedef typename PointMatcher<double>::DataPoints::Label Label;
+
+  for (int i=0; i < dim; i++){
+    std::string text;
+    text += char('x' + i);
+    labels.push_back(Label(text, 1));
+  }
+  labels.push_back(Label("pad", 1));
+
+  return labels;
+}
+
+// TODO(oalexan1): This function should reduce the number of points
+// if they are too many.
+void load_las(std::string const& file_name,
                             std::int64_t num_points_to_load,
                             vw::BBox2 const& lonlat_box,
                             bool calc_shift,
@@ -42,21 +56,21 @@ void load_las_multi_attempt(std::string const& file_name,
                             bool verbose, Eigen::MatrixXd & data){
 
   std::int64_t num_total_points 
-    = load_las(file_name, num_points_to_load, lonlat_box, geo, verbose, calc_shift,
-               shift, data); // outputs
+    = load_las_aux(file_name, num_points_to_load, lonlat_box, geo, verbose, calc_shift,
+                   shift, data); // outputs
 
   int num_loaded_points = data.cols();
   if (!lonlat_box.empty()                    &&
       num_loaded_points < num_points_to_load &&
-      num_loaded_points < num_total_points){
+      num_loaded_points < num_total_points) {
 
     // We loaded too few points. Try harder. Need some care here as to not run
     // out of memory.
     num_points_to_load = std::max(4*num_points_to_load, std::int64_t(10000000));
     if (verbose)
       vw::vw_out() << "Too few points were loaded. Trying again." << std::endl;
-    load_las(file_name, num_points_to_load, lonlat_box, geo, verbose, calc_shift,
-             shift, data); // outputs
+    load_las_aux(file_name, num_points_to_load, lonlat_box, geo, verbose, calc_shift,
+                 shift, data); // outputs
   }
 
 }
@@ -89,7 +103,7 @@ void load_cloud_as_mat(std::string const& file_name,
     load_pc(file_name, num_points_to_load, lonlat_box, calc_shift, shift,
 	    geo, verbose, data);
   else if (file_type == "LAS")
-    load_las_multi_attempt(file_name, num_points_to_load, lonlat_box, calc_shift, shift,
+    load_las(file_name, num_points_to_load, lonlat_box, calc_shift, shift,
                            geo, verbose, data);
   else if (file_type == "CSV") {
     bool verbose = true;
@@ -122,7 +136,7 @@ void load_cloud(std::string const& file_name,
                bool verbose,
                typename PointMatcher<double>::DataPoints & data){
   
-  data.featureLabels = form_labels<double>(DIM);
+  data.featureLabels = form_labels(DIM);
   PointMatcherSupport::validateFile(file_name);
 
   load_cloud_as_mat(file_name, num_points_to_load,  lonlat_box,  calc_shift,
@@ -141,7 +155,8 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                CsvConv const& csv_conv,
                                std::string const& file_name,
                                double max_disp,
-                               Eigen::MatrixXd const transform,
+                               Eigen::MatrixXd const & transform,
+                               vw::BBox2 const& copc_win, bool copc_read_all,
                                vw::BBox2 & out_box, 
                                vw::BBox2 & trans_out_box) {
 
@@ -163,7 +178,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   bool        calc_shift     = false; // won't shift the points
   vw::Vector3 shift          = vw::Vector3(0, 0, 0);
   vw::BBox2   dummy_box;
-  bool        is_lola_rdr_format;
+  bool        is_lola_rdr_format = false; // will be overwritten
   // Load a sample of points, hopefully enough to estimate the box reliably.
   load_cloud(file_name, num_sample_pts, dummy_box,
              calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
@@ -726,8 +741,7 @@ bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float> > const& dem,
 // transform becomes y2 + s = A*(x2 + s) + b, or
 // y2 = A*x2 + b + A*s - s. Encode the obtained transform into another
 // 4x4 matrix T2.
-Eigen::MatrixXd apply_shift(Eigen::MatrixXd const& T,
-                                        vw::Vector3 const& shift){
+Eigen::MatrixXd apply_shift(Eigen::MatrixXd const& T, vw::Vector3 const& shift) {
 
   VW_ASSERT(T.cols() == 4 && T.rows() == 4,
             vw::ArgumentErr() << "Expected square matrix of size 4.");
@@ -745,6 +759,36 @@ Eigen::MatrixXd apply_shift(Eigen::MatrixXd const& T,
   return T2;
 }
 
+/// Filters out all points from point_cloud with an error entry higher than cutoff
+void filterPointsByError(DP & point_cloud, Eigen::MatrixXd &errors, double cutoff) {
+
+  DP input_copy = point_cloud; // Make a copy of the input DP object
+
+  // Init LPM data structure
+  const int input_point_count = point_cloud.features.cols();
+  if (errors.cols() != input_point_count)
+    vw_throw( LogicErr() << "Error: error size does not match point count size!\n");
+  point_cloud.features.conservativeResize(DIM+1, input_point_count);
+  point_cloud.featureLabels = asp::form_labels(DIM);
+
+  // Loop through all the input points and copy them to the output if they pass the test
+  std::int64_t points_count = 0;
+  for (std::int64_t col = 0; col < input_point_count; ++col) {
+
+    if (errors(0,col) > cutoff)
+      continue; // Error too high, don't add this point
+
+    // Copy this point to the output LPM structure
+    for (std::int64_t row = 0; row < DIM; row++)
+      point_cloud.features(row, points_count) = input_copy.features(row, col);
+    point_cloud.features(DIM, points_count) = 1; // Extend to be a homogenous coordinate
+    ++points_count; // Update output point count
+
+  } // End loop through points
+
+  // Finalize the LPM data structure
+  point_cloud.features.conservativeResize(Eigen::NoChange, points_count);
+
+}
 
 } // end namespace asp
-

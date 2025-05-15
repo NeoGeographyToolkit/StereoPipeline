@@ -25,11 +25,12 @@
 // Procrustes Analysis into an ICP framework by Toldo, Roberto and
 // Beinat, Alberto and Crosilla, Fabio.
 
+#include <asp/PcAlign/pc_align_utils.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/EigenUtils.h>
-#include <asp/PcAlign/pc_align_utils.h>
+#include <asp/Core/PdalUtils.h>
 
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Core/Stopwatch.h>
@@ -229,19 +230,6 @@ void convert_cloud(DP const& in_cloud, std::vector<vw::Vector3> & out_cloud) {
   }
 }
 
-// Read a cloud stored in a plain text file
-void read_cloud(std::string const& file, std::vector<vw::Vector3> & cloud, double shift) {
-  cloud.clear();
-  std::ifstream ifs(file.c_str());
-  double x, y, z;
-  vw::Vector3 p;
-  while (ifs >> x >> y >> z) {
-    p = vw::Vector3(x + shift, y + shift, z + shift);
-    cloud.push_back(p);
-  }
-  ifs.close();
-}
-
 // Apply a rotation + transform to a cloud
 void apply_transform_to_cloud(std::vector<vw::Vector3> & cloud, Eigen::MatrixXd const& T) {
   for (size_t pointIter = 0; pointIter < cloud.size(); pointIter++) {
@@ -374,6 +362,12 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::vector<vw::Vector3>> clouds(numClouds);
 
+    // Check for COPC files, as those cannot be read
+    for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
+       if (asp::isCopc(opt.cloud_files[cloudIter])) 
+         vw::vw_throw(vw::ArgumentErr() << "Cannot read LAZ COPC files.\n");
+    }
+
     // Load the first subsampled point cloud. Calculate the shift to apply to all clouds.
     vw::Vector3 shift;
     bool   calc_shift = true; // Shift points so the first point is (0,0,0)
@@ -401,7 +395,6 @@ int main(int argc, char *argv[]) {
     
     // Read the clouds
     for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
-      //read_cloud(opt.cloud_files[cloudIter], clouds[cloudIter], shifts[cloudIter]);
       sort_and_make_unique(clouds[cloudIter]);
     }
 
@@ -600,10 +593,9 @@ int main(int argc, char *argv[]) {
         
           p[0] = ctr[0]; p[1] = ctr[1]; p[2] = ctr[2];
           dst.push_back(p);
-
-	  errBefore += norm_2(curr - ctr);
-
-	  numErrors++;
+          
+          errBefore += norm_2(curr - ctr);
+          numErrors++;
         }
 	
         computeRigidTransform(src, dst, rot, trans);
@@ -619,14 +611,14 @@ int main(int argc, char *argv[]) {
 
         // Move the clouds to the new location for the next iteration
         apply_transform_to_cloud(clouds[cloudIter], currT);
-
-	// Compute the error after the transform is applied
+        
+        // Compute the error after the transform is applied
         for (int row = 0; row < CentroidPtsBelMod.size(); row++) {
           int pointIter = CentroidPtsBelMod[row][cloudIter];
           if (pointIter < 0) continue;
           vw::Vector3 curr = clouds[cloudIter][pointIter];
           vw::Vector3 ctr  = centroid[row];
-	  errAfter += norm_2(curr - ctr);
+          errAfter += norm_2(curr - ctr);
         }
 
       }

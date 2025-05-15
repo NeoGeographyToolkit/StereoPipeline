@@ -76,6 +76,8 @@ struct Options: public vw::GdalWriteOptions {
          save_trans_source, save_trans_ref,
          highest_accuracy, verbose, skip_shared_box_estimation;
   std::string initial_ned_translation, hillshading_transform;
+  vw::BBox2 ref_copc_win, src_copc_win;
+  bool ref_copc_read_all, src_copc_read_all;
   
   // Output
   string out_prefix;
@@ -83,7 +85,10 @@ struct Options: public vw::GdalWriteOptions {
   Options() : max_disp(-1.0), verbose(true){}
   
   /// Return true if the reference file is a DEM file and this option is not disabled
-  bool use_dem_distances() const { return ( (asp::get_cloud_type(this->reference) == "DEM") && !dont_use_dem_distances); }
+  bool use_dem_distances() const { 
+    return (asp::get_cloud_type(this->reference) == "DEM") && !dont_use_dem_distances; 
+  }
+  
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -155,11 +160,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("skip-shared-box-estimation", po::bool_switch(&opt.skip_shared_box_estimation)->default_value(false)->implicit_value(true),
      "Do not estimate the shared bounding box of the two clouds. This estimation "
      "can be costly for large clouds but helps with eliminating outliers.")
+    ("ref-copc-win", po::value(&opt.ref_copc_win),
+     "Specify the region to read from the reference cloud, if it is a COPC LAZ file. The "
+     "units are based the projection in the file. This is required unless --ref-copc-read- "
+     "all is set. Specify as minx miny maxx maxy, or minx maxy maxx miny, with no quotes.")
+    ("src-copc-win", po::value(&opt.src_copc_win),
+     "Specify the region to read from the source cloud, if it is a COPC LAZ file. The "
+     "units are based the projection in the file. This is required unless --src-copc-read- "
+     "all is set. Specify as minx miny maxx maxy, or minx maxy maxx miny, with no quotes.")
+    ("ref-copc-read-all", po::bool_switch(&opt.ref_copc_read_all)->default_value(false), 
+     "Read the full reference COPC file, ignoring the --ref-copc-win option.")
+    ("src-copc-read-all", po::bool_switch(&opt.src_copc_read_all)->default_value(false), 
+     "Read the full source COPC file, ignoring the --src-copc-win option.")
     ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
      "An alias for --csv-srs, for backward compatibility.");
-
-  //("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
-  // "Print debug information");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -509,56 +523,18 @@ void calcErrorsWithDem(DP                                 const& point_cloud,
 
 }
 
-/// Filters out all points from point_cloud with an error entry higher than cutoff
-void filterPointsByError(DP & point_cloud, Eigen::MatrixXd &errors,
-                         double cutoff) {
-
-  DP input_copy = point_cloud; // Make a copy of the input DP object
-
-  // Init LPM data structure
-  const int input_point_count = point_cloud.features.cols();
-  if (errors.cols() != input_point_count)
-    vw_throw( LogicErr() << "Error: error size does not match point count size!\n");
-  point_cloud.features.conservativeResize(DIM+1, input_point_count);
-  point_cloud.featureLabels = form_labels<double>(DIM);
-
-  // Loop through all the input points and copy them to the output if they pass the test
-  std::int64_t points_count = 0;
-  for (std::int64_t col = 0; col < input_point_count; ++col) {
-
-    if (errors(0,col) > cutoff) {
-      //vw_out() << "Throwing out point " << col << " for having error " << errors(0,col) << "\n";
-      continue; // Error too high, don't add this point
-    }
-
-    // Copy this point to the output LPM structure
-    for (std::int64_t row = 0; row < DIM; row++)
-      point_cloud.features(row, points_count) = input_copy.features(row, col);
-    point_cloud.features(DIM, points_count) = 1; // Extend to be a homogenous coordinate
-    ++points_count; // Update output point count
-
-  } // End loop through points
-
-  // Finalize the LPM data structure
-  point_cloud.features.conservativeResize(Eigen::NoChange, points_count);
-
-}
-
+// Updates an LPM error matrix to use the DEM-based error for each point if it is lower.
 // Note: The LPM matrix type used to store errors only ever has a single row.
-
-/// Updates an LPM error matrix to use the DEM-based error for each point if it is lower.
 void update_best_error(std::vector<double>         const& dem_errors,
                        Eigen::MatrixXd      & lpm_errors) {
   std::int64_t num_points = lpm_errors.cols();
   if (dem_errors.size() != static_cast<size_t>(num_points))
-    vw_throw( LogicErr() << "Error: error size does not match point count size!\n");
-  //vw_out() << "Updating error...\n";
+    vw_throw(LogicErr() << "Error: error size does not match point count size!\n");
 
   // Loop through points
   for (std::int64_t col = 0; col < num_points; col++){
     // Use the DEM error if it is less
     if (dem_errors[col] < lpm_errors(0,col)) {
-      //vw_out() << "DEM error = " << dem_errors[col] << ", LPM error = " << lpm_errors(0,col) << "\n";
       lpm_errors(0, col) = dem_errors[col];
     }
   }
@@ -1000,7 +976,7 @@ void adjust_and_intersect_ref_source_boxes(BBox2 & ref_box, BBox2 & source_box,
   adjust_lonlat_bbox(source, source_box);
 }
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   // Mandatory line for Eigen
   Eigen::initParallel();
@@ -1085,9 +1061,11 @@ int main( int argc, char *argv[] ) {
       Eigen::MatrixXd inv_init_trans = opt.init_transform.inverse();
       calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                                 opt.reference, opt.max_disp, inv_init_trans,
+                                opt.ref_copc_win, opt.ref_copc_read_all,
                                 ref_box, trans_ref_box); // outputs
       calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                                 opt.source, opt.max_disp, opt.init_transform,
+                                opt.src_copc_win, opt.src_copc_read_all,
                                 source_box, trans_source_box); // outputs
       sw0.stop();
       vw_out() << "Computation of bounding boxes took " 

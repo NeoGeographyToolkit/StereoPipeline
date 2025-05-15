@@ -41,15 +41,18 @@ namespace vw {
 
 namespace asp {
  
-std::int64_t load_las(std::string const& file_name,
-                      std::int64_t num_points_to_load,
-                      vw::BBox2 const& lonlat_box,
-                      vw::cartography::GeoReference const& geo,
-                      bool verbose,
-                      bool calc_shift,
-                      // Outputs
-                      vw::Vector3 & shift,
-                      Eigen::MatrixXd & data);
+// This is a helper function. Use instead load_las(). This
+// function attempts to load a given number of points but does no no checks on
+// how many are loaded.
+std::int64_t load_las_aux(std::string const& file_name,
+                          std::int64_t num_points_to_load,
+                          vw::BBox2 const& lonlat_box,
+                          vw::cartography::GeoReference const& geo,
+                          bool verbose,
+                          bool calc_shift,
+                          // Outputs
+                          vw::Vector3 & shift,
+                          Eigen::MatrixXd & data);
 
 // Apply a given transform to a LAS file and save it.
 void apply_transform_to_las(std::string const& input_file,

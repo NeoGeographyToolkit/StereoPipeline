@@ -27,6 +27,7 @@
 ///
 
 #include <asp/Core/PdalUtils.h>
+#include <asp/Core/PointUtils.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Core/ProgressCallback.h>
 
@@ -327,6 +328,9 @@ bool isCopc(std::string const& file) {
 
   bool is_copc = false;
   
+  if (!asp::is_las(file))
+    return false;
+    
   try {
     pdal::Options options;
     options.add("filename", file);

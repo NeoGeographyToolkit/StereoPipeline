@@ -251,15 +251,18 @@ private:
   
 };
 
-std::int64_t load_las(std::string const& file_name,
-                      std::int64_t num_points_to_load,
-                      vw::BBox2 const& lonlat_box,
-                      vw::cartography::GeoReference const& geo,
-                      bool verbose,
-                      bool calc_shift,
-                      // Outputs
-                      vw::Vector3 & shift,
-                      Eigen::MatrixXd & data) {
+// This is a helper function. Use instead load_las(). This
+// function attempts to load a given number of points but does no no checks on
+// how many are loaded.
+std::int64_t load_las_aux(std::string const& file_name,
+                          std::int64_t num_points_to_load,
+                          vw::BBox2 const& lonlat_box,
+                          vw::cartography::GeoReference const& geo,
+                          bool verbose,
+                          bool calc_shift,
+                          // Outputs
+                          vw::Vector3 & shift,
+                          Eigen::MatrixXd & data) {
   
   // Set the input point cloud    
   pdal::Options read_options;
@@ -267,9 +270,9 @@ std::int64_t load_las(std::string const& file_name,
   pdal::LasReader pdal_reader;
   pdal_reader.setOptions(read_options);
 
-  // buf_size is the number of points that will be
-  // processed and kept in this table at the same time. 
-  // A somewhat bigger value may result in some efficiencies.
+  // buf_size is the number of points that will be processed and kept in this
+  // table at the same time. A somewhat bigger value may result in some
+  // efficiencies.
   int buf_size = 100;
   pdal::FixedPointTable t(buf_size);
   pdal_reader.prepare(t);

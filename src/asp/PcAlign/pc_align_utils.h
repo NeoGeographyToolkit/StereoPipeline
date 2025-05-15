@@ -42,38 +42,20 @@
 #include <pointmatcher/PointMatcher.h>
 
 namespace asp {
-/*
-  This file contains helper functions for the pc_align tool.
 
-  Some of these could probably be moved elsewhere, but many of them depend on
-  libpointmatcher object types.
-*/
+// This file contains helper functions for the pc_align tool.
 
-// This stuff is from the libpointmatcher library
+// Some of these could probably be moved elsewhere, but many of them depend on
+// libpointmatcher object types.
+
 typedef PointMatcher<double> PM;
 typedef PM::DataPoints DP;
+typedef PointMatcher<double>::DataPoints::Labels PLabels;
 
 const std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
-//======================================================================
-
-/// Generate libpointmatcher compatible labels.
-template<typename T>
-typename PointMatcher<T>::DataPoints::Labels form_labels(int dim) {
-
-  typedef typename PointMatcher<T>::DataPoints::Label Label;
-  typedef typename PointMatcher<T>::DataPoints::Labels Labels;
-
-  Labels labels;
-  for (int i=0; i < dim; i++){
-    std::string text;
-    text += char('x' + i);
-    labels.push_back(Label(text, 1));
-  }
-  labels.push_back(Label("pad", 1));
-
-  return labels;
-}
+// Generate labels compatible with libpointmatcher
+PLabels form_labels(int dim);
 
 // Load xyz points from disk into a matrix with 4 columns. Last column is just ones.
 void load_cloud_as_mat(std::string const& file_name,
@@ -110,7 +92,9 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                CsvConv const& csv_conv,
                                std::string const& file_name,
                                double max_disp,
-                               Eigen::MatrixXd const transform,
+                               Eigen::MatrixXd const & transform,
+                               vw::BBox2 const& copc_win, bool copc_read_all,
+                               // Outputs
                                vw::BBox2 & out_box, 
                                vw::BBox2 & trans_out_box);
   
@@ -159,7 +143,7 @@ struct TransformPC: public vw::UnaryReturnSameType {
 
 /// Apply a given transform to the point cloud in input file, and save it.
 /// - Note: We transform the entire point cloud, not just the resampled
-///         version used in alignment.
+///   version used in alignment.
 void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
@@ -212,6 +196,10 @@ void read_georef(std::vector<std::string> const& clouds,
                  double semi_minor_axis,
                  std::string & csv_format_str,
                  asp::CsvConv& csv_conv, vw::cartography::GeoReference& geo);
+
+/// Filters out all points from point_cloud with an error entry higher than cutoff
+void filterPointsByError(DP & point_cloud, Eigen::MatrixXd &errors,
+                         double cutoff);
 
 }
 
