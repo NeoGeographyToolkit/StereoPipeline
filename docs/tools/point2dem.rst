@@ -6,7 +6,7 @@ point2dem
 The ``point2dem`` program produces a digital elevation model (DEM) in the
 GeoTIFF format and/or an orthographic image from a set of point clouds. The
 clouds can be created by ``parallel_stereo`` (:numref:`parallel_stereo`), or be
-in LAS or CSV format.
+in CSV (:numref:`point2dem_csv`) or LAS (:numref:`point2dem_las`) format. 
 
 The heights in the produced DEM are relative to a datum (ellipsoid). 
 They are calculated by weighted averaging around each grid point
@@ -184,11 +184,79 @@ information.
 
 See the options ``--sinusoidal``, ``--mercator``, etc., in
 :numref:`point2dem_options` for how to set other projections.
-    
-Multiple clouds, including CSV and LAS
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+.. _point2dem_csv:
+
+CSV files
+^^^^^^^^^
+
+The ``point2dem`` program can grid CSV files having longitude, latitude, and 
+height values as::
+
+     point2dem -r moon                               \
+       --dem-spacing 10                              \
+       --csv-format 1:lon,2:lat,3:height_above_datum \
+       in.csv                                        \
+       -o run/run
+
+This will produce a DEM in projected coordinates, unless the option
+``--geographic`` is passed in and the ``--dem-spacing`` is set to a fraction of
+a degree (:numref:`point2dem_proj`).
+
+For input data in projected coordinates, one can set a projection and the CSV
+format::
+
+  proj="+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs"
+  format="1:easting,2:northing,3:height_above_datum"
+  
+then run::
+
+    point2dem -r Earth       \
+      --dem-spacing 10       \
+      --csv-srs "$proj"      \
+      --csv-format "$format" \
+      --t_srs "$proj"        \
+      in.csv                 \
+      -o run/run
+
+.. _point2dem_las:
+
+LAS and COPC
+^^^^^^^^^^^^
+
+The ``point2dem`` program can grid LAS files, including compressed
+(LAZ) and cloud-optimized (`COPC <https://copc.io/>`_) data. The processing is
+done with `PDAL <https://pdal.io/en/latest/>`_, which is shipped with ASP. 
+ 
+For example, to create a DEM from a LAS file, run::
+
+    point2dem -r Earth --tr 10 in.las -o run/run
+
+This assumes that the LAS file is in projected coordinates with the file having
+the projection. If the points are in ECEF coordinates, a projection needs to be
+set with ``--t_srs``.
+
+For COPC files, which are potentially immense and portions of which can be
+downloaded on demand, the option ``--copc-win`` must be set. It determines the
+bounds in projected coordinates. Example::
+
+    point2dem --tr 2.0                       \
+      --copc-win 636400 852260 638180 849990 \
+      cloud.laz                              \
+      -o run/run 
+
+To process the full file, use the option ``--copc-read-all``. 
+
+The determination of whether an input file is COPC or plain LAZ is done
+by peeking at the relevant bits with PDAL.
+
+This program can process LAS files created with ``point2las``
+(:numref:`point2las`).
+    
+Multiple clouds
+^^^^^^^^^^^^^^^
+
+Several point clouds of different types can be passed in on input::
 
      point2dem -r earth                              \
        --dem-spacing 10                              \
@@ -201,10 +269,6 @@ Here LAS, CSV, and TIF point clouds (the latter obtained with
 The CSV file is in longitude, latitude, and height above datum format, but the
 produced DEM will be in a projection in meters, unless borrowed from the LAS
 file or explicitly set with ``--t_srs`` (:numref:`point2dem_proj`).
-
-The option ``--dem-spacing`` is an alias for ``--tr``. 
-
-See also ``--csv-srs``.
 
 If it is desired to use the ``--orthoimage`` option with multiple
 clouds, the clouds need to be specified first, followed by the
@@ -468,7 +532,7 @@ Command-line options for point2dem
 
 -s, --tr, --dem-spacing <float (default: 0)>
     Set output DEM resolution (in target georeferenced units per
-    pixel). These units may be in degrees or meters, depending on your
+    pixel). These units may be in meters or degrees, depending on the
     projection. If not specified, it will be computed automatically
     (except for LAS and CSV files). Multiple spacings can be set
     (in quotes) to generate multiple output files.
@@ -559,28 +623,6 @@ Command-line options for point2dem
 -t, --output-filetype <string (default: tif)>
     Specify the output file type.
 
---x-offset <float (default: 0)>
-    Add a longitude offset (in degrees) to the DEM.
-
---y-offset <float (default: 0)>
-    Add a latitude offset (in degrees) to the DEM.
-
---z-offset <float (default: 0)>
-    Add a vertical offset (in meters) to the DEM.
-
---rotation-order <string (default: "xyz")>
-    Set the order of an Euler angle rotation applied to the 3D
-    points prior to DEM rasterization.
-
---phi-rotation <float (default: 0)>
-    Set a rotation angle phi.
-
---omega-rotation <float (default: 0)>
-    Set a rotation angle omega.
-
---kappa-rotation <float (default: 0)>
-    Set a rotation angle kappa.
-
 --proj-scale <float (default: 1)>
     The projection scale (if applicable).
 
@@ -633,6 +675,37 @@ Command-line options for point2dem
 --erode-length <integer (default: 0)>
     Erode input point clouds by this many pixels at boundary (after
     outliers are removed, but before filling in holes).
+
+--copc-win <float float float float>
+    Specify the region to read from a COPC LAZ file. The units are based on the
+    projection in the file. This is required unless ``--copc-read-all`` is set.
+    Specify as ``minx miny maxx maxy``, or ``minx maxy maxx miny``, with no
+    quotes. See :numref:`point2dem_las`.
+
+--copc-read-all
+    Read the full COPC file, ignoring the ``--copc-win`` option.
+        
+--x-offset <float (default: 0)>
+    Add a longitude offset (in degrees) to the DEM.
+
+--y-offset <float (default: 0)>
+    Add a latitude offset (in degrees) to the DEM.
+
+--z-offset <float (default: 0)>
+    Add a vertical offset (in meters) to the DEM.
+
+--rotation-order <string (default: "xyz")>
+    Set the order of an Euler angle rotation applied to the 3D
+    points prior to DEM rasterization.
+
+--phi-rotation <float (default: 0)>
+    Set a rotation angle phi.
+
+--omega-rotation <float (default: 0)>
+    Set a rotation angle omega.
+
+--kappa-rotation <float (default: 0)>
+    Set a rotation angle kappa.
 
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use

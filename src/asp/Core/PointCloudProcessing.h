@@ -23,6 +23,8 @@
 #ifndef __ASP_CORE_POINT_CLOUD_PROCESSING_H__
 #define __ASP_CORE_POINT_CLOUD_PROCESSING_H__
 
+#include <vw/Math/BBox.h>
+
 #include <string>
 #include <vector>
 
@@ -47,6 +49,7 @@ namespace asp {
   void las_or_csv_to_tif(std::string const& in_file,
                          std::string const& out_prefix,
                          int num_rows, int block_size,
+                         vw::BBox2 const& copc_win, bool copc_read_all,
                          vw::GdalWriteOptions & opt, // will change
                          vw::cartography::GeoReference const& csv_georef,
                          asp::CsvConv const& csv_conv,

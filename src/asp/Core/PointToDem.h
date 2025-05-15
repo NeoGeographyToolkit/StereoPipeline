@@ -70,7 +70,7 @@ struct DemOptions: vw::GdalWriteOptions {
               scalar_error;
   double      rounding_error;
   std::string target_srs_string;
-  vw::BBox2   target_projwin;
+  vw::BBox2   target_projwin, copc_win;
   int         dem_hole_fill_len, ortho_hole_fill_len, ortho_hole_fill_extra_len;
   bool        remove_outliers_with_pct, use_tukey_outlier_removal;
   vw::Vector2 remove_outliers_params;
@@ -80,10 +80,10 @@ struct DemOptions: vw::GdalWriteOptions {
   std::string csv_format_str, csv_srs, filter;
   std::string csv_proj4_str; // for backward compatibility
   double      search_radius_factor, sigma_factor, default_grid_size_multiplier;
-  bool        has_las_or_csv_or_pcd, auto_proj_center;
+  bool        has_las_or_csv_or_pcd, auto_proj_center, copc_read_all;
   vw::Vector2i max_output_size;
   bool        input_is_projected;
-
+  
   // Output
   std::string out_prefix, output_file_type;
 

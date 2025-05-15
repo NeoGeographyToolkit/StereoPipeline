@@ -36,10 +36,11 @@
 #include <pdal/StageFactory.hpp>
 #include <pdal/Streamable.hpp>
 #include <pdal/Reader.hpp>
+#include <pdal/SpatialReference.hpp>
 #include <io/LasHeader.hpp>
 #include <io/LasReader.hpp>
 #include <io/LasWriter.hpp>
-#include <pdal/SpatialReference.hpp>
+#include <io/CopcReader.hpp>
 
 namespace pdal {
     
@@ -320,6 +321,26 @@ std::int64_t las_file_size(std::string const& las_file) {
 
   return qi.m_pointCount;
 }
+
+// Check if a file is in the LAS COPC format
+bool isCopc(std::string const& file) {
+
+  bool is_copc = false;
+  
+  try {
+    pdal::Options options;
+    options.add("filename", file);
+
+    pdal::CopcReader reader;
+    reader.setOptions(options);
+    pdal::QuickInfo qi(reader.preview());
+    is_copc = qi.valid();
+  } catch (pdal::pdal_error const& e) {
+    is_copc = false;
+  }
+
+  return is_copc;
+} 
 
 // Save a point cloud and triangulation error to the LAS format
 void write_las(bool has_georef, vw::cartography::GeoReference const& georef,

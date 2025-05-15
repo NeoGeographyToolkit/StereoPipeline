@@ -42,6 +42,9 @@ std::int64_t las_file_size(std::string const& las_file);
 bool georef_from_las(std::string const& las_file,
                     vw::cartography::GeoReference & georef);
 
+// Check if a file is in the LAS COPC format
+bool isCopc(std::string const& file);
+
 // Save a point cloud and triangulation error to the LAS format
 void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,

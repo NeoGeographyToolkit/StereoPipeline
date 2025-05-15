@@ -150,13 +150,6 @@ void chip_convert_to_tif(DemOptions const& opt,
                << "CSV files were passed in, but the option --csv-format was not set.\n");
   }
 
-  // Extract georef info from PC or las files.
-  vw::cartography::GeoReference pc_georef;
-  bool have_pc_georef = asp::georef_from_pc_files(pc_files, pc_georef);
-
-  if (!have_pc_georef) // if we have no georef so far, the csv georef is our best guess.
-    pc_georef = csv_georef;
-
   // There are situations in which some files will already be tif, and
   // others will be LAS or CSV. When we convert the latter to tif,
   // we'd like to be able to match the number of rows of the existing
@@ -206,7 +199,7 @@ void chip_convert_to_tif(DemOptions const& opt,
 
     std::string in_file = pc_files[i];
     vw::vw_out() << "Processing file: " << in_file << "\n";
-    std::string stem    = fs::path(in_file).stem().string();
+    std::string stem = fs::path(in_file).stem().string();
     std::string suffix;
     if (opt.out_prefix.find(stem) != std::string::npos)
       suffix = "";
@@ -214,20 +207,14 @@ void chip_convert_to_tif(DemOptions const& opt,
       suffix = "-" + stem;
     std::string file_prefix = opt.out_prefix + "-tmp" + suffix;
 
-    // TODO: This if statement should not be needed, the function should handle it!
     // Perform the actual conversion to a tif file
     std::vector<std::string> out_files;
     vw::GdalWriteOptions l_opt = opt; // Copy the write options
-    if (asp::is_las(in_file))
-      asp::las_or_csv_to_tif(in_file, file_prefix, num_rows, block_size,
-                             l_opt, pc_georef, csv_conv, out_files);
-    else // CSV, PCD, unordered projected TIF
-      asp::las_or_csv_to_tif(in_file, file_prefix, num_rows, block_size,
-                             l_opt, csv_georef, csv_conv, out_files);
+    asp::las_or_csv_to_tif(in_file, file_prefix, num_rows, block_size,
+                           opt.copc_win, opt.copc_read_all,
+                           l_opt, csv_georef, csv_conv, out_files);
 
-    // Append out_files to all_out_files and to conv_files by inserting
-    // Note that all_out_files will have both PC.tif files and outputs
-    // of las_or_csv_to_tif, while conv_files will have only the latter.
+    // Keep track of all produced files, and separately of conv_files.
     std::copy(out_files.begin(), out_files.end(), std::back_inserter(all_out_files));
     std::copy(out_files.begin(), out_files.end(), std::back_inserter(conv_files));
   }
@@ -239,7 +226,7 @@ void chip_convert_to_tif(DemOptions const& opt,
   vw_out(DebugMessage,"asp") << "LAS or CSV to TIF conversion time: "
                              << sw.elapsed_seconds() << " seconds.\n";
 
-} // End function chip_convert_to_tif
+}
 
 // Set the projection based on options. By now opt.proj_lon and opt.proj_lat
 // should have been set. 

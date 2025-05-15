@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// Process point clouds. This makes use of PDAL and ASP's csv logic.
+// Process point clouds. This makes use of PDAL and ASP's CSV logic.
 
 /// \file PointCloudProcessing.cc
 #include <asp/Core/PointCloudProcessing.h>
@@ -31,11 +31,11 @@
 #include <pdal/Streamable.hpp>
 #include <pdal/Reader.hpp>
 #include <io/LasHeader.hpp>
+#include <io/CopcReader.hpp>
 #include <io/LasReader.hpp>
 #include <io/LasWriter.hpp>
 #include <pdal/SpatialReference.hpp>
-
-using namespace vw::cartography;
+#include <pdal/SrsBounds.hpp>
 
 // Read through las points in streaming fashion. When a given amount is collected,
 // write a chip to disk.
@@ -152,7 +152,7 @@ public:
 
   CsvReader(std::string const & csv_file,
             asp::CsvConv const& csv_conv,
-            GeoReference const& georef):
+            vw::cartography::GeoReference const& georef):
       m_csv_file(csv_file), m_csv_conv(csv_conv),
       m_is_first_line(true), m_has_valid_point(false) {
 
@@ -558,6 +558,7 @@ public:
 void las_or_csv_to_tif(std::string const& in_file,
                        std::string const& out_prefix,
                        int num_rows, int block_size,
+                       vw::BBox2 const& copc_win, bool copc_read_all,
                        vw::GdalWriteOptions & opt, // will change
                        vw::cartography::GeoReference const& csv_georef,
                        asp::CsvConv const& csv_conv,
@@ -574,9 +575,6 @@ void las_or_csv_to_tif(std::string const& in_file,
   opt.raster_tile_size = tile_size;
 
   boost::shared_ptr<asp::BaseReader> reader_ptr;
-
-  // LAS files are handled outside of this function as the PCL interface
-  // is very different.
   if (asp::is_csv(in_file)) // CSV
     reader_ptr = boost::shared_ptr<asp::CsvReader>
       (new asp::CsvReader(in_file, csv_conv, csv_georef));
@@ -585,53 +583,63 @@ void las_or_csv_to_tif(std::string const& in_file,
   else if (asp::is_tif(in_file))
     reader_ptr = boost::shared_ptr<asp::TifReader>(new asp::TifReader(in_file));
   else if (asp::is_las(in_file))
-     reader_ptr = boost::shared_ptr<asp::BaseReader>(); // set, but not used
+     reader_ptr = boost::shared_ptr<asp::BaseReader>(); // see below for las
   else
     vw::vw_throw(vw::ArgumentErr() << "Unknown file type: " << in_file << "\n");
 
-  // Compute the dimensions of the image we are about to create. The LAS
-  // files use PDAL, which require separate handling.
-  std::int64_t num_points = 0;
-  if (asp::is_las(in_file))
-    num_points = asp::las_file_size(in_file);
-  else
-    num_points = reader_ptr->m_num_points;
-
-  int num_row_tiles = std::max(1, (int)ceil(double(num_rows)/ASP_POINT_CLOUD_TILE_LEN));
-  int image_rows = ASP_POINT_CLOUD_TILE_LEN * num_row_tiles;
-
-  int points_per_row = (int)ceil(double(num_points)/image_rows);
-  int num_col_tiles  = (int)ceil(double(points_per_row)/ASP_POINT_CLOUD_TILE_LEN);
-  num_col_tiles      = std::max(1, num_col_tiles);
-  int image_cols = ASP_POINT_CLOUD_TILE_LEN * num_col_tiles;
-
+  // LAS files have a totally different interface, so have to be handled separately.
   if (asp::is_las(in_file)) { // LAS
-    // Has to be handled differently, as we read the file in streaming fashion.
-    vw::vw_out() << "Breaking up the LAS file into spatially-organized files.\n";
-    // Set the input point cloud
+                             
+    // Set up the options
     pdal::Options read_options;
     read_options.add("filename", in_file);
-    pdal::LasReader pdal_reader;
-    pdal_reader.setOptions(read_options);
 
-    vw::cartography::GeoReference las_georef;
-    bool has_georef = asp::georef_from_las(in_file, las_georef);
-
-    // buf_size is the number of points that will be
-    // processed and kept in this table at the same time.
-    // A somewhat bigger value may result in some efficiencies.
+    // Set the input point cloud. COPC is a streaming format, and need to fetch
+    // the data in a box
+    boost::shared_ptr<pdal::Reader> pdal_reader;
+    if (asp::isCopc(in_file)) {
+      
+      pdal_reader.reset(new pdal::CopcReader());
+      if (copc_win == vw::BBox2() && !copc_read_all)
+        vw::vw_throw(vw::ArgumentErr() << "Must set either --copc-win or --copc-read-all.\n");
+      if (!copc_read_all) {
+        pdal::BOX2D bounds(copc_win.min().x(), copc_win.min().y(),
+                           copc_win.max().x(), copc_win.max().y());
+        read_options.add("bounds", bounds);
+      }
+      
+    } else {
+      pdal_reader.reset(new pdal::LasReader());
+    }
+    pdal_reader->setOptions(read_options);
+    
+    // buf_size is the number of points that will be processed and kept in this
+    // table at the same time. A somewhat bigger value may result in some
+    // efficiencies.
+    vw::vw_out() << "Breaking up the LAS file into spatially-organized files.\n";
     int buf_size = 100;
     pdal::FixedPointTable t(buf_size);
-    pdal_reader.prepare(t);
+    pdal_reader->prepare(t);
+    vw::cartography::GeoReference las_georef;
+    bool has_georef = asp::georef_from_las(in_file, las_georef);
     asp::ChipMaker writer(ASP_POINT_CLOUD_TILE_LEN, block_size, has_georef, las_georef,
                           opt, out_prefix, out_files);
     pdal::Options write_options;
     writer.setOptions(write_options);
-    writer.setInput(pdal_reader);
+    writer.setInput(*pdal_reader);
     writer.prepare(t);
     writer.execute(t);
 
   } else { // CSV or PCD
+
+    // Compute the dimensions of the temporary image we are about to create. 
+    std::int64_t num_points = reader_ptr->m_num_points;
+    int num_row_tiles  = std::max(1, (int)ceil(double(num_rows)/ASP_POINT_CLOUD_TILE_LEN));
+    int image_rows     = ASP_POINT_CLOUD_TILE_LEN * num_row_tiles;
+    int points_per_row = (int)ceil(double(num_points)/image_rows);
+    int num_col_tiles  = (int)ceil(double(points_per_row)/ASP_POINT_CLOUD_TILE_LEN);
+    num_col_tiles      = std::max(1, num_col_tiles);
+    int image_cols     = ASP_POINT_CLOUD_TILE_LEN * num_col_tiles;
 
     // For small CSV files, an image of dimensions ASP_POINT_CLOUD_TILE_LEN is
     // way too large and gridding is slow rather than instant. We will make the
@@ -652,8 +660,8 @@ void las_or_csv_to_tif(std::string const& in_file,
     // Must use a thread only, as we read the input file serially
     std::string out_file = out_prefix + ".tif";
     vw::vw_out() << "Writing spatially ordered data: " << out_file << "\n";
-    vw::cartography::write_gdal_image(out_file, Img, opt,
-                                      vw::TerminalProgressCallback("asp", "\t--> "));
+    auto tpc = vw::TerminalProgressCallback("asp", "\t--> ");
+    vw::cartography::write_gdal_image(out_file, Img, opt, tpc);
     out_files.push_back(out_file);
   }
 
@@ -668,10 +676,10 @@ bool georef_from_pc_files(std::vector<std::string> const& files,
                           vw::cartography::GeoReference & georef) {
 
   // Initialize
-  georef = GeoReference();
+  georef = vw::cartography::GeoReference();
 
   for (int i = 0; i < (int)files.size(); i++) {
-    GeoReference local_georef;
+    vw::cartography::GeoReference local_georef;
 
     // Sometimes ASP PC files can have georef, written there by stereo
     try {

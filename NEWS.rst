@@ -15,6 +15,9 @@ parallel_sfs (:numref:`parallel_sfs`):
    * When albedo and / or haze is modeled, initial estimates for these are
      produced for the full site (:numref:`parallel_sfs_usage`).
 
+point2dem (:numref:`point2dem`):
+  * Added support for LAS COPC files (:numref:`point2dem_las`).
+  
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
   * Turned off experimental ``--subpixel-mode 6`` as it is failing to run

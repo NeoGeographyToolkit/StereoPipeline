@@ -81,8 +81,12 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
       "to ensure that the grid points are placed at integer multiples of the grid "
       "size.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),
-      "Set output DEM resolution (in target georeferenced units per pixel). These units may be in degrees or meters, depending on your projection. If not specified, it will be computed automatically (except for LAS and CSV files). Multiple spacings can be set (in quotes) to generate multiple output files. This is the same as the --tr option.")
-    ("tr", po::value(&dem_spacing2)->default_value(""), "This is identical to the --dem-spacing option.")
+     "Set output DEM resolution (in target georeferenced units per pixel). These units may "
+     "be in meters or degrees, depending on the projection. If not specified, it will be "
+     "computed automatically (except for LAS and CSV files). Multiple spacings can be set "
+     "(in quotes) to generate multiple output files. This is the same as the --tr option.")
+    ("tr", po::value(&dem_spacing2)->default_value(""), 
+     "This is identical to the --dem-spacing option.")
     ("datum", po::value(&opt.datum)->default_value(""),
      "Set the datum. This will override the datum from the input images and also --t_srs, --semi-major-axis, and --semi-minor-axis. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid)->default_value(""),
@@ -203,7 +207,14 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
      "Input data is already in projected coordinates, or is a point cloud in Cartesian "
      "coordinates that is small in extent. See the doc for more info.")
     ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
-     "An alias for --csv-srs, for backward compatibility.");
+     "An alias for --csv-srs, for backward compatibility.")
+    ("copc-win", po::value(&opt.copc_win),
+     "Specify the region to read from a COPC LAZ file. The units are based the projection " 
+     "in the file. This is required unless --copc-read-all is set. Specify as minx miny "
+     "maxx maxy, or minx maxy maxx miny, with no quotes.")
+    ("copc-read-all", po::bool_switch(&opt.copc_read_all)->default_value(false), 
+     "Read the full COPC file, ignoring the --copc-win option.")
+    ;
 
   general_options.add(manipulation_options);
   general_options.add(projection_options);
@@ -221,8 +232,8 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered);
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
   if (vm.count("input-files") == 0)
     vw_throw(ArgumentErr() << "Missing input point clouds.\n" << usage << general_options);
@@ -340,12 +351,16 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   // For compatibility with GDAL, we allow the proj win y coordinate to be flipped.
   // Correct that here.
   if (opt.target_projwin != BBox2()) {
-    if (opt.target_projwin.min().y() > opt.target_projwin.max().y()) {
+    if (opt.target_projwin.min().y() > opt.target_projwin.max().y())
       std::swap(opt.target_projwin.min().y(), opt.target_projwin.max().y());
-    }
     vw_out() << "Cropping to projection box " << opt.target_projwin << ".\n";
   }
-
+  if (opt.copc_win != BBox2()) {
+    if (opt.copc_win.min().y() > opt.copc_win.max().y())
+      std::swap(opt.copc_win.min().y(), opt.copc_win.max().y());
+    vw_out() << "Reading COPC LAZ file with bounding box " << opt.copc_win << ".\n";
+  }
+  
   // Must specify either csv_srs or csv_proj4_str, but not both. The latter is 
   // for backward compatibility.
   if (!opt.csv_srs.empty() && !opt.csv_proj4_str.empty())

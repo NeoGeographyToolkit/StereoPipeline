@@ -36,19 +36,21 @@
 #include <io/LasHeader.hpp>
 #include <pdal/Options.hpp>
 
-namespace pdal {
+namespace asp {
 
-// Read a LAS cloud and return a subset of it.  
-class PDAL_DLL LasLoader: public Writer, public Streamable {
+// Read a LAS cloud and return a subset of it. This inherits from pdal::Writer
+// because it is a processing class. It brings in the data via a pdal::Reader
+// handle that is set when an instance of this is configured.
+class PDAL_DLL LasProcessor: public pdal::Writer, public pdal::Streamable {
 
 public:
-  LasLoader(std::string const& file_name, std::int64_t num_points_to_load,
-            vw::BBox2 const& lonlat_box,
-            vw::cartography::GeoReference const& input_georef,
-            bool verbose, bool calc_shift,
-            // Outputs
-            std::int64_t & num_total_points, vw::Vector3 & shift, 
-            Eigen::MatrixXd & data):
+  LasProcessor(std::string const& file_name, std::int64_t num_points_to_load,
+              vw::BBox2 const& lonlat_box,
+              vw::cartography::GeoReference const& input_georef,
+              bool verbose, bool calc_shift,
+              // Outputs
+              std::int64_t & num_total_points, vw::Vector3 & shift, 
+              Eigen::MatrixXd & data):
   m_file_name(file_name),
   m_num_points_to_load(num_points_to_load),
   m_lonlat_box(lonlat_box),
@@ -75,7 +77,7 @@ public:
       m_tpc.report_progress(0);
   }
   
-  ~LasLoader() {}
+  ~LasProcessor() {}
 
   virtual std::string getName() const { return "sample streamer"; }
 
@@ -101,11 +103,11 @@ private:
   vw::Vector3 & m_shift;
   Eigen::MatrixXd & m_data;
   
-  virtual void addArgs(ProgramArgs& args) {}
+  virtual void addArgs(pdal::ProgramArgs& args) {}
   virtual void initialize() {}
 
   // This will be called for each point in the cloud.
-  virtual bool processOne(PointRef& point) {
+  virtual bool processOne(pdal::PointRef& point) {
 
     if (m_points_count >= m_num_points_to_load)
       return false; // done with reading points
@@ -116,9 +118,9 @@ private:
       return true;
     
     // Current point
-    vw::Vector3 xyz(point.getFieldAs<double>(Dimension::Id::X),
-                    point.getFieldAs<double>(Dimension::Id::Y),
-                    point.getFieldAs<double>(Dimension::Id::Z));
+    vw::Vector3 xyz(point.getFieldAs<double>(pdal::Dimension::Id::X),
+                    point.getFieldAs<double>(pdal::Dimension::Id::Y),
+                    point.getFieldAs<double>(pdal::Dimension::Id::Z));
     
     if (m_has_las_georef) {
       // This is a projected point, convert to cartesian
@@ -152,28 +154,28 @@ private:
     return true;  
   }
 
-  virtual void writeView(const PointViewPtr view) {
-    throw pdal_error("The writeView() function must not be called in streaming mode.");
+  virtual void writeView(const pdal::PointViewPtr view) {
+    throw pdal::pdal_error("The writeView() function must not be called in streaming mode.");
   }
 
   // To be called after all the points are read.
-  virtual void done(PointTableRef table) {
+  virtual void done(pdal::PointTableRef table) {
     m_data.conservativeResize(Eigen::NoChange, m_points_count);
 
     if (m_verbose) 
       m_tpc.report_finished();
   }
   
-  LasLoader& operator=(const LasLoader&) = delete;
-  LasLoader(const LasLoader&) = delete;
-  LasLoader(const LasLoader&&) = delete;
+  LasProcessor& operator=(const LasProcessor&) = delete;
+  LasProcessor(const LasProcessor&) = delete;
+  LasProcessor(const LasProcessor&&) = delete;
 };
 
 // A filter to apply a transform to a cloud. Each point is processed in
 // streaming mode, without loading the entire point cloud into memory. May
 // adjust the scale and offset in the header of the output file.
       
-class PDAL_DLL TransformFilter: public Filter, public Streamable {
+class PDAL_DLL TransformFilter: public pdal::Filter, public pdal::Streamable {
 
 public:
 
@@ -199,12 +201,12 @@ public:
 private:
 
   // Apply a transform to each point
-  virtual bool processOne(PointRef& point) {
+  virtual bool processOne(pdal::PointRef& point) {
     
     // Initial point
-    vw::Vector3 P(point.getFieldAs<double>(Dimension::Id::X),
-                  point.getFieldAs<double>(Dimension::Id::Y),
-                  point.getFieldAs<double>(Dimension::Id::Z));
+    vw::Vector3 P(point.getFieldAs<double>(pdal::Dimension::Id::X),
+                  point.getFieldAs<double>(pdal::Dimension::Id::Y),
+                  point.getFieldAs<double>(pdal::Dimension::Id::Z));
     
     if (m_has_georef) {
       // This is a projected point, convert to cartesian
@@ -223,9 +225,9 @@ private:
     }
     
     // Put the point back
-    point.setField(Dimension::Id::X, P[0]);
-    point.setField(Dimension::Id::Y, P[1]);
-    point.setField(Dimension::Id::Z, P[2]);
+    point.setField(pdal::Dimension::Id::X, P[0]);
+    point.setField(pdal::Dimension::Id::Y, P[1]);
+    point.setField(pdal::Dimension::Id::Z, P[2]);
 
     // Update the progress and the counter
     if (m_count % m_spacing == 0) 
@@ -235,7 +237,7 @@ private:
     return true;
   }
   
-  virtual void done(PointTableRef table) {
+  virtual void done(pdal::PointTableRef table) {
     m_tpc.report_finished();
   }
     
@@ -249,10 +251,6 @@ private:
   
 };
 
-} // end namespace pdal
-
-namespace asp {
-  
 std::int64_t load_las(std::string const& file_name,
                       std::int64_t num_points_to_load,
                       vw::BBox2 const& lonlat_box,
@@ -278,15 +276,15 @@ std::int64_t load_las(std::string const& file_name,
 
   // Read the data
   std::int64_t num_total_points = 0;
-  pdal::LasLoader writer(file_name, num_points_to_load, lonlat_box, geo,
-                         verbose, calc_shift, 
-                         // Outputs
-                         num_total_points, shift, data);
-  pdal::Options write_options;
-  writer.setOptions(write_options);
-  writer.setInput(pdal_reader);
-  writer.prepare(t);
-  writer.execute(t);
+  asp::LasProcessor las_proc(file_name, num_points_to_load, lonlat_box, geo,
+                             verbose, calc_shift, 
+                             // Outputs
+                             num_total_points, shift, data);
+  pdal::Options proc_options;
+  las_proc.setOptions(proc_options);
+  las_proc.setInput(pdal_reader);
+  las_proc.prepare(t);
+  las_proc.execute(t);
 
   return num_total_points;
 }
@@ -320,7 +318,7 @@ void apply_transform_to_las(std::string const& input_file,
   bool has_georef = asp::georef_from_las(input_file, las_georef);
 
   // Set up the filter
-  pdal::TransformFilter transform_filter(num_total_points, has_georef, las_georef, T);
+  asp::TransformFilter transform_filter(num_total_points, has_georef, las_georef, T);
   transform_filter.setInput(reader);
   transform_filter.prepare(t);
 
