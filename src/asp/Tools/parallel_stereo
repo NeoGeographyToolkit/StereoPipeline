@@ -617,8 +617,10 @@ def tile_run(prog, args, opt, settings, tile, **kw):
             call.extend(['--threads', str(opt.threads_multi)])
 
         cmd = call + ['--trans-crop-win'] + adjusted_tile.as_array() # append the tile
-        # This is a bugfix for output prefix being same as bundle-adjust-prefix.
-        # Let the stereo executables parse these.
+
+        # This is a bugfix for when the output prefix is the same as the
+        # bundle-adjust-prefix. Let the stereo executables parse these as it is
+        # better equipped for that.
         cmd += ['--output-prefix-override', tile_dir_prefix]
 
         if opt.dryrun:
@@ -853,7 +855,7 @@ def setup_run_multiview(opt, settings, parallel_args, args):
         # If the user specified something else
         raise Exception('Option --keep-only does not work with multiview stereo.')
 
-    # Bugfix: avoid confusing the logic below
+    # TODO(oalexan1): avoid confusing the logic below
     asp_cmd_utils.wipe_option(parallel_args, '-s', 1)
     if os.path.exists(opt.stereo_file):
         parallel_args.extend(['--stereo-file', opt.stereo_file])

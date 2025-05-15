@@ -185,7 +185,6 @@ void handle_multiview(int argc, char* argv[],
     os << local_prefix << "-pair" << p << "/" << p;
     local_prefix = os.str();
     cmd.push_back(local_prefix);
-
     if (!input_dem.empty())
       cmd.push_back(input_dem);
 
@@ -196,8 +195,9 @@ void handle_multiview(int argc, char* argv[],
       largv.push_back((char*)cmd[t].c_str());
     bool is_multiview = false; // single image and camera pair
     std::vector<std::string> local_files;
+    bool override_out_prefix = false;
     handle_arguments(largc, &largv[0], opt_vec[p-1], additional_options,
-                     is_multiview, local_files, usage, exit_early);
+                     is_multiview, override_out_prefix, local_files, usage, exit_early);
 
     if (verbose) {
       // Needed for stereo_parse
@@ -291,11 +291,13 @@ void save_run_info(ASPGlobalOptions const& opt,
 
 /// Parse the list of files specified as positional arguments on the command line
 // The format is:  <N image paths> [N camera model paths] <output prefix> [input DEM path]
-bool parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
+bool parse_multiview_cmd_files(bool override_out_prefix, 
+                               std::vector<std::string> const &filesIn,
                                std::vector<std::string>       &image_paths,
                                std::vector<std::string>       &camera_paths,
                                std::string                    &prefix,
                                std::string                    &dem_path) {
+
   // Init outputs
   image_paths.clear();
   camera_paths.clear();
@@ -328,8 +330,10 @@ bool parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
 
   // parallel_stereo must be able to run with a tile output prefix. That program
   // does not understand all the stereo options, so, it delegates to the
-  // underlying stereo executables to do this switch.
-  if (asp::stereo_settings().output_prefix_override != "")
+  // underlying stereo executables to do this switch. Invoke this only
+  // if is_multiview is true, to do the replacement of the prefix just once.
+  // Do not do it later again, when the processing is per each stereo pair.
+  if (asp::stereo_settings().output_prefix_override != "" && override_out_prefix)
     prefix = asp::stereo_settings().output_prefix_override;
   
   // An output prefix cannot be an image or a camera
@@ -354,6 +358,8 @@ bool parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
 // with the number of images n >= 2, create n-1 individual
 // ASPGlobalOptions entries, corresponding to n-1 stereo pairs between the
 // first image and each of the subsequent images.
+// TODO(oalexan1): The logic here is horrendous. The handle_arguments() function
+// better be called just once, rather than four times, as below.
 void parse_multiview(int argc, char* argv[],
                       boost::program_options::options_description const&
                       additional_options,
@@ -371,8 +377,9 @@ void parse_multiview(int argc, char* argv[],
   bool is_multiview = true;
   ASPGlobalOptions opt;
   std::string usage;
+  bool override_out_prefix = true;
   handle_arguments(argc, argv, opt, additional_options,
-                   is_multiview, files, usage, exit_early);
+                   is_multiview, override_out_prefix, files, usage, exit_early);
 
   // Need this for the GUI, ensure that opt_vec is never empty, even on failures
   opt_vec.push_back(opt);
@@ -389,7 +396,8 @@ void parse_multiview(int argc, char* argv[],
   // Extract all the positional elements
   std::vector<std::string> images, cameras;
   std::string input_dem;
-  if (!parse_multiview_cmd_files(files, images, cameras, output_prefix, input_dem))
+  if (!parse_multiview_cmd_files(override_out_prefix, files, images, cameras, 
+                                 output_prefix, input_dem))
     vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n");
 
   int num_pairs = (int)images.size() - 1;
@@ -401,9 +409,9 @@ void parse_multiview(int argc, char* argv[],
     vw_out() << "num_stereo_pairs," << num_pairs << std::endl;
 
   if (num_pairs == 1) {
-    bool is_multiview = false;
+    bool is_multiview = false, override_out_prefix = true;
     handle_arguments(argc, argv, opt_vec[0], additional_options,
-                    is_multiview, files, usage, exit_early);
+                    is_multiview, override_out_prefix, files, usage, exit_early);
   } else {
     handle_multiview(argc, argv, num_pairs, files, images, cameras, output_prefix, input_dem,
                      additional_options, verbose, exit_early, usage,
@@ -452,7 +460,8 @@ void setup_error_propagation(ASPGlobalOptions const& opt) {
 void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
                       boost::program_options::options_description const&
                       additional_options,
-                      bool is_multiview, std::vector<std::string> & input_files,
+                      bool is_multiview, bool override_out_prefix, 
+                      std::vector<std::string> & input_files,
                       std::string & usage, bool exit_early) {
 
   // Add options whose values are stored in ASPGlobalOptions rather than in stereo_settings()
@@ -473,32 +482,13 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   all_general_options.add(general_options_sub);
   all_general_options.add(generate_config_file_options(opt));
 
+  // Store all the remaining options, to be parsed later.
   po::options_description positional_options("");
   po::positional_options_description positional_desc;
-  if (is_multiview) {
-    // The number of input files could be huge. Just store them in a vector,
-    // we'll parse them in the caller.
-    positional_options.add_options()
-      ("input-files", po::value< std::vector<std::string>>(), "Input files");
-    positional_desc.add("input-files", -1);
-  } else {
-    // Two-view, have left and right.
-    positional_options.add_options()
-      ("left-input-image",   po::value(&opt.in_file1),   "Left input image")
-      ("right-input-image",  po::value(&opt.in_file2),   "Right input image")
-      ("left-camera-model",  po::value(&opt.cam_file1),  "Left camera model file")
-      ("right-camera-model", po::value(&opt.cam_file2),  "Right camera model file")
-      ("output-prefix",      po::value(&opt.out_prefix), "Prefix for output filenames")
-      ("input-dem",          po::value(&opt.input_dem),  "Input DEM");
-
-    positional_desc.add("left-input-image",   1);
-    positional_desc.add("right-input-image",  1);
-    positional_desc.add("left-camera-model",  1);
-    positional_desc.add("right-camera-model", 1);
-    positional_desc.add("output-prefix",      1);
-    positional_desc.add("input-dem",          1);
-  }
-
+  positional_options.add_options()
+    ("input-files", po::value<std::vector<std::string>>(), "Input files");
+  positional_desc.add("input-files", -1);
+ 
   usage =
    "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n"
    "  Extensions are automatically added to the output files.\n"
@@ -562,39 +552,31 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   os << usage << general_options;
   usage = os.str();
 
+  // When called with no arguments, print the help message.
+  if (vm.count("input-files") == 0)
+    vw_throw(ArgumentErr() << "Missing input arguments.\n"
+      << usage << general_options);
+  input_files = vm["input-files"].as<std::vector<std::string>>();
+  
   // For multiview, just store the files and return. Must happen after logging
   // starts, as logging for multiview is done in subdirectories. In multiview
   // mode, the logic further down will be later called for each pair.
-  // When called with no arguments, print the help message.
-  if (is_multiview) {
-    if (vm.count("input-files") == 0)
-      vw_throw(ArgumentErr() << "Missing input arguments.\n"
-       << usage << general_options);
-    input_files = vm["input-files"].as<std::vector<std::string>>();
+  if (is_multiview)
     return;
-  }
 
   // Re-use the logic in parse_multiview_cmd_files, but just for two images/cameras.
-  // TODO(oalexan1): This convoluted logic where the files vector is produced 
-  // from opt.in_file1, etc., then parsed, then copied back to these, needs to change.
-  // Likely vm["input-files"] already has this vector.
-  std::vector<std::string> files;
   std::vector<std::string> images, cameras;
-  if (!opt.in_file1.empty())   files.push_back(opt.in_file1);
-  if (!opt.in_file2.empty())   files.push_back(opt.in_file2);
-  if (!opt.cam_file1.empty())  files.push_back(opt.cam_file1);
-  if (!opt.cam_file2.empty())  files.push_back(opt.cam_file2);
-  if (!opt.out_prefix.empty()) files.push_back(opt.out_prefix); // will change
-  if (!opt.input_dem.empty())  files.push_back(opt.input_dem);
-  if (!parse_multiview_cmd_files(files, // inputs
-                                  images, cameras, opt.out_prefix, opt.input_dem)) // outputs
+  if (!parse_multiview_cmd_files(override_out_prefix, input_files, // inputs
+                                 images, cameras, opt.out_prefix, opt.input_dem)) // outputs
     vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n");
-
-  opt.in_file1 = "";  if (images.size() >= 1)  opt.in_file1  = images[0];
-  opt.in_file2 = "";  if (images.size() >= 2)  opt.in_file2  = images[1];
-  opt.cam_file1 = ""; if (cameras.size() >= 1) opt.cam_file1 = cameras[0];
-  opt.cam_file2 = ""; if (cameras.size() >= 2) opt.cam_file2 = cameras[1];
-
+  if (images.size() >= 1)
+    opt.in_file1 = images[0];
+  if (images.size() >= 2)
+    opt.in_file2 = images[1];
+  if (cameras.size() >= 1)
+    opt.cam_file1 = cameras[0];
+  if (cameras.size() >= 2)
+    opt.cam_file2 = cameras[1];
   if (opt.in_file1.empty() || opt.in_file2.empty() || opt.out_prefix.empty())
     vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n");
 

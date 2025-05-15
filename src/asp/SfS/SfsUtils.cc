@@ -20,6 +20,7 @@
 
 #include <asp/SfS/SfsUtils.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/asp_config.h>
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/IsisCameraModel.h>

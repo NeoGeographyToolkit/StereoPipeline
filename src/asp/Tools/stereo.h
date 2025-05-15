@@ -73,7 +73,7 @@ namespace asp {
   void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
                         boost::program_options::options_description const&
                         additional_options,
-                        bool allow_unregistered,
+                        bool is_multiview, bool override_out_prefix,
                         std::vector<std::string> & unregistered,
                         std::string & usage, bool exit_early = false);
 

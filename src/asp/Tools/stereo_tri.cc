@@ -899,7 +899,7 @@ int main(int argc, char* argv[]) {
 
     // Keep only those stereo pairs for which filtered disparity exists
     std::vector<asp::ASPGlobalOptions> opt_vec_new;
-    for (int p = 0; p < (int)opt_vec.size(); p++){
+    for (int p = 0; p < (int)opt_vec.size(); p++) {
       if (fs::exists(opt_vec[p].out_prefix+"-F.tif"))
         opt_vec_new.push_back(opt_vec[p]);
     }
