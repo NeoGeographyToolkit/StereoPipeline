@@ -54,8 +54,6 @@ using namespace std;
 using namespace vw::cartography;
 using namespace asp;
 
-using namespace PointMatcherSupport;
-
 const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the largest double
 
 /// Options container for the pc_align tool
@@ -94,23 +92,23 @@ struct Options: public vw::GdalWriteOptions {
 void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
-    ("initial-transform",        po::value(&opt.init_transform_file)->default_value(""),
-                                 "The file containing the transform to be used as an initial guess. It can come from a previous run of the tool.")
-    ("num-iterations",           po::value(&opt.num_iter)->default_value(1000),
-                                 "Maximum number of iterations.")
-    ("diff-rotation-error",      po::value(&opt.diff_rotation_err)->default_value(1e-8),
-                                 "Change in rotation amount below which the algorithm will stop (if translation error is also below bound), in degrees.")
+    ("initial-transform", po::value(&opt.init_transform_file)->default_value(""),
+      "The file containing the transform to be used as an initial guess. It can come from a previous run of the tool.")
+    ("num-iterations", po::value(&opt.num_iter)->default_value(1000),
+      "Maximum number of iterations.")
+    ("diff-rotation-error", po::value(&opt.diff_rotation_err)->default_value(1e-8),
+      "Change in rotation amount below which the algorithm will stop (if translation error is also below bound), in degrees.")
     ("diff-translation-error",   po::value(&opt.diff_translation_err)->default_value(1e-3),
-                                 "Change in translation amount below which the algorithm will stop (if rotation error is also below bound), in meters.")
-    ("max-displacement",         po::value(&opt.max_disp)->default_value(0.0),
-                                 "Maximum expected displacement of source points as result of alignment, in meters (after the initial guess transform is applied to the source points). Used for removing gross outliers in the source point cloud.")
-    ("outlier-ratio",            po::value(&opt.outlier_ratio)->default_value(0.75),
-                                 "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")
+      "Change in translation amount below which the algorithm will stop (if rotation error is also below bound), in meters.")
+    ("max-displacement", po::value(&opt.max_disp)->default_value(0.0),
+      "Maximum expected displacement of source points as result of alignment, in meters (after the initial guess transform is applied to the source points). Used for removing gross outliers in the source point cloud.")
+    ("outlier-ratio", po::value(&opt.outlier_ratio)->default_value(0.75),
+      "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")
     ("max-num-reference-points", 
      po::value(&opt.max_num_reference_points)->default_value(100000000),
      "Maximum number of (randomly picked) reference points to use.")
-    ("max-num-source-points",    po::value(&opt.max_num_source_points)->default_value(100000),
-                                 "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
+    ("max-num-source-points", po::value(&opt.max_num_source_points)->default_value(100000),
+      "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
     ("alignment-method", po::value(&opt.alignment_method)->default_value("point-to-plane"),
      "Alignment method. Options: point-to-plane, point-to-point, "
      "similarity-point-to-plane, similarity-point-to-point, nuth, fgr, least-squares, "
@@ -118,26 +116,26 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("highest-accuracy", 
      po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
      "Compute with highest accuracy for point-to-plane (can be much slower).")
-    ("csv-format",               po::value(&opt.csv_format_str)->default_value(""),  
+    ("csv-format", po::value(&opt.csv_format_str)->default_value(""),  
      asp::csv_opt_caption().c_str())
-    ("csv-srs",      po::value(&opt.csv_srs)->default_value(""), 
+    ("csv-srs", po::value(&opt.csv_srs)->default_value(""), 
      "The PROJ or WKT string to use to interpret the entries in input CSV files.")
-    ("datum",                    po::value(&opt.datum)->default_value(""),
+    ("datum", po::value(&opt.datum)->default_value(""),
      "Use this datum for CSV files instead of auto-detecting it. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-    ("semi-major-axis",          po::value(&opt.semi_major_axis)->default_value(0),
+    ("semi-major-axis", po::value(&opt.semi_major_axis)->default_value(0),
      "Explicitly set the datum semi-major axis in meters.")
-    ("semi-minor-axis",          po::value(&opt.semi_minor_axis)->default_value(0),
+    ("semi-minor-axis", po::value(&opt.semi_minor_axis)->default_value(0),
      "Explicitly set the datum semi-minor axis in meters.")
-    ("output-prefix,o",          po::value(&opt.out_prefix)->default_value(""),
+    ("output-prefix,o", po::value(&opt.out_prefix)->default_value(""),
      "Specify the output prefix.")
     ("compute-translation-only", 
      po::bool_switch(&opt.compute_translation_only)->default_value(false)->implicit_value(true),
      "Compute the transform from source to reference point cloud as a translation only (no rotation).")
-    ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
+    ("save-transformed-source-points", 
+     po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
       "Apply the obtained transform to the source points so they match the reference points and save them.")
     ("save-inv-transformed-reference-points", po::bool_switch(&opt.save_trans_ref)->default_value(false)->implicit_value(true),
      "Apply the inverse of the obtained transform to the reference points so they match the source points and save them.")
-
     ("initial-ned-translation", po::value(&opt.initial_ned_translation)->default_value(""),
      "Initialize the alignment transform based on a translation with this vector in the North-East-Down coordinate system around the centroid of the reference points. Specify it in quotes, separated by spaces or commas.")
     ("initial-rotation-angle", po::value(&opt.initial_rotation_angle)->default_value(0),
@@ -334,6 +332,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (num_iter < 1 || factor <= 0.0)
     vw_throw( ArgumentErr() << "Invalid values were provided for "
               << "--initial-transform-ransac-params.\n");
+
+  // Support for minx maxy maxx miny format.
+  if (opt.ref_copc_win != BBox2()) {
+    if (opt.ref_copc_win.min().y() > opt.ref_copc_win.max().y())
+      std::swap(opt.ref_copc_win.min().y(), opt.ref_copc_win.max().y());
+  }
+  if (opt.src_copc_win != BBox2()) {
+    if (opt.src_copc_win.min().y() > opt.src_copc_win.max().y())
+      std::swap(opt.src_copc_win.min().y(), opt.src_copc_win.max().y());
+  }
 }
 
 /// Compute output statistics for pc_align

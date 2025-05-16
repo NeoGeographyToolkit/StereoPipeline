@@ -45,7 +45,8 @@ namespace pdal {
 
 namespace asp {
 
-// Read the number of points in the LAS file
+// Read the number of points in the LAS file. For COPC files, we usually
+// care not for this, but for the number of points in a region.
 std::int64_t las_file_size(std::string const& las_file);
 
 // Read the georef from the las file and return true if the georef exists
@@ -89,7 +90,8 @@ void apply_transform_to_las(std::string const& input_file,
 void setupLasOrCopcReader(std::string const& in_file,
                           vw::BBox2 const& copc_win, bool copc_read_all,
                           boost::shared_ptr<pdal::Reader>& pdal_reader,
-                          pdal::Options& read_options);
+                          pdal::Options& read_options,
+                          std::int64_t & num_total_points);
 
 } // End namespace asp
 

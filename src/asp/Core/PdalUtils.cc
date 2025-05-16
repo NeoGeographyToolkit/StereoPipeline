@@ -314,7 +314,8 @@ bool georef_from_las(std::string const& las_file,
   return true;
 }
 
-// Read the number of points in the LAS file
+// Read the number of points in the LAS file. For COPC files, we usually
+// care not for this, but for the number of points in a region.
 std::int64_t las_file_size(std::string const& las_file) {
   
   pdal::Options read_options;
@@ -453,8 +454,9 @@ public:
               vw::BBox2 const& lonlat_box,
               vw::cartography::GeoReference const& input_georef,
               bool verbose, bool calc_shift,
+              std::int64_t num_total_points, 
               // Outputs
-              std::int64_t & num_total_points, vw::Vector3 & shift, 
+              vw::Vector3 & shift, 
               Eigen::MatrixXd & data):
   m_file_name(file_name),
   m_num_points_to_load(num_points_to_load),
@@ -463,8 +465,9 @@ public:
   m_verbose(verbose),
   m_calc_shift(calc_shift),
   m_tpc(vw::TerminalProgressCallback("asp", "\t--> ")),
+  m_num_total_points(num_total_points), 
   // Outputs
-  m_num_total_points(num_total_points), m_shift(shift), m_data(data) {
+  m_shift(shift), m_data(data) {
     
     m_data.conservativeResize(asp::DIM + 1, m_num_points_to_load);
     m_has_las_georef = asp::georef_from_las(m_file_name, m_las_georef);
@@ -472,7 +475,6 @@ public:
     m_points_count = 0;
     
     // We will randomly pick or not a point with probability load_ratio
-    m_num_total_points = asp::las_file_size(m_file_name);
     m_load_ratio = (double)m_num_points_to_load/std::max(1.0, (double)m_num_total_points);
 
     std::int64_t hundred = 100;
@@ -502,9 +504,9 @@ private:
   vw::TerminalProgressCallback m_tpc;
   std::int64_t m_spacing;
   double m_inc_amount;
+  std::int64_t m_num_total_points;
   
   // Aliases, to be returned to the caller
-  std::int64_t & m_num_total_points;
   vw::Vector3 & m_shift;
   Eigen::MatrixXd & m_data;
   
@@ -660,7 +662,8 @@ private:
 void setupLasOrCopcReader(std::string const& in_file,
                           vw::BBox2 const& copc_win, bool copc_read_all,
                           boost::shared_ptr<pdal::Reader>& pdal_reader,
-                          pdal::Options& read_options) {
+                          pdal::Options& read_options,
+                          std::int64_t & num_total_points) {
 
   read_options.add("filename", in_file);
 
@@ -670,7 +673,10 @@ void setupLasOrCopcReader(std::string const& in_file,
     // the data in a box.
     pdal_reader.reset(new pdal::CopcReader());
     if (copc_win == vw::BBox2() && !copc_read_all)
-      vw::vw_throw(vw::ArgumentErr() << "Must set either --copc-win or --copc-read-all.\n");
+      vw::vw_throw(vw::ArgumentErr() 
+         << "Detected COPC file: " << in_file << ".\n"
+         << "Set either the copc-win or copc-read-all option (the precise names "
+         << "depends the invoked tool).\n");
     if (!copc_read_all) {
       pdal::BOX2D bounds(copc_win.min().x(), copc_win.min().y(),
                          copc_win.max().x(), copc_win.max().y());
@@ -682,11 +688,16 @@ void setupLasOrCopcReader(std::string const& in_file,
   }
   pdal_reader->setOptions(read_options);
   
+  // Note: For COPC files, the number of total points in the desired region
+  // is a very rough estimate, and can be off by up to a factor of 10.
+  pdal::QuickInfo qi(pdal_reader->preview());
+  num_total_points = qi.m_pointCount;
 }
 
-// This is a helper function. Use instead load_las(). This
-// function attempts to load a given number of points but does no no checks on
-// how many are loaded.
+// This is a helper function. Use instead load_las(). This function attempts to
+// load a given number of points but does no no checks on how many are loaded.
+// This returns the total number of points in the file, not the number of loaded 
+// points.
 std::int64_t load_las_aux(std::string const& file_name,
                           std::int64_t num_points_to_load,
                           vw::BBox2 const& lonlat_box,
@@ -701,8 +712,9 @@ std::int64_t load_las_aux(std::string const& file_name,
   // Set the input point cloud    
   boost::shared_ptr<pdal::Reader> pdal_reader;
   pdal::Options read_options;
+  std::int64_t num_total_points = 0; // will change
   setupLasOrCopcReader(file_name, copc_win, copc_read_all,
-                       pdal_reader, read_options);
+                       pdal_reader, read_options, num_total_points);
 
   // buf_size is the number of points that will be processed and kept in this
   // table at the same time. A somewhat bigger value may result in some
@@ -712,11 +724,10 @@ std::int64_t load_las_aux(std::string const& file_name,
   pdal_reader->prepare(t);
 
   // Read the data
-  std::int64_t num_total_points = 0;
   asp::LasProcessor las_proc(file_name, num_points_to_load, lonlat_box, geo,
-                             verbose, calc_shift, 
+                             verbose, calc_shift, num_total_points, 
                              // Outputs
-                             num_total_points, shift, data);
+                             shift, data);
   pdal::Options proc_options;
   las_proc.setOptions(proc_options);
   las_proc.setInput(*pdal_reader);
@@ -768,32 +779,57 @@ void apply_transform_to_las(std::string const& input_file,
                             vw::BBox2 const& copc_win, bool copc_read_all,
                             Eigen::MatrixXd const& T) {
 
+  // Set the input point cloud    
+  boost::shared_ptr<pdal::Reader> pdal_reader;
+  pdal::Options read_options;
+  std::int64_t num_total_points = 0; // will change
+  setupLasOrCopcReader(input_file, copc_win, copc_read_all,
+                       pdal_reader, read_options, num_total_points);
+  
   // buf_size is the number of points that will be
   // processed and kept in this table at the same time. 
   // A somewhat bigger value may result in some efficiencies.
-  int buf_size = 500;
+  int buf_size = 100;
   pdal::FixedPointTable t(buf_size);
-
-  // Set the input point cloud    
-  pdal::Options read_options;
-  read_options.add("filename", input_file);
-  pdal::LasReader reader;
-  reader.setOptions(read_options);
-  reader.prepare(t); 
+  pdal_reader->prepare(t); 
+  
+  // Get the scale and offset. Must be run after the table is prepared.
+  vw::Vector3 offset, scale;
+  pdal::CopcReader *copc_reader = dynamic_cast<pdal::CopcReader*>(pdal_reader.get());
+  pdal::LasReader *las_reader = dynamic_cast<pdal::LasReader*>(pdal_reader.get());
+  if (copc_reader != NULL) {
+  
+    pdal::QuickInfo qi(copc_reader->preview());
+    pdal::BOX3D bounds = qi.m_bounds;
+  
+    // The offset is the center point
+    offset = vw::Vector3((bounds.minx + bounds.maxx)/2.0,
+                         (bounds.miny + bounds.maxy)/2.0,
+                         (bounds.minz + bounds.maxz)/2.0);
     
-  // Get the scale and offset from the input cloud header
-  // Must be run after the table is prepared
-  const pdal::LasHeader & header = reader.header();
-  vw::Vector3 offset(header.offsetX(), header.offsetY(), header.offsetZ());
-  vw::Vector3 scale (header.scaleX(),  header.scaleY(),  header.scaleZ());
-
-  std::int64_t num_total_points = asp::las_file_size(input_file);
+    // Let the scale be about 1 mm. Ensure it won't result in integer overflow,
+    // with a margin.
+    double max_len = std::max(bounds.maxx - bounds.minx, 
+                              bounds.maxy - bounds.miny);
+    max_len = std::max(max_len, bounds.maxz - bounds.minz);
+    double s = std::max(1e-3, max_len / 1e+9);
+    scale = vw::Vector3(s, s, s);
+  
+  } else if (las_reader != NULL) {
+  
+    pdal::LasHeader const& header = las_reader->header();
+    offset = vw::Vector3(header.offsetX(), header.offsetY(), header.offsetZ());
+    scale  = vw::Vector3(header.scaleX(),  header.scaleY(),  header.scaleZ());
+  } else {
+    vw::vw_throw(vw::IOErr() << "Unknown LAS file type: " << input_file);
+  }
+  
   vw::cartography::GeoReference las_georef;
   bool has_georef = asp::georef_from_las(input_file, las_georef);
 
   // Set up the filter
   asp::TransformFilter transform_filter(num_total_points, has_georef, las_georef, T);
-  transform_filter.setInput(reader);
+  transform_filter.setInput(*pdal_reader);
   transform_filter.prepare(t);
 
   // If the data is in ECEF, apply the same transform to the offset and scale as

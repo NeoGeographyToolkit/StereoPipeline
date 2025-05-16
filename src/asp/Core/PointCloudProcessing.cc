@@ -593,8 +593,9 @@ void las_or_csv_to_tif(std::string const& in_file,
     // Set up the reader
     boost::shared_ptr<pdal::Reader> pdal_reader;
     pdal::Options read_options;
+    std::int64_t num_total_points = 0; // will change
     asp::setupLasOrCopcReader(in_file, copc_win, copc_read_all,
-                              pdal_reader, read_options);
+                              pdal_reader, read_options, num_total_points);
        
     // buf_size is the number of points that will be processed and kept in this
     // table at the same time. A somewhat bigger value may result in some
