@@ -45,26 +45,26 @@ Examples
 ::
    
     image_align --alignment-transform rigid        \
+        --ip-per-image 20000                       \
         image1.tif image2.tif -o image2_align.tif
 
-Using a disparity produced from correlation::
+Alternatively, instead of using interest points for alignment, use a (dense)
+disparity produced from correlation (:numref:`correlator-mode`)::
 
     parallel_stereo --correlator-mode --stereo-algorithm asp_mgm \
-      --subpixel-mode 2 image1.tif image2.tif run/run-corr
+      --subpixel-mode 9 image1.tif image2.tif run/run-corr
 
-    image_align image1.tif image2.tif                            \
-      --output-image image2_align.tif --output-prefix run/run    \
+    image_align image1.tif image2.tif \
+      --output-image image2_align.tif \
+      --output-prefix run/run         \
       --disparity-params "run/run-corr-F.tif 1000000"
 
-Here, the option ``--correlator-mode`` enforces that the disparity is
-between the initial images rather than internally aligned versions of
-them. Also, no triangulation happens, so ``parallel_stereo`` stops
-at computing the filtered disparity ``F.tif``.
+The file ending in ``F.tif`` has the disparity.
 
-Note that ``--subpixel-mode 2`` will be quite slow but produce good
-results. See :numref:`running-stereo` for the choices when it comes to
-stereo algorithms and subpixel methods, and :numref:`correlator-mode`
-for the image correlator functionality.
+For very precise subpixel alignment, use ``--subpixel-mode 2`` above, but this
+is very slow. See :numref:`running-stereo` for the choices when it comes to
+stereo algorithms and subpixel methods, and :numref:`correlator-mode` for the
+image correlator functionality.
 
 The disparity will be computed from the first to second image, but the
 alignment transform is from the second to first image, so the disparity
