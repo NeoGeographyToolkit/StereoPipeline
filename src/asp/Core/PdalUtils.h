@@ -38,6 +38,11 @@ namespace vw {
   }
 }
 
+namespace pdal {
+  class Reader;
+  class Options;
+}
+
 namespace asp {
 
 // Read the number of points in the LAS file
@@ -50,7 +55,7 @@ bool georef_from_las(std::string const& las_file,
 // Check if a file is in the LAS COPC format
 bool isCopc(std::string const& file);
 
-// Save a point cloud and triangulation error to the LAS format
+// Save a point cloud and triangulation error to the LAS format.
 void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,
                vw::ImageViewRef<double> error_image,
@@ -77,7 +82,14 @@ void load_las(std::string const& file_name,
 // Apply a given transform to a LAS file and save it.
 void apply_transform_to_las(std::string const& input_file,
                             std::string const& output_file,
+                            vw::BBox2 const& copc_win, bool copc_read_all,
                             Eigen::MatrixXd const& T);
+
+// Set up a reader for a LAS or COPC file 
+void setupLasOrCopcReader(std::string const& in_file,
+                          vw::BBox2 const& copc_win, bool copc_read_all,
+                          boost::shared_ptr<pdal::Reader>& pdal_reader,
+                          pdal::Options& read_options);
 
 } // End namespace asp
 

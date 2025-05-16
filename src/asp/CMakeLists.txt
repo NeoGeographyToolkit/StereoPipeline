@@ -59,7 +59,11 @@ if (APPLE)
 elseif (UNIX)
   SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib" ${CMAKE_INSTALL_RPATH})
 endif()
-SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${ASP_DEPS_DIR}/lib)
+# Prioritize the install directory, and before that the VW directory.
+# This prevents linking to older versions of these in the asp deps.
+# This does not seem to be sufficient though.
+set(CMAKE_INSTALL_RPATH ${VISIONWORKBENCH_INSTALL_DIR}/lib ${CMAKE_INSTALL_RPATH})
+SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
 
 # Enable/disable SSE optimizations
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")

@@ -350,7 +350,7 @@ bool isCopc(std::string const& file) {
   return is_copc;
 } 
 
-// Save a point cloud and triangulation error to the LAS format
+// Save a point cloud and triangulation error to the LAS format.
 void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,
                vw::ImageViewRef<double> error_image,
@@ -656,6 +656,34 @@ private:
   
 };
 
+// Set up a reader for a LAS or COPC file 
+void setupLasOrCopcReader(std::string const& in_file,
+                          vw::BBox2 const& copc_win, bool copc_read_all,
+                          boost::shared_ptr<pdal::Reader>& pdal_reader,
+                          pdal::Options& read_options) {
+
+  read_options.add("filename", in_file);
+
+  if (asp::isCopc(in_file)) {
+    
+    // Set the input point cloud. COPC is a streaming format, and need to fetch
+    // the data in a box.
+    pdal_reader.reset(new pdal::CopcReader());
+    if (copc_win == vw::BBox2() && !copc_read_all)
+      vw::vw_throw(vw::ArgumentErr() << "Must set either --copc-win or --copc-read-all.\n");
+    if (!copc_read_all) {
+      pdal::BOX2D bounds(copc_win.min().x(), copc_win.min().y(),
+                         copc_win.max().x(), copc_win.max().y());
+      read_options.add("bounds", bounds);
+    }
+    
+  } else {
+    pdal_reader.reset(new pdal::LasReader());
+  }
+  pdal_reader->setOptions(read_options);
+  
+}
+
 // This is a helper function. Use instead load_las(). This
 // function attempts to load a given number of points but does no no checks on
 // how many are loaded.
@@ -671,17 +699,17 @@ std::int64_t load_las_aux(std::string const& file_name,
                           Eigen::MatrixXd & data) {
   
   // Set the input point cloud    
+  boost::shared_ptr<pdal::Reader> pdal_reader;
   pdal::Options read_options;
-  read_options.add("filename", file_name);
-  pdal::LasReader pdal_reader;
-  pdal_reader.setOptions(read_options);
+  setupLasOrCopcReader(file_name, copc_win, copc_read_all,
+                       pdal_reader, read_options);
 
   // buf_size is the number of points that will be processed and kept in this
   // table at the same time. A somewhat bigger value may result in some
   // efficiencies.
   int buf_size = 100;
   pdal::FixedPointTable t(buf_size);
-  pdal_reader.prepare(t);
+  pdal_reader->prepare(t);
 
   // Read the data
   std::int64_t num_total_points = 0;
@@ -691,7 +719,7 @@ std::int64_t load_las_aux(std::string const& file_name,
                              num_total_points, shift, data);
   pdal::Options proc_options;
   las_proc.setOptions(proc_options);
-  las_proc.setInput(pdal_reader);
+  las_proc.setInput(*pdal_reader);
   las_proc.prepare(t);
   las_proc.execute(t);
 
@@ -737,6 +765,7 @@ void load_las(std::string const& file_name,
 // Apply a given transform to a LAS file and save it.
 void apply_transform_to_las(std::string const& input_file,
                             std::string const& output_file,
+                            vw::BBox2 const& copc_win, bool copc_read_all,
                             Eigen::MatrixXd const& T) {
 
   // buf_size is the number of points that will be

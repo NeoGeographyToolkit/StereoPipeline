@@ -432,7 +432,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
 
   }else if (file_type == "LAS") {
 
-    asp::apply_transform_to_las(input_file, output_file, T);
+    asp::apply_transform_to_las(input_file, output_file, copc_win, copc_read_all, T);
     
   } else if (file_type == "CSV") {
 

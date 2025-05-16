@@ -590,29 +590,12 @@ void las_or_csv_to_tif(std::string const& in_file,
   // LAS files have a totally different interface, so have to be handled separately.
   if (asp::is_las(in_file)) { // LAS
                              
-    // Set up the options
-    pdal::Options read_options;
-    read_options.add("filename", in_file);
-
-    // Set the input point cloud. COPC is a streaming format, and need to fetch
-    // the data in a box
+    // Set up the reader
     boost::shared_ptr<pdal::Reader> pdal_reader;
-    if (asp::isCopc(in_file)) {
-      
-      pdal_reader.reset(new pdal::CopcReader());
-      if (copc_win == vw::BBox2() && !copc_read_all)
-        vw::vw_throw(vw::ArgumentErr() << "Must set either --copc-win or --copc-read-all.\n");
-      if (!copc_read_all) {
-        pdal::BOX2D bounds(copc_win.min().x(), copc_win.min().y(),
-                           copc_win.max().x(), copc_win.max().y());
-        read_options.add("bounds", bounds);
-      }
-      
-    } else {
-      pdal_reader.reset(new pdal::LasReader());
-    }
-    pdal_reader->setOptions(read_options);
-    
+    pdal::Options read_options;
+    asp::setupLasOrCopcReader(in_file, copc_win, copc_read_all,
+                              pdal_reader, read_options);
+       
     // buf_size is the number of points that will be processed and kept in this
     // table at the same time. A somewhat bigger value may result in some
     // efficiencies.
