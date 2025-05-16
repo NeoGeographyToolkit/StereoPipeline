@@ -134,8 +134,6 @@ foreach(n ${VW_LIBNAMES})
   set(VISIONWORKBENCH_LIBRARIES ${VISIONWORKBENCH_LIBRARIES} ${f})
 endforeach(n)
 
-include_directories(${VISIONWORKBENCH_INCLUDE_DIR})
-
 message("Searching for Qt.")
 # QT is complicated to use and should go through find_package
 set(QT_QMAKE_EXECUTABLE  ${ASP_DEPS_DIR}/bin/qmake)
@@ -330,6 +328,8 @@ find_external_library(TEXRECON ${ASP_DEPS_DIR} "" "texture_reconstruction" REQUI
 # Libraries use paths like "asp/src/Core/Common.h" so we just need to
 # add this one include path. These must take precedence over anything
 # in the conda or system directories. That is why this is at the bottom.
+# Also prioratize the VW include directory over the other include directories.
+include_directories(BEFORE ${VISIONWORKBENCH_INCLUDE_DIR})
 include_directories(BEFORE ../)
 
 # Now that we have found all our external dependencies, generate a config.h file

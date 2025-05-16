@@ -61,6 +61,7 @@ PLabels form_labels(int dim);
 void load_cloud_as_mat(std::string const& file_name,
                        std::int64_t num_points_to_load,
                        vw::BBox2 const& lonlat_box,
+                       vw::BBox2 const& copc_win, bool copc_read_all,
                        bool calc_shift,
                        vw::Vector3 & shift,
                        vw::cartography::GeoReference const& geo,
@@ -72,16 +73,17 @@ void load_cloud_as_mat(std::string const& file_name,
 
 /// Load a file from disk and convert to libpointmatcher's format
 void load_cloud(std::string const& file_name,
-		std::int64_t num_points_to_load,
-		vw::BBox2 const& lonlat_box,
-		bool calc_shift,
-		vw::Vector3 & shift,
-		vw::cartography::GeoReference const& geo,
-		CsvConv const& csv_conv,
-		bool   & is_lola_rdr_format,
-		double & median_longitude,
-		bool verbose,
-		typename PointMatcher<double>::DataPoints & data);
+                std::int64_t num_points_to_load,
+                vw::BBox2 const& lonlat_box,
+                vw::BBox2 const& copc_win, bool copc_read_all,
+                bool calc_shift,
+                vw::Vector3 & shift,
+                vw::cartography::GeoReference const& geo,
+                CsvConv const& csv_conv,
+                bool   & is_lola_rdr_format,
+                double & median_longitude,
+                bool verbose,
+                typename PointMatcher<double>::DataPoints & data);
 
 /// Calculate the lon-lat bounding box of the points and bias it based
 /// on max displacement (which is in meters). This is used to throw
@@ -147,6 +149,7 @@ struct TransformPC: public vw::UnaryReturnSameType {
 void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
+                            vw::BBox2 const& copc_win, bool copc_read_all,
                             vw::cartography::GeoReference const& geo,
                             CsvConv const& csv_conv,
                             Eigen::MatrixXd const& T);

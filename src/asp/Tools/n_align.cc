@@ -356,11 +356,9 @@ int main(int argc, char *argv[]) {
 
     // The vector of transforms among the clouds
     std::vector<Eigen::MatrixXd> transVec(numClouds);
-    for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
+    for (int cloudIter = 0; cloudIter < numClouds; cloudIter++)
       transVec[cloudIter] = Eigen::MatrixXd::Identity(4, 4);
-    }
 
-    std::vector<std::vector<vw::Vector3>> clouds(numClouds);
 
     // Check for COPC files, as those cannot be read
     for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
@@ -368,18 +366,22 @@ int main(int argc, char *argv[]) {
          vw::vw_throw(vw::ArgumentErr() << "Cannot read LAZ COPC files.\n");
     }
 
-    // Load the first subsampled point cloud. Calculate the shift to apply to all clouds.
+    // Load the first subsampled point cloud. Calculate the shift to apply to
+    // all clouds. Then load the other clouds.
+    std::vector<std::vector<vw::Vector3>> clouds(numClouds);
     vw::Vector3 shift;
     bool   calc_shift = true; // Shift points so the first point is (0,0,0)
     bool   is_lola_rdr_format = false;   // may get overwritten
     double mean_ref_longitude    = 0.0;  // may get overwritten
     double mean_source_longitude = 0.0;  // may get overwritten
-    BBox2 empty_box;
+    BBox2 empty_box, copc_win;           // will not be used, part of the API
+    bool copc_read_all = false;          // will not be used, part of the API
     DP in_cloud;
     bool verbose = true;
     load_cloud(opt.cloud_files[0], opt.max_num_points, empty_box,
-               calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-               mean_ref_longitude, verbose, in_cloud);
+                copc_win, copc_read_all,
+                calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+                mean_ref_longitude, verbose, in_cloud);
     convert_cloud(in_cloud, clouds[0]);
     
     vw_out() << "Data shifted internally by subtracting: " << shift << std::endl;
@@ -388,6 +390,7 @@ int main(int argc, char *argv[]) {
       
     for (int cloudIter = 1; cloudIter < numClouds; cloudIter++) {
       load_cloud(opt.cloud_files[cloudIter], opt.max_num_points, empty_box,
+                 copc_win, copc_read_all,
                  calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                  mean_ref_longitude, verbose, in_cloud);
       convert_cloud(in_cloud, clouds[cloudIter]);
@@ -686,7 +689,9 @@ int main(int argc, char *argv[]) {
         std::ostringstream os;
         os << opt.out_prefix << "-trans_cloud-" << cloudIter;
         std::string trans_prefix = os.str();
+        vw::BBox2 copc_win; bool copc_read_all = false; // not used, part of the API
         save_trans_point_cloud(opt, opt.cloud_files[cloudIter], trans_prefix,
+                               copc_win, copc_read_all,
                                geo, csv_conv, transVec[cloudIter]);
       }
     }

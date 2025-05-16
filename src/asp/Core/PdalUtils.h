@@ -24,6 +24,12 @@
 #define __ASP_CORE_PDAL_UTILS_H__
 
 #include <vw/Image/ImageViewRef.h>
+#include <vw/Math/Vector.h>
+#include <vw/Math/BBox.h>
+
+#include <Eigen/Dense>
+
+#include <string>
 
 // Forward declaration of georef
 namespace vw { 
@@ -32,7 +38,6 @@ namespace vw {
   }
 }
 
-#include <string>
 namespace asp {
 
 // Read the number of points in the LAS file
@@ -56,9 +61,24 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                bool compressed, bool save_triangulation_error,
                double max_valid_triangulation_error,
                std::string const& out_prefix);
-  
-void read_las();
-  
+
+// Try to load at least this many points from the LAS file. 
+// TODO(oalexan1): This function should reduce the number of points
+// if they are too many.
+void load_las(std::string const& file_name,
+              std::int64_t num_points_to_load,
+              vw::BBox2 const& lonlat_box,
+              vw::BBox2 const& copc_win, bool copc_read_all,
+              bool calc_shift,
+              vw::Vector3 & shift,
+              vw::cartography::GeoReference const& geo,
+              bool verbose, Eigen::MatrixXd & data);
+
+// Apply a given transform to a LAS file and save it.
+void apply_transform_to_las(std::string const& input_file,
+                            std::string const& output_file,
+                            Eigen::MatrixXd const& T);
+
 } // End namespace asp
 
 #endif

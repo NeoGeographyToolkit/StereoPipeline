@@ -846,8 +846,9 @@ void processSourceCloud(Options                       const& opt,
     Stopwatch sw;
     sw.start();
     load_cloud(opt.source, num_source_pts, source_box, 
-        calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-        mean_source_longitude, opt.verbose, source_point_cloud);
+               opt.src_copc_win, opt.src_copc_read_all,
+               calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+               mean_source_longitude, opt.verbose, source_point_cloud);
     sw.stop();
     if (opt.verbose)
       vw_out() << "Loading the source point cloud " << tag << "took "
@@ -890,7 +891,7 @@ void processSourceCloud(Options                       const& opt,
 Eigen::MatrixXd 
 ned_to_cartesian_transform(vw::cartography::Datum const& datum,
                            std::string& ned_str, 
-                           vw::Vector3 const & location){
+                           vw::Vector3 const & location) {
 
   vw::string_replace(ned_str, ",", " "); // replace any commas
   vw::Vector3 ned = vw::str_to_vec<vw::Vector3>(ned_str);
@@ -909,13 +910,14 @@ ned_to_cartesian_transform(vw::cartography::Datum const& datum,
 }
 
 // Estimate the centroid of the reference points
-vw::Vector3 estimate_ref_cloud_centroid(vw::cartography::GeoReference const& geo,
+vw::Vector3 estimate_ref_cloud_centroid(Options const& opt,
+                                        vw::cartography::GeoReference const& geo,
                                         CsvConv const& csv_conv,
-                                        std::string const& file_name){
+                                        std::string const& reference) {
   Stopwatch sw;
   sw.start();
   
-  PointMatcherSupport::validateFile(file_name);
+  PointMatcherSupport::validateFile(reference);
   PointMatcher<double>::DataPoints points;
 
   double median_longitude = 0.0; // to convert back from xyz to lonlat
@@ -927,10 +929,10 @@ vw::Vector3 estimate_ref_cloud_centroid(vw::cartography::GeoReference const& geo
   // Load a sample of points, hopefully enough to estimate the centroid
   // reliably.
   int num_sample_pts = 1000000;
-  load_cloud(file_name, num_sample_pts, dummy_box,
-         calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-         median_longitude, verbose, points);
-
+  load_cloud(reference, num_sample_pts, dummy_box,
+             opt.ref_copc_win, opt.ref_copc_read_all,
+             calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+             median_longitude, verbose, points);
 
   int numRefPts = points.features.cols();
   Eigen::VectorXd meanRef = points.features.rowwise().sum() / numRefPts;
@@ -1024,7 +1026,7 @@ int main(int argc, char *argv[]) {
     // happens first.
     if (opt.initial_rotation_angle != 0 || opt.initial_ned_translation != "") {
 
-      vw::Vector3 centroid = estimate_ref_cloud_centroid(geo, csv_conv, opt.reference);
+      vw::Vector3 centroid = estimate_ref_cloud_centroid(opt, geo, csv_conv, opt.reference);
 
       // Ignore any other initializations so far
       opt.init_transform = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
@@ -1120,6 +1122,7 @@ int main(int argc, char *argv[]) {
     sw1.start();
     DP ref_point_cloud;
     load_cloud(opt.reference, opt.max_num_reference_points, ref_box,
+               opt.ref_copc_win, opt.ref_copc_read_all,
                calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                mean_ref_longitude, opt.verbose, ref_point_cloud);
     sw1.stop();
@@ -1342,12 +1345,14 @@ int main(int argc, char *argv[]) {
     if (opt.save_trans_ref) {
       string trans_ref_prefix = opt.out_prefix + "-trans_reference";
       save_trans_point_cloud(opt, opt.reference, trans_ref_prefix,
+                             opt.ref_copc_win, opt.ref_copc_read_all,
                              geo, csv_conv, globalT.inverse());
     }
 
     if (opt.save_trans_source) {
       string trans_source_prefix = opt.out_prefix + "-trans_source";
       save_trans_point_cloud(opt, opt.source, trans_source_prefix,
+                             opt.src_copc_win, opt.src_copc_read_all,
                              geo, csv_conv, globalT);
     }
 

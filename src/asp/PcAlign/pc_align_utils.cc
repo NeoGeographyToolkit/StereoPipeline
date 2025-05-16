@@ -21,7 +21,6 @@
 #include <asp/PcAlign/pc_align_utils.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/PdalUtils.h>
-#include <asp/Core/PointCloudAlignment.h>
 
 #include <pointmatcher/PointMatcher.h>
 
@@ -45,40 +44,11 @@ PLabels form_labels(int dim) {
   return labels;
 }
 
-// TODO(oalexan1): This function should reduce the number of points
-// if they are too many.
-void load_las(std::string const& file_name,
-                            std::int64_t num_points_to_load,
-                            vw::BBox2 const& lonlat_box,
-                            bool calc_shift,
-                            vw::Vector3 & shift,
-                            vw::cartography::GeoReference const& geo,
-                            bool verbose, Eigen::MatrixXd & data){
-
-  std::int64_t num_total_points 
-    = load_las_aux(file_name, num_points_to_load, lonlat_box, geo, verbose, calc_shift,
-                   shift, data); // outputs
-
-  int num_loaded_points = data.cols();
-  if (!lonlat_box.empty()                    &&
-      num_loaded_points < num_points_to_load &&
-      num_loaded_points < num_total_points) {
-
-    // We loaded too few points. Try harder. Need some care here as to not run
-    // out of memory.
-    num_points_to_load = std::max(4*num_points_to_load, std::int64_t(10000000));
-    if (verbose)
-      vw::vw_out() << "Too few points were loaded. Trying again." << std::endl;
-    load_las_aux(file_name, num_points_to_load, lonlat_box, geo, verbose, calc_shift,
-                 shift, data); // outputs
-  }
-
-}
-
 // Load xyz points from disk into a matrix with 4 columns. Last column is just ones.
 void load_cloud_as_mat(std::string const& file_name,
                        std::int64_t num_points_to_load,
                        vw::BBox2 const& lonlat_box,
+                       vw::BBox2 const& copc_win, bool copc_read_all,
                        bool calc_shift,
                        vw::Vector3 & shift,
                        vw::cartography::GeoReference const& geo,
@@ -98,13 +68,15 @@ void load_cloud_as_mat(std::string const& file_name,
   std::string file_type = get_cloud_type(file_name);
   if (file_type == "DEM")
     load_dem(file_name, num_points_to_load, lonlat_box,
-	     calc_shift, shift, verbose, data);
+             calc_shift, shift, verbose, data);
   else if (file_type == "PC")
     load_pc(file_name, num_points_to_load, lonlat_box, calc_shift, shift,
-	    geo, verbose, data);
+            geo, verbose, data);
   else if (file_type == "LAS")
-    load_las(file_name, num_points_to_load, lonlat_box, calc_shift, shift,
-                           geo, verbose, data);
+    load_las(file_name, num_points_to_load, lonlat_box, 
+             copc_win, copc_read_all,
+             calc_shift, shift,
+             geo, verbose, data);
   else if (file_type == "CSV") {
     bool verbose = true;
     load_csv(file_name, num_points_to_load, lonlat_box, 
@@ -125,23 +97,25 @@ void load_cloud_as_mat(std::string const& file_name,
 
 // Load xyz points from disk in libpointmatcher's format.
 void load_cloud(std::string const& file_name,
-               std::int64_t num_points_to_load,
-               vw::BBox2 const& lonlat_box,
-               bool calc_shift,
-               vw::Vector3 & shift,
-               vw::cartography::GeoReference const& geo,
-               CsvConv const& csv_conv,
-               bool   & is_lola_rdr_format,
-               double & median_longitude,
-               bool verbose,
-               typename PointMatcher<double>::DataPoints & data){
+                std::int64_t num_points_to_load,
+                vw::BBox2 const& lonlat_box,
+                vw::BBox2 const& copc_win, bool copc_read_all,
+                bool calc_shift,
+                vw::Vector3 & shift,
+                vw::cartography::GeoReference const& geo,
+                CsvConv const& csv_conv,
+                bool   & is_lola_rdr_format,
+                double & median_longitude,
+                bool verbose,
+                typename PointMatcher<double>::DataPoints & data){
   
   data.featureLabels = form_labels(DIM);
   PointMatcherSupport::validateFile(file_name);
 
-  load_cloud_as_mat(file_name, num_points_to_load,  lonlat_box,  calc_shift,
-                    shift,  geo,  csv_conv,  is_lola_rdr_format,  median_longitude,
-                    verbose,  data.features);
+  load_cloud_as_mat(file_name, num_points_to_load,  lonlat_box, 
+                    copc_win, copc_read_all,
+                    calc_shift, shift,  geo,  csv_conv,  is_lola_rdr_format,  
+                    median_longitude, verbose,  data.features);
   
 }
 
@@ -180,7 +154,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   vw::BBox2   dummy_box;
   bool        is_lola_rdr_format = false; // will be overwritten
   // Load a sample of points, hopefully enough to estimate the box reliably.
-  load_cloud(file_name, num_sample_pts, dummy_box,
+  load_cloud(file_name, num_sample_pts, dummy_box, copc_win, copc_read_all,
              calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
              median_longitude, verbose, points);
 
@@ -399,9 +373,10 @@ void save_trans_point_cloud_n(vw::GdalWriteOptions const& opt,
 void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
+                            vw::BBox2 const& copc_win, bool copc_read_all,
                             vw::cartography::GeoReference const& geo,
                             CsvConv const& csv_conv,
-                            Eigen::MatrixXd const& T){
+                            Eigen::MatrixXd const& T) {
 
   std::string file_type = get_cloud_type(input_file);
 
@@ -440,13 +415,13 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                                 has_nodata2, nodata,
                                 opt, vw::TerminalProgressCallback("asp", "\t--> "));
 
-  }else if (file_type == "PC") {
+  } else if (file_type == "PC") {
 
     // Need this logic because we cannot open an image
     // with n channels without knowing n beforehand.
     // TODO(oalexan1): This must be a function.
     int nc = vw::get_num_channels(input_file);
-    switch(nc){
+    switch (nc) {
     case 3:  save_trans_point_cloud_n<3>(opt, geo, input_file, output_file, T);  break;
     case 4:  save_trans_point_cloud_n<4>(opt, geo, input_file, output_file, T);  break;
     case 6:  save_trans_point_cloud_n<6>(opt, geo, input_file, output_file, T);  break;
@@ -459,31 +434,32 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
 
     asp::apply_transform_to_las(input_file, output_file, T);
     
-  }else if (file_type == "CSV") {
+  } else if (file_type == "CSV") {
 
     // Write a CSV file in format consistent with the input CSV file.
     // TODO(oalexan1): This must be a function.
 
-    vw::BBox2   empty_box;
-    bool        verbose = false;
+    vw::BBox2   empty_box, copc_win;
+    bool        verbose = false, copc_read_all = false;
     bool        calc_shift = true;
     vw::Vector3 shift;
     bool        is_lola_rdr_format;
     double      median_longitude;
     DP          point_cloud;
     load_cloud(input_file, std::numeric_limits<int>::max(),
-	       empty_box, calc_shift, shift,
-	       geo, csv_conv, is_lola_rdr_format,
-	       median_longitude, verbose, point_cloud);
+               empty_box, copc_win, copc_read_all, 
+               calc_shift, shift,
+               geo, csv_conv, is_lola_rdr_format,
+               median_longitude, verbose, point_cloud);
 
     std::ofstream outfile(output_file.c_str());
     outfile.precision(16);
 
     // Write the header line
-    if (csv_conv.is_configured()){
+    if (csv_conv.is_configured()) {
       outfile << "# " << csv_conv.write_header_string(",");
       outfile << std::endl;
-    }else{
+    } else {
       if (is_lola_rdr_format)
         outfile << "# longitude,latitude,radius (km)" << std::endl;
       else
