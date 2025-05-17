@@ -208,7 +208,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
      "coordinates that is small in extent. See the doc for more info.")
     ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
      "An alias for --csv-srs, for backward compatibility.")
-    ("copc-win", po::value(&opt.copc_win),
+    ("copc-win", po::value(&opt.copc_win)->default_value(vw::BBox2()),
      "Specify the region to read from a COPC LAZ file. The units are based the projection " 
      "in the file. This is required unless --copc-read-all is set. Specify as minx miny "
      "maxx maxy, or minx maxy maxx miny, with no quotes.")

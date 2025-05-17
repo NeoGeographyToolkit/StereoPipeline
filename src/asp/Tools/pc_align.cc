@@ -22,6 +22,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/PdalUtils.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/PcAlign/pc_align_utils.h>
 #include <asp/PcAlign/pc_align_ceres.h>
@@ -158,14 +159,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("skip-shared-box-estimation", po::bool_switch(&opt.skip_shared_box_estimation)->default_value(false)->implicit_value(true),
      "Do not estimate the shared bounding box of the two clouds. This estimation "
      "can be costly for large clouds but helps with eliminating outliers.")
-    ("ref-copc-win", po::value(&opt.ref_copc_win),
+    ("ref-copc-win", po::value(&opt.ref_copc_win)->default_value(vw::BBox2()),
      "Specify the region to read from the reference cloud, if it is a COPC LAZ file. The "
      "units are based the projection in the file. This is required unless --ref-copc-read- "
      "all is set. Specify as minx miny maxx maxy, or minx maxy maxx miny, with no quotes.")
-    ("src-copc-win", po::value(&opt.src_copc_win),
+    ("src-copc-win", po::value(&opt.src_copc_win)->default_value(vw::BBox2()),
      "Specify the region to read from the source cloud, if it is a COPC LAZ file. The "
-     "units are based the projection in the file. This is required unless --src-copc-read- "
-     "all is set. Specify as minx miny maxx maxy, or minx maxy maxx miny, with no quotes.")
+     "units are based the projection in the file. This is required unless "
+     "--src-copc-read-all all is set. Specify as minx miny maxx maxy, "
+     "or minx maxy maxx miny, with no quotes. "
+     "If not set, the --ref-copc-win option will be used, or otherwise it will be estimated "
+     "based on the extent of reference points and the --max-displacement option.")
     ("ref-copc-read-all", po::bool_switch(&opt.ref_copc_read_all)->default_value(false), 
      "Read the full reference COPC file, ignoring the --ref-copc-win option.")
     ("src-copc-read-all", po::bool_switch(&opt.src_copc_read_all)->default_value(false), 
@@ -342,6 +346,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     if (opt.src_copc_win.min().y() > opt.src_copc_win.max().y())
       std::swap(opt.src_copc_win.min().y(), opt.src_copc_win.max().y());
   }
+  
+  // Use ref_copc_win, if src_copc_win is not set
+  if (asp::isCopc(opt.source) &&
+      opt.src_copc_win == BBox2() &&
+      opt.ref_copc_win != BBox2()) {
+    vw::vw_out() << "Using --ref-copc-win for --src-copc-win.\n";
+    opt.src_copc_win = opt.ref_copc_win;
+  }
+
 }
 
 /// Compute output statistics for pc_align
@@ -986,6 +999,36 @@ void adjust_and_intersect_ref_source_boxes(BBox2 & ref_box, BBox2 & source_box,
   adjust_lonlat_bbox(source, source_box);
 }
 
+// See if we need to estimate the proj win of the source points
+// based on reference points and max disp. This is needed for COPC
+// files when this win is not set by the user.
+void checkNeeForSrcProjWin(Options const& opt, 
+                           bool & need_src_projwin,
+                           vw::cartography::GeoReference & src_georef) {
+
+  need_src_projwin = false;
+  src_georef = vw::cartography::GeoReference();
+  
+  if (asp::isCopc(opt.source) && opt.src_copc_win == vw::BBox2() &&
+      !opt.src_copc_read_all && opt.max_disp > 0.0) {
+
+    need_src_projwin = true;
+    
+    // Sanity check
+    bool has_src_georef = asp::georef_from_las(opt.source, src_georef);
+    if (!has_src_georef)
+      vw_throw(ArgumentErr() 
+                << "Cannot read the georeference of the source point cloud.\n");
+    
+    // Need this later when biasing by max_disp  
+    if (!src_georef.is_projected())
+      vw_throw(ArgumentErr() 
+                << "The source point cloud is not in projected coordinates. "
+                << "Set the option: --src-copc-win.");
+  }
+  
+}
+                                         
 int main(int argc, char *argv[]) {
 
   // Mandatory line for Eigen
@@ -1068,15 +1111,31 @@ int main(int argc, char *argv[]) {
       vw_out() << "Computing the bounding boxes of the reference and source points using " 
                << num_sample_pts << " sample points.\n";
 
+      // See if we have to estimate the proj win of the src points
+      bool need_src_projwin = false, dummy_flag = false;
+      vw::cartography::GeoReference src_georef, dummy_georef;
+      vw::BBox2 src_projwin, dummy_projwin;
+      checkNeeForSrcProjWin(opt, need_src_projwin, src_georef);
+      
       Eigen::MatrixXd inv_init_trans = opt.init_transform.inverse();
       calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                                 opt.reference, opt.max_disp, inv_init_trans,
                                 opt.ref_copc_win, opt.ref_copc_read_all,
-                                ref_box, trans_ref_box); // outputs
+                                need_src_projwin, src_georef,
+                                ref_box, trans_ref_box, src_projwin); // outputs
+
+      if (need_src_projwin) {
+        opt.src_copc_win = src_projwin;
+        vw::vw_out() << "Estimated: --src-copc-win "
+          << opt.src_copc_win.min().x() << " " << opt.src_copc_win.min().y() << " "
+          << opt.src_copc_win.max().x() << " " << opt.src_copc_win.max().y() << "\n";
+      }
+
       calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                                 opt.source, opt.max_disp, opt.init_transform,
                                 opt.src_copc_win, opt.src_copc_read_all,
-                                source_box, trans_source_box); // outputs
+                                dummy_flag, dummy_georef,
+                                source_box, trans_source_box, dummy_projwin); // outputs
       sw0.stop();
       vw_out() << "Computation of bounding boxes took " 
               << sw0.elapsed_seconds() << " s\n";

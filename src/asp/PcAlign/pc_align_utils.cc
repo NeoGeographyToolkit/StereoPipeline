@@ -131,12 +131,16 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                double max_disp,
                                Eigen::MatrixXd const & transform,
                                vw::BBox2 const& copc_win, bool copc_read_all,
+                               bool need_projwin, 
+                               vw::cartography::GeoReference const& projwin_georef,
                                vw::BBox2 & out_box, 
-                               vw::BBox2 & trans_out_box) {
-
+                               vw::BBox2 & trans_out_box,
+                               vw::BBox2 & needed_projwin) {
+  
   // Initialize
   out_box       = vw::BBox2();
   trans_out_box = vw::BBox2();
+  needed_projwin  = vw::BBox2();
     
   // If the user does not want to use the max-displacement parameter,
   // or if there is no datum to use to convert to/from lon/lat,
@@ -164,7 +168,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   // shift in XYZ produces.  We will use this to expand out from the
   // test points when computing the bounding box.
   vw::Vector3 p1;
-  vw::BBox2   box1, box1_trans;
+  vw::BBox2 box1, box1_trans;
   for (int row = 0; row < DIM; row++)
     p1[row] = points.features(row, 0);
 
@@ -205,6 +209,8 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
     llh[0] += 360.0*round((median_longitude - llh[0])/360.0); // 360 deg adjust
     vw::BBox2 b(llh[0]-rad_lon, llh[1]-rad_lat, rad_lon*2, 2*rad_lat);
     out_box.grow(b);
+    if (need_projwin)
+      needed_projwin.grow(projwin_georef.lonlat_to_point(subvector(llh, 0, 2)));
 
     // Do the same thing in transformed coordinates
     if (has_transform) {
@@ -213,11 +219,18 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
       llhT[0] += 360.0*round((median_longitude - llhT[0])/360.0); // 360 deg adjust
       vw::BBox2 bT(llhT[0]-rad_lonT, llhT[1]-rad_latT, 2*rad_lonT, 2*rad_latT);
       trans_out_box.grow(bT);
+      if (need_projwin)
+        needed_projwin.grow(projwin_georef.lonlat_to_point(subvector(llhT, 0, 2)));
     }
   }
 
   if (!has_transform)
     trans_out_box = out_box;
+
+  // Here we assume needed_projwin is in units of meter, so in projected
+  // (non-geographic) space
+  if (need_projwin && max_disp > 0)
+    needed_projwin.expand(max_disp);
 
   return;
 }
