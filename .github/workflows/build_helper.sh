@@ -102,13 +102,12 @@ git clone https://github.com/DOI-USGS/usgscsm.git --recursive
 cd usgscsm
 git submodule update --recursive # if refreshing the repo later
 #git rebase origin/main
-git reset --hard 568ea46
 mkdir -p build && cd build
 export PREFIX=$HOME/miniconda3/envs/asp_deps
 export PATH=$PREFIX/bin:$PATH
+  # -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp      \
+  # -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp   \
 cmake ..                                         \
-  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp      \
-  -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp   \
   -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13            \
   -DUSGSCSM_EXTERNAL_DEPS=ON                     \
   -DUSGSCSM_BUILD_DOCS=OFF                       \
