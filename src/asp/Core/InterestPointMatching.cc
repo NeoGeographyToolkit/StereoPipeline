@@ -141,7 +141,7 @@ void detect_ip(vw::ip::InterestPointList& ip,
     if (stereo_settings().ip_normalize_tiles)
       opencv_normalize = true;
     if (opencv_normalize)
-      vw::vw_out() << "\t    Using per-tile image normalization for IP detection...\n";
+      vw::vw_out() << "\t    Using per-tile image normalization for interest points detection...\n";
 
     bool build_opencv_descriptors = true;
     vw::ip::OpenCvInterestPointDetector detector(cv_method, opencv_normalize, build_opencv_descriptors, points_per_tile);
@@ -208,10 +208,10 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
   sw1.start();
 
   // Detect interest points in the two images
-  vw::vw_out() << "\t    Looking for IP in left image.\n";
+  vw::vw_out() << "\t    Looking for interest points in left image.\n";
   detect_ip(ip1, vw::pixel_cast<float>(image1), ip_per_tile, left_vwip_file, nodata1,
             use_cached_ip);
-  vw::vw_out() << "\t    Looking for IP in right image.\n";
+  vw::vw_out() << "\t    Looking for interest points in right image.\n";
   detect_ip(ip2, vw::pixel_cast<float>(image2), ip_per_tile, right_vwip_file, nodata2,
             use_cached_ip);
 
@@ -258,6 +258,11 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 
 void check_homography_matrix(Matrix<double> const& H,
                              int left_size, int right_size, int num_inliers) {
+
+  // Ensure H has at least 2 rows and 2 columns
+  if (H.rows() < 2 || H.cols() < 2)
+    vw::vw_throw(ArgumentErr() << "InterestPointMatching: Homography matrix is too small.\n");
+    return;
 
   // Sanity checks. If these fail, most likely the two images are too different
   // for stereo to succeed.
@@ -392,7 +397,8 @@ void filter_ip_homog(std::vector<vw::ip::InterestPoint> const& ip1_in,
                      vw::Matrix<double> & H,
                      std::vector<size_t> & indices) {
 
-  // Initialize the outputs
+  // Initialize the outputs. Ensure H is a valid matrix, in case ransac fails.
+  H = vw::math::identity_matrix<3>();
   H.set_identity();
   indices.clear();
   
@@ -461,16 +467,15 @@ Vector2i homography_rectification(bool adjust_left_image_size,
     inlier_th = std::max(inlier_th, 50.0);
   }
 
- Matrix<double> H;
- std::vector<size_t> indices;
- filter_ip_homog(left_ip, right_ip, inlier_th, 
-                 H, indices); // outputs
-  
+  Matrix<double> H = vw::math::identity_matrix<3>();
+  std::vector<size_t> indices;
+  filter_ip_homog(left_ip, right_ip, inlier_th, 
+                  H, indices); // outputs
+
   // TODO(oalexan1): A percentile-based filter may help here, after finding
   // the inliers. It should be based on estimating H * right - left.
   // That because the inlier threshold is kind of arbitrary.
   // If outliers are found, need to recompute H based on inliers, which is quick.
-
   check_homography_matrix(H, left_ip.size(), right_ip.size(), indices.size());
 
   // Set right to a homography that has been refined just to our inliers.
@@ -478,7 +483,7 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   // TODO(oalexan1): It is not clear if adjusting a homography transform's
   // translation coefficients is the right way of applying a translation to it,
   // because it has a denominator too.
-  left_matrix  = math::identity_matrix<3>();
+  left_matrix  = vw::math::identity_matrix<3>();
   right_matrix = H;
 
   // Work out the ideal render size
@@ -1250,7 +1255,7 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
   // Filter the interest points using a homography constraint
   Stopwatch sw;
   sw.start();
-  Matrix<double> H;
+  Matrix<double> H = vw::math::identity_matrix<3>();
   std::vector<size_t> indices;
   filter_ip_homog(matched_ip1, matched_ip2, inlier_threshold, 
                   H, indices); // outputs
@@ -1308,7 +1313,7 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   // image. If we used the translation from the solved homography with
   // poorly position cameras, the right image might be moved out of frame.
   rough_homography(0,2) = rough_homography(1,2) = 0;
-  vw_out() << "Aligning right to left for IP capture using rough homography: "
+  vw_out() << "Aligning right to left for interest points capture using rough homography: "
 	   << rough_homography << std::endl;
 
   // Find the image of the right image bounding box after applying the rough homography
