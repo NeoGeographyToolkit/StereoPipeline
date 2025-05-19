@@ -35,6 +35,11 @@
 #include <asp/Core/ReportUtils.h>
 #include <asp/Core/CameraTransforms.h>
 
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#include <asp/IsisIO/IsisCameraModel.h>
+#endif // ASP_HAVE_PKG_ISIS
+
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Camera/PinholeModel.h>
@@ -136,14 +141,14 @@ void fit_camera_to_xyz_ht(Vector3 const& parsed_camera_center, // may not be kno
 
   // Print out some errors
   if (verbose) {
-    vw_out() << "Errors of pixel projection in the coarse camera:\n";
+    std::vector<double> errors;
     for (size_t corner_it = 0; corner_it < num_pts; corner_it++) {
       vw::Vector2 pix1 = out_cam.get()->point_to_pixel(xyz_vec[corner_it]);
       vw::Vector2 pix2 = Vector2(pixel_values[2*corner_it], pixel_values[2*corner_it+1]);
-      vw_out () << "Pixel and error: ("
-                << pixel_values[2*corner_it] << ' ' << pixel_values[2*corner_it+1]
-                << ") " << norm_2(pix1 - pix2) << "\n";
+      errors.push_back(norm_2(pix1 - pix2));
     }
+    vw::vw_out() << "Median pixel projection error in the coarse camera: "
+                 << vw::math::destructive_median(errors) << "\n";
   }
 
   Vector3 xyz0 = out_cam.get()->camera_center(vw::Vector2());
@@ -161,14 +166,14 @@ void fit_camera_to_xyz_ht(Vector3 const& parsed_camera_center, // may not be kno
       vw_throw(ArgumentErr() << "Unknown camera type: " << camera_type << ".\n");
 
     if (verbose) {
-      vw_out() << "Errors of pixel projection in the camera with refined pose:\n";
+      std::vector<double> errors;
       for (size_t corner_it = 0; corner_it < num_pts; corner_it++) {
         vw::Vector2 pix1 = out_cam.get()->point_to_pixel(xyz_vec[corner_it]);
         vw::Vector2 pix2 = Vector2(pixel_values[2*corner_it], pixel_values[2*corner_it+1]);
-          vw_out () << "Pixel and error: ("
-                    << pixel_values[2*corner_it] << ' ' << pixel_values[2*corner_it+1]
-                    << ") " <<  norm_2(pix1 - pix2) << "\n";
+        errors.push_back(norm_2(pix1 - pix2));
       }
+      vw::vw_out() << "Median pixel projection error in the refined camera: "
+                   << vw::math::destructive_median(errors) << "\n";
     }
 
   } // End camera refinement case
@@ -557,17 +562,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw(ArgumentErr() << "Could not read an image with positive dimensions from: "
                              << opt.image_file << ".\n");
 
-    // populate the corners
-    double arr[] = {0.0, 0.0, wid-1.0, 0.0, wid-1.0, hgt-1.0, 0.0, hgt-1.0};
-    for (size_t it  = 0; it < sizeof(arr)/sizeof(double); it++)
-      opt.pixel_values.push_back(arr[it]);
-
-    // Add inner points for robustness
-    if (opt.input_camera != "") {
-      double b = 0.25, e = 0.75;
-      double arr[] = {b*wid, b*hgt, e*wid, b*hgt, e*wid, e*hgt, b*wid, e*hgt};
+    if (opt.input_camera == "") {
+      // Populate the corners
+      double arr[] = {0.0, 0.0, wid-1.0, 0.0, wid-1.0, hgt-1.0, 0.0, hgt-1.0};
       for (size_t it  = 0; it < sizeof(arr)/sizeof(double); it++)
         opt.pixel_values.push_back(arr[it]);
+    } else {
+      // Sample the camera with 100 points
+      int num = 10;
+      for (int c = 0; c < num; c++) {
+        for (int r = 0; r < num; r++) {
+          opt.pixel_values.push_back((wid - 1.0) * c / double(num - 1));
+          opt.pixel_values.push_back((hgt - 1.0) * r / double(num - 1));
+        }
+      }
     }
   }
 
@@ -809,6 +817,7 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
 
   // Estimate camera center
   std::vector<vw::Vector3> ctrs, dirs;
+  int fail_count = 0;
 
   for (int it = 0; it < num_points; it++) {
 
@@ -817,10 +826,10 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
     dem_or_datum_intersect(opt, geo, interp_dem, input_camera_ptr, pix, xyz);
 
     if (xyz == Vector3()) {
-      vw_out() << "Could not intersect the ground with a ray coming "
-                 << "from the camera at pixel: " << pix << ". Skipping it.\n";
+      fail_count++;
       continue;
     }
+                   
     ctrs.push_back(input_camera_ptr->camera_center(pix));
     dirs.push_back(input_camera_ptr->pixel_to_vector(pix));
 
@@ -832,9 +841,13 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
     cam_heights.push_back(llh[2]); // will use it later
   }
 
+  if (fail_count > 0)
+    vw::vw_out() << "Number of failures when intersecting the ground with ray samples "
+                 << "from the camera: " << fail_count << " / " << num_points << ".\n";
+
   if (good_pixel_values.size() < 6) {
     vw_throw(ArgumentErr() << "Successful intersection happened for less than "
-          << "3 pixels. Will not be able to create a camera. Consider checking "
+          << "3 samples. Will not be able to create a camera. Consider checking "
           << "your inputs, or passing different pixels in --pixel-values. DEM: "
           << opt.reference_dem << ".\n");
   }
@@ -1291,6 +1304,37 @@ void camerasFromExtrinsics(Options const& opt) {
   }
 }
 
+// Fetch metadata from an ISIS cube for saving to the output CSM camera.
+void isisCubMetadata(vw::CamPtr in_cam,
+                     double & ephem_time,
+                     vw::Vector3 & sun_pos,
+                     std::string & serial_number,
+                     std::string & target_name) { 
+                
+
+  // Initialize the output variables
+  ephem_time    = 0.0;
+  sun_pos       = vw::Vector3(0, 0, 0);
+  serial_number = "";
+  target_name   = "";
+
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+
+  if (in_cam.get() == NULL)
+    return;
+  
+  IsisCameraModel const * isis_cam
+    = dynamic_cast<IsisCameraModel const*>(vw::camera::unadjusted_model(in_cam.get()));
+  if (isis_cam == NULL)
+    return;
+  
+  ephem_time    = isis_cam->ephemeris_time();
+  sun_pos       = isis_cam->sun_position();
+  serial_number = isis_cam->serial_number();
+  target_name   = isis_cam->target_name();
+#endif  
+}
+
 int main(int argc, char * argv[]) {
 
   Options opt;
@@ -1370,9 +1414,18 @@ int main(int argc, char * argv[]) {
         int width = img.cols(), height = img.rows();
         asp::CsmModel csm;
         
+        // For input ISIS cameras, save some metadata to the output camera
+        double ephem_time = 0.0;
+        vw::Vector3 sun_pos(0, 0, 0);
+        std::string serial_number = "", target_name = "";
+        isisCubMetadata(input_camera_ptr,
+                         ephem_time, sun_pos, serial_number, target_name);
+        
         csm.createFrameModel(*pin, width, height,
                              geo.datum().semi_major_axis(), geo.datum().semi_minor_axis(),
-                             opt.distortion_type, opt.distortion);
+                             opt.distortion_type, opt.distortion,
+                             ephem_time, sun_pos, serial_number, target_name);
+        
         if (opt.refine_intrinsics != "")
           refineIntrinsics(opt, geo, interp_dem, input_camera_ptr, width, height, csm);
 
