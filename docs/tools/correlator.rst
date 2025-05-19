@@ -14,6 +14,9 @@ rotation/shear/scale differences, or mapprojected, or to be portions
 of aligned images ``L.tif`` and ``R.tif`` (:numref:`outputfiles`) as
 created by ASP itself.
 
+The produced disparity map can be used for image alignment
+(:numref:`image_align`) and terrain alignment (:numref:`pc_corr`).
+
 See also ``corr_eval`` (:numref:`corr_eval`) a program for estimating
 the quality of the disparity at each pixel.
 
@@ -45,8 +48,6 @@ All the usual options of ``parallel_stereo`` apply. See
 speed tradeoffs. Since the images are assumed to be aligned, the
 program will set the alignment method to ``none``.
 
-If desired to not use an initial low-resolution correlation, set
-``--corr-seed-mode 0``. To skip preprocessing (if invoked previously),
-or to avoid subpixel refinement or filtering, use the options
-``--entry-point`` and ``--stop-point``.
+To skip preprocessing (if invoked previously), or to avoid subpixel refinement
+or filtering, use the options ``--entry-point`` and ``--stop-point``.
 

@@ -112,10 +112,10 @@ Disparity map initialization
 ----------------------------
 
 Correlation is the process at the heart of the Stereo Pipeline. It is a
-collection of algorithms that compute correspondences between pixels in
-the left image and pixels in the right image. The map of these
-correspondences is called a *disparity map*.  This is saved
-in the file named ``output_prefix-D.tif``.
+collection of algorithms that compute correspondences between pixels in the left
+image and pixels in the right image. The map of these correspondences is called
+a *disparity map*.  This is saved in the file named ``output_prefix-D.tif``
+(:numref:`out_corr_files`).
 
 A disparity map is an image whose pixel locations correspond to the pixel
 :math:`(u,v)` in the left image, and whose pixel values contain the horizontal
@@ -175,7 +175,7 @@ Low-resolution disparity
 Producing the disparity map at full resolution as in :numref:`stereo_corr` is
 computationally expensive. To speed up the process, ASP starts by first creating
 a low-resolution initial guess version of the disparity map. This is saved
-in the file ``output_prefix-D_sub.tif``. 
+in the file ``output_prefix-D_sub.tif`` (:numref:`out_corr_files`).
 
 Four methods are available for producing this low-resolution disparity,
 described below.

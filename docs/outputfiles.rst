@@ -18,16 +18,15 @@ Files created in preprocessing
 ------------------------------
 
 \*-cropped\*.tif 
-    Cropped versions of the input images, before alignment, when
+    Cropped versions of the input images, before alignment, when options
     ``--left-image-crop-win`` and/or ``--right-image-crop-win`` are used.
 
 \*.vwip 
     Interest point matches per image, before matching.
     
-    If the images are ``left.cub`` and ``right.cub``, these files are called
-    ``left.vwip`` and ``right.vwip``. They can also be generated (with finer
-    grained-control over detection algorithm options) with ``ipfind``
-    (:numref:`ipfind`).
+    If the images are ``left.cub`` and ``right.cub``, these files end in
+    ``left.vwip`` and ``right.vwip``. Several interest point detection modes are
+    available (see ``--ip-detect-method`` in :numref:`stereodefault`).
     
     The ``.vwip`` files can be visualized in ``stereo_gui``
     (:numref:`stereo_gui_vwip_gcp`).
@@ -35,8 +34,8 @@ Files created in preprocessing
 \*.match - image-to-image interest point matches (tie-points)
     The match file lists a select group of unique points out of the previous
     ``.vwip`` files that have been identified and matched in a pair of images.
-    For example, if your images are ``left.cub`` and ``right.cub`` you'll get a
-    ``left__right.match`` file. 
+    For example, if the input images are ``left.cub`` and ``right.cub``, the
+    match file will end in ``left__right.match``.
 
     The ``.vwip`` and ``.match`` files are meant to serve as cached tie-point
     information, and they help speed up the pre-processing phase of the Stereo
@@ -89,6 +88,8 @@ Files created in preprocessing
     This is a copy of the ``stereo.default`` file used by ``parallel_stereo``.
     It is stored alongside the output products as a record of the
     settings that were used for this particular stereo processing task.
+
+.. _out_corr_files:
 
 Files created during correlation
 --------------------------------

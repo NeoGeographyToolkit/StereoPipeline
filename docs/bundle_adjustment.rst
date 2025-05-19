@@ -80,11 +80,11 @@ focal length, and distortion is also possible, as seen below.
 
 .. _baasp:
 
-Bundle adjustment using ASP
----------------------------
+Running bundle adjustment
+-------------------------
 
-Stereo Pipeline provides its own bundle adjustment tool, named
-``bundle_adjust``. Its usage is described in :numref:`bundle_adjust`.
+Stereo Pipeline provides the ``bundle_adjust`` program
+(:numref:`bundle_adjust`).
 
 Start by running ``parallel_stereo`` without using bundle-adjusted camera
 models::
@@ -108,12 +108,15 @@ camera intrinsics (if applicable) is discussed further down
 
 Run ``parallel_stereo`` while using the bundle-adjusted camera models::
 
-    parallel_stereo AS15-M-1134.cub AS15-M-1135.cub run_adjust/run \
-      --bundle-adjust-prefix run_ba/run --prev-run-prefix run_noadjust/run
+    parallel_stereo AS15-M-1134.cub AS15-M-1135.cub \
+      --prev-run-prefix run_noadjust/run            \
+      --bundle-adjust-prefix run_ba/run             \
+      run_adjust/run 
 
 This should be followed, as before, by creation of a DEM and a triangulation
 error image. Note the option ``--prev-run-prefix`` that allowed reusing
-the previous run apart from the triangulation step.
+the previous run apart from the triangulation step. That speeds up the process,
+and works well-enough unless the cameras change a lot.
 
 .. figure:: images/MOC_tri_error.png
    :name: moc_dem_intersection_errors

@@ -202,7 +202,7 @@ Set the output projection (the same as in the reference image mosaic)::
 
     proj='+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=180 +x_0=0 +y_0=0 +R=2632344.9707 +units=m +no_defs'
     
-Then, ``point2dem`` was run::
+Then, ``point2dem`` (:numref:`point2dem`) was run::
 
   point2dem         \
     --t_srs "$proj" \
