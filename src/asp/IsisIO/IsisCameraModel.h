@@ -79,7 +79,8 @@ namespace camera {
 
     // Returns the serial number of the ISIS cube
     std::string serial_number() const {
-      return m_interface->serial_number(); }
+      return m_interface->serial_number(); 
+    }
 
     // Returns the ephemeris time for a pixel
     double ephemeris_time( Vector2 const& pix = Vector2() ) const {

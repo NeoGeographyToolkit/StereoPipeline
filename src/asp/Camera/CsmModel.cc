@@ -863,8 +863,12 @@ std::string CsmModel::model_state() const {
         vw::Vector3 const& C, // camera center
         vw::Matrix3x3 const& R, // camera to world rotation matrix
         std::string const& distortionType, // empty or "radtan"
-        std::vector<double> const& distortion) {
-
+        std::vector<double> const& distortion,
+        double ephem_time,
+        vw::Vector3 const& sun_position,
+        std::string const& serial_number,
+        std::string const& target_name) {
+        
   // Make a copy of R as an Eigen matrix, and convert to quaternion
   Eigen::Matrix3d R_copy;
   for (int r = 0; r < 3; r++){
@@ -932,6 +936,13 @@ std::string CsmModel::model_state() const {
   // Set the translation and quaternion. The quaternion is stored as x, y, z, w.
   j["m_currentParameterValue"] = std::vector<double>({C[0], C[1], C[2], 
                                                      q.x(), q.y(), q.z(), q.w()});
+  
+  j["m_ephemerisTime"] = ephem_time;
+  j["m_sunPosition"]   = std::vector<double>({sun_position[0],
+                                              sun_position[1], 
+                                              sun_position[2]});
+  j["m_imageIdentifier"] = serial_number;
+  j["m_targetName"]      = target_name;
 
   // Update the state string and create the CSM model
   state = cam.getModelName() + "\n" + j.dump(2);
@@ -944,7 +955,11 @@ void CsmModel::createFrameModel(vw::camera::PinholeModel const& pin_model,
                                 int cols, int rows,  // in pixels
                                 double semi_major_axis, double semi_minor_axis, // in meters
                                 std::string const& distortionType, 
-                                std::vector<double> const& distortion) {
+                                std::vector<double> const& distortion,
+                                double ephem_time,
+                                vw::Vector3 const& sun_position,
+                                std::string const& serial_number,
+                                std::string const& target_name) {
 
   double pitch = pin_model.pixel_pitch();
   vw::Vector2 focal_length = pin_model.focal_length() / pitch;
@@ -957,7 +972,9 @@ void CsmModel::createFrameModel(vw::camera::PinholeModel const& pin_model,
                          semi_major_axis, semi_minor_axis,
                          pin_model.camera_center(), 
                          pin_model.get_rotation_matrix(),
-                         distortionType, distortion);
+                         distortionType, distortion,
+                         ephem_time, sun_position,
+                         serial_number, target_name);
 }
 
 // Approximate conversion to a pinhole model. Will be exact only for the radtan

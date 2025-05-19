@@ -114,8 +114,12 @@ namespace asp {
         vw::Vector3 const& C, // camera center
         vw::Matrix3x3 const& R, // camera to world rotation matrix
         std::string const& distortionType = "", // empty, "radtan", or "transverse"
-        std::vector<double> const& distortion = std::vector<double>());
-
+        std::vector<double> const& distortion = std::vector<double>(),
+        double ephem_time = 0.0,
+        vw::Vector3 const& sun_position = vw::Vector3(0,0,0),
+        std::string const& serial_number = "",
+        std::string const& target_name = "");
+        
     // Create a CSM frame camera model from pinhole camera model.
     // The distortion model must be set separately, as ASP pinhole
     // and CSM use different distortion models.
@@ -123,7 +127,12 @@ namespace asp {
                           int cols, int rows,  // in pixels
                           double semi_major_axis, double semi_minor_axis, // in meters
                           std::string const& distortionType = "", 
-                          std::vector<double> const& distortion = std::vector<double>());
+                          std::vector<double> const& distortion = std::vector<double>(),
+                          double ephem_time = 0.0,
+                          vw::Vector3 const& sun_position = vw::Vector3(0,0,0),
+                          std::string const& serial_number = "",
+                          std::string const& target_name = "");
+
 
     // Approximate conversion to a pinhole model. Will be exact only for the rad-tan
     // lens distortion and no unusual line or sample adjustments in CSM. Compare

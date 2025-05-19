@@ -99,7 +99,7 @@ StereoSession* StereoSessionFactory::create(std::string      & session_type, // 
   //
   // Hidden sessions are:
   // DGMapRPC, Blank (Guessing)
-  
+
   // Try to guess the session if not provided
   std::string actual_session_type = session_type;
   bool quiet = true;
@@ -133,11 +133,13 @@ StereoSession* StereoSessionFactory::create(std::string      & session_type, // 
       actual_session_type = "csm";
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
     } else if (boost::iends_with(boost::to_lower_copy(left_image_file), ".cub") &&
-                asp::isis::IsisCubeHasCsmBlob(left_image_file)) {
-      // This is a cub file that has a CSM model inside of of it
-      if (!asp::isis::IsisCubeHasCsmBlob(right_image_file))
-        vw::vw_throw(vw::ArgumentErr() << "Found a CSM model in " << left_image_file
-                  << " but not in " << right_image_file << ".\n");
+               left_camera_file == "" &&
+               asp::isis::IsisCubeHasCsmBlob(left_image_file)) {
+      // The image has a CSM blob and there is no separate camera file
+      actual_session_type = "csm";
+    } else if (boost::iends_with(boost::to_lower_copy(left_camera_file), ".cub") &&
+               asp::isis::IsisCubeHasCsmBlob(left_camera_file)) {
+      // The camera file has a CSM blob
       actual_session_type = "csm";
 #endif // ASP_HAVE_PKG_ISIS
     } else if (boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
