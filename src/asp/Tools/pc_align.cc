@@ -167,9 +167,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Specify the region to read from the source cloud, if it is a COPC LAZ file. The "
      "units are based the projection in the file. This is required unless "
      "--src-copc-read-all all is set. Specify as minx miny maxx maxy, "
-     "or minx maxy maxx miny, with no quotes. "
-     "If not set, the --ref-copc-win option will be used, or otherwise it will be estimated "
-     "based on the extent of reference points and the --max-displacement option.")
+     "or minx maxy maxx miny, with no quotes. If not set, the --ref-copc-win option will "
+     "be used, or otherwise it will be estimated based on the extent of reference points "
+     "and the --max-displacement option.")
     ("ref-copc-read-all", po::bool_switch(&opt.ref_copc_read_all)->default_value(false), 
      "Read the full reference COPC file, ignoring the --ref-copc-win option.")
     ("src-copc-read-all", po::bool_switch(&opt.src_copc_read_all)->default_value(false), 

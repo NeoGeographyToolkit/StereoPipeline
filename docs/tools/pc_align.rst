@@ -223,6 +223,8 @@ Hillshading happens with the ``hillshade`` program (:numref:`hillshade`)::
     hillshade ref.tif -o ref_hill.tif
     hillshade src.tif -o src_hill.tif
 
+The ``gdaldem hillshade`` program can be used as well (:numref:`gdal_tools`).
+
 Image correlation is performed (:numref:`correlator-mode`)::
 
     parallel_stereo --correlator-mode    \
@@ -235,8 +237,8 @@ Stereo correlation can take a long time. It can be run over several nodes
 (:numref:`pbs_slurm`). The option ``--max-disp-spread`` can help with reducing
 the search range (:numref:`corr_section`). A value like 50 is likely adequate. 
 
-This produces a dense match file (:numref:`dense_ip`), that can 
-be passed to ``pc_align``::
+This produces a dense match file (:numref:`dense_ip`) that should be inspected
+(:numref:`stereo_gui_view_ip`), and then passed to ``pc_align``::
 
     matchFile=run_corr/run-disp-ref_hill__src_hill.match
     pc_align                                     \
@@ -279,9 +281,13 @@ few thousand) for this approach to converge reasonably fast.
 File formats
 ~~~~~~~~~~~~
 
-The input point clouds can be in one of several formats: ASP’s point
-cloud format (the output of ``stereo``), DEMs as GeoTIFF or ISIS cub
-files, LAS files, or plain-text CSV files (with .csv or .txt extension).
+The input point clouds can be in one of several formats: ASP's point cloud
+format (the output of ``parallel_stereo``, :numref:`outputfiles`), DEMs as
+GeoTIFF or ISIS cub files, LAS files (including LAZ and COPC), or plain-text CSV
+files (with .csv or .txt extension).
+
+CSV
+^^^
 
 By default, CSV files are expected to have on each line the latitude and
 longitude (in degrees), and the height above the datum (in meters),
@@ -302,6 +308,25 @@ If none of the input files have a geoheader with datum information, and
 the input files are not in Cartesian coordinates, the datum needs to be
 specified via the ``--datum`` option, or by setting
 ``--semi-major-axis`` and ``--semi-minor-axis``.
+
+.. _pc_align_las:
+
+LAS and COPC
+^^^^^^^^^^^^
+
+The ``pc_align`` program supports clouds in the LAS format, including compressed
+(LAZ) and cloud-optimized (`COPC <https://copc.io/>`_) data. The processing is
+done with `PDAL <https://pdal.io/en/latest/>`_, which is shipped with ASP. 
+
+If the reference / source cloud is in the COPC format, the option
+``--ref-copc-win`` / ``--src-copc-win`` is required, so that the program can
+know the region of these spatially organized clouds that needs processing. Or
+can set ``--ref-copc-read-all`` / ``--src-copc-read-all``. See the full
+description of these options in :numref:`pc_align_options`.
+
+For COPC files, the corresponding output cloud with the transform applied to it
+will be in the LAZ format, and will be restricted to the region used in
+processing. 
 
 .. _alignmenttransform:
 
@@ -847,6 +872,27 @@ Command-line options for pc_align
     quotes. Default: "div_factor: 1.4 use_absolute_scale: 0 max_corr_dist: 0.025
     iteration_number: 100 tuple_scale: 0.95 tuple_max_cnt: 10000".
 
+--ref-copc-win <float float float float>
+    Specify the region to read from the reference cloud, if it is a COPC LAZ
+    file. The units are based the projection in the file. This is required
+    unless ``--ref-copc-read- all`` is set. Specify as ``minx miny maxx maxy``,
+    or ``minx maxy maxx miny``, with no quotes. See also ``--src-copc-win``
+    and :numref:`pc_align_las`.
+
+--src-copc-win <float float float float>
+    Specify the region to read from the source cloud, if it is a COPC LAZ file.
+    The units are based the projection in the file. This is required unless
+    ``--src-copc-read-all all`` is set. Specify as ``minx miny maxx maxy``, or
+    ``minx maxy maxx miny``, with no quotes. If not set, the ``--ref-copc-win``
+    option will be used, or otherwise it will be estimated based on the extent
+    of reference points and the ``--max-displacement`` option.
+
+--ref-copc-read-all
+    Read the full reference COPC file, ignoring the ``--ref-copc-win`` option.
+    
+--src-copc-read-all
+    Read the full source COPC file, ignoring the ``--src-copc-win`` option.
+        
 --diff-rotation-error <float (default: 1e-8)>
     Change in rotation amount below which the algorithm will stop
     (if translation error is also below bound), in degrees.

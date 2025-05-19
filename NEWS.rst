@@ -15,9 +15,19 @@ parallel_sfs (:numref:`parallel_sfs`):
    * When albedo and / or haze is modeled, initial estimates for these are
      produced for the full site (:numref:`parallel_sfs_usage`).
 
+parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
+    * Bugfix for a crash when there are no interest point matches.
+    
 point2dem (:numref:`point2dem`):
   * Added support for LAS COPC files (:numref:`point2dem_las`).
+
+pc_align (:numref:`pc_align`):
+  * Added support for LAS COPC files (:numref:`pc_align_las`).
   
+cam_gen (:numref:`cam_gen`):
+  * If the input is an ISIS cube and the output is a CSM camera, save
+    the ephemeris time, sun position, serial number, and target name.
+      
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
   * Turned off experimental ``--subpixel-mode 6`` as it is failing to run
