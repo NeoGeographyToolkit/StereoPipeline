@@ -6,20 +6,18 @@ n_align
 This tool can be used to jointly align a set of two or more point
 clouds, hence it extends the functionality of ``pc_align``
 (:numref:`pc_align`). It implements the ICP flavor from
-:cite:`toldo2010global`, more exactly, the MATLAB algorithm
-at
+:cite:`toldo2010global`, more exactly, 
+`this MATLAB algorithm <https://searchcode.com/file/13619767/Code/matlab/GlobalProcrustesICP/globalProcrustes.m>`_.
 
-https://searchcode.com/file/13619767/Code/matlab/GlobalProcrustesICP/globalProcrustes.m
-
-It is hoped that joint alignment will give less biased results than
-pairwise alignment for the clouds.
+This program does not scale well for large clouds. In practice, ``pc_align`` is
+preferred.
 
 Usage::
 
      n_align <cloud files> -o <output prefix>
 
 This tool supports the same types of data on input and output as
-``pc_align``.
+``pc_align``, except for LAZ COPC files.
 
 Even for two clouds this algorithm is not the same as the ones that are
 part of ``pc_align``. This algorithm is expected to be more robust to

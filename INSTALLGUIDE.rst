@@ -37,9 +37,9 @@ MacOS
 ~~~~~
 
 ASP builds are produced for MacOS, with the Intel processor. These were verified
-to work on the Arm M1/M2 processor under Rosetta 2.
+to work on the Mac Arm processors under Rosetta 2.
 
-An *experimental* native daily build is available for the Arm M1/M2 architecture
+An *experimental* native daily build is available for the Mac Arm architecture
 at the link above (``arm64-OSX``). This has all ASP logic except the minor
 ``libelas`` stereo algorithm (:numref:`libelas`).
 
@@ -270,16 +270,24 @@ without ISIS, for the time being. The package name is
 it from running, unless the user overrides them.
 
 Alternatively, consider using ``mamba`` instead of ``conda`` for the
-installation. It is must faster though it is not always guaranteed to work. 
+installation, as it is much faster. (Note that recent ``conda`` distributions
+default to using the ``mamba`` solver.)
 
 Run::
 
   conda activate asp
   
-to activate the environment in any new shell. This should put the ASP binaries
-in the path, and will also initialize the ``PROJ_DATA`` environment variable
-that is needed for the PROJ library. Or, set the PATH variable as in
-:numref:`release`.
+and set::
+
+    export ISISROOT=$CONDA_PREFIX
+
+in any new shell. These should put the ASP binaries in the path, and will also
+initialize various environmental variables, including ``ISISROOT`` and
+``PROJ_DATA``. See also :numref:`release` if desired to set the ``PATH``
+variable.
+
+For ISIS, the ``ISISDATA`` environmental variable also needs to be set
+(:numref:`planetary_images`).
   
 Using a precise list of packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

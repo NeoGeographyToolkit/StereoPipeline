@@ -199,9 +199,9 @@ height values as::
        in.csv                                        \
        -o run/run
 
-This will produce a DEM in projected coordinates, unless the option
-``--geographic`` is passed in and the ``--dem-spacing`` is set to a fraction of
-a degree (:numref:`point2dem_proj`).
+This will produce a DEM in projected coordinates (in meters, rather than
+degrees), unless the option ``--geographic`` is passed in and the
+``--dem-spacing`` is set to a fraction of a degree (:numref:`point2dem_proj`).
 
 For input data in projected coordinates, one can set a projection and the CSV
 format::
@@ -236,9 +236,9 @@ This assumes that the LAS file is in projected coordinates with the file having
 the projection. If the points are in ECEF coordinates, a projection needs to be
 set with ``--t_srs``.
 
-For COPC files, which are potentially immense and portions of which can be
-downloaded on demand, the option ``--copc-win`` must be set. It determines the
-bounds in projected coordinates. Example::
+For COPC files, which are potentially immense but spatially organized, the
+option ``--copc-win`` must be set. It determines the bounds of desired data to
+process, in projected coordinates. Example::
 
     point2dem --tr 2.0                       \
       --copc-win 636400 852260 638180 849990 \
