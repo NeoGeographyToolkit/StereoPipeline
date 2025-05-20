@@ -100,18 +100,21 @@ Files created during correlation
     \*-D_sub_spread.tif, which has the spread of this disparity. It is 
     in the same format as ``D.tif`` (below).
     
-\*-D.tif - Full-resolution disparity map produced from the low-resolution disparity.
-    It contains integer values of disparity that are used to seed the
-    subsequent sub-pixel correlation phase. It is largely unfiltered,
-    and may contain some bad matches.
+\*-D.tif - Full-resolution disparity map produced from the low-resolution disparity
+    
+    The disparity shows the amount of horizontal and vertical shift between left
+    and right images, in units of pixel (:numref:`stereo_corr`). The ``D.tif``
+    file contains a preliminary disparity that is used to seed the subsequent
+    sub-pixel correlation. It is largely unfiltered, and may contain some bad
+    matches.
 
     Disparity map files are stored in TIF format as 3-channel, 32-bit
     floating point images. Channel 0 = horizontal disparity, channel 1 =
     vertical disparity, and channel 2 = good pixel mask.
     
     The ``disparitydebug`` program (:numref:`disparitydebug`) can help inspect
-    these. Or the bands can be extracted and visualized as in
-    :numref:`mask_disparity`.
+    scaled versions of these. Or the raw bands can be extracted and visualized
+    as in :numref:`mask_disparity`.
 
 \*-L-R-disp-diff.tif - the discrepancy between left-to-right and right-to-left
     disparities. See option ``--save-left-right-disparity-difference``

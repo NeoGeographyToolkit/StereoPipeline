@@ -20,18 +20,18 @@ The produced disparity map can be used for image alignment
 See also ``corr_eval`` (:numref:`corr_eval`) a program for estimating
 the quality of the disparity at each pixel.
 
-Usage::
-
-    parallel_stereo --correlator-mode <left image> <right image> \
-      <output prefix>
-
 Example::
 
-    parallel_stereo --correlator-mode run/run-L.tif run/run-R.tif \
+    parallel_stereo               \
+      --correlator-mode           \
+      --stereo-algorithm asp_mgm  \
+      --subpixel-mode 9           \
+      run/run-L.tif run/run-R.tif \
       run_corr/run
 
-This will create the filtered subpixel disparity
-``run_corr/run-F.tif`` (:numref:`outputfiles`).
+This will create the filtered subpixel disparity ``run_corr/run-F.tif`` (:numref:`outputfiles`).
+
+ASP supports many stereo correlation algorithms (:numref:`stereo_alg_overview`).
 
 If the expected search range is known, it can be specified with the option
 ``--corr-search`` (:numref:`corr_section`). Low resolution disparity computation

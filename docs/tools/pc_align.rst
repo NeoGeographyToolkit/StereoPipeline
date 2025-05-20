@@ -229,6 +229,8 @@ Image correlation is performed (:numref:`correlator-mode`)::
 
     parallel_stereo --correlator-mode    \
       --ip-per-image 40000               \
+      --stereo-algorithm asp_mgm         \
+      --subpixel-mode 9                  \
       ref_hill.tif src_hill.tif          \
       --num-matches-from-disparity 40000 \
       run_corr/run
@@ -236,6 +238,8 @@ Image correlation is performed (:numref:`correlator-mode`)::
 Stereo correlation can take a long time. It can be run over several nodes
 (:numref:`pbs_slurm`). The option ``--max-disp-spread`` can help with reducing
 the search range (:numref:`corr_section`). A value like 50 is likely adequate. 
+
+ASP supports many stereo correlation algorithms (:numref:`stereo_alg_overview`).
 
 This produces a dense match file (:numref:`dense_ip`) that should be inspected
 (:numref:`stereo_gui_view_ip`), and then passed to ``pc_align``::
@@ -290,16 +294,15 @@ CSV
 ^^^
 
 By default, CSV files are expected to have on each line the latitude and
-longitude (in degrees), and the height above the datum (in meters),
-separated by commas or spaces. Alternatively, the user can specify the
-format of the CSV file via the ``--csv-format`` option. Entries in the
-CSV file can then be (in any order) (a) longitude, latitude (in
-degrees), height above datum (in meters), (b) longitude, latitude,
-distance from planet center (in meters or km), (c) easting, northing and
-height above datum (in meters), in this case a PROJ or WKT string must be set
-via ``--csv-srs``, (d) Cartesian coordinates :math:`(x, y, z)`
-measured from planet center (in meters). The precise syntax is described
-in the table below. The tool can also auto-detect the LOLA RDR
+longitude (in degrees), and the height above the datum (in meters), separated by
+commas or spaces. Alternatively, the user can specify the format of the CSV file
+via the ``--csv-format`` option. Entries in the CSV file can then be (in any
+order) (a) longitude, latitude (in degrees), height above datum (in meters), (b)
+longitude, latitude, distance from planet center (in meters or km), (c) easting,
+northing and height above datum (in meters), in this case a PROJ or WKT string
+must be set via ``--csv-srs``, (d) Cartesian coordinates :math:`(x, y, z)`
+measured from planet center (in meters). The precise syntax is in
+:numref:`pc_align_options`. The tool can also auto-detect the LOLA RDR
 PointPerRow format.
 
 Any line in a CSV file starting with the pound character (#) is ignored.

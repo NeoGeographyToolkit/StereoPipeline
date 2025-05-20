@@ -132,13 +132,16 @@ Subtract 360 degrees from the longitudes in a GeoTiff file
 Extract disparity bands respecting invalid disparities
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+ASP produces disparity maps (:numref:`stereo_corr`) with three bands, having the
+horizontal and vertical disparity, and mask of pixels showing the valid disparity.
+
 Extracting one disparity band with ``gdal_translate`` (:numref:`gdal_tools`)
 makes it hard to see where the disparity is zero but valid, and where it is
-invalid. This can be disambiguated with ``image_calc``, by using the mask
-from the third band to set the invalid disparities in a band to nodata. 
+invalid. This can be disambiguated with ``image_calc``, by using the mask from
+the third band to set the invalid disparities in a band to nodata. 
 
 For that, first extract the three bands from a disparity produced by ASP
-(:numref:`outputfiles`), such as ``F.tif``::
+(:numref:`out_corr_files`), such as ``F.tif``::
 
     for b in 1 2 3; do 
       gdal_translate -b $b F.tif F_b${b}.tif
