@@ -1,4 +1,4 @@
-name: ssh_mac_arm
+name: ssh_linux_arm
 on:
   workflow_dispatch:
 
