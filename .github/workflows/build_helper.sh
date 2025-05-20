@@ -171,13 +171,12 @@ if [ 1 -eq 0 ]; then
   echo Wiping old env
   /bin/rm -rf /Users/runner/miniconda3/envs/asp_deps
 
-  # Fetch the isis env
-  /bin/rm -f isis_environment.yml
-  wget https://raw.githubusercontent.com/NeoGeographyToolkit/StereoPipeline/master/.github/isis_environment.yml
-
+  # Fetch the isis env from the 
+  /bin/rm -f environment.yml
+  wget https://raw.githubusercontent.com/DOI-USGS/ISIS3/refs/heads/dev/environment.yml
   # Create the asp_deps env
   echo Creating a new asp_deps env
-  conda env create -n asp_deps -f isis_environment.yml 
+  conda env create -n asp_deps -f environment.yml
   conda activate asp_deps
 fi
 
