@@ -4,7 +4,7 @@ project(StereoPipeline)
 
 if(APPLE)
     cmake_policy(SET CMP0025 NEW) 
-    set(CMAKE_OSX_DEPLOYMENT_TARGET 10.13)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
 endif(APPLE)
 
 # Make it possible to append to these from the command line

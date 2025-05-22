@@ -290,9 +290,10 @@ find_external_library(OPENCV ${ASP_DEPS_DIR} "opencv4" "${OPENCV_LIB_NAMES}" REQ
 
 # PDAL
 set(PDAL_LIB_NAMES pdal_plugin_kernel_fauxplugin
-                   pdal_plugin_reader_hdf pdal_plugin_reader_pgpointcloud
-                   pdal_plugin_reader_tiledb pdal_plugin_writer_pgpointcloud
-                   pdal_plugin_writer_tiledb pdalcpp)
+                   # pdal_plugin_reader_hdf
+                   # pdal_plugin_reader_pgpointcloud
+                   # pdal_plugin_writer_pgpointcloud
+                   pdal_plugin_reader_tiledb pdal_plugin_writer_tiledb pdalcpp)
 find_external_library(PDAL ${ASP_DEPS_DIR} "pdal" "${PDAL_LIB_NAMES}" REQUIRED)
 
 set(TBB_LIB_NAMES tbb tbbmalloc tbbmalloc_proxy)
