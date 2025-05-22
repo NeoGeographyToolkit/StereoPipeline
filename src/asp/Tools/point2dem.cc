@@ -38,6 +38,7 @@
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/Core/StringUtils.h>
 
+#include <pdal/PDALUtils.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <limits>
 
@@ -293,9 +294,13 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     vw_throw(ArgumentErr() << "When inputs are not PC.tif files, the "
                             << "output DEM resolution must be set.\n");
 
-  if (opt.out_prefix.empty())
-    opt.out_prefix = asp::prefix_from_pointcloud_filename(opt.pointcloud_files[0]);
-
+  if (opt.out_prefix.empty()) {
+    std::string input_file = opt.pointcloud_files[0];
+    if (asp::is_las(input_file) && pdal::Utils::isRemote(input_file))
+     input_file = fs::path(input_file).filename().string(); // rm the remote path
+    opt.out_prefix = asp::prefix_from_pointcloud_filename(input_file);
+  }
+  
   if (opt.dem_hole_fill_len < 0)
     vw_throw(ArgumentErr() << "The value of --dem-hole-fill-len must be non-negative.\n");
   if (opt.ortho_hole_fill_len < 0)

@@ -596,7 +596,6 @@ void las_or_csv_to_tif(std::string const& in_file,
     std::int64_t num_total_points = 0; // will change
     asp::setupLasOrCopcReader(in_file, copc_win, copc_read_all,
                               pdal_reader, read_options, num_total_points);
-       
     // buf_size is the number of points that will be processed and kept in this
     // table at the same time. A somewhat bigger value may result in some
     // efficiencies.
@@ -606,9 +605,11 @@ void las_or_csv_to_tif(std::string const& in_file,
     pdal_reader->prepare(t);
     vw::cartography::GeoReference las_georef;
     bool has_georef = asp::georef_from_las(in_file, las_georef);
+    
     asp::ChipMaker writer(ASP_POINT_CLOUD_TILE_LEN, block_size, has_georef, las_georef,
                           opt, out_prefix, out_files);
     pdal::Options write_options;
+    write_options.add("filename", in_file); // not used, part of API
     writer.setOptions(write_options);
     writer.setInput(*pdal_reader);
     writer.prepare(t);

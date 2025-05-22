@@ -25,6 +25,7 @@
 #include <vw/Image/Filter.h>
 #include <vw/Image/InpaintView.h>
 
+#include <pdal/PDALUtils.hpp>
 #include <boost/filesystem.hpp>
 
 namespace fs = boost::filesystem;
@@ -63,9 +64,10 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 
   // Ensure that files exist
   for (int i = 0; i < num; i++) {
-    if (!fs::exists(files[i])) {
+    if (asp::is_las(files[i]) && pdal::Utils::isRemote(files[i]))
+      continue; // This is a remote file, so we don't check existence
+    if (!fs::exists(files[i]))
       vw_throw(ArgumentErr() << "File does not exist: " << files[i] << ".\n");
-    }
   }
 
   if (opt.do_ortho) {

@@ -690,6 +690,13 @@ void setupLasOrCopcReader(std::string const& in_file,
   
   // Note: For COPC files, the number of total points in the desired region
   // is a very rough estimate, and can be off by up to a factor of 10.
+  
+  // These are necessary to avoid a segfault in PDAL. It is not clear if it is
+  // important to "execute" over a large table, or what exactly it is doing.
+  pdal::PointTable table;
+  pdal_reader->prepare(table);
+  const auto set(pdal_reader->execute(table));
+  
   pdal::QuickInfo qi(pdal_reader->preview());
   num_total_points = qi.m_pointCount;
 }
