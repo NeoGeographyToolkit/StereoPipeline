@@ -22,6 +22,7 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/PdalUtils.h>
 
+#include <pdal/PDALUtils.hpp>
 #include <pointmatcher/PointMatcher.h>
 
 namespace asp {
@@ -60,6 +61,10 @@ void load_cloud_as_mat(std::string const& file_name,
  
   if (verbose)
     vw::vw_out() << "Reading: " << file_name << std::endl;
+
+  // Remote files should not be checked for existence
+  if (!asp::is_las(file_name) || !pdal::Utils::isRemote(file_name)) 
+    PointMatcherSupport::validateFile(file_name);
 
   // We will over-write this below for CSV and DEM files where
   // longitude is available.
@@ -110,8 +115,6 @@ void load_cloud(std::string const& file_name,
                 typename PointMatcher<double>::DataPoints & data){
   
   data.featureLabels = form_labels(DIM);
-  PointMatcherSupport::validateFile(file_name);
-
   load_cloud_as_mat(file_name, num_points_to_load,  lonlat_box, 
                     copc_win, copc_read_all,
                     calc_shift, shift,  geo,  csv_conv,  is_lola_rdr_format,  
@@ -148,9 +151,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   if (max_disp < 0.0 || geo.datum().name() == UNSPECIFIED_DATUM)
     return;
 
-  PointMatcherSupport::validateFile(file_name);
   PointMatcher<double>::DataPoints points;
-
   double      median_longitude = 0.0; // to convert back from xyz to lonlat
   bool        verbose        = false;
   bool        calc_shift     = false; // won't shift the points
