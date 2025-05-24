@@ -4,15 +4,17 @@ dem2gcp
 -------
 
 This program generates GCP (:numref:`bagcp`) based on densely measuring the
-warping between two DEMs, which helps resolve the lens distortion and the
-warping.
+misregistration and/or warping between two DEMs, which helps correct these
+effects. The cause is usually inaccuracies in camera extrinsics or intrinsics,
+including lens distortion.
 
-The approach is as follows. The dense disparity from an ASP-produced warped DEM
-to a reference DEM is found. This program will take as input that disparity and
-interest point matches between the raw images, and will produce GCP with correct
-ground positions based on the reference DEM. Lastly, bundle adjustment
-(:numref:`intrinsics_ground_truth`) invoked with the GCP will solve for the
-lens distortion. 
+The approach is as follows. The dense disparity from an ASP-produced
+misregistered / warped DEM to a correct reference DEM is found. This program
+will take as input that disparity and interest point matches between the raw
+images, and will produce GCP with correct ground positions based on that
+disparity. Bundle adjustment (:numref:`intrinsics_ground_truth`) invoked with
+the GCP will solve for the extrinsics and intrinsics of the cameras, correcting
+the misregistration and/or warping. 
 
 This program was motivated by the processing of KH-7 images, for which ASP has
 no camera model, so the initial produced DEM ends up rather warped. The hope is 
@@ -25,35 +27,34 @@ Prepare the images and camera models, such as in :numref:`kh7`. This workflow
 expects the cameras to be in Pinhole (:numref:`pinholemodels`) or CSM
 (:numref:`csm`) format.
 
-It is very strongly suggested to work at a lower-resolution, such as 1/16th of
-the original resolution. The exact factor depends on the GSD of raw images and
-of the reference DEM. The Pinhole camera models (:numref:`pinholemodels`) can be
-adjusted for the resolution change by multiplying appropriately the ``pitch``
-value *only*.
-
 Bundle-adjust the images and the cameras without optimizing the intrinsics
 (:numref:`bundle_adjust`). Use the option ``--inline-adjustments``, and
 increase ``--ip-per-tile`` and ``--matches-per-tile`` if not getting enough 
 matches. 
 
-Mapproject the images at the same appropriate resolution onto a reference DEM
-with the cameras produced by bundle adjustment. Do not use, here, and below,
-the original cameras and the .adjust files.
+Mapproject the images at the same appropriate resolution (close to native image
+GSD) onto the reference DEM with the cameras produced by bundle adjustment. Do
+not use, here, and below, the original cameras and the .adjust files.
 
-Use a local projection, such as stereographic. Run stereo with the mapprojected
-images (:numref:`mapproj-example`). Use the ``asp_mgm`` algorithm with
-``--subpixel-mode 9`` (:numref:`stereo_alg_overview`). This will ensure the best
-quality.
+Use a local projection for mapprojection, such as stereographic. Run stereo with
+the mapprojected images (:numref:`mapproj-example`). Use the ``asp_mgm``
+algorithm with ``--subpixel-mode 9`` (:numref:`stereo_alg_overview`). This will
+ensure the best quality. If more than two images, pairwise stereo can be run and
+the DEMs can be mosaicked with ``dem_mosaic`` (:numref:`dem_mosaic`).
 
-Overlay the mapprojected images, produced DEM, and reference DEM in ``stereo_gui``.
-These should be roughly in the same place, but with some warping.
+Overlay the mapprojected images, produced DEM, and reference DEM in
+``stereo_gui``. These should be roughly in the same place, but with some
+misregistration or warping.
 
 The produced DEM can be aligned with the reference DEM (:numref:`pc_align`), and
 the same alignment can be applied to the cameras (:numref:`ba_pc_align`).
 Mapproject the images with the latest cameras onto the DEM, and run stereo again
 (with option ``--prev-run-prefix`` to reuse the previous run,
 :numref:`mapproj_reuse`), and see if the new DEM is better-aligned with the
-reference DEM.
+reference DEM. 
+
+For small misalignment, likely this alignment is not necessary, as the GCP
+produced later should be able to take care of misalignment as well.
  
 Ensure ``parallel_stereo`` was invoked to generate dense matches from disparity
 (:numref:`dense_ip`). It is suggested to use ``--num-matches-from-disparity
@@ -64,7 +65,7 @@ for bundle adjustment with the option ``--max-pairwise-matches``.)
 Ensure that the dense match files are renamed according the *naming convention* for
 the original raw images (:numref:`ba_match_files`). Such matches can be produced
 after stereo already finished, by re-running ``stereo_tri`` only
-(:numref:`entrypoints`).
+(:numref:`entrypoints`). Sufficiently numerous sparse matches may likely work too.
 
 Comparison with the reference DEM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -146,6 +147,13 @@ Here we used the left and right raw images, the latest aligned left and right
 camera models that produced the warped DEM, and the dense matches between the
 raw images. 
 
+If there are more than two images, this should still work and can be applied
+pairwise. The match file also need not have dense matches. All that is assumed
+is that the images and cameras are consistent with the warped DEM. Then, all
+produced GCP files could be passed together with all images and cameras to
+``bundle_adjust``, as below.
+
+
 .. figure:: ../images/dem2gcp_ip_vs_gcp.png
    :name: dem2gcp_ip_vs_gcp
    
@@ -165,13 +173,13 @@ DEM, and augment it with GCP, that mostly take care of the horizontal component.
 
 The most recent bundle-adjusted and aligned cameras can be converted to use the
 RPC lens distortion model (:numref:`rpc_distortion`) as in
-:numref:`convert_pinhole_model`.
+:numref:`convert_pinhole_model`. Or, the cameras can be used as is.
 
-The small RPC coefficients *must be changed manually to be at least 1e-7*,
-otherwise they will not get optimized. Here, RPC of degree 3 is used. A higher
-degree can be employed, either initially, or for subsequent iterations. In the
-latest builds this is done automatically by ``bundle_adjust`` (option
-``--min-distortion``).
+The small RPC coefficients *must be changed manually to be at least 1e-7* in
+older builds, otherwise they will not get optimized. Here, RPC of degree 3 is
+used. A higher degree can be employed, either initially, or for subsequent
+iterations. In the latest builds this is done automatically by ``bundle_adjust``
+(option ``--min-distortion``).
 
 Optimization of intrinsics with DEM and GCP constraints:: 
 
