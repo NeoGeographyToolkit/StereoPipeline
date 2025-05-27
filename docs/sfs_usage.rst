@@ -574,7 +574,7 @@ mapprojected images. The process went as follows::
       C_crop_sub10.cub D_crop_sub10.cub --min-matches 1 \
       --num-iterations 100 --save-intermediate-cameras  \
       -o run_ba_sub10/run --ip-per-image 20000          \
-      --max-pairwise-matches 2000 --overlap-limit 50    \
+      --max-pairwise-matches 2000 --overlap-limit 200   \
       --match-first-to-last --num-passes 1              \
       --mapprojected-data                               \
       "$(ls [A-D]_sub10.map.noba.tif) run_sub10_noba/run-DEM.tif"
@@ -878,10 +878,7 @@ them (:numref:`stereo_pairs`) that can be used for alignment to the
 ground.
 
 If happy with the results, more images can be added and the site size
-increased, while the camera poses determined so far may be kept fixed
-during bundle adjustment (options ``--input-adjustments-prefix`` and
-``--fixed-image-list``). Newly added cameras can be given the nominal
-adjustment (:numref:`adjust_files`).
+increased.
 
 .. _sfs_initial_terrain:
 
@@ -1022,7 +1019,10 @@ region. Example::
      --t_projwin -7050.500 -10890.500 -1919.500 -5759.500  \
      M*.map.lowres.tif -o tmp.tif | tee pixel_sum_list.txt
 
-The obtained subset of images must be sorted by illumination conditions, that
+Eliminate the images that are not relevant to the area. Having them in 
+impacts reliability and performance.
+
+The obtained subset of images *must* be sorted by illumination conditions, that
 is, the Sun azimuth, measured from true North. This angle is printed when
 running ``sfs`` with the ``--query`` option on the .cub files. Here is an
 example::
@@ -1105,7 +1105,7 @@ Run bundle adjustment::
       --mapprojected-data-list mapprojected_list.txt \
       --processes 4                                  \
       --ip-per-image 20000                           \
-      --overlap-limit 50                             \
+      --overlap-limit 200                            \
       --num-iterations 100                           \
       --num-passes 2                                 \
       --min-matches 1                                \
@@ -1122,6 +1122,14 @@ Run bundle adjustment::
       --nodes-list <list of computing nodes>         \
       -o ba/run 
 
+The option ``--overlap-limit`` needs a large value, but the process can take a
+very long time. The ``--auto-overlap-params`` option can help determine which
+images overlap.
+
+The key reason for failure in this process is images not being matched to enough
+relevant consecutive images, or simply not having enough such images to start
+with.
+
 Here more bundle adjustment iterations are desirable,
 but this step takes too long. A large ``--ip-per-image`` can make a
 difference in images with rather different different illumination
@@ -1134,8 +1142,6 @@ Towards the poles the Sun may describe a full loop in the sky, and
 hence the earliest images (sorted by Sun azimuth angle) may become
 similar to the latest ones. That is the reason above we used the
 option ``--match-first-to-last``.
-
-The ``--auto-overlap-params`` option can help determine which images overlap.
 
 If having an estimate how how accurate initial camera positions are, the option
 ``--camera-position-uncertainty`` is suggested. If this uncertainty is is too
@@ -1271,6 +1277,11 @@ This DEM should be hillshaded and overladed on top of the LOLA DEM and
 see if there is any noticeable shift, which would be a sign of
 alignment not being successful. 
 
+If no luck, and visually the misalignment looks small horizontally, alignment
+could be skipped, for now, and one could continue with the next step, of using a
+DEM constraint, to fix vertical alignment issues. After that, perhaps alignment
+will work better.
+
 The ``geodiff`` tool should be used to examine any discrepancy among the two
 (:numref:`geodiff`), followed by ``colormap`` (:numref:`colormap`) and
 inspection in ``stereo_gui``.
@@ -1331,9 +1342,11 @@ in bundle adjustment (:numref:`heights_from_dem`)::
       --camera-weight 0                           \
       --save-intermediate-cameras                 \
       --heights-from-dem ref.tif                  \
-      --heights-from-dem-uncertainty 10.0         \
+      --heights-from-dem-uncertainty 20.0         \
       --mapproj-dem ref.tif                       \
       --remove-outliers-params "75.0 3.0 100 100" \
+      --parameter-tolerance 1e-20                 \
+      --threads 20                                \
       -o ba_align_ref/run
 
 Note how we use the match files with the original ``ba/run`` prefix,
@@ -1345,12 +1358,12 @@ We used the CSM cameras (:numref:`sfs_isis_vs_csm`).
 The option ``--mapproj-dem`` is very helpful for identifying
 misregistered images (see below).
 
+The value used for ``--heights-from-dem-uncertainty`` can be larger, such as
+100, if it is believed that the stereo DEM mosaic produced so far is too
+different from LOLA.  See also :numref:`heights_from_dem`.
+
 The switch ``--save-intermediate cameras`` is helpful, as before, if
 desired to stop if things take too long.
-
-The value used for ``--heights-from-dem-uncertainty`` should not be small, as it
-may result in a tight coupling to the reference DEM at the expense of
-self-consistency between the cameras. See also :numref:`heights_from_dem`.
 
 .. _sfs_reg_valid:
 
@@ -1418,15 +1431,16 @@ several causes:
  - Images were not sorted by illumination in bundle adjustment.
  - There are not enough images of intermediate illumination to tie the
    data together.
+ - The value of ``--overlap-limit`` was too small.
+ - Horizontal or vertical alignment failed.
  - Some images may have bad jitter (:numref:`sfs_jitter`).
 
 Here are several possible strategies, apart from the high-level
 overview earlier in :numref:`sfs-lola`:
 
  - See if many mapprojected images are misregistered with the DEM. If 
-   yes, bundle adjustment and/or alignment failed and needs to be redone.
- - Throw out images with a high error in report files
-   (:numref:`sfs_reg_valid`, :numref:`sfs_ba_validation`).
+   yes, bundle adjustment and/or alignment failed and needs to be redone,
+   or otherwise refined starting with the latest cameras.
  - Crop all mapprojected images produced with bundle-adjusted cameras to a small
    site, and overlay them while sorted by illumination (solar azimuth angle).
    See for which images the registration failure occurs.
@@ -1435,28 +1449,25 @@ overview earlier in :numref:`sfs-lola`:
    there were not enough matches or too many of them were thrown
    out as outliers.
  - Fallback to a smaller subset of images which are self-consistent,
-   even if losing coverage that way. 
+   even if losing coverage that way. Can be guided for this by the report
+   files (:numref:`sfs_reg_valid`, :numref:`sfs_ba_validation`).
  - See if more images can be added with intermediate illumination
    conditions and to increase coverage.
- - Change some bundle adjustment parameters.
 
-If no luck, break up a large site into 4 quadrants, and create a solution for
-each. If these are individually self-consistent and consistent with the ground,
-but have some misregistration among them, do a combined bundle adjustment using
-the optimized cameras or .adjust files for the quadrants as initial guesses by
-copying them to a single directory. Ensure that the match files cover the
-combined region in that case.
+If no luck, break up a large site into 4 quadrants with overlap, eliminate all
+images not having good pixels in a given quadrant, and create a solution for
+each. Any match file should however have features in the full site, for reuse
+later.
 
-If some optimized camera files occur in more than one quadrant, a certain
-quadrant may be chosen as an anchor, and its cameras files be given
-preference, so have them overwrite those from the other quadrants,
-before a joint bundle adjustment (during which the cameras from that
-quadrant can also be kept fixed). Ensure, as always, that the joint
-bundle adjustment has the images sorted by illumination.
+If the resulting subsets of bundle-adjusted cameras are individually
+self-consistent and consistent with the ground, do a combined bundle adjustment
+using the union of all sets of match files, by copying them to a single
+directory, with ``--overlap-limit`` set to 0 to use all match files. Ensure
+that each match file extends over the full region in that case. 
 
 The ``image_align`` program (:numref:`image_align`) was reported to be of help in
 co-registering images. Note however that failure of registration is almost
-surely because not all images are connected together using tie points, or the
+surely because not all images are connected together using match points, or the
 images are consistent with each other but not with the ground.
 
 If all fails, a fully separate SfS terrain could be produced for each quadrant,
@@ -1830,14 +1841,15 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --num-passes 2                                 \
       --max-initial-reprojection-error 50            \
       --overlap-limit 10000                          \
-      --parameter-tolerance 1e-12                    \
+      --parameter-tolerance 1e-20                    \
       --heights-from-dem ref.tif                     \
-      --heights-from-dem-uncertainty 10.0            \
+      --heights-from-dem-uncertainty 20.0            \
       --anchor-dem ref.tif                           \
       --num-anchor-points-per-tile 50                \
       --num-anchor-points-extra-lines 2000           \
       --anchor-weight 0.05                           \
       --mapproj-dem ref.tif                          \
+      --threads 20                                   \
       -o jitter_align_ref/run
 
 It is important to compare this with the bundle adjustment command 

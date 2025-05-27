@@ -17,6 +17,11 @@ parallel_sfs (:numref:`parallel_sfs`):
 
 parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
     * Bugfix for a crash when there are no interest point matches.
+
+bundle_adjust (:numref:`bundle_adjust`):
+    * For the option ``--mapprojected-data``, the DEM specified at the end is
+      optional, if it can be looked up from the geoheader of the mapprojected
+      images.
     
 point2dem (:numref:`point2dem`):
   * Added support for LAS COPC files (:numref:`point2dem_las`).

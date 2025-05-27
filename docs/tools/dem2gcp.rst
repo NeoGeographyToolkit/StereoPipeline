@@ -149,9 +149,9 @@ raw images.
 
 If there are more than two images, this should still work and can be applied
 pairwise. The match file also need not have dense matches. All that is assumed
-is that the images and cameras are consistent with the warped DEM. Then, all
-produced GCP files could be passed together with all images and cameras to
-``bundle_adjust``, as below.
+is that the images and cameras are consistent with the warped DEM, and there are
+plenty of interest point matches. Then, all produced GCP files could be passed together
+with all images and cameras to ``bundle_adjust``, as below.
 
 
 .. figure:: ../images/dem2gcp_ip_vs_gcp.png
@@ -164,24 +164,25 @@ Plotted in :numref:`dem2gcp_ip_vs_gcp` are the interest point matches and the
 resulting GCP. Their numbers are likely excessive here, though the bigger concern
 is if they are lacking over featureless terrain. 
 
-Solving for lens distortion
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Solving for extrinsics and intrinsics
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We employ the recipe from :numref:`heights_from_dem`, which mostly takes care
+We employ the recipe from :numref:`heights_from_dem`, that mostly takes care
 of the vertical component of disagreement between the ASP-produced and reference
-DEM, and augment it with GCP, that mostly take care of the horizontal component.
+DEMs. The added GCP mostly take care of the horizontal component.
 
 The most recent bundle-adjusted and aligned cameras can be converted to use the
 RPC lens distortion model (:numref:`rpc_distortion`) as in
 :numref:`convert_pinhole_model`. Or, the cameras can be used as is.
 
-The small RPC coefficients *must be changed manually to be at least 1e-7* in
-older builds, otherwise they will not get optimized. Here, RPC of degree 3 is
-used. A higher degree can be employed, either initially, or for subsequent
-iterations. In the latest builds this is done automatically by ``bundle_adjust``
-(option ``--min-distortion``).
+If solving for intrinsics and using RPC lens distortion, the small RPC
+coefficients *must be changed manually to be at least 1e-7* in older builds,
+otherwise they will not get optimized. Here, RPC of degree 3 is used. A higher
+degree can be employed, either initially, or for subsequent iterations. In the
+latest builds this is done automatically by ``bundle_adjust`` (option
+``--min-distortion``).
 
-Optimization of intrinsics with DEM and GCP constraints:: 
+The command when it is desired to refine the intrinsics as well::
 
     bundle_adjust                                 \
       left_image.tif right_image.tif              \
