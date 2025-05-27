@@ -2647,43 +2647,14 @@ int main(int argc, char* argv[]) {
                                    opt.camera_models,
                                    opt.horizontal_stddev_vec); // output
 
-    // TODO(oalexan1): This must be a function called setup_mapprojected_data()
-    // For when we make matches based on mapprojected images. Read mapprojected
-    // images and a DEM from either command line or a list.
+    bool need_no_matches = (opt.apply_initial_transform_only ||
+                            !opt.isis_cnet.empty()           || 
+                            !opt.nvm.empty());
+    
+    // Read mapprojected images if using --mapprojected-data 
     std::vector<std::string> map_files;
     std::string mapproj_dem;
-    bool need_no_matches = (opt.apply_initial_transform_only ||
-                            !opt.isis_cnet.empty() || !opt.nvm.empty());
-    if (!need_no_matches) {
-      if (!opt.mapprojected_data_list.empty()) {
-        asp::read_list(opt.mapprojected_data_list, map_files);
-        opt.mapprojected_data = "non-empty"; // put a token value, to make it non-empty
-      } else if (opt.mapprojected_data != "") {
-        std::istringstream is(opt.mapprojected_data);
-        std::string file;
-        while (is >> file)
-          map_files.push_back(file);
-      }
-      if (!opt.mapprojected_data.empty()) {
-        
-        // TODO(oalexan1): Allow here an empty mapprojected DEM, to be read
-        // later from individual images. This would however need changes
-        // in read_mapproj_header and other places.        
-        if (opt.image_files.size() + 1 != map_files.size())
-          vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
-            << "cameras and a DEM at the end of the mapprojected list.\n");
-        // Pull out the dem from the list. Could be empty.
-        mapproj_dem = map_files.back();
-        map_files.erase(map_files.end() - 1);
-      }
-    }
-    if (!opt.mapprojected_data.empty()) {
-      if (!opt.input_prefix.empty() || !opt.initial_transform_file.empty() ||
-          need_no_matches)
-        vw_throw(ArgumentErr()
-                 << "Cannot use mapprojected data with initial adjustments, "
-                 << "an initial transform, or ISIS cnet input.\n");
-    }
+    asp::setupMapprojectedData(opt, need_no_matches, map_files, mapproj_dem);
 
     // The stats need to be for the mapprojected image, if provided
     std::vector<std::string> files_for_stats = opt.image_files;

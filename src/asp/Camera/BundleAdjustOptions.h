@@ -79,6 +79,12 @@ struct BaOptions: public asp::BaBaseOptions {
   
 }; // End class BaOptions
 
+// Read the mapprojected data, if having the option --mapprojected-data.
+void setupMapprojectedData(asp::BaOptions & opt,
+                           bool need_no_matches,
+                           std::vector<std::string> & map_files,
+                           std::string & mapproj_dem);
+
 } // end namespace asp
 
 #endif // __ASP_TOOLS_BUNDLE_ADJUST_OPTIONS_H__

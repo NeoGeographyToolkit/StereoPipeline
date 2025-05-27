@@ -688,6 +688,9 @@ If these images become too many to set on the command line, use the
 options ``--image-list``, ``--camera-list``, ``--mapprojected-data-list``
 (:numref:`ba_options`).
 
+The DEM at the end of this option is optional in the latest builds, 
+if it can be looked up from the geoheader of the mapprojected images.
+
 Each mapprojected image stores in its metadata the name of the original
 image, the camera model, the bundle-adjust prefix, if any, and the DEM it
 was mapprojected onto. Hence, the above command will succeed even if invoked
