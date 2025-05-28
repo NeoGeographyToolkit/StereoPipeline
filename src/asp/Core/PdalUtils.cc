@@ -264,7 +264,7 @@ private:
   StreamProcessor(const StreamProcessor&&) = delete;
 };
 
-std::string StreamProcessor::getName() const { return "sample streamer"; }
+std::string StreamProcessor::getName() const { return "StreamProcessor"; }
 
 StreamProcessor::StreamProcessor() {}
 
@@ -736,7 +736,7 @@ std::int64_t load_las_aux(std::string const& file_name,
                              // Outputs
                              shift, data);
   pdal::Options proc_options;
-  proc_options.add("filename", file_name);
+  // proc_options.add("filename", file_name); // will be needed when upgrading PDAL
   las_proc.setOptions(proc_options);
   las_proc.setInput(*pdal_reader);
   las_proc.prepare(t);

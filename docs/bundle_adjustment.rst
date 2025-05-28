@@ -1552,16 +1552,23 @@ window. Save the final control network as *control_qnet.net* by clicking on
 Once the control network is finished, it is finally time to start bundle
 adjustment. Here's how ``jigsaw`` is called::
 
-     ISIS> jigsaw fromlist=cube.lis update=yes twist=no radius=yes \
-             cnet=control_qnet.net onet=control_ba.net
+     ISIS> jigsaw                                  \
+             fromlist           = cube.lis         \
+             update             = yes              \
+             twist              = no               \
+             radius             = yes              \
+             point_radius_sigma = 1000             \
+             cnet               = control_qnet.net \
+             onet               = control_ba.net
 
 The update option defines that we would like to update the camera pointing, if
-our bundle adjustment converges. The *twist=no* says to not solve for the camera
-rotation about the camera bore. That property is usually very well known as it
-is critical for integrating an image with a line-scan camera. The *radius=yes*
-means that the radius of the 3D features can be solved for. Using *radius=no*
-will force the points to use height values from another source, usually LOLA or
-MOLA.
+our bundle adjustment converges. The ``twist = no`` option says to not solve for
+the camera rotation about the camera bore. That property is usually very well
+known as it is critical for integrating an image with a line-scan camera. The
+``radius = yes`` setting means that the radius of the 3D features can be solved
+for. Using ``radius = no`` will force the points to use height values from
+another source, usually LOLA or MOLA. The ``point_radius_sigma`` option defines
+the uncertainty of the radius of the 3D points, in units of meter.
 
 The above command will print out diagnostic information from
 every iteration of the optimization algorithm. The most important

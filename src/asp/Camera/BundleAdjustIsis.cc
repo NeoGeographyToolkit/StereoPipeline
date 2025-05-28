@@ -156,8 +156,9 @@ void addIsisControlPoint(Isis::ControlNet & icnet,
     point->SetRejected(false);
   }
   
-  // The bundle_adjust convention is that a point is fixed if its sigma is 
-  // asp::FIXED_GCP_SIGMA. Otherwise it is constrained by sigma.
+  // The bundle_adjust convention is that a point is fixed if its sigma is
+  // asp::FIXED_GCP_SIGMA (a very tiny number). Otherwise it is variable but
+  // constrained by sigma.
   vw::Vector3 sigma = cnet[ipt].sigma(); // point sigma
   double s = asp::FIXED_GCP_SIGMA;
   if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint) {
