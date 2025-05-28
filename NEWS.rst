@@ -30,8 +30,8 @@ pc_align (:numref:`pc_align`):
   * Added support for LAS COPC files (:numref:`pc_align_las`).
   
 cam_gen (:numref:`cam_gen`):
-  * If the input is an ISIS cube and the output is a CSM camera, save
-    the ephemeris time, sun position, serial number, and target name.
+  * If the input is an ISIS cube and the output is a CSM camera, save the
+    ephemeris time, sun position, serial number, and target (planet) name.
       
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).

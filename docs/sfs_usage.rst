@@ -1525,8 +1525,10 @@ image exposures, and, if applicable, the initial haze values and albedo. See the
 option ``--estimate-exposure-haze-albedo`` in :numref:`sfs` for more details.
 
 Then the computed exposures (also haze and albedo, if applicable) are passed to
-each tile that is run in parallel. All these are further optimized per tile if
-``--float-exposure``, ``--float-haze``, and/or ``--float-albedo`` are used.
+each tile that is run in parallel, via ``--image-exposures-prefix`` (and, if
+applicable, ``--haze-prefix``, ``--input-albedo``). All these are further
+optimized per tile if ``--float-exposure``, ``--float-haze``, and/or
+``--float-albedo`` are used.
 
 The option ``--allow-borderline-data`` improves the level of detail
 close to permanently shadowed areas. See :numref:`sfs_borderline`.
