@@ -948,6 +948,14 @@ std::string CsmModel::model_state() const {
   state = cam.getModelName() + "\n" + j.dump(2);
   bool recreate_model = true;
   setModelFromStateString(state, recreate_model);
+  
+  // This is a temporary fix for the function replaceModelState()
+  // in UsgsAstroFrameSensorModel forgetting the target name.
+  // Pull request submitted.
+  UsgsAstroFrameSensorModel * frame_model
+    = dynamic_cast<UsgsAstroFrameSensorModel*>(m_gm_model.get());
+  if (frame_model != NULL && frame_model->m_targetName.empty())
+    frame_model->m_targetName = target_name;
 }
 
 // Create a CSM frame camera model from pinhole camera model.
