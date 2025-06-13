@@ -3,11 +3,11 @@
 sat_sim
 -------
 
-The ``sat_sim`` satellite simulator program models a satellite traveling around
-a planet and taking pictures. It can either create camera models (Pinhole or
-linescan), or read them from disk. In either case it creates synthetic images
-for the given cameras. This tool can model camera jitter, a rig, and recording
-acquisition time.
+The ``sat_sim`` program simulates a satellite traveling around a planet and
+taking pictures. It can either create camera models (Pinhole or linescan), or
+read them from disk. In either case it creates synthetic images for the given
+cameras. This tool can model camera jitter, a rig, and recording acquisition
+time.
 
 The inputs are a DEM and georeferenced image (ortho image) of the area of
 interest. See :numref:`sat_sim_dem` for how to create such inputs.

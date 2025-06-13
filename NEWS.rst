@@ -7,6 +7,7 @@ camera_solve (:numref:`camera_solve`):
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Added an example for JunoCam images (:numref:`junocam`).
+  * Added examples for the Chandrayaan-2 lunar orbiter (:numref:`chandrayaan2`).
   * Left and right alignment matrices are now saved in plain text format. Older
     .exr files are still read. Support for them will be removed in the next
     release (:numref:`outputfiles`).
@@ -223,7 +224,8 @@ dem_mosaic (:numref:`dem_mosaic`):
   * Can handle DEMs with NaN values.
 
 dem_geoid (:numref:`dem_geoid`):
-  * Accept a custom geoid correction via ``--geoid-path``.
+  * Accept a custom geoid correction via ``--geoid-path``. Added support for a
+    Moon geoid.
 
 orbit_plot (:numref:`orbit_plot`):
   * Added the options ``--use-rmse``, ``--output-file``.

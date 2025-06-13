@@ -382,7 +382,7 @@ bool weightedRollYawError::operator()(double const * const * parameters,
     // yaw from it. This is experimental.
     vw::Matrix3x3 cam2cam =  vw::math::inverse(cam2world) * m_initCam2World;
 
-    double roll, pitch, yaw;
+    double roll = 0.0, pitch = 0.0, yaw = 0.0;
     rollPitchYawFromRotationMatrix(cam2cam, roll, pitch, yaw);
 
     // Fix for roll / yaw being determined with +/- 180 degree ambiguity.
@@ -403,7 +403,7 @@ bool weightedRollYawError::operator()(double const * const * parameters,
   vw::Matrix3x3 rollPitchYaw  
     = vw::math::inverse(m_sat2World) * cam2world * vw::math::inverse(m_rotXY);
 
-  double roll, pitch, yaw;
+  double roll = 0.0, pitch = 0.0, yaw = 0.0;
   rollPitchYawFromRotationMatrix(rollPitchYaw, roll, pitch, yaw);
 
   // Fix for roll / yaw being determined with +/- 180 degree ambiguity.

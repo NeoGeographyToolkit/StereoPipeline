@@ -1651,6 +1651,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Cast this to float. All our nodata are float.
   opt.nodata_threshold = float(opt.nodata_threshold);
 
+  if (!boost::math::isnan(opt.nodata_threshold) && noblend)
+    vw::vw_throw(vw::ArgumentErr() 
+      << "The option --nodata-threshold cannot be used together with "
+      << "some other invoked options.\n");  
+
   // Parse the list of tiles to save. First replace commas and semicolons by a space.
   std::replace(opt.tile_list_str.begin(), opt.tile_list_str.end(), ',', ' ');
   std::replace(opt.tile_list_str.begin(), opt.tile_list_str.end(), ';', ' ');

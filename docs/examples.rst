@@ -20,12 +20,14 @@ rig), and :numref:`rig_examples` (using a rig and robot images).
    examples/mer
    examples/k10
    examples/lronac
+   examples/change3
    examples/apollo15
    examples/hrsc
    examples/cassini
    examples/csm
    examples/dawn
    examples/kaguya
+   examples/chandrayaan2
    examples/junocam
    examples/isis_minirf
    examples/pbs_slurm
@@ -37,7 +39,6 @@ rig), and :numref:`rig_examples` (using a rig and robot images).
    examples/spot5
    examples/skysat
    examples/historical
-   examples/change3
    examples/bathy
    examples/umbra_sar
 

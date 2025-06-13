@@ -127,6 +127,8 @@ It is strongly suggested to convert the cameras to CSM
 (:numref:`csm_linescan`). This makes mapprojection faster, 
 and also can help solve for jitter (:numref:`jitter_solve`).
 
+.. _lronac_align:
+
 Validation and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
