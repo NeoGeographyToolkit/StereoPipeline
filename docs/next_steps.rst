@@ -1608,16 +1608,15 @@ Multi-view stereo
 ASP supports multi-view stereo at the triangulation stage. This mode is
 *discouraged*. 
 
-Better quality results are found by doing pairwise stereo and merging the
-results (:numref:`sfm_multiview`).
+See instead :numref:`sfm_multiview` for an approach based on pairwise stereo.
 
-In the multiview scenario, the first image is set as reference,
-disparities are computed from it to all the other images, and then joint
-triangulation is performed :cite:`slabaugh2001optimal`. A
-single point cloud is generated with one 3D point for each pixel in the
-first image. The inputs to multi-view stereo and its output point cloud
-are handled in the same way as for two-view stereo (e.g., inputs can be
-mapprojected, the output can be converted to a DEM, etc.).
+If using this multiview stereo mode (not suggested), the first image is set as
+reference, disparities are computed from it to all the other images, and then
+joint triangulation is performed :cite:`slabaugh2001optimal`. A single point
+cloud is generated with one 3D point for each pixel in the first image. The
+inputs to multi-view stereo and its output point cloud are handled in the same
+way as for two-view stereo (e.g., inputs can be mapprojected, the output can be
+converted to a DEM, etc.).
 
 It is suggested that images be bundle-adjusted (:numref:`baasp`)
 before running multi-view stereo.
