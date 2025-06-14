@@ -591,9 +591,19 @@ hillshaded.
 Once the match file is saved to disk, it can be passed to ``pc_align`` via the
 ``--match-file`` option, which will compute an initial transform (whose type is
 set with ``--initial-transform-from-hillshading``), before continuing with
-alignment. This transform can also be used for non-DEM clouds once it is found
-using DEMs obtained from those clouds. Note that both a rigid and similarity
-transform is supported, both for the initial transform and for the alignment.
+alignment. Example::
+
+    pc_align ref-DEM.tif src-DEM.tif             \
+     --max-displacement 500                      \
+     --initial-transform-ransac-params 1000 100  \
+     --initial-transform-from-hillshading rigid  \
+     --match-file run/run-ref-DEM__src-DEM.match \
+     -o run/run
+
+This transform can also be used for non-DEM clouds once it is found using DEMs
+obtained from those clouds (:numref:`prevtrans`). Note that both a rigid and
+similarity transform is supported, both for the initial transform and for the
+alignment. A rigid transform is usually enough.
 
 .. _regrid:
 

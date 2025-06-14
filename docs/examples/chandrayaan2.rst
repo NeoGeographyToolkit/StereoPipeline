@@ -36,9 +36,9 @@ for displaying the image footprints. Then, choose the instrument (OHRC or
 TMC-2), data type (calibrated is suggested, but raw may do), and the area of
 interest. 
 
-We selected the region of interest to be 20 to 21 degrees in longitude (East),
-and -70 to -67 degrees in latitude (so, South). The OHRC stereo pair we
-downloaded consisted of images with prefixes::
+We selected the region of interest to be 20 to 21 degrees in longitude, and -70
+to -67 degrees in latitude. The OHRC stereo pair we downloaded consisted of
+images with prefixes::
 
 	ch2_ohr_nrp_20200827T0030107497_d_img_d18
 	ch2_ohr_nrp_20200827T0226453039_d_img_d18
@@ -111,7 +111,7 @@ command, such as::
       sample   = 1                  \
       line     = 1                  \
       nsamples = 12000              \
-      nlines   = 20000
+      nlines   = 50000
 
 It is very important to ensure that the upper-left pixel (1, 1) is part of the
 crop region, as otherwise the resulting images will be inconsistent with the CSM
@@ -126,7 +126,7 @@ We found that these images have notable pointing error, so bundle adjustment
     bundle_adjust                           \
       ohrc/img1_crop.cub ohrc/img2_crop.cub \
       ohrc/img1.json ohrc/img2.json         \
-      --ip-per-image 20000                  \
+      --ip-per-image 30000                  \
       -o ba/run
 
 This stereo pair was seen to have a decent convergence angle of 25 degrees
@@ -166,10 +166,43 @@ projection.
 
 .. figure:: ../images/chandrayaan2_ohrc_dem_ortho_err.png
 
-  From left to right: Produced OHRC DEM (range of heights is 370 to 560 meters),
-  orthoimage, and triangulation error image (blue = 0 m, red = 0.25 m). This
-  looks reasonable enough. There is notable jitter (:numref:`jitter_solve`),
-  whose magnitude is about 0.25 m, which is the image GSD, so not too bad. Some
+  From left to right: Produced OHRC DEM (range of heights is 304 to 650 meters),
+  orthoimage, and triangulation error image (blue = 0 m, red = 0.5 m). There is
+  notable jitter, whose magnitude is on the order of image GSD (0.25 m), which
+  is kind of high, but which could be corrected (:numref:`jitter_solve`). Some
   unmodeled lens distortion also seems evident, which could be solved for
   (:numref:`kaguya_ba`). 
 
+Alignment
+^^^^^^^^^
+
+`LOLA <https://ode.rsl.wustl.edu/moon/lrololadataPointSearch.aspx>`_ 
+provides definitive global reference coordinate system for the Moon.
+
+The produced OHRC DEM turned out to be shifted relative to LOLA by about 4 km
+along the satellite track, which resulted in failure to align with ``pc_align``
+(:numref:`pc_align`).
+
+Manual alignment was first performed (:numref:`manual-align`). The inputs were
+the produced DEM and a LOLA point cloud, after gridding both with a 10 m grid size
+and the same projection with ``point2dem``, and manually picking a few
+visually similar features. That brought the cloud notably closer, and the output
+transform from that alignment was used for aligning the full clouds as::
+
+    pc_align                                  \
+      --max-displacement 250                  \
+      --initial-transform init-transform.txt  \
+      --csv-format 2:lon,3:lat,4:radius_km    \
+      --save-inv-transformed-reference-points \
+      stereo/run-DEM.tif lola/lola.csv        \
+      -o stereo/run-align 
+
+.. figure:: ../images/chandrayaan2_ohrc_lola.png
+
+  The difference between the aligned OHRC DEM and LOLA point cloud. Blue: -5 m,
+  red = 5 m. Given that the DEM, in principle, should have a vertical
+  uncertainty of under 1 m, this could be better, but at least one is in the
+  ballpark.
+
+A terrain model created with the lower-resolution TMC-2 images would likely be
+easier to align to LOLA, is it would have a much bigger extent. 
