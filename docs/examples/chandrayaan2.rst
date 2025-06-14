@@ -5,40 +5,40 @@ Chandrayaan-2 lunar orbiter
 
 The examples here show how to create 3D terrain models with `Chandrayaan-2 lunar
 orbiter <https://en.wikipedia.org/wiki/Chandrayaan-2>`_ data. We will work with
-its *Orbiter High Resolution Camera* (OHRC). *A Terrain Mapping Camera-2* (TMC-2)
+the *Orbiter High Resolution Camera* (OHRC). A *Terrain Mapping Camera-2* (TMC-2)
 example will be added at a later time.
 
 For the moment, this exercise expects `ISIS <https://github.com/DOI-USGS/ISIS3>`_
 and `ALE <https://github.com/DOI-USGS/ale>`_ to be compiled and installed from
 source (to separate locations), and that SPICE kernels be downloaded from the `ISRO
 Science Data Archive
-<https://pradan.issdc.gov.in/ch2/protected/browse.xhtml?id=spice>`_. The very
+<https://pradan.issdc.gov.in/ch2/protected/browse.xhtml?id=spice>`_. The 
 latest build of ASP (:numref:`release`) is also required.
 
-All these are temporary and onerous requirements that will be removed in the
-near future.
+All these are temporary requirements that will be removed in the near future.
 
 Orbiter High Resolution Camera
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The OHRC instrument is a high-resolution camera with a 0.25 m ground sample distance.
-It can adjust its look angle and acquire stereo pairs (:numref:`stereo_pairs`).
+The OHRC instrument is a high-resolution camera with a 0.25 m ground sample
+distance (GSD). It can adjust its look angle and acquire stereo pairs
+(:numref:`stereo_pairs`).
 
 Fetching the data
 ^^^^^^^^^^^^^^^^^
 
 Raw and calibrated images for OHRC and TMC-2 cameras, as well as orthoimages and
-DEMs produced from TMC-2 camera data, can be downloaded from 
-`ISRO <https://chmapbrowse.issdc.gov.in/>`_.
+Digital Elevation Models (DEMs) produced from TMC-2 camera data, can be
+downloaded from `ISRO <https://chmapbrowse.issdc.gov.in/>`_.
 
-The first step when using that interface is selecting the appropriate projection
+The first step when using that portal is selecting the appropriate projection
 for displaying the image footprints. Then, choose the instrument (OHRC or
 TMC-2), data type (calibrated is suggested, but raw may do), and the area of
 interest. 
 
-We selected the region of interest to be 20 to 21 degrees in longitude, and -70
-to -67 degrees in latitude. The OHRC stereo pair we downloaded consisted of
-images with prefixes::
+We selected the region of interest to be between 20 and 21 degrees in longitude,
+and -70 to -67 degrees in latitude. The OHRC stereo pair we downloaded consisted
+of images with the prefixes::
 
 	ch2_ohr_nrp_20200827T0030107497_d_img_d18
 	ch2_ohr_nrp_20200827T0226453039_d_img_d18
@@ -52,7 +52,7 @@ These are at lower resolution but useful for context.
 
 .. figure:: ../images/chandrayaan2_ohrc_tmc.png
 
-  From left to right: The first and second OHRC image, and their approximate
+  From left to right: The first and second OHRC images, and their approximate
   extent in the (many times larger) TMC-2 ortho image. Note that the illumination
   in the TMC-2 ortho image is very different.
   
@@ -65,7 +65,6 @@ a PDS-4 label. It will be convenient to rename these to ``ohrc/img1.img`` and
 one.
 
 The `isisimport <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/isisimport/isisimport.html>`_ command converts the raw image to a .cub file::
-
     
     isisimport                 \
       from     = ohrc/img1.xml \
@@ -81,8 +80,8 @@ Then, the SPICE kernels are attached with `spiceinit <https://isis.astrogeology.
 
     spiceinit from = ohrc/img1.cub
 
-This expects the SPICE kernels for Chandrayaan-2 to exist locally (download link
-is above). For more information on ISIS data, see :numref:`planetary_images` and the
+This expects the SPICE kernels for Chandrayaan-2 to exist locally (see the download link
+above). For more information on ISIS data, see :numref:`planetary_images` and the
 links from there. 
 
 Next, the CSM cameras are created (:numref:`csm`). This makes use of the `isd_generate <https://astrogeology.usgs.gov/docs/getting-started/using-ale/isd-generate/>`_ program installed with the latest ALE (link above). The command is::
@@ -161,7 +160,7 @@ A DEM, orthoimage, and triangulation error image are made with ``point2dem``
       --orthoimage      \
       stereo/run-L.tif 
       
-In a recent version of ASP these will have by default a local stereographic
+In a recent version of ASP these will, by default, have a local stereographic
 projection.
 
 .. figure:: ../images/chandrayaan2_ohrc_dem_ortho_err.png
@@ -169,22 +168,23 @@ projection.
   From left to right: Produced OHRC DEM (range of heights is 304 to 650 meters),
   orthoimage, and triangulation error image (blue = 0 m, red = 0.5 m). There is
   notable jitter, whose magnitude is on the order of image GSD (0.25 m), which
-  is kind of high, but which could be corrected (:numref:`jitter_solve`). Some
+  is rather high, but which could be corrected (:numref:`jitter_solve`). Some
   unmodeled lens distortion also seems evident, which could be solved for
   (:numref:`kaguya_ba`). 
 
 Alignment
 ^^^^^^^^^
 
-`LOLA <https://ode.rsl.wustl.edu/moon/lrololadataPointSearch.aspx>`_ 
-provides definitive global reference coordinate system for the Moon.
+We will align the produced OHRC DEM to `LOLA
+<https://ode.rsl.wustl.edu/moon/lrololadataPointSearch.aspx>`_, which is the
+usual global reference coordinate system for the Moon.
 
-The produced OHRC DEM turned out to be shifted relative to LOLA by about 4 km
-along the satellite track, which resulted in failure to align with ``pc_align``
+The OHRC DEM turned out to be shifted relative to LOLA by about 4 km along the
+satellite track, which resulted in failure to align with ``pc_align``
 (:numref:`pc_align`).
 
 Manual alignment was first performed (:numref:`manual-align`). The inputs were
-the produced DEM and a LOLA point cloud, after gridding both with a 10 m grid size
+the OHRC DEM and a LOLA point cloud, after gridding both with a 10 m grid size
 and the same projection with ``point2dem``, and manually picking a few
 visually similar features. That brought the cloud notably closer, and the output
 transform from that alignment was used for aligning the full clouds as::
@@ -205,4 +205,4 @@ transform from that alignment was used for aligning the full clouds as::
   ballpark.
 
 A terrain model created with the lower-resolution TMC-2 images would likely be
-easier to align to LOLA, is it would have a much bigger extent. 
+easier to align to LOLA, as it would have a much bigger extent. 

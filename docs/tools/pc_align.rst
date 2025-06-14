@@ -605,6 +605,9 @@ obtained from those clouds (:numref:`prevtrans`). Note that both a rigid and
 similarity transform is supported, both for the initial transform and for the
 alignment. A rigid transform is usually enough.
 
+Here the second value of ``--initial-transform-ransac-params`` was set rather
+high, to not remove any matches as outliers.
+
 .. _regrid:
 
 Regrid a DEM
