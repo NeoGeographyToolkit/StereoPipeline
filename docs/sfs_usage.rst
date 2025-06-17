@@ -1806,6 +1806,9 @@ can be estimated as::
    parallel_sfs --estimate-height-errors -i sfs_dem.tif \
     -o sfs_error/run <other options as above>
 
+Hence, this invokes ``parallel_sfs`` as in :numref:`parallel_sfs_usage`, but
+with the produced SfS DEM as the input DEM, and a new output directory.
+
 See :numref:`sfs` describing how the estimation is implemented. This
 uncertainty may be somewhat optimistic (:cite:`jindal2024measuring_v2`).
 
