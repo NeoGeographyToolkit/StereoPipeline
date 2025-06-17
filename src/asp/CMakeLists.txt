@@ -227,7 +227,8 @@ find_external_library(ARMADILLO ${ASP_DEPS_DIR} "" "armadillo" REQUIRED)
 # For now, this is needed only for Linux. When upgrading ISIS on the Mac,
 # it will be needed also.
 if (LINUX)
-  find_external_library(FMT ${ASP_DEPS_DIR} "" "fmt" REQUIRED)
+find_external_library(FMT ${ASP_DEPS_DIR} "" "fmt" REQUIRED)
+find_external_library(SPICEQL ${ASP_DEPS_DIR} "" "SpiceQL" REQUIRED)
 endif()
 
 if (USE_ISIS)
@@ -328,9 +329,9 @@ if (USE_OPENEXR)
   list(APPEND ASP_3RD_PARTY_LIBS ${OPENEXR_LIBRARIES} ${ILMBASE_LIBRARIES})
 endif()
 
-# For linux, append fmt. Eventually will use for Mac too.
+# For Linux, append these two. Eventually will use for Mac too.
 if (LINUX)
-  list(APPEND ASP_3RD_PARTY_LIBS ${FMT_LIBRARIES})
+  list(APPEND ASP_3RD_PARTY_LIBS ${FMT_LIBRARIES} ${SPICEQL_LIBRARIES})
 endif()
 
 # These are needed for rig_calibrator
