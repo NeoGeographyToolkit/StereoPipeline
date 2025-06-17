@@ -224,6 +224,12 @@ find_external_library(GFLAGS ${ASP_DEPS_DIR} "gflags" "gflags" REQUIRED)
 find_external_library(GLOG ${ASP_DEPS_DIR} "glog" "glog" REQUIRED)
 find_external_library(ARMADILLO ${ASP_DEPS_DIR} "" "armadillo" REQUIRED)
 
+# For now, this is needed only for Linux. When upgrading ISIS on the Mac,
+# it will be needed also.
+if (LINUX)
+  find_external_library(FMT ${ASP_DEPS_DIR} "" "fmt" REQUIRED)
+endif()
+
 if (USE_ISIS)
   find_external_library(ISIS ${ASP_DEPS_DIR} "isis" "isis" REQUIRED)
   
@@ -316,9 +322,15 @@ set(ASP_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES}
     ${PROJ_LIBRARIES} ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} 
     ${PNG_LIBRARIES} ${FLANN_LIBRARIES} ${LZ4_LIBRARIES}
     Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} 
-    ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES} ${PCL_LIBRARIES} ${TBB_LIBRARIES})
+    ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES} ${PCL_LIBRARIES} ${TBB_LIBRARIES}
+    ${SPICE_LIBRARIES})
 if (USE_OPENEXR)
   list(APPEND ASP_3RD_PARTY_LIBS ${OPENEXR_LIBRARIES} ${ILMBASE_LIBRARIES})
+endif()
+
+# For linux, append fmt. Eventually will use for Mac too.
+if (LINUX)
+  list(APPEND ASP_3RD_PARTY_LIBS ${FMT_LIBRARIES})
 endif()
 
 # These are needed for rig_calibrator
