@@ -468,6 +468,7 @@ cmake ${CMAKE_ARGS}                                      \
 # This will be removed from ASP
 # Build from source, to ensure the proper version of ilmbase is used
 wget https://github.com/AcademySoftwareFoundation/openexr/archive/v2.5.5.tar.gz
+tar xzfv v2.5.5.tar.gz
 cd openexr-2.5.5
 mkdir -p build && cd build
 conda activate isis_dev
@@ -478,14 +479,15 @@ if [ ! -d "$PREFIX" ]; then
 fi
 $PREFIX/bin/cmake ..                            \
   -DCMAKE_BUILD_TYPE=Release                    \
-   -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp    \
-   -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp \
+  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp     \
+  -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp  \
   -DCMAKE_PREFIX_PATH=$PREFIX                   \
   -DCMAKE_VERBOSE_MAKEFILE=ON                   \
   -DCMAKE_CXX_FLAGS='-O3 -std=c++11 -w'         \
   -DCMAKE_C_FLAGS='-O3 -w'                      \
   -DCMAKE_INSTALL_PREFIX=${PREFIX}              \
   -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
+make -j${CPU_COUNT} install
 
 # Build theia
 cd ~/work/StereoPipeline

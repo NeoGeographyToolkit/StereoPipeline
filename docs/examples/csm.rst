@@ -70,9 +70,11 @@ Fetch the data from PDS then extract it::
 
 For simplicity of notation, we will rename these to ``left.IMG`` and ``right.IMG``.
 
-Set up the ISIS environment. These will need adjusting for your system::
+Set up the ISIS environment (:numref:`planetary_images`). 
 
-    export ISISROOT=$HOME/miniconda3/envs/isis6
+These will need adjusting for your system::
+
+    export ISISROOT=$HOME/miniconda3/envs/isis
     export PATH=$ISISROOT/bin:$PATH
     export ISISDATA=$HOME/isisdata
 
@@ -92,57 +94,19 @@ ISIS.
 Creation of CSM Frame camera files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Some care is needed here, as the recipe provided below has some subtle
-differences with the ones used later for linescan and SAR camera
-models (:numref:`create_csm_linescan` and :numref:`create_csm_sar`).
+Set::
 
-Create a conda environment for the ``ale`` package::
+    export ALESPICEROOT=$ISISDATA
 
-    conda create -c conda-forge -n ale_env python=3.6 ale  
-    conda activate ale_env
+Run::
 
-(other versions of Python may result in a runtime error later). 
-
-Create a Python script named ``gen_csm_frame.py``::
-
-    #!/usr/bin/python
-    
-    import os, sys
-    import json
-    import ale
-    
-    prefix = sys.argv[1]
-    
-    if prefix.lower().endswith(".cub") or prefix.lower().endswith(".img") \
-        or prefix.lower().endswith(".lbl"):
-        # Wipe extension
-        prefix = os.path.splitext(prefix)[0]
-    
-    print("Prefix is: " + prefix)
-    
-    cub_file = prefix + '.cub'
-    img_file = prefix + '.IMG'
-    
-    kernels = ale.util.generate_kernels_from_cube(cub_file, expand = True)
-    
-    usgscsm_str = ale.loads(img_file, props={'kernels': kernels},
-                            formatter='ale', verbose = False)
-    
-    csm_isd = prefix + '.json'
-    print("Writing: " + csm_isd)
-    with open(csm_isd, 'w') as isd_file:
-        isd_file.write(usgscsm_str)
-
-Assuming that conda installed this environment in the default location,
-run::
-
-    $HOME/miniconda3/envs/ale_env/bin/python gen_csm_frame.py left.IMG
-    $HOME/miniconda3/envs/ale_env/bin/python gen_csm_frame.py right.IMG
+    isd_generate -k left.cub left.cub
+    isd_generate -k right.cub right.cub
 
 This will create ``left.json`` and ``right.json``.
 
-As a sanity check, run ``cam_test`` to see how well the CSM camera
-approximates the ISIS camera::
+As a sanity check, run ``cam_test`` (:numref:`cam_test`) to see how well the CSM
+camera approximates the ISIS camera::
 
     cam_test --image left.cub  --cam1 left.cub  --cam2 left.json
     cam_test --image right.cub --cam1 right.cub --cam2 right.json
@@ -215,13 +179,12 @@ Run the ISIS ``spiceinit`` command on the .cub files as::
 
 To create CSM cameras, run::
 
-    $ISISROOT/bin/isd_generate left.cub
-    $ISISROOT/bin/isd_generate right.cub
+    isd_generate left.cub
+    isd_generate right.cub
     
 This will produce ``left.json`` and ``right.json``.
 
-This command assumes that the ALE package is installed. See the `isd_generate
-manual
+See the `isd_generate manual
 <https://astrogeology.usgs.gov/docs/getting-started/using-ale/isd-generate/>`_.
 
 Running stereo
@@ -406,55 +369,20 @@ at framelet borders, as can be seen further down.
 Creation of CSM WAC cameras
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-CSM is a standard for describing camera models (:numref:`csm`).
+Set::
 
-The support in ISIS and ASP for pushframe sensors in CSM format is a work in
-progress. For the time being one should fetch the latest ALE and its conda
-environment from GitHub, at:
+    export ALESPICEROOT=$ISISDATA
 
-    https://github.com/USGS-Astrogeology/ale
+Run::
 
-then create a script named ``gen_csm_wac.py``::
+    isd_generate -k image.vis.even.cal.cub image.vis.even.cal.cub
+    isd_generate -k image.vis.odd.cal.cub  image.vis.odd.cal.cub
 
-    #!/usr/bin/python
+These will create ``image.vis.even.cal.json`` and ``image.vis.odd.cal.json``.
 
-    import os, sys
-    import json
-    import ale
-
-    prefix = sys.argv[1]
-
-    if prefix.endswith(".cub") or prefix.lower().endswith(".img") \
-      or prefix.endswith(".lbl"):
-      prefix = os.path.splitext(prefix)[0]
-
-    cub_file = prefix + '.cub'
-
-    print("Loading cub file: " + cub_file)
-
-    kernels = ale.util.generate_kernels_from_cube(cub_file, expand = True)
-
-    usgscsm_str = ale.loads(cub_file, formatter = "ale", \
-                        props={"kernels": kernels},
-                        verbose = True)
-
-    csm_isd = prefix + '.json'
-    print("Saving: " + csm_isd)
-    with open(csm_isd, 'w') as isd_file:
-      isd_file.write(usgscsm_str)
-  
-Invoke it with either the ``even`` or ``odd`` .cub file as an argument. For
-example::
-
-    $HOME/miniconda3/envs/ale_env/bin/python gen_csm_wac.py \
-      image.vis.even.cal.cub
-
-Do not use the stitched .cub file as that one lacks camera information.
-The obtained .json files can be renamed to follow the same
-convention as the stitched .cub images.
-
-At some point when a new version of ISIS is released (version > 6),
-it may have a tool for creation of CSM camera models.
+Do not use the stitched .cub file as that one lacks camera information. The
+obtained .json files can be renamed to follow the same convention as the
+stitched .cub images.
 
 Running stereo
 ^^^^^^^^^^^^^^
@@ -601,12 +529,8 @@ Fetch the data from PDS::
 These will be renamed to ``left.img``, ``right.img``, etc., to simply
 the processing.
 
-Create .cub files::
+Set, per :numref:`planetary_images`, values for ``ISISROOT`` and ``ISISDATA``. Run::
 
-    export ISISROOT=$HOME/miniconda3/envs/isis6
-    export PATH=$ISISROOT/bin:$PATH
-    export ISISDATA=$HOME/isis3data
-   
     mrf2isis from = left.lbl  to = left.cub
     mrf2isis from = right.lbl to = right.cub
 
@@ -621,54 +545,16 @@ to do image-to-ground computations::
 Creation of CSM SAR cameras
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Fetch the latest ``ale`` from GitHub:
+Set::
+  
+    export ALESPICEROOT=$ISISDATA
 
-    https://github.com/USGS-Astrogeology/ale
+Run ``isd_generate``::
 
-or something newer than version 0.8.7 on conda-forge, which lacks
-certain functionality for SAR. Below we assume a very recent version
-of USGS CSM, as shipped with ASP. Version 1.5.2 of this package on
-conda-forge is too old for the following to work.
-
-Create a script called ``gen_csm_sar.py``. (Note that this script
-differs somewhat for analogous scripts earlier in the text, at
-:numref:`create_csm_dawn` and :numref:`create_csm_linescan`.)
-
-::
-
-    #!/usr/bin/python
-    
-    import os, sys
-    import json
-    import ale
-    
-    prefix = sys.argv[1]
-    
-    if prefix.lower().endswith(".cub") or prefix.lower().endswith(".img") \
-      or prefix.lower().endswith(".lbl"):
-      # Remove extension
-      prefix = os.path.splitext(prefix)[0]
-    
-    cub_file = prefix + '.cub'
-    print("Loading cub file: " + cub_file)
-    
-    kernels = ale.util.generate_kernels_from_cube(cub_file, expand = True)
-    usgscsm_str = ale.loads(cub_file, formatter = "ale", \
-      props={"kernels": kernels}, verbose = False)
-    
-    csm_isd = prefix + '.json'
-    print("Saving: " + csm_isd)
-    with open(csm_isd, 'w') as isd_file:
-      isd_file.write(usgscsm_str)
-    
-Run it as::
-
-   $HOME/miniconda3/envs/ale_env/bin/python gen_csm_sar.py left.cub
-   $HOME/miniconda3/envs/ale_env/bin/python gen_csm_sar.py right.cub
-
-The above paths will need adjusting for your system. The path to
-Python should be such that the recently installed ``ale`` is picked
-up.
+    isd_generate -k left.cub  left.cub
+    isd_generate -k right.cub right.cub
+          
+This will create the CSM camera file ``left.json`` and ``right.json``.
 
 Run ``cam_test`` (:numref:`cam_test`) as a sanity check::
 
@@ -764,53 +650,20 @@ datasets for SOL 603 were verified to work as well.
 The dataset used in this example (having .LBL, .cub, and .json files) is
 available `for download
 <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/MSL_CSM>`_.
-It is suggested to recreate the .json files in that dataset in view of the
-recent updates to ALE.
+It is suggested to recreate the .json files in that dataset as done below.
 
 Download the SPICE data
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-The .LBL metadata files from PDS do not have the SPICE data that is needed to find the position and orientation of the MSL rover on Mars. For that, need to fetch the SPICE kernels from the USGS ISIS server. 
-
-Get a recent version of ``rclone.conf`` for ISIS::
-  
-    wget https://raw.githubusercontent.com/USGS-Astrogeology/ISIS3/dev/isis/config/rclone.conf \ 
-    -O rclone.conf 
-
-Set the ISIS data environmental variable and download the kernels (adjust the path below)::
-
-    export ISISDATA=/path/to/isisdata
-    mkdir -p $ISISDATA
-    downloadIsisData msl $ISISDATA --config rclone.conf
-
-The ``downloadIsisData`` script is shipped with ISIS (:numref:`planetary_images`).
-
-Set up ALE
-^^^^^^^^^^
-
-The functionality for creating CSM camera models is available in the ALE
-package. For the time being, handling the MSL cameras requires fetching the latest
-code from GitHub::
-
-    git clone git@github.com:DOI-USGS/ale.git
-
-Also create a supporting conda environment::
-
-    cd ale
-    conda env create -n ale -f environment.yml
-
-See :numref:`conda_intro` for how to install ``conda``.
-
-Make sure Python can find the needed routines (adjust the path below)::
-
-    export PYTHONPATH=/path/to/ale
+Fetch the SPICE kernels for MSL (see :numref:`planetary_images` and the links
+from there).
 
 .. _csm_msl_create:
 
 Creation of CSM MSL cameras
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-ALE expects the following variable to be set::
+Set::
 
     export ALESPICEROOT=$ISISDATA
 
@@ -821,40 +674,25 @@ A full-resolution MSL left ``Nav`` image uses the naming convention::
 with the right image starting instead with ``NRB``. The metadata files
 downloaded from PDS end with ``.LBL``.
 
-Create a Python script called ``gen_csm_msl.py`` with the following code::
+A bug in the shipped metakernels requires editing the file::
 
-    #!/usr/bin/python
+    $ISISDATA/msl/kernels/mk/msl_v01.tm
+    
+and replacing::
 
-    import os, sys, json, ale
+    /usgs/cpkgs/isis3/data
 
-    labelFile = sys.argv[1]
-    prefix = os.path.splitext(labelFile)[0]
-    usgscsm_str = ale.loads(labelFile, formatter = "ale",
-                            verbose = True)
+with your value of $ISISDATA. Ensure that the resulting path still ends with
+``/msl/kernels``.
+    
+A CSM camera file can be created by running::
 
-    csm_isd = prefix + '.json'
-    print("Saving: " + csm_isd)
-    with open(csm_isd, 'w') as isd_file:
-      isd_file.write(usgscsm_str)
+    isd_generate image.LBL 
 
-A CSM camera file can be created by running this script as::
+This will produce the file ``image.json``. 
 
-    $HOME/miniconda3/envs/ale_env/bin/python gen_csm_msl.py image.LBL 
-
-This will produce the file ``image.json``. We called the Python program from the
-newly created conda environment.
-
-One may get an error saying::
-
-    The first file 
-    '/usgs/cpkgs/isis3/data/msl/kernels/lsk/naif0012.tls' 
-    specified by KERNELS_TO_LOAD in the file 
-    /path/to/isisdata/msl/kernels/mk/msl_v01.tm 
-    could not be located.
-  
-That is due to a bug in the ISIS data. Edit that .tls file and specify the
-correct location of ``msl_v01.tm`` in your ISIS data directory. Once things are
-working, the ``verbose`` flag can be set to ``False`` in the above script.
+If running into issues, invoke this command with the ``-v`` option to see where
+it fails.
 
 Simple stereo example
 ^^^^^^^^^^^^^^^^^^^^^

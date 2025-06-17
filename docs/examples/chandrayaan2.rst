@@ -8,14 +8,14 @@ orbiter <https://en.wikipedia.org/wiki/Chandrayaan-2>`_ data. We will work with
 the *Orbiter High Resolution Camera* (OHRC). A *Terrain Mapping Camera-2* (TMC-2)
 example will be added at a later time.
 
-For the moment, this exercise expects `ISIS <https://github.com/DOI-USGS/ISIS3>`_
-and `ALE <https://github.com/DOI-USGS/ale>`_ to be compiled and installed from
-source (to separate locations), and that SPICE kernels be downloaded from the `ISRO
-Science Data Archive
-<https://pradan.issdc.gov.in/ch2/protected/browse.xhtml?id=spice>`_. The 
-latest build of ASP (:numref:`release`) is also required.
-
-All these are temporary requirements that will be removed in the near future.
+For the moment, this exercise works only with the latest build of ASP
+(:numref:`release`) on Linux. It requires that `ISIS
+<https://github.com/DOI-USGS/ISIS3>`_ and `ALE
+<https://github.com/DOI-USGS/ale>`_ are compiled and installed from source (to
+separate locations), and that SPICE kernels be downloaded from the `ISRO Science
+Data Archive
+<https://pradan.issdc.gov.in/ch2/protected/browse.xhtml?id=spice>`_. All these
+are temporary requirements that will be removed in the near future.
 
 Orbiter High Resolution Camera
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
