@@ -1843,8 +1843,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("estimate-slope-errors",   po::bool_switch(&opt.estimate_slope_errors)->default_value(false)->implicit_value(true),
      "Estimate the error for each slope (normal to the DEM). This is experimental.")
     ("estimate-height-errors",   po::bool_switch(&opt.estimate_height_errors)->default_value(false)->implicit_value(true),
-     "Estimate the SfS DEM height uncertainty by finding the height perturbation (in meters) at each grid point which will make at least one of the simulated images at that point change by more than twice the discrepancy between the unperturbed simulated image and the measured image. The SfS DEM must be provided via the -i option. The number of iterations, blending parameters (--blending-dist, etc.), and smoothness weight are ignored. Results are not computed at image pixels in shadow. This produces <output prefix>-height-error.tif. No SfS DEM is computed.")
-    ("height-error-params", po::value(&opt.height_error_params)->default_value(Vector2(5.0, 250.0), "5.0 250"),
+     "Estimate the SfS DEM height uncertainty by finding the height perturbation (in meters) at each grid point which will make at least one of the simulated images at that point change by more than twice the discrepancy between the unperturbed simulated image and the measured image. The SfS DEM must be provided via the -i option. The number of iterations, blending parameters (--blending-dist, etc.), and smoothness weight are ignored. Results are not computed at image pixels in shadow. This produces <output prefix>-height-error.tif. No SfS DEM is computed. See also: --height-error-params.")
+    ("height-error-params", po::value(&opt.height_error_params)->default_value(Vector2(5.0, 100.0), "5.0 100"),
      "Specify the largest height deviation to examine (in meters), and how many samples to use from 0 to that height.")
     ("sun-positions", po::value(&opt.sun_positions_list)->default_value(""),
      "A file having on each line an image name and three values in double precision "

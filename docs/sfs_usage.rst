@@ -1117,7 +1117,7 @@ Run bundle adjustment::
       --remove-outliers-params "75.0 3.0 100 100"    \
       --save-intermediate-cameras                    \
       --match-first-to-last                          \
-      --min-triangulation-angle 0.1                  \
+      --min-triangulation-angle 1e-10                \
       --datum D_MOON                                 \
       --nodes-list <list of computing nodes>         \
       -o ba/run 
@@ -1344,6 +1344,7 @@ in bundle adjustment (:numref:`heights_from_dem`)::
       --heights-from-dem ref.tif                  \
       --heights-from-dem-uncertainty 20.0         \
       --mapproj-dem ref.tif                       \
+      --min-triangulation-angle 1e-10             \
       --remove-outliers-params "75.0 3.0 100 100" \
       --parameter-tolerance 1e-20                 \
       --threads 20                                \
@@ -1809,13 +1810,13 @@ can be estimated as::
 Hence, this invokes ``parallel_sfs`` as in :numref:`parallel_sfs_usage`, but
 with the produced SfS DEM as the input DEM, and a new output directory.
 
-See :numref:`sfs` describing how the estimation is implemented. This
-uncertainty may be somewhat optimistic (:cite:`jindal2024measuring_v2`).
+See :numref:`sfs` describing how the estimation is implemented. See also the
+option ``--height-error-params``. This uncertainty may be somewhat optimistic
+(:cite:`jindal2024measuring_v2`).
 
-A useful exercise can be to run SfS with two sets of images, each with 
-diverse-enough illumination conditions, compare the produced
-terrain models, and see how that compares with the estimated
-uncertainty map.
+A useful exercise can be to run SfS with two sets of images, each with
+diverse-enough illumination conditions, compare the produced terrain models, and
+see how that compares with the estimated uncertainty map.
 
 .. _sfs_jitter:
 

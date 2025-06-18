@@ -198,10 +198,11 @@ Command-line options for sfs
     must be provided via the -i option. The number of iterations, blending
     parameters (``--blending-dist``, etc.), and smoothness weight are ignored.
     Results are not computed at image pixels in shadow. This produces <output
-    ``prefix>-height-error.tif``. No SfS DEM is computed. This uncertainty may
-    be somewhat optimistic (:cite:`jindal2024measuring_v2`).
+    ``prefix>-height-error.tif``. No SfS DEM is computed. See also:
+    ``--height-error-params``. This uncertainty may be somewhat optimistic
+    (:cite:`jindal2024measuring_v2`).
 
---height-error-params <double integer (default: 5.0 250)>
+--height-error-params <double integer (default: 5.0 100)>
     Specify the largest height deviation to examine (in meters), and
     how many samples to use from 0 to that height.
 
