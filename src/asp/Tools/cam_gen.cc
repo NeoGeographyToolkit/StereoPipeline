@@ -75,8 +75,8 @@ using namespace vw::camera;
 using namespace vw::cartography;
 
 /// Find the best camera that fits the current GCP
-void fit_camera_to_xyz_ht(Vector3 const& parsed_camera_center, // may not be known
-                          Vector3 const& input_camera_center, // may not be known
+void fit_camera_to_xyz_ht(Vector3 const& known_cam_ctr, // may not be known
+                          Vector3 const& estim_cam_ctr, // may not be known
                           std::string const& camera_type,
                           bool refine_camera,
                           std::vector<Vector3> const& xyz_vec,
@@ -96,10 +96,10 @@ void fit_camera_to_xyz_ht(Vector3 const& parsed_camera_center, // may not be kno
   in.set_size(3, num_pts);
   out.set_size(3, num_pts);
   for (int col = 0; col < in.cols(); col++) {
-    if (input_camera_center != Vector3(0, 0, 0)) {
+    if (estim_cam_ctr != Vector3(0, 0, 0)) {
       // We know the camera center. Use that.
       // TODO(oalexan1): Problem with RPC!
-      ht = norm_2(xyz_vec[col] - input_camera_center);
+      ht = norm_2(xyz_vec[col] - estim_cam_ctr);
     }
     Vector2 pix = Vector2(pixel_values[2*col], pixel_values[2*col+1]);
     Vector3 a = out_cam->camera_center(Vector2(0, 0)) + ht * out_cam->pixel_to_vector(pix);
@@ -133,10 +133,9 @@ void fit_camera_to_xyz_ht(Vector3 const& parsed_camera_center, // may not be kno
       ((PinholeModel*)out_cam.get())->apply_transform(rotation, translation, scale);
     }
 
-    if (parsed_camera_center != Vector3(0, 0, 0)) {
-      // Overwrite the solved camera center with what was passed in
-      ((PinholeModel*)out_cam.get())->set_camera_center(parsed_camera_center);
-    }
+    // Overwrite the solved camera center with what is surely known
+    if (known_cam_ctr != Vector3(0, 0, 0))
+      ((PinholeModel*)out_cam.get())->set_camera_center(known_cam_ctr);
   }
 
   // Print out some errors
@@ -427,6 +426,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                                           // Outputs
                                           local_session_str, session, cam_datum);
 
+    if (found_cam_datum && local_session_str == "opticalbar")
+      opt.camera_type = local_session_str; // switch from default pinhole to opticalbar
+      
     // For pinhole session the guessed datum may be unreliable, so warn only
     bool warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
     if (found_cam_datum && !opt.datum_str.empty())
@@ -700,7 +702,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 // Form a camera based on info the user provided
 void manufacture_cam(Options & opt, int wid, int hgt, vw::CamPtr & out_cam) {
-
   if (opt.camera_type == "opticalbar") {
     boost::shared_ptr<vw::camera::OpticalBarModel> opticalbar_cam;
     opticalbar_cam.reset(new vw::camera::OpticalBarModel(opt.sample_file));
@@ -987,7 +988,7 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
 
   // If we have camera center in ECI or ECEF coordinates in km, convert
   // it to meters, then find the height above datum.
-  Vector3 parsed_camera_center(0, 0, 0);
+  Vector3 known_cam_ctr(0, 0, 0);
   if (opt.parsed_camera_center_str != "") {
     std::vector<double> vals;
     parse_values<double>(opt.parsed_camera_center_str, vals);
@@ -995,22 +996,22 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
       vw_throw(ArgumentErr() << "Could not parse 3 values from: "
                 << opt.parsed_camera_center_str << ".\n");
 
-    parsed_camera_center = Vector3(vals[0], vals[1], vals[2]);
-    parsed_camera_center *= 1000.0;  // convert to meters
-    vw_out() << "Parsed camera center (meters): " << parsed_camera_center << "\n";
+    known_cam_ctr = Vector3(vals[0], vals[1], vals[2]);
+    known_cam_ctr *= 1000.0;  // convert to meters
+    vw_out() << "Parsed camera center (meters): " << known_cam_ctr << "\n";
   }
 
   // The camera center can be also set on the command line
   if (!std::isnan(opt.camera_center[0])) {
-    parsed_camera_center = opt.camera_center;
-    vw_out() << "Using the camera center set on the command line: "
-      << std::setprecision(17) << parsed_camera_center << "\n";
+    known_cam_ctr = opt.camera_center;
+    vw_out() << "Camera center set on the command line: "
+      << std::setprecision(17) << known_cam_ctr << "\n";
   }
 
-  if (parsed_camera_center != Vector3() && opt.cam_weight > 0) {
-    // If parsed_camera_center is in ECI coordinates, the lon and lat won't be accurate
+  if (known_cam_ctr != Vector3() && opt.cam_weight > 0) {
+    // If known_cam_ctr is in ECI coordinates, the lon and lat won't be accurate
     // but the height will be.
-    Vector3 llh = geo.datum().cartesian_to_geodetic(parsed_camera_center);
+    Vector3 llh = geo.datum().cartesian_to_geodetic(known_cam_ctr);
     opt.cam_height = llh[2];
   }
 
@@ -1034,7 +1035,7 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
   if (opt.cam_ctr_weight > 0 && opt.refine_camera)
     vw_out() << "Will constrain the camera center with the camera weight.\n";
 
-  Vector3 input_cam_ctr(0, 0, 0); // estimated camera center from input camera
+  Vector3 estim_cam_ctr(0, 0, 0); // estimated camera center from input camera
   std::vector<double> cam_heights;
   if (opt.input_camera != "") {
     // Extract lon and lat from tracing rays from the camera to the ground.
@@ -1042,13 +1043,13 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
     extract_lon_lat_cam_ctr_from_camera(opt, create_mask(dem, nodata_value),
                                         geo,
                                         // Outputs
-                                        input_camera_ptr, cam_heights, input_cam_ctr);
+                                        input_camera_ptr, cam_heights, estim_cam_ctr);
   }
 
   // Overwrite the estimated center with what is parsed from vendor's data,
   // if this data exists.
-  if (parsed_camera_center != Vector3(0, 0, 0))
-    input_cam_ctr = parsed_camera_center;
+  if (known_cam_ctr != Vector3(0, 0, 0))
+    estim_cam_ctr = known_cam_ctr;
 
   if (opt.lon_lat_values.size() < 3)
     vw_throw(ArgumentErr() << "Expecting at least three longitude-latitude pairs.\n");
@@ -1127,10 +1128,10 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
     vw_throw(ArgumentErr() << "Could not read an image with positive dimensions from: "
               << opt.image_file << ".\n");
   manufacture_cam(opt, wid, hgt, out_cam);
-
+  
   // Transform it and optionally refine it
   bool verbose = true;
-  fit_camera_to_xyz_ht(parsed_camera_center, input_cam_ctr,
+  fit_camera_to_xyz_ht(known_cam_ctr, estim_cam_ctr,
                        opt.camera_type, opt.refine_camera,
                        xyz_vec, opt.pixel_values,
                        opt.cam_height, opt.cam_weight, opt.cam_ctr_weight, geo.datum(),
@@ -1385,6 +1386,9 @@ int main(int argc, char * argv[]) {
     }
 
     if (opt.camera_type == "opticalbar") {
+        vw::Vector3 llh = geo.datum().cartesian_to_geodetic(out_cam->camera_center(Vector2()));
+        vw_out() << "Output camera center lon, lat, and height above datum: "
+                 << llh << "\n";
       ((vw::camera::OpticalBarModel*)out_cam.get())->write(opt.out_camera);
     } else if (opt.camera_type == "pinhole") {
       vw::camera::PinholeModel* pin = NULL;
@@ -1402,7 +1406,6 @@ int main(int argc, char * argv[]) {
       }
 
       if (out_ext == ".tsai") {
-        // Print these only for pinhole, as they may not exist for csm
         vw::Vector3 llh = geo.datum().cartesian_to_geodetic(out_cam->camera_center(Vector2()));
         vw_out() << "Output camera center lon, lat, and height above datum: "
                  << llh << "\n";
@@ -1429,6 +1432,10 @@ int main(int argc, char * argv[]) {
         if (opt.refine_intrinsics != "")
           refineIntrinsics(opt, geo, interp_dem, input_camera_ptr, width, height, csm);
 
+        vw::Vector3 llh = geo.datum().cartesian_to_geodetic(csm.camera_center(Vector2()));
+        vw_out() << "Output camera center lon, lat, and height above datum: "
+                 << llh << "\n";
+        vw_out() << "Writing: " << opt.out_camera << "\n";
         csm.saveState(opt.out_camera);
       } else {
         vw_throw(ArgumentErr() << "Unknown output camera file extension: "
