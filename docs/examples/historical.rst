@@ -3,8 +3,10 @@
 Declassified satellite images: KH-4B
 ------------------------------------
 
-ASP has support for the declassified high-resolution CORONA KH-4B images. 
-This support is very experimental, and the user is advised to use caution.
+ASP has preliminary support for the declassified high-resolution CORONA KH-4B images. 
+
+*This support is very experimental, and likely a lot of work is needed to make
+it work reliably.*
 
 These images can be processed using either optical bar (panoramic) camera models
 or as pinhole camera models with RPC distortion. Most of the steps are similar
@@ -425,8 +427,10 @@ KH-7 was an effective observation satellite that followed the Corona program. It
 contained an index (frame) camera and a single strip (pushbroom) camera. 
 
 ASP has *no exact camera model for this camera.* An RPC distortion model can be
-fit as in :numref:`dem2gcp`. See a figure in :numref:`kh7_fig`. This produces
-an approximate solution.
+fit as in :numref:`dem2gcp`. See a figure in :numref:`kh7_fig`. 
+
+*This produces an approximate solution, which goes the right way but is likely
+not good enough.*
 
 For this example we find the following images in Earth Explorer
 declassified collection 2::
@@ -614,16 +618,17 @@ The frame camera is a regular pinhole model (:numref:`pinholemodels`).
 The images produced with it could be processed as for KH-7 (:numref:`kh7`), 
 SkySat (:numref:`skysat`), or using Structure-from-Motion (:numref:`sfm`). 
 
-This example describes how to process the panoramic camera images. These
-images appear notably distorted at the corners. 
-The processing is similar to handling KH-4B (:numref:`kh4`) except that 
-the images are much larger.
+This example describes how to process the panoramic camera images. These images
+appear notably distorted at the corners. The processing is similar to handling
+KH-4B (:numref:`kh4`) except that the images are much larger.
 
-The ASP support for panoramic images is highly experimental. There is no reliable
-way of determining the camera orientation to use below. As of now, sometimes
-one may get plausible results, and sometimes this approach will fail. The use
-is strongly advised not to spend much time on this data until the support is
-improved.
+*The ASP support for panoramic images is highly experimental. The user is
+strongly advised not to spend much time on this data until the support is
+improved.*
+
+There is no reliable way of determining the camera orientation to use below. As
+of now, sometimes one may get plausible results, and sometimes this approach
+will fail. 
 
 For this example we use the following images from the Earth Explorer
 declassified collection 3::
