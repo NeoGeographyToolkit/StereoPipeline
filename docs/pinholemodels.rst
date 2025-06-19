@@ -559,15 +559,29 @@ Here, the image size and center are given in pixels, with the width
 followed by the height. The pixel pitch and focal length ``f`` are in
 meters. The scan time is seconds, the forward tilt is in radians, the
 speed is in meters per second, and the Earth radius and mean surface
-elevation are in meters. The initial camera center ``iC`` is in meters,
-and the rotation matrix ``iR`` stores the absolute pose. ``scan_dir``
-must be set to ``left`` or ``right``. The values ``scan_dir`` and
-``use_motion_compensation`` control how the sensor model accounts
-accounts for the motion of the satellite during the image scan. Without
-the benefit of detailed historical documents it may require
-experimentation to find the good initial values for these cameras. When
-using ``bundle_adjust``, the intrinsic parameters that are solved for
-are ``speed``, ``motion_compensation_factor``, and ``scan_time``.
+elevation are in meters. 
+
+The initial camera center ``iC`` is in meters (in ECEF coordinates),
+and the rotation matrix ``iR`` stores the absolute pose, that is,
+the camera-to-world rotation. This is analogous to the ``C`` and ``R``
+fields in the Tsai model (:numref:`pinholemodels`). 
+
+The ``scan_dir`` must be set to ``left`` or ``right``. The values ``scan_dir``
+and ``use_motion_compensation`` control how the sensor model accounts accounts
+for the motion of the satellite during the image scan. Without the benefit of
+detailed historical documents it may require experimentation to find the good
+initial values for these cameras. 
+
+When using ``bundle_adjust`` (:numref:`floatingintrinsics`), the intrinsic
+parameters that are solved for are ``speed``, ``motion_compensation_factor``,
+and ``scan_time``, as part of the ``other_intrinsics`` group, and also the focal
+length and optical center (image center). The option in ``bundle_adjust`` that
+controls these is ``--intrinsics-to-float`` (:numref:`ba_options`). An example of
+solving for intrinsics is in :numref:`kh9`.
+
+The ``convert_pinhole_model`` program (:numref:`convert_pinhole_model`) can
+convert a Panoramic model to a Pinhole model with lens distortion. This can be
+an approximation, but can help give some intuition about the optical bar model. 
 
 .. _csm_frame_def:
 
