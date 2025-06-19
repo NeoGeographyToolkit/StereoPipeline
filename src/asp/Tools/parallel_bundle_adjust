@@ -357,8 +357,6 @@ if __name__ == '__main__':
 
     global opt
     (opt, args) = p.parse_known_args()
-    args = clean_args(args)
-    output_prefix = get_output_prefix(args)
 
     if opt.version:
         asp_system_utils.print_version_and_exit()
@@ -367,6 +365,15 @@ if __name__ == '__main__':
         p.print_help()
         sys.exit(1)
 
+    try:
+        args = clean_args(args)
+        output_prefix = get_output_prefix(args)
+    except Exception as e:
+        # Print the error message and exit.
+        print('\nERROR: ' + str(e) + '\n')
+        p.print_help()
+        sys.exit(1)
+    
     # Setting ISISROOT and ISISDATA must happen in both parent and 
     # child processes, and before checking parallel version.
     if opt.isisroot is not None: os.environ['ISISROOT'] = opt.isisroot
