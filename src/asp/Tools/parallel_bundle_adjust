@@ -295,9 +295,15 @@ class ParallelBaStep:
     all            = 3
 
 if __name__ == '__main__':
+
+    # Fix for this failing in a subprocess. There, need not know the ASP version.
+    asp_version = ''
+    if 'ISISROOT' in os.environ:
+       asp_version = get_asp_version()
+       
     usage = '''parallel_bundle_adjust <images> <cameras> <optional ground control points> -o <output prefix> [options]
         Camera model arguments may be optional for some stereo
-        session types (e.g. isis). See bundle_adjust for all options.\n''' + get_asp_version()
+        session types (e.g. isis). See bundle_adjust for all options.\n''' + asp_version
     
     # A wrapper for bundle_adjust which computes image statistics and IP matches
     #  in parallel across multiple machines.  The final bundle_adjust step is
@@ -361,6 +367,11 @@ if __name__ == '__main__':
         p.print_help()
         sys.exit(1)
 
+    # Setting ISISROOT and ISISDATA must happen in both parent and 
+    # child processes, and before checking parallel version.
+    if opt.isisroot is not None: os.environ['ISISROOT'] = opt.isisroot
+    if opt.isisdata is not None: os.environ['ISISDATA'] = opt.isisdata
+    
     # Ensure our 'parallel' is not out of date
     asp_system_utils.check_parallel_version()
 
@@ -370,7 +381,7 @@ if __name__ == '__main__':
         # 1. Set the work directory
         opt.work_dir = os.getcwd()
         # 2. Set the ISIS settings if any
-        if 'ISISROOT'  in os.environ: opt.isisroot  = os.environ['ISISROOT']
+        if 'ISISROOT' in os.environ: opt.isisroot  = os.environ['ISISROOT']
         if 'ISISDATA' in os.environ: opt.isisdata = os.environ['ISISDATA']
         # 3. Fix for Pleiades, copy the nodes_list to the run directory
         # to ensure it can be seen on any node.
@@ -390,9 +401,6 @@ if __name__ == '__main__':
         # After the script spawns itself to nodes, it starts in the
         # home dir. Make it go to the right place.
         os.chdir(opt.work_dir)
-        # Set the ISIS settings
-        if opt.isisroot  is not None: os.environ['ISISROOT' ] = opt.isisroot
-        if opt.isisdata is not None: os.environ['ISISDATA'] = opt.isisdata
 
     if opt.version:
         args.append('-v')
