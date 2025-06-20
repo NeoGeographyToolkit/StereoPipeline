@@ -194,7 +194,7 @@ def spawn_to_nodes(step, num_nodes, output_prefix, argsIn):
     # TODO(oalexan1): Run 'parallel' using the runInGnuParallel() function call,
     # when the ASP_LIBRARY_PATH trick can be fully encapsulated in the
     # asp_system_utils.py code rather than being needed for each tool.
-    cmd = ['parallel', '--will-cite', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'ASP_DEPS_DIR', '-u', '--max-procs', str(num_procs), '-a', job_list]
+    cmd = ['parallel', '--will-cite', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'ASP_LIBRARY_PATH', '--env', 'ASP_DEPS_DIR', '--env', 'ISISROOT', '-u', '--max-procs', str(num_procs), '-a', job_list]
     if asp_system_utils.which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')
 

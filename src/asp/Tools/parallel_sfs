@@ -478,7 +478,7 @@ def main(argsIn):
     # variables in the text file we just wrote
     parallelArgs = ['--colsep', "\\t", '--will-cite', '--env', 'ASP_DEPS_DIR',
                     '--env', 'PATH', '--env', 'LD_LIBRARY_PATH',
-                    '--env', 'ASP_LIBRARY_PATH']
+                    '--env', 'ASP_LIBRARY_PATH', '--env', 'ISISROOT']
 
     if options.parallel_options is not None:
         parallelArgs += options.parallel_options.split(' ')
