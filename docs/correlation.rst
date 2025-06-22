@@ -290,9 +290,10 @@ ASP can be told where to look for these packages with a line such as::
 Here, also need to adjust appropriately the ``conda`` installation location 
 and ``python`` version.
 
-If ASP is installed with ``conda`` (:numref:`conda_intro`), it will already have
-all the needed dependencies. Hence, can adjust ``ASP_PYTHON_MODULES_PATH`` to
-point to the ``site-packages`` directory of the ASP conda environment.
+If ASP is installed with ``conda`` (:numref:`conda_intro`), and ISIS version is
+at least 9.0.0, it will already have all the needed dependencies. Hence, can
+adjust ``ASP_PYTHON_MODULES_PATH`` to point to the ``site-packages`` directory
+of the ASP conda environment.
 
 .. _d_sub_skip:
 
