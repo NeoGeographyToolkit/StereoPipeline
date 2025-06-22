@@ -285,10 +285,14 @@ It is very important to use the same version of ``python``, ``numpy``, and
       
 ASP can be told where to look for these packages with a line such as::
       
-    export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.11/site-packages
+    export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.1/site-packages
     
 Here, also need to adjust appropriately the ``conda`` installation location 
 and ``python`` version.
+
+If ASP is installed with ``conda`` (:numref:`conda_intro`), it will already have
+all the needed dependencies. Hence, can adjust ``ASP_PYTHON_MODULES_PATH`` to
+point to the ``site-packages`` directory of the ASP conda environment.
 
 .. _d_sub_skip:
 
