@@ -471,11 +471,7 @@ void run_cam_test(Options & opt) {
   
   double elapsed_sec = sw.elapsed_seconds();
   vw_out() << "\nElapsed time per sample: " << 1e+6 * elapsed_sec/ctr_diff.size()
-            << " milliseconds.\n";
-
-  if (elapsed_sec < 5)
-    vw_out() << "It is suggested to adjust the sample rate to produce more samples "
-              << "if desired to evaluate more accurately the elapsed time per sample.\n";
+            << " milliseconds. (More samples will increase the accuracy.)\n";
 }
 
 int main(int argc, char *argv[]) {

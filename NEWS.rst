@@ -36,6 +36,8 @@ cam_gen (:numref:`cam_gen`):
       
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
+  * Made the OpticalBar model 3x faster by switching from minimization in 3D
+    to root-finding in 2D with the Newton-Raphson method.
   * Turned off experimental ``--subpixel-mode 6`` as it is failing to run
     (:numref:`subpixel_options`).
   * Unused ``pca`` mode in ``ipfind`` got removed.
