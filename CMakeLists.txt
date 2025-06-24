@@ -54,12 +54,18 @@ install(DIRECTORY "docs" DESTINATION ${CMAKE_INSTALL_PREFIX}
 
 # Install the plugins directory and the files in it
 install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins/stereo)
-install(FILES "plugins/stereo/plugin_list.txt" DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins/stereo)
+install(FILES "plugins/stereo/plugin_list.txt"
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins/stereo)
 
 # Make a directory for wv_correct data and copy that data to it
 install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/share/wv_correct)
-install(FILES "src/asp/WVCorrect/ms_correction_lookup.txt" DESTINATION ${CMAKE_INSTALL_PREFIX}/share/wv_correct)
-install(FILES "src/asp/WVCorrect/WV02_BAND3_CCD_CORR.tif" DESTINATION ${CMAKE_INSTALL_PREFIX}/share/wv_correct)
+install(FILES "src/asp/WVCorrect/ms_correction_lookup.txt"
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/share/wv_correct)
+install(FILES "src/asp/WVCorrect/WV02_BAND3_CCD_CORR.tif"
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/share/wv_correct)
+install(FILES "src/asp/Camera/tests/ctx.json"
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/share/tests)
 
 # Install the default CASP-GO params
-install(FILES "src/asp/Gotcha/CASP-GO_params.xml" DESTINATION ${CMAKE_INSTALL_PREFIX}/share)
+install(FILES "src/asp/Gotcha/CASP-GO_params.xml"
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/share)
