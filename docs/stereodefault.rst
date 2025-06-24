@@ -661,12 +661,12 @@ subpixel-mode (*integer*) (default = auto)
     back to :numref:`correlation`.
 
 subpixel-kernel (*integer integer*) (default = 35 35)
-    Specify the size of the horizontal and vertical size (in pixels) of
-    the subpixel correlation kernel. It is advantageous to keep this
-    small for parabola fitting in order to resolve finer details. However
-    for the Bayes EM methods, keep the kernel slightly larger. Those
-    methods weight the kernel with a Gaussian distribution, thus the
-    effective area is small than the kernel size defined here.
+    Specify the size of the horizontal and vertical size (in pixels) of the
+    subpixel correlation kernel. It is advantageous to keep this small for
+    parabola fitting in order to resolve finer details. However for the Bayes EM
+    methods, keep the kernel slightly larger. Those methods weight the kernel
+    with a Gaussian distribution, thus the effective area is small than the
+    kernel size defined here. This affects ``edge-buffer-size``.
 
 phase-subpixel-accuracy (*integer*) (default = 20)
     Set the maximum resolution of the phase subpixel correlator. The
@@ -760,8 +760,9 @@ fill-holes-max-size (*integer*) (default = 100,000)
     Holes with no more pixels than this number should be filled in.
 
 edge-buffer-size (*integer*) (default = -1)
-    Crop to be applied around image borders during filtering. If not
-    set, default to subpixel kernel size.
+    Crop to be applied around image borders during filtering. If not set, and
+    ``subpixel-mode`` is between 1 and 6 (inclusive), use the max of two
+    ``subpixel-kernel`` values. Otherwise set to 5.
 
 erode-max-size (*integer*) (default = 0)
     Isolated blobs with no more pixels than this number should be

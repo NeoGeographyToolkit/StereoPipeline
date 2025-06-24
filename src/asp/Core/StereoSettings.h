@@ -257,7 +257,7 @@ namespace asp {
     bool enable_fill_holes;           // If to enable hole-filling
     bool disable_fill_holes;          // This obsolete parameter is ignored
     int  fill_hole_max_size;          // Maximum hole size in pixels that we'll attempt to fill
-    int   mask_buffer_size;           // Size of region filtered out of image edges.
+    int   edge_buffer_size;           // Size of region filtered out of image edges.
     int   median_filter_size;         // Filter subpixel results with median filter of this size
     int   disp_smooth_size;           // Adaptive disparity smoothing size
     double disp_smooth_texture;        // Adaptive disparity smoothing max texture value

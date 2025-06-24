@@ -362,12 +362,17 @@ void stereo_filtering(ASPGlobalOptions& opt) {
     // mask files to avoid a weird and tricky segfault due to ownership issues.
     DiskImageView<vw::uint8> left_mask ( opt.out_prefix+"-lMask.tif" );
     DiskImageView<vw::uint8> right_mask( opt.out_prefix+"-rMask.tif" );
-    int32 mask_buffer = stereo_settings().mask_buffer_size;
-    if (mask_buffer < 0) // If Unset, set to the subpixel kernel size.
-      mask_buffer = max( stereo_settings().subpixel_kernel );
+    
+    // Erode at the edge. If not set, apply some logic as below.
+    int32 edge_buffer = stereo_settings().edge_buffer_size;
+    if (edge_buffer < 0) {
+      if (stereo_settings().subpixel_mode > 0 && stereo_settings().subpixel_mode <= 6)
+        edge_buffer = max(stereo_settings().subpixel_kernel); // max of the two entries
+      else 
+        edge_buffer = 5; // should be enough
+    }  
 
-
-    DiskImageView<PixelGray<float> > left_disk_image (opt.out_prefix+"-L.tif");
+    DiskImageView<PixelGray<float>> left_disk_image (opt.out_prefix+"-L.tif");
 
     vw_out() << "\t--> Cleaning up disparity map prior to filtering processes ("
              << stereo_settings().rm_cleanup_passes << " pass).\n";
@@ -384,8 +389,8 @@ void stereo_filtering(ASPGlobalOptions& opt) {
         (stereo::disparity_mask
           (MultipleDisparityCleanUp<input_type>()
             (disparity_disk_image, stereo_settings().rm_cleanup_passes),
-              apply_mask(asp::threaded_edge_mask(left_mask, 0,mask_buffer,1024)),
-              apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))),
+              apply_mask(asp::threaded_edge_mask(left_mask, 0,edge_buffer,1024)),
+              apply_mask(asp::threaded_edge_mask(right_mask,0,edge_buffer,1024))),
             opt);
     } else { // No cleanup passes
       write_good_pixel_and_filtered
@@ -396,8 +401,8 @@ void stereo_filtering(ASPGlobalOptions& opt) {
                                           stereo_settings().disp_smooth_size+2, // Compute texture a little larger than smooth radius
                                           stereo_settings().disp_smooth_texture, 
                                           stereo_settings().disp_smooth_size),
-            apply_mask(asp::threaded_edge_mask(left_mask, 0,mask_buffer,1024)),
-            apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))),
+            apply_mask(asp::threaded_edge_mask(left_mask, 0,edge_buffer,1024)),
+            apply_mask(asp::threaded_edge_mask(right_mask,0,edge_buffer,1024))),
           opt);
     } // End cleanup passes check
 

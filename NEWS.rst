@@ -11,6 +11,9 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Left and right alignment matrices are now saved in plain text format. Older
     .exr files are still read. Support for them will be removed in the next
     release (:numref:`outputfiles`).
+  * Erode less at at image boundary during filtering when ``--subpixel-mode`` is
+    not between 1 and 6 (option ``--edge-buffer-size``,
+    :numref:`filter_options`).
 
 parallel_sfs (:numref:`parallel_sfs`):
    * When albedo and / or haze is modeled, initial estimates for these are
