@@ -24,7 +24,7 @@ fi
 
 # Extract
 echo "Extracting $data"
-tar xzfv $data > /dev/null 2>&1 # this is verbose
+tar xfv $data > /dev/null 2>&1 # this is verbose
 if [ ! -d "StereoPipelineTest" ]; then
   echo "Error: Directory: StereoPipelineTest does not exist"
   exit 1

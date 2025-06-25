@@ -22,6 +22,7 @@
 #include <asp/Camera/BundleAdjustCostFuns.h>
 #include <asp/Camera/BaseCostFuns.h>
 #include <asp/Core/DataLoader.h>
+#include <vw/Camera/OpticalBarModel.h>
 #include <vw/Camera/CameraImage.h>
 #include <vw/Camera/LensDistortion.h>
 #include <vw/Camera/CameraUtilities.h>

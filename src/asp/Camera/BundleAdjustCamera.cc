@@ -37,6 +37,7 @@
 #include <vw/Math/Statistics.h>
 #include <vw/Math/Geometry.h>
 #include <vw/Math/Functors.h>
+#include <vw/Camera/OpticalBarModel.h>
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Camera/LensDistortion.h>
 

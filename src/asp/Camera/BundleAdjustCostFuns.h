@@ -20,7 +20,6 @@
 
 // Ceres cost functions used by bundle_adjust.
 
-#include <vw/Camera/OpticalBarModel.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Core/StereoSettings.h>
@@ -37,6 +36,11 @@
 typedef vw::PixelMask<vw::Vector<float, 2>> DispPixelT;
 
 // Forward declaration
+namespace vw {
+  namespace camera {
+    class OpticalBarModel;
+  }
+}
 namespace asp {
   struct BaOptions;
   struct BAParams;
