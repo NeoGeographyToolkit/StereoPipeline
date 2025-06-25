@@ -209,11 +209,9 @@ else()
   message(STATUS "OpenEXR will not be used.")
 endif()
 
-find_external_library(SPICE ${ASP_DEPS_DIR} "cspice" "cspice" REQUIRED)
 find_external_library(GEOID ${ASP_DEPS_DIR} "" "egm2008" REQUIRED)
 find_external_library(XERCESC ${ASP_DEPS_DIR} "" "xerces-c" REQUIRED)
 find_external_library(PROTOBUF ${ASP_DEPS_DIR} "" "protobuf" REQUIRED)
-find_external_library(EMBREE ${ASP_DEPS_DIR} "" "embree3" REQUIRED)
 
 find_external_library(EIGEN ${ASP_DEPS_DIR} "eigen3" "" REQUIRED)
 find_external_library(CERES ${ASP_DEPS_DIR} "ceres" "ceres" REQUIRED)
@@ -222,15 +220,11 @@ find_external_library(LIBPOINTMATCHER ${ASP_DEPS_DIR} "" "pointmatcher" REQUIRED
 find_external_library(FASTGLOBALREGISTRATION ${ASP_DEPS_DIR} "FastGlobalRegistration" "FastGlobalRegistrationLib" REQUIRED)
 find_external_library(GFLAGS ${ASP_DEPS_DIR} "gflags" "gflags" REQUIRED)
 find_external_library(GLOG ${ASP_DEPS_DIR} "glog" "glog" REQUIRED)
-find_external_library(ARMADILLO ${ASP_DEPS_DIR} "" "armadillo" REQUIRED)
-
-# For now, this is needed only for Linux. When upgrading ISIS on the Mac,
-# it will be needed also.
-if (LINUX)
-  find_external_library(SPICEQL ${ASP_DEPS_DIR} "" "SpiceQL" REQUIRED)
-endif()
 
 if (USE_ISIS)
+  find_external_library(SPICE ${ASP_DEPS_DIR} "cspice" "cspice" REQUIRED)
+  find_external_library(ARMADILLO ${ASP_DEPS_DIR} "" "armadillo" REQUIRED)
+  find_external_library(EMBREE ${ASP_DEPS_DIR} "" "embree3" REQUIRED)
   find_external_library(ISIS ${ASP_DEPS_DIR} "isis" "isis" REQUIRED)
   
   # Pull the ISIS version. It is on the first line before the first space.
@@ -241,6 +235,12 @@ if (USE_ISIS)
   list(GET ISIS_VERSION_LIST 0 ISIS_VERSION)
   message(STATUS "Found ISIS version: ${ISIS_VERSION}")
     
+  # For now, this is needed only for Linux. When upgrading ISIS on the Mac,
+  # it will be needed also.
+  if (LINUX)
+    find_external_library(SPICEQL ${ASP_DEPS_DIR} "" "SpiceQL" REQUIRED)
+  endif()
+
   # Some ISIS headers include Qt headers in a way that requires the include below
   include_directories("${ASP_DEPS_DIR}/include/qt")
   include_directories("${ASP_DEPS_DIR}/include/qt/QtCore")
@@ -321,20 +321,23 @@ set(ASP_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES}
     ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  
     ${PROJ_LIBRARIES} ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} 
     ${PNG_LIBRARIES} ${FLANN_LIBRARIES} ${LZ4_LIBRARIES}
-    Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} 
-    ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES} ${PCL_LIBRARIES} ${TBB_LIBRARIES}
-    ${SPICE_LIBRARIES})
+    Qt5::Core ${PROTOBUF_LIBRARIES} 
+    ${QWT_LIBRARIES} ${PCL_LIBRARIES} ${TBB_LIBRARIES})
 if (USE_OPENEXR)
   list(APPEND ASP_3RD_PARTY_LIBS ${OPENEXR_LIBRARIES} ${ILMBASE_LIBRARIES})
 endif()
 
-if (LINUX)
-  list(APPEND ASP_3RD_PARTY_LIBS ${SPICEQL_LIBRARIES})
+if (USE_ISIS)
+  list(APPEND ASP_3RD_PARTY_LIBS ${ARMADILLO_LIBRARIES} ${EMBREE_LIBRARIES}
+    ${SPICE_LIBRARIES})
+  if (LINUX)
+    list(APPEND ASP_3RD_PARTY_LIBS ${SPICEQL_LIBRARIES})
+  endif()
 endif()
 
 # These are needed for rig_calibrator
 # MVE
-set(MVE_LIB_NAMES mveUtil mveCore mveOgl mveDmrecon)
+set(MVE_LIB_NAMES mveUtil mveCore mveDmrecon)
 find_external_library(MVE ${ASP_DEPS_DIR} "mve" "${MVE_LIB_NAMES}" REQUIRED)
 # Rayint only has headers, no libraries
 find_external_library(RAYINT ${ASP_DEPS_DIR} "rayint" "" REQUIRED)
