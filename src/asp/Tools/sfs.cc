@@ -1856,9 +1856,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "specifying the Sun azimuth and elevation in degrees, relative to the center point of "
      "the input DEM. Use a space as separator. This is an alternative to --sun-positions.")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
-     "Optional shadow thresholds for the input images (a list of real values in quotes, one per image).")
+     "Optional shadow thresholds for the input images (a list of real values in quotes, one per image). See also --shadow-threshold.")
     ("shadow-threshold", po::value(&opt.shadow_threshold)->default_value(-1),
-     "A shadow threshold to apply to all images instead of using individual thresholds. (Must be positive.)")
+     "A shadow threshold to apply to all images. Must be positive. Areas that "
+     "are in shadow in all images will result in a blurred version of the input DEM, "
+     "influenced by the --smoothness-weight.")
     ("custom-shadow-threshold-list", po::value(&opt.custom_shadow_threshold_list)->default_value(""),
      "A list having one image and one shadow threshold per line. For the images specified here, override the shadow threshold supplied by other means with this value.")
     ("max-valid-image-vals", po::value(&opt.max_valid_image_vals)->default_value(""),

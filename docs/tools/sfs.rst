@@ -170,14 +170,15 @@ Command-line options for sfs
     Float the exposure for each image. Will give incorrect results
     if only one image is present. It usually gives marginal results.
 
+--shadow-threshold <arg>
+    A shadow threshold to apply to all images. Must be positive. Areas that are
+    in shadow in all images will result in a blurred version of the input DEM,
+    influenced by the ``--smoothness-weight``.
+
 --shadow-thresholds <arg>
     Optional shadow thresholds for the input images (a list of real
-    values in quotes, one per image).
-
---shadow-threshold <arg>
-    A shadow threshold to apply to all images instead of using
-    individual thresholds. (Must be positive.)
-
+    values in quotes, one per image). See also ``--shadow-threshold``.
+    
 --custom-shadow-threshold-list <arg> 
     A list having one image and one shadow threshold per line. For the
     images specified there, override the shadow threshold supplied by
