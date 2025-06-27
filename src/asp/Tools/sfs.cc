@@ -1884,7 +1884,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("blending-power", po::value(&opt.blending_power)->default_value(2.0),
      "A higher value will result in smoother blending.")
     ("min-blend-size", po::value(&opt.min_blend_size)->default_value(0),
-     "Do not apply blending in shadowed areas of dimensions less than this.")
+     "Do not apply blending in shadowed areas of diameter less than this.")
     ("allow-borderline-data",   po::bool_switch(&opt.allow_borderline_data)->default_value(false)->implicit_value(true),
      "At the border of the region where there are no lit pixels in any images, do not let the blending weights decay to 0. This noticeably improves the level of detail. The sfs_blend tool may need to be used to further tune this region.")
     ("steepness-factor", po::value(&opt.steepness_factor)->default_value(1.0),

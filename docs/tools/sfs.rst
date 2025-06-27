@@ -252,7 +252,7 @@ Command-line options for sfs
     blending as the weights decay faster close to 0.
 
 --min-blend-size <integer (default: 0)>
-    Do not apply blending in shadowed areas of dimensions less than
+    Do not apply blending in shadowed areas of diameter less than
     this. This avoids losing data around small holes, but the solution
     may become less smooth.
 
