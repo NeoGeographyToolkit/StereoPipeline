@@ -249,7 +249,9 @@ The approach in :numref:`ba_frame_linescan` is followed.
 
 We will make use of dense matches from disparity, as in :numref:`dense_ip`. The
 option for that, ``--num-matches-from-disparity``, was already set in the stereo
-runs above. 
+runs above. We got good results with sparse matches too, as produced by
+``bundle_adjust``, if there are a lot of them, but dense matches offer more
+control over the coverage. 
 
 These matches will augment existing sparse matches in the ``ba`` directory. For
 that, first the sparse matches will be copied to a new directory, called

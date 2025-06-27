@@ -62,8 +62,8 @@ This procedure is not as accurate as approximating an existing camera
 Some other pixels can be used instead of corners, if using the
 ``--pixel-values`` option. 
 
-The camera center, if known, can be set with the option ``--camera-center``.
-Otherwise the program will solve for it.
+The camera center, if known, can be set with the option ``--camera-center`` or
+``--camera-center-llh``. Otherwise the program will solve for it.
 
 Lens distortion parameters, if needed, can be added manually to the produced
 files (:numref:`pinholemodels`).
@@ -427,11 +427,18 @@ Command-line options
 
 --camera-center <double double double (default: NaN NaN NaN)>
     The camera center in ECEF coordinates. If not set, the program will solve for it.
+    If setting ``--refine-camera``, consider using ``--cam-ctr-weight``.
 
+--camera-center-llh <double double double (default: NaN NaN NaN)>
+    The camera center in longitude, latitude, and height above datum. See also: 
+    ``--camera-center``. 
+    
 --refine-camera
     After a rough initial camera is obtained, refine it using least squares.
     This does not support distortion. For CSM Frame cameras, a more powerful
-    solver is available, see option ``--refine-intrinsics``.
+    solver is available, see option ``--refine-intrinsics``. Consider not 
+    refining the camera here, but having ``bundle_adjust`` take in the camera
+    as-is, together with GCP.
 
 --refine-intrinsics <string (default: "")>
     Refine the camera intrinsics together with the camera pose. Specify, in

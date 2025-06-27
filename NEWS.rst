@@ -36,7 +36,8 @@ pc_align (:numref:`pc_align`):
 cam_gen (:numref:`cam_gen`):
   * If the input is an ISIS cube and the output is a CSM camera, save the
     ephemeris time, sun position, serial number, and target (planet) name.
-      
+  * Added the option ``--camera-center-llh``.
+
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
   * Made the OpticalBar model 3x faster by switching from minimization in 3D

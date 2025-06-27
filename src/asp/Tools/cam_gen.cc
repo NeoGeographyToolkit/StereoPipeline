@@ -118,6 +118,8 @@ void fit_camera_to_xyz_ht(Vector3 const& known_cam_ctr, // may not be known
   if (camera_type == "opticalbar") {
     ((vw::camera::OpticalBarModel*)out_cam.get())->apply_transform(rotation,
                                    translation, scale);
+    if (known_cam_ctr != Vector3(0, 0, 0))
+    ((vw::camera::OpticalBarModel*)out_cam.get())->set_camera_center(known_cam_ctr);
   } else if (camera_type == "pinhole") {
 
     // The logic based on fake points can give junk results. Use instead the
@@ -207,7 +209,7 @@ struct Options : public vw::GdalWriteOptions {
   double focal_length, pixel_pitch, gcp_std, height_above_datum,
     cam_height, cam_weight, cam_ctr_weight;
   Vector2 optical_center;
-  vw::Vector3 camera_center;
+  vw::Vector3 camera_center, camera_center_llh;
   std::vector<double> lon_lat_values, pixel_values, distortion;
   bool refine_camera, parse_eci, parse_ecef, planet_pinhole;
   int num_pixel_samples;
@@ -262,9 +264,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "when creating CSM Frame cameras.")
     ("camera-center",
      po::value(&opt.camera_center)->default_value(Vector3(nan, nan, nan),"NaN NaN NaN"),
-     "The camera center in ECEF coordinates. If not set, the program will solve for it.")
+     "The camera center in ECEF coordinates. If not set, the program will solve for it."
+     "If setting --refine-camera, consider using --cam-ctr-weight.")
+    ("camera-center-llh",
+     po::value(&opt.camera_center_llh)->default_value(Vector3(nan, nan, nan),"NaN NaN NaN"),
+     "The camera center as lon-lat-height relative to the datum. See also --camera-center.")
     ("refine-camera", po::bool_switch(&opt.refine_camera)->default_value(false)->implicit_value(true),
-     "After a rough initial camera is obtained, refine its pose using least squares.")
+     "After a rough initial camera is obtained, refine its pose using least squares. "
+     "Consider not refining the camera here, but having bundle_adjust take in the camera "
+     "as-is, together with GCP.")
     ("refine-intrinsics", po::value(&opt.refine_intrinsics)->default_value(""),
      "Refine the camera intrinsics together with the camera pose. Specify, in quotes, or as comma as separator, one or more of: focal_length, optical_center, other_intrinsics (distortion). Also can set as 'all' or 'none'. In the latter mode only the camera pose is optimized. Applicable only with option --input-camera and when creating a CSM Frame camera model.")
     ("num-pixel-samples", po::value(&opt.num_pixel_samples)->default_value(10000),
@@ -1008,6 +1016,15 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
       << std::setprecision(17) << known_cam_ctr << "\n";
   }
 
+  if (!std::isnan(opt.camera_center_llh[0])) {
+    if (!std::isnan(opt.camera_center[0]))
+      vw::vw_throw(vw::ArgumentErr()
+        << "Cannot set camera center in both ECEF and LLH coordinates.\n");
+    vw_out() << "Camera center (lon-lat-height) set on the command line: "
+      << std::setprecision(17) << opt.camera_center_llh << "\n";
+    known_cam_ctr = geo.datum().geodetic_to_cartesian(opt.camera_center_llh);
+  }
+
   if (known_cam_ctr != Vector3() && opt.cam_weight > 0) {
     // If known_cam_ctr is in ECI coordinates, the lon and lat won't be accurate
     // but the height will be.
@@ -1033,7 +1050,7 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
              << " meters with a weight strength of " << opt.cam_weight << ".\n";
   }
   if (opt.cam_ctr_weight > 0 && opt.refine_camera)
-    vw_out() << "Will constrain the camera center with the camera weight.\n";
+    vw_out() << "Will constrain the camera center with the camera center weight.\n";
 
   Vector3 estim_cam_ctr(0, 0, 0); // estimated camera center from input camera
   std::vector<double> cam_heights;
