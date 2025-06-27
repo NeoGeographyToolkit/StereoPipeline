@@ -253,9 +253,9 @@ Command-line options for sfs
     blending as the weights decay faster close to 0.
 
 --min-blend-size <integer (default: 0)>
-    Do not apply blending in shadowed areas of diameter less than
-    this. This avoids losing data around small holes, but the solution
-    may become less smooth.
+    Do not apply blending in shadowed areas for which both the width and height
+    are less than this. This avoids losing data around small holes, but the
+    solution may become less smooth.
 
 --estimate-exposure-haze-albedo
     Estimate the exposure for each image, the haze for each image (if
