@@ -239,10 +239,9 @@ to ensure that the order of channels is::
     - nasa-ames-stereo-pipeline
     - usgs-astrogeology
     - conda-forge
-    - defaults
 
 *Not having the channels in this order is likely to result in failure to install
-ASP.*
+ASP.* Do not use the ``defaults`` channel.
 
 The command::
 

@@ -3,7 +3,6 @@ channels:
   - nasa-ames-stereo-pipeline
   - usgs-astrogeology
   - conda-forge
-  - defaults
 dependencies:
   - ale=0.9.1=py39h8ee36c8_0
   - aom=3.5.0=hf0c8a7f_0
