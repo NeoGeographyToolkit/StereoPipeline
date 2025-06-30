@@ -156,3 +156,7 @@ license information for any third-party software or check the
 <https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/THIRDPARTYLICENSES.rst>`_
 file. In addition, various pieces of ASP depend on additional
 third-party libraries that the user is expected to have installed.
+### Converting Raw LiDAR Scans to Coordinate Frames
+To convert raw LiDAR scans into coordinate frames usable by the mapping tool:
+'''bash
+python tools/lidar_to_coords.py --input data/raw_lidar/scan001.las --output data/coords/scan001.xyz
