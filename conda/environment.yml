@@ -7,7 +7,6 @@ channels:
   - nasa-ames-stereo-pipeline
   - usgs-astrogeology
   - conda-forge
-  - defaults
 
 dependencies:
   - pdal 2.6.0
