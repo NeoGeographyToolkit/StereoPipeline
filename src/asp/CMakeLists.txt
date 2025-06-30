@@ -115,28 +115,20 @@ endif()
 
 set(REQUIRED     True )
 set(NOT_REQUIRED False)
-
-#TODO: Replace with FindVisionWorkbench module?
-# Set up VisionWorkbench
-message("Vision Workbench installation directory: ${VISIONWORKBENCH_INSTALL_DIR}")
-set(VISIONWORKBENCH_INCLUDE_DIR ${VISIONWORKBENCH_INSTALL_DIR}/include)
-set(VISIONWORKBENCH_LIBRARY_DIR ${VISIONWORKBENCH_INSTALL_DIR}/lib)
-set(ASP_HAVE_PACKAGE_VW 1)
-
-set(VISIONWORKBENCH_LIBRARIES)
-set(VW_LIBNAMES VwBundleAdjustment  VwCore      VwImage          VwMosaic
-                VwCamera            VwFileIO    VwInterestPoint  VwStereo
-                VwCartography       VwGeometry  VwMath)
-
 set(ext ".so")
 if (APPLE)
   set(ext ".dylib")
 endif()
 
-foreach(n ${VW_LIBNAMES})
-  set(f ${VISIONWORKBENCH_LIBRARY_DIR}/lib${n}${ext})
-  set(VISIONWORKBENCH_LIBRARIES ${VISIONWORKBENCH_LIBRARIES} ${f})
-endforeach(n)
+# Set up VisionWorkbench
+message("Vision Workbench installation directory: ${VISIONWORKBENCH_INSTALL_DIR}")
+set(VISIONWORKBENCH_INCLUDE_DIR ${VISIONWORKBENCH_INSTALL_DIR}/include)
+set(VISIONWORKBENCH_LIBRARY_DIR ${VISIONWORKBENCH_INSTALL_DIR}/lib)
+set(ASP_HAVE_PACKAGE_VW 1)
+set(VW_LIBNAMES VwBundleAdjustment  VwCore      VwImage          VwMosaic
+                VwCamera            VwFileIO    VwInterestPoint  VwStereo
+                VwCartography       VwGeometry  VwMath)
+find_external_library(VISIONWORKBENCH ${VISIONWORKBENCH_INSTALL_DIR} "" "${VW_LIBNAMES}" REQUIRED)
 
 message("Searching for Qt.")
 # QT is complicated to use and should go through find_package
