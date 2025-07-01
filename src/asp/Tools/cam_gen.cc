@@ -201,6 +201,107 @@ void parse_values(std::string list, std::vector<T> & values) {
     values.push_back(val);
 }
 
+// Parse the frame index to extract lon_lat_values_str. Look for a line
+// having this image, and search for "POLYGON" followed by spaces and "((".
+void parseFrameIndex(std::string const& frame_index,
+                     std::string const& image_file,
+                     bool parse_eci, bool parse_ecef,
+                     double cam_weight, 
+                     std::string & lon_lat_values_str,
+                     std::string & parsed_camera_center_str,
+                     std::string & parsed_cam_quat_str) { 
+  
+  boost::filesystem::path p(image_file);
+  std::string image_base = p.stem().string(); // strip the directory name and suffix
+  std::ifstream file(frame_index.c_str());
+  std::string line;
+  std::string beg1 = "POLYGON";
+  std::string beg2 = "((";
+  std::string end = "))";
+  
+  while (getline(file, line, '\n')) {
+    if (line.find(image_base) != std::string::npos) {
+      // Find POLYGON first.
+      int beg_pos = line.find(beg1);
+      if (beg_pos == std::string::npos)
+        vw_throw(ArgumentErr() << "Cannot find " << beg1 << " in line: " << line << ".\n");
+      beg_pos += beg1.size();
+
+      // Move forward skipping any spaces until finding "(("
+      beg_pos = line.find(beg2, beg_pos);
+      if (beg_pos == std::string::npos)
+        vw_throw(ArgumentErr() << "Cannot find " << beg2 << " in line: " << line << ".\n");
+      beg_pos += beg2.size();
+
+      // Find "))"
+      int end_pos = line.find(end, beg_pos);
+      if (end_pos == std::string::npos)
+        vw_throw(ArgumentErr() << "Cannot find " << end << " in line: " << line << ".\n");
+      lon_lat_values_str = line.substr(beg_pos, end_pos - beg_pos);
+      vw_out() << "Parsed the lon-lat corner values: "
+                << lon_lat_values_str << "\n";
+
+      if (parse_eci && parse_ecef)
+        vw_throw(ArgumentErr() << "Cannot parse both ECI end ECEF at the same time.\n");
+
+      // Also parse the camera height constraint, unless manually specified
+      if (cam_weight > 0 || parse_eci || parse_ecef) {
+        std::vector<std::string> vals;
+        parse_values<std::string>(line, vals);
+
+        if (vals.size() < 12)
+          vw_throw(ArgumentErr() << "Could not parse 12 values from: " << line << ".\n");
+
+        // Extract the ECI or ECEF coordinates of camera
+        // center. Keep them as string until we can convert to
+        // height above datum.
+
+        if (parse_eci) {
+          std::string x = vals[5];
+          std::string y = vals[6];
+          std::string z = vals[7];
+          parsed_camera_center_str = x + " " + y + " " + z;
+          vw_out() << "Parsed the ECI camera center in km: "
+                   << parsed_camera_center_str <<".\n";
+
+          std::string q0 = vals[8];
+          std::string q1 = vals[9];
+          std::string q2 = vals[10];
+          std::string q3 = vals[11];
+          parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
+          vw_out() << "Parsed the ECI quaternion: " << parsed_cam_quat_str <<".\n";
+        }
+
+        if (parse_ecef) {
+          if (vals.size() < 19)
+            vw_throw(ArgumentErr() << "Could not parse 19 values from: " << line << ".\n");
+
+          std::string x = vals[12];
+          std::string y = vals[13];
+          std::string z = vals[14];
+          parsed_camera_center_str = x + " " + y + " " + z;
+          vw_out() << "Parsed the ECEF camera center in km: " 
+                   << parsed_camera_center_str <<".\n";
+
+          std::string q0 = vals[15];
+          std::string q1 = vals[16];
+          std::string q2 = vals[17];
+          std::string q3 = vals[18];
+          parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
+          vw_out() << "Parsed the ECEF quaternion: "
+                   << parsed_cam_quat_str <<".\n";
+        }
+      } // End parsing camera height constraint
+      
+      break;
+    } // end of if we found the image name in the line
+  } // end of loop through lines in frame index file
+
+  if (lon_lat_values_str == "")
+    vw_throw(ArgumentErr() << "Could not parse the entry for " << image_base
+              << " in file: " << frame_index << ".\n");
+}
+
 struct Options : public vw::GdalWriteOptions {
   std::string image_file, out_camera, lon_lat_values_str, pixel_values_str, datum_str,
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
@@ -247,21 +348,25 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("focal-length", po::value(&opt.focal_length)->default_value(0),
      "The camera focal length.")
     ("optical-center", po::value(&opt.optical_center)->default_value(Vector2(nan, nan),"NaN NaN"),
-     "The camera optical center. If not specified for pinhole cameras, it will be set to image center (half of image dimensions) times the pixel pitch. The optical bar camera always uses the image center.")
+     "The camera optical center (horizontal and vertical components). If not specified for "
+     "pinhole cameras, it will be set to image center (half of image dimensions) times the "
+     "pixel pitch. The optical bar camera always uses the image center.")
     ("pixel-pitch", po::value(&opt.pixel_pitch)->default_value(0),
-     "The pixel pitch. If set to 1, the focal length and optical center are in units "
-     "of pixel.")
+      "The camera pixel pitch, that is, the width of a pixel. It can be in millimeters, "
+      "and then the focal length and optical center must be in millimeters as well. "
+      "If set to 1, the focal length and optical center are in units of pixel.")
     ("distortion", po::value(&opt.distortion_str)->default_value(""),
      "Distortion model parameters. It is best to leave this blank and have the program "
      "determine them. By default, the OpenCV radial-tangential lens distortion "
      "model is used. Then, can specify 5 numbers, in quotes, in the order "
-     "k1, k2, p1, p2, k3. Also supported is the transverse model, which needs "
-     "20 values. These are the coefficients of a pair of polynomials of degree 3 "
-     "in x and y. Only applicable when creating CSM cameras. The default is zero "
-     "distortion. See also --distortion-type.")
+     "k1, k2, p1, p2, k3. Also supported are the radial distortion model with 3 "
+     "parameters, k1, k2, and k3, and the transverse model, which needs 20 values. The "
+     "latter are the coefficients of a pair of polynomials of degree 3 in x and y. Only "
+     "applicable when creating CSM cameras. The default is zero distortion. See also "
+     "--distortion-type.")
     ("distortion-type", po::value(&opt.distortion_type)->default_value("radtan"),
-     "Set the distortion type. Options: radtan (default) and transverse. Only applicable "
-     "when creating CSM Frame cameras.")
+     "Set the distortion type. Options: radtan, radial, and transverse. Only "
+     "applicable when creating CSM Frame cameras.")
     ("camera-center",
      po::value(&opt.camera_center)->default_value(Vector3(nan, nan, nan),"NaN NaN NaN"),
      "The camera center in ECEF coordinates. If not set, the program will solve for it."
@@ -291,12 +396,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "If positive, try to enforce that during camera refinement the camera center stays close to the initial value (bigger weight means try harder to enforce this; a value like 1000.0 is good enough).")
     ("parse-eci", po::bool_switch(&opt.parse_eci)->default_value(false)->implicit_value(true),
      "Create cameras based on ECI positions and orientations (not working).")
-    ("parse-ecef", po::bool_switch(&opt.parse_ecef)->default_value(false)->implicit_value(true),
+    ("parse-ecef", 
+      po::bool_switch(&opt.parse_ecef)->default_value(false)->implicit_value(true),
      "Create cameras based on ECEF position (but not orientation).")
     ("input-camera", po::value(&opt.input_camera)->default_value(""),
-     "Create the output pinhole camera approximating this camera. If with a "
-     "_pinhole.json suffix, read it verbatim, with no refinements or "
-     "taking into account other input options.")
+     "Create a camera approximating this camera. See the examples in the documentation "
+     "for various applications.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. See the doc for options.")
     ("extrinsics", po::value(&opt.extrinsics_file)->default_value(""),
@@ -372,8 +477,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Create the output directory
   vw::create_out_dir(opt.out_camera);
 
+  // This will be empty if an input camera is not specified
+  std::string input_ext = vw::get_extension(opt.input_camera);
+
   // The rest of the logic does not apply to linescan and rpc cameras
-  if (opt.camera_type == "linescan" || opt.camera_type == "rpc")
+  if ((opt.camera_type == "linescan" && input_ext != ".tsai") || opt.camera_type == "rpc")
     return;
 
   // Planet's custom format
@@ -421,7 +529,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.datum_str = cam_datum.name();
     }
   }
-
+  
   // Must do the same for opt.sample_file. This and opt.input_camera are used for
   // different things. opt.sample_file may not even be an orbital camera.
   if (!opt.sample_file.empty()) {
@@ -466,101 +574,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                  << "Cannot enforce the camera center constraint and camera "
                  << "height constraint at the same time.\n");
 
-  // TODO(oalexan1): Break up this big loop
-  if (!opt.planet_pinhole && opt.frame_index != "") {
-    // Parse the frame index to extract opt.lon_lat_values_str.
-    // Look for a line having this image, and search for "POLYGON" followed by spaces and "((".
-    boost::filesystem::path p(opt.image_file);
-    std::string image_base = p.stem().string(); // strip the directory name and suffix
-    std::ifstream file(opt.frame_index.c_str());
-    std::string line;
-    std::string beg1 = "POLYGON";
-    std::string beg2 = "((";
-    std::string end = "))";
-    while (getline(file, line, '\n')) {
-      if (line.find(image_base) != std::string::npos) {
-        // Find POLYGON first.
-        int beg_pos = line.find(beg1);
-        if (beg_pos == std::string::npos)
-          vw_throw(ArgumentErr() << "Cannot find " << beg1 << " in line: " << line << ".\n");
-        beg_pos += beg1.size();
-
-        // Move forward skipping any spaces until finding "(("
-        beg_pos = line.find(beg2, beg_pos);
-        if (beg_pos == std::string::npos)
-          vw_throw(ArgumentErr() << "Cannot find " << beg2 << " in line: " << line << ".\n");
-        beg_pos += beg2.size();
-
-        // Find "))"
-        int end_pos = line.find(end, beg_pos);
-        if (end_pos == std::string::npos)
-          vw_throw(ArgumentErr() << "Cannot find " << end << " in line: " << line << ".\n");
-        opt.lon_lat_values_str = line.substr(beg_pos, end_pos - beg_pos);
-        vw_out() << "Parsed the lon-lat corner values: "
-                 << opt.lon_lat_values_str << "\n";
-
-        if (opt.parse_eci && opt.parse_ecef)
-          vw_throw(ArgumentErr() << "Cannot parse both ECI end ECEF at the same time.\n");
-
-        // Also parse the camera height constraint, unless manually specified
-        if (opt.cam_weight > 0 || opt.parse_eci || opt.parse_ecef) {
-          std::vector<std::string> vals;
-          parse_values<std::string>(line, vals);
-
-          if (vals.size() < 12)
-            vw_throw(ArgumentErr() << "Could not parse 12 values from: " << line << ".\n");
-
-          // Extract the ECI or ECEF coordinates of camera
-          // center. Keep them as string until we can convert to
-          // height above datum.
-
-          if (opt.parse_eci) {
-            std::string x = vals[5];
-            std::string y = vals[6];
-            std::string z = vals[7];
-            opt.parsed_camera_center_str = x + " " + y + " " + z;
-            vw_out() << "Parsed the ECI camera center in km: "
-                << opt.parsed_camera_center_str <<".\n";
-
-            std::string q0 = vals[8];
-            std::string q1 = vals[9];
-            std::string q2 = vals[10];
-            std::string q3 = vals[11];
-            opt.parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
-            vw_out() << "Parsed the ECI quaternion: "
-                << opt.parsed_cam_quat_str <<".\n";
-          }
-
-          if (opt.parse_ecef) {
-            if (vals.size() < 19)
-              vw_throw(ArgumentErr() << "Could not parse 19 values from: " << line << ".\n");
-
-            std::string x = vals[12];
-            std::string y = vals[13];
-            std::string z = vals[14];
-            opt.parsed_camera_center_str = x + " " + y + " " + z;
-            vw_out() << "Parsed the ECEF camera center in km: "
-                << opt.parsed_camera_center_str <<".\n";
-
-            std::string q0 = vals[15];
-            std::string q1 = vals[16];
-            std::string q2 = vals[17];
-            std::string q3 = vals[18];
-            opt.parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
-            vw_out() << "Parsed the ECEF quaternion: "
-                << opt.parsed_cam_quat_str <<".\n";
-          }
-        } // End parsing camera height constraint
-
-        break;
-      } // end of if we found the image name in the line
-    } // end of loop through lines in frame index file
-
-    if (opt.lon_lat_values_str == "")
-      vw_throw(ArgumentErr() << "Could not parse the entry for " << image_base
-                << " in file: " << opt.frame_index << ".\n");
-  }
-
+  if (!opt.planet_pinhole && opt.frame_index != "")
+    parseFrameIndex(opt.frame_index, opt.image_file,
+                    opt.parse_eci, opt.parse_ecef,
+                    opt.cam_weight,
+                    opt.lon_lat_values_str, 
+                    opt.parsed_camera_center_str,
+                    opt.parsed_cam_quat_str);
+  
   // Parse the pixel values
   parse_values<double>(opt.pixel_values_str, opt.pixel_values);
 
@@ -601,8 +622,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.lon_lat_values.pop_back();
     }
   }
-
-  std::string input_ext = vw::get_extension(opt.input_camera);
 
   // Note that optical center can be negative (for some SkySat products).
   if (!opt.planet_pinhole &&
@@ -676,6 +695,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       else
         opt.distortion.resize(5, 0.0);
 
+    } else if (opt.distortion_type == "radial") {
+      opt.distortion.resize(3, 0.0);
     } else if (opt.distortion_type == "transverse") {
       // This distortion model is a pair of polynomials of degree 3 in x and y.
       opt.distortion.resize(20, 0.0);
@@ -694,6 +715,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.distortion.size() != 0) {
     if (opt.distortion_type == "radtan" && opt.distortion.size() != 5)
       vw_throw(ArgumentErr() << "Expecting 5 distortion coefficients for radtan "
+               << "distortion, got: " << opt.distortion.size() << ".\n");
+    if (opt.distortion_type == "radial" && opt.distortion.size() != 3)
+      vw_throw(ArgumentErr() << "Expecting 3 distortion coefficients for radial "
                << "distortion, got: " << opt.distortion.size() << ".\n");
     if (opt.distortion_type == "transverse" && opt.distortion.size() != 20)
       vw_throw(ArgumentErr() << "Expecting 20 distortion coefficients for transverse "
@@ -725,10 +749,14 @@ void manufacture_cam(Options & opt, int wid, int hgt, vw::CamPtr & out_cam) {
       // Read the intrinsics from the csm file. The distortion will be set later.
       asp::CsmModel csm(opt.sample_file);
       opt.focal_length = csm.focal_length();
-      opt.optical_center = csm.optical_center();
+      opt.pixel_pitch = csm.frame_pixel_pitch();
+      opt.optical_center = csm.optical_center() * csm.frame_pixel_pitch();
+      // TODO(oalexan1): Must copy the target name from CSM
       opt.distortion = csm.distortion();
       if (opt.distortion.size() == 5)
         opt.distortion_type = "radtan";
+      else if (opt.distortion.size() == 3)
+        opt.distortion_type = "radial";
       else if (opt.distortion.size() == 20)
         opt.distortion_type = "transverse";
       else
@@ -746,14 +774,15 @@ void manufacture_cam(Options & opt, int wid, int hgt, vw::CamPtr & out_cam) {
       Vector3 ctr(0, 0, 0);
       Matrix<double, 3, 3> rotation;
       rotation.set_identity();
-      // When the user does not set the optical center, use the image center times pixel pitch
+      // When the user does not set the optical center, use the image center
       Vector2 opt_ctr = opt.optical_center;
       if (std::isnan(opt_ctr[0]) || std::isnan(opt_ctr[1]))
         opt_ctr = Vector2(opt.pixel_pitch * wid/2.0, opt.pixel_pitch * hgt/2.0);
 
       vw::camera::LensDistortion const* distortion = NULL; // no distortion info yet
       pinhole_cam.reset(new PinholeModel(ctr, rotation, opt.focal_length, opt.focal_length,
-                                         opt_ctr[0], opt_ctr[1], distortion, opt.pixel_pitch));
+                                         opt_ctr[0], opt_ctr[1], distortion, 
+                                         opt.pixel_pitch));
     }
     out_cam = pinhole_cam;
   }
@@ -1219,15 +1248,13 @@ void save_linescan(Options & opt) {
 
   // Load the cameras. By now bundle-adjust-prefix should be set in stereo settings.
   std::string out_prefix;
-    asp::SessionPtr session(asp::StereoSessionFactory::create
-                     (opt.stereo_session, // may change
-                      opt,
-                      opt.image_file, opt.image_file,
-                      opt.input_camera, opt.input_camera,
-                      out_prefix));
-
-  boost::shared_ptr<CameraModel> camera_model = session->camera_model(opt.image_file,
-                                      opt.input_camera);
+  asp::SessionPtr session(asp::StereoSessionFactory::create
+                   (opt.stereo_session, // may change
+                    opt,
+                    opt.image_file, opt.image_file,
+                    opt.input_camera, opt.input_camera,
+                    out_prefix));
+  vw::CamPtr camera_model = session->camera_model(opt.image_file, opt.input_camera);
 
   // Get a pointer to the underlying CSM model. It is owned by camera_model.
   asp::CsmModel * csm_cam = asp::csm_model(camera_model, opt.stereo_session);
@@ -1244,6 +1271,21 @@ void save_linescan(Options & opt) {
 
   vw_out() << "Writing: " << opt.out_camera << "\n";
   csm_cam->saveState(opt.out_camera);
+}
+
+void opticalbar2linescan(Options & opt) {
+  if (opt.bundle_adjust_prefix != "") 
+    vw_throw(ArgumentErr() 
+             << "Option --bundle-adjust-prefix is not supported when converting "
+             << "an opticalbar camera to a linescan camera. Ensure the input camera "
+             << "is created with any adjustments applied to it internally.\n");
+  
+  vw::Vector2i image_size = vw::file_image_size(opt.image_file);
+  asp::CsmModel csm;
+  asp::fitCsmLinescanToOpticalBar(opt.input_camera, image_size, opt.datum, csm);
+
+  vw_out() << "Writing: " << opt.out_camera << "\n";
+  csm.saveState(opt.out_camera);
 }
 
 void save_rpc(Options & opt) {
@@ -1353,17 +1395,80 @@ void isisCubMetadata(vw::CamPtr in_cam,
 #endif  
 }
 
+// Save a pinhole camera, in tsai or csm format
+void save_pinhole(Options const& opt,
+                  vw::cartography::GeoReference const& geo,
+                  vw::CamPtr input_camera_ptr,
+                  ImageViewRef<PixelMask<float>> interp_dem,
+                  boost::shared_ptr<CameraModel> out_cam) {
+
+  vw::camera::PinholeModel* pin = NULL;
+  boost::shared_ptr<vw::camera::PinholeModel> input_pin;
+  std::string out_ext = vw::get_extension(opt.out_camera);
+  if (opt.exact_tsai_to_csm_conv) {
+    // Get the input pinhole model, to be converted below exactly to CSM
+    input_pin.reset(new vw::camera::PinholeModel(opt.input_camera));
+    pin = input_pin.get();
+    // Must make another copy to satisfy another path in the logic below
+    // TODO(oalexan1): This looks like a hack.
+    input_camera_ptr.reset(new vw::camera::PinholeModel(opt.input_camera));
+  } else {
+    // Use the manufactured camera
+    pin = (vw::camera::PinholeModel*)out_cam.get();
+  }
+
+  if (out_ext == ".tsai") {
+    vw::Vector3 llh = geo.datum().cartesian_to_geodetic(out_cam->camera_center(Vector2()));
+    vw_out() << "Output camera center lon, lat, and height above datum: "
+              << llh << "\n";
+    vw_out() << "Writing: " << opt.out_camera << "\n";
+    pin->write(opt.out_camera);
+
+  } else if (out_ext == ".json") {
+    DiskImageView<float> img(opt.image_file);
+    int width = img.cols(), height = img.rows();
+    asp::CsmModel csm;
+    
+    // For input ISIS cameras, save some metadata to the output camera
+    double ephem_time = 0.0;
+    vw::Vector3 sun_pos(0, 0, 0);
+    std::string serial_number = "", target_name = "";
+    isisCubMetadata(input_camera_ptr,
+                    ephem_time, sun_pos, serial_number, target_name);
+    
+    csm.createFrameModel(*pin, width, height,
+                          geo.datum().semi_major_axis(), geo.datum().semi_minor_axis(),
+                          opt.distortion_type, opt.distortion,
+                          ephem_time, sun_pos, serial_number, target_name);
+    if (opt.refine_intrinsics != "")
+      refineIntrinsics(opt, geo, interp_dem, input_camera_ptr, width, height, csm);
+
+    vw::Vector3 llh = geo.datum().cartesian_to_geodetic(csm.camera_center(Vector2()));
+    vw_out() << "Output camera center lon, lat, and height above datum: "
+              << llh << "\n";
+    vw_out() << "Writing: " << opt.out_camera << "\n";
+    csm.saveState(opt.out_camera);
+  } else {
+    vw_throw(ArgumentErr() << "Unknown output camera file extension: "
+              << out_ext << ".\n");
+  }
+
+}
+
 int main(int argc, char * argv[]) {
 
   Options opt;
   try {
 
     handle_arguments(argc, argv, opt);
-
+    
     if (opt.camera_type == "linescan") {
-      // The linescan workflow is very different than the rest of the code,
-      // as only camera conversion is done.
-      save_linescan(opt);
+      // The linescan workflow is very different than the rest of the code.
+      if (opt.stereo_session != "opticalbar")
+        save_linescan(opt);
+      else
+        opticalbar2linescan(opt);
+      
       return 0;
     }
     
@@ -1403,61 +1508,13 @@ int main(int argc, char * argv[]) {
     }
 
     if (opt.camera_type == "opticalbar") {
-        vw::Vector3 llh = geo.datum().cartesian_to_geodetic(out_cam->camera_center(Vector2()));
+        vw::Vector3 llh
+         = geo.datum().cartesian_to_geodetic(out_cam->camera_center(Vector2()));
         vw_out() << "Output camera center lon, lat, and height above datum: "
                  << llh << "\n";
       ((vw::camera::OpticalBarModel*)out_cam.get())->write(opt.out_camera);
     } else if (opt.camera_type == "pinhole") {
-      vw::camera::PinholeModel* pin = NULL;
-      boost::shared_ptr<vw::camera::PinholeModel> input_pin;
-      std::string out_ext = vw::get_extension(opt.out_camera);
-      if (opt.exact_tsai_to_csm_conv) {
-        // Get the input pinhole model, to be converted below exactly to CSM
-        input_pin.reset(new vw::camera::PinholeModel(opt.input_camera));
-        pin = input_pin.get();
-        // Must make another copy to satisfy another path in the logic below
-        input_camera_ptr.reset(new vw::camera::PinholeModel(opt.input_camera));
-      } else {
-        // Use the manufactured camera
-        pin = (vw::camera::PinholeModel*)out_cam.get();
-      }
-
-      if (out_ext == ".tsai") {
-        vw::Vector3 llh = geo.datum().cartesian_to_geodetic(out_cam->camera_center(Vector2()));
-        vw_out() << "Output camera center lon, lat, and height above datum: "
-                 << llh << "\n";
-        vw_out() << "Writing: " << opt.out_camera << "\n";
-        pin->write(opt.out_camera);
-
-      } else if (out_ext == ".json") {
-        DiskImageView<float> img(opt.image_file);
-        int width = img.cols(), height = img.rows();
-        asp::CsmModel csm;
-        
-        // For input ISIS cameras, save some metadata to the output camera
-        double ephem_time = 0.0;
-        vw::Vector3 sun_pos(0, 0, 0);
-        std::string serial_number = "", target_name = "";
-        isisCubMetadata(input_camera_ptr,
-                         ephem_time, sun_pos, serial_number, target_name);
-        
-        csm.createFrameModel(*pin, width, height,
-                             geo.datum().semi_major_axis(), geo.datum().semi_minor_axis(),
-                             opt.distortion_type, opt.distortion,
-                             ephem_time, sun_pos, serial_number, target_name);
-        
-        if (opt.refine_intrinsics != "")
-          refineIntrinsics(opt, geo, interp_dem, input_camera_ptr, width, height, csm);
-
-        vw::Vector3 llh = geo.datum().cartesian_to_geodetic(csm.camera_center(Vector2()));
-        vw_out() << "Output camera center lon, lat, and height above datum: "
-                 << llh << "\n";
-        vw_out() << "Writing: " << opt.out_camera << "\n";
-        csm.saveState(opt.out_camera);
-      } else {
-        vw_throw(ArgumentErr() << "Unknown output camera file extension: "
-                 << out_ext << ".\n");
-      }
+      save_pinhole(opt, geo, input_camera_ptr, interp_dem, out_cam);
     }
 
   } ASP_STANDARD_CATCHES;

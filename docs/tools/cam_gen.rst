@@ -73,9 +73,12 @@ See :numref:`cam_gen_validation` for how to validate the created cameras.
 Optical bar cameras
 ^^^^^^^^^^^^^^^^^^^
 
-For optical bar cameras, the camera parameters must be passed in using the
-``--sample-file`` option instead of specifying them all manually. This is 
-discussed in :numref:`kh9`.
+For creating optical bar cameras, the camera parameters must be passed in using
+the ``--sample-file`` option instead of specifying them all manually. An example
+is in :numref:`kh9`.
+
+For fitting a CSM linescan camera to an Optical Bar camera, see
+:numref:`opticalbar2csm`.
 
 .. _cam_gen_prior:
 
@@ -155,15 +158,16 @@ Example::
     --refine-intrinsics focal_length,distortion \
     -o output.json
 
-Here it was assumed that the pixel pitch was 1. For pinhole cameras the
-pixel pitch can also be in millimeters, but then the focal length and optical
-center must be in the same units. In either case, upon conversion to CSM Frame
-cameras, the input focal length and optical center are divided by the pixel
-pitch. 
+Here it was assumed that the pixel pitch was 1. For pinhole cameras the pixel
+pitch can also be in millimeters, but then the focal length and optical center
+must be in the same units. Upon conversion to CSM Frame cameras, the focal
+length is kept as-is, but the optical center is divided by the pixel pitch,
+as CSM expects pixel units. 
 
-It is suggested to not optimize the optical center, as that correlates with the
-camera pose and can lead to an implausible solution. The ``--distortion`` option
-need not be set, as the program will try to figure that out.
+It is suggested to not optimize the optical center (at least in a first pass),
+as that correlates with the camera pose and can lead to an implausible solution.
+The ``--distortion`` option need not be set, as the program will try to figure
+that out.
 
 If invoked with ``--refine-intrinsics none``, the provided intrinsics will be
 passed to the CSM model, but then only the camera pose will be refined. This
@@ -188,6 +192,9 @@ acquired with the same sensor, run::
 
 The produced camera intrinsics can be jointly refined with other frame or
 linescan cameras using ``bundle_adjust`` (:numref:`ba_frame_linescan`).
+
+Several lens distortion models are supported (option ``--distortion-type``,
+:numref:`cam_gen_options`).
  
 See :numref:`cam_gen_validation` for how to validate the created cameras.
 
@@ -212,6 +219,9 @@ An example is as follows::
 The option ``--bundle-adjust-prefix`` can be used to apply an adjustment to the
 camera on loading.
 
+For fitting a CSM linescan camera to an Optical Bar camera, see
+:numref:`opticalbar2csm`.
+
 The ``cam_test`` program (:numref:`cam_test`) can verify the agreement between
 the input and output cameras. Do not specify the ``--bundle-adjust-prefix``
 option for such experiments, as the original camera does not have the adjustment
@@ -222,6 +232,48 @@ If desired to create linescan cameras to given specifications, use instead
 ``sat_sim`` (:numref:`sat_sim`).
 
 See :numref:`cam_gen_validation` for how to validate the created cameras.
+
+.. _opticalbar2csm:
+
+Fit CSM to Optical Bar
+^^^^^^^^^^^^^^^^^^^^^^
+
+Optical bar cameras (:numref:`panoramic`) can be converted to CSM
+(:numref:`csm`) linescan cameras as::
+
+    cam_gen --camera-type linescan \
+        input.tif                  \
+        --input-camera input.tsai  \
+        -o output.json
+
+It is very important to note that the images acquired with this sensor, such as
+for KH-9 (:numref:`kh9`) are usually stored on disk with the scan lines parallel
+to image columns. The CSM linescan model assumes that the scan lines are parallel
+to the image lines.
+
+Because of this, the invocation above does an in-sensor 90-degree counter-clockwise
+rotation. The image must be rotated as well, to be consistent with the new camera. 
+A command as follows works::
+
+    convert -rotate 90                       \
+        -limit width 64KP -limit height 64KP \
+        -limit area 1GP -limit memory 2GiB   \
+        -limit disk 10GiB                    \
+        input.tif output.tif
+
+The ImageMagick ``convert`` command will likely fail to work without changing
+its ``policy.xml`` file to accept large images, and the limits above may need to
+be increased as well. It is suggested to install this program with ``conda``
+in a separate environment, then edit the policy file.
+
+The input and output cameras are not directly comparable via ``cam_test``
+(:numref:`cam_test`) because of the in-sensor rotation, yet a sanity check of
+the output camera against itself can take place. 
+
+These images and camera models can be compared with the help of mapprojection
+(:numref:`cam_gen_validation`). The original image and cameras are passed to one
+mapprojection command, then the new image and new camera to another. The resulting
+images should agree at the pixel level.
 
 .. _cam_gen_extrinsics:
 
@@ -400,10 +452,11 @@ Command-line options
     must be in millimeters as well.
 
 --optical-center <float float (default: NaN NaN)>
-    The camera optical center. If ``--pixel-pitch`` is in millimeters, this must
-    be in millimeters as well. If not specified for pinhole cameras, it will be
-    set to image center (half of image dimensions) times the pixel pitch. The
-    optical bar camera always uses the image center.
+    The camera optical center (horizontal and vertical components). If
+    ``--pixel-pitch`` is in millimeters, this must be in millimeters as well. If
+    not specified for pinhole cameras, it will be set to image center (half of
+    image dimensions) times the pixel pitch. The optical bar camera always uses
+    the image center.
 
 --pixel-pitch <float (default: 0.0)>
     The camera pixel pitch, that is, the width of a pixel. It can be in millimeters,
@@ -415,19 +468,21 @@ Command-line options
     program determine them. By default, the OpenCV `radial-tangential lens
     distortion
     <https://docs.opencv.org/3.4/dc/dbb/tutorial_py_calibration.html>`_ model is
-    used. Then, can specify 5 numbers, in quotes, in the order k1,
-    k2, p1, p2, k3. Also supported is the transverse model, which needs 20
-    values. These are the coefficients of a pair of polynomials of degree 3 in x
-    and y. Only applicable when creating CSM Frame cameras. The default is zero
-    distortion. See also ``--distortion-type``.
+    used. Then, can specify 5 numbers, in quotes, in the order k1, k2, p1, p2,
+    k3. Also supported are the radial distortion model with 3 parameters, k1,
+    k2, and k3, and the transverse model, which needs 20 values. The latter are the
+    coefficients of a pair of polynomials of degree 3 in x and y. Only
+    applicable when creating CSM Frame cameras. The default is zero distortion.
+    See also ``--distortion-type``.
 
 --distortion-type <string (default: "radtan")>
-    Set the distortion type. Options: ``radtan``, ``transverse``. Only
-    applicable when creating CSM Frame cameras (:numref:`cam_gen_frame`).
+    Set the distortion type. Options: ``radtan``, ``radial``, ``transverse``.
+    Only applicable when creating CSM Frame cameras (:numref:`cam_gen_frame`).
 
 --camera-center <double double double (default: NaN NaN NaN)>
-    The camera center in ECEF coordinates. If not set, the program will solve for it.
-    If setting ``--refine-camera``, consider using ``--cam-ctr-weight``.
+    The camera center in ECEF coordinates. If not set, the program will solve
+    for it. If setting ``--refine-camera``, consider using ``--cam-ctr-weight``.
+    See also ``--camera-center-llh``.
 
 --camera-center-llh <double double double (default: NaN NaN NaN)>
     The camera center in longitude, latitude, and height above datum. See also: 
@@ -463,10 +518,8 @@ Command-line options
     will be given more weight.
 
 --input-camera <string (default: "")>
-    Create the output pinhole camera approximating this camera.
-    If with a ``_pinhole.json`` suffix, read it verbatim, with no
-    refinements or taking into account other input options. Example
-    in :numref:`skysat_stereo`.
+    Create a camera approximating this camera. See the examples above
+    and in :numref:`skysat_stereo` for various applications.
 
 --extrinsics <string (default: "")>
     Read a file having on each line an image name and extrinsic parameters as

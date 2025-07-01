@@ -23,9 +23,12 @@
 #include <vw/Math/Geometry.h>
 
 #include <asp/Camera/CsmModel.h>
+#include <vw/Camera/OpticalBarModel.h>
 
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
+
+#include <iostream>
 
 namespace asp {
 
@@ -91,12 +94,11 @@ void csmQuatVecToAxisAngle(int num_poses,
 }
 
 // The error between sight vectors and the camera directions 
-struct SightVecError {
+struct SightMatError {
 
-  typedef std::vector<std::vector<vw::Vector3>> SightVecT;
-  
-  SightVecError(SightVecT const& world_sight_mat, int row, int col, int d_col):
-  m_world_sight_mat(world_sight_mat), m_row(row), m_col(col), m_d_col(d_col) {}
+  SightMatError(SightMatT const& world_sight_mat, int row, int col, int min_col, int d_col):
+  m_world_sight_mat(world_sight_mat), m_row(row), m_col(col), 
+  m_min_col(min_col), m_d_col(d_col) {}
 
   // Error operator
   bool operator()(double const* const* parameters, double* residuals) const {
@@ -112,8 +114,9 @@ struct SightVecError {
     vw::Vector3 axis_angle(rotation[0], rotation[1], rotation[2]);
     vw::Matrix3x3 rot = vw::math::axis_angle_to_quaternion(axis_angle).rotation_matrix();
     
-    // sight vec in sensor coordinates
-    vw::Vector3 in(m_col * m_d_col - optical_center[0], -optical_center[1], 
+    // sight vec in sensor coordinates. Here likely the row index and min_row is 
+    // not needed. Those are taken into account when the pixel is created later.
+    vw::Vector3 in(m_min_col + m_col * m_d_col - optical_center[0], -optical_center[1], 
                     focal_length[0]);
 
     // Normalize
@@ -133,13 +136,13 @@ struct SightVecError {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(SightVecT const& world_sight_mat, 
-                                     int row, int col, int d_col) {
+  static ceres::CostFunction* Create(SightMatT const& world_sight_mat, 
+                                     int row, int col, int min_col, int d_col) {
     // The numbers below are for residual, rotation, optical center, focal length
     
-    ceres::DynamicNumericDiffCostFunction<SightVecError>* cost_function
-     = new ceres::DynamicNumericDiffCostFunction<SightVecError>
-            (new SightVecError(world_sight_mat, row, col, d_col));
+    ceres::DynamicNumericDiffCostFunction<SightMatError>* cost_function
+     = new ceres::DynamicNumericDiffCostFunction<SightMatError>
+            (new SightMatError(world_sight_mat, row, col, min_col, d_col));
     
     cost_function->SetNumResiduals(3);
     cost_function->AddParameterBlock(3); // rotation
@@ -150,18 +153,18 @@ struct SightVecError {
   }
 
   // The sight matrix has samples of directions in the world coordinates 
-  SightVecT const& m_world_sight_mat; // alias
+  SightMatT const& m_world_sight_mat; // alias
   int m_row, m_col;
-  int m_d_col; // multiply col of sight mat by this to get the image column
+  int m_min_col, m_d_col; // to go from index in sight mat to image column
 };
 
 // See the .h file for the documentation
-void fitBestRotationsIntrinsics(
-    std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
-    vw::Vector2i const& image_size, int d_col,
-    // Outputs
-    double & focal_length, vw::Vector2 & optical_center,
-    std::vector<vw::Matrix<double,3,3>> & rotation_vec) {
+void fitBestRotationsIntrinsics(SightMatT const& world_sight_mat,
+                                vw::Vector2i const& image_size, 
+                                int min_col, int d_col,
+                                // Outputs
+                                double & focal_length, vw::Vector2 & optical_center,
+                                std::vector<vw::Matrix<double,3,3>> & rotation_vec) {
 
   // Wipe the outputs
   rotation_vec.clear();
@@ -181,14 +184,14 @@ void fitBestRotationsIntrinsics(
   optical_center = vw::Vector2(image_size[0]/2.0, 0);
   
   // Find the initial rotation matrix for each row of world_sight_mat
-  // iterate throw rows, print each row
   // make a vector of matrices, one for each row
   for (int row = 0; row < world_sight_mat.size(); row++) {
 
     // Find input-output pair correspondences
     std::vector<vw::Vector3> in_vec, out_vec;
     for (int col = 0; col < world_sight_mat[0].size(); col++) {
-      vw::Vector3 in(col * d_col - optical_center[0], -optical_center[1], focal_length);
+      vw::Vector3 in(min_col + col * d_col - optical_center[0], -optical_center[1], 
+                     focal_length);
       vw::Vector3 out = world_sight_mat[0][col];
       // Normalize and push back
       in = in/norm_2(in);
@@ -226,7 +229,7 @@ void fitBestRotationsIntrinsics(
     for (int col = 0; col < num_cols; col++) {
       
       ceres::CostFunction* cost_function
-        = SightVecError::Create(world_sight_mat, row, col, d_col);
+        = SightMatError::Create(world_sight_mat, row, col, min_col, d_col);
       // ceres::LossFunction* loss_function = NULL;
       // Prioritize for now the center of the image where the distortion
       // is less.
@@ -267,28 +270,20 @@ void fitBestRotationsIntrinsics(
 
 // The error between sight vectors and a linescan CSM model that incorporates
 // distortion. The satellite positions are assumed fixed.
-struct SightVecLinescanError {
+struct SightMatLinescanError {
 
-  typedef std::vector<std::vector<vw::Vector3>> SightVecT;
-  
-  SightVecLinescanError(SightVecT     const& world_sight_mat, 
+  SightMatLinescanError(SightMatT     const& world_sight_mat, 
                         asp::CsmModel const& csm_model,
                         int min_col,  int min_row, 
                         int d_col,    int d_row, int num_poses,
                         DistortionType dist_type, int num_dist_params):
   m_world_sight_mat(world_sight_mat), m_csm_model(csm_model),
   m_min_col(min_col), m_min_row(min_row), m_d_col(d_col), m_d_row(d_row), 
-  m_num_poses(num_poses), m_dist_type(dist_type), m_num_dist_params(num_dist_params) {
-    
-    // This code was not tested with m_min_col not zero
-    if (m_min_col != 0)
-      vw::vw_throw(vw::ArgumentErr()
-                    << "SightVecLinescanError: m_min_col must be zero.\n");
-  }
+  m_num_poses(num_poses), m_dist_type(dist_type), m_num_dist_params(num_dist_params) {}
 
   // Members
   // The sight matrix has samples of directions in the world coordinates 
-  SightVecT     const& m_world_sight_mat; // alias
+  SightMatT     const& m_world_sight_mat; // alias
   asp::CsmModel const& m_csm_model;       // alias
   int m_min_col, m_min_row, m_d_col, m_d_row, m_num_poses;
   DistortionType m_dist_type;
@@ -334,8 +329,8 @@ struct SightVecLinescanError {
 
         // Vector in sensor coordinates. Convert to double
         // early on to avoid integer overflow.
-        vw::Vector2 pix(double(col) * m_d_col + double(m_min_col), 
-                        double(row) * m_d_row + double(m_min_row));
+        vw::Vector2 pix(double(m_min_col) + double(col) * m_d_col, 
+                        double(m_min_row) + double(row) * m_d_row);
         vw::Vector3 dir2 = local_model.pixel_to_vector(pix);
         
         int j = 3 * count;
@@ -351,15 +346,15 @@ struct SightVecLinescanError {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(SightVecT const& world_sight_mat,
+  static ceres::CostFunction* Create(SightMatT const& world_sight_mat,
                                      asp::CsmModel const& csm_model,
                                      int min_col, int min_row, 
                                      int d_col, int d_row, int num_poses,
                                      DistortionType dist_type, int num_dist_params) {
     
-    ceres::DynamicNumericDiffCostFunction<SightVecLinescanError>* cost_function
-     = new ceres::DynamicNumericDiffCostFunction<SightVecLinescanError>
-            (new SightVecLinescanError(world_sight_mat, csm_model, 
+    ceres::DynamicNumericDiffCostFunction<SightMatLinescanError>* cost_function
+     = new ceres::DynamicNumericDiffCostFunction<SightMatLinescanError>
+            (new SightMatLinescanError(world_sight_mat, csm_model, 
                                        min_col, min_row, d_col, d_row, 
                                        num_poses, dist_type, num_dist_params));
     
@@ -378,12 +373,11 @@ struct SightVecLinescanError {
 };
 
 // See the .h file for the documentation
-void refineCsmLinescanFit(
-       std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
-       int min_col, int min_row,
-       int d_col, int d_row, 
-       // This model will be modified
-       asp::CsmModel & csm_model) {
+void refineCsmLinescanFit(SightMatT const& world_sight_mat,
+                          int min_col, int min_row,
+                          int d_col, int d_row,
+                          // This model will be modified
+                          asp::CsmModel & csm_model) {
 
   // Read data from the model
   double focal_length = csm_model.focal_length();
@@ -408,7 +402,7 @@ void refineCsmLinescanFit(
   // Set up an optimization problem to refine the CSM model.
   ceres::Problem problem;
   ceres::CostFunction* cost_function
-    = SightVecLinescanError::Create(world_sight_mat, csm_model, 
+    = SightMatLinescanError::Create(world_sight_mat, csm_model, 
                                     min_col, min_row, d_col, d_row, 
                                     num_poses, dist_type, distortion.size());
   
@@ -449,28 +443,44 @@ void refineCsmLinescanFit(
   return;
 }
 
-// Fit a CSM sensor with distortion to given tabulated sight directions.
-// Thi is specific to ASTER.
-void fitAsterLinescanCsmModel(
-       std::string const& sensor_id, 
-       vw::cartography::Datum const& datum,
-       vw::Vector2i const& image_size,
-       std::vector<vw::Vector3> const& sat_pos,
-       std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
-       int min_col, int min_row,
-       int d_col, int d_row, 
-       // This model will be modified
-       asp::CsmModel & csm_model) {
+// Fit a CSM sensor with distortion to given tabulated sight directions. This
+// assumes the scan lines are horizontal, so the satellite moves vertically.
+// There are as many rows in world_sight_mat as there are satellite positions.
+// At each position there several sight vectors, along the scanline.
+// We want: world_sight_mat[row][col] = csm_model.pixel_to_vector(col, row).
+void fitCsmLinescan(std::string const& sensor_id, 
+                    vw::cartography::Datum const& datum,
+                    vw::Vector2i const& image_size,
+                    std::vector<vw::Vector3> const& sat_pos,
+                    SightMatT const& world_sight_mat,
+                    int min_col, int min_row,
+                    int d_col, int d_row, 
+                    bool fit_distortion,
+                    // This model will be modified
+                    asp::CsmModel & csm_model) {
 
+  // Sanity check
+  if (sat_pos.size() != world_sight_mat.size())
+    vw::vw_throw(vw::ArgumentErr()
+                 << "fitCsmLinescan: The number of satellite positions does not "
+                 << "agree with the number of rows in the sight matrix.\n");
+  
+  // Sanity check
+  int last_sampled_row = min_row + d_row * (world_sight_mat.size() - 1);
+  if (last_sampled_row < image_size[1] - 1)  
+    vw::vw_out(vw::WarningMessage) 
+      << "Warning: The last image row with a sight matrix sample is " 
+      << last_sampled_row << ", which is less than the last image pixel line of " 
+      << image_size[1] - 1 << ". This may lead to problems with the best-fit CSM model.\n";
+                 
   // Find the rotation matrices, focal length, and optical center,
   // that best fit a 2D matrix of sight vectors. For now, assume
   // no distortion.
   double focal_length = 0.0; 
   vw::Vector2 optical_center;
   std::vector<vw::Matrix<double,3,3>> cam2world_vec;
-  fitBestRotationsIntrinsics(world_sight_mat, image_size, d_col,
+  fitBestRotationsIntrinsics(world_sight_mat, image_size, min_col, d_col,
                              focal_length, optical_center, cam2world_vec);
-  
   
   // Assume it takes one unit of time to scan one image line
   double first_line_time = 0; // time of the first scanned line
@@ -497,7 +507,8 @@ void fitAsterLinescanCsmModel(
                            csm_model); // output
 
   // Refine the CSM model by also floating the distortion 
-  asp::refineCsmLinescanFit(world_sight_mat, min_col, min_row, d_col, d_row, csm_model);
+  if (fit_distortion)
+    asp::refineCsmLinescanFit(world_sight_mat, min_col, min_row, d_col, d_row, csm_model);
 
   return;
 }
@@ -685,8 +696,8 @@ struct FrameCamReprojErr {
 
 // See how well the optimized model fits the ground points
 void computeCamStats(std::vector<vw::Vector2> const& pixels,
-                       std::vector<vw::Vector3> const& xyz,
-                       asp::CsmModel const& csm_model) {
+                     std::vector<vw::Vector3> const& xyz,
+                     asp::CsmModel const& csm_model) {
 
   // Iterate over xyz and project into the camera
   std::vector<double> errors;
@@ -807,5 +818,91 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
   return;
 }
 
-} // end namespace asp
+// Fit a CSM camera to an optical bar camera. Optical bar cameras assumes the
+// scan lines are vertical, as for KH-9, which differs with how a CSM model is
+// fit, so below we will do some conversions. Additionally, the image file
+// needs to be rotated 90 degrees counter-clockwise to match the CSM camera.
+void fitCsmLinescanToOpticalBar(std::string const& camFile, 
+                                vw::Vector2i const& OpticalBarimageColsRows,
+                                vw::cartography::Datum const& datum,
+                                asp::CsmModel & csm) {
+  
+  // See above for why OpticalBar rows become CSM columns, and vise versa.
+  int num_csm_rows = OpticalBarimageColsRows[0];
+  int num_csm_cols = OpticalBarimageColsRows[1];
+  
+  // This should be fine enough
+  int num_lines_per_pose = 100;
+  
+  // Use at least 1000 samples, but no more than 10000.
+  int num_row_samples = round(double(num_csm_rows) / double(num_lines_per_pose)) + 1;
+  num_row_samples = std::max(1000, std::min(num_row_samples, 10000));
+  
+  // Spacing between row samples
+  int d_row = round(double(num_csm_rows) / double(num_row_samples - 1));
+  d_row = std::max(d_row, 1); // at least one pixel per sample
+  
+  // Add at least 10 row samples before first line and after last line, which
+  // help with pose interpolation when solving for jitter.
+  int min_row = -10 * d_row; // start at least 10 pixels before the first line
+  int max_row = num_csm_rows + 10 * d_row; // end at least 10 pixels after the last line
+  num_row_samples = ceil(double(max_row - min_row) / double(d_row)) + 1;
+  
+  // Along each row, likely 20 column samples should be enough, as those will result
+  // in a single rotation matrix.
+  int num_col_samples = 20;
+  int d_col = ceil(double(num_csm_cols) / double(num_col_samples - 1));
+  
+  // max_col should be at least num_csm_cols - 1 to sample fully the last column.
+  // Otherwise throw a warning.
+  int min_col = 0; // start at the first column
+  int max_col = min_col + (num_col_samples - 1) * d_col;
+  if (max_col < num_csm_cols - 1)
+    vw::vw_out(vw::WarningMessage)
+      << "Warning: The last column with a sight matrix sample is " 
+      << max_col << ", which is less than the last image pixel column of " 
+      << num_csm_cols - 1 << ". This may lead to problems with the best-fit CSM model.\n";
+  
+  // Open the Optical bar file
+  vw::camera::OpticalBarModel optical_bar_cam(camFile);
+  vw::Vector2 optical_center = optical_bar_cam.get_optical_center();
+  vw::Vector2 image_size = optical_bar_cam.get_image_size();
 
+  // Image size must be what was set earlier
+  if (image_size != OpticalBarimageColsRows)
+    vw::vw_throw(vw::ArgumentErr() 
+      << "Error: The image size set in the optical bar camera model does not match "
+      << "the actual image size.\n");
+  
+  // Sample the camera poses along the track
+  std::vector<vw::Vector3> sat_pos(num_row_samples);
+  for (int i = 0; i < num_row_samples; i++) {
+    double csm_row = min_row + i * d_row;
+    // Convert to optical bar pixels. The optical bar column is csm row.
+    // The optical bar row is the row coordinate of the optical center.
+    vw::Vector2 optical_bar_pix(csm_row, optical_center[1]);
+    sat_pos[i] = optical_bar_cam.camera_center(optical_bar_pix);
+  }
+  
+  // Create the world sight matrix (camera directions in world coordinates)
+  SightMatT world_sight_mat(num_row_samples, std::vector<vw::Vector3>(num_col_samples));
+  for (int irow = 0; irow < num_row_samples; irow++) {
+    for (int icol = 0; icol < num_col_samples; icol++) {
+      double csm_col = min_col + icol * d_col;
+      double csm_row = min_row + irow * d_row;
+      // In-sensor rotation that interchanges rows and cols
+      vw::Vector2 optical_bar_pix(csm_row, num_csm_cols - 1 - csm_col);
+      world_sight_mat[irow][icol] = optical_bar_cam.pixel_to_vector(optical_bar_pix);
+    }
+  }
+
+  // Fit the CSM model
+  std::string sensor_id = "OpticalBar"; 
+  bool fit_distortion = false;
+  fitCsmLinescan(sensor_id, datum, vw::Vector2(num_csm_cols, num_csm_rows),
+                 sat_pos, world_sight_mat, min_col, min_row, d_col, d_row, 
+                 fit_distortion, csm);
+    
+}
+
+} // end namespace asp

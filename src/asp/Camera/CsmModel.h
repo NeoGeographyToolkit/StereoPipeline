@@ -108,8 +108,8 @@ namespace asp {
     // Create a CSM frame camera model. Assumes that focal length and optical
     // center are in pixels, the pixel pitch is 1.
     void createFrameModel(int cols, int rows,  // in pixels
-        double cx, double cy, // col and row optical center, in pixels
-        double focal_length,  // in pixels
+        double cx, double cy, // col and row of optical center, in units of pixel pitch
+        double focal_length,  // in units of pixel pitch
         double semi_major_axis, double semi_minor_axis, // in meters
         vw::Vector3 const& C, // camera center
         vw::Matrix3x3 const& R, // camera to world rotation matrix
@@ -118,7 +118,8 @@ namespace asp {
         double ephem_time = 0.0,
         vw::Vector3 const& sun_position = vw::Vector3(0,0,0),
         std::string const& serial_number = "",
-        std::string const& target_name = "");
+        std::string const& target_name = "",
+        double pixel_pitch = 1.0);
         
     // Create a CSM frame camera model from pinhole camera model.
     // The distortion model must be set separately, as ASP pinhole
@@ -132,7 +133,6 @@ namespace asp {
                           vw::Vector3 const& sun_position = vw::Vector3(0,0,0),
                           std::string const& serial_number = "",
                           std::string const& target_name = "");
-
 
     // Approximate conversion to a pinhole model. Will be exact only for the rad-tan
     // lens distortion and no unusual line or sample adjustments in CSM. Compare
@@ -176,13 +176,19 @@ namespace asp {
     void set_linescan_quaternions(std::vector<double> const& quaternions);
     std::vector<double> linescan_quaternions() const;
     
+    double frame_pixel_pitch() const; // pixel pitch for frame camera
+    
+    // Target name
+    std::string target_name() const;
+    void set_target_name(std::string const& target_name);
+    
     boost::shared_ptr<csm::RasterGM> m_gm_model;
 
     double m_desired_precision;
     
     // These are read from the json camera file
     double m_semi_major_axis, m_semi_minor_axis;
-
+    
     // Create a deep copy of the model, so don't just copy the shared pointer.
     void deep_copy(boost::shared_ptr<CsmModel> & copy) const;
     void deep_copy(CsmModel & copy) const;

@@ -34,16 +34,19 @@ namespace asp {
 
 class CsmModel;
 
+typedef std::vector<std::vector<vw::Vector3>> SightMatT;
+
 // Fit a CSM sensor with distortion to given tabulated sight directions.
 // This is specific to ASTER.
-void fitAsterLinescanCsmModel(
+void fitCsmLinescan(
        std::string const& sensor_id, 
        vw::cartography::Datum const& datum,
        vw::Vector2i const& image_size,
        std::vector<vw::Vector3> const& sat_pos,
-       std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
+       SightMatT const& world_sight_mat,
        int min_col, int min_row,
        int d_col, int d_row, 
+       bool fit_distortion,
        // This model will be modified
        asp::CsmModel & csm_model);
   
@@ -56,6 +59,12 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
                        std::vector<vw::Vector3> const& directions,
                        std::string const& refine_intrinsics,
                        asp::CsmModel & csm_model); // output
+
+// Fit a CSM camera to an optical bar camera. The .cc file has more details.
+void fitCsmLinescanToOpticalBar(std::string const& camFile,
+                                vw::Vector2i const& imageFize,
+                                vw::cartography::Datum const& datum,
+                                asp::CsmModel & csm);
   
 } // end namespace asp
 

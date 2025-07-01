@@ -98,12 +98,14 @@ ASTERCameraModel::ASTERCameraModel(
   vw_out() << "Using the CSM model with " << sensor_id << " cameras.\n";
   
   // Fit a CSM sensor with distortion to given tabulated sight directions
-  fitAsterLinescanCsmModel(sensor_id, datum, m_image_size, m_sat_pos, m_world_sight_mat,
-              min_col, min_row, d_col, d_row, m_csm_model);
+  bool fit_distortion = true;
+  fitCsmLinescan(sensor_id, datum, m_image_size, m_sat_pos, m_world_sight_mat,
+              min_col, min_row, d_col, d_row, fit_distortion, m_csm_model);
 }
 
 // Project the point onto the camera. Sometimes, but not always, seeding with the RPC
 // model is beneficial.  
+// TODO(oalexan1): This needs to be wiped after the CSM model is fully validated.
 vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point, 
                                              Vector2 const& start_in) const {
 

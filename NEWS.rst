@@ -34,6 +34,10 @@ pc_align (:numref:`pc_align`):
   * Added support for LAS COPC files (:numref:`pc_align_las`).
   
 cam_gen (:numref:`cam_gen`):
+  * Can fit a CSM linescan camera to an OpticalBar camera
+    (:numref:`opticalbar2csm`).
+  * Can fit a CSM frame camera model with radial distortion.  
+  * Support pixel pitch that is not just 1 in CSM cameras. 
   * If the input is an ISIS cube and the output is a CSM camera, save the
     ephemeris time, sun position, serial number, and target (planet) name.
   * Added the option ``--camera-center-llh``.
