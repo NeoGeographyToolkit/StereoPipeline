@@ -3471,6 +3471,13 @@ int main(int argc, char* argv[]) {
     }
     mean_albedo /= albedo_count;
     
+    // Declare two vectors for skipped and used images
+    std::vector<std::string> skipped_images;
+    std::vector<std::string> used_images;
+    // reserve the proper size, cannot be more than the number of images
+    skipped_images.reserve(num_images);
+    used_images.reserve(num_images);
+
     // Assume that haze is 0 to start with. Find the exposure as
     // mean(intensity)/mean(reflectance)/albedo. Use this to compute an
     // initial exposure and decide based on that which images to
@@ -3514,16 +3521,34 @@ int main(int argc, char* argv[]) {
         double exposure = imgmean/refmean/mean_albedo;
         local_exposures_vec[image_iter] = exposure;
         local_haze_vec[image_iter] = haze;
+
+        // append used image to used_images list
+        used_images.push_back(opt.input_images[image_iter]);
         //vw_out() << "Local DEM estimated exposure for image " << image_iter << ": " 
         //          << exposure << "\n";
       } else {
         // Skip images with bad exposure. Apparently there is no good
         // imagery in the area.
         opt.skip_images.insert(image_iter);
-        vw_out() << "Skip image with no data " << image_iter << " for this DEM.\n";
+        // log out the skipped image path and the image_iter for it
+        vw_out() << "Skipped image " 
+                 << image_iter 
+                 << ": "
+                 << opt.input_images[image_iter] 
+                 << " with no data for this DEM.\n";
+        // append skipped image to skipped_images list
+        skipped_images.push_back(opt.input_images[image_iter]);
       }
     }
-    
+    // write out skipped and used images lists so long as they are not empty 
+    // TODO or always write out even if empty
+    if (!used_images.empty()) {
+      asp::saveUsedImages(opt.out_prefix, used_images);
+    }
+    if (!skipped_images.empty()){
+      asp::saveSkippedImages(opt.out_prefix, skipped_images);
+    }
+
     // Only overwrite the exposures if we don't have them supplied
     if (opt.image_exposures_vec.empty())
       opt.image_exposures_vec = local_exposures_vec;

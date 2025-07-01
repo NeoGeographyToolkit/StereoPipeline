@@ -217,6 +217,14 @@ std::string modelCoeffsFileName(std::string const& prefix) {
   return prefix + "-model_coeffs.txt";
 }
   
+std::string skippedImagesFileName(std::string const& prefix) {
+  return prefix + "-skipped_images.txt";
+}
+
+std::string usedImagesFileName(std::string const& prefix) {
+  return prefix + "-used_images.txt";
+}
+
 // Save the exposures to a file
 void saveExposures(std::string const& out_prefix,
                    std::vector<std::string> const& input_images,
@@ -248,5 +256,27 @@ void saveHaze(std::string const& out_prefix,
   }
   hzf.close();
 }
+
+// Save the skipped images list, these images had no/bad exposure
+//  so no good data for the DEM in them
+void saveSkippedImages(std::string const& out_prefix,
+                       std::vector<std::string> const& input_images) {
+  std::string skipped_file = skippedImagesFileName(out_prefix);
+  vw_out() << "Writing: " << skipped_file << std::endl;
+  std::ofstream skippedfile(skipped_file.c_str());
+  for (const auto& image : input_images)
+    skippedfile << image << "\n";
+}
+
+// Save the used images list, these images had good exposure
+void saveUsedImages(std::string const& out_prefix,
+                    std::vector<std::string> const& input_images) {
+  std::string used_file = usedImagesFileName(out_prefix);
+  vw_out() << "Writing: " << used_file << std::endl;
+  std::ofstream usedfile(used_file.c_str());
+  for (const auto& image : input_images)
+    usedfile << image << "\n";
+}
+
 
 } // end namespace asp

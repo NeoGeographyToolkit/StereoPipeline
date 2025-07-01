@@ -57,6 +57,8 @@ vw::Vector3 sunPositionFromCamera(vw::CamPtr camera);
 std::string exposureFileName(std::string const& prefix);
 std::string hazeFileName(std::string const& prefix);
 std::string modelCoeffsFileName(std::string const& prefix);
+std::string skippedImagesFileName(std::string const& prefix);
+std::string usedImagesFileName(std::string const& prefix);
 
 // Save the exposures to a file
 void saveExposures(std::string const& out_prefix,
@@ -67,6 +69,14 @@ void saveExposures(std::string const& out_prefix,
 void saveHaze(std::string const& out_prefix,
               std::vector<std::string> const& input_images,
               std::vector<std::vector<double>> const& haze);
+
+// Save the skipped images list to a file
+void saveSkippedImages(std::string const& out_prefix,
+                       std::vector<std::string> const& input_images);
+
+// Save the used images list to a file
+void saveUsedImages(std::string const& out_prefix,
+                    std::vector<std::string> const& input_images);
 
 } // end namespace asp
 
