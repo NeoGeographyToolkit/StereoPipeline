@@ -7,3 +7,5 @@ src/asp/asp_date_config.h
 docs/_build
 GitHubReleases.txt
 
+.vscode
+*.code-workspace
