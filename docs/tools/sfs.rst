@@ -96,6 +96,14 @@ outputs are:
    this is more of an input quantity rather than the result of computing
    the albedo. That one is mentioned above.
 
+ - ``run/run-skipped_images.txt`` - a list of images that were skipped by ``sfs`` 
+   and were not used to produce the final result. If no images were skipped,
+   this file will not exist.
+
+ - ``run/run-used_images.txt`` - a list of images that were used by ``sfs`` 
+   to produce the final result. If no images were skipped,
+   this file will not exist.
+
 In addition, SfS saves intermediate values of many of these quantities
 at each iteration, unless the flag ``--save-sparingly`` is used. SfS
 may also save the "haze" values if this is solved for (see the
