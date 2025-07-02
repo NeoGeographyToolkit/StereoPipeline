@@ -113,7 +113,7 @@ namespace asp {
         double semi_major_axis, double semi_minor_axis, // in meters
         vw::Vector3 const& C, // camera center
         vw::Matrix3x3 const& R, // camera to world rotation matrix
-        std::string const& distortionType = "", // empty, "radtan", or "transverse"
+        std::string const& distortionType = "",
         std::vector<double> const& distortion = std::vector<double>(),
         double ephem_time = 0.0,
         vw::Vector3 const& sun_position = vw::Vector3(0,0,0),

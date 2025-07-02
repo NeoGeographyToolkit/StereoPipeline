@@ -878,7 +878,7 @@ void CsmModel::createFrameModel(int cols, int rows,  // in pixels
         double semi_major_axis, double semi_minor_axis, // in meters
         vw::Vector3 const& C, // camera center
         vw::Matrix3x3 const& R, // camera to world rotation matrix
-        std::string const& distortionType, // empty or "radtan"
+        std::string const& distortionType,
         std::vector<double> const& distortion,
         double ephem_time,
         vw::Vector3 const& sun_position,
@@ -921,9 +921,10 @@ void CsmModel::createFrameModel(int cols, int rows,  // in pixels
 
   // Set the distortion.  
   if (distortionType.empty()) {
-    // Per UsgsAstroFrameSensorModel.cpp, this is the default
-    j["m_distortionType"] = DistortionType::TRANSVERSE;
-    j["m_opticalDistCoeffs"] = std::vector<double>(20, 0.0);
+    // Let default distortion be radial, with zero distortion. Avoid transverse
+    // distortion, as that needs a lot of care in setting the coefficients.
+    j["m_distortionType"] = DistortionType::RADIAL;
+    j["m_opticalDistCoeffs"] = std::vector<double>(3, 0.0);
   } else if (distortionType == "radial") {
     if (distortion.size() != 3)
       vw::vw_throw(ArgumentErr() 
