@@ -453,11 +453,14 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   if (opt.overlap_limit == 0)
     opt.overlap_limit = opt.image_files.size();
   
-  if (int(!opt.match_files_prefix.empty()) + int(!opt.clean_match_files_prefix.empty())
-      + int(!opt.isis_cnet.empty()) + int(!opt.nvm.empty()) != 1)
-    vw_throw(ArgumentErr() << "Must specify precisely one of: --match-files-prefix, "
+  int num_pref = int(!opt.match_files_prefix.empty()) + int(!opt.clean_match_files_prefix.empty())
+      + int(!opt.isis_cnet.empty()) + int(!opt.nvm.empty());
+  if (num_pref > 1)
+    vw_throw(ArgumentErr() << "Must specify no more than one of: --match-files-prefix, "
              << "--clean-match-files-prefix, --isis-cnet, --nvm.\n");
-
+ if (num_pref == 0 && opt.gcp_files.empty())
+    vw_throw(ArgumentErr() << "Neither interest point matches nor GCP were passed in.\n");
+       
   if (opt.max_init_reproj_error <= 0.0)
     vw_throw(ArgumentErr() << "Must have a positive --max-initial-reprojection-error.\n");
 

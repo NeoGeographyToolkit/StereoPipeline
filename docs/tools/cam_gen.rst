@@ -238,8 +238,8 @@ See :numref:`cam_gen_validation` for how to validate the created cameras.
 Fit CSM to Optical Bar
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Optical bar cameras (:numref:`panoramic`) can be converted to CSM
-(:numref:`csm`) linescan cameras as::
+Optical bar cameras (:numref:`panoramic`) can be approximated very well by CSM
+(:numref:`csm`) linescan cameras. Example usage::
 
     cam_gen --camera-type linescan \
         input.tif                  \
@@ -247,7 +247,7 @@ Optical bar cameras (:numref:`panoramic`) can be converted to CSM
         -o output.json
 
 It is very important to note that the images acquired with this sensor, such as
-for KH-9 (:numref:`kh9`) are usually stored on disk with the scan lines parallel
+for KH-9 (:numref:`kh9`), are usually stored on disk with the scan lines parallel
 to image columns. The CSM linescan model assumes that the scan lines are parallel
 to the image lines.
 
