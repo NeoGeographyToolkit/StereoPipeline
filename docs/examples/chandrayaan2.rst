@@ -11,11 +11,13 @@ example will be added at a later time.
 For the moment, this exercise works only with the latest build of ASP
 (:numref:`release`) on Linux. It requires that `ISIS
 <https://github.com/DOI-USGS/ISIS3>`_ and `ALE
-<https://github.com/DOI-USGS/ale>`_ are compiled and installed from source (to
-separate locations), and that SPICE kernels be downloaded from the `ISRO Science
-Data Archive
-<https://pradan.issdc.gov.in/ch2/protected/browse.xhtml?id=spice>`_. All these
-are temporary requirements that will be removed in the near future.
+<https://github.com/oleg-alexandrov/ale/tree/chan_ohrc>`_ (branch) are compiled and
+installed from source (to separate locations), and that SPICE kernels be
+downloaded from the `ISRO Science Data Archive
+<https://pradan.issdc.gov.in/ch2/protected/browse.xhtml?id=spice>`_, and that
+addendum (``iak``) directories for ISIS data are set up. All these are temporary
+requirements that will be removed in the near future. For now this is likely not
+ready to be used.
 
 Orbiter High Resolution Camera
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
