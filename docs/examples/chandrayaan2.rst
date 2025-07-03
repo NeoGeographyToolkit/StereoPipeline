@@ -11,8 +11,8 @@ example will be added at a later time.
 For the moment, this exercise works only with the latest build of ASP
 (:numref:`release`) on Linux. It requires that `ISIS
 <https://github.com/DOI-USGS/ISIS3>`_ and `ALE
-<https://github.com/oleg-alexandrov/ale/tree/chan_ohrc>`_ (branch) are compiled and
-installed from source (to separate locations), and that SPICE kernels be
+<https://github.com/oleg-alexandrov/ale/tree/chan_ohrc>`_ (branch) are compiled
+and installed from source (to separate locations), SPICE kernels are
 downloaded from the `ISRO Science Data Archive
 <https://pradan.issdc.gov.in/ch2/protected/browse.xhtml?id=spice>`_, and that
 addendum (``iak``) directories for ISIS data are set up. All these are temporary
