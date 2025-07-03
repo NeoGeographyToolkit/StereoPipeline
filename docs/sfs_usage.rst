@@ -1201,6 +1201,14 @@ create a terrain model using stereo with some of the images and
 bundle-adjusted cameras produced so far, align that one to ``ref.tif``,
 and then apply this alignment to the cameras.
 
+With LRO NAC images, stereo pairs may be hard to find. In addition, after the
+earlier step of bundle adjustment the images may already be within 10-30 meters
+horizontally relative to the reference LOLA DEM, as validated by mapprojection.
+In that case, one may consider skipping this step. It is suggested to attempt it
+anyway, and skip it only if there are very good reasons. The produced SfS DEM
+will likely need additional alignment in either case
+(:numref:`sfs_align_refine`).
+
 Examine the file having the stereo convergence angles for each pair of images as
 produced by bundle adjustment (:numref:`ba_conv_angle`). Eliminate those with a
 convergence angle of under 10 degrees or so, and sort the rest in decreasing
@@ -1570,6 +1578,8 @@ solution for how one can try to improve very low-lit areas (it only
 works on manually selected clips and 1-3 images for each clip).
 
 See an illustration of the produced terrain in :numref:`large_scale_sfs`.
+
+.. _sfs_align_refine:
 
 Inspection and further iterations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
