@@ -177,23 +177,32 @@ vw::Vector2  OpticalBarBundleModel::evaluate(
   //  by the original intrinsic values to get the updated values.
   double center_x  = raw_center[0] * m_underlying_camera->get_optical_center()[0];
   double center_y  = raw_center[1] * m_underlying_camera->get_optical_center()[1];
-  double focus     = raw_focus [0] * m_underlying_camera->get_focal_length  ();
+  double focus     = raw_focus [0] * m_underlying_camera->get_focal_length();
   double speed     = raw_intrin[0] * m_underlying_camera->get_speed();
   double mcf       = raw_intrin[1] * m_underlying_camera->get_motion_compensation();
   double scan_time = raw_intrin[2] * m_underlying_camera->get_scan_time();
 
-  // Duplicate the input camera model with the pose, focus, center, speed, and MCF updated.
+  // The velocity is a 3-vector 
+  bool have_velocity_vec = m_underlying_camera->get_have_velocity_vec();
+  vw::Vector3 vel(0, 0, 0);
+  if (have_velocity_vec) {
+    vel = m_underlying_camera->get_velocity();
+    vel[0] *= raw_intrin[3];
+    vel[1] *= raw_intrin[4];
+    vel[2] *= raw_intrin[5];
+  }
+
+  // Create an optical bar camera with updated pose, focus, center, speed, and MCF
   vw::camera::OpticalBarModel cam(m_underlying_camera->get_image_size(),
-                                    vw::Vector2(center_x, center_y),
-                                    m_underlying_camera->get_pixel_size(),
-                                    focus,
-                                    scan_time,
-                                    //m_underlying_camera->get_scan_rate(),
-                                    m_underlying_camera->get_scan_dir(),
-                                    m_underlying_camera->get_forward_tilt(),
-                                    correction.position(),
-                                    correction.pose().axis_angle(),
-                                    speed,  mcf);
+                                  vw::Vector2(center_x, center_y),
+                                  m_underlying_camera->get_pixel_size(),
+                                  focus,
+                                  scan_time,
+                                  m_underlying_camera->get_scan_dir(),
+                                  m_underlying_camera->get_forward_tilt(),
+                                  correction.position(),
+                                  correction.pose().axis_angle(),
+                                  speed, mcf, have_velocity_vec, vel);
 
   // Project the point into the camera.
   try {
@@ -657,6 +666,9 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
   // Fix this camera if requested
   if (opt.fixed_cameras_indices.find(camera_index) != opt.fixed_cameras_indices.end()) 
     problem.SetParameterBlockConstant(param_storage.get_camera_ptr(camera_index));
+    
+  // TODO(oalexan1): Allow only some lens distortion params to float. That can be
+  // done here with CERES subset parameterization. This must be an option.
 }
 
 /// Add residual block for the error using reference xyz.

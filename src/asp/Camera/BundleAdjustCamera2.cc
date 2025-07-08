@@ -1813,6 +1813,19 @@ void get_distortion(vw::camera::CameraModel const* cam, vw::Vector<double> &dist
     dist[0] = bar_ptr->get_speed();
     dist[1] = bar_ptr->get_motion_compensation();
     dist[2] = bar_ptr->get_scan_time();
+    
+    if (bar_ptr->get_have_velocity_vec()) {
+      vw::Vector3 vel = bar_ptr->get_velocity();
+      dist[3] = vel[0];
+      dist[4] = vel[1];
+      dist[5] = vel[2];
+    } else {
+      // Ensure initialization
+      dist[3] = 0.0;
+      dist[4] = 0.0;
+      dist[5] = 0.0;
+    }
+  
     return;
   }  
   
@@ -1858,6 +1871,12 @@ void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist
     bar_ptr->set_speed(dist[0]);
     bar_ptr->set_motion_compensation(dist[1]);
     bar_ptr->set_scan_time(dist[2]);
+
+    if (bar_ptr->get_have_velocity_vec()) {
+      vw::Vector3 vel(dist[3], dist[4], dist[5]);
+      bar_ptr->set_velocity(vel);
+    }
+    
     return;
   }
   

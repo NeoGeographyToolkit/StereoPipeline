@@ -1057,9 +1057,11 @@ vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
 
 // Given an input optical bar camera and param changes, apply those, returning
 // the new camera.
-vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
-                                                        asp::BAParams const& param_storage,
-                                                        vw::camera::OpticalBarModel const& in_cam) {
+vw::camera::OpticalBarModel 
+transformedOpticalBarCamera(int camera_index,
+                            asp::BAParams const& param_storage,
+                            vw::camera::OpticalBarModel const& in_cam) {
+
   // Start by making a copy of the camera
   vw::camera::OpticalBarModel out_cam = in_cam;
 
@@ -1080,6 +1082,14 @@ vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
   out_cam.set_motion_compensation(out_cam.get_motion_compensation()*intrinsic_ptr[1]);
   out_cam.set_scan_time          (out_cam.get_scan_time()*intrinsic_ptr[2]);
 
+  if (out_cam.get_have_velocity_vec()) {
+    vw::Vector3 vel = out_cam.get_velocity();
+    vel[0] *= intrinsic_ptr[3];
+    vel[1] *= intrinsic_ptr[4];
+    vel[2] *= intrinsic_ptr[5];
+    out_cam.set_velocity(vel);
+  }
+  
   // Update the center and focus
   Vector2 old_center = out_cam.get_optical_center();
   float   old_focus  = out_cam.get_focal_length();

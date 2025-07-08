@@ -335,8 +335,8 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
   }
 
   // We will optimize multipliers of the intrinsics. This way each intrinsic
-  // changes by a scale specific to it. Note: If an intrinsic starts as 0, it
-  // will then stay as 0. This is documented. Can be both useful and confusing.
+  // changes by a scale specific to it. Note: See --min-distortion for initial
+  // values of the lens distortion coeffs when distortion is optimized.
 
   // Prepare for the DEM constraint.
   // TODO(oalexan1): Study how to best pass the DEM to avoid the code
