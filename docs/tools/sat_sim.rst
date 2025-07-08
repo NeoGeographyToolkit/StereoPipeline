@@ -34,8 +34,9 @@ Several use cases are below.
 
 .. _sat_sim_prior:
 
-Use given cameras
-^^^^^^^^^^^^^^^^^
+Prior frame or linescan cameras
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 ::
   
     sat_sim --dem dem.tif           \
@@ -65,8 +66,8 @@ A perturbation can be apply to given cameras (:numref:`sat_sim_perturb`).
 
 .. _sat_sim_nadir:
 
-Generate nadir-pointing cameras
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Create nadir-pointing frame cameras
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
   
@@ -376,7 +377,8 @@ Linescan cameras
 
 The ``sat_sim`` tool can be used to simulate linescan cameras and images, with
 or without jitter. Then, instead of many Pinhole cameras and/or images along the
-orbit, a single Linescan camera and/or image will be created. 
+orbit, a single Linescan camera and/or image will be created. For use with existing
+cameras, see :numref:`sat_sim_prior`.
 
 The option ``--num`` (or ``--frame-rate``) will control how many camera samples
 are created between the first and last image lines (including these lines). An
