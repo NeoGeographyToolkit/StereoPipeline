@@ -185,11 +185,17 @@ vw::Vector2  OpticalBarBundleModel::evaluate(
   // The velocity is a 3-vector 
   bool have_velocity_vec = m_underlying_camera->get_have_velocity_vec();
   vw::Vector3 vel(0, 0, 0);
+  vw::Vector3 final_pose(std::numeric_limits<double>::quiet_NaN(), 0, 0);
+  
   if (have_velocity_vec) {
     vel = m_underlying_camera->get_velocity();
+    final_pose = m_underlying_camera->get_final_pose();
     vel[0] *= raw_intrin[3];
     vel[1] *= raw_intrin[4];
     vel[2] *= raw_intrin[5];
+    final_pose[0] *= raw_intrin[6];
+    final_pose[1] *= raw_intrin[7];
+    final_pose[2] *= raw_intrin[8];
   }
 
   // Create an optical bar camera with updated pose, focus, center, speed, and MCF
@@ -202,8 +208,8 @@ vw::Vector2  OpticalBarBundleModel::evaluate(
                                   m_underlying_camera->get_forward_tilt(),
                                   correction.position(),
                                   correction.pose().axis_angle(),
-                                  speed, mcf, have_velocity_vec, vel);
-
+                                  speed, mcf, have_velocity_vec, vel, final_pose);
+  
   // Project the point into the camera.
   try {
     return cam.point_to_pixel(point);

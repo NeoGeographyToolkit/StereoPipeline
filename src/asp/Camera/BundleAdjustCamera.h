@@ -60,7 +60,7 @@ const int PARAMS_PER_POINT  = 3;
 const int NUM_CAMERA_PARAMS = 6; // Position and pose
 const int NUM_CENTER_PARAMS = 2; // TODO(oalexan1): Use this more widely
 const int NUM_FOCUS_PARAMS  = 1;
-const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 6; // Stored in the distortion vector
+const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 9; // Stored in the distortion vector
 
 
 // This must be const or else there's a crash

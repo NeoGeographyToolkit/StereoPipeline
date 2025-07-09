@@ -1084,10 +1084,15 @@ transformedOpticalBarCamera(int camera_index,
 
   if (out_cam.get_have_velocity_vec()) {
     vw::Vector3 vel = out_cam.get_velocity();
+    vw::Vector3 final_pose = out_cam.get_final_pose();
     vel[0] *= intrinsic_ptr[3];
     vel[1] *= intrinsic_ptr[4];
     vel[2] *= intrinsic_ptr[5];
+    final_pose[0] *= intrinsic_ptr[6];
+    final_pose[1] *= intrinsic_ptr[7];
+    final_pose[2] *= intrinsic_ptr[8];
     out_cam.set_velocity(vel);
+    out_cam.set_final_pose(final_pose);
   }
   
   // Update the center and focus
