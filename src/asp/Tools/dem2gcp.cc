@@ -15,8 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// TODO(oalexan1): The hillshaded file shifts everything by 0.5 pixels.
-
 // \file dem2gcp.cc
 // See the documentation on readthedocs.
 
@@ -52,6 +50,7 @@ void enumerate_boundary_pixels(int x, int y, int l, std::vector<vw::Vector2> & p
 // Find the disparity value at a given pixel. If not valid, look around
 // on the perimeter of a square of side length 2. Then increase the square size.
 // If the disparity is still invalid, return an invalid value.
+// TODO(oalexan1): Use bilinear interpolation.
 Dpix find_disparity(vw::ImageViewRef<Dpix> const& disparity,
                  int x, int y, int max_l) {
   if (x < 0 || y < 0 || x >= disparity.cols() || y >= disparity.rows())
@@ -93,6 +92,80 @@ Dpix find_disparity(vw::ImageViewRef<Dpix> const& disparity,
   return Dpix();
 }
 
+void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
+              vw::ba::ControlNetwork const& cnet,
+              vw::DiskImageView<Dpix> const& disparity,
+              vw::ImageViewRef<vw::PixelMask<double>> const& interp_ref_dem,
+              vw::cartography::GeoReference const& warped_dem_georef,
+              std::vector<std::string> const& image_files,
+              double gcp_sigma, int search_len, std::string const& out_gcp) {
+
+  vw::vw_out() << "Writing: " << out_gcp << "\n";
+  std::ofstream ofs(out_gcp.c_str());
+  ofs.precision(17); // max precision
+  ofs << "# WKT: " << ref_dem_georef.get_wkt() << "\n";
+  ofs << "# id lat lon height_above_datum sigma_x sigma_y sigma_z image_name "
+      << "pixel_x pixel_y sigma_x sigma_y, etc.\n";
+  
+  // Iterate over the cnet. Keep track of progress.
+  int num_pts = cnet.size();
+  int gcp_id = 0;
+  vw::TerminalProgressCallback tpc("asp", "Writing GCP --> ");
+  int progress_steps = 100; 
+  double inc_amount = double(progress_steps) / std::max(num_pts, 1);
+  tpc.report_progress(0);
+  for (int ipt = 0; ipt < num_pts; ipt++) {
+    
+    // Report progress once this many points are processed
+    if (ipt % progress_steps == 0)
+      tpc.report_incremental_progress(inc_amount);
+    
+    vw::ba::ControlPoint const& cp = cnet[ipt];
+    
+    // Find the pixel in the warped DEM
+    vw::Vector3 xyz = cnet[ipt].position();
+    vw::Vector3 llh;
+    llh = warped_dem_georef.datum().cartesian_to_geodetic(xyz);
+    vw::Vector2 dem_pix = warped_dem_georef.lonlat_to_pixel(vw::Vector2(llh.x(), llh.y()));
+    
+    // Find the corresponding pixel in the reference DEM
+    Dpix disp = find_disparity(disparity, dem_pix.x(), dem_pix.y(), search_len);
+    if (!is_valid(disp))
+      continue; 
+    vw::Vector2 ref_pix = dem_pix + disp.child();
+    
+    // Find height at the reference pixel
+    double ref_height = interp_ref_dem(ref_pix.x(), ref_pix.y());
+    if (!vw::is_valid(ref_height)) 
+      continue;
+    
+    // Find lon-lat-height at the reference pixel
+    vw::Vector2 ref_lonlat = ref_dem_georef.pixel_to_lonlat(ref_pix);
+    vw::Vector3 ref_llh(ref_lonlat.x(), ref_lonlat.y(), ref_height);
+
+    // Set the pixel sigmas to 1. Note that the 3D points have sigmas.
+    vw::Vector3 sigma(gcp_sigma, gcp_sigma, gcp_sigma);
+    vw::Vector2 pix_sigma(1, 1);
+    
+    // Write the id, lat, lon, height, sigmas
+    ofs << gcp_id << " " << ref_llh.y() << " " << ref_llh.x() << " " << ref_llh.z() << " ";
+    ofs << sigma[0] << " " << sigma[1] << " " << sigma[2] << " ";
+        
+    for (int im = 0; im < cp.size(); im++) {
+      vw::ba::ControlMeasure const& cm = cp[im];
+      ofs << image_files[cm.image_id()] << " " 
+          << cm.position()[0] << " " << cm.position()[1] << " "
+          << pix_sigma[0] << " " << pix_sigma[1] << " ";
+    }
+    ofs << "\n";
+    
+    gcp_id++;
+  }
+  
+  ofs.close();
+  tpc.report_finished();
+}
+
 // Put the variables below in a struct
 struct Options : public vw::GdalWriteOptions {
 std::string warped_dem_file, ref_dem_file, 
@@ -126,9 +199,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("match-file", 
      po::value(&opt.match_file), 
      "A match file between the left and right raw images with many dense matches.")
-    ("search-len", po::value(&opt.search_len)->default_value(5), 
-     "How many DEM pixels to search around to find a valid DEM disparity "
-     "(pick the closest).")
+    ("search-len", po::value(&opt.search_len)->default_value(2), 
+     "How many DEM pixels to search around a given interest point to find a valid DEM "
+     "disparity (pick the closest). This may help with a spotty disparity but should not "
+     "be overused.")
     ("gcp-sigma", po::value(&opt.gcp_sigma)->default_value(1.0),
      "The sigma to use for the GCP points. A smaller value will give to GCP more weight.")
     ("output-gcp", po::value(&opt.out_gcp), 
@@ -233,62 +307,9 @@ int run_dem2gcp(int argc, char * argv[]) {
     vw::vw_throw( vw::ArgumentErr() 
                 << "Error: The warped DEM and disparity sizes do not match.\n" );
   
-  // TODO(oalexan1): This must be a function
-  // Write the GCP file
-
-  vw::vw_out() << "Writing: " << opt.out_gcp << "\n";
-  std::ofstream ofs(opt.out_gcp.c_str());
-  ofs.precision(17); // max precision
-  ofs << "# WKT: " << ref_dem_georef.get_wkt() << "\n";
-  ofs << "# id lat lon height_above_datum sigma_x sigma_y sigma_z image_name "
-      << "pixel_x pixel_y sigma_x sigma_y, etc.\n";
-  
-  // Iterate over the cnet
-  int num_pts = cnet.size();
-  int gcp_id = 0;
-  for (int ipt = 0; ipt < num_pts; ipt++) {
-    vw::ba::ControlPoint & cp = cnet[ipt];
-    
-    // Find the pixel in the warped DEM
-    vw::Vector3 xyz = cnet[ipt].position();
-    vw::Vector3 llh;
-    llh = warped_dem_georef.datum().cartesian_to_geodetic(xyz);
-    vw::Vector2 dem_pix = warped_dem_georef.lonlat_to_pixel(vw::Vector2(llh.x(), llh.y()));
-    
-    // Find the corresponding pixel in the reference DEM
-    Dpix disp = find_disparity(disparity, dem_pix.x(), dem_pix.y(), opt.search_len);
-    if (!is_valid(disp))
-      continue; 
-    vw::Vector2 ref_pix = dem_pix + disp.child();
-    
-    // Find height at the reference pixel
-    double ref_height = interp_ref_dem(ref_pix.x(), ref_pix.y());
-    if (!vw::is_valid(ref_height)) 
-      continue;
-    
-    // Find lon-lat-height at the reference pixel
-    vw::Vector2 ref_lonlat = ref_dem_georef.pixel_to_lonlat(ref_pix);
-    vw::Vector3 ref_llh(ref_lonlat.x(), ref_lonlat.y(), ref_height);
-
-    // Set the sigmas to 1. The gcp file will be used with --fix-gcp-xyz,
-    // so the sigmas won't matter.
-    vw::Vector3 sigma(opt.gcp_sigma, opt.gcp_sigma, opt.gcp_sigma);
-    vw::Vector2 pix_sigma(1, 1);
-    
-    // Write the id, lat, lon, height, sigmas
-    ofs << gcp_id << " " << ref_llh.y() << " " << ref_llh.x() << " " << ref_llh.z() << " ";
-    ofs << sigma[0] << " " << sigma[1] << " " << sigma[2] << " ";
-        
-    for (int im = 0; im < cp.size(); im++) {
-      vw::ba::ControlMeasure & cm = cp[im];
-      ofs << image_files[cm.image_id()] << " " 
-          << cm.position()[0] << " " << cm.position()[1] << " "
-          << pix_sigma[0] << " " << pix_sigma[1] << " ";
-    }
-    ofs << "\n";
-    
-    gcp_id++;
-  }
+  writeGcp(ref_dem_georef, cnet, disparity,
+           interp_ref_dem, warped_dem_georef, image_files, 
+           opt.gcp_sigma, opt.search_len, opt.out_gcp);
   
   return 0;
 }

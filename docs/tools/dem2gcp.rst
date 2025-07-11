@@ -9,23 +9,25 @@ effects. The cause is usually inaccuracies in camera extrinsics or intrinsics,
 including lens distortion.
 
 The approach is as follows. The dense disparity from an ASP-produced
-misregistered / warped DEM to a correct reference DEM is found. This program
+misregistered or warped DEM to a correct reference DEM is found. This program
 will take as input that disparity and interest point matches between the raw
-images, and will produce GCP with correct ground positions based on that
-disparity. Bundle adjustment (:numref:`intrinsics_ground_truth`) invoked with
-the GCP will solve for the extrinsics and intrinsics of the cameras, correcting
-the misregistration and/or warping. 
+images, and will produce GCP with correct ground positions based on the
+disparity. 
 
-This program was motivated by the processing of KH-7 images, for which ASP has
-no camera model, so the initial produced DEM ends up rather warped. The hope is 
-to model and correct the deformation in the sensor plane as lens distortion.
+Bundle adjustment with intrinsics optimization
+(:numref:`intrinsics_ground_truth`) or the jitter solver
+(:numref:`jitter_solve`) can then be invoked with the GCP. That will help
+correct the issues.
+
+This program was motivated by the processing of historical images 
+(:numref:`kh4`), particularly the KH-7 and KH-9 panoramic images.
  
 ASP DEM creation
 ~~~~~~~~~~~~~~~~
 
 Prepare the images and camera models, such as in :numref:`kh7`. This workflow
-expects the cameras to be in Pinhole (:numref:`pinholemodels`) or CSM
-(:numref:`csm`) format.
+expects the cameras to be in Pinhole (:numref:`pinholemodels`) or CSM frame or
+linescan format (:numref:`csm`).
 
 Bundle-adjust the images and the cameras without optimizing the intrinsics
 (:numref:`bundle_adjust`). Use the option ``--inline-adjustments``, and
@@ -58,7 +60,7 @@ produced later should be able to take care of misalignment as well.
  
 Ensure ``parallel_stereo`` was invoked to generate dense matches from disparity
 (:numref:`dense_ip`). It is suggested to use ``--num-matches-from-disparity
-200000`` or so. That is an outrageous number of interest points, but will
+100000`` or so. That is an outrageous number of interest points, but will
 help produce sufficient GCP later on. (Their number can be reduced later 
 for bundle adjustment with the option ``--max-pairwise-matches``.)
 
@@ -100,25 +102,43 @@ Example (adjust the projection center)::
 It is not necessary for the produced DEMs to have precisely the same extent, but
 cropping to similar regions is suggested. 
 
-The DEMs should be hillshaded and inspected in ``stereo_gui``. Select the first
-band of each hillshaded DEM produced by this tool, as::
+The DEMs should be hillshaded. It is suggested to use the GDAL (:numref:`gdal_tools`)
+hillshading method, as it is more accurate then ASP's own ``hillshade``. Here's an
+example invocation, to be applied to both DEMs::
 
-    gdal_translate -b 1 dem_hillshade_a300_e20.tif \
-     -o dem_hill_b1.tif
+    gdaldem hillshade   \
+      -multidirectional \
+      -compute_edges    \
+      input_dem.tif     \
+      output_dem_hill.tif
 
-Find the dense disparity from the ASP hillshaded DEM (first band) to the 
-reference hill-shaded DEM::
+Inspect the hillshaded images in ``stereo_gui``. They should be similar enough
+in appearance.
 
-  parallel_stereo      \
-    --correlator-mode  \
-    --ip-per-tile 500  \
-    warped_hill_b1.tif \
-    ref_hill_b1.tif    \
+Find the dense disparity from the warped hillshaded DEM to the reference
+hillshaded DEM with ASP's correlator mode (:numref:`correlator-mode`)::
+
+  parallel_stereo              \
+    --correlator-mode          \
+    --stereo-algorithm asp_mgm \
+    --subpixel-mode 9          \
+    --ip-per-tile 500          \
+    warped_hill.tif            \
+    ref_hill.tif               \
     warp/run
 
-The order here is very important. Increase ``--ip-per-tile`` if not enough matches
-are found. One could consider experimenting with comparing the ``asp_bm`` and
-``asp_mgm`` algorithms (:numref:`stereo_alg_overview`).
+The order here is very important. Increase ``--ip-per-tile`` if not enough
+matches are found. One could consider experimenting with ASP's various stereo
+algorithms (:numref:`stereo_alg_overview`).
+
+Inspect the bands of the produced disparity image ``warp/run-F.tif``. This
+requires extracting the horizontal and vertical disparities, and masking the
+invalid values, as in :numref:`mask_disparity`. Then run::
+
+    stereo_gui --colorbar      \
+      --min -100 --max 100     \
+      warp/run-F_b1_nodata.tif \
+      warp/run-F_b2_nodata.tif
 
 Running ``dem2gcp``
 ~~~~~~~~~~~~~~~~~~~
@@ -139,11 +159,11 @@ the disparity.
       --left-camera left.tsai                          \
       --right-camera right.tsai                        \
       --match-file dense_matches/run-left__right.match \
-      --search-len 5                                   \
-      --gcp-sigma 1e-2                                 \
+      --search-len 2                                   \
+      --gcp-sigma 1.0                                  \
       --output-gcp out.gcp
       
-Here we used the left and right raw images, the latest aligned left and right
+Here we passed in the left and right raw images, the latest left and right
 camera models that produced the warped DEM, and the dense matches between the
 raw images. 
 
@@ -206,6 +226,9 @@ constraint. Likely it is better to prioritize the GCP instead. Reducing
 ``--max-pairwise-matches`` will sparse out the interest point matches, but not
 the GCP. 
 
+This invocation can be sensitive to inaccurate GCP, as those do not use a robust
+cost function.
+
 Examine the pixel residuals before and after bundle adjustment
 (:numref:`ba_err_per_point`) in ``stereo_gui`` as::
 
@@ -232,8 +255,9 @@ also flagged in those csv files.
    figure (within the green polygon), on top of the reference DEM. 
 
 Then, one can rerun stereo with the optimized cameras and the original images
-(again with the option ``--prev-run-prefix``). The results are in
-:numref:`kh7_orig_vs_opt`. The warping is much reduced but not eliminated. 
+(again with the option ``--prev-run-prefix``, or by doing a new run from
+scratch). The results are in :numref:`kh7_orig_vs_opt`. The warping is much
+reduced but not eliminated. 
 
 One could try to use a higher degree for the RPC model, such as 6
 (:numref:`ba_rpc_distortion`).
@@ -269,9 +293,9 @@ Command-line options
 --match-file <string (default: "")>
     A match file between the left and right raw images with many dense matches.
     
---search-len <int (default: 5)>
+--search-len <int (default: 2)>
     How many DEM pixels to search around to find a valid DEM disparity (pick the
-    closest).
+    closest). This may help with a spotty disparity but should not be overused.
 
 --gcp-sigma <double (default: 1.0)>
     The sigma to use for the GCP points. A smaller value will give to GCP more weight.

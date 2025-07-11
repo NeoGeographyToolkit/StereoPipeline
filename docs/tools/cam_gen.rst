@@ -251,20 +251,12 @@ for KH-9 (:numref:`kh9`), are usually stored on disk with the scan lines paralle
 to image columns. The CSM linescan model assumes that the scan lines are parallel
 to the image lines.
 
-Because of this, the invocation above does an in-sensor 90-degree counter-clockwise
+Because of this, the invocation above does an in-sensor 90-degree clockwise
 rotation. The image must be rotated as well, to be consistent with the new camera. 
-A command as follows works::
 
-    convert -rotate 90                       \
-        -limit width 64KP -limit height 64KP \
-        -limit area 1GP -limit memory 2GiB   \
-        -limit disk 10GiB                    \
-        input.tif output.tif
-
-The ImageMagick ``convert`` command will likely fail to work without changing
-its ``policy.xml`` file to accept large images, and the limits above may need to
-be increased as well. It is suggested to install this program with ``conda``
-in a separate environment, then edit the policy file.
+The preferred way to do this is with the ``image_mosaic`` option ``--rotate-90``
+(:numref:`image_mosaic`). This will handle large images, unlike the ImageMagick
+``convert`` program. 
 
 The input and output cameras are not directly comparable via ``cam_test``
 (:numref:`cam_test`) because of the in-sensor rotation, yet a sanity check of
