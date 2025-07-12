@@ -29,6 +29,7 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
+#include <vw/Math/RandomSet.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -92,25 +93,31 @@ Dpix find_disparity(vw::ImageViewRef<Dpix> const& disparity,
   return Dpix();
 }
 
+// A structure for storing a GCP and the index in the cnet
+struct Gcp {
+  int cnet_pt_id;
+  vw::Vector3 llh;
+  vw::Vector3 sigma;
+};
 void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
               vw::ba::ControlNetwork const& cnet,
               vw::DiskImageView<Dpix> const& disparity,
               vw::ImageViewRef<vw::PixelMask<double>> const& interp_ref_dem,
               vw::cartography::GeoReference const& warped_dem_georef,
               std::vector<std::string> const& image_files,
-              double gcp_sigma, int search_len, std::string const& out_gcp) {
+              double gcp_sigma, int search_len, 
+              int max_num_gcp,
+              std::string const& out_gcp) {
 
-  vw::vw_out() << "Writing: " << out_gcp << "\n";
-  std::ofstream ofs(out_gcp.c_str());
-  ofs.precision(17); // max precision
-  ofs << "# WKT: " << ref_dem_georef.get_wkt() << "\n";
-  ofs << "# id lat lon height_above_datum sigma_x sigma_y sigma_z image_name "
-      << "pixel_x pixel_y sigma_x sigma_y, etc.\n";
+  int num_pts = cnet.size();
+
+  // Collect all GCP, in case we need to reduce their number
+  std::vector<Gcp> gcp_vec;
+  gcp_vec.reserve(num_pts);
+  gcp_vec.clear();
   
   // Iterate over the cnet. Keep track of progress.
-  int num_pts = cnet.size();
-  int gcp_id = 0;
-  vw::TerminalProgressCallback tpc("asp", "Writing GCP --> ");
+  vw::TerminalProgressCallback tpc("asp", "Producing GCP --> ");
   int progress_steps = 100; 
   double inc_amount = double(progress_steps) / std::max(num_pts, 1);
   tpc.report_progress(0);
@@ -120,7 +127,7 @@ void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
     if (ipt % progress_steps == 0)
       tpc.report_incremental_progress(inc_amount);
     
-    vw::ba::ControlPoint const& cp = cnet[ipt];
+    vw::ba::ControlPoint const& cp = cnet[ipt]; // alias
     
     // Find the pixel in the warped DEM
     vw::Vector3 xyz = cnet[ipt].position();
@@ -145,25 +152,59 @@ void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
 
     // Set the pixel sigmas to 1. Note that the 3D points have sigmas.
     vw::Vector3 sigma(gcp_sigma, gcp_sigma, gcp_sigma);
+
+    Gcp gcp;
+    gcp.cnet_pt_id = ipt;
+    gcp.llh = ref_llh;
+    gcp.sigma = sigma;
+    gcp_vec.push_back(gcp);
+  }
+  tpc.report_finished();
+
+  // See if to reduce the number of GCP
+  if (max_num_gcp > 0 && (int)gcp_vec.size() > max_num_gcp) {
+    vw::vw_out() << "Reducing the number of GCP from "
+                << gcp_vec.size() << " to " << max_num_gcp << ".\n";
+    std::vector<int> indices;
+    vw::math::pick_random_indices_in_range(gcp_vec.size(), max_num_gcp, indices);
+    std::vector<Gcp> out_gcp;
+    for (size_t i = 0; i < indices.size(); i++)
+      out_gcp.push_back(gcp_vec[indices[i]]);
+    // Swap the two
+    gcp_vec.swap(out_gcp);
+  }
+  
+  // Write to disk
+  vw::vw_out() << "Writing: " << out_gcp << "\n";
+  std::ofstream ofs(out_gcp.c_str());
+  ofs.precision(17); // full precision
+  ofs << "# WKT: " << ref_dem_georef.get_wkt() << "\n";
+  ofs << "# id lat lon height_above_datum sigma_x sigma_y sigma_z image_name "
+      << "pixel_x pixel_y sigma_x sigma_y, etc.\n";
+
+  // Iterate over the gcp_vec
+  for (size_t gcp_id = 0; gcp_id < gcp_vec.size(); gcp_id++) {
+
+    auto const& gcp   = gcp_vec[gcp_id]; // alias
+    auto const& cp    = cnet[gcp.cnet_pt_id]; // alias
+    auto const& llh   = gcp.llh; // alias
+    auto const& sigma = gcp.sigma; // alias
     vw::Vector2 pix_sigma(1, 1);
-    
+
     // Write the id, lat, lon, height, sigmas
-    ofs << gcp_id << " " << ref_llh.y() << " " << ref_llh.x() << " " << ref_llh.z() << " ";
-    ofs << sigma[0] << " " << sigma[1] << " " << sigma[2] << " ";
+    ofs << gcp_id << " " << llh.y() << " " << llh.x() << " " << llh.z() << " "
+        << sigma[0] << " " << sigma[1] << " " << sigma[2] << " ";
         
     for (int im = 0; im < cp.size(); im++) {
-      vw::ba::ControlMeasure const& cm = cp[im];
+      auto const& cm = cp[im]; // measure
       ofs << image_files[cm.image_id()] << " " 
           << cm.position()[0] << " " << cm.position()[1] << " "
           << pix_sigma[0] << " " << pix_sigma[1] << " ";
     }
     ofs << "\n";
-    
-    gcp_id++;
   }
   
   ofs.close();
-  tpc.report_finished();
 }
 
 // Put the variables below in a struct
@@ -174,6 +215,7 @@ std::string warped_dem_file, ref_dem_file,
   match_file, out_gcp;
   int search_len;
   double gcp_sigma;
+  int max_num_gcp;
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -205,6 +247,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "be overused.")
     ("gcp-sigma", po::value(&opt.gcp_sigma)->default_value(1.0),
      "The sigma to use for the GCP points. A smaller value will give to GCP more weight.")
+    ("max-num-gcp", po::value(&opt.max_num_gcp)->default_value(-1),
+     "The maximum number of GCP to write. If negative, all GCP are written. If more than "
+     "this number, a random subset will be picked. The same subset will be selected if the "
+     "program is called again.")
     ("output-gcp", po::value(&opt.out_gcp), 
      "The produced GPP file with ground coordinates from the reference DEM.")
     ("help,h", "Display this help message");
@@ -309,7 +355,8 @@ int run_dem2gcp(int argc, char * argv[]) {
   
   writeGcp(ref_dem_georef, cnet, disparity,
            interp_ref_dem, warped_dem_georef, image_files, 
-           opt.gcp_sigma, opt.search_len, opt.out_gcp);
+           opt.gcp_sigma, opt.search_len, opt.max_num_gcp,
+           opt.out_gcp);
   
   return 0;
 }

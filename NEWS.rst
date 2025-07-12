@@ -42,6 +42,9 @@ cam_gen (:numref:`cam_gen`):
     ephemeris time, sun position, serial number, and target (planet) name.
   * Added the option ``--camera-center-llh``.
 
+dem2gcp (:numref:`dem2gcp`):
+  * Added the option ``--max-num-gcp``.
+  
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
   * Made the OpticalBar model 3x faster by switching from minimization in 3D

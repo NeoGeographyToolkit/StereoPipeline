@@ -12,27 +12,24 @@ The approach is as follows. The dense disparity from an ASP-produced
 misregistered or warped DEM to a correct reference DEM is found. This program
 will take as input that disparity and interest point matches between the raw
 images, and will produce GCP with correct ground positions based on the
-disparity. 
+disparity and the reference DEM.
 
 Bundle adjustment with intrinsics optimization
 (:numref:`intrinsics_ground_truth`) or the jitter solver
 (:numref:`jitter_solve`) can then be invoked with the GCP. That will help
 correct the issues.
 
-This program was motivated by the processing of historical images 
+This program was motivated by the processing of historical images
 (:numref:`kh4`), particularly the KH-7 and KH-9 panoramic images.
- 
+
 ASP DEM creation
 ~~~~~~~~~~~~~~~~
 
 Prepare the images and camera models, such as in :numref:`kh7`. This workflow
-expects the cameras to be in Pinhole (:numref:`pinholemodels`) or CSM frame or
-linescan format (:numref:`csm`).
-
-Bundle-adjust the images and the cameras without optimizing the intrinsics
-(:numref:`bundle_adjust`). Use the option ``--inline-adjustments``, and
-increase ``--ip-per-tile`` and ``--matches-per-tile`` if not getting enough 
-matches. 
+expects the cameras to already incorporate any prior alignment or adjustments.
+Such cameras can be made during bundle adjustment (:numref:`bundle_adjust`) for
+Pinhole (:numref:`pinholemodels`) and CSM (:numref:`csm`) cameras. OpticalBar
+cameras can be first converted to CSM linescan (:numref:`opticalbar2csm`).
 
 Mapproject the images at the same appropriate resolution (close to native image
 GSD) onto the reference DEM with the cameras produced by bundle adjustment. Do
@@ -51,7 +48,7 @@ misregistration or warping.
 The produced DEM can be aligned with the reference DEM (:numref:`pc_align`), and
 the same alignment can be applied to the cameras (:numref:`ba_pc_align`).
 Mapproject the images with the latest cameras onto the DEM, and run stereo again
-(with option ``--prev-run-prefix`` to reuse the previous run,
+(with the option ``--prev-run-prefix`` to reuse the previous run,
 :numref:`mapproj_reuse`), and see if the new DEM is better-aligned with the
 reference DEM. 
 
@@ -60,14 +57,16 @@ produced later should be able to take care of misalignment as well.
  
 Ensure ``parallel_stereo`` was invoked to generate dense matches from disparity
 (:numref:`dense_ip`). It is suggested to use ``--num-matches-from-disparity
-100000`` or so. That is an outrageous number of interest points, but will
-help produce sufficient GCP later on. (Their number can be reduced later 
-for bundle adjustment with the option ``--max-pairwise-matches``.)
+100000`` or so. That is a very large number of interest points, but will help
+produce sufficient GCP later on. The number of matches can be reduced later for
+bundle adjustment with the option ``--max-pairwise-matches``, and fewer GCP can
+be created with the option ``--max-num-gcp``.
 
-Ensure that the dense match files are renamed according the *naming convention* for
-the original raw images (:numref:`ba_match_files`). Such matches can be produced
-after stereo already finished, by re-running ``stereo_tri`` only
-(:numref:`entrypoints`). Sufficiently numerous sparse matches may likely work too.
+Ensure that the dense match files are renamed according to the *naming
+convention* for the original raw images (:numref:`ba_match_files`). Such matches
+can be produced after stereo already finished, by re-running ``stereo_tri`` only
+(:numref:`entrypoints`). Sufficiently numerous sparse matches may likely work
+too.
 
 Comparison with the reference DEM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -103,7 +102,7 @@ It is not necessary for the produced DEMs to have precisely the same extent, but
 cropping to similar regions is suggested. 
 
 The DEMs should be hillshaded. It is suggested to use the GDAL (:numref:`gdal_tools`)
-hillshading method, as it is more accurate then ASP's own ``hillshade``. Here's an
+hillshading method, as it is more accurate than ASP's own ``hillshade``. Here's an
 example invocation, to be applied to both DEMs::
 
     gdaldem hillshade   \
@@ -161,14 +160,19 @@ the disparity.
       --match-file dense_matches/run-left__right.match \
       --search-len 2                                   \
       --gcp-sigma 1.0                                  \
+      --max-num-gcp 20000                              \
       --output-gcp out.gcp
-      
+
 Here we passed in the left and right raw images, the latest left and right
 camera models that produced the warped DEM, and the dense matches between the
 raw images. 
 
-If there are more than two images, this should still work and can be applied
-pairwise. The match file also need not have dense matches. All that is assumed
+If there are more than two images, first run stereo pairwise, produce a single
+mosaicked DEM with ``dem_mosaic`` (:numref:`dem_mosaic`), and then run this
+program pairwise with that DEM. This assumes that the pairwise DEMs are
+reasonably self-consistent.
+
+The match file also need not have dense matches. All that is assumed
 is that the images and cameras are consistent with the warped DEM, and there are
 plenty of interest point matches. Then, all produced GCP files could be passed together
 with all images and cameras to ``bundle_adjust``, as below.
@@ -229,6 +233,9 @@ the GCP.
 This invocation can be sensitive to inaccurate GCP, as those do not use a robust
 cost function.
 
+For linescan cameras, the jitter solver can be invoked instead with a very
+similar command to the above (:numref:`jitter_solve`).
+
 Examine the pixel residuals before and after bundle adjustment
 (:numref:`ba_err_per_point`) in ``stereo_gui`` as::
 
@@ -259,11 +266,9 @@ Then, one can rerun stereo with the optimized cameras and the original images
 scratch). The results are in :numref:`kh7_orig_vs_opt`. The warping is much
 reduced but not eliminated. 
 
-One could try to use a higher degree for the RPC model, such as 6
-(:numref:`ba_rpc_distortion`).
-
-The ideal solution would create proper camera models, which are likely of the
-linescan variety.
+We further improved the results for KH-7 and KH-9 cameras by creating
+linescan cameras (:numref:`opticalbar2csm`) and running ``jitter_solve``
+with GCP (:numref:`jitter_solve`).
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
@@ -299,7 +304,12 @@ Command-line options
 
 --gcp-sigma <double (default: 1.0)>
     The sigma to use for the GCP points. A smaller value will give to GCP more weight.
-    
+
+--max-num-gcp <int (default: -1)>
+    The maximum number of GCP to write. If negative, all GCP are written. If
+    more than this number, a random subset will be picked. The same subset will
+    be selected if this program is called again.
+        
 --output-gcp <string (default: "")>
     The produced GCP file with ground coordinates from the reference DEM.
     
