@@ -43,7 +43,7 @@ cam_gen (:numref:`cam_gen`):
   * Added the option ``--camera-center-llh``.
 
 dem2gcp (:numref:`dem2gcp`):
-  * Added the option ``--max-num-gcp``.
+  * Added the options ``--max-num-gcp``, ``--max-disp``.
   
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).

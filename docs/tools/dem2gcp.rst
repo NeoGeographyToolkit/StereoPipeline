@@ -297,21 +297,25 @@ Command-line options
 --match-file <string (default: "")>
     A match file between the left and right raw images with many dense matches.
     
---search-len <int (default: 0)>
-    How many DEM pixels to search around to find a valid DEM disparity (pick the
-    closest). This may help with a spotty disparity but should not be overused.
-
 --gcp-sigma <double (default: 1.0)>
     The sigma to use for the GCP points. A smaller value will give to GCP more weight.
 
+--output-gcp <string (default: "")>
+    The produced GCP file with ground coordinates from the reference DEM.
+    
 --max-num-gcp <int (default: -1)>
     The maximum number of GCP to write. If negative, all GCP are written. If
     more than this number, a random subset will be picked. The same subset will
     be selected if this program is called again.
-        
---output-gcp <string (default: "")>
-    The produced GCP file with ground coordinates from the reference DEM.
-    
+
+--max-disp <double (default: -1.0)>
+    If positive, flag a disparity whose norm is larger than this as erroneous
+    and do not use it for creating GCP.
+            
+--search-len <int (default: 0)>
+    How many DEM pixels to search around to find a valid DEM disparity (pick the
+    closest). This may help with a spotty disparity but should not be overused.
+
 -v, --version
     Display the version of software.
 

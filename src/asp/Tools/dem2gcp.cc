@@ -30,6 +30,7 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Math/RandomSet.h>
+#include <vw/Image/Filter.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -47,6 +48,24 @@ void enumerate_boundary_pixels(int x, int y, int l, std::vector<vw::Vector2> & p
     pixels.push_back(vw::Vector2(x+i, y+l));
   }
 }
+
+// Invalidate disparity whose norm is more than this
+class FilterDisp: public vw::ReturnFixedType<DpixT> {
+public:
+
+  FilterDisp(double max_disp): m_max_disp(max_disp) {}
+  
+  DpixT operator()(DpixT const& disp) const {
+    if (is_valid(disp) && vw::math::norm_2(disp.child()) > m_max_disp) {
+      // Invalidate the disparity
+      DpixT invalid_disp = disp;
+      invalid_disp.invalidate();
+      return invalid_disp;
+    }
+    return disp;
+  }
+  double m_max_disp;
+};
 
 // Find the interpolated disparity value at a given pixel. If not valid, look in
 // a small neighborhood. That should not be overused. 
@@ -110,12 +129,12 @@ struct Gcp {
 };
 void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
               vw::ba::ControlNetwork const& cnet,
-              vw::DiskImageView<DpixT> const& disparity,
+              vw::ImageViewRef<DpixT> const& disparity,
               vw::ImageViewRef<vw::PixelMask<double>> const& interp_ref_dem,
               vw::cartography::GeoReference const& warped_dem_georef,
               std::vector<std::string> const& image_files,
               double gcp_sigma, int search_len, 
-              int max_num_gcp,
+              int max_num_gcp, 
               std::string const& out_gcp) {
 
   int num_pts = cnet.size();
@@ -230,7 +249,7 @@ std::string warped_dem_file, ref_dem_file,
   left_cam, right_cam, 
   match_file, out_gcp;
   int search_len;
-  double gcp_sigma;
+  double gcp_sigma, max_disp;
   int max_num_gcp;
 };
 
@@ -265,6 +284,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "program is called again.")
     ("output-gcp", po::value(&opt.out_gcp), 
      "The produced GPP file with ground coordinates from the reference DEM.")
+    ("max-disp", po::value(&opt.max_disp)->default_value(-1), 
+     "If positive, flag a disparity whose norm is larger than this as erroneous and do not "
+     "use it for creating GCP.")
     ("search-len", po::value(&opt.search_len)->default_value(0), 
      "How many DEM pixels to search around a given interest point to find a valid DEM "
      "disparity (pick the closest). This may help with a spotty disparity but should not "
@@ -361,7 +383,13 @@ int run_dem2gcp(int argc, char * argv[]) {
                 << "gdalwarp -r cubicspline to resample the warped DEM.\n");
   
   // Load the disparity
-  vw::DiskImageView<DpixT> disparity(opt.warped_to_ref_disp_file);
+  vw::ImageViewRef<DpixT> disparity = vw::DiskImageView<DpixT>(opt.warped_to_ref_disp_file);
+  
+  if (opt.max_disp > 0) {
+    vw::vw_out() << "Filtering the disparity to remove values larger than "
+                 << opt.max_disp << ".\n";
+    disparity = vw::per_pixel_filter(disparity, FilterDisp(opt.max_disp));
+  }
   
   // Warped size must equal disparity size, otherwise there is a mistake
   if (interp_warped_dem.cols() != disparity.cols() || 
