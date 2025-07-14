@@ -34,7 +34,7 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-typedef vw::PixelMask<vw::Vector2f> Dpix;
+typedef vw::PixelMask<vw::Vector2f> DpixT;
 
 // Given a pixel (x, y), and a length l, enumerate all the pixels
 // on the boundary of the square of side length 2*l centered at (x, y).
@@ -48,19 +48,27 @@ void enumerate_boundary_pixels(int x, int y, int l, std::vector<vw::Vector2> & p
   }
 }
 
-// Find the disparity value at a given pixel. If not valid, look around
-// on the perimeter of a square of side length 2. Then increase the square size.
-// If the disparity is still invalid, return an invalid value.
-// TODO(oalexan1): Use bilinear interpolation.
-Dpix find_disparity(vw::ImageViewRef<Dpix> const& disparity,
-                 int x, int y, int max_l) {
+// Find the interpolated disparity value at a given pixel. If not valid, look in
+// a small neighborhood. That should not be overused. 
+DpixT find_disparity(vw::ImageViewRef<DpixT> disparity,
+                     vw::ImageViewRef<DpixT> interp_disp,
+                     double x, double y, int max_l) {
   if (x < 0 || y < 0 || x >= disparity.cols() || y >= disparity.rows())
-    return Dpix();
+    return DpixT();
+
+  // Try to find the interpolated disparity
+  DpixT idisp = interp_disp(x, y);
   
+  if (is_valid(idisp))
+    return idisp;
+  
+  // Otherwise try without interpolation. This casts x and y to integers.
   if (is_valid(disparity(x, y)))
     return disparity(x, y);  
 
-  // Iterate from 1 to max_l with an empty loop
+  // Otherwise search in the neighborhood. The default value of the neighborhood
+  // is 0. This is is likely a desperate measure when the disparity has very few
+  // good values.
   for (int l = 1; l <= max_l; l++) {
 
     // Will keep the pixel closest to the center
@@ -69,7 +77,7 @@ Dpix find_disparity(vw::ImageViewRef<Dpix> const& disparity,
     bool found = false;
 
     std::vector<vw::Vector2> pixels;
-    enumerate_boundary_pixels(x, y, l, pixels);
+    enumerate_boundary_pixels(int(x), int(y), l, pixels);
     
     for (int i = 0; i < (int)pixels.size(); i++) {
       int px = pixels[i].x(), py = pixels[i].y();
@@ -84,13 +92,14 @@ Dpix find_disparity(vw::ImageViewRef<Dpix> const& disparity,
       best_pix = vw::Vector2(px, py);
       found = true;
     } // end loop over pixels on the boundary of the square of side length 2*l
-    if (found) {
+    
+    if (found)
       return disparity(best_pix.x(), best_pix.y());
-    }
+
   } // end loop over ever-growing squares
   
   // Give up
-  return Dpix();
+  return DpixT();
 }
 
 // A structure for storing a GCP and the index in the cnet
@@ -101,7 +110,7 @@ struct Gcp {
 };
 void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
               vw::ba::ControlNetwork const& cnet,
-              vw::DiskImageView<Dpix> const& disparity,
+              vw::DiskImageView<DpixT> const& disparity,
               vw::ImageViewRef<vw::PixelMask<double>> const& interp_ref_dem,
               vw::cartography::GeoReference const& warped_dem_georef,
               std::vector<std::string> const& image_files,
@@ -116,6 +125,13 @@ void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
   gcp_vec.reserve(num_pts);
   gcp_vec.clear();
   
+  // Form the interpolated disparity
+  DpixT nodata_pix;
+  nodata_pix.invalidate();
+  vw::ImageViewRef<DpixT> interp_disp
+    = interpolate(disparity, vw::BilinearInterpolation(), 
+                  vw::ValueEdgeExtension<DpixT>(nodata_pix));
+
   // Iterate over the cnet. Keep track of progress.
   vw::TerminalProgressCallback tpc("asp", "Producing GCP --> ");
   int progress_steps = 100; 
@@ -136,7 +152,7 @@ void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
     vw::Vector2 dem_pix = warped_dem_georef.lonlat_to_pixel(vw::Vector2(llh.x(), llh.y()));
     
     // Find the corresponding pixel in the reference DEM
-    Dpix disp = find_disparity(disparity, dem_pix.x(), dem_pix.y(), search_len);
+    DpixT disp = find_disparity(disparity, interp_disp, dem_pix.x(), dem_pix.y(), search_len);
     if (!is_valid(disp))
       continue; 
     vw::Vector2 ref_pix = dem_pix + disp.child();
@@ -241,10 +257,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("match-file", 
      po::value(&opt.match_file), 
      "A match file between the left and right raw images with many dense matches.")
-    ("search-len", po::value(&opt.search_len)->default_value(2), 
-     "How many DEM pixels to search around a given interest point to find a valid DEM "
-     "disparity (pick the closest). This may help with a spotty disparity but should not "
-     "be overused.")
     ("gcp-sigma", po::value(&opt.gcp_sigma)->default_value(1.0),
      "The sigma to use for the GCP points. A smaller value will give to GCP more weight.")
     ("max-num-gcp", po::value(&opt.max_num_gcp)->default_value(-1),
@@ -253,6 +265,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "program is called again.")
     ("output-gcp", po::value(&opt.out_gcp), 
      "The produced GPP file with ground coordinates from the reference DEM.")
+    ("search-len", po::value(&opt.search_len)->default_value(0), 
+     "How many DEM pixels to search around a given interest point to find a valid DEM "
+     "disparity (pick the closest). This may help with a spotty disparity but should not "
+     "be overused.")
     ("help,h", "Display this help message");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -345,7 +361,7 @@ int run_dem2gcp(int argc, char * argv[]) {
                 << "gdalwarp -r cubicspline to resample the warped DEM.\n");
   
   // Load the disparity
-  vw::DiskImageView<Dpix> disparity(opt.warped_to_ref_disp_file);
+  vw::DiskImageView<DpixT> disparity(opt.warped_to_ref_disp_file);
   
   // Warped size must equal disparity size, otherwise there is a mistake
   if (interp_warped_dem.cols() != disparity.cols() || 

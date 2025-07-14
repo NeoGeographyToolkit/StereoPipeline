@@ -158,7 +158,6 @@ the disparity.
       --left-camera left.tsai                          \
       --right-camera right.tsai                        \
       --match-file dense_matches/run-left__right.match \
-      --search-len 2                                   \
       --gcp-sigma 1.0                                  \
       --max-num-gcp 20000                              \
       --output-gcp out.gcp
@@ -298,7 +297,7 @@ Command-line options
 --match-file <string (default: "")>
     A match file between the left and right raw images with many dense matches.
     
---search-len <int (default: 2)>
+--search-len <int (default: 0)>
     How many DEM pixels to search around to find a valid DEM disparity (pick the
     closest). This may help with a spotty disparity but should not be overused.
 
