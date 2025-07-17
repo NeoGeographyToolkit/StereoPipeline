@@ -234,7 +234,19 @@ namespace asp {
     vw::Vector3 m_sun_position;
     
     std::string m_plugin_name;
-    
+
+    // Store here the projective approximation of the camera. This helps catch
+    // issues for projecting ground points very far rom the camera field of view
+    // when there is strong lens distortion.
+    std::vector<double> m_approxCamCoeffs;
+    // How far the pixels computed with the approximate camera are expected to
+    // be from the true pixel location.
+    double m_maxApproxCamPixErr;
+    // Create the approximate camera
+    void createApproxCam();
+    // Heuristics to correct point-to-pixel with the approximate camera
+    vw::Vector2 correctWithApproxCam(vw::Vector2 const& pix, vw::Vector3 const& xyz) const;
+  
   }; // End class CsmModel
 
   // Auxiliary non-member functions to convert a pixel from ASP

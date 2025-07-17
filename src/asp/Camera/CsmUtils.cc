@@ -345,7 +345,7 @@ void populateCsmLinescan(double first_line_time, double dt_line,
   if (velocities.size() != positions.size())
     vw_throw(vw::ArgumentErr() << "Expecting as many velocities as positions.\n");
       
-  // Do not use a precision below 1.0-e8 as then the linescan model will return junk.
+  // Do not use a precision below 1.0e-8 as then the linescan model will return junk.
   model.m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
   model.m_semi_major_axis = datum.semi_major_axis();
   model.m_semi_minor_axis = datum.semi_minor_axis();

@@ -17,9 +17,10 @@
 
 #include <vw/FileIO/FileUtils.h>
 
-#include <asp/Core/StereoSettings.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmUtils.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/ProjectiveCamApprox.h>
 
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/LensDistortion.h>
@@ -125,15 +126,19 @@ Vector2 imageCoordToVector(csm::ImageCoord const& c) {
 }
 
 // -----------------------------------------------------------------
-// CsmModel class functions
+// Constructor
 CsmModel::CsmModel():m_semi_major_axis(0.0),
                      m_semi_minor_axis(0.0),
                      m_sun_position(vw::Vector3()),
                      // Do not make the precision lower than 1e-8. CSM can give
                      // junk results when it is too low.
-                     m_desired_precision(asp::DEFAULT_CSM_DESIRED_PRECISION) {}
+                     m_desired_precision(asp::DEFAULT_CSM_DESIRED_PRECISION),
+                     m_maxApproxCamPixErr(-1.0) {
+}
                                       
-CsmModel::CsmModel(std::string const& isd_path) {
+// Call the default constructor to initalize the member variables, then load
+// from file.
+CsmModel::CsmModel(std::string const& isd_path): CsmModel() {
   load_model(isd_path);
 }
 
@@ -389,9 +394,11 @@ void readCsmSunPosition(boost::shared_ptr<csm::RasterGM> const& gm_model,
   for (size_t it = 0; it < 3; it++) 
     sun_position[it] = sun_pos[it];
 }
- 
+
 /// Load the camera model from an ISD file or model state.
 void CsmModel::load_model(std::string const& isd_path) {
+  
+  
   std::string line;
   {
     // Peek inside the file to see if it is an isd or a model state.
@@ -408,6 +415,8 @@ void CsmModel::load_model(std::string const& isd_path) {
     CsmModel::load_model_from_isd(isd_path);
   else
     CsmModel::loadModelFromStateFile(isd_path);
+  
+  CsmModel::createApproxCam();
 }
 
 /// Load the model from ISD. Read the ellipsoid, sun position, and
@@ -661,10 +670,17 @@ Vector2 CsmModel::point_to_pixel(Vector3 const& point) const {
     }
   }
 
-  return imageCoordToVector(imagePt) - ASP_TO_CSM_SHIFT;
+  vw::Vector2 pix = imageCoordToVector(imagePt) - ASP_TO_CSM_SHIFT;
+  
+  // This is a bugfix for when points far from the field of view project
+  // incorrectly into the camera.
+  if (m_maxApproxCamPixErr > 0)
+    return this->correctWithApproxCam(pix, point);
+    
+  return pix;
 }
 
-Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
+vw::Vector3 CsmModel::pixel_to_vector(vw::Vector2 const& pix) const {
   throw_if_not_init();
 
   csm::ImageCoord imagePt;
@@ -1523,6 +1539,132 @@ vw::cartography::Datum CsmModel::get_datum_csm(std::string spheroid_name,
   
   return datum;
   
+}
+
+// Create a projective approximation of the camera, if linescan and having
+// radtan distortion. This helps project into the camera ground points very
+// far from the field of view. See the .h file for more info. Code adapted from
+// UsgsAstroLsSensorModel.cc.
+// It may work better to compare the linescan model with distortion with the one
+// without distortion. This may be slower though.
+void CsmModel::createApproxCam() {
+
+  throw_if_not_init();
+  UsgsAstroLsSensorModel * ls_model
+    = dynamic_cast<UsgsAstroLsSensorModel*>(m_gm_model.get());
+  if (ls_model == NULL)
+    return;
+  if (ls_model->m_distortionType != DistortionType::RADTAN)
+    return;
+
+  csm::EcefCoord refPt = m_gm_model->getReferencePoint();
+  double desired_precision = 1e-3;
+  double height = computeEllipsoidElevation(refPt.x, refPt.y, refPt.z, 
+                                            m_semi_major_axis, m_semi_minor_axis,
+                                            desired_precision);
+  if (std::isnan(height))
+    return;
+
+  vw::Vector2 imageSize = CsmModel::get_image_size();
+  double numCols = imageSize[0];
+  double numRows = imageSize[1];
+
+  // Use 10 samples along each row and column
+  int numSamples = 10.0;
+  
+  // Sample at two heights (these get added to the ellipsoid height from above).
+  std::vector<double> height_delta = {-100.0, 100.0};
+  std::vector<vw::Vector2> imagePixels;
+  std::vector<vw::Vector3> groundPts;
+  
+  // Iterate over height_delta 
+  for (size_t ht_iter = 0; ht_iter < height_delta.size(); ht_iter++) {
+    
+    double curr_height = height + height_delta[ht_iter];
+    
+    // Iterate over the samples for given height  
+    for (int col_samp = 0; col_samp < numSamples; col_samp++) {
+      for (int row_samp = 0; row_samp < numSamples; row_samp++) {
+  
+        vw::Vector2 pix((numCols - 1.0) * (double(col_samp) / (numSamples - 1.0)),
+                        (numRows - 1.0) * (double(row_samp) / (numSamples - 1.0)));
+        vw::Vector3 xyz = 
+          vw::cartography::datum_intersection(m_semi_major_axis + curr_height,
+                                              m_semi_minor_axis + curr_height,
+                                              this->camera_center(pix),
+                                              this->pixel_to_vector(pix));
+        
+        // Print a warning and quit
+        if (xyz == vw::Vector3()) {
+          vw::vw_out(vw::WarningMessage)
+            << "Failed to create an approximate camera model that may help "
+            << "with projecting into the camera pixels far from the field of view.";
+            return;
+        }
+      
+        imagePixels.push_back(pix);
+        groundPts.push_back(xyz);
+      } // end iterate over rows
+    } // end iterate over columns
+  } // end iterate over height deltas
+  
+  asp::calcProjTrans(imagePixels, groundPts, m_approxCamCoeffs);
+  
+  // Test. Iterate over xyz, find pixel, compare.
+  m_maxApproxCamPixErr = 0.0;
+  for (size_t i = 0; i < imagePixels.size(); i++) {
+    vw::Vector2 pix = imagePixels[i];
+    vw::Vector3 xyz = groundPts[i];
+    vw::Vector2 pix2 = asp::applyProjTrans(xyz, m_approxCamCoeffs);
+    
+    double err = vw::math::norm_2(pix - pix2);
+    m_maxApproxCamPixErr = std::max(m_maxApproxCamPixErr, err);
+  }
+  m_maxApproxCamPixErr = std::max(m_maxApproxCamPixErr, 10.0); // ensure it is not small
+}
+
+// This is a bugfix for when points far from the field of view project
+// incorrectly into the camera.
+vw::Vector2 CsmModel::correctWithApproxCam(vw::Vector2 const& pix, 
+                                           vw::Vector3 const& xyz) const {
+
+  // Find the approximate projection based on a projective transform
+  vw::Vector2 apix = asp::applyProjTrans(xyz, m_approxCamCoeffs);
+
+  // If the exact pixel is in the image box, and the approx one is out of the
+  // box, need a closer study.
+  vw::Vector2 imageSize = this->get_image_size();
+  bool pixIn = (0 <= pix[0] && pix[0] < imageSize[0] &&
+                0 <= pix[1] && pix[1] < imageSize[1]);
+  bool apixIn = (0 <= apix[0] && apix[0] < imageSize[0] &&
+                 0 <= apix[1] && apix[1] < imageSize[1]);
+  
+  if (pixIn && !apixIn) {
+    
+    // Likely the exact projection is not accurate
+    double dist = vw::math::norm_2(pix - apix);  
+    if (m_maxApproxCamPixErr > 0 && dist > 1.5 * m_maxApproxCamPixErr) {
+      
+      double gsd = 0.0;
+      UsgsAstroLsSensorModel * ls_model
+          = dynamic_cast<UsgsAstroLsSensorModel*>(m_gm_model.get());
+      if (ls_model != NULL)
+        gsd = ls_model->m_gsd;
+      
+      if (gsd > 0) {
+        // Do a geometric check. Project from the camera to the ground and see
+        // if we get close enough to the input xyz.
+        double dist_to_ground = vw::math::norm_2(xyz - this->camera_center(pix)); 
+        vw::Vector3 xyz2 = this->camera_center(pix) 
+          + this->pixel_to_vector(pix) * dist_to_ground;
+        if (vw::math::norm_2(xyz - xyz2) > 10 * gsd) 
+          return apix; // Return the approximate pixel
+      }
+    }
+  }
+
+  // Return the exact pixel
+  return pix;
 }
 
 } // end namespace asp
