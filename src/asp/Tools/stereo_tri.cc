@@ -43,6 +43,7 @@
 #include <vw/Image/Filter.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Cartography/Map2CamTrans.h>
+#include <vw/Core/Stopwatch.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 #include <ctime>
@@ -477,22 +478,52 @@ Vector3 find_approx_points_median(std::vector<Vector3> const& points){
   return median;
 }
 
+// Find the point cloud center
 // TODO(oalexan1): Move this to some low-level point cloud utils file
-// Compute the point cloud in a tile around the center of the
-// cloud. Find the median of all the points in that cloud.  That
-// will be the cloud center. If the tile is too small, spiral away
-// from the center adding other tiles.  Keep the tiles aligned to a
-// multiple of tile_size, for consistency with how the point cloud
-// is written to disk later on.
-// The logic is done on tiles of pixels, rather than per individual
-// pixel, as that's the only way we can access the point cloud structure.
 Vector3 find_point_cloud_center(Vector2i const& tile_size,
                                 ImageViewRef<Vector6> const& point_cloud){
 
+  // Estimate the cloud center with coarse sampling
+  std::vector<Vector3> points;
+  for (int attempt = 1; attempt <= 4; attempt++) {
+    double numSamples = 25 * attempt;
+    int dcol = round(point_cloud.cols()/numSamples);
+    int drow = round(point_cloud.rows()/numSamples);
+    if (dcol < 1) 
+      dcol = 1;
+    if (drow < 1) 
+      drow = 1;
+
+    // Iterate over the cloud with this sampling rate
+    for (int col = 0; col < point_cloud.cols(); col += dcol) {
+      for (int row = 0; row < point_cloud.rows(); row += drow) {
+        Vector3 xyz = subvector(point_cloud(col, row), 0, 3);
+        if (xyz == Vector3())
+          continue; // skip invalid points
+        points.push_back(xyz);
+      }
+    } 
+    if (points.size() > 1) 
+      return find_approx_points_median(points);
+      
+    vw::vw_out() << "Failed to estimate the point cloud center in attempt: " 
+                 << attempt << ". Will try again with denser sampling.\n";
+  }
+
+  // If sampling fails, do a more thorough algorithm. This can be very slow
+  // if the point cloud has a big hole in the middle.
+  
+  // Compute the point cloud in a tile around the center of the
+  // cloud. Find the median of all the points in that cloud.  That
+  // will be the cloud center. If the tile is too small, spiral away
+  // from the center adding other tiles.  Keep the tiles aligned to a
+  // multiple of tile_size, for consistency with how the point cloud
+  // is written to disk later on.
+  // The logic is done on tiles of pixels, rather than per individual
+  // pixel, as that's the only way we can access the point cloud structure.
   int numx = (int)ceil(point_cloud.cols()/double(tile_size[0]));
   int numy = (int)ceil(point_cloud.rows()/double(tile_size[1]));
 
-  std::vector<Vector3> points;
   // Trace an ever growing square "ring"
   for (int r = 0; r <= std::max(numx/2, numy/2); r++){
     
@@ -820,9 +851,14 @@ void stereo_triangulation(std::string const& output_prefix,
       std::string cloud_center_file = output_prefix + "-PC-center.txt";
       if (!read_point(cloud_center_file, cloud_center) || crop_left || crop_right){
         if (!stereo_settings().skip_point_cloud_center_comp) {
+          vw::Stopwatch sw;
+          sw.start();
           cloud_center = find_point_cloud_center(opt_vec[0].raster_tile_size, point_cloud);
           vw_out() << "Writing point cloud center: " << cloud_center_file << std::endl;
           write_point(cloud_center_file, cloud_center);
+          sw.stop();
+          vw::vw_out() << "Elapsed time in point cloud center estimation: " 
+            << sw.elapsed_seconds() << " seconds.\n";
         }
       } else {
         vw_out() << "Reading existing point cloud center: " << cloud_center_file << std::endl;
