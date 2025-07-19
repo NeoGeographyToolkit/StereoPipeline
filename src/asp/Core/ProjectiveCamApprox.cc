@@ -85,6 +85,15 @@ vw::Vector2 applyProjTrans(vw::Vector3 const& xyz,
   double x = xyz.x(), y = xyz.y(), z = xyz.z();
   double col_den = 1 + u[4]  * x + u[5]  * y + u[6]  * z;
   double row_den = 1 + u[11] * x + u[12] * y + u[13] * z;
+  
+  // It is quite unusual for the denominator to be zero, as the ground point is
+  // normally in front of the camera. In that case better return something large
+  // rather than Inf.
+  if (col_den == 0)
+    col_den = 1e-8;
+  if (row_den == 0)
+    row_den = 1e-8;
+    
   double col = (u[0] + u[1] * x + u[2] * y + u[3]  * z) / col_den;
   double row = (u[7] + u[8] * x + u[9] * y + u[10] * z) / row_den;
 

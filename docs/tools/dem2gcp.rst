@@ -299,6 +299,7 @@ Command-line options
     
 --gcp-sigma <double (default: 1.0)>
     The sigma to use for the GCP points. A smaller value will give to GCP more weight.
+    See also ``--gcp-sigma-image``.
 
 --output-gcp <string (default: "")>
     The produced GCP file with ground coordinates from the reference DEM.
@@ -311,7 +312,13 @@ Command-line options
 --max-disp <double (default: -1.0)>
     If positive, flag a disparity whose norm is larger than this as erroneous
     and do not use it for creating GCP.
-            
+
+--gcp-sigma-image <string (default: "")>
+    Given a georeferenced image with float values, for each GCP find its
+    location in this image and closest pixel value. Let the GCP sigma be that
+    value. Skip GCP that result in values that are no-data or are not positive.
+    This overrides ``--gcp-sigma``.
+
 --search-len <int (default: 0)>
     How many DEM pixels to search around to find a valid DEM disparity (pick the
     closest). This may help with a spotty disparity but should not be overused.

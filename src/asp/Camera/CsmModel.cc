@@ -398,7 +398,6 @@ void readCsmSunPosition(boost::shared_ptr<csm::RasterGM> const& gm_model,
 /// Load the camera model from an ISD file or model state.
 void CsmModel::load_model(std::string const& isd_path) {
   
-  
   std::string line;
   {
     // Peek inside the file to see if it is an isd or a model state.

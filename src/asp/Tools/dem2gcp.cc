@@ -31,6 +31,7 @@
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Math/RandomSet.h>
 #include <vw/Image/Filter.h>
+#include <vw/Cartography/GeoReferenceBaseUtils.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -134,7 +135,10 @@ void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
               vw::cartography::GeoReference const& warped_dem_georef,
               std::vector<std::string> const& image_files,
               double gcp_sigma, int search_len, 
-              int max_num_gcp, 
+              int max_num_gcp,
+              vw::ImageViewRef<vw::PixelMask<float>> const& gcp_sigma_image,
+              vw::cartography::GeoReference          const& gcp_sigma_image_georef,
+
               std::string const& out_gcp) {
 
   int num_pts = cnet.size();
@@ -151,6 +155,9 @@ void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
     = interpolate(disparity, vw::BilinearInterpolation(), 
                   vw::ValueEdgeExtension<DpixT>(nodata_pix));
 
+  bool have_gcp_sigma_image = (gcp_sigma_image.cols() > 0 &&
+                               gcp_sigma_image.rows() > 0);
+  
   // Iterate over the cnet. Keep track of progress.
   vw::TerminalProgressCallback tpc("asp", "Producing GCP --> ");
   int progress_steps = 100; 
@@ -185,7 +192,21 @@ void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
     vw::Vector2 ref_lonlat = ref_dem_georef.pixel_to_lonlat(ref_pix);
     vw::Vector3 ref_llh(ref_lonlat.x(), ref_lonlat.y(), ref_height);
 
-    // Set the pixel sigmas to 1. Note that the 3D points have sigmas.
+    // The case when the GCP sigma comes from a file
+    if (have_gcp_sigma_image) {
+      vw::PixelMask<float> img_gcp_sigma 
+        = vw::cartography::closestPixelVal(gcp_sigma_image, gcp_sigma_image_georef, xyz);
+        
+      // Flag bad gcp_sigmas as outliers
+      if (!is_valid(img_gcp_sigma) || std::isnan(img_gcp_sigma.child()) || 
+          img_gcp_sigma.child() <= 0.0)
+        continue;
+       
+      // Use this sigma
+      gcp_sigma = img_gcp_sigma.child();
+    }
+
+    // Use given gcp sigma for ground points, and use 1 for pixel sigma.
     vw::Vector3 sigma(gcp_sigma, gcp_sigma, gcp_sigma);
 
     Gcp gcp;
@@ -247,7 +268,7 @@ struct Options : public vw::GdalWriteOptions {
 std::string warped_dem_file, ref_dem_file, 
   warped_to_ref_disp_file, left_img, right_img, 
   left_cam, right_cam, 
-  match_file, out_gcp;
+  match_file, out_gcp, gcp_sigma_image;
   int search_len;
   double gcp_sigma, max_disp;
   int max_num_gcp;
@@ -277,7 +298,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      po::value(&opt.match_file), 
      "A match file between the left and right raw images with many dense matches.")
     ("gcp-sigma", po::value(&opt.gcp_sigma)->default_value(1.0),
-     "The sigma to use for the GCP points. A smaller value will give to GCP more weight.")
+     "The sigma to use for the GCP points. A smaller value will give to GCP more weight. "
+     "See also --gcp-sigma-image.")
     ("max-num-gcp", po::value(&opt.max_num_gcp)->default_value(-1),
      "The maximum number of GCP to write. If negative, all GCP are written. If more than "
      "this number, a random subset will be picked. The same subset will be selected if the "
@@ -287,6 +309,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("max-disp", po::value(&opt.max_disp)->default_value(-1), 
      "If positive, flag a disparity whose norm is larger than this as erroneous and do not "
      "use it for creating GCP.")
+    ("gcp-sigma-image", po::value(&opt.gcp_sigma_image)->default_value(""),
+     "Given a georeferenced image with float values, for each GCP find its location in "
+     "this image and closest pixel value. Let the GCP sigma be that value. Skip GCP that "
+     "result in values that are are no-data or are not positive. This overrides --gcp-sigma.")
     ("search-len", po::value(&opt.search_len)->default_value(0), 
      "How many DEM pixels to search around a given interest point to find a valid DEM "
      "disparity (pick the closest). This may help with a spotty disparity but should not "
@@ -397,9 +423,21 @@ int run_dem2gcp(int argc, char * argv[]) {
     vw::vw_throw( vw::ArgumentErr() 
                 << "Error: The warped DEM and disparity sizes do not match.\n" );
   
+  // If to use a gcp_sigma image
+  bool have_gcp_sigma_image = (!opt.gcp_sigma_image.empty());
+  vw::ImageViewRef<vw::PixelMask<float>> gcp_sigma_image;
+  float gcp_sigma_image_nodata = -std::numeric_limits<float>::max();
+  vw::cartography::GeoReference gcp_sigma_image_georef;
+  if (have_gcp_sigma_image) {
+    vw::cartography::readGeorefImage(opt.gcp_sigma_image,
+      gcp_sigma_image_nodata, gcp_sigma_image_georef, gcp_sigma_image);
+    vw::vw_out() << "Using GCP sigma image: " << opt.gcp_sigma_image << "\n";
+  }
+  
   writeGcp(ref_dem_georef, cnet, disparity,
            interp_ref_dem, warped_dem_georef, image_files, 
            opt.gcp_sigma, opt.search_len, opt.max_num_gcp,
+           gcp_sigma_image, gcp_sigma_image_georef,
            opt.out_gcp);
   
   return 0;
