@@ -55,6 +55,7 @@
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/FileIO/FileTypes.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -1512,6 +1513,7 @@ int main(int argc, char * argv[]) {
          = geo.datum().cartesian_to_geodetic(out_cam->camera_center(Vector2()));
         vw_out() << "Output camera center lon, lat, and height above datum: "
                  << llh << "\n";
+        vw_out() << "Writing: " << opt.out_camera << "\n";
       ((vw::camera::OpticalBarModel*)out_cam.get())->write(opt.out_camera);
     } else if (opt.camera_type == "pinhole") {
       save_pinhole(opt, geo, input_camera_ptr, interp_dem, out_cam);

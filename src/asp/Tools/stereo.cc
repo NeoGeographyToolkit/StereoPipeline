@@ -22,6 +22,7 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Camera/CameraErrorPropagation.h>
+#include <asp/Core/FileUtils.h>
 
 // Support for ISIS image files
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
@@ -37,6 +38,7 @@
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/FileIO/FileTypes.h>
+#include <vw/FileIO/FileUtils.h>
 
 // Can't do much about warnings in boost except to hide them
 #pragma GCC diagnostic push

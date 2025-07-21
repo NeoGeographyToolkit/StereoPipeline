@@ -47,6 +47,7 @@
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/FileUtils.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
@@ -56,6 +57,7 @@
 #include <vw/Camera/CameraImage.h>
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/FileIO/FileTypes.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/UsgsAstroFrameSensorModel.h>
@@ -330,6 +332,14 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "system is rotated by 90 degrees in the sensor plane relative to the satellite "
      "coordinate system. The goal is the same, to penalize deviations that are not "
      "aligned with satellite pitch.")
+    ("fix-gcp-xyz", 
+     po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
+     "If the GCP are highly accurate, use this option to not float them during the optimization.")
+    ("use-lon-lat-height-gcp-error",
+     po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
+     "Constrain the triangulated points tied to GCP in the longitude, latitude, and height "
+     "space, instead of ECEF. The standard deviations in the GCP file are applied "
+     "accordingly.")
     ("accept-provided-mapproj-dem", 
      po::bool_switch(&asp::stereo_settings().accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
      "Accept the DEM provided on the command line as the one mapprojection was done with, "
@@ -1128,9 +1138,8 @@ void jitterSolvePass(int                                 pass,
   }
 
   // Add the GCP constraint. GCP can come from GCP files or ISIS cnet.
-  addGcpConstraint(opt, outliers, cnet,
-                   // Outputs
-                   tri_points_vec, weight_per_residual, problem);
+  addGcpConstraint(opt, outliers, opt.use_llh_error, opt.fix_gcp_xyz,
+                   cnet, tri_points_vec, weight_per_residual, problem); // outputs
 
   // Add the constraint to keep the camera positions close to initial values
   if (opt.camera_position_uncertainty.size() > 0) 

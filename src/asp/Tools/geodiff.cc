@@ -21,6 +21,7 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/PointImageManipulation.h>
+#include <vw/FileIO/FileUtils.h>
 
 using std::endl;
 using std::string;

@@ -25,6 +25,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/GdalUtils.h>
 #include <asp/Core/DemMosaic.h>
+#include <asp/Core/FileUtils.h>
 
 #include <vw/FileIO/DiskImageManager.h>
 #include <vw/Image/InpaintView.h>
@@ -32,6 +33,7 @@
 #include <vw/Image/Filter.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Image/NoDataAlg.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/math/special_functions/erf.hpp>

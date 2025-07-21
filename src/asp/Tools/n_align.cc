@@ -34,6 +34,7 @@
 
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/FileIO/FileUtils.h>
 
 // Turn off warnings about things we can't control
 #pragma GCC diagnostic push

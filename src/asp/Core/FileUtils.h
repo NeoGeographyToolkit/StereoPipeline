@@ -40,9 +40,35 @@ namespace asp {
                       std::string const& f1, std::string const& f2,
                       std::string const& f3, std::string const& f4);
 
-  void read_1d_points(std::string const& file, std::vector<double> & points);
+  /// Read a vector of doubles from a file  
+  void read_vec(std::string const& filename, std::vector<double> & vals);
+
   void read_2d_points(std::string const& file, std::vector<vw::Vector2> & points);
   void read_3d_points(std::string const& file, std::vector<vw::Vector3> & points);
+
+  /// Write a vector of strings from a file, one per line.
+  void write_list(std::string const& file, std::vector<std::string> const & list);
+
+  /// Read a vector of strings from a file, with spaces and newlines acting as separators.
+  /// Throw an exception if the list is empty.
+  void read_list(std::string const& file, std::vector<std::string> & list);
+  
+  /// Read the target name (planet name) from the plain text portion of an ISIS cub file
+  std::string read_target_name(std::string const& filename);
+
+  // Given a vector of files, with each file being an image, camera,
+  // or a text file having images or cameras, return the list of
+  // all found images and cameras. This is a local auxiliary 
+  // function not exposed in the header file.
+  void readImagesCamsOrLists(std::vector<std::string> const & in,
+                            std::vector<std::string>       & out);
+
+  /// Given a list of images/cameras and/or lists of such things, put the images
+  /// and the cameras in separate vectors.
+void separate_images_from_cameras(std::vector<std::string> const& inputs,
+                                  std::vector<std::string>      & images,
+                                  std::vector<std::string>      & cameras,
+                                  bool ensure_equal_sizes);
 
   // Consider a stream, like a text file. Each line has n elements,
   // to be read in a vector. Every now and then there is an empty

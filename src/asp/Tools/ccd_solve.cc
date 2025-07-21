@@ -96,9 +96,11 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Camera/LinescanDGModel.h>
+
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>

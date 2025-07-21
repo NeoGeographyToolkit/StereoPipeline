@@ -32,6 +32,7 @@ extern "C" {
 
 #include <vw/Image/Interpolation.h>
 #include <vw/Cartography/GeoReferenceResourceGDAL.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/dll.hpp>

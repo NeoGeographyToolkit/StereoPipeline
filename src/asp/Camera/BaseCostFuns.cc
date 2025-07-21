@@ -21,7 +21,31 @@
 #include <asp/Camera/BaseCostFuns.h>
 
 namespace asp {
-  
+
+// Factory to hide the construction of the CostFunction object from
+// the client code.
+ceres::CostFunction* LLHError::Create(vw::Vector3            const& observation_xyz,
+                                      vw::Vector3            const& sigma,
+                                      vw::cartography::Datum const& datum) {
+  return (new ceres::NumericDiffCostFunction<LLHError, ceres::CENTRAL, 3, 3>
+          (new LLHError(observation_xyz, sigma, datum)));
+}
+
+bool LLHError::operator()(const double* point, double* residuals) const {
+  vw::Vector3 observation_llh, point_xyz, point_llh;
+  for (size_t p = 0; p < m_observation_xyz.size(); p++) {
+    point_xyz[p] = double(point[p]);
+  }
+
+  point_llh       = m_datum.cartesian_to_geodetic(point_xyz);
+  observation_llh = m_datum.cartesian_to_geodetic(m_observation_xyz);
+
+  for (size_t p = 0; p < m_observation_xyz.size(); p++) 
+    residuals[p] = (point_llh[p] - observation_llh[p])/m_sigma[p]; // Input units are meters
+
+  return true;
+}
+
 CamUncertaintyError::CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
                                          vw::Vector2 const& uncertainty, double weight,
                                          vw::cartography::Datum const& datum,

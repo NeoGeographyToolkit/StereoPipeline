@@ -36,6 +36,7 @@
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/Math/Geometry.h>
 #include <vw/InterestPoint/MatcherIO.h>
+#include <vw/FileIO/FileUtils.h>
 
 using namespace vw;
 namespace po = boost::program_options;

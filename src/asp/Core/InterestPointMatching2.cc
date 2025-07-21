@@ -28,6 +28,7 @@
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/Math/RandomSet.h> // TODO(oalexan1): Rm this when moving the random subset code
 #include <vw/Core/Stopwatch.h>
+#include <vw/FileIO/FileUtils.h>
 
 // Move some code here from InterestPointMatching.cc, as that one is slow to compile.
 // The logic here is mostly for matching, and not for ip detection or filtering.

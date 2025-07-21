@@ -39,6 +39,7 @@
 #include <vw/Core/CmdUtils.h>
 #include <vw/Math/Geometry.h>
 #include <vw/InterestPoint/MatcherIO.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <limits>
 #include <cstring>

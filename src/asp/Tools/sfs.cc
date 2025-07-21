@@ -65,6 +65,7 @@
 #include <asp/Core/DemUtils.h>
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/FileUtils.h>
 #include <asp/SfS/SfsImageProc.h>
 #include <asp/SfS/SfsUtils.h>
 #include <asp/SfS/SfsCamera.h>
@@ -83,6 +84,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Core/CmdUtils.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>

@@ -22,6 +22,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Core/FileUtils.h>
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/IsisCameraModel.h>
@@ -32,6 +33,7 @@
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/FileIO/FileTypes.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <iomanip>
 

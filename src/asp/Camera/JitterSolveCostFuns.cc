@@ -918,37 +918,53 @@ void addTriConstraint(asp::BaBaseOptions     const& opt,
 // Add the GCP constraint
 void addGcpConstraint(asp::BaBaseOptions     const& opt,
                       std::set<int>          const& outliers,
-                      vw::ba::ControlNetwork const& cnet,
+                      bool                          use_llh_error,
+                      bool                          fix_gcp_xyz,
                       // Outputs
-                      std::vector<double>    & tri_points_vec,
-                      std::vector<double>    & weight_per_residual, // append
-                      ceres::Problem         & problem) {
+                      vw::ba::ControlNetwork      & cnet,
+                      std::vector<double>         & tri_points_vec,
+                      std::vector<double>         & weight_per_residual, // append
+                      ceres::Problem              & problem) {
   
   int num_tri_points = cnet.size();
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
+    
     if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint)
       continue; // Applies only to GCPs
 
     if (outliers.find(ipt) != outliers.end()) 
       continue; // skip outliers
-      
-    double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
-    
-    // Use as constraint the initially triangulated point
-    vw::Vector3 observation(tri_point[0], tri_point[1], tri_point[2]);
+
+    vw::Vector3 observation = cnet[ipt].position();
     vw::Vector3 xyz_sigma = cnet[ipt].sigma();
 
     // Use same cost function as for bundle adjustment
-    ceres::CostFunction* cost_function = XYZError::Create(observation, xyz_sigma);
+    ceres::CostFunction* cost_function = NULL;
+    if (!use_llh_error) {
+      cost_function = XYZError::Create(observation, xyz_sigma);
+    } else {
+      vw::Vector3 llh_sigma = xyz_sigma;
+      // make lat, lon into lon, lat
+      std::swap(llh_sigma[0], llh_sigma[1]);
+      cost_function = LLHError::Create(observation, llh_sigma, opt.datum);
+    }
     
     // No soft cost function for GCP. These are assumed to be accurate.
     ceres::LossFunction* loss_function  = new ceres::TrivialLoss();
+    double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
     problem.AddResidualBlock(cost_function, loss_function, tri_point);
+    
+    // Ground xyz whose sigma is asp::FIXED_GCP_SIGMA (a tiny positive value) are set to fixed
+    double s = asp::FIXED_GCP_SIGMA;
+    if (fix_gcp_xyz || xyz_sigma == vw::Vector3(s, s, s)) {
+      cnet[ipt].set_sigma(vw::Vector3(s, s, s)); // will be saved in the ISIS cnet
+      problem.SetParameterBlockConstant(tri_point);
+    }
     
     for (int c = 0; c < NUM_XYZ_PARAMS; c++)
       weight_per_residual.push_back(1.0 / xyz_sigma[c]);
       
-  } // End loop through xyz
+  } // End loop over triangulated points
 }
 
 // Add hard camera constraints. Be generous with the uncertainty. 

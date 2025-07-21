@@ -308,32 +308,6 @@ struct BaDispXyzError {
 };
 
 /// A ceres cost function. The residual is the difference between the
-/// observed 3D point lon-lat-height, and the current (floating) 3D
-/// point lon-lat-height, normalized by sigma. Used only for
-/// ground control points. This has the advantage, unlike
-/// XYZError, that when the height is not known reliably,
-/// but lon-lat is, we can, in the GCP file, assign a bigger
-/// sigma to the latter.
-struct LLHError {
-  LLHError(vw::Vector3 const& observation_xyz, vw::Vector3 const& sigma, 
-           vw::cartography::Datum const& datum):
-    m_observation_xyz(observation_xyz), m_sigma(sigma), m_datum(datum) {}
-
-  bool operator()(const double* point, double* residuals) const;
-  
-  // Factory to hide the construction of the CostFunction object from
-  // the client code.
-  static ceres::CostFunction* Create(vw::Vector3                const& observation_xyz,
-                                     vw::Vector3                const& sigma,
-                                     vw::cartography::Datum const& datum);
-
-  vw::Vector3 m_observation_xyz;
-  vw::Vector3 m_sigma;
-  vw::cartography::Datum m_datum;
-};
-
-
-/// A ceres cost function. The residual is the difference between the
 /// original camera center and the current (floating) camera center.
 /// This cost function prevents the cameras from straying too far from
 /// their starting point.
@@ -465,15 +439,15 @@ void addTriConstraint(asp::BaOptions           const& opt,
 
 // Add a ground constraint (GCP or height from DEM)
 void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
-                      std::string             const& cost_function_str, 
-                      bool use_llh_error,
-                      bool fix_gcp_xyz,
-                      // Outputs
-                      vw::ba::ControlNetwork & cnet,
-                      int                    & num_gcp,
-                      int                    & num_gcp_or_dem_residuals,
-                      asp::BAParams          & param_storage, 
-                      ceres::Problem         & problem);
+                           std::string       const& cost_function_str, 
+                           bool                     use_llh_error,
+                           bool                     fix_gcp_xyz,
+                           // Outputs
+                           vw::ba::ControlNetwork & cnet,
+                           int                    & num_gcp,
+                           int                    & num_gcp_or_dem_residuals,
+                           asp::BAParams          & param_storage, 
+                           ceres::Problem         & problem);
 
 // Add a cost function meant to tie up to known disparity form left to right
 // image and known ground truth reference terrain (option --reference-terrain).

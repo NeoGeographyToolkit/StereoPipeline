@@ -35,6 +35,7 @@
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/CameraBBox.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <limits>
 #include <cstring>

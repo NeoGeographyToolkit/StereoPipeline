@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file Common.h
 ///
 
@@ -36,7 +35,6 @@
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Math/Vector.h>
-#include <vw/FileIO/FileUtils.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
@@ -57,13 +55,6 @@ namespace asp {
 
   class ASPGlobalOptions; // forward declaration
   
-  /// Given a list of images/cameras and/or lists of such things, put the images
-  /// and the cameras in separate vectors.
-  void separate_images_from_cameras(std::vector<std::string> const& inputs,
-				    std::vector<std::string>      & images,
-				    std::vector<std::string>      & cameras,
-				    bool ensure_equal_sizes);
-  
   /// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
   /// so it may have some items there beforehand.
   void parse_append_metadata(std::string const& metadata,
@@ -82,19 +73,6 @@ namespace asp {
   void log_to_file(int argc, char *argv[],
                    std::string stereo_default_filename,
                    std::string output_prefix);
-
-  /// Write a vector of strings from a file, one per line.
-  void write_list(std::string const& file, std::vector<std::string> const & list);
-
-  /// Read a vector of strings from a file, with spaces and newlines acting as separators.
-  /// Throw an exception if the list is empty.
-  void read_list(std::string const& file, std::vector<std::string> & list);
-  
-  /// Read a vector of doubles from a file  
-  void read_vec(std::string const& filename, std::vector<double> & vals);
-
-  /// Read the target name (planet name) from the plain text portion of an ISIS cub file
-  std::string read_target_name(std::string const& filename);
 
   boost::program_options::variables_map
   check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,

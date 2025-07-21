@@ -37,6 +37,7 @@
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Math/Geometry.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <boost/core/null_deleter.hpp>
 

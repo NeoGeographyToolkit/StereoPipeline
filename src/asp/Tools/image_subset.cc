@@ -20,9 +20,11 @@
 
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/FileUtils.h>
 
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <vector>
 #include <string>

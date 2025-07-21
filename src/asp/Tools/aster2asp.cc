@@ -34,14 +34,16 @@
 // Luc Girod, Christopher Nutha, and Andreas Kaab
 // http://www.int-arch-photogramm-remote-sens-spatial-inf-sci.net/XL-1-W5/249/2015/isprsarchives-XL-1-W5-249-2015.pdf
 
-#include <vw/FileIO/DiskImageView.h>
-#include <vw/Core/StringUtils.h>
-#include <vw/Cartography/Datum.h>
-#include <vw/Cartography/GeoReference.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Camera/RPCModelGen.h>
+
+#include <vw/FileIO/DiskImageView.h>
+#include <vw/Core/StringUtils.h>
+#include <vw/Cartography/Datum.h>
+#include <vw/Cartography/GeoReference.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <limits>
 #include <cstring>
@@ -390,13 +392,13 @@ void generate_point_pairs(// Inputs
     vw_throw( ArgumentErr() << "Book-keeping failure!\n" );
 
   std::vector<double> longitude;
-  asp::read_1d_points(longitude_file, longitude);
+  asp::read_vec(longitude_file, longitude);
   if (std::int64_t (longitude.size()) != num_pts)
     vw_throw( ArgumentErr() << "Expecting " << num_pts << " longitude values in "
 	      << longitude_file << " but got instead " << longitude.size() << ".\n" );
   
   std::vector<double> latitude;
-  asp::read_1d_points(latitude_file, latitude);
+  asp::read_vec(latitude_file, latitude);
   if (std::int64_t (latitude.size()) != num_pts)
     vw_throw( ArgumentErr() << "Expecting " << num_pts << " latitude values in "
 	      << latitude_file << " but got instead " << latitude.size() << ".\n" );

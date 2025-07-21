@@ -27,6 +27,7 @@
 #include <asp/Tools/stereo.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/EnvUtils.h>
+#include <asp/Core/FileUtils.h>
 
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>

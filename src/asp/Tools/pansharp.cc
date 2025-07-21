@@ -18,7 +18,7 @@
 
 #include <vw/Image/ImageView.h>
 #include <vw/Cartography/GeoTransform.h>
-
+#include <vw/FileIO/FileUtils.h>
 
 using std::endl;
 using std::string;

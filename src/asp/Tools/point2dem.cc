@@ -37,6 +37,7 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/Core/StringUtils.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <pdal/PDALUtils.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>

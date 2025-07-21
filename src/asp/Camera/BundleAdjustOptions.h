@@ -36,8 +36,7 @@ struct BaOptions: public asp::BaBaseOptions {
   bool save_intermediate_cameras, approximate_pinhole_intrinsics,
     init_camera_using_gcp, disable_pinhole_gcp_init,
     transform_cameras_with_shared_gcp, transform_cameras_using_gcp,
-    fix_gcp_xyz, solve_intrinsics, 
-    ip_normalize_tiles, ip_debug_images, stop_after_stats, 
+    solve_intrinsics, ip_normalize_tiles, ip_debug_images, stop_after_stats, 
     calc_normalization_bounds, calc_ip, stop_after_matching,
     skip_matching, apply_initial_transform_only, save_vwip;
   std::string camera_position_file, initial_transform_file, dem_file_for_overlap;
@@ -50,7 +49,7 @@ struct BaOptions: public asp::BaBaseOptions {
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, 
     auto_overlap_buffer, pct_for_overlap, min_distortion, ip_nodata_radius;
   bool skip_rough_homography, enable_rough_homography, disable_tri_filtering,
-    enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
+    enable_tri_filtering, no_datum, individually_normalize,
     force_reuse_match_files, no_poses_from_nvm, save_cnet_as_csv, aster_use_csm,
     query_num_image_pairs;
   vw::Vector2 elevation_limit;   // Expected range of elevation to limit results to.
@@ -66,11 +65,11 @@ struct BaOptions: public asp::BaBaseOptions {
   BaOptions(): ip_per_tile(0), ip_per_image(0), 
              overlap_exponent(0), 
              save_intermediate_cameras(false),
-             fix_gcp_xyz(false), solve_intrinsics(false), 
+             solve_intrinsics(false), 
              semi_major(0), semi_minor(0), position_filter_dist(-1),
              ip_detect_method(0), num_scales(-1), 
              pct_for_overlap(-1), skip_rough_homography(false),
-             individually_normalize(false), use_llh_error(false), 
+             individually_normalize(false), 
              force_reuse_match_files(false), no_poses_from_nvm(false),
              save_cnet_as_csv(false), aster_use_csm(false), query_num_image_pairs(false) {}
 

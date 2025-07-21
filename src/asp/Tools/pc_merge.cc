@@ -30,6 +30,7 @@
 #include <vw/Mosaic/ImageComposite.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Cartography/PointImageManipulation.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <limits>
 

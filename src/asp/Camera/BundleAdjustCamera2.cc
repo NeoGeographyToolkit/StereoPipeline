@@ -34,6 +34,7 @@
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/IpMatchingAlgs.h>
+#include <asp/Core/FileUtils.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/asp_config.h>
 

@@ -37,6 +37,7 @@
 #include <vw/Image/Filter.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <boost/program_options.hpp>
 #include <boost/spirit/include/qi.hpp>

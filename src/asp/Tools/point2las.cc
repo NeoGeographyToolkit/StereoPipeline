@@ -28,6 +28,7 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/Statistics.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <fstream>
 #include <iostream>

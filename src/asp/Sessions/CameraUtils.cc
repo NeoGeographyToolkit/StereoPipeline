@@ -24,6 +24,7 @@
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/DemUtils.h>
+#include <asp/Core/FileUtils.h>
 
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Core/Exception.h>

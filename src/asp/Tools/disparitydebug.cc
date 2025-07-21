@@ -29,11 +29,14 @@
 #undef NDEBUG
 #endif
 
+#include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
+
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Image/Filter.h>
-#include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <vw/FileIO/FileUtils.h>
+
 using namespace vw;
 using namespace vw::stereo;
 

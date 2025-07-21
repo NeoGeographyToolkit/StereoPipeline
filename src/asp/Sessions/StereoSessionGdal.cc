@@ -17,6 +17,15 @@
 
 /// \file StereoSessionGdal.cc
 ///
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/AffineEpipolar.h>
+#include <asp/Core/FileUtils.h>
+#include <asp/Sessions/StereoSessionGdal.h>
+#include <asp/Sessions/StereoSessionASTER.h>
+#include <asp/Sessions/StereoSessionNadirPinhole.h>
+#include <asp/Camera/RPCModel.h>
+#include <asp/Camera/RPC_XML.h>
+
 #include <vw/Image/ImageMath.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/MaskViews.h>
@@ -24,14 +33,6 @@
 #include <vw/Camera/Extrinsics.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Cartography/Datum.h>
-
-#include <asp/Core/StereoSettings.h>
-#include <asp/Core/AffineEpipolar.h>
-#include <asp/Sessions/StereoSessionGdal.h>
-#include <asp/Sessions/StereoSessionASTER.h>
-#include <asp/Sessions/StereoSessionNadirPinhole.h>
-#include <asp/Camera/RPCModel.h>
-#include <asp/Camera/RPC_XML.h>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem/operations.hpp>

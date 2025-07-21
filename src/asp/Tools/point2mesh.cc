@@ -19,21 +19,24 @@
 /// \file point2mesh2.cc
 ///
 
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <stdio.h>
-#include <stddef.h>
-#include <math.h>
-#include <boost/filesystem.hpp>
+#include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 
 #include <vw/Image/Transform.h>
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Image/MaskViews.h>
 #include <asp/Core/PointUtils.h>
 #include <vw/Image/Manipulation.h>
-#include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <vw/FileIO/FileUtils.h>
+
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <stdio.h>
+#include <stddef.h>
+#include <math.h>
+
+#include <boost/filesystem.hpp>
 
 using namespace vw;
 using namespace vw::cartography;

@@ -43,7 +43,10 @@ cam_gen (:numref:`cam_gen`):
   * Added the option ``--camera-center-llh``.
 
 dem2gcp (:numref:`dem2gcp`):
-  * Added the options ``--max-num-gcp``, ``--max-disp``.
+  * Added the options ``--max-num-gcp``, ``--max-disp``, ``--gcp-sigma-image``.
+
+jitter_solve (:numref:`jitter_solve`):
+  * Added the options ``--fix-gcp-xyz``, ``--use-lon-lat-height-gcp-error``.
   
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
@@ -56,6 +59,8 @@ misc:
     only read them.
   * Bugfix for when ``parallel_stereo`` has the same value for the output prefix
     and bundle adjustment prefix.
+  * Bugfix for stereo triangulation when the point cloud is huge and has data
+    only in corners.
 
 RELEASE 3.5.0, April 28, 2025
 -----------------------------

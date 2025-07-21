@@ -114,11 +114,13 @@ void addTriConstraint(asp::BaBaseOptions     const& opt,
 // Add the GCP constraint
 void addGcpConstraint(asp::BaBaseOptions     const& opt,
                       std::set<int>          const& outliers,
-                      vw::ba::ControlNetwork const& cnet,
+                      bool                          use_llh_error,
+                      bool                          fix_gcp_xyz,
                       // Outputs
-                      std::vector<double>    & tri_points_vec,
-                      std::vector<double>    & weight_per_residual, // append
-                      ceres::Problem         & problem);
+                      vw::ba::ControlNetwork      & cnet,
+                      std::vector<double>         & tri_points_vec,
+                      std::vector<double>         & weight_per_residual, // append
+                      ceres::Problem              & problem);
 
 // Add hard camera constraints. Be generous with the uncertainty. 
 void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,

@@ -21,11 +21,12 @@
 #pragma warning(disable:4996)
 #endif
 
-#include <vw/FileIO/DiskImageView.h>
-#include <vw/Stereo/DisparityMap.h>
-
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+
+#include <vw/FileIO/DiskImageView.h>
+#include <vw/Stereo/DisparityMap.h>
+#include <vw/FileIO/FileUtils.h>
 #include <vw/Image/Statistics.h>
 
 using namespace vw;

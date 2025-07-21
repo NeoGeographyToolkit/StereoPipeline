@@ -29,7 +29,6 @@
 
 #include <boost/shared_ptr.hpp>
 #include <asp/Core/Common.h>
-#include <asp/Core/FileUtils.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/CameraModelLoader.h>
 

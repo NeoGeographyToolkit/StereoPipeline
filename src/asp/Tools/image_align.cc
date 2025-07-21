@@ -24,6 +24,7 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/FileUtils.h>
 
 #include <vw/Image/Interpolation.h>
 #include <vw/Image/Filter.h>
@@ -35,6 +36,7 @@
 #include <vw/Math/Geometry.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Math/RANSAC.h>
+#include <vw/FileIO/FileUtils.h>
 
 using namespace vw;
 namespace po = boost::program_options;

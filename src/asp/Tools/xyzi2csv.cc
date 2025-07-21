@@ -27,6 +27,8 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 
+#include <vw/FileIO/FileUtils.h>
+
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 

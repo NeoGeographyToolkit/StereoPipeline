@@ -32,6 +32,7 @@
 #include <vw/Math/RandomSet.h>
 #include <vw/Image/Filter.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
+#include <vw/FileIO/FileUtils.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;

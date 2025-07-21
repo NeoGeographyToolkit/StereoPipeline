@@ -49,19 +49,23 @@ Pinhole cameras
         --optical-center 1280 540 --pixel-pitch 1                         \
         img.tif -o img.tsai --gcp-file img.gcp --gcp-std 1e-2
 
-Here we assume that the pixel pitch is 1, hence both the focal length
-and the optical center are in units of pixels. If the focal length and
-pixel pitch are given in meters, and one assumes the optical center to
-be the center of the image, then the optical center passed to this tool
-should be half of the image width and height, with both multiplied by
-the pixel pitch, to make them in meters as well.
+The image corners corresponding to the lon-lat values are traversed
+in the order (0, 0) (w, 0) (w, h), (0, h) where w and h are the
+image width and height.
+
+Some other pixels can be used instead of image corners, with the
+``--pixel-values`` option. 
+
+Here we assume that the pixel pitch is 1, hence both the focal length and the
+optical center are in units of pixels. If the focal length and pixel pitch are
+given in meters, and one assumes the optical center to be the center of the
+image, then the optical center passed to this tool should be about half of the
+image width and height, with both multiplied by the pixel pitch, to make them in
+meters as well.
 
 This procedure is not as accurate as approximating an existing camera
 (:numref:`cam_gen_prior`).
   
-Some other pixels can be used instead of corners, if using the
-``--pixel-values`` option. 
-
 The camera center, if known, can be set with the option ``--camera-center`` or
 ``--camera-center-llh``. Otherwise the program will solve for it.
 

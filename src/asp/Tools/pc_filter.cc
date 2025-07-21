@@ -42,6 +42,7 @@
 #include <vw/Image/DistanceFunction.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>

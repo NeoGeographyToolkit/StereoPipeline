@@ -72,6 +72,31 @@ struct XYZError {
   vw::Vector3 m_xyz_sigma;
 };
 
+/// A ceres cost function. The residual is the difference between the
+/// observed 3D point lon-lat-height, and the current (floating) 3D
+/// point lon-lat-height, normalized by sigma. Used only for
+/// ground control points. This has the advantage, unlike
+/// XYZError, that when the height is not known reliably,
+/// but lon-lat is, we can, in the GCP file, assign a bigger
+/// sigma to the latter.
+struct LLHError {
+  LLHError(vw::Vector3 const& observation_xyz, vw::Vector3 const& sigma, 
+           vw::cartography::Datum const& datum):
+    m_observation_xyz(observation_xyz), m_sigma(sigma), m_datum(datum) {}
+
+  bool operator()(const double* point, double* residuals) const;
+  
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(vw::Vector3                const& observation_xyz,
+                                     vw::Vector3                const& sigma,
+                                     vw::cartography::Datum const& datum);
+
+  vw::Vector3 m_observation_xyz;
+  vw::Vector3 m_sigma;
+  vw::cartography::Datum m_datum;
+};
+
 /// This cost function imposes a rather hard constraint on camera center
 /// horizontal and vertical motion. It does so by knowing how many reprojection
 /// errors exist for this camera and making this cost function big enough to

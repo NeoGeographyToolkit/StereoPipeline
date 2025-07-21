@@ -21,6 +21,7 @@
 #include <asp/Camera/SyntheticLinescan.h>
 #include <asp/Camera/SatSim.h>
 #include <asp/Camera/CsmUtils.h>
+#include <asp/Core/FileUtils.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 

@@ -24,6 +24,7 @@
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Core/ImageNormalization.h>
+#include <asp/Core/FileUtils.h>
 
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/BlobIndex.h>
@@ -35,6 +36,7 @@
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/Functors.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 #include <asp/Core/ThreadedEdgeMask.h>

@@ -27,6 +27,7 @@
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Camera/RPCModel.h>
+#include <asp/Core/FileUtils.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
@@ -115,7 +116,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
   // the output directory.
   bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
   bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-  bool rebuild = (!first_is_newer(match_filename, input_file1, input_file2,
+  bool rebuild = (!asp::first_is_newer(match_filename, input_file1, input_file2,
                                   m_left_camera_file, m_right_camera_file));
   if (!crop_left && !crop_right &&
       (stereo_settings().force_reuse_match_files ||
@@ -133,11 +134,11 @@ bool StereoSession::ip_matching(std::string const& input_file1,
   // If any cropping is done, or if the vwip file is old, or of using rough
   // homography, then remove the old vwip files.
   if (boost::filesystem::exists(left_ip_file) && 
-      (crop_left || crop_right || !first_is_newer(left_ip_file, input_file1) ||
+      (crop_left || crop_right || !asp::first_is_newer(left_ip_file, input_file1) ||
        !asp::stereo_settings().skip_rough_homography))
     boost::filesystem::remove(left_ip_file);
   if (boost::filesystem::exists(right_ip_file) && 
-      (crop_left || crop_right || !first_is_newer(right_ip_file, input_file2) ||
+      (crop_left || crop_right || !asp::first_is_newer(right_ip_file, input_file2) ||
        !asp::stereo_settings().skip_rough_homography))
     boost::filesystem::remove(right_ip_file);
   if (boost::filesystem::exists(match_filename)) {

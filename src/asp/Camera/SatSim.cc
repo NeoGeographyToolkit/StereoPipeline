@@ -26,6 +26,7 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/SyntheticLinescan.h>
 #include <asp/Rig/rig_config.h>
+#include <asp/Core/FileUtils.h>
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/CameraBBox.h>

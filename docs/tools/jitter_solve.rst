@@ -2365,6 +2365,15 @@ Command-line options for jitter_solve
     is suggested to not modify this value, and adjust instead
     ``--reference-terrain-uncertainty``.
     
+--fix-gcp-xyz
+    If the GCP are highly accurate, use this option to not float
+    them during the optimization.
+
+--use-lon-lat-height-gcp-error
+    Constrain the triangulated points tied to GCP in the longitude, latitude,
+    and height space, instead of ECEF. The standard deviations in the GCP file
+    are applied accordingly.
+
 --overlap-limit <integer (default: 0)>
     Limit the number of subsequent images to search for matches to
     the current image to this value.  By default try to match all

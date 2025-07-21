@@ -37,6 +37,7 @@
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>

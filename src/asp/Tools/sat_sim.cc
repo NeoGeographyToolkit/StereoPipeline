@@ -29,6 +29,7 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/FileIO/FileUtils.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;

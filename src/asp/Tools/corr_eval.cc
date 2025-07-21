@@ -20,11 +20,13 @@
 // Evaluate the quality of produced correlation using several metrics.
 // See CorrEval.h and this tool's manual for more info.
 
-#include <vw/Stereo/PreFilter.h>
-#include <vw/Stereo/CorrEval.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
+
+#include <vw/Stereo/PreFilter.h>
+#include <vw/Stereo/CorrEval.h>
+#include <vw/FileIO/FileUtils.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;

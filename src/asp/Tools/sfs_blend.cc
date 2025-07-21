@@ -34,6 +34,7 @@
 #include <vw/Image/Algorithms2.h>
 #include <vw/Image/Filter.h>
 #include <vw/Cartography/GeoTransform.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/math/special_functions/erf.hpp>

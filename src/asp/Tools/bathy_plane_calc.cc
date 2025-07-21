@@ -33,6 +33,7 @@
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Core/ThreadPool.h>
 #include <vw/Math/RandomSet.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <Eigen/Dense>
 

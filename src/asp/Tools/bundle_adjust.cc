@@ -30,8 +30,8 @@
 #include <asp/Camera/BundleAdjustCostFuns.h> // Ceres included in this file
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmModel.h>
-#include <asp/Core/PointUtils.h>
 #include <asp/Rig/nvm.h>
+#include <asp/Core/PointUtils.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/IpMatchingAlgs.h>
@@ -40,6 +40,7 @@
 #include <asp/Core/OutlierProcessing.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/FileUtils.h>
 
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>
@@ -54,6 +55,7 @@
 #include <vw/Camera/LensDistortion.h>
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/FileIO/FileTypes.h>
+#include <vw/FileIO/FileUtils.h>
 
 // Can't do much about warnings in boost except to hide them
 #pragma GCC diagnostic push
@@ -1099,7 +1101,8 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.")
     ("fixed-image-list",    po::value(&opt.fixed_image_list)->default_value(""),
      "A file having a list of images (separated by spaces or newlines) whose cameras should be fixed during optimization.")
-    ("fix-gcp-xyz",       po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
+    ("fix-gcp-xyz", 
+     po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
      "If the GCP are highly accurate, use this option to not float them during the optimization.")
     ("csv-format",
      po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
@@ -2057,7 +2060,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
 
   if (opt.use_llh_error && !have_datum)
     vw::vw_throw(vw::ArgumentErr()
-              << "Cannot use --use-llh-error without a datum. Set --datum.\n");
+              << "Cannot use --use-lon-lat-height-gcp-error without a datum. Set --datum.\n");
 
   if ((opt.calc_normalization_bounds || opt.calc_ip) &&
       (opt.stop_after_stats || opt.stop_after_matching))
