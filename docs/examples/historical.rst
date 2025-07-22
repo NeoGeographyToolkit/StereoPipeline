@@ -849,22 +849,22 @@ offset), focal length, motion compensation factor, velocity vector, and the endi
 orientation. The last three fall under the ``other_intrinsics`` category in
 bundle adjustment. The command can be as follows::
 
-    bundle_adjust                             \
-      fwd_sub16.tif aft_sub16.tif             \
-      fwd_sub16.tsai aft_sub16.tsai           \
-      --mapprojected-data                     \
-        'fwd_sub16.map.tif aft_sub16.map.tif' \
-      fwd_sub16.gcp aft_sub16.gcp             \
-      --inline-adjustments                    \
-      --solve-intrinsics                      \
-      --intrinsics-to-float other_intrinsics  \
-      --intrinsics-to-share none              \
-      --heights-from-dem ref.tif              \
-      --heights-from-dem-uncertainty 10000    \
-      --ip-per-image 100000                   \
-      --ip-inlier-factor 1000                 \
-      --remove-outliers-params '75 3 500 500' \
-      --num-iterations 500                    \
+    bundle_adjust                               \
+      fwd_sub16.tif aft_sub16.tif               \
+      fwd_sub16.tsai aft_sub16.tsai             \
+      --mapprojected-data                       \
+        'fwd_sub16.map.tif aft_sub16.map.tif'   \
+      fwd_sub16.gcp aft_sub16.gcp               \
+      --inline-adjustments                      \
+      --solve-intrinsics                        \
+      --intrinsics-to-float other_intrinsics    \
+      --intrinsics-to-share none                \
+      --heights-from-dem ref.tif                \
+      --heights-from-dem-uncertainty 10000      \
+      --ip-per-image 100000                     \
+      --ip-inlier-factor 1000                   \
+      --remove-outliers-params '75 3 1000 1000' \
+      --num-iterations 250                      \
       -o ba/run
 
 We passed in the GCP files produced earlier, that have information about the
@@ -929,16 +929,15 @@ If happy enough with results at a given resolution, the cameras can be rescaled
 to a finer resolution and the process continued. See :numref:`resizing_images`
 for how a camera model can be modified to work at a different resolution.
 
-Image warping
-~~~~~~~~~~~~~
+Fixing local warping
+~~~~~~~~~~~~~~~~~~~~
 
-It is quite likely that the panoramic (OpticalBar) camera model we worked with
-does not have enough degrees of freedom to fix issues with local warping that
-arise during the storage of the film having the historical images or its
-subsequent digitization.
+The panoramic (OpticalBar) camera model we worked with may not have enough
+degrees of freedom to fix issues with local warping that arise during the
+storage of the film having the historical images or its subsequent digitization.
 
-To address that, the cameras can be converted to CSM linescan format
-:numref:`opticalbar2csm`. 
+To address that, the cameras can be converted to CSM linescan format (and the
+images rotated by 90 degrees). See :numref:`opticalbar2csm`. 
 
 Then, the jitter solver (:numref:`jitter_solve`) can be employed. It is
 suggested to set ``--num-lines-per-position`` and
@@ -946,14 +945,37 @@ suggested to set ``--num-lines-per-position`` and
 position and orientation samples along the scan direction.
 
 This program can also accept GCP files, just like ``bundle_adjust``.
+We invoked it as follows::
 
-In practice we found that then it may be needed to run GCP creation with
-``dem2gcp`` and bundle adjustment again to refine all the intrinsics, including
-focal length and lens distortion, this time with the CSM linescan model. Then,
-one can invoke the ``jitter_solve`` again.
+    jitter_solve                           \
+      fwd_sub16.tif aft_sub16.tif          \
+      fwd_sub16.tsai aft_sub16.tsai        \
+      fwd_sub16.gcp aft_sub16.gcp          \
+      --match-files-prefix ba/run          \
+      --num-lines-per-position 1000        \
+      --num-lines-per-orientation 1000     \
+      --heights-from-dem ref.tif           \
+      --heights-from-dem-uncertainty 500   \
+      --max-initial-reprojection-error 100 \
+      --num-iterations 100                 \
+      -o jitter_sub16/run
+
+The GCP had a sigma of 100 or so, so less uncertainty than in
+``--heights-from-dem-uncertainty``, by a notable factor. 
+
+In practice we found that after one pass of the jitter solver and stereo DEM
+creation, it may be needed to run GCP creation with ``dem2gcp`` and bundle
+adjustment again to refine all the intrinsics, including focal length and lens
+distortion, this time with the CSM linescan model. Then, one can invoke
+``jitter_solve`` one more time. Each step should offer a further improvement in
+results.
 
 For fine-level control over interest point matches, dense matches from disparity
 are suggested (:numref:`dense_ip`).
+
+If the satellite acquired several overlapping pairs of images in quick
+succession, it is suggested to use them together, as that can improve the
+registration.
 
 The linescan cameras are not as easy to convert to a different resolution
 as the OpticalBar cameras, so they need to be recreated at each resolution

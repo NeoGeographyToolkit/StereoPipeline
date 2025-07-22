@@ -12,12 +12,11 @@ The approach is as follows. The dense disparity from an ASP-produced
 misregistered or warped DEM to a correct reference DEM is found. This program
 will take as input that disparity and interest point matches between the raw
 images, and will produce GCP with correct ground positions based on the
-disparity and the reference DEM.
+reference DEM.
 
 Bundle adjustment with intrinsics optimization
 (:numref:`intrinsics_ground_truth`) or the jitter solver
-(:numref:`jitter_solve`) can then be invoked with the GCP. That will help
-correct the issues.
+(:numref:`jitter_solve`) can then be invoked with the GCP to correct the issues.
 
 This program was motivated by the processing of historical images
 (:numref:`kh4`), particularly the KH-7 and KH-9 panoramic images.
@@ -25,36 +24,26 @@ This program was motivated by the processing of historical images
 ASP DEM creation
 ~~~~~~~~~~~~~~~~
 
-Prepare the images and camera models, such as in :numref:`kh7`. This workflow
-expects the cameras to already incorporate any prior alignment or adjustments.
-Such cameras can be made during bundle adjustment (:numref:`bundle_adjust`) for
-Pinhole (:numref:`pinholemodels`) and CSM (:numref:`csm`) cameras. OpticalBar
-cameras can be first converted to CSM linescan (:numref:`opticalbar2csm`).
+Prepare the images and camera models, such as in :numref:`kh9` or :numref:`kh7`.
+This workflow expects the cameras to already incorporate any prior alignment or
+adjustments. Bundle adjustment (:numref:`bundle_adjust`) can apply such
+transforms for Pinhole (:numref:`pinholemodels`), CSM (:numref:`csm`), and
+OpticalBar (:numref:`panoramic`) cameras.
 
-Mapproject the images at the same appropriate resolution (close to native image
-GSD) onto the reference DEM with the cameras produced by bundle adjustment. Do
-not use, here, and below, the original cameras and the .adjust files.
+Mapproject (:numref:`mapproject`) the images at the same appropriate resolution
+(close to native image GSD) onto the reference DEM.
 
-Use a local projection for mapprojection, such as stereographic. Run stereo with
-the mapprojected images (:numref:`mapproj-example`). Use the ``asp_mgm``
-algorithm with ``--subpixel-mode 9`` (:numref:`stereo_alg_overview`). This will
-ensure the best quality. If more than two images, pairwise stereo can be run and
-the DEMs can be mosaicked with ``dem_mosaic`` (:numref:`dem_mosaic`).
+Use a local projection for mapprojection, such as UTM or stereographic. Run
+stereo with the mapprojected images (:numref:`mapproj-example`). Use the
+``asp_mgm`` algorithm with ``--subpixel-mode 9``
+(:numref:`stereo_alg_overview`). This will ensure the best quality. If more than
+two images, pairwise stereo can be run and the DEMs can be mosaicked with
+``dem_mosaic`` (:numref:`dem_mosaic`).
 
 Overlay the mapprojected images, produced DEM, and reference DEM in
-``stereo_gui``. These should be roughly in the same place, but with some
-misregistration or warping.
+``stereo_gui`` (:numref:`stereo_gui`). These should be roughly in the same
+place, but with some misregistration or warping.
 
-The produced DEM can be aligned with the reference DEM (:numref:`pc_align`), and
-the same alignment can be applied to the cameras (:numref:`ba_pc_align`).
-Mapproject the images with the latest cameras onto the DEM, and run stereo again
-(with the option ``--prev-run-prefix`` to reuse the previous run,
-:numref:`mapproj_reuse`), and see if the new DEM is better-aligned with the
-reference DEM. 
-
-For small misalignment, likely this alignment is not necessary, as the GCP
-produced later should be able to take care of misalignment as well.
- 
 Ensure ``parallel_stereo`` was invoked to generate dense matches from disparity
 (:numref:`dense_ip`). It is suggested to use ``--num-matches-from-disparity
 100000`` or so. That is a very large number of interest points, but will help
@@ -62,25 +51,19 @@ produce sufficient GCP later on. The number of matches can be reduced later for
 bundle adjustment with the option ``--max-pairwise-matches``, and fewer GCP can
 be created with the option ``--max-num-gcp``.
 
-Ensure that the dense match files are renamed according to the *naming
-convention* for the original raw images (:numref:`ba_match_files`). Such matches
-can be produced after stereo already finished, by re-running ``stereo_tri`` only
-(:numref:`entrypoints`). Sufficiently numerous sparse matches may likely work
-too.
+The dense match files should follow the *naming convention* for the original raw
+images (:numref:`ba_match_files`). Sufficiently numerous sparse matches, as produced
+by bundle adjustment, will likely work as well.
 
 Comparison with the reference DEM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The level of detail and overall appearance of the hillshaded DEMs in ``stereo_gui``
-must be very similar. 
 
 .. figure:: ../images/kh7_dem_vs_ref.png
    :name: kh7_dm_vs_ref
    
    A low-resolution KH-7 DEM produced by ASP (left) and a reference DEM (right).
    These must be visually similar and with enough features for ``dem2gcp`` to work.
-   The DEMs can be overlaid to see if there is significant local warping. Difference
-   maps are in :numref:`kh7_orig_vs_opt`.
+   The DEMs can be overlaid to see if there is significant local warping.
 
 Some hole-filling and blur can be applied to the ASP DEM with ``dem_mosaic``
 (:numref:`dem_mosaic_blur` and :numref:`dem_mosaic_extrapolate`).
@@ -98,12 +81,13 @@ Example (adjust the projection center)::
    proj='+proj=stere +lat_0=27.909 +lon_0=102.226 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'
    gdalwarp -tr 20 20 -t_srs "$proj" -r cubicspline dem_in.tif dem_out.tif
 
-It is not necessary for the produced DEMs to have precisely the same extent, but
-cropping to similar regions is suggested. 
+It is not required that the produced DEMs have precisely the same extent, but
+that may help with visualizing the disparity between them (see below). The ``gdalwarp``
+``-te`` option can produce datasets with a given extent.
 
 The DEMs should be hillshaded. It is suggested to use the GDAL (:numref:`gdal_tools`)
 hillshading method, as it is more accurate than ASP's own ``hillshade``. Here's an
-example invocation, to be applied to both DEMs::
+example invocation, to be applied to each DEM::
 
     gdaldem hillshade   \
       -multidirectional \
@@ -126,13 +110,15 @@ hillshaded DEM with ASP's correlator mode (:numref:`correlator-mode`)::
     ref_hill.tif               \
     warp/run
 
-The order here is very important. Increase ``--ip-per-tile`` if not enough
-matches are found. One could consider experimenting with ASP's various stereo
-algorithms (:numref:`stereo_alg_overview`).
+The order of hillshaded images here is very important. Increase
+``--ip-per-tile`` if not enough matches are found. One could consider
+experimenting with ASP's various stereo algorithms
+(:numref:`stereo_alg_overview`).
 
 Inspect the bands of the produced disparity image ``warp/run-F.tif``. This
 requires extracting the horizontal and vertical disparities, and masking the
-invalid values, as in :numref:`mask_disparity`. Then run::
+invalid values, as in :numref:`mask_disparity`. These could be visualized such
+as::
 
     stereo_gui --colorbar      \
       --min -100 --max 100     \

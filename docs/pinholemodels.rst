@@ -530,10 +530,11 @@ applied, as discussed earlier.
 Panoramic Camera Model
 ----------------------
 
-ASP also supports a simple panoramic/optical bar camera model for use
-with images such as the declassified Corona KH4 and Keyhole KH9 images.
-It implements the model from :cite:`schenk2003rigorous` with
-the motion compensation from :cite:`sohn2004mathematical`.
+ASP also supports a simple panoramic (OpticalBar) camera model for use with
+images such as the declassified Corona KH4 and Keyhole KH9 images. It implements
+the model from :cite:`schenk2003rigorous` with the motion compensation from
+:cite:`sohn2004mathematical`. The latest ASP build has further improvements
+(:numref:`ghuffar_method`).
 
 Such a model looks as follows:
 
