@@ -736,7 +736,7 @@ refinements of intrinsics and extrinsics, has the form::
   VERSION_4
   OPTICAL_BAR
   image_size = 21599 1363
-  image_center = 9841.980036951078 715.7848427827405
+  image_center = 10799.5 681.5
   pitch = 0.000112
   f = 1.52
   scan_time = 1
@@ -775,8 +775,8 @@ which the film is scanned) is known to be 7e-6 m. Here it is multiplied by 16 to
 account for the fact that we work at 1/16th the resolution of the original
 images.
 
-The image size and image center are obtained from known metadata, and 
-here they are roughly divided by 16 as well. 
+The image size comes from the image file (at the current lower resolution). The
+image center is set to half the image size.
 
 Creation of initial cameras
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
