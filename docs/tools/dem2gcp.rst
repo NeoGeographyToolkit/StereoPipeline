@@ -171,11 +171,14 @@ mosaicked DEM with ``dem_mosaic`` (:numref:`dem_mosaic`), and then run this
 program pairwise with that DEM. This assumes that the pairwise DEMs are
 reasonably self-consistent.
 
-The match file also need not have dense matches. All that is assumed
-is that the images and cameras are consistent with the warped DEM, and there are
-plenty of interest point matches. Then, all produced GCP files could be passed together
+The match file also need not have dense matches. All that is assumed is that the
+images and cameras are consistent with the warped DEM, and there are plenty of
+interest point matches. Then, all produced GCP files could be passed together
 with all images and cameras to ``bundle_adjust``, as below.
 
+Consider using the option ``--max-disp`` if the disparity has portions that are
+not accurate, such as when the ASP DEM and reference DEM were acquired at
+different times and too much changed on the ground.
 
 .. figure:: ../images/dem2gcp_ip_vs_gcp.png
    :name: dem2gcp_ip_vs_gcp

@@ -8,11 +8,15 @@ ASP has preliminary support for the declassified high-resolution CORONA KH-4B im
 *This support is very experimental, and likely a lot of work is needed to make
 it work reliably.*
 
+For the latest suggested processing workflow, in the context of KH-9 images, see
+:numref:`kh9`.
+ 
 These images can be processed using either optical bar (panoramic) camera models
 or as pinhole camera models with RPC distortion. Most of the steps are similar
 to the example in :numref:`skysat-example`. The optical bar camera model is
 based on :cite:`schenk2003rigorous` and :cite:`sohn2004mathematical`, whose
-format is described in :numref:`panoramic`.
+format is described in :numref:`panoramic`. For KH-9 images, the Improvements
+suggested in :cite:`ghuffar2022pipeline` are incorporated (:numref:`kh9`).
 
 Fetching the data
 ~~~~~~~~~~~~~~~~~
@@ -50,19 +54,24 @@ Sometimes the input images can be so large, that either the ASP tools
 or the auxiliary ImageMagick ``convert`` program will fail, or the machine
 will run out of memory. 
 
-It is suggested to resize the images to a more manageable size, at least for 
-initial processing. This can be done with ``gdal_translate`` (:numref:`gdal_tools`).
-as follows::
+It is suggested to resize the images to a more manageable size, at least for
+initial processing. This is easiest to do by opening the images in
+``stereo_gui`` (:numref:`stereo_gui`), which will create a pyramid of subsampled
+("sub") images at 1/2 the full resolution, then 1/4th, etc. This resampling is
+done using local averaging, to avoid aliasing effects.
+
+Alternatively, one can call ``gdal_translate`` (:numref:`gdal_tools`), such as::
 
     gdal_translate -outsize 25% 25% -r average input.tif output.tif
 
-This will reduce the image size by a factor of 4. A factor of 2 can be tried
-instead. The ``-r average`` option will average the nearby pixels in the input
-image, which will reduce aliasing artifacts.
+This will reduce the image size by a factor of 4. The ``-r average`` option will,
+as before, help avoid aliasing.
 
-A camera model (pinhole or optical bar) created at one resolution can be used at
-another resolution by adjusting the ``pitch`` parameter (a higher value of pitch
-means bigger pixels so lower resolution).
+A camera model (pinhole or optical bar) created at one resolution can be
+converted to a another resolution by adjusting the ``pitch`` parameter (a higher
+value of pitch means bigger pixels so lower resolution). For optical bar cameras
+the image dimensions and image center need to be adjusted as well, as those are
+in units of pixels.
 
 Stitching the images
 ~~~~~~~~~~~~~~~~~~~~
@@ -432,13 +441,16 @@ fit as in :numref:`dem2gcp`. See a figure in :numref:`kh7_fig`.
 *This produces an approximate solution, which goes the right way but is likely
 not good enough.*
 
+For the latest suggested processing workflow, see the section on KH-9 images
+(:numref:`kh9`).
+
 For this example we find the following images in Earth Explorer
 declassified collection 2::
 
      DZB00401800038H025001
      DZB00401800038H026001
 
-Make note of the lat/lon corners of the images listed in Earth Explorer,
+Make note of the latitude/longitude corners of the images listed in Earth Explorer,
 and note which image corners correspond to which compass locations.
 
 It is suggested to resize the images to a more manageable size. This can
@@ -561,7 +573,7 @@ Multiply the pitch in the produced cameras by the resolution scale factor.
 
 Now we can run ``bundle_adjust`` and ``parallel_stereo``. If you are using the
 GCPs from earlier, the pixel values will need to be scaled to match the
-downsampling applied to the input images.
+subsampling applied to the input images.
 
 ::
 
@@ -611,24 +623,21 @@ Declassified satellite images: KH-9
 -----------------------------------
 
 The KH-9 satellite contained one frame camera and two panoramic cameras,
-one pitched forwards and one aft. It is important to check which of these 
-sensors your images are acquired with.
+one pitched forward and one aft.
 
 The frame camera is a regular pinhole model (:numref:`pinholemodels`). 
-The images produced with it could be processed as for KH-7 (:numref:`kh7`), 
+The images produced with it could be handled as for KH-7 (:numref:`kh7`), 
 SkySat (:numref:`skysat`), or using Structure-from-Motion (:numref:`sfm`). 
 
-This example describes how to process the panoramic camera images. These images
-appear notably distorted at the corners. The processing is similar to handling
-KH-4B (:numref:`kh4`) except that the images are much larger.
+This example describes how to process the KH-9 panoramic camera images. 
+The workflow below is more recent than the one for KH-4B (:numref:`kh4`)
+or KH-7, and it requires the latest build (:numref:`release`).
 
-*The ASP support for panoramic images is highly experimental. The user is
-strongly advised not to spend much time on this data until the support is
-improved.*
+*The ASP support for panoramic images is highly experimental and is work in
+progress.*
 
-There is no reliable way of determining the camera orientation to use below. As
-of now, sometimes one may get plausible results, and sometimes this approach
-will fail. 
+Image mosaicking
+~~~~~~~~~~~~~~~~
 
 For this example we use the following images from the Earth Explorer
 declassified collection 3::
@@ -636,11 +645,13 @@ declassified collection 3::
      D3C1216-200548A041
      D3C1216-200548F040
 
-Make note of the lat/lon corners of the images listed in Earth Explorer,
-and note which image corners correspond to which compass locations.
+Make note of the latitude/longitude corners of the images listed in Earth
+Explorer and corresponding raw image corners. 
 
-It is suggested to resize the images to a more manageable size. This can
-avoid failures in the processing below (:numref:`resizing_images`).
+It is suggested to resize the images to a more manageable size, such as 1/16th
+the original image resolution, at least to start with
+(:numref:`resizing_images`). This can avoid failures with ImageMagick in the
+processing below when the images are very large.
 
 We merge the images with ``image_mosaic`` (:numref:`image_mosaic`)::
 
@@ -661,7 +672,7 @@ We merge the images with ``image_mosaic`` (:numref:`image_mosaic`)::
       D3C1216-200548A041_g.tif D3C1216-200548A041_h.tif \
       D3C1216-200548A041_i.tif D3C1216-200548A041_j.tif \
       D3C1216-200548A041_k.tif --overlap-width 1000     \
-      --ot byte -o D3C1216-200548A041.tif  --rotate
+      --ot byte -o D3C1216-200548A041.tif --rotate
 
 These images also need to be cropped to remove most of the area around
 the images::
@@ -681,135 +692,270 @@ We used, as above, the ``historical_helper.py`` tool. See
 :numref:`historical_helper` for how to install the ImageMagick software that it
 needs.
 
-For this example there are ASTER DEMs which can be used for reference.
-They can be downloaded from https://gdex.cr.usgs.gov/gdex/ as single
-GeoTIFF files. To cover the entire area of this image pair you may need
-to download two files separately and merge them using ``dem_mosaic``.
+Reference terrain
+~~~~~~~~~~~~~~~~~
 
-As with KH-4B, this satellite contains a forward pointing and aft
-pointing camera that need to have different values for "forward_tilt" in
-the sample camera files. The suggested values are -0.174533 for the aft
-camera and 0.174533 for the forward camera. Note that some KH9 images
-have a much smaller field of view (horizontal size) than others!
+Fetch a reference DEM for the given site (:numref:`initial_terrain`). It
+should be converted to be relative to the WGS84 datum
+(:numref:`conv_to_ellipsoid`) and to a local UTM projection with ``gdalwarp``
+with bicubic interpolation (:numref:`gdal_tools`). We will call this terrain
+``ref.tif``. This terrain will help with registration later.
 
-::
+For the purpose of mapprojection, the terrain should be blurred to attenuate any
+misalignment (:numref:`dem_prep`). The blurred version of this will be called
+``ref_blur.tif``.
 
-     VERSION_4
-     OPTICAL_BAR
-     image_size = 62546 36633
-     image_center = 31273 18315.5
-     pitch = 7.0e-06
-     f = 1.5
-     scan_time = 0.7
-     forward_tilt = 0.174533
-     iC = -1053926.8825477704 5528294.6575468015 3343882.1925249361
-     iR = -0.96592328992496967 -0.16255393156297787 0.20141603042941184 -0.23867502833024612 0.25834753840712932 -0.93610404349651921 0.10013205696518604 -0.95227767417513032 -0.28834146846321851
-     speed = 8000
-     mean_earth_radius = 6371000
-     mean_surface_elevation = 0
-     motion_compensation_factor = 1
-     scan_dir = right
+.. _ghuffar_method:
 
-Camera files are generated using ``cam_gen`` from a sample camera file
-as in the previous examples.
+Modeling the cameras
+~~~~~~~~~~~~~~~~~~~~
 
-::
+We follow the approach in :cite:`ghuffar2022pipeline`. This work
+makes the following additional improvements as compared to the prior 
+efforts in :numref:`kh4`:
 
-     cam_gen --sample-file sample_kh9_for_optical_bar.tsai \
-       --camera-type opticalbar                            \
-       --lon-lat-values '-151.954 61.999 -145.237 61.186 
-                         -145.298 60.944 -152.149 61.771'  \
-       for.tif --reference-dem aster_dem.tif               \
-       --refine-camera -o for.tsai
-     cam_gen --sample-file sample_kh9_aft_optical_bar.tsai \
-       --camera-type opticalbar                            \
-       --lon-lat-values '-152.124 61.913 -145.211 61.156 
-                         -145.43 60.938  -152.117 61.667'  \
-       aft.tif --reference-dem aster_dem.tif               \
-       --refine-camera -o aft.tsai
+ - The satellite velocity is a 3D vector, which is solved for independently,
+   rather than being tied to satellite pose and camera tilt.
+ - It is not assumed that the satellite pose is fixed during scanning. Rather,
+   there are two camera poses, for the starting and ending scan times, with
+   *slerp* interpolation in between.    
+ - The scan time and scalar speed are absorbed into the motion compensation factor.
+ - The forward tilt is not modeled, hence only the camera pose is taken into 
+   account, rather than the satellite pose and its relation to the camera pose.  
 
-As with KH-4B, it is best to first experiment with low resolution copies
-of the images. 
+Sample camera format
+~~~~~~~~~~~~~~~~~~~~
 
-*Don't forget to scale the image size, center location, and pixel size in the new
-camera files.*
+It is strongly advised to work at 1/16th resolution of the original images
+(:numref:`resizing_images`), as the images are very large. Later, any optimized
+cameras can be adjusted to be at a different resolution, as documented in
+:numref:`resizing_images`.
 
-::
+At 1/16th the resolution, a sample panoramic (OpticalBar) camera file, before
+refinements of intrinsics and extrinsics, has the form::
 
-     stereo_gui for.tif aft.tif --create-image-pyramids-only
-     ln -s for_sub32.tif for_small.tif
-     ln -s aft_sub32.tif aft_small.tif
-     cp for.tsai for_small.tsai
-     cp aft.tsai aft_small.tsai
+  VERSION_4
+  OPTICAL_BAR
+  image_size = 21599 1363
+  image_center = 9841.980036951078 715.7848427827405
+  pitch = 0.000112
+  f = 1.52
+  scan_time = 1
+  forward_tilt = 0
+  iC = 0 0 0 
+  iR = 1 0 0 0 1 0 0 0 1
+  speed = 0
+  mean_earth_radius = 6371000
+  mean_surface_elevation = 0
+  motion_compensation_factor = 0
+  scan_dir = right
+  velocity = 0 0 0
 
-From this point KH-9 data can be processed in a very similar manner to
-the KH-4B example. Once again, you may need to vary some of the camera
-parameters to find the settings that produce the best results. For this
-example we will demonstrate how to use ``bundle_adjust`` to solve for
-intrinsic parameters in optical bar models.
+We call this file ``sample_sub16.tsai``. 
 
-Using the DEM and the input images it is possible to collect rough
-ground control points which can be used to roughly align the initial
-camera models.
+There are several notable differences with the optical bar models before the
+workflow and modeling was updated (:numref:`ghuffar_method`). Compared to the
+sample file in :numref:`panoramic`, the scan time, forward tilt, speed, mean
+surface elevation, and motion compensation factor are set to nominal values.
 
-::
+The additional ``velocity`` field is present, which for now has zero values. If
+this field is not set, the prior optical bar logic will be invoked. Hence
+internally both implementations are still supported.
 
-     bundle_adjust for_small.tif for_small.tsai    \
-       ground_control_points.gcp -t opticalbar     \
-       --inline-adjustments --num-passes 1         \
-       --camera-weight 0 --ip-detect-method 1      \
-       -o bundle_for_small/out --max-iterations 30 \
-       --fix-gcp-xyz
+The ``iR`` matrix has the starting camera pose. If the ending camera pose is not
+provided, it is assumed to be the same as the starting one. When an optical bar
+model is saved, the ending camera pose will be added as a line of the form::
 
-     bundle_adjust aft_small.tif aft_small.tsai    \
-       ground_control_points.gcp -t opticalbar     \
-       --inline-adjustments --num-passes 1         \
-       --camera-weight 0 --ip-detect-method 1      \
-       -o bundle_aft_small/out --max-iterations 30 \
-       --fix-gcp-xyz
+  final_pose = 0.66695010211673467 2.3625446924332656 1.5976801601116621
 
-Now we can do a joint bundle adjustment. While in this example we
-immediately attempt to solve for intrinsics, you can get better results
-using techniques such as the ``--disparity-list`` option described in
-:numref:`kh4` and :numref:`skysat` along with the reference DEM.
-We will try to solve for all intrinsics but will share the focal length
-and optical center since we expect them to be very similar. If we get
-good values for the other intrinsics we could do another pass where we
-don't share those values in order to find small difference between the
-two cameras. We specify intrinsic scaling limits here. The first three
-pairs are for the focal length and the two optical center values. For an
-optical bar camera, the next three values are for ``speed``,
-``motion_compensation_factor``, and ``scan_time``. We are fairly
-confident in the focal length and the optical center but we only have
-guesses for the other values so we allow them to vary in a wider range.
+This represents a rotation in the axis-angle format, unlike ``iR`` which is
+shown in regular matrix notation.
 
-::
+The focal length is 1.52 m, per existing documentation. The pixel pitch (at
+which the film is scanned) is known to be 7e-6 m. Here it is multiplied by 16 to
+account for the fact that we work at 1/16th the resolution of the original
+images.
 
-    bundle_adjust left_small.tif right_small.tif          \
-      bundle_for_small/out-for_small.tsai                 \
-      bundle_aft_small/out-aft_small.tsai                 \
-      -t opticalbar -o bundle_small/out                   \
-      --force-reuse-match-files --max-iterations 30       \
-      --camera-weight 0 --disable-tri-ip-filter           \
-      --skip-rough-homography --inline-adjustments        \
-      --ip-detect-method 1 --datum WGS84 --num-passes 2   \
-      --solve-intrinsics                                  \
-      --intrinsics-to-float "focal_length optical_center 
-        other_intrinsics"                                 \
-      --intrinsics-to-share "focal_length optical_center" \
-      --ip-per-tile 1000                                  \
-      --intrinsics-limits "0.95 1.05 0.90 1.10 0.90 1.10 
-         0.5 1.5 -5.0 5.0 0.3 2.0" --num-random-passes 2
+The image size and image center are obtained from known metadata, and 
+here they are roughly divided by 16 as well. 
 
-These limits restrict our parameters to reasonable bounds but
-unfortunately they greatly increase the run time of ``bundle_adjust``.
-Hopefully you can figure out the correct values for ``scan_dir`` doing
-long optimization runs using the limits. The ``--intrinsic-limits``
-option is useful when used in conjunction with the
-``--num-random-passes`` option because it also sets the numeric range in
-which the random initial parameter values are chosen from. Note that
-``--num-passes`` is intended to filter out bad interest points while
-``--num-random-passes`` tries out multiple random starting seeds to see
-which one leads to the result with the lowest error.
+Creation of initial cameras
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-After this, stereo and DEM creation is run as earlier.
+Camera files are generated using ``cam_gen`` (:numref:`cam_gen`), with the help
+of the sample file from above. Let the Fwd image at 1/16th resolution be
+called ``fwd_sub16.tif``. The command is::
+
+    cam_gen                               \
+      --sample-file sample_sub16.tsai     \
+      --camera-type opticalbar            \
+      --lon-lat-values                    \
+        '-151.954 61.999 -145.237 61.186 
+         -145.298 60.944 -152.149 61.771' \
+      fwd_sub16.tif                       \
+      --reference-dem ref.tif             \
+      --refine-camera                     \
+      --gcp-file fwd_sub16.gcp            \
+      -o fwd_sub16.tsai
+
+The historical images are often cropped after being scanned, and the image size
+and optical center (image center) will be different for each image. The command
+above will write the correct image size in the output file, and will set the
+optical center to half of that. Hence, the entries for these in the sample file
+will be ignored.
+
+An analogous command is run for the Aft camera.
+
+The longitude-latitude corners must must correspond to the expected traversal of
+the raw (non-mapprojected) image corners (:numref:`cam_gen_pinhole`). This
+requires some care, especially given that the Fwd and Aft images have 180
+degrees of rotation between them.
+
+Validation of guessed cameras
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The produced cameras should be verified by mapprojection (:numref:`mapproject`)::
+
+    mapproject       \
+      --tr 12        \
+      ref_blur.tif   \
+      fwd_sub16.tif  \
+      fwd_sub16.tsai \
+      fwd_sub16.map.tif
+
+The grid size (``--tr``) is in meters. Here, it was known from existing information 
+that the ground sample distance at full resolution was about 0.75 m / pixel.
+This was multiplied by 16 given the lower resolution used here. If not known,
+the grid size can be auto-guessed by this program.
+
+The Fwd and Aft mapprojected images should be overlaid with georeference
+information on top of the reference DEM. It is expected that the general
+position and orientation would be good, but there would be a lot of warping due
+to unknown intrinsics.
+
+.. figure:: ../images/kh9_initial_cameras.png
+   :name: kh9_init_fig
+   
+   An example of Fwd and Aft mapprojected images. Notable warping is observed.
+
+Optimization of cameras
+~~~~~~~~~~~~~~~~~~~~~~~
+
+We will follow the bundle adjustment approach outlined in
+:numref:`heights_from_dem`.
+
+The quantities to be optimized are the extrinsics (camera position and starting
+orientation), and the intrinsics, which include the image center (optical
+offset), focal length, motion compensation factor, velocity vector, and the ending
+orientation. The last three fall under the ``other_intrinsics`` category in
+bundle adjustment. The command can be as follows::
+
+    bundle_adjust                             \
+      fwd_sub16.tif aft_sub16.tif             \
+      fwd_sub16.tsai aft_sub16.tsai           \
+      --mapprojected-data                     \
+        'fwd_sub16.map.tif aft_sub16.map.tif' \
+      fwd_sub16.gcp aft_sub16.gcp             \
+      --inline-adjustments                    \
+      --solve-intrinsics                      \
+      --intrinsics-to-float other_intrinsics  \
+      --intrinsics-to-share none              \
+      --heights-from-dem ref.tif              \
+      --heights-from-dem-uncertainty 10000    \
+      --ip-per-image 100000                   \
+      --ip-inlier-factor 1000                 \
+      --remove-outliers-params '75 3 500 500' \
+      --num-iterations 500                    \
+      -o ba/run
+
+We passed in the GCP files produced earlier, that have information about the
+ground coordinates of image corners. We made use of mapprojected images for
+interest point matching (:numref:`mapip`).
+
+The values for ``--heights-from-dem-uncertainty``, ``--ip-per-image``,
+``--ip-inlier-factor``, and ``--remove-outliers-params`` are much larger than
+usual, because of the very large distortion seen above. Otherwise too many valid
+interest points may be eliminated. Later these parameters can be tightened.
+
+Check the produced clean match files with ``stereo_gui``
+(:numref:`stereo_gui_pairwise_matches`). It is very important to have many of
+them in the corners and roughly uniformly distributed across the images. One
+could also consider adding the ``--ip-per-tile`` and ``--matches-per-tile``
+parameters (:numref:`ba_ip`). These would need some tuning at each resolution to
+ensure the number of matches is not overly large. 
+
+The updated cameras will be saved in the output directory. These should be
+validated by mapprojection as before.
+
+We did not optimize for now the focal length and optical center, as they
+were known more reliably than the other intrinsics. All these can be optimized
+together in a subsequent pass.
+
+See :numref:`bundle_adjust` for more information about ``bundle_adjust`` and
+the various report files that are produced.
+
+.. figure:: ../images/kh9_opt_cameras.png
+   :name: kh9_opt_fig
+   
+   Fwd and Aft mapprojected images, after optimization of intrinsics. The images 
+   are much better aligned.
+
+Creation of a terrain model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Inspect the mapprojected images created with the new cameras. They will likely
+be more consistent than before. Look at the convergence angles report
+(:numref:`ba_conv_angle`). Hopefully it will have a reasonable value, such as
+between 10 and 30 degrees, or so.
+
+Run stereo and DEM creation with the mapprojected images and the ``asp_mgm``
+algorithm. It is suggested to follow very closely the steps in
+:numref:`mapproj-example`.
+
+Fixing horizontal registration errors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It is quite likely that the mapprojected images after the last bundle adjustment
+are much improved, but the stereo terrain model still shows systematic issues
+relative to the reference terrain. 
+
+Then, the ``dem2gcp`` program (:numref:`dem2gcp`) can be invoked to create 
+GCP that can fix this misregistration.
+
+Bundle adjustment can happen with these dense GCP, while optimizing all
+intrinsics and extrinsics and sharing none of the intrinsics. Afterwards, a new
+stereo DEM can be created as before.
+
+If happy enough with results at a given resolution, the cameras can be rescaled
+to a finer resolution and the process continued. See :numref:`resizing_images`
+for how a camera model can be modified to work at a different resolution.
+
+Image warping
+~~~~~~~~~~~~~
+
+It is quite likely that the panoramic (OpticalBar) camera model we worked with
+does not have enough degrees of freedom to fix issues with local warping that
+arise during the storage of the film having the historical images or its
+subsequent digitization.
+
+To address that, the cameras can be converted to CSM linescan format
+:numref:`opticalbar2csm`. 
+
+Then, the jitter solver (:numref:`jitter_solve`) can be employed. It is
+suggested to set ``--num-lines-per-position`` and
+``--num-lines-per-orientation`` for this program so that there exist about 10-40
+position and orientation samples along the scan direction.
+
+This program can also accept GCP files, just like ``bundle_adjust``.
+
+In practice we found that then it may be needed to run GCP creation with
+``dem2gcp`` and bundle adjustment again to refine all the intrinsics, including
+focal length and lens distortion, this time with the CSM linescan model. Then,
+one can invoke the ``jitter_solve`` again.
+
+For fine-level control over interest point matches, dense matches from disparity
+are suggested (:numref:`dense_ip`).
+
+The linescan cameras are not as easy to convert to a different resolution
+as the OpticalBar cameras, so they need to be recreated at each resolution
+before being further refined.

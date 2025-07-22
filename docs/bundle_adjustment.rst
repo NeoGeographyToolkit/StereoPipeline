@@ -1114,7 +1114,7 @@ during bundle adjustment, use options along the lines ``--ip-per-tile 1000
 --matches-per-tile 500 --max-pairwise-matches 10000``.  
 
 If the images have very different perspectives, it is suggested to create the
-interest points based on mapprojected images (:numref:`mapip`.)
+interest points based on mapprojected images (:numref:`mapip`).
 
 Note that if the images are big, this will result in a very large number of
 potential matches, because a tile has the size of 1024 pixels. (See
