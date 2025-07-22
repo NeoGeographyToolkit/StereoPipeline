@@ -8,6 +8,9 @@ camera_solve (:numref:`camera_solve`):
 parallel_stereo (:numref:`parallel_stereo`):
   * Added an example for JunoCam images (:numref:`junocam`).
   * Added examples for the Chandrayaan-2 lunar orbiter (:numref:`chandrayaan2`).
+  * Rewrote the KH-9 example to take into account the improved modeling of
+    optical bar cameras and a new strategy for fixing local warping
+    (:numref:`kh9`).
   * Left and right alignment matrices are now saved in plain text format. Older
     .exr files are still read. Support for them will be removed in the next
     release (:numref:`outputfiles`).
