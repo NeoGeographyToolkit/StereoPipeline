@@ -726,10 +726,9 @@ efforts in :numref:`kh4`:
 Sample camera format
 ~~~~~~~~~~~~~~~~~~~~
 
-It is strongly advised to work at 1/16th resolution of the original images
-(:numref:`resizing_images`), as the images are very large. Later, any optimized
-cameras can be adjusted to be at a different resolution, as documented in
-:numref:`resizing_images`.
+It is strongly advised to work at 1/16th resolution of the original images, as
+the images are very large. Later, any optimized cameras can be adjusted to be at
+a different resolution, as documented in :numref:`resizing_images`.
 
 At 1/16th the resolution, a sample panoramic (OpticalBar) camera file, before
 refinements of intrinsics and extrinsics, has the form::
@@ -905,8 +904,8 @@ Creation of a terrain model
 
 Inspect the mapprojected images created with the new cameras. They will likely
 be more consistent than before. Look at the convergence angles report
-(:numref:`ba_conv_angle`). Hopefully it will have a reasonable value, such as
-between 10 and 30 degrees, or so.
+(:numref:`ba_conv_angle`). Hopefully this angle will have a reasonable value,
+such as between 10 and 30 degrees, or so.
 
 Run stereo and DEM creation with the mapprojected images and the ``asp_mgm``
 algorithm. It is suggested to follow very closely the steps in
