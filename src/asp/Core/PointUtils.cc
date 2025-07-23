@@ -194,7 +194,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
 bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
 
   bool success = false;
-  if (this->utm_zone >= 0) { // UTM case
+  if (this->utm_zone >= 0) { // UTM case, for Earth only
     try{
       georef.set_UTM(this->utm_zone, this->utm_north);
       success = true;
@@ -246,7 +246,7 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
   while (1) {
 
     col_index++; // Increment the column counter
-    const char* token = strtok(ptr, sep.c_str());  // Split line on seperator char
+    const char* token = strtok(ptr, sep.c_str());  // Split line on separator char
     ptr = NULL; // After the first call, strtok expects a null pointer as input.
     if (token == NULL) break; // no more tokens
     if (num_values_read >= this->num_fields) break; // read enough values

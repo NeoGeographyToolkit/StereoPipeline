@@ -64,15 +64,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     ("y-offset",       po::value(&opt.lat_offset)->default_value(0), 
      "Add a latitude offset (in degrees) to the DEM.")
     ("z-offset",       po::value(&opt.height_offset)->default_value(0), 
-     "Add a vertical offset (in meters) to the DEM.")
-    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),
-      "Set the order of an Euler angle rotation applied to the 3D points prior to DEM rasterization.")
-    ("phi-rotation",   po::value(&opt.phi_rot )->default_value(0),
-     "Set a rotation angle phi.")
-    ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),
-     "Set a rotation angle omega.")
-    ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),
-     "Set a rotation angle kappa.");
+     "Add a vertical offset (in meters) to the DEM.");
 
   po::options_description projection_options("Projection options");
   projection_options.add_options()
@@ -494,7 +486,7 @@ int main(int argc, char *argv[]) {
     csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_srs); // Modifies csv_conv
     vw::cartography::GeoReference csv_georef;
     // TODO(oalexan1): The logic below is fragile. Check all locations
-    // where parse_georef is called and see if a datum always exists.
+    // where parse_georef is called and see if a datum is always set before being used.
     if (have_user_datum)
       csv_georef.set_datum(user_datum); // Set the datum
     csv_conv.parse_georef(csv_georef); // This alone may not set the datum always
@@ -505,6 +497,9 @@ int main(int argc, char *argv[]) {
     //   themselves specify a different datum.
     // - Should all be XYZ format when finished, unless option 
     //  --input-is-projected is set.
+    // - The names of converted clouds will be updated in opt.pointcloud_files.
+    // - The vector conv_files holds the names of the new files that got created,
+    //   so they can be deleted later.
     std::vector<std::string> conv_files;
     chip_convert_to_tif(opt, csv_conv, csv_georef, 
                         opt.pointcloud_files, conv_files); // outputs
@@ -515,16 +510,6 @@ int main(int argc, char *argv[]) {
       = asp::form_point_cloud_composite<Vector3>(opt.pointcloud_files,
                                                  ASP_MAX_SUBBLOCK_SIZE);
     
-    // Apply an (optional) rotation to the 3D points before building the mesh.
-    if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
-      vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order
-               << "      Angles: " << opt.phi_rot << "   "
-               << opt.omega_rot << "  " << opt.kappa_rot << "\n";
-      point_image = asp::point_transform
-        (point_image, math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,
-                                                     opt.kappa_rot, opt.rot_order));
-    }
-
     // Set up the error image
     ImageViewRef<double> error_image;
     if (opt.remove_outliers_with_pct || opt.use_tukey_outlier_removal ||

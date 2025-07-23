@@ -51,6 +51,9 @@ namespace asp {
   class BaseOptions;
 
   /// A Data structure which converts from CSV to Cartesian and vice-versa.
+  // TODO(oalexan1): There is no enforcement that the georeference has actually
+  // been populated before it gets used. Fixing this will be quite some work
+  // given the many places this is used.
   class CsvConv {
 
   public: // Definitions
@@ -70,8 +73,7 @@ namespace asp {
   public: // Functions
 
     /// Default Constructor, the object is not ready to use.
-    CsvConv() : format(XYZ), utm_zone(-1), utm_north(false),
-                num_fields(0) {}
+    CsvConv() : format(XYZ), utm_zone(-1), utm_north(false), num_fields(0) {}
 
     bool      is_configured() const {return csv_format_str != "";}
     CsvFormat get_format   () const {return format;}

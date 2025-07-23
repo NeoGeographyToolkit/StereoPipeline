@@ -694,19 +694,6 @@ Command-line options for point2dem
 --z-offset <float (default: 0)>
     Add a vertical offset (in meters) to the DEM.
 
---rotation-order <string (default: "xyz")>
-    Set the order of an Euler angle rotation applied to the 3D
-    points prior to DEM rasterization.
-
---phi-rotation <float (default: 0)>
-    Set a rotation angle phi.
-
---omega-rotation <float (default: 0)>
-    Set a rotation angle omega.
-
---kappa-rotation <float (default: 0)>
-    Set a rotation angle kappa.
-
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.

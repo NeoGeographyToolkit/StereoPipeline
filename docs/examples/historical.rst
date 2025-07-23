@@ -68,7 +68,7 @@ This will reduce the image size by a factor of 4. The ``-r average`` option will
 as before, help avoid aliasing.
 
 A camera model (pinhole or optical bar) created at one resolution can be
-converted to a another resolution by adjusting the ``pitch`` parameter (a higher
+converted to another resolution by adjusting the ``pitch`` parameter (a higher
 value of pitch means bigger pixels so lower resolution). For optical bar cameras
 the image dimensions and image center need to be adjusted as well, as those are
 in units of pixels.
@@ -805,7 +805,7 @@ will be ignored.
 
 An analogous command is run for the Aft camera.
 
-The longitude-latitude corners must must correspond to the expected traversal of
+The longitude-latitude corners must correspond to the expected traversal of
 the raw (non-mapprojected) image corners (:numref:`cam_gen_pinhole`). This
 requires some care, especially given that the Fwd and Aft images have 180
 degrees of rotation between them.
@@ -922,8 +922,9 @@ Then, the ``dem2gcp`` program (:numref:`dem2gcp`) can be invoked to create
 GCP that can fix this misregistration.
 
 Bundle adjustment can happen with these dense GCP, while optimizing all
-intrinsics and extrinsics and sharing none of the intrinsics. Afterwards, a new
-stereo DEM can be created as before.
+intrinsics and extrinsics. We will share none of the intrinsics (the optical
+center, at least, must be unique for each individual image due to how they are
+scanned and cropped). Afterwards, a new stereo DEM can be created as before.
 
 If happy enough with results at a given resolution, the cameras can be rescaled
 to a finer resolution and the process continued. See :numref:`resizing_images`
@@ -977,6 +978,6 @@ If the satellite acquired several overlapping pairs of images in quick
 succession, it is suggested to use them together, as that can improve the
 registration.
 
-The linescan cameras are not as easy to convert to a different resolution
-as the OpticalBar cameras, so they need to be recreated at each resolution
-before being further refined.
+The linescan cameras are not as easy to convert to a different resolution as the
+OpticalBar cameras (it is planned to ship a tool for this). For now, linescan
+cameras need to be recreated at each resolution before being further refined.

@@ -60,8 +60,6 @@ struct DemOptions: vw::GdalWriteOptions {
   float       nodata_value;
   double      semi_major, semi_minor;
   std::string reference_spheroid, datum;
-  double      phi_rot, omega_rot, kappa_rot;
-  std::string rot_order;
   double      proj_lat, proj_lon, proj_scale, false_easting, false_northing;
   double      lon_offset, lat_offset, height_offset;
   size_t      utm_zone;
