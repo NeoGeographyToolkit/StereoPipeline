@@ -434,7 +434,7 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
     write_options.add("extra_dims", "all");
   }
 
-  if (has_georef)     
+  if (has_georef)
     write_options.add("a_srs", georef.get_wkt());
 
   pdal::LasWriter writer;

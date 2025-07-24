@@ -29,6 +29,7 @@
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/Statistics.h>
 #include <vw/FileIO/FileUtils.h>
+#include <vw/Cartography/PointImageManipulation.h>
 
 #include <fstream>
 #include <iostream>
@@ -116,7 +117,7 @@ struct Options: vw::GdalWriteOptions {
   Vector2     outlier_removal_params;
   double      max_valid_triangulation_error;
   int         num_samples;
-  bool save_triangulation_error, save_stddev;
+  bool save_triangulation_error, save_stddev, dem;
   
   // Output
   std::string out_prefix;
@@ -169,6 +170,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("ecef", 
      po::bool_switch(&opt.ecef)->default_value(false)->implicit_value(true),
      "Save the point cloud in ECEF, rather than with a projection relative to a datum.")
+    ("dem", 
+      po::bool_switch(&opt.dem)->default_value(false)->implicit_value(true),
+      "Assume the input file is a DEM.")
     ("no-input-georef",
       po::bool_switch(&opt.no_input_georef)->default_value(false)->implicit_value(true),
       "Do not attempt to read the georeference from the input point cloud.")
@@ -277,6 +281,34 @@ void find_error_image_and_do_stats(Options& opt, ImageViewRef<double> & error_im
            << opt.max_valid_triangulation_error << "." << std::endl;
 }
 
+// Read a DEM and convert it to having projected points and elevation
+void read_dem(std::string const& pointcloud_file, 
+              bool ecef, bool no_input_georef,
+              bool & has_georef,
+              cartography::GeoReference & georef,
+              ImageViewRef<Vector3> & point_image) {
+
+  has_georef = vw::cartography::read_georeference(georef, pointcloud_file);
+  
+  // Sanity checks
+  if (!has_georef)
+    vw::vw_throw(vw::ArgumentErr() 
+              << "The input DEM file does not have a georeference.\n");
+  if (ecef)
+    vw::vw_throw(vw::ArgumentErr() 
+              << "Options --ecef and --dem are not compatible.\n");
+    if (no_input_georef) 
+    vw::vw_throw(vw::ArgumentErr() 
+              << "Options --no-input-georef and --dem are not compatible.\n");
+    
+  double nodata_val = -std::numeric_limits<double>::max();
+  vw::read_nodata_val(pointcloud_file, nodata_val);
+  
+  // Form the point image as projected coordinates and elevation
+  vw::DiskImageView<double> dem(pointcloud_file);
+  point_image = vw::cartography::dem_to_proj(vw::create_mask(dem, nodata_val), georef);
+}
+
 int main(int argc, char *argv[]) {
   
   // TODO(oalexan1): need to understand what is the optimal strategy
@@ -287,40 +319,58 @@ int main(int argc, char *argv[]) {
   try {
     handle_arguments(argc, argv, opt);
 
-    ImageViewRef<double> error_image;
-    if (opt.outlier_removal_params[0] < 100.0 || opt.max_valid_triangulation_error > 0.0)
-      find_error_image_and_do_stats(opt, error_image);
+    // // See if to the points relative to a georeference
+    // cartography::Datum datum;
+    // cartography::GeoReference georef;
+    // bool have_user_datum = false;
+    // bool has_georef = false; // Will not have a georef when writing XYZ in ECEF
 
-    // See if to the points relative to a georeference
     cartography::Datum datum;
     cartography::GeoReference georef;
     bool have_user_datum = false, have_input_georef = false;
-    bool is_geodetic = false;
-    if (!opt.ecef) {
-      have_user_datum = asp::read_user_datum(0, 0, opt.datum, datum);
-      if (!opt.no_input_georef)
-        have_input_georef = vw::cartography::read_georeference(georef, opt.pointcloud_file);
-      if (have_input_georef && opt.target_srs_string.empty())
-        opt.target_srs_string = georef.get_wkt();
+    bool have_out_georef = false;
+    ImageViewRef<Vector3> point_image;
     
-      if (have_user_datum || !opt.target_srs_string.empty()) {
-        // Set the srs string into georef
-        asp::set_srs_string(opt.target_srs_string,
-                            have_user_datum, datum, georef);
-        is_geodetic = true;
-        datum = georef.datum();
+    if (!opt.dem) {
+      if (!opt.ecef) {
+        have_user_datum = asp::read_user_datum(0, 0, opt.datum, datum);
+        if (!opt.no_input_georef)
+          have_input_georef = vw::cartography::read_georeference(georef, opt.pointcloud_file);
+        if (have_input_georef && opt.target_srs_string.empty())
+          opt.target_srs_string = georef.get_wkt();
+      
+        if (have_user_datum || !opt.target_srs_string.empty()) {
+          // Set the srs string into georef
+          asp::set_srs_string(opt.target_srs_string,
+                              have_user_datum, datum, georef);
+          have_out_georef = true;
+          datum = georef.datum();
+        }
       }
-    }
 
-    // Save the las file with given georeference, if present
-    ImageViewRef<Vector3> point_image = asp::read_asp_point_cloud<3>(opt.pointcloud_file);
-    // See if to use [-180, 180] or [0, 360]
-    vw::BBox2 lonlat_box = asp::estim_lonlat_box(point_image, georef.datum());
-    georef.set_image_ll_box(lonlat_box);
-    if (is_geodetic) {
-      point_image = cartesian_to_geodetic(point_image, datum);
-      point_image = geodetic_to_point(point_image, georef);
+      // Save the las file with given georeference, if present
+      point_image = asp::read_asp_point_cloud<3>(opt.pointcloud_file);
+      
+      if (have_out_georef) {
+        // See if to use [-180, 180] or [0, 360]
+        vw::BBox2 lonlat_box = asp::estim_lonlat_box(point_image, georef.datum());
+        georef.set_image_ll_box(lonlat_box);
+        // Convert cartesian to projected coordinates via geodetic
+        point_image = cartesian_to_geodetic(point_image, datum);
+        point_image = geodetic_to_point(point_image, georef);
+      }
+    } else {
+      // The input is a DEM. Resulting point_image will be in projected_coordinates.
+      read_dem(opt.pointcloud_file, opt.ecef, opt.no_input_georef,
+              have_out_georef, georef, point_image);
+      datum = georef.datum();
+      have_out_georef = true; 
     }
+    
+    // The error image, if provided
+    ImageViewRef<double> error_image;
+    if (opt.outlier_removal_params[0] < 100.0 || opt.max_valid_triangulation_error > 0.0)
+      find_error_image_and_do_stats(opt, error_image);
 
     // The intensity image, if provided
     vw::ImageViewRef<float> intensity;
@@ -347,7 +397,7 @@ int main(int argc, char *argv[]) {
       vertical_stddev   = vw::select_channel(full_point_image, 5);
     }
     
-    BBox3 cloud_bbox = asp::pointcloud_bbox(point_image, is_geodetic);
+    BBox3 cloud_bbox = asp::pointcloud_bbox(point_image, have_out_georef);
 
     // The las format stores the values as 32 bit integers. So, for a
     // given point, we store round((point-offset)/scale), as well as
@@ -365,7 +415,7 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < scale.size(); i++)
       if (scale[i] <= 0.0) scale[i] = 1.0e-16; // avoid degeneracy
 
-    asp::write_las(is_geodetic, georef, 
+    asp::write_las(have_out_georef, georef, 
                    point_image, error_image, intensity,
                    horizontal_stddev, vertical_stddev,
                    offset, scale, opt.compressed, 

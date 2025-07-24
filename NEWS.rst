@@ -52,7 +52,10 @@ dem2gcp (:numref:`dem2gcp`):
 
 jitter_solve (:numref:`jitter_solve`):
   * Added the options ``--fix-gcp-xyz``, ``--use-lon-lat-height-gcp-error``.
-  
+
+point2las (:numref:`point2las`):
+  * Added the option ``--dem`` to convert a DEM to LAS.
+
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
   * Made the OpticalBar model 3x faster by switching from minimization in 3D
