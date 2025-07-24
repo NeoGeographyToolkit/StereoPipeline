@@ -41,7 +41,8 @@ Examples
 Pinhole cameras
 ^^^^^^^^^^^^^^^
 
-::
+To create a Pinhole (:numref:`pinholemodels`) camera, given the longitude and
+and latitude of the image corners and camera intrinsics, run::
 
      cam_gen --refine-camera --lon-lat-values                             \
        '-122.389 37.627,-122.354 37.626,-122.358 37.612,-122.393 37.613'  \
@@ -71,6 +72,9 @@ The camera center, if known, can be set with the option ``--camera-center`` or
 
 Lens distortion parameters, if needed, can be added manually to the produced
 files (:numref:`pinholemodels`).
+
+To create the camera in the CSM Frame format (:numref:`csm`), ensure the output
+camera has the ``.json`` extension instead of ``.tsai``.
 
 See :numref:`cam_gen_validation` for how to validate the created cameras.
 
@@ -128,8 +132,13 @@ See :numref:`cam_gen_validation` for how to validate the created cameras.
 CSM Frame cameras
 ^^^^^^^^^^^^^^^^^
 
-This program can create a CSM Frame camera (:numref:`csm`) that approximates any
-camera supported by ASP. In this mode, distortion is modeled as well.
+This program can create a CSM Frame camera (:numref:`csm`) given the ground
+coordinates of the image corners and the camera intrinsics. The approach is in
+:numref:`cam_gen_pinhole`, except that the output camera has the ``.json``
+extension.
+
+In addition, ``cam_gen`` can create a CSM Frame camera that approximates any
+given camera supported by ASP. In this mode, lens distortion is modeled as well.
 
 If the input camera is Pinhole with radial-tangential (Tsai) distortion, or no
 distortion at all (:numref:`pinholemodels`), it can be converted exactly to a CSM
