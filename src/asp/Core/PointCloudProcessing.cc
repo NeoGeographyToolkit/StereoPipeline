@@ -59,7 +59,19 @@ std::string getName() const { return "chip maker"; }
     m_tile_len(tile_len), m_chip_size(chip_size),
     m_has_georef(has_georef), m_georef(georef), m_opt(opt),
     m_out_prefix(out_prefix), m_out_files(out_files),
-    m_tile_count(0), m_buf(vw::PointBuffer()) {}
+    m_tile_count(0), m_buf(vw::PointBuffer()) {
+      
+      // This is a bugfix for the LAS file not having the georef transform. It
+      // has only the projection. This results in all kind of warnings. Ensure a
+      // proper fictitious transform to make the warnings go away.
+      vw::Matrix<double,3,3> trans = m_georef.transform();
+      if (trans(1, 1) > 0) {
+        double small = 1e-8;
+        trans(0, 0) = small;
+        trans(1, 1) = -small;
+        m_georef.set_transform(trans);
+      }
+    }
 
 ~ChipMaker() {}
 
@@ -605,7 +617,6 @@ void las_or_csv_to_tif(std::string const& in_file,
     pdal_reader->prepare(t);
     vw::cartography::GeoReference las_georef;
     bool has_georef = asp::georef_from_las(in_file, las_georef);
-    
     asp::ChipMaker writer(ASP_POINT_CLOUD_TILE_LEN, block_size, has_georef, las_georef,
                           opt, out_prefix, out_files);
     pdal::Options write_options;

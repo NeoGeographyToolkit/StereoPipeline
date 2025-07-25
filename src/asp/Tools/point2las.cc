@@ -319,12 +319,6 @@ int main(int argc, char *argv[]) {
   try {
     handle_arguments(argc, argv, opt);
 
-    // // See if to the points relative to a georeference
-    // cartography::Datum datum;
-    // cartography::GeoReference georef;
-    // bool have_user_datum = false;
-    // bool has_georef = false; // Will not have a georef when writing XYZ in ECEF
-
     cartography::Datum datum;
     cartography::GeoReference georef;
     bool have_user_datum = false, have_input_georef = false;
@@ -396,7 +390,7 @@ int main(int argc, char *argv[]) {
       horizontal_stddev = vw::select_channel(full_point_image, 4);
       vertical_stddev   = vw::select_channel(full_point_image, 5);
     }
-    
+
     BBox3 cloud_bbox = asp::pointcloud_bbox(point_image, have_out_georef);
 
     // The las format stores the values as 32 bit integers. So, for a
