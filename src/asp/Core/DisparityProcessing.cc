@@ -15,12 +15,11 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 #include <asp/Core/StereoSettings.h>
-#include <asp/Core/Common.h>
 #include <asp/Core/DisparityProcessing.h>
-#include <vw/Math/Transform.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 
+#include <vw/Math/Transform.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/FileIO/MatrixIO.h>
 #include <vw/Stereo/StereoView.h>

@@ -92,6 +92,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>

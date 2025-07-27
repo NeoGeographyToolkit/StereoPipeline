@@ -23,6 +23,8 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/FileUtils.h>
+#include <asp/Core/Common.h>
+#include <asp/asp_config.h>
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/IsisCameraModel.h>

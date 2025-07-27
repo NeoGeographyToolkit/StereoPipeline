@@ -18,8 +18,6 @@
 /// \file PointUtils.cc
 ///
 
-#include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
 #include <asp/Core/PointUtils.h>
 #include <vw/Core/Stopwatch.h>
 
@@ -205,7 +203,7 @@ bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
   } else if (this->csv_srs != "") { // Not UTM, with PROJ string
     bool have_user_datum = false;
     Datum user_datum;
-    asp::set_srs_string(this->csv_srs, have_user_datum, user_datum, georef);
+    vw::cartography::set_srs_string(this->csv_srs, have_user_datum, user_datum, georef);
     success = true;
   }
 

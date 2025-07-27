@@ -18,8 +18,12 @@
 
 /// \file stereo_fltr.cc
 ///
+#include <asp/Sessions/StereoSession.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/ThreadedEdgeMask.h>
+#include <asp/Core/Common.h>
+#include <asp/Gotcha/CBatchProc.h>
 
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/Algorithms.h>
@@ -27,10 +31,7 @@
 #include <vw/Image/BlobIndex.h>
 #include <vw/Image/ErodeView.h>
 #include <vw/Image/InpaintView.h>
-
-#include <asp/Core/ThreadedEdgeMask.h>
-#include <asp/Sessions/StereoSession.h>
-#include <asp/Gotcha/CBatchProc.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 

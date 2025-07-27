@@ -26,6 +26,7 @@
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/GuiUtilities.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>

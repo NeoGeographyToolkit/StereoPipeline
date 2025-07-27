@@ -22,11 +22,12 @@
 
 #include <asp/Camera/MapprojectImage.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspStringUtils.h>
 
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Cartography/PointImageManipulation.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Image/Filter.h>
 #include <vw/Image/Algorithms2.h>
 #include <vw/FileIO/FileUtils.h>

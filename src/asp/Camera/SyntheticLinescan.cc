@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <asp/Core/Common.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/SyntheticLinescan.h>

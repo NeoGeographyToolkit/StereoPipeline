@@ -29,7 +29,6 @@
 #include <asp/Core/SatSimBase.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/DataLoader.h>
-#include <asp/Core/Common.h>
 
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>

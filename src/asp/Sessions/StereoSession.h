@@ -22,15 +22,16 @@
 #ifndef __STEREO_SESSION_H__
 #define __STEREO_SESSION_H__
 
+#include <asp/Core/StereoSettings.h>
+#include <asp/Sessions/CameraModelLoader.h>
+
+#include <vw/Camera/CameraModel.h>
 #include <vw/Image/ImageViewBase.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/Transform.h>
-#include <vw/Camera/CameraModel.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 
 #include <boost/shared_ptr.hpp>
-#include <asp/Core/Common.h>
-#include <asp/Core/StereoSettings.h>
-#include <asp/Sessions/CameraModelLoader.h>
 
 namespace asp {
 

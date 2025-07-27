@@ -80,4 +80,23 @@ void parseKeysVals(std::string const& file,
   
 }
 
+/// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
+/// so it may have some items there beforehand.
+// TODO(oalexan1): This will fail if VAL1 has equal signs.
+void asp::parse_append_metadata(std::string const& metadata,
+                                std::map<std::string, std::string> & keywords){
+  
+  std::istringstream is(metadata);
+  std::string meta, var, val;
+  while (is >> meta){
+    
+    // TODO(oalexan1): Replace only first equal, to allow for equal signs in values.
+    boost::replace_all(meta, "=", " ");  // replace equal with space
+    std::istringstream is2(meta);
+    if (!(is2 >> var >> val)) 
+      vw::vw_throw(vw::ArgumentErr() << "Could not parse: " << meta << "\n");
+    keywords[var] = val;
+  }
+}
+
 } // end namespace asp

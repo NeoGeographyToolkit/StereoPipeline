@@ -1780,7 +1780,7 @@ int main(int argc, char *argv[]) {
       // Set the srs string into georef.
       bool have_user_datum = false;
       Datum user_datum;
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, mosaic_georef);
+      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, mosaic_georef);
     }
 
     // Use desired spacing if user-specified

@@ -31,6 +31,7 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/ImageNormalization.h>
+#include <asp/Core/Common.h>
 
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Camera/PinholeModel.h>

@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <asp/Core/Common.h>
 #include <asp/Camera/CsmModelFit.h>
 #include <asp/Camera/CsmUtils.h>
 
@@ -24,6 +23,9 @@
 
 #include <asp/Camera/CsmModel.h>
 #include <vw/Camera/OpticalBarModel.h>
+
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>

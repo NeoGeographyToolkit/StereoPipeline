@@ -22,6 +22,7 @@
 
 #include <asp/Tools/stereo.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Cartography/GeoReferenceUtils.h>

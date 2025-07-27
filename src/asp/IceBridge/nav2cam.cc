@@ -44,12 +44,15 @@
 // and write down the camera intrinsics + extrinsics tsai file.
 
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
+
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/Extrinsics.h>
+
 #include <ctime>
 #include <stdlib.h>
 

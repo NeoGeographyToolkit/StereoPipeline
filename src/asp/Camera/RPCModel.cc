@@ -16,8 +16,8 @@
 // __END_LICENSE__
 
 #include <asp/Camera/RPCModel.h>
-#include <asp/Core/Common.h>
 
+#include <vw/Core/StringUtils.h>
 #include <vw/Math/Vector.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/FileIO/FileUtils.h>

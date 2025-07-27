@@ -37,12 +37,6 @@
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string/replace.hpp>
 
-// TODO(oalexan1): Move this to VW in the cartography module.
-#include <gdal_version.h>
-#if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
-#include "ogr_spatialref.h"
-#endif
-
 #include <map>
 #include <sstream>
 #include <string>
@@ -52,22 +46,6 @@
 using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-
-/// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
-/// so it may have some items there beforehand.
-void asp::parse_append_metadata(std::string const& metadata,
-                                std::map<std::string, std::string> & keywords){
-  
-  std::istringstream is(metadata);
-  std::string meta, var, val;
-  while (is >> meta){
-    boost::replace_all(meta, "=", " ");  // replace equal with space
-    std::istringstream is2(meta);
-    if (!(is2 >> var >> val)) 
-      vw_throw(ArgumentErr() << "Could not parse: " << meta << "\n");
-    keywords[var] = val;
-  }
-}
 
 // Print time function
 std::string asp::current_posix_time_string() {
@@ -287,48 +265,6 @@ asp::check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,
   opt.setVwSettingsFromOpt();
   
   return vm;
-}
-
-// TODO(oalexan1): Move this to VW in the cartography module
-void asp::set_srs_string(std::string srs_string, bool have_user_datum,
-                         vw::cartography::Datum const& user_datum,
-                         vw::cartography::GeoReference & georef) {
-
-  // When an EPSG code is provided, store the name so that
-  //  it shows up when the GeoReference object is written
-  //  out to disk.
-  if (srs_string.find("EPSG") != std::string::npos)
-    georef.set_projcs_name(srs_string);
-
-  // Set srs_string into given georef. Note that this may leave the
-  // georef's affine transform inconsistent.
-
-  // TODO: The line below needs more thought
-  if (srs_string == "")
-    srs_string = "+proj=longlat";
-
-  // TODO(oalexan1): Use below datum.get_wkt().
-  // But then cannot concatenate the wkt. Need to have a way
-  // of reconciling the two wkt. May need to first call 
-  // set_datum, and then set_wkt. The latter will 
-  // try to reconcile the wkt with the prior datum.
-  // But this needs testing, especially in cases when 
-  // srs_string lacks the datum info.
-  if (have_user_datum)
-    srs_string += " " + user_datum.proj4_str();
-  
-  // TODO(oalexan1): Rename set_wkt to set_srs.
-  // TODO(oalexan1): Must wipe all this and call directly georef.set_wkt.
-  // TODO(oalexan1): Deal with datum name!
-  vw::cartography::GeoReference input_georef = georef;
-  OGRSpatialReference gdal_spatial_ref;
-  if (gdal_spatial_ref.SetFromUserInput(srs_string.c_str()) != OGRERR_NONE)
-    vw::vw_throw(vw::ArgumentErr() << "Failed to parse: \"" << srs_string << "\".");
-  char *wkt_str_tmp = NULL;
-  gdal_spatial_ref.exportToWkt(&wkt_str_tmp);
-  srs_string = wkt_str_tmp;
-  CPLFree(wkt_str_tmp);
-  georef.set_wkt(srs_string);
 }
 
 namespace boost {

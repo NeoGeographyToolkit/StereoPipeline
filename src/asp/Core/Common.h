@@ -26,9 +26,8 @@
 #include <vw/config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
 #include <asp/asp_config.h>
 
-// TODO(oalexan1): Break up Common.h into more manageable pieces.
-// Image-writing code should be in VW. Low-level string utils
-// should be moved to AspStringUtils.h. 
+// TODO(oalexan1): Rename to AspProgramOptions.h, and do not include it 
+// except in tools.
 
 #include <vw/Core/StringUtils.h>
 #include <vw/Image/ImageIO.h>
@@ -55,11 +54,6 @@ namespace asp {
 
   class ASPGlobalOptions; // forward declaration
   
-  /// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
-  /// so it may have some items there beforehand.
-  void parse_append_metadata(std::string const& metadata,
-                             std::map<std::string, std::string> & keywords);
-  
   /// Print time function
   std::string current_posix_time_string();
 
@@ -83,16 +77,6 @@ namespace asp {
                      const& positional_desc,
                      std::string & usage_comment,
                      bool allow_unregistered, std::vector<std::string> & unregistered);
-
-  /// Load multiple user options into a georef object.
-  /// - This call supports more srs_string options than are possible
-  ///   by loading a proj4 string into a GeoReference object, including
-  ///   EPSG codes and URLs like http://spatialreference.org/ref/iau2000/49900/
-  void set_srs_string(std::string srs_string, bool have_user_datum,
-                      vw::cartography::Datum const& user_datum,
-                      vw::cartography::GeoReference & georef);
-
-  //---------------------------------------------------------------------------
 
 } // end namespace asp
 

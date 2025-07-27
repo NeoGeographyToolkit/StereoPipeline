@@ -38,6 +38,11 @@ void parseCamTypes(std::string const& session_name,
 void parseKeysVals(std::string const& file, 
                    std::map<std::string, std::vector<std::string>> & keys_vals);
 
+// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
+// so it may have some items there beforehand.
+void parse_append_metadata(std::string const& metadata,
+                            std::map<std::string, std::string> & keywords);
+
 } // end namespace asp
 
 

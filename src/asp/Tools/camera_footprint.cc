@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
       bool have_user_datum = (opt.datum_str != "");
       cartography::Datum datum(opt.datum_str);
       target_georef = GeoReference(datum);
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, datum, target_georef);
+      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum, datum, target_georef);
       vw_out() << "Using georef: " << target_georef << std::endl;
 
       std::vector<Vector2> coords2;

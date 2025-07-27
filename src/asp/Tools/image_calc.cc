@@ -23,6 +23,7 @@
 
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/AspStringUtils.h>
 
 #include <vw/Core/FundamentalTypes.h>
 #include <vw/Core/Log.h>

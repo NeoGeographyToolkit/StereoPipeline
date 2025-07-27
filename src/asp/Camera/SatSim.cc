@@ -20,7 +20,6 @@
 
 #include <asp/Core/SatSimBase.h>
 #include <asp/Core/CameraTransforms.h>
-#include <asp/Core/Common.h>
 #include <asp/Core/DemUtils.h>
 #include <asp/Camera/SatSim.h>
 #include <asp/Camera/CsmModel.h>
@@ -34,6 +33,7 @@
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Image/Filter.h>

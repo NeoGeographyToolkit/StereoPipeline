@@ -41,6 +41,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/FileUtils.h>
+#include <asp/Core/Common.h>
 
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>

@@ -1592,10 +1592,10 @@ void initial_filter_by_proj_win(asp::BaBaseOptions          & opt,
     std::swap(opt.proj_win.min().y(), opt.proj_win.max().y());
 
   // Set the projection. The function set_proj4_projection_str() does not set the
-  // datum radii, which is confusing. Use asp::set_srs_string().
+  // datum radii, which is confusing. Use vw::cartography::set_srs_string().
   vw::cartography::GeoReference georef;
   bool have_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
-  asp::set_srs_string(opt.proj_str, have_datum, opt.datum, georef);
+  vw::cartography::set_srs_string(opt.proj_str, have_datum, opt.datum, georef);
 
   int num_points = param_storage.num_points();
   for (int i = 0; i < num_points; i++) {

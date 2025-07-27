@@ -548,7 +548,7 @@ int main(int argc, char *argv[]) {
         vw::vw_throw(vw::ArgumentErr()
                      << "A datum, projection, or semi-axes must be set.\n");
     } else {
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, output_georef);
+      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, output_georef);
     }
 
     // Determine if we should be using a longitude range between [-180, 180] or

@@ -15,9 +15,23 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file stereo_gui.cc
 ///
+
+#include <asp/Tools/stereo.h>
+#include <asp/GUI/MainWindow.h>
+#include <asp/GUI/StereoGuiSession.h>
+#include <asp/Isis/DiskImageResourceIsis.h>
+#include <asp/Isis/StereoSessionIsis.h>
+#include <asp/Core/StereoSession.h>
+#include <asp/Core/Common.h>
+#include <asp/Core/StereoSettings.h>
+
+#include <vw/Core.h>
+#include <vw/Image.h>
+#include <vw/Math.h>
+#include <vw/FileIO.h>
+#include <vw/Stereo.h>
 
 // Qt
 #include <QApplication>
@@ -32,24 +46,11 @@ namespace po = boost::program_options;
 // Standard Library
 #include <iostream>
 
-// VW
-#include <vw/Core.h>
-#include <vw/Image.h>
-#include <vw/Math.h>
-#include <vw/FileIO.h>
-#include <vw/Stereo.h>
 using namespace vw;
 using namespace vw::math;
 using namespace vw::camera;
 using namespace vw::stereo;
 
-#include "gui/MainWindow.h"
-#include "gui/StereoGuiSession.h"
-#include "StereoSettings.h"
-#include "stereo.h"
-#include "StereoSession.h"
-#include "Isis/DiskImageResourceIsis.h"
-#include "Isis/StereoSessionIsis.h"
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {

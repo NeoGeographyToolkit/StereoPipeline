@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file StereoSettings.h
 ///
 
@@ -25,21 +24,19 @@
 #include <boost/program_options.hpp>
 #include <boost/program_options/detail/config_file.hpp>
 #include <vw/FileIO/GdalWriteOptions.h>
-#include <asp/Core/Common.h>
 
 namespace asp {
 
   class StereoSession; // Forward declaration
 
   /// 'Global scoped' variables
-  struct ASPGlobalOptions : vw::GdalWriteOptions {
+  struct ASPGlobalOptions: vw::GdalWriteOptions {
     // Input
     std::string in_file1, in_file2, cam_file1, cam_file2, input_dem,
     extra_argument1, extra_argument2, extra_argument3;
 
     // Settings
-    std::string stereo_session,
-                stereo_default_filename;
+    std::string stereo_session, stereo_default_filename;
     boost::shared_ptr<asp::StereoSession> session; // Used to extract cameras
     // Output
     std::string out_prefix;

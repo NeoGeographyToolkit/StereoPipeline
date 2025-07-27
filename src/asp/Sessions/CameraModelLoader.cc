@@ -15,11 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file CameraModelLoader.cc
 ///
 
-#include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/LinescanDGModel.h>

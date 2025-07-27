@@ -510,7 +510,7 @@ int main(int argc, char* argv[]) {
       // Use specified proj4 string for the output georeference
       bool have_user_datum = false;
       Datum user_datum;
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum,
+      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum, user_datum,
                           target_georef);
     }
 
