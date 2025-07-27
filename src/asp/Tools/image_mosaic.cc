@@ -20,7 +20,7 @@
 // Tool for creating mosaics of images on disk. Currently supports one line of
 // images.
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/StereoSettings.h>

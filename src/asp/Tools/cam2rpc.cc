@@ -22,7 +22,7 @@
 // some work needs to be done for these packages to give correct results off-Earth.
 
 #include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Camera/RPCModelGen.h>

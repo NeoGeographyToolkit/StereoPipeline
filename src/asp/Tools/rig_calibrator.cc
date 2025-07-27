@@ -21,7 +21,7 @@
 
 // See the ASP documentation for how this tool works.
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Core/Log.h>

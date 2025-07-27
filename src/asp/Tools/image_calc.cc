@@ -21,7 +21,7 @@
 // Apply specified arithmetic operations to given input images and save
 // the output with desired pixel type.
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspStringUtils.h>
 

@@ -26,7 +26,7 @@
 // than the Manhattan distance employed by grassfire.
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/GdalUtils.h>
 
 #include <vw/FileIO/DiskImageManager.h>

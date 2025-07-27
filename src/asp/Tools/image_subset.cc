@@ -18,7 +18,7 @@
 // Given a set of overlapping georeferenced images, find a small
 // subset with almost the same coverage. This is used in SfS.
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 

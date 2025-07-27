@@ -18,7 +18,7 @@
 // Parse PRISM data and produce CSM camera files
 // Reference: https://elib.dlr.de/57440/1/Schneider.pdf
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Camera/PRISM_XML.h>
 

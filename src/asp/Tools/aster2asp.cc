@@ -34,7 +34,7 @@
 // Luc Girod, Christopher Nutha, and Andreas Kaab
 // http://www.int-arch-photogramm-remote-sens-spatial-inf-sci.net/XL-1-W5/249/2015/isprsarchives-XL-1-W5-249-2015.pdf
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Camera/RPCModelGen.h>

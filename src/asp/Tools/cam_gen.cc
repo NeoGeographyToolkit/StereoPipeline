@@ -18,7 +18,7 @@
 // Create a pinhole, optical bar, or csm camera model based on intrinsics, image
 // corner coordinates, and other attributes. See the doc for more info.
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/PointUtils.h>

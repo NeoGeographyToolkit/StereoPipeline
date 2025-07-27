@@ -28,7 +28,7 @@ extern "C" {
 }
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 
 #include <vw/Image/Interpolation.h>
 #include <vw/Cartography/GeoReferenceResourceGDAL.h>

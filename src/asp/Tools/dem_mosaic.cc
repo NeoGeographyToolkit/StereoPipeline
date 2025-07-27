@@ -22,7 +22,7 @@
 // processing happens in double precision.
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/GdalUtils.h>
 #include <asp/Core/DemMosaic.h>
 #include <asp/Core/FileUtils.h>

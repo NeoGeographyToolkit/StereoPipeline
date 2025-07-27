@@ -22,7 +22,7 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/OrthoRasterizer.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/OutlierProcessing.h>
 #include <asp/Core/PointCloudProcessing.h>

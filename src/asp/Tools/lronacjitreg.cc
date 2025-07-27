@@ -21,7 +21,7 @@
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 
 #include <vw/Math/Functors.h>
 #include <vw/Image/ImageView.h>

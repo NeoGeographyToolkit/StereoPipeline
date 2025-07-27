@@ -17,7 +17,7 @@
 
 
 #include <test/Helpers.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 
 using namespace vw;
 using namespace asp;

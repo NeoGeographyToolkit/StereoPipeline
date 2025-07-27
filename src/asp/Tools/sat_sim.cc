@@ -19,7 +19,7 @@
 // See the manual for details.
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Camera/SyntheticLinescan.h>
 #include <asp/Camera/SatSim.h>
 #include <asp/Rig/rig_config.h>

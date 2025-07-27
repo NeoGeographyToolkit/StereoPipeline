@@ -20,11 +20,11 @@
 // Paper: https://tc.copernicus.org/articles/5/271/2011/
 
 // TODO(oalexan1): Is it worth reading ref and source as double?
-// TODO(oalexan1): Merely including Common.h results in 10 seconds extra compile time.
+// TODO(oalexan1): Merely including AspProgramOptions.h results in 10 seconds extra compile time.
 // TODO(oalexan1): Implement tilt correction.
 // TODO(oalexan1): What to do about opt.res, opt.polyorder.
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/PcAlign/NuthFit.h>
 #include <asp/PcAlign/NuthAlignment.h>
 

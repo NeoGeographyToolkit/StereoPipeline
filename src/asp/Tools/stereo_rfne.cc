@@ -22,7 +22,7 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/ImageNormalization.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CostFunctions.h>

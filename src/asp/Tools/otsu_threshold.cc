@@ -25,7 +25,7 @@
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Statistics.h>
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 
 namespace po = boost::program_options;

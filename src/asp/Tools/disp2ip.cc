@@ -20,7 +20,7 @@
 // Produce additional interest points based on disparity maps. This is a
 // tool for a very specialized purpose.
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Sessions/StereoSessionFactory.h>

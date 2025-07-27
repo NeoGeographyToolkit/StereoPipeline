@@ -27,7 +27,7 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/FileIO/KML.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 

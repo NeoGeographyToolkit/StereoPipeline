@@ -22,7 +22,7 @@
 /// can have 1 channel (plain raster images) or 3 to 6 channels.
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/OrthoRasterizer.h>
 

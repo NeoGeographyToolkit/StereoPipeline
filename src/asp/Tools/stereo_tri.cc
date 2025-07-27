@@ -36,7 +36,7 @@
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Camera/Covariance.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>

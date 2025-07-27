@@ -22,7 +22,7 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/FileUtils.h>

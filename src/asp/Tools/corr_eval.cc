@@ -21,7 +21,7 @@
 // See CorrEval.h and this tool's manual for more info.
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/StereoSettings.h>
 
 #include <vw/Stereo/PreFilter.h>

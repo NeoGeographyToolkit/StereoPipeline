@@ -19,7 +19,7 @@
 // https://github.com/ethz-asl/libpointmatcher
 // Released under the BSD 3-Clause.
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/PdalUtils.h>

@@ -39,7 +39,7 @@
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/BundleAdjustResiduals.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/BundleAdjustUtils.h>

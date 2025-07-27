@@ -36,7 +36,7 @@
 
 #include <asp/Tools/stereo.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 
 #include <vw/Image/ImageMath.h>
 #include <vw/FileIO/DiskImageUtils.h>

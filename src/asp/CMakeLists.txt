@@ -336,10 +336,7 @@ find_external_library(RAYINT ${ASP_DEPS_DIR} "rayint" "" REQUIRED)
 # texture reconstruction
 find_external_library(TEXRECON ${ASP_DEPS_DIR} "" "texture_reconstruction" REQUIRED)
 
-# Libraries use paths like "asp/src/Core/Common.h" so we just need to
-# add this one include path. These must take precedence over anything
-# in the conda or system directories. That is why this is at the bottom.
-# Also prioratize the VW include directory over the other include directories.
+# Prioratize including files from the local code base and VW
 include_directories(BEFORE ${VISIONWORKBENCH_INCLUDE_DIR})
 include_directories(BEFORE ../)
 

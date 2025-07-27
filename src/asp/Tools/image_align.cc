@@ -19,7 +19,7 @@
 ///
 /// Tool for aligning a second image to a first image.
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/ImageUtils.h>

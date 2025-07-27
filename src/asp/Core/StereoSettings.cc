@@ -23,7 +23,7 @@
 #include <vw/Core/RunOnce.h>
 #include <vw/Core/Log.h>
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
 

@@ -17,7 +17,7 @@
 
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;

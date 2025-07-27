@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/EnvUtils.h>
 #include <asp/Core/FileUtils.h>

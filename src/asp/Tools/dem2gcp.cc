@@ -19,7 +19,7 @@
 // See the documentation on readthedocs.
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Sessions/StereoSession.h>

@@ -29,7 +29,7 @@
 // locations to undo them.
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/RPCModel.h>
