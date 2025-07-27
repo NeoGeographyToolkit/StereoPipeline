@@ -95,7 +95,7 @@ Fit a prior camera
 
 This tool can also create a Pinhole camera approximating any camera supported by
 ASP, such as from ISIS cubes, RPC cameras, etc., as long as the intrinsics are
-known, as above. For that, it will shoot rays from the image corners (and also
+approximately known. For that, it will shoot rays from the image corners (and also
 some inner points) using the provided camera that will intersect the provided
 DEM, determining the footprint on the ground. This will be used to find the
 best-fit pinhole model. 
@@ -116,8 +116,8 @@ Here we passed the image as the input camera, since for ISIS cubes (and
 also for some RPC cameras) the camera information is not stored in a
 separate camera file.
 
-This does not model distortion. For that, one has to produce CSM cameras
-(:numref:`cam_gen_frame`).
+If desired to refine the intrinsics, including the focal length and lens
+distortion, one has to produce CSM cameras (:numref:`cam_gen_frame`).
 
 Ensure the correct datum is passed for your planet, if a DEM is not used on
 input. For example: ``--datum D_MARS``. 
@@ -152,9 +152,8 @@ See :numref:`cam_gen_validation` for how to validate the created cameras.
 
 For any other camera or distortion type, the best-fit model is found. An
 additional solver pass can be invoked, which can refine the intrinsics, that is,
-the focal length, optical center, and the distortion coefficients, in addition
-to the camera pose. See the ``--distortion`` option in :numref:`cam_gen_options`
-for the distortion model.
+the focal length, optical center, and the distortion coefficients. See the
+``--distortion`` option in :numref:`cam_gen_options` for the distortion model.
 
 Good initial guesses, especially for the focal length and optical center, are
 still expected.
@@ -171,11 +170,10 @@ Example::
     --refine-intrinsics focal_length,distortion \
     -o output.json
 
-Here it was assumed that the pixel pitch was 1. For pinhole cameras the pixel
-pitch can also be in millimeters, but then the focal length and optical center
-must be in the same units. Upon conversion to CSM Frame cameras, the focal
-length is kept as-is, but the optical center is divided by the pixel pitch,
-as CSM expects pixel units. 
+Here it was assumed that the pixel pitch was 1. The pixel pitch can also be in
+millimeters, but then the focal length and optical center must be in the same
+units. Upon conversion to CSM Frame cameras, the focal length is kept as-is, but
+the optical center is divided by the pixel pitch, as CSM expects pixel units. 
 
 It is suggested to not optimize the optical center (at least in a first pass),
 as that correlates with the camera pose and can lead to an implausible solution.
@@ -185,11 +183,11 @@ that out.
 If invoked with ``--refine-intrinsics none``, the provided intrinsics will be
 passed to the CSM model, but then only the camera pose will be refined. This
 is different than just using ``--refine-camera`` alone, which does not support
-distortion.
+lens distortion.
 
 If the camera model is contained within the image, pass the image to
 ``--input-camera``. Instead of specifying the focal length, optical center,
-and distortion, can pass a camera model having those to ``--sample-file``.
+and distortion, one can pass a camera model having those to ``--sample-file``.
 
 To transfer the intrinsics produced by the invocation above to another camera
 acquired with the same sensor, run::
@@ -219,8 +217,8 @@ CSM linescan cameras
 This program can take as input a linescan camera, such as WorldView
 (:numref:`dg_tutorial`), Pleiades (:numref:`pleiades`), ASTER (:numref:`aster`),
 and CSM (:numref:`csm`), and convert it to the CSM linescan model state format
-(:numref:`csm_state`). This allows one to use ASP with a combination of
-linescan cameras from different vendors and also with Frame cameras
+(:numref:`csm_state`). This allows one to use ASP with a combination of linescan
+cameras from different vendors and also with Frame cameras
 (:numref:`ba_frame_linescan`).
 
 An example is as follows::
@@ -267,9 +265,9 @@ to the image lines.
 Because of this, the invocation above does an in-sensor 90-degree clockwise
 rotation. The image must be rotated as well, to be consistent with the new camera. 
 
-The preferred way to do this is with the ``image_mosaic`` option ``--rotate-90``
-(:numref:`image_mosaic`). This will handle large images, unlike the ImageMagick
-``convert`` program. 
+The preferred way to rotate an image is with the ``image_mosaic`` option
+``--rotate-90`` (:numref:`image_mosaic`). This will handle large images, unlike
+the ImageMagick ``convert`` program. 
 
 The input and output cameras are not directly comparable via ``cam_test``
 (:numref:`cam_test`) because of the in-sensor rotation, yet a sanity check of
