@@ -83,8 +83,8 @@ void parseKeysVals(std::string const& file,
 /// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
 /// so it may have some items there beforehand.
 // TODO(oalexan1): This will fail if VAL1 has equal signs.
-void asp::parse_append_metadata(std::string const& metadata,
-                                std::map<std::string, std::string> & keywords){
+void parse_append_metadata(std::string const& metadata,
+                           std::map<std::string, std::string> & keywords) {
   
   std::istringstream is(metadata);
   std::string meta, var, val;

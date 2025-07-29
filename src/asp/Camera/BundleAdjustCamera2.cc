@@ -346,7 +346,7 @@ std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
     vw::vw_out() << "Writing: " << cam_file << "\n";
     bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
     if (has_datum)
-      vw::vw_out() << std::setprecision(6)
+      vw::vw_out() << std::setprecision(8)
                    << "Camera center for " << cam_file << ": "
                    << datum.cartesian_to_geodetic(out_cam.camera_center())
                    << " (longitude, latitude, height above datum(m))\n\n";
@@ -386,7 +386,7 @@ std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
     vw::vw_out() << "Writing: " << cam_file << "\n";
     bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
     if (has_datum)
-      vw::vw_out() << std::setprecision(6)
+      vw::vw_out() << std::setprecision(8)
                    << "Camera center for " << cam_file << ": "
                    << datum.cartesian_to_geodetic(out_cam.camera_center())
                    << " (longitude, latitude, height above datum(m))\n\n";
@@ -424,7 +424,7 @@ std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
     // Ensure this text is not messed up when writing in parallel
     bool has_datum = (datum.name() != asp::UNSPECIFIED_DATUM);
     if (has_datum)
-      vw::vw_out() << std::setprecision(6)
+      vw::vw_out() << std::setprecision(8)
                    << "Camera center for " << cam_file << ": "
                    << datum.cartesian_to_geodetic(out_cam->camera_center(vw::Vector2()))
                    << " (longitude, latitude, height above datum(m))\n";
