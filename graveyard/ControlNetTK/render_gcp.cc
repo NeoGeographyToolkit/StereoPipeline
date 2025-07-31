@@ -28,7 +28,7 @@ namespace fs = boost::filesystem;
 #include <vw/FileIO.h>
 #include <vw/Image/Algorithms.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 using namespace vw;
 
 // Support for ISIS image files

@@ -29,6 +29,7 @@
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/FileUtils.h>
+#include <asp/asp_config.h>
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/IsisCameraModel.h>

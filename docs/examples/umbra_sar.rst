@@ -133,6 +133,8 @@ in a local UTM projection (:numref:`point2dem_proj`)::
 It is suggested to compare the resulting terrain with the prior reference
 terrain in ``ref.tif``.
 
+Check if the stereo convergence angle is reasonable, as mentioned earlier.
+
 The ASP-created DEM was aligned to the reference DEM with ``pc_align``
 (:numref:`pc_align`)::
 

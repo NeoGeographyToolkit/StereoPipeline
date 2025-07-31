@@ -28,6 +28,7 @@
 #include <asp/Sessions/CameraModelLoader.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
+#include <asp/asp_config.h>
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/Equation.h>

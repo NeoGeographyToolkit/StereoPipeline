@@ -905,7 +905,7 @@ Creation of a terrain model
 Inspect the mapprojected images created with the new cameras. They will likely
 be more consistent than before. Look at the convergence angles report
 (:numref:`ba_conv_angle`). Hopefully this angle will have a reasonable value,
-such as between 10 and 30 degrees, or so.
+such as between 10 and 40 degrees.
 
 Run stereo and DEM creation with the mapprojected images and the ``asp_mgm``
 algorithm. It is suggested to follow very closely the steps in

@@ -456,7 +456,8 @@ if __name__ == '__main__':
             spawn_to_nodes(ParallelBaStep.statistics, num_nodes, output_prefix, self_args)
             
             # Run the bounds step as a single process
-            args.extend(['--skip-matching']) # this will also skip stats
+            if '--skip-matching' not in args:
+                args.extend(['--skip-matching']) # this will also skip stats
             run_job('bundle_adjust', args + ['--calc-normalization-bounds'],
                     job_id=-1, 
                     msg='%d: Normalization bounds' % step)
@@ -492,7 +493,8 @@ if __name__ == '__main__':
         if (opt.entry_point <= step):
             if (opt.stop_point <= step):
                 sys.exit()
-            args.extend(['--skip-matching'])
+            if '--skip-matching' not in args:
+                args.extend(['--skip-matching'])
             run_job('bundle_adjust', args, job_id=-1, msg='%d: Optimizing' % step)
 
             # End main process case

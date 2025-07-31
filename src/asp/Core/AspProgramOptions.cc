@@ -19,8 +19,8 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/EnvUtils.h>
 #include <asp/Core/FileUtils.h>
-
 #include <asp/asp_date_config.h>
+#include <asp/asp_config.h>
 
 #include <vw/Core/Log.h>
 #include <vw/Core/System.h>
