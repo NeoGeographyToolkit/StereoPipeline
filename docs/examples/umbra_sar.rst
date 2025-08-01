@@ -120,6 +120,9 @@ recommended (:numref:`mapproj-example`).
 The ``asp_mgm`` algorithm worked much better than the default ``asp_bm``
 (:numref:`stereo_alg_overview`).
 
+If this program fails to find interest points, the same suggestions as for 
+bundle adjustment earlier apply.
+
 A terrain model was produced with ``point2dem`` (:numref:`point2dem`),
 in a local UTM projection (:numref:`point2dem_proj`)::
 
@@ -137,7 +140,6 @@ Check if the stereo convergence angle is reasonable, as mentioned earlier.
 
 The ASP-created DEM was aligned to the reference DEM with ``pc_align``
 (:numref:`pc_align`)::
-
 
     pc_align                                  \
       --max-displacement 300                  \
