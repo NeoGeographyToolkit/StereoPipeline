@@ -1294,7 +1294,7 @@ Command-line options
     ``--heights-from-dem-robust-threshold``.
 
 --heights-from-dem-robust-threshold <double (default: 0.1)> 
-    The robust threshold to use keep the triangulated points close to the DEM if
+    The robust threshold to use to keep the triangulated points close to the DEM if
     specified via ``--heights-from-dem``. This is applied after the point
     differences are divided by ``--heights-from-dem-uncertainty``. It will
     attenuate large height difference outliers. It is suggested to not modify

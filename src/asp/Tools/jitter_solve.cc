@@ -180,7 +180,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "triangulated points to the DEM specified via --heights-from-dem.")
     ("heights-from-dem-robust-threshold",
      po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.1),
-     "The robust threshold to use keep the triangulated points close to the DEM if "
+     "The robust threshold to use to keep the triangulated points close to the DEM if "
       "specified via --heights-from-dem. This is applied after the point differences "
       "are divided by --heights-from-dem-uncertainty. It will attenuate large height "
       "difference outliers. It is suggested to not modify this value, and adjust instead "
