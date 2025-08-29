@@ -17,7 +17,10 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Erode less at at image boundary during filtering when ``--subpixel-mode`` is
     not between 1 and 6 (option ``--edge-buffer-size``,
     :numref:`filter_options`).
-
+  * Determination of interest point matches is optional when either
+    ``--corr-search`` or ``--seed-mode 2`` are set
+    (:numref:`stereodefault`).
+    
 parallel_sfs (:numref:`parallel_sfs`):
    * When albedo and / or haze is modeled, initial estimates for these are
      produced for the full site (:numref:`parallel_sfs_usage`).

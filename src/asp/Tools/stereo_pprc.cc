@@ -604,11 +604,15 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     try {
         asp::compute_ip_LR(opt.out_prefix);
       } catch (const std::exception& e) {
-        if (!asp::stereo_settings().search_range.empty()) {
-          // If the user provided a search range, we must have the IP.
+        if (!asp::stereo_settings().search_range.empty() ||
+            stereo_settings().seed_mode == 2) {
+          // If the user provided a search range or disp from DEM, IP are not needed.
           vw_out() << "Could not compute interest points. The error was:\n";
           vw_out() << e.what();
-          vw_out() << "Will continue, given that --corr-search was set.\n";
+          if (!asp::stereo_settings().search_range.empty())
+            vw_out() << "Will continue, given that --corr-search was set.\n";
+          if (stereo_settings().seed_mode == 2)
+            vw_out() << "Will continue, given the option --seed-mode 2.\n";
       } else {
         vw::vw_throw(vw::ArgumentErr() << e.what() << "\n");
       }

@@ -119,7 +119,7 @@ namespace asp {
       asp::parseCamTypes(session_name, tri_cam_type, mapproj_cam_type);
       vw::vw_out(WarningMessage)
            << "Assuming mapprojection was done with camera type: "
-           << mapproj_cam_type << ".\n";
+           << mapproj_cam_type << "\n";
       cam_type = mapproj_cam_type;
       has_geoheader_cam_type = false;
     }
@@ -580,7 +580,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   bool has_nodata = true;
   float output_nodata = -32768.0;
   vw_out() << "\t--> Writing pre-aligned images.\n";
-  vw_out() << "\t--> Writing: " << left_output_file << ".\n";
+  vw_out() << "\t--> Writing: " << left_output_file << "\n";
   vw::Stopwatch sw3;
   sw3.start();
   block_write_gdal_image(left_output_file, apply_mask(Limg, output_nodata),
@@ -590,7 +590,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   sw3.stop();
   vw_out() << "Writing left image elapsed time: " << sw3.elapsed_seconds() << " s\n";
 
-  vw_out() << "\t--> Writing: " << right_output_file << ".\n";
+  vw_out() << "\t--> Writing: " << right_output_file << "\n";
   vw::Stopwatch sw4;
   sw4.start();
   if (stereo_settings().alignment_method == "none") {
@@ -1044,7 +1044,7 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
   bool has_right_georef = read_georeference(right_georef, this->right_cropped_image());
 
   std::string left_aligned_bathy_mask_file = StereoSession::left_aligned_bathy_mask();
-  vw_out() << "\t--> Writing: " << left_aligned_bathy_mask_file << ".\n";
+  vw_out() << "\t--> Writing: " << left_aligned_bathy_mask_file << "\n";
   block_write_gdal_image(left_aligned_bathy_mask_file,
                          apply_mask(left_aligned_bathy_mask, left_bathy_nodata),
                          has_left_georef, left_georef,
@@ -1054,7 +1054,7 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
   // Use same logic as when the right aligned image is written
   if (stereo_settings().alignment_method == "none") {
     std::string right_aligned_bathy_mask_file = StereoSession::right_aligned_bathy_mask();
-    vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
+    vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << "\n";
     block_write_gdal_image(right_aligned_bathy_mask_file,
                            apply_mask(right_aligned_bathy_mask, right_bathy_nodata),
                            has_right_georef, right_georef,
@@ -1062,7 +1062,7 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
                            TerminalProgressCallback("asp","\t  R bathy mask:  "));
   } else {
     std::string right_aligned_bathy_mask_file = StereoSession::right_aligned_bathy_mask();
-    vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
+    vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << "\n";
     block_write_gdal_image(right_aligned_bathy_mask_file,
                            apply_mask(crop(edge_extend(right_aligned_bathy_mask,
                                                        bathy_ext_nodata),
