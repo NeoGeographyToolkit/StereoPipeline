@@ -147,8 +147,8 @@ binDir=$binDir/bin
 export PATH=$binDir:$PATH
 echo "Binaries are in $binDir"
 if [ ! -d "$binDir" ]; then
-    echo "Error: Directory: $binDir does not exist"
-    exit 1
+    echo "Error: Directory: $binDir does not exist. Build failed."
+    # Do not exit so we can save the build log
 fi
 
 # TODO(oalexan1): Run the tests as a different step in the .yml file.
@@ -158,13 +158,13 @@ fi
 # TODO(oalexan1): Must fetch the StereoPipelineTest repo and update
 # the scripts extracted from the tarball.
 cd $baseDir
-echo Build done. Now testing.
+echo Testing the build.
 wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 
 # Check if we got the tarball
 if [ ! -f "StereoPipelineTest.tar" ]; then
-    echo "Error: File: StereoPipelineTest.tar does not exist"
-    exit 1
+    echo "Error: File: StereoPipelineTest.tar does not exist. Test failed."
+    # Do not exit so we can save the build log
 fi
 tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 
@@ -178,7 +178,7 @@ tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 # Go to the test dir
 if [ ! -d "$testDir" ]; then
     echo "Error: Directory: $testDir does not exist"
-    exit 1
+    # Do not exit so we can save the build log
 fi
 cd $testDir
 
@@ -219,9 +219,11 @@ mkdir -p $packageDir
     
 # Save the resulting test results as part of the artifacts
 # This helps with debugging later
+echo Copying the build
 (cd $testDir/..; tar cf $packageDir/$(basename $testDir).tar $(basename $testDir))
 
 # Save these logs as part of the artifacts
+echo Copying the logs
 cp -rfv $out_build_vw $out_build_asp $reportFile $packageDir
 
 # Wipe the extracted tarball so we do not upload it
