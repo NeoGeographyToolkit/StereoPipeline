@@ -36,6 +36,10 @@
 # This script will overwrite the dependencies. If in doubt, use it with a new
 # tag, as the dependencies are very hard to recreate.
 
+# If the tarball with dependencies already exists locally, rather than being
+# fetched as an artifact first, the commands from the latter part of 
+# this script can be run manually to upload the tarball as a release.
+
 # How to run this script:
 
 # For Mac x64:

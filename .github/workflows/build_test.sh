@@ -89,6 +89,7 @@ make -j10 install > /dev/null 2>&1 # this is too verbose
 out_build_vw=$(pwd)/output_build_vw.txt
 make install > $out_build_vw 2>&1
 tail -n 500 $out_build_vw
+echo Log of VW build will be saved with the artifacts in $(basename $out_build_vw)
 
 # Build StereoPipeline
 cd $aspRepoDir
@@ -114,6 +115,7 @@ fi
 out_build_asp=$(pwd)/output_build_asp.txt
 make install > $out_build_asp 2>&1
 tail -n 500 $out_build_asp
+echo Log of ASP build will be saved with the artifacts in $(basename $out_build_asp)
 
 # Package with BinaryBuilder. The Mac Arm and Mac x84 use
 # different paths to the python environment.
