@@ -606,12 +606,21 @@ Any such files can be inspected with ``stereo_gui``
 ISIS control network
 ^^^^^^^^^^^^^^^^^^^^
 
-This program can read and write the ISIS binary control network format,
-if invoked with the option ``--isis-cnet filename.net``. This format makes it 
-possible to handle a very large number of control points. 
+This program can read and write ISIS ``jigsaw`` binary control networks. Example::
 
-In this case, ``bundle_adjust`` will also write an updated version of this file,
-with the name ``<output prefix>.net`` (instead of match files). 
+    bundle_adjust               \
+    --image-list image_list.txt \
+    --isis-cnet controlNet.net  \
+    -o ba/run
+
+This format makes it possible to handle a very large number of control points. 
+
+It is very important that the images in the list be in the order as expected in
+the control network. A copy of this list will be saved, for the record, in the 
+output directory.
+
+In this mode, ``bundle_adjust`` will also write an updated version of the input
+control network, with the name ``<output prefix>.net`` (instead of match files). 
 
 If GCP are provided via a .gcp file (:numref:`bagcp`), these will be added to
 the optimization and to the output ISIS control network file.
