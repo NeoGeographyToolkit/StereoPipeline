@@ -117,6 +117,14 @@ make install > $out_build_asp 2>&1
 tail -n 500 $out_build_asp
 echo Log of ASP build will be saved with the artifacts in $(basename $out_build_asp)
 
+# Bugfix for duplicate LC_PATH failure. Wipe all values of LC_PATH.
+for lib in $installDir/lib/*dylib; do
+    for f in $(otool -l $lib | grep -A 3 LC_RPATH | grep path | awk '{print $2}'); do
+        install_name_tool -delete_rpath  $f $lib
+    done
+done
+export DYLD_LIBRARY_PATH=$installDir/lib:$DYLD_LIBRARY_PATH
+
 # Package with BinaryBuilder. The Mac Arm and Mac x84 use
 # different paths to the python environment.
 echo Packaging the build
