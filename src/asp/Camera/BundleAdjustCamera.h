@@ -29,7 +29,6 @@
 #ifndef __BUNDLE_ADJUST_CAMERA_H__
 #define __BUNDLE_ADJUST_CAMERA_H__
 
-#include <asp/Core/Macros.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Core/BundleAdjustUtils.h>
 
@@ -674,21 +673,6 @@ void calcCameraCenters(std::string const& stereo_session,
                        std::vector<vw::CamPtr>  const& cams,
                        std::vector<std::vector<vw::Vector3>> & cam_positions);
 
-// Update the set of outliers based on param_storage
-void updateOutliers(vw::ba::ControlNetwork const& cnet, 
-                      asp::BAParams const& param_storage,
-                      std::set<int> & outliers);
-
-// Filter matches by projection window.
-// TODO(oalexan1): Use this in jitter_solve.
-// TODO(oalexan1): This needs to be done before subsampling the matches
-void initial_filter_by_proj_win(asp::BaBaseOptions          & opt,
-                                asp::BAParams               & param_storage, 
-                                vw::ba::ControlNetwork const& cnet);
-
-void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
-                                      vw::ba::ControlNetwork const& cnet,
-                                      asp::BAParams & param_storage);
 
 // Interface for setting/getting intrinsics for all supported camera models
 void get_optical_center(vw::camera::CameraModel const* cam, vw::Vector2 & center);

@@ -20,6 +20,7 @@
 
 #include <asp/Camera/BundleAdjustEigen.h>
 #include <asp/Core/EigenTransformUtils.h>
+#include <asp/Camera/BundleAdjustOutliers.h>
 #include <asp/Rig/nvm.h>
 
 #include <vw/Camera/PinholeModel.h>
@@ -204,7 +205,7 @@ void saveNvm(asp::BaBaseOptions                const& opt,
              std::map<std::string, Eigen::Vector2d> & optical_offsets) {
 
   std::set<int> outliers;
-  updateOutliers(cnet, param_storage, outliers);
+  asp::updateOutliers(cnet, param_storage, outliers);
  
   std::vector<Eigen::Vector3d> tri_vec;
   exportTriPoints(param_storage, tri_vec);

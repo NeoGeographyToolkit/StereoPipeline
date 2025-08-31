@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2024, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -24,6 +24,7 @@
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Camera/BundleAdjustOptions.h>
 #include <asp/Camera/BundleAdjustResiduals.h>
+#include <asp/Camera/BundleAdjustOutliers.h>
 #include <asp/Camera/BundleAdjustIsis.h>
 #include <asp/Camera/BundleAdjustEigen.h>
 #include <asp/Camera/BaseCostFuns.h>
@@ -96,214 +97,6 @@ private:
   asp::BAParams const& m_param_storage;
 };
 
-// ----------------------------------------------------------------
-// Start outlier functions
-
-/// Add to the outliers based on the large residuals
-int add_to_outliers(vw::ba::ControlNetwork & cnet,
-                    asp::CRNJ const& crn,
-                    asp::BAParams & param_storage,
-                    asp::BaOptions const& opt,
-                    std::vector<size_t> const& cam_residual_counts,
-                    std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
-                    size_t num_gcp_or_dem_residuals,
-                    size_t num_uncertainty_residuals,
-                    size_t num_tri_residuals,
-                    size_t num_cam_pos_residuals,
-                    std::vector<vw::Vector3> const& reference_vec,
-                    ceres::Problem &problem) {
-
-  vw_out() << "Removing outliers.\n";
-
-  size_t num_points  = param_storage.num_points();
-  size_t num_cameras = param_storage.num_cameras();
-
-  // Compute the reprojection error. Adjust for residuals being divided by pixel sigma.
-  // Do not use the attenuated residuals due to the loss function.
-  std::vector<double> residuals;
-  asp::compute_residuals(opt, crn, param_storage,  cam_residual_counts, pixel_sigmas,
-                    num_gcp_or_dem_residuals, num_uncertainty_residuals,
-                    num_tri_residuals, num_cam_pos_residuals,
-                    reference_vec, problem,
-                    // output
-                    residuals);
-
-  // Compute the mean residual at each xyz, and how many times that residual is seen
-  std::vector<double> mean_residuals;
-  std::vector<int> num_point_observations;
-  compute_mean_residuals_at_xyz(crn, residuals, param_storage,
-                                // outputs
-                                mean_residuals, num_point_observations);
-
-  // The number of mean residuals is the same as the number of points,
-  // of which some are outliers. Hence need to collect only the
-  // non-outliers so far to be able to remove new outliers.  Need to
-  // follow the same logic as when residuals were formed. And also ignore GCP.
-  std::vector<double> actual_residuals;
-  std::set<int> was_added;
-  for (size_t icam = 0; icam < num_cameras; icam++) {
-    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
-
-      // The index of the 3D point
-      int ipt = (**fiter).m_point_id;
-
-      // skip existing outliers
-      if (param_storage.get_point_outlier(ipt))
-        continue;
-
-      // Skip gcp, those are never outliers no matter what.
-      if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
-        continue;
-
-      // We already encountered this residual in the previous camera
-      if (was_added.find(ipt) != was_added.end())
-        continue;
-
-      was_added.insert(ipt);
-      actual_residuals.push_back(mean_residuals[ipt]);
-      //vw_out() << "XYZ residual " << ipt << " = " << mean_residuals[ipt] << std::endl;
-    }
-  } // End double loop through all the observations
-
-  double pct      = 1.0 - opt.remove_outliers_params[0]/100.0;
-  double factor   = opt.remove_outliers_params[1];
-  double max_pix1 = opt.remove_outliers_params[2];
-  double max_pix2 = opt.remove_outliers_params[3];
-
-  double b, e;
-  vw::math::find_outlier_brackets(actual_residuals, pct, factor, b, e);
-  vw_out() << "Percentile-based outlier bounds: b = " << b << ", e = " << e << ".\n";
-
-  // If this is too aggressive, the user can tame it. It is
-  // unreasonable to throw out pixel residuals as small as 1 or 2
-  // pixels. We will not use the b, because the residuals start at 0.
-  // "max_pix2" sets the minimum error that can be thrown out.
-  e = std::min(std::max(e, max_pix1), max_pix2);
-
-  vw_out() << "Removing as outliers points with mean reprojection error > " << e << ".\n";
-
-  // Add to the outliers by reprojection error. Must repeat the same logic as above.
-  // TODO(oalexan1): This removes a 3D point altogether if any reprojection
-  // errors for it are big. Need to only remove bad reprojection errors
-  // and keep a 3D point if it is left with at least two reprojection residuals.
-  int num_outliers_by_reprojection = 0, total = 0;
-  for (size_t icam = 0; icam < num_cameras; icam++) {
-    typedef CameraNode<JFeature>::const_iterator crn_iter;
-    for (crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
-
-      // The index of the 3D point
-      int ipt = (**fiter).m_point_id;
-
-      total++;
-
-      // skip existing outliers
-      if (param_storage.get_point_outlier(ipt))
-        continue;
-
-      // Skip gcp
-      if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
-        continue;
-
-      if (mean_residuals[ipt] > e) {
-        param_storage.set_point_outlier(ipt, true);
-        num_outliers_by_reprojection++;
-      }
-    }
-  } // End double loop through all the observations
-  vw_out() << "Removed " << num_outliers_by_reprojection << " outliers out of "
-           << total << " interest points by reprojection error. Ratio: "
-           << double(num_outliers_by_reprojection) / double(total) <<".\n";
-
-  // Remove outliers by elevation limit
-  int num_outliers_by_elev_or_lonlat = 0;
-  if (opt.elevation_limit[0] < opt.elevation_limit[1] || !opt.lon_lat_limit.empty()) {
-
-    for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
-
-      if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
-        continue; // don't filter out GCP
-      if (param_storage.get_point_outlier(ipt))
-        continue; // skip outliers
-
-      // The GCC coordinate of this point
-      const double * point = param_storage.get_point_ptr(ipt);
-      Vector3 xyz(point[0], point[1], point[2]);
-      Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
-      if (opt.elevation_limit[0] < opt.elevation_limit[1] &&
-          (llh[2] < opt.elevation_limit[0] ||
-           llh[2] > opt.elevation_limit[1])) {
-        param_storage.set_point_outlier(ipt, true);
-        num_outliers_by_elev_or_lonlat++;
-        continue;
-      }
-
-      Vector2 lon_lat = subvector(llh, 0, 2);
-      if (!opt.lon_lat_limit.empty() && !opt.lon_lat_limit.contains(lon_lat)) {
-        param_storage.set_point_outlier(ipt, true);
-        num_outliers_by_elev_or_lonlat++;
-        continue;
-      }
-
-    }
-    vw_out() << "Removed " << num_outliers_by_elev_or_lonlat
-             << " outliers by elevation range and/or lon-lat range.\n";
-  }
-
-  // Remove outliers by convergence angle
-  if (opt.min_triangulation_angle > 0)
-    asp::filterOutliersByConvergenceAngle(opt, cnet, param_storage);
-
-  // Remove outliers based on spatial extent. Be more generous with
-  // leaving data in than what the input parameters suggest, because
-  // sometimes inliers in space need not be uniformly distributed.
-  double pct_factor = (3.0 + opt.remove_outliers_params[0]/100.0)/4.0; // e.g., 0.9375
-  double outlier_factor = 2 * opt.remove_outliers_params[1];           // e.g., 6.0.
-  std::vector<double> x_vals, y_vals, z_vals;
-  for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
-
-    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
-      continue; // don't filter out GCP
-    if (param_storage.get_point_outlier(ipt))
-      continue; // skip outliers
-
-    // The GCC coordinate of this point
-    const double * point = param_storage.get_point_ptr(ipt);
-    x_vals.push_back(point[0]);
-    y_vals.push_back(point[1]);
-    z_vals.push_back(point[2]);
-  }
-  vw::BBox3 estim_bdbox;
-  asp::estimate_inliers_bbox(pct_factor, pct_factor, pct_factor,
-                             outlier_factor,
-                             x_vals, y_vals, z_vals,
-                             estim_bdbox); // output
-
-  int num_box_outliers = 0;
-  for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
-
-    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
-      continue; // don't filter out GCP
-    if (param_storage.get_point_outlier(ipt))
-      continue; // skip outliers
-
-    // The GCC coordinate of this point
-    const double * point = param_storage.get_point_ptr(ipt);
-    Vector3 xyz(point[0], point[1], point[2]);
-    if (!estim_bdbox.contains(xyz)) {
-      param_storage.set_point_outlier(ipt, true);
-      num_box_outliers++;
-    }
-  }
-
-  vw_out() << "Removed " << num_box_outliers << " "
-           << "outlier(s) based on spatial distribution of triangulated points.\n";
-
-  int num_remaining_points = num_points - param_storage.get_num_outliers();
-
-  return num_outliers_by_reprojection + num_outliers_by_elev_or_lonlat;
-}
-
-// End outlier functions
 
 // One pass of bundle adjustment
 int do_ba_ceres_one_pass(asp::BaOptions      & opt,
@@ -326,7 +119,7 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
   convergence_reached = true;
 
   if (opt.proj_win != BBox2(0, 0, 0, 0) && (!opt.proj_str.empty()))
-    initial_filter_by_proj_win(opt, param_storage, cnet);
+    asp::filterOutliersProjWin(opt, param_storage, cnet);
 
   // How many times an xyz point shows up in the problem
   std::vector<int> count_map(num_points);
