@@ -195,6 +195,9 @@ This will install ASP 3.5.0 together with ISIS 8.3.0. Note that the *latest
 build* (:numref:`release`) may have more features and fixes than
 this official release.
 
+Post-installation
+~~~~~~~~~~~~~~~~~
+
 Run::
 
   conda activate asp
@@ -204,12 +207,17 @@ and set::
     export ISISROOT=$CONDA_PREFIX
 
 in any new shell. These should put the ASP binaries in the path, and will also
-initialize various environmental variables, including ``ISISROOT`` and
-``PROJ_DATA``. See also :numref:`release` if desired to set the ``PATH``
-variable.
+initialize various environmental variables, including ``ISISROOT`` and  
+``PROJ_DATA``.
 
-For ISIS, the ``ISISDATA`` environmental variable also needs to be set
-(:numref:`planetary_images`).
+Check if the ``stereo`` command is found by running::
+
+    which stereo
+
+When working with planetary images with ISIS, the ``ISISDATA`` environmental
+variable also needs to be set (:numref:`planetary_images`). For more information
+see the `ISIS installation instructions
+<https://github.com/USGS-Astrogeology/ISIS3>`_.
 
 Alternative approaches
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -250,30 +258,6 @@ Run, as before::
 
 For how to build ASP, without and with conda, see :numref:`build_from_source`
 and :numref:`conda_build`.
-
-Post-installation
-~~~~~~~~~~~~~~~~~
-
-Check that the ``stereo`` command can be found as::
-
-    which stereo
-
-If using ISIS, the environmental variable ISISROOT should be set to
-point to this distribution, such as::
-
-    export ISISROOT=$HOME/miniconda3/envs/asp
-
-If you are working with planetary data, you need to complete
-the ISIS installation steps from this new ``asp`` conda environment.
-Your new ``asp`` environment already has the base ISIS software
-installed, but you must run the script which sets the ISIS environment
-variables, and also install the appropriate ISIS data files (if you also
-have a separate ISIS conda environment, you can use the set-up script
-to point the ``asp`` conda environment's ``ISISDATA`` environment
-variable to your existing data area).  
-
-For more information see the `ISIS installation instructions
-<https://github.com/USGS-Astrogeology/ISIS3>`_ and :numref:`planetary_images`. 
 
 .. _system_rec:
 
