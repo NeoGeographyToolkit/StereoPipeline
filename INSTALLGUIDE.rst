@@ -126,6 +126,155 @@ Fetch the software as above. Processing images without accurate camera
 pose information is described in :numref:`sfm`. See also examples for 
 declassified satellite images in :numref:`kh4`.
 
+.. _conda_intro:
+
+Conda-based installation
+------------------------
+
+The ASP 3.5.0 release (April 28, 2025) can be installed via conda, together 
+with ISIS 8.3.0 (:numref:`planetary_images`). For Mac Arm, see further down.
+
+To install ``conda``, see:
+
+    https://docs.conda.io/en/latest/miniconda.html
+
+Make the fetched installation file executable and run it, such as::
+
+    chmod u+x ./Miniconda3-latest-Linux-x86_64.sh
+    ./Miniconda3-latest-Linux-x86_64.sh
+
+on Linux, and analogously on OSX. Use the suggested::
+
+    $HOME/miniconda3
+
+directory for installation. 
+
+Create an environment for ASP as::
+
+    conda create -n asp
+    conda activate asp
+
+Add relevant channels::
+
+    conda config --env --add channels conda-forge
+    conda config --env --add channels usgs-astrogeology
+    conda config --env --add channels nasa-ames-stereo-pipeline
+
+Do not skip doing each of these three, even if you think you already
+have some of these channels.
+
+Run::
+
+    conda config --show channels
+
+to ensure that the order of channels is::
+
+    - nasa-ames-stereo-pipeline
+    - usgs-astrogeology
+    - conda-forge
+
+*Not having the channels in this order is likely to result in failure to install
+ASP.* Do not use the ``defaults`` channel.
+
+The command::
+
+    conda config --set channel_priority flexible
+
+is suggested, before running ``conda``, if the installation fails. It appears that
+for some versions of conda the strict order results in packages not being found.
+
+Install ASP with the command::
+
+    conda install                 \
+     -c nasa-ames-stereo-pipeline \
+     -c usgs-astrogeology         \
+     -c conda-forge               \
+     stereo-pipeline=3.5.0
+
+This will install ASP 3.5.0 together with ISIS 8.3.0. Note that the *latest
+build* (:numref:`release`) may have more features and fixes than
+this official release.
+
+Run::
+
+  conda activate asp
+  
+and set::
+
+    export ISISROOT=$CONDA_PREFIX
+
+in any new shell. These should put the ASP binaries in the path, and will also
+initialize various environmental variables, including ``ISISROOT`` and
+``PROJ_DATA``. See also :numref:`release` if desired to set the ``PATH``
+variable.
+
+For ISIS, the ``ISISDATA`` environmental variable also needs to be set
+(:numref:`planetary_images`).
+
+Alternative approaches
+~~~~~~~~~~~~~~~~~~~~~~
+  
+An experimental ASP conda package for the Mac Arm processors is available, but
+without ISIS, for the time being. The package name is
+``stereo-pipeline=3.5.0_no_isis``. An Arm binary daily build is provided, however
+(:numref:`release`). That one has ISIS but Apple's security policies may prevent
+it from running, unless the user overrides them.
+
+Consider using ``mamba`` instead of ``conda`` for the installation, as it is
+much faster. (Note that recent ``conda`` distributions default to using the
+``mamba`` solver.)
+
+Using a precise list of packages
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some variability may exist in the precise dependencies fetched by conda. For the
+record, the full environment for this release can be found as a set of .yaml
+files in the ``conda`` subdirectory of the Stereo Pipeline GitHub repository.
+So, alternatively, the installation can happen as follows.
+
+First, set::
+
+  conda config --set channel_priority flexible
+
+as apparently otherwise conda will not be able to reconcile the packages.
+
+Then, on Linux, run::
+
+    conda env create -n asp -f asp_3.5.0_linux_env.yaml
+
+and analogously on Mac.
+
+Run, as before::
+
+    conda activate asp
+
+For how to build ASP, without and with conda, see :numref:`build_from_source`
+and :numref:`conda_build`.
+
+Post-installation
+~~~~~~~~~~~~~~~~~
+
+Check that the ``stereo`` command can be found as::
+
+    which stereo
+
+If using ISIS, the environmental variable ISISROOT should be set to
+point to this distribution, such as::
+
+    export ISISROOT=$HOME/miniconda3/envs/asp
+
+If you are working with planetary data, you need to complete
+the ISIS installation steps from this new ``asp`` conda environment.
+Your new ``asp`` environment already has the base ISIS software
+installed, but you must run the script which sets the ISIS environment
+variables, and also install the appropriate ISIS data files (if you also
+have a separate ISIS conda environment, you can use the set-up script
+to point the ``asp`` conda environment's ``ISISDATA`` environment
+variable to your existing data area).  
+
+For more information see the `ISIS installation instructions
+<https://github.com/USGS-Astrogeology/ISIS3>`_ and :numref:`planetary_images`. 
+
 .. _system_rec:
 
 System requirements
@@ -192,149 +341,3 @@ and an image can be rewritten with square blocks using the command::
 If the new images are used instead, that warning should go away and
 the processing time should go down. Both ``gdalinfo`` and
 ``gdal_translate`` are included with ASP.
-
-.. _conda_intro:
-
-Fetching pre-compiled ASP with conda
-------------------------------------
-
-The ASP 3.5.0 release (April 28, 2025) can be installed via conda, together 
-with ISIS 8.3.0 (:numref:`planetary_images`). For Mac Arm, see further down.
-
-To install ``conda``, see:
-
-    https://docs.conda.io/en/latest/miniconda.html
-
-Make the fetched installation file executable and run it, such as::
-
-    chmod u+x ./Miniconda3-latest-Linux-x86_64.sh
-    ./Miniconda3-latest-Linux-x86_64.sh
-
-on Linux, and analogously on OSX. Use the suggested::
-
-    $HOME/miniconda3
-
-directory for installation. 
-
-Create an environment for ASP as::
-
-    conda create -n asp
-    conda activate asp
-
-Add relevant channels::
-
-    conda config --env --add channels conda-forge
-    conda config --env --add channels usgs-astrogeology
-    conda config --env --add channels nasa-ames-stereo-pipeline
-
-Do not skip doing each of these three, even if you think you already
-have some of these channels.
-
-Run::
-
-    conda config --show channels
-
-to ensure that the order of channels is::
-
-    - nasa-ames-stereo-pipeline
-    - usgs-astrogeology
-    - conda-forge
-
-*Not having the channels in this order is likely to result in failure to install
-ASP.* Do not use the ``defaults`` channel.
-
-The command::
-
-    conda config --set channel_priority flexible
-
-is suggested, before running ``conda``, if the installation fails. It appears that
-for some versions of conda the strict order results in packages not being found.
-
-Install ASP with the command::
-
-    conda install                 \
-     -c nasa-ames-stereo-pipeline \
-     -c usgs-astrogeology         \
-     -c conda-forge               \
-     stereo-pipeline=3.5.0
-
-This will install ASP 3.5.0 together with ISIS 8.3.0. Note that the *latest
-build* (:numref:`release`) may have more features and fixes than
-this official release.
-
-An experimental ASP conda package for the Mac Arm processors is available, but
-without ISIS, for the time being. The package name is
-``stereo-pipeline=3.5.0_no_isis``. An Arm binary daily build is provided, however
-(:numref:`release`). That one has ISIS but Apple's security policies may prevent
-it from running, unless the user overrides them.
-
-Alternatively, consider using ``mamba`` instead of ``conda`` for the
-installation, as it is much faster. (Note that recent ``conda`` distributions
-default to using the ``mamba`` solver.)
-
-Run::
-
-  conda activate asp
-  
-and set::
-
-    export ISISROOT=$CONDA_PREFIX
-
-in any new shell. These should put the ASP binaries in the path, and will also
-initialize various environmental variables, including ``ISISROOT`` and
-``PROJ_DATA``. See also :numref:`release` if desired to set the ``PATH``
-variable.
-
-For ISIS, the ``ISISDATA`` environmental variable also needs to be set
-(:numref:`planetary_images`).
-  
-Using a precise list of packages
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Some variability may exist in the precise dependencies fetched by conda. For the
-record, the full environment for this release can be found as a set of .yaml
-files in the ``conda`` subdirectory of the Stereo Pipeline GitHub repository.
-So, alternatively, the installation can happen as follows.
-
-First, set::
-
-  conda config --set channel_priority flexible
-
-as apparently otherwise conda will not be able to reconcile the packages.
-
-Then, on Linux, run::
-
-    conda env create -n asp -f asp_3.5.0_linux_env.yaml
-
-and analogously on Mac.
-
-Run, as before::
-
-    conda activate asp
-
-For how to build ASP, without and with conda, see :numref:`build_from_source`
-and :numref:`conda_build`.
-
-Post-installation
-~~~~~~~~~~~~~~~~~
-
-Check that the ``stereo`` command can be found as::
-
-    which stereo
-
-If using ISIS, the environmental variable ISISROOT should be set to
-point to this distribution, such as::
-
-    export ISISROOT=$HOME/miniconda3/envs/asp
-
-If you are working with planetary data, you need to complete
-the ISIS installation steps from this new ``asp`` conda environment.
-Your new ``asp`` environment already has the base ISIS software
-installed, but you must run the script which sets the ISIS environment
-variables, and also install the appropriate ISIS data files (if you also
-have a separate ISIS conda environment, you can use the set-up script
-to point the ``asp`` conda environment's ``ISISDATA`` environment
-variable to your existing data area).  
-
-For more information see the `ISIS installation instructions
-<https://github.com/USGS-Astrogeology/ISIS3>`_ and :numref:`planetary_images`. 

@@ -619,14 +619,14 @@ It is very important that the images in the list be in the order as expected in
 the control network. A copy of this list will be saved, for the record, in the 
 output directory.
 
-In this mode, ``bundle_adjust`` will also write an updated version of the input
-control network, with the name ``<output prefix>.net`` (instead of match files). 
+In this mode, ``bundle_adjust`` will also write the updated control network in
+the ISIS format, with the name ``<output prefix>.net`` (instead of match files). 
 
 If GCP are provided via a .gcp file (:numref:`bagcp`), these will be added to
-the optimization and to the output ISIS control network file.
+the optimization and to the output control network.
 
-To have different formats for the input and output control networks, use the
-option ``--output-cnet-type``. 
+The option  ``--output-cnet-type`` explicitly sets the output format for
+interest point matches.
 
 The ``stereo_gui`` program (:numref:`stereo_gui_isis_cnet`) can visualize
 such a control network file. 
