@@ -36,7 +36,7 @@ using namespace vw;
 // Stereo Pipeline
 #include <asp/ControlNetTK/Equalization.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 using namespace asp;
 
 struct Options : public asp::BaseOptions {

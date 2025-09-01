@@ -62,6 +62,17 @@ void read_mapproj_header(std::string const& map_file,
                          std::string & image_file, std::string & cam_type,
                          std::string & cam_file, std::string & dem_file);
 
+// Compute the min, max, mean, and standard deviation of an image object and
+// write them to a file. This is not a member function.
+// - "tag" is only used to make the log messages more descriptive.
+// - If prefix and image_path is set, will cache the results to a file.
+// This makes use of the global variable: asp::stereo_settings().force_reuse_match_files.
+vw::Vector<vw::float32,6>
+gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
+             std::string const& tag,
+             std::string const& prefix,
+             std::string const& image_path);
+
 } // end namespace asp
 
 #endif//__ASP_CORE_IMAGE_UTILS_H__

@@ -24,7 +24,7 @@
 #include <vw/Math/RANSAC.h>
 #include <vw/Mosaic/ImageComposite.h>
 #include <asp/ControlNetTK/Equalization.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <limits>
 

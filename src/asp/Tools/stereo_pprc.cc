@@ -27,6 +27,7 @@
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/ThreadedEdgeMask.h>
+#include <asp/Core/ImageUtils.h>
 
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/BlobIndex.h>

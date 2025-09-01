@@ -24,7 +24,7 @@
 #include <asp/Isis/DiskImageResourceIsis.h>
 #include <asp/Isis/StereoSessionIsis.h>
 #include <asp/Core/StereoSession.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/StereoSettings.h>
 
 #include <vw/Core.h>

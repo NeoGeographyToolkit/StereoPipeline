@@ -16,12 +16,19 @@
 // __END_LICENSE__
 
 #include <asp/Core/ImageUtils.h>
+#include <asp/Core/FileUtils.h>
+#include <asp/Core/StereoSettings.h>
+
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Interpolation.h>
 
+#include <boost/filesystem.hpp>
+
 using namespace vw;
+
+namespace fs = boost::filesystem;
 
 namespace asp {
 
@@ -142,5 +149,159 @@ void read_mapproj_header(std::string const& map_file,
   if (adj_prefix == "NONE") 
     adj_prefix = "";
 } 
+
+/// Function to apply a functor to each pixel of an input image.
+/// Traverse the image row by row.
+template <class ViewT, class FuncT>
+void for_each_pixel_rowwise(const vw::ImageViewBase<ViewT> &view_, FuncT &func,
+  vw::TerminalProgressCallback const& progress) {
+
+  const ViewT& view = view_.impl();
+  typedef typename ViewT::pixel_accessor pixel_accessor;
+  pixel_accessor plane_acc = view.origin();
+
+  for (int32 plane = view.planes(); plane; plane--) { // Loop through planes
+
+    pixel_accessor row_acc = plane_acc;
+    for (int32 row = 0; row<view.rows(); row++) { // Loop through rows
+      progress.report_fractional_progress(row, view.rows());
+      pixel_accessor col_acc = row_acc;
+      for (int32 col = view.cols(); col; col--) { // Loop along the row
+        func(*col_acc);  // Apply the functor to this pixel value
+        col_acc.next_col();
+      }
+      row_acc.next_row();
+    }
+    plane_acc.next_plane();
+  }
+  progress.report_finished();
+}
+
+/// Function to apply a functor to each pixel of an input image.
+/// Traverse the image column by column.
+template <class ViewT, class FuncT>
+void for_each_pixel_columnwise(const vw::ImageViewBase<ViewT> &view_, FuncT &func,
+  vw::TerminalProgressCallback const& progress) {
+
+  const ViewT& view = view_.impl();
+  typedef typename ViewT::pixel_accessor pixel_accessor;
+  pixel_accessor plane_acc = view.origin();
+
+  for (int32 plane = view.planes(); plane; plane--) { // Loop through planes
+
+    pixel_accessor col_acc = plane_acc;
+    for (int32 col = 0; col < view.cols(); col++) { // Loop through cols
+      progress.report_fractional_progress(col, view.cols());
+      pixel_accessor row_acc = col_acc;
+      for (int32 row = view.rows(); row; row--) { // Loop along cols
+        func(*row_acc);  // Apply the functor to this pixel value
+        row_acc.next_row();
+      }
+      col_acc.next_col();
+    }
+    plane_acc.next_plane();
+  }
+  progress.report_finished();
+
+  return;
+}
+
+// Compute the min, max, mean, and standard deviation of an image object and
+// write them to a log. This is not a member function.
+// - "tag" is only used to make the log messages more descriptive.
+// - If prefix and image_path is set, will cache the results to a file.
+// For efficiency, the image must be traversed either rowwise or columnwise,
+// depending on how it is stored on disk.
+// This makes use of the global variable: asp::stereo_settings().force_reuse_match_files.
+// TODO(oalexan1): This function must take into account ISIS special
+// pixels from StereoSessionIsis::preprocessing_hook(). Then, must eliminate
+// that function in favor of a single preprocessing_hook() in the base class.
+vw::Vector<vw::float32,6> 
+gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
+             std::string const& tag,
+             std::string const& prefix,
+             std::string const& image_path) {
+
+  vw_out(InfoMessage) << "Computing statistics for " + tag << std::endl;
+
+  Vector6f result;
+  const bool use_cache = ((prefix != "") && (image_path != ""));
+  std::string cache_path = "";
+  if (use_cache) {
+    if (image_path.find(prefix) == 0) {
+      // If the image is, for example, run/run-L.tif,
+      // then cache_path = run/run-L-stats.tif.
+      cache_path =  fs::path(image_path).replace_extension("").string() + "-stats.tif";
+    } else {
+      // If the image is left_image.tif,
+      // then cache_path = run/run-left_image.tif
+      cache_path = prefix + '-' + fs::path(image_path).stem().string() + "-stats.tif";
+    }
+  }
+
+  // Check if this stats file was computed after any image modifications.
+  if ((use_cache && asp::first_is_newer(cache_path, image_path)) ||
+      (asp::stereo_settings().force_reuse_match_files && fs::exists(cache_path))) {
+    vw_out(InfoMessage) << "\t--> Reading statistics from file " + cache_path << std::endl;
+    Vector<float32> stats;
+    read_vector(stats, cache_path); // Just fetch the stats from the file on disk.
+    result = stats;
+
+  } else { // Compute the results
+
+    // Read the resource and determine the block structure on disk. Use a boost shared ptr.
+    vw::Vector2i block_size;
+    {
+      boost::shared_ptr<DiskImageResource> rsrc (DiskImageResourcePtr(image_path));
+      block_size  = rsrc->block_read_size();
+    }
+    // Print a warning that processing can be slow if any of the block size
+    // coords are bigger than 5120 pixels.
+    if (block_size[0] > 5120 || block_size[1] > 5120) {
+      vw_out(WarningMessage) << "Image " << image_path
+        << " has block sizes of dimensions " << block_size[0] << " x " << block_size[1]
+        << " (as shown by gdalinfo). This can make processing slow. Consider converting "
+        << "it to tile format, using the command:\n"
+        << "gdal_translate -co TILED=yes -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 "
+        << "input.tif output.tif\n";
+    }
+
+    // Compute statistics at a reduced resolution
+    const float TARGET_NUM_PIXELS = 1000000;
+    float num_pixels = float(image.cols())*float(image.rows());
+    int   stat_scale = int(ceil(sqrt(num_pixels / TARGET_NUM_PIXELS)));
+
+    vw_out(InfoMessage) << "Using downsample scale: " << stat_scale << std::endl;
+
+    ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
+    vw::TerminalProgressCallback tp("asp","\t  stats:  ");
+    if (block_size[0] >= block_size[1]) // Rows are long, so go row by row
+     for_each_pixel_rowwise(subsample(edge_extend(image, ConstantEdgeExtension()),
+                               stat_scale), accumulator, tp);
+    else // Columns are long, so go column by column
+     for_each_pixel_columnwise(subsample(edge_extend(image, ConstantEdgeExtension()),
+                                  stat_scale), accumulator, tp);
+
+    result[0] = accumulator.quantile(0); // Min
+    result[1] = accumulator.quantile(1); // Max
+    result[2] = accumulator.approximate_mean();
+    result[3] = accumulator.approximate_stddev();
+    result[4] = accumulator.quantile(0.02); // Percentile values
+    result[5] = accumulator.quantile(0.98);
+
+    // Cache the results to disk
+    if (use_cache) {
+      vw_out() << "\t    Writing stats file: " << cache_path << std::endl;
+      Vector<float32> stats = result;  // cast
+      write_vector(cache_path, stats);
+    }
+
+  } // Done computing the results
+
+  vw_out(InfoMessage) << "\t    " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
+                      << " mean: " << result[2] << " std_dev: "  << result[3] << " ]\n";
+
+  return result;
+} // end function gather_stats
 
 } // end namespace asp

@@ -21,7 +21,7 @@
 
 #include <vw/Cartography/GeoTransform.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/PointUtils.h>
 
 #include <boost/filesystem.hpp>

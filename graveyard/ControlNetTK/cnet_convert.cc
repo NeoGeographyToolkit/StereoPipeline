@@ -31,7 +31,7 @@ namespace fs = boost::filesystem;
 
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 
 #include <fstream>
 

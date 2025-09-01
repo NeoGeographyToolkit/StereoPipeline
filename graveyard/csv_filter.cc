@@ -54,7 +54,7 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/FileIO/DiskImageUtils.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>
 

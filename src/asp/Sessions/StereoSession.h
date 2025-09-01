@@ -141,12 +141,6 @@ public:
   virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>
   pre_pointcloud_hook(std::string const& input_file);
 
-  /// Returns the correct nodata value from the input images or the input options.
-  void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
-                         boost::shared_ptr<vw::DiskImageResource> right_rsrc,
-                         float & left_nodata_value,
-                         float & right_nodata_value);
-
   bool do_bathymetry() const;
 
   // Return the left and right cropped images. These are the same as
@@ -280,16 +274,7 @@ protected:
 
 };
 
-// Compute the min, max, mean, and standard deviation of an image object and
-// write them to a file. This is not a member function.
-// - "tag" is only used to make the log messages more descriptive.
-// - If prefix and image_path is set, will cache the results to a file.
-vw::Vector6f gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
-                          std::string const& tag,
-                          std::string const& prefix,
-                          std::string const& image_path);
-
-  typedef boost::shared_ptr<StereoSession> SessionPtr;
+typedef boost::shared_ptr<StereoSession> SessionPtr;
 
 // Find the median angle in degrees at which rays emanating from
 // matching points meet

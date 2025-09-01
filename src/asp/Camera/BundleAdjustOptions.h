@@ -23,10 +23,10 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Cartography/Datum.h>
 
+// Functions that need the BaOptions class. 
+
 namespace asp {
   
-// This file contains the bundle adjust options and some other needed functions.
-// The ones shared with jitter_solve.cc are in asp::BaBaseOptions.
 struct BaOptions: public asp::BaBaseOptions {
   std::string cnet_file,
     cost_function, mapprojected_data, gcp_from_mapprojected;
@@ -83,6 +83,23 @@ void setupMapprojectedData(asp::BaOptions & opt,
                            bool need_no_matches,
                            std::vector<std::string> & map_files,
                            std::string & mapproj_dem);
+
+/// Looks in the input camera position file to generate a GCC position for
+/// each input camera.
+/// - If no match is found, the coordinate is (0,0,0)
+int loadEstimCameraPositions(asp::BaOptions &opt,
+                             std::vector<vw::Vector3> & estimated_camera_gcc);
+
+// Compute statistics for the designated range of images (or mapprojected
+// images), and perhaps the footprints. Or, compute the ip per image (before
+// matching). These distinct operations use much shared logic, so are put in the
+// same function. In parallel_bundle_adjust this function is called separately
+// for different ranges.
+void computeStatsOrIp(asp::BaOptions const& opt, 
+                      std::vector<std::string> const& files_for_stats,
+                      std::string const& dem_file_for_overlap, 
+                      std::string const& normalization_bounds_file, 
+                      bool calcIp);
 
 } // end namespace asp
 

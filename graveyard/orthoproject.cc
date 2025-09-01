@@ -26,7 +26,7 @@
 #include <vw/Cartography.h>
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <boost/tokenizer.hpp>
 

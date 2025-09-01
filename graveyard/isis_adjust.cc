@@ -23,7 +23,7 @@
 /// adjustment chapter is required before use of this program.
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Tools/isis_adjust.h>
 
 namespace po = boost::program_options;

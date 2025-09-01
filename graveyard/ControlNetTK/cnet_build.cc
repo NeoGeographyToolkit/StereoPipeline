@@ -30,7 +30,7 @@ using namespace vw;
 using namespace vw::ba;
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/IsisIO/Equation.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>

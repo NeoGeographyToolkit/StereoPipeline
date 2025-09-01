@@ -1,4 +1,0 @@
-This directory contains tools that are not mature or generic enough to
-be shipped, but are useful for internal work. They are here because
-they depend on VW and ASP and we would like to ensure they continue to
-compile whenever the underlying VW or ASP code changes.

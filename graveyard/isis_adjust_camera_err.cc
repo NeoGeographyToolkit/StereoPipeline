@@ -24,7 +24,7 @@
 #include <vw/Core/ProgressCallback.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 
 #include <boost/algorithm/string.hpp>
