@@ -195,3 +195,9 @@ Then, the earlier steps can be repeated with these images.
 Note that for some reason ``gdal_translate`` does not precisely multiplies the
 grid size by 2 in this case. That results in a failure in ``parallel_stereo``,
 unless the option ``--allow-different-mapproject-gsd`` is set.
+
+It may also be suggested to increase the correlation kernel size in
+``parallel_stereo`` (:numref:`corr_section`), with an option such as
+``--corr-kernel 9 9``. The default is 5. The regular block matching algorithm
+(``asp_bm``) may also work better for very noisy images, as it has a larger
+default kernel size.
