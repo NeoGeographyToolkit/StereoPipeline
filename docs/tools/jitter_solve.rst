@@ -20,6 +20,24 @@ Usage::
      jitter_solve <images> <cameras> <input adjustments> \
        -o <output prefix> [options]
 
+Limitations
+~~~~~~~~~~~
+
+When the scan lines from the images are nearly parallel to each other the
+jitter cannot be fully disambiguated, and some residual jitter is left unsolved
+for.
+
+Best results are achieved if scan lines from one image cross blocks of scan
+lines from another image that correspond to at least one jitter period. In
+practice, for WorldView images, for example, the across-track can vary notably
+from one image to another, resulting in such a favorable regime.
+
+GCP files produced from a prior DEM of good quality can help as well
+(:numref:`dem2gcp`).
+
+If frame camera images exist for the same extent, they will help solve for jitter, 
+as such images are rigid across scan lines.
+
 .. _jitter_ground:
 
 Ground constraints
