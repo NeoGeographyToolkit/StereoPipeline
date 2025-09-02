@@ -493,13 +493,15 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   vw::Stopwatch sw1;
   sw1.start();
   Vector6f left_stats = gather_stats(left_masked_image,  "left",
-                                     this->m_out_prefix, left_cropped_file);
+                                     this->m_out_prefix, left_cropped_file,
+                                     asp::stereo_settings().force_reuse_match_files);
   sw1.stop();
   vw_out() << "Left image stats time: " << sw1.elapsed_seconds() << std::endl;
   vw::Stopwatch sw2;
   sw2.start();
   Vector6f right_stats = gather_stats(right_masked_image, "right",
-                                      this->m_out_prefix, right_cropped_file);
+                                      this->m_out_prefix, right_cropped_file,
+                                      asp::stereo_settings().force_reuse_match_files);
   sw2.stop();
   vw_out() << "Right image stats time: " << sw2.elapsed_seconds() << std::endl;
   ImageViewRef<PixelMask<float>> Limg, Rimg;

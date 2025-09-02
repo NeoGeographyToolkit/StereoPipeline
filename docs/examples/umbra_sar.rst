@@ -62,9 +62,14 @@ distance (GSD), not nominal GSD, which can be so fine that the images may be noi
 at that level. How to find the effective resolution may require some inspection
 and/or reading vendor's documentation.
 
-The mapprojection step is as follows::
+Set the projection string. The UTM zone to use depends on the location of the images.
+
+::
 
     proj="+proj=utm +zone=17 +ellps=WGS84 +units=m +no_defs"
+
+The mapprojection step is as follows::
+
     mapproject        \
       --tr 0.5        \
       --t_srs "$proj" \
@@ -73,6 +78,10 @@ The mapprojection step is as follows::
       left_proj.tif
     
 and the same for the right image. 
+
+In the latest ASP, the projection string can be auto-determined
+(:numref:`mapproj_auto_proj`). See :numref:`mapproj_refmap` for how to transfer
+the projection to the right image.
 
 How to find a DEM for mapprojection and how to adjust it to be relative to the
 ellipsoid is descried in :numref:`initial_terrain` and
@@ -162,3 +171,27 @@ Here, the projection string in ``$proj`` can be the same as for the DEM created 
 
 The ``geodiff`` program can take the difference of the now-aligned DEMs.
 Other inspections can be done as discussed in :numref:`visualising`.
+
+Handling failure
+~~~~~~~~~~~~~~~~
+
+SAR images can be very hard to process, even when they look similar enough, due
+to noise and fine-level speckle.
+
+One solution is to regrid them by local averaging to a coarser resolution. That
+is hoped to increase the signal-to-noise ratio. This can be done for the left
+mapprojected image as::
+
+  gdal_translate     \
+    -r average       \
+    -outsize 50% 50% \
+    left_proj.tif    \
+    left_proj_50pct.tif
+
+and the same for the right one. Using 25% here may also be worth trying.
+
+Then, the earlier steps can be repeated with these images.
+
+Note that for some reason ``gdal_translate`` does not precisely multiplies the
+grid size by 2 in this case. That results in a failure in ``parallel_stereo``,
+unless the option ``--allow-different-mapproject-gsd`` is set.

@@ -17,7 +17,6 @@
 
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/FileUtils.h>
-#include <asp/Core/StereoSettings.h>
 
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Cartography/GeoReference.h>
@@ -208,8 +207,8 @@ void for_each_pixel_columnwise(const vw::ImageViewBase<ViewT> &view_, FuncT &fun
 
 // Compute the min, max, mean, and standard deviation of an image object and
 // write them to a log. This is not a member function.
-// - "tag" is only used to make the log messages more descriptive.
-// - If prefix and image_path is set, will cache the results to a file.
+// The "tag" is only used to make the log messages more descriptive.
+// If prefix and image_path is set, will cache the results to a file.
 // For efficiency, the image must be traversed either rowwise or columnwise,
 // depending on how it is stored on disk.
 // This makes use of the global variable: asp::stereo_settings().force_reuse_match_files.
@@ -220,7 +219,8 @@ vw::Vector<vw::float32,6>
 gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
              std::string const& tag,
              std::string const& prefix,
-             std::string const& image_path) {
+             std::string const& image_path,
+             bool force_reuse_cache) {
 
   vw_out(InfoMessage) << "Computing statistics for " + tag << std::endl;
 
@@ -241,7 +241,7 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
 
   // Check if this stats file was computed after any image modifications.
   if ((use_cache && asp::first_is_newer(cache_path, image_path)) ||
-      (asp::stereo_settings().force_reuse_match_files && fs::exists(cache_path))) {
+      (force_reuse_cache && fs::exists(cache_path))) {
     vw_out(InfoMessage) << "\t--> Reading statistics from file " + cache_path << std::endl;
     Vector<float32> stats;
     read_vector(stats, cache_path); // Just fetch the stats from the file on disk.

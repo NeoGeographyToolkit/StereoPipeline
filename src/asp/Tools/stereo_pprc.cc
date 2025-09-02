@@ -584,10 +584,13 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
     Vector6f left_stats  = gather_stats(pixel_cast<PixelMask<float>>(left_masked_image), 
                                         "left",
-                                        opt.out_prefix, left_image_file);
+                                        opt.out_prefix, left_image_file,
+                                        asp::stereo_settings().force_reuse_match_files);
     Vector6f right_stats = gather_stats(pixel_cast<PixelMask<float>>(right_masked_image), 
                                         "right",
-                                        opt.out_prefix, right_image_file);
+                                        opt.out_prefix, right_image_file,
+                                        asp::stereo_settings().force_reuse_match_files);
+    
     std::string left_stats_file  = opt.out_prefix + "-lStats.tif";
     std::string right_stats_file = opt.out_prefix + "-rStats.tif";
 
