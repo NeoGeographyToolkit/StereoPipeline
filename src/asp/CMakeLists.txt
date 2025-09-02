@@ -213,11 +213,11 @@ find_external_library(PROTOBUF ${ASP_DEPS_DIR} "" "protobuf" REQUIRED)
 
 find_external_library(EIGEN ${ASP_DEPS_DIR} "eigen3" "" REQUIRED)
 find_external_library(CERES ${ASP_DEPS_DIR} "ceres" "ceres" REQUIRED)
-find_external_library(LIBNABO ${ASP_DEPS_DIR} "nabo" "nabo" REQUIRED)
 find_external_library(GFLAGS ${ASP_DEPS_DIR} "gflags" "gflags" REQUIRED)
 find_external_library(GLOG ${ASP_DEPS_DIR} "glog" "glog" REQUIRED)
 
 if (NOT CORE_ASP_ONLY)
+  find_external_library(LIBNABO ${ASP_DEPS_DIR} "nabo" "nabo" REQUIRED)
   find_external_library(GEOID ${ASP_DEPS_DIR} "" "egm2008" REQUIRED)
   find_external_library(LIBPOINTMATCHER ${ASP_DEPS_DIR} "" "pointmatcher" REQUIRED)
   find_external_library(FASTGLOBALREGISTRATION ${ASP_DEPS_DIR} "FastGlobalRegistration" "FastGlobalRegistrationLib" REQUIRED)
