@@ -19,6 +19,13 @@ if ("${ASP_DEPS_DIR}" STREQUAL "")
   message(FATAL_ERROR "You need to set ASP_DEPS_DIR")
 endif()
 
+# Building core ASP only results in fewer third-party dependencies
+if (CORE_ASP_ONLY)
+  message(STATUS "Building core ASP only.")
+  set(USE_ISIS OFF)
+  set(USE_OPENEXR OFF)
+endif()
+
 # Where to search for dependencies
 set(CMAKE_PREFIX_PATH "${ASP_DEPS_DIR}")
 
@@ -201,17 +208,20 @@ else()
   message(STATUS "OpenEXR will not be used.")
 endif()
 
-find_external_library(GEOID ${ASP_DEPS_DIR} "" "egm2008" REQUIRED)
 find_external_library(XERCESC ${ASP_DEPS_DIR} "" "xerces-c" REQUIRED)
 find_external_library(PROTOBUF ${ASP_DEPS_DIR} "" "protobuf" REQUIRED)
 
 find_external_library(EIGEN ${ASP_DEPS_DIR} "eigen3" "" REQUIRED)
 find_external_library(CERES ${ASP_DEPS_DIR} "ceres" "ceres" REQUIRED)
 find_external_library(LIBNABO ${ASP_DEPS_DIR} "nabo" "nabo" REQUIRED)
-find_external_library(LIBPOINTMATCHER ${ASP_DEPS_DIR} "" "pointmatcher" REQUIRED)
-find_external_library(FASTGLOBALREGISTRATION ${ASP_DEPS_DIR} "FastGlobalRegistration" "FastGlobalRegistrationLib" REQUIRED)
 find_external_library(GFLAGS ${ASP_DEPS_DIR} "gflags" "gflags" REQUIRED)
 find_external_library(GLOG ${ASP_DEPS_DIR} "glog" "glog" REQUIRED)
+
+if (NOT CORE_ASP_ONLY)
+  find_external_library(GEOID ${ASP_DEPS_DIR} "" "egm2008" REQUIRED)
+  find_external_library(LIBPOINTMATCHER ${ASP_DEPS_DIR} "" "pointmatcher" REQUIRED)
+  find_external_library(FASTGLOBALREGISTRATION ${ASP_DEPS_DIR} "FastGlobalRegistration" "FastGlobalRegistrationLib" REQUIRED)
+endif()
 
 if (USE_ISIS)
   find_external_library(SPICE ${ASP_DEPS_DIR} "cspice" "cspice" REQUIRED)
@@ -328,13 +338,15 @@ if (USE_ISIS)
 endif()
 
 # These are needed for rig_calibrator
-# MVE
-set(MVE_LIB_NAMES mveUtil mveCore mveDmrecon)
-find_external_library(MVE ${ASP_DEPS_DIR} "mve" "${MVE_LIB_NAMES}" REQUIRED)
-# Rayint only has headers, no libraries
-find_external_library(RAYINT ${ASP_DEPS_DIR} "rayint" "" REQUIRED)
-# texture reconstruction
-find_external_library(TEXRECON ${ASP_DEPS_DIR} "" "texture_reconstruction" REQUIRED)
+if (NOT CORE_ASP_ONLY)
+  # MVE
+  set(MVE_LIB_NAMES mveUtil mveCore mveDmrecon)
+  find_external_library(MVE ${ASP_DEPS_DIR} "mve" "${MVE_LIB_NAMES}" REQUIRED)
+  # Rayint only has headers, no libraries
+  find_external_library(RAYINT ${ASP_DEPS_DIR} "rayint" "" REQUIRED)
+  # texture reconstruction
+  find_external_library(TEXRECON ${ASP_DEPS_DIR} "" "texture_reconstruction" REQUIRED)
+endif()
 
 # Prioratize including files from the local code base and VW
 include_directories(BEFORE ${VISIONWORKBENCH_INCLUDE_DIR})
@@ -377,14 +389,18 @@ get_all_source_files( "OpenMVG/tests" ASP_OPENMVG_TEST_FILES)
 set(ASP_OPENMVG_LIB_DEPENDENCIES "")
 
 # ASP Rig
-get_all_source_files("Rig"       ASP_RIG_SRC_FILES)
+get_all_source_files("Rig" ASP_RIG_SRC_FILES)
 get_all_source_files("Rig/tests" ASP_RIG_TEST_FILES)
+if (CORE_ASP_ONLY)
+  # Exclude files that depend on MVE, Rayint, and Texrecon
+  list(FILTER ASP_RIG_SRC_FILES EXCLUDE REGEX "texture")
+endif()
 set(ASP_RIG_LIB_DEPENDENCIES AspCore AspOpenMvg AspPclIO tbb ${OPENCV_LIBRARIES}
     ${SOLVER_LIBRARIES} ${MVE_LIBRARIES} ${RAYINT_LIBRARIES} ${TEXRECON_LIBRARIES})
 
 # ASP Camera
-get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
-get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
+get_all_source_files("Camera"       ASP_CAMERA_SRC_FILES)
+get_all_source_files("Camera/tests" ASP_CAMERA_TEST_FILES)
 set(ASP_CAMERA_LIB_DEPENDENCIES AspCore AspRig ${XERCESC_LIBRARIES}
     ${CSM_LIBRARIES} ${USGSCSM_LIBRARIES} ${ALE_LIBRARIES})
 if (USE_ISIS)
@@ -413,24 +429,31 @@ get_all_source_files( "Gotcha/tests" ASP_GOTCHA_TEST_FILES)
 set(ASP_GOTCHA_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${OPENCV_LIBRARIES} 
     ${Boost_LIBRARIES})
 
-# ASP PcAlign
-get_all_source_files("PcAlign" ASP_PC_ALIGN_SRC_FILES)
-get_all_source_files("PcAlign/tests" ASP_PC_ALIGN_TEST_FILES)
-set(ASP_PC_ALIGN_LIB_DEPENDENCIES ${SOLVER_LIBRARIES} ${LIBPOINTMATCHER_LIBRARIES}
-    ${LIBNABO_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} AspSessions)
-
 # ASP PclIO
 get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
 get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
 set(ASP_PCLIO_LIB_DEPENDENCIES 
     pcl_common pcl_io_ply pcl_io ${VISIONWORKBENCH_LIBRARIES} AspCore)
 
+if (NOT CORE_ASP_ONLY)
+  # ASP PcAlign
+  get_all_source_files("PcAlign" ASP_PC_ALIGN_SRC_FILES)
+  get_all_source_files("PcAlign/tests" ASP_PC_ALIGN_TEST_FILES)
+  set(ASP_PC_ALIGN_LIB_DEPENDENCIES ${SOLVER_LIBRARIES} ${LIBPOINTMATCHER_LIBRARIES}
+      ${LIBNABO_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} AspSessions)
+endif()    
+    
 # Add all of the library subdirectories
 
 add_subdirectory(Core)
 if (USE_ISIS)
     add_subdirectory(IsisIO)
 endif()
+
+if (NOT CORE_ASP_ONLY)
+  add_subdirectory(PcAlign)
+endif()
+
 add_subdirectory(Rig)
 add_subdirectory(OpenMVG)
 add_subdirectory(Camera)
@@ -441,7 +464,6 @@ add_subdirectory(Gotcha)
 add_subdirectory(SfS)
 
 add_subdirectory(PclIO)
-add_subdirectory(PcAlign)
 
 # Add the non-library subdirectories
 add_subdirectory(Python)

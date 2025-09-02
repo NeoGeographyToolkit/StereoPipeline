@@ -50,10 +50,6 @@ add_executable(opencv_imagelist_creator opencv_imagelist_creator.cpp)
 target_link_libraries(opencv_imagelist_creator AspCore AspSessions)
 install(TARGETS opencv_imagelist_creator DESTINATION libexec)
 
-add_executable(dem_geoid dem_geoid.cc)
-target_link_libraries(dem_geoid ${GEOID_LIBRARIES} AspCore AspSessions)
-install(TARGETS dem_geoid DESTINATION bin)
-
 add_executable(camera_footprint camera_footprint.cc)
 target_link_libraries(camera_footprint AspSessions)
 install(TARGETS camera_footprint DESTINATION bin)
@@ -93,26 +89,6 @@ install(TARGETS orbitviz DESTINATION bin)
 add_executable(pc_merge pc_merge.cc)
 target_link_libraries(pc_merge AspSessions)
 install(TARGETS pc_merge DESTINATION bin)
-
-add_executable(pc_align pc_align.cc)
-target_link_libraries(pc_align 
-  AspPcAlign AspSessions)
-install(TARGETS pc_align DESTINATION bin)
-
-add_executable(n_align n_align.cc)
-target_link_libraries(n_align
-  AspPcAlign AspSessions)
-install(TARGETS n_align DESTINATION bin)
-
-# This must be built with C++14 as otherwise it fails. Must be set
-# after the standard is set for the entire library.
-set_source_files_properties(
-    n_align.cc
-    PROPERTIES
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF # Keep consistent if desired
-    COMPILE_FLAGS "-std=c++14"
-)
 
 add_executable(pansharp pansharp.cc)
 target_link_libraries(pansharp AspSessions)
@@ -234,10 +210,6 @@ add_executable(cam_test cam_test.cc)
 target_link_libraries(cam_test AspSessions)
 install(TARGETS cam_test DESTINATION bin)
 
-add_executable(sat_sim sat_sim.cc) 
-target_link_libraries(sat_sim AspSessions)
-install(TARGETS sat_sim DESTINATION bin)
-
 add_executable(ccd_solve ccd_solve.cc) 
 target_link_libraries(ccd_solve AspSessions ${SOLVER_LIBRARIES})
 install(TARGETS ccd_solve DESTINATION bin)
@@ -258,14 +230,6 @@ add_executable(pc_filter pc_filter.cc)
 target_link_libraries(pc_filter AspPclIO AspSessions)
 install(TARGETS pc_filter DESTINATION bin)
 
-add_executable(rig_calibrator rig_calibrator.cc)
-target_link_libraries(rig_calibrator AspRig AspPclIO AspSessions)
-install(TARGETS rig_calibrator DESTINATION bin)
-
-add_executable(undistort_image_texrecon undistort_image_texrecon.cc)
-target_link_libraries(undistort_image_texrecon AspRig AspPclIO AspSessions)
-install(TARGETS undistort_image_texrecon DESTINATION bin)
-
 add_executable(sfm_submap sfm_submap.cc)
 target_link_libraries(sfm_submap AspRig AspPclIO AspSessions)
 install(TARGETS sfm_submap DESTINATION bin)
@@ -278,3 +242,41 @@ add_executable(dem2gcp dem2gcp.cc)
 target_link_libraries(dem2gcp AspCore AspSessions)
 install(TARGETS dem2gcp DESTINATION bin)
 
+add_executable(sat_sim sat_sim.cc) 
+target_link_libraries(sat_sim AspSessions)
+install(TARGETS sat_sim DESTINATION bin)
+
+add_executable(undistort_image_texrecon undistort_image_texrecon.cc)
+target_link_libraries(undistort_image_texrecon AspRig AspPclIO AspSessions)
+install(TARGETS undistort_image_texrecon DESTINATION bin)
+
+if (NOT CORE_ASP_ONLY)
+  add_executable(rig_calibrator rig_calibrator.cc)
+  target_link_libraries(rig_calibrator AspRig AspPclIO AspSessions)
+  install(TARGETS rig_calibrator DESTINATION bin)
+
+  add_executable(dem_geoid dem_geoid.cc)
+  target_link_libraries(dem_geoid ${GEOID_LIBRARIES} AspCore AspSessions)
+  install(TARGETS dem_geoid DESTINATION bin)
+  
+  add_executable(pc_align pc_align.cc)
+  target_link_libraries(pc_align 
+    AspPcAlign AspSessions)
+  install(TARGETS pc_align DESTINATION bin)
+
+  add_executable(n_align n_align.cc)
+  target_link_libraries(n_align
+    AspPcAlign AspSessions)
+  install(TARGETS n_align DESTINATION bin)
+
+  # This must be built with C++14 as otherwise it fails. Must be set
+  # after the standard is set for the entire library.
+  # This is temporary
+  set_source_files_properties(
+      n_align.cc
+      PROPERTIES
+      CXX_STANDARD_REQUIRED ON
+      CXX_EXTENSIONS OFF # Keep consistent if desired
+      COMPILE_FLAGS "-std=c++14"
+  )
+endif()

@@ -17,6 +17,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread -lpthread")
 
 set(USE_ISIS ON CACHE BOOL "Use ISIS (default ON)")
 set(USE_OPENEXR ON CACHE BOOL "Use EXR (default ON)")
+set(CORE_ASP_ONLY OFF CACHE BOOL "Build only core ASP (default OFF)")
 
 if (APPLE)
     # A workaround for the clang included with conda build
