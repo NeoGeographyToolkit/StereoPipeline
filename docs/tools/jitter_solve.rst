@@ -2231,7 +2231,7 @@ Command-line options for jitter_solve
     camera position uncertainty (1 sigma, in meters). This strongly constrains
     the movement of cameras to within the given values, potentially at the
     expense of accuracy. It is better to overestimate these. See
-    :numref:`ba_cam_constraints` for details. See also
+    :numref:`ba_cam_constraints` for an example. See also
     ``--camera-position-uncertainty-power``.
     
 --camera-position-uncertainty-power <double (default: 2.0)>

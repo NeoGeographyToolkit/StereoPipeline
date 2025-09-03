@@ -307,7 +307,14 @@ If the position uncertainties per camera are known, the option
 ``--camera-position-uncertainty`` can be used. This sets hard
 constraints on how much each camera position can move horizontally and
 vertically, in meters, in the local North-East-Down coordinate system of each
-camera. See :numref:`ba_options` for usage.
+camera. 
+
+The input to this option is a file with one line per image. Each line has the
+image name, horizontal uncertainty, and the vertical one, separated by spaces.
+Example::
+
+    image1.tif 5.0 10.0
+    image2.tif 3.0 2.0
 
 When using hard constraints in bundle adjustment, caution should be exercised as
 they can impact the optimization process. It is not recommended to set
@@ -1091,7 +1098,7 @@ Command-line options
     A file having on each line the image name and the horizontal and vertical
     camera position uncertainty (1 sigma, in meters). This strongly constrains
     the movement of cameras to within the given values, potentially at the
-    expense of accuracy. See :numref:`ba_cam_constraints` for details. 
+    expense of accuracy. See :numref:`ba_cam_constraints` for an example.
     See also ``--camera-position-uncertainty-power``.
 
 --camera-position-uncertainty-power <double (default: 2.0)>
