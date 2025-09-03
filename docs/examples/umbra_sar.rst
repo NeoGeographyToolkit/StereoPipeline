@@ -28,11 +28,8 @@ convergence angles as low as 2.5 degrees.
 Umbra provides GEC images that are corrected to be relative to an ellipsoid. More
 raw products are available, including SICD, that have complex-valued pixels. 
 
-GEC images come with RPC (:numref:`rpc`) camera models embedded in the images,
+GEC images come with RPC (:numref:`rpc`) camera models embedded in the images
 that we employ. ASP does not support the more rigorous SAR sensor models.
-
-Example
-~~~~~~~
 
 .. figure:: ../images/umbra_sar.png
    :name: umbra_sar_fig
@@ -41,6 +38,9 @@ Example
    (:numref:`mapproject`) SAR image, and triangulation error image
    (:numref:`triangulation_error`). The units in the colorbar on the right are
    in meters.
+
+Fetching the data
+~~~~~~~~~~~~~~~~~
 
 We downloaded the image pair::
 
@@ -56,19 +56,30 @@ It was helpful to run bundle adjustment first (:numref:`bundle_adjust`), to make
 the images more self-consistent and reduce the triangulation error
 (:numref:`triangulation_error`).
 
-It is suggested to run bundle adjustment based on mapprojected images
+Mapprojection
+~~~~~~~~~~~~~
+
+It is suggested to run bundle adjustment and stereo based on mapprojected images
 (:numref:`mapip`). Mapprojection should be done at the effective ground sample
 distance (GSD), not nominal GSD, which can be so fine that the images may be noisy
 at that level. How to find the effective resolution may require some inspection
 and/or reading vendor's documentation.
 
-Set the projection string. The UTM zone to use depends on the location of the images.
+:numref:`umbra_failure` discusses boosting the signal-to-noise ratio in mapprojected
+images.
+
+How to find a DEM for mapprojection and how to adjust it to be relative to the
+ellipsoid is described in :numref:`initial_terrain` and
+:numref:`conv_to_ellipsoid`. We call that DEM ``ref.tif``.
+
+Set the projection string. The UTM zone to use depends on the location of the
+images.
 
 ::
 
     proj="+proj=utm +zone=17 +ellps=WGS84 +units=m +no_defs"
 
-The mapprojection step is as follows::
+The mapprojection (:numref:`mapproject`) step is as follows::
 
     mapproject        \
       --tr 0.5        \
@@ -83,11 +94,10 @@ In the latest ASP, the projection string can be auto-determined
 (:numref:`mapproj_auto_proj`). See :numref:`mapproj_refmap` for how to transfer
 the projection to the right image.
 
-How to find a DEM for mapprojection and how to adjust it to be relative to the
-ellipsoid is descried in :numref:`initial_terrain` and
-:numref:`conv_to_ellipsoid`. We call that DEM ``ref.tif``.
+Bundle adjustment
+~~~~~~~~~~~~~~~~~
 
-Then ``bundle_adjust`` was run::
+Bundle adjustment (:numref:`bundle_adjust`) was run::
 
     bundle_adjust -t rpc                       \
       left.tif right.tif                       \
@@ -100,7 +110,7 @@ Then ``bundle_adjust`` was run::
 The cameras are embedded in the images, so they are not specified separately.
 
 Alternatively, one can try the SIFT feature detection method
-(``--ip-detect-method 1``) rather the default (method 0). One may also
+(``--ip-detect-method 1``) rather than the default (method 0). One may also
 search for more interest point matches with an option such as ``--ip-per-tile``.
 SAR images can be noisy and features hard to find. More features may not always
 result in more matches if they are inaccurate.
@@ -112,9 +122,11 @@ below.
 
 More details on the ``bundle_adjust`` options are in :numref:`ba_options`.
 
-Next, ``parallel_stereo`` (:numref:`parallel_stereo`) was run. Mapprojecting the
-images first, at the effective GSD, not the finer nominal one, as before, is
-recommended (:numref:`mapproj-example`).
+Stereo processing
+~~~~~~~~~~~~~~~~~
+
+Next, ``parallel_stereo`` (:numref:`parallel_stereo`) was run. As before, it is
+preferred to work with mapprojected images (:numref:`mapproj-example`).
 
 ::
 
@@ -147,6 +159,9 @@ terrain in ``ref.tif``.
 
 Check if the stereo convergence angle is reasonable, as mentioned earlier.
 
+Alignment
+~~~~~~~~~
+
 The ASP-created DEM was aligned to the reference DEM with ``pc_align``
 (:numref:`pc_align`)::
 
@@ -157,7 +172,7 @@ The ASP-created DEM was aligned to the reference DEM with ``pc_align``
       -o align/run
 
 A good value for the ``--max-displacement`` option is perhaps 1.5 times the mean
-elevation difference between the two input DEMs, that can be found with
+elevation difference between the two input DEMs that can be found with
 ``geodiff`` (:numref:`geodiff`)  and ``gdalinfo -stats``.
 
 The transformed cloud can be gridded back to a DEM as::
@@ -172,15 +187,18 @@ Here, the projection string in ``$proj`` can be the same as for the DEM created 
 The ``geodiff`` program can take the difference of the now-aligned DEMs.
 Other inspections can be done as discussed in :numref:`visualising`.
 
+.. _umbra_failure:
+
 Handling failure
 ~~~~~~~~~~~~~~~~
 
 SAR images can be very hard to process, even when they look similar enough, due
 to noise and fine-level speckle.
 
-One solution is to regrid them by local averaging to a coarser resolution. That
-is hoped to increase the signal-to-noise ratio. This can be done for the left
-mapprojected image as::
+One solution is to regrid the mapprojected images by local averaging to a
+coarser resolution. That is hoped to increase the signal-to-noise ratio. This
+can be done for the left mapprojected image with ``gdal_translate``
+(:numref:`gdal_tools`)::
 
   gdal_translate     \
     -r average       \
@@ -192,11 +210,11 @@ and the same for the right one. Using 25% here may also be worth trying.
 
 Then, the earlier steps can be repeated with these images.
 
-Note that for some reason ``gdal_translate`` does not precisely multiplies the
+Note that for some reason ``gdal_translate`` does not precisely multiply the
 grid size by 2 in this case. That results in a failure in ``parallel_stereo``,
 unless the option ``--allow-different-mapproject-gsd`` is set.
 
-It may also be suggested to increase the correlation kernel size in
+A complementary solution is to increase the correlation kernel size in
 ``parallel_stereo`` (:numref:`corr_section`), with an option such as
 ``--corr-kernel 9 9``. The default is 5. The regular block matching algorithm
 (``asp_bm``) may also work better for very noisy images, as it has a larger
