@@ -52,18 +52,18 @@ showing a portion of the Panama Canal. Many other `Umbra datasets
 
 To make the notation shorter, we call these ``left.tif`` and ``right.tif``.
 
-It was helpful to run bundle adjustment first (:numref:`bundle_adjust`), to make
-the images more self-consistent and reduce the triangulation error
-(:numref:`triangulation_error`).
-
 Mapprojection
 ~~~~~~~~~~~~~
 
-It is suggested to run bundle adjustment and stereo based on mapprojected images
-(:numref:`mapip`). Mapprojection should be done at the effective ground sample
-distance (GSD), not nominal GSD, which can be so fine that the images may be noisy
-at that level. How to find the effective resolution may require some inspection
-and/or reading vendor's documentation.
+It is suggested to run bundle adjustment first (:numref:`bundle_adjust`), to
+make the images more self-consistent and reduce the triangulation error
+(:numref:`triangulation_error`). For this data, bundle adjustment worked best
+after mapprojecting the images.
+
+Mapprojection should be done at the effective ground sample distance (GSD), not
+nominal GSD, which can be so fine that the images may be noisy at that level.
+How to find the effective resolution may require some inspection and/or reading
+vendor's documentation.
 
 :numref:`umbra_failure` discusses boosting the signal-to-noise ratio in mapprojected
 images.
@@ -97,7 +97,8 @@ the projection to the right image.
 Bundle adjustment
 ~~~~~~~~~~~~~~~~~
 
-Bundle adjustment (:numref:`bundle_adjust`) was run::
+Bundle adjustment (:numref:`bundle_adjust`) was run, while making use
+of the mapprojected images (:numref:`mapip`)::
 
     bundle_adjust -t rpc                       \
       left.tif right.tif                       \
