@@ -950,7 +950,7 @@ We invoked it as follows::
 
     jitter_solve                           \
       fwd_sub16.tif aft_sub16.tif          \
-      fwd_sub16.tsai aft_sub16.tsai        \
+      fwd_sub16.json aft_sub16.json        \
       fwd_sub16.gcp aft_sub16.gcp          \
       --match-files-prefix ba/run          \
       --num-lines-per-position 1000        \
