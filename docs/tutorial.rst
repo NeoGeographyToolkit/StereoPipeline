@@ -19,6 +19,7 @@ one simply passes two image files to
 the ``parallel_stereo`` (:numref:`parallel_stereo`) command::
 
     parallel_stereo --stereo-algorithm asp_bm \
+      --nodes-list nodes_list.txt             \
       left_image.cub right_image.cub results/run
 
 Higher quality results, at the expense of more computation, can be
@@ -26,6 +27,7 @@ achieved by running::
 
     parallel_stereo --alignment-method affineepipolar \
       --stereo-algorithm asp_mgm --subpixel-mode 3    \
+      --nodes-list nodes_list.txt                     \
       left_image.cub right_image.cub results/run
 
 The option ``--subpixel-mode 9`` is faster and still creates decent
@@ -48,7 +50,7 @@ The ``.cub`` file format is used for non-Earth images
 ``.tif`` format (:numref:`dg_tutorial`).
 
 The above commands will decompose the images in tiles to run in parallel,
-potentially on multiple machines (:numref:`parallel_stereo`).
+potentially on multiple machines (:numref:`pbs_slurm`).
 
 Or the ``stereo_gui`` frontend can be invoked, with the same options,
 as described in :numref:`stereo_gui`.  This tool makes it possible to
@@ -179,11 +181,10 @@ the ISIS Session Log, usually written out to a file named ``print.prt``).
 .. figure:: images/p19-figure.png
    :alt: MOC images after initial processing.
 
-   This figure shows ``E0201461.cub`` and
-   ``M0100115.cub`` open in ISIS's qview program. The view on the left
-   shows their full extents at the same zoom level, showing how they have
-   different ground scales. The view on the right shows both images zoomed
-   in on the same feature.
+   This figure shows ``E0201461.cub`` and ``M0100115.cub`` open in ISIS's qview
+   program. The view on the left shows their full extents at the same zoom
+   level, showing how they have different ground scales. The view on the right
+   shows both images zoomed in on the same feature.
 
 See :numref:`examples` for many solved examples, including how to preprocess the
 data with tools specific for each mission.
@@ -191,10 +192,13 @@ data with tools specific for each mission.
 Once the ``.cub`` files are obtained, it is possible to run
 ``parallel_stereo`` right away, and create a DEM::
 
-     ISIS> parallel_stereo E0201461.cub M0100115.cub   \
-             --alignment-method affineepipolar         \
-             -s stereo.default.example results/output
-     ISIS> point2dem --auto-proj-center                \
+     ISIS> parallel_stereo                     \
+             --alignment-method affineepipolar \
+             --nodes-list nodes_list.txt       \
+             -s stereo.default.example         \
+             E0201461.cub M0100115.cub         \
+             results/output
+     ISIS> point2dem --auto-proj-center        \
              results/output-PC.tif
 
 In this case, the first thing ``parallel_stereo`` does is to
@@ -204,6 +208,7 @@ alignment methods are described in :numref:`settingoptionsinstereodefault`.
 
 If your data has steep slopes, mapprojection can improve the results.
 See :numref:`mapproj-example` and :numref:`mapproj_with_cam2map`. 
+See :numref:`pbs_slurm` for running on multiple machines.
 
 When creating a DEM, it is suggested to use a local projection
 (:numref:`point2dem_proj`).
@@ -301,6 +306,7 @@ you use affine epipolar alignment to reduce the search range. Commands::
 
     parallel_stereo -t dg --stereo-algorithm asp_mgm      \
       --subpixel-mode 9 --alignment-method affineepipolar \
+      --nodes-list nodes_list.txt                         \
       12FEB16101327.r50.tif 12FEB16101426.r50.tif         \
       12FEB16101327.r50.xml 12FEB16101426.r50.xml         \
       run/run
@@ -314,6 +320,8 @@ details, see :numref:`nextsteps`.
 How to create a DEM and visualize the results of stereo is described in
 :numref:`visualising`. Choosing a projection is discussed in
 :numref:`point2dem_proj`.
+
+See :numref:`pbs_slurm` for running on multiple machines.
 
 .. figure:: images/examples/dg/wv_tutorial.png
    :name: fig:dg-example

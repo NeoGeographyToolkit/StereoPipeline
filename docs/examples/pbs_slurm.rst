@@ -3,14 +3,15 @@
 Using PBS and SLURM
 -------------------
 
-Running ``parallel_stereo`` can be very computationally expensive, so
-often it is launched on high-performance multi-machine systems. Here
-it will be shown how to run this program on a *Portable Batch System*
-(*PBS*) setup, such as NASA Pleiades, and on a *Simple Linux Utility
-for Resource Management* (*SLURM*) system.
+Running ``parallel_stereo`` (:numref:`parallel_stereo`) can be very
+computationally expensive, so often it is launched on high-performance
+multi-machine systems. Here it will be shown how to run this program on a
+*Portable Batch System* (*PBS*) setup, such as NASA Pleiades, and on a *Simple
+Linux Utility for Resource Management* (*SLURM*) system.
 
 In either of these, it is assumed that all compute nodes share disk storage
-space and are able communicate with ssh without password.
+space and are able communicate with ssh without password. The list of nodes
+must be passed as an argument to this program via ``--nodes-list``.
 
 PBS
 ~~~

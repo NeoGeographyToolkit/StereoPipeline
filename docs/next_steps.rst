@@ -366,9 +366,9 @@ Stereo on multiple machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If the input images are really large it may desirable to distribute
-the work over several computing nodes. For that the ``--nodes-list``
-option of ``parallel_stereo`` can be used. See
-:numref:`parallel_stereo`.
+the work over several computing nodes. For that, the ``--nodes-list``
+option of ``parallel_stereo`` must be used. See
+:numref:`pbs_slurm`.
 
 .. _mapproj-example:
 
@@ -758,14 +758,16 @@ DEM used for mapprojection as the last argument::
       --stereo-algorithm asp_mgm                       \
       --subpixel-mode 9                                \
       --alignment-method none                          \
+      --nodes-list nodes_list.txt                      \
       left_mapproj.tif right_mapproj.tif               \
       12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
       12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
       dg/dg                                            \
       ref_dem.tif
 
-See :numref:`running-stereo` for more details about the various 
-speed-vs-accuracy tradeoffs.
+See :numref:`running-stereo` for more details about the various
+speed-vs-accuracy tradeoffs. See :numref:`pbs_slurm` for running on multiple
+machines.
 
 We have used ``alignment-method none``, since the images are mapprojected onto
 the same terrain with the same resolution, thus no additional alignment is
@@ -808,6 +810,7 @@ stored separately is along the lines of::
     parallel_stereo              \
       -t rpc                     \
       --stereo-algorithm asp_mgm \
+      --nodes-list nodes_list.txt \
       left.map.tif right.map.tif \
       left.xml right.xml         \
       run/run                    \
@@ -819,6 +822,7 @@ or::
       -t pinhole                 \
       --stereo-algorithm asp_mgm \
       --subpixel-mode 9          \
+      --nodes-list nodes_list.txt \
       left.map.tif right.map.tif \
       left.tsai right.tsai       \
       run/run                    \
@@ -826,12 +830,13 @@ or::
 
 When the cameras are embedded in the images, the command is::
 
-    parallel_stereo              \
-      -t rpc                     \
-      --stereo-algorithm asp_mgm \
-      --subpixel-mode 9          \
-      left.map.tif right.map.tif \
-      run/run                    \
+    parallel_stereo               \
+      -t rpc                      \
+      --stereo-algorithm asp_mgm  \
+      --subpixel-mode 9           \
+      --nodes-list nodes_list.txt \
+      left.map.tif right.map.tif  \
+      run/run                     \
       ref_dem.tif
 
 If your cameras have been corrected with bundle adjustment
@@ -1050,6 +1055,9 @@ In this case it is suggested to mapproject the images
 the search range. 
 
 A few other strategies, with or without mapprojected images, are as follows.
+
+If running on multiple machines, ensure the ``--nodes-list`` option is used
+(:numref:`pbs_slurm`).
 
 With the default block-matching algorithm, ``--stereo-algorithm
 asp_bm``, the option ``--corr-timeout integer`` can be used to limit
