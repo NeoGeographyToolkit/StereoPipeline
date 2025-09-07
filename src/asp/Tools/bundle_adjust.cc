@@ -660,10 +660,11 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   asp::calcCameraCenters(orig_cams, orig_cam_positions);
   //asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
 
-  // print orig_cam_positions
-  std::cout.precision(17);
-  for (int icam = 0; icam < (int)orig_cam_positions.size(); icam++)
-    std::cout << "Orig cam position2 " << icam << " : " << orig_cam_positions[icam] << "\n";
+  // // TODO(oalexan1): Continue work here
+  // // print orig_cam_positions
+  // std::cout.precision(17);
+  // for (int icam = 0; icam < (int)orig_cam_positions.size(); icam++)
+  //   std::cout << "Orig cam position2 " << icam << " : " << orig_cam_positions[icam] << "\n";
 
   bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
   if (has_datum && (opt.stereo_session == "pinhole") ||
