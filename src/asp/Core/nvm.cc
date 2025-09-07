@@ -773,4 +773,4 @@ void writeCnetAsNvm(vw::ba::ControlNetwork const& cnet,
   asp::writeNvm(nvm, output_filename);
 }
   
-}  // end namespace rig
+}  // end namespace asp

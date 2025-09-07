@@ -144,6 +144,6 @@ void writeCnetAsNvm(vw::ba::ControlNetwork const& cnet,
                     std::string const& output_filename);
   
   
-}  // namespace rig
+}  // end namespace asp
 
 #endif  // ASP_CORE_NVM_H_
