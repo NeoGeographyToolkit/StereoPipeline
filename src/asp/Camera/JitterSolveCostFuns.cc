@@ -30,10 +30,10 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/DataLoader.h>
 
+#include <vw/Camera/CameraImage.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Exception.h>
-#include <vw/Camera/CameraImage.h>
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/Math/Transform.h>
 #include <vw/Image/Interpolation.h>

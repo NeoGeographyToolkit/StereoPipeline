@@ -29,15 +29,11 @@
 #include <set>
 
 namespace camera {
-  // Forward declaration
   class CameraParameters;
 }
-
 namespace rig {
   class cameraImage;
-  class ImageMessage;
 }
-
 namespace vw {
   namespace ba {
     class ControlNetwork;

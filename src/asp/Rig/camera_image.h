@@ -26,7 +26,7 @@
 
 namespace rig {
 
-// A class to encompass all known information about a camera
+// A class to encompass all known information about a camera image
 struct cameraImage {
   // An index to look up the type of camera. This will equal the
   // value ref_camera_type if and only if this is a reference
