@@ -43,12 +43,14 @@ namespace aspOpenMVG {
   }
 }
 
+namespace asp {
+  class nvmData;
+}
+
 namespace rig {
 
-// Forward declarations
 class cameraImage;
 class ImageMessage;
-class nvmData;
 class RigSet;
   
 /// A class for storing information about an interest point
@@ -254,7 +256,7 @@ void detectMatchFeatures(// Inputs
                          std::vector<std::vector<std::pair<float, float>>>& keypoint_vec,
                          std::vector<std::map<int, int>>& pid_to_cid_fid,
                          std::vector<Eigen::Vector3d> & xyz_vec,
-                         rig::nvmData & nvm);
+                         asp::nvmData & nvm);
 
 void multiViewTriangulation(// Inputs
                             std::vector<camera::CameraParameters>  const& cam_params,
@@ -293,7 +295,7 @@ void saveImagesAndDepthClouds(std::vector<cameraImage> const& cams);
 // center, undo this shift when 'undo_shift' is true. So, add the optical center.
 // When 'undo_shift' is false, subtract the optical center.
 void shiftKeypoints(bool undo_shift, rig::RigSet const& R,
-                    rig::nvmData & nvm); // output
+                    asp::nvmData & nvm); // output
   
 // Read camera information and images from a list or from an NVM file.
 // Can interpolate/extrapolate poses for data from an extra list.  
@@ -307,7 +309,7 @@ void readListOrNvm(// Inputs
                    bool read_nvm_no_shift,
                    rig::RigSet const& R,
                    // Outputs
-                   nvmData & nvm,
+                   asp::nvmData & nvm,
                    std::vector<std::map<double, rig::ImageMessage>> & image_maps,
                    std::vector<std::map<double, rig::ImageMessage>> & depth_maps);
   

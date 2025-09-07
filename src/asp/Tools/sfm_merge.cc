@@ -18,7 +18,7 @@
 #include <Rig/thread.h>
 #include <Rig/sparse_mapping.h>
 #include <Rig/interest_point.h>
-#include <Rig/nvm.h>
+#include <asp/Rig/nvm.h>
 #include <Rig/rig_config.h>
 #include <Rig/merge_maps.h>
 #include <Rig/basic_algs.h>
@@ -144,8 +144,8 @@ int main(int argc, char** argv) {
   // Store the offsets for all maps that we will merge
   std::vector<std::map<std::string, Eigen::Vector2d>> offsets(argc - 1);
 
-  rig::nvmData in0;
-  rig::readNvm(argv[1],
+  asp::nvmData in0;
+  asp::readNvm(argv[1],
                in0.cid_to_keypoint_map,
                in0.cid_to_filename,
                in0.pid_to_cid_fid,
@@ -154,19 +154,19 @@ int main(int argc, char** argv) {
                in0.focal_lengths);
   if (!FLAGS_no_shift) {
     bool undo_shift = true; // remove the shift relative to the optical center
-    std::string offsets_file = rig::offsetsFilename(argv[1]);
-    rig::readNvmOffsets(offsets_file, in0.optical_centers);
+    std::string offsets_file = asp::offsetsFilename(argv[1]);
+    asp::readNvmOffsets(offsets_file, in0.optical_centers);
     offsets[0] = in0.optical_centers;
     // TODO(oalexan1): Undoing shift of keypoints should happen on reading the nvm
     rig::shiftKeypoints(undo_shift, R, in0);
   }
   
   // Successively append the maps
-  rig::nvmData out_map;
+  asp::nvmData out_map;
   for (int i = 2; i < argc; i++) {
     
-    rig::nvmData in1;
-    rig::readNvm(argv[i],
+    asp::nvmData in1;
+    asp::readNvm(argv[i],
                  in1.cid_to_keypoint_map,
                  in1.cid_to_filename,
                  in1.pid_to_cid_fid,
@@ -175,8 +175,8 @@ int main(int argc, char** argv) {
                  in1.focal_lengths);
     if (!FLAGS_no_shift) {
       bool undo_shift = true; // remove the shift relative to the optical center
-      std::string offsets_file = rig::offsetsFilename(argv[i]);
-      rig::readNvmOffsets(offsets_file, in1.optical_centers); 
+      std::string offsets_file = asp::offsetsFilename(argv[i]);
+      asp::readNvmOffsets(offsets_file, in1.optical_centers); 
       offsets[i - 1] = in1.optical_centers;
       // TODO(oalexan1): Undoing shift of keypoints should happen on reading the nvm
       rig::shiftKeypoints(undo_shift, R, in1);
@@ -227,7 +227,7 @@ int main(int argc, char** argv) {
   }
   
   // TODO(oalexan1): Throw out outliers!
-  rig::writeNvm(out_map.cid_to_keypoint_map,
+  asp::writeNvm(out_map.cid_to_keypoint_map,
                       out_map.cid_to_filename,
                       out_map.pid_to_cid_fid,
                       out_map.pid_to_xyz,
@@ -237,8 +237,8 @@ int main(int argc, char** argv) {
   // Save the optical offsets
   if (!FLAGS_no_shift) {
     // Write the optical center offsets to a file
-    std::string offsets_file = rig::offsetsFilename(FLAGS_output_map);
-    rig::writeNvmOffsets(offsets_file, out_map.optical_centers);
+    std::string offsets_file = asp::offsetsFilename(FLAGS_output_map);
+    asp::writeNvmOffsets(offsets_file, out_map.optical_centers);
   }
   
   return 0;

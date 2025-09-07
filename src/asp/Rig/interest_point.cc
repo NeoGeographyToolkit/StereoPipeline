@@ -29,7 +29,7 @@
 #include <Rig/interpolation_utils.h>
 #include <Rig/rig_config.h>
 #include <Rig/image_lookup.h>
-#include <Rig/nvm.h>
+#include <asp/Rig/nvm.h>
 #include <Rig/RigCameraParams.h>
 
 #include <vw/Math/RandomSet.h>
@@ -538,7 +538,7 @@ void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
 
 // The nvm file produced by Theia can have files in arbitrary order. Find the map
 // which will help bring the cid in the correct order.
-void findCidReorderMap(nvmData const& nvm,
+void findCidReorderMap(asp::nvmData const& nvm,
                        std::vector<rig::cameraImage> const& cams,
                        // output
                        std::map<int, int> & nvm_cid_to_cams_cid) {
@@ -585,7 +585,7 @@ void findCidReorderMap(nvmData const& nvm,
 // center, undo this shift when 'undo_shift' is true. So, add the optical center.
 // When 'undo_shift' is false, subtract the optical center.
 void shiftKeypoints(bool undo_shift, rig::RigSet const& R,
-                    rig::nvmData & nvm) { // output
+                    asp::nvmData & nvm) { // output
 
   for (size_t cid = 0; cid < nvm.cid_to_filename.size(); cid++) {
     std::string const& image_name = nvm.cid_to_filename[cid]; // alias
@@ -616,7 +616,7 @@ void shiftKeypoints(bool undo_shift, rig::RigSet const& R,
 void transformNvm(// Inputs
                   std::vector<rig::cameraImage>   const& cams,
                   std::vector<Eigen::Vector2d>          const& keypoint_offsets,
-                  nvmData                               const& nvm,
+                  asp::nvmData                          const& nvm,
                   // Outputs
                   std::vector<std::map<int, int>> & pid_to_cid_fid,
                   std::vector<std::vector<std::pair<float, float>>> & keypoint_vec,
@@ -971,7 +971,7 @@ void detectMatchFeatures(// Inputs
                          std::vector<std::vector<std::pair<float, float>>>& keypoint_vec,
                          std::vector<std::map<int, int>>& pid_to_cid_fid,
                          std::vector<Eigen::Vector3d> & xyz_vec,
-                         rig::nvmData & nvm) {
+                         asp::nvmData & nvm) {
   // Wipe the outputs
   keypoint_vec.clear();
   pid_to_cid_fid.clear();
@@ -1015,7 +1015,7 @@ void detectMatchFeatures(// Inputs
                             cams, keypoint_offsets, nvm,  
                             // Outputs
                             pid_to_cid_fid, keypoint_vec, xyz_vec);
-    nvm = rig::nvmData(); // no longer needed
+    nvm = asp::nvmData(); // no longer needed
     return;
   }
 
@@ -1219,7 +1219,7 @@ void detectMatchFeatures(// Inputs
   }
   
   // De-allocate data not needed anymore
-  nvm = rig::nvmData(); // no longer needed
+  nvm = asp::nvmData(); // no longer needed
   keypoint_map.clear(); keypoint_map.shrink_to_fit();
 
   // Remove duplicate tracks. Those can happen since additional tracks being

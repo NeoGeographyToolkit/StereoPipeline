@@ -41,13 +41,16 @@ namespace camera {
   class CameraParameters;
 }
 
+namespace asp {
+  class nvmData;
+}
+
 namespace rig {
 
 // Forward declarations  
 class cameraImage;
 class ImageMessage;
 class RigSet;
-class nvmData;
 
 // Given a file with name 
 // <dir><text><digits>.<digits><text>ref_cam<text>.jpg

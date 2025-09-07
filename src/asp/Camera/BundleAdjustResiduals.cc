@@ -597,7 +597,7 @@ void saveCameraOffsets(vw::cartography::Datum   const& datum,
                        std::vector<vw::Vector3> const& orig_cam_positions,
                        std::vector<vw::Vector3> const& opt_cam_positions,
                        std::string              const& camera_offset_file) {
-
+  
   // Sanity check for the sizes
   if (orig_cam_positions.size() != opt_cam_positions.size())
     vw_throw(ArgumentErr() 
@@ -637,7 +637,7 @@ void saveCameraOffsets(vw::cartography::Datum                const& datum,
                        std::vector<std::vector<vw::Vector3>> const& opt_cam_positions,
                        std::string                           const& camera_offset_file) {
 
-  vw::vw_out() << "Writing: " << camera_offset_file << std::endl;
+  vw::vw_out() << "Writing: " << camera_offset_file << "\n";
   std::ofstream ofs(camera_offset_file.c_str());
   ofs.precision(8);
   ofs << "# Per-image absolute horizontal and vertical change in camera center (meters)\n";

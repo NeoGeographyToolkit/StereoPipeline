@@ -100,14 +100,17 @@ private:
 
 
 // One pass of bundle adjustment
-int do_ba_ceres_one_pass(asp::BaOptions      & opt,
-                         asp::CRNJ      const& crn,
-                         bool                  first_pass,
-                         bool                  remove_outliers,
-                         asp::BAParams       & param_storage,
-                         asp::BAParams const & orig_parameters,
-                         bool                & convergence_reached,
-                         double              & final_cost) {
+int do_ba_ceres_one_pass(asp::BaOptions                & opt,
+                         asp::CRNJ               const & crn,
+                         bool                           first_pass,
+                         bool                           remove_outliers,
+                         asp::BAParams                 & param_storage, // output
+                         asp::BAParams const           & orig_parameters,
+                         std::vector<vw::CamPtr>  const& orig_cams,
+                         //std::vector<std::vector<vw::Vector3>> const& orig_cam_positions,
+                         std::vector<vw::Vector3> const& orig_cam_positions,
+                         bool                          & convergence_reached,
+                         double                        & final_cost) {
 
   ControlNetwork & cnet = *opt.cnet;
   int num_cameras = param_storage.num_cameras();
@@ -221,13 +224,6 @@ int do_ba_ceres_one_pass(asp::BaOptions      & opt,
     }
   }
 
-  // Camera uncertainty. This is a rather hard constraint.
-  // TODO(oalexan1): Likely orig_cams have the info as opt.camera_models. But need
-  // to test this.
-  std::vector<vw::CamPtr> orig_cams;
-  asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
-  std::vector<vw::Vector3> orig_cam_positions;
-  asp::calcCameraCenters(orig_cams, orig_cam_positions);
   int num_uncertainty_residuals = 0;
   if (opt.camera_position_uncertainty.size() > 0) {
     for (int icam = 0; icam < num_cameras; icam++) {
@@ -394,6 +390,17 @@ void runRandomPasses(asp::BaOptions & opt, asp::BAParams & param_storage,
   double best_cost = final_cost;
   boost::shared_ptr<asp::BAParams> best_params_ptr(new asp::BAParams(param_storage));
 
+  // Must recompute these, as what is passed in as orig_parameters is actually
+  // the latest parameters after optimization, not the original ones. 
+  // TODO(oalexan1): Think of this more. All this runRundomPasses logic
+  // may need to go away.
+  std::vector<vw::CamPtr> orig_cams;
+  asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
+  //std::vector<std::vector<vw::Vector3>> orig_cam_positions;
+  std::vector<vw::Vector3> orig_cam_positions;
+  //asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
+  asp::calcCameraCenters(orig_cams, orig_cam_positions);
+
   // Back up the output prefix
   std::string orig_out_prefix = opt.out_prefix;
 
@@ -416,6 +423,7 @@ void runRandomPasses(asp::BaOptions & opt, asp::BAParams & param_storage,
     double curr_cost = 0.0; // will be set
     do_ba_ceres_one_pass(opt, crn, first_pass, remove_outliers,
                          param_storage, orig_parameters,
+                         orig_cams, orig_cam_positions,
                          convergence_reached, curr_cost);
 
     // Record the parameters of the best result.
@@ -472,7 +480,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     } else if (opt.nvm != "") {
       // Assume the features are stored shifted relative to optical center
       bool nvm_no_shift = false;
-      rig::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift,
+      asp::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift,
                          cnet, world_to_cam, optical_offsets);// outputs
       // For pinhole and csm frame cameras also read the poses from nvm unless told not to
       if (!opt.no_poses_from_nvm)
@@ -641,6 +649,22 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   // This includes modifications from any initial transforms that were specified.
   asp::BAParams orig_parameters(param_storage);
 
+  // TODO(oalexan1): Likely orig_cams have the info as new_cam_models. But need
+  // to test this.
+  // std::vector<std::vector<vw::Vector3>> orig_cam_positions2;
+  // asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions2);
+  std::vector<vw::CamPtr> orig_cams;
+  asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
+  std::vector<vw::Vector3> orig_cam_positions;
+  //std::vector<std::vector<vw::Vector3>> orig_cam_positions;
+  asp::calcCameraCenters(orig_cams, orig_cam_positions);
+  //asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
+
+  // print orig_cam_positions
+  std::cout.precision(17);
+  for (int icam = 0; icam < (int)orig_cam_positions.size(); icam++)
+    std::cout << "Orig cam position2 " << icam << " : " << orig_cam_positions[icam] << "\n";
+
   bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
   if (has_datum && (opt.stereo_session == "pinhole") ||
       (opt.stereo_session == "nadirpinhole"))
@@ -666,6 +690,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     bool convergence_reached = true; // will change
     do_ba_ceres_one_pass(opt, crn, first_pass, remove_outliers,
                          param_storage, orig_parameters,
+                         orig_cams, orig_cam_positions,
                          convergence_reached, final_cost);
     int num_points_remaining = num_points - param_storage.get_num_outliers();
     if (num_points_remaining < opt.min_matches && num_gcp == 0) {
@@ -698,17 +723,11 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   if (num_gcp > 0)
     param_storage.print_gcp_stats(opt.out_prefix, cnet, opt.datum);
 
-  // TODO(oalexan1): Likely orig_cams have the info as opt.camera_models. But need
-  // to test this.
-  std::vector<vw::CamPtr> orig_cams;
-  asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
-  std::vector<vw::Vector3> orig_cam_positions;
-  asp::calcCameraCenters(orig_cams, orig_cam_positions);
-
   // Find the cameras with the latest adjustments. Note that we do not modify
   // opt.camera_models, but make copies as needed.
   std::vector<vw::CamPtr> optimized_cams;
   std::vector<vw::Vector3> opt_cam_positions;
+  //std::vector<std::vector<vw::Vector3>> opt_cam_positions;
   asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
   asp::calcCameraCenters(optimized_cams, opt_cam_positions);
 

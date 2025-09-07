@@ -34,7 +34,7 @@ namespace vw {
   }
 }
 
-namespace rig {
+namespace asp {
 
 struct nvmData {
   std::vector<Eigen::Matrix2Xd>    cid_to_keypoint_map;
@@ -74,7 +74,7 @@ void writeNvmOffsets(std::string const& offset_path,
   
 // Write an NVM file. Subtract from the interest points the given offset.
 // The offsets are saved in a separate file.
-void writeNvm(rig::nvmData const& nvm, std::string const& output_filename);
+void writeNvm(asp::nvmData const& nvm, std::string const& output_filename);
 
 // Write an nvm file. Keypoints are written as-is, and maybe shifted or not
 // relative to the optical center. No focal length info is known, so it is set
@@ -100,10 +100,10 @@ void remapNvm(std::map<int, int>                const& cid2cid,
 
 // Extract a submap in-place from an nvm object.
 void ExtractSubmap(std::vector<std::string> const& images_to_keep,
-                    rig::nvmData & nvm);
+                    asp::nvmData & nvm);
   
 // Read an NVM file. Any offset is applied upon reading.
-void readNvm(std::string const& input_filename, bool nvm_no_shift, rig::nvmData & nvm);
+void readNvm(std::string const& input_filename, bool nvm_no_shift, asp::nvmData & nvm);
 
 // Read an NVM file into the VisionWorkbench control network format. The flag
 // nvm_no_shift, if true, means that the interest points are not shifted
@@ -123,13 +123,13 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
                std::map<std::string, Eigen::Vector2d> const& offsets,
                std::vector<Eigen::Affine3d>           const& world_to_cam,
                // Output
-               rig::nvmData & nvm,
+               asp::nvmData & nvm,
                // Optional updated triangulated points and outlier flags
                std::vector<Eigen::Vector3d> const& tri_vec = std::vector<Eigen::Vector3d>(),
                std::set<int> const& outliers = std::set<int>());
   
 // Convert nvm to cnet
-void nvmToCnet(rig::nvmData const& nvm, 
+void nvmToCnet(asp::nvmData const& nvm, 
                // Outputs
                vw::ba::ControlNetwork                 & cnet,
                std::map<std::string, Eigen::Vector2d> & offsets,

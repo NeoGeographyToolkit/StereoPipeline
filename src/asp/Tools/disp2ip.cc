@@ -164,7 +164,7 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
 
   // Read the optical center offsets for the filtered images
   std::map<std::string, Eigen::Vector2d>  offsets;
-  rig::readNvmOffsets(opt.optical_center_list, offsets); 
+  asp::readNvmOffsets(opt.optical_center_list, offsets); 
 
   // Number of offsets must equal the number of filtered images
   if (offsets.size() != left_filtered_image_files.size() + right_filtered_image_files.size())
@@ -173,12 +173,12 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
 
   // Read the nvm and create the cnet
   bool nvm_no_shift = false; // have an offsets file
-  rig::nvmData nvm;
-  rig::readNvm(opt.input_nvm, nvm_no_shift, nvm);
+  asp::nvmData nvm;
+  asp::readNvm(opt.input_nvm, nvm_no_shift, nvm);
   vw::ba::ControlNetwork cnet("raw");
   std::vector<Eigen::Affine3d> world_to_cam;
   std::map<std::string, Eigen::Vector2d> raw_offsets;
-  rig::nvmToCnet(nvm, cnet, raw_offsets, world_to_cam);
+  asp::nvmToCnet(nvm, cnet, raw_offsets, world_to_cam);
   
   // Invalid disparity pixel
   typedef typename DispImageType::pixel_type DispPixelT;
@@ -274,10 +274,10 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
                                    left_trans, right_trans);
   
   // Convert the cnet to the nvm format
-  rig::cnetToNvm(cnet, offsets, world_to_cam, nvm);
+  asp::cnetToNvm(cnet, offsets, world_to_cam, nvm);
     
   // Write the nvm to disk
-  rig::writeNvm(nvm, opt.output_nvm);
+  asp::writeNvm(nvm, opt.output_nvm);
 }
 
 } // end namespace asp

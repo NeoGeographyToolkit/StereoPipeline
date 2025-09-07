@@ -35,7 +35,7 @@
 #include <Rig/camera_image.h>
 #include <Rig/image_lookup.h>
 #include <Rig/tracks.h>
-#include <Rig/nvm.h>
+#include <asp/Rig/nvm.h>
 #include <Rig/basic_algs.h>
 #include <Rig/ransac.h>
 #include <Rig/transform_utils.h>
@@ -359,8 +359,8 @@ void setupLoadMatchingImages(std::vector<std::string> const& image_files,
 
 // Compute the transform from the B map to the A map by finding the median
 // transform based on the shared images
-Eigen::Affine3d computeTransformFromBToA(const rig::nvmData& A,
-                                         const rig::nvmData& B) {
+Eigen::Affine3d computeTransformFromBToA(const asp::nvmData& A,
+                                         const asp::nvmData& B) {
   // Calc all transforms from B poses to A poses
   std::vector<Eigen::MatrixXd> B2A_vec;
   
@@ -575,18 +575,18 @@ void mergeCameraPoses(std::vector<rig::cameraImage> &C_cams,
 // to ensure that.
 // TODO(oalexan1): Modularize and move to some new tracks.cc file,
 // together with other logic from interest_point.cc.
-void MergeMaps(rig::nvmData const& A,
-               rig::nvmData const& B,
+void MergeMaps(asp::nvmData const& A,
+               asp::nvmData const& B,
                rig::RigSet const& R,
                int num_image_overlaps_at_endpoints,
                bool fast_merge,
                bool no_transform,
                double close_dist,
                std::string const& image_sensor_list, 
-               rig::nvmData & C) { // output merged map
+               asp::nvmData & C) { // output merged map
 
   // Wipe the output
-  C = rig::nvmData();
+  C = asp::nvmData();
 
   if (fast_merge && num_image_overlaps_at_endpoints > 0) {
     std::cout << "Setting number of image overlaps at end points to zero, "
@@ -641,7 +641,7 @@ void MergeMaps(rig::nvmData const& A,
     bool filter_matches_using_cams = false; // do not have a single camera set yet
     bool read_nvm_no_shift = true; // not used, part of the api
     bool no_nvm_matches = true; // not used, part of the api
-    rig::nvmData empty_nvm; // not used, part of the api
+    asp::nvmData empty_nvm; // not used, part of the api
     C.world_to_cam.resize(C.cid_to_filename.size()); // won't be used
     std::cout << "Number of image pairs to match: " << image_pairs.size() << std::endl;
     std::vector<Eigen::Vector3d> local_xyz_vec; // not used

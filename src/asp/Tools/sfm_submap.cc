@@ -17,7 +17,7 @@
  */
 #include <Rig/thread.h>
 #include <Rig/sparse_mapping.h>
-#include <Rig/nvm.h>
+#include <asp/Rig/nvm.h>
 #include <Rig/rig_config.h>
 #include <Rig/basic_algs.h>
 
@@ -88,8 +88,8 @@ int main(int argc, char** argv) {
       images_to_keep.push_back(image);
   }
 
-  rig::nvmData nvm;
-  rig::readNvm(FLAGS_input_map,
+  asp::nvmData nvm;
+  asp::readNvm(FLAGS_input_map,
                nvm.cid_to_keypoint_map,
                nvm.cid_to_filename,
                nvm.pid_to_cid_fid,
@@ -97,16 +97,16 @@ int main(int argc, char** argv) {
                nvm.world_to_cam,
                nvm.focal_lengths);
  
-  std::string offsets_file = rig::offsetsFilename(FLAGS_input_map);
+  std::string offsets_file = asp::offsetsFilename(FLAGS_input_map);
   if (!fs::exists(offsets_file))
     std::cout << "WARNING: No offsets file found. Will not write offsets for the submap.\n";
   else 
-    rig::readNvmOffsets(offsets_file, nvm.optical_centers);
+    asp::readNvmOffsets(offsets_file, nvm.optical_centers);
 
   // Extract the submap. Will also extract a subset of the optical centers.
-  rig::ExtractSubmap(images_to_keep, nvm);
+  asp::ExtractSubmap(images_to_keep, nvm);
 
-  rig::writeNvm(nvm.cid_to_keypoint_map,
+  asp::writeNvm(nvm.cid_to_keypoint_map,
                 nvm.cid_to_filename,
                 nvm.pid_to_cid_fid,
                 nvm.pid_to_xyz,
@@ -114,8 +114,8 @@ int main(int argc, char** argv) {
                 FLAGS_output_map);
 
   if (std::ifstream(offsets_file)) {
-    std::string output_offsets_file = rig::offsetsFilename(FLAGS_output_map);
-    rig::writeNvmOffsets(output_offsets_file, nvm.optical_centers);
+    std::string output_offsets_file = asp::offsetsFilename(FLAGS_output_map);
+    asp::writeNvmOffsets(output_offsets_file, nvm.optical_centers);
   }
 
   return 0;

@@ -5,21 +5,24 @@ namespace camera {
   class CameraParameters;
 }
 
+namespace asp {
+  class nvmData;
+}
+
 namespace rig {
 
-class nvmData;
 class RigSet;
   
 // Merge two maps
-void MergeMaps(rig::nvmData const& A_in,
-               rig::nvmData const& B_in,
+void MergeMaps(asp::nvmData const& A_in,
+               asp::nvmData const& B_in,
                rig::RigSet const& R,
                int num_image_overlaps_at_endpoints,
                bool fast_merge,
                bool no_transform,
                double close_dist,
                std::string const& image_sensor_list, 
-               rig::nvmData & C_out);
+               asp::nvmData & C_out);
 
 }  // namespace rig
 

@@ -22,7 +22,7 @@
 #include <Rig/basic_algs.h>
 #include <Rig/image_lookup.h>
 #include <Rig/RigCameraParams.h>
-#include <Rig/nvm.h>
+#include <asp/Rig/nvm.h>
 #include <Rig/interpolation_utils.h>
 #include <Rig/transform_utils.h>
 
@@ -743,10 +743,10 @@ void calcExtraPoses(std::string const& extra_list, bool use_initial_rig_transfor
 void readCameraPoses(// Inputs
                      std::string const& camera_poses_file,
                      // Outputs
-                     nvmData & nvm) {
+                     asp::nvmData & nvm) {
   
   // Clear the outputs
-  nvm = nvmData();
+  nvm = asp::nvmData();
 
   // Open the file
   vw::vw_out() << "Reading: " << camera_poses_file << std::endl;
@@ -797,7 +797,7 @@ void readListOrNvm(// Inputs
                    bool read_nvm_no_shift,
                    rig::RigSet const& R,
                    // Outputs
-                   nvmData & nvm,
+                   asp::nvmData & nvm,
                    std::vector<std::map<double, rig::ImageMessage>> & image_maps,
                    std::vector<std::map<double, rig::ImageMessage>> & depth_maps) {
 
@@ -816,7 +816,7 @@ void readListOrNvm(// Inputs
                                // Outputs
                                nvm);
   } else {
-    rig::readNvm(nvm_file, 
+    asp::readNvm(nvm_file, 
                  nvm.cid_to_keypoint_map,  
                  nvm.cid_to_filename,  
                  nvm.pid_to_cid_fid,  
@@ -824,8 +824,8 @@ void readListOrNvm(// Inputs
                  nvm.world_to_cam,
                  nvm.focal_lengths);
     if (!read_nvm_no_shift) {
-      std::string offsets_file = rig::offsetsFilename(nvm_file);
-      rig::readNvmOffsets(offsets_file, nvm.optical_centers); 
+      std::string offsets_file = asp::offsetsFilename(nvm_file);
+      asp::readNvmOffsets(offsets_file, nvm.optical_centers); 
       // Must have as many offsets as images
       if (nvm.optical_centers.size() != nvm.cid_to_filename.size())
         LOG(FATAL) << "Expecting as many optical centers as images.\n";

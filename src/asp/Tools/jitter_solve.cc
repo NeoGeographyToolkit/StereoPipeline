@@ -1388,7 +1388,7 @@ void run_jitter_solve(int argc, char* argv[]) {
       bool nvm_no_shift = false;
       std::vector<Eigen::Affine3d> world_to_cam; // poses will not be used
       std::map<std::string, Eigen::Vector2d> optical_offsets;
-      rig::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift, 
+      asp::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift, 
                          cnet, world_to_cam, optical_offsets); // outputs
   } else {
     bool triangulate_control_points = true;

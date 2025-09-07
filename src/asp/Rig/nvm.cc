@@ -32,7 +32,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace rig {
+namespace asp {
 
 // Reads the NVM control network format. This function does not apply
 // the optical offsets. Use instead the function that does.
@@ -57,9 +57,8 @@ void readNvm(std::string               const & input_filename,
   // Read the number of cameras
   ptrdiff_t number_of_cid;
   f >> number_of_cid;
-  if (number_of_cid < 1) {
+  if (number_of_cid < 1)
     vw::vw_throw(vw::ArgumentErr() << "NVM file is missing cameras.");
-  }
 
   // Resize all our structures to support the number of cameras we now expect
   cid_to_keypoint_map.resize(number_of_cid);
@@ -391,7 +390,7 @@ void remapNvm(std::map<int, int>                  const& cid2cid,
 
 // Extract a submap in-place.
 void ExtractSubmap(std::vector<std::string> const& images_to_keep,
-                   rig::nvmData & nvm) {
+                   asp::nvmData & nvm) {
 
   // Sanity check. The images to keep must exist in the original map.
   std::map<std::string, int> image2cid;
@@ -444,7 +443,7 @@ void ExtractSubmap(std::vector<std::string> const& images_to_keep,
   }
 
   // Remap the nvm
-  rig::remapNvm(cid2cid, nvm.cid_to_keypoint_map, nvm.cid_to_filename,
+  asp::remapNvm(cid2cid, nvm.cid_to_keypoint_map, nvm.cid_to_filename,
                 nvm.pid_to_cid_fid, nvm.pid_to_xyz, nvm.world_to_cam,
                 nvm.focal_lengths, nvm.optical_centers);
   
@@ -490,7 +489,7 @@ void readNvm(std::string                       const& input_filename,
   }
   
   // Read the nvm as is, without applying any offsets
-  rig::readNvm(input_filename, cid_to_keypoint_map, cid_to_filename,
+  asp::readNvm(input_filename, cid_to_keypoint_map, cid_to_filename,
                pid_to_cid_fid, pid_to_xyz, world_to_cam, focal_lengths);
 
   // If no offsets, use zero offsets
@@ -519,7 +518,7 @@ void readNvm(std::string                       const& input_filename,
 // A wrapper to carry fewer things around
 void readNvm(std::string const& input_filename, 
              bool nvm_no_shift,
-             rig::nvmData & nvm) {
+             asp::nvmData & nvm) {
   readNvm(input_filename,
           nvm_no_shift,
           nvm.cid_to_keypoint_map,
@@ -532,7 +531,7 @@ void readNvm(std::string const& input_filename,
 }
 
 // A wrapper for writing an nvm file
-void writeNvm(rig::nvmData const& nvm, std::string const& output_filename) {
+void writeNvm(asp::nvmData const& nvm, std::string const& output_filename) {
   writeNvm(nvm.cid_to_keypoint_map,
           nvm.cid_to_filename,
           nvm.focal_lengths,
@@ -544,7 +543,7 @@ void writeNvm(rig::nvmData const& nvm, std::string const& output_filename) {
 }
 
 // Convert nvm to cnet
-void nvmToCnet(rig::nvmData const& nvm, 
+void nvmToCnet(asp::nvmData const& nvm, 
                // Outputs
                vw::ba::ControlNetwork                 & cnet,
                std::map<std::string, Eigen::Vector2d> & offsets,
@@ -587,7 +586,7 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
                std::map<std::string, Eigen::Vector2d> const& offsets,
                std::vector<Eigen::Affine3d>           const& world_to_cam,
                // Output
-               rig::nvmData & nvm,
+               asp::nvmData & nvm,
                // Optional updated triangulated points and outlier flags
                std::vector<Eigen::Vector3d> const& tri_vec,
                std::set<int> const& outliers) {
@@ -604,7 +603,7 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
     vw::vw_throw(vw::ArgumentErr() << "cnetToNvm: Mismatch in tri_vec and cnet.\n");
     
   // Wipe the output 
-  nvm = rig::nvmData();
+  nvm = asp::nvmData();
 
   nvm.cid_to_filename = cnet.get_image_list();
   nvm.focal_lengths.resize(nvm.cid_to_filename.size(), 1.0); // dummy focal length
@@ -699,7 +698,7 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
 
 // Reorder the nvm to agree with a given image list
 void remapNvm(std::vector<std::string> const& image_files,
-              rig::nvmData & nvm) {
+              asp::nvmData & nvm) {
 
   if (image_files.size() != nvm.cid_to_filename.size())
     vw::vw_throw(vw::ArgumentErr() 
@@ -731,7 +730,7 @@ void remapNvm(std::vector<std::string> const& image_files,
   }  
 
   // Remap the nvm
-  rig::remapNvm(cid2cid, nvm.cid_to_keypoint_map, nvm.cid_to_filename,
+  asp::remapNvm(cid2cid, nvm.cid_to_keypoint_map, nvm.cid_to_filename,
                 nvm.pid_to_cid_fid, nvm.pid_to_xyz, nvm.world_to_cam,
                 nvm.focal_lengths, nvm.optical_centers);
 }
@@ -747,15 +746,15 @@ void readNvmAsCnet(std::string const& input_filename,
                    std::map<std::string, Eigen::Vector2d> & optical_offsets) {
 
   // Read the NVM file
-  rig::nvmData nvm;
-  rig::readNvm(input_filename, nvm_no_shift, nvm);
+  asp::nvmData nvm;
+  asp::readNvm(input_filename, nvm_no_shift, nvm);
 
   // Must ensure the nvm image list agrees with the input image list
   if (!image_files.empty()) 
     remapNvm(image_files, nvm);
   
   // Convert to a control network
-  rig::nvmToCnet(nvm, cnet, optical_offsets, world_to_cam);
+  asp::nvmToCnet(nvm, cnet, optical_offsets, world_to_cam);
 }
 
 // Write a cnet to an NVM file. On writing, the feature matches from the cnet will be
@@ -767,11 +766,11 @@ void writeCnetAsNvm(vw::ba::ControlNetwork const& cnet,
                     std::string const& output_filename) {
 
   // Convert to an nvm
-  rig::nvmData nvm;
-  rig::cnetToNvm(cnet, optical_offsets, world_to_cam, nvm);
+  asp::nvmData nvm;
+  asp::cnetToNvm(cnet, optical_offsets, world_to_cam, nvm);
 
   // Write the nvm
-  rig::writeNvm(nvm, output_filename);
+  asp::writeNvm(nvm, output_filename);
 }
   
 }  // end namespace rig

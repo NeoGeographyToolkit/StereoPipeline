@@ -996,8 +996,8 @@ void writeInliersToNvm
     }
   }
   
-  writeNvm(cid_to_keypoint_map, cid_to_filename, nvm_pid_to_cid_fid,  
-           nvm_pid_to_xyz, world_to_cam, nvm_file);
+  asp::writeNvm(cid_to_keypoint_map, cid_to_filename, nvm_pid_to_cid_fid,
+                nvm_pid_to_xyz, world_to_cam, nvm_file);
 
   // Write the optical center per image
   if (shift_keypoints) {

@@ -54,7 +54,7 @@
 #include <Rig/camera_image.h>
 #include <Rig/rig_config.h>
 #include <Rig/RigCameraUtils.h>
-#include <Rig/nvm.h>
+#include <asp/Rig/nvm.h>
 #include <Rig/cost_function.h>
 
 #include <gflags/gflags.h>
@@ -1081,7 +1081,7 @@ int main(int argc, char** argv) {
   // way it is fast to find next timestamps after a given one.
   std::vector<rig::MsgMap> image_maps;
   std::vector<rig::MsgMap> depth_maps;
-  rig::nvmData nvm;
+  asp::nvmData nvm;
   rig::readListOrNvm(FLAGS_camera_poses, FLAGS_nvm, 
                      FLAGS_image_sensor_list, FLAGS_extra_list,
                      FLAGS_use_initial_rig_transforms,
