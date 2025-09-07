@@ -29,8 +29,9 @@
 #include <Rig/interpolation_utils.h>
 #include <Rig/rig_config.h>
 #include <Rig/image_lookup.h>
-#include <asp/Rig/nvm.h>
 #include <Rig/RigCameraParams.h>
+
+#include <asp/Core/nvm.h>
 
 #include <vw/Math/RandomSet.h>
 

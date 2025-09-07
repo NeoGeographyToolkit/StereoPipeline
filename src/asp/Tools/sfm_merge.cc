@@ -18,7 +18,7 @@
 #include <Rig/thread.h>
 #include <Rig/sparse_mapping.h>
 #include <Rig/interest_point.h>
-#include <asp/Rig/nvm.h>
+#include <asp/Core/nvm.h>
 #include <Rig/rig_config.h>
 #include <Rig/merge_maps.h>
 #include <Rig/basic_algs.h>

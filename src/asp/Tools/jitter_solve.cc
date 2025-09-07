@@ -34,7 +34,6 @@
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveUtils.h>
 #include <asp/Rig/rig_config.h>
-#include <asp/Rig/nvm.h>
 #include <asp/Camera/JitterSolveRigUtils.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/BundleAdjustResiduals.h>
@@ -48,6 +47,7 @@
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/FileUtils.h>
+#include <asp/Core/nvm.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>

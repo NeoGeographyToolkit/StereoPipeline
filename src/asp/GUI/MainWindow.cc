@@ -27,7 +27,7 @@
 #include <asp/GUI/chooseFilesDlg.h>
 #include <asp/GUI/ColorAxes.h>
 #include <asp/Core/GCP.h>
-#include <asp/Rig/nvm.h>
+#include <asp/Core/nvm.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Camera/BundleAdjustIsis.h>
 

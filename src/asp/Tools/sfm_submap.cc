@@ -17,9 +17,10 @@
  */
 #include <Rig/thread.h>
 #include <Rig/sparse_mapping.h>
-#include <asp/Rig/nvm.h>
 #include <Rig/rig_config.h>
 #include <Rig/basic_algs.h>
+
+#include <asp/Core/nvm.h>
 
 #include <opencv2/features2d/features2d.hpp>
 

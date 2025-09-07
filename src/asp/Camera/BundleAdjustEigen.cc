@@ -18,10 +18,10 @@
 /// \file BundleAdjustEigen.cc
 ///
 
-#include <asp/Camera/BundleAdjustEigen.h>
 #include <asp/Core/EigenTransformUtils.h>
+#include <asp/Core/nvm.h>
+#include <asp/Camera/BundleAdjustEigen.h>
 #include <asp/Camera/BundleAdjustOutliers.h>
-#include <asp/Rig/nvm.h>
 
 #include <vw/Camera/PinholeModel.h>
 namespace asp {

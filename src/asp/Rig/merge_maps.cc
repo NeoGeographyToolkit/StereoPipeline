@@ -35,12 +35,13 @@
 #include <Rig/camera_image.h>
 #include <Rig/image_lookup.h>
 #include <Rig/tracks.h>
-#include <asp/Rig/nvm.h>
 #include <Rig/basic_algs.h>
 #include <Rig/ransac.h>
 #include <Rig/transform_utils.h>
 #include <Rig/rig_config.h>
 #include <Rig/interest_point.h>
+
+#include <asp/Core/nvm.h>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>

@@ -25,6 +25,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Core/Log.h>
+#include <asp/Core/nvm.h>
 
 // TODO(oalexan1): Move these to cost_function.cc, together will
 // all logic for the cost function.
@@ -54,7 +55,6 @@
 #include <Rig/camera_image.h>
 #include <Rig/rig_config.h>
 #include <Rig/RigCameraUtils.h>
-#include <asp/Rig/nvm.h>
 #include <Rig/cost_function.h>
 
 #include <gflags/gflags.h>

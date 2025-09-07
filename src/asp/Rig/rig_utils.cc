@@ -26,7 +26,7 @@
 #include <asp/Rig/happly.h> // for saving ply files as meshes
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/basic_algs.h>
-#include <asp/Rig/nvm.h>
+#include <asp/Core/nvm.h>
 
 #include <glog/logging.h>
 #include <boost/filesystem.hpp>

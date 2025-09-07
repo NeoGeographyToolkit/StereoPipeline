@@ -22,7 +22,7 @@
 #include <Rig/basic_algs.h>
 #include <Rig/image_lookup.h>
 #include <Rig/RigCameraParams.h>
-#include <asp/Rig/nvm.h>
+#include <asp/Core/nvm.h>
 #include <Rig/interpolation_utils.h>
 #include <Rig/transform_utils.h>
 
