@@ -18,8 +18,8 @@
  */
 
 // Logic for nvm files and the sfm solution
-#ifndef ASP_RIG_NVM_H_
-#define ASP_RIG_NVM_H_
+#ifndef ASP_CORE_NVM_H_
+#define ASP_CORE_NVM_H_
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -146,4 +146,4 @@ void writeCnetAsNvm(vw::ba::ControlNetwork const& cnet,
   
 }  // namespace rig
 
-#endif  // ASP_RIG_NVM_H_
+#endif  // ASP_CORE_NVM_H_
