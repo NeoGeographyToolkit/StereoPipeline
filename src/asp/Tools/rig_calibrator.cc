@@ -53,6 +53,7 @@
 #include <Rig/texture_processing.h>
 #include <Rig/camera_image.h>
 #include <Rig/rig_config.h>
+#include <Rig/RigCameraUtils.h>
 #include <Rig/nvm.h>
 #include <Rig/cost_function.h>
 

@@ -125,22 +125,6 @@ void remapNvm(std::map<int, int>                const& cid2cid,
 void ExtractSubmap(std::vector<std::string> const& images_to_keep,
                     rig::nvmData & nvm);
   
-// A utility for saving a camera in a format ASP understands. For now do not save
-// the distortion.
-// TODO(oalexan1): Move this somewhere else.
-void writePinholeCamera(camera::CameraParameters const& cam_params,
-                        Eigen::Affine3d          const& world_to_cam,
-                        std::string              const& filename);
-  
-// Save the optimized cameras in ASP's Pinhole format. For now do not save
-// the distortion model.
-// TODO(oalexan1): Move this somewhere else.
-void writePinholeCameras(std::vector<std::string>              const& cam_names,
-                         std::vector<camera::CameraParameters> const& cam_params,
-                         std::vector<rig::cameraImage>   const& cams,
-                         std::vector<Eigen::Affine3d>          const& world_to_cam,
-                         std::string                           const& out_dir);
- 
 // Read an NVM file. Any offset is applied upon reading.
 void readNvm(std::string const& input_filename, bool nvm_no_shift, rig::nvmData & nvm);
 

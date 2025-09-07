@@ -28,11 +28,11 @@
 #include <Rig/transform_utils.h>
 #include <Rig/interpolation_utils.h>
 #include <Rig/rig_config.h>
-#include <Rig/random_set.h>
 #include <Rig/image_lookup.h>
 #include <Rig/nvm.h>
-
 #include <Rig/RigCameraParams.h>
+
+#include <vw/Math/RandomSet.h>
 
 #include <opencv2/xfeatures2d.hpp>
 #include <opencv2/highgui.hpp>
@@ -121,8 +121,8 @@ void reduceMatches(std::vector<InterestPoint> & left_ip,
   
   // pick a random subset
   std::vector<int> subset;
-  rig::pick_random_indices_in_range(left_ip.size(), FLAGS_max_pairwise_matches, subset);
-  std::sort(subset.begin(), subset.end()); // sort the indices; not strictly necessary
+  vw::math::pick_random_indices_in_range(left_ip.size(), FLAGS_max_pairwise_matches, subset);
+  std::sort(subset.begin(), subset.end()); // sort the indices (not strictly necessary)
   
   std::vector<InterestPoint> left_ip_full, right_ip_full;
   left_ip_full.swap(left_ip);
