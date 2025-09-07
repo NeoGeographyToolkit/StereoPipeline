@@ -1860,7 +1860,7 @@ int main(int argc, char** argv) {
   rig::saveImageList(cams, image_list); 
 
   if (FLAGS_save_pinhole_cameras)
-    rig::writePinholeCameras(R.cam_names, R.cam_params, cams, 
+    camera::writePinholeCameras(R.cam_names, R.cam_params, cams, 
                                    world_to_cam, FLAGS_out_dir);
   
   std::string conv_angles_file = FLAGS_out_dir + "/convergence_angles.txt";
