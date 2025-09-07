@@ -17,25 +17,26 @@
  * under the License.
  */
 
+#include <asp/Rig/system_utils.h>
+#include <asp/Rig/rig_utils.h>
+#include <asp/Rig/camera_image.h>
+#include <asp/Rig/transform_utils.h>
+#include <asp/Rig/interpolation_utils.h>
+#include <asp/Rig/rig_config.h>
+#include <asp/Rig/happly.h> // for saving ply files as meshes
+#include <asp/Rig/RigCameraParams.h>
+#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/nvm.h>
+
 #include <glog/logging.h>
-
-#include <Rig/system_utils.h>
-#include <Rig/rig_utils.h>
-#include <Rig/camera_image.h>
-#include <Rig/transform_utils.h>
-#include <Rig/interpolation_utils.h>
-#include <Rig/rig_config.h>
-#include <Rig/happly.h> // for saving ply files as meshes
-#include <Rig/RigCameraParams.h>
-
 #include <boost/filesystem.hpp>
+
+#include <pcl/io/ply_io.h>
+#include <pcl/io/pcd_io.h>
 
 #include <iostream>
 #include <fstream>
 #include <iomanip>
-
-#include <pcl/io/ply_io.h>
-#include <pcl/io/pcd_io.h>
 
 // TODO(oalexan1): This file needs to be broken up
 
@@ -924,6 +925,93 @@ bool depthValue(// Inputs
   depth_xyz = Eigen::Vector3d(cv_depth_xyz[0], cv_depth_xyz[1], cv_depth_xyz[2]);
 
   return true;
+}
+
+// Write the inliers in nvm format. The keypoints are shifted relative to the optical
+// center, as written by Theia if shift_keypoints is specified.
+// We handle properly the case when a (cid, fid) shows up in many tracks
+// (this was a bug).
+void writeInliersToNvm
+(std::string                                       const& nvm_file,
+ bool                                                     shift_keypoints, 
+ std::vector<camera::CameraParameters>             const& cam_params,
+ std::vector<rig::cameraImage>               const& cams,
+ std::vector<Eigen::Affine3d>                      const& world_to_cam,
+ std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
+ std::vector<std::map<int, int>>                   const& pid_to_cid_fid,
+ std::vector<std::map<int, std::map<int, int>>>    const& pid_cid_fid_inlier,
+ std::vector<Eigen::Vector3d>                      const& xyz_vec) {
+  
+  // Sanity checks
+  if (world_to_cam.size() != cams.size())
+    LOG(FATAL) << "Expecting as many world-to-camera transforms as cameras.\n";
+  if (world_to_cam.size() != keypoint_vec.size()) 
+    LOG(FATAL) << "Expecting as many sets of keypoints as cameras.\n";  
+  if (pid_to_cid_fid.size() != pid_cid_fid_inlier.size())
+    LOG(FATAL) << "Expecting as many inlier flags as there are tracks.\n";
+  if (pid_to_cid_fid.size() != xyz_vec.size()) 
+    LOG(FATAL) << "Expecting as many tracks as there are triangulated points.\n";
+
+  // Initialize the keypoints in expected format. Copy the filenames
+  // and focal lengths.
+  std::vector<Eigen::Matrix2Xd> cid_to_keypoint_map(keypoint_vec.size());
+  std::vector<std::string> cid_to_filename(keypoint_vec.size());
+  for (size_t cid = 0; cid < cams.size(); cid++) {
+    cid_to_keypoint_map[cid] = Eigen::MatrixXd(2, keypoint_vec[cid].size());
+    cid_to_filename[cid] = cams[cid].image_name;
+  }
+  
+  // Copy over only inliers, and tracks of length >= 2.
+  std::vector<std::map<int, int>> nvm_pid_to_cid_fid;
+  std::vector<Eigen::Vector3d> nvm_pid_to_xyz;
+
+  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
+
+    std::map<int, int> nvm_cid_fid;
+    for (auto cid_fid = pid_to_cid_fid[pid].begin();
+         cid_fid != pid_to_cid_fid[pid].end(); cid_fid++) {
+      int cid = cid_fid->first;
+      int fid = cid_fid->second;
+
+      // Keep inliers only
+      if (!rig::getMapValue(pid_cid_fid_inlier, pid, cid, fid))
+        continue;
+
+      Eigen::Vector2d dist_ip(keypoint_vec[cid][fid].first,
+                              keypoint_vec[cid][fid].second);
+
+      // Offset relative to the optical center
+      if (shift_keypoints) 
+        dist_ip -= cam_params[cams[cid].camera_type].GetOpticalOffset();
+
+      // Add this to the keypoint map for cid in the location at fid_count[cid]
+      cid_to_keypoint_map.at(cid).col(fid) = dist_ip;
+      nvm_cid_fid[cid] = fid;
+    }
+
+    // Keep only tracks with at least two points
+    if (nvm_cid_fid.size() > 1) {
+      nvm_pid_to_cid_fid.push_back(nvm_cid_fid);
+      nvm_pid_to_xyz.push_back(xyz_vec[pid]);
+    }
+  }
+  
+  writeNvm(cid_to_keypoint_map, cid_to_filename, nvm_pid_to_cid_fid,  
+           nvm_pid_to_xyz, world_to_cam, nvm_file);
+
+  // Write the optical center per image
+  if (shift_keypoints) {
+    // Remove .nvm and add new suffix
+    std::string offset_path = changeFileSuffix(nvm_file, "_offsets.txt");
+    std::cout << "Writing optical center per image: " << offset_path << std::endl;
+    std::ofstream offset_fh(offset_path.c_str());
+    offset_fh.precision(17);   // Save with the highest precision
+    for (size_t cid = 0; cid < cid_to_filename.size(); cid++) {
+      auto const& optical_center = cam_params[cams[cid].camera_type].GetOpticalOffset();
+      offset_fh << cid_to_filename[cid] << " "
+                << optical_center[0] << " " << optical_center[1] << "\n";
+    }
+  }
 }
   
 }  // end namespace rig

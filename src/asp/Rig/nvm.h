@@ -18,8 +18,8 @@
  */
 
 // Logic for nvm files and the sfm solution
-#ifndef NVM_H_
-#define NVM_H_
+#ifndef ASP_RIG_NVM_H_
+#define ASP_RIG_NVM_H_
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -28,12 +28,6 @@
 #include <map>
 #include <set>
 
-namespace camera {
-  class CameraParameters;
-}
-namespace rig {
-  class cameraImage;
-}
 namespace vw {
   namespace ba {
     class ControlNetwork;
@@ -62,19 +56,6 @@ void readNvm(std::string               const & input_filename,
              std::vector<Eigen::Vector3d>    & pid_to_xyz,
              std::vector<Eigen::Affine3d>    & world_to_cam,
              std::vector<double>             & focal_lengths);
-
-// Write the inliers in nvm format. The keypoints are shifted relative to the optical
-// center, as written by Theia.
-void writeInliersToNvm
-(std::string                                       const& nvm_file,
- bool                                                     shift_keypoints,
- std::vector<camera::CameraParameters>             const& cam_params,
- std::vector<rig::cameraImage>               const& cams,
- std::vector<Eigen::Affine3d>                      const& world_to_cam,
- std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
- std::vector<std::map<int, int>>                   const& pid_to_cid_fid,
- std::vector<std::map<int, std::map<int, int>>>    const& pid_cid_fid_inlier,
- std::vector<Eigen::Vector3d>                      const& xyz_vec);
 
 // A function to create the offsets filename from the nvm filename
 std::string offsetsFilename(std::string const& nvm_filename);
@@ -165,4 +146,4 @@ void writeCnetAsNvm(vw::ba::ControlNetwork const& cnet,
   
 }  // namespace rig
 
-#endif  // NVM_H_
+#endif  // ASP_RIG_NVM_H_

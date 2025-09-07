@@ -36,8 +36,8 @@
 #include <string>
 #include <vector>
 
+// Forward declarations
 namespace camera {
-  // Forward declaration
   class CameraParameters;
 }
 
@@ -216,6 +216,21 @@ void saveTransformedDepthClouds(std::vector<std::string> const& cam_names,
                                 std::vector<Eigen::Affine3d> const& depth_to_image,
                                 std::vector<Eigen::Affine3d> const& world_to_cam,
                                 std::string const& out_dir);
+  
+// Write the inliers in nvm format. The keypoints are shifted relative to the optical
+// center, as written by Theia if shift_keypoints is specified.
+// We handle properly the case when a (cid, fid) shows up in many tracks
+// (this was a bug).
+void writeInliersToNvm
+(std::string                                       const& nvm_file,
+ bool                                                     shift_keypoints, 
+ std::vector<camera::CameraParameters>             const& cam_params,
+ std::vector<rig::cameraImage>               const& cams,
+ std::vector<Eigen::Affine3d>                      const& world_to_cam,
+ std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
+ std::vector<std::map<int, int>>                   const& pid_to_cid_fid,
+ std::vector<std::map<int, std::map<int, int>>>    const& pid_cid_fid_inlier,
+ std::vector<Eigen::Vector3d>                      const& xyz_vec);
   
 }  // namespace rig
 
