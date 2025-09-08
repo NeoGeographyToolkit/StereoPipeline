@@ -198,7 +198,7 @@ Handling failure
 SAR images can be very hard to process, even when they look similar enough, due
 to noise and fine-level speckle.
 
-If the suggestions from above, about increasing the number of interest point matches
+If the suggestions from above about increasing the number of interest point matches
 in bundle adjustment and stereo do not work, consider trying a different stereo pair,
 with a narrower stereo convergence angle, as this may result in more similar images.
 
@@ -208,5 +208,6 @@ build (:numref:`release`) this option can function without interest points.
 
 Consider increasing the correlation kernel size in ``parallel_stereo``
 (:numref:`corr_section`), with an option such as ``--corr-kernel 9 9``. The
-default is 5. The regular block matching algorithm (``asp_bm``) may also work
-better for very noisy images, as it has a larger default kernel size.
+default is 5. The regular block matching algorithm (``asp_bm``,
+:numref:`stereo_alg_overview`) may also work better for very noisy images, as it
+has a larger default kernel size.
