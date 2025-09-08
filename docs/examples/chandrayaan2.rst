@@ -78,6 +78,11 @@ as::
 
     template=/path/to/ISIS3/isis/appdata/import/PDS4/Chandrayaan2OHRC.tpl
 
+If this command fails with a message about not being able to find a field in the
+input xml file, it is suggested to edit that file and add a made-up entry for
+that field. This is a temporary workaround for the problem of Chandrayaan-2 xml
+files being rather diverse in what fields they record.
+
 Then, the SPICE kernels are attached with `spiceinit <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/spiceinit/spiceinit.html>`_::
 
     spiceinit from = ohrc/img1.cub

@@ -25,7 +25,6 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 
 #include <boost/filesystem.hpp>
-#include <glog/logging.h>
 
 #include <iostream>
 #include <fstream>
@@ -309,7 +308,8 @@ void remapNvm(std::map<int, int>                  const& cid2cid,
 
   // cid2d must be non-empty
   if (cid2cid.empty())
-    LOG(FATAL) << "Cannot reorder a control network with an empty map.";
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Cannot reorder a control network with an empty map.");
     
   // Find the min and max value in the map
   int min_out_cid = cid2cid.begin()->second;
@@ -321,13 +321,15 @@ void remapNvm(std::map<int, int>                  const& cid2cid,
 
   // Min cid must be non-negative
   if (min_out_cid < 0)
-    LOG(FATAL) << "Cannot reorder a control network with negative cids.";
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Cannot reorder a control network with negative cids.");
   
   // Check that all values in cid2cid are unique
   std::set<int> values;
   for (auto const& p : cid2cid) {
     if (values.find(p.second) != values.end())
-      LOG(FATAL) << "Cannot reorder a control network with repeated cids.";
+      vw::vw_throw(vw::ArgumentErr()
+                    << "Cannot reorder a control network with repeated cids.");
     values.insert(p.second);
   }
   
@@ -398,8 +400,9 @@ void ExtractSubmap(std::vector<std::string> const& images_to_keep,
     image2cid[nvm.cid_to_filename[cid]] = cid;
   for (size_t cid = 0; cid < images_to_keep.size(); cid++) {
     if (image2cid.find(images_to_keep[cid]) == image2cid.end())
-      std::cout << "Warning: Could not find in the input map the image: "
-                << images_to_keep[cid] << "\n";
+      vw::vw_out(vw::WarningMessage)
+        << "Warning: Could not find in the input map the image: "
+        << images_to_keep[cid] << "\n";
   }
 
   // To extract the submap-in place, it is simpler to reorder the images
@@ -432,14 +435,16 @@ void ExtractSubmap(std::vector<std::string> const& images_to_keep,
   // Sanity checks. All the kept images must be represented in cid2cid,
   // and the values in cid2cid must be consecutive.
   if (cid2cid.size() != keep.size() || cid2cid.empty())
-    LOG(FATAL) << "Cannot extract a submap. Check your inputs. Maybe some images "
-               << "are duplicated or none are in the map.";
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Cannot extract a submap. Check your inputs. Maybe some images "
+                 << "are duplicated or none are in the map.");
   for (auto it = cid2cid.begin(); it != cid2cid.end(); it++) {
     auto it2 = it; it2++;
     if (it2 == cid2cid.end()) continue;
     if (it->second + 1 != it2->second || cid2cid.begin()->second != 0 )
-      LOG(FATAL) << "Cannot extract a submap. Check if the images "
-                 << "you want to keep are in the same order as in the original map.";
+      vw::vw_throw(vw::ArgumentErr()
+                   << "Cannot extract a submap. Check if the images "
+                   << "you want to keep are in the same order as in the original map.");
   }
 
   // Remap the nvm
@@ -447,8 +452,10 @@ void ExtractSubmap(std::vector<std::string> const& images_to_keep,
                 nvm.pid_to_cid_fid, nvm.pid_to_xyz, nvm.world_to_cam,
                 nvm.focal_lengths, nvm.optical_centers);
   
-  std::cout << "Number of images in the extracted map: " << nvm.cid_to_filename.size() << "\n";
-  std::cout << "Number of tracks in the extracted map: " << nvm.pid_to_cid_fid.size() << "\n";
+  vw::vw_out() << "Number of images in the extracted map: " 
+    << nvm.cid_to_filename.size() << "\n";
+  vw::vw_out() << "Number of tracks in the extracted map: " 
+    << nvm.pid_to_cid_fid.size() << "\n";
 
   return;
 }

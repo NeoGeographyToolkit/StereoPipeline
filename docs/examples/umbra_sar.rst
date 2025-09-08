@@ -19,7 +19,8 @@ viewing angles. The latter is measured by the provided incidence and azimuth
 angles. Another measure is the squint angle.
 
 If the stereo convergence angle (:numref:`stereo_pairs`) is too small, the
-produced terrain model may not be accurate. For the example below, this angle is
+produced terrain model may not be accurate. If it is too large, the images may
+be too different, and processing may fail. For the example below, this angle is
 5.8 degrees (as printed by both ``parallel_stereo`` and ``bundle_adjust``). This
 angle correlates well with the larger of the discrepancy in azimuth and
 incidence angles between the images. We obtained acceptable results even with
@@ -65,9 +66,6 @@ nominal GSD, which can be so fine that the images may be noisy at that level.
 How to find the effective resolution may require some inspection and/or reading
 vendor's documentation.
 
-:numref:`umbra_failure` discusses boosting the signal-to-noise ratio in mapprojected
-images.
-
 How to find a DEM for mapprojection and how to adjust it to be relative to the
 ellipsoid is described in :numref:`initial_terrain` and
 :numref:`conv_to_ellipsoid`. We call that DEM ``ref.tif``.
@@ -93,6 +91,10 @@ and the same for the right image.
 In the latest ASP, the projection string can be auto-determined
 (:numref:`mapproj_auto_proj`). See :numref:`mapproj_refmap` for how to transfer
 the projection to the right image.
+
+Ignore any warnings about images already being mapprojected. The raw Umbra SAR
+images do have some georeference information, but we will mapproject them in
+either case, as results are better that way.
 
 Bundle adjustment
 ~~~~~~~~~~~~~~~~~
@@ -196,27 +198,15 @@ Handling failure
 SAR images can be very hard to process, even when they look similar enough, due
 to noise and fine-level speckle.
 
-One solution is to regrid the mapprojected images by local averaging to a
-coarser resolution. That is hoped to increase the signal-to-noise ratio. This
-can be done for the left mapprojected image with ``gdal_translate``
-(:numref:`gdal_tools`)::
+If the suggestions from above, about increasing the number of interest point matches
+in bundle adjustment and stereo do not work, consider trying a different stereo pair,
+with a narrower stereo convergence angle, as this may result in more similar images.
 
-  gdal_translate     \
-    -r average       \
-    -outsize 50% 50% \
-    left_proj.tif    \
-    left_proj_50pct.tif
+Alternatively, bundle adjustment can be skipped altogether. Then, ``parallel_stereo`` can be
+tried with the option ``--corr-seed-mode 2`` (:numref:`d_sub_dem`). In the latest
+build (:numref:`release`) this option can function without interest points.
 
-and the same for the right one. Using 25% here may also be worth trying.
-
-Then, the earlier steps can be repeated with these images.
-
-Note that for some reason ``gdal_translate`` does not precisely multiply the
-grid size by 2 in this case. That results in a failure in ``parallel_stereo``,
-unless the option ``--allow-different-mapproject-gsd`` is set.
-
-A complementary solution is to increase the correlation kernel size in
-``parallel_stereo`` (:numref:`corr_section`), with an option such as
-``--corr-kernel 9 9``. The default is 5. The regular block matching algorithm
-(``asp_bm``) may also work better for very noisy images, as it has a larger
-default kernel size.
+Consider increasing the correlation kernel size in ``parallel_stereo``
+(:numref:`corr_section`), with an option such as ``--corr-kernel 9 9``. The
+default is 5. The regular block matching algorithm (``asp_bm``) may also work
+better for very noisy images, as it has a larger default kernel size.
