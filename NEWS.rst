@@ -38,6 +38,7 @@ point2dem (:numref:`point2dem`):
   * Removed unused options: ``--phi-rotation``, ``--omega-rotation``, 
     ``--kappa-rotation``. A rotation matrix can be applied with ``pc_align``
     instead.
+    
 pc_align (:numref:`pc_align`):
   * Added support for LAS COPC files (:numref:`pc_align_las`).
   
@@ -50,6 +51,9 @@ cam_gen (:numref:`cam_gen`):
     ephemeris time, sun position, serial number, and target (planet) name.
   * Added the option ``--camera-center-llh``.
 
+mapproject (:numref:`mapproject`):
+  * Added the option ``--gdal-tap``.
+  
 dem2gcp (:numref:`dem2gcp`):
   * Added the options ``--max-num-gcp``, ``--max-disp``, ``--gcp-sigma-image``.
 

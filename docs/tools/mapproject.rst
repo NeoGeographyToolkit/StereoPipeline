@@ -190,23 +190,30 @@ Command-line options
 --tr <float>
     Set the output file resolution (ground sample distance) in target
     georeferenced units per pixel. This may be in meters or degrees, depending
-    on your projection. The center of each output pixel will be at integer
-    multiples of this grid size (hence the output image will extend for an
-    additional half a pixel at each edge).
+    on the projection. The center of each output pixel will be at integer
+    multiples of this grid size, unless ``--gdal-tap`` is set.
 
 -t, --session-type <string>
     Select the stereo session type to use for processing. 
     See :numref:`ps_options` for the list of types.
 
 --t_projwin <xmin ymin xmax ymax>
-    Limit the mapprojected image to this region, with the corners
-    given in georeferenced coordinates (xmin ymin xmax ymax). Max
-    is exclusive.
+    Limit the mapprojected image to this region, with the corners given in
+    georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive, unless
+    ``--gdal-tap`` is set.
 
 --t_pixelwin <xmin ymin xmax ymax>
     Limit the mapprojected image to this region, with the corners
     given in pixels (xmin ymin xmax ymax). Max is exclusive.
 
+--gdal-tap
+    Ensure that the output image bounds (as printed by ``gdalinfo``,
+    :numref:`gdal_tools`) are integer multiples of the grid size (as set with
+    ``--tr``). This implies that the centers of output pixels are offset by 0.5
+    times the grid size. When ``--t_projwin`` is set and its entries are integer
+    multiples of the grid size, that precise extent will be produced on output.
+    This functions as the GDAL ``-tap`` option.
+    
 --bundle-adjust-prefix <name>
     Use the camera adjustment obtained by previously running
     bundle_adjust with this output prefix.

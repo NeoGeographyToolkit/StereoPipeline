@@ -55,11 +55,10 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
     ("t_srs",            po::value(&opt.target_srs_string)->default_value(""),
      "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ). If not provided, use the one from the DEM.")
     ("tr",              po::value(&opt.tr)->default_value(NaN),
-     "Set the output file resolution (ground sample distance) in target "
-     "georeferenced units per pixel. This may be in degrees or meters, "
-     "depending on your projection. The center of each output pixel "
-     "will be at integer multiples of this grid size (hence the output "
-     "image will extend for an additional half a pixel at each edge).")
+     "Set the output file resolution (ground sample distance) in target georeferenced "
+     "units per pixel. This may be in meters or degrees, depending on the projection. The "
+     "center of each output pixel will be at integer multiples of this grid size, unless "
+     "--gdal-tap is set.")
     ("mpp",              po::value(&opt.mpp)->default_value(NaN),
      "Set the output file resolution in meters per pixel.")
     ("ppd",              po::value(&opt.ppd)->default_value(NaN),
@@ -71,9 +70,16 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
     ("session-type,t",      po::value(&opt.stereo_session),
      "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("t_projwin",        po::value(&opt.target_projwin),
-     "Limit the mapprojected image to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
+     "Limit the mapprojected image to this region, with the corners given in georeferenced "
+     "coordinates (xmin ymin xmax ymax). Max is exclusive, unless --gdal-tap is set.")
     ("t_pixelwin",       po::value(&opt.target_pixelwin),
      "Limit the mapprojected image to this region, with the corners given in pixels (xmin ymin xmax ymax). Max is exclusive.")
+    ("gdal-tap", po::bool_switch(&opt.gdal_tap)->default_value(false),
+     "Ensure that the output image bounds (as printed by gdalinfo) are integer multiples "
+     "of the grid size (as set with --tr). This implies that the centers of output pixels "
+     "are offset by 0.5 times the grid size. When --t_projwin is set and its entries are "
+     "integer multiples of the grid size, that precise extent will be produced on output. "
+     "This functions as the GDAL -tap option.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
     ("ref-map", po::value(&opt.ref_map)->default_value(""),
@@ -312,20 +318,20 @@ void calc_target_geom(// Inputs
     cam_box = opt.target_projwin;
     if (cam_box.min().y() > cam_box.max().y())
       std::swap(cam_box.min().y(), cam_box.max().y());
-    // The adjustments below are to make the maximum
-    // non-exclusive.
-    cam_box.max().x() -= current_resolution;
-    cam_box.max().y() -= current_resolution;
+    // Make the maximum non-exclusive, unless --gdal-tap is set.
+    if (!opt.gdal_tap) {
+      cam_box.max().x() -= current_resolution;
+      cam_box.max().y() -= current_resolution;
+    }
   }
 
-  // In principle the corners of the projection box can be
-  // arbitrary.  However, we will force them to be at integer
-  // multiples of pixel dimensions. This is needed if we want to do
-  // tiling, that is break the DEM into tiles, project on individual
-  // tiles, and then combine the tiles nicely without seams into a
-  // single projected image. The tiling solution provides a nice
-  // speedup when dealing with ISIS images, when projection runs
-  // only with one thread.
+  // In principle the corners of the projection box can be arbitrary.  However,
+  // we will force them to be at integer multiples of pixel size. This is needed
+  // if we want to do tiling, that is break the DEM into tiles, project on
+  // individual tiles, and then combine the tiles nicely without seams into a
+  // single projected image. The tiling solution provides a nice speedup when
+  // dealing with ISIS images, when projection runs only with one thread.
+  // This is adjusted below if --gdal-tap is set.
   double s = current_resolution;
   int min_x         = (int)round(cam_box.min().x() / s);
   int min_y         = (int)round(cam_box.min().y() / s);
@@ -345,18 +351,28 @@ void calc_target_geom(// Inputs
   T(0,0) = current_resolution;  // Set col/X conversion to meters per pixel
   T(1,1) = -current_resolution;  // Set row/Y conversion to meters per pixel with a vertical flip (increasing row = down in Y)
   T(1,2) = cam_box.max().y();       // The maximum projected Y coordinate is the starting offset
-  if (target_georef.pixel_interpretation() == GeoReference::PixelAsArea) {
-    // Meaning point [0][0] equals location (0.5, 0.5)
-    T(0,2) -= 0.5 * current_resolution; // Apply a small shift to the offsets
-    T(1,2) += 0.5 * current_resolution;
-  }
-  target_georef.set_transform(T); // Overwrite the existing transform in target_georef
+  
+  // The default behavior is that center of pixel is at integer multiples of the
+  // pixel size. If --gdal-tap is set, emulate the GDAL -tap option, so corners
+  // of pixels are at integer multiples of the grid.
+  double delta = 0.0;
+  if (target_georef.pixel_interpretation() == GeoReference::PixelAsArea &&
+      !opt.gdal_tap)
+    delta = 0.5 * current_resolution; // center of pixel (0, 0) is (0.5, 0.5)
+
+  // Apply this behavior to the transform
+  T(0,2) -= delta; 
+  T(1,2) += delta;
+  target_georef.set_transform(T);
 
   // Compute output image size in pixels using bounding box in output projected space
   // Do not use point_to_pixel_bbox() as that one exaggerates the size of the box.
+  // TODO(oalexan1): Below, target_image_size must be of type BBox2. This will break a lot
+  // of tests though.
   BBox2i target_image_size;
-  target_image_size.grow(target_georef.point_to_pixel(cam_box.min()));
-  target_image_size.grow(target_georef.point_to_pixel(cam_box.max()));
+  vw::Vector2 d(delta, delta);
+  target_image_size.grow(target_georef.point_to_pixel(cam_box.min() + d));
+  target_image_size.grow(target_georef.point_to_pixel(cam_box.max() + d));
   target_image_size.min() = round(target_image_size.min());
   target_image_size.max() = round(target_image_size.max());
 

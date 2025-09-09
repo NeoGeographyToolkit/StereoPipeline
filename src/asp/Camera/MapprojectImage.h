@@ -34,7 +34,8 @@ struct MapprojOptions: vw::GdalWriteOptions {
   // Input
   std::string dem_file, image_file, camera_file, output_file, stereo_session,
     bundle_adjust_prefix, ref_map;
-  bool isQuery, noGeoHeaderInfo, nearest_neighbor, parseOptions, aster_use_csm;
+  bool isQuery, noGeoHeaderInfo, nearest_neighbor, parseOptions, aster_use_csm,
+    gdal_tap;
   bool multithreaded_model; // This is set based on the session type
   
   // Keep a copy of the model here to not have to pass it around separately

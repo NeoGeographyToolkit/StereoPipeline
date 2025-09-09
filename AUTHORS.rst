@@ -8,8 +8,8 @@ at the NASA Ames Research Center in Moffett Field, CA.
 
 **Core Development Team**
 
-- Oleg Alexandrov (NASA/Stinger-Ghaffarian Technologies)
-- Scott McMichael (NASA/Stinger-Ghaffarian Technologies)
+- Oleg Alexandrov (KBR, Inc., at NASA Ames)
+- Scott McMichael (KBR, Inc., at NASA Ames)
 
 **Contributors and Developers**
 
