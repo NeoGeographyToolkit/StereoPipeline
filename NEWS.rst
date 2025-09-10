@@ -64,6 +64,9 @@ jitter_solve (:numref:`jitter_solve`):
 point2las (:numref:`point2las`):
   * Added the option ``--dem`` to convert a DEM to LAS.
 
+dem_mosaic (:numref:`dem_mosaic`):
+  * Added the option ``--gdal-tap``.
+  
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
   * Made the OpticalBar model 3x faster by switching from minimization in 3D

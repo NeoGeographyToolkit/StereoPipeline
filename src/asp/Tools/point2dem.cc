@@ -190,7 +190,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
      "of all points in the cloud within search radius of the grid point, with the "
      "weight given by the Gaussian of the distance from the grid point to the cloud "
      "point (see --gaussian-sigma-factor). If not specified, the default search radius "
-     "is the maximum of user-set ``--dem-spacing`` and internally estimated median DEM "
+     "is the maximum of user-set --dem-spacing and internally estimated median DEM "
      "spacing, so the default factor is about 1.")
     ("gaussian-sigma-factor", po::value(&opt.sigma_factor)->default_value(0.0),
      "The value s to be used in the Gaussian exp(-s*(x/grid_size)^2) when computing the "

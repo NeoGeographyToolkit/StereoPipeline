@@ -30,8 +30,8 @@ separate processes can be invoked for individual tiles for increased
 robustness and perhaps speed.
 
 By the default, the output mosaicked DEM will use the same grid size and
-projection as the first input DEM. These can be changed via the ``--tr``
-and ``--t_srs`` options. Also note the ``--tap`` option.
+projection as the first input DEM. These can be changed via the ``--tr`` and
+``--t_srs`` options. Also note the ``--gdal-tap`` and ``--tap`` options.
 
 The default behavior is to blend the DEMs everywhere. If the option
 ``--priority-blending-length integer`` is invoked, the blending behavior
@@ -160,8 +160,7 @@ how various uncertainty measures could be combined into a single weight image.
 Regridding
 ^^^^^^^^^^
 
-Enforce that the grid is at integer multiples of grid size
-(like the GDAL ``gdalwarp`` tool, :numref:`gdal_tools`)::
+Enforce that the output pixel centers are at integer multiples of grid size::
 
     dem_mosaic --tr 0.10 --tap input.tif -o output.tif
 
@@ -174,6 +173,9 @@ and extends for half a grid vertically and horizontally.
 (:numref:`mapproject`) create their outputs by default that way, and
 if ``dem_mosaic`` is invoked on such datasets, it will respect the
 input grid even without ``--tap`` being explicitly set.)
+
+See :numref:`gdal_tap` for when it is desired to emulate the GDAL
+``-tap`` option.
 
 .. _dem_mosaic_blur:
 
@@ -249,8 +251,26 @@ the value from, and :math:`p` is given by ``--fill-power``.
 This process will be repeated the specified number of times, with the valid
 portion of the DEM growing each time.
 
+.. _gdal_tap:
+
+Target aligned pixels
+^^^^^^^^^^^^^^^^^^^^^
+
+A command such as::
+
+  dem_mosaic --gdal-tap                       \
+    --tr 1                                    \
+    --t_projwin 641401 4120288 652701 4133728 \
+    input.tif -o output.tif
+
+should produce a DEM with the bounds and grid size specified above, with
+bilinear interpolation. This is analogous to ``gdalwarp`` (:numref:`gdal_tools`)
+with the options ``-tap -tr 1 1 -r bilinear -te``. Here, a projection in units
+of meter is assumed.
+
 Usage
 ~~~~~
+
 ::
 
      dem_mosaic [options] <dem files> -o output_file_prefix
@@ -297,17 +317,10 @@ Command-line options
     PROJ). If not provided, use the one from the first DEM to be mosaicked.
 
 --t_projwin <double double double double>
-    Limit the mosaic to this region, with the corners given in
-    georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.
-    See the ``--tap`` option if desired to apply addition adjustments
-    to this extent.
-
---tap
-    Let the output grid be at integer multiples of the grid size (like
-    the default behavior of ``point2dem`` and ``mapproject``, and
-    ``gdalwarp`` when invoked with ``-tap``, though the latter does
-    not have the half-a-pixel extra extent this tool has). If this
-    option is not set, the input grids determine the output grid.
+    Limit the mosaic to this region, with the corners given in georeferenced
+    coordinates (xmin ymin xmax ymax). Max is exclusive. See the ``--gdal-tap``
+    and ``--tap`` options if desired to apply addition adjustments to this
+    extent.
 
 --first
     Keep the first encountered DEM value (in the input order).
@@ -418,8 +431,23 @@ Command-line options
 --force-projwin
     Make the output mosaic fill precisely the specified projwin,
     by padding it if necessary and aligning the output grid to the
-    region.
+    region. This is the default with ``--gdal-tap --projwin``.
 
+--gdal-tap
+    Ensure that the bounds of output products (as printed by ``gdalinfo``,
+    :numref:`gdal_tools`) are integer multiples of the grid size (as set with
+    ``--tr``). When ``--t_projwin`` is set and its entries are integer multiples
+    of the grid size, that precise extent will be produced on output. This
+    functions as the GDAL ``-tap`` option. An example is in :numref:`gdal_tap`.
+    
+--tap
+    Let the output grid be at integer multiples of the grid size (like
+    the default behavior of ``point2dem`` and ``mapproject``, and
+    ``gdalwarp`` when invoked with ``-tap``, though the latter does
+    not have the half-a-pixel extra extent this tool has). If this
+    option is not set, the input grids determine the output grid.
+    See also ``--gdal-tap``.
+    
 --save-dem-weight <integer>
     Save the weight image that tracks how much the input DEM with
     given index contributed to the output mosaic at each pixel

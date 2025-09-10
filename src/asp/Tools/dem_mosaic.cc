@@ -268,7 +268,7 @@ struct Options: vw::GdalWriteOptions {
   double weights_exp, weights_blur_sigma, dem_blur_sigma;
   double nodata_threshold, fill_search_radius, fill_power, fill_percent, min_weight;
   bool   first, last, min, max, block_max, mean, stddev, median, nmad,
-    count, tap, save_index_map, use_centerline_weights, first_dem_as_reference, 
+    count, tap, gdal_tap, save_index_map, use_centerline_weights, first_dem_as_reference, 
     propagate_nodata, no_border_blend, invert_weights;
   std::set<int> tile_list;
   BBox2 projwin;
@@ -280,7 +280,7 @@ struct Options: vw::GdalWriteOptions {
              nodata_threshold(std::numeric_limits<double>::quiet_NaN()),
              first(false), last(false), min(false), max(false), block_max(false),
              mean(false), stddev(false), median(false), nmad(false),
-             count(false), save_index_map(false), tap(false),
+             count(false), save_index_map(false), tap(false), gdal_tap(false),
              use_centerline_weights(false), first_dem_as_reference(false), projwin(BBox2()),
              invert_weights(false) {}
 };
@@ -1333,14 +1333,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ). If not provided, use the one from the first DEM to be mosaicked.")
     ("t_projwin",       po::value(&opt.projwin),
      "Limit the mosaic to this region, with the corners given in georeferenced coordinates "
-     "(xmin ymin xmax ymax). Max is exclusive. See the ``--tap`` option if desired to apply "
-     "addition adjustments to this extent.")
+     "(xmin ymin xmax ymax). Max is exclusive. See the --gdal-tap and --tap "
+     "options if desired to apply addition adjustments to this extent.")
+    ("gdal-tap", po::bool_switch(&opt.gdal_tap)->default_value(false),
+     "Ensure that the output mosaic bounds (as printed by gdalinfo) are integer "
+     "multiples of the grid size (as set with --tr). When --t_projwin is set and its "
+     "entries are integer multiples of the grid size, that precise extent will be produced "
+     "on output. This functions as the GDAL -tap option.")
     ("tap",  po::bool_switch(&opt.tap)->default_value(false),
-     "Let the output grid be at integer multiples of the grid size (like "
-     "the default behavior of point2dem and mapproject, and "
-     "gdalwarp when invoked with -tap, though the latter does "
-     "not have the half-a-pixel extra extent this tool has). If this "
-     "option is not set, the input grids determine the output grid.")
+     "Let the output grid be at integer multiples of the grid size (like the default "
+     "behavior of point2dem and mapproject. Then the mosaic extent is biased by an "
+     "additional half a pixel. If this option is not set, the input grids determine the "
+     "output grid. See also --gdal-tap.")
     ("first",   po::bool_switch(&opt.first)->default_value(false),
      "Keep the first encountered DEM value (in the input order).")
     ("last",    po::bool_switch(&opt.last)->default_value(false),
@@ -1623,13 +1627,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
        << "its own grid size and also the order of operations.\n");
 
   if (opt.priority_blending_len > 0 &&
-      (opt.tap || opt.force_projwin || !opt.projwin.empty() || !opt.weight_list.empty() ||
-       opt.invert_weights || opt.min_weight > 0 || opt.propagate_nodata || 
-       opt.first_dem_as_reference || !opt.this_dem_as_reference.empty()))
+      (opt.tap || opt.gdal_tap ||  opt.force_projwin || !opt.projwin.empty() || 
+       !opt.weight_list.empty() || opt.invert_weights || opt.min_weight > 0 || 
+       opt.propagate_nodata ||  opt.first_dem_as_reference || 
+       !opt.this_dem_as_reference.empty()))
     vw::vw_throw(vw::ArgumentErr() 
              << "The option --priority-blending-length should not be mixed with other "
              << "options. Do each operation individually.\n");
   
+  if (opt.tap && opt.gdal_tap)
+    vw::vw_throw(vw::ArgumentErr() 
+           << "The options --tap and --gdal-tap cannot be used together.\n");
+    
   // print warning usign vw warning message
   if (opt.fill_search_radius > 30)
     vw_out(vw::WarningMessage) << "The fill search radius is large. "
@@ -1749,7 +1758,8 @@ int main(int argc, char *argv[]) {
       // Since the DEMs have float pixels, we must read the no-data as
       // float as well. (this is a bug fix). Yet we store it in a
       // double, as we will cast the DEM pixels to double as well.
-      if (in_rsrc.has_nodata_read()) opt.out_nodata_value = float(in_rsrc.nodata_read());
+      if (in_rsrc.has_nodata_read()) 
+        opt.out_nodata_value = float(in_rsrc.nodata_read());
     }
 
     // Watch for underflow, if mixing doubles and float. Particularly problematic
@@ -1780,7 +1790,8 @@ int main(int argc, char *argv[]) {
       // Set the srs string into georef.
       bool have_user_datum = false;
       Datum user_datum;
-      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, mosaic_georef);
+      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum, 
+                                      user_datum, mosaic_georef);
     }
 
     // Use desired spacing if user-specified
@@ -1803,13 +1814,20 @@ int main(int argc, char *argv[]) {
       vw::Vector2 ul = mosaic_georef.lonlat_to_pixel(Vector2(llbox0.min().x(), 
                                                              llbox0.max().y()));
       mosaic_georef = crop(mosaic_georef, ul.x(), ul.y());
-
-
     } else {
       // Update spacing variable from the current transform
       spacing = mosaic_georef.transform()(0, 0);
+    if (spacing <= 0)
+      vw_throw(ArgumentErr() << "The output grid size must be positive.\n");
     }
-    
+
+    if (opt.gdal_tap) {
+      // A first adjustment, will refine later
+      auto T = mosaic_georef.transform();
+      T(0, 2) = spacing * round(T(0, 2)/spacing);
+      T(1, 2) = spacing * round(T(1, 2)/spacing);
+      mosaic_georef.set_transform(T);
+    }
     
     // if the user specified the tile size in georeferenced units.
     if (opt.geo_tile_size > 0) {
@@ -1836,14 +1854,42 @@ int main(int argc, char *argv[]) {
       }
     }
     
+    if (opt.gdal_tap) {
+      // Conform to GDAL -tap. Ensure that the output bounds are at integer
+      // multiples of grid size.
+      mosaic_bbox.min() = spacing * round(mosaic_bbox.min() / spacing);
+      mosaic_bbox.max() = spacing * round(mosaic_bbox.max()  / spacing);
+      if (opt.projwin != BBox2()) {
+        opt.projwin.min() = spacing * round(opt.projwin.min() / spacing);
+        opt.projwin.max() = spacing * round(opt.projwin.max()  / spacing);
+      }
+    }
+    
     if (opt.projwin != BBox2()) {
       // If to create the mosaic only in a given region
-      mosaic_bbox.crop(opt.projwin);
+      if (!opt.gdal_tap)
+        mosaic_bbox.crop(opt.projwin);
+      else 
+        mosaic_bbox = opt.projwin; // GDAL --tap overrides the mosaic box
+      
       // Crop the proj boxes as well
       for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++)
         dem_proj_bboxes[dem_iter].crop(opt.projwin);
       if (opt.force_projwin) 
         mosaic_bbox = opt.projwin;
+    }
+
+    if (opt.gdal_tap) {
+       // Further adjustment of the georef. By now mosaic_bbox incorporates
+       // --projwin if given. The corners of mosaic_bbox are multiples of spacing.
+       auto T = mosaic_georef.transform();
+       if (T(0, 0) <= 0)
+         vw::vw_throw(vw::ArgumentErr() << "The output grid size in x must be positive.\n");
+       if (T(1, 1) >= 0)
+         vw::vw_throw(vw::ArgumentErr() << "The output grid size in y must be negative.\n");
+       T(0, 2) = mosaic_bbox.min().x();
+       T(1, 2) = mosaic_bbox.max().y();  
+       mosaic_georef.set_transform(T);
     }
     
     // First-guess pixel box
