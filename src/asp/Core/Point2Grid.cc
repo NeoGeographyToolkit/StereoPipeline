@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -25,7 +25,7 @@
 #include <cstddef>
 
 namespace asp {
-  
+
 // ===========================================================================
 // Class Member Functions
 // ===========================================================================
@@ -38,19 +38,19 @@ Point2Grid::Point2Grid(int width, int height,
   m_width(width), m_height(height),
   m_buffer(buffer), m_weights(weights),
   m_x0(x0), m_y0(y0), m_grid_size(grid_size),
-  m_radius(radius), m_filter(filter), m_percentile(percentile){
-  
-  if (m_grid_size <= 0)
-    vw::vw_throw( vw::ArgumentErr() << "Point2Grid: Grid size must be > 0.\n" );
-  if (m_radius <= 0)
-    vw::vw_throw( vw::ArgumentErr() << "Point2Grid: Search radius must be > 0.\n" );
+  m_radius(radius), m_filter(filter), m_percentile(percentile) {
 
-  if (m_filter == f_percentile && (m_percentile < 0 || m_percentile > 100.0) )  
-    vw::vw_throw( vw::ArgumentErr() << "Point2Grid: Expecting the percentile in the range 0.0 to 100.0.\n" );
+  if (m_grid_size <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "Point2Grid: Grid size must be > 0.\n");
+  if (m_radius <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "Point2Grid: Search radius must be > 0.\n");
+
+  if (m_filter == f_percentile && (m_percentile < 0 || m_percentile > 100.0))
+    vw::vw_throw(vw::ArgumentErr() << "Point2Grid: Expecting the percentile in the range 0.0 to 100.0.\n");
 
   // Stop here if we don't need to create gaussian weights
-  if (m_filter != f_weighted_average) 
-    return; 
+  if (m_filter != f_weighted_average)
+    return;
 
   // By the time we reached the distance 'spacing' from the origin, we
   // want the Gaussian exp(-sigma*x^2) to decay to given value.  Note
@@ -64,23 +64,23 @@ Point2Grid::Point2Grid(int width, int height,
   // Override this if passed from outside
   if (sigma_factor > 0)
     sigma = sigma_factor/spacing/spacing;
-  
+
   // Sample the gaussian for speed
   int num_samples = 1000;
   m_dx = m_radius/(num_samples - 1.0);
   m_sampled_gauss.resize(num_samples);
-  for (int k = 0; k < num_samples; k++){
+  for (int k = 0; k < num_samples; k++) {
     double dist = k*m_dx;
     m_sampled_gauss[k] = std::exp(-sigma*dist*dist);
   }
-  
+
 }
 
 void Point2Grid::Clear(const float value) {
   m_buffer.set_size (m_width, m_height);
   m_weights.set_size (m_width, m_height);
-  for (int c = 0; c < m_buffer.cols(); c++){
-    for (int r = 0; r < m_buffer.rows(); r++){
+  for (int c = 0; c < m_buffer.cols(); c++) {
+    for (int r = 0; r < m_buffer.rows(); r++) {
       m_buffer (c, r) = value; // usually this is the no-data value
       m_weights(c, r) = 0.0;
     }
@@ -92,25 +92,25 @@ void Point2Grid::Clear(const float value) {
       m_filter == f_nmad   || m_filter == f_percentile) {
     m_vals.set_size(m_width, m_height);
   }
-  
+
 }
 
-void Point2Grid::AddPoint(double x, double y, double z){
+void Point2Grid::AddPoint(double x, double y, double z) {
 
-  int minx = std::max( (int)std::ceil( (x - m_radius - m_x0)/m_grid_size ), 0 );
-  int miny = std::max( (int)std::ceil( (y - m_radius - m_y0)/m_grid_size ), 0 );
-  
-  int maxx = std::min( (int)std::floor( (x + m_radius - m_x0)/m_grid_size ), m_buffer.cols() - 1 );
-  int maxy = std::min( (int)std::floor( (y + m_radius - m_y0)/m_grid_size ), m_buffer.rows() - 1 );
+  int minx = std::max((int)std::ceil((x - m_radius - m_x0)/m_grid_size), 0);
+  int miny = std::max((int)std::ceil((y - m_radius - m_y0)/m_grid_size), 0);
+
+  int maxx = std::min((int)std::floor((x + m_radius - m_x0)/m_grid_size), m_buffer.cols() - 1);
+  int maxy = std::min((int)std::floor((y + m_radius - m_y0)/m_grid_size), m_buffer.rows() - 1);
 
   // Add the contribution of current point to all grid points within radius
-  for (int ix = minx; ix <= maxx; ix++){
-    for (int iy = miny; iy <= maxy; iy++){
-      
+  for (int ix = minx; ix <= maxx; ix++) {
+    for (int iy = miny; iy <= maxy; iy++) {
+
       double gx   = m_x0 + ix*m_grid_size;
       double gy   = m_y0 + iy*m_grid_size;
-      double dist = std::sqrt( (x-gx)*(x-gx) + (y-gy)*(y-gy) );
-      if ( dist > m_radius ) continue;
+      double dist = std::sqrt((x-gx)*(x-gx) + (y-gy)*(y-gy));
+      if (dist > m_radius) continue;
 
       if (m_filter == f_weighted_average) {
         double wt = m_sampled_gauss[(int)std::round(dist/m_dx)];
@@ -121,83 +121,77 @@ void Point2Grid::AddPoint(double x, double y, double z){
         m_buffer(ix, iy)  += z*wt;
         m_weights(ix, iy) += wt;
 
-      }else if (m_filter == f_mean){
+      } else if (m_filter == f_mean) {
         if (m_weights(ix, iy) == 0)
           m_buffer(ix, iy) = 0.0; // set to 0 before incrementing below
         m_buffer(ix, iy)  += z;
         m_weights(ix, iy) += 1;
-        
-      }else if (m_filter == f_min){
+
+      } else if (m_filter == f_min) {
         if (m_weights(ix, iy) == 0) {
           m_buffer(ix, iy)  = z; // first time we set the value
           m_weights(ix, iy) = 1; // mark the fact that the buffer was initialized
-        }else
+        } else
           m_buffer(ix, iy) = std::min(m_buffer(ix, iy), z);
-      
-      }else if (m_filter == f_max){
+
+      } else if (m_filter == f_max) {
         if (m_weights(ix, iy) == 0) {
           m_buffer(ix, iy)  = z; // first time we set the value
           m_weights(ix, iy) = 1; // mark the fact that the buffer was initialized
-        }else
+        } else
           m_buffer(ix, iy) = std::max(m_buffer(ix, iy), z);
-        
-      }else if (m_filter == f_count){
+
+      } else if (m_filter == f_count) {
         if (m_weights(ix, iy) == 0) {
           m_weights(ix, iy) = 1; // mark the fact that the buffer was initialized
-        }else
+        } else
           m_weights(ix, iy) += 1;
-        
-      }else if (m_filter == f_stddev || m_filter == f_median ||
-                m_filter == f_nmad   || m_filter == f_percentile){
+
+      } else if (m_filter == f_stddev || m_filter == f_median ||
+                m_filter == f_nmad   || m_filter == f_percentile) {
         m_vals(ix, iy).push_back(z); // not strictly needed for stddev
       }
-      
+
     }
-    
+
   }
 }
 
-void Point2Grid::normalize(){
-  for (int c = 0; c < m_buffer.cols(); c++){
-    for (int r = 0; r < m_buffer.rows(); r++){
+void Point2Grid::normalize() {
+  for (int c = 0; c < m_buffer.cols(); c++) {
+    for (int r = 0; r < m_buffer.rows(); r++) {
 
       if (m_filter == f_weighted_average || m_filter == f_mean) {
         if (m_weights(c, r) > 0)
           m_buffer (c, r) /= m_weights(c, r);
 
-      }else if (m_filter == f_count)
+      } else if (m_filter == f_count)
         m_buffer(c, r) = m_weights(c, r); // hence instead of no-data we will have always 0
 
-      else if (m_filter == f_stddev){
+      else if (m_filter == f_stddev) {
         if (m_vals(c, r).empty())
           continue; // nothing to compute
         vw::math::StdDevAccumulator<double> V;
-        for (std::size_t it = 0; it < m_vals(c, r).size(); it++) 
+        for (std::size_t it = 0; it < m_vals(c, r).size(); it++)
           V(m_vals(c, r)[it]);
         m_buffer(c, r) = V.value();
-      }
-      
-      else if (m_filter == f_median){
+      } else if (m_filter == f_median) {
         if (m_vals(c, r).empty())
           continue; // nothing to compute
         vw::math::MedianAccumulator<double> V;
-        for (std::size_t it = 0; it < m_vals(c, r).size(); it++) 
+        for (std::size_t it = 0; it < m_vals(c, r).size(); it++)
           V(m_vals(c, r)[it]);
         m_buffer(c, r) = V.value();
-      }
-
-      else if (m_filter == f_nmad){
+      } else if (m_filter == f_nmad) {
         if (m_vals(c, r).empty())
           continue; // nothing to compute
         m_buffer(c, r) = vw::math::destructive_nmad(m_vals(c, r));
-      }
-      
-      else if (m_filter == f_percentile){
+      } else if (m_filter == f_percentile) {
         if (m_vals(c, r).empty())
           continue; // nothing to compute
         m_buffer(c, r) = vw::math::destructive_percentile(m_vals(c, r), m_percentile);
       }
-      
+
     }
   }
 }
