@@ -15,17 +15,14 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-
 #include <vw/Core/Exception.h>
 #include <vw/Core/FundamentalTypes.h>
 #include <asp/Core/Point2Grid.h>
 #include <vw/Math/Functors.h>
 
 #include <iostream>
-
-using namespace std;
-using namespace vw;
+#include <cmath>
+#include <cstddef>
 
 namespace asp {
   
@@ -34,7 +31,7 @@ namespace asp {
 // ===========================================================================
 
 Point2Grid::Point2Grid(int width, int height,
-                       ImageView<double> & buffer, ImageView<double> & weights,
+                       vw::ImageView<double> & buffer, vw::ImageView<double> & weights,
                        double x0, double y0, double grid_size, double min_spacing,
                        double radius, double sigma_factor,
                        FilterType filter, double percentile):
@@ -44,12 +41,12 @@ Point2Grid::Point2Grid(int width, int height,
   m_radius(radius), m_filter(filter), m_percentile(percentile){
   
   if (m_grid_size <= 0)
-    vw_throw( ArgumentErr() << "Point2Grid: Grid size must be > 0.\n" );
+    vw::vw_throw( vw::ArgumentErr() << "Point2Grid: Grid size must be > 0.\n" );
   if (m_radius <= 0)
-    vw_throw( ArgumentErr() << "Point2Grid: Search radius must be > 0.\n" );
+    vw::vw_throw( vw::ArgumentErr() << "Point2Grid: Search radius must be > 0.\n" );
 
   if (m_filter == f_percentile && (m_percentile < 0 || m_percentile > 100.0) )  
-    vw_throw( ArgumentErr() << "Point2Grid: Expecting the percentile in the range 0.0 to 100.0.\n" );
+    vw::vw_throw( vw::ArgumentErr() << "Point2Grid: Expecting the percentile in the range 0.0 to 100.0.\n" );
 
   // Stop here if we don't need to create gaussian weights
   if (m_filter != f_weighted_average) 
@@ -62,7 +59,7 @@ Point2Grid::Point2Grid(int width, int height,
   // gets, to ensure that the DEM stays smooth.
   double spacing = std::max(grid_size, min_spacing);
   double val = 0.25;
-  double sigma = -log(val)/spacing/spacing;
+  double sigma = -std::log(val)/spacing/spacing;
 
   // Override this if passed from outside
   if (sigma_factor > 0)
@@ -74,7 +71,7 @@ Point2Grid::Point2Grid(int width, int height,
   m_sampled_gauss.resize(num_samples);
   for (int k = 0; k < num_samples; k++){
     double dist = k*m_dx;
-    m_sampled_gauss[k] = exp(-sigma*dist*dist);
+    m_sampled_gauss[k] = std::exp(-sigma*dist*dist);
   }
   
 }
@@ -100,11 +97,11 @@ void Point2Grid::Clear(const float value) {
 
 void Point2Grid::AddPoint(double x, double y, double z){
 
-  int minx = std::max( (int)ceil( (x - m_radius - m_x0)/m_grid_size ), 0 );
-  int miny = std::max( (int)ceil( (y - m_radius - m_y0)/m_grid_size ), 0 );
+  int minx = std::max( (int)std::ceil( (x - m_radius - m_x0)/m_grid_size ), 0 );
+  int miny = std::max( (int)std::ceil( (y - m_radius - m_y0)/m_grid_size ), 0 );
   
-  int maxx = std::min( (int)floor( (x + m_radius - m_x0)/m_grid_size ), m_buffer.cols() - 1 );
-  int maxy = std::min( (int)floor( (y + m_radius - m_y0)/m_grid_size ), m_buffer.rows() - 1 );
+  int maxx = std::min( (int)std::floor( (x + m_radius - m_x0)/m_grid_size ), m_buffer.cols() - 1 );
+  int maxy = std::min( (int)std::floor( (y + m_radius - m_y0)/m_grid_size ), m_buffer.rows() - 1 );
 
   // Add the contribution of current point to all grid points within radius
   for (int ix = minx; ix <= maxx; ix++){
@@ -112,11 +109,11 @@ void Point2Grid::AddPoint(double x, double y, double z){
       
       double gx   = m_x0 + ix*m_grid_size;
       double gy   = m_y0 + iy*m_grid_size;
-      double dist = sqrt( (x-gx)*(x-gx) + (y-gy)*(y-gy) );
+      double dist = std::sqrt( (x-gx)*(x-gx) + (y-gy)*(y-gy) );
       if ( dist > m_radius ) continue;
 
       if (m_filter == f_weighted_average) {
-        double wt = m_sampled_gauss[(int)round(dist/m_dx)];
+        double wt = m_sampled_gauss[(int)std::round(dist/m_dx)];
         if (wt <= 0)
           continue;
         if (m_weights(ix, iy) == 0)
@@ -175,7 +172,7 @@ void Point2Grid::normalize(){
         if (m_vals(c, r).empty())
           continue; // nothing to compute
         vw::math::StdDevAccumulator<double> V;
-        for (size_t it = 0; it < m_vals(c, r).size(); it++) 
+        for (std::size_t it = 0; it < m_vals(c, r).size(); it++) 
           V(m_vals(c, r)[it]);
         m_buffer(c, r) = V.value();
       }
@@ -184,7 +181,7 @@ void Point2Grid::normalize(){
         if (m_vals(c, r).empty())
           continue; // nothing to compute
         vw::math::MedianAccumulator<double> V;
-        for (size_t it = 0; it < m_vals(c, r).size(); it++) 
+        for (std::size_t it = 0; it < m_vals(c, r).size(); it++) 
           V(m_vals(c, r)[it]);
         m_buffer(c, r) = V.value();
       }
@@ -204,5 +201,5 @@ void Point2Grid::normalize(){
     }
   }
 }
-  
+
 } // end namespace asp
