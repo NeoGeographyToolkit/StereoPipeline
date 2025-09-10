@@ -35,6 +35,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     
 point2dem (:numref:`point2dem`):
   * Added support for LAS COPC files (:numref:`point2dem_las`).
+  * Added the option ``--gdal-tap``.
   * Removed unused options: ``--phi-rotation``, ``--omega-rotation``, 
     ``--kappa-rotation``. A rotation matrix can be applied with ``pc_align``
     instead.

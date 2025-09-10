@@ -43,8 +43,7 @@ namespace asp{
   /// bins and averages the point cloud on a regular grid over the [x,y]
   /// plane of the point image; producing an evenly sampled ortho-image
   /// with interpolated z values.
-  class OrthoRasterizerView:
-    public vw::ImageViewBase<OrthoRasterizerView> {
+  class OrthoRasterizerView: public vw::ImageViewBase<OrthoRasterizerView> {
     vw::ImageViewRef<vw::Vector3> m_point_image;
     vw::ImageViewRef<float>   m_texture;
     vw::BBox3  m_bbox, m_snapped_bbox; // bounding box of point cloud
@@ -84,6 +83,7 @@ namespace asp{
     typedef vw::PixelGray<float> pixel_type;
     typedef const vw::PixelGray<float> result_type;
     typedef vw::ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
+    bool m_gdal_tap;
 
     /// Constructor. Must call initialize_spacing before using the object!!!
     OrthoRasterizerView(vw::ImageViewRef<vw::Vector3> point_image,
@@ -92,6 +92,7 @@ namespace asp{
                         double  sigma_factor,
                         int     pc_tile_size,
                         vw::BBox2 const& projwin,
+                        bool gdal_tap,
                         OutlierRemovalMethod outlier_removal_method,
                         vw::Vector2 const& remove_outliers_params,
                         vw::ImageViewRef<double> const& error_image,
@@ -123,16 +124,9 @@ namespace asp{
       m_texture = vw::channel_cast<float>(vw::channels_to_planes(texture.impl()));
     }
 
-    inline int cols() const {
-      return (int)round((fabs(m_snapped_bbox.max().x() - m_snapped_bbox.min().x()) / m_spacing)) + 1;
-      }
-    inline int rows() const {
-      return (int)round((fabs(m_snapped_bbox.max().y() - m_snapped_bbox.min().y()) / m_spacing)) + 1;
-    }
-
-    inline int planes() const {
-       return 1; 
-    }
+    int cols() const;
+    int rows() const;
+    int planes() const;
 
     inline pixel_accessor origin() const { 
       return pixel_accessor(*this); 

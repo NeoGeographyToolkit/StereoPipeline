@@ -390,7 +390,7 @@ namespace asp{
   OrthoRasterizerView::OrthoRasterizerView
   (ImageViewRef<Vector3> point_image, ImageViewRef<double> texture,
    double search_radius_factor, double sigma_factor, int pc_tile_size,
-   vw::BBox2 const& projwin,
+   vw::BBox2 const& projwin, bool gdal_tap,
    OutlierRemovalMethod outlier_removal_method,
    Vector2 const& remove_outliers_params,
    ImageViewRef<double> const& error_image,
@@ -410,7 +410,7 @@ namespace asp{
     m_default_value(0),
     m_minz_as_default(true), m_use_alpha(false),
     m_block_size(pc_tile_size),
-    m_projwin(projwin),
+    m_projwin(projwin), m_gdal_tap(gdal_tap),
     m_error_image(error_image), m_error_cutoff(-1.0),
     m_median_filter_params(median_filter_params), m_erode_len(erode_len),
     m_default_grid_size_multiplier(default_grid_size_multiplier),
@@ -620,11 +620,13 @@ namespace asp{
       subvector(m_snapped_bbox.min(), 0, 2) = m_projwin.min();
       subvector(m_snapped_bbox.max(), 0, 2) = m_projwin.max();
 
-      // The proj win takes into account that each pixel's physical size is
-      // m_spacing. So it is biased by half a pixel outwards from the snapped
-      // box. Compensate for that here.
-      m_snapped_bbox.min() += Vector3(m_spacing/2.0, m_spacing/2.0, 0);
-      m_snapped_bbox.max() -= Vector3(m_spacing/2.0, m_spacing/2.0, 0);
+      if (!m_gdal_tap) {
+        // The proj win takes into account that each pixel's physical size is
+        // m_spacing. So it is biased by half a pixel outwards from the snapped
+        // box. Compensate for that here.
+        m_snapped_bbox.min() += Vector3(m_spacing/2.0, m_spacing/2.0, 0);
+        m_snapped_bbox.max() -= Vector3(m_spacing/2.0, m_spacing/2.0, 0);
+      }
       snap_bbox(m_spacing, m_snapped_bbox);
     }
 
@@ -633,14 +635,20 @@ namespace asp{
   // Function to convert pixel coordinates to the point domain
   BBox3 OrthoRasterizerView::pixel_to_point_bbox(BBox2 const& inbox) const {
     BBox3 outbox = m_snapped_bbox;
+    
+    // Adjust for --gdal-tap
+    double d = 0.0;
+    if (m_gdal_tap)
+      d = m_spacing/2.0;
+      
     outbox.min().x() = m_snapped_bbox.min().x() + ((double(inbox.min().x()))
-                                                   * m_spacing);
+                                                   * m_spacing) + d;
     outbox.max().x() = m_snapped_bbox.min().x() + ((double(inbox.max().x()))
-                                                   * m_spacing);
+                                                   * m_spacing) + d;
     outbox.min().y() = m_snapped_bbox.min().y() + ((double(rows() - inbox.max().y()))
-                                                   * m_spacing);
+                                                   * m_spacing) + d;
     outbox.max().y() = m_snapped_bbox.min().y() + ((double(rows() - inbox.min().y()))
-                                                   * m_spacing);
+                                                   * m_spacing) + d;
     return outbox;
   }
 
@@ -648,13 +656,13 @@ namespace asp{
   OrthoRasterizerView::prerasterize_type
   OrthoRasterizerView::prerasterize(BBox2i const& bbox) const {
 
-    BBox2i bbox_1 = bbox;
+    BBox2i outbox = bbox;
 
     // bugfix, ensure we see enough beyond current tile
-    bbox_1.expand((int)ceil(std::max(m_search_radius_factor, 5.0)));
+    outbox.expand((int)ceil(std::max(m_search_radius_factor, 5.0)));
 
-    // Used to find which polygons are actually in the draw space.
-    BBox3 local_3d_bbox = pixel_to_point_bbox(bbox_1);
+    // Used to find which points to add are within range
+    BBox3 local_3d_bbox = pixel_to_point_bbox(outbox);
 
     ImageView<double> d_buffer, weights;
 
@@ -669,8 +677,8 @@ namespace asp{
       search_radius = std::max(m_spacing, m_default_spacing);
     else
       search_radius = m_spacing*m_search_radius_factor;
-    asp::Point2Grid point2grid(bbox_1.width(),
-                               bbox_1.height(),
+    asp::Point2Grid point2grid(outbox.width(),
+                               outbox.height(),
                                d_buffer, weights,
                                local_3d_bbox.min().x(),
                                local_3d_bbox.min().y(),
@@ -689,7 +697,6 @@ namespace asp{
       min_val = m_default_value;
     }
 
-    std::valarray<float> vertices(10), intensities(5);
     point2grid.Clear(min_val);
 
     // For each block in the DEM space intersecting local_3d_bbox,
@@ -727,8 +734,8 @@ namespace asp{
         (*m_num_invalid_pixels) += std::int64_t(bbox.width())*std::int64_t(bbox.height());
       }
 
-      return prerasterize_type(d_buffer, BBox2i(-bbox_1.min().x(),
-                                                -bbox_1.min().y(), cols(), rows()));
+      return prerasterize_type(d_buffer, BBox2i(-outbox.min().x(), -outbox.min().y(), 
+                                                cols(), rows()));
     }
 
     for (MapIterType it = blocks_map.begin(); it != blocks_map.end(); it++) {
@@ -761,10 +768,6 @@ namespace asp{
 
         for (int32 col = 0; col < point_copy.cols(); col++) {
 
-          PointAcc point_ur = point_ul; point_ur.next_col();
-          PointAcc point_ll = point_ul; point_ll.next_row();
-          PointAcc point_lr = point_ul; point_lr.advance(1,1);
-
           if (!boost::math::isnan(point_copy(col, row).z()) &&
                 local_3d_bbox.contains(point_copy(col, row))) {
             point2grid.AddPoint(point_copy(col, row).x(),
@@ -793,7 +796,7 @@ namespace asp{
     for (int r = 0; r < result.rows(); r++) {
       for (int c = 0; c < result.cols(); c++) {
 
-        Vector2i pix = Vector2(c, r) + bbox_1.min();
+        Vector2i pix = Vector2(c, r) + outbox.min();
         if (bbox.contains(pix)) {
           //  Ignore the pixels in the temporary extension of bbox.
           if (result(c,r) == min_val)
@@ -806,19 +809,34 @@ namespace asp{
       (*m_num_invalid_pixels) += num_unset;
     }
 
-    return prerasterize_type(result,
-                             BBox2i(-bbox_1.min().x(), -bbox_1.min().y(), cols(), rows()));
+    return prerasterize_type(result, BBox2i(-outbox.min().x(), -outbox.min().y(), 
+                                            cols(), rows()));
   }
 
-  // Return the affine georeferencing transform.
-  vw::Matrix<double,3,3> OrthoRasterizerView::geo_transform() {
-    vw::Matrix<double,3,3> geo_transform;
-    geo_transform.set_identity();
-    geo_transform(0,0) = m_spacing;
-    geo_transform(1,1) = -m_spacing;
-    geo_transform(0,2) = m_snapped_bbox.min().x();
-    geo_transform(1,2) = m_snapped_bbox.max().y();
-    return geo_transform;
-  }
+// When m_gdal_tap is true, the behavior subtly changes in a few places in a consistent way.
+int OrthoRasterizerView::cols() const {
+  double ratio = std::abs(m_snapped_bbox.max().x() - m_snapped_bbox.min().x()) / m_spacing;
+  return (int)round(ratio) + int(!m_gdal_tap);
+}
+
+int OrthoRasterizerView::rows() const {
+  double ratio = std::abs(m_snapped_bbox.max().y() - m_snapped_bbox.min().y()) / m_spacing;
+  return (int)round(ratio) + int(!m_gdal_tap);
+}
+
+int OrthoRasterizerView::planes() const {
+  return 1;
+}
+  
+// Return the affine georeferencing transform.
+vw::Matrix<double,3,3> OrthoRasterizerView::geo_transform() {
+  vw::Matrix<double,3,3> geo_transform;
+  geo_transform.set_identity();
+  geo_transform(0,0) = m_spacing;
+  geo_transform(1,1) = -m_spacing;
+  geo_transform(0,2) = m_snapped_bbox.min().x();
+  geo_transform(1,2) = m_snapped_bbox.max().y();
+  return geo_transform;
+}
 
 } // namespace asp

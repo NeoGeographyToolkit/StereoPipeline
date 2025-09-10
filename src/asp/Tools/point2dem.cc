@@ -73,7 +73,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
     ("t_projwin", po::value(&opt.target_projwin),
      "Specify a custom extent in georeferenced coordinates. This will be adjusted "
       "to ensure that the grid points are placed at integer multiples of the grid "
-      "size.")
+      "size, unless --gdal-tap is on.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),
      "Set output DEM resolution (in target georeferenced units per pixel). These units may "
      "be in meters or degrees, depending on the projection. If not specified, it will be "
@@ -81,6 +81,12 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
      "(in quotes) to generate multiple output files. This is the same as the --tr option.")
     ("tr", po::value(&dem_spacing2)->default_value(""), 
      "This is identical to the --dem-spacing option.")
+    ("gdal-tap", po::bool_switch(&opt.gdal_tap)->default_value(false),
+     "Ensure that the bounds of output products (as printed by gdalinfo) are integer "
+     "multiples of the grid size (as set with --tr). This implies that the centers of "
+     "output pixels are offset by 0.5 times the grid size. When --t_projwin is set and its "
+     "entries are integer multiples of the grid size, that precise extent will be produced "
+     "on output. This functions as the GDAL -tap option.")
     ("datum", po::value(&opt.datum)->default_value(""),
      "Set the datum. This will override the datum from the input images and also --t_srs, --semi-major-axis, and --semi-minor-axis. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid)->default_value(""),
@@ -437,7 +443,7 @@ void rasterize_cloud_multi_spacing(const ImageViewRef<Vector3>& proj_points,
     rasterizer(proj_points.impl(), select_channel(proj_points.impl(),2),
                opt.search_radius_factor, opt.sigma_factor,
                asp::ASPGlobalOptions::tri_tile_size(), // to efficiently process the cloud
-               opt.target_projwin,
+               opt.target_projwin, opt.gdal_tap,
                outlier_removal_method, opt.remove_outliers_params,
                error_image, estim_max_error, estim_proj_box, opt.max_valid_triangulation_error,
                opt.median_filter_params, opt.erode_len, opt.has_las_or_csv_or_pcd,
@@ -609,9 +615,9 @@ int main(int argc, char *argv[]) {
     double estim_max_error = 0.0;
     BBox3 estim_proj_box;
     estim_max_error 
-    = asp::estim_max_tri_error_and_proj_box(proj_points, error_image,
-                                            opt.remove_outliers_params,
-                                            estim_proj_box);
+      = asp::estim_max_tri_error_and_proj_box(proj_points, error_image,
+                                              opt.remove_outliers_params,
+                                              estim_proj_box);
 
     // Create the DEM
     rasterize_cloud_multi_spacing(proj_points, opt, output_georef, error_image,

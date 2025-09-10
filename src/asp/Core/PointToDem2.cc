@@ -461,9 +461,9 @@ void save_ortho(DemOptions & opt,
 // Rasterize a DEM, and perhaps the error image, orthoimage, stddev, etc.
 // This may be called several times, with different grid sizes.
 void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
-                               DemOptions& opt,
-                               vw::cartography::GeoReference& georef,
-                               std::int64_t * num_invalid_pixels) {
+                     DemOptions& opt,
+                     vw::cartography::GeoReference& georef,
+                     std::int64_t * num_invalid_pixels) {
 
   vw_out() << "\tStarting DEM rasterization\n";
   vw_out() << "\t--> DEM spacing: " <<     rasterizer.spacing() << " pt/px\n";
@@ -478,7 +478,8 @@ void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
   // Fix have pixel offset required if pixel_interpretation is
   // PixelAsArea. We could have done that earlier, but it makes
   // the above easier to not think about it.
-  if (georef.pixel_interpretation() == vw::cartography::GeoReference::PixelAsArea) {
+  if (georef.pixel_interpretation() == vw::cartography::GeoReference::PixelAsArea &&
+      !rasterizer.m_gdal_tap) {
     Matrix3x3 transform = georef.transform();
     transform(0,2) -= 0.5 * transform(0,0);
     transform(1,2) -= 0.5 * transform(1,1);

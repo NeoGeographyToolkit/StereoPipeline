@@ -76,8 +76,7 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
      "Limit the mapprojected image to this region, with the corners given in pixels (xmin ymin xmax ymax). Max is exclusive.")
     ("gdal-tap", po::bool_switch(&opt.gdal_tap)->default_value(false),
      "Ensure that the output image bounds (as printed by gdalinfo) are integer multiples "
-     "of the grid size (as set with --tr). This implies that the centers of output pixels "
-     "are offset by 0.5 times the grid size. When --t_projwin is set and its entries are "
+     "of the grid size (as set with --tr). When --t_projwin is set and its entries are "
      "integer multiples of the grid size, that precise extent will be produced on output. "
      "This functions as the GDAL -tap option.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),

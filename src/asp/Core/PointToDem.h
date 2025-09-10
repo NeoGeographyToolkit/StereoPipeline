@@ -80,7 +80,7 @@ struct DemOptions: vw::GdalWriteOptions {
   double      search_radius_factor, sigma_factor, default_grid_size_multiplier;
   bool        has_las_or_csv_or_pcd, auto_proj_center, copc_read_all;
   vw::Vector2i max_output_size;
-  bool        input_is_projected;
+  bool        input_is_projected, gdal_tap;
   
   // Output
   std::string out_prefix, output_file_type;

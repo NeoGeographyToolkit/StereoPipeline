@@ -209,8 +209,7 @@ Command-line options
 --gdal-tap
     Ensure that the output image bounds (as printed by ``gdalinfo``,
     :numref:`gdal_tools`) are integer multiples of the grid size (as set with
-    ``--tr``). This implies that the centers of output pixels are offset by 0.5
-    times the grid size. When ``--t_projwin`` is set and its entries are integer
+    ``--tr``). When ``--t_projwin`` is set and its entries are integer
     multiples of the grid size, that precise extent will be produced on output.
     This functions as the GDAL ``-tap`` option.
     

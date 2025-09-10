@@ -16,6 +16,7 @@ The grid size is set with ``--tr`` for the given projection. The grid points are
 placed at integer multiples of the grid size, and the created DEM has a ground
 footprint that is outwardly larger by half a grid pixel than the bounding box of
 the grid points. If not set, the grid size is estimated automatically.
+The behavior is somewhat different with ``--gdal-tap``.
 
 A custom extent can be specified with the option ``--t_projwin``. This will be
 adjusted to ensure, as above, that the grid points are placed at integer
@@ -418,46 +419,26 @@ stereo correlation was fully successful.
 Command-line options for point2dem
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
--h, --help
-    Display the help message.
-
---nodata-value <float (default: -1e+6)>
-    Set the nodata value.
-
---use-alpha
-    Create images that have an alpha channel.
-
--n, --normalized
-    Also write a normalized version of the DEM (for debugging).
-
--o, --output-prefix <string (default: "")>
-    Specify the output prefix. The output DEM will be 
-    ``<output prefix>-DEM.tif``.
-
---orthoimage
-    Write an orthoimage based on the texture files passed in as inputs (after
-    the point clouds). Must pass ``<output prefix>-L.tif`` when using this
-    option. Produces ``<output prefix>-DRG.tif``.
-
---errorimage
-    Write an additional image, whose values represent the triangulation ray
-    intersection error in meters (the closest distance between the rays
-    emanating from the two cameras corresponding to the same point on the
-    ground). Filename is ``<output prefix>-IntersectionErr.tif``. If stereo
-    triangulation was done with the option ``--compute-error-vector``, this
-    intersection error will instead have 3 bands, corresponding to the
-    North-East-Down coordinates of that vector (:numref:`triangulation_options`),
-    unless the option ``--scalar-error`` is set.
-
 --t_srs <string (default: "")>
     Specify the output projection as a GDAL projection string (WKT, GeoJSON, or
     PROJ). If not provided, will be read from the point cloud, if available.
     See :numref:`point2dem_proj` for details.
 
+-s, --tr, --dem-spacing <float (default: 0)>
+    Set output DEM resolution (in target georeferenced units per
+    pixel). These units may be in meters or degrees, depending on the
+    projection. If not specified, it will be computed automatically
+    (except for LAS and CSV files). Multiple spacings can be set
+    (in quotes) to generate multiple output files.
+
+-o, --output-prefix <string (default: "")>
+    Specify the output prefix. The output DEM will be 
+    ``<output prefix>-DEM.tif``.
+
 --t_projwin <xmin ymin xmax ymax>
     Specify a custom extent in georeferenced coordinates. This will be adjusted
     to ensure that the grid points are placed at integer multiples of the grid
-    size.
+    size, unless ``--gdal-tap`` is on.
 
 --datum <string>
     Set the datum. This will override the datum from the input
@@ -475,6 +456,24 @@ Command-line options for point2dem
     - MOLA (3,396,000 meters)
     - Mars (alias for D_MARS)
     - Moon (alias for D_MOON)
+
+--orthoimage
+    Write an orthoimage based on the texture files passed in as inputs (after
+    the point clouds). Must pass ``<output prefix>-L.tif`` when using this
+    option. Produces ``<output prefix>-DRG.tif``.
+
+--errorimage
+    Write an additional image, whose values represent the triangulation ray
+    intersection error in meters (the closest distance between the rays
+    emanating from the two cameras corresponding to the same point on the
+    ground). Filename is ``<output prefix>-IntersectionErr.tif``. If stereo
+    triangulation was done with the option ``--compute-error-vector``, this
+    intersection error will instead have 3 bands, corresponding to the
+    North-East-Down coordinates of that vector (:numref:`triangulation_options`),
+    unless the option ``--scalar-error`` is set.
+
+--nodata-value <float (default: -1e+6)>
+    Set the nodata value.
 
 --reference-spheroid <string (default: "")> 
     This is identical to the datum option.
@@ -530,13 +529,6 @@ Command-line options for point2dem
     This is the default in the latest build, but should be set for ASP 3.4.0 and
     earlier.
 
--s, --tr, --dem-spacing <float (default: 0)>
-    Set output DEM resolution (in target georeferenced units per
-    pixel). These units may be in meters or degrees, depending on the
-    projection. If not specified, it will be computed automatically
-    (except for LAS and CSV files). Multiple spacings can be set
-    (in quotes) to generate multiple output files.
-
 --search-radius-factor <float>
     Multiply this factor by ``--dem-spacing`` to get the search
     radius. The DEM height at a given grid point is obtained as the weighted
@@ -591,6 +583,14 @@ Command-line options for point2dem
       the filter will be added to the obtained DEM file name, e.g.,
       ``output-min-DEM.tif`` if ``--filter min`` is used.
 
+--gdal-tap
+    Ensure that the bounds of output products (as printed by ``gdalinfo``,
+    :numref:`gdal_tools`) are integer multiples of the grid size (as set with
+    ``--tr``). This implies that the centers of output pixels are offset by 0.5
+    times the grid size. When ``--t_projwin`` is set and its entries are integer
+    multiples of the grid size, that precise extent will be produced on output.
+    This functions as the GDAL ``-tap`` option.
+    
 --propagate-errors
     Write files with names ``<output prefix>-HorizontalStdDev.tif``
     and ``<output prefix>-VerticalStdDev.tif`` having the gridded
@@ -694,6 +694,12 @@ Command-line options for point2dem
 --z-offset <float (default: 0)>
     Add a vertical offset (in meters) to the DEM.
 
+--use-alpha
+    Create images that have an alpha channel.
+
+-n, --normalized
+    Also write a normalized version of the DEM (for debugging).
+
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
@@ -706,3 +712,6 @@ Command-line options for point2dem
 
 --tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.
+
+-h, --help
+    Display the help message.
