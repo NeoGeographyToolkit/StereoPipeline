@@ -29,6 +29,9 @@
 
 #include <Eigen/Dense>
 
+#include <string>
+#include <set>
+
 namespace fs = boost::filesystem;
 
 namespace camera {
