@@ -44,10 +44,10 @@ asp::CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam,
   }
   
   asp::CsmModel * csm_model = NULL;
-  
-  // TODO(oalexan1): Remove the stereo_session when ASTER inherits from CSM.
+
+  // TODO(oalexan1): Have ASTER use the CSM camera directly, then remove the stereo 
+  // session argument.   
   if (stereo_session == "aster") {
-    // TODO(oalexan1): The ASTER model must inherit from CSM.
     ASTERCameraModel * aster_model 
       = dynamic_cast<asp::ASTERCameraModel*>(vw::camera::unadjusted_model(cam.get()));
     if (aster_model == NULL) 

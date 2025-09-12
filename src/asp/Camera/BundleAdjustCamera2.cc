@@ -1533,7 +1533,8 @@ void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
 }
 
 // This function returns all camera center samples for linescan cameras. These
-// cameras may have an external adjustment.
+// cameras may have an external adjustment. Otherwise it returns only the adjusted
+// camera center at pixel (0,0).
 void calcCameraCenters(std::string const& stereo_session, 
                        std::vector<vw::CamPtr> const& camera_models,
                        std::vector<std::vector<vw::Vector3>> & cam_positions) {
@@ -1542,8 +1543,11 @@ void calcCameraCenters(std::string const& stereo_session,
   for (size_t icam = 0; icam < camera_models.size(); icam++) {
 
     // Fetch the CSM model without any adjustment
-    asp::CsmModel * csm_cam 
-      = asp::csm_model(vw::camera::unadjusted_model(camera_models[icam]), stereo_session);
+    asp::CsmModel * csm_cam = NULL;
+    try {
+      csm_cam
+        = asp::csm_model(vw::camera::unadjusted_model(camera_models[icam]), stereo_session);
+    } catch(...) {}
     if (csm_cam == NULL) {
       // Not a CSM camera, pull directly the camera center
       vw::Vector3 ctr = camera_models[icam]->camera_center(vw::Vector2());
