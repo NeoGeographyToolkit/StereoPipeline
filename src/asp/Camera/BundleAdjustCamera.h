@@ -665,10 +665,11 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
 void parse_intrinsics_limits(std::string const& intrinsics_limits_str,
                              std::vector<double> & intrinsics_limits);
 
+// This function returns only one camera center per camera
 void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
                        std::vector<vw::Vector3>      & cam_positions);
 
-// This function returns all camera centers for linescan cameras
+// This function returns all camera center samples for linescan cameras
 void calcCameraCenters(std::string const& stereo_session,
                        std::vector<vw::CamPtr>  const& cams,
                        std::vector<std::vector<vw::Vector3>> & cam_positions);

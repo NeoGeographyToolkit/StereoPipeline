@@ -1247,7 +1247,9 @@ void save_linescan(Options & opt) {
   // be of linescan type.
   asp::stereo_settings().aster_use_csm = true;
 
-  // Load the cameras. By now bundle-adjust-prefix should be set in stereo settings.
+  // Load the cameras. For now load without any adjustment, which will be applied later.
+  auto local_prefix = asp::stereo_settings().bundle_adjust_prefix;
+  asp::stereo_settings().bundle_adjust_prefix = "";
   std::string out_prefix;
   asp::SessionPtr session(asp::StereoSessionFactory::create
                    (opt.stereo_session, // may change
@@ -1263,6 +1265,7 @@ void save_linescan(Options & opt) {
   // This is a bit of a convoluted way of applying the adjustment from the base
   // camera model to the CSM model. To be revisited once all ASP linescan cameras
   // are CSM rather than having CSM as a member.
+  asp::stereo_settings().bundle_adjust_prefix = local_prefix;
   if (asp::stereo_settings().bundle_adjust_prefix != "")
      asp::applyAdjustmentToCsmCamera(opt.image_file,
                                      opt.input_camera,

@@ -456,17 +456,18 @@ std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
 std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
                            std::string const& adjustFile, 
                            asp::BAParams const& param_storage) {
-  
+
+  // Get the unadjusted CSM model and the adjustment as a transform
   CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
   AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
                               cam_adjust.position(), cam_adjust.pose());
-  
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
   std::string csmFile          = asp::csmStateFile(adjustFile);
-  asp::CsmModel * csm_model    = asp::csm_model(opt.camera_models[icam], 
+  asp::CsmModel * csm_model    
+    = asp::csm_model(vw::camera::unadjusted_model(opt.camera_models[icam]),
                                                 opt.stereo_session);
 
-  // Save a transformed copy of the camera model
+  // Apply the adjustment and save a transformed copy of the camera model
   boost::shared_ptr<asp::CsmModel> out_cam;
   csm_model->deep_copy(out_cam);
   out_cam->applyTransform(ecef_transform);
@@ -1194,7 +1195,8 @@ void setup_error_propagation(std::string const& session_name,
 }
 
 // Find the cameras with the latest adjustments. Note that we do not modify
-// opt.camera_models, but make copies as needed.
+// opt.camera_models, but make copies as needed. The optimizations (adjustments)
+// may be inline, or external.
 void calcOptimizedCameras(asp::BaBaseOptions const& opt,
                           asp::BAParams const& param_storage,
                           std::vector<vw::CamPtr> & optimized_cams) {
@@ -1327,6 +1329,8 @@ void saveUpdatedCameras(asp::BaBaseOptions const& opt,
   return;
 }
 
+// Save the CSM cameras. It is assumed there are no external adjustments
+// applied to them.
 void saveCsmCameras(std::string const& out_prefix,
                     std::string const& stereo_session, 
                     std::vector<std::string> const& image_files,
@@ -1341,7 +1345,8 @@ void saveCsmCameras(std::string const& out_prefix,
                                                           image_files[icam],
                                                           camera_files[icam]);
     std::string csmFile = asp::csmStateFile(adjustFile);
-    asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], stereo_session);
+    asp::CsmModel * csm_cam 
+      = asp::csm_model(camera_models[icam], stereo_session);
     csm_cam->saveState(csmFile);
     cam_files[icam] = csmFile;
 
@@ -1515,8 +1520,8 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
   return;  
 }
 
-// TODO(oalexan1): This is not good enough for jitter solving. There are many
-// camera centers for each camera.
+// This function returns only one camera center per camera. See below
+// for linescan.
 void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
                        std::vector<vw::Vector3>      & cam_positions) {
 
@@ -1527,32 +1532,51 @@ void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
   }
 }
 
-// This function returns all camera centers for linescan cameras
+// This function returns all camera center samples for linescan cameras. These
+// cameras may have an external adjustment.
 void calcCameraCenters(std::string const& stereo_session, 
-                       std::vector<vw::CamPtr>  const& camera_models,
+                       std::vector<vw::CamPtr> const& camera_models,
                        std::vector<std::vector<vw::Vector3>> & cam_positions) {
 
   cam_positions.resize(camera_models.size());
   for (size_t icam = 0; icam < camera_models.size(); icam++) {
 
-    asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], stereo_session);
+    // Fetch the CSM model without any adjustment
+    asp::CsmModel * csm_cam 
+      = asp::csm_model(vw::camera::unadjusted_model(camera_models[icam]), stereo_session);
     if (csm_cam == NULL) {
-      // Have a single camera center
+      // Not a CSM camera, pull directly the camera center
       vw::Vector3 ctr = camera_models[icam]->camera_center(vw::Vector2());
       cam_positions[icam].push_back(ctr);
       continue;
     }
 
-    csm::RasterGM * csm = csm_cam->m_gm_model.get();
-    UsgsAstroLsSensorModel * ls_model 
-      = dynamic_cast<UsgsAstroLsSensorModel*>(csm);
+    csm::RasterGM const* gm = csm_cam->m_gm_model.get();
+    UsgsAstroLsSensorModel const* ls_model 
+      = dynamic_cast<UsgsAstroLsSensorModel const*>(gm);
     if (ls_model == NULL) {
-      // Have a single camera center
+      // Not a linescan camera. Return, as before the adjusted camera center
       vw::Vector3 ctr = camera_models[icam]->camera_center(vw::Vector2());
       cam_positions[icam].push_back(ctr);
       continue; 
     }
-
+    
+    // Handle the case when the CSM camera has an external adjustment. In that case
+    // need to apply it before can find the camera positions, and update ls_model.
+    vw::camera::AdjustedCameraModel *adj_cam 
+      = dynamic_cast<vw::camera::AdjustedCameraModel*>(camera_models[icam].get());
+    asp::CsmModel local_csm;      
+    if (adj_cam != NULL) {
+      vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
+      asp::CsmModel local_csm;
+      csm_cam->deep_copy(local_csm);
+      local_csm.applyTransform(ecef_transform); 
+      csm::RasterGM const* gm = local_csm.m_gm_model.get();
+      ls_model = dynamic_cast<UsgsAstroLsSensorModel const*>(gm);
+      if (ls_model == NULL) 
+        vw::vw_throw(vw::ArgumentErr() << "Expecting a linescan camera.\n");
+    }
+    
     // Get the number of positions
     int numPos = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
 

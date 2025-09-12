@@ -27,15 +27,12 @@
 #include <algorithm>
 
 namespace camera {
-  // Forward declaration
   class CameraParameters;
 }
-
 namespace rig {
   class cameraImage;
 }
 
-// Functionality for undistorting and re-distorting images
 namespace camera {
 
 // A utility for saving a camera in a format ASP understands. For now do not save
@@ -46,7 +43,6 @@ void writePinholeCamera(camera::CameraParameters const& cam_params,
   
 // Save the optimized cameras in ASP's Pinhole format. For now do not save
 // the distortion model.
-// TODO(oalexan1): Move this somewhere else.
 void writePinholeCameras(std::vector<std::string>              const& cam_names,
                          std::vector<camera::CameraParameters> const& cam_params,
                          std::vector<rig::cameraImage>         const& cams,

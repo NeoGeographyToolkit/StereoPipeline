@@ -107,8 +107,7 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
                          asp::BAParams                 & param_storage, // output
                          asp::BAParams const           & orig_parameters,
                          std::vector<vw::CamPtr>  const& orig_cams,
-                         //std::vector<std::vector<vw::Vector3>> const& orig_cam_positions,
-                         std::vector<vw::Vector3> const& orig_cam_positions,
+                         std::vector<std::vector<vw::Vector3>> const& orig_cam_positions,
                          bool                          & convergence_reached,
                          double                        & final_cost) {
 
@@ -227,8 +226,10 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
   int num_uncertainty_residuals = 0;
   if (opt.camera_position_uncertainty.size() > 0) {
     for (int icam = 0; icam < num_cameras; icam++) {
-      // orig_ctr has the actual camera center, but orig_cam_ptr may have an adjustment
-      vw::Vector3 orig_ctr = orig_cam_positions[icam];
+      // orig_ctr has the actual camera center, but orig_cam_ptr may have only an adjustment.
+      // For linescan camera, pick the camera center from the middle of the array of 
+      // centers. It will be used to determine horizontal and vertical components.
+      vw::Vector3 orig_ctr = orig_cams[icam]->camera_center(vw::Vector2());
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
       double * cam_ptr  = param_storage.get_camera_ptr(icam);
       int param_len = 6; // bundle_adjust and jitter_solve expect different lengths
@@ -396,10 +397,9 @@ void runRandomPasses(asp::BaOptions & opt, asp::BAParams & param_storage,
   // may need to go away.
   std::vector<vw::CamPtr> orig_cams;
   asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
-  //std::vector<std::vector<vw::Vector3>> orig_cam_positions;
-  std::vector<vw::Vector3> orig_cam_positions;
-  //asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
-  asp::calcCameraCenters(orig_cams, orig_cam_positions);
+  
+  std::vector<std::vector<vw::Vector3>> orig_cam_positions;
+  asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
 
   // Back up the output prefix
   std::string orig_out_prefix = opt.out_prefix;
@@ -651,20 +651,10 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
 
   // TODO(oalexan1): Likely orig_cams have the info as new_cam_models. But need
   // to test this.
-  // std::vector<std::vector<vw::Vector3>> orig_cam_positions2;
-  // asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions2);
   std::vector<vw::CamPtr> orig_cams;
   asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
-  std::vector<vw::Vector3> orig_cam_positions;
-  //std::vector<std::vector<vw::Vector3>> orig_cam_positions;
-  asp::calcCameraCenters(orig_cams, orig_cam_positions);
-  //asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
-
-  // // TODO(oalexan1): Continue work here
-  // // print orig_cam_positions
-  // std::cout.precision(17);
-  // for (int icam = 0; icam < (int)orig_cam_positions.size(); icam++)
-  //   std::cout << "Orig cam position2 " << icam << " : " << orig_cam_positions[icam] << "\n";
+  std::vector<std::vector<vw::Vector3>> orig_cam_positions;
+  asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
 
   bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
   if (has_datum && (opt.stereo_session == "pinhole") ||
@@ -727,10 +717,11 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   // Find the cameras with the latest adjustments. Note that we do not modify
   // opt.camera_models, but make copies as needed.
   std::vector<vw::CamPtr> optimized_cams;
-  std::vector<vw::Vector3> opt_cam_positions;
-  //std::vector<std::vector<vw::Vector3>> opt_cam_positions;
   asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
-  asp::calcCameraCenters(optimized_cams, opt_cam_positions);
+  
+  // Find the camera centers. For linescan, this will return all samples.
+  std::vector<std::vector<vw::Vector3>> opt_cam_positions;
+  asp::calcCameraCenters(opt.stereo_session, optimized_cams, opt_cam_positions);
 
   // Fetch the latest outliers from param_storage and put them in the 'outliers' set
   std::set<int> outliers;
@@ -820,7 +811,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      po::value(&opt.camera_position_uncertainty_str)->default_value(""),
      "A file having on each line the image name and the horizontal and vertical camera "
      "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
-     "cameras to within the given values, potentially at the expense of accuracy.")
+     "cameras to within the given values, potentially at the expense of accuracy. Add here value.")
     ("camera-position-uncertainty-power",
      po::value(&opt.camera_position_uncertainty_power)->default_value(2.0),
      "A higher value makes the cost function rise more steeply when "

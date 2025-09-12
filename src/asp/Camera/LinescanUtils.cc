@@ -27,15 +27,29 @@ namespace asp {
 
 // Find the underlying CSM camera. Applies only to CSM, Pleiades, ASTER, and DG.
 asp::CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-                            std::string const& stereo_session) {
+                          std::string const& stereo_session) {
+  
+  // In some places the camera models have an external adjustment.
+  // If that is the case, this function only works if the adjustment
+  // is the identity, as it does not know how to apply it.
+  vw::camera::AdjustedCameraModel *adj_cam 
+    = dynamic_cast<vw::camera::AdjustedCameraModel*>(cam.get());
+  if (adj_cam != NULL) {
+    vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
+    // must be the identity
+    if (ecef_transform != vw::math::identity_matrix<4>())
+      vw::vw_throw(vw::ArgumentErr() 
+        << "A CSM camera with an adjustment such as coming from "
+        << "--bundle-adjust-prefix detected. Not supported in this workflow.\n");
+  }
   
   asp::CsmModel * csm_model = NULL;
   
   // TODO(oalexan1): Remove the stereo_session when ASTER inherits from CSM.
   if (stereo_session == "aster") {
     // TODO(oalexan1): The ASTER model must inherit from CSM.
-    ASTERCameraModel * aster_model = dynamic_cast<asp::ASTERCameraModel*>
-      (vw::camera::unadjusted_model(cam.get()));
+    ASTERCameraModel * aster_model 
+      = dynamic_cast<asp::ASTERCameraModel*>(vw::camera::unadjusted_model(cam.get()));
     if (aster_model == NULL) 
        vw::vw_throw(vw::ArgumentErr() << "Expected an ASTER camera model.");
     csm_model = &aster_model->m_csm_model;

@@ -19,7 +19,7 @@
 #include <asp/Rig/RigCameraUtils.h>
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/camera_image.h>
-#include <Rig/system_utils.h>
+#include <asp/Rig/system_utils.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
@@ -64,7 +64,6 @@ std::string pinholeFile(std::string const& out_dir,
 
   return out_dir + "/" + sensor_name + "/" + base + ".tsai";
 }
- 
 
 // A utility for saving a camera in a format ASP understands. 
 void writePinholeCamera(camera::CameraParameters const& cam_params,
@@ -139,7 +138,7 @@ void writePinholeCamera(camera::CameraParameters const& cam_params,
 // Save the optimized cameras in ASP's Pinhole format. 
 void writePinholeCameras(std::vector<std::string>              const& cam_names,
                          std::vector<camera::CameraParameters> const& cam_params,
-                         std::vector<rig::cameraImage>   const& cams,
+                         std::vector<rig::cameraImage>         const& cams,
                          std::vector<Eigen::Affine3d>          const& world_to_cam,
                          std::string                           const& out_dir) {
 
