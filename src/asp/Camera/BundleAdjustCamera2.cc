@@ -357,7 +357,6 @@ std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
   return cam_file;
 }
 
-
 /// Write an optical bar camera file to disk after updating the intrinsics and
 // extrinsics. Return the path to the saved file.
 std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
@@ -1554,7 +1553,6 @@ void calcCameraCenters(std::string const& stereo_session,
       cam_positions[icam].push_back(ctr);
       continue;
     }
-
     csm::RasterGM const* gm = csm_cam->m_gm_model.get();
     UsgsAstroLsSensorModel const* ls_model 
       = dynamic_cast<UsgsAstroLsSensorModel const*>(gm);
@@ -1569,10 +1567,9 @@ void calcCameraCenters(std::string const& stereo_session,
     // need to apply it before can find the camera positions, and update ls_model.
     vw::camera::AdjustedCameraModel *adj_cam 
       = dynamic_cast<vw::camera::AdjustedCameraModel*>(camera_models[icam].get());
-    asp::CsmModel local_csm;      
+    asp::CsmModel local_csm; // Ensure it does not go out of scope
     if (adj_cam != NULL) {
       vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
-      asp::CsmModel local_csm;
       csm_cam->deep_copy(local_csm);
       local_csm.applyTransform(ecef_transform); 
       csm::RasterGM const* gm = local_csm.m_gm_model.get();
