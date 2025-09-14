@@ -1016,8 +1016,7 @@ void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
           ceres::CostFunction* cost_function
                   = CamUncertaintyError::Create(orig_cam, cam_ptr, param_len,
                                         opt.camera_position_uncertainty[icam],
-                                        weight, opt.datum,
-                                        opt.camera_position_uncertainty_power);
+                                        weight, opt.datum);
           // This is a hard constraint, so we use a trivial loss function        
           ceres::LossFunction* loss_function = new ceres::TrivialLoss();
           problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
@@ -1039,8 +1038,7 @@ void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
         ceres::CostFunction* cost_function
           = CamUncertaintyError::Create(orig_cam, curr_params, param_len,
                                         opt.camera_position_uncertainty[icam],
-                                        weight, opt.datum,
-                                        opt.camera_position_uncertainty_power);
+                                        weight, opt.datum);
         // This is a hard constraint, so we use a trivial loss function        
         ceres::LossFunction* loss_function = new ceres::TrivialLoss();
         problem.AddResidualBlock(cost_function, loss_function,

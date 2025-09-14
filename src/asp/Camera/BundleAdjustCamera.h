@@ -90,8 +90,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
     reference_terrain_uncertainty, reference_terrain_robust_threshold,
     heights_from_dem_robust_threshold, camera_weight, rotation_weight, 
     camera_position_weight, camera_position_robust_threshold,
-    tri_weight, tri_robust_threshold, camera_position_uncertainty_power,
-    max_disp_error;
+    tri_weight, tri_robust_threshold, max_disp_error;
   std::vector<vw::Vector2> camera_position_uncertainty;    
   vw::Vector<double, 4> remove_outliers_params;
   BACameraType camera_type;

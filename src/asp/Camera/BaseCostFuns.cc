@@ -48,10 +48,8 @@ bool LLHError::operator()(const double* point, double* residuals) const {
 
 CamUncertaintyError::CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
                                          vw::Vector2 const& uncertainty, double weight,
-                                         vw::cartography::Datum const& datum,
-                                         double camera_position_uncertainty_power):
-  m_orig_ctr(orig_ctr), m_uncertainty(uncertainty), m_weight(weight),
-  m_camera_position_uncertainty_power(camera_position_uncertainty_power) {
+                                         vw::cartography::Datum const& datum):
+  m_orig_ctr(orig_ctr), m_uncertainty(uncertainty), m_weight(weight) {
     
   // m_weight must be positive
   if (m_weight <= 0)
@@ -72,22 +70,6 @@ CamUncertaintyError::CamUncertaintyError(vw::Vector3 const& orig_ctr, double con
   m_EcefToNed = vw::math::inverse(NedToEcef);
 }
 
-// The signed power is a better-behaved version of pow that respects the sign of the input.
-double signed_power(double val, double power) {
-  if (val < 0)
-    return -pow(-val, power);
-  return pow(val, power);
-}
-
-// A function that first increases slowly, then very fast, but without being
-// numerically unstable for very small or very large values of the input.
-// This was carefully tested with --camera-position-uncertainty
-// for bundle adjustment and jitter solving with uncertainty values of 0.1, 1, 10.
-double exp_cost(double val) {
-  double ans = exp(abs(val)) - 1.0;
-  return ans;
-}
-
 bool CamUncertaintyError::operator()(const double* cam_adj, double* residuals) const {
   
   // The difference between the original and current camera center
@@ -106,8 +88,6 @@ bool CamUncertaintyError::operator()(const double* cam_adj, double* residuals) c
   horiz /= m_uncertainty[0];
   vert  /= m_uncertainty[1];
   
-  // double p = m_camera_position_uncertainty_power / 2.0;
-
   // Regular sum of squares. Multiply by sqrt(m_weight), to give the squared
   // residual the correct weight. This was shown to work to work better than a
   // more abrupt function.

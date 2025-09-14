@@ -107,8 +107,7 @@ struct CamUncertaintyError {
   
   CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
                       vw::Vector2 const& uncertainty, double weight,
-                      vw::cartography::Datum const& datum,
-                      double camera_position_uncertainty_power);
+                      vw::cartography::Datum const& datum);
     
   bool operator()(const double* cam_adj, double* residuals) const;
   
@@ -117,8 +116,7 @@ struct CamUncertaintyError {
   static ceres::CostFunction* 
     Create(vw::Vector3 const& orig_ctr, double const* orig_adj, int param_len,
            vw::Vector2 const& uncertainty, double weight,
-           vw::cartography::Datum const& datum, 
-           double camera_position_uncertainty_power) {
+           vw::cartography::Datum const& datum) {
     // 2 residuals and 3 translation variables. For bundle_adjust must add the
     // rotation variables, as otherwise CERES says some params have inconsistent
     // sizes. ceres::RIDDER works better than ceres::CENTRAL for this cost
@@ -126,11 +124,11 @@ struct CamUncertaintyError {
     if (param_len == 3)
      return (new ceres::NumericDiffCostFunction<CamUncertaintyError, ceres::CENTRAL, 3, 3>
             (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, weight, 
-                                     datum, camera_position_uncertainty_power)));
+                                     datum)));
     else if (param_len == 6)
      return (new ceres::NumericDiffCostFunction<CamUncertaintyError, ceres::CENTRAL, 3, 6>
             (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, weight, 
-                                     datum, camera_position_uncertainty_power)));
+                                     datum)));
     else
       vw::vw_throw(vw::ArgumentErr() << "CamUncertaintyError: Invalid param_len: "
                << param_len << ". Must be 3 or 6.\n");
@@ -145,7 +143,6 @@ struct CamUncertaintyError {
   vw::Vector2 m_uncertainty;
   double m_weight;
   vw::Matrix3x3 m_EcefToNed;
-  double m_camera_position_uncertainty_power;
 };
 
 } // end namespace asp

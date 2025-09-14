@@ -1096,12 +1096,6 @@ Command-line options
     camera position uncertainty (1 sigma, in meters). This strongly constrains
     the movement of cameras to within the given values, potentially at the
     expense of accuracy. See :numref:`ba_cam_constraints` for an example.
-    See also ``--camera-position-uncertainty-power``.
-
---camera-position-uncertainty-power <double (default: 2.0)>
-    A higher value makes the cost function rise more steeply when
-    ``--camera-position-uncertainty`` is close to being violated. This is an
-    advanced option. The default should be good enough.
 
 --camera-position-weight <double (default: 0.0)>
     A soft constraint to keep the camera positions close to the original values.
