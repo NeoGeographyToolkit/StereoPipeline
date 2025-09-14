@@ -1005,15 +1005,9 @@ void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
         
         // There are multiple position parameters per camera. Divide the
         // constraint between them. This was very carefully tested.
-        double numPos = ls_model->m_positions.size() / double(NUM_XYZ_PARAMS);
-        double weight = 1.0 / std::max(numPos, 1.0);
+        int numPos = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+        double weight = 1.0 / std::max(double(numPos), 1.0);
 
-        // Adjust for the anchor weight
-        if (pass == 1)
-          weight = weight * anchor_weight;
-        if (weight <= 0) 
-          continue;
-        
         for (int pos_it = 0; pos_it < numPos; pos_it++) {
 
           // Must have both a pointer and the vector, as dictated by the API
@@ -1029,7 +1023,7 @@ void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
           problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
           
           for (int c = 0; c < NUM_XYZ_PARAMS; c++)
-            weight_per_residual.push_back(1.0); // To ensure correct bookkeeping
+            weight_per_residual.push_back(weight); // To ensure correct bookkeeping
         }
         
       } else if (frame_model != NULL) {
@@ -1040,12 +1034,7 @@ void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
         double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
         vw::Vector3 orig_cam(curr_params[0], curr_params[1], curr_params[2]);
 
-        // Adjust for the anchor weight
         double weight = 1.0;
-        if (pass == 1)
-          weight = 1.0 * anchor_weight; // count
-        if (weight <= 0) 
-          continue;
 
         ceres::CostFunction* cost_function
           = CamUncertaintyError::Create(orig_cam, curr_params, param_len,
@@ -1058,7 +1047,7 @@ void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
                                 &curr_params[0]);
         
         for (int c = 0; c < NUM_XYZ_PARAMS; c++)
-          weight_per_residual.push_back(1.0); // To ensure correct bookkeeping
+          weight_per_residual.push_back(weight); // To ensure correct bookkeeping
           
       } else {
         vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");

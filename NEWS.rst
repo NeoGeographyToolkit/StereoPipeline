@@ -59,6 +59,7 @@ dem2gcp (:numref:`dem2gcp`):
   * Added the options ``--max-num-gcp``, ``--max-disp``, ``--gcp-sigma-image``.
 
 jitter_solve (:numref:`jitter_solve`):
+  * Added documentation on limitations (:numref:`jitter_limitations`).
   * Added the options ``--fix-gcp-xyz``, ``--use-lon-lat-height-gcp-error``.
 
 point2las (:numref:`point2las`):

@@ -20,6 +20,8 @@ Usage::
      jitter_solve <images> <cameras> <input adjustments> \
        -o <output prefix> [options]
 
+.. _jitter_limitations:
+
 Limitations
 ~~~~~~~~~~~
 
@@ -32,8 +34,17 @@ lines from another image that correspond to at least one jitter period. In
 practice, for WorldView images, for example, the across-track can vary notably
 from one image to another, resulting in such a favorable regime.
 
-GCP files produced from a prior DEM of good quality can help as well
+If the prior DEM used as constraint (:numref:`jitter_dem_constraint`) has
+systematic differences with what is expected from the images, this can bias the
+results. Potential solutions are to mask the problematic areas in the DEM and /
+or use a value of ``--heights-from-dem-uncertainty`` that is quite a lot larger
+than the actual uncertainty.
+
+GCP files produced from a prior DEM of good quality can help increasing the accuracy
 (:numref:`dem2gcp`).
+
+Multiple images (ideally with scan lines notably crossing each other) can
+improve the results.
 
 If frame camera images exist for the same extent, they will help solve for jitter, 
 as such images are rigid across scan lines.
@@ -118,6 +129,8 @@ Ground control points
 Just like ``bundle_adjust`` (:numref:`bagcp`), this program can make use of
 ground control points. The pixel residuals at ground control points 
 are flagged in the produced report file (:numref:`jitter_tri_err`).
+
+See :numref:`jitter_limitations` on the limitations of this constraint.
 
 .. _jitter_camera:
 

@@ -1141,7 +1141,11 @@ void jitterSolvePass(int                                 pass,
   addGcpConstraint(opt, outliers, opt.use_llh_error, opt.fix_gcp_xyz,
                    cnet, tri_points_vec, weight_per_residual, problem); // outputs
 
-  // Add the constraint to keep the camera positions close to initial values
+  // Add the constraint to keep the camera positions close to initial values.
+  // Note that in the second pass the initial values are the ones optimized in
+  // the first pass. 
+  // TODO(oalexan1): It is not clear how to best handle this. Also revisit
+  // for bundle adjustment.
   if (opt.camera_position_uncertainty.size() > 0) 
     addHardCamPositionConstraint(opt, outliers, crn, csm_models, count_per_cam,
                                  opt.anchor_weight,
@@ -1151,14 +1155,18 @@ void jitterSolvePass(int                                 pass,
 
   // Add another type of constraint to keep the camera positions close to initial values.
   // The earlier one is recommended as this one was not fully sorted out.
+  // TODO(oalexan1): Need to wipe this option. The above does better.
   if (opt.camera_position_weight > 0) 
-    addSoftCamPositionConstraint(opt, outliers, crn, csm_models, weight_per_cam, count_per_cam,
-                             have_rig, rig, rig_cam_info,
-                             // Outputs
-                             frame_params, weight_per_residual, problem);
+    addSoftCamPositionConstraint(opt, outliers, crn, csm_models, 
+                                 weight_per_cam, count_per_cam,
+                                 have_rig, rig, rig_cam_info,
+                                 // Outputs
+                                 frame_params, weight_per_residual, problem);
     
   // Add constraints to keep quat norm close to 1, and make rotations 
-  // not change too much
+  // not change too much.
+  // TODO(oalexan1): Need to parameterize the rotations with axis angle, then
+  // convert from / to quaternions.
   addQuatNormRotationConstraints(opt, outliers, crn, csm_models,  
                                  have_rig, rig, rig_cam_info,
                                  opt.quat_norm_weight, 
