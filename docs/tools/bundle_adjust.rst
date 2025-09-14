@@ -304,10 +304,9 @@ Camera constraints
 ^^^^^^^^^^^^^^^^^^
 
 If the position uncertainties per camera are known, the option
-``--camera-position-uncertainty`` can be used. This sets hard
-constraints on how much each camera position can move horizontally and
-vertically, in meters, in the local North-East-Down coordinate system of each
-camera. 
+``--camera-position-uncertainty`` can be used. This constrains the camera
+position horizontally and vertically, in the local North-East-Down coordinate
+system of each camera. 
 
 The input to this option is a file with one line per image. Each line has the
 image name, horizontal uncertainty, and the vertical one, separated by spaces.
@@ -316,34 +315,32 @@ Example::
     image1.tif 5.0 10.0
     image2.tif 3.0 2.0
 
-When using hard constraints in bundle adjustment, caution should be exercised as
-they can impact the optimization process. It is not recommended to set
-uncertainties below 1 - 10 meters, as this may result in slow convergence or even
-failure to converge. It is better to overestimate the uncertainties in either
-case.
+All quantities are measured in meters.
+
+It is suggested to overestimate these uncertainties. *A strict constraint can prevent
+the problem from converging to a good solution.*
 
 It is suggested to examine the camera change report
 (:numref:`ba_camera_offsets`) and pixel reprojection report
 (:numref:`ba_errors_per_camera`) to see the effect of this constraint. 
 
-The option ``--camera-position-weight``, with a default of 0.0 (so it is off by
-default), offers a soft constraint, and is given less priority than reducing the
-pixel reprojection errors. This was shown to impede the optimization process.
-Use instead the option ``--camera-position-uncertainty``.
+In the latest build (:numref:`release`, post 09/2025), the implementation of
+this was changed. A sum of squares of quantities such as::
 
-This weight is a multiplier, representing the ratio of strength of the camera
-position constraint versus the pixel reprojection error constraint. Internally
-the constraint adapts to the mean local ground sample distance, number of
-interest points, and per-pixel uncertainty (1 sigma). The implementation is very
-analogous to the triangulation constraint (:numref:`ba_ground_constraints`).
+  (curr_position - init_position) / uncertainty
+  
+is added to the cost function (:numref:`how_ba_works`) for each camera. The
+horizontal and vertical components result in separate terms.
+  
+This performs better than prior alternatives, but the camera motion may be perhaps
+1-10 times more than expected. 
 
-An additional modifier to this constraint is the option
-``--camera-position-robust-threshold``. This is a robust threshold, with a
-default of 0.1, that will attenuate big differences in camera position. Its
-documentation has more details. 
- 
-It is suggested not to use the option ``--rotation-weight``, as camera position
-and ground constraints are usually sufficient.
+For the jitter solver (:numref:`jitter_solve`) and a linescan camera, such a
+term exists for each position sample in the camera, and then each is divided
+(after squaring) by the number of samples.
+
+It is suggested to avoid the older options ``--camera-position-weight``
+and ``--rotation-weight``, which will be removed in the future. 
 
 Use cases
 ~~~~~~~~~

@@ -22,16 +22,18 @@ parallel_stereo (:numref:`parallel_stereo`):
     (:numref:`stereodefault`).
     
 parallel_sfs (:numref:`parallel_sfs`):
-   * When albedo and / or haze is modeled, initial estimates for these are
-     produced for the full site (:numref:`parallel_sfs_usage`).
+  * When albedo and / or haze is modeled, initial estimates for these are
+    produced for the full site (:numref:`parallel_sfs_usage`).
 
 parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
-    * Bugfix for a crash when there are no interest point matches.
+  * Bugfix for a crash when there are no interest point matches.
 
 bundle_adjust (:numref:`bundle_adjust`):
-    * For the option ``--mapprojected-data``, the DEM specified at the end is
-      optional, if it can be looked up from the geoheader of the mapprojected
-      images.
+  * Changed the implementation of the camera position constraint
+    (:numref:`ba_cam_constraints`).
+  * For the option ``--mapprojected-data``, the DEM specified at the end is
+    optional, if it can be looked up from the geoheader of the mapprojected
+    images.
     
 point2dem (:numref:`point2dem`):
   * Added support for LAS COPC files (:numref:`point2dem_las`).
@@ -60,6 +62,8 @@ dem2gcp (:numref:`dem2gcp`):
 
 jitter_solve (:numref:`jitter_solve`):
   * Added documentation on limitations (:numref:`jitter_limitations`).
+  * Changed the implementation of the camera position constraint
+    (:numref:`jitter_camera`).
   * Added the options ``--fix-gcp-xyz``, ``--use-lon-lat-height-gcp-error``.
 
 point2las (:numref:`point2las`):

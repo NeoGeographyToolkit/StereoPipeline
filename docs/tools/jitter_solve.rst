@@ -147,14 +147,16 @@ exist, per camera, these can be incorporated into the optimization via the optio
 ``--camera-position-uncertainty``. It is good to use those uncertainties
 generously, so to set them to be larger than the actual uncertainty. 
 
+See the ``bundle_adjust`` documentation at :numref:`ba_cam_constraints`
+for an example and implementation details.
+
 This program writes report files that record the changes in camera position
 (:numref:`jitter_cam_offsets`) and the resulting pixel reprojection errors per
 camera (:numref:`jitter_errors_per_camera`).
 
 It is suggested to examine these and adjust the camera constraints, if needed. A
 tight constraint can prevent convergence and result in large reprojection
-errors. See the ``bundle_adjust`` documentation at :numref:`ba_cam_constraints`
-for more details.
+errors. 
 
 An alternative constraint, ``--camera-position-weight``, can be set to a large
 value, on the order of 1e+4, to effectively kep the camera positions in place.
