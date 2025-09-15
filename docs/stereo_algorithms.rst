@@ -743,7 +743,8 @@ location::
 
     plugins/stereo/myprog/bin/myprog
 
-relative to the ASP top-level directory, with any libraries in::
+relative to the ASP top-level directory. Any libraries this tool program 
+depends on *must be copied or sym-linked to directory*::
 
     plugins/stereo/myprog/lib
 
@@ -756,8 +757,7 @@ in the ASP top-level directory, in the format::
     myprog plugins/stereo/myprog/bin/myprog plugins/stereo/myprog/lib
 
 The entries here are the program name (in lowercase), path to the
-program, and path to any libraries apart from those shipped with ASP
-(the last entry is optional).
+program, and path to libraries.
 
 Then, ASP can invoke this program by calling it, for example, as::
 
