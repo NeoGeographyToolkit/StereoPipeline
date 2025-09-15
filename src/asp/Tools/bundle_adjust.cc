@@ -237,7 +237,8 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
       ceres::CostFunction* cost_function
         = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, param_len,
                                       opt.camera_position_uncertainty[icam],
-                                      weight, opt.datum);
+                                      weight, opt.datum,
+                                      opt.camera_position_uncertainty_power);
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
       problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
       num_uncertainty_residuals++;
@@ -811,6 +812,11 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "A file having on each line the image name and the horizontal and vertical camera "
      "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
      "cameras to within the given values, potentially at the expense of accuracy. Add here value.")
+    ("camera-position-uncertainty-power",
+     po::value(&opt.camera_position_uncertainty_power)->default_value(2.0),
+     "A higher value makes the cost function rise more steeply when "
+     "--camera-position-uncertainty is close to being violated. This is an advanced "
+      "option. The default should be good enough.")
     ("camera-positions",
      po::value(&opt.camera_position_file)->default_value(""),
      "CSV file containing estimated position of each camera in ECEF coordinates. For this "

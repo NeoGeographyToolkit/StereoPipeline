@@ -2099,6 +2099,11 @@ void handleCameraPositionUncertainty(asp::BaBaseOptions & opt, bool have_datum) 
                   << "The camera uncertainty for each image must be set and be positive.\n");
   }  
 
+  // The power must be positive
+  if (opt.camera_position_uncertainty_power <= 0)
+    vw::vw_throw(vw::ArgumentErr() 
+                << "The value of --camera-position-uncertainty-power must be positive.\n");
+
   // When there is camera position uncertainty, the other camera weights must be 0.    
   if (opt.camera_position_weight > 0) {
     vw::vw_out() << "Setting --camera-position-weight to 0 as "
