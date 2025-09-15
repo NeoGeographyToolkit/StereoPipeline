@@ -303,10 +303,9 @@ GCP can be used as well (:numref:`bagcp`).
 Camera constraints
 ^^^^^^^^^^^^^^^^^^
 
-If the position uncertainties per camera are known, the option
-``--camera-position-uncertainty`` can be used. This constrains the camera
-position horizontally and vertically, in the local North-East-Down coordinate
-system of each camera. 
+The option ``--camera-position-uncertainty`` constrains the camera position
+horizontally and vertically, with given uncertainties, in the local
+North-East-Down coordinate system of each camera. 
 
 The input to this option is a file with one line per image. Each line has the
 image name, horizontal uncertainty, and the vertical one, separated by spaces.
@@ -315,7 +314,10 @@ Example::
     image1.tif 5.0 10.0
     image2.tif 3.0 2.0
 
-All quantities are measured in meters.
+All quantities are measured in meters. 
+
+To have the same uncertainties for all cameras, pass instead of a file name two
+values separated by a comma (no spaces). Example: ``5.0,10.0`` (post 09/2025 build).
 
 It is suggested to overestimate these uncertainties. *A strict constraint can prevent
 the problem from converging to a good solution.*
@@ -338,6 +340,12 @@ This performs better than prior alternatives, but the camera motion may be perha
 For the jitter solver (:numref:`jitter_solve`) and a linescan camera, such a
 term exists for each position sample in the camera, and then each is divided
 (after squaring) by the number of samples.
+
+The advanced option ``--camera-position-uncertainty-power`` can be used to change
+the power to which the normalized position difference is raised before being
+added to the cost function. The default value is 2. A value such as 4 may result 
+in stricter enforcement of this constraint, but may also make the problem harder to
+solve. The default behavior is preferred.
 
 It is suggested to avoid the older options ``--camera-position-weight``
 and ``--rotation-weight``, which will be removed in the future. 
@@ -1094,9 +1102,10 @@ Command-line options
 --camera-position-uncertainty <string (default: "")>
     A file having on each line the image name and the horizontal and vertical
     camera position uncertainty (1 sigma, in meters). This strongly constrains
-    the movement of cameras to within the given values, potentially at the
-    expense of accuracy. See :numref:`ba_cam_constraints` for an example.
-    See also ``--camera-position-uncertainty-power``.
+    the movement of cameras, potentially at the expense of accuracy. To have the
+    same uncertainties for all cameras, pass instead of a file name two values
+    separated by a comma (no spaces). See :numref:`ba_cam_constraints` for an
+    example. See also ``--camera-position-uncertainty-power``.
 
 --camera-position-uncertainty-power <double (default: 2.0)>
     A higher value makes the cost function rise more steeply when

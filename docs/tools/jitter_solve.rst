@@ -2244,9 +2244,10 @@ Command-line options for jitter_solve
 --camera-position-uncertainty <string (default: "")>
     A file having on each line the image name and the horizontal and vertical
     camera position uncertainty (1 sigma, in meters). This strongly constrains
-    the movement of cameras to within the given values, potentially at the
-    expense of accuracy. It is better to overestimate these. See
-    :numref:`ba_cam_constraints` for an example. See also
+    the movement of cameras, potentially at the expense of accuracy. It is
+    better to overestimate these. To have the same uncertainties for all
+    cameras, pass instead of a file name two values separated by a comma (no
+    spaces). See :numref:`ba_cam_constraints` for an example. See also
     ``--camera-position-uncertainty-power``.
     
 --camera-position-uncertainty-power <double (default: 2.0)>

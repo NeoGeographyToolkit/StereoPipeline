@@ -47,6 +47,7 @@
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Camera/CameraImage.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/Core/StringUtils.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 
@@ -2071,23 +2072,29 @@ void handleCameraPositionUncertainty(asp::BaBaseOptions & opt, bool have_datum) 
   // Resize opt.camera_position_uncertainty to the number of images
   opt.camera_position_uncertainty.resize(opt.image_files.size(), vw::Vector2(0, 0));
   
-  // Read the uncertainties per image from file
-  std::string image_name;
-  double horiz = 0, vert = 0; 
-  std::ifstream ifs(opt.camera_position_uncertainty_str.c_str());
-  
-  if (!ifs.good())
-    vw_throw(ArgumentErr() << "Cannot read camera position uncertainty from: "
-              << opt.camera_position_uncertainty_str << ".\n");
-    
-  while (ifs >> image_name >> horiz >> vert) {
-    auto it = image_name_to_index.find(image_name);
-    if (it == image_name_to_index.end())
-      continue; // skip images having uncertainty that are not in the image list
-    int index = it->second;
-    opt.camera_position_uncertainty[index] = Vector2(horiz, vert);
+  // Handle the case when uncertainty is two values separated by a comma
+  std::string sep = ",";
+  std::vector<double> vals = vw::str_to_std_vec(opt.camera_position_uncertainty_str, sep);
+  if (vals.size() == 2) {
+    for (int i = 0; i < (int)opt.image_files.size(); i++)
+      opt.camera_position_uncertainty[i] = vw::Vector2(vals[0], vals[1]);
+  } else {
+    // Read the uncertainties per image from file
+    std::string image_name;
+    double horiz = 0, vert = 0; 
+    std::ifstream ifs(opt.camera_position_uncertainty_str.c_str());
+    if (!ifs.good())
+      vw_throw(ArgumentErr() << "Cannot read camera position uncertainty from: "
+                << opt.camera_position_uncertainty_str << ".\n");
+    while (ifs >> image_name >> horiz >> vert) {
+      auto it = image_name_to_index.find(image_name);
+      if (it == image_name_to_index.end())
+        continue; // skip images having uncertainty that are not in the image list
+      int index = it->second;
+      opt.camera_position_uncertainty[index] = Vector2(horiz, vert);
+    }
   }
-
+  
   // This constraint requires the solver to work harder to converge.
   opt.parameter_tolerance = std::min(opt.parameter_tolerance, 1e-10);
   
@@ -2100,7 +2107,7 @@ void handleCameraPositionUncertainty(asp::BaBaseOptions & opt, bool have_datum) 
   }  
 
   // The power must be positive
-  if (opt.camera_position_uncertainty_power <= 0)
+  if (opt.camera_position_uncertainty_power <= 0.0)
     vw::vw_throw(vw::ArgumentErr() 
                 << "The value of --camera-position-uncertainty-power must be positive.\n");
 

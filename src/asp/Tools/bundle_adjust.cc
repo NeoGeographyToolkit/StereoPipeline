@@ -811,7 +811,9 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      po::value(&opt.camera_position_uncertainty_str)->default_value(""),
      "A file having on each line the image name and the horizontal and vertical camera "
      "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
-     "cameras to within the given values, potentially at the expense of accuracy. Add here value.")
+     "cameras, potentially at the expense of accuracy. To have the same uncertainties for "
+     "all cameras, pass instead of a file name two values separated by a comma (no "
+     "spaces).")
     ("camera-position-uncertainty-power",
      po::value(&opt.camera_position_uncertainty_power)->default_value(2.0),
      "A higher value makes the cost function rise more steeply when "
