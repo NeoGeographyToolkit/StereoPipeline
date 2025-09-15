@@ -743,7 +743,7 @@ location::
 
     plugins/stereo/myprog/bin/myprog
 
-relative to the ASP top-level directory. Any libraries this tool program 
+relative to the ASP top-level directory. Any libraries this program 
 depends on *must be copied or sym-linked as absolute path to directory*::
 
     plugins/stereo/myprog/lib
