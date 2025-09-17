@@ -98,10 +98,6 @@ namespace asp {
     // Save the model state
     void saveState(std::string const& json_state_file) const;
 
-    // Apply a transform to the model and save the transformed state as a JSON file.
-    void saveTransformedState(std::string const& json_state_file,
-                              vw::Matrix4x4 const& transform) const;
-
     // Apply a transform to a CSM model
     void applyTransform(vw::Matrix4x4 const& transform);
     

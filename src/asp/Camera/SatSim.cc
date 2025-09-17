@@ -1191,6 +1191,7 @@ void perturbCameras(SatSimOptions const& opt,
       
       // Replace extension with .json
       camName = fs::path(camName).replace_extension(".json").string();
+      vw::vw_out() << "Writing: " << camName << "\n";
       csmPtr->saveState(camName);
     }
  

@@ -806,31 +806,6 @@ void CsmModel::saveState(std::string const& json_state_file) const {
     = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
     
   std::string modelState = gm_model->getModelState();
-
-  vw_out() << "Writing model state: " << json_state_file << std::endl;
-  std::ofstream ofs(json_state_file.c_str());
-  ofs << modelState << std::endl;
-  ofs.close();
-
-  return;
-}
-
-// Apply a transform to the model and save the transformed state as a JSON file.
-void CsmModel::saveTransformedState(std::string const& json_state_file,
-                                    vw::Matrix4x4 const& transform) const {
-  
-  throw_if_not_init();
-
-  csm::RasterGM const* gm_model
-    = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
-
-  std::string modelState = gm_model->getModelState();
-
-  applyTransformToState(gm_model, transform,  
-                        // Output
-                        modelState);
-  
-  vw_out() << "Writing adjusted model state: " << json_state_file << std::endl;
   std::ofstream ofs(json_state_file.c_str());
   ofs << modelState << std::endl;
   ofs.close();

@@ -428,9 +428,10 @@ std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
                    << "Camera center for " << cam_file << ": "
                    << datum.cartesian_to_geodetic(out_cam->camera_center(vw::Vector2()))
                    << " (longitude, latitude, height above datum(m))\n";
+    vw::vw_out() << "Writing: " << cam_file << "\n";
   }
   
-  // Save the updated state     
+  // Save the updated state
   out_cam->saveState(cam_file);
 
   if (opt.update_isis_cubes_with_csm_state) {
@@ -471,6 +472,11 @@ std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
   boost::shared_ptr<asp::CsmModel> out_cam;
   csm_model->deep_copy(out_cam);
   out_cam->applyTransform(ecef_transform);
+  #pragma omp critical
+  {
+    // Ensure this text is not messed up when writing in parallel
+    vw::vw_out() << "Writing: " << csmFile << "\n";
+  }
   out_cam->saveState(csmFile);
 
   if (opt.update_isis_cubes_with_csm_state) {
@@ -1347,6 +1353,7 @@ void saveCsmCameras(std::string const& out_prefix,
     std::string csmFile = asp::csmStateFile(adjustFile);
     asp::CsmModel * csm_cam 
       = asp::csm_model(camera_models[icam], stereo_session);
+    vw::vw_out() << "Writing: " << csmFile << "\n";
     csm_cam->saveState(csmFile);
     cam_files[icam] = csmFile;
 

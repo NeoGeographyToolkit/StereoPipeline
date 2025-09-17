@@ -359,6 +359,7 @@ void genLinescanCameras(double                                 first_line_time,
   bool isFrame = false;
   std::string ref= ""; 
   std::string filename = camPrefix(opt, iFrame, timestamp, isRef, isFrame, suffix) + ".json";
+  vw::vw_out() << "Writing: " << filename << "\n";
   ls_cam->saveState(filename);
 
   if (opt.save_ref_cams) {
@@ -371,6 +372,7 @@ void genLinescanCameras(double                                 first_line_time,
     isRef = true;
     std::string ref_filename = 
       camPrefix(opt, iFrame, timestamp, isRef, isFrame, suffix) + ".json";
+    vw::vw_out() << "Writing: " << ref_filename << "\n";
     ref_cam.saveState(ref_filename);
   }
 
