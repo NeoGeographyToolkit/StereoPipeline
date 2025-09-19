@@ -17,7 +17,7 @@ from the `ISRO Science Data Archive
 <https://pradan.issdc.gov.in/ch2/protected/browse.xhtml?id=spice>`_, and custom 
 addendum (``iak``) directories for ISIS data be set up.
 
-This is *not ready for general use and is not not reproducible*, but is provided for reference.
+This is *not ready for general use and is not reproducible*, but is provided for reference.
 
 Orbiter High Resolution Camera
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
