@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -41,22 +41,22 @@ struct SfsOptions: public vw::GdalWriteOptions {
   bool float_albedo, float_exposure, model_shadows,
     save_computed_intensity_only, estimate_slope_errors, estimate_height_errors,
     compute_exposures_only, estim_exposure_haze_albedo,
-    save_dem_with_nodata, use_approx_camera_models, 
-    crop_input_images, allow_borderline_data, fix_dem, float_reflectance_model, 
+    save_dem_with_nodata, use_approx_camera_models,
+    crop_input_images, allow_borderline_data, fix_dem, float_reflectance_model,
     query, save_sparingly, float_haze, read_exposures, read_haze, read_albedo;
-    
+
   double smoothness_weight, steepness_factor, curvature_in_shadow,
     curvature_in_shadow_weight,
     lit_curvature_dist, shadow_curvature_dist, gradient_weight,
     blending_power, integrability_weight, smoothness_weight_pq, init_dem_height,
     nodata_val, initial_dem_constraint_weight, albedo_constraint_weight,
-    albedo_robust_threshold, camera_position_step_size, unreliable_intensity_threshold, 
+    albedo_robust_threshold, camera_position_step_size, unreliable_intensity_threshold,
     robust_threshold, shadow_threshold;
   vw::BBox2 crop_win;
   vw::Vector2 height_error_params;
-  
+
   SfsOptions();
-}; 
+};
 
 } // end namespace asp
 

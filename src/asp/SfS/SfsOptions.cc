@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -25,12 +25,12 @@
 
 namespace asp {
 
-SfsOptions::SfsOptions(): 
+SfsOptions::SfsOptions():
   max_iterations(0), reflectance_type(0),
   blending_dist(0), blending_power(2.0),
   min_blend_size(0), num_haze_coeffs(0),
   num_samples_for_estim(0),
-  float_albedo(false), float_exposure(false), model_shadows(false), 
+  float_albedo(false), float_exposure(false), model_shadows(false),
   save_computed_intensity_only(false),
   estimate_slope_errors(false),
   estimate_height_errors(false),
@@ -40,7 +40,7 @@ SfsOptions::SfsOptions():
   use_approx_camera_models(false),
   crop_input_images(false),
   allow_borderline_data(false), fix_dem(false),
-  float_reflectance_model(false), query(false), 
+  float_reflectance_model(false), query(false),
   save_sparingly(false), float_haze(false),
   smoothness_weight(0), steepness_factor(1.0),
   curvature_in_shadow(0), curvature_in_shadow_weight(0.0),

@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -48,9 +48,9 @@ HeightErrEstim(int num_cols, int num_rows, int num_height_samples_in,
       height_error_vec(col, row)[1] =  max_height_error;
     }
   }
-    
+
 } // end constructor
-  
+
 // Use this struct to keep track of slope errors.
 SlopeErrEstim::
 SlopeErrEstim(int num_cols, int num_rows, int num_a_samples_in, int num_b_samples_in,
@@ -64,8 +64,8 @@ SlopeErrEstim(int num_cols, int num_rows, int num_a_samples_in, int num_b_sample
   image_iter = 0; // will be modified later
 
   // The maximum possible deviation from the normal in degrees
-  max_angle = 90.0; 
-  
+  max_angle = 90.0;
+
   slope_errs.resize(num_cols);
   for (int col = 0; col < num_cols; col++) {
     slope_errs[col].resize(num_rows);
@@ -79,7 +79,7 @@ SlopeErrEstim(int num_cols, int num_rows, int num_a_samples_in, int num_b_sample
 // a slope can be from this before the computed intensity
 // due to that slope is bigger than max_intensity_err.
 void estimateSlopeError(vw::Vector3 const& cameraPosition,
-                        vw::Vector3 const& normal, 
+                        vw::Vector3 const& normal,
                         vw::Vector3 const& xyz,
                         vw::Vector3 const& sunPosition,
                         asp::ReflParams const& refl_params,
@@ -90,28 +90,28 @@ void estimateSlopeError(vw::Vector3 const& cameraPosition,
                         asp::SfsOptions & opt,
                         vw::ImageView<double> & albedo,
                         asp::SlopeErrEstim * slopeErrEstim) {
-  
+
   // Find the angle u from the normal to the z axis, and the angle v
   // from the x axis to the projection of the normal in the xy plane.
   double u = acos(normal[2]);
   double v = 0.0;
-  if (normal[0] != 0.0 || normal[1] != 0.0) 
+  if (normal[0] != 0.0 || normal[1] != 0.0)
     v = atan2(normal[1], normal[0]);
 
   double cv = cos(v), sv = sin(v), cu = cos(u), su = sin(u);
   vw::Vector3 n(cv*su, sv*su, cu);
 
   // Sanity check, these angles should give us back the normal
-  if (vw::math::norm_2(normal - n) > 1e-8) 
-    vw::vw_throw(vw::LogicErr() << "Book-keeping error in slope estimation.\n" );
-    
+  if (vw::math::norm_2(normal - n) > 1e-8)
+    vw::vw_throw(vw::LogicErr() << "Book-keeping error in slope estimation.\n");
+
   // Find the rotation R that transforms the vector (0, 0, 1) to the normal
   vw::Matrix3x3 R1, R2, R;
-  
+
   R1[0][0] = cv;  R1[0][1] = -sv; R1[0][2] = 0;
   R1[1][0] = sv;  R1[1][1] =  cv; R1[1][2] = 0;
   R1[2][0] = 0;   R1[2][1] =  0;  R1[2][2] = 1;
-  
+
   R2[0][0] = cu;  R2[0][1] =  0;  R2[0][2] = su;
   R2[1][0] = 0;   R2[1][1] =  1;  R2[1][2] = 0;
   R2[2][0] = -su; R2[2][1] =  0;  R2[2][2] = cu;
@@ -120,9 +120,9 @@ void estimateSlopeError(vw::Vector3 const& cameraPosition,
 
   // We must have R * n0 = n
   vw::Vector3 n0(0, 0, 1);
-  if (vw::math::norm_2(R*n0 - n) > 1e-8) 
+  if (vw::math::norm_2(R*n0 - n) > 1e-8)
     vw::vw_throw(vw::LogicErr() << "Book-keeping error in slope estimation.\n");
-  
+
   int num_a_samples = slopeErrEstim->num_a_samples;
   int num_b_samples = slopeErrEstim->num_b_samples;
 
@@ -133,7 +133,7 @@ void estimateSlopeError(vw::Vector3 const& cameraPosition,
   if (num_b_samples != num_b_samples2)
     vw::vw_throw(vw::LogicErr()
               << "Book-keeping failure in estimating the slope error!\n");
-  
+
   // Sample the set of unit vectors w which make the angle 'a' with
   // the normal. For that, start with w having angle 'a' with the z
   // axis, and angle 'b' between the projection of w onto the xy plane
@@ -142,12 +142,12 @@ void estimateSlopeError(vw::Vector3 const& cameraPosition,
   // sample all such angles.
   double deg2rad = M_PI/180.0;
   for (int b_iter = 0; b_iter < num_b_samples; b_iter++) {
-    
+
     double b = 360.0 * double(b_iter)/num_b_samples;
     double cb = cos(deg2rad * b), sb = sin(deg2rad * b);
-    
+
     for (int a_iter = 0; a_iter < num_a_samples; a_iter++) {
-      
+
       double a = 90.0 * double(a_iter)/num_a_samples;
 
       if (slopeErrEstim->slope_errs[col][row][b_iter] < a) {
@@ -167,30 +167,30 @@ void estimateSlopeError(vw::Vector3 const& cameraPosition,
         vw::vw_throw(vw::LogicErr() << "Book-keeping error in slope estimation.\n");
 
       // Compute the reflectance with the given normal
-      vw::PixelMask<double> reflectance 
+      vw::PixelMask<double> reflectance
         = asp::calcReflectance(cameraPosition, w, xyz, sunPosition,
                                refl_params, refl_coeffs);
       reflectance.validate();
 
-      double comp_intensity 
-        = asp::calcIntensity(albedo(col, row), reflectance, 
+      double comp_intensity
+        = asp::calcIntensity(albedo(col, row), reflectance,
                              opt.image_exposures_vec[image_iter],
                              opt.steepness_factor,
-                             &opt.image_haze_vec[image_iter][0], 
+                             &opt.image_haze_vec[image_iter][0],
                              opt.num_haze_coeffs);
-         
+
       if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
         // We exceeded the error budget, hence this is an upper bound on the slope
         slopeErrEstim->slope_errs[col][row][b_iter] = a;
         break;
       }
-      
+
     }
   }
-  
+
   return;
 } // end function estimateSlopeError
-  
+
 // Given the normal (height) to the SfS DEM, find how different
 // a height can be from this before the computed intensity
 // due to that height is bigger than max_intensity_err.
@@ -202,7 +202,7 @@ void estimateHeightError(vw::ImageView<double> const& dem,
                          const double * refl_coeffs,
                          double meas_intensity,
                          double max_intensity_err,
-                         int col, int row, 
+                         int col, int row,
                          double grid_x, double grid_y,
                          int image_iter,
                          asp::SfsOptions & opt,
@@ -212,7 +212,7 @@ void estimateHeightError(vw::ImageView<double> const& dem,
   // Look at the neighbors
   int cols[] = {col - 1, col,     col,     col + 1};
   int rows[] = {row,     row - 1, row + 1, row};
-  
+
   for (int it = 0; it < 4; it++) {
 
     int colx = cols[it], rowx = rows[it];
@@ -241,12 +241,12 @@ void estimateHeightError(vw::ImageView<double> const& dem,
         // Determine where to add the dh. Recall that we compute the intensity
         // at (col, row), while perturbing the dem height at (colx, rowx)
         double left_dh = 0, center_dh = 0, right_dh = 0, bottom_dh = 0, top_dh = 0;
-        if      (colx == col - 1 && rowx == row    ) left_dh   = dh; 
-        else if (colx == col     && rowx == row    ) center_dh = dh; // won't be reached
-        else if (colx == col + 1 && rowx == row    ) right_dh  = dh; 
-        else if (colx == col     && rowx == row + 1) bottom_dh = dh; 
-        else if (colx == col     && rowx == row - 1) top_dh    = dh; 
-        
+        if (colx == col - 1 && rowx == row) left_dh   = dh;
+        else if (colx == col     && rowx == row) center_dh = dh; // won't be reached
+        else if (colx == col + 1 && rowx == row) right_dh  = dh;
+        else if (colx == col     && rowx == row + 1) bottom_dh = dh;
+        else if (colx == col     && rowx == row - 1) top_dh    = dh;
+
         double left_h   = dem(col - 1, row)     + left_dh;
         double center_h = dem(col,     row)     + center_dh;
         double right_h  = dem(col + 1, row)     + right_dh;
@@ -258,15 +258,15 @@ void estimateHeightError(vw::ImageView<double> const& dem,
         double p = 0.0, q = 0.0;
         calcPointAndNormal(col, row, left_h, center_h, right_h, bottom_h, top_h,
                            use_pq, p, q, geo, grid_x, grid_y, xyz, normal);
-        
+
         vw::PixelMask<double> reflectance
            = asp::calcReflectance(cameraPosition, normal, xyz, sunPosition,
                                   refl_params, refl_coeffs);
         reflectance.validate();
-        double comp_intensity 
-          = asp::calcIntensity(albedo(col, row), reflectance, 
+        double comp_intensity
+          = asp::calcIntensity(albedo(col, row), reflectance,
                                opt.image_exposures_vec[image_iter],
-                               opt.steepness_factor, &opt.image_haze_vec[image_iter][0], 
+                               opt.steepness_factor, &opt.image_haze_vec[image_iter][0],
                                opt.num_haze_coeffs);
 
         if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
@@ -276,15 +276,15 @@ void estimateHeightError(vw::ImageView<double> const& dem,
           } else if (sign == 1) {
             heightErrEstim->height_error_vec(colx, rowx)[1] = dh;
           }
-                
+
           break;
         }
 
       }
     }
   }
-  
+
   return;
 } // end function estimateHeightError
-  
+
 } // end namespace asp

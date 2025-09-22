@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -35,7 +35,7 @@ struct HeightErrEstim {
                  double max_height_error_in, double nodata_height_val_in,
                  vw::ImageView<double> * albedo_in,
                  asp::SfsOptions * opt_in);
-  
+
   int num_height_samples;
   vw::ImageView<double> * albedo;
   asp::SfsOptions * opt;
@@ -50,7 +50,7 @@ struct SlopeErrEstim {
 
   SlopeErrEstim(int num_cols, int num_rows, int num_a_samples_in, int num_b_samples_in,
                 vw::ImageView<double> * albedo_in, SfsOptions * opt_in);
-  
+
   int num_a_samples, num_b_samples;
   vw::ImageView<double> * albedo;
   asp::SfsOptions * opt;
@@ -63,7 +63,7 @@ struct SlopeErrEstim {
 // a slope can be from this before the computed intensity
 // due to that slope is bigger than max_intensity_err.
 void estimateSlopeError(vw::Vector3 const& cameraPosition,
-                        vw::Vector3 const& normal, 
+                        vw::Vector3 const& normal,
                         vw::Vector3 const& xyz,
                         vw::Vector3 const& sunPosition,
                         asp::ReflParams const& refl_params,
@@ -86,7 +86,7 @@ void estimateHeightError(vw::ImageView<double> const& dem,
                          const double * refl_coeffs,
                          double meas_intensity,
                          double max_intensity_err,
-                         int col, int row, 
+                         int col, int row,
                          double grid_x, double grid_y,
                          int image_iter,
                          asp::SfsOptions & opt,
