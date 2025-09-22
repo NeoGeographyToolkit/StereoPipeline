@@ -68,8 +68,10 @@
 #include <asp/Core/FileUtils.h>
 #include <asp/SfS/SfsImageProc.h>
 #include <asp/SfS/SfsUtils.h>
+#include <asp/SfS/SfsOptions.h>
 #include <asp/SfS/SfsCamera.h>
 #include <asp/SfS/SfsReflectanceModel.h>
+#include <asp/SfS/SfsErrorEstim.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/asp_config.h>
@@ -84,7 +86,6 @@
 #include <vw/Image/DistanceFunction.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Stopwatch.h>
-#include <vw/Core/CmdUtils.h>
 #include <vw/FileIO/FileUtils.h>
 
 #include <ceres/ceres.h>
@@ -121,351 +122,6 @@ typedef ImageViewRef<PixelMask<float>> MaskedImgT;
 typedef ImageViewRef<double> DoubleImgT;
 
 using namespace asp;
-
-// Get the memory usage for the given process. This is for debugging, not used
-// in production code. It does not work on OSX.
-void callTop() {
-
-  std::ostringstream os;
-  int pid = getpid();
-  os << pid;
-  
-  std::string cmd = "top -b -n 1 | grep -i ' sfs' | grep -i '" + os.str() + "'";
-  std::string ans = vw::exec_cmd(cmd.c_str());
-  vw_out() << "Memory usage: " << cmd << " " << ans << "\n";
-}
-
-struct Options: public vw::GdalWriteOptions {
-  std::string input_dem, image_list, camera_list, out_prefix, stereo_session, bundle_adjust_prefix, input_albedo;
-  std::vector<std::string> input_images, input_cameras;
-  std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposures_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list, sun_angles_list;
-  std::vector<float> shadow_threshold_vec, max_valid_image_vals_vec;
-  std::vector<double> image_exposures_vec;
-  std::vector<std::vector<double>> image_haze_vec;
-  std::vector<double> model_coeffs_vec;
-  std::set<int> skip_images;
-  int max_iterations, reflectance_type, blending_dist, min_blend_size, num_haze_coeffs,
-    num_samples_for_estim;
-  bool float_albedo, float_exposure, model_shadows,
-    save_computed_intensity_only, estimate_slope_errors, estimate_height_errors,
-    compute_exposures_only, estim_exposure_haze_albedo,
-    save_dem_with_nodata, use_approx_camera_models, 
-    crop_input_images, allow_borderline_data, fix_dem, float_reflectance_model, 
-    query, save_sparingly, float_haze, read_exposures, read_haze, read_albedo;
-    
-  double smoothness_weight, steepness_factor, curvature_in_shadow,
-    curvature_in_shadow_weight,
-    lit_curvature_dist, shadow_curvature_dist, gradient_weight,
-    blending_power, integrability_weight, smoothness_weight_pq, init_dem_height,
-    nodata_val, initial_dem_constraint_weight, albedo_constraint_weight,
-    albedo_robust_threshold, camera_position_step_size, unreliable_intensity_threshold, 
-    robust_threshold, shadow_threshold;
-  vw::BBox2 crop_win;
-  vw::Vector2 height_error_params;
-  
-  Options(): max_iterations(0), reflectance_type(0),
-            blending_dist(0), blending_power(2.0),
-            min_blend_size(0), num_haze_coeffs(0),
-            num_samples_for_estim(0),
-            float_albedo(false), float_exposure(false), model_shadows(false), 
-            save_computed_intensity_only(false),
-            estimate_slope_errors(false),
-            estimate_height_errors(false),
-            compute_exposures_only(false),
-            estim_exposure_haze_albedo(false),
-            save_dem_with_nodata(false),
-            use_approx_camera_models(false),
-            crop_input_images(false),
-            allow_borderline_data(false), fix_dem(false),
-            float_reflectance_model(false), query(false), 
-            save_sparingly(false), float_haze(false),
-            smoothness_weight(0), steepness_factor(1.0),
-            curvature_in_shadow(0), curvature_in_shadow_weight(0.0),
-            lit_curvature_dist(0.0), shadow_curvature_dist(0.0),
-            gradient_weight(0.0), integrability_weight(0), smoothness_weight_pq(0),
-            initial_dem_constraint_weight(0.0),
-            albedo_constraint_weight(0.0), albedo_robust_threshold(0.0),
-            camera_position_step_size(1.0), unreliable_intensity_threshold(0.0),
-            crop_win(BBox2i(0, 0, 0, 0)){}
-};
-
-// Use this struct to keep track of height errors.
-// TODO(oalexan1): Move to SfsErrorEstim.h
-struct HeightErrEstim {
-
-  HeightErrEstim(int num_cols, int num_rows, int num_height_samples_in,
-                 double max_height_error_in, double nodata_height_val_in,
-                 ImageView<double> * albedo_in,
-                 Options * opt_in) {
-    num_height_samples = num_height_samples_in; // TODO(oalexan1): This must be a parameter
-    max_height_error   = max_height_error_in;   // TODO(oalexan1): This must be a parameter
-    nodata_height_val  = nodata_height_val_in;
-    
-    albedo = albedo_in;
-    opt = opt_in;
-    
-    image_iter = 0; // will be modified later
-
-    height_error_vec.set_size(num_cols, num_rows);
-    for (int col = 0; col < num_cols; col++) {
-      for (int row = 0; row < num_rows; row++) {
-        height_error_vec(col, row)[0] = -max_height_error;
-        height_error_vec(col, row)[1] =  max_height_error;
-      }
-    }
-  }
-  
-  int num_height_samples;
-  ImageView<double> * albedo;
-  Options * opt;
-  ImageView<Vector2> height_error_vec;
-  int image_iter;
-  double max_height_error;
-  double nodata_height_val;
-};
-
-// Use this struct to keep track of slope errors.
-// TODO(oalexan1): Move to SfsErrorEstim.h
-struct SlopeErrEstim {
-
-  SlopeErrEstim(int num_cols, int num_rows, int num_a_samples_in, int num_b_samples_in,
-                ImageView<double> * albedo_in, Options * opt_in) {
-    num_a_samples = num_a_samples_in;
-    num_b_samples = num_b_samples_in;
-    albedo = albedo_in;
-    opt = opt_in;
-
-    image_iter = 0; // will be modified later
-
-    // The maximum possible deviation from the normal in degrees
-    max_angle = 90.0; 
-    
-    slope_errs.resize(num_cols);
-    for (int col = 0; col < num_cols; col++) {
-      slope_errs[col].resize(num_rows);
-      for (int row = 0; row < num_rows; row++) {
-        slope_errs[col][row].resize(num_b_samples, max_angle);
-      }
-    }
-  }
-  
-  int num_a_samples, num_b_samples;
-  ImageView<double> * albedo;
-  Options * opt;
-  std::vector<std::vector<std::vector<double>>> slope_errs;
-  int image_iter;
-  double max_angle;
-};
-
-// Given the normal (slope) to the SfS DEM, find how different
-// a slope can be from this before the computed intensity
-// due to that slope is bigger than max_intensity_err.
-// TODO(oalexan1): Move to SfsErrorEstim.h
-void estimateSlopeError(Vector3 const& cameraPosition,
-                        Vector3 const& normal, Vector3 const& xyz,
-                        vw::Vector3 const& sunPosition,
-                        ReflParams const& refl_params,
-                        const double * refl_coeffs,
-                        double meas_intensity,
-                        double max_intensity_err,
-                        int col, int row, int image_iter,
-                        Options & opt,
-                        ImageView<double> & albedo,
-                        SlopeErrEstim * slopeErrEstim){
-  
-  // Find the angle u from the normal to the z axis, and the angle v
-  // from the x axis to the projection of the normal in the xy plane.
-  double u = acos(normal[2]);
-  double v = 0.0;
-  if (normal[0] != 0.0 || normal[1] != 0.0) 
-    v = atan2(normal[1], normal[0]);
-
-  double cv = cos(v), sv = sin(v), cu = cos(u), su = sin(u);
-  Vector3 n(cv*su, sv*su, cu);
-
-  // Sanity check, these angles should give us back the normal
-  if (norm_2(normal - n) > 1e-8) 
-    vw_throw( LogicErr() << "Book-keeping error in slope estimation.\n" );
-    
-  // Find the rotation R that transforms the vector (0, 0, 1) to the normal
-  vw::Matrix3x3 R1, R2, R;
-  
-  R1[0][0] = cv;  R1[0][1] = -sv; R1[0][2] = 0;
-  R1[1][0] = sv;  R1[1][1] =  cv; R1[1][2] = 0;
-  R1[2][0] = 0;   R1[2][1] =  0;  R1[2][2] = 1;
-  
-  R2[0][0] = cu;  R2[0][1] =  0;  R2[0][2] = su;
-  R2[1][0] = 0;   R2[1][1] =  1;  R2[1][2] = 0;
-  R2[2][0] = -su; R2[2][1] =  0;  R2[2][2] = cu;
-
-  R = R1 * R2;
-
-  // We must have R * n0 = n
-  Vector3 n0(0, 0, 1);
-  if (norm_2(R*n0 - n) > 1e-8) 
-    vw_throw( LogicErr() << "Book-keeping error in slope estimation.\n" );
-  
-  int num_a_samples = slopeErrEstim->num_a_samples;
-  int num_b_samples = slopeErrEstim->num_b_samples;
-
-  int num_cols = slopeErrEstim->slope_errs.size();
-  int num_rows = slopeErrEstim->slope_errs[0].size();
-  int num_b_samples2 = slopeErrEstim->slope_errs[0][0].size();
-
-  if (num_b_samples != num_b_samples2)
-    vw_throw( LogicErr()
-              << "Book-keeping failure in estimating the slope error!\n");
-  
-  // Sample the set of unit vectors w which make the angle 'a' with
-  // the normal. For that, start with w having angle 'a' with the z
-  // axis, and angle 'b' between the projection of w onto the xy plane
-  // and the x axis. Then apply the rotation R to it which will make
-  // the angle between w and the normal be 'a'. By varying 'b' we will
-  // sample all such angles.
-  double deg2rad = M_PI/180.0;
-  for (int b_iter = 0; b_iter < num_b_samples; b_iter++) {
-    
-    double b = 360.0 * double(b_iter)/num_b_samples;
-    double cb = cos(deg2rad * b), sb = sin(deg2rad * b);
-    
-    for (int a_iter = 0; a_iter < num_a_samples; a_iter++) {
-      
-      double a = 90.0 * double(a_iter)/num_a_samples;
-
-      if (slopeErrEstim->slope_errs[col][row][b_iter] < a) {
-        // We already determined that the slope error can't be as big as
-        // a, so there is no point to explore bigger angles
-        break;
-      }
-
-      double ca = cos(deg2rad * a), sa = sin(deg2rad * a);
-
-      Vector3 w(cb*sa, sb*sa, ca);
-      w = R*w;
-
-      // Compute here dot product from w to n. Should be cos(a) for all b.
-      double prod = dot_prod(w, normal);
-      if (std::abs(prod - ca) > 1e-8)
-        vw_throw( LogicErr() << "Book-keeping error in slope estimation.\n" );
-
-      // Compute the reflectance with the given normal
-      PixelMask<double> reflectance = calcReflectance(cameraPosition,
-                                                      w, xyz, sunPosition,
-                                                      refl_params, refl_coeffs);
-      reflectance.validate();
-
-      double comp_intensity = calcIntensity(albedo(col, row), 
-                                            reflectance, 
-                                            opt.image_exposures_vec[image_iter],
-                                            opt.steepness_factor,
-                                            &opt.image_haze_vec[image_iter][0], 
-                                            opt.num_haze_coeffs);
-         
-      if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
-        // We exceeded the error budget, hence this is an upper bound on the slope
-        slopeErrEstim->slope_errs[col][row][b_iter] = a;
-        break;
-      }
-      
-    }
-  }
-}
-
-// Given the normal (height) to the SfS DEM, find how different
-// a height can be from this before the computed intensity
-// due to that height is bigger than max_intensity_err.
-// TODO(oalexan1): Move to SfsErrorEstim.h
-void estimateHeightError(ImageView<double> const& dem,
-                         vw::cartography::GeoReference const& geo,
-                         Vector3 const& cameraPosition,
-                         vw::Vector3 const& sunPosition,
-                         ReflParams const& refl_params,
-                         const double * refl_coeffs,
-                         double meas_intensity,
-                         double max_intensity_err,
-                         int col, int row, 
-                         double grid_x, double grid_y,
-                         int image_iter,
-                         Options & opt,
-                         ImageView<double> & albedo,
-                         HeightErrEstim * heightErrEstim){
-
-  // Look at the neighbors
-  int cols[] = {col - 1, col,     col,     col + 1};
-  int rows[] = {row,     row - 1, row + 1, row};
-  
-  for (int it = 0; it < 4; it++) {
-
-    int colx = cols[it], rowx = rows[it];
-
-    // Can't be at edges as need to compute normals
-    if (colx <= 0 || rowx <= 0 || colx >= dem.cols() - 1 || rowx >= dem.rows() - 1)
-      continue;
-
-    // Perturb the height down and up
-    for (int sign = -1; sign <= 1; sign += 2) {
-      for (int height_it = 0; height_it < heightErrEstim->num_height_samples; height_it++) {
-        double dh = sign * heightErrEstim->max_height_error
-          * double(height_it)/double(heightErrEstim->num_height_samples);
-
-        if (sign == -1) {
-          if (dh < heightErrEstim->height_error_vec(colx, rowx)[0]) {
-            // We already determined dh can't go as low, so stop here
-            break;
-          }
-        } else if (sign == 1) {
-          if (dh > heightErrEstim->height_error_vec(colx, rowx)[1]) {
-            break;
-          }
-        }
-
-        // Determine where to add the dh. Recall that we compute the intensity
-        // at (col, row), while perturbing the dem height at (colx, rowx)
-        double left_dh = 0, center_dh = 0, right_dh = 0, bottom_dh = 0, top_dh = 0;
-        if      (colx == col - 1 && rowx == row    ) left_dh   = dh; 
-        else if (colx == col     && rowx == row    ) center_dh = dh; // won't be reached
-        else if (colx == col + 1 && rowx == row    ) right_dh  = dh; 
-        else if (colx == col     && rowx == row + 1) bottom_dh = dh; 
-        else if (colx == col     && rowx == row - 1) top_dh    = dh; 
-        
-        double left_h   = dem(col - 1, row)     + left_dh;
-        double center_h = dem(col,     row)     + center_dh;
-        double right_h  = dem(col + 1, row)     + right_dh;
-        double bottom_h = dem(col,     row + 1) + bottom_dh;
-        double top_h    = dem(col,     row - 1) + top_dh;
-
-        vw::Vector3 xyz, normal;
-        bool use_pq = false;
-        double p = 0.0, q = 0.0;
-        calcPointAndNormal(col, row, left_h, center_h, right_h, bottom_h, top_h,
-                           use_pq, p, q, geo, grid_x, grid_y, xyz, normal);
-        
-        PixelMask<double> reflectance = calcReflectance(cameraPosition,
-                                                        normal, xyz, sunPosition,
-                                                        refl_params, refl_coeffs);
-        reflectance.validate();
-        double comp_intensity = calcIntensity(albedo(col, row), 
-                                              reflectance, 
-                                              opt.image_exposures_vec[image_iter],
-                                              opt.steepness_factor,
-                                              &opt.image_haze_vec[image_iter][0], 
-                                              opt.num_haze_coeffs);
-
-        if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
-          // We exceeded the error budget, record the dh at which it happens
-          if (sign == -1) {
-            heightErrEstim->height_error_vec(colx, rowx)[0] = dh;
-          } else if (sign == 1) {
-            heightErrEstim->height_error_vec(colx, rowx)[1] = dh;
-          }
-                
-          break;
-        }
-
-      }
-    }
-  }
-}
 
 // Compute the reflectance and intensity at a single pixel.
 bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
@@ -581,7 +237,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
   if (slopeErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
     
     int image_iter = slopeErrEstim->image_iter;
-    Options & opt = *slopeErrEstim->opt; // alias
+    SfsOptions & opt = *slopeErrEstim->opt; // alias
     ImageView<double> & albedo = *slopeErrEstim->albedo; // alias
     double comp_intensity = calcIntensity(albedo(col, row), 
                                           reflectance, 
@@ -603,7 +259,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
   if (heightErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
     
     int image_iter = heightErrEstim->image_iter;
-    Options & opt = *heightErrEstim->opt; // alias
+    SfsOptions & opt = *heightErrEstim->opt; // alias
     ImageView<double> & albedo = *heightErrEstim->albedo; // alias
     double comp_intensity = calcIntensity(albedo(col, row), 
                                           reflectance, 
@@ -742,7 +398,7 @@ public:
 
 // Constructor to initialize references to the necessary data
 // TODO(oalexan1): Move to SfsCostFun.h
-SfsCallback(Options const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
+SfsCallback(SfsOptions const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
             ImageView<double>& albedo, cartography::GeoReference const& geo, 
             ReflParams const& refl_params, std::vector<vw::Vector3> const& sunPosition,
             std::vector<BBox2i> const& crop_boxes, 
@@ -963,7 +619,7 @@ void set_final_iter(bool is_final_iter) {
   
 private:
   // Class members storing references to the data
-  Options const& opt;
+  SfsOptions const& opt;
   ImageView<double>& dem;
   ImageView<Vector2>& pq;
   ImageView<double>& albedo;
@@ -990,7 +646,7 @@ private:
 // TODO(oalexan1): Move to SfsCostFun.h
 template <typename F, typename G>
 inline bool
-calc_intensity_residual(Options const& opt, 
+calc_intensity_residual(SfsOptions const& opt, 
                         const F* const exposure, const F* const haze,
                         const G* const left, const G* const center, const G* const right,
                         const G* const bottom, const G* const top,
@@ -1066,7 +722,7 @@ calc_intensity_residual(Options const& opt,
 // Discrepancy between measured and computed intensity. See the formula above.
 // TODO(oalexan1): Move to SfsCostFun.h
 struct IntensityError {
-  IntensityError(Options const& opt, int col, int row,
+  IntensityError(SfsOptions const& opt, int col, int row,
                  ImageView<double> const& dem,
                  cartography::GeoReference const& geo,
                  bool model_shadows,
@@ -1124,7 +780,7 @@ struct IntensityError {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(Options const& opt, int col, int row,
+  static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
                                      ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
                                      bool model_shadows,
@@ -1148,7 +804,7 @@ struct IntensityError {
                                 crop_box, image, blend_weight, camera)));
   }
 
-  Options const& m_opt;
+  SfsOptions const& m_opt;
   int m_col, m_row;
   ImageView<double>                 const & m_dem;            // alias
   cartography::GeoReference         const & m_geo;            // alias
@@ -1167,7 +823,7 @@ struct IntensityError {
 // A variation of the intensity error where only the DEM is floated
 // TODO(oalexan1): Wipe this as it did not improve speed, but test first. Unlikely it improves memory usage, but need to test. If useful, move to SfsCostFun.h
 struct IntensityErrorFloatDemOnly {
-  IntensityErrorFloatDemOnly(Options const& opt, int col, int row,
+  IntensityErrorFloatDemOnly(SfsOptions const& opt, int col, int row,
                              ImageView<double> const& dem,
                              double albedo,
                              double * refl_coeffs, 
@@ -1233,7 +889,7 @@ struct IntensityErrorFloatDemOnly {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(Options const& opt, int col, int row,
+  static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
                                      ImageView<double> const& dem,
                                      double albedo,
                                      double * refl_coeffs, 
@@ -1263,7 +919,7 @@ struct IntensityErrorFloatDemOnly {
                                             crop_box, image, blend_weight, camera)));
   }
 
-  Options                    const& m_opt;
+  SfsOptions                    const& m_opt;
   int                               m_col, m_row;
   ImageView<double>         const & m_dem;            // alias
   double                            m_albedo;
@@ -1288,7 +944,7 @@ struct IntensityErrorFloatDemOnly {
 // TODO(oalexan1): Check if improves memory usage at least. In either case,
 // move to SfsCostFun.h.
 struct IntensityErrorFixedMost {
-  IntensityErrorFixedMost(Options const& opt, int col, int row,
+  IntensityErrorFixedMost(SfsOptions const& opt, int col, int row,
                           ImageView<double> const& dem,
                           double albedo,
                           double * refl_coeffs, 
@@ -1351,7 +1007,7 @@ struct IntensityErrorFixedMost {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(Options const& opt, int col, int row,
+  static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
                                      ImageView<double> const& dem,
                                      double albedo,
                                      double * refl_coeffs, 
@@ -1378,7 +1034,7 @@ struct IntensityErrorFixedMost {
                                          crop_box, image, blend_weight, camera)));
   }
 
-  Options                            const& m_opt;
+  SfsOptions                        const & m_opt;
   int                                       m_col, m_row;
   ImageView<double>                 const & m_dem;            // alias
   double                                    m_albedo;
@@ -1402,7 +1058,7 @@ struct IntensityErrorFixedMost {
 // TODO(oalexan1): Validate again if this gives better results as compared to
 // usual intensity error.
 struct IntensityErrorPQ {
-  IntensityErrorPQ(Options const& opt, int col, int row,
+  IntensityErrorPQ(SfsOptions const& opt, int col, int row,
                    ImageView<double> const& dem,
                    cartography::GeoReference const& geo,
                    bool model_shadows,
@@ -1460,7 +1116,7 @@ struct IntensityErrorPQ {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(Options const& opt, int col, int row,
+  static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
                                      ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
                                      bool model_shadows,
@@ -1484,7 +1140,7 @@ struct IntensityErrorPQ {
                                   crop_box, image, blend_weight, camera)));
   }
 
-  Options                            const& m_opt;
+  SfsOptions                        const & m_opt;
   int m_col, m_row;
   ImageView<double>                 const & m_dem;            // alias
   cartography::GeoReference         const & m_geo;            // alias
@@ -1796,7 +1452,7 @@ struct AlbedoChangeError {
   double m_initial_albedo, m_albedo_constraint_weight;
 };
 
-void handle_arguments(int argc, char *argv[], Options& opt) {
+void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("input-dem,i",  po::value(&opt.input_dem),
@@ -2391,7 +2047,7 @@ void run_sfs(// Fixed quantities
              int                                num_iterations, 
              double                             gridx,
              double                             gridy,
-             Options                          & opt,
+             SfsOptions                       & opt,
              GeoReference               const & geo,
              double                             smoothness_weight,
              double                             max_dem_height,
@@ -2747,7 +2403,7 @@ void run_sfs(// Fixed quantities
 }
 
 // TODO(oalexan1): Move this to SfsReflectance.cc
-void setupReflectance(ReflParams & refl_params, Options & opt) {
+void setupReflectance(ReflParams & refl_params, SfsOptions & opt) {
   if (opt.reflectance_type == 0)
     refl_params.reflectanceType = LAMBERT;
   else if (opt.reflectance_type == 1)
@@ -2871,7 +2527,7 @@ public:
 // Also find the sampled albedo along the way. The albedo will be optimized
 // only if --float-albedo is on. Otherwise it will be kept at the nominal value.
 // TODO(oalexan1): Move this to SfsCostFun.cc.
-void estimExposureHazeAlbedo(Options & opt,
+void estimExposureHazeAlbedo(SfsOptions & opt,
                              std::vector<MaskedImgT> const& masked_images,
                              std::vector<DoubleImgT> const& blend_weights,
                              ImageView<double> const& dem,
@@ -2966,7 +2622,7 @@ void estimExposureHazeAlbedo(Options & opt,
     }
   }
   
-  // Options
+  // Ceres options
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
@@ -3008,7 +2664,7 @@ int main(int argc, char* argv[]) {
   Stopwatch sw_total;
   sw_total.start();
   
-  Options opt;
+  SfsOptions opt;
   try {
     handle_arguments(argc, argv, opt);
 

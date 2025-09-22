@@ -20,11 +20,11 @@
 
 #include <asp/SfS/SfsUtils.h>
 #include <asp/Camera/CsmModel.h>
-#include <asp/asp_config.h>
-
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/IsisCameraModel.h>
 #endif // ASP_HAVE_PKG_ISIS
+
+#include <vw/Core/CmdUtils.h>
 
 #include <string>
 #include <map>
@@ -278,5 +278,17 @@ void saveUsedImages(std::string const& out_prefix,
     usedfile << image << "\n";
 }
 
+// Get the memory usage for the given process. This is for debugging, not used
+// in production code. It does not work on OSX.
+void callTop() {
+
+  std::ostringstream os;
+  int pid = getpid();
+  os << pid;
+  
+  std::string cmd = "top -b -n 1 | grep -i ' sfs' | grep -i '" + os.str() + "'";
+  std::string ans = vw::exec_cmd(cmd.c_str());
+  vw_out() << "Memory usage: " << cmd << " " << ans << "\n";
+}
 
 } // end namespace asp
