@@ -489,9 +489,9 @@ sensors in the focal plane and of their footprints on the ground can be
 overridden by setting ``--rig-sensor-ground-offsets``.
 
 For example, consider a rig with two cameras. If it is desired to have the rig
-sensors separated by 0.02 m in the *x* direction the sensor plane, and their
-footprints separated by 2000 m in the *x* (across-track) direction on the ground,
-with no separation vertically, use::
+sensor centers separated by 0.02 m in the *x* direction the sensor plane, and
+the centers of their footprints separated by 2000 m in the *x* (across-track)
+direction on the ground, with no separation vertically, use::
 
   --rig-sensor-ground-offsets -0.01,0,-1000,0,0.01,0,1000,0
 
@@ -874,9 +874,9 @@ Command-line options
     :numref:`sat_sim_rig`.
 
 --rig-sensor-ground-offsets <string (default="")>
-    Modify the input rig so that each sensor has the given horizontal offsets
-    from the rig center in the rig plane, and the sensor ground footprints have
-    the given horizontal offsets from the nominal ground footprint at nadir.
+    Modify the input rig so that each sensor center has the given horizontal offsets
+    from the rig center in the rig plane, and the sensor ground footprint centers have
+    the given ground plane offsets from the nominal ground footprint center at nadir.
     Specify as a quoted list of values, separated by spaces or commas. The order
     is sensor1_x sensor1_y ground1_x ground1_y followed by sensor 2, etc. The
     units are in meter. These will determine the sensor rotations. Separate the

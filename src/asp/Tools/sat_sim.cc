@@ -146,13 +146,13 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
      "and --rig-sensor-rotation-angles.")
      ("rig-sensor-ground-offsets",
       po::value(&opt.rig_sensor_ground_offsets)->default_value(""),
-      "Modify the input rig so that each sensor has the given horizontal offsets from "
-      "the rig center in the rig plane, and the sensor ground footprints have the given "
-      "horizontal offsets from the nominal ground footprint at nadir. "
-      "Specify as a quoted list of values, separated by spaces or commas. The order is "
-      "sensor1_x sensor1_y ground1_x ground1_y followed by sensor 2, etc. The units "
-      "are in meter. These will determine the sensor orientations. If not "
-      "set, use 0 for all sensors.")
+     "Modify the input rig so that each sensor center has the given horizontal offsets "
+     "from the rig center in the rig plane, and the sensor ground footprint centers have "
+     "the given ground plane offsets from the nominal ground footprint center at nadir. "
+     "Specify as a quoted list of values, separated by spaces or commas. The order is "
+     "sensor1_x sensor1_y ground1_x ground1_y followed by sensor 2, etc. The units are in "
+     "meter. These will determine the sensor orientations. If not set, use 0 for all "
+     "sensors.")
      ("rig-sensor-rotation-angles",
       po::value(&opt.rig_sensor_rotation_angles)->default_value(""),
       "Modify the input rig by rotating each sensor by the given angle in the sensor "
