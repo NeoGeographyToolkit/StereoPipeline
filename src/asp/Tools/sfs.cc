@@ -144,6 +144,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                              vw::PixelMask<double>   & intensity,
                              double                  & ground_weight,
                              double            const * refl_coeffs,
+                             asp::SfsOptions   const & opt,
                              asp::SlopeErrEstim      * slopeErrEstim = NULL,
                              asp::HeightErrEstim     * heightErrEstim = NULL) {
 
@@ -236,7 +237,6 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
 
   if (slopeErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
     
-    SfsOptions const& opt = *slopeErrEstim->opt; // alias
     int image_iter = slopeErrEstim->image_iter;
     ImageView<double> const& albedo = *slopeErrEstim->albedo; // alias
     double comp_intensity = calcIntensity(albedo(col, row), 
@@ -304,7 +304,8 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     ImageView<PixelMask<double>> & reflectance,
                                     ImageView<PixelMask<double>> & intensity,
                                     ImageView<double>            & ground_weight,
-                                    const double   * refl_coeffs,
+                                    const double                 * refl_coeffs,
+                                    asp::SfsOptions        const & opt,
                                     SlopeErrEstim  * slopeErrEstim = NULL,
                                     HeightErrEstim * heightErrEstim = NULL) {
   
@@ -381,9 +382,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                               reflectance(col_sample, row_sample),
                               intensity(col_sample, row_sample),
                               ground_weight(col_sample, row_sample),
-                              refl_coeffs,
-                              slopeErrEstim,
-                              heightErrEstim);
+                              refl_coeffs, opt, slopeErrEstim, heightErrEstim);
     }
   }
   
@@ -511,7 +510,7 @@ SfsCallback(SfsOptions const& opt, ImageView<double>& dem,  ImageView<Vector2>& 
                                   blend_weights[image_iter],
                                   cameras[image_iter].get(),
                                   reflectance, intensity, ground_weight,
-                                  &refl_coeffs[0]); // Pass the address of the first element
+                                  &refl_coeffs[0], opt);
 
     // dem_nodata equals to dem if the image has valid pixels and no shadows
     if (opt.save_dem_with_nodata) {
@@ -690,7 +689,7 @@ calc_intensity_residual(SfsOptions const& opt,
                               gridx, gridy,
                               sunPosition,  refl_params,
                               crop_box, image, blend_weight, camera.get(),
-                              reflectance, intensity, ground_weight, refl_coeffs);
+                              reflectance, intensity, ground_weight, refl_coeffs, opt);
       
     if (opt.unreliable_intensity_threshold > 0) {
       if (is_valid(intensity) && intensity.child() <= opt.unreliable_intensity_threshold &&
@@ -2569,7 +2568,7 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
                                    cameras[image_iter].get(),
                                    reflectance[image_iter], intensity[image_iter],
                                    ground_weight,
-                                   &opt.model_coeffs_vec[0]);
+                                   &opt.model_coeffs_vec[0], opt);
     
     num_sampled_cols = reflectance[image_iter].cols();
     num_sampled_rows = reflectance[image_iter].rows();
@@ -3166,7 +3165,7 @@ int main(int argc, char* argv[]) {
                                      blend_weights[image_iter],
                                      cameras[image_iter].get(),
                                      reflectance, intensity, ground_weight,
-                                     &opt.model_coeffs_vec[0]);
+                                     &opt.model_coeffs_vec[0], opt);
       
       // TODO: Below is not the optimal way of finding the exposure!
       // Find it as the analytical minimum using calculus.
@@ -3320,7 +3319,7 @@ int main(int argc, char* argv[]) {
                                        blend_weights[image_iter],
                                        cameras[image_iter].get(),
                                        reflectance, meas_intensity, ground_weight,
-                                       &opt.model_coeffs_vec[0],
+                                       &opt.model_coeffs_vec[0], opt,
                                        slopeErrEstim.get(), heightErrEstim.get());
 
         if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
