@@ -123,28 +123,29 @@ typedef ImageViewRef<double> DoubleImgT;
 
 using namespace asp;
 
-// Compute the reflectance and intensity at a single pixel.
+// Compute the reflectance and intensity at a single pixel. Compute the slope and/or
+// height error estimation if the pointer is not NULL.
 bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                              double bottom_h, double top_h,
                              bool use_pq, double p, double q, // dem partial derivatives
                              int col, int row,
-                             ImageView<double>         const& dem,
-                             cartography::GeoReference const& geo,
+                             vw::ImageView<double>         const& dem,
+                             vw::cartography::GeoReference const& geo,
                              bool model_shadows,
                              double max_dem_height,
                              double gridx, double gridy,
-                             vw::Vector3  const & sunPosition,
-                             ReflParams const & refl_params,
-                             BBox2i       const & crop_box,
-                             MaskedImgT   const & image,
-                             DoubleImgT   const & blend_weight,
-                             CameraModel  const * camera,
-                             PixelMask<double>  & reflectance,
-                             PixelMask<double>  & intensity,
-                             double             & ground_weight,
-                             const double       * refl_coeffs,
-                             SlopeErrEstim      * slopeErrEstim = NULL,
-                             HeightErrEstim     * heightErrEstim = NULL) {
+                             vw::Vector3       const & sunPosition,
+                             asp::ReflParams   const & refl_params,
+                             vw::BBox2i        const & crop_box,
+                             MaskedImgT        const & image,
+                             DoubleImgT        const & blend_weight,
+                             vw::camera::CameraModel const * camera,
+                             vw::PixelMask<double>   & reflectance,
+                             vw::PixelMask<double>   & intensity,
+                             double                  & ground_weight,
+                             double             const* refl_coeffs,
+                             asp::SlopeErrEstim      * slopeErrEstim = NULL,
+                             asp::HeightErrEstim     * heightErrEstim = NULL) {
 
   // Set output values
   reflectance = 0.0; reflectance.invalidate();
@@ -155,13 +156,13 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
   if (crop_box.empty()) return false;
 
   vw::Vector3 xyz, normal;
-  calcPointAndNormal(col, row, left_h, center_h, right_h, bottom_h, top_h,
-                     use_pq, p, q, geo, gridx, gridy, xyz, normal);
+  asp::calcPointAndNormal(col, row, left_h, center_h, right_h, bottom_h, top_h,
+                          use_pq, p, q, geo, gridx, gridy, xyz, normal);
 
   // Update the camera position for the given pixel (camera position
   // is pixel-dependent for linescan cameras).
-  Vector2 pix;
-  Vector3 cameraPosition;
+  vw::Vector2 pix;
+  vw::Vector3 cameraPosition;
   try {
     pix = camera->point_to_pixel(xyz);
     
@@ -176,9 +177,8 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
     return false;
   }
   
-  reflectance = calcReflectance(cameraPosition,
-                                normal, xyz, sunPosition,
-                                refl_params, refl_coeffs);
+  reflectance = asp::calcReflectance(cameraPosition, normal, xyz, sunPosition,
+                                     refl_params, refl_coeffs);
   reflectance.validate();
 
 
@@ -193,9 +193,9 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
     return false;
   }
 
-  InterpolationView<EdgeExtensionView<MaskedImgT, ConstantEdgeExtension>, BilinearInterpolation>
-    interp_image = interpolate(image, BilinearInterpolation(),
-                               ConstantEdgeExtension());
+  vw::InterpolationView<vw::EdgeExtensionView<MaskedImgT, vw::ConstantEdgeExtension>, vw::BilinearInterpolation>
+    interp_image = vw::interpolate(image, vw::BilinearInterpolation(),
+                                   vw::ConstantEdgeExtension());
   intensity = interp_image(pix[0], pix[1]); // this interpolates
 
   if (g_blend_weight_is_ground_weight) {
@@ -272,7 +272,6 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
     // as a measure for how far is overall the computed intensity allowed
     // to diverge from the measured intensity
     double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
-
     estimateHeightError(dem, geo,  
                         cameraPosition, sunPosition,  refl_params,  
                         refl_coeffs, intensity.child(),  
@@ -301,7 +300,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     BBox2i const& crop_box,
                                     MaskedImgT const  & image,
                                     DoubleImgT const  & blend_weight,
-                                    CameraModel const * camera,
+                                    vw::camera::CameraModel const * camera,
                                     ImageView<PixelMask<double>> & reflectance,
                                     ImageView<PixelMask<double>> & intensity,
                                     ImageView<double>            & ground_weight,
@@ -319,7 +318,6 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
         }
       }
     }
-    vw_out() << "Maximum DEM height: " << max_dem_height << std::endl;
   }
   
   // See how many samples we end up having further down. Must start counting
@@ -685,14 +683,14 @@ calc_intensity_residual(SfsOptions const& opt,
     
     bool success =
       calcPixReflectanceInten(left[0], center[0], right[0],
-                                     bottom[0], top[0],
-                                     use_pq, p, q,
-                                     col, row,  dem, geo,
-                                     model_shadows, max_dem_height,
-                                     gridx, gridy,
-                                     sunPosition,  refl_params,
-                                     crop_box, image, blend_weight, camera.get(),
-                                     reflectance, intensity, ground_weight, refl_coeffs);
+                              bottom[0], top[0],
+                              use_pq, p, q,
+                              col, row,  dem, geo,
+                              model_shadows, max_dem_height,
+                              gridx, gridy,
+                              sunPosition,  refl_params,
+                              crop_box, image, blend_weight, camera.get(),
+                              reflectance, intensity, ground_weight, refl_coeffs);
       
     if (opt.unreliable_intensity_threshold > 0) {
       if (is_valid(intensity) && intensity.child() <= opt.unreliable_intensity_threshold &&

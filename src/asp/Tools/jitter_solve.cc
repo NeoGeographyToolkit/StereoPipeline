@@ -1327,7 +1327,9 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::vector<asp::CsmModel*> csm_models;
   initResampleCsmCams(opt, opt.camera_models, csm_models);
 
-  // Preparations if having a rig
+  // Preparations if having a rig 
+  // TODO(oalexan1): Must check that there exist images for all rig sensors, and
+  // there are no images without a rig. Otherwise the results are quietly bad.
   bool have_rig = (opt.rig_config != "");
   std::vector<RigCamInfo> rig_cam_info;
   std::vector<double> ref_to_curr_sensor_vec;

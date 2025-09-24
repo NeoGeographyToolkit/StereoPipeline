@@ -30,6 +30,9 @@ namespace asp {
 
 enum REFL_TYPE {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT, HAPKE, ARBITRARY_MODEL, CHARON};
 
+class HeightErrEstim;
+class SlopeErrEstim;
+
 struct ReflParams {
   int reflectanceType;
   // Two parameters used in the formula for the Lunar-Lambertian

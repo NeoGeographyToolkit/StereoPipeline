@@ -504,14 +504,15 @@ tool can load the resulting control network.
 View GCP and .vwip files
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-This tool can show the interest points from a GCP file (but cannot edit
-them with this interface, creating such points is described later in
-:numref:`creatinggcp`). Example::
+This tool can show the interest points from a GCP file (:numref:`bagcp`).
+Example::
 
     stereo_gui image1.tif ... imageN.tif --gcp-file mygcp.gcp
 
 This works even for a single image. If ``--gcp-file`` is not specified
 but the GCP file is provided, this file will still be loaded.
+
+Creating GCP is described in :numref:`creatinggcp`. 
 
 The ``stereo_gui`` program can also display ``.vwip`` files. Those are
 interest points created by ``ipfind``, ``bundle_adjust``, or

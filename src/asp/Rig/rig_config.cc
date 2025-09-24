@@ -420,14 +420,15 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
       // The first sensor must be the ref sensor
       if (is_ref_sensor && sensor_name != ref_sensor_name) 
         vw::vw_throw(vw::IOErr() 
-                     << "The first sensor in each rig must be the reference sensor.\n");
+                     << "The first sensor in each rig must be the reference sensor. "
+                     << "Check the rig configuration file.\n");
         
       is_ref_sensor = false; // reset  
       
       if (ref_sensor_name == "")
         vw::vw_throw(vw::IOErr() 
                      << "The reference sensor name must be the first entry in "
-                     << "the rig config file.\n");
+                     << "the rig configuration file.\n");
 
       // Check for duplicate sensor
       if (sensors.find(sensor_name) != sensors.end())

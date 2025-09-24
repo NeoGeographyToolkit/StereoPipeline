@@ -470,7 +470,8 @@ pixel locations in one or more images. Their use is to refine, initialize, or
 transform to desired coordinates the camera poses (:numref:`ba_use_gcp`).
 
 GCP can be created with ``stereo_gui`` (:numref:`creatinggcp`), ``gcp_gen``
-(:numref:`gcp_gen`),  and ``dem2gcp`` (:numref:`dem2gcp`).
+(:numref:`gcp_gen`),  and ``dem2gcp`` (:numref:`dem2gcp`). They can 
+be inspected with ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
 
 File format
 ^^^^^^^^^^^
@@ -1376,9 +1377,9 @@ Command-line options
 
 --save-cnet-as-csv
     Save the initial control network containing all interest points in the
-    format used by ground control points, so it can be inspected
-    (:numref:`stereo_gui_vwip_gcp`). The triangulated points are before
-    optimization.
+    format used by ground control points (:numref:`bagcp`), so it can be
+    inspected (:numref:`stereo_gui_vwip_gcp`). The triangulated points are
+    before optimization.
 
 --camera-positions <filename>
     CSV file containing estimated position of each camera, in ECEF

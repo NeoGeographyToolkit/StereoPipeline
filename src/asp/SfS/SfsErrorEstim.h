@@ -22,11 +22,12 @@
 #define __ASP_SFS_SFS_ERROR_ESTIM_H__
 
 #include <asp/SfS/SfsOptions.h>
-#include <asp/SfS/SfsReflectanceModel.h>
 
 #include <vw/Image/ImageView.h>
 
 namespace asp {
+
+class ReflParams;
 
 // Use this struct to keep track of height errors.
 struct HeightErrEstim {
