@@ -143,7 +143,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                              vw::PixelMask<double>   & reflectance,
                              vw::PixelMask<double>   & intensity,
                              double                  & ground_weight,
-                             double             const* refl_coeffs,
+                             double            const * refl_coeffs,
                              asp::SlopeErrEstim      * slopeErrEstim = NULL,
                              asp::HeightErrEstim     * heightErrEstim = NULL) {
 
@@ -236,9 +236,9 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
 
   if (slopeErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
     
+    SfsOptions const& opt = *slopeErrEstim->opt; // alias
     int image_iter = slopeErrEstim->image_iter;
-    SfsOptions & opt = *slopeErrEstim->opt; // alias
-    ImageView<double> & albedo = *slopeErrEstim->albedo; // alias
+    ImageView<double> const& albedo = *slopeErrEstim->albedo; // alias
     double comp_intensity = calcIntensity(albedo(col, row), 
                                           reflectance, 
                                           opt.image_exposures_vec[image_iter],
@@ -258,9 +258,9 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
   
   if (heightErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
     
+    SfsOptions const& opt = *heightErrEstim->opt; // alias
     int image_iter = heightErrEstim->image_iter;
-    SfsOptions & opt = *heightErrEstim->opt; // alias
-    ImageView<double> & albedo = *heightErrEstim->albedo; // alias
+    ImageView<double> const& albedo = *heightErrEstim->albedo; // alias
     double comp_intensity = calcIntensity(albedo(col, row), 
                                           reflectance, 
                                           opt.image_exposures_vec[image_iter],

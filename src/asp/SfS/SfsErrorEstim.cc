@@ -30,8 +30,8 @@ namespace asp {
 HeightErrEstim::
 HeightErrEstim(int num_cols, int num_rows, int num_height_samples_in,
                double max_height_error_in, double nodata_height_val_in,
-               vw::ImageView<double> * albedo_in,
-               asp::SfsOptions * opt_in) {
+               vw::ImageView<double> const* albedo_in,
+               asp::SfsOptions const* opt_in) {
 
   num_height_samples = num_height_samples_in; // TODO(oalexan1): This must be a parameter
   max_height_error   = max_height_error_in;   // TODO(oalexan1): This must be a parameter
@@ -55,7 +55,7 @@ HeightErrEstim(int num_cols, int num_rows, int num_height_samples_in,
 // Use this struct to keep track of slope errors.
 SlopeErrEstim::
 SlopeErrEstim(int num_cols, int num_rows, int num_a_samples_in, int num_b_samples_in,
-              vw::ImageView<double> * albedo_in, asp::SfsOptions * opt_in) {
+              vw::ImageView<double> const* albedo_in, asp::SfsOptions const* opt_in) {
 
   num_a_samples = num_a_samples_in;
   num_b_samples = num_b_samples_in;
@@ -88,8 +88,8 @@ void estimateSlopeError(vw::Vector3 const& cameraPosition,
                         double meas_intensity,
                         double max_intensity_err,
                         int col, int row, int image_iter,
-                        asp::SfsOptions & opt,
-                        vw::ImageView<double> & albedo,
+                        asp::SfsOptions const& opt,
+                        vw::ImageView<double> const& albedo,
                         asp::SlopeErrEstim * slopeErrEstim) {
 
   // Find the angle u from the normal to the z axis, and the angle v
@@ -206,8 +206,8 @@ void estimateHeightError(vw::ImageView<double> const& dem,
                          int col, int row,
                          double grid_x, double grid_y,
                          int image_iter,
-                         asp::SfsOptions & opt,
-                         vw::ImageView<double> & albedo,
+                         asp::SfsOptions const& opt,
+                         vw::ImageView<double> const& albedo,
                          asp::HeightErrEstim * heightErrEstim) {
 
   // Look at the neighbors
