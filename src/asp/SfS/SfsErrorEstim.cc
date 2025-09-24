@@ -30,15 +30,13 @@ namespace asp {
 HeightErrEstim::
 HeightErrEstim(int num_cols, int num_rows, int num_height_samples_in,
                double max_height_error_in, double nodata_height_val_in,
-               vw::ImageView<double> const* albedo_in,
-               asp::SfsOptions const* opt_in) {
+               vw::ImageView<double> const* albedo_in) {
 
   num_height_samples = num_height_samples_in; // TODO(oalexan1): This must be a parameter
   max_height_error   = max_height_error_in;   // TODO(oalexan1): This must be a parameter
   nodata_height_val  = nodata_height_val_in;
 
   albedo = albedo_in;
-  opt = opt_in;
 
   image_iter = 0; // will be modified later
 
@@ -55,12 +53,11 @@ HeightErrEstim(int num_cols, int num_rows, int num_height_samples_in,
 // Use this struct to keep track of slope errors.
 SlopeErrEstim::
 SlopeErrEstim(int num_cols, int num_rows, int num_a_samples_in, int num_b_samples_in,
-              vw::ImageView<double> const* albedo_in, asp::SfsOptions const* opt_in) {
+              vw::ImageView<double> const* albedo_in) {
 
   num_a_samples = num_a_samples_in;
   num_b_samples = num_b_samples_in;
   albedo = albedo_in;
-  opt = opt_in;
 
   image_iter = 0; // will be modified later
 

@@ -258,7 +258,6 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
   
   if (heightErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
     
-    SfsOptions const& opt = *heightErrEstim->opt; // alias
     int image_iter = heightErrEstim->image_iter;
     ImageView<double> const& albedo = *heightErrEstim->albedo; // alias
     double comp_intensity = calcIntensity(albedo(col, row), 
@@ -3276,16 +3275,16 @@ int main(int argc, char* argv[]) {
       ImageView<Vector2> pq; // no need for these just for initialization
       int sample_col_rate = 1, sample_row_rate = 1;
 
-      boost::shared_ptr<SlopeErrEstim> slopeErrEstim = boost::shared_ptr<SlopeErrEstim>(NULL);
+      auto slopeErrEstim = boost::shared_ptr<SlopeErrEstim>(NULL);
       if (opt.estimate_slope_errors) {
         int num_a_samples = 90; // Sample the 0 to 90 degree range with this many samples
         int num_b_samples = 360; // sample the 0 to 360 degree range with this many samples
         slopeErrEstim = boost::shared_ptr<SlopeErrEstim>
           (new SlopeErrEstim(dem.cols(), dem.rows(),
-                             num_a_samples, num_b_samples, &albedo, &opt));
+                             num_a_samples, num_b_samples, &albedo));
       }
       
-      boost::shared_ptr<HeightErrEstim> heightErrEstim = boost::shared_ptr<HeightErrEstim>(NULL);
+      auto heightErrEstim = boost::shared_ptr<HeightErrEstim>(NULL);
       if (opt.estimate_height_errors) {
         double max_height_error  = opt.height_error_params[0];
         int num_height_samples   = opt.height_error_params[1];
@@ -3297,7 +3296,7 @@ int main(int argc, char* argv[]) {
         heightErrEstim = boost::shared_ptr<HeightErrEstim>
           (new HeightErrEstim(dem.cols(), dem.rows(),
                               num_height_samples, max_height_error, nodata_height_val,
-                              &albedo, &opt));
+                              &albedo));
       }
       
       for (int image_iter = 0; image_iter < num_images; image_iter++) {

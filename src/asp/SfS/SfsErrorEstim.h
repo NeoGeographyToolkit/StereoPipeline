@@ -34,12 +34,10 @@ struct HeightErrEstim {
 
   HeightErrEstim(int num_cols, int num_rows, int num_height_samples_in,
                  double max_height_error_in, double nodata_height_val_in,
-                 vw::ImageView<double> const* albedo_in,
-                 asp::SfsOptions const* opt_in);
+                 vw::ImageView<double> const* albedo_in);
 
   int num_height_samples;
   vw::ImageView<double> const* albedo;
-  asp::SfsOptions const* opt;
   vw::ImageView<vw::Vector2> height_error_vec;
   int image_iter;
   double max_height_error;
@@ -50,11 +48,10 @@ struct HeightErrEstim {
 struct SlopeErrEstim {
 
   SlopeErrEstim(int num_cols, int num_rows, int num_a_samples_in, int num_b_samples_in,
-                vw::ImageView<double> const* albedo_in, SfsOptions const* opt_in);
+                vw::ImageView<double> const* albedo_in);
 
   int num_a_samples, num_b_samples;
   vw::ImageView<double> const* albedo;
-  asp::SfsOptions const* opt;
   std::vector<std::vector<std::vector<double>>> slope_errs;
   int image_iter;
   double max_angle;
