@@ -851,7 +851,7 @@ void initResampleCsmCams(Options                     const& opt,
 // Later there will be another pass to add weights for the anchor points.
 // Here more points may be flagged as outliers.
 void createProblemStructure(Options                      const& opt,
-                            asp::CRNJ                    const& crn,
+                            asp::CRN                    const& crn,
                             vw::ba::ControlNetwork       const& cnet, 
                             std::vector<double>          const& tri_points_vec,
                             // Outputs
@@ -980,7 +980,7 @@ void formTriVec(std::vector<Vector3> const& dem_xyz_vec,
 void jitterSolvePass(int                                 pass,
                      bool                                have_rig,
                      Options                      const& opt,
-                     asp::CRNJ                    const& crn,
+                     asp::CRN                    const& crn,
                      std::vector<RigCamInfo>      const& rig_cam_info,
                      TimestampMap                 const& timestamp_map,
                      // Outputs
@@ -1427,7 +1427,7 @@ void run_jitter_solve(int argc, char* argv[]) {
               << "Or, if using an .nvm file, ISIS cnet, or GCP, check those.\n");
 
   // TODO(oalexan1): Is it possible to avoid using CRNs?
-  asp::CRNJ crn;
+  asp::CRN crn;
   crn.from_cnet(cnet);
   
   if ((int)crn.size() != opt.camera_models.size()) 

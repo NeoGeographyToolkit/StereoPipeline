@@ -360,13 +360,13 @@ bool update_point_height_from_dem(vw::cartography::GeoReference const& dem_geore
 // Shoot rays from all matching interest points. Intersect those with a DEM. Find
 // their average. Project it vertically onto the DEM. Invalid or uncomputable
 // xyz are set to the zero vector.
-// This code can be slow, but using multiple threads makes it even slower,
-// likely because of having to share the interp_dem image. To speed it up
-// one could break the loop over features into several parts. Each would
+// TODO(oalexan1): This code can be slow, but using multiple threads makes it
+// even slower, likely because of having to share the interp_dem image. To speed
+// it up one could break the loop over features into several parts. Each would
 // load and have its own interp_dem image. Even then there may be some global
 // cache for all images, which would slow things down.
 void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
-                             asp::CRNJ const& crn,
+                             asp::CRN const& crn,
                              std::set<int> const& outliers,
                              std::vector<vw::CamPtr> const& camera_models,
                              vw::cartography::GeoReference const& dem_georef,
@@ -461,7 +461,7 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
 // Flag outliers by reprojection error with input cameras. This assumes that
 // the input cameras are pretty accurate.
 void flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
-                           asp::CRNJ const& crn,
+                           asp::CRN const& crn,
                            std::vector<vw::CamPtr> const& camera_models,
                            double max_init_reproj_error,
                            // Output

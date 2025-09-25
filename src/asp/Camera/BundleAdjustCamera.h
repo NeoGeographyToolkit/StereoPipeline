@@ -647,7 +647,7 @@ void saveCsmCameras(std::string const& out_prefix,
 // triangulated point. This is used in jitter solving.
 void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
                             std::vector<vw::CamPtr>  const& cameras,
-                            asp::CRNJ                const& crn,
+                            asp::CRN                const& crn,
                             asp::BAParams            const& param_storage, 
                             // Output
                             std::vector<double>     & gsds);
@@ -655,7 +655,7 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
 // This is a version of the above used in jitter solving.
 void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
                             std::vector<vw::CamPtr>  const& cameras,
-                            asp::CRNJ                const& crn,
+                            asp::CRN                const& crn,
                             std::set<int>            const& outliers,
                             std::vector<double>      const& tri_points_vec, 
                             // Output

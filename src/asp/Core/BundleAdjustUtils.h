@@ -53,7 +53,7 @@ const int NUM_XYZ_PARAMS  = 3;
 const int NUM_QUAT_PARAMS = 4;
 const int PIXEL_SIZE      = 2;
 
-typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRNJ;
+typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRN;
   
 
   ///
@@ -113,7 +113,7 @@ typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRNJ;
   // their average. Project it vertically onto the DEM. Invalid or uncomputable
   // xyz are set to the zero vector.
   void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
-                               asp::CRNJ const& crn,
+                               asp::CRN const& crn,
                                std::set<int> const& outliers,
                                std::vector<vw::CamPtr> const& camera_models,
                                vw::cartography::GeoReference const& dem_georef,
@@ -124,7 +124,7 @@ typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRNJ;
   // Flag outliers by reprojection error with input cameras. This assumes that
   // the input cameras are pretty accurate.
   void flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
-                             asp::CRNJ const& crn,
+                             asp::CRN const& crn,
                              std::vector<boost::shared_ptr<vw::camera::CameraModel>>
                              const& camera_models,
                              double max_init_reproj_error,

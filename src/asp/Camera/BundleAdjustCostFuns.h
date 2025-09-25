@@ -404,7 +404,7 @@ ceres::LossFunction* get_loss_function(std::string const& cost_function, double 
 // Pixel reprojection error. Note: cam_residual_counts and num_pixels_per_cam
 // serve different purposes. 
 void addPixelReprojCostFun(asp::BaOptions                         const& opt,
-                           asp::CRNJ                              const& crn,
+                           asp::CRN                              const& crn,
                            std::vector<int>                       const& count_map,
                            vw::ImageViewRef<vw::PixelMask<float>> const& weight_image,
                            vw::cartography::GeoReference          const& weight_image_georef,
@@ -425,7 +425,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
 // This is adjusted for GSD.
 void addTriConstraint(asp::BaOptions           const& opt,
                       vw::ba::ControlNetwork   const& cnet,
-                      asp::CRNJ                const& crn,
+                      asp::CRN                const& crn,
                       std::vector<std::string> const& image_files,
                       std::vector<vw::CamPtr>  const& orig_cams,
                       double tri_weight,

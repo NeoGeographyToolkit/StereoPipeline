@@ -151,7 +151,7 @@ void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
 
 // Add to the outliers based on the large residuals
 int add_to_outliers(vw::ba::ControlNetwork & cnet,
-                    asp::CRNJ const& crn,
+                    asp::CRN const& crn,
                     asp::BAParams & param_storage,
                     asp::BaOptions const& opt,
                     std::vector<size_t> const& cam_residual_counts,

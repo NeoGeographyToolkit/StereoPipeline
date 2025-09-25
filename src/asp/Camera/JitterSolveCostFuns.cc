@@ -686,7 +686,7 @@ struct weightedQuatNormError {
 // Add reprojection errors. Collect data that will be used to add camera
 // constraints that scale with the number of reprojection errors and GSD.
 void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
-                      asp::CRNJ                             const & crn,
+                      asp::CRN                             const & crn,
                       std::vector<std::vector<vw::Vector2>> const & pixel_vec,
                       std::vector<std::vector<double>>      const & weight_vec,
                       std::vector<std::vector<int>>         const & isAnchor_vec,
@@ -872,7 +872,7 @@ void addDemConstraint(asp::BaBaseOptions       const& opt,
 void addTriConstraint(asp::BaBaseOptions     const& opt,
                       std::set<int>          const& outliers,
                       vw::ba::ControlNetwork const& cnet,
-                      asp::CRNJ              const& crn,
+                      asp::CRN              const& crn,
                       // Outputs
                       std::vector<double>    & tri_points_vec,
                       std::vector<double>    & weight_per_residual, // append
@@ -969,7 +969,7 @@ void addGcpConstraint(asp::BaBaseOptions     const& opt,
 // Add hard camera constraints. Be generous with the uncertainty. 
 void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
                                   std::set<int>                    const& outliers,
-                                  asp::CRNJ                        const& crn,
+                                  asp::CRN                        const& crn,
                                   std::vector<asp::CsmModel*>      const& csm_models,
                                   std::vector<std::vector<double>> const& count_per_cam,
                                   double                                  anchor_weight,
@@ -1063,7 +1063,7 @@ void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
 // Use instead addHardCamPositionConstraint().
 void addSoftCamPositionConstraint(asp::BaBaseOptions           const& opt,
                               std::set<int>                    const& outliers,
-                              asp::CRNJ                        const& crn,
+                              asp::CRN                        const& crn,
                               std::vector<asp::CsmModel*>      const& csm_models,
                               std::vector<std::vector<double>> const& weight_per_cam,
                               std::vector<std::vector<double>> const& count_per_cam,
@@ -1150,7 +1150,7 @@ void addSoftCamPositionConstraint(asp::BaBaseOptions           const& opt,
 void addQuatNormRotationConstraints(
                         asp::BaBaseOptions          const& opt,
                         std::set<int>               const& outliers,
-                        asp::CRNJ                   const& crn,
+                        asp::CRN                   const& crn,
                         std::vector<asp::CsmModel*> const& csm_models,
                         bool                               have_rig,
                         rig::RigSet                 const& rig,
@@ -1263,7 +1263,7 @@ void addQuatNormRotationConstraints(
 // camera model. For frame cameras, use the trajectory of all cameras in the same orbital
 // group as the current camera.
 void addRollYawConstraint(asp::BaBaseOptions              const& opt,
-                          asp::CRNJ                       const& crn,
+                          asp::CRN                       const& crn,
                           std::vector<asp::CsmModel*>     const& csm_models,
                           vw::cartography::GeoReference   const& georef,
                           std::map<int, int>              const& cam2group,

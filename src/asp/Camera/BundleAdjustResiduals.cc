@@ -37,7 +37,7 @@ namespace  asp {
 // Compute the bundle_adjust residuals. Multiply the pixel residuals
 // by their sigmas, to get back the pixel reprojection errors.
 void compute_residuals(asp::BaBaseOptions const& opt,
-                       asp::CRNJ const& crn,
+                       asp::CRN const& crn,
                        asp::BAParams const& param_storage,
                        std::vector<size_t> const& cam_residual_counts,
                        std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
@@ -110,7 +110,7 @@ void compute_residuals(asp::BaBaseOptions const& opt,
 }
 
 /// Compute residual map by averaging all the reprojection error at a given point
-void compute_mean_residuals_at_xyz(asp::CRNJ const& crn,
+void compute_mean_residuals_at_xyz(asp::CRN const& crn,
                                   std::vector<double> const& residuals,
                                   asp::BAParams const& param_storage,
                                   // outputs
@@ -310,7 +310,7 @@ void write_residual_logs(std::string const& residual_prefix,
                          size_t num_cam_position_residuals,
                          std::vector<vw::Vector3> const& reference_vec,
                          vw::ba::ControlNetwork const& cnet, 
-                         asp::CRNJ const& crn, 
+                         asp::CRN const& crn, 
                          ceres::Problem &problem) {
 
   std::vector<double> residuals;
@@ -471,7 +471,7 @@ void write_residual_logs(std::string const& residual_prefix,
 void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
                              asp::BAParams const& orig_params,
                              asp::BAParams const& param_storage,
-                             asp::CRNJ const& crn,
+                             asp::CRN const& crn,
                              std::string const& tri_offsets_file) {
 
   // Number of cameras and points
@@ -519,7 +519,7 @@ void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
                              std::set<int>            const& outliers,
                              std::vector<double>      const& orig_tri_points_vec,
                              std::vector<double>      const& tri_points_vec, 
-                             asp::CRNJ                const& crn,
+                             asp::CRN                const& crn,
                              std::string const& tri_offsets_file) {
 
   if (orig_tri_points_vec.size() != tri_points_vec.size())
@@ -780,7 +780,7 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          std::string                           const& residual_prefix,
                          asp::BaBaseOptions                    const& opt,
                          vw::ba::ControlNetwork                const& cnet,
-                         asp::CRNJ                             const& crn,
+                         asp::CRN                             const& crn,
                          vw::cartography::Datum                const& datum,
                          std::vector<double>                   const& tri_points_vec,
                          std::set<int>                         const& outliers,

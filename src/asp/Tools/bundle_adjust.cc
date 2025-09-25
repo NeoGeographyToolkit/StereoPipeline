@@ -101,7 +101,7 @@ private:
 
 // One pass of bundle adjustment
 int do_ba_ceres_one_pass(asp::BaOptions                & opt,
-                         asp::CRNJ               const & crn,
+                         asp::CRN               const & crn,
                          bool                           first_pass,
                          bool                           remove_outliers,
                          asp::BAParams                 & param_storage, // output
@@ -383,7 +383,7 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
 // Run several more passes with random initial parameter offsets. This flow is
 // only kicked in if opt.num_random_passes is positive, which is not the
 void runRandomPasses(asp::BaOptions & opt, asp::BAParams & param_storage,
-                     double & final_cost, asp::CRNJ const& crn,
+                     double & final_cost, asp::CRN const& crn,
                      bool remove_outliers,
                      asp::BAParams const& orig_parameters) {
 
@@ -662,7 +662,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     asp::saveCameraReport(opt, param_storage,  opt.datum, "initial");
 
   // TODO(oalexan1): Is it possible to avoid using CRNs?
-  asp::CRNJ crn;
+  asp::CRN crn;
   crn.from_cnet(cnet);
 
   if (opt.num_passes <= 0)
