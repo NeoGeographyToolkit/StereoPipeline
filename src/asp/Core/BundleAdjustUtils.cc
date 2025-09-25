@@ -43,34 +43,6 @@ namespace fs = boost::filesystem;
 
 namespace asp {
 
-void compute_stereo_residuals(std::vector<vw::CamPtr> const& camera_models,
-                              ControlNetwork const& cnet) {
-
-  // Compute pre-adjustment residuals and convert to bundles
-  int n = 0;
-  double error_sum = 0;
-  double min_error = ScalarTypeLimits<double>::highest();
-  double max_error = ScalarTypeLimits<double>::lowest();
-  for (size_t i = 0; i < cnet.size(); ++i) {
-    for (size_t j = 0; j+1 < cnet[i].size(); ++j) {
-      ++n;
-      size_t cam1 = cnet[i][j].image_id();
-      size_t cam2 = cnet[i][j+1].image_id();
-      Vector2 pix1 = cnet[i][j].position();
-      Vector2 pix2 = cnet[i][j+1].position();
-
-      StereoModel sm(camera_models[cam1].get(), camera_models[cam2].get());
-      double error;
-      sm(pix1,pix2,error);
-      error_sum += error;
-      min_error = std::min(min_error, error);
-      max_error = std::max(max_error, error);
-    }
-  }
-  vw_out() << "\nStereo intersection residuals -- min: " << min_error
-           << "  max: " << max_error << "  average: " << (error_sum/n) << "\n";
-}
-
 // See the .h file for documentation
 vw::BBox2 camera_bbox_with_cache(std::string const& dem_file,
                                  std::string const& image_file,
@@ -381,11 +353,11 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
   
   for (int icam = 0; icam < (int)crn.size(); icam++) {
     
-    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
+    for (auto const& feature_ptr: crn[icam]) {
         
       // The index of the 3D point
-      int ipt = (**fiter).m_point_id;
-
+      int ipt = feature_ptr->m_point_id;
+      
       if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
         continue; // GCP do not get modified
       
@@ -394,7 +366,7 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
         
       // The observed value for the projection of point with index ipt into
       // the camera with index icam.
-      Vector2 observation = (**fiter).m_location;
+      Vector2 observation = feature_ptr->m_location;
         
       // Ideally this point projects back to the pixel observation, so use the
       // triangulated position as initial guess.
@@ -561,5 +533,199 @@ std::string rpcAdjustedFile(std::string const& adjustFile) {
   rpcFile = boost::filesystem::path(rpcFile).replace_extension(suff + ".xml").string();
   return rpcFile;
 }
+
+// A function to do a moving average. The input vector can have nan where there 
+// are no values. Have an option to to do this average only if needed to fill in.
+// TODO(oalexan1): If the logic in residualsPerRow() and supporting functionality
+// here is not useful, it may need to be wiped.
+void movingAverage(std::vector<double> & vec, int window_size, bool fill_only,
+                   bool & changed) {
+  
+  changed = false;
+  int n = vec.size();
+  
+  // Window must be odd and positive
+  if (window_size <= 0 || window_size % 2 == 0)
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Expecting a positive odd number for the moving average window size.\n");
+
+  int half_len = window_size / 2;
+  
+  // Make a copy of the input
+  std::vector<double> vec_copy = vec; // deep copy
+  
+  double nan = std::numeric_limits<double>::quiet_NaN();
+  for (int i = 0; i < n; i++) {
+    
+    if (fill_only && !std::isnan(vec[i]))
+      continue; // no need to change this value
+      
+    changed = true;
+      
+    // Iterate over the window
+    double sum = 0.0, count = 0.0;
+    for (int win = -half_len; win <= half_len; win++) {
+      int ind = i + win;
+      if (ind < 0 || ind >= n)
+        continue; // out of bounds
+      if (std::isnan(vec_copy[ind]))
+        continue; // skip nan
+      sum += vec_copy[ind];
+      count++;
+    }
+    if (count > 0)
+      vec[i] = sum / count;
+    else
+      vec[i] = nan;
+  }
+  
+  return;
+}
+
+// A function to strip all leading nan from vector. Do it in place.
+void stripLeadingNan(std::vector<double> & vec) {
+  
+  int n = vec.size();
+  int first_good = 0;
+  for (int i = 0; i < n; i++) {
+    if (!std::isnan(vec[i])) {
+      first_good = i;
+      break;
+    }
+  }
+  
+  if (first_good > 0) {
+    // Shift the vector
+    for (int i = first_good; i < n; i++)
+      vec[i - first_good] = vec[i];
+    // Resize
+    vec.resize(n - first_good);
+  }
+  
+  return;
+}
+
+// Strip trailing nan from vector. Do it in place.
+void stripTrailingNan(std::vector<double> & vec) {
+  
+  int n = vec.size();
+  int last_good = n - 1;
+  for (int i = n - 1; i >= 0; i--) {
+    if (!std::isnan(vec[i])) {
+      last_good = i;
+      break;
+    }
+  }
+  
+  if (last_good < n - 1) {
+    // Resize
+    vec.resize(last_good + 1);
+  }
+  
+  return;
+}
+
+// Average all y pixel residuals per row then fill in from neighbors. This is
+// useful for producing a jitter residual per image row, from which one may try
+// to study its power spectrum and dominant frequencies.
+void residualsPerRow(vw::ba::ControlNetwork const& cnet,
+                     asp::CRN const& crn,
+                     std::set<int> const& outliers,
+                     std::vector<std::string> const& image_files,
+                     std::vector<vw::CamPtr> const& camera_models,
+                     // Output
+                     std::vector<std::vector<double>> & residuals) {
+
+  int numImages = image_files.size();
+
+  // Sanity check
+  if ((int)camera_models.size() != numImages || (int)crn.size() != numImages)
+    vw_throw(ArgumentErr() 
+            << "Number of imgages, of cameras, and control network sizes do not match.\n");
+
+  // Wipe the output
+  residuals.clear();
+  residuals.resize(numImages);
+    
+  for (int icam = 0; icam < (int)crn.size(); icam++) {
+    
+    vw::Vector2 dims = vw::file_image_size(image_files[icam]);
+    int numLines = dims[1];
+    residuals[icam].resize(numLines, 0.0);
+    
+    std::vector<double> count(numLines, 0.0);
+    double nan = std::numeric_limits<double>::quiet_NaN();
+    
+    for (auto const& feature_ptr: crn[icam]) {
+        
+      // The index of the 3D point
+      int ipt = feature_ptr->m_point_id;
+
+      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+        continue; // Skip GCP
+      
+      if (outliers.find(ipt) != outliers.end())
+        continue; // Skip outliers
+        
+      // The observed value for the projection of point with index ipt into
+      // the camera with index icam.
+      Vector2 observation = feature_ptr->m_location;
+        
+      // Ideally this point projects back to the pixel observation, so use the
+      // triangulated position as initial guess.
+      Vector3 xyz = cnet[ipt].position();
+
+      if (xyz == Vector3(0, 0, 0))
+        continue; // Skip outliers
+
+      // Project into the camera
+      vw::Vector2 pix = camera_models[icam]->point_to_pixel(xyz);
+      
+      // Image row
+      int row = round(observation[1]);
+      if (row < 0 || row > numLines - 1)
+        continue; // out of bounds
+      
+      // Accumulate the residual
+      residuals[icam][row] += (pix[1] - observation[1]);
+      count[row] += 1.0;
+    } // end loop over features
+    
+    // Average the residuals. Put naN where there is no data
+    for (int row = 0; row < numLines; row++) {
+      if (count[row] > 0)
+        residuals[icam][row] /= count[row];
+      else
+        residuals[icam][row] = nan;
+    }
+    
+    // Do a moving average with a length of 11
+    bool fill_only = false;
+    bool changed = false;
+    int window_size = 11;
+    movingAverage(residuals[icam], window_size, fill_only, changed);
+    
+    // Strip leading and trailing nan. There can be plenty because of
+    // lack of features there.
+    stripLeadingNan(residuals[icam]);
+    stripTrailingNan(residuals[icam]);
+    
+    // Now continue doing this only to fill in missing values
+    fill_only = true;
+    int attempts = 0;
+    while (changed) {
+      movingAverage(residuals[icam], window_size, fill_only, changed);
+      attempts++;
+      // Throw an error after 10 attempts
+      if (attempts > 10) {
+        vw::vw_out() << "No luck after attempts: " << icam << " " << attempts << "\n";
+        break;
+      }
+    }
+    
+  } // end loop over cameras
+
+  return;     
+} // end function residualsPerRow
 
 } // end namespace asp

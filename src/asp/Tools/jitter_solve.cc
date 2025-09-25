@@ -980,7 +980,7 @@ void formTriVec(std::vector<Vector3> const& dem_xyz_vec,
 void jitterSolvePass(int                                 pass,
                      bool                                have_rig,
                      Options                      const& opt,
-                     asp::CRN                    const& crn,
+                     asp::CRN                     const& crn,
                      std::vector<RigCamInfo>      const& rig_cam_info,
                      TimestampMap                 const& timestamp_map,
                      // Outputs
