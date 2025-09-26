@@ -301,12 +301,14 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "How much weight to give to the constraint that the norm of each quaternion must be 1.")
     ("roll-weight", po::value(&opt.roll_weight)->default_value(0.0),
      "A weight to penalize the deviation of camera roll orientation as measured from the "
-     "along-track direction. Pass in a large value, such as 1e+5. This is best used only with "
-     "linescan cameras created with sat_sim.")
+     "along-track direction. Pass in a large value, such as 1e+5. This is best used only "
+     "with linescan cameras created with sat_sim. With non-synthetic cameras, add the "
+     "--initial-camera-constraint option.")
     ("yaw-weight", po::value(&opt.yaw_weight)->default_value(0.0),
      "A weight to penalize the deviation of camera yaw orientation as measured from the "
      "along-track direction. Pass in a large value, such as 1e+5. This is best used only "
-     "with linescan cameras created with sat_sim.")
+     "with linescan cameras created with sat_sim. With non-synthetic cameras, add the "
+     "--initial-camera-constraint option.")
     ("weight-image", po::value(&opt.weight_image)->default_value(""),
      "Given a georeferenced image with float values, for each initial triangulated "
      "point find its location in the image and closest pixel value. Multiply the "

@@ -111,6 +111,7 @@ These names will be adjusted per sensor, if a rig is present
    Illustration of ``sat_sim`` creating nadir-looking cameras. 
    See :numref:`orbit_plot` for how to visualize the roll, pitch, 
    and yaw angles of the cameras with ``orbit_plot.py``.
+   Plotted with ``sfm_view`` (:numref:`sfm_view`).
 
 .. _sat_sim_custom_path:
 
@@ -195,6 +196,11 @@ given that we have to satisfy the orientation constraints in ``--roll``,
 and ``--last-ground-pos``. 
 
 Unlike in :numref:`sat_sim_custom_path`, the camera orientations will not change.
+
+Currently, in this mode one must have the roll and yaw angles set to zero.
+Then, the satellite should follow an orbit whose vertical projection onto the
+ground is quite similar to the provided ground path. These restrictions may be
+relaxed in the future.
 
 It is not important to know very accurately the values of ``--first-ground-pos``
 and ``--last-ground-pos``. The trajectory of the camera center ground footprint

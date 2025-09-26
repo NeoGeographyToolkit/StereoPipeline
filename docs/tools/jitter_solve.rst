@@ -2283,13 +2283,14 @@ Command-line options for jitter_solve
     A weight to penalize the deviation of camera roll orientation as measured
     from the along-track direction. Pass in a large value, such as 1e+5. This is
     best used only with linescan cameras created with ``sat_sim``
-    (:ref:`sat_sim`). 
+    (:numref:`sat_sim`). With non-synthetic cameras, add the
+    ``--initial-camera-constraint`` option.
 
 --yaw-weight <double (default: 0.0)>
     A weight to penalize the deviation of camera yaw orientation as measured
-    from the along-track direction. Pass in a large value, such as 1e+4. This is
+    from the along-track direction. Pass in a large value, such as 1e+5. This is
     best used only with linescan cameras created with ``sat_sim``
-    (:ref:`sat_sim`). With non-synthetic cameras, add the
+    (:numref:`sat_sim`). With non-synthetic cameras, add the
     ``--initial-camera-constraint`` option.
 
 --initial-camera-constraint

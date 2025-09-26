@@ -244,19 +244,29 @@ public:
 
 // Find the location of camera center along the trajectory, in projected
 // coordinates, so that the ray from the camera center to the ground goes
-// closest to given ground point.
-void findBestProjCamLocation
-  (SatSimOptions const& opt,
-   vw::cartography::GeoReference const& dem_georef,
-   vw::ImageViewRef<vw::PixelMask<float>> dem,
-   double height_guess, 
-   vw::Vector3 const& first_proj, vw::Vector3 const& last_proj,
-   vw::Vector3 const& proj_along, vw::Vector3 const& proj_across,
-   double delta, double roll, double pitch, double yaw,
-   vw::Vector2 const& pixel_loc,
-   // Outputs
-   vw::Vector3 & best_proj) {
+// closest to given ground point. This assumes roll and yaw of 0, as 
+// we move only along the orbit.
+void findBestProjCamLocation(SatSimOptions const& opt,
+                             vw::cartography::GeoReference const& dem_georef,
+                             vw::ImageViewRef<vw::PixelMask<float>> dem,
+                             double height_guess, 
+                             vw::Vector3 const& first_proj, 
+                             vw::Vector3 const& last_proj,
+                             vw::Vector3 const& proj_along, 
+                             vw::Vector3 const& proj_across,
+                             double delta, double roll, double pitch, double yaw,
+                             vw::Vector2 const& pixel_loc,
+                             // Outputs
+                             vw::Vector3 & best_proj) {
 
+  // For now this is a limitation of the code.
+  if (!std::isnan(opt.roll) && opt.roll != 0)
+    vw::vw_throw(vw::ArgumentErr() << "When having both ground and orbital constraints, "
+                                  << "the roll must be zero.\n");
+  if (!std::isnan(opt.yaw) && opt.yaw != 0)
+    vw::vw_throw(vw::ArgumentErr() << "When having both ground and orbital constraints, "
+                                  << "the yaw must be zero.\n");
+    
   // Note(oalexan1): This algorithm had issues with convergence. Let eps = 1e-7.
   // This is used in LevenbergMarquardt.h for numerical differentiation. Need to
   // ensure model(len) and model(len + eps) are sufficiently different. For
