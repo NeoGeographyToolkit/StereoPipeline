@@ -115,7 +115,12 @@ cameras is available.
 If the difference between the stereo DEM before jitter correction and the
 reference DEM is large, the value of ``--heights-from-dem-uncertainty`` should
 be increased. If the reference DEM has systematic differences, such as due to
-vegetation, this constraint may need to be omitted. An example is shown in :numref:`jitter_pleiades`.
+vegetation, this constraint may need to be omitted, or have the systematic 
+differences masked. 
+
+An example with and without this constraint is shown in :numref:`jitter_pleiades`.
+
+See also :numref:`jitter_limitations` for limitations of this constraint.
 
 The implementation of this constraint is the same as for bundle adjustment
 (:numref:`heights_from_dem`). 
