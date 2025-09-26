@@ -31,6 +31,7 @@
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/BundleAdjustment/CameraRelation.h>
 #include <vw/InterestPoint/MatcherIO.h>
+#include <vw/Core/Stopwatch.h>
 
 #include <string>
 
@@ -346,14 +347,31 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
                              // Output
                              std::vector<vw::Vector3> & dem_xyz_vec) {
 
+  // Put this note as this part can take a long time
+  vw::vw_out() << "Updating triangulated points with DEM height.\n";
+  
   int num_tri_points = cnet.size();
-
   dem_xyz_vec = std::vector<vw::Vector3>(num_tri_points, vw::Vector3(0, 0, 0));
   std::vector<int> dem_xyz_count(num_tri_points, 0);
+
+  // Prepare for measuring progress and elapsed time
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  int numFeatures = 0;
+  for (int icam = 0; icam < (int)crn.size(); icam++) {
+    for (auto const& feature_ptr: crn[icam]) {
+       numFeatures++;
+    }
+  }
+  double inc_amount = 1.0 / std::max(1, numFeatures);
+  tpc.report_progress(0);
+  vw::Stopwatch sw;
+  sw.start();
   
   for (int icam = 0; icam < (int)crn.size(); icam++) {
     
     for (auto const& feature_ptr: crn[icam]) {
+       
+      tpc.report_incremental_progress(inc_amount);
         
       // The index of the 3D point
       int ipt = feature_ptr->m_point_id;
@@ -398,7 +416,9 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
       dem_xyz_count[ipt]++;
     }
   }
-
+  
+  tpc.report_finished();
+  
   // Average the successful intersections
   for (size_t xyz_it = 0; xyz_it < dem_xyz_vec.size(); xyz_it++) {
     if (dem_xyz_count[xyz_it] > 0) 
@@ -426,6 +446,10 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
     }
     
   }
+
+  sw.stop();
+  vw::vw_out() << "Elapsed time in updating triangulated points from DEM: "
+               << sw.elapsed_seconds() << " seconds.\n";
 
   return;
 }
@@ -532,6 +556,53 @@ std::string rpcAdjustedFile(std::string const& adjustFile) {
   
   rpcFile = boost::filesystem::path(rpcFile).replace_extension(suff + ".xml").string();
   return rpcFile;
+}
+
+// Put the triangulated points in a vector. Update the cnet from the DEM,
+// if we have one.
+void formTriVec(std::vector<vw::Vector3> const& dem_xyz_vec,
+                bool have_dem,
+                // Outputs
+                vw::ba::ControlNetwork & cnet,
+                std::vector<double>    & orig_tri_points_vec,
+                std::vector<double>    & tri_points_vec) {
+
+  int num_tri_points = cnet.size();
+  if (num_tri_points == 0)
+    vw::vw_throw(ArgumentErr() << "No triangulated ground points were found.\n"); 
+
+  orig_tri_points_vec.resize(num_tri_points*NUM_XYZ_PARAMS, 0.0);
+  tri_points_vec.resize(num_tri_points*NUM_XYZ_PARAMS, 0.0);
+
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
+    // We overwrite the triangulated point when we have an input DEM.
+    // It is instructive to examine the pointmap residual file to see
+    // what effect that has on residuals.  This point will likely try
+    // to move back somewhat to its triangulated position during
+    // optimization, depending on the strength of the weight which
+    // tries to keep it back in place.
+    Vector3 tri_point = cnet[ipt].position();
+    
+    // The original triangulated point, before the override or optimization
+    for (int q = 0; q < NUM_XYZ_PARAMS; q++)
+      orig_tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
+    
+    bool is_gcp = (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
+
+    if (have_dem && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0) && !is_gcp) {
+      tri_point = dem_xyz_vec.at(ipt);
+
+      // Update in the cnet too
+      cnet[ipt].set_position(Vector3(tri_point[0], tri_point[1], tri_point[2]));
+      
+      // Ensure we can track it later
+      cnet[ipt].set_type(vw::ba::ControlPoint::PointFromDem); 
+    }
+    
+    for (int q = 0; q < NUM_XYZ_PARAMS; q++)
+      tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
+  }
+  return;
 }
 
 // A function to do a moving average. The input vector can have nan where there 

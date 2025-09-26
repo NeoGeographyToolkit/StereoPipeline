@@ -651,6 +651,10 @@ void calcAnchorPoints(Options                         const & opt,
                       std::vector<double>                   & orig_tri_points_vec,
                       std::vector<double>                   & tri_points_vec) {
 
+  vw::vw_out() << "Calculating anchor points.\n";
+  vw::Stopwatch sw;
+  sw.start();
+  
   if (opt.num_anchor_points_per_image <= 0 && opt.num_anchor_points_per_tile <= 0)
     vw::vw_throw(vw::ArgumentErr() << "Expecting a positive number of anchor points.\n");
 
@@ -792,6 +796,10 @@ void calcAnchorPoints(Options                         const & opt,
     vw_out() << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
     vw_out() << "Num anchor points per image: " << numAnchorPoints     << std::endl;
   }   
+  
+  sw.stop();
+  vw::vw_out() << "Elapsed time in calculating anchor points: " << sw.elapsed_seconds()
+               << " seconds.\n";
 }
 
 // Apply the input adjustments to the CSM cameras. Resample linescan models.
@@ -928,53 +936,6 @@ void createProblemStructure(Options                      const& opt,
   return;
 }
 
-// Put the triangulated points in a vector. Update the cnet from the DEM,
-// if we have one.
-void formTriVec(std::vector<Vector3> const& dem_xyz_vec,
-                bool have_dem,
-                // Outputs
-                ba::ControlNetwork  & cnet,
-                std::vector<double> & orig_tri_points_vec,
-                std::vector<double> & tri_points_vec) {
-
-  int num_tri_points = cnet.size();
-  if (num_tri_points == 0)
-    vw::vw_throw(ArgumentErr() << "No triangulated ground points were found.\n"); 
-
-  orig_tri_points_vec.resize(num_tri_points*NUM_XYZ_PARAMS, 0.0);
-  tri_points_vec.resize(num_tri_points*NUM_XYZ_PARAMS, 0.0);
-
-  for (int ipt = 0; ipt < num_tri_points; ipt++) {
-    // We overwrite the triangulated point when we have an input DEM.
-    // It is instructive to examine the pointmap residual file to see
-    // what effect that has on residuals.  This point will likely try
-    // to move back somewhat to its triangulated position during
-    // optimization, depending on the strength of the weight which
-    // tries to keep it back in place.
-    Vector3 tri_point = cnet[ipt].position();
-    
-    // The original triangulated point, before the override or optimization
-    for (int q = 0; q < NUM_XYZ_PARAMS; q++)
-      orig_tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
-    
-    bool is_gcp = (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
-
-    if (have_dem && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0) && !is_gcp) {
-      tri_point = dem_xyz_vec.at(ipt);
-
-      // Update in the cnet too
-      cnet[ipt].set_position(Vector3(tri_point[0], tri_point[1], tri_point[2]));
-      
-      // Ensure we can track it later
-      cnet[ipt].set_type(vw::ba::ControlPoint::PointFromDem); 
-    }
-    
-    for (int q = 0; q < NUM_XYZ_PARAMS; q++)
-      tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
-  }
-  return;
-}
-
 // Run one pass of solving for jitter. At each pass the cameras we have so far
 // are used to triangulate the points and the DEM constraint is refreshed if
 // applicable, and then the cameras are optimized. More than one pass
@@ -1045,7 +1006,7 @@ void jitterSolvePass(int                                 pass,
   // Put the triangulated points in a vector. Update the cnet from the DEM,
   // if we have one. Later will add here the anchor points.
   std::vector<double> local_orig_tri_points_vec, tri_points_vec;
-  formTriVec(dem_xyz_vec, have_dem,
+  asp::formTriVec(dem_xyz_vec, have_dem,
     cnet, local_orig_tri_points_vec, tri_points_vec); // outputs
   
   // Create structures for pixels, xyz, and weights, to be used in optimization
@@ -1057,7 +1018,7 @@ void jitterSolvePass(int                                 pass,
                          // Outputs
                          outliers, pixel_vec, 
                          weight_vec, isAnchor_vec, pix2xyz_index);
-
+  
   // Find anchor points and append to pixel_vec, weight_vec, xyz_vec, etc.
   if ((opt.num_anchor_points_per_image > 0 || opt.num_anchor_points_per_tile > 0) &&
        opt.anchor_weight > 0)

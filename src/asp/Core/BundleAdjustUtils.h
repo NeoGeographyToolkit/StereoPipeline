@@ -129,6 +129,15 @@ std::string csmStateFile(std::string const& adjustFile);
 // Manufacture an RPC state file from an adjust file
 std::string rpcAdjustedFile(std::string const& adjustFile);
 
+// Put the triangulated points in a vector. Update the cnet from the DEM,
+// if we have one.
+void formTriVec(std::vector<vw::Vector3> const& dem_xyz_vec,
+                bool have_dem,
+                // Outputs
+                vw::ba::ControlNetwork & cnet,
+                std::vector<double>    & orig_tri_points_vec,
+                std::vector<double>    & tri_points_vec);
+
 // Average all y pixel residuals per row then fill in from neighbors 
 void residualsPerRow(vw::ba::ControlNetwork const& cnet,
                      asp::CRN const& crn,
