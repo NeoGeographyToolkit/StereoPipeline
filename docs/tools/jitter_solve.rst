@@ -169,7 +169,20 @@ Smoothness constraint
 
 The option ``--smoothness-weight`` constraints how much each sequence of
 linescan poses can change in curvature relative to the initial values. 
-This can prevent convergence. More details are in :numref:`jitter_options`.
+This can prevent convergence. A good value should be found empirically.
+
+Roll and yaw constraints
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Other related options that may improve the regularity of the camera poses 
+are ``--roll-weight`` and ``--yaw-weight`` (they should be used with the 
+``--initial-camera-constraint`` option).
+ 
+It is strongly suggested not to use these (or the smoothness weight) in a first
+pass. Only if happy enough with the results and it is desired to control various
+aspects of the solution, one should try these options.
+
+These are described in :numref:`jitter_options`.
 
 Resampling the poses
 ~~~~~~~~~~~~~~~~~~~~
