@@ -674,17 +674,27 @@ def plot_row(ax, row, orbits, hasList, datasets, orbit_labels, dataset_labels,
   if opt.subtract_line_fit:
       # Same line fit will be subtracted from all datasets
       residualTag = ' residual'
-      fit_roll = poly_fit(np.array(range(len(orig_roll))), orig_roll)
-      fit_pitch = poly_fit(np.array(range(len(orig_pitch))), orig_pitch)
-      fit_yaw = poly_fit(np.array(range(len(orig_yaw))), orig_yaw)
-
-      orig_roll = orig_roll - fit_roll
-      orig_pitch = orig_pitch - fit_pitch
-      orig_yaw = orig_yaw - fit_yaw
+      F1          = np.arange(len(orig_roll))
+      fit_roll    = poly_fit(F1, orig_roll)
+      fit_pitch   = poly_fit(F1, orig_pitch)
+      fit_yaw     = poly_fit(F1, orig_yaw)
+      orig_roll   = orig_roll  - fit_roll
+      orig_pitch  = orig_pitch - fit_pitch
+      orig_yaw    = orig_yaw   - fit_yaw
+      
       if numSets == 2:
-          opt_roll  = opt_roll  - resampleVals(X2, X1, fit_roll)
-          opt_pitch = opt_pitch - resampleVals(X2, X1, fit_pitch)
-          opt_yaw   = opt_yaw   - resampleVals(X2, X1, fit_yaw)
+        if isLinescan(orig_cams[0]):
+          L1 = max(len(orig_roll) - 1.0, 1.0)
+          L2 = max(len(opt_roll) - 1.0, 1.0)
+          F2 = np.arange(len(opt_roll)) * L1 / L2
+          opt_roll  = opt_roll  - resampleVals(F2, F1, fit_roll)
+          opt_pitch = opt_pitch - resampleVals(F2, F1, fit_pitch)
+          opt_yaw   = opt_yaw   - resampleVals(F2, F1, fit_yaw)
+        else:
+          # There is no resampling with frame cameras, and these will have same size 
+          opt_roll  = opt_roll  - fit_roll
+          opt_pitch = opt_pitch - fit_pitch
+          opt_yaw   = opt_yaw   - fit_yaw
 
   if isLinescan(orig_cams[0]):
     minVal = [0, 0, 0]

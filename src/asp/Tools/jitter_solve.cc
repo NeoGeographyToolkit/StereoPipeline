@@ -1018,7 +1018,7 @@ void jitterSolvePass(int                                 pass,
                          // Outputs
                          outliers, pixel_vec, 
                          weight_vec, isAnchor_vec, pix2xyz_index);
-  
+
   // Find anchor points and append to pixel_vec, weight_vec, xyz_vec, etc.
   if ((opt.num_anchor_points_per_image > 0 || opt.num_anchor_points_per_tile > 0) &&
        opt.anchor_weight > 0)
