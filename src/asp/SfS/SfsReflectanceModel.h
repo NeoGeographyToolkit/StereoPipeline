@@ -21,7 +21,10 @@
 #ifndef __ASP_SFS_SFS_REFLECTANCE_MODEL_H__
 #define __ASP_SFS_SFS_REFLECTANCE_MODEL_H__
 
+#include <vw/Image/MaskViews.h>
+#include <vw/Image/ImageViewRef.h>
 #include <vw/Math/Vector.h>
+
 namespace vw { namespace cartography {
   class GeoReference;
 }} // namespace vw::cartography

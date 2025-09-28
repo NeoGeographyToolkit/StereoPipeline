@@ -427,9 +427,8 @@ operator()(const ceres::IterationSummary& summary) override {
     vw_out() << "Writing: " << model_coeffs_file << std::endl;
     std::ofstream mcf(model_coeffs_file.c_str());
     mcf.precision(17);
-    for (size_t coeff_iter = 0; coeff_iter < g_num_model_coeffs; coeff_iter++) {
+    for (size_t coeff_iter = 0; coeff_iter < refl_coeffs.size(); coeff_iter++)
       mcf << refl_coeffs[coeff_iter] << " ";
-    }
     mcf << "\n";
     mcf.close();
   }
@@ -1134,8 +1133,8 @@ struct IntensityErrorPQ {
                                    residuals);
   }
 
-  // Factory to hide the construction of the CostFunction object from
-  // the client code.
+  // Factory to hide the construction of the CostFunction object from the client
+  // code.
   static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
                                      ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
@@ -1163,21 +1162,21 @@ struct IntensityErrorPQ {
                                   camera)));
   }
 
-  SfsOptions                        const & m_opt;
+  SfsOptions                    const & m_opt;
   int m_col, m_row;
-  ImageView<double>                 const & m_dem;            // alias
-  cartography::GeoReference         const & m_geo;            // alias
-  bool                                      m_model_shadows;
-  double                                    m_camera_position_step_size;
-  double                            const & m_max_dem_height; // alias
-  double                                    m_gridx, m_gridy;
-  ReflParams                      const & m_refl_params;  // alias
-  vw::Vector3                       const & m_sunPosition;   // alias
-  BBox2i                                    m_crop_box;
-  MaskedImgT                        const & m_image;          // alias
-  DoubleImgT                        const & m_blend_weight;   // alias
-  bool                                      m_blend_weight_is_ground_weight;
-  boost::shared_ptr<CameraModel>    const & m_camera;         // alias
+  ImageView<double>             const & m_dem;            // alias
+  vw::cartography::GeoReference const & m_geo;            // alias
+  bool                                  m_model_shadows;
+  double                                m_camera_position_step_size;
+  double                        const & m_max_dem_height; // alias
+  double                                m_gridx, m_gridy;
+  ReflParams                    const & m_refl_params;  // alias
+  vw::Vector3                   const & m_sunPosition;   // alias
+  BBox2i                                m_crop_box;
+  MaskedImgT                    const & m_image;          // alias
+  DoubleImgT                    const & m_blend_weight;   // alias
+  bool                                  m_blend_weight_is_ground_weight;
+  vw::CamPtr                    const & m_camera;         // alias
 };
 
 // Discrepancy between measured and computed intensity. Assume fixed reflectance,
