@@ -19,7 +19,7 @@
 // SfS error estimation methods
 
 #include <asp/SfS/SfsErrorEstim.h>
-#include <asp/SfS/SfsReflectanceModel.h>
+#include <asp/SfS/SfsModel.h>
 
 #include <string>
 #include <map>

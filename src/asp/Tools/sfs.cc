@@ -70,7 +70,7 @@
 #include <asp/SfS/SfsUtils.h>
 #include <asp/SfS/SfsOptions.h>
 #include <asp/SfS/SfsCamera.h>
-#include <asp/SfS/SfsReflectanceModel.h>
+#include <asp/SfS/SfsModel.h>
 #include <asp/SfS/SfsErrorEstim.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Camera/CsmModel.h>
@@ -111,276 +111,7 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 
-typedef ImageViewRef<PixelMask<float>> MaskedImgT;
-typedef ImageViewRef<double> DoubleImgT;
-
 using namespace asp;
-
-// Compute the reflectance and intensity at a single pixel. Compute the slope and/or
-// height error estimation if the pointer is not NULL.
-bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
-                             double bottom_h, double top_h,
-                             bool use_pq, double p, double q, // dem partial derivatives
-                             int col, int row,
-                             vw::ImageView<double>         const& dem,
-                             vw::cartography::GeoReference const& geo,
-                             bool model_shadows,
-                             double max_dem_height,
-                             double gridx, double gridy,
-                             vw::Vector3       const & sunPosition,
-                             asp::ReflParams   const & refl_params,
-                             vw::BBox2i        const & crop_box,
-                             MaskedImgT        const & image,
-                             DoubleImgT        const & blend_weight,
-                             bool blend_weight_is_ground_weight,
-                             vw::camera::CameraModel const * camera,
-                             vw::PixelMask<double>   & reflectance,
-                             vw::PixelMask<double>   & intensity,
-                             double                  & ground_weight,
-                             double            const * refl_coeffs,
-                             asp::SfsOptions   const & opt,
-                             asp::SlopeErrEstim      * slopeErrEstim = NULL,
-                             asp::HeightErrEstim     * heightErrEstim = NULL) {
-
-  // Set output values
-  reflectance = 0.0; reflectance.invalidate();
-  intensity   = 0.0; intensity.invalidate();
-  ground_weight = 0.0;
-  
-  if (col >= dem.cols() - 1 || row >= dem.rows() - 1) return false;
-  if (crop_box.empty()) return false;
-
-  vw::Vector3 xyz, normal;
-  asp::calcPointAndNormal(col, row, left_h, center_h, right_h, bottom_h, top_h,
-                          use_pq, p, q, geo, gridx, gridy, xyz, normal);
-
-  // Update the camera position for the given pixel (camera position
-  // is pixel-dependent for linescan cameras).
-  vw::Vector2 pix;
-  vw::Vector3 cameraPosition;
-  try {
-    pix = camera->point_to_pixel(xyz);
-    
-    // Need camera center only for Lunar Lambertian
-    if (refl_params.reflectanceType != LAMBERT)
-      cameraPosition = camera->camera_center(pix);
-    
-  } catch(...){
-    reflectance = 0.0; reflectance.invalidate();
-    intensity   = 0.0; intensity.invalidate();
-    ground_weight = 0.0;
-    return false;
-  }
-  
-  reflectance = asp::calcReflectance(cameraPosition, normal, xyz, sunPosition,
-                                     refl_params, refl_coeffs);
-  reflectance.validate();
-
-
-  // Since our image is cropped
-  pix -= crop_box.min();
-
-  // Check for out of range
-  if (pix[0] < 0 || pix[0] >= image.cols() - 1 || pix[1] < 0 || pix[1] >= image.rows() - 1) {
-    reflectance = 0.0; reflectance.invalidate();
-    intensity   = 0.0; intensity.invalidate();
-    ground_weight = 0.0;
-    return false;
-  }
-
-  vw::InterpolationView<vw::EdgeExtensionView<MaskedImgT, vw::ConstantEdgeExtension>, vw::BilinearInterpolation>
-    interp_image = vw::interpolate(image, vw::BilinearInterpolation(),
-                                   vw::ConstantEdgeExtension());
-  intensity = interp_image(pix[0], pix[1]); // this interpolates
-
-  if (blend_weight_is_ground_weight) {
-    if (blend_weight.cols() != dem.cols() || blend_weight.rows() != dem.rows())
-      vw::vw_throw(vw::ArgumentErr() 
-                   << "Ground weight must have the same size as the DEM.\n");
-    ground_weight = blend_weight(col, row);
-  } else {
-    InterpolationView<EdgeExtensionView<DoubleImgT, ConstantEdgeExtension>, BilinearInterpolation>
-      interp_weight = interpolate(blend_weight, BilinearInterpolation(),
-                                  ConstantEdgeExtension());
-    if (blend_weight.cols() > 0 && blend_weight.rows() > 0) // The weight may not exist
-      ground_weight = interp_weight(pix[0], pix[1]); // this interpolates
-    else
-      ground_weight = 1.0;
-  }
-  
-  // Note that we allow negative reflectance for valid intensity. It will hopefully guide
-  // the SfS solution the right way.
-  if (!is_valid(intensity)) {
-    reflectance = 0.0; reflectance.invalidate();
-    intensity   = 0.0; intensity.invalidate();
-    ground_weight = 0.0;
-    return false;
-  }
-
-  if (model_shadows) {
-    bool inShadow = asp::isInShadow(col, row, sunPosition,
-                                    dem, max_dem_height, gridx, gridy,
-                                    geo);
-
-    if (inShadow) {
-      // The reflectance is valid, it is just zero
-      reflectance = 0;
-      reflectance.validate();
-    }
-  }
-
-  if (slopeErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
-    
-    int image_iter = slopeErrEstim->image_iter;
-    ImageView<double> const& albedo = *slopeErrEstim->albedo; // alias
-    double comp_intensity = calcIntensity(albedo(col, row), 
-                                          reflectance, 
-                                          opt.image_exposures_vec[image_iter],
-                                          opt.steepness_factor,
-                                          &opt.image_haze_vec[image_iter][0], 
-                                          opt.num_haze_coeffs);
-
-    // We use twice the discrepancy between the computed and measured intensity
-    // as a measure for how far is overall the computed intensity allowed
-    // to diverge from the measured intensity
-    double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
-    estimateSlopeError(cameraPosition, normal, xyz, sunPosition,
-                       refl_params, refl_coeffs, intensity.child(), 
-                       max_intensity_err, col, row, image_iter,
-                       opt, albedo, slopeErrEstim);
-  }
-  
-  if (heightErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
-    
-    int image_iter = heightErrEstim->image_iter;
-    ImageView<double> const& albedo = *heightErrEstim->albedo; // alias
-    double comp_intensity = calcIntensity(albedo(col, row), 
-                                          reflectance, 
-                                          opt.image_exposures_vec[image_iter],
-                                          opt.steepness_factor,
-                                          &opt.image_haze_vec[image_iter][0], 
-                                          opt.num_haze_coeffs);
-    
-    // We use twice the discrepancy between the computed and measured intensity
-    // as a measure for how far is overall the computed intensity allowed
-    // to diverge from the measured intensity
-    double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
-    estimateHeightError(dem, geo,  
-                        cameraPosition, sunPosition,  refl_params,  
-                        refl_coeffs, intensity.child(),  
-                        max_intensity_err, 
-                        col, row, gridx, gridy, 
-                        image_iter, opt, albedo,  
-                        heightErrEstim);
-  }
-  
-  return true;
-}
-
-// The value stored in the output intensity(i, j) is the one at entry
-// (i - 1) * sample_col_rate + 1, (j - 1) * sample_row_rate + 1
-// in the full image. For i = 0 or j = 0 invalid values are stored.
-// TODO(oalexan1): Move to SfsReflectanceModel.h
-void computeReflectanceAndIntensity(ImageView<double> const& dem,
-                                    ImageView<Vector2> const& pq,
-                                    cartography::GeoReference const& geo,
-                                    bool model_shadows,
-                                    double & max_dem_height, // alias
-                                    double gridx, double gridy,
-                                    int sample_col_rate, int sample_row_rate,
-                                    vw::Vector3 const& sunPosition,
-                                    ReflParams const& refl_params,
-                                    BBox2i const& crop_box,
-                                    MaskedImgT const  & image,
-                                    DoubleImgT const  & blend_weight,
-                                    bool blend_weight_is_ground_weight,
-                                    vw::camera::CameraModel const * camera,
-                                    ImageView<PixelMask<double>> & reflectance,
-                                    ImageView<PixelMask<double>> & intensity,
-                                    ImageView<double>            & ground_weight,
-                                    const double                 * refl_coeffs,
-                                    asp::SfsOptions        const & opt,
-                                    SlopeErrEstim  * slopeErrEstim = NULL,
-                                    HeightErrEstim * heightErrEstim = NULL) {
-  
-  // Update max_dem_height
-  max_dem_height = -std::numeric_limits<double>::max();
-  if (model_shadows) {
-    for (int col = 0; col < dem.cols(); col += sample_col_rate) {
-      for (int row = 0; row < dem.rows(); row += sample_row_rate) {
-        if (dem(col, row) > max_dem_height) {
-          max_dem_height = dem(col, row);
-        }
-      }
-    }
-  }
-  
-  // See how many samples we end up having further down. Must start counting
-  // from 1, just as we do in that loop.
-  int num_sample_cols = 0, num_sample_rows = 0;
-  for (int col = 1; col < dem.cols() - 1; col += sample_col_rate) 
-    num_sample_cols++;
-  for (int row = 1; row < dem.rows() - 1; row += sample_row_rate)
-    num_sample_rows++;
-  
-  // Add 2 for book-keeping purposes, to ensure that when the sampling rate
-  // is 1, we get as many cols and rows as the DEM has.
-  num_sample_cols += 2;
-  num_sample_rows += 2;
-  
-  // Important sanity check
-  if (sample_col_rate == 1 && num_sample_cols != dem.cols())
-    vw_throw(LogicErr() << "Book-keeping error in computing reflectance and intensity.\n");
-  if (sample_row_rate == 1 && num_sample_rows != dem.rows())
-    vw_throw(LogicErr() << "Book-keeping error in computing reflectance and intensity.\n");
-      
-  // Init the reflectance and intensity as invalid. Do it at all grid
-  // points, not just where we sample, to ensure that these quantities
-  // are fully initialized.
-  reflectance.set_size(num_sample_cols, num_sample_rows);
-  intensity.set_size(num_sample_cols, num_sample_rows);
-  ground_weight.set_size(num_sample_cols, num_sample_rows);
-  for (int col = 0; col < num_sample_cols; col++) {
-    for (int row = 0; row < num_sample_rows; row++) {
-      reflectance(col, row).invalidate();
-      intensity(col, row).invalidate();
-      ground_weight(col, row) = 0.0;
-    }
-  }
-
-  // Need to very carefully distinguish below between col and col_sample,
-  // and between row and row_sample. These are same only if the sampling
-  // rate is 1.
-  bool use_pq = (pq.cols() > 0 && pq.rows() > 0);
-  int col_sample = 0;
-  for (int col = 1; col < dem.cols() - 1; col += sample_col_rate) {
-    col_sample++;
-    
-    int row_sample = 0;
-    for (int row = 1; row < dem.rows() - 1; row += sample_row_rate) {
-      row_sample++;
-    
-      double pval = 0, qval = 0;
-      if (use_pq) {
-        pval = pq(col, row)[0];
-        qval = pq(col, row)[1];
-      }
-      calcPixReflectanceInten(dem(col-1, row), dem(col, row), dem(col+1, row),
-                              dem(col, row+1), dem(col, row-1),
-                              use_pq, pval, qval,
-                              col, row, dem, geo,
-                              model_shadows, max_dem_height,
-                              gridx, gridy, sunPosition, refl_params, crop_box, image, 
-                              blend_weight, blend_weight_is_ground_weight,
-                              camera, reflectance(col_sample, row_sample),
-                              intensity(col_sample, row_sample),
-                              ground_weight(col_sample, row_sample),
-                              refl_coeffs, opt, slopeErrEstim, heightErrEstim);
-    }
-  }
-  
-  return;
-}
 
 // A function to invoke at every iteration of ceres.
 class SfsCallback: public ceres::IterationCallback {
@@ -388,8 +119,8 @@ public:
 
 // Constructor to initialize references to the necessary data
 // TODO(oalexan1): Move to SfsCostFun.h
-SfsCallback(SfsOptions const& opt, ImageView<double>& dem,  ImageView<Vector2>& pq,
-            ImageView<double>& albedo, cartography::GeoReference const& geo, 
+SfsCallback(SfsOptions const& opt, vw::ImageView<double>& dem,  vw::ImageView<Vector2>& pq,
+            vw::ImageView<double>& albedo, cartography::GeoReference const& geo, 
             ReflParams const& refl_params, std::vector<vw::Vector3> const& sunPosition,
             std::vector<BBox2i> const& crop_boxes, 
             std::vector<MaskedImgT> const& masked_images,
@@ -442,9 +173,9 @@ operator()(const ceres::IterationSummary& summary) override {
   std::string iter_str = os.str();
 
   // The DEM with no-data where there are no valid image pixels
-  ImageView<double> dem_nodata;
+  vw::ImageView<double> dem_nodata;
   if (opt.save_dem_with_nodata) {
-    dem_nodata = ImageView<double>(dem.cols(), dem.rows());
+    dem_nodata = vw::ImageView<double>(dem.cols(), dem.rows());
     fill(dem_nodata, dem_nodata_val);
   }
 
@@ -476,8 +207,8 @@ operator()(const ceres::IterationSummary& summary) override {
     if (opt.skip_images.find(image_iter) != opt.skip_images.end())
       continue;
 
-    ImageView<PixelMask<double>> reflectance, intensity, comp_intensity;
-    ImageView<double> ground_weight;
+    vw::ImageView<PixelMask<double>> reflectance, intensity, comp_intensity;
+    vw::ImageView<double> ground_weight;
 
     std::string out_camera_file
       = asp::bundle_adjust_file_name(opt.out_prefix,
@@ -504,7 +235,7 @@ operator()(const ceres::IterationSummary& summary) override {
                                   masked_images[image_iter],
                                   blend_weights[image_iter],
                                   blend_weight_is_ground_weight,
-                                  cameras[image_iter].get(),
+                                  cameras[image_iter],
                                   reflectance, intensity, ground_weight,
                                   &refl_coeffs[0], opt);
 
@@ -564,7 +295,7 @@ operator()(const ceres::IterationSummary& summary) override {
 
     // Find the measured normalized albedo, after correcting for
     // reflectance.
-    ImageView<double> measured_albedo;
+    vw::ImageView<double> measured_albedo;
     measured_albedo.set_size(reflectance.cols(), reflectance.rows());
     for (int col = 0; col < measured_albedo.cols(); col++) {
       for (int row = 0; row < measured_albedo.rows(); row++) {
@@ -613,9 +344,9 @@ void set_final_iter(bool is_final_iter) {
 private:
   // Class members storing references to the data
   SfsOptions const& opt;
-  ImageView<double>& dem;
-  ImageView<Vector2>& pq;
-  ImageView<double>& albedo;
+  vw::ImageView<double>& dem;
+  vw::ImageView<Vector2>& pq;
+  vw::ImageView<double>& albedo;
   cartography::GeoReference const& geo;
   ReflParams const& refl_params;
   std::vector<vw::Vector3> const& sunPosition;
@@ -648,7 +379,7 @@ calc_intensity_residual(SfsOptions const& opt,
                         const G* const albedo,
                         const G* const refl_coeffs, 
                         int col, int row,
-                        ImageView<double>         const & dem,            // alias
+                        vw::ImageView<double>         const & dem,            // alias
                         cartography::GeoReference const & geo,            // alias
                         bool                              model_shadows,
                         double                            camera_position_step_size,
@@ -687,7 +418,7 @@ calc_intensity_residual(SfsOptions const& opt,
                               gridx, gridy,
                               sunPosition,  refl_params, crop_box, image, 
                               blend_weight, blend_weight_is_ground_weight,
-                              camera.get(), reflectance, intensity, ground_weight, 
+                              camera, reflectance, intensity, ground_weight, 
                               refl_coeffs, opt);
       
     if (opt.unreliable_intensity_threshold > 0) {
@@ -719,7 +450,7 @@ calc_intensity_residual(SfsOptions const& opt,
 // TODO(oalexan1): Move to SfsCostFun.h
 struct IntensityError {
   IntensityError(SfsOptions const& opt, int col, int row,
-                 ImageView<double> const& dem,
+                 vw::ImageView<double> const& dem,
                  cartography::GeoReference const& geo,
                  bool model_shadows,
                  double camera_position_step_size,
@@ -780,7 +511,7 @@ struct IntensityError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
-                                     ImageView<double> const& dem,
+                                     vw::ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
                                      bool model_shadows,
                                      double camera_position_step_size,
@@ -807,7 +538,7 @@ struct IntensityError {
 
   SfsOptions const& m_opt;
   int m_col, m_row;
-  ImageView<double>                 const & m_dem;            // alias
+  vw::ImageView<double>                 const & m_dem;            // alias
   cartography::GeoReference         const & m_geo;            // alias
   bool                                      m_model_shadows;
   double                                    m_camera_position_step_size;
@@ -826,7 +557,7 @@ struct IntensityError {
 // TODO(oalexan1): Wipe this as it did not improve speed, but test first. Unlikely it improves memory usage, but need to test. If useful, move to SfsCostFun.h
 struct IntensityErrorFloatDemOnly {
   IntensityErrorFloatDemOnly(SfsOptions const& opt, int col, int row,
-                             ImageView<double> const& dem,
+                             vw::ImageView<double> const& dem,
                              double albedo,
                              double * refl_coeffs, 
                              double * exposure, 
@@ -895,7 +626,7 @@ struct IntensityErrorFloatDemOnly {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
-                                     ImageView<double> const& dem,
+                                     vw::ImageView<double> const& dem,
                                      double albedo,
                                      double * refl_coeffs, 
                                      double * exposure, 
@@ -929,7 +660,7 @@ struct IntensityErrorFloatDemOnly {
 
   SfsOptions                    const& m_opt;
   int                               m_col, m_row;
-  ImageView<double>         const & m_dem;            // alias
+  vw::ImageView<double>         const & m_dem;            // alias
   double                            m_albedo;
   double                          * m_refl_coeffs;
   double                          * m_exposure;
@@ -954,7 +685,7 @@ struct IntensityErrorFloatDemOnly {
 // move to SfsCostFun.h.
 struct IntensityErrorFixedMost {
   IntensityErrorFixedMost(SfsOptions const& opt, int col, int row,
-                          ImageView<double> const& dem,
+                          vw::ImageView<double> const& dem,
                           double albedo,
                           double * refl_coeffs, 
                           cartography::GeoReference const& geo,
@@ -1020,7 +751,7 @@ struct IntensityErrorFixedMost {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
-                                     ImageView<double> const& dem,
+                                     vw::ImageView<double> const& dem,
                                      double albedo,
                                      double * refl_coeffs, 
                                      vw::cartography::GeoReference const& geo,
@@ -1051,7 +782,7 @@ struct IntensityErrorFixedMost {
 
   SfsOptions                        const & m_opt;
   int                                       m_col, m_row;
-  ImageView<double>                 const & m_dem;            // alias
+  vw::ImageView<double>                 const & m_dem;            // alias
   double                                    m_albedo;
   double                                  * m_refl_coeffs; 
   cartography::GeoReference         const & m_geo;            // alias
@@ -1075,7 +806,7 @@ struct IntensityErrorFixedMost {
 // usual intensity error.
 struct IntensityErrorPQ {
   IntensityErrorPQ(SfsOptions const& opt, int col, int row,
-                   ImageView<double> const& dem,
+                   vw::ImageView<double> const& dem,
                    cartography::GeoReference const& geo,
                    bool model_shadows,
                    double camera_position_step_size,
@@ -1136,7 +867,7 @@ struct IntensityErrorPQ {
   // Factory to hide the construction of the CostFunction object from the client
   // code.
   static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
-                                     ImageView<double> const& dem,
+                                     vw::ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
                                      bool model_shadows,
                                      double camera_position_step_size,
@@ -1164,7 +895,7 @@ struct IntensityErrorPQ {
 
   SfsOptions                    const & m_opt;
   int m_col, m_row;
-  ImageView<double>             const & m_dem;            // alias
+  vw::ImageView<double>             const & m_dem;            // alias
   vw::cartography::GeoReference const & m_geo;            // alias
   bool                                  m_model_shadows;
   double                                m_camera_position_step_size;
@@ -2082,12 +1813,12 @@ void run_sfs(// Fixed quantities
              bool                               blend_weight_is_ground_weight,
              ReflParams               const & refl_params,
              std::vector<vw::Vector3>   const & sunPosition,
-             ImageView<double>          const & orig_dem,
-             ImageView<int>             const & lit_image_mask,
-             ImageView<double>          const & curvature_in_shadow_weight,
+             vw::ImageView<double>          const & orig_dem,
+             vw::ImageView<int>             const & lit_image_mask,
+             vw::ImageView<double>          const & curvature_in_shadow_weight,
              // Variable quantities
-             ImageView<double>                & dem,
-             ImageView<double>                & albedo,
+             vw::ImageView<double>                & dem,
+             vw::ImageView<double>                & albedo,
              std::vector<vw::CamPtr>          & cameras,
              std::vector<double>              & exposures,
              std::vector<std::vector<double>> & haze,
@@ -2114,7 +1845,7 @@ void run_sfs(// Fixed quantities
   // We define p and q as the partial derivatives in x in y of the dem.
   // When using the integrability constraint, they are floated as variables
   // in their own right, while constrained to not go too far from the DEM.
-  ImageView<Vector2> pq;  
+  vw::ImageView<Vector2> pq;  
   if (opt.integrability_weight > 0) {
     pq.set_size(dem.cols(), dem.rows());
 
@@ -2491,7 +2222,7 @@ void setupReflectance(ReflParams & refl_params, SfsOptions & opt) {
 // one. The full-res image may not fit in memory, so we need to compute it in tiles.
 // See computeReflectanceAndIntensity() for low-res vs full-res relationship.
 // TODO(oalexan1): Move this to SfsImageProc.cc.
-class SfsInterpView: public ImageViewBase<SfsInterpView> {
+class SfsInterpView: public vw::ImageViewBase<SfsInterpView> {
   int m_full_res_cols, m_full_res_rows;
   int m_sample_col_rate, m_sample_row_rate;
   vw::ImageView<float> const& m_lowres_img;
@@ -2531,7 +2262,7 @@ public:
                           vw::BilinearInterpolation(),
                           vw::ConstantEdgeExtension());
 
-    ImageView<result_type> tile(bbox.width(), bbox.height());
+    vw::ImageView<result_type> tile(bbox.width(), bbox.height());
     for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
       for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
         double valx = (col - 1.0) / double(m_sample_col_rate) + 1.0;
@@ -2559,7 +2290,7 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
                              std::vector<MaskedImgT> const& masked_images,
                              std::vector<DoubleImgT> const& blend_weights,
                              bool blend_weight_is_ground_weight,
-                             ImageView<double> const& dem,
+                             vw::ImageView<double> const& dem,
                              double mean_albedo,
                              vw::cartography::GeoReference const& geo,
                              std::vector<vw::CamPtr> const& cameras,
@@ -2587,8 +2318,8 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
     if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
       continue;
      
-    ImageView<double> ground_weight;
-    ImageView<Vector2> pq; // no need for these just for initialization
+    vw::ImageView<double> ground_weight;
+    vw::ImageView<Vector2> pq; // no need for these just for initialization
     computeReflectanceAndIntensity(dem, pq, geo,
                                    opt.model_shadows, max_dem_height,
                                    gridx, gridy, sample_col_rate, sample_row_rate,
@@ -2598,7 +2329,7 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
                                    masked_images[image_iter],
                                    blend_weights[image_iter],
                                    blend_weight_is_ground_weight,
-                                   cameras[image_iter].get(),
+                                   cameras[image_iter],
                                    reflectance[image_iter], intensity[image_iter],
                                    ground_weight,
                                    &opt.model_coeffs_vec[0], opt);
@@ -2719,8 +2450,8 @@ int main(int argc, char* argv[]) {
     // Read the handle to the DEM. Here we don't load the DEM into
     // memory yet. We will later load into memory only a crop,
     // if cropping is specified. This is to save on memory.
-    ImageViewRef<double> full_dem = DiskImageView<double>(opt.input_dem);
-    ImageViewRef<double> full_albedo;
+    vw::ImageViewRef<double> full_dem = DiskImageView<double>(opt.input_dem);
+    vw::ImageViewRef<double> full_albedo;
     // TODO(oalexan1): albedo per tile needs to go when the workflow is improved.
     // This is needed to support for now the --prep-step and --main-step
     // options, and longer term, that is likely the wrong way of doing things
@@ -3106,7 +2837,7 @@ int main(int argc, char* argv[]) {
       if (opt.crop_input_images) {
         // Make a copy in memory for faster access
         if (!crop_boxes[image_iter].empty()) {
-          ImageView<float> cropped_img = 
+          vw::ImageView<float> cropped_img = 
             crop(DiskImageView<float>(img_file), crop_boxes[image_iter]);
           masked_images[image_iter]
             = create_pixel_range_mask2(cropped_img,
@@ -3189,9 +2920,9 @@ int main(int argc, char* argv[]) {
       int sample_col_rate = 0, sample_row_rate = 0;
       asp::calcSampleRates(dem, opt.num_samples_for_estim, sample_col_rate, sample_row_rate);
 
-      ImageView<PixelMask<double>> reflectance, intensity;
-      ImageView<double> ground_weight;
-      ImageView<Vector2> pq; // no need for these just for initialization
+      vw::ImageView<PixelMask<double>> reflectance, intensity;
+      vw::ImageView<double> ground_weight;
+      vw::ImageView<Vector2> pq; // no need for these just for initialization
       
       computeReflectanceAndIntensity(dem, pq, geo,
                                      opt.model_shadows, max_dem_height,
@@ -3202,7 +2933,7 @@ int main(int argc, char* argv[]) {
                                      masked_images[image_iter],
                                      blend_weights[image_iter],
                                      blend_weight_is_ground_weight,
-                                     cameras[image_iter].get(),
+                                     cameras[image_iter],
                                      reflectance, intensity, ground_weight,
                                      &opt.model_coeffs_vec[0], opt);
       
@@ -3284,7 +3015,7 @@ int main(int argc, char* argv[]) {
 
     // Need to compute the valid data image to be able to find the grid points always
     // in shadow, so when this image is zero.
-    ImageView<int> lit_image_mask;
+    vw::ImageView<int> lit_image_mask;
     if (opt.curvature_in_shadow_weight > 0.0) {
       lit_image_mask.set_size(dem.cols(), dem.rows());
       for (int col = 0; col < lit_image_mask.cols(); col++) {
@@ -3306,9 +3037,9 @@ int main(int argc, char* argv[]) {
         opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0 ||
         opt.allow_borderline_data) {
       // In this case simply save the computed and actual intensity, and for most of these quit
-      ImageView<PixelMask<double>> reflectance, meas_intensity, comp_intensity;
-      ImageView<double> ground_weight;
-      ImageView<Vector2> pq; // no need for these just for initialization
+      vw::ImageView<PixelMask<double>> reflectance, meas_intensity, comp_intensity;
+      vw::ImageView<double> ground_weight;
+      vw::ImageView<Vector2> pq; // no need for these just for initialization
       int sample_col_rate = 1, sample_row_rate = 1;
 
       auto slopeErrEstim = boost::shared_ptr<SlopeErrEstim>(NULL);
@@ -3353,7 +3084,7 @@ int main(int argc, char* argv[]) {
                                        masked_images[image_iter],
                                        blend_weights[image_iter],
                                        blend_weight_is_ground_weight,
-                                       cameras[image_iter].get(),
+                                       cameras[image_iter],
                                        reflectance, meas_intensity, ground_weight,
                                        &opt.model_coeffs_vec[0], opt,
                                        slopeErrEstim.get(), heightErrEstim.get());
@@ -3427,7 +3158,7 @@ int main(int argc, char* argv[]) {
       if (opt.estimate_slope_errors) {
         // Find the slope error as the maximum of slope errors in all directions
         // from the given slope.
-        ImageView<float> slope_error;
+        vw::ImageView<float> slope_error;
         slope_error.set_size(reflectance.cols(), reflectance.rows());
         double nodata_slope_value = -1.0;
         for (int col = 0; col < slope_error.cols(); col++) {
@@ -3461,7 +3192,7 @@ int main(int argc, char* argv[]) {
 
       if (opt.estimate_height_errors) {
         // Find the height error from the range of heights
-        ImageView<float> height_error;
+        vw::ImageView<float> height_error;
         height_error.set_size(heightErrEstim->height_error_vec.cols(),
                               heightErrEstim->height_error_vec.rows());
         for (int col = 0; col < height_error.cols(); col++) {
@@ -3537,7 +3268,7 @@ int main(int argc, char* argv[]) {
         float shadow_thresh = 0.0; // Note how the shadow thresh is now 0, unlike before
         // Make a copy in memory for faster access
         if (!crop_boxes[image_iter].empty()) {
-          ImageView<float> cropped_img = 
+          vw::ImageView<float> cropped_img = 
             crop(DiskImageView<float>(img_file), crop_boxes[image_iter]);
           masked_images[image_iter]
             = create_pixel_range_mask2(cropped_img,
@@ -3552,7 +3283,7 @@ int main(int argc, char* argv[]) {
       ground_weights.clear(); // not needed anymore
     } // end allow borderline data
     
-    ImageView<double> curvature_in_shadow_weight;
+    vw::ImageView<double> curvature_in_shadow_weight;
     if (opt.curvature_in_shadow_weight > 0.0) {
       TerminalProgressCallback tpc("asp", ": ");
       bool has_georef = true, has_nodata = false;
@@ -3594,8 +3325,8 @@ int main(int argc, char* argv[]) {
     // info, as those take up memory (the camera is a table). 
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       if (opt.skip_images.find(image_iter) != opt.skip_images.end()) {
-        masked_images[image_iter] = ImageView<PixelMask<float>>();
-        blend_weights[image_iter] = ImageView<double>();
+        masked_images[image_iter] = vw::ImageView<PixelMask<float>>();
+        blend_weights[image_iter] = vw::ImageView<double>();
         cameras[image_iter] = boost::shared_ptr<CameraModel>();
       }
     }

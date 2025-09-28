@@ -15,11 +15,16 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// \file SfsReflectanceModel.cc
-// The reflectance models used by SfS.
+// \file SfsModel.cc
+// Modeling reflectance, intensity, albedo for SfS
 
-#include <asp/SfS/SfsReflectanceModel.h>
+#include <asp/SfS/SfsModel.h>
+#include <asp/SfS/SfsOptions.h>
+#include <asp/SfS/SfsErrorEstim.h>
+#include <asp/SfS/SfsImageProc.h>
+
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Image/Interpolation.h>
 
 namespace asp {
 
@@ -489,5 +494,273 @@ void calcPointAndNormal(int col, int row,
 
   normal = -normalize(cross_prod(dx, dy)); // so normal points up
 }  
+
+
+// Compute the reflectance and intensity at a single pixel. Compute the slope and/or
+// height error estimation if the pointer is not NULL.
+bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
+                             double bottom_h, double top_h,
+                             bool use_pq, double p, double q, // dem partial derivatives
+                             int col, int row,
+                             vw::ImageView<double>         const& dem,
+                             vw::cartography::GeoReference const& geo,
+                             bool model_shadows,
+                             double max_dem_height,
+                             double gridx, double gridy,
+                             vw::Vector3       const & sunPosition,
+                             asp::ReflParams   const & refl_params,
+                             vw::BBox2i        const & crop_box,
+                             MaskedImgT        const & image,
+                             DoubleImgT        const & blend_weight,
+                             bool blend_weight_is_ground_weight,
+                             vw::CamPtr camera,
+                             vw::PixelMask<double>   & reflectance,
+                             vw::PixelMask<double>   & intensity,
+                             double                  & ground_weight,
+                             double            const * refl_coeffs,
+                             asp::SfsOptions   const & opt,
+                             asp::SlopeErrEstim      * slopeErrEstim,
+                             asp::HeightErrEstim     * heightErrEstim) {
+
+  // Set output values
+  reflectance = 0.0; reflectance.invalidate();
+  intensity   = 0.0; intensity.invalidate();
+  ground_weight = 0.0;
+  
+  if (col >= dem.cols() - 1 || row >= dem.rows() - 1) return false;
+  if (crop_box.empty()) return false;
+
+  vw::Vector3 xyz, normal;
+  asp::calcPointAndNormal(col, row, left_h, center_h, right_h, bottom_h, top_h,
+                          use_pq, p, q, geo, gridx, gridy, xyz, normal);
+
+  // Update the camera position for the given pixel (camera position
+  // is pixel-dependent for linescan cameras).
+  vw::Vector2 pix;
+  vw::Vector3 cameraPosition;
+  try {
+    pix = camera->point_to_pixel(xyz);
+    
+    // Need camera center only for Lunar Lambertian
+    if (refl_params.reflectanceType != LAMBERT)
+      cameraPosition = camera->camera_center(pix);
+    
+  } catch (...) {
+    reflectance = 0.0; reflectance.invalidate();
+    intensity   = 0.0; intensity.invalidate();
+    ground_weight = 0.0;
+    return false;
+  }
+  
+  reflectance = asp::calcReflectance(cameraPosition, normal, xyz, sunPosition,
+                                     refl_params, refl_coeffs);
+  reflectance.validate();
+
+
+  // Since our image is cropped
+  pix -= crop_box.min();
+
+  // Check for out of range
+  if (pix[0] < 0 || pix[0] >= image.cols() - 1 || pix[1] < 0 || pix[1] >= image.rows() - 1) {
+    reflectance = 0.0; reflectance.invalidate();
+    intensity   = 0.0; intensity.invalidate();
+    ground_weight = 0.0;
+    return false;
+  }
+
+  vw::InterpolationView<vw::EdgeExtensionView<MaskedImgT, vw::ConstantEdgeExtension>, vw::BilinearInterpolation>
+    interp_image = vw::interpolate(image, vw::BilinearInterpolation(),
+                                   vw::ConstantEdgeExtension());
+  intensity = interp_image(pix[0], pix[1]); // this interpolates
+
+  if (blend_weight_is_ground_weight) {
+    if (blend_weight.cols() != dem.cols() || blend_weight.rows() != dem.rows())
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Ground weight must have the same size as the DEM.\n");
+    ground_weight = blend_weight(col, row);
+  } else {
+    vw::InterpolationView<vw::EdgeExtensionView<DoubleImgT, vw::ConstantEdgeExtension>, vw::BilinearInterpolation>
+      interp_weight = vw::interpolate(blend_weight, vw::BilinearInterpolation(),
+                                  vw::ConstantEdgeExtension());
+    if (blend_weight.cols() > 0 && blend_weight.rows() > 0) // The weight may not exist
+      ground_weight = interp_weight(pix[0], pix[1]); // this interpolates
+    else
+      ground_weight = 1.0;
+  }
+  
+  // Note that we allow negative reflectance for valid intensity. It will hopefully guide
+  // the SfS solution the right way.
+  if (!is_valid(intensity)) {
+    reflectance = 0.0; reflectance.invalidate();
+    intensity   = 0.0; intensity.invalidate();
+    ground_weight = 0.0;
+    return false;
+  }
+
+  if (model_shadows) {
+    bool inShadow = asp::isInShadow(col, row, sunPosition,
+                                    dem, max_dem_height, gridx, gridy,
+                                    geo);
+
+    if (inShadow) {
+      // The reflectance is valid, it is just zero
+      reflectance = 0;
+      reflectance.validate();
+    }
+  }
+
+  if (slopeErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
+    
+    int image_iter = slopeErrEstim->image_iter;
+    ImageView<double> const& albedo = *slopeErrEstim->albedo; // alias
+    double comp_intensity = calcIntensity(albedo(col, row), 
+                                          reflectance, 
+                                          opt.image_exposures_vec[image_iter],
+                                          opt.steepness_factor,
+                                          &opt.image_haze_vec[image_iter][0], 
+                                          opt.num_haze_coeffs);
+
+    // We use twice the discrepancy between the computed and measured intensity
+    // as a measure for how far is overall the computed intensity allowed
+    // to diverge from the measured intensity
+    double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
+    estimateSlopeError(cameraPosition, normal, xyz, sunPosition,
+                       refl_params, refl_coeffs, intensity.child(), 
+                       max_intensity_err, col, row, image_iter,
+                       opt, albedo, slopeErrEstim);
+  }
+  
+  if (heightErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
+    
+    int image_iter = heightErrEstim->image_iter;
+    ImageView<double> const& albedo = *heightErrEstim->albedo; // alias
+    double comp_intensity = calcIntensity(albedo(col, row), 
+                                          reflectance, 
+                                          opt.image_exposures_vec[image_iter],
+                                          opt.steepness_factor,
+                                          &opt.image_haze_vec[image_iter][0], 
+                                          opt.num_haze_coeffs);
+    
+    // We use twice the discrepancy between the computed and measured intensity
+    // as a measure for how far is overall the computed intensity allowed
+    // to diverge from the measured intensity
+    double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
+    estimateHeightError(dem, geo,  
+                        cameraPosition, sunPosition,  refl_params,  
+                        refl_coeffs, intensity.child(),  
+                        max_intensity_err, 
+                        col, row, gridx, gridy, 
+                        image_iter, opt, albedo,  
+                        heightErrEstim);
+  }
+  
+  return true;
+}
+
+// The value stored in the output intensity(i, j) is the one at entry
+// (i - 1) * sample_col_rate + 1, (j - 1) * sample_row_rate + 1
+// in the full image. For i = 0 or j = 0 invalid values are stored.
+void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
+                                    vw::ImageView<vw::Vector2> const& pq,
+                                    vw::cartography::GeoReference const& geo,
+                                    bool model_shadows,
+                                    double & max_dem_height, // alias
+                                    double gridx, double gridy,
+                                    int sample_col_rate, int sample_row_rate,
+                                    vw::Vector3 const& sunPosition,
+                                    asp::ReflParams const& refl_params,
+                                    vw::BBox2i const& crop_box,
+                                    asp::MaskedImgT const  & image,
+                                    asp::DoubleImgT const  & blend_weight,
+                                    bool blend_weight_is_ground_weight,
+                                    vw::CamPtr camera,
+                                    vw::ImageView<vw::PixelMask<double>> & reflectance,
+                                    vw::ImageView<vw::PixelMask<double>> & intensity,
+                                    vw::ImageView<double>                & ground_weight,
+                                    const double                 * refl_coeffs,
+                                    asp::SfsOptions        const & opt,
+                                    asp::SlopeErrEstim  * slopeErrEstim,
+                                    asp::HeightErrEstim * heightErrEstim) {
+  
+  // Update max_dem_height
+  max_dem_height = -std::numeric_limits<double>::max();
+  if (model_shadows) {
+    for (int col = 0; col < dem.cols(); col += sample_col_rate) {
+      for (int row = 0; row < dem.rows(); row += sample_row_rate) {
+        if (dem(col, row) > max_dem_height) {
+          max_dem_height = dem(col, row);
+        }
+      }
+    }
+  }
+  
+  // See how many samples we end up having further down. Must start counting
+  // from 1, just as we do in that loop.
+  int num_sample_cols = 0, num_sample_rows = 0;
+  for (int col = 1; col < dem.cols() - 1; col += sample_col_rate) 
+    num_sample_cols++;
+  for (int row = 1; row < dem.rows() - 1; row += sample_row_rate)
+    num_sample_rows++;
+  
+  // Add 2 for book-keeping purposes, to ensure that when the sampling rate
+  // is 1, we get as many cols and rows as the DEM has.
+  num_sample_cols += 2;
+  num_sample_rows += 2;
+  
+  // Important sanity check
+  if (sample_col_rate == 1 && num_sample_cols != dem.cols())
+    vw::vw_throw(vw::LogicErr() 
+                  << "Book-keeping error in computing reflectance and intensity.\n");
+  if (sample_row_rate == 1 && num_sample_rows != dem.rows())
+    vw::vw_throw(vw::LogicErr() 
+                 << "Book-keeping error in computing reflectance and intensity.\n");
+      
+  // Init the reflectance and intensity as invalid. Do it at all grid
+  // points, not just where we sample, to ensure that these quantities
+  // are fully initialized.
+  reflectance.set_size(num_sample_cols, num_sample_rows);
+  intensity.set_size(num_sample_cols, num_sample_rows);
+  ground_weight.set_size(num_sample_cols, num_sample_rows);
+  for (int col = 0; col < num_sample_cols; col++) {
+    for (int row = 0; row < num_sample_rows; row++) {
+      reflectance(col, row).invalidate();
+      intensity(col, row).invalidate();
+      ground_weight(col, row) = 0.0;
+    }
+  }
+
+  // Need to very carefully distinguish below between col and col_sample,
+  // and between row and row_sample. These are same only if the sampling
+  // rate is 1.
+  bool use_pq = (pq.cols() > 0 && pq.rows() > 0);
+  int col_sample = 0;
+  for (int col = 1; col < dem.cols() - 1; col += sample_col_rate) {
+    col_sample++;
+    
+    int row_sample = 0;
+    for (int row = 1; row < dem.rows() - 1; row += sample_row_rate) {
+      row_sample++;
+    
+      double pval = 0, qval = 0;
+      if (use_pq) {
+        pval = pq(col, row)[0];
+        qval = pq(col, row)[1];
+      }
+      asp::calcPixReflectanceInten(dem(col-1, row), dem(col, row), dem(col+1, row),
+                                   dem(col, row+1), dem(col, row-1),
+                                   use_pq, pval, qval,
+                                   col, row, dem, geo,
+                                   model_shadows, max_dem_height,
+                                   gridx, gridy, sunPosition, refl_params, crop_box, image, 
+                                   blend_weight, blend_weight_is_ground_weight,
+                                   camera, reflectance(col_sample, row_sample),
+                                   intensity(col_sample, row_sample),
+                                   ground_weight(col_sample, row_sample),
+                                   refl_coeffs, opt, slopeErrEstim, heightErrEstim);
+    }
+  }
+  
+  return;
+}
 
 } // end namespace asp
