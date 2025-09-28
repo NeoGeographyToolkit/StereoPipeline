@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -35,26 +35,26 @@ namespace asp {
 using namespace vw;
 
 // Find lon-lat-height in the center of the DEM
-void calcDemCenterLonLatHeight(vw::ImageView<double> const& dem, 
+void calcDemCenterLonLatHeight(vw::ImageView<double> const& dem,
                                double nodata_val,
                                vw::cartography::GeoReference const& georef,
                                vw::Vector3 & llh) {
 
   int cols = dem.cols(), rows = dem.rows();
   if (cols <= 0 || rows <= 0)
-    vw_throw( ArgumentErr() << "Expecting a non-empty DEM.\n" );
-       
+    vw_throw(ArgumentErr() << "Expecting a non-empty DEM.\n");
+
   vw::Vector2 ll = georef.pixel_to_lonlat(Vector2(cols/2.0, rows/2.0));
   double height = dem(cols/2.0, rows/2.0);
   if (height == nodata_val)
     height = 0.0;
-  
+
   llh = vw::Vector3(ll[0], ll[1], height);
 }
 
 // Find the sun azimuth and elevation at the lon-lat position of the
 // center of the DEM. The result can change depending on the DEM.
-void sunAngles(ImageView<double> const& dem, 
+void sunAngles(ImageView<double> const& dem,
                double nodata_val, vw::cartography::GeoReference const& georef,
                vw::Vector3 const& sun_pos,
                double & azimuth, double & elevation) {
@@ -64,14 +64,14 @@ void sunAngles(ImageView<double> const& dem,
   calcDemCenterLonLatHeight(dem, nodata_val, georef, llh);
 
   vw::Vector3 xyz = georef.datum().geodetic_to_cartesian(llh); // point on the planet
-  
+
   vw::Vector3 sun_dir = sun_pos - xyz;
   sun_dir = sun_dir / norm_2(sun_dir); // normalize
 
   // Find the sun direction in the North-East-Down coordinate system
   vw::Matrix3x3 Ned2Ecef = georef.datum().lonlat_to_ned_matrix(llh);
   vw::Vector3 sun_dir_ned = inverse(Ned2Ecef) * sun_dir;
-  
+
   if (sun_dir_ned[0] == 0 && sun_dir_ned[1] == 0)
     azimuth = 0;
   else
@@ -79,7 +79,7 @@ void sunAngles(ImageView<double> const& dem,
 
   // azimuth = atan(E/N) in the NED system
   // So, when N = 1 and E = 0, azimuth is 0.
-  
+
   double L = norm_2(subvector(sun_dir_ned, 0, 2));
   elevation = (180.0/M_PI) * atan2(-sun_dir_ned[2], L);
 }
@@ -91,18 +91,18 @@ vw::Vector3 angelsToSunPosition(double azimuth, double elevation,
     // Convert to radians
     azimuth   *= M_PI/180.0;
     elevation *= M_PI/180.0;
-    
+
     // Find the Sun direction in NED
     double n = cos(azimuth) * cos(elevation);
     double e = sin(azimuth) * cos(elevation);
     double d = -sin(elevation);
-    
+
     // Convert the direction to ECEF
     vw::Vector3 sun_dir = Ned2Ecef * vw::Vector3(n, e, d);
-    
+
     // The distance to the Sun
     double sun_dist = 149597870700.0; // meters
-    
+
     // Add to xyz the direction multiplied by the distance
     return xyz + sun_dist * sun_dir;
 }
@@ -110,8 +110,8 @@ vw::Vector3 angelsToSunPosition(double azimuth, double elevation,
 // Read sun positions from a file
 void readSunPositions(std::string const& sun_positions_list,
                       std::vector<std::string> const& input_images,
-                      vw::ImageView<double> const& dem, 
-                      double nodata_val, 
+                      vw::ImageView<double> const& dem,
+                      double nodata_val,
                       vw::cartography::GeoReference const& georef,
                       std::vector<vw::Vector3> & sun_positions) {
 
@@ -119,8 +119,8 @@ void readSunPositions(std::string const& sun_positions_list,
   int num_images = input_images.size();
   sun_positions.resize(num_images);
   for (int it = 0; it < num_images; it++)
-    sun_positions[it] = vw::Vector3();  
-  
+    sun_positions[it] = vw::Vector3();
+
   // First read the positions in a map, as they may be out of order
   std::map<std::string, vw::Vector3> sun_positions_map;
   std::ifstream ifs(sun_positions_list.c_str());
@@ -132,7 +132,7 @@ void readSunPositions(std::string const& sun_positions_list,
   // Put the sun positions in sun_positions.
   for (int it = 0; it < num_images; it++) {
     auto map_it = sun_positions_map.find(input_images[it]);
-    if (map_it == sun_positions_map.end()) 
+    if (map_it == sun_positions_map.end())
       vw_throw(ArgumentErr() << "Could not read the Sun position from file: "
                << sun_positions_list << " for image: " << input_images[it] << ".\n");
 
@@ -143,8 +143,8 @@ void readSunPositions(std::string const& sun_positions_list,
 // Read the sun angles (azimuth and elevation) and convert them to sun positions.
 void readSunAngles(std::string const& sun_positions_list,
                    std::vector<std::string> const& input_images,
-                   vw::ImageView<double> const& dem, 
-                   double nodata_val, 
+                   vw::ImageView<double> const& dem,
+                   double nodata_val,
                    vw::cartography::GeoReference const& georef,
                    std::vector<vw::Vector3> & sun_positions) {
 
@@ -162,8 +162,8 @@ void readSunAngles(std::string const& sun_positions_list,
   int num_images = input_images.size();
   sun_positions.resize(num_images);
   for (int it = 0; it < num_images; it++)
-    sun_positions[it] = vw::Vector3();  
-  
+    sun_positions[it] = vw::Vector3();
+
   // First read the positions in a map, as they may be out of order
   std::map<std::string, vw::Vector3> sun_positions_map;
   std::ifstream ifs(sun_positions_list.c_str());
@@ -175,7 +175,7 @@ void readSunAngles(std::string const& sun_positions_list,
   // Put the sun positions in sun_positions.
   for (int it = 0; it < num_images; it++) {
     auto map_it = sun_positions_map.find(input_images[it]);
-    if (map_it == sun_positions_map.end()) 
+    if (map_it == sun_positions_map.end())
       vw::vw_throw(vw::ArgumentErr() << "Could not read the Sun position from file: "
                << sun_positions_list << " for image: " << input_images[it] << ".\n");
 
@@ -191,7 +191,7 @@ vw::Vector3 sunPositionFromCamera(vw::CamPtr camera) {
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   // Try isis
-  vw::camera::IsisCameraModel* isis_cam 
+  vw::camera::IsisCameraModel* isis_cam
     = dynamic_cast<vw::camera::IsisCameraModel*>(ucam.get());
   if (isis_cam != NULL)
     return isis_cam->sun_position();
@@ -213,11 +213,11 @@ std::string exposureFileName(std::string const& prefix) {
 std::string hazeFileName(std::string const& prefix) {
   return prefix + "-haze.txt";
 }
-  
+
 std::string modelCoeffsFileName(std::string const& prefix) {
   return prefix + "-model_coeffs.txt";
 }
-  
+
 std::string skippedImagesFileName(std::string const& prefix) {
   return prefix + "-skipped_images.txt";
 }
@@ -286,7 +286,7 @@ void callTop() {
   std::ostringstream os;
   int pid = getpid();
   os << pid;
-  
+
   std::string cmd = "top -b -n 1 | grep -i ' sfs' | grep -i '" + os.str() + "'";
   std::string ans = vw::exec_cmd(cmd.c_str());
   vw_out() << "Memory usage: " << cmd << " " << ans << "\n";

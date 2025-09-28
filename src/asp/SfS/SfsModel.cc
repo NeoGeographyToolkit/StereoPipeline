@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -60,7 +60,7 @@ double LunarLambertianReflectance(Vector3 const& sunPos,
 
   double len = dot_prod(normal, normal);
   if (abs(len - 1.0) > 1.0e-4)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
                  << "Expecting unit normal in the reflectance computation.\n");
 
   // Compute mu_0 = cosine of the angle between the light direction and the surface normal.
@@ -95,7 +95,7 @@ double LunarLambertianReflectance(Vector3 const& sunPos,
   double C = refl_coeffs[3]; // -0.00000146;//-1.46*1e-6;
 
   L = O + A*deg_alpha + B*deg_alpha*deg_alpha + C*deg_alpha*deg_alpha*deg_alpha;
- 
+
   reflectance = 2*L*mu_0/(mu_0+mu) + (1-L)*mu_0;
   if (mu_0 + mu == 0 || reflectance != reflectance)
     return 0.0;
@@ -119,7 +119,7 @@ double LunarLambertianReflectance(Vector3 const& sunPos,
 // Note that we use the updated Hapke model, having the term B(g). This one is
 // given in "Modeling spectral and bidirectional reflectance", Jacquemoud, 1992.
 // It has the params B0 and h. The ultimate reference is probably Hapke, 1986,
-// having all pieces in one place, but that one is not available. 
+// having all pieces in one place, but that one is not available.
 
 // We use mostly the parameter values for omega, b, c, B0 and h from: Surface
 // reflectance of Mars observed by CRISM/MRO: 2. Estimation of surface
@@ -145,7 +145,7 @@ double HapkeReflectance(Vector3 const& sunPos,
 
   double len = dot_prod(normal, normal);
   if (abs(len - 1.0) > 1.0e-4)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
                  << "Expecting unit normal in the reflectance computation.\n");
 
   //compute mu_0 = cosine of the angle between the light direction and the surface normal.
@@ -169,25 +169,25 @@ double HapkeReflectance(Vector3 const& sunPos,
   double c     = std::abs(refl_coeffs[2]);
   // The older Hapke model lacks the B0 and h terms
   double B0    = std::abs(refl_coeffs[3]);
-  double h     = std::abs(refl_coeffs[4]);   
+  double h     = std::abs(refl_coeffs[4]);
 
   // Does not matter, we'll factor out the constant scale as camera exposures anyway
-  double J = 1.0; 
-  
+  double J = 1.0;
+
   // The P(g) term
-  double Pg 
+  double Pg
     = (1.0 - c) * (1.0 - b*b) / pow(1.0 + 2.0*b*cos_g + b*b, 1.5)
     + c         * (1.0 - b*b) / pow(1.0 - 2.0*b*cos_g + b*b, 1.5);
-    
+
   // The B(g) term
   double Bg = B0 / (1.0 + (1.0/h)*tan(g/2.0));
 
   double H_mu0 = (1.0 + 2*mu_0) / (1.0 + 2*mu_0 * sqrt(1.0 - omega));
-  double H_mu  = (1.0 + 2*mu  ) / (1.0 + 2*mu   * sqrt(1.0 - omega));
+  double H_mu  = (1.0 + 2*mu) / (1.0 + 2*mu   * sqrt(1.0 - omega));
 
   // The reflectance
   double R = (J*omega/4.0/M_PI) * (mu_0/(mu_0+mu)) * ((1.0 + Bg)*Pg + H_mu0*H_mu - 1.0);
-  
+
   return R;
 }
 
@@ -206,7 +206,7 @@ double CharonReflectance(Vector3 const& sunPos,
 
   double len = dot_prod(normal, normal);
   if (abs(len - 1.0) > 1.0e-4)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
                  << "Expecting unit normal in the reflectance computation.\n");
 
   //compute mu_0 = cosine of the angle between the light direction and the surface normal.
@@ -220,12 +220,12 @@ double CharonReflectance(Vector3 const& sunPos,
   double mu = dot_prod(viewDirection,normal);
 
   // Charon model params
-  double A       = std::abs(refl_coeffs[0]); // albedo 
-  double f_alpha = std::abs(refl_coeffs[1]); // phase function 
+  double A       = std::abs(refl_coeffs[0]); // albedo
+  double f_alpha = std::abs(refl_coeffs[1]); // phase function
 
   double reflectance = f_alpha*A*mu_0 / (mu_0 + mu) + (1.0 - A)*mu_0;
-  
-  if (mu_0 + mu == 0 || reflectance != reflectance){
+
+  if (mu_0 + mu == 0 || reflectance != reflectance) {
     return 0.0;
   }
 
@@ -246,7 +246,7 @@ double ExperimentalLunarLambertianReflectance(Vector3 const& sunPos,
 
   double len = dot_prod(normal, normal);
   if (std::abs(len - 1.0) > 1.0e-4)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
                  << "Expecting unit normal in the reflectance computation.\n");
 
   // Compute mu_0 = cosine of the angle between the light direction and the surface normal.
@@ -277,36 +277,36 @@ double ExperimentalLunarLambertianReflectance(Vector3 const& sunPos,
   double A1 = refl_coeffs[1]; // -0.019;
   double B1 = refl_coeffs[2]; // 0.000242;//0.242*1e-3;
   double C1 = refl_coeffs[3]; // -0.00000146;//-1.46*1e-6;
-  double D1 = refl_coeffs[4]; 
-  double E1 = refl_coeffs[5]; 
-  double F1 = refl_coeffs[6]; 
-  double G1 = refl_coeffs[7]; 
+  double D1 = refl_coeffs[4];
+  double E1 = refl_coeffs[5];
+  double F1 = refl_coeffs[6];
+  double G1 = refl_coeffs[7];
 
   double O2 = refl_coeffs[8];  // 1
   double A2 = refl_coeffs[9];  // -0.019;
   double B2 = refl_coeffs[10]; // 0.000242;//0.242*1e-3;
   double C2 = refl_coeffs[11]; // -0.00000146;//-1.46*1e-6;
-  double D2 = refl_coeffs[12]; 
-  double E2 = refl_coeffs[13]; 
-  double F2 = refl_coeffs[14]; 
-  double G2 = refl_coeffs[15]; 
-  
+  double D2 = refl_coeffs[12];
+  double E2 = refl_coeffs[13];
+  double F2 = refl_coeffs[14];
+  double G2 = refl_coeffs[15];
+
   double L1 = O1 + A1*deg_alpha + B1*deg_alpha*deg_alpha + C1*deg_alpha*deg_alpha*deg_alpha;
   double K1 = D1 + E1*deg_alpha + F1*deg_alpha*deg_alpha + G1*deg_alpha*deg_alpha*deg_alpha;
   if (K1 == 0) K1 = 1;
-    
+
   double L2 = O2 + A2*deg_alpha + B2*deg_alpha*deg_alpha + C2*deg_alpha*deg_alpha*deg_alpha;
   double K2 = D2 + E2*deg_alpha + F2*deg_alpha*deg_alpha + G2*deg_alpha*deg_alpha*deg_alpha;
   if (K2 == 0) K2 = 1;
-  
+
   reflectance = 2*L1*mu_0/(mu_0+mu)/K1 + (1-L2)*mu_0/K2;
-  
+
   if (mu_0 + mu == 0 || reflectance != reflectance)
     return 0.0;
 
   // Attempt to compensate for points on the terrain being too bright
   // if the sun is behind the spacecraft as seen from those points.
-  reflectance *= ( exp(-phaseCoeffC1*alpha) + phaseCoeffC2 );
+  reflectance *= (exp(-phaseCoeffC1*alpha) + phaseCoeffC2);
 
   return reflectance;
 }
@@ -374,34 +374,34 @@ double calcReflectance(vw::Vector3 const& cameraPosition,
   return input_img_reflectance;
 }
 
-// Computed intensity: 
+// Computed intensity:
 // albedo * nonlinReflectance(reflectance_i, exposures[i], haze, num_haze_coeffs) + haze[0]
 // Cost function:
 // sum_i | I_i - comp_intensity_i|^2
-double calcIntensity(double albedo, double reflectance, double exposure, 
+double calcIntensity(double albedo, double reflectance, double exposure,
                      double steepness_factor, double const* haze, int num_haze_coeffs) {
-  return albedo 
+  return albedo
   * nonlinReflectance(reflectance, exposure, steepness_factor, haze, num_haze_coeffs)
-  + haze[0]; 
+  + haze[0];
 }
 
-// Calc albedo given the intensity.  
-// albedo = (intensity - haze[0]) / nonlin_ref. 
+// Calc albedo given the intensity.
+// albedo = (intensity - haze[0]) / nonlin_ref.
 // See also calcIntensity().
-double calcAlbedo(double intensity, double reflectance, double exposure, 
+double calcAlbedo(double intensity, double reflectance, double exposure,
                   double steepness_factor, double const* haze, int num_haze_coeffs) {
- 
+
   // First, subtract the base haze coefficient
   double adjusted_intensity = intensity - haze[0];
-  
+
   // Calculate the nonlinear reflectance first
-  double nonlin_ref = nonlinReflectance(reflectance, exposure, 
+  double nonlin_ref = nonlinReflectance(reflectance, exposure,
                                         steepness_factor, haze, num_haze_coeffs);
-  
+
   // Protect against division by zero
   if (nonlin_ref == 0.0)
       return 0.0;
-  
+
   return adjusted_intensity / nonlin_ref;
 }
 
@@ -416,23 +416,23 @@ double nonlinReflectance(double reflectance, double exposure,
   // steeper terrain. Things become more complicated if the haze
   // and nonlinear reflectance is modeled. This is not on by default.
   exposure /= steepness_factor;
-  
+
   double r = reflectance; // for short
-  if (num_haze_coeffs == 0) 
+  if (num_haze_coeffs == 0)
     return exposure * r; // Linear model
-  if (num_haze_coeffs == 1) 
+  if (num_haze_coeffs == 1)
     return exposure * r; // Also linear model, haze[0] is added after albedo multiplication
-  if (num_haze_coeffs == 2) 
+  if (num_haze_coeffs == 2)
     return exposure * r /(haze[1]*r + 1);
-  if (num_haze_coeffs == 3) 
+  if (num_haze_coeffs == 3)
     return exposure * (r + haze[2])/(haze[1]*r + 1);
-  if (num_haze_coeffs == 4) 
+  if (num_haze_coeffs == 4)
     return exposure * (haze[3]*r*r + r + haze[2])/(haze[1]*r + 1);
-  if (num_haze_coeffs == 5) 
+  if (num_haze_coeffs == 5)
     return exposure * (haze[3]*r*r + r + haze[2])/(haze[4]*r*r + haze[1]*r + 1);
-  if (num_haze_coeffs == 6) 
+  if (num_haze_coeffs == 6)
     return exposure * (haze[5]*r*r*r + haze[3]*r*r + r + haze[2])/(haze[4]*r*r + haze[1]*r + 1);
-    
+
   vw_throw(ArgumentErr() << "Invalid value for the number of haze coefficients.\n");
   return 0;
 }
@@ -493,7 +493,7 @@ void calcPointAndNormal(int col, int row,
   vw::Vector3 dy = bottom - top;
 
   normal = -normalize(cross_prod(dx, dy)); // so normal points up
-}  
+}
 
 
 // Compute the reflectance and intensity at a single pixel. Compute the slope and/or
@@ -526,7 +526,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
   reflectance = 0.0; reflectance.invalidate();
   intensity   = 0.0; intensity.invalidate();
   ground_weight = 0.0;
-  
+
   if (col >= dem.cols() - 1 || row >= dem.rows() - 1) return false;
   if (crop_box.empty()) return false;
 
@@ -540,18 +540,18 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
   vw::Vector3 cameraPosition;
   try {
     pix = camera->point_to_pixel(xyz);
-    
+
     // Need camera center only for Lunar Lambertian
     if (refl_params.reflectanceType != LAMBERT)
       cameraPosition = camera->camera_center(pix);
-    
+
   } catch (...) {
     reflectance = 0.0; reflectance.invalidate();
     intensity   = 0.0; intensity.invalidate();
     ground_weight = 0.0;
     return false;
   }
-  
+
   reflectance = asp::calcReflectance(cameraPosition, normal, xyz, sunPosition,
                                      refl_params, refl_coeffs);
   reflectance.validate();
@@ -575,7 +575,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
 
   if (blend_weight_is_ground_weight) {
     if (blend_weight.cols() != dem.cols() || blend_weight.rows() != dem.rows())
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
                    << "Ground weight must have the same size as the DEM.\n");
     ground_weight = blend_weight(col, row);
   } else {
@@ -587,7 +587,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
     else
       ground_weight = 1.0;
   }
-  
+
   // Note that we allow negative reflectance for valid intensity. It will hopefully guide
   // the SfS solution the right way.
   if (!is_valid(intensity)) {
@@ -610,14 +610,14 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
   }
 
   if (slopeErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
-    
+
     int image_iter = slopeErrEstim->image_iter;
     ImageView<double> const& albedo = *slopeErrEstim->albedo; // alias
-    double comp_intensity = calcIntensity(albedo(col, row), 
-                                          reflectance, 
+    double comp_intensity = calcIntensity(albedo(col, row),
+                                          reflectance,
                                           opt.image_exposures_vec[image_iter],
                                           opt.steepness_factor,
-                                          &opt.image_haze_vec[image_iter][0], 
+                                          &opt.image_haze_vec[image_iter][0],
                                           opt.num_haze_coeffs);
 
     // We use twice the discrepancy between the computed and measured intensity
@@ -625,35 +625,35 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
     // to diverge from the measured intensity
     double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
     estimateSlopeError(cameraPosition, normal, xyz, sunPosition,
-                       refl_params, refl_coeffs, intensity.child(), 
+                       refl_params, refl_coeffs, intensity.child(),
                        max_intensity_err, col, row, image_iter,
                        opt, albedo, slopeErrEstim);
   }
-  
+
   if (heightErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
-    
+
     int image_iter = heightErrEstim->image_iter;
     ImageView<double> const& albedo = *heightErrEstim->albedo; // alias
-    double comp_intensity = calcIntensity(albedo(col, row), 
-                                          reflectance, 
+    double comp_intensity = calcIntensity(albedo(col, row),
+                                          reflectance,
                                           opt.image_exposures_vec[image_iter],
                                           opt.steepness_factor,
-                                          &opt.image_haze_vec[image_iter][0], 
+                                          &opt.image_haze_vec[image_iter][0],
                                           opt.num_haze_coeffs);
-    
+
     // We use twice the discrepancy between the computed and measured intensity
     // as a measure for how far is overall the computed intensity allowed
     // to diverge from the measured intensity
     double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
-    estimateHeightError(dem, geo,  
-                        cameraPosition, sunPosition,  refl_params,  
-                        refl_coeffs, intensity.child(),  
-                        max_intensity_err, 
-                        col, row, gridx, gridy, 
-                        image_iter, opt, albedo,  
+    estimateHeightError(dem, geo,
+                        cameraPosition, sunPosition,  refl_params,
+                        refl_coeffs, intensity.child(),
+                        max_intensity_err,
+                        col, row, gridx, gridy,
+                        image_iter, opt, albedo,
                         heightErrEstim);
   }
-  
+
   return true;
 }
 
@@ -681,7 +681,7 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
                                     asp::SfsOptions        const & opt,
                                     asp::SlopeErrEstim  * slopeErrEstim,
                                     asp::HeightErrEstim * heightErrEstim) {
-  
+
   // Update max_dem_height
   max_dem_height = -std::numeric_limits<double>::max();
   if (model_shadows) {
@@ -693,28 +693,28 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
       }
     }
   }
-  
+
   // See how many samples we end up having further down. Must start counting
   // from 1, just as we do in that loop.
   int num_sample_cols = 0, num_sample_rows = 0;
-  for (int col = 1; col < dem.cols() - 1; col += sample_col_rate) 
+  for (int col = 1; col < dem.cols() - 1; col += sample_col_rate)
     num_sample_cols++;
   for (int row = 1; row < dem.rows() - 1; row += sample_row_rate)
     num_sample_rows++;
-  
+
   // Add 2 for book-keeping purposes, to ensure that when the sampling rate
   // is 1, we get as many cols and rows as the DEM has.
   num_sample_cols += 2;
   num_sample_rows += 2;
-  
+
   // Important sanity check
   if (sample_col_rate == 1 && num_sample_cols != dem.cols())
-    vw::vw_throw(vw::LogicErr() 
+    vw::vw_throw(vw::LogicErr()
                   << "Book-keeping error in computing reflectance and intensity.\n");
   if (sample_row_rate == 1 && num_sample_rows != dem.rows())
-    vw::vw_throw(vw::LogicErr() 
+    vw::vw_throw(vw::LogicErr()
                  << "Book-keeping error in computing reflectance and intensity.\n");
-      
+
   // Init the reflectance and intensity as invalid. Do it at all grid
   // points, not just where we sample, to ensure that these quantities
   // are fully initialized.
@@ -736,11 +736,11 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
   int col_sample = 0;
   for (int col = 1; col < dem.cols() - 1; col += sample_col_rate) {
     col_sample++;
-    
+
     int row_sample = 0;
     for (int row = 1; row < dem.rows() - 1; row += sample_row_rate) {
       row_sample++;
-    
+
       double pval = 0, qval = 0;
       if (use_pq) {
         pval = pq(col, row)[0];
@@ -751,7 +751,7 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
                                    use_pq, pval, qval,
                                    col, row, dem, geo,
                                    model_shadows, max_dem_height,
-                                   gridx, gridy, sunPosition, refl_params, crop_box, image, 
+                                   gridx, gridy, sunPosition, refl_params, crop_box, image,
                                    blend_weight, blend_weight_is_ground_weight,
                                    camera, reflectance(col_sample, row_sample),
                                    intensity(col_sample, row_sample),
@@ -759,7 +759,7 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
                                    refl_coeffs, opt, slopeErrEstim, heightErrEstim);
     }
   }
-  
+
   return;
 }
 

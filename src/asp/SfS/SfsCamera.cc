@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -27,27 +27,27 @@ namespace asp {
 using namespace vw;
 
 ApproxCameraModel::ApproxCameraModel(vw::camera::AdjustedCameraModel const& exact_camera,
-                                     BBox2i img_bbox, 
+                                     BBox2i img_bbox,
                                      ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
                                      double nodata_val,
                                      vw::Mutex & camera_mutex):
-    m_geo(geo), 
+    m_geo(geo),
     m_camera_mutex(camera_mutex),
     m_exact_camera(exact_camera),
-    m_img_bbox(img_bbox), 
+    m_img_bbox(img_bbox),
     m_model_is_valid(true) {
 
   int big = 1e+8;
   m_uncompValue = Vector2(-big, -big);
-  
+
   // Compute the mean DEM height. We expect all DEM entries to be valid.
   m_mean_ht = 0;
   double num = 0.0;
   for (int col = 0; col < dem.cols(); col++) {
     for (int row = 0; row < dem.rows(); row++) {
       if (dem(col, row) == nodata_val)
-        vw_throw( ArgumentErr()
+        vw_throw(ArgumentErr()
                   << "ApproxCameraModel: Expecting a DEM without nodata values.\n");
       m_mean_ht += dem(col, row);
       num += 1.0;
@@ -62,11 +62,11 @@ ApproxCameraModel::ApproxCameraModel(vw::camera::AdjustedCameraModel const& exac
   m_approx_table_gridy = wy/std::max(dem.rows(), 1);
 
   if (m_approx_table_gridx == 0 || m_approx_table_gridy == 0) {
-    vw_throw( ArgumentErr()
+    vw_throw(ArgumentErr()
               << "ApproxCameraModel: Expecting a positive grid size.\n");
   }
 
-  // Expand the box, as later the DEM will change. 
+  // Expand the box, as later the DEM will change.
   double extra = 0.5;
   m_point_box.min().x() -= extra*wx; m_point_box.max().x() += extra*wx;
   m_point_box.min().y() -= extra*wy; m_point_box.max().y() += extra*wy;
@@ -88,7 +88,7 @@ ApproxCameraModel::ApproxCameraModel(vw::camera::AdjustedCameraModel const& exac
 
   m_begX = 0; m_endX = numx-1;
   m_begY = 0; m_endY = numy-1;
-  
+
   // Mark all values as uncomputed and invalid
   m_pixel_to_vec_mat.set_size(numx, numy);
   m_point_to_pix_mat.set_size(numx, numy);
@@ -98,7 +98,7 @@ ApproxCameraModel::ApproxCameraModel(vw::camera::AdjustedCameraModel const& exac
       m_point_to_pix_mat(x, y).invalidate();
     }
   }
-  
+
   // Fill in the table. Find along the way the mean direction from
   // the camera to the ground. Invalid values will be masked.
   m_count = 0;
@@ -106,21 +106,21 @@ ApproxCameraModel::ApproxCameraModel(vw::camera::AdjustedCameraModel const& exac
   comp_entries_in_table();
   m_mean_dir /= std::max(1, m_count);
   m_mean_dir = m_mean_dir/norm_2(m_mean_dir);
-  
+
   m_crop_box.crop(m_img_bbox);
 
   return;
 } // End constructor
-      
-void ApproxCameraModel::comp_entries_in_table() const {    
+
+void ApproxCameraModel::comp_entries_in_table() const {
   for (int x = m_begX; x <= m_endX; x++) {
     for (int y = m_begY; y <= m_endY; y++) {
-  
+
       // This will be useful when we invoke this function repeatedly
       if (m_point_to_pix_mat(x, y).child() != m_uncompValue) {
         continue;
       }
-  
+
       Vector2 pt(m_point_box.min().x() + x*m_approx_table_gridx,
                   m_point_box.min().y() + y*m_approx_table_gridy);
       Vector2 lonlat = m_geo.point_to_lonlat(pt);
@@ -135,8 +135,8 @@ void ApproxCameraModel::comp_entries_in_table() const {
         vec = m_exact_camera.pixel_to_vector(pix);
         //else
         // success = false;
-        
-      }catch(...){
+
+      } catch(...) {
         success = false;
       }
       if (success) {
@@ -145,19 +145,19 @@ void ApproxCameraModel::comp_entries_in_table() const {
         m_pixel_to_vec_mat(x, y).validate();
         m_point_to_pix_mat(x, y).validate();
         m_mean_dir += vec; // only when the point projects inside the camera?
-        if (m_img_bbox.contains(pix)) 
+        if (m_img_bbox.contains(pix))
           m_crop_box.grow(pix);
         m_count++;
-      }else{
+      } else {
         m_pixel_to_vec_mat(x, y).invalidate();
         m_point_to_pix_mat(x, y).invalidate();
       }
     }
   }
-  
+
    return;
 }
-    
+
 // We have tabulated point_to_pixel at the mean dem height.
 // Look-up point_to_pixel for the current point by first
 // intersecting the ray from the current point to the camera
@@ -184,7 +184,7 @@ vw::Vector2 ApproxCameraModel::point_to_pixel(Vector3 const& xyz) const {
     if (norm_2(S) <= major_radius) // point is inside the sphere
       return m_exact_camera.point_to_pixel(xyz);
 
-    Vector3 datum_pt 
+    Vector3 datum_pt
       = vw::cartography::datum_intersection(major_radius, minor_radius, S, dir);
     Vector3 llh = m_geo.datum().cartesian_to_geodetic(datum_pt);
     Vector2 pt = m_geo.lonlat_to_point(subvector(llh, 0, 2));
@@ -200,7 +200,7 @@ vw::Vector2 ApproxCameraModel::point_to_pixel(Vector3 const& xyz) const {
     // The hope is that it will be very rare.
     if (out_of_range)
       return m_exact_camera.point_to_pixel(xyz);
-    
+
     PixelMask<Vector3> masked_dir = pixel_to_vec_interp(x, y);
     PixelMask<Vector2> masked_pix = point_to_pix_interp(x, y);
     if (is_valid(masked_dir) && is_valid(masked_pix)) {
@@ -214,8 +214,8 @@ vw::Vector2 ApproxCameraModel::point_to_pixel(Vector3 const& xyz) const {
   return pix;
 }
 
-std::string ApproxCameraModel::type() const{ 
-  return "ApproxSfSCamera"; 
+std::string ApproxCameraModel::type() const{
+  return "ApproxSfSCamera";
 }
 
 // This is used rarely. Return the exact camera vector.

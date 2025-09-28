@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -55,20 +55,20 @@ double nonlinReflectance(double reflectance, double exposure,
                          double const* haze, int num_haze_coeffs);
 
 // Computes the ground reflectance with a desired reflectance model.
-double calcReflectance(vw::Vector3 const& cameraPosition, vw::Vector3 const& normal, 
+double calcReflectance(vw::Vector3 const& cameraPosition, vw::Vector3 const& normal,
                        vw::Vector3 const& xyz, vw::Vector3 const& sun_position,
-                       ReflParams const& refl_params, 
+                       ReflParams const& refl_params,
                        const double * refl_coeffs);
 
-// Computed intensity: 
+// Computed intensity:
 // albedo * nonlinReflectance(reflectance_i, exposures[i], haze, num_haze_coeffs) + haze[0]
 // Cost function:
 // sum_i | I_i - comp_intensity_i|^2
-double calcIntensity(double albedo, double reflectance, double exposure, 
+double calcIntensity(double albedo, double reflectance, double exposure,
                      double steepness_factor, double const* haze, int num_haze_coeffs);
-  
+
 // Calc albedo given the intensity. See calcIntensity().
-double calcAlbedo(double intensity, double reflectance, double exposure, 
+double calcAlbedo(double intensity, double reflectance, double exposure,
                   double steepness_factor, double const* haze, int num_haze_coeffs);
 
 // Calculate current ECEF position and normal vector for a given DEM pixel.

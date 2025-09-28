@@ -60,22 +60,23 @@
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #endif
 
-#include <asp/Core/Macros.h>
-#include <asp/Core/AspProgramOptions.h>
-#include <asp/Core/DemUtils.h>
-#include <asp/Core/BaseCameraUtils.h>
-#include <asp/Core/StereoSettings.h>
-#include <asp/Core/FileUtils.h>
 #include <asp/SfS/SfsImageProc.h>
 #include <asp/SfS/SfsUtils.h>
 #include <asp/SfS/SfsOptions.h>
 #include <asp/SfS/SfsCamera.h>
 #include <asp/SfS/SfsModel.h>
 #include <asp/SfS/SfsErrorEstim.h>
+#include <asp/SfS/SfsCostFun.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Camera/CsmModel.h>
-#include <asp/asp_config.h>
+#include <asp/Core/Macros.h>
+#include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/DemUtils.h>
+#include <asp/Core/BaseCameraUtils.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/FileUtils.h>
 
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/IsisCameraModel.h>
 #endif // ASP_HAVE_PKG_ISIS

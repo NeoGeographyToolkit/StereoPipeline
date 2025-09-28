@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -29,8 +29,8 @@ namespace asp {
 
 // Find the Sun azimuth and elevation at the lon-lat position of the
 // center of the DEM. The result can change depending on the DEM.
-void sunAngles(vw::ImageView<double> const& dem, 
-               double nodata_val, 
+void sunAngles(vw::ImageView<double> const& dem,
+               double nodata_val,
                vw::cartography::GeoReference const& georef,
                vw::Vector3 const& sun_pos,
                double & azimuth, double & elevation);
@@ -38,16 +38,16 @@ void sunAngles(vw::ImageView<double> const& dem,
 // Read sun positions from a file
 void readSunPositions(std::string const& sun_positions_list,
                       std::vector<std::string> const& input_images,
-                      vw::ImageView<double> const& dem, 
-                      double nodata_val, 
+                      vw::ImageView<double> const& dem,
+                      double nodata_val,
                       vw::cartography::GeoReference const& georef,
                       std::vector<vw::Vector3> & sun_positions);
 
 // Read the sun angles (azimuth and elevation) and convert them to sun positions.
 void readSunAngles(std::string const& sun_positions_list,
                    std::vector<std::string> const& input_images,
-                   vw::ImageView<double> const& dem, 
-                   double nodata_val, 
+                   vw::ImageView<double> const& dem,
+                   double nodata_val,
                    vw::cartography::GeoReference const& georef,
                    std::vector<vw::Vector3> & sun_positions);
 
