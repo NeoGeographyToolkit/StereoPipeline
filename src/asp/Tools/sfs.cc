@@ -107,13 +107,6 @@ namespace fs = boost::filesystem;
 const size_t g_num_model_coeffs = 16;
 const size_t g_max_num_haze_coeffs = 6; // see nonlinReflectance()
 
-// If the blend weight is ground weight, rather than image weight,
-// use it as it is, without projecting into camera and interpolating.
-// It is a lot of work to pass this all over the place.
-// TODO(oalexan1): Pass this properly. Use bool opt_allow_borderline_data,
-// pass it along with bool model_shadows. Will need a testcase.
-bool g_blend_weight_is_ground_weight = false;
-
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
@@ -139,6 +132,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                              vw::BBox2i        const & crop_box,
                              MaskedImgT        const & image,
                              DoubleImgT        const & blend_weight,
+                             bool blend_weight_is_ground_weight,
                              vw::camera::CameraModel const * camera,
                              vw::PixelMask<double>   & reflectance,
                              vw::PixelMask<double>   & intensity,
@@ -199,8 +193,8 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                                    vw::ConstantEdgeExtension());
   intensity = interp_image(pix[0], pix[1]); // this interpolates
 
-  if (g_blend_weight_is_ground_weight) {
-    if (blend_weight.cols() != dem.cols() || blend_weight.rows() != dem.rows()) 
+  if (blend_weight_is_ground_weight) {
+    if (blend_weight.cols() != dem.cols() || blend_weight.rows() != dem.rows())
       vw::vw_throw(vw::ArgumentErr() 
                    << "Ground weight must have the same size as the DEM.\n");
     ground_weight = blend_weight(col, row);
@@ -299,6 +293,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     BBox2i const& crop_box,
                                     MaskedImgT const  & image,
                                     DoubleImgT const  & blend_weight,
+                                    bool blend_weight_is_ground_weight,
                                     vw::camera::CameraModel const * camera,
                                     ImageView<PixelMask<double>> & reflectance,
                                     ImageView<PixelMask<double>> & intensity,
@@ -375,10 +370,9 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                               use_pq, pval, qval,
                               col, row, dem, geo,
                               model_shadows, max_dem_height,
-                              gridx, gridy,
-                              sunPosition, refl_params,
-                              crop_box, image, blend_weight, camera,
-                              reflectance(col_sample, row_sample),
+                              gridx, gridy, sunPosition, refl_params, crop_box, image, 
+                              blend_weight, blend_weight_is_ground_weight,
+                              camera, reflectance(col_sample, row_sample),
                               intensity(col_sample, row_sample),
                               ground_weight(col_sample, row_sample),
                               refl_coeffs, opt, slopeErrEstim, heightErrEstim);
@@ -400,6 +394,7 @@ SfsCallback(SfsOptions const& opt, ImageView<double>& dem,  ImageView<Vector2>& 
             std::vector<BBox2i> const& crop_boxes, 
             std::vector<MaskedImgT> const& masked_images,
             std::vector<DoubleImgT> const& blend_weights,
+            bool blend_weight_is_ground_weight,
             std::vector<vw::CamPtr>& cameras, 
             double& dem_nodata_val, float& img_nodata_val,
             std::vector<double>& exposures, std::vector<std::vector<double>>& haze,
@@ -407,14 +402,16 @@ SfsCallback(SfsOptions const& opt, ImageView<double>& dem,  ImageView<Vector2>& 
             std::vector<double> & refl_coeffs):
   opt(opt), dem(dem), pq(pq), albedo(albedo), geo(geo), refl_params(refl_params),
   sunPosition(sunPosition), crop_boxes(crop_boxes), masked_images(masked_images),
-  blend_weights(blend_weights), cameras(cameras), dem_nodata_val(dem_nodata_val),
+  blend_weights(blend_weights), blend_weight_is_ground_weight(blend_weight_is_ground_weight),
+  cameras(cameras), dem_nodata_val(dem_nodata_val),
   img_nodata_val(img_nodata_val), exposures(exposures), haze(haze),
   max_dem_height(max_dem_height), gridx(gridx), gridy(gridy),
   refl_coeffs(refl_coeffs),
   iter(-1), final_iter(false) {}
 
-  virtual ceres::CallbackReturnType operator()(const ceres::IterationSummary& 
-                                               summary) override {
+virtual ceres::CallbackReturnType 
+operator()(const ceres::IterationSummary& summary) override {
+  
   iter++;
 
   vw_out() << "Finished iteration: " << iter << std::endl;
@@ -507,6 +504,7 @@ SfsCallback(SfsOptions const& opt, ImageView<double>& dem,  ImageView<Vector2>& 
                                   crop_boxes[image_iter],
                                   masked_images[image_iter],
                                   blend_weights[image_iter],
+                                  blend_weight_is_ground_weight,
                                   cameras[image_iter].get(),
                                   reflectance, intensity, ground_weight,
                                   &refl_coeffs[0], opt);
@@ -625,6 +623,7 @@ private:
   std::vector<BBox2i> const& crop_boxes;
   std::vector<MaskedImgT> const& masked_images;
   std::vector<DoubleImgT> const& blend_weights;
+  bool blend_weight_is_ground_weight;
   std::vector<vw::CamPtr>& cameras;
   double& dem_nodata_val;
   float& img_nodata_val;
@@ -662,6 +661,7 @@ calc_intensity_residual(SfsOptions const& opt,
                         BBox2i                            crop_box,
                         MaskedImgT                const & image,          // alias
                         DoubleImgT                const & blend_weight,   // alias
+                        bool                              blend_weight_is_ground_weight,
                         vw::CamPtr                const & camera,         // alias
                         F* residuals) {
   
@@ -686,9 +686,10 @@ calc_intensity_residual(SfsOptions const& opt,
                               col, row,  dem, geo,
                               model_shadows, max_dem_height,
                               gridx, gridy,
-                              sunPosition,  refl_params,
-                              crop_box, image, blend_weight, camera.get(),
-                              reflectance, intensity, ground_weight, refl_coeffs, opt);
+                              sunPosition,  refl_params, crop_box, image, 
+                              blend_weight, blend_weight_is_ground_weight,
+                              camera.get(), reflectance, intensity, ground_weight, 
+                              refl_coeffs, opt);
       
     if (opt.unreliable_intensity_threshold > 0) {
       if (is_valid(intensity) && intensity.child() <= opt.unreliable_intensity_threshold &&
@@ -730,6 +731,7 @@ struct IntensityError {
                  BBox2i const& crop_box,
                  MaskedImgT const& image,
                  DoubleImgT const& blend_weight,
+                 bool blend_weight_is_ground_weight,
                  boost::shared_ptr<CameraModel> const& camera):
     m_opt(opt),
     m_col(col), m_row(row), m_dem(dem), m_geo(geo),
@@ -741,6 +743,7 @@ struct IntensityError {
     m_sunPosition(sunPosition),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
+    m_blend_weight_is_ground_weight(blend_weight_is_ground_weight),
     m_camera(camera) {}
 
   // See SmoothnessError() for the definitions of bottom, top, etc.
@@ -770,6 +773,7 @@ struct IntensityError {
                                    m_crop_box,  
                                    m_image,           // alias
                                    m_blend_weight,    // alias
+                                   m_blend_weight_is_ground_weight,
                                    m_camera,          // alias
                                    residuals);
   }
@@ -788,6 +792,7 @@ struct IntensityError {
                                      BBox2i const& crop_box,
                                      MaskedImgT const& image,
                                      DoubleImgT const& blend_weight,
+                                     bool blend_weight_is_ground_weight,
                                      boost::shared_ptr<CameraModel> const& camera) {
     return (new ceres::NumericDiffCostFunction<IntensityError,
             ceres::CENTRAL, 1, 1, g_max_num_haze_coeffs, 1, 1, 1, 1, 1, 1, g_num_model_coeffs>
@@ -797,7 +802,8 @@ struct IntensityError {
                                 max_dem_height,
                                 gridx, gridy,
                                 refl_params, sunPosition,
-                                crop_box, image, blend_weight, camera)));
+                                crop_box, image, blend_weight, blend_weight_is_ground_weight,
+                                camera)));
   }
 
   SfsOptions const& m_opt;
@@ -813,6 +819,7 @@ struct IntensityError {
   BBox2i                                    m_crop_box;
   MaskedImgT                        const & m_image;          // alias
   DoubleImgT                        const & m_blend_weight;   // alias
+  bool                                      m_blend_weight_is_ground_weight;
   boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
 
@@ -835,6 +842,7 @@ struct IntensityErrorFloatDemOnly {
                              BBox2i const& crop_box,
                              MaskedImgT const& image,
                              DoubleImgT const& blend_weight,
+                             bool blend_weight_is_ground_weight,
                              boost::shared_ptr<CameraModel> const& camera):
     m_opt(opt), m_col(col), m_row(row), m_dem(dem),
     m_albedo(albedo), m_refl_coeffs(refl_coeffs),
@@ -847,6 +855,7 @@ struct IntensityErrorFloatDemOnly {
     m_sunPosition(sunPosition),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
+    m_blend_weight_is_ground_weight(blend_weight_is_ground_weight),
     m_camera(camera) {}
 
   // See SmoothnessError() for the definitions of bottom, top, etc.
@@ -879,6 +888,7 @@ struct IntensityErrorFloatDemOnly {
                                    m_crop_box,  
                                    m_image,           // alias
                                    m_blend_weight,    // alias
+                                   m_blend_weight_is_ground_weight,
                                    m_camera,          // alias
                                    residuals);
   }
@@ -901,7 +911,8 @@ struct IntensityErrorFloatDemOnly {
                                      BBox2i const& crop_box,
                                      MaskedImgT const& image,
                                      DoubleImgT const& blend_weight,
-                                     boost::shared_ptr<CameraModel> const& camera){
+                                     bool blend_weight_is_ground_weight,
+                                     boost::shared_ptr<CameraModel> const& camera) {
     return (new ceres::NumericDiffCostFunction<IntensityErrorFloatDemOnly,
             ceres::CENTRAL, 1, 1, 1, 1, 1, 1>
             (new IntensityErrorFloatDemOnly(opt, col, row, dem,
@@ -912,7 +923,9 @@ struct IntensityErrorFloatDemOnly {
                                             max_dem_height,
                                             gridx, gridy,
                                             refl_params, sunPosition,
-                                            crop_box, image, blend_weight, camera)));
+                                            crop_box, image, blend_weight,
+                                            blend_weight_is_ground_weight,
+                                            camera)));
   }
 
   SfsOptions                    const& m_opt;
@@ -932,6 +945,7 @@ struct IntensityErrorFloatDemOnly {
   BBox2i                            m_crop_box;
   MaskedImgT                const & m_image;          // alias
   DoubleImgT                const & m_blend_weight;   // alias
+  bool                              m_blend_weight_is_ground_weight;
   vw::CamPtr                const & m_camera;         // alias
 }; // end class IntensityErrorFloatDemOnly
 
@@ -954,6 +968,7 @@ struct IntensityErrorFixedMost {
                           BBox2i const& crop_box,
                           MaskedImgT const& image,
                           DoubleImgT const& blend_weight,
+                          bool blend_weight_is_ground_weight,
                           boost::shared_ptr<CameraModel> const& camera):
     m_opt(opt), m_col(col), m_row(row), m_dem(dem),
     m_albedo(albedo), m_refl_coeffs(refl_coeffs), 
@@ -966,6 +981,7 @@ struct IntensityErrorFixedMost {
     m_sunPosition(sunPosition),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
+    m_blend_weight_is_ground_weight(blend_weight_is_ground_weight),
     m_camera(camera) {}
 
   // See SmoothnessError() for the definitions of bottom, top, etc.
@@ -997,6 +1013,7 @@ struct IntensityErrorFixedMost {
                                    m_crop_box,  
                                    m_image,  // alias
                                    m_blend_weight,  // alias
+                                   m_blend_weight_is_ground_weight,
                                    m_camera,  // alias
                                    residuals);
   }
@@ -1017,6 +1034,7 @@ struct IntensityErrorFixedMost {
                                      BBox2i const& crop_box,
                                      MaskedImgT const& image,
                                      DoubleImgT const& blend_weight,
+                                     bool blend_weight_is_ground_weight,
                                      boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityErrorFixedMost,
             ceres::CENTRAL, 1, 1, g_max_num_haze_coeffs>
@@ -1027,7 +1045,9 @@ struct IntensityErrorFixedMost {
                                          max_dem_height,
                                          gridx, gridy,
                                          refl_params, sunPosition,
-                                         crop_box, image, blend_weight, camera)));
+                                         crop_box, image, blend_weight,
+                                         blend_weight_is_ground_weight,
+                                         camera)));
   }
 
   SfsOptions                        const & m_opt;
@@ -1045,6 +1065,7 @@ struct IntensityErrorFixedMost {
   BBox2i                                    m_crop_box;
   MaskedImgT                        const & m_image;          // alias
   DoubleImgT                        const & m_blend_weight;   // alias
+  bool                                      m_blend_weight_is_ground_weight;
   boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
 
@@ -1066,6 +1087,7 @@ struct IntensityErrorPQ {
                    BBox2i const& crop_box,
                    MaskedImgT const& image,
                    DoubleImgT const& blend_weight,
+                   bool blend_weight_is_ground_weight,
                    boost::shared_ptr<CameraModel> const& camera):
     m_opt(opt), m_col(col), m_row(row), m_dem(dem), m_geo(geo),
     m_model_shadows(model_shadows),
@@ -1076,6 +1098,7 @@ struct IntensityErrorPQ {
     m_sunPosition(sunPosition),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
+    m_blend_weight_is_ground_weight(blend_weight_is_ground_weight),
     m_camera(camera) {}
   
   // See SmoothnessError() for the definitions of bottom, top, etc.
@@ -1106,6 +1129,7 @@ struct IntensityErrorPQ {
                                    m_crop_box,  
                                    m_image,           // alias
                                    m_blend_weight,    // alias
+                                   m_blend_weight_is_ground_weight,
                                    m_camera,          // alias
                                    residuals);
   }
@@ -1124,6 +1148,7 @@ struct IntensityErrorPQ {
                                      BBox2i const& crop_box,
                                      MaskedImgT const& image,
                                      DoubleImgT const& blend_weight,
+                                     bool blend_weight_is_ground_weight,
                                      boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityErrorPQ,
             ceres::CENTRAL, 1, 1, g_max_num_haze_coeffs, 1, 2, 1, g_num_model_coeffs>
@@ -1133,7 +1158,9 @@ struct IntensityErrorPQ {
                                   max_dem_height,
                                   gridx, gridy,
                                   refl_params, sunPosition,
-                                  crop_box, image, blend_weight, camera)));
+                                  crop_box, image, blend_weight, 
+                                  blend_weight_is_ground_weight,
+                                  camera)));
   }
 
   SfsOptions                        const & m_opt;
@@ -1149,6 +1176,7 @@ struct IntensityErrorPQ {
   BBox2i                                    m_crop_box;
   MaskedImgT                        const & m_image;          // alias
   DoubleImgT                        const & m_blend_weight;   // alias
+  bool                                      m_blend_weight_is_ground_weight;
   boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
 
@@ -2052,6 +2080,7 @@ void run_sfs(// Fixed quantities
              std::vector<BBox2i>        const & crop_boxes,
              std::vector<MaskedImgT>    const & masked_images,
              std::vector<DoubleImgT>    const & blend_weights,
+             bool                               blend_weight_is_ground_weight,
              ReflParams               const & refl_params,
              std::vector<vw::Vector3>   const & sunPosition,
              ImageView<double>          const & orig_dem,
@@ -2144,6 +2173,7 @@ void run_sfs(// Fixed quantities
                                                crop_boxes[image_iter],
                                                masked_images[image_iter],
                                                blend_weights[image_iter],
+                                               blend_weight_is_ground_weight,
                                                cameras[image_iter]);
           problem.AddResidualBlock(cost_function_img, loss_function_img,
                                     &dem(col-1, row),  // left
@@ -2162,6 +2192,7 @@ void run_sfs(// Fixed quantities
                                    crop_boxes[image_iter],
                                    masked_images[image_iter],
                                    blend_weights[image_iter],
+                                   blend_weight_is_ground_weight,
                                    cameras[image_iter]);
           problem.AddResidualBlock(cost_function_img, loss_function_img,
                                    &exposures[image_iter],       // exposure
@@ -2185,6 +2216,7 @@ void run_sfs(// Fixed quantities
                                       crop_boxes[image_iter],
                                       masked_images[image_iter],
                                       blend_weights[image_iter],
+                                      blend_weight_is_ground_weight,
                                       cameras[image_iter]);
           problem.AddResidualBlock(cost_function_img, loss_function_img,
                                     &exposures[image_iter],          // exposure
@@ -2376,7 +2408,8 @@ void run_sfs(// Fixed quantities
   options.linear_solver_type = ceres::SPARSE_SCHUR;
 
   SfsCallback callback(opt, dem, pq, albedo, geo, refl_params, sunPosition, 
-                       crop_boxes, masked_images, blend_weights, cameras, 
+                       crop_boxes, masked_images, blend_weights, 
+                       blend_weight_is_ground_weight, cameras, 
                        dem_nodata_val, img_nodata_val, exposures, haze, 
                        max_dem_height, gridx, gridy, refl_coeffs); 
   
@@ -2526,6 +2559,7 @@ public:
 void estimExposureHazeAlbedo(SfsOptions & opt,
                              std::vector<MaskedImgT> const& masked_images,
                              std::vector<DoubleImgT> const& blend_weights,
+                             bool blend_weight_is_ground_weight,
                              ImageView<double> const& dem,
                              double mean_albedo,
                              vw::cartography::GeoReference const& geo,
@@ -2564,6 +2598,7 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
                                    crop_boxes[image_iter],
                                    masked_images[image_iter],
                                    blend_weights[image_iter],
+                                   blend_weight_is_ground_weight,
                                    cameras[image_iter].get(),
                                    reflectance[image_iter], intensity[image_iter],
                                    ground_weight,
@@ -3053,6 +3088,11 @@ int main(int argc, char* argv[]) {
     std::vector<MaskedImgT> masked_images(num_images);
     std::vector<DoubleImgT> blend_weights(num_images);
     
+    // If the blend weight is ground weight, rather than image weight,
+    // use it as it is, without projecting into camera and interpolating.
+    // TODO(oalexan1): See comment on this further down.
+    bool blend_weight_is_ground_weight = false;
+    
     float img_nodata_val = -std::numeric_limits<float>::max();
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       
@@ -3162,6 +3202,7 @@ int main(int argc, char* argv[]) {
                                      crop_boxes[image_iter],
                                      masked_images[image_iter],
                                      blend_weights[image_iter],
+                                     blend_weight_is_ground_weight,
                                      cameras[image_iter].get(),
                                      reflectance, intensity, ground_weight,
                                      &opt.model_coeffs_vec[0], opt);
@@ -3227,16 +3268,12 @@ int main(int argc, char* argv[]) {
     if (opt.estim_exposure_haze_albedo && 
         (opt.float_albedo || opt.num_haze_coeffs > 0))
       estimExposureHazeAlbedo(opt, masked_images, blend_weights,
+                              blend_weight_is_ground_weight,
                               dem, mean_albedo, 
                               geo, cameras, max_dem_height,
                               crop_boxes, sunPosition,
                               refl_params, gridx, gridy);
     
-    // for (size_t image_iter = 0; image_iter < opt.image_exposures_vec.size(); image_iter++) {
-    //   vw_out() << "Image exposure for " << opt.input_images[image_iter] << ' '
-    //            << opt.image_exposures_vec[image_iter] << std::endl;
-    // }
-
     if (opt.compute_exposures_only || opt.estim_exposure_haze_albedo) {
       asp::saveExposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
       // TODO(oalexan1): Think of this more
@@ -3316,6 +3353,7 @@ int main(int argc, char* argv[]) {
                                        crop_boxes[image_iter],
                                        masked_images[image_iter],
                                        blend_weights[image_iter],
+                                       blend_weight_is_ground_weight,
                                        cameras[image_iter].get(),
                                        reflectance, meas_intensity, ground_weight,
                                        &opt.model_coeffs_vec[0], opt,
@@ -3471,6 +3509,10 @@ int main(int argc, char* argv[]) {
     }
 
     if (opt.allow_borderline_data) {
+      // TODO(oalexan1): These weights should be created before any calculation
+      // of intensity. As of now, they kick after that, and before iterative
+      // SfS. Must check the effect of that. Should result in minor changes to
+      // exposure only.
       int cols = dem.cols(), rows = dem.rows();
       asp::adjustBorderlineDataWeights(cols, rows, opt.blending_dist, opt.blending_power,
                                        vw::GdalWriteOptions(opt), // slice
@@ -3482,7 +3524,7 @@ int main(int argc, char* argv[]) {
 
       // Use the ground weights from now on instead of blending weights.
       // Will overwrite the weights below.
-      g_blend_weight_is_ground_weight = true;
+      blend_weight_is_ground_weight = true;
 
       // Redo the image masks. Unlike before, the shadow threshold is set to 0
       // to allow shadow pixels. The weights will control how much of these
@@ -3566,7 +3608,8 @@ int main(int argc, char* argv[]) {
     run_sfs(// Fixed quantities
             opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight, 
             max_dem_height, dem_nodata_val, img_nodata_val,  crop_boxes, masked_images, 
-            blend_weights, refl_params, sunPosition, orig_dem,
+            blend_weights, blend_weight_is_ground_weight,
+            refl_params, sunPosition, orig_dem,
             lit_image_mask, curvature_in_shadow_weight,
             // Variable quantities
             dem, albedo, cameras, opt.image_exposures_vec, opt.image_haze_vec,
