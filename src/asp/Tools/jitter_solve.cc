@@ -299,16 +299,6 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "cameras.")
     ("quat-norm-weight", po::value(&opt.quat_norm_weight)->default_value(1.0),
      "How much weight to give to the constraint that the norm of each quaternion must be 1.")
-    ("roll-weight", po::value(&opt.roll_weight)->default_value(0.0),
-     "A weight to penalize the deviation of camera roll orientation as measured from the "
-     "along-track direction. Pass in a large value, such as 1e+5. This is best used only "
-     "with linescan cameras created with sat_sim. With non-synthetic cameras, add the "
-     "--initial-camera-constraint option.")
-    ("yaw-weight", po::value(&opt.yaw_weight)->default_value(0.0),
-     "A weight to penalize the deviation of camera yaw orientation as measured from the "
-     "along-track direction. Pass in a large value, such as 1e+5. This is best used only "
-     "with linescan cameras created with sat_sim. With non-synthetic cameras, add the "
-     "--initial-camera-constraint option.")
     ("weight-image", po::value(&opt.weight_image)->default_value(""),
      "Given a georeferenced image with float values, for each initial triangulated "
      "point find its location in the image and closest pixel value. Multiply the "
@@ -320,13 +310,24 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "Weight image for anchor points. Limits where anchor points are placed and their "
      "weight. These weights are additionally multiplied by --anchor-weight. See also "
      "--weight-image.")
+    ("roll-weight", po::value(&opt.roll_weight)->default_value(0.0),
+     "A weight to penalize the deviation of camera roll orientation as measured from the "
+     "along-track direction. Pass in a large value, such as 1e+5. This is best used only "
+     "with linescan cameras created with sat_sim. With non-synthetic cameras, add the "
+     "--initial-camera-constraint option. Use with --camera-position-weight 1e+6 or so, to "
+     "tightly constrain the camera positions.")
+    ("yaw-weight", po::value(&opt.yaw_weight)->default_value(0.0),
+     "A weight to penalize the deviation of camera yaw orientation as measured from the "
+     "along-track direction. Pass in a large value, such as 1e+5. This is best used only "
+     "with linescan cameras created with sat_sim. With non-synthetic cameras, add the "
+     "--initial-camera-constraint option. Use with --camera-position-weight 1e+6 or so, to "
+     "tightly constrain the camera positions.")
      ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.0),
       "A weight to penalize high-frequency changes in the sequence of orientations "
       "in the linescan cameras being optimized. This is internally adjusted based "
       "on the initial curvature of the sequence of orientations. A value of 0.01 "
       "to 0.1 is recommended. This may impede convergence if high. Use with "
-      "--camera-position-weight 1e+6 or so, to constrain the camera positions, "
-      "to ensure that does not interfere with constraining the orientations.")
+      "--camera-position-weight 1e+6 or so, to tightly constrain the camera positions.")
     ("initial-camera-constraint", 
      po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
      "When constraining roll and yaw, measure these not in the satellite along-track/ "
@@ -696,9 +697,18 @@ void calcAnchorPoints(Options                         const & opt,
     int lenx = ceil(double(numSamples) / bin_len); lenx = std::max(1, lenx);
     int leny = ceil(double(numLines + 2 * extra) / bin_len); leny = std::max(1, leny);
 
+    vw_out() << "Image file: " << opt.image_files[icam] << std::endl;
+    vw::TerminalProgressCallback tpc("asp", "\t--> ");
+    double inc_amount = 1.0/lenx;
+    
+    tpc.report_progress(0);
+
     int numAnchorPoints = 0;
     for (int binx = 0; binx <= lenx; binx++) {
+      
+      tpc.report_incremental_progress(inc_amount);
       double posx = binx * bin_len;
+      
       for (int biny = 0; biny <= leny; biny++) {
         double posy = biny * bin_len - extra;
         
@@ -791,8 +801,7 @@ void calcAnchorPoints(Options                         const & opt,
       }   
     }
 
-    vw_out() << std::endl;
-    vw_out() << "Image file: " << opt.image_files[icam] << std::endl;
+    tpc.report_finished();
     vw_out() << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
     vw_out() << "Num anchor points per image: " << numAnchorPoints     << std::endl;
   }   

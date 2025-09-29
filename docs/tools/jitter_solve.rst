@@ -174,7 +174,9 @@ Smoothness constraint
 
 The option ``--smoothness-weight`` constraints how much each sequence of
 linescan poses can change in curvature relative to the initial values. 
-This can prevent convergence. A good value should be found empirically.
+This can prevent convergence. 
+
+A range of values is suggested in :numref:`jitter_options`.
 
 Roll and yaw constraints
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -187,7 +189,7 @@ It is strongly suggested not to use these (or the smoothness weight) in a first
 pass. Only if happy enough with the results and it is desired to control various
 aspects of the solution, one should try these options.
 
-These are described in :numref:`jitter_options`.
+Values for these are suggested in :numref:`jitter_options`.
 
 Resampling the poses
 ~~~~~~~~~~~~~~~~~~~~
@@ -2297,20 +2299,30 @@ Command-line options for jitter_solve
     squared. No robust threshold is used to attenuate this term.
     See also :numref:`jitter_camera`.
 
+--smoothness-weight <double (default: 0.0)>
+    A weight to penalize high-frequency changes in the sequence of orientations
+    in the linescan cameras being optimized. This is internally adjusted based
+    on the initial curvature of the sequence of orientations. A value of 0.01 to
+    0.1 is recommended. This may impede convergence if high. Use with
+    ``--camera-position-weight 1e+6`` or so, to tightly constrain the cameras
+    positions.
+
 --roll-weight <double (default: 0.0)>
     A weight to penalize the deviation of camera roll orientation as measured
     from the along-track direction. Pass in a large value, such as 1e+5. This is
     best used only with linescan cameras created with ``sat_sim``
     (:numref:`sat_sim`). With non-synthetic cameras, add the
-    ``--initial-camera-constraint`` option.
+    ``--initial-camera-constraint`` option. Use with ``--camera-position-weight
+    1e+6`` or so, to tightly constrain the cameras positions.
 
 --yaw-weight <double (default: 0.0)>
     A weight to penalize the deviation of camera yaw orientation as measured
     from the along-track direction. Pass in a large value, such as 1e+5. This is
     best used only with linescan cameras created with ``sat_sim``
     (:numref:`sat_sim`). With non-synthetic cameras, add the
-    ``--initial-camera-constraint`` option.
-
+    ``--initial-camera-constraint`` option. Use with ``--camera-position-weight
+    1e+6`` or so, to tightly constrain the cameras positions.
+    
 --initial-camera-constraint
     When constraining roll and yaw, measure these not in the satellite
     along-track/across-track/down coordinate system, but relative to the initial
@@ -2333,14 +2345,6 @@ Command-line options for jitter_solve
     their weight. Weights are additionally multiplied by ``--anchor-weight``.
     See also ``--weight-image``.
 
---smoothness-weight <double (default: 0.0)>
-    A weight to penalize high-frequency changes in the sequence of orientations
-    in the linescan cameras being optimized. This is internally adjusted based
-    on the initial curvature of the sequence of orientations. A value of 0.01 to
-    0.1 is recommended. This may impede convergence if high. Use with
-    ``--camera-position-weight 1e+6`` or so, to constrain the cameras positions,
-    to ensure that does not interfere with constraining the orientations.
-    
 --image-list
     A file containing the list of images, when they are too many to specify on
     the command line. Use in the file a space or newline as separator. See also
