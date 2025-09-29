@@ -697,10 +697,9 @@ void calcAnchorPoints(Options                         const & opt,
     int lenx = ceil(double(numSamples) / bin_len); lenx = std::max(1, lenx);
     int leny = ceil(double(numLines + 2 * extra) / bin_len); leny = std::max(1, leny);
 
-    vw_out() << "Image file: " << opt.image_files[icam] << std::endl;
+    vw_out() << "Image file: " << opt.image_files[icam] << "\n";
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
     double inc_amount = 1.0/lenx;
-    
     tpc.report_progress(0);
 
     int numAnchorPoints = 0;
