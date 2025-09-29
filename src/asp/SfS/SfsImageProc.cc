@@ -653,4 +653,46 @@ void calcSampleRates(vw::ImageViewRef<double> const& dem, int num_samples,
   sample_row_rate = std::max((int)round(dem.rows()/double(num_samples)), 1);
 }
 
+// Compute a full-resolution image by specific interpolation into a low-resolution 
+// one. The full-res image may not fit in memory, so we need to compute it in tiles.
+// See computeReflectanceAndIntensity() for low-res vs full-res relationship.
+SfsInterpView::SfsInterpView(int full_res_cols, int full_res_rows,
+                             int sample_col_rate, int sample_row_rate,
+                             vw::ImageView<float> const& lowres_img): 
+    m_full_res_cols(full_res_cols), m_full_res_rows(full_res_rows),
+    m_sample_col_rate(sample_col_rate), m_sample_row_rate(sample_row_rate),
+    m_lowres_img(lowres_img) {
+  }
+  
+// Per-pixel operation not implemented  
+SfsInterpView::pixel_type 
+SfsInterpView::operator()(double/*i*/, double/*j*/, vw::int32/*p*/) const {
+  vw::vw_throw(vw::NoImplErr() << "SfsInterpView::operator()(...) is not implemented");
+  return SfsInterpView::pixel_type();
+}
+
+// Per-tile operation
+SfsInterpView::prerasterize_type SfsInterpView::prerasterize(vw::BBox2i const& bbox) const {
+
+  vw::InterpolationView<vw::EdgeExtensionView<vw::ImageView<float>,
+    vw::ConstantEdgeExtension>, vw::BilinearInterpolation> 
+    interp_lowres_img 
+      = vw::interpolate(m_lowres_img,
+                        vw::BilinearInterpolation(),
+                        vw::ConstantEdgeExtension());
+
+  vw::ImageView<result_type> tile(bbox.width(), bbox.height());
+  for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
+    for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
+      double valx = (col - 1.0) / double(m_sample_col_rate) + 1.0;
+      double valy = (row - 1.0) / double(m_sample_row_rate) + 1.0;
+      tile(col - bbox.min().x(), row - bbox.min().y())
+        = interp_lowres_img(valx, valy);
+    }
+  }
+  
+  return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
+                           cols(), rows());
+}
+
 } // end namespace asp

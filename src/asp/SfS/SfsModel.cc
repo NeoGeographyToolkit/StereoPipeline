@@ -763,4 +763,61 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
   return;
 }
 
+// Initalize the reflectance parameters based on user input
+void setupReflectance(asp::ReflParams & refl_params, asp::SfsOptions & opt) {
+  if (opt.reflectance_type == 0)
+    refl_params.reflectanceType = LAMBERT;
+  else if (opt.reflectance_type == 1)
+    refl_params.reflectanceType = LUNAR_LAMBERT;
+  else if (opt.reflectance_type == 2)
+    refl_params.reflectanceType = HAPKE;
+  else if (opt.reflectance_type == 3)
+    refl_params.reflectanceType = ARBITRARY_MODEL;
+  else if (opt.reflectance_type == 4)
+    refl_params.reflectanceType = CHARON;
+  else
+    vw_throw( ArgumentErr() << "Expecting Lambertian or Lunar-Lambertian reflectance." );
+  refl_params.phaseCoeffC1 = 0; 
+  refl_params.phaseCoeffC2 = 0;
+  
+  // Default model coefficients, unless they were read already
+  if (opt.model_coeffs_vec.empty()) {
+    opt.model_coeffs_vec.resize(g_num_model_coeffs);
+    if (refl_params.reflectanceType == LUNAR_LAMBERT ||
+        refl_params.reflectanceType == ARBITRARY_MODEL ) {
+      // Lunar lambertian or its crazy experimental generalization
+      opt.model_coeffs_vec.resize(g_num_model_coeffs);
+      opt.model_coeffs_vec[0] = 1;
+      opt.model_coeffs_vec[1] = -0.019;
+      opt.model_coeffs_vec[2] =  0.000242;   //0.242*1e-3;
+      opt.model_coeffs_vec[3] = -0.00000146; //-1.46*1e-6;
+      opt.model_coeffs_vec[4] = 1;
+      opt.model_coeffs_vec[5] = 0;
+      opt.model_coeffs_vec[6] = 0;
+      opt.model_coeffs_vec[7] = 0;
+      opt.model_coeffs_vec[8] = 1;
+      opt.model_coeffs_vec[9] = -0.019;
+      opt.model_coeffs_vec[10] =  0.000242;   //0.242*1e-3;
+      opt.model_coeffs_vec[11] = -0.00000146; //-1.46*1e-6;
+      opt.model_coeffs_vec[12] = 1;
+      opt.model_coeffs_vec[13] = 0;
+      opt.model_coeffs_vec[14] = 0;
+      opt.model_coeffs_vec[15] = 0;
+    }else if (refl_params.reflectanceType == HAPKE) {
+      opt.model_coeffs_vec[0] = 0.68; // omega (also known as w)
+      opt.model_coeffs_vec[1] = 0.17; // b
+      opt.model_coeffs_vec[2] = 0.62; // c
+      opt.model_coeffs_vec[3] = 0.52; // B0
+      opt.model_coeffs_vec[4] = 0.52; // h
+    }else if (refl_params.reflectanceType == CHARON) {
+      opt.model_coeffs_vec.resize(g_num_model_coeffs);
+      opt.model_coeffs_vec[0] = 0.7; // A
+      opt.model_coeffs_vec[1] = 0.63; // f(alpha)
+    }else if (refl_params.reflectanceType != LAMBERT) {
+      vw_throw( ArgumentErr() << "The Hapke model coefficients were not set. "
+                << "Use the --model-coeffs option." );
+    }
+  }
+}
+
 } // end namespace asp

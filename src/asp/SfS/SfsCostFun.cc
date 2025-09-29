@@ -69,12 +69,10 @@ SfsCallback(asp::SfsOptions const& opt,
 
 ceres::CallbackReturnType 
 SfsCallback::operator()(const ceres::IterationSummary& summary) {
-  
-  using namespace vw;
-  
+
   iter++;
 
-  vw_out() << "Finished iteration: " << iter << std::endl;
+  vw::vw_out() << "Finished iteration: " << iter << std::endl;
 
   if (!opt.save_computed_intensity_only)
     asp::saveExposures(opt.out_prefix, opt.input_images, exposures);
@@ -84,7 +82,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
 
   std::string model_coeffs_file = asp::modelCoeffsFileName(opt.out_prefix);
   if (!opt.save_computed_intensity_only) {
-    vw_out() << "Writing: " << model_coeffs_file << std::endl;
+    vw::vw_out() << "Writing: " << model_coeffs_file << std::endl;
     std::ofstream mcf(model_coeffs_file.c_str());
     mcf.precision(17);
     for (size_t coeff_iter = 0; coeff_iter < refl_coeffs.size(); coeff_iter++)
@@ -105,29 +103,29 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
   vw::ImageView<double> dem_nodata;
   if (opt.save_dem_with_nodata) {
     dem_nodata = vw::ImageView<double>(dem.cols(), dem.rows());
-    fill(dem_nodata, dem_nodata_val);
+    vw::fill(dem_nodata, dem_nodata_val);
   }
 
   bool has_georef = true, has_nodata = true;
-  TerminalProgressCallback tpc("asp", ": ");
+  vw::TerminalProgressCallback tpc("asp", ": ");
   if ( (!opt.save_sparingly || final_iter) && !opt.save_computed_intensity_only ) {
     std::string out_dem_file = opt.out_prefix + "-DEM"
       + iter_str + ".tif";
-    vw_out() << "Writing: " << out_dem_file << std::endl;
-    block_write_gdal_image(out_dem_file, dem, has_georef, geo,
-                          has_nodata, dem_nodata_val,
-                          opt, tpc);
+    vw::vw_out() << "Writing: " << out_dem_file << std::endl;
+    vw::cartography::block_write_gdal_image(out_dem_file, dem, has_georef, geo,
+                                            has_nodata, dem_nodata_val,
+                                            opt, tpc);
   }
 
   if ((!opt.save_sparingly || (final_iter && opt.float_albedo)) &&
       !opt.save_computed_intensity_only) {
     std::string out_albedo_file = opt.out_prefix + "-comp-albedo"
       + iter_str + ".tif";
-    vw_out() << "Writing: " << out_albedo_file << std::endl;
-    block_write_gdal_image(out_albedo_file, albedo, has_georef,
-                          geo,
-                          has_nodata, dem_nodata_val,
-                          opt, tpc);
+    vw::vw_out() << "Writing: " << out_albedo_file << std::endl;
+    vw::cartography::block_write_gdal_image(out_albedo_file, albedo, 
+                                            has_georef, geo, 
+                                            has_nodata, dem_nodata_val,
+                                            opt, tpc);
   }
 
   // Print reflectance and other things
@@ -136,13 +134,13 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     if (opt.skip_images.find(image_iter) != opt.skip_images.end())
       continue;
 
-    vw::ImageView<PixelMask<double>> reflectance, intensity, comp_intensity;
+    vw::ImageView<vw::PixelMask<double>> reflectance, intensity, comp_intensity;
     vw::ImageView<double> ground_weight;
 
     std::string out_camera_file
       = asp::bundle_adjust_file_name(opt.out_prefix,
-                                      opt.input_images[image_iter],
-                                      opt.input_cameras[image_iter]);
+                                     opt.input_images[image_iter],
+                                     opt.input_cameras[image_iter]);
 
     if (opt.save_sparingly && !opt.save_dem_with_nodata)
       continue; // don't write too many things
@@ -172,7 +170,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     if (opt.save_dem_with_nodata) {
       for (int col = 0; col < reflectance.cols(); col++) {
         for (int row = 0; row < reflectance.rows(); row++) {
-          if (is_valid(reflectance(col, row)))
+          if (vw::is_valid(reflectance(col, row)))
             dem_nodata(col, row) = dem(col, row);
         }
       }
@@ -195,32 +193,34 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     }
 
     std::string out_meas_intensity_file = iter_str2 + "-meas-intensity.tif";
-    vw_out() << "Writing: " << out_meas_intensity_file << std::endl;
-    block_write_gdal_image(out_meas_intensity_file, apply_mask(intensity, img_nodata_val),
-                          has_georef, geo, has_nodata, img_nodata_val, opt, tpc);
+    vw::vw_out() << "Writing: " << out_meas_intensity_file << std::endl;
+    vw::cartography::block_write_gdal_image(out_meas_intensity_file, 
+                                            vw::apply_mask(intensity, img_nodata_val),
+                                            has_georef, geo, has_nodata, img_nodata_val, 
+                                            opt, tpc);
 
     std::string out_comp_intensity_file = iter_str2 + "-comp-intensity.tif";
-    vw_out() << "Writing: " << out_comp_intensity_file << std::endl;
-    block_write_gdal_image(out_comp_intensity_file,
-                          apply_mask(comp_intensity, img_nodata_val),
-                          has_georef, geo, has_nodata, img_nodata_val,
-                          opt, tpc);
+    vw::vw_out() << "Writing: " << out_comp_intensity_file << std::endl;
+    vw::cartography::block_write_gdal_image(out_comp_intensity_file,
+                                            vw::apply_mask(comp_intensity, img_nodata_val),
+                                            has_georef, geo, has_nodata, img_nodata_val,
+                                            opt, tpc);
 
     if (opt.save_computed_intensity_only)
       continue; // don't write too many things
 
     std::string out_weight_file = iter_str2 + "-blending-weight.tif";
-    vw_out() << "Writing: " << out_weight_file << std::endl;
-    block_write_gdal_image(out_weight_file, ground_weight,
-                          has_georef, geo, has_nodata, img_nodata_val, 
-                          opt, tpc);
+    vw::vw_out() << "Writing: " << out_weight_file << std::endl;
+    vw::cartography::block_write_gdal_image(out_weight_file, ground_weight,
+                                            has_georef, geo, has_nodata, img_nodata_val, 
+                                            opt, tpc);
 
     std::string out_reflectance_file = iter_str2 + "-reflectance.tif";
-    vw_out() << "Writing: " << out_reflectance_file << std::endl;
-    block_write_gdal_image(out_reflectance_file,
-                           apply_mask(reflectance, img_nodata_val),
-                           has_georef, geo, has_nodata, img_nodata_val,
-                           opt, tpc);
+    vw::vw_out() << "Writing: " << out_reflectance_file << std::endl;
+    vw::cartography::block_write_gdal_image(out_reflectance_file,
+                                            vw::apply_mask(reflectance, img_nodata_val),
+                                            has_georef, geo, has_nodata, img_nodata_val,
+                                            opt, tpc);
 
     // Find the measured normalized albedo, after correcting for
     // reflectance.
@@ -228,7 +228,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     measured_albedo.set_size(reflectance.cols(), reflectance.rows());
     for (int col = 0; col < measured_albedo.cols(); col++) {
       for (int row = 0; row < measured_albedo.rows(); row++) {
-        if (!is_valid(reflectance(col, row)))
+        if (!vw::is_valid(reflectance(col, row)))
           measured_albedo(col, row) = 1;
         else
           measured_albedo(col, row)
@@ -238,29 +238,30 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
       }
     }
     std::string out_albedo_file = iter_str2 + "-meas-albedo.tif";
-    vw_out() << "Writing: " << out_albedo_file << std::endl;
-    block_write_gdal_image(out_albedo_file, measured_albedo,
-                           has_georef, geo, has_nodata, 0, opt, tpc);
+    vw::vw_out() << "Writing: " << out_albedo_file << std::endl;
+    vw::cartography::block_write_gdal_image(out_albedo_file, measured_albedo,
+                                            has_georef, geo, has_nodata, 0, opt, tpc);
 
-    vw_out() << "Exposure for image " << image_iter << ": "
-            << exposures[image_iter] << std::endl;
+    vw::vw_out() << "Exposure for image " << image_iter << ": "
+             << exposures[image_iter] << std::endl;
 
     if (opt.num_haze_coeffs > 0) {
-      vw_out() << "Haze for image " << image_iter << ":";
+      vw::vw_out() << "Haze for image " << image_iter << ":";
       for (size_t hiter = 0; hiter < haze[image_iter].size(); hiter++) {
-        vw_out() << " " << haze[image_iter][hiter];
+        vw::vw_out() << " " << haze[image_iter][hiter];
       }
-      vw_out() << std::endl;
+      vw::vw_out() << std::endl;
     }
   } // end loop through images
 
   if (opt.save_dem_with_nodata && (!opt.save_sparingly || final_iter)) {
     std::string out_dem_nodata_file = opt.out_prefix + "-DEM-nodata"
       + iter_str + ".tif";
-    vw_out() << "Writing: " << out_dem_nodata_file << std::endl;
-    TerminalProgressCallback tpc("asp", ": ");
-    block_write_gdal_image(out_dem_nodata_file, dem_nodata, has_georef, geo,
-                           has_nodata, dem_nodata_val, opt, tpc);
+    vw::vw_out() << "Writing: " << out_dem_nodata_file << std::endl;
+    vw::TerminalProgressCallback tpc("asp", ": ");
+    vw::cartography::block_write_gdal_image(out_dem_nodata_file, dem_nodata, 
+                                            has_georef, geo,
+                                            has_nodata, dem_nodata_val, opt, tpc);
   }
 
   return ceres::SOLVER_CONTINUE;

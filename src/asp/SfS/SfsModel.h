@@ -32,6 +32,10 @@ namespace vw { namespace cartography {
 
 namespace asp {
 
+// Maximum number of reflectance model and haze coefficients
+const size_t g_num_model_coeffs = 16;
+const size_t g_max_num_haze_coeffs = 6;
+
 typedef vw::ImageViewRef<vw::PixelMask<float>> MaskedImgT;
 typedef vw::ImageViewRef<double> DoubleImgT;
 
@@ -133,6 +137,9 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
                                     asp::SlopeErrEstim  * slopeErrEstim = NULL,
                                     asp::HeightErrEstim * heightErrEstim = NULL);
 
+// Initalize the reflectance parameters based on user input
+void setupReflectance(asp::ReflParams & refl_params, asp::SfsOptions & opt);
+  
 } // end namespace asp
 
 #endif // __ASP_SFS_SFS_MODEL_H__

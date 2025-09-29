@@ -105,9 +105,6 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-const size_t g_num_model_coeffs = 16;
-const size_t g_max_num_haze_coeffs = 6; // see nonlinReflectance()
-
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
@@ -1906,127 +1903,6 @@ void run_sfs(// Fixed quantities
   
   vw_out() << summary.FullReport() << "\n" << std::endl;
 }
-
-// TODO(oalexan1): Move this to SfsReflectance.cc
-void setupReflectance(ReflParams & refl_params, SfsOptions & opt) {
-  if (opt.reflectance_type == 0)
-    refl_params.reflectanceType = LAMBERT;
-  else if (opt.reflectance_type == 1)
-    refl_params.reflectanceType = LUNAR_LAMBERT;
-  else if (opt.reflectance_type == 2)
-    refl_params.reflectanceType = HAPKE;
-  else if (opt.reflectance_type == 3)
-    refl_params.reflectanceType = ARBITRARY_MODEL;
-  else if (opt.reflectance_type == 4)
-    refl_params.reflectanceType = CHARON;
-  else
-    vw_throw( ArgumentErr() << "Expecting Lambertian or Lunar-Lambertian reflectance." );
-  refl_params.phaseCoeffC1 = 0; 
-  refl_params.phaseCoeffC2 = 0;
-  
-  // Default model coefficients, unless they were read already
-  if (opt.model_coeffs_vec.empty()) {
-    opt.model_coeffs_vec.resize(g_num_model_coeffs);
-    if (refl_params.reflectanceType == LUNAR_LAMBERT ||
-        refl_params.reflectanceType == ARBITRARY_MODEL ) {
-      // Lunar lambertian or its crazy experimental generalization
-      opt.model_coeffs_vec.resize(g_num_model_coeffs);
-      opt.model_coeffs_vec[0] = 1;
-      opt.model_coeffs_vec[1] = -0.019;
-      opt.model_coeffs_vec[2] =  0.000242;   //0.242*1e-3;
-      opt.model_coeffs_vec[3] = -0.00000146; //-1.46*1e-6;
-      opt.model_coeffs_vec[4] = 1;
-      opt.model_coeffs_vec[5] = 0;
-      opt.model_coeffs_vec[6] = 0;
-      opt.model_coeffs_vec[7] = 0;
-      opt.model_coeffs_vec[8] = 1;
-      opt.model_coeffs_vec[9] = -0.019;
-      opt.model_coeffs_vec[10] =  0.000242;   //0.242*1e-3;
-      opt.model_coeffs_vec[11] = -0.00000146; //-1.46*1e-6;
-      opt.model_coeffs_vec[12] = 1;
-      opt.model_coeffs_vec[13] = 0;
-      opt.model_coeffs_vec[14] = 0;
-      opt.model_coeffs_vec[15] = 0;
-    }else if (refl_params.reflectanceType == HAPKE) {
-      opt.model_coeffs_vec[0] = 0.68; // omega (also known as w)
-      opt.model_coeffs_vec[1] = 0.17; // b
-      opt.model_coeffs_vec[2] = 0.62; // c
-      opt.model_coeffs_vec[3] = 0.52; // B0
-      opt.model_coeffs_vec[4] = 0.52; // h
-    }else if (refl_params.reflectanceType == CHARON) {
-      opt.model_coeffs_vec.resize(g_num_model_coeffs);
-      opt.model_coeffs_vec[0] = 0.7; // A
-      opt.model_coeffs_vec[1] = 0.63; // f(alpha)
-    }else if (refl_params.reflectanceType != LAMBERT) {
-      vw_throw( ArgumentErr() << "The Hapke model coefficients were not set. "
-                << "Use the --model-coeffs option." );
-    }
-  }
-}
-
-// Compute a full-resolution image by specific interpolation into a low-resolution 
-// one. The full-res image may not fit in memory, so we need to compute it in tiles.
-// See computeReflectanceAndIntensity() for low-res vs full-res relationship.
-// TODO(oalexan1): Move this to SfsImageProc.cc.
-class SfsInterpView: public vw::ImageViewBase<SfsInterpView> {
-  int m_full_res_cols, m_full_res_rows;
-  int m_sample_col_rate, m_sample_row_rate;
-  vw::ImageView<float> const& m_lowres_img;
-  typedef float PixelT;
-
-public:
-  SfsInterpView(int full_res_cols, int full_res_rows,
-                int sample_col_rate, int sample_row_rate,
-                vw::ImageView<float> const& lowres_img): 
-    m_full_res_cols(full_res_cols), m_full_res_rows(full_res_rows),
-    m_sample_col_rate(sample_col_rate), m_sample_row_rate(sample_row_rate),
-    m_lowres_img(lowres_img) {
-  }
-  
-  typedef PixelT pixel_type;
-  typedef PixelT result_type;
-  typedef ProceduralPixelAccessor<SfsInterpView> pixel_accessor;
-
-  inline int32 cols() const { return m_full_res_cols; }
-  inline int32 rows() const { return m_full_res_rows; }
-  inline int32 planes() const { return 1; }
-
-  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
-
-  inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
-    vw_throw(NoImplErr() << "SfsInterpView::operator()(...) is not implemented");
-    return pixel_type();
-  }
-
-  typedef CropView<ImageView<pixel_type>> prerasterize_type;
-  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
-
-    vw::InterpolationView<vw::EdgeExtensionView<vw::ImageView<float>,
-      vw::ConstantEdgeExtension>, vw::BilinearInterpolation> 
-      interp_lowres_img 
-        = vw::interpolate(m_lowres_img,
-                          vw::BilinearInterpolation(),
-                          vw::ConstantEdgeExtension());
-
-    vw::ImageView<result_type> tile(bbox.width(), bbox.height());
-    for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
-      for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
-        double valx = (col - 1.0) / double(m_sample_col_rate) + 1.0;
-        double valy = (row - 1.0) / double(m_sample_row_rate) + 1.0;
-        tile(col - bbox.min().x(), row - bbox.min().y())
-          = interp_lowres_img(valx, valy);
-      }
-    }
-    
-    return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
-                             cols(), rows());
-  }
-
-  template <class DestT>
-  inline void rasterize(DestT const& dest, BBox2i bbox) const {
-    vw::rasterize(prerasterize(bbox), dest, bbox);
-  }
-};
 
 // Find the best-fit exposure and haze given the input sampled image and reflectance.
 // Also find the sampled albedo along the way. The albedo will be optimized

@@ -23,6 +23,7 @@
 
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
+#include <vw/Image/PerPixelViews.h>
 
 namespace vw {
   class GdalWriteOptions;
@@ -83,6 +84,41 @@ void deepenCraters(std::string const& dem_file,
 // Sample large DEMs. Keep about num_samples row and column samples.
 void calcSampleRates(vw::ImageViewRef<double> const& dem, int num_samples,
                      int & sample_col_rate, int & sample_row_rate);
+
+// Compute a full-resolution image by specific interpolation into a low-resolution 
+// one. The full-res image may not fit in memory, so we need to compute it in tiles.
+// See computeReflectanceAndIntensity() for low-res vs full-res relationship.
+class SfsInterpView: public vw::ImageViewBase<SfsInterpView> {
+  int m_full_res_cols, m_full_res_rows;
+  int m_sample_col_rate, m_sample_row_rate;
+  vw::ImageView<float> const& m_lowres_img;
+  typedef float PixelT;
+
+public:
+  SfsInterpView(int full_res_cols, int full_res_rows,
+                int sample_col_rate, int sample_row_rate,
+                vw::ImageView<float> const& lowres_img);
+  
+  typedef PixelT pixel_type;
+  typedef PixelT result_type;
+  typedef vw::ProceduralPixelAccessor<SfsInterpView> pixel_accessor;
+
+  inline vw::int32 cols() const { return m_full_res_cols; }
+  inline vw::int32 rows() const { return m_full_res_rows; }
+  inline vw::int32 planes() const { return 1; }
+
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
+
+  pixel_type operator()(double/*i*/, double/*j*/, vw::int32/*p*/ = 0) const;
+
+  typedef vw::CropView<vw::ImageView<pixel_type>> prerasterize_type;
+  prerasterize_type prerasterize(vw::BBox2i const& bbox) const;
+
+  template <class DestT>
+  inline void rasterize(DestT const& dest, vw::BBox2i bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
+  }
+};
 
 } // end namespace asp
 
