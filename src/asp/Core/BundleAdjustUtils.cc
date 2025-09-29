@@ -32,6 +32,7 @@
 #include <vw/BundleAdjustment/CameraRelation.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/Image/Interpolation.h>
 
 #include <string>
 
@@ -291,8 +292,9 @@ void determine_image_pairs(// Inputs
     all_pairs.push_back(*it);
 }
 
-// Given an xyz point in ECEF coordinates, update its height above datum
-// by interpolating into a DEM. The user must check the return status.
+// Given an xyz point in ECEF coordinates, update its height above datum by
+// interpolating into a DEM. The input must already be prepared for
+// interpolation. The user must check the return status.
 bool update_point_height_from_dem(vw::cartography::GeoReference const& dem_georef,
                                   vw::ImageViewRef<PixelMask<double>> const& interp_dem,
                                   // Output
@@ -334,16 +336,16 @@ bool update_point_height_from_dem(vw::cartography::GeoReference const& dem_geore
 // their average. Project it vertically onto the DEM. Invalid or uncomputable
 // xyz are set to the zero vector.
 // TODO(oalexan1): This code can be slow, but using multiple threads makes it
-// even slower, likely because of having to share the interp_dem image. To speed
+// even slower, likely because of having to share the masked_dem image. To speed
 // it up one could break the loop over features into several parts. Each would
-// load and have its own interp_dem image. Even then there may be some global
+// load and have its own masked_dem image. Even then there may be some global
 // cache for all images, which would slow things down.
 void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
                              asp::CRN const& crn,
                              std::set<int> const& outliers,
                              std::vector<vw::CamPtr> const& camera_models,
                              vw::cartography::GeoReference const& dem_georef,
-                             vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
+                             vw::ImageViewRef<vw::PixelMask<double>> const& masked_dem,
                              // Output
                              std::vector<vw::Vector3> & dem_xyz_vec) {
 
@@ -366,7 +368,7 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
   tpc.report_progress(0);
   vw::Stopwatch sw;
   sw.start();
-  
+
   for (int icam = 0; icam < (int)crn.size(); icam++) {
     
     for (auto const& feature_ptr: crn[icam]) {
@@ -405,7 +407,7 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
       Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
         (camera_models[icam]->camera_center(observation),
          camera_models[icam]->pixel_to_vector(observation),
-         vw::pixel_cast<vw::PixelMask<float>>(interp_dem), 
+         vw::pixel_cast<vw::PixelMask<float>>(masked_dem), 
          dem_georef, treat_nodata_as_zero, has_intersection,
          height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
 
@@ -427,7 +429,11 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
       dem_xyz_vec[xyz_it] = Vector3();
   }
 
-  // Project vertically onto the DEM
+  // Project vertically onto the DEM. This needs interpolation into the DEM
+  vw::PixelMask<double> invalid_val;
+  vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem
+   = vw::interpolate(masked_dem, vw::BilinearInterpolation(), 
+                     vw::ValueEdgeExtension<vw::PixelMask<float>>(invalid_val));
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
     
     if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)

@@ -144,7 +144,7 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
   bool have_dem = (!opt.heights_from_dem.empty());
   std::vector<Vector3> dem_xyz_vec;
   vw::cartography::GeoReference dem_georef;
-  ImageViewRef<PixelMask<double>> interp_dem;
+  ImageViewRef<PixelMask<double>> masked_dem;
   std::set<int> outliers;
   if (have_dem) {
     for (int ipt = 0; ipt < num_points; ipt++) {
@@ -154,11 +154,10 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
   }
   if (opt.heights_from_dem != "") {
     vw::vw_out() << "Constraining against DEM: " << opt.heights_from_dem << "\n";
-    asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
+    asp::create_masked_dem(opt.heights_from_dem, dem_georef, masked_dem);
     asp::update_tri_pts_from_dem(cnet, crn, outliers, opt.camera_models,
-                               dem_georef, interp_dem,
-                               // Output
-                               dem_xyz_vec);
+                                 dem_georef, masked_dem,
+                                 dem_xyz_vec); // output
   }
 
   // If to use a weight image

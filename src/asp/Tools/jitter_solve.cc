@@ -506,7 +506,8 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
              << "but --heights-from-dem is not set.\n");
 
   if (opt.heights_from_dem_uncertainty <= 0.0) 
-    vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be positive.\n");
+    vw_throw(ArgumentErr() 
+             << "The value of --heights-from-dem-uncertainty must be positive.\n");
   
   if (opt.heights_from_dem_robust_threshold <= 0.0) 
     vw_throw(ArgumentErr() 
@@ -977,14 +978,14 @@ void jitterSolvePass(int                                 pass,
   bool have_dem = (!opt.heights_from_dem.empty());
   std::vector<Vector3> dem_xyz_vec;
   vw::cartography::GeoReference dem_georef, anchor_georef;
-  ImageViewRef<PixelMask<double>> interp_dem, interp_anchor_dem;
+  ImageViewRef<PixelMask<double>>  masked_dem, interp_anchor_dem;
   bool warn_only = false; // for jitter solving we always know well the datum
   if (have_dem) {
     vw::vw_out() << "Reading the DEM for the --heights-from-dem constraint.\n";
-    asp::create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
+    asp::create_masked_dem(opt.heights_from_dem, dem_georef,  masked_dem);
     vw::checkDatumConsistency(opt.datum, dem_georef.datum(), warn_only);
     asp::update_tri_pts_from_dem(cnet, crn, outliers, opt.camera_models,
-                               dem_georef, interp_dem,
+                               dem_georef,  masked_dem,
                                // Output
                                dem_xyz_vec);
   }

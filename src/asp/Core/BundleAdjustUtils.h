@@ -110,7 +110,7 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
                              std::set<int> const& outliers,
                              std::vector<vw::CamPtr> const& camera_models,
                              vw::cartography::GeoReference const& dem_georef,
-                             vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
+                             vw::ImageViewRef<vw::PixelMask<double>> const& masked_dem,
                              // Output
                              std::vector<vw::Vector3> & dem_xyz_vec);
 

@@ -38,6 +38,11 @@ void load_image(std::string const& image_file,
                 vw::ImageViewRef<double> & image, double & nodata,
                 bool & has_georef, vw::cartography::GeoReference & georef);
 
+/// Create a masked DEM
+void create_masked_dem(std::string const& dem_file,
+                       vw::cartography::GeoReference & dem_georef,
+                       vw::ImageViewRef<vw::PixelMask<double>> & masked_dem);
+
 /// Create a DEM ready to use for interpolation
 void create_interp_dem(std::string const& dem_file,
                         vw::cartography::GeoReference & dem_georef,

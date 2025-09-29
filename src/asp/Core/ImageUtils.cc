@@ -55,10 +55,10 @@ void load_image(std::string const& image_file,
   has_georef = vw::cartography::read_georeference(georef, image_file);
 }
 
-/// Create a DEM ready to use for interpolation
-void create_interp_dem(std::string const& dem_file,
+/// Create a masked DEM
+void create_masked_dem(std::string const& dem_file,
                        vw::cartography::GeoReference & dem_georef,
-                       ImageViewRef<PixelMask<double>> & interp_dem) {
+                       vw::ImageViewRef<vw::PixelMask<double>> & masked_dem) {
   
   vw_out() << "Loading DEM: " << dem_file << std::endl;
 
@@ -71,10 +71,7 @@ void create_interp_dem(std::string const& dem_file,
   vw::PixelMask<double> invalid_val;
   invalid_val[0] = nodata_val;
   invalid_val.invalidate();
-  ImageViewRef<PixelMask<double>> dem
-    = create_mask(DiskImageView<double>(dem_file), nodata_val);
-  interp_dem = interpolate(dem, BilinearInterpolation(), 
-                           vw::ValueEdgeExtension<vw::PixelMask<float>>(invalid_val));
+  masked_dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
 
   // Read the georef. It must exist.
   bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
@@ -82,6 +79,20 @@ void create_interp_dem(std::string const& dem_file,
     vw_throw(ArgumentErr() << "Error: Cannot read a georeference from DEM: "
              << dem_file << ".\n");
   }
+}
+
+/// Create a DEM ready to use for interpolation
+void create_interp_dem(std::string const& dem_file,
+                       vw::cartography::GeoReference & dem_georef,
+                       ImageViewRef<PixelMask<double>> & interp_dem) {
+  
+  vw::ImageViewRef<vw::PixelMask<double>> masked_dem;
+  asp::create_masked_dem(dem_file, dem_georef, masked_dem);
+
+  vw::PixelMask<double> invalid_val;
+  interp_dem = interpolate(masked_dem, BilinearInterpolation(), 
+                           vw::ValueEdgeExtension<vw::PixelMask<float>>(invalid_val));
+
 }
 
 /// Take an interest point from a map projected image and convert it
