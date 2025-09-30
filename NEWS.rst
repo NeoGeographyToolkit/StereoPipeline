@@ -31,6 +31,9 @@ parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
 bundle_adjust (:numref:`bundle_adjust`):
   * Changed the implementation of the camera position constraint
     (:numref:`ba_cam_constraints`).
+  * The option ``--auto-overlap-params`` accepts an optional third argument (all
+    in quotes) that has the number of subsequent images that overlap to use in
+    matching.
   * For the option ``--mapprojected-data``, the DEM specified at the end is
     optional, if it can be looked up from the geoheader of the mapprojected
     images.

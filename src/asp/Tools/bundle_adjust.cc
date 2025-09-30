@@ -954,12 +954,13 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("overlap-list",         po::value(&opt.overlap_list_file)->default_value(""),
      "A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
     ("auto-overlap-params",  po::value(&opt.auto_overlap_params)->default_value(""),
-     "Determine which camera images overlap by finding the bounding boxes of their "
-     "ground footprints given the specified DEM, expanding them by a given percentage, "
-     "and see if those intersect. A higher percentage should be used when there is more "
-     "uncertainty about the input camera poses. Example: 'dem.tif 15'. "
-     "Using this with --mapprojected-data will restrict the "
-     "matching only on the overlap regions (expanded by this percentage).")
+     "Determine which camera images overlap by finding the bounding boxes of their ground "
+     "footprints given the specified DEM, expanding them by a given percentage, and see if "
+     "those intersect. A higher percentage should be used when there is more uncertainty "
+     "about the input camera poses. As of the 09/2025 build, a third parameter can be "
+     "provided to limit the number of subsequent images that overlap to this many. "
+     "Example: 'dem.tif 15.0 6'. Using this with --mapprojected-data will restrict the "
+     "matching only to the ground-level overlap regions (expanded by this percentage).")
     ("auto-overlap-buffer",  po::value(&opt.auto_overlap_buffer)->default_value(-1.0),
      "Try to automatically determine which images overlap. Used only if "
      "this option is explicitly set. Only supports Worldview style XML "
@@ -1338,11 +1339,6 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   if (!opt.csv_proj4_str.empty() && opt.csv_srs.empty())
     opt.csv_srs = opt.csv_proj4_str;
 
-  if (opt.auto_overlap_params != "" && opt.skip_matching) {
-    vw_out() << "Ignoring --auto-overlap-params since no matching takes place.\n";
-    opt.auto_overlap_params = "";
-  }
-
   // Sanity checks for solving for intrinsics
   if (opt.intrinsics_options.share_intrinsics_per_sensor && !opt.solve_intrinsics)
     vw_throw(ArgumentErr()
@@ -1411,14 +1407,14 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     vw_throw(ArgumentErr() << "Must allow search for matches between "
       << "at least each image and its subsequent one.\n");
 
-  // By default, try to match all of the images!
+  if (int(opt.overlap_list_file != "") + int(!vm["auto-overlap-buffer"].defaulted()) +
+      int(opt.auto_overlap_params != "") + int(opt.overlap_limit > 0) > 1)
+    vw_throw(ArgumentErr() << "Cannot specify more than one of --overlap-list, "
+              << "--auto-overlap-params, --overlap-limit, and --auto-overlap-buffer.\n");
+
+  // By default, try to match all of the images
   if (opt.overlap_limit == 0)
     opt.overlap_limit = opt.image_files.size();
-
-  if (int(opt.overlap_list_file != "") + int(!vm["auto-overlap-buffer"].defaulted()) +
-      int(opt.auto_overlap_params != "") > 1)
-    vw_throw(ArgumentErr() << "Cannot specify more than one of --overlap-list, "
-              << "--auto-overlap-params, and --auto-overlap-buffer.\n");
 
   opt.have_overlap_list = false;
   if (opt.overlap_list_file != "") {
@@ -1784,14 +1780,19 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     if (!(is >> opt.dem_file_for_overlap >> opt.pct_for_overlap))
       vw_throw(ArgumentErr()
                 << "Could not parse correctly option --auto-overlap-params.\n");
+      // Can also keep track of how many images to overlap with
+      opt.overlap_limit = opt.image_files.size();
+      int val = 0;
+      if (is >> val)
+        opt.overlap_limit = val;
       try {
         DiskImageView<float> dem(opt.dem_file_for_overlap);
-      } catch (const Exception& e) {
-        vw_throw(ArgumentErr()
+      } catch (const vw::Exception& e) {
+        vw::vw_throw(vw::ArgumentErr()
                   << "Could not load DEM: " << opt.dem_file_for_overlap << "\n");
       }
-      if (opt.pct_for_overlap < 0)
-        vw_throw(ArgumentErr()
+      if (opt.pct_for_overlap < 0 || opt.overlap_limit < 0)
+        vw::vw_throw(vw::ArgumentErr()
                   << "Invalid value for --auto-overlap-params.\n");
   }
 
@@ -1902,14 +1903,14 @@ int main(int argc, char* argv[]) {
       return 0;
     }
 
-    // Calculate which images overlap
+    // Calculate which images overlap based on the DEM
     if (opt.auto_overlap_params != "") {
       opt.have_overlap_list = true;
-      asp::build_overlap_list_based_on_dem(opt.out_prefix,
-                                           opt.dem_file_for_overlap, opt.pct_for_overlap,
-                                           opt.image_files, opt.camera_models,
-                                           // output
-                                           opt.overlap_list);
+      asp::buildOverlapList(opt.out_prefix,
+                            opt.dem_file_for_overlap, opt.pct_for_overlap,
+                            opt.overlap_limit,
+                            opt.image_files, opt.camera_models,
+                            opt.overlap_list); // output
     }
 
     // Load estimated camera positions if they were provided.

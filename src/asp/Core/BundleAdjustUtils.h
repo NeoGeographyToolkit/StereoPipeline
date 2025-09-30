@@ -70,13 +70,13 @@ void expand_box_by_pct(vw::BBox2 & box, double pct);
 // them by a given percentage, and see if those intersect. A higher
 // percentage should be used when there is more uncertainty in input
 // camera poses. Specify as: 'dem.tif 15'.
-void build_overlap_list_based_on_dem
-              (std::string const& out_prefix,
-              std::string const& dem_file,
-              double pct_for_overlap,
-              std::vector<std::string> const& image_files,
-              std::vector<vw::CamPtr> const& camera_models,
-              std::set<std::pair<std::string, std::string>> & overlap_list);
+void buildOverlapList(std::string const& out_prefix,
+                      std::string const& dem_file,
+                      double pct_for_overlap,
+                      int overlap_limit,
+                      std::vector<std::string> const& image_files,
+                      std::vector<vw::CamPtr> const& camera_models,
+                      std::set<std::pair<std::string, std::string>> & overlap_list);
 
 /// Ensure that no images, camera files, or adjustment names are duplicate.
 /// That will cause the output files to overwrite each other!

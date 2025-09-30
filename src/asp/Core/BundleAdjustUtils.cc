@@ -124,13 +124,14 @@ void expand_box_by_pct(vw::BBox2 & box, double pct) {
 }
 
 // See the .h file for the documentation.
-void build_overlap_list_based_on_dem(std::string const& out_prefix, 
-                                     std::string const& dem_file, 
-                                     double pct_for_overlap,
-                                     std::vector<std::string> const& image_files,
-                                     std::vector<vw::CamPtr>  const& camera_models,
-                                     std::set<std::pair<std::string, std::string>> &
-                                     overlap_list) {
+void buildOverlapList(std::string const& out_prefix, 
+                      std::string const& dem_file, 
+                      double pct_for_overlap,
+                      int overlap_limit,
+                      std::vector<std::string> const& image_files,
+                      std::vector<vw::CamPtr>  const& camera_models,
+                      std::set<std::pair<std::string, std::string>> &
+                      overlap_list) {
 
   // Wipe the output
   overlap_list.clear();
@@ -138,7 +139,7 @@ void build_overlap_list_based_on_dem(std::string const& out_prefix,
   // Sanity check
   if (image_files.size() != camera_models.size())
     vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n");
-  
+
   int num_images = image_files.size();
   std::vector<vw::BBox2> boxes(num_images);
   for (int it = 0; it < num_images; it++) {
@@ -158,11 +159,14 @@ void build_overlap_list_based_on_dem(std::string const& out_prefix,
   // second box. That would be a O(N * log(N)) lookup.
   // TODO(oalexan1): Use a tree.
   for (int it1 = 0; it1 < num_images; it1++) {
+    int num_added = 0;
     for (int it2 = it1 + 1; it2 < num_images; it2++) {
       BBox2 box = boxes[it1]; // deep copy
       box.crop(boxes[it2]);
-      if (!box.empty())
+      if (!box.empty() && num_added < overlap_limit) {
         overlap_list.insert(std::make_pair(image_files[it1], image_files[it2]));
+        num_added++;
+      }
     }
   }
 

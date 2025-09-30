@@ -1067,9 +1067,11 @@ Command-line options
     Determine which camera images overlap by finding the bounding boxes of their
     ground footprints given the specified DEM, expanding them by a given
     percentage, and see if those intersect. A higher percentage should be used
-    when there is more uncertainty about the input camera poses. Example:
-    'dem.tif 15'. Using this with ``--mapprojected-data`` will restrict the
-    matching only on the overlap regions (expanded by this percentage).
+    when there is more uncertainty about the input camera poses. As of the
+    09/2025 build, a third parameter can be provided to limit the number of
+    subsequent images that overlap to this many. Example: 'dem.tif 15.0 6'.
+    Using this with ``--mapprojected-data`` will restrict the matching only to
+    the ground-level overlap regions (expanded by this percentage).
 
 --auto-overlap-buffer <double (default: not set)>
     Try to automatically determine which images overlap. Used only if
