@@ -957,10 +957,11 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "Determine which camera images overlap by finding the bounding boxes of their ground "
      "footprints given the specified DEM, expanding them by a given percentage, and see if "
      "those intersect. A higher percentage should be used when there is more uncertainty "
-     "about the input camera poses. As of the 09/2025 build, a third parameter can be "
+     "about the input camera poses. As of the 10/2025 build, a third parameter can be "
      "provided to limit the number of subsequent images that overlap to this many. "
      "Example: 'dem.tif 15.0 6'. Using this with --mapprojected-data will restrict the "
-     "matching only to the ground-level overlap regions (expanded by this percentage).")
+     "matching only to the ground-level overlap regions (expanded by this percentage). As "
+     "of the 10/2025 build, this works also with --match-first-to-last.")
     ("auto-overlap-buffer",  po::value(&opt.auto_overlap_buffer)->default_value(-1.0),
      "Try to automatically determine which images overlap. Used only if "
      "this option is explicitly set. Only supports Worldview style XML "
@@ -978,7 +979,9 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
      "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("match-first-to-last", po::bool_switch(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
-     "Match first several images to last several images by extending the logic of --overlap-limit past the last image to the earliest ones.")
+     "Match first several images to last several images by extending the logic of "
+     "--overlap-limit past the last image to the earliest ones. As of the 10/2025 build, "
+     "this works also with --auto-overlap-params.")
     ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.0),
      "A soft constraint to keep the camera positions close to the original values. "
      "It is meant to prevent a wholesale shift of the cameras. It can impede "
@@ -1909,6 +1912,7 @@ int main(int argc, char* argv[]) {
       asp::buildOverlapList(opt.out_prefix,
                             opt.dem_file_for_overlap, opt.pct_for_overlap,
                             opt.overlap_limit,
+                            opt.match_first_to_last,
                             opt.image_files, opt.camera_models,
                             opt.overlap_list); // output
     }

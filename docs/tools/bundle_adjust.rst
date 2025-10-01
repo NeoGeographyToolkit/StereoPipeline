@@ -317,7 +317,7 @@ Example::
 All quantities are measured in meters. 
 
 To have the same uncertainties for all cameras, pass instead of a file name two
-values separated by a comma (no spaces). Example: ``5.0,10.0`` (post 09/2025 build).
+values separated by a comma (no spaces). Example: ``5.0,10.0`` (post 10/2025 build).
 
 It is suggested to overestimate these uncertainties. *A strict constraint can prevent
 the problem from converging to a good solution.*
@@ -326,7 +326,7 @@ It is suggested to examine the camera change report
 (:numref:`ba_camera_offsets`) and pixel reprojection report
 (:numref:`ba_errors_per_camera`) to see the effect of this constraint. 
 
-In the latest build (:numref:`release`, post 09/2025), the implementation of
+In the latest build (:numref:`release`, post 10/2025), the implementation of
 this was changed. A sum of squares of quantities such as::
 
   (curr_position - init_position) / uncertainty
@@ -1068,10 +1068,11 @@ Command-line options
     ground footprints given the specified DEM, expanding them by a given
     percentage, and see if those intersect. A higher percentage should be used
     when there is more uncertainty about the input camera poses. As of the
-    09/2025 build, a third parameter can be provided to limit the number of
+    10/2025 build, a third parameter can be provided to limit the number of
     subsequent images that overlap to this many. Example: 'dem.tif 15.0 6'.
     Using this with ``--mapprojected-data`` will restrict the matching only to
     the ground-level overlap regions (expanded by this percentage).
+    As of the 10/2025 build, this works also with ``--match-first-to-last``.
 
 --auto-overlap-buffer <double (default: not set)>
     Try to automatically determine which images overlap. Used only if
@@ -1083,7 +1084,8 @@ Command-line options
 --match-first-to-last
     Match the first several images to last several images by extending
     the logic of ``--overlap-limit`` past the last image to the earliest
-    ones.
+    ones. As of the 10/2025 build, this works also with
+    ``--auto-overlap-params``. 
 
 --tri-weight <double (default: 0.1)>
     The weight to give to the constraint that optimized triangulated points stay

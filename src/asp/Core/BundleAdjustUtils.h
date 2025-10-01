@@ -74,6 +74,7 @@ void buildOverlapList(std::string const& out_prefix,
                       std::string const& dem_file,
                       double pct_for_overlap,
                       int overlap_limit,
+                      bool match_first_to_last,
                       std::vector<std::string> const& image_files,
                       std::vector<vw::CamPtr> const& camera_models,
                       std::set<std::pair<std::string, std::string>> & overlap_list);

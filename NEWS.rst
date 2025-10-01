@@ -33,7 +33,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     (:numref:`ba_cam_constraints`).
   * The option ``--auto-overlap-params`` accepts an optional third argument (all
     in quotes) that has the number of subsequent images that overlap to use in
-    matching.
+    matching. Also works with option ``--match-first-to-last``.
   * For the option ``--mapprojected-data``, the DEM specified at the end is
     optional, if it can be looked up from the geoheader of the mapprojected
     images.

@@ -128,6 +128,7 @@ void buildOverlapList(std::string const& out_prefix,
                       std::string const& dem_file, 
                       double pct_for_overlap,
                       int overlap_limit,
+                      bool match_first_to_last,
                       std::vector<std::string> const& image_files,
                       std::vector<vw::CamPtr>  const& camera_models,
                       std::set<std::pair<std::string, std::string>> &
@@ -152,21 +153,53 @@ void buildOverlapList(std::string const& out_prefix,
     expand_box_by_pct(boxes[it], pct_for_overlap);
   }
 
-  // See which boxes overlap. While this is an O(N^2) computation,
-  // likely N is at most a thousand or two, which should be
-  // manageable. A 2D tree of box corners could be used, and two boxes
-  // would then overlap if corners from one box are contained in a
-  // second box. That would be a O(N * log(N)) lookup.
-  // TODO(oalexan1): Use a tree.
+  // See which boxes overlap. While this is an O(N^2) computation, likely N is
+  // at most a thousand or two, which should be manageable. A 2D tree of box
+  // corners could be used, and two boxes would then overlap if corners from one
+  // box are contained in a second box. That would be a O(N * log(N)) lookup. If
+  // match_first_to_last is true, need to look past num_images, so wrap around
+  // and look at earlier images.
+  // TODO(oalexan1): Use a tree structure.
   for (int it1 = 0; it1 < num_images; it1++) {
     int num_added = 0;
-    for (int it2 = it1 + 1; it2 < num_images; it2++) {
+    
+    int end2 = num_images;
+    if (match_first_to_last)
+      end2 = num_images + overlap_limit;
+      
+    for (int it2 = it1 + 1; it2 < end2; it2++) {
+      
+      // Wrap around if needed
+      int local_it2 = it2 % num_images;
+      
       BBox2 box = boxes[it1]; // deep copy
-      box.crop(boxes[it2]);
+      box.crop(boxes[local_it2]);
       if (!box.empty() && num_added < overlap_limit) {
-        overlap_list.insert(std::make_pair(image_files[it1], image_files[it2]));
+        auto pair1 = std::make_pair(image_files[it1], image_files[local_it2]);
+        auto pair2 = std::make_pair(image_files[local_it2], image_files[it1]);
+        
+        if (overlap_list.find(pair1) != overlap_list.end() ||
+            overlap_list.find(pair2) != overlap_list.end())
+          continue; // already added
+        
+        // Can't have matches to itself
+        if (it1 == local_it2) 
+          continue;
+          
+        // Add the pair with first index less than the second
+        std::pair<std::string, std::string> pair;
+        if (it1 < local_it2)
+          pair = std::make_pair(image_files[it1], image_files[local_it2]);
+        else
+          pair = std::make_pair(image_files[local_it2], image_files[it1]);  
+        overlap_list.insert(pair);
+        
         num_added++;
       }
+      
+      // Stop when added enough
+      if (num_added >= overlap_limit) 
+        break;
     }
   }
 
