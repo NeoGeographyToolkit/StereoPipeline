@@ -3,22 +3,47 @@
 camera_footprint
 ----------------
 
-The tool ``camera_footprint`` computes what the footprint of in image would be
-if mapprojected onto the provided datum or DEM. 
+The ``camera_footprint`` program computes what the footprint of an image would be
+if mapprojected (:numref:`mapproject`) onto the provided DEM or datum.
 
 The bounding box of the footprint is printed to the screen. It will be in units
-of the DEM projection, or in longitude-latitude if a datum is provided and
-``--t_srs`` is not set. The estimated ground sample distance will be printed as
-well, in the same units.
-
-If a KML output path is provided it will also create a KML file containing the
-footprint. The KML will show a box with an X pattern displaying the points ASP
-used to compute the footprint. If the provided DEM is smaller than the image
-footprint, more additional point samples may be drawn at the DEM edges
-within the image footprint.
+of the DEM projection, or in longitude-latitude if a datum is provided. These
+can be overridden with ``--t_srs``. The estimated ground sample distance will be
+printed as well, in the same units.
 
 This tool can be useful for debugging camera orientations or getting a quick
-overview of where images are located.
+overview of where the input image is located on the ground.
+
+Save as shapefile
+~~~~~~~~~~~~~~~~~
+
+If a shapefile output path is provided, this program will also create a shapefile
+containing the convex hull of the footprint. The coordinate system will be determined,
+as above, depending on whether ``--t_srs``, ``--dem-file``, or ``--datum`` is used.
+
+Example::
+    
+    camera_footprint     \
+      --dem-file dem.tif \
+      image.tif          \
+      camera.tsai        \
+      --output-shp footprint.shp
+
+Such a shapefile can be displayed and overlaid on top of georeferenced images     
+with ``stereo_gui`` (:numref:`plot_poly`).
+  
+Save as KML
+~~~~~~~~~~~
+
+If a KML output path is provided, this program will also create a KML file
+containing the footprint.
+
+The KML will show a box with an X pattern displaying the points ASP used to
+compute the footprint. If the provided DEM is smaller than the image footprint,
+additional point samples may be drawn within the image footprint, as the DEM is
+sampled.
+
+The entries in the KML file will be in longitude-latitude coordinates.
 
 Example::
 
@@ -28,13 +53,21 @@ Example::
       camera.tsai        \
       --output-kml footprint.kml
 
-To mapproject onto the datum, use an option such as ``--datum WGS_1984``.
+Project onto a datum
+~~~~~~~~~~~~~~~~~~~~
 
-Usage::
+If a DEM is not provided, the program will project onto a datum instead. For
+that, use an option such as ``--datum WGS_1984`` instead of ``--dem-file``.
+
+Usage
+~~~~~
+
+::
 
      camera_footprint [options] <camera-image> <camera-model>
 
-Command-line options for camera_footprint:
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
 --dem-file <filename>
     Intersect with this DEM instead of a datum.
@@ -54,6 +87,10 @@ Command-line options for camera_footprint:
     Use the camera adjustment obtained by previously running
     bundle_adjust with this output prefix.
 
+--output-shp <string>
+    Save the convex hull of the points sampled on the camera footprint as a
+    shapefile with this name.
+    
 --output-kml <string>
     Write an output KML file at this location.
 

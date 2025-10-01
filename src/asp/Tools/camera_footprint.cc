@@ -31,6 +31,8 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 
+#include <vw/Cartography/shapeFile.h>
+
 #include <limits>
 #include <cstring>
 
@@ -48,25 +50,34 @@ using namespace vw::cartography;
 
 struct Options : public vw::GdalWriteOptions {
   string image_file, camera_file, stereo_session, bundle_adjust_prefix,
-         datum_str, dem_file, target_srs_string, output_kml;
+         datum_str, dem_file, target_srs_string, output_shp, output_kml;
   bool quick;
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
-    ("datum",            po::value(&opt.datum_str)->default_value(""),
-     "Use this datum to interpret the heights. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters). Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-    ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ or WKT string).")
-    ("quick",            po::bool_switch(&opt.quick)->default_value(false),
-	     "Use a faster but less accurate computation.")
+    ("datum", po::value(&opt.datum_str)->default_value(""),
+     "Use this datum to interpret the heights. Options: WGS_1984, D_MOON (1,737,400 "
+     "meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters). Also accepted: Earth "
+     "(=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+    ("t_srs", po::value(&opt.target_srs_string)->default_value(""), 
+     "Specify the output projection (PROJ or WKT string).")
+    ("quick", po::bool_switch(&opt.quick)->default_value(false),
+	   "Use a faster but less accurate computation.")
+    ("output-shp", po::value(&opt.output_shp),
+     "Save the convex hull of the points sampled on the camera footprint as a shapefile "
+     "with this name.")
     ("output-kml", po::value(&opt.output_kml),
      "Create an output KML file at this path.")
-    ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
-     "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
+    ("session-type,t", po::value(&opt.stereo_session)->default_value(""),
+     "Select the stereo session type to use for processing. Usually the program can select "
+     "this automatically by the file extension, except for xml cameras. See the doc for "
+     "options.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
-     "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
-    ("dem-file",   po::value(&opt.dem_file)->default_value(""),
+     "Use the camera adjustment obtained by previously running bundle_adjust with this "
+     "output prefix.")
+    ("dem-file", po::value(&opt.dem_file)->default_value(""),
      "Instead of using a longitude-latitude-height box, sample the surface of this DEM.");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -142,7 +153,7 @@ int main(int argc, char *argv[]) {
 
     BBox2 footprint_bbox;
     float mean_gsd=0;
-    std::vector<Vector3> coords;
+    std::vector<Vector3> llh_coords;
     if (opt.dem_file.empty()) { 
                                
       // No DEM available, intersect with the datum.
@@ -152,14 +163,14 @@ int main(int argc, char *argv[]) {
       cartography::Datum datum(opt.datum_str);
       target_georef = GeoReference(datum);
       vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum, datum, target_georef);
-      vw_out() << "Using georef: " << target_georef << std::endl;
+      vw_out() << "Using georef: " << target_georef << "\n";
 
       std::vector<Vector2> coords2;
       footprint_bbox = camera_bbox(target_georef, cam, image_size[0], image_size[1],
                                    mean_gsd, &coords2);
       for (size_t i=0; i<coords2.size(); ++i) {
         Vector3 proj_coord(coords2[i][0], coords2[i][1], 0.0);
-        coords.push_back(target_georef.point_to_geodetic(proj_coord));
+        llh_coords.push_back(target_georef.point_to_geodetic(proj_coord));
       }
 
     } else { 
@@ -177,36 +188,49 @@ int main(int argc, char *argv[]) {
         vw_throw(ArgumentErr() << "Missing georef.\n");
 
       target_georef = dem_georef; // return box in this projection
-      vw_out() << "Using georef: " << target_georef << std::endl;
+      vw_out() << "Using georef: " << target_georef << "\n";
       int num_samples = 100; // should be enough
       footprint_bbox = camera_bbox(dem, dem_georef,
                                    target_georef, cam,
                                    image_size[0], image_size[1],
-                                   mean_gsd, opt.quick, &coords, num_samples);
-      for (size_t i = 0;  i <coords.size(); i++)
-        coords[i] = target_georef.datum().cartesian_to_geodetic(coords[i]);
+                                   mean_gsd, opt.quick, &llh_coords, num_samples);
+      for (size_t i = 0;  i <llh_coords.size(); i++) 
+        llh_coords[i] = target_georef.datum().cartesian_to_geodetic(llh_coords[i]);
     }
 
     // Print out the results
-    vw_out() << "Computed footprint bounding box:\n" << footprint_bbox << std::endl;
-    vw_out() << "Computed mean gsd: " << mean_gsd << std::endl;
-
-    if (opt.output_kml == "")
-      return 0;
-
-    // Create the KML file if specified by the user
-    KMLFile kml(opt.output_kml, "footprint");
-    const bool HIDE_LABELS = true;
-    std::string base = "http://maps.google.com/mapfiles/kml/shapes/"; 
-    std::string dot_cir = base + "placemark_circle.png"; 
-    std::string dot_hlt = base + "placemark_circle_highlight.png"; 
-    kml.append_style("dot", "", 1.2, dot_cir,  HIDE_LABELS);
-    kml.append_style("dot_highlight", "", 1.4, dot_hlt);
-    kml.append_stylemap("placemark", "dot", "dot_highlight");
-    kml.append_line(coords, "intersections", "placemark");
-    vw_out() << "Writing: " << opt.output_kml << std::endl;
-    kml.close_kml();
-
+    vw_out() << "Computed footprint bounding box:\n" << footprint_bbox << "\n";
+    vw_out() << "Computed mean gsd: " << mean_gsd << "\n";
+  
+    if (opt.output_shp != "") {
+      std::vector<vw::geometry::dPoly> polyVec;
+      
+      // Must convert to projected coordinates
+      std::vector<vw::Vector3> proj_coords(llh_coords.size());
+      for (size_t i = 0; i < llh_coords.size(); i++)
+        proj_coords[i] = target_georef.geodetic_to_point(llh_coords[i]);
+      
+      vw::geometry::convexHull(proj_coords, polyVec);
+      bool has_geo = true;
+      vw::vw_out() << "Writing: " << opt.output_shp << "\n";
+      vw::geometry::write_shapefile(opt.output_shp, has_geo, target_georef, polyVec);
+    }
+    
+    if (opt.output_kml != "") {
+      // Create the KML file if specified by the user
+      KMLFile kml(opt.output_kml, "footprint");
+      const bool HIDE_LABELS = true;
+      std::string base = "http://maps.google.com/mapfiles/kml/shapes/"; 
+      std::string dot_cir = base + "placemark_circle.png"; 
+      std::string dot_hlt = base + "placemark_circle_highlight.png"; 
+      kml.append_style("dot", "", 1.2, dot_cir,  HIDE_LABELS);
+      kml.append_style("dot_highlight", "", 1.4, dot_hlt);
+      kml.append_stylemap("placemark", "dot", "dot_highlight");
+      kml.append_line(llh_coords, "intersections", "placemark");
+      vw_out() << "Writing: " << opt.output_kml << "\n";
+      kml.close_kml();
+    }
+    
   } ASP_STANDARD_CATCHES;
 
   return 0;
