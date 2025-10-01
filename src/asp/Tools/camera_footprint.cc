@@ -203,13 +203,12 @@ int main(int argc, char *argv[]) {
     vw_out() << "Computed mean gsd: " << mean_gsd << "\n";
   
     if (opt.output_shp != "") {
-      std::vector<vw::geometry::dPoly> polyVec;
-      
       // Must convert to projected coordinates
       std::vector<vw::Vector3> proj_coords(llh_coords.size());
       for (size_t i = 0; i < llh_coords.size(); i++)
         proj_coords[i] = target_georef.geodetic_to_point(llh_coords[i]);
       
+      std::vector<vw::geometry::dPoly> polyVec;
       vw::geometry::convexHull(proj_coords, polyVec);
       bool has_geo = true;
       vw::vw_out() << "Writing: " << opt.output_shp << "\n";

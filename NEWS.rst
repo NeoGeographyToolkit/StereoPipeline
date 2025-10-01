@@ -74,7 +74,11 @@ point2las (:numref:`point2las`):
 
 dem_mosaic (:numref:`dem_mosaic`):
   * Added the option ``--gdal-tap``.
-  
+
+camera_footprint (:numref:`camera_footprint`):
+  * Added the option ``--output-shp`` to save the convex hull of the camera 
+    footprint as a shapefile.
+    
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
   * Made the OpticalBar model 3x faster by switching from minimization in 3D
