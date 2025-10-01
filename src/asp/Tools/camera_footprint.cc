@@ -139,7 +139,6 @@ int main(int argc, char *argv[]) {
     if (opt.camera_file.empty())
       vw_throw(ArgumentErr() << "Missing input camera.\n");
 
-
     boost::shared_ptr<CameraModel> cam = session->camera_model(opt.image_file, opt.camera_file);
 
     // The input nodata value
@@ -192,12 +191,12 @@ int main(int argc, char *argv[]) {
 
       target_georef = dem_georef; // return box in this projection
       vw_out() << "Using georef: " << target_georef << std::endl;
-
+      int num_samples = 100; // should be enough
       footprint_bbox = camera_bbox(dem, dem_georef,
                                    target_georef, cam,
                                    image_size[0], image_size[1],
-                                   mean_gsd, opt.quick, &coords);
-      for (size_t i=0; i<coords.size(); ++i)
+                                   mean_gsd, opt.quick, &coords, num_samples);
+      for (size_t i = 0;  i <coords.size(); i++)
         coords[i] = target_georef.datum().cartesian_to_geodetic(coords[i]);
     }
 
