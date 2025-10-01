@@ -50,7 +50,6 @@ struct Options : public vw::GdalWriteOptions {
   string image_file, camera_file, stereo_session, bundle_adjust_prefix,
          datum_str, dem_file, target_srs_string, output_kml;
   bool quick;
-  //BBox2i image_crop_box;
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -67,9 +66,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
-    // TODO: Support this feature!
-    //("image-crop-box", po::value(&opt.image_crop_box)->default_value(BBox2i(0,0,0,0), "0 0 0 0"),
-    // "The output image and RPC model should not exceed this box, specified in input image pixels as minx miny widx widy.")
     ("dem-file",   po::value(&opt.dem_file)->default_value(""),
      "Instead of using a longitude-latitude-height box, sample the surface of this DEM.");
 
@@ -102,22 +98,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
-
-  // Must specify the DEM or the datum somehow
+  // Must specify the DEM or the datum
   if (opt.dem_file.empty() && opt.datum_str.empty() && opt.target_srs_string.empty())
-    vw_throw(ArgumentErr() << "Need to provide a DEM, a datum, or a t_srs string.\n" << usage << general_options);
-
-  //// Convert from width and height to min and max
-  //if (!opt.image_crop_box.empty()) {
-  //  BBox2 b = opt.image_crop_box; // make a copy
-  //  opt.image_crop_box = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
-  //}
+    vw_throw(ArgumentErr() << "Need to provide a DEM, a datum, or a t_srs string.\n" 
+             << usage << general_options);
 
   // This is a bug fix. The user by mistake passed in an empty projection string.
   if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
     vw_throw(ArgumentErr()
              << "The value of --t_srs is empty. Then it must not be set at all.\n");
-
 }
 
 int main(int argc, char *argv[]) {
@@ -148,19 +137,15 @@ int main(int argc, char *argv[]) {
     // Just get the image size
     vw::Vector2i image_size = vw::file_image_size(opt.image_file);
 
-    //    // The bounding box -> Add this feature in the future!
-    //    BBox2 image_box = bounding_box(input_img);
-    //    if (!opt.image_crop_box.empty())
-    //      image_box.crop(opt.image_crop_box);
-
     // Perform the computation
-
     GeoReference target_georef;
 
     BBox2 footprint_bbox;
     float mean_gsd=0;
     std::vector<Vector3> coords;
-    if (opt.dem_file.empty()) { // No DEM available, intersect with the datum.
+    if (opt.dem_file.empty()) { 
+                               
+      // No DEM available, intersect with the datum.
 
       // Initialize the georef/datum
       bool have_user_datum = (opt.datum_str != "");
@@ -177,7 +162,9 @@ int main(int argc, char *argv[]) {
         coords.push_back(target_georef.point_to_geodetic(proj_coord));
       }
 
-    } else { // DEM provided, intersect with it.
+    } else { 
+            
+      // DEM provided, intersect with it
 
       // Load the DEM
       float dem_nodata_val = -std::numeric_limits<float>::max();
@@ -207,21 +194,15 @@ int main(int argc, char *argv[]) {
     if (opt.output_kml == "")
       return 0;
 
-    // Create the KML file if specified by the user.
+    // Create the KML file if specified by the user
     KMLFile kml(opt.output_kml, "footprint");
-
-    // Style listing
-
-    // Placemark Style
     const bool HIDE_LABELS = true;
-    kml.append_style("dot", "", 1.2,
-                      "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png",
-                      HIDE_LABELS);
-    kml.append_style("dot_highlight", "", 1.4,
-                      "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
-    kml.append_stylemap("placemark", "dot",
-                         "dot_highlight");
-
+    std::string base = "http://maps.google.com/mapfiles/kml/shapes/"; 
+    std::string dot_cir = base + "placemark_circle.png"; 
+    std::string dot_hlt = base + "placemark_circle_highlight.png"; 
+    kml.append_style("dot", "", 1.2, dot_cir,  HIDE_LABELS);
+    kml.append_style("dot_highlight", "", 1.4, dot_hlt);
+    kml.append_stylemap("placemark", "dot", "dot_highlight");
     kml.append_line(coords, "intersections", "placemark");
     vw_out() << "Writing: " << opt.output_kml << std::endl;
     kml.close_kml();
