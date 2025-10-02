@@ -177,7 +177,13 @@ Run the ISIS ``spiceinit`` command on the .cub files as::
     spiceinit from = left.cub
     spiceinit from = right.cub
 
-To create CSM cameras, run::
+Next, CSM cameras are created.
+
+*Note:* Older versions of ``isd_generate`` had a bug, creating very large
+linescan camera models that were very slow to load. If this is noticed, upgraded
+to ALE 1.0.2 or later.
+
+Run::
 
     isd_generate left.cub
     isd_generate right.cub
