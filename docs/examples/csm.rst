@@ -98,12 +98,19 @@ Set::
 
     export ALESPICEROOT=$ISISDATA
 
-Run::
+Run the ``isd_generate`` command to create the CSM camera files. This script
+is part of the ALE package, and should be shipped with the latest ISIS 
+or ASP, if installed with conda. It can also be installed separately.
+
+::
 
     isd_generate -k left.cub left.cub
     isd_generate -k right.cub right.cub
 
 This will create ``left.json`` and ``right.json``.
+
+See the `isd_generate manual
+<https://astrogeology.usgs.gov/docs/getting-started/using-ale/isd-generate/>`_.
 
 As a sanity check, run ``cam_test`` (:numref:`cam_test`) to see how well the CSM
 camera approximates the ISIS camera::
@@ -177,7 +184,8 @@ Run the ISIS ``spiceinit`` command on the .cub files as::
     spiceinit from = left.cub
     spiceinit from = right.cub
 
-Next, CSM cameras are created.
+Next, CSM cameras are created, with ``isd_generate``. This program is discussed
+in :numref:`create_csm_dawn`.
 
 *Note:* Older versions of ``isd_generate`` had a bug, creating very large
 linescan camera models that were very slow to load. If this is noticed, upgraded
@@ -379,7 +387,8 @@ Set::
 
     export ALESPICEROOT=$ISISDATA
 
-Run::
+CSM cameras are created, with ``isd_generate``. This program is discussed
+in :numref:`create_csm_dawn`. Run::
 
     isd_generate -k image.vis.even.cal.cub image.vis.even.cal.cub
     isd_generate -k image.vis.odd.cal.cub  image.vis.odd.cal.cub
@@ -555,7 +564,8 @@ Set::
   
     export ALESPICEROOT=$ISISDATA
 
-Run ``isd_generate``::
+CSM cameras are created, with ``isd_generate``. This program is discussed
+in :numref:`create_csm_dawn`. Run::
 
     isd_generate -k left.cub  left.cub
     isd_generate -k right.cub right.cub
@@ -691,8 +701,9 @@ and replacing::
 with your value of $ISISDATA. Ensure that the resulting path still ends with
 ``/msl/kernels``.
     
-A CSM camera file can be created by running::
-
+CSM cameras are created, with ``isd_generate``. This program is discussed
+in :numref:`create_csm_dawn`. Run::
+    
     isd_generate image.LBL 
 
 This will produce the file ``image.json``. 
