@@ -27,6 +27,7 @@
 #include <asp/Core/ImageNormalization.h>
 
 #include <vw/InterestPoint/MatcherIO.h>
+#include <vw/Geometry/dPoly.h>
 #include <boost/filesystem.hpp>
 #include <string>
 
@@ -247,12 +248,17 @@ void computeStatsOrIp(asp::BaOptions const& opt,
       asp::gather_stats(masked_image, image_path, opt.out_prefix, image_path,
                         asp::stereo_settings().force_reuse_match_files);
 
-    // Compute and cache the camera footprint bbox
-    if (opt.auto_overlap_params != "" && !calcIp)
-      asp::camera_bbox_with_cache(dem_file_for_overlap,
-                                  opt.image_files[index], // use the original image
-                                  opt.camera_models[index],
-                                  opt.out_prefix);
+    // Compute and cache the camera footprint polygon and its bbox
+    if (opt.auto_overlap_params != "" && !calcIp) {
+      vw::geometry::dPoly footprint;
+      vw::BBox2 footprint_bbox;
+      asp::camera_footprint(dem_file_for_overlap,
+                            opt.image_files[index], // use the original image
+                            opt.camera_models[index],
+                            opt.out_prefix,
+                            footprint, footprint_bbox); // outputs
+    }
+    
     if (calcIp) {
       // This closely resembles the logic in normalize_images() and
       // ip_matching(), but done per image.

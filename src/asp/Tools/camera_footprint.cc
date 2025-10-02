@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
     GeoReference target_georef;
 
     BBox2 footprint_bbox;
-    float mean_gsd=0;
+    float mean_gsd = 0.0;
     std::vector<Vector3> llh_coords;
     if (opt.dem_file.empty()) { 
                                
@@ -194,7 +194,7 @@ int main(int argc, char *argv[]) {
                                    target_georef, cam,
                                    image_size[0], image_size[1],
                                    mean_gsd, opt.quick, &llh_coords, num_samples);
-      for (size_t i = 0;  i <llh_coords.size(); i++) 
+      for (size_t i = 0;  i < llh_coords.size(); i++) 
         llh_coords[i] = target_georef.datum().cartesian_to_geodetic(llh_coords[i]);
     }
 
@@ -208,11 +208,11 @@ int main(int argc, char *argv[]) {
       for (size_t i = 0; i < llh_coords.size(); i++)
         proj_coords[i] = target_georef.geodetic_to_point(llh_coords[i]);
       
-      std::vector<vw::geometry::dPoly> polyVec;
-      vw::geometry::convexHull(proj_coords, polyVec);
+      vw::geometry::dPoly poly;
+      vw::geometry::convexHull(proj_coords, poly);
       bool has_geo = true;
       vw::vw_out() << "Writing: " << opt.output_shp << "\n";
-      vw::geometry::write_shapefile(opt.output_shp, has_geo, target_georef, polyVec);
+      vw::geometry::write_shapefile(opt.output_shp, has_geo, target_georef, poly);
     }
     
     if (opt.output_kml != "") {

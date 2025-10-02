@@ -40,6 +40,10 @@ namespace vw {
     class GeoReference;
   }
 
+  namespace geometry {
+    class dPoly;
+  }
+  
   template<typename PixelT>
   class ImageViewRef;
 
@@ -55,12 +59,15 @@ const int PIXEL_SIZE      = 2;
 
 typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRN;
   
-// Compute a camera footprint's bounding box. Used a cached result if available.
-// Cache the current result if computed.
-vw::BBox2 camera_bbox_with_cache(std::string const& dem_file,
-                                 std::string const& image_file,
-                                 vw::CamPtr  const& camera_model,
-                                 std::string const& out_prefix);
+// Compute the camera footprint polygon shape and its bounding box. Used a
+// cached result if available. Cache the current result if computed.
+void camera_footprint(std::string const& dem_file,
+                      std::string const& image_file,
+                      vw::CamPtr  const& camera_model,
+                      std::string const& out_prefix,
+                      // Outputs
+                      vw::geometry::dPoly & footprint,
+                      vw::BBox2 & footprint_bbox);
 
 // Expand a box by a given percentage (typically pct is between 0 and 100)
 void expand_box_by_pct(vw::BBox2 & box, double pct);

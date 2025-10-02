@@ -33,6 +33,7 @@
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Image/Interpolation.h>
+#include <vw/Cartography/shapeFile.h>
 
 #include <string>
 
@@ -46,27 +47,31 @@ namespace fs = boost::filesystem;
 namespace asp {
 
 // See the .h file for documentation
-vw::BBox2 camera_bbox_with_cache(std::string const& dem_file,
-                                 std::string const& image_file,
-                                 vw::CamPtr  const& camera_model,
-                                 std::string const& out_prefix) {
+void camera_footprint(std::string const& dem_file,
+                      std::string const& image_file,
+                      vw::CamPtr  const& camera_model,
+                      std::string const& out_prefix,
+                      // Outputs
+                      vw::geometry::dPoly & footprint,
+                      vw::BBox2 & footprint_bbox) {
   
-  namespace fs = boost::filesystem;
-
   vw_out() << "Computing ground footprint bounding box of: " + image_file << std::endl;
 
-  vw::BBox2 box;
-  
-  std::string box_path = out_prefix + '-' + fs::path(image_file).stem().string() + "-bbox.txt";
+  // Initialize outputs
+  footprint = vw::geometry::dPoly();
+  footprint_bbox = vw::BBox2();
+
+  std::string stem = fs::path(image_file).stem().string(); 
+  std::string box_path = out_prefix + '-' + stem + "-bbox.txt";
   if (fs::exists(box_path)) {
     double min_x, min_y, max_x, max_y;
     std::ifstream ifs(box_path);
     if (ifs >> min_x >> min_y >> max_x >> max_y) {
-      box.min() = vw::Vector2(min_x, min_y);
-      box.max() = vw::Vector2(max_x, max_y);
+      footprint_bbox.min() = vw::Vector2(min_x, min_y);
+      footprint_bbox.max() = vw::Vector2(max_x, max_y);
       vw_out() << "Read cached ground footprint bbox from: " << box_path << ":\n" 
-               << box << "\n";
-      return box;
+               << footprint_bbox << "\n";
+      return;
     }
   }
 
@@ -87,11 +92,25 @@ vw::BBox2 camera_bbox_with_cache(std::string const& dem_file,
 
   try {
     DiskImageView<float> img(image_file);
-    float auto_res = -1.0;  // Will be updated
     bool quick = false;     // Do a thorough job
-    box = vw::cartography::camera_bbox(dem, dem_georef, dem_georef,
-                                       camera_model, img.cols(), img.rows(),
-                                       auto_res, quick);
+    float mean_gsd = 0.0;
+    int num_samples = 100; // should be enough
+    std::vector<Vector3> coords;
+    footprint_bbox 
+      = vw::cartography::camera_bbox(dem, dem_georef, dem_georef,
+                                     camera_model, img.cols(), img.rows(),
+                                     mean_gsd, quick, &coords, num_samples);
+   
+   // Convert the coordinates from ECEF to points in the DEM projection 
+   for (size_t i = 0;  i < coords.size(); i++) {
+     coords[i] = dem_georef.datum().cartesian_to_geodetic(coords[i]);
+     coords[i] = dem_georef.geodetic_to_point(coords[i]);
+   }
+
+   // Compute the convex hull of the projected coordinates, for easier
+   // intersection operations later
+   vw::geometry::convexHull(coords, footprint);
+   
   } catch (std::exception const& e) {
     vw_throw( ArgumentErr() << e.what() << "\n"
               << "Failed to compute the footprint of camera image: " << image_file
@@ -101,11 +120,9 @@ vw::BBox2 camera_bbox_with_cache(std::string const& dem_file,
   vw_out() << "Writing: " << box_path << "\n";
   std::ofstream ofs(box_path.c_str());
   ofs.precision(17);
-  ofs << box.min().x() << " " <<  box.min().y() << " "
-      << box.max().x() << " " <<  box.max().y() << "\n";
+  ofs << footprint_bbox.min().x() << " " <<  footprint_bbox.min().y() << " "
+      << footprint_bbox.max().x() << " " <<  footprint_bbox.max().y() << "\n";
   ofs.close();
-  
-  return box;
 }
 
 // Expand a box by a given percentage (typically pct is between 0 and 100)
@@ -143,11 +160,12 @@ void buildOverlapList(std::string const& out_prefix,
 
   int num_images = image_files.size();
   std::vector<vw::BBox2> boxes(num_images);
+  std::vector<vw::geometry::dPoly> footprints(num_images);
   for (int it = 0; it < num_images; it++) {
     // By this stage the camera bboxes are already computed and cached,
     // they just need to be loaded.
-    boxes[it] = asp::camera_bbox_with_cache(dem_file, image_files[it], camera_models[it],  
-                                            out_prefix);
+    asp::camera_footprint(dem_file, image_files[it], camera_models[it], out_prefix, 
+                          footprints[it], boxes[it]);
 
     // Expand the box by the given factor
     expand_box_by_pct(boxes[it], pct_for_overlap);
