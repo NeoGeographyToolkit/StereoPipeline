@@ -187,9 +187,11 @@ Run the ISIS ``spiceinit`` command on the .cub files as::
 Next, CSM cameras are created, with ``isd_generate``. This program is discussed
 in :numref:`create_csm_dawn`.
 
-*Note:* Older versions of ``isd_generate`` had a bug, creating very large
-linescan camera models that were very slow to load. If this is noticed, upgraded
-to ALE 1.0.2 or later.
+*Note:* Currently shipped version of ``isd_generate`` (in ALE 1.0.2) has a bug,
+creating very large linescan camera models that are very slow to load. If this
+is noticed, consider putting `this fix
+<https://github.com/DOI-USGS/ale/pull/677>`_ in the ``type_sensor.py`` file in
+the ALE package.
 
 Run::
 
