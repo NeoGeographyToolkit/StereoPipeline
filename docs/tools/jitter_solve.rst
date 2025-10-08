@@ -135,7 +135,8 @@ Just like ``bundle_adjust`` (:numref:`bagcp`), this program can make use of
 ground control points. The pixel residuals at ground control points 
 are flagged in the produced report file (:numref:`jitter_tri_err`).
 
-See :numref:`jitter_limitations` on the limitations of this constraint.
+Ground control points can be produced by tying a stereo DEM to a different
+high quality DEM (:numref:`dem2gcp`).
 
 .. _jitter_camera:
 
