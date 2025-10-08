@@ -7,7 +7,7 @@ The ``jitter_solve`` program takes as input several overlapping images and
 linescan and/or frame camera models in CSM format (such as for LRO NAC, CTX,
 HiRISE, Airbus Pleiades, DigitalGlobe, etc., :numref:`csm`) and adjusts each
 individual camera position and orientation in the linescan model to make them
-more consistent to each other and to the ground.
+more consistent with each other and to the ground.
 
 The goal is to reduce the effect of unmeasured perturbations in the
 linescan sensor as it acquires the data. This is quite analogous to
@@ -26,12 +26,11 @@ Limitations
 ~~~~~~~~~~~
 
 When the scan lines from the images are nearly parallel to each other the
-jitter cannot be fully disambiguated, and some residual jitter is left unsolved
-for.
+jitter cannot be fully disambiguated, and some residual jitter is left unsolved.
 
 Best results are achieved if scan lines from one image cross blocks of scan
 lines from another image that correspond to at least one jitter period. In
-practice, for WorldView images, for example, the across-track can vary notably
+practice, for WorldView images, for example, the across-track angle can vary notably
 from one image to another, resulting in such a favorable regime.
 
 If the prior DEM used as constraint (:numref:`jitter_dem_constraint`) has
@@ -40,7 +39,7 @@ results. Potential solutions are to mask the problematic areas in the DEM and /
 or use a value of ``--heights-from-dem-uncertainty`` that is quite a lot larger
 than the actual uncertainty.
 
-GCP files produced from a prior DEM of good quality can help increasing the accuracy
+GCP files produced from a prior DEM of good quality can help increase the accuracy
 (:numref:`dem2gcp`).
 
 Multiple images (ideally with scan lines notably crossing each other) can
@@ -55,7 +54,7 @@ Ground constraints
 ~~~~~~~~~~~~~~~~~~
 
 Optimizing the cameras to reduce the jitter and make them self-consistent can
-result in the camera system moving away from the initial location or warping in
+result in the camera system moving away from the initial location or warping of
 any eventually produced DEM.
 
 Hence, ground and camera constraints are very important. This tool uses
@@ -73,7 +72,7 @@ have very good overlap.
 
 This is controlled by the option ``--tri-weight`` whose default value is 0.1.
 This is divided by the image GSD when computing the cost function, to make the
-distances on the ground in units of pixel.
+distances on the ground in units of pixels.
 
 A report file having the change in triangulated points is written to disk
 (:numref:`jitter_cam_offsets`). It can help evaluate the effect of this
@@ -100,11 +99,11 @@ Extrinsic constraint
 This ties the triangulated ground points obtained from interest point matches to
 an external DEM, which may be at a lower resolution than the images. It is
 expected that this external DEM is *well-aligned* with the input cameras (see
-:numref:`ba_pc_align` for how do the alignment).
+:numref:`ba_pc_align` for how to do the alignment).
 
 This option is named ``--heights-from-dem``, and it is controlled via
 ``--heights-from-dem-uncertainty`` and ``--heights-from-dem-robust-threshold``.
-The use these options is shown in :numref:`jitter_ctx`.
+The use of these options is shown in :numref:`jitter_ctx`.
 
 The previously mentioned intrinsic constraint will be employed where the
 triangulated points are not close to the DEM given by this option. 
@@ -165,7 +164,7 @@ tight constraint can prevent convergence and result in large reprojection
 errors. 
 
 An alternative constraint, ``--camera-position-weight``, can be set to a large
-value, on the order of 1e+4, to effectively kep the camera positions in place.
+value, on the order of 1e+4, to effectively keep the camera positions in place.
 
 Camera position and ground constraints should be sufficient. It is suggested not
 to use the experimental ``--rotation-weight`` option.
@@ -195,7 +194,7 @@ Values for these are suggested in :numref:`jitter_options`.
 Resampling the poses
 ~~~~~~~~~~~~~~~~~~~~
 
-Often times, the number of tabulated camera positions and orientations
+Oftentimes, the number of tabulated camera positions and orientations
 in the CSM file is very small. For example, for Airbus Pleiades, the
 position is sampled every 30 seconds, while acquiring the whole image
 can take only 1.6 seconds. For CTX the opposite problem happens, the
@@ -239,7 +238,7 @@ somewhat the interest points which makes solving for subpixel-level accurate
 jitter less accurate.
 
 All interest point matches from disparity must be copied to a single directory
-and *renamed according ot the naming convention* (:numref:`ba_match_files`).
+and *renamed according to the naming convention* (:numref:`ba_match_files`).
 The jitter solver is passed the prefix of these files with the option
 ``--match-files-prefix``.
 
@@ -316,7 +315,7 @@ the stronger phenomenon should be solved for first.
 
 The ``bundle_adjust`` and ``jitter_solve`` programs can use each other's output
 cameras as inputs, as each saves image and optimized camera lists
-(:numref:`ba_out_cams`), which can then be passed in to the other program the
+(:numref:`ba_out_cams`), which can then be passed in to the other program 
 via the ``--image-list`` and ``--camera-list`` options.
 
 .. _jitter_ctx:
@@ -383,7 +382,7 @@ and the MOLA csv file as::
 This will give a median difference of 3 meters, which is about right, given the
 uncertainties in these datasets.
 
-A DEM can can also be created from MOLA data with ``point2dem``
+A DEM can also be created from MOLA data with ``point2dem``
 (:numref:`point2dem`)::
 
     point2dem -r mars --tr 500            \
@@ -636,7 +635,7 @@ Bundle adjustment for the entire set was run as before. The
 ``convergence_angles.txt`` report file (:numref:`ba_conv_angle`) was used to
 find stereo pairs. Only stereo pairs with a median convergence angle of at least
 5 degrees were processed, and which had at least several dozen shared interest
-points. This produced in 42 stereo pairs.
+points. This resulted in 42 stereo pairs.
 
 The resulting stereo DEMs can be mosaicked with ``dem_mosaic``
 (:numref:`dem_mosaic`). Alignment to MOLA can be done as before, and the 
@@ -715,7 +714,7 @@ Bundle adjustment
 ^^^^^^^^^^^^^^^^^
 
 Bundle adjustment was invoked first to reduce any gross errors between
-the cameras. This commands expects raw (not mapprojected) images::
+the cameras. This command expects raw (not mapprojected) images::
 
     bundle_adjust                               \
       -t dg                                     \
@@ -847,7 +846,7 @@ Copy the produced dense interest point matches for use in solving for jitter::
 
 In ASP 3.4.0 or later, that file to be copied is named instead
 ``run_1_2_map/run-disp-1__2.match``, or so, reflecting the names of the raw
-images, as these the matches are between the *original images*, even if produced
+images, as these matches are between the *original images*, even if produced
 from mapprojected images. 
 
 See :numref:`jitter_ip` for a longer explanation regarding dense and sparse
@@ -1025,7 +1024,7 @@ adjusted to be relative to WGS84, creating the file ``ref-adj.tif``
 (:numref:`initial_terrain`).
 
 Let the images be called ``1.tif`` and ``2.tif``. The Pleiades exact camera
-model names usually start with the prefix ``DIM``. Here, for simplicity, will
+model names usually start with the prefix ``DIM``. Here, for simplicity, we will
 name them  ``1.xml`` and ``2.xml``. 
 
 *Do not use the Pleiades RPC camera models.* Their names start with the ``PRC``
@@ -1129,8 +1128,8 @@ cameras were accurate enough, so these steps were skipped.
 :: 
 
     jitter_solve                               \
-      1.tif 1.tif                              \
-      2.xml 2.xml                              \
+      1.tif 2.tif                              \
+      1.xml 2.xml                              \
       --match-files-prefix matches/run         \
       --num-iterations 50                      \
       --max-pairwise-matches 100000            \
@@ -1197,7 +1196,7 @@ Setup
 In this example we worked on a rocky site in Egypt with a latitude 24.03562
 degrees and longitude of 25.85006 degrees. Dozens of cloud-free stereo pairs
 are available here. The jitter pattern, including its frequency, turned out to
-be quite different in each the stereo pair we tried, but the solver was able to
+be quite different in each stereo pair we tried, but the solver was able to
 minimize it in all cases.
 
 Fetch and prepare the data as documented in :numref:`aster_fetch`. Here we will
@@ -1429,7 +1428,7 @@ Jitter with synthetic cameras and orientation constraints
 
 The effectiveness of ``jitter_solve`` can be validated using synthetic data,
 when we know what the answer should be ahead of time. The synthetic data can 
-created with ``sat_sim`` (:numref:`sat_sim`). See a recipe in
+be created with ``sat_sim`` (:numref:`sat_sim`). See a recipe in
 :numref:`sat_sim_linescan`. 
 
 For example, one may create three linescan images and cameras, using various
@@ -1514,7 +1513,7 @@ Here is a detailed recipe.
 
 Consider a DEM named ``dem.tif``, and an orthoimage named ``ortho.tif``. Let ``x``
 be a column index in the DEM and ``y1`` and ``y2`` be two row indices. These
-will determine path on the ground seen by the satellite. Let ``h`` be the
+will determine the path on the ground seen by the satellite. Let ``h`` be the
 satellite height above the datum, in meters. Set, for example::
 
     x=4115
@@ -1575,7 +1574,7 @@ with and without jitter::
 
 This will show that projecting a pixel from the first camera to the ground and
 then projecting it back to the second camera will result in around 2 pixels of
-discrepancy, which makes sense give the horizontal uncertainty set above and the
+discrepancy, which makes sense given the horizontal uncertainty set above and the
 fact that our images are at around 0.9 m/pixel ground resolution. 
 
 To reliably create reasonably dense interest point matches between the frame and
@@ -1728,7 +1727,7 @@ Assumptions
 ^^^^^^^^^^^
 
  - When a rig has both linescan and frame sensors, the reference sensor must be
-   linescan. That because the linescan sensor acquires image data more frequently.
+   linescan. That is because the linescan sensor acquires image data more frequently.
      
  - The *reference sensor* must acquire pose readings *frequently enough* that
    pose interpolation in time is accurate. For a frame reference sensor, that
@@ -1800,8 +1799,9 @@ The frame camera images are shown to be able to help correct the jitter. That is
 because each frame camera image can serve as a template, relative to which
 oscillations in the linescan sensor can be measured. 
 
-The rig constraint is not essential here. This one is useful however when there
-are two sensors side-by-side, as then the rig helps constrain the yaw angle.
+The rig constraint is not essential here. This constraint is useful however when
+there are two sensors side-by-side, as then the rig helps constrain the yaw
+angle.
 
 Synthetic data for this example can be produced as in
 :numref:`jitter_linescan_frame_cam`, with the addition of modeling a rig, as in
@@ -1891,7 +1891,7 @@ cloud must be well-aligned with the input cameras.*  The cloud can be sparse.
 
 This workflow requires having filtered stereo disparity files (``F.tif``,
 :numref:`outputfiles`) as made by ``parallel_stereo``
-(:numref:`parallel_stereo`). For the moment, *ony a single stereo run is
+(:numref:`parallel_stereo`). For the moment, *only a single stereo run is
 supported*.
 
 The algorithm projects a reference terrain point into one camera, propagates it
@@ -1948,9 +1948,9 @@ Example usage::
     left.json right.json                          \
     -o jitter/run
 
-If the reference terrain is a CSV file rather than a DEM, and it has a a custom
+If the reference terrain is a CSV file rather than a DEM, and it has a custom
 projection, rather than geographic coordinates, the option ``--csv-srs`` must be
-set to specify the projection. Then adust ``--csv-format`` accordingly above.
+set to specify the projection. Then adjust ``--csv-format`` accordingly above.
 
 The initial and final residuals for the reference terrain points are saved to
 disk in CSV format and should be examined (:numref:`jitter_ref_err`). Also
@@ -2181,11 +2181,11 @@ Command-line options for jitter_solve
 
 --tri-weight <double (default: 0.1)>
     The weight to give to the constraint that optimized triangulated points stay
-    close to original triangulated points, for anchor points. A positive value will
-    help ensure the cameras do not move too far, but a large value may prevent
-    convergence. It is suggested to use here 0.1 to 0.5. This will be divided by
-    ground sample distance (GSD) to convert this constraint to pixel units, since
-    the reprojection errors are in pixels. See also ``--tri-robust-threshold``. Does
+    close to original triangulated points. A positive value will help ensure the
+    cameras do not move too far, but a large value may prevent convergence. It
+    is suggested to use here 0.1 to 0.5. This will be divided by ground sample
+    distance (GSD) to convert this constraint to pixel units, since the
+    reprojection errors are in pixels. See also ``--tri-robust-threshold``. Does
     not apply to GCP or points constrained by a DEM.
 
 --tri-robust-threshold <double (default: 0.1)>
@@ -2234,10 +2234,10 @@ Command-line options for jitter_solve
     Camera poses will not be read from the NVM file.
     
 --max-initial-reprojection-error <integer (default: 20)> 
-    Filter as outliers triangulated points project using initial cameras with 
-    error more than this, measured in pixels. Since jitter corrections are 
-    supposed to be small and cameras bundle-adjusted by now, this value 
-    need not be too big. Does not apply to GCP.
+    Filter as outliers any triangulated points that have a reprojection error
+    (in pixels) of more than this value, with the initial cameras. Since jitter
+    corrections are supposed to be small and cameras bundle-adjusted by now,
+    this value need not be too big. Does not apply to GCP.
 
 --num-anchor-points <integer (default: 0)>
     How many anchor points to create tying each pixel to a point on a DEM along

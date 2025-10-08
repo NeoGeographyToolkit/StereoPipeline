@@ -136,10 +136,10 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "accept this point as valid. It must be a positive value.")
     ("max-initial-reprojection-error", 
      po::value(&opt.max_init_reproj_error)->default_value(20),
-     "Filter as outliers triangulated points project using initial cameras with error more "
-     "than this, measured in pixels. Since jitter corrections are supposed to be small and "
-     "cameras bundle-adjusted by now, this value need not be too big. Does not apply to "
-     "GCP.")
+     "Filter as outliers any triangulated points that have a reprojection error "
+     "(in pixels) of more than this value, with the initial cameras. Since jitter "
+     "corrections are supposed to be small and cameras bundle-adjusted by now, "
+     "this value need not be too big. Does not apply to GCP.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
      "Set the threshold for the Cauchy robust cost function. Increasing this makes "
      "the solver focus harder on the larger errors.")
