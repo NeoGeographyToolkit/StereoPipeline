@@ -648,14 +648,15 @@ See earlier in this section for how GCP can be used.
 Creating interest point matches using mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To make it easier to create interest point matches in situations when
-the images are very different or taken from very diverse perspectives,
-they can be first mapprojected onto a DEM, as then the images look a lot
-more similar. Then interest points are created among the mapprojected
-images, when this process is more likely to succeed, and then 
+To make it easier to create interest point matches in situations when the images
+are very different or taken from very diverse perspectives, the images can be
+first mapprojected onto a DEM, as then they look a lot more similar. The
+interest points are created among the mapprojected images, and the matches are
 transferred to the original images.
 
-Here is an example. Given three images ``A.tif``, ``B.tif``, and ``C.tif``,
+This section will describe how to do this with automatic and manual (GUI) means.
+
+Given three images ``A.tif``, ``B.tif``, and ``C.tif``,
 cameras ``A.tsai``, ``B.tsai``, and ``C.tsai``, and a DEM named ``dem.tif``,
 mapproject the images onto this DEM (:numref:`mapproject`), obtaining the images
 ``A.map.tif``, ``B.map.tif``, and ``C.map.tif``.
@@ -672,7 +673,8 @@ be a compromise between the ground sample distance values for these images.
 See :numref:`mapproj-example` how how to find a DEM for mapprojection and other
 details.
 
-Then bundle adjustment is invoked as follows::
+Bundle adjustment will find interest point matches among the mapprojected images,
+and transfer them to the original images. Run::
 
     bundle_adjust A.tif B.tif C.tif A.tsai B.tsai C.tsai          \
       --mapprojected-data 'A.map.tif B.map.tif C.map.tif dem.tif' \
@@ -710,18 +712,19 @@ follows::
 
 Interest points can be picked by right-clicking on the same feature in
 each image, from left to right, then repeating this process for a
-different feature, etc. They can be saved to disk from the menu, and
-the above bundle adjustment command can be invoked (while not
-forgetting to delete first the match files among unprojected images
-so that ``bundle_adjust`` can recreate them based on the projected images).
+different feature, etc. They can be saved to disk from the menu.
 
-One can then run::
+The bundle adjustment command from above can be invoked to unproject the
+matches. Do not forget to first delete first the match files among unprojected
+images so that ``bundle_adjust`` can recreate them based on the projected
+images.
 
-     stereo_gui A.tif B.tif C.tif run/run
+Run::
 
-and turn on viewing of interest point matches to check if the interest point
-matches, that were created using mapprojected images, were correctly transferred
-to the original images.
+     stereo_gui A.tif B.tif C.tif run/run --pairwise-matches
+
+to check if the interest point matches, that were created using mapprojected
+images, were correctly transferred to the original images.
 
 See :numref:`sfs3` for an illustration of this process.
 
