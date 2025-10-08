@@ -315,11 +315,20 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<float>> const& ref,
                        // Outputs
                        Eigen::MatrixXd & ecef_transform) {
   
+  // This takes time, so put a note
+  vw::vw_out() << "Calculating the ECEF transform.\n";
+  
   std::vector<vw::Vector3> ref_pts, src_pts;
   
   // The images can be huge. A sample is enough here.
   int col_rate = std::max(ref.cols() / 1000, 1);
   int row_rate = std::max(ref.rows() / 1000, 1);
+  
+  // Report progress
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  double inc = 1.0 / (double(ref.cols())/col_rate);
+  tpc.report_progress(0);
+  
   #pragma omp parallel for
   for (int col = 0; col < ref.cols(); col += col_rate) {
     for (int row = 0; row < ref.rows(); row += row_rate) {
@@ -350,7 +359,13 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<float>> const& ref,
       }
       
     }
+    #pragma omp critical
+    {
+      tpc.report_progress(inc);
+    }
   }
+  
+  tpc.report_finished();
   
   // This will not be robust unless we have a lot of samples
   int minSamples = 10;
