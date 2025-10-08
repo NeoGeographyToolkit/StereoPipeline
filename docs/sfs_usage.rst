@@ -177,19 +177,20 @@ multiple threads, and can be on the order of 7-15 times faster than the
 ISIS .cub model it is meant to replace, as benchmarked with
 ``mapproject``, ``bundle_adjust``, and ``sfs``.
 
-Given a dataset of ISIS .cub camera files it is desired to run SfS on,
-it is suggested to attempt to convert them to corresponding CSM models
-as described in :numref:`create_csm_linescan`, and if the pixel errors as
-output by ``cam_test`` are no more than the order of 0.5 pixels, to
-use the CSM models instead of the ISIS ones in all the tools outlined
-below (``parallel_bundle_adjust``, ``parallel_stereo``,
-``mapproject``, and ``parallel_sfs``). The SfS DEMs obtained with
-these two methods were observed to differ by several millimeters at
-most, on average, but an evaluation may be necessary for your
-particular case.
+Given a set of ISIS .cub camera files it is desired to run SfS on, it is
+*strongly suggested* to convert them to corresponding CSM models as described in
+:numref:`create_csm_linescan`.
 
-This will work only for the datasets of the original dimensions, so
-not when the ``reduce`` or ``crop`` commands were used on the data.
+If the CSM models have no more than 0.5 pixels of discrepancy when compared to
+the .cub cameras, as validated with ``cam_test`` (:numref:`cam_test`), use the
+CSM models instead of the ISIS ones in all the tools outlined below
+(``parallel_bundle_adjust``, ``parallel_stereo``, ``mapproject``, and
+``parallel_sfs``). The SfS DEMs obtained with these two methods were observed to
+differ by several millimeters at most, on average, but an evaluation may be
+necessary for your particular case.
+
+This will work only for the datasets with original dimensions, so
+not together with the ``reduce`` or ``crop`` commands.
 
 Any of the commands further down which only use .cub files can be
 adapted for use with CSM cameras by appending to those commands the
@@ -214,6 +215,10 @@ then, the corresponding command using the CSM model will be::
 The option ``--use-approx-camera-models`` is no longer necessary
 as the CSM model is fast enough. It is however suggested to still
 keep the ``--crop-input-images`` option. 
+
+Bundle adjustment saves CSM camera files with adjustments already applied to
+them, so the resulting cameras can be used without the
+``--bundle-adjust-prefix`` option.
 
 .. _sfs_single_image:
 
@@ -362,11 +367,11 @@ Normally 5-10 iterations is enough, even when convergence is not reached, as the
 solution usually improves quickly at first and only very fine refinements
 happen later.
 
-The value of ``--initial-dem-constraint-weight`` is best set to 0 when the
-initial DEM is not very reliable, as otherwise defects from it can be inherited
-by the SfS result. Otherwise a value between 0.0001 and 0.001 may be good
-enough. Use a higher value when the input DEM is reliable but the reflectance
-model is not.
+The value of ``--initial-dem-constraint-weight`` is best set to something very
+small when the initial DEM is not very reliable, as otherwise defects from it
+can be inherited by the SfS result. Otherwise a value between 0.001 and 0.002
+may be good enough. Use a higher value when the input DEM is reliable but the
+reflectance model is not.
 
 See :numref:`sfs_albedo` for modeling of albedo. Shadow thresholds may be needed
 to avoid artifacts in shadow. See :numref:`sfs_crater_bottoms` for a potential
@@ -790,7 +795,7 @@ to the SfS formulation in :numref:`sfs_formulation`. As an example, running::
         -o sfs_sub10_v2/run                                \
         --threads 4 --smoothness-weight 0.12               \
         --max-iterations 5                                 \
-        --initial-dem-constraint-weight 0.0001             \
+        --initial-dem-constraint-weight 0.001              \
         --reflectance-type 1                               \
         --use-approx-camera-models                         \
         --crop-input-images                                \
@@ -1103,9 +1108,10 @@ Run bundle adjustment::
       --image-list image_list.txt                    \
       --camera-list camera_list.txt                  \
       --mapprojected-data-list mapprojected_list.txt \
-      --processes 4                                  \
-      --ip-per-image 20000                           \
-      --overlap-limit 200                            \
+      --processes 10                                 \
+      --threads 8                                    \
+      --ip-per-image 30000                           \
+      --overlap-limit 100                            \
       --num-iterations 100                           \
       --num-passes 2                                 \
       --min-matches 1                                \
@@ -1162,6 +1168,8 @@ converge. We are very generous with outlier filtering in the option
 ``--remove-outliers-params``. That will ensure that in case the
 solution did not fully converge, valid matches with large
 reprojection error are not thrown out as outliers.
+
+A large value of ``--processes`` can result in running out of memory.
 
 .. _sfs_ba_validation:
 
@@ -1494,8 +1502,8 @@ Next, SfS follows, using ``parallel_sfs`` (:numref:`parallel_sfs`)::
 
     parallel_sfs -i ref.tif                          \
       --nodes-list nodes_list.txt                    \
-      --processes 10                                 \
-      --threads 4                                    \
+      --processes 6                                  \
+      --threads 8                                    \
       --tile-size 200                                \
       --padding 50                                   \
       --image-list ba_align_ref/run-image_list.txt   \
@@ -1507,7 +1515,7 @@ Next, SfS follows, using ``parallel_sfs`` (:numref:`parallel_sfs`)::
       --min-blend-size 50                            \
       --allow-borderline-data                        \
       --smoothness-weight 0.08                       \
-      --initial-dem-constraint-weight 0.001          \
+      --initial-dem-constraint-weight 0.0025         \
       --reflectance-type 1                           \
       --max-iterations 5                             \
       --save-sparingly                               \
@@ -1548,6 +1556,11 @@ if desired, via ``--custom-shadow-threshold-list``. This may be useful
 for images having diffuse shadows cast from elevated areas that are
 far-off. For those, the threshold may need to be raised to as much as
 0.01.
+
+The value of ``--initial-dem-constraint-weight`` may need to be increased
+somewhat if the resulting SfS terrain differs too much from the initial LOLA
+terrain, or if a tiling pattern is seen. The ``geodiff`` program
+(:numref:`geodiff`) can be used for that.
 
 Use a larger ``--blending-dist`` if the produced terrain has visible artifacts
 around shadow regions which do not go away after increasing the shadow
@@ -1905,8 +1918,8 @@ Here are a few suggestions we have found helpful when running ``sfs``:
   and 0.12 seems to work all the time with LRO NAC, even when the
   images are subsampled. The other weight, :math:`\lambda`, 
   that is, the value of ``--initial-dem-constraint-weight``, can be
-  set to something small, like :math:`0.0001.` This can be increased to
-  :math:`0.001` if noticing that the output DEM strays too far.
+  set to something small, like :math:`0.001.` This can be increased to
+  :math:`0.002` if noticing that the output DEM strays too far.
 
 - Having images with diverse illumination conditions results in a more accurate
   terrain. 

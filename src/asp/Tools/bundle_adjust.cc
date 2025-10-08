@@ -1454,9 +1454,8 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
   // The third alternative, --auto-overlap-params will be handled when we have cameras
 
    // Handle option --match-pair-sigma
-   if (opt.match_pair_sigma != "") 
-   asp::readMatchPairSigmas(opt.match_pair_sigma, opt.image_files,
-                            opt.match_sigmas);
+   if (opt.match_pair_sigma != "")
+    asp::readMatchPairSigmas(opt.match_pair_sigma, opt.image_files, opt.match_sigmas);
 
   if (opt.camera_weight < 0.0)
     vw_throw(ArgumentErr() << "The camera weight must be non-negative.\n");
