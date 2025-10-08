@@ -1153,8 +1153,7 @@ Command-line options
 
 --ip-per-image <integer>
     How many interest points to detect in each image (default:
-    automatic determination). It is overridden by ``--ip-per-tile`` if
-    provided.
+    automatic determination). Can set either this or ``--ip-per-tile``.
 
 --ip-detect-method <integer (default: 0)>
     Choose an interest point detection method from: 0 = OBAloG

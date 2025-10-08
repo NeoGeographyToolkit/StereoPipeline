@@ -1048,7 +1048,8 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "determination). This is before matching. Not all interest points will have a match. "
      "See also --matches-per-tile.")
     ("ip-per-image", po::value(&opt.ip_per_image)->default_value(0),
-     "How many interest points to detect in each image (default: automatic determination). It is overridden by --ip-per-tile if provided.")
+     "How many interest points to detect in each image (default: automatic determination). "
+     "Can set either this or --ip-per-tile.")
     ("num-passes",
      po::value(&opt.num_passes)->default_value(2),
      "How many passes of bundle adjustment to do, with given number of iterations in each "
@@ -1056,7 +1057,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "--remove-outliers-params, and re-optimization will take place. Residual files and a "
      "copy of the match files with the outliers removed (*-clean.match) will be written to "
      "disk.")
-    ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
+    ("num-random-passes", po::value(&opt.num_random_passes)->default_value(0),
      "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
     ("remove-outliers-params",
      po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 5.0 8.0", "'pct factor err1 err2'"),

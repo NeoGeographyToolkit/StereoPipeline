@@ -37,8 +37,7 @@ ip-per-tile <integer (default: unspecified)>
 
 ip-per-image <integer (default: unspecified)>
     How many interest points to detect in each image (default: automatic 
-    determination, usually 5000). It is overridden by ``--ip-per-tile`` if
-    provided.
+    determination, usually 5000). Can set either this or ``--ip-per-tile``.
 
 ip-detect-method <integer (default: 0)>
     What type of interest point detection algorithm to use for image alignment.

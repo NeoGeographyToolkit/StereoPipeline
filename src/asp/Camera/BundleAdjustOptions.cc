@@ -76,6 +76,7 @@ void BaOptions::copy_to_asp_settings() const {
   // The setting below is not used, but populate it for completeness
   asp::stereo_settings().horizontal_stddev          = vw::Vector2(horizontal_stddev,
                                                                   horizontal_stddev);
+  asp::stereo_settings().validate();
 }
 
 // Read the mapprojected data, if having the option --mapprojected-data.

@@ -119,7 +119,7 @@ PreProcessingDescription::PreProcessingDescription():
     ("ip-per-tile", po::value(&global.ip_per_tile)->default_value(0),
       "How many interest points to detect in each 1024^2 image tile (default: automatic determination). This is before matching. Not all interest points will have a match. See also --matches-per-tile.")
     ("ip-per-image", po::value(&global.ip_per_image)->default_value(0),
-      "How many interest points to detect in each image, before matching (default: automatic determination). It is overridden by --ip-per-tile if provided.")
+      "How many interest points to detect in each image, before matching (default: automatic determination). Can set either this or --ip-per-tile.")
     ("matches-per-tile", po::value(&global.matches_per_tile)->default_value(0),
       "How many interest point matches to compute in each image tile (of size "
       "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "
@@ -663,6 +663,8 @@ po::options_description generate_config_file_options(vw::GdalWriteOptions& opt) 
   return cfg_options;
 }
 
+// TODO(oalexan1): More settings from user_safety_checks() that only need
+// stereo_settings() should be validated here.
 void StereoSettings::validate() {
   using namespace boost::algorithm;
 
@@ -680,6 +682,12 @@ void StereoSettings::validate() {
               universe_center == "none",
               ArgumentErr() << "\"" << universe_center
               << "\" is not a valid option for universe_center.");
+  
+  // Must have not have both ip per image and ip per tile set
+  if (asp::stereo_settings().ip_per_image > 0 &&
+      asp::stereo_settings().ip_per_tile > 0)
+    vw::vw_throw(vw::ArgumentErr()
+      << "Cannot set both --ip-per-image and --ip-per-tile.\n");
 }
 
 void StereoSettings::write_copy(int argc, char *argv[],

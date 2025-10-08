@@ -1051,7 +1051,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     vw_throw(ArgumentErr() << "The entries of subpixel-kernel must be odd numbers.\n");
   }
 
-  // Check SGM-related settings.
+  // Check SGM-related settings
 
   vw::stereo::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
