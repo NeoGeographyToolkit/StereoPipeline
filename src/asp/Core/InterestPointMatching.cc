@@ -78,6 +78,12 @@ void detect_ip(vw::ip::InterestPointList& ip,
   vw::BBox2i box = vw::bounding_box(image.impl());
   double number_tiles = (box.width() / tile_size) * (box.height() / tile_size);
 
+  // Must have not have both ip per image and ip per tile set
+  if (asp::stereo_settings().ip_per_image > 0 &&
+      asp::stereo_settings().ip_per_tile > 0)
+    vw::vw_throw(vw::ArgumentErr()
+      << "Cannot set both --ip-per-image and --ip-per-tile.\n");
+    
   int ip_per_image = 5000; // default
   if (stereo_settings().ip_per_image > 0)
     ip_per_image = stereo_settings().ip_per_image;
