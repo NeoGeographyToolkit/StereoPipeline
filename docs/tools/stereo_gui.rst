@@ -708,11 +708,11 @@ ones, so bridging the gap.
 Alternatively, interest point matching can be done *manually* in the GUI as
 follows::
 
-     stereo_gui A.map.tif B.map.tif C.map.tif run/run
+     stereo_gui --view-matches A.map.tif B.map.tif C.map.tif run/run
 
-Interest points can be picked by right-clicking on the same feature in
-each image, from left to right, then repeating this process for a
-different feature, etc. They can be saved to disk from the menu.
+Interest points can be picked by right-clicking on the same feature in each
+image, from left to right, and selecting ``Add match point``. Repeat this
+process for a different feature. The matches can be saved to disk from the menu.
 
 The bundle adjustment command from above can be invoked to unproject the
 matches. Do not forget to first delete first the match files among unprojected
@@ -721,10 +721,11 @@ images.
 
 Run::
 
-     stereo_gui A.tif B.tif C.tif run/run --pairwise-matches
-
+     stereo_gui --view-matches A.tif B.tif C.tif run/run
+     
 to check if the interest point matches, that were created using mapprojected
-images, were correctly transferred to the original images.
+images, were correctly transferred to the original images. Consider using instead
+the option ``--pairwise-matches`` if some features are not seen in all images.
 
 See :numref:`sfs3` for an illustration of this process.
 

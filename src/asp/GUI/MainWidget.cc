@@ -3206,6 +3206,12 @@ void MainWidget::addMatchPoint() {
     return;
   }
 
+  if (!asp::stereo_settings().view_matches) {
+    popUp("Must turn on viewing matches from the menu to add interest point matches.");
+    emit toggleViewMatchesSignal();
+    return;
+  }
+  
   m_editingMatches = true;
 
   // Convert mouse coords to world coords then image coords.
@@ -3222,22 +3228,22 @@ void MainWidget::addMatchPoint() {
     return;
   }
 
-  // Must refresh the matches in all the images, not just this one
-  if (asp::stereo_settings().view_matches) {
-    // Will keep the zoom level
-    emit updateMatchesSignal();
-  } else {
-    // Will reset the layout before continuing with matches
-    asp::stereo_settings().view_matches = true;
-    emit toggleViewMatchesSignal();
-  }
+  // Must refresh the matches in all the images, not just this one.
+  // Will keep the zoom level.
+  emit updateMatchesSignal();
 }
 
 // We cannot delete match points unless all images have the same number of them.
 void MainWidget::deleteMatchPoint() {
 
   if (m_end_image_id - m_beg_image_id != 1) {
-    popUp("Must have just one image in each window to delete matches.");
+    popUp("Must have just one image in each window to delete interest point matches.");
+    return;
+  }
+
+  if (!asp::stereo_settings().view_matches) {
+    popUp("Must turn on viewing matches from the menu to delete interest point matches.");
+    emit toggleViewMatchesSignal();
     return;
   }
 

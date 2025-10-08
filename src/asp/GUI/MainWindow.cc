@@ -1311,15 +1311,8 @@ void MainWindow::viewMatches() {
   if (asp::stereo_settings().view_matches) {
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
+    asp::stereo_settings().preview = false;
     MainWindow::updateViewMenuEntries();
-
-    if (m_use_georef) {
-      popUp("To view matches, turn off viewing the images as georeferenced.");
-      asp::stereo_settings().view_matches = false;
-      MainWindow::updateViewMenuEntries();
-      MainWindow::createLayout();
-      return;
-    }
   }
   
   // If started editing matches do not load them from disk
@@ -1438,7 +1431,8 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     return;
   }
   
-  if (asp::stereo_settings().pairwise_matches && asp::stereo_settings().pairwise_clean_matches) {
+  if (asp::stereo_settings().pairwise_matches && 
+      asp::stereo_settings().pairwise_clean_matches) {
     popUp("Cannot show both pairwise matches and pairwise clean matches at the same time.");
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;

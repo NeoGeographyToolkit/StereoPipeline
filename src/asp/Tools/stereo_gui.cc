@@ -266,15 +266,15 @@ void readImageNames(std::vector<std::string> const& all_files,
         // expected to not be an image.
         is_image = false;
       } else {
-        vw_out() << "Not a valid image: " << file << ". ";
         if (!fs::exists(file)) {
-          vw_out() << "Using this as the output prefix.\n";
-          output_prefix = file;
+            vw_out() << "Setting output prefix: " << file << "\n";
+            output_prefix = file;
         } else {
-          vw_out() << "\n";
+          vw_out() << "Not a valid image: " << file << "\n";
         }
       }
     }
+  
     if (is_image)
       images.push_back(file);
   }
