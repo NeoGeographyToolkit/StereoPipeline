@@ -81,7 +81,8 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
     ip_edge_buffer_percent, max_num_reference_points, num_passes;
   std::set<std::pair<std::string, std::string>> overlap_list;
   std::string overlap_list_file, auto_overlap_params, datum_str, proj_str,
-    csv_format_str, csv_srs, csv_proj4_str, disparity_list, stereo_prefix_list;
+    csv_format_str, csv_srs, csv_proj4_str, disparity_list, stereo_prefix_list,
+    match_pair_sigma;
   bool have_overlap_list, propagate_errors, match_first_to_last, single_threaded_cameras, 
     update_isis_cubes_with_csm_state, save_adjusted_rpc, fix_gcp_xyz, use_llh_error;
   double forced_triangulation_distance, min_triangulation_angle, max_triangulation_angle,
@@ -98,6 +99,8 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::vector<vw::CamPtr> camera_models;
   std::map<std::pair<int, int>, std::string> match_files;
+  std::map<std::pair<int, int>, double> match_sigmas;
+  
   vw::cartography::Datum datum;
   vw::BBox2 proj_win; // Limit input triangulated points to this projwin
   double horizontal_stddev;

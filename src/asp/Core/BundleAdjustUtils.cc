@@ -860,4 +860,78 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
   return;     
 } // end function residualsPerRow
 
+// Read sigmas for some pairs of input images. The file is in format: 
+// image1 image2 sigma, with space as separator. Any order of image1 and image2
+// is supported. 
+void readMatchPairSigmas(std::string const& sigmaFilename,
+                         std::vector<std::string> const& imageFiles,
+                         MatchSigmasMap & matchSigmas) {
+
+  // Wipe the output
+  matchSigmas.clear();
+
+  // Form image file to index map
+  std::map<std::string, int> img2index;
+  for (size_t i = 0; i < imageFiles.size(); i++)
+    img2index[imageFiles[i]] = i;
+  
+  // Open the file for reading    
+  std::ifstream infile(sigmaFilename.c_str());
+  if (!infile.is_open())
+    vw::vw_throw(vw::ArgumentErr() << "Could not open file: " << sigmaFilename << "\n");
+  
+  std::string line;
+  int line_num = 0;
+  while (std::getline(infile, line)) {
+      line_num++;
+
+      // Skip lines that are empty or contain only whitespace
+      if (line.find_first_not_of(" \t\n\v\f\r") == std::string::npos)
+        continue;
+
+      // Try to parse the three elements: image, image, double
+      std::istringstream iss(line);
+      std::string img1, img2;
+      double sigma;
+      if (!(iss >> img1 >> img2 >> sigma))
+          vw::vw_throw(vw::ArgumentErr() << "Could not parse line " << line_num
+                        << " in file: " << sigmaFilename << "\n");
+          
+      // Check that both images are known
+      auto it1 = img2index.find(img1);
+      if (it1 == img2index.end())
+        vw::vw_throw(vw::ArgumentErr() << "Unknown image: " << img1 
+                      << " in line " << line_num << " of file: " << sigmaFilename << "\n");
+      int ind1 = it1->second;
+      auto it2 = img2index.find(img2);
+      if (it2 == img2index.end())
+        vw::vw_throw(vw::ArgumentErr() << "Unknown image: " << img2 
+                      << " in line " << line_num << " of file: " << sigmaFilename << "\n");
+      int ind2 = it2->second;
+      
+      // Indices must not be same
+      if (ind1 == ind2)
+        vw::vw_throw(vw::ArgumentErr() << "Same image listed twice in line " 
+                      << line_num << " of file: " << sigmaFilename << "\n");
+        
+      // Form the key as pair. Allow also other order of images
+      auto key1 = std::make_pair(ind1, ind2);
+      auto key2 = std::make_pair(ind2, ind1);
+      
+      // These must not exist
+      if (matchSigmas.find(key1) != matchSigmas.end() ||
+          matchSigmas.find(key2) != matchSigmas.end())
+        vw::vw_throw(vw::ArgumentErr() << "Duplicate image pair in line " 
+                      << line_num << " of file: " << sigmaFilename << "\n");
+        
+      matchSigmas[key1] = sigma;
+      matchSigmas[key2] = sigma;
+      
+      std::cout << "--added ind1, ind2, sigma: " << ind1 << " " << ind2 
+                << " " << sigma << "\n";
+  }
+  
+  return;
+}
+
 } // end namespace asp

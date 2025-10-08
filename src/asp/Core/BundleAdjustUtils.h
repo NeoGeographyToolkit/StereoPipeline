@@ -155,6 +155,18 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
                      // Output
                      std::vector<std::vector<double>> & residuals);
 
+
+// A type alias for clarity, representing the mapping from an image pair to its sigma.
+using MatchPairSigmaMap = std::map<std::pair<std::string, std::string>, double>;
+
+// Read sigmas for some pairs of input images. The file is in format: 
+// image1 image2 sigma, with space as separator. Any order of image1 and image2
+// is supported. 
+typedef std::map<std::pair<int, int>, double> MatchSigmasMap;
+void readMatchPairSigmas(std::string const& sigmaFilename,
+                         std::vector<std::string> const& imageFiles,
+                         MatchSigmasMap & matchSigmas);
+
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_UTILS_H__
