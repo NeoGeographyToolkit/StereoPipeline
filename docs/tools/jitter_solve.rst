@@ -1322,6 +1322,8 @@ Apply the alignment transform to the cameras (:numref:`ba_pc_align`)::
       ba/run-out-Band3B.adjusted_state.json     \
       -o ba_align/run
 
+This will create new cameras in CSM format in the directory ``ba_align``.
+
 It is important to use here the inverse alignment transform, as we want to map
 from the stereo DEM to the reference DEM, and the forward transform would do the
 opposite, given how ``pc_align`` was invoked.
@@ -1375,7 +1377,14 @@ Solve for jitter with the aligned cameras::
       --anchor-weight 0.0                             \
       -o jitter/run
 
-The DEM uncertainty constraint was set to 20, as the image GSD is 15 meters.
+The DEM uncertainty constraint was set to 20, as the image GSD is 15 meters. A
+higher value for the uncertainty is recommended, such as 200 or more, if the
+reference DEM has large systematic differences with the stereo DEM. A tight uncertainty
+constraint can result in unphysical oscillations in the terrain model.
+
+Here, ``--num-lines-per-position`` and ``--num-lines-per-orientation`` are quite
+low. This may result in high-frequency oscillations in the produced DEM. If so,
+these need to be increased by 2x or 4x.
 
 See :numref:`jitter_camera` for a discussion of camera constraints,
 and :numref:`jitter_anchor_points` regarding anchor points.
@@ -1390,13 +1399,13 @@ in evaluating how well the jitter solver worked, even before rerunning stereo.
    after (right) solving for jitter. Compare with the ray intersection error
    in :numref:`aster_jitter_intersection_err`.
 
-Here, ``--num-lines-per-position`` and ``--num-lines-per-orientation`` are quite
-low. This may result in high-frequency oscillations in the produced DEM. If so,
-these need to be increased by 2x or 4x.
+Then, ``mapproject``, ``parallel_stereo`` and ``point2dem`` can be run again,
+with the new cameras created in the ``jitter`` directory. 
 
-Then, ``parallel_stereo`` and ``point2dem`` can be run again, with the new
-cameras created in the ``jitter`` directory. The ``--prev-run-prefix`` option
-can be used to reuse the previous run (:numref:`jitter_reuse_run`).
+*Do not* reuse the previous stereo run. So, do not use the option
+``--prev-run-prefix``. This introduces artifacts in the DEM. Likely it is
+because the cameras changed too much. It is suggested to re-mapproject with the
+optimized cameras, and re-run stereo from scratch. 
 
 .. figure:: ../images/aster_jitter_intersection_err.png
    :name: aster_jitter_intersection_err

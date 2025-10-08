@@ -89,6 +89,10 @@ void calcImageSeqMinMax(bool force_use_entire_range,
                         std::vector<double> & min_vals,
                         std::vector<double> & max_vals) {
 
+  // TODO(oalexan1): Find global min and max in either case
+  // and do not exceed these in either case. There's nothing
+  // to gain by exceeding those for all images.
+  
   // Some of these will need a global min and max
   double global_min = std::numeric_limits<double>::max();
   double global_max = -std::numeric_limits<double>::min();
@@ -127,16 +131,21 @@ void calcImageSeqMinMax(bool force_use_entire_range,
         // Two standard deviation stretch
         
         // Standard deviation must be positive
-        if (image_stats[i][3] == 0)
-          vw::vw_throw(vw::ArgumentErr() 
+        if (image_stats[i][3] == 0) {
+          // This can happen if the image is completely blank. It is better to
+          // give a warning than fail.
+          vw::vw_out(vw::WarningMessage)  
             << "The image stats do not have a positive stddev. "
-            << "Try using the option --force-use-entire-range.\n");
-          
+            << "Try using the option --force-use-entire-range.\n";
+        }
+        
         // This is an important check for when images come from different
         // sensors and have vastly different standard deviations.
         if (!individually_normalize && i > 0 && !warning_printed) {
-          double std_ratio = std::min(image_stats[i][3], image_stats[i-1][3]) / 
-                              std::max(image_stats[i][3], image_stats[i-1][3]);
+          double min_std = std::min(image_stats[i][3], image_stats[i-1][3]);
+          double max_std = std::max(image_stats[i][3], image_stats[i-1][3]);
+          double std_ratio = min_std / std::max(max_std, 1e-10);
+          
           if (std_ratio < 0.2) {
             vw::vw_out(vw::WarningMessage) 
               << "The standard deviations of some images are very different. "

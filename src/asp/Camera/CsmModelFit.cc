@@ -397,9 +397,14 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
   csmQuatVecToAxisAngle(num_poses, &quaternions[0], rotations);
   
   // Initial Kaguya distortion. These initial values were shown to work well.
-  DistortionType dist_type = KAGUYALISM;
-  std::vector<double> distortion = {1e-7, 1e-7, 1e-8, 1e-8, 1e-9, 
-                                    1e-7, 1e-7, 1e-8, 1e-8, 1e-9};
+  //DistortionType dist_type = KAGUYALISM;
+  // std::vector<double> distortion = {1e-7, 1e-7, 1e-8, 1e-8, 1e-9, 
+  //                                   1e-7, 1e-7, 1e-8, 1e-8, 1e-9};
+  
+  // Use instead the radtan model. This does not result in an artifact
+  // on the right.
+  DistortionType dist_type = RADTAN;
+  std::vector<double> distortion = {1e-8, 1e-8, 1e-8, 1e-8, 1e-8};
   
   // Set up an optimization problem to refine the CSM model.
   ceres::Problem problem;

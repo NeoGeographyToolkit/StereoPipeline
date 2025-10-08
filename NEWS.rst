@@ -68,6 +68,8 @@ jitter_solve (:numref:`jitter_solve`):
   * Changed the implementation of the camera position constraint
     (:numref:`jitter_camera`).
   * Added the options ``--fix-gcp-xyz``, ``--use-lon-lat-height-gcp-error``.
+  * Changed the lens distortion model for ASTER cameras to be radial-tangential.
+    This produces better results after solving for jitter.
 
 point2las (:numref:`point2las`):
   * Added the option ``--dem`` to convert a DEM to LAS.
