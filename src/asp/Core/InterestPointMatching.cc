@@ -78,29 +78,24 @@ void detect_ip(vw::ip::InterestPointList& ip,
   double tile_size = 1024.0;
   vw::BBox2i box = vw::bounding_box(image.impl());
   double number_tiles = (box.width() / tile_size) * (box.height() / tile_size);
-
-  std::cout << "--ip per image is " << ip_per_image << "\n";
-  std::cout << "--ip per tile is " << ip_per_tile << "\n";
-  std::cout << "ip per tile " << ip_per_tile << "\n";
   
   // Must have not have both ip per image and ip per tile set
   if (ip_per_image > 0 && ip_per_tile > 0)
     vw::vw_throw(vw::ArgumentErr()
       << "Cannot set both --ip-per-image and --ip-per-tile.\n");
-    
-  if (ip_per_image == 0)
-    ip_per_image = 5000; // default
+  
+  if (ip_per_tile == 0) {
+    // Create ip_per_tile from ip_per_image
 
-  size_t points_per_tile = double(ip_per_image) / number_tiles;
-  if (points_per_tile > 5000) points_per_tile = 5000;
-  if (points_per_tile < 50) points_per_tile = 50;
+    if (ip_per_image == 0)
+      ip_per_image = 5000; // default
 
-  // See if to override with ip per tile
-  if (ip_per_tile != 0)
-    points_per_tile = ip_per_tile;
+    ip_per_tile = double(ip_per_image) / number_tiles;
+    if (ip_per_tile > 5000) ip_per_tile = 5000;
+    if (ip_per_tile < 50) ip_per_tile = 50;
+  }
 
-  vw::vw_out() << "\t    Using " << points_per_tile
-    << " interest points per tile (1024^2 px).\n";
+  vw::vw_out() << "\t    Using " << ip_per_tile << " interest points per tile (1024^2 px).\n";
 
   const bool has_nodata = !boost::math::isnan(nodata);
 
@@ -121,15 +116,15 @@ void detect_ip(vw::ip::InterestPointList& ip,
       vw::vw_out() << "\t    Using " << num_scales
         << " scales in OBALoG interest point detection.\n";
 
-    vw::ip::IntegralAutoGainDetector detector(points_per_tile, num_scales);
+    vw::ip::IntegralAutoGainDetector detector(ip_per_tile, num_scales);
 
     // This detector can't handle a mask so if there is nodata just set those pixels to zero.
 
     vw::vw_out() << "\t    Detecting IP\n";
     if (!has_nodata)
-      ip = detect_interest_points(image.impl(), detector, points_per_tile);
+      ip = detect_interest_points(image.impl(), detector, ip_per_tile);
     else
-      ip = detect_interest_points(apply_mask(create_mask(image.impl(),nodata)), detector, points_per_tile);
+      ip = detect_interest_points(apply_mask(create_mask(image.impl(),nodata)), detector, ip_per_tile);
   } else {
 
     // Initialize the OpenCV detector.  Conveniently we can just pass in the type argument.
@@ -149,15 +144,15 @@ void detect_ip(vw::ip::InterestPointList& ip,
       vw::vw_out() << "\t    Using per-tile image normalization for interest points detection...\n";
 
     bool build_opencv_descriptors = true;
-    vw::ip::OpenCvInterestPointDetector detector(cv_method, opencv_normalize, build_opencv_descriptors, points_per_tile);
+    vw::ip::OpenCvInterestPointDetector detector(cv_method, opencv_normalize, build_opencv_descriptors, ip_per_tile);
 
     // These detectors do accept a mask so use one if applicable.
 
     vw::vw_out() << "\t    Detecting IP\n";
     if (!has_nodata)
-      ip = detect_interest_points(image.impl(), detector, points_per_tile);
+      ip = detect_interest_points(image.impl(), detector, ip_per_tile);
     else
-      ip = detect_interest_points(create_mask(image.impl(),nodata), detector, points_per_tile);
+      ip = detect_interest_points(create_mask(image.impl(),nodata), detector, ip_per_tile);
   } // End OpenCV case
 
   sw1.stop();
@@ -1353,6 +1348,7 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   //   next step. Using anything else will interpolate nodata values
   //   and stop them from being masked out.
   // TODO(oalexan1): Would it be better to pass masked images and use interpolation?
+  // TODO(oalexan1): Likely bilinear interpolation is better for the IP detection.
   auto ext = ValueEdgeExtension<float>(boost::math::isnan(nodata2) ? 0 : nodata2);
   std::string right_vwip_file = ""; // Don't record IP from transformed images
   bool use_cached_ip = false;
