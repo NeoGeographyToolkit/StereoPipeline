@@ -274,8 +274,8 @@ void computeStatsOrIp(asp::BaOptions const& opt,
       bool use_cached_ip = false;
       if (fs::exists(vwip_file) && first_is_newer(vwip_file, image_path))
         use_cached_ip = true;
-      asp::detect_ip(ip, 
-                     apply_mask(masked_image, nodata),
+      asp::detect_ip(ip, apply_mask(masked_image, nodata),
+                     asp::stereo_settings().ip_per_image,
                      asp::stereo_settings().ip_per_tile,
                      vwip_file, nodata, use_cached_ip);
       

@@ -49,7 +49,8 @@ namespace asp {
 // checking if this cached file is not older than the input image. 
 void detect_ip(vw::ip::InterestPointList& ip,
                vw::ImageViewRef<float> const& image,
-               int ip_per_tile, std::string const vwip_file, 
+               int ip_per_image, int ip_per_tile, 
+               std::string const vwip_file, 
                double nodata, 
                bool use_cached_ip) {
   if (use_cached_ip && fs::exists(vwip_file)) {
@@ -78,15 +79,17 @@ void detect_ip(vw::ip::InterestPointList& ip,
   vw::BBox2i box = vw::bounding_box(image.impl());
   double number_tiles = (box.width() / tile_size) * (box.height() / tile_size);
 
+  std::cout << "--ip per image is " << ip_per_image << "\n";
+  std::cout << "--ip per tile is " << ip_per_tile << "\n";
+  std::cout << "ip per tile " << ip_per_tile << "\n";
+  
   // Must have not have both ip per image and ip per tile set
-  if (asp::stereo_settings().ip_per_image > 0 &&
-      asp::stereo_settings().ip_per_tile > 0)
+  if (ip_per_image > 0 && ip_per_tile > 0)
     vw::vw_throw(vw::ArgumentErr()
       << "Cannot set both --ip-per-image and --ip-per-tile.\n");
     
-  int ip_per_image = 5000; // default
-  if (stereo_settings().ip_per_image > 0)
-    ip_per_image = stereo_settings().ip_per_image;
+  if (ip_per_image == 0)
+    ip_per_image = 5000; // default
 
   size_t points_per_tile = double(ip_per_image) / number_tiles;
   if (points_per_tile > 5000) points_per_tile = 5000;
@@ -95,10 +98,6 @@ void detect_ip(vw::ip::InterestPointList& ip,
   // See if to override with ip per tile
   if (ip_per_tile != 0)
     points_per_tile = ip_per_tile;
-
-  // Record the current number of ip per tile. Later this can be used
-  // for a subsequent attempt, if this one failed.
-  asp::stereo_settings().ip_per_tile = points_per_tile;
 
   vw::vw_out() << "\t    Using " << points_per_tile
     << " interest points per tile (1024^2 px).\n";
@@ -204,7 +203,7 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
                     vw::ip::InterestPointList& ip2,
                     vw::ImageViewRef<float> const& image1,
                     vw::ImageViewRef<float> const& image2,
-                    int ip_per_tile,
+                    int ip_per_image, int ip_per_tile,
                     std::string const left_vwip_file,
                     std::string const right_vwip_file,
                     double nodata1, double nodata2,
@@ -215,11 +214,13 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
 
   // Detect interest points in the two images
   vw::vw_out() << "\t    Looking for interest points in left image.\n";
-  detect_ip(ip1, vw::pixel_cast<float>(image1), ip_per_tile, left_vwip_file, nodata1,
-            use_cached_ip);
+  detect_ip(ip1, vw::pixel_cast<float>(image1), 
+            ip_per_image, ip_per_tile, left_vwip_file, 
+            nodata1, use_cached_ip);
   vw::vw_out() << "\t    Looking for interest points in right image.\n";
-  detect_ip(ip2, vw::pixel_cast<float>(image2), ip_per_tile, right_vwip_file, nodata2,
-            use_cached_ip);
+  detect_ip(ip2, vw::pixel_cast<float>(image2), 
+            ip_per_image, ip_per_tile, right_vwip_file,
+            nodata2, use_cached_ip);
 
   if (stereo_settings().ip_debug_images) {
     vw::vw_out() << "\t    Writing detected IP debug images. " << std::endl;
@@ -251,7 +252,8 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 
   // Detect interest points in the two images
   vw::ip::InterestPointList ip1, ip2;
-  detect_ip_pair(ip1, ip2, image1, image2, ip_per_tile,
+  detect_ip_pair(ip1, ip2, image1, image2, 
+                 asp::stereo_settings().ip_per_image, ip_per_tile,
                  left_vwip_file, right_vwip_file, nodata1, nodata2,
                  use_cached_ip);
 
@@ -1296,6 +1298,7 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
                             vw::camera::CameraModel* cam2,
                             vw::ImageViewRef<float> const& image1,
                             vw::ImageViewRef<float> const& image2,
+                            int ip_per_per_image,
                             int ip_per_tile,
                             vw::cartography::Datum const& datum,
                             std::string const left_vwip_file,
@@ -1356,7 +1359,7 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   if (!detect_ip_pair(ip1, ip2, image1,
                       crop(transform(image2, rough_trans, ext,
                                      NearestPixelInterpolation()), trans_box2),
-                      ip_per_tile, left_vwip_file, right_vwip_file,
+                      ip_per_per_image, ip_per_tile, left_vwip_file, right_vwip_file,
                       nodata1, nodata2, use_cached_ip)) {
     vw_out() << "Unable to detect interest points." << std::endl;
     return false;

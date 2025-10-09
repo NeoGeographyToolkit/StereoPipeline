@@ -983,12 +983,14 @@ bool match_ip_with_datum(bool single_threaded_camera,
   bool use_cached_ip = false;
   if (use_rough_homography) 
     detect_ip_aligned_pair(cam1, cam2, image1, image2,
-                           ip_per_tile, datum, left_file_path, nodata1, nodata2,
+                           asp::stereo_settings().ip_per_image, ip_per_tile, 
+                           datum, left_file_path, nodata1, nodata2,
                            ip1, ip2, rough_homography); // Outputs
   else
      detect_ip_pair(ip1, ip2, image1, image2,
-                 ip_per_tile, left_file_path, right_file_path,
-                 nodata1, nodata2, use_cached_ip);
+                    asp::stereo_settings().ip_per_image, ip_per_tile, 
+                    left_file_path, right_file_path,
+                    nodata1, nodata2, use_cached_ip);
 
   // Match the detected IPs which are in the original image coordinates.
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
@@ -996,12 +998,12 @@ bool match_ip_with_datum(bool single_threaded_camera,
   vw::Matrix<double> align_matrix = vw::math::identity_matrix<3>();
   vw::Stopwatch sw2;
   sw2.start();
-  bool inlier = epipolar_ip_matching(
-       single_threaded_camera,
-			 ip1, ip2, cam1, cam2, image1, image2, 
-       datum, number_of_jobs, epipolar_threshold, uniqueness_threshold, nodata1, nodata2,
-       match_per_tile, align_matrix,
-			 matched_ip1, matched_ip2); // Outputs
+  bool inlier = epipolar_ip_matching(single_threaded_camera, ip1, ip2, cam1, cam2, 
+                                     image1, image2,  datum, number_of_jobs, 
+                                     epipolar_threshold, uniqueness_threshold, 
+                                     nodata1, nodata2,
+                                     match_per_tile, align_matrix, 
+                                     matched_ip1, matched_ip2); // Outputs
   sw2.stop();
   vw_out() << "Elapsed time in ip matching: " << sw2.elapsed_seconds() << " s.\n";
 

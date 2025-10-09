@@ -205,9 +205,8 @@ void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
 /// This is not meant to be used directly. Use ip_matching().
 void detect_ip(vw::ip::InterestPointList& ip,
                vw::ImageViewRef<float> const& image,
-               int ip_per_tile, std::string const vwip_file, 
-               double nodata,
-               bool use_cached_ip);
+               int ip_per_image, int ip_per_tile, std::string const vwip_file, 
+               double nodata, bool use_cached_ip);
 
 // Detect IP in a pair of images and apply rudimentary filtering.
 // Returns false if either image ended up with zero IP.
@@ -215,7 +214,7 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
                     vw::ip::InterestPointList& ip2,
                     vw::ImageViewRef<float> const& image1,
                     vw::ImageViewRef<float> const& image2,
-                    int ip_per_tile,
+                    int ip_per_image, int ip_per_tile,
                     std::string const left_vwip_file,
                     std::string const right_vwip_file,
                     double nodata1, double nodata2,
@@ -224,17 +223,17 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
 // Detect interest points. Return also the rough homography that aligns the right image
 // to the left.
 bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
-  vw::camera::CameraModel* cam2,
-  vw::ImageViewRef<float> const& image1,
-  vw::ImageViewRef<float> const& image2,
-  int ip_per_tile,
-  vw::cartography::Datum const& datum,
-  std::string const left_vwip_file,
-  double nodata1, double nodata2,
-  // Outputs
-  vw::ip::InterestPointList& ip1,
-  vw::ip::InterestPointList& ip2,
-  vw::Matrix<double> &rough_homography);
+                            vw::camera::CameraModel* cam2,
+                            vw::ImageViewRef<float> const& image1,
+                            vw::ImageViewRef<float> const& image2,
+                            int ip_per_image, int ip_per_tile,
+                            vw::cartography::Datum const& datum,
+                            std::string const left_vwip_file,
+                            double nodata1, double nodata2,
+                            // Outputs
+                            vw::ip::InterestPointList& ip1,
+                            vw::ip::InterestPointList& ip2,
+                            vw::Matrix<double> &rough_homography);
 
 /// Detect interest points and use a simple matching technique.
 /// This is not meant to be used directly. Use ip_matching().
