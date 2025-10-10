@@ -645,7 +645,7 @@ void populateRigCamInfo(rig::RigSet const& rig,
   populateInitRigCamInfo(rig, image_files, camera_files, csm_models, 
                          rig_cam_info);
 
-  // Find a map that from each group to timestamps and indicies in that group
+  // Find a map that from each group to timestamps and indices in that group
   populateTimestampMap(cam2group, rig_cam_info, timestamp_map);
   
   // Find the mid time for each frame group as the median of the group timestamps  

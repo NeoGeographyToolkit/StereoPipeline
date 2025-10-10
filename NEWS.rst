@@ -31,6 +31,8 @@ parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
 bundle_adjust (:numref:`bundle_adjust`):
   * Changed the implementation of the camera position constraint
     (:numref:`ba_cam_constraints`).
+  * Added the option ``--fixed-distortion-indices`` to control which lens 
+    distortion parameters are kept fixed.
   * The option ``--auto-overlap-params`` accepts an optional third argument (all
     in quotes) that has the number of subsequent images that overlap to use in
     matching. Also works with option ``--match-first-to-last``.

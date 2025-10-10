@@ -1,6 +1,6 @@
 function plot_ccds(do_find, is_forward, prefix, I)
    % Plot ccds with given scan direction with given prefix.
-   % I are their indicies in 'scandir.txt'. 
+   % I are their indices in 'scandir.txt'. 
    % If is_forward=0, that means reverse.
    % The 'scandir.txt' file is obtained by running
    % gen_scandir.pl.

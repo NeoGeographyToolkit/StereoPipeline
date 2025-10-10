@@ -1244,8 +1244,8 @@ Command-line options
     specify here, in quotes, one or more of: ``focal_length``,
     ``optical_center``, ``other_intrinsics`` (same as ``distortion``). Not
     specifying anything will float all of them. Also can specify ``all`` or
-    ``none``. See :numref:`ba_frame_linescan` for controlling these per
-    each group of cameras sharing a sensor.
+    ``none``. See :numref:`ba_frame_linescan` for controlling these per each
+    group of cameras sharing a sensor. See also ``--fixed-distortion-indices``.
 
 --intrinsics-to-share <string (default: "")>
     If solving for intrinsics and desired to share only a few of them across all
@@ -1556,12 +1556,21 @@ Command-line options
     values.
 
 --min-distortion <double (default: 1e-7)>
-    When lens distortion is optimized, all initial distortion parameters
-    that are smaller in magnitude than this value are set to this value. This is
-    to ensure the parameters are big enough to be optimized. Can be negative.
-    Applies to Pinhole cameras (all distortion models) and CSM
-    (radial-tangential distortion only). Does not apply to optical bar models.
+    Distortion parameters tht are optimized and that are smaller in magnitude
+    than this value are set to this value. This is to ensure the parameters are
+    big enough to be optimized. Can be negative. This is affected by
+    ``--fixed-distortion-indices``. Applies to Pinhole cameras (all distortion
+    models) and CSM (radial-tangential distortion only). Does not apply to
+    optical bar models.
 
+--fixed-distortion-indices <string (default: "")>
+    A list of indices, separated by commas (with no spaces) starting from 0,
+    corresponding to lens distortion parameters to keep fixed, if
+    ``--solve-intrinsics`` is invoked. These will not be changed by the
+    ``--min-distortion`` setting. The order of distortion parameters is as saved
+    in output camera files. For example, for radial-tangential distortion, the
+    order is ``k1, k2, p1, p2, k3`` (:numref:`pinhole_distortion`).
+    
 --reference-terrain <filename>
     An externally provided trustworthy reference terrain to use as a constraint.
     It can be either a DEM or a point cloud in CSV format. It must be

@@ -114,7 +114,7 @@ void convergence_angles(vw::camera::CameraModel const * left_cam,
 void listExistingMatchFiles(std::string const& prefix,
                             std::set<std::string> & existing_files);
 
-// Given a pair of indicies, return all the matches between them.
+// Given a pair of indices, return all the matches between them.
 void matchesForPair(vw::ba::ControlNetwork const& cnet,
                     int left_cid, int right_cid,
                     std::vector<vw::ip::InterestPoint> & left_ip,

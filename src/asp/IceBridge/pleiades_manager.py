@@ -254,7 +254,7 @@ def runFetch(run, options, logger):
 
     # Rename to the newest convention of computing the timestamp.
     # This must happen after all is fetched from tape and we
-    # refreshed the indicies from NSIDC.
+    # refreshed the indices from NSIDC.
     run.massRename(options.startFrame, options.stopFrame, logger)
     
     # Many of the archived input lidar files have problems, correct them here.

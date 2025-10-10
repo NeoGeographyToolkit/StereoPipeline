@@ -58,7 +58,7 @@ public:
           double uniqueness_threshold, double inlier_threshold,
           vw::cartography::Datum const& datum);
 
-  /// This only returns the indicies
+  /// This only returns the indices
   /// - ip_detect_method must match the method used to obtain the interest points
   void operator()(vw::ip::InterestPointList const& ip1,
       vw::ip::InterestPointList const& ip2,

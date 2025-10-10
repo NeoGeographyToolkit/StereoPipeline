@@ -36,7 +36,7 @@ https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2009.10.25/
 
 For processing, it will be convenient to move data to a single
 directory, for the earliest of these two dates, and concatenate the
-orthoimage indicies from both directories, and the same for the raw
+orthoimage indices from both directories, and the same for the raw
 image index and DEM index files (the latter are empty in this case).
 
 When it comes to submitting the data for archival, it perhaps makes

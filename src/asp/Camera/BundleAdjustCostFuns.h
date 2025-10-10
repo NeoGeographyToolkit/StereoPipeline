@@ -30,6 +30,7 @@
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
+#include <ceres/manifold.h>
 #pragma GCC diagnostic pop
 
 typedef vw::PixelMask<vw::Vector<float, 2>> DispPixelT;
@@ -414,6 +415,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
                            // Outputs
                            vw::ba::ControlNetwork                  & cnet,
                            asp::BAParams                           & param_storage,
+                           ceres::SubsetManifold                   * dist_opts,
                            ceres::Problem                          & problem,
                            std::vector<size_t>                     & cam_residual_counts,
                            std::vector<size_t>                     & num_pixels_per_cam,

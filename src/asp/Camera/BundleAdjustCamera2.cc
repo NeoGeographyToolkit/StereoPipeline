@@ -1985,13 +1985,30 @@ int calcMaxNumDistParams(std::vector<vw::CamPtr> const& camera_models,
 
 // This is needed to ensure distortion coefficients are not so small
 // that they don't get optimized. This modifies the camera models in place.
+// This does not change indices given by --fixed-distortion-indices.
 void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
                          BACameraType camera_type,
                          IntrinsicOptions const& intrinsics_opts,
+                         std::vector<int> const& fixed_distortion_indices,
+                         int max_num_dist_params,
                          double min_distortion) {
 
   int num_cameras = camera_models.size();
   bool message_printed = false;
+  
+  // Check that all distortion indices are between 0 and max_num_dist_params-1.
+  for (size_t i = 0; i < fixed_distortion_indices.size(); i++) {
+    if (fixed_distortion_indices[i] < 0 || 
+        fixed_distortion_indices[i] >= max_num_dist_params)
+      vw_throw(ArgumentErr() << "The values in --fixed-distortion-indices "
+               << "are out of range given the number of distortion coefficients.\n");
+  }
+  
+  // Put fixed_distortion_indices in a set for faster searching
+  std::set<int> fixed_dist_set;
+  for (size_t i = 0; i < fixed_distortion_indices.size(); i++)
+    fixed_dist_set.insert(fixed_distortion_indices[i]);
+    
   for (size_t cam_it  = 0; cam_it < camera_models.size(); cam_it++) {
     
     // See if this logic is needed
@@ -2025,11 +2042,13 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
     if (!intrinsics_opts.float_distortion_params(cam_it))
       continue; // distortion is not being optimized for this camera
       
-    // Adjust the distortion parameters  
+    // Adjust the distortion parameters, unless they are fixed, via
+    // --fixed-distortion-indices.
     vw::Vector<double> dist_params;
     asp::get_distortion(camera_models[cam_it].get(), dist_params);
     for (size_t i = 0; i < dist_params.size(); i++) {
-      if (std::abs(dist_params[i]) < std::abs(min_distortion)) {
+      if (std::abs(dist_params[i]) < std::abs(min_distortion) &&
+          !fixed_dist_set.count(i)) {
         dist_params[i] = min_distortion;
         if (!message_printed) {
           vw::vw_out(vw::WarningMessage)

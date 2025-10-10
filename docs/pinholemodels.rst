@@ -385,7 +385,9 @@ Tsai
       k3 = 1e-3
 
 The ``k3`` parameter is optional in the Tsai model. If not set, its value is 0.
-It is stored last, as in OpenCV.
+Internally it is stored last in the distortion vector, as in OpenCV. See the
+option ``--fixed-distortion-indices`` if desired keep some of these fixed during
+bundle adjustment (:numref:`ba_options`).
 
 .. _adjustable_tsai_dist_example:
 

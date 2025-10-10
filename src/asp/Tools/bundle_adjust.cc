@@ -98,7 +98,6 @@ private:
   asp::BAParams const& m_param_storage;
 };
 
-
 // One pass of bundle adjustment
 int do_ba_ceres_one_pass(asp::BaOptions                & opt,
                          asp::CRN               const & crn,
@@ -172,6 +171,13 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
   // Add the various cost functions the solver will optimize over.
   ceres::Problem problem;
 
+  // Handle fixed distortion indices. Manually freeing up this pointer at the
+  // end results in a crash.
+  ceres::SubsetManifold *dist_opts = NULL;
+  if (!opt.fixed_distortion_indices.empty())
+    dist_opts = new ceres::SubsetManifold(param_storage.m_max_num_dist_params, 
+                                          opt.fixed_distortion_indices);
+  
   // Pixel reprojection error
   std::vector<size_t> cam_residual_counts, num_pixels_per_cam;
   std::vector<std::vector<vw::Vector2>> pixels_per_cam;
@@ -180,7 +186,7 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
   asp::addPixelReprojCostFun(opt, crn, count_map, weight_image, weight_image_georef,
                              dem_xyz_vec, have_weight_image, have_dem,
                              // Outputs
-                             cnet, param_storage, problem, cam_residual_counts,
+                             cnet, param_storage, dist_opts, problem, cam_residual_counts,
                              num_pixels_per_cam, pixels_per_cam, tri_points_per_cam,
                              pixel_sigmas);
 
@@ -564,16 +570,22 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     return;
   }
 
-  // Calculate the max length of a distortion vector
+  // Calculate the max length of a distortion vector. It will be convenient to
+  // have all distortion vectors have this max length, even if fewer are needed
+  // for some cameras.
   int max_num_dist_params
     = asp::calcMaxNumDistParams(opt.camera_models, opt.camera_type,
                                 opt.intrinsics_options, opt.intrinsics_limits);
 
-  // This is needed to ensure distortion coefficients are not so small as to not get
-  // optimized.
-   if (opt.solve_intrinsics && !opt.apply_initial_transform_only)
-     asp::ensureMinDistortion(opt.camera_models, opt.camera_type,
-                              opt.intrinsics_options, opt.min_distortion);
+  // This is needed to ensure distortion coefficients are not so small as to not
+  // get optimized. This modifies the cameras and must happen before
+  // param_storage is populated.
+  if (opt.solve_intrinsics && !opt.apply_initial_transform_only)
+    asp::ensureMinDistortion(opt.camera_models, opt.camera_type,
+                             opt.intrinsics_options, 
+                             opt.fixed_distortion_indices,
+                             max_num_dist_params,
+                             opt.min_distortion);
 
   // Create the storage arrays for the variables we will adjust.
   asp::BAParams param_storage(num_points, num_cameras,
@@ -689,14 +701,14 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
       // Do not throw if there exist gcp, as maybe that's all there is, and there
       // can be just a few of them. Also, do not throw if we are using an ISIS cnet,
       // unless we have less than 10 points, as that one can make too few points.
-      std::ostringstream ostr;
-      ostr << "Too few points remain after filtering. Number of remaining "
-           << "points is " << num_points_remaining
-           << ", but value of --min-matches is " << opt.min_matches << ".\n";
+      std::ostringstream os;
+      os << "Too few points remain after filtering. Number of remaining "
+         << "points is " << num_points_remaining
+         << ", but value of --min-matches is " << opt.min_matches << ".\n";
       if (opt.isis_cnet != "" && num_points_remaining > 10)
-        vw_out(vw::WarningMessage) << ostr.str();
+        vw_out(vw::WarningMessage) << os.str();
       else
-        vw_throw(ArgumentErr() << "Error: " << ostr.str());
+        vw_throw(ArgumentErr() << "Error: " << os.str());
     }
   } // End loop through passes
 
@@ -1182,17 +1194,25 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "through triangulation for all cameras. To be used with --propagate-errors.")
     ("min-distortion",
      po::value(&opt.min_distortion)->default_value(1e-7),
-     "When lens distortion is optimized, all initial distortion parameters that are "
+     "Distortion parameters that are optimized and that are "
      "smaller in magnitude than this value are set to this value. This is to ensure the "
-     "parameters are big enough to be optimized. Can be negative. Applies to Pinhole "
-     "cameras (all distortion models) and CSM (radial-tangential distortion only). Does "
-     "not apply to optical bar models.")
+     "parameters are big enough to be optimized. Can be negative. This is affected by "
+     "--fixed-distortion-indices. Applies to Pinhole cameras (all distortion models) and "
+     "CSM (radial-tangential distortion only). Does not apply to optical bar models. "
+     "See also --fixed-distortion-indices.")
+    ("fixed-distortion-indices",
+     po::value(&opt.fixed_distortion_indices_str)->default_value(""),
+     "A list of indices, separated by commas (with no spaces) starting from 0, "
+     "corresponding to lens distortion parameters to keep fixed, if --solve-intrinsics is "
+     "invoked. These will not be changed by the --min-distortion setting. The order of "
+     "distortion parameters is as saved in output camera files. For example, for "
+     "radial-tangential distortion, the order is k1, k2, p1, p2, k3.")
     ("flann-method",  po::value(&opt.flann_method)->default_value("auto"),
-      "Choose the FLANN method for matching interest points. Options: 'kmeans': "
-      "slower but deterministic, 'kdtree': faster (up to 6x) but not deterministic "
-      "(starting with FLANN 1.9.2). The default ('auto') is to use 'kmeans' for "
-      "25,000 features or less and 'kdtree' otherwise. This does not apply to ORB "
-      "feature matching.")
+     "Choose the FLANN method for matching interest points. Options: 'kmeans': "
+     "slower but deterministic, 'kdtree': faster (up to 6x) but not deterministic "
+     "(starting with FLANN 1.9.2). The default ('auto') is to use 'kmeans' for "
+     "25,000 features or less and 'kdtree' otherwise. This does not apply to ORB "
+     "feature matching.")
     ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""),
      "An alias for --csv-srs, for backward compatibility.")
     ("save-vwip", po::bool_switch(&opt.save_vwip)->default_value(false)->implicit_value(true),
@@ -1698,6 +1718,13 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     vw_throw(vw::IOErr() << "Cannot use --apply-initial-transform-only "
               << "without --initial-transform.\n");
 
+  if (opt.apply_initial_transform_only) {
+    if (opt.solve_intrinsics) {
+      vw_out() << "Not solving for intrinsics, as --apply-initial-transform-only was set.\n";
+      opt.solve_intrinsics = false;
+    }
+  }
+    
   if (opt.initial_transform_file != "") {
     vw_out() << "Reading the alignment transform from: "
              << opt.initial_transform_file << "\n";
@@ -1745,6 +1772,29 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     }
   }
 
+  // Handle fixed distortion indices
+  std::string sep = ",";
+  auto v = vw::str_to_std_vec(opt.fixed_distortion_indices_str, sep);
+  // Copy from doubles to int
+  opt.fixed_distortion_indices.clear();
+  for (size_t i = 0; i < v.size(); i++) {
+     if (int(v[i]) != v[i])
+       vw::vw_throw(vw::ArgumentErr() 
+              << "The distortion indices to keep fixed must be integers.\n");
+    opt.fixed_distortion_indices.push_back(int(v[i]));
+  }
+  // Sanity check
+  for (size_t i = 0; i < opt.fixed_distortion_indices.size(); i++) {
+    if (opt.fixed_distortion_indices[i] < 0)
+      vw::vw_throw(vw::ArgumentErr() 
+               << "The distortion indices to keep fixed must be non-negative.\n");
+  }
+  // Non-empty fixed_distortion_indices only makes sense when solving for intrinsics
+  if (!opt.fixed_distortion_indices.empty() && !opt.solve_intrinsics)
+    vw::vw_throw(vw::ArgumentErr() 
+             << "The option --fixed-distortion-indices requires "
+             << "the option --solve-intrinsics.\n");
+    
   if (opt.reference_terrain != "") {
     std::string file_type = asp::get_cloud_type(opt.reference_terrain);
     if (file_type == "CSV" && opt.csv_format_str == "")

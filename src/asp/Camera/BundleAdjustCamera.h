@@ -332,13 +332,16 @@ public:
   size_t get_focus_offset(int cam_index) const;
   size_t get_distortion_offset(int cam_index) const;
 
+  // Not much of a point of having set/get functions for this one
+  int m_max_num_dist_params;
+  
 private: // Variables
 
   int m_num_points, m_num_cameras, m_params_per_point, m_num_pose_params;
   
   // m_intrinsics_vec starts out with m_num_shared_intrinsics values which are
   //  shared between all cameras, followed by the per-camera intrinsics for each camera.
-  int m_num_shared_intrinsics, m_num_intrinsics_per_camera, m_max_num_dist_params;
+  int m_num_shared_intrinsics, m_num_intrinsics_per_camera;
   
   // These store the offset to the focus or distortion data from the start of
   //  either the shared parameters at the start of m_intrinsics_vec or from
@@ -704,6 +707,8 @@ int calcMaxNumDistParams(std::vector<vw::CamPtr> const& camera_models,
 void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
                          BACameraType camera_type,
                          IntrinsicOptions const& intrinsics_opts,
+                         std::vector<int> const& fixed_distortion_indices,
+                         int max_num_dist_params,
                          double min_distortion);
 
 // Sanity check. This does not prevent the user from setting the wrong datum,

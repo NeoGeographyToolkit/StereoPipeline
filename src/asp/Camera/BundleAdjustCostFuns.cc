@@ -546,6 +546,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
                                      int point_index, int camera_index, 
                                      asp::BAParams & param_storage,
                                      asp::BaOptions const& opt,
+                                     ceres::SubsetManifold * dist_opts,
                                      ceres::Problem & problem) {
 
   ceres::LossFunction* loss_function;
@@ -565,13 +566,11 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
       problem.AddResidualBlock(cost_function, loss_function, point, camera);
 
   } else { // Solve for intrinsics for Pinhole, optical bar, or CSM camera
-
     double* center     = param_storage.get_intrinsic_center_ptr    (camera_index);
     double* focus      = param_storage.get_intrinsic_focus_ptr     (camera_index);
     double* distortion = param_storage.get_intrinsic_distortion_ptr(camera_index);
 
     boost::shared_ptr<CeresBundleModelBase> wrapper;
-
     if (opt.camera_type == asp::BaCameraType_Pinhole) {
 
       boost::shared_ptr<PinholeModel> pinhole_model = 
@@ -603,8 +602,8 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
 
     ceres::CostFunction* cost_function =
       BaReprojectionError::Create(observation, pixel_sigma, wrapper);
-    problem.AddResidualBlock(cost_function, loss_function, point, camera, 
-                            center, focus, distortion);
+    problem.AddResidualBlock(cost_function, loss_function, point, camera,
+                             center, focus, distortion);
 
     // Apply the residual limits
     size_t num_limits = opt.intrinsics_limits.size() / 2;
@@ -613,13 +612,13 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
         << " This model has " << wrapper->num_intrinsic_params() << " intrinsic parameters.");
     }
     size_t intrinsics_index = 0;
-    // Do focus first
+    // Focal length
     if (num_limits > 0) { 
       problem.SetParameterLowerBound(focus, 0, opt.intrinsics_limits[0]);
       problem.SetParameterUpperBound(focus, 0, opt.intrinsics_limits[1]);
       intrinsics_index++;
     }
-    // Next is the two center params
+    // Optical center
     while ((intrinsics_index < 3) && (intrinsics_index < num_limits)) {
       problem.SetParameterLowerBound(center, intrinsics_index-1,
                                      opt.intrinsics_limits[2*intrinsics_index]);
@@ -627,7 +626,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
                                      opt.intrinsics_limits[2*intrinsics_index + 1]);
       intrinsics_index++;
     }
-    // Then the distortion
+    // Distortion
     while (intrinsics_index < num_limits) { 
       problem.SetParameterLowerBound(distortion, intrinsics_index-3,
                                      opt.intrinsics_limits[2*intrinsics_index]);
@@ -641,16 +640,17 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
       problem.SetParameterBlockConstant(center);
     if (!opt.intrinsics_options.float_focal_length(camera_index))
       problem.SetParameterBlockConstant(focus);
-    if (!opt.intrinsics_options.float_distortion_params(camera_index))
+    if (opt.intrinsics_options.float_distortion_params(camera_index)) {
+      if (!opt.fixed_distortion_indices.empty() && dist_opts != NULL)
+        problem.SetManifold(distortion, dist_opts);
+    } else {
       problem.SetParameterBlockConstant(distortion);
+    }
   } // End non-generic camera case.
 
   // Fix this camera if requested
   if (opt.fixed_cameras_indices.find(camera_index) != opt.fixed_cameras_indices.end()) 
     problem.SetParameterBlockConstant(param_storage.get_camera_ptr(camera_index));
-    
-  // TODO(oalexan1): Allow only some lens distortion params to float. That can be
-  // done here with CERES subset parameterization. This must be an option.
 }
 
 /// Add residual block for the error using reference xyz.
@@ -743,6 +743,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
                            // Outputs
                            vw::ba::ControlNetwork                  & cnet,
                            asp::BAParams                           & param_storage,
+                           ceres::SubsetManifold                   * dist_opts,
                            ceres::Problem                          & problem,
                            std::vector<size_t>                     & cam_residual_counts,
                            std::vector<size_t>                     & num_pixels_per_cam,
@@ -851,7 +852,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
 
       // Call function to add the appropriate Ceres residual block.
       add_reprojection_residual_block(observation, pixel_sigma, ipt, icam,
-                                      param_storage, opt, problem);
+                                      param_storage, opt, dist_opts, problem);
       cam_residual_counts[icam] += 1; // Track the number of residual blocks for each camera
       num_pixels_per_cam[icam] += 1;  // Track the number of pixels for each camera
       

@@ -2087,7 +2087,7 @@ void addQuatSmoothnessErr(UsgsAstroLsSensorModel   * ls_model,
   ceres::LossFunction* pixel_loss_function = NULL; // no attenuation
 
   // The variable of optimization are camera quaternions. Notice how the
-  // quaternion indicies are in the [begQuatIndex, endQuatIndex] range, so
+  // quaternion indices are in the [begQuatIndex, endQuatIndex] range, so
   // inclusive at both ends.
   std::vector<double*> vars;
   for (int it = begQuatIndex; it <= endQuatIndex; it++)

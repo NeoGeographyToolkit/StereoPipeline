@@ -278,7 +278,8 @@ obtained by peeking in the .cub file metadata.
 
 The resulting lens distortion model is not the one for JunoCam, which has two
 distortion parameters, but rather the OpenCV radial-tangential model with five
-parameters (:numref:`csm_frame_def`).
+parameters (:numref:`csm_frame_def`). To use the JunoCam lens distortion model,
+adjust the value of ``--distortion-type`` in ``cam_gen`` above.
 
 The ``cam_test`` program (:numref:`cam_test`) can help validate that the camera
 is converted well. 

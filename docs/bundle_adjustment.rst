@@ -838,6 +838,9 @@ If large errors are still left at the image periphery, adjust
 inaccurate prior DEM, it will make the results worse. Also consider adding more
 images overlapping with the current ones.
 
+Some lens distortion parameters can be kept fixed (option
+``--fixed-distortion-indices``).
+
 .. figure:: images/kaguya_intrinsics_opt_example.png
    :name: kaguya_intrinsics_opt_example
    :alt: kaguya_intrinsics_opt_example
@@ -1075,6 +1078,9 @@ may correlate with the position of the cameras, and these are not easy to
 separate. Optimizing this may produce an implausible optical center.
 
 Dense matches from disparity are strongly recommended (:numref:`dense_ip`).
+
+Some lens distortion parameters can be kept fixed (option
+``--fixed-distortion-indices``).
 
 .. _ba_frame_linescan_results:
 
