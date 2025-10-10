@@ -296,8 +296,9 @@ struct IntensityError {
   boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
 
-// A variation of the intensity error where only the DEM is floated
-// TODO(oalexan1): Wipe this as it did not improve speed, but test first. Unlikely it improves memory usage, but need to test. If useful, move to SfsCostFun.h
+// A variation of the intensity error where only the DEM is floated. This
+// produces the same results as IntensityError (when most quantities are passed
+// as variables that are later fixed), but uses notably less memory.
 struct IntensityErrorFloatDemOnly {
   IntensityErrorFloatDemOnly(SfsOptions const& opt, int col, int row,
                              vw::ImageView<double> const& dem,
@@ -421,126 +422,6 @@ struct IntensityErrorFloatDemOnly {
   bool                              m_blend_weight_is_ground_weight;
   vw::CamPtr                const & m_camera;         // alias
 }; // end class IntensityErrorFloatDemOnly
-
-// A variation of IntensityError where albedo, dem, and model params are fixed.
-// TODO(oalexan1): Wipe this as it did not improve anything. 
-// TODO(oalexan1): Check if improves memory usage at least. In either case,
-// move to SfsCostFun.h.
-struct IntensityErrorFixedMost {
-  IntensityErrorFixedMost(SfsOptions const& opt, int col, int row,
-                          vw::ImageView<double> const& dem,
-                          double albedo,
-                          double * refl_coeffs, 
-                          cartography::GeoReference const& geo,
-                          bool model_shadows,
-                          double camera_position_step_size,
-                          double const& max_dem_height, // note: this is an alias
-                          double gridx, double gridy,
-                          ReflParams const& refl_params,
-                          vw::Vector3 const& sunPosition,
-                          BBox2i const& crop_box,
-                          MaskedImgT const& image,
-                          DoubleImgT const& blend_weight,
-                          bool blend_weight_is_ground_weight,
-                          boost::shared_ptr<CameraModel> const& camera):
-    m_opt(opt), m_col(col), m_row(row), m_dem(dem),
-    m_albedo(albedo), m_refl_coeffs(refl_coeffs), 
-    m_geo(geo),
-    m_model_shadows(model_shadows),
-    m_camera_position_step_size(camera_position_step_size),
-    m_max_dem_height(max_dem_height),
-    m_gridx(gridx), m_gridy(gridy),
-    m_refl_params(refl_params),
-    m_sunPosition(sunPosition),
-    m_crop_box(crop_box),
-    m_image(image), m_blend_weight(blend_weight),
-    m_blend_weight_is_ground_weight(blend_weight_is_ground_weight),
-    m_camera(camera) {}
-
-  // See SmoothnessError() for the definitions of bottom, top, etc.
-  template <typename F>
-  bool operator()(const F* const exposure, const F* const haze, F* residuals) const {
-
-    // For this error we do not use p and q, hence just use a placeholder.
-    bool use_pq = false;
-    const F * const pq = NULL;
-    
-    return calc_intensity_residual(m_opt, exposure, haze,
-                                   &m_dem(m_col-1, m_row),            // left
-                                   &m_dem(m_col, m_row),              // center
-                                   &m_dem(m_col+1, m_row),            // right
-                                   &m_dem(m_col, m_row+1),            // bottom
-                                   &m_dem(m_col, m_row-1),            // top
-                                   use_pq, pq,
-                                   &m_albedo,
-                                   m_refl_coeffs,
-                                   m_col, m_row,  
-                                   m_dem,  // alias
-                                   m_geo,  // alias
-                                   m_model_shadows,  
-                                   m_camera_position_step_size,  
-                                   m_max_dem_height,  // alias
-                                   m_gridx, m_gridy,  
-                                   m_refl_params,  // alias
-                                   m_sunPosition,  // alias
-                                   m_crop_box,  
-                                   m_image,  // alias
-                                   m_blend_weight,  // alias
-                                   m_blend_weight_is_ground_weight,
-                                   m_camera,  // alias
-                                   residuals);
-  }
-
-  // Factory to hide the construction of the CostFunction object from
-  // the client code.
-  static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
-                                     vw::ImageView<double> const& dem,
-                                     double albedo,
-                                     double * refl_coeffs, 
-                                     vw::cartography::GeoReference const& geo,
-                                     bool model_shadows,
-                                     double camera_position_step_size,
-                                     double const& max_dem_height, // alias
-                                     double gridx, double gridy,
-                                     ReflParams const& refl_params,
-                                     vw::Vector3 const& sunPosition,
-                                     BBox2i const& crop_box,
-                                     MaskedImgT const& image,
-                                     DoubleImgT const& blend_weight,
-                                     bool blend_weight_is_ground_weight,
-                                     boost::shared_ptr<CameraModel> const& camera){
-    return (new ceres::NumericDiffCostFunction<IntensityErrorFixedMost,
-            ceres::CENTRAL, 1, 1, g_max_num_haze_coeffs>
-            (new IntensityErrorFixedMost(opt, col, row, dem, albedo, 
-                                         refl_coeffs,  geo,
-                                         model_shadows,
-                                         camera_position_step_size,
-                                         max_dem_height,
-                                         gridx, gridy,
-                                         refl_params, sunPosition,
-                                         crop_box, image, blend_weight,
-                                         blend_weight_is_ground_weight,
-                                         camera)));
-  }
-
-  SfsOptions                        const & m_opt;
-  int                                       m_col, m_row;
-  vw::ImageView<double>                 const & m_dem;            // alias
-  double                                    m_albedo;
-  double                                  * m_refl_coeffs; 
-  cartography::GeoReference         const & m_geo;            // alias
-  bool                                      m_model_shadows;
-  double                                    m_camera_position_step_size;
-  double                            const & m_max_dem_height; // alias
-  double                                    m_gridx, m_gridy;
-  ReflParams                      const & m_refl_params;  // alias
-  vw::Vector3                       const & m_sunPosition;   // alias
-  BBox2i                                    m_crop_box;
-  MaskedImgT                        const & m_image;          // alias
-  DoubleImgT                        const & m_blend_weight;   // alias
-  bool                                      m_blend_weight_is_ground_weight;
-  boost::shared_ptr<CameraModel>    const & m_camera;         // alias
-};
 
 // A variant of the intensity error when we float the partial derivatives
 // in x and in y of the dem, which we call p and q.  
@@ -1617,9 +1498,9 @@ void run_sfs(// Fixed quantities
   
   // Add a residual block for every grid point not at the boundary
   int bd = 1;
-  for (int col = bd; col < dem.cols()-bd; col++) {
-    for (int row = bd; row < dem.rows()-bd; row++) {
-      
+  for (int col = bd; col < dem.cols() - bd; col++) {
+    for (int row = bd; row < dem.rows() - bd; row++) {
+
       // Intensity error for each image
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
 

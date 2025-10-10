@@ -1410,7 +1410,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
      "Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts). This value also helps determine how to "
      "plateau the blending weights inwards, away from the DEM boundary.")
-    ("block-size",      po::value<int>(&opt.block_size)->default_value(0), "A large value can result in increased memory usage.")
+    ("block-size",      po::value<int>(&opt.block_size)->default_value(0), 
+     "Process the mosaic with this value of the block size. A large value can result in "
+     "increased memory usage. Later, the mosaic will be saved with blocks given by "
+     "--tif-tile-size. This is an advanced internal parameter.")
     ("save-dem-weight",      po::value<int>(&opt.save_dem_weight),
      "Save the weight image that tracks how much the input DEM with given index contributed to the output mosaic at each pixel (smallest index is 0).")
     ("first-dem-as-reference", po::bool_switch(&opt.first_dem_as_reference)->default_value(false),
@@ -1692,6 +1695,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   }
   
+  // The block size must be a multiple of 16. Handle this early.
+  if (opt.block_size % 16 != 0)
+    vw::vw_throw(vw::ArgumentErr() << "The block size must be a multiple of 16.\n");
 
   // Handle the option --weight-list.
   if (opt.weight_list != "") {

@@ -17,7 +17,21 @@ View these side-by-side with ``stereo_gui`` (:numref:`stereo_gui`)::
 
     stereo_gui dem.tif hillshaded.tif
 
-Command-line options for ``hillshade``:
+Alterative program
+~~~~~~~~~~~~~~~~~~
+
+The ``gdaldem hillshade`` program in GDAL (:numref:`gdal_tools`) provides similar
+functionality, and its output is often more accurate. It is suggested to use
+that program instead of ``hillshade``.  
+
+Example invocation::
+
+    gdaldem hillshade -multidirectional -compute_edges \
+      input_dem.tif output_hillshade.tif
+
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
+
 
 --input-file <filename>
     Explicitly specify the input file.

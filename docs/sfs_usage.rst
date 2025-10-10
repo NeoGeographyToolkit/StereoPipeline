@@ -391,7 +391,7 @@ Inspecting the results
 
 We show the results of running this program in :numref:`sfs1`. The
 left-most figure is the hill-shaded original DEM, which was obtained
-by running::
+by running the ``hillshade`` program (:numref:`hillshade`)::
 
     hillshade --azimuth 300 --elevation 20 run_full1/run-crop-DEM.tif \
       -o run_full1/run-crop-hill.tif 
@@ -1289,8 +1289,8 @@ The resulting transformed cloud ``run_align/run-trans_reference.tif``
 needs to be regridded with ``point2dem`` with the same projection
 and grid size as before.
 
-This DEM should be hillshaded and overladed on top of the LOLA DEM and
-see if there is any noticeable shift, which would be a sign of
+This DEM should be hillshaded (:numref:`hillshade`) and overladed on top of the
+LOLA DEM and see if there is any noticeable shift, which would be a sign of
 alignment not being successful. 
 
 If no luck, and visually the misalignment looks small horizontally, alignment
@@ -1597,12 +1597,11 @@ See an illustration of the produced terrain in :numref:`large_scale_sfs`.
 Inspection and further iterations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The obtained shape-from-shading terrain should be studied carefully to
-see if it shows any systematic shift or rotation compared to the
-initial LOLA gridded terrain. For that, the SfS terrain can be
-overlaid as a hillshaded and georeferenced image on top of the
-initial terrain in ``stereo_gui``, and the SfS terrain can be toggled
-on and off.
+The obtained shape-from-shading terrain should be studied carefully to see if it
+shows any systematic shift or rotation compared to the initial LOLA gridded
+terrain. For that, the SfS terrain can be overlaid as a hillshaded
+(:numref:`hillshade`) image on top of the initial terrain in ``stereo_gui``, in
+georeference mode, and the SfS terrain can be toggled on and off.
 
 If a shift is found, another step of alignment can be used. This time
 one can do features-based alignment rather than based on

@@ -4,7 +4,7 @@ GDAL tools
 ----------
 
 ASP distributes in the ``bin`` directory the following `GDAL
-<https://gdal.org/>`_ tools:
+<https://gdal.org/>`_ programs:
 
 - gdal_rasterize (modify images based on shape files)
 - gdal_translate (crop, resample)
@@ -33,4 +33,3 @@ Certain conversion between datums using the GDAL/PROJ tools may need
 additional data, which can be stored either locally or fetched via a
 network (see the `PROJ documentation
 <https://proj.org/usage/network.html>`_).
-
