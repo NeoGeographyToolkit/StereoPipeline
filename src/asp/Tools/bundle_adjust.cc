@@ -1194,19 +1194,18 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "through triangulation for all cameras. To be used with --propagate-errors.")
     ("min-distortion",
      po::value(&opt.min_distortion)->default_value(1e-7),
-     "Distortion parameters that are optimized and that are "
-     "smaller in magnitude than this value are set to this value. This is to ensure the "
-     "parameters are big enough to be optimized. Can be negative. This is affected by "
-     "--fixed-distortion-indices. Applies to Pinhole cameras (all distortion models) and "
-     "CSM (radial-tangential distortion only). Does not apply to optical bar models. "
-     "See also --fixed-distortion-indices.")
+     "Distortion parameters that are optimized and that are smaller in magnitude than this "
+     "value are set to this value. This is to ensure the parameters are big enough to be "
+     "optimized. Can be negative. This is affected by --fixed-distortion-indices. Applies "
+     "to Pinhole cameras (all distortion models) and CSM (radial-tangential distortion "
+     "only). Does not apply to optical bar models. See also --fixed-distortion-indices.")
     ("fixed-distortion-indices",
      po::value(&opt.fixed_distortion_indices_str)->default_value(""),
-     "A list of indices, separated by commas (with no spaces) starting from 0, "
+     "A sequence indices, separated by commas (with no spaces) starting from 0, "
      "corresponding to lens distortion parameters to keep fixed, if --solve-intrinsics is "
-     "invoked. These will not be changed by the --min-distortion setting. The order of "
-     "distortion parameters is as saved in output camera files. For example, for "
-     "radial-tangential distortion, the order is k1, k2, p1, p2, k3.")
+     "invoked. These will not be changed by the --min-distortion setting. Sample input: "
+     "0,3,4. The order of distortion parameters is as saved in output camera files. "
+     "For example, for radial-tangential distortion, the order is k1, k2, p1, p2, k3.")
     ("flann-method",  po::value(&opt.flann_method)->default_value("auto"),
      "Choose the FLANN method for matching interest points. Options: 'kmeans': "
      "slower but deterministic, 'kdtree': faster (up to 6x) but not deterministic "

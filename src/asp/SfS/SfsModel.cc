@@ -776,15 +776,15 @@ void setupReflectance(asp::ReflParams & refl_params, asp::SfsOptions & opt) {
   else if (opt.reflectance_type == 4)
     refl_params.reflectanceType = CHARON;
   else
-    vw_throw( ArgumentErr() << "Expecting Lambertian or Lunar-Lambertian reflectance." );
-  refl_params.phaseCoeffC1 = 0; 
+    vw_throw(ArgumentErr() << "Expecting Lambertian or Lunar-Lambertian reflectance.");
+  refl_params.phaseCoeffC1 = 0;
   refl_params.phaseCoeffC2 = 0;
-  
+
   // Default model coefficients, unless they were read already
   if (opt.model_coeffs_vec.empty()) {
     opt.model_coeffs_vec.resize(g_num_model_coeffs);
     if (refl_params.reflectanceType == LUNAR_LAMBERT ||
-        refl_params.reflectanceType == ARBITRARY_MODEL ) {
+        refl_params.reflectanceType == ARBITRARY_MODEL) {
       // Lunar lambertian or its crazy experimental generalization
       opt.model_coeffs_vec.resize(g_num_model_coeffs);
       opt.model_coeffs_vec[0] = 1;
@@ -803,19 +803,19 @@ void setupReflectance(asp::ReflParams & refl_params, asp::SfsOptions & opt) {
       opt.model_coeffs_vec[13] = 0;
       opt.model_coeffs_vec[14] = 0;
       opt.model_coeffs_vec[15] = 0;
-    }else if (refl_params.reflectanceType == HAPKE) {
+    } else if (refl_params.reflectanceType == HAPKE) {
       opt.model_coeffs_vec[0] = 0.68; // omega (also known as w)
       opt.model_coeffs_vec[1] = 0.17; // b
       opt.model_coeffs_vec[2] = 0.62; // c
       opt.model_coeffs_vec[3] = 0.52; // B0
       opt.model_coeffs_vec[4] = 0.52; // h
-    }else if (refl_params.reflectanceType == CHARON) {
+    } else if (refl_params.reflectanceType == CHARON) {
       opt.model_coeffs_vec.resize(g_num_model_coeffs);
       opt.model_coeffs_vec[0] = 0.7; // A
       opt.model_coeffs_vec[1] = 0.63; // f(alpha)
-    }else if (refl_params.reflectanceType != LAMBERT) {
-      vw_throw( ArgumentErr() << "The Hapke model coefficients were not set. "
-                << "Use the --model-coeffs option." );
+    } else if (refl_params.reflectanceType != LAMBERT) {
+      vw_throw(ArgumentErr() << "The Hapke model coefficients were not set. "
+                << "Use the --model-coeffs option.");
     }
   }
 }

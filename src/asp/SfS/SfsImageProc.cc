@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -43,25 +43,25 @@ using namespace vw;
 namespace asp {
 
 // Compute mean and standard deviation of two images. Do it where both are valid.
-void calcJointStats(vw::ImageView<vw::PixelMask<double>> const& I1, 
+void calcJointStats(vw::ImageView<vw::PixelMask<double>> const& I1,
                     vw::ImageView<vw::PixelMask<double>> const& I2,
                     double & mean1, double & std1,
                     double & mean2, double & std2) {
 
-  if (I1.cols() != I2.cols() || I1.rows() != I2.rows()) 
+  if (I1.cols() != I2.cols() || I1.rows() != I2.rows())
     vw_throw(ArgumentErr() << "Expecting two input images of same size.\n");
-  
+
   mean1 = 0; std1 = 0;
   mean2 = 0; std2 = 0;
-  
+
   double sum1 = 0.0, sum2 = 0.0, sum1_sq = 0.0, sum2_sq = 0.0, count = 0.0;
   for (int col = 0; col < I1.cols(); col++) {
     for (int row = 0; row < I1.rows(); row++) {
-      
+
       if (!is_valid(I1(col, row)) || !is_valid(I2(col, row))) continue;
-                    
+
       count++;
-      
+
       double val1 = I1(col, row); sum1 += val1; sum1_sq += val1*val1;
       double val2 = I2(col, row); sum2 += val2; sum2_sq += val2*val2;
     }
@@ -80,7 +80,7 @@ void maxImage(int cols, int rows,
               std::set<int> const& skip_images,
               std::vector<vw::ImageView<double>> const& images,
               ImageView<double> & max_image) {
-  
+
   int num_images = images.size();
 
   max_image.set_size(cols, rows);
@@ -96,13 +96,13 @@ void maxImage(int cols, int rows,
       continue;
 
     auto & img = images[image_iter]; // alias
-    if (img.cols() <= 0 || img.rows() <= 0) 
+    if (img.cols() <= 0 || img.rows() <= 0)
       continue;
-  
-    if (img.cols() != cols || img.rows() != rows) 
+
+    if (img.cols() != cols || img.rows() != rows)
       vw::vw_throw(vw::ArgumentErr() << "The input DEM and computed extended images "
                    << "must have the same dimensions.\n");
-    
+
     for (int col = 0; col < img.cols(); col++) {
       for (int row = 0; row < img.rows(); row++) {
         max_image(col, row) = std::max(max_image(col, row), img(col, row));
@@ -117,10 +117,10 @@ void maxImage(int cols, int rows,
 // value is non-positive but some of its neighbors have positive
 // values. Create an image which has the value 1 at such pixels and
 // whose values linearly decrease to 0 both in the direction of pixels
-// with positive and non-positive input values. 
+// with positive and non-positive input values.
 void boundaryWeight(int blending_dist, ImageView<double> const & image, // inputs
                     ImageView<double> & boundary_weight) { // output
-  
+
   double blending_dist_sq = blending_dist * blending_dist;
   int max_dist_int = ceil(blending_dist); // an int overestimate
 
@@ -135,12 +135,12 @@ void boundaryWeight(int blending_dist, ImageView<double> const & image, // input
 
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
-          
+
       // Look for a boundary pixel, which is a pixel with non-positive
       // value but with neighbors with positive value
       if (image(col, row) > 0)
         continue;
-      
+
       bool is_bd_pix = false;
       for (int c = col - 1; c <= col + 1; c++) {
         for (int r = row - 1; r <= row + 1; r++) {
@@ -151,12 +151,12 @@ void boundaryWeight(int blending_dist, ImageView<double> const & image, // input
             break; // found it
           }
         }
-        if (is_bd_pix) 
+        if (is_bd_pix)
           break; // found it
       }
-      if (!is_bd_pix) 
+      if (!is_bd_pix)
         continue; // did not find it
-          
+
       // Found the boundary pixel. Increase the weight in the circular
       // neighborhood. It will decay to 0 at the boundary of this
       // neighborhood.
@@ -164,15 +164,15 @@ void boundaryWeight(int blending_dist, ImageView<double> const & image, // input
         for (int r = row - max_dist_int; r <= row + max_dist_int; r++) {
           if (c < 0 || c >= cols || r < 0 || r >= rows)
             continue;
-              
+
           // Cast to double before multiplying to avoid integer overflow
-          double dsq = double(c - col) * double(c - col) + 
+          double dsq = double(c - col) * double(c - col) +
             double(r - row) * double(r - row);
-              
-          // Too far 
-          if (dsq >= blending_dist_sq) 
+
+          // Too far
+          if (dsq >= blending_dist_sq)
             continue;
-              
+
           double d = sqrt(dsq);
           d = blending_dist - d; // get a cone pointing up, with base at height 0.
           d /= double(blending_dist); // make it between 0 and 1
@@ -190,7 +190,7 @@ void boundaryWeight(int blending_dist, ImageView<double> const & image, // input
 // Given an image with non-negative values, create another image
 // which is 1 where the input image has positive values, and decays
 // to 0 linearly beyond that.
-void extendedWeight(int blending_dist, ImageView<double> const & image, // inputs         
+void extendedWeight(int blending_dist, ImageView<double> const & image, // inputs
                     ImageView<double> & extended_weight) { // output
 
   int cols = image.cols(), rows = image.rows();
@@ -200,13 +200,13 @@ void extendedWeight(int blending_dist, ImageView<double> const & image, // input
       extended_weight(col, row) = (image(col, row) > 0);
     }
   }
-  
+
   double blending_dist_sq = blending_dist * blending_dist;
   int max_dist_int = ceil(blending_dist); // an int overestimate
-  
+
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
-      
+
       // Look for a boundary pixel, which is a pixel with zero
           // weight but with neighbors with positive weight
       if (image(col, row) > 0)
@@ -221,12 +221,12 @@ void extendedWeight(int blending_dist, ImageView<double> const & image, // input
             break; // found it
           }
         }
-        if (is_bd_pix) 
+        if (is_bd_pix)
           break; // found it
       }
-      if (!is_bd_pix) 
+      if (!is_bd_pix)
         continue; // did not find it
-      
+
       // Found the boundary pixel. Increase the weight in the
       // circular neighborhood.  It will still be below 1
       // and decay to 0 at the boundary of this neighborhood.
@@ -234,15 +234,15 @@ void extendedWeight(int blending_dist, ImageView<double> const & image, // input
         for (int r = row - max_dist_int; r <= row + max_dist_int; r++) {
           if (c < 0 || c >= cols || r < 0 || r >= rows)
             continue;
-          
+
           // Cast to double before multiplying to avoid integer overflow
-          double dsq = double(c - col) * double(c - col) + 
+          double dsq = double(c - col) * double(c - col) +
             double(r - row) * double(r - row);
-          
-          // Too far 
-          if (dsq >= blending_dist_sq) 
+
+          // Too far
+          if (dsq >= blending_dist_sq)
             continue;
-          
+
           double d = sqrt(dsq);
           d = blending_dist - d; // get a cone pointing up, with base at height 0.
           d /= double(blending_dist); // make it between 0 and 1
@@ -270,10 +270,10 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                  vw::cartography::GeoReference const& geo,
                                  std::set<int> const& skip_images,
                                  std::string const& out_prefix, // for debug data
-                                 std::vector<std::string> const& input_images, 
-                                 std::vector<std::string> const& input_cameras, 
+                                 std::vector<std::string> const& input_images,
+                                 std::vector<std::string> const& input_cameras,
                                  std::vector<vw::ImageView<double>> & ground_weights) {
-  
+
   int num_images = ground_weights.size();
 
   // Find the max per-pixel weight
@@ -295,17 +295,17 @@ void adjustBorderlineDataWeights(int cols, int rows,
 
       if (max_weight(col, row) <= 0 || boundary_weight(col, row) <= 0)
         continue; // not in the region of interest
-        
+
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
-        
+
         if (skip_images.find(image_iter) != skip_images.end())
           continue;
-        
+
         // Undo the power in the weight being passed in
         double ground_wt = ground_weights[image_iter](col, row);
-        if (ground_wt <= 0.0) 
+        if (ground_wt <= 0.0)
           continue;
-        
+
         double max_wt = max_weight(col, row);
         ground_wt = pow(ground_wt, 1.0/blending_power);
         max_wt = pow(max_wt, 1.0/blending_power);
@@ -314,7 +314,7 @@ void adjustBorderlineDataWeights(int cols, int rows,
         // weight is important
         ground_wt = std::max(ground_wt, ground_wt / max_wt);
         ground_wt = std::min(ground_wt, 1.0); // not necessary
-        
+
         // put back the power
         ground_wt = pow(ground_wt, blending_power);
 
@@ -339,7 +339,7 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                             has_georef, geo, has_nodata,
                                             img_nodata_val, opt,
                                             TerminalProgressCallback("asp", ": "));
-      
+
     std::string boundary_weight_file = out_prefix + "-boundary_weight.tif";
     vw_out() << "Writing: " << boundary_weight_file << std::endl;
     vw::cartography::block_write_gdal_image(boundary_weight_file,
@@ -347,7 +347,7 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                             has_georef, geo, has_nodata,
                                             img_nodata_val, opt,
                                             TerminalProgressCallback("asp", ": "));
-      
+
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
       if (skip_images.find(image_iter) != skip_images.end())
@@ -358,7 +358,7 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                        input_images[image_iter],
                                        input_cameras[image_iter]);
       std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
-    
+
       bool has_georef = true, has_nodata = false;
       std::string ground_weight_file = local_prefix + "-ground_weight.tif";
       vw_out() << "Writing: " << ground_weight_file << std::endl;
@@ -367,7 +367,7 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                               has_georef, geo, has_nodata,
                                               img_nodata_val, opt,
                                               TerminalProgressCallback("asp", ": "));
-        
+
     }
   } // end saving debug info
 
@@ -416,14 +416,14 @@ vw::ImageView<double> blendingWeights(vw::ImageViewRef<vw::PixelMask<float>> con
   }
   return weights;
 }
-  
+
 // Find the points on a given DEM that are shadowed by other points of
 // the DEM.  Start marching from the point on the DEM on a ray towards
 // the sun in small increments, until hitting the maximum DEM height.
 bool isInShadow(int col, int row, Vector3 const& sunPos,
                 ImageView<double> const& dem, double max_dem_height,
                 double gridx, double gridy,
-                cartography::GeoReference const& geo){
+                cartography::GeoReference const& geo) {
 
   // Here bicubic interpolation won't work. It is easier to interpret
   // the DEM as piecewise-linear when dealing with rays intersecting
@@ -466,7 +466,7 @@ bool isInShadow(int col, int row, Vector3 const& sunPos,
     Vector2 ray_pix = geo.lonlat_to_pixel(Vector2(ray_llh[0], ray_llh[1]));
 
     if (ray_pix[0] < 0 || ray_pix[0] > dem.cols() - 1 ||
-        ray_pix[1] < 0 || ray_pix[1] > dem.rows() - 1 ) {
+        ray_pix[1] < 0 || ray_pix[1] > dem.rows() - 1) {
       return false; // got out of the DEM, no point continuing
     }
 
@@ -485,7 +485,7 @@ bool isInShadow(int col, int row, Vector3 const& sunPos,
 void areInShadow(Vector3 const& sunPos, ImageView<double> const& dem,
                  double gridx, double gridy,
                  cartography::GeoReference const& geo,
-                 ImageView<float> & shadow){
+                 ImageView<float> & shadow) {
 
   // Find the max DEM height
   double max_dem_height = -std::numeric_limits<double>::max();
@@ -515,7 +515,7 @@ void deepenCraters(std::string const& dem_file,
                    std::string const& max_img_file,
                    std::string const& grass_file,
                    std::string const& out_dem_file) {
-  
+
   float dem_nodata_val = -std::numeric_limits<float>::max();
   if (vw::read_nodata_val(dem_file, dem_nodata_val))
     vw_out() << "Dem nodata: " << dem_nodata_val << "\n";
@@ -523,7 +523,7 @@ void deepenCraters(std::string const& dem_file,
   ImageView<PixelMask<float>> dem (create_mask(DiskImageView<float>(dem_file), dem_nodata_val));
   vw::cartography::GeoReference georef;
   if (!read_georeference(georef, dem_file))
-    vw_throw( ArgumentErr() << "The input DEM " << dem_file << " has no georeference.\n" );
+    vw_throw(ArgumentErr() << "The input DEM " << dem_file << " has no georeference.\n");
 
   // The maximum of all valid pixel values with no-data where there is no-valid data.
   ImageView<PixelMask<float>> max_img(dem.cols(), dem.rows());
@@ -533,16 +533,16 @@ void deepenCraters(std::string const& dem_file,
       max_img(col, row).invalidate();
     }
   }
-  
+
   for (int i = 1; i < image_files.size(); i++) {
 
     std::string img_file = image_files[i];
     float img_nodata_val = -std::numeric_limits<float>::max();
-    if (vw::read_nodata_val(img_file, img_nodata_val)){
+    if (vw::read_nodata_val(img_file, img_nodata_val)) {
       vw_out() << "Img nodata: " << img_nodata_val << std::endl;
     }
-    
-    ImageView<PixelMask<float>> img(create_mask(DiskImageView<float>(img_file), 
+
+    ImageView<PixelMask<float>> img(create_mask(DiskImageView<float>(img_file),
                                                 img_nodata_val));
     if (img.cols() != dem.cols() || img.rows() != dem.rows()) {
       vw_throw(ArgumentErr() << "Images and DEM must have same size.\n");
@@ -553,7 +553,7 @@ void deepenCraters(std::string const& dem_file,
 
         // Nothing to do if the current image has invalid data
         if (!is_valid(img(col, row)))
-          continue; 
+          continue;
 
         // If the output image is not valid yet, copy the current image's valid pixel
         if (!is_valid(max_img(col, row) && img(col, row).child() > 0)) {
@@ -566,7 +566,7 @@ void deepenCraters(std::string const& dem_file,
             img(col, row).child() > 0) {
           max_img(col, row) = img(col, row);
         }
-        
+
       }
     }
   }
@@ -576,20 +576,20 @@ void deepenCraters(std::string const& dem_file,
   // TODO: Test here that the image has at least 3 rows and 3 cols!
   for (int col = 0; col < max_img.cols(); col++) {
     for (int row = 0; row < max_img.rows(); row++) {
-      if ( (col == 0 || col == max_img.cols() - 1) ||
-           (row == 0 || row == max_img.rows() - 1) ) {
+      if ((col == 0 || col == max_img.cols() - 1) ||
+           (row == 0 || row == max_img.rows() - 1)) {
         int next_col = col, next_row = row;
         if (col == 0) next_col = 1;
         if (col == max_img.cols() - 1) next_col = max_img.cols() - 2;
         if (row == 0) next_row = 1;
         if (row == max_img.rows() - 1) next_row = max_img.rows() - 2;
 
-        if (!is_valid(max_img(col, row)) && is_valid(max_img(next_col, next_row))) 
+        if (!is_valid(max_img(col, row)) && is_valid(max_img(next_col, next_row)))
           max_img(col, row) = max_img(next_col, next_row);
       }
     }
   }
-  
+
   GdalWriteOptions opt;
   bool has_nodata = true, has_georef = true;
   TerminalProgressCallback tpc("", "\t--> ");
@@ -612,11 +612,11 @@ void deepenCraters(std::string const& dem_file,
 
   // Blur with a given sigma
   ImageView<double> blurred_grass;
-  if (sigma > 0) 
+  if (sigma > 0)
     blurred_grass = gaussian_filter(grass, sigma);
   else
     blurred_grass = copy(grass);
-  
+
   vw_out() << "Writing: " << grass_file << "\n";
 
   bool grass_has_nodata = false;
@@ -646,26 +646,26 @@ void deepenCraters(std::string const& dem_file,
 void calcSampleRates(vw::ImageViewRef<double> const& dem, int num_samples,
                      int & sample_col_rate, int & sample_row_rate) {
 
-  if (num_samples <= 0) 
+  if (num_samples <= 0)
     vw_throw(ArgumentErr() << "Expecting a positive number of samples.\n");
-    
+
   sample_col_rate = std::max((int)round(dem.cols()/double(num_samples)), 1);
   sample_row_rate = std::max((int)round(dem.rows()/double(num_samples)), 1);
 }
 
-// Compute a full-resolution image by specific interpolation into a low-resolution 
+// Compute a full-resolution image by specific interpolation into a low-resolution
 // one. The full-res image may not fit in memory, so we need to compute it in tiles.
 // See computeReflectanceAndIntensity() for low-res vs full-res relationship.
 SfsInterpView::SfsInterpView(int full_res_cols, int full_res_rows,
                              int sample_col_rate, int sample_row_rate,
-                             vw::ImageView<float> const& lowres_img): 
+                             vw::ImageView<float> const& lowres_img):
     m_full_res_cols(full_res_cols), m_full_res_rows(full_res_rows),
     m_sample_col_rate(sample_col_rate), m_sample_row_rate(sample_row_rate),
     m_lowres_img(lowres_img) {
   }
-  
-// Per-pixel operation not implemented  
-SfsInterpView::pixel_type 
+
+// Per-pixel operation not implemented
+SfsInterpView::pixel_type
 SfsInterpView::operator()(double/*i*/, double/*j*/, vw::int32/*p*/) const {
   vw::vw_throw(vw::NoImplErr() << "SfsInterpView::operator()(...) is not implemented");
   return SfsInterpView::pixel_type();
@@ -675,8 +675,8 @@ SfsInterpView::operator()(double/*i*/, double/*j*/, vw::int32/*p*/) const {
 SfsInterpView::prerasterize_type SfsInterpView::prerasterize(vw::BBox2i const& bbox) const {
 
   vw::InterpolationView<vw::EdgeExtensionView<vw::ImageView<float>,
-    vw::ConstantEdgeExtension>, vw::BilinearInterpolation> 
-    interp_lowres_img 
+    vw::ConstantEdgeExtension>, vw::BilinearInterpolation>
+    interp_lowres_img
       = vw::interpolate(m_lowres_img,
                         vw::BilinearInterpolation(),
                         vw::ConstantEdgeExtension());
@@ -690,7 +690,7 @@ SfsInterpView::prerasterize_type SfsInterpView::prerasterize(vw::BBox2i const& b
         = interp_lowres_img(valx, valy);
     }
   }
-  
+
   return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
                            cols(), rows());
 }

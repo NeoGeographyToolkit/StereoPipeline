@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -44,9 +44,9 @@
 // TODO: Clean up some of the classes, not all members are needed.
 // TODO(oalexan1): Must implement initialization of exposure, haze, and also albedo
 // if albedo is modeled, at low-res.
-// TODO(oalexan1): Modularize. 
+// TODO(oalexan1): Modularize.
 // TODO(oalexan1): Separate the optimization logic from image operations.
-// TODO(oalexan1): Move image logic to SfsImageProc.cc. Add 
+// TODO(oalexan1): Move image logic to SfsImageProc.cc. Add
 // SfS cost function file.
 // TODO(oalexan1): Use OpenMP in ComputeReflectanceAndIntensity.
 // For isis without approx models need to ensure there is one thread.
@@ -148,7 +148,7 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
      "as well, for comparison. The image exposures will be computed along the way unless "
      "specified via --image-exposures-prefix, and will be saved in either case to <output "
      "prefix>-exposures.txt. Same for haze, if applicable.")
-    ("estimate-exposure-haze-albedo", 
+    ("estimate-exposure-haze-albedo",
       po::bool_switch(&opt.estim_exposure_haze_albedo)->default_value(false)->implicit_value(true),
      "Estimate the exposure for each image, the haze for each image (if "
      "--num-haze-coeffs is positive), and the global low-resolution albedo (if "
@@ -225,7 +225,7 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
     ("num-haze-coeffs", po::value(&opt.num_haze_coeffs)->default_value(0),
      "Set this to 1 to model the problem as image = exposure * albedo * reflectance + "
      "haze, where haze is a single value for each image.")
-    ("float-haze", 
+    ("float-haze",
      po::bool_switch(&opt.float_haze)->default_value(false)->implicit_value(true),
      "If specified, float the haze coefficients as part of the optimization, if "
      "--num-haze-coeffs is 1.")
@@ -271,11 +271,11 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
      "smoothness weight to a very small value.")
     ("save-sparingly",   po::bool_switch(&opt.save_sparingly)->default_value(false)->implicit_value(true),
      "Avoid saving any results except the adjustments and the DEM, as that's a lot of files.")
-    ("camera-position-step-size", 
+    ("camera-position-step-size",
      po::value(&opt.camera_position_step_size)->default_value(1.0),
      "Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).");
 
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -302,7 +302,7 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
   // There is no reason to fully load images in memory except for computing exposures,
   // when this option will be disabled automatically.
   opt.crop_input_images = true;
-  
+
   // Separate the cameras from the images
   std::vector<std::string> inputs = opt.input_images;
 
@@ -317,59 +317,59 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
     asp::read_list(opt.image_list, inputs);
     std::vector<std::string> tmp;
     asp::read_list(opt.camera_list, tmp);
-    for (size_t it = 0; it < tmp.size(); it++) 
+    for (size_t it = 0; it < tmp.size(); it++)
       inputs.push_back(tmp[it]);
   }
-  
+
   bool ensure_equal_sizes = true;
   asp::separate_images_from_cameras(inputs,
                                     opt.input_images, opt.input_cameras, // outputs
-                                    ensure_equal_sizes); 
-  
+                                    ensure_equal_sizes);
+
   if (opt.out_prefix.empty())
-    vw_throw( ArgumentErr() << "Missing output prefix.\n"
-              << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing output prefix.\n"
+              << usage << general_options);
 
   if (opt.max_iterations < 0)
-    vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n"
-              << usage << general_options );
+    vw_throw(ArgumentErr() << "The number of iterations must be non-negative.\n"
+              << usage << general_options);
 
   if (opt.input_images.empty())
-    vw_throw( ArgumentErr() << "Missing input images.\n"
-              << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing input images.\n"
+              << usage << general_options);
 
-  if (opt.smoothness_weight < 0) 
+  if (opt.smoothness_weight < 0)
     vw_throw(ArgumentErr() << "Expecting a non-negative smoothness weight.\n");
 
-  if (opt.gradient_weight < 0) 
+  if (opt.gradient_weight < 0)
     vw_throw(ArgumentErr() << "Expecting a non-negative gradient weight.\n");
 
-  if (opt.integrability_weight < 0) 
+  if (opt.integrability_weight < 0)
     vw_throw(ArgumentErr() << "Expecting a non-negative integrability weight.\n");
 
-  if (opt.float_haze && opt.num_haze_coeffs == 0) 
+  if (opt.float_haze && opt.num_haze_coeffs == 0)
     vw_throw(ArgumentErr() << "Haze cannot be floated unless there is at least one haze coefficient.\n");
   if (opt.image_haze_prefix != "" && opt.num_haze_coeffs == 0)
     vw_throw(ArgumentErr() << "Haze cannot be read unless there is at least one haze coefficient.\n");
-  
+
   // There can be 0 or 1 haze coefficients. The modeling of more than one haze
   // coefficient needs to be looked into.
   if (opt.num_haze_coeffs < 0 || opt.num_haze_coeffs > g_max_num_haze_coeffs)
     vw_throw(ArgumentErr() << "Expecting up to " << g_max_num_haze_coeffs
              << " haze coefficients.\n");
-    
+
   // Curvature in shadow params
-  if (opt.curvature_in_shadow < 0.0 || opt.curvature_in_shadow_weight < 0.0) 
+  if (opt.curvature_in_shadow < 0.0 || opt.curvature_in_shadow_weight < 0.0)
     vw_throw(ArgumentErr() << "Cannot have negative curvature in shadow or its weight.\n");
-  if (opt.lit_curvature_dist < 0.0 || opt.shadow_curvature_dist < 0.0) 
-    vw_throw(ArgumentErr() << "Cannot have negative curvature distances.\n");    
+  if (opt.lit_curvature_dist < 0.0 || opt.shadow_curvature_dist < 0.0)
+    vw_throw(ArgumentErr() << "Cannot have negative curvature distances.\n");
   if (opt.curvature_in_shadow > 0.0 &&
       opt.shadow_curvature_dist + opt.lit_curvature_dist <= 0.0)
     vw_throw(ArgumentErr() << "When modeling curvature in shadow, expecting a "
-             << "positive value of shadow-curvature-dist or list-curvature-dist.\n");    
+             << "positive value of shadow-curvature-dist or list-curvature-dist.\n");
 
-  if (opt.steepness_factor <= 0.0) 
-    vw_throw(ArgumentErr() << "The steepness factor must be positive.\n");    
+  if (opt.steepness_factor <= 0.0)
+    vw_throw(ArgumentErr() << "The steepness factor must be positive.\n");
 
   // The options --compute-exposures-only and --estimate-exposure-haze-albedo
   // are equivalent.
@@ -377,7 +377,7 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
     opt.estim_exposure_haze_albedo = true;
   if (opt.estim_exposure_haze_albedo)
     opt.compute_exposures_only = true;
-    
+
   if (opt.compute_exposures_only || opt.estim_exposure_haze_albedo) {
     if (opt.use_approx_camera_models || opt.crop_input_images) {
       vw_out(WarningMessage) << "When computing exposures only, not using approximate "
@@ -393,16 +393,16 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
                << "input DEM as that will give wrong results. Use the full DEM.\n");
     }
   }
-  
-  if (opt.blending_dist > 0 && !opt.crop_input_images) 
-    vw_throw(ArgumentErr() 
+
+  if (opt.blending_dist > 0 && !opt.crop_input_images)
+    vw_throw(ArgumentErr()
              << "A blending distance is only supported with --crop-input-images.\n");
-  
+
   if (opt.allow_borderline_data && !opt.crop_input_images)
     vw_throw(ArgumentErr() << "Option --allow-borderline-data needs option "
              << "--crop-input-images.\n");
 
-  if (opt.allow_borderline_data && opt.blending_dist <= 0) 
+  if (opt.allow_borderline_data && opt.blending_dist <= 0)
     vw::vw_throw(vw::ArgumentErr()
                  << "Option --allow-borderline-data needs a positive --blending-dist.\n");
 
@@ -449,11 +449,11 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
     while (ifs >> image >> val) {
       custom_thresh[image] = val;
     }
-    
-    if (custom_thresh.empty()) 
+
+    if (custom_thresh.empty())
       vw_throw(ArgumentErr() << "Could not read any data from: "
                << opt.custom_shadow_threshold_list << "\n");
-    
+
     for (size_t it = 0; it < opt.input_images.size(); it++) {
       auto key = custom_thresh.find(opt.input_images[it]);
       if (key != custom_thresh.end()) {
@@ -463,7 +463,7 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
       }
     }
   }
-  
+
   // Parse max valid image vals
   std::istringstream ism(opt.max_valid_image_vals);
   opt.max_valid_image_vals_vec.clear();
@@ -482,32 +482,32 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
 
   // --read-exposures defines where exposures are read from. Put this as a warning,
   // otherwise parallel_sfs won't run.
-  if (opt.image_exposures_prefix != "" && opt.read_exposures && 
+  if (opt.image_exposures_prefix != "" && opt.read_exposures &&
       opt.image_exposures_prefix != opt.out_prefix)
-      vw::vw_out(vw::WarningMessage) << "Reading exposures with prefix: " 
+      vw::vw_out(vw::WarningMessage) << "Reading exposures with prefix: "
         << opt.out_prefix << " rather than: " << opt.image_exposures_prefix << ".\n";
   if (opt.read_exposures)
     opt.image_exposures_prefix = opt.out_prefix;
-  
+
   // Same for haze. This one parallel_sfs does not precompute. This may change.
   if (opt.image_haze_prefix != "" && opt.read_haze)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "Cannot specify both --haze-prefix and --read-haze.\n");
   // If have opt.read_haze, use the current prefix
-  if (opt.read_haze) 
+  if (opt.read_haze)
     opt.image_haze_prefix = opt.out_prefix;
-  
+
   // Same for albedo
   if (opt.input_albedo != "" && opt.read_albedo)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "Cannot specify both --input-albedo and --read-albedo.\n");
   // If have opt.read_albedo, use the current prefix albedo
   if (opt.read_albedo)
     opt.input_albedo = opt.out_prefix + "-comp-albedo-final.tif";
-          
+
   // Initial image exposures, if provided. First read them in a map,
   // as perhaps the initial exposures were created using more images
-  // than what we have here. 
+  // than what we have here.
   // TODO(oalexan1): This must be a function.
   std::string exposure_file = asp::exposureFileName(opt.image_exposures_prefix);
   opt.image_exposures_vec.clear();
@@ -535,17 +535,17 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
       opt.image_exposures_vec.push_back(exp_val);
     }
   }
-  if (opt.image_exposures_prefix != "" && exp_count == 0) 
+  if (opt.image_exposures_prefix != "" && exp_count == 0)
     vw_throw(ArgumentErr()
              << "Could not find the exposures file: " << exposure_file << ".\n");
-  
-  if (opt.steepness_factor != 1.0) 
+
+  if (opt.steepness_factor != 1.0)
     vw_out() << "Making the terrain artificially steeper by factor: " << opt.steepness_factor
              << ".\n";
-  
+
   // Initial image haze, if provided. First read them in a map,
   // as perhaps the initial haze were created using more images
-  // than what we have here. 
+  // than what we have here.
   // TODO(oalexan1): This must be a function.
   if (opt.num_haze_coeffs > 0) {
     std::string haze_file = asp::hazeFileName(opt.image_haze_prefix);
@@ -553,11 +553,11 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
     std::map<std::string, std::vector<double>> img2haze;
     std::ifstream ish(haze_file.c_str());
     int haze_count = 0;
-    while(1) {
+    while (1) {
       std::string line;
       std::getline(ish, line);
       std::istringstream hstream(line);
-      if (! (hstream >> name) ) break;
+      if (! (hstream >> name)) break;
       std::vector<double> haze_vec;
       while (hstream >> dval)
         haze_vec.push_back(dval);
@@ -566,23 +566,23 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
 
       // Pad the haze vec
       while (haze_vec.size() < g_max_num_haze_coeffs) haze_vec.push_back(0);
-      
+
       img2haze[name] = haze_vec;
 
       // All haze coefficients beyond the first num_haze_coeffs must
       // be zero, as that means we are reading results written with
       // different number of haze coeffs.
       for (size_t hiter = opt.num_haze_coeffs; hiter < g_max_num_haze_coeffs; hiter++) {
-        if (haze_vec[hiter] != 0) 
-          vw_throw(ArgumentErr() 
+        if (haze_vec[hiter] != 0)
+          vw_throw(ArgumentErr()
                    << "Found unexpected non-zero haze coefficient: " << haze_vec[hiter] << ".\n");
       }
     }
     ish.close();
-    if (opt.image_haze_prefix != "" && haze_count == 0) 
+    if (opt.image_haze_prefix != "" && haze_count == 0)
       vw_throw(ArgumentErr()
                << "Could not find the haze file: " << haze_file << ".\n");
-    
+
     if (haze_count > 0) {
       vw_out() << "Reading haze file: " << haze_file << std::endl;
       for (size_t i = 0; i < opt.input_images.size(); i++) {
@@ -594,14 +594,14 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
         }
         std::vector<double> haze_vec = it->second;
         // vw_out() << "Haze for " << img << ":";
-        //for (size_t hiter = 0; hiter < haze_vec.size(); hiter++) 
+        //for (size_t hiter = 0; hiter < haze_vec.size(); hiter++)
         //  vw_out() << " " << haze_vec[hiter];
         //vw_out() << "\n";
         opt.image_haze_vec.push_back(haze_vec);
       }
     }
   }
-  
+
   // Initial model coeffs, if passed on the command line
   if (opt.model_coeffs != "") {
     vw_out() << "Parsing model coefficients: " << opt.model_coeffs << std::endl;
@@ -620,7 +620,7 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
     while (ism >> dval)
       opt.model_coeffs_vec.push_back(dval);
     ism.close();
-    if ( opt.model_coeffs_vec.empty()) {
+    if (opt.model_coeffs_vec.empty()) {
       vw_throw(ArgumentErr() << "Could not read model coefficients from: " << model_coeffs_file << ".\n");
     }
   }
@@ -645,13 +645,13 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
-  if (opt.input_images.size() <= 1 && opt.float_albedo && 
+  if (opt.input_images.size() <= 1 && opt.float_albedo &&
       opt.initial_dem_constraint_weight <= 0 && opt.albedo_constraint_weight <= 0.0)
     vw_throw(ArgumentErr()
              << "Floating the albedo is ill-posed for just one image without "
              << "the initial DEM constraint or the albedo constraint.\n");
 
-  if (opt.input_images.size() <= 1 && opt.float_exposure && 
+  if (opt.input_images.size() <= 1 && opt.float_exposure &&
       opt.initial_dem_constraint_weight <= 0)
     vw_throw(ArgumentErr()
              << "Floating the exposure is ill-posed for just one image.\n");
@@ -662,26 +662,26 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
   if (opt.skip_images_str != "") {
     std::istringstream is(opt.skip_images_str);
     int val;
-    while( is >> val)
+    while (is >> val)
       opt.skip_images.insert(val);
   }
 
   // estimate height errors and integrability constraint are mutually exclusive
-  if (opt.estimate_height_errors && opt.integrability_weight > 0) 
-    vw_throw(ArgumentErr() 
+  if (opt.estimate_height_errors && opt.integrability_weight > 0)
+    vw_throw(ArgumentErr()
        << "Cannot estimate height errors when using the integrability constraint.\n");
 
-  if (opt.estimate_slope_errors && opt.estimate_height_errors) 
-    vw_throw(ArgumentErr() 
+  if (opt.estimate_slope_errors && opt.estimate_height_errors)
+    vw_throw(ArgumentErr()
        << "Cannot estimate both slope and height error at the same time.");
 
-  if (opt.estimate_height_errors && opt.model_shadows) 
-    vw_throw( ArgumentErr() << "Cannot estimate height error when modeling shadows.");
-  
-  if (opt.save_computed_intensity_only || opt.estimate_slope_errors || 
+  if (opt.estimate_height_errors && opt.model_shadows)
+    vw_throw(ArgumentErr() << "Cannot estimate height error when modeling shadows.");
+
+  if (opt.save_computed_intensity_only || opt.estimate_slope_errors ||
       opt.estimate_height_errors) {
-    
-    // No iterations    
+
+    // No iterations
     opt.max_iterations = 0;
 
     // Need the exact cameras as they span the full DEM
@@ -689,20 +689,20 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
       opt.use_approx_camera_models = false;
       opt.crop_input_images = false;
     }
-    
+
     if (opt.num_haze_coeffs > 0 && opt.image_haze_vec.empty())
-      vw_throw( ArgumentErr()
-                << "Expecting the haze to be computed and passed in.\n" );
+      vw_throw(ArgumentErr()
+                << "Expecting the haze to be computed and passed in.\n");
   }
-  
+
   // Cannot have both sun positions and sun angles
-  if (opt.sun_positions_list.size() > 0 && opt.sun_angles_list.size() > 0) 
+  if (opt.sun_positions_list.size() > 0 && opt.sun_angles_list.size() > 0)
     vw_throw(ArgumentErr() << "Cannot specify both sun positions and sun angles.\n");
-} 
+}
 
 // Run sfs
 void run_sfs(// Fixed quantities
-             int                                num_iterations, 
+             int                                num_iterations,
              double                             gridx,
              double                             gridy,
              SfsOptions                       & opt,
@@ -730,14 +730,14 @@ void run_sfs(// Fixed quantities
 
   int num_images = opt.input_images.size();
   ceres::Problem problem;
-  vw::ImageView<Vector2> pq;  
-  asp::sfsCostFun(gridx, gridy, smoothness_weight, max_dem_height, dem_nodata_val, 
-                  img_nodata_val, blend_weight_is_ground_weight, geo, 
-                  crop_boxes, masked_images, blend_weights, refl_params, sunPosition, 
+  vw::ImageView<Vector2> pq;
+  asp::sfsCostFun(gridx, gridy, smoothness_weight, max_dem_height, dem_nodata_val,
+                  img_nodata_val, blend_weight_is_ground_weight, geo,
+                  crop_boxes, masked_images, blend_weights, refl_params, sunPosition,
                   orig_dem, lit_image_mask, curvature_in_shadow_weight, opt,
                   // Outputs
                   dem, albedo, cameras, exposures, haze, refl_coeffs, pq, problem);
-  
+
   if (opt.num_threads > 1 && opt.stereo_session == "isis"  && !opt.use_approx_camera_models) {
     vw_out() << "Using exact ISIS camera models. Can run with only a single thread.\n";
     opt.num_threads = 1;
@@ -753,12 +753,12 @@ void run_sfs(// Fixed quantities
   options.num_threads = opt.num_threads;
   options.linear_solver_type = ceres::SPARSE_SCHUR;
 
-  SfsCallback callback(opt, dem, pq, albedo, geo, refl_params, sunPosition, 
-                       crop_boxes, masked_images, blend_weights, 
-                       blend_weight_is_ground_weight, cameras, 
-                       dem_nodata_val, img_nodata_val, exposures, haze, 
-                       max_dem_height, gridx, gridy, refl_coeffs); 
-  
+  SfsCallback callback(opt, dem, pq, albedo, geo, refl_params, sunPosition,
+                       crop_boxes, masked_images, blend_weights,
+                       blend_weight_is_ground_weight, cameras,
+                       dem_nodata_val, img_nodata_val, exposures, haze,
+                       max_dem_height, gridx, gridy, refl_coeffs);
+
   options.callbacks.push_back(&callback);
   options.update_state_every_iteration = true;
 
@@ -773,7 +773,7 @@ void run_sfs(// Fixed quantities
   callback.set_final_iter(true);
   ceres::IterationSummary callback_summary;
   callback(callback_summary);
-  
+
   vw_out() << summary.FullReport() << "\n" << std::endl;
 }
 
@@ -783,7 +783,7 @@ int main(int argc, char* argv[]) {
 
   Stopwatch sw_total;
   sw_total.start();
-  
+
   SfsOptions opt;
   try {
     handle_arguments(argc, argv, opt);
@@ -791,7 +791,7 @@ int main(int argc, char* argv[]) {
     // Set up model information
     ReflParams refl_params;
     setupReflectance(refl_params, opt);
-    
+
     // Manage no-data. Use here a value that is not overly large in magnitude,
     // and easy to represent as float.
     double dem_nodata_val = -1e+6;
@@ -806,7 +806,7 @@ int main(int argc, char* argv[]) {
       dem_nodata_val = opt.nodata_val;
       vw_out() << "Over-riding the DEM nodata value with: " << dem_nodata_val << "\n";
     }
-    
+
     // Read the handle to the DEM. Here we don't load the DEM into
     // memory yet. We will later load into memory only a crop,
     // if cropping is specified. This is to save on memory.
@@ -824,18 +824,18 @@ int main(int argc, char* argv[]) {
       if (full_albedo.cols() != full_dem.cols() || full_albedo.rows() != full_dem.rows())
         albedo_per_tile = true;
     }
-    
+
     // This must be done before the DEM is cropped. This stats is
     // queried from parallel_sfs.
     if (opt.query) {
       vw_out() << "dem_cols, " << full_dem.cols() << "\n";
       vw_out() << "dem_rows, " << full_dem.rows() << "\n";
     }
-    
+
     // Adjust the crop win
     opt.crop_win.crop(bounding_box(full_dem));
-    
-    // Read the georeference 
+
+    // Read the georeference
     vw::cartography::GeoReference geo, albedo_geo;
     if (!read_georeference(geo, opt.input_dem))
         vw_throw(ArgumentErr() << "The input DEM has no georeference.\n");
@@ -845,17 +845,17 @@ int main(int argc, char* argv[]) {
     }
 
     // This is a bug fix. The georef pixel size in y must be negative
-    // for the DEM to be oriented correctly. 
+    // for the DEM to be oriented correctly.
     if (geo.transform()(1, 1) > 0)
       vw_throw(ArgumentErr() << "The input DEM has a positive pixel size in y. "
                 << "This is unexpected. Normally it is negative since the (0, 0) "
                 << "pixel is in the upper-left. Check your DEM pixel size with "
                 << "gdalinfo. Cannot continue.\n");
-      
+
     // Crop the DEM and georef if requested to given box. Same for albedo.
     // In either case, read the needed portion fully in memory.
     vw::ImageView<double> dem, orig_dem, albedo;
-    std::string full_dem_wkt = geo.get_wkt(); 
+    std::string full_dem_wkt = geo.get_wkt();
     if (!opt.crop_win.empty()) {
       dem = crop(full_dem, opt.crop_win);
       geo = crop(geo, opt.crop_win);
@@ -873,7 +873,7 @@ int main(int argc, char* argv[]) {
       if (!opt.input_albedo.empty())
         albedo = full_albedo;
     }
-  
+
     // Initialize the albedo if not read from disk
     if (opt.input_albedo.empty()) {
       double initial_albedo = 1.0;
@@ -885,20 +885,20 @@ int main(int argc, char* argv[]) {
       }
       albedo_geo = geo;
     }
-    
+
     // Albedo and DEM must have same dimensions and georef
     if (albedo.cols() != dem.cols() || albedo.rows() != dem.rows())
-      vw_throw(ArgumentErr() 
+      vw_throw(ArgumentErr()
                << "The albedo image must have the same dimensions as the DEM.\n");
     if (geo.get_wkt() != albedo_geo.get_wkt())
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
                     << "The input DEM has a different georeference "
                     << "from the input albedo image.\n");
-        
+
     // This can be useful
     vw_out() << "DEM cols and rows: " << dem.cols()  << ' ' << dem.rows() << "\n";
 
-    // See if to use provided initial DEM height    
+    // See if to use provided initial DEM height
     if (!boost::math::isnan(opt.init_dem_height)) {
       for (int col = 0; col < dem.cols(); col++) {
         for (int row = 0; row < dem.rows(); row++) {
@@ -906,27 +906,27 @@ int main(int argc, char* argv[]) {
         }
       }
     }
-    
+
     // Read the sun positions from a list, if provided. Otherwise those
     // are read from the cameras, further down.
     int num_images = opt.input_images.size();
     std::vector<vw::Vector3> sunPosition(num_images, vw::Vector3());
-    if (opt.sun_positions_list != "") 
+    if (opt.sun_positions_list != "")
       asp::readSunPositions(opt.sun_positions_list, opt.input_images,
                             dem, dem_nodata_val, geo, sunPosition);
-    if (opt.sun_angles_list != "") 
+    if (opt.sun_angles_list != "")
       asp::readSunAngles(opt.sun_angles_list, opt.input_images,
                          dem, dem_nodata_val, geo, sunPosition);
-      
+
     // Read in the camera models (and the sun positions, if not read from the list)
     // TODO(oalexan1): Put this in a function called readCameras())
     std::vector<vw::CamPtr> cameras(num_images);
     // TODO(oalexan1): First part can be replaced with calling load_cameras()
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
-    
-      if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
+
+      if (opt.skip_images.find(image_iter) != opt.skip_images.end())
         continue;
-    
+
       asp::SessionPtr session(asp::StereoSessionFactory::create
                   (opt.stereo_session, // in-out
                   opt,
@@ -950,7 +950,7 @@ int main(int argc, char* argv[]) {
       if (sunPosition[image_iter] == Vector3())
         vw_throw(ArgumentErr()
                   << "Could not read sun positions from list or from camera model files.\n");
-        
+
       // Compute the azimuth and elevation
       double azimuth = 0.0, elevation = 0.0;
       asp::sunAngles(dem, dem_nodata_val, geo, sunPosition[image_iter],
@@ -970,7 +970,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Stop here if all we wanted was some information
-    if (opt.query) 
+    if (opt.query)
       return 0;
 
     // Refuse to run if there are no-data values or if the DEM is too small
@@ -979,7 +979,7 @@ int main(int argc, char* argv[]) {
       for (int row = 0; row < dem.rows(); row++) {
         if (dem(col, row) == dem_nodata_val ||
             std::isnan(dem(col, row))) {
-          vw_throw(ArgumentErr() 
+          vw_throw(ArgumentErr()
                     << "Found a no-data or NaN pixel in the DEM. Cannot continue. "
                     << "The dem_mosaic tool can be used to fill in holes. Then "
                     << "crop and use a clip from this DEM having only valid data.");
@@ -994,7 +994,7 @@ int main(int argc, char* argv[]) {
         !opt.estim_exposure_haze_albedo && !opt.save_computed_intensity_only)
       vw::vw_out(vw::WarningMessage) << "The input DEM is large and this program "
         << "may run out of memory. Use parallel_sfs instead, with small tiles.\n";
-        
+
     // This check must be here, after we find the session
     if (opt.stereo_session != "isis" && opt.use_approx_camera_models) {
       vw_out() << "Computing approximate models works only with ISIS cameras. "
@@ -1002,10 +1002,10 @@ int main(int argc, char* argv[]) {
       opt.use_approx_camera_models = false;
     }
 
-    // Ensure our camera models are always adjustable. 
+    // Ensure our camera models are always adjustable.
     // TODO(oalexan1): This is likely not needed anymore.
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
-      
+
       if (opt.skip_images.find(image_iter) != opt.skip_images.end())
         continue;
 
@@ -1024,19 +1024,19 @@ int main(int argc, char* argv[]) {
                                     rotation, pixel_offset));
       }
     }
-    
+
     // We won't load the full images, just portions restricted
     // to the area we we will compute the DEM.
     std::vector<BBox2i> crop_boxes(num_images);
-    
+
     // The crop box starts as the original image bounding box. We'll shrink it later.
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       std::string img_file = opt.input_images[image_iter];
       crop_boxes[image_iter] = vw::bounding_box(DiskImageView<float>(img_file));
     }
-    
+
     // Ensure that no two threads can access an ISIS camera at the same time.
-    // Declare the lock here, as we want it to live until the end of the program. 
+    // Declare the lock here, as we want it to live until the end of the program.
     vw::Mutex camera_mutex;
 
     // If to use approximate camera models or to crop input images
@@ -1044,11 +1044,11 @@ int main(int argc, char* argv[]) {
 
       // TODO(oalexan1): This code needs to be modularized.
       double max_approx_err = 0.0;
-    
-      for (int image_iter = 0; image_iter < num_images; image_iter++){
-      
+
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+
         if (opt.skip_images.find(image_iter) != opt.skip_images.end()) continue;
-    
+
         // Here we make a copy, since soon cameras[image_iter] will be overwritten
         vw::camera::AdjustedCameraModel exact_camera
           = *dynamic_cast<vw::camera::AdjustedCameraModel*>(cameras[image_iter].get());
@@ -1062,19 +1062,19 @@ int main(int argc, char* argv[]) {
         apcam.reset(new asp::ApproxCameraModel(exact_camera, img_bbox, dem, geo,
                                                dem_nodata_val, camera_mutex));
         cameras[image_iter] = apcam;
-        
+
         sw.stop();
         vw_out() << "Approximate model generation time: " << sw.elapsed_seconds()
                 << " s." << std::endl;
-        
+
         // Cast the pointer back to ApproxCameraModel as we need that.
-        asp::ApproxCameraModel* cam_ptr 
+        asp::ApproxCameraModel* cam_ptr
           = dynamic_cast<asp::ApproxCameraModel*>(apcam.get());
-        if (cam_ptr == NULL) 
+        if (cam_ptr == NULL)
           vw_throw(ArgumentErr() << "Expecting an ApproxCameraModel.");
 
         bool model_is_valid = cam_ptr->model_is_valid();
-        
+
         // Compared original and approximate models
         double max_curr_err = 0.0;
 
@@ -1099,7 +1099,7 @@ int main(int argc, char* argv[]) {
         } else {
           vw_out() << "Invalid camera model.\n";
         }
-        
+
         if (max_curr_err > 2.0 || !model_is_valid) {
           // This is a bugfix. When the DEM clip does not intersect the image,
           // the approx camera model has incorrect values.
@@ -1112,10 +1112,10 @@ int main(int argc, char* argv[]) {
         }
 
         max_approx_err = std::max(max_approx_err, max_curr_err);
-      
+
         cam_ptr->crop_box().crop(img_bbox);
         vw_out() << "Crop box dimensions: " << cam_ptr->crop_box() << std::endl;
-  
+
         // Copy the crop box
         if (opt.crop_input_images)
           crop_boxes[image_iter].crop(cam_ptr->crop_box());
@@ -1124,34 +1124,34 @@ int main(int argc, char* argv[]) {
         if (crop_boxes[image_iter].empty()) {
           opt.skip_images.insert(image_iter);
         }
-        
+
       } // end iterating over images
       vw_out() << "Max error of approximating cameras: " << max_approx_err << " pixels.\n";
-      
+
       // end computing the approximate camera model
     } else if (opt.crop_input_images) {
-      
+
       // We will arrive here if it is desired to crop the input images
       // without using an approximate model, such as for CSM.
       // Estimate the crop box by projecting the pixels in the exact
       // camera (with the adjustments applied, if present).
-      
-      for (int image_iter = 0; image_iter < num_images; image_iter++){
+
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
         if (opt.skip_images.find(image_iter)
             != opt.skip_images.end()) continue;
 
         // Store the full image box, and initialize the crop box to an empty box
         BBox2i img_bbox = crop_boxes[image_iter];
         crop_boxes[image_iter] = BBox2i();
-        
+
         for (int col = 0; col < dem.cols(); col++) {
           for (int row = 0; row < dem.rows(); row++) {
             Vector2 ll = geo.pixel_to_lonlat(Vector2(col, row));
             Vector3 xyz = geo.datum().geodetic_to_cartesian
               (Vector3(ll[0], ll[1], dem(col, row)));
-            
+
             Vector2 pix = cameras[image_iter]->point_to_pixel(xyz);
-            crop_boxes[image_iter].grow(pix); 
+            crop_boxes[image_iter].grow(pix);
           }
         }
 
@@ -1166,10 +1166,10 @@ int main(int argc, char* argv[]) {
 
         // Crop to the bounding box of the image
         crop_boxes[image_iter].crop(img_bbox);
-          
+
         //vw_out() << "Estimated crop box for image " << opt.input_images[image_iter] << "\n";
-        
-        if (crop_boxes[image_iter].empty()) 
+
+        if (crop_boxes[image_iter].empty())
           opt.skip_images.insert(image_iter);
       }
     } // end the case of cropping the input images
@@ -1177,27 +1177,27 @@ int main(int argc, char* argv[]) {
     // Masked images and weights
     std::vector<MaskedImgT> masked_images(num_images);
     std::vector<DoubleImgT> blend_weights(num_images);
-    
+
     // If the blend weight is ground weight, rather than image weight,
     // use it as it is, without projecting into camera and interpolating.
     // TODO(oalexan1): See comment on this further down.
     bool blend_weight_is_ground_weight = false;
-    
+
     float img_nodata_val = -std::numeric_limits<float>::max();
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
-      
+
       if (opt.skip_images.find(image_iter) != opt.skip_images.end())
         continue;
-      
+
       std::string img_file = opt.input_images[image_iter];
       vw::read_nodata_val(img_file, img_nodata_val);
-      
+
       // Model the shadow threshold
       float shadow_thresh = opt.shadow_threshold_vec[image_iter];
       if (opt.crop_input_images) {
         // Make a copy in memory for faster access
         if (!crop_boxes[image_iter].empty()) {
-          vw::ImageView<float> cropped_img = 
+          vw::ImageView<float> cropped_img =
             crop(DiskImageView<float>(img_file), crop_boxes[image_iter]);
           masked_images[image_iter]
             = create_pixel_range_mask2(cropped_img,
@@ -1212,7 +1212,7 @@ int main(int argc, char* argv[]) {
                                      opt.blending_dist, opt.blending_power,
                                      opt.min_blend_size);
         }
-      }else{
+      } else {
         masked_images[image_iter]
           = create_pixel_range_mask2(DiskImageView<float>(img_file),
                                      std::max(img_nodata_val, shadow_thresh),
@@ -1223,7 +1223,7 @@ int main(int argc, char* argv[]) {
     // Find the grid sizes in meters. Note that dem heights are in
     // meters too, so we treat both horizontal and vertical
     // measurements in same units.
-    
+
     // Sample large DEMs. Keep about 200 row and column samples.
     int sample_col_rate = 0, sample_row_rate = 0;
     asp::calcSampleRates(dem, opt.num_samples_for_estim, sample_col_rate, sample_row_rate);
@@ -1243,7 +1243,7 @@ int main(int argc, char* argv[]) {
         }
       }
     }
-    
+
     // Find the mean albedo
     double mean_albedo = 0.0, albedo_count = 0.0;
     for (int col = 0; col < dem.cols(); col++) {
@@ -1255,7 +1255,7 @@ int main(int argc, char* argv[]) {
       }
     }
     mean_albedo /= albedo_count;
-    
+
     // Declare two vectors for skipped and used images
     std::vector<std::string> skipped_images;
     std::vector<std::string> used_images;
@@ -1272,10 +1272,10 @@ int main(int argc, char* argv[]) {
     // vw_out() << "Computing exposures.\n";
     std::vector<double> local_exposures_vec(num_images, 0), local_haze_vec(num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
-      
-      if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
+
+      if (opt.skip_images.find(image_iter) != opt.skip_images.end())
         continue;
-      
+
       // Sample large DEMs. Keep about 200 row and column samples.
       int sample_col_rate = 0, sample_row_rate = 0;
       asp::calcSampleRates(dem, opt.num_samples_for_estim, sample_col_rate, sample_row_rate);
@@ -1283,7 +1283,7 @@ int main(int argc, char* argv[]) {
       vw::ImageView<PixelMask<double>> reflectance, intensity;
       vw::ImageView<double> ground_weight;
       vw::ImageView<Vector2> pq; // no need for these just for initialization
-      
+
       computeReflectanceAndIntensity(dem, pq, geo,
                                      opt.model_shadows, max_dem_height,
                                      gridx, gridy, sample_col_rate, sample_row_rate,
@@ -1296,13 +1296,13 @@ int main(int argc, char* argv[]) {
                                      cameras[image_iter],
                                      reflectance, intensity, ground_weight,
                                      &opt.model_coeffs_vec[0], opt);
-      
+
       // TODO: Below is not the optimal way of finding the exposure!
       // Find it as the analytical minimum using calculus.
       double imgmean, imgstd, refmean, refstd;
       asp::calcJointStats(intensity, reflectance, imgmean, imgstd, refmean, refstd);
       double haze = 0.0;
-  
+
       if (imgmean > 0 && refmean > 0) {
         double exposure = imgmean/refmean/mean_albedo;
         local_exposures_vec[image_iter] = exposure;
@@ -1310,28 +1310,28 @@ int main(int argc, char* argv[]) {
 
         // append used image to used_images list
         used_images.push_back(opt.input_images[image_iter]);
-        //vw_out() << "Local DEM estimated exposure for image " << image_iter << ": " 
+        //vw_out() << "Local DEM estimated exposure for image " << image_iter << ": "
         //          << exposure << "\n";
       } else {
         // Skip images with bad exposure. Apparently there is no good
         // imagery in the area.
         opt.skip_images.insert(image_iter);
         // log out the skipped image path and the image_iter for it
-        vw_out() << "Skipped image " 
-                 << image_iter 
+        vw_out() << "Skipped image "
+                 << image_iter
                  << ": "
-                 << opt.input_images[image_iter] 
+                 << opt.input_images[image_iter]
                  << " with no data for this DEM.\n";
         // append skipped image to skipped_images list
         skipped_images.push_back(opt.input_images[image_iter]);
       }
     }
-    // write out skipped and used images lists so long as they are not empty 
+    // write out skipped and used images lists so long as they are not empty
     // TODO or always write out even if empty
     if (!used_images.empty()) {
       asp::saveUsedImages(opt.out_prefix, used_images);
     }
-    if (!skipped_images.empty()){
+    if (!skipped_images.empty()) {
       asp::saveSkippedImages(opt.out_prefix, skipped_images);
     }
 
@@ -1346,24 +1346,24 @@ int main(int argc, char* argv[]) {
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
         // Pad the haze vec with zeros
         std::vector<double> curr_image_haze_vec;
-        while (curr_image_haze_vec.size() < g_max_num_haze_coeffs) 
+        while (curr_image_haze_vec.size() < g_max_num_haze_coeffs)
           curr_image_haze_vec.push_back(0);
         curr_image_haze_vec[0] = local_haze_vec[image_iter];
         opt.image_haze_vec.push_back(curr_image_haze_vec);
       }
     }
-    
+
     // TODO(oalexan1): Check if --num-haze-coeffs is non-zero.
     // TODO(oalexan1): This should work even if albedo is not modeled.
-    if (opt.estim_exposure_haze_albedo && 
+    if (opt.estim_exposure_haze_albedo &&
         (opt.float_albedo || opt.num_haze_coeffs > 0))
       estimExposureHazeAlbedo(opt, masked_images, blend_weights,
                               blend_weight_is_ground_weight,
-                              dem, mean_albedo, 
+                              dem, mean_albedo,
                               geo, cameras, max_dem_height,
                               crop_boxes, sunPosition,
                               refl_params, gridx, gridy);
-    
+
     if (opt.compute_exposures_only || opt.estim_exposure_haze_albedo) {
       asp::saveExposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
       // TODO(oalexan1): Think of this more
@@ -1390,7 +1390,7 @@ int main(int argc, char* argv[]) {
     // of weights in the camera image space. These are balanced among each other and give more
     // weight to barely lit and unlit nearby pixels.
     std::vector<ImageView<double>> ground_weights(num_images);
-    
+
     // Note that below we may use the exposures computed at the previous step
     // TODO(oalexan1): This block must be a function.
     if (opt.save_computed_intensity_only || opt.estimate_slope_errors ||
@@ -1410,7 +1410,7 @@ int main(int argc, char* argv[]) {
           (new SlopeErrEstim(dem.cols(), dem.rows(),
                              num_a_samples, num_b_samples, &albedo));
       }
-      
+
       auto heightErrEstim = boost::shared_ptr<HeightErrEstim>(NULL);
       if (opt.estimate_height_errors) {
         double max_height_error  = opt.height_error_params[0];
@@ -1418,19 +1418,19 @@ int main(int argc, char* argv[]) {
         vw_out() << "Maximum height error to examine: " << max_height_error << "\n";
         vw_out() << "Number of samples to use from 0 to that height: "
                  << num_height_samples << "\n";
-          
+
         double nodata_height_val = -1.0;
         heightErrEstim = boost::shared_ptr<HeightErrEstim>
           (new HeightErrEstim(dem.cols(), dem.rows(),
                               num_height_samples, max_height_error, nodata_height_val,
                               &albedo));
       }
-      
+
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
-        
-        if (opt.estimate_slope_errors) 
+
+        if (opt.estimate_slope_errors)
           slopeErrEstim->image_iter = image_iter;
-        if (opt.estimate_height_errors) 
+        if (opt.estimate_height_errors)
           heightErrEstim->image_iter = image_iter;
 
         // Find the reflectance and measured intensity (and work towards
@@ -1454,22 +1454,22 @@ int main(int argc, char* argv[]) {
           // if not skipping, save the weight
           ground_weights[image_iter] = copy(ground_weight);
         }
-        
+
         // Find the computed intensity.
         // TODO(oalexan1): Should one mark the no-data values rather than setting
-        // them to 0? 
+        // them to 0?
         comp_intensity.set_size(reflectance.cols(), reflectance.rows());
         for (int col = 0; col < comp_intensity.cols(); col++) {
           for (int row = 0; row < comp_intensity.rows(); row++) {
-            comp_intensity(col, row) = calcIntensity(albedo(col, row), 
-                                                     reflectance(col, row), 
+            comp_intensity(col, row) = calcIntensity(albedo(col, row),
+                                                     reflectance(col, row),
                                                      opt.image_exposures_vec[image_iter],
                                                      opt.steepness_factor,
-                                                     &opt.image_haze_vec[image_iter][0], 
+                                                     &opt.image_haze_vec[image_iter][0],
                                                      opt.num_haze_coeffs);
           }
         }
-        
+
         if (opt.curvature_in_shadow_weight > 0.0) {
           if (meas_intensity.cols() != lit_image_mask.cols() ||
               meas_intensity.rows() != lit_image_mask.rows()) {
@@ -1478,7 +1478,7 @@ int main(int argc, char* argv[]) {
           }
           for (int col = 0; col < lit_image_mask.cols(); col++) {
             for (int row = 0; row < lit_image_mask.rows(); row++) {
-              if (is_valid(meas_intensity(col, row))           || 
+              if (is_valid(meas_intensity(col, row))           ||
                   col == 0 || col == lit_image_mask.cols() - 1 ||
                   row == 0 || row == lit_image_mask.rows() - 1) {
                 // Boundary pixels are declared lit. Otherwise they are
@@ -1489,7 +1489,7 @@ int main(int argc, char* argv[]) {
             }
           }
         }
-        
+
         if (opt.save_computed_intensity_only) {
           TerminalProgressCallback tpc("asp", ": ");
           bool has_georef = true, has_nodata = true;
@@ -1504,7 +1504,7 @@ int main(int argc, char* argv[]) {
                                  apply_mask(meas_intensity, img_nodata_val),
                                  has_georef, geo, has_nodata,
                                  img_nodata_val, opt, tpc);
-          
+
           std::string out_comp_intensity_file = local_prefix + "-comp-intensity.tif";
           vw_out() << "Writing: " << out_comp_intensity_file << std::endl;
           block_write_gdal_image(out_comp_intensity_file,
@@ -1532,7 +1532,7 @@ int main(int argc, char* argv[]) {
             }
           }
         }
-        
+
         // Slope errors that are stuck at 90 degrees could not be estimated
         for (int col = 0; col < slope_error.cols(); col++) {
           for (int row = 0; row < slope_error.rows(); row++) {
@@ -1540,7 +1540,7 @@ int main(int argc, char* argv[]) {
               slope_error(col, row) = nodata_slope_value;
           }
         }
-        
+
         TerminalProgressCallback tpc("asp", ": ");
         bool has_georef = true, has_nodata = true;
         std::string slope_error_file = opt.out_prefix + "-slope-error.tif";
@@ -1560,7 +1560,7 @@ int main(int argc, char* argv[]) {
             height_error(col, row)
               = std::max(-heightErrEstim->height_error_vec(col, row)[0],
                          heightErrEstim->height_error_vec(col, row)[1]);
-            
+
             // When we are stuck at the highest error that means we could not
             // find it
             if (height_error(col, row) == heightErrEstim->max_height_error)
@@ -1577,16 +1577,16 @@ int main(int argc, char* argv[]) {
                                has_nodata, heightErrEstim->nodata_height_val,
                                opt, tpc);
       }
-      
+
     } // End doing intensity computations and/or height and/or slope error estimations
-      
+
     if (opt.save_computed_intensity_only || opt.estimate_slope_errors ||
         opt.estimate_height_errors) {
       asp::saveExposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
       // All done
       return 0;
     }
-    
+
     // Print and make global the exposures and haze
     if (opt.num_haze_coeffs > 0) {
       for (size_t image_iter = 0; image_iter < opt.image_haze_vec.size(); image_iter++) {
@@ -1609,7 +1609,7 @@ int main(int argc, char* argv[]) {
                                        geo,
                                        opt.skip_images,
                                        opt.out_prefix, // for debug data
-                                       opt.input_images, opt.input_cameras, 
+                                       opt.input_images, opt.input_cameras,
                                        ground_weights); // output
 
       // Use the ground weights from now on instead of blending weights.
@@ -1622,13 +1622,13 @@ int main(int argc, char* argv[]) {
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
         if (opt.skip_images.find(image_iter) != opt.skip_images.end())
           continue;
-        
+
         std::string img_file = opt.input_images[image_iter];
         vw::read_nodata_val(img_file, img_nodata_val);
         float shadow_thresh = 0.0; // Note how the shadow thresh is now 0, unlike before
         // Make a copy in memory for faster access
         if (!crop_boxes[image_iter].empty()) {
-          vw::ImageView<float> cropped_img = 
+          vw::ImageView<float> cropped_img =
             crop(DiskImageView<float>(img_file), crop_boxes[image_iter]);
           masked_images[image_iter]
             = create_pixel_range_mask2(cropped_img,
@@ -1642,7 +1642,7 @@ int main(int argc, char* argv[]) {
 
       ground_weights.clear(); // not needed anymore
     } // end allow borderline data
-    
+
     vw::ImageView<double> curvature_in_shadow_weight;
     if (opt.curvature_in_shadow_weight > 0.0) {
       TerminalProgressCallback tpc("asp", ": ");
@@ -1673,16 +1673,16 @@ int main(int argc, char* argv[]) {
           curvature_in_shadow_weight(col, row) = val * opt.curvature_in_shadow_weight;
         }
       }
-      
+
       std::string curvature_in_shadow_weight_file = opt.out_prefix
         + "-curvature_in_shadow_weight.tif";
       vw_out() << "Writing: " << curvature_in_shadow_weight_file << std::endl;
       block_write_gdal_image(curvature_in_shadow_weight_file, curvature_in_shadow_weight,
                              has_georef, geo, has_nodata, nodata_val, opt, tpc);
     }
-    
+
     // For images that we don't use, wipe the cameras and all other
-    // info, as those take up memory (the camera is a table). 
+    // info, as those take up memory (the camera is a table).
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       if (opt.skip_images.find(image_iter) != opt.skip_images.end()) {
         masked_images[image_iter] = vw::ImageView<PixelMask<float>>();
@@ -1690,14 +1690,14 @@ int main(int argc, char* argv[]) {
         cameras[image_iter] = boost::shared_ptr<CameraModel>();
       }
     }
-    
+
     // orig_dem will keep the input DEMs and won't change. Keep to the optimized
     // DEMs close to orig_dem. Make a deep copy below.
     orig_dem = copy(dem);
-    
+
     run_sfs(// Fixed quantities
-            opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight, 
-            max_dem_height, dem_nodata_val, img_nodata_val,  crop_boxes, masked_images, 
+            opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight,
+            max_dem_height, dem_nodata_val, img_nodata_val,  crop_boxes, masked_images,
             blend_weights, blend_weight_is_ground_weight,
             refl_params, sunPosition, orig_dem,
             lit_image_mask, curvature_in_shadow_weight,
@@ -1706,9 +1706,9 @@ int main(int argc, char* argv[]) {
             opt.model_coeffs_vec);
 
   } ASP_STANDARD_CATCHES;
-  
+
   sw_total.stop();
   vw_out() << "Total elapsed time: " << sw_total.elapsed_seconds() << " s.\n";
-  
+
   return 0;
 }

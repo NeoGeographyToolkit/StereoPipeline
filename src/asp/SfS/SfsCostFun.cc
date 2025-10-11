@@ -43,20 +43,20 @@ namespace asp {
 
 // Constructor to initialize references to the necessary data
 SfsCallback::
-SfsCallback(asp::SfsOptions const& opt, 
-            vw::ImageView<double>& dem,  
+SfsCallback(asp::SfsOptions const& opt,
+            vw::ImageView<double>& dem,
             vw::ImageView<vw::Vector2>& pq,
-            vw::ImageView<double>& albedo, 
-            vw::cartography::GeoReference const& geo, 
-            asp::ReflParams const& refl_params, 
+            vw::ImageView<double>& albedo,
+            vw::cartography::GeoReference const& geo,
+            asp::ReflParams const& refl_params,
             std::vector<vw::Vector3> const& sunPosition,
-            std::vector<vw::BBox2i> const& crop_boxes, 
+            std::vector<vw::BBox2i> const& crop_boxes,
             std::vector<asp::MaskedImgT> const& masked_images,
             std::vector<asp::DoubleImgT> const& blend_weights,
             bool blend_weight_is_ground_weight,
-            std::vector<vw::CamPtr>& cameras, 
+            std::vector<vw::CamPtr>& cameras,
             double& dem_nodata_val, float& img_nodata_val,
-            std::vector<double>& exposures, 
+            std::vector<double>& exposures,
             std::vector<std::vector<double>>& haze,
             double& max_dem_height, double& gridx, double& gridy,
             std::vector<double> & refl_coeffs):
@@ -69,7 +69,7 @@ SfsCallback(asp::SfsOptions const& opt,
   refl_coeffs(refl_coeffs),
   iter(-1), final_iter(false) {}
 
-ceres::CallbackReturnType 
+ceres::CallbackReturnType
 SfsCallback::operator()(const ceres::IterationSummary& summary) {
 
   iter++;
@@ -110,7 +110,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
 
   bool has_georef = true, has_nodata = true;
   vw::TerminalProgressCallback tpc("asp", ": ");
-  if ( (!opt.save_sparingly || final_iter) && !opt.save_computed_intensity_only ) {
+  if ((!opt.save_sparingly || final_iter) && !opt.save_computed_intensity_only) {
     std::string out_dem_file = opt.out_prefix + "-DEM"
       + iter_str + ".tif";
     vw::vw_out() << "Writing: " << out_dem_file << std::endl;
@@ -124,8 +124,8 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     std::string out_albedo_file = opt.out_prefix + "-comp-albedo"
       + iter_str + ".tif";
     vw::vw_out() << "Writing: " << out_albedo_file << std::endl;
-    vw::cartography::block_write_gdal_image(out_albedo_file, albedo, 
-                                            has_georef, geo, 
+    vw::cartography::block_write_gdal_image(out_albedo_file, albedo,
+                                            has_georef, geo,
                                             has_nodata, dem_nodata_val,
                                             opt, tpc);
   }
@@ -196,9 +196,9 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
 
     std::string out_meas_intensity_file = iter_str2 + "-meas-intensity.tif";
     vw::vw_out() << "Writing: " << out_meas_intensity_file << std::endl;
-    vw::cartography::block_write_gdal_image(out_meas_intensity_file, 
+    vw::cartography::block_write_gdal_image(out_meas_intensity_file,
                                             vw::apply_mask(intensity, img_nodata_val),
-                                            has_georef, geo, has_nodata, img_nodata_val, 
+                                            has_georef, geo, has_nodata, img_nodata_val,
                                             opt, tpc);
 
     std::string out_comp_intensity_file = iter_str2 + "-comp-intensity.tif";
@@ -214,7 +214,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     std::string out_weight_file = iter_str2 + "-blending-weight.tif";
     vw::vw_out() << "Writing: " << out_weight_file << std::endl;
     vw::cartography::block_write_gdal_image(out_weight_file, ground_weight,
-                                            has_georef, geo, has_nodata, img_nodata_val, 
+                                            has_georef, geo, has_nodata, img_nodata_val,
                                             opt, tpc);
 
     std::string out_reflectance_file = iter_str2 + "-reflectance.tif";
@@ -261,7 +261,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
       + iter_str + ".tif";
     vw::vw_out() << "Writing: " << out_dem_nodata_file << std::endl;
     vw::TerminalProgressCallback tpc("asp", ": ");
-    vw::cartography::block_write_gdal_image(out_dem_nodata_file, dem_nodata, 
+    vw::cartography::block_write_gdal_image(out_dem_nodata_file, dem_nodata,
                                             has_georef, geo,
                                             has_nodata, dem_nodata_val, opt, tpc);
   }
@@ -276,13 +276,13 @@ void SfsCallback::set_final_iter(bool is_final_iter) {
 // See SmoothnessError() for the definitions of bottom, top, etc.
 template <typename F, typename G>
 inline bool
-calc_intensity_residual(SfsOptions const& opt, 
+calc_intensity_residual(SfsOptions const& opt,
                         const F* const exposure, const F* const haze,
                         const G* const left, const G* const center, const G* const right,
                         const G* const bottom, const G* const top,
                         bool use_pq, const G* const pq, // dem partial derivatives
                         const G* const albedo,
-                        const G* const refl_coeffs, 
+                        const G* const refl_coeffs,
                         int col, int row,
                         vw::ImageView<double>         const & dem,            // alias
                         cartography::GeoReference const & geo,            // alias
@@ -299,7 +299,7 @@ calc_intensity_residual(SfsOptions const& opt,
                         bool                              blend_weight_is_ground_weight,
                         vw::CamPtr                const & camera,         // alias
                         F* residuals) {
-  
+
   // Default residuals. Using here 0 rather than some big number tuned out to
   // work better than the alternative.
   residuals[0] = F(0.0);
@@ -313,7 +313,7 @@ calc_intensity_residual(SfsOptions const& opt,
       p = pq[0];
       q = pq[1];
     }
-    
+
     bool success =
       calcPixReflectanceInten(left[0], center[0], right[0],
                               bottom[0], top[0],
@@ -321,11 +321,11 @@ calc_intensity_residual(SfsOptions const& opt,
                               col, row,  dem, geo,
                               model_shadows, max_dem_height,
                               gridx, gridy,
-                              sunPosition,  refl_params, crop_box, image, 
+                              sunPosition,  refl_params, crop_box, image,
                               blend_weight, blend_weight_is_ground_weight,
-                              camera, reflectance, intensity, ground_weight, 
+                              camera, reflectance, intensity, ground_weight,
                               refl_coeffs, opt);
-      
+
     if (opt.unreliable_intensity_threshold > 0) {
       if (is_valid(intensity) && intensity.child() <= opt.unreliable_intensity_threshold &&
           intensity.child() >= 0) {
@@ -333,9 +333,9 @@ calc_intensity_residual(SfsOptions const& opt,
           pow(intensity.child()/opt.unreliable_intensity_threshold, 2.0);
       }
     }
-      
+
     if (success && is_valid(intensity) && is_valid(reflectance))
-      residuals[0] = ground_weight * (intensity - 
+      residuals[0] = ground_weight * (intensity -
                       calcIntensity(albedo[0], reflectance.child(), exposure[0],
                                     opt.steepness_factor,
                                     haze, opt.num_haze_coeffs));
@@ -394,18 +394,18 @@ struct IntensityError {
     const F * const pq = NULL;
     return calc_intensity_residual(m_opt, exposure, haze,
                                    left, center, right, bottom, top,
-                                   use_pq, pq, albedo, 
+                                   use_pq, pq, albedo,
                                    refl_coeffs,
-                                   m_col, m_row,  
+                                   m_col, m_row,
                                    m_dem,  // alias
                                    m_geo,  // alias
-                                   m_model_shadows,  
-                                   m_camera_position_step_size,  
+                                   m_model_shadows,
+                                   m_camera_position_step_size,
                                    m_max_dem_height,  // alias
-                                   m_gridx, m_gridy,  
+                                   m_gridx, m_gridy,
                                    m_refl_params,   // alias
                                    m_sunPosition,    // alias
-                                   m_crop_box,  
+                                   m_crop_box,
                                    m_image,           // alias
                                    m_blend_weight,    // alias
                                    m_blend_weight_is_ground_weight,
@@ -465,9 +465,9 @@ struct IntensityErrorFloatDemOnly {
   IntensityErrorFloatDemOnly(SfsOptions const& opt, int col, int row,
                              vw::ImageView<double> const& dem,
                              double albedo,
-                             double * refl_coeffs, 
-                             double * exposure, 
-                             double * haze, 
+                             double * refl_coeffs,
+                             double * exposure,
+                             double * haze,
                              cartography::GeoReference const& geo,
                              bool model_shadows,
                              double camera_position_step_size,
@@ -510,18 +510,18 @@ struct IntensityErrorFloatDemOnly {
     return calc_intensity_residual(m_opt, m_exposure, m_haze,
                                    left, center, right, bottom, top,
                                    use_pq, pq,
-                                   &m_albedo, 
+                                   &m_albedo,
                                    m_refl_coeffs,
-                                   m_col, m_row,  
+                                   m_col, m_row,
                                    m_dem,  // alias
                                    m_geo,  // alias
-                                   m_model_shadows,  
-                                   m_camera_position_step_size,  
+                                   m_model_shadows,
+                                   m_camera_position_step_size,
                                    m_max_dem_height,  // alias
-                                   m_gridx, m_gridy,  
+                                   m_gridx, m_gridy,
                                    m_refl_params,   // alias
                                    m_sunPosition,    // alias
-                                   m_crop_box,  
+                                   m_crop_box,
                                    m_image,           // alias
                                    m_blend_weight,    // alias
                                    m_blend_weight_is_ground_weight,
@@ -534,9 +534,9 @@ struct IntensityErrorFloatDemOnly {
   static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
                                      vw::ImageView<double> const& dem,
                                      double albedo,
-                                     double * refl_coeffs, 
-                                     double * exposure, 
-                                     double * haze, 
+                                     double * refl_coeffs,
+                                     double * exposure,
+                                     double * haze,
                                      vw::cartography::GeoReference const& geo,
                                      bool model_shadows,
                                      double camera_position_step_size,
@@ -586,7 +586,7 @@ struct IntensityErrorFloatDemOnly {
 }; // end class IntensityErrorFloatDemOnly
 
 // A variant of the intensity error when we float the partial derivatives
-// in x and in y of the dem, which we call p and q.  
+// in x and in y of the dem, which we call p and q.
 // TODO(oalexan1): Move to SfsCostFun.h
 // TODO(oalexan1): Validate again if this gives better results as compared to
 // usual intensity error.
@@ -616,13 +616,13 @@ struct IntensityErrorPQ {
     m_image(image), m_blend_weight(blend_weight),
     m_blend_weight_is_ground_weight(blend_weight_is_ground_weight),
     m_camera(camera) {}
-  
+
   // See SmoothnessError() for the definitions of bottom, top, etc.
   template <typename F>
   bool operator()(const F* const exposure,
-                  const F* const haze,                  
+                  const F* const haze,
                   const F* const center_h,
-                  const F* const pq,                 // array of length 2 
+                  const F* const pq,                 // array of length 2
                   const F* const albedo,
                   const F* const refl_coeffs,
                   F* residuals) const {
@@ -631,18 +631,18 @@ struct IntensityErrorPQ {
 
     F v = 0;
     return calc_intensity_residual(m_opt, exposure, haze, &v, center_h, &v, &v, &v,
-                                   use_pq, pq, albedo, 
+                                   use_pq, pq, albedo,
                                    refl_coeffs,
-                                   m_col, m_row,  
+                                   m_col, m_row,
                                    m_dem,  // alias
                                    m_geo,  // alias
-                                   m_model_shadows,  
-                                   m_camera_position_step_size,  
+                                   m_model_shadows,
+                                   m_camera_position_step_size,
                                    m_max_dem_height,  // alias
-                                   m_gridx, m_gridy,  
+                                   m_gridx, m_gridy,
                                    m_refl_params,   // alias
                                    m_sunPosition,    // alias
-                                   m_crop_box,  
+                                   m_crop_box,
                                    m_image,           // alias
                                    m_blend_weight,    // alias
                                    m_blend_weight_is_ground_weight,
@@ -674,7 +674,7 @@ struct IntensityErrorPQ {
                                   max_dem_height,
                                   gridx, gridy,
                                   refl_params, sunPosition,
-                                  crop_box, image, blend_weight, 
+                                  crop_box, image, blend_weight,
                                   blend_weight_is_ground_weight,
                                   camera)));
   }
@@ -704,7 +704,7 @@ struct IntensityErrorFixedReflectance {
                                  PixelMask<float> const& reflectance,
                                  int num_haze_coeffs,
                                  double steepness_factor):
-    m_intensity(intensity), m_reflectance(reflectance), 
+    m_intensity(intensity), m_reflectance(reflectance),
     m_num_haze_coeffs(num_haze_coeffs), m_steepness_factor(steepness_factor) {}
 
   template <typename F>
@@ -717,11 +717,11 @@ struct IntensityErrorFixedReflectance {
       residuals[0] = 0;
       return true;
     }
-    
+
     residuals[0] = calcIntensity(albedo[0], m_reflectance, exposure[0],
-                                 m_steepness_factor, haze, m_num_haze_coeffs) 
+                                 m_steepness_factor, haze, m_num_haze_coeffs)
                  - m_intensity;
-    
+
     return true;
   }
 
@@ -732,10 +732,10 @@ struct IntensityErrorFixedReflectance {
                                      int num_haze_coeffs,
                                      double steepness_factor) {
     return (new ceres::NumericDiffCostFunction<IntensityErrorFixedReflectance,
-            ceres::CENTRAL, 
+            ceres::CENTRAL,
             // residual, exposure, haze, albedo
-            1, 1, g_max_num_haze_coeffs, 1> 
-            (new IntensityErrorFixedReflectance(intensity, reflectance, 
+            1, 1, g_max_num_haze_coeffs, 1>
+            (new IntensityErrorFixedReflectance(intensity, reflectance,
                                                 num_haze_coeffs, steepness_factor)));
   }
 
@@ -746,13 +746,13 @@ struct IntensityErrorFixedReflectance {
 
 // The smoothness error is the sum of squares of
 // the 4 second order partial derivatives, with a weight:
-// error = smoothness_weight * ( u_xx^2 + u_xy^2 + u_yx^2 + u_yy^2 )
+// error = smoothness_weight * (u_xx^2 + u_xy^2 + u_yx^2 + u_yy^2)
 
 // We will use finite differences to compute these.
 // Consider a grid point and its neighbors, 9 points in all.
 //
 // bl   = u(c-1, r+1)  bottom = u(c, r+1) br    = u(c+1,r+1)
-// left = u(c-1, r  )  center = u(c, r  ) right = u(c+1,r  )
+// left = u(c-1, r)  center = u(c, r) right = u(c+1,r)
 // tl   = u(c-1, r-1)  top    = u(c, r-1) tr    = u(c+1,r-1)
 //
 // See https://en.wikipedia.org/wiki/Finite_difference
@@ -772,10 +772,10 @@ struct SmoothnessError {
     // Normalize by grid size seems to make the functional less
     // sensitive to the actual grid size used.
     residuals[0] = (left[0] + right[0] - 2*center[0])/m_gridx/m_gridx;   // u_xx
-    residuals[1] = (br[0] + tl[0] - bl[0] - tr[0] )/4.0/m_gridx/m_gridy; // u_xy
+    residuals[1] = (br[0] + tl[0] - bl[0] - tr[0])/4.0/m_gridx/m_gridy; // u_xy
     residuals[2] = residuals[1];                                         // u_yx
     residuals[3] = (bottom[0] + top[0] - 2*center[0])/m_gridy/m_gridy;   // u_yy
-    
+
     for (int i = 0; i < 4; i++)
       residuals[i] *= m_smoothness_weight;
 
@@ -785,7 +785,7 @@ struct SmoothnessError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double smoothness_weight,
-                                     double gridx, double gridy){
+                                     double gridx, double gridy) {
     return (new ceres::NumericDiffCostFunction<SmoothnessError,
             ceres::CENTRAL, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1>
             (new SmoothnessError(smoothness_weight, gridx, gridy)));
@@ -811,10 +811,10 @@ struct GradientError {
 
     // This results in a smoother solution than using centered differences
     residuals[0] = (right[0]  - center[0])/m_gridx; // u_x
-    residuals[1] = (center[0] - left[0]  )/m_gridx; // u_x
+    residuals[1] = (center[0] - left[0])/m_gridx; // u_x
     residuals[2] = (top[0]    - center[0])/m_gridy; // u_y
     residuals[3] = (center[0] - bottom[0])/m_gridy; // u_y
-    
+
     for (int i = 0; i < 4; i++)
       residuals[i] *= m_gradient_weight;
 
@@ -824,7 +824,7 @@ struct GradientError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double gradient_weight,
-                                     double gridx, double gridy){
+                                     double gridx, double gridy) {
     return (new ceres::NumericDiffCostFunction<GradientError,
             ceres::CENTRAL, 4, 1, 1, 1, 1, 1>
             (new GradientError(gradient_weight, gridx, gridy)));
@@ -852,7 +852,7 @@ struct CurvatureInShadowError {
     // sensitive to the actual grid size used.
     double u_xx = (left[0] + right[0] - 2*center[0])/m_gridx/m_gridx;   // u_xx
     double u_yy = (bottom[0] + top[0] - 2*center[0])/m_gridy/m_gridy;   // u_yy
-    
+
     residuals[0] = m_curvature_in_shadow_weight*(u_xx + u_yy - m_curvature_in_shadow);
 
     return true;
@@ -862,7 +862,7 @@ struct CurvatureInShadowError {
   // the client code.
   static ceres::CostFunction* Create(double curvature_in_shadow,
                                      double curvature_in_shadow_weight,
-                                     double gridx, double gridy){
+                                     double gridx, double gridy) {
     return (new ceres::NumericDiffCostFunction<CurvatureInShadowError,
             ceres::CENTRAL, 1, 1, 1, 1, 1, 1>
             (new CurvatureInShadowError(curvature_in_shadow, curvature_in_shadow_weight,
@@ -887,7 +887,7 @@ struct SmoothnessErrorPQ {
     residuals[1] = (top_pq[0] - bottom_pq[0])/(2*m_gridy);   // p_y
     residuals[2] = (right_pq[1] - left_pq[1])/(2*m_gridx);   // q_x
     residuals[3] = (top_pq[1] - bottom_pq[1])/(2*m_gridy);   // q_y
-    
+
     for (int i = 0; i < 4; i++)
       residuals[i] *= m_smoothness_weight_pq;
 
@@ -897,7 +897,7 @@ struct SmoothnessErrorPQ {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double smoothness_weight_pq,
-                                     double gridx, double gridy){
+                                     double gridx, double gridy) {
     return (new ceres::NumericDiffCostFunction<SmoothnessErrorPQ,
             ceres::CENTRAL, 4, 2, 2, 2, 2>
             (new SmoothnessErrorPQ(smoothness_weight_pq, gridx, gridy)));
@@ -909,8 +909,8 @@ struct SmoothnessErrorPQ {
 // The integrability error is the discrepancy between the
 // independently optimized gradients p and q, and the partial
 // derivatives of the dem, here denoted by u.
-// error = integrability_weight * ( (u_x - p)^2 + (u_y - q)^2 )
-// See SmoothnessError for the notation below. 
+// error = integrability_weight * ((u_x - p)^2 + (u_y - q)^2)
+// See SmoothnessError for the notation below.
 // TODO(oalexan1): Move to SfsCostFun.h
 struct IntegrabilityError {
   IntegrabilityError(double integrability_weight, double gridx, double gridy):
@@ -919,22 +919,22 @@ struct IntegrabilityError {
 
   template <typename T>
   bool operator()(const T* const bottom, const T* const left, const T* const right,
-                  const T* const top, const T* const pq, 
+                  const T* const top, const T* const pq,
                   T* residuals) const {
 
     residuals[0] = (right[0] - left[0])/(2*m_gridx) - pq[0];
     residuals[1] = (top[0] - bottom[0])/(2*m_gridy) - pq[1];
-    
+
     for (int i = 0; i < 2; i++)
       residuals[i] *= m_integrability_weight;
-    
+
     return true;
   }
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double integrability_weight,
-                                     double gridx, double gridy){
+                                     double gridx, double gridy) {
     return (new ceres::NumericDiffCostFunction<IntegrabilityError,
             ceres::CENTRAL, 2, 1, 1, 1, 1, 2>
             (new IntegrabilityError(integrability_weight, gridx, gridy)));
@@ -948,8 +948,8 @@ struct IntegrabilityError {
 // TODO(oalexan1): Move to SfsCostFun.h
 struct HeightChangeError {
   HeightChangeError(double orig_height, double initial_dem_constraint_weight):
-    m_orig_height(orig_height), 
-    m_initial_dem_constraint_weight(initial_dem_constraint_weight){}
+    m_orig_height(orig_height),
+    m_initial_dem_constraint_weight(initial_dem_constraint_weight) {}
 
   template <typename T>
   bool operator()(const T* const center, T* residuals) const {
@@ -960,7 +960,7 @@ struct HeightChangeError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double orig_height,
-                                     double initial_dem_constraint_weight){
+                                     double initial_dem_constraint_weight) {
     return (new ceres::NumericDiffCostFunction<HeightChangeError,
             ceres::CENTRAL, 1, 1>
             (new HeightChangeError(orig_height, initial_dem_constraint_weight)));
@@ -973,7 +973,7 @@ struct HeightChangeError {
 // TODO(oalexan1): Move to SfsCostFun.h
 struct AlbedoChangeError {
   AlbedoChangeError(double initial_albedo, double albedo_constraint_weight):
-    m_initial_albedo(initial_albedo), m_albedo_constraint_weight(albedo_constraint_weight){}
+    m_initial_albedo(initial_albedo), m_albedo_constraint_weight(albedo_constraint_weight) {}
 
   template <typename T>
   bool operator()(const T* const center, T* residuals) const {
@@ -984,7 +984,7 @@ struct AlbedoChangeError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double initial_albedo,
-                                     double albedo_constraint_weight){
+                                     double albedo_constraint_weight) {
     return (new ceres::NumericDiffCostFunction<AlbedoChangeError, ceres::CENTRAL, 1, 1>
             (new AlbedoChangeError(initial_albedo, albedo_constraint_weight)));
   }
@@ -1018,7 +1018,7 @@ void sfsCostFun(// Fixed quantities
                 std::vector<double>                 & exposures,
                 std::vector<std::vector<double>>    & haze,
                 std::vector<double>                 & refl_coeffs,
-                vw::ImageView<vw::Vector2>          & pq,  
+                vw::ImageView<vw::Vector2>          & pq,
                 ceres::Problem                      & problem) {
 
   int num_images = opt.input_images.size();
@@ -1042,7 +1042,7 @@ void sfsCostFun(// Fixed quantities
     pq.set_size(dem.cols(), dem.rows());
     for (int col = 1; col < dem.cols()-1; col++) {
       for (int row = 1; row < dem.rows()-1; row++) {
-        // Note that the top value is dem(col, row-1) and the 
+        // Note that the top value is dem(col, row-1) and the
         //            bottom value is dem(col, row+1).
         pq(col, row)[0] // same as (right - left)/(2*gridx)
           = (dem(col+1, row) - dem(col-1, row))/(2*gridx);
@@ -1059,7 +1059,7 @@ void sfsCostFun(// Fixed quantities
       opt.float_haze || opt.integrability_weight > 0) {
     float_dem_only = false;
   }
-  
+
   // Add a residual block for every grid point not at the boundary
   int bd = 1;
   for (int col = bd; col < dem.cols() - bd; col++) {
@@ -1070,16 +1070,16 @@ void sfsCostFun(// Fixed quantities
 
         if (opt.skip_images.find(image_iter) != opt.skip_images.end())
           continue;
-        
+
         ceres::LossFunction* loss_function_img = NULL;
-        if (opt.robust_threshold > 0) 
+        if (opt.robust_threshold > 0)
           loss_function_img = new ceres::CauchyLoss(opt.robust_threshold);
-        
+
         if (float_dem_only) {
           ceres::CostFunction* cost_function_img =
             IntensityErrorFloatDemOnly::Create(opt, col, row,
                                                dem,
-                                               albedo(col, row), 
+                                               albedo(col, row),
                                                &refl_coeffs[0],
                                                &exposures[image_iter], &haze[image_iter][0],
                                                geo,
@@ -1142,32 +1142,32 @@ void sfsCostFun(// Fixed quantities
                                     &dem(col, row),       // center
                                     &pq(col, row)[0],      // pq
                                     &albedo(col, row),    // albedo
-                                    &refl_coeffs[0]);   // reflectance 
+                                    &refl_coeffs[0]);   // reflectance
         }
-        
+
       } // end iterating over images
-      
+
       if (col > 0 && col < dem.cols() -1 && row > 0 && row < dem.rows() -1) {
-        
+
         // Smoothness penalty. We always add this, even if the weight is 0,
-        // to make Ceres not complain about blocks not being set. 
+        // to make Ceres not complain about blocks not being set.
         ceres::LossFunction* loss_function_sm = NULL;
         ceres::CostFunction* cost_function_sm =
           SmoothnessError::Create(smoothness_weight, gridx, gridy);
         problem.AddResidualBlock(cost_function_sm, loss_function_sm,
                                   &dem(col-1, row+1),  // bottom left
-                                  &dem(col, row+1),    // bottom 
+                                  &dem(col, row+1),    // bottom
                                   &dem(col+1, row+1),  // bottom right
                                   &dem(col-1, row),    // left
                                   &dem(col, row),      // center
-                                  &dem(col+1, row),    // right 
+                                  &dem(col+1, row),    // right
                                   &dem(col-1, row-1),  // top left
                                   &dem(col, row-1),    // top
                                   &dem(col+1, row-1)); // top right
 
         // Add curvature in shadow. Note that we use a per-pixel curvature_in_shadow_weight,
         // to gradually phase it in to avoid artifacts.
-        if (opt.curvature_in_shadow_weight > 0.0 && 
+        if (opt.curvature_in_shadow_weight > 0.0 &&
             curvature_in_shadow_weight(col, row) > 0) {
           ceres::LossFunction* loss_function_cv = NULL;
           ceres::CostFunction* cost_function_cv =
@@ -1175,10 +1175,10 @@ void sfsCostFun(// Fixed quantities
                                             curvature_in_shadow_weight(col, row),
                                             gridx, gridy);
           problem.AddResidualBlock(cost_function_cv, loss_function_cv,
-                                    &dem(col,   row+1),  // bottom 
+                                    &dem(col,   row+1),  // bottom
                                     &dem(col-1, row),    // left
                                     &dem(col,   row),    // center
-                                    &dem(col+1, row),    // right 
+                                    &dem(col+1, row),    // right
                                     &dem(col,   row-1)); // top
         }
 
@@ -1188,13 +1188,13 @@ void sfsCostFun(// Fixed quantities
           ceres::CostFunction* cost_function_grad =
             GradientError::Create(opt.gradient_weight, gridx, gridy);
           problem.AddResidualBlock(cost_function_grad, loss_function_grad,
-                                    &dem(col,   row+1),  // bottom 
+                                    &dem(col,   row+1),  // bottom
                                     &dem(col-1, row),    // left
                                     &dem(col,   row),    // center
-                                    &dem(col+1, row),    // right 
+                                    &dem(col+1, row),    // right
                                     &dem(col,   row-1)); // top
         }
-      
+
         if (opt.integrability_weight > 0) {
           ceres::LossFunction* loss_function_int = NULL;
           ceres::CostFunction* cost_function_int =
@@ -1211,13 +1211,13 @@ void sfsCostFun(// Fixed quantities
             ceres::CostFunction* cost_function_sm_pq =
               SmoothnessErrorPQ::Create(opt.smoothness_weight_pq, gridx, gridy);
             problem.AddResidualBlock(cost_function_sm_pq, loss_function_sm_pq,
-                                      &pq(col, row+1)[0],  // bottom 
+                                      &pq(col, row+1)[0],  // bottom
                                       &pq(col-1, row)[0],  // left
-                                      &pq(col+1, row)[0],  // right 
+                                      &pq(col+1, row)[0],  // right
                                       &pq(col, row-1)[0]); // top
           }
         }
-        
+
         // Deviation from prescribed height constraint
         if (opt.initial_dem_constraint_weight > 0) {
           ceres::LossFunction* loss_function_hc = NULL;
@@ -1227,10 +1227,10 @@ void sfsCostFun(// Fixed quantities
           problem.AddResidualBlock(cost_function_hc, loss_function_hc,
                                    &dem(col, row));
         }
-        
+
         // Deviation from prescribed albedo
         if (opt.float_albedo > 0 && opt.albedo_constraint_weight > 0) {
-          
+
           ceres::LossFunction* loss_function_hc = NULL;
           if (opt.albedo_robust_threshold > 0)
             loss_function_hc = new ceres::CauchyLoss(opt.albedo_robust_threshold);
@@ -1239,32 +1239,32 @@ void sfsCostFun(// Fixed quantities
           problem.AddResidualBlock(cost_function_hc, loss_function_hc, &albedo(col, row));
         }
       }
-      
+
     } // end row iter
   } // end col iter
-  
+
   // DEM at the boundary must be fixed.
   for (int col = 0; col < dem.cols(); col++) {
     for (int row = 0; row < dem.rows(); row++) {
-      if (col == 0 || col == dem.cols() - 1 || row == 0 || row == dem.rows() - 1 ) {
+      if (col == 0 || col == dem.cols() - 1 || row == 0 || row == dem.rows() - 1) {
           problem.SetParameterBlockConstant(&dem(col, row));
       }
     }
   }
-  
+
   if (opt.fix_dem) {
     for (int col = 0; col < dem.cols(); col++) {
       for (int row = 0; row < dem.rows(); row++)
         problem.SetParameterBlockConstant(&dem(col, row));
     }
   }
-  
-  if (opt.initial_dem_constraint_weight <= 0 && num_used <= 1) {    
+
+  if (opt.initial_dem_constraint_weight <= 0 && num_used <= 1) {
 
     if (opt.float_albedo && opt.albedo_constraint_weight <= 0) {
       vw::vw_out() << "No DEM or albedo constraint is used, and there is at most one "
                    << "usable image. Fixing the albedo.\n";
-                
+
       opt.float_albedo = false;
     }
 
@@ -1278,7 +1278,7 @@ void sfsCostFun(// Fixed quantities
       opt.float_exposure = false;
     }
   }
-  
+
   // If to float the albedo
   if (!float_dem_only) {
     for (int col = 1; col < dem.cols() - 1; col++) {
@@ -1288,13 +1288,13 @@ void sfsCostFun(// Fixed quantities
       }
     }
   }
-  
+
   if (!float_dem_only) {
 
     // If floating the DEM only, none of the below parameters are even added to the problem,
     // it does not make sense to check to keep them fixed or floating them.
-    
-    if (!opt.float_exposure){
+
+    if (!opt.float_exposure) {
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
         if (use_image[image_iter])
           problem.SetParameterBlockConstant(&exposures[image_iter]);
@@ -1302,11 +1302,11 @@ void sfsCostFun(// Fixed quantities
     }
     if (!opt.float_haze) {
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
-        if (use_image[image_iter]) 
+        if (use_image[image_iter])
           problem.SetParameterBlockConstant(&haze[image_iter][0]);
       }
     }
-    
+
     // If to float the reflectance model coefficients
     if (!opt.float_reflectance_model && num_used > 0)
       problem.SetParameterBlockConstant(&refl_coeffs[0]);
@@ -1341,14 +1341,14 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
 
   int num_images = opt.input_images.size();
   std::vector<double> local_exposures_vec(num_images, 0), local_haze_vec(num_images, 0);
-  
+
   std::vector<ImageView<PixelMask<double>>> reflectance(num_images), intensity(num_images);
   int num_sampled_cols = 0, num_sampled_rows = 0;
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
-    
-    if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
+
+    if (opt.skip_images.find(image_iter) != opt.skip_images.end())
       continue;
-     
+
     vw::ImageView<double> ground_weight;
     vw::ImageView<Vector2> pq; // no need for these just for initialization
     computeReflectanceAndIntensity(dem, pq, geo,
@@ -1364,11 +1364,11 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
                                    reflectance[image_iter], intensity[image_iter],
                                    ground_weight,
                                    &opt.model_coeffs_vec[0], opt);
-    
+
     num_sampled_cols = reflectance[image_iter].cols();
     num_sampled_rows = reflectance[image_iter].rows();
   }
-  
+
   // Create the inital albedo image, of same size as sampled intensity
   vw::ImageView<double> albedo(num_sampled_cols, num_sampled_rows);
   for (int col = 0; col < albedo.cols(); col++) {
@@ -1376,44 +1376,44 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
       albedo(col, row) = mean_albedo;
     }
   }
-  
+
   // Create the problem
   ceres::Problem problem;
-  
+
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
     for (int col = 0; col < intensity[image_iter].cols(); col++) {
       for (int row = 0; row < intensity[image_iter].rows(); row++) {
-         
+
        if (!is_valid(intensity[image_iter](col, row)) ||
            !is_valid(reflectance[image_iter](col, row)))
           continue;
-        
+
         ceres::CostFunction* cost_function_img =
           IntensityErrorFixedReflectance::Create(intensity[image_iter](col, row),
                                                  reflectance[image_iter](col, row),
                                                  opt.num_haze_coeffs,
                                                  opt.steepness_factor);
-        
+
         ceres::LossFunction* loss_function_img = NULL;
-        if (opt.robust_threshold > 0) 
+        if (opt.robust_threshold > 0)
           loss_function_img = new ceres::CauchyLoss(opt.robust_threshold);
 
-        problem.AddResidualBlock(cost_function_img, 
+        problem.AddResidualBlock(cost_function_img,
                                 loss_function_img,
                                 &opt.image_exposures_vec[image_iter],
                                 &opt.image_haze_vec[image_iter][0],
                                 &albedo(col, row));
-        
+
         // If zero haze coefficients are used, fix the haze
         if (opt.num_haze_coeffs == 0)
           problem.SetParameterBlockConstant(&opt.image_haze_vec[image_iter][0]);
-          
+
         if (!opt.float_albedo)
           problem.SetParameterBlockConstant(&albedo(col, row));
        }
     }
   }
-  
+
   // Ceres options
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
@@ -1422,31 +1422,31 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
   options.minimizer_progress_to_stdout = 1;
   options.num_threads = opt.num_threads;
   options.linear_solver_type = ceres::SPARSE_SCHUR;
-  
+
   // Solve the problem
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
   vw_out() << summary.FullReport() << "\n";
-  
+
   if (opt.float_albedo) {
     // Up-sample the estimated albedo to full-res dimensions with bilinear
     // interpolation. This is not needed and not used if albedo is not floated.
-    bool has_georef = true; 
+    bool has_georef = true;
     bool has_nodata = true;
     double albedo_nodata_val = -1e+6; // large but reasonable
     vw::TerminalProgressCallback tpc("asp", ": ");
     std::string albedo_file = opt.out_prefix + "-albedo-estim.tif";
     vw::vw_out() << "Up-sampling the estimated albedo to input DEM dimensions.\n";
     vw_out() << "Writing: " << albedo_file << "\n";
-    block_write_gdal_image(albedo_file, 
+    block_write_gdal_image(albedo_file,
                           SfsInterpView(dem.cols(), dem.rows(),
                                         sample_col_rate, sample_row_rate,
                                         albedo),
                           has_georef, geo, has_nodata, albedo_nodata_val,
-                          opt, tpc); 
+                          opt, tpc);
   }
-  
-  // The haze and exposures will be saved outside this function.    
+
+  // The haze and exposures will be saved outside this function.
   return;
 }
 
