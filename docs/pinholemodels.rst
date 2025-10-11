@@ -354,10 +354,8 @@ The first half of the file is the same for all Pinhole models:
 * ``pitch`` The pitch intrinsic parameter described in the previous
   section. 
 
-The second half of the file describes the lens distortion model
-being used. The name of the distortion model appears first, followed
-by a list of the parameters for that model. The number of parameters
-may be different for each distortion type. 
+The second half of the file describes the lens distortion model. The name of
+the model appears first, followed by a list of model parameters.
 
 Partial samples of each format are shown below. *The part up to and including
 the line having the pitch is the same for all models and not shown in the examples.*
@@ -369,6 +367,8 @@ Null
   ::
 
       NULL
+
+No lens distortion.
 
 .. _tsai_dist_example:
 
@@ -384,15 +384,17 @@ Tsai
       p2 = 0.4
       k3 = 1e-3
 
+This is the same as the radial-tangential distortion model in OpenCV.
+
 The ``k3`` parameter is optional in the Tsai model. If not set, its value is 0.
-Internally it is stored last in the distortion vector, as in OpenCV. See the
-option ``--fixed-distortion-indices`` if desired keep some of these fixed during
+Internally it is stored last in the distortion vector. The option
+``--fixed-distortion-indices`` can keep some of these parameters fixed during
 bundle adjustment (:numref:`ba_options`).
 
 .. _adjustable_tsai_dist_example:
 
 Adjustable Tsai
-^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
 
   ::
 
@@ -532,11 +534,11 @@ applied, as discussed earlier.
 Panoramic Camera Model
 ----------------------
 
-ASP also supports a simple panoramic (OpticalBar) camera model for use with
-images such as the declassified Corona KH4 and Keyhole KH9 images. It implements
-the model from :cite:`schenk2003rigorous` with the motion compensation from
-:cite:`sohn2004mathematical`. The latest ASP build has further improvements
-(:numref:`ghuffar_method`).
+ASP also supports a simple Panoramic (OpticalBar) camera model for use with
+images such as the declassified Corona KH4 (:numref:`kh4`) and KH9
+(:numref:`kh9`) images . It implements the model from :cite:`schenk2003rigorous`
+with the motion compensation from :cite:`sohn2004mathematical`. The latest ASP
+build has further improvements (:numref:`ghuffar_method`).
 
 Such a model looks as follows:
 
@@ -583,8 +585,9 @@ controls these is ``--intrinsics-to-float`` (:numref:`ba_options`). An example o
 solving for intrinsics is in :numref:`kh9`.
 
 The ``convert_pinhole_model`` program (:numref:`convert_pinhole_model`) can
-convert a Panoramic model to a Pinhole model with lens distortion. This can be
-an approximation, but can help give some intuition about the optical bar model. 
+convert a Panoramic (optical bar) model to a Pinhole model with lens distortion.
+The resulting model is an approximation, but can help give some intuition about
+the optical bar model. 
 
 The ``cam_gen`` program can fit a CSM linescan camera to an optical bar camera
 (:numref:`opticalbar2csm`).

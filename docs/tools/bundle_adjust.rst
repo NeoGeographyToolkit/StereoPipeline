@@ -1556,7 +1556,7 @@ Command-line options
     values.
 
 --min-distortion <double (default: 1e-7)>
-    Distortion parameters tht are optimized and that are smaller in magnitude
+    Distortion parameters that are optimized and that are smaller in magnitude
     than this value are set to this value. This is to ensure the parameters are
     big enough to be optimized. Can be negative. This is affected by
     ``--fixed-distortion-indices``. Applies to Pinhole cameras (all distortion
@@ -1564,12 +1564,13 @@ Command-line options
     optical bar models.
 
 --fixed-distortion-indices <string (default: "")>
-    A list of indices, separated by commas (with no spaces) starting from 0,
+    A sequence of indices, separated by commas (with no spaces) starting from 0,
     corresponding to lens distortion parameters to keep fixed, if
     ``--solve-intrinsics`` is invoked. These will not be changed by the
-    ``--min-distortion`` setting. The order of distortion parameters is as saved
-    in output camera files. For example, for radial-tangential distortion, the
-    order is ``k1, k2, p1, p2, k3`` (:numref:`pinhole_distortion`).
+    ``--min-distortion`` setting. Sample input: ``0,3,4``. The order of
+    distortion parameters is as saved in output camera files. For example, for
+    radial-tangential distortion, the order is ``k1, k2, p1, p2, k3``
+    (:numref:`pinhole_distortion`). 
     
 --reference-terrain <filename>
     An externally provided trustworthy reference terrain to use as a constraint.

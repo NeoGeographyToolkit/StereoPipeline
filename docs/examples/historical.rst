@@ -15,8 +15,9 @@ These images can be processed using either optical bar (panoramic) camera models
 or as pinhole camera models with RPC distortion. Most of the steps are similar
 to the example in :numref:`skysat-example`. The optical bar camera model is
 based on :cite:`schenk2003rigorous` and :cite:`sohn2004mathematical`, whose
-format is described in :numref:`panoramic`. For KH-9 images, the Improvements
-suggested in :cite:`ghuffar2022pipeline` are incorporated (:numref:`kh9`).
+format is described in :numref:`panoramic`. For KH-9 images, the
+Improvements suggested in :cite:`ghuffar2022pipeline` are incorporated
+(:numref:`ghuffar_method`).
 
 Fetching the data
 ~~~~~~~~~~~~~~~~~
@@ -730,7 +731,7 @@ It is strongly advised to work at 1/16th resolution of the original images, as
 the images are very large. Later, any optimized cameras can be adjusted to be at
 a different resolution, as documented in :numref:`resizing_images`.
 
-At 1/16th the resolution, a sample panoramic (OpticalBar) camera file, before
+At 1/16th the resolution, a sample Panoramic (OpticalBar) camera file, before
 refinements of intrinsics and extrinsics, has the form::
 
   VERSION_4
