@@ -92,6 +92,53 @@ private:
   bool final_iter;
 };
 
+// Form the SfS cost function
+void sfsCostFun(// Fixed quantities
+                double                                gridx,
+                double                                gridy,
+                double                                smoothness_weight,
+                double                                max_dem_height,
+                double                                dem_nodata_val,
+                float                                 img_nodata_val,
+                bool                                  blend_weight_is_ground_weight,
+                vw::cartography::GeoReference const & geo,
+                std::vector<vw::BBox2i>       const & crop_boxes,
+                std::vector<MaskedImgT>       const & masked_images,
+                std::vector<DoubleImgT>       const & blend_weights,
+                asp::ReflParams               const & refl_params,
+                std::vector<vw::Vector3>      const & sunPosition,
+                vw::ImageView<double>         const & orig_dem,
+                vw::ImageView<int>            const & lit_image_mask,
+                vw::ImageView<double>         const & curvature_in_shadow_weight,
+                // Variable quantities
+                asp::SfsOptions                     & opt,
+                vw::ImageView<double>               & dem,
+                vw::ImageView<double>               & albedo,
+                std::vector<vw::CamPtr>             & cameras,
+                std::vector<double>                 & exposures,
+                std::vector<std::vector<double>>    & haze,
+                std::vector<double>                 & refl_coeffs,
+                vw::ImageView<vw::Vector2>          & pq,  
+                ceres::Problem                      & problem);
+
+// Find the best-fit exposure and haze given the input sampled image and reflectance.
+// Also find the sampled albedo along the way. The albedo will be optimized
+// only if --float-albedo is on. Otherwise it will be kept at the nominal value.
+// TODO(oalexan1): Move this to SfsCostFun.cc.
+void estimExposureHazeAlbedo(SfsOptions & opt,
+                             std::vector<MaskedImgT> const& masked_images,
+                             std::vector<DoubleImgT> const& blend_weights,
+                             bool blend_weight_is_ground_weight,
+                             vw::ImageView<double> const& dem,
+                             double mean_albedo,
+                             vw::cartography::GeoReference const& geo,
+                             std::vector<vw::CamPtr> const& cameras,
+                             double & max_dem_height,
+                             std::vector<vw::BBox2i> const& crop_boxes,
+                             std::vector<vw::Vector3> const& sunPosition,
+                             asp::ReflParams const& refl_params,
+                             double gridx, double gridy);
+
 } // end namespace asp
 
 #endif // __ASP_SFS_SFS_COST_FUN_H__
