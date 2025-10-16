@@ -165,11 +165,12 @@ Use of the results
 ~~~~~~~~~~~~~~~~~~
 
 This program will write the adjustments to the cameras as ``*.adjust`` files
-starting with the specified output prefix (:numref:`adjust_files`). 
+at a location given by the specified output prefix (:numref:`adjust_files`).
 
-In order for ``parallel_stereo`` to use the adjusted cameras, it should be
-passed the ``bundle_adjust`` output prefix via the option
-``--bundle-adjust-prefix``. For example::
+For ``parallel_stereo`` to use the adjusted cameras, it should not be passed in
+the ``.adjust`` files. Rather, it should be invoked with the original cameras and
+the ``bundle_adjust`` output prefix via the option ``--bundle-adjust-prefix``.
+For example::
 
      parallel_stereo file1.cub file2.cub run_stereo/run \
        --bundle-adjust-prefix run_ba/run
@@ -181,10 +182,9 @@ other tools. Example (for cameras in .xml format)::
       input-DEM.tif image.tif camera.xml mapped_image.tif
 
 For Pinhole (:numref:`pinholemodels`) and OpticalBar (:numref:`panoramic`)
-cameras, if the ``--inline-adjustments`` option is used, no separate adjustments
-will be written, rather, the tool will save to disk copies of the input cameras
-with adjustments already applied to them. These output cameras can then be
-passed directly to ``parallel_stereo``::
+cameras, if the ``--inline-adjustments`` option is used, the tool will save to
+disk copies of the input cameras with adjustments already applied to them. These
+output cameras can then be passed directly to ``parallel_stereo``::
 
     parallel_stereo                               \
       file1.JPG file2.JPG                         \
