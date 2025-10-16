@@ -176,7 +176,15 @@ For example::
        --bundle-adjust-prefix run_ba/run
 
 The same option can be used with mapprojection (:numref:`mapproject`) and some
-other tools. Example (for cameras in .xml format):: 
+other tools. 
+
+Example (for .cub files that contain both the image and the camera):: 
+
+    mapproject --bundle-adjust-prefix run_ba/run \
+      input-DEM.tif input.cub output.tif 
+
+Example (for cameras in .xml format, so the image and camera are in separate
+files):: 
 
     mapproject --bundle-adjust-prefix run_ba/run \
       input-DEM.tif image.tif camera.xml mapped_image.tif
