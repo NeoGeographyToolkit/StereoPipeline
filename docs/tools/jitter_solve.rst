@@ -45,6 +45,11 @@ GCP files produced from a prior DEM of good quality can help increase the accura
 Multiple images (ideally with scan lines notably crossing each other) can
 improve the results.
 
+It is suggested to use this solver with carefully set camera position constraints,
+also roll and yaw constraints. The goal is to disambiguate the solution. 
+
+More research is needed about how set up this solver in various situations.
+
 If frame camera images exist for the same extent, they will help solve for jitter, 
 as such images are rigid across scan lines.
 
@@ -326,6 +331,8 @@ Example 1: CTX images on Mars
 A CTX stereo pair will be used which has quite noticeable jitter.
 See :numref:`jitter_multiple_images` for a discussion of multiple images,
 and a similar example for KaguyaTC in :numref:`jitter_kaguya`.
+
+See also :numref:`jitter_limitations` for limitations of this constraint.
 
 Input images
 ^^^^^^^^^^^^
@@ -706,6 +713,8 @@ because:
    image lines.
  - The terrain is very steep, which introduces some extraneous signal
    in the problem to optimize.
+
+See :numref:`jitter_limitations` regarding limitations of this program.
    
 We consider a dataset with two images named 1.tif and 2.tif, and corresponding
 camera files 1.xml and 2.xml, having the exact DigitalGlobe linescan model.
@@ -1013,6 +1022,8 @@ weak, and the reference DEM is decent, the results are rather similar.
 The DEM constraint is preferred if a good reference DEM is available,
 and the cameras are aligned to it.
 
+See :numref:`jitter_limitations` regarding limitations of this program.
+
 Creation of terrain model
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1189,6 +1200,8 @@ ASTER (:numref:`aster`) is a very good testbed for studying jitter because
 there are millions of free images over a span of 20 years, with many over the
 same location, and the images are rather small, on the order of 4,000 - 5,000
 pixels along each dimension.
+
+See :numref:`jitter_limitations` regarding limitations of this program.
 
 Setup
 ^^^^^
