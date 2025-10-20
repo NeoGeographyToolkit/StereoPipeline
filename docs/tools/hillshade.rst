@@ -19,11 +19,11 @@ View these side-by-side with ``stereo_gui`` (:numref:`stereo_gui`)::
 
 .. _gdal_hill:
 
-Alterative program
-~~~~~~~~~~~~~~~~~~
+GDAL hillshade
+~~~~~~~~~~~~~~
 
-The ``gdaldem hillshade`` program in GDAL (:numref:`gdal_tools`) provides
-similar functionality as ``hillshade``, and its output is often more accurate.
+The ``gdaldem hillshade`` command in GDAL (:numref:`gdal_tools`) provides
+similar functionality to ``hillshade``, and its output is often more accurate.
 
 Example::
 

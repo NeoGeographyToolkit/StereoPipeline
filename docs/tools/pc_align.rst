@@ -185,7 +185,7 @@ Feature-based alignment
 If the clouds differ by a large translation or scale factor, alignment can fail.
 If the clouds are DEMs, one may specify the option
 ``--initial-transform-from-hillshading`` which will hillshade the two
-DEMs, find interest point matches among them, and use that to compute an initial
+DEMs, find interest point matches between them, and use that to compute an initial
 transform between the clouds, which may or may not contain scale.
 
 This transform can be passed as an initial guess to the other alignment
@@ -193,21 +193,31 @@ algorithms (:numref:`prevtrans`). See an example in :numref:`kh4_align`.
 
 The related correlation-based alignment method is described in
 :numref:`pc_corr`.
- 
-This functionality is implemented with ASP's ``hillshade``, ``ipfind``, and
-``ipmatch`` tools. The ``pc_align`` options ``--hillshade-options``,
-``--ipfind-options``, and ``--ipmatch-options`` can be used to pass options to
-to these programs, such as to increase the number interest points being found,
-if the defaults are not sufficient. See :numref:`pc_align_options`.
+
+In the latest ASP (10/2025 and later), hillshading is done with ``gdaldem
+hillshade`` (:numref:`gdal_hill`). ASP's own ``hillshade`` program
+(:numref:`hillshade`) is also supported. See the option ``--hillshade-command``
+in :numref:`pc_align_options`.  
+
+The interest point finding and matching is performed with ASP's ``ipfind``
+(:numref:`ipfind`) and ``ipmatch`` (:numref:`ipmatch`) programs. These can be
+customized with ``--ipfind-options`` and ``--ipmatch-options``. For example,
+one can increase the number of interest points being found or the detection method.
+
+The option ``--initial-transform-ransac-params`` controls the outlier removal.
+
+See :numref:`pc_align_options` for details about these options.
 
 The match file having the correspondences between the two hillshaded DEMs is
-saved in the output directory and can be inspected. It can also be created
-or edited manually (:numref:`manual-align`).
+saved in the output directory and can be inspected
+(:numref:`stereo_gui_view_ip`). It can also be created or edited manually
+(:numref:`manual-align`).
 
-If the two clouds look too different for interest point matching to work, they
-perhaps can be re-gridded to use the same (coarser) grid, as described in
-:numref:`regrid`. The produced transform will be applicable to the original
-clouds.
+If the two clouds look too different for interest point matching to work, or
+they are not DEMs to start with, they can be gridded to use the same
+(usually coarser) grid, as described in :numref:`regrid`. The clouds can be cropped to
+a shared area as well. The produced transform will be applicable to the original
+clouds (a translation transform may be more reliable if cropping happens).
 
 .. _pc_corr:
 
@@ -853,11 +863,15 @@ Command-line options for pc_align
     this. The alignment algorithm can refine the scale later if set to
     ``similarity-point-to-plane``, etc.
 
---hillshade-options
-    Options to pass to the ``hillshade`` program when computing the
-    transform from hillshading. Default: 
-    ``--azimuth 300 --elevation 20 --align-to-georef``.
+--hillshade-command <string (default: "")>
+    The hillshade command and options to use when computing the
+    transform from hillshading. The default is: ``gdaldem hillshade -multidirectional -compute_edges -co TILED=yes -co BLOCKXSIZE=256 -co BLOCKYSIZE=256``. An alternative is: ``hillshade --azimuth 300 --elevation 20 --align-to-georef``.
 
+--hillshade-options <string (default: "")>
+    Options to pass to the ``hillshade`` program when computing the
+    transform from hillshading. This is for backward compatibility.
+    Use instead the ``--hillshade-command`` option.
+    
 --ipfind-options
     Options to pass to the ``ipfind`` program when computing the
     transform from hillshading. Default: ``--ip-per-image 1000000

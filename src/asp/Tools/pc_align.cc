@@ -62,7 +62,7 @@ const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the larg
 struct Options: public vw::GdalWriteOptions {
   // Input
   string reference, source, init_transform_file, alignment_method, 
-    datum, csv_format_str, csv_srs, match_file, hillshade_options,
+    datum, csv_format_str, csv_srs, match_file, hillshade_command, hillshade_options,
     ipfind_options, ipmatch_options, nuth_options, fgr_options, csv_proj4_str;
   Vector2 initial_transform_ransac_params;
   Eigen::MatrixXd init_transform;
@@ -142,8 +142,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Initialize the alignment transform based on a translation with this vector in the North-East-Down coordinate system around the centroid of the reference points. Specify it in quotes, separated by spaces or commas.")
     ("initial-rotation-angle", po::value(&opt.initial_rotation_angle)->default_value(0),
      "Initialize the alignment transform as the rotation with this angle (in degrees) around the axis going from the planet center to the centroid of the point cloud. If --initial-ned-translation is also specified, the translation gets applied after the rotation.")
-    ("initial-transform-from-hillshading", po::value(&opt.hillshading_transform)->default_value(""), "If both input clouds are DEMs, find interest point matches among their hillshaded versions, and use them to compute an initial transform to apply to the source cloud before proceeding with alignment. Specify here the type of transform, as one of: 'similarity' (rotation + translation + scale), 'rigid' (rotation + translation) or 'translation'. See the options further down for tuning this.")
-    ("hillshade-options", po::value(&opt.hillshade_options)->default_value("--azimuth 300 --elevation 20 --align-to-georef"), "Options to pass to the hillshade program when computing the transform from hillshading.")
+    ("initial-transform-from-hillshading", po::value(&opt.hillshading_transform)->default_value(""), 
+     "If both input clouds are DEMs, find interest point matches among their hillshaded "
+     "versions, and use them to compute an initial transform to apply to the source cloud "
+     "before proceeding with alignment. Specify here the type of transform, as one of: "
+     "'similarity' (rotation + translation + scale), 'rigid' (rotation + translation) or "
+     "'translation'. See the options further down for tuning this.")
+    ("hillshade-command", po::value(&opt.hillshade_command)->default_value(""), 
+     "The hillshade command and options to use when computing the transform from "
+     "hillshading. The default is: gdaldem hillshade -multidirectional -compute_edges -co TILED=yes -co BLOCKXSIZE=256 -co BLOCKYSIZE=256. An alternative is: "
+     "hillshade --azimuth 300 --elevation 20 --align-to-georef.")
+    ("hillshade-options", po::value(&opt.hillshade_options)->default_value(""), 
+     "Options to pass to the hillshade program when computing the transform from "
+     "hillshading. This is for backward compatibility. Use instead the --hillshade-command "
+     "option.")
     ("ipfind-options", po::value(&opt.ipfind_options)->default_value("--ip-per-image 1000000 --interest-operator sift --descriptor-generator sift"), "Options to pass to the ipfind program when computing the transform from hillshading.")
     ("ipmatch-options", po::value(&opt.ipmatch_options)->default_value("--inlier-threshold 100 --ransac-iterations 10000 --ransac-constraint similarity"), "Options to pass to the ipmatch program when computing the transform from hillshading.")
     ("match-file", po::value(&opt.match_file)->default_value(""), "Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences from the reference to the source (obtained for example using stereo_gui). It may be desired to change --initial-transform-ransac-params if it rejects as outliers some manual matches.")
@@ -675,23 +687,40 @@ std::string find_matches_from_hillshading(Options & opt, std::string const& curr
               << "DEMs from the input point clouds. Then this transform can be used "
               << "with the original clouds.\n" );
 
+  // Cannot have both opt.hillshade_command and opt.hillshade_options set
+  if (!opt.hillshade_command.empty() && !opt.hillshade_options.empty())
+    vw::vw_throw(vw::ArgumentErr() << "Cannot have both --hillshade-command and "
+              << "--hillshade-options set.\n");
+  
+  // This is to ensure backward compatibility
+  if (opt.hillshade_options.empty()) { 
+    if (opt.hillshade_command.empty())
+       opt.hillshade_command = "gdaldem hillshade -multidirectional -compute_edges "
+                                "-co TILED=yes -co BLOCKXSIZE=256 -co BLOCKYSIZE=256";
+  } else {
+    std::string hillshade_path = vw::program_path("hillshade", curr_exec_path);
+    opt.hillshade_command = hillshade_path + " " + opt.hillshade_options;
+  }                        
+  
+  // ASP hillshade needs the "-o" switch.
+  std::string extra = " "; 
+  if (opt.hillshade_command.find("gdaldem") == std::string::npos)
+    extra = " -o ";
+
   // Find the needed executables
-  std::string hillshade_path = vw::program_path("hillshade", curr_exec_path);
-  std::string ipfind_path    = vw::program_path("ipfind",    curr_exec_path);
-  std::string ipmatch_path   = vw::program_path("ipmatch",   curr_exec_path);
+  std::string ipfind_path  = vw::program_path("ipfind",    curr_exec_path);
+  std::string ipmatch_path = vw::program_path("ipmatch",   curr_exec_path);
 
   // Hillshade the reference
   std::string ref_hillshade = opt.out_prefix + "-reference_hillshade.tif";
-  std::string cmd = hillshade_path + " " + opt.hillshade_options + " "
-    + opt.reference + " -o " + ref_hillshade;
+  std::string cmd = opt.hillshade_command + " " + opt.reference + extra + ref_hillshade;
   vw_out() << cmd << "\n";
   std::string ans = vw::exec_cmd(cmd.c_str());
   vw_out() << ans << "\n";
   
   // Hillshade the source
   std::string source_hillshade = opt.out_prefix + "-source_hillshade.tif";
-  cmd = hillshade_path + " " + opt.hillshade_options + " "
-    + opt.source + " -o " + source_hillshade;
+  cmd = opt.hillshade_command + " " + opt.source + extra + source_hillshade;
   vw_out() << cmd << "\n";
   ans = vw::exec_cmd(cmd.c_str());
   vw_out() << ans << "\n";

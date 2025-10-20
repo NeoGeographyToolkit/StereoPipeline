@@ -49,6 +49,8 @@ point2dem (:numref:`point2dem`):
     
 pc_align (:numref:`pc_align`):
   * Added support for LAS COPC files (:numref:`pc_align_las`).
+  * The hillshade-based alignment uses by default ``gdaldem hillshade``
+    (:numref:`pc_hillshade`).
   
 cam_gen (:numref:`cam_gen`):
   * Can fit a CSM linescan camera to an OpticalBar camera
