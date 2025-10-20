@@ -199,7 +199,7 @@ hillshade`` (:numref:`gdal_hill`). ASP's own ``hillshade`` program
 (:numref:`hillshade`) is also supported. See the option ``--hillshade-command``
 in :numref:`pc_align_options`.  
 
-The interest point finding and matching is performed with ASP's ``ipfind``
+The interest point finding and matching are performed with ASP's ``ipfind``
 (:numref:`ipfind`) and ``ipmatch`` (:numref:`ipmatch`) programs. These can be
 customized with ``--ipfind-options`` and ``--ipmatch-options``. For example,
 one can increase the number of interest points being found or the detection method.
@@ -864,8 +864,11 @@ Command-line options for pc_align
     ``similarity-point-to-plane``, etc.
 
 --hillshade-command <string (default: "")>
-    The hillshade command and options to use when computing the
-    transform from hillshading. The default is: ``gdaldem hillshade -multidirectional -compute_edges -co TILED=yes -co BLOCKXSIZE=256 -co BLOCKYSIZE=256``. An alternative is: ``hillshade --azimuth 300 --elevation 20 --align-to-georef``.
+    The hillshade command and options to use when computing the transform from
+    hillshading. The default is: ``gdaldem hillshade -multidirectional
+    -compute_edges -co TILED=yes -co BLOCKXSIZE=256 -co BLOCKYSIZE=256``. An
+    alternative is: ``hillshade --azimuth 300 --elevation 20
+    --align-to-georef``.
 
 --hillshade-options <string (default: "")>
     Options to pass to the ``hillshade`` program when computing the
