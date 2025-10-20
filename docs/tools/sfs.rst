@@ -393,9 +393,7 @@ Command-line options for sfs
 --read-exposures
     If set, read the image exposures with the current output prefix. Useful with
     a repeat invocation from ``parallel_sfs``, when with this option the
-    exposures of the current tile are read, and not for the whole site. See the
-    options ``--prep-step`` and ``--main-step`` in ``parallel_sfs``
-    (:numref:`parallel_sfs`).
+    exposures of the current tile are read, and not for the whole site. 
 
 --read-haze
     If set, read the haze values with the current output prefix. See also

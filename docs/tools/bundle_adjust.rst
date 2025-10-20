@@ -200,8 +200,10 @@ output cameras can then be passed directly to ``parallel_stereo``::
       run_stereo/run
 
 When cameras are of CSM type (:numref:`csm`), self-contained optimized cameras
-will be written to disk (:numref:`csm_state`). These can also be appended to the
-.cub files (:numref:`embedded_csm`).
+will be written to disk (:numref:`csm_state`). These cameras can also be used
+as-is, so without the ``--bunlde-adjust-prefix`` option. If the CSM cameras are
+appended to the .cub files (:numref:`embedded_csm`), the updated .cub files can
+also be used as-is.
 
 To pass adjustments to ``bundle_adjust`` itself, use the option
 ``--input-adjustments-prefix``.

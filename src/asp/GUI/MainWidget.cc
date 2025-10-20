@@ -863,11 +863,16 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
   // Create a QImage object to store the transformed image
   QImage transformedImage = QImage(screen_box.width(), screen_box.height(),
                                    QImage::Format_ARGB32_Premultiplied);
-
+  
+  // TODO(oalexan1): Cache the last 10 images to not recompute them all the time
+  // when toggling images on and off.
+  
   // The world2image call can be very expensive. Tabulate it with sampling,
   // and then invoke it using bicubic interpolation.
   // This is a speedup.
   // TODO(oalexan1): Factor out this logic.
+  // TODO(oalexan1): This should happen just once per given screen box. So toggling an
+  // image on and off should not require recomputing this.
   int rate = 5;
   int cols = screen_box.max().x()/rate + 2 + vw::BicubicInterpolation::pixel_buffer;
   int rows = screen_box.max().y()/rate + 2 + vw::BicubicInterpolation::pixel_buffer;

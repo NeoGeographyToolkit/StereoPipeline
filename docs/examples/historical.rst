@@ -314,8 +314,9 @@ stereographic projection (:numref:`point2dem`)::
 
 The grid size (``--tr``) is in meters. 
 
-The produced DEM could be rough. It is sufficient however to align
-to the SRTM DEM by hillshading the two and finding matching features::
+The produced DEM could be rough. It is sufficient however to align to the SRTM
+DEM by hillshading the two and finding matching features
+(:numref:`pc_hillshade`)::
 
      pc_align --max-displacement -1                    \
        --initial-transform-from-hillshading similarity \
@@ -323,6 +324,9 @@ to the SRTM DEM by hillshading the two and finding matching features::
        --num-iterations 0                              \
        dem.tif stereo_small_mgm/run-DEM.tif            \
        -o stereo_small_mgm/run
+
+Here one should choose carefully the transform type. The options are
+``translation``, ``rigid``, and ``similarity`` (:numref:`pc_align_options`).
 
 The resulting aligned cloud can be regridded as::
 

@@ -241,16 +241,6 @@ def main(argsIn):
       help = 'A file containing the list of computing nodes, one ' +
              'per line. If not provided, run on the local machine.')
 
-    parser.add_argument('--prep-step', dest='prep_step', default = None,
-      help = 'Run parallel_sfs twice, before mosaicking the final results. First time '
-      'add these options to the sfs program (after estimating the initial exposures). '
-      'Second time add the options in --main-step.'
-      'Must use this as --prep-step="options". Without the equal sign it will fail '
-      'to parse the options because of limitations of the Python argparse module.')
-
-    parser.add_argument('--main-step', dest='main_step', default = None,
-      help = 'See --prep-step.')
-
     parser.add_argument('--parallel-options', dest='parallel_options', 
       default='--sshdelay 0.2',
       help = 'Options to pass directly to GNU Parallel.')
@@ -316,11 +306,6 @@ def main(argsIn):
         print("Warning: Floating exposures and other quantities per tile may result " +
               "in non-globally consistent results.")
         
-    # Either both or none of options.prep_step and options.main_step must be set
-    if (options.prep_step is None) != (options.main_step is None):
-        parser.print_help()
-        parser.error("Either both or none of --prep-step and --main-step must be set.\n")
-            
     # Any additional arguments need to be forwarded to the sfs function
     options.extraArgs = args
 
@@ -528,28 +513,14 @@ def main(argsIn):
     runDir = asp_system_utils.escape_token(os.getcwd())
     commandList = commandList + ['--run-dir', runDir]
 
-    # For the case when we run this tool twice
-    stepOptions = []
-    if options.prep_step is not None:
-        stepOptions = asp_string_utils.stringToArgList(options.prep_step)
-    
     # Use GNU parallel call to distribute the work across computers. Wait until
     # all processes are finished.
     verbose = True
     asp_system_utils.runInGnuParallel(options.numProcesses, 
                                       argumentFilePath, 
-                                      commandList + stepOptions,
+                                      commandList,
                                       options.nodesListPath, verbose)
 
-    # For the case when we run this tool twice
-    stepOptions = []
-    if options.main_step is not None:
-        stepOptions = asp_string_utils.stringToArgList(options.main_step)
-        asp_system_utils.runInGnuParallel(options.numProcesses, 
-                                          argumentFilePath, 
-                                          commandList + stepOptions,
-                                          options.nodesListPath, verbose)
-    
     # Mosaic the results
     for it in range(len(perTileFiles)):
         mosaic_results(tileList, outputFolder, outputName, options,

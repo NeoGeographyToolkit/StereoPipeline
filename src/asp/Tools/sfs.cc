@@ -812,17 +812,15 @@ int main(int argc, char* argv[]) {
     // if cropping is specified. This is to save on memory.
     vw::ImageViewRef<double> full_dem = DiskImageView<double>(opt.input_dem);
     vw::ImageViewRef<double> full_albedo;
-    // TODO(oalexan1): albedo per tile needs to go when the workflow is improved.
-    // This is needed to support for now the --prep-step and --main-step
-    // options, and longer term, that is likely the wrong way of doing things
-    // and will be removed.
-    bool albedo_per_tile = false; // true if reading global DEM but tile-only albedo
+    
+    // Read the albedo
     if (!opt.input_albedo.empty()) {
       vw::vw_out() << "Reading albedo from: " << opt.input_albedo << "\n";
       full_albedo = DiskImageView<double>(opt.input_albedo);
       // Must have the same size as dem
       if (full_albedo.cols() != full_dem.cols() || full_albedo.rows() != full_dem.rows())
-        albedo_per_tile = true;
+        vw::vw_throw(vw::ArgumentErr()
+                 << "The input albedo must have the same dimensions as the DEM.\n");
     }
 
     // This must be done before the DEM is cropped. This stats is
@@ -860,12 +858,8 @@ int main(int argc, char* argv[]) {
       dem = crop(full_dem, opt.crop_win);
       geo = crop(geo, opt.crop_win);
       if (!opt.input_albedo.empty()) {
-        if (!albedo_per_tile) {
-          albedo = crop(full_albedo, opt.crop_win);
-          albedo_geo = crop(albedo_geo, opt.crop_win);
-        } else {
-          albedo = full_albedo;
-        }
+        albedo = crop(full_albedo, opt.crop_win);
+        albedo_geo = crop(albedo_geo, opt.crop_win);
       }
     } else {
       // No cropping
@@ -1328,12 +1322,10 @@ int main(int argc, char* argv[]) {
     }
     // write out skipped and used images lists so long as they are not empty
     // TODO or always write out even if empty
-    if (!used_images.empty()) {
+    if (!used_images.empty())
       asp::saveUsedImages(opt.out_prefix, used_images);
-    }
-    if (!skipped_images.empty()) {
+    if (!skipped_images.empty())
       asp::saveSkippedImages(opt.out_prefix, skipped_images);
-    }
 
     // Only overwrite the exposures if we don't have them supplied
     if (opt.image_exposures_vec.empty())

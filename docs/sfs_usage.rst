@@ -1439,37 +1439,47 @@ that measures the errors in the pixel space rather than on the ground.
 Further refinement and re-validation can be done after solving for jitter,
 but this is a more advanced topic (:numref:`sfs_jitter`). 
 
-When registration fails
-^^^^^^^^^^^^^^^^^^^^^^^
+Handling failure
+^^^^^^^^^^^^^^^^
 
-If the maximally lit mosaic has registration errors, there can be
-several causes:
+If the maximally lit mosaic has registration errors, most frequent causes are:
 
  - Images were not sorted by illumination in bundle adjustment.
  - There are not enough images of intermediate illumination to tie the
    data together.
+ - The interest point matches are inaccurate (locking onto moving shadows).
  - The value of ``--overlap-limit`` was too small.
  - Horizontal or vertical alignment failed.
- - Some images may have bad jitter (:numref:`sfs_jitter`).
 
-Here are several possible strategies, apart from the high-level
-overview earlier in :numref:`sfs-lola`:
+Ensure that the recipe in :numref:`sfs-lola` was followed carefully.
+Further strategies:
 
  - See if many mapprojected images are misregistered with the DEM. If 
-   yes, bundle adjustment and/or alignment failed and needs to be redone,
-   or otherwise refined starting with the latest cameras.
+   yes, bundle adjustment and/or alignment failed and needs to be redone or refined.
  - Crop all mapprojected images produced with bundle-adjusted cameras to a small
    site, and overlay them while sorted by illumination (solar azimuth angle).
    See for which images the registration failure occurs.
  - Inspect the match files for unprojected images (``.match`` and
-   ``clean.match``) in ``stereo_gui`` (:numref:`stereo_gui`). Perhaps
-   there were not enough matches or too many of them were thrown
-   out as outliers.
- - Fallback to a smaller subset of images which are self-consistent,
+   ``clean.match``) in ``stereo_gui`` (:numref:`stereo_gui_pairwise_matches`).
+   Perhaps there were not enough matches or too many of them were thrown out as
+   outliers.
+ - Fallback to a smaller subset of images which is self-consistent,
    even if losing coverage that way. Can be guided for this by the report
    files (:numref:`sfs_reg_valid`, :numref:`sfs_ba_validation`).
  - See if more images can be added with intermediate illumination
    conditions and to increase coverage.
+
+If a well-aligned SfS terrain is produced with a subset of the images, consider
+doing the same for a subset of the remaining ones. The second SfS terrain can be
+aligned to the first one on a clip where they both produce good results, with
+``pc_align`` with correlation-based alignment (:numref:`pc_corr`) and the option
+``--initial-transform-from-hillshading translation``. This alignment can be
+applied to the full second terrain.
+
+If the alignment is successful, apply it to the second set of cameras as well
+(:numref:`ba_pc_align`), and then tighten the vertical alignment for the second
+set with ``bundle_adjust`` with the option ``--heights-from-dem``, as above. Then,
+joint SfS for the union of the two sets should work.
 
 If no luck, break up a large site into 4 quadrants with overlap, eliminate all
 images not having good pixels in a given quadrant, and create a solution for
@@ -1479,19 +1489,17 @@ later.
 If the resulting subsets of bundle-adjusted cameras are individually
 self-consistent and consistent with the ground, do a combined bundle adjustment
 using the union of all sets of match files, by copying them to a single
-directory, with ``--overlap-limit`` set to 0 to use all match files. Ensure
-that each match file extends over the full region in that case. 
+directory, with ``--overlap-limit`` set to 0 to use all match files. Ensure that
+each match file extends over the full region in that case. 
 
-The ``image_align`` program (:numref:`image_align`) was reported to be of help in
-co-registering images. Note however that failure of registration is almost
+The ``image_align`` program (:numref:`image_align`) was reported to be of help
+in co-registering images. Note however that failure of registration is almost
 surely because not all images are connected together using match points, or the
 images are consistent with each other but not with the ground.
 
-If all fails, a fully separate SfS terrain could be produced for each quadrant,
-with generous overlap. Then, hillshade-based alignment may be used to reconcile
-the solutions (:numref:`pc_corr`). This could be applied only on clips that have the
-overlap, and the resulting alignment transform could be applied to the cameras,
-as earlier, and then perhaps SfS redone per quadrant with updated cameras. 
+Note that interest point matches produced from stereo (:numref:`dense_ip`) are
+less sensitive to illumination changes, but that process is quite slow and does
+not scale for a large number of pairwise matches.
 
 .. _parallel_sfs_usage:
 

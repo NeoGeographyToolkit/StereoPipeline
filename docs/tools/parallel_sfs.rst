@@ -49,17 +49,6 @@ Command-line options for ``parallel_sfs``:
     (:numref:`sfs`), as ISIS is single-threaded. Not all parts of the
     computation benefit from parallelization.
 
---prep-step <string (default: None)>
-    Run ``parallel_sfs`` twice, before mosaicking the final results. First time
-    add these options to the ``sfs`` program (after estimating the initial
-    exposures). Second time add the options in ``--main-step``. Must use this as
-    ``--prep-step="options"``. Without the equal sign it will fail to parse the
-    options because of limitations of the Python ``argparse`` module. See an
-    example in :numref:`sfs_earth`.
-
---main-step <string (default: None)>
-    See: ``--prep-step``.
-    
 --parallel-options <string (default: "--sshdelay 0.2")>
     Options to pass directly to GNU Parallel.
 

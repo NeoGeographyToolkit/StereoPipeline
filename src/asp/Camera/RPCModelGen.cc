@@ -193,7 +193,7 @@ void initRpcAsAffine(// Inputs
   if (numPts != numPts2) 
     vw_throw( ArgumentErr() << "Error in " << __FILE__
               << ". Number of inputs and outputs do not agree.\n");
-  std::vector< Vector<double, RPCModel::GEODETIC_COORD_SIZE+1> > in(numPts), out(numPts);
+  std::vector<Vector<double, RPCModel::GEODETIC_COORD_SIZE+1>> in(numPts), out(numPts);
   for (int p = 0; p < numPts; p++) {
 
     Vector<double, RPCModel::GEODETIC_COORD_SIZE+1> P;
@@ -280,7 +280,7 @@ void gen_rpc(// Inputs
   // The percentage of the error that the penalty weights should represent
   double penalty_weight_fraction = penalty_weight;
   // Fraction with no adjustment
-double native_penalty_fraction
+  double native_penalty_fraction
     = (double)RpcSolveLMA::NUM_PENALTY_TERMS / (double)normalized_pixels.size();
   double penalty_adjustment = penalty_weight_fraction / native_penalty_fraction;
 

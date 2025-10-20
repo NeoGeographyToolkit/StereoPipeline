@@ -49,7 +49,10 @@ Examples
         image1.tif image2.tif -o image2_align.tif
 
 Alternatively, instead of using interest points for alignment, use a (dense)
-disparity produced from correlation (:numref:`correlator-mode`)::
+disparity produced from correlation (:numref:`correlator-mode`). This method
+can be more robust to differences in illumination.
+
+::
 
     parallel_stereo --correlator-mode --stereo-algorithm asp_mgm \
       --subpixel-mode 9 image1.tif image2.tif run/run-corr
@@ -134,12 +137,12 @@ Example::
       --dem2 dem2.tif             \
       --output-prefix run/run
  
-This will save ``run/run-ecef-transform.txt`` in the ``pc_align``
-format (rotation + translation + scale, 
-:numref:`alignmenttransform`). This transform can be passed to
-``pc_align`` in order to transform a point cloud
-(:numref:`prevtrans`), and to ``bundle_adjust`` if desired to
-transform cameras (:numref:`ba_pc_align`).
+This will save ``run/run-ecef-transform.txt`` in the ``pc_align`` format
+(rotation + translation + scale, :numref:`alignmenttransform`). This transform
+can be passed to ``pc_align`` in order to transform a point cloud
+(:numref:`prevtrans`), and to ``bundle_adjust`` if desired to transform cameras
+(:numref:`ba_pc_align`). Use zero iterations with these tools to apply the
+transform without further refinement.
 
 It is important to keep in mind that the ECEF transform is from the second cloud
 to the first, hence ``pc_align`` should have the clouds *in the same order* as for
@@ -148,7 +151,7 @@ to the first, hence ``pc_align`` should have the clouds *in the same order* as f
 The inverse of this transform is saved as well, if desired to transform the
 clouds or cameras from the coordinate system of the first image to the one of
 the second image.
- 
+
 If no DEMs exist, the images themselves can be used in their
 place. The grayscale values will be interpreted as heights above the
 datum in meters. The ``image_calc`` program (:numref:`image_calc`)

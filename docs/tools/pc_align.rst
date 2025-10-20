@@ -216,16 +216,14 @@ Correlation-based alignment
 
 Given two DEMs with the same grid size that look visually similar when
 hillshaded, the dense image correlation can be found between the hillshaded
-images, and that can be employed to align the clouds. That goes as follows.
+images, and that can be employed to align the clouds.
 
-Hillshading happens with the ``hillshade`` program (:numref:`hillshade`)::
+For that, first produce the hillshades, either with ``gdaldem hillshade``
+(:numref:`gdal_hill`), which is preferred, or with the ASP ``hillshade`` program
+(:numref:`hillshade`). Call these outputs ``ref_hill.tif`` and ``src_hill.tif``.
 
-    hillshade ref.tif -o ref_hill.tif
-    hillshade src.tif -o src_hill.tif
-
-The ``gdaldem hillshade`` program can be used as well (:numref:`gdal_tools`).
-
-Image correlation is performed (:numref:`correlator-mode`)::
+Image correlation is performed (:numref:`correlator-mode`) on hillshaded
+images::
 
     parallel_stereo --correlator-mode    \
       --ip-per-image 40000               \
@@ -245,15 +243,15 @@ This produces a dense match file (:numref:`dense_ip`) that should be inspected
 (:numref:`stereo_gui_view_ip`), and then passed to ``pc_align``::
 
     matchFile=run_corr/run-disp-ref_hill__src_hill.match
-    pc_align                                     \
-      --max-displacement -1                      \
-      --num-iterations 0                         \
-      --max-num-reference-points 1000000         \
-      --match-file $matchFile                    \
-      --initial-transform-from-hillshading rigid \
-      --initial-transform-ransac-params 1000 3   \
-      --save-transformed-source-points           \
-      ref.tif src.tif                            \
+    pc_align                                           \
+      --max-displacement -1                            \
+      --num-iterations 0                               \
+      --max-num-reference-points 1000000               \
+      --match-file $matchFile                          \
+      --initial-transform-from-hillshading translation \
+      --initial-transform-ransac-params 1000 3         \
+      --save-transformed-source-points                 \
+      ref.tif src.tif                                  \
       -o run_align/run
 
 The resulting aligned cloud ``run_align/run-trans_source.tif`` can be regridded
@@ -261,7 +259,10 @@ with ``point2dem`` and same grid size and projection as the input DEMs, and
 evaluate if it moved as expected. 
 
 This method will fail if the input DEMs do not overlap a lot when overlaid with
-georeference information. 
+georeference information. If the usable overlap is small, consider running this
+on cropped versions of the DEMs first, then applying the resulting transform to
+the full datasets (:numref:`prevtrans`). In that case, a translation-only
+transform will be more robust than one with rotation or scale.
 
 The related method in :numref:`pc_hillshade` uses sparse features from
 hillshading, and can handle a large translation between the clouds.
@@ -366,7 +367,8 @@ If it is desired to apply this transform without further refinement, one can
 specify ``--num-iterations 0``.
 
 An initial transform can be found, for example, based on hillshading the two
-clouds (:numref:`pc_hillshade`).
+clouds (:numref:`pc_hillshade`) or with correlation-based alignment
+(:numref:`pc_corr`).
 
 To illustrate applying a transform, consider a DEM, named ``dem.tif``, obtained
 with ASP, from which just a portion, ``dem_crop.tif`` is known to have reliable
