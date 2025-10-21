@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -64,11 +64,11 @@ GeoReference read_georef(std::string const& file) {
   bool is_good = read_georeference(geo, file);
   if (!is_good)
     vw_throw(ArgumentErr() << "No georeference found in " << file << ".\n");
-    
+
   // This is a bug fix. The georef pixel size in y must be negative
-  // for the image to be oriented correctly. 
+  // for the image to be oriented correctly.
   if (geo.transform()(1, 1) > 0)
-    vw_throw(ArgumentErr() << "The georeference in " << file 
+    vw_throw(ArgumentErr() << "The georeference in " << file
               << " has a positive pixel size in y. "
               << "This is unexpected. Normally it is negative since the (0, 0) "
               << "pixel is in the upper-left. Check your DEM pixel size with "
@@ -87,15 +87,15 @@ struct Options: vw::GdalWriteOptions {
 
 // The workhorse of this code, do the blending
 class SfsBlendView: public ImageViewBase<SfsBlendView>{
-  
+
   ImageViewRef<float> m_sfs_dem, m_lola_dem, m_image_mosaic;
   float m_sfs_nodata, m_lola_nodata, m_weight_nodata;
   int m_extra;
   bool m_save_weight;
   Options const& m_opt;
-  
+
   typedef float PixelT;
-  
+
 public:
   SfsBlendView(ImageViewRef<float> sfs_dem, ImageViewRef<float> lola_dem,
                ImageViewRef<float> image_mosaic,
@@ -109,19 +109,19 @@ public:
   typedef PixelT pixel_type;
   typedef PixelT result_type;
   typedef ProceduralPixelAccessor<SfsBlendView> pixel_accessor;
-  
+
   inline int32 cols() const { return m_sfs_dem.cols(); }
   inline int32 rows() const { return m_sfs_dem.rows(); }
   inline int32 planes() const { return 1; }
-  
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
-  
-  inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
+
+  inline pixel_type operator()(double/*i*/, double/*j*/, int32/*p*/ = 0) const {
     vw_throw(NoImplErr() << "SfsBlendView::operator()(...) is not implemented");
     return pixel_type();
   }
-  
-  typedef CropView<ImageView<pixel_type> > prerasterize_type;
+
+  typedef CropView<ImageView<pixel_type>> prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
     BBox2i biased_box = bbox;
@@ -136,9 +136,9 @@ public:
     // The mask of lit pixels
     ImageView<PixelMask<pixel_type>> mask
       = create_mask_less_or_equal(image_mosaic_crop, m_opt.image_threshold);
-    
+
     // The mask of unlit pixels
-    ImageView< PixelMask<pixel_type> > inv_mask = vw::copy(mask);
+    ImageView<PixelMask<pixel_type>> inv_mask = vw::copy(mask);
     for (int col = 0; col < inv_mask.cols(); col++) {
       for (int row = 0; row < inv_mask.rows(); row++) {
         if (is_valid(mask(col, row))) {
@@ -150,7 +150,7 @@ public:
         }
       }
     }
-    
+
     // The grassfire weight positive in the lit region, with zero at the light-shadow
     // boundary
     bool no_zero_at_border = true; // don't decrease the weights to zero at image border
@@ -165,15 +165,16 @@ public:
     // zero at the light-shadow boundary
     ImageView<pixel_type> shadow_grass_dist = vw::grassfire(inv_mask, no_zero_at_border);
 
-    // Find the clamped signed distance to the boundary. Note that our
-    // boundary is in fact two pixel wide at the light-shadow
-    // interface, given how lit_grass_dist and shadow_grass_dist are
-    // defined as the negation of each other. The boundary is the set
-    // of pixels where both of these are <= 1.
-    ImageView<float> dist_to_bd;
+    // Find the clamped signed distance to the boundary. Note that our boundary
+    // is in fact two pixel wide at the light-shadow interface, given how
+    // lit_grass_dist and shadow_grass_dist are defined as the negation of each
+    // other. The boundary is the set of pixels where both of these are <= 1.
+    // Here must use double pixels as otherwise there's not enough precision for
+    // the final weights (even though they are float).
+    ImageView<double> dist_to_bd;
     dist_to_bd.set_size(sfs_dem_crop.cols(), sfs_dem_crop.rows());
     for (int col = 0; col < sfs_dem_crop.cols(); col++) {
-      
+
       for (int row = 0; row < sfs_dem_crop.rows(); row++) {
 
         if (lit_grass_dist(col, row) > 1.5*m_opt.lit_blend_length) {
@@ -181,13 +182,13 @@ public:
           dist_to_bd(col, row) = m_opt.lit_blend_length; // clamp at the blending length
           continue;
         }
-        
+
         if (shadow_grass_dist(col, row) > 1.5*m_opt.shadow_blend_length) {
           // Too far in the shadow region
           dist_to_bd(col, row) = -m_opt.shadow_blend_length;
           continue;
         }
-        
+
         // Find the shortest Euclidean distance to the no-data region.
         double max_dist = std::max(m_opt.lit_blend_length, m_opt.shadow_blend_length);
         double signed_dist = 0.0;
@@ -196,7 +197,7 @@ public:
         } else if (shadow_grass_dist(col, row) > 0) {
           signed_dist = -m_opt.shadow_blend_length;
         }
-        
+
         for (int col2 = std::max(0.0, col - max_dist);
              col2 <= std::min(sfs_dem_crop.cols() - 1.0, col + max_dist);
              col2++) {
@@ -205,25 +206,25 @@ public:
           // at given col value.
           double ht_val = ceil(sqrt(double(max_dist * max_dist) -
                                     double((col - col2) * (col - col2))));
-          
+
           for (int row2 = std::max(0.0, row - ht_val);
                row2 <= std::min(sfs_dem_crop.rows() - 1.0, row + ht_val);
                row2++) {
 
-            if (lit_grass_dist(col2, row2) > 1 || shadow_grass_dist(col2, row2) > 1) 
+            if (lit_grass_dist(col2, row2) > 1 || shadow_grass_dist(col2, row2) > 1)
               continue; // not at the boundary
 
             // See if the current point is closer than anything so far
-            double curr_dist = sqrt( double(col - col2) * (col - col2) +
-                                     double(row - row2) * (row - row2) );
+            double curr_dist = sqrt(double(col - col2) * (col - col2) +
+                                    double(row - row2) * (row - row2));
             if (lit_grass_dist(col, row) > 0) {
-              if (curr_dist < signed_dist) 
+              if (curr_dist < signed_dist)
                 signed_dist = curr_dist;
             } else if (shadow_grass_dist(col, row) > 0) {
-              if (curr_dist < -signed_dist) 
+              if (curr_dist < -signed_dist)
                 signed_dist = -curr_dist;
             }
-            
+
           }
         }
 
@@ -249,31 +250,31 @@ public:
 
         // The signed distance to the boundary is modified so that the smallest
         // value is 0, the largest is 1, and in a band close to the boundary it
-        // transitions from 0 to 1.
-        float weight = (dist_to_bd(col, row) + m_opt.shadow_blend_length) /
+        // transitions from 0 to 1. Must use here a double value, for precision.
+        double weight = (dist_to_bd(col, row) + m_opt.shadow_blend_length) /
           (m_opt.shadow_blend_length + m_opt.lit_blend_length);
 
         // These are not strictly necessary but enforce them
         if (weight > 1.0)
           weight = 1.0;
-        if (weight < 1e-7) // take into account the float error 
+        if (weight < 1e-7) // take into account the float error
           weight = 0.0;
-          
+        
         // Handle no-data values. These are not meant to happen, but do this just in case.
         if (sfs_dem_crop(col, row) == m_sfs_nodata)
           weight = 0.0; // Use LOLA
-        
-        if (lola_dem_crop(col, row) == m_lola_nodata) 
+
+        if (lola_dem_crop(col, row) == m_lola_nodata)
           continue;
 
-        if (!m_save_weight) 
+        if (!m_save_weight)
           blended_dem(col, row)
             = weight * sfs_dem_crop(col, row) + (1.0 - weight) * lola_dem_crop(col, row);
         else
           blended_dem(col, row) = weight;
       }
     }
-    
+
     return prerasterize_type(blended_dem, -biased_box.min().x(), -biased_box.min().y(),
                              cols(), rows());
   }
@@ -319,182 +320,30 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
-  
+
   // Error checking
   if (opt.sfs_dem == "" || opt.lola_dem == "" ||
       opt.max_lit_image_mosaic == "" || opt.output_dem == "" || opt.output_weight == "")
     vw_throw(ArgumentErr() << "Not all input or output files were specified.\n"
-                           << usage << general_options );
+                           << usage << general_options);
   if (opt.lit_blend_length <= 0)
     vw_throw(ArgumentErr() << "The lit blending length must be positive.\n"
-                           << usage << general_options );
+                           << usage << general_options);
   if (opt.shadow_blend_length <= 0)
     vw_throw(ArgumentErr() << "The shadow blending length must be positive.\n"
-                           << usage << general_options );
+                           << usage << general_options);
   if (opt.image_threshold <= 0)
     vw_throw(ArgumentErr() << "The image threshold must be positive.\n"
-                           << usage << general_options );
+                           << usage << general_options);
 
   // Create the output directory
   vw::create_out_dir(opt.output_dem);
 } // End function handle_arguments
 
-#if 0
-// Experimental code for deepening a crater in permanent shadow.  Fit
-// in that area a cone-like shape with given slope and round its top
-// using the arctan function. Very rough first attempt, but gives
-// something plausible.
-
-int main(int argc, char * argv[]){
-
-  std::string id = argv[1];
-
-  std::string img_file = argv[2]; // "clip0_maxlit.tif";
-  DiskImageView<float> img(img_file);
-  std::cout << "image is " << img_file << std::endl;
-  std::cout << "image size " << img.cols() << ' ' << img.rows() << std::endl;
-  
-  std::string dem_file = argv[3]; // "sfs_clip0_exp0.25x/run-DEM-final.tif";
-  ImageView<float> dem = copy(DiskImageView<float>(dem_file));
-  std::cout << "dem is " << dem_file << std::endl;
-  std::cout << "image size " << dem.cols() << ' ' << dem.rows() << std::endl;
-
-  double thresh = atof(argv[4]);
-  std::cout << "thresh is " << thresh << std::endl;
-  int num_smooth = atof(argv[5]);
-  std::cout << "num smooth passes " << num_smooth << std::endl;
-  double slope = atof(argv[6]);
-  std::cout << "slope is " << slope << std::endl;
-
-  // Find the boundary
-  std::vector<Vector2> pts;
-  for (int col = 1; col < dem.cols() - 1; col++) {
-    for (int row = 1; row < dem.rows() - 1; row++) {
-
-      if (img(col, row) <= thresh) 
-        continue;
-      
-      if (img(col-1, row) <= thresh ||
-          img(col+1, row) <= thresh ||
-          img(col, row-1) <= thresh ||
-          img(col, row+1) <= thresh) {
-        pts.push_back(Vector2(col, row));
-      }
-    }
-  }
-
-  // Find the distance to boundary using a brute force method
-  // Points where above thresh are 0.
-  // TODO(oalexan1): This can be made so much more efficient!
-  float max_wt = 0.0;
-  ImageView<float> wts(dem.cols(), dem.rows());
-  for (int col = 0; col < wts.cols(); col++) {
-    for (int row = 0; row < wts.rows(); row++) {
-      wts(col, row) = 1e+6;
-
-      Vector2 p1(col, row);
-      for (size_t it = 0; it < pts.size(); it++) {
-        Vector2 p2(pts[it][0], pts[it][1]);
-        float dist = norm_2(p1 - p2);
-        wts(col, row) = std::min(wts(col, row), dist);
-      }
-
-      // Adjust the steepness of the weight
-      wts(col, row) *= slope; 
-
-      // Flip the sign inside the hole, and make the weights negative outside
-      if (img(col, row) <= thresh)
-        wts(col, row) *= -1.0;
-      else
-        wts(col, row) = 0.0;
-      
-      max_wt = std::max(std::abs(wts(col, row)), max_wt);
-    }
-  }
-  std::cout << "Max wt is " << max_wt << std::endl;
-
-  // Make the tip of the weight rounder between max_wt/2 and max_wt.
-  // TODO(oalexan1): Scaling by 2 changes the slope.
-  // Maybe should use 0.5*atan(2*x)
-  
-  for (int col = 0; col < wts.cols(); col++) {
-    for (int row = 0; row < wts.rows(); row++) {
-      double val = -wts(col, row)/max_wt; // between 0 and 1
-      val *= 2.0; // between 0 and 2
-      val = atan(val); // between 0 and pi/2. Inflection point is at r/2.
-      val = (max_wt/2.0) * (2.0/M_PI) * val;  // rounded at the top, max val is max_wt/2.0.
-      wts(col, row) = -val; // make it negative again
-    }
-  }
-  
-  // Make the weights a little smooth not too far from boundary
-  ImageView<float> curr_wts = copy(wts);
-  for (int pass  =  0; pass < num_smooth; pass++) {
-    for (int col = 1; col < wts.cols() - 1; col++) {
-      for (int row = 1; row < wts.rows() - 1; row++) {
-        
-        bool is_far = true;
-        for (int i = -1; i <= 1; i++) {
-          for (int j = -1; j <= 1; j++) {
-            if (wts(col + i, row + j) < 0.0)
-              is_far = false;
-          }
-        }
-        
-        if (is_far)
-          continue;
-        
-        curr_wts(col, row) = 0.0;
-        double sum = 0.0;
-        for (int i = -1; i <= 1; i++) {
-          for (int j = -1; j <= 1; j++) {
-            double p = i * i + j * j;
-            double wt = 1.0 / (1.0 + p*p);
-            curr_wts(col, row) += wts(col + i, row + j) *wt;
-            sum += wt;
-          }
-        }
-        curr_wts(col, row) /= sum;
-        
-      }
-    }
-
-    wts = copy(curr_wts);
-  }
-
-  // Add the weights to the DEM, which pushes them down
-  for (int col = 0; col < wts.cols(); col++) {
-    for (int row = 0; row < wts.rows(); row++) {
-      dem(col, row) += wts(col, row);
-    }
-  }
-  
-  float nodata = -1.0;
-  bool has_nodata = false;
-  vw::cartography::GeoReference georef;
-  bool has_georef = vw::cartography::read_georeference(georef, dem_file);
-  vw::GdalWriteOptions opt;
-
-  std::string wts_file = "weights" + id + ".tif";
-  vw_out() << "Writing: " << wts_file << std::endl;
-  block_write_gdal_image(wts_file, wts, has_georef, georef, has_nodata, nodata, opt,
-                         TerminalProgressCallback("wts", ": "));
-  
-  std::string fixed_dem_file = "fixed_dem" + id + ".tif";
-  TerminalProgressCallback tpc("fixed_dem", ": ");
-  vw_out() << "Writing: " << fixed_dem_file << std::endl;
-  block_write_gdal_image(fixed_dem_file, dem, has_georef, georef, has_nodata, nodata, opt,
-                         TerminalProgressCallback("fixed_dem", ": "));
-  
-  
-  return 0;
-}
-#endif
-
 int main(int argc, char *argv[]) {
 
   Options opt;
-  
+
   try{
 
     handle_arguments(argc, argv, opt);
@@ -502,16 +351,16 @@ int main(int argc, char *argv[]) {
     vw_out() << "Reading SfS DEM: " << opt.sfs_dem << std::endl;
     DiskImageView<float> sfs_dem(opt.sfs_dem);
 
-    
+
     vw_out() << "Reading LOLA DEM: " << opt.lola_dem << std::endl;
     DiskImageView<float> lola_dem(opt.lola_dem);
-    
+
     vw_out() << "Reading maximally-lit image mosaic: " << opt.max_lit_image_mosaic << std::endl;
     DiskImageView<float> image_mosaic(opt.max_lit_image_mosaic);
 
     if (sfs_dem.cols() != lola_dem.cols() || sfs_dem.rows() != lola_dem.rows())
       vw_throw(ArgumentErr() << "The SfS DEM and LOLA DEM must have the same dimensions.");
-    
+
     if (sfs_dem.cols() != image_mosaic.cols() || sfs_dem.rows() != image_mosaic.rows())
       vw_throw(ArgumentErr() << "The SfS DEM and image mosaic must have the same dimensions.");
 
@@ -529,7 +378,7 @@ int main(int argc, char *argv[]) {
     vw::Vector2 sfs_corner = sfs_georef.pixel_to_point(Vector2(0, 0));
     vw::Vector2 lola_corner = lola_georef.pixel_to_point(Vector2(0, 0));
     vw::Vector2 image_corner = image_georef.pixel_to_point(Vector2(0, 0));
-    if (norm_2(sfs_corner - lola_corner) > 1e-10 || norm_2(sfs_corner - image_corner) > 1e-10) 
+    if (norm_2(sfs_corner - lola_corner) > 1e-10 || norm_2(sfs_corner - image_corner) > 1e-10)
       vw_throw(ArgumentErr() << "The SfS DEM, LOLA DEM, and image mosaic "
                << "must be on the same grid.");
 
@@ -549,7 +398,7 @@ int main(int argc, char *argv[]) {
       image_nodata = image_rsrc.nodata_read();
     else
       vw_throw(ArgumentErr() << "The maximally-lit mosaic does not have a no-data value.");
-    
+
     // When processing the DEM tile by tile, need to see further in
     // each tile because of blending and blurring
     int extra = 2*opt.lit_blend_length + 2*opt.shadow_blend_length + opt.min_blend_size;
@@ -586,8 +435,8 @@ int main(int argc, char *argv[]) {
                                                 extra, save_weight, opt),
                                    has_georef, sfs_georef,
                                    has_nodata, weight_nodata, opt, tpc);
-    
-    
+
+
   } ASP_STANDARD_CATCHES;
 
   return 0;
