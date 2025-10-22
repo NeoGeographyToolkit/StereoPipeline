@@ -20,36 +20,40 @@
 #include <asp/GUI/WidgetBase.h>
 #include <vw/Math/Statistics.h>
 
+namespace vw { namespace cartography {
+  class GeoTransform;
+}}
+
 namespace vw { namespace gui {
 
 WidgetBase::WidgetBase(int beg_image_id, int end_image_id,
              int base_image_id,
              bool use_georef,
-             std::vector<imageData> & images):
+             std::vector<imageData> & images,
+             std::vector<vw::cartography::GeoTransform> & world2image_trans,
+             std::vector<vw::cartography::GeoTransform> & image2world_trans):
     m_beg_image_id(beg_image_id),
     m_end_image_id(end_image_id),
     m_base_image_id(base_image_id), 
     m_use_georef(use_georef),
-    m_images(images) {
-
-    int num_images = m_images.size();
-    m_world2image_geotransforms.resize(num_images);
-    m_image2world_geotransforms.resize(num_images);
+    m_images(images),
+    m_world2image_trans(world2image_trans),
+    m_image2world_trans(image2world_trans) {
 }
-  
+
 // Convert from world coordinates to projected coordinates in given geospatial
 // projection
 vw::Vector2 WidgetBase::world2projpoint(vw::Vector2 P, int imageIndex) const {
   if (!m_use_georef)
       return flip_in_y(P);
-  return m_world2image_geotransforms[imageIndex].point_to_point(flip_in_y(P)); 
+  return m_world2image_trans[imageIndex].point_to_point(flip_in_y(P)); 
 }
 
 // The reverse of world2projpoint
 vw::Vector2 WidgetBase::projpoint2world(vw::Vector2 P, int imageIndex) const {
   if (!m_use_georef)
     return flip_in_y(P);
-  return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point(P));
+  return flip_in_y(m_image2world_trans[imageIndex].point_to_point(P));
 }
 
 // Find the min and max values, ignoring outliers. We look only 
@@ -144,13 +148,13 @@ Vector2 WidgetBase::world2image(Vector2 const& P, int imageIndex) const{
     // Poly or points. There is no pixel concept in that case.
     if (!m_use_georef)
       return flip_in_y(P);
-    return m_world2image_geotransforms[imageIndex].point_to_point(flip_in_y(P));
+    return m_world2image_trans[imageIndex].point_to_point(flip_in_y(P));
   }
 
   // Image
   if (!m_use_georef)
     return P;
-  return m_world2image_geotransforms[imageIndex].point_to_pixel(flip_in_y(P));
+  return m_world2image_trans[imageIndex].point_to_pixel(flip_in_y(P));
 }
 
 BBox2 WidgetBase::world2image(BBox2 const& R, int imageIndex) const {
@@ -166,13 +170,13 @@ BBox2 WidgetBase::world2image(BBox2 const& R, int imageIndex) const {
     // Poly or points. There is no pixel concept in that case.
     if (!m_use_georef)
       return flip_in_y(R);
-    return m_world2image_geotransforms[imageIndex].point_to_point_bbox(flip_in_y(R));
+    return m_world2image_trans[imageIndex].point_to_point_bbox(flip_in_y(R));
   }
 
   // Image
   if (!m_use_georef)
     return R;
-  return m_world2image_geotransforms[imageIndex].point_to_pixel_bbox(flip_in_y(R));
+  return m_world2image_trans[imageIndex].point_to_pixel_bbox(flip_in_y(R));
 }
 
 // The reverse of world2image()
@@ -184,12 +188,12 @@ Vector2 WidgetBase::image2world(Vector2 const& P, int imageIndex) const {
     if (!m_use_georef)
       return flip_in_y(P);
 
-    return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point(P));
+    return flip_in_y(m_image2world_trans[imageIndex].point_to_point(P));
   }
 
   if (!m_use_georef)
     return P;
-  return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point(P));
+  return flip_in_y(m_image2world_trans[imageIndex].pixel_to_point(P));
 }
 
 // The reverse of world2image()
@@ -206,14 +210,12 @@ BBox2 WidgetBase::image2world(BBox2 const& R, int imageIndex) const {
   if (poly_or_xyz) {
     if (!m_use_georef)
       return flip_in_y(R);
-
-    return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point_bbox(R));
+    return flip_in_y(m_image2world_trans[imageIndex].point_to_point_bbox(R));
   }
 
   if (!m_use_georef)
     return R;
-
-  return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point_bbox(R));
+  return flip_in_y(m_image2world_trans[imageIndex].pixel_to_point_bbox(R));
 }
 
 }} // namespace vw::gui

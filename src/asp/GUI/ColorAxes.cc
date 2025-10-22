@@ -504,9 +504,12 @@ public:
 
 ColorAxes::ColorAxes(QWidget *parent,
   int beg_image_id, int end_image_id, int base_image_id, bool use_georef,
-  std::vector<imageData> & images):
+  std::vector<imageData> & images,
+  std::vector<vw::cartography::GeoTransform> & world2image_trans,
+  std::vector<vw::cartography::GeoTransform> & image2world_trans):
     QwtPlot(parent),
-    WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images) {
+    WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images,
+               world2image_trans, image2world_trans) {
 
   int num_images = m_images.size();
 
@@ -527,10 +530,10 @@ ColorAxes::ColorAxes(QWidget *parent,
 
     // Make sure we set these up before the image2world call below!
     if (m_use_georef) {
-      m_world2image_geotransforms[i]
+      m_world2image_trans[i]
         = vw::cartography::GeoTransform(m_images[m_base_image_id].georef,
                                         m_images[i].georef);
-      m_image2world_geotransforms[i]
+      m_image2world_trans[i]
         = vw::cartography::GeoTransform(m_images[i].georef,
                                         m_images[m_base_image_id].georef);
     }

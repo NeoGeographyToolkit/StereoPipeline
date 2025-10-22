@@ -27,12 +27,12 @@
 #include <vw/Math/Vector.h>
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
+#include <vw/Cartography/GeoTransform.h>
 
 #include <QMainWindow>
 
 #include <string>
 #include <vector>
-
 
 // Forward declarations
 class QAction;
@@ -47,7 +47,7 @@ namespace vw { namespace gui {
   class MainWidget;
   class chooseFilesDlg;
 
-  /// This class handles the menues at the top bar and other application level details.
+  /// This class handles the menus at the top bar and other application level details.
   class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -204,6 +204,10 @@ namespace vw { namespace gui {
     
     std::vector<std::string>  m_image_files; // Loaded image files
     std::vector<imageData>    m_images;      // Handles to loaded images
+
+    // Handles to geotransforms for each image
+    std::vector<vw::cartography::GeoTransform> m_world2image_trans;
+    std::vector<vw::cartography::GeoTransform> m_image2world_trans;
 
     /// Structures to keep track of all interest point matches.
     asp::MatchList    m_matchlist;

@@ -48,7 +48,9 @@ public:
   WidgetBase(int beg_image_id, int end_image_id,
              int base_image_id,
              bool use_georef,
-             std::vector<imageData> & images);
+             std::vector<imageData> & images,
+             std::vector<vw::cartography::GeoTransform> & world2image_trans,
+             std::vector<vw::cartography::GeoTransform> & image2world_trans);
   
   virtual ~WidgetBase(){}
 
@@ -86,12 +88,14 @@ public:
   // in [m_beg_image_id, m_end_image_id) in m_images.
   std::vector<imageData> & m_images;
 
+  // These are also aliases because in widget i we need to be able to access
+  // these for image 0, which defines the global world coordinate system.
+  std::vector<vw::cartography::GeoTransform> & m_world2image_trans;
+  std::vector<vw::cartography::GeoTransform> & m_image2world_trans;
+  
   // If georeference info is used in overlaying
   bool m_use_georef;
 
-  std::vector<vw::cartography::GeoTransform> m_world2image_geotransforms;
-  std::vector<vw::cartography::GeoTransform> m_image2world_geotransforms;
-  
   // Convert from world coordinates to projected coordinates in given geospatial
   // projection, and vice versa
   vw::Vector2 world2projpoint(vw::Vector2 const  P, int imageIndex) const;

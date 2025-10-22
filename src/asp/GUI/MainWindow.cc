@@ -391,6 +391,9 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   }
   
   m_images.resize(m_image_files.size());
+  m_world2image_trans.resize(m_image_files.size());
+  m_image2world_trans.resize(m_image_files.size());
+
   std::vector<int> propertyIndices;
   asp::lookupPropertyIndices(properties, m_image_files, propertyIndices);
 
@@ -560,7 +563,8 @@ void MainWindow::createLayout() {
     MainWidget * widget = new MainWidget(centralWidget,
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID,
-                                m_images, 
+                                m_images, m_world2image_trans,
+                                m_image2world_trans,
                                 m_output_prefix,
                                 m_matchlist,
                                 m_pairwiseMatches, m_pairwiseCleanMatches,
@@ -592,7 +596,8 @@ void MainWindow::createLayout() {
         widget = new MainWidget(centralWidget,
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID, 
-                                m_images, 
+                                m_images, m_world2image_trans,
+                                m_image2world_trans,
                                 m_output_prefix,
                                 m_matchlist, m_pairwiseMatches, m_pairwiseCleanMatches,
                                 m_editMatchPointVecIndex,
@@ -600,17 +605,20 @@ void MainWindow::createLayout() {
                                 m_use_georef, 
                                 zoom_all_to_same_region,
                                 m_allowMultipleSelections);
-      } else{
-        // Qwt plot with axes and colorbar. Hard to use the same API
-        // as earlier.
+      } else {
+        // Qwt plot with axes and colorbar. Hard to use the same API as earlier.
         // TODO(oalexan1): Must integrate the two approaches.
         widget = new ColorAxes(this, 
                                beg_image_id, end_image_id, BASE_IMAGE_ID, 
-                               m_use_georef, m_images);
+                               m_use_georef, m_images, m_world2image_trans,
+                               m_image2world_trans);
       }
       m_widgets.push_back(widget);
     }
   }
+
+  // Once all widgets zoom to same proj win, turn this off
+  asp::stereo_settings().zoom_proj_win = BBox2();
 
   // Put the images in a grid
   int num_widgets = m_widgets.size();
@@ -699,7 +707,7 @@ void MainWindow::createLayout() {
     stereo_settings().left_image_crop_win  = BBox2();
     stereo_settings().right_image_crop_win = BBox2();
   }
-
+  
   return;
 }
 

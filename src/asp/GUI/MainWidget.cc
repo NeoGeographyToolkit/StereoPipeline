@@ -17,7 +17,6 @@
 
 /// \file MainWidget.cc
 ///
-///
 // TODO(oalexan1): Each layer must have just a dPoly, rather
 // than a vector of them.
 /// TODO: Test with empty images and images having just one pixel.
@@ -50,18 +49,21 @@ using namespace vw::cartography;
 namespace vw { namespace gui {
 
 MainWidget::MainWidget(QWidget *parent,
-                        vw::GdalWriteOptions const& opt,
-                        int beg_image_id, int end_image_id, int base_image_id,
-                        std::vector<imageData> & images, // will be aliased
-                        std::string & output_prefix,     // will be aliased
-                        asp::MatchList & matches,
-                        pairwiseMatchList & pairwiseMatches,
-                        pairwiseMatchList & pairwiseCleanMatches,
-                        int &editMatchPointVecIndex,
-                        chooseFilesDlg * chooseFiles, bool use_georef,
-                        bool zoom_all_to_same_region, bool & allowMultipleSelections):
+                       vw::GdalWriteOptions const& opt,
+                       int beg_image_id, int end_image_id, int base_image_id,
+                       std::vector<imageData> & images, // will be aliased
+                       std::vector<vw::cartography::GeoTransform> & world2image_trans,
+                       std::vector<vw::cartography::GeoTransform> & image2world_trans,
+                       std::string & output_prefix,     // will be aliased
+                       asp::MatchList & matches,
+                       pairwiseMatchList & pairwiseMatches,
+                       pairwiseMatchList & pairwiseCleanMatches,
+                       int &editMatchPointVecIndex,
+                       chooseFilesDlg * chooseFiles, bool use_georef,
+                       bool zoom_all_to_same_region, bool & allowMultipleSelections):
     QwtScaleWidget(parent),
-    WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images),
+    WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images,
+               world2image_trans, image2world_trans),
     m_opt(opt), m_chooseFiles(chooseFiles),
     m_output_prefix(output_prefix), // alias
     m_matchlist(matches),
@@ -127,7 +129,6 @@ MainWidget::MainWidget(QWidget *parent,
     m_filesOrder[i] = i; // start by keeping the order of files being read
 
     bool in_range = (m_beg_image_id <= i && i < m_end_image_id);
-
     if (!in_range)
       continue;
 
@@ -148,10 +149,10 @@ MainWidget::MainWidget(QWidget *parent,
 
     // Make sure we set these up before the image2world call below!
     if (m_use_georef) {
-      m_world2image_geotransforms[i]
+      m_world2image_trans[i]
         = vw::cartography::GeoTransform(m_images[m_base_image_id].georef,
                                         m_images[i].georef);
-      m_image2world_geotransforms[i]
+      m_image2world_trans[i]
         = vw::cartography::GeoTransform(m_images[i].georef,
                                         m_images[m_base_image_id].georef);
     }
@@ -180,8 +181,6 @@ MainWidget::MainWidget(QWidget *parent,
       image_box = m_images[m_base_image_id].georef.point_to_pixel_bbox(proj_win);
 
     m_current_view = image2world(image_box, m_base_image_id);
-
-    asp::stereo_settings().zoom_proj_win = BBox2(); // no longer needed
   }
 
   // To do: Warn the user if some images have georef while others don't.
