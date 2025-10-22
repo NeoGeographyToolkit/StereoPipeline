@@ -1568,7 +1568,7 @@ far-off. For those, the threshold may need to be raised to as much as
 The value of ``--initial-dem-constraint-weight`` may need to be increased
 somewhat if the resulting SfS terrain differs too much from the initial LOLA
 terrain, or if a tiling pattern is seen. The ``geodiff`` program
-(:numref:`geodiff`) can be used for that.
+(:numref:`geodiff`) can help evaluate the difference.
 
 Use a larger ``--blending-dist`` if the produced terrain has visible artifacts
 around shadow regions which do not go away after increasing the shadow
@@ -1583,14 +1583,12 @@ One should experiment with floating the albedo (option
 images. See :numref:`sfs_albedo` for a longer discussion. It is suggested
 to run SfS without this flag first and inspect the results.
 
-When it comes to selecting the number of nodes to use, it is good to
-notice how many tiles the ``parallel_sfs`` program produces (the tool
-prints that), as a process will be launched for each tile. Since above
-it is chosen to run 10 processes on each node, the number of nodes can
-be the number of tiles over 10, or perhaps half or a quarter of that,
-in which case it will take longer to run. One should examine
-how much memory these processes use and adjust this number
-accordingly.
+When it comes to selecting the number of nodes to use, it is good to notice how
+many tiles the ``parallel_sfs`` program produces (the tool prints that), as a
+process will be launched for each tile. Since above it is chosen to run 5-10
+processes on each node, the number of nodes can be a fraction of the number of
+tiles over number of processes. One should examine how much memory and CPU these
+processes use and adjust these numbers accordingly.
 
 See :numref:`sfs_crater_bottoms` for a potential solution for SfS
 producing flat crater bottoms where there is no illumination to guide
@@ -1938,5 +1936,4 @@ Here are a few suggestions we have found helpful when running ``sfs``:
 -  Floating the exposures was useful for the Earth and Mars examples, but less
    so for the Moon.
 
- 
  .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN
