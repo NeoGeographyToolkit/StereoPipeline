@@ -142,6 +142,8 @@ to individually pass on the command line.
     ls img/*.tif > images.txt
     ls img/*.tsai > cameras.txt
 
+The entries in these files must be in the same order.
+
 Then run ``parallel_bundle_adjust`` (:numref:`parallel_bundle_adjust`), rather
 than ``bundle_adjust``, as there are very many pairs of images to match.
 
