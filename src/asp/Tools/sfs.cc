@@ -180,6 +180,11 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
      "influenced by the --smoothness-weight.")
     ("custom-shadow-threshold-list", po::value(&opt.custom_shadow_threshold_list)->default_value(""),
      "A list having one image and one shadow threshold per line. For the images specified here, override the shadow threshold supplied by other means with this value.")
+    ("low-light-threshold", 
+     po::value(&opt.low_light_threshold)->default_value(-1),
+     "A threshold for lit but low-light pixels. If positive, pixels with intensity "
+     "between this and the shadow threshold will be given less weight, if other images "
+     "have higher intensity values at the same ground point. This helps fix seams.")
     ("max-valid-image-vals", po::value(&opt.max_valid_image_vals)->default_value(""),
      "Optional values for the largest valid image value in each image (a list of real values in quotes, one per image).")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(-1.0),
@@ -462,6 +467,28 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
         opt.shadow_threshold_vec[it] = key->second;
       }
     }
+  }
+  
+  // print the shadow thresh per image
+  for (size_t i = 0; i < opt.input_images.size(); i++) {
+    vw_out() << "Using shadow threshold for image " << i << " (" << opt.input_images[i]
+             << "): " << opt.shadow_threshold_vec[i] << std::endl;
+  }
+  
+  // If the low-light-threshold is specified, ensure it is above all shadow thresholds,
+  // and that the shadow thresholds are positive.
+  if (opt.low_light_threshold > 0) {
+    for (size_t i = 0; i < opt.input_images.size(); i++) {
+      if (opt.shadow_threshold_vec[i] < 0)
+        vw_throw(ArgumentErr() << "When --low-light-threshold is set, all shadow thresholds "
+                 << "must be set and non-negative.\n");
+      if (opt.low_light_threshold <= opt.shadow_threshold_vec[i])
+        vw_throw(ArgumentErr() << "The low-light-threshold must be larger than all "
+                 << "shadow thresholds.\n");
+    }
+    if (!opt.allow_borderline_data)
+      vw::vw_throw(vw::ArgumentErr()
+        << "When using --low-light-threshold, must set --allow-borderline-data.\n");
   }
 
   // Parse max valid image vals
@@ -1198,8 +1225,8 @@ int main(int argc, char* argv[]) {
                                         std::max(img_nodata_val, shadow_thresh),
                                         opt.max_valid_image_vals_vec[image_iter]);
 
-          // Compute blending weights only when cropping the
-          // images. Otherwise the weights are too huge.
+          // Compute blending weights only when cropping the images. Otherwise
+          // the weights are too huge.
           if (opt.blending_dist > 0)
             blend_weights[image_iter]
               = asp::blendingWeights(masked_images[image_iter],
@@ -1214,9 +1241,8 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // Find the grid sizes in meters. Note that dem heights are in
-    // meters too, so we treat both horizontal and vertical
-    // measurements in same units.
+    // Find the grid sizes in meters. Note that dem heights are in meters too,
+    // so we treat both horizontal and vertical measurements in same units.
 
     // Sample large DEMs. Keep about 200 row and column samples.
     int sample_col_rate = 0, sample_row_rate = 0;
@@ -1382,6 +1408,7 @@ int main(int argc, char* argv[]) {
     // of weights in the camera image space. These are balanced among each other and give more
     // weight to barely lit and unlit nearby pixels.
     std::vector<ImageView<double>> ground_weights(num_images);
+    std::vector<vw::ImageView<PixelMask<double>>> meas_intensities(num_images);
 
     // Note that below we may use the exposures computed at the previous step
     // TODO(oalexan1): This block must be a function.
@@ -1442,9 +1469,14 @@ int main(int argc, char* argv[]) {
                                        slopeErrEstim.get(), heightErrEstim.get());
 
         if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
-            opt.allow_borderline_data) {
+            (opt.allow_borderline_data || opt.low_light_threshold > 0.0)) {
           // if not skipping, save the weight
           ground_weights[image_iter] = copy(ground_weight);
+        }
+        if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
+            opt.low_light_threshold > 0.0) {
+          // if not skipping, save the intensity
+          meas_intensities[image_iter] = copy(meas_intensity);
         }
 
         // Find the computed intensity.

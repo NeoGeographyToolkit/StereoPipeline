@@ -51,7 +51,7 @@ struct SfsOptions: public vw::GdalWriteOptions {
     blending_power, integrability_weight, smoothness_weight_pq, init_dem_height,
     nodata_val, initial_dem_constraint_weight, albedo_constraint_weight,
     albedo_robust_threshold, camera_position_step_size, unreliable_intensity_threshold,
-    robust_threshold, shadow_threshold;
+    robust_threshold, shadow_threshold, low_light_threshold;
   vw::BBox2 crop_win;
   vw::Vector2 height_error_params;
 
