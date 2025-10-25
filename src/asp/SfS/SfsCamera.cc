@@ -26,7 +26,7 @@ namespace asp {
 
 using namespace vw;
 
-ApproxCameraModel::ApproxCameraModel(vw::camera::AdjustedCameraModel const& exact_camera,
+ApproxCameraModel::ApproxCameraModel(vw::CamPtr const& exact_camera,
                                      BBox2i img_bbox,
                                      ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
@@ -130,9 +130,9 @@ void ApproxCameraModel::comp_entries_in_table() const {
       Vector2 pix;
       Vector3 vec;
       try {
-        pix = m_exact_camera.point_to_pixel(xyz);
+        pix = m_exact_camera->point_to_pixel(xyz);
         //if (true || m_img_bbox.contains(pix))  // Need to think more here
-        vec = m_exact_camera.pixel_to_vector(pix);
+        vec = m_exact_camera->pixel_to_vector(pix);
         //else
         // success = false;
 
@@ -182,7 +182,7 @@ vw::Vector2 ApproxCameraModel::point_to_pixel(Vector3 const& xyz) const {
 
     Vector3 S = xyz - 1.1*major_radius*dir; // push the point outside the sphere
     if (norm_2(S) <= major_radius) // point is inside the sphere
-      return m_exact_camera.point_to_pixel(xyz);
+      return m_exact_camera->point_to_pixel(xyz);
 
     Vector3 datum_pt
       = vw::cartography::datum_intersection(major_radius, minor_radius, S, dir);
@@ -199,7 +199,7 @@ vw::Vector2 ApproxCameraModel::point_to_pixel(Vector3 const& xyz) const {
     // If out of range, return the exact result. This should be very slow.
     // The hope is that it will be very rare.
     if (out_of_range)
-      return m_exact_camera.point_to_pixel(xyz);
+      return m_exact_camera->point_to_pixel(xyz);
 
     PixelMask<Vector3> masked_dir = pixel_to_vec_interp(x, y);
     PixelMask<Vector2> masked_pix = point_to_pix_interp(x, y);
@@ -207,7 +207,7 @@ vw::Vector2 ApproxCameraModel::point_to_pixel(Vector3 const& xyz) const {
       dir = masked_dir.child();
       pix = masked_pix.child();
     } else {
-      return m_exact_camera.point_to_pixel(xyz);
+      return m_exact_camera->point_to_pixel(xyz);
     }
   }
 
@@ -221,19 +221,19 @@ std::string ApproxCameraModel::type() const{
 // This is used rarely. Return the exact camera vector.
 Vector3 ApproxCameraModel::pixel_to_vector(Vector2 const& pix) const {
   vw::Mutex::Lock lock(m_camera_mutex);
-  return m_exact_camera.pixel_to_vector(pix);
+  return m_exact_camera->pixel_to_vector(pix);
 }
 
 // Return the exact camera center
 Vector3 ApproxCameraModel::camera_center(Vector2 const& pix) const {
   vw::Mutex::Lock lock(m_camera_mutex);
-  return m_exact_camera.camera_center(pix);
+  return m_exact_camera->camera_center(pix);
 }
 
 // Return the exact camera pose
 Quat ApproxCameraModel::camera_pose(Vector2 const& pix) const {
   vw::Mutex::Lock lock(m_camera_mutex);
-  return m_exact_camera.camera_pose(pix);
+  return m_exact_camera->camera_pose(pix);
 }
 
 // The range of pixels in the image we are actually expected to use.
@@ -248,7 +248,7 @@ bool ApproxCameraModel::model_is_valid() {
   return m_model_is_valid;
 }
 
-vw::camera::AdjustedCameraModel ApproxCameraModel::exact_camera() const {
+vw::CamPtr ApproxCameraModel::exact_camera() const {
   return m_exact_camera;
 }
 

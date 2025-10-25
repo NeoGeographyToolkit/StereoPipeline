@@ -44,13 +44,13 @@ private:
   vw::BBox2i m_img_bbox;
   mutable vw::BBox2 m_point_box, m_crop_box;
   bool m_model_is_valid;
-  vw::camera::AdjustedCameraModel m_exact_camera;
+  vw::CamPtr m_exact_camera;
 
   void comp_entries_in_table() const;
 
 public:
 
-  ApproxCameraModel(vw::camera::AdjustedCameraModel const& exact_camera,
+  ApproxCameraModel(vw::CamPtr const& exact_camera,
                     vw::BBox2i img_bbox,
                     vw::ImageView<double> const& dem,
                     vw::cartography::GeoReference const& geo,
@@ -67,7 +67,7 @@ public:
 
   vw::BBox2& crop_box();
   bool model_is_valid();
-  vw::camera::AdjustedCameraModel exact_camera() const;
+  vw::CamPtr exact_camera() const;
 };
 
 } // end namespace asp
