@@ -33,7 +33,11 @@ namespace vw {
 }
 
 #include <vector>
+
 namespace asp {
+
+typedef vw::ImageViewRef<vw::PixelMask<float>> MaskedImgRefT;
+typedef vw::ImageView<double> DoubleImgT;
 
 // Compute mean and standard deviation of two images. Do it where both are valid.
 void calcJointStats(vw::ImageView<vw::PixelMask<double>> const& I1, 
@@ -52,8 +56,17 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                  std::vector<std::string> const& input_cameras, 
                                  std::vector<vw::ImageView<double>> & ground_weights);
 
+// Saves the ground weight images
+void saveGroundWeights(std::set<int> const& skip_images,
+                       std::string const& out_prefix,
+                       std::vector<std::string> const& input_images,
+                       std::vector<std::string> const& input_cameras,
+                       std::vector<vw::ImageView<double>> const& ground_weights,
+                       vw::cartography::GeoReference const& geo,
+                       vw::GdalWriteOptions const& opt);
+
 // See the .cc file for the documentation.
-vw::ImageView<double> blendingWeights(vw::ImageViewRef<vw::PixelMask<float>> const& img,
+vw::ImageView<double> blendingWeights(MaskedImgRefT const& img,
                                       double blending_dist,
                                       double blending_power,
                                       int min_blend_size);

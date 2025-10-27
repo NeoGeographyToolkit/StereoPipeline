@@ -44,35 +44,6 @@ struct HeightErrEstim {
   double nodata_height_val;
 };
 
-// Use this struct to keep track of slope errors.
-struct SlopeErrEstim {
-
-  SlopeErrEstim(int num_cols, int num_rows, int num_a_samples_in, int num_b_samples_in,
-                vw::ImageView<double> const* albedo_in);
-
-  int num_a_samples, num_b_samples;
-  vw::ImageView<double> const* albedo;
-  std::vector<std::vector<std::vector<double>>> slope_errs;
-  int image_iter;
-  double max_angle;
-};
-
-// Given the normal (slope) to the SfS DEM, find how different
-// a slope can be from this before the computed intensity
-// due to that slope is bigger than max_intensity_err.
-void estimateSlopeError(vw::Vector3 const& cameraPosition,
-                        vw::Vector3 const& normal,
-                        vw::Vector3 const& xyz,
-                        vw::Vector3 const& sunPosition,
-                        asp::ReflParams const& refl_params,
-                        const double * refl_coeffs,
-                        double meas_intensity,
-                        double max_intensity_err,
-                        int col, int row, int image_iter,
-                        asp::SfsOptions const& opt,
-                        vw::ImageView<double> const& albedo,
-                        asp::SlopeErrEstim * slopeErrEstim);
-
 // Given the normal (height) to the SfS DEM, find how different
 // a height can be from this before the computed intensity
 // due to that height is bigger than max_intensity_err.

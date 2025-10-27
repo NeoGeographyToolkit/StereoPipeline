@@ -25,6 +25,9 @@ parallel_sfs (:numref:`parallel_sfs`):
   * When albedo and / or haze is modeled, initial estimates for these are
     produced for the full site (:numref:`parallel_sfs_usage`).
 
+sfs (:numref:`sfs`):
+  * Unused option ``--estimate-slope-errors`` got removed.
+
 parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
   * Bugfix for a crash when there are no interest point matches.
 

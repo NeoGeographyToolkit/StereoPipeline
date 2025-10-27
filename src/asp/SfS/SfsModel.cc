@@ -510,7 +510,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                              vw::Vector3       const & sunPosition,
                              asp::ReflParams   const & refl_params,
                              vw::BBox2i        const & crop_box,
-                             MaskedImgT        const & image,
+                             MaskedImgRefT     const & image,
                              DoubleImgT        const & blend_weight,
                              bool blend_weight_is_ground_weight,
                              vw::CamPtr camera,
@@ -519,7 +519,6 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                              double                  & ground_weight,
                              double            const * refl_coeffs,
                              asp::SfsOptions   const & opt,
-                             asp::SlopeErrEstim      * slopeErrEstim,
                              asp::HeightErrEstim     * heightErrEstim) {
 
   // Set output values
@@ -568,7 +567,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
     return false;
   }
 
-  vw::InterpolationView<vw::EdgeExtensionView<MaskedImgT, vw::ConstantEdgeExtension>, vw::BilinearInterpolation>
+  vw::InterpolationView<vw::EdgeExtensionView<MaskedImgRefT, vw::ConstantEdgeExtension>, vw::BilinearInterpolation>
     interp_image = vw::interpolate(image, vw::BilinearInterpolation(),
                                    vw::ConstantEdgeExtension());
   intensity = interp_image(pix[0], pix[1]); // this interpolates
@@ -607,27 +606,6 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
       reflectance = 0;
       reflectance.validate();
     }
-  }
-
-  if (slopeErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
-
-    int image_iter = slopeErrEstim->image_iter;
-    ImageView<double> const& albedo = *slopeErrEstim->albedo; // alias
-    double comp_intensity = calcIntensity(albedo(col, row),
-                                          reflectance,
-                                          opt.image_exposures_vec[image_iter],
-                                          opt.steepness_factor,
-                                          &opt.image_haze_vec[image_iter][0],
-                                          opt.num_haze_coeffs);
-
-    // We use twice the discrepancy between the computed and measured intensity
-    // as a measure for how far is overall the computed intensity allowed
-    // to diverge from the measured intensity
-    double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
-    estimateSlopeError(cameraPosition, normal, xyz, sunPosition,
-                       refl_params, refl_coeffs, intensity.child(),
-                       max_intensity_err, col, row, image_iter,
-                       opt, albedo, slopeErrEstim);
   }
 
   if (heightErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
@@ -670,7 +648,7 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
                                     vw::Vector3 const& sunPosition,
                                     asp::ReflParams const& refl_params,
                                     vw::BBox2i const& crop_box,
-                                    asp::MaskedImgT const  & image,
+                                    asp::MaskedImgRefT const  & image,
                                     asp::DoubleImgT const  & blend_weight,
                                     bool blend_weight_is_ground_weight,
                                     vw::CamPtr camera,
@@ -679,7 +657,6 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
                                     vw::ImageView<double>                & ground_weight,
                                     const double                 * refl_coeffs,
                                     asp::SfsOptions        const & opt,
-                                    asp::SlopeErrEstim  * slopeErrEstim,
                                     asp::HeightErrEstim * heightErrEstim) {
 
   // Update max_dem_height
@@ -756,7 +733,7 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
                                    camera, reflectance(col_sample, row_sample),
                                    intensity(col_sample, row_sample),
                                    ground_weight(col_sample, row_sample),
-                                   refl_coeffs, opt, slopeErrEstim, heightErrEstim);
+                                   refl_coeffs, opt, heightErrEstim);
     }
   }
 

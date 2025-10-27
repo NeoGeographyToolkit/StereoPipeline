@@ -316,8 +316,7 @@ def main(argsIn):
     # See what kind of outputs to generate
     perTileFiles = []
     mosaickedFiles = []
-    if ('--estimate-slope-errors' not in argsIn) and \
-       ('--estimate-height-errors' not in argsIn):
+    if '--estimate-height-errors' not in argsIn:
         # Computed DEM
         perTileFiles  += ['DEM-final.tif']
         mosaickedFiles += ['DEM-final.tif']
@@ -332,11 +331,6 @@ def main(argsIn):
             perTileFiles  += ['DEM-nodata-final.tif']
             mosaickedFiles += ['DEM-nodata-final.tif']
             
-    elif '--estimate-slope-errors' in argsIn:
-        # Slope errors
-        perTileFiles  += ['slope-error.tif']
-        mosaickedFiles += ['slope-error.tif']
-        
     elif '--estimate-height-errors' in argsIn:
         # Here we just mosaic the height errors
         perTileFiles  += ['height-error.tif']

@@ -50,7 +50,7 @@ public:
               asp::ReflParams const& refl_params, 
               std::vector<vw::Vector3> const& sunPosition,
               std::vector<vw::BBox2i> const& crop_boxes, 
-              std::vector<asp::MaskedImgT> const& masked_images,
+              std::vector<asp::MaskedImgRefT> const& masked_images,
               std::vector<asp::DoubleImgT> const& blend_weights,
               bool blend_weight_is_ground_weight,
               std::vector<vw::CamPtr>& cameras, 
@@ -76,7 +76,7 @@ private:
   asp::ReflParams const& refl_params;
   std::vector<vw::Vector3> const& sunPosition;
   std::vector<vw::BBox2i> const& crop_boxes;
-  std::vector<asp::MaskedImgT> const& masked_images;
+  std::vector<asp::MaskedImgRefT> const& masked_images;
   std::vector<asp::DoubleImgT> const& blend_weights;
   bool blend_weight_is_ground_weight;
   std::vector<vw::CamPtr>& cameras;
@@ -103,7 +103,7 @@ void sfsCostFun(// Fixed quantities
                 bool                                  blend_weight_is_ground_weight,
                 vw::cartography::GeoReference const & geo,
                 std::vector<vw::BBox2i>       const & crop_boxes,
-                std::vector<MaskedImgT>       const & masked_images,
+                std::vector<MaskedImgRefT>       const & masked_images,
                 std::vector<DoubleImgT>       const & blend_weights,
                 asp::ReflParams               const & refl_params,
                 std::vector<vw::Vector3>      const & sunPosition,
@@ -126,7 +126,7 @@ void sfsCostFun(// Fixed quantities
 // only if --float-albedo is on. Otherwise it will be kept at the nominal value.
 // TODO(oalexan1): Move this to SfsCostFun.cc.
 void estimExposureHazeAlbedo(SfsOptions & opt,
-                             std::vector<MaskedImgT> const& masked_images,
+                             std::vector<MaskedImgRefT> const& masked_images,
                              std::vector<DoubleImgT> const& blend_weights,
                              bool blend_weight_is_ground_weight,
                              vw::ImageView<double> const& dem,

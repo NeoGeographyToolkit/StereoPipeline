@@ -257,6 +257,41 @@ void extendedWeight(int blending_dist, ImageView<double> const & image, // input
   return;
 }
 
+// Saves the ground weight images
+void saveGroundWeights(std::set<int> const& skip_images,
+                       std::string const& out_prefix,
+                       std::vector<std::string> const& input_images,
+                       std::vector<std::string> const& input_cameras,
+                       std::vector<vw::ImageView<double>> const& ground_weights,
+                       vw::cartography::GeoReference const& geo,
+                       vw::GdalWriteOptions const& opt) {
+
+  int num_images = input_images.size();
+  float img_nodata_val = -std::numeric_limits<float>::max(); // part of api
+  
+  for (int image_iter = 0; image_iter < num_images; image_iter++) {
+
+    if (skip_images.find(image_iter) != skip_images.end())
+      continue;
+
+    std::string out_camera_file
+      = asp::bundle_adjust_file_name(out_prefix,
+                                      input_images[image_iter],
+                                      input_cameras[image_iter]);
+    std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
+
+    bool has_georef = true, has_nodata = false;
+    std::string ground_weight_file = local_prefix + "-ground_weight.tif";
+    vw_out() << "Writing: " << ground_weight_file << std::endl;
+    vw::cartography::block_write_gdal_image(ground_weight_file,
+                                            ground_weights[image_iter],
+                                            has_georef, geo, has_nodata,
+                                            img_nodata_val, opt,
+                                            TerminalProgressCallback("asp", ": "));
+
+  }
+}
+
 // Adjust the weights at the boundary of the max-lit region
 // so they don't decay to 0, as there we need all the image data
 // we get, and there's no concern that we'll create a seam
@@ -331,7 +366,7 @@ void adjustBorderlineDataWeights(int cols, int rows,
   bool save_debug_info = false;
   if (save_debug_info) {
     bool has_georef = true, has_nodata = false;
-    float img_nodata_val = false; // will not be used
+    float img_nodata_val = -std::numeric_limits<float>::max(); // part of api
     std::string max_weight_file = out_prefix + "-max_weight.tif";
     vw_out() << "Writing: " << max_weight_file << std::endl;
     vw::cartography::block_write_gdal_image(max_weight_file,
@@ -348,27 +383,9 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                             img_nodata_val, opt,
                                             TerminalProgressCallback("asp", ": "));
 
-    for (int image_iter = 0; image_iter < num_images; image_iter++) {
-
-      if (skip_images.find(image_iter) != skip_images.end())
-        continue;
-
-      std::string out_camera_file
-        = asp::bundle_adjust_file_name(out_prefix,
-                                       input_images[image_iter],
-                                       input_cameras[image_iter]);
-      std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
-
-      bool has_georef = true, has_nodata = false;
-      std::string ground_weight_file = local_prefix + "-ground_weight.tif";
-      vw_out() << "Writing: " << ground_weight_file << std::endl;
-      vw::cartography::block_write_gdal_image(ground_weight_file,
-                                              ground_weights[image_iter],
-                                              has_georef, geo, has_nodata,
-                                              img_nodata_val, opt,
-                                              TerminalProgressCallback("asp", ": "));
-
-    }
+    // Save the adjusted ground weights
+    saveGroundWeights(skip_images, out_prefix, input_images,
+                      input_cameras, ground_weights, geo, opt);
   } // end saving debug info
 
   return;
@@ -383,7 +400,7 @@ using namespace vw;
 // TODO(oalexan1): Grassfire weights use the Manhattan distance, which
 // result in noisy weights. The Euclidean distance to boundary would work
 // better.
-vw::ImageView<double> blendingWeights(vw::ImageViewRef<vw::PixelMask<float>> const& img,
+vw::ImageView<double> blendingWeights(MaskedImgRefT const& img,
                                       double blending_dist,
                                       double blending_power,
                                       int min_blend_size) {

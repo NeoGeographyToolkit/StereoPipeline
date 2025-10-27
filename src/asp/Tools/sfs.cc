@@ -157,8 +157,6 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
      "and initial albedo are described in the doc.")
     ("compute-exposures-only", po::bool_switch(&opt.compute_exposures_only)->default_value(false)->implicit_value(true),
      "This older option is equivalent to --estimate-exposure-haze-albedo.")
-    ("estimate-slope-errors",   po::bool_switch(&opt.estimate_slope_errors)->default_value(false)->implicit_value(true),
-     "Estimate the error for each slope (normal to the DEM). This is experimental.")
     ("estimate-height-errors",   po::bool_switch(&opt.estimate_height_errors)->default_value(false)->implicit_value(true),
      "Estimate the SfS DEM height uncertainty by finding the height perturbation (in meters) at each grid point which will make at least one of the simulated images at that point change by more than twice the discrepancy between the unperturbed simulated image and the measured image. The SfS DEM must be provided via the -i option. The number of iterations, blending parameters (--blending-dist, etc.), and smoothness weight are ignored. Results are not computed at image pixels in shadow. This produces <output prefix>-height-error.tif. No SfS DEM is computed. See also: --height-error-params.")
     ("height-error-params", po::value(&opt.height_error_params)->default_value(Vector2(5.0, 100.0), "5.0 100"),
@@ -698,15 +696,10 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
     vw_throw(ArgumentErr()
        << "Cannot estimate height errors when using the integrability constraint.\n");
 
-  if (opt.estimate_slope_errors && opt.estimate_height_errors)
-    vw_throw(ArgumentErr()
-       << "Cannot estimate both slope and height error at the same time.");
-
   if (opt.estimate_height_errors && opt.model_shadows)
     vw_throw(ArgumentErr() << "Cannot estimate height error when modeling shadows.");
 
-  if (opt.save_computed_intensity_only || opt.estimate_slope_errors ||
-      opt.estimate_height_errors) {
+  if (opt.save_computed_intensity_only || opt.estimate_height_errors) {
 
     // No iterations
     opt.max_iterations = 0;
@@ -739,7 +732,7 @@ void run_sfs(// Fixed quantities
              double                             dem_nodata_val,
              float                              img_nodata_val,
              std::vector<BBox2i>        const & crop_boxes,
-             std::vector<MaskedImgT>    const & masked_images,
+             std::vector<MaskedImgRefT>    const & masked_images,
              std::vector<DoubleImgT>    const & blend_weights,
              bool                               blend_weight_is_ground_weight,
              asp::ReflParams            const & refl_params,
@@ -1013,12 +1006,14 @@ void calcCropBoxes(vw::ImageView<double> const& dem,
 
 } // end function calcCropBoxes
 
-void loadMaskedImagesAndWeights(SfsOptions const& opt,
-                                std::vector<vw::BBox2i> const& crop_boxes,
-                                // Outputs
-                                std::vector<MaskedImgT> &masked_images,
-                                std::vector<DoubleImgT> &blend_weights,
-                                float &img_nodata_val) {
+// Load masked images and compute blending weights. These weights will be adjusted
+// later.
+void loadMaskedImagesCalcWeights(SfsOptions const& opt,
+                                 std::vector<vw::BBox2i> const& crop_boxes,
+                                 // Outputs
+                                 std::vector<MaskedImgRefT> &masked_images,
+                                 std::vector<vw::ImageView<double>> &blend_weights,
+                                 float &img_nodata_val) {
     
   // Initialize outputs
   int num_images = opt.input_images.size();
@@ -1062,7 +1057,7 @@ void loadMaskedImagesAndWeights(SfsOptions const& opt,
     }
   }
 
-} // end function loadMaskedImagesAndWeights
+} // end function loadMaskedImagesCalcWeights
 
 // Heuristics for setting up the no-data value
 double setupDemNodata(SfsOptions const& opt) {
@@ -1311,10 +1306,10 @@ int main(int argc, char* argv[]) {
 
     // Masked images and weights
     float img_nodata_val = -std::numeric_limits<float>::max(); // will change
-    std::vector<MaskedImgT> masked_images;
-    std::vector<DoubleImgT> blend_weights;
-    loadMaskedImagesAndWeights(opt, crop_boxes,
-                               masked_images, blend_weights, img_nodata_val); // outputs
+    std::vector<MaskedImgRefT> masked_images;
+    std::vector<vw::ImageView<double>> blend_weights;
+    loadMaskedImagesCalcWeights(opt, crop_boxes,
+                                masked_images, blend_weights, img_nodata_val); // outputs
 
     // Find the grid sizes in meters. Note that dem heights are in meters too,
     // so we treat both horizontal and vertical measurements in same units.
@@ -1470,7 +1465,7 @@ int main(int argc, char* argv[]) {
 
     // Note that below we may use the exposures computed at the previous step
     // TODO(oalexan1): This block must be a function.
-    if (opt.save_computed_intensity_only || opt.estimate_slope_errors ||
+    if (opt.save_computed_intensity_only || 
         opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0 ||
         opt.allow_borderline_data) {
       // Save the computed and actual intensity, and for most of these quit
@@ -1478,15 +1473,6 @@ int main(int argc, char* argv[]) {
       vw::ImageView<double> ground_weight;
       vw::ImageView<Vector2> pq; // no need for these just for initialization
       int sample_col_rate = 1, sample_row_rate = 1;
-
-      auto slopeErrEstim = boost::shared_ptr<SlopeErrEstim>(NULL);
-      if (opt.estimate_slope_errors) {
-        int num_a_samples = 90; // Sample the 0 to 90 degree range with this many samples
-        int num_b_samples = 360; // sample the 0 to 360 degree range with this many samples
-        slopeErrEstim = boost::shared_ptr<SlopeErrEstim>
-          (new SlopeErrEstim(dem.cols(), dem.rows(),
-                             num_a_samples, num_b_samples, &albedo));
-      }
 
       auto heightErrEstim = boost::shared_ptr<HeightErrEstim>(NULL);
       if (opt.estimate_height_errors) {
@@ -1505,8 +1491,6 @@ int main(int argc, char* argv[]) {
 
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
-        if (opt.estimate_slope_errors)
-          slopeErrEstim->image_iter = image_iter;
         if (opt.estimate_height_errors)
           heightErrEstim->image_iter = image_iter;
 
@@ -1524,7 +1508,7 @@ int main(int argc, char* argv[]) {
                                        cameras[image_iter],
                                        reflectance, meas_intensity, ground_weight,
                                        &opt.model_coeffs_vec[0], opt,
-                                       slopeErrEstim.get(), heightErrEstim.get());
+                                       heightErrEstim.get());
 
         if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
             (opt.allow_borderline_data || opt.low_light_threshold > 0.0)) {
@@ -1563,9 +1547,9 @@ int main(int argc, char* argv[]) {
               if (is_valid(meas_intensity(col, row))           ||
                   col == 0 || col == lit_image_mask.cols() - 1 ||
                   row == 0 || row == lit_image_mask.rows() - 1) {
-                // Boundary pixels are declared lit. Otherwise they are
-                // always unlit due to the peculiarities of how the intensity
-                // is found at the boundary.
+                // Boundary pixels are declared lit. Otherwise they are always
+                // unlit due to the peculiarities of how the intensity is found
+                // at the boundary.
                 lit_image_mask(col, row) = 1;
               }
             }
@@ -1597,42 +1581,6 @@ int main(int argc, char* argv[]) {
 
       } // End iterating over images
 
-      // TODO(oalexan1): This is not used. Wipe.
-      if (opt.estimate_slope_errors) {
-        // Find the slope error as the maximum of slope errors in all directions
-        // from the given slope.
-        vw::ImageView<float> slope_error;
-        slope_error.set_size(reflectance.cols(), reflectance.rows());
-        double nodata_slope_value = -1.0;
-        for (int col = 0; col < slope_error.cols(); col++) {
-          for (int row = 0; row < slope_error.rows(); row++) {
-            slope_error(col, row) = nodata_slope_value;
-            int num_samples = slopeErrEstim->slope_errs[col][row].size();
-            for (int sample = 0; sample < num_samples; sample++) {
-              slope_error(col, row)
-                = std::max(double(slope_error(col, row)),
-                           slopeErrEstim->slope_errs[col][row][sample]);
-            }
-          }
-        }
-
-        // Slope errors that are stuck at 90 degrees could not be estimated
-        for (int col = 0; col < slope_error.cols(); col++) {
-          for (int row = 0; row < slope_error.rows(); row++) {
-            if (slope_error(col, row) == slopeErrEstim->max_angle)
-              slope_error(col, row) = nodata_slope_value;
-          }
-        }
-
-        TerminalProgressCallback tpc("asp", ": ");
-        bool has_georef = true, has_nodata = true;
-        std::string slope_error_file = opt.out_prefix + "-slope-error.tif";
-        vw_out() << "Writing: " << slope_error_file << std::endl;
-        block_write_gdal_image(slope_error_file,
-                               slope_error, has_georef, geo, has_nodata,
-                               nodata_slope_value, opt, tpc);
-      }
-
       if (opt.estimate_height_errors) {
         // Find the height error from the range of heights
         vw::ImageView<float> height_error;
@@ -1663,8 +1611,7 @@ int main(int argc, char* argv[]) {
 
     } // End doing intensity computations and/or height and/or slope error estimations
 
-    if (opt.save_computed_intensity_only || opt.estimate_slope_errors ||
-        opt.estimate_height_errors) {
+    if (opt.save_computed_intensity_only || opt.estimate_height_errors) {
       asp::saveExposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
       // All done
       return 0;
@@ -1724,6 +1671,11 @@ int main(int argc, char* argv[]) {
       }
 
       ground_weights.clear(); // not needed anymore
+     
+      // std::cout << "--temp!\n";
+      // asp::saveGroundWeights(opt.skip_images, opt.out_prefix, opt.input_images,
+      //                 opt.input_cameras, blend_weights, geo, vw::GdalWriteOptions(opt));
+      
     } // end allow borderline data
 
     vw::ImageView<double> curvature_in_shadow_weight;

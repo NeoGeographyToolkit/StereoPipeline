@@ -21,6 +21,8 @@
 #ifndef __ASP_SFS_SFS_MODEL_H__
 #define __ASP_SFS_SFS_MODEL_H__
 
+#include <asp/SfS/SfsImageProc.h>
+
 #include <vw/Camera/CameraModel.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/ImageViewRef.h>
@@ -36,13 +38,9 @@ namespace asp {
 const size_t g_num_model_coeffs = 16;
 const size_t g_max_num_haze_coeffs = 6;
 
-typedef vw::ImageViewRef<vw::PixelMask<float>> MaskedImgT;
-typedef vw::ImageViewRef<double> DoubleImgT;
-
 enum REFL_TYPE {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT, HAPKE, ARBITRARY_MODEL, CHARON};
 
 class HeightErrEstim;
-class SlopeErrEstim;
 class SfsOptions;
 
 struct ReflParams {
@@ -100,7 +98,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                              vw::Vector3       const & sunPosition,
                              asp::ReflParams   const & refl_params,
                              vw::BBox2i        const & crop_box,
-                             MaskedImgT        const & image,
+                             MaskedImgRefT     const & image,
                              DoubleImgT        const & blend_weight,
                              bool blend_weight_is_ground_weight,
                              vw::CamPtr camera,
@@ -109,7 +107,6 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                              double                  & ground_weight,
                              double            const * refl_coeffs,
                              asp::SfsOptions   const & opt,
-                             asp::SlopeErrEstim      * slopeErrEstim = NULL,
                              asp::HeightErrEstim     * heightErrEstim = NULL);
 
 // The value stored in the output intensity(i, j) is the one at entry
@@ -125,7 +122,7 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
                                     vw::Vector3 const& sunPosition,
                                     asp::ReflParams const& refl_params,
                                     vw::BBox2i const& crop_box,
-                                    asp::MaskedImgT const  & image,
+                                    asp::MaskedImgRefT const  & image,
                                     asp::DoubleImgT const  & blend_weight,
                                     bool blend_weight_is_ground_weight,
                                     vw::CamPtr camera,
@@ -134,7 +131,6 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
                                     vw::ImageView<double>                & ground_weight,
                                     const double                 * refl_coeffs,
                                     asp::SfsOptions        const & opt,
-                                    asp::SlopeErrEstim  * slopeErrEstim = NULL,
                                     asp::HeightErrEstim * heightErrEstim = NULL);
 
 // Initalize the reflectance parameters based on user input
