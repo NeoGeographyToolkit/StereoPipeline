@@ -92,10 +92,9 @@ Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
 --datum <string>
-    Set the datum. This will override the datum from the input
-    images and also ``--t_srs``, ``--semi-major-axis``, and
-    ``--semi-minor-axis``.
-    Options:
+    Set the datum. This will override the datum from the input images and also
+    ``--semi-major-axis``, and ``--semi-minor-axis``. The datum
+    from ``--t_srs`` or ``--dem-file`` takes priority, if set. Options:
 
     - WGS_1984
     - D_MOON (1,737,400 meters)
@@ -109,14 +108,16 @@ Command-line options
     - Moon (alias for D_MOON)
 
 --semi-major-axis <double>
-    Explicitly set the datum semi-major axis in meters.
+    Explicitly set the datum semi-major axis in meters. The datum from
+    ``--t_srs`` or ``--dem-file`` takes priority, if set.
 
 --semi-minor-axis <double>
-    Explicitly set the datum semi-minor axis in meters.
+    Explicitly set the datum semi-minor axis in meters. The datum from
+    ``--t_srs`` or ``--dem-file`` takes priority, if set.
 
 --t_srs <string>
     Specify a GDAL projection string instead of the datum (in WKT, GeoJSON, or
-    PROJ format).
+    PROJ format). The datum from ``--dem-file`` takes priority, if set.
 
 --lon-lat-range <lon_min lat_min lon_max lat_max>
     The longitude-latitude range in which to compute the RPC model.

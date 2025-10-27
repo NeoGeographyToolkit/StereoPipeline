@@ -75,10 +75,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   float nan = std::numeric_limits<float>::quiet_NaN();
   general_options.add_options()
     ("datum", po::value(&opt.datum_str)->default_value(""),
-     "Use this datum to interpret the heights. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-    ("semi-major-axis", po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
-    ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
-    ("t_srs", po::value(&opt.target_srs_string)->default_value(""), "Specify a GDAL projection string instead of the datum (in WKT, GeoJSON, or PROJ format).")
+     "Use this datum to interpret the heights. Options: WGS_1984, D_MOON (1,737,400 "
+     "meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and "
+     "NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON). The datum "
+     "from --t_srs or --dem-file takes priority, if set.")
+    ("semi-major-axis", po::value(&opt.semi_major)->default_value(0), 
+     "Explicitly set the datum semi-major axis in meters. The datum from --t_srs or "
+     "--dem-file takes priority, if set.")
+    ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0), 
+     "Explicitly set the datum semi-minor axis in meters. The datum from --t_srs or "
+     "--dem-file takes priority, if set.")
+    ("t_srs", po::value(&opt.target_srs_string)->default_value(""), 
+     "Specify a GDAL projection string instead of the datum (in WKT, GeoJSON, or PROJ "
+     "format). The datum from --dem-file takes priority, if set.")
     ("lon-lat-range", po::value(&opt.lon_lat_range)->default_value(BBox2(0,0,0,0), "0 0 0 0"),
      "The longitude-latitude range in which to compute the RPC model. Specify in the "
      "format: lon_min lat_min lon_max lat_max.")
@@ -192,6 +201,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw(ArgumentErr() << "Cannot specify both a DEM file and a height range.\n");
   }
   
+  // If the dem file is set, cannot set --datum, --t_srs, --semi-major-axis, or
+  // --semi-minor-axis
+  if (!opt.dem_file.empty()) {
+    if (!opt.datum_str.empty() || !opt.target_srs_string.empty() ||
+        opt.semi_major != 0 || opt.semi_minor != 0)
+      vw_throw(ArgumentErr() << "Cannot specify --datum, --t_srs, --semi-major-axis, or "
+                << "--semi-minor-axis together with --dem-file.\n");
+  }
+    
   // Convert from width and height to min and max
   if (!opt.image_crop_box.empty()) {
     BBox2 b = opt.image_crop_box; // make a copy
@@ -437,7 +455,9 @@ int main(int argc, char *argv[]) {
     if (!opt.image_crop_box.empty()) 
       image_box.crop(opt.image_crop_box);
 
-    // Calc the lon-lat-height ranges based on the DEM rather than the user input    
+    // Calc the lon-lat-height ranges based on the DEM rather than the user
+    // input. TODO(oalexan1): Consider explicitly setting opt.datum in main(),
+    // rather than inside this function.
     if (!opt.dem_file.empty())
       calc_llh_bbox_from_dem(opt, cam, image_box, input_img);
 
