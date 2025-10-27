@@ -1064,7 +1064,94 @@ void loadMaskedImagesAndWeights(SfsOptions const& opt,
 
 } // end function loadMaskedImagesAndWeights
 
-// TODO(oalexan1): Modularize this long function
+// Heuristics for setting up the no-data value
+double setupDemNodata(SfsOptions const& opt) {
+  double dem_nodata_val = -1e+6;
+  
+  if (vw::read_nodata_val(opt.input_dem, dem_nodata_val)) {
+    vw_out() << "Found DEM nodata value: " << dem_nodata_val << std::endl;
+    if (std::isnan(dem_nodata_val)) {
+      dem_nodata_val = -1e+6; // bugfix for NaN
+      vw_out() << "Overwriting the nodata value with: " << dem_nodata_val << "\n";
+    }
+  }
+  if (!boost::math::isnan(opt.nodata_val)) {
+    dem_nodata_val = opt.nodata_val;
+    vw_out() << "Over-riding the DEM nodata value with: " << dem_nodata_val << "\n";
+  }
+
+  return dem_nodata_val;
+}
+
+// Read the georeference for the DEM and albedo
+void loadGeoref(SfsOptions const& opt,
+                vw::cartography::GeoReference &geo,
+                vw::cartography::GeoReference &albedo_geo) {
+
+  if (!read_georeference(geo, opt.input_dem))
+      vw_throw(ArgumentErr() << "The input DEM has no georeference.\n");
+      
+  if (!opt.input_albedo.empty()) {
+    if (!read_georeference(albedo_geo, opt.input_albedo))
+      vw_throw(ArgumentErr() << "The input albedo has no georeference.\n");
+  } else {
+    // Ensure initialization
+    albedo_geo = geo;
+  }
+
+  // This is a bug fix. The georef pixel size in y must be negative
+  // for the DEM to be oriented correctly.
+  if (geo.transform()(1, 1) > 0)
+    vw_throw(ArgumentErr() << "The input DEM has a positive pixel size in y. "
+              << "This is unexpected. Normally it is negative since the (0, 0) "
+              << "pixel is in the upper-left. Check your DEM pixel size with "
+              << "gdalinfo. Cannot continue.\n");
+    
+  // The albedo and georef must have same wkt
+  if (geo.get_wkt() != albedo_geo.get_wkt())
+    vw::vw_throw(vw::ArgumentErr()
+                  << "The input DEM has a different georeference "
+                  << "from the input albedo image.\n");
+}
+
+double findMaxDemHeight(bool model_shadows, vw::ImageView<double> const& dem) {
+
+  double max_dem_height = -std::numeric_limits<double>::max();
+  if (model_shadows) {
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
+        if (dem(col, row) > max_dem_height) {
+          max_dem_height = dem(col, row);
+        }
+      }
+    }
+  }
+  
+  return max_dem_height;
+}
+  
+double findMeanAlbedo(vw::ImageView<double> const& dem,
+                      vw::ImageView<double> const& albedo,
+                      double dem_nodata_val) {
+    
+  double mean_albedo = 0.0, albedo_count = 0.0;
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (dem(col, row) != dem_nodata_val) {
+        mean_albedo += albedo(col, row);
+        albedo_count += 1.0;
+      }
+    }
+  }
+  
+  if (albedo_count > 0)
+    mean_albedo /= albedo_count;
+  else
+    mean_albedo = 0.0; // Or some other sensible default
+    
+  return mean_albedo;
+}
+
 int main(int argc, char* argv[]) {
 
   Stopwatch sw_total;
@@ -1080,18 +1167,7 @@ int main(int argc, char* argv[]) {
 
     // Manage no-data. Use here a value that is not overly large in magnitude,
     // and easy to represent as float.
-    double dem_nodata_val = -1e+6;
-    if (vw::read_nodata_val(opt.input_dem, dem_nodata_val)) {
-      vw_out() << "Found DEM nodata value: " << dem_nodata_val << std::endl;
-      if (std::isnan(dem_nodata_val)) {
-        dem_nodata_val = -1e+6; // bugfix for NaN
-        vw_out() << "Overwriting the nodata value with: " << dem_nodata_val << "\n";
-      }
-    }
-    if (!boost::math::isnan(opt.nodata_val)) {
-      dem_nodata_val = opt.nodata_val;
-      vw_out() << "Over-riding the DEM nodata value with: " << dem_nodata_val << "\n";
-    }
+    double dem_nodata_val = setupDemNodata(opt);
 
     // Read the handle to the DEM. Here we don't load the DEM into
     // memory yet. We will later load into memory only a crop,
@@ -1116,25 +1192,12 @@ int main(int argc, char* argv[]) {
       vw_out() << "dem_rows, " << full_dem.rows() << "\n";
     }
 
-    // Adjust the crop win
-    opt.crop_win.crop(bounding_box(full_dem));
-
     // Read the georeference
     vw::cartography::GeoReference geo, albedo_geo;
-    if (!read_georeference(geo, opt.input_dem))
-        vw_throw(ArgumentErr() << "The input DEM has no georeference.\n");
-    if (!opt.input_albedo.empty()) {
-      if (!read_georeference(albedo_geo, opt.input_dem))
-        vw_throw(ArgumentErr() << "The input DEM has no georeference.\n");
-    }
+    loadGeoref(opt, geo, albedo_geo);
 
-    // This is a bug fix. The georef pixel size in y must be negative
-    // for the DEM to be oriented correctly.
-    if (geo.transform()(1, 1) > 0)
-      vw_throw(ArgumentErr() << "The input DEM has a positive pixel size in y. "
-                << "This is unexpected. Normally it is negative since the (0, 0) "
-                << "pixel is in the upper-left. Check your DEM pixel size with "
-                << "gdalinfo. Cannot continue.\n");
+    // Adjust the crop win
+    opt.crop_win.crop(bounding_box(full_dem));
 
     // Crop the DEM and georef if requested to given box. Same for albedo.
     // In either case, read the needed portion fully in memory.
@@ -1264,28 +1327,10 @@ int main(int argc, char* argv[]) {
     vw_out() << "DEM grid in x and y in meters: " << gridx << ' ' << gridy << "\n";
 
     // Find the max DEM height
-    double max_dem_height = -std::numeric_limits<double>::max();
-    if (opt.model_shadows) {
-      for (int col = 0; col < dem.cols(); col++) {
-        for (int row = 0; row < dem.rows(); row++) {
-          if (dem(col, row) > max_dem_height) {
-            max_dem_height = dem(col, row);
-          }
-        }
-      }
-    }
+    double max_dem_height = findMaxDemHeight(opt.model_shadows, dem);
 
     // Find the mean albedo
-    double mean_albedo = 0.0, albedo_count = 0.0;
-    for (int col = 0; col < dem.cols(); col++) {
-      for (int row = 0; row < dem.rows(); row++) {
-        if (dem(col, row) != dem_nodata_val) {
-          mean_albedo += albedo(col, row);
-          albedo_count += 1.0;
-        }
-      }
-    }
-    mean_albedo /= albedo_count;
+    double mean_albedo = findMeanAlbedo(dem, albedo, dem_nodata_val);
 
     // Declare two vectors for skipped and used images
     std::vector<std::string> skipped_images;
@@ -1552,6 +1597,7 @@ int main(int argc, char* argv[]) {
 
       } // End iterating over images
 
+      // TODO(oalexan1): This is not used. Wipe.
       if (opt.estimate_slope_errors) {
         // Find the slope error as the maximum of slope errors in all directions
         // from the given slope.
@@ -1649,7 +1695,7 @@ int main(int argc, char* argv[]) {
                                        opt.input_images, opt.input_cameras,
                                        ground_weights); // output
 
-      // Use the ground weights from now on instead of blending weights.
+      // Use the ground weights from now on instead of in-camera blending weights.
       // Will overwrite the weights below.
       blend_weight_is_ground_weight = true;
 
