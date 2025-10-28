@@ -502,8 +502,7 @@ void MainWindow::createLayout() {
   // Note that the menus persist even when the layout changes
 
   // Show all images if switching to side-by-side view without a dialog
-  bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
-  if ((zoom_all_to_same_region          ||
+  if ((asp::stereo_settings().zoom_all_to_same_region ||
        m_view_type == VIEW_SIDE_BY_SIDE ||
        m_view_type == VIEW_AS_TILES_ON_GRID) && !sideBySideWithDialog())
     m_chooseFiles->showAllImages();
@@ -571,7 +570,6 @@ void MainWindow::createLayout() {
                                 m_editMatchPointVecIndex,
                                 m_chooseFiles,
                                 m_use_georef,
-                                zoom_all_to_same_region,
                                 m_allowMultipleSelections);
     // Tell the widget if the poly edit mode and hillshade mode is on or not
     bool refresh = false; // Do not refresh prematurely
@@ -603,7 +601,6 @@ void MainWindow::createLayout() {
                                 m_editMatchPointVecIndex,
                                 m_chooseFiles,
                                 m_use_georef, 
-                                zoom_all_to_same_region,
                                 m_allowMultipleSelections);
       } else {
         // Qwt plot with axes and colorbar. Hard to use the same API as earlier.
@@ -693,6 +690,7 @@ void MainWindow::createLayout() {
   m_viewGeoreferencedImages_action->setChecked(m_use_georef);
   m_overlayGeoreferencedImages_action->setChecked(m_use_georef &&
                                                   (m_view_type == VIEW_IN_SINGLE_WINDOW));
+  m_zoomAllToSameRegion_action->setChecked(asp::stereo_settings().zoom_all_to_same_region);
 
   if (m_widgets.size() == 2                             &&
       m_image_files.size() == 2                         &&
@@ -706,6 +704,24 @@ void MainWindow::createLayout() {
     // Do this just once, on startup
     stereo_settings().left_image_crop_win  = BBox2();
     stereo_settings().right_image_crop_win = BBox2();
+  }
+  
+  if (asp::stereo_settings().zoom_all_to_same_region) {
+    // See where the earlier viewable region ended up in the current world
+    // coordinate system. A lot of things could have changed since then.
+    BBox2 world_box;
+    for (size_t i = 0; i < m_widgets.size(); i++) {
+      if (mw(m_widgets[i])) {
+        vw::BBox2 region = mw(m_widgets[i])->worldBox();
+        world_box.grow(region);
+      }
+    }
+    // Let this be the world box in all images. Later, during resizeEvent(), the
+    // sizeToFit() function will be called which will use this box.
+    for (size_t i = 0; i < m_widgets.size(); i++) {
+      if (mw(m_widgets[i]))
+        mw(m_widgets[i])->setWorldBox(world_box);
+    }
   }
   
   return;
@@ -814,7 +830,7 @@ void MainWindow::createMenus() {
   m_zoomAllToSameRegion_action = new QAction(tr("Zoom all images to same region"), this);
   m_zoomAllToSameRegion_action->setStatusTip(tr("Zoom all images to same region"));
   m_zoomAllToSameRegion_action->setCheckable(true);
-  m_zoomAllToSameRegion_action->setChecked(false);
+  m_zoomAllToSameRegion_action->setChecked(asp::stereo_settings().zoom_all_to_same_region);
   m_zoomAllToSameRegion_action->setShortcut(tr("Z"));
   connect(m_zoomAllToSameRegion_action, SIGNAL(triggered()),
           this, SLOT(setZoomAllToSameRegion()));
@@ -1104,8 +1120,7 @@ void MainWindow::forceQuit() {
 // If we zoom all images to same region, zoom all to the union of display areas.
 void MainWindow::sizeToFit() {
 
-  bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
-  if (zoom_all_to_same_region) {
+  if (asp::stereo_settings().zoom_all_to_same_region) {
 
     BBox2 big_region; 
     for (size_t i = 0; i < m_widgets.size(); i++) {
@@ -1151,10 +1166,9 @@ void MainWindow::viewSingleWindow() {
     MainWindow::updateViewMenuEntries();
 
     // Turn off zooming all images to same region if all are in the same window
-    bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
-    if (zoom_all_to_same_region) {
-      zoom_all_to_same_region = false;
-      setZoomAllToSameRegionAux(zoom_all_to_same_region);
+    if (asp::stereo_settings().zoom_all_to_same_region) {
+      asp::stereo_settings().zoom_all_to_same_region = false;
+      setZoomAllToSameRegionAux(asp::stereo_settings().zoom_all_to_same_region);
     }
 
   }else{
@@ -1947,65 +1961,43 @@ void MainWindow::viewHillshadedImages() {
 // Pass to the widget the desire to zoom all images to the same region
 // or its cancellation
 void MainWindow::setZoomAllToSameRegionAux(bool do_zoom) {
-
   m_zoomAllToSameRegion_action->setChecked(do_zoom);
-  for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (mw(m_widgets[i]))
-      mw(m_widgets[i])->setZoomAllToSameRegion(do_zoom);
-  }
 }
 
 // Pass to the widget the desire to zoom all images to the same region
 // or its cancellation
 void MainWindow::setZoomAllToSameRegion() {
   
-  bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
-  setZoomAllToSameRegionAux(zoom_all_to_same_region);
+  asp::stereo_settings().zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
+  setZoomAllToSameRegionAux(asp::stereo_settings().zoom_all_to_same_region);
 
-  if (zoom_all_to_same_region) {
+  if (!asp::stereo_settings().zoom_all_to_same_region)
+    return; // nothing to do
 
-    // If zooming to same region, windows better not be on top of each other
-    if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
-      if (m_view_type_old != VIEW_IN_SINGLE_WINDOW)
-        m_view_type = m_view_type_old; // restore this
-      else
-        m_view_type = VIEW_SIDE_BY_SIDE;
-    }
-
-    // If all images are georeferenced, it makes perfect sense to turn
-    // on georeferencing when zooming. The user can later turn it off
-    // from the menu if so desired.
-    bool has_georef = true;
-    for (size_t i = 0; i < m_image_files.size(); i++) {
-      has_georef = has_georef && m_images[i].has_georef;
-    }
-
-    if (has_georef && !m_use_georef) {
-      m_use_georef = true;
-      m_viewGeoreferencedImages_action->setChecked(m_use_georef);
-      viewGeoreferencedImages(); // This will invoke createLayout() too.
-    }else{
-      createLayout();
-    }
-
-    // See where the earlier viewable region ended up in the current world
-    // coordinate system. A lot of things could have changed since then.
-    BBox2 world_box;
-    for (size_t i = 0; i < m_widgets.size(); i++) {
-      if (mw(m_widgets[i])) {
-        vw::BBox2 region = mw(m_widgets[i])->worldBox();
-        world_box.grow(region);
-      }
-    }
-    
-    // Now let this be the world box in all images. Later, during resizeEvent(),
-    // the sizeToFit() function will be called which will use this box.
-    for (size_t i = 0; i < m_widgets.size(); i++) {
-      if (mw(m_widgets[i]))
-        mw(m_widgets[i])->setWorldBox(world_box);
-    }
+  // If zooming to same region, windows better not be on top of each other
+  if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
+    if (m_view_type_old != VIEW_IN_SINGLE_WINDOW)
+      m_view_type = m_view_type_old; // restore this
+    else
+      m_view_type = VIEW_SIDE_BY_SIDE;
   }
-  
+
+  // If all images are georeferenced, it makes perfect sense to turn
+  // on georeferencing when zooming. The user can later turn it off
+  // from the menu if so desired.
+  bool has_georef = true;
+  for (size_t i = 0; i < m_image_files.size(); i++) {
+    has_georef = has_georef && m_images[i].has_georef;
+  }
+
+  if (has_georef && !m_use_georef) {
+    m_use_georef = true;
+    m_viewGeoreferencedImages_action->setChecked(m_use_georef);
+    viewGeoreferencedImages(); // This will invoke createLayout() too.
+  }else{
+    createLayout();
+  }
+
 }
 
 // Zoom all widgets to the same region which comes from widget with given id.
@@ -2161,10 +2153,9 @@ void MainWindow::overlayGeoreferencedImages() {
     m_view_type = VIEW_IN_SINGLE_WINDOW;
 
     // Turn off zooming all images to same region if all are in the same window
-    bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
-    if (zoom_all_to_same_region) {
-      zoom_all_to_same_region = false;
-      setZoomAllToSameRegionAux(zoom_all_to_same_region);
+    if (asp::stereo_settings().zoom_all_to_same_region) {
+      asp::stereo_settings().zoom_all_to_same_region = false;
+      setZoomAllToSameRegionAux(asp::stereo_settings().zoom_all_to_same_region);
     }
     
   }else{

@@ -100,7 +100,6 @@ namespace vw { namespace gui {
                pairwiseMatchList & pairwiseCleanMatches,
                int & editMatchPointVecIndex,
                chooseFilesDlg * chooseFiles, bool use_georef,
-               bool zoom_all_to_same_region,
                bool & allowMultipleSelections); // alias
 
     virtual ~MainWidget();
@@ -149,7 +148,6 @@ namespace vw { namespace gui {
     void   setPolyColor(std::string const& polyColor); ///< Set the color of polygons
     std::string getPolyColor(); ///< Get the color of polygons
 
-    void  setZoomAllToSameRegion(bool zoom_all_to_same_region);
     vw::BBox2 current_view();
     void  zoomToRegion (vw::BBox2 const& region);
     void  setHillshadeMode(bool hillshade_mode);
@@ -332,8 +330,7 @@ public slots:
 
     std::set<int> m_indicesWithAction;
 
-    bool   m_zoom_all_to_same_region; // if all widgets are forced to zoom to same region
-    bool & m_allowMultipleSelections; // alias, this is controlled from MainWindow for all widgets
+    bool & m_allowMultipleSelections; // alias, controlled from MainWindow for all widgets
     bool   m_can_emit_zoom_all_signal;
 
     // Drawing is driven by QPaintEvent, which calls out to drawImage()

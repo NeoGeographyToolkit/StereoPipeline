@@ -60,7 +60,7 @@ MainWidget::MainWidget(QWidget *parent,
                        pairwiseMatchList & pairwiseCleanMatches,
                        int &editMatchPointVecIndex,
                        chooseFilesDlg * chooseFiles, bool use_georef,
-                       bool zoom_all_to_same_region, bool & allowMultipleSelections):
+                       bool & allowMultipleSelections):
     QwtScaleWidget(parent),
     WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images,
                world2image_trans, image2world_trans),
@@ -70,7 +70,6 @@ MainWidget::MainWidget(QWidget *parent,
     m_pairwiseMatches(pairwiseMatches),
     m_pairwiseCleanMatches(pairwiseCleanMatches),
     m_editMatchPointVecIndex(editMatchPointVecIndex),
-    m_zoom_all_to_same_region(zoom_all_to_same_region),
     m_allowMultipleSelections(allowMultipleSelections),
     m_can_emit_zoom_all_signal(false),
     m_polyEditMode(false), m_polyLayerIndex(beg_image_id),
@@ -1300,10 +1299,6 @@ void MainWidget::updateCurrentMousePosition() {
   m_curr_world_pos = screen2world(m_curr_pixel_pos);
 }
 
-void MainWidget::setZoomAllToSameRegion(bool zoom_all_to_same_region) {
-  m_zoom_all_to_same_region = zoom_all_to_same_region;
-}
-
 vw::BBox2 MainWidget::current_view() {
   return m_current_view;
 }
@@ -1329,7 +1324,7 @@ void MainWidget::refreshPixmap() {
   // rubberband, simply pull the view from this cache,
   // and update the rubberband on top of it. This technique
   // is a well-known design pattern in Qt.
-  if (m_zoom_all_to_same_region && m_can_emit_zoom_all_signal) {
+  if (asp::stereo_settings().zoom_all_to_same_region && m_can_emit_zoom_all_signal) {
     m_can_emit_zoom_all_signal = false;
     emit zoomAllToSameRegionSignal(m_beg_image_id);
     // Now we call the parent, which will set the zoom window,

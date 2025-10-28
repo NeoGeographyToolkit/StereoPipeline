@@ -467,12 +467,6 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
     }
   }
   
-  // print the shadow thresh per image
-  for (size_t i = 0; i < opt.input_images.size(); i++) {
-    vw_out() << "Using shadow threshold for image " << i << " (" << opt.input_images[i]
-             << "): " << opt.shadow_threshold_vec[i] << std::endl;
-  }
-  
   // If the low-light-threshold is specified, ensure it is above all shadow thresholds,
   // and that the shadow thresholds are positive.
   if (opt.low_light_threshold > 0) {
@@ -1671,11 +1665,6 @@ int main(int argc, char* argv[]) {
       }
 
       ground_weights.clear(); // not needed anymore
-     
-      // std::cout << "--temp!\n";
-      // asp::saveGroundWeights(opt.skip_images, opt.out_prefix, opt.input_images,
-      //                 opt.input_cameras, blend_weights, geo, vw::GdalWriteOptions(opt));
-      
     } // end allow borderline data
 
     vw::ImageView<double> curvature_in_shadow_weight;

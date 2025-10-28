@@ -555,7 +555,10 @@ GUIDescription::GUIDescription(): po::options_description("GUI options") {
       "Load a control network having interest point matches from this binary file "
       "in the ISIS jigsaw format. See also --nvm.")
     ("zoom-proj-win", po::value(&global.zoom_proj_win)->default_value(BBox2(0,0,0,0), ""),
-      "Zoom to this proj win on startup. It is assumed that the images are georeferenced. Also accessible from the View menu.")
+      "Zoom to this proj win on startup. It is assumed that the images are georeferenced. Also accessible from the View menu. This implies --zoom-all-to-same-region.")
+    ("zoom-all-to-same-region", 
+     po::bool_switch(&global.zoom_all_to_same_region)->default_value(false)->implicit_value(true),
+     "Zoom all images to same region. Also accessible from the View menu.")
     ("csv-format", po::value(&global.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-srs", po::value(&global.csv_srs)->default_value(""), "The PROJ or WKT string to use to interpret the entries in a CSV file. If not specified, try to use the --datum option.")
     ("csv-datum", po::value(&global.csv_datum)->default_value(""), "The datum to use when plotting a CSV file.")

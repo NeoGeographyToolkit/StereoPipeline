@@ -87,7 +87,10 @@ dem_mosaic (:numref:`dem_mosaic`):
 camera_footprint (:numref:`camera_footprint`):
   * Added the option ``--output-shp`` to save the convex hull of the camera 
     footprint as a shapefile.
-    
+
+stereo_gui (:numref:`stereo_gui`):
+  * Added the option ``--zoom-all-to-same-region``.
+      
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
   * Made the OpticalBar model 3x faster by switching from minimization in 3D

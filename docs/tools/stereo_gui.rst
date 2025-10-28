@@ -71,8 +71,9 @@ overlay the images correctly if georeference information is present.
 
 It is possible to switch among the various display modes from the ``View`` menu.
 
-When the images are shown side-by-side, the GUI can zoom in all images
-to the same region, for easier comparison among them.
+When the images are shown side-by-side, the GUI can zoom in all images to the
+same region, for easier comparison among them. This is accessible from the
+``View`` menu and with the option ``--zoom-all-to-same-region``.
 
 When the images are in a single window, an individual image can be
 turned on or off via a checkbox. Clicking on an image's name will zoom
@@ -874,7 +875,10 @@ accept all other ``parallel_stereo`` options as well.
 --zoom-proj-win <double double double double>
     Zoom to this proj win on startup (:numref:`image_bounds`). It is
     assumed that the images are georeferenced. Also accessible from
-    the *View* menu.
+    the *View* menu.  This implies ``--zoom-all-to-same-region``.
+
+--zoom-all-to-same-region
+    Zoom all images to the same region. Also accessible from the *View* menu.
 
 --colorize
     Colorize input CSV files (must set ``--min`` and ``--max``).

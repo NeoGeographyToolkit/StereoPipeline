@@ -54,86 +54,89 @@ namespace fs = boost::filesystem;
 
 namespace asp {
 
-  // Parse the input command line arguments. We'll use this function
-  // only when we failed to parse the arguments under the assumption
-  // that the tool was being invoked with the stereo interface. Hence
-  // we'll fallback to this when the tool is used as an image viewer.
-  void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
-			std::vector<std::string> & input_files){
+// Parse the input command line arguments. We'll use this function
+// only when we failed to parse the arguments under the assumption
+// that the tool was being invoked with the stereo interface. Hence
+// we'll fallback to this when the tool is used as an image viewer.
+void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
+    std::vector<std::string> & input_files){
 
-    // Options for which we will print the help message
-    po::options_description general_options("");
-    general_options.add(GUIDescription());
+  // Options for which we will print the help message
+  po::options_description general_options("");
+  general_options.add(GUIDescription());
 
-    // All options that we will parse
-    po::options_description all_general_options("");
+  // All options that we will parse
+  po::options_description all_general_options("");
 
-    // The values for these options are stored in 'opt'
-    addAspGlobalOptions(all_general_options, opt);
+  // The values for these options are stored in 'opt'
+  addAspGlobalOptions(all_general_options, opt);
 
-    // The values for these are stored in stereo_settings()
-    all_general_options.add(generate_config_file_options(opt));
+  // The values for these are stored in stereo_settings()
+  all_general_options.add(generate_config_file_options(opt));
 
-    po::options_description positional_options("");
-    po::positional_options_description positional_desc;
-    positional_options.add_options()
-      ("input-files", po::value< std::vector<std::string> >(), "Input files");
-    positional_desc.add("input-files", -1);
+  po::options_description positional_options("");
+  po::positional_options_description positional_desc;
+  positional_options.add_options()
+    ("input-files", po::value< std::vector<std::string> >(), "Input files");
+  positional_desc.add("input-files", -1);
 
-    std::string usage = "[options] <images> <output_file_prefix>";
-    bool allow_unregistered = false;
-    std::vector<std::string> unregistered;
-    po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options,
-                                                   all_general_options, positional_options,
-                                                   positional_desc, usage,
-                                                   allow_unregistered, unregistered);
+  std::string usage = "[options] <images> <output_file_prefix>";
+  bool allow_unregistered = false;
+  std::vector<std::string> unregistered;
+  po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options,
+                                                 all_general_options, positional_options,
+                                                 positional_desc, usage,
+                                                 allow_unregistered, unregistered);
 
-    // Add the options to the usage
-    std::ostringstream os;
-    os << usage << general_options;
-    usage = os.str();
+  // Add the options to the usage
+  std::ostringstream os;
+  os << usage << general_options;
+  usage = os.str();
 
-    // Store the files
-    if (vm.count("input-files") > 0) 
-      input_files = vm["input-files"].as<std::vector<std::string>>();
-    else
-      input_files.clear(); // no input files, will be read from nvm later
+  // Store the files
+  if (vm.count("input-files") > 0) 
+    input_files = vm["input-files"].as<std::vector<std::string>>();
+  else
+    input_files.clear(); // no input files, will be read from nvm later
+  
+  // Interpret the the last two coordinates of the crop win boxes as
+  // width and height rather than max_x and max_y. 
+  BBox2i bl = stereo_settings().left_image_crop_win;
+  BBox2i br = stereo_settings().right_image_crop_win;
+  stereo_settings().left_image_crop_win
+    = BBox2i(bl.min().x(), bl.min().y(), bl.max().x(), bl.max().y());
+  stereo_settings().right_image_crop_win
+    = BBox2i(br.min().x(), br.min().y(), br.max().x(), br.max().y());
+
+  // Adjust the zoom win dimensions
+  auto & zoom_win = asp::stereo_settings().zoom_proj_win; // alias
+  if (zoom_win.min().x() > zoom_win.max().x())
+    std::swap(zoom_win.min().x(), zoom_win.max().x());
+  if (zoom_win.min().y() > zoom_win.max().y())
+    std::swap(zoom_win.min().y(), zoom_win.max().y());
     
-    // Interpret the the last two coordinates of the crop win boxes as
-    // width and height rather than max_x and max_y. 
-    BBox2i bl = stereo_settings().left_image_crop_win;
-    BBox2i br = stereo_settings().right_image_crop_win;
-    stereo_settings().left_image_crop_win
-      = BBox2i(bl.min().x(), bl.min().y(), bl.max().x(), bl.max().y());
-    stereo_settings().right_image_crop_win
-      = BBox2i(br.min().x(), br.min().y(), br.max().x(), br.max().y());
+  // Option --zoom-proj-win implies --zoom-all-to-same-region
+  if (!asp::stereo_settings().zoom_proj_win.empty())
+    asp::stereo_settings().zoom_all_to_same_region = true;
+}
 
-    // Adjust the zoom win dimensions
-    auto & zoom_win = asp::stereo_settings().zoom_proj_win;
-    if (zoom_win.min().x() > zoom_win.max().x())
-      std::swap(zoom_win.min().x(), zoom_win.max().x());
-    if (zoom_win.min().y() > zoom_win.max().y())
-      std::swap(zoom_win.min().y(), zoom_win.max().y());
-  }
-
-  // Inherit from QApplication to be able to over-ride the notify() method
-  // that throws exceptions.
-  class StereoApplication: public QApplication {
-  public:
-    StereoApplication(int& argc, char** argv): QApplication(argc, argv) {}
-    virtual bool notify(QObject *receiver, QEvent *e) {
-      
-      try {
-        return QApplication::notify(receiver, e);
-      } catch (std::exception& ex) {
-        vw::gui::popUp(ex.what());
-        return false;
-      }
-      
+// Inherit from QApplication to be able to over-ride the notify() method
+// that throws exceptions.
+class StereoApplication: public QApplication {
+public:
+  StereoApplication(int& argc, char** argv): QApplication(argc, argv) {}
+  virtual bool notify(QObject *receiver, QEvent *e) {
+    
+    try {
+      return QApplication::notify(receiver, e);
+    } catch (std::exception& ex) {
+      vw::gui::popUp(ex.what());
+      return false;
     }
-  };
+    
+  }
+};
 
-} // end namespace asp
 
 // Given an input string as:
 //
@@ -282,6 +285,8 @@ void readImageNames(std::vector<std::string> const& all_files,
   return;
 }
 
+} // end namespace asp
+
 int main(int argc, char** argv) {
 
   try {
@@ -290,7 +295,7 @@ int main(int argc, char** argv) {
 
     // Extract style and color for scattered points, curves, and polygons
     std::vector<std::map<std::string, std::string>> properties;
-    preprocessArgs(argc, argv, properties);
+    asp::preprocessArgs(argc, argv, properties);
 
     bool verbose = false;
     ASPGlobalOptions opt;
@@ -298,10 +303,10 @@ int main(int argc, char** argv) {
     std::vector<std::string> images;
 
     std::vector<std::string> all_files;
-    stereo_settings().vwip_files.clear();
-    handle_arguments(argc, argv, opt, all_files);
+    asp::stereo_settings().vwip_files.clear();
+    asp::handle_arguments(argc, argv, opt, all_files);
 
-    readImageNames(all_files, images, output_prefix);
+    asp::readImageNames(all_files, images, output_prefix);
 
     if (stereo_settings().create_image_pyramids_only) {
       // Just create the image pyramids and exit. 
