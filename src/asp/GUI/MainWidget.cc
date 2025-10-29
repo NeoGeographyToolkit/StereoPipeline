@@ -44,7 +44,6 @@
 #include <vector>
 
 using namespace vw;
-using namespace vw::cartography;
 
 namespace vw { namespace gui {
 

@@ -1123,6 +1123,7 @@ Run bundle adjustment::
       --remove-outliers-params "75.0 3.0 100 100"    \
       --save-intermediate-cameras                    \
       --match-first-to-last                          \
+      --forced-triangulation-distance 100000         \
       --min-triangulation-angle 1e-10                \
       --datum D_MOON                                 \
       --nodes-list <list of computing nodes>         \
@@ -1360,6 +1361,7 @@ in bundle adjustment (:numref:`heights_from_dem`)::
       --heights-from-dem ref.tif                  \
       --heights-from-dem-uncertainty 20.0         \
       --mapproj-dem ref.tif                       \
+      --forced-triangulation-distance 100000      \
       --min-triangulation-angle 1e-10             \
       --remove-outliers-params "75.0 3.0 100 100" \
       --parameter-tolerance 1e-20                 \
@@ -1870,6 +1872,7 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --max-pairwise-matches 10000                   \
       --match-first-to-last                          \
       --min-matches 1                                \
+      --forced-triangulation-distance 100000         \
       --min-triangulation-angle 1e-10                \
       --num-iterations 50                            \
       --num-passes 2                                 \
