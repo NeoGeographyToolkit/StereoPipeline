@@ -826,7 +826,8 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
      "cameras, potentially at the expense of accuracy. To have the same uncertainties for "
      "all cameras, pass instead of a file name two values separated by a comma (no "
-     "spaces).")
+     "spaces). See the documentation for an example. See also "
+     "--camera-position-uncertainty-power.")
     ("camera-position-uncertainty-power",
      po::value(&opt.camera_position_uncertainty_power)->default_value(2.0),
      "A higher value makes the cost function rise more steeply when "
@@ -993,7 +994,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
      "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("match-first-to-last", po::bool_switch(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
-     "Match first several images to last several images by extending the logic of "
+     "Match the first several images to last several images by extending the logic of "
      "--overlap-limit past the last image to the earliest ones. As of the 10/2025 build, "
      "this works also with --auto-overlap-params.")
     ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.0),
@@ -1139,22 +1140,25 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "When having GCP (or a DEM constraint), constrain the triangulated points in the "
      "longitude, latitude, and height space, instead of ECEF. The standard deviations "
      "in the GCP file (or DEM uncertainty) are applied accordingly.")
-    ("aster-use-csm", po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
+    ("aster-use-csm", 
+     po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with ASTER cameras (-t aster).")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
-     "Given map-projected versions of the input images "
-     "and the DEM they were mapprojected onto, create interest point matches between "
-     "the mapprojected images, unproject and save those matches, then continue "
-     "with bundle adjustment. Existing match files will be reused. Specify the "
-     "mapprojected images and the DEM as a string in quotes, separated by spaces. "
-     "The DEM must be the last file. It is suggested to use this with "
+     "Given map-projected versions of the input images and the DEM they were mapprojected "
+     "onto, create interest point matches between the mapprojected images. Unproject and "
+     "save those matches, then continue with bundle adjustment. Existing match files will "
+     "be reused. Specify the mapprojected images and the DEM as a string in quotes, "
+     "separated by spaces. The DEM must be the last file. It is suggested to use this with "
      "--auto-overlap-params.")
     ("matches-per-tile",  po::value(&opt.matches_per_tile)->default_value(0),
      "How many interest point matches to compute in each image tile (of size "
-      "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "
-      "than this. See also --matches-per-tile-params.")
-    ("save-cnet-as-csv", po::bool_switch(&opt.save_cnet_as_csv)->default_value(false)->implicit_value(true),
-     "Save the control network containing all interest points in the format used by ground control points, so it can be inspected. The triangulated points are before optimization.")
+     "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "
+     "than this. See also --matches-per-tile-params.")
+    ("save-cnet-as-csv", 
+      po::bool_switch(&opt.save_cnet_as_csv)->default_value(false)->implicit_value(true),
+     "Save the control network containing all interest points in the format used by ground "
+     "control points, so it can be inspected. The triangulated points are before "
+     "optimization.")
     ("num-parallel-jobs", po::value(&opt.num_parallel_jobs)->default_value(1),
      "The number of bundle_adjustment processes being run in parallel over all nodes.")
     ("job-id", po::value(&opt.job_id)->default_value(0),

@@ -1481,12 +1481,12 @@ Command-line options
 --mapprojected-data <string (default: "")>
     Given map-projected versions of the input images and the DEM they were
     mapprojected onto, create interest point matches between the mapprojected
-    images, unproject and save those matches, then continue with bundle
-    adjustment. Existing match files will be reused. Specify the mapprojected
-    images and the DEM as a string in quotes, separated by spaces. The order
-    must be same as for the input images. The DEM must be the last file. See
-    :numref:`mapip` for an example. It is suggested to use this with
-    ``--auto-overlap-params.`` See also ``--mapprojected-data-list``. 
+    images. Unproject and save those matches, then continue with bundle adjustment.
+    Existing match files will be reused. Specify the mapprojected images and the
+    DEM as a string in quotes, separated by spaces. The order must be same as
+    for the input images. The DEM must be the last file. See :numref:`mapip` for
+    an example. It is suggested to use this with ``--auto-overlap-params.`` See
+    also ``--mapprojected-data-list``. 
    
 --save-intermediate-cameras
     Save the values for the cameras at each iteration.
