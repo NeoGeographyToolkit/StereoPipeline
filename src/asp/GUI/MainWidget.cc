@@ -31,6 +31,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/shapeFile.h>
+#include <vw/Geometry/geomUtils.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/Statistics.h>
@@ -384,33 +385,6 @@ void MainWidget::hideShowAll_widgetVersion() {
   refreshPixmap();
 }
 
-// Expand box to have given aspect ratio
-BBox2 expandBoxToRatio(BBox2 const& box, double aspect) {
-  
-  // The aspect must be positive
-  if (aspect <= 0.0)
-    vw::vw_throw(vw::ArgumentErr() << "Aspect ratio must be positive.\n");
-    
-  BBox2 in_box = box; // local copy
-  if (in_box.empty())
-    in_box = BBox2(0, 0, 1, 1); // if it came to worst
-
-  BBox2 out_box = in_box;
-  if (in_box.width() / in_box.height() < aspect) {
-    // Width needs to grow
-    double new_width = in_box.height() * aspect;
-    double delta = (new_width - in_box.width())/2.0;
-    out_box.min().x() -= delta; out_box.max().x() += delta;
-  } else if (in_box.width() / in_box.height() > aspect) {
-    // Height needs to grow
-    double new_height = in_box.width() / aspect;
-    double delta = (new_height - in_box.height())/2.0;
-    out_box.min().y() -= delta; out_box.max().y() += delta;
-  }
-
-  return out_box;
-}
-
 vw::BBox2 MainWidget::worldBox() const {
   return m_world_box;
 }
@@ -423,7 +397,7 @@ void MainWidget::setWorldBox(vw::BBox2 const& world_box) {
 void MainWidget::sizeToFit() {
 
   double aspect = double(m_window_width) / m_window_height;
-  m_current_view = expandBoxToRatio(m_world_box, aspect);
+  m_current_view = vw::geometry::expandBoxToRatio(m_world_box, aspect);
 
   // If this is the first time we draw the image, so right when
   // we started, invoke update() which will invoke paintEvent().
@@ -690,7 +664,7 @@ void MainWidget::zoomToImage() {
     // Set the view window to be the region encompassing the image
     BBox2 world_box = MainWidget::image2world(m_images[*it].image_bbox, *it);
     double aspect = double(m_window_width) / m_window_height;  
-    m_current_view = expandBoxToRatio(world_box, aspect);
+    m_current_view = vw::geometry::expandBoxToRatio(world_box, aspect);
   }
 
   // This is no longer needed
@@ -823,9 +797,9 @@ void MainWidget::resizeEvent(QResizeEvent*) {
   // corresponding pixel box will be computed automatically.
   double ratio = double(m_window_width) / double(m_window_height);
   if (m_current_view.empty())
-    m_current_view = expandBoxToRatio(m_world_box, ratio);
+    m_current_view = vw::geometry::expandBoxToRatio(m_world_box, ratio);
   else
-    m_current_view = expandBoxToRatio(m_current_view, ratio);
+    m_current_view = vw::geometry::expandBoxToRatio(m_current_view, ratio);
 
   if (m_firstPaintEvent) {
     // Avoid calling refreshPixmap() in this case, as resizeEvent()
@@ -1302,7 +1276,7 @@ void MainWidget::zoomToRegion(vw::BBox2 const& region) {
     return;
   }
   double ratio = double(m_window_width) / double(m_window_height);
-  m_current_view = expandBoxToRatio(region, ratio);
+  m_current_view = vw::geometry::expandBoxToRatio(region, ratio);
   refreshPixmap();
 }
 
@@ -3016,7 +2990,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
       // ends up having size 0 to numerical precision.
       if (!view.empty()) {
         double ratio = double(m_window_width) / double(m_window_height);
-        m_current_view = expandBoxToRatio(view, ratio);
+        m_current_view = vw::geometry::expandBoxToRatio(view, ratio);
       }
 
       // Must redraw the entire image
