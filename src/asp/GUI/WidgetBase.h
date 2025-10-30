@@ -98,8 +98,8 @@ public:
 
   // Convert from world coordinates to projected coordinates in given geospatial
   // projection, and vice versa
-  vw::Vector2 world2projpoint(vw::Vector2 const  P, int imageIndex) const;
-  vw::Vector2 projpoint2world(vw::Vector2 const  P, int imageIndex) const;
+  vw::Vector2 world2proj(vw::Vector2 const  P, int imageIndex) const;
+  vw::Vector2 proj2world(vw::Vector2 const  P, int imageIndex) const;
 
   Vector2 world2screen(Vector2 const&  p) const;
   Vector2 screen2world(Vector2 const&  p) const;

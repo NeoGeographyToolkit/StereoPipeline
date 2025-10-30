@@ -74,28 +74,12 @@ MainWidget::MainWidget(QWidget *parent,
     m_polyEditMode(false), m_polyLayerIndex(beg_image_id),
     m_pixelTol(6), m_backgroundColor(QColor("black")),
     m_lineWidth(1), m_polyColor("green"),
-    m_editingMatches(false) {
+    m_editingMatches(false), m_firstPaintEvent(false),
+    m_emptyRubberBand(QRect(0,0,0,0)), m_rubberBand(QRect(0,0,0,0)),
+    m_cropWinMode(false), m_profileMode(false),
+    m_profilePlot(NULL), m_mousePrsX(0), m_mousePrsY(0) { 
 
   installEventFilter(this);
-
-  // setTitle("Intensity");
-  // setBorderDist(20,20);
-  // setAlignment(QwtScaleDraw::BottomScale);
-
-  m_firstPaintEvent = true;
-  m_emptyRubberBand = QRect(0, 0, 0, 0);
-  m_rubberBand      = m_emptyRubberBand;
-  m_cropWinMode     = false;
-  m_profileMode     = false;
-  m_profilePlot     = NULL;
-  m_world_box       = BBox2();
-
-  m_mousePrsX = 0;
-  m_mousePrsY = 0;
-
-  m_border_factor = 0.95;
-
-  // Set mouse tracking
   this->setMouseTracking(true);
 
   // Set the size policy that the widget can grow or shrink and still
@@ -194,8 +178,8 @@ MainWidget::MainWidget(QWidget *parent,
 
     m_chooseFiles->getFilesTable()->setContextMenuPolicy(Qt::CustomContextMenu);
     QObject::connect(m_chooseFiles->getFilesTable(),
-                      SIGNAL(customContextMenuRequested(QPoint)),
-                      this, SLOT(customMenuRequested(QPoint)));
+                     SIGNAL(customContextMenuRequested(QPoint)),
+                     this, SLOT(customMenuRequested(QPoint)));
   }
 
   if (m_chooseFiles && !sideBySideWithDialog()) {
@@ -205,10 +189,14 @@ MainWidget::MainWidget(QWidget *parent,
     QObject::connect(m_chooseFiles->getFilesTable()->horizontalHeader(),
                       SIGNAL(sectionClicked(int)), this, SLOT(hideShowAll_widgetVersion()));
   }
+  
+  MainWidget::createMenus();
+} // End constructor
 
-  // Right-click context menu
+// Right-click context menu
+void MainWidget::createMenus() {
+  
   m_ContextMenu = new QMenu();
-  //setContextMenuPolicy(Qt::CustomContextMenu);
 
   // Polygon editing mode, they will be visible only when editing happens
   m_insertVertex   = m_ContextMenu->addAction("Insert vertex");
@@ -268,8 +256,7 @@ MainWidget::MainWidget(QWidget *parent,
   connect(m_deleteVertices,        SIGNAL(triggered()), this, SLOT(deleteVertices()));
   connect(m_insertVertex,          SIGNAL(triggered()), this, SLOT(insertVertex()));
   connect(m_mergePolys,            SIGNAL(triggered()), this, SLOT(mergePolys()));
-
-} // End constructor
+} // End createMenus()
 
 MainWidget::~MainWidget() {}
 
@@ -397,14 +384,18 @@ void MainWidget::hideShowAll_widgetVersion() {
   refreshPixmap();
 }
 
-BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
-
+// Expand box to have given aspect ratio
+BBox2 expandBoxToRatio(BBox2 const& box, double aspect) {
+  
+  // The aspect must be positive
+  if (aspect <= 0.0)
+    vw::vw_throw(vw::ArgumentErr() << "Aspect ratio must be positive.\n");
+    
   BBox2 in_box = box; // local copy
   if (in_box.empty())
     in_box = BBox2(0, 0, 1, 1); // if it came to worst
 
   BBox2 out_box = in_box;
-  double aspect = double(m_window_width) / m_window_height;
   if (in_box.width() / in_box.height() < aspect) {
     // Width needs to grow
     double new_width = in_box.height() * aspect;
@@ -431,7 +422,8 @@ void MainWidget::setWorldBox(vw::BBox2 const& world_box) {
 // Zoom to show each image fully.
 void MainWidget::sizeToFit() {
 
-  m_current_view = expand_box_to_keep_aspect_ratio(m_world_box);
+  double aspect = double(m_window_width) / m_window_height;
+  m_current_view = expandBoxToRatio(m_world_box, aspect);
 
   // If this is the first time we draw the image, so right when
   // we started, invoke update() which will invoke paintEvent().
@@ -696,8 +688,9 @@ void MainWidget::zoomToImage() {
     bringImageOnTop(*it);
 
     // Set the view window to be the region encompassing the image
-    m_current_view = expand_box_to_keep_aspect_ratio
-      (MainWidget::image2world(m_images[*it].image_bbox, *it));
+    BBox2 world_box = MainWidget::image2world(m_images[*it].image_bbox, *it);
+    double aspect = double(m_window_width) / m_window_height;  
+    m_current_view = expandBoxToRatio(world_box, aspect);
   }
 
   // This is no longer needed
@@ -828,10 +821,11 @@ void MainWidget::resizeEvent(QResizeEvent*) {
   // If we already have a view, keep it but adjust it a bit if the
   // window aspect ratio changed as result of resizing. The
   // corresponding pixel box will be computed automatically.
+  double ratio = double(m_window_width) / double(m_window_height);
   if (m_current_view.empty())
-    m_current_view = expand_box_to_keep_aspect_ratio(m_world_box);
+    m_current_view = expandBoxToRatio(m_world_box, ratio);
   else
-    m_current_view = expand_box_to_keep_aspect_ratio(m_current_view);
+    m_current_view = expandBoxToRatio(m_current_view, ratio);
 
   if (m_firstPaintEvent) {
     // Avoid calling refreshPixmap() in this case, as resizeEvent()
@@ -1261,7 +1255,7 @@ void MainWidget::drawScatteredData(QPainter* paint, int image_index) {
   for (size_t pt_it = 0; pt_it < m_images[image_index].scattered_data.size(); pt_it++) {
     auto const& P = m_images[image_index].scattered_data[pt_it];
 
-    vw::Vector2 world_P = projpoint2world(subvector(P, 0, 2), image_index);
+    vw::Vector2 world_P = proj2world(subvector(P, 0, 2), image_index);
     Vector2 screen_P = world2screen(world_P);
     QPoint Q(screen_P.x(), screen_P.y());
 
@@ -1307,7 +1301,8 @@ void MainWidget::zoomToRegion(vw::BBox2 const& region) {
     popUp("Cannot zoom to empty region.");
     return;
   }
-  m_current_view = expand_box_to_keep_aspect_ratio(region);
+  double ratio = double(m_window_width) / double(m_window_height);
+  m_current_view = expandBoxToRatio(region, ratio);
   refreshPixmap();
 }
 
@@ -1415,7 +1410,7 @@ for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per abov
     for (int vIter = 0; vIter < numVerts; vIter++) {
 
       Vector2 P;
-      P = projpoint2world(Vector2(xv[vIter], yv[vIter]), image_it);
+      P = proj2world(Vector2(xv[vIter], yv[vIter]), image_it);
 
       xv[vIter] = P.x();
       yv[vIter] = P.y();
@@ -1792,7 +1787,7 @@ void MainWidget::addPolyVert(double px, double py) {
 
     S = screen2world(S);                    // world coordinates
     m_world_box.grow(S); // to not cut when plotting later
-    S = world2projpoint(S, m_polyLayerIndex); // projected units
+    S = world2proj(S, m_polyLayerIndex); // projected units
 
     m_currPolyX.push_back(S.x());
     m_currPolyY.push_back(S.y());
@@ -1874,7 +1869,7 @@ void MainWidget::deleteVertices() {
   }
 
   // This code cannot be moved out to utilities since it calls the
-  // function projpoint2world().
+  // function proj2world().
 
   for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
 
@@ -1899,7 +1894,7 @@ void MainWidget::deleteVertices() {
         for (int vIter = 0; vIter < pSize; vIter++) {
           double  x = xv[start + vIter];
           double  y = yv[start + vIter];
-          Vector2 P = projpoint2world(Vector2(x, y), clipIter);
+          Vector2 P = proj2world(Vector2(x, y), clipIter);
 
           // This vertex will be deleted
           if (m_stereoCropWin.contains(P))
@@ -1969,7 +1964,7 @@ void MainWidget::findClosestPolyEdge(// inputs
     int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
 
     // Convert from world coordinates to given clip coordinates
-    Vector2 clip_P = world2projpoint(world_P, clipIter);
+    Vector2 clip_P = world2proj(world_P, clipIter);
 
     vw::gui::findClosestPolyEdge(// inputs
                                   clip_P.x(), clip_P.y(),
@@ -1987,7 +1982,7 @@ void MainWidget::findClosestPolyEdge(// inputs
     if (polyVecIndex0 >= 0 && polyIndexInCurrPoly0 >= 0 &&
         vertIndexInCurrPoly0 >= 0) {
 
-      Vector2 closest_P = projpoint2world(Vector2(minX0, minY0),
+      Vector2 closest_P = proj2world(Vector2(minX0, minY0),
                                           clipIter);
       minDist0 = norm_2(closest_P - world_P);
 
@@ -2035,7 +2030,7 @@ void MainWidget::findClosestPolyVertex(// inputs
     int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
 
     // Convert from world coordinates to given clip coordinates
-    Vector2 clip_P = world2projpoint(world_P, clipIter);
+    Vector2 clip_P = world2proj(world_P, clipIter);
 
     vw::gui::findClosestPolyVertex(// inputs
                                     clip_P.x(), clip_P.y(),
@@ -2053,7 +2048,7 @@ void MainWidget::findClosestPolyVertex(// inputs
     if (polyVecIndex0 >= 0 && polyIndexInCurrPoly0 >= 0 &&
         vertIndexInCurrPoly0 >= 0) {
 
-      Vector2 closest_P = projpoint2world(Vector2(minX0, minY0),
+      Vector2 closest_P = proj2world(Vector2(minX0, minY0),
                                           clipIter);
       minDist0 = norm_2(closest_P - world_P);
 
@@ -2118,7 +2113,7 @@ void MainWidget::insertVertex() {
       vertIndexInCurrPoly < 0) return;
 
   // Convert to coordinates of the desired clip
-  P = world2projpoint(P, clipIndex);
+  P = world2proj(P, clipIndex);
 
   // Need +1 below as we insert AFTER current vertex
   m_images[clipIndex].polyVec[polyVecIndex].insertVertex(polyIndexInCurrPoly,
@@ -2173,8 +2168,8 @@ void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex) {
         // Convert from the coordinate system of each layer
         // to the one of the output layer
         for (int vIter = 0; vIter < totalNumVerts; vIter++) {
-          Vector2 P = projpoint2world(Vector2(xv[vIter], yv[vIter]), clipIter);
-          P = world2projpoint(P, outIndex);
+          Vector2 P = proj2world(Vector2(xv[vIter], yv[vIter]), clipIter);
+          P = world2proj(P, outIndex);
           xv[vIter] = P.x();
           yv[vIter] = P.y();
         }
@@ -2358,13 +2353,13 @@ void MainWidget::drawOneVertex(int x0, int y0, QColor color, int lineWidth,
 }
 
 void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
-                            bool plotFilled, bool showIndices,
-                            int lineWidth,
-                            int drawVertIndex, // 0 is a good choice here
-                            QColor const& color,
-                            QPainter & paint,
-                            // Make a local copy of the poly on purpose
-                            vw::geometry::dPoly currPoly) {
+                          bool plotFilled, bool showIndices,
+                          int lineWidth,
+                          int drawVertIndex, // 0 is a good choice here
+                          QColor const& color,
+                          QPainter & paint,
+                          // Make a local copy of the poly on purpose
+                          vw::geometry::dPoly currPoly) {
 
   using namespace vw::geometry;
 
@@ -2405,11 +2400,8 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
   QColor local_color = color;
 
   dPoly clippedPoly;
-  currPoly.clipPoly(// Inputs
-                    x_min - extraX, y_min - extraY,
-        x_max + extraX, y_max + extraY,
-                    // Output
-                    clippedPoly);
+  currPoly.clipPoly(x_min - extraX, y_min - extraY, x_max + extraX, y_max + extraY,
+                    clippedPoly); // output
 
   std::vector<vw::geometry::anno> annotations;
   if (showIndices) {
@@ -2423,13 +2415,10 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
   int numPolys            = clippedPoly.get_numPolys();
 
   // Aliases
-  const std::vector<char> & isPolyClosed
-    = clippedPoly.get_isPolyClosed();
-  const std::vector<std::string> & colors
-    = clippedPoly.get_colors(); // we ignore these
+  const std::vector<char> & isPolyClosed = clippedPoly.get_isPolyClosed();
+  const std::vector<std::string> & colors = clippedPoly.get_colors(); // we ignore these
 
   int start = 0;
-
   for (int pIter = 0; pIter < numPolys; pIter++) {
 
     if (pIter > 0) start += numVerts[pIter - 1];
@@ -2681,7 +2670,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
     Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
 
     m_world_box.grow(P); // to not cut when plotting later
-    P = world2projpoint(P, m_polyLayerIndex); // projected units
+    P = world2proj(P, m_polyLayerIndex); // projected units
     m_images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
       .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly, P.x(), P.y());
     // This will redraw just the polygons, not the pixmap
@@ -2847,7 +2836,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
 
         Vector2 P = screen2world(Vector2(mouseRelX, mouseRelY));
         m_world_box.grow(P); // to not cut when plotting later
-        P = world2projpoint(P, m_polyLayerIndex); // projected units
+        P = world2proj(P, m_polyLayerIndex); // projected units
         m_images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
           .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly,
                               P.x(), P.y());
@@ -3025,8 +3014,10 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
 
       // Zoom to this window. Don't zoom so much that the view box
       // ends up having size 0 to numerical precision.
-      if (!view.empty())
-        m_current_view = expand_box_to_keep_aspect_ratio(view);
+      if (!view.empty()) {
+        double ratio = double(m_window_width) / double(m_window_height);
+        m_current_view = expandBoxToRatio(view, ratio);
+      }
 
       // Must redraw the entire image
       refreshPixmap();

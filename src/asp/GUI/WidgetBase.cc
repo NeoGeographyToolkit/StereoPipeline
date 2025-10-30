@@ -38,19 +38,20 @@ WidgetBase::WidgetBase(int beg_image_id, int end_image_id,
     m_use_georef(use_georef),
     m_images(images),
     m_world2image_trans(world2image_trans),
-    m_image2world_trans(image2world_trans) {
+    m_image2world_trans(image2world_trans), 
+    m_world_box(BBox2()), m_border_factor(0.95) {
 }
 
 // Convert from world coordinates to projected coordinates in given geospatial
 // projection
-vw::Vector2 WidgetBase::world2projpoint(vw::Vector2 P, int imageIndex) const {
+vw::Vector2 WidgetBase::world2proj(vw::Vector2 P, int imageIndex) const {
   if (!m_use_georef)
       return flip_in_y(P);
   return m_world2image_trans[imageIndex].point_to_point(flip_in_y(P)); 
 }
 
-// The reverse of world2projpoint
-vw::Vector2 WidgetBase::projpoint2world(vw::Vector2 P, int imageIndex) const {
+// The reverse of world2proj
+vw::Vector2 WidgetBase::proj2world(vw::Vector2 P, int imageIndex) const {
   if (!m_use_georef)
     return flip_in_y(P);
   return flip_in_y(m_image2world_trans[imageIndex].point_to_point(P));
@@ -135,7 +136,7 @@ BBox2 WidgetBase::world2screen(BBox2 const& R) const {
 // Then also have world2projpt, for both a point and a box.
 
 // TODO(oalexan1): See if world2image can be used instead of world2projpt,
-// and same for image2world and projpoint2world.
+// and same for image2world and proj2world.
 
 // If we use georef, the world is in projected point units of the
 // first image, with y replaced with -y, to keep the y axis downward,

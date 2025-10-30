@@ -201,7 +201,9 @@ public slots:
     void mergePolys             (); ///< Merge existing polygons
     void saveScreenshot         (); ///< Save a screenshot of the current imagery
 
-    void refreshPixmap(); /// Draw the image   
+    void refreshPixmap(); /// Draw the image
+    
+    void createMenus(); ///< Create the right-click context menu
 
   protected:
 
@@ -352,8 +354,6 @@ public slots:
                                  BBox2i const& region_out,
                                  ImageView<int> & screen_image);
                                 
-    BBox2   expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
-
     // Find the closest point in a given set of imageData structures to a given point
     // in world coordinates.
     void findClosestPolyVertex(// inputs
