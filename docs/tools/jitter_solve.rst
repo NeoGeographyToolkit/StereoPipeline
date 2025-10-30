@@ -722,8 +722,11 @@ camera files 1.xml and 2.xml, having the exact DigitalGlobe linescan model.
 Bundle adjustment
 ^^^^^^^^^^^^^^^^^
 
-Bundle adjustment was invoked first to reduce any gross errors between
-the cameras. This command expects raw (not mapprojected) images::
+Bundle adjustment was invoked first to reduce any errors between
+the cameras. This is not strictly necessary for WorldView images,
+as they are usually quite well-registered.
+
+This command expects raw (not mapprojected) images::
 
     bundle_adjust                               \
       -t dg                                     \
@@ -766,20 +769,26 @@ Mapprojection of the two images (:numref:`mapproj-example`)::
       --nodes-list nodes_list.txt               \
       --tr 0.4                                  \
       --t_srs "$proj"                           \
-      --bundle-adjust-prefix ba/run             \
-      ref.tif ${i}.tif ${i}.xml ${i}.map.ba.tif
+      ref.tif ${i}.tif ${i}.xml ${i}.map.tif
     done
 
 Here the exact cameras were used for mapprojection (option ``-t dg``). In
 earlier versions of ASP this was slow, and the faster RPC model
 was used (``-t rpc``). 
 
+Here we did not use the adjustments from ``bundle_adjust``, 
+as it appears that the original cameras are already quite accurate.
+We will incorporate those into subsequent steps, however.
+
 Stereo
 ^^^^^^
 
-Stereo was done with the ``asp_mgm`` algorithm. It was very important to use
-``--subpixel-mode 1``. Using ``--subpixel-mode 9`` could not resolve jitter as
-well. Subpixel mode 3 (or 2) would have worked as well but it is a lot slower. 
+Stereo was done with the ``asp_mgm`` algorithm. We found that the option
+``--subpixel-mode 1`` may result in somewhat more accurate interest point
+matches from disparity (for use later) but ``--subpixel-mode 9`` could produce a
+terrain model with less artifacts. This likely needs more study. We will proceed
+with ``--subpixel-mode 1`` here. Subpixel mode 3 (or 2) would likely be better
+than any of these, but are a lot slower. 
 
 It also appears that it is preferable to use mapprojected images than some other
 alignment methods as those would result in more subpixel artifacts which would
@@ -793,18 +802,18 @@ created (:numref:`jitter_ip`), to be used later to solve for jitter.
 
 ::
 
-    parallel_stereo                                \
-      --max-disp-spread 100                        \
-      --nodes-list nodes_list.txt                  \
-      --ip-per-image 10000                         \
-      --stereo-algorithm asp_mgm                   \
-      --subpixel-mode 1                            \
-      --processes 6                                \
-      --alignment-method none                      \
-      --num-matches-from-disparity 60000           \
-      --bundle-adjust-prefix ba/run                \
-      1.map.tif 2.map.tif 1.xml 2.xml              \
-      run_1_2_map/run                              \
+    parallel_stereo                      \
+      --max-disp-spread 100              \
+      --nodes-list nodes_list.txt        \
+      --ip-per-image 10000               \
+      --stereo-algorithm asp_mgm         \
+      --subpixel-mode 1                  \
+      --processes 6                      \
+      --alignment-method none            \
+      --num-matches-from-disparity 60000 \
+      --bundle-adjust-prefix ba/run      \
+      1.map.tif 2.map.tif 1.xml 2.xml    \
+      run_1_2_map/run                    \
       ref.tif
 
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
@@ -815,6 +824,9 @@ A discussion regarding the projection to use above is in :numref:`point2dem_proj
 
 Alignment
 ^^^^^^^^^
+
+The alignment step is not strictly necessary for WorldView images, as they are rather
+well-aligned already. Here we show the step for completeness.
 
 Align the stereo DEM to the reference DEM::
 
