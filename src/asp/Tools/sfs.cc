@@ -1461,7 +1461,7 @@ int main(int argc, char* argv[]) {
     // TODO(oalexan1): This block must be a function.
     if (opt.save_computed_intensity_only || 
         opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0 ||
-        opt.allow_borderline_data) {
+        opt.allow_borderline_data || opt.low_light_threshold > 0.0) {
       // Save the computed and actual intensity, and for most of these quit
       vw::ImageView<PixelMask<double>> reflectance, meas_intensity, comp_intensity;
       vw::ImageView<double> ground_weight;
@@ -1518,6 +1518,7 @@ int main(int argc, char* argv[]) {
         // Find the computed intensity.
         // TODO(oalexan1): Should one mark the no-data values rather than setting
         // them to 0?
+        // TODO(oalexan1): This loop must be a function
         comp_intensity.set_size(reflectance.cols(), reflectance.rows());
         for (int col = 0; col < comp_intensity.cols(); col++) {
           for (int row = 0; row < comp_intensity.rows(); row++) {
@@ -1622,6 +1623,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    // TODO(oalexan1): All the if statement must be a function
     if (opt.allow_borderline_data) {
       // TODO(oalexan1): These weights should be created before any calculation
       // of intensity. As of now, they kick after that, and before iterative
@@ -1640,6 +1642,7 @@ int main(int argc, char* argv[]) {
       // Will overwrite the weights below.
       blend_weight_is_ground_weight = true;
 
+      // TODO(oalexan1): This must be a function
       // Redo the image masks. Unlike before, the shadow threshold is set to 0
       // to allow shadow pixels. The weights will control how much of these
       // are actually used. This approach is better than a hard cutoff with the mask.
@@ -1667,6 +1670,99 @@ int main(int argc, char* argv[]) {
       ground_weights.clear(); // not needed anymore
     } // end allow borderline data
 
+    // Handle --low-light-threshold option. 
+    // TODO(oalexan1): This must be a function.
+    if (opt.low_light_threshold > 0.0) {
+      
+      // Find the max meas image.
+      // TODO(oalexan1): Must be a function
+      vw::ImageView<double> max_intensity(dem.cols(), dem.rows());
+      for (int col = 0; col < dem.cols(); col++) {
+        for (int row = 0; row < dem.rows(); row++) {
+          
+          // Initialize to 0
+          max_intensity(col, row) = 0.0;          
+          
+          // Iterate over images, except the skipped ones
+          for (int image_iter = 0; image_iter < num_images; image_iter++) {
+            
+           if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
+             continue;
+           
+            // Skip if meas intensity is invalid
+            if (!is_valid(meas_intensities[image_iter](col, row)))
+              continue;
+
+            double inten = meas_intensities[image_iter](col, row).child();
+            if (inten > max_intensity(col, row))
+              max_intensity(col, row) = inten;
+          }
+        }
+      }
+      
+      std::vector<ImageView<double>> adj_weights(num_images);
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+        
+       if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
+         continue;
+       
+        adj_weights[image_iter].set_size(dem.cols(), dem.rows());
+        for (int col = 0; col < adj_weights[image_iter].cols(); col++) {
+          for (int row = 0; row < adj_weights[image_iter].rows(); row++) {
+      
+            // Initalize these to 1, except for skipped images
+            adj_weights[image_iter](col, row) = 1.0;
+            
+            // Find the curr intensity
+            double curr_intensity = meas_intensities[image_iter](col, row).child();
+
+            // Set to zero if meas intensity is invalid or below shadow threshold
+            if (!is_valid(meas_intensities[image_iter](col, row)) ||
+                curr_intensity <= opt.shadow_threshold_vec[image_iter]) {
+              adj_weights[image_iter](col, row) = 0.0;
+              continue;
+            }
+            
+            // Skip if meas intensity is above the low light threshold
+            if (curr_intensity > opt.low_light_threshold)
+              continue;
+            
+            // Skip if curr intensity equals max intensity,
+            // to respect --adjust-borderline-data)
+            if (curr_intensity >= max_intensity(col, row))
+              continue;
+              
+            double th = opt.shadow_threshold_vec[image_iter];
+            
+            double ratio = (curr_intensity - th) / (opt.low_light_threshold - th);
+            // Must be non-negative here
+            ratio = std::max(0.0, ratio);
+              
+            // TODO(oalexan1): Raise here to what power?
+            adj_weights[image_iter](col, row) = ratio * ratio;
+          }
+        }
+      }
+      
+      // Saves the ground weight images
+      asp::saveGroundWeights(opt.skip_images, opt.out_prefix,
+                            opt.input_images, opt.input_cameras,
+                            adj_weights, geo,
+                            vw::GdalWriteOptions(opt));
+      
+      // Adjust the blending weights by multiplying them with the adj weights
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+       if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
+         continue;
+        for (int col = 0; col < blend_weights[image_iter].cols(); col++) {
+          for (int row = 0; row < blend_weights[image_iter].rows(); row++) {
+            blend_weights[image_iter](col, row) *= adj_weights[image_iter](col, row);
+          }
+        }
+      }
+    }
+    
+    // TODO(oalexan1): The block below must be a function
     vw::ImageView<double> curvature_in_shadow_weight;
     if (opt.curvature_in_shadow_weight > 0.0) {
       TerminalProgressCallback tpc("asp", ": ");

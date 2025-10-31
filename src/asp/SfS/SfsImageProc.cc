@@ -298,7 +298,7 @@ void saveGroundWeights(std::set<int> const& skip_images,
 // with some other better data. Weights which are already 0 by then
 // but are non-zero close to that interface get grown too, depending,
 // on how close they get to that interface.
-// recompute these weights as the DEM changes, which is an approximation.
+// We do not recompute these weights as the DEM changes, which is an approximation.
 void adjustBorderlineDataWeights(int cols, int rows,
                                  int blending_dist, double blending_power,
                                  vw::GdalWriteOptions const& opt,
