@@ -44,12 +44,20 @@ found at 23.96 N and 262.60 E. This DEM crosses the volcano's caldera.
 Commands
 ^^^^^^^^
 
-Download the M08/06047 and R07/01361 images from the PDS.
+Download the M08/06047 and R07/01361 images from the PDS:
 
 ::
+     wget -O M0806047.imq \
+          https://planetarydata.jpl.nasa.gov/img/data/mgs-m-moc-na_wa-2-sdp-l0-v1.0/mgsc_1068/m08060/m0806047.imq
 
-     ISIS> moc2isis f=M0806047.img t=M0806047.cub
-     ISIS> moc2isis f=R0701361.img t=R0701361.cub
+     wget -O R0701361.imq \
+          https://planetarydata.jpl.nasa.gov/img/data/mgs-m-moc-na_wa-2-sdp-l0-v1.0/mgsc_1270/r07013/r0701361.imq
+
+Then process:
+
+::
+     ISIS> moc2isis f=M0806047.imq t=M0806047.cub
+     ISIS> moc2isis f=R0701361.imq t=R0701361.cub
      ISIS> spiceinit from=M0806047.cub
      ISIS> spiceinit from=R0701361.cub
      ISIS> cam2map4stereo.py M0806047.cub R0701361.cub
