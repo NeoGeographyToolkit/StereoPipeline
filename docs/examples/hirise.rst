@@ -108,7 +108,18 @@ landed and has roved, including the Columbia Hills.
 Commands
 ~~~~~~~~
 
-Download all 20 of the RED EDR ``.IMG`` files for each observation.
+Download all 20 of the RED EDR ``.IMG`` files for each observation:
+
+::
+     wget -r -l1 -np \
+          "http://hirise-pds.lpl.arizona.edu/PDS/EDR/PSP/ORB_001500_001599/PSP_001513_1655/" \
+          -A "*RED*IMG"
+
+     wget -r -l1 -np \
+          "http://hirise-pds.lpl.arizona.edu/PDS/EDR/PSP/ORB_001700_001799/PSP_001777_1650/" \
+          -A "*RED*IMG"
+
+Then process:
 
 ::
 
@@ -118,7 +129,6 @@ Download all 20 of the RED EDR ``.IMG`` files for each observation.
                              PSP_001513_1655_RED.mos_hijitreged.norm.cub
      ISIS> parallel_stereo PSP_001513_1655.map.cub                       \
                     PSP_001777_1650.map.cub result/output
-
 
 See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
