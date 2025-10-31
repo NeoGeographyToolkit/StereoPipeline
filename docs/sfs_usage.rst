@@ -908,8 +908,12 @@ The site::
 
 has higher-accuracy LOLA DEMs but only for a few locations.
 
-Multiply the DEM heights by 0.5 per the information in the LBL file using
-``image_calc`` (:numref:`image_calc`)::
+Some lunar DEMs at 10 m/pixel and other resolutions are available at::
+
+  https://pgda.gsfc.nasa.gov/products/90
+
+Multiply the ``LDEM_80S_20M`` dataset heights by 0.5 per the information in
+the LBL file using ``image_calc`` (:numref:`image_calc`)::
 
     image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
 
