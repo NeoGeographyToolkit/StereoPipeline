@@ -21,8 +21,6 @@
 #ifndef __ASP_SFS_SFS_OPTIONS_H__
 #define __ASP_SFS_SFS_OPTIONS_H__
 
-#include <asp/Core/AspProgramOptions.h>
-
 #include <vw/Cartography/GeoReferenceUtils.h>
 
 namespace asp {

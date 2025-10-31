@@ -36,6 +36,8 @@ namespace vw {
 
 namespace asp {
 
+class SfsOptions;
+
 typedef vw::ImageViewRef<vw::PixelMask<float>> MaskedImgRefT;
 typedef vw::ImageView<double> DoubleImgT;
 
@@ -64,6 +66,21 @@ void saveGroundWeights(std::set<int> const& skip_images,
                        std::vector<vw::ImageView<double>> const& ground_weights,
                        vw::cartography::GeoReference const& geo,
                        vw::GdalWriteOptions const& opt);
+
+// This will adjust the weights to account for borderline pixels and low-light conditions.
+// The blend weights and masked images are modified in place.
+void handleBorderlineAndLowLight(SfsOptions & opt,
+                                 int num_images,
+                                 vw::ImageView<double> const& dem,
+                                 vw::cartography::GeoReference const& geo,
+                                 std::vector<vw::BBox2i> const& crop_boxes,
+                                 std::vector<vw::ImageView<vw::PixelMask<double>>> const& meas_intensities,
+                                 // Outputs
+                                 float & img_nodata_val,
+                                 std::vector<MaskedImgRefT> & masked_images,
+                                 std::vector<vw::ImageView<double>> & blend_weights,
+                                 bool & blend_weight_is_ground_weight,
+                                 std::vector<vw::ImageView<double>> & ground_weights);
 
 // See the .cc file for the documentation.
 vw::ImageView<double> blendingWeights(MaskedImgRefT const& img,
