@@ -1141,6 +1141,45 @@ double findMeanAlbedo(vw::ImageView<double> const& dem,
   return mean_albedo;
 }
 
+namespace asp {
+  
+// Factor out the logic for updating masks and weights
+void updateMasksWeights(SfsOptions const& opt,
+                        int num_images,
+                        std::vector<BBox2i> const& crop_boxes,
+                        std::vector<ImageView<double>> & ground_weights,
+                        float & img_nodata_val,
+                        std::vector<MaskedImgRefT> & masked_images,
+                        std::vector<vw::ImageView<double>> & blend_weights) {
+
+  // Redo the image masks. Unlike before, the shadow threshold is set to 0
+  // to allow shadow pixels. The weights will control how much of these
+  // are actually used. This approach is better than a hard cutoff with the mask.
+  for (int image_iter = 0; image_iter < num_images; image_iter++) {
+    if (opt.skip_images.find(image_iter) != opt.skip_images.end())
+      continue;
+
+    std::string img_file = opt.input_images[image_iter];
+    vw::read_nodata_val(img_file, img_nodata_val);
+    float shadow_thresh = 0.0; // Note how the shadow thresh is now 0, unlike before
+    // Make a copy in memory for faster access
+    if (!crop_boxes[image_iter].empty()) {
+      vw::ImageView<float> cropped_img =
+        crop(DiskImageView<float>(img_file), crop_boxes[image_iter]);
+      masked_images[image_iter]
+        = create_pixel_range_mask2(cropped_img,
+                                    std::max(img_nodata_val, shadow_thresh),
+                                    opt.max_valid_image_vals_vec[image_iter]);
+
+      // Overwrite the blending weights with ground weights
+      blend_weights[image_iter] = copy(ground_weights[image_iter]);
+    }
+  }
+
+  ground_weights.clear(); // not needed anymore
+}
+}
+
 int main(int argc, char* argv[]) {
 
   Stopwatch sw_total;
@@ -1505,15 +1544,11 @@ int main(int argc, char* argv[]) {
                                        heightErrEstim.get());
 
         if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
-            (opt.allow_borderline_data || opt.low_light_threshold > 0.0)) {
-          // if not skipping, save the weight
-          ground_weights[image_iter] = copy(ground_weight);
-        }
+            (opt.allow_borderline_data || opt.low_light_threshold > 0.0))
+          ground_weights[image_iter] = copy(ground_weight); // save the weight
         if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
-            opt.low_light_threshold > 0.0) {
-          // if not skipping, save the intensity
-          meas_intensities[image_iter] = copy(meas_intensity);
-        }
+            opt.low_light_threshold > 0.0)
+          meas_intensities[image_iter] = copy(meas_intensity); // save the intensity
 
         // Find the computed intensity.
         // TODO(oalexan1): Should one mark the no-data values rather than setting
@@ -1625,6 +1660,10 @@ int main(int argc, char* argv[]) {
 
     // TODO(oalexan1): All the if statement must be a function
     if (opt.allow_borderline_data) {
+      // Use the ground weights from now on instead of in-camera blending weights.
+      // Will overwrite the weights below.
+      blend_weight_is_ground_weight = true;
+
       // TODO(oalexan1): These weights should be created before any calculation
       // of intensity. As of now, they kick after that, and before iterative
       // SfS. Must check the effect of that. Should result in minor changes to
@@ -1638,36 +1677,8 @@ int main(int argc, char* argv[]) {
                                        opt.input_images, opt.input_cameras,
                                        ground_weights); // output
 
-      // Use the ground weights from now on instead of in-camera blending weights.
-      // Will overwrite the weights below.
-      blend_weight_is_ground_weight = true;
-
-      // TODO(oalexan1): This must be a function
-      // Redo the image masks. Unlike before, the shadow threshold is set to 0
-      // to allow shadow pixels. The weights will control how much of these
-      // are actually used. This approach is better than a hard cutoff with the mask.
-      for (int image_iter = 0; image_iter < num_images; image_iter++) {
-        if (opt.skip_images.find(image_iter) != opt.skip_images.end())
-          continue;
-
-        std::string img_file = opt.input_images[image_iter];
-        vw::read_nodata_val(img_file, img_nodata_val);
-        float shadow_thresh = 0.0; // Note how the shadow thresh is now 0, unlike before
-        // Make a copy in memory for faster access
-        if (!crop_boxes[image_iter].empty()) {
-          vw::ImageView<float> cropped_img =
-            crop(DiskImageView<float>(img_file), crop_boxes[image_iter]);
-          masked_images[image_iter]
-            = create_pixel_range_mask2(cropped_img,
-                                        std::max(img_nodata_val, shadow_thresh),
-                                        opt.max_valid_image_vals_vec[image_iter]);
-
-          // Overwrite the blending weights with ground weights
-          blend_weights[image_iter] = copy(ground_weights[image_iter]);
-        }
-      }
-
-      ground_weights.clear(); // not needed anymore
+       asp::updateMasksWeights(opt, num_images, crop_boxes, ground_weights,
+                               img_nodata_val, masked_images, blend_weights);
     } // end allow borderline data
 
     // Handle --low-light-threshold option. 

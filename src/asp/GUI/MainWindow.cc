@@ -53,8 +53,6 @@ using namespace vw::gui;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-
-
 namespace asp {
 
 // TODO(oalexan1): Move to utils
@@ -85,7 +83,13 @@ void rm_option_and_vals(int argc, char ** argv, std::string const& opt, int num_
 // time. So, the first occurrence of an image is matched to the first
 // occurrence of a property with that name, and so on. Also, there may
 // be properties for entities which are no longer in the list of
-// images.
+// images. A property may be --color red. 
+// TODO(oalexan1): This code and the preprocessArgs() code needs to be
+// in the same place, somewhere, and better explained. For example have a
+// file called ParseArgs.cc/h. Also put there the above-mentioned rm_option_and_vals().
+// Also put there readImageNames() from stereo_gui.cc.
+// TODO(oalexan1): Remove the --delay option. Will simplify the image loading logic
+// and refactoring.
 void lookupPropertyIndices(std::vector<std::map<std::string, std::string>> const&
                            properties,
                            std::vector<std::string> const& images,
