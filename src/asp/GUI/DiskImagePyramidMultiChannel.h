@@ -26,15 +26,6 @@
 
 #include <asp/GUI/GuiBase.h>
 
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/mpl/or.hpp>
-#include <omp.h>
-
-// Qt
-#include <QWidget>
-
-// Vision Workbench
 #include <vw/Core/Thread.h>
 #include <vw/Core/Log.h>
 #include <vw/Image/ImageViewRef.h>
@@ -46,6 +37,14 @@
 #include <vw/Mosaic/DiskImagePyramid.h>
 #include <vw/Core/RunOnce.h>
 #include <vw/Core/Stopwatch.h>
+
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/mpl/or.hpp>
+#include <boost/foreach.hpp> // Must be before Qt headers
+#include <omp.h>
+
+#include <QWidget>
 
 #include <string>
 #include <vector>

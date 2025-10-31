@@ -130,16 +130,6 @@ MainWidget::MainWidget(QWidget *parent,
       vw_throw(ArgumentErr() << "Missing georeference.\n");
     }
 
-    // Make sure we set these up before the image2world call below!
-    if (m_use_georef) {
-      m_world2image_trans[i]
-        = vw::cartography::GeoTransform(m_images[m_base_image_id].georef,
-                                        m_images[i].georef);
-      m_image2world_trans[i]
-        = vw::cartography::GeoTransform(m_images[i].georef,
-                                        m_images[m_base_image_id].georef);
-    }
-
     // Grow the world box to fit all the images
     BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
     m_world_box.grow(B);
@@ -2022,8 +2012,7 @@ void MainWidget::findClosestPolyVertex(// inputs
     if (polyVecIndex0 >= 0 && polyIndexInCurrPoly0 >= 0 &&
         vertIndexInCurrPoly0 >= 0) {
 
-      Vector2 closest_P = proj2world(Vector2(minX0, minY0),
-                                          clipIter);
+      Vector2 closest_P = proj2world(Vector2(minX0, minY0), clipIter);
       minDist0 = norm_2(closest_P - world_P);
 
       if (minDist0 <= minDist) {

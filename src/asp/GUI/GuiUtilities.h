@@ -22,17 +22,6 @@
 #ifndef __STEREO_GUI_GUI_UTILITIES_H__
 #define __STEREO_GUI_GUI_UTILITIES_H__
 
-// TODO(oalexan1): Reorder the headers, with low-level ones at the bottom.
-// But then compilation fails.
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/mpl/or.hpp>
-#include <omp.h>
-
-// Qt
-#include <QWidget>
-#include <QPoint>
-
 // ASP
 #include <asp/GUI/DiskImagePyramidMultiChannel.h>
 
@@ -50,6 +39,15 @@
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/Geometry/dPoly.h>
 #include <vw/Image/AntiAliasing.h>
+
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/foreach.hpp> // Must be before Qt headers
+#include <boost/mpl/or.hpp>
+#include <omp.h>
+
+#include <QWidget>
+#include <QPoint>
 
 #include <string>
 #include <vector>

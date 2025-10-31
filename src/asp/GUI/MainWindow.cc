@@ -22,6 +22,7 @@
 #include <QtGui>
 #include <QtWidgets>
 #include <asp/GUI/MainWindow.h>
+#include <asp/GUI/AppData.h>
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/GUI/chooseFilesDlg.h>
@@ -52,8 +53,7 @@ using namespace vw::gui;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-// See MainWidget.h for what this id does
-int BASE_IMAGE_ID = 0;
+
 
 namespace asp {
 
@@ -390,16 +390,15 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     }
   }
   
-  m_images.resize(m_image_files.size());
-  m_world2image_trans.resize(m_image_files.size());
-  m_image2world_trans.resize(m_image_files.size());
+  size_t num_images = m_image_files.size();
+  m_images.resize(num_images);
 
   std::vector<int> propertyIndices;
   asp::lookupPropertyIndices(properties, m_image_files, propertyIndices);
 
   // TODO(oalexan1): How will the preview mode play along with georeferences?
   bool has_georef = true;
-  for (size_t i = 0; i < m_image_files.size(); i++) {
+  for (size_t i = 0; i < num_images; i++) {
     m_images[i].read(m_image_files[i], m_opt, REGULAR_VIEW,
                      properties[propertyIndices[i]],
                      delay);
@@ -428,8 +427,22 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     asp::stereo_settings().no_georef = false; 
   }
 
+  // Create the coordinate transforms
+  m_world2image_trans.resize(num_images);
+  m_image2world_trans.resize(num_images);
+  if (m_use_georef) {
+    for (int i = 0; i < num_images; i++) {  
+      m_world2image_trans[i]
+        = vw::cartography::GeoTransform(m_images[BASE_IMAGE_ID].georef,
+                                        m_images[i].georef);
+      m_image2world_trans[i]
+        = vw::cartography::GeoTransform(m_images[i].georef,
+                                        m_images[BASE_IMAGE_ID].georef);
+    }
+  }
+
   // Ensure the inputs are reasonable
-  if (!MainWindow::sanityChecks(m_image_files.size()))
+  if (!MainWindow::sanityChecks(num_images))
     forceQuit();
 
   // For being able to choose which files to show/hide
@@ -447,7 +460,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
 
   // For editing match points
   m_editMatchPointVecIndex = -1;
-  m_matchlist.resize(m_image_files.size());
+  m_matchlist.resize(num_images);
 
   // By default, show the images in one row
   if (m_grid_cols <= 0)
@@ -460,7 +473,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   if (asp::stereo_settings().preview && !sideBySideWithDialog()) 
     single_window = true;
   
-  if (m_grid_cols > 0 && m_grid_cols < int(m_image_files.size()) &&
+  if (m_grid_cols > 0 && m_grid_cols < int(num_images) &&
       !sideBySideWithDialog())
     m_view_type = VIEW_AS_TILES_ON_GRID;
   
@@ -550,10 +563,10 @@ void MainWindow::createLayout() {
     m_view_type = VIEW_SIDE_BY_SIDE;
   }
 
-  // See if to show it. In a side-by-side view it is normally not needed. 
-  bool showChooseFiles
-    = ((m_view_type == VIEW_IN_SINGLE_WINDOW || sideBySideWithDialog()) &&
-       m_image_files.size() > 1);
+  // See if to show it. In a side-by-side view it is normally not needed
+  size_t num_images = m_images.size();
+  bool showChooseFiles = ((m_view_type == VIEW_IN_SINGLE_WINDOW || sideBySideWithDialog()) &&
+                          num_images > 1);
   m_chooseFiles->setVisible(showChooseFiles);
 
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
@@ -693,7 +706,7 @@ void MainWindow::createLayout() {
   m_zoomAllToSameRegion_action->setChecked(asp::stereo_settings().zoom_all_to_same_region);
 
   if (m_widgets.size() == 2                             &&
-      m_image_files.size() == 2                         &&
+      num_images == 2                         &&
       stereo_settings().left_image_crop_win  != BBox2() &&
       stereo_settings().right_image_crop_win != BBox2()) {
     // Draw crop windows passed as arguments
@@ -1352,7 +1365,7 @@ void MainWindow::viewMatches() {
     // We will try to load matches
     m_matches_exist = true;
     
-    const size_t num_images = m_image_files.size();
+    size_t num_images = m_image_files.size();
     bool gcp_exists = !stereo_settings().gcp_file.empty() && 
                       fs::exists(stereo_settings().gcp_file);
 
