@@ -39,8 +39,8 @@ P03_002258_1817_XI_01N356W.IMG from PDS, at:
 
 The download commands are::
 
-    wget https://pds-imaging.jpl.nasa.gov/data/mro/mars_reconnaissance_orbiter/ctx/mrox_0031/data/P02_001981_1823_XI_02N356W.IMG
-    wget https://pds-imaging.jpl.nasa.gov/data/mro/mars_reconnaissance_orbiter/ctx/mrox_0042/data/P03_002258_1817_XI_01N356W.IMG
+    wget https://planetarydata.jpl.nasa.gov/img/data/mro/ctx/mrox_0031/data/P02_001981_1823_XI_02N356W.IMG
+    wget https://planetarydata.jpl.nasa.gov/img/data/mro/ctx/mrox_0042/data/P03_002258_1817_XI_01N356W.IMG
 
 Creation of cub files
 ~~~~~~~~~~~~~~~~~~~~~
