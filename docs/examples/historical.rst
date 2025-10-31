@@ -773,7 +773,8 @@ model is saved, the ending camera pose will be added as a line of the form::
   final_pose = 0.66695010211673467 2.3625446924332656 1.5976801601116621
 
 This represents a rotation in the axis-angle format, unlike ``iR`` which is
-shown in regular matrix notation.
+shown in regular matrix notation. The discrepancy in notation is for backward
+compatibility.
 
 The focal length is 1.52 m, per existing documentation. The pixel pitch (at
 which the film is scanned) is known to be 7e-6 m. Here it is multiplied by 16 to
