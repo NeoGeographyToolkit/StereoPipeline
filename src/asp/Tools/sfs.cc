@@ -1103,44 +1103,6 @@ void loadGeoref(SfsOptions const& opt,
                   << "from the input albedo image.\n");
 }
 
-double findMaxDemHeight(bool model_shadows, vw::ImageView<double> const& dem) {
-
-  double max_dem_height = -std::numeric_limits<double>::max();
-  if (model_shadows) {
-    for (int col = 0; col < dem.cols(); col++) {
-      for (int row = 0; row < dem.rows(); row++) {
-        if (dem(col, row) > max_dem_height) {
-          max_dem_height = dem(col, row);
-        }
-      }
-    }
-  }
-  
-  return max_dem_height;
-}
-  
-double findMeanAlbedo(vw::ImageView<double> const& dem,
-                      vw::ImageView<double> const& albedo,
-                      double dem_nodata_val) {
-    
-  double mean_albedo = 0.0, albedo_count = 0.0;
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      if (dem(col, row) != dem_nodata_val) {
-        mean_albedo += albedo(col, row);
-        albedo_count += 1.0;
-      }
-    }
-  }
-  
-  if (albedo_count > 0)
-    mean_albedo /= albedo_count;
-  else
-    mean_albedo = 0.0; // Or some other sensible default
-    
-  return mean_albedo;
-}
-
 int main(int argc, char* argv[]) {
 
   Stopwatch sw_total;
@@ -1316,10 +1278,10 @@ int main(int argc, char* argv[]) {
     vw_out() << "DEM grid in x and y in meters: " << gridx << ' ' << gridy << "\n";
 
     // Find the max DEM height
-    double max_dem_height = findMaxDemHeight(opt.model_shadows, dem);
+    double max_dem_height = asp::maxDemHeight(dem);
 
     // Find the mean albedo
-    double mean_albedo = findMeanAlbedo(dem, albedo, dem_nodata_val);
+    double mean_albedo = asp::meanAlbedo(dem, albedo, dem_nodata_val);
 
     // Declare two vectors for skipped and used images
     std::vector<std::string> skipped_images;
@@ -1327,7 +1289,7 @@ int main(int argc, char* argv[]) {
     // reserve the proper size, cannot be more than the number of images
     skipped_images.reserve(num_images);
     used_images.reserve(num_images);
-    bool blend_weight_is_ground_weight = false;
+    bool blend_weight_is_ground_weight = false; // will change later
 
     // Assume that haze is 0 to start with. Find the exposure as
     // mean(intensity)/mean(reflectance)/albedo. Use this to compute an
@@ -1335,7 +1297,6 @@ int main(int argc, char* argv[]) {
     // skip. If the user provided initial exposures and haze, use those, but
     // still go through the motions to find the images to skip.
     // See the intensity formula in calcIntensity().
-    // vw_out() << "Computing exposures.\n";
     // TODO(oalexan1): Modularize this
     std::vector<double> local_exposures_vec(num_images, 0), local_haze_vec(num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
@@ -1377,17 +1338,12 @@ int main(int argc, char* argv[]) {
 
         // append used image to used_images list
         used_images.push_back(opt.input_images[image_iter]);
-        //vw_out() << "Local DEM estimated exposure for image " << image_iter << ": "
-        //          << exposure << "\n";
       } else {
         // Skip images with bad exposure. Apparently there is no good
         // imagery in the area.
         opt.skip_images.insert(image_iter);
         // log out the skipped image path and the image_iter for it
-        vw_out() << "Skipped image "
-                 << image_iter
-                 << ": "
-                 << opt.input_images[image_iter]
+        vw_out() << "Skipped image " << image_iter << ": " << opt.input_images[image_iter]
                  << " with no data for this DEM.\n";
         // append skipped image to skipped_images list
         skipped_images.push_back(opt.input_images[image_iter]);
@@ -1434,8 +1390,7 @@ int main(int argc, char* argv[]) {
       // TODO(oalexan1): Think of this more
       if (opt.num_haze_coeffs > 0)
         asp::saveHaze(opt.out_prefix, opt.input_images, opt.image_haze_vec);
-      // all done
-      return 0;
+      return 0; // all done
     }
 
     // Need to compute the valid data image to be able to find the grid points always

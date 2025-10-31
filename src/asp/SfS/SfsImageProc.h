@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -42,10 +42,21 @@ typedef vw::ImageViewRef<vw::PixelMask<float>> MaskedImgRefT;
 typedef vw::ImageView<double> DoubleImgT;
 
 // Compute mean and standard deviation of two images. Do it where both are valid.
-void calcJointStats(vw::ImageView<vw::PixelMask<double>> const& I1, 
+void calcJointStats(vw::ImageView<vw::PixelMask<double>> const& I1,
                     vw::ImageView<vw::PixelMask<double>> const& I2,
                     double & mean1, double & std1,
                     double & mean2, double & std2);
+
+void maxImage(int cols, int rows,
+              std::set<int> const& skip_images,
+              std::vector<vw::ImageView<double>> const& images,
+              vw::ImageView<double> & max_image);
+
+// Find the per-pixel maximum of a set of masked images
+void maxImage(int cols, int rows,
+              std::set<int> const& skip_images,
+              std::vector<vw::ImageView<vw::PixelMask<double>>> const& meas_intensities,
+              vw::ImageView<double> & max_intensity);
 
 // See the .cc file for the documentation.
 void adjustBorderlineDataWeights(int cols, int rows,
@@ -54,8 +65,8 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                  vw::cartography::GeoReference const& geo,
                                  std::set<int> const& skip_images,
                                  std::string const& out_prefix, // for debug data
-                                 std::vector<std::string> const& input_images, 
-                                 std::vector<std::string> const& input_cameras, 
+                                 std::vector<std::string> const& input_images,
+                                 std::vector<std::string> const& input_cameras,
                                  std::vector<vw::ImageView<double>> & ground_weights);
 
 // Saves the ground weight images
@@ -87,7 +98,7 @@ vw::ImageView<double> blendingWeights(MaskedImgRefT const& img,
                                       double blending_dist,
                                       double blending_power,
                                       int min_blend_size);
-  
+
 // Find the points on a given DEM that are shadowed by other points of
 // the DEM.  Start marching from the point on the DEM on a ray towards
 // the sun in small increments, until hitting the maximum DEM height.
@@ -100,7 +111,7 @@ void areInShadow(vw::Vector3 const& sunPos, vw::ImageView<double> const& dem,
                  double gridx, double gridy,
                  vw::cartography::GeoReference const& geo,
                  vw::ImageView<float> & shadow);
-  
+
 // Prototype code to identify permanently shadowed areas
 // and deepen the craters there. Needs to be integrated
 // and tested with various shapes of the deepened crater.
@@ -110,12 +121,20 @@ void deepenCraters(std::string const& dem_file,
                    std::string const& max_img_file,
                    std::string const& grass_file,
                    std::string const& out_dem_file);
-  
+
 // Sample large DEMs. Keep about num_samples row and column samples.
 void calcSampleRates(vw::ImageViewRef<double> const& dem, int num_samples,
                      int & sample_col_rate, int & sample_row_rate);
 
-// Compute a full-resolution image by specific interpolation into a low-resolution 
+// TODO(oalexan1): The albedo must have its own no-data value.
+// Must check the albedo has everywhere valid values.
+double meanAlbedo(vw::ImageView<double> const& dem,
+                  vw::ImageView<double> const& albedo,
+                  double dem_nodata_val);
+
+double maxDemHeight(vw::ImageView<double> const& dem);
+
+// Compute a full-resolution image by specific interpolation into a low-resolution
 // one. The full-res image may not fit in memory, so we need to compute it in tiles.
 // See computeReflectanceAndIntensity() for low-res vs full-res relationship.
 class SfsInterpView: public vw::ImageViewBase<SfsInterpView> {
@@ -128,7 +147,7 @@ public:
   SfsInterpView(int full_res_cols, int full_res_rows,
                 int sample_col_rate, int sample_row_rate,
                 vw::ImageView<float> const& lowres_img);
-  
+
   typedef PixelT pixel_type;
   typedef PixelT result_type;
   typedef vw::ProceduralPixelAccessor<SfsInterpView> pixel_accessor;

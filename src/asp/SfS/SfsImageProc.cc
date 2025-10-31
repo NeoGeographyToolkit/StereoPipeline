@@ -113,6 +113,77 @@ void maxImage(int cols, int rows,
   return;
 }
 
+// Max image function, but with masked pixels
+void maxImage(int cols, int rows,
+              std::set<int> const& skip_images,
+              std::vector<vw::ImageView<PixelMask<double>>> const& images,
+              vw::ImageView<double> & max_image) {
+
+  int num_images = images.size();
+
+  max_image.set_size(cols, rows);
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+
+      // Initialize to 0
+      max_image(col, row) = 0.0;
+
+      // Iterate over images, except the skipped ones
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+
+        if (skip_images.find(image_iter) != skip_images.end())
+          continue;
+
+        // Skip if meas intensity is invalid
+        if (!is_valid(images[image_iter](col, row)))
+          continue;
+
+        double inten = images[image_iter](col, row).child();
+        if (inten > max_image(col, row))
+          max_image(col, row) = inten;
+      }
+    }
+  }
+}
+
+double maxDemHeight(vw::ImageView<double> const& dem) {
+
+  double max_dem_height = -std::numeric_limits<double>::max();
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (dem(col, row) > max_dem_height) {
+        max_dem_height = dem(col, row);
+      }
+    }
+  }
+
+  return max_dem_height;
+}
+
+// TODO(oalexan1): The albedo must have its own no-data value.
+// Must check the albedo has everywhere valid values.
+double meanAlbedo(vw::ImageView<double> const& dem,
+                  vw::ImageView<double> const& albedo,
+                  double dem_nodata_val) {
+
+  double mean_albedo = 0.0, albedo_count = 0.0;
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (dem(col, row) != dem_nodata_val) {
+        mean_albedo += albedo(col, row);
+        albedo_count += 1.0;
+      }
+    }
+  }
+
+  if (albedo_count > 0)
+    mean_albedo /= albedo_count;
+  else
+    mean_albedo = 0.0; // Or some other sensible default
+
+  return mean_albedo;
+}
+
 // Given an image with float pixels, find the pixels where the image
 // value is non-positive but some of its neighbors have positive
 // values. Create an image which has the value 1 at such pixels and
@@ -268,7 +339,7 @@ void saveGroundWeights(std::set<int> const& skip_images,
 
   int num_images = input_images.size();
   float img_nodata_val = -std::numeric_limits<float>::max(); // part of api
-  
+
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
     if (skip_images.find(image_iter) != skip_images.end())
@@ -314,7 +385,7 @@ void adjustBorderlineDataWeights(int cols, int rows,
   // Find the max per-pixel weight
   ImageView<double> max_weight;
   maxImage(cols, rows, skip_images, ground_weights,
-           max_weight);
+           max_weight); // output
 
   // Find a weight which is 1 at the max-lit/unlit interface and decaying linearly
   // to 0.
@@ -783,49 +854,33 @@ void handleBorderlineAndLowLight(SfsOptions & opt,
     asp::updateMasksWeights(opt, num_images, crop_boxes, ground_weights,
                             img_nodata_val, masked_images, blend_weights);
 
-    // Handle --low-light-threshold option. 
-    // TODO(oalexan1): This must be a function.
+    // Handle --low-light-threshold option.
     if (opt.low_light_threshold > 0.0) {
-      
-      // Find the max meas image.
-      // TODO(oalexan1): Must be a function
-      vw::ImageView<double> max_intensity(dem.cols(), dem.rows());
-      for (int col = 0; col < dem.cols(); col++) {
-        for (int row = 0; row < dem.rows(); row++) {
-          
-          // Initialize to 0
-          max_intensity(col, row) = 0.0;          
-          
-          // Iterate over images, except the skipped ones
-          for (int image_iter = 0; image_iter < num_images; image_iter++) {
-            
-            if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
-              continue;
-            
-            // Skip if meas intensity is invalid
-            if (!is_valid(meas_intensities[image_iter](col, row)))
-              continue;
 
-            double inten = meas_intensities[image_iter](col, row).child();
-            if (inten > max_intensity(col, row))
-              max_intensity(col, row) = inten;
-          }
-        }
-      }
-      
+      // TODO(oalexan1): This must be a function.
+      // beg
+      // Pixels in low-light are given less weight if at the same location
+      // there exist pixels in other images with stronger light. This if a fix
+      // for seams. Must be used only in clips known to have seams.
+
+      // Find the max meas image
+      vw::ImageView<double> max_intensity;
+      maxImage(dem.cols(), dem.rows(), opt.skip_images, meas_intensities,
+               max_intensity); // output
+
       std::vector<ImageView<double>> adj_weights(num_images);
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
-        
-        if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
+
+        if (opt.skip_images.find(image_iter) != opt.skip_images.end())
           continue;
-        
+
         adj_weights[image_iter].set_size(dem.cols(), dem.rows());
         for (int col = 0; col < adj_weights[image_iter].cols(); col++) {
           for (int row = 0; row < adj_weights[image_iter].rows(); row++) {
-      
+
             // Initalize these to 1, except for skipped images
             adj_weights[image_iter](col, row) = 1.0;
-            
+
             // Find the curr intensity
             double curr_intensity = meas_intensities[image_iter](col, row).child();
 
@@ -835,38 +890,38 @@ void handleBorderlineAndLowLight(SfsOptions & opt,
               adj_weights[image_iter](col, row) = 0.0;
               continue;
             }
-            
+
             // Skip if meas intensity is above the low light threshold
             if (curr_intensity > opt.low_light_threshold)
               continue;
-            
+
             // Skip if curr intensity equals max intensity,
             // to respect --adjust-borderline-data)
             if (curr_intensity >= max_intensity(col, row))
               continue;
-              
+
             double th = opt.shadow_threshold_vec[image_iter];
-            
+
             double ratio = (curr_intensity - th) / (opt.low_light_threshold - th);
             // Must be non-negative here
             ratio = std::max(0.0, ratio);
-              
+
             // TODO(oalexan1): Raise here to what power?
             adj_weights[image_iter](col, row) = ratio * ratio;
           }
         }
       }
-      
+
       // Saves the ground weight images
       if (!opt.save_sparingly)
         asp::saveGroundWeights(opt.skip_images, opt.out_prefix,
                                opt.input_images, opt.input_cameras,
                                adj_weights, geo,
                                vw::GdalWriteOptions(opt));
-      
+
       // Adjust the blending weights by multiplying them with the adj weights
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
-        if (opt.skip_images.find(image_iter) != opt.skip_images.end()) 
+        if (opt.skip_images.find(image_iter) != opt.skip_images.end())
           continue;
         for (int col = 0; col < blend_weights[image_iter].cols(); col++) {
           for (int row = 0; row < blend_weights[image_iter].rows(); row++) {
