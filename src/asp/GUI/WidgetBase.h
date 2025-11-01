@@ -26,6 +26,7 @@
 
 // ASP
 #include <asp/GUI/GuiUtilities.h>
+#include <asp/GUI/AppData.h>
 
 // Vision Workbench
 #include <vw/Math/BBox.h>
@@ -47,6 +48,7 @@ public:
   // Constructors/Destructor
   WidgetBase(int beg_image_id, int end_image_id,
              int base_image_id,
+             asp::AppData & data,
              bool use_georef,
              std::vector<imageData> & images,
              std::vector<vw::cartography::GeoTransform> & world2image_trans,
@@ -95,6 +97,9 @@ public:
   
   // If georeference info is used in overlaying
   bool m_use_georef;
+
+  // A reference to the shared application data
+  asp::AppData & m_data;
 
   // Convert from world coordinates to projected coordinates in given geospatial
   // projection, and vice versa

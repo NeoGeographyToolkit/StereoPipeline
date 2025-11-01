@@ -40,6 +40,7 @@ const int BASE_IMAGE_ID = 0;
 
 struct AppData {
 
+    AppData();
     AppData(vw::GdalWriteOptions const& opt, 
             bool use_georef,
             std::vector<std::map<std::string, std::string>> const& properties,

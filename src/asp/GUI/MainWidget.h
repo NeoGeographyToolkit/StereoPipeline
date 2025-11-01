@@ -89,6 +89,7 @@ namespace vw { namespace gui {
     MainWidget(QWidget *parent,
                vw::GdalWriteOptions const& opt,
                int beg_image_id, int end_image_id, int base_image_id,
+               asp::AppData & data,
                std::vector<imageData> & images, // will be aliased
                std::vector<vw::cartography::GeoTransform> & world2image_trans,
                std::vector<vw::cartography::GeoTransform> & image2world_trans,

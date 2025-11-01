@@ -503,12 +503,13 @@ public:
 };
 
 ColorAxes::ColorAxes(QWidget *parent,
-  int beg_image_id, int end_image_id, int base_image_id, bool use_georef,
+  int beg_image_id, int end_image_id, int base_image_id, 
+  asp::AppData & data, bool use_georef,
   std::vector<imageData> & images,
   std::vector<vw::cartography::GeoTransform> & world2image_trans,
   std::vector<vw::cartography::GeoTransform> & image2world_trans):
     QwtPlot(parent),
-    WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images,
+    WidgetBase(beg_image_id, end_image_id, base_image_id, data, use_georef, images,
                world2image_trans, image2world_trans) {
 
   int num_images = m_images.size();
@@ -540,15 +541,15 @@ ColorAxes::ColorAxes(QWidget *parent,
   }
 
   findSpatialBounds(m_images[m_beg_image_id], m_min_x, m_min_y, m_max_x, m_max_y);
-  ColorAxesData * data = new ColorAxesData(m_images[m_beg_image_id], m_min_x, m_min_y,
+  ColorAxesData * cdata = new ColorAxesData(m_images[m_beg_image_id], m_min_x, m_min_y,
                                            m_max_x, m_max_y);
 
   // Have to pass the data twice, because the second such statement
   // does not know about the precise implementation and extra
   // functions of this class. But it is the second statement
   // which will manage the memory.
-  m_plotter = new ColorAxesPlotter(data);
-  m_plotter->setData(data);
+  m_plotter = new ColorAxesPlotter(cdata);
+  m_plotter->setData(cdata);
 
   // Use system specific thread count
   m_plotter->setRenderThreadCount(0);

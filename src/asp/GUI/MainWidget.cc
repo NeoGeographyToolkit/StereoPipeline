@@ -51,6 +51,7 @@ namespace vw { namespace gui {
 MainWidget::MainWidget(QWidget *parent,
                        vw::GdalWriteOptions const& opt,
                        int beg_image_id, int end_image_id, int base_image_id,
+                       asp::AppData & data, // alias
                        std::vector<imageData> & images, // will be aliased
                        std::vector<vw::cartography::GeoTransform> & world2image_trans,
                        std::vector<vw::cartography::GeoTransform> & image2world_trans,
@@ -62,7 +63,7 @@ MainWidget::MainWidget(QWidget *parent,
                        chooseFilesDlg * chooseFiles, bool use_georef,
                        bool & allowMultipleSelections):
     QwtScaleWidget(parent),
-    WidgetBase(beg_image_id, end_image_id, base_image_id, use_georef, images,
+    WidgetBase(beg_image_id, end_image_id, base_image_id, data, use_georef, images,
                world2image_trans, image2world_trans),
     m_opt(opt), m_chooseFiles(chooseFiles),
     m_output_prefix(output_prefix), // alias

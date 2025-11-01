@@ -142,25 +142,32 @@ void lookupPropertyIndices(std::vector<std::map<std::string, std::string>> const
   
 }
 
-void filterImages(std::vector<std::string> const& input_files,
-                  std::vector<std::string>      & image_files) {
-  image_files.clear();
-  for (size_t i = 0; i < input_files.size(); i++) {
+// Keep only image files, shape files, and csv files
+void filterImages(std::vector<std::string> & image_files) {
+
+  // Form a local copy
+  std::vector<std::string> local_files;
+ 
+  local_files.clear();
+  for (size_t i = 0; i < image_files.size(); i++) {
     bool is_image = true;
     try {
-      vw::DiskImageView<double> img(input_files[i]);
+      vw::DiskImageView<double> img(image_files[i]);
     } catch(...) {
       is_image = false;
     }
     
     // Accept shape files and csv files alongside images
     if (!is_image &&
-        !vw::has_shp_extension(input_files[i]) &&
-        !vw::gui::hasCsv(input_files[i]))
+        !vw::has_shp_extension(image_files[i]) &&
+        !vw::gui::hasCsv(image_files[i]))
       continue;
 
-    image_files.push_back(input_files[i]);
+    local_files.push_back(image_files[i]);
   }
+  
+  // Overwrite the input files
+  image_files = local_files;
 }
 
 // Remove option and vals

@@ -27,6 +27,10 @@
 
 namespace asp {
 
+// Empty constructor
+AppData::AppData(): m_use_georef(false),
+                    m_display_mode(vw::gui::REGULAR_VIEW) {}
+                     
 // Set up the gui data
 AppData::AppData(vw::GdalWriteOptions const& opt,
                  bool use_georef,

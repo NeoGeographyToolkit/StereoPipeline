@@ -226,6 +226,8 @@ namespace vw { namespace gui {
     bool m_show_two_images_when_side_by_side_with_dialog;
     
     bool m_saved_gcp_and_ip;
+
+  asp::AppData m_data;
   };
 
 }} // namespace vw::gui

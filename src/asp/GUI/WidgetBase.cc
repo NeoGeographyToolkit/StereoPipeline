@@ -27,13 +27,15 @@ namespace vw { namespace cartography {
 namespace vw { namespace gui {
 
 WidgetBase::WidgetBase(int beg_image_id, int end_image_id,
-             int base_image_id,
-             bool use_georef,
-             std::vector<imageData> & images,
-             std::vector<vw::cartography::GeoTransform> & world2image_trans,
-             std::vector<vw::cartography::GeoTransform> & image2world_trans):
+                       int base_image_id,
+                       asp::AppData & data,
+                       bool use_georef,
+                       std::vector<imageData> & images,
+                       std::vector<vw::cartography::GeoTransform> & world2image_trans,
+                       std::vector<vw::cartography::GeoTransform> & image2world_trans):
     m_beg_image_id(beg_image_id),
     m_end_image_id(end_image_id),
+    m_data(data),
     m_base_image_id(base_image_id), 
     m_use_georef(use_georef),
     m_images(images),

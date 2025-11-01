@@ -239,7 +239,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   this->setWindowTitle(window_title.c_str());
 
   // The images and other data
-  std::vector<std::string> local_images = images;
+  std::vector<std::string> local_images = images; // may change later
   std::vector<Eigen::Affine3d> world_to_cam;
   std::map<std::string, Eigen::Vector2d> optical_offsets;
 
@@ -295,7 +295,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   }
   
   // Collect only the valid images
-  asp::filterImages(local_images, m_image_files);
+  asp::filterImages(local_images);
 
   if (m_image_files.empty()) {
     popUp("No input images.");
@@ -304,7 +304,8 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
 
   // The code from here on is duplicated in AppData
   
-  m_display_mode = asp::stereo_settings().hillshade ? HILLSHADED_VIEW : REGULAR_VIEW;
+  m_image_files = local_images;
+  m_display_mode = asp::stereo_settings().hillshade?HILLSHADED_VIEW:REGULAR_VIEW;
 
   if (!stereo_settings().zoom_proj_win.empty())
     m_use_georef = true;
@@ -360,6 +361,9 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     }
   }
 
+  // All the data is stored and shared via with object
+  m_data = asp::AppData(opt, use_georef, properties, local_images);
+  
   // Ensure the inputs are reasonable
   if (!MainWindow::sanityChecks(num_images))
     forceQuit();
@@ -494,7 +498,7 @@ void MainWindow::createLayout() {
     MainWidget * widget = new MainWidget(centralWidget,
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID,
-                                m_images, m_world2image_trans,
+                                m_data, m_images, m_world2image_trans,
                                 m_image2world_trans,
                                 m_output_prefix,
                                 m_matchlist,
@@ -526,7 +530,7 @@ void MainWindow::createLayout() {
         widget = new MainWidget(centralWidget,
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID, 
-                                m_images, m_world2image_trans,
+                                m_data, m_images, m_world2image_trans,
                                 m_image2world_trans,
                                 m_output_prefix,
                                 m_matchlist, m_pairwiseMatches, m_pairwiseCleanMatches,
@@ -539,7 +543,7 @@ void MainWindow::createLayout() {
         // TODO(oalexan1): Must integrate the two approaches.
         widget = new ColorAxes(this, 
                                beg_image_id, end_image_id, BASE_IMAGE_ID, 
-                               m_use_georef, m_images, m_world2image_trans,
+                               m_data, m_use_georef, m_images, m_world2image_trans,
                                m_image2world_trans);
       }
       m_widgets.push_back(widget);

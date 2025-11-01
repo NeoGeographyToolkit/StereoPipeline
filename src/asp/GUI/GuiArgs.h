@@ -56,9 +56,8 @@ void lookupPropertyIndices(std::vector<std::map<std::string, std::string>> const
                            std::vector<std::string> const& images,
                            std::vector<int> & propertyIndices);
 
-// Filter the input files, keeping only the valid images, shape files, and csv files.
-void filterImages(std::vector<std::string> const& input_files,
-                  std::vector<std::string>      & image_files);
+// Filter the input files, keeping only the valid images, shape files, and csv files
+void filterImages(std::vector<std::string> & image_files);
 
 // Remove option and vals
 void rmOptionVals(int argc, char ** argv, std::string const& opt, int num_vals);
