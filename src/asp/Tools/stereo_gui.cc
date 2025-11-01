@@ -25,6 +25,7 @@
 #include <asp/Core/DemDisparity.h>
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/GuiUtilities.h>
+#include <asp/GUI/GuiArgs.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspProgramOptions.h>
 
@@ -138,90 +139,7 @@ public:
 };
 
 
-// Given an input string as:
-//
-// stereo_gui --style line --color red --colormap-style inferno file1.txt --color green file2.txt
-//
-// extract each style, color, and colormap. Any of these apply for any following
-// files, till modified by another such option. The default style and color
-// are "default". Later, these will be either read from the files
-// themselves, or otherwise set to "line" and "green". Then modify the
-// args to remove these options, as the boost parser cannot parse
-// repeated options.
-// TODO(oalexan1): If the same file is repeated, the book-keeping will fail.
-void preprocessArgs(int &argc, char** argv,
-                    std::vector<std::map<std::string, std::string>> & properties) {
 
-  std::string curr_style = "default", curr_color = "default", curr_colormap = "binary-red-blue",
-    colorbar = "0";
-  int out_it = 1;
-  // One set of properties for each argument. That to make sure that a filename
-  // can show up twice with different properties
-  properties.resize(argc);
-  for (int it = 1; it < argc; it++) { // skip program name, so start from 1
-
-    // TODO(oalexan1): Add support for --no-colorize, and make this and --colorize
-    // to be able to apply to all subsequent images.
-    
-    if (std::string(argv[it]) == "--style") {
-      if (it == argc - 1)
-        continue; // There is nothing else
-
-      it++;
-      curr_style = argv[it]; // copy the style value, and move past it
-      continue;
-    }
-
-    if (std::string(argv[it]) == "--color") {
-      if (it == argc - 1)
-        continue; // There is nothing else
-
-      it++;
-      curr_color = argv[it]; // copy the color value, and move past it
-      continue;
-    }
-
-    if (std::string(argv[it]) == "--colormap-style") {
-      if (it == argc - 1)
-        continue; // There is nothing else
-
-      it++;
-      curr_colormap = argv[it]; // copy the color value, and move past it
-      continue;
-    }
-
-    // This is an option with no value
-    if (std::string(argv[it]) == "--colorbar") {
-      colorbar = "1";
-      continue;
-    }
-
-    // This is an option with no value
-    if (std::string(argv[it]) == "--no-colorbar") {
-      colorbar = "0";
-      continue;
-    }
-
-    // If this argument does not start with a dash, so is not an
-    // option, assign to it the properties so far
-    if (argv[it][0] != '-') {
-      properties[it]["name"] = argv[it];
-      properties[it]["style"] = curr_style;  
-      properties[it]["color"] = curr_color;
-      properties[it]["colormap"] = curr_colormap;
-      properties[it]["colorbar"] = colorbar;
-    }
-    
-    // Shift arguments left, which will wipe what we processed above
-    argv[out_it] = argv[it]; // this copies pointer addresses
-    out_it++; 
-  }
-
-  // Update the number of remaining arguments
-  argc = out_it;
-
-  return;
-}
 
 void readImageNames(std::vector<std::string> const& all_files,
                     std::vector<std::string> & images,
