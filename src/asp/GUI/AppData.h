@@ -38,11 +38,16 @@ namespace asp { // User requested namespace 'asp'
 // See MainWidget.h for what this id does
 const int BASE_IMAGE_ID = 0;
 
-class AppData {
-public:
-    AppData(const std::vector<std::string>& image_files);
+struct AppData {
 
-private:
+    AppData(vw::GdalWriteOptions const& opt, 
+            bool use_georef,
+            std::vector<std::map<std::string, std::string>> const& properties,
+            std::vector<std::string>const& image_files);
+    
+    vw::GdalWriteOptions                       m_opt;
+    bool                                       m_use_georef;
+    vw::gui::DisplayMode                       m_display_mode;
     std::vector<std::string>                   m_image_files;
     std::vector<vw::gui::imageData>            m_images;
     std::vector<vw::cartography::GeoTransform> m_world2image_trans;

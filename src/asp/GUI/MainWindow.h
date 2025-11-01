@@ -23,6 +23,7 @@
 
 #include <asp/Core/MatchList.h>
 #include <asp/GUI/GuiUtilities.h>
+#include <asp/GUI/AppData.h>
 
 #include <vw/Math/Vector.h>
 #include <vw/InterestPoint/InterestData.h>
@@ -58,7 +59,7 @@ namespace vw { namespace gui {
                int grid_cols,
                vw::Vector2i const& window_size, bool single_window,
                bool use_georef,
-               std::vector<std::map<std::string, std::string>> & properties,
+               std::vector<std::map<std::string, std::string>> const& properties,
                int argc, char ** argv);
     virtual ~MainWindow() {}
 

@@ -219,7 +219,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
                        vw::Vector2i const& window_size,
                        bool single_window,
                        bool use_georef,
-                       std::vector<std::map<std::string, std::string>> & properties,
+                       std::vector<std::map<std::string, std::string>> const& properties,
                        int argc,  char ** argv):
   m_opt(opt),
   m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
@@ -231,11 +231,6 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   m_cursor_count(0), m_cnet("ASP_control_network"),
   m_saved_gcp_and_ip(true) {
 
-  m_display_mode = asp::stereo_settings().hillshade ? HILLSHADED_VIEW : REGULAR_VIEW;
-
-  if (!stereo_settings().zoom_proj_win.empty())
-    m_use_georef = true;
-  
   // Window size
   resize(window_size[0], window_size[1]);
 
@@ -286,6 +281,19 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     }
   }
   
+  // Set the default lowest resolution subimage size. Use a shorthand below.
+  // Must happen before images are loaded.
+  int & lowres_size = asp::stereo_settings().lowest_resolution_subimage_num_pixels;
+  bool delay = asp::stereo_settings().preview;
+  if (lowres_size <= 0) {
+    if (delay) {
+      // To avoid creating many small subimages. But then the displaying is slow.
+      lowres_size = 8000 * 8000; 
+    } else {
+      lowres_size = 1000 * 1000;
+    }
+  }
+  
   // Collect only the valid images
   asp::filterImages(local_images, m_image_files);
 
@@ -294,21 +302,12 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     exit(1);
   }
 
-  // Set the default lowest resolution subimage size. Use a shorthand below.
-  // Must happen before images are loaded.
-  int & lowres_size = asp::stereo_settings().lowest_resolution_subimage_num_pixels;
-  bool delay = asp::stereo_settings().preview;
-  // !asp::stereo_settings().nvm.empty() ||
-  // !asp::stereo_settings().isis_cnet.empty() ||
-               
-  if (lowres_size <= 0) {
-    if (delay) {
-      // to avoid creating many small subimages. But then the displaying is slow.
-      lowres_size = 10000 * 10000; 
-    } else {
-      lowres_size = 1000 * 1000;
-    }
-  }
+  // The code from here on is duplicated in AppData
+  
+  m_display_mode = asp::stereo_settings().hillshade ? HILLSHADED_VIEW : REGULAR_VIEW;
+
+  if (!stereo_settings().zoom_proj_win.empty())
+    m_use_georef = true;
   
   size_t num_images = m_image_files.size();
   m_images.resize(num_images);
@@ -341,7 +340,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     m_use_georef = false;
   
   // If the user explicitly asked to not use georef, do not use it on startup
-  if (stereo_settings().no_georef) {
+  if (asp::stereo_settings().no_georef) {
     m_use_georef = false; 
     // Further control of georef is from the gui menu
     asp::stereo_settings().no_georef = false; 
@@ -625,18 +624,18 @@ void MainWindow::createLayout() {
                                                   (m_view_type == VIEW_IN_SINGLE_WINDOW));
   m_zoomAllToSameRegion_action->setChecked(asp::stereo_settings().zoom_all_to_same_region);
 
-  if (m_widgets.size() == 2                             &&
+  if (m_widgets.size() == 2                   &&
       num_images == 2                         &&
-      stereo_settings().left_image_crop_win  != BBox2() &&
-      stereo_settings().right_image_crop_win != BBox2()) {
+      asp::stereo_settings().left_image_crop_win  != BBox2() &&
+      asp::stereo_settings().right_image_crop_win != BBox2()) {
     // Draw crop windows passed as arguments
     if (mw(m_widgets[0]))
       mw(m_widgets[0])->setCropWin(stereo_settings().left_image_crop_win);
     if (mw(m_widgets[1]))
       mw(m_widgets[1])->setCropWin(stereo_settings().right_image_crop_win);
     // Do this just once, on startup
-    stereo_settings().left_image_crop_win  = BBox2();
-    stereo_settings().right_image_crop_win = BBox2();
+    asp::stereo_settings().left_image_crop_win  = BBox2();
+    asp::stereo_settings().right_image_crop_win = BBox2();
   }
   
   if (asp::stereo_settings().zoom_all_to_same_region) {
