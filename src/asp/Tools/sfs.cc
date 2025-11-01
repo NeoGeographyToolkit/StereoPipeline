@@ -727,7 +727,7 @@ void run_sfs(// Fixed quantities
              float                              img_nodata_val,
              std::vector<BBox2i>        const & crop_boxes,
              std::vector<MaskedImgRefT>    const & masked_images,
-             std::vector<DoubleImgT>    const & blend_weights,
+             std::vector<DblImgT>    const & blend_weights,
              bool                               blend_weight_is_ground_weight,
              asp::ReflParams            const & refl_params,
              std::vector<vw::Vector3>   const & sunPosition,
@@ -1308,7 +1308,7 @@ int main(int argc, char* argv[]) {
       int sample_col_rate = 0, sample_row_rate = 0;
       asp::calcSampleRates(dem, opt.num_samples_for_estim, sample_col_rate, sample_row_rate);
 
-      vw::ImageView<PixelMask<double>> reflectance, intensity;
+      MaskedDblImgT reflectance, intensity;
       vw::ImageView<double> ground_weight;
       vw::ImageView<Vector2> pq; // no need for these just for initialization
 
@@ -1410,7 +1410,8 @@ int main(int argc, char* argv[]) {
     // of weights in the camera image space. These are balanced among each other and give more
     // weight to barely lit and unlit nearby pixels.
     std::vector<ImageView<double>> ground_weights(num_images);
-    std::vector<vw::ImageView<PixelMask<double>>> meas_intensities(num_images);
+    std::vector<MaskedDblImgT> meas_intensities(num_images);
+    std::vector<MaskedDblImgT> comp_intensities(num_images);
 
     // Note that below we may use the exposures computed at the previous step
     // TODO(oalexan1): This block must be a function.
@@ -1418,7 +1419,7 @@ int main(int argc, char* argv[]) {
         opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0 ||
         opt.allow_borderline_data || opt.low_light_threshold > 0.0) {
       // Save the computed and actual intensity, and for most of these quit
-      vw::ImageView<PixelMask<double>> reflectance, meas_intensity, comp_intensity;
+      MaskedDblImgT reflectance, meas_intensity, comp_intensity;
       vw::ImageView<double> ground_weight;
       vw::ImageView<Vector2> pq; // no need for these just for initialization
       int sample_col_rate = 1, sample_row_rate = 1;
@@ -1459,13 +1460,6 @@ int main(int argc, char* argv[]) {
                                        &opt.model_coeffs_vec[0], opt,
                                        heightErrEstim.get());
 
-        if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
-            (opt.allow_borderline_data || opt.low_light_threshold > 0.0))
-          ground_weights[image_iter] = copy(ground_weight); // save the weight
-        if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
-            opt.low_light_threshold > 0.0)
-          meas_intensities[image_iter] = copy(meas_intensity); // save the intensity
-
         // Find the computed intensity.
         // TODO(oalexan1): Should one mark the no-data values rather than setting
         // them to 0?
@@ -1480,6 +1474,17 @@ int main(int argc, char* argv[]) {
                                                      &opt.image_haze_vec[image_iter][0],
                                                      opt.num_haze_coeffs);
           }
+        }
+      
+        // Save some quantities if needed
+        if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
+            (opt.allow_borderline_data || opt.low_light_threshold > 0.0))
+          ground_weights[image_iter] = copy(ground_weight); // save the weight
+        if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
+            opt.low_light_threshold > 0.0) {
+          // Save the measured and computed intensities
+          meas_intensities[image_iter] = copy(meas_intensity);
+          comp_intensities[image_iter] = copy(comp_intensity);
         }
 
         if (opt.curvature_in_shadow_weight > 0.0) {
@@ -1576,7 +1581,8 @@ int main(int argc, char* argv[]) {
 
     if (opt.allow_borderline_data)
       asp::handleBorderlineAndLowLight(opt, num_images, dem, geo, crop_boxes,
-                                       meas_intensities, img_nodata_val,
+                                       meas_intensities, comp_intensities,
+                                       img_nodata_val,
                                        // Outputs
                                        masked_images, blend_weights,
                                        blend_weight_is_ground_weight,

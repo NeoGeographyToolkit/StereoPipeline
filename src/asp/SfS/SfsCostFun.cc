@@ -51,7 +51,7 @@ SfsCallback(asp::SfsOptions const& opt,
             std::vector<vw::Vector3> const& sunPosition,
             std::vector<vw::BBox2i> const& crop_boxes,
             std::vector<asp::MaskedImgRefT> const& masked_images,
-            std::vector<asp::DoubleImgT> const& blend_weights,
+            std::vector<asp::DblImgT> const& blend_weights,
             bool blend_weight_is_ground_weight,
             std::vector<vw::CamPtr>& cameras,
             double& dem_nodata_val, float& img_nodata_val,
@@ -135,7 +135,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     if (opt.skip_images.find(image_iter) != opt.skip_images.end())
       continue;
 
-    vw::ImageView<vw::PixelMask<double>> reflectance, intensity, comp_intensity;
+    MaskedDblImgT reflectance, intensity, comp_intensity;
     vw::ImageView<double> ground_weight;
 
     std::string out_camera_file
@@ -294,7 +294,7 @@ calc_intensity_residual(SfsOptions const& opt,
                         vw::Vector3               const & sunPosition,   // alias
                         vw::BBox2i                            crop_box,
                         MaskedImgRefT                const & image,          // alias
-                        DoubleImgT                const & blend_weight,   // alias
+                        DblImgT                const & blend_weight,   // alias
                         bool                              blend_weight_is_ground_weight,
                         vw::CamPtr                const & camera,         // alias
                         F* residuals) {
@@ -364,7 +364,7 @@ struct IntensityError {
                  vw::Vector3 const& sunPosition,
                  vw::BBox2i const& crop_box,
                  MaskedImgRefT const& image,
-                 DoubleImgT const& blend_weight,
+                 DblImgT const& blend_weight,
                  bool blend_weight_is_ground_weight,
                  vw::CamPtr const& camera):
     m_opt(opt),
@@ -425,7 +425,7 @@ struct IntensityError {
                                      vw::Vector3 const& sunPosition,
                                      vw::BBox2i const& crop_box,
                                      MaskedImgRefT const& image,
-                                     DoubleImgT const& blend_weight,
+                                     DblImgT const& blend_weight,
                                      bool blend_weight_is_ground_weight,
                                      vw::CamPtr const& camera) {
     return (new ceres::NumericDiffCostFunction<IntensityError,
@@ -452,7 +452,7 @@ struct IntensityError {
   vw::Vector3                       const & m_sunPosition;    // alias
   vw::BBox2i                                m_crop_box;
   MaskedImgRefT                        const & m_image;          // alias
-  DoubleImgT                        const & m_blend_weight;   // alias
+  DblImgT                        const & m_blend_weight;   // alias
   bool                                      m_blend_weight_is_ground_weight;
   vw::CamPtr                        const & m_camera;         // alias
 };
@@ -476,7 +476,7 @@ struct IntensityErrorFloatDemOnly {
                              vw::Vector3 const& sunPosition,
                              vw::BBox2i const& crop_box,
                              MaskedImgRefT const& image,
-                             DoubleImgT const& blend_weight,
+                             DblImgT const& blend_weight,
                              bool blend_weight_is_ground_weight,
                              vw::CamPtr const& camera):
     m_opt(opt), m_col(col), m_row(row), m_dem(dem),
@@ -545,7 +545,7 @@ struct IntensityErrorFloatDemOnly {
                                      vw::Vector3 const& sunPosition,
                                      vw::BBox2i const& crop_box,
                                      MaskedImgRefT const& image,
-                                     DoubleImgT const& blend_weight,
+                                     DblImgT const& blend_weight,
                                      bool blend_weight_is_ground_weight,
                                      vw::CamPtr const& camera) {
     return (new ceres::NumericDiffCostFunction<IntensityErrorFloatDemOnly,
@@ -579,7 +579,7 @@ struct IntensityErrorFloatDemOnly {
   vw::Vector3               const & m_sunPosition;   // alias
   vw::BBox2i                            m_crop_box;
   MaskedImgRefT                const & m_image;          // alias
-  DoubleImgT                const & m_blend_weight;   // alias
+  DblImgT                const & m_blend_weight;   // alias
   bool                              m_blend_weight_is_ground_weight;
   vw::CamPtr                const & m_camera;         // alias
 }; // end class IntensityErrorFloatDemOnly
@@ -600,7 +600,7 @@ struct IntensityErrorPQ {
                    vw::Vector3 const& sunPosition,
                    vw::BBox2i const& crop_box,
                    MaskedImgRefT const& image,
-                   DoubleImgT const& blend_weight,
+                   DblImgT const& blend_weight,
                    bool blend_weight_is_ground_weight,
                    vw::CamPtr const& camera):
     m_opt(opt), m_col(col), m_row(row), m_dem(dem), m_geo(geo),
@@ -661,7 +661,7 @@ struct IntensityErrorPQ {
                                      vw::Vector3 const& sunPosition,
                                      vw::BBox2i const& crop_box,
                                      MaskedImgRefT const& image,
-                                     DoubleImgT const& blend_weight,
+                                     DblImgT const& blend_weight,
                                      bool blend_weight_is_ground_weight,
                                      vw::CamPtr const& camera) {
     return (new ceres::NumericDiffCostFunction<IntensityErrorPQ,
@@ -689,7 +689,7 @@ struct IntensityErrorPQ {
   vw::Vector3                   const & m_sunPosition;   // alias
   vw::BBox2i                            m_crop_box;
   MaskedImgRefT                    const & m_image;          // alias
-  DoubleImgT                    const & m_blend_weight;   // alias
+  DblImgT                    const & m_blend_weight;   // alias
   bool                                  m_blend_weight_is_ground_weight;
   vw::CamPtr                    const & m_camera;         // alias
 };
@@ -994,7 +994,7 @@ void sfsCostFun(// Fixed quantities
                 vw::cartography::GeoReference const & geo,
                 std::vector<vw::BBox2i>       const & crop_boxes,
                 std::vector<MaskedImgRefT>       const & masked_images,
-                std::vector<DoubleImgT>       const & blend_weights,
+                std::vector<DblImgT>       const & blend_weights,
                 asp::ReflParams               const & refl_params,
                 std::vector<vw::Vector3>      const & sunPosition,
                 vw::ImageView<double>         const & orig_dem,
@@ -1309,7 +1309,7 @@ void sfsCostFun(// Fixed quantities
 // only if --float-albedo is on. Otherwise it will be kept at the nominal value.
 void estimExposureHazeAlbedo(SfsOptions & opt,
                              std::vector<MaskedImgRefT> const& masked_images,
-                             std::vector<DoubleImgT> const& blend_weights,
+                             std::vector<DblImgT> const& blend_weights,
                              bool blend_weight_is_ground_weight,
                              vw::ImageView<double> const& dem,
                              double mean_albedo,
@@ -1332,7 +1332,7 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
   int num_images = opt.input_images.size();
   std::vector<double> local_exposures_vec(num_images, 0), local_haze_vec(num_images, 0);
 
-  std::vector<vw::ImageView<vw::PixelMask<double>>> reflectance(num_images), intensity(num_images);
+  std::vector<MaskedDblImgT> reflectance(num_images), intensity(num_images);
   int num_sampled_cols = 0, num_sampled_rows = 0;
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
 

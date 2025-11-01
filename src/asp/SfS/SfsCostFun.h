@@ -51,7 +51,7 @@ public:
               std::vector<vw::Vector3> const& sunPosition,
               std::vector<vw::BBox2i> const& crop_boxes, 
               std::vector<asp::MaskedImgRefT> const& masked_images,
-              std::vector<asp::DoubleImgT> const& blend_weights,
+              std::vector<asp::DblImgT> const& blend_weights,
               bool blend_weight_is_ground_weight,
               std::vector<vw::CamPtr>& cameras, 
               double& dem_nodata_val, float& img_nodata_val,
@@ -77,7 +77,7 @@ private:
   std::vector<vw::Vector3> const& sunPosition;
   std::vector<vw::BBox2i> const& crop_boxes;
   std::vector<asp::MaskedImgRefT> const& masked_images;
-  std::vector<asp::DoubleImgT> const& blend_weights;
+  std::vector<asp::DblImgT> const& blend_weights;
   bool blend_weight_is_ground_weight;
   std::vector<vw::CamPtr>& cameras;
   double& dem_nodata_val;
@@ -104,7 +104,7 @@ void sfsCostFun(// Fixed quantities
                 vw::cartography::GeoReference const & geo,
                 std::vector<vw::BBox2i>       const & crop_boxes,
                 std::vector<MaskedImgRefT>       const & masked_images,
-                std::vector<DoubleImgT>       const & blend_weights,
+                std::vector<DblImgT>       const & blend_weights,
                 asp::ReflParams               const & refl_params,
                 std::vector<vw::Vector3>      const & sunPosition,
                 vw::ImageView<double>         const & orig_dem,
@@ -127,7 +127,7 @@ void sfsCostFun(// Fixed quantities
 // TODO(oalexan1): Move this to SfsCostFun.cc.
 void estimExposureHazeAlbedo(SfsOptions & opt,
                              std::vector<MaskedImgRefT> const& masked_images,
-                             std::vector<DoubleImgT> const& blend_weights,
+                             std::vector<DblImgT> const& blend_weights,
                              bool blend_weight_is_ground_weight,
                              vw::ImageView<double> const& dem,
                              double mean_albedo,

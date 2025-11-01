@@ -39,11 +39,12 @@ namespace asp {
 class SfsOptions;
 
 typedef vw::ImageViewRef<vw::PixelMask<float>> MaskedImgRefT;
-typedef vw::ImageView<double> DoubleImgT;
+typedef vw::ImageView<vw::PixelMask<double>> MaskedDblImgT;
+typedef vw::ImageView<double> DblImgT;
 
 // Compute mean and standard deviation of two images. Do it where both are valid.
-void calcJointStats(vw::ImageView<vw::PixelMask<double>> const& I1,
-                    vw::ImageView<vw::PixelMask<double>> const& I2,
+void calcJointStats(MaskedDblImgT const& I1,
+                    MaskedDblImgT const& I2,
                     double & mean1, double & std1,
                     double & mean2, double & std2);
 
@@ -55,7 +56,7 @@ void maxImage(int cols, int rows,
 // Find the per-pixel maximum of a set of masked images
 void maxImage(int cols, int rows,
               std::set<int> const& skip_images,
-              std::vector<vw::ImageView<vw::PixelMask<double>>> const& meas_intensities,
+              std::vector<MaskedDblImgT> const& meas_intensities,
               vw::ImageView<double> & max_intensity);
 
 // See the .cc file for the documentation.
@@ -85,7 +86,8 @@ void handleBorderlineAndLowLight(SfsOptions & opt,
                                  vw::ImageView<double> const& dem,
                                  vw::cartography::GeoReference const& geo,
                                  std::vector<vw::BBox2i> const& crop_boxes,
-                                 std::vector<vw::ImageView<vw::PixelMask<double>>> const& meas_intensities,
+                                 std::vector<MaskedDblImgT> const& meas_intensities,
+                                 std::vector<MaskedDblImgT> const& comp_intensities,
                                  // Outputs
                                  float & img_nodata_val,
                                  std::vector<MaskedImgRefT> & masked_images,

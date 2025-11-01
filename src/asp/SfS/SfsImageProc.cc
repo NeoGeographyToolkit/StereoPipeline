@@ -43,8 +43,8 @@ using namespace vw;
 namespace asp {
 
 // Compute mean and standard deviation of two images. Do it where both are valid.
-void calcJointStats(vw::ImageView<vw::PixelMask<double>> const& I1,
-                    vw::ImageView<vw::PixelMask<double>> const& I2,
+void calcJointStats(MaskedDblImgT const& I1,
+                    MaskedDblImgT const& I2,
                     double & mean1, double & std1,
                     double & mean2, double & std2) {
 
@@ -116,7 +116,7 @@ void maxImage(int cols, int rows,
 // Max image function, but with masked pixels
 void maxImage(int cols, int rows,
               std::set<int> const& skip_images,
-              std::vector<vw::ImageView<PixelMask<double>>> const& images,
+              std::vector<MaskedDblImgT> const& images,
               vw::ImageView<double> & max_image) {
 
   int num_images = images.size();
@@ -823,7 +823,8 @@ void updateMasksWeights(SfsOptions const& opt,
 void handleLowLight(SfsOptions const& opt,
                     vw::ImageView<double> const& dem,
                     vw::cartography::GeoReference const& geo,
-                    std::vector<vw::ImageView<PixelMask<double>>> const& meas_intensities,
+                    std::vector<MaskedDblImgT> const& meas_intensities,
+                    std::vector<MaskedDblImgT> const& comp_intensities,
                     std::vector<vw::ImageView<double>> & blend_weights) {
 
   int num_images = meas_intensities.size();
@@ -832,6 +833,60 @@ void handleLowLight(SfsOptions const& opt,
   vw::ImageView<double> max_intensity;
   maxImage(dem.cols(), dem.rows(), opt.skip_images, meas_intensities,
             max_intensity); // output
+
+  // Find the abs diff (error) between meas and comp inten
+  std::vector<ImageView<double>> err(num_images);
+  
+  // Find the err for the max inten. Here it is assumed that a larger intensity
+  // has a lower error. Normally low intensity means high error, at least when
+  // seams show up.
+  ImageView<double> best_err(dem.cols(), dem.rows());
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      best_err(col, row) = 0.0;
+    }
+  }
+  
+  for (int image_iter = 0; image_iter < num_images; image_iter++) {
+
+    if (opt.skip_images.find(image_iter) != opt.skip_images.end())
+      continue;
+
+    err[image_iter].set_size(dem.cols(), dem.rows());
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
+
+        // Initalize these to 0, except for skipped images
+        err[image_iter](col, row) = 0.0;
+
+        // Find the meas and comp intensities
+        auto meas_intensity = meas_intensities[image_iter](col, row);
+        auto comp_intensity = comp_intensities[image_iter](col, row);
+
+        // Set to zero if either intensity is invalid
+        if (!is_valid(meas_intensity) || !is_valid(comp_intensity)) {
+          err[image_iter](col, row) = 0.0;
+          continue;
+        }
+
+        err[image_iter](col, row) 
+          = std::abs(meas_intensity.child() - comp_intensity.child());
+        
+        // If this image has the max intensity, store the err there too
+        if (meas_intensity.child() == max_intensity(col, row))
+          best_err(col, row) = err[image_iter](col, row);
+      }
+    }
+  }
+  
+  // Saves the ground weight images
+  // TODO(oalexan1): Comment this out later
+  if (false) // for debugging
+    asp::saveGroundWeights(opt.skip_images, opt.out_prefix,
+                           opt.input_images, opt.input_cameras,
+                           err, 
+                           //blend_weights, 
+                           geo, vw::GdalWriteOptions(opt));
 
   std::vector<ImageView<double>> adj_weights(num_images);
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
@@ -860,29 +915,34 @@ void handleLowLight(SfsOptions const& opt,
         if (curr_intensity > opt.low_light_threshold)
           continue;
 
-        // Skip if curr intensity equals max intensity,
-        // to respect --adjust-borderline-data)
-        if (curr_intensity >= max_intensity(col, row))
-          continue;
+        // // Skip if curr intensity equals max intensity,
+        // // to respect --adjust-borderline-data)
+        // if (curr_intensity >= max_intensity(col, row))
+        //   continue;
 
         double th = opt.shadow_threshold_vec[image_iter];
 
-        double ratio = (curr_intensity - th) / (opt.low_light_threshold - th);
+        double img_ratio = (curr_intensity - th) / (opt.low_light_threshold - th);
         // Must be non-negative here
-        ratio = std::max(0.0, ratio);
-
-        // TODO(oalexan1): Raise here to what power?
-        adj_weights[image_iter](col, row) = ratio * ratio;
+        img_ratio = std::max(0.0, img_ratio);
+        
+        double err_ratio = 1.0;
+        double curr_err = err[image_iter](col, row);
+        double curr_best_err = best_err(col, row);
+        // if both max err and curr err are positive, and curr_err is larger than curr_best_err
+        if (curr_best_err > 0.0 && curr_err > 0.0 && curr_err >= curr_best_err)
+          err_ratio = curr_best_err / curr_err;
+        
+        // Reduce this if the error is bad
+        //ratio *= err_ratio;
+        
+        // TODO(oalexan1): Raise here to what power? All these error terms
+        // need a lot more work.
+        //adj_weights[image_iter](col, row) = img_ratio * err_ratio * err_ratio;
+        adj_weights[image_iter](col, row) = err_ratio * err_ratio;
       }
     }
   }
-
-  // Saves the ground weight images
-  if (false) // for debugging
-    asp::saveGroundWeights(opt.skip_images, opt.out_prefix,
-                           opt.input_images, opt.input_cameras,
-                           adj_weights, geo,
-                           vw::GdalWriteOptions(opt));
 
   // Adjust the blending weights by multiplying them with the adj weights for low light.
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
@@ -904,7 +964,8 @@ void handleBorderlineAndLowLight(SfsOptions & opt,
                                  vw::ImageView<double> const& dem,
                                  vw::cartography::GeoReference const& geo,
                                  std::vector<BBox2i> const& crop_boxes,
-                                 std::vector<vw::ImageView<PixelMask<double>>> const& meas_intensities,
+                                 std::vector<MaskedDblImgT> const& meas_intensities,
+                                 std::vector<MaskedDblImgT> const& comp_intensities,
                                  // Outputs
                                  float & img_nodata_val,
                                  std::vector<MaskedImgRefT> & masked_images,
@@ -935,7 +996,7 @@ void handleBorderlineAndLowLight(SfsOptions & opt,
 
   // Handle --low-light-threshold option
   if (opt.low_light_threshold > 0.0)
-    handleLowLight(opt, dem, geo, meas_intensities, blend_weights);
+    handleLowLight(opt, dem, geo, meas_intensities, comp_intensities, blend_weights);
 
 } // end function handleBorderlineAndLowLight
 

@@ -502,7 +502,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                              double bottom_h, double top_h,
                              bool use_pq, double p, double q, // dem partial derivatives
                              int col, int row,
-                             vw::ImageView<double>         const& dem,
+                             DblImgT         const& dem,
                              vw::cartography::GeoReference const& geo,
                              bool model_shadows,
                              double max_dem_height,
@@ -511,7 +511,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                              asp::ReflParams   const & refl_params,
                              vw::BBox2i        const & crop_box,
                              MaskedImgRefT     const & image,
-                             DoubleImgT        const & blend_weight,
+                             DblImgT        const & blend_weight,
                              bool blend_weight_is_ground_weight,
                              vw::CamPtr camera,
                              vw::PixelMask<double>   & reflectance,
@@ -578,7 +578,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                    << "Ground weight must have the same size as the DEM.\n");
     ground_weight = blend_weight(col, row);
   } else {
-    vw::InterpolationView<vw::EdgeExtensionView<DoubleImgT, vw::ConstantEdgeExtension>, vw::BilinearInterpolation>
+    vw::InterpolationView<vw::EdgeExtensionView<DblImgT, vw::ConstantEdgeExtension>, vw::BilinearInterpolation>
       interp_weight = vw::interpolate(blend_weight, vw::BilinearInterpolation(),
                                   vw::ConstantEdgeExtension());
     if (blend_weight.cols() > 0 && blend_weight.rows() > 0) // The weight may not exist
@@ -638,7 +638,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
 // The value stored in the output intensity(i, j) is the one at entry
 // (i - 1) * sample_col_rate + 1, (j - 1) * sample_row_rate + 1
 // in the full image. For i = 0 or j = 0 invalid values are stored.
-void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
+void computeReflectanceAndIntensity(DblImgT const& dem,
                                     vw::ImageView<vw::Vector2> const& pq,
                                     vw::cartography::GeoReference const& geo,
                                     bool model_shadows,
@@ -649,12 +649,12 @@ void computeReflectanceAndIntensity(vw::ImageView<double> const& dem,
                                     asp::ReflParams const& refl_params,
                                     vw::BBox2i const& crop_box,
                                     asp::MaskedImgRefT const  & image,
-                                    asp::DoubleImgT const  & blend_weight,
+                                    asp::DblImgT const  & blend_weight,
                                     bool blend_weight_is_ground_weight,
                                     vw::CamPtr camera,
-                                    vw::ImageView<vw::PixelMask<double>> & reflectance,
-                                    vw::ImageView<vw::PixelMask<double>> & intensity,
-                                    vw::ImageView<double>                & ground_weight,
+                                    MaskedDblImgT & reflectance,
+                                    MaskedDblImgT & intensity,
+                                    DblImgT & ground_weight,
                                     const double                 * refl_coeffs,
                                     asp::SfsOptions        const & opt,
                                     asp::HeightErrEstim * heightErrEstim) {
