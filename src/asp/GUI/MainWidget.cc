@@ -46,15 +46,15 @@
 
 using namespace vw;
 
-namespace vw { namespace gui {
+namespace asp {
 
 MainWidget::MainWidget(QWidget *parent,
                        vw::GdalWriteOptions const& opt,
                        int beg_image_id, int end_image_id, int base_image_id,
                        asp::AppData & data, // alias
                        std::vector<imageData> & images, // will be aliased
-                       std::vector<vw::cartography::GeoTransform> & world2image_trans,
-                       std::vector<vw::cartography::GeoTransform> & image2world_trans,
+                       std::vector<vw::cartography::GeoTransform> & world2image,
+                       std::vector<vw::cartography::GeoTransform> & image2world,
                        std::string & output_prefix,     // will be aliased
                        asp::MatchList & matches,
                        pairwiseMatchList & pairwiseMatches,
@@ -64,7 +64,7 @@ MainWidget::MainWidget(QWidget *parent,
                        bool & allowMultipleSelections):
     QwtScaleWidget(parent),
     WidgetBase(beg_image_id, end_image_id, base_image_id, data, use_georef, images,
-               world2image_trans, image2world_trans),
+               world2image, image2world),
     m_opt(opt), m_chooseFiles(chooseFiles),
     m_output_prefix(output_prefix), // alias
     m_matchlist(matches),
@@ -154,7 +154,7 @@ MainWidget::MainWidget(QWidget *parent,
     else
       image_box = m_images[m_base_image_id].georef.point_to_pixel_bbox(proj_win);
 
-    m_current_view = image2world(image_box, m_base_image_id);
+    m_current_view = MainWidget::image2world(image_box, m_base_image_id);
   }
 
   // To do: Warn the user if some images have georef while others don't.
@@ -1899,15 +1899,15 @@ void MainWidget::deleteVertices() {
 // to know about how to convert from world coordinates to each
 // imageData coordinates.
 void MainWidget::findClosestPolyEdge(// inputs
-                                      double world_x0, double world_y0,
-                                      std::vector<imageData> const& imageData,
-                                      // outputs
-                                      int & clipIndex,
-                                      int & polyVecIndex,
-                                      int & polyIndexInCurrPoly,
-                                      int & vertIndexInCurrPoly,
-                                      double & minX, double & minY,
-                                      double & minDist) {
+                                     double world_x0, double world_y0,
+                                     std::vector<imageData> const& imageData,
+                                     // outputs
+                                     int & clipIndex,
+                                     int & polyVecIndex,
+                                     int & polyIndexInCurrPoly,
+                                     int & vertIndexInCurrPoly,
+                                     double & minX, double & minY,
+                                     double & minDist) {
 
   clipIndex           = -1;
   polyVecIndex        = -1;
@@ -1931,15 +1931,15 @@ void MainWidget::findClosestPolyEdge(// inputs
     // Convert from world coordinates to given clip coordinates
     Vector2 clip_P = world2proj(world_P, clipIter);
 
-    vw::gui::findClosestPolyEdge(// inputs
-                                  clip_P.x(), clip_P.y(),
-                                  imageData[clipIter].polyVec,
-                                  // outputs
-                                  polyVecIndex0,
-                                  polyIndexInCurrPoly0,
-                                  vertIndexInCurrPoly0,
-                                  minX0, minY0,
-                                  minDist0);
+    asp::findClosestPolyEdge(// inputs
+                                 clip_P.x(), clip_P.y(),
+                                 imageData[clipIter].polyVec,
+                                 // outputs
+                                 polyVecIndex0,
+                                 polyIndexInCurrPoly0,
+                                 vertIndexInCurrPoly0,
+                                 minX0, minY0,
+                                 minDist0);
 
     // Unless the polygon is empty, convert back to world
     // coordinates, and see if the current distance is smaller than
@@ -1947,8 +1947,7 @@ void MainWidget::findClosestPolyEdge(// inputs
     if (polyVecIndex0 >= 0 && polyIndexInCurrPoly0 >= 0 &&
         vertIndexInCurrPoly0 >= 0) {
 
-      Vector2 closest_P = proj2world(Vector2(minX0, minY0),
-                                          clipIter);
+      Vector2 closest_P = proj2world(Vector2(minX0, minY0), clipIter);
       minDist0 = norm_2(closest_P - world_P);
 
       if (minDist0 <= minDist) {
@@ -1970,15 +1969,15 @@ void MainWidget::findClosestPolyEdge(// inputs
 // in world coordinates.
 // TODO(oalexan1): Move out this non-gui function.
 void MainWidget::findClosestPolyVertex(// inputs
-                                        double world_x0, double world_y0,
-                                        std::vector<imageData> const& imageData,
-                                        // outputs
-                                        int & clipIndex,
-                                        int & polyVecIndex,
-                                        int & polyIndexInCurrPoly,
-                                        int & vertIndexInCurrPoly,
-                                        double & minX, double & minY,
-                                        double & minDist) {
+                                       double world_x0, double world_y0,
+                                       std::vector<imageData> const& imageData,
+                                       // outputs
+                                       int & clipIndex,
+                                       int & polyVecIndex,
+                                       int & polyIndexInCurrPoly,
+                                       int & vertIndexInCurrPoly,
+                                       double & minX, double & minY,
+                                       double & minDist) {
   clipIndex           = -1;
   polyVecIndex        = -1;
   polyIndexInCurrPoly = -1;
@@ -1997,15 +1996,15 @@ void MainWidget::findClosestPolyVertex(// inputs
     // Convert from world coordinates to given clip coordinates
     Vector2 clip_P = world2proj(world_P, clipIter);
 
-    vw::gui::findClosestPolyVertex(// inputs
-                                    clip_P.x(), clip_P.y(),
-                                    imageData[clipIter].polyVec,
-                                    // outputs
-                                    polyVecIndex0,
-                                    polyIndexInCurrPoly0,
-                                    vertIndexInCurrPoly0,
-                                    minX0, minY0,
-                                    minDist0);
+    asp::findClosestPolyVertex(// inputs
+                                   clip_P.x(), clip_P.y(),
+                                   imageData[clipIter].polyVec,
+                                   // outputs
+                                   polyVecIndex0,
+                                   polyIndexInCurrPoly0,
+                                   vertIndexInCurrPoly0,
+                                   minX0, minY0,
+                                   minDist0);
 
     // Unless the polygon is empty, convert back to world
     // coordinates, and see if the current distance is smaller than
@@ -2263,7 +2262,7 @@ bool MainWidget::contourImage() {
 }
 
 void MainWidget::drawOneVertex(int x0, int y0, QColor color, int lineWidth,
-                                int drawVertIndex, QPainter &paint) {
+                               int drawVertIndex, QPainter &paint) {
 
   // Draw a vertex as a small shape (a circle, rectangle, triangle)
 
@@ -2482,8 +2481,8 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
 // This is robust to zooming in the middle of profiling.
 // TODO: This will function badly when zooming.
 void MainWidget::plotProfilePolyLine(QPainter & paint,
-                                      std::vector<double> const& profileX,
-                                      std::vector<double> const& profileY) {
+                                     std::vector<double> const& profileX,
+                                     std::vector<double> const& profileY) {
 
   if (profileX.empty()) return;
 
@@ -3419,4 +3418,4 @@ void MainWidget::setCropWin(vw::BBox2 const& stereoCropWin) {
   m_stereoCropWin = stereoCropWin;
 }
 
-}} // namespace vw::gui
+} // namespace asp

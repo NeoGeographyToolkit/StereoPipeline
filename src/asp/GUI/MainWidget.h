@@ -15,34 +15,17 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file MainWidget.h
 ///
-/// A widget showing an image.
+/// A widget showing images and vector data
 ///
 #ifndef __STEREO_GUI_MAIN_WIDGET_H__
 #define __STEREO_GUI_MAIN_WIDGET_H__
 
-#include <string>
-#include <vector>
-#include <list>
-#include <set>
-
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/mpl/or.hpp>
-
-// Qt
-#include <QWidget>
-#include <QPoint>
-
-// Qwt
-#include <qwt_plot.h>
-#include <qwt_plot_curve.h>
-#include <qwt_point_data.h>
-#include <qwt_series_data.h>
-#include <qwt_scale_widget.h>
+// ASP
+#include <asp/Core/MatchList.h>
+#include <asp/GUI/GuiUtilities.h>
+#include <asp/GUI/WidgetBase.h>
 
 // Vision Workbench
 #include <vw/Core/Thread.h>
@@ -60,10 +43,26 @@
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/Geometry/dPoly.h>
 
-// ASP
-#include <asp/Core/MatchList.h>
-#include <asp/GUI/GuiUtilities.h>
-#include <asp/GUI/WidgetBase.h>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/mpl/or.hpp>
+
+// Qt
+#include <QWidget>
+#include <QPoint>
+
+// Qwt
+#include <qwt_plot.h>
+#include <qwt_plot_curve.h>
+#include <qwt_point_data.h>
+#include <qwt_series_data.h>
+#include <qwt_scale_widget.h>
+
+#include <string>
+#include <vector>
+#include <list>
+#include <set>
 
 class QMouseEvent;
 class QWheelEvent;
@@ -75,7 +74,7 @@ class QContextMenuEvent;
 class QMenu;
 class QStylePainter;
 
-namespace vw { namespace gui {
+namespace asp {
 
   class chooseFilesDlg;
 
@@ -91,8 +90,8 @@ namespace vw { namespace gui {
                int beg_image_id, int end_image_id, int base_image_id,
                asp::AppData & data,
                std::vector<imageData> & images, // will be aliased
-               std::vector<vw::cartography::GeoTransform> & world2image_trans,
-               std::vector<vw::cartography::GeoTransform> & image2world_trans,
+               std::vector<vw::cartography::GeoTransform> & world2image,
+               std::vector<vw::cartography::GeoTransform> & image2world,
                std::string & output_prefix,     // will be aliased
                asp::MatchList & matches,
                pairwiseMatchList & pairwiseMatches,
@@ -150,8 +149,8 @@ namespace vw { namespace gui {
     vw::BBox2 current_view();
     void  zoomToRegion (vw::BBox2 const& region);
     void  setHillshadeMode(bool hillshade_mode);
-    BBox2 firstImagePixelBox() const;
-    BBox2 firstImageWorldBox(vw::BBox2 const& image_box) const;
+    vw::BBox2 firstImagePixelBox() const;
+    vw::BBox2 firstImageWorldBox(vw::BBox2 const& image_box) const;
     void setWorldBox(vw::BBox2 const& world_box);
     vw::BBox2 worldBox() const;
 
@@ -264,9 +263,9 @@ public slots:
     bool  m_firstPaintEvent;
     QRect m_emptyRubberBand;
     QRect m_rubberBand;
-    BBox2 m_stereoCropWin;
+    vw::BBox2 m_stereoCropWin;
 
-    std::vector<BBox2> m_selectionRectangles;
+    std::vector<vw::BBox2> m_selectionRectangles;
 
     // If we are selecting a crop win to do stereo in
     bool m_cropWinMode;
@@ -351,9 +350,9 @@ public slots:
                                  QPainter* paint, 
                                  bool has_csv,
                                  QImage const& sourceImage,
-                                 BBox2i const& screen_box, 
-                                 BBox2i const& region_out,
-                                 ImageView<int> & screen_image);
+                                 vw::BBox2i const& screen_box, 
+                                 vw::BBox2i const& region_out,
+                                 vw::ImageView<int> & screen_image);
                                 
     // Find the closest point in a given set of imageData structures to a given point
     // in world coordinates.
@@ -410,6 +409,6 @@ public slots:
 
   };
 
-}} // namespace vw::gui
+} // namespace asp
 
 #endif  // __STEREO_GUI_MAIN_WIDGET_H__

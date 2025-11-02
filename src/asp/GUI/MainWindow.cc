@@ -49,14 +49,10 @@
 #include <sstream>
 
 using namespace asp;
-using namespace vw::gui;
+using namespace vw;
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-
-namespace asp {
-
-} // end namespace asp
 
 // Need this class to manage what happens when keys are pressed while
 // the chooseFilesDlg table is in focus. Do not let it accept key
@@ -348,14 +344,14 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   }
 
   // Create the coordinate transforms
-  m_world2image_trans.resize(num_images);
-  m_image2world_trans.resize(num_images);
+  m_world2image.resize(num_images);
+  m_image2world.resize(num_images);
   if (m_use_georef) {
     for (int i = 0; i < num_images; i++) {  
-      m_world2image_trans[i]
+      m_world2image[i]
         = vw::cartography::GeoTransform(m_images[BASE_IMAGE_ID].georef,
                                         m_images[i].georef);
-      m_image2world_trans[i]
+      m_image2world[i]
         = vw::cartography::GeoTransform(m_images[i].georef,
                                         m_images[BASE_IMAGE_ID].georef);
     }
@@ -498,8 +494,8 @@ void MainWindow::createLayout() {
     MainWidget * widget = new MainWidget(centralWidget,
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID,
-                                m_data, m_images, m_world2image_trans,
-                                m_image2world_trans,
+                                m_data, m_images, m_world2image,
+                                m_image2world,
                                 m_output_prefix,
                                 m_matchlist,
                                 m_pairwiseMatches, m_pairwiseCleanMatches,
@@ -530,8 +526,8 @@ void MainWindow::createLayout() {
         widget = new MainWidget(centralWidget,
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID, 
-                                m_data, m_images, m_world2image_trans,
-                                m_image2world_trans,
+                                m_data, m_images, m_world2image,
+                                m_image2world,
                                 m_output_prefix,
                                 m_matchlist, m_pairwiseMatches, m_pairwiseCleanMatches,
                                 m_editMatchPointVecIndex,
@@ -543,8 +539,8 @@ void MainWindow::createLayout() {
         // TODO(oalexan1): Must integrate the two approaches.
         widget = new ColorAxes(this, 
                                beg_image_id, end_image_id, BASE_IMAGE_ID, 
-                               m_data, m_use_georef, m_images, m_world2image_trans,
-                               m_image2world_trans);
+                               m_data, m_use_georef, m_images, m_world2image,
+                               m_image2world);
       }
       m_widgets.push_back(widget);
     }
@@ -1039,7 +1035,7 @@ void MainWindow::forceQuit() {
   }
   
   if (asp::stereo_settings().delete_temporary_files_on_exit) {
-    std::set<std::string> & tmp_files = vw::gui::temporary_files().files;
+    std::set<std::string> & tmp_files = asp::temporary_files().files;
     for (auto it = tmp_files.begin(); it != tmp_files.end() ; it++) {
       std::string file = *it;
       if (fs::exists(file)) {

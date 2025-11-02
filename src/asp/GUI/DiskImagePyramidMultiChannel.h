@@ -51,7 +51,7 @@
 #include <list>
 #include <set>
 
-namespace vw { namespace gui {
+namespace asp {
 
   // The kinds of images we support
   enum ImgType {UNINIT, CH1_DOUBLE, CH2_UINT8, CH3_UINT8, CH4_UINT8};
@@ -72,9 +72,9 @@ namespace vw { namespace gui {
   struct DiskImagePyramidMultiChannel {
     vw::GdalWriteOptions m_opt;
     vw::mosaic::DiskImagePyramid<double>               m_img_ch1_double;
-    vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>> m_img_ch2_uint8;
-    vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 3>> m_img_ch3_uint8;
-    vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 4>> m_img_ch4_uint8;
+    vw::mosaic::DiskImagePyramid<vw::Vector<vw::uint8, 2>> m_img_ch2_uint8;
+    vw::mosaic::DiskImagePyramid<vw::Vector<vw::uint8, 3>> m_img_ch3_uint8;
+    vw::mosaic::DiskImagePyramid<vw::Vector<vw::uint8, 4>> m_img_ch4_uint8;
     int m_num_channels;
     int m_rows, m_cols;
     ImgType m_type; // keeps track of which of the above images we use
@@ -93,18 +93,18 @@ namespace vw { namespace gui {
                         vw::BBox2i & region_out) const;
     double get_nodata_val() const;
 
-    int32 cols  () const { return m_cols;  }
-    int32 rows  () const { return m_rows;  }
-    int32 planes() const { return m_num_channels; }
+    vw::int32 cols  () const { return m_cols;  }
+    vw::int32 rows  () const { return m_rows;  }
+    vw::int32 planes() const { return m_num_channels; }
 
     /// Return the element at this location (at the lowest level) cast to double.
     /// - Only works for single channel pyramids!
-    double get_value_as_double(int32 x, int32 y) const;
+    double get_value_as_double(vw::int32 x, vw::int32 y) const;
 
     // Return value as string
-    std::string get_value_as_str(int32 x, int32 y) const;
+    std::string get_value_as_str(vw::int32 x, vw::int32 y) const;
   };
 
-}} // namespace vw::gui
+} // namespace asp
 
 #endif  // __STEREO_GUI_DISK_IMAGE_PYRAMID_MULTICHANNEL_H__

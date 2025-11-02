@@ -24,7 +24,9 @@
 #include <QVBoxLayout>
 #include <QScrollBar>
 
-namespace vw { namespace gui {
+namespace asp {
+
+using namespace vw;
 
 // Allow the user to choose which files to hide/show in the GUI.
 // User's choice will be processed by MainWidget::showFilesChosenByUser().
@@ -272,4 +274,4 @@ void chooseFilesDlg::keyPressEvent(QKeyEvent *event) {
   // std::cout << "Key was pressed " << event->key() << std::endl;
 }
 
-}} // namespace vw::gui
+} // namespace asp

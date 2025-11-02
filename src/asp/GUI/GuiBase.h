@@ -25,10 +25,10 @@
 
 #include <string>
 
-namespace vw { namespace gui {
+namespace asp {
 
   void popUp(std::string const& msg);
   
-}} // namespace vw::gui
+} // namespace asp
 
 #endif  // __STEREO_GUI_GUI_BASE_H__

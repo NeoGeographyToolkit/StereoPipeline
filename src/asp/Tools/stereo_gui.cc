@@ -131,7 +131,7 @@ public:
     try {
       return QApplication::notify(receiver, e);
     } catch (std::exception& ex) {
-      vw::gui::popUp(ex.what());
+      asp::popUp(ex.what());
       return false;
     }
     
@@ -178,7 +178,7 @@ void readImageNames(std::vector<std::string> const& all_files,
       } else if (vw::has_shp_extension(file)) {
         // See if this is a shape file
         is_image = true; // will load it in the same struct as for images
-      } else if (vw::gui::hasCsv(file)) {
+      } else if (asp::hasCsv(file)) {
         is_image = true; // will load it in the same struct as for images
       } else if (vw::has_cam_extension(file)) {
         // We will get here for all cameras except .cub, which
@@ -229,13 +229,13 @@ int main(int argc, char** argv) {
     if (stereo_settings().create_image_pyramids_only) {
       // Just create the image pyramids and exit. 
       for (size_t i = 0; i < images.size(); i++) {
-        vw::gui::imageData img;
+        asp::imageData img;
         img.read(images[i], opt);
         if (stereo_settings().hillshade) {
           // Create hillshaded images. 
           std::string hillshaded_file;
           bool have_gui = false; // so we don't use a pop up before the gui got started
-          bool success = vw::gui::write_hillshade(opt,
+          bool success = asp::write_hillshade(opt,
                                                   have_gui,
                                                   stereo_settings().hillshade_azimuth,
                                                   stereo_settings().hillshade_elevation,
@@ -243,7 +243,7 @@ int main(int argc, char** argv) {
                                                   // Output
                                                   hillshaded_file);
           if (success) // build the pyramids
-            img.read(hillshaded_file, opt, vw::gui::HILLSHADED_VIEW);
+            img.read(hillshaded_file, opt, asp::HILLSHADED_VIEW);
         }
       }
       return 0;
@@ -268,7 +268,7 @@ int main(int argc, char** argv) {
     omp_set_num_threads(processor_count);
     
     // Start up the Qt GUI
-    vw::gui::MainWindow main_window(opt, images, output_prefix,
+    asp::MainWindow main_window(opt, images, output_prefix,
                                     stereo_settings().grid_cols,
                                     stereo_settings().window_size,
                                     stereo_settings().single_window,

@@ -63,7 +63,7 @@ class QContextMenuEvent;
 class QMenu;
 class QPolygon;
 
-namespace vw { namespace gui {
+namespace asp {
 
   enum DisplayMode {REGULAR_VIEW, HILLSHADED_VIEW, COLORIZED_VIEW,
                     HILLSHADE_COLORIZED_VIEW,
@@ -85,11 +85,11 @@ namespace vw { namespace gui {
   std::string fileDialog(std::string title, std::string start_folder="");
 
   // Flip a point and a box in y
-  inline Vector2 flip_in_y(Vector2 const& P){
-    return Vector2(P.x(), -P.y());
+  inline vw::Vector2 flip_in_y(vw::Vector2 const& P){
+    return vw::Vector2(P.x(), -P.y());
   }
-  inline BBox2 flip_in_y(BBox2 const& B){
-    BBox2 R = B;
+  inline vw::BBox2 flip_in_y(vw::BBox2 const& B){
+    vw::BBox2 R = B;
     R.min().y() = -B.max().y();
     R.max().y() = -B.min().y();
     return R;
@@ -99,7 +99,7 @@ namespace vw { namespace gui {
   bool hasCsv(std::string const& fileName);
   
   /// A class to keep all data associated with an image file
-  class imageData{
+  class imageData {
   public:
     std::string      name, hillshaded_name, thresholded_name, colorized_name;
     vw::GdalWriteOptions m_opt;
@@ -156,12 +156,12 @@ private:
   };
 
   /// Convert a QRect object to a BBox2 object.
-  inline BBox2 qrect2bbox(QRect const& R){
-    return BBox2(Vector2(R.left(), R.top()), Vector2(R.right(), R.bottom()));
+  inline vw::BBox2 qrect2bbox(QRect const& R){
+    return vw::BBox2(vw::Vector2(R.left(), R.top()), vw::Vector2(R.right(), R.bottom()));
   }
 
   /// Convert a BBox2 object to a QRect object.
-  QRect bbox2qrect(BBox2 const& B);
+  QRect bbox2qrect(vw::BBox2 const& B);
 
   /// Save a hillshaded file
   bool write_hillshade(vw::GdalWriteOptions const& opt,
@@ -176,7 +176,7 @@ private:
   // of the output file.
   template<class PixelT>
   std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
-                                        ImageViewRef<PixelT> & image,
+                                        vw::ImageViewRef<PixelT> & image,
                                         std::string const& input_file,
                                         std::string const& suffix,
                                         bool has_georef,
@@ -255,7 +255,7 @@ private:
 
 template<class PixelT>
 std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
-                                      ImageViewRef<PixelT> & image,
+                                      vw::ImageViewRef<PixelT> & image,
                                       std::string const& input_file,
                                       std::string const& suffix,
                                       bool has_georef,
@@ -264,17 +264,17 @@ std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
                                       double nodata_val) {
 
   std::string output_file = vw::mosaic::filename_from_suffix1(input_file, suffix);
-  TerminalProgressCallback tpc("asp", ": ");
-  vw_out() << "Writing: " << output_file << std::endl;
-  try{
+  vw::TerminalProgressCallback tpc("asp", ": ");
+  vw::vw_out() << "Writing: " << output_file << std::endl;
+  try {
     vw::cartography::block_write_gdal_image(output_file, image, has_georef, georef,
                                 has_nodata, nodata_val, opt, tpc);
-  }catch(...){
+  } catch(...) {
     // Failed to write, presumably because we have no write access.
     // Write the file in the current dir.
-    vw_out() << "Failed to write: " << output_file << "\n";
+    vw::vw_out() << "Failed to write: " << output_file << "\n";
     output_file = vw::mosaic::filename_from_suffix2(input_file, suffix);
-    vw_out() << "Writing: " << output_file << std::endl;
+    vw::vw_out() << "Writing: " << output_file << std::endl;
     vw::cartography::block_write_gdal_image(output_file, image, has_georef, georef,
                                 has_nodata, nodata_val, opt, tpc);
   }
@@ -287,6 +287,6 @@ bool sideBySideWithDialog();
 bool previewOrSideBySideWithDialog();
 void setNoSideBySideWithDialog(); // turn off such logic
 
-}} // namespace vw::gui
+} // namespace asp
 
 #endif  // __STEREO_GUI_GUI_UTILITIES_H__

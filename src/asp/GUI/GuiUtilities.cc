@@ -48,10 +48,9 @@
 #include <vector>
 
 using namespace vw;
-using namespace vw::gui;
 using namespace vw::geometry;
 
-namespace vw { namespace gui {
+namespace asp {
 
 bool isPolyZeroDim(const QPolygon & pa){
   
@@ -465,7 +464,7 @@ void read_csv_metadata(std::string              const& csv_file,
                     csv_file.find("beg_errors.csv") != std::string::npos || 
                     csv_file.find("end_errors.csv") != std::string::npos ||
                     csv_file.find("-diff.csv") != std::string::npos ||
-                    vw::gui::hasCsv(csv_file));
+                    asp::hasCsv(csv_file));
   
   if (known_csv) {
     vw::cartography::Datum datum;
@@ -709,7 +708,7 @@ void imageData::load() {
     if (!has_georef)
       vw_out() << "The shapefile lacks a georeference.\n";
     
-  } else if (vw::gui::hasCsv(name)) {
+  } else if (asp::hasCsv(name)) {
 
     // Open a file and extract the values for: WKT:, csv-format:, style:
     std::string local_wkt, local_csv_format, local_style;
@@ -837,11 +836,11 @@ void imageData::writePoly(std::string const& polyFile) {
 // values in member variables. Never call these directly.
 bool imageData::isPolyInternal(std::string const& name, std::string const& style) const {
   return (vw::has_shp_extension(name) ||
-          (vw::gui::hasCsv(name) &&
+          (asp::hasCsv(name) &&
            (style == "poly" || style == "fpoly" || style == "line")));
 }
 bool imageData::isCsvInternal(std::string const& name, std::string const& style) const {
-  return vw::gui::hasCsv(name) && !imageData::isPolyInternal(name, style);
+  return asp::hasCsv(name) && !imageData::isPolyInternal(name, style);
 }
 
 vw::Vector2 QPoint2Vec(QPoint const& qpt) {
@@ -884,4 +883,4 @@ void setNoSideBySideWithDialog() {
 }
 
   
-}} // namespace vw::gui
+} // namespace asp

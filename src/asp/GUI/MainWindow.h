@@ -41,7 +41,7 @@ class QLabel;
 class QTabWidget;
 class QSplitter;
 
-namespace vw { namespace gui {
+namespace asp {
 
   enum ViewType {VIEW_SIDE_BY_SIDE, VIEW_IN_SINGLE_WINDOW, VIEW_AS_TILES_ON_GRID};
 
@@ -207,8 +207,8 @@ namespace vw { namespace gui {
     std::vector<imageData>    m_images;      // Handles to loaded images
 
     // Handles to geotransforms for each image
-    std::vector<vw::cartography::GeoTransform> m_world2image_trans;
-    std::vector<vw::cartography::GeoTransform> m_image2world_trans;
+    std::vector<vw::cartography::GeoTransform> m_world2image;
+    std::vector<vw::cartography::GeoTransform> m_image2world;
 
     /// Structures to keep track of all interest point matches.
     asp::MatchList    m_matchlist;
@@ -230,6 +230,6 @@ namespace vw { namespace gui {
   asp::AppData m_data;
   };
 
-}} // namespace vw::gui
+} // namespace asp
 
 #endif // __STEREO_GUI_MAINWINDOW_H__

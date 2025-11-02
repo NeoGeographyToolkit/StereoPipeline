@@ -24,9 +24,8 @@
 #include <vector>
 
 using namespace vw;
-using namespace vw::gui;
 
-namespace vw { namespace gui {
+namespace asp {
 
 vw::RunOnce temporary_files_once = VW_RUNONCE_INIT;
 boost::shared_ptr<TemporaryFiles> temporary_files_ptr;
@@ -355,4 +354,4 @@ double DiskImagePyramidMultiChannel::get_value_as_double(int32 x, int32 y) const
   return 0;
 }
 
-}} // namespace vw::gui
+} // namespace asp

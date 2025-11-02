@@ -160,7 +160,7 @@ void filterImages(std::vector<std::string> & image_files) {
     // Accept shape files and csv files alongside images
     if (!is_image &&
         !vw::has_shp_extension(image_files[i]) &&
-        !vw::gui::hasCsv(image_files[i]))
+        !asp::hasCsv(image_files[i]))
       continue;
 
     local_files.push_back(image_files[i]);

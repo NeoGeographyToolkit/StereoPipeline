@@ -39,7 +39,7 @@
 #include <list>
 #include <set>
 
-namespace vw { namespace gui {
+namespace asp {
 
 class WidgetBase {
 
@@ -51,14 +51,14 @@ public:
              asp::AppData & data,
              bool use_georef,
              std::vector<imageData> & images,
-             std::vector<vw::cartography::GeoTransform> & world2image_trans,
-             std::vector<vw::cartography::GeoTransform> & image2world_trans);
+             std::vector<vw::cartography::GeoTransform> & world2image,
+             std::vector<vw::cartography::GeoTransform> & image2world);
   
   virtual ~WidgetBase(){}
 
   // The box which contains fully all images in the current widget,
   // in world coordinates.
-  BBox2 m_world_box;
+  vw::BBox2 m_world_box;
 
   // The box in world coordinates which has the current view and
   // last view.  This is normally smaller than m_world_box.
@@ -92,8 +92,8 @@ public:
 
   // These are also aliases because in widget i we need to be able to access
   // these for image 0, which defines the global world coordinate system.
-  std::vector<vw::cartography::GeoTransform> & m_world2image_trans;
-  std::vector<vw::cartography::GeoTransform> & m_image2world_trans;
+  std::vector<vw::cartography::GeoTransform> & m_world2image;
+  std::vector<vw::cartography::GeoTransform> & m_image2world;
   
   // If georeference info is used in overlaying
   bool m_use_georef;
@@ -103,18 +103,18 @@ public:
 
   // Convert from world coordinates to projected coordinates in given geospatial
   // projection, and vice versa
-  vw::Vector2 world2proj(vw::Vector2 const  P, int imageIndex) const;
-  vw::Vector2 proj2world(vw::Vector2 const  P, int imageIndex) const;
+  vw::Vector2 world2proj(vw::Vector2 const P, int imageIndex) const;
+  vw::Vector2 proj2world(vw::Vector2 const P, int imageIndex) const;
 
-  Vector2 world2screen(Vector2 const&  p) const;
-  Vector2 screen2world(Vector2 const&  p) const;
-  Vector2 world2image(Vector2 const& P, int imageIndex) const;
-  Vector2 image2world(Vector2 const& P, int imageIndex) const;
+  vw::Vector2 world2screen(vw::Vector2 const&  p) const;
+  vw::Vector2 screen2world(vw::Vector2 const&  p) const;
+  vw::Vector2 world2image(vw::Vector2 const& P, int imageIndex) const;
+  vw::Vector2 image2world(vw::Vector2 const& P, int imageIndex) const;
 
-  BBox2 world2screen(BBox2 const& R) const;
-  BBox2 screen2world(BBox2 const& R) const;
-  BBox2 world2image(BBox2 const& R, int imageIndex) const;
-  BBox2 image2world(BBox2 const& R, int imageIndex) const;
+  vw::BBox2 world2screen(vw::BBox2 const& R) const;
+  vw::BBox2 screen2world(vw::BBox2 const& R) const;
+  vw::BBox2 world2image(vw::BBox2 const& R, int imageIndex) const;
+  vw::BBox2 image2world(vw::BBox2 const& R, int imageIndex) const;
 
 }; // End class WidgetBase
 
@@ -123,8 +123,8 @@ public:
 // while the previous two have the position.
 // Keep this here as it is used only for plotting in widget code
 void findRobustBounds(std::vector<vw::Vector3> const& scattered_data,
-  double & min_val, double & max_val);
+                      double & min_val, double & max_val);
 
-}} // namespace vw::gui
+} // namespace asp
 
 #endif  // __STEREO_GUI_WIDGET_BASE_H__

@@ -47,7 +47,9 @@
 #include <vw/Image/Colormap.h> // colormaps supported by ASP
 #include <vw/Core/Stopwatch.h>
 
-namespace vw { namespace gui {
+using namespace vw;
+
+namespace asp {
 
 std::string QRectFToStr(QRectF const& box) {
   std::ostringstream os;
@@ -506,11 +508,11 @@ ColorAxes::ColorAxes(QWidget *parent,
   int beg_image_id, int end_image_id, int base_image_id, 
   asp::AppData & data, bool use_georef,
   std::vector<imageData> & images,
-  std::vector<vw::cartography::GeoTransform> & world2image_trans,
-  std::vector<vw::cartography::GeoTransform> & image2world_trans):
+  std::vector<vw::cartography::GeoTransform> & world2image,
+  std::vector<vw::cartography::GeoTransform> & image2world):
     QwtPlot(parent),
     WidgetBase(beg_image_id, end_image_id, base_image_id, data, use_georef, images,
-               world2image_trans, image2world_trans) {
+               world2image, image2world) {
 
   int num_images = m_images.size();
 
@@ -531,10 +533,10 @@ ColorAxes::ColorAxes(QWidget *parent,
 
     // Make sure we set these up before the image2world call below!
     if (m_use_georef) {
-      m_world2image_trans[i]
+      m_world2image[i]
         = vw::cartography::GeoTransform(m_images[m_base_image_id].georef,
                                         m_images[i].georef);
-      m_image2world_trans[i]
+      m_image2world[i]
         = vw::cartography::GeoTransform(m_images[i].georef,
                                         m_images[m_base_image_id].georef);
     }
@@ -715,5 +717,5 @@ void ColorAxes::setMinMaxIntensity() {
   replot();
 }
 
-}} // end namespace vw::gui
+} // namespace asp
 

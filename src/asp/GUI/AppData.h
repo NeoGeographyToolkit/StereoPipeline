@@ -46,13 +46,13 @@ struct AppData {
             std::vector<std::map<std::string, std::string>> const& properties,
             std::vector<std::string>const& image_files);
     
-    vw::GdalWriteOptions                       m_opt;
-    bool                                       m_use_georef;
-    vw::gui::DisplayMode                       m_display_mode;
-    std::vector<std::string>                   m_image_files;
-    std::vector<vw::gui::imageData>            m_images;
-    std::vector<vw::cartography::GeoTransform> m_world2image_trans;
-    std::vector<vw::cartography::GeoTransform> m_image2world_trans;
+    vw::GdalWriteOptions                       opt;
+    bool                                       use_georef;
+    asp::DisplayMode                       display_mode;
+    std::vector<std::string>                   image_files;
+    std::vector<asp::imageData>            images;
+    std::vector<vw::cartography::GeoTransform> world2image;
+    std::vector<vw::cartography::GeoTransform> image2world;
 };
 
 } // namespace asp

@@ -30,7 +30,7 @@
 #include <map>
 #include <string>
 
-namespace vw { namespace gui {
+namespace asp {
 
   class imageData;
   
@@ -76,6 +76,6 @@ namespace vw { namespace gui {
     std::map<std::string, int> image_to_row;
   };
   
-}} // namespace vw::gui
+} // namespace asp
 
 #endif  // __STEREO_GUI_CHOOSE_FILES_DLG_H__

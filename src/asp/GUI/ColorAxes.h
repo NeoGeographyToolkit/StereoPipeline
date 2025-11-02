@@ -36,7 +36,7 @@ class QMenu;
 class QAction;
 class QContextMenuEvent;
 
-namespace vw { namespace gui {
+namespace asp {
 
 class imageData;
 class ColorAxesPlotter;
@@ -49,8 +49,8 @@ public:
             asp::AppData & data,
             bool use_georef,
             std::vector<imageData> & images,
-            std::vector<vw::cartography::GeoTransform> & world2image_trans,
-            std::vector<vw::cartography::GeoTransform> & image2world_trans);
+            std::vector<vw::cartography::GeoTransform> & world2image,
+            std::vector<vw::cartography::GeoTransform> & image2world);
 
   virtual void mousePressEvent(QMouseEvent *e);
   virtual void resizeEvent(QResizeEvent *e);
@@ -75,6 +75,6 @@ private:
   QAction* m_setMinMaxIntensityAction;
 };
 
-}}
+} // namespace asp
   
 #endif  // __STEREO_GUI_COLOR_AXES_H__

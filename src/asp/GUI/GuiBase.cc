@@ -19,10 +19,7 @@
 #include <QtWidgets>
 #include <string>
 
-using namespace vw;
-using namespace vw::gui;
-
-namespace vw { namespace gui {
+namespace asp {
 
 void popUp(std::string const& msg){
   QMessageBox msgBox;
@@ -31,4 +28,4 @@ void popUp(std::string const& msg){
   return;
 }
 
-}} // namespace vw::gui
+} // namespace asp
