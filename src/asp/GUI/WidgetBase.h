@@ -73,8 +73,8 @@ public:
   // border, to make it easier to zoom.
   double m_border_factor;
 
-  int m_beg_image_id;  // The id of the first image among m_images in this widget
-  int m_end_image_id;  // The id of the image past the last image among m_images
+  int m_beg_image_id;  // The id of the first image among images in this widget
+  int m_end_image_id;  // The id of the image past the last image among images
 
   // The index of the image on top of which the rest are overlaid.
   // We will render in this image's pixel or projected domain. This
@@ -82,19 +82,6 @@ public:
   // have different projections.
   int m_base_image_id;
 
-  // This is an alias. We would like to be able to modify
-  // in this widget the states of all images in m_images (such as
-  // the flag noting if hillshading is on) which would persist after
-  // the widgets themselves are gone when the display layout
-  // changes. The images actually drawn in this widget have indices
-  // in [m_beg_image_id, m_end_image_id) in m_images.
-  std::vector<imageData> & m_images;
-
-  // These are also aliases because in widget i we need to be able to access
-  // these for image 0, which defines the global world coordinate system.
-  std::vector<vw::cartography::GeoTransform> & m_world2image;
-  std::vector<vw::cartography::GeoTransform> & m_image2world;
-  
   // A reference to the shared application data
   asp::AppData & app_data;
 

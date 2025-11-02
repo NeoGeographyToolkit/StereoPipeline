@@ -94,7 +94,7 @@ MainWidget::MainWidget(QWidget *parent,
   // of the first image.
   // Also set up the image GeoReference transforms for each image
   // in both directions.
-  int num_images = m_images.size();
+  int num_images = app_data.images.size();
   m_filesOrder.resize(num_images);
 
   // Each image can be hillshaded independently of the other ones
@@ -120,26 +120,26 @@ MainWidget::MainWidget(QWidget *parent,
     // This won't play nice with georefs or with images
     // with different sizes, or likely with polygons.
     bool delay = !asp::stereo_settings().nvm.empty() || asp::stereo_settings().preview;
-    if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name) && delay)
+    if (m_chooseFiles && m_chooseFiles->isHidden(app_data.images[i].name) && delay)
       continue;
 
     // Load if not loaded so far
-    m_images[i].load();
+    app_data.images[i].load();
 
-    if (app_data.use_georef && !m_images[i].has_georef) {
-      popUp("No georeference present in: " + m_images[i].name + ".");
+    if (app_data.use_georef && !app_data.images[i].has_georef) {
+      popUp("No georeference present in: " + app_data.images[i].name + ".");
       vw_throw(ArgumentErr() << "Missing georeference.\n");
     }
 
     // Grow the world box to fit all the images
-    BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
+    BBox2 B = MainWidget::image2world(app_data.images[i].image_bbox, i);
     m_world_box.grow(B);
 
     // The first existing vector layer in the current widget becomes
     // the one we draw on.  Otherwise we keep m_polyLayerIndex at
     // m_beg_image_id so we store any new polygons in
-    // m_images[m_beg_image_id].
-    if (m_images[i].m_isPoly && m_polyLayerIndex == m_beg_image_id)
+    // app_data.images[m_beg_image_id].
+    if (app_data.images[i].m_isPoly && m_polyLayerIndex == m_beg_image_id)
       m_polyLayerIndex = i;
 
   } // end iterating over the images
@@ -149,10 +149,10 @@ MainWidget::MainWidget(QWidget *parent,
     // size, this region's dimensions will be adjusted to have
     // correct aspect ratio.
     BBox2 proj_win = asp::stereo_settings().zoom_proj_win, image_box;
-    if (m_images[m_base_image_id].m_isPoly || m_images[m_base_image_id].m_isCsv)
+    if (app_data.images[m_base_image_id].m_isPoly || app_data.images[m_base_image_id].m_isCsv)
       image_box = proj_win;
     else
-      image_box = m_images[m_base_image_id].georef.point_to_pixel_bbox(proj_win);
+      image_box = app_data.images[m_base_image_id].georef.point_to_pixel_bbox(proj_win);
 
     m_current_view = MainWidget::image2world(image_box, m_base_image_id);
   }
@@ -301,7 +301,7 @@ void MainWidget::customMenuRequested(QPoint pos) {
   // If having polygons, make it possible to change their colors
   bool hasPoly = false;
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-    if (m_images[image_iter].m_isPoly)
+    if (app_data.images[image_iter].m_isPoly)
       hasPoly = true;
   }
   if (hasPoly) {
@@ -368,7 +368,7 @@ void MainWidget::hideShowAll_widgetVersion() {
   m_chooseFiles->hideShowAll();
 
   // In either case, reset the order in which the images are displayed
-  int num_images = m_images.size();
+  int num_images = app_data.images.size();
   m_filesOrder.resize(num_images);
   for (int i = 0; i < num_images; i++)
     m_filesOrder[i] = i;
@@ -406,7 +406,7 @@ void MainWidget::sizeToFit() {
 
 void MainWidget::viewUnthreshImages() {
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++)
-    m_images[image_iter].m_display_mode = REGULAR_VIEW;
+    app_data.images[image_iter].m_display_mode = REGULAR_VIEW;
 
   refreshPixmap();
 }
@@ -414,7 +414,7 @@ void MainWidget::viewUnthreshImages() {
 // The region that is currently viewable, in the first image pixel domain
 BBox2 MainWidget::firstImagePixelBox() const{
 
-  if (m_images.size() == 0) {
+  if (app_data.images.size() == 0) {
     // Must never happen
     vw_out() << "Did not expect no images!";
     vw_throw(ArgumentErr() << "Did not expect no images.\n");
@@ -424,7 +424,7 @@ BBox2 MainWidget::firstImagePixelBox() const{
 
 // The current image box in world coordinates
 BBox2 MainWidget::firstImageWorldBox(BBox2 const& image_box) const{
-  if (m_images.size() == 0) {
+  if (app_data.images.size() == 0) {
     // Must never happen
     vw_out() << "Did not expect no images!";
     vw_throw(ArgumentErr() << "Did not expect no images.\n");
@@ -435,9 +435,9 @@ BBox2 MainWidget::firstImageWorldBox(BBox2 const& image_box) const{
 void MainWidget::viewThreshImages(bool refresh_pixmap) {
 
   int num_non_poly_images = 0;
-  int num_images = m_images.size();
+  int num_images = app_data.images.size();
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-    if (!m_images[image_iter].m_isPoly && !m_images[image_iter].m_isCsv)
+    if (!app_data.images[image_iter].m_isPoly && !app_data.images[image_iter].m_isCsv)
       num_non_poly_images++;
   }
 
@@ -448,7 +448,7 @@ void MainWidget::viewThreshImages(bool refresh_pixmap) {
       popUp("Must have just one image in each window to use the nodata option.");
 
     for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++)
-      m_images[image_iter].m_display_mode = REGULAR_VIEW;
+      app_data.images[image_iter].m_display_mode = REGULAR_VIEW;
 
     refreshPixmap();
     return;
@@ -457,9 +457,9 @@ void MainWidget::viewThreshImages(bool refresh_pixmap) {
   // Create the thresholded images and save them to disk. We have to do it each
   // time as perhaps the image threshold changed.
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-    std::string input_file = m_images[image_iter].name;
+    std::string input_file = app_data.images[image_iter].name;
 
-    if (m_images[image_iter].m_isPoly || m_images[image_iter].m_isCsv)
+    if (app_data.images[image_iter].m_isPoly || app_data.images[image_iter].m_isCsv)
       continue;
 
     double nodata_val = -std::numeric_limits<double>::max();
@@ -467,15 +467,15 @@ void MainWidget::viewThreshImages(bool refresh_pixmap) {
 
     // Do not use max(nodata_val, thresh) as sometimes nodata_val can be larger than data
     nodata_val = m_thresh;
-    int num_channels = m_images[image_iter].img.planes();
+    int num_channels = app_data.images[image_iter].img.planes();
 
     if (num_channels != 1) {
       popUp("Thresholding makes sense only for single-channel images.");
-      m_images[image_iter].m_display_mode = REGULAR_VIEW;
+      app_data.images[image_iter].m_display_mode = REGULAR_VIEW;
       return;
     }
 
-    m_images[image_iter].m_display_mode = THRESHOLDED_VIEW;
+    app_data.images[image_iter].m_display_mode = THRESHOLDED_VIEW;
     ImageViewRef<double> thresh_image
       = apply_mask(create_mask_less_or_equal(DiskImageView<double>(input_file),
                                               nodata_val), nodata_val);
@@ -487,13 +487,13 @@ void MainWidget::viewThreshImages(bool refresh_pixmap) {
     std::string thresholded_file
       = write_in_orig_or_curr_dir(m_opt,
                                   thresh_image, input_file, suffix,
-                                  m_images[image_iter].has_georef,
-                                  m_images[image_iter].georef,
+                                  app_data.images[image_iter].has_georef,
+                                  app_data.images[image_iter].georef,
                                   has_nodata, nodata_val);
 
     // Read it back right away
-    m_images[image_iter].loaded_thresholded = false; // force reload
-    m_images[image_iter].read(thresholded_file, m_opt, THRESHOLDED_VIEW);
+    app_data.images[image_iter].loaded_thresholded = false; // force reload
+    app_data.images[image_iter].read(thresholded_file, m_opt, THRESHOLDED_VIEW);
     temporary_files().files.insert(thresholded_file);
   }
 
@@ -505,42 +505,42 @@ void MainWidget::viewThreshImages(bool refresh_pixmap) {
 
 void MainWidget::maybeGenHillshade() {
 
-  int num_images = m_images.size();
+  int num_images = app_data.images.size();
 
   // Create the hillshaded images and save them to disk. We have to do
   // it each time as perhaps the hillshade parameters changed.
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
 
-    if (m_images[image_iter].m_display_mode != HILLSHADED_VIEW)
+    if (app_data.images[image_iter].m_display_mode != HILLSHADED_VIEW)
       continue;
 
-    if (m_images[image_iter].name.find("_CMAP.tif") != std::string::npos) {
-      m_images[image_iter].m_display_mode = REGULAR_VIEW;
+    if (app_data.images[image_iter].name.find("_CMAP.tif") != std::string::npos) {
+      app_data.images[image_iter].m_display_mode = REGULAR_VIEW;
       continue; // silently ignore colormap images
     }
 
     // Cannot hillshade a polygon or xyz data
-    if (m_images[image_iter].m_isPoly || m_images[image_iter].m_isCsv) {
-      m_images[image_iter].m_display_mode = REGULAR_VIEW;
+    if (app_data.images[image_iter].m_isPoly || app_data.images[image_iter].m_isCsv) {
+      app_data.images[image_iter].m_display_mode = REGULAR_VIEW;
       continue;
     }
 
-    if (!m_images[image_iter].has_georef) {
+    if (!app_data.images[image_iter].has_georef) {
       popUp("Hill-shading requires georeferenced images.");
-      m_images[image_iter].m_display_mode = REGULAR_VIEW;
+      app_data.images[image_iter].m_display_mode = REGULAR_VIEW;
       return;
     }
 
-    std::string input_file = m_images[image_iter].name;
-    int num_channels = m_images[image_iter].img.planes();
+    std::string input_file = app_data.images[image_iter].name;
+    int num_channels = app_data.images[image_iter].img.planes();
     if (num_channels != 1) {
       // Turn off hillshade mode for all images which don't support it,
       // or else this error will keep on coming up
       for (int iter2 = 0; iter2 < num_images; iter2++) {
-        int num_channels2 = m_images[iter2].img.planes();
+        int num_channels2 = app_data.images[iter2].img.planes();
         if (num_channels2 != 1) {
           // TODO(oalexan1): Do we need a lock here?
-          m_images[iter2].m_display_mode = REGULAR_VIEW;
+          app_data.images[iter2].m_display_mode = REGULAR_VIEW;
         }
       }
 
@@ -560,11 +560,11 @@ void MainWidget::maybeGenHillshade() {
                                     input_file, hillshaded_file);
 
     if (!success) {
-      m_images[image_iter].m_display_mode = REGULAR_VIEW;
+      app_data.images[image_iter].m_display_mode = REGULAR_VIEW;
       return;
     }
 
-    m_images[image_iter].read(hillshaded_file, m_opt, HILLSHADED_VIEW);
+    app_data.images[image_iter].read(hillshaded_file, m_opt, HILLSHADED_VIEW);
     temporary_files().files.insert(hillshaded_file);
   }
 }
@@ -611,10 +611,10 @@ void MainWidget::allowMultipleSelections() {
 // This is reached with right-click from the list of images on the left
 void MainWidget::toggleHillshadeFromImageList() {
   for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++) {
-    if (m_images[*it].m_display_mode == HILLSHADED_VIEW)
-      m_images[*it].m_display_mode = REGULAR_VIEW;
-    else if (m_images[*it].m_display_mode != HILLSHADED_VIEW)
-      m_images[*it].m_display_mode = HILLSHADED_VIEW;
+    if (app_data.images[*it].m_display_mode == HILLSHADED_VIEW)
+      app_data.images[*it].m_display_mode = REGULAR_VIEW;
+    else if (app_data.images[*it].m_display_mode != HILLSHADED_VIEW)
+      app_data.images[*it].m_display_mode = HILLSHADED_VIEW;
 
     // We will assume if the user wants to see the hillshade
     // status of this image change, he'll also want it on top.
@@ -628,10 +628,10 @@ void MainWidget::toggleHillshadeFromImageList() {
 // This is reached with right-click from the image itself
 void MainWidget::toggleHillshadeImageRightClick() {
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-    if (m_images[image_iter].m_display_mode == HILLSHADED_VIEW)
-      m_images[image_iter].m_display_mode = REGULAR_VIEW;
-    else if (m_images[image_iter].m_display_mode != HILLSHADED_VIEW)
-      m_images[image_iter].m_display_mode = HILLSHADED_VIEW;
+    if (app_data.images[image_iter].m_display_mode == HILLSHADED_VIEW)
+      app_data.images[image_iter].m_display_mode = REGULAR_VIEW;
+    else if (app_data.images[image_iter].m_display_mode != HILLSHADED_VIEW)
+      app_data.images[image_iter].m_display_mode = HILLSHADED_VIEW;
   }
 
   refreshHillshade();
@@ -653,7 +653,7 @@ void MainWidget::zoomToImage() {
     bringImageOnTop(*it);
 
     // Set the view window to be the region encompassing the image
-    BBox2 world_box = MainWidget::image2world(m_images[*it].image_bbox, *it);
+    BBox2 world_box = MainWidget::image2world(app_data.images[*it].image_bbox, *it);
     double aspect = double(m_window_width) / m_window_height;  
     m_current_view = vw::geometry::expandBoxToRatio(world_box, aspect);
   }
@@ -694,9 +694,9 @@ void MainWidget::viewHillshadedImages(bool hillshade_mode) {
 void MainWidget::setHillshadeMode(bool hillshade_mode) {
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
     if (hillshade_mode)
-      m_images[image_iter].m_display_mode = HILLSHADED_VIEW;
+      app_data.images[image_iter].m_display_mode = HILLSHADED_VIEW;
     else
-      m_images[image_iter].m_display_mode = REGULAR_VIEW;
+      app_data.images[image_iter].m_display_mode = REGULAR_VIEW;
   }
 
 }
@@ -720,7 +720,7 @@ void MainWidget::bringImageOnTop(int image_index) {
   }
 
   // The image should be visible
-  MainWidget::showImage(m_images[image_index].name);
+  MainWidget::showImage(app_data.images[image_index].name);
 }
 
 // The image with the given index will be on top when shown.
@@ -732,7 +732,7 @@ void MainWidget::pushImageToBottom(int image_index) {
   }
 
   // The image should be visible
-  MainWidget::showImage(m_images[image_index].name);
+  MainWidget::showImage(app_data.images[image_index].name);
 }
 
 // Convert the crop window to original pixel coordinates from
@@ -957,12 +957,12 @@ void MainWidget::drawImage(QPainter* paint) {
     int i = m_filesOrder[j]; // image index
 
     // Don't show files the user wants hidden
-    if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
+    if (m_chooseFiles && m_chooseFiles->isHidden(app_data.images[i].name))
       continue;
 
     draw_order.push_back(i);
     
-    if (m_images[i].m_isCsv)
+    if (app_data.images[i].m_isCsv)
       has_csv = true;
   }
   if (app_data.use_georef && !has_csv)
@@ -976,9 +976,9 @@ void MainWidget::drawImage(QPainter* paint) {
     int i = draw_order[j]; // image index
 
     // Load if not loaded so far
-    m_images[i].load();
+    app_data.images[i].load();
 
-    if (m_images[i].m_isPoly)
+    if (app_data.images[i].m_isPoly)
       continue; // those will be always drawn on top of images, to be done later
 
     // TODO(oalexan1): Must draw this onto a QImage and then draw the QImage
@@ -987,14 +987,14 @@ void MainWidget::drawImage(QPainter* paint) {
     //QPainter local_painter(&image); 
     // later pass this to the widget painter.
     // Maybe should replace m_pixmap with QImage.
-    if (m_images[i].m_isCsv) {
+    if (app_data.images[i].m_isCsv) {
       MainWidget::drawScatteredData(paint, i);
       continue; // there is no image, so no point going on
     }
 
     // The portion of the image in the current view.
     BBox2 curr_world_box = m_current_view;
-    BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
+    BBox2 B = MainWidget::image2world(app_data.images[i].image_bbox, i);
     curr_world_box.crop(B);
 
     // This is a bugfix for the case when the world boxes
@@ -1050,7 +1050,7 @@ void MainWidget::drawImage(QPainter* paint) {
     
     double scale_out = 1.0; // will be modified by get_image_clip()
     BBox2i region_out;
-    bool highlight_nodata = (m_images[i].m_display_mode == THRESHOLDED_VIEW);
+    bool highlight_nodata = (app_data.images[i].m_display_mode == THRESHOLDED_VIEW);
     if (!std::isnan(asp::stereo_settings().nodata_value)) {
       // When the user specifies --nodata-value, we will show
       // nodata pixels as transparent.
@@ -1058,17 +1058,17 @@ void MainWidget::drawImage(QPainter* paint) {
     }
 
     QImage qimg;
-    if (m_images[i].m_display_mode == THRESHOLDED_VIEW) {
-      m_images[i].thresholded_img.get_image_clip(scale, image_box,
+    if (app_data.images[i].m_display_mode == THRESHOLDED_VIEW) {
+      app_data.images[i].thresholded_img.get_image_clip(scale, image_box,
                                                   highlight_nodata,
                                                   qimg, scale_out, region_out);
-    } else if (m_images[i].m_display_mode == HILLSHADED_VIEW) {
-      m_images[i].hillshaded_img.get_image_clip(scale, image_box,
+    } else if (app_data.images[i].m_display_mode == HILLSHADED_VIEW) {
+      app_data.images[i].hillshaded_img.get_image_clip(scale, image_box,
                                                 highlight_nodata,
                                                 qimg, scale_out, region_out);
     } else {
       // Original images
-      m_images[i].img.get_image_clip(scale, image_box, highlight_nodata,
+      app_data.images[i].img.get_image_clip(scale, image_box, highlight_nodata,
                                      qimg, scale_out, region_out);
     }
 
@@ -1205,20 +1205,20 @@ void MainWidget::drawScatteredData(QPainter* paint, int image_index) {
   double min_val = asp::stereo_settings().min;
   double max_val = asp::stereo_settings().max;
   if (std::isnan(min_val) || std::isnan(max_val))
-    findRobustBounds(m_images[image_index].scattered_data, min_val, max_val);
+    findRobustBounds(app_data.images[image_index].scattered_data, min_val, max_val);
 
   std::map<float, vw::cm::Vector3u> lut_map;
   try {
-    vw::cm::parse_color_style(m_images[image_index].colormap, lut_map);
+    vw::cm::parse_color_style(app_data.images[image_index].colormap, lut_map);
   } catch (...) {
-    popUp("Unknown colormap style: " + m_images[image_index].colormap);
-    m_images[image_index].colormap = "binary-red-blue";
-    vw::cm::parse_color_style(m_images[image_index].colormap, lut_map);
+    popUp("Unknown colormap style: " + app_data.images[image_index].colormap);
+    app_data.images[image_index].colormap = "binary-red-blue";
+    vw::cm::parse_color_style(app_data.images[image_index].colormap, lut_map);
   }
   vw::cm::Colormap colormap(lut_map);
 
-  for (size_t pt_it = 0; pt_it < m_images[image_index].scattered_data.size(); pt_it++) {
-    auto const& P = m_images[image_index].scattered_data[pt_it];
+  for (size_t pt_it = 0; pt_it < app_data.images[image_index].scattered_data.size(); pt_it++) {
+    auto const& P = app_data.images[image_index].scattered_data[pt_it];
 
     vw::Vector2 world_P = proj2world(subvector(P, 0, 2), image_index);
     Vector2 screen_P = world2screen(world_P);
@@ -1328,7 +1328,7 @@ for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per abov
     image_it = m_filesOrder[j]; // for the other polys
 
     // Don't show files the user wants hidden
-    std::string fileName = m_images[image_it].name;
+    std::string fileName = app_data.images[image_it].name;
     if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
       continue;
   }
@@ -1336,9 +1336,9 @@ for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per abov
   // See if to use a custom color for this polygon, specified by the user from the gui
   auto color_it = m_perImagePolyColor.find(image_it);
   if (!currDrawnPoly && color_it != m_perImagePolyColor.end()) {
-    m_images[image_it].color = color_it->second; // save for the future
-    for (size_t polyIter = 0; polyIter < m_images[image_it].polyVec.size(); polyIter++)
-      m_images[image_it].polyVec[polyIter].set_color(m_images[image_it].color);
+    app_data.images[image_it].color = color_it->second; // save for the future
+    for (size_t polyIter = 0; polyIter < app_data.images[image_it].polyVec.size(); polyIter++)
+      app_data.images[image_it].polyVec[polyIter].set_color(app_data.images[image_it].color);
   }
 
   // Let polyVec be the polygons for the current image, or,
@@ -1346,7 +1346,7 @@ for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per abov
   // TODO(oalexan1): How to avoid a deep copy?
   std::vector<vw::geometry::dPoly> polyVec;
   if (!currDrawnPoly) {
-    polyVec = m_images[image_it].polyVec; // deep copy
+    polyVec = app_data.images[image_it].polyVec; // deep copy
   } else {
     if (m_currPolyX.empty() || !m_polyEditMode)
       continue;
@@ -1655,11 +1655,11 @@ void MainWidget::setProfileMode(bool profile_mode) {
     setPolyEditMode(false, refresh);
 
     // Load the data if not loaded already
-    for (size_t it = 0; it < m_images.size(); it++)
-      m_images[it].load();
+    for (size_t it = 0; it < app_data.images.size(); it++)
+      app_data.images[it].load();
 
     // Show the profile window
-    MainWidget::plotProfile(m_images, m_profileX, m_profileY);
+    MainWidget::plotProfile(app_data.images, m_profileX, m_profileY);
   }
 
   refreshPixmap();
@@ -1707,10 +1707,10 @@ void MainWidget::appendToPolyVec(vw::geometry::dPoly const& P) {
   // Append the new polygon to the list of polygons. If we have several
   // clips already, append it to the last clip. If we have no clips,
   // create a new clip.
-  if (m_images[m_polyLayerIndex].polyVec.size() == 0) {
-    m_images[m_polyLayerIndex].polyVec.push_back(P);
+  if (app_data.images[m_polyLayerIndex].polyVec.size() == 0) {
+    app_data.images[m_polyLayerIndex].polyVec.push_back(P);
   } else {
-    m_images[m_polyLayerIndex].polyVec.back().appendPolygons(P);
+    app_data.images[m_polyLayerIndex].polyVec.back().appendPolygons(P);
   }
 
   return;
@@ -1729,11 +1729,11 @@ void MainWidget::addPolyVert(double px, double py) {
   // m_polyLayerIndex to point to a currently visible layer,
   // otherwise it looks as if polygons are invisible.
   if (pSize == 0 && m_chooseFiles && 
-      m_chooseFiles->isHidden(m_images[m_polyLayerIndex].name)) {
+      m_chooseFiles->isHidden(app_data.images[m_polyLayerIndex].name)) {
     for (int j = m_beg_image_id; j < m_end_image_id; j++) {
       int i = m_filesOrder[j]; // image index
 
-      if (m_chooseFiles && m_chooseFiles->isHidden(m_images[i].name))
+      if (m_chooseFiles && m_chooseFiles->isHidden(app_data.images[i].name))
         continue;
       m_polyLayerIndex = i; // not hidden
     }
@@ -1768,7 +1768,7 @@ void MainWidget::addPolyVert(double px, double py) {
   vw::geometry::dPoly poly;
   poly.reset();
   bool isPolyClosed = true;
-  std::string color = m_images[m_polyLayerIndex].color;
+  std::string color = app_data.images[m_polyLayerIndex].color;
   if (color == "default")
     color = m_polyColor; // if no color was set from the command line
 
@@ -1776,7 +1776,7 @@ void MainWidget::addPolyVert(double px, double py) {
   auto color_it = m_perImagePolyColor.find(m_polyLayerIndex);
   if (color_it != m_perImagePolyColor.end()) {
     color = color_it->second;
-    m_images[m_polyLayerIndex].color = color; // save for the future
+    app_data.images[m_polyLayerIndex].color = color; // save for the future
   }
   std::string layer = "";
   poly.appendPolygon(pSize,
@@ -1802,7 +1802,7 @@ void MainWidget::deleteVertex() {
   double min_x, min_y, min_dist;
   int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
   MainWidget::findClosestPolyVertex(// inputs
-                                    P.x(), P.y(), m_images,
+                                    P.x(), P.y(), app_data.images,
                                     // outputs
                                     clipIndex,
                                     polyVecIndex,
@@ -1816,7 +1816,7 @@ void MainWidget::deleteVertex() {
       vertIndexInCurrPoly < 0)
     return;
 
-  m_images[clipIndex].polyVec[polyVecIndex].eraseVertex
+  app_data.images[clipIndex].polyVec[polyVecIndex].eraseVertex
     (polyIndexInCurrPoly, vertIndexInCurrPoly);
 
   // This will redraw just the polygons, not the pixmap
@@ -1838,9 +1838,9 @@ void MainWidget::deleteVertices() {
 
   for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
 
-    for (size_t layerIter = 0; layerIter < m_images[clipIter].polyVec.size(); layerIter++) {
+    for (size_t layerIter = 0; layerIter < app_data.images[clipIter].polyVec.size(); layerIter++) {
 
-      vw::geometry::dPoly & poly     = m_images[clipIter].polyVec[layerIter]; // alias
+      vw::geometry::dPoly & poly     = app_data.images[clipIter].polyVec[layerIter]; // alias
       int                   numPolys = poly.get_numPolys();
       const int           * numVerts = poly.get_numVerts();
       const double        * xv       = poly.get_xv();
@@ -1883,7 +1883,7 @@ void MainWidget::deleteVertices() {
       }
 
       // Overwrite the polygon
-      m_images[clipIter].polyVec[layerIter] = poly_out;
+      app_data.images[clipIter].polyVec[layerIter] = poly_out;
     }
   }
 
@@ -1922,7 +1922,7 @@ void MainWidget::findClosestPolyEdge(// inputs
   for (int j = m_beg_image_id; j < m_end_image_id; j++) {
 
     int clipIter = m_filesOrder[j]; // image index
-    if (m_chooseFiles && m_chooseFiles->isHidden(m_images[clipIter].name))
+    if (m_chooseFiles && m_chooseFiles->isHidden(app_data.images[clipIter].name))
       continue; // skip hidden files
 
     double minX0, minY0, minDist0;
@@ -2044,8 +2044,8 @@ void MainWidget::insertVertex() {
   // with just one point.
   bool allEmpty = true;
   for (size_t clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
-    if (m_images[clipIter].polyVec.size() > 0 &&
-        m_images[clipIter].polyVec[0].get_totalNumVerts() > 0) {
+    if (app_data.images[clipIter].polyVec.size() > 0 &&
+        app_data.images[clipIter].polyVec[0].get_totalNumVerts() > 0) {
       allEmpty = false;
       break;
     }
@@ -2062,7 +2062,7 @@ void MainWidget::insertVertex() {
   double min_x, min_y, min_dist;
   int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
   MainWidget::findClosestPolyEdge(// inputs
-                                  P.x(), P.y(), m_images,
+                                  P.x(), P.y(), app_data.images,
                                   // outputs
                                   clipIndex,
                                   polyVecIndex,
@@ -2079,7 +2079,7 @@ void MainWidget::insertVertex() {
   P = world2proj(P, clipIndex);
 
   // Need +1 below as we insert AFTER current vertex
-  m_images[clipIndex].polyVec[polyVecIndex].insertVertex(polyIndexInCurrPoly,
+  app_data.images[clipIndex].polyVec[polyVecIndex].insertVertex(polyIndexInCurrPoly,
                                                           vertIndexInCurrPoly + 1,
                                                           P.x(), P.y());
 
@@ -2172,7 +2172,7 @@ void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex) {
 
 // Merge existing polygons
 void MainWidget::mergePolys() {
-  MainWidget::mergePolys(m_images, m_polyLayerIndex);
+  MainWidget::mergePolys(app_data.images, m_polyLayerIndex);
 }
 
 // Save the currently created vector layer
@@ -2183,7 +2183,7 @@ void MainWidget::saveVectorLayerAsShapeFile() {
     return;
   }
 
-  std::string shapeFile = m_images[m_polyLayerIndex].name;
+  std::string shapeFile = app_data.images[m_polyLayerIndex].name;
   shapeFile =  boost::filesystem::path(shapeFile).replace_extension(".shp").string();
   QString qShapeFile = QFileDialog::getSaveFileName(this,
                                                   tr("Save shapefile"), shapeFile.c_str(),
@@ -2194,13 +2194,13 @@ void MainWidget::saveVectorLayerAsShapeFile() {
   if (shapeFile == "")
     return;
 
-  bool has_geo = m_images[m_polyLayerIndex].has_georef;
-  vw::cartography::GeoReference const& geo = m_images[m_polyLayerIndex].georef;
+  bool has_geo = app_data.images[m_polyLayerIndex].has_georef;
+  vw::cartography::GeoReference const& geo = app_data.images[m_polyLayerIndex].georef;
 
   // Save only polygons in the given layer. Polygons in other layers
   // can have individual georeferences.
   vw_out() << "Writing: " << shapeFile << std::endl;
-  write_shapefile(shapeFile, has_geo, geo, m_images[m_polyLayerIndex].polyVec);
+  write_shapefile(shapeFile, has_geo, geo, app_data.images[m_polyLayerIndex].polyVec);
 }
 
 // Save the currently created vector layer. Its index is m_polyLayerIndex.
@@ -2212,7 +2212,7 @@ void MainWidget::saveVectorLayerAsTextFile() {
     return;
   }
 
-  std::string textFile = m_images[m_polyLayerIndex].name;
+  std::string textFile = app_data.images[m_polyLayerIndex].name;
   textFile =  boost::filesystem::path(textFile).replace_extension(".txt").string();
   QString qtextFile = QFileDialog::getSaveFileName(this,
                                                   tr("Save text file"), textFile.c_str(),
@@ -2221,7 +2221,7 @@ void MainWidget::saveVectorLayerAsTextFile() {
   if (textFile == "")
     return;
 
-  m_images[m_polyLayerIndex].writePoly(textFile);
+  app_data.images[m_polyLayerIndex].writePoly(textFile);
 }
 
 // Contour the current image
@@ -2230,7 +2230,7 @@ bool MainWidget::contourImage() {
   int non_poly_image = -1;
   int num_non_poly_images = 0;
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-    if (!m_images[image_iter].m_isPoly && !m_images[image_iter].m_isCsv)
+    if (!app_data.images[image_iter].m_isPoly && !app_data.images[image_iter].m_isCsv)
       num_non_poly_images++;
     non_poly_image = image_iter;
   }
@@ -2245,15 +2245,15 @@ bool MainWidget::contourImage() {
 
   m_polyLayerIndex = non_poly_image;
 
-  int num_channels = m_images[m_polyLayerIndex].img.planes();
+  int num_channels = app_data.images[m_polyLayerIndex].img.planes();
   if (num_channels > 1) {
     popUp("Contouring images makes sense only for single-channel images.");
     return false;
   }
 
   if (num_channels == 1)
-    contour_image(m_images[m_polyLayerIndex].img, m_images[m_polyLayerIndex].georef,
-                  m_thresh, m_images[m_polyLayerIndex].polyVec);
+    contour_image(app_data.images[m_polyLayerIndex].img, app_data.images[m_polyLayerIndex].georef,
+                  m_thresh, app_data.images[m_polyLayerIndex].polyVec);
 
   // This will call paintEvent which will draw the contour
   update();
@@ -2555,7 +2555,7 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
     // Find the vertex we want to move
     double min_x, min_y, min_dist;
     MainWidget::findClosestPolyVertex(// inputs
-                                      P.x(), P.y(), m_images,
+                                      P.x(), P.y(), app_data.images,
                                       // outputs
                                       m_polyLayerIndex,
                                       m_editPolyVecIndex,
@@ -2634,7 +2634,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
 
     m_world_box.grow(P); // to not cut when plotting later
     P = world2proj(P, m_polyLayerIndex); // projected units
-    m_images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
+    app_data.images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
       .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly, P.x(), P.y());
     // This will redraw just the polygons, not the pixmap
     update();
@@ -2691,7 +2691,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
     m_cropWinMode = true;
   }
 
-  if (m_images.empty())
+  if (app_data.images.empty())
     return;
 
   // If a point was being moved, reset the ID and color.
@@ -2735,7 +2735,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
         int it = m_filesOrder[j];
 
         // Don't show files the user wants hidden
-        std::string fileName = m_images[it].name;
+        std::string fileName = app_data.images[it].name;
         if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
           continue;
 
@@ -2744,12 +2744,12 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
 
         int col = floor(q[0]), row = floor(q[1]);
 
-        if (col >= 0 && row >= 0 && col < m_images[it].img.cols() &&
-            row < m_images[it].img.rows()) {
-          val = m_images[it].img.get_value_as_str(col, row);
+        if (col >= 0 && row >= 0 && col < app_data.images[it].img.cols() &&
+            row < app_data.images[it].img.rows()) {
+          val = app_data.images[it].img.get_value_as_str(col, row);
         }
 
-        vw_out() << "Pixel and value: " << m_images[it].name << " ("
+        vw_out() << "Pixel and value: " << app_data.images[it].name << " ("
                   << col << ", " << row << ") " << val << "\n";
 
         update();
@@ -2761,7 +2761,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
             popUp("A profile can be shown only when a single image is present.");
             can_profile = false;
           }
-          int num_channels = m_images[it].img.planes();
+          int num_channels = app_data.images[it].img.planes();
           if (num_channels != 1) {
             popUp("A profile can be shown only when the image has a single channel.");
             can_profile = false;
@@ -2786,7 +2786,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
         // plotProfilePolyLine() to show the polygonal line.
 
         // Now show the profile.
-        MainWidget::plotProfile(m_images, m_profileX, m_profileY);
+        MainWidget::plotProfile(app_data.images, m_profileX, m_profileY);
 
         // TODO: Why is this buried in the short distance check?
       } else if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode) {
@@ -2800,7 +2800,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
         Vector2 P = screen2world(Vector2(mouseRelX, mouseRelY));
         m_world_box.grow(P); // to not cut when plotting later
         P = world2proj(P, m_polyLayerIndex); // projected units
-        m_images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
+        app_data.images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
           .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly,
                               P.x(), P.y());
 
@@ -2828,7 +2828,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
         return;
       }
 
-      if (m_images[m_beg_image_id].img.planes() != 1) {
+      if (app_data.images[m_beg_image_id].img.planes() != 1) {
         popUp("Thresholding makes sense only for single-channel images.");
         m_thresh_calc_mode = false;
         return;
@@ -2847,13 +2847,13 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
       int col = round(q[0]), row = round(q[1]);
       vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
 
-      if (col >= 0 && row >= 0 && col < m_images[m_beg_image_id].img.cols() &&
-          row < m_images[m_beg_image_id].img.rows()) {
-        double val = m_images[m_beg_image_id].img.get_value_as_double(col, row);
+      if (col >= 0 && row >= 0 && col < app_data.images[m_beg_image_id].img.cols() &&
+          row < app_data.images[m_beg_image_id].img.rows()) {
+        double val = app_data.images[m_beg_image_id].img.get_value_as_double(col, row);
         m_thresh = std::max(m_thresh, val);
       }
 
-      vw_out() << "Image threshold for " << m_images[m_beg_image_id].name
+      vw_out() << "Image threshold for " << app_data.images[m_beg_image_id].name
                 << ": " << m_thresh << std::endl;
       return;
     }
@@ -2900,43 +2900,43 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
       int image_it = m_filesOrder[j];
 
       // Don't show files the user wants hidden
-      std::string fileName = m_images[image_it].name;
+      std::string fileName = app_data.images[image_it].name;
       if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
         continue;
 
       BBox2 image_box = world2image(m_stereoCropWin, image_it);
       vw_out() << std::setprecision(8)
-                << "src win for    " << m_images[image_it].name << ": "
+                << "src win for    " << app_data.images[image_it].name << ": "
                 << round(image_box.min().x()) << ' ' << round(image_box.min().y()) << ' '
                 << round(image_box.width())   << ' ' << round(image_box.height())  << std::endl;
 
-      if (m_images[image_it].has_georef) {
+      if (app_data.images[image_it].has_georef) {
         Vector2 proj_min, proj_max;
         // Convert pixels to projected coordinates
         BBox2 point_box;
-        if (m_images[image_it].m_isPoly || m_images[image_it].m_isCsv)
+        if (app_data.images[image_it].m_isPoly || app_data.images[image_it].m_isCsv)
           point_box = image_box;
         else
-          point_box = m_images[image_it].georef.pixel_to_point_bbox(image_box);
+          point_box = app_data.images[image_it].georef.pixel_to_point_bbox(image_box);
 
         proj_min = point_box.min();
         proj_max = point_box.max();
         // Below we flip in y to make gdal happy
         vw_out() << std::setprecision(17)
                   << "proj win for   "
-                  << m_images[image_it].name << ": "
+                  << app_data.images[image_it].name << ": "
                   << proj_min.x() << ' ' << proj_max.y() << ' '
                   << proj_max.x() << ' ' << proj_min.y() << std::endl;
 
         Vector2 lonlat_min, lonlat_max;
-        BBox2 lonlat_box = m_images[image_it].georef.point_to_lonlat_bbox(point_box);
+        BBox2 lonlat_box = app_data.images[image_it].georef.point_to_lonlat_bbox(point_box);
 
         lonlat_min = lonlat_box.min();
         lonlat_max = lonlat_box.max();
         // Again, miny and maxy are flipped on purpose
         vw_out() << std::setprecision(17)
                   << "lonlat win for "
-                  << m_images[image_it].name << ": "
+                  << app_data.images[image_it].name << ": "
                   << lonlat_min.x() << ' ' << lonlat_max.y() << ' '
                   << lonlat_max.x() << ' ' << lonlat_min.y() << std::endl;
       }
@@ -3277,10 +3277,10 @@ void MainWidget::hideImagesNotInRegion() {
   for (int j = m_beg_image_id; j < m_end_image_id; j++) {
 
     int image_it = m_filesOrder[j];
-    std::string fileName = m_images[image_it].name;
+    std::string fileName = app_data.images[image_it].name;
     BBox2i image_box = world2image(m_stereoCropWin, image_it);
-    image_box.crop(BBox2(0, 0, m_images[image_it].img.cols(),
-                          m_images[image_it].img.rows()));
+    image_box.crop(BBox2(0, 0, app_data.images[image_it].img.cols(),
+                          app_data.images[image_it].img.rows()));
 
     if (image_box.empty())
       m_chooseFiles->hide(fileName);
@@ -3317,7 +3317,7 @@ void MainWidget::setThreshold(double thresh) {
   int non_poly_image = 0;
   int num_non_poly_images = 0;
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-    if (!m_images[image_iter].m_isPoly && !m_images[image_iter].m_isCsv)
+    if (!app_data.images[image_iter].m_isPoly && !app_data.images[image_iter].m_isCsv)
       num_non_poly_images++;
     non_poly_image = image_iter;
   }
@@ -3331,7 +3331,7 @@ void MainWidget::setThreshold(double thresh) {
   }
 
   m_thresh = thresh;
-  vw_out() << "Image threshold for " << m_images[non_poly_image].name
+  vw_out() << "Image threshold for " << app_data.images[non_poly_image].name
       << ": " << m_thresh << std::endl;
 }
 
@@ -3394,7 +3394,7 @@ void MainWidget::setHillshadeParams() {
   MainWidget::maybeGenHillshade();
   refreshPixmap();
 
-  vw_out() << "Hillshade azimuth and elevation for " << m_images[m_beg_image_id].name
+  vw_out() << "Hillshade azimuth and elevation for " << app_data.images[m_beg_image_id].name
            << ": " << m_hillshade_azimuth << ' ' << m_hillshade_elevation << "\n";
 }
 

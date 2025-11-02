@@ -147,7 +147,7 @@ bool MainWindow::sanityChecks(int num_images) {
   // If .vwip files were passed in, we will interpret those as matches.
   if (!stereo_settings().vwip_files.empty()) {
     asp::stereo_settings().view_matches = true;
-    if (m_image_files.size() != stereo_settings().vwip_files.size()) {
+    if (app_data.image_files.size() != stereo_settings().vwip_files.size()) {
       popUp("There must be as many .vwip files as images.");
       return false;
     }    
@@ -155,7 +155,7 @@ bool MainWindow::sanityChecks(int num_images) {
   
   // If a match file was explicitly specified, use it.
   if (stereo_settings().match_file != "") {
-    if (m_image_files.size() != 2) {
+    if (app_data.image_files.size() != 2) {
       popUp("The --match-file option only works with two valid input images.");
       return false;
     }
@@ -294,30 +294,30 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
 
   // The code from here on is duplicated in AppData
   
-  m_image_files = local_images;
+  app_data.image_files = local_images;
   m_display_mode = asp::stereo_settings().hillshade?HILLSHADED_VIEW:REGULAR_VIEW;
 
   if (!stereo_settings().zoom_proj_win.empty())
     app_data.use_georef = true;
   
-  size_t num_images = m_image_files.size();
-  m_images.resize(num_images);
+  size_t num_images = app_data.image_files.size();
+  app_data.images.resize(num_images);
 
   std::vector<int> propertyIndices;
-  asp::lookupPropertyIndices(properties, m_image_files, propertyIndices);
+  asp::lookupPropertyIndices(properties, app_data.image_files, propertyIndices);
 
   // TODO(oalexan1): How will the preview mode play along with georeferences?
   bool has_georef = true;
   for (size_t i = 0; i < num_images; i++) {
-    m_images[i].read(m_image_files[i], m_opt, REGULAR_VIEW,
+    app_data.images[i].read(app_data.image_files[i], m_opt, REGULAR_VIEW,
                      properties[propertyIndices[i]],
                      delay);
     
     // Above we read the image in regular mode. If plan to display hillshade,
     // for now set the flag for that, and the hillshaded image will be created
     // and set later. (Something more straightforward could be done.)
-    m_images[i].m_display_mode = m_display_mode;
-    has_georef = has_georef && m_images[i].has_georef;
+    app_data.images[i].m_display_mode = m_display_mode;
+    has_georef = has_georef && app_data.images[i].has_georef;
   }
 
   // Use georef if all images have it. This may be turned off later if it is desired
@@ -338,23 +338,23 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   }
 
   // Create the coordinate transforms
-  m_world2image.resize(num_images);
-  m_image2world.resize(num_images);
+  app_data.world2image.resize(num_images);
+  app_data.image2world.resize(num_images);
   if (app_data.use_georef) {
     for (int i = 0; i < num_images; i++) {  
-      m_world2image[i]
-        = vw::cartography::GeoTransform(m_images[BASE_IMAGE_ID].georef,
-                                        m_images[i].georef);
-      m_image2world[i]
-        = vw::cartography::GeoTransform(m_images[i].georef,
-                                        m_images[BASE_IMAGE_ID].georef);
+      app_data.world2image[i]
+        = vw::cartography::GeoTransform(app_data.images[BASE_IMAGE_ID].georef,
+                                        app_data.images[i].georef);
+      app_data.image2world[i]
+        = vw::cartography::GeoTransform(app_data.images[i].georef,
+                                        app_data.images[BASE_IMAGE_ID].georef);
     }
   }
 
   // All the data is stored and shared via with object
   app_data = asp::AppData(opt, use_georef, properties, local_images);
   
-  if (m_image_files.empty()) {
+  if (app_data.image_files.empty()) {
     popUp("No input images.");
     exit(1);
   }
@@ -365,7 +365,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
 
   // For being able to choose which files to show/hide
   m_chooseFiles = new chooseFilesDlg(this);
-  m_chooseFiles->chooseFiles(m_image_files);
+  m_chooseFiles->chooseFiles(app_data.image_files);
   // See note at chooseFilesFilterDelegate
   m_chooseFiles->getFilesTable()->setItemDelegate(new chooseFilesFilterDelegate(this));
   m_chooseFiles->getFilesTable()->installEventFilter(this);
@@ -464,8 +464,8 @@ void MainWindow::createLayout() {
   splitter->addWidget(m_chooseFiles);
 
   bool do_colorize = false;
-  for (size_t i = 0; i < m_images.size(); i++) 
-    do_colorize = do_colorize || m_images[i].colorbar;
+  for (size_t i = 0; i < app_data.images.size(); i++) 
+    do_colorize = do_colorize || app_data.images[i].colorbar;
   bool delay = !asp::stereo_settings().nvm.empty()       ||
                !asp::stereo_settings().isis_cnet.empty() ||
                 asp::stereo_settings().preview;
@@ -476,25 +476,25 @@ void MainWindow::createLayout() {
     do_colorize = false;
   }
   if (do_colorize && m_view_type == VIEW_IN_SINGLE_WINDOW) {
-     if (m_images.size() > 1) // for one image do this quietly
+     if (app_data.images.size() > 1) // for one image do this quietly
       popUp("Colorized images can only be shown side-by-side.");
     m_view_type = VIEW_SIDE_BY_SIDE;
   }
 
   // See if to show it. In a side-by-side view it is normally not needed
-  size_t num_images = m_images.size();
+  size_t num_images = app_data.images.size();
   bool showChooseFiles = ((m_view_type == VIEW_IN_SINGLE_WINDOW || sideBySideWithDialog()) &&
                           num_images > 1);
   m_chooseFiles->setVisible(showChooseFiles);
 
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
     // Pass all images to a single MainWidget object. No colorizing in this mode.
-    int beg_image_id = 0, end_image_id = m_images.size();
+    int beg_image_id = 0, end_image_id = app_data.images.size();
     MainWidget * widget = new MainWidget(centralWidget,
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID,
-                                app_data, m_images, m_world2image,
-                                m_image2world,
+                                app_data, app_data.images, app_data.world2image,
+                                app_data.image2world,
                                 m_output_prefix,
                                 m_matchlist,
                                 m_pairwiseMatches, m_pairwiseCleanMatches,
@@ -508,25 +508,25 @@ void MainWindow::createLayout() {
     m_widgets.push_back((QWidget*)widget);
   } else {
     // Each MainWidget object gets passed a single image
-    for (size_t i = 0; i < m_images.size(); i++) {
+    for (size_t i = 0; i < app_data.images.size(); i++) {
 
       // Do not create hidden widgets, that really slows down the display when there
       // are many of them, but just a handful are needed.
       bool isHidden = (sideBySideWithDialog() && m_chooseFiles &&
-                       m_chooseFiles->isHidden(m_images[i].name));
+                       m_chooseFiles->isHidden(app_data.images[i].name));
       if (isHidden) 
         continue;
 
       QWidget * widget = NULL;
       int beg_image_id = i, end_image_id = i + 1;
-      if (!m_images[i].colorbar ||
-          previewOrSideBySideWithDialog() || m_images[i].img.planes() > 1) {
+      if (!app_data.images[i].colorbar ||
+          previewOrSideBySideWithDialog() || app_data.images[i].img.planes() > 1) {
         // regular plot
         widget = new MainWidget(centralWidget,
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID, 
-                                app_data, m_images, m_world2image,
-                                m_image2world,
+                                app_data, app_data.images, app_data.world2image,
+                                app_data.image2world,
                                 m_output_prefix,
                                 m_matchlist, m_pairwiseMatches, m_pairwiseCleanMatches,
                                 m_editMatchPointVecIndex,
@@ -538,8 +538,8 @@ void MainWindow::createLayout() {
         // TODO(oalexan1): Must integrate the two approaches.
         widget = new ColorAxes(this, 
                                beg_image_id, end_image_id, BASE_IMAGE_ID, 
-                               app_data, app_data.use_georef, m_images, m_world2image,
-                               m_image2world);
+                               app_data, app_data.use_georef, app_data.images, app_data.world2image,
+                               app_data.image2world);
       }
       m_widgets.push_back(widget);
     }
@@ -1199,10 +1199,10 @@ void MainWindow::zoomToProjWin() {
   proj_win.grow(Vector2(c, d));
 
   BBox2 image_box;
-  if (m_images[BASE_IMAGE_ID].m_isPoly || m_images[BASE_IMAGE_ID].m_isCsv)
+  if (app_data.images[BASE_IMAGE_ID].m_isPoly || app_data.images[BASE_IMAGE_ID].m_isCsv)
     image_box = proj_win;
   else
-    image_box = m_images[BASE_IMAGE_ID].georef.point_to_pixel_bbox(proj_win);
+    image_box = app_data.images[BASE_IMAGE_ID].georef.point_to_pixel_bbox(proj_win);
 
   BBox2 world_box = mw(m_widgets[BASE_IMAGE_ID])->image2world(image_box,
                                                               BASE_IMAGE_ID);
@@ -1283,7 +1283,7 @@ void MainWindow::viewMatches() {
     // We will try to load matches
     m_matches_exist = true;
     
-    size_t num_images = m_image_files.size();
+    size_t num_images = app_data.image_files.size();
     bool gcp_exists = !stereo_settings().gcp_file.empty() && 
                       fs::exists(stereo_settings().gcp_file);
 
@@ -1293,7 +1293,7 @@ void MainWindow::viewMatches() {
       // try to load the matches instead, which later will be used to make the
       // gcp.
       try {
-        m_matchlist.loadPointsFromGCPs(stereo_settings().gcp_file, m_image_files);
+        m_matchlist.loadPointsFromGCPs(stereo_settings().gcp_file, app_data.image_files);
       } catch (std::exception const& e) {
         popUp(e.what());
         return;
@@ -1301,7 +1301,7 @@ void MainWindow::viewMatches() {
 
     } else if (!stereo_settings().vwip_files.empty()) {
       // Try to read matches from vwip files
-      m_matchlist.loadPointsFromVwip(stereo_settings().vwip_files, m_image_files);
+      m_matchlist.loadPointsFromVwip(stereo_settings().vwip_files, app_data.image_files);
     } else {
         
       // If no match file was specified by now, ask the user for the output prefix.
@@ -1314,7 +1314,7 @@ void MainWindow::viewMatches() {
       std::vector<std::string> matchFiles;
       std::vector<size_t> leftIndices;
       bool matchfiles_found = false;
-      asp::populateMatchFiles(m_image_files, m_output_prefix, stereo_settings().match_file,
+      asp::populateMatchFiles(app_data.image_files, m_output_prefix, stereo_settings().match_file,
                               matchFiles, leftIndices, matchfiles_found);      
       if (matchfiles_found) 
         m_matchlist.loadPointsFromMatchFiles(matchFiles, leftIndices);
@@ -1407,8 +1407,8 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
 
   // See which images are seen
   std::vector<int> seen_indices;
-  for (size_t it = 0; it < m_images.size(); it++) {
-    if (!m_chooseFiles->isHidden(m_images[it].name)) {
+  for (size_t it = 0; it < app_data.images.size(); it++) {
+    if (!m_chooseFiles->isHidden(app_data.images[it].name)) {
       seen_indices.push_back(it);
     }
   }
@@ -1450,23 +1450,23 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     } else if (pairwiseMatches->match_files.find(index_pair) ==
                pairwiseMatches->match_files.end()) {
       // Load pairwise matches
-      match_file = vw::ip::match_filename(m_output_prefix, m_images[left_index].name,
-                                          m_images[right_index].name);
+      match_file = vw::ip::match_filename(m_output_prefix, app_data.images[left_index].name,
+                                          app_data.images[right_index].name);
     }
   } else {
     // Load pairwise clean matches
     pairwiseMatches = &m_pairwiseCleanMatches;
     if (pairwiseMatches->match_files.find(index_pair) == 
         pairwiseMatches->match_files.end()) {
-      match_file = vw::ip::clean_match_filename(m_output_prefix, m_images[left_index].name,
-                                                m_images[right_index].name);
+      match_file = vw::ip::clean_match_filename(m_output_prefix, app_data.images[left_index].name,
+                                                app_data.images[right_index].name);
     }
   }
   
   // Ensure the ip per image are always empty but initialized. This will ensure that
   // later in MainWidget::viewMatches() we plot the intended matches.
   pairwiseMatches->ip_to_show.clear();
-  pairwiseMatches->ip_to_show.resize(m_images.size());
+  pairwiseMatches->ip_to_show.resize(app_data.images.size());
   
   // Where we want these loaded
   auto & left_ip = pairwiseMatches->matches[index_pair].first; // alias
@@ -1510,7 +1510,7 @@ void MainWindow::saveMatches() {
   }
 
   try {
-    m_matchlist.savePointsToDisk(m_output_prefix, m_image_files,
+    m_matchlist.savePointsToDisk(m_output_prefix, app_data.image_files,
                                  stereo_settings().match_file);
   } catch (std::exception const& e) {
     popUp(e.what());
@@ -1540,7 +1540,7 @@ void MainWindow::writeGroundControlPoints() {
   
   m_matches_exist = true;
 
-  const size_t num_images = m_image_files.size();
+  const size_t num_images = app_data.image_files.size();
   const size_t num_ips    = m_matchlist.getNumPoints();
   // Don't record pixels from the last image, which is used for reference
   const size_t num_images_to_save = num_images - 1; 
@@ -1589,7 +1589,7 @@ void MainWindow::writeGroundControlPoints() {
   MainWindow::saveMatches();
 
   try {
-    asp::writeGCP(m_image_files,  
+    asp::writeGCP(app_data.image_files,  
                   stereo_settings().gcp_file,  
                   stereo_settings().dem_file,
                   m_matchlist, asp::stereo_settings().gcp_sigma);
@@ -1917,8 +1917,8 @@ void MainWindow::setZoomAllToSameRegion() {
   // on georeferencing when zooming. The user can later turn it off
   // from the menu if so desired.
   bool has_georef = true;
-  for (size_t i = 0; i < m_image_files.size(); i++) {
-    has_georef = has_georef && m_images[i].has_georef;
+  for (size_t i = 0; i < app_data.image_files.size(); i++) {
+    has_georef = has_georef && app_data.images[i].has_georef;
   }
 
   if (has_georef && !app_data.use_georef) {
@@ -2016,8 +2016,8 @@ void MainWindow::polyEditMode() {
     
     if (!app_data.use_georef) {
       bool has_georef = true;
-      for (size_t i = 0; i < m_images.size(); i++)
-        has_georef = has_georef && m_images[i].has_georef;
+      for (size_t i = 0; i < app_data.images.size(); i++)
+        has_georef = has_georef && app_data.images[i].has_georef;
 
       if (has_georef) {
         app_data.use_georef = true;
@@ -2049,10 +2049,10 @@ void MainWindow::viewGeoreferencedImages() {
   if (app_data.use_georef) {
 
     // Will show in single window with georef. Must first check if all images have georef.
-    for (size_t i = 0; i < m_image_files.size(); i++) {
-      if (!m_images[i].has_georef) {
+    for (size_t i = 0; i < app_data.image_files.size(); i++) {
+      if (!app_data.images[i].has_georef) {
         popUp("Cannot view georeferenced images, as there is no georeference in: "
-              + m_image_files[i]);
+              + app_data.image_files[i]);
         app_data.use_georef = false;
         m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
         m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef);
@@ -2070,9 +2070,9 @@ void MainWindow::overlayGeoreferencedImages() {
   if (app_data.use_georef) {
 
     // Will show in single window with georef. Must first check if all images have georef.
-    for (size_t i = 0; i < m_image_files.size(); i++) {
-      if (!m_images[i].has_georef) {
-        popUp("Cannot overlay, as there is no georeference in: " + m_image_files[i]);
+    for (size_t i = 0; i < app_data.image_files.size(); i++) {
+      if (!app_data.images[i].has_georef) {
+        popUp("Cannot overlay, as there is no georeference in: " + app_data.image_files[i]);
         app_data.use_georef = false;
         m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
         m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef);

@@ -514,7 +514,7 @@ ColorAxes::ColorAxes(QWidget *parent,
     WidgetBase(beg_image_id, end_image_id, base_image_id, data, use_georef, images,
                world2image, image2world) {
 
-  int num_images = m_images.size();
+  int num_images = app_data.images.size();
 
   // TODO(oalexan1): Integrate this with MainWidget.cc
   // Set data per image.
@@ -524,16 +524,16 @@ ColorAxes::ColorAxes(QWidget *parent,
     if (!in_range)
       continue;
 
-    m_images[i].load();
+    app_data.images[i].load();
 
-    if (app_data.use_georef && !m_images[i].has_georef) {
-      popUp("No georeference present in: " + m_images[i].name + ".");
+    if (app_data.use_georef && !app_data.images[i].has_georef) {
+      popUp("No georeference present in: " + app_data.images[i].name + ".");
       vw_throw(ArgumentErr() << "Missing georeference.\n");
     }
   }
 
-  findSpatialBounds(m_images[m_beg_image_id], m_min_x, m_min_y, m_max_x, m_max_y);
-  ColorAxesData * cdata = new ColorAxesData(m_images[m_beg_image_id], m_min_x, m_min_y,
+  findSpatialBounds(app_data.images[m_beg_image_id], m_min_x, m_min_y, m_max_x, m_max_y);
+  ColorAxesData * cdata = new ColorAxesData(app_data.images[m_beg_image_id], m_min_x, m_min_y,
                                            m_max_x, m_max_y);
 
   // Have to pass the data twice, because the second such statement
@@ -549,11 +549,11 @@ ColorAxes::ColorAxes(QWidget *parent,
   // Parse and set the colormap
   std::map<float, vw::cm::Vector3u> lut_map;
   try {
-    vw::cm::parse_color_style(m_images[m_beg_image_id].colormap, lut_map);
+    vw::cm::parse_color_style(app_data.images[m_beg_image_id].colormap, lut_map);
   } catch (...) {
-    popUp("Unknown colormap style: " +  m_images[m_beg_image_id].colormap);
-    m_images[m_beg_image_id].colormap = "binary-red-blue"; // fallback to this
-    vw::cm::parse_color_style(m_images[m_beg_image_id].colormap, lut_map);
+    popUp("Unknown colormap style: " +  app_data.images[m_beg_image_id].colormap);
+    app_data.images[m_beg_image_id].colormap = "binary-red-blue"; // fallback to this
+    vw::cm::parse_color_style(app_data.images[m_beg_image_id].colormap, lut_map);
   }
   m_plotter->setColorMap(new LutColormap(lut_map));
 
@@ -568,7 +568,7 @@ ColorAxes::ColorAxes(QWidget *parent,
   m_plotter->attach(this);
   setAxisScale(QwtPlot::xBottom, m_min_x, m_max_x);
   setAxisScale(QwtPlot::yRight, zInterval.minValue(), zInterval.maxValue());
-  bool poly_or_xyz = (m_images[m_beg_image_id].m_isPoly || m_images[m_beg_image_id].m_isCsv);
+  bool poly_or_xyz = (app_data.images[m_beg_image_id].m_isPoly || app_data.images[m_beg_image_id].m_isCsv);
   if (!poly_or_xyz)
     setAxisScale(QwtPlot::yLeft, m_max_y, m_min_y); // y axis goes down
   else
@@ -600,7 +600,7 @@ ColorAxes::ColorAxes(QWidget *parent,
 
 void ColorAxes::mousePressEvent(QMouseEvent *e) {
   // Print the image name when clicking on the image widget
-  vw::vw_out() << "Image: " << m_images[m_beg_image_id].name << std::endl;
+  vw::vw_out() << "Image: " << app_data.images[m_beg_image_id].name << std::endl;
 
   QwtPlot::mousePressEvent(e);
 }
@@ -632,7 +632,7 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
   QRectF box = expand_box_to_aspect_ratio(in_box, aspect_ratio);
 
   // Adjust the scales accordingly
-  bool poly_or_xyz = (m_images[m_beg_image_id].m_isPoly || m_images[m_beg_image_id].m_isCsv);
+  bool poly_or_xyz = (app_data.images[m_beg_image_id].m_isPoly || app_data.images[m_beg_image_id].m_isCsv);
   setAxisScale(QwtPlot::xBottom, box.left(), box.right());
   if (!poly_or_xyz)
     setAxisScale(QwtPlot::yLeft, box.bottom(), box.top()); // y axis goes down

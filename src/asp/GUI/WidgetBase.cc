@@ -37,9 +37,6 @@ WidgetBase::WidgetBase(int beg_image_id, int end_image_id,
     m_end_image_id(end_image_id),
     app_data(data),
     m_base_image_id(base_image_id), 
-    m_images(images),
-    m_world2image(world2image),
-    m_image2world(image2world), 
     m_world_box(vw::BBox2()), m_border_factor(0.95) {
 }
 
@@ -48,14 +45,14 @@ WidgetBase::WidgetBase(int beg_image_id, int end_image_id,
 vw::Vector2 WidgetBase::world2proj(vw::Vector2 P, int imageIndex) const {
   if (!app_data.use_georef)
       return flip_in_y(P);
-  return m_world2image[imageIndex].point_to_point(flip_in_y(P)); 
+  return app_data.world2image[imageIndex].point_to_point(flip_in_y(P)); 
 }
 
 // The reverse of world2proj
 vw::Vector2 WidgetBase::proj2world(vw::Vector2 P, int imageIndex) const {
   if (!app_data.use_georef)
     return flip_in_y(P);
-  return flip_in_y(m_image2world[imageIndex].point_to_point(P));
+  return flip_in_y(app_data.image2world[imageIndex].point_to_point(P));
 }
 
 // Find the min and max values, ignoring outliers. We look only 
@@ -144,67 +141,67 @@ vw::BBox2 WidgetBase::world2screen(vw::BBox2 const& R) const {
 // for consistency with how images are plotted.  Convert a world box
 // to a pixel box for the given image.
 vw::Vector2 WidgetBase::world2image(vw::Vector2 const& P, int imageIndex) const{
-  bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
+  bool poly_or_xyz = (app_data.images[imageIndex].m_isPoly || app_data.images[imageIndex].m_isCsv);
 
   if (poly_or_xyz) {
     // Poly or points. There is no pixel concept in that case.
     if (!app_data.use_georef)
       return flip_in_y(P);
-    return m_world2image[imageIndex].point_to_point(flip_in_y(P));
+    return app_data.world2image[imageIndex].point_to_point(flip_in_y(P));
   }
 
   // Image
   if (!app_data.use_georef)
     return P;
-  return m_world2image[imageIndex].point_to_pixel(flip_in_y(P));
+  return app_data.world2image[imageIndex].point_to_pixel(flip_in_y(P));
 }
 
 vw::BBox2 WidgetBase::world2image(vw::BBox2 const& R, int imageIndex) const {
 
-  bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
+  bool poly_or_xyz = (app_data.images[imageIndex].m_isPoly || app_data.images[imageIndex].m_isCsv);
 
   if (R.empty())
     return R;
-  if (m_images.empty())
+  if (app_data.images.empty())
     return R;
 
   if (poly_or_xyz) {
     // Poly or points. There is no pixel concept in that case.
     if (!app_data.use_georef)
       return flip_in_y(R);
-    return m_world2image[imageIndex].point_to_point_bbox(flip_in_y(R));
+    return app_data.world2image[imageIndex].point_to_point_bbox(flip_in_y(R));
   }
 
   // Image
   if (!app_data.use_georef)
     return R;
-  return m_world2image[imageIndex].point_to_pixel_bbox(flip_in_y(R));
+  return app_data.world2image[imageIndex].point_to_pixel_bbox(flip_in_y(R));
 }
 
 // The reverse of world2image()
 vw::Vector2 WidgetBase::image2world(vw::Vector2 const& P, int imageIndex) const {
 
-  bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
+  bool poly_or_xyz = (app_data.images[imageIndex].m_isPoly || app_data.images[imageIndex].m_isCsv);
 
   if (poly_or_xyz) {
     if (!app_data.use_georef)
       return flip_in_y(P);
 
-    return flip_in_y(m_image2world[imageIndex].point_to_point(P));
+    return flip_in_y(app_data.image2world[imageIndex].point_to_point(P));
   }
 
   if (!app_data.use_georef)
     return P;
-  return flip_in_y(m_image2world[imageIndex].pixel_to_point(P));
+  return flip_in_y(app_data.image2world[imageIndex].pixel_to_point(P));
 }
 
 // The reverse of world2image()
 vw::BBox2 WidgetBase::image2world(vw::BBox2 const& R, int imageIndex) const {
 
   if (R.empty()) return R;
-  if (m_images.empty()) return R;
+  if (app_data.images.empty()) return R;
 
-  bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
+  bool poly_or_xyz = (app_data.images[imageIndex].m_isPoly || app_data.images[imageIndex].m_isCsv);
 
   // Consider the case when the current layer is a polygon.
   // TODO(oalexan1): What if a layer has both an image and a polygon?
@@ -212,12 +209,12 @@ vw::BBox2 WidgetBase::image2world(vw::BBox2 const& R, int imageIndex) const {
   if (poly_or_xyz) {
     if (!app_data.use_georef)
       return flip_in_y(R);
-    return flip_in_y(m_image2world[imageIndex].point_to_point_bbox(R));
+    return flip_in_y(app_data.image2world[imageIndex].point_to_point_bbox(R));
   }
 
   if (!app_data.use_georef)
     return R;
-  return flip_in_y(m_image2world[imageIndex].pixel_to_point_bbox(R));
+  return flip_in_y(app_data.image2world[imageIndex].pixel_to_point_bbox(R));
 }
 
 } // namespace asp
