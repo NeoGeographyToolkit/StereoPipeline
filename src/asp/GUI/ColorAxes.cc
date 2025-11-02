@@ -443,7 +443,7 @@ void drawScatteredData(imageData         const & image,
 class ColorAxesPlotter: public QwtPlotSpectrogram {
 public:
   ColorAxesPlotter(ColorAxesData * data, const QString& title = QString()):
-    m_data(data), QwtPlotSpectrogram(title) {}
+    m_cdata(data), QwtPlotSpectrogram(title) {}
 
   virtual void draw(QPainter * painter,
                     const QwtScaleMap & xMap,
@@ -458,7 +458,7 @@ public:
 
     //vw::Stopwatch sw2;
     //sw2.start();
-    bool poly_or_xyz = (m_data->m_image.m_isPoly || m_data->m_image.m_isCsv);
+    bool poly_or_xyz = (m_cdata->m_image.m_isPoly || m_cdata->m_image.m_isCsv);
     if (!poly_or_xyz) {
       // Draw the image
      QwtPlotSpectrogram::draw(painter, xMap, yMap, canvasRect);
@@ -471,9 +471,9 @@ public:
 
     QwtLinearColorMap const * cmap = (QwtLinearColorMap*)this->colorMap();
     QwtInterval I(0.0, 1.0); // QwtLinearColorMap does not remember its interval
-    drawScatteredData(m_data->m_image, xMap, yMap, canvasRect, I, cmap,
-        m_data->m_min_val, m_data->m_max_val,
-        m_data->m_nodata_val, m_data->m_nodata_plot_val,
+    drawScatteredData(m_cdata->m_image, xMap, yMap, canvasRect, I, cmap,
+        m_cdata->m_min_val, m_cdata->m_max_val,
+        m_cdata->m_nodata_val, m_cdata->m_nodata_plot_val,
         painter);
 
     return;
@@ -490,18 +490,18 @@ public:
     // Based on size of the rendered image, determine the appropriate level of
     // resolution and extent to read from disk. This greatly helps with
     // reducing memory usage and latency.
-    m_data->prepareClip(xMap.invTransform(0),
-                      yMap.invTransform(0),
-                      xMap.invTransform(imageSize.width()),
-                      yMap.invTransform(imageSize.height()),
-                      imageSize);
+    m_cdata->prepareClip(xMap.invTransform(0),
+                         yMap.invTransform(0),
+                         xMap.invTransform(imageSize.width()),
+                         yMap.invTransform(imageSize.height()),
+                         imageSize);
     return QwtPlotSpectrogram::renderImage(xMap, yMap, area, imageSize);
   }
 
   // Direct access to the data
-  ColorAxesData* data() { return m_data; }
+  ColorAxesData* data() { return m_cdata; }
 
-  ColorAxesData * m_data;
+  ColorAxesData * m_cdata;
 };
 
 ColorAxes::ColorAxes(QWidget *parent,
@@ -526,19 +526,9 @@ ColorAxes::ColorAxes(QWidget *parent,
 
     m_images[i].load();
 
-    if (m_use_georef && !m_images[i].has_georef) {
+    if (app_data.use_georef && !m_images[i].has_georef) {
       popUp("No georeference present in: " + m_images[i].name + ".");
       vw_throw(ArgumentErr() << "Missing georeference.\n");
-    }
-
-    // Make sure we set these up before the image2world call below!
-    if (m_use_georef) {
-      m_world2image[i]
-        = vw::cartography::GeoTransform(m_images[m_base_image_id].georef,
-                                        m_images[i].georef);
-      m_image2world[i]
-        = vw::cartography::GeoTransform(m_images[i].georef,
-                                        m_images[m_base_image_id].georef);
     }
   }
 

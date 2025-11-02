@@ -196,7 +196,6 @@ namespace asp {
     ViewType m_view_type,
              m_view_type_old;
     int      m_grid_cols, m_grid_cols_old;
-    bool     m_use_georef;
     bool     m_allowMultipleSelections;
     int      m_argc;
     char **  m_argv;
@@ -227,7 +226,7 @@ namespace asp {
     
     bool m_saved_gcp_and_ip;
 
-  asp::AppData m_data;
+  asp::AppData app_data;
   };
 
 } // namespace asp

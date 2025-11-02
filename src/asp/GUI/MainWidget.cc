@@ -126,7 +126,7 @@ MainWidget::MainWidget(QWidget *parent,
     // Load if not loaded so far
     m_images[i].load();
 
-    if (m_use_georef && !m_images[i].has_georef) {
+    if (app_data.use_georef && !m_images[i].has_georef) {
       popUp("No georeference present in: " + m_images[i].name + ".");
       vw_throw(ArgumentErr() << "Missing georeference.\n");
     }
@@ -935,7 +935,7 @@ void MainWidget::drawImage(QPainter* paint) {
 
   // Keep track of which pixels were drawn. Initialize with zeros.
   ImageView<int> drawn_already;
-  if (m_use_georef) {
+  if (app_data.use_georef) {
     drawn_already.set_size(full_screen_box.max().x(), full_screen_box.max().y());
     for (int col = 0; col < drawn_already.cols(); col++) {
       for (int row = 0; row < drawn_already.rows(); row++) {
@@ -965,7 +965,7 @@ void MainWidget::drawImage(QPainter* paint) {
     if (m_images[i].m_isCsv)
       has_csv = true;
   }
-  if (m_use_georef && !has_csv)
+  if (app_data.use_georef && !has_csv)
     std::reverse(draw_order.begin(), draw_order.end());
   
   // Draw the images
@@ -1015,7 +1015,7 @@ void MainWidget::drawImage(QPainter* paint) {
 
     // If all screen pixels are drawn already based on images that should be
     // on top of this one, no need to draw this image.
-    if (m_use_georef) {
+    if (app_data.use_georef) {
       bool all_drawn = true;
       #pragma omp parallel for
       for (int x = screen_box.min().x(); x < screen_box.max().x(); x++) {
@@ -1075,7 +1075,7 @@ void MainWidget::drawImage(QPainter* paint) {
     // Draw on image screen
     Stopwatch sw4;
     sw4.start();
-    if (!m_use_georef) {
+    if (!app_data.use_georef) {
       // This is a regular image, no georeference, just pass it to the Qt painter
       QRect rect(screen_box.min().x(), screen_box.min().y(),
                   screen_box.width(), screen_box.height());
@@ -2834,7 +2834,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
         return;
       }
 
-      if (m_use_georef) {
+      if (app_data.use_georef) {
         popUp("Thresholding is not supported when using georeference "
               "information to show images.");
         m_thresh_calc_mode = false;

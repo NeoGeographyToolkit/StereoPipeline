@@ -173,7 +173,7 @@ bool MainWindow::sanityChecks(int num_images) {
 
   // Cannot show matches when viewing as georeferenced images
   if (num > 0)
-    m_use_georef = false;
+    app_data.use_georef = false;
 
   if (num > 0 && !stereo_settings().zoom_proj_win.empty()) {
     popUp("Cannot zoom to proj win when showing matches.");
@@ -220,7 +220,6 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   m_opt(opt),
   m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
   m_grid_cols(grid_cols),
-  m_use_georef(use_georef),
   m_allowMultipleSelections(false), m_matches_exist(false),
   m_argc(argc), m_argv(argv),
   m_show_two_images_when_side_by_side_with_dialog(true), 
@@ -293,18 +292,13 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   // Collect only the valid images
   asp::filterImages(local_images);
 
-  if (m_image_files.empty()) {
-    popUp("No input images.");
-    exit(1);
-  }
-
   // The code from here on is duplicated in AppData
   
   m_image_files = local_images;
   m_display_mode = asp::stereo_settings().hillshade?HILLSHADED_VIEW:REGULAR_VIEW;
 
   if (!stereo_settings().zoom_proj_win.empty())
-    m_use_georef = true;
+    app_data.use_georef = true;
   
   size_t num_images = m_image_files.size();
   m_images.resize(num_images);
@@ -329,16 +323,16 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   // Use georef if all images have it. This may be turned off later if it is desired
   // to show matches.
   if (has_georef)
-    m_use_georef = true;
+    app_data.use_georef = true;
 
   // It is tricky to set up a layout for georeferenced images if they are loaded
   // one or a few at a time.
   if (delay) 
-    m_use_georef = false;
+    app_data.use_georef = false;
   
   // If the user explicitly asked to not use georef, do not use it on startup
   if (asp::stereo_settings().no_georef) {
-    m_use_georef = false; 
+    app_data.use_georef = false; 
     // Further control of georef is from the gui menu
     asp::stereo_settings().no_georef = false; 
   }
@@ -346,7 +340,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   // Create the coordinate transforms
   m_world2image.resize(num_images);
   m_image2world.resize(num_images);
-  if (m_use_georef) {
+  if (app_data.use_georef) {
     for (int i = 0; i < num_images; i++) {  
       m_world2image[i]
         = vw::cartography::GeoTransform(m_images[BASE_IMAGE_ID].georef,
@@ -358,8 +352,13 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   }
 
   // All the data is stored and shared via with object
-  m_data = asp::AppData(opt, use_georef, properties, local_images);
+  app_data = asp::AppData(opt, use_georef, properties, local_images);
   
+  if (m_image_files.empty()) {
+    popUp("No input images.");
+    exit(1);
+  }
+
   // Ensure the inputs are reasonable
   if (!MainWindow::sanityChecks(num_images))
     forceQuit();
@@ -494,14 +493,14 @@ void MainWindow::createLayout() {
     MainWidget * widget = new MainWidget(centralWidget,
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID,
-                                m_data, m_images, m_world2image,
+                                app_data, m_images, m_world2image,
                                 m_image2world,
                                 m_output_prefix,
                                 m_matchlist,
                                 m_pairwiseMatches, m_pairwiseCleanMatches,
                                 m_editMatchPointVecIndex,
                                 m_chooseFiles,
-                                m_use_georef,
+                                app_data.use_georef,
                                 m_allowMultipleSelections);
     // Tell the widget if the poly edit mode and hillshade mode is on or not
     bool refresh = false; // Do not refresh prematurely
@@ -526,20 +525,20 @@ void MainWindow::createLayout() {
         widget = new MainWidget(centralWidget,
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID, 
-                                m_data, m_images, m_world2image,
+                                app_data, m_images, m_world2image,
                                 m_image2world,
                                 m_output_prefix,
                                 m_matchlist, m_pairwiseMatches, m_pairwiseCleanMatches,
                                 m_editMatchPointVecIndex,
                                 m_chooseFiles,
-                                m_use_georef, 
+                                app_data.use_georef, 
                                 m_allowMultipleSelections);
       } else {
         // Qwt plot with axes and colorbar. Hard to use the same API as earlier.
         // TODO(oalexan1): Must integrate the two approaches.
         widget = new ColorAxes(this, 
                                beg_image_id, end_image_id, BASE_IMAGE_ID, 
-                               m_data, m_use_georef, m_images, m_world2image,
+                               app_data, app_data.use_georef, m_images, m_world2image,
                                m_image2world);
       }
       m_widgets.push_back(widget);
@@ -619,8 +618,8 @@ void MainWindow::createLayout() {
   m_viewSeveralSideBySide_action->setChecked(asp::stereo_settings().view_several_side_by_side);
   m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
   MainWindow::updateDisplayModeMenuEntries();
-  m_viewGeoreferencedImages_action->setChecked(m_use_georef);
-  m_overlayGeoreferencedImages_action->setChecked(m_use_georef &&
+  m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
+  m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef &&
                                                   (m_view_type == VIEW_IN_SINGLE_WINDOW));
   m_zoomAllToSameRegion_action->setChecked(asp::stereo_settings().zoom_all_to_same_region);
 
@@ -743,7 +742,7 @@ void MainWindow::createMenus() {
   m_viewGeoreferencedImages_action = new QAction(tr("View as georeferenced images"), this);
   m_viewGeoreferencedImages_action->setStatusTip(tr("View as georeferenced images"));
   m_viewGeoreferencedImages_action->setCheckable(true);
-  m_viewGeoreferencedImages_action->setChecked(m_use_georef);
+  m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
   m_viewGeoreferencedImages_action->setShortcut(tr("G"));
   connect(m_viewGeoreferencedImages_action, SIGNAL(triggered()),
           this, SLOT(viewGeoreferencedImages()));
@@ -752,7 +751,7 @@ void MainWindow::createMenus() {
   m_overlayGeoreferencedImages_action = new QAction(tr("Overlay georeferenced images"), this);
   m_overlayGeoreferencedImages_action->setStatusTip(tr("Overlay georeferenced images"));
   m_overlayGeoreferencedImages_action->setCheckable(true);
-  m_overlayGeoreferencedImages_action->setChecked(m_use_georef &&
+  m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef &&
                                                   (m_view_type == VIEW_IN_SINGLE_WINDOW));
   m_overlayGeoreferencedImages_action->setShortcut(tr("O"));
   connect(m_overlayGeoreferencedImages_action, SIGNAL(triggered()),
@@ -1189,7 +1188,7 @@ void MainWindow::zoomToProjWin() {
     return;
   }
 
-  if (!m_use_georef) {
+  if (!app_data.use_georef) {
     popUp("Turn on viewing georeferenced images to zoom to given proj win.");
     return;
   }
@@ -1376,7 +1375,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     return;
   }
 
-  if (m_use_georef) {
+  if (app_data.use_georef) {
     popUp("To view matches, turn off viewing the images as georeferenced.");
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
@@ -1922,9 +1921,9 @@ void MainWindow::setZoomAllToSameRegion() {
     has_georef = has_georef && m_images[i].has_georef;
   }
 
-  if (has_georef && !m_use_georef) {
-    m_use_georef = true;
-    m_viewGeoreferencedImages_action->setChecked(m_use_georef);
+  if (has_georef && !app_data.use_georef) {
+    app_data.use_georef = true;
+    m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
     viewGeoreferencedImages(); // This will invoke createLayout() too.
   }else{
     createLayout();
@@ -2015,19 +2014,19 @@ void MainWindow::polyEditMode() {
   if (polyEditMode) {
     // Turn on vector layer editing
     
-    if (!m_use_georef) {
+    if (!app_data.use_georef) {
       bool has_georef = true;
       for (size_t i = 0; i < m_images.size(); i++)
         has_georef = has_georef && m_images[i].has_georef;
 
       if (has_georef) {
-        m_use_georef = true;
+        app_data.use_georef = true;
         // If georeference information exists, draw polygons in that mode,
         // and any newly-created polygons will inherit the georeference.
         popUp("To edit polygons, the data will be overlayed in one window using georeferences.");
-        m_use_georef = true;
-        m_viewGeoreferencedImages_action->setChecked(m_use_georef);
-        m_overlayGeoreferencedImages_action->setChecked(m_use_georef);
+        app_data.use_georef = true;
+        m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
+        m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef);
         overlayGeoreferencedImages();
         return;
       }
@@ -2046,17 +2045,17 @@ void MainWindow::polyEditMode() {
 }
 
 void MainWindow::viewGeoreferencedImages() {
-  m_use_georef = m_viewGeoreferencedImages_action->isChecked();
-  if (m_use_georef) {
+  app_data.use_georef = m_viewGeoreferencedImages_action->isChecked();
+  if (app_data.use_georef) {
 
     // Will show in single window with georef. Must first check if all images have georef.
     for (size_t i = 0; i < m_image_files.size(); i++) {
       if (!m_images[i].has_georef) {
         popUp("Cannot view georeferenced images, as there is no georeference in: "
               + m_image_files[i]);
-        m_use_georef = false;
-        m_viewGeoreferencedImages_action->setChecked(m_use_georef);
-        m_overlayGeoreferencedImages_action->setChecked(m_use_georef);
+        app_data.use_georef = false;
+        m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
+        m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef);
         return;
       }
     }
@@ -2066,17 +2065,17 @@ void MainWindow::viewGeoreferencedImages() {
 }
 
 void MainWindow::overlayGeoreferencedImages() {
-  m_use_georef = m_overlayGeoreferencedImages_action->isChecked();
+  app_data.use_georef = m_overlayGeoreferencedImages_action->isChecked();
 
-  if (m_use_georef) {
+  if (app_data.use_georef) {
 
     // Will show in single window with georef. Must first check if all images have georef.
     for (size_t i = 0; i < m_image_files.size(); i++) {
       if (!m_images[i].has_georef) {
         popUp("Cannot overlay, as there is no georeference in: " + m_image_files[i]);
-        m_use_georef = false;
-        m_viewGeoreferencedImages_action->setChecked(m_use_georef);
-        m_overlayGeoreferencedImages_action->setChecked(m_use_georef);
+        app_data.use_georef = false;
+        m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
+        m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef);
         return;
       }
     }

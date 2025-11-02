@@ -95,11 +95,8 @@ public:
   std::vector<vw::cartography::GeoTransform> & m_world2image;
   std::vector<vw::cartography::GeoTransform> & m_image2world;
   
-  // If georeference info is used in overlaying
-  bool m_use_georef;
-
   // A reference to the shared application data
-  asp::AppData & m_data;
+  asp::AppData & app_data;
 
   // Convert from world coordinates to projected coordinates in given geospatial
   // projection, and vice versa

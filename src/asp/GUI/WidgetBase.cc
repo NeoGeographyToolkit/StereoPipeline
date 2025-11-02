@@ -35,9 +35,8 @@ WidgetBase::WidgetBase(int beg_image_id, int end_image_id,
                        std::vector<vw::cartography::GeoTransform> & image2world):
     m_beg_image_id(beg_image_id),
     m_end_image_id(end_image_id),
-    m_data(data),
+    app_data(data),
     m_base_image_id(base_image_id), 
-    m_use_georef(use_georef),
     m_images(images),
     m_world2image(world2image),
     m_image2world(image2world), 
@@ -47,14 +46,14 @@ WidgetBase::WidgetBase(int beg_image_id, int end_image_id,
 // Convert from world coordinates to projected coordinates in given geospatial
 // projection
 vw::Vector2 WidgetBase::world2proj(vw::Vector2 P, int imageIndex) const {
-  if (!m_use_georef)
+  if (!app_data.use_georef)
       return flip_in_y(P);
   return m_world2image[imageIndex].point_to_point(flip_in_y(P)); 
 }
 
 // The reverse of world2proj
 vw::Vector2 WidgetBase::proj2world(vw::Vector2 P, int imageIndex) const {
-  if (!m_use_georef)
+  if (!app_data.use_georef)
     return flip_in_y(P);
   return flip_in_y(m_image2world[imageIndex].point_to_point(P));
 }
@@ -149,13 +148,13 @@ vw::Vector2 WidgetBase::world2image(vw::Vector2 const& P, int imageIndex) const{
 
   if (poly_or_xyz) {
     // Poly or points. There is no pixel concept in that case.
-    if (!m_use_georef)
+    if (!app_data.use_georef)
       return flip_in_y(P);
     return m_world2image[imageIndex].point_to_point(flip_in_y(P));
   }
 
   // Image
-  if (!m_use_georef)
+  if (!app_data.use_georef)
     return P;
   return m_world2image[imageIndex].point_to_pixel(flip_in_y(P));
 }
@@ -171,13 +170,13 @@ vw::BBox2 WidgetBase::world2image(vw::BBox2 const& R, int imageIndex) const {
 
   if (poly_or_xyz) {
     // Poly or points. There is no pixel concept in that case.
-    if (!m_use_georef)
+    if (!app_data.use_georef)
       return flip_in_y(R);
     return m_world2image[imageIndex].point_to_point_bbox(flip_in_y(R));
   }
 
   // Image
-  if (!m_use_georef)
+  if (!app_data.use_georef)
     return R;
   return m_world2image[imageIndex].point_to_pixel_bbox(flip_in_y(R));
 }
@@ -188,13 +187,13 @@ vw::Vector2 WidgetBase::image2world(vw::Vector2 const& P, int imageIndex) const 
   bool poly_or_xyz = (m_images[imageIndex].m_isPoly || m_images[imageIndex].m_isCsv);
 
   if (poly_or_xyz) {
-    if (!m_use_georef)
+    if (!app_data.use_georef)
       return flip_in_y(P);
 
     return flip_in_y(m_image2world[imageIndex].point_to_point(P));
   }
 
-  if (!m_use_georef)
+  if (!app_data.use_georef)
     return P;
   return flip_in_y(m_image2world[imageIndex].pixel_to_point(P));
 }
@@ -211,12 +210,12 @@ vw::BBox2 WidgetBase::image2world(vw::BBox2 const& R, int imageIndex) const {
   // TODO(oalexan1): What if a layer has both an image and a polygon?
 
   if (poly_or_xyz) {
-    if (!m_use_georef)
+    if (!app_data.use_georef)
       return flip_in_y(R);
     return flip_in_y(m_image2world[imageIndex].point_to_point_bbox(R));
   }
 
-  if (!m_use_georef)
+  if (!app_data.use_georef)
     return R;
   return flip_in_y(m_image2world[imageIndex].pixel_to_point_bbox(R));
 }
