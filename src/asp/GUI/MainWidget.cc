@@ -1831,67 +1831,14 @@ void MainWidget::deleteVertices() {
     return;
   }
 
-  // This code cannot be moved out to utilities since it calls the
-  // function app_data.proj2world().
-
-  for (int clipIt = m_beg_image_id; clipIt < m_end_image_id; clipIt++) {
-
-    for (size_t layerIt = 0; layerIt < app_data.images[clipIt].polyVec.size(); layerIt++) {
-
-      vw::geometry::dPoly & poly     = app_data.images[clipIt].polyVec[layerIt]; // alias
-      int                   numPolys = poly.get_numPolys();
-      const int           * numVerts = poly.get_numVerts();
-      const double        * xv       = poly.get_xv();
-      const double        * yv       = poly.get_yv();
-      std::vector<std::string>   colors   = poly.get_colors();
-      std::vector<std::string>   layers   = poly.get_layers();
-
-      vw::geometry::dPoly poly_out;
-      int start = 0;
-      for (int polyIter = 0; polyIter < numPolys; polyIter++) {
-
-        if (polyIter > 0) start += numVerts[polyIter - 1];
-        int pSize = numVerts[polyIter];
-
-        std::vector<double> out_xv, out_yv;
-        for (int vIter = 0; vIter < pSize; vIter++) {
-          double  x = xv[start + vIter];
-          double  y = yv[start + vIter];
-          Vector2 P = app_data.proj2world(Vector2(x, y), clipIt);
-
-          // This vertex will be deleted
-          if (m_stereoCropWin.contains(P))
-            continue;
-
-          out_xv.push_back(x);
-          out_yv.push_back(y);
-        }
-
-        // If there are no vertices left, or the polygon was not
-        // degenerate before but becomes degenerate now, skip it.
-        // (Polygons which were 1-point before are allowed.)
-        if (out_xv.empty() || (pSize >= 3 && out_xv.size() < 3))
-          continue;
-
-        bool isPolyClosed = true;
-        poly_out.appendPolygon(out_xv.size(),
-                                vw::geometry::vecPtr(out_xv),
-                                vw::geometry::vecPtr(out_yv),
-                                isPolyClosed, colors[polyIter], layers[polyIter]);
-      }
-
-      // Overwrite the polygon
-      app_data.images[clipIt].polyVec[layerIt] = poly_out;
-    }
-  }
-
+  asp::deleteVerticesInBox(app_data, m_stereoCropWin, m_beg_image_id, m_end_image_id);
+  
   // The selection has done its job, wipe it now
   m_stereoCropWin = BBox2();
 
   // This will redraw just the polygons, not the pixmap
   update();
 }
-
 
 // Insert intermediate vertex where the mouse right-clicks.
 // TODO(oalexan1): This will fail when different polygons have
@@ -1951,7 +1898,6 @@ void MainWidget::insertVertex() {
 
   return;
 }
-
 
 // Merge existing polygons
 void MainWidget::mergePolys() {
@@ -2348,7 +2294,6 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
                                m_editVertIndexInCurrPoly,
                                min_x, min_y, min_dist);
     m_editClipIndex = clipIndex;
-
 
     // This will redraw just the polygons, not the pixmap
     update();

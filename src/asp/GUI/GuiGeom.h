@@ -22,7 +22,6 @@
 #include <vw/Geometry/dPoly.h>
 #include <vector>
 
-
 namespace asp {
 
 void findClosestPolyVertex(// inputs
@@ -64,6 +63,9 @@ void findClosestPolyEdge(// inputs
 // Merge some polygons and save them in app_data.images[outIndex]
 void mergePolys(asp::AppData & app_data, int beg_image_id, int end_image_id, int outIndex);
 
+// Delete vertices in a given box
+void deleteVerticesInBox(asp::AppData & app_data, vw::BBox2 const& box,
+                         int beg_image_id, int end_image_id);
 
 // Assemble the polygon structure
 void formPoly(std::string              const& override_color,
@@ -71,7 +73,6 @@ void formPoly(std::string              const& override_color,
               std::vector<std::string> const& colors,
               std::vector<vw::Vector3> const& scattered_data, // input vertices
               std::vector<vw::geometry::dPoly> & polyVec);
-
 
   // Find the closest edge in a given vector of polygons to a given point.
   void findClosestPolyEdge(// inputs
