@@ -367,7 +367,7 @@ public slots:
     int         m_polyLayerIndex; // which of the current images owns the poly vector layer
     vw::Vector2 m_startPix; // The first poly vertex being drawn in world coords
     std::vector<double> m_currPolyX, m_currPolyY;
-    int         m_editPolyVecIndex, m_editIndexInCurrPoly, m_editVertIndexInCurrPoly;
+    int         m_editClipIndex, m_editPolyVecIndex, m_editIndexInCurrPoly, m_editVertIndexInCurrPoly;
 
     // Points closer than this are in some situations considered equal
     int m_pixelTol;

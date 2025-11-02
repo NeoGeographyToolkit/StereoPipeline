@@ -2337,20 +2337,18 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
 
     // Find the vertex we want to move
     double min_x, min_y, min_dist;
+    int clipIndex;
     asp::findClosestPolyVertex(// inputs
                                P.x(), P.y(), app_data,
                                m_beg_image_id, m_end_image_id,
                                // outputs
-                               m_polyLayerIndex,
+                               clipIndex,
                                m_editPolyVecIndex,
                                m_editIndexInCurrPoly,
                                m_editVertIndexInCurrPoly,
                                min_x, min_y, min_dist);
+    m_editClipIndex = clipIndex;
 
-    // When all the polygons are empty, make sure that at least
-    // m_polyLayerIndex is valid.
-    if (m_polyLayerIndex < m_beg_image_id)
-      m_polyLayerIndex = m_beg_image_id;
 
     // This will redraw just the polygons, not the pixmap
     update();
@@ -2409,7 +2407,8 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
   if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode) {
 
     // If moving vertices
-    if (m_editPolyVecIndex        < 0 ||
+    if (m_editClipIndex < 0 ||
+        m_editPolyVecIndex        < 0 ||
         m_editIndexInCurrPoly     < 0 ||
         m_editVertIndexInCurrPoly < 0)
       return;
@@ -2417,8 +2416,8 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
     Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
 
     m_world_box.grow(P); // to not cut when plotting later
-    P = app_data.world2proj(P, m_polyLayerIndex); // projected units
-    app_data.images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
+    P = app_data.world2proj(P, m_editClipIndex); // projected units
+    app_data.images[m_editClipIndex].polyVec[m_editPolyVecIndex]
       .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly, P.x(), P.y());
     // This will redraw just the polygons, not the pixmap
     update();
