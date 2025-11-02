@@ -184,16 +184,6 @@ private:
                                         bool has_nodata,
                                         double nodata_val);
 
-  // Find the closest point in a given vector of polygons to a given point.
-  void findClosestPolyVertex(// inputs
-			     double x0, double y0,
-			     std::vector<vw::geometry::dPoly> const& polyVec,
-			     // outputs
-			     int & polyVecIndex,
-			     int & polyIndexInCurrPoly,
-			     int & vertIndexInCurrPoly,
-			     double & minX, double & minY,
-			     double & minDist);
 
   // Find the closest edge in a given vector of polygons to a given point.
   void findClosestPolyEdge(// inputs

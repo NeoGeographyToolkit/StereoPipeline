@@ -22,6 +22,7 @@
 /// TODO: Test with empty images and images having just one pixel.
 
 #include <asp/GUI/MainWidget.h>
+#include <asp/GUI/GuiGeom.h>
 #include <asp/GUI/chooseFilesDlg.h>
 #include <asp/Core/StereoSettings.h>
 
@@ -1797,14 +1798,15 @@ void MainWidget::deleteVertex() {
 
   double min_x, min_y, min_dist;
   int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
-  MainWidget::findClosestPolyVertex(// inputs
-                                    P.x(), P.y(), app_data.images,
-                                    // outputs
-                                    clipIndex,
-                                    polyVecIndex,
-                                    polyIndexInCurrPoly,
-                                    vertIndexInCurrPoly,
-                                    min_x, min_y, min_dist);
+  asp::findClosestPolyVertex(// inputs
+                             P.x(), P.y(), app_data,
+                             m_beg_image_id, m_end_image_id,
+                             // outputs
+                             clipIndex,
+                             polyVecIndex,
+                             polyIndexInCurrPoly,
+                             vertIndexInCurrPoly,
+                             min_x, min_y, min_dist);
 
   if (clipIndex           < 0 ||
       polyVecIndex        < 0 ||
@@ -1832,11 +1834,11 @@ void MainWidget::deleteVertices() {
   // This code cannot be moved out to utilities since it calls the
   // function app_data.proj2world().
 
-  for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
+  for (int clipIt = m_beg_image_id; clipIt < m_end_image_id; clipIt++) {
 
-    for (size_t layerIter = 0; layerIter < app_data.images[clipIter].polyVec.size(); layerIter++) {
+    for (size_t layerIt = 0; layerIt < app_data.images[clipIt].polyVec.size(); layerIt++) {
 
-      vw::geometry::dPoly & poly     = app_data.images[clipIter].polyVec[layerIter]; // alias
+      vw::geometry::dPoly & poly     = app_data.images[clipIt].polyVec[layerIt]; // alias
       int                   numPolys = poly.get_numPolys();
       const int           * numVerts = poly.get_numVerts();
       const double        * xv       = poly.get_xv();
@@ -1855,7 +1857,7 @@ void MainWidget::deleteVertices() {
         for (int vIter = 0; vIter < pSize; vIter++) {
           double  x = xv[start + vIter];
           double  y = yv[start + vIter];
-          Vector2 P = app_data.proj2world(Vector2(x, y), clipIter);
+          Vector2 P = app_data.proj2world(Vector2(x, y), clipIt);
 
           // This vertex will be deleted
           if (m_stereoCropWin.contains(P))
@@ -1879,7 +1881,7 @@ void MainWidget::deleteVertices() {
       }
 
       // Overwrite the polygon
-      app_data.images[clipIter].polyVec[layerIter] = poly_out;
+      app_data.images[clipIt].polyVec[layerIt] = poly_out;
     }
   }
 
@@ -1915,75 +1917,6 @@ void MainWidget::findClosestPolyEdge(// inputs
 
   Vector2 world_P(world_x0, world_y0);
 
-  for (int j = m_beg_image_id; j < m_end_image_id; j++) {
-
-    int clipIter = m_filesOrder[j]; // image index
-    if (m_chooseFiles && m_chooseFiles->isHidden(app_data.images[clipIter].name))
-      continue; // skip hidden files
-
-    double minX0, minY0, minDist0;
-    int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
-
-    // Convert from world coordinates to given clip coordinates
-    Vector2 clip_P = app_data.world2proj(world_P, clipIter);
-
-    asp::findClosestPolyEdge(// inputs
-                                 clip_P.x(), clip_P.y(),
-                                 imageData[clipIter].polyVec,
-                                 // outputs
-                                 polyVecIndex0,
-                                 polyIndexInCurrPoly0,
-                                 vertIndexInCurrPoly0,
-                                 minX0, minY0,
-                                 minDist0);
-
-    // Unless the polygon is empty, convert back to world
-    // coordinates, and see if the current distance is smaller than
-    // the previous one.
-    if (polyVecIndex0 >= 0 && polyIndexInCurrPoly0 >= 0 &&
-        vertIndexInCurrPoly0 >= 0) {
-
-      Vector2 closest_P = app_data.proj2world(Vector2(minX0, minY0), clipIter);
-      minDist0 = norm_2(closest_P - world_P);
-
-      if (minDist0 <= minDist) {
-        clipIndex           = clipIter;
-        polyVecIndex        = polyVecIndex0;
-        polyIndexInCurrPoly = polyIndexInCurrPoly0;
-        vertIndexInCurrPoly = vertIndexInCurrPoly0;
-        minDist             = minDist0;
-        minX                = closest_P.x();
-        minY                = closest_P.y();
-      }
-    }
-  }
-
-  return;
-}
-
-// Find the closest point in a given set of imageData structures to a given point
-// in world coordinates.
-// TODO(oalexan1): Move out this non-gui function.
-void MainWidget::findClosestPolyVertex(// inputs
-                                       double world_x0, double world_y0,
-                                       std::vector<imageData> const& imageData,
-                                       // outputs
-                                       int & clipIndex,
-                                       int & polyVecIndex,
-                                       int & polyIndexInCurrPoly,
-                                       int & vertIndexInCurrPoly,
-                                       double & minX, double & minY,
-                                       double & minDist) {
-  clipIndex           = -1;
-  polyVecIndex        = -1;
-  polyIndexInCurrPoly = -1;
-  vertIndexInCurrPoly = -1;
-  minX                = world_x0;
-  minY                = world_y0;
-  minDist             = std::numeric_limits<double>::max();
-
-  Vector2 world_P(world_x0, world_y0);
-
   for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
 
     double minX0, minY0, minDist0;
@@ -1992,15 +1925,15 @@ void MainWidget::findClosestPolyVertex(// inputs
     // Convert from world coordinates to given clip coordinates
     Vector2 clip_P = app_data.world2proj(world_P, clipIter);
 
-    asp::findClosestPolyVertex(// inputs
-                                   clip_P.x(), clip_P.y(),
-                                   imageData[clipIter].polyVec,
-                                   // outputs
-                                   polyVecIndex0,
-                                   polyIndexInCurrPoly0,
-                                   vertIndexInCurrPoly0,
-                                   minX0, minY0,
-                                   minDist0);
+    asp::findClosestPolyEdge(// inputs
+                             clip_P.x(), clip_P.y(),
+                             imageData[clipIter].polyVec,
+                             // outputs
+                             polyVecIndex0,
+                             polyIndexInCurrPoly0,
+                             vertIndexInCurrPoly0,
+                             minX0, minY0,
+                             minDist0);
 
     // Unless the polygon is empty, convert back to world
     // coordinates, and see if the current distance is smaller than
@@ -2033,15 +1966,14 @@ void MainWidget::findClosestPolyVertex(// inputs
 void MainWidget::insertVertex() {
 
   Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-
   m_world_box.grow(P); // to not cut when plotting later
 
   // If there is absolutely no polygon, start by creating one
   // with just one point.
   bool allEmpty = true;
-  for (size_t clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
-    if (app_data.images[clipIter].polyVec.size() > 0 &&
-        app_data.images[clipIter].polyVec[0].get_totalNumVerts() > 0) {
+  for (size_t clipIt = m_beg_image_id; clipIt < m_end_image_id; clipIt++) {
+    if (app_data.images[clipIt].polyVec.size() > 0 &&
+        app_data.images[clipIt].polyVec[0].get_totalNumVerts() > 0) {
       allEmpty = false;
       break;
     }
@@ -2098,9 +2030,9 @@ void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex) {
     // This can flip orientations and order of polygons.
     std::vector<OGRGeometry*> ogr_polys;
 
-    for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
+    for (int clipIt = m_beg_image_id; clipIt < m_end_image_id; clipIt++) {
 
-      auto & polyVec = imageData[clipIter].polyVec;
+      auto & polyVec = imageData[clipIt].polyVec;
       for (size_t vecIter = 0; vecIter < polyVec.size(); vecIter++) {
 
         if (poly_color == "") {
@@ -2127,7 +2059,7 @@ void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex) {
         // Convert from the coordinate system of each layer
         // to the one of the output layer
         for (int vIter = 0; vIter < totalNumVerts; vIter++) {
-          Vector2 P = app_data.proj2world(Vector2(xv[vIter], yv[vIter]), clipIter);
+          Vector2 P = app_data.proj2world(Vector2(xv[vIter], yv[vIter]), clipIt);
           P = app_data.world2proj(P, outIndex);
           xv[vIter] = P.x();
           yv[vIter] = P.y();
@@ -2160,8 +2092,8 @@ void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex) {
   }
 
   // Wipe all existing polygons and replace with this one
-  for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++)
-    imageData[clipIter].polyVec.clear();
+  for (int clipIt = m_beg_image_id; clipIt < m_end_image_id; clipIt++)
+    imageData[clipIt].polyVec.clear();
 
   imageData[outIndex].polyVec = polyVec;
 }
@@ -2550,14 +2482,15 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
 
     // Find the vertex we want to move
     double min_x, min_y, min_dist;
-    MainWidget::findClosestPolyVertex(// inputs
-                                      P.x(), P.y(), app_data.images,
-                                      // outputs
-                                      m_polyLayerIndex,
-                                      m_editPolyVecIndex,
-                                      m_editIndexInCurrPoly,
-                                      m_editVertIndexInCurrPoly,
-                                      min_x, min_y, min_dist);
+    asp::findClosestPolyVertex(// inputs
+                               P.x(), P.y(), app_data,
+                               m_beg_image_id, m_end_image_id,
+                               // outputs
+                               m_polyLayerIndex,
+                               m_editPolyVecIndex,
+                               m_editIndexInCurrPoly,
+                               m_editVertIndexInCurrPoly,
+                               min_x, min_y, min_dist);
 
     // When all the polygons are empty, make sure that at least
     // m_polyLayerIndex is valid.

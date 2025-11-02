@@ -351,18 +351,6 @@ public slots:
                                  vw::BBox2i const& region_out,
                                  vw::ImageView<int> & screen_image);
                                 
-    // Find the closest point in a given set of imageData structures to a given point
-    // in world coordinates.
-    void findClosestPolyVertex(// inputs
-                               double x0, double y0,
-                               std::vector<imageData> const& imageData,
-                               // outputs
-                               int & clipIndex,
-                               int & polyVecIndex,
-                               int & polyIndexInCurrPoly,
-                               int & vertIndexInCurrPoly,
-                               double & minX, double & minY,
-                               double & minDist);
 
     // Find the closest edge in a given set of imageData structures to a given point.
     void findClosestPolyEdge(// inputs
