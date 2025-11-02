@@ -387,17 +387,11 @@ void deleteVerticesInBox(asp::AppData & app_data, vw::BBox2 const& box,
           out_yv.push_back(y);
         }
 
-        // If there are no vertices left, or the polygon was not
-        // degenerate before but becomes degenerate now, skip it.
-        // (Polygons which were 1-point before are allowed.)
-        if (out_xv.empty() || (pSize >= 3 && out_xv.size() < 3))
-          continue;
-
         bool isPolyClosed = true;
         poly_out.appendPolygon(out_xv.size(),
-                                vw::geometry::vecPtr(out_xv),
-                                vw::geometry::vecPtr(out_yv),
-                                isPolyClosed, colors[polyIter], layers[polyIter]);
+                               vw::geometry::vecPtr(out_xv),
+                               vw::geometry::vecPtr(out_yv),
+                               isPolyClosed, colors[polyIter], layers[polyIter]);
       }
 
       // Overwrite the polygon

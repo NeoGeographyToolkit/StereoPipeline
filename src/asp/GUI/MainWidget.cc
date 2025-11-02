@@ -1363,6 +1363,9 @@ for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per abov
   for (size_t polyIter = 0; polyIter < polyVec.size(); polyIter++) {
 
     vw::geometry::dPoly poly = polyVec[polyIter]; // make a deep copy
+    if (poly.get_totalNumVerts() == 0)
+      continue;
+
     const std::vector<std::string> & colors = poly.get_colors();
 
     // Convert to world units
@@ -2205,7 +2208,6 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
   return;
 }
 
-
 // Go to the pixel locations on screen, and draw the polygonal line.
 // This is robust to zooming in the middle of profiling.
 // TODO: This will function badly when zooming.
@@ -2755,7 +2757,6 @@ void MainWidget::wheelEvent(QWheelEvent *event) {
   m_curr_pixel_pos = QPointF2Vec(event->position());
   updateCurrentMousePosition();
 }
-
 
 void MainWidget::enterEvent(QEvent *event) {
 }
