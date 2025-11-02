@@ -26,13 +26,8 @@ namespace vw { namespace cartography {
 
 namespace asp {
 
-WidgetBase::WidgetBase(int beg_image_id, int end_image_id,
-                       int base_image_id,
-                       asp::AppData & data,
-                       bool use_georef,
-                       std::vector<imageData> & images,
-                       std::vector<vw::cartography::GeoTransform> & world2image,
-                       std::vector<vw::cartography::GeoTransform> & image2world):
+WidgetBase::WidgetBase(int beg_image_id, int end_image_id, int base_image_id,
+                       asp::AppData & data):
     m_beg_image_id(beg_image_id),
     m_end_image_id(end_image_id),
     app_data(data),

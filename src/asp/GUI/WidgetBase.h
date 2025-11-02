@@ -46,13 +46,7 @@ class WidgetBase {
 public:
 
   // Constructors/Destructor
-  WidgetBase(int beg_image_id, int end_image_id,
-             int base_image_id,
-             asp::AppData & data,
-             bool use_georef,
-             std::vector<imageData> & images,
-             std::vector<vw::cartography::GeoTransform> & world2image,
-             std::vector<vw::cartography::GeoTransform> & image2world);
+  WidgetBase(int beg_image_id, int end_image_id, int base_image_id, asp::AppData & data);
   
   virtual ~WidgetBase(){}
 

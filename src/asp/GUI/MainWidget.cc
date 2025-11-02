@@ -51,10 +51,7 @@ namespace asp {
 MainWidget::MainWidget(QWidget *parent,
                        vw::GdalWriteOptions const& opt,
                        int beg_image_id, int end_image_id, int base_image_id,
-                       asp::AppData & data, // alias
-                       std::vector<imageData> & images, // will be aliased
-                       std::vector<vw::cartography::GeoTransform> & world2image,
-                       std::vector<vw::cartography::GeoTransform> & image2world,
+                       asp::AppData & app_data, // alias
                        std::string & output_prefix,     // will be aliased
                        asp::MatchList & matches,
                        pairwiseMatchList & pairwiseMatches,
@@ -63,8 +60,7 @@ MainWidget::MainWidget(QWidget *parent,
                        chooseFilesDlg * chooseFiles, bool use_georef,
                        bool & allowMultipleSelections):
     QwtScaleWidget(parent),
-    WidgetBase(beg_image_id, end_image_id, base_image_id, data, use_georef, images,
-               world2image, image2world),
+    WidgetBase(beg_image_id, end_image_id, base_image_id, app_data),
     m_opt(opt), m_chooseFiles(chooseFiles),
     m_output_prefix(output_prefix), // alias
     m_matchlist(matches),

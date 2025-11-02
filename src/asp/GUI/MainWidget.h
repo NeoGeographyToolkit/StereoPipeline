@@ -88,10 +88,7 @@ namespace asp {
     MainWidget(QWidget *parent,
                vw::GdalWriteOptions const& opt,
                int beg_image_id, int end_image_id, int base_image_id,
-               asp::AppData & data,
-               std::vector<imageData> & images, // will be aliased
-               std::vector<vw::cartography::GeoTransform> & world2image,
-               std::vector<vw::cartography::GeoTransform> & image2world,
+               asp::AppData & app_data,
                std::string & output_prefix,     // will be aliased
                asp::MatchList & matches,
                pairwiseMatchList & pairwiseMatches,

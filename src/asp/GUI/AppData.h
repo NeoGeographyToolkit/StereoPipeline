@@ -18,7 +18,7 @@
 
 /// \file AppData.h
 ///
-/// Data structures for the GUI.
+/// Data structures for the GUI
 ///
 #ifndef __ASP_GUI_APP_DATA_H__
 #define __ASP_GUI_APP_DATA_H__
@@ -46,11 +46,11 @@ struct AppData {
             std::vector<std::map<std::string, std::string>> const& properties,
             std::vector<std::string>const& image_files);
     
-    vw::GdalWriteOptions                       opt;
-    bool                                       use_georef;
-    asp::DisplayMode                       display_mode;
-    std::vector<std::string>                   image_files;
-    std::vector<asp::imageData>            images;
+    vw::GdalWriteOptions        opt;
+    bool                        use_georef;
+    asp::DisplayMode            display_mode;
+    std::vector<std::string>    image_files;
+    std::vector<asp::imageData> images;
     std::vector<vw::cartography::GeoTransform> world2image;
     std::vector<vw::cartography::GeoTransform> image2world;
 };

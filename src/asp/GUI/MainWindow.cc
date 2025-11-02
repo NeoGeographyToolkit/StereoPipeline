@@ -292,65 +292,6 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   // Collect only the valid images
   asp::filterImages(local_images);
 
-  // The code from here on is duplicated in AppData
-  
-  app_data.image_files = local_images;
-  m_display_mode = asp::stereo_settings().hillshade?HILLSHADED_VIEW:REGULAR_VIEW;
-
-  if (!stereo_settings().zoom_proj_win.empty())
-    app_data.use_georef = true;
-  
-  size_t num_images = app_data.image_files.size();
-  app_data.images.resize(num_images);
-
-  std::vector<int> propertyIndices;
-  asp::lookupPropertyIndices(properties, app_data.image_files, propertyIndices);
-
-  // TODO(oalexan1): How will the preview mode play along with georeferences?
-  bool has_georef = true;
-  for (size_t i = 0; i < num_images; i++) {
-    app_data.images[i].read(app_data.image_files[i], m_opt, REGULAR_VIEW,
-                     properties[propertyIndices[i]],
-                     delay);
-    
-    // Above we read the image in regular mode. If plan to display hillshade,
-    // for now set the flag for that, and the hillshaded image will be created
-    // and set later. (Something more straightforward could be done.)
-    app_data.images[i].m_display_mode = m_display_mode;
-    has_georef = has_georef && app_data.images[i].has_georef;
-  }
-
-  // Use georef if all images have it. This may be turned off later if it is desired
-  // to show matches.
-  if (has_georef)
-    app_data.use_georef = true;
-
-  // It is tricky to set up a layout for georeferenced images if they are loaded
-  // one or a few at a time.
-  if (delay) 
-    app_data.use_georef = false;
-  
-  // If the user explicitly asked to not use georef, do not use it on startup
-  if (asp::stereo_settings().no_georef) {
-    app_data.use_georef = false; 
-    // Further control of georef is from the gui menu
-    asp::stereo_settings().no_georef = false; 
-  }
-
-  // Create the coordinate transforms
-  app_data.world2image.resize(num_images);
-  app_data.image2world.resize(num_images);
-  if (app_data.use_georef) {
-    for (int i = 0; i < num_images; i++) {  
-      app_data.world2image[i]
-        = vw::cartography::GeoTransform(app_data.images[BASE_IMAGE_ID].georef,
-                                        app_data.images[i].georef);
-      app_data.image2world[i]
-        = vw::cartography::GeoTransform(app_data.images[i].georef,
-                                        app_data.images[BASE_IMAGE_ID].georef);
-    }
-  }
-
   // All the data is stored and shared via with object
   app_data = asp::AppData(opt, use_georef, properties, local_images);
   
@@ -360,6 +301,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   }
 
   // Ensure the inputs are reasonable
+  int num_images = app_data.images.size();
   if (!MainWindow::sanityChecks(num_images))
     forceQuit();
 
@@ -492,9 +434,7 @@ void MainWindow::createLayout() {
     int beg_image_id = 0, end_image_id = app_data.images.size();
     MainWidget * widget = new MainWidget(centralWidget,
                                 m_opt,
-                                beg_image_id, end_image_id, BASE_IMAGE_ID,
-                                app_data, app_data.images, app_data.world2image,
-                                app_data.image2world,
+                                beg_image_id, end_image_id, BASE_IMAGE_ID, app_data, 
                                 m_output_prefix,
                                 m_matchlist,
                                 m_pairwiseMatches, m_pairwiseCleanMatches,
@@ -524,9 +464,7 @@ void MainWindow::createLayout() {
         // regular plot
         widget = new MainWidget(centralWidget,
                                 m_opt,
-                                beg_image_id, end_image_id, BASE_IMAGE_ID, 
-                                app_data, app_data.images, app_data.world2image,
-                                app_data.image2world,
+                                beg_image_id, end_image_id, BASE_IMAGE_ID, app_data,
                                 m_output_prefix,
                                 m_matchlist, m_pairwiseMatches, m_pairwiseCleanMatches,
                                 m_editMatchPointVecIndex,
@@ -537,9 +475,7 @@ void MainWindow::createLayout() {
         // Qwt plot with axes and colorbar. Hard to use the same API as earlier.
         // TODO(oalexan1): Must integrate the two approaches.
         widget = new ColorAxes(this, 
-                               beg_image_id, end_image_id, BASE_IMAGE_ID, 
-                               app_data, app_data.use_georef, app_data.images, app_data.world2image,
-                               app_data.image2world);
+                               beg_image_id, end_image_id, BASE_IMAGE_ID, app_data);
       }
       m_widgets.push_back(widget);
     }
@@ -733,7 +669,7 @@ void MainWindow::createMenus() {
   m_viewHillshadedImages_action = new QAction(tr("Hillshaded images"), this);
   m_viewHillshadedImages_action->setStatusTip(tr("View hillshaded images"));
   m_viewHillshadedImages_action->setCheckable(true);
-  m_viewHillshadedImages_action->setChecked(m_display_mode == HILLSHADED_VIEW);
+  m_viewHillshadedImages_action->setChecked(app_data.display_mode == HILLSHADED_VIEW);
   m_viewHillshadedImages_action->setShortcut(tr("H"));
   connect(m_viewHillshadedImages_action, SIGNAL(triggered()),
           this, SLOT(viewHillshadedImages()));
@@ -830,7 +766,7 @@ void MainWindow::createMenus() {
   m_viewThreshImages_action = new QAction(tr("View thresholded images"), this);
   m_viewThreshImages_action->setStatusTip(tr("View thresholded images"));
   m_viewThreshImages_action->setCheckable(true);
-  m_viewThreshImages_action->setChecked(m_display_mode == THRESHOLDED_VIEW);
+  m_viewThreshImages_action->setChecked(app_data.display_mode == THRESHOLDED_VIEW);
   connect(m_viewThreshImages_action, SIGNAL(triggered()), this, SLOT(viewThreshImages()));
 
   // View/set image threshold
@@ -1225,8 +1161,8 @@ void MainWindow::updateViewMenuEntries() {
 
 // Update checkboxes for viewing thresholded and hillshaded images
 void MainWindow::updateDisplayModeMenuEntries() {
-  m_viewThreshImages_action->setChecked(m_display_mode == THRESHOLDED_VIEW);
-  m_viewHillshadedImages_action->setChecked(m_display_mode == HILLSHADED_VIEW);
+  m_viewThreshImages_action->setChecked(app_data.display_mode == THRESHOLDED_VIEW);
+  m_viewHillshadedImages_action->setChecked(app_data.display_mode == HILLSHADED_VIEW);
 }
 
 void MainWindow::viewMatchesFromMenu() {
@@ -1719,9 +1655,9 @@ void MainWindow::thresholdCalc() {
 
 void MainWindow::viewThreshImages() {
   if (m_viewThreshImages_action->isChecked())
-    m_display_mode = THRESHOLDED_VIEW;
+    app_data.display_mode = THRESHOLDED_VIEW;
   else
-    m_display_mode = REGULAR_VIEW;
+    app_data.display_mode = REGULAR_VIEW;
   
   MainWindow::updateDisplayModeMenuEntries();
 
@@ -1729,7 +1665,7 @@ void MainWindow::viewThreshImages() {
     if (!mw(m_widgets[i]))
       continue;
     bool refresh_pixmap = true;
-    if (m_display_mode == THRESHOLDED_VIEW) 
+    if (app_data.display_mode == THRESHOLDED_VIEW) 
       mw(m_widgets[i])->viewThreshImages(refresh_pixmap);
     else
       mw(m_widgets[i])->viewUnthreshImages();
@@ -1811,7 +1747,7 @@ void MainWindow::thresholdGetSet() {
   // Turn off viewing thresholded images when the threshold is set. The user can
   // turn this back on, and then the thresholded image will be recomputed and
   // displayed.
-  m_display_mode = REGULAR_VIEW;
+  app_data.display_mode = REGULAR_VIEW;
   MainWindow::updateDisplayModeMenuEntries();
   MainWindow::viewThreshImages();
 }
@@ -1880,12 +1816,12 @@ void MainWindow::setPolyColor() {
 }
 
 void MainWindow::viewHillshadedImages() {
-  m_display_mode = m_viewHillshadedImages_action->isChecked() ? HILLSHADED_VIEW : REGULAR_VIEW;
+  app_data.display_mode = m_viewHillshadedImages_action->isChecked() ? HILLSHADED_VIEW : REGULAR_VIEW;
   MainWindow::updateDisplayModeMenuEntries();
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (mw(m_widgets[i]))
-      mw(m_widgets[i])->viewHillshadedImages(m_display_mode == HILLSHADED_VIEW);
+      mw(m_widgets[i])->viewHillshadedImages(app_data.display_mode == HILLSHADED_VIEW);
   }
 }
 

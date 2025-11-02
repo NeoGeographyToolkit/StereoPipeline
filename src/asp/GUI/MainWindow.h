@@ -193,14 +193,12 @@ private:
   QAction *m_profileMode_action;
   QAction *m_polyEditMode_action;
 
-  ViewType m_view_type,
-            m_view_type_old;
+  ViewType m_view_type, m_view_type_old;
   int      m_grid_cols, m_grid_cols_old;
   bool     m_allowMultipleSelections;
   int      m_argc;
   char **  m_argv;
   bool     m_matches_exist;
-  DisplayMode m_display_mode;
   
   /// Structures to keep track of all interest point matches.
   asp::MatchList    m_matchlist;

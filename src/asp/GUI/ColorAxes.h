@@ -46,11 +46,7 @@ class ColorAxes: public QwtPlot, public WidgetBase {
   
 public:
   ColorAxes(QWidget * parent, int beg_image_id, int end_image_id, int base_image_id,
-            asp::AppData & data,
-            bool use_georef,
-            std::vector<imageData> & images,
-            std::vector<vw::cartography::GeoTransform> & world2image,
-            std::vector<vw::cartography::GeoTransform> & image2world);
+            asp::AppData & data);
 
   virtual void mousePressEvent(QMouseEvent *e);
   virtual void resizeEvent(QResizeEvent *e);

@@ -505,14 +505,8 @@ public:
 };
 
 ColorAxes::ColorAxes(QWidget *parent,
-  int beg_image_id, int end_image_id, int base_image_id, 
-  asp::AppData & data, bool use_georef,
-  std::vector<imageData> & images,
-  std::vector<vw::cartography::GeoTransform> & world2image,
-  std::vector<vw::cartography::GeoTransform> & image2world):
-    QwtPlot(parent),
-    WidgetBase(beg_image_id, end_image_id, base_image_id, data, use_georef, images,
-               world2image, image2world) {
+  int beg_image_id, int end_image_id, int base_image_id, asp::AppData & app_data):
+    QwtPlot(parent), WidgetBase(beg_image_id, end_image_id, base_image_id, app_data) {
 
   int num_images = app_data.images.size();
 

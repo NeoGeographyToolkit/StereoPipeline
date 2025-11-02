@@ -17,7 +17,7 @@
 
 /// \file AppData.cc
 ///
-/// Data structures for the GUI.
+/// Data structures for the GUI
 ///
 
 #include <asp/GUI/AppData.h>
