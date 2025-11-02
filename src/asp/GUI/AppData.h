@@ -45,14 +45,25 @@ struct AppData {
             bool use_georef,
             std::vector<std::map<std::string, std::string>> const& properties,
             std::vector<std::string>const& image_files);
+
+  // Convert pixels for current image into world coordinates, and vice versa
+  vw::Vector2 world2image_trans(vw::Vector2 const& P, int imageIndex) const;
+  vw::Vector2 image2world_trans(vw::Vector2 const& P, int imageIndex) const;
+  vw::BBox2 world2image_trans(vw::BBox2 const& R, int imageIndex) const;
+  vw::BBox2 image2world_trans(vw::BBox2 const& R, int imageIndex) const;
     
-    vw::GdalWriteOptions        opt;
-    bool                        use_georef;
-    asp::DisplayMode            display_mode;
-    std::vector<std::string>    image_files;
-    std::vector<asp::imageData> images;
-    std::vector<vw::cartography::GeoTransform> world2image;
-    std::vector<vw::cartography::GeoTransform> image2world;
+  // Convert from world coordinates to projected coordinates in given geospatial
+  // projection, and vice versa
+  vw::Vector2 world2proj(vw::Vector2 const P, int imageIndex) const;
+  vw::Vector2 proj2world(vw::Vector2 const P, int imageIndex) const;
+    
+  vw::GdalWriteOptions        opt;
+  bool                        use_georef;
+  asp::DisplayMode            display_mode;
+  std::vector<std::string>    image_files;
+  std::vector<asp::imageData> images;
+  std::vector<vw::cartography::GeoTransform> world2image;
+  std::vector<vw::cartography::GeoTransform> image2world;
 };
 
 } // namespace asp

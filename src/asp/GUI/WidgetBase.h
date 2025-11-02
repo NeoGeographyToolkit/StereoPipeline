@@ -79,21 +79,10 @@ public:
   // A reference to the shared application data
   asp::AppData & app_data;
 
-  // Convert from world coordinates to projected coordinates in given geospatial
-  // projection, and vice versa
-  vw::Vector2 world2proj(vw::Vector2 const P, int imageIndex) const;
-  vw::Vector2 proj2world(vw::Vector2 const P, int imageIndex) const;
-
   vw::Vector2 world2screen(vw::Vector2 const&  p) const;
   vw::Vector2 screen2world(vw::Vector2 const&  p) const;
-  vw::Vector2 world2image(vw::Vector2 const& P, int imageIndex) const;
-  vw::Vector2 image2world(vw::Vector2 const& P, int imageIndex) const;
-
   vw::BBox2 world2screen(vw::BBox2 const& R) const;
   vw::BBox2 screen2world(vw::BBox2 const& R) const;
-  vw::BBox2 world2image(vw::BBox2 const& R, int imageIndex) const;
-  vw::BBox2 image2world(vw::BBox2 const& R, int imageIndex) const;
-
 }; // End class WidgetBase
 
 // Find the min and max values, ignoring outliers. We look only 

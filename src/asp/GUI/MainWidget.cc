@@ -128,7 +128,7 @@ MainWidget::MainWidget(QWidget *parent,
     }
 
     // Grow the world box to fit all the images
-    BBox2 B = MainWidget::image2world(app_data.images[i].image_bbox, i);
+    BBox2 B = app_data.image2world_trans(app_data.images[i].image_bbox, i);
     m_world_box.grow(B);
 
     // The first existing vector layer in the current widget becomes
@@ -150,7 +150,7 @@ MainWidget::MainWidget(QWidget *parent,
     else
       image_box = app_data.images[m_base_image_id].georef.point_to_pixel_bbox(proj_win);
 
-    m_current_view = MainWidget::image2world(image_box, m_base_image_id);
+    m_current_view = app_data.image2world_trans(image_box, m_base_image_id);
   }
 
   // To do: Warn the user if some images have georef while others don't.
@@ -415,7 +415,7 @@ BBox2 MainWidget::firstImagePixelBox() const{
     vw_out() << "Did not expect no images!";
     vw_throw(ArgumentErr() << "Did not expect no images.\n");
   }
-  return MainWidget::world2image(m_current_view, m_beg_image_id);
+  return app_data.world2image_trans(m_current_view, m_beg_image_id);
 }
 
 // The current image box in world coordinates
@@ -425,7 +425,7 @@ BBox2 MainWidget::firstImageWorldBox(BBox2 const& image_box) const{
     vw_out() << "Did not expect no images!";
     vw_throw(ArgumentErr() << "Did not expect no images.\n");
   }
-  return MainWidget::image2world(image_box, m_beg_image_id);
+  return app_data.image2world_trans(image_box, m_beg_image_id);
 }
 
 void MainWidget::viewThreshImages(bool refresh_pixmap) {
@@ -649,7 +649,7 @@ void MainWidget::zoomToImage() {
     bringImageOnTop(*it);
 
     // Set the view window to be the region encompassing the image
-    BBox2 world_box = MainWidget::image2world(app_data.images[*it].image_bbox, *it);
+    BBox2 world_box = app_data.image2world_trans(app_data.images[*it].image_bbox, *it);
     double aspect = double(m_window_width) / m_window_height;  
     m_current_view = vw::geometry::expandBoxToRatio(world_box, aspect);
   }
@@ -755,7 +755,7 @@ bool MainWidget::get_crop_win(QRect & win) {
     return false;
   }
 
-  win = bbox2qrect(world2image(m_stereoCropWin, m_beg_image_id));
+  win = bbox2qrect(app_data.world2image_trans(m_stereoCropWin, m_beg_image_id));
   return true;
 }
 
@@ -837,7 +837,7 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
       Vector2 world_pt = screen2world(screen_pt);
       Vector2 p;
       try {
-        p = WidgetBase::world2image(world_pt, image_index);
+        p = app_data.world2image_trans(world_pt, image_index);
       } catch (...) {
         // Something went wrong, the results won't be reliable
         #pragma omp critical
@@ -877,7 +877,7 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
         Vector2 world_pt = screen2world(Vector2(x, y));
 
         try {
-          p = WidgetBase::world2image(world_pt, image_index);
+          p = app_data.world2image_trans(world_pt, image_index);
         } catch (const std::exception& e) {
           continue;
         }
@@ -990,7 +990,7 @@ void MainWidget::drawImage(QPainter* paint) {
 
     // The portion of the image in the current view.
     BBox2 curr_world_box = m_current_view;
-    BBox2 B = MainWidget::image2world(app_data.images[i].image_bbox, i);
+    BBox2 B = app_data.image2world_trans(app_data.images[i].image_bbox, i);
     curr_world_box.crop(B);
 
     // This is a bugfix for the case when the world boxes
@@ -1028,7 +1028,7 @@ void MainWidget::drawImage(QPainter* paint) {
     }
 
     // Go from world coordinates to pixels in the current image.
-    BBox2 image_box = MainWidget::world2image(curr_world_box, i);
+    BBox2 image_box = app_data.world2image_trans(curr_world_box, i);
 
     // Grow a bit to integer, as otherwise strange things happen
     // when zooming in too close
@@ -1145,7 +1145,7 @@ void MainWidget::drawInterestPoints(QPainter* paint) {
   for (size_t ip_iter = 0; ip_iter < ip_vec.size(); ip_iter++) {
     // Generate the pixel coord of the point
     Vector2 pt    = ip_vec[ip_iter];
-    Vector2 world = MainWidget::image2world(pt, m_base_image_id);
+    Vector2 world = app_data.image2world_trans(pt, m_base_image_id);
     Vector2 P     = world2screen(world);
 
     // Do not draw points that are outside the viewing area
@@ -1216,7 +1216,7 @@ void MainWidget::drawScatteredData(QPainter* paint, int image_index) {
   for (size_t pt_it = 0; pt_it < app_data.images[image_index].scattered_data.size(); pt_it++) {
     auto const& P = app_data.images[image_index].scattered_data[pt_it];
 
-    vw::Vector2 world_P = proj2world(subvector(P, 0, 2), image_index);
+    vw::Vector2 world_P = app_data.proj2world(subvector(P, 0, 2), image_index);
     Vector2 screen_P = world2screen(world_P);
     QPoint Q(screen_P.x(), screen_P.y());
 
@@ -1371,7 +1371,7 @@ for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per abov
     for (int vIter = 0; vIter < numVerts; vIter++) {
 
       Vector2 P;
-      P = proj2world(Vector2(xv[vIter], yv[vIter]), image_it);
+      P = app_data.proj2world(Vector2(xv[vIter], yv[vIter]), image_it);
 
       xv[vIter] = P.x();
       yv[vIter] = P.y();
@@ -1540,14 +1540,14 @@ void MainWidget::plotProfile(std::vector<imageData> const& images,
     // there is only one point.
     if (num_pts > 1 && pt_iter == num_pts - 1) continue;
 
-    Vector2 begP = MainWidget::world2image(Vector2(profileX[pt_iter], profileY[pt_iter]),
+    Vector2 begP = app_data.world2image_trans(Vector2(profileX[pt_iter], profileY[pt_iter]),
                                             imgInd);
 
     Vector2 endP;
     if (num_pts == 1)
       endP = begP; // only one point is present
     else
-      endP = MainWidget::world2image(Vector2(profileX[pt_iter+1], profileY[pt_iter+1]),
+      endP = app_data.world2image_trans(Vector2(profileX[pt_iter+1], profileY[pt_iter+1]),
                                       imgInd);
 
     int begX = begP.x(),   begY = begP.y();
@@ -1748,7 +1748,7 @@ void MainWidget::addPolyVert(double px, double py) {
 
     S = screen2world(S);                    // world coordinates
     m_world_box.grow(S); // to not cut when plotting later
-    S = world2proj(S, m_polyLayerIndex); // projected units
+    S = app_data.world2proj(S, m_polyLayerIndex); // projected units
 
     m_currPolyX.push_back(S.x());
     m_currPolyY.push_back(S.y());
@@ -1830,7 +1830,7 @@ void MainWidget::deleteVertices() {
   }
 
   // This code cannot be moved out to utilities since it calls the
-  // function proj2world().
+  // function app_data.proj2world().
 
   for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
 
@@ -1855,7 +1855,7 @@ void MainWidget::deleteVertices() {
         for (int vIter = 0; vIter < pSize; vIter++) {
           double  x = xv[start + vIter];
           double  y = yv[start + vIter];
-          Vector2 P = proj2world(Vector2(x, y), clipIter);
+          Vector2 P = app_data.proj2world(Vector2(x, y), clipIter);
 
           // This vertex will be deleted
           if (m_stereoCropWin.contains(P))
@@ -1925,7 +1925,7 @@ void MainWidget::findClosestPolyEdge(// inputs
     int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
 
     // Convert from world coordinates to given clip coordinates
-    Vector2 clip_P = world2proj(world_P, clipIter);
+    Vector2 clip_P = app_data.world2proj(world_P, clipIter);
 
     asp::findClosestPolyEdge(// inputs
                                  clip_P.x(), clip_P.y(),
@@ -1943,7 +1943,7 @@ void MainWidget::findClosestPolyEdge(// inputs
     if (polyVecIndex0 >= 0 && polyIndexInCurrPoly0 >= 0 &&
         vertIndexInCurrPoly0 >= 0) {
 
-      Vector2 closest_P = proj2world(Vector2(minX0, minY0), clipIter);
+      Vector2 closest_P = app_data.proj2world(Vector2(minX0, minY0), clipIter);
       minDist0 = norm_2(closest_P - world_P);
 
       if (minDist0 <= minDist) {
@@ -1990,7 +1990,7 @@ void MainWidget::findClosestPolyVertex(// inputs
     int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
 
     // Convert from world coordinates to given clip coordinates
-    Vector2 clip_P = world2proj(world_P, clipIter);
+    Vector2 clip_P = app_data.world2proj(world_P, clipIter);
 
     asp::findClosestPolyVertex(// inputs
                                    clip_P.x(), clip_P.y(),
@@ -2008,7 +2008,7 @@ void MainWidget::findClosestPolyVertex(// inputs
     if (polyVecIndex0 >= 0 && polyIndexInCurrPoly0 >= 0 &&
         vertIndexInCurrPoly0 >= 0) {
 
-      Vector2 closest_P = proj2world(Vector2(minX0, minY0), clipIter);
+      Vector2 closest_P = app_data.proj2world(Vector2(minX0, minY0), clipIter);
       minDist0 = norm_2(closest_P - world_P);
 
       if (minDist0 <= minDist) {
@@ -2072,7 +2072,7 @@ void MainWidget::insertVertex() {
       vertIndexInCurrPoly < 0) return;
 
   // Convert to coordinates of the desired clip
-  P = world2proj(P, clipIndex);
+  P = app_data.world2proj(P, clipIndex);
 
   // Need +1 below as we insert AFTER current vertex
   app_data.images[clipIndex].polyVec[polyVecIndex].insertVertex(polyIndexInCurrPoly,
@@ -2127,8 +2127,8 @@ void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex) {
         // Convert from the coordinate system of each layer
         // to the one of the output layer
         for (int vIter = 0; vIter < totalNumVerts; vIter++) {
-          Vector2 P = proj2world(Vector2(xv[vIter], yv[vIter]), clipIter);
-          P = world2proj(P, outIndex);
+          Vector2 P = app_data.proj2world(Vector2(xv[vIter], yv[vIter]), clipIter);
+          P = app_data.world2proj(P, outIndex);
           xv[vIter] = P.x();
           yv[vIter] = P.y();
         }
@@ -2519,7 +2519,7 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
     m_editingMatches = true;
 
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-    P = world2image(P, m_base_image_id);
+    P = app_data.world2image_trans(P, m_base_image_id);
 
     // Find the match point we want to move
     const double DISTANCE_LIMIT = 70;
@@ -2600,7 +2600,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
       return;
 
     Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
-    P = world2image(P, m_base_image_id);
+    P = app_data.world2image_trans(P, m_base_image_id);
 
     // Update the IP location
     m_matchlist.setPointPosition(m_beg_image_id, m_editMatchPointVecIndex, P.x(), P.y());
@@ -2629,7 +2629,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
     Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
 
     m_world_box.grow(P); // to not cut when plotting later
-    P = world2proj(P, m_polyLayerIndex); // projected units
+    P = app_data.world2proj(P, m_polyLayerIndex); // projected units
     app_data.images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
       .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly, P.x(), P.y());
     // This will redraw just the polygons, not the pixmap
@@ -2736,7 +2736,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
           continue;
 
         std::string val = "none";
-        Vector2 q = world2image(p, it);
+        Vector2 q = app_data.world2image_trans(p, it);
 
         int col = floor(q[0]), row = floor(q[1]);
 
@@ -2795,7 +2795,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
 
         Vector2 P = screen2world(Vector2(mouseRelX, mouseRelY));
         m_world_box.grow(P); // to not cut when plotting later
-        P = world2proj(P, m_polyLayerIndex); // projected units
+        P = app_data.world2proj(P, m_polyLayerIndex); // projected units
         app_data.images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
           .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly,
                               P.x(), P.y());
@@ -2838,7 +2838,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
       }
 
       Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
-      Vector2 q = world2image(p, m_beg_image_id);
+      Vector2 q = app_data.world2image_trans(p, m_beg_image_id);
 
       int col = round(q[0]), row = round(q[1]);
       vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
@@ -2900,7 +2900,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
       if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
         continue;
 
-      BBox2 image_box = world2image(m_stereoCropWin, image_it);
+      BBox2 image_box = app_data.world2image_trans(m_stereoCropWin, image_it);
       vw_out() << std::setprecision(8)
                 << "src win for    " << app_data.images[image_it].name << ": "
                 << round(image_box.min().x()) << ' ' << round(image_box.min().y()) << ' '
@@ -3164,7 +3164,7 @@ void MainWidget::addMatchPoint() {
 
   // Convert mouse coords to world coords then image coords.
   Vector2 world_coord    = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-  Vector2 P              = world2image(world_coord, m_base_image_id);
+  Vector2 P              = app_data.world2image_trans(world_coord, m_base_image_id);
 
   // Try to add the new IP.
   bool is_good = m_matchlist.addPoint(m_beg_image_id, ip::InterestPoint(P.x(), P.y()));
@@ -3202,7 +3202,7 @@ void MainWidget::deleteMatchPoint() {
 
   // Find the closest match to this point.
   Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-  P = world2image(P, m_base_image_id);
+  P = app_data.world2image_trans(P, m_base_image_id);
   const double DISTANCE_LIMIT = 70;
   int min_index = m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
 
@@ -3274,7 +3274,7 @@ void MainWidget::hideImagesNotInRegion() {
 
     int image_it = m_filesOrder[j];
     std::string fileName = app_data.images[image_it].name;
-    BBox2i image_box = world2image(m_stereoCropWin, image_it);
+    BBox2i image_box = app_data.world2image_trans(m_stereoCropWin, image_it);
     image_box.crop(BBox2(0, 0, app_data.images[image_it].img.cols(),
                           app_data.images[image_it].img.rows()));
 

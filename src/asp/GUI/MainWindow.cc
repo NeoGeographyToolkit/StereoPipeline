@@ -275,6 +275,9 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
       exit(1);
     }
   }
+
+  // Collect only the valid images
+  asp::filterImages(local_images);
   
   // Set the default lowest resolution subimage size. Use a shorthand below.
   // Must happen before images are loaded.
@@ -289,17 +292,9 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     }
   }
   
-  // Collect only the valid images
-  asp::filterImages(local_images);
-
   // All the data is stored and shared via with object
   app_data = asp::AppData(opt, use_georef, properties, local_images);
   
-  if (app_data.image_files.empty()) {
-    popUp("No input images.");
-    exit(1);
-  }
-
   // Ensure the inputs are reasonable
   int num_images = app_data.images.size();
   if (!MainWindow::sanityChecks(num_images))
@@ -333,8 +328,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   if (asp::stereo_settings().preview && !sideBySideWithDialog()) 
     single_window = true;
   
-  if (m_grid_cols > 0 && m_grid_cols < int(num_images) &&
-      !sideBySideWithDialog())
+  if (m_grid_cols > 0 && m_grid_cols < int(num_images) && !sideBySideWithDialog())
     m_view_type = VIEW_AS_TILES_ON_GRID;
   
   if (single_window && !sideBySideWithDialog())
@@ -1140,8 +1134,7 @@ void MainWindow::zoomToProjWin() {
   else
     image_box = app_data.images[BASE_IMAGE_ID].georef.point_to_pixel_bbox(proj_win);
 
-  BBox2 world_box = mw(m_widgets[BASE_IMAGE_ID])->image2world(image_box,
-                                                              BASE_IMAGE_ID);
+  BBox2 world_box = app_data.image2world_trans(image_box, BASE_IMAGE_ID);
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (!mw(m_widgets[i]))
       continue;

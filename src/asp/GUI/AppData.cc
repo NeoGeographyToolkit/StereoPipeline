@@ -98,4 +98,100 @@ AppData::AppData(vw::GdalWriteOptions const& opt_in,
   
 }
 
+// If we use georef, the world is in projected point units of the
+// first image, with y replaced with -y, to keep the y axis downward,
+// for consistency with how images are plotted.  Convert a world box
+// to a pixel box for the given image.
+vw::Vector2 AppData::world2image_trans(vw::Vector2 const& P, int imageIndex) const{
+  bool poly_or_xyz = (images[imageIndex].m_isPoly || images[imageIndex].m_isCsv);
+
+  if (poly_or_xyz) {
+    // Poly or points. There is no pixel concept in that case.
+    if (!use_georef)
+      return flip_in_y(P);
+    return world2image[imageIndex].point_to_point(flip_in_y(P));
+  }
+
+  // Image
+  if (!use_georef)
+    return P;
+  return world2image[imageIndex].point_to_pixel(flip_in_y(P));
+}
+
+vw::BBox2 AppData::world2image_trans(vw::BBox2 const& R, int imageIndex) const {
+
+  bool poly_or_xyz = (images[imageIndex].m_isPoly || images[imageIndex].m_isCsv);
+
+  if (R.empty())
+    return R;
+  if (images.empty())
+    return R;
+
+  if (poly_or_xyz) {
+    // Poly or points. There is no pixel concept in that case.
+    if (!use_georef)
+      return flip_in_y(R);
+    return world2image[imageIndex].point_to_point_bbox(flip_in_y(R));
+  }
+
+  // Image
+  if (!use_georef)
+    return R;
+  return world2image[imageIndex].point_to_pixel_bbox(flip_in_y(R));
+}
+
+// The reverse of world2image_trans()
+vw::Vector2 AppData::image2world_trans(vw::Vector2 const& P, int imageIndex) const {
+
+  bool poly_or_xyz = (images[imageIndex].m_isPoly || images[imageIndex].m_isCsv);
+
+  if (poly_or_xyz) {
+    if (!use_georef)
+      return flip_in_y(P);
+
+    return flip_in_y(image2world[imageIndex].point_to_point(P));
+  }
+
+  if (!use_georef)
+    return P;
+  return flip_in_y(image2world[imageIndex].pixel_to_point(P));
+}
+
+// The reverse of world2image_trans()
+vw::BBox2 AppData::image2world_trans(vw::BBox2 const& R, int imageIndex) const {
+
+  if (R.empty()) return R;
+  if (images.empty()) return R;
+
+  bool poly_or_xyz = (images[imageIndex].m_isPoly || images[imageIndex].m_isCsv);
+
+  // Consider the case when the current layer is a polygon.
+  // TODO(oalexan1): What if a layer has both an image and a polygon?
+
+  if (poly_or_xyz) {
+    if (!use_georef)
+      return flip_in_y(R);
+    return flip_in_y(image2world[imageIndex].point_to_point_bbox(R));
+  }
+
+  if (!use_georef)
+    return R;
+  return flip_in_y(image2world[imageIndex].pixel_to_point_bbox(R));
+}
+
+// Convert from world coordinates to projected coordinates in given geospatial
+// projection
+vw::Vector2 AppData::world2proj(vw::Vector2 P, int imageIndex) const {
+  if (!use_georef)
+      return flip_in_y(P);
+  return world2image[imageIndex].point_to_point(flip_in_y(P)); 
+}
+
+// The reverse of world2proj
+vw::Vector2 AppData::proj2world(vw::Vector2 P, int imageIndex) const {
+  if (!use_georef)
+    return flip_in_y(P);
+  return flip_in_y(image2world[imageIndex].point_to_point(P));
+}
+
 } // namespace asp
