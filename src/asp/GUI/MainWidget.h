@@ -353,9 +353,6 @@ public slots:
                                 
 
 
-    // Merge some polygons and save them in imageData[outIndex]
-    void mergePolys(std::vector<imageData> & imageData, int outIndex);
-
     void updateCurrentMousePosition();
     void updateRubberBand(QRect & R);
     void maybeGenHillshade();

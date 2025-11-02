@@ -21,9 +21,9 @@
 // These may need to be moved to separate files.
 
 #include <asp/GUI/GuiUtilities.h>
+#include <asp/GUI/GuiGeom.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
-#include <asp/GUI/chooseFilesDlg.h>
 
 #include <vw/Image/Algorithms.h>
 #include <vw/Cartography/GeoTransform.h>
@@ -428,53 +428,6 @@ void read_csv_metadata(std::string              const& csv_file,
   
   return;
 }
-
-// Assemble the polygon structure
-void formPoly(std::string              const& override_color,
-              std::vector<int>         const& contiguous_blocks,
-              std::vector<std::string> const& colors,
-              std::vector<vw::Vector3> const& scattered_data, // input vertices
-              std::vector<vw::geometry::dPoly> & polyVec) {
-
-  // Wipe the output
-  polyVec.clear();
-  polyVec.resize(1);
-
-  if (colors.size() != contiguous_blocks.size()) 
-    vw::vw_throw(vw::ArgumentErr() << "There must be as many polygons as colors for them.\n");
-  
-  size_t vertexCount = 0;
-  for (size_t polyIt = 0; polyIt < contiguous_blocks.size(); polyIt++) {
-    
-    std::vector<double> x, y;
-    for (int vertexIt = 0; vertexIt < contiguous_blocks[polyIt]; vertexIt++) {
-      
-      if (vertexCount >= scattered_data.size())
-        vw::vw_throw(vw::ArgumentErr() << "Book-keeping error in reading polygons.\n");
-      
-      x.push_back(scattered_data[vertexCount].x());
-      y.push_back(scattered_data[vertexCount].y());
-      vertexCount++;
-    }
-    
-    std::string curr_color = colors[polyIt]; // use color from file if it exists
-    
-    // The command line color overrides what is in the file
-    if (override_color != "default" && override_color != "")
-      curr_color = override_color;
-    
-    bool isPolyClosed = true;
-    std::string layer;
-    polyVec[0].appendPolygon(x.size(),
-                             vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
-                             isPolyClosed, curr_color, layer);
-  }
-  
-  if (vertexCount != scattered_data.size()) 
-    vw::vw_throw(vw::ArgumentErr() << "The number of read vertices is not what is expected.\n");
-  
-  return;
-}
   
 void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt,
                      DisplayMode display_mode,
@@ -694,7 +647,7 @@ void imageData::load() {
     val_range[1] = bounds.max()[2];
 
     if (isPoly) {
-      formPoly(color, contiguous_blocks, colors, scattered_data, polyVec);
+      asp::formPoly(color, contiguous_blocks, colors, scattered_data, polyVec);
       scattered_data.clear(); // the data is now in the poly structure
     }
     

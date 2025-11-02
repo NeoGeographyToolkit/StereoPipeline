@@ -1952,90 +1952,10 @@ void MainWidget::insertVertex() {
   return;
 }
 
-// Merge some polygons and save them in imageData[outIndex]
-void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex) {
-
-  std::vector<vw::geometry::dPoly> polyVec;
-
-  try {
-    // We will infer these from existing polygons
-    std::string poly_color, layer_str;
-
-    // We must first organize all those user-drawn curves into meaningful polygons.
-    // This can flip orientations and order of polygons.
-    std::vector<OGRGeometry*> ogr_polys;
-
-    for (int clipIt = m_beg_image_id; clipIt < m_end_image_id; clipIt++) {
-
-      auto & polyVec = imageData[clipIt].polyVec;
-      for (size_t vecIter = 0; vecIter < polyVec.size(); vecIter++) {
-
-        if (poly_color == "") {
-          std::vector<std::string> colors = polyVec[vecIter].get_colors();
-          if (!colors.empty())
-            poly_color = colors[0];
-        }
-
-        if (layer_str == "") {
-          std::vector<std::string> layers = polyVec[vecIter].get_layers();
-          if (!layers.empty())
-            layer_str = layers[0];
-        }
-
-        // Make a copy of the polygons
-        vw::geometry::dPoly poly = polyVec[vecIter];
-
-        double * xv         = poly.get_xv();
-        double * yv         = poly.get_yv();
-        const int* numVerts = poly.get_numVerts();
-        int numPolys        = poly.get_numPolys();
-        int  totalNumVerts  = poly.get_totalNumVerts();
-
-        // Convert from the coordinate system of each layer
-        // to the one of the output layer
-        for (int vIter = 0; vIter < totalNumVerts; vIter++) {
-          Vector2 P = app_data.proj2world(Vector2(xv[vIter], yv[vIter]), clipIt);
-          P = app_data.world2proj(P, outIndex);
-          xv[vIter] = P.x();
-          yv[vIter] = P.y();
-        }
-
-        // Iterate over polygon rings in the given polygon set
-        int startPos = 0;
-        for (int pIter = 0; pIter < numPolys; pIter++) {
-
-          if (pIter > 0) startPos += numVerts[pIter - 1];
-          int numCurrPolyVerts = numVerts[pIter];
-
-          OGRLinearRing R;
-          vw::geometry::toOGR(xv, yv, startPos, numCurrPolyVerts, R);
-
-          OGRPolygon * P = new OGRPolygon;
-          if (P->addRing(&R) != OGRERR_NONE)
-            vw_throw(ArgumentErr() << "Failed add ring to polygon.\n");
-
-          ogr_polys.push_back(P);
-        }
-
-      }
-    }
-
-    vw::geometry::mergeOGRPolygons(poly_color, layer_str, ogr_polys, polyVec);
-    
-  } catch(std::exception &e) {
-    vw_out() << "OGR failed at " << e.what() << std::endl;
-  }
-
-  // Wipe all existing polygons and replace with this one
-  for (int clipIt = m_beg_image_id; clipIt < m_end_image_id; clipIt++)
-    imageData[clipIt].polyVec.clear();
-
-  imageData[outIndex].polyVec = polyVec;
-}
 
 // Merge existing polygons
 void MainWidget::mergePolys() {
-  MainWidget::mergePolys(app_data.images, m_polyLayerIndex);
+  asp::mergePolys(app_data, m_beg_image_id, m_end_image_id, m_polyLayerIndex);
 }
 
 // Save the currently created vector layer
