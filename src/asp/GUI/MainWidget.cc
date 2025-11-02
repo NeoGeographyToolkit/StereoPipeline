@@ -1892,72 +1892,6 @@ void MainWidget::deleteVertices() {
   update();
 }
 
-// Find the closest edge in a given set of imageData structures to a
-// given point. This needs to be in the MainWidget class as it needs
-// to know about how to convert from world coordinates to each
-// imageData coordinates.
-void MainWidget::findClosestPolyEdge(// inputs
-                                     double world_x0, double world_y0,
-                                     std::vector<imageData> const& imageData,
-                                     // outputs
-                                     int & clipIndex,
-                                     int & polyVecIndex,
-                                     int & polyIndexInCurrPoly,
-                                     int & vertIndexInCurrPoly,
-                                     double & minX, double & minY,
-                                     double & minDist) {
-
-  clipIndex           = -1;
-  polyVecIndex        = -1;
-  polyIndexInCurrPoly = -1;
-  vertIndexInCurrPoly = -1;
-  minX                = world_x0;
-  minY                = world_y0;
-  minDist             = std::numeric_limits<double>::max();
-
-  Vector2 world_P(world_x0, world_y0);
-
-  for (int clipIter = m_beg_image_id; clipIter < m_end_image_id; clipIter++) {
-
-    double minX0, minY0, minDist0;
-    int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
-
-    // Convert from world coordinates to given clip coordinates
-    Vector2 clip_P = app_data.world2proj(world_P, clipIter);
-
-    asp::findClosestPolyEdge(// inputs
-                             clip_P.x(), clip_P.y(),
-                             imageData[clipIter].polyVec,
-                             // outputs
-                             polyVecIndex0,
-                             polyIndexInCurrPoly0,
-                             vertIndexInCurrPoly0,
-                             minX0, minY0,
-                             minDist0);
-
-    // Unless the polygon is empty, convert back to world
-    // coordinates, and see if the current distance is smaller than
-    // the previous one.
-    if (polyVecIndex0 >= 0 && polyIndexInCurrPoly0 >= 0 &&
-        vertIndexInCurrPoly0 >= 0) {
-
-      Vector2 closest_P = app_data.proj2world(Vector2(minX0, minY0), clipIter);
-      minDist0 = norm_2(closest_P - world_P);
-
-      if (minDist0 <= minDist) {
-        clipIndex           = clipIter;
-        polyVecIndex        = polyVecIndex0;
-        polyIndexInCurrPoly = polyIndexInCurrPoly0;
-        vertIndexInCurrPoly = vertIndexInCurrPoly0;
-        minDist             = minDist0;
-        minX                = closest_P.x();
-        minY                = closest_P.y();
-      }
-    }
-  }
-
-  return;
-}
 
 // Insert intermediate vertex where the mouse right-clicks.
 // TODO(oalexan1): This will fail when different polygons have
@@ -1989,14 +1923,15 @@ void MainWidget::insertVertex() {
   // when one searches for closest edge, not vertex.
   double min_x, min_y, min_dist;
   int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
-  MainWidget::findClosestPolyEdge(// inputs
-                                  P.x(), P.y(), app_data.images,
-                                  // outputs
-                                  clipIndex,
-                                  polyVecIndex,
-                                  polyIndexInCurrPoly,
-                                  vertIndexInCurrPoly,
-                                  min_x, min_y, min_dist);
+  asp::findClosestPolyEdge(// inputs
+                           P.x(), P.y(), app_data,
+                           m_beg_image_id, m_end_image_id,
+                           // outputs
+                           clipIndex,
+                           polyVecIndex,
+                           polyIndexInCurrPoly,
+                           vertIndexInCurrPoly,
+                           min_x, min_y, min_dist);
 
   if (clipIndex           < 0 ||
       polyVecIndex        < 0 ||

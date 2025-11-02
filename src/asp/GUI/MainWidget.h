@@ -352,17 +352,6 @@ public slots:
                                  vw::ImageView<int> & screen_image);
                                 
 
-    // Find the closest edge in a given set of imageData structures to a given point.
-    void findClosestPolyEdge(// inputs
-                             double x0, double y0,
-                             std::vector<imageData> const& imageData,
-                             // outputs
-                             int & clipIndex,
-                             int & polyVecIndex,
-                             int & polyIndexInCurrPoly,
-                             int & vertIndexInCurrPoly,
-                             double & minX, double & minY,
-                             double & minDist);
 
     // Merge some polygons and save them in imageData[outIndex]
     void mergePolys(std::vector<imageData> & imageData, int outIndex);

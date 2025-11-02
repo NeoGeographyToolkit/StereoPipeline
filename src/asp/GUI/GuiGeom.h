@@ -48,5 +48,30 @@ void findClosestPolyVertex(// inputs
                            double & minX, double & minY,
                            double & minDist);
 
+// Find the closest edge in a given set of polygons to a given point.
+void findClosestPolyEdge(// inputs
+                         double world_x0, double world_y0,
+                         asp::AppData const& app_data,
+                         int beg_image_id, int end_image_id,
+                         // outputs
+                         int & clipIndex,
+                         int & polyVecIndex,
+                         int & polyIndexInCurrPoly,
+                         int & vertIndexInCurrPoly,
+                         double & minX, double & minY,
+                         double & minDist);
+
+  // Find the closest edge in a given vector of polygons to a given point.
+  void findClosestPolyEdge(// inputs
+                           double x0, double y0,
+                           std::vector<vw::geometry::dPoly> const& polyVec,
+                           // outputs
+                           int & polyVecIndex,
+                           int & polyIndexInCurrPoly,
+                           int & vertIndexInCurrPoly,
+                           double & minX, double & minY,
+                           double & minDist);
+
+
 }
 #endif // __ASP_GUI_GUI_GEOM_H__

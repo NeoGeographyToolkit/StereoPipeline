@@ -265,44 +265,6 @@ bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
 }
 
 
-// Find the closest edge in a given vector of polygons to a given point.
-void findClosestPolyEdge(// inputs
-                         double x0, double y0,
-                         std::vector<vw::geometry::dPoly> const& polyVec,
-                         // outputs
-                         int & polyVecIndex,
-                         int & polyIndexInCurrPoly,
-                         int & vertIndexInCurrPoly,
-                         double & minX, double & minY,
-                         double & minDist){
-  
-  polyVecIndex = -1; polyIndexInCurrPoly = -1; vertIndexInCurrPoly = -1;
-  minX = x0; minY = y0; minDist = std::numeric_limits<double>::max();
-  
-  for (int s = 0; s < (int)polyVec.size(); s++){
-    
-    double minX0, minY0, minDist0;
-    int polyIndex, vertIndex;
-    polyVec[s].findClosestPolyEdge(// inputs
-                                   x0, y0,
-                                   // outputs
-                                   polyIndex, vertIndex, minX0, minY0, minDist0
-                                   );
-    
-    if (minDist0 <= minDist){
-      polyVecIndex  = s;
-      polyIndexInCurrPoly = polyIndex;
-      vertIndexInCurrPoly = vertIndex;
-      minDist       = minDist0;
-      minX          = minX0;
-      minY          = minY0;
-    }
-
-  }
-
-  return;
-}
-
 // Return true if the extension is .csv or .txt
 // TODO(oalexan1): Move this to Common.cc
 bool hasCsv(std::string const& fileName) {

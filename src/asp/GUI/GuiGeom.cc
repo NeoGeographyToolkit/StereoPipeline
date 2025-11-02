@@ -16,6 +16,7 @@
 // __END_LICENSE__
 
 #include <asp/GUI/GuiGeom.h>
+#include <asp/GUI/GuiUtilities.h>
 
 namespace asp {
 
@@ -120,4 +121,103 @@ void findClosestPolyVertex(// inputs
   return;
 }
 
+void findClosestPolyEdge(// inputs
+                         double world_x0, double world_y0,
+                         asp::AppData const& app_data,
+                         int beg_image_id, int end_image_id,
+                         // outputs
+                         int & clipIndex,
+                         int & polyVecIndex,
+                         int & polyIndexInCurrPoly,
+                         int & vertIndexInCurrPoly,
+                         double & minX, double & minY,
+                         double & minDist) {
+
+  clipIndex           = -1;
+  polyVecIndex        = -1;
+  polyIndexInCurrPoly = -1;
+  vertIndexInCurrPoly = -1;
+  minX                = world_x0;
+  minY                = world_y0;
+  minDist             = std::numeric_limits<double>::max();
+
+  vw::Vector2 world_P(world_x0, world_y0);
+
+  for (int clipIter = beg_image_id; clipIter < end_image_id; clipIter++) {
+
+    double minX0, minY0, minDist0;
+    int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
+
+    // Convert from world coordinates to given clip coordinates
+    vw::Vector2 clip_P = app_data.world2proj(world_P, clipIter);
+
+    asp::findClosestPolyEdge(// inputs
+                             clip_P.x(), clip_P.y(),
+                             app_data.images[clipIter].polyVec,
+                             // outputs
+                             polyVecIndex0,
+                             polyIndexInCurrPoly0,
+                             vertIndexInCurrPoly0,
+                             minX0, minY0,
+                             minDist0);
+
+    // Unless the polygon is empty, convert back to world
+    // coordinates, and see if the current distance is smaller than
+    // the previous one.
+    if (polyVecIndex0 >= 0 && polyIndexInCurrPoly0 >= 0 &&
+        vertIndexInCurrPoly0 >= 0) {
+
+      vw::Vector2 closest_P = app_data.proj2world(vw::Vector2(minX0, minY0), clipIter);
+      minDist0 = norm_2(closest_P - world_P);
+
+      if (minDist0 <= minDist) {
+        clipIndex           = clipIter;
+        polyVecIndex        = polyVecIndex0;
+        polyIndexInCurrPoly = polyIndexInCurrPoly0;
+        vertIndexInCurrPoly = vertIndexInCurrPoly0;
+        minDist             = minDist0;
+        minX                = closest_P.x();
+        minY                = closest_P.y();
+      }
+    }
+  }
+
+  return;
 }
+
+// Find the closest edge in a given vector of polygons to a given point.
+void findClosestPolyEdge(// inputs
+                         double x0, double y0,
+                         std::vector<vw::geometry::dPoly> const& polyVec,
+                         // outputs
+                         int & polyVecIndex,
+                         int & polyIndexInCurrPoly,
+                         int & vertIndexInCurrPoly,
+                         double & minX, double & minY,
+                         double & minDist){
+  
+  polyVecIndex = -1; polyIndexInCurrPoly = -1; vertIndexInCurrPoly = -1;
+  minX = x0; minY = y0; minDist = std::numeric_limits<double>::max();
+  
+  for (int s = 0; s < (int)polyVec.size(); s++){
+    
+    double minX0, minY0, minDist0;
+    int polyIndex, vertIndex;
+    polyVec[s].findClosestPolyEdge(x0, y0,
+                                   polyIndex, vertIndex, minX0, minY0, minDist0); // outputs
+    
+    if (minDist0 <= minDist) {
+      polyVecIndex  = s;
+      polyIndexInCurrPoly = polyIndex;
+      vertIndexInCurrPoly = vertIndex;
+      minDist       = minDist0;
+      minX          = minX0;
+      minY          = minY0;
+    }
+
+  }
+
+  return;
+}
+
+} // end namespace asp

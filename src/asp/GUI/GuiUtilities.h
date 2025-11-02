@@ -184,17 +184,6 @@ private:
                                         bool has_nodata,
                                         double nodata_val);
 
-
-  // Find the closest edge in a given vector of polygons to a given point.
-  void findClosestPolyEdge(// inputs
-			   double x0, double y0,
-			   std::vector<vw::geometry::dPoly> const& polyVec,
-			   // outputs
-			   int & polyVecIndex,
-			   int & polyIndexInCurrPoly,
-			   int & vertIndexInCurrPoly,
-			   double & minX, double & minY,
-			   double & minDist);
   
   // This will tweak the georeference so that point_to_pixel() is the identity.
   bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
