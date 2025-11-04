@@ -32,7 +32,6 @@
 #include <vw/Image/InpaintView.h>
 #include <vw/Image/Filter.h>
 #include <vw/Image/NoDataAlg.h>
-
 #include <boost/filesystem.hpp>
 
 #include <string>
@@ -820,6 +819,7 @@ void updateMasksWeights(SfsOptions const& opt,
 // Pixels in low-light are given less weight if at the same location
 // there exist pixels in other images with stronger light. This if a fix
 // for seams. Must be used only in clips known to have seams.
+// TODO(oalexan1): This is work in progress but it is promising.
 void handleLowLight(SfsOptions const& opt,
                     vw::ImageView<double> const& dem,
                     vw::cartography::GeoReference const& geo,
@@ -837,16 +837,34 @@ void handleLowLight(SfsOptions const& opt,
   // Find the abs diff (error) between meas and comp inten
   std::vector<ImageView<double>> err(num_images);
   
-  // Find the err for the max inten. Here it is assumed that a larger intensity
-  // has a lower error. Normally low intensity means high error, at least when
-  // seams show up.
-  ImageView<double> best_err(dem.cols(), dem.rows());
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      best_err(col, row) = 0.0;
+  // Find median error  
+  std::vector<double> errs;  
+  for (int image_iter = 0; image_iter < num_images; image_iter++) {
+
+    if (opt.skip_images.find(image_iter) != opt.skip_images.end())
+      continue;
+
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
+
+        // Find the meas and comp intensities
+        auto meas_intensity = meas_intensities[image_iter](col, row);
+        auto comp_intensity = comp_intensities[image_iter](col, row);
+
+        // Set to zero if either intensity is invalid
+        if (!is_valid(meas_intensity) || !is_valid(comp_intensity)) {
+          continue;
+        }
+
+        double curr_err  
+          = std::abs(meas_intensity.child() - comp_intensity.child());
+        errs.push_back(curr_err);
+      }
     }
   }
-  
+  double median_err = vw::math::destructive_median(errs);
+
+  // Find the error images
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
     if (opt.skip_images.find(image_iter) != opt.skip_images.end())
@@ -871,23 +889,11 @@ void handleLowLight(SfsOptions const& opt,
 
         err[image_iter](col, row) 
           = std::abs(meas_intensity.child() - comp_intensity.child());
-        
-        // If this image has the max intensity, store the err there too
-        if (meas_intensity.child() == max_intensity(col, row))
-          best_err(col, row) = err[image_iter](col, row);
       }
     }
   }
   
-  // Saves the ground weight images
-  // TODO(oalexan1): Comment this out later
-  if (false) // for debugging
-    asp::saveGroundWeights(opt.skip_images, opt.out_prefix,
-                           opt.input_images, opt.input_cameras,
-                           err, 
-                           //blend_weights, 
-                           geo, vw::GdalWriteOptions(opt));
-
+  // Find the adjustment weights for low light
   std::vector<ImageView<double>> adj_weights(num_images);
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
@@ -906,7 +912,7 @@ void handleLowLight(SfsOptions const& opt,
 
         // Set to zero if meas intensity is invalid or below shadow threshold
         if (!is_valid(meas_intensities[image_iter](col, row)) ||
-            curr_intensity <= opt.shadow_threshold_vec[image_iter]) {
+            curr_intensity < opt.shadow_threshold_vec[image_iter]) {
           adj_weights[image_iter](col, row) = 0.0;
           continue;
         }
@@ -915,35 +921,38 @@ void handleLowLight(SfsOptions const& opt,
         if (curr_intensity > opt.low_light_threshold)
           continue;
 
-        // // Skip if curr intensity equals max intensity,
-        // // to respect --adjust-borderline-data)
-        // if (curr_intensity >= max_intensity(col, row))
-        //   continue;
-
-        double th = opt.shadow_threshold_vec[image_iter];
-
-        double img_ratio = (curr_intensity - th) / (opt.low_light_threshold - th);
-        // Must be non-negative here
-        img_ratio = std::max(0.0, img_ratio);
+        // Skip if curr intensity equals max intensity, to respect
+        // --adjust-borderline-data)
+        if (curr_intensity == max_intensity(col, row))
+          continue;
+          
+        // TODO(oalexan1): Should one make use of the intensity  
+        // double img_ratio = (curr_intensity - th) / (opt.low_light_threshold - th);
+        // // Must be non-negative here
+        // img_ratio = std::max(0.0, img_ratio);
         
         double err_ratio = 1.0;
         double curr_err = err[image_iter](col, row);
-        double curr_best_err = best_err(col, row);
-        // if both max err and curr err are positive, and curr_err is larger than curr_best_err
-        if (curr_best_err > 0.0 && curr_err > 0.0 && curr_err >= curr_best_err)
-          err_ratio = curr_best_err / curr_err;
+        if (curr_err > 0.0 && curr_err >= median_err)
+          err_ratio = median_err / curr_err;
         
-        // Reduce this if the error is bad
-        //ratio *= err_ratio;
-        
-        // TODO(oalexan1): Raise here to what power? All these error terms
-        // need a lot more work.
-        //adj_weights[image_iter](col, row) = img_ratio * err_ratio * err_ratio;
-        adj_weights[image_iter](col, row) = err_ratio * err_ratio;
+        // TODO(oalexan1): The power must be a param. 4 works well.
+        adj_weights[image_iter](col, row) = pow(err_ratio, 4.0);
       }
     }
   }
+  
+  // Blur the adjustment weights
+  for (int image_iter = 0; image_iter < num_images; image_iter++) {
+    if (opt.skip_images.find(image_iter) != opt.skip_images.end())
+      continue;
+    // TODO(oalexan1): Must put here a parameter for the sigma
+    adj_weights[image_iter] = gaussian_filter(adj_weights[image_iter], 10.0);
+  }  
 
+  // TODO(oalexan1): Must again put back the original weight when the intensity equals
+  // the max intensity, to respect --adjust-borderline-data.
+  
   // Adjust the blending weights by multiplying them with the adj weights for low light.
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
     if (opt.skip_images.find(image_iter) != opt.skip_images.end())
@@ -955,6 +964,13 @@ void handleLowLight(SfsOptions const& opt,
     }
   }
 
+  // Saves the ground weight images
+  if (false) // for debugging
+    asp::saveGroundWeights(opt.skip_images, opt.out_prefix,
+                           opt.input_images, opt.input_cameras,
+                           //blend_weights, 
+                           adj_weights,
+                           geo, vw::GdalWriteOptions(opt));
 } // end function handleLowLight
 
 // This will adjust the weights to account for borderline pixels and low-light conditions.
