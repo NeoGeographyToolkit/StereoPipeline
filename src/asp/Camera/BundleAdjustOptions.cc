@@ -134,8 +134,7 @@ void setupMapprojectedData(asp::BaOptions & opt,
   }
   
   if (!map_files.empty()) {
-    if (!opt.input_prefix.empty() || !opt.initial_transform_file.empty() ||
-        need_no_matches)
+    if (!opt.initial_transform_file.empty() || need_no_matches)
       vw::vw_throw(vw::ArgumentErr()
                 << "Cannot use mapprojected data with initial adjustments, "
                 << "an initial transform, or ISIS cnet or NVM input.\n");
