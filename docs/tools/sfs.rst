@@ -298,6 +298,22 @@ Command-line options for sfs
     used to further tune this region. See an
     illustration in :numref:`sfs_borderline`.
 
+--low-light-threshold <float (default: -1.0)>
+    A threshold for low-light pixels. If positive, pixels with intensity between
+    this and the shadow threshold will be given less weight, if other images
+    have higher intensity values at the same ground point. This helps fix seams.
+    See usage in :numref:`sfs_seams`. See also ``--low-light-weight-power`` and
+    ``--low-light-blur-sigma``.
+
+--low-light-weight-power <float (default: 4.0)>
+    With the option ``--low-light-threshold``, the weight of a low-light pixel
+    is inversely proportional with the discrepancy between the simulated and
+    observed pixel value, raised to this power.
+
+--low-light-blur-sigma <float (default: 5.0)>
+    With the option ``--low-light-threshold``, apply a Gaussian blur with this
+    sigma to the low-light weight image, to make it continuous.
+            
 --model-coeffs-prefix <path>
     Use this prefix to optionally read model coefficients from a
     file (filename is ``<path>-model_coeffs.txt``).

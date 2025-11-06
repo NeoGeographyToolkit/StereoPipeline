@@ -179,10 +179,20 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
     ("custom-shadow-threshold-list", po::value(&opt.custom_shadow_threshold_list)->default_value(""),
      "A list having one image and one shadow threshold per line. For the images specified here, override the shadow threshold supplied by other means with this value.")
     ("low-light-threshold", 
-     po::value(&opt.low_light_threshold)->default_value(-1),
-     "A threshold for lit but low-light pixels. If positive, pixels with intensity "
-     "between this and the shadow threshold will be given less weight, if other images "
-     "have higher intensity values at the same ground point. This helps fix seams.")
+     po::value(&opt.low_light_threshold)->default_value(-1.0),
+     "A threshold for low-light pixels. If positive, pixels with intensity between "
+     "this and the shadow threshold will be given less weight, if other images have higher "
+     "intensity values at the same ground point. This helps fix seams. See also "
+     "--low-light-weight-power and --low-light-blur-sigma.")
+    ("low-light-weight-power", 
+     po::value(&opt.low_light_weight_power)->default_value(4.0),
+     "With the option --low-light-threshold, the weight of a low-light pixel is inversely "
+     "proportional with the discrepancy between the simulated and observed pixel value, "
+     "raised to this power.")
+    ("low-light-blur-sigma", 
+     po::value(&opt.low_light_blur_sigma)->default_value(5.0),
+     "With the option --low-light-threshold, apply a Gaussian blur with this sigma to the "
+     "low-light weight image, to make it continuous.")
     ("max-valid-image-vals", po::value(&opt.max_valid_image_vals)->default_value(""),
      "Optional values for the largest valid image value in each image (a list of real values in quotes, one per image).")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(-1.0),
@@ -192,8 +202,6 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
      "close to the initial albedo. See also --input-albedo and --albedo-robust-threshold.")
     ("albedo-robust-threshold", po::value(&opt.albedo_robust_threshold)->default_value(0),
      "If floating the albedo and this threshold is positive, apply a Cauchy loss with this threshold to the product of the albedo difference and the albedo constraint weight.")
-    ("unreliable-intensity-threshold", po::value(&opt.unreliable_intensity_threshold)->default_value(0.0),
-     "Intensities lower than this will be considered unreliable and given less weight.")
     ("skip-images", po::value(&opt.skip_images_str)->default_value(""), "Skip images with these indices (indices start from 0).")
     ("save-dem-with-nodata",   po::bool_switch(&opt.save_dem_with_nodata)->default_value(false)->implicit_value(true),
      "Save a copy of the DEM while using a no-data value at a DEM grid point where all images show shadows. To be used if shadow thresholds are set.")
@@ -482,6 +490,11 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
       vw::vw_throw(vw::ArgumentErr()
         << "When using --low-light-threshold, must set --allow-borderline-data.\n");
   }
+        
+  if (opt.low_light_weight_power <= 0.0)
+    vw::vw_throw(vw::ArgumentErr() << "Expecting a positive --low-light-weight-power.\n");
+  if (opt.low_light_blur_sigma <= 0.0)
+    vw::vw_throw(vw::ArgumentErr() << "Expecting a positive --low-light-blur-sigma.\n");
 
   // Parse max valid image vals
   std::istringstream ism(opt.max_valid_image_vals);

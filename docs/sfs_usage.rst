@@ -890,38 +890,43 @@ increased.
 The initial terrain
 ^^^^^^^^^^^^^^^^^^^
 
-A LOLA DEM was used as an initial guess terrain for SfS and as
-reference ground truth. A mosaic of several stereo DEMs with
-bundle-adjusted cameras can be used as well.
+A LOLA DEM was used as an initial guess terrain for SfS and as reference ground
+truth. A mosaic of several stereo DEMs with bundle-adjusted cameras can be used
+as well.
 
-Fetch the 20 meter/pixel LOLA product:
+A 20 meter/pixel LOLA product, which is rather low in resolution, but covers a
+significant portion of the South Pole, is available at:: 
 
-::
+    http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.IMG
+    http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.LBL
 
-    wget http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.IMG
-    wget http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.LBL
+Some lunar DEMs at 10 m/pixel and other resolutions are available at:
+
+    https://pgda.gsfc.nasa.gov/products/90
+
+The site:
+
+    https://core2.gsfc.nasa.gov/PGDA/LOLA_5mpp
+
+has LOLA DEMs at 5 m/pixel, but only for a few locations.
+
+Preprocessing the terrain
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``LDEM_80S_20M`` IMG and LBL files can be fetched with ``wget``. Then,
+this dataset should be converted to a .cub file as::
+
     pds2isis from = LDEM_80S_20M.LBL to = ldem_80s_20m.cub
 
-The site::
-
-    https://core2.gsfc.nasa.gov/PGDA/LOLA_5mpp/
-
-has higher-accuracy LOLA DEMs but only for a few locations.
-
-Some lunar DEMs at 10 m/pixel and other resolutions are available at::
-
-  https://pgda.gsfc.nasa.gov/products/90
-
-Multiply the ``LDEM_80S_20M`` dataset heights by 0.5 per the information in
-the LBL file using ``image_calc`` (:numref:`image_calc`)::
+The heights for this DEM need to be multiplied by 0.5, per the information in
+the LBL file. We do that with ``image_calc`` (:numref:`image_calc`)::
 
     image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
 
-The documentation of your DEM needs to be carefully studied to see if
-this applies to your case.
+The higher-resolution DEMs from above do not need this preprocessing.
 
-Resample the DEM to 1 m/pixel using ``gdalwarp``
-(:numref:`gdal_tools`), creating a DEM named ``ref.tif``::
+Resample the DEM to 1 m/pixel using ``gdalwarp`` (:numref:`gdal_tools`),
+creating a DEM named ``ref.tif``::
 
     gdalwarp -overwrite -r cubicspline -tr 1 1              \
       -co COMPRESSION=LZW -co TILED=yes -co INTERLEAVE=BAND \
@@ -932,16 +937,16 @@ Resample the DEM to 1 m/pixel using ``gdalwarp``
 The values passed to ``-te`` are the bounds of the area of interest. 
 See a discussion about them below.
 
-The DEM grid size should be not too different from the *ground sample
-distance (GSD)* of the images, for optimal results. That one can be found
-with ``mapproject`` (:numref:`mapproject`).
+The DEM grid size should be not too different from the *ground sample distance
+(GSD)* of the images, for optimal results. That one can be found with
+``mapproject`` (:numref:`mapproject`). For LRO NAC images, use 1 m / pixel.
 
 It is suggested to use a `stereographic projection
 <https://proj.org/operations/projections/stere.html>`_. It should 
 be a polar one, if around the poles, or otherwise centered at 
 the area of interest. For example, set::
 
-    proj="+proj=stere +lat_0=-85.3643 +lon_0=31.2387 +R=1737400 +units=m +no_defs"
+    proj="+proj=stere +lat_0=-90 +lon_0=0 +R=1737400 +units=m +no_defs"
 
 then run ``gdalwarp`` with the additional option ``-t_srs "$proj"``.
 
@@ -1724,6 +1729,8 @@ It is also suggested to produce produce a maximally-list mosaic, as in
 different if projecting on the initial guess DEM or on the refined one
 created with SfS.
 
+.. _sfs_issues:
+
 Handling issues in the SfS result
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1731,18 +1738,8 @@ Misregistration errors between the images can result in craters or
 other features being duplicated in the SfS terrain. Then, registration
 must be redone as discussed in the earlier sections.
 
-If in some low-light locations the SfS DEM still has seams, removing some of the
-offending images, or using larger value for ``--shadow-threshold`` (such as
-0.007 or 0.015) for those images, or a larger value for ``--blending-dist``. A
-per-image shadow threshold which overrides the globally set value can be
-specified via ``--custom-shadow-threshold-list``. Sometimes this improves the
-solution in some locations while introducing artifacts in other. One can also
-try invoking ``sfs`` with ``--robust-threshold`` (try values of 0.1 and 0.005,
-perhaps).
-
-Use a larger ``--blending-dist`` and smaller ``--min-blend-size`` if the
-produced terrain has a visible artifact which does not go away after increasing
-shadow thresholds. This can result in more erosion, however.
+If in some low-light locations the SfS DEM still have seams, see
+:numref:`sfs_seams`.
 
 Artifacts around permanently shadowed areas can be fixed with ``sfs_blend``
 (:numref:`sfs_blend`).
@@ -1762,7 +1759,48 @@ larger SfS DEM with ``dem_mosaic`` as::
 
     dem_mosaic --priority-blending-length 50         \
       small_sfs.tif large_sfs.tif -o merged_sfs.tif
-      
+
+Inspect the resulting hillshaded DEM to ensure this did not result in blending
+artifacts.
+
+.. _sfs_seams:
+
+Fixing seams in the SfS terrain
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Images with partially shadowed areas can result in seams in the SfS hillshaded
+DEM. This occurs only in some poorly lit areas. The best available approach for
+fixing such artifacts starts by setting a threshold for such semi-shadowed
+pixels. Pixels with values between this and the shadow threshold will be given
+less weight, in inverse proportion to the discrepancy between the observed and
+simulated pixel value. 
+
+This weight can be raised to a certain power to make this attenuation effect
+stronger, and the resulting weight image can be blurred somewhat to reduce any
+discontinuities.
+
+Pixels for which no other images have higher values at the given ground location
+are excluded from this process, to avoid unnecessary erosion. (However, the blur
+operation on the weights, per above, may still result in some erosion.)
+
+This approach was shown to produce good results but was not yet tested on a
+large scale. It is available with a build from 2025/11 or later
+(:numref:`release`).
+
+This should be used only on clips that show seams, as it may cause erosion
+elsewhere.
+
+To enable this approach, the option ``--allow-borderline-data`` is assumed
+(:numref:`sfs_borderline`). Then, the following additional options are needed::
+  
+    --low-light-threshold 0.02   \
+    --low-light-weight-power 4.0 \
+    --low-light-blur-sigma 5.0 
+
+The full documentation for these options is :numref:`sfs`.
+
+How to blend in repaired clips is discussed in :numref:`sfs_issues`.
+
 Blending the SfS result with the initial terrain
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

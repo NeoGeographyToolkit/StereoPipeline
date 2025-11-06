@@ -325,15 +325,6 @@ calc_intensity_residual(SfsOptions const& opt,
                               camera, reflectance, intensity, ground_weight,
                               refl_coeffs, opt);
 
-    if (opt.unreliable_intensity_threshold > 0) {
-      if (vw::is_valid(intensity) && 
-          intensity.child() <= opt.unreliable_intensity_threshold &&
-          intensity.child() >= 0) {
-        ground_weight *=
-          pow(intensity.child()/opt.unreliable_intensity_threshold, 2.0);
-      }
-    }
-
     if (success && vw::is_valid(intensity) && vw::is_valid(reflectance))
       residuals[0] = ground_weight * (intensity -
                       calcIntensity(albedo[0], reflectance.child(), exposure[0],

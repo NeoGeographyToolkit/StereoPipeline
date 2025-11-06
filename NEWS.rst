@@ -26,6 +26,7 @@ parallel_sfs (:numref:`parallel_sfs`):
     produced for the full site (:numref:`parallel_sfs_usage`).
 
 sfs (:numref:`sfs`):
+  * Added a method for removing seams in the SfS terrain (:numref:`sfs_seams`).
   * Unused option ``--estimate-slope-errors`` got removed.
 
 parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):

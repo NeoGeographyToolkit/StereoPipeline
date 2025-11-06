@@ -43,13 +43,15 @@ struct SfsOptions: public vw::GdalWriteOptions {
     crop_input_images, allow_borderline_data, fix_dem, float_reflectance_model,
     query, save_sparingly, float_haze, read_exposures, read_haze, read_albedo;
 
-  double smoothness_weight, steepness_factor, curvature_in_shadow,
-    curvature_in_shadow_weight,
-    lit_curvature_dist, shadow_curvature_dist, gradient_weight,
+  double smoothness_weight, steepness_factor, gradient_weight,
     blending_power, integrability_weight, smoothness_weight_pq, init_dem_height,
     nodata_val, initial_dem_constraint_weight, albedo_constraint_weight,
-    albedo_robust_threshold, camera_position_step_size, unreliable_intensity_threshold,
-    robust_threshold, shadow_threshold, low_light_threshold;
+    albedo_robust_threshold, camera_position_step_size, 
+    robust_threshold, shadow_threshold, low_light_threshold,
+    low_light_weight_power, low_light_blur_sigma,
+    curvature_in_shadow, curvature_in_shadow_weight, lit_curvature_dist, 
+    shadow_curvature_dist;
+    
   vw::BBox2 crop_win;
   vw::Vector2 height_error_params;
 

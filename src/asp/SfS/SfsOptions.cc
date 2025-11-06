@@ -47,7 +47,8 @@ SfsOptions::SfsOptions():
   gradient_weight(0.0), integrability_weight(0), smoothness_weight_pq(0),
   initial_dem_constraint_weight(0.0),
   albedo_constraint_weight(0.0), albedo_robust_threshold(0.0),
-  camera_position_step_size(1.0), unreliable_intensity_threshold(0.0),
+  camera_position_step_size(1.0), low_light_threshold(0.0),
+  low_light_weight_power(4.0), low_light_blur_sigma(0.0),
   crop_win(vw::BBox2i(0, 0, 0, 0)) {}
 
 } // end namespace asp

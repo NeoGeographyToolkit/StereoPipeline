@@ -834,37 +834,9 @@ void handleLowLight(SfsOptions const& opt,
   maxImage(dem.cols(), dem.rows(), opt.skip_images, meas_intensities,
             max_intensity); // output
 
-  // Find the abs diff (error) between meas and comp inten
+  // Find the error images and median error
   std::vector<ImageView<double>> err(num_images);
-  
-  // Find median error  
   std::vector<double> errs;  
-  for (int image_iter = 0; image_iter < num_images; image_iter++) {
-
-    if (opt.skip_images.find(image_iter) != opt.skip_images.end())
-      continue;
-
-    for (int col = 0; col < dem.cols(); col++) {
-      for (int row = 0; row < dem.rows(); row++) {
-
-        // Find the meas and comp intensities
-        auto meas_intensity = meas_intensities[image_iter](col, row);
-        auto comp_intensity = comp_intensities[image_iter](col, row);
-
-        // Set to zero if either intensity is invalid
-        if (!is_valid(meas_intensity) || !is_valid(comp_intensity)) {
-          continue;
-        }
-
-        double curr_err  
-          = std::abs(meas_intensity.child() - comp_intensity.child());
-        errs.push_back(curr_err);
-      }
-    }
-  }
-  double median_err = vw::math::destructive_median(errs);
-
-  // Find the error images
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
     if (opt.skip_images.find(image_iter) != opt.skip_images.end())
@@ -887,11 +859,14 @@ void handleLowLight(SfsOptions const& opt,
           continue;
         }
 
-        err[image_iter](col, row) 
+        double curr_err  
           = std::abs(meas_intensity.child() - comp_intensity.child());
+        errs.push_back(curr_err);
+        err[image_iter](col, row) = curr_err;
       }
     }
   }
+  double median_err = vw::math::destructive_median(errs);
   
   // Find the adjustment weights for low light
   std::vector<ImageView<double>> adj_weights(num_images);
@@ -912,7 +887,7 @@ void handleLowLight(SfsOptions const& opt,
 
         // Set to zero if meas intensity is invalid or below shadow threshold
         if (!is_valid(meas_intensities[image_iter](col, row)) ||
-            curr_intensity < opt.shadow_threshold_vec[image_iter]) {
+            curr_intensity <= opt.shadow_threshold_vec[image_iter]) {
           adj_weights[image_iter](col, row) = 0.0;
           continue;
         }
@@ -928,7 +903,6 @@ void handleLowLight(SfsOptions const& opt,
           
         // TODO(oalexan1): Should one make use of the intensity  
         // double img_ratio = (curr_intensity - th) / (opt.low_light_threshold - th);
-        // // Must be non-negative here
         // img_ratio = std::max(0.0, img_ratio);
         
         double err_ratio = 1.0;
@@ -936,23 +910,20 @@ void handleLowLight(SfsOptions const& opt,
         if (curr_err > 0.0 && curr_err >= median_err)
           err_ratio = median_err / curr_err;
         
-        // TODO(oalexan1): The power must be a param. 4 works well.
-        adj_weights[image_iter](col, row) = pow(err_ratio, 4.0);
+        // Need to raise this to a power, to greatly decrease the weight
+        adj_weights[image_iter](col, row) = pow(err_ratio, opt.low_light_weight_power);
       }
     }
   }
   
-  // Blur the adjustment weights
+  // Blur the adjustment weights. This may cause some erosion
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
     if (opt.skip_images.find(image_iter) != opt.skip_images.end())
       continue;
-    // TODO(oalexan1): Must put here a parameter for the sigma
-    adj_weights[image_iter] = gaussian_filter(adj_weights[image_iter], 10.0);
+    adj_weights[image_iter] 
+      = gaussian_filter(adj_weights[image_iter], opt.low_light_blur_sigma);
   }  
 
-  // TODO(oalexan1): Must again put back the original weight when the intensity equals
-  // the max intensity, to respect --adjust-borderline-data.
-  
   // Adjust the blending weights by multiplying them with the adj weights for low light.
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
     if (opt.skip_images.find(image_iter) != opt.skip_images.end())
@@ -964,13 +935,13 @@ void handleLowLight(SfsOptions const& opt,
     }
   }
 
-  // Saves the ground weight images
-  if (false) // for debugging
+  // For debugging
+  if (false)
     asp::saveGroundWeights(opt.skip_images, opt.out_prefix,
                            opt.input_images, opt.input_cameras,
-                           //blend_weights, 
                            adj_weights,
                            geo, vw::GdalWriteOptions(opt));
+    
 } // end function handleLowLight
 
 // This will adjust the weights to account for borderline pixels and low-light conditions.
