@@ -190,7 +190,7 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
      "proportional with the discrepancy between the simulated and observed pixel value, "
      "raised to this power.")
     ("low-light-blur-sigma", 
-     po::value(&opt.low_light_blur_sigma)->default_value(5.0),
+     po::value(&opt.low_light_blur_sigma)->default_value(3.0),
      "With the option --low-light-threshold, apply a Gaussian blur with this sigma to the "
      "low-light weight image, to make it continuous.")
     ("max-valid-image-vals", po::value(&opt.max_valid_image_vals)->default_value(""),
@@ -1362,12 +1362,6 @@ int main(int argc, char* argv[]) {
         skipped_images.push_back(opt.input_images[image_iter]);
       }
     }
-    // write out skipped and used images lists so long as they are not empty
-    // TODO or always write out even if empty
-    if (!used_images.empty())
-      asp::saveUsedImages(opt.out_prefix, used_images);
-    if (!skipped_images.empty())
-      asp::saveSkippedImages(opt.out_prefix, skipped_images);
 
     // Only overwrite the exposures if we don't have them supplied
     if (opt.image_exposures_vec.empty())

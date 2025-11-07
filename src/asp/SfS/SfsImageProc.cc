@@ -327,14 +327,15 @@ void extendedWeight(int blending_dist, ImageView<double> const & image, // input
   return;
 }
 
-// Saves the ground weight images
-void saveGroundWeights(std::set<int> const& skip_images,
-                       std::string const& out_prefix,
-                       std::vector<std::string> const& input_images,
-                       std::vector<std::string> const& input_cameras,
-                       std::vector<vw::ImageView<double>> const& ground_weights,
-                       vw::cartography::GeoReference const& geo,
-                       vw::GdalWriteOptions const& opt) {
+// Saves the weights corresponding to mapprojected images
+void saveWeights(std::set<int> const& skip_images,
+                 std::string const& out_prefix,
+                 std::vector<std::string> const& input_images,
+                 std::vector<std::string> const& input_cameras,
+                 std::string const& tag, 
+                 std::vector<vw::ImageView<double>> const& ground_weights,
+                 vw::cartography::GeoReference const& geo,
+                 vw::GdalWriteOptions const& opt) {
 
   int num_images = input_images.size();
   float img_nodata_val = -std::numeric_limits<float>::max(); // part of api
@@ -351,7 +352,7 @@ void saveGroundWeights(std::set<int> const& skip_images,
     std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
 
     bool has_georef = true, has_nodata = false;
-    std::string ground_weight_file = local_prefix + "-ground_weight.tif";
+    std::string ground_weight_file = local_prefix + "-" + tag + "_weight.tif";
     vw_out() << "Writing: " << ground_weight_file << std::endl;
     vw::cartography::block_write_gdal_image(ground_weight_file,
                                             ground_weights[image_iter],
@@ -454,8 +455,8 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                             TerminalProgressCallback("asp", ": "));
 
     // Save the adjusted ground weights
-    saveGroundWeights(skip_images, out_prefix, input_images,
-                      input_cameras, ground_weights, geo, opt);
+    saveWeights(skip_images, out_prefix, input_images,
+                input_cameras, "ground", ground_weights, geo, opt);
   } // end saving debug info
 
   return;
@@ -819,7 +820,6 @@ void updateMasksWeights(SfsOptions const& opt,
 // Pixels in low-light are given less weight if at the same location
 // there exist pixels in other images with stronger light. This if a fix
 // for seams. Must be used only in clips known to have seams.
-// TODO(oalexan1): This is work in progress but it is promising.
 void handleLowLight(SfsOptions const& opt,
                     vw::ImageView<double> const& dem,
                     vw::cartography::GeoReference const& geo,
@@ -853,20 +853,23 @@ void handleLowLight(SfsOptions const& opt,
         auto meas_intensity = meas_intensities[image_iter](col, row);
         auto comp_intensity = comp_intensities[image_iter](col, row);
 
-        // Set to zero if either intensity is invalid
-        if (!is_valid(meas_intensity) || !is_valid(comp_intensity)) {
+        // Set to zero if either intensity is invalid or meas intensity is below
+        // shadow threshold
+        if (!is_valid(meas_intensity) || !is_valid(comp_intensity) ||
+            meas_intensity.child() <= opt.shadow_threshold_vec[image_iter]) {
           err[image_iter](col, row) = 0.0;
           continue;
         }
 
-        double curr_err  
-          = std::abs(meas_intensity.child() - comp_intensity.child());
+        double curr_err = std::abs(meas_intensity.child() - comp_intensity.child());
         errs.push_back(curr_err);
         err[image_iter](col, row) = curr_err;
       }
     }
   }
-  double median_err = vw::math::destructive_median(errs);
+  double median_err = 0.0;
+  if (!errs.empty())
+    median_err = vw::math::destructive_median(errs);
   
   // Find the adjustment weights for low light
   std::vector<ImageView<double>> adj_weights(num_images);
@@ -882,29 +885,24 @@ void handleLowLight(SfsOptions const& opt,
         // Initalize these to 1, except for skipped images
         adj_weights[image_iter](col, row) = 1.0;
 
-        // Find the curr intensity
-        double curr_intensity = meas_intensities[image_iter](col, row).child();
-
-        // Set to zero if meas intensity is invalid or below shadow threshold
-        if (!is_valid(meas_intensities[image_iter](col, row)) ||
-            curr_intensity <= opt.shadow_threshold_vec[image_iter]) {
+        // Where the blend weights are 0, this weight will be 0 too
+        if (blend_weights[image_iter](col, row) == 0.0) {
           adj_weights[image_iter](col, row) = 0.0;
           continue;
         }
 
+        // Find the curr intensity
+        double curr_intensity = meas_intensities[image_iter](col, row).child();
+
+        // Skip if curr intensity equals max intensity, to respect
+        // --adjust-borderline-data
+        if (curr_intensity == max_intensity(col, row))
+          continue;
+          
         // Skip if meas intensity is above the low light threshold
         if (curr_intensity > opt.low_light_threshold)
           continue;
 
-        // Skip if curr intensity equals max intensity, to respect
-        // --adjust-borderline-data)
-        if (curr_intensity == max_intensity(col, row))
-          continue;
-          
-        // TODO(oalexan1): Should one make use of the intensity  
-        // double img_ratio = (curr_intensity - th) / (opt.low_light_threshold - th);
-        // img_ratio = std::max(0.0, img_ratio);
-        
         double err_ratio = 1.0;
         double curr_err = err[image_iter](col, row);
         if (curr_err > 0.0 && curr_err >= median_err)
@@ -917,6 +915,8 @@ void handleLowLight(SfsOptions const& opt,
   }
   
   // Blur the adjustment weights. This may cause some erosion
+  // TODO(oalexan1): How to do a more surgical job here? Now the adjusted weights
+  // attenuated due to this blur multiply weights attenuated in the blend_weights.
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
     if (opt.skip_images.find(image_iter) != opt.skip_images.end())
       continue;
@@ -935,13 +935,17 @@ void handleLowLight(SfsOptions const& opt,
     }
   }
 
-  // For debugging
-  if (false)
-    asp::saveGroundWeights(opt.skip_images, opt.out_prefix,
-                           opt.input_images, opt.input_cameras,
-                           adj_weights,
-                           geo, vw::GdalWriteOptions(opt));
-    
+  // This is helpful for debugging seams issues
+  if (false) {
+    asp::saveWeights(opt.skip_images, opt.out_prefix,
+                     opt.input_images, opt.input_cameras,
+                     "adj", adj_weights,
+                     geo, vw::GdalWriteOptions(opt));
+    asp::saveWeights(opt.skip_images, opt.out_prefix,
+                     opt.input_images, opt.input_cameras,
+                     "blend", blend_weights,
+                     geo, vw::GdalWriteOptions(opt));
+  }
 } // end function handleLowLight
 
 // This will adjust the weights to account for borderline pixels and low-light conditions.
@@ -970,12 +974,10 @@ void handleBorderlineAndLowLight(SfsOptions & opt,
   // exposure only.
   int cols = dem.cols(), rows = dem.rows();
   asp::adjustBorderlineDataWeights(cols, rows, opt.blending_dist, opt.blending_power,
-                                    vw::GdalWriteOptions(opt), // slice
-                                    geo,
-                                    opt.skip_images,
-                                    opt.out_prefix, // for debug data
-                                    opt.input_images, opt.input_cameras,
-                                    ground_weights); // output
+                                   vw::GdalWriteOptions(opt), // slice
+                                   geo, opt.skip_images, opt.out_prefix,
+                                   opt.input_images, opt.input_cameras,
+                                   ground_weights); // output
 
   // Recreate the the masked images and overwrite the blending weights
   asp::updateMasksWeights(opt, num_images, crop_boxes, ground_weights,

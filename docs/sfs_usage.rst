@@ -1749,15 +1749,16 @@ with very low illumination.
 
 If the SfS DEM has localized defects, those can be fixed in a small region and
 then blended in. For example, a clip around the defect, perhaps of dimensions
-250 pixels, can be cut from the input DEM. If that clip has noise which affects
-the final SfS result, it can be blurred with ``dem_mosaic``, using for example,
-``--dem-blur-sigma 2`` (or a larger sigma value). Then one can try to run SfS on just
-this clip, and if needed vary some of the SfS parameters or exclude some images. 
+400 pixels or larger, can be cut from the input DEM. If that clip has noise
+which affects the final SfS result, it can be blurred with ``dem_mosaic``, using
+for example, ``--dem-blur-sigma 2`` (or a larger sigma value). Then one can try
+to run ``parallel_sfs`` on just this clip, and if needed vary some of the SfS
+parameters or exclude some images. 
 
 If happy enough with the result, this small SfS clip can be blended back to the
 larger SfS DEM with ``dem_mosaic`` as::
 
-    dem_mosaic --priority-blending-length 50         \
+    dem_mosaic --priority-blending-length 75         \
       small_sfs.tif large_sfs.tif -o merged_sfs.tif
 
 Inspect the resulting hillshaded DEM to ensure this did not result in blending
@@ -1769,11 +1770,10 @@ Fixing seams in the SfS terrain
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Images with partially shadowed areas can result in seams in the SfS hillshaded
-DEM. This occurs only in some poorly lit areas. The best available approach for
-fixing such artifacts starts by setting a threshold for such semi-shadowed
-pixels. Pixels with values between this and the shadow threshold will be given
-less weight, in inverse proportion to the discrepancy between the observed and
-simulated pixel value. 
+DEM. The best available approach for fixing these problems starts by setting a
+threshold for such semi-shadowed pixels. Pixels with values between this and the
+shadow threshold will be given less weight, in inverse proportion to the
+discrepancy between the observed and simulated pixel value. 
 
 This weight can be raised to a certain power to make this attenuation effect
 stronger, and the resulting weight image can be blurred somewhat to reduce any
@@ -1793,9 +1793,9 @@ elsewhere.
 To enable this approach, the option ``--allow-borderline-data`` is assumed
 (:numref:`sfs_borderline`). Then, the following additional options are needed::
   
-    --low-light-threshold 0.02   \
+    --low-light-threshold 0.03   \
     --low-light-weight-power 4.0 \
-    --low-light-blur-sigma 5.0 
+    --low-light-blur-sigma 3.0 
 
 The full documentation for these options is :numref:`sfs`.
 

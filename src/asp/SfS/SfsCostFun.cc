@@ -83,13 +83,14 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
 
   std::string model_coeffs_file = asp::modelCoeffsFileName(opt.out_prefix);
   if (!opt.save_computed_intensity_only) {
-    vw::vw_out() << "Writing: " << model_coeffs_file << std::endl;
-    std::ofstream mcf(model_coeffs_file.c_str());
-    mcf.precision(17);
-    for (size_t coeff_iter = 0; coeff_iter < refl_coeffs.size(); coeff_iter++)
-      mcf << refl_coeffs[coeff_iter] << " ";
-    mcf << "\n";
-    mcf.close();
+    // Not needed, usually
+    // vw::vw_out() << "Writing: " << model_coeffs_file << std::endl;
+    // std::ofstream mcf(model_coeffs_file.c_str());
+    // mcf.precision(17);
+    // for (size_t coeff_iter = 0; coeff_iter < refl_coeffs.size(); coeff_iter++)
+    //   mcf << refl_coeffs[coeff_iter] << " ";
+    // mcf << "\n";
+    // mcf.close();
   }
 
   std::ostringstream os;
@@ -209,12 +210,13 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
 
     if (opt.save_computed_intensity_only)
       continue; // don't write too many things
-
-    std::string out_weight_file = iter_str2 + "-blending-weight.tif";
-    vw::vw_out() << "Writing: " << out_weight_file << std::endl;
-    vw::cartography::block_write_gdal_image(out_weight_file, ground_weight,
-                                            has_georef, geo, has_nodata, img_nodata_val,
-                                            opt, tpc);
+    
+    // Not needed usually  
+    // std::string out_weight_file = iter_str2 + "-blending-weight.tif";
+    // vw::vw_out() << "Writing: " << out_weight_file << std::endl;
+    // vw::cartography::block_write_gdal_image(out_weight_file, ground_weight,
+    //                                         has_georef, geo, has_nodata, img_nodata_val,
+    //                                         opt, tpc);
 
     std::string out_reflectance_file = iter_str2 + "-reflectance.tif";
     vw::vw_out() << "Writing: " << out_reflectance_file << std::endl;

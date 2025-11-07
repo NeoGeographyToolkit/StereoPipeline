@@ -42,6 +42,8 @@ With the exact models, the stereo command, without bundle-adjusted cameras, is::
 Then, a DEM is created with ``point2dem`` (:numref:`point2dem`)::
 
     point2dem results/run-PC.tif
+
+For steep terrain, it is suggested to run stereo with mapprojected images (:numref:`pleiades_map`).
     
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices for stereo.
@@ -58,6 +60,8 @@ For Pleiades exact linescan camera models the atmospheric correction
 and velocity aberration corrections (:cite:`nugent1966velocity`) are
 disabled. This ensures that the exact and RPC camera models agree (see
 below).
+
+.. _pleiades_map:
 
 Stereo with mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

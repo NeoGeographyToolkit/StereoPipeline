@@ -70,15 +70,6 @@ void adjustBorderlineDataWeights(int cols, int rows,
                                  std::vector<std::string> const& input_cameras,
                                  std::vector<vw::ImageView<double>> & ground_weights);
 
-// Saves the ground weight images
-void saveGroundWeights(std::set<int> const& skip_images,
-                       std::string const& out_prefix,
-                       std::vector<std::string> const& input_images,
-                       std::vector<std::string> const& input_cameras,
-                       std::vector<vw::ImageView<double>> const& ground_weights,
-                       vw::cartography::GeoReference const& geo,
-                       vw::GdalWriteOptions const& opt);
-
 // This will adjust the weights to account for borderline pixels and low-light conditions.
 // The blend weights and masked images are modified in place.
 void handleBorderlineAndLowLight(SfsOptions & opt,
