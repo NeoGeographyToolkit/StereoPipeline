@@ -85,6 +85,75 @@ struct Options: vw::GdalWriteOptions {
              shadow_blend_length(0.0), min_blend_size(0.0) {}
 };
 
+// Find the clamped signed distance to the boundary.
+ImageView<double> compute_dist_to_bd(ImageView<float> const& sfs_dem_crop,
+                                     ImageView<float> const& lit_grass_dist,
+                                     ImageView<float> const& shadow_grass_dist,
+                                     Options const& opt) {
+
+  ImageView<double> dist_to_bd;
+  dist_to_bd.set_size(sfs_dem_crop.cols(), sfs_dem_crop.rows());
+  for (int col = 0; col < sfs_dem_crop.cols(); col++) {
+    for (int row = 0; row < sfs_dem_crop.rows(); row++) {
+
+      if (lit_grass_dist(col, row) > 1.5 * opt.lit_blend_length) {
+        // Too far in the lit region
+        dist_to_bd(col, row) = opt.lit_blend_length; // clamp at the blending length
+        continue;
+      }
+
+      if (shadow_grass_dist(col, row) > 1.5 * opt.shadow_blend_length) {
+        // Too far in the shadow region
+        dist_to_bd(col, row) = -opt.shadow_blend_length;
+        continue;
+      }
+
+      // Find the shortest Euclidean distance to the no-data region.
+      double max_dist = std::max(opt.lit_blend_length, opt.shadow_blend_length);
+      double signed_dist = 0.0;
+      if (lit_grass_dist(col, row) > 0) {
+        signed_dist = opt.lit_blend_length;
+      } else if (shadow_grass_dist(col, row) > 0) {
+        signed_dist = -opt.shadow_blend_length;
+      }
+
+      for (int col2 = std::max(0.0, col - max_dist);
+           col2 <= std::min(sfs_dem_crop.cols() - 1.0, col + max_dist);
+           col2++) {
+
+        // Estimate the range of rows for the circle with given radius
+        // at given col value.
+        double ht_val = ceil(sqrt(double(max_dist * max_dist) -
+                                  double((col - col2) * (col - col2))));
+
+        for (int row2 = std::max(0.0, row - ht_val);
+             row2 <= std::min(sfs_dem_crop.rows() - 1.0, row + ht_val);
+             row2++) {
+
+          if (lit_grass_dist(col2, row2) > 1 || shadow_grass_dist(col2, row2) > 1)
+            continue; // not at the boundary
+
+          // See if the current point is closer than anything so far
+          double curr_dist = sqrt(double(col - col2) * (col - col2) +
+                                  double(row - row2) * (row - row2));
+          if (lit_grass_dist(col, row) > 0) {
+            if (curr_dist < signed_dist)
+              signed_dist = curr_dist;
+          } else if (shadow_grass_dist(col, row) > 0) {
+            if (curr_dist < -signed_dist)
+              signed_dist = -curr_dist;
+          }
+
+        }
+      }
+
+      // The closest we've got
+      dist_to_bd(col, row) = signed_dist;
+    }
+  }
+  return dist_to_bd;
+}
+
 // The workhorse of this code, do the blending
 class SfsBlendView: public ImageViewBase<SfsBlendView>{
 
@@ -165,73 +234,14 @@ public:
     // zero at the light-shadow boundary
     ImageView<pixel_type> shadow_grass_dist = vw::grassfire(inv_mask, no_zero_at_border);
 
-    // Find the clamped signed distance to the boundary. Note that our boundary
+    // Note that our boundary
     // is in fact two pixel wide at the light-shadow interface, given how
     // lit_grass_dist and shadow_grass_dist are defined as the negation of each
     // other. The boundary is the set of pixels where both of these are <= 1.
     // Here must use double pixels as otherwise there's not enough precision for
     // the final weights (even though they are float).
-    ImageView<double> dist_to_bd;
-    dist_to_bd.set_size(sfs_dem_crop.cols(), sfs_dem_crop.rows());
-    for (int col = 0; col < sfs_dem_crop.cols(); col++) {
-
-      for (int row = 0; row < sfs_dem_crop.rows(); row++) {
-
-        if (lit_grass_dist(col, row) > 1.5*m_opt.lit_blend_length) {
-          // Too far in the lit region
-          dist_to_bd(col, row) = m_opt.lit_blend_length; // clamp at the blending length
-          continue;
-        }
-
-        if (shadow_grass_dist(col, row) > 1.5*m_opt.shadow_blend_length) {
-          // Too far in the shadow region
-          dist_to_bd(col, row) = -m_opt.shadow_blend_length;
-          continue;
-        }
-
-        // Find the shortest Euclidean distance to the no-data region.
-        double max_dist = std::max(m_opt.lit_blend_length, m_opt.shadow_blend_length);
-        double signed_dist = 0.0;
-        if (lit_grass_dist(col, row) > 0) {
-          signed_dist = m_opt.lit_blend_length;
-        } else if (shadow_grass_dist(col, row) > 0) {
-          signed_dist = -m_opt.shadow_blend_length;
-        }
-
-        for (int col2 = std::max(0.0, col - max_dist);
-             col2 <= std::min(sfs_dem_crop.cols() - 1.0, col + max_dist);
-             col2++) {
-
-          // Estimate the range of rows for the circle with given radius
-          // at given col value.
-          double ht_val = ceil(sqrt(double(max_dist * max_dist) -
-                                    double((col - col2) * (col - col2))));
-
-          for (int row2 = std::max(0.0, row - ht_val);
-               row2 <= std::min(sfs_dem_crop.rows() - 1.0, row + ht_val);
-               row2++) {
-
-            if (lit_grass_dist(col2, row2) > 1 || shadow_grass_dist(col2, row2) > 1)
-              continue; // not at the boundary
-
-            // See if the current point is closer than anything so far
-            double curr_dist = sqrt(double(col - col2) * (col - col2) +
-                                    double(row - row2) * (row - row2));
-            if (lit_grass_dist(col, row) > 0) {
-              if (curr_dist < signed_dist)
-                signed_dist = curr_dist;
-            } else if (shadow_grass_dist(col, row) > 0) {
-              if (curr_dist < -signed_dist)
-                signed_dist = -curr_dist;
-            }
-
-          }
-        }
-
-        // The closest we've got
-        dist_to_bd(col, row) = signed_dist;
-      }
-    }
+    ImageView<double> dist_to_bd = compute_dist_to_bd(sfs_dem_crop, lit_grass_dist,
+                                                      shadow_grass_dist, m_opt);
 
     // Apply the blur
     if (m_opt.weight_blur_sigma > 0)
