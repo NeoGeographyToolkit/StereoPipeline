@@ -127,6 +127,15 @@ double meanAlbedo(vw::ImageView<double> const& dem,
 
 double maxDemHeight(vw::ImageView<double> const& dem);
 
+// Find the clamped signed distance to the boundary. Here it is assumed that
+// there is a region in which lit_grass_dist is positive, while in its
+// complement the shadow_grass_dist is positive. The boundary is where both are
+// no more than 1 in value. Likely this logic could be made more generic.
+vw::ImageView<double> calcClampedBdDist(vw::ImageView<float> const& lit_grass_dist,
+                                        vw::ImageView<float> const& shadow_grass_dist,
+                                        double lit_blend_length,
+                                        double shadow_blend_length);
+
 // Compute a full-resolution image by specific interpolation into a low-resolution
 // one. The full-res image may not fit in memory, so we need to compute it in tiles.
 // See computeReflectanceAndIntensity() for low-res vs full-res relationship.

@@ -989,4 +989,81 @@ void handleBorderlineAndLowLight(SfsOptions & opt,
 
 } // end function handleBorderlineAndLowLight
 
+// Find the clamped signed distance to the boundary. Here it is assumed that
+// there is a region in which lit_grass_dist is positive, while in its
+// complement the shadow_grass_dist is positive. The boundary is where both are
+// no more than 1 in value. Likely this logic could be made more generic.
+vw::ImageView<double> calcClampedBdDist(vw::ImageView<float> const& lit_grass_dist,
+                                        vw::ImageView<float> const& shadow_grass_dist,
+                                        double lit_blend_length,
+                                        double shadow_blend_length) {
+
+  if (lit_grass_dist.cols() != shadow_grass_dist.cols() ||
+      lit_grass_dist.rows() != shadow_grass_dist.rows())
+    vw::vw_throw(vw::ArgumentErr() 
+             << "Input images to calcClampedBdDist must have the same dimensions.");
+
+  vw::ImageView<double> dist_to_bd;
+  dist_to_bd.set_size(lit_grass_dist.cols(), lit_grass_dist.rows());
+  for (int col = 0; col < lit_grass_dist.cols(); col++) {
+    for (int row = 0; row < lit_grass_dist.rows(); row++) {
+
+      if (lit_grass_dist(col, row) > 1.5 * lit_blend_length) {
+        // Too far in the lit region
+        dist_to_bd(col, row) = lit_blend_length; // clamp at the blending length
+        continue;
+      }
+
+      if (shadow_grass_dist(col, row) > 1.5 * shadow_blend_length) {
+        // Too far in the shadow region
+        dist_to_bd(col, row) = -shadow_blend_length;
+        continue;
+      }
+
+      // Find the shortest Euclidean distance to the no-data region.
+      double max_dist = std::max(lit_blend_length, shadow_blend_length);
+      double signed_dist = 0.0;
+      if (lit_grass_dist(col, row) > 0) {
+        signed_dist = lit_blend_length;
+      } else if (shadow_grass_dist(col, row) > 0) {
+        signed_dist = -shadow_blend_length;
+      }
+
+      for (int col2 = std::max(0.0, col - max_dist);
+           col2 <= std::min(lit_grass_dist.cols() - 1.0, col + max_dist);
+           col2++) {
+
+        // Estimate the range of rows for the circle with given radius
+        // at given col value.
+        double ht_val = ceil(sqrt(double(max_dist * max_dist) -
+                                  double((col - col2) * (col - col2))));
+
+        for (int row2 = std::max(0.0, row - ht_val);
+             row2 <= std::min(lit_grass_dist.rows() - 1.0, row + ht_val);
+             row2++) {
+
+          if (lit_grass_dist(col2, row2) > 1 || shadow_grass_dist(col2, row2) > 1)
+            continue; // not at the boundary
+
+          // See if the current point is closer than anything so far
+          double curr_dist = sqrt(double(col - col2) * (col - col2) +
+                                  double(row - row2) * (row - row2));
+          if (lit_grass_dist(col, row) > 0) {
+            if (curr_dist < signed_dist)
+              signed_dist = curr_dist;
+          } else if (shadow_grass_dist(col, row) > 0) {
+            if (curr_dist < -signed_dist)
+              signed_dist = -curr_dist;
+          }
+
+        }
+      }
+
+      // The closest we've got
+      dist_to_bd(col, row) = signed_dist;
+    }
+  }
+  return dist_to_bd;
+}
+
 } // end namespace asp
