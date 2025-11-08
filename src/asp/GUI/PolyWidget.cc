@@ -25,6 +25,7 @@
 #include <asp/Core/StereoSettings.h>
 
 #include <vw/Cartography/shapeFile.h>
+#include <vw/Math/Vector.h>
 
 #include <qwt_point_data.h>
 #include <QtGui>
@@ -32,8 +33,6 @@
 #include <QMenu>
 #include <string>
 #include <vector>
-
-using namespace vw;
 
 namespace asp {
 
@@ -117,7 +116,7 @@ void MainWidget::appendToPolyVec(vw::geometry::dPoly const& P) {
 // points in the desired geodetic projection.
 void MainWidget::addPolyVert(double px, double py) {
 
-  Vector2 S(px, py); // current point in screen pixels
+  vw::Vector2 S(px, py); // current point in screen pixels
   int pSize = m_currPolyX.size();
 
   // This is a bugfix. Before starting drawing, update
@@ -140,7 +139,7 @@ void MainWidget::addPolyVert(double px, double py) {
   if (pSize == 0)
     m_startPix = screen2world(S);
 
-  if (pSize <= 0 || norm_2(world2screen(m_startPix) - S) > m_pixelTol) {
+  if (pSize <= 0 || vw::math::norm_2(world2screen(m_startPix) - S) > m_pixelTol) {
 
     // We did not arrive yet at the starting point of the polygon being
     // drawn. Add the current point.
@@ -192,7 +191,7 @@ void MainWidget::addPolyVert(double px, double py) {
 // different georeferences.
 void MainWidget::deleteVertex() {
 
-  Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
+  vw::Vector2 P = screen2world(vw::Vector2(m_mousePrsX, m_mousePrsY));
 
   double min_x, min_y, min_dist;
   int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
@@ -232,7 +231,7 @@ void MainWidget::deleteVertices() {
   asp::deleteVerticesInBox(app_data, m_stereoCropWin, m_beg_image_id, m_end_image_id);
   
   // The selection has done its job, wipe it now
-  m_stereoCropWin = BBox2();
+  m_stereoCropWin = vw::BBox2();
 
   // This will redraw just the polygons, not the pixmap
   update();
@@ -244,7 +243,7 @@ void MainWidget::deleteVertices() {
 // TODO(oalexan1): Move out this non-gui function.
 void MainWidget::insertVertex() {
 
-  Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
+  vw::Vector2 P = screen2world(vw::Vector2(m_mousePrsX, m_mousePrsY));
   m_world_box.grow(P); // to not cut when plotting later
 
   // If there is absolutely no polygon, start by creating one
@@ -327,8 +326,9 @@ void MainWidget::saveVectorLayerAsShapeFile() {
 
   // Save only polygons in the given layer. Polygons in other layers
   // can have individual georeferences.
-  vw_out() << "Writing: " << shapeFile << std::endl;
-  write_shapefile(shapeFile, has_geo, geo, app_data.images[m_polyLayerIndex].polyVec);
+  vw::vw_out() << "Writing: " << shapeFile << std::endl;
+  vw::geometry::write_shapefile(shapeFile, has_geo, geo, 
+                                app_data.images[m_polyLayerIndex].polyVec);
 }
 
 // Save the currently created vector layer. Its index is m_polyLayerIndex.
@@ -381,15 +381,16 @@ bool MainWidget::contourImage() {
   }
 
   if (num_channels == 1)
-    contour_image(app_data.images[m_polyLayerIndex].img, app_data.images[m_polyLayerIndex].georef,
-                  m_thresh, app_data.images[m_polyLayerIndex].polyVec);
+    asp::contour_image(app_data.images[m_polyLayerIndex].img, 
+                       app_data.images[m_polyLayerIndex].georef,
+                       m_thresh, 
+                       app_data.images[m_polyLayerIndex].polyVec);
 
   // This will call paintEvent which will draw the contour
   update();
 
   return true;
 }
-
 
 void MainWidget::drawOneVertex(int x0, int y0, QColor color, int lineWidth,
                                int drawVertIndex, QPainter &paint) {
@@ -444,7 +445,6 @@ void MainWidget::drawOneVertex(int x0, int y0, QColor color, int lineWidth,
 
   return;
 }
-
 
 void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
                           bool plotFilled, bool showIndices,
@@ -534,7 +534,7 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
     QPolygon pa(pSize);
     for (int vIter = 0; vIter < pSize; vIter++) {
 
-      Vector2 P = world2screen(Vector2(xv[start + vIter], yv[start + vIter]));
+      vw::Vector2 P = world2screen(vw::Vector2(xv[start + vIter], yv[start + vIter]));
       pa[vIter] = QPoint(P.x(), P.y());
 
       // Qt's built in points are too small. Instead of drawing a point
@@ -599,7 +599,7 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
     const anno & A = annotations[aIter];
     // Avoid points close to boundary, as were we clipped artificially
     if (! (A.x >= x_min && A.x <= x_max && A.y >= y_min && A.y <= y_max)) continue;
-    Vector2 P = world2screen(Vector2(A.x, A.y));
+    vw::Vector2 P = world2screen(vw::Vector2(A.x, A.y));
     paint.setPen(QPen(QColor("gold"), lineWidth));
     paint.drawText(P.x(), P.y(), (A.label).c_str());
   } // End plotting annotations
@@ -619,7 +619,7 @@ void MainWidget::plotProfilePolyLine(QPainter & paint,
   paint.setPen(QColor("red"));
   std::vector<QPoint> profilePixels;
   for (size_t it = 0; it < profileX.size(); it++) {
-    Vector2 P = world2screen(Vector2(profileX[it], profileY[it]));
+    vw::Vector2 P = world2screen(vw::Vector2(profileX[it], profileY[it]));
     QPoint Q(P.x(), P.y());
     paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little large
     profilePixels.push_back(Q);
