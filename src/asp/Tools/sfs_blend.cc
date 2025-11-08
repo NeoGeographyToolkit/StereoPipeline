@@ -168,12 +168,11 @@ public:
     // zero at the light-shadow boundary
     ImageView<pixel_type> shadow_grass_dist = vw::grassfire(inv_mask, no_zero_at_border);
 
-    // Note that our boundary
-    // is in fact two pixel wide at the light-shadow interface, given how
-    // lit_grass_dist and shadow_grass_dist are defined as the negation of each
-    // other. The boundary is the set of pixels where both of these are <= 1.
-    // Here must use double pixels as otherwise there's not enough precision for
-    // the final weights (even though they are float).
+    // Note that our boundary is in fact two pixel wide at the light-shadow
+    // interface, given how lit_grass_dist and shadow_grass_dist are defined as
+    // the negation of each other. The boundary is the set of pixels where both
+    // of these are <= 1. Here must use double pixels as otherwise there's not
+    // enough precision for the final weights (even though they are float).
     ImageView<double> dist_to_bd 
       = asp::calcClampedBdDist(lit_grass_dist, shadow_grass_dist,
                                m_opt.lit_blend_length, m_opt.shadow_blend_length);
