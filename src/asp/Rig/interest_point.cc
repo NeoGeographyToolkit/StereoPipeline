@@ -45,9 +45,9 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #pragma GCC diagnostic ignored "-Wunused-function"
 #pragma GCC diagnostic push
-#include <OpenMVG/projection.hpp>
-#include <OpenMVG/triangulation_nview.hpp>
-#include <OpenMVG/tracks.hpp>
+#include <asp/OpenMVG/multiview/projection.hpp>
+#include <asp/OpenMVG/multiview/triangulation_nview.hpp>
+#include <asp/OpenMVG/tracks/tracks.hpp>
 #pragma GCC diagnostic pop
 
 #include <boost/filesystem.hpp>
