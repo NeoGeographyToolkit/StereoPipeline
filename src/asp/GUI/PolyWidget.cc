@@ -607,6 +607,100 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
   return;
 }
 
+// TODO(oalexan1): Should the persistent polygons be drawn
+// as part of the drawImage() call? That will be a lot more efficient
+// than being redrawn any time the mouse moves, etc. How about polygons
+// actively being edited?
+void MainWidget::plotPolys(QPainter & paint) {
+
+  // Loop through the input images. Plot the polygons. Note how we
+  // add one more fake image at the end to take care of the polygon
+  // we are in the middle of drawing. This extra fake image is a hackish thing
+  for (int j = m_beg_image_id; j < m_end_image_id + 1; j++) { // use + 1, per above
+
+    bool currDrawnPoly = (j == m_end_image_id); // last poly is the currently drawn one
+
+    int image_it = m_polyLayerIndex; // for currently drawn poly
+    if (!currDrawnPoly) {
+      image_it = m_filesOrder[j]; // for the other polys
+
+      // Don't show files the user wants hidden
+      std::string fileName = app_data.images[image_it].name;
+      if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
+        continue;
+    }
+
+    // See if to use a custom color for this polygon, specified by the user from the gui
+    auto color_it = m_perImagePolyColor.find(image_it);
+    if (!currDrawnPoly && color_it != m_perImagePolyColor.end()) {
+      std::string color = color_it->second; 
+      app_data.images[image_it].color = color; // save for the future
+      for (auto& poly: app_data.images[image_it].polyVec)
+        poly.set_color(color);
+    }
+
+    // Let polyVec be the polygons for the current image, or,
+    // at the end, the polygon we are in the middle of drawing
+    // TODO(oalexan1): How to avoid a deep copy?
+    std::vector<vw::geometry::dPoly> polyVec;
+    if (!currDrawnPoly) {
+      polyVec = app_data.images[image_it].polyVec; // deep copy
+    } else {
+      if (m_currPolyX.empty() || !m_polyEditMode)
+        continue;
+
+      vw::geometry::dPoly poly;
+      poly.reset();
+      bool isPolyClosed = false; // because we are in the middle of drawing it
+      std::string layer = "";
+      poly.appendPolygon(m_currPolyX.size(),
+                          vw::geometry::vecPtr(m_currPolyX),
+                          vw::geometry::vecPtr(m_currPolyY),
+                          isPolyClosed, m_polyColor, layer);
+      polyVec.push_back(poly);
+    }
+
+    // Plot the polygon being drawn now, and pre-existing polygons
+    for (size_t polyIter = 0; polyIter < polyVec.size(); polyIter++) {
+
+      vw::geometry::dPoly poly = polyVec[polyIter]; // make a deep copy
+      if (poly.get_totalNumVerts() == 0)
+        continue;
+
+      // Convert to world units
+      int            numVerts  = poly.get_totalNumVerts();
+      double *             xv  = poly.get_xv();
+      double *             yv  = poly.get_yv();
+      for (int vIter = 0; vIter < numVerts; vIter++) {
+        vw::Vector2 P;
+        P = app_data.proj2world(vw::Vector2(xv[vIter], yv[vIter]), image_it);
+        xv[vIter] = P.x();
+        yv[vIter] = P.y();
+      }
+
+      int drawVertIndex = 0;
+      bool plotPoints = false, plotEdges = true, plotFilled = false;
+      if (m_polyEditMode && m_moveVertex->isChecked()) {
+        drawVertIndex = 1; // to draw a little square at each movable vertex
+        plotPoints = true;
+      } else {
+        drawVertIndex = 0;
+        plotPoints = false;
+      }
+
+      // Note: We plot below the whole set of polygons in 'poly'. We pass in
+      // the first color in the first poly to respect this API. In that function
+      // we will iterate over polygons and plot each with its own color.
+      // At some point need to revisit if plotPoly() actually needs a color
+      // as an argument or it can always be read from 'poly' itself.
+      const std::vector<std::string> & colors = poly.get_colors();
+      MainWidget::plotPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
+                            m_showIndices->isChecked(), m_lineWidth, drawVertIndex,
+                            QColor(colors[0].c_str()), paint, poly);
+    }
+  } // end iterating over polygons for all images
+}
+
 // Go to the pixel locations on screen, and draw the polygonal line.
 // This is robust to zooming in the middle of profiling.
 // TODO: This will function badly when zooming.
