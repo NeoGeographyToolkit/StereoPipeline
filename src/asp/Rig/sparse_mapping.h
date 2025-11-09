@@ -59,22 +59,6 @@ namespace sparse_mapping {
 
   bool IsBinaryDescriptor(std::string const& descriptor);
 
-  // Writes the NVM control network format.
-  void writeNvm(std::vector<Eigen::Matrix2Xd > const& cid_to_keypoint_map,
-                std::vector<std::string> const& cid_to_filename,
-                std::vector<std::map<int, int> > const& pid_to_cid_fid,
-                std::vector<Eigen::Vector3d> const& pid_to_xyz,
-                std::vector<Eigen::Affine3d> const& world_to_cam,
-                double focal_length,
-                std::string const& output_filename);
-  // Reads the NVM control network format.
-  void readNvm(std::string const& input_filename,
-               std::vector<Eigen::Matrix2Xd > * cid_to_keypoint_map,
-               std::vector<std::string> * cid_to_filename,
-               std::vector<std::map<int, int> > * pid_to_cid_fid,
-               std::vector<Eigen::Vector3d> * pid_to_xyz,
-               std::vector<Eigen::Affine3d> * world_to_cam);
-
   // Adds yaml.gz or .txt extension, depending on descriptor
   std::string ImageToFeatureFile(std::string const& image_file,
                                  std::string const& detector_name);
@@ -126,17 +110,8 @@ namespace sparse_mapping {
                            Eigen::Matrix3d * cam2_r_cam1,
                            Eigen::Vector3d * cam2_t_cam1);
 
-  // Utility to return the type of entries in a given matrix
-  std::string CvMatTypeStr(cv::Mat const& Mat);
-
-  void ListToListMap(std::vector<std::string> const& big_list,
-                     std::vector<std::string> const& small_list,
-                     std::map<int, int> * map);
-
   void MergePids(int repeat_index, int num_unique,
                  std::vector<std::map<int, int> > * pid_to_cid_fid);
-
-  void PrintPidStats(std::vector<std::map<int, int> > const& pid_to_cid_fid);
 
   // Parse a CSV file, with the first line having column names. Return
   // the results as columns in an std::map, with the column name being

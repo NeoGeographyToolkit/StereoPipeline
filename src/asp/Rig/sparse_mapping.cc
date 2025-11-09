@@ -236,50 +236,6 @@ void DecomposeEMatIntoRT(Eigen::Matrix3d const& essential,
   *cam2_t_cam1 = t[0];
 }
 
-std::string CvMatTypeStr(cv::Mat const& Mat) {
-  int type = Mat.type();
-  uchar depth = type & CV_MAT_DEPTH_MASK;
-  uchar chans = 1 + (type >> CV_CN_SHIFT);
-
-  std::string r;
-  switch ( depth ) {
-    case CV_8U:  r = "8U"; break;
-    case CV_8S:  r = "8S"; break;
-    case CV_16U: r = "16U"; break;
-    case CV_16S: r = "16S"; break;
-    case CV_32S: r = "32S"; break;
-    case CV_32F: r = "32F"; break;
-    case CV_64F: r = "64F"; break;
-    default:     r = "User"; break;
-  }
-
-  r += "C";
-  r += (chans+'0');
-
-  return r;
-}
-
-void ListToListMap(std::vector<std::string> const& big_list,
-                                   std::vector<std::string> const& small_list,
-                                   std::map<int, int> * map) {
-  // Given a big list, and a smaller subset of it, for each index i in
-  // the small list find the index j in the big list so that
-  // small_list[i] equals big_list[j].  Define the map as map[j] = i.
-  (*map).clear();
-
-  std::map<std::string, int> str2int;
-  for (size_t i = 0; i < big_list.size(); i++)
-    str2int[big_list[i]] = i;
-
-  for (size_t i = 0; i < small_list.size(); i++) {
-    std::map<std::string, int>::iterator it = str2int.find(small_list[i]);
-    if (it == str2int.end())
-      LOG(FATAL) << "Could not query image: " << small_list[i];
-
-    (*map)[it->second] = i;
-  }
-}
-
 void MergePids(int repeat_index, int num_unique,
                                std::vector<std::map<int, int> > * pid_to_cid_fid) {
   // Consider a set of images, and the corresponding tracks, stored in
@@ -404,24 +360,6 @@ void MergePids(int repeat_index, int num_unique,
     }
   }
 }
-
-void PrintPidStats(std::vector<std::map<int, int> > const& pid_to_cid_fid) {
-  std::map<int, int> cid_to_pid;
-  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
-    std::map<int, int> const& cid_fid = pid_to_cid_fid[pid];
-    for (std::map<int, int>::const_iterator it = cid_fid.begin(); it != cid_fid.end();
-         it++) {
-      cid_to_pid[it->first]++;
-    }
-  }
-  LOG(INFO) << "cid and number of pids having fids in that cid";
-  for (std::map<int, int>::iterator it = cid_to_pid.begin();
-       it != cid_to_pid.end(); it++) {
-    LOG(INFO) << "cid_fid " << it->first << ' ' << it->second;
-  }
-}
-
-
 
 // Get the median error value, and multiply it by factor.
 double GetErrThresh(std::vector<double> const& errors, double factor) {
