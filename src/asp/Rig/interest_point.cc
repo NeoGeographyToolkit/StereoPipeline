@@ -1389,52 +1389,6 @@ void saveInlierMatchPairs(// Inputs
 // TODO(oalexan1): All the logic below has little to do with interest
 // points, and should be distributed to some other existing or new files.
   
-// TODO(oalexan1): Move this to transform_utils.
-// Apply a given transform to the given set of cameras.
-// We assume that the transform is of the form
-// T(x) = scale * rotation * x + translation
-void TransformCameras(Eigen::Affine3d const& T,
-                      std::vector<Eigen::Affine3d> &world_to_cam) {
-  
-  // Inverse of rotation component
-  double scale = pow(T.linear().determinant(), 1.0 / 3.0);
-  Eigen::MatrixXd Tinv = (T.linear()/scale).inverse();
-
-  for (size_t cid = 0; cid < world_to_cam.size(); cid++) {
-    world_to_cam[cid].linear() = world_to_cam[cid].linear()*Tinv;
-    world_to_cam[cid].translation() = scale*world_to_cam[cid].translation() -
-      world_to_cam[cid].linear()*T.translation();
-  }
-}
-
-// TODO(oalexan1): Move this to transform_utils.
-// Apply same transform as above to points
-void TransformPoints(Eigen::Affine3d const& T, std::vector<Eigen::Vector3d> *xyz) {
-  for (size_t pid = 0; pid < (*xyz).size(); pid++)
-    (*xyz)[pid] = T * (*xyz)[pid];
-}
-
-// TODO(oalexan1): Move this to transform_utils.
-// Apply a given transform to the specified xyz points, and adjust accordingly the cameras
-// for consistency. We assume that the transform is of the form
-// A(x) = scale * rotation * x + translation
-void TransformCamerasAndPoints(Eigen::Affine3d const& A,
-                               std::vector<Eigen::Affine3d> *cid_to_cam_t,
-                               std::vector<Eigen::Vector3d> *xyz) {
-  TransformCameras(A, *cid_to_cam_t);
-  TransformPoints(A, xyz);
-}
-  
-// TODO(oalexan1): Move this to transform_utils.
-// Apply a registration transform to a rig. The only thing that
-// changes is scale, as the rig transforms are between coordinate
-// systems of various cameras.
-void TransformRig(Eigen::Affine3d const& T, std::vector<Eigen::Affine3d> & ref_to_cam_trans) {
-  double scale = pow(T.linear().determinant(), 1.0 / 3.0);
-  for (size_t cam_type = 0; cam_type < ref_to_cam_trans.size(); cam_type++) 
-    ref_to_cam_trans[cam_type].translation() *= scale;
-}
-
 // Two minor and local utility functions
 std::string print_vec(double a) {
   char st[256];

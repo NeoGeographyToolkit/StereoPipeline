@@ -157,6 +157,26 @@ void ParseHuginControlPoints(std::string const& hugin_file,
 // Parse a file having on each line xyz coordinates
 void ParseXYZ(std::string const& xyz_file,
               Eigen::MatrixXd * xyz);
+
+// Apply a given transform to the given set of cameras.
+// We assume that the transform is of the form
+// T(x) = scale * rotation * x + translation
+void TransformCameras(Eigen::Affine3d const& T, std::vector<Eigen::Affine3d> &world_to_cam);
+  
+// Apply same transform as above to points
+void TransformPoints(Eigen::Affine3d const& T, std::vector<Eigen::Vector3d> *xyz);
+
+// Apply a given transform to the specified xyz points, and adjust accordingly the cameras
+// for consistency. We assume that the transform is of the form
+// A(x) = scale * rotation * x + translation
+void TransformCamerasAndPoints(Eigen::Affine3d const& A,
+                               std::vector<Eigen::Affine3d> *cid_to_cam_t,
+                               std::vector<Eigen::Vector3d> *xyz);
+  
+// Apply a registration transform to a rig. The only thing that
+// changes is scale, as the rig transforms are between coordinate
+// systems of various cameras.
+void TransformRig(Eigen::Affine3d const& T, std::vector<Eigen::Affine3d> & ref_to_cam_trans);
   
 }  // end namespace rig
 

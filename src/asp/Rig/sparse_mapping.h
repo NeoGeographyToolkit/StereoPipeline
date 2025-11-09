@@ -40,7 +40,6 @@ namespace common {
 
 namespace sparse_mapping {
 
-
   // Terminology used in this code:
 
   //  CID = Camera ID. A unique ID for each camera
@@ -59,9 +58,6 @@ namespace sparse_mapping {
   //    representing camera_t_global.
 
   bool IsBinaryDescriptor(std::string const& descriptor);
-
-  // Logic for implementing if two histogram equalization flags are compatible
-  void HistogramEqualizationCheck(int histogram_equalization1, int histogram_equalization2);
 
   // Writes the NVM control network format.
   void writeNvm(std::vector<Eigen::Matrix2Xd > const& cid_to_keypoint_map,
@@ -103,11 +99,6 @@ namespace sparse_mapping {
                     std::string const& detector_name,
                     std::vector<cv::KeyPoint> * keypoints,
                     cv::Mat * descriptors);
-
-  // Read SIFT features in Lowe's format
-  int ReadFeaturesSIFT(std::string const& filename,
-                       cv::Mat * descriptors,
-                       std::vector<cv::KeyPoint> * keypoints);
 
   // Triangulate metric camera point
   //     unnormalized point means that the point is:

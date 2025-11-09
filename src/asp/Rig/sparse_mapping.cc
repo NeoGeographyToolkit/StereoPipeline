@@ -49,42 +49,31 @@ DEFINE_bool(verbose_parsing, false,
 
 namespace sparse_mapping {
 
-  // Statistics for filtering
-  struct FilterStats{
-    int total;
-    int small_angle;
-    int behind_cam;
-    int invalid_reproj;
-    int big_reproj_err;
-    int num_features;
-    FilterStats():total(0), small_angle(0), behind_cam(0), invalid_reproj(0),
-                  big_reproj_err(0), num_features(0) {}
+// Statistics for filtering
+struct FilterStats{
+  int total;
+  int small_angle;
+  int behind_cam;
+  int invalid_reproj;
+  int big_reproj_err;
+  int num_features;
+  FilterStats():total(0), small_angle(0), behind_cam(0), invalid_reproj(0),
+                big_reproj_err(0), num_features(0) {}
 
-    void PrintStats() {
-      // Print the stats.
-      LOG(INFO) << "Statistics of points to filter out.";
-      LOG(INFO) << "Total: " << total;
-      LOG(INFO) << "xyz points with small ray angles:     "
-                << small_angle << " (" << (100.0*small_angle)/total << " %)";
-      LOG(INFO) << "xyz points behind camera:             "
-                << behind_cam << " (" << (100.0*behind_cam)/total << " %)";
-      LOG(INFO) << "Reprojected outside of image:         "
-                << invalid_reproj << " (" << (100.0*invalid_reproj)/total << " %)";
-      LOG(INFO) << "Features with big reprojection error: "
-                << big_reproj_err << " (" << (100.0*big_reproj_err)/num_features << " %)";
-    }
-  };
-
-
-// Logic for implementing if two histogram equalization flags are compatible.
-// This flag can be either 0 (false), 1 (true), or 2 (unknown). Be tolerant
-// of unknown values, but intolerant when true and false are mixed.
-void HistogramEqualizationCheck(int histogram_equalization1,
-                                                int histogram_equalization2) {
-  if ( (histogram_equalization1 == 0 && histogram_equalization2 == 1) ||
-       (histogram_equalization1 == 1 && histogram_equalization2 == 0) )
-    LOG(FATAL) << "Incompatible values of histogram equalization detected.";
-}
+  void PrintStats() {
+    // Print the stats.
+    LOG(INFO) << "Statistics of points to filter out.";
+    LOG(INFO) << "Total: " << total;
+    LOG(INFO) << "xyz points with small ray angles:     "
+              << small_angle << " (" << (100.0*small_angle)/total << " %)";
+    LOG(INFO) << "xyz points behind camera:             "
+              << behind_cam << " (" << (100.0*behind_cam)/total << " %)";
+    LOG(INFO) << "Reprojected outside of image:         "
+              << invalid_reproj << " (" << (100.0*invalid_reproj)/total << " %)";
+    LOG(INFO) << "Features with big reprojection error: "
+              << big_reproj_err << " (" << (100.0*big_reproj_err)/num_features << " %)";
+  }
+};
 
 bool IsBinaryDescriptor(std::string const& descriptor) {
   if (descriptor == "OPENSIFT" || descriptor == "SIFT" || descriptor == "SURF")
@@ -93,7 +82,7 @@ bool IsBinaryDescriptor(std::string const& descriptor) {
 }
 
 std::string ImageToFeatureFile(std::string const& image_file,
-                                               std::string const& detector_name) {
+                               std::string const& detector_name) {
   return std::string(image_file) + ".yaml.gz";
 }
 
@@ -107,86 +96,6 @@ std::string MatchesFile(std::string const& map_file) {
 
 std::string EssentialFile(std::string const& map_file) {
   return map_file + ".essential.csv";
-}
-
-int ReadFeaturesSIFT(std::string const& filename,
-                                     cv::Mat * descriptors,
-                                     std::vector<cv::KeyPoint> * keypoints) {
-  // Read SIFT keypoints and descriptors as written by Lowe's sift tool and opensift.
-
-  std::ifstream f(filename);
-  if (!f.good()) {
-    LOG(ERROR) << "Could not read: " << filename;
-    return 0;
-  }
-
-  std::string line;
-  if (!std::getline(f, line)) {
-    LOG(ERROR) << "Invalid file: " << filename;
-    return 0;
-  }
-
-  int i, num, len;
-
-  if (sscanf(line.c_str(), "%d %d", &num, &len) != 2) {
-    LOG(ERROR) << "Invalid file: " << filename;
-    return 0;
-  }
-
-  if (len != 128) {
-    printf("Keypoint descriptor length invalid (should be 128).");
-    return 0;
-  }
-
-  *descriptors = cv::Mat(num, 128, CV_32F);
-  keypoints->resize(num);
-
-  int16_t pbuf[128];
-  for (i = 0; i < num; i++) {
-    // Allocate memory for the keypoint.
-    float x, y, scale, ori;
-
-    if (!std::getline(f, line)) {
-      LOG(ERROR) << "Invalid file: " << filename;
-      return 0;
-    }
-
-    if (sscanf(line.c_str(), "%f %f %f %f\n", &y, &x, &scale, &ori) != 4) {
-      printf("Invalid keypoint file format.");
-      return 0;
-    }
-
-    (*keypoints)[i] = cv::KeyPoint(x, y, scale, ori);
-
-    int16_t * p = pbuf;
-    for (int iter = 0; iter < 7; iter++) {
-      if (!std::getline(f, line)) {
-        LOG(ERROR) << "Invalid file: " << filename;
-        return 0;
-      }
-
-      if (iter < 6) {
-        sscanf(line.c_str(),
-               "%hu %hu %hu %hu %hu %hu %hu %hu %hu %hu "
-               "%hu %hu %hu %hu %hu %hu %hu %hu %hu %hu",
-               p+0, p+1, p+2, p+3, p+4, p+5, p+6, p+7, p+8, p+9,
-               p+10, p+11, p+12, p+13, p+14,
-               p+15, p+16, p+17, p+18, p+19);
-
-        p += 20;
-      } else {
-        sscanf(line.c_str(),
-               "%hu %hu %hu %hu %hu %hu %hu %hu",
-               p+0, p+1, p+2, p+3, p+4, p+5, p+6, p+7);
-        p += 8;
-      }
-    }
-
-    for (int c = 0; c < 128; c++)
-      (*descriptors).at<float>(i, c) = pbuf[c];
-  }
-
-  return num;
 }
 
 void WriteFeatures(std::string const& detector_name,
@@ -224,10 +133,10 @@ bool ReadFeatures(std::string const& input_filename,
 
 Eigen::Vector3d
 TriangulatePoint(Eigen::Vector3d const& unnormalized_pt1,
-                                 Eigen::Vector3d const& unnormalized_pt2,
-                                 Eigen::Matrix3d const& cam2_r_cam1,
-                                 Eigen::Vector3d const& cam2_t_cam1,
-                                 double * error) {
+                 Eigen::Vector3d const& unnormalized_pt2,
+                 Eigen::Matrix3d const& cam2_r_cam1,
+                 Eigen::Vector3d const& cam2_t_cam1,
+                 double * error) {
   // The second camera's center in the coordinate system of the first
   // camera.
   Eigen::Vector3d p2 = -cam2_r_cam1.transpose() * cam2_t_cam1;

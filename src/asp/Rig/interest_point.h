@@ -102,23 +102,6 @@ Eigen::Vector3d Triangulate(std::vector<double> const& focal_length_vec,
                             std::vector<Eigen::Affine3d> const& world_to_cam_vec,
                             std::vector<Eigen::Vector2d> const& pix_vec);
 
-void TransformCamerasAndPoints(Eigen::Affine3d const& A,
-                               std::vector<Eigen::Affine3d> *cid_to_cam_t,
-                               std::vector<Eigen::Vector3d> *xyz);
-  
-// Apply a given transform to the given set of cameras.
-// We assume that the transform is of the form
-// T(x) = scale * rotation * x + translation
-void TransformCameras(Eigen::Affine3d const& T, std::vector<Eigen::Affine3d> &world_to_cam);
-  
-// Apply same transform as above to points
-void TransformPoints(Eigen::Affine3d const& T, std::vector<Eigen::Vector3d> *xyz);
-
-// Apply a registration transform to a rig. The only thing that
-// changes is scale, as the rig transforms are between coordinate
-// systems of various cameras.
-void TransformRig(Eigen::Affine3d const& T, std::vector<Eigen::Affine3d> & ref_to_cam_trans);
-
 // TODO(oalexan1): Move this to transform_utils.  Find the 3D
 // transform from an abstract coordinate system to the world, given
 // control points (pixel matches) and corresponding 3D
