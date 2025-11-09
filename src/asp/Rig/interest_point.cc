@@ -19,19 +19,20 @@
 
 // TODO(oalexan1): Move track logic to tracks.cc.
 
-#include <Rig/basic_algs.h>
-#include <Rig/interest_point.h>
-#include <Rig/camera_image.h>
-#include <Rig/system_utils.h>
-#include <Rig/thread.h>
-#include <Rig/matching.h>
-#include <Rig/transform_utils.h>
-#include <Rig/interpolation_utils.h>
-#include <Rig/rig_config.h>
-#include <Rig/image_lookup.h>
-#include <Rig/RigCameraParams.h>
-
 #include <asp/Core/nvm.h>
+#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/interest_point.h>
+#include <asp/Rig/camera_image.h>
+#include <asp/Rig/system_utils.h>
+#include <asp/Rig/thread.h>
+#include <asp/Rig/matching.h>
+#include <asp/Rig/transform_utils.h>
+#include <asp/Rig/interpolation_utils.h>
+#include <asp/Rig/rig_config.h>
+#include <asp/Rig/image_lookup.h>
+#include <asp/Rig/RigCameraParams.h>
+
+#include <vw/InterestPoint/MatcherIO.h>
 
 #include <vw/Math/RandomSet.h>
 
@@ -70,6 +71,30 @@ DEFINE_int32(max_pairwise_matches, 2000,
 
 namespace rig {
 
+
+// Copy IP information from an OpenCV KeyPoint object.
+void setFromCvKeypoint(Eigen::Vector2d const& key, cv::Mat const& cv_descriptor,
+                       vw::ip::InterestPoint& ip) {
+  ip.x = key[0];
+  ip.y = key[1];
+  ip.ix = round(ip.x);
+  ip.iy = round(ip.y);
+  ip.interest = 0;
+  ip.octave = 0;
+  ip.scale_lvl = 1;
+  ip.scale = 1;
+  ip.orientation = 0;
+  ip.polarity = false;
+
+  if (cv_descriptor.rows != 1 || cv_descriptor.cols < 2)
+    LOG(FATAL) << "The descriptors must be in one row, and have at least two columns.";
+
+  ip.descriptor.set_size(cv_descriptor.cols);
+  for (size_t it = 0; it < ip.descriptor.size(); it++) {
+    ip.descriptor[it] = cv_descriptor.at<float>(0, it);
+  }
+}
+ 
 void detectFeatures(const cv::Mat& image, bool verbose,
                     // Outputs
                     cv::Mat* descriptors, Eigen::Matrix2Xd* keypoints) {
@@ -117,15 +142,15 @@ void detectFeatures(const cv::Mat& image, bool verbose,
   }
 }
 
-void reduceMatches(std::vector<InterestPoint> & left_ip,
-                   std::vector<InterestPoint> & right_ip) {
+void reduceMatches(std::vector<vw::ip::InterestPoint> & left_ip,
+                   std::vector<vw::ip::InterestPoint> & right_ip) {
   
   // pick a random subset
   std::vector<int> subset;
   vw::math::pick_random_indices_in_range(left_ip.size(), FLAGS_max_pairwise_matches, subset);
   std::sort(subset.begin(), subset.end()); // sort the indices (not strictly necessary)
   
-  std::vector<InterestPoint> left_ip_full, right_ip_full;
+  std::vector<vw::ip::InterestPoint> left_ip_full, right_ip_full;
   left_ip_full.swap(left_ip);
   right_ip_full.swap(right_ip);
   
@@ -176,21 +201,21 @@ void matchFeatures(std::mutex* match_mutex,
   cv::Mat H = cv::estimateAffine2D(left_vec, right_vec, inlier_mask, cv::RANSAC,
                                    ransacReprojThreshold, maxIters, confidence);
 
-  std::vector<InterestPoint> left_ip, right_ip;
+  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
   for (size_t j = 0; j < cv_matches.size(); j++) {
+    if (inlier_mask.at<uchar>(j, 0) == 0) continue;
+
     int left_ip_index = cv_matches.at(j).queryIdx;
     int right_ip_index = cv_matches.at(j).trainIdx;
-
-    if (inlier_mask.at<uchar>(j, 0) == 0) continue;
 
     cv::Mat left_desc = left_descriptors.row(left_ip_index);
     cv::Mat right_desc = right_descriptors.row(right_ip_index);
 
-    InterestPoint left;
-    left.setFromCvKeypoint(left_keypoints.col(left_ip_index), left_desc);
+    vw::ip::InterestPoint left;
+    setFromCvKeypoint(left_keypoints.col(left_ip_index), left_desc, left);
 
-    InterestPoint right;
-    right.setFromCvKeypoint(right_keypoints.col(right_ip_index), right_desc);
+    vw::ip::InterestPoint right;
+    setFromCvKeypoint(right_keypoints.col(right_ip_index), right_desc, right);
 
     left_ip.push_back(left);
     right_ip.push_back(right);
@@ -242,7 +267,6 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
   for (size_t j = 0; j < cv_matches.size(); j++) {
     int left_ip_index = cv_matches.at(j).queryIdx;
     int right_ip_index = cv_matches.at(j).trainIdx;
-
 
     // We may not always have the cameras to use in filtering
     if (filter_matches_using_cams) {
@@ -312,7 +336,7 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
   cv::Mat H = cv::estimateAffine2D(left_vec, right_vec, inlier_mask, cv::RANSAC,
                                    ransacReprojThreshold, maxIters, confidence);
 
-  std::vector<InterestPoint> left_ip, right_ip;
+  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
   for (size_t j = 0; j < filtered_cv_matches.size(); j++) {
     int left_ip_index = filtered_cv_matches.at(j).queryIdx;
     int right_ip_index = filtered_cv_matches.at(j).trainIdx;
@@ -322,11 +346,11 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
     cv::Mat left_desc = left_descriptors.row(left_ip_index);
     cv::Mat right_desc = right_descriptors.row(right_ip_index);
 
-    InterestPoint left;
-    left.setFromCvKeypoint(left_keypoints.col(left_ip_index), left_desc);
+    vw::ip::InterestPoint left;
+    setFromCvKeypoint(left_keypoints.col(left_ip_index), left_desc, left);
 
-    InterestPoint right;
-    right.setFromCvKeypoint(right_keypoints.col(right_ip_index), right_desc);
+    vw::ip::InterestPoint right;
+    setFromCvKeypoint(right_keypoints.col(right_ip_index), right_desc, right);
 
     left_ip.push_back(left);
     right_ip.push_back(right);
@@ -347,41 +371,6 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
 
   *matches = std::make_pair(left_ip, right_ip);
   match_mutex->unlock();
-}
- 
-// TODO(oalexan1): Use vw logic 
-void writeIpRecord(std::ofstream& f, InterestPoint const& p) {
-  f.write(reinterpret_cast<const char*>(&(p.x)), sizeof(p.x));
-  f.write(reinterpret_cast<const char*>(&(p.y)), sizeof(p.y));
-  f.write(reinterpret_cast<const char*>(&(p.ix)), sizeof(p.ix));
-  f.write(reinterpret_cast<const char*>(&(p.iy)), sizeof(p.iy));
-  f.write(reinterpret_cast<const char*>(&(p.orientation)), sizeof(p.orientation));
-  f.write(reinterpret_cast<const char*>(&(p.scale)), sizeof(p.scale));
-  f.write(reinterpret_cast<const char*>(&(p.interest)), sizeof(p.interest));
-  f.write(reinterpret_cast<const char*>(&(p.polarity)), sizeof(p.polarity));
-  f.write(reinterpret_cast<const char*>(&(p.octave)), sizeof(p.octave));
-  f.write(reinterpret_cast<const char*>(&(p.scale_lvl)), sizeof(p.scale_lvl));
-  uint64_t size = p.size();
-  f.write(reinterpret_cast<const char*>((&size)), sizeof(uint64));
-  for (size_t i = 0; i < p.descriptor.size(); ++i)
-    f.write(reinterpret_cast<const char*>(&(p.descriptor[i])), sizeof(p.descriptor[i]));
-}
-
-// TODO(oalexan1): Use vw logic
-// Write matches to disk
-void writeMatchFile(std::string match_file, std::vector<InterestPoint> const& ip1,
-                    std::vector<InterestPoint> const& ip2) {
-  std::ofstream f;
-  f.open(match_file.c_str(), std::ios::binary | std::ios::out);
-  std::vector<InterestPoint>::const_iterator iter1 = ip1.begin();
-  std::vector<InterestPoint>::const_iterator iter2 = ip2.begin();
-  uint64 size1 = ip1.size();
-  uint64 size2 = ip2.size();
-  f.write(reinterpret_cast<const char*>(&size1), sizeof(uint64));
-  f.write(reinterpret_cast<const char*>(&size2), sizeof(uint64));
-  for (; iter1 != ip1.end(); ++iter1) writeIpRecord(f, *iter1);
-  for (; iter2 != ip2.end(); ++iter2) writeIpRecord(f, *iter2);
-  f.close();
 }
 
 // TODO(oalexan1): Move to triangulation file.
@@ -1112,7 +1101,7 @@ void detectMatchFeatures(// Inputs
       std::string match_file = matchFileName(match_dir, left_image, right_image, suffix);
       std::cout << "Writing: " << left_image << " " << right_image << " "
                 << match_file << std::endl;
-      rig::writeMatchFile(match_file, match_pair.first, match_pair.second);
+      vw::ip::write_binary_match_file(match_file, match_pair.first, match_pair.second);
     }
   }
   
@@ -1128,8 +1117,8 @@ void detectMatchFeatures(// Inputs
     int right_cid = cid_pair.second;
 
     rig::MATCH_PAIR const& match_pair = it->second;  // alias
-    std::vector<rig::InterestPoint> const& left_ip_vec = match_pair.first;
-    std::vector<rig::InterestPoint> const& right_ip_vec = match_pair.second;
+    std::vector<vw::ip::InterestPoint> const& left_ip_vec = match_pair.first;
+    std::vector<vw::ip::InterestPoint> const& right_ip_vec = match_pair.second;
 
     for (size_t ip_it = 0; ip_it < left_ip_vec.size(); ip_it++) {
       auto left_ip  = std::make_pair(left_ip_vec[ip_it].x,  left_ip_vec[ip_it].y);
@@ -1355,8 +1344,8 @@ void saveInlierMatchPairs(// Inputs
 
         auto cid_pair = std::make_pair(cid1, cid2);
 
-        InterestPoint ip1(keypoint_vec[cid1][fid1].first, keypoint_vec[cid1][fid1].second);
-        InterestPoint ip2(keypoint_vec[cid2][fid2].first, keypoint_vec[cid2][fid2].second);
+        vw::ip::InterestPoint ip1(keypoint_vec[cid1][fid1].first, keypoint_vec[cid1][fid1].second);
+        vw::ip::InterestPoint ip2(keypoint_vec[cid2][fid2].first, keypoint_vec[cid2][fid2].second);
 
         matches[cid_pair].first.push_back(ip1);
         matches[cid_pair].second.push_back(ip2);
@@ -1381,7 +1370,7 @@ void saveInlierMatchPairs(// Inputs
                                                       suffix);
 
     std::cout << "Writing: " << match_file << std::endl;
-    rig::writeMatchFile(match_file, match_pair.first, match_pair.second);
+    vw::ip::write_binary_match_file(match_file, match_pair.first, match_pair.second);
   }
   
   // The image names (without directory) must be unique, or else bundle

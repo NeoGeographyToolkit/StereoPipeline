@@ -20,6 +20,8 @@
 #ifndef INTEREST_POINT_H_
 #define INTEREST_POINT_H_
 
+#include <vw/InterestPoint/InterestData.h>
+
 #include <opencv2/imgproc.hpp>
 #include <glog/logging.h>
 
@@ -33,13 +35,12 @@
 #include <utility>
 
 namespace camera {
-  // Forward declaration
   class CameraParameters;
 }
 
 namespace aspOpenMVG {
   namespace matching {
-    struct PairWiseMatches;
+    class PairWiseMatches;
   }
 }
 
@@ -50,113 +51,14 @@ namespace asp {
 namespace rig {
 
 class cameraImage;
-class ImageMessage;
 class RigSet;
-  
-/// A class for storing information about an interest point
-/// in the format the NASA ASP can read it (very useful
-// for visualization)
-struct InterestPoint {
-  typedef std::vector<float> descriptor_type;
-  typedef descriptor_type::iterator iterator;
-  typedef descriptor_type::const_iterator const_iterator;
+class ImageMessage;
 
-  // The best way of creating interest points is:
-  // ip = InterestPoint(x, y). But in the worst case, when the user
-  // chooses to simply create a blank interest point, like
-  // InterestPoint ip;
-  // at least make sure that its members are always initialized,
-  // as seen in the constructor below.
-  // TODO(Oleg): There is no way to enforce that ix be in sync with x or
-  // iy with y.
-  InterestPoint(float x = 0, float y = 0, float scale = 1.0, float interest = 0.0,
-                float ori = 0.0, bool pol = false,
-                uint32_t octave = 0, uint32_t scale_lvl = 0)
-      : x(x), y(y), scale(scale), ix(int32_t(x)), iy(int32_t(y)),
-        orientation(ori), interest(interest), polarity(pol),
-        octave(octave), scale_lvl(scale_lvl) {}
+// Copy IP information from an OpenCV KeyPoint object.
+void setFromCvKeypoint(Eigen::Vector2d const& key, cv::Mat const& cv_descriptor,
+                       vw::ip::InterestPoint& ip);
 
-  /// Subpixel (col, row) location of point
-  float x, y;
-
-  /// Scale of point.  This may come from the pyramid level, from
-  /// interpolating the interest function between levels, or from some
-  /// other scale detector like the Laplace scale used by Mikolajczyk & Schmid
-  float scale;
-
-  /// Integer location (unnormalized), mainly for internal use.
-  int32_t ix;
-  int32_t iy;
-
-  /// Since the orientation is not necessarily unique, we may have more
-  /// than one hypothesis for the orientation of an interest point.  I
-  /// considered making a vector of orientations for a single point.
-  /// However, it is probably better to make more than one interest
-  /// point with the same (x,y,s) since the descriptor will be unique
-  /// for a given orientation anyway.
-  float orientation;
-
-  /// The interest measure (could be Harris, LoG, etc.).
-  float interest;
-
-  /// These are some extras for SURF-like implementations
-  bool polarity;
-  /// This is the integer location in scale space (used for indexing
-  /// a vector of interest images)
-  uint32_t octave, scale_lvl;
-
-  /// And finally the descriptor for the interest point.  For example,
-  /// PCA descriptors would have a vector of floats or doubles...
-  descriptor_type descriptor;
-
-  const_iterator begin() const { return descriptor.begin(); }
-  iterator begin() { return descriptor.begin(); }
-  const_iterator end() const { return descriptor.end(); }
-  iterator end() { return descriptor.end(); }
-
-  size_t size() const { return descriptor.size(); }
-  float operator[](int index) { return descriptor[index]; }
-
-  /// std::sort can be used to sort InterestPoints in descending
-  /// order of interest.
-  bool operator<(const InterestPoint& other) const { return (other.interest < interest); }
-
-  /// Generates a human readable string
-  std::string to_string() const {
-    std::stringstream s;
-    s << "IP: (" << x << "," << y << ")  scale: " << scale << "  orientation: " << orientation
-      << "  interest: " << interest << "  polarity: " << polarity << "  octave: " << octave
-      << "  scale_lvl: " << scale_lvl << "\n";
-    s << "  descriptor: ";
-    for (size_t i = 0; i < descriptor.size(); ++i) s << descriptor[i] << "  ";
-    s << std::endl;
-    return s.str();
-  }
-
-  /// Copy IP information from an OpenCV KeyPoint object.
-  void setFromCvKeypoint(Eigen::Vector2d const& key, cv::Mat const& cv_descriptor) {
-    x = key[0];
-    y = key[1];
-    ix = round(x);
-    iy = round(y);
-    interest = 0;
-    octave = 0;
-    scale_lvl = 1;
-    scale = 1;
-    orientation = 0;
-    polarity = false;
-
-    if (cv_descriptor.rows != 1 || cv_descriptor.cols < 2)
-      LOG(FATAL) << "The descriptors must be in one row, and have at least two columns.";
-
-    descriptor.resize(cv_descriptor.cols);
-    for (size_t it = 0; it < descriptor.size(); it++) {
-      descriptor[it] = cv_descriptor.at<float>(0, it);
-    }
-  }
-};  // End class InterestPoint
-
-typedef std::pair<std::vector<InterestPoint>, std::vector<InterestPoint> > MATCH_PAIR;
+typedef std::pair<std::vector<vw::ip::InterestPoint>, std::vector<vw::ip::InterestPoint>> MATCH_PAIR;
 typedef std::map<std::pair<int, int>, rig::MATCH_PAIR> MATCH_MAP;
 
 void detectFeatures(const cv::Mat& image, bool verbose,
@@ -181,8 +83,6 @@ std::string matchFileName(std::string const& match_dir,
 
 // Routines for reading & writing interest point match files
 // TODO(oalexan1): Duplicate code.
-void writeMatchFile(std::string match_file, std::vector<InterestPoint> const& ip1,
-                    std::vector<InterestPoint> const& ip2);
 
 // TODO(oalexan1): Duplicate code
 void Triangulate(bool rm_invalid_xyz, double focal_length,
@@ -237,7 +137,6 @@ std::string registrationCamName(std::string const& hugin_file,
                                 std::vector<std::string> const& cam_names,
                                 std::vector<rig::cameraImage> const & cams);
   
-struct cameraImage;
 
 void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
                  std::vector<std::map<int, int>>& pid_to_cid_fid);
