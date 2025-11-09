@@ -76,7 +76,11 @@ MainWidget::MainWidget(QWidget *parent,
     m_editingMatches(false), m_firstPaintEvent(false),
     m_emptyRubberBand(QRect(0,0,0,0)), m_rubberBand(QRect(0,0,0,0)),
     m_cropWinMode(false), m_profileMode(false),
-    m_profilePlot(NULL), m_mousePrsX(0), m_mousePrsY(0) { 
+    m_profilePlot(NULL), m_mousePrsX(0), m_mousePrsY(0),
+    m_zoomTimer(new QTimer(this)), m_accumulatedZoomTicks(0.0) { 
+
+  connect(m_zoomTimer, &QTimer::timeout, this, &MainWidget::handleZoomTimeout);
+  m_zoomTimer->setSingleShot(true); // Ensure it only fires once per debounce period
 
   installEventFilter(this);
   this->setMouseTracking(true);
@@ -247,7 +251,9 @@ void MainWidget::createMenus() {
   connect(m_mergePolys,            SIGNAL(triggered()), this, SLOT(mergePolys()));
 } // End createMenus()
 
-MainWidget::~MainWidget() {}
+MainWidget::~MainWidget() {
+  delete m_zoomTimer;
+}
 
 bool MainWidget::eventFilter(QObject *obj, QEvent *E) {
   return QWidget::eventFilter(obj, E);
@@ -2182,20 +2188,12 @@ void MainWidget::wheelEvent(QWheelEvent *event) {
   int num_degrees = event->angleDelta().y() / 8;
   double num_ticks = double(num_degrees) / 360;
 
-  // 2.0 chosen arbitrarily here as a reasonable scale factor giving good
-  // sensitivity of the mouse wheel. Shift zooms 50 times slower.
-  double scale_factor = 2;
-  if (event->modifiers() & Qt::ShiftModifier)
-    scale_factor *= 50;
+  // Accumulate ticks
+  m_accumulatedZoomTicks += num_ticks;
 
-  double mag = std::abs(num_ticks/scale_factor);
-  double scale = 1;
-  if (num_ticks > 0)
-    scale = 1+mag;
-  else if (num_ticks < 0)
-    scale = 1-mag;
-
-  zoom(scale);
+  // Restart the timer. If scrolling continues, the timer will be reset,
+  // and the zoom will only be applied after a brief pause in scrolling.
+  m_zoomTimer->start(50); // 50 ms debounce time
 
   m_curr_pixel_pos = QPointF2Vec(event->position());
   updateCurrentMousePosition();
@@ -2259,6 +2257,28 @@ void MainWidget::keyPressEvent(QKeyEvent *event) {
   default:
     QWidget::keyPressEvent(event);
   }
+}
+
+void MainWidget::handleZoomTimeout() {
+  if (m_accumulatedZoomTicks == 0.0)
+    return;
+
+  // 2.0 chosen arbitrarily here as a reasonable scale factor giving good
+  // sensitivity of the mouse wheel.
+  double scale_factor = 2;
+  // The shift modifier is handled in wheelEvent, so we don't need to check it here.
+
+  double mag = std::abs(m_accumulatedZoomTicks / scale_factor);
+  double scale = 1;
+  if (m_accumulatedZoomTicks > 0)
+    scale = 1 + mag;
+  else if (m_accumulatedZoomTicks < 0)
+    scale = 1 - mag;
+
+  zoom(scale);
+
+  // Reset accumulated ticks after applying zoom
+  m_accumulatedZoomTicks = 0.0;
 }
 
 void MainWidget::contextMenuEvent(QContextMenuEvent *event) {

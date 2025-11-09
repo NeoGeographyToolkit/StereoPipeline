@@ -74,6 +74,8 @@ class QContextMenuEvent;
 class QMenu;
 class QStylePainter;
 
+#include <QTimer>
+
 namespace asp {
 
   class chooseFilesDlg;
@@ -219,6 +221,9 @@ public slots:
     void leaveEvent           (QEvent      *event);
     void contextMenuEvent     (QContextMenuEvent *event);
 
+  private slots:
+    void handleZoomTimeout(); // Slot for the zoom timer
+
   private:
 
     class ProfilePlotter : public QwtPlot {
@@ -339,6 +344,10 @@ public slots:
     // Draw irregular xyz data to be plotted at (x, y) location with z giving
     // the intensity. May be colorized.
     void drawScatteredData(QPainter* paint, int image_index);
+
+    // Zoom debouncing
+    QTimer *m_zoomTimer;
+    double m_accumulatedZoomTicks;
 
   private:
 
