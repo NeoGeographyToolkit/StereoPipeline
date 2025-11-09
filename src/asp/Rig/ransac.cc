@@ -57,4 +57,4 @@ void get_n_unique_integers(int min_val, int max_val, int num,
   }
 }
 
-}  // namespace sparse_mapping
+}  // end namespace rig

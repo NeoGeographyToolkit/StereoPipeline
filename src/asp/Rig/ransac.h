@@ -252,6 +252,6 @@ class RandomSampleConsensus {
     return ransac_instance(p1, p2);
   }
 
-}  // namespace sparse_mapping
+}  // end namespace rig
 
 #endif  // RIG_CALIBRATOR_RANSAC_H_

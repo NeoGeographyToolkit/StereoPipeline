@@ -16,7 +16,6 @@
  * under the License.
  */
 #include <Rig/thread.h>
-#include <Rig/sparse_mapping.h>
 #include <Rig/interest_point.h>
 #include <asp/Core/nvm.h>
 #include <Rig/rig_config.h>

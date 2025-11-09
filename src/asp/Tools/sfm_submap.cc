@@ -16,7 +16,6 @@
  * under the License.
  */
 #include <Rig/thread.h>
-#include <Rig/sparse_mapping.h>
 #include <Rig/rig_config.h>
 #include <Rig/basic_algs.h>
 
