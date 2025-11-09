@@ -23,7 +23,7 @@
 #include <vector>
 #include <map>
 
-// TODO(oalexan1): Move here all tracks logic from interest_point.cc and tensor.cc.
+// TODO(oalexan1): Move here all tracks logic from interest_point.cc.
 
 namespace aspOpenMVG {
   namespace matching {
@@ -47,14 +47,14 @@ void rmDuplicateTracks(std::vector<std::map<int, int>> & pid_to_cid_fid);
 // See tracks.cc for the doc
 void splitTracksOneToOne(// Inputs
                          int num_acid, // number of images in map A
-                         TrackT                              const & C_pid_to_cid_fid, 
-                         KeypointVecT                        const & C_keypoint_vec, 
+                         TrackT                        const & C_pid_to_cid_fid, 
+                         KeypointVecT                  const & C_keypoint_vec, 
                          std::vector<rig::cameraImage> const & C_cams,
                          // Outputs
-                         TrackT                                    & A_pid_to_cid_fid, 
-                         TrackT                                    & B_pid_to_cid_fid, 
-                         KeypointVecT                              & A_keypoint_vec, 
-                         KeypointVecT                              & B_keypoint_vec, 
+                         TrackT                              & A_pid_to_cid_fid, 
+                         TrackT                              & B_pid_to_cid_fid, 
+                         KeypointVecT                        & A_keypoint_vec, 
+                         KeypointVecT                        & B_keypoint_vec, 
                          std::vector<rig::cameraImage>       & A_cams, 
                          std::vector<rig::cameraImage>       & B_cams);
   

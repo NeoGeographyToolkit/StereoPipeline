@@ -32,9 +32,9 @@
 #ifndef OPENMVG_TRACKS_TRACKS_HPP
 #define OPENMVG_TRACKS_TRACKS_HPP
 
-#include <asp/OpenMVG/matching/indMatch.hpp>
-#include <asp/OpenMVG/tracks/flat_pair_map.hpp>
-#include <asp/OpenMVG/tracks/union_find.hpp>
+#include <asp/OpenMVG/indMatch.hpp>
+#include <asp/OpenMVG/flat_pair_map.hpp>
+#include <asp/OpenMVG/union_find.hpp>
 
 #include <algorithm>
 #include <cstdint>

@@ -8,7 +8,7 @@
 #ifndef OPENMVG_MATCHING_IND_MATCH_HPP
 #define OPENMVG_MATCHING_IND_MATCH_HPP
 
-#include <asp/OpenMVG/matching/types.hpp>
+#include <asp/OpenMVG/types.hpp>
 
 //#include <cereal/cereal.hpp> // Serialization
 

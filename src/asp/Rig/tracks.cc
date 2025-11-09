@@ -16,22 +16,22 @@
  * under the License.
  */
 
-// TODO(oalexan1): Move here track logic from tensor.cc and interest_point.cc.
+// TODO(oalexan1): Move here track logic from interest_point.cc.
 
-#include <Rig/camera_image.h>
-#include <Rig/tracks.h>
-
-#include <glog/logging.h>
+#include <asp/Rig/camera_image.h>
+#include <asp/Rig/tracks.h>
 
 // Get rid of warning beyond our control
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #pragma GCC diagnostic ignored "-Wunused-function"
 #pragma GCC diagnostic push
-#include <asp/OpenMVG/multiview/projection.hpp>
-#include <asp/OpenMVG/multiview/triangulation_nview.hpp>
 #include <OpenMVG/numeric.h>
-#include <asp/OpenMVG/tracks/tracks.hpp>
+#include <OpenMVG/projection.hpp>
+#include <OpenMVG/triangulation_nview.hpp>
+#include <asp/OpenMVG/tracks.hpp>
 #pragma GCC diagnostic pop
+
+#include <glog/logging.h>
 
 #include <set>
 #include <vector>
@@ -47,14 +47,14 @@ namespace rig {
 // one-to-one correspondence.
 void splitTracksOneToOne(// Inputs
                          int num_acid, // number of images in map A
-                         TrackT                              const & C_pid_to_cid_fid, 
-                         KeypointVecT                        const & C_keypoint_vec, 
+                         TrackT                        const & C_pid_to_cid_fid, 
+                         KeypointVecT                  const & C_keypoint_vec, 
                          std::vector<rig::cameraImage> const & C_cams,
                          // Outputs
-                         TrackT                                    & A_pid_to_cid_fid, 
-                         TrackT                                    & B_pid_to_cid_fid, 
-                         KeypointVecT                              & A_keypoint_vec, 
-                         KeypointVecT                              & B_keypoint_vec, 
+                         TrackT                              & A_pid_to_cid_fid, 
+                         TrackT                              & B_pid_to_cid_fid, 
+                         KeypointVecT                        & A_keypoint_vec, 
+                         KeypointVecT                        & B_keypoint_vec, 
                          std::vector<rig::cameraImage>       & A_cams, 
                          std::vector<rig::cameraImage>       & B_cams) {
   

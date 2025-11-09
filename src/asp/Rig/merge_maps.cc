@@ -23,22 +23,22 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #pragma GCC diagnostic ignored "-Wunused-function"
 #pragma GCC diagnostic push
-#include <asp/OpenMVG/multiview/projection.hpp>
-#include <asp/OpenMVG/multiview/triangulation_nview.hpp>
+#include <OpenMVG/projection.hpp>
+#include <OpenMVG/triangulation_nview.hpp>
 #include <OpenMVG/numeric.h>
-#include <asp/OpenMVG/tracks/tracks.hpp>
+#include <OpenMVG/tracks.hpp>
 #pragma GCC diagnostic pop
 
-#include <Rig/merge_maps.h>
-#include <Rig/rig_config.h>
-#include <Rig/camera_image.h>
-#include <Rig/image_lookup.h>
-#include <Rig/tracks.h>
-#include <Rig/basic_algs.h>
-#include <Rig/ransac.h>
-#include <Rig/transform_utils.h>
-#include <Rig/rig_config.h>
-#include <Rig/interest_point.h>
+#include <asp/Rig/merge_maps.h>
+#include <asp/Rig/rig_config.h>
+#include <asp/Rig/camera_image.h>
+#include <asp/Rig/image_lookup.h>
+#include <asp/Rig/tracks.h>
+#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/ransac.h>
+#include <asp/Rig/transform_utils.h>
+#include <asp/Rig/rig_config.h>
+#include <asp/Rig/interest_point.h>
 
 #include <asp/Core/nvm.h>
 

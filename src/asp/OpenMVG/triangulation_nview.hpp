@@ -28,7 +28,7 @@
 #ifndef OPENMVG_MULTIVIEW_TRIANGULATION_NVIEW_HPP
 #define OPENMVG_MULTIVIEW_TRIANGULATION_NVIEW_HPP
 
-#include <asp/OpenMVG/numeric/numeric.h>
+#include <asp/OpenMVG/numeric.h>
 
 namespace aspOpenMVG {
 

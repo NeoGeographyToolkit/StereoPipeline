@@ -45,9 +45,9 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #pragma GCC diagnostic ignored "-Wunused-function"
 #pragma GCC diagnostic push
-#include <asp/OpenMVG/multiview/projection.hpp>
-#include <asp/OpenMVG/multiview/triangulation_nview.hpp>
-#include <asp/OpenMVG/tracks/tracks.hpp>
+#include <OpenMVG/projection.hpp>
+#include <OpenMVG/triangulation_nview.hpp>
+#include <OpenMVG/tracks.hpp>
 #pragma GCC diagnostic pop
 
 #include <boost/filesystem.hpp>
@@ -62,11 +62,10 @@ namespace fs = boost::filesystem;
 DEFINE_string(feature_detector, "SIFT", "The feature detector to use. SIFT or SURF.");
 DEFINE_int32(sift_nFeatures, 10000, "Number of SIFT features.");
 DEFINE_int32(sift_nOctaveLayers, 3, "Number of SIFT octave layers.");
-DEFINE_double(sift_contrastThreshold, 0.02,
-              "SIFT contrast threshold");  // decrease for more ip
+DEFINE_double(sift_contrastThreshold, 0.02, 
+                "SIFT contrast threshold");  // decrease for more ip
 DEFINE_double(sift_edgeThreshold, 10, "SIFT edge threshold.");
 DEFINE_double(sift_sigma, 1.6, "SIFT sigma.");
-
 DEFINE_int32(max_pairwise_matches, 2000,
              "Maximum number of pairwise matches in an image pair to keep.");
 
