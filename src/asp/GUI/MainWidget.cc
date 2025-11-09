@@ -1737,7 +1737,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
   // The mouse is pressed and moving
 
   m_cropWinMode = ((event->buttons  () & Qt::LeftButton) &&
-                    (event->modifiers() & Qt::ControlModifier));
+                   (event->modifiers() & Qt::ControlModifier));
 
   // If the user is editing match points
   if (!m_polyEditMode && m_moveMatchPoint->isChecked() && !m_cropWinMode) {
@@ -1826,14 +1826,303 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
   return;
 } // End function mouseMoveEvent()
 
-// TODO(oalexan1): Clean up this monster function!
+// The action to take when a user releases the mouse close to where it was pressed
+void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
+
+  if (!m_thresh_calc_mode) {
+
+    Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
+    if (!m_profileMode && !m_polyEditMode) {
+      QPainter paint;
+      paint.begin(&m_pixmap);
+      QPoint Q(mouseRelX, mouseRelY);
+      paint.setPen(QColor("red"));
+      paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little larger
+      paint.end();  // Make sure to end the painting session
+    }
+
+    bool can_profile = m_profileMode;
+
+    // Print pixel coordinates and image value.
+    for (int j = m_beg_image_id; j < m_end_image_id; j++) {
+
+      int it = m_filesOrder[j];
+
+      // Don't show files the user wants hidden
+      std::string fileName = app_data.images[it].name;
+      if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
+        continue;
+
+      std::string val = "none";
+      Vector2 q = app_data.world2image_trans(p, it);
+
+      int col = floor(q[0]), row = floor(q[1]);
+
+      if (col >= 0 && row >= 0 && col < app_data.images[it].img.cols() &&
+          row < app_data.images[it].img.rows()) {
+        val = app_data.images[it].img.get_value_as_str(col, row);
+      }
+
+      vw_out() << "Pixel and value: " << app_data.images[it].name << " ("
+                << col << ", " << row << ") " << val << "\n";
+
+      update();
+
+      if (m_profileMode) {
+
+        // Sanity checks
+        if (m_end_image_id - m_beg_image_id != 1) {
+          popUp("A profile can be shown only when a single image is present.");
+          can_profile = false;
+        }
+        int num_channels = app_data.images[it].img.planes();
+        if (num_channels != 1) {
+          popUp("A profile can be shown only when the image has a single channel.");
+          can_profile = false;
+        }
+
+        if (!can_profile) {
+          MainWidget::setProfileMode(can_profile);
+          return;
+        }
+
+      } // End if m_profileMode
+
+    } // end iterating over images
+
+    if (can_profile) {
+      // Save the current point the user clicked onto in the
+      // world coordinate system.
+      m_profileX.push_back(p.x());
+      m_profileY.push_back(p.y());
+
+      // PaintEvent() will be called, which will call
+      // plotProfilePolyLine() to show the polygonal line.
+
+      // Now show the profile.
+      MainWidget::plotProfile(app_data.images, m_profileX, m_profileY);
+
+      // TODO: Why is this buried in the short distance check?
+    } else if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode) {
+      // Move vertex
+
+      if (m_editPolyVecIndex        < 0 ||
+          m_editIndexInCurrPoly     < 0 ||
+          m_editVertIndexInCurrPoly < 0)
+        return;
+
+      Vector2 P = screen2world(Vector2(mouseRelX, mouseRelY));
+      m_world_box.grow(P); // to not cut when plotting later
+      P = app_data.world2proj(P, m_polyLayerIndex); // projected units
+      app_data.images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
+        .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly,
+                            P.x(), P.y());
+
+      // These are no longer needed for the time being
+      m_editPolyVecIndex        = -1;
+      m_editIndexInCurrPoly     = -1;
+      m_editVertIndexInCurrPoly = -1;
+
+      // This will redraw just the polygons, not the pixmap
+      update();
+
+    } else if (m_polyEditMode) {
+      // Add vertex
+      addPolyVert(mouseRelX, mouseRelY);
+    }
+
+  } else {
+    // Image threshold mode. If we released the mouse where we
+    // pressed it, that means we want the current pixel value
+    // to be the threshold if larger than the existing threshold.
+    if (m_end_image_id - m_beg_image_id != 1) {
+      popUp("Must have just one image in each window to do image threshold detection.");
+      m_thresh_calc_mode = false;
+      refreshPixmap();
+      return;
+    }
+
+    if (app_data.images[m_beg_image_id].img.planes() != 1) {
+      popUp("Thresholding makes sense only for single-channel images.");
+      m_thresh_calc_mode = false;
+      return;
+    }
+
+    if (app_data.use_georef) {
+      popUp("Thresholding is not supported when using georeference "
+            "information to show images.");
+      m_thresh_calc_mode = false;
+      return;
+    }
+
+    Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
+    Vector2 q = app_data.world2image_trans(p, m_beg_image_id);
+
+    int col = round(q[0]), row = round(q[1]);
+    vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
+
+    if (col >= 0 && row >= 0 && col < app_data.images[m_beg_image_id].img.cols() &&
+        row < app_data.images[m_beg_image_id].img.rows()) {
+      double val = app_data.images[m_beg_image_id].img.get_value_as_double(col, row);
+      m_thresh = std::max(m_thresh, val);
+    }
+
+    vw_out() << "Image threshold for " << app_data.images[m_beg_image_id].name
+              << ": " << m_thresh << std::endl;
+  }
+
+  return;
+}
+
+// Handle crop win in mouse release event
+void MainWidget::handleCropWin() {
+
+  // If now we allow multiple selected regions, but we did not allow at
+  // the time the crop win was formed, save the crop win before it
+  // will be overwritten.
+  if (m_allowMultipleSelections && !m_stereoCropWin.empty()) {
+    if (m_selectionRectangles.empty() ||
+        m_selectionRectangles.back() != m_stereoCropWin) {
+      m_selectionRectangles.push_back(m_stereoCropWin);
+    }
+  }
+
+  // User selects the region to use for stereo.  Convert it to world
+  // coordinates, and round to integer.  If we use georeferences,
+  // the crop win is in projected units for the first image,
+  // so we must convert to pixels.
+  m_stereoCropWin = screen2world(qrect2bbox(m_rubberBand));
+
+  if (m_allowMultipleSelections && !m_stereoCropWin.empty())
+    m_selectionRectangles.push_back(m_stereoCropWin);
+
+  for (int j = m_beg_image_id; j < m_end_image_id; j++) {
+
+    int image_it = m_filesOrder[j];
+
+    // Don't show files the user wants hidden
+    std::string fileName = app_data.images[image_it].name;
+    if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
+      continue;
+
+    BBox2 image_box = app_data.world2image_trans(m_stereoCropWin, image_it);
+    vw_out() << std::setprecision(8)
+              << "src win for    " << app_data.images[image_it].name << ": "
+              << round(image_box.min().x()) << ' ' << round(image_box.min().y()) << ' '
+              << round(image_box.width())   << ' ' << round(image_box.height())  << std::endl;
+
+    if (app_data.images[image_it].has_georef) {
+      Vector2 proj_min, proj_max;
+      // Convert pixels to projected coordinates
+      BBox2 point_box;
+      if (app_data.images[image_it].m_isPoly || app_data.images[image_it].m_isCsv)
+        point_box = image_box;
+      else
+        point_box = app_data.images[image_it].georef.pixel_to_point_bbox(image_box);
+
+      proj_min = point_box.min();
+      proj_max = point_box.max();
+      // Below we flip in y to make gdal happy
+      vw_out() << std::setprecision(17)
+                << "proj win for   "
+                << app_data.images[image_it].name << ": "
+                << proj_min.x() << ' ' << proj_max.y() << ' '
+                << proj_max.x() << ' ' << proj_min.y() << std::endl;
+
+      Vector2 lonlat_min, lonlat_max;
+      BBox2 lonlat_box = app_data.images[image_it].georef.point_to_lonlat_bbox(point_box);
+
+      lonlat_min = lonlat_box.min();
+      lonlat_max = lonlat_box.max();
+      // Again, miny and maxy are flipped on purpose
+      vw_out() << std::setprecision(17)
+                << "lonlat win for "
+                << app_data.images[image_it].name << ": "
+                << lonlat_min.x() << ' ' << lonlat_max.y() << ' '
+                << lonlat_max.x() << ' ' << lonlat_min.y() << std::endl;
+    }
+  }
+
+  // Wipe the rubberband, no longer needed.
+  updateRubberBand(m_rubberBand);
+  m_rubberBand = m_emptyRubberBand;
+  updateRubberBand(m_rubberBand);
+
+  // Draw the crop window. This may not be precisely the rubberband
+  // since there is some loss of precision in conversion from
+  // Qrect to BBox2 and back. Note actually that we are not drawing
+  // here, we are scheduling this area to be updated, the drawing
+  // has to happen (with precisely this formula) in PaintEvent().
+  QRect R = bbox2qrect(world2screen(m_stereoCropWin));
+  updateRubberBand(R);
+
+  return;  
+}
+
+// Zoom in or out after the user releases the mouse, depending on
+// the rubberband direction
+void MainWidget::zoomInOut(int mouseRelX, int mouseRelY) {
+
+  // Wipe the rubberband
+  updateRubberBand(m_rubberBand);
+  m_rubberBand = m_emptyRubberBand;
+  updateRubberBand(m_rubberBand);
+
+  m_can_emit_zoom_all_signal = true;
+
+  if (mouseRelX > m_mousePrsX && mouseRelY > m_mousePrsY) {
+
+    // Dragging the mouse from upper-left to lower-right zooms in
+
+    // The window selected with the mouse in world coordinates
+    Vector2 A = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
+    Vector2 B = screen2world(Vector2(mouseRelX, mouseRelY));
+    BBox2 view = BBox2(A, B);
+
+    // Zoom to this window. Don't zoom so much that the view box
+    // ends up having size 0 to numerical precision.
+    if (!view.empty()) {
+      double ratio = double(m_window_width) / double(m_window_height);
+      m_current_view = vw::geometry::expandBoxToRatio(view, ratio);
+    }
+
+    // Must redraw the entire image
+    refreshPixmap();
+
+  } else if (mouseRelX < m_mousePrsX && mouseRelY < m_mousePrsY) {
+    // Dragging the mouse in reverse zooms out
+    double scale = 0.8;
+    zoom(scale);
+  }
+
+}
+
+// If a point was being moved, reset the ID and color. Points that are moved
+// are also set to valid.
+void MainWidget::adjustForEditMatchPoint() {
+  m_matchlist.setPointValid(m_beg_image_id, m_editMatchPointVecIndex, true);
+  m_editMatchPointVecIndex = -1;
+
+  if (asp::stereo_settings().view_matches) {
+    // Update IP draw color
+    // Will keep the zoom level
+    emit updateMatchesSignal();
+  } else {
+    // Will reset the layout before continuing with matches
+    asp::stereo_settings().view_matches = true;
+    emit toggleViewMatchesSignal();
+  }
+}
+
+// Handle mouse release events
 void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
 
   QPoint mouse_rel_pos = event->pos();
-  int mouseRelX = mouse_rel_pos.x(),
-      mouseRelY = mouse_rel_pos.y();
+  int mouseRelX = mouse_rel_pos.x();
+  int mouseRelY = mouse_rel_pos.y();
 
-  if ((event->buttons  () & Qt::LeftButton) &&
+  // Ctrl + left mouse button triggers crop window mode
+  if ((event->buttons() & Qt::LeftButton) &&
       (event->modifiers() & Qt::ControlModifier)) {
     m_cropWinMode = true;
   }
@@ -1841,176 +2130,22 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
   if (app_data.images.empty())
     return;
 
-  // If a point was being moved, reset the ID and color.
-  // - Points that are moved are also set to valid.
-  if (m_editMatchPointVecIndex >= 0) {
-    m_matchlist.setPointValid(m_beg_image_id, m_editMatchPointVecIndex, true);
-    m_editMatchPointVecIndex = -1;
-
-    if (asp::stereo_settings().view_matches) {
-      // Update IP draw color
-      // Will keep the zoom level
-      emit updateMatchesSignal();
-    } else {
-      // Will reset the layout before continuing with matches
-      asp::stereo_settings().view_matches = true;
-      emit toggleViewMatchesSignal();
-    }
-  }
+  // If a point was being moved, reset the ID and color. Points that are moved
+  // are also set to valid.
+  if (m_editMatchPointVecIndex >= 0)
+    adjustForEditMatchPoint();
 
   // If the mouse was released close to where it was pressed
   if (std::abs(m_mousePrsX - mouseRelX) < m_pixelTol &&
       std::abs(m_mousePrsY - mouseRelY) < m_pixelTol) {
-
-    if (!m_thresh_calc_mode) {
-
-      Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
-      if (!m_profileMode && !m_polyEditMode) {
-        QPainter paint;
-        paint.begin(&m_pixmap);
-        QPoint Q(mouseRelX, mouseRelY);
-        paint.setPen(QColor("red"));
-        paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little larger
-        paint.end();  // Make sure to end the painting session
-      }
-
-      bool can_profile = m_profileMode;
-
-      // Print pixel coordinates and image value.
-      for (int j = m_beg_image_id; j < m_end_image_id; j++) {
-
-        int it = m_filesOrder[j];
-
-        // Don't show files the user wants hidden
-        std::string fileName = app_data.images[it].name;
-        if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
-          continue;
-
-        std::string val = "none";
-        Vector2 q = app_data.world2image_trans(p, it);
-
-        int col = floor(q[0]), row = floor(q[1]);
-
-        if (col >= 0 && row >= 0 && col < app_data.images[it].img.cols() &&
-            row < app_data.images[it].img.rows()) {
-          val = app_data.images[it].img.get_value_as_str(col, row);
-        }
-
-        vw_out() << "Pixel and value: " << app_data.images[it].name << " ("
-                  << col << ", " << row << ") " << val << "\n";
-
-        update();
-
-        if (m_profileMode) {
-
-          // Sanity checks
-          if (m_end_image_id - m_beg_image_id != 1) {
-            popUp("A profile can be shown only when a single image is present.");
-            can_profile = false;
-          }
-          int num_channels = app_data.images[it].img.planes();
-          if (num_channels != 1) {
-            popUp("A profile can be shown only when the image has a single channel.");
-            can_profile = false;
-          }
-
-          if (!can_profile) {
-            MainWidget::setProfileMode(can_profile);
-            return;
-          }
-
-        } // End if m_profileMode
-
-      } // end iterating over images
-
-      if (can_profile) {
-        // Save the current point the user clicked onto in the
-        // world coordinate system.
-        m_profileX.push_back(p.x());
-        m_profileY.push_back(p.y());
-
-        // PaintEvent() will be called, which will call
-        // plotProfilePolyLine() to show the polygonal line.
-
-        // Now show the profile.
-        MainWidget::plotProfile(app_data.images, m_profileX, m_profileY);
-
-        // TODO: Why is this buried in the short distance check?
-      } else if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode) {
-        // Move vertex
-
-        if (m_editPolyVecIndex        < 0 ||
-            m_editIndexInCurrPoly     < 0 ||
-            m_editVertIndexInCurrPoly < 0)
-          return;
-
-        Vector2 P = screen2world(Vector2(mouseRelX, mouseRelY));
-        m_world_box.grow(P); // to not cut when plotting later
-        P = app_data.world2proj(P, m_polyLayerIndex); // projected units
-        app_data.images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
-          .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly,
-                              P.x(), P.y());
-
-        // These are no longer needed for the time being
-        m_editPolyVecIndex        = -1;
-        m_editIndexInCurrPoly     = -1;
-        m_editVertIndexInCurrPoly = -1;
-
-        // This will redraw just the polygons, not the pixmap
-        update();
-
-      } else if (m_polyEditMode) {
-        // Add vertex
-        addPolyVert(mouseRelX, mouseRelY);
-      }
-
-    } else {
-      // Image threshold mode. If we released the mouse where we
-      // pressed it, that means we want the current pixel value
-      // to be the threshold if larger than the existing threshold.
-      if (m_end_image_id - m_beg_image_id != 1) {
-        popUp("Must have just one image in each window to do image threshold detection.");
-        m_thresh_calc_mode = false;
-        refreshPixmap();
-        return;
-      }
-
-      if (app_data.images[m_beg_image_id].img.planes() != 1) {
-        popUp("Thresholding makes sense only for single-channel images.");
-        m_thresh_calc_mode = false;
-        return;
-      }
-
-      if (app_data.use_georef) {
-        popUp("Thresholding is not supported when using georeference "
-              "information to show images.");
-        m_thresh_calc_mode = false;
-        return;
-      }
-
-      Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
-      Vector2 q = app_data.world2image_trans(p, m_beg_image_id);
-
-      int col = round(q[0]), row = round(q[1]);
-      vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
-
-      if (col >= 0 && row >= 0 && col < app_data.images[m_beg_image_id].img.cols() &&
-          row < app_data.images[m_beg_image_id].img.rows()) {
-        double val = app_data.images[m_beg_image_id].img.get_value_as_double(col, row);
-        m_thresh = std::max(m_thresh, val);
-      }
-
-      vw_out() << "Image threshold for " << app_data.images[m_beg_image_id].name
-                << ": " << m_thresh << std::endl;
-      return;
-    }
-
+    handlePixelClick(mouseRelX, mouseRelY);
     return;
-  } // end the case when the mouse was released close to where it was pressed
+  }
 
   // Do not zoom or do other funny stuff if we are moving IP or vertices
   if (!m_polyEditMode && m_moveMatchPoint->isChecked() && !m_cropWinMode)
     return;
+    
   if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode)
     return;
 
@@ -2018,126 +2153,17 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
     // Drag the image along the mouse movement
     m_current_view -= (screen2world(QPoint2Vec(mouse_rel_pos)) -
                         screen2world(QPoint2Vec(QPoint(m_mousePrsX, m_mousePrsY))));
-
     refreshPixmap(); // will call paintEvent()
-
-  } else if (m_cropWinMode) {
-
-    // If now we allow multiple selected regions, but we did not allow at
-    // the time the crop win was formed, save the crop win before it
-    // will be overwritten.
-    if (m_allowMultipleSelections && !m_stereoCropWin.empty()) {
-      if (m_selectionRectangles.empty() ||
-          m_selectionRectangles.back() != m_stereoCropWin) {
-        m_selectionRectangles.push_back(m_stereoCropWin);
-      }
-    }
-
-    // User selects the region to use for stereo.  Convert it to world
-    // coordinates, and round to integer.  If we use georeferences,
-    // the crop win is in projected units for the first image,
-    // so we must convert to pixels.
-    m_stereoCropWin = screen2world(qrect2bbox(m_rubberBand));
-
-    if (m_allowMultipleSelections && !m_stereoCropWin.empty())
-      m_selectionRectangles.push_back(m_stereoCropWin);
-
-    for (int j = m_beg_image_id; j < m_end_image_id; j++) {
-
-      int image_it = m_filesOrder[j];
-
-      // Don't show files the user wants hidden
-      std::string fileName = app_data.images[image_it].name;
-      if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
-        continue;
-
-      BBox2 image_box = app_data.world2image_trans(m_stereoCropWin, image_it);
-      vw_out() << std::setprecision(8)
-                << "src win for    " << app_data.images[image_it].name << ": "
-                << round(image_box.min().x()) << ' ' << round(image_box.min().y()) << ' '
-                << round(image_box.width())   << ' ' << round(image_box.height())  << std::endl;
-
-      if (app_data.images[image_it].has_georef) {
-        Vector2 proj_min, proj_max;
-        // Convert pixels to projected coordinates
-        BBox2 point_box;
-        if (app_data.images[image_it].m_isPoly || app_data.images[image_it].m_isCsv)
-          point_box = image_box;
-        else
-          point_box = app_data.images[image_it].georef.pixel_to_point_bbox(image_box);
-
-        proj_min = point_box.min();
-        proj_max = point_box.max();
-        // Below we flip in y to make gdal happy
-        vw_out() << std::setprecision(17)
-                  << "proj win for   "
-                  << app_data.images[image_it].name << ": "
-                  << proj_min.x() << ' ' << proj_max.y() << ' '
-                  << proj_max.x() << ' ' << proj_min.y() << std::endl;
-
-        Vector2 lonlat_min, lonlat_max;
-        BBox2 lonlat_box = app_data.images[image_it].georef.point_to_lonlat_bbox(point_box);
-
-        lonlat_min = lonlat_box.min();
-        lonlat_max = lonlat_box.max();
-        // Again, miny and maxy are flipped on purpose
-        vw_out() << std::setprecision(17)
-                  << "lonlat win for "
-                  << app_data.images[image_it].name << ": "
-                  << lonlat_min.x() << ' ' << lonlat_max.y() << ' '
-                  << lonlat_max.x() << ' ' << lonlat_min.y() << std::endl;
-      }
-    }
-
-    // Wipe the rubberband, no longer needed.
-    updateRubberBand(m_rubberBand);
-    m_rubberBand = m_emptyRubberBand;
-    updateRubberBand(m_rubberBand);
-
-    // Draw the crop window. This may not be precisely the rubberband
-    // since there is some loss of precision in conversion from
-    // Qrect to BBox2 and back. Note actually that we are not drawing
-    // here, we are scheduling this area to be updated, the drawing
-    // has to happen (with precisely this formula) in PaintEvent().
-    QRect R = bbox2qrect(world2screen(m_stereoCropWin));
-    updateRubberBand(R);
-
-  } else if (Qt::LeftButton) {
-
-    // Zoom
-
-    // Wipe the rubberband
-    updateRubberBand(m_rubberBand);
-    m_rubberBand = m_emptyRubberBand;
-    updateRubberBand(m_rubberBand);
-
-    m_can_emit_zoom_all_signal = true;
-
-    if (mouseRelX > m_mousePrsX && mouseRelY > m_mousePrsY) {
-
-      // Dragging the mouse from upper-left to lower-right zooms in
-
-      // The window selected with the mouse in world coordinates
-      Vector2 A = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-      Vector2 B = screen2world(Vector2(mouseRelX, mouseRelY));
-      BBox2 view = BBox2(A, B);
-
-      // Zoom to this window. Don't zoom so much that the view box
-      // ends up having size 0 to numerical precision.
-      if (!view.empty()) {
-        double ratio = double(m_window_width) / double(m_window_height);
-        m_current_view = vw::geometry::expandBoxToRatio(view, ratio);
-      }
-
-      // Must redraw the entire image
-      refreshPixmap();
-
-    } else if (mouseRelX < m_mousePrsX && mouseRelY < m_mousePrsY) {
-      // Dragging the mouse in reverse zooms out
-      double scale = 0.8;
-      zoom(scale);
-    }
-
+    return;
+  } 
+  if (m_cropWinMode) {
+    handleCropWin();
+    return;
+  } 
+  
+  if (Qt::LeftButton) {
+    zoomInOut(mouseRelX, mouseRelY);
+    return;
   }
 
   // At this stage the user is supposed to release the control key, so

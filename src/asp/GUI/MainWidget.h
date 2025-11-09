@@ -342,6 +342,12 @@ public slots:
 
   private:
 
+    // Helper functions for event handlers
+    void handlePixelClick(int mouseRelX, int mouseRelY);
+    void handleCropWin();
+    void zoomInOut(int mouseRelX, int mouseRelY);
+    void adjustForEditMatchPoint();
+
    void renderGeoreferencedImage(double scale_out, 
                                  int image_index,
                                  QPainter* paint, 
