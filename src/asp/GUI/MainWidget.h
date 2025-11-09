@@ -346,7 +346,7 @@ public slots:
     void drawScatteredData(QPainter* paint, int image_index);
 
     // Zoom debouncing
-    QTimer *m_zoomTimer;
+    QTimer *m_zoomTimer; ///< Owned by Qt's parent-child mechanism
     double m_accumulatedZoomTicks;
 
   private:

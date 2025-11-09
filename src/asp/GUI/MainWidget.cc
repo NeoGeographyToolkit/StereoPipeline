@@ -252,7 +252,6 @@ void MainWidget::createMenus() {
 } // End createMenus()
 
 MainWidget::~MainWidget() {
-  delete m_zoomTimer;
 }
 
 bool MainWidget::eventFilter(QObject *obj, QEvent *E) {
