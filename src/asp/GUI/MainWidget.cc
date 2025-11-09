@@ -741,8 +741,7 @@ void MainWidget::zoom(double scale) {
 
   updateCurrentMousePosition();
   scale = std::max(1e-8, scale);
-  BBox2 current_view = (m_current_view - m_curr_world_pos) / scale
-    + m_curr_world_pos;
+  vw::BBox2 current_view = (m_current_view - m_curr_world_pos) / scale + m_curr_world_pos;
 
   if (!current_view.empty()) {
     // Check to make sure we haven't hit our zoom limits.
@@ -2191,9 +2190,9 @@ void MainWidget::wheelEvent(QWheelEvent *event) {
   // Accumulate ticks
   m_accumulatedZoomTicks += num_ticks;
 
-  // Restart the timer. If scrolling continues, the timer will be reset,
-  // and the zoom will only be applied after a brief pause in scrolling.
-  m_zoomTimer->start(50); // 50 ms debounce time
+  // Merge all mouse wheel movements within this time frame. This prevents many
+  // incremental zoom actions.
+  m_zoomTimer->start(250); 
 
   m_curr_pixel_pos = QPointF2Vec(event->position());
   updateCurrentMousePosition();
@@ -2259,21 +2258,20 @@ void MainWidget::keyPressEvent(QKeyEvent *event) {
   }
 }
 
+// Apply the zoom after a delay to accumulate mouse wheel events
 void MainWidget::handleZoomTimeout() {
+
   if (m_accumulatedZoomTicks == 0.0)
     return;
 
-  // 2.0 chosen arbitrarily here as a reasonable scale factor giving good
-  // sensitivity of the mouse wheel.
-  double scale_factor = 2;
-  // The shift modifier is handled in wheelEvent, so we don't need to check it here.
-
-  double mag = std::abs(m_accumulatedZoomTicks / scale_factor);
+  // Multiply by 2.0 to make zooming more responsive
+  double mag = std::abs(2.0 * m_accumulatedZoomTicks);
+  
   double scale = 1;
   if (m_accumulatedZoomTicks > 0)
     scale = 1 + mag;
   else if (m_accumulatedZoomTicks < 0)
-    scale = 1 - mag;
+    scale = std::max(1 - mag, 0.5);
 
   zoom(scale);
 
