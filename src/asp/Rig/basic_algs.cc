@@ -81,38 +81,5 @@ std::string changeFileSuffix(std::string filename, std::string new_suffix) {
   }
 }  
 
-// See the header for details.
-void calcBracketIndicies(const std::vector<double>& times, double t,
-                         int & low, int & high) {
-
-  if (times.empty()) 
-    LOG(FATAL) << "Cannot find bracketing indices for an empty vector.\n";
-    
-  int len = times.size();
-  if (t <= times[0]) {
-    low = 0;
-    high = 1;
-    return;
-  } else if (t >= times[len-1]) {
-    low = len-2;
-    high = len-1;
-    return;
-  } 
-  
-  low = 0;
-  high = len - 1;
-
-  // Search for first iterator it such that t <= times[it]
-  auto it = std::lower_bound(times.begin(), times.end(), t);
-  high = std::distance(times.begin(), it);
-  low = high - 1;
-
-  // Sanity check
-  bool is_good = (times[low] <= t && t <= times[high]);
-  if (low < 0 || high >= len || low + 1 != high || !is_good) 
-    LOG(FATAL) << "Book-keeping failure in bracketing. Must not happen.\n";
-
-  return;  
-}
 
 }  // end namespace rig

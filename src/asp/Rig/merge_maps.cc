@@ -29,7 +29,6 @@
 #include <OpenMVG/tracks.hpp>
 #pragma GCC diagnostic pop
 
-#include <Rig/essential.h>
 #include <Rig/merge_maps.h>
 #include <Rig/rig_config.h>
 #include <Rig/camera_image.h>
