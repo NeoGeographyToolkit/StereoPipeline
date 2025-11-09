@@ -58,37 +58,6 @@ Eigen::Affine3d linearInterp(double t0, double t, double t1, Eigen::Affine3d con
 
   return rig::linearInterp(alpha, aff0, aff1);
 }
-  
-// Given a set of poses indexed by timestamp in an std::map, find the
-// interpolated pose at desired timestamp. This is efficient
-// only for very small maps. Else use the StampedPoseStorage class.
-bool findInterpPose(double desired_time, std::map<double, Eigen::Affine3d> const& poses,
-                      Eigen::Affine3d& interp_pose) {
-  double left_time = std::numeric_limits<double>::max();
-  double right_time = -left_time;
-  for (auto it = poses.begin(); it != poses.end(); it++) {
-    double curr_time = it->first;
-    if (curr_time <= desired_time) {
-      left_time = curr_time;  // this can only increase
-    }
-    if (curr_time >= desired_time) {
-      // Here an "if" was used rather than "else", to be able to
-      // handle the case when left_time == curr_time == right_time.
-      right_time = curr_time;
-      break;  // just passed the desired time, can stop now
-    }
-  }
-
-  if (left_time > right_time) {
-    // Could not bracket the desired time
-    return false;
-  }
-
-  double alpha = (desired_time - left_time) / (right_time - left_time);
-  if (left_time == right_time) alpha = 0.0;  // handle division by 0
-  interp_pose = linearInterp(alpha, poses.find(left_time)->second, poses.find(right_time)->second);
-  return true;
-}
 
 // Given a set of poses indexed by time, interpolate or extrapolate
 // (within range of bracket_len) at a set of target timestamps. Go

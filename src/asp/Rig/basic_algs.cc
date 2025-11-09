@@ -30,16 +30,6 @@ namespace fs = boost::filesystem;
 
 namespace rig {
 
-// Find the file extension (the part after the last dot).  
-std::string file_extension(std::string const& file) {
-  size_t it = file.find_last_of(".");
-
-  if (it == std::string::npos || it + 1 >= file.size())
-    return "";
-
-  return file.substr(it + 1);
-}
-
 // Convert keypoints to Eigen format
 void vec2eigen(std::vector<std::pair<float, float>> const& vec,
                Eigen::Matrix2Xd & mat) {

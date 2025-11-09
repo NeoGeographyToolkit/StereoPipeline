@@ -89,9 +89,6 @@ V maxMapVal(const std::map<K,V> &map) {
   return key->second;
 }
 
-// Find a file extension ()  
-std::string file_extension(std::string const& file);
-
 // Convert keypoints to Eigen format
 void vec2eigen(std::vector<std::pair<float, float>> const& vec,
                Eigen::Matrix2Xd & mat);
@@ -107,18 +104,10 @@ void readList(std::string const& file, std::set<std::string> & list);
 // Replace .<extension> with <suffix>  
 std::string changeFileSuffix(std::string filename, std::string new_suffix);
 
-// Given a sorted vector of times, and a time t, find the bracketing indices.
-// If t is smaller than all times, return indices 0, 1. If t is larger than all
-// times, return indices len - 2, len - 1. Hence, this will never fail, and
-// will allow for extrapolation. Do not check for times being sorted. 
-// This has logarithmic complexity, and will be used very often.
-void calcBracketIndicies(const std::vector<double>& times, double t,
-                         int & low, int & high);
-
 // The parent subdirectory. Example: mydir/nav_cam/file.jpg will return
 // 'nav_cam'.
 std::string parentSubdir(std::string const& image_file);
   
 }  // end namespace rig
 
-#endif  // RIG_CALIBRATOR_BASIC_ALGS_H
+#endif  // RIG_CALIBRATOR_BASIC_ALGS_H_
