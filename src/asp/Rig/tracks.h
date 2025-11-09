@@ -40,6 +40,10 @@ class cameraImage;
 void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
                  std::vector<std::map<int, int>>& pid_to_cid_fid);
 
+// Remove duplicate tracks. There can still be two tracks with one contained
+// in the other or otherwise having shared elements. 
+void rmDuplicateTracks(std::vector<std::map<int, int>> & pid_to_cid_fid);
+
 // See tracks.cc for the doc
 void splitTracksOneToOne(// Inputs
                          int num_acid, // number of images in map A

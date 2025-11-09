@@ -137,4 +137,18 @@ void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
   return;
 }
 
+// Remove duplicate tracks. There can still be two tracks with one contained
+// in the other or otherwise having shared elements. 
+void rmDuplicateTracks(std::vector<std::map<int, int>> & pid_to_cid_fid) {
+
+  int num_tracks = pid_to_cid_fid.size();
+  // vector to set, and back
+  std::set<std::map<int, int>> track_set(pid_to_cid_fid.begin(), pid_to_cid_fid.end());
+  pid_to_cid_fid.assign(track_set.begin(), track_set.end());
+
+  int diff = num_tracks - int(pid_to_cid_fid.size());
+  std::cout << "Removed " << diff << " duplicate tracks ("
+            << 100.0 * double(diff)/double(num_tracks) << "%)\n";
+}
+
 } // end namespace rig

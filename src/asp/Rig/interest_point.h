@@ -247,10 +247,6 @@ void addKeypoints(// Append from these
                   std::vector<std::map<std::pair<float, float>, int>>
                   & merged_keypoint_map);
 
-// Remove duplicate tracks. There can still be two tracks with one contained
-// in the other or otherwise having shared elements. 
-void rmDuplicateTracks(std::vector<std::map<int, int>> & pid_to_cid_fid);
-  
 void flagOutlierByExclusionDist(// Inputs
                                 std::vector<camera::CameraParameters> const& cam_params,
                                 std::vector<rig::cameraImage> const& cams,
