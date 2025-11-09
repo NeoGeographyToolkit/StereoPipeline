@@ -30,6 +30,7 @@
 #include <asp/Rig/interpolation_utils.h>
 #include <asp/Rig/rig_config.h>
 #include <asp/Rig/image_lookup.h>
+#include <asp/Rig/tracks.h>
 #include <asp/Rig/RigCameraParams.h>
 
 #include <vw/InterestPoint/MatcherIO.h>
@@ -489,41 +490,6 @@ std::string matchFileName(std::string const& match_dir,
     + right_stem + suffix + ".match";
 
   return match_file;
-}
-
-// Build tracks from pairs  
-void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
-                 std::vector<std::map<int, int>>& pid_to_cid_fid) { // output
-
-  pid_to_cid_fid.clear(); // wipe the output
-  
-  aspOpenMVG::tracks::TracksBuilder trackBuilder;
-  trackBuilder.Build(match_map);  // Build:  Efficient fusion of correspondences
-  trackBuilder.Filter();          // Filter: Remove tracks that have conflict
-  // trackBuilder.ExportToStream(std::cout);
-  // Export tracks as a map (each entry is a sequence of imageId and featureIndex):
-  //  {TrackIndex => {(imageIndex, featureIndex), ... ,(imageIndex, featureIndex)}
-  aspOpenMVG::tracks::STLMAPTracks map_tracks;
-  trackBuilder.ExportToSTL(map_tracks);
-  trackBuilder = aspOpenMVG::tracks::TracksBuilder();   // wipe it
-
-  if (map_tracks.empty())
-    LOG(FATAL) << "No tracks left after filtering. Perhaps images "
-               << "are too dis-similar?\n";
-  
-  // Populate the filtered tracks
-  size_t num_elems = map_tracks.size();
-  pid_to_cid_fid.clear();
-  pid_to_cid_fid.resize(num_elems);
-  size_t curr_id = 0;
-  for (auto itr = map_tracks.begin(); itr != map_tracks.end(); itr++) {
-    for (auto itr2 = (itr->second).begin(); itr2 != (itr->second).end(); itr2++) {
-      pid_to_cid_fid[curr_id][itr2->first] = itr2->second;
-    }
-    curr_id++;
-  }
-
-  return;
 }
 
 // The nvm file produced by Theia can have files in arbitrary order. Find the map

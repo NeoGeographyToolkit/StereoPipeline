@@ -21,6 +21,8 @@
 #include <Rig/camera_image.h>
 #include <Rig/tracks.h>
 
+#include <glog/logging.h>
+
 // Get rid of warning beyond our control
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -95,6 +97,41 @@ void splitTracksOneToOne(// Inputs
       B_keypoint_vec.push_back(C_keypoint_vec[cid]);
       B_cams.push_back(C_cams[cid]);
     }
+  }
+
+  return;
+}
+
+// Build tracks from pairs  
+void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
+                 std::vector<std::map<int, int>>& pid_to_cid_fid) { // output
+
+  pid_to_cid_fid.clear(); // wipe the output
+  
+  aspOpenMVG::tracks::TracksBuilder trackBuilder;
+  trackBuilder.Build(match_map);  // Build:  Efficient fusion of correspondences
+  trackBuilder.Filter();          // Filter: Remove tracks that have conflict
+  // trackBuilder.ExportToStream(std::cout);
+  // Export tracks as a map (each entry is a sequence of imageId and featureIndex):
+  //  {TrackIndex => {(imageIndex, featureIndex), ... ,(imageIndex, featureIndex)}
+  aspOpenMVG::tracks::STLMAPTracks map_tracks;
+  trackBuilder.ExportToSTL(map_tracks);
+  trackBuilder = aspOpenMVG::tracks::TracksBuilder();   // wipe it
+
+  if (map_tracks.empty())
+    LOG(FATAL) << "No tracks left after filtering. Perhaps images "
+               << "are too dis-similar?\n";
+  
+  // Populate the filtered tracks
+  size_t num_elems = map_tracks.size();
+  pid_to_cid_fid.clear();
+  pid_to_cid_fid.resize(num_elems);
+  size_t curr_id = 0;
+  for (auto itr = map_tracks.begin(); itr != map_tracks.end(); itr++) {
+    for (auto itr2 = (itr->second).begin(); itr2 != (itr->second).end(); itr2++) {
+      pid_to_cid_fid[curr_id][itr2->first] = itr2->second;
+    }
+    curr_id++;
   }
 
   return;

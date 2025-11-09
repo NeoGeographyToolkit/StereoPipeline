@@ -25,11 +25,20 @@
 
 // TODO(oalexan1): Move here all tracks logic from interest_point.cc and tensor.cc.
 
+namespace aspOpenMVG {
+  namespace matching {
+    class PairWiseMatches;
+  }
+}
+
 namespace rig {
 
 typedef std::vector<std::vector<std::pair<float, float>>> KeypointVecT;
 typedef std::vector<std::map<int, int>> TrackT;
 class cameraImage;
+
+void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
+                 std::vector<std::map<int, int>>& pid_to_cid_fid);
 
 // See tracks.cc for the doc
 void splitTracksOneToOne(// Inputs

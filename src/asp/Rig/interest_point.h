@@ -121,8 +121,6 @@ std::string registrationCamName(std::string const& hugin_file,
                                 std::vector<rig::cameraImage> const & cams);
   
 
-void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
-                 std::vector<std::map<int, int>>& pid_to_cid_fid);
   
 void detectMatchFeatures(// Inputs
                          std::vector<rig::cameraImage> const& cams,
