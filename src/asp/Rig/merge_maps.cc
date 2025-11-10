@@ -16,6 +16,19 @@
  * under the License.
  */
 
+#include <asp/Rig/merge_maps.h>
+#include <asp/Rig/rig_config.h>
+#include <asp/Rig/camera_image.h>
+#include <asp/Rig/image_lookup.h>
+#include <asp/Rig/tracks.h>
+#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/ransac.h>
+#include <asp/Rig/transform_utils.h>
+#include <asp/Rig/rig_config.h>
+#include <asp/Rig/interest_point.h>
+#include <asp/Rig/triangulation.h> 
+#include <asp/Core/nvm.h>
+
 #include <ceres/ceres.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
@@ -28,19 +41,6 @@
 #include <OpenMVG/numeric.h>
 #include <OpenMVG/tracks.hpp>
 #pragma GCC diagnostic pop
-
-#include <asp/Rig/merge_maps.h>
-#include <asp/Rig/rig_config.h>
-#include <asp/Rig/camera_image.h>
-#include <asp/Rig/image_lookup.h>
-#include <asp/Rig/tracks.h>
-#include <asp/Rig/basic_algs.h>
-#include <asp/Rig/ransac.h>
-#include <asp/Rig/transform_utils.h>
-#include <asp/Rig/rig_config.h>
-#include <asp/Rig/interest_point.h>
-
-#include <asp/Core/nvm.h>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>

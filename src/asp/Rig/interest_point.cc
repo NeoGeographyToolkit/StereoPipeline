@@ -49,6 +49,8 @@ DEFINE_double(sift_edgeThreshold, 10, "SIFT edge threshold.");
 DEFINE_double(sift_sigma, 1.6, "SIFT sigma.");
 DEFINE_int32(max_pairwise_matches, 2000,
              "Maximum number of pairwise matches in an image pair to keep.");
+DEFINE_double(goodness_ratio, 0.8,
+              "A smaller value keeps fewer but more reliable float descriptor matches.");
 
 namespace rig {
 
@@ -139,6 +141,40 @@ void reduceMatches(std::vector<vw::ip::InterestPoint> & left_ip,
   for (size_t it = 0; it < subset.size(); it++) {
     left_ip[it] = left_ip_full[subset[it]];
     right_ip[it] = right_ip_full[subset[it]];
+  }
+}
+  
+// descriptor is what opencv descriptor was used to make the descriptors
+// the descriptor maps are the features in the two images
+// matches is output to contain the matching features between the two images
+void FindMatches(const cv::Mat & img1_descriptor_map,
+                  const cv::Mat & img2_descriptor_map, std::vector<cv::DMatch> * matches) {
+  CHECK(img1_descriptor_map.depth() ==
+        img2_descriptor_map.depth())
+    << "Mixed descriptor types. Did you mash BRISK with SIFT/SURF?";
+
+  // Check for early exit conditions
+  matches->clear();
+  if (img1_descriptor_map.rows == 0 ||
+      img2_descriptor_map.rows == 0)
+    return;
+
+  // Traditional floating point descriptor
+  cv::FlannBasedMatcher matcher;
+  std::vector<std::vector<cv::DMatch> > possible_matches;
+  matcher.knnMatch(img1_descriptor_map, img2_descriptor_map, possible_matches, 2);
+  matches->clear();
+  matches->reserve(possible_matches.size());
+  for (std::vector<cv::DMatch> const& best_pair : possible_matches) {
+    if (best_pair.size() == 1) {
+      // This was the only best match, push it.
+      matches->push_back(best_pair.at(0));
+    } else {
+      // Push back a match only if it is 25% better than the next best.
+      if (best_pair.at(0).distance < FLAGS_goodness_ratio * best_pair.at(1).distance) {
+        matches->push_back(best_pair[0]);
+      }
+    }
   }
 }
   

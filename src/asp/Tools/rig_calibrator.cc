@@ -23,6 +23,8 @@
 
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Rig/triangulation.h> 
+
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Core/Log.h>
 #include <asp/Core/nvm.h>

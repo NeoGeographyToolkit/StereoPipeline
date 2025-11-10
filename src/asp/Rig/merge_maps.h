@@ -1,6 +1,8 @@
 #ifndef RIG_CALIBRATOR_MERGE_MAPS_H_
 #define RIG_CALIBRATOR_MERGE_MAPS_H_
 
+#include <string>
+
 namespace camera {
   class CameraParameters;
 }

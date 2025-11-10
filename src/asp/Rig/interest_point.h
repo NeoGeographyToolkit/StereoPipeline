@@ -106,16 +106,6 @@ void detectMatchappendFeatures(// Inputs
                          std::vector<Eigen::Vector3d> & xyz_vec,
                          asp::nvmData & nvm);
 
-void multiViewTriangulation(// Inputs
-                            std::vector<camera::CameraParameters>  const& cam_params,
-                            std::vector<rig::cameraImage>    const& cams,
-                            std::vector<Eigen::Affine3d>           const& world_to_cam,
-                            std::vector<std::map<int, int>>        const& pid_to_cid_fid,
-                            std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
-                            // Outputs
-                            std::vector<std::map<int, std::map<int, int>>>& pid_cid_fid_inlier,
-                            std::vector<Eigen::Vector3d>& xyz_vec);
-
 // For nvm data that has the keypoints shifted relative to the optical
 // center, undo this shift when 'undo_shift' is true. So, add the optical center.
 // When 'undo_shift' is false, subtract the optical center.
