@@ -1,32 +1,36 @@
-/* Copyright (c) 2021, United States Government, as represented by the
- * Administrator of the National Aeronautics and Space Administration.
- *
- * All rights reserved.
- *
- * The "ISAAC - Integrated System for Autonomous and Adaptive Caretaking
- * platform" software is licensed under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with the
- * License. You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations
- * under the License.
- */
+// __BEGIN_LICENSE__
+//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Administrator of the National Aeronautics and Space Administration. All
+//  rights reserved.
+//
+//  The NGT platform is licensed under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance with the
+//  License. You may obtain a copy of the License at
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// __END_LICENSE__
 
-#include <Rig/transform_utils.h>
-#include <Rig/interpolation_utils.h>
-#include <Rig/rig_config.h>
-#include <Rig/camera_image.h>
+#include <asp/Rig/transform_utils.h>
+#include <asp/Rig/interpolation_utils.h>
+#include <asp/Rig/rig_config.h>
+#include <asp/Rig/camera_image.h>
+#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/RigCameraParams.h>
+#include <asp/Rig/triangulation.h>
 
 #include <glog/logging.h>
 
 #include <string>
 #include <vector>
+#include <iostream>
 #include <fstream>
+#include <set>
+#include <string>
 
 namespace rig {
 
@@ -663,6 +667,280 @@ void TransformRig(Eigen::Affine3d const& T, std::vector<Eigen::Affine3d> & ref_t
   double scale = pow(T.linear().determinant(), 1.0 / 3.0);
   for (size_t cam_type = 0; cam_type < ref_to_cam_trans.size(); cam_type++) 
     ref_to_cam_trans[cam_type].translation() *= scale;
+}
+
+// Find the name of the camera type of the images used in registration.
+// The registration images must all be acquired with the same sensor.  
+std::string registrationCamName(std::string const& hugin_file,
+                                std::vector<std::string> const& cam_names,
+                                std::vector<rig::cameraImage> const & cams) {
+
+  std::vector<std::string> images;
+  Eigen::MatrixXd user_ip;
+  Eigen::MatrixXd user_xyz;
+  ParseHuginControlPoints(hugin_file, &images, &user_ip);
+
+  // Must create a map from the image name in cams to sensor type
+  std::map<std::string, int> image_to_cam_type;
+  for (size_t cid = 0; cid < cams.size(); cid++)
+    image_to_cam_type[cams[cid].image_name] = cams[cid].camera_type;
+  
+  std::set<std::string> sensors;
+  for (size_t cid = 0; cid < images.size(); cid++) {
+    // Find the image in the map
+    auto it = image_to_cam_type.find(images[cid]);
+    if (it == image_to_cam_type.end())
+      LOG(FATAL) << "Cannot find image: " << images[cid] 
+        << " from the Hugin file having control points in the input SfM map.\n";
+      
+     sensors.insert(cam_names.at(it->second));
+  }
+  
+  if (sensors.size() != 1) 
+    LOG(FATAL) << "All images used in registration must be for the same sensor. "
+               << "Check the registration file: " << hugin_file << ".\n";
+  
+  return *sensors.begin();
+}
+
+// Find the 3D transform from an abstract coordinate system to the
+// world, given control points (pixel matches) and corresponding 3D
+// measurements. It is assumed all images are acquired with the same camera.
+Eigen::Affine3d 
+registrationTransform(std::string                  const& hugin_file,
+                      std::string                  const& xyz_file,
+                      camera::CameraParameters     const& cam_params,
+                      std::vector<std::string>     const& cid_to_filename,
+                      std::vector<Eigen::Affine3d> const& world_to_cam_trans) { 
+  
+  // Get the interest points in the images, and their positions in
+  // the world coordinate system, as supplied by a user.
+  // Parse and concatenate that information from multiple files.
+  std::vector<std::string> images;
+  Eigen::MatrixXd user_ip;
+  Eigen::MatrixXd user_xyz;
+  
+  ParseHuginControlPoints(hugin_file, &images, &user_ip);
+  ParseXYZ(xyz_file, &user_xyz);
+
+  int num_points = user_ip.cols();
+  if (num_points != user_xyz.cols())
+    LOG(FATAL) << "Could not parse an equal number of control "
+               << "points and xyz coordinates. Their numbers are "
+               << num_points << " vs " << user_xyz.cols() << ".\n";
+
+
+  std::map<std::string, int> filename_to_cid;
+  for (size_t cid = 0; cid < cid_to_filename.size(); cid++)
+    filename_to_cid[cid_to_filename[cid]] = cid;
+
+  // Wipe images that are missing from the map
+  std::map<int, int> cid2cid;
+  int good_cid = 0;
+  for (size_t cid = 0; cid < images.size(); cid++) {
+    std::string image = images[cid];
+    if (filename_to_cid.find(image) == filename_to_cid.end()) {
+      LOG(WARNING) << "Will ignore image missing from map: " << image;
+      continue;
+    }
+    cid2cid[cid] = good_cid;
+    images[good_cid] = images[cid];
+    good_cid++;
+  }
+  images.resize(good_cid);
+
+  // Remove points corresponding to images missing from map
+  int good_pid = 0;
+  for (int pid = 0; pid < num_points; pid++) {
+    int id1 = user_ip(0, pid);
+    int id2 = user_ip(1, pid);
+    if (cid2cid.find(id1) == cid2cid.end() || cid2cid.find(id2) == cid2cid.end()) {
+      continue;
+    }
+    user_ip.col(good_pid) = user_ip.col(pid);
+    user_xyz.col(good_pid) = user_xyz.col(pid);
+    good_pid++;
+  }
+  user_ip.conservativeResize(Eigen::NoChange_t(), good_pid);
+  user_xyz.conservativeResize(Eigen::NoChange_t(), good_pid);
+  num_points = good_pid;
+  for (int pid = 0; pid < num_points; pid++) {
+    int id1 = user_ip(0, pid);
+    int id2 = user_ip(1, pid);
+    if (cid2cid.find(id1) == cid2cid.end() || cid2cid.find(id2) == cid2cid.end())
+      LOG(FATAL) << "Book-keeping failure in registration.";
+    user_ip(0, pid) = cid2cid[id1];
+    user_ip(1, pid) = cid2cid[id2];
+  }
+
+
+  if (num_points < 3) 
+    LOG(FATAL) << "Must have at least 3 points to apply registration. Got: "
+               << num_points << "\n";
+  
+  // Iterate over the control points in the hugin file. Copy the
+  // control points to the list of user keypoints, and create the
+  // corresponding user_pid_to_cid_fid.
+  std::vector<Eigen::Matrix2Xd> user_cid_to_keypoint_map;
+  std::vector<std::map<int, int> > user_pid_to_cid_fid;
+  user_cid_to_keypoint_map.resize(cid_to_filename.size());
+  user_pid_to_cid_fid.resize(num_points);
+  for (int pid = 0; pid < num_points; pid++) {
+    // Left and right image indices
+    int id1 = user_ip(0, pid);
+    int id2 = user_ip(1, pid);
+
+    // Sanity check
+    if (id1 < 0 || id2 < 0 ||
+        id1 >= static_cast<int>(images.size()) ||
+        id2 >= static_cast<int>(images.size()) )
+      LOG(FATAL) << "Invalid image indices in the hugin file: " << id1 << ' ' << id2;
+
+    // Find the corresponding indices in the map where these keypoints will go to
+    if (filename_to_cid.find(images[id1]) == filename_to_cid.end())
+      LOG(FATAL) << "File missing from map: " << images[id1];
+    if (filename_to_cid.find(images[id2]) == filename_to_cid.end())
+      LOG(FATAL) << "File missing from map: " << images[id2];
+    int cid1 = filename_to_cid[images[id1]];
+    int cid2 = filename_to_cid[images[id2]];
+
+    // Append to the keypoints for cid1
+    Eigen::Matrix<double, 2, -1> &M1 = user_cid_to_keypoint_map[cid1];  // alias
+    Eigen::Matrix<double, 2, -1> N1(M1.rows(), M1.cols()+1);
+    N1 << M1, user_ip.block(2, pid, 2, 1);  // left image pixel x and pixel y
+    M1.swap(N1);
+
+    // Append to the keypoints for cid2
+    Eigen::Matrix<double, 2, -1> &M2 = user_cid_to_keypoint_map[cid2];  // alias
+    Eigen::Matrix<double, 2, -1> N2(M2.rows(), M2.cols()+1);
+    N2 << M2, user_ip.block(4, pid, 2, 1);  // right image pixel x and pixel y
+    M2.swap(N2);
+
+    // The corresponding user_pid_to_cid_fid
+    user_pid_to_cid_fid[pid][cid1] = user_cid_to_keypoint_map[cid1].cols()-1;
+    user_pid_to_cid_fid[pid][cid2] = user_cid_to_keypoint_map[cid2].cols()-1;
+  }
+
+  // Apply undistortion
+  Eigen::Vector2d output;
+  for (size_t cid = 0; cid < user_cid_to_keypoint_map.size(); cid++) {
+    for (int i = 0; i < user_cid_to_keypoint_map[cid].cols(); i++) {
+      cam_params.Convert<camera::DISTORTED, camera::UNDISTORTED_C>
+        (user_cid_to_keypoint_map[cid].col(i), &output);
+      user_cid_to_keypoint_map[cid].col(i) = output;
+    }
+  }
+
+  // Triangulate to find the coordinates of the current points
+  // in the virtual coordinate system
+  std::vector<Eigen::Vector3d> unreg_pid_to_xyz;
+  bool rm_invalid_xyz = false;  // there should be nothing to remove hopefully
+  rig::Triangulate(rm_invalid_xyz,
+              cam_params.GetFocalLength(),
+              world_to_cam_trans,
+              user_cid_to_keypoint_map,
+              &user_pid_to_cid_fid,
+              &unreg_pid_to_xyz);
+
+  double mean_err = 0;
+  for (int i = 0; i < user_xyz.cols(); i++) {
+    Eigen::Vector3d a = unreg_pid_to_xyz[i];
+    Eigen::Vector3d b = user_xyz.col(i);
+    mean_err += (a-b).norm();
+  }
+  mean_err /= user_xyz.cols();
+  std::cout << "Mean absolute error before registration: " << mean_err << " meters" << std::endl;
+  std::cout << "Un-transformed computed xyz -- measured xyz -- error diff -- error norm (meters)"
+            << std::endl;
+
+  for (int i = 0; i < user_xyz.cols(); i++) {
+    Eigen::Vector3d a = unreg_pid_to_xyz[i];
+    Eigen::Vector3d b = user_xyz.col(i);
+    std::cout << print_vec(a) << " -- "
+              << print_vec(b) << " -- "
+              << print_vec(a-b) << " -- "
+              << print_vec((a - b).norm())
+              << std::endl;
+  }
+
+  // Find the transform from the computed map coordinate system
+  // to the world coordinate system.
+  int np = unreg_pid_to_xyz.size();
+  Eigen::Matrix3Xd in(3, np);
+  for (int i = 0; i < np; i++)
+    in.col(i) = unreg_pid_to_xyz[i];
+
+  Eigen::Affine3d registration_trans;  
+  Find3DAffineTransform(in, user_xyz, &registration_trans);
+
+  mean_err = 0.0;
+  for (int i = 0; i < user_xyz.cols(); i++)
+    mean_err += (registration_trans*in.col(i) - user_xyz.col(i)).norm();
+  mean_err /= user_xyz.cols();
+
+  // We don't use LOG(INFO) below, as it does not play well with
+  // Eigen.
+  double scale = pow(registration_trans.linear().determinant(), 1.0 / 3.0);
+  std::cout << "Registration transform (to measured world coordinates)." << std::endl;
+  std::cout << "Rotation:\n" << registration_trans.linear() / scale << std::endl;
+  std::cout << "Scale:\n" << scale << std::endl;
+  std::cout << "Translation:\n" << registration_trans.translation().transpose()
+            << std::endl;
+
+  std::cout << "Mean absolute error after registration: "
+            << mean_err << " meters" << std::endl;
+
+  std::cout << "Transformed computed xyz -- measured xyz -- "
+            << "error diff - error norm (meters)" << std::endl;
+  for (int i = 0; i < user_xyz.cols(); i++) {
+    Eigen::Vector3d a = registration_trans*in.col(i);
+    Eigen::Vector3d b = user_xyz.col(i);
+    int id1 = user_ip(0, i);
+    int id2 = user_ip(1, i);
+
+    std::cout << print_vec(a) << " -- "
+              << print_vec(b) << " -- "
+              << print_vec(a - b) << " -- "
+              << print_vec((a - b).norm()) << " -- "
+              << images[id1] << ' '
+              << images[id2] << std::endl;
+  }
+
+  return registration_trans;
+}
+
+// Apply a transform to inlier triangulated points  
+void transformInlierTriPoints(// Inputs
+  Eigen::Affine3d const& trans,
+  std::vector<std::map<int, int>> const& pid_to_cid_fid,
+  std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_inlier,
+  std::vector<Eigen::Vector3d> & xyz_vec) { // output
+  
+  if (pid_to_cid_fid.size() != pid_cid_fid_inlier.size())
+    LOG(FATAL) << "Expecting as many inlier flags as there are tracks.\n";
+  if (pid_to_cid_fid.size() != xyz_vec.size()) 
+    LOG(FATAL) << "Expecting as many tracks as there are triangulated points.\n";
+
+  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
+
+    bool isInlierXyz = false;
+    for (auto cid_fid1 = pid_to_cid_fid[pid].begin();
+         cid_fid1 != pid_to_cid_fid[pid].end(); cid_fid1++) {
+      int cid1 = cid_fid1->first;
+      int fid1 = cid_fid1->second;
+
+      // Deal with inliers only
+      if (!rig::getMapValue(pid_cid_fid_inlier, pid, cid1, fid1)) continue;
+
+      isInlierXyz = true;
+      break;
+    }
+
+    if (isInlierXyz) 
+      xyz_vec[pid] = trans * xyz_vec[pid];
+  }
+  
+  return;
 }
 
 }  // end namespace rig

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-#include <Rig/matching.h>
+#include <Rig/detector.h>
 #include <opencv2/xfeatures2d.hpp>
 
 #include <Eigen/Core>

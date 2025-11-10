@@ -72,24 +72,6 @@ void matchFeatures(std::mutex* match_mutex, int left_image_index, int right_imag
                    // Output
                    MATCH_PAIR* matches);
 
-// TODO(oalexan1): Move this to transform_utils.  Find the 3D
-// transform from an abstract coordinate system to the world, given
-// control points (pixel matches) and corresponding 3D
-// measurements. It is assumed all images are acquired with the same
-// camera.
-Eigen::Affine3d registrationTransform(std::string                  const& hugin_file,
-                                      std::string                  const& xyz_file,
-                                      camera::CameraParameters     const& cam_params,
-                                      std::vector<std::string>     const& cid_to_filename,
-                                      std::vector<Eigen::Affine3d> const& world_to_cam_trans); 
-
-// TODO(oalexan1): Move to transform_utils
-// Find the name of the camera of the images used in registration.
-// The registration images must all be acquired with the same sensor.  
-std::string registrationCamName(std::string const& hugin_file,
-                                std::vector<std::string> const& cam_names,
-                                std::vector<rig::cameraImage> const & cams);
-  
 void detectMatchappendFeatures(// Inputs
                          std::vector<rig::cameraImage> const& cams,
                          std::vector<camera::CameraParameters> const& cam_params,
@@ -212,16 +194,6 @@ void savePairwiseConvergenceAngles(// Inputs
   std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_inlier,
   std::string const& conv_angles_file);
 
-// Apply a transform to inlier triangulated points  
-void transformInlierTriPoints(// Inputs
-  Eigen::Affine3d const& trans,
-  std::vector<std::map<int, int>> const& pid_to_cid_fid,
-  std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_inlier,
-  std::vector<Eigen::Vector3d> & xyz_vec); // output
-
-  // A triangulated point that is equal to (0, 0, 0), inf, or NaN, is not good.
-  bool isGoodTri(Eigen::Vector3d const& P);
-  
 }  // namespace rig
 
 #endif  // INTEREST_POINT_H_

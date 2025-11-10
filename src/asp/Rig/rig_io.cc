@@ -18,7 +18,7 @@
  */
 
 #include <asp/Rig/rig_io.h>
-#include <asp/Rig/matching.h>
+#include <asp/Rig/detector.h>
 #include <asp/Rig/camera_image.h>
 #include <asp/Rig/system_utils.h>
 #include <asp/Rig/basic_algs.h>

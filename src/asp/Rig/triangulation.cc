@@ -1,11 +1,27 @@
-#include <asp/Rig/triangulation.h>
-#include <asp/Rig/basic_algs.h> // For aspOpenMVG::P_From_KRt
-#include <asp/Rig/system_utils.h> // For LOG(FATAL)
-#include <asp/Rig/camera_image.h> // For rig::cameraImage
-#include <asp/Rig/RigCameraParams.h> // For camera::CameraParameters
+// __BEGIN_LICENSE__
+//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Administrator of the National Aeronautics and Space Administration. All
+//  rights reserved.
+//
+//  The NGT platform is licensed under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance with the
+//  License. You may obtain a copy of the License at
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// __END_LICENSE__
 
-#include <OpenMVG/projection.hpp>
-#include <OpenMVG/triangulation_nview.hpp>
+#include <asp/Rig/triangulation.h>
+#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/system_utils.h>
+#include <asp/Rig/camera_image.h>
+#include <asp/Rig/RigCameraParams.h>
+#include <asp/OpenMVG/projection.hpp>
+#include <asp/OpenMVG/triangulation_nview.hpp>
 
 namespace rig {
 
@@ -14,6 +30,7 @@ void Triangulate(bool rm_invalid_xyz, double focal_length,
                  std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
                  std::vector<std::map<int, int>> * pid_to_cid_fid,
                  std::vector<Eigen::Vector3d> * pid_to_xyz) {
+
   Eigen::Matrix3d k;
   k << focal_length, 0, 0,
     0, focal_length, 0,
@@ -179,6 +196,20 @@ void multiViewTriangulation(// Inputs
   } // end iterating over triangulated points
   
   return;
+}
+
+
+// A triangulated point that is equal to (0, 0, 0), inf, or NaN, is not good.
+bool isGoodTri(Eigen::Vector3d const& P) {
+  for (int c = 0; c < P.size(); c++) {
+    if (std::isinf(P[c]) || std::isnan(P[c]))
+      return false;
+  }
+  
+  if (P[0] == 0 && P[1] == 0 && P[2] == 0) 
+    return false;
+  
+  return true;
 }
 
 } // end namespace rig

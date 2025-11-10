@@ -22,8 +22,14 @@
 
 #include <vector>
 #include <string>
+#include <map>
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+
+namespace camera {
+  class CameraParameters;
+}
 
 namespace rig {
 
@@ -177,7 +183,29 @@ void TransformCamerasAndPoints(Eigen::Affine3d const& A,
 // changes is scale, as the rig transforms are between coordinate
 // systems of various cameras.
 void TransformRig(Eigen::Affine3d const& T, std::vector<Eigen::Affine3d> & ref_to_cam_trans);
-  
+
+// Find the name of the camera of the images used in registration.
+// The registration images must all be acquired with the same sensor.  
+std::string registrationCamName(std::string const& hugin_file,
+                                std::vector<std::string> const& cam_names,
+                                std::vector<rig::cameraImage> const & cams);
+
+// Find the 3D transform from an abstract coordinate system to the world, given
+// control points (pixel matches) and corresponding 3D measurements. It is
+// assumed all images are acquired with the same camera.
+Eigen::Affine3d registrationTransform(std::string                  const& hugin_file,
+                                      std::string                  const& xyz_file,
+                                      camera::CameraParameters     const& cam_params,
+                                      std::vector<std::string>     const& cid_to_filename,
+                                      std::vector<Eigen::Affine3d> const& world_to_cam_trans); 
+
+// Apply a transform to inlier triangulated points  
+void transformInlierTriPoints(// Inputs
+  Eigen::Affine3d const& trans,
+  std::vector<std::map<int, int>> const& pid_to_cid_fid,
+  std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_inlier,
+  std::vector<Eigen::Vector3d> & xyz_vec); // output
+
 }  // end namespace rig
 
 #endif  // TRANSFORM_UTILS_H_

@@ -1,47 +1,33 @@
-/* Copyright (c) 2021, United States Government, as represented by the
- * Administrator of the National Aeronautics and Space Administration.
- *
- * All rights reserved.
- *
- * The "ISAAC - Integrated System for Autonomous and Adaptive Caretaking
- * platform" software is licensed under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with the
- * License. You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations
- * under the License.
- */
+// __BEGIN_LICENSE__
+//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Administrator of the National Aeronautics and Space Administration. All
+//  rights reserved.
+//
+//  The NGT platform is licensed under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance with the
+//  License. You may obtain a copy of the License at
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// __END_LICENSE__
 
 #include <asp/Rig/nvmUtils.h>
 #include <asp/Rig/system_utils.h>
 #include <asp/Rig/basic_algs.h>
+#include <asp/Rig/triangulation.h>
+#include <asp/OpenMVG/tracks.hpp>
 
 #include <glog/logging.h>
-#include <OpenMVG/tracks.hpp>
 
 #include <iostream>
 #include <string>
 #include <set>
 
 namespace rig {
-
-// A triangulated point that is equal to (0, 0, 0), inf, or NaN, is not good.
-bool isGoodTri(Eigen::Vector3d const& P) {
-  for (int c = 0; c < P.size(); c++) {
-    if (std::isinf(P[c]) || std::isnan(P[c]))
-      return false;
-  }
-  
-  if (P[0] == 0 && P[1] == 0 && P[2] == 0) 
-    return false;
-  
-  return true;
-}
 
 // The nvm file produced by Theia can have files in arbitrary order. Find the map
 // which will help bring the cid in the correct order.

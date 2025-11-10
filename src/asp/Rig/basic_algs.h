@@ -107,6 +107,9 @@ std::string changeFileSuffix(std::string filename, std::string new_suffix);
 // The parent subdirectory. Example: mydir/nav_cam/file.jpg will return
 // 'nav_cam'.
 std::string parentSubdir(std::string const& image_file);
+
+std::string print_vec(double a);
+std::string print_vec(Eigen::Vector3d a);
   
 }  // end namespace rig
 

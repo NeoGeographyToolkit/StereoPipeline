@@ -81,5 +81,15 @@ std::string changeFileSuffix(std::string filename, std::string new_suffix) {
   }
 }  
 
+std::string print_vec(double a) {
+  char st[256];
+  snprintf(st, sizeof(st), "%7.4f", a);
+  return std::string(st);
+}
+std::string print_vec(Eigen::Vector3d a) {
+  char st[256];
+  snprintf(st, sizeof(st), "%7.4f %7.4f %7.4f", a[0], a[1], a[2]);
+  return std::string(st);
+}
 
 }  // end namespace rig
