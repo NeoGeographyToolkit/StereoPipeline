@@ -1267,7 +1267,7 @@ int main(int argc, char** argv) {
   // Do not save these matches. Only inlier matches will be saved later.
   bool local_save_matches = false;
   std::vector<Eigen::Vector3d> xyz_vec; // triangulated points go here
-  rig::detectMatchFeatures(// Inputs
+  rig::detectMatchappendFeatures(// Inputs
                            cams, R.cam_params, FLAGS_out_dir, local_save_matches,
                            filter_matches_using_cams, world_to_cam,
                            FLAGS_num_overlaps, input_image_pairs,

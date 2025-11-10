@@ -651,7 +651,170 @@ void findFid(std::pair<float, float> const & ip,
   return;
 }
 
+// 
+// Detects features, matches them between image pairs, and builds tracks.
+// 
+//  This function handles the entire feature detection and matching pipeline:
+//  1. Detects keypoints and descriptors in all images using multiple threads.
+//  2. Determines which image pairs to match (based on overlap or input pairs).
+//  3. Matches features between pairs, filtering with camera geometry if enabled.
+//  4. Optionally saves matches to disk.
+//  5. Builds keypoint maps and feature-ID (fid) counts.
+//  6. Builds connectivity tracks (pid_to_cid_fid) from the pairwise matches.
 void detectMatchFeatures(// Inputs
+    std::vector<rig::cameraImage> const& cams,
+    std::vector<camera::CameraParameters> const& cam_params,
+    std::string const& out_dir, bool save_matches,
+    bool filter_matches_using_cams,
+    std::vector<Eigen::Affine3d> const& world_to_cam,
+    int num_overlaps,
+    std::vector<std::pair<int, int>> const& input_image_pairs,
+    int initial_max_reprojection_error, int num_match_threads,
+    bool verbose,
+    // Outputs
+    std::vector<std::map<std::pair<float, float>, int>>& keypoint_map,
+    std::vector<int>& fid_count,
+    std::vector<std::map<int, int>>& pid_to_cid_fid) {
+
+  size_t num_images = cams.size();
+
+  // Initialize outputs
+  keypoint_map.clear();
+  fid_count.clear();
+  pid_to_cid_fid.clear();
+  keypoint_map.resize(num_images);
+  fid_count.resize(num_images, 0); // Important: initialize count to 0
+
+  // Detect features using multiple threads. Too many threads may result
+  // in high memory usage.
+  std::ostringstream oss;
+  oss << num_match_threads;
+  std::string num_threads = oss.str();
+  google::SetCommandLineOption("num_threads", num_threads.c_str());
+  if (!gflags::GetCommandLineOption("num_threads", &num_threads))
+    LOG(FATAL) << "Failed to get the value of --num_threads in Astrobee software.\n";
+  std::cout << "Using " << num_threads << " threads for feature detection/matching.\n";
+
+  std::cout << "Detecting features." << std::endl;
+
+  std::vector<cv::Mat> cid_to_descriptor_map;
+  std::vector<Eigen::Matrix2Xd> cid_to_keypoint_map;
+  cid_to_descriptor_map.resize(num_images);
+  cid_to_keypoint_map.resize(num_images);
+  {
+    // Make the thread pool go out of scope when not needed to not use up memory
+    rig::ThreadPool thread_pool;
+    for (size_t it = 0; it < num_images; it++) {
+      thread_pool.AddTask
+        (&rig::detectFeatures,     // multi-threaded  // NOLINT
+         // rig::detectFeatures(   // single-threaded // NOLINT
+         cams[it].image, verbose, &cid_to_descriptor_map[it], &cid_to_keypoint_map[it]);
+    }
+    thread_pool.Join();
+  }
+
+  // Find which image pairs to match
+  std::vector<std::pair<int, int>> image_pairs;
+  if (!input_image_pairs.empty()) {
+    // Use provided image pairs instead of num_overlaps
+    image_pairs = input_image_pairs;
+  } else {
+    for (size_t it1 = 0; it1 < num_images; it1++) {
+      int end = std::min(num_images, it1 + num_overlaps + 1);
+      for (size_t it2 = it1 + 1; it2 < end; it2++) {
+        image_pairs.push_back(std::make_pair(it1, it2));
+      }
+    }
+  }
+  
+  MATCH_MAP matches;
+  { // Deallocate local variables as soon as they are not needed
+    std::cout << "Matching features." << std::endl;
+    rig::ThreadPool thread_pool;
+    std::mutex match_mutex;
+    for (size_t pair_it = 0; pair_it < image_pairs.size(); pair_it++) {
+      auto pair = image_pairs[pair_it];
+      int left_image_it = pair.first, right_image_it = pair.second;
+      thread_pool.AddTask
+        (&rig::matchFeaturesWithCams,    // multi-threaded  // NOLINT
+         // rig::matchFeaturesWithCams( // single-threaded // NOLINT
+         &match_mutex, left_image_it, right_image_it,
+         cam_params[cams[left_image_it].camera_type],
+         cam_params[cams[right_image_it].camera_type],
+         filter_matches_using_cams,
+         world_to_cam[left_image_it], world_to_cam[right_image_it],
+         initial_max_reprojection_error,
+         cid_to_descriptor_map[left_image_it], cid_to_descriptor_map[right_image_it],
+         cid_to_keypoint_map[left_image_it], cid_to_keypoint_map[right_image_it], verbose,
+         &matches[pair]);
+    }
+    thread_pool.Join();
+  }
+  cid_to_keypoint_map = std::vector<Eigen::Matrix2Xd>(); // wipe, no longer needed
+  cid_to_descriptor_map = std::vector<cv::Mat>();    // Wipe, no longer needed
+
+  if (save_matches) {
+    if (out_dir.empty())
+      LOG(FATAL) << "Cannot save matches if no output directory was provided.\n";
+
+    std::string match_dir = out_dir + "/matches";
+    rig::createDir(match_dir);
+
+    for (auto it = matches.begin(); it != matches.end(); it++) {
+      std::pair<int, int> cid_pair = it->first;
+      rig::MATCH_PAIR const& match_pair = it->second;
+
+      int left_cid = cid_pair.first;
+      int right_cid = cid_pair.second;
+      std::string const& left_image = cams[left_cid].image_name; // alias
+      std::string const& right_image = cams[right_cid].image_name; // alias
+
+      std::string suffix = "";
+      std::string match_file = matchFileName(match_dir, left_image, right_image, suffix);
+      std::cout << "Writing: " << left_image << " " << right_image << " "
+                << match_file << std::endl;
+      vw::ip::write_binary_match_file(match_file, match_pair.first, match_pair.second);
+    }
+  }
+  
+  // Collect all keypoints in keypoint_map, and put the fid (indices of keypoints) in
+  // match_map. It will be used to find the tracks.
+  aspOpenMVG::matching::PairWiseMatches match_map;
+  for (auto it = matches.begin(); it != matches.end(); it++) {
+    std::pair<int, int> const& cid_pair = it->first;      // alias
+
+    int left_cid = cid_pair.first;
+    int right_cid = cid_pair.second;
+
+    rig::MATCH_PAIR const& match_pair = it->second;   // alias
+    std::vector<vw::ip::InterestPoint> const& left_ip_vec = match_pair.first;
+    std::vector<vw::ip::InterestPoint> const& right_ip_vec = match_pair.second;
+
+    for (size_t ip_it = 0; ip_it < left_ip_vec.size(); ip_it++) {
+      auto left_ip  = std::make_pair(left_ip_vec[ip_it].x,  left_ip_vec[ip_it].y);
+      auto right_ip = std::make_pair(right_ip_vec[ip_it].x, right_ip_vec[ip_it].y);
+
+      // Add an ip to the keypoint map if not there. In either case find its fid.
+      int left_fid = -1, right_fid = -1;
+      findFid(left_ip, left_cid,
+              keypoint_map, fid_count, left_fid); // may change
+      findFid(right_ip, right_cid,
+              keypoint_map, fid_count, right_fid); // may change
+
+      match_map[cid_pair].push_back(aspOpenMVG::matching::IndMatch(left_fid, right_fid));
+    }
+  }
+  matches.clear(); matches = MATCH_MAP(); // mo longer needed
+
+  // If feature A in image I matches feather B in image J, which
+  // matches feature C in image K, then (A, B, C) belong together in
+  // a track, and will have a single triangulated xyz. Build such a track.
+  buildTracks(match_map, pid_to_cid_fid);
+  std::cout << "Tracks obtained after matching: " << pid_to_cid_fid.size() << std::endl;
+  match_map = aspOpenMVG::matching::PairWiseMatches();  // wipe this, no longer needed
+}
+         
+void detectMatchappendFeatures(// Inputs
                          std::vector<rig::cameraImage> const& cams,
                          std::vector<camera::CameraParameters> const& cam_params,
                          std::string const& out_dir, bool save_matches,
@@ -666,6 +829,7 @@ void detectMatchFeatures(// Inputs
                          std::vector<std::map<int, int>>& pid_to_cid_fid,
                          std::vector<Eigen::Vector3d> & xyz_vec,
                          asp::nvmData & nvm) {
+
   // Wipe the outputs
   keypoint_vec.clear();
   pid_to_cid_fid.clear();
@@ -713,142 +877,19 @@ void detectMatchFeatures(// Inputs
     return;
   }
 
-#if 1
-  // TODO(oalexan1): This should be a function called detectMatchFeatures().
-  // The parent function should be detectMatchFeaturesAppendNvm().
+  // Detect and match features
+  std::vector<std::map<std::pair<float, float>, int>> keypoint_map;
+  std::vector<int> fid_count;
+  detectMatchFeatures( // Inputs
+                      cams, cam_params, out_dir, save_matches,
+                      filter_matches_using_cams,
+                      world_to_cam, num_overlaps,
+                      input_image_pairs,
+                      initial_max_reprojection_error, num_match_threads,
+                      verbose,
+                      // Outputs
+                      keypoint_map, fid_count, pid_to_cid_fid);
   
-  // Detect features using multiple threads. Too many threads may result
-  // in high memory usage.
-  std::ostringstream oss;
-  oss << num_match_threads;
-  std::string num_threads = oss.str();
-  google::SetCommandLineOption("num_threads", num_threads.c_str());
-  if (!gflags::GetCommandLineOption("num_threads", &num_threads))
-    LOG(FATAL) << "Failed to get the value of --num_threads in Astrobee software.\n";
-  std::cout << "Using " << num_threads << " threads for feature detection/matching.\n";
-
-  std::cout << "Detecting features." << std::endl;
-
-  std::vector<cv::Mat> cid_to_descriptor_map;
-  std::vector<Eigen::Matrix2Xd> cid_to_keypoint_map;
-  cid_to_descriptor_map.resize(num_images);
-  cid_to_keypoint_map.resize(num_images);
-  {
-    // Make the thread pool go out of scope when not needed to not use up memory
-    rig::ThreadPool thread_pool;
-    for (size_t it = 0; it < num_images; it++) {
-      thread_pool.AddTask
-        (&rig::detectFeatures,    // multi-threaded  // NOLINT
-         // rig::detectFeatures(  // single-threaded // NOLINT
-         cams[it].image, verbose, &cid_to_descriptor_map[it], &cid_to_keypoint_map[it]);
-    }
-    thread_pool.Join();
-  }
-
-  // Find which image pairs to match
-  std::vector<std::pair<int, int>> image_pairs;
-  if (!input_image_pairs.empty()) {
-    // Use provided image pairs instead of num_overlaps
-    image_pairs = input_image_pairs;
-  } else {
-    for (size_t it1 = 0; it1 < num_images; it1++) {
-      int end = std::min(num_images, it1 + num_overlaps + 1);
-      for (size_t it2 = it1 + 1; it2 < end; it2++) {
-        image_pairs.push_back(std::make_pair(it1, it2));
-      }
-    }
-  }
-  
-  MATCH_MAP matches;
-  { // Deallocate local variables as soon as they are not needed
-    std::cout << "Matching features." << std::endl;
-    rig::ThreadPool thread_pool;
-    std::mutex match_mutex;
-    for (size_t pair_it = 0; pair_it < image_pairs.size(); pair_it++) {
-      auto pair = image_pairs[pair_it];
-      int left_image_it = pair.first, right_image_it = pair.second;
-      thread_pool.AddTask
-        (&rig::matchFeaturesWithCams,   // multi-threaded  // NOLINT
-         // rig::matchFeaturesWithCams( // single-threaded // NOLINT
-         &match_mutex, left_image_it, right_image_it,
-         cam_params[cams[left_image_it].camera_type],
-         cam_params[cams[right_image_it].camera_type],
-         filter_matches_using_cams,
-         world_to_cam[left_image_it], world_to_cam[right_image_it],
-         initial_max_reprojection_error,
-         cid_to_descriptor_map[left_image_it], cid_to_descriptor_map[right_image_it],
-         cid_to_keypoint_map[left_image_it], cid_to_keypoint_map[right_image_it], verbose,
-         &matches[pair]);
-    }
-    thread_pool.Join();
-  }
-  cid_to_keypoint_map = std::vector<Eigen::Matrix2Xd>(); // wipe, no longer needed
-  cid_to_descriptor_map = std::vector<cv::Mat>();  // Wipe, no longer needed
-
-  if (save_matches) {
-    if (out_dir.empty())
-      LOG(FATAL) << "Cannot save matches if no output directory was provided.\n";
-
-    std::string match_dir = out_dir + "/matches";
-    rig::createDir(match_dir);
-
-    for (auto it = matches.begin(); it != matches.end(); it++) {
-      std::pair<int, int> cid_pair = it->first;
-      rig::MATCH_PAIR const& match_pair = it->second;
-
-      int left_cid = cid_pair.first;
-      int right_cid = cid_pair.second;
-      std::string const& left_image = cams[left_cid].image_name; // alias
-      std::string const& right_image = cams[right_cid].image_name; // alias
-
-      std::string suffix = "";
-      std::string match_file = matchFileName(match_dir, left_image, right_image, suffix);
-      std::cout << "Writing: " << left_image << " " << right_image << " "
-                << match_file << std::endl;
-      vw::ip::write_binary_match_file(match_file, match_pair.first, match_pair.second);
-    }
-  }
-  
-  // Collect all keypoints in keypoint_map, and put the fid (indices of keypoints) in
-  // match_map. It will be used to find the tracks.
-  std::vector<std::map<std::pair<float, float>, int>> keypoint_map(num_images);
-  std::vector<int> fid_count(num_images, 0); // track the fid of keypoints when adding them
-  aspOpenMVG::matching::PairWiseMatches match_map;
-  for (auto it = matches.begin(); it != matches.end(); it++) {
-    std::pair<int, int> const& cid_pair = it->first;     // alias
-
-    int left_cid = cid_pair.first;
-    int right_cid = cid_pair.second;
-
-    rig::MATCH_PAIR const& match_pair = it->second;  // alias
-    std::vector<vw::ip::InterestPoint> const& left_ip_vec = match_pair.first;
-    std::vector<vw::ip::InterestPoint> const& right_ip_vec = match_pair.second;
-
-    for (size_t ip_it = 0; ip_it < left_ip_vec.size(); ip_it++) {
-      auto left_ip  = std::make_pair(left_ip_vec[ip_it].x,  left_ip_vec[ip_it].y);
-      auto right_ip = std::make_pair(right_ip_vec[ip_it].x, right_ip_vec[ip_it].y);
-
-      // Add an ip to the keypoint map if not there. In either case find its fid.
-      int left_fid = -1, right_fid = -1;
-      findFid(left_ip, left_cid,
-              keypoint_map, fid_count, left_fid); // may change
-      findFid(right_ip, right_cid,
-              keypoint_map, fid_count, right_fid); // may change
-
-      match_map[cid_pair].push_back(aspOpenMVG::matching::IndMatch(left_fid, right_fid));
-    }
-  }
-  matches.clear(); matches = MATCH_MAP(); // mo longer needed
-
-  // If feature A in image I matches feather B in image J, which
-  // matches feature C in image K, then (A, B, C) belong together in
-  // a track, and will have a single triangulated xyz. Build such a track.
-  buildTracks(match_map, pid_to_cid_fid);
-  std::cout << "Tracks obtained after matching: " << pid_to_cid_fid.size() << std::endl;
-  match_map = aspOpenMVG::matching::PairWiseMatches();  // wipe this, no longer needed
-
-#endif // this should be end of function detectMatchFeatures()
-
   // Append tracks being read from nvm. This turned out to work better than to try
   // to merge these tracks with the ones from the pairwise matching above, as the latter
   // would make many good tracks disappear.
@@ -856,7 +897,7 @@ void detectMatchFeatures(// Inputs
     // Find how to map each cid from nvm to cid in 'cams'.
     std::map<int, int> nvm_cid_to_cams_cid;
     rig::findCidReorderMap(nvm, cams,
-                                 nvm_cid_to_cams_cid); // output
+                           nvm_cid_to_cams_cid); // output
 
     // Add the optical center shift, if needed.
     std::vector<Eigen::Vector2d> keypoint_offsets(nvm.cid_to_filename.size());
@@ -885,15 +926,14 @@ void detectMatchFeatures(// Inputs
           = cam_params[cams[cams_cid].camera_type].GetOpticalOffset();
     }
 
-
     // Add the nvm matches. Unlike the transformNvm() function above,
     // the keypoints are shared with the newly created matches. Later
     // that will be used to remove duplicates.
     int cid_shift = 0; // part of the API
     rig::transformAppendNvm(nvm.pid_to_cid_fid, nvm.cid_to_keypoint_map,  
-                                  nvm_cid_to_cams_cid,
-                                  keypoint_offsets, cid_shift, num_images,
-                                  fid_count, keypoint_map, pid_to_cid_fid); // append
+                            nvm_cid_to_cams_cid,
+                            keypoint_offsets, cid_shift, num_images,
+                            fid_count, keypoint_map, pid_to_cid_fid); // append
   }
   
   // Create keypoint_vec from keypoint_map. That just reorganizes the data

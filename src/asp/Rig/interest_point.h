@@ -122,7 +122,7 @@ std::string registrationCamName(std::string const& hugin_file,
   
 
   
-void detectMatchFeatures(// Inputs
+void detectMatchappendFeatures(// Inputs
                          std::vector<rig::cameraImage> const& cams,
                          std::vector<camera::CameraParameters> const& cam_params,
                          std::string const& out_dir, bool save_matches,
