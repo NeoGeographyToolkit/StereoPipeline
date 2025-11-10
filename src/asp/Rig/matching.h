@@ -18,6 +18,8 @@
 #ifndef INTEREST_POINT_MATCHING_H_
 #define INTEREST_POINT_MATCHING_H_
 
+#include <vw/InterestPoint/InterestData.h>
+
 #include <opencv2/features2d/features2d.hpp>
 #include <Eigen/Core>
 
@@ -25,72 +27,75 @@
 #include <string>
 #include <map>
 
-namespace interest_point {
+namespace rig {
+  
+typedef std::pair<std::vector<vw::ip::InterestPoint>, std::vector<vw::ip::InterestPoint>> MATCH_PAIR;
+typedef std::map<std::pair<int, int>, rig::MATCH_PAIR> MATCH_MAP;
 
-  class DynamicDetector {
-   public:
-    DynamicDetector(int min_features, int max_features, int retries,
-                    double min_thresh, double default_thresh, double max_thresh);
-    virtual ~DynamicDetector(void) {}
-    void Detect(const cv::Mat& image,
-                        std::vector<cv::KeyPoint>* keypoints,
-                        cv::Mat* keypoints_description);
-    virtual void DetectImpl(const cv::Mat& image,
-                            std::vector<cv::KeyPoint>* keypoints) = 0;
-    virtual void ComputeImpl(const cv::Mat& image,
-                            std::vector<cv::KeyPoint>* keypoints,
-                            cv::Mat* keypoints_description) = 0;
-    virtual void TooFew(void) = 0;
-    virtual void TooMany(void) = 0;
-    void GetDetectorParams(int & min_features, int & max_features, int & max_retries,
-                           double & min_thresh, double & default_thresh, double & max_thresh);
+class DynamicDetector {
+  public:
+  DynamicDetector(int min_features, int max_features, int retries,
+                  double min_thresh, double default_thresh, double max_thresh);
+  virtual ~DynamicDetector(void) {}
+  void Detect(const cv::Mat& image,
+                      std::vector<cv::KeyPoint>* keypoints,
+                      cv::Mat* keypoints_description);
+  virtual void DetectImpl(const cv::Mat& image,
+                          std::vector<cv::KeyPoint>* keypoints) = 0;
+  virtual void ComputeImpl(const cv::Mat& image,
+                          std::vector<cv::KeyPoint>* keypoints,
+                          cv::Mat* keypoints_description) = 0;
+  virtual void TooFew(void) = 0;
+  virtual void TooMany(void) = 0;
+  void GetDetectorParams(int & min_features, int & max_features, int & max_retries,
+                          double & min_thresh, double & default_thresh, double & max_thresh);
 
-   protected:
-    unsigned int min_features_, max_features_, max_retries_;
-    double min_thresh_, default_thresh_, max_thresh_, dynamic_thresh_;
-  };
+  protected:
+  unsigned int min_features_, max_features_, max_retries_;
+  double min_thresh_, default_thresh_, max_thresh_, dynamic_thresh_;
+};
 
-  class FeatureDetector {
-   private:
-    DynamicDetector* detector_;
-    std::string detector_name_;
+class FeatureDetector {
+  private:
+  DynamicDetector* detector_;
+  std::string detector_name_;
 
-    // A feature detector cannot be copied, since it has a pointer
-    FeatureDetector(FeatureDetector &);
-    FeatureDetector& operator=(const FeatureDetector&);
+  // A feature detector cannot be copied, since it has a pointer
+  FeatureDetector(FeatureDetector &);
+  FeatureDetector& operator=(const FeatureDetector&);
 
-   public:
-    // Here on purpose invalid values are set, so the user explicitly sets them.
-    FeatureDetector(std::string const& detector_name = "SURF",
-                    int min_features = 0, int max_features = 0, int retries = 0,
-                    double min_thresh = 0, double default_thresh = 0, double max_thresh = 0);
-    ~FeatureDetector(void);
+  public:
+  // Here on purpose invalid values are set, so the user explicitly sets them.
+  FeatureDetector(std::string const& detector_name = "SURF",
+                  int min_features = 0, int max_features = 0, int retries = 0,
+                  double min_thresh = 0, double default_thresh = 0, double max_thresh = 0);
+  ~FeatureDetector(void);
 
-    void Reset(std::string const& detector_name,
-                    int min_features = 0, int max_features = 0, int retries = 0,
-                    double min_thresh = 0, double default_thresh = 0, double max_thresh = 0);
+  void Reset(std::string const& detector_name,
+                  int min_features = 0, int max_features = 0, int retries = 0,
+                  double min_thresh = 0, double default_thresh = 0, double max_thresh = 0);
 
-    void Detect(const cv::Mat& image, std::vector<cv::KeyPoint>* keypoints,
-                cv::Mat* keypoints_description);
+  void Detect(const cv::Mat& image, std::vector<cv::KeyPoint>* keypoints,
+              cv::Mat* keypoints_description);
 
-    std::string GetDetectorName() const {return detector_name_;}
+  std::string GetDetectorName() const {return detector_name_;}
 
-    void GetDetectorParams(int & min_features, int & max_features, int & max_retries,
-                           double & min_thresh, double & default_thresh, double & max_thresh);
+  void GetDetectorParams(int & min_features, int & max_features, int & max_retries,
+                          double & min_thresh, double & default_thresh, double & max_thresh);
 
-    friend bool operator== (FeatureDetector const& A, FeatureDetector const& B) {
-      return (A.detector_name_ == B.detector_name_);
-    }
-  };
+  friend bool operator== (FeatureDetector const& A, FeatureDetector const& B) {
+    return (A.detector_name_ == B.detector_name_);
+  }
+};
 
-  /**
-   * descriptor is what opencv descriptor was used to make the descriptors
-   * the descriptor maps are the features in the two images
-   * matches is output to contain the matching features between the two images
-   **/
-  void FindMatches(const cv::Mat & img1_descriptor_map,
-                   const cv::Mat & img2_descriptor_map,
-                   std::vector<cv::DMatch> * matches);
-}  // namespace interest_point
+/**
+  * descriptor is what opencv descriptor was used to make the descriptors
+  * the descriptor maps are the features in the two images
+  * matches is output to contain the matching features between the two images
+  **/
+void FindMatches(const cv::Mat & img1_descriptor_map,
+                  const cv::Mat & img2_descriptor_map,
+                  std::vector<cv::DMatch> * matches);
+}  // namespace rig
 
 #endif  // INTEREST_POINT_MATCHING_H_

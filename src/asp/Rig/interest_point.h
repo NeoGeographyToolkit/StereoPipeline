@@ -20,6 +20,8 @@
 #ifndef INTEREST_POINT_H_
 #define INTEREST_POINT_H_
 
+#include <asp/Rig/matching.h>
+
 #include <vw/InterestPoint/InterestData.h>
 
 #include <opencv2/imgproc.hpp>
@@ -58,9 +60,6 @@ class ImageMessage;
 void setFromCvKeypoint(Eigen::Vector2d const& key, cv::Mat const& cv_descriptor,
                        vw::ip::InterestPoint& ip);
 
-typedef std::pair<std::vector<vw::ip::InterestPoint>, std::vector<vw::ip::InterestPoint>> MATCH_PAIR;
-typedef std::map<std::pair<int, int>, rig::MATCH_PAIR> MATCH_MAP;
-
 void detectFeatures(const cv::Mat& image, bool verbose,
                     // Outputs
                     cv::Mat* descriptors, Eigen::Matrix2Xd* keypoints);
@@ -72,35 +71,6 @@ void matchFeatures(std::mutex* match_mutex, int left_image_index, int right_imag
                    Eigen::Matrix2Xd const& right_keypoints, bool verbose,
                    // Output
                    MATCH_PAIR* matches);
-
-// Form the match file name. Assume the input images are of the form
-// cam_name/image.jpg. Use the ASP convention of the match file being
-// run/run-image1__image2.match. This assumes all input images are unique.
-// TODO(oalexan1): Duplicate code.
-std::string matchFileName(std::string const& match_dir,
-                          std::string const& left_image, std::string const& right_image,
-                          std::string const& suffix);
-
-// Routines for reading & writing interest point match files
-// TODO(oalexan1): Duplicate code.
-
-// TODO(oalexan1): Duplicate code
-void Triangulate(bool rm_invalid_xyz, double focal_length,
-                 std::vector<Eigen::Affine3d> const& world_to_cam,
-                 std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
-                 std::vector<std::map<int, int>> * pid_to_cid_fid,
-                 std::vector<Eigen::Vector3d> * pid_to_xyz);
-  
-// Triangulate two rays emanating from given undistorted and centered pixels
-Eigen::Vector3d TriangulatePair(double focal_length1, double focal_length2,
-                                Eigen::Affine3d const& world_to_cam1,
-                                Eigen::Affine3d const& world_to_cam2, Eigen::Vector2d const& pix1,
-                                Eigen::Vector2d const& pix2);
-
-// Triangulate n rays emanating from given undistorted and centered pixels
-Eigen::Vector3d Triangulate(std::vector<double> const& focal_length_vec,
-                            std::vector<Eigen::Affine3d> const& world_to_cam_vec,
-                            std::vector<Eigen::Vector2d> const& pix_vec);
 
 // TODO(oalexan1): Move this to transform_utils.  Find the 3D
 // transform from an abstract coordinate system to the world, given
@@ -119,8 +89,6 @@ Eigen::Affine3d registrationTransform(std::string                  const& hugin_
 std::string registrationCamName(std::string const& hugin_file,
                                 std::vector<std::string> const& cam_names,
                                 std::vector<rig::cameraImage> const & cams);
-  
-
   
 void detectMatchappendFeatures(// Inputs
                          std::vector<rig::cameraImage> const& cams,
@@ -147,29 +115,6 @@ void multiViewTriangulation(// Inputs
                             // Outputs
                             std::vector<std::map<int, std::map<int, int>>>& pid_cid_fid_inlier,
                             std::vector<Eigen::Vector3d>& xyz_vec);
-
-// Given all the merged and filtered tracks in pid_cid_fid, for each
-// image pair cid1 and cid2 with cid1 < cid2 < cid1 + num_overlaps + 1,
-// save the matches of this pair which occur in the set of tracks.
-void saveInlierMatchPairs(// Inputs
-                           std::vector<rig::cameraImage> const& cams,
-                           int num_overlaps,
-                           std::vector<std::map<int, int>> const& pid_to_cid_fid,
-                           std::vector<std::vector<std::pair<float, float>>>
-                           const& keypoint_vec,
-                           std::vector<std::map<int, std::map<int, int>>>
-                           const& pid_cid_fid_inlier,
-                           std::string const& out_dir);
-
-// Save the list of images, for use with bundle_adjust.
-void saveImageList(std::vector<rig::cameraImage> const& cams,
-                   std::string const& image_list);
-
-// Write an image with 3 floats per pixel. OpenCV's imwrite() cannot do that.
-void saveXyzImage(std::string const& filename, cv::Mat const& img);
-
-// Save images and depth clouds to disk
-void saveImagesAndDepthClouds(std::vector<cameraImage> const& cams);
 
 // For nvm data that has the keypoints shifted relative to the optical
 // center, undo this shift when 'undo_shift' is true. So, add the optical center.
@@ -261,7 +206,8 @@ void flagOutliersByTriAngleAndReprojErr
  double min_triangulation_angle, double max_reprojection_error,
  std::vector<std::map<int, int>> const& pid_to_cid_fid,
  std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
- std::vector<Eigen::Affine3d> const& world_to_cam, std::vector<Eigen::Vector3d> const& xyz_vec,
+ std::vector<Eigen::Affine3d> const& world_to_cam, 
+ std::vector<Eigen::Vector3d> const& xyz_vec,
  std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_to_residual_index,
  std::vector<double> const& residuals,
  // Outputs

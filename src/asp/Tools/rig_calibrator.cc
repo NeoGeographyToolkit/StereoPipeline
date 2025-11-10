@@ -56,6 +56,7 @@
 #include <Rig/rig_config.h>
 #include <Rig/RigCameraUtils.h>
 #include <Rig/cost_function.h>
+#include <asp/Rig/rig_io.h>
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>

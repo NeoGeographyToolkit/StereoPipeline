@@ -43,7 +43,7 @@ DEFINE_double(max_surf_threshold, 1000,
 DEFINE_double(goodness_ratio, 0.8,
               "A smaller value keeps fewer but more reliable float descriptor matches.");
 
-namespace interest_point {
+namespace rig {
 
   DynamicDetector::DynamicDetector(int min_features, int max_features, int max_retries,
                                    double min_thresh, double default_thresh, double max_thresh):
@@ -212,4 +212,4 @@ namespace interest_point {
       }
     }
   }
-}  // namespace interest_point
+}  // end namespace rig

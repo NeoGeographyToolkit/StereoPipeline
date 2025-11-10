@@ -1,24 +1,3 @@
-/* Copyright (c) 2021, United States Government, as represented by the
- * Administrator of the National Aeronautics and Space Administration.
- *
- * All rights reserved.
- *
- * The "ISAAC - Integrated System for Autonomous and Adaptive Caretaking
- * platform" software is licensed under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with the
- * License. You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations
- * under the License.
- */
-
-// TODO(oalexan1): Move track logic to tracks.cc.
-
 #include <asp/Core/nvm.h>
 #include <asp/Rig/basic_algs.h>
 #include <asp/Rig/interest_point.h>
@@ -33,6 +12,8 @@
 #include <asp/Rig/tracks.h>
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/nvmUtils.h>
+#include <asp/Rig/rig_io.h>
+#include <asp/Rig/triangulation.h> // Added for moved functions
 
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Math/RandomSet.h>
@@ -70,7 +51,6 @@ DEFINE_int32(max_pairwise_matches, 2000,
              "Maximum number of pairwise matches in an image pair to keep.");
 
 namespace rig {
-
 
 // Copy IP information from an OpenCV KeyPoint object.
 void setFromCvKeypoint(Eigen::Vector2d const& key, cv::Mat const& cv_descriptor,
@@ -119,7 +99,7 @@ void detectFeatures(const cv::Mat& image, bool verbose,
     sift->compute(image, storage, *descriptors);
 
   } else if (FLAGS_feature_detector == "SURF") {
-    interest_point::FeatureDetector detector("SURF");
+    rig::FeatureDetector detector("SURF");
     detector.Detect(*image_ptr, &storage, descriptors);
 
     // Undo the shift in the detector
@@ -172,7 +152,7 @@ void matchFeatures(std::mutex* match_mutex,
                    // output
                    MATCH_PAIR* matches) {
   std::vector<cv::DMatch> cv_matches;
-  interest_point::FindMatches(left_descriptors, right_descriptors, &cv_matches);
+  rig::FindMatches(left_descriptors, right_descriptors, &cv_matches);
 
   std::vector<cv::Point2f> left_vec;
   std::vector<cv::Point2f> right_vec;
@@ -258,7 +238,7 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
                            MATCH_PAIR* matches) {
   // Match by using descriptors first
   std::vector<cv::DMatch> cv_matches;
-  interest_point::FindMatches(left_descriptors, right_descriptors, &cv_matches);
+  rig::FindMatches(left_descriptors, right_descriptors, &cv_matches);
 
   // Do filtering
   std::vector<cv::Point2f> left_vec;
@@ -371,124 +351,6 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
 
   *matches = std::make_pair(left_ip, right_ip);
   match_mutex->unlock();
-}
-
-// TODO(oalexan1): Move to triangulation file.
-// TODO(oalexan1): Duplicate code
-void Triangulate(bool rm_invalid_xyz, double focal_length,
-                 std::vector<Eigen::Affine3d> const& world_to_cam,
-                 std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
-                 std::vector<std::map<int, int>> * pid_to_cid_fid,
-                 std::vector<Eigen::Vector3d> * pid_to_xyz) {
-  Eigen::Matrix3d k;
-  k << focal_length, 0, 0,
-    0, focal_length, 0,
-    0, 0, 1;
-
-  // Build p matrices for all of the cameras. aspOpenMVG::Triangulation
-  // will be holding pointers to all of the cameras.
-  std::vector<aspOpenMVG::Mat34> cid_to_p(world_to_cam.size());
-  for (size_t cid = 0; cid < cid_to_p.size(); cid++) {
-    aspOpenMVG::P_From_KRt(k, world_to_cam[cid].linear(),
-                        world_to_cam[cid].translation(), &cid_to_p[cid]);
-  }
-
-  pid_to_xyz->resize(pid_to_cid_fid->size());
-  for (int pid = pid_to_cid_fid->size() - 1; pid >= 0; pid--) {
-    aspOpenMVG::Triangulation tri;
-    for (std::pair<int, int> const& cid_fid : pid_to_cid_fid->at(pid)) {
-      tri.add(cid_to_p[cid_fid.first],  // they're holding a pointer to this
-              cid_to_keypoint_map[cid_fid.first].col(cid_fid.second));
-    }
-    Eigen::Vector3d solution = tri.compute();
-    if ( rm_invalid_xyz && (std::isnan(solution[0]) || tri.minDepth() < 0) ) {
-      pid_to_xyz->erase(pid_to_xyz->begin() + pid);
-      pid_to_cid_fid->erase(pid_to_cid_fid->begin() + pid);
-    } else {
-      pid_to_xyz->at(pid) = solution;
-    }
-  }
-
-}
-
-// TODO(oalexan1): Move to triangulation file.  
-// Triangulate rays emanating from given undistorted and centered pixels
-Eigen::Vector3d TriangulatePair(double focal_length1, double focal_length2,
-                                Eigen::Affine3d const& world_to_cam1,
-                                Eigen::Affine3d const& world_to_cam2,
-                                Eigen::Vector2d const& pix1,
-                                Eigen::Vector2d const& pix2) {
-  Eigen::Matrix3d k1;
-  k1 << focal_length1, 0, 0, 0, focal_length1, 0, 0, 0, 1;
-
-  Eigen::Matrix3d k2;
-  k2 << focal_length2, 0, 0, 0, focal_length2, 0, 0, 0, 1;
-
-  aspOpenMVG::Mat34 cid_to_p1, cid_to_p2;
-  aspOpenMVG::P_From_KRt(k1, world_to_cam1.linear(), world_to_cam1.translation(), &cid_to_p1);
-  aspOpenMVG::P_From_KRt(k2, world_to_cam2.linear(), world_to_cam2.translation(), &cid_to_p2);
-
-  aspOpenMVG::Triangulation tri;
-  tri.add(cid_to_p1, pix1);
-  tri.add(cid_to_p2, pix2);
-
-  Eigen::Vector3d solution = tri.compute();
-  return solution;
-}
-
-// TODO(oalexan1): Move to triangulation file.
-// Triangulate n rays emanating from given undistorted and centered pixels
-Eigen::Vector3d Triangulate(std::vector<double>          const& focal_length_vec,
-                            std::vector<Eigen::Affine3d> const& world_to_cam_vec,
-                            std::vector<Eigen::Vector2d> const& pix_vec) {
-  if (focal_length_vec.size() != world_to_cam_vec.size() ||
-      focal_length_vec.size() != pix_vec.size())
-    LOG(FATAL) << "All inputs to Triangulate() must have the same size.";
-
-  if (focal_length_vec.size() <= 1)
-    LOG(FATAL) << "At least two rays must be passed to Triangulate().";
-
-  aspOpenMVG::Triangulation tri;
-
-  for (size_t it = 0; it < focal_length_vec.size(); it++) {
-    Eigen::Matrix3d k;
-    k << focal_length_vec[it], 0, 0, 0, focal_length_vec[it], 0, 0, 0, 1;
-
-    aspOpenMVG::Mat34 cid_to_p;
-    aspOpenMVG::P_From_KRt(k, world_to_cam_vec[it].linear(),
-                        world_to_cam_vec[it].translation(),
-                        &cid_to_p);
-
-    tri.add(cid_to_p, pix_vec[it]);
-  }
-
-  Eigen::Vector3d solution = tri.compute();
-  return solution;
-}
-
-// TODO(oalexan1): Use vw logic.
-// Form the match file name. Assume the input images are of the form
-// cam_name/image.jpg. Use the ASP convention of the match file being
-// run/run-image1__image2.match. This assumes all input images are unique.
-std::string matchFileName(std::string const& match_dir,
-                          std::string const& left_image, 
-                          std::string const& right_image,
-                          std::string const& suffix) {
-  std::string left_cam_name
-    = boost::filesystem::path(left_image).parent_path().stem().string();
-  std::string right_cam_name
-    = boost::filesystem::path(right_image).parent_path().stem().string();
-
-  if (left_cam_name == "" || right_cam_name == "")
-    LOG(FATAL) << "The image name must have the form cam_name/image. Got: "
-               << left_image << " and " << right_image << ".\n";
-
-  std::string left_stem = boost::filesystem::path(left_image).stem().string();
-  std::string right_stem = boost::filesystem::path(right_image).stem().string();
-  std::string match_file = match_dir + "/run-" + left_stem + "__"
-    + right_stem + suffix + ".match";
-
-  return match_file;
 }
 
 // Add keypoints from a map, appending to existing keypoints. Take into
@@ -651,7 +513,6 @@ void findFid(std::pair<float, float> const & ip,
   return;
 }
 
-// 
 // Detects features, matches them between image pairs, and builds tracks.
 // 
 //  This function handles the entire feature detection and matching pipeline:
@@ -676,9 +537,8 @@ void detectMatchFeatures(// Inputs
     std::vector<int>& fid_count,
     std::vector<std::map<int, int>>& pid_to_cid_fid) {
 
-  size_t num_images = cams.size();
-
   // Initialize outputs
+  size_t num_images = cams.size();
   keypoint_map.clear();
   fid_count.clear();
   pid_to_cid_fid.clear();
@@ -770,7 +630,7 @@ void detectMatchFeatures(// Inputs
       std::string const& right_image = cams[right_cid].image_name; // alias
 
       std::string suffix = "";
-      std::string match_file = matchFileName(match_dir, left_image, right_image, suffix);
+      std::string match_file = rig::matchFileName(match_dir, left_image, right_image, suffix);
       std::cout << "Writing: " << left_image << " " << right_image << " "
                 << match_file << std::endl;
       vw::ip::write_binary_match_file(match_file, match_pair.first, match_pair.second);
@@ -965,171 +825,6 @@ void detectMatchappendFeatures(// Inputs
   return;
 }
 
-// TODO(oalexan1): Move to triangulation.cc.
-void multiViewTriangulation(// Inputs
-                            std::vector<camera::CameraParameters>   const& cam_params,
-                            std::vector<rig::cameraImage>     const& cams,
-                            std::vector<Eigen::Affine3d>            const& world_to_cam,
-                            std::vector<std::map<int, int>>         const& pid_to_cid_fid,
-                            std::vector<std::vector<std::pair<float, float>>>
-                            const& keypoint_vec,
-                            // Outputs
-                            std::vector<std::map<int, std::map<int, int>>>&
-                            pid_cid_fid_inlier,
-                            std::vector<Eigen::Vector3d>& xyz_vec) {
-
-  if (cams.size() != world_to_cam.size()) 
-    LOG(FATAL) << "Expecting as many images as cameras.\n";
-  
-  xyz_vec.clear();
-  xyz_vec.resize(pid_to_cid_fid.size());
-  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++)
-    xyz_vec[pid] = Eigen::Vector3d(0, 0, 0); // initialize to 0
-  
-  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
-    std::vector<double> focal_length_vec;
-    std::vector<Eigen::Affine3d> world_to_cam_aff_vec;
-    std::vector<Eigen::Vector2d> pix_vec;
-
-    for (auto cid_fid = pid_to_cid_fid[pid].begin(); cid_fid != pid_to_cid_fid[pid].end();
-         cid_fid++) {
-      int cid = cid_fid->first;
-      int fid = cid_fid->second;
-
-      // Triangulate inliers only
-      if (!rig::getMapValue(pid_cid_fid_inlier, pid, cid, fid))
-        continue;
-
-      Eigen::Vector2d dist_ip(keypoint_vec[cid][fid].first, keypoint_vec[cid][fid].second);
-      Eigen::Vector2d undist_ip;
-      cam_params[cams[cid].camera_type].Convert<camera::DISTORTED, camera::UNDISTORTED_C>
-        (dist_ip, &undist_ip);
-
-      focal_length_vec.push_back(cam_params[cams[cid].camera_type].GetFocalLength());
-      world_to_cam_aff_vec.push_back(world_to_cam[cid]);
-      pix_vec.push_back(undist_ip);
-    }
-
-    if (pix_vec.size() < 2) {
-      // If after outlier filtering less than two rays are left, can't triangulate.
-      // Must set all features for this pid to outliers.
-      for (auto cid_fid = pid_to_cid_fid[pid].begin();
-           cid_fid != pid_to_cid_fid[pid].end();
-           cid_fid++) {
-        int cid = cid_fid->first;
-        int fid = cid_fid->second;
-        rig::setMapValue(pid_cid_fid_inlier, pid, cid, fid, 0);
-      }
-
-      // Nothing else to do
-      continue;
-    }
-
-    // Triangulate n rays emanating from given undistorted and centered pixels
-    xyz_vec[pid] = rig::Triangulate(focal_length_vec, world_to_cam_aff_vec,
-                                          pix_vec);
-
-    bool bad_xyz = false;
-    for (int c = 0; c < xyz_vec[pid].size(); c++) {
-      if (std::isinf(xyz_vec[pid][c]) || std::isnan(xyz_vec[pid][c])) 
-        bad_xyz = true;
-    }
-    if (bad_xyz) {
-      // if triangulation failed, must set all features for this pid to outliers.
-      for (auto cid_fid = pid_to_cid_fid[pid].begin(); cid_fid != pid_to_cid_fid[pid].end();
-           cid_fid++) {
-        int cid = cid_fid->first;
-        int fid = cid_fid->second;
-        rig::setMapValue(pid_cid_fid_inlier, pid, cid, fid, 0);
-      }
-    }
-    
-  } // end iterating over triangulated points
-  
-  return;
-}
-  
-// Given all the merged and filtered tracks in pid_cid_fid, for each
-// image pair cid1 and cid2 with cid1 < cid2 < cid1 + num_overlaps + 1,
-// save the matches of this pair which occur in the set of tracks.
-void saveInlierMatchPairs(// Inputs
-                           std::vector<rig::cameraImage> const& cams,
-                           int num_overlaps,
-                           std::vector<std::map<int, int>> const& pid_to_cid_fid,
-                           std::vector<std::vector<std::pair<float, float>>>
-                           const& keypoint_vec,
-                           std::vector<std::map<int, std::map<int, int>>>
-                           const& pid_cid_fid_inlier,
-                           std::string const& out_dir) {
-
-  MATCH_MAP matches;
-
-  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
-    for (auto cid_fid1 = pid_to_cid_fid[pid].begin();
-         cid_fid1 != pid_to_cid_fid[pid].end(); cid_fid1++) {
-      int cid1 = cid_fid1->first;
-      int fid1 = cid_fid1->second;
-
-      for (auto cid_fid2 = pid_to_cid_fid[pid].begin();
-           cid_fid2 != pid_to_cid_fid[pid].end(); cid_fid2++) {
-        int cid2 = cid_fid2->first;
-        int fid2 = cid_fid2->second;
-
-        // When num_overlaps == 0, we save only matches read from nvm rather
-        // ones made wen this tool was run.
-        bool is_good = (cid1 < cid2 && (num_overlaps == 0 || cid2 < cid1 + num_overlaps + 1));
-        if (!is_good)
-          continue;
-
-        // Consider inliers only
-        if (!rig::getMapValue(pid_cid_fid_inlier, pid, cid1, fid1) ||
-            !rig::getMapValue(pid_cid_fid_inlier, pid, cid2, fid2))
-          continue;
-
-        auto cid_pair = std::make_pair(cid1, cid2);
-
-        vw::ip::InterestPoint ip1(keypoint_vec[cid1][fid1].first, keypoint_vec[cid1][fid1].second);
-        vw::ip::InterestPoint ip2(keypoint_vec[cid2][fid2].first, keypoint_vec[cid2][fid2].second);
-
-        matches[cid_pair].first.push_back(ip1);
-        matches[cid_pair].second.push_back(ip2);
-      }
-    }
-  }  // End iterations over pid
-
-  for (auto it = matches.begin(); it != matches.end(); it++) {
-    auto & cid_pair = it->first;
-    rig::MATCH_PAIR const& match_pair = it->second;
-
-    int left_cid = cid_pair.first;
-    int right_cid = cid_pair.second;
-
-    std::string match_dir = out_dir + "/matches";
-    rig::createDir(match_dir);
-
-    std::string suffix = "";
-    std::string match_file = rig::matchFileName(match_dir,
-                                                      cams[left_cid].image_name,
-                                                      cams[right_cid].image_name,
-                                                      suffix);
-
-    std::cout << "Writing: " << match_file << std::endl;
-    vw::ip::write_binary_match_file(match_file, match_pair.first, match_pair.second);
-  }
-  
-  // The image names (without directory) must be unique, or else bundle
-  // adjustment will fail.
-  std::set<std::string> base_names;
-  for (size_t it = 0; it < cams.size(); it++) {
-    std::string base_name = fs::path(cams[it].image_name).filename().string(); 
-    if (base_names.find(base_name) != base_names.end())
-      LOG(FATAL) << "Non-unique image name (without directory): " << base_name 
-                 << ". It will not be possible to use these matches with bundle_adjust.";
-    base_names.insert(base_name);
-  }
-  
-}
-
 // TODO(oalexan1): All the logic below has little to do with interest
 // points, and should be distributed to some other existing or new files.
   
@@ -1277,7 +972,7 @@ Eigen::Affine3d registrationTransform(std::string                  const& hugin_
   // in the virtual coordinate system
   std::vector<Eigen::Vector3d> unreg_pid_to_xyz;
   bool rm_invalid_xyz = false;  // there should be nothing to remove hopefully
-  Triangulate(rm_invalid_xyz,
+  rig::Triangulate(rm_invalid_xyz,
               cam_params.GetFocalLength(),
               world_to_cam_trans,
               user_cid_to_keypoint_map,
@@ -1351,55 +1046,6 @@ Eigen::Affine3d registrationTransform(std::string                  const& hugin_
   return registration_trans;
 }
   
-// Write an image with 3 floats per pixel. OpenCV's imwrite() cannot do that.
-void saveXyzImage(std::string const& filename, cv::Mat const& img) {
-  if (img.depth() != CV_32F)
-    LOG(FATAL) << "Expecting an image with float values\n";
-  if (img.channels() != 3) LOG(FATAL) << "Expecting 3 channels.\n";
-
-  std::ofstream f;
-  f.open(filename.c_str(), std::ios::binary | std::ios::out);
-  if (!f.is_open()) LOG(FATAL) << "Cannot open file for writing: " << filename << "\n";
-
-  // Assign these to explicit variables so we know their type and size in bytes
-  // TODO(oalexan1): Replace below with int32_t and check that it is same thing.
-  int rows = img.rows, cols = img.cols, channels = img.channels();
-
-  // TODO(oalexan1): Avoid C-style cast. Test if
-  // reinterpret_cast<char*> does the same thing.
-  f.write((char*)(&rows), sizeof(rows));         // NOLINT
-  f.write((char*)(&cols), sizeof(cols));         // NOLINT
-  f.write((char*)(&channels), sizeof(channels)); // NOLINT
-
-  for (int row = 0; row < rows; row++) {
-    for (int col = 0; col < cols; col++) {
-      cv::Vec3f const& P = img.at<cv::Vec3f>(row, col);  // alias
-      // TODO(oalexan1): See if using reinterpret_cast<char*> does the same
-      // thing.
-      for (int c = 0; c < channels; c++)
-        f.write((char*)(&P[c]), sizeof(P[c])); // NOLINT
-    }
-  }
-
-  return;
-}
-
-// Save images and depth clouds to disk
-void saveImagesAndDepthClouds(std::vector<rig::cameraImage> const& cams) {
-  for (size_t it = 0; it < cams.size(); it++) {
-
-    std::cout << "Writing: " << cams[it].image_name << std::endl;
-    cv::imwrite(cams[it].image_name, cams[it].image);
-
-    if (cams[it].depth_cloud.cols > 0 && cams[it].depth_cloud.rows > 0) {
-      std::cout << "Writing: " << cams[it].depth_name << std::endl;
-      rig::saveXyzImage(cams[it].depth_name, cams[it].depth_cloud);
-    }
-  }
-
-  return;
-}
-
 // Find the name of the camera type of the images used in registration.
 // The registration images must all be acquired with the same sensor.  
 std::string registrationCamName(std::string const& hugin_file,
@@ -1593,103 +1239,6 @@ void flagOutliersByTriAngleAndReprojErr(// Inputs
   std::cout << std::setprecision(4) << "Removed " << num_outliers_reproj
             << " outlier features using reprojection error, out of " << num_total_features
             << " (" << (100.0 * num_outliers_reproj) / num_total_features << "%)\n";
-
-  return;
-}
-
-// Find convergence angles between every pair of images and save to disk their percentiles
-// assumed that the cameras in world_to_cam are up-to-date given the
-// current state of optimization, and that the residuals (including
-// the reprojection errors) have also been updated beforehand.
-void savePairwiseConvergenceAngles(// Inputs
-  std::vector<std::map<int, int>> const& pid_to_cid_fid,
-  std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
-  std::vector<rig::cameraImage> const& cams,
-  std::vector<Eigen::Affine3d> const& world_to_cam,
-  std::vector<Eigen::Vector3d> const& xyz_vec,
-  std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_inlier,
-  std::string const& conv_angles_file) {
-
-  std::map<std::pair<int, int>, std::vector<double>> conv_angles;
-  
-  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
-
-    for (auto cid_fid1 = pid_to_cid_fid[pid].begin();
-         cid_fid1 != pid_to_cid_fid[pid].end(); cid_fid1++) {
-      int cid1 = cid_fid1->first;
-      int fid1 = cid_fid1->second;
-
-      // Deal with inliers only
-      if (!rig::getMapValue(pid_cid_fid_inlier, pid, cid1, fid1)) continue;
-
-      Eigen::Vector3d cam_ctr1 = (world_to_cam[cid1].inverse()) * Eigen::Vector3d(0, 0, 0);
-      Eigen::Vector3d ray1 = xyz_vec[pid] - cam_ctr1;
-      ray1.normalize();
-
-      for (auto cid_fid2 = pid_to_cid_fid[pid].begin();
-           cid_fid2 != pid_to_cid_fid[pid].end(); cid_fid2++) {
-        int cid2 = cid_fid2->first;
-        int fid2 = cid_fid2->second;
-
-        // Look at each cid and next cids
-        if (cid2 <= cid1)
-          continue;
-
-        // Deal with inliers only
-        if (!rig::getMapValue(pid_cid_fid_inlier, pid, cid2, fid2)) continue;
-
-        Eigen::Vector3d cam_ctr2 = (world_to_cam[cid2].inverse()) * Eigen::Vector3d(0, 0, 0);
-        Eigen::Vector3d ray2 = xyz_vec[pid] - cam_ctr2;
-        ray2.normalize();
-
-        // Calculate the convergence angle
-        double conv_angle = (180.0 / M_PI) * acos(ray1.dot(ray2));
-        if (std::isnan(conv_angle) || std::isinf(conv_angle)) continue;
-
-        // Add to the image pair
-        std::pair<int, int> pair(cid1, cid2);
-        conv_angles[pair].push_back(conv_angle);
-      }
-    }
-  }
-
-  // Sort the convergence angles per pair
-  std::cout << "Writing: " << conv_angles_file << std::endl;
-  std::ofstream ofs(conv_angles_file.c_str());
-  ofs << "# Convergence angle percentiles (in degrees) for each image pair having matches\n";
-  ofs << "# left_image right_image 25% 50% 75% num_matches\n";
-  ofs.precision(17);
-  for (auto it = conv_angles.begin(); it != conv_angles.end(); it++) {
-
-    // Sort the values first
-    std::vector<double> & vals = it->second; // alias
-    std::sort(vals.begin(), vals.end());
-    int len = vals.size();
-    
-    int cid1 = (it->first).first;
-    int cid2 = (it->first).second;
-    ofs << cams[cid1].image_name << ' ' << cams[cid2].image_name << ' '
-        << vals[0.25 * len] << ' ' << vals[0.5 * len] << ' ' << vals[0.75*len] << ' '
-        << len << std::endl;
-  }
-  ofs.close();
-
-  return;
-}
-
-// Save the list of images, for use with bundle_adjust.
-void saveImageList(std::vector<rig::cameraImage> const& cams,
-                   std::string const& image_list) {
-
-  // Create the directory having image_list
-  std::string dir = fs::path(image_list).parent_path().string();
-  rig::createDir(dir);
-  
-  std::cout << "Writing: " << image_list << std::endl;
-  std::ofstream ofs(image_list.c_str());
-  for (size_t it = 0; it < cams.size(); it++)
-    ofs << cams[it].image_name << std::endl;
-  ofs.close();
 
   return;
 }
