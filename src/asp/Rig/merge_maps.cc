@@ -555,7 +555,7 @@ void MergeMaps(asp::nvmData const& A,
     C.world_to_cam.resize(C.cid_to_filename.size()); // won't be used
     std::cout << "Number of image pairs to match: " << image_pairs.size() << std::endl;
     std::vector<Eigen::Vector3d> local_xyz_vec; // not used
-    rig::detectMatchappendFeatures(// Inputs
+    rig::detectMatchAppendFeatures(// Inputs
                                    C_cams, R.cam_params, out_dir, save_matches,  
                                    filter_matches_using_cams,  
                                    C.world_to_cam,

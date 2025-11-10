@@ -30,7 +30,7 @@
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/nvmUtils.h>
 #include <asp/Rig/rig_io.h>
-#include <asp/Rig/triangulation.h> // Added for moved functions
+#include <asp/Rig/triangulation.h>
 
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Math/RandomSet.h>
@@ -727,7 +727,7 @@ void detectMatchFeatures(// Inputs
   match_map = aspOpenMVG::matching::PairWiseMatches();  // wipe this, no longer needed
 }
          
-void detectMatchappendFeatures(// Inputs
+void detectMatchAppendFeatures(// Inputs
                          std::vector<rig::cameraImage> const& cams,
                          std::vector<camera::CameraParameters> const& cam_params,
                          std::string const& out_dir, bool save_matches,

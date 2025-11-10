@@ -72,7 +72,7 @@ void matchFeatures(std::mutex* match_mutex, int left_image_index, int right_imag
                    // Output
                    MATCH_PAIR* matches);
 
-void detectMatchappendFeatures(// Inputs
+void detectMatchAppendFeatures(// Inputs
                          std::vector<rig::cameraImage> const& cams,
                          std::vector<camera::CameraParameters> const& cam_params,
                          std::string const& out_dir, bool save_matches,
