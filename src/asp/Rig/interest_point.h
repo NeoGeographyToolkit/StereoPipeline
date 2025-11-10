@@ -20,7 +20,7 @@
 #ifndef INTEREST_POINT_H_
 #define INTEREST_POINT_H_
 
-#include <asp/Rig/matching.h>
+#include <asp/Rig/detector.h>
 
 #include <vw/InterestPoint/InterestData.h>
 
