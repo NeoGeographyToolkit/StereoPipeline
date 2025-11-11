@@ -8,7 +8,7 @@ ASP supports the 1A/1B and NEO satellites from Airbus Pleiades. For NEO, see
 
 Generally, ASP expects raw images, not orthorectified images. ASP supports the
 Pleiades ortho products, if the projection was done on a surface of constant
-height  (:numref:`pleiades_projected`). It does not support images orthorectified
+height (:numref:`pleiades_projected`). It does not support images orthorectified
 with a 3D terrain model.
 
 The Airbus Pleiades data have both an exact linescan camera model and an
