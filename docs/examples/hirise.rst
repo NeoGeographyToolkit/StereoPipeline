@@ -108,20 +108,17 @@ landed and has roved, including the Columbia Hills.
 Commands
 ~~~~~~~~
 
-Download all 20 of the RED EDR ``.IMG`` files for each observation:
+Download all 20 of the RED EDR ``.IMG`` files for each observation::
 
-::
-     wget -r -l1 -np \
-          "http://hirise-pds.lpl.arizona.edu/PDS/EDR/PSP/ORB_001500_001599/PSP_001513_1655/" \
-          -A "*RED*IMG"
+    wget -r -l1 -np \
+      "http://hirise-pds.lpl.arizona.edu/PDS/EDR/PSP/ORB_001500_001599/PSP_001513_1655/" \
+      -A "*RED*IMG"
 
-     wget -r -l1 -np \
-          "http://hirise-pds.lpl.arizona.edu/PDS/EDR/PSP/ORB_001700_001799/PSP_001777_1650/" \
-          -A "*RED*IMG"
+    wget -r -l1 -np \
+      "http://hirise-pds.lpl.arizona.edu/PDS/EDR/PSP/ORB_001700_001799/PSP_001777_1650/" \
+      -A "*RED*IMG"
 
-Then process:
-
-::
+Then process::
 
      ISIS> hiedr2mosaic.py PSP_001513_1655_RED*.IMG
      ISIS> hiedr2mosaic.py PSP_001777_1650_RED*.IMG
