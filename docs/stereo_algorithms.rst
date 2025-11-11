@@ -759,6 +759,11 @@ in the ASP top-level directory, in the format::
 The entries here are the program name (in lowercase), path to the
 program, and path to libraries.
 
+As of build 2025/11 (:numref:`release`), the path to the libraries can be a
+combination of multiple relative and absolute paths, separated by a colon
+(``:``). The relative paths will be made to be relative to the ASP library
+directory.
+
 Then, ASP can invoke this program by calling it, for example, as::
 
     parallel_stereo --alignment-method local_epipolar \
@@ -774,6 +779,9 @@ disparity filtering and triangulation.
 
 It may be helpful to visit one of such subdirectories, examine the
 ``stereo_corr`` log file which will show how precisely the program was called,
-and also look at its input image tiles and output disparity stored there. Note
-such auxiliary data is removed by default, unless ``parallel_stereo`` is called
-with the option ``--keep-only unchanged`` (:numref:`parallel_stereo`).
+and the path to the libraries for the plugins.
+
+Also look at its input image tiles and output disparity stored there. 
+
+Note such auxiliary data is removed by default, unless ``parallel_stereo`` is
+called with the option ``--keep-only unchanged`` (:numref:`parallel_stereo`).

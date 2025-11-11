@@ -1400,9 +1400,9 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       int timeout = stereo_settings().corr_timeout;
 
       if (env_vars != "") 
-        vw_out() << "Using environmental variables: " << env_vars << std::endl;
+        vw_out() << "Using environmental variables: " << env_vars << "\n";
 
-      vw_out() << cmd << std::endl;
+      vw_out() << "Executing: " << cmd << "\n";
 
       // Use a system call
       system(cmd.c_str());

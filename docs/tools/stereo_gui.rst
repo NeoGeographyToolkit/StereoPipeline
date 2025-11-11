@@ -14,7 +14,7 @@ Use as stereo front-end
 
 This program can be invoked just as ``parallel_stereo``::
 
-    stereo_gui [options] <images> [<cameras>] output_file_prefix
+    stereo_gui [options] <images> [<cameras>] output_file_prefix [dem]
 
 Here is an example when using RPC cameras::
  
@@ -64,10 +64,12 @@ level of zoom.
 The images can be shown either all side-by-side (default), several
 side-by-side (``--view-several-side-by-side``), as tiles on a grid
 (using ``--grid-cols integer``), or on top of each other (using
-``--single-window``), with a dialog to choose among them. 
+``--single-window``).
 
 When the images are shown on top of each other, the option ``--use-georef`` will
-overlay the images correctly if georeference information is present. 
+overlay the images correctly if georeference information is present. In recent
+builds this is the default, if all georeferences exist, and this mode can be
+turned off with ``--no-georef``.
 
 It is possible to switch among the various display modes from the ``View`` menu.
 

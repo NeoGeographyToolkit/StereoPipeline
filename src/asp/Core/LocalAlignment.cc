@@ -45,6 +45,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/dll.hpp>
+#include <boost/algorithm/string.hpp>
 #include <limits>
 #include <cctype>
 
@@ -1028,7 +1029,8 @@ namespace asp {
     handle.open(plugin_list.c_str());
     if (handle.fail())
       vw_throw(vw::IOErr() << "Unable to open file \"" << plugin_list << "\"");
-
+    vw::vw_out() << "Reading plugin list: " << plugin_list << "\n";
+    
     std::string line;
     while (getline(handle, line, '\n')) {
 
@@ -1044,19 +1046,32 @@ namespace asp {
 
       // Make the plugin name lower-case, but not the rest of the values
       boost::to_lower(plugin_name);
+      
+      // Make plugin_path absolute, if need be
+      if (plugin_path.size() > 0 && plugin_path[0] != '/')
+        plugin_path = std::string(isis_root) + "/" + plugin_path;
 
-      // The plugin lib is optional
+      // Read the user-set library path
       is >> plugin_lib;
-
-      plugin_path = std::string(isis_root) + "/" + plugin_path;
-
-      if (plugin_lib != "") {
-        plugin_lib  = std::string(isis_root) + "/" + plugin_lib;
+      if (plugin_lib != "")
         plugin_lib += ":";
-      }
-
+      
+      // Append the isis lib path  
       plugin_lib += std::string(isis_root) + "/lib";
 
+      // Split by colon in case there are multiple libraries
+      std::vector<std::string> plugin_libs_vec;
+      boost::split(plugin_libs_vec, plugin_lib, boost::is_any_of(":"));
+
+      // Make each relative path into an absolute path
+      for (size_t it = 0; it < plugin_libs_vec.size(); it++) {
+        if (plugin_libs_vec[it].size() > 0 && plugin_libs_vec[it][0] != '/')
+          plugin_libs_vec[it] = std::string(isis_root) + "/" + plugin_libs_vec[it];
+      }
+      
+      // Concatenate back
+      plugin_lib = boost::algorithm::join(plugin_libs_vec, ":");
+             
       plugins[plugin_name]     = plugin_path;
       plugin_libs[plugin_name] = plugin_lib;
     }
