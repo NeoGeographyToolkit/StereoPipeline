@@ -4,8 +4,12 @@ Pleiades
 --------
 
 ASP supports the 1A/1B and NEO satellites from Airbus Pleiades. For NEO, see
-:numref:`pleiades_neo` for additional notes. ASP also supports the Pleiades ortho
-products, if the projection was done on a surface of constant height  (:numref:`pleiades_projected`).
+:numref:`pleiades_neo` for additional notes. 
+
+Generally, ASP expects raw images, not orthorectified images. ASP supports the
+Pleiades ortho products, if the projection was done on a surface of constant
+height  (:numref:`pleiades_projected`). It does not support images orthorectified
+with a 3D terrain model.
 
 The Airbus Pleiades data have both an exact linescan camera model and an
 approximate RPC model (:numref:`rpc`). These are stored in separate files. The
@@ -67,10 +71,15 @@ Stereo with mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ASP supports running stereo with mapprojected Pleiades images
-(:numref:`mapproj-example`). All input images must be mapprojected at
-the same resolution (which is comparable with the ground sample
-distance, GSD). The same camera models must be used for mapprojection
-as for stereo, so one should not mix the exact and RPC cameras.
+(:numref:`mapproj-example`). 
+
+All input images must be mapprojected at the same resolution (which is
+comparable with the ground sample distance, GSD). The same camera models must be
+used for mapprojection as for stereo, so one should not mix the exact and RPC
+cameras.
+
+Ensure the input DEM used for mapprojection is relative to the ellipsoid
+(:numref:`conv_to_ellipsoid`).
 
 Example::
 
