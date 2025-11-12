@@ -20,16 +20,16 @@
 // Paper: https://tc.copernicus.org/articles/5/271/2011/
 
 // TODO(oalexan1): Is it worth reading ref and source as double?
-// TODO(oalexan1): Merely including AspProgramOptions.h results in 10 seconds extra compile time.
 // TODO(oalexan1): Implement tilt correction.
 // TODO(oalexan1): What to do about opt.res, opt.polyorder.
 
-#include <asp/Core/AspProgramOptions.h>
-#include <asp/PcAlign/NuthFit.h>
 #include <asp/PcAlign/NuthAlignment.h>
+#include <asp/PcAlign/NuthAlignmentParse.h>
+#include <asp/PcAlign/NuthFit.h>
 
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/Exception.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/Functors.h>
@@ -40,7 +40,6 @@
 #include <vw/Math/RandomSet.h>
 #include <vw/Math/Geometry.h>
 
-#include <boost/program_options.hpp>
 #include <Eigen/Core>
 #include <omp.h>
 
@@ -48,125 +47,22 @@
 #include <vector>
 #include <cmath>
 #include <thread>
-
-namespace po = boost::program_options;
+#include <sstream>
 
 namespace asp {
   
-struct Options: vw::GdalWriteOptions {
-  std::string ref, src, out_prefix, res;
-  int poly_order, max_iter, inner_iter;
-  double tol, max_horiz_offset, max_vert_offset, max_displacement;
-  bool tiltcorr, compute_translation_only;
-  vw::Vector2 slope_lim;
-  Options() {}
-};
-
-// Parse the arguments. Some were set by now directly into opt.
-void handle_arguments(int argc, char *argv[], Options& opt) {
-
-  double nan = std::numeric_limits<double>::quiet_NaN();
-  po::options_description general_options("General options");
-  general_options.add_options()
-    ("slope-lim", 
-     po::value(&opt.slope_lim)->default_value(vw::Vector2(0.1, 40.0), "0.1, 40.0"),
-     "Minimum and maximum surface slope limits to consider (degrees).")
-    ("tol", po::value(&opt.tol)->default_value(0.01),
-     "Stop when the addition to the computed translation at given iteration has magnitude "
-     "below this tolerance (meters).")
-    ("max-horizontal-offset", po::value(&opt.max_horiz_offset)->default_value(nan),
-     "Maximum expected horizontal translation magnitude (meters). Used to filter outliers.")
-    ("max-vertical-offset", po::value(&opt.max_vert_offset)->default_value(nan),
-     "Maximum expected vertical translation (meters). Used to filter outliers.")
-    ("num-inner-iter", po::value(&opt.inner_iter)->default_value(10),
-      "Maximum number of iterations for the inner loop, when finding the best "
-      "fit parameters for the current translation.")
-    // The options below are not yet supported
-    ("tiltcorr", po::bool_switch(&opt.tiltcorr)->default_value(false),
-     "After a preliminary translation, fit a polynomial to residual elevation offsets "
-     "and remove.")
-    ("res", po::value(&opt.res)->default_value("mean"),
-     "Regrid the input DEMs to this resolution given the resolutions of input datasets. "
-     "Options: min, max, mean, common_scale_factor.")
-    ("poly-order", po::value(&opt.poly_order)->default_value(1), 
-     "Specify the order of the polynomial fit.")
-    ;
-  general_options.add(vw::GdalWriteOptionsDescription(opt));
-
-  po::options_description positional("");
-  po::positional_options_description positional_desc;
-  std::string usage; // not used
-   
-  bool allow_unregistered = false;
-  std::vector<std::string> unregistered;
-  po::variables_map vm =
-    asp::check_command_line(argc, argv, opt, general_options, general_options,
-                            positional, positional_desc, usage,
-                            allow_unregistered, unregistered);
-
-  if (opt.out_prefix == "")
-    vw::vw_throw(vw::ArgumentErr() << "The output prefix was not set.\n");
-
-  // The ref and src DEMs must be provided
-  if (opt.ref == "" || opt.src == "")
-    vw::vw_throw(vw::ArgumentErr() << "The reference and source DEMs must be provided.\n");
-
-  // The poly order must be positive
-  if (opt.poly_order < 1)
-    vw::vw_throw(vw::ArgumentErr() << "The polynomial order must be at least 1.\n");
-  
-  // The tol must be positive
-  if (opt.tol <= 0.0)
-    vw::vw_throw(vw::ArgumentErr() << "The tolerance must be positive.\n");
-
-  // If horizontal and vertical offset are NaN (so, not set), use max_displacement
-  if (std::isnan(opt.max_horiz_offset))
-     opt.max_horiz_offset = opt.max_displacement;
-  if (std::isnan(opt.max_vert_offset))
-      opt.max_vert_offset = opt.max_displacement;
-         
-  // All these offsets must be positive
-  if (opt.max_displacement <= 0.0)
-    vw::vw_throw(vw::ArgumentErr() << "The maximum displacement must be positive.\n");
-  if (opt.max_horiz_offset <= 0.0 || opt.max_vert_offset <= 0.0)
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "The maximum horizontal and vertical offsets must be positive.\n");
-
-  // Check that res is one of the allowed values
-  if (opt.res != "min" && opt.res != "max" && opt.res != "mean" &&
-      opt.res != "common_scale_factor")
-    vw::vw_throw(vw::ArgumentErr() << "Unknown value for --res: " << opt.res << ".\n");
-  
-  // Check that slope limits are positive and in the right order
-  if (opt.slope_lim[0] <= 0.0 || opt.slope_lim[1] <= 0.0 || 
-      opt.slope_lim[0] >= opt.slope_lim[1])
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "The slope limits must be positive and in increasing order.\n");
-
-  if (opt.tiltcorr)
-    vw::vw_throw(vw::NoImplErr() << "Tilt correction is not implemented yet.\n");
-     
-  // TODO(oalexan1): Sort out the number of threads. Now it comes from .vwrc if
-  // not set.
-
-  // Set the number of threads for OpenMP.  
-  int processor_count = std::thread::hardware_concurrency();
-  omp_set_dynamic(0);
-  omp_set_num_threads(processor_count);
-  vw::vw_out() << "Using " << processor_count << " threads with OpenMP.\n";
-}
 
 inline double DegToRad(double deg) {
   return deg * M_PI / 180.0;
 }
 
 // Put the above logic in a function that prepares the data.
-void prepareData(Options const& opt, 
-                  vw::ImageView<vw::PixelMask<float>> & ref,
-                  vw::ImageView<vw::PixelMask<float>> & src,
-                  double & ref_nodata, double & src_nodata,
-                  vw::cartography::GeoReference & ref_georef,
-                  vw::cartography::GeoReference & src_georef) {
+void prepareData(NuthOptions const& opt, 
+                 vw::ImageView<vw::PixelMask<float>> & ref,
+                 vw::ImageView<vw::PixelMask<float>> & src,
+                 double & ref_nodata, double & src_nodata,
+                 vw::cartography::GeoReference & ref_georef,
+                 vw::cartography::GeoReference & src_georef) {
 
   // The DEMs must have a georeference
   bool has_ref_georef = vw::cartography::read_georeference(ref_georef, opt.ref);
@@ -419,7 +315,7 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<float>> const& ref,
 // Compute the Nuth offset. By now the DEMs have been regrided to the same
 // resolution and use the same projection. All data is kept as float,
 // but the calculations are done in double precision, for accuracy.
-void computeNuthOffset(Options const& opt,
+void computeNuthOffset(NuthOptions const& opt,
                        vw::ImageView<vw::PixelMask<float>> const& ref,
                        vw::ImageView<vw::PixelMask<float>> const& src,
                        vw::cartography::GeoReference const& ref_georef,
@@ -535,29 +431,6 @@ void computeNuthOffset(Options const& opt,
                fit_params);
 } // End function computeNuthOffset
 
-// Given a command-line string, form argc and argv. In addition to pointers,
-// will also store the strings in argv_str, to ensure permanence.
-void formArgcArgv(std::string const& cmd,
-                  int & argc,
-                  std::vector<char*> & argv,
-                  std::vector<std::string> & argv_str) {
-
-  // Break by space and read into argv
-  argv_str.clear();
-  argv_str.push_back("nuthAlignment"); // program name
-  std::istringstream iss(cmd);
-  std::string word;
-  while (iss >> word) 
-    argv_str.push_back(word);
-  
-  argc = argv_str.size();  
-  argv.resize(argc);
-  for (int i = 0; i < argc; i++)
-    argv[i] = &argv_str[i][0];
-  
-  return;
-} // End function formArgcArgv
-
 // Compute the Nuth alignment transform in projected coordinates and then
 // convert it to an ECEF transform.
 Eigen::MatrixXd nuthAlignment(std::string const& ref_file, 
@@ -570,7 +443,7 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
                               std::string const& nuth_options) { 
 
   // Pass some of these directly to opt
-  Options opt;
+  NuthOptions opt;
   opt.ref = ref_file;
   opt.src = src_file;
   opt.out_prefix = out_prefix;
@@ -584,7 +457,7 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   std::vector<char*> argv;
   std::vector<std::string> argv_str;
   formArgcArgv(nuth_options, argc, argv, argv_str);
-  handle_arguments(argc, &argv[0], opt);
+  handleNuthArgs(argc, &argv[0], opt);
   
   // If no iterations, return the identity
   Eigen::MatrixXd ecef_transform = Eigen::MatrixXd::Identity(4, 4);
