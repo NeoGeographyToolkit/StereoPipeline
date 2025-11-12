@@ -67,6 +67,8 @@ cam_gen (:numref:`cam_gen`):
 
 mapproject (:numref:`mapproject`):
   * Added the option ``--gdal-tap``.
+  * Bugfix for erosion during mapprojection at DEM boundary when the DEM and
+    output image have the same grid size.
   
 dem2gcp (:numref:`dem2gcp`):
   * Added the options ``--max-num-gcp``, ``--max-disp``, ``--gcp-sigma-image``.

@@ -17,15 +17,16 @@ names for these start with "DIM" and "RPC", respectively, and end with ".XML".
 ASP supports both kinds. The USGS CSM library (:numref:`csm`) is used for
 linescan models.
 
-See :numref:`airbus_tiled` if the input images arrive in multiple
-tiles. See :numref:`jitter_pleiades` for an example of solving for
+See :numref:`jitter_pleiades` for an example of solving for
 jitter for these cameras.
 
 Bundle adjustment and stereo with raw images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If desired to process a Pleiades triplet, bundle adjustment
-(:numref:`bundle_adjust`) is suggested before stereo. It should be run as::
+See :numref:`airbus_tiled` if the input images arrive in multiple tiles. 
+
+Bundle adjustment (:numref:`bundle_adjust`) is suggested before stereo. It
+should be run as::
 
     bundle_adjust -t pleiades        \
       --camera-weight 0              \
@@ -34,11 +35,12 @@ If desired to process a Pleiades triplet, bundle adjustment
       left_exact.xml right_exact.xml \
       -o ba/run
 
-With the exact models, the stereo command, without bundle-adjusted cameras, is::
+With the exact models, the stereo command, with bundle-adjusted cameras, is::
 
     parallel_stereo -t pleiades        \
         --stereo-algorithm asp_mgm     \
         --subpixel-mode 9              \
+        --bundle-adjust-prefix ba/run  \
         left.tif right.tif             \
         left_exact.xml right_exact.xml \
         results/run
@@ -85,25 +87,28 @@ Example::
 
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
 
-    mapproject -t pleiades \
-      --tr 0.5             \
-      --t_srs "$proj"      \
-      ref_dem.tif          \
-      left.tif             \
-      left_exact.xml       \
+    mapproject -t pleiades          \
+      --tr 0.5                      \
+      --t_srs "$proj"               \
+      --bundle-adjust-prefix ba/run \
+      ref_dem.tif                   \
+      left.tif                      \
+      left_exact.xml                \
       left_map.tif
       
-    mapproject -t pleiades \
-      --tr 0.5             \
-      --t_srs "$proj"      \
-      ref_dem.tif          \
-      right.tif            \
-      right_exact.xml      \
+    mapproject -t pleiades          \
+      --tr 0.5                      \
+      --t_srs "$proj"               \
+      --bundle-adjust-prefix ba/run \
+      ref_dem.tif                   \
+      right.tif                     \
+      right_exact.xml               \
       right_map.tif
       
     parallel_stereo -t pleiades      \
       --stereo-algorithm asp_mgm     \
       --subpixel-mode 9              \
+      --bundle-adjust-prefix ba/run  \
       left_map.tif right_map.tif     \
       left_exact.xml right_exact.xml \
       run_map/run                    \
@@ -119,8 +124,8 @@ The value of the ``--tr`` option is the ground sample distance. It is normally
 0.5 to 0.7 meters for Pleiades PAN images. The XML files should have the GSD
 value.
 
-To make use of bundle-adjusted cameras, add the option ``--bundle-adjust-prefix
-ba/run`` to the ``mapproject`` and ``parallel_stereo`` commands above.
+To not use bundle-adjusted cameras, remove the option ``--bundle-adjust-prefix``
+from all ``mapproject`` and ``parallel_stereo`` commands above.
 
 Exact and RPC cameras
 ~~~~~~~~~~~~~~~~~~~~~
@@ -158,9 +163,16 @@ Pleiades NEO
 
 Several peculiarities make the Pleiades NEO data different from 1A/1B (:numref:`pleiades`):
 
-- The tabulated positions and orientations may start slightly after the first image line and end slightly before the last image line. If these scenarios are encountered, linear extrapolation based on two nearest values is used to fill in the missing values and a warning is printed for each such operation.
-- There is no field for standard deviation of the ground locations of pixels projected from the cameras, so error propagation is not possible unless such a value is specified manually (:numref:`error_propagation`).
-- The RPC camera models for a stereo triplet can be rather inconsistent with each other, resulting in large triangulation error. It is suggested to use instead the exact linescan camera model.
+- The tabulated positions and orientations may start slightly after the first
+  image line and end slightly before the last image line. If these scenarios are
+  encountered, linear extrapolation based on two nearest values is used to fill
+  in the missing values and a warning is printed for each such operation.
+- There is no field for standard deviation of the ground locations of pixels
+  projected from the cameras, so error propagation is not possible unless such a
+  value is specified manually (:numref:`error_propagation`).
+- The RPC camera models for a stereo triplet can be rather inconsistent with
+  each other, resulting in large triangulation error. It is suggested to use
+  instead the exact linescan camera model.
 
 .. _pleiades_projected:
 
