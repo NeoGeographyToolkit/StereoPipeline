@@ -157,6 +157,15 @@ void calcCurvatureInShadowWeight(asp::SfsOptions const& opt,
                                  vw::cartography::GeoReference const& geo,
                                  vw::ImageView<double> & curvature_in_shadow_weight);
 
+// Save the measured and computed intensity images
+void saveIntensities(SfsOptions const& opt,
+                     std::string const& input_image,
+                     std::string const& input_camera,
+                     vw::cartography::GeoReference const& geo,
+                     MaskedDblImgT const& meas_intensity,
+                     MaskedDblImgT const& comp_intensity,
+                     float img_nodata_val);
+
 // Compute a full-resolution image by specific interpolation into a low-resolution
 // one. The full-res image may not fit in memory, so we need to compute it in tiles.
 // See computeReflectanceAndIntensity() for low-res vs full-res relationship.

@@ -33,6 +33,7 @@
 #include <vw/Image/Filter.h>
 #include <vw/Image/NoDataAlg.h>
 #include <vw/Image/DistanceFunction.h>
+#include <vw/Core/ProgressCallback.h>
 
 #include <boost/filesystem.hpp>
 
@@ -1147,6 +1148,37 @@ void calcCurvatureInShadowWeight(asp::SfsOptions const& opt,
   block_write_gdal_image(curvature_in_shadow_weight_file, curvature_in_shadow_weight,
                           has_georef, geo, has_nodata, nodata_val, opt, tpc);
 } // end computing curvature_in_shadow_weight
+
+// Save the measured and computed intensity images
+void saveIntensities(SfsOptions const& opt,
+                     std::string const& input_image,
+                     std::string const& input_camera,
+                     vw::cartography::GeoReference const& geo,
+                     MaskedDblImgT const& meas_intensity,
+                     MaskedDblImgT const& comp_intensity,
+                     float img_nodata_val) {
+
+  vw::TerminalProgressCallback tpc("asp", ": ");
+  bool has_georef = true, has_nodata = true;
+  std::string out_camera_file
+    = asp::bundle_adjust_file_name(opt.out_prefix,
+                                   input_image,
+                                   input_camera);
+  std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
+  std::string out_meas_intensity_file = local_prefix + "-meas-intensity.tif";
+  vw::vw_out() << "Writing: " << out_meas_intensity_file << "\n";
+  vw::cartography::block_write_gdal_image(out_meas_intensity_file,
+                                          vw::apply_mask(meas_intensity, img_nodata_val),
+                                          has_georef, geo, has_nodata,
+                                          img_nodata_val, opt, tpc);
+
+  std::string out_comp_intensity_file = local_prefix + "-comp-intensity.tif";
+  vw::vw_out() << "Writing: " << out_comp_intensity_file << "\n";
+  vw::cartography::block_write_gdal_image(out_comp_intensity_file,
+                                          vw::apply_mask(comp_intensity, img_nodata_val),
+                                          has_georef, geo, has_nodata, img_nodata_val,
+                                          opt, tpc);
+}
 
 } // end namespace asp
 

@@ -1359,8 +1359,7 @@ int main(int argc, char* argv[]) {
 
     // TODO(oalexan1): Check if --num-haze-coeffs is non-zero.
     // TODO(oalexan1): This should work even if albedo is not modeled.
-    if (opt.estim_exposure_haze_albedo &&
-        (opt.float_albedo || opt.num_haze_coeffs > 0))
+    if (opt.estim_exposure_haze_albedo && (opt.float_albedo || opt.num_haze_coeffs > 0))
       estimExposureHazeAlbedo(opt, masked_images, blend_weights,
                               blend_weight_is_ground_weight,
                               dem, mean_albedo,
@@ -1482,28 +1481,11 @@ int main(int argc, char* argv[]) {
           }
         }
 
-        if (opt.save_computed_intensity_only) {
-          TerminalProgressCallback tpc("asp", ": ");
-          bool has_georef = true, has_nodata = true;
-          std::string out_camera_file
-            = asp::bundle_adjust_file_name(opt.out_prefix,
-                                           opt.input_images[image_iter],
-                                           opt.input_cameras[image_iter]);
-          std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
-          std::string out_meas_intensity_file = local_prefix + "-meas-intensity.tif";
-          vw_out() << "Writing: " << out_meas_intensity_file << std::endl;
-          block_write_gdal_image(out_meas_intensity_file,
-                                 apply_mask(meas_intensity, img_nodata_val),
-                                 has_georef, geo, has_nodata,
-                                 img_nodata_val, opt, tpc);
-
-          std::string out_comp_intensity_file = local_prefix + "-comp-intensity.tif";
-          vw_out() << "Writing: " << out_comp_intensity_file << std::endl;
-          block_write_gdal_image(out_comp_intensity_file,
-                                 apply_mask(comp_intensity, img_nodata_val),
-                                 has_georef, geo, has_nodata, img_nodata_val,
-                                 opt, tpc);
-        }
+        if (opt.save_computed_intensity_only)
+          asp::saveIntensities(opt, opt.input_images[image_iter],
+                               opt.input_cameras[image_iter],
+                               geo, meas_intensity,
+                               comp_intensity, img_nodata_val);
 
       } // End iterating over images
 
