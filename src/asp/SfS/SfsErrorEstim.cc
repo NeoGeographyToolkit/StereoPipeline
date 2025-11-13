@@ -21,6 +21,10 @@
 #include <asp/SfS/SfsErrorEstim.h>
 #include <asp/SfS/SfsModel.h>
 
+#include <vw/Core/Log.h>
+#include <vw/Core/ProgressCallback.h>
+#include <vw/FileIO/FileUtils.h>
+
 #include <string>
 #include <map>
 
@@ -71,7 +75,6 @@ void estimateHeightError(vw::ImageView<double> const& dem,
   // Look at the neighbors
   int cols[] = {col - 1, col,     col,     col + 1};
   int rows[] = {row,     row - 1, row + 1, row};
-
   for (int it = 0; it < 4; it++) {
 
     int colx = cols[it], rowx = rows[it];
@@ -145,5 +148,36 @@ void estimateHeightError(vw::ImageView<double> const& dem,
 
   return;
 } // end function estimateHeightError
+
+// Estimate the height error at each DEM pixel based on estimates for each image
+void combineHeightErrors(boost::shared_ptr<HeightErrEstim> const& heightErrEstim,
+                         SfsOptions const& opt, vw::cartography::GeoReference const& geo) {
+
+  // Find the height error from the range of heights
+  vw::ImageView<float> height_error;
+  height_error.set_size(heightErrEstim->height_error_vec.cols(),
+                        heightErrEstim->height_error_vec.rows());
+  for (int col = 0; col < height_error.cols(); col++) {
+    for (int row = 0; row < height_error.rows(); row++) {
+      height_error(col, row)
+        = std::max(-heightErrEstim->height_error_vec(col, row)[0],
+                    heightErrEstim->height_error_vec(col, row)[1]);
+
+      // When we are stuck at the highest error that means we could not find it
+      if (height_error(col, row) == heightErrEstim->max_height_error)
+        height_error(col, row) = heightErrEstim->nodata_height_val;
+    }
+  }
+  
+  vw::TerminalProgressCallback tpc("asp", ": ");
+  bool has_georef = true, has_nodata = true;
+  std::string height_error_file = opt.out_prefix + "-height-error.tif";
+  vw::vw_out() << "Writing: " << height_error_file << std::endl;
+  vw::cartography::block_write_gdal_image(height_error_file,
+                                          height_error,
+                                          has_georef, geo,
+                                          has_nodata, heightErrEstim->nodata_height_val,
+                                          opt, tpc);
+}
 
 } // end namespace asp

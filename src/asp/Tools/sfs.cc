@@ -456,9 +456,8 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
     std::ifstream ifs(opt.custom_shadow_threshold_list);
     std::string image;
     double val;
-    while (ifs >> image >> val) {
+    while (ifs >> image >> val)
       custom_thresh[image] = val;
-    }
 
     if (custom_thresh.empty())
       vw_throw(ArgumentErr() << "Could not read any data from: "
@@ -738,8 +737,8 @@ void run_sfs(// Fixed quantities
              double                             dem_nodata_val,
              float                              img_nodata_val,
              std::vector<BBox2i>        const & crop_boxes,
-             std::vector<MaskedImgRefT>    const & masked_images,
-             std::vector<DblImgT>    const & blend_weights,
+             std::vector<MaskedImgRefT> const & masked_images,
+             std::vector<DblImgT>       const & blend_weights,
              bool                               blend_weight_is_ground_weight,
              asp::ReflParams            const & refl_params,
              std::vector<vw::Vector3>   const & sunPosition,
@@ -1538,33 +1537,8 @@ int main(int argc, char* argv[]) {
 
       } // End iterating over images
 
-      if (opt.estimate_height_errors) {
-        // Find the height error from the range of heights
-        vw::ImageView<float> height_error;
-        height_error.set_size(heightErrEstim->height_error_vec.cols(),
-                              heightErrEstim->height_error_vec.rows());
-        for (int col = 0; col < height_error.cols(); col++) {
-          for (int row = 0; row < height_error.rows(); row++) {
-            height_error(col, row)
-              = std::max(-heightErrEstim->height_error_vec(col, row)[0],
-                         heightErrEstim->height_error_vec(col, row)[1]);
-
-            // When we are stuck at the highest error that means we could not
-            // find it
-            if (height_error(col, row) == heightErrEstim->max_height_error)
-              height_error(col, row) = heightErrEstim->nodata_height_val;
-          }
-        }
-        TerminalProgressCallback tpc("asp", ": ");
-        bool has_georef = true, has_nodata = true;
-        std::string height_error_file = opt.out_prefix + "-height-error.tif";
-        vw_out() << "Writing: " << height_error_file << std::endl;
-        block_write_gdal_image(height_error_file,
-                               height_error,
-                               has_georef, geo,
-                               has_nodata, heightErrEstim->nodata_height_val,
-                               opt, tpc);
-      }
+      if (opt.estimate_height_errors)
+        asp::combineHeightErrors(heightErrEstim, opt, geo);
 
     } // End doing intensity computations and/or height and/or slope error estimations
 
