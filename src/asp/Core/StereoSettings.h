@@ -16,7 +16,8 @@
 // __END_LICENSE__
 
 /// \file StereoSettings.h
-///
+/// This a class with minimal dependencies having stereo setings that is
+/// included in many places. 
 
 #ifndef __ASP_CORE_STEREO_SETTINGS_H__
 #define __ASP_CORE_STEREO_SETTINGS_H__
@@ -52,8 +53,8 @@ namespace asp {
     void initialize(vw::GdalWriteOptions& opt);
     void validate();
     void write_copy(int argc, char *argv[],
-                     std::string const& input_file,
-                     std::string const& output_file) const;
+                    std::string const& input_file,
+                    std::string const& output_file) const;
     bool is_search_defined() const;
 
     // ----------------
