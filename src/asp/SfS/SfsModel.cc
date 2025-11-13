@@ -797,4 +797,27 @@ void setupReflectance(asp::ReflParams & refl_params, asp::SfsOptions & opt) {
   }
 }
 
+// TODO(oalexan1): Should one mark the no-data values rather than setting
+// them to 0?
+void calcSimIntensity(vw::ImageView<double> const& albedo,
+                      MaskedDblImgT const& reflectance,
+                      double exposure,
+                      double steepness_factor,
+                      std::vector<double> const& haze,
+                      int num_haze_coeffs,
+                      MaskedDblImgT & comp_intensity) {
+
+  comp_intensity.set_size(reflectance.cols(), reflectance.rows());
+  for (int col = 0; col < comp_intensity.cols(); col++) {
+    for (int row = 0; row < comp_intensity.rows(); row++) {
+      comp_intensity(col, row) = calcIntensity(albedo(col, row),
+                                               reflectance(col, row),
+                                               exposure,
+                                               steepness_factor,
+                                               &haze[0],
+                                               num_haze_coeffs);
+    }
+  }
+}
+
 } // end namespace asp

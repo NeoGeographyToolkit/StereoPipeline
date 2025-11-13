@@ -1465,21 +1465,13 @@ int main(int argc, char* argv[]) {
                                        &opt.model_coeffs_vec[0], opt,
                                        heightErrEstim.get());
 
-        // Find the computed intensity.
-        // TODO(oalexan1): Should one mark the no-data values rather than setting
-        // them to 0?
-        // TODO(oalexan1): This loop must be a function
-        comp_intensity.set_size(reflectance.cols(), reflectance.rows());
-        for (int col = 0; col < comp_intensity.cols(); col++) {
-          for (int row = 0; row < comp_intensity.rows(); row++) {
-            comp_intensity(col, row) = calcIntensity(albedo(col, row),
-                                                     reflectance(col, row),
-                                                     opt.image_exposures_vec[image_iter],
-                                                     opt.steepness_factor,
-                                                     &opt.image_haze_vec[image_iter][0],
-                                                     opt.num_haze_coeffs);
-          }
-        }
+        // Find the simulated intensity
+        asp::calcSimIntensity(albedo, reflectance,
+                              opt.image_exposures_vec[image_iter],
+                              opt.steepness_factor,
+                              opt.image_haze_vec[image_iter],
+                              opt.num_haze_coeffs,
+                              comp_intensity);
       
         // Save some quantities if needed
         if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&

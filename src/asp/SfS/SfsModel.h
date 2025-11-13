@@ -69,6 +69,16 @@ double calcReflectance(vw::Vector3 const& cameraPosition, vw::Vector3 const& nor
 double calcIntensity(double albedo, double reflectance, double exposure,
                      double steepness_factor, double const* haze, int num_haze_coeffs);
 
+// TODO(oalexan1): Should one mark the no-data values rather than setting
+// them to 0?
+void calcSimIntensity(vw::ImageView<double> const& albedo,
+                      MaskedDblImgT const& reflectance,
+                      double exposure,
+                      double steepness_factor,
+                      std::vector<double> const& haze,
+                      int num_haze_coeffs,
+                      MaskedDblImgT & comp_intensity);
+
 // Calc albedo given the intensity. See calcIntensity().
 double calcAlbedo(double intensity, double reflectance, double exposure,
                   double steepness_factor, double const* haze, int num_haze_coeffs);
