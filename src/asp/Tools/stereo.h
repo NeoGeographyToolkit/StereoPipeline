@@ -16,10 +16,12 @@
 // __END_LICENSE__
 
 /// \file stereo.h
-///
+/// Logic needed  by the stereo executables.
 
 #ifndef __ASP_STEREO_H__
 #define __ASP_STEREO_H__
+
+#include <asp/Core/StereoSettingsDesc.h>
 
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Math/BBox.h>

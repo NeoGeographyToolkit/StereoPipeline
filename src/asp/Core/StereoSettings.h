@@ -23,8 +23,6 @@
 
 #include <vw/FileIO/GdalWriteOptions.h>
 
-#include <boost/program_options.hpp>
-
 namespace asp {
 
   class StereoSession; // Forward declaration
@@ -46,44 +44,6 @@ namespace asp {
     static int rfne_tile_size() { return 256;  } // Tile size for refinement
     static int tri_tile_size() { return 256;  } // Tile size for tri/point cloud
   };
-
-  // Program options for each executable/step
-  struct PreProcessingDescription: public boost::program_options::options_description {
-    PreProcessingDescription();
-  };
-  struct CorrelationDescription: public boost::program_options::options_description {
-    CorrelationDescription();
-  };
-  struct SubpixelDescription: public boost::program_options::options_description {
-    SubpixelDescription();
-  };
-  struct FilteringDescription: public boost::program_options::options_description {
-    FilteringDescription();
-  };
-  struct TriangulationDescription: public boost::program_options::options_description {
-    TriangulationDescription();
-  };
-  struct GUIDescription: public boost::program_options::options_description {
-    GUIDescription();
-  };
-  struct ParseDescription: public boost::program_options::options_description {
-    ParseDescription();
-  };
-  struct ParallelDescription: public boost::program_options::options_description {
-    ParallelDescription();
-  };
-  struct UndocOptsDescription: public boost::program_options::options_description {
-    UndocOptsDescription();
-  };
-
-  boost::program_options::options_description
-  generate_config_file_options(vw::GdalWriteOptions& opt);
-
-  // This handles options which are not in stereo_settings(), but
-  // rather in 'opt'. So they are not config options set in
-  // stereo.default but only command-line options.
-  void addAspGlobalOptions(boost::program_options::options_description & description,
-                           ASPGlobalOptions & opt);
 
   /// Structure holding variables
   class StereoSettings {
@@ -245,7 +205,7 @@ namespace asp {
     vw::Vector2i rm_half_kernel;      // Low confidence pixel removal kernel size
     int    max_mean_diff;             // Max mean diff between pixel and neighbors
     int    rm_min_matches;            // Min # of pxl to be matched to keep pxl
-    double rm_threshold;              // rm_treshold < disp[n]-disp[m] reject pxl
+    double rm_threshold;              // rm_threshold < disp[n]-disp[m] reject pxl
     double rm_quantile_percentile;    // For quantile based filtering, reject low-res correlation
     double rm_quantile_multiple;      //   values >  multiple * quantile.
     int    rm_cleanup_passes;         // Number of times to perform cleanup

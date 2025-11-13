@@ -51,7 +51,6 @@
 using namespace asp;
 using namespace vw;
 
-namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 // Need this class to manage what happens when keys are pressed while
