@@ -27,7 +27,6 @@
 #include <asp/Core/PhotometricOutlier.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/BaseCameraUtils.h>
-#include <asp/Camera/CsmModel.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #include <asp/IsisIO/Equation.h>
