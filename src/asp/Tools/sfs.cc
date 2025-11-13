@@ -726,32 +726,32 @@ void handle_arguments(int argc, char *argv[], SfsOptions& opt) {
 }
 
 // Run sfs
-void run_sfs(// Fixed quantities
-             int                                num_iterations,
-             double                             gridx,
-             double                             gridy,
-             SfsOptions                       & opt,
-             GeoReference               const & geo,
-             double                             smoothness_weight,
-             double                             max_dem_height,
-             double                             dem_nodata_val,
-             float                              img_nodata_val,
-             std::vector<BBox2i>        const & crop_boxes,
-             std::vector<MaskedImgRefT> const & masked_images,
-             std::vector<DblImgT>       const & blend_weights,
-             bool                               blend_weight_is_ground_weight,
-             asp::ReflParams            const & refl_params,
-             std::vector<vw::Vector3>   const & sunPosition,
-             vw::ImageView<double>      const & orig_dem,
-             vw::ImageView<int>         const & lit_image_mask,
-             vw::ImageView<double>      const & curvature_in_shadow_weight,
-             // Variable quantities
-             vw::ImageView<double>            & dem,
-             vw::ImageView<double>            & albedo,
-             std::vector<vw::CamPtr>          & cameras,
-             std::vector<double>              & exposures,
-             std::vector<std::vector<double>> & haze,
-             std::vector<double>              & refl_coeffs) {
+void runSfs(// Fixed quantities
+            int                                num_iterations,
+            double                             gridx,
+            double                             gridy,
+            SfsOptions                       & opt,
+            GeoReference               const & geo,
+            double                             smoothness_weight,
+            double                             max_dem_height,
+            double                             dem_nodata_val,
+            float                              img_nodata_val,
+            std::vector<BBox2i>        const & crop_boxes,
+            std::vector<MaskedImgRefT> const & masked_images,
+            std::vector<DblImgT>       const & blend_weights,
+            bool                               blend_weight_is_ground_weight,
+            asp::ReflParams            const & refl_params,
+            std::vector<vw::Vector3>   const & sunPosition,
+            vw::ImageView<double>      const & orig_dem,
+            vw::ImageView<int>         const & lit_image_mask,
+            vw::ImageView<double>      const & curvature_in_shadow_weight,
+            // Variable quantities
+            vw::ImageView<double>            & dem,
+            vw::ImageView<double>            & albedo,
+            std::vector<vw::CamPtr>          & cameras,
+            std::vector<double>              & exposures,
+            std::vector<std::vector<double>> & haze,
+            std::vector<double>              & refl_coeffs) {
 
   int num_images = opt.input_images.size();
   ceres::Problem problem;
@@ -1114,6 +1114,127 @@ void loadGeoref(SfsOptions const& opt,
                   << "from the input albedo image.\n");
 }
 
+// This function computes / saves measured and simulated intensities, and
+// handles related estimations. If opt.allow_borderline_data is true, create for
+// each image that will not be skipped a weight matrix with dimensions equal to
+// DEM dimensions, that will be used instead of weights in the camera image
+// space. These are balanced among each other and give more weight to barely lit
+// and unlit nearby pixels.
+void calcIntenEstimHeights(SfsOptions & opt,
+                           vw::ImageView<double> const& dem,
+                           vw::ImageView<double> & albedo,
+                           vw::cartography::GeoReference const& geo,
+                           double max_dem_height,
+                           double gridx, double gridy,
+                           std::vector<vw::Vector3> const& sunPosition,
+                           asp::ReflParams const& refl_params,
+                           std::vector<BBox2i> const& crop_boxes,
+                           std::vector<MaskedImgRefT> const& masked_images,
+                           std::vector<vw::ImageView<double>> const& blend_weights,
+                           bool blend_weight_is_ground_weight,
+                           std::vector<vw::CamPtr> const& cameras,
+                           float img_nodata_val,
+                           // Outputs
+                           vw::ImageView<int> & lit_image_mask,
+                           std::vector<ImageView<double>> & ground_weights,
+                           std::vector<MaskedDblImgT> & meas_intensities,
+                           std::vector<MaskedDblImgT> & comp_intensities) {
+
+  int num_images = opt.input_images.size();
+
+  // Save the computed and actual intensity, and for most of these quit
+  MaskedDblImgT reflectance, meas_intensity, comp_intensity;
+  vw::ImageView<double> ground_weight;
+  vw::ImageView<Vector2> pq; // no need for these just for initialization
+  int sample_col_rate = 1, sample_row_rate = 1;
+  
+  auto heightErrEstim = boost::shared_ptr<HeightErrEstim>(NULL);
+  if (opt.estimate_height_errors) {
+    double max_height_error  = opt.height_error_params[0];
+    int num_height_samples   = opt.height_error_params[1];
+    vw_out() << "Maximum height error to examine: " << max_height_error << "\n";
+    vw_out() << "Number of samples to use from 0 to that height: "
+             << num_height_samples << "\n";
+    
+    double nodata_height_val = -1.0;
+    heightErrEstim = boost::shared_ptr<HeightErrEstim>
+      (new HeightErrEstim(dem.cols(), dem.rows(),
+                          num_height_samples, max_height_error, nodata_height_val,
+                          &albedo));
+  }
+  
+  for (int image_iter = 0; image_iter < num_images; image_iter++) {
+    
+    if (opt.estimate_height_errors)
+      heightErrEstim->image_iter = image_iter;
+    
+    // Find the reflectance and measured intensity (and work towards
+    // estimating the slopes if asked to).
+    computeReflectanceAndIntensity(dem, pq, geo,
+                                   opt.model_shadows, max_dem_height,
+                                   gridx, gridy, sample_col_rate, sample_row_rate,
+                                   sunPosition[image_iter],
+                                   refl_params,
+                                   crop_boxes[image_iter],
+                                   masked_images[image_iter],
+                                   blend_weights[image_iter],
+                                   blend_weight_is_ground_weight,
+                                   cameras[image_iter],
+                                   reflectance, meas_intensity, ground_weight,
+                                   &opt.model_coeffs_vec[0], opt,
+                                   heightErrEstim.get());
+    
+    // Find the simulated intensity
+    asp::calcSimIntensity(albedo, reflectance,
+                          opt.image_exposures_vec[image_iter],
+                          opt.steepness_factor,
+                          opt.image_haze_vec[image_iter],
+                          opt.num_haze_coeffs,
+                          comp_intensity);
+    
+    // Save some quantities if needed
+    if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
+        (opt.allow_borderline_data || opt.low_light_threshold > 0.0))
+      ground_weights[image_iter] = copy(ground_weight); // save the weight
+    if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
+        opt.low_light_threshold > 0.0) {
+      // Save the measured and computed intensities
+      meas_intensities[image_iter] = copy(meas_intensity);
+      comp_intensities[image_iter] = copy(comp_intensity);
+    }
+    
+    if (opt.curvature_in_shadow_weight > 0.0) {
+      if (meas_intensity.cols() != lit_image_mask.cols() ||
+          meas_intensity.rows() != lit_image_mask.rows()) {
+        vw_throw(ArgumentErr()
+                 << "Intensity image dimensions disagree with DEM clip dimensions.\n");
+      }
+      for (int col = 0; col < lit_image_mask.cols(); col++) {
+        for (int row = 0; row < lit_image_mask.rows(); row++) {
+          if (is_valid(meas_intensity(col, row))           ||
+              col == 0 || col == lit_image_mask.cols() - 1 ||
+              row == 0 || row == lit_image_mask.rows() - 1) {
+            // Boundary pixels are declared lit. Otherwise they are always
+            // unlit due to the peculiarities of how the intensity is found
+            // at the boundary.
+            lit_image_mask(col, row) = 1;
+          }
+        }
+      }
+    }
+    
+    if (opt.save_computed_intensity_only)
+      asp::saveIntensities(opt, opt.input_images[image_iter],
+                           opt.input_cameras[image_iter],
+                           geo, meas_intensity,
+                           comp_intensity, img_nodata_val);
+    
+  } // End iterating over images
+  
+  if (opt.estimate_height_errors)
+    asp::combineHeightErrors(heightErrEstim, opt, geo);
+}
+
 int main(int argc, char* argv[]) {
 
   Stopwatch sw_total;
@@ -1387,117 +1508,26 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // If opt.allow_borderline_data is true, create for each image that will not be skipped
-    // a weight matrix with dimensions equal to DEM dimensions, that will be used instead
-    // of weights in the camera image space. These are balanced among each other and give more
-    // weight to barely lit and unlit nearby pixels.
     std::vector<ImageView<double>> ground_weights(num_images);
     std::vector<MaskedDblImgT> meas_intensities(num_images);
     std::vector<MaskedDblImgT> comp_intensities(num_images);
 
-    // Note that below we may use the exposures computed at the previous step
-    // TODO(oalexan1): This block must be a function.
+    // Compute and/or save the intensities, and/or estimate height errors,
+    // and/or compute weights for borderline data.
     if (opt.save_computed_intensity_only || 
         opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0 ||
-        opt.allow_borderline_data || opt.low_light_threshold > 0.0) {
-      // Save the computed and actual intensity, and for most of these quit
-      MaskedDblImgT reflectance, meas_intensity, comp_intensity;
-      vw::ImageView<double> ground_weight;
-      vw::ImageView<Vector2> pq; // no need for these just for initialization
-      int sample_col_rate = 1, sample_row_rate = 1;
-
-      auto heightErrEstim = boost::shared_ptr<HeightErrEstim>(NULL);
-      if (opt.estimate_height_errors) {
-        double max_height_error  = opt.height_error_params[0];
-        int num_height_samples   = opt.height_error_params[1];
-        vw_out() << "Maximum height error to examine: " << max_height_error << "\n";
-        vw_out() << "Number of samples to use from 0 to that height: "
-                 << num_height_samples << "\n";
-
-        double nodata_height_val = -1.0;
-        heightErrEstim = boost::shared_ptr<HeightErrEstim>
-          (new HeightErrEstim(dem.cols(), dem.rows(),
-                              num_height_samples, max_height_error, nodata_height_val,
-                              &albedo));
-      }
-
-      for (int image_iter = 0; image_iter < num_images; image_iter++) {
-
-        if (opt.estimate_height_errors)
-          heightErrEstim->image_iter = image_iter;
-
-        // Find the reflectance and measured intensity (and work towards
-        // estimating the slopes if asked to).
-        computeReflectanceAndIntensity(dem, pq, geo,
-                                       opt.model_shadows, max_dem_height,
-                                       gridx, gridy, sample_col_rate, sample_row_rate,
-                                       sunPosition[image_iter],
-                                       refl_params,
-                                       crop_boxes[image_iter],
-                                       masked_images[image_iter],
-                                       blend_weights[image_iter],
-                                       blend_weight_is_ground_weight,
-                                       cameras[image_iter],
-                                       reflectance, meas_intensity, ground_weight,
-                                       &opt.model_coeffs_vec[0], opt,
-                                       heightErrEstim.get());
-
-        // Find the simulated intensity
-        asp::calcSimIntensity(albedo, reflectance,
-                              opt.image_exposures_vec[image_iter],
-                              opt.steepness_factor,
-                              opt.image_haze_vec[image_iter],
-                              opt.num_haze_coeffs,
-                              comp_intensity);
-      
-        // Save some quantities if needed
-        if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
-            (opt.allow_borderline_data || opt.low_light_threshold > 0.0))
-          ground_weights[image_iter] = copy(ground_weight); // save the weight
-        if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
-            opt.low_light_threshold > 0.0) {
-          // Save the measured and computed intensities
-          meas_intensities[image_iter] = copy(meas_intensity);
-          comp_intensities[image_iter] = copy(comp_intensity);
-        }
-
-        if (opt.curvature_in_shadow_weight > 0.0) {
-          if (meas_intensity.cols() != lit_image_mask.cols() ||
-              meas_intensity.rows() != lit_image_mask.rows()) {
-            vw_throw(ArgumentErr()
-                     << "Intensity image dimensions disagree with DEM clip dimensions.\n");
-          }
-          for (int col = 0; col < lit_image_mask.cols(); col++) {
-            for (int row = 0; row < lit_image_mask.rows(); row++) {
-              if (is_valid(meas_intensity(col, row))           ||
-                  col == 0 || col == lit_image_mask.cols() - 1 ||
-                  row == 0 || row == lit_image_mask.rows() - 1) {
-                // Boundary pixels are declared lit. Otherwise they are always
-                // unlit due to the peculiarities of how the intensity is found
-                // at the boundary.
-                lit_image_mask(col, row) = 1;
-              }
-            }
-          }
-        }
-
-        if (opt.save_computed_intensity_only)
-          asp::saveIntensities(opt, opt.input_images[image_iter],
-                               opt.input_cameras[image_iter],
-                               geo, meas_intensity,
-                               comp_intensity, img_nodata_val);
-
-      } // End iterating over images
-
-      if (opt.estimate_height_errors)
-        asp::combineHeightErrors(heightErrEstim, opt, geo);
-
-    } // End doing intensity computations and/or height and/or slope error estimations
+        opt.allow_borderline_data || opt.low_light_threshold > 0.0)
+      calcIntenEstimHeights(opt, dem, albedo, geo, max_dem_height,
+                            gridx, gridy, sunPosition, refl_params, crop_boxes,
+                            masked_images, blend_weights, blend_weight_is_ground_weight,
+                            cameras, img_nodata_val,
+                            // Outputs
+                            lit_image_mask, ground_weights,
+                            meas_intensities, comp_intensities);
 
     if (opt.save_computed_intensity_only || opt.estimate_height_errors) {
       asp::saveExposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
-      // All done
-      return 0;
+      return 0; // All done
     }
 
     // Print and make global the exposures and haze
@@ -1539,16 +1569,15 @@ int main(int argc, char* argv[]) {
     // orig_dem will keep the input DEMs and won't change. Keep to the optimized
     // DEMs close to orig_dem. Make a deep copy below.
     orig_dem = copy(dem);
-
-    run_sfs(// Fixed quantities
-            opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight,
-            max_dem_height, dem_nodata_val, img_nodata_val,  crop_boxes, masked_images,
-            blend_weights, blend_weight_is_ground_weight,
-            refl_params, sunPosition, orig_dem,
-            lit_image_mask, curvature_in_shadow_weight,
-            // Variable quantities
-            dem, albedo, cameras, opt.image_exposures_vec, opt.image_haze_vec,
-            opt.model_coeffs_vec);
+    
+    runSfs(opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight,
+           max_dem_height, dem_nodata_val, img_nodata_val,  crop_boxes, masked_images,
+           blend_weights, blend_weight_is_ground_weight,
+           refl_params, sunPosition, orig_dem,
+           lit_image_mask, curvature_in_shadow_weight,
+           // Variable quantities
+           dem, albedo, cameras, opt.image_exposures_vec, opt.image_haze_vec,
+           opt.model_coeffs_vec);
 
   } ASP_STANDARD_CATCHES;
 
