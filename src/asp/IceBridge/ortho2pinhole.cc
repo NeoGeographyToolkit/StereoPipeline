@@ -24,9 +24,9 @@
 // opt.reference_dem, we assume for now that the image is mapprojected
 // onto the datum. Save on output a gcp file, that may be used to further
 // refine the camera using bundle_adjust.
-#include <asp/Core/Macros.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/InterestPointMatching.h>

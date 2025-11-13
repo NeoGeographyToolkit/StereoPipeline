@@ -17,10 +17,10 @@
 
 /// \file stereo_pprc.cc
 ///
-#include <asp/Tools/stereo.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Sessions/CameraUtils.h>
+#include <asp/Core/StereoSettings.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/IpMatchingAlgs.h>
@@ -28,6 +28,7 @@
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/ThreadedEdgeMask.h>
 #include <asp/Core/ImageUtils.h>
+#include <asp/Tools/stereo.h>
 
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/BlobIndex.h>

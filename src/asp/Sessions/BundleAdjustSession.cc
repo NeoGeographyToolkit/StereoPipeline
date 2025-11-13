@@ -18,14 +18,15 @@
 // \file BundleAdjustSession.cc
 // Bundle adjustment functions that need StereoSession
 
-#include <asp/Sessions/BundleAdjustSession.h>
-#include <asp/Sessions/StereoSession.h>
-#include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/Camera/BundleAdjustOptions.h>
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/IpMatchingAlgs.h>
+#include <asp/Core/StereoSettings.h>
 #include <asp/Core/FileUtils.h>
+#include <asp/Camera/BundleAdjustOptions.h>
+#include <asp/Sessions/BundleAdjustSession.h>
+#include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/StereoSessionFactory.h>
 
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Cartography/GeoTransform.h>

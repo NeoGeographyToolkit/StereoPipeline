@@ -18,15 +18,16 @@
 
 /// \file StereoSessionASTER.cc
 ///
+#include <asp/Core/AffineEpipolar.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Camera/LinescanASTERModel.h>
+#include <asp/Sessions/StereoSessionASTER.h>
+
 #include <vw/Image/ImageMath.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/Transform.h>
 #include <vw/Camera/CameraModel.h>
-
-#include <asp/Core/AffineEpipolar.h>
-#include <asp/Camera/LinescanASTERModel.h>
-#include <asp/Sessions/StereoSessionASTER.h>
 
 #include <iostream>
 #include <string>

@@ -21,12 +21,11 @@
 #ifndef __ASP_STEREO_H__
 #define __ASP_STEREO_H__
 
-#include <asp/Core/StereoSettings.h>
-
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Math/BBox.h>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/program_options.hpp>
 
 // This has only the definition of an enum
 #include <vw/Stereo/CorrelationAlgorithms.h>
@@ -91,6 +90,13 @@ namespace asp {
   // external algorithms will have to examine closer the algorithm
   // string. This function has a Python analog in parallel_stereo.
   vw::stereo::CorrelationAlgorithm stereo_alg_to_num(std::string alg);
+  
+  // Find the median angle in degrees at which rays emanating from
+  // matching points meet
+  // TODO(oalexan1): Make this not take opt as an argument, as that requires
+  // including StereoSettings.h here.
+  void estimate_convergence_angle(ASPGlobalOptions const& opt);
+  
 } // end namespace vw
 
 #endif//__ASP_STEREO_H__

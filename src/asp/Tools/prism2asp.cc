@@ -18,18 +18,18 @@
 // Parse PRISM data and produce CSM camera files
 // Reference: https://elib.dlr.de/57440/1/Schneider.pdf
 
-#include <asp/Core/AspProgramOptions.h>
-#include <asp/Core/Macros.h>
-#include <asp/Camera/PRISM_XML.h>
-
 // TODO(oalexan1): Many of these need to go when the code is modularized
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Camera/PRISM_XML.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/CsmModelFit.h>
 #include <asp/Camera/SatSim.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/Macros.h>
 #include <asp/Core/SatSimBase.h>
 #include <asp/Core/CameraTransforms.h>
 

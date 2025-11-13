@@ -18,20 +18,21 @@
 // Create a pinhole, optical bar, or csm camera model based on intrinsics, image
 // corner coordinates, and other attributes. See the doc for more info.
 
-#include <asp/Core/AspProgramOptions.h>
-#include <asp/Core/Macros.h>
-#include <asp/Core/FileUtils.h>
-#include <asp/Core/PointUtils.h>
-#include <asp/Core/EigenUtils.h>
-#include <asp/Camera/CameraResectioning.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Sessions/CameraUtils.h>
+#include <asp/Camera/CameraResectioning.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/CsmModelFit.h>
 #include <asp/Camera/RPCModel.h>
-#include <asp/Sessions/CameraUtils.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/Macros.h>
+#include <asp/Core/FileUtils.h>
+#include <asp/Core/PointUtils.h>
+#include <asp/Core/EigenUtils.h>
 #include <asp/Core/ReportUtils.h>
 #include <asp/Core/CameraTransforms.h>
 

@@ -30,6 +30,7 @@
 #include <vw/Image/ImageIO.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/FileIO/DiskImageView.h>
+#include <vw/FileIO/GdalWriteOptionsDesc.h>
 #include <vw/Math/Vector.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Cartography/GeoReference.h>

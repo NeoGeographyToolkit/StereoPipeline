@@ -18,10 +18,11 @@
 // Cost functions used in bundle adjustment. These need access to the camera
 // models, so they are stored in the Camera folder.
 
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/DataLoader.h>
 #include <asp/Camera/BundleAdjustOptions.h>
 #include <asp/Camera/BundleAdjustCostFuns.h>
 #include <asp/Camera/BaseCostFuns.h>
-#include <asp/Core/DataLoader.h>
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Camera/CameraImage.h>
 #include <vw/Camera/LensDistortion.h>

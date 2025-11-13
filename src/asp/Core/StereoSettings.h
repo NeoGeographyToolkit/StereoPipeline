@@ -21,9 +21,9 @@
 #ifndef __ASP_CORE_STEREO_SETTINGS_H__
 #define __ASP_CORE_STEREO_SETTINGS_H__
 
-#include <boost/program_options.hpp>
-#include <boost/program_options/detail/config_file.hpp>
 #include <vw/FileIO/GdalWriteOptions.h>
+
+#include <boost/program_options.hpp>
 
 namespace asp {
 
@@ -328,18 +328,6 @@ namespace asp {
   /// The stereo settings struct is created the first time this method
   /// is invoked.  You must *always* access the stereo settings through this function.
   StereoSettings& stereo_settings();
-
-  /// Custom parsers for ASP's stereo.default files
-  boost::program_options::basic_parsed_options<char>
-  parse_asp_config_file(std::basic_istream<char>&,
-                        const boost::program_options::options_description&,
-                        bool allow_unregistered = false);
-
-  boost::program_options::basic_parsed_options<char>
-  parse_asp_config_file(bool print_warning,
-                        std::string const&,
-                        const boost::program_options::options_description&,
-                        bool allow_unregistered = false);
 
 }
 

@@ -21,6 +21,7 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Core/StereoSettings.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/CsmModel.h>

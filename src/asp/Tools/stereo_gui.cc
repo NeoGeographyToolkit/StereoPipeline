@@ -21,13 +21,14 @@
 #include <QApplication>
 #include <QWidget>
 
-#include <asp/Tools/stereo.h>
-#include <asp/Core/DemDisparity.h>
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/GuiUtilities.h>
 #include <asp/GUI/GuiArgs.h>
-#include <asp/Core/Macros.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/DemDisparity.h>
 #include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/Macros.h>
+#include <asp/Tools/stereo.h>
 
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>

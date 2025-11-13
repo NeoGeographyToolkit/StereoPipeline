@@ -26,17 +26,17 @@
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Sessions/StereoSessionASTER.h>
-
-#include <asp/Core/PointUtils.h>
 #include <asp/Camera/RPCModel.h>
+#include <asp/Camera/Covariance.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/PointUtils.h>
 #include <asp/Core/DisparityProcessing.h>
 #include <asp/Core/Bathymetry.h>
-#include <asp/Tools/stereo.h>
-#include <asp/Tools/ccd_adjust.h>
-#include <asp/Core/IpMatchingAlgs.h>
-#include <asp/Camera/Covariance.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/IpMatchingAlgs.h>
+#include <asp/Tools/stereo.h>
+#include <asp/Tools/ccd_adjust.h>
 
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>

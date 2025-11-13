@@ -15,14 +15,14 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file stereo_parse.cc
 ///
 /// This program is to allow python access to stereo settings.
 
-#include <asp/Tools/stereo.h>
-#include <asp/Core/Macros.h>
+#include <asp/Core/StereoSettings.h>
 #include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/Macros.h>
+#include <asp/Tools/stereo.h>
 
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Cartography/GeoReferenceUtils.h>

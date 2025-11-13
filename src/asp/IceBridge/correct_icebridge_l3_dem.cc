@@ -15,10 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <boost/program_options.hpp>
 
 /**
   A simple tool to fix the Icebridge L3 dems located here: http://nsidc.org/data/iodms3

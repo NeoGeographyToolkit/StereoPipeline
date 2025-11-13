@@ -19,10 +19,10 @@
 
 /// \file CameraUtils.cc
 
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/AspStringUtils.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/Core/AspStringUtils.h>
-#include <asp/Core/StereoSettings.h>
 #include <asp/Core/DemUtils.h>
 #include <asp/Core/FileUtils.h>
 

@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 // \file stereo_blend.cc
 
 // The purpose of this tool is to blend the boundaries of extra-large
@@ -34,9 +33,10 @@
 // tiles which overlap with the inner area of the current tile, and
 // blend the results.
 
-#include <asp/Tools/stereo.h>
+#include <asp/Core/StereoSettings.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspProgramOptions.h>
+#include <asp/Tools/stereo.h>
 
 #include <vw/Image/ImageMath.h>
 #include <vw/FileIO/DiskImageUtils.h>

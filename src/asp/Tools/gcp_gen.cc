@@ -20,13 +20,14 @@
 /// A program for finding GCP given a camera image, a similar looking
 /// orthoimage, and a DEM.
 
+#include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/MatchList.h>
 #include <asp/Core/GCP.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/StereoSettings.h>
 #include <asp/Core/AspProgramOptions.h>
-#include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/ImageNormalization.h>
 

@@ -15,11 +15,15 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// Compute the footprint of a camera on a DEM/datum, print it, and optionally
 ///  write a KML file.
 
 #include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/Macros.h>
+#include <asp/Core/FileUtils.h>
+
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Camera/PinholeModel.h>
@@ -27,10 +31,6 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/FileIO/KML.h>
-#include <asp/Core/AspProgramOptions.h>
-#include <asp/Core/Macros.h>
-#include <asp/Core/FileUtils.h>
-
 #include <vw/Cartography/shapeFile.h>
 
 #include <limits>

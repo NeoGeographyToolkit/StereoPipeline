@@ -23,6 +23,7 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/LocalAlignment.h>
+#include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Core/Macros.h>

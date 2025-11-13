@@ -21,6 +21,7 @@
 
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Core/BaseCameraUtils.h>
+#include <asp/Core/StereoSettings.h>
 
 #include <vw/Math/BBox.h>
 #include <vw/Math/Geometry.h>

@@ -15,14 +15,12 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file StereoSession.h
 ///
 
 #ifndef __STEREO_SESSION_H__
 #define __STEREO_SESSION_H__
 
-#include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/CameraModelLoader.h>
 
 #include <vw/Camera/CameraModel.h>
@@ -37,7 +35,7 @@ namespace asp {
 
 typedef vw::Vector<vw::float32,6> Vector6f;
 
-// Forward declare this class for constructing StereoSession objects
+// Forward declarations
 class StereoSessionFactory;
 
 /// Stereo Sessions define for different missions or satellites how to:
@@ -275,10 +273,6 @@ protected:
 };
 
 typedef boost::shared_ptr<StereoSession> SessionPtr;
-
-// Find the median angle in degrees at which rays emanating from
-// matching points meet
-void estimate_convergence_angle(ASPGlobalOptions const& opt);
 
 } // end namespace asp
 

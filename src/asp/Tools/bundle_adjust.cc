@@ -32,6 +32,7 @@
 #include <asp/Camera/BundleAdjustCostFuns.h> // Ceres included in this file
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Core/StereoSettings.h>
 #include <asp/Core/nvm.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/Macros.h>

@@ -22,7 +22,6 @@
 
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/BundleAdjustCamera.h>
-#include <asp/Core/StereoSettings.h>
 #include <asp/Core/BundleAdjustUtils.h>
 
 // Turn off warnings from eigen
