@@ -136,6 +136,12 @@ vw::ImageView<double> calcClampedBdDist(vw::ImageView<float> const& lit_grass_di
                                         double lit_blend_length,
                                         double shadow_blend_length);
 
+// Calc the weight for option --curvature-in-shadow-weight
+void calcCurvatureInShadowWeight(asp::SfsOptions const& opt,
+                                 vw::ImageView<int> const& lit_image_mask,
+                                 vw::cartography::GeoReference const& geo,
+                                 vw::ImageView<double> & curvature_in_shadow_weight);
+
 // Compute a full-resolution image by specific interpolation into a low-resolution
 // one. The full-res image may not fit in memory, so we need to compute it in tiles.
 // See computeReflectanceAndIntensity() for low-res vs full-res relationship.

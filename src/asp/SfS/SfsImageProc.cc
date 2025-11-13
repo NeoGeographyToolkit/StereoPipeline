@@ -32,6 +32,8 @@
 #include <vw/Image/InpaintView.h>
 #include <vw/Image/Filter.h>
 #include <vw/Image/NoDataAlg.h>
+#include <vw/Image/DistanceFunction.h>
+
 #include <boost/filesystem.hpp>
 
 #include <string>
@@ -1065,5 +1067,47 @@ vw::ImageView<double> calcClampedBdDist(vw::ImageView<float> const& lit_grass_di
   }
   return dist_to_bd;
 }
+
+// Calc the weight for option --curvature-in-shadow-weight
+void calcCurvatureInShadowWeight(asp::SfsOptions const& opt,
+                                 vw::ImageView<int> const& lit_image_mask,
+                                 vw::cartography::GeoReference const& geo,
+                                 vw::ImageView<double> & curvature_in_shadow_weight) {
+
+  TerminalProgressCallback tpc("asp", ": ");
+  bool has_georef = true, has_nodata = false;
+  double nodata_val = -1; // will not be used
+  std::string lit_image_mask_file = opt.out_prefix + "-lit_image_mask.tif";
+  vw_out() << "Writing: " << lit_image_mask_file << std::endl;
+  block_write_gdal_image(lit_image_mask_file, lit_image_mask,
+                          has_georef, geo, has_nodata, nodata_val, opt, tpc);
+
+  // Form the curvature_in_shadow_weight image. It will start at 0
+  // at distance opt.lit_curvature_dist from the shadow
+  // boundary in the lit area, and then reach value
+  // opt.curvature_in_shadow_weight when at distance
+  // opt.shadow_curvature_dist from the boundary in the shadowed
+  // area. This is done to avoid boundary artifacts.
+  double max_dist = std::max(opt.lit_curvature_dist, opt.shadow_curvature_dist);
+  vw::bounded_signed_dist<int>(vw::create_mask(lit_image_mask, 0), max_dist,
+                                curvature_in_shadow_weight);
+  // Do further adjustments
+  for (int col = 0; col < curvature_in_shadow_weight.cols(); col++) {
+    for (int row = 0; row < curvature_in_shadow_weight.rows(); row++) {
+      double val = curvature_in_shadow_weight(col, row);
+      val = std::min(val, opt.lit_curvature_dist);
+      val = std::max(val, -opt.shadow_curvature_dist);
+      val = (opt.lit_curvature_dist - val) /
+        (opt.lit_curvature_dist + opt.shadow_curvature_dist);
+      curvature_in_shadow_weight(col, row) = val * opt.curvature_in_shadow_weight;
+    }
+  }
+
+  std::string curvature_in_shadow_weight_file = opt.out_prefix
+    + "-curvature_in_shadow_weight.tif";
+  vw_out() << "Writing: " << curvature_in_shadow_weight_file << std::endl;
+  block_write_gdal_image(curvature_in_shadow_weight_file, curvature_in_shadow_weight,
+                          has_georef, geo, has_nodata, nodata_val, opt, tpc);
+} // end computing curvature_in_shadow_weight
 
 } // end namespace asp
