@@ -1181,4 +1181,3 @@ void saveIntensities(SfsOptions const& opt,
 }
 
 } // end namespace asp
-
