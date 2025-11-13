@@ -21,9 +21,12 @@
 #ifndef __SFS_IMAGE_PROC_H__
 #define __SFS_IMAGE_PROC_H__
 
-#include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/PerPixelViews.h>
+
+#include <string>
+#include <vector>
+#include <set>
 
 namespace vw {
   class GdalWriteOptions;
@@ -32,8 +35,6 @@ namespace vw {
   }
 }
 
-#include <vector>
-
 namespace asp {
 
 class SfsOptions;
@@ -41,6 +42,20 @@ class SfsOptions;
 typedef vw::ImageViewRef<vw::PixelMask<float>> MaskedImgRefT;
 typedef vw::ImageView<vw::PixelMask<double>> MaskedDblImgT;
 typedef vw::ImageView<double> DblImgT;
+
+// Calculate exposure and haze, and decide if an image should be skipped.
+void calcExposureHazeSkipImages(// Inputs
+                                asp::MaskedDblImgT const& intensity,
+                                asp::MaskedDblImgT const& reflectance,
+                                double mean_albedo,
+                                int image_iter,
+                                std::vector<std::string> const& input_images,
+                                // In-out
+                                std::vector<double>      & local_exposures_vec,
+                                std::vector<double>      & local_haze_vec,
+                                std::vector<std::string> & used_images,
+                                std::set<int>            & skip_images,
+                                std::vector<std::string> & skipped_images);
 
 // Compute mean and standard deviation of two images. Do it where both are valid.
 void calcJointStats(MaskedDblImgT const& I1,
@@ -180,4 +195,3 @@ public:
 } // end namespace asp
 
 #endif // __SFS_IMAGE_PROC_H__
-

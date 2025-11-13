@@ -43,6 +43,44 @@ using namespace vw;
 
 namespace asp {
 
+// Calculate exposure and haze, and decide if an image should be skipped.
+void calcExposureHazeSkipImages(// Inputs
+                                asp::MaskedDblImgT const& intensity,
+                                asp::MaskedDblImgT const& reflectance,
+                                double mean_albedo,
+                                int image_iter,
+                                std::vector<std::string> const& input_images,
+                                // In-out
+                                std::vector<double>      & local_exposures_vec,
+                                std::vector<double>      & local_haze_vec,
+                                std::vector<std::string> & used_images,
+                                std::set<int>            & skip_images,
+                                std::vector<std::string> & skipped_images) {
+
+  // TODO: Below is not the optimal way of finding the exposure!
+  // Find it as the analytical minimum using calculus.
+  double imgmean, imgstd, refmean, refstd;
+  asp::calcJointStats(intensity, reflectance, imgmean, imgstd, refmean, refstd);
+  double haze = 0.0;
+  if (imgmean > 0 && refmean > 0) {
+    double exposure = imgmean/refmean/mean_albedo;
+    local_exposures_vec[image_iter] = exposure;
+    local_haze_vec[image_iter] = haze;
+
+    // append used image to used_images list
+    used_images.push_back(input_images[image_iter]);
+  } else {
+    // Skip images with bad exposure. Apparently there is no good
+    // imagery in the area.
+    skip_images.insert(image_iter);
+    // log out the skipped image path and the image_iter for it
+    vw_out() << "Skipped image " << image_iter << ": " << input_images[image_iter]
+             << " with no data for this DEM.\n";
+    // append skipped image to skipped_images list
+    skipped_images.push_back(input_images[image_iter]);
+  }
+}
+
 // Compute mean and standard deviation of two images. Do it where both are valid.
 void calcJointStats(MaskedDblImgT const& I1,
                     MaskedDblImgT const& I2,
@@ -1111,3 +1149,4 @@ void calcCurvatureInShadowWeight(asp::SfsOptions const& opt,
 } // end computing curvature_in_shadow_weight
 
 } // end namespace asp
+

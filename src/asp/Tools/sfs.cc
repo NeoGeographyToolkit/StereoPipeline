@@ -1303,12 +1303,11 @@ int main(int argc, char* argv[]) {
     bool blend_weight_is_ground_weight = false; // will change later
 
     // Assume that haze is 0 to start with. Find the exposure as
-    // mean(intensity)/mean(reflectance)/albedo. Use this to compute an
-    // initial exposure and decide based on that which images to
-    // skip. If the user provided initial exposures and haze, use those, but
-    // still go through the motions to find the images to skip.
-    // See the intensity formula in calcIntensity().
-    // TODO(oalexan1): Modularize this
+    // mean(intensity)/mean(reflectance)/albedo. Use this to compute an initial
+    // exposure and decide based on that which images to skip. If the user
+    // provided initial exposures and haze, use those, but still go through the
+    // motions to find the images to skip. See the intensity formula in
+    // calcIntensity(). TODO(oalexan1): Modularize this
     std::vector<double> local_exposures_vec(num_images, 0), local_haze_vec(num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
@@ -1318,11 +1317,10 @@ int main(int argc, char* argv[]) {
       // Sample large DEMs. Keep about 200 row and column samples.
       int sample_col_rate = 0, sample_row_rate = 0;
       asp::calcSampleRates(dem, opt.num_samples_for_estim, sample_col_rate, sample_row_rate);
-
+      
       MaskedDblImgT reflectance, intensity;
       vw::ImageView<double> ground_weight;
       vw::ImageView<Vector2> pq; // no need for these just for initialization
-
       computeReflectanceAndIntensity(dem, pq, geo,
                                      opt.model_shadows, max_dem_height,
                                      gridx, gridy, sample_col_rate, sample_row_rate,
@@ -1335,30 +1333,10 @@ int main(int argc, char* argv[]) {
                                      cameras[image_iter],
                                      reflectance, intensity, ground_weight,
                                      &opt.model_coeffs_vec[0], opt);
-
-      // TODO: Below is not the optimal way of finding the exposure!
-      // Find it as the analytical minimum using calculus.
-      double imgmean, imgstd, refmean, refstd;
-      asp::calcJointStats(intensity, reflectance, imgmean, imgstd, refmean, refstd);
-      double haze = 0.0;
-
-      if (imgmean > 0 && refmean > 0) {
-        double exposure = imgmean/refmean/mean_albedo;
-        local_exposures_vec[image_iter] = exposure;
-        local_haze_vec[image_iter] = haze;
-
-        // append used image to used_images list
-        used_images.push_back(opt.input_images[image_iter]);
-      } else {
-        // Skip images with bad exposure. Apparently there is no good
-        // imagery in the area.
-        opt.skip_images.insert(image_iter);
-        // log out the skipped image path and the image_iter for it
-        vw_out() << "Skipped image " << image_iter << ": " << opt.input_images[image_iter]
-                 << " with no data for this DEM.\n";
-        // append skipped image to skipped_images list
-        skipped_images.push_back(opt.input_images[image_iter]);
-      }
+      asp::calcExposureHazeSkipImages(intensity, reflectance, mean_albedo,
+                                      image_iter, opt.input_images,
+                                      local_exposures_vec, local_haze_vec,
+                                      used_images, opt.skip_images, skipped_images);
     }
 
     // Only overwrite the exposures if we don't have them supplied
