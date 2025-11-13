@@ -15,15 +15,16 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <vw/FileIO/FileUtils.h>
 
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmUtils.h>
-#include <asp/Core/StereoSettings.h>
 #include <asp/Core/ProjectiveCamApprox.h>
 
+#include <vw/FileIO/FileUtils.h>
+#include <vw/Core/Thread.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/LensDistortion.h>
+#include <vw/Core/Log.h>
 
 #include <boost/dll.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
