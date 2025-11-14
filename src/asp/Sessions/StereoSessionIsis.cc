@@ -23,14 +23,12 @@
 
 // Stereo Pipeline
 #include <asp/Core/AffineEpipolar.h>
-#include <asp/Core/PhotometricOutlier.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/Core/BaseCameraUtils.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/DiskImageResourceIsis.h>
-#include <asp/IsisIO/Equation.h>
 #include <asp/IsisIO/IsisSpecialPixels.h>
 #include <asp/Sessions/StereoSessionIsis.h>
+#include <asp/Core/BaseCameraUtils.h>
 
 // Vision Workbench
 #include <vw/Core/Settings.h>
@@ -354,13 +352,11 @@ void StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
   output_file = input_file;
 } // End function pre_filtering_hook()
 
-/// Returns the target datum to use for a given camera model.
-/// Note the parameter use_sphere_for_non_earth.
-/// During alignment, we'd like to use the most accurate
-/// non-spherical datum, hence radii[2]. However, for the purpose
-/// of creating a DEM on non-Earth planets people usually just use
-/// a spherical datum, which we'll do as well.  Maybe at some
-/// point this needs to change.
+/// Returns the target datum to use for a given camera model. Note the parameter
+/// use_sphere_for_non_earth. During alignment, we'd like to use the most
+/// accurate non-spherical datum, hence radii[2]. However, for the purpose of
+/// creating a DEM on non-Earth planets people usually just use a spherical
+/// datum, which we'll do as well.  Maybe at some point this needs to change.
 vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraModel* cam,
                                                     bool use_sphere_for_non_earth) const {
   const IsisCameraModel * isis_cam

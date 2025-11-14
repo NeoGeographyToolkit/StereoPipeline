@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file StereoSessionIsis.h
 ///
 
@@ -23,14 +22,13 @@
 #define __STEREO_SESSION_ISIS_H__
 
 #include <asp/Sessions/StereoSession.h>
-#include <asp/asp_config.h>
-
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 
 namespace asp {
 
   /// Derived StereoSession class for ISIS images.
-  class StereoSessionIsis : public StereoSession {
+  class StereoSessionIsis: public StereoSession {
   public:
     StereoSessionIsis();
     virtual ~StereoSessionIsis() {}
@@ -61,11 +59,11 @@ namespace asp {
     virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>
     pre_pointcloud_hook(std::string const& input_file);
 
-    /// Simple factory function.
+    /// Simple factory function
     static StereoSession* construct() { return new StereoSessionIsis; }
 
   protected:
-    /// Function to load a camera model of the particular type.
+    /// Function to load a camera model of the particular type
     virtual boost::shared_ptr<vw::camera::CameraModel>
     load_camera_model(std::string const& image_file,
                       std::string const& camera_file,
