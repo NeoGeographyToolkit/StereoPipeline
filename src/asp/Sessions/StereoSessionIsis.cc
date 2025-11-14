@@ -88,22 +88,25 @@ void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
   ImageViewRef<float> processed_image
     = remove_isis_special_pixels(image_sans_mask, isis_lo, isis_hi, out_lo);
 
+  ImageViewRef<PixelMask<float>> local_masked;
+  ImageViewRef<uint8> mask;
+  if (apply_user_nodata) {
+    // Implement --no-data-value
+    mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
+    local_masked = copy_mask(processed_image, create_mask(mask));
+  } else {
+    local_masked = vw::pixel_cast<vw::PixelMask<float>>(processed_image);
+  }
+
+  // Normalize
+  ImageViewRef<PixelMask<float>> normalized_image =
+    normalize(local_masked, out_lo, out_hi, 0.0, 1.0);
+
   // Use no-data in interpolation and edge extension
   PixelMask<float> nodata_pix(output_nodata);
   nodata_pix.invalidate();
   ValueEdgeExtension<PixelMask<float>> ext(nodata_pix);
   
-  ImageViewRef<PixelMask<float>> normalized_image;
-  ImageViewRef<uint8> mask;
-  if (apply_user_nodata) {
-    // Implement --no-data-value
-    mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
-    normalized_image =
-      normalize(copy_mask(processed_image, create_mask(mask)), out_lo, out_hi, 0.0, 1.0);
-  } else {
-    normalized_image = vw::pixel_cast<vw::PixelMask<float>>(normalize(processed_image, out_lo, out_hi, 0.0, 1.0));
-  }
-
   ImageViewRef<PixelMask<float>> applied_image;
   if (matrix == math::identity_matrix<3>()) {
     applied_image = crop(edge_extend(normalized_image, ext),
