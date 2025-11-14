@@ -33,246 +33,290 @@ namespace fs = boost::filesystem;
 namespace asp {
 
 void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
+  double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("");
   general_options.add_options()
-  ("input-dem,i",  po::value(&opt.input_dem),
-  "The input DEM to refine using SfS.")
-  ("image-list", po::value(&opt.image_list)->default_value(""),
-  "A file containing the list of images, when they are too many to specify on the "
-  "command line. Use space or newline as separator. See also --camera-list and "
-  "--mapprojected-data-list.")
-  ("camera-list", po::value(&opt.camera_list)->default_value(""),
-  "A file containing the list of cameras, when they are too many to specify on the "
-  "command line. If the images have embedded camera information, such as for ISIS, "
-  "this file must be empty but must be specified if --image-list is specified.")
-  ("output-prefix,o", po::value(&opt.out_prefix),
-  "Prefix for output filenames.")
-  ("max-iterations,n", po::value(&opt.max_iterations)->default_value(10),
-  "Set the maximum number of iterations. Normally 5-10 iterations is enough, even "
-  "when convergence is not reached, as the solution usually improves quickly at "
-  "first and only very fine refinements happen later.")
-  ("reflectance-type", po::value(&opt.reflectance_type)->default_value(1),
-  "Reflectance type: 0 = Lambertian, 1 = Lunar-Lambert, 2 = Hapke, 3 = Experimental "
-  "extension of Lunar-Lambert, 4 = Charon model (a variation of Lunar-Lambert).")
-  ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
-  "The weight given to the cost function term which consists of sums of squares of "
-  "second-order derivatives. A larger value will result in a smoother solution with "
-  "fewer artifacts. See also --gradient-weight.")
-  ("initial-dem-constraint-weight", po::value(&opt.initial_dem_constraint_weight)->default_value(0),
-  "A larger value will try harder to keep the SfS-optimized DEM closer to the initial "
-  "guess DEM. A value between 0.0001 and 0.001 may work, unless your initial DEM is "
-  "very unreliable.")
-  ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
-  "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
-  ("input-albedo",  po::value(&opt.input_albedo),
-  "The input albedo image, if known. Must have same dimensions as the input DEM. "
-  "Otherwise it is initialized to 1. Can be refined with --float-albedo.")
+  ("input-dem,i",
+  po::value(&opt.input_dem),
+   "The input DEM to refine using SfS.")
+  ("image-list",
+  po::value(&opt.image_list)->default_value(""),
+   "A file containing the list of images, when they are too many to specify on the "
+   "command line. Use space or newline as separator. See also --camera-list and "
+   "--mapprojected-data-list.")
+  ("camera-list",
+  po::value(&opt.camera_list)->default_value(""),
+   "A file containing the list of cameras, when they are too many to specify on the "
+   "command line. If the images have embedded camera information, such as for ISIS, "
+   "this file must be empty but must be specified if --image-list is specified.")
+  ("output-prefix,o",
+  po::value(&opt.out_prefix),
+   "Prefix for output filenames.")
+  ("max-iterations,n",
+  po::value(&opt.max_iterations)->default_value(10),
+   "Set the maximum number of iterations. Normally 5-10 iterations is enough, even "
+   "when convergence is not reached, as the solution usually improves quickly at "
+   "first and only very fine refinements happen later.")
+  ("reflectance-type",
+  po::value(&opt.reflectance_type)->default_value(1),
+   "Reflectance type: 0 = Lambertian, 1 = Lunar-Lambert, 2 = Hapke, 3 = Experimental "
+   "extension of Lunar-Lambert, 4 = Charon model (a variation of Lunar-Lambert).")
+  ("smoothness-weight",
+  po::value(&opt.smoothness_weight)->default_value(0.04),
+   "The weight given to the cost function term which consists of sums of squares of "
+   "second-order derivatives. A larger value will result in a smoother solution with "
+   "fewer artifacts. See also --gradient-weight.")
+  ("initial-dem-constraint-weight",
+  po::value(&opt.initial_dem_constraint_weight)->default_value(0),
+   "A larger value will try harder to keep the SfS-optimized DEM closer to the initial "
+   "guess DEM. A value between 0.0001 and 0.001 may work, unless your initial DEM is "
+   "very unreliable.")
+  ("bundle-adjust-prefix",
+  po::value(&opt.bundle_adjust_prefix),
+   "Use the camera adjustments obtained by previously running bundle_adjust with this "
+   "output prefix.")
+  ("input-albedo",
+  po::value(&opt.input_albedo),
+   "The input albedo image, if known. Must have same dimensions as the input DEM. "
+   "Otherwise it is initialized to 1. Can be refined with --float-albedo.")
   ("float-albedo",  
   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
-  "Float the albedo for each pixel. Will give incorrect results if only one image is "
-  "present. The albedo is normalized, its nominal value is 1.")
+   "Float the albedo for each pixel. Will give incorrect results if only one image is "
+   "present. The albedo is normalized, its nominal value is 1.")
   ("float-exposure",  
   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
-  "Float the exposure for each image. Will give incorrect results if only one image is "
-  "present. It usually gives marginal results.")
+   "Float the exposure for each image. Will give incorrect results if only one image is "
+   "present. It usually gives marginal results.")
   ("model-shadows",  
   po::bool_switch(&opt.model_shadows)->default_value(false)->implicit_value(true),
-  "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
+   "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
   ("save-computed-intensity-only",  
   po::bool_switch(&opt.save_computed_intensity_only)->default_value(false)->implicit_value(true),
-  "Save the computed (simulated) image intensities for given DEM, images, cameras, and "
-  "reflectance model, without refining the DEM. The measured intensities will be saved "
-  "as well, for comparison. The image exposures will be computed along the way unless "
-  "specified via --image-exposures-prefix, and will be saved in either case to <output "
-  "prefix>-exposures.txt. Same for haze, if applicable.")
+   "Save the computed (simulated) image intensities for given DEM, images, cameras, and "
+   "reflectance model, without refining the DEM. The measured intensities will be saved "
+   "as well, for comparison. The image exposures will be computed along the way unless "
+   "specified via --image-exposures-prefix, and will be saved in either case to "
+   "<output prefix>-exposures.txt. Same for haze, if applicable.")
   ("estimate-exposure-haze-albedo",
   po::bool_switch(&opt.estim_exposure_haze_albedo)->default_value(false)->implicit_value(true),
-  "Estimate the exposure for each image, the haze for each image (if "
-  "--num-haze-coeffs is positive), and the global low-resolution albedo (if "
-  "--float-albedo is on), then quit. This operation samples the input DEM "
-  "based on --num-samples-for-estim. The produced estimated exposure, haze, "
-  "and initial albedo are described in the doc.")
+   "Estimate the exposure for each image, the haze for each image (if "
+   "--num-haze-coeffs is positive), and the global low-resolution albedo (if "
+   "--float-albedo is on), then quit. This operation samples the input DEM "
+   "based on --num-samples-for-estim. The produced estimated exposure, haze, "
+   "and initial albedo are described in the doc.")
   ("compute-exposures-only",
   po::bool_switch(&opt.compute_exposures_only)->default_value(false)->implicit_value(true),
-  "This older option is equivalent to --estimate-exposure-haze-albedo.")
+   "This older option is equivalent to --estimate-exposure-haze-albedo.")
   ("estimate-height-errors",  
   po::bool_switch(&opt.estimate_height_errors)->default_value(false)->implicit_value(true),
-  "Estimate the SfS DEM height uncertainty by finding the height perturbation (in "
-  "meters) at each grid point which will make at least one of the simulated images at "
-  "that point change by more than twice the discrepancy between the unperturbed "
-  "simulated image and the measured image. The SfS DEM must be provided via the -i "
-  "option. The number of iterations, blending parameters (--blending-dist, etc.), and "
-  "smoothness weight are ignored. Results are not computed at image pixels in shadow. "
-  "This produces <output prefix>-height-error.tif. No SfS DEM is computed. See also: "
-  "--height-error-params.")
-  ("height-error-params", po::value(&opt.height_error_params)->default_value(vw::Vector2(5.0, 100.0), "5.0 100"),
-  "Specify the largest height deviation to examine (in meters), and how many samples to use from 0 to that height.")
-  ("sun-positions", po::value(&opt.sun_positions_list)->default_value(""),
-  "A file having on each line an image name and three values in double precision "
-  "specifying the Sun position in meters in ECEF coordinates (origin is planet center). "
-  "Use a space as separator. If not provided, these will be read from the camera files "
-  "for ISIS and CSM models.")
-  ("sun-angles", po::value(&opt.sun_angles_list)->default_value(""),
-  "A file having on each line an image name and two values in double precision "
-  "specifying the Sun azimuth and elevation in degrees, relative to the center point of "
-  "the input DEM. Use a space as separator. This is an alternative to --sun-positions.")
-  ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
-  "Optional shadow thresholds for the input images (a list of real values in quotes, "
-  "one per image). See also --shadow-threshold.")
-  ("shadow-threshold", po::value(&opt.shadow_threshold)->default_value(-1),
-  "A shadow threshold to apply to all images. Must be positive. Areas that "
-  "are in shadow in all images will result in a blurred version of the input DEM, "
-  "influenced by the --smoothness-weight.")
-  ("custom-shadow-threshold-list", po::value(&opt.custom_shadow_threshold_list)->default_value(""),
-  "A list having one image and one shadow threshold per line. For the images specified "
-  "here, override the shadow threshold supplied by other means with this value.")
+   "Estimate the SfS DEM height uncertainty by finding the height perturbation (in "
+   "meters) at each grid point which will make at least one of the simulated images at "
+   "that point change by more than twice the discrepancy between the unperturbed "
+   "simulated image and the measured image. The SfS DEM must be provided via the -i "
+   "option. The number of iterations, blending parameters (--blending-dist, etc.), and "
+   "smoothness weight are ignored. Results are not computed at image pixels in shadow. "
+   "This produces <output prefix>-height-error.tif. No SfS DEM is computed. See also: "
+   "--height-error-params.")
+  ("height-error-params", 
+  po::value(&opt.height_error_params)->default_value(vw::Vector2(5.0, 100.0), "5.0 100"),
+   "Specify the largest height deviation to examine (in meters), and how many samples to use from 0 to that height.")
+  ("sun-positions",
+  po::value(&opt.sun_positions_list)->default_value(""),
+   "A file having on each line an image name and three values in double precision "
+   "specifying the Sun position in meters in ECEF coordinates (origin is planet center). "
+   "Use a space as separator. If not provided, these will be read from the camera files "
+   "for ISIS and CSM models.")
+  ("sun-angles",
+  po::value(&opt.sun_angles_list)->default_value(""),
+   "A file having on each line an image name and two values in double precision "
+   "specifying the Sun azimuth and elevation in degrees, relative to the center point of "
+   "the input DEM. Use a space as separator. This is an alternative to --sun-positions.")
+  ("shadow-thresholds",
+  po::value(&opt.shadow_thresholds)->default_value(""),
+   "Optional shadow thresholds for the input images (a list of real values in quotes, "
+   "one per image). See also --shadow-threshold.")
+  ("shadow-threshold",
+  po::value(&opt.shadow_threshold)->default_value(-1),
+   "A shadow threshold to apply to all images. Must be positive. Areas that "
+   "are in shadow in all images will result in a blurred version of the input DEM, "
+   "influenced by the --smoothness-weight.")
+  ("custom-shadow-threshold-list", 
+  po::value(&opt.custom_shadow_threshold_list)->default_value(""),
+   "A list having one image and one shadow threshold per line. For the images specified "
+   "here, override the shadow threshold supplied by other means with this value.")
   ("low-light-threshold", 
   po::value(&opt.low_light_threshold)->default_value(-1.0),
-  "A threshold for low-light pixels. If positive, pixels with intensity between "
-  "this and the shadow threshold will be given less weight, if other images have higher "
-  "intensity values at the same ground point. This helps fix seams. See also "
-  "--low-light-weight-power and --low-light-blur-sigma.")
+   "A threshold for low-light pixels. If positive, pixels with intensity between "
+   "this and the shadow threshold will be given less weight, if other images have higher "
+   "intensity values at the same ground point. This helps fix seams. See also "
+   "--low-light-weight-power and --low-light-blur-sigma.")
   ("low-light-weight-power", 
   po::value(&opt.low_light_weight_power)->default_value(4.0),
-  "With the option --low-light-threshold, the weight of a low-light pixel is inversely "
-  "proportional with the discrepancy between the simulated and observed pixel value, "
-  "raised to this power.")
+   "With the option --low-light-threshold, the weight of a low-light pixel is inversely "
+   "proportional with the discrepancy between the simulated and observed pixel value, "
+   "raised to this power.")
   ("low-light-blur-sigma", 
   po::value(&opt.low_light_blur_sigma)->default_value(3.0),
-  "With the option --low-light-threshold, apply a Gaussian blur with this sigma to the "
-  "low-light weight image, to make it continuous.")
-  ("max-valid-image-vals", po::value(&opt.max_valid_image_vals)->default_value(""),
-  "Optional values for the largest valid image value in each image (a list of real "
-  "values in quotes, one per image).")
-  ("robust-threshold", po::value(&opt.robust_threshold)->default_value(-1.0),
-  "If positive, set the threshold for the robust measured-to-simulated intensity "
-  "difference (using the Cauchy loss). Any difference much larger than this will be "
-  "penalized. A good value may be 5% to 25% of the average image value or the same "
-  "fraction of the computed image exposure values.")
-  ("albedo-constraint-weight", po::value(&opt.albedo_constraint_weight)->default_value(0),
-  "If floating the albedo, a larger value will try harder to keep the optimized albedo "
-  "close to the initial albedo. See also --input-albedo and --albedo-robust-threshold.")
-  ("albedo-robust-threshold", po::value(&opt.albedo_robust_threshold)->default_value(0),
-  "If floating the albedo and this threshold is positive, apply a Cauchy loss with this "
-  "threshold to the product of the albedo difference and the albedo constraint weight.")
-  ("skip-images", po::value(&opt.skip_images_str)->default_value(""), 
+   "With the option --low-light-threshold, apply a Gaussian blur with this sigma to the "
+   "low-light weight image, to make it continuous.")
+  ("max-valid-image-vals",
+  po::value(&opt.max_valid_image_vals)->default_value(""),
+   "Optional values for the largest valid image value in each image (a list of real "
+   "values in quotes, one per image).")
+  ("robust-threshold",
+  po::value(&opt.robust_threshold)->default_value(-1.0),
+   "If positive, set the threshold for the robust measured-to-simulated intensity "
+   "difference (using the Cauchy loss). Any difference much larger than this will be "
+   "penalized. A good value may be 5% to 25% of the average image value or the same "
+   "fraction of the computed image exposure values.")
+  ("albedo-constraint-weight", 
+  po::value(&opt.albedo_constraint_weight)->default_value(0),
+   "If floating the albedo, a larger value will try harder to keep the optimized albedo "
+   "close to the initial albedo. See also --input-albedo and --albedo-robust-threshold.")
+  ("albedo-robust-threshold",
+  po::value(&opt.albedo_robust_threshold)->default_value(0),
+   "If floating the albedo and this threshold is positive, apply a Cauchy loss with this "
+   "threshold to the product of the albedo difference and the albedo constraint weight.")
+  ("skip-images",
+  po::value(&opt.skip_images_str)->default_value(""), 
    "Skip images with these indices (indices start from 0).")
   ("save-dem-with-nodata",  
   po::bool_switch(&opt.save_dem_with_nodata)->default_value(false)->implicit_value(true),
-  "Save a copy of the DEM while using a no-data value at a DEM grid point where all "
-  "images show shadows. To be used if shadow thresholds are set.")
+   "Save a copy of the DEM while using a no-data value at a DEM grid point where all "
+   "images show shadows. To be used if shadow thresholds are set.")
   ("use-approx-camera-models",  
   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
-  "Use approximate camera models for speed. Only with ISIS .cub cameras.")
+   "Use approximate camera models for speed. Only with ISIS .cub cameras.")
   ("crop-input-images",  
   po::bool_switch(&opt.crop_input_images)->default_value(false)->implicit_value(true),
-  "Crop the images to a region that was computed to be large enough, and keep them "
-  "fully in memory, for speed. This is the default in the latest builds.")
-  ("blending-dist", po::value(&opt.blending_dist)->default_value(0),
-  "Give less weight to image pixels close to no-data or boundary values. Enabled only "
-  "when crop-input-images is true, for performance reasons. Blend over this many pixels.")
-  ("blending-power", po::value(&opt.blending_power)->default_value(2.0),
-  "A higher value will result in smoother blending.")
-  ("min-blend-size", po::value(&opt.min_blend_size)->default_value(0),
-  "Do not apply blending in shadowed areas for which both the width and height are less "
-  "than this.")
+   "Crop the images to a region that was computed to be large enough, and keep them "
+   "fully in memory, for speed. This is the default in the latest builds.")
+  ("blending-dist",
+  po::value(&opt.blending_dist)->default_value(0),
+   "Give less weight to image pixels close to no-data or boundary values. Enabled only "
+   "when crop-input-images is true, for performance reasons. Blend over this many pixels.")
+  ("blending-power",
+  po::value(&opt.blending_power)->default_value(2.0),
+   "A higher value will result in smoother blending.")
+  ("min-blend-size",
+  po::value(&opt.min_blend_size)->default_value(0),
+   "Do not apply blending in shadowed areas for which both the width and height are less "
+   "than this.")
   ("allow-borderline-data",  
   po::bool_switch(&opt.allow_borderline_data)->default_value(false)->implicit_value(true),
-  "At the border of the region where there are no lit pixels in any images, do not let "
-  "the blending weights decay to 0. This noticeably improves the level of detail. The "
-  "sfs_blend tool may need to be used to further tune this region.")
-  ("steepness-factor", po::value(&opt.steepness_factor)->default_value(1.0),
-  "Try to make the terrain steeper by this factor. This is not recommended in regular use.")
-  ("curvature-in-shadow", po::value(&opt.curvature_in_shadow)->default_value(0.0),
-  "Attempt to make the curvature of the DEM (the Laplacian) at points in shadow in all "
-  "images equal to this value, which should make the DEM curve down.")
-  ("curvature-in-shadow-weight", po::value(&opt.curvature_in_shadow_weight)->default_value(0.0),
-  "The weight to give to the curvature in shadow constraint.")
-  ("lit-curvature-dist", po::value(&opt.lit_curvature_dist)->default_value(0.0),
-  "If using a curvature in shadow, start phasing it in this far from the shadow boundary "
-  "in the lit region (in units of pixels).")
-  ("shadow-curvature-dist", po::value(&opt.shadow_curvature_dist)->default_value(0.0),
-  "If using a curvature in shadow, have it fully phased in this far from shadow boundary "
-  "in the shadow region (in units of pixels).")
-  ("image-exposures-prefix", po::value(&opt.image_exposures_prefix)->default_value(""),
-  "Use this prefix to optionally read initial exposures (filename is <prefix>-exposures.txt).")
-  ("model-coeffs-prefix", po::value(&opt.model_coeffs_prefix)->default_value(""),
-  "Use this prefix to optionally read model coefficients from a file (filename is <prefix>-model_coeffs.txt).")
-  ("model-coeffs", po::value(&opt.model_coeffs)->default_value(""),
-  "Use the reflectance model coefficients specified as a list of numbers in quotes. "
-  "Lunar-Lambertian: O, A, B, C, e.g., '1 -0.019 0.000242 -0.00000146'. Hapke: omega, b, "
-  "c, B0, h, e.g., '0.68 0.17 0.62 0.52 0.52'. Charon: A, f(alpha), e.g., '0.7 0.63'.")
-  ("num-haze-coeffs", po::value(&opt.num_haze_coeffs)->default_value(0),
-  "Set this to 1 to model the problem as image = exposure * albedo * reflectance + "
-  "haze, where haze is a single value for each image.")
+   "At the border of the region where there are no lit pixels in any images, do not let "
+   "the blending weights decay to 0. This noticeably improves the level of detail. The "
+   "sfs_blend tool may need to be used to further tune this region.")
+  ("steepness-factor",
+  po::value(&opt.steepness_factor)->default_value(1.0),
+   "Try to make the terrain steeper by this factor. This is not recommended in regular use.")
+  ("curvature-in-shadow",
+  po::value(&opt.curvature_in_shadow)->default_value(0.0),
+   "Attempt to make the curvature of the DEM (the Laplacian) at points in shadow in all "
+   "images equal to this value, which should make the DEM curve down.")
+  ("curvature-in-shadow-weight", 
+  po::value(&opt.curvature_in_shadow_weight)->default_value(0.0),
+   "The weight to give to the curvature in shadow constraint.")
+  ("lit-curvature-dist",
+  po::value(&opt.lit_curvature_dist)->default_value(0.0),
+   "If using a curvature in shadow, start phasing it in this far from the shadow boundary "
+   "in the lit region (in units of pixels).")
+  ("shadow-curvature-dist",
+  po::value(&opt.shadow_curvature_dist)->default_value(0.0),
+   "If using a curvature in shadow, have it fully phased in this far from shadow boundary "
+   "in the shadow region (in units of pixels).")
+  ("image-exposures-prefix",
+  po::value(&opt.image_exposures_prefix)->default_value(""),
+   "Use this prefix to optionally read initial exposures (filename is "
+   "<prefix>-exposures.txt).")
+  ("model-coeffs-prefix",
+  po::value(&opt.model_coeffs_prefix)->default_value(""),
+   "Use this prefix to optionally read model coefficients from a file (filename is <prefix>-model_coeffs.txt).")
+  ("model-coeffs",
+  po::value(&opt.model_coeffs)->default_value(""),
+   "Use the reflectance model coefficients specified as a list of numbers in quotes. "
+   "Lunar-Lambertian: O, A, B, C, e.g., '1 -0.019 0.000242 -0.00000146'. Hapke: omega, b, "
+   "c, B0, h, e.g., '0.68 0.17 0.62 0.52 0.52'. Charon: A, f(alpha), e.g., '0.7 0.63'.")
+  ("num-haze-coeffs",
+  po::value(&opt.num_haze_coeffs)->default_value(0),
+   "Set this to 1 to model the problem as image = exposure * albedo * reflectance + "
+   "haze, where haze is a single value for each image.")
   ("float-haze",
   po::bool_switch(&opt.float_haze)->default_value(false)->implicit_value(true),
-  "If specified, float the haze coefficients as part of the optimization, if "
-  "--num-haze-coeffs is 1.")
-  ("haze-prefix", po::value(&opt.image_haze_prefix)->default_value(""),
-  "Use this prefix to read initial haze values (filename is <haze-prefix>-haze.txt). "
-  "The file format is the same as what the tool writes itself, when triggered by the "
-  "earlier options. If haze is modeled, it will be initially set to 0 unless read from "
-  "such a file, and will be floated or not depending on whether --float-haze is on. "
-  "The final haze values will be saved to <output prefix>-haze.txt.")
-  ("num-samples-for-estim", po::value(&opt.num_samples_for_estim)->default_value(200),
-  "Number of samples to use for estimating the exposure, haze, and albedo. A large "
-  "value will result in a more accurate estimate, but will take a lot more memory.")
-  ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
-  "Use this value for initial DEM heights (measured in meters, relative to the datum). "
-  "An input DEM still needs to be provided for georeference information.")
-  ("crop-win", po::value(&opt.crop_win)->default_value(vw::BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
-  "Crop the input DEM to this region before continuing.")
-  ("nodata-value", po::value(&opt.nodata_val)->default_value(std::numeric_limits<double>::quiet_NaN()),
-  "Use this as the DEM no-data value, over-riding what is in the initial guess DEM.")
+   "If specified, float the haze coefficients as part of the optimization, if "
+   "--num-haze-coeffs is 1.")
+  ("haze-prefix",
+  po::value(&opt.image_haze_prefix)->default_value(""),
+   "Use this prefix to read initial haze values (filename is <haze-prefix>-haze.txt). "
+   "The file format is the same as what the tool writes itself, when triggered by the "
+   "earlier options. If haze is modeled, it will be initially set to 0 unless read from "
+   "such a file, and will be floated or not depending on whether --float-haze is on. "
+   "The final haze values will be saved to <output prefix>-haze.txt.")
+  ("num-samples-for-estim",
+  po::value(&opt.num_samples_for_estim)->default_value(200),
+   "Number of samples to use for estimating the exposure, haze, and albedo. A large "
+   "value will result in a more accurate estimate, but will take a lot more memory.")
+  ("init-dem-height",
+  po::value(&opt.init_dem_height)->default_value(nan),
+   "Use this value for initial DEM heights (measured in meters, relative to the datum). "
+   "An input DEM still needs to be provided for georeference information.")
+  ("crop-win", 
+  po::value(&opt.crop_win)->default_value(vw::BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
+   "Crop the input DEM to this region before continuing.")
+  ("nodata-value",
+  po::value(&opt.nodata_val)->default_value(nan),
+   "Use this as the DEM no-data value, over-riding what is in the initial guess DEM.")
   ("fix-dem",  
   po::bool_switch(&opt.fix_dem)->default_value(false)->implicit_value(true),
-  "Do not float the DEM at all. Useful when floating the model params.")
+   "Do not float the DEM at all. Useful when floating the model params.")
   ("read-exposures",
   po::bool_switch(&opt.read_exposures)->default_value(false)->implicit_value(true),
-  "If specified, read the image exposures with the current output prefix. Useful with a "
-  "repeat invocation.")
+   "If specified, read the image exposures with the current output prefix. Useful with a "
+   "repeat invocation.")
   ("read-haze",
   po::bool_switch(&opt.read_haze)->default_value(false)->implicit_value(true),
-  "If specified, read the haze values with the current output prefix.")
+   "If specified, read the haze values with the current output prefix.")
   ("read-albedo",
   po::bool_switch(&opt.read_albedo)->default_value(false)->implicit_value(true),
-  "If specified, read the computed albedo with the current output prefix.")
+   "If specified, read the computed albedo with the current output prefix.")
   ("float-reflectance-model",  
   po::bool_switch(&opt.float_reflectance_model)->default_value(false)->implicit_value(true),
-  "Allow the coefficients of the reflectance model to float (not recommended).")
+   "Allow the coefficients of the reflectance model to float (not recommended).")
   ("integrability-constraint-weight", 
-   po::value(&opt.integrability_weight)->default_value(0.0),
-  "Use the integrability constraint from Horn 1990 with this value of its weight.")
-  ("smoothness-weight-pq", po::value(&opt.smoothness_weight_pq)->default_value(0.00),
-  "Smoothness weight for p and q, when the integrability constraint "
-  "is used. A larger value will result in a smoother solution "
-  "(experimental).")
+  po::value(&opt.integrability_weight)->default_value(0.0),
+   "Use the integrability constraint from Horn 1990 with this value of its weight.")
+  ("smoothness-weight-pq",
+  po::value(&opt.smoothness_weight_pq)->default_value(0.00),
+   "Smoothness weight for p and q, when the integrability constraint "
+   "is used. A larger value will result in a smoother solution "
+   "(experimental).")
   ("query",  
   po::bool_switch(&opt.query)->default_value(false)->implicit_value(true),
-  "Print some info and exit. Invoked from parallel_sfs.")
-  ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
-  "Select the stereo session type to use for processing. Usually the program can select "
-  "this automatically by the file extension, except for xml cameras. See the doc for options.")
-  ("gradient-weight", po::value(&opt.gradient_weight)->default_value(0.0),
-  "The weight given to the cost function term which consists of sums "
-  "of squares of first-order derivatives. A larger value will result "
-  "in shallower slopes but less noise. This can be used in conjunction with "
-  "--smoothness-weight. It is suggested to experiment with this "
-  "with a value of 0.0001 - 0.01, while reducing the "
-  "smoothness weight to a very small value.")
+   "Print some info and exit. Invoked from parallel_sfs.")
+  ("session-type,t",
+  po::value(&opt.stereo_session)->default_value(""),
+   "Select the stereo session type to use for processing. Usually the program can select "
+   "this automatically by the file extension, except for xml cameras. See the doc for "
+   "options.")
+  ("gradient-weight", 
+  po::value(&opt.gradient_weight)->default_value(0.0),
+   "The weight given to the cost function term which consists of sums of squares of "
+   "first-order derivatives. A larger value will result in shallower slopes but less "
+   "noise. This can be used in conjunction with --smoothness-weight. It is suggested to "
+   "experiment with this with a value of 0.0001 - 0.01, while reducing the smoothness "
+   "weight to a very small value.")
   ("save-sparingly",  
   po::bool_switch(&opt.save_sparingly)->default_value(false)->implicit_value(true),
-  "Avoid saving any results except the adjustments and the DEM, as that's a lot of files.")
+   "Avoid saving any results except the adjustments and the DEM, as that's a lot of files.")
   ("camera-position-step-size",
   po::value(&opt.camera_position_step_size)->default_value(1.0),
-  "Larger step size will result in more aggressiveness in varying the camera position "
-  "if it is being floated (which may result in a better solution or in divergence).");
+   "Larger step size will result in more aggressiveness in varying the camera position "
+   "if it is being floated (which may result in a better solution or in divergence).");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
-  positional.add_options()
+  positional.add_options() 
     ("input-images", po::value(&opt.input_images));
 
   po::positional_options_description positional_desc;
