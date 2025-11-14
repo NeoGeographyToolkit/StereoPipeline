@@ -669,6 +669,33 @@ void prepareDemAndAlbedo(SfsOptions& opt,
                   << "from the input albedo image.\n");
 }
 
+void sfsSanityChecks(asp::SfsOptions const& opt, 
+                     vw::ImageView<double> const& dem, 
+                     double dem_nodata_val) {
+
+  // Refuse to run if there are no-data values or if the DEM is too small
+  int min_dem_size = 5;
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (dem(col, row) == dem_nodata_val ||
+          std::isnan(dem(col, row))) {
+        vw_throw(ArgumentErr()
+                  << "Found a no-data or NaN pixel in the DEM. Cannot continue. "
+                  << "The dem_mosaic tool can be used to fill in holes. Then "
+                  << "crop and use a clip from this DEM having only valid data.");
+      }
+    }
+  }
+  if (dem.cols() < min_dem_size || dem.rows() < min_dem_size)
+    vw_throw(ArgumentErr() << "The input DEM is too small.\n");
+
+  // This check must happen before loading images but after we know the DEM size
+  if ((dem.cols() > 500 || dem.rows() > 500) && !opt.compute_exposures_only &&
+      !opt.estim_exposure_haze_albedo && !opt.save_computed_intensity_only)
+    vw::vw_out(vw::WarningMessage) << "The input DEM is large and this program "
+      << "may run out of memory. Use parallel_sfs instead, with small tiles.\n";
+}
+
 int main(int argc, char* argv[]) {
 
   Stopwatch sw_total;
@@ -705,27 +732,7 @@ int main(int argc, char* argv[]) {
     if (opt.query)
       return 0;
 
-    // Refuse to run if there are no-data values or if the DEM is too small
-    int min_dem_size = 5;
-    for (int col = 0; col < dem.cols(); col++) {
-      for (int row = 0; row < dem.rows(); row++) {
-        if (dem(col, row) == dem_nodata_val ||
-            std::isnan(dem(col, row))) {
-          vw_throw(ArgumentErr()
-                    << "Found a no-data or NaN pixel in the DEM. Cannot continue. "
-                    << "The dem_mosaic tool can be used to fill in holes. Then "
-                    << "crop and use a clip from this DEM having only valid data.");
-        }
-      }
-    }
-    if (dem.cols() < min_dem_size || dem.rows() < min_dem_size)
-      vw_throw(ArgumentErr() << "The input DEM is too small.\n");
-
-    // This check must happen before loading images but after we know the DEM size
-    if ((dem.cols() > 500 || dem.rows() > 500) && !opt.compute_exposures_only &&
-        !opt.estim_exposure_haze_albedo && !opt.save_computed_intensity_only)
-      vw::vw_out(vw::WarningMessage) << "The input DEM is large and this program "
-        << "may run out of memory. Use parallel_sfs instead, with small tiles.\n";
+    sfsSanityChecks(opt, dem, dem_nodata_val);
 
     // This check must be here, after we find the session
     if (opt.stereo_session != "isis" && opt.use_approx_camera_models) {
