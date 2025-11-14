@@ -55,7 +55,6 @@
 
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/AntiAliasing.h>
-#include <vw/Image/InpaintView.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/FileIO/FileUtils.h>
 #include <vw/FileIO/DiskImageView.h>
@@ -65,9 +64,7 @@
 #include <ceres/loss_function.h>
 
 #include <iostream>
-#include <stdexcept>
 #include <string>
-#include<sys/types.h>
 
 #if defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic pop
