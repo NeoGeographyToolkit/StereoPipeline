@@ -54,9 +54,7 @@ void calcExposureHazeSkipImages(// Inputs
                                 // In-out
                                 std::vector<double>      & local_exposures_vec,
                                 std::vector<double>      & local_haze_vec,
-                                std::vector<std::string> & used_images,
-                                std::set<int>            & skip_images,
-                                std::vector<std::string> & skipped_images) {
+                                std::set<int>            & skip_images) {
 
   // TODO: Below is not the optimal way of finding the exposure!
   // Find it as the analytical minimum using calculus.
@@ -68,8 +66,6 @@ void calcExposureHazeSkipImages(// Inputs
     local_exposures_vec[image_iter] = exposure;
     local_haze_vec[image_iter] = haze;
 
-    // append used image to used_images list
-    used_images.push_back(input_images[image_iter]);
   } else {
     // Skip images with bad exposure. Apparently there is no good
     // imagery in the area.
@@ -77,8 +73,6 @@ void calcExposureHazeSkipImages(// Inputs
     // log out the skipped image path and the image_iter for it
     vw_out() << "Skipped image " << image_iter << ": " << input_images[image_iter]
              << " with no data for this DEM.\n";
-    // append skipped image to skipped_images list
-    skipped_images.push_back(input_images[image_iter]);
   }
 }
 

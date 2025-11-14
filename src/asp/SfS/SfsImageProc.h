@@ -53,9 +53,7 @@ void calcExposureHazeSkipImages(// Inputs
                                 // In-out
                                 std::vector<double>      & local_exposures_vec,
                                 std::vector<double>      & local_haze_vec,
-                                std::vector<std::string> & used_images,
-                                std::set<int>            & skip_images,
-                                std::vector<std::string> & skipped_images);
+                                std::set<int>            & skip_images);
 
 // Compute mean and standard deviation of two images. Do it where both are valid.
 void calcJointStats(MaskedDblImgT const& I1,

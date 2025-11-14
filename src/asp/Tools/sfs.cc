@@ -696,6 +696,64 @@ void sfsSanityChecks(asp::SfsOptions const& opt,
       << "may run out of memory. Use parallel_sfs instead, with small tiles.\n";
 }
 
+// Initialize the exposure as mean(intensity)/mean(reflectance)/albedo.
+// Initialize the haze to 0. Skip images with zero exposure. If the user
+// provided initial exposures and haze, use those, but still go through the
+// motions to find the images to skip.
+void estimExposuresHazeSkipVec(asp::SfsOptions const& opt,
+                               vw::ImageView<double> const& dem,
+                               vw::cartography::GeoReference const& geo,
+                               double max_dem_height,
+                               double gridx, double gridy,
+                               std::vector<vw::Vector3> const& sunPosition,
+                               asp::ReflParams const& refl_params,
+                               std::vector<BBox2i> const& crop_boxes,
+                               std::vector<MaskedImgRefT> const& masked_images,
+                               std::vector<vw::ImageView<double>> const& blend_weights,
+                               bool blend_weight_is_ground_weight,
+                               std::vector<vw::CamPtr> const& cameras,
+                               double mean_albedo,
+                               // Outputs
+                               std::vector<double> & local_exposures_vec,
+                               std::vector<double> & local_haze_vec,
+                               std::set<int>       & skip_images) {
+
+    // Initialize outputs
+    int num_images = opt.input_images.size();
+    local_exposures_vec.resize(num_images, 0);
+    local_haze_vec.resize(num_images, 0);
+    
+    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+
+      if (skip_images.find(image_iter) != skip_images.end())
+        continue;
+
+      // Sample large DEMs. Keep about 200 row and column samples.
+      int sample_col_rate = 0, sample_row_rate = 0;
+      asp::calcSampleRates(dem, opt.num_samples_for_estim, sample_col_rate, sample_row_rate);
+      
+      MaskedDblImgT reflectance, intensity;
+      vw::ImageView<double> ground_weight;
+      vw::ImageView<Vector2> pq; // no need for these just for initialization
+      computeReflectanceAndIntensity(dem, pq, geo,
+                                     opt.model_shadows, max_dem_height,
+                                     gridx, gridy, sample_col_rate, sample_row_rate,
+                                     sunPosition[image_iter],
+                                     refl_params,
+                                     crop_boxes[image_iter],
+                                     masked_images[image_iter],
+                                     blend_weights[image_iter],
+                                     blend_weight_is_ground_weight,
+                                     cameras[image_iter],
+                                     reflectance, intensity, ground_weight,
+                                     &opt.model_coeffs_vec[0], opt);
+      asp::calcExposureHazeSkipImages(intensity, reflectance, mean_albedo,
+                                      image_iter, opt.input_images,
+                                      local_exposures_vec, local_haze_vec,
+                                      skip_images);
+    }
+}
+
 int main(int argc, char* argv[]) {
 
   Stopwatch sw_total;
@@ -785,50 +843,16 @@ int main(int argc, char* argv[]) {
     // Find the mean albedo
     double mean_albedo = asp::meanAlbedo(dem, albedo, dem_nodata_val);
 
-    // Declare two vectors for skipped and used images
-    std::vector<std::string> skipped_images;
-    std::vector<std::string> used_images;
-    // reserve the proper size, cannot be more than the number of images
-    skipped_images.reserve(num_images);
-    used_images.reserve(num_images);
     bool blend_weight_is_ground_weight = false; // will change later
 
-    // Assume that haze is 0 to start with. Find the exposure as
-    // mean(intensity)/mean(reflectance)/albedo. Use this to compute an initial
-    // exposure and decide based on that which images to skip. If the user
-    // provided initial exposures and haze, use those, but still go through the
-    // motions to find the images to skip. See the intensity formula in
-    // calcIntensity(). TODO(oalexan1): Modularize this
-    std::vector<double> local_exposures_vec(num_images, 0), local_haze_vec(num_images, 0);
-    for (int image_iter = 0; image_iter < num_images; image_iter++) {
-
-      if (opt.skip_images.find(image_iter) != opt.skip_images.end())
-        continue;
-
-      // Sample large DEMs. Keep about 200 row and column samples.
-      int sample_col_rate = 0, sample_row_rate = 0;
-      asp::calcSampleRates(dem, opt.num_samples_for_estim, sample_col_rate, sample_row_rate);
-      
-      MaskedDblImgT reflectance, intensity;
-      vw::ImageView<double> ground_weight;
-      vw::ImageView<Vector2> pq; // no need for these just for initialization
-      computeReflectanceAndIntensity(dem, pq, geo,
-                                     opt.model_shadows, max_dem_height,
-                                     gridx, gridy, sample_col_rate, sample_row_rate,
-                                     sunPosition[image_iter],
-                                     refl_params,
-                                     crop_boxes[image_iter],
-                                     masked_images[image_iter],
-                                     blend_weights[image_iter],
-                                     blend_weight_is_ground_weight,
-                                     cameras[image_iter],
-                                     reflectance, intensity, ground_weight,
-                                     &opt.model_coeffs_vec[0], opt);
-      asp::calcExposureHazeSkipImages(intensity, reflectance, mean_albedo,
-                                      image_iter, opt.input_images,
-                                      local_exposures_vec, local_haze_vec,
-                                      used_images, opt.skip_images, skipped_images);
-    }
+    std::vector<double> local_exposures_vec, local_haze_vec;
+    estimExposuresHazeSkipVec(opt, dem, geo, max_dem_height, gridx, gridy,
+                              sunPosition, refl_params, crop_boxes, masked_images,
+                              blend_weights, blend_weight_is_ground_weight,
+                              cameras, mean_albedo,
+                              // Outputs
+                              local_exposures_vec, local_haze_vec,
+                              opt.skip_images);
 
     // Only overwrite the exposures if we don't have them supplied
     if (opt.image_exposures_vec.empty())
