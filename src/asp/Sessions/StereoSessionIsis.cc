@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -61,8 +61,8 @@
 #include <boost/math/special_functions/next.hpp> // boost::float_next
 #include <boost/shared_ptr.hpp>
 
-// Isis Headers
-#include <SpecialPixel.h>
+// Isis headers
+#include <isis/SpecialPixel.h>
 
 #include <algorithm>
 
@@ -85,73 +85,73 @@ class IsisSpecialPixelFunc: public vw::UnaryReturnSameType {
   PixelT m_replacement_low;
   PixelT m_replacement_high;
   PixelT m_replacement_null;
-  
+
   // Private
   IsisSpecialPixelFunc() : m_replacement_low(0), m_replacement_high(0), m_replacement_null(0) {}
-  
+
 public:
   IsisSpecialPixelFunc(PixelT const& pix_l, PixelT const& pix_h, PixelT const& pix_n):
     m_replacement_low(pix_l), m_replacement_high(pix_h), m_replacement_null(pix_n) {}
-  
+
   // Helper to determine special across different channel types
   template <typename ChannelT, typename T = void>
   struct Helper {
-    static inline bool IsSpecial( ChannelT const& arg ) { return false; }
-    static inline bool IsHighPixel( ChannelT const& arg ) { return false; }
-    static inline bool IsNull( ChannelT const& arg ) { return false; }
+    static inline bool IsSpecial(ChannelT const& arg) { return false; }
+    static inline bool IsHighPixel(ChannelT const& arg) { return false; }
+    static inline bool IsNull(ChannelT const& arg) { return false; }
   };
   template<typename T> struct Helper<double, T> {
-    static inline bool IsSpecial( double const& arg ) {
+    static inline bool IsSpecial(double const& arg) {
       return arg < Isis::VALID_MIN8;
     }
-    static inline bool IsHighPixel( double const& arg ) {
+    static inline bool IsHighPixel(double const& arg) {
       return arg == Isis::HIGH_INSTR_SAT8 || arg == Isis::HIGH_REPR_SAT8;
     }
-    static inline bool IsNull( double const& arg ) {
+    static inline bool IsNull(double const& arg) {
       return arg == Isis::NULL8;
     }
   };
   template<typename T> struct Helper<float, T> {
-    static inline bool IsSpecial( float const& arg ) {
+    static inline bool IsSpecial(float const& arg) {
       return arg < Isis::VALID_MIN4;
     }
-    static inline bool IsHighPixel( float const& arg ) {
+    static inline bool IsHighPixel(float const& arg) {
       return arg == Isis::HIGH_INSTR_SAT4 || arg == Isis::HIGH_REPR_SAT4;
     }
-    static inline bool IsNull( float const& arg ) {
+    static inline bool IsNull(float const& arg) {
       return arg == Isis::NULL4;
     }
   };
   template<typename T> struct Helper<short, T>{
-    static inline bool IsSpecial( short const& arg ) {
+    static inline bool IsSpecial(short const& arg) {
       return arg < Isis::VALID_MIN2;
     }
-    static inline bool IsHighPixel( short const& arg ) {
+    static inline bool IsHighPixel(short const& arg) {
       return arg == Isis::HIGH_INSTR_SAT2 || arg == Isis::HIGH_REPR_SAT2;
     }
-    static inline bool IsNull( short const& arg ) {
+    static inline bool IsNull(short const& arg) {
       return arg == Isis::NULL2;
     }
   };
   template<typename T> struct Helper<unsigned short, T> {
-    static inline bool IsSpecial( unsigned short const& arg ) {
+    static inline bool IsSpecial(unsigned short const& arg) {
       return arg < Isis::VALID_MINU2 || arg > Isis::VALID_MAXU2;
     }
-    static inline bool IsHighPixel( unsigned short const& arg ) {
+    static inline bool IsHighPixel(unsigned short const& arg) {
       return arg == Isis::HIGH_INSTR_SATU2 || arg == Isis::HIGH_REPR_SATU2;
     }
-    static inline bool IsNull( unsigned short const& arg ) {
+    static inline bool IsNull(unsigned short const& arg) {
       return arg == Isis::NULLU2;
     }
   };
   template<typename T> struct Helper<unsigned char, T> {
-    static inline bool IsSpecial( unsigned char const& arg ) {
+    static inline bool IsSpecial(unsigned char const& arg) {
       return arg < Isis::VALID_MIN1 || arg > Isis::VALID_MAX1;
     }
-    static inline bool IsHighPixel( unsigned char const& arg ) {
+    static inline bool IsHighPixel(unsigned char const& arg) {
       return arg == Isis::HIGH_INSTR_SAT1 || arg == Isis::HIGH_REPR_SAT1;
     }
-    static inline bool IsNull( unsigned char const& arg ) {
+    static inline bool IsNull(unsigned char const& arg) {
       return arg == Isis::NULL1;
     }
   };
@@ -164,7 +164,7 @@ public:
       if (help::IsSpecial(compound_select_channel<const channel_type&>(pix,n))) {
         if (help::IsHighPixel(compound_select_channel<const channel_type&>(pix,n)))
           return m_replacement_high;
-        else if ( help::IsNull(compound_select_channel<const channel_type&>(pix,n)))
+        else if (help::IsNull(compound_select_channel<const channel_type&>(pix,n)))
           return m_replacement_null;
         else
           return m_replacement_low;
@@ -175,7 +175,7 @@ public:
 };
 
 template <class ViewT>
-vw::UnaryPerPixelView<ViewT, IsisSpecialPixelFunc<typename ViewT::pixel_type> >
+vw::UnaryPerPixelView<ViewT, IsisSpecialPixelFunc<typename ViewT::pixel_type>>
 remove_isis_special_pixels(vw::ImageViewBase<ViewT> &image,
                            typename ViewT::pixel_type r_low  = typename ViewT::pixel_type(),
                            typename ViewT::pixel_type r_high = typename ViewT::pixel_type(),
@@ -184,11 +184,11 @@ remove_isis_special_pixels(vw::ImageViewBase<ViewT> &image,
                               IsisSpecialPixelFunc<typename ViewT::pixel_type>
                               (r_low,r_high,r_null));
 }
-  
+
 // This actually modifies and writes the pre-processed image.
 void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
                                     bool apply_user_nodata,
-                                    ImageViewRef< PixelMask <float> > masked_image,
+                                    ImageViewRef<PixelMask <float>> masked_image,
                                     std::string const& out_file,
                                     std::string const& tag,
                                     float isis_lo, float isis_hi,
@@ -210,9 +210,9 @@ void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
   // Use no-data in interpolation and edge extension.
   PixelMask<float> nodata_pix(0);
   nodata_pix.invalidate();
-  ValueEdgeExtension< PixelMask<float> > ext(nodata_pix); 
+  ValueEdgeExtension<PixelMask<float>> ext(nodata_pix);
 
-  if (apply_user_nodata){
+  if (apply_user_nodata) {
 
     // If the user specifies a no-data value, mask all pixels <= that
     // value. Note: this causes non-trivial erosion at image
@@ -220,10 +220,10 @@ void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
 
     ImageViewRef<uint8> mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
 
-    ImageViewRef< PixelMask<float> > normalized_image =
+    ImageViewRef<PixelMask<float>> normalized_image =
       normalize(copy_mask(processed_image, create_mask(mask)), out_lo, out_hi, 0.0, 1.0);
 
-    ImageViewRef< PixelMask<float> > applied_image;
+    ImageViewRef<PixelMask<float>> applied_image;
     if (matrix == math::identity_matrix<3>()) {
       applied_image = crop(edge_extend(normalized_image, ext),
                            0, 0, crop_size[0], crop_size[1]);
@@ -237,7 +237,7 @@ void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
                             has_georef, georef,
                             has_nodata, output_nodata, opt,
                             TerminalProgressCallback("asp", "\t  "+tag+":  "));
-  }else{
+  } else {
 
     // Set invalid pixels to the minimum pixel value. Causes less
     // erosion and the results are good.
@@ -262,7 +262,7 @@ void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
   }
 
 }
-  
+
 // Process a single ISIS image to find an ideal min max. The reason we
 // need to do this, is for ASP to get image intensity values in
 // the range of 0-1. To some extent we are compressing the dynamic
@@ -283,7 +283,7 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
   isis_hi = isis_rsrc->valid_maximum();
 
   // Force the low value to be greater than the nodata value
-  if (!boost::math::isnan(nodata_value) && nodata_value >= isis_lo){
+  if (!boost::math::isnan(nodata_value) && nodata_value >= isis_lo) {
     // The new lower bound is the next floating point number > nodata_value.
     apply_user_nodata = true;
     isis_lo = boost::math::float_next(nodata_value);
@@ -299,7 +299,7 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
   {
     vw_out(InfoMessage) << "\t--> Computing statistics for " + tag + "\n";
     int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
-    ChannelAccumulator<math::CDFAccumulator<float> > accumulator;
+    ChannelAccumulator<math::CDFAccumulator<float>> accumulator;
     for_each_pixel(subsample(edge_extend(masked_image, ConstantEdgeExtension()),
                              stat_scale),
                    accumulator);
@@ -344,7 +344,7 @@ StereoSessionIsis::StereoSessionIsis() {
   }
 }
 
-// TODO(oalexan1): See about fully integrating this with StereoSession::preprocessing_hook()  
+// TODO(oalexan1): See about fully integrating this with StereoSession::preprocessing_hook()
 void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
                        std::string const& left_input_file,
                        std::string const& right_input_file,
@@ -369,7 +369,7 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
 
   if (exit_early)
     return;
-  
+
   // Get the image sizes. Later alignment options can choose to change
   // this parameters, such as affine epipolar.
   Vector2i left_size(left_cropped_image.cols(), left_cropped_image.rows());
@@ -391,14 +391,14 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
     = find_ideal_isis_range(left_cropped_image, left_isis_rsrc, left_nodata_value,
                             "left", apply_user_nodata_left,
                             left_lo, left_hi, left_mean, left_std);
-  ImageViewRef< PixelMask <float> > right_masked_image
+  ImageViewRef<PixelMask<float>> right_masked_image
     = find_ideal_isis_range(right_cropped_image, right_isis_rsrc, right_nodata_value,
                             "right", apply_user_nodata_right,
                             right_lo, right_hi, right_mean, right_std);
 
   // Handle mutual normalization if requested
   float left_lo_out  = left_lo,  left_hi_out  = left_hi,
-	right_lo_out = right_lo, right_hi_out = right_hi;
+    right_lo_out = right_lo, right_hi_out = right_hi;
   if (stereo_settings().individually_normalize == 0) {
     // Find the outer range of both files
     float mutual_lo = std::min(left_lo, right_lo);
@@ -409,7 +409,7 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
     left_hi_out  = mutual_hi;
     right_lo_out = mutual_lo;
     right_hi_out = mutual_hi;
-  } else{
+  } else {
     vw_out() << "\t--> Individually normalizing.\n";
   }
 
@@ -422,7 +422,7 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   left_stats [3] = left_std;
   left_stats [4] = left_lo;
   left_stats [5] = left_hi;
-  
+
   Vector6f right_stats;
   right_stats[0] = right_lo;
   right_stats[1] = right_hi;
@@ -439,19 +439,19 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
     vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
     vw::Vector<float32> left_stats2  = left_stats;  // cast
     vw::Vector<float32> right_stats2 = right_stats; // cast
-    write_vector(left_stats_file,  left_stats2 );
+    write_vector(left_stats_file,  left_stats2);
     write_vector(right_stats_file, right_stats2);
   }
-  
+
   Matrix<double> align_left_matrix  = math::identity_matrix<3>();
   Matrix<double> align_right_matrix = math::identity_matrix<3>();
-    
+
   // Image alignment block. Generate aligned versions of the input
   // images according to the options.
   if (stereo_settings().alignment_method == "epipolar") {
-    
+
     vw_throw(NoImplErr() << "StereoSessionISIS does not support epipolar rectification");
-    
+
   } else if (stereo_settings().alignment_method == "homography"     ||
              stereo_settings().alignment_method == "affineepipolar" ||
              stereo_settings().alignment_method == "local_epipolar") {
@@ -459,11 +459,11 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     this->camera_models(left_cam, right_cam);
     imageAlignment(// Inputs
-                   m_out_prefix, left_cropped_file, right_cropped_file,  
+                   m_out_prefix, left_cropped_file, right_cropped_file,
                    left_input_file,
-                   left_stats, right_stats, left_nodata_value, right_nodata_value,  
+                   left_stats, right_stats, left_nodata_value, right_nodata_value,
                    left_cam, right_cam,
-                   adjust_left_image_size,  
+                   adjust_left_image_size,
                    // In-out
                    align_left_matrix, align_right_matrix, left_size, right_size);
   } // End alignment block
@@ -487,9 +487,9 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
 bool StereoSessionIsis::supports_multi_threading () const {
   return false;
 }
-  
-// Pre file is a pair of grayscale images.  (ImageView<PixelGray<float> >)
-// Post file is a disparity map.            (ImageView<PixelMask<Vector2f> >)
+
+// Pre file is a pair of grayscale images.  (ImageView<PixelGray<float>>)
+// Post file is a disparity map.            (ImageView<PixelMask<Vector2f>>)
 void StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
                                            std::string      & output_file) {
   output_file = input_file;
@@ -514,14 +514,14 @@ vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraMode
 // TODO(oalexan1):  Can we share more code with the DG implementation?
 
 boost::shared_ptr<vw::camera::CameraModel>
-StereoSessionIsis::load_camera_model(std::string const& image_file, 
-                                     std::string const& camera_file, 
-                                     std::string const& ba_prefix, 
+StereoSessionIsis::load_camera_model(std::string const& image_file,
+                                     std::string const& camera_file,
+                                     std::string const& ba_prefix,
                                      Vector2 pixel_offset) const {
 
   // If the camera file is empty, then we assume the image file has the camera.
   std::string l_cam = camera_file;
-  if (l_cam.empty()) 
+  if (l_cam.empty())
     l_cam = image_file;
 
   return load_adjusted_model(m_camera_loader.load_isis_camera_model(l_cam),
@@ -533,7 +533,7 @@ ImageViewRef<PixelMask<Vector2f>>
 StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
   return DiskImageView<PixelMask<Vector2f>>(input_file);
 } // End function pre_pointcloud_hook()
-  
+
 }
 
 #endif  // ASP_HAVE_PKG_ISIS

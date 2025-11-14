@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -36,9 +36,9 @@ namespace asp {
     virtual ~StereoSessionIsis() {}
 
     virtual std::string name() const { return "isis"; }
-    
+
     virtual bool supports_multi_threading() const;
-    
+
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
                                              bool use_sphere_for_non_earth) const;
@@ -52,13 +52,13 @@ namespace asp {
 
     /// Stage 2: Correlation
     ///
-    /// Pre file is a pair of grayscale images.  ( ImageView<PixelGray<float> > )
-    /// Post file is a disparity map.            ( ImageView<PixelDisparity> > )
+    /// Pre file is a pair of grayscale images.  (ImageView<PixelGray<float>>)
+    /// Post file is a disparity map.            (ImageView<PixelDisparity>>)
     virtual void pre_filtering_hook(std::string const& input_file,
                                     std::string      & output_file);
 
     /// Stage 4: Point cloud generation
-    virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f> >
+    virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>
     pre_pointcloud_hook(std::string const& input_file);
 
     /// Simple factory function.
@@ -67,9 +67,9 @@ namespace asp {
   protected:
     /// Function to load a camera model of the particular type.
     virtual boost::shared_ptr<vw::camera::CameraModel>
-    load_camera_model(std::string const& image_file, 
+    load_camera_model(std::string const& image_file,
                       std::string const& camera_file,
-                      std::string const& ba_prefix, 
+                      std::string const& ba_prefix,
                       vw::Vector2 pixel_offset) const;
   };
 

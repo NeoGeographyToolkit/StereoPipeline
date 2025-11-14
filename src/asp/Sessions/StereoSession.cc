@@ -926,6 +926,7 @@ bool StereoSession::do_bathymetry() const {
 // needed, in stereo_tri. Skip this if the masks already exit and are
 // not older than the images. This code mirrors very closely the logic
 // for how the images are aligned.
+// TODO(oalexan1): Such duplication of logic is not good.
 void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
 
   bool do_bathy = StereoSession::do_bathymetry();
