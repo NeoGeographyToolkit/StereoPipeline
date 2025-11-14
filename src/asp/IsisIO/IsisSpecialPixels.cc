@@ -30,8 +30,6 @@
 
 namespace asp {
 
-using namespace vw;
-
 //  IsisSpecialPixelFunc
 //
 /// Replace ISIS missing data values with a pixel value of your choice.
@@ -112,13 +110,13 @@ public:
   };
 
   PixelT operator() (PixelT const& pix) const {
-    typedef typename CompoundChannelType<PixelT>::type channel_type;
+    typedef typename vw::CompoundChannelType<PixelT>::type channel_type;
     typedef Helper<channel_type, void> help;
-    for (size_t n = 0; n < CompoundNumChannels<PixelT>::value; ++n) {
-      if (help::IsSpecial(compound_select_channel<const channel_type&>(pix,n))) {
-        if (help::IsHighPixel(compound_select_channel<const channel_type&>(pix,n)))
+    for (size_t n = 0; n < vw::CompoundNumChannels<PixelT>::value; ++n) {
+      if (help::IsSpecial(vw::compound_select_channel<const channel_type&>(pix,n))) {
+        if (help::IsHighPixel(vw::compound_select_channel<const channel_type&>(pix,n)))
           return m_replacement_high;
-        else if (help::IsNull(compound_select_channel<const channel_type&>(pix,n)))
+        else if (help::IsNull(vw::compound_select_channel<const channel_type&>(pix,n)))
           return m_replacement_null;
         else
           return m_replacement_low;
@@ -129,11 +127,11 @@ public:
 };
 
 // Specialize this only for float pixels, as that's all that is needed
-ImageViewRef<float>
-remove_isis_special_pixels(ImageViewRef<float> const& image,
+vw::ImageViewRef<float>
+remove_isis_special_pixels(vw::ImageViewRef<float> const& image,
                            float r_low, float r_high, float r_null) {
   auto obj = IsisSpecialPixelFunc<float>(r_low, r_high, r_null);
-  return per_pixel_filter(image.impl(), obj);
+  return vw::per_pixel_filter(image.impl(), obj);
 }
 
 } // end namespace asp
