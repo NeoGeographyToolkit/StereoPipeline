@@ -11,7 +11,7 @@ orbit is sun-synchronous, at an elevation of 705 km. The ground sample distance 
 meters/pixel. 
 
 See a `ready-made ASTER example <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/ASTER>`_. It has the input images and
-cameras, ASP outputs, and instructions for how to run it. Also see a `workbook with illustrations <https://github.com/uw-cryo/asp-binder-demo/blob/master/example-aster_on_pangeo_binder_draft.ipynb>`_.
+cameras, ASP outputs, and instructions for how to run it. Also see a `workbook with illustrations <https://nbviewer.org/github/uw-cryo/asp_plot/blob/main/notebooks/ASTER/aster_with_mapprojection.ipynb>`_.
     
 ASP can correct for the jitter in these cameras (:numref:`jitter_aster`).
 
