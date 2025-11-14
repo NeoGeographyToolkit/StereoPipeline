@@ -591,11 +591,10 @@ void calcIntenEstimHeights(SfsOptions & opt,
     asp::combineHeightErrors(heightErrEstim, opt, geo);
 }
 
-void prepareDemAndAlbedo(SfsOptions & opt, 
-                         vw::ImageView<double>& dem, 
-                         vw::ImageView<double>& albedo, 
-                         vw::cartography::GeoReference& geo, 
-                         vw::cartography::GeoReference& albedo_geo, 
+void prepareDemAndAlbedo(SfsOptions& opt,
+                         vw::ImageView<double>& dem,
+                         vw::ImageView<double>& albedo,
+                         vw::cartography::GeoReference& geo,
                          double& dem_nodata_val) {
 
   // Manage no-data. Use here a value that is not overly large in magnitude,
@@ -626,6 +625,7 @@ void prepareDemAndAlbedo(SfsOptions & opt,
   }
 
   // Read the georeference
+  vw::cartography::GeoReference albedo_geo;
   loadGeoref(opt, geo, albedo_geo);
 
   // Adjust the crop win
@@ -684,8 +684,8 @@ int main(int argc, char* argv[]) {
 
     double dem_nodata_val = -1e+6; // Will change
     vw::ImageView<double> dem, albedo;
-    vw::cartography::GeoReference geo, albedo_geo;
-    prepareDemAndAlbedo(opt, dem, albedo, geo, albedo_geo, dem_nodata_val);
+    vw::cartography::GeoReference geo;
+    prepareDemAndAlbedo(opt, dem, albedo, geo, dem_nodata_val);
 
     // See if to use provided initial DEM height
     if (!boost::math::isnan(opt.init_dem_height)) {
