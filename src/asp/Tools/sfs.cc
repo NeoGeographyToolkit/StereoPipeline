@@ -790,6 +790,7 @@ int main(int argc, char* argv[]) {
     if (opt.query)
       return 0;
 
+    // Do the sanity checks after the query, as that one better not fail  
     sfsSanityChecks(opt, dem, dem_nodata_val);
 
     // This check must be here, after we find the session
@@ -813,7 +814,6 @@ int main(int argc, char* argv[]) {
     // Ensure that no two threads can access an ISIS camera at the same time.
     // Declare the lock here, as we want it to live until the end of the program.
     vw::Mutex camera_mutex;
-
     if (opt.use_approx_camera_models) // calc approx camera models and crop boxes
       calcApproxCamsCropBoxes(dem, geo, dem_nodata_val,
                               opt, cameras, crop_boxes, camera_mutex); // outputs
@@ -843,8 +843,8 @@ int main(int argc, char* argv[]) {
     // Find the mean albedo
     double mean_albedo = asp::meanAlbedo(dem, albedo, dem_nodata_val);
 
+    // Initalize the exposure, haze, and skip images
     bool blend_weight_is_ground_weight = false; // will change later
-
     std::vector<double> local_exposures_vec, local_haze_vec;
     estimExposuresHazeSkipVec(opt, dem, geo, max_dem_height, gridx, gridy,
                               sunPosition, refl_params, crop_boxes, masked_images,
