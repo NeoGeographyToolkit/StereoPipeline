@@ -201,66 +201,40 @@ void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
   // The output no-data value must be < 0 as we scale the images to [0, 1].
   bool has_nodata = true;
   float output_nodata = -32768.0;
-
   ImageViewRef<float> image_sans_mask = apply_mask(masked_image, isis_lo);
-
   ImageViewRef<float> processed_image
     = remove_isis_special_pixels(image_sans_mask, isis_lo, isis_hi, out_lo);
 
-  // Use no-data in interpolation and edge extension.
-  PixelMask<float> nodata_pix(0);
+  // Use no-data in interpolation and edge extension
+  PixelMask<float> nodata_pix(output_nodata);
   nodata_pix.invalidate();
   ValueEdgeExtension<PixelMask<float>> ext(nodata_pix);
-
+  
+  ImageViewRef<PixelMask<float>> normalized_image;
+  ImageViewRef<uint8> mask;
   if (apply_user_nodata) {
-
-    // If the user specifies a no-data value, mask all pixels <= that
-    // value. Note: this causes non-trivial erosion at image
-    // boundaries where invalid pixels show up if homography is used.
-
-    ImageViewRef<uint8> mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
-
-    ImageViewRef<PixelMask<float>> normalized_image =
+    // Implement --no-data-value
+    mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
+    normalized_image =
       normalize(copy_mask(processed_image, create_mask(mask)), out_lo, out_hi, 0.0, 1.0);
-
-    ImageViewRef<PixelMask<float>> applied_image;
-    if (matrix == math::identity_matrix<3>()) {
-      applied_image = crop(edge_extend(normalized_image, ext),
-                           0, 0, crop_size[0], crop_size[1]);
-    } else {
-      applied_image = transform(normalized_image, HomographyTransform(matrix),
-                                crop_size[0], crop_size[1]);
-    }
-
-    vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
-    block_write_gdal_image(out_file, apply_mask(applied_image, output_nodata),
-                            has_georef, georef,
-                            has_nodata, output_nodata, opt,
-                            TerminalProgressCallback("asp", "\t  "+tag+":  "));
   } else {
-
-    // Set invalid pixels to the minimum pixel value. Causes less
-    // erosion and the results are good.
-
-    ImageViewRef<float> normalized_image =
-      normalize(processed_image, out_lo, out_hi, 0.0, 1.0);
-
-    ImageViewRef<float> applied_image;
-    if (matrix == math::identity_matrix<3>()) {
-      applied_image = crop(edge_extend(normalized_image, ext),
-                           0, 0, crop_size[0], crop_size[1]);
-    } else {
-      applied_image = transform(normalized_image, HomographyTransform(matrix),
-                                crop_size[0], crop_size[1]);
-    }
-
-    vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
-    block_write_gdal_image(out_file, applied_image,
-                            has_georef, georef,
-                            has_nodata, output_nodata, opt,
-                            TerminalProgressCallback("asp", "\t  "+tag+":  "));
+    normalized_image = vw::pixel_cast<vw::PixelMask<float>>(normalize(processed_image, out_lo, out_hi, 0.0, 1.0));
   }
 
+  ImageViewRef<PixelMask<float>> applied_image;
+  if (matrix == math::identity_matrix<3>()) {
+    applied_image = crop(edge_extend(normalized_image, ext),
+                          0, 0, crop_size[0], crop_size[1]);
+  } else {
+    applied_image = transform(normalized_image, HomographyTransform(matrix),
+                              crop_size[0], crop_size[1]);
+  }
+
+  vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
+  block_write_gdal_image(out_file, apply_mask(applied_image, output_nodata),
+                         has_georef, georef,
+                         has_nodata, output_nodata, opt,
+                         TerminalProgressCallback("asp", "\t  "+tag+":  "));
 }
 
 // Process a single ISIS image to find an ideal min max. The reason we

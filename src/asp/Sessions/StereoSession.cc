@@ -508,6 +508,8 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   ImageViewRef<PixelMask<float>> Limg, Rimg;
 
   // Use no-data in interpolation and edge extension
+  // TODO(oalexan1): Maybe using 0 for nodata_pix is not good. May need to use
+  // -32768.0.
   PixelMask<float>nodata_pix(0); nodata_pix.invalidate();
   ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix);
 
