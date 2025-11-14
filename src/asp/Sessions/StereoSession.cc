@@ -596,27 +596,19 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   vw_out() << "\t--> Writing: " << right_output_file << "\n";
   vw::Stopwatch sw4;
   sw4.start();
-  if (stereo_settings().alignment_method == "none") {
-    // Do not crop the right image to have the same dimensions as the
-    // left image. Since there is no alignment, and images may not be
-    // georeferenced, we do not know what portion of the right image
-    // corresponds best to the left image, so cropping may throw away
-    // an area where the left and right images overlap.
-    block_write_gdal_image(right_output_file, apply_mask(Rimg, output_nodata),
-                           has_right_georef, right_georef,
-                           has_nodata, output_nodata, options,
-                           TerminalProgressCallback("asp","\t  R:  "));
-  } else {
-    // Crop the right aligned image consistently with how the alignment
-    // transform expects it. The resulting R.tif will have the same
-    // size as L.tif. Extra pixels will be filled with nodata.
-    block_write_gdal_image(right_output_file,
-                           apply_mask(crop(edge_extend(Rimg, ext_nodata),
-                                           bounding_box(Limg)), output_nodata),
-                           has_right_georef, right_georef,
-                           has_nodata, output_nodata, options,
-                           TerminalProgressCallback("asp","\t  R:  "));
-  }
+  
+  // With no alignment, do not crop the right image to have the same dimensions
+  // as the left image. Since there is no alignment, and images may not be
+  // georeferenced, we do not know what portion of the right image corresponds
+  // best to the left image, so cropping may throw away an area where the left
+  // and right images overlap.
+  if (stereo_settings().alignment_method != "none")
+    Rimg = crop(edge_extend(Rimg, ext_nodata), bounding_box(Limg));
+    
+  block_write_gdal_image(right_output_file, apply_mask(Rimg, output_nodata),
+                         has_right_georef, right_georef,
+                         has_nodata, output_nodata, options,
+                         TerminalProgressCallback("asp","\t  R:  "));
   sw4.stop();
   vw_out() << "Writing right image elapsed time: " << sw4.elapsed_seconds() << " s\n";
 

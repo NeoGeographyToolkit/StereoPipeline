@@ -187,7 +187,7 @@ remove_isis_special_pixels(vw::ImageViewBase<ViewT> &image,
   
 // This actually modifies and writes the pre-processed image.
 void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
-                                    bool will_apply_user_nodata,
+                                    bool apply_user_nodata,
                                     ImageViewRef< PixelMask <float> > masked_image,
                                     std::string const& out_file,
                                     std::string const& tag,
@@ -212,7 +212,7 @@ void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
   nodata_pix.invalidate();
   ValueEdgeExtension< PixelMask<float> > ext(nodata_pix); 
 
-  if (will_apply_user_nodata){
+  if (apply_user_nodata){
 
     // If the user specifies a no-data value, mask all pixels <= that
     // value. Note: this causes non-trivial erosion at image
@@ -274,18 +274,18 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
                       boost::shared_ptr<DiskImageResourceIsis> isis_rsrc,
                       float nodata_value,
                       std::string const& tag,
-                      bool & will_apply_user_nodata,
+                      bool & apply_user_nodata,
                       float & isis_lo, float & isis_hi,
                       float & isis_mean, float& isis_std) {
 
-  will_apply_user_nodata = false;
+  apply_user_nodata = false;
   isis_lo = isis_rsrc->valid_minimum();
   isis_hi = isis_rsrc->valid_maximum();
 
   // Force the low value to be greater than the nodata value
   if (!boost::math::isnan(nodata_value) && nodata_value >= isis_lo){
     // The new lower bound is the next floating point number > nodata_value.
-    will_apply_user_nodata = true;
+    apply_user_nodata = true;
     isis_lo = boost::math::float_next(nodata_value);
     if (isis_hi < isis_lo)
       isis_hi = isis_lo;
@@ -377,8 +377,8 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
 
   // These variables will be true if we reduce the valid range for ISIS images
   // using the nodata value provided by the user.
-  bool will_apply_user_nodata_left  = false,
-       will_apply_user_nodata_right = false;
+  bool apply_user_nodata_left  = false,
+       apply_user_nodata_right = false;
 
   // TODO: A lot of this normalization code should be shared with the base class!
   // Mask the pixels outside of the isis range and <= nodata.
@@ -389,11 +389,11 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   float right_lo, right_hi, right_mean, right_std;
   ImageViewRef<PixelMask<float>> left_masked_image
     = find_ideal_isis_range(left_cropped_image, left_isis_rsrc, left_nodata_value,
-                            "left", will_apply_user_nodata_left,
+                            "left", apply_user_nodata_left,
                             left_lo, left_hi, left_mean, left_std);
   ImageViewRef< PixelMask <float> > right_masked_image
     = find_ideal_isis_range(right_cropped_image, right_isis_rsrc, right_nodata_value,
-                            "right", will_apply_user_nodata_right,
+                            "right", apply_user_nodata_right,
                             right_lo, right_hi, right_mean, right_std);
 
   // Handle mutual normalization if requested
@@ -469,15 +469,15 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   } // End alignment block
 
   // Apply alignment and normalization
-  bool will_apply_user_nodata = (will_apply_user_nodata_left || will_apply_user_nodata_right);
+  bool apply_user_nodata = (apply_user_nodata_left || apply_user_nodata_right);
 
   // Write output images
-  write_preprocessed_isis_image(options, will_apply_user_nodata,
+  write_preprocessed_isis_image(options, apply_user_nodata,
                                 left_masked_image, left_output_file, "left",
                                 left_lo, left_hi, left_lo_out, left_hi_out,
                                 align_left_matrix, left_size,
                                 has_left_georef, left_georef);
-  write_preprocessed_isis_image(options, will_apply_user_nodata,
+  write_preprocessed_isis_image(options, apply_user_nodata,
                                 right_masked_image, right_output_file, "right",
                                 right_lo, right_hi, right_lo_out, right_hi_out,
                                 align_right_matrix, right_size,
