@@ -591,6 +591,84 @@ void calcIntenEstimHeights(SfsOptions & opt,
     asp::combineHeightErrors(heightErrEstim, opt, geo);
 }
 
+void prepareDemAndAlbedo(SfsOptions & opt, 
+                         vw::ImageView<double>& dem, 
+                         vw::ImageView<double>& albedo, 
+                         vw::cartography::GeoReference& geo, 
+                         vw::cartography::GeoReference& albedo_geo, 
+                         double& dem_nodata_val) {
+
+  // Manage no-data. Use here a value that is not overly large in magnitude,
+  // and easy to represent as float.
+  dem_nodata_val = setupDemNodata(opt);
+
+  // Read the handle to the DEM. Here we don't load the DEM into memory yet. We
+  // will later load into memory only a crop, if cropping is specified. This is
+  // to save on memory.
+  vw::ImageViewRef<double> full_dem = DiskImageView<double>(opt.input_dem);
+  vw::ImageViewRef<double> full_albedo;
+
+  // Read the albedo
+  if (!opt.input_albedo.empty()) {
+    vw::vw_out() << "Reading albedo from: " << opt.input_albedo << "\n";
+    full_albedo = DiskImageView<double>(opt.input_albedo);
+    // Must have the same size as dem
+    if (full_albedo.cols() != full_dem.cols() || full_albedo.rows() != full_dem.rows())
+      vw::vw_throw(vw::ArgumentErr()
+                << "The input albedo must have the same dimensions as the DEM.\n");
+  }
+
+  // This must be done before the DEM is cropped. This stats is
+  // queried from parallel_sfs.
+  if (opt.query) {
+    vw_out() << "dem_cols, " << full_dem.cols() << "\n";
+    vw_out() << "dem_rows, " << full_dem.rows() << "\n";
+  }
+
+  // Read the georeference
+  loadGeoref(opt, geo, albedo_geo);
+
+  // Adjust the crop win
+  opt.crop_win.crop(bounding_box(full_dem));
+
+  // Crop the DEM and georef if requested to given box. Same for albedo.
+  // In either case, read the needed portion fully in memory.
+  if (!opt.crop_win.empty()) {
+    dem = crop(full_dem, opt.crop_win);
+    geo = crop(geo, opt.crop_win);
+    if (!opt.input_albedo.empty()) {
+      albedo = crop(full_albedo, opt.crop_win);
+      albedo_geo = crop(albedo_geo, opt.crop_win);
+    }
+  } else {
+    // No cropping
+    dem = full_dem;
+    if (!opt.input_albedo.empty())
+      albedo = full_albedo;
+  }
+
+  // Initialize the albedo if not read from disk
+  if (opt.input_albedo.empty()) {
+    double initial_albedo = 1.0;
+    albedo.set_size(dem.cols(), dem.rows());
+    for (int col = 0; col < albedo.cols(); col++) {
+      for (int row = 0; row < albedo.rows(); row++) {
+        albedo(col, row) = initial_albedo;
+      }
+    }
+    albedo_geo = geo;
+  }
+
+  // Albedo and DEM must have same dimensions and georef
+  if (albedo.cols() != dem.cols() || albedo.rows() != dem.rows())
+    vw_throw(ArgumentErr()
+              << "The albedo image must have the same dimensions as the DEM.\n");
+  if (geo.get_wkt() != albedo_geo.get_wkt())
+    vw::vw_throw(vw::ArgumentErr()
+                  << "The input DEM has a different georeference "
+                  << "from the input albedo image.\n");
+}
+
 int main(int argc, char* argv[]) {
 
   Stopwatch sw_total;
@@ -604,81 +682,10 @@ int main(int argc, char* argv[]) {
     ReflParams refl_params;
     setupReflectance(refl_params, opt);
 
-    // Manage no-data. Use here a value that is not overly large in magnitude,
-    // and easy to represent as float.
-    double dem_nodata_val = setupDemNodata(opt);
-
-    // Read the handle to the DEM. Here we don't load the DEM into
-    // memory yet. We will later load into memory only a crop,
-    // if cropping is specified. This is to save on memory.
-    vw::ImageViewRef<double> full_dem = DiskImageView<double>(opt.input_dem);
-    vw::ImageViewRef<double> full_albedo;
-    
-    // Read the albedo
-    if (!opt.input_albedo.empty()) {
-      vw::vw_out() << "Reading albedo from: " << opt.input_albedo << "\n";
-      full_albedo = DiskImageView<double>(opt.input_albedo);
-      // Must have the same size as dem
-      if (full_albedo.cols() != full_dem.cols() || full_albedo.rows() != full_dem.rows())
-        vw::vw_throw(vw::ArgumentErr()
-                 << "The input albedo must have the same dimensions as the DEM.\n");
-    }
-
-    // This must be done before the DEM is cropped. This stats is
-    // queried from parallel_sfs.
-    if (opt.query) {
-      vw_out() << "dem_cols, " << full_dem.cols() << "\n";
-      vw_out() << "dem_rows, " << full_dem.rows() << "\n";
-    }
-
-    // Read the georeference
+    double dem_nodata_val = -1e+6; // Will change
+    vw::ImageView<double> dem, albedo;
     vw::cartography::GeoReference geo, albedo_geo;
-    loadGeoref(opt, geo, albedo_geo);
-
-    // Adjust the crop win
-    opt.crop_win.crop(bounding_box(full_dem));
-
-    // Crop the DEM and georef if requested to given box. Same for albedo.
-    // In either case, read the needed portion fully in memory.
-    vw::ImageView<double> dem, orig_dem, albedo;
-    std::string full_dem_wkt = geo.get_wkt();
-    if (!opt.crop_win.empty()) {
-      dem = crop(full_dem, opt.crop_win);
-      geo = crop(geo, opt.crop_win);
-      if (!opt.input_albedo.empty()) {
-        albedo = crop(full_albedo, opt.crop_win);
-        albedo_geo = crop(albedo_geo, opt.crop_win);
-      }
-    } else {
-      // No cropping
-      dem = full_dem;
-      if (!opt.input_albedo.empty())
-        albedo = full_albedo;
-    }
-
-    // Initialize the albedo if not read from disk
-    if (opt.input_albedo.empty()) {
-      double initial_albedo = 1.0;
-      albedo.set_size(dem.cols(), dem.rows());
-      for (int col = 0; col < albedo.cols(); col++) {
-        for (int row = 0; row < albedo.rows(); row++) {
-          albedo(col, row) = initial_albedo;
-        }
-      }
-      albedo_geo = geo;
-    }
-
-    // Albedo and DEM must have same dimensions and georef
-    if (albedo.cols() != dem.cols() || albedo.rows() != dem.rows())
-      vw_throw(ArgumentErr()
-               << "The albedo image must have the same dimensions as the DEM.\n");
-    if (geo.get_wkt() != albedo_geo.get_wkt())
-      vw::vw_throw(vw::ArgumentErr()
-                    << "The input DEM has a different georeference "
-                    << "from the input albedo image.\n");
-
-    // This can be useful
-    vw_out() << "DEM cols and rows: " << dem.cols()  << ' ' << dem.rows() << "\n";
+    prepareDemAndAlbedo(opt, dem, albedo, geo, albedo_geo, dem_nodata_val);
 
     // See if to use provided initial DEM height
     if (!boost::math::isnan(opt.init_dem_height)) {
@@ -924,7 +931,7 @@ int main(int argc, char* argv[]) {
 
     // orig_dem will keep the input DEMs and won't change. Keep to the optimized
     // DEMs close to orig_dem. Make a deep copy below.
-    orig_dem = copy(dem);
+    vw::ImageView<double> orig_dem = copy(dem);
     
     runSfs(opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight,
            max_dem_height, dem_nodata_val, img_nodata_val,  crop_boxes, masked_images,
