@@ -18,7 +18,7 @@
 /// \file StereoSessionIsis.cc
 ///
 
-#include <asp/asp_config.h>
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 
@@ -71,10 +71,6 @@ using namespace vw::camera;
 using namespace vw::cartography;
 namespace fs = boost::filesystem;
 
-// // Allows FileIO to correctly read/write these pixel types
-// namespace vw {
-//   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-
 namespace asp {
 
 //  IsisSpecialPixelFunc
@@ -87,7 +83,7 @@ class IsisSpecialPixelFunc: public vw::UnaryReturnSameType {
   PixelT m_replacement_null;
 
   // Private
-  IsisSpecialPixelFunc() : m_replacement_low(0), m_replacement_high(0), m_replacement_null(0) {}
+  IsisSpecialPixelFunc(): m_replacement_low(0), m_replacement_high(0), m_replacement_null(0) {}
 
 public:
   IsisSpecialPixelFunc(PixelT const& pix_l, PixelT const& pix_h, PixelT const& pix_n):
@@ -174,29 +170,26 @@ public:
   }
 };
 
-template <class ViewT>
-vw::UnaryPerPixelView<ViewT, IsisSpecialPixelFunc<typename ViewT::pixel_type>>
-remove_isis_special_pixels(vw::ImageViewBase<ViewT> &image,
-                           typename ViewT::pixel_type r_low  = typename ViewT::pixel_type(),
-                           typename ViewT::pixel_type r_high = typename ViewT::pixel_type(),
-                           typename ViewT::pixel_type r_null = typename ViewT::pixel_type()) {
-  return vw::per_pixel_filter(image.impl(),
-                              IsisSpecialPixelFunc<typename ViewT::pixel_type>
-                              (r_low,r_high,r_null));
+// Specialize this only for float pixels, as that's all that is needed
+ImageViewRef<float>
+remove_isis_special_pixels(ImageViewRef<float> const& image,
+                           float r_low, float r_high, float r_null) {
+  auto obj = IsisSpecialPixelFunc<float>(r_low, r_high, r_null);
+  return vw::per_pixel_filter(image.impl(), obj);
 }
 
 // This actually modifies and writes the pre-processed image.
 void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
-                                    bool apply_user_nodata,
-                                    ImageViewRef<PixelMask <float>> masked_image,
-                                    std::string const& out_file,
-                                    std::string const& tag,
-                                    float isis_lo, float isis_hi,
-                                    float out_lo,  float out_hi,
-                                    Matrix<double> const& matrix,
-                                    Vector2i const& crop_size,
-                                    bool has_georef,
-                                    vw::cartography::GeoReference const& georef) {
+                                   bool apply_user_nodata,
+                                   ImageViewRef<PixelMask <float>> masked_image,
+                                   std::string const& out_file,
+                                   std::string const& tag,
+                                   float isis_lo, float isis_hi,
+                                   float out_lo,  float out_hi,
+                                   Matrix<double> const& matrix,
+                                   Vector2i const& crop_size,
+                                   bool has_georef,
+                                   vw::cartography::GeoReference const& georef) {
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].
   bool has_nodata = true;
@@ -373,7 +366,7 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   // Handle mutual normalization if requested
   float left_lo_out  = left_lo,  left_hi_out  = left_hi,
     right_lo_out = right_lo, right_hi_out = right_hi;
-  if (stereo_settings().individually_normalize == 0) {
+  if (!stereo_settings().individually_normalize) {
     // Find the outer range of both files
     float mutual_lo = std::min(left_lo, right_lo);
     float mutual_hi = std::max(left_hi, right_hi);
