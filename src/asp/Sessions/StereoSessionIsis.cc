@@ -82,17 +82,14 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
                       boost::shared_ptr<DiskImageResourceIsis> isis_rsrc,
                       float nodata_value,
                       std::string const& tag,
-                      bool & apply_user_nodata,
                       Vector6f & stats) {
 
-  apply_user_nodata = false;
   float isis_lo = isis_rsrc->valid_minimum();
   float isis_hi = isis_rsrc->valid_maximum();
 
   // Force the low value to be greater than the nodata value
   if (!boost::math::isnan(nodata_value) && nodata_value >= isis_lo) {
     // The new lower bound is the next floating point number > nodata_value.
-    apply_user_nodata = true;
     isis_lo = boost::math::float_next(nodata_value);
     if (isis_hi < isis_lo)
       isis_hi = isis_lo;
@@ -250,10 +247,6 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   Vector2i left_size(left_cropped_image.cols(), left_cropped_image.rows());
   Vector2i right_size(right_cropped_image.cols(), right_cropped_image.rows());
 
-  // These variables will be true if we reduce the valid range for ISIS images
-  // using the nodata value provided by the user.
-  bool apply_user_nodata_left  = false, apply_user_nodata_right = false;
-
   // TODO: A lot of this normalization code should be shared with the base class!
   // Mask the pixels outside of the isis range and <= nodata.
   boost::shared_ptr<DiskImageResourceIsis>
@@ -262,12 +255,10 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   Vector6f left_stats, right_stats;
   ImageViewRef<PixelMask<float>> left_masked_image
     = find_ideal_isis_range(left_cropped_image, left_isis_rsrc, left_nodata_value,
-                            "left", apply_user_nodata_left,
-                            left_stats);
+                            "left", left_stats);
   ImageViewRef<PixelMask<float>> right_masked_image
     = find_ideal_isis_range(right_cropped_image, right_isis_rsrc, right_nodata_value,
-                            "right", apply_user_nodata_right,
-                            right_stats);
+                            "right", right_stats);
 
   // These stats will be needed later on
   if (stereo_settings().alignment_method == "local_epipolar")
