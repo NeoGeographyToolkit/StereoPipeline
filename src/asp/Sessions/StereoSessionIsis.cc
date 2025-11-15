@@ -98,7 +98,7 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
 
   ImageViewRef<PixelMask<float>> masked_image = create_mask(image, isis_lo, isis_hi);
 
-  // TODO: Is this same process a function in DG?
+  // TODO(oalexan1): Merge with gather_stats().
   // Calculating statistics. We subsample the images so statistics
   // only does about a million samples.
   float isis_mean, isis_std;
@@ -107,14 +107,13 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
     int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
     ChannelAccumulator<math::CDFAccumulator<float>> accumulator;
     for_each_pixel(subsample(edge_extend(masked_image, ConstantEdgeExtension()),
-                             stat_scale),
-                   accumulator);
+                             stat_scale), accumulator);
     isis_lo   = accumulator.quantile(0);
     isis_hi   = accumulator.quantile(1);
     isis_mean = accumulator.approximate_mean();
     isis_std  = accumulator.approximate_stddev();
-    stats[4] = accumulator.quantile(0.02);
-    stats[5] = accumulator.quantile(0.98);
+    stats[4]  = accumulator.quantile(0.02);
+    stats[5]  = accumulator.quantile(0.98);
 
     vw_out(InfoMessage) << "\t  "+tag+": [ lo:" << isis_lo << " hi:" << isis_hi
                         << " m: " << isis_mean << " s: " << isis_std <<  "]\n";
@@ -138,6 +137,12 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
   stats[1] = isis_hi;
   stats[2] = isis_mean;
   stats[3] = isis_std;
+
+  // Remove any special pixels
+  // TODO(oalexan1): This should move higher up, before statistics calculation. 
+  ImageViewRef<float> processed_image = vw::apply_mask(masked_image, isis_lo);
+  processed_image = remove_isis_special_pixels(processed_image, isis_lo, isis_hi, isis_lo);
+  masked_image = vw::create_mask(processed_image, isis_lo);
   
   return masked_image;
 }
