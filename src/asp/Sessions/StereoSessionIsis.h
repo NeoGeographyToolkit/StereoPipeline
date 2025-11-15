@@ -27,49 +27,64 @@
 
 namespace asp {
 
-  /// Derived StereoSession class for ISIS images.
-  class StereoSessionIsis: public StereoSession {
-  public:
-    StereoSessionIsis();
-    virtual ~StereoSessionIsis() {}
+/// Derived StereoSession class for ISIS images.
+class StereoSessionIsis: public StereoSession {
+public:
+  StereoSessionIsis();
+  virtual ~StereoSessionIsis() {}
 
-    virtual std::string name() const { return "isis"; }
+  virtual std::string name() const { return "isis"; }
 
-    virtual bool supports_multi_threading() const;
+  virtual bool supports_multi_threading() const;
 
-    /// Returns the target datum to use for a given camera model
-    virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
-                                             bool use_sphere_for_non_earth) const;
+  /// Returns the target datum to use for a given camera model
+  virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
+                                            bool use_sphere_for_non_earth) const;
 
-    /// Stage 1: Preprocessing
-    virtual void preprocessing_hook(bool adjust_left_image_size,
-                                    std::string const& left_input_file,
-                                    std::string const& right_input_file,
-                                    std::string      & left_output_file,
-                                    std::string      & right_output_file);
+  /// Stage 1: Preprocessing
+  virtual void preprocessing_hook(bool adjust_left_image_size,
+                                  std::string const& left_input_file,
+                                  std::string const& right_input_file,
+                                  std::string      & left_output_file,
+                                  std::string      & right_output_file);
 
-    /// Stage 2: Correlation
-    ///
-    /// Pre file is a pair of grayscale images.  (ImageView<PixelGray<float>>)
-    /// Post file is a disparity map.            (ImageView<PixelDisparity>>)
-    virtual void pre_filtering_hook(std::string const& input_file,
-                                    std::string      & output_file);
+  /// Stage 2: Correlation
+  ///
+  /// Pre file is a pair of grayscale images.  (ImageView<PixelGray<float>>)
+  /// Post file is a disparity map.            (ImageView<PixelDisparity>>)
+  virtual void pre_filtering_hook(std::string const& input_file,
+                                  std::string      & output_file);
 
-    /// Stage 4: Point cloud generation
-    virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>
-    pre_pointcloud_hook(std::string const& input_file);
+  /// Stage 4: Point cloud generation
+  virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>
+  pre_pointcloud_hook(std::string const& input_file);
 
-    /// Simple factory function
-    static StereoSession* construct() { return new StereoSessionIsis; }
+  /// Simple factory function
+  static StereoSession* construct() { return new StereoSessionIsis; }
 
-  protected:
-    /// Function to load a camera model of the particular type
-    virtual boost::shared_ptr<vw::camera::CameraModel>
-    load_camera_model(std::string const& image_file,
-                      std::string const& camera_file,
-                      std::string const& ba_prefix,
-                      vw::Vector2 pixel_offset) const;
-  };
+protected:
+  // Find the masked images and stats. Reimplemented for ISIS to handle special pixels.
+  virtual void calcStatsMaskedImages(// Inputs
+                                     vw::ImageViewRef<float> const& left_cropped_image,
+                                     vw::ImageViewRef<float> const& right_cropped_image,
+                                     float left_nodata_value, float right_nodata_value,
+                                     std::string const& left_input_file,
+                                     std::string const& right_input_file,
+                                     std::string const& left_cropped_file,
+                                     std::string const& right_cropped_file,
+                                     // Outputs
+                                     vw::ImageViewRef<vw::PixelMask<float>> & left_masked_image,
+                                     vw::ImageViewRef<vw::PixelMask<float>> & right_masked_image,
+                                     vw::Vector6f & left_stats, 
+                                     vw::Vector6f & right_stats) const;
+
+  /// Function to load a camera model of the particular type
+  virtual boost::shared_ptr<vw::camera::CameraModel>
+  load_camera_model(std::string const& image_file,
+                    std::string const& camera_file,
+                    std::string const& ba_prefix,
+                    vw::Vector2 pixel_offset) const;
+};
 
 } // end namespace asp
 

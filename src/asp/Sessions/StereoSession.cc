@@ -453,6 +453,41 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
   return cam;
 }
 
+// Find the masked images and stats. This will be reimplemented in StereoSessionIsis.
+void StereoSession::calcStatsMaskedImages(// Inputs
+                                     vw::ImageViewRef<float> const& left_cropped_image,
+                                     vw::ImageViewRef<float> const& right_cropped_image,
+                                     float left_nodata_value, float right_nodata_value,
+                                     std::string const& left_input_file,
+                                     std::string const& right_input_file,
+                                     std::string const& left_cropped_file,
+                                     std::string const& right_cropped_file,
+                                     // Outputs
+                                     vw::ImageViewRef<vw::PixelMask<float>> & left_masked_image,
+                                     vw::ImageViewRef<vw::PixelMask<float>> & right_masked_image,
+                                     vw::Vector6f & left_stats, vw::Vector6f & right_stats) const {
+
+  left_masked_image = create_mask(left_cropped_image, left_nodata_value);
+  right_masked_image = create_mask(right_cropped_image, right_nodata_value);
+
+  // Compute input image statistics. This can be slow so use a timer.
+  vw::Stopwatch sw1;
+  sw1.start();
+  left_stats = gather_stats(left_masked_image,  "left",
+                            this->m_out_prefix, left_cropped_file,
+                            asp::stereo_settings().force_reuse_match_files);
+  sw1.stop();
+  vw_out() << "Left image stats time: " << sw1.elapsed_seconds() << std::endl;
+  vw::Stopwatch sw2;
+  sw2.start();
+  right_stats = gather_stats(right_masked_image, "right",
+                             this->m_out_prefix, right_cropped_file,
+                             asp::stereo_settings().force_reuse_match_files);
+  sw2.stop();
+  vw_out() << "Right image stats time: " << sw2.elapsed_seconds() << std::endl;
+
+}
+
 // Default preprocessing hook. Some sessions may override it.
 void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                                        std::string const& left_input_file,
@@ -484,28 +519,20 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   Vector2i left_size(left_cropped_image.cols(), left_cropped_image.rows());
   Vector2i right_size(right_cropped_image.cols(), right_cropped_image.rows());
 
+  ImageViewRef<PixelMask<float>> left_masked_image, right_masked_image;
+  Vector6f left_stats, right_stats;
+
   // Set up image masks. If the user provided a custom no-data value, values no
   // more than that have been masked by now in shared_preprocessing_hook.
-  ImageViewRef<PixelMask<float>> left_masked_image, right_masked_image;
-  left_masked_image = create_mask(left_cropped_image, left_nodata_value);
-  right_masked_image = create_mask(right_cropped_image, right_nodata_value);
+  this->calcStatsMaskedImages(// Inputs
+                              left_cropped_image, right_cropped_image,
+                              left_nodata_value, right_nodata_value,
+                              left_input_file, right_input_file,
+                              left_cropped_file, right_cropped_file,
+                              // Outputs
+                              left_masked_image, right_masked_image,
+                              left_stats, right_stats);
 
-  // Compute input image statistics. This can be slow so use a timer.
-  vw::Stopwatch sw1;
-  sw1.start();
-  Vector6f left_stats = gather_stats(left_masked_image,  "left",
-                                     this->m_out_prefix, left_cropped_file,
-                                     asp::stereo_settings().force_reuse_match_files);
-  sw1.stop();
-  vw_out() << "Left image stats time: " << sw1.elapsed_seconds() << std::endl;
-  vw::Stopwatch sw2;
-  sw2.start();
-  Vector6f right_stats = gather_stats(right_masked_image, "right",
-                                      this->m_out_prefix, right_cropped_file,
-                                      asp::stereo_settings().force_reuse_match_files);
-  sw2.stop();
-  vw_out() << "Right image stats time: " << sw2.elapsed_seconds() << std::endl;
-  
   // These stats will be needed later on
   if (stereo_settings().alignment_method == "local_epipolar")
     asp::saveStats(this->m_out_prefix, left_stats, right_stats);

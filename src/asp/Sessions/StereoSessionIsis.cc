@@ -71,6 +71,10 @@ namespace fs = boost::filesystem;
 
 namespace asp {
 
+StereoSessionIsis::StereoSessionIsis() {
+  // Empty constructor
+}
+
 // Process a single ISIS image to find an ideal min max. The reason we
 // need to do this, is for ASP to get image intensity values in
 // the range of 0-1. To some extent we are compressing the dynamic
@@ -146,74 +150,31 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
   return masked_image;
 }
 
-// This actually modifies and writes the pre-processed image.
-void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
-                                   bool apply_user_nodata,
-                                   ImageViewRef<PixelMask <float>> masked_image,
-                                   std::string const& out_file,
-                                   std::string const& tag,
-                                   float isis_lo, float isis_hi,
-                                   float out_lo,  float out_hi,
-                                   Matrix<double> const& matrix,
-                                   Vector2i const& crop_size,
-                                   bool has_georef,
-                                   vw::cartography::GeoReference const& georef) {
-
-  // The output no-data value must be < 0 as we scale the images to [0, 1].
-  bool has_nodata = true;
-  float output_nodata = -32768.0;
-  ImageViewRef<float> image_sans_mask = apply_mask(masked_image, isis_lo);
-  ImageViewRef<float> processed_image
-    = remove_isis_special_pixels(image_sans_mask, isis_lo, isis_hi, out_lo);
-
-  ImageViewRef<PixelMask<float>> local_masked;
-  ImageViewRef<uint8> mask;
-  if (apply_user_nodata) {
-    // Implement --no-data-value
-    mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
-    local_masked = copy_mask(processed_image, create_mask(mask));
-  } else {
-    local_masked = vw::pixel_cast<vw::PixelMask<float>>(processed_image);
-  }
-
-  // Use no-data in interpolation and edge extension
-  PixelMask<float> nodata_pix(output_nodata);
-  nodata_pix.invalidate();
-  ValueEdgeExtension<PixelMask<float>> ext(nodata_pix);
-  
-  // Apply the alignment transform if any
-  ImageViewRef<PixelMask<float>> trans_image;
-  if (matrix == math::identity_matrix<3>())
-    trans_image = crop(edge_extend(local_masked, ext),
-                          0, 0, crop_size[0], crop_size[1]);
-  else
-    trans_image = transform(local_masked, HomographyTransform(matrix),
-                              crop_size[0], crop_size[1]);
-
-  // Normalize
-  ImageViewRef<PixelMask<float>> normalized_image =
-    normalize(trans_image, out_lo, out_hi, 0.0, 1.0);
-
-  vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
-  block_write_gdal_image(out_file, apply_mask(normalized_image, output_nodata),
-                         has_georef, georef,
-                         has_nodata, output_nodata, opt,
-                         TerminalProgressCallback("asp", "\t  "+tag+":  "));
-}
-
-StereoSessionIsis::StereoSessionIsis() {
-  char * isis_ptr = getenv("ISISDATA");
-  if (isis_ptr == NULL || std::string(isis_ptr) == "") {
-    vw_throw(ArgumentErr() << "The environmental variable ISISDATA must be "
-             << "set to point to the location of your supporting ISIS data. "
-             << "See the documentation for more information.");
-  }
-
-  std::string base_dir = std::string(isis_ptr) + "/base";
-  if (!fs::exists(base_dir) || !fs::is_directory(base_dir)) {
-    vw_throw(ArgumentErr() << "Missing ISIS data base directory: " <<
-             base_dir << "\n");
-  }
+// Find the masked images and stats. This is reimplemented for ISIS to take 
+// into account special pixels.
+void StereoSessionIsis::calcStatsMaskedImages(// Inputs
+                                     vw::ImageViewRef<float> const& left_cropped_image,
+                                     vw::ImageViewRef<float> const& right_cropped_image,
+                                     float left_nodata_value, float right_nodata_value,
+                                     std::string const& left_input_file,
+                                     std::string const& right_input_file,
+                                     std::string const& left_cropped_file,
+                                     std::string const& right_cropped_file,
+                                     // Outputs
+                                     vw::ImageViewRef<vw::PixelMask<float>> & left_masked_image,
+                                     vw::ImageViewRef<vw::PixelMask<float>> & right_masked_image,
+                                     vw::Vector6f & left_stats, vw::Vector6f & right_stats) const {
+  // TODO: A lot of this normalization code should be shared with the base class!
+  // Mask the pixels outside of the isis range and <= nodata.
+  boost::shared_ptr<DiskImageResourceIsis>
+    left_isis_rsrc (new DiskImageResourceIsis(left_input_file)),
+    right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
+  left_masked_image
+    = find_ideal_isis_range(left_cropped_image, left_isis_rsrc, left_nodata_value,
+                            "left", left_stats);
+  right_masked_image
+    = find_ideal_isis_range(right_cropped_image, right_isis_rsrc, right_nodata_value,
+                            "right", right_stats);
 }
 
 // TODO(oalexan1): See about fully integrating this with StereoSession::preprocessing_hook()
@@ -247,18 +208,16 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   Vector2i left_size(left_cropped_image.cols(), left_cropped_image.rows());
   Vector2i right_size(right_cropped_image.cols(), right_cropped_image.rows());
 
-  // TODO: A lot of this normalization code should be shared with the base class!
-  // Mask the pixels outside of the isis range and <= nodata.
-  boost::shared_ptr<DiskImageResourceIsis>
-    left_isis_rsrc (new DiskImageResourceIsis(left_input_file)),
-    right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
+  ImageViewRef<PixelMask<float>> left_masked_image, right_masked_image;
   Vector6f left_stats, right_stats;
-  ImageViewRef<PixelMask<float>> left_masked_image
-    = find_ideal_isis_range(left_cropped_image, left_isis_rsrc, left_nodata_value,
-                            "left", left_stats);
-  ImageViewRef<PixelMask<float>> right_masked_image
-    = find_ideal_isis_range(right_cropped_image, right_isis_rsrc, right_nodata_value,
-                            "right", right_stats);
+  this->calcStatsMaskedImages(// Inputs
+                              left_cropped_image, right_cropped_image,
+                              left_nodata_value, right_nodata_value,
+                              left_input_file, right_input_file,
+                              left_cropped_file, right_cropped_file,
+                              // Outputs
+                              left_masked_image, right_masked_image,
+                              left_stats, right_stats);
 
   // These stats will be needed later on
   if (stereo_settings().alignment_method == "local_epipolar")
