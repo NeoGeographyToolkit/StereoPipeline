@@ -136,12 +136,11 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
                       float nodata_value,
                       std::string const& tag,
                       bool & apply_user_nodata,
-                      float & isis_lo, float & isis_hi,
-                      float & isis_mean, float& isis_std) {
+                      Vector6f & stats) {
 
   apply_user_nodata = false;
-  isis_lo = isis_rsrc->valid_minimum();
-  isis_hi = isis_rsrc->valid_maximum();
+  float isis_lo = isis_rsrc->valid_minimum();
+  float isis_hi = isis_rsrc->valid_maximum();
 
   // Force the low value to be greater than the nodata value
   if (!boost::math::isnan(nodata_value) && nodata_value >= isis_lo) {
@@ -157,6 +156,7 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
   // TODO: Is this same process a function in DG?
   // Calculating statistics. We subsample the images so statistics
   // only does about a million samples.
+  float isis_mean, isis_std;
   {
     vw_out(InfoMessage) << "\t--> Computing statistics for " + tag + "\n";
     int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
@@ -168,6 +168,8 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
     isis_hi   = accumulator.quantile(1);
     isis_mean = accumulator.approximate_mean();
     isis_std  = accumulator.approximate_stddev();
+    stats[4] = accumulator.quantile(0.02);
+    stats[5] = accumulator.quantile(0.98);
 
     vw_out(InfoMessage) << "\t  "+tag+": [ lo:" << isis_lo << " hi:" << isis_hi
                         << " m: " << isis_mean << " s: " << isis_std <<  "]\n";
@@ -187,6 +189,11 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
                         << isis_lo << " hi:" << isis_hi << "]\n";
   }
 
+  stats[0] = isis_lo;
+  stats[1] = isis_hi;
+  stats[2] = isis_mean;
+  stats[3] = isis_std;
+  
   return masked_image;
 }
 
@@ -246,24 +253,23 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   boost::shared_ptr<DiskImageResourceIsis>
     left_isis_rsrc (new DiskImageResourceIsis(left_input_file)),
     right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
-  float left_lo, left_hi, left_mean, left_std;
-  float right_lo, right_hi, right_mean, right_std;
+  Vector6f left_stats, right_stats;
   ImageViewRef<PixelMask<float>> left_masked_image
     = find_ideal_isis_range(left_cropped_image, left_isis_rsrc, left_nodata_value,
                             "left", apply_user_nodata_left,
-                            left_lo, left_hi, left_mean, left_std);
+                            left_stats);
   ImageViewRef<PixelMask<float>> right_masked_image
     = find_ideal_isis_range(right_cropped_image, right_isis_rsrc, right_nodata_value,
                             "right", apply_user_nodata_right,
-                            right_lo, right_hi, right_mean, right_std);
+                            right_stats);
 
   // Handle mutual normalization if requested
-  float left_lo_out  = left_lo,  left_hi_out  = left_hi,
-    right_lo_out = right_lo, right_hi_out = right_hi;
+  float left_lo_out  = left_stats[0], left_hi_out  = left_stats[1],
+    right_lo_out = right_stats[0], right_hi_out = right_stats[1];
   if (!stereo_settings().individually_normalize) {
     // Find the outer range of both files
-    float mutual_lo = std::min(left_lo, right_lo);
-    float mutual_hi = std::max(left_hi, right_hi);
+    float mutual_lo = std::min(left_stats[0], right_stats[0]);
+    float mutual_hi = std::max(left_stats[1], right_stats[1]);
     vw_out() << "\t--> Normalizing globally to: ["<<mutual_lo<<" "<<mutual_hi<<"]\n";
     // Set the individual hi/lo values to the mutual values
     left_lo_out  = mutual_lo;
@@ -273,24 +279,6 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   } else {
     vw_out() << "\t--> Individually normalizing.\n";
   }
-
-  // Fill in the stats blocks. No percentile stretch is available, so
-  // just use the min and max for positions 4 and 5.
-  Vector6f left_stats;
-  left_stats [0] = left_lo;
-  left_stats [1] = left_hi;
-  left_stats [2] = left_mean;
-  left_stats [3] = left_std;
-  left_stats [4] = left_lo;
-  left_stats [5] = left_hi;
-
-  Vector6f right_stats;
-  right_stats[0] = right_lo;
-  right_stats[1] = right_hi;
-  right_stats[2] = right_mean;
-  right_stats[3] = right_std;
-  right_stats[4] = right_lo;
-  right_stats[5] = right_hi;
 
   // These stats will be needed later on
   if (stereo_settings().alignment_method == "local_epipolar")
@@ -328,12 +316,12 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   // Write output images
   write_preprocessed_isis_image(options, apply_user_nodata,
                                 left_masked_image, left_output_file, "left",
-                                left_lo, left_hi, left_lo_out, left_hi_out,
+                                left_stats[0], left_stats[1], left_lo_out, left_hi_out,
                                 align_left_matrix, left_size,
                                 has_left_georef, left_georef);
   write_preprocessed_isis_image(options, apply_user_nodata,
                                 right_masked_image, right_output_file, "right",
-                                right_lo, right_hi, right_lo_out, right_hi_out,
+                                right_stats[0], right_stats[1], right_lo_out, right_hi_out,
                                 align_right_matrix, right_size,
                                 has_right_georef, right_georef);
 }
