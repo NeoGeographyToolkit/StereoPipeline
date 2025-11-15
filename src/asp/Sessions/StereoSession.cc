@@ -514,8 +514,8 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   Matrix<double> align_left_matrix  = math::identity_matrix<3>();
   Matrix<double> align_right_matrix = math::identity_matrix<3>();
 
-  bool isis_session = (this->name() == "isis" || this->name() == "isismapisis");
   ImageViewRef<PixelMask<float>> Limg, Rimg;
+  bool isis_session = (this->name() == "isis" || this->name() == "isismapisis");
   
   // Use no-data in interpolation and edge extension
   // TODO(oalexan1): Maybe using 0 for nodata_pix is not good. May need to use

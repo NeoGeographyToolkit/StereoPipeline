@@ -30,6 +30,7 @@
 #include <asp/Sessions/StereoSessionIsis.h>
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/ImageUtils.h>
+#include <asp/Core/ImageNormalization.h>
 
 // Vision Workbench
 #include <vw/Core/Settings.h>
@@ -53,6 +54,7 @@
 #include <vw/Cartography/Datum.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Filter.h>
+#include <vw/Core/Stopwatch.h>
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -250,8 +252,7 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
 
   // These variables will be true if we reduce the valid range for ISIS images
   // using the nodata value provided by the user.
-  bool apply_user_nodata_left  = false,
-       apply_user_nodata_right = false;
+  bool apply_user_nodata_left  = false, apply_user_nodata_right = false;
 
   // TODO: A lot of this normalization code should be shared with the base class!
   // Mask the pixels outside of the isis range and <= nodata.
@@ -268,43 +269,44 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
                             "right", apply_user_nodata_right,
                             right_stats);
 
-  // Handle mutual normalization if requested
-  float left_lo_out  = left_stats[0], left_hi_out  = left_stats[1],
-    right_lo_out = right_stats[0], right_hi_out = right_stats[1];
-  if (!stereo_settings().individually_normalize) {
-    // Find the outer range of both files
-    float mutual_lo = std::min(left_stats[0], right_stats[0]);
-    float mutual_hi = std::max(left_stats[1], right_stats[1]);
-    vw_out() << "\t--> Normalizing globally to: ["<<mutual_lo<<" "<<mutual_hi<<"]\n";
-    // Set the individual hi/lo values to the mutual values
-    left_lo_out  = mutual_lo;
-    left_hi_out  = mutual_hi;
-    right_lo_out = mutual_lo;
-    right_hi_out = mutual_hi;
-  } else {
-    vw_out() << "\t--> Individually normalizing.\n";
-  }
-
   // These stats will be needed later on
   if (stereo_settings().alignment_method == "local_epipolar")
     asp::saveStats(this->m_out_prefix, left_stats, right_stats);
-
+  
   // Initialize the alignment matrices
   Matrix<double> align_left_matrix  = math::identity_matrix<3>();
   Matrix<double> align_right_matrix = math::identity_matrix<3>();
 
-  // Image alignment block. Generate aligned versions of the input
-  // images according to the options.
+  ImageViewRef<PixelMask<float>> Limg, Rimg;
+  bool isis_session = (this->name() == "isis" || this->name() == "isismapisis");
+  
+  // Use no-data in interpolation and edge extension
+  // TODO(oalexan1): Maybe using 0 for nodata_pix is not good. May need to use
+  // -32768.0.
+  PixelMask<float>nodata_pix(0); nodata_pix.invalidate();
+  ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix);
+
+  // Generate aligned versions of the input images according to the
+  // options.
+  vw_out() << "\t--> Applying alignment method: "
+           << stereo_settings().alignment_method << "\n";
   if (stereo_settings().alignment_method == "epipolar") {
 
-    vw_throw(NoImplErr() << "StereoSessionISIS does not support epipolar rectification");
+    if (isis_session)
+      vw_throw(NoImplErr() << "StereoSessionISIS does not support epipolar rectification");
+      
+    epipolar_alignment(left_masked_image, right_masked_image, ext_nodata,
+                       // Outputs
+                       Limg, Rimg);
 
   } else if (stereo_settings().alignment_method == "homography"     ||
              stereo_settings().alignment_method == "affineepipolar" ||
              stereo_settings().alignment_method == "local_epipolar") {
 
+    // Load the cameras
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     this->camera_models(left_cam, right_cam);
+
     imageAlignment(// Inputs
                    m_out_prefix, left_cropped_file, right_cropped_file,
                    left_input_file,
@@ -313,23 +315,69 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
                    adjust_left_image_size,
                    // In-out
                    align_left_matrix, align_right_matrix, left_size, right_size);
-  } // End alignment block
 
-  // Apply alignment and normalization
-  bool apply_user_nodata = (apply_user_nodata_left || apply_user_nodata_right);
+    // Apply the alignment transform to both input images
+    Limg = transform(left_masked_image,
+                     HomographyTransform(align_left_matrix),
+                     left_size.x(), left_size.y());
+    Rimg = transform(right_masked_image,
+                     HomographyTransform(align_right_matrix),
+                     right_size.x(), right_size.y());
 
-  // Write output images
-  write_preprocessed_isis_image(options, apply_user_nodata,
-                                left_masked_image, left_output_file, "left",
-                                left_stats[0], left_stats[1], left_lo_out, left_hi_out,
-                                align_left_matrix, left_size,
-                                has_left_georef, left_georef);
-  write_preprocessed_isis_image(options, apply_user_nodata,
-                                right_masked_image, right_output_file, "right",
-                                right_stats[0], right_stats[1], right_lo_out, right_hi_out,
-                                align_right_matrix, right_size,
-                                has_right_georef, right_georef);
-}
+  } else {
+    // No alignment, just provide the original files.
+    Limg = left_masked_image;
+    Rimg = right_masked_image;
+  } // End of image alignment block
+
+  // Apply our normalization options.
+  bool use_percentile_stretch = false;
+  bool do_not_exceed_min_max = isis_session; // for isis, do not exceed min/max
+  // TODO(oalexan1): Should one add above "csm" and "csmmapcsm" / "csmmaprpc"?
+  asp::normalize_images(stereo_settings().force_use_entire_range,
+                        stereo_settings().individually_normalize,
+                        use_percentile_stretch,
+                        do_not_exceed_min_max,
+                        left_stats, right_stats, Limg, Rimg);
+
+  // The output no-data value must be < 0 as we scale the images to [0, 1].
+  bool has_nodata = true;
+  float output_nodata = -32768.0;
+  vw_out() << "\t--> Writing pre-aligned images.\n";
+  vw_out() << "\t--> Writing: " << left_output_file << "\n";
+  vw::Stopwatch sw3;
+  sw3.start();
+  block_write_gdal_image(left_output_file, apply_mask(Limg, output_nodata),
+                         has_left_georef, left_georef,
+                         has_nodata, output_nodata, options,
+                         TerminalProgressCallback("asp","\t  L:  "));
+  sw3.stop();
+  vw_out() << "Writing left image elapsed time: " << sw3.elapsed_seconds() << " s\n";
+
+  vw_out() << "\t--> Writing: " << right_output_file << "\n";
+  vw::Stopwatch sw4;
+  sw4.start();
+  
+  // With no alignment, do not crop the right image to have the same dimensions
+  // as the left image. Since there is no alignment, and images may not be
+  // georeferenced, we do not know what portion of the right image corresponds
+  // best to the left image, so cropping may throw away an area where the left
+  // and right images overlap.
+  if (stereo_settings().alignment_method != "none")
+    Rimg = crop(edge_extend(Rimg, ext_nodata), bounding_box(Limg));
+    
+  block_write_gdal_image(right_output_file, apply_mask(Rimg, output_nodata),
+                         has_right_georef, right_georef,
+                         has_nodata, output_nodata, options,
+                         TerminalProgressCallback("asp","\t  R:  "));
+  sw4.stop();
+  vw_out() << "Writing right image elapsed time: " << sw4.elapsed_seconds() << " s\n";
+
+  // For bathy runs only
+  if (this->do_bathymetry())
+    this->align_bathy_masks(options);
+
+} // End function preprocessing_hook
 
 bool StereoSessionIsis::supports_multi_threading () const {
   return false;
