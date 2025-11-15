@@ -454,18 +454,20 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
 }
 
 // Find the masked images and stats. This will be reimplemented in StereoSessionIsis.
-void StereoSession::calcStatsMaskedImages(// Inputs
-                                     vw::ImageViewRef<float> const& left_cropped_image,
-                                     vw::ImageViewRef<float> const& right_cropped_image,
-                                     float left_nodata_value, float right_nodata_value,
-                                     std::string const& left_input_file,
-                                     std::string const& right_input_file,
-                                     std::string const& left_cropped_file,
-                                     std::string const& right_cropped_file,
-                                     // Outputs
-                                     vw::ImageViewRef<vw::PixelMask<float>> & left_masked_image,
-                                     vw::ImageViewRef<vw::PixelMask<float>> & right_masked_image,
-                                     vw::Vector6f & left_stats, vw::Vector6f & right_stats) const {
+void StereoSession::
+calcStatsMaskedImages(// Inputs
+                      vw::ImageViewRef<float> const& left_cropped_image,
+                      vw::ImageViewRef<float> const& right_cropped_image,
+                      float left_nodata_value, float right_nodata_value,
+                      std::string const& left_input_file,
+                      std::string const& right_input_file,
+                      std::string const& left_cropped_file,
+                      std::string const& right_cropped_file,
+                      // Outputs
+                      vw::ImageViewRef<vw::PixelMask<float>> & left_masked_image,
+                      vw::ImageViewRef<vw::PixelMask<float>> & right_masked_image,
+                      vw::Vector6f & left_stats, 
+                      vw::Vector6f & right_stats) const {
 
   left_masked_image = create_mask(left_cropped_image, left_nodata_value);
   right_masked_image = create_mask(right_cropped_image, right_nodata_value);
@@ -524,6 +526,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
 
   // Set up image masks. If the user provided a custom no-data value, values no
   // more than that have been masked by now in shared_preprocessing_hook.
+  // This is reimplemented for ISIS.
   this->calcStatsMaskedImages(// Inputs
                               left_cropped_image, right_cropped_image,
                               left_nodata_value, right_nodata_value,
@@ -642,11 +645,6 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
     this->align_bathy_masks(options);
 
 } // End function preprocessing_hook
-
-void StereoSession::pre_filtering_hook(std::string const& input_file,
-                                       std::string      & output_file) {
-  output_file = input_file;
-}
 
 ImageViewRef<PixelMask<Vector2f>>
 StereoSession::pre_pointcloud_hook(std::string const& input_file) {

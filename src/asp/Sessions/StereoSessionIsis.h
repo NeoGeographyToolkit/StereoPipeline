@@ -27,10 +27,10 @@
 
 namespace asp {
 
-/// Derived StereoSession class for ISIS images.
+/// Derived StereoSession class for ISIS images
 class StereoSessionIsis: public StereoSession {
 public:
-  StereoSessionIsis();
+
   virtual ~StereoSessionIsis() {}
 
   virtual std::string name() const { return "isis"; }
@@ -40,24 +40,6 @@ public:
   /// Returns the target datum to use for a given camera model
   virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
                                             bool use_sphere_for_non_earth) const;
-
-  /// Stage 1: Preprocessing
-  virtual void preprocessing_hook(bool adjust_left_image_size,
-                                  std::string const& left_input_file,
-                                  std::string const& right_input_file,
-                                  std::string      & left_output_file,
-                                  std::string      & right_output_file);
-
-  /// Stage 2: Correlation
-  ///
-  /// Pre file is a pair of grayscale images.  (ImageView<PixelGray<float>>)
-  /// Post file is a disparity map.            (ImageView<PixelDisparity>>)
-  virtual void pre_filtering_hook(std::string const& input_file,
-                                  std::string      & output_file);
-
-  /// Stage 4: Point cloud generation
-  virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>
-  pre_pointcloud_hook(std::string const& input_file);
 
   /// Simple factory function
   static StereoSession* construct() { return new StereoSessionIsis; }

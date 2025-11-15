@@ -346,9 +346,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
 
 void stereo_filtering(ASPGlobalOptions& opt) {
 
-  string post_correlation_fname;
-  opt.session->pre_filtering_hook(opt.out_prefix+"-RD.tif",
-                                  post_correlation_fname);
+  string post_correlation_fname = opt.out_prefix+"-RD.tif";
 
   try {
 

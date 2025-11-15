@@ -126,13 +126,6 @@ public:
                                   std::string      & output_file1,
                                   std::string      & output_file2);
 
-  /// Stage 3: Filtering
-  ///
-  /// Pre  file is a disparity map. (ImageView<PixelDisparity<float>>)
-  /// Post file is a disparity map. (ImageView<PixelDisparity<float>>)
-  virtual void pre_filtering_hook(std::string const& input_file,
-                                  std::string      & output_file);
-
   /// Stage 4: Point cloud generation
   ///
   /// Pre  file is a disparity map. (ImageView<PixelDisparity<float>>)
@@ -207,7 +200,7 @@ protected:
                                   std::string                       & left_cropped_file,
                                   std::string                       & right_cropped_file,
                                   vw::ImageViewRef<float>           & left_cropped_image,
-                                  vw::ImageViewRef<float>           & right_cripped_image,
+                                  vw::ImageViewRef<float>           & right_cropped_image,
                                   float                             & left_nodata_value,
                                   float                             & right_nodata_value,
                                   bool                              & has_left_georef,
