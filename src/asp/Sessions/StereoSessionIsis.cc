@@ -296,6 +296,7 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   if (stereo_settings().alignment_method == "local_epipolar")
     asp::saveStats(this->m_out_prefix, left_stats, right_stats);
 
+  // Initialize the alignment matrices
   Matrix<double> align_left_matrix  = math::identity_matrix<3>();
   Matrix<double> align_right_matrix = math::identity_matrix<3>();
 

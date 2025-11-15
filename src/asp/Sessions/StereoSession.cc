@@ -505,6 +505,15 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                                       asp::stereo_settings().force_reuse_match_files);
   sw2.stop();
   vw_out() << "Right image stats time: " << sw2.elapsed_seconds() << std::endl;
+  
+  // These stats will be needed later on
+  if (stereo_settings().alignment_method == "local_epipolar")
+    asp::saveStats(this->m_out_prefix, left_stats, right_stats);
+  
+  // Initialize the alignment matrices
+  Matrix<double> align_left_matrix  = math::identity_matrix<3>();
+  Matrix<double> align_right_matrix = math::identity_matrix<3>();
+
   ImageViewRef<PixelMask<float>> Limg, Rimg;
 
   // Use no-data in interpolation and edge extension
@@ -512,10 +521,6 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   // -32768.0.
   PixelMask<float>nodata_pix(0); nodata_pix.invalidate();
   ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix);
-
-  // Initialize alignment matrices and get the input image sizes.
-  Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
-    align_right_matrix = math::identity_matrix<3>();
 
   // Generate aligned versions of the input images according to the
   // options.
@@ -568,10 +573,6 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                         use_percentile_stretch,
                         do_not_exceed_min_max,
                         left_stats, right_stats, Limg, Rimg);
-
-  // These stats will be needed later on
-  if (stereo_settings().alignment_method == "local_epipolar")
-    asp::saveStats(this->m_out_prefix, left_stats, right_stats);
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].
   bool has_nodata = true;
