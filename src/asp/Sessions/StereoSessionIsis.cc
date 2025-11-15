@@ -98,26 +98,26 @@ void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
     local_masked = vw::pixel_cast<vw::PixelMask<float>>(processed_image);
   }
 
-  // Normalize
-  ImageViewRef<PixelMask<float>> normalized_image =
-    normalize(local_masked, out_lo, out_hi, 0.0, 1.0);
-
   // Use no-data in interpolation and edge extension
   PixelMask<float> nodata_pix(output_nodata);
   nodata_pix.invalidate();
   ValueEdgeExtension<PixelMask<float>> ext(nodata_pix);
   
-  ImageViewRef<PixelMask<float>> applied_image;
+  ImageViewRef<PixelMask<float>> trans_image;
   if (matrix == math::identity_matrix<3>()) {
-    applied_image = crop(edge_extend(normalized_image, ext),
+    trans_image = crop(edge_extend(local_masked, ext),
                           0, 0, crop_size[0], crop_size[1]);
   } else {
-    applied_image = transform(normalized_image, HomographyTransform(matrix),
+    trans_image = transform(local_masked, HomographyTransform(matrix),
                               crop_size[0], crop_size[1]);
   }
 
+  // Normalize
+  ImageViewRef<PixelMask<float>> normalized_image =
+    normalize(trans_image, out_lo, out_hi, 0.0, 1.0);
+
   vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
-  block_write_gdal_image(out_file, apply_mask(applied_image, output_nodata),
+  block_write_gdal_image(out_file, apply_mask(normalized_image, output_nodata),
                          has_georef, georef,
                          has_nodata, output_nodata, opt,
                          TerminalProgressCallback("asp", "\t  "+tag+":  "));
