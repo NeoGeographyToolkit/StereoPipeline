@@ -69,61 +69,6 @@ namespace fs = boost::filesystem;
 
 namespace asp {
 
-// This actually modifies and writes the pre-processed image.
-void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
-                                   bool apply_user_nodata,
-                                   ImageViewRef<PixelMask <float>> masked_image,
-                                   std::string const& out_file,
-                                   std::string const& tag,
-                                   float isis_lo, float isis_hi,
-                                   float out_lo,  float out_hi,
-                                   Matrix<double> const& matrix,
-                                   Vector2i const& crop_size,
-                                   bool has_georef,
-                                   vw::cartography::GeoReference const& georef) {
-
-  // The output no-data value must be < 0 as we scale the images to [0, 1].
-  bool has_nodata = true;
-  float output_nodata = -32768.0;
-  ImageViewRef<float> image_sans_mask = apply_mask(masked_image, isis_lo);
-  ImageViewRef<float> processed_image
-    = remove_isis_special_pixels(image_sans_mask, isis_lo, isis_hi, out_lo);
-
-  ImageViewRef<PixelMask<float>> local_masked;
-  ImageViewRef<uint8> mask;
-  if (apply_user_nodata) {
-    // Implement --no-data-value
-    mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
-    local_masked = copy_mask(processed_image, create_mask(mask));
-  } else {
-    local_masked = vw::pixel_cast<vw::PixelMask<float>>(processed_image);
-  }
-
-  // Use no-data in interpolation and edge extension
-  PixelMask<float> nodata_pix(output_nodata);
-  nodata_pix.invalidate();
-  ValueEdgeExtension<PixelMask<float>> ext(nodata_pix);
-  
-  // Apply the alignment transform if any
-  ImageViewRef<PixelMask<float>> trans_image;
-  if (matrix == math::identity_matrix<3>())
-    trans_image = crop(edge_extend(local_masked, ext),
-                          0, 0, crop_size[0], crop_size[1]);
-  else
-    trans_image = transform(local_masked, HomographyTransform(matrix),
-                              crop_size[0], crop_size[1]);
-
-  // Normalize
-  ImageViewRef<PixelMask<float>> normalized_image =
-    normalize(trans_image, out_lo, out_hi, 0.0, 1.0);
-
-  vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
-  block_write_gdal_image(out_file, apply_mask(normalized_image, output_nodata),
-                         has_georef, georef,
-                         has_nodata, output_nodata, opt,
-                         TerminalProgressCallback("asp", "\t  "+tag+":  "));
-}
-
 // Process a single ISIS image to find an ideal min max. The reason we
 // need to do this, is for ASP to get image intensity values in
 // the range of 0-1. To some extent we are compressing the dynamic
@@ -195,6 +140,61 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
   stats[3] = isis_std;
   
   return masked_image;
+}
+
+// This actually modifies and writes the pre-processed image.
+void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
+                                   bool apply_user_nodata,
+                                   ImageViewRef<PixelMask <float>> masked_image,
+                                   std::string const& out_file,
+                                   std::string const& tag,
+                                   float isis_lo, float isis_hi,
+                                   float out_lo,  float out_hi,
+                                   Matrix<double> const& matrix,
+                                   Vector2i const& crop_size,
+                                   bool has_georef,
+                                   vw::cartography::GeoReference const& georef) {
+
+  // The output no-data value must be < 0 as we scale the images to [0, 1].
+  bool has_nodata = true;
+  float output_nodata = -32768.0;
+  ImageViewRef<float> image_sans_mask = apply_mask(masked_image, isis_lo);
+  ImageViewRef<float> processed_image
+    = remove_isis_special_pixels(image_sans_mask, isis_lo, isis_hi, out_lo);
+
+  ImageViewRef<PixelMask<float>> local_masked;
+  ImageViewRef<uint8> mask;
+  if (apply_user_nodata) {
+    // Implement --no-data-value
+    mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
+    local_masked = copy_mask(processed_image, create_mask(mask));
+  } else {
+    local_masked = vw::pixel_cast<vw::PixelMask<float>>(processed_image);
+  }
+
+  // Use no-data in interpolation and edge extension
+  PixelMask<float> nodata_pix(output_nodata);
+  nodata_pix.invalidate();
+  ValueEdgeExtension<PixelMask<float>> ext(nodata_pix);
+  
+  // Apply the alignment transform if any
+  ImageViewRef<PixelMask<float>> trans_image;
+  if (matrix == math::identity_matrix<3>())
+    trans_image = crop(edge_extend(local_masked, ext),
+                          0, 0, crop_size[0], crop_size[1]);
+  else
+    trans_image = transform(local_masked, HomographyTransform(matrix),
+                              crop_size[0], crop_size[1]);
+
+  // Normalize
+  ImageViewRef<PixelMask<float>> normalized_image =
+    normalize(trans_image, out_lo, out_hi, 0.0, 1.0);
+
+  vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
+  block_write_gdal_image(out_file, apply_mask(normalized_image, output_nodata),
+                         has_georef, georef,
+                         has_nodata, output_nodata, opt,
+                         TerminalProgressCallback("asp", "\t  "+tag+":  "));
 }
 
 StereoSessionIsis::StereoSessionIsis() {

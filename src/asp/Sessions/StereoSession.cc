@@ -514,8 +514,9 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   Matrix<double> align_left_matrix  = math::identity_matrix<3>();
   Matrix<double> align_right_matrix = math::identity_matrix<3>();
 
+  bool isis_session = (this->name() == "isis" || this->name() == "isismapisis");
   ImageViewRef<PixelMask<float>> Limg, Rimg;
-
+  
   // Use no-data in interpolation and edge extension
   // TODO(oalexan1): Maybe using 0 for nodata_pix is not good. May need to use
   // -32768.0.
@@ -528,6 +529,9 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
            << stereo_settings().alignment_method << "\n";
   if (stereo_settings().alignment_method == "epipolar") {
 
+    if (isis_session)
+      vw_throw(NoImplErr() << "StereoSessionISIS does not support epipolar rectification");
+      
     epipolar_alignment(left_masked_image, right_masked_image, ext_nodata,
                        // Outputs
                        Limg, Rimg);
@@ -565,8 +569,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
 
   // Apply our normalization options.
   bool use_percentile_stretch = false;
-  bool do_not_exceed_min_max = (this->name() == "isis" ||
-                                this->name() == "isismapisis");
+  bool do_not_exceed_min_max = isis_session; // for isis, do not exceed min/max
   // TODO(oalexan1): Should one add above "csm" and "csmmapcsm" / "csmmaprpc"?
   asp::normalize_images(stereo_settings().force_use_entire_range,
                         stereo_settings().individually_normalize,

@@ -57,12 +57,14 @@ SfS was shown to give reasonable results with CTX Mars images
 An example for Earth is :numref:`sfs_earth`, that shows that our program can
 give plausible results.
 
-The program was employed successfully for Mercury (:cite:`bertone2023highly`).
-
 It is suggested to invoke this tool with a terrain model that is
 already reasonably accurate, and with images with diverse illumination
 conditions registered to it, when ``sfs`` can do fine-level
 refinements.
+
+The program was employed successfully for Mercury (:cite:`bertone2023highly`).
+Applications for the Moon are described in :cite:`hemmi2025lroc` and
+:cite:`boatwright2024sfs`.
 
 .. _sfs_formulation:
 
@@ -1738,8 +1740,7 @@ Misregistration errors between the images can result in craters or
 other features being duplicated in the SfS terrain. Then, registration
 must be redone as discussed in the earlier sections.
 
-If in some low-light locations the SfS DEM still have seams, see
-:numref:`sfs_seams`.
+If in some low-light locations the SfS DEM has seams, see :numref:`sfs_seams`.
 
 Artifacts around permanently shadowed areas can be fixed with ``sfs_blend``
 (:numref:`sfs_blend`).
@@ -1752,7 +1753,7 @@ then blended in. For example, a clip around the defect, perhaps of dimensions
 400 pixels or larger, can be cut from the input DEM. If that clip has noise
 which affects the final SfS result, it can be blurred with ``dem_mosaic``, using
 for example, ``--dem-blur-sigma 2`` (or a larger sigma value). Then one can try
-to run ``parallel_sfs`` on just this clip, and if needed vary some of the SfS
+to run ``parallel_sfs`` on just this clip, and if needed, vary some of the SfS
 parameters or exclude some images. 
 
 If happy enough with the result, this small SfS clip can be blended back to the
@@ -1783,8 +1784,7 @@ Pixels for which no other images have higher values at the given ground location
 are excluded from this process, to avoid unnecessary erosion. (However, the blur
 operation on the weights, per above, may still result in some erosion.)
 
-This approach was shown to produce good results but was not yet tested on a
-large scale. It is available with a build from 2025/11 or later
+This approach is available with a build from 2025/11 or later
 (:numref:`release`).
 
 This should be used only on clips that show seams, as it may cause erosion
@@ -1883,8 +1883,8 @@ Hence, this invokes ``parallel_sfs`` as in :numref:`parallel_sfs_usage`, but
 with the produced SfS DEM as the input DEM, and a new output directory.
 
 See :numref:`sfs` describing how the estimation is implemented. See also the
-option ``--height-error-params``. This uncertainty may be somewhat optimistic
-(:cite:`jindal2024measuring_v2`).
+option ``--height-error-params``. This uncertainty may be overly optimistic
+(:cite:`jindal2024measuring_v2`, :cite:`hemmi2025lroc`).
 
 A useful exercise can be to run SfS with two sets of images, each with
 diverse-enough illumination conditions, compare the produced terrain models, and
