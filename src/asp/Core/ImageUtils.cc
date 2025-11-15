@@ -22,6 +22,7 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Interpolation.h>
+#include <vw/FileIO/MatrixIO.h>
 
 #include <boost/filesystem.hpp>
 
@@ -158,7 +159,7 @@ void read_mapproj_header(std::string const& map_file,
   // but on reading, if the string is NONE, make it empty.
   if (adj_prefix == "NONE") 
     adj_prefix = "";
-} 
+}
 
 /// Function to apply a functor to each pixel of an input image.
 /// Traverse the image row by row.
@@ -314,5 +315,18 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
 
   return result;
 } // end function gather_stats
+
+// Save image stats
+void saveStats(std::string const& out_prefix,
+                                   vw::Vector6f const& left_stats,
+                                   vw::Vector6f const& right_stats) {
+  std::string left_stats_file  = out_prefix + "-lStats.tif";
+  std::string right_stats_file = out_prefix + "-rStats.tif";
+  vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
+  vw::Vector<float32> left_stats2  = left_stats;  // cast
+  vw::Vector<float32> right_stats2 = right_stats; // cast
+  write_vector(left_stats_file,  left_stats2);
+  write_vector(right_stats_file, right_stats2);
+}
 
 } // end namespace asp

@@ -78,6 +78,11 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
              std::string const& image_path,
              bool force_reuse_cache = false);
 
+// Save image stats
+void saveStats(std::string const& out_prefix,
+               vw::Vector6f const& left_stats,
+               vw::Vector6f const& right_stats);
+
 } // end namespace asp
 
 #endif//__ASP_CORE_IMAGE_UTILS_H__

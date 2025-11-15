@@ -29,6 +29,7 @@
 #include <asp/IsisIO/IsisSpecialPixels.h>
 #include <asp/Sessions/StereoSessionIsis.h>
 #include <asp/Core/BaseCameraUtils.h>
+#include <asp/Core/ImageUtils.h>
 
 // Vision Workbench
 #include <vw/Core/Settings.h>
@@ -103,14 +104,14 @@ void write_preprocessed_isis_image(vw::GdalWriteOptions const& opt,
   nodata_pix.invalidate();
   ValueEdgeExtension<PixelMask<float>> ext(nodata_pix);
   
+  // Apply the alignment transform if any
   ImageViewRef<PixelMask<float>> trans_image;
-  if (matrix == math::identity_matrix<3>()) {
+  if (matrix == math::identity_matrix<3>())
     trans_image = crop(edge_extend(local_masked, ext),
                           0, 0, crop_size[0], crop_size[1]);
-  } else {
+  else
     trans_image = transform(local_masked, HomographyTransform(matrix),
                               crop_size[0], crop_size[1]);
-  }
 
   // Normalize
   ImageViewRef<PixelMask<float>> normalized_image =
@@ -291,17 +292,9 @@ void StereoSessionIsis::preprocessing_hook(bool adjust_left_image_size,
   right_stats[4] = right_lo;
   right_stats[5] = right_hi;
 
-  if (stereo_settings().alignment_method == "local_epipolar") {
-    // Save these stats for local epipolar alignment, as they will be used
-    // later in each tile.
-    std::string left_stats_file  = this->m_out_prefix + "-lStats.tif";
-    std::string right_stats_file = this->m_out_prefix + "-rStats.tif";
-    vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
-    vw::Vector<float32> left_stats2  = left_stats;  // cast
-    vw::Vector<float32> right_stats2 = right_stats; // cast
-    write_vector(left_stats_file,  left_stats2);
-    write_vector(right_stats_file, right_stats2);
-  }
+  // These stats will be needed later on
+  if (stereo_settings().alignment_method == "local_epipolar")
+    asp::saveStats(this->m_out_prefix, left_stats, right_stats);
 
   Matrix<double> align_left_matrix  = math::identity_matrix<3>();
   Matrix<double> align_right_matrix = math::identity_matrix<3>();

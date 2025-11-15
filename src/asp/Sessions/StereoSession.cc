@@ -569,17 +569,9 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                         do_not_exceed_min_max,
                         left_stats, right_stats, Limg, Rimg);
 
-  if (stereo_settings().alignment_method == "local_epipolar") {
-    // Save these stats for local epipolar alignment, as they will be used
-    // later in each tile.
-    std::string left_stats_file  = this->m_out_prefix + "-lStats.tif";
-    std::string right_stats_file = this->m_out_prefix + "-rStats.tif";
-    vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
-    vw::Vector<float32> left_stats2  = left_stats;  // cast
-    vw::Vector<float32> right_stats2 = right_stats; // cast
-    write_vector(left_stats_file,  left_stats2);
-    write_vector(right_stats_file, right_stats2);
-  }
+  // These stats will be needed later on
+  if (stereo_settings().alignment_method == "local_epipolar")
+    asp::saveStats(this->m_out_prefix, left_stats, right_stats);
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].
   bool has_nodata = true;
