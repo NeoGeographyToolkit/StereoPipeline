@@ -368,6 +368,14 @@ void read_image_cam_lists(std::string const& image_list,
                 std::vector<std::string> & cameras,
                 asp::IntrinsicOptions & intrinsics_opts); 
 
+/// Load all of the reference disparities specified in the input text file
+/// and store them in the vectors.  Return the number loaded.
+int load_reference_disparities(std::string const& disp_list_filename,
+                               std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> &
+                                  disp_vec,
+                               std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &
+                                  interp_disp);
+
 // Mapproject interest points onto a DEM and find the norm of their
 // disagreement in meters. It is assumed that dem_georef
 // was created by bilinear interpolation. The cameras must be with
@@ -495,13 +503,6 @@ void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
                      boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
                      double forced_triangulation_distance);
 
-/// Load all of the reference disparities specified in the input text file
-/// and store them in the vectors.  Return the number loaded.
-int load_reference_disparities(std::string const& disp_list_filename,
-                               std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> &
-                                  disp_vec,
-                               std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &
-                                  interp_disp);
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided camera positions.
 /// - This function overwrites the camera parameters in-place
@@ -561,10 +562,26 @@ std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
                               asp::BAParams const& param_storage);
 
 // Write a CSM camera file to disk. Assumes that the intrinsics are optimized.
-// Return the path to the saved file.
 std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
                                  vw::cartography::Datum const& datum,
                                  asp::BAParams const& param_storage);
+
+// Write a camera adjustment file to disk, and potentially a camera file with
+// the adjustments applied to it. Return the path to the saved file.
+std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
+                            asp::BAParams const& param_storage);
+
+// Write updated camera models to disk
+void saveUpdatedCameras(asp::BaBaseOptions const& opt, 
+                        asp::BAParams const& param_storage);
+
+// Save CSM cameras
+void saveCsmCameras(std::string const& out_prefix,
+                    std::string const& stereo_session, 
+                    std::vector<std::string> const& image_files,
+                    std::vector<std::string> const& camera_files,
+                    std::vector<vw::CamPtr>  const& camera_models,
+                    bool update_isis_cubes_with_csm_state);
 
 // Calculate convergence angles. Remove the outliers flagged earlier,
 // if remove_outliers is true. Compute offsets of mapprojected matches,
@@ -655,17 +672,7 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
                           asp::BAParams const& param_storage,
                           std::vector<vw::CamPtr> & optimized_cams);
 
-// Write updated camera models to disk
-void saveUpdatedCameras(asp::BaBaseOptions const& opt, 
-                        asp::BAParams const& param_storage);
 
-// Save CSM cameras
-void saveCsmCameras(std::string const& out_prefix,
-                    std::string const& stereo_session, 
-                    std::vector<std::string> const& image_files,
-                    std::vector<std::string> const& camera_files,
-                    std::vector<vw::CamPtr>  const& camera_models,
-                    bool update_isis_cubes_with_csm_state);
 
 // Find the average for the gsd for all pixels whose rays intersect at the given
 // triangulated point. This is used in jitter solving.

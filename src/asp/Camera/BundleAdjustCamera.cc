@@ -723,31 +723,6 @@ void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
     vw_out() << "WARNING: GCPs are over 100 km from the other points. Are your lat/lon GCP coordinates swapped?\n";
 }
 
-/// Load all of the reference disparities specified in the input text file
-/// and store them in the vectors.  Return the number loaded.
-int load_reference_disparities(std::string const& disp_list_filename,
-                               std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> &
-                                  disp_vec,
-                               std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &
-                                  interp_disp) {
-  // TODO: Disparities can be large, but if small it is better to
-  // read them in memory.
-  std::istringstream is(disp_list_filename);
-  std::string disp_file;
-  while (is >> disp_file) {
-    if (disp_file != "none") {
-      vw::vw_out() << "Reading: " << disp_file << std::endl;
-      disp_vec.push_back(copy(vw::DiskImageView<vw::PixelMask<vw::Vector2f>>(disp_file)));
-    }else{
-      // Read in an empty disparity
-      disp_vec.push_back(vw::ImageView<vw::PixelMask<vw::Vector2f>>());
-    }
-    interp_disp.push_back(interpolate(disp_vec.back(),
-                                      vw::BilinearInterpolation(), 
-                                      vw::ConstantEdgeExtension()));
-  }
-  return static_cast<int>(disp_vec.size());
-}
 
 // Initialize the position and orientation of each pinhole camera model using
 // a least squares error transform to match the provided camera positions.
