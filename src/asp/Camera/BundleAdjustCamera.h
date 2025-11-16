@@ -29,14 +29,13 @@
 #ifndef __BUNDLE_ADJUST_CAMERA_H__
 #define __BUNDLE_ADJUST_CAMERA_H__
 
-#include <asp/Camera/CsmModel.h>
 #include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Camera/CsmModel.h>
+#include <asp/Camera/BaParams.h>
 
 #include <vw/Cartography/Datum.h>
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/FileIO/DiskImageView.h>
-
-#include <boost/random/mersenne_twister.hpp>
 
 #include <string>
 
@@ -189,10 +188,6 @@ struct IntrinsicOptions {
 class BaParams {
 
 public:
-
-  // A random generator. We will always start with same seed, to get
-  // reproducible results.
-  boost::random::mt19937 m_rand_gen;
 
   // Constructor
   BaParams(int num_points, int num_cameras,

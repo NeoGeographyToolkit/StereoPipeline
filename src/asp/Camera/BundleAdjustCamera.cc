@@ -41,6 +41,7 @@
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Camera/LensDistortion.h>
 
+#include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 
 #include <string>
@@ -50,6 +51,11 @@ using namespace vw::camera;
 using namespace vw::ba;
 
 namespace asp {
+
+namespace {
+   // A global random generator, to avoid having this as class member
+   boost::random::mt19937 g_rand_gen;
+}
 
 // Control per each group of cameras or for all cameras which intrinsics
 // should be floated.
@@ -99,8 +105,7 @@ asp::BaParams::BaParams(int num_points, int num_cameras,
     m_points_vec        (num_points * PARAMS_PER_POINT,  0),
     m_cameras_vec       (num_cameras * NUM_CAMERA_PARAMS, 0),
     m_intrinsics_vec    (0),
-    m_outlier_points_vec(num_points, false),
-    m_rand_gen(boost::random::mt19937()) {
+    m_outlier_points_vec(num_points, false) {
 
     if (!using_intrinsics)
       return; // If we are not using intrinsics, nothing else to do.
@@ -162,8 +167,7 @@ asp::BaParams::BaParams(asp::BaParams const& other):
       m_points_vec        (other.m_points_vec.size()        ),
       m_cameras_vec       (other.m_cameras_vec.size()       ),
       m_intrinsics_vec    (other.m_intrinsics_vec.size()    ),
-      m_outlier_points_vec(other.m_outlier_points_vec.size()),
-      m_rand_gen(boost::random::mt19937()) {
+      m_outlier_points_vec(other.m_outlier_points_vec.size()) {
     copy_points    (other);
     copy_cameras   (other);
     copy_intrinsics(other);
@@ -252,7 +256,7 @@ void asp::BaParams::randomize_cameras() {
   for (size_t c = 0; c < num_cameras; c++) {
     double* ptr = get_camera_ptr(c);
     for (size_t i = 0; i < 3; i++) {
-      int diff = xyz_dist(m_rand_gen) - 5;
+      int diff = xyz_dist(g_rand_gen) - 5;
       ptr[i] += diff;
     }
   }
@@ -278,7 +282,7 @@ void asp::BaParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
         !(m_intrinsics_opts.focus_shared && (c>0))) {
       double* ptr = get_intrinsic_focus_ptr(c);
       for (int i=0; i<NUM_FOCUS_PARAMS; i++) {
-        percent = static_cast<double>(dist(m_rand_gen))/DENOM;
+        percent = static_cast<double>(dist(g_rand_gen))/DENOM;
         if (intrinsics_index < num_intrinsics) {
           range = intrinsic_limits[2*intrinsics_index+1] - intrinsic_limits[2*intrinsics_index];
           scale = percent*range + intrinsic_limits[2*intrinsics_index];
@@ -293,7 +297,7 @@ void asp::BaParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
         !(m_intrinsics_opts.center_shared && (c>0))) {
       double* ptr = get_intrinsic_center_ptr(c);
       for (int i = 0; i < NUM_CENTER_PARAMS; i++) {
-        percent = static_cast<double>(dist(m_rand_gen))/DENOM;
+        percent = static_cast<double>(dist(g_rand_gen))/DENOM;
         if (intrinsics_index < num_intrinsics) {
           range = intrinsic_limits[2*intrinsics_index+1] 
             - intrinsic_limits[2*intrinsics_index];
@@ -309,7 +313,7 @@ void asp::BaParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
         !(m_intrinsics_opts.distortion_shared && (c > 0))) {
       double* ptr = get_intrinsic_distortion_ptr(c);
       for (int i = 0; i < m_max_num_dist_params; i++) {
-        percent = static_cast<double>(dist(m_rand_gen))/DENOM;
+        percent = static_cast<double>(dist(g_rand_gen))/DENOM;
         if (intrinsics_index < num_intrinsics) {
           range = intrinsic_limits[2*intrinsics_index+1] - intrinsic_limits[2*intrinsics_index];
           scale = percent*range + intrinsic_limits[2*intrinsics_index];
