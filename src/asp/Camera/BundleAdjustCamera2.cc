@@ -320,16 +320,6 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
   return cameras_changed;
 }
 
-
-
-
-
-
-
-
-
-
-
 // When distortion params are shared, their number must agree
 void distortion_sanity_check(std::vector<int> const& num_dist_params,
                              IntrinsicOptions const& intrinsics_opts,
@@ -929,11 +919,7 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
   }
 }
 
-
-
-
-
-// // Find the average for the gsd for all pixels whose rays intersect at the given
+// Find the average for the gsd for all pixels whose rays intersect at the given
 // triangulated point.
 // TODO(oalexan1): Export points out of param_storage and crn, then use the 
 // other function further down instead.
