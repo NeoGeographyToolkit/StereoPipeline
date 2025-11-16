@@ -20,28 +20,30 @@
 
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Camera/BundleAdjustOptions.h>
-#include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Camera/CameraResectioning.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/Covariance.h>
-#include <asp/Core/StereoSettings.h>
-#include <asp/Core/BaseCameraUtils.h>
-#include <asp/Core/ImageUtils.h>
-#include <asp/Core/FileUtils.h>
-#include <asp/asp_config.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPCModelGen.h>
 #include <asp/Camera/CameraErrorPropagation.h>
+#include <asp/Core/IpMatchingAlgs.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/BaseCameraUtils.h>
+#include <asp/Core/ImageUtils.h>
+#include <asp/Core/FileUtils.h>
+
+#include <asp/asp_config.h>
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#include <asp/IsisIO/IsisInterface.h>
+#endif // ASP_HAVE_PKG_ISIS
 
 #include <vw/BundleAdjustment/CameraRelation.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/InterestPoint/MatcherIO.h>
-#include <vw/FileIO/KML.h>
-#include <vw/Stereo/StereoModel.h>
 #include <vw/Math/Statistics.h>
 #include <vw/Math/Geometry.h>
 #include <vw/Math/Functors.h>
@@ -55,14 +57,7 @@
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 
-#include <boost/random/uniform_int_distribution.hpp>
-#include <boost/algorithm/string.hpp>
-
 #include <string>
-
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-#include <asp/IsisIO/IsisInterface.h>
-#endif // ASP_HAVE_PKG_ISIS
 
 using namespace vw;
 using namespace vw::camera;
