@@ -57,35 +57,6 @@ namespace {
    boost::random::mt19937 g_rand_gen;
 }
 
-// Control per each group of cameras or for all cameras which intrinsics
-// should be floated.
-bool asp::IntrinsicOptions::float_optical_center(int cam_index) const {
-  // When sharing intrinsics per sensor, each sensor's float behavior is independent
-  int sensor_id = 0;
-  if (share_intrinsics_per_sensor) 
-    sensor_id = cam2sensor.at(cam_index);
-
-  return float_center[sensor_id];
-}
-
-bool asp::IntrinsicOptions::float_focal_length(int cam_index) const {
-  // When sharing intrinsics per sensor, each sensor's float behavior is independent
-  int sensor_id = 0;
-  if (share_intrinsics_per_sensor) 
-    sensor_id = cam2sensor.at(cam_index);
-
-  return float_focus[sensor_id];
-}
-
-bool asp::IntrinsicOptions::float_distortion_params(int cam_index) const {
-  // When sharing intrinsics per sensor, each sensor's float behavior is independent
-  int sensor_id = 0;
-  if (share_intrinsics_per_sensor) 
-    sensor_id = cam2sensor.at(cam_index);
-
-  return float_distortion[sensor_id];
-}
-
 // Constructor
 asp::BaParams::BaParams(int num_points, int num_cameras,
           // Parameters below here only apply to pinhole models.
@@ -371,8 +342,8 @@ void asp::BaParams::print_gcp_stats(std::string const& out_prefix,
 
 void asp::BaParams::record_points_to_kml(const std::string &kml_path,
                             const vw::cartography::Datum& datum,
-                            size_t skip, const std::string name,
-                            const std::string icon) {
+                            size_t skip, const std::string name) {
+
   if (datum.name() == asp::UNSPECIFIED_DATUM) {
     vw::vw_out(vw::WarningMessage) << "No datum specified. Cannot write file: "
                                    << kml_path << std::endl;
@@ -383,7 +354,9 @@ void asp::BaParams::record_points_to_kml(const std::string &kml_path,
   vw::vw_out() << "Writing: " << kml_path << std::endl;
   vw::KMLFile kml(kml_path, name);
   
-    // Set up a simple point icon with no labels
+  // Set up a simple point icon with no labels
+  const std::string icon 
+    = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png";
   const bool hide_labels = true;
   kml.append_style( "point", "", 1.0, icon, hide_labels);
   kml.append_style( "point_highlight", "", 1.1, icon, hide_labels);

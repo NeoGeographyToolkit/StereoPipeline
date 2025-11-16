@@ -301,9 +301,8 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
                         reference_vec, cnet, crn, problem);
 
     std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
-    std::string url = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png";
     param_storage.record_points_to_kml(point_kml_path, opt.datum,
-                         kmlPointSkip, "initial_points", url);
+                         kmlPointSkip, "initial_points");
   }
 
   // Solve the problem
@@ -370,10 +369,8 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
                       reference_vec, cnet, crn, problem);
 
   std::string point_kml_path = opt.out_prefix + "-final_points.kml";
-  std::string url
-   = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png";
   param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip,
-                                     "final_points", url);
+                                     "final_points");
 
   // Outlier filtering
   if (remove_outliers)

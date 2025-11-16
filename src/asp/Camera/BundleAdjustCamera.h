@@ -158,31 +158,6 @@ struct HorizVertErrorStats {
                          num_errors(0) {}
 };
 
-/// Structure to fully describe how the intrinsics are being handled.
-/// - Currently only pinhole cameras support intrinsics in bundle_adjust.
-struct IntrinsicOptions {
-  
-  // If to share these intrinsics. Can be per group of cameras or for all cameras.
-  bool center_shared;
-  bool focus_shared;
-  bool distortion_shared;
-  
-  // If to float these intrinsics. All, none, or per sensor
-  std::vector<bool> float_center, float_focus, float_distortion;
-  
-  bool share_intrinsics_per_sensor;
-  std::vector<int> cam2sensor; // cam index to sensor index, when sharing intrinsics per sensor
-  int num_sensors; // will be nonzero only if sharing intrinsics per sensor is true
-  IntrinsicOptions(): center_shared(true), focus_shared(true), distortion_shared(true),
-                      share_intrinsics_per_sensor(false), num_sensors(0) {}
-
-  // Control per each group of cameras or for all cameras which intrinsics
-  // should be floated.
-  bool float_optical_center(int cam_index) const;
-  bool float_focal_length(int cam_index) const;
-  bool float_distortion_params(int cam_index) const;
-};
-
 /// Class to store parameters as they are being bundle adjusted.
 /// - Currently only supports either one camera or all unique cameras.
 class BaParams {
@@ -318,9 +293,7 @@ public:
   /// - Only every skip'th point is recorded to the file.
   void record_points_to_kml(const std::string &kml_path,
                             const vw::cartography::Datum& datum,
-                            size_t skip=100, const std::string name="points",
-                            const std::string icon =
-                            "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png");
+                            size_t skip, const std::string name);
 
   /// Compute the offset index in the intrinsics
   size_t get_center_offset(int cam_index) const;

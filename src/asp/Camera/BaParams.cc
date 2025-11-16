@@ -22,5 +22,37 @@
 
 namespace asp {
 
+IntrinsicOptions::IntrinsicOptions(): 
+  center_shared(true), focus_shared(true), distortion_shared(true),
+  share_intrinsics_per_sensor(false), num_sensors(0) {}
+
+// Control per each group of cameras or for all cameras which intrinsics
+// should be floated.
+bool IntrinsicOptions::float_optical_center(int cam_index) const {
+  // When sharing intrinsics per sensor, each sensor's float behavior is independent
+  int sensor_id = 0;
+  if (share_intrinsics_per_sensor) 
+    sensor_id = cam2sensor.at(cam_index);
+
+  return float_center[sensor_id];
+}
+
+bool IntrinsicOptions::float_focal_length(int cam_index) const {
+  // When sharing intrinsics per sensor, each sensor's float behavior is independent
+  int sensor_id = 0;
+  if (share_intrinsics_per_sensor) 
+    sensor_id = cam2sensor.at(cam_index);
+
+  return float_focus[sensor_id];
+}
+
+bool IntrinsicOptions::float_distortion_params(int cam_index) const {
+  // When sharing intrinsics per sensor, each sensor's float behavior is independent
+  int sensor_id = 0;
+  if (share_intrinsics_per_sensor) 
+    sensor_id = cam2sensor.at(cam_index);
+
+  return float_distortion[sensor_id];
+}
 
 } // end namespace asp
