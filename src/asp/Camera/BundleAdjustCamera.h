@@ -548,6 +548,24 @@ void saveMapprojOffsets(std::string                       const& out_prefix,
                         std::vector<std::vector<float>>        & mapprojOffsetsPerCam,
                         std::vector<std::string>          const& imageFiles);
 
+// Write a pinhole camera file to disk after updating the intrinsics and
+// extrinsics. Return the path to the saved file.
+std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
+                           vw::cartography::Datum const& datum,
+                           asp::BAParams const& param_storage);
+
+// Write an optical bar camera file to disk after updating the intrinsics and
+// extrinsics. Return the path to the saved file.
+std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
+                              vw::cartography::Datum const& datum,
+                              asp::BAParams const& param_storage);
+
+// Write a CSM camera file to disk. Assumes that the intrinsics are optimized.
+// Return the path to the saved file.
+std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
+                                 vw::cartography::Datum const& datum,
+                                 asp::BAParams const& param_storage);
+
 // Calculate convergence angles. Remove the outliers flagged earlier,
 // if remove_outliers is true. Compute offsets of mapprojected matches,
 // if a DEM is given. These are done together as they rely on
