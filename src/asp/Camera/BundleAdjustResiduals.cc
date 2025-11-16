@@ -38,7 +38,7 @@ namespace  asp {
 // by their sigmas, to get back the pixel reprojection errors.
 void compute_residuals(asp::BaBaseOptions const& opt,
                        asp::CRN const& crn,
-                       asp::BAParams const& param_storage,
+                       asp::BaParams const& param_storage,
                        std::vector<size_t> const& cam_residual_counts,
                        std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
                        size_t num_gcp_or_dem_residuals,
@@ -112,7 +112,7 @@ void compute_residuals(asp::BaBaseOptions const& opt,
 /// Compute residual map by averaging all the reprojection error at a given point
 void compute_mean_residuals_at_xyz(asp::CRN const& crn,
                                   std::vector<double> const& residuals,
-                                  asp::BAParams const& param_storage,
+                                  asp::BaParams const& param_storage,
                                   // outputs
                                   std::vector<double> & mean_residuals,
                                   std::vector<int>  & num_point_observations) {
@@ -166,7 +166,7 @@ void write_residual_map(std::string const& output_prefix,
                         std::vector<double> const& mean_residuals,
                         // Num non-outlier pixels per point
                         std::vector<int> const& num_point_observations, 
-                        asp::BAParams const& param_storage,
+                        asp::BaParams const& param_storage,
                         vw::ba::ControlNetwork const& cnet,
                         asp::BaBaseOptions const& opt) {
 
@@ -301,7 +301,7 @@ void write_anchor_residuals(std::string              const& residual_prefix,
 /// in residuals must mirror perfectly the way residuals were created. 
 void write_residual_logs(std::string const& residual_prefix, 
                          asp::BaBaseOptions const& opt,
-                         asp::BAParams const& param_storage,
+                         asp::BaParams const& param_storage,
                          std::vector<size_t> const& cam_residual_counts,
                          std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
                          size_t num_gcp_or_dem_residuals,
@@ -469,8 +469,8 @@ void write_residual_logs(std::string const& residual_prefix,
 // use the 2nd function called saveTriOffsetsPerCamera instead
 // to reduce code duplication.
 void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
-                             asp::BAParams const& orig_params,
-                             asp::BAParams const& param_storage,
+                             asp::BaParams const& orig_params,
+                             asp::BaParams const& param_storage,
                              asp::CRN const& crn,
                              std::string const& tri_offsets_file) {
 

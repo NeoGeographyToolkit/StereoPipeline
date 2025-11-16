@@ -150,7 +150,7 @@ void saveMapprojOffsets(
 
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
-void saveCameraReport(asp::BaBaseOptions const& opt, asp::BAParams const& param_storage,
+void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_storage,
                       vw::cartography::Datum const& datum, 
                       std::string const& prefix) {
 
@@ -268,7 +268,7 @@ void saveHorizVertErrors(std::string const& horiz_vert_errors_file,
 /// extrinsics. Return the path to the saved file.
 std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
                            vw::cartography::Datum const& datum,
-                           asp::BAParams const& param_storage) {
+                           asp::BaParams const& param_storage) {
 
   // Get the output file path
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
@@ -307,7 +307,7 @@ std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
 // extrinsics. Return the path to the saved file.
 std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
                               vw::cartography::Datum const& datum,
-                              asp::BAParams const& param_storage) {
+                              asp::BaParams const& param_storage) {
 
   // Get the output file path
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
@@ -347,7 +347,7 @@ std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
 // Return the path to the saved file.
 std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
                                  vw::cartography::Datum const& datum,
-                                 asp::BAParams const& param_storage) {
+                                 asp::BaParams const& param_storage) {
 
   // Get the output file path
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
@@ -504,7 +504,7 @@ void read_image_cam_lists(std::string const& image_list,
 // Write an updated csm camera state file to disk. Assumes no intrinsics are optimized.
 std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
                            std::string const& adjustFile, 
-                           asp::BAParams const& param_storage) {
+                           asp::BaParams const& param_storage) {
 
   // Get the unadjusted CSM model and the adjustment as a transform
   CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
@@ -551,7 +551,7 @@ std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
 // Write an updated RPC camera file to disk. Assumes no intrinsics are optimized.
 std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
                            std::string const& adjustFile, 
-                           asp::BAParams const& param_storage) {
+                           asp::BaParams const& param_storage) {
   
   std::string imageFile = opt.image_files[icam];
   vw::DiskImageView<float> image(imageFile);
@@ -601,7 +601,7 @@ std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
 // Write a camera adjustment file to disk, and potentially a camera file with
 // the adjustments applied to it. Return the path to the saved file.
 std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
-                            asp::BAParams const& param_storage) {
+                            asp::BaParams const& param_storage) {
 
   std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
                                                          opt.image_files[icam],
@@ -636,7 +636,7 @@ std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
 
 // Save the updated camera model to disk. Return the name of the file written.
 std::string saveUpdatedCamera(asp::BaBaseOptions const& opt, 
-                              asp::BAParams const& param_storage,
+                              asp::BaParams const& param_storage,
                               int icam) {
 
   // Must have a try block, as otherwise OpenMP crashes the program
@@ -672,7 +672,7 @@ std::string saveUpdatedCamera(asp::BaBaseOptions const& opt,
 
 // Write updated camera models to disk
 void saveUpdatedCameras(asp::BaBaseOptions const& opt, 
-                        asp::BAParams const& param_storage) {
+                        asp::BaParams const& param_storage) {
   
   int num_cameras = opt.image_files.size();
   std::vector<std::string> cam_files(num_cameras);

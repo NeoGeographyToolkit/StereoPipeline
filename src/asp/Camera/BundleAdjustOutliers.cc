@@ -44,7 +44,7 @@ using namespace vw::ba;
 
 // Update the set of outliers based on param_storage
 void updateOutliers(vw::ba::ControlNetwork const& cnet, 
-                    asp::BAParams const& param_storage,
+                    asp::BaParams const& param_storage,
                     std::set<int> & outliers) {
   outliers.clear(); 
   for (int i = 0; i < param_storage.num_points(); i++)
@@ -56,7 +56,7 @@ void updateOutliers(vw::ba::ControlNetwork const& cnet,
 // TODO(oalexan1): Use this in jitter_solve.
 // TODO(oalexan1): This needs to be done before subsampling the matches
 void filterOutliersProjWin(asp::BaBaseOptions          & opt,
-                           asp::BAParams               & param_storage, 
+                           asp::BaParams               & param_storage, 
                            vw::ba::ControlNetwork const& cnet) {
 
   // Swap y. Sometimes it is convenient to specify these on input in reverse.
@@ -87,7 +87,7 @@ void filterOutliersProjWin(asp::BaBaseOptions          & opt,
 
 void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
                                       vw::ba::ControlNetwork const& cnet,
-                                      asp::BAParams & param_storage) {
+                                      asp::BaParams & param_storage) {
 
   std::vector<vw::CamPtr> optimized_cams;
   std::vector<vw::Vector3> opt_cam_positions;
@@ -152,7 +152,7 @@ void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
 // Add to the outliers based on the large residuals
 int add_to_outliers(vw::ba::ControlNetwork & cnet,
                     asp::CRN const& crn,
-                    asp::BAParams & param_storage,
+                    asp::BaParams & param_storage,
                     asp::BaOptions const& opt,
                     std::vector<size_t> const& cam_residual_counts,
                     std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,

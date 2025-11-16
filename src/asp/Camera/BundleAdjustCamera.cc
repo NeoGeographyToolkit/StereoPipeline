@@ -81,7 +81,7 @@ bool asp::IntrinsicOptions::float_distortion_params(int cam_index) const {
 }
 
 // Constructor
-asp::BAParams::BAParams(int num_points, int num_cameras,
+asp::BaParams::BaParams(int num_points, int num_cameras,
           // Parameters below here only apply to pinhole models.
           bool using_intrinsics,
           int max_num_dist_params,
@@ -148,7 +148,7 @@ asp::BAParams::BAParams(int num_points, int num_cameras,
   }
 
 // Copy constructor
-asp::BAParams::BAParams(asp::BAParams const& other):
+asp::BaParams::BaParams(asp::BaParams const& other):
       m_num_points        (other.m_num_points),
       m_num_cameras       (other.m_num_cameras),
       m_params_per_point  (other.m_params_per_point),
@@ -171,32 +171,32 @@ asp::BAParams::BAParams(asp::BAParams const& other):
   }
 
 // Set all camera position and pose values to zero.
-void asp::BAParams::init_cams_as_zero() {
+void asp::BaParams::init_cams_as_zero() {
   for (int i=0; i < m_cameras_vec.size(); i++)
     m_cameras_vec[i] = 0.0;
 }
 
 // When using the copy functions, the sizes must match!
 /// Copy one set of values from another instance.
-void asp::BAParams::copy_points(asp::BAParams const& other) {
+void asp::BaParams::copy_points(asp::BaParams const& other) {
   for (size_t i = 0; i < m_points_vec.size(); i++)
     m_points_vec[i] = other.m_points_vec[i];
 }
-void asp::BAParams::copy_cameras(asp::BAParams const& other) {
+void asp::BaParams::copy_cameras(asp::BaParams const& other) {
   for (size_t i = 0; i < m_cameras_vec.size(); i++)
     m_cameras_vec[i] = other.m_cameras_vec[i];
 }
-void asp::BAParams::copy_intrinsics(asp::BAParams const& other) {
+void asp::BaParams::copy_intrinsics(asp::BaParams const& other) {
   for (size_t i = 0; i < m_intrinsics_vec.size(); i++)
     m_intrinsics_vec[i] = other.m_intrinsics_vec[i];
 }
-void asp::BAParams::copy_outliers(asp::BAParams const& other) {
+void asp::BaParams::copy_outliers(asp::BaParams const& other) {
   for (size_t i = 0; i < m_outlier_points_vec.size(); i++)
     m_outlier_points_vec[i] = other.m_outlier_points_vec[i];
 }
 
 // Compute the offset in m_intrinsics_vec to the requested data
-size_t asp::BAParams::get_center_offset(int cam_index) const {
+size_t asp::BaParams::get_center_offset(int cam_index) const {
   if (!m_intrinsics_opts.share_intrinsics_per_sensor) {
     // Share all or none of the intrinsics
     if (m_intrinsics_opts.center_shared)
@@ -210,7 +210,7 @@ size_t asp::BAParams::get_center_offset(int cam_index) const {
   return sensor_id * m_num_intrinsics_per_camera;
 }
 
-size_t asp::BAParams::get_focus_offset(int cam_index) const {
+size_t asp::BaParams::get_focus_offset(int cam_index) const {
   if (!m_intrinsics_opts.share_intrinsics_per_sensor) {
     // Share all or none of the intrinsics
     if (m_intrinsics_opts.focus_shared)
@@ -224,7 +224,7 @@ size_t asp::BAParams::get_focus_offset(int cam_index) const {
   return sensor_id * m_num_intrinsics_per_camera + NUM_CENTER_PARAMS;
 }
 
-size_t asp::BAParams::get_distortion_offset(int cam_index) const {
+size_t asp::BaParams::get_distortion_offset(int cam_index) const {
   if (!m_intrinsics_opts.share_intrinsics_per_sensor) {
     // Share all or none of the intrinsics
     if (m_intrinsics_opts.distortion_shared)
@@ -240,7 +240,7 @@ size_t asp::BAParams::get_distortion_offset(int cam_index) const {
 }
 
 /// Apply a random offset to each camera position.
-void asp::BAParams::randomize_cameras() {
+void asp::BaParams::randomize_cameras() {
   // These are stored as x,y,z, axis_angle.
   // - We move the position +/- 5 meters.
   // - Currently we don't adjust the angle.
@@ -259,7 +259,7 @@ void asp::BAParams::randomize_cameras() {
 }
 
 /// Randomly scale each intrinsic value.
-void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_limits) {
+void asp::BaParams::randomize_intrinsics(std::vector<double> const& intrinsic_limits) {
   // Intrinsic values are stored as multipliers, here we 
   //  multiply from 0.5 to 1.5, being careful about shared and constant values.
   // - If intrinsic limits are specified, use that range instead.
@@ -323,7 +323,7 @@ void asp::BAParams::randomize_intrinsics(std::vector<double> const& intrinsic_li
 }
 
 /// Print stats for optimized ground control points.
-void asp::BAParams::print_gcp_stats(std::string const& out_prefix, 
+void asp::BaParams::print_gcp_stats(std::string const& out_prefix, 
                        vw::ba::ControlNetwork const& cnet,
                        vw::cartography::Datum const& d) const {
 
@@ -365,7 +365,7 @@ void asp::BAParams::print_gcp_stats(std::string const& out_prefix,
   gfs.close();
 }
 
-void asp::BAParams::record_points_to_kml(const std::string &kml_path,
+void asp::BaParams::record_points_to_kml(const std::string &kml_path,
                             const vw::cartography::Datum& datum,
                             size_t skip, const std::string name,
                             const std::string icon) {
@@ -477,7 +477,7 @@ void CameraAdjustment::pack_to_array(double* array) const {
 
 void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
                             int camera_index,
-                            asp::BAParams & param_storage) {
+                            asp::BaParams & param_storage) {
 
   double* pos_pose_ptr   = param_storage.get_camera_ptr              (camera_index);
   double* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
@@ -502,7 +502,7 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
 
 void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
                                 int camera_index,
-                                asp::BAParams & param_storage) {
+                                asp::BaParams & param_storage) {
 
   double* pos_pose_ptr   = param_storage.get_camera_ptr              (camera_index);
   double* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
@@ -527,7 +527,7 @@ void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
 // This does not copy the camera position and orientation
 void pack_csm_to_arrays(asp::CsmModel const& camera,
                         int camera_index,
-                        asp::BAParams & param_storage) {
+                        asp::BaParams & param_storage) {
 
   double* pos_pose_ptr   = param_storage.get_camera_ptr              (camera_index);
   double* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
@@ -554,7 +554,7 @@ void pack_csm_to_arrays(asp::CsmModel const& camera,
 /// read the adjustments from param storage, apply this transform on top of
 /// them, and write the adjustments back to the param storage. Cameras
 /// do not change.
-void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BAParams &param_storage,
+void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BaParams &param_storage,
                                 std::vector<vw::CamPtr> const& cam_ptrs) {
 
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
@@ -578,7 +578,7 @@ void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BAParams &param_stor
 // This function takes advantage of the fact that when it is called the cam_ptrs
 //  have the same information as is in param_storage!
 void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
-                                        asp::BAParams & param_storage,
+                                        asp::BaParams & param_storage,
                                         std::vector<vw::CamPtr>
                                         const& cam_ptrs){
 
@@ -597,7 +597,7 @@ void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
 // This function takes advantage of the fact that when it is called the cam_ptrs have the same
 // information as is in param_storage.
 void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
-                                            asp::BAParams & param_storage,
+                                            asp::BaParams & param_storage,
                                             std::vector<vw::CamPtr>
                                             const& cam_ptrs){
 
@@ -629,7 +629,7 @@ void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
 // This applies the transform to the camera inline, but does not copy
 // the camera position and orientation to the arrays.
 void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
-                                    asp::BAParams & param_storage,
+                                    asp::BaParams & param_storage,
                                     std::vector<vw::CamPtr>
                                     const& cam_ptrs) {
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
@@ -989,9 +989,9 @@ void init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet
 
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera. Note that all intrinsic parameters are stored as multipliers
-// in asp::BAParams.
+// in asp::BaParams.
 vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
-                                                  asp::BAParams const& param_storage,
+                                                  asp::BaParams const& param_storage,
                                                   vw::camera::PinholeModel const& in_cam) {
 
   // Start by making a copy of the camera. Note that this does not make a copy of the
@@ -1034,7 +1034,7 @@ vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
 // the new camera.
 vw::camera::OpticalBarModel 
 transformedOpticalBarCamera(int camera_index,
-                            asp::BAParams const& param_storage,
+                            asp::BaParams const& param_storage,
                             vw::camera::OpticalBarModel const& in_cam) {
 
   // Start by making a copy of the camera
@@ -1084,7 +1084,7 @@ transformedOpticalBarCamera(int camera_index,
 // Given an input CSM camera, intrinsic and extrinsic param changes, apply
 // those, returning the new camera.
 boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
-                                                      asp::BAParams const& param_storage,
+                                                      asp::BaParams const& param_storage,
                                                       asp::CsmModel const& in_cam) {
   // Get the latest version of the camera parameters
   double const* pos_pose_ptr  = param_storage.get_camera_ptr(camera_index);

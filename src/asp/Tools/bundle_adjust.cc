@@ -86,7 +86,7 @@ using namespace vw::ba;
 class BaCallback: public ceres::IterationCallback {
 public:
 
-  BaCallback(asp::BaOptions const& opt, asp::BAParams const& param_storage):
+  BaCallback(asp::BaOptions const& opt, asp::BaParams const& param_storage):
     m_opt(opt), m_param_storage(param_storage) {}
 
   virtual ceres::CallbackReturnType operator() (const ceres::IterationSummary& summary) {
@@ -96,7 +96,7 @@ public:
 
 private:
   asp::BaOptions const& m_opt;
-  asp::BAParams const& m_param_storage;
+  asp::BaParams const& m_param_storage;
 };
 
 // One pass of bundle adjustment
@@ -104,8 +104,8 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
                          asp::CRN               const & crn,
                          bool                           first_pass,
                          bool                           remove_outliers,
-                         asp::BAParams                 & param_storage, // output
-                         asp::BAParams const           & orig_parameters,
+                         asp::BaParams                 & param_storage, // output
+                         asp::BaParams const           & orig_parameters,
                          std::vector<vw::CamPtr>  const& orig_cams,
                          std::vector<std::vector<vw::Vector3>> const& orig_cam_positions,
                          bool                          & convergence_reached,
@@ -388,14 +388,14 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
 
 // Run several more passes with random initial parameter offsets. This flow is
 // only kicked in if opt.num_random_passes is positive, which is not the
-void runRandomPasses(asp::BaOptions & opt, asp::BAParams & param_storage,
+void runRandomPasses(asp::BaOptions & opt, asp::BaParams & param_storage,
                      double & final_cost, asp::CRN const& crn,
                      bool remove_outliers,
-                     asp::BAParams const& orig_parameters) {
+                     asp::BaParams const& orig_parameters) {
 
   // Record the parameters of the best result so far
   double best_cost = final_cost;
-  boost::shared_ptr<asp::BAParams> best_params_ptr(new asp::BAParams(param_storage));
+  boost::shared_ptr<asp::BaParams> best_params_ptr(new asp::BaParams(param_storage));
 
   // Must recompute these, as what is passed in as orig_parameters is actually
   // the latest parameters after optimization, not the original ones. 
@@ -436,7 +436,7 @@ void runRandomPasses(asp::BaOptions & opt, asp::BAParams & param_storage,
     if (curr_cost < best_cost) {
       vw_out() << "  --> Found a better solution using random passes.\n";
       best_cost = curr_cost;
-      best_params_ptr.reset(new asp::BAParams(param_storage));
+      best_params_ptr.reset(new asp::BaParams(param_storage));
 
       // Get a list of all the files that were generated in the random step.
       std::vector<std::string> rand_files;
@@ -589,7 +589,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
                              opt.min_distortion);
 
   // Create the storage arrays for the variables we will adjust.
-  asp::BAParams param_storage(num_points, num_cameras,
+  asp::BaParams param_storage(num_points, num_cameras,
                               // Distinguish when we solve for intrinsics
                               opt.camera_type != BaCameraType_Other,
                               max_num_dist_params,
@@ -661,7 +661,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
 
   // The camera positions and orientations before we float them
   // This includes modifications from any initial transforms that were specified.
-  asp::BAParams orig_parameters(param_storage);
+  asp::BaParams orig_parameters(param_storage);
 
   // TODO(oalexan1): Likely orig_cams have the info as new_cam_models. But need
   // to test this.

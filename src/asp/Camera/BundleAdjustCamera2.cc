@@ -66,7 +66,7 @@ void put_adjustments_in_params(std::string const& input_prefix,
                                std::vector<std::string> const& image_files,
                                std::vector<std::string> const& camera_files,
                                // Output
-                               asp::BAParams & param_storage) {
+                               asp::BaParams & param_storage) {
 
   const size_t num_cameras = param_storage.num_cameras();
 
@@ -84,7 +84,7 @@ void put_adjustments_in_params(std::string const& input_prefix,
 // Take input cameras and corrections in param_storage, and create new cameras
 // incorporating the corrections. 
 void create_corrected_cameras(std::vector<vw::CamPtr> const& input_cameras,
-                              asp::BAParams const& param_storage,
+                              asp::BaParams const& param_storage,
                               std::vector<vw::CamPtr> & out_cameras) {
   const size_t num_cameras = param_storage.num_cameras();
   out_cameras.resize(num_cameras);
@@ -98,7 +98,7 @@ void create_corrected_cameras(std::vector<vw::CamPtr> const& input_cameras,
 
 /// Create the param storage. Collect in it any input adjustments and initial transform.
 /// Return a copy of the cameras having these adjustments applied to them.
-bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
+bool init_cams(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
        std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
        std::vector<vw::CamPtr> & new_cam_models) {
 
@@ -149,7 +149,7 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
 }
 
 /// Specialization for pinhole cameras
-bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
+bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
      std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
      std::vector<vw::CamPtr> & new_cam_models) {
 
@@ -211,7 +211,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BAParams & param_stor
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for optical bar cameras.
-bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
+bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
                     std::string const& initial_transform_file, 
                     vw::Matrix<double> const& initial_transform,
                     std::vector<vw::CamPtr> &new_cam_models) {
@@ -257,7 +257,7 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BAParams & param_
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for CSM
-bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BAParams & param_storage,
+bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
                    std::string const& initial_transform_file, 
                    vw::Matrix<double> const& initial_transform,
                    std::vector<vw::CamPtr> &new_cam_models) {
@@ -871,7 +871,7 @@ void setup_error_propagation(std::string const& session_name,
 // opt.camera_models, but make copies as needed. The optimizations (adjustments)
 // may be inline, or external.
 void calcOptimizedCameras(asp::BaBaseOptions const& opt,
-                          asp::BAParams const& param_storage,
+                          asp::BaParams const& param_storage,
                           std::vector<vw::CamPtr> & optimized_cams) {
 
   optimized_cams.clear();
@@ -940,7 +940,7 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
 void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
                             std::vector<vw::CamPtr>  const& cameras,
                             asp::CRN                const& crn,
-                            asp::BAParams            const& param_storage, 
+                            asp::BaParams            const& param_storage, 
                             // Output
                             std::vector<double>     & gsds) {
 
@@ -1390,7 +1390,7 @@ void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist
 // the same value for all cameras sharing it. This is a bugfix.
 // Return true if the cameras were changed.
 bool syncUpInitialSharedParams(BACameraType camera_type, 
-                               asp::BAParams const& param_storage,
+                               asp::BaParams const& param_storage,
                                std::vector<vw::CamPtr>& camera_models) {
 
   bool cameras_changed = false;

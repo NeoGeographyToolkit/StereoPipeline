@@ -399,7 +399,7 @@ bool BaDispXyzError::operator()(double const* const* parameters, double* residua
 // TODO: Should this logic live somewhere else?
 /// Create the list of residual pointers when solving for intrinsics.
 /// - Extra logic is needed to avoid duplicate pointers.
-void BaDispXyzError::get_residual_pointers(asp::BAParams &param_storage,
+void BaDispXyzError::get_residual_pointers(asp::BaParams &param_storage,
                                   int left_cam_index, int right_cam_index,
                                   bool solve_intrinsics,
                                   asp::IntrinsicOptions const& intrinsics_opt,
@@ -545,7 +545,7 @@ ceres::LossFunction* get_loss_function(std::string const& cost_function, double 
 void add_reprojection_residual_block(vw::Vector2 const& observation, 
                                      vw::Vector2 const& pixel_sigma,
                                      int point_index, int camera_index, 
-                                     asp::BAParams & param_storage,
+                                     asp::BaParams & param_storage,
                                      asp::BaOptions const& opt,
                                      ceres::SubsetManifold * dist_opts,
                                      ceres::Problem & problem) {
@@ -658,7 +658,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
 void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
                                   vw::ImageViewRef<DispPixelT> const& interp_disp, 
                                   int left_cam_index, int right_cam_index,
-                                  asp::BAParams & param_storage,
+                                  asp::BaParams & param_storage,
                                   asp::BaOptions const& opt,
                                   ceres::Problem & problem) {
 
@@ -743,7 +743,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
                            bool have_dem,
                            // Outputs
                            vw::ba::ControlNetwork                  & cnet,
-                           asp::BAParams                           & param_storage,
+                           asp::BaParams                           & param_storage,
                            ceres::SubsetManifold                   * dist_opts,
                            ceres::Problem                          & problem,
                            std::vector<size_t>                     & cam_residual_counts,
@@ -874,7 +874,7 @@ void addTriConstraint(asp::BaOptions           const& opt,
                       std::string cost_function_str,
                       double tri_robust_threshold,
                       // Outputs
-                      asp::BAParams  & param_storage,
+                      asp::BaParams  & param_storage,
                       ceres::Problem & problem,
                       int            & num_tri_residuals) {
   
@@ -933,7 +933,7 @@ void addTriConstraint(asp::BaOptions           const& opt,
 // be n-1 disparities, from each image to the next.
 void addReferenceTerrainCostFunction(
          asp::BaOptions  & opt,
-         asp::BAParams       & param_storage, 
+         asp::BaParams       & param_storage, 
          ceres::Problem      & problem,
          std::vector<vw::Vector3> & reference_vec,
          std::vector<vw::ImageViewRef<DispPixelT>> & interp_disp) {
@@ -1043,13 +1043,13 @@ void addReferenceTerrainCostFunction(
 // Add a soft constraint to keep the cameras near the original position. 
 // Add a combined constraint for all reprojection errors in given camera.
 void addCamPosCostFun(asp::BaOptions                          const& opt,
-                      asp::BAParams                           const& orig_parameters,
+                      asp::BaParams                           const& orig_parameters,
                       std::vector<std::vector<vw::Vector2>>   const& pixels_per_cam,
                       std::vector<std::vector<vw::Vector3>>   const& tri_points_per_cam,
                       std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
                       std::vector<vw::CamPtr>                 const& orig_cams,
                       // Outputs
-                      asp::BAParams                              & param_storage,
+                      asp::BaParams                              & param_storage,
                       ceres::Problem                             & problem,
                       int                                        & num_cam_pos_residuals) {
 
@@ -1137,7 +1137,7 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
                            vw::ba::ControlNetwork & cnet,
                            int                    & num_gcp,
                            int                    & num_gcp_or_dem_residuals,
-                           asp::BAParams          & param_storage, 
+                           asp::BaParams          & param_storage, 
                            ceres::Problem         & problem) {
 
   int num_tri_points  = param_storage.num_points();

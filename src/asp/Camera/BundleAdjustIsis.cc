@@ -133,7 +133,7 @@ void readIsisCameras(std::vector<std::string> const& image_files,
 // Add a given control point to the ISIS cnet. Update the outlier counter.
 void addIsisControlPoint(Isis::ControlNet & icnet,
                          vw::ba::ControlNetwork const& cnet,
-                         asp::BAParams const& param_storage,
+                         asp::BaParams const& param_storage,
                          std::vector<boost::shared_ptr<Isis::Camera>> const& cameras,
                          std::vector<std::string> const& serialNumbers,
                          int ipt, int& numOutliers) {
@@ -421,7 +421,7 @@ void loadIsisCnet(std::string const& isisCnetFile,
 // We do not change here if a point is fixed, constrained, or free.
 void saveUpdatedIsisCnet(std::string const& outputPrefix, 
                          vw::ba::ControlNetwork const& cnet,
-                         asp::BAParams const& param_storage,
+                         asp::BaParams const& param_storage,
                          IsisCnetData & isisCnetData) {
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
@@ -538,7 +538,7 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
 void saveIsisCnet(std::string const& outputPrefix, 
                   vw::cartography::Datum const& datum,
                   vw::ba::ControlNetwork const& cnet,
-                  asp::BAParams const& param_storage) {
+                  asp::BaParams const& param_storage) {
   
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   
