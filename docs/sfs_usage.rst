@@ -902,7 +902,12 @@ significant portion of the South Pole, is available at::
     http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.IMG
     http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.LBL
 
-Some lunar DEMs at 10 m/pixel and other resolutions are available at:
+A Lunar South Pole 87-90 degree latitude DEM is at:
+
+  https://pgda.gsfc.nasa.gov/products/81
+
+Some lunar DEMs at 10 m/pixel and other resolutions, for latitude between 83 and
+90 degrees South, are available at:
 
     https://pgda.gsfc.nasa.gov/products/90
 
@@ -910,7 +915,7 @@ The site:
 
     https://core2.gsfc.nasa.gov/PGDA/LOLA_5mpp
 
-has LOLA DEMs at 5 m/pixel, but only for a few locations.
+has LOLA DEMs at 5 m/pixel for a few locations.
 
 Preprocessing the terrain
 ^^^^^^^^^^^^^^^^^^^^^^^^^
