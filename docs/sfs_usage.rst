@@ -896,13 +896,7 @@ A LOLA DEM was used as an initial guess terrain for SfS and as reference ground
 truth. A mosaic of several stereo DEMs with bundle-adjusted cameras can be used
 as well.
 
-A 20 meter/pixel LOLA product, which is rather low in resolution, but covers a
-significant portion of the South Pole, is available at:: 
-
-    http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.IMG
-    http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.LBL
-
-A Lunar South Pole 87-90 degree latitude DEM is at:
+A Lunar South Pole 87-90 degree latitude DEM at 5 m/pixel is at:
 
   https://pgda.gsfc.nasa.gov/products/81
 
@@ -917,11 +911,19 @@ The site:
 
 has LOLA DEMs at 5 m/pixel for a few locations.
 
+A 20 meter/pixel LOLA product, which is rather low in resolution, but covers a
+significant portion of the South Pole, is available at:: 
+
+    http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.IMG
+    http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.LBL
+
 Preprocessing the terrain
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``LDEM_80S_20M`` IMG and LBL files can be fetched with ``wget``. Then,
-this dataset should be converted to a .cub file as::
+The higher-resolution DEMs mentioned above only need regridding.
+
+The ``LDEM_80S_20M`` IMG and LBL files can be fetched with ``wget``. Then, this
+dataset should be converted to a .cub file as::
 
     pds2isis from = LDEM_80S_20M.LBL to = ldem_80s_20m.cub
 
@@ -929,8 +931,6 @@ The heights for this DEM need to be multiplied by 0.5, per the information in
 the LBL file. We do that with ``image_calc`` (:numref:`image_calc`)::
 
     image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
-
-The higher-resolution DEMs from above do not need this preprocessing.
 
 Resample the DEM to 1 m/pixel using ``gdalwarp`` (:numref:`gdal_tools`),
 creating a DEM named ``ref.tif``::
