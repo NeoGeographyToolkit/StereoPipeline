@@ -197,7 +197,10 @@ The related correlation-based alignment method is described in
 In the latest ASP (10/2025 and later), hillshading is done with ``gdaldem
 hillshade`` (:numref:`gdal_hill`). ASP's own ``hillshade`` program
 (:numref:`hillshade`) is also supported. See the option ``--hillshade-command``
-in :numref:`pc_align_options`.  
+in :numref:`pc_align_options`. 
+
+Inspect the produced hillshaded images and, if needed, change the hillshade
+command or its options to get visually good results. 
 
 The interest point finding and matching are performed with ASP's ``ipfind``
 (:numref:`ipfind`) and ``ipmatch`` (:numref:`ipmatch`) programs. These can be
@@ -231,6 +234,7 @@ images, and that can be employed to align the clouds.
 For that, first produce the hillshades, either with ``gdaldem hillshade``
 (:numref:`gdal_hill`), which is preferred, or with the ASP ``hillshade`` program
 (:numref:`hillshade`). Call these outputs ``ref_hill.tif`` and ``src_hill.tif``.
+Inspect them to ensure they have a good range of pixel values and good contrast.
 
 Image correlation is performed (:numref:`correlator-mode`) on hillshaded
 images::

@@ -1494,6 +1494,10 @@ aligned to the first one on a clip where they both produce good results, with
 ``--initial-transform-from-hillshading translation``. This alignment can be
 applied to the full second terrain.
 
+Alternatively, max-lit mosaics for the subsets could be correlated
+(:numref:`correlator-mode`), and the produced disparity could be used for
+image (:numref:`image_align`) and terrain alignment (:numref:`pc_corr`).
+
 If the alignment is successful, apply it to the second set of cameras as well
 (:numref:`ba_pc_align`), and then tighten the vertical alignment for the second
 set with ``bundle_adjust`` with the option ``--heights-from-dem``, as above. Then,

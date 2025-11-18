@@ -22,16 +22,21 @@ the quality of the disparity at each pixel.
 
 Example::
 
-    parallel_stereo               \
-      --correlator-mode           \
-      --stereo-algorithm asp_mgm  \
-      --subpixel-mode 9           \
-      run/run-L.tif run/run-R.tif \
+    parallel_stereo              \
+      --correlator-mode          \
+      --stereo-algorithm asp_mgm \
+      --subpixel-mode 9          \
+      left.tif right.tif         \
       run_corr/run
 
-This will create the filtered subpixel disparity ``run_corr/run-F.tif`` (:numref:`outputfiles`).
+This will create the filtered subpixel disparity ``run_corr/run-F.tif``
+(:numref:`outputfiles`). This disparity can be preprocessed and inspected
+(:numref:`mask_disparity`).
 
 ASP supports many stereo correlation algorithms (:numref:`stereo_alg_overview`).
+It may be worth comparing the result of the ``asp_mgm`` algorithm with what is
+produced from regular block matching (``asp_bm``), especially if the images are
+noisy or differ in illumination.
 
 If the expected search range is known, it can be specified with the option
 ``--corr-search`` (:numref:`corr_section`). Low resolution disparity computation
@@ -43,11 +48,9 @@ If the options ``--num-matches-from-disparity`` or
 will be produced (:numref:`stereodefault`). These can be used in bundle adjustment
 (:numref:`dense_ip`).
 
-All the usual options of ``parallel_stereo`` apply. See
-:numref:`nextsteps` for a discussion regarding various quality vs
-speed tradeoffs. Since the images are assumed to be aligned, the
-program will set the alignment method to ``none``.
+All the usual options of ``parallel_stereo`` apply. See :numref:`nextsteps` for
+a discussion regarding various quality vs speed tradeoffs. Since the images are
+assumed to be aligned, the program will set the alignment method to ``none``.
 
 To skip preprocessing (if invoked previously), or to avoid subpixel refinement
 or filtering, use the options ``--entry-point`` and ``--stop-point``.
-
