@@ -122,7 +122,8 @@ recommended in general, as the distortion operation is slow (see a discussion in
 Using the example in the appendix we can fill out the rest of the sensor model
 file (metric_model.tsai) so it looks as follows::
 
-   VERSION_3
+   VERSION_4
+   PINHOLE
    fu = 76.080
    fv = 76.080
    cu = 57.246816
@@ -345,7 +346,8 @@ This example uses data from the November 5, 2009 flight over Antarctica. The
 following camera model (icebridge_model.tsai) was used (see
 :numref:`pinholemodels` on Pinhole camera models)::
 
-   VERSION_3
+   VERSION_4
+   PINHOLE
    fu = 28.429
    fv = 28.429
    cu = 17.9712
@@ -625,7 +627,8 @@ We use the GCP to find the camera pose. For that, first create a Pinhole camera
 intrinsics (focal length and optical center), and using trivial values for the
 camera center and rotation matrix::
 
-   VERSION_3
+   VERSION_4
+   PINHOLE
    fu = 28.429
    fv = 28.429
    cu = 17.9712

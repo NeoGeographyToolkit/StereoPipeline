@@ -331,10 +331,12 @@ format using the extension ``.tsai``. A sample file is shown below.
 
 The first half of the file is the same for all Pinhole models:
 
-* ``VERSION_X`` A header line used to track the format of the file.
+* ``VERSION_X`` A header line used to track the format of the file. Version 4
+  expects the ``PINHOLE`` or ``OPTICAL_BAR`` line next. For version 3 these
+  should not be present and the camera is assumed to be a Pinhole model.
 
 * ``PINHOLE`` The type of camera model, so that other types can be
-  stored with the .tsai extension.
+  stored with the .tsai extension (for version 4).
 
 * ``fu, fv, cu, cv`` The first four intrinsic parameters described in
   the previous section.

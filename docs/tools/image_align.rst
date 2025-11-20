@@ -49,8 +49,8 @@ Examples
         image1.tif image2.tif -o image2_align.tif
 
 Alternatively, instead of using interest points for alignment, use a (dense)
-disparity produced from correlation (:numref:`correlator-mode`). This method
-can be more robust to differences in illumination.
+disparity produced from correlation (:numref:`correlator-mode`). This method can
+be more robust to differences in illumination.
 
 ::
 
@@ -67,7 +67,10 @@ The file ending in ``F.tif`` has the disparity.
 For very precise subpixel alignment, use ``--subpixel-mode 2`` above, but this
 is very slow. See :numref:`running-stereo` for the choices when it comes to
 stereo algorithms and subpixel methods, and :numref:`correlator-mode` for the
-image correlator functionality.
+image correlator functionality. 
+
+For noisy images the ``asp_bm`` algorithm should also be considered. It has a
+larger correlation window size.
 
 The disparity will be computed from the first to second image, but the
 alignment transform is from the second to first image, so the disparity
