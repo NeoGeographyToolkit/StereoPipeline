@@ -1,12 +1,12 @@
+.. _sfm:
+
 About SfM
 ---------
 
-This chapter discusses how to create a terrain model (DEM) if there exist two or
-more images, and the camera models may not be fully known. This can be useful
-with aerial, hand-held, and historical images. 
-
-In general, this requires solving a Structure-from-Motion (SfM) problem. 
-This is described in detail in this chapter. 
+This chapter discusses how to create a terrain model (DEM) with
+Structure-from-Motion (SfM) if there exist two or more images and the camera
+models may not be fully known. This can be useful with aerial, hand-held, and
+historical images. 
 
 If the images have known metadata, such as stored in the EXIF header 
 or from other sources, SfM can be avoided. That is discussed in the UAS

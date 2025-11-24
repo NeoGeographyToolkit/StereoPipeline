@@ -77,9 +77,9 @@ amount of time.
 -  Photometric calibration (using the ISIS tools) can be used to improve
    the input images and hence get higher quality stereo results.
 
--  If your images have missing or inaccurate camera pose information,
-   and they were acquired with frame (pinhole cameras), such data can be
-   solved for using structure-from-motion and bundle adjustment (:numref:`sfm`).
+-  If your images have missing or inaccurate camera pose information, and they
+   were acquired with frame (pinhole cameras), such data can be solved for using
+   structure-from-motion and bundle adjustment (:numref:`sfm`).
 
 -  Shape-from-shading (:numref:`sfs`) can be used to
    further increase the level of detail of a DEM obtained from stereo,

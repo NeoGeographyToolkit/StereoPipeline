@@ -681,8 +681,8 @@ struct IntensityErrorPQ {
   ReflParams                    const & m_refl_params;  // alias
   vw::Vector3                   const & m_sunPosition;   // alias
   vw::BBox2i                            m_crop_box;
-  MaskedImgRefT                    const & m_image;          // alias
-  DblImgT                    const & m_blend_weight;   // alias
+  MaskedImgRefT                 const & m_image;          // alias
+  DblImgT                       const & m_blend_weight;   // alias
   bool                                  m_blend_weight_is_ground_weight;
   vw::CamPtr                    const & m_camera;         // alias
 };
@@ -707,7 +707,8 @@ struct IntensityErrorFixedReflectance {
       residuals[0] = 0;
       return true;
     }
-
+    
+    // TODO(oalexan1): Must add here albedo weight and albedor robust threshold.
     residuals[0] = calcIntensity(albedo[0], m_reflectance, exposure[0],
                                  m_steepness_factor, haze, m_num_haze_coeffs)
                  - m_intensity;

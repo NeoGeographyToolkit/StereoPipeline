@@ -24,7 +24,8 @@ of ``cam_gen`` for SkySat images. It can also help avoid full Structure-from-Mot
 The accuracy of this tool decreases as the field of view becomes very narrow. In
 that case it is suggested to use it to approximate a good known camera rather
 than creating a camera from scratch given corner ground coordinates
-(:numref:`cam_gen_prior`).
+(:numref:`cam_gen_prior`). The ``sat_sim`` program (:numref:`sat_sim`) can also
+create cameras, taking into account the orbit and look angle of the camera.
 
 See :numref:`cam_gen_validation` for how to validate the created cameras, and 
 :numref:`initial_terrain` for how to find a reference DEM.

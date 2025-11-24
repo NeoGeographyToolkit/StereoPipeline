@@ -1450,6 +1450,10 @@ does not sacrifice coverage and has a small amount of misregistration.
 Some images with a larger registration error could be added after
 careful inspection, to increase the coverage.
 
+The images with a high 95th error percentile (say over 2 meters) should be
+overlaid on top of this maximally lit mosaic and removed if they show obvious
+misregistration.
+
 See also the earlier section of validation of bundle adjustment
 (:numref:`sfs_ba_validation`). That one discusses a report file
 that measures the errors in the pixel space rather than on the ground.

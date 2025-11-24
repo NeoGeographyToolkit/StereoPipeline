@@ -8,7 +8,7 @@ Stereo processing examples
 This chapter showcases examples of processing data sets acquired with specific
 instruments. For a general introduction, see the tutorial (:numref:`tutorial`).
 
-Structure-from-Motion examples are in :numref:`sfm` (for orbital images with no
+Structure-from-Motion examples are in :numref:`sfm_toc` (for orbital images with no
 rig), and :numref:`rig_examples` (using a rig and robot images).
 
 .. toctree::
@@ -42,10 +42,14 @@ rig), and :numref:`rig_examples` (using a rig and robot images).
    examples/bathy
    examples/umbra_sar
 
-.. _sfm:
+.. _sfm_toc:
 
 SfM examples
 ============
+
+This chapter illustrates how to solve for cameras using Structure-from-Motion
+(SfM), how to register the cameras to the ground, followed by producing a
+terrain model.
    
 .. toctree::
    
