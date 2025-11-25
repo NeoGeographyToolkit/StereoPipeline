@@ -899,7 +899,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     ("heights-from-dem-uncertainty",
      po::value(&opt.heights_from_dem_uncertainty)->default_value(-1.0),
      "The DEM uncertainty (1 sigma, in meters). Must be positive. A smaller value "
-     "constrain more the triangulated points to the DEM specified via --heights-from-dem.")
+     "constrains more the triangulated points to the DEM specified via --heights-from-dem.")
     ("heights-from-dem-robust-threshold",
      po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.1),
      "The robust threshold to use to keep the triangulated points close to the DEM if "
