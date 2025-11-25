@@ -2203,7 +2203,7 @@ Command-line options for jitter_solve
     produced orientation. If not set, use the orientations from the
     CSM file as they are. Small values may result in high-frequency
     oscillations.
-
+ba
 --tri-weight <double (default: 0.1)>
     The weight to give to the constraint that optimized triangulated points stay
     close to original triangulated points. A positive value will help ensure the
@@ -2226,9 +2226,10 @@ Command-line options for jitter_solve
     known DEM, constrain the triangulated points to be close to the DEM. See
     also ``--heights-from-dem-uncertainty`` :numref:`jitter_dem_constraint`.
 
---heights-from-dem-uncertainty <double (default: 10.0)>
-    The DEM uncertainty (1 sigma, in meters). A smaller value constrains more
-    the triangulated points to the DEM specified via ``--heights-from-dem``.
+--heights-from-dem-uncertainty <double (default: -1.0)>
+    The DEM uncertainty (1 sigma, in meters). Must be positive. A smaller value
+    constrains more the triangulated points to the DEM specified via
+    ``--heights-from-dem``.
 
 --heights-from-dem-robust-threshold <double (default: 0.1)> 
     The robust threshold to use to keep the triangulated points close to the DEM if

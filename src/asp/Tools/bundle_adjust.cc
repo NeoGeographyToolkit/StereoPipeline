@@ -897,9 +897,9 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
      "known DEM, constrain the triangulated points to be close to this DEM. See also "
      "--heights-from-dem-uncertainty.")
     ("heights-from-dem-uncertainty",
-     po::value(&opt.heights_from_dem_uncertainty)->default_value(10.0),
-     "The DEM uncertainty (1 sigma, in meters). A smaller value constrain more the "
-     "triangulated points to the DEM specified via --heights-from-dem.")
+     po::value(&opt.heights_from_dem_uncertainty)->default_value(-1.0),
+     "The DEM uncertainty (1 sigma, in meters). Must be positive. A smaller value "
+     "constrain more the triangulated points to the DEM specified via --heights-from-dem.")
     ("heights-from-dem-robust-threshold",
      po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.1),
      "The robust threshold to use to keep the triangulated points close to the DEM if "
@@ -1599,7 +1599,7 @@ void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
     vw_throw(ArgumentErr()
              << "The value of --heights-from-dem-uncertainty is set, "
              << "but --heights-from-dem is not set.\n");
-  if (opt.heights_from_dem_uncertainty <= 0.0)
+  if (!vm["heights-from-dem"].defaulted() && opt.heights_from_dem_uncertainty <= 0.0)
     vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be "
               << "positive.\n");
   if (opt.heights_from_dem_robust_threshold <= 0.0)
