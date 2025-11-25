@@ -27,6 +27,9 @@ parallel_sfs (:numref:`parallel_sfs`):
 
 sfs (:numref:`sfs`):
   * Added a method for removing seams in the SfS terrain (:numref:`sfs_seams`).
+  * Options ``--albedo-constraint-weight`` and ``--albedo-robust-threshold`` are
+    respected when low-resolution initial albedo is estimated (with option
+    ``--estimate-exposure-haze-albedo``).
   * Unused option ``--estimate-slope-errors`` got removed.
 
 parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):

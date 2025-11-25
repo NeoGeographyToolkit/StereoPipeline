@@ -556,9 +556,9 @@ struct IntensityErrorFloatDemOnly {
                                             camera)));
   }
 
-  SfsOptions                    const& m_opt;
+  SfsOptions                const & m_opt;
   int                               m_col, m_row;
-  vw::ImageView<double>         const & m_dem;            // alias
+  vw::ImageView<double>     const & m_dem;            // alias
   double                            m_albedo;
   double                          * m_refl_coeffs;
   double                          * m_exposure;
@@ -568,11 +568,11 @@ struct IntensityErrorFloatDemOnly {
   double                            m_camera_position_step_size;
   double                    const & m_max_dem_height; // alias
   double                            m_gridx, m_gridy;
-  ReflParams              const & m_refl_params;  // alias
+  asp::ReflParams           const & m_refl_params;  // alias
   vw::Vector3               const & m_sunPosition;   // alias
-  vw::BBox2i                            m_crop_box;
-  MaskedImgRefT                const & m_image;          // alias
-  DblImgT                const & m_blend_weight;   // alias
+  vw::BBox2i                        m_crop_box;
+  MaskedImgRefT             const & m_image;          // alias
+  DblImgT                   const & m_blend_weight;   // alias
   bool                              m_blend_weight_is_ground_weight;
   vw::CamPtr                const & m_camera;         // alias
 }; // end class IntensityErrorFloatDemOnly
@@ -698,9 +698,7 @@ struct IntensityErrorFixedReflectance {
     m_num_haze_coeffs(num_haze_coeffs), m_steepness_factor(steepness_factor) {}
 
   template <typename F>
-  bool operator()(const F* const exposure,
-                  const F* const haze,
-                  const F* const albedo,
+  bool operator()(const F* const exposure, const F* const haze, const F* const albedo,
                   F* residuals) const {
 
     if (!vw::is_valid(m_intensity) || !vw::is_valid(m_reflectance)) {
@@ -708,7 +706,6 @@ struct IntensityErrorFixedReflectance {
       return true;
     }
     
-    // TODO(oalexan1): Must add here albedo weight and albedor robust threshold.
     residuals[0] = calcIntensity(albedo[0], m_reflectance, exposure[0],
                                  m_steepness_factor, haze, m_num_haze_coeffs)
                  - m_intensity;
@@ -1214,7 +1211,6 @@ void sfsCostFun(// Fixed quantities
 
         // Deviation from prescribed albedo
         if (opt.float_albedo > 0 && opt.albedo_constraint_weight > 0) {
-
           ceres::LossFunction* loss_function_hc = NULL;
           if (opt.albedo_robust_threshold > 0)
             loss_function_hc = new ceres::CauchyLoss(opt.albedo_robust_threshold);
@@ -1222,7 +1218,7 @@ void sfsCostFun(// Fixed quantities
             AlbedoChangeError::Create(albedo(col, row), opt.albedo_constraint_weight);
           problem.AddResidualBlock(cost_function_hc, loss_function_hc, &albedo(col, row));
         }
-      }
+      } // end if not at boundary
 
     } // end row iter
   } // end col iter
@@ -1364,19 +1360,20 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
   // Create the problem
   ceres::Problem problem;
 
+  // Add a residual block for every pixel in each image
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
     for (int col = 0; col < intensity[image_iter].cols(); col++) {
       for (int row = 0; row < intensity[image_iter].rows(); row++) {
 
-       if (!vw::is_valid(intensity[image_iter](col, row)) ||
-           !vw::is_valid(reflectance[image_iter](col, row)))
+        if (!vw::is_valid(intensity[image_iter](col, row)) ||
+            !vw::is_valid(reflectance[image_iter](col, row)))
           continue;
 
         ceres::CostFunction* cost_function_img =
           IntensityErrorFixedReflectance::Create(intensity[image_iter](col, row),
-                                                 reflectance[image_iter](col, row),
-                                                 opt.num_haze_coeffs,
-                                                 opt.steepness_factor);
+                                                  reflectance[image_iter](col, row),
+                                                  opt.num_haze_coeffs,
+                                                  opt.steepness_factor);
 
         ceres::LossFunction* loss_function_img = NULL;
         if (opt.robust_threshold > 0)
@@ -1394,8 +1391,23 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
 
         if (!opt.float_albedo)
           problem.SetParameterBlockConstant(&albedo(col, row));
-       }
-    }
+          
+      } // end row
+    } // end col
+  } // end image_iter
+
+  // Deviation from prescribed albedo at each albedo pixel
+  if (opt.float_albedo > 0 && opt.albedo_constraint_weight > 0) {
+    for (int col = 0; col < albedo.cols(); col++) {
+      for (int row = 0; row < albedo.rows(); row++) {
+        ceres::LossFunction* loss_function_hc = NULL;
+        if (opt.albedo_robust_threshold > 0)
+          loss_function_hc = new ceres::CauchyLoss(opt.albedo_robust_threshold);
+        ceres::CostFunction* cost_function_hc =
+          AlbedoChangeError::Create(albedo(col, row), opt.albedo_constraint_weight);
+        problem.AddResidualBlock(cost_function_hc, loss_function_hc, &albedo(col, row));
+      } // end row
+    } // end col
   }
 
   // Ceres options

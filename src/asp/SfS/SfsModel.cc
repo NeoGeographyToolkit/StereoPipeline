@@ -374,9 +374,9 @@ double calcReflectance(vw::Vector3 const& cameraPosition,
   return input_img_reflectance;
 }
 
-// Computed intensity:
+// Simulated model-based intensity:
 // albedo * nonlinReflectance(reflectance_i, exposures[i], haze, num_haze_coeffs) + haze[0]
-// Cost function:
+// Cost function is the squared difference between measured and computed intensity:
 // sum_i | I_i - comp_intensity_i|^2
 double calcIntensity(double albedo, double reflectance, double exposure,
                      double steepness_factor, double const* haze, int num_haze_coeffs) {

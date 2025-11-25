@@ -106,6 +106,7 @@ void runSfs(// Fixed quantities
             std::vector<std::vector<double>> & haze,
             std::vector<double>              & refl_coeffs) {
 
+  // Set up the cost function 
   int num_images = opt.input_images.size();
   ceres::Problem problem;
   vw::ImageView<Vector2> pq;
@@ -120,9 +121,9 @@ void runSfs(// Fixed quantities
     vw_out() << "Using exact ISIS camera models. Can run with only a single thread.\n";
     opt.num_threads = 1;
   }
-
   vw_out() << "Using: " << opt.num_threads << " thread(s).\n";
-
+  
+  // Solver options and the callback
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
@@ -130,13 +131,11 @@ void runSfs(// Fixed quantities
   options.minimizer_progress_to_stdout = 1;
   options.num_threads = opt.num_threads;
   options.linear_solver_type = ceres::SPARSE_SCHUR;
-
   SfsCallback callback(opt, dem, pq, albedo, geo, refl_params, sunPosition,
                        crop_boxes, masked_images, blend_weights,
                        blend_weight_is_ground_weight, cameras,
                        dem_nodata_val, img_nodata_val, exposures, haze,
                        max_dem_height, gridx, gridy, refl_coeffs);
-
   options.callbacks.push_back(&callback);
   options.update_state_every_iteration = true;
 

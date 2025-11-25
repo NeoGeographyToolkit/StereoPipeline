@@ -150,12 +150,15 @@ Command-line options for sfs
 --albedo-constraint-weight <float (default: 0)>
     If floating the albedo, a larger value will try harder to keep the optimized
     albedo close to the initial albedo. See also: ``--input-albedo`` and 
-    ``--albedo-robust-threshold``.
+    ``--albedo-robust-threshold``. In build 2025/11 and later, this is also
+    used in estimating the initial low-resolution albedo (option ``--estimate-exposure-haze-albedo``).
 
 --albedo-robust-threshold <float (default: 0)>
     If floating the albedo and this threshold is positive, apply a Cauchy loss
     with this threshold to the product of the albedo difference and the albedo
-    constraint weight.
+    constraint weight. In build 2025/11 and later, this is also used in
+    estimating the initial low-resolution albedo (option
+    ``--estimate-exposure-haze-albedo``).
 
 --bundle-adjust-prefix <path>
     Use the camera adjustments obtained by previously running
@@ -261,7 +264,9 @@ Command-line options for sfs
     Estimate the exposure for each image, the haze for each image (if
     ``--num-haze-coeffs`` is positive), and the global low-resolution albedo (if
     ``--float-albedo`` is on), then quit. This operation samples the input DEM
-    based on ``--num-samples-for-estim``. The produced files are described in :numref:`sfs_outputs`.
+    based on ``--num-samples-for-estim``. The produced files are described in
+    :numref:`sfs_outputs`. This is invoked automatically by ``parallel_sfs``
+    before running ``sfs`` proper, unless these quantities are provided as inputs.
     
 --compute-exposures-only
     This older option is equivalent to ``--estimate-exposure-haze-albedo``.

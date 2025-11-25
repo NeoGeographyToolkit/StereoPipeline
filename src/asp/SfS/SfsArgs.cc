@@ -99,11 +99,12 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
    "<output prefix>-exposures.txt. Same for haze, if applicable.")
   ("estimate-exposure-haze-albedo",
   po::bool_switch(&opt.estim_exposure_haze_albedo)->default_value(false)->implicit_value(true),
-   "Estimate the exposure for each image, the haze for each image (if "
-   "--num-haze-coeffs is positive), and the global low-resolution albedo (if "
-   "--float-albedo is on), then quit. This operation samples the input DEM "
-   "based on --num-samples-for-estim. The produced estimated exposure, haze, "
-   "and initial albedo are described in the doc.")
+   "Estimate the exposure for each image, the haze for each image (if --num-haze-coeffs "
+   "is positive), and the global low-resolution albedo (if --float-albedo is on), then "
+   "quit. This operation samples the input DEM based on --num-samples-for-estim. The "
+   "produced estimated exposure, haze, and initial albedo are described in the doc. This "
+   "is invoked automatically by parallel_sfs before running sfs proper, unless these "
+   "quantities are provided as inputs.")
   ("compute-exposures-only",
   po::bool_switch(&opt.compute_exposures_only)->default_value(false)->implicit_value(true),
    "This older option is equivalent to --estimate-exposure-haze-albedo.")
