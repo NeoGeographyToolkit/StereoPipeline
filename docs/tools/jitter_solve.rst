@@ -42,13 +42,14 @@ than the actual uncertainty.
 GCP files produced from a prior DEM of good quality can help increase the accuracy
 (:numref:`dem2gcp`).
 
-Multiple images (ideally with scan lines notably crossing each other) can
-improve the results.
+A larger number of images (more than two, ideally with scan lines notably
+crossing each other) can improve the results.
 
 It is suggested to use this solver with carefully set camera position constraints,
 also roll and yaw constraints. The goal is to disambiguate the solution. 
 
-More research is needed about how set up this solver in various situations.
+More research is needed about how to set up parameters for this solver in
+various situations.
 
 If frame camera images exist for the same extent, they will help solve for jitter, 
 as such images are rigid across scan lines.
