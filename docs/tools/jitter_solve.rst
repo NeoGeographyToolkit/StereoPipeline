@@ -2203,7 +2203,7 @@ Command-line options for jitter_solve
     produced orientation. If not set, use the orientations from the
     CSM file as they are. Small values may result in high-frequency
     oscillations.
-ba
+
 --tri-weight <double (default: 0.1)>
     The weight to give to the constraint that optimized triangulated points stay
     close to original triangulated points. A positive value will help ensure the
