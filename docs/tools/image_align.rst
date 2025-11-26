@@ -245,6 +245,10 @@ Command-line options for image_align
     The DEM associated with the second image. To be used with
     ``--ecef-transform-type``.
 
+--nodata-value <float (default: NaN)>
+    Pixels with values less than or equal to this number are treated
+    as no-data. This overrides the no-data values from input images.
+    
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.

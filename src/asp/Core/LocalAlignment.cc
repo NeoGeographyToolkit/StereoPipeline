@@ -534,6 +534,7 @@ namespace asp {
         left_unaligned_rsrc (DiskImageResourcePtr(left_unaligned_file)),
         right_unaligned_rsrc(DiskImageResourcePtr(right_unaligned_file));
       asp::get_nodata_values(left_unaligned_rsrc, right_unaligned_rsrc,
+                             asp::stereo_settings().nodata_value,
                              left_unaligned_nodata_value, right_unaligned_nodata_value);
     }
 

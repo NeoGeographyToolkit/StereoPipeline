@@ -231,7 +231,8 @@ void computeStatsOrIp(asp::BaOptions const& opt,
     boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
     float nodata = -std::numeric_limits<float>::max();
     float dummy_nodata = nodata;
-    asp::get_nodata_values(rsrc, rsrc, nodata, dummy_nodata);
+    asp::get_nodata_values(rsrc, rsrc, asp::stereo_settings().nodata_value,
+                         nodata, dummy_nodata);
 
     // Set up the image view. If the user provided a custom no-data value,
     // values no more than that are masked.

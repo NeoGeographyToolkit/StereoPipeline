@@ -709,6 +709,7 @@ shared_preprocessing_hook(vw::GdalWriteOptions & options,
       left_rsrc (DiskImageResourcePtr(left_input_file)),
       right_rsrc(DiskImageResourcePtr(right_input_file));
     asp::get_nodata_values(left_rsrc, right_rsrc,
+                           stereo_settings().nodata_value,
                            left_nodata_value, right_nodata_value);
   }
 

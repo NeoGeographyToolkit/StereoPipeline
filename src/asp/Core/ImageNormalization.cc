@@ -33,11 +33,13 @@ namespace fs = boost::filesystem;
 
 namespace asp {
   
-/// Returns the correct nodata value from the input images or the input options
+/// Returns the correct nodata value from the input images or the input options.
+/// The user_nodata value overrides the image no-data values if it is not NaN.
 void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
-                        boost::shared_ptr<vw::DiskImageResource> right_rsrc,
-                        float & left_nodata_value,
-                        float & right_nodata_value){
+                       boost::shared_ptr<vw::DiskImageResource> right_rsrc,
+                       float user_nodata,
+                       float & left_nodata_value,
+                       float & right_nodata_value){
   
   // The no-data value read from options overrides the value present in the image files.
   left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
@@ -45,8 +47,7 @@ void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
   if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read();
   if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
   
-  float user_nodata = stereo_settings().nodata_value;
-  if (!std::isnan(user_nodata)){
+  if (!std::isnan(user_nodata)) {
     
     if (user_nodata < left_nodata_value)
       vw_out(WarningMessage) 

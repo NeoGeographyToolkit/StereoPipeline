@@ -141,7 +141,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // GCP sigma must be positive
   if (opt.gcp_sigma <= 0.0)
     vw_throw(ArgumentErr() << "The GCP sigma must be positive.\n");
+
+  // The ortho must have a geo reference
+  vw::cartography::GeoReference georef_ortho;
+  bool has_georef_ortho = vw::cartography::read_georeference(georef_ortho, opt.ortho_image);
+  if (!has_georef_ortho)
+    vw_throw(ArgumentErr() << "The ortho image must have a georeference.\n");
     
+  // Same for the DEM
+  vw::cartography::GeoReference georef_dem;
+  bool has_georef_dem = vw::cartography::read_georeference(georef_dem, opt.dem);
+  if (!has_georef_dem)
+    vw_throw(ArgumentErr() << "The DEM must have a georeference.\n");
+
   // Create the output directory
   vw::create_out_dir(opt.output_prefix);
   vw::create_out_dir(opt.output_gcp);
@@ -168,32 +180,18 @@ void find_matches(Options & opt,
   vw::vw_out() << "Ortho image: " << ortho_image_name << "\n";
   vw::vw_out() << "DEM: " << opt.dem << "\n";
 
-  // Load the DEM
-  ImageViewRef<double> dem;
-  double dem_nodata; // will be initialized next
-  bool has_georef_dem = false;
-  vw::cartography::GeoReference georef_dem;
-  asp::load_image(opt.dem, dem, dem_nodata, has_georef_dem, georef_dem);
-  if (!has_georef_dem)
-    vw_throw(ArgumentErr() << "The DEM must have a georeference.\n");
-
   // Read the images and get the nodata values
   float camera_nodata, ortho_nodata;
   boost::shared_ptr<DiskImageResource>
     camera_rsrc(vw::DiskImageResourcePtr(camera_image_name)),
     ortho_rsrc(vw::DiskImageResourcePtr(ortho_image_name));
-  asp::get_nodata_values(camera_rsrc, ortho_rsrc, camera_nodata, ortho_nodata);
+  asp::get_nodata_values(camera_rsrc, ortho_rsrc, asp::stereo_settings().nodata_value, 
+                         camera_nodata, ortho_nodata);
 
   // Get masked views of the images to get statistics from
   DiskImageView<float> camera_image(camera_rsrc), ortho_image(ortho_rsrc);
   ImageViewRef<PixelMask<float>> masked_camera = create_mask(camera_image, camera_nodata);
   ImageViewRef<PixelMask<float>> masked_ortho = create_mask(ortho_image, ortho_nodata);
-
-  // The ortho and DEM must have a geo reference
-  vw::cartography::GeoReference georef_ortho;
-  bool has_georef_ortho = vw::cartography::read_georeference(georef_ortho, ortho_image_name);
-  if (!has_georef_ortho)
-    vw_throw(ArgumentErr() << "The ortho image must have a georeference.\n");
 
   // Clear the outputs
   matched_ip1.clear();
@@ -208,11 +206,10 @@ void find_matches(Options & opt,
     vw::vw_out() << "Using specified inlier threshold: " << opt.inlier_threshold
                 << " pixels.\n";
   }
-
-  if (opt.ip_per_tile > 0) {
-    vw::vw_out() << "Since --ip-per-tile was set, not using the --ip-per-image option.\n";
-    opt.ip_per_image = 0;
-  }
+  
+  // Throw if both opt.ip_per_image and opt.ip_per_tile are set
+  if (opt.ip_per_image > 0 && opt.ip_per_tile > 0)
+    vw_throw(ArgumentErr() << "Can set only one of --ip-per-image and --ip-per-tile.\n");
 
   if (opt.ip_per_image > 0)
     vw::vw_out() << "Searching for " << opt.ip_per_image
@@ -222,17 +219,16 @@ void find_matches(Options & opt,
            << ortho_image_name << "\n";
 
   // These need to be passed to the ip matching function
-  asp::stereo_settings().ip_detect_method        = opt.ip_detect_method;
-  asp::stereo_settings().ip_per_image            = opt.ip_per_image;
-  asp::stereo_settings().ip_per_tile             = opt.ip_per_tile;
-  asp::stereo_settings().ip_per_image            = opt.ip_per_image;
-  asp::stereo_settings().matches_per_tile        = opt.matches_per_tile;
-  asp::stereo_settings().matches_per_tile_params = opt.matches_per_tile_params;
-  stereo_settings().ip_num_ransac_iterations     = opt.num_ransac_iterations;
-  stereo_settings().epipolar_threshold           = opt.inlier_threshold;
-  asp::stereo_settings().correlator_mode         = true; // no cameras
-  asp::stereo_settings().alignment_method        = "none"; // no alignment
-  asp::stereo_settings().individually_normalize  = opt.individually_normalize;
+  asp::stereo_settings().ip_detect_method         = opt.ip_detect_method;
+  asp::stereo_settings().ip_per_image             = opt.ip_per_image;
+  asp::stereo_settings().ip_per_tile              = opt.ip_per_tile;
+  asp::stereo_settings().matches_per_tile         = opt.matches_per_tile;
+  asp::stereo_settings().matches_per_tile_params  = opt.matches_per_tile_params;
+  asp::stereo_settings().ip_num_ransac_iterations = opt.num_ransac_iterations;
+  asp::stereo_settings().epipolar_threshold       = opt.inlier_threshold;
+  asp::stereo_settings().correlator_mode          = true; // no cameras
+  asp::stereo_settings().alignment_method         = "none"; // no alignment
+  asp::stereo_settings().individually_normalize   = opt.individually_normalize;
 
   std::string match_file 
     = vw::ip::match_filename(opt.output_prefix, camera_image_name, ortho_image_name);

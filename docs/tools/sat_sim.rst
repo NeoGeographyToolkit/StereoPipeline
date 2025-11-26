@@ -132,7 +132,7 @@ desired view.
    :name: sat_sim_illustration
    :alt:  Illustration of ``sat_sim`` looking at a ground point.
 
-   An example of several generated cameras looking at the same ground point. 
+   An example of several generated cameras looking along a short ground path. 
    Plotted with ``sfm_view`` (:numref:`sfm_view`).
 
 .. _sat_sim_roll_pitch_yaw:

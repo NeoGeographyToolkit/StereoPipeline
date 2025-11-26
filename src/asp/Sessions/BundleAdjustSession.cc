@@ -48,7 +48,7 @@ void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
     vw_throw(ArgumentErr()
              << "Error: Input images can only have a single channel!\n\n");
   float nodata1, nodata2;
-  asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
+  asp::get_nodata_values(rsrc1, rsrc2, asp::stereo_settings().nodata_value, nodata1, nodata2);
 
   // IP matching may not succeed for all pairs
 
@@ -335,7 +335,7 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
     if ((rsrc1->channels() > 1) || (rsrc2->channels() > 1))
       vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
     float nodata1, nodata2;
-    asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
+    asp::get_nodata_values(rsrc1, rsrc2, asp::stereo_settings().nodata_value, nodata1, nodata2);
 
     // Set up the stereo session
     asp::SessionPtr

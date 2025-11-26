@@ -565,6 +565,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     vw_out() << "Computing statistics for the un-normalized images.\n";
     float left_no_data_value, right_no_data_value;
     asp::get_nodata_values(left_rsrc, right_rsrc,
+                           asp::stereo_settings().nodata_value,
                            left_no_data_value, right_no_data_value); 
     float user_nodata = asp::stereo_settings().nodata_value;
     if (!std::isnan(user_nodata)) {

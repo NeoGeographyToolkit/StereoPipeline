@@ -414,7 +414,8 @@ void load_camera_and_find_ip(Options const& opt,
                                                        opt.raw_image, opt.ortho_image,
                                                        opt.input_cam, opt.input_cam,
                                                        out_prefix));
-  asp::get_nodata_values(rsrc_raw, rsrc_ortho, nodata1, nodata2);
+  asp::get_nodata_values(rsrc_raw, rsrc_ortho, asp::stereo_settings().nodata_value,
+                         nodata1, nodata2);
 
   cam = session->camera_model(opt.raw_image, opt.input_cam);
 

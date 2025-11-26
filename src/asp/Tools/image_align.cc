@@ -24,6 +24,7 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/ImageNormalization.h>
 #include <asp/Core/FileUtils.h>
 
 #include <vw/Image/Interpolation.h>
@@ -45,13 +46,9 @@ struct Options: vw::GdalWriteOptions {
   std::vector<std::string> input_images;
   std::string alignment_transform, output_image, output_prefix, output_data_string,
     input_transform, disparity_params, ecef_transform_type, dem1, dem2;
-  bool has_input_nodata_value, has_output_nodata_value;
-  double input_nodata_value, output_nodata_value, inlier_threshold;
+  double inlier_threshold;
   int ip_per_image, num_ransac_iterations, output_data_type;
-  Options(): has_input_nodata_value(false), has_output_nodata_value(false),
-             input_nodata_value (std::numeric_limits<double>::quiet_NaN()),
-             output_nodata_value(std::numeric_limits<double>::quiet_NaN()),
-             ip_per_image(0), num_ransac_iterations(0.0), inlier_threshold(0){}
+  Options(): ip_per_image(0), num_ransac_iterations(0.0), inlier_threshold(0){}
 };
 
 
@@ -60,7 +57,7 @@ struct Options: vw::GdalWriteOptions {
 // which also does normalization and allows for other ip matching algorithms.
 void find_matches(std::string const& image_file1, std::string const& image_file2,
                   ImageViewRef<double> image1, ImageViewRef<double> image2,
-                  double nodata1, double nodata2,
+                  float nodata1, float nodata2,
                   std::vector<ip::InterestPoint> &matched_ip1,
                   std::vector<ip::InterestPoint> &matched_ip2,
                   Options const& opt) {
@@ -349,6 +346,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add(vw::GdalWriteOptionsDescription(opt));
   
+  const double g_nan_val = std::numeric_limits<double>::quiet_NaN();
+  
   general_options.add_options()
     ("output-image,o", po::value(&opt.output_image)->default_value(""),
      "Specify the output image.")
@@ -373,8 +372,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dem1", po::value(&opt.dem1)->default_value(""), "The DEM associated with the first image. To be used with --ecef-transform-type.")
     ("dem2", po::value(&opt.dem2)->default_value(""), "The DEM associated with the second image. To be used with --ecef-transform-type.")
     ("disparity-params", po::value(&opt.disparity_params)->default_value(""),
-     "Find the alignment transform by using, instead of interest points, a disparity, such as produced by 'parallel_stereo --correlator-mode'. Specify as a string in quotes, in the format: 'disparity.tif num_samples'.");
-    
+     "Find the alignment transform by using, instead of interest points, a disparity, such as produced by 'parallel_stereo --correlator-mode'. Specify as a string in quotes, in the format: 'disparity.tif num_samples'.")
+   ("nodata-value", 
+    po::value(&asp::stereo_settings().nodata_value)->default_value(g_nan_val),
+     "Pixels with values less than or equal to this number are treated as no-data. This "
+     "overrides the no-data values from input images.")
+    ;
+
   po::options_description positional("");
   positional.add_options()
     ("input-images", po::value(&opt.input_images));
@@ -392,9 +396,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
   
-  opt.has_input_nodata_value  = vm.count("input-nodata-value");
-  opt.has_output_nodata_value = vm.count("output-nodata-value");
-
   if (opt.input_images.size() != 2)
     vw_throw(ArgumentErr() << "Expecting two input images.\n" << usage << general_options);
 
@@ -422,7 +423,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
     
   // Determining the format of the second input image
-  boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(opt.input_images[1]));
+  boost::shared_ptr<vw::DiskImageResource>
+    rsrc(vw::DiskImageResourcePtr(opt.input_images[1]));
   ChannelTypeEnum input_data_type = rsrc->channel_type();
 
   // By default, use the same type on output as on input
@@ -453,7 +455,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 }
 
 void save_output(ImageViewRef<PixelMask<double>> aligned_image2,
-                 bool has_nodata2, double nodata2,
+                 bool has_nodata2, float nodata2,
                  bool has_georef2, vw::cartography::GeoReference const& georef2,
                  Options const& opt) {
   
@@ -534,12 +536,21 @@ int main(int argc, char *argv[]) {
 
     std::string image_file1 = opt.input_images[0], image_file2 = opt.input_images[1];
     ImageViewRef<double> image1,  image2;
-    double              nodata1, nodata2;
     bool has_georef1 = false, has_georef2 = false;
+    double nodata1_double, nodata2_double; // part of api, will not be used
     vw::cartography::GeoReference georef1, georef2;
-    asp::load_image(image_file1, image1, nodata1, has_georef1, georef1);
-    asp::load_image(image_file2, image2, nodata2, has_georef2, georef2);
+    asp::load_image(image_file1, image1, nodata1_double, has_georef1, georef1);
+    asp::load_image(image_file2, image2, nodata2_double, has_georef2, georef2);
 
+   // Set the no-data value while takeing into account the command line override
+   float nodata1, nodata2;
+   {
+     boost::shared_ptr<DiskImageResource> rsrc1(vw::DiskImageResourcePtr(image_file1));
+     boost::shared_ptr<DiskImageResource> rsrc2(vw::DiskImageResourcePtr(image_file2));
+     asp::get_nodata_values(rsrc1, rsrc2, asp::stereo_settings().nodata_value,
+                            nodata1, nodata2);
+   }
+   
     Matrix<double> tf, ecef_transform;
     if (opt.input_transform.empty()) {
       std::vector<ip::InterestPoint> matched_ip1, matched_ip2;

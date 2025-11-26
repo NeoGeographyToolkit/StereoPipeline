@@ -33,11 +33,13 @@ namespace asp {
 
 typedef vw::Vector<vw::float32,6> Vector6f;
 
-/// Returns the correct nodata value from the input images or the input options
+/// Returns the correct nodata value from the input images or the input options.
+/// The user_nodata value overrides the image no-data values if it is not NaN.
 void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
-                        boost::shared_ptr<vw::DiskImageResource> right_rsrc,
-                        float & left_nodata_value,
-                        float & right_nodata_value);
+                       boost::shared_ptr<vw::DiskImageResource> right_rsrc,
+                       float user_nodata,
+                       float & left_nodata_value,
+                       float & right_nodata_value);
 
 // For OpenCV image detectors some things are a bit different. Used in a few places.
 bool openCvDetectMethod();

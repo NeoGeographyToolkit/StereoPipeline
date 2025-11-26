@@ -96,7 +96,10 @@ camera_footprint (:numref:`camera_footprint`):
 
 stereo_gui (:numref:`stereo_gui`):
   * Added the option ``--zoom-all-to-same-region``.
-      
+
+image_align (:numref:`image_align`):
+  * Added the option ``--nodata-value``.
+
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
   * Made the OpticalBar model 3x faster by switching from minimization in 3D
