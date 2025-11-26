@@ -211,39 +211,14 @@ void find_matches(std::string const& camera_image_name,
                         camera_image_name, ortho_image_name,
                         output_prefix, input_dem, allow_map_promote, total_quiet));
 
-  // Read the images and get the nodata values
-  float camera_nodata, ortho_nodata;
-  boost::shared_ptr<DiskImageResource>
-    camera_rsrc(vw::DiskImageResourcePtr(camera_image_name)),
-    ortho_rsrc(vw::DiskImageResourcePtr(ortho_image_name));
-  asp::get_nodata_values(camera_rsrc, ortho_rsrc, asp::stereo_settings().nodata_value, 
-                         camera_nodata, ortho_nodata);
-
-  // Get masked views of the images to get statistics from
-  DiskImageView<float> camera_image(camera_rsrc), ortho_image(ortho_rsrc);
-  ImageViewRef<PixelMask<float>> masked_camera = create_mask(camera_image, camera_nodata);
-  ImageViewRef<PixelMask<float>> masked_ortho = create_mask(ortho_image, ortho_nodata);
-
-  vw::Vector<vw::float32,6> camera_stats, ortho_stats;
-  camera_stats = asp::gather_stats(masked_camera, camera_image_name,
-                                   output_prefix, camera_image_name);
-  ortho_stats = asp::gather_stats(masked_ortho, ortho_image_name,
-                                   output_prefix, ortho_image_name);
-
-  // The match files (.match) are cached unless the images or camera
-  // are newer than them.
-  std::string camera_vwip_file = "", ortho_vwip_file = "";
-  vw::camera::CameraModel* camera_model = NULL, *ortho_model = NULL;
-  vw::BBox2 camera_bbox, ortho_bbox;
-  session->ip_matching(camera_image_name, ortho_image_name,
-                       Vector2(camera_image.cols(), camera_image.rows()),
-                       camera_stats, ortho_stats,
-                       camera_nodata, ortho_nodata,
-                       camera_model, ortho_model,
-                       match_file,
-                       camera_vwip_file, ortho_vwip_file,
-                       camera_bbox, ortho_bbox);
-
+  vw::camera::CameraModel* camera_model = NULL, *ortho_model =NULL;
+  bool enable_rough_homography = false;
+  double pct_for_overlap = -1.0;
+  asp::matchIp(output_prefix, enable_rough_homography, pct_for_overlap,
+               session, camera_image_name, ortho_image_name,
+               camera_model, ortho_model,
+               match_file);
+               
   // Read the match files from disk
   vw::vw_out() << "Reading matches from: " << match_file << "\n";
   vw::ip::read_binary_match_file(match_file, matched_ip1, matched_ip2);
