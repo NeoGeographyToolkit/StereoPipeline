@@ -69,9 +69,6 @@ void camera_footprint(std::string const& dem_file,
                       vw::geometry::dPoly & footprint,
                       vw::BBox2 & footprint_bbox);
 
-// Expand a box by a given percentage (typically pct is between 0 and 100)
-void expand_box_by_pct(vw::BBox2 & box, double pct);
-
 // Determine which camera images overlap by finding the lon-lat
 // bounding boxes of their footprints given the specified DEM, expand
 // them by a given percentage, and see if those intersect. A higher

@@ -83,6 +83,9 @@ void saveStats(std::string const& out_prefix,
                vw::Vector6f const& left_stats,
                vw::Vector6f const& right_stats);
 
+// Expand a box by a given percentage (typically pct is between 0 and 100)
+void expand_box_by_pct(vw::BBox2 & box, double pct);
+
 } // end namespace asp
 
 #endif//__ASP_CORE_IMAGE_UTILS_H__

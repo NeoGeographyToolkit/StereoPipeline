@@ -40,12 +40,6 @@ class BaOptions;
 class StereoSession;
 typedef boost::shared_ptr<StereoSession> SessionPtr;
 
-// A wrapper around ip matching. Can also work with NULL cameras.
-void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
-                 std::string const& image1_path,  std::string const& image2_path,
-                 vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
-                 std::string const& match_filename);
-
 // Create matches among the mapprojected images (or use any such matches created
 // beforehand manually by the user), and undo the mapprojection. All matches are
 // saved to files.

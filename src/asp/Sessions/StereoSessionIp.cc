@@ -29,6 +29,7 @@
 #include <asp/Camera/RPCModel.h>
 #include <asp/Sessions/StereoSessionASTER.h>
 #include <asp/Sessions/StereoSession.h>
+#include <asp/Core/ImageUtils.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
@@ -42,6 +43,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/FileIO/MatrixIO.h>
+#include <vw/Cartography/GeoTransform.h>
 
 #include <boost/filesystem/operations.hpp>
 
@@ -391,5 +393,97 @@ void StereoSession::imageAlignment(// Inputs
   right_size = left_size;
 }
 
+// A wrapper around ip matching. Can also work with NULL cameras. Various settings
+// are passed in via asp::stereo_settings().
+void matchIp(std::string const& out_prefix,
+             bool enable_rough_homography,
+             double pct_for_overlap,
+             asp::SessionPtr session,
+             std::string const& image1_path,  std::string const& image2_path,
+             vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
+             std::string const& match_filename) {
+
+  boost::shared_ptr<DiskImageResource>
+    rsrc1(vw::DiskImageResourcePtr(image1_path)),
+    rsrc2(vw::DiskImageResourcePtr(image2_path));
+  if ((rsrc1->channels() > 1) || (rsrc2->channels() > 1))
+    vw_throw(ArgumentErr()
+             << "Error: Input images can only have a single channel!\n\n");
+  float nodata1, nodata2;
+  asp::get_nodata_values(rsrc1, rsrc2, asp::stereo_settings().nodata_value, nodata1, nodata2);
+
+  // IP matching may not succeed for all pairs
+
+  // Get masked views of the images to get statistics from. If the user provided
+  // a custom no-data value, values no more than that are masked. Otherwise only 
+  // the exact no-data values are masked.
+  ImageViewRef<float> image1_view = DiskImageView<float>(rsrc1);
+  ImageViewRef<float> image2_view = DiskImageView<float>(rsrc2);
+  ImageViewRef<PixelMask<float>> masked_image1, masked_image2;
+  float user_nodata = asp::stereo_settings().nodata_value;
+  if (!std::isnan(user_nodata)) {
+    masked_image1 = create_mask_less_or_equal(image1_view, user_nodata);
+    masked_image2 = create_mask_less_or_equal(image2_view, user_nodata);
+  } else {
+    masked_image1 = create_mask(image1_view, nodata1);
+    masked_image2 = create_mask(image2_view, nodata2);
+  }
+
+  // Since we computed statistics earlier, this will just be loading files.
+  vw::Vector<vw::float32,6> image1_stats, image2_stats;
+  image1_stats = asp::gather_stats(masked_image1, image1_path,
+                                   out_prefix, image1_path,
+                                   asp::stereo_settings().force_reuse_match_files);
+  image2_stats = asp::gather_stats(masked_image2, image2_path,
+                                   out_prefix, image2_path,
+                                   asp::stereo_settings().force_reuse_match_files);
+
+  // Rough homography cannot use / cache vwip
+  std::string vwip_file1, vwip_file2; 
+  if (enable_rough_homography) {
+    vw::vw_out(vw::WarningMessage)
+      << "Option --enable-rough-homography is set. Will not save interest "
+      << "point matches per image before matching (vwip), as these depend "
+      << "on the pair of images used.\n";
+  } else {
+    vwip_file1 = ip::ip_filename(out_prefix, image1_path);
+    vwip_file2 = ip::ip_filename(out_prefix, image2_path);
+  }
+  
+  // For mapprojected images and given the overlap params,
+  // can restrict the matching to a smaller region.
+  vw::BBox2 bbox1, bbox2;
+  if (pct_for_overlap >= 0 && cam1 == NULL && cam2 == NULL) {
+    vw::cartography::GeoReference georef1, georef2;
+    bool has_georef1 = vw::cartography::read_georeference(georef1, image1_path);
+    bool has_georef2 = vw::cartography::read_georeference(georef2, image2_path);
+    if (has_georef1 && has_georef2) {
+      bbox1 = vw::bounding_box(masked_image1);
+      bbox2 = vw::bounding_box(masked_image2);
+      // Expand the boxes by pct
+      expand_box_by_pct(bbox1, pct_for_overlap);
+      expand_box_by_pct(bbox2, pct_for_overlap);
+      // Transform each box to the other image's pixel coordinates
+      vw::cartography::GeoTransform trans(georef1, georef2);
+      vw::BBox2 trans_bbox1 = trans.forward_bbox(bbox1);
+      vw::BBox2 trans_bbox2 = trans.reverse_bbox(bbox2);
+      // The first box will be the 2nd transformed box, then cropped
+      // to bounding box of first image
+      bbox1 = trans_bbox2;
+      bbox1.crop(bounding_box(masked_image1));
+      // Same logic for the second box.
+      bbox2 = trans_bbox1;
+      bbox2.crop(bounding_box(masked_image2));
+    }
+  }
+
+  // The match files (.match) are cached unless the images or camera
+  // are newer than them.
+  session->ip_matching(image1_path, image2_path,
+                       Vector2(masked_image1.cols(), masked_image1.rows()),
+                       image1_stats, image2_stats,
+                       nodata1, nodata2, cam1, cam2, match_filename,
+                       vwip_file1, vwip_file2, bbox1, bbox2);
+}
 
 } // End namespace asp

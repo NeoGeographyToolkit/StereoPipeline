@@ -125,21 +125,6 @@ void camera_footprint(std::string const& dem_file,
   ofs.close();
 }
 
-// Expand a box by a given percentage (typically pct is between 0 and 100)
-void expand_box_by_pct(vw::BBox2 & box, double pct) {
-  
-  // Check the pct is non-negative
-  if (pct < 0.0) 
-    vw_throw(ArgumentErr() << "Invalid percentage when expanding a box: " 
-              << pct << ".\n");
-    
-  double factor = pct / 100.0;
-  double half_extra_x = 0.5 * box.width()  * factor;
-  double half_extra_y = 0.5 * box.height() * factor;
-  box.min() -= Vector2(half_extra_x, half_extra_y);
-  box.max() += Vector2(half_extra_x, half_extra_y);
-}
-
 // See the .h file for the documentation.
 void buildOverlapList(std::string const& out_prefix, 
                       std::string const& dem_file, 

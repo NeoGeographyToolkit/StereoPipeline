@@ -283,6 +283,15 @@ protected:
 
 typedef boost::shared_ptr<StereoSession> SessionPtr;
 
+// A wrapper around ip matching. Can also work with NULL cameras.
+void matchIp(std::string const& out_prefix,
+             bool enable_rough_homography,
+             double pct_for_overlap,
+             asp::SessionPtr session,
+             std::string const& image1_path,  std::string const& image2_path,
+             vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
+             std::string const& match_filename);
+
 } // end namespace asp
 
 #endif // __STEREO_SESSION_H__
