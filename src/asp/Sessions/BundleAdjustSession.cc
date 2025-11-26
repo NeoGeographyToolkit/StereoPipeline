@@ -35,7 +35,8 @@ namespace asp {
 
 using namespace vw;
 
-// A wrapper around ip matching. Can also work with NULL cameras.
+// A wrapper around ip matching. Can also work with NULL cameras. Various settings
+// are passed in via asp::stereo_settings().
 void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
                  std::string const& image1_path,  std::string const& image2_path,
                  vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
@@ -53,7 +54,8 @@ void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
   // IP matching may not succeed for all pairs
 
   // Get masked views of the images to get statistics from. If the user provided
-  // a custom no-data value, values no more than that are masked.
+  // a custom no-data value, values no more than that are masked. Otherwise only 
+  // the exact no-data values are masked.
   ImageViewRef<float> image1_view = DiskImageView<float>(rsrc1);
   ImageViewRef<float> image2_view = DiskImageView<float>(rsrc2);
   ImageViewRef<PixelMask<float>> masked_image1, masked_image2;
@@ -90,7 +92,7 @@ void ba_match_ip(asp::BaOptions & opt, asp::SessionPtr session,
   // For mapprojected images and given the overlap params,
   // can restrict the matching to a smaller region.
   vw::BBox2 bbox1, bbox2;
-  if (opt.pct_for_overlap >= 0) {
+  if (opt.pct_for_overlap >= 0 && cam1 == NULL && cam2 == NULL) {
     vw::cartography::GeoReference georef1, georef2;
     bool has_georef1 = vw::cartography::read_georeference(georef1, image1_path);
     bool has_georef2 = vw::cartography::read_georeference(georef2, image2_path);

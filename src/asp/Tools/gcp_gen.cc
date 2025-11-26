@@ -162,6 +162,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (!has_georef_dem)
     vw_throw(ArgumentErr() << "The DEM must have a georeference.\n");
 
+  // Sanity checks  
+  if (ip_opt.ip_per_image > 0 && ip_opt.ip_per_tile > 0)
+    vw_throw(ArgumentErr() << "Can set only one of --ip-per-image and --ip-per-tile.\n");
+
   // Create the output directory
   vw::create_out_dir(opt.output_prefix);
   vw::create_out_dir(opt.output_gcp);
@@ -179,6 +183,34 @@ void find_matches(std::string const& camera_image_name,
                   std::vector<vw::ip::InterestPoint> & matched_ip1,
                   std::vector<vw::ip::InterestPoint> & matched_ip2) {
 
+  // Alias for interest point matching settings 
+  auto & ip_opt = asp::stereo_settings();
+  
+  // These need to be passed to the ip matching function
+  ip_opt.correlator_mode  = true; // no cameras
+  ip_opt.alignment_method = "none"; // no alignment; a homography transform will be used
+
+  if (ip_opt.ip_per_image > 0)
+    vw::vw_out() << "Searching for " << ip_opt.ip_per_image
+                  << " interest points in each image.\n";
+
+  vw_out() << "Matching interest points between: " << camera_image_name << " and "
+           << ortho_image_name << "\n";
+
+  std::string match_file 
+    = vw::ip::match_filename(output_prefix, camera_image_name, ortho_image_name);
+
+  asp::SessionPtr session(NULL);
+  std::string stereo_session = "pinhole", input_dem = "";
+  bool allow_map_promote = false, total_quiet = true;
+  vw::GdalWriteOptions gdal_opt;
+  session.reset(asp::StereoSessionFactory::create
+                        (stereo_session, // may change
+                        gdal_opt, 
+                        camera_image_name, ortho_image_name,
+                        camera_image_name, ortho_image_name,
+                        output_prefix, input_dem, allow_map_promote, total_quiet));
+
   // Read the images and get the nodata values
   float camera_nodata, ortho_nodata;
   boost::shared_ptr<DiskImageResource>
@@ -192,47 +224,11 @@ void find_matches(std::string const& camera_image_name,
   ImageViewRef<PixelMask<float>> masked_camera = create_mask(camera_image, camera_nodata);
   ImageViewRef<PixelMask<float>> masked_ortho = create_mask(ortho_image, ortho_nodata);
 
-  // Clear the outputs
-  matched_ip1.clear();
-  matched_ip2.clear();
-
-  // Alias for interest point matching settings 
-  auto & ip_opt = asp::stereo_settings();
-  
-  // Sanity checks  
-  if (ip_opt.ip_per_image > 0 && ip_opt.ip_per_tile > 0)
-    vw_throw(ArgumentErr() << "Can set only one of --ip-per-image and --ip-per-tile.\n");
-
-  if (ip_opt.ip_per_image > 0)
-    vw::vw_out() << "Searching for " << ip_opt.ip_per_image
-                  << " interest points in each image.\n";
-
-  vw_out() << "Matching interest points between: " << camera_image_name << " and "
-           << ortho_image_name << "\n";
-
-  // These need to be passed to the ip matching function
-  ip_opt.correlator_mode  = true; // no cameras
-  ip_opt.alignment_method = "none"; // no alignment; a homography transform will be used
-
-  std::string match_file 
-    = vw::ip::match_filename(output_prefix, camera_image_name, ortho_image_name);
-
   vw::Vector<vw::float32,6> camera_stats, ortho_stats;
   camera_stats = asp::gather_stats(masked_camera, camera_image_name,
                                    output_prefix, camera_image_name);
   ortho_stats = asp::gather_stats(masked_ortho, ortho_image_name,
                                    output_prefix, ortho_image_name);
-
-  asp::SessionPtr session(NULL);
-  std::string stereo_session = "", input_dem = "";
-  bool allow_map_promote = false, total_quiet = true;
-  vw::GdalWriteOptions gdal_opt;
-  session.reset(asp::StereoSessionFactory::create
-                        (stereo_session, // may change
-                        gdal_opt, 
-                        camera_image_name, ortho_image_name,
-                        camera_image_name, ortho_image_name,
-                        output_prefix, input_dem, allow_map_promote, total_quiet));
 
   // The match files (.match) are cached unless the images or camera
   // are newer than them.
