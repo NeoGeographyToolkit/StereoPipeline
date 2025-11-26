@@ -46,18 +46,20 @@ namespace asp {
 
 struct Options: vw::GdalWriteOptions {
   std::string camera_image, ortho_image, mapproj_image, dem, output_gcp, output_prefix, match_file;
-  double inlier_threshold, gcp_sigma;
-  int ip_detect_method, ip_per_image, ip_per_tile, matches_per_tile, num_ransac_iterations;
-  vw::Vector2i matches_per_tile_params;
-  bool individually_normalize;
-  Options(): ip_per_image(0), num_ransac_iterations(0.0), inlier_threshold(0) {}
+  double gcp_sigma;
+  Options() {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
+  const double g_nan_val = std::numeric_limits<double>::quiet_NaN();
+
   po::options_description general_options("");
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
+  // Pass interest point matching options directly to stereo_settings
+  auto & ip_opt = asp::stereo_settings(); // alias
+  
   general_options.add_options()
     ("camera-image", po::value(&opt.camera_image)->default_value(""),
      "The camera image.")
@@ -70,20 +72,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("gcp-sigma", po::value(&opt.gcp_sigma)->default_value(1.0),
      "The sigma (uncertainty, in meters) to use for the GCPs. A smaller sigma suggests "
       "a more accurate GCP. See also option --fix-gcp-xyz in bundle adjustment.")
-    ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
+    ("ip-detect-method", po::value(&ip_opt.ip_detect_method)->default_value(0),
      "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
-    ("ip-per-image", po::value(&opt.ip_per_image)->default_value(20000),
+    ("ip-per-image", po::value(&ip_opt.ip_per_image)->default_value(20000),
      "How many interest points to detect in each image (the resulting number of "
       "matches will be much less).")
-    ("ip-per-tile", po::value(&opt.ip_per_tile)->default_value(0),
+    ("ip-per-tile", po::value(&ip_opt.ip_per_tile)->default_value(0),
      "How many interest points to detect in each 1024^2 image tile (default: automatic "
      "determination). This is before matching. Not all interest points will have a match. "
      "See also --matches-per-tile.")
-    ("matches-per-tile",  po::value(&opt.matches_per_tile)->default_value(0),
+    ("matches-per-tile",  po::value(&ip_opt.matches_per_tile)->default_value(0),
      "How many interest point matches to compute in each image tile (of size "
      "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "
      "than this. See also --matches-per-tile-params.")
-    ("matches-per-tile-params",  po::value(&opt.matches_per_tile_params)->default_value(Vector2(1024, 1280), "1024 1280"),
+    ("matches-per-tile-params",  
+     po::value(&ip_opt.matches_per_tile_params)->default_value(Vector2(1024, 1280), 
+                                                               "1024 1280"),
      "To be used with --matches-per-tile. The first value is the image tile size for both "
      "images. A larger second value allows each right tile to further expand to this size, "
      "resulting in the tiles overlapping. This may be needed if the homography alignment "
@@ -96,19 +100,23 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "matches to the camera image. The camera model file and DEM must be available and "
      "their names will be read from the geoheader of the mapprojected image.")
     ("individually-normalize",
-     po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
+     po::bool_switch(&ip_opt.individually_normalize)->default_value(false)->implicit_value(true),
      "Individually normalize the input images instead of using common values.")
-    ("num-ransac-iterations", po::value(&opt.num_ransac_iterations)->default_value(1000),
+    ("num-ransac-iterations", 
+     po::value(&ip_opt.ip_num_ransac_iterations)->default_value(1000),
      "How many iterations to perform in RANSAC when finding interest point matches.")
-    ("inlier-threshold", po::value(&opt.inlier_threshold)->default_value(0.0),
+    ("inlier-threshold", po::value(&ip_opt.epipolar_threshold)->default_value(0.0),
      "The inlier threshold (in pixels) to separate inliers from outliers when "
      "computing interest point matches. A smaller threshold will result in fewer "
      "inliers. The default is 10% of the image diagonal.")
+    ("nodata-value", 
+     po::value(&ip_opt.nodata_value)->default_value(g_nan_val),
+     "Pixels with values less than or equal to this number are treated as no-data. This "
+     "overrides the no-data values from input images.")
     ("output-prefix", po::value(&opt.output_prefix)->default_value(""),
      "Save intermediate data, including match files, in this directory. Ths will "
      "cache any matches found, and those will be used to create the GCP file. "
      "The match file needs to be deleted if desired to recompute it.")
-    
     ("match-file", po::value(&opt.match_file)->default_value(""),
      "If set, use this match file instead of creating one.")
   ;
@@ -165,20 +173,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 }
 
 // Get a list of matched IP between two images
-void find_matches(Options & opt,
-                  std::string const& camera_image_name, 
+void find_matches(std::string const& camera_image_name, 
                   std::string const& ortho_image_name,
-                  bool is_mapproj,
+                  std::string const& output_prefix, 
                   std::vector<vw::ip::InterestPoint> & matched_ip1,
                   std::vector<vw::ip::InterestPoint> & matched_ip2) {
-
-  if (!is_mapproj)
-    vw::vw_out() << "Camera image: " << camera_image_name << "\n";
-  else 
-    vw::vw_out() << "Mapprojected camera image: " << camera_image_name << "\n";
-    
-  vw::vw_out() << "Ortho image: " << ortho_image_name << "\n";
-  vw::vw_out() << "DEM: " << opt.dem << "\n";
 
   // Read the images and get the nodata values
   float camera_nodata, ortho_nodata;
@@ -197,57 +196,54 @@ void find_matches(Options & opt,
   matched_ip1.clear();
   matched_ip2.clear();
 
+  // Alias for interest point matching settings 
+  auto & ip_opt = asp::stereo_settings();
+  
   // If the inlier factor is not set, use 10% of the image diagonal.
-  if (opt.inlier_threshold <= 0.0) {
+  if (ip_opt.epipolar_threshold <= 0.0) {
     BBox2i bbox = bounding_box(camera_image);
-    opt.inlier_threshold = norm_2(Vector2(bbox.width(), bbox.height())) / 10.0;
-    vw::vw_out() << "Setting inlier threshold to: " << opt.inlier_threshold << " pixels.\n";
+    ip_opt.epipolar_threshold = norm_2(Vector2(bbox.width(), bbox.height())) / 10.0;
+    vw::vw_out() << "Setting inlier threshold to: " << ip_opt.epipolar_threshold 
+      << " pixels.\n";
   } else {
-    vw::vw_out() << "Using specified inlier threshold: " << opt.inlier_threshold
+    vw::vw_out() << "Using specified inlier threshold: " << ip_opt.epipolar_threshold
                 << " pixels.\n";
   }
-  
-  // Throw if both opt.ip_per_image and opt.ip_per_tile are set
-  if (opt.ip_per_image > 0 && opt.ip_per_tile > 0)
+
+  // Sanity checks  
+  if (ip_opt.ip_per_image > 0 && ip_opt.ip_per_tile > 0)
     vw_throw(ArgumentErr() << "Can set only one of --ip-per-image and --ip-per-tile.\n");
 
-  if (opt.ip_per_image > 0)
-    vw::vw_out() << "Searching for " << opt.ip_per_image
+  if (ip_opt.ip_per_image > 0)
+    vw::vw_out() << "Searching for " << ip_opt.ip_per_image
                   << " interest points in each image.\n";
 
   vw_out() << "Matching interest points between: " << camera_image_name << " and "
            << ortho_image_name << "\n";
 
   // These need to be passed to the ip matching function
-  asp::stereo_settings().ip_detect_method         = opt.ip_detect_method;
-  asp::stereo_settings().ip_per_image             = opt.ip_per_image;
-  asp::stereo_settings().ip_per_tile              = opt.ip_per_tile;
-  asp::stereo_settings().matches_per_tile         = opt.matches_per_tile;
-  asp::stereo_settings().matches_per_tile_params  = opt.matches_per_tile_params;
-  asp::stereo_settings().ip_num_ransac_iterations = opt.num_ransac_iterations;
-  asp::stereo_settings().epipolar_threshold       = opt.inlier_threshold;
-  asp::stereo_settings().correlator_mode          = true; // no cameras
-  asp::stereo_settings().alignment_method         = "none"; // no alignment
-  asp::stereo_settings().individually_normalize   = opt.individually_normalize;
+  ip_opt.correlator_mode          = true; // no cameras
+  ip_opt.alignment_method         = "none"; // no alignment
 
   std::string match_file 
-    = vw::ip::match_filename(opt.output_prefix, camera_image_name, ortho_image_name);
+    = vw::ip::match_filename(output_prefix, camera_image_name, ortho_image_name);
 
   vw::Vector<vw::float32,6> camera_stats, ortho_stats;
   camera_stats = asp::gather_stats(masked_camera, camera_image_name,
-                                   opt.output_prefix, camera_image_name);
+                                   output_prefix, camera_image_name);
   ortho_stats = asp::gather_stats(masked_ortho, ortho_image_name,
-                                   opt.output_prefix, ortho_image_name);
+                                   output_prefix, ortho_image_name);
 
   asp::SessionPtr session(NULL);
   std::string stereo_session = "", input_dem = "";
   bool allow_map_promote = false, total_quiet = true;
+  vw::GdalWriteOptions gdal_opt;
   session.reset(asp::StereoSessionFactory::create
                         (stereo_session, // may change
-                        opt, 
+                        gdal_opt, 
                         camera_image_name, ortho_image_name,
                         camera_image_name, ortho_image_name,
-                        opt.output_prefix, input_dem, allow_map_promote, total_quiet));
+                        output_prefix, input_dem, allow_map_promote, total_quiet));
 
   // The match files (.match) are cached unless the images or camera
   // are newer than them.
@@ -337,11 +333,11 @@ void gcp_gen(Options & opt) {
 
     bool is_mapproj = false;
     if (opt.mapproj_image == "") {
-      find_matches(opt, opt.camera_image, opt.ortho_image, is_mapproj, ip1, ip2);
+      find_matches(opt.camera_image, opt.ortho_image, opt.output_prefix, ip1, ip2);
     } else {
       // Consider the advanced --mapproj-image option
       is_mapproj = true;
-      find_matches(opt, opt.mapproj_image, opt.ortho_image, is_mapproj, ip1, ip2);
+      find_matches(opt.mapproj_image, opt.ortho_image, opt.output_prefix, ip1, ip2);
     }
     
   } else {

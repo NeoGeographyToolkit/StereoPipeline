@@ -175,6 +175,10 @@ Command-line options
     will cache any matches found, and those will be used to create the GCP file.
     The match file needs to be deleted if desired to recompute it.
 
+--nodata-value <float (default: NaN)>
+    Pixels with values less than or equal to this number are treated
+    as no-data. This overrides the no-data values from input images.
+
 --match-file <string (default: "")>
     If set, use this match file instead of creating one.          
 

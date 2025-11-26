@@ -347,7 +347,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   general_options.add(vw::GdalWriteOptionsDescription(opt));
   
   const double g_nan_val = std::numeric_limits<double>::quiet_NaN();
-  
   general_options.add_options()
     ("output-image,o", po::value(&opt.output_image)->default_value(""),
      "Specify the output image.")
@@ -373,8 +372,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dem2", po::value(&opt.dem2)->default_value(""), "The DEM associated with the second image. To be used with --ecef-transform-type.")
     ("disparity-params", po::value(&opt.disparity_params)->default_value(""),
      "Find the alignment transform by using, instead of interest points, a disparity, such as produced by 'parallel_stereo --correlator-mode'. Specify as a string in quotes, in the format: 'disparity.tif num_samples'.")
-   ("nodata-value", 
-    po::value(&asp::stereo_settings().nodata_value)->default_value(g_nan_val),
+    ("nodata-value", 
+     po::value(&asp::stereo_settings().nodata_value)->default_value(g_nan_val),
      "Pixels with values less than or equal to this number are treated as no-data. This "
      "overrides the no-data values from input images.")
     ;
