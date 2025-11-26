@@ -108,7 +108,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("inlier-threshold", po::value(&ip_opt.epipolar_threshold)->default_value(0.0),
      "The inlier threshold (in pixels) to separate inliers from outliers when "
      "computing interest point matches. A smaller threshold will result in fewer "
-     "inliers. The default is 10% of the image diagonal.")
+     "inliers. The default is auto-determined.")
     ("nodata-value", 
      po::value(&ip_opt.nodata_value)->default_value(g_nan_val),
      "Pixels with values less than or equal to this number are treated as no-data. This "
@@ -199,17 +199,6 @@ void find_matches(std::string const& camera_image_name,
   // Alias for interest point matching settings 
   auto & ip_opt = asp::stereo_settings();
   
-  // If the inlier factor is not set, use 10% of the image diagonal.
-  if (ip_opt.epipolar_threshold <= 0.0) {
-    BBox2i bbox = bounding_box(camera_image);
-    ip_opt.epipolar_threshold = norm_2(Vector2(bbox.width(), bbox.height())) / 10.0;
-    vw::vw_out() << "Setting inlier threshold to: " << ip_opt.epipolar_threshold 
-      << " pixels.\n";
-  } else {
-    vw::vw_out() << "Using specified inlier threshold: " << ip_opt.epipolar_threshold
-                << " pixels.\n";
-  }
-
   // Sanity checks  
   if (ip_opt.ip_per_image > 0 && ip_opt.ip_per_tile > 0)
     vw_throw(ArgumentErr() << "Can set only one of --ip-per-image and --ip-per-tile.\n");
@@ -222,8 +211,8 @@ void find_matches(std::string const& camera_image_name,
            << ortho_image_name << "\n";
 
   // These need to be passed to the ip matching function
-  ip_opt.correlator_mode          = true; // no cameras
-  ip_opt.alignment_method         = "none"; // no alignment
+  ip_opt.correlator_mode  = true; // no cameras
+  ip_opt.alignment_method = "none"; // no alignment; a homography transform will be used
 
   std::string match_file 
     = vw::ip::match_filename(output_prefix, camera_image_name, ortho_image_name);

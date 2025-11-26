@@ -160,7 +160,7 @@ Command-line options
 --inlier-threshold <double (default: 0.0)>
     The inlier threshold (in pixels) to separate inliers from outliers when
     computing interest point matches. A smaller threshold will result in fewer
-    inliers. The default is 10% of the image diagonal.
+    inliers. The default is auto-determined.
 
 --ip-detect-method <integer (default: 0)>
     Choose an interest point detection method from: 0 = OBAloG

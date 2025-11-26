@@ -149,7 +149,7 @@ void compute_ip_LR(std::string const & out_prefix) {
   vw_out() << "\t    * Detecting interest points.\n";
 
   // TODO: Depending on alignment method, we can tailor the IP filtering strategy.
-  double thresh_factor = asp::stereo_settings().ip_inlier_factor; // 1.0/15 by default
+  double thresh_factor = asp::stereo_settings().ip_inlier_factor;
   
   // This range is extra large to handle elevation differences. That can 
   // be an issue with mapprojected images.
