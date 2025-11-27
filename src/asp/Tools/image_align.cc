@@ -47,9 +47,8 @@ struct Options: vw::GdalWriteOptions {
   std::vector<std::string> input_images;
   std::string alignment_transform, output_image, output_prefix, output_data_string,
     input_transform, disparity_params, ecef_transform_type, dem1, dem2;
-  double inlier_threshold;
-  int num_ransac_iterations, output_data_type;
-  Options(): num_ransac_iterations(0.0), inlier_threshold(0){}
+  int output_data_type;
+  Options(): output_data_type(0){}
 };
 
 /// Get a list of matched IP based on an input disparity
@@ -127,7 +126,8 @@ Matrix<double> do_ransac(std::vector<Vector3> const& ransac_ip1,
   try {
     vw::math::RandomSampleConsensus<FunctorT, vw::math::InterestPointErrorMetric>
       ransac(FunctorT(), vw::math::InterestPointErrorMetric(),
-             opt.num_ransac_iterations, opt.inlier_threshold,
+             asp::stereo_settings().ip_num_ransac_iterations, 
+             asp::stereo_settings().epipolar_threshold,
              min_num_output_inliers, reduce_num_inliers_if_no_fit);
     tf = ransac(ransac_ip2, ransac_ip1);
     indices = ransac.inlier_indices(tf, ransac_ip2, ransac_ip1);
@@ -219,7 +219,7 @@ void calc_ecef_transform(std::vector<ip::InterestPoint> const& inlier_ip1,
   double        scale;
   bool filter_outliers = true;
   Vector2 ransac_params;
-  ransac_params[0] = opt.num_ransac_iterations;
+  ransac_params[0] = asp::stereo_settings().ip_num_ransac_iterations;
   ransac_params[1] = 1.0; // factor; not the same as opt.inlier_threshold
   vw::math::find_3D_transform(points_src, points_ref,
                               rotation, translation, scale,
@@ -322,8 +322,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Specify the transform to use to align the second image to the first. Options: "
      "translation, rigid (translation + rotation), similarity (translation + rotation + "
      "scale), affine, homography.")
-    ("ip-per-image", po::value(&ip_opt.ip_per_image)->default_value(0),
-     "How many interest points to detect in each image (default: automatic determination).")
     ("output-prefix", po::value(&opt.output_prefix)->default_value("out_image_align/run"),
      "If set, save the interest point matches, computed transform, and other auxiliary "
      "data at this prefix. These are cached for future runs.")
@@ -331,17 +329,51 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The data type of the output file. Options: uint8, uint16, uint32, int16, int32, "
      "float32, float64. The values are clamped (and also rounded for integer types) to avoid "
      "overflow.")
-    ("num-ransac-iterations", po::value(&opt.num_ransac_iterations)->default_value(1000),
+    ("ip-detect-method", po::value(&ip_opt.ip_detect_method)->default_value(0),
+     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
+    ("ip-per-image", po::value(&ip_opt.ip_per_image)->default_value(20000),
+     "How many interest points to detect in each image (the resulting number of "
+      "matches will be much less).")
+    ("ip-per-tile", po::value(&ip_opt.ip_per_tile)->default_value(0),
+     "How many interest points to detect in each 1024^2 image tile (default: automatic "
+     "determination). This is before matching. Not all interest points will have a match. "
+     "See also --matches-per-tile.")
+    ("matches-per-tile",  po::value(&ip_opt.matches_per_tile)->default_value(0),
+     "How many interest point matches to compute in each image tile (of size "
+     "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "
+     "than this. See also --matches-per-tile-params.")
+    ("matches-per-tile-params",  
+     po::value(&ip_opt.matches_per_tile_params)->default_value(Vector2(1024, 1280), 
+                                                               "1024 1280"),
+     "To be used with --matches-per-tile. The first value is the image tile size for both "
+     "images. A larger second value allows each right tile to further expand to this size, "
+     "resulting in the tiles overlapping. This may be needed if the homography alignment "
+     "between these images is not great, as this transform is used to pair up left and "
+     "right image tiles.")
+    ("individually-normalize",
+     po::bool_switch(&ip_opt.individually_normalize)->default_value(false)->implicit_value(true),
+     "Individually normalize the input images instead of using common values.")
+    ("num-ransac-iterations",
+     po::value(&ip_opt.ip_num_ransac_iterations)->default_value(1000),
      "How many iterations to perform in RANSAC when finding interest point matches.")
-    ("inlier-threshold", po::value(&opt.inlier_threshold)->default_value(5.0),
-     "The inlier threshold (in pixels) to separate inliers from outliers when computing interest point matches. A smaller threshold will result in fewer inliers.")
+    ("inlier-threshold", po::value(&ip_opt.epipolar_threshold)->default_value(200.0),
+     "The inlier threshold (in pixels) to separate inliers from outliers when "
+     "computing interest point matches. A smaller threshold will result in fewer "
+     "inliers.")
     ("input-transform", po::value(&opt.input_transform)->default_value(""),
      "Instead of computing an alignment transform, read and apply the one from this file. Must be stored as a 3x3 matrix.")
-    ("ecef-transform-type", po::value(&opt.ecef_transform_type)->default_value(""), "Save the ECEF transform corresponding to the image alignment transform to <output prefix>-ecef-transform.txt. The type can be: 'translation', 'rigid' (rotation + translation), or 'similarity' (rotation + translation + scale).")
-    ("dem1", po::value(&opt.dem1)->default_value(""), "The DEM associated with the first image. To be used with --ecef-transform-type.")
-    ("dem2", po::value(&opt.dem2)->default_value(""), "The DEM associated with the second image. To be used with --ecef-transform-type.")
+    ("ecef-transform-type", po::value(&opt.ecef_transform_type)->default_value(""), 
+     "Save the ECEF transform corresponding to the image alignment transform to <output "
+     "prefix>-ecef-transform.txt. The type can be: 'translation', 'rigid' (rotation + "
+     "translation), or 'similarity' (rotation + translation + scale).")
+    ("dem1", po::value(&opt.dem1)->default_value(""), 
+     "The DEM associated with the first image. To be used with --ecef-transform-type.")
+    ("dem2", po::value(&opt.dem2)->default_value(""), 
+     "The DEM associated with the second image. To be used with --ecef-transform-type.")
     ("disparity-params", po::value(&opt.disparity_params)->default_value(""),
-     "Find the alignment transform by using, instead of interest points, a disparity, such as produced by 'parallel_stereo --correlator-mode'. Specify as a string in quotes, in the format: 'disparity.tif num_samples'.")
+     "Find the alignment transform by using, instead of interest points, a disparity, such "
+     "as produced by 'parallel_stereo --correlator-mode'. Specify as a string in quotes, "
+     "in the format: 'disparity.tif num_samples'.")
     ("nodata-value", 
      po::value(&ip_opt.nodata_value)->default_value(g_nan_val),
      "Pixels with values less than or equal to this number are treated as no-data. This "
@@ -370,6 +402,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.output_image.empty())
     vw_throw(ArgumentErr() << "Missing output image name.\n" << usage << general_options);
+
+  if (ip_opt.ip_per_image > 0 && ip_opt.ip_per_tile > 0)
+    vw_throw(ArgumentErr() << "Can set only one of --ip-per-image and --ip-per-tile.\n");
 
   if (opt.alignment_transform != "translation" && opt.alignment_transform != "rigid" &&
       opt.alignment_transform != "similarity" && opt.alignment_transform != "affine" &&
