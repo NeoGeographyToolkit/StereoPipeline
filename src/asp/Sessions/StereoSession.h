@@ -32,6 +32,13 @@
 
 #include <boost/shared_ptr.hpp>
 
+// Forward declarations
+namespace vw {
+  namespace ip {
+    struct InterestPoint;
+  }
+}
+
 namespace asp {
 
 typedef vw::Vector<vw::float32,6> Vector6f;
@@ -283,7 +290,8 @@ protected:
 
 typedef boost::shared_ptr<StereoSession> SessionPtr;
 
-// A wrapper around ip matching. Can also work with NULL cameras.
+// A wrapper around ip matching. Can also work with NULL cameras
+// TODO(oalexan1): See if it is possible to not use the stereo session here.
 void matchIp(std::string const& out_prefix,
              bool enable_rough_homography,
              double pct_for_overlap,
@@ -291,6 +299,13 @@ void matchIp(std::string const& out_prefix,
              std::string const& image1_path,  std::string const& image2_path,
              vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
              std::string const& match_filename);
+
+// Compute list of matched IP between two images with no cameras
+void matchIpNoCams(std::string const& image1, 
+                   std::string const& image2,
+                   std::string const& output_prefix, 
+                   std::vector<vw::ip::InterestPoint> & matched_ip1,
+                   std::vector<vw::ip::InterestPoint> & matched_ip2);
 
 } // end namespace asp
 

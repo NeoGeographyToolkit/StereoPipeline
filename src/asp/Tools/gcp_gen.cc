@@ -176,56 +176,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   return;
 }
 
-// Get a list of matched IP between two images
-void find_matches(std::string const& camera_image_name, 
-                  std::string const& ortho_image_name,
-                  std::string const& output_prefix, 
-                  std::vector<vw::ip::InterestPoint> & matched_ip1,
-                  std::vector<vw::ip::InterestPoint> & matched_ip2) {
-
-  // Alias for interest point matching settings 
-  auto & ip_opt = asp::stereo_settings();
-  
-  // These need to be passed to the ip matching function
-  ip_opt.correlator_mode  = true; // no cameras
-  ip_opt.alignment_method = "none"; // no alignment; a homography transform will be used
-
-  if (ip_opt.ip_per_image > 0)
-    vw::vw_out() << "Searching for " << ip_opt.ip_per_image
-                  << " interest points in each image.\n";
-
-  vw_out() << "Matching interest points between: " << camera_image_name << " and "
-           << ortho_image_name << "\n";
-
-  std::string match_file 
-    = vw::ip::match_filename(output_prefix, camera_image_name, ortho_image_name);
-
-  asp::SessionPtr session(NULL);
-  std::string stereo_session = "pinhole", input_dem = "";
-  bool allow_map_promote = false, total_quiet = true;
-  vw::GdalWriteOptions gdal_opt;
-  session.reset(asp::StereoSessionFactory::create
-                        (stereo_session, // may change
-                        gdal_opt, 
-                        camera_image_name, ortho_image_name,
-                        camera_image_name, ortho_image_name,
-                        output_prefix, input_dem, allow_map_promote, total_quiet));
-
-  vw::camera::CameraModel* camera_model = NULL, *ortho_model =NULL;
-  bool enable_rough_homography = false;
-  double pct_for_overlap = -1.0;
-  asp::matchIp(output_prefix, enable_rough_homography, pct_for_overlap,
-               session, camera_image_name, ortho_image_name,
-               camera_model, ortho_model,
-               match_file);
-               
-  // Read the match files from disk
-  vw::vw_out() << "Reading matches from: " << match_file << "\n";
-  vw::ip::read_binary_match_file(match_file, matched_ip1, matched_ip2);
-   
-  return;
-}
-
 // If the matching is done with the mapprojected camera image, undo it. This applies
 // only to ip1, as ip2 is for the ortho image. Both of these may be modified if the
 // mapprojection is not undone successfully for all matches.
@@ -293,11 +243,11 @@ void gcp_gen(Options & opt) {
 
     bool is_mapproj = false;
     if (opt.mapproj_image == "") {
-      find_matches(opt.camera_image, opt.ortho_image, opt.output_prefix, ip1, ip2);
+      matchIpNoCams(opt.camera_image, opt.ortho_image, opt.output_prefix, ip1, ip2);
     } else {
       // Consider the advanced --mapproj-image option
       is_mapproj = true;
-      find_matches(opt.mapproj_image, opt.ortho_image, opt.output_prefix, ip1, ip2);
+      matchIpNoCams(opt.mapproj_image, opt.ortho_image, opt.output_prefix, ip1, ip2);
     }
     
   } else {

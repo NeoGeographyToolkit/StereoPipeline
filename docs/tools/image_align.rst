@@ -46,7 +46,12 @@ Examples
    
     image_align --alignment-transform rigid        \
         --ip-per-image 20000                       \
-        image1.tif image2.tif -o image2_align.tif
+        image1.tif image2.tif -o image2_align.tif  \
+        --output-prefix out_image_align/run
+
+The directory ``out_image_align`` will contain the interest point matches
+(that are cached for future runs), the computed transform, and other
+auxiliary data.
 
 Alternatively, instead of using interest points for alignment, use a (dense)
 disparity produced from correlation (:numref:`correlator-mode`). This method can
@@ -192,9 +197,9 @@ Command-line options for image_align
 --output-image, -o <string (default: "")>
     Specify the output image.
 
---output-prefix <string (default: "")>
-    If set, save the interest point matches and computed transform
-    (in plain text) using this prefix.
+--output-prefix <string (default: "out_image_align/run")>
+    Save the interest point matches, computed transform, and other auxiliary
+    data at this prefix. These are cached for future runs.
 
 --alignment-transform <string (default: "rigid")>
     Specify the transform to use to align the second image to the

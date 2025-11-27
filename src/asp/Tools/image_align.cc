@@ -26,6 +26,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/FileUtils.h>
+#include <asp/Sessions/StereoSession.h>
 
 #include <vw/Image/Interpolation.h>
 #include <vw/Image/Filter.h>
@@ -47,50 +48,9 @@ struct Options: vw::GdalWriteOptions {
   std::string alignment_transform, output_image, output_prefix, output_data_string,
     input_transform, disparity_params, ecef_transform_type, dem1, dem2;
   double inlier_threshold;
-  int ip_per_image, num_ransac_iterations, output_data_type;
-  Options(): ip_per_image(0), num_ransac_iterations(0.0), inlier_threshold(0){}
+  int num_ransac_iterations, output_data_type;
+  Options(): num_ransac_iterations(0.0), inlier_threshold(0){}
 };
-
-
-/// Get a list of matched IP, looking in certain image regions.
-// TODO(oalexan1): Use, as in gcp_gen, the stereo session ip_matching() function,
-// which also does normalization and allows for other ip matching algorithms.
-void find_matches(std::string const& image_file1, std::string const& image_file2,
-                  ImageViewRef<double> image1, ImageViewRef<double> image2,
-                  float nodata1, float nodata2,
-                  std::vector<ip::InterestPoint> &matched_ip1,
-                  std::vector<ip::InterestPoint> &matched_ip2,
-                  Options const& opt) {
-  
-  // Clear the outputs
-  matched_ip1.clear();
-  matched_ip2.clear();
-  
-  vw_out() << "Matching interest points between: " << image_file1 << " and "
-           << image_file2 << "\n";
-  
-  std::string match_file = "";
-  if (opt.output_prefix != "") {
-    // Write a match file for debugging
-    match_file = ip::match_filename(opt.output_prefix, image_file1, image_file2);
-  }
-
-  // Use ip per image rather than ip per tile as it is more intuitive that way
-  int ip_per_tile = 0;
-  asp::stereo_settings().ip_per_image = opt.ip_per_image;
-  size_t number_of_jobs = 1;
-  bool use_cached_ip = false;
-  // Now find and match interest points in the selected regions
-  asp::detect_match_ip(matched_ip1, matched_ip2,
-                       vw::pixel_cast<float>(image1), // cast to float so it compiles
-                       vw::pixel_cast<float>(image2),
-                       ip_per_tile, number_of_jobs,
-                       "", "", // Do not read ip from disk
-                       use_cached_ip,
-                       nodata1, nodata2, match_file);
-
-  return;
-}
 
 /// Get a list of matched IP based on an input disparity
 void find_matches_from_disp(std::vector<ip::InterestPoint> &matched_ip1,
@@ -110,7 +70,8 @@ void find_matches_from_disp(std::vector<ip::InterestPoint> &matched_ip1,
   DiskImageView<PixelMask<Vector2f>> disp(disp_file);
 
   if (num_samples <= 0) 
-    vw_throw(ArgumentErr() << "Expecting a positive number of samples in --disparity-params.\n");
+    vw_throw(ArgumentErr() 
+            << "Expecting a positive number of samples in --disparity-params.\n");
 
   if (disp.cols() == 0 || disp.rows() == 0) 
     vw_throw(ArgumentErr() << "Empty disparity specified in --disparity-params.\n");    
@@ -156,15 +117,19 @@ Matrix<double> do_ransac(std::vector<Vector3> const& ransac_ip1,
                          int min_num_output_inliers, bool reduce_num_inliers_if_no_fit,
                          // Output
                          std::vector<size_t> & indices) {
+
+  // Must reset the random seed for RANSAC to give same results with and without
+  // cached ip matches.
+  std::srand(0);
+
   indices.clear();
   Matrix<double> tf;
-  
   try {
     vw::math::RandomSampleConsensus<FunctorT, vw::math::InterestPointErrorMetric>
       ransac(FunctorT(), vw::math::InterestPointErrorMetric(),
              opt.num_ransac_iterations, opt.inlier_threshold,
              min_num_output_inliers, reduce_num_inliers_if_no_fit);
-    tf      = ransac(ransac_ip2, ransac_ip1);
+    tf = ransac(ransac_ip2, ransac_ip1);
     indices = ransac.inlier_indices(tf, ransac_ip2, ransac_ip1);
     return tf;
   } catch (std::exception const& e) {
@@ -346,17 +311,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add(vw::GdalWriteOptionsDescription(opt));
   
+  // Pass interest point matching options directly to stereo_settings
+  auto & ip_opt = asp::stereo_settings(); // alias
+  
   const double g_nan_val = std::numeric_limits<double>::quiet_NaN();
   general_options.add_options()
     ("output-image,o", po::value(&opt.output_image)->default_value(""),
      "Specify the output image.")
     ("alignment-transform", po::value(&opt.alignment_transform)->default_value("rigid"),
-     "Specify the transform to use to align the second image to the first. Options: translation, "
-     "rigid (translation + rotation), similarity (translation + rotation + scale), affine, homography.")
-    ("ip-per-image", po::value(&opt.ip_per_image)->default_value(0),
+     "Specify the transform to use to align the second image to the first. Options: "
+     "translation, rigid (translation + rotation), similarity (translation + rotation + "
+     "scale), affine, homography.")
+    ("ip-per-image", po::value(&ip_opt.ip_per_image)->default_value(0),
      "How many interest points to detect in each image (default: automatic determination).")
-    ("output-prefix", po::value(&opt.output_prefix)->default_value(""),
-     "If set, save the interest point matches and computed transform using this prefix.")
+    ("output-prefix", po::value(&opt.output_prefix)->default_value("out_image_align/run"),
+     "If set, save the interest point matches, computed transform, and other auxiliary "
+     "data at this prefix. These are cached for future runs.")
     ("output-data-type,d",  po::value(&opt.output_data_string)->default_value("float32"),
      "The data type of the output file. Options: uint8, uint16, uint32, int16, int32, "
      "float32, float64. The values are clamped (and also rounded for integer types) to avoid "
@@ -373,7 +343,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("disparity-params", po::value(&opt.disparity_params)->default_value(""),
      "Find the alignment transform by using, instead of interest points, a disparity, such as produced by 'parallel_stereo --correlator-mode'. Specify as a string in quotes, in the format: 'disparity.tif num_samples'.")
     ("nodata-value", 
-     po::value(&asp::stereo_settings().nodata_value)->default_value(g_nan_val),
+     po::value(&ip_opt.nodata_value)->default_value(g_nan_val),
      "Pixels with values less than or equal to this number are treated as no-data. This "
      "overrides the no-data values from input images.")
     ;
@@ -554,8 +524,8 @@ int main(int argc, char *argv[]) {
     if (opt.input_transform.empty()) {
       std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
       if (opt.disparity_params == "")
-        find_matches(image_file1, image_file2, image1, image2,  
-                     nodata1, nodata2, matched_ip1, matched_ip2, opt);
+        asp::matchIpNoCams(image_file1, image_file2, opt.output_prefix,
+                           matched_ip1, matched_ip2);
       else
         find_matches_from_disp(matched_ip1, matched_ip2, opt);
       

@@ -29,6 +29,7 @@
 #include <asp/Camera/RPCModel.h>
 #include <asp/Sessions/StereoSessionASTER.h>
 #include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/ImageUtils.h>
 
 #include <vw/Core/Exception.h>
@@ -395,6 +396,7 @@ void StereoSession::imageAlignment(// Inputs
 
 // A wrapper around ip matching. Can also work with NULL cameras. Various settings
 // are passed in via asp::stereo_settings().
+// TODO(oalexan1): It is not clear the stereo session is needed for ip matching.
 void matchIp(std::string const& out_prefix,
              bool enable_rough_homography,
              double pct_for_overlap,
@@ -484,6 +486,49 @@ void matchIp(std::string const& out_prefix,
                        image1_stats, image2_stats,
                        nodata1, nodata2, cam1, cam2, match_filename,
                        vwip_file1, vwip_file2, bbox1, bbox2);
+}
+
+// Compute list of matched IP between two images with no cameras
+void matchIpNoCams(std::string const& image1, 
+                   std::string const& image2,
+                   std::string const& output_prefix, 
+                   std::vector<vw::ip::InterestPoint> & matched_ip1,
+                   std::vector<vw::ip::InterestPoint> & matched_ip2) {
+
+  // Alias for interest point matching settings 
+  auto & ip_opt = asp::stereo_settings();
+  
+  // These need to be passed to the ip matching function
+  ip_opt.correlator_mode  = true; // no cameras
+  ip_opt.alignment_method = "none"; // no alignment; a homography transform will be used
+
+  std::string match_file 
+    = vw::ip::match_filename(output_prefix, image1, image2);
+
+  asp::SessionPtr session(NULL);
+  std::string stereo_session = "pinhole", input_dem = "";
+  bool allow_map_promote = false, total_quiet = true;
+  vw::GdalWriteOptions gdal_opt;
+  session.reset(asp::StereoSessionFactory::create
+                        (stereo_session, // may change
+                        gdal_opt, 
+                        image1, image2,
+                        image1, image2,
+                        output_prefix, input_dem, allow_map_promote, total_quiet));
+
+  vw::camera::CameraModel* cam1 = NULL, *cam2 = NULL;
+  bool enable_rough_homography = false;
+  double pct_for_overlap = -1.0;
+  asp::matchIp(output_prefix, enable_rough_homography, pct_for_overlap,
+               session, image1, image2,
+               cam1, cam2,
+               match_file);
+               
+  // Read the match files from disk
+  vw::vw_out() << "Reading matches from: " << match_file << "\n";
+  vw::ip::read_binary_match_file(match_file, matched_ip1, matched_ip2);
+   
+  return;
 }
 
 } // End namespace asp
