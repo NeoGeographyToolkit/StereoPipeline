@@ -295,10 +295,10 @@ void parsePrismXml(std::string const& dim_file,
     rpy.clear();
     rpy_times.clear();
 
-    boost::scoped_ptr<XercesDOMParser> parser(new XercesDOMParser());
+    boost::shared_ptr<XercesDOMParser> parser(new XercesDOMParser());
     parser->setValidationScheme(XercesDOMParser::Val_Always);
     parser->setDoNamespaces(true);
-    boost::scoped_ptr<ErrorHandler> errHandler(new HandlerBase());
+    boost::shared_ptr<ErrorHandler> errHandler(new HandlerBase());
     parser->setErrorHandler(errHandler.get());
 
     DOMDocument* xmlDoc = NULL;

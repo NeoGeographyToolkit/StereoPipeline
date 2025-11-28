@@ -182,7 +182,7 @@ void dem2dem_diff(Options& opt) {
     
   if (opt.use_float) {
     ImageViewRef<float> difference_float = channel_cast<float>(difference);
-    boost::scoped_ptr<DiskImageResourceGDAL>
+    boost::shared_ptr<DiskImageResourceGDAL>
       rsrc(vw::cartography::build_gdal_rsrc(output_file,
                                             difference_float, opt));
     rsrc->set_nodata_write(opt.nodata_value);
@@ -190,7 +190,7 @@ void dem2dem_diff(Options& opt) {
     block_write_image(*rsrc, difference_float,
                       TerminalProgressCallback("asp", "\t--> Differencing: "));
   } else {
-    boost::scoped_ptr<DiskImageResourceGDAL>
+    boost::shared_ptr<DiskImageResourceGDAL>
       rsrc(vw::cartography::build_gdal_rsrc(output_file,
                                             difference, opt));
     rsrc->set_nodata_write(opt.nodata_value);

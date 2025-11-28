@@ -34,7 +34,7 @@
 #include <vector>
 #include <string>
 
-#include <boost/smart_ptr/scoped_ptr.hpp>
+#include <boost/smart_ptr/shared_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 // Special forward declare so we can hide the Xerces headers.

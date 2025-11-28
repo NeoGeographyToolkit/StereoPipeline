@@ -37,7 +37,7 @@
 #include <vector>
 #include <string>
 
-#include <boost/smart_ptr/scoped_ptr.hpp>
+#include <boost/smart_ptr/shared_ptr.hpp>
 
 // Special forward declare so we can hide the Xerces headers.
 #include <xercesc/util/XercesDefs.hpp> // Needed for this XERCES macro

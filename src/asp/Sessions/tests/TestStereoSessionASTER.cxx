@@ -19,7 +19,7 @@
 #include <asp/Sessions/StereoSessionASTER.h>
 #include <asp/Camera/XMLBase.h>
 #include <asp/Camera/ASTER_XML.h>
-#include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 #include <test/Helpers.h>
 
 #include <vw/Stereo/StereoModel.h>
@@ -87,7 +87,7 @@ TEST(StereoSessionDG, ProjectRPC) {
   // Read the RPC
   RPCXML xml;
   xml.read_from_file( "dg_example1.xml" );
-  boost::scoped_ptr<RPCModel> rpc_model( new RPCModel(*xml.rpc_ptr()) );
+  boost::shared_ptr<RPCModel> rpc_model( new RPCModel(*xml.rpc_ptr()) );
 
   // Read the Digital Globe camera model
   StereoSessionDG session;

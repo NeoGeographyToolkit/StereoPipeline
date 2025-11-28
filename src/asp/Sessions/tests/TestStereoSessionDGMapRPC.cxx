@@ -19,7 +19,7 @@
 #include <asp/Sessions/StereoSessionMapProj.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/RPCModel.h>
-#include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 #include <test/Helpers.h>
 
 #include <vw/Stereo/StereoModel.h>

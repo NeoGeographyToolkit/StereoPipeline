@@ -29,7 +29,7 @@
 #include <gdal.h>
 #include <gdal_priv.h>
 
-#include <boost/smart_ptr/scoped_ptr.hpp>
+#include <boost/smart_ptr/shared_ptr.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
 
 using namespace vw;
@@ -96,7 +96,7 @@ RPCModel::RPCModel(std::string const& filename) {
 
   // Must have this check, otherwise GDAL prints an error.
   if (vw::has_image_extension(filename)) {
-    boost::scoped_ptr<DiskImageResourceGDAL> s_ptr(new DiskImageResourceGDAL(filename));
+    boost::shared_ptr<DiskImageResourceGDAL> s_ptr(new DiskImageResourceGDAL(filename));
     initialize(s_ptr.get());
   } else {
     // Throw an error. It will be caught, but it will get printed

@@ -471,10 +471,10 @@ asp::RPCXML::RPCXML() : BitChecker(2) {}
 
 void asp::RPCXML::read_from_file(std::string const& name) {
   
-  boost::scoped_ptr<XercesDOMParser> parser(new XercesDOMParser());
+  boost::shared_ptr<XercesDOMParser> parser(new XercesDOMParser());
   parser->setValidationScheme(XercesDOMParser::Val_Always);
   parser->setDoNamespaces(true);
-  boost::scoped_ptr<ErrorHandler> errHandler(new HandlerBase());
+  boost::shared_ptr<ErrorHandler> errHandler(new HandlerBase());
   parser->setErrorHandler(errHandler.get());
 
   DOMDocument* xmlDoc;
@@ -820,10 +820,10 @@ void asp::read_xml(std::string const& filename,
     vw_throw(ArgumentErr() << "XML file \"" << filename << "\" does not exist.");
 
   try {
-    boost::scoped_ptr<XercesDOMParser> parser(new XercesDOMParser());
+    boost::shared_ptr<XercesDOMParser> parser(new XercesDOMParser());
     parser->setValidationScheme(XercesDOMParser::Val_Always);
     parser->setDoNamespaces(true);
-    boost::scoped_ptr<ErrorHandler> errHandler(new HandlerBase());
+    boost::shared_ptr<ErrorHandler> errHandler(new HandlerBase());
     parser->setErrorHandler(errHandler.get());
   
     parser->parse(filename.c_str());
@@ -884,10 +884,10 @@ bool asp::read_WV_XML_corners(std::string const& xml_path,
                               std::vector<vw::Vector2> &lonlat_corners) {
 
   // Open and initialize the document
-  boost::scoped_ptr<XercesDOMParser> parser(new XercesDOMParser());
+  boost::shared_ptr<XercesDOMParser> parser(new XercesDOMParser());
   parser->setValidationScheme(XercesDOMParser::Val_Always);
   parser->setDoNamespaces(true);
-  boost::scoped_ptr<ErrorHandler> errHandler(new HandlerBase());
+  boost::shared_ptr<ErrorHandler> errHandler(new HandlerBase());
   parser->setErrorHandler(errHandler.get());
 
   parser->parse(xml_path.c_str());
