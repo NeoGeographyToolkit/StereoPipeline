@@ -85,9 +85,9 @@ namespace isis {
   protected:
     // Standard Variables
     //------------------------------------------------------
-    boost::scoped_ptr<Isis::Pvl   > m_label;
+    boost::scoped_ptr<Isis::Pvl> m_label;
     boost::scoped_ptr<Isis::Camera> m_camera;
-    boost::scoped_ptr<Isis::Cube  > m_cube;
+    boost::scoped_ptr<Isis::Cube> m_cube;
 
     vw::cartography::Datum m_datum;
     
