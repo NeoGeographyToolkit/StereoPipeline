@@ -36,6 +36,7 @@
 #include <vw/Image/AlgorithmFunctions.h>
 
 #include <boost/filesystem/operations.hpp>
+#include <boost/smart_ptr/shared_ptr.hpp>
 namespace fs = boost::filesystem;
 
 using namespace vw;
@@ -399,7 +400,7 @@ void produce_dem_disparity(ASPGlobalOptions & opt,
   auto tpc1 = TerminalProgressCallback("asp", "\t--> Low-resolution disparity:");
   if (session_name.find("isis") != std::string::npos) {
     // ISIS does not support multi-threading
-    boost::scoped_ptr<DiskImageResource> 
+    boost::shared_ptr<DiskImageResource> 
       drsrc(vw::cartography::build_gdal_rsrc(disparity_file, lowres_disparity, opt));
     vw::write_image(*drsrc, lowres_disparity, tpc1);
   } else {

@@ -33,6 +33,7 @@
 #include <vw/Math/Geometry.h>
 #include <vw/FileIO/FileUtils.h>
 
+#include <boost/smart_ptr/shared_ptr.hpp>
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>
 
@@ -1420,7 +1421,7 @@ void write_match_image(std::string const& out_file_name,
   }
 
   vw::vw_out() << "Writing: " << out_file_name << std::endl;
-  boost::scoped_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResource::create(out_file_name, comp.format()));
+  boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResource::create(out_file_name, comp.format()));
   vw::block_write_image(*rsrc, comp, vw::TerminalProgressCallback("", ""));
 }
 
