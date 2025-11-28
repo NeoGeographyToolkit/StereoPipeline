@@ -32,6 +32,8 @@
 #include <vw/Math/Quaternion.h>
 #include <vw/Cartography/Datum.h>
 
+#include <memory>
+
 // Isis include
 #include <Cube.h>
 
@@ -85,9 +87,9 @@ namespace isis {
   protected:
     // Standard Variables
     //------------------------------------------------------
-    boost::scoped_ptr<Isis::Pvl> m_label;
-    boost::scoped_ptr<Isis::Camera> m_camera;
-    boost::scoped_ptr<Isis::Cube> m_cube;
+    std::unique_ptr<Isis::Pvl> m_label;
+    std::unique_ptr<Isis::Camera> m_camera;
+    std::unique_ptr<Isis::Cube> m_cube;
 
     vw::cartography::Datum m_datum;
     
