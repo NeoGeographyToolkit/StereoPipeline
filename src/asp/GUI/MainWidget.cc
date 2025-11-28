@@ -1229,7 +1229,7 @@ void MainWidget::updateCurrentMousePosition() {
   m_curr_world_pos = screen2world(m_curr_pixel_pos);
 }
 
-vw::BBox2 MainWidget::current_view() {
+vw::BBox2 MainWidget::current_view() const {
   return m_current_view;
 }
 
@@ -2282,7 +2282,7 @@ void MainWidget::setThreshold(double thresh) {
 }
 
 // TODO(oalexan1): Each image must know its threshold
-double MainWidget::getThreshold() {
+double MainWidget::getThreshold() const {
   return m_thresh;
 }
 

@@ -732,7 +732,7 @@ void MainWidget::setPolyColor(std::string const& polyColor) {
   refreshPixmap();
 }
 
-std::string MainWidget::getPolyColor() {
+std::string MainWidget::getPolyColor() const {
   return m_polyColor;
 }
 
@@ -741,7 +741,7 @@ void MainWidget::setLineWidth(int lineWidth) {
   update();
 }
 
-int MainWidget::getLineWidth() {
+int MainWidget::getLineWidth() const {
   return m_lineWidth;
 }
 

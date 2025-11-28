@@ -137,15 +137,15 @@ namespace asp {
     std::set<int> & indicesWithAction() { return m_indicesWithAction; }
 
     void   setThreshold(double thresh); ///< Set the image threshold
-    double getThreshold();            ///< Get the image threshold
+    double getThreshold() const;            ///< Get the image threshold
 
     void   setLineWidth(int lineWidth); ///< Set the line width for polygons
-    int  getLineWidth(); ///< Get the line width for polygons
+    int  getLineWidth() const; ///< Get the line width for polygons
 
     void   setPolyColor(std::string const& polyColor); ///< Set the color of polygons
-    std::string getPolyColor(); ///< Get the color of polygons
+    std::string getPolyColor() const; ///< Get the color of polygons
 
-    vw::BBox2 current_view();
+    vw::BBox2 current_view() const;
     void  zoomToRegion (vw::BBox2 const& region);
     void  setHillshadeMode(bool hillshade_mode);
     vw::BBox2 firstImagePixelBox() const;
