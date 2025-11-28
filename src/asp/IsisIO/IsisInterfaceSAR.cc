@@ -36,8 +36,6 @@
 #include <Longitude.h>
 #include <Angle.h>
 
-#include <boost/smart_ptr/scoped_ptr.hpp>
-
 #include <algorithm>
 #include <vector>
 

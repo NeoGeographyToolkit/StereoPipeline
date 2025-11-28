@@ -52,11 +52,11 @@ IsisInterface::IsisInterface(std::string const& file) {
   
   // Opening labels and camera
   Isis::FileName ifilename(QString::fromStdString(file));
-  m_label.reset(new Isis::Pvl());
+  m_label = std::make_unique<Isis::Pvl>();
   m_label->read(ifilename.expanded());
 
   // Opening Isis::Camera
-  m_cube.reset(new Isis::Cube(QString::fromStdString(file)));
+  m_cube = std::make_unique<Isis::Cube>(QString::fromStdString(file));
   m_camera.reset(Isis::CameraFactory::Create(*m_cube));
 
   // Set the datum

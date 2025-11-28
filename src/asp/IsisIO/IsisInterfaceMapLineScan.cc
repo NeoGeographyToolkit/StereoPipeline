@@ -40,7 +40,6 @@
 #include <SpiceRotation.h>
 #include <iTime.h>
 
-#include <boost/smart_ptr/scoped_ptr.hpp>
 
 using namespace vw;
 using namespace asp;

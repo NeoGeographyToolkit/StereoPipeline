@@ -34,7 +34,6 @@
 
 #include <algorithm>
 #include <vector>
-#include <boost/smart_ptr/scoped_ptr.hpp>
 
 using namespace vw;
 using namespace asp;

@@ -25,8 +25,8 @@
 
 #include <TProjection.h>
 #include <vw/Math/Vector.h>
-#include <vw/Math/Quaternion.h>
 #include <asp/IsisIO/IsisInterface.h>
+#include <memory>
 
 #include <string>
 
@@ -60,7 +60,7 @@ namespace isis {
   protected:
 
     // Custom variables
-    boost::scoped_ptr<Isis::TProjection> m_projection;
+    std::unique_ptr<Isis::TProjection> m_projection;
     Isis::CameraGroundMap     *m_groundmap;
     Isis::CameraDistortionMap *m_distortmap;
 
