@@ -984,8 +984,8 @@ void sfsCostFun(// Fixed quantities
                 bool                                  blend_weight_is_ground_weight,
                 vw::cartography::GeoReference const & geo,
                 std::vector<vw::BBox2i>       const & crop_boxes,
-                std::vector<MaskedImgRefT>       const & masked_images,
-                std::vector<DblImgT>       const & blend_weights,
+                std::vector<MaskedImgRefT>    const & masked_images,
+                std::vector<DblImgT>          const & blend_weights,
                 asp::ReflParams               const & refl_params,
                 std::vector<vw::Vector3>      const & sunPosition,
                 vw::ImageView<double>         const & orig_dem,
@@ -1434,12 +1434,10 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
     std::string albedo_file = opt.out_prefix + "-albedo-estim.tif";
     vw::vw_out() << "Up-sampling the estimated albedo to input DEM dimensions.\n";
     vw::vw_out() << "Writing: " << albedo_file << "\n";
-    block_write_gdal_image(albedo_file,
-                          SfsInterpView(dem.cols(), dem.rows(),
-                                        sample_col_rate, sample_row_rate,
-                                        albedo),
-                          has_georef, geo, has_nodata, albedo_nodata_val,
-                          opt, tpc);
+    SfsInterpView interp_albedo(dem.cols(), dem.rows(), sample_col_rate, sample_row_rate,
+                                albedo);
+    block_write_gdal_image(albedo_file, interp_albedo,
+                           has_georef, geo, has_nodata, albedo_nodata_val, opt, tpc);
   }
 
   // The haze and exposures will be saved outside this function.

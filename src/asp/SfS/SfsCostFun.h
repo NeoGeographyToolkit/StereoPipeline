@@ -103,8 +103,8 @@ void sfsCostFun(// Fixed quantities
                 bool                                  blend_weight_is_ground_weight,
                 vw::cartography::GeoReference const & geo,
                 std::vector<vw::BBox2i>       const & crop_boxes,
-                std::vector<MaskedImgRefT>       const & masked_images,
-                std::vector<DblImgT>       const & blend_weights,
+                std::vector<MaskedImgRefT>    const & masked_images,
+                std::vector<DblImgT>          const & blend_weights,
                 asp::ReflParams               const & refl_params,
                 std::vector<vw::Vector3>      const & sunPosition,
                 vw::ImageView<double>         const & orig_dem,
@@ -118,13 +118,12 @@ void sfsCostFun(// Fixed quantities
                 std::vector<double>                 & exposures,
                 std::vector<std::vector<double>>    & haze,
                 std::vector<double>                 & refl_coeffs,
-                vw::ImageView<vw::Vector2>          & pq,  
+                vw::ImageView<vw::Vector2>          & pq,
                 ceres::Problem                      & problem);
 
 // Find the best-fit exposure and haze given the input sampled image and reflectance.
 // Also find the sampled albedo along the way. The albedo will be optimized
 // only if --float-albedo is on. Otherwise it will be kept at the nominal value.
-// TODO(oalexan1): Move this to SfsCostFun.cc.
 void estimExposureHazeAlbedo(SfsOptions & opt,
                              std::vector<MaskedImgRefT> const& masked_images,
                              std::vector<DblImgT> const& blend_weights,
