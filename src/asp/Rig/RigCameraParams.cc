@@ -34,7 +34,7 @@
 #include <fstream>
 #include <iostream>
 
-camera::CameraParameters::CameraParameters(Eigen::Vector2i const& image_size,
+rig::CameraParameters::CameraParameters(Eigen::Vector2i const& image_size,
     Eigen::Vector2d const& focal_length,
     Eigen::Vector2d const& optical_center,
     Eigen::VectorXd const& distortion,
@@ -49,69 +49,69 @@ camera::CameraParameters::CameraParameters(Eigen::Vector2i const& image_size,
   m_distortion_type = distortion_type;
 }
 
-void camera::CameraParameters::SetDistortedSize(Eigen::Vector2i const& image_size) {
+void rig::CameraParameters::SetDistortedSize(Eigen::Vector2i const& image_size) {
   m_distorted_image_size = image_size;
   m_distorted_half_size = image_size.cast<double>() / 2.0;
 }
 
-const Eigen::Vector2i& camera::CameraParameters::GetDistortedSize() const {
+const Eigen::Vector2i& rig::CameraParameters::GetDistortedSize() const {
   return m_distorted_image_size;
 }
 
-const Eigen::Vector2d& camera::CameraParameters::GetDistortedHalfSize() const {
+const Eigen::Vector2d& rig::CameraParameters::GetDistortedHalfSize() const {
   return m_distorted_half_size;
 }
 
-void camera::CameraParameters::SetDistortedCropSize(Eigen::Vector2i const& crop_size) {
+void rig::CameraParameters::SetDistortedCropSize(Eigen::Vector2i const& crop_size) {
   m_distorted_crop_size = crop_size;
 }
 
-const Eigen::Vector2i& camera::CameraParameters::GetDistortedCropSize() const {
+const Eigen::Vector2i& rig::CameraParameters::GetDistortedCropSize() const {
   return m_distorted_crop_size;
 }
 
-void camera::CameraParameters::SetUndistortedSize(Eigen::Vector2i const& image_size) {
+void rig::CameraParameters::SetUndistortedSize(Eigen::Vector2i const& image_size) {
   m_undistorted_size = image_size;
   m_undistorted_half_size = image_size.cast<double>() / 2.0;
 }
 
-const Eigen::Vector2i& camera::CameraParameters::GetUndistortedSize() const {
+const Eigen::Vector2i& rig::CameraParameters::GetUndistortedSize() const {
   return m_undistorted_size;
 }
 
-const Eigen::Vector2d& camera::CameraParameters::GetUndistortedHalfSize() const {
+const Eigen::Vector2d& rig::CameraParameters::GetUndistortedHalfSize() const {
   return m_undistorted_half_size;
 }
 
-void camera::CameraParameters::SetCropOffset(Eigen::Vector2i const& crop) {
+void rig::CameraParameters::SetCropOffset(Eigen::Vector2i const& crop) {
   m_crop_offset = crop;
 }
 
-const Eigen::Vector2i& camera::CameraParameters::GetCropOffset() const {
+const Eigen::Vector2i& rig::CameraParameters::GetCropOffset() const {
   return m_crop_offset;
 }
 
-void camera::CameraParameters::SetOpticalOffset(Eigen::Vector2d const& offset) {
+void rig::CameraParameters::SetOpticalOffset(Eigen::Vector2d const& offset) {
   m_optical_offset = offset;
 }
 
-const Eigen::Vector2d& camera::CameraParameters::GetOpticalOffset() const {
+const Eigen::Vector2d& rig::CameraParameters::GetOpticalOffset() const {
   return m_optical_offset;
 }
 
-void camera::CameraParameters::SetFocalLength(Eigen::Vector2d const& f) {
+void rig::CameraParameters::SetFocalLength(Eigen::Vector2d const& f) {
   m_focal_length = f;
 }
 
-double camera::CameraParameters::GetFocalLength() const {
+double rig::CameraParameters::GetFocalLength() const {
   return m_focal_length.mean();
 }
 
-const Eigen::Vector2d& camera::CameraParameters::GetFocalVector() const {
+const Eigen::Vector2d& rig::CameraParameters::GetFocalVector() const {
   return m_focal_length;
 }
 
-void camera::CameraParameters::SetDistortion(Eigen::VectorXd const& distortion) {
+void rig::CameraParameters::SetDistortion(Eigen::VectorXd const& distortion) {
 
   // Reset this. Will be needed only with RPC distortion.
   m_rpc = rig::RPCLensDistortion(); 
@@ -145,7 +145,7 @@ void camera::CameraParameters::SetDistortion(Eigen::VectorXd const& distortion) 
   }
 }
 
-const Eigen::VectorXd& camera::CameraParameters::GetDistortion() const {
+const Eigen::VectorXd& rig::CameraParameters::GetDistortion() const {
   return m_distortion_coeffs;
 }
 
@@ -253,7 +253,7 @@ Eigen::Vector2d newtonRaphson(Eigen::Vector2d const& Y,
   return X;
 }
 
-void camera::CameraParameters::DistortCentered(Eigen::Vector2d const& undistorted_c,
+void rig::CameraParameters::DistortCentered(Eigen::Vector2d const& undistorted_c,
                                                Eigen::Vector2d* distorted_c) const {
   // We assume that input x and y are pixel values that have
   // undistorted_len_x/2.0 and undistorted_len_y/2.0 subtracted from
@@ -336,7 +336,7 @@ void camera::CameraParameters::DistortCentered(Eigen::Vector2d const& undistorte
   }
 }
 
-void camera::CameraParameters::UndistortCentered(Eigen::Vector2d const& distorted_c,
+void rig::CameraParameters::UndistortCentered(Eigen::Vector2d const& distorted_c,
                                                  Eigen::Vector2d *undistorted_c) const {
   if (m_distortion_coeffs.size() == 0) {
     // No lens distortion
@@ -404,7 +404,7 @@ void camera::CameraParameters::UndistortCentered(Eigen::Vector2d const& distorte
 // image, and want to apply it to a version of that image at a different resolution,
 // with 'scale' being the ratio of the width of the image at different resolution
 // and the one at the resolution at which the distortion model is computed.
-void camera::CameraParameters::GenerateRemapMaps(cv::Mat* remap_map, double scale) {
+void rig::CameraParameters::GenerateRemapMaps(cv::Mat* remap_map, double scale) {
   remap_map->create(scale*m_undistorted_size[1], scale*m_undistorted_size[0], CV_32FC2);
   Eigen::Vector2d undistorted, distorted;
   for (undistorted[1] = 0; undistorted[1] < scale*m_undistorted_size[1]; undistorted[1]++) {
@@ -417,12 +417,12 @@ void camera::CameraParameters::GenerateRemapMaps(cv::Mat* remap_map, double scal
 }
 
 
-namespace camera {
+namespace rig {
 
   // Conversion function helpers
 #define DEFINE_CONVERSION(TYPEA, TYPEB) \
   template <> \
-  void camera::CameraParameters::Convert<TYPEA, TYPEB>(Eigen::Vector2d const& input, Eigen::Vector2d *output) const
+  void rig::CameraParameters::Convert<TYPEA, TYPEB>(Eigen::Vector2d const& input, Eigen::Vector2d *output) const
 
   DEFINE_CONVERSION(RAW, DISTORTED) {
     *output = input - m_crop_offset.cast<double>();
@@ -474,7 +474,7 @@ namespace camera {
   // Helper functions to give the intrinsic matrix
 #define DEFINE_INTRINSIC(TYPE) \
   template <> \
-  Eigen::Matrix3d camera::CameraParameters::GetIntrinsicMatrix<TYPE>() const
+  Eigen::Matrix3d rig::CameraParameters::GetIntrinsicMatrix<TYPE>() const
 
   DEFINE_INTRINSIC(RAW) {
     Eigen::Matrix3d k = m_focal_length.homogeneous().asDiagonal();
@@ -503,5 +503,5 @@ namespace camera {
 
 #undef DEFINE_INTRINSIC
 
-}  // end namespace camera
+}  // end namespace rig
 

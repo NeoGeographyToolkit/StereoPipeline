@@ -357,7 +357,7 @@ struct BracketedCamError {
   BracketedCamError(Eigen::Vector2d const& meas_dist_pix,
                     double left_ref_stamp, double right_ref_stamp, double cam_stamp,
                     std::vector<int> const& block_sizes,
-                    camera::CameraParameters const& cam_params):
+                    rig::CameraParameters const& cam_params):
     m_meas_dist_pix(meas_dist_pix),
     m_left_ref_stamp(left_ref_stamp),
     m_right_ref_stamp(right_ref_stamp),
@@ -394,7 +394,7 @@ struct BracketedCamError {
     Eigen::Vector3d X(parameters[3][0], parameters[3][1], parameters[3][2]);
 
     // Make a deep copy which we will modify
-    camera::CameraParameters cam_params = m_cam_params;
+    rig::CameraParameters cam_params = m_cam_params;
     Eigen::Vector2d focal_vector = Eigen::Vector2d(parameters[5][0], parameters[5][0]);
     Eigen::Vector2d optical_center(parameters[6][0], parameters[6][1]);
     Eigen::VectorXd distortion(m_block_sizes[7]);
@@ -410,7 +410,7 @@ struct BracketedCamError {
     Eigen::Vector2d undist_pix
       = cam_params.GetFocalVector().cwiseProduct(X.hnormalized());
     Eigen::Vector2d curr_dist_pix;
-    cam_params.Convert<camera::UNDISTORTED_C, camera::DISTORTED>
+    cam_params.Convert<rig::UNDISTORTED_C, rig::DISTORTED>
       (undist_pix, &curr_dist_pix);
 
     // Compute the residuals
@@ -424,7 +424,7 @@ struct BracketedCamError {
   static ceres::CostFunction*
   Create(Eigen::Vector2d const& meas_dist_pix, double left_ref_stamp, double right_ref_stamp,
          double cam_stamp, std::vector<int> const& block_sizes,
-         camera::CameraParameters const& cam_params) {
+         rig::CameraParameters const& cam_params) {
     ceres::DynamicNumericDiffCostFunction<BracketedCamError>* cost_function =
       new ceres::DynamicNumericDiffCostFunction<BracketedCamError>
       (new BracketedCamError(meas_dist_pix, left_ref_stamp, right_ref_stamp,
@@ -448,7 +448,7 @@ struct BracketedCamError {
   double m_left_ref_stamp, m_right_ref_stamp;  // left and right ref cam timestamps
   double m_cam_stamp;                          // Current cam timestamp
   std::vector<int> m_block_sizes;
-  camera::CameraParameters m_cam_params;
+  rig::CameraParameters m_cam_params;
   int m_num_focal_lengths;
 };  // End class BracketedCamError
 
@@ -1866,7 +1866,7 @@ int main(int argc, char** argv) {
   rig::saveImageList(cams, image_list); 
 
   if (FLAGS_save_pinhole_cameras)
-    camera::writePinholeCameras(R.cam_names, R.cam_params, cams, 
+    rig::writePinholeCameras(R.cam_names, R.cam_params, cams, 
                                    world_to_cam, FLAGS_out_dir);
   
   std::string conv_angles_file = FLAGS_out_dir + "/convergence_angles.txt";

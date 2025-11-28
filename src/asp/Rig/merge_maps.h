@@ -3,7 +3,7 @@
 
 #include <string>
 
-namespace camera {
+namespace rig {
   class CameraParameters;
 }
 

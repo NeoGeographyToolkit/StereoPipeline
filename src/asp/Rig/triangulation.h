@@ -25,7 +25,7 @@
 #include <Eigen/Geometry>
 
 #include <asp/Rig/camera_image.h> // For rig::cameraImage
-#include <asp/Rig/RigCameraParams.h> // For camera::CameraParameters
+#include <asp/Rig/RigCameraParams.h> // For rig::CameraParameters
 
 namespace rig {
 
@@ -53,7 +53,7 @@ Eigen::Vector3d Triangulate(std::vector<double>          const& focal_length_vec
 
 // Perform multi-view triangulation to compute 3D points from 2D keypoints
 // across multiple cameras.
-void multiViewTriangulation(std::vector<camera::CameraParameters>   const& cam_params,
+void multiViewTriangulation(std::vector<rig::CameraParameters>   const& cam_params,
                             std::vector<rig::cameraImage>     const& cams,
                             std::vector<Eigen::Affine3d>            const& world_to_cam,
                             std::vector<std::map<int, int>>         const& pid_to_cid_fid,

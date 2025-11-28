@@ -26,29 +26,29 @@
 #include <vector>
 #include <algorithm>
 
-namespace camera {
+namespace rig {
   class CameraParameters;
 }
 namespace rig {
   class cameraImage;
 }
 
-namespace camera {
+namespace rig {
 
 // A utility for saving a camera in a format ASP understands. For now do not save
 // the distortion.
-void writePinholeCamera(camera::CameraParameters const& cam_params,
+void writePinholeCamera(rig::CameraParameters const& cam_params,
                         Eigen::Affine3d          const& world_to_cam,
                         std::string              const& filename);
   
 // Save the optimized cameras in ASP's Pinhole format. For now do not save
 // the distortion model.
 void writePinholeCameras(std::vector<std::string>              const& cam_names,
-                         std::vector<camera::CameraParameters> const& cam_params,
+                         std::vector<rig::CameraParameters> const& cam_params,
                          std::vector<rig::cameraImage>         const& cams,
                          std::vector<Eigen::Affine3d>          const& world_to_cam,
                          std::string                           const& out_dir);
 
-}  // namespace camera
+}  // namespace rig
 
 #endif  // ASP_RIG_CAMERA_UTILS_H

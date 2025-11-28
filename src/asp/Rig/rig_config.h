@@ -57,7 +57,7 @@ struct RigSet {
   std::vector<double> ref_to_cam_timestamp_offsets;
     
   // Each sensor's intrinsics. All concatenated. 
-  std::vector<camera::CameraParameters> cam_params;
+  std::vector<rig::CameraParameters> cam_params;
 
   // If this sensor is a reference sensor for one of the rig.
   bool isRefSensor(std::string const& sensor_name) const;

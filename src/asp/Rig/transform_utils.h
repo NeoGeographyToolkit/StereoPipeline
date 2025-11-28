@@ -27,7 +27,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-namespace camera {
+namespace rig {
   class CameraParameters;
 }
 
@@ -195,7 +195,7 @@ std::string registrationCamName(std::string const& hugin_file,
 // assumed all images are acquired with the same camera.
 Eigen::Affine3d registrationTransform(std::string                  const& hugin_file,
                                       std::string                  const& xyz_file,
-                                      camera::CameraParameters     const& cam_params,
+                                      rig::CameraParameters     const& cam_params,
                                       std::vector<std::string>     const& cid_to_filename,
                                       std::vector<Eigen::Affine3d> const& world_to_cam_trans); 
 

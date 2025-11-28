@@ -276,8 +276,8 @@ void matchFeatures(std::mutex* match_mutex,
 // TODO(oalexan1): This can be fragile. What if input cameras have poor pointing info?
 void matchFeaturesWithCams(std::mutex* match_mutex, 
                            int left_image_index, int right_image_index,
-                           camera::CameraParameters const& left_params,
-                           camera::CameraParameters const& right_params,
+                           rig::CameraParameters const& left_params,
+                           rig::CameraParameters const& right_params,
                            bool filter_matches_using_cams,
                            Eigen::Affine3d const& left_world_to_cam,
                            Eigen::Affine3d const& right_world_to_cam,
@@ -311,9 +311,9 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
 
       Eigen::Vector2d undist_left_ip;
       Eigen::Vector2d undist_right_ip;
-      left_params.Convert<camera::DISTORTED,  camera::UNDISTORTED_C>
+      left_params.Convert<rig::DISTORTED,  rig::UNDISTORTED_C>
         (dist_left_ip, &undist_left_ip);
-      right_params.Convert<camera::DISTORTED, camera::UNDISTORTED_C>
+      right_params.Convert<rig::DISTORTED, rig::UNDISTORTED_C>
         (dist_right_ip, &undist_right_ip);
 
       Eigen::Vector3d X =
@@ -327,14 +327,14 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
       Eigen::Vector2d undist_left_pix
         = left_params.GetFocalVector().cwiseProduct(left_cam_X.hnormalized());
       Eigen::Vector2d dist_left_pix;
-      left_params.Convert<camera::UNDISTORTED_C, camera::DISTORTED>(undist_left_pix,
+      left_params.Convert<rig::UNDISTORTED_C, rig::DISTORTED>(undist_left_pix,
                                                                     &dist_left_pix);
 
       Eigen::Vector3d right_cam_X = right_world_to_cam * X;
       Eigen::Vector2d undist_right_pix
         = right_params.GetFocalVector().cwiseProduct(right_cam_X.hnormalized());
       Eigen::Vector2d dist_right_pix;
-      right_params.Convert<camera::UNDISTORTED_C, camera::DISTORTED>(undist_right_pix,
+      right_params.Convert<rig::UNDISTORTED_C, rig::DISTORTED>(undist_right_pix,
                                                                      &dist_right_pix);
 
       // Filter out points whose reprojection error is too big
@@ -577,7 +577,7 @@ void findFid(std::pair<float, float> const & ip,
 //  6. Builds connectivity tracks (pid_to_cid_fid) from the pairwise matches.
 void detectMatchFeatures(// Inputs
     std::vector<rig::cameraImage> const& cams,
-    std::vector<camera::CameraParameters> const& cam_params,
+    std::vector<rig::CameraParameters> const& cam_params,
     std::string const& out_dir, bool save_matches,
     bool filter_matches_using_cams,
     std::vector<Eigen::Affine3d> const& world_to_cam,
@@ -729,7 +729,7 @@ void detectMatchFeatures(// Inputs
          
 void detectMatchAppendFeatures(// Inputs
                          std::vector<rig::cameraImage> const& cams,
-                         std::vector<camera::CameraParameters> const& cam_params,
+                         std::vector<rig::CameraParameters> const& cam_params,
                          std::string const& out_dir, bool save_matches,
                          bool filter_matches_using_cams,
                          std::vector<Eigen::Affine3d> const& world_to_cam,
@@ -882,7 +882,7 @@ void detectMatchAppendFeatures(// Inputs
 // points, and should be distributed to some other existing or new files.
   
 void flagOutlierByExclusionDist(// Inputs
-                                std::vector<camera::CameraParameters> const& cam_params,
+                                std::vector<rig::CameraParameters> const& cam_params,
                                 std::vector<rig::cameraImage> const& cams,
                                 std::vector<std::map<int, int>> const& pid_to_cid_fid,
                                 std::vector<std::vector<std::pair<float, float>>>

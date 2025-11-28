@@ -365,7 +365,7 @@ void formMtl(std::string const& out_prefix, std::string& mtl_str);
 
 // Project texture and find the UV coordinates
 void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> bvh_tree,
-                    cv::Mat const& image, camera::CameraModel const& cam,
+                    cv::Mat const& image, rig::CameraModel const& cam,
                     // outputs
                     std::vector<double>& smallest_cost_per_face,
                     std::vector<Eigen::Vector3i>& face_vec,
@@ -374,7 +374,7 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
 // Project texture on a texture model that was pre-filled already, so
 // only the texture pixel values need to be computed
 void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> bvh_tree,
-                    cv::Mat const& image, camera::CameraModel const& cam,
+                    cv::Mat const& image, rig::CameraModel const& cam,
                     std::vector<double>& smallest_cost_per_face, double pixel_size,
                     int64_t num_threads, std::vector<FaceInfo> const& face_projection_info,
                     std::vector<IsaacTextureAtlas::Ptr>& texture_atlases,
@@ -383,7 +383,7 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
 // Find where ray emanating from a distorted pixel intersects a mesh. Return true
 // on success.
 bool ray_mesh_intersect(Eigen::Vector2d const& dist_pix,
-                        camera::CameraParameters const& cam_params,
+                        rig::CameraParameters const& cam_params,
                         Eigen::Affine3d const& world_to_cam,
                         mve::TriangleMesh::Ptr const& mesh,
                         std::shared_ptr<BVHTree> const& bvh_tree,
@@ -393,14 +393,14 @@ bool ray_mesh_intersect(Eigen::Vector2d const& dist_pix,
 
 void meshProject(mve::TriangleMesh::Ptr const& mesh, std::shared_ptr<BVHTree> const& bvh_tree,
                  cv::Mat const& image,
-                 Eigen::Affine3d const& world_to_cam, camera::CameraParameters const& cam_params,
+                 Eigen::Affine3d const& world_to_cam, rig::CameraParameters const& cam_params,
                  std::string const& out_prefix);
 
 // Save a model
 void isaac_save_model(IsaacObjModel* obj_model, std::string const& prefix);
 
 void meshProjectCameras(std::vector<std::string> const& cam_names,
-                        std::vector<camera::CameraParameters> const& cam_params,
+                        std::vector<rig::CameraParameters> const& cam_params,
                         std::vector<rig::cameraImage> const& cam_images,
                         std::vector<Eigen::Affine3d> const& world_to_cam,
                         mve::TriangleMesh::Ptr const& mesh,
@@ -408,7 +408,7 @@ void meshProjectCameras(std::vector<std::string> const& cam_names,
                         std::string const& out_dir);
 
 void meshTriangulations(// Inputs
-  std::vector<camera::CameraParameters> const& cam_params,
+  std::vector<rig::CameraParameters> const& cam_params,
   std::vector<rig::cameraImage> const& cams,
   std::vector<Eigen::Affine3d> const& world_to_cam,
   std::vector<std::map<int, int>> const& pid_to_cid_fid,

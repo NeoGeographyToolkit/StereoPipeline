@@ -36,7 +36,7 @@
 #include <string>
 #include <vector>
 
-namespace camera {
+namespace rig {
   // Forward declaration
   class CameraParameters;
 }

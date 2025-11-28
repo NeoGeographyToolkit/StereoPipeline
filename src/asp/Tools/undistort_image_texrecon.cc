@@ -94,7 +94,7 @@ int main(int argc, char ** argv) {
     LOG(FATAL) << "The rig sensor to use for undistortion was not specified.\n";
   
   // Load the correct camera model
-  camera::CameraParameters *cam_ptr = NULL; // use a pointer as there is no constructor
+  rig::CameraParameters *cam_ptr = NULL; // use a pointer as there is no constructor
   rig::RigSet R;
   bool use_initial_rig_transforms = false;
   if (FLAGS_rig_config != "")  // Read a plain text config file for n sensors
@@ -136,7 +136,7 @@ int main(int argc, char ** argv) {
                  << "images as input distorted images.\n";
 
   // Useful for over-riding any config files when debugging
-  // camera::CameraParameters cam_params(Eigen::Vector2i(776, 517),
+  // rig::CameraParameters cam_params(Eigen::Vector2i(776, 517),
   //                                    Eigen::Vector2d::Constant(610.502),
   //                                    Eigen::Vector2d(776/2.0, 517/2.0));
 

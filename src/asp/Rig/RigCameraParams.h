@@ -34,7 +34,7 @@ namespace cv {
 }  // end namespace cv
 
 // Functionality for undistorting and re-distorting images
-namespace camera {
+namespace rig {
 
   // Definition of camera frames
   //
@@ -219,6 +219,6 @@ namespace camera {
   DECLARE_INTRINSIC(UNDISTORTED);
   DECLARE_INTRINSIC(UNDISTORTED_C);
 #undef DECLARE_INTRINSIC
-}  // namespace camera
+}  // namespace rig
 
 #endif  // ASP_RIG_CAMERA_PARAMS_H

@@ -36,7 +36,7 @@
 #include <mutex>
 #include <utility>
 
-namespace camera {
+namespace rig {
   class CameraParameters;
 }
 
@@ -74,7 +74,7 @@ void matchFeatures(std::mutex* match_mutex, int left_image_index, int right_imag
 
 void detectMatchAppendFeatures(// Inputs
                          std::vector<rig::cameraImage> const& cams,
-                         std::vector<camera::CameraParameters> const& cam_params,
+                         std::vector<rig::CameraParameters> const& cam_params,
                          std::string const& out_dir, bool save_matches,
                          bool filter_matches_using_cams,
                          std::vector<Eigen::Affine3d> const& world_to_cam,
@@ -165,7 +165,7 @@ void addKeypoints(// Append from these
                   & merged_keypoint_map);
 
 void flagOutlierByExclusionDist(// Inputs
-                                std::vector<camera::CameraParameters> const& cam_params,
+                                std::vector<rig::CameraParameters> const& cam_params,
                                 std::vector<rig::cameraImage> const& cams,
                                 std::vector<std::map<int, int>> const& pid_to_cid_fid,
                                 std::vector<std::vector<std::pair<float, float>>>

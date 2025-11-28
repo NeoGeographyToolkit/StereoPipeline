@@ -51,7 +51,7 @@ bool timestampLess(cameraImage i, cameraImage j) {
 // resizing.
 // Similar logic to deal with differences between image size and calibrated size
 // is used further down this code.
-void adjustImageSize(camera::CameraParameters const& cam_params, cv::Mat & image) {
+void adjustImageSize(rig::CameraParameters const& cam_params, cv::Mat & image) {
   int64_t raw_image_cols = image.cols;
   int64_t raw_image_rows = image.rows;
   int64_t calib_image_cols = cam_params.GetDistortedSize()[0];

@@ -407,7 +407,7 @@ struct BBox {
   
 // Collect a set of pairs of centered and normalized distorted and undistorted
 // pixels. Sample uniformly the distorted pixels within the image box.
-void genDistUndistPairs(int num_samples, camera::CameraParameters const& cam_params,
+void genDistUndistPairs(int num_samples, rig::CameraParameters const& cam_params,
                         std::vector<Eigen::Vector2d>& undist_centered_pixels,
                         std::vector<Eigen::Vector2d>& dist_centered_pixels) {
   dist_centered_pixels.clear();
@@ -436,12 +436,12 @@ void genDistUndistPairs(int num_samples, camera::CameraParameters const& cam_par
 
       // Find the centered distorted pixel
       Eigen::Vector2d dist_ctr_pix;
-      cam_params.Convert<camera::DISTORTED, camera::DISTORTED_C>
+      cam_params.Convert<rig::DISTORTED, rig::DISTORTED_C>
         (dist_pix, &dist_ctr_pix);
 
       // Find the centered undistorted pixel
       Eigen::Vector2d undist_ctr_pix;
-      cam_params.Convert<camera::DISTORTED_C, camera::UNDISTORTED_C>
+      cam_params.Convert<rig::DISTORTED_C, rig::UNDISTORTED_C>
         (dist_ctr_pix, &undist_ctr_pix);
       
       // TODO(oalexan1): Dist back with OpenCV and compare with undist_pix!
@@ -535,7 +535,7 @@ void fitCurrDegRPC(std::vector<Eigen::Vector2d> const& undist_centered_pixels,
   evalResiduals("after opt", residual_names, problem, residuals);
 }
 
-void fitRpcDist(int rpc_degree, int num_samples, camera::CameraParameters const& cam_params,
+void fitRpcDist(int rpc_degree, int num_samples, rig::CameraParameters const& cam_params,
                 int num_opt_threads, int num_iterations, double parameter_tolerance,
                 bool verbose,
                 // Output
@@ -571,7 +571,7 @@ void fitRpcDist(int rpc_degree, int num_samples, camera::CameraParameters const&
   }
 }
 
-void evalRpcDistUndist(int num_samples, camera::CameraParameters const& cam_params,
+void evalRpcDistUndist(int num_samples, rig::CameraParameters const& cam_params,
                        RPCLensDistortion const& rpc) {
 
   std::vector<Eigen::Vector2d> undist_centered_pixels, dist_centered_pixels;
@@ -590,5 +590,5 @@ void evalRpcDistUndist(int num_samples, camera::CameraParameters const& cam_para
   std::cout << "Max distort_undistort error: " << max_err << std::endl;
 }
   
-}  // end namespace camera
+}  // end namespace rig
 

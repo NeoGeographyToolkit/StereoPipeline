@@ -21,19 +21,19 @@
 #include <glog/logging.h>
 #include <iostream>
 
-namespace camera {
+namespace rig {
 
 CameraModel::CameraModel(const Eigen::Vector3d & position, const Eigen::Matrix3d & rotation,
-        const camera::CameraParameters & params) : params_(params) {
+        const rig::CameraParameters & params) : params_(params) {
   InitTransform(position, rotation);
 }
 
-CameraModel::CameraModel(const camera::CameraParameters & params) : params_(params) {
+CameraModel::CameraModel(const rig::CameraParameters & params) : params_(params) {
   InitTransform(Eigen::Vector3d(0, 0, 0), Eigen::Matrix3d::Identity());
 }
 
 CameraModel::CameraModel(const Eigen::Affine3d & cam_t_global,
-                         const camera::CameraParameters & params) :
+                         const rig::CameraParameters & params) :
   cam_t_global_(cam_t_global), params_(params) {}
 
 void CameraModel::InitTransform(const Eigen::Vector3d & position, const Eigen::Matrix3d & rotation) {
@@ -70,7 +70,7 @@ double CameraModel::GetFovY(void) const {
   return atan(1.0 / (params_.GetFocalVector()[1] * params_.GetDistortedHalfSize()[1])) * 2;
 }
 
-const camera::CameraParameters& CameraModel::GetParameters() const {
+const rig::CameraParameters& CameraModel::GetParameters() const {
   return params_;
 }
 
@@ -132,4 +132,4 @@ void RodriguesToRotation(Eigen::Vector3d const& vector,
   *rotation = aa.matrix();
 }
 
-}  // namespace camera
+}  // namespace rig

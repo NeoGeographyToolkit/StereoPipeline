@@ -709,7 +709,7 @@ std::string registrationCamName(std::string const& hugin_file,
 Eigen::Affine3d 
 registrationTransform(std::string                  const& hugin_file,
                       std::string                  const& xyz_file,
-                      camera::CameraParameters     const& cam_params,
+                      rig::CameraParameters     const& cam_params,
                       std::vector<std::string>     const& cid_to_filename,
                       std::vector<Eigen::Affine3d> const& world_to_cam_trans) { 
   
@@ -825,7 +825,7 @@ registrationTransform(std::string                  const& hugin_file,
   Eigen::Vector2d output;
   for (size_t cid = 0; cid < user_cid_to_keypoint_map.size(); cid++) {
     for (int i = 0; i < user_cid_to_keypoint_map[cid].cols(); i++) {
-      cam_params.Convert<camera::DISTORTED, camera::UNDISTORTED_C>
+      cam_params.Convert<rig::DISTORTED, rig::UNDISTORTED_C>
         (user_cid_to_keypoint_map[cid].col(i), &output);
       user_cid_to_keypoint_map[cid].col(i) = output;
     }

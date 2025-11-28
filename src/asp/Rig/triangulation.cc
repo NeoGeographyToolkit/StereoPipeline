@@ -116,7 +116,7 @@ Eigen::Vector3d Triangulate(std::vector<double>          const& focal_length_vec
 }
 
 void multiViewTriangulation(// Inputs
-                            std::vector<camera::CameraParameters>   const& cam_params,
+                            std::vector<rig::CameraParameters>   const& cam_params,
                             std::vector<rig::cameraImage>     const& cams,
                             std::vector<Eigen::Affine3d>            const& world_to_cam,
                             std::vector<std::map<int, int>>         const& pid_to_cid_fid,
@@ -151,7 +151,7 @@ void multiViewTriangulation(// Inputs
 
       Eigen::Vector2d dist_ip(keypoint_vec[cid][fid].first, keypoint_vec[cid][fid].second);
       Eigen::Vector2d undist_ip;
-      cam_params[cams[cid].camera_type].Convert<camera::DISTORTED, camera::UNDISTORTED_C>
+      cam_params[cams[cid].camera_type].Convert<rig::DISTORTED, rig::UNDISTORTED_C>
         (dist_ip, &undist_ip);
 
       focal_length_vec.push_back(cam_params[cams[cid].camera_type].GetFocalLength());

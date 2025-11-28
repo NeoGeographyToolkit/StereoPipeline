@@ -990,7 +990,7 @@ void formObj(IsaacObjModel& texture_model, std::string const& out_prefix, std::s
 // Project texture and find the UV coordinates
 void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> bvh_tree,
                     cv::Mat const& image,
-                    camera::CameraModel const& cam,
+                    rig::CameraModel const& cam,
                     // outputs
                     std::vector<double>& smallest_cost_per_face,
                     std::vector<Eigen::Vector3i>& face_vec,
@@ -1112,7 +1112,7 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
 
       // Get the distorted pixel value
       Eigen::Vector2d dist_pix;
-      cam.GetParameters().Convert<camera::UNDISTORTED_C, camera::DISTORTED>
+      cam.GetParameters().Convert<rig::UNDISTORTED_C, rig::DISTORTED>
         (undist_centered_pix, &dist_pix);
 
       // Skip pixels that don't project in the window of dimensions
@@ -1163,7 +1163,7 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
 // Project texture using a texture model that was already pre-filled, so
 // just update pixel values
 void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> bvh_tree,
-                    cv::Mat const& image, camera::CameraModel const& cam,
+                    cv::Mat const& image, rig::CameraModel const& cam,
                     std::vector<double>& smallest_cost_per_face, double pixel_size,
                     int64_t num_threads, std::vector<FaceInfo> const& face_projection_info,
                     std::vector<IsaacTextureAtlas::Ptr>& texture_atlases,
@@ -1298,8 +1298,8 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
 
       // Get the distorted pixel value
       Eigen::Vector2d dist_pix;
-      cam.GetParameters().Convert<camera::UNDISTORTED_C,
-        camera::DISTORTED>(undist_centered_pix, &dist_pix);
+      cam.GetParameters().Convert<rig::UNDISTORTED_C,
+        rig::DISTORTED>(undist_centered_pix, &dist_pix);
 
       // Skip pixels that don't project in the image
       if (dist_pix.x() < 0 || dist_pix.x() > calib_image_cols - 1 || dist_pix.y() < 0 ||
@@ -1381,7 +1381,7 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
 
         // Get the distorted pixel value
         Eigen::Vector2d dist_pix;
-        cam.GetParameters().Convert<camera::UNDISTORTED_C, camera::DISTORTED>
+        cam.GetParameters().Convert<rig::UNDISTORTED_C, rig::DISTORTED>
           (undist_centered_pix, &dist_pix);
 
         // Skip pixels that don't project in the image, and potentially nan pixels.
@@ -1435,7 +1435,7 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
 
 // Intersect ray with a mesh. Return true on success.
 bool ray_mesh_intersect(Eigen::Vector2d const& dist_pix,
-                        camera::CameraParameters const& cam_params,
+                        rig::CameraParameters const& cam_params,
                         Eigen::Affine3d const& world_to_cam,
                         mve::TriangleMesh::Ptr const& mesh,
                         std::shared_ptr<BVHTree> const& bvh_tree,
@@ -1447,7 +1447,7 @@ bool ray_mesh_intersect(Eigen::Vector2d const& dist_pix,
 
   // Undistort the pixel
   Eigen::Vector2d undist_centered_pix;
-  cam_params.Convert<camera::DISTORTED, camera::UNDISTORTED_C>
+  cam_params.Convert<rig::DISTORTED, rig::UNDISTORTED_C>
     (dist_pix, &undist_centered_pix);
 
   // Ray from camera going through the undistorted and centered pixel
@@ -1483,7 +1483,7 @@ bool ray_mesh_intersect(Eigen::Vector2d const& dist_pix,
 // out_prefix.mtl, out_prefix.png.
 void meshProject(mve::TriangleMesh::Ptr const& mesh, std::shared_ptr<BVHTree> const& bvh_tree,
                  cv::Mat const& image, Eigen::Affine3d const& world_to_cam,
-                 camera::CameraParameters const& cam_params,
+                 rig::CameraParameters const& cam_params,
                  std::string const& out_prefix) {
   // Create the output directory, if needed
   std::string out_dir = boost::filesystem::path(out_prefix).parent_path().string();
@@ -1496,7 +1496,7 @@ void meshProject(mve::TriangleMesh::Ptr const& mesh, std::shared_ptr<BVHTree> co
   int64_t num_faces = faces.size();
   std::vector<double> smallest_cost_per_face(num_faces, 1.0e+100);
 
-  camera::CameraModel cam(world_to_cam, cam_params);
+  rig::CameraModel cam(world_to_cam, cam_params);
 
   // Find the UV coordinates and the faces having them
   rig::projectTexture(mesh, bvh_tree, image, cam, smallest_cost_per_face, face_vec, uv_map);
@@ -1531,7 +1531,7 @@ void meshProject(mve::TriangleMesh::Ptr const& mesh, std::shared_ptr<BVHTree> co
 // assumed that the most up-to-date cameras were copied/interpolated
 // form the optimizer structures into the world_to_cam vector.
 void meshProjectCameras(std::vector<std::string> const& cam_names,
-                        std::vector<camera::CameraParameters> const& cam_params,
+                        std::vector<rig::CameraParameters> const& cam_params,
                         std::vector<rig::cameraImage> const& cam_images,
                         std::vector<Eigen::Affine3d> const& world_to_cam,
                         mve::TriangleMesh::Ptr const& mesh,
@@ -1565,7 +1565,7 @@ void meshProjectCameras(std::vector<std::string> const& cam_names,
 // Intersect them with a mesh instead, and average those intersections.
 // This will be used to for a mesh-to-triangulated-points constraint.
 void meshTriangulations(// Inputs
-  std::vector<camera::CameraParameters> const& cam_params,
+  std::vector<rig::CameraParameters> const& cam_params,
   std::vector<rig::cameraImage> const& cams,
   std::vector<Eigen::Affine3d> const& world_to_cam,
   std::vector<std::map<int, int>> const& pid_to_cid_fid,

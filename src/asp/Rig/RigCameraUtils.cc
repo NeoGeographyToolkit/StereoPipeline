@@ -34,7 +34,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace camera {
+namespace rig {
 
 // Write a line of the form: name = a b c
 void write_param_vec(std::string const& param_name, std::ofstream & os, 
@@ -66,7 +66,7 @@ std::string pinholeFile(std::string const& out_dir,
 }
 
 // A utility for saving a camera in a format ASP understands. 
-void writePinholeCamera(camera::CameraParameters const& cam_params,
+void writePinholeCamera(rig::CameraParameters const& cam_params,
                         Eigen::Affine3d const& world_to_cam,
                         std::string const& filename) {
 
@@ -102,7 +102,7 @@ void writePinholeCamera(camera::CameraParameters const& cam_params,
   } else if (dist.size() == 1) {
     ofs << "FOV\n";
     ofs << "k1 = " << dist[0] << "\n";
-  } else if (dist.size() == 4 && cam_params.m_distortion_type == camera::FISHEYE_DISTORTION) {
+  } else if (dist.size() == 4 && cam_params.m_distortion_type == rig::FISHEYE_DISTORTION) {
     ofs << "FISHEYE\n";
     ofs << "k1 = " << dist[0] << "\n";
     ofs << "k2 = " << dist[1] << "\n";
@@ -137,7 +137,7 @@ void writePinholeCamera(camera::CameraParameters const& cam_params,
   
 // Save the optimized cameras in ASP's Pinhole format. 
 void writePinholeCameras(std::vector<std::string>              const& cam_names,
-                         std::vector<camera::CameraParameters> const& cam_params,
+                         std::vector<rig::CameraParameters> const& cam_params,
                          std::vector<rig::cameraImage>         const& cams,
                          std::vector<Eigen::Affine3d>          const& world_to_cam,
                          std::string                           const& out_dir) {
@@ -155,7 +155,7 @@ void writePinholeCameras(std::vector<std::string>              const& cam_names,
     int cam_type = cams[cid].camera_type;
     std::string sensor_name = cam_names[cam_type]; 
     std::string camFile = pinholeFile(pinhole_dir, sensor_name, image_file);
-    camera::writePinholeCamera(cam_params[cam_type], world_to_cam[cid], camFile);
+    rig::writePinholeCamera(cam_params[cam_type], world_to_cam[cid], camFile);
     pinholeCamFiles.push_back(camFile);
   }
 
@@ -183,4 +183,4 @@ void writePinholeCameras(std::vector<std::string>              const& cam_names,
   return;
 }
 
-} // end namespace camera
+} // end namespace rig

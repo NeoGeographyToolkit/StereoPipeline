@@ -23,7 +23,7 @@
 #include <Eigen/Geometry>
 #include <string>
 
-namespace camera {
+namespace rig {
 
 /**
  * A model of a camera, with transformation matrix and camera parameters.
@@ -32,10 +32,10 @@ class CameraModel {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   CameraModel(const Eigen::Vector3d & position, const Eigen::Matrix3d & rotation,
-      const camera::CameraParameters & params);
+      const rig::CameraParameters & params);
   CameraModel(const Eigen::Affine3d & transform,
-      const camera::CameraParameters & params);
-  explicit CameraModel(const camera::CameraParameters & params);
+      const rig::CameraParameters & params);
+  explicit CameraModel(const rig::CameraParameters & params);
   ~CameraModel();
 
   // Takes world coordinates and output image coordinates that are
@@ -58,7 +58,7 @@ class CameraModel {
   double GetFovX(void) const;
   double GetFovY(void) const;
 
-  const camera::CameraParameters& GetParameters() const;
+  const rig::CameraParameters& GetParameters() const;
   Eigen::Vector3d GetPosition() const;
   Eigen::Matrix3d GetRotation() const;
   const Eigen::Affine3d& GetTransform() const;
@@ -68,13 +68,13 @@ class CameraModel {
   void InitTransform(const Eigen::Vector3d & position, const Eigen::Matrix3d & rotation);
   // The transform cam_t_global_ goes from the world to the camera.
   Eigen::Affine3d cam_t_global_;
-  camera::CameraParameters params_;
+  rig::CameraParameters params_;
 };
 
 // Rodrigues is a collapsed Angle Axis Representation
 void RotationToRodrigues(Eigen::Matrix3d const& rotation, Eigen::Vector3d * vector);
 void RodriguesToRotation(Eigen::Vector3d const& vector, Eigen::Matrix3d * rotation);
 
-}  // namespace camera
+}  // namespace rig
 
 #endif  // ASP_RIG_CAMERA_MODEL_H

@@ -223,17 +223,17 @@ void writeRigConfig(std::string const& rig_config, bool model_rig, RigSet const&
     f << "\n";
 
     auto dist_type = R.cam_params[cam_type].m_distortion_type;
-    if (D.size() == 0 && dist_type == camera::NO_DISTORTION)
-      f << "distortion_type: " << camera::NO_DISTORTION_STR << "\n";
-    else if (D.size() == 1 && dist_type == camera::FOV_DISTORTION)
-      f << "distortion_type: " << camera::FOV_DISTORTION_STR << "\n";
+    if (D.size() == 0 && dist_type == rig::NO_DISTORTION)
+      f << "distortion_type: " << rig::NO_DISTORTION_STR << "\n";
+    else if (D.size() == 1 && dist_type == rig::FOV_DISTORTION)
+      f << "distortion_type: " << rig::FOV_DISTORTION_STR << "\n";
     // Both fisheye and radtan distortion can have 4 coefficients  
-    else if (D.size() == 4 && dist_type == camera::FISHEYE_DISTORTION)
-      f << "distortion_type: " << camera::FISHEYE_DISTORTION_STR << "\n";
-    else if (D.size() >= 4 && D.size() <= 5 && dist_type == camera::RADTAN_DISTORTION)
-      f << "distortion_type: " << camera::RADTAN_DISTORTION_STR << "\n";
-    else if (D.size() > 5 && dist_type == camera::RPC_DISTORTION)
-      f << "distortion_type: " << camera::RPC_DISTORTION_STR << "\n";
+    else if (D.size() == 4 && dist_type == rig::FISHEYE_DISTORTION)
+      f << "distortion_type: " << rig::FISHEYE_DISTORTION_STR << "\n";
+    else if (D.size() >= 4 && D.size() <= 5 && dist_type == rig::RADTAN_DISTORTION)
+      f << "distortion_type: " << rig::RADTAN_DISTORTION_STR << "\n";
+    else if (D.size() > 5 && dist_type == rig::RPC_DISTORTION)
+      f << "distortion_type: " << rig::RPC_DISTORTION_STR << "\n";
     else
       vw::vw_throw(vw::IOErr() 
                    << "Expecting 0, 1, 4, 5, or more distortion coefficients. Got: "
@@ -448,7 +448,7 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
 
       // Read distortion
       
-      camera::DistortionType dist_type = camera::NO_DISTORTION;
+      rig::DistortionType dist_type = rig::NO_DISTORTION;
       
       readConfigVals(f, "distortion_coeffs:", -1, vals);
       if (vals.size() != 0 && vals.size() != 1 && vals.size() != 4 && vals.size() < 5)
@@ -457,49 +457,49 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
       Eigen::VectorXd distortion = vals;
 
       readConfigVals(f, "distortion_type:", 1, str_vals);
-      if (distortion.size() == 0 && str_vals[0] != camera::NO_DISTORTION_STR)
+      if (distortion.size() == 0 && str_vals[0] != rig::NO_DISTORTION_STR)
         vw::vw_throw(vw::IOErr() 
                      << "When there are no distortion coefficients, distortion type must be: "
-                     << camera::NO_DISTORTION_STR << "\n");
+                     << rig::NO_DISTORTION_STR << "\n");
       
-      // For backward compatibility, accept camera::FISHEYE_DISTORTION_STR with 1 distortion coefficient, but use the FOV model
-      if (distortion.size() == 1 && str_vals[0] == camera::FISHEYE_DISTORTION_STR)
-        str_vals[0] = camera::FOV_DISTORTION_STR;
+      // For backward compatibility, accept rig::FISHEYE_DISTORTION_STR with 1 distortion coefficient, but use the FOV model
+      if (distortion.size() == 1 && str_vals[0] == rig::FISHEYE_DISTORTION_STR)
+        str_vals[0] = rig::FOV_DISTORTION_STR;
       
       // Validation 
-      if (distortion.size() == 1 && str_vals[0] != camera::FOV_DISTORTION_STR)
+      if (distortion.size() == 1 && str_vals[0] != rig::FOV_DISTORTION_STR)
           vw::vw_throw(vw::IOErr() 
                        << "When there is 1 distortion coefficient, distortion type must be: "
-                       << camera::FOV_DISTORTION_STR << "\n");
+                       << rig::FOV_DISTORTION_STR << "\n");
       if (distortion.size() == 4 &&
-          str_vals[0] != camera::FISHEYE_DISTORTION_STR &&
-          str_vals[0] != camera::RADTAN_DISTORTION_STR)
+          str_vals[0] != rig::FISHEYE_DISTORTION_STR &&
+          str_vals[0] != rig::RADTAN_DISTORTION_STR)
         vw::vw_throw(vw::IOErr() 
                      << "When there are 4 distortion coefficients, distortion type "
-                     << "must be: " << camera::FISHEYE_DISTORTION_STR << " or "
-                     << camera::RADTAN_DISTORTION_STR << "\n");
+                     << "must be: " << rig::FISHEYE_DISTORTION_STR << " or "
+                     << rig::RADTAN_DISTORTION_STR << "\n");
       if (distortion.size() == 5 &&
-          str_vals[0] != camera::RADTAN_DISTORTION_STR)
+          str_vals[0] != rig::RADTAN_DISTORTION_STR)
         vw::vw_throw(vw::IOErr() 
                      << "When there are 5 distortion coefficient, distortion type must be: "
-                     << camera::RADTAN_DISTORTION_STR << "\n");
+                     << rig::RADTAN_DISTORTION_STR << "\n");
       if ((distortion.size() > 5) &&
-          str_vals[0] != camera::RPC_DISTORTION_STR)
+          str_vals[0] != rig::RPC_DISTORTION_STR)
         vw::vw_throw(vw::IOErr() 
                      << "When there are more than 5 distortion coefficients, distortion "
-                     << "type must be: " << camera::RPC_DISTORTION_STR << "\n");
+                     << "type must be: " << rig::RPC_DISTORTION_STR << "\n");
 
       // Set distortion type based on str_vals[0]
-      if (str_vals[0] == camera::NO_DISTORTION_STR) 
-        dist_type = camera::NO_DISTORTION;
-      else if (str_vals[0] == camera::FOV_DISTORTION_STR) 
-        dist_type = camera::FOV_DISTORTION;
-      else if (str_vals[0] == camera::FISHEYE_DISTORTION_STR) 
-        dist_type = camera::FISHEYE_DISTORTION;
-      else if (str_vals[0] == camera::RADTAN_DISTORTION_STR)
-        dist_type = camera::RADTAN_DISTORTION;
-      else if (str_vals[0] == camera::RPC_DISTORTION_STR)
-        dist_type = camera::RPC_DISTORTION;
+      if (str_vals[0] == rig::NO_DISTORTION_STR) 
+        dist_type = rig::NO_DISTORTION;
+      else if (str_vals[0] == rig::FOV_DISTORTION_STR) 
+        dist_type = rig::FOV_DISTORTION;
+      else if (str_vals[0] == rig::FISHEYE_DISTORTION_STR) 
+        dist_type = rig::FISHEYE_DISTORTION;
+      else if (str_vals[0] == rig::RADTAN_DISTORTION_STR)
+        dist_type = rig::RADTAN_DISTORTION;
+      else if (str_vals[0] == rig::RPC_DISTORTION_STR)
+        dist_type = rig::RPC_DISTORTION;
       else
         vw::vw_throw(vw::IOErr() << "Unknown distortion type: " << str_vals[0] << "\n");
       
@@ -512,7 +512,7 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
       readConfigVals(f, "undistorted_image_size:", 2, vals);
       Eigen::Vector2i undistorted_image_size(vals[0], vals[1]);
 
-      camera::CameraParameters params(image_size, focal_length, optical_center, 
+      rig::CameraParameters params(image_size, focal_length, optical_center, 
                                       distortion, dist_type);
       
       params.SetDistortedCropSize(distorted_crop_size);
