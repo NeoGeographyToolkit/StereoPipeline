@@ -17,7 +17,6 @@
 
 #ifndef __CORE_EIGEN_UTILS_H__
 #define __CORE_EIGEN_UTILS_H__
-#include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
 

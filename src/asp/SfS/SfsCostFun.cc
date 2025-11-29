@@ -1433,9 +1433,13 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
     std::string albedo_file = opt.out_prefix + "-albedo-estim.tif";
     vw::vw_out() << "Up-sampling the estimated albedo to input DEM dimensions.\n";
     vw::vw_out() << "Writing: " << albedo_file << "\n";
-    SfsInterpView interp_albedo(dem.cols(), dem.rows(), sample_col_rate, sample_row_rate,
-                                albedo);
-    block_write_gdal_image(albedo_file, interp_albedo,
+    // Note: Letting interp_albedo be of type SfsInterpView rather than
+    // ImageViewRef results in a crash when writing the image, even though it
+    // compiles fine.
+    vw::ImageViewRef<float> interp_albedo 
+      = SfsInterpView(dem.cols(), dem.rows(), sample_col_rate, sample_row_rate, albedo);
+    block_write_gdal_image(albedo_file,
+                           interp_albedo,
                            has_georef, geo, has_nodata, albedo_nodata_val, opt, tpc);
   }
 

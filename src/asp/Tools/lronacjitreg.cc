@@ -30,6 +30,7 @@
 #include <vw/Image/Manipulation.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
+#include <vw/FileIO/DiskCacheImageView.h>
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>

@@ -31,6 +31,7 @@
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/Transform.h>
 #include <vw/FileIO/DiskImageView.h>
+#include <vw/FileIO/DiskCacheImageView.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/DisparityMap.h>
 

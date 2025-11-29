@@ -30,8 +30,6 @@
 #include <vw/Core/Log.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/ImageView.h>
-#include <vw/FileIO/DiskImageView.h>
-#include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/BBox.h>
 #include <vw/Math/Vector.h>
 #include <vw/Mosaic/DiskImagePyramid.h>
