@@ -42,7 +42,9 @@ also with more interest points per tile, and individually normalizing the images
     gcp_gen                           \
       --ip-detect-method 1            \
       --inlier-threshold 50           \
+      --gcp-sigma 1.0                 \
       --ip-per-tile 1000              \
+      --ip-per-image 0                \
       --camera-image camera_image.tif \
       --ortho-image ortho_image.tif   \
       --dem dem.tif                   \
@@ -75,6 +77,9 @@ shared area.
 
 If the camera image and orthoimage have very different ranges of pixel values,
 use the option ``--individual-normalize``.
+
+This invocation will look up the DEM and camera model from the mapprojected
+image's metadata, so these must be available.
 
 A match file for this program, between the mapprojected image and orthoimage,
 can be produced with dense stereo correlation (:numref:`correlator-mode`). If

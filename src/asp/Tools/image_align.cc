@@ -356,7 +356,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("num-ransac-iterations",
      po::value(&ip_opt.ip_num_ransac_iterations)->default_value(1000),
      "How many iterations to perform in RANSAC when finding interest point matches.")
-    ("inlier-threshold", po::value(&ip_opt.epipolar_threshold)->default_value(200.0),
+    ("inlier-threshold", po::value(&ip_opt.epipolar_threshold)->default_value(50.0),
      "The inlier threshold (in pixels) to separate inliers from outliers when "
      "computing interest point matches. A smaller threshold will result in fewer "
      "inliers.")

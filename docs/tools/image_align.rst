@@ -244,7 +244,7 @@ Command-line options for image_align
     How many iterations to perform in RANSAC when finding interest point 
     matches.
 
---inlier-threshold <double (default: 200.0)>
+--inlier-threshold <double (default: 50.0)>
     The inlier threshold (in pixels) to separate inliers from outliers when
     computing interest point matches. A smaller threshold will result in fewer
     inliers.
