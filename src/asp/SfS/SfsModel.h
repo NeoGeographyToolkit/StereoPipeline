@@ -66,7 +66,7 @@ double calcReflectance(vw::Vector3 const& cameraPosition, vw::Vector3 const& nor
 // albedo * nonlinReflectance(reflectance_i, exposures[i], haze, num_haze_coeffs) + haze[0]
 // Cost function:
 // sum_i | I_i - comp_intensity_i|^2
-double calcIntensity(double albedo, double reflectance, double exposure,
+double calcSimIntensity(double albedo, double reflectance, double exposure,
                      double steepness_factor, double const* haze, int num_haze_coeffs);
 
 // TODO(oalexan1): Should one mark the no-data values rather than setting
@@ -78,9 +78,10 @@ void calcSimIntensity(vw::ImageView<double> const& albedo,
                       std::vector<double> const& haze,
                       int num_haze_coeffs,
                       int num_threads,
+                      bool show_progress,
                       MaskedDblImgT & comp_intensity);
 
-// Calc albedo given the intensity. See calcIntensity().
+// Calc albedo given the intensity. See calcSimIntensity().
 double calcAlbedo(double intensity, double reflectance, double exposure,
                   double steepness_factor, double const* haze, int num_haze_coeffs);
 
@@ -127,7 +128,7 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
                                     vw::ImageView<vw::Vector2> const& pq,
                                     vw::cartography::GeoReference const& geo,
                                     bool model_shadows,
-                                    bool show_progres,
+                                    bool show_progress,
                                     double & max_dem_height, // alias
                                     double gridx, double gridy,
                                     int sample_col_rate, int sample_row_rate,

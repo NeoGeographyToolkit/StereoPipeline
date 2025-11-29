@@ -136,7 +136,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     if (opt.skip_images.find(image_iter) != opt.skip_images.end())
       continue;
 
-    MaskedDblImgT reflectance, intensity, comp_intensity;
+    MaskedDblImgT reflectance, intensity, sim_intensity;
     vw::ImageView<double> ground_weight;
 
     std::string out_camera_file
@@ -182,16 +182,14 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     if (opt.save_sparingly)
       continue;
 
-    // Find the computed intensity
-    comp_intensity.set_size(reflectance.cols(), reflectance.rows());
-    for (int col = 0; col < comp_intensity.cols(); col++) {
-      for (int row = 0; row < comp_intensity.rows(); row++) {
-        comp_intensity(col, row) = calcIntensity(albedo(col, row),
-                                                 reflectance(col, row),
-                                                 exposures[image_iter],
-                                                 opt.steepness_factor,
-                                                 &haze[image_iter][0],
-                                                 opt.num_haze_coeffs);
+    // Find the simulated intensity
+    sim_intensity.set_size(reflectance.cols(), reflectance.rows());
+    for (int col = 0; col < sim_intensity.cols(); col++) {
+      for (int row = 0; row < sim_intensity.rows(); row++) {
+        sim_intensity(col, row) 
+          = calcSimIntensity(albedo(col, row), reflectance(col, row),
+                             exposures[image_iter], opt.steepness_factor,
+                             &haze[image_iter][0], opt.num_haze_coeffs);
       }
     }
 
@@ -202,10 +200,10 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
                                             has_georef, geo, has_nodata, img_nodata_val,
                                             opt, tpc);
 
-    std::string out_comp_intensity_file = iter_str2 + "-comp-intensity.tif";
-    vw::vw_out() << "Writing: " << out_comp_intensity_file << std::endl;
-    vw::cartography::block_write_gdal_image(out_comp_intensity_file,
-                                            vw::apply_mask(comp_intensity, img_nodata_val),
+    std::string out_sim_intensity_file = iter_str2 + "-comp-intensity.tif";
+    vw::vw_out() << "Writing: " << out_sim_intensity_file << std::endl;
+    vw::cartography::block_write_gdal_image(out_sim_intensity_file,
+                                            vw::apply_mask(sim_intensity, img_nodata_val),
                                             has_georef, geo, has_nodata, img_nodata_val,
                                             opt, tpc);
 
@@ -330,9 +328,8 @@ calc_intensity_residual(SfsOptions const& opt,
 
     if (success && vw::is_valid(intensity) && vw::is_valid(reflectance))
       residuals[0] = ground_weight * (intensity -
-                      calcIntensity(albedo[0], reflectance.child(), exposure[0],
-                                    opt.steepness_factor,
-                                    haze, opt.num_haze_coeffs));
+                      calcSimIntensity(albedo[0], reflectance.child(), exposure[0],
+                                       opt.steepness_factor, haze, opt.num_haze_coeffs));
 
   } catch (...) {
     // To be able to handle robustly DEMs that extend beyond the camera,
@@ -689,7 +686,7 @@ struct IntensityErrorPQ {
 };
 
 // Discrepancy between measured and computed intensity. Assume fixed reflectance,
-// as this is only an initial estimate. See calcIntensity() for the formula.
+// as this is only an initial estimate. See calcSimIntensity() for the formula.
 struct IntensityErrorFixedReflectance {
   IntensityErrorFixedReflectance(vw::PixelMask<float> const& intensity,
                                  vw::PixelMask<float> const& reflectance,
@@ -707,8 +704,8 @@ struct IntensityErrorFixedReflectance {
       return true;
     }
     
-    residuals[0] = calcIntensity(albedo[0], m_reflectance, exposure[0],
-                                 m_steepness_factor, haze, m_num_haze_coeffs)
+    residuals[0] = calcSimIntensity(albedo[0], m_reflectance, exposure[0],
+                                    m_steepness_factor, haze, m_num_haze_coeffs)
                  - m_intensity;
 
     return true;

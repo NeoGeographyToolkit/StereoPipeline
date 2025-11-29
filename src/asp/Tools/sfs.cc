@@ -509,6 +509,9 @@ void calcIntenEstimHeights(SfsOptions & opt,
                           &albedo));
   }
   
+  if (show_progress)
+    vw::vw_out() << "Computing measured and simulated intensities.\n";
+  
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
     
     if (opt.estimate_height_errors)
@@ -537,6 +540,7 @@ void calcIntenEstimHeights(SfsOptions & opt,
                           opt.image_haze_vec[image_iter],
                           opt.num_haze_coeffs,
                           opt.num_threads,
+                          show_progress,
                           sim_intensity);
     
     // Save some quantities if needed
