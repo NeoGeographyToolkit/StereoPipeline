@@ -77,6 +77,7 @@ void calcSimIntensity(vw::ImageView<double> const& albedo,
                       double steepness_factor,
                       std::vector<double> const& haze,
                       int num_haze_coeffs,
+                      int num_threads,
                       MaskedDblImgT & comp_intensity);
 
 // Calc albedo given the intensity. See calcIntensity().
@@ -126,6 +127,7 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
                                     vw::ImageView<vw::Vector2> const& pq,
                                     vw::cartography::GeoReference const& geo,
                                     bool model_shadows,
+                                    bool show_progres,
                                     double & max_dem_height, // alias
                                     double gridx, double gridy,
                                     int sample_col_rate, int sample_row_rate,
@@ -139,7 +141,7 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
                                     MaskedDblImgT & reflectance,
                                     MaskedDblImgT & intensity,
                                     DblImgT & ground_weight,
-                                    const double          * refl_coeffs,
+                                    double const * refl_coeffs,
                                     asp::SfsOptions const & opt,
                                     asp::HeightErrEstim * heightErrEstim = NULL);
 

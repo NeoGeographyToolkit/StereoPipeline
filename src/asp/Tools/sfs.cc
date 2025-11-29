@@ -22,7 +22,6 @@
 // TODO: Find a good automatic value for the smoothness weight.
 // TODO: Check that we are within image boundaries when interpolating.
 // TODO: Study the normal computation formula.
-// TODO(oalexan1): Use OpenMP in ComputeReflectanceAndIntensity.
 
 /// \file sfs.cc
 
@@ -117,12 +116,6 @@ void runSfs(// Fixed quantities
                   // Outputs
                   dem, albedo, cameras, exposures, haze, refl_coeffs, pq, problem);
 
-  if (opt.num_threads > 1 && opt.stereo_session == "isis"  && !opt.use_approx_camera_models) {
-    vw_out() << "Using exact ISIS camera models. Can run with only a single thread.\n";
-    opt.num_threads = 1;
-  }
-  vw_out() << "Using: " << opt.num_threads << " thread(s).\n";
-  
   // Solver options and the callback
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
@@ -476,6 +469,7 @@ void calcIntenEstimHeights(SfsOptions & opt,
                            vw::ImageView<double> const& dem,
                            vw::ImageView<double> & albedo,
                            vw::cartography::GeoReference const& geo,
+                           bool show_progress,
                            double max_dem_height,
                            double gridx, double gridy,
                            std::vector<vw::Vector3> const& sunPosition,
@@ -490,12 +484,12 @@ void calcIntenEstimHeights(SfsOptions & opt,
                            vw::ImageView<int> & lit_image_mask,
                            std::vector<ImageView<double>> & ground_weights,
                            std::vector<MaskedDblImgT> & meas_intensities,
-                           std::vector<MaskedDblImgT> & comp_intensities) {
+                           std::vector<MaskedDblImgT> & sim_intensities) {
 
   int num_images = opt.input_images.size();
 
   // Save the computed and actual intensity, and for most of these quit
-  MaskedDblImgT reflectance, meas_intensity, comp_intensity;
+  MaskedDblImgT reflectance, meas_intensity, sim_intensity;
   vw::ImageView<double> ground_weight;
   vw::ImageView<Vector2> pq; // no need for these just for initialization
   int sample_col_rate = 1, sample_row_rate = 1;
@@ -522,19 +516,19 @@ void calcIntenEstimHeights(SfsOptions & opt,
     
     // Find the reflectance and measured intensity (and work towards
     // estimating the slopes if asked to).
-    computeReflectanceAndIntensity(dem, pq, geo,
-                                   opt.model_shadows, max_dem_height,
-                                   gridx, gridy, sample_col_rate, sample_row_rate,
-                                   sunPosition[image_iter],
-                                   refl_params,
-                                   crop_boxes[image_iter],
-                                   masked_images[image_iter],
-                                   blend_weights[image_iter],
-                                   blend_weight_is_ground_weight,
-                                   cameras[image_iter],
-                                   reflectance, meas_intensity, ground_weight,
-                                   &opt.model_coeffs_vec[0], opt,
-                                   heightErrEstim.get());
+    asp::computeReflectanceAndIntensity(dem, pq, geo,
+                                        opt.model_shadows, show_progress, max_dem_height,
+                                        gridx, gridy, sample_col_rate, sample_row_rate,
+                                        sunPosition[image_iter],
+                                        refl_params,
+                                        crop_boxes[image_iter],
+                                        masked_images[image_iter],
+                                        blend_weights[image_iter],
+                                        blend_weight_is_ground_weight,
+                                        cameras[image_iter],
+                                        reflectance, meas_intensity, ground_weight,
+                                        &opt.model_coeffs_vec[0], opt,
+                                        heightErrEstim.get());
     
     // Find the simulated intensity
     asp::calcSimIntensity(albedo, reflectance,
@@ -542,7 +536,8 @@ void calcIntenEstimHeights(SfsOptions & opt,
                           opt.steepness_factor,
                           opt.image_haze_vec[image_iter],
                           opt.num_haze_coeffs,
-                          comp_intensity);
+                          opt.num_threads,
+                          sim_intensity);
     
     // Save some quantities if needed
     if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
@@ -550,9 +545,10 @@ void calcIntenEstimHeights(SfsOptions & opt,
       ground_weights[image_iter] = copy(ground_weight); // save the weight
     if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
         opt.low_light_threshold > 0.0) {
-      // Save the measured and computed intensities
+      // Save the measured and computed intensities. Avoid doing this in 
+      // general as they can be large, if the input DEM is large.
       meas_intensities[image_iter] = copy(meas_intensity);
-      comp_intensities[image_iter] = copy(comp_intensity);
+      sim_intensities[image_iter] = copy(sim_intensity);
     }
     
     if (opt.curvature_in_shadow_weight > 0.0) {
@@ -579,7 +575,7 @@ void calcIntenEstimHeights(SfsOptions & opt,
       asp::saveIntensities(opt, opt.input_images[image_iter],
                            opt.input_cameras[image_iter],
                            geo, meas_intensity,
-                           comp_intensity, img_nodata_val);
+                           sim_intensity, img_nodata_val);
     
   } // End iterating over images
   
@@ -731,8 +727,9 @@ void estimExposuresHazeSkipVec(asp::SfsOptions const& opt,
       MaskedDblImgT reflectance, intensity;
       vw::ImageView<double> ground_weight;
       vw::ImageView<Vector2> pq; // no need for these just for initialization
+      bool show_progress = false;
       computeReflectanceAndIntensity(dem, pq, geo,
-                                     opt.model_shadows, max_dem_height,
+                                     opt.model_shadows, show_progress, max_dem_height,
                                      gridx, gridy, sample_col_rate, sample_row_rate,
                                      sunPosition[image_iter],
                                      refl_params,
@@ -796,8 +793,14 @@ int main(int argc, char* argv[]) {
       opt.use_approx_camera_models = false;
     }
 
-    // We won't load the full images, just portions restricted
-    // to the area we we will compute the DEM.
+    if (opt.num_threads > 1 && opt.stereo_session == "isis" && !opt.use_approx_camera_models) {
+      vw_out() << "Using exact ISIS camera models. Can run with only a single thread.\n";
+      opt.num_threads = 1;
+    }
+    vw_out() << "Using: " << opt.num_threads << " thread(s).\n";
+    
+    // We won't load the full images, just portions restricted to the area we we
+    // will compute the DEM.
     int num_images = opt.input_images.size();    
     std::vector<BBox2i> crop_boxes(num_images);
 
@@ -849,7 +852,7 @@ int main(int argc, char* argv[]) {
                               // Outputs
                               local_exposures_vec, local_haze_vec,
                               opt.skip_images);
-
+    
     // Only overwrite the exposures if we don't have them supplied
     if (opt.image_exposures_vec.empty())
       opt.image_exposures_vec = local_exposures_vec;
@@ -900,20 +903,21 @@ int main(int argc, char* argv[]) {
 
     std::vector<ImageView<double>> ground_weights(num_images);
     std::vector<MaskedDblImgT> meas_intensities(num_images);
-    std::vector<MaskedDblImgT> comp_intensities(num_images);
+    std::vector<MaskedDblImgT> sim_intensities(num_images);
 
     // Compute and/or save the intensities, and/or estimate height errors,
     // and/or compute weights for borderline data.
+    bool show_progress = opt.save_computed_intensity_only; // because the DEM is big then
     if (opt.save_computed_intensity_only || 
         opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0 ||
         opt.allow_borderline_data || opt.low_light_threshold > 0.0)
-      calcIntenEstimHeights(opt, dem, albedo, geo, max_dem_height,
+      calcIntenEstimHeights(opt, dem, albedo, geo, show_progress, max_dem_height,
                             gridx, gridy, sunPosition, refl_params, crop_boxes,
                             masked_images, blend_weights, blend_weight_is_ground_weight,
                             cameras, img_nodata_val,
                             // Outputs
                             lit_image_mask, ground_weights,
-                            meas_intensities, comp_intensities);
+                            meas_intensities, sim_intensities);
 
     if (opt.save_computed_intensity_only || opt.estimate_height_errors) {
       asp::saveExposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
@@ -933,7 +937,7 @@ int main(int argc, char* argv[]) {
 
     if (opt.allow_borderline_data)
       asp::handleBorderlineAndLowLight(opt, num_images, dem, geo, crop_boxes,
-                                       meas_intensities, comp_intensities,
+                                       meas_intensities, sim_intensities,
                                        img_nodata_val,
                                        // Outputs
                                        masked_images, blend_weights,

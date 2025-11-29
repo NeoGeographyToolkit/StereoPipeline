@@ -55,8 +55,6 @@ double LunarLambertianReflectance(Vector3 const& sunPos,
                                   double phaseCoeffC2,
                                   double & alpha,
                                   const double * refl_coeffs) {
-  double reflectance;
-  double L;
 
   double len = dot_prod(normal, normal);
   if (abs(len - 1.0) > 1.0e-4)
@@ -73,7 +71,8 @@ double LunarLambertianReflectance(Vector3 const& sunPos,
   Vector3 viewDirection = normalize(viewPos-xyz);
   double mu = dot_prod(viewDirection,normal);
 
-  //compute the phase angle (alpha) between the viewing direction and the light source direction
+  // Compute the phase angle (alpha) between the viewing direction and the light
+  // source direction
   double deg_alpha;
   double cos_alpha;
 
@@ -93,10 +92,9 @@ double LunarLambertianReflectance(Vector3 const& sunPos,
   double A = refl_coeffs[1]; //-0.019;
   double B = refl_coeffs[2]; // 0.000242;//0.242*1e-3;
   double C = refl_coeffs[3]; // -0.00000146;//-1.46*1e-6;
+  double L = O + A*deg_alpha + B*deg_alpha*deg_alpha + C*deg_alpha*deg_alpha*deg_alpha;
 
-  L = O + A*deg_alpha + B*deg_alpha*deg_alpha + C*deg_alpha*deg_alpha*deg_alpha;
-
-  reflectance = 2*L*mu_0/(mu_0+mu) + (1-L)*mu_0;
+  double reflectance = 2*L*mu_0/(mu_0+mu) + (1-L)*mu_0;
   if (mu_0 + mu == 0 || reflectance != reflectance)
     return 0.0;
 
@@ -642,6 +640,7 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
                                     vw::ImageView<vw::Vector2> const& pq,
                                     vw::cartography::GeoReference const& geo,
                                     bool model_shadows,
+                                    bool show_progres,
                                     double & max_dem_height, // alias
                                     double gridx, double gridy,
                                     int sample_col_rate, int sample_row_rate,
@@ -655,13 +654,14 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
                                     MaskedDblImgT & reflectance,
                                     MaskedDblImgT & intensity,
                                     DblImgT & ground_weight,
-                                    const double                 * refl_coeffs,
-                                    asp::SfsOptions        const & opt,
+                                    double const * refl_coeffs,
+                                    asp::SfsOptions const & opt,
                                     asp::HeightErrEstim * heightErrEstim) {
 
-  // Update max_dem_height
+  // Update max_dem_height. This can change as the DEM is being optimized.
   max_dem_height = -std::numeric_limits<double>::max();
   if (model_shadows) {
+    #pragma omp parallel for num_threads(opt.num_threads)
     for (int col = 0; col < dem.cols(); col += sample_col_rate) {
       for (int row = 0; row < dem.rows(); row += sample_row_rate) {
         if (dem(col, row) > max_dem_height) {
@@ -698,6 +698,7 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
   reflectance.set_size(num_sample_cols, num_sample_rows);
   intensity.set_size(num_sample_cols, num_sample_rows);
   ground_weight.set_size(num_sample_cols, num_sample_rows);
+  #pragma omp parallel for num_threads(opt.num_threads)
   for (int col = 0; col < num_sample_cols; col++) {
     for (int row = 0; row < num_sample_rows; row++) {
       reflectance(col, row).invalidate();
@@ -711,6 +712,7 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
   // rate is 1.
   bool use_pq = (pq.cols() > 0 && pq.rows() > 0);
   int col_sample = 0;
+  #pragma omp parallel for num_threads(opt.num_threads)
   for (int col = 1; col < dem.cols() - 1; col += sample_col_rate) {
     col_sample++;
 
@@ -805,9 +807,11 @@ void calcSimIntensity(vw::ImageView<double> const& albedo,
                       double steepness_factor,
                       std::vector<double> const& haze,
                       int num_haze_coeffs,
+                      int num_threads,
                       MaskedDblImgT & comp_intensity) {
 
   comp_intensity.set_size(reflectance.cols(), reflectance.rows());
+  #pragma omp parallel for num_threads(num_threads)
   for (int col = 0; col < comp_intensity.cols(); col++) {
     for (int row = 0; row < comp_intensity.rows(); row++) {
       comp_intensity(col, row) = calcIntensity(albedo(col, row),

@@ -153,8 +153,9 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
 
     // Compute reflectance and intensity with optimized DEM
     int sample_col_rate = 1, sample_row_rate = 1;
+    bool show_progress = false;
     computeReflectanceAndIntensity(dem, pq, geo,
-                                  opt.model_shadows,
+                                  opt.model_shadows, show_progress,
                                   max_dem_height,
                                   gridx, gridy,
                                   sample_col_rate, sample_row_rate,
@@ -1331,8 +1332,9 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
 
     vw::ImageView<double> ground_weight;
     vw::ImageView<vw::Vector2> pq; // no need for these just for initialization
+    bool show_progress = false;
     computeReflectanceAndIntensity(dem, pq, geo,
-                                   opt.model_shadows, max_dem_height,
+                                   opt.model_shadows, show_progress, max_dem_height,
                                    gridx, gridy, sample_col_rate, sample_row_rate,
                                    sunPosition[image_iter],
                                    refl_params,
