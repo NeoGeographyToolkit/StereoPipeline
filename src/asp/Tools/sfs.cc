@@ -932,9 +932,8 @@ int main(int argc, char* argv[]) {
     if (opt.num_haze_coeffs > 0) {
       for (size_t image_iter = 0; image_iter < opt.image_haze_vec.size(); image_iter++) {
         vw_out() << "Image haze for " << opt.input_images[image_iter] << ':';
-        for (size_t hiter = 0; hiter < opt.image_haze_vec[image_iter].size(); hiter++) {
-          vw_out() << " " << opt.image_haze_vec[image_iter][hiter];
-        }
+        for (size_t haze_it = 0; haze_it < opt.image_haze_vec[image_iter].size(); haze_it++)
+          vw_out() << " " << opt.image_haze_vec[image_iter][haze_it];
         vw_out() << "\n";
       }
     }
