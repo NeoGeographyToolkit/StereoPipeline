@@ -1292,6 +1292,58 @@ void sfsCostFun(// Fixed quantities
 
 } // end function formCostFun()
 
+// Given the albedo image, and the valid mask, in-fill from valid pixels to
+// invalid ones using 3x3 neighborhood averaging. Do a single pass. This is
+// mostly to resolve boundary issues. This updates the mask as well.
+void inFillImage(vw::ImageView<double> & image,
+                 vw::ImageView<int>    & valid_mask) {
+
+  // Check that these two have the same size
+  if (image.cols() != valid_mask.cols() || image.rows() != valid_mask.rows()) {
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "inFillImage(): image and valid_mask must have the same size.\n");
+  }
+  
+  int cols = image.cols();
+  int rows = image.rows();
+
+  // Make a copy of the input that will be kept constant during the iterations
+  vw::ImageView<double> image_copy = image;
+  vw::ImageView<int>    valid_mask_copy = valid_mask;
+
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+
+      if (valid_mask_copy(col, row) == 1)
+        continue;
+
+      double sum = 0.0;
+      int count = 0;
+
+      // Check the 3x3 neighborhood
+      for (int ncol = -1; ncol <= 1; ncol++) {
+        for (int nrow = -1; nrow <= 1; nrow++) {
+          int c = col + ncol;
+          int r = row + nrow;
+          if (c < 0 || c >= cols || r < 0 || r >= rows)
+            continue;
+          if (valid_mask_copy(c, r) == 1) {
+            sum += image_copy(c, r);
+            count++;
+          }
+        }
+      }
+
+      if (count > 0) {
+        image(col, row) = sum / double(count);
+        valid_mask(col, row) = 1;
+      }
+
+    } // end row
+  } // end col
+
+} // end function inFillImage()
+
 // Find the best-fit exposure and haze given the input sampled image and reflectance.
 // Also find the sampled albedo along the way. The albedo will be optimized
 // only if --float-albedo is on. Otherwise it will be kept at the nominal value.
@@ -1355,6 +1407,14 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
       albedo(col, row) = mean_albedo;
     }
   }
+  
+  // Create the image of valid pixels, so where albedo was solved for
+  vw::ImageView<int> valid_mask(num_sampled_cols, num_sampled_rows);
+  for (int col = 0; col < valid_mask.cols(); col++) {
+    for (int row = 0; row < valid_mask.rows(); row++) {
+      valid_mask(col, row) = 0;
+    }
+  }
 
   // Create the problem
   ceres::Problem problem;
@@ -1363,10 +1423,15 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
     for (int col = 0; col < intensity[image_iter].cols(); col++) {
       for (int row = 0; row < intensity[image_iter].rows(); row++) {
-
+        
+        // Skip invalid pixels, such as at boundary. The albedo will be kept
+        // to its initial value at these pixels.
         if (!vw::is_valid(intensity[image_iter](col, row)) ||
             !vw::is_valid(reflectance[image_iter](col, row)))
           continue;
+        
+        // Mark this albedo pixel as valid
+        valid_mask(col, row) = 1;
 
         ceres::CostFunction* cost_function_img =
           IntensityErrorFixedReflectance::Create(intensity[image_iter](col, row),
@@ -1424,6 +1489,10 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
   vw::vw_out() << summary.FullReport() << "\n";
 
   if (opt.float_albedo) {
+    
+    // In-fill the albedo image to reduce boundary artifacts
+    inFillImage(albedo, valid_mask);
+    
     // Up-sample the estimated albedo to full-res dimensions with bilinear
     // interpolation. This is not needed and not used if albedo is not floated.
     bool has_georef = true;
@@ -1433,13 +1502,11 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
     std::string albedo_file = opt.out_prefix + "-albedo-estim.tif";
     vw::vw_out() << "Up-sampling the estimated albedo to input DEM dimensions.\n";
     vw::vw_out() << "Writing: " << albedo_file << "\n";
-    // Note: Letting interp_albedo be of type SfsInterpView rather than
-    // ImageViewRef results in a crash when writing the image, even though it
-    // compiles fine.
-    vw::ImageViewRef<float> interp_albedo 
-      = SfsInterpView(dem.cols(), dem.rows(), sample_col_rate, sample_row_rate, albedo);
-    block_write_gdal_image(albedo_file,
-                           interp_albedo,
+    // Note: This logic produces junk if the SfsInterpView is initialized on a
+    // separate line and then passed to block_write_gdal_image(). Not clear why.
+    block_write_gdal_image(albedo_file, 
+                           SfsInterpView(dem.cols(), dem.rows(), sample_col_rate,
+                                         sample_row_rate, albedo),
                            has_georef, geo, has_nodata, albedo_nodata_val, opt, tpc);
   }
 

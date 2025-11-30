@@ -802,6 +802,8 @@ SfsInterpView::prerasterize_type SfsInterpView::prerasterize(vw::BBox2i const& b
                         vw::BilinearInterpolation(),
                         vw::ConstantEdgeExtension());
 
+  // Great care is needed here to reverse the resampling done in 
+  // computeReflectanceAndIntensity.
   vw::ImageView<result_type> tile(bbox.width(), bbox.height());
   for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
     for (int row = bbox.min().y(); row < bbox.max().y(); row++) {

@@ -711,7 +711,8 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
                                    
   // Need to very carefully distinguish below between col and col_sample,
   // and between row and row_sample. These are same only if the sampling
-  // rate is 1.
+  // rate is 1. Here we start at col and row equal to 1 to be able to properly
+  // find the neighbors and surface normal.
   bool use_pq = (pq.cols() > 0 && pq.rows() > 0);
   int col_sample = 0;
   #pragma omp parallel for num_threads(opt.num_threads)
