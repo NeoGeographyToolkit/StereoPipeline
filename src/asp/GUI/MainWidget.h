@@ -154,7 +154,7 @@ public:
   void setCropWin(vw::BBox2 const& stereoCropWin);
 
   bool & m_allowMultipleSelections; // alias, controlled from MainWindow for all widgets
-
+  bool m_polyEditMode;
 signals:
   void toggleViewMatchesSignal    ();
   void recreateLayoutSignal       ();
@@ -349,7 +349,6 @@ private:
   void updateFilesToHide();
 
   // For polygon drawing
-  bool        m_polyEditMode;
   int         m_polyLayerIndex; // which of the current images owns the poly vector layer
   vw::Vector2 m_startPix; // The first poly vertex being drawn in world coords
   std::vector<double> m_currPolyX, m_currPolyY;

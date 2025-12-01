@@ -26,7 +26,7 @@
 namespace asp {
 
 // Right-click context menu
-MenuMgr::MenuMgr(MainWidget* parent_widget) {
+MenuMgr::MenuMgr(MainWidget* parent_widget): m_parent_widget(parent_widget) {
   
   m_contextMenu = new QMenu(parent_widget);
   
@@ -101,6 +101,42 @@ MenuMgr::MenuMgr(MainWidget* parent_widget) {
                    parent_widget, SLOT(insertVertex()));
   QObject::connect(m_mergePolys, SIGNAL(triggered()), 
                    parent_widget, SLOT(mergePolys()));
+}
+
+void MenuMgr::setupContextMenu() {
+  
+  // If in poly edit mode, turn on these items.
+  m_deleteVertex->setVisible(m_parent_widget->m_polyEditMode);
+  m_deleteVertices->setVisible(m_parent_widget->m_polyEditMode);
+  m_insertVertex->setVisible(m_parent_widget->m_polyEditMode);
+  m_moveVertex->setVisible(m_parent_widget->m_polyEditMode);
+  m_showIndices->setVisible(m_parent_widget->m_polyEditMode);
+  m_showPolysFilled->setVisible(m_parent_widget->m_polyEditMode);
+
+  // Add the saving polygon option even when not editing
+  m_saveVectorLayerAsShapeFile->setVisible(true);
+  m_saveVectorLayerAsTextFile->setVisible(true);
+
+  m_mergePolys->setVisible(m_parent_widget->m_polyEditMode);
+
+  // Refresh this from the variable, before popping up the menu
+  m_allowMultipleSelections_action->setChecked(m_parent_widget->m_allowMultipleSelections);
+
+  // Turn on these items if we are NOT in poly edit mode. Also turn some off
+  // in sideBySideWithDialog() mode, as then we draw the interest points
+  // only with refreshPixmap(), which is rare, so user's editing
+  // choices won't be reflected in the GUI.
+  m_addMatchPoint->setVisible(!m_parent_widget->m_polyEditMode && !sideBySideWithDialog());
+  m_deleteMatchPoint->setVisible(!m_parent_widget->m_polyEditMode && !sideBySideWithDialog());
+  m_moveMatchPoint->setVisible(!m_parent_widget->m_polyEditMode && !sideBySideWithDialog());
+  m_toggleHillshadeImageRightClick->setVisible(!m_parent_widget->m_polyEditMode);
+  m_setHillshadeParams->setVisible(!m_parent_widget->m_polyEditMode);
+  m_setThreshold->setVisible(!m_parent_widget->m_polyEditMode);
+  m_allowMultipleSelections_action->setVisible(!m_parent_widget->m_polyEditMode);
+  m_deleteSelection->setVisible(!sideBySideWithDialog());
+  m_hideImagesNotInRegion->setVisible(!sideBySideWithDialog());
+
+  m_saveScreenshot->setVisible(true); // always visible
 }
 
 QMenu* MenuMgr::formCustomMenu(MainWidget* parent_widget) {

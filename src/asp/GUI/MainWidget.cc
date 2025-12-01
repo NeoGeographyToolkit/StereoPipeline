@@ -1948,38 +1948,7 @@ void MainWidget::contextMenuEvent(QContextMenuEvent *event) {
   m_mousePrsX = x;
   m_mousePrsY = y;
 
-  // If in poly edit mode, turn on these items.
-  m_menu_mgr->m_deleteVertex->setVisible(m_polyEditMode);
-  m_menu_mgr->m_deleteVertices->setVisible(m_polyEditMode);
-  m_menu_mgr->m_insertVertex->setVisible(m_polyEditMode);
-  m_menu_mgr->m_moveVertex->setVisible(m_polyEditMode);
-  m_menu_mgr->m_showIndices->setVisible(m_polyEditMode);
-  m_menu_mgr->m_showPolysFilled->setVisible(m_polyEditMode);
-
-  // Add the saving polygon option even when not editing
-  m_menu_mgr->m_saveVectorLayerAsShapeFile->setVisible(true);
-  m_menu_mgr->m_saveVectorLayerAsTextFile->setVisible(true);
-
-  m_menu_mgr->m_mergePolys->setVisible(m_polyEditMode);
-
-  // Refresh this from the variable, before popping up the menu
-  m_menu_mgr->m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
-
-  // Turn on these items if we are NOT in poly edit mode. Also turn some off
-  // in sideBySideWithDialog() mode, as then we draw the interest points
-  // only with refreshPixmap(), which is rare, so user's editing
-  // choices won't be reflected in the GUI.
-  m_menu_mgr->m_addMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
-  m_menu_mgr->m_deleteMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
-  m_menu_mgr->m_moveMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
-  m_menu_mgr->m_toggleHillshadeImageRightClick->setVisible(!m_polyEditMode);
-  m_menu_mgr->m_setHillshadeParams->setVisible(!m_polyEditMode);
-  m_menu_mgr->m_setThreshold->setVisible(!m_polyEditMode);
-  m_menu_mgr->m_allowMultipleSelections_action->setVisible(!m_polyEditMode);
-  m_menu_mgr->m_deleteSelection->setVisible(!sideBySideWithDialog());
-  m_menu_mgr->m_hideImagesNotInRegion->setVisible(!sideBySideWithDialog());
-
-  m_menu_mgr->m_saveScreenshot->setVisible(true); // always visible
+  m_menu_mgr->setupContextMenu();
 
   m_menu_mgr->m_contextMenu->popup(mapToGlobal(QPoint(x,y)));
   return;
