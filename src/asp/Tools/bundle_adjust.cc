@@ -778,7 +778,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
 
 } // end do_ba_ceres
 
-void handle_arguments(int argc, char *argv[], asp::BaOptions& opt) {
+void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
 
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str,
@@ -1905,7 +1905,7 @@ int main(int argc, char* argv[]) {
   try {
     xercesc::XMLPlatformUtils::Initialize();
 
-    handle_arguments(argc, argv, opt);
+    handleBaArgs(argc, argv, opt);
 
     asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,
                       opt.approximate_pinhole_intrinsics,

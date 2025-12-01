@@ -25,6 +25,7 @@
 #include <asp/GUI/GuiGeom.h>
 #include <asp/GUI/chooseFilesDlg.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/GUI/MenuMgr.h>
 
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
@@ -42,8 +43,10 @@
 #include <QtGui>
 #include <QtWidgets>
 #include <QMenu>
+
 #include <string>
 #include <vector>
+#include <memory>
 
 using namespace vw;
 
@@ -183,73 +186,9 @@ MainWidget::MainWidget(QWidget *parent,
                       SIGNAL(sectionClicked(int)), this, SLOT(hideShowAll_widgetVersion()));
   }
   
-  MainWidget::createMenus();
+  // Initialize the menu manager
+  m_menu_mgr = std::unique_ptr<MenuMgr>(new MenuMgr(this));
 } // End constructor
-
-// Right-click context menu
-void MainWidget::createMenus() {
-  
-  m_ContextMenu = new QMenu();
-
-  // Polygon editing mode, they will be visible only when editing happens
-  m_insertVertex   = m_ContextMenu->addAction("Insert vertex");
-  m_deleteVertex   = m_ContextMenu->addAction("Delete vertex");
-  m_deleteVertices = m_ContextMenu->addAction("Delete vertices in selected region");
-  m_moveVertex     = m_ContextMenu->addAction("Move vertices");
-  m_moveVertex->setCheckable(true);
-  m_moveVertex->setChecked(false);
-
-  m_showPolysFilled = m_ContextMenu->addAction("Show polygons filled");
-  m_showPolysFilled->setCheckable(true);
-  m_showPolysFilled->setChecked(false);
-
-  m_showIndices = m_ContextMenu->addAction("Show vertex indices");
-  m_showIndices->setCheckable(true);
-  m_showIndices->setChecked(false);
-
-  m_mergePolys = m_ContextMenu->addAction("Merge polygons");
-
-  // Other options
-  m_addMatchPoint      = m_ContextMenu->addAction("Add match point");
-  m_deleteMatchPoint   = m_ContextMenu->addAction("Delete match point");
-  m_moveMatchPoint     = m_ContextMenu->addAction("Move match point");
-  m_moveMatchPoint->setCheckable(true);
-  m_moveMatchPoint->setChecked(false);
-  m_toggleHillshadeImageRightClick  = m_ContextMenu->addAction("Toggle hillshaded display");
-  m_setHillshadeParams = m_ContextMenu->addAction("View/set hillshade azimuth and elevation");
-  m_saveVectorLayerAsShapeFile = m_ContextMenu->addAction("Save vector layer as shape file");
-  m_saveVectorLayerAsTextFile = m_ContextMenu->addAction("Save vector layer as text file");
-
-  m_saveScreenshot     = m_ContextMenu->addAction("Save screenshot");
-  m_setThreshold       = m_ContextMenu->addAction("View/set threshold");
-  m_allowMultipleSelections_action
-    = m_ContextMenu->addAction("Allow multiple selected regions");
-  m_allowMultipleSelections_action->setCheckable(true);
-  m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
-  m_deleteSelection = m_ContextMenu->addAction("Delete selected regions around this point");
-  m_hideImagesNotInRegion
-    = m_ContextMenu->addAction("Hide images not intersecting selected region");
-
-  connect(m_addMatchPoint,         SIGNAL(triggered()), this, SLOT(addMatchPoint()));
-  connect(m_deleteMatchPoint,      SIGNAL(triggered()), this, SLOT(deleteMatchPoint()));
-  connect(m_toggleHillshadeImageRightClick, SIGNAL(triggered()), this,
-          SLOT(toggleHillshadeImageRightClick()));
-  connect(m_setHillshadeParams,    SIGNAL(triggered()), this, SLOT(setHillshadeParams()));
-  connect(m_setThreshold,          SIGNAL(triggered()), this, SLOT(setThreshold()));
-  connect(m_saveScreenshot,        SIGNAL(triggered()), this, SLOT(saveScreenshot()));
-  connect(m_allowMultipleSelections_action, SIGNAL(triggered()), this,
-          SLOT(allowMultipleSelections()));
-  connect(m_deleteSelection,       SIGNAL(triggered()), this, SLOT(deleteSelection()));
-  connect(m_hideImagesNotInRegion, SIGNAL(triggered()), this, SLOT(hideImagesNotInRegion()));
-  connect(m_saveVectorLayerAsShapeFile,       SIGNAL(triggered()), this,
-          SLOT(saveVectorLayerAsShapeFile()));
-  connect(m_saveVectorLayerAsTextFile,       SIGNAL(triggered()), this,
-          SLOT(saveVectorLayerAsTextFile()));
-  connect(m_deleteVertex,          SIGNAL(triggered()), this, SLOT(deleteVertex()));
-  connect(m_deleteVertices,        SIGNAL(triggered()), this, SLOT(deleteVertices()));
-  connect(m_insertVertex,          SIGNAL(triggered()), this, SLOT(insertVertex()));
-  connect(m_mergePolys,            SIGNAL(triggered()), this, SLOT(mergePolys()));
-} // End createMenus()
 
 MainWidget::~MainWidget() {
 }
@@ -278,26 +217,26 @@ void MainWidget::customMenuRequested(QPoint pos) {
 
   QMenu *menu=new QMenu(this);
 
-  m_toggleHillshadeFromImageList = menu->addAction("Toggle hillshade display");
-  connect(m_toggleHillshadeFromImageList, SIGNAL(triggered()),
+  m_menu_mgr->m_toggleHillshadeFromImageList = menu->addAction("Toggle hillshade display");
+  QObject::connect(m_menu_mgr->m_toggleHillshadeFromImageList, SIGNAL(triggered()),
           this, SLOT(toggleHillshadeFromImageList()));
 
   if (!sideBySideWithDialog()) {
     // Do not offer these options when the images are side-by-side,
     // as that will just mess up with their order.
 
-    m_bringImageOnTopFromTable = menu->addAction("Bring image on top");
-    connect(m_bringImageOnTopFromTable, SIGNAL(triggered()),
+    m_menu_mgr->m_bringImageOnTopFromTable = menu->addAction("Bring image on top");
+    QObject::connect(m_menu_mgr->m_bringImageOnTopFromTable, SIGNAL(triggered()),
             this, SLOT(bringImageOnTopSlot()));
 
-    m_pushImageToBottomFromTable = menu->addAction("Push image to bottom");
-    connect(m_pushImageToBottomFromTable, SIGNAL(triggered()),
+    m_menu_mgr->m_pushImageToBottomFromTable = menu->addAction("Push image to bottom");
+    QObject::connect(m_menu_mgr->m_pushImageToBottomFromTable, SIGNAL(triggered()),
             this, SLOT(pushImageToBottomSlot()));
 
   }
 
-  m_zoomToImageFromTable = menu->addAction("Zoom to image");
-  connect(m_zoomToImageFromTable, SIGNAL(triggered()),
+  m_menu_mgr->m_zoomToImageFromTable = menu->addAction("Zoom to image");
+  QObject::connect(m_menu_mgr->m_zoomToImageFromTable, SIGNAL(triggered()),
           this, SLOT(zoomToImage()));
 
   // If having polygons, make it possible to change their colors
@@ -307,8 +246,8 @@ void MainWidget::customMenuRequested(QPoint pos) {
       hasPoly = true;
   }
   if (hasPoly) {
-    m_changePolyColor = menu->addAction("Change colors of polygons");
-    connect(m_changePolyColor, SIGNAL(triggered()), this, SLOT(changePolyColor()));
+    m_menu_mgr->m_changePolyColor = menu->addAction("Change colors of polygons");
+    QObject::connect(m_menu_mgr->m_changePolyColor, SIGNAL(triggered()), this, SLOT(changePolyColor()));
   }
 
   menu->exec(filesTable->mapToGlobal(pos));
@@ -574,7 +513,7 @@ void MainWidget::maybeGenHillshade() {
 // Allow the user to select multiple windows.
 void MainWidget::allowMultipleSelections() {
   m_allowMultipleSelections = !m_allowMultipleSelections;
-  m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
+  m_menu_mgr->m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
   if (!m_allowMultipleSelections) {
     m_selectionRectangles.clear();
     refreshPixmap();
@@ -1426,7 +1365,7 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
   m_editMatchPointVecIndex = -1; // Keep this initialized
 
   // If the user is currently editing match points
-  if (!m_polyEditMode && m_moveMatchPoint->isChecked()
+  if (!m_polyEditMode && m_menu_mgr->m_moveMatchPoint->isChecked()
       && !m_cropWinMode && asp::stereo_settings().view_matches) {
 
     m_editingMatches = true;
@@ -1451,7 +1390,7 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
   } // End match point update case
 
   // If the user is currently editing polygons
-  if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode) {
+  if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
 
     // Ensure these are always initialized
     m_editPolyVecIndex        = -1;
@@ -1501,7 +1440,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
                    (event->modifiers() & Qt::ControlModifier));
 
   // If the user is editing match points
-  if (!m_polyEditMode && m_moveMatchPoint->isChecked() && !m_cropWinMode) {
+  if (!m_polyEditMode && m_menu_mgr->m_moveMatchPoint->isChecked() && !m_cropWinMode) {
 
     m_editingMatches = true;
 
@@ -1529,7 +1468,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
   } // End polygon editing
 
   // If the user is editing polygons
-  if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode) {
+  if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
 
     // If moving vertices
     if (m_editClipIndex < 0 ||
@@ -1664,7 +1603,7 @@ void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
       MainWidget::plotProfile(app_data.images, m_profileX, m_profileY);
 
       // TODO: Why is this buried in the short distance check?
-    } else if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode) {
+    } else if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
       // Move vertex
 
       if (m_editPolyVecIndex        < 0 ||
@@ -1904,10 +1843,10 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
   }
 
   // Do not zoom or do other funny stuff if we are moving IP or vertices
-  if (!m_polyEditMode && m_moveMatchPoint->isChecked() && !m_cropWinMode)
+  if (!m_polyEditMode && m_menu_mgr->m_moveMatchPoint->isChecked() && !m_cropWinMode)
     return;
     
-  if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode)
+  if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode)
     return;
 
   if (event->buttons() & Qt::RightButton) {
@@ -2042,39 +1981,39 @@ void MainWidget::contextMenuEvent(QContextMenuEvent *event) {
   m_mousePrsY = y;
 
   // If in poly edit mode, turn on these items.
-  m_deleteVertex->setVisible(m_polyEditMode);
-  m_deleteVertices->setVisible(m_polyEditMode);
-  m_insertVertex->setVisible(m_polyEditMode);
-  m_moveVertex->setVisible(m_polyEditMode);
-  m_showIndices->setVisible(m_polyEditMode);
-  m_showPolysFilled->setVisible(m_polyEditMode);
+  m_menu_mgr->m_deleteVertex->setVisible(m_polyEditMode);
+  m_menu_mgr->m_deleteVertices->setVisible(m_polyEditMode);
+  m_menu_mgr->m_insertVertex->setVisible(m_polyEditMode);
+  m_menu_mgr->m_moveVertex->setVisible(m_polyEditMode);
+  m_menu_mgr->m_showIndices->setVisible(m_polyEditMode);
+  m_menu_mgr->m_showPolysFilled->setVisible(m_polyEditMode);
 
   // Add the saving polygon option even when not editing
-  m_saveVectorLayerAsShapeFile->setVisible(true);
-  m_saveVectorLayerAsTextFile->setVisible(true);
+  m_menu_mgr->m_saveVectorLayerAsShapeFile->setVisible(true);
+  m_menu_mgr->m_saveVectorLayerAsTextFile->setVisible(true);
 
-  m_mergePolys->setVisible(m_polyEditMode);
+  m_menu_mgr->m_mergePolys->setVisible(m_polyEditMode);
 
   // Refresh this from the variable, before popping up the menu
-  m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
+  m_menu_mgr->m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
 
   // Turn on these items if we are NOT in poly edit mode. Also turn some off
   // in sideBySideWithDialog() mode, as then we draw the interest points
   // only with refreshPixmap(), which is rare, so user's editing
   // choices won't be reflected in the GUI.
-  m_addMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
-  m_deleteMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
-  m_moveMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
-  m_toggleHillshadeImageRightClick->setVisible(!m_polyEditMode);
-  m_setHillshadeParams->setVisible(!m_polyEditMode);
-  m_setThreshold->setVisible(!m_polyEditMode);
-  m_allowMultipleSelections_action->setVisible(!m_polyEditMode);
-  m_deleteSelection->setVisible(!sideBySideWithDialog());
-  m_hideImagesNotInRegion->setVisible(!sideBySideWithDialog());
+  m_menu_mgr->m_addMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
+  m_menu_mgr->m_deleteMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
+  m_menu_mgr->m_moveMatchPoint->setVisible(!m_polyEditMode && !sideBySideWithDialog());
+  m_menu_mgr->m_toggleHillshadeImageRightClick->setVisible(!m_polyEditMode);
+  m_menu_mgr->m_setHillshadeParams->setVisible(!m_polyEditMode);
+  m_menu_mgr->m_setThreshold->setVisible(!m_polyEditMode);
+  m_menu_mgr->m_allowMultipleSelections_action->setVisible(!m_polyEditMode);
+  m_menu_mgr->m_deleteSelection->setVisible(!sideBySideWithDialog());
+  m_menu_mgr->m_hideImagesNotInRegion->setVisible(!sideBySideWithDialog());
 
-  m_saveScreenshot->setVisible(true); // always visible
+  m_menu_mgr->m_saveScreenshot->setVisible(true); // always visible
 
-  m_ContextMenu->popup(mapToGlobal(QPoint(x,y)));
+  m_menu_mgr->m_ContextMenu->popup(mapToGlobal(QPoint(x,y)));
   return;
 }
 

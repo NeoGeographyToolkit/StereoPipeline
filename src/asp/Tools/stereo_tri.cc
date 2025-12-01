@@ -36,7 +36,6 @@
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Tools/stereo.h>
-#include <asp/Tools/ccd_adjust.h>
 
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>

@@ -19,6 +19,8 @@
 ///
 /// Member functions of MainWidget that have to do with polygons.
 
+#include <asp/GUI/MenuMgr.h>
+
 #include <asp/GUI/MainWidget.h>
 #include <asp/GUI/GuiGeom.h>
 #include <asp/GUI/chooseFilesDlg.h>
@@ -72,8 +74,8 @@ void MainWidget::setPolyEditMode(bool polyEditMode, bool refresh) {
   m_polyEditMode = polyEditMode;
 
   // Turn off moving vertices any time we turn on or off poly editing
-  m_moveVertex->setChecked(false);
-  m_showIndices->setChecked(false);
+  m_menu_mgr->m_moveVertex->setChecked(false);
+  m_menu_mgr->m_showIndices->setChecked(false);
 
   if (!m_polyEditMode) {
     // Clean up any unfinished polygon
@@ -680,7 +682,7 @@ void MainWidget::plotPolys(QPainter & paint) {
 
       int drawVertIndex = 0;
       bool plotPoints = false, plotEdges = true, plotFilled = false;
-      if (m_polyEditMode && m_moveVertex->isChecked()) {
+      if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked()) {
         drawVertIndex = 1; // to draw a little square at each movable vertex
         plotPoints = true;
       } else {
@@ -694,8 +696,8 @@ void MainWidget::plotPolys(QPainter & paint) {
       // At some point need to revisit if plotPoly() actually needs a color
       // as an argument or it can always be read from 'poly' itself.
       const std::vector<std::string> & colors = poly.get_colors();
-      MainWidget::plotPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
-                            m_showIndices->isChecked(), m_lineWidth, drawVertIndex,
+      MainWidget::plotPoly(plotPoints, plotEdges, m_menu_mgr->m_showPolysFilled->isChecked(),
+                            m_menu_mgr->m_showIndices->isChecked(), m_lineWidth, drawVertIndex,
                             QColor(colors[0].c_str()), paint, poly);
     }
   } // end iterating over polygons for all images

@@ -383,6 +383,12 @@ if (USE_ISIS)
                                ${ASP_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
 endif()
 
+# ASP PclIO
+get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
+get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
+set(ASP_PCLIO_LIB_DEPENDENCIES 
+    pcl_common pcl_io_ply pcl_io ${VISIONWORKBENCH_LIBRARIES} AspCore)
+
 # ASP OpenMVG
 get_all_source_files( "OpenMVG" ASP_OPENMVG_SRC_FILES)
 get_all_source_files( "OpenMVG/tests" ASP_OPENMVG_TEST_FILES)
@@ -407,12 +413,6 @@ if (USE_ISIS)
   set(ASP_CAMERA_LIB_DEPENDENCIES ${ASP_CAMERA_LIB_DEPENDENCIES} AspIsisIO)
 endif()
 
-# ASP Sessions
-## This code is more complicated and is specified in the lower level file
-get_all_source_files( "Sessions"       ASP_SESSIONS_SRC_FILES)
-get_all_source_files( "Sessions/tests" ASP_SESSIONS_TEST_FILES)
-set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspCamera)
-
 # ASP SfS
 get_all_source_files("SfS"       ASP_SfS_SRC_FILES)
 get_all_source_files("SfS/tests" ASP_SfS_TEST_FILES)
@@ -421,7 +421,8 @@ set(ASP_SfS_LIB_DEPENDENCIES AspCore AspCamera ${SOLVER_LIBRARIES})
 # ASP GUI
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
-set(ASP_GUI_LIB_DEPENDENCIES AspCore AspCamera Qt5::Core Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
+set(ASP_GUI_LIB_DEPENDENCIES AspCore AspCamera Qt5::Core Qt5::Gui Qt5::Widgets 
+    ${QWT_LIBRARIES})
 
 # ASP Gotcha
 get_all_source_files( "Gotcha"       ASP_GOTCHA_SRC_FILES)
@@ -429,20 +430,19 @@ get_all_source_files( "Gotcha/tests" ASP_GOTCHA_TEST_FILES)
 set(ASP_GOTCHA_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${OPENCV_LIBRARIES} 
     ${Boost_LIBRARIES})
 
-# ASP PclIO
-get_all_source_files("PclIO" ASP_PCLIO_SRC_FILES)
-get_all_source_files( "PclIO/tests" ASP_PCLIO_TEST_FILES)
-set(ASP_PCLIO_LIB_DEPENDENCIES 
-    pcl_common pcl_io_ply pcl_io ${VISIONWORKBENCH_LIBRARIES} AspCore)
-
 if (NOT CORE_ASP_ONLY)
   # ASP PcAlign
   get_all_source_files("PcAlign" ASP_PC_ALIGN_SRC_FILES)
   get_all_source_files("PcAlign/tests" ASP_PC_ALIGN_TEST_FILES)
   set(ASP_PC_ALIGN_LIB_DEPENDENCIES ${SOLVER_LIBRARIES} ${LIBPOINTMATCHER_LIBRARIES}
-      ${LIBNABO_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} AspSessions)
+      ${LIBNABO_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} AspCore)
 endif()    
-    
+
+# ASP Sessions
+get_all_source_files( "Sessions"       ASP_SESSIONS_SRC_FILES)
+get_all_source_files( "Sessions/tests" ASP_SESSIONS_TEST_FILES)
+set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspCamera)
+
 # Add all of the library subdirectories
 
 add_subdirectory(Core)
