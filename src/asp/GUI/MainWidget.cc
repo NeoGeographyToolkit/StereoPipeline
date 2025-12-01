@@ -1948,7 +1948,7 @@ void MainWidget::contextMenuEvent(QContextMenuEvent *event) {
   m_mousePrsX = x;
   m_mousePrsY = y;
 
-  m_menu_mgr->setupContextMenu();
+  m_menu_mgr->setupContextMenu(this);
 
   m_menu_mgr->m_contextMenu->popup(mapToGlobal(QPoint(x,y)));
   return;

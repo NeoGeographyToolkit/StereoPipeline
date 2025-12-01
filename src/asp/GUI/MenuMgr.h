@@ -37,9 +37,7 @@ struct MenuMgr {
   // Constructor to create and connect menu actions
   MenuMgr(MainWidget* parent_widget);
   QMenu* formCustomMenu(MainWidget* parent_widget);
-  void setupContextMenu();
-
-  MainWidget* m_parent_widget;
+  void setupContextMenu(MainWidget* parent_widget);
 
   // Right-click context menu
   QMenu  * m_contextMenu;

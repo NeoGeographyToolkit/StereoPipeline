@@ -26,7 +26,7 @@
 namespace asp {
 
 // Right-click context menu
-MenuMgr::MenuMgr(MainWidget* parent_widget): m_parent_widget(parent_widget) {
+MenuMgr::MenuMgr(MainWidget* parent_widget) {
   
   m_contextMenu = new QMenu(parent_widget);
   
@@ -103,36 +103,36 @@ MenuMgr::MenuMgr(MainWidget* parent_widget): m_parent_widget(parent_widget) {
                    parent_widget, SLOT(mergePolys()));
 }
 
-void MenuMgr::setupContextMenu() {
+void MenuMgr::setupContextMenu(MainWidget* parent_widget) {
   
   // If in poly edit mode, turn on these items.
-  m_deleteVertex->setVisible(m_parent_widget->m_polyEditMode);
-  m_deleteVertices->setVisible(m_parent_widget->m_polyEditMode);
-  m_insertVertex->setVisible(m_parent_widget->m_polyEditMode);
-  m_moveVertex->setVisible(m_parent_widget->m_polyEditMode);
-  m_showIndices->setVisible(m_parent_widget->m_polyEditMode);
-  m_showPolysFilled->setVisible(m_parent_widget->m_polyEditMode);
+  m_deleteVertex->setVisible(parent_widget->m_polyEditMode);
+  m_deleteVertices->setVisible(parent_widget->m_polyEditMode);
+  m_insertVertex->setVisible(parent_widget->m_polyEditMode);
+  m_moveVertex->setVisible(parent_widget->m_polyEditMode);
+  m_showIndices->setVisible(parent_widget->m_polyEditMode);
+  m_showPolysFilled->setVisible(parent_widget->m_polyEditMode);
 
   // Add the saving polygon option even when not editing
   m_saveVectorLayerAsShapeFile->setVisible(true);
   m_saveVectorLayerAsTextFile->setVisible(true);
 
-  m_mergePolys->setVisible(m_parent_widget->m_polyEditMode);
+  m_mergePolys->setVisible(parent_widget->m_polyEditMode);
 
   // Refresh this from the variable, before popping up the menu
-  m_allowMultipleSelections_action->setChecked(m_parent_widget->m_allowMultipleSelections);
+  m_allowMultipleSelections_action->setChecked(parent_widget->m_allowMultipleSelections);
 
   // Turn on these items if we are NOT in poly edit mode. Also turn some off
   // in sideBySideWithDialog() mode, as then we draw the interest points
   // only with refreshPixmap(), which is rare, so user's editing
   // choices won't be reflected in the GUI.
-  m_addMatchPoint->setVisible(!m_parent_widget->m_polyEditMode && !sideBySideWithDialog());
-  m_deleteMatchPoint->setVisible(!m_parent_widget->m_polyEditMode && !sideBySideWithDialog());
-  m_moveMatchPoint->setVisible(!m_parent_widget->m_polyEditMode && !sideBySideWithDialog());
-  m_toggleHillshadeImageRightClick->setVisible(!m_parent_widget->m_polyEditMode);
-  m_setHillshadeParams->setVisible(!m_parent_widget->m_polyEditMode);
-  m_setThreshold->setVisible(!m_parent_widget->m_polyEditMode);
-  m_allowMultipleSelections_action->setVisible(!m_parent_widget->m_polyEditMode);
+  m_addMatchPoint->setVisible(!parent_widget->m_polyEditMode && !sideBySideWithDialog());
+  m_deleteMatchPoint->setVisible(!parent_widget->m_polyEditMode && !sideBySideWithDialog());
+  m_moveMatchPoint->setVisible(!parent_widget->m_polyEditMode && !sideBySideWithDialog());
+  m_toggleHillshadeImageRightClick->setVisible(!parent_widget->m_polyEditMode);
+  m_setHillshadeParams->setVisible(!parent_widget->m_polyEditMode);
+  m_setThreshold->setVisible(!parent_widget->m_polyEditMode);
+  m_allowMultipleSelections_action->setVisible(!parent_widget->m_polyEditMode);
   m_deleteSelection->setVisible(!sideBySideWithDialog());
   m_hideImagesNotInRegion->setVisible(!sideBySideWithDialog());
 
@@ -141,9 +141,9 @@ void MenuMgr::setupContextMenu() {
 
 QMenu* MenuMgr::formCustomMenu(MainWidget* parent_widget) {
   
-  m_customMenu = new QMenu(parent_widget);
+m_customMenu = new QMenu(parent_widget);
 
-  m_toggleHillshadeFromImageList = m_customMenu->addAction("Toggle hillshade display");
+m_toggleHillshadeFromImageList = m_customMenu->addAction("Toggle hillshade display");
   QObject::connect(m_toggleHillshadeFromImageList, SIGNAL(triggered()),
                    parent_widget, SLOT(toggleHillshadeFromImageList()));
 
@@ -178,5 +178,4 @@ QMenu* MenuMgr::formCustomMenu(MainWidget* parent_widget) {
 
   return m_customMenu;
 }
-
 } // End namespace asp
