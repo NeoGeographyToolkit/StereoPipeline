@@ -583,10 +583,10 @@ ColorAxes::ColorAxes(QWidget *parent,
   plotLayout()->setAlignCanvasToScales(true);
 
   // Right-click context menu
-  m_ContextMenu = new QMenu();
+  m_contextMenu = new QMenu();
 
   // Se the min and max intensity values for the data to be plotted
-  m_setMinMaxIntensityAction = m_ContextMenu->addAction("Set min and max intensity");
+  m_setMinMaxIntensityAction = m_contextMenu->addAction("Set min and max intensity");
   connect(m_setMinMaxIntensityAction, SIGNAL(triggered()), this, SLOT(setMinMaxIntensity()));
 
   replot();
@@ -602,7 +602,7 @@ void ColorAxes::mousePressEvent(QMouseEvent *e) {
 void ColorAxes::contextMenuEvent(QContextMenuEvent *event) {
 
   int x = event->x(), y = event->y();
-  m_ContextMenu->popup(mapToGlobal(QPoint(x,y)));
+  m_contextMenu->popup(mapToGlobal(QPoint(x,y)));
   return;
 }
 

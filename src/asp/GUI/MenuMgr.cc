@@ -28,47 +28,47 @@ namespace asp {
 // Right-click context menu
 MenuMgr::MenuMgr(MainWidget* parent_widget) {
   
-  m_ContextMenu = new QMenu(parent_widget);
+  m_contextMenu = new QMenu(parent_widget);
   
   // Polygon editing mode, they will be visible only when editing happens
-  m_insertVertex   = m_ContextMenu->addAction("Insert vertex");
-  m_deleteVertex   = m_ContextMenu->addAction("Delete vertex");
-  m_deleteVertices = m_ContextMenu->addAction("Delete vertices in selected region");
-  m_moveVertex     = m_ContextMenu->addAction("Move vertices");
+  m_insertVertex   = m_contextMenu->addAction("Insert vertex");
+  m_deleteVertex   = m_contextMenu->addAction("Delete vertex");
+  m_deleteVertices = m_contextMenu->addAction("Delete vertices in selected region");
+  m_moveVertex     = m_contextMenu->addAction("Move vertices");
   m_moveVertex->setCheckable(true);
   m_moveVertex->setChecked(false);
 
-  m_showPolysFilled = m_ContextMenu->addAction("Show polygons filled");
+  m_showPolysFilled = m_contextMenu->addAction("Show polygons filled");
   m_showPolysFilled->setCheckable(true);
   m_showPolysFilled->setChecked(false);
 
-  m_showIndices = m_ContextMenu->addAction("Show vertex indices");
+  m_showIndices = m_contextMenu->addAction("Show vertex indices");
   m_showIndices->setCheckable(true);
   m_showIndices->setChecked(false);
 
-  m_mergePolys = m_ContextMenu->addAction("Merge polygons");
+  m_mergePolys = m_contextMenu->addAction("Merge polygons");
 
   // Other options
-  m_addMatchPoint      = m_ContextMenu->addAction("Add match point");
-  m_deleteMatchPoint   = m_ContextMenu->addAction("Delete match point");
-  m_moveMatchPoint     = m_ContextMenu->addAction("Move match point");
+  m_addMatchPoint      = m_contextMenu->addAction("Add match point");
+  m_deleteMatchPoint   = m_contextMenu->addAction("Delete match point");
+  m_moveMatchPoint     = m_contextMenu->addAction("Move match point");
   m_moveMatchPoint->setCheckable(true);
   m_moveMatchPoint->setChecked(false);
-  m_toggleHillshadeImageRightClick  = m_ContextMenu->addAction("Toggle hillshaded display");
-  m_setHillshadeParams = m_ContextMenu->addAction("View/set hillshade azimuth and elevation");
-  m_saveVectorLayerAsShapeFile = m_ContextMenu->addAction("Save vector layer as shape file");
-  m_saveVectorLayerAsTextFile = m_ContextMenu->addAction("Save vector layer as text file");
+  m_toggleHillshadeImageRightClick  = m_contextMenu->addAction("Toggle hillshaded display");
+  m_setHillshadeParams = m_contextMenu->addAction("View/set hillshade azimuth and elevation");
+  m_saveVectorLayerAsShapeFile = m_contextMenu->addAction("Save vector layer as shape file");
+  m_saveVectorLayerAsTextFile = m_contextMenu->addAction("Save vector layer as text file");
 
-  m_saveScreenshot     = m_ContextMenu->addAction("Save screenshot");
-  m_setThreshold       = m_ContextMenu->addAction("View/set threshold");
+  m_saveScreenshot     = m_contextMenu->addAction("Save screenshot");
+  m_setThreshold       = m_contextMenu->addAction("View/set threshold");
   m_allowMultipleSelections_action
-    = m_ContextMenu->addAction("Allow multiple selected regions");
+    = m_contextMenu->addAction("Allow multiple selected regions");
   m_allowMultipleSelections_action->setCheckable(true);
   m_allowMultipleSelections_action->setChecked(parent_widget->m_allowMultipleSelections);
 
-  m_deleteSelection = m_ContextMenu->addAction("Delete selected regions around this point");
+  m_deleteSelection = m_contextMenu->addAction("Delete selected regions around this point");
   m_hideImagesNotInRegion
-    = m_ContextMenu->addAction("Hide images not intersecting selected region");
+    = m_contextMenu->addAction("Hide images not intersecting selected region");
 
   // Connect signals to slots in the parent_widget
   QObject::connect(m_addMatchPoint, SIGNAL(triggered()), 
@@ -105,9 +105,9 @@ MenuMgr::MenuMgr(MainWidget* parent_widget) {
 
 QMenu* MenuMgr::formCustomMenu(MainWidget* parent_widget) {
   
-  m_CustomMenu = new QMenu(parent_widget);
+  m_customMenu = new QMenu(parent_widget);
 
-  m_toggleHillshadeFromImageList = m_CustomMenu->addAction("Toggle hillshade display");
+  m_toggleHillshadeFromImageList = m_customMenu->addAction("Toggle hillshade display");
   QObject::connect(m_toggleHillshadeFromImageList, SIGNAL(triggered()),
                    parent_widget, SLOT(toggleHillshadeFromImageList()));
 
@@ -115,16 +115,16 @@ QMenu* MenuMgr::formCustomMenu(MainWidget* parent_widget) {
     // Do not offer these options when the images are side-by-side,
     // as that will just mess up with their order.
 
-    m_bringImageOnTopFromTable = m_CustomMenu->addAction("Bring image on top");
+    m_bringImageOnTopFromTable = m_customMenu->addAction("Bring image on top");
     QObject::connect(m_bringImageOnTopFromTable, SIGNAL(triggered()),
                      parent_widget, SLOT(bringImageOnTopSlot()));
 
-    m_pushImageToBottomFromTable = m_CustomMenu->addAction("Push image to bottom");
+    m_pushImageToBottomFromTable = m_customMenu->addAction("Push image to bottom");
     QObject::connect(m_pushImageToBottomFromTable, SIGNAL(triggered()),
                      parent_widget, SLOT(pushImageToBottomSlot()));
   }
 
-  m_zoomToImageFromTable = m_CustomMenu->addAction("Zoom to image");
+  m_zoomToImageFromTable = m_customMenu->addAction("Zoom to image");
   QObject::connect(m_zoomToImageFromTable, SIGNAL(triggered()),
                    parent_widget, SLOT(zoomToImage()));
 
@@ -136,11 +136,11 @@ QMenu* MenuMgr::formCustomMenu(MainWidget* parent_widget) {
       hasPoly = true;
   }
   if (hasPoly) {
-    m_changePolyColor = m_CustomMenu->addAction("Change colors of polygons");
+    m_changePolyColor = m_customMenu->addAction("Change colors of polygons");
     QObject::connect(m_changePolyColor, SIGNAL(triggered()), parent_widget, SLOT(changePolyColor()));
   }
 
-  return m_CustomMenu;
+  return m_customMenu;
 }
 
 } // End namespace asp

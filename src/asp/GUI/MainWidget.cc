@@ -1981,7 +1981,7 @@ void MainWidget::contextMenuEvent(QContextMenuEvent *event) {
 
   m_menu_mgr->m_saveScreenshot->setVisible(true); // always visible
 
-  m_menu_mgr->m_ContextMenu->popup(mapToGlobal(QPoint(x,y)));
+  m_menu_mgr->m_contextMenu->popup(mapToGlobal(QPoint(x,y)));
   return;
 }
 

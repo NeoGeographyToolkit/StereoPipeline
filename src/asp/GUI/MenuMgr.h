@@ -39,8 +39,8 @@ struct MenuMgr {
   QMenu* formCustomMenu(MainWidget* parent_widget);
 
   // Right-click context menu
-  QMenu  * m_ContextMenu;
-  QMenu  * m_CustomMenu;
+  QMenu  * m_contextMenu;
+  QMenu  * m_customMenu;
   QAction* m_addMatchPoint;
   QAction* m_deleteMatchPoint;
   QAction* m_moveMatchPoint;

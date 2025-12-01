@@ -65,7 +65,7 @@ private:
   double m_min_x, m_min_y, m_max_x, m_max_y;
 
   // Context menu
-  QMenu  * m_ContextMenu;
+  QMenu  * m_contextMenu;
   void contextMenuEvent(QContextMenuEvent *event);
   
   QAction* m_setMinMaxIntensityAction;
