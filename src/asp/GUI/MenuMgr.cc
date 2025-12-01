@@ -21,6 +21,7 @@
 ///
 #include <asp/GUI/MenuMgr.h>
 #include <asp/GUI/MainWidget.h>
+#include <asp/GUI/GuiUtilities.h>
 
 namespace asp {
 
@@ -100,6 +101,46 @@ MenuMgr::MenuMgr(MainWidget* parent_widget) {
                    parent_widget, SLOT(insertVertex()));
   QObject::connect(m_mergePolys, SIGNAL(triggered()), 
                    parent_widget, SLOT(mergePolys()));
+}
+
+QMenu* MenuMgr::formCustomMenu(MainWidget* parent_widget) {
+  
+  m_CustomMenu = new QMenu(parent_widget);
+
+  m_toggleHillshadeFromImageList = m_CustomMenu->addAction("Toggle hillshade display");
+  QObject::connect(m_toggleHillshadeFromImageList, SIGNAL(triggered()),
+                   parent_widget, SLOT(toggleHillshadeFromImageList()));
+
+  if (!sideBySideWithDialog()) {
+    // Do not offer these options when the images are side-by-side,
+    // as that will just mess up with their order.
+
+    m_bringImageOnTopFromTable = m_CustomMenu->addAction("Bring image on top");
+    QObject::connect(m_bringImageOnTopFromTable, SIGNAL(triggered()),
+                     parent_widget, SLOT(bringImageOnTopSlot()));
+
+    m_pushImageToBottomFromTable = m_CustomMenu->addAction("Push image to bottom");
+    QObject::connect(m_pushImageToBottomFromTable, SIGNAL(triggered()),
+                     parent_widget, SLOT(pushImageToBottomSlot()));
+  }
+
+  m_zoomToImageFromTable = m_CustomMenu->addAction("Zoom to image");
+  QObject::connect(m_zoomToImageFromTable, SIGNAL(triggered()),
+                   parent_widget, SLOT(zoomToImage()));
+
+  // If having polygons, make it possible to change their colors
+  bool hasPoly = false;
+  for (int image_iter = parent_widget->m_beg_image_id;
+       image_iter < parent_widget->m_end_image_id; image_iter++) {
+    if (parent_widget->app_data.images[image_iter].m_isPoly)
+      hasPoly = true;
+  }
+  if (hasPoly) {
+    m_changePolyColor = m_CustomMenu->addAction("Change colors of polygons");
+    QObject::connect(m_changePolyColor, SIGNAL(triggered()), parent_widget, SLOT(changePolyColor()));
+  }
+
+  return m_CustomMenu;
 }
 
 } // End namespace asp

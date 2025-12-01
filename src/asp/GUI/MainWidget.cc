@@ -215,40 +215,8 @@ void MainWidget::customMenuRequested(QPoint pos) {
   m_indicesWithAction.clear();
   m_indicesWithAction.insert(imageIndex);
 
-  QMenu *menu=new QMenu(this);
-
-  m_menu_mgr->m_toggleHillshadeFromImageList = menu->addAction("Toggle hillshade display");
-  QObject::connect(m_menu_mgr->m_toggleHillshadeFromImageList, SIGNAL(triggered()),
-          this, SLOT(toggleHillshadeFromImageList()));
-
-  if (!sideBySideWithDialog()) {
-    // Do not offer these options when the images are side-by-side,
-    // as that will just mess up with their order.
-
-    m_menu_mgr->m_bringImageOnTopFromTable = menu->addAction("Bring image on top");
-    QObject::connect(m_menu_mgr->m_bringImageOnTopFromTable, SIGNAL(triggered()),
-            this, SLOT(bringImageOnTopSlot()));
-
-    m_menu_mgr->m_pushImageToBottomFromTable = menu->addAction("Push image to bottom");
-    QObject::connect(m_menu_mgr->m_pushImageToBottomFromTable, SIGNAL(triggered()),
-            this, SLOT(pushImageToBottomSlot()));
-
-  }
-
-  m_menu_mgr->m_zoomToImageFromTable = menu->addAction("Zoom to image");
-  QObject::connect(m_menu_mgr->m_zoomToImageFromTable, SIGNAL(triggered()),
-          this, SLOT(zoomToImage()));
-
-  // If having polygons, make it possible to change their colors
-  bool hasPoly = false;
-  for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-    if (app_data.images[image_iter].m_isPoly)
-      hasPoly = true;
-  }
-  if (hasPoly) {
-    m_menu_mgr->m_changePolyColor = menu->addAction("Change colors of polygons");
-    QObject::connect(m_menu_mgr->m_changePolyColor, SIGNAL(triggered()), this, SLOT(changePolyColor()));
-  }
+  // Form the menu
+  QMenu *menu = m_menu_mgr->formCustomMenu(this);
 
   menu->exec(filesTable->mapToGlobal(pos));
 }
