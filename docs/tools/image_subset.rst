@@ -10,6 +10,9 @@ This program is slow, as the algorithm complexity is proportional to the square
 of number of input images and the number of output pixels. It is best used with
 at most 100-200 images, each of dimensions of 1000 - 2000 pixels.
 
+As of build 2025/11, this program is multi-threaded and reads each image in
+fully in memory, so it should not be used with large images.
+
 Overview
 ~~~~~~~~
 
@@ -25,15 +28,22 @@ of contribution to coverage.
 Background and example
 ~~~~~~~~~~~~~~~~~~~~~~
 
-This program was developed as an auxiliary tool for Shape-from-shading
+This program was developed as an auxiliary tool for Shape-from-Shading
 processing (:numref:`sfs_usage`). For that, it is desired to have a very large
 number of images of diverse illumination to be able to coregister them all.
 However, once that is done, just a representative subset of images is needed for
 SfS, as using the full set can be prohibitive. 
 
-The following way of invoking this tool is suggested. First, break up the input
-image set into several groups, by Sun azimuth (:numref:`sfs_azimuth`), with 50 - 150
-images in each group. 
+The following way of invoking this tool is suggested. 
+
+First, for a very large terrain, it is suggested to break it up into quadrants
+with some overlap, collect all relevant images for each quadrant, and then
+process these quadrants separately. This will result in a faster runtime and
+produce images that are more relevant to each smaller area.
+
+Then, break up the input image set into several groups, by Sun azimuth
+(:numref:`sfs_azimuth`), with 50 - 150 images in each group. This will help
+produce subsets of images with diverse illumination.
 
 For the images in each group, create a list of mapprojected images at a low
 resolution, for example, at 1/16 of original image resolution. This can be
@@ -46,17 +56,14 @@ such as::
 Then, for each group, this program can be called as::
 
   image_subset            \
+    --threads 40          \
     --threshold 0.01      \
     --image-list list.txt \
     -o subset.txt 
 
-Note, as before, that this program can take many hours. A progress bar is
-displayed and helps track its advancement.
-
-For a very large terrain, it is suggested to break it up into quadrants with some
-overlap, collect all relevant images for each quadrant, and then process these
-quadrants separately. This will result in a faster runtime and produce images
-that are more relevant to each smaller area.
+Note, as before, that this program can be slow. A progress bar is
+displayed and helps track its advancement. If this is unreasonably slow,
+run it on lower-resolution images or with fewer images.
 
 A good threshold can be found by clicking on pixels of representative images in
 ``stereo_gui`` and observing the pixel values printed in the terminal.
@@ -70,6 +77,9 @@ if they cover the desired area in decreasing order of contribution to coverage.
 The program ``dem_mosaic`` (:numref:`dem_mosaic`) with the ``--max`` option
 can be helpful in determining if the produced subset coverage is about
 the same as for the original images.
+
+It is likely acceptable to drop the last few images in the produced list, as
+their contribution may be marginal.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~

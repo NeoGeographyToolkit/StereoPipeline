@@ -26,6 +26,8 @@
 #include <vw/Core/Stopwatch.h>
 #include <vw/FileIO/FileUtils.h>
 
+#include <omp.h>
+
 #include <vector>
 #include <string>
 #include <iostream>
@@ -123,8 +125,8 @@ double calc_score_apply(Options const& opt, std::string const& image_file,
   if (in_rsrc.has_nodata_read())
     nodata = in_rsrc.nodata_read();
   
-  // Read the image and mask the no-data
-  vw::ImageViewRef<vw::PixelMask<float>> img 
+  // Read the image in memory (for speed) and mask the no-data
+  vw::ImageView<vw::PixelMask<float>> img 
     = create_mask(vw::DiskImageView<float>(in_rsrc), nodata);
   
   // Bounds of the output and input images
@@ -157,42 +159,45 @@ double calc_score_apply(Options const& opt, std::string const& image_file,
   no_data.invalidate();
   typedef vw::ValueEdgeExtension<vw::PixelMask<float>> NoDataType;
   NoDataType no_data_ext(no_data);
-  vw::InterpolationView<vw::EdgeExtensionView<vw::ImageViewRef<vw::PixelMask<float>>, NoDataType>, vw::BilinearInterpolation> interp_img 
+  vw::InterpolationView<vw::EdgeExtensionView<vw::ImageView<vw::PixelMask<float>>, NoDataType>, vw::BilinearInterpolation> interp_img 
     = interpolate(img, vw::BilinearInterpolation(), no_data_ext);
  
   // Iterate over the transformed box and calculate the score or apply the
-  // image.
-  // Note: Multi-threading slowed things down. Likely because ASP does not
-  // likely reading pixels from same large images in multiple threads.
+  // image. Extract bounds to integer variables to satisfy OpenMP canonical form.
+  int beg_col = trans_box.min().x();
+  int end_col = trans_box.max().x();
+  int beg_row = trans_box.min().y();
+  int end_row = trans_box.max().y();
   double score = 0.0;
-  for (int col = trans_box.min().x(); col < trans_box.max().x(); col++) {
-    for (int row = trans_box.min().y(); row < trans_box.max().y(); row++) {
+
+  // Use reduction(+:score) to handle the sum efficiently without locking
+  #pragma omp parallel for num_threads(opt.num_threads) reduction(+:score)
+  for (int col = beg_col; col < end_col; col++) {
+    for (int row = beg_row; row < end_row; row++) {
       
       vw::Vector2 out_pix(col, row);
       
-      // If the value of out_pix is valid and no less than the threshold,
-      // the new image will not add anything to the coverage
+      // If already above threshold, skip
       vw::PixelMask<float> out_val = out_img(col, row);
       if (is_valid(out_val) && out_val.child() >= threshold)
         continue;
-        
-      // Find the interpolated pixel value
+      
+      // Interpolated pixel  
       vw::Vector2 img_pix = geotrans.forward(out_pix);
       vw::PixelMask<float> val = interp_img(img_pix.x(), img_pix.y());
       
-      // Skip invalid values and values less than the threshold
+      // If not above threshold, it does not add to the score
       if (!is_valid(val) || val.child() < threshold)
         continue;
 
-      // This is a good value, increment the score
-      score++;
+      // No need for critical section; reduction handles this safely and fast
+      score += 1.0;
       
-      // Apply the value if requested
       if (apply)
         out_img(col, row) = val;
     }  
   }
-   
+     
   return score;
 }
                            
@@ -300,7 +305,9 @@ void run_image_subset(Options const& opt) {
      
       if (inspected.find(image_files[inner]) != inspected.end())
         continue;
-
+      
+      tpc.report_incremental_progress(inc_amount);
+      
       bool apply = false;
       double score = calc_score_apply(opt, image_files[inner], opt.threshold, apply, 
                                       out_georef, out_img);
@@ -317,7 +324,6 @@ void run_image_subset(Options const& opt) {
         best_score = score;
         best_index = inner;
       }
-      tpc.report_incremental_progress(inc_amount);
     }
 
     // If the score is 0, we are done, as more passes won't help
