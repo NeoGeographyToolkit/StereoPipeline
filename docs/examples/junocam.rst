@@ -141,7 +141,7 @@ invoked as follows::
       --dem ref/flat_dem.tif              \
       --gcp-sigma 1000                    \
       --output-prefix gcp/run             \
-      -o gcp/${f}.gcp
+      --output-gcp gcp/${f}.gcp
   
 We set ``--gcp-sigma 1000``, which is rather high, as we do not know the exact
 DEM that was employed to produce the reference image mosaic. The option ``--individually-normalize`` was essential, as these images come from different

@@ -609,7 +609,8 @@ program (:numref:`gcp_gen`) can create a GCP file for it::
     gcp_gen --camera-image img.tif \
       --ortho-image ortho.tif      \
       --dem dem.tif                \
-      -o gcp.gcp
+      --output-prefix run/run      \
+      --output-gcp gcp.gcp
 
 If only a DEM is known, but in which one could visually discern roughly the same
 features seen in the camera image, GCP can be created with point-and-click in

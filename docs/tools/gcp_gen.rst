@@ -30,7 +30,7 @@ Examples
       --individual-normalize          \
       --gcp-sigma 1.0                 \
       --output-prefix run/run         \
-      -o gcp.gcp
+      --output-gcp gcp.gcp
 
 If given several images, the program should be invoked individually
 for each image, thus creating several GCP files. 
@@ -49,7 +49,7 @@ also with more interest points per tile, and individually normalizing the images
       --ortho-image ortho_image.tif   \
       --dem dem.tif                   \
       --output-prefix run/run         \
-      -o gcp.gcp
+      --output-gcp gcp.gcp
 
 In some cases, ``--ip-detect-method 2`` (ORB) worked out better than SIFT.
 
@@ -129,6 +129,11 @@ Command-line options
 --output-gcp, -o <string (default: "")>
     The output GCP file.
 
+--output-prefix <string (default: "")>
+    Save the intermediate data, including match files, in this directory. This
+    will cache any matches found, and those will be used to create the GCP file.
+    The match file needs to be deleted if desired to recompute it.
+
 --gcp-sigma <double (default: 1.0)>
     The sigma (uncertainty, in meters) to use for the GCPs (:numref:`bagcp`). A
     smaller sigma suggests a more accurate GCP. See also option
@@ -174,11 +179,6 @@ Command-line options
     accurate to subpixel level. Remove any existing ``.vwip`` files before
     recomputing interest points with a different method. See also
     :numref:`custom_ip`.
-
---output-prefix <string (default: "")>
-    Save the intermediate data, including match files, in this directory. This
-    will cache any matches found, and those will be used to create the GCP file.
-    The match file needs to be deleted if desired to recompute it.
 
 --nodata-value <float (default: NaN)>
     Pixels with values less than or equal to this number are treated
