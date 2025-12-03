@@ -44,10 +44,12 @@ Examples
 
 ::
    
-    image_align --alignment-transform rigid        \
-        --ip-per-image 20000                       \
-        image1.tif image2.tif -o image2_align.tif  \
-        --output-prefix out_image_align/run
+    image_align                           \
+      --alignment-transform rigid         \
+      --ip-per-image 20000                \
+      image1.tif image2.tif               \
+      --output-prefix out_image_align/run \
+      -o image2_align.tif
 
 The directory ``out_image_align`` will contain the interest point matches
 (that are cached for future runs), the computed transform, and other
@@ -62,10 +64,11 @@ be more robust to differences in illumination.
     parallel_stereo --correlator-mode --stereo-algorithm asp_mgm \
       --subpixel-mode 9 image1.tif image2.tif run/run-corr
 
-    image_align image1.tif image2.tif \
-      --output-image image2_align.tif \
-      --output-prefix run/run         \
-      --disparity-params "run/run-corr-F.tif 1000000"
+    image_align                                       \
+      image1.tif image2.tif                           \
+      --disparity-params "run/run-corr-F.tif 1000000" \
+      --output-prefix run/run                         \
+      --output-image image2_align.tif
 
 The file ending in ``F.tif`` has the disparity.
 
@@ -102,6 +105,7 @@ to the first, as::
 
     image_align dem1.tif dem2.tif             \
       --input-transform run/run-transform.txt \
+      --output-prefix run/run                 \
       -o dem2_align.tif 
 
 It appears that applying this tool on the DEMs themselves may result
@@ -187,9 +191,11 @@ Usage
 ~~~~~
 
 ::
-  
+
     image_align [options] <reference image> <source image> \
-      -o <aligned source image>
+      --output-prefix <prefix> -o <aligned source image>
+
+.. _image_align_opts:
 
 Command-line options for image_align
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -198,7 +204,7 @@ Command-line options for image_align
     Specify the output image.
 
 --output-prefix <string (default: "out_image_align/run")>
-    If set, save the interest point matches, computed transform, and other auxiliary
+    Save the interest point matches, computed transform, and other auxiliary
     data at this prefix. These are cached for future runs.
 
 --alignment-transform <string (default: "rigid")>

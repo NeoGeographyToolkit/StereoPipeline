@@ -323,7 +323,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "translation, rigid (translation + rotation), similarity (translation + rotation + "
      "scale), affine, homography.")
     ("output-prefix", po::value(&opt.output_prefix)->default_value("out_image_align/run"),
-     "If set, save the interest point matches, computed transform, and other auxiliary "
+     "Save the interest point matches, computed transform, and other auxiliary "
      "data at this prefix. These are cached for future runs.")
     ("output-data-type,d",  po::value(&opt.output_data_string)->default_value("float32"),
      "The data type of the output file. Options: uint8, uint16, uint32, int16, int32, "

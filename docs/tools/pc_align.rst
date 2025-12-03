@@ -235,6 +235,8 @@ For that, first produce the hillshades, either with ``gdaldem hillshade``
 (:numref:`gdal_hill`), which is preferred, or with the ASP ``hillshade`` program
 (:numref:`hillshade`). Call these outputs ``ref_hill.tif`` and ``src_hill.tif``.
 Inspect them to ensure they have a good range of pixel values and good contrast.
+The contrast can be increased with ``hillshade`` by decreasing the
+``--elevation`` option value.
 
 Image correlation is performed (:numref:`correlator-mode`) on hillshaded
 images::
