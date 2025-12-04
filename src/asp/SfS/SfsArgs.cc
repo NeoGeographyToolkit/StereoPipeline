@@ -90,13 +90,20 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   ("model-shadows",  
   po::bool_switch(&opt.model_shadows)->default_value(false)->implicit_value(true),
    "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
-  ("save-computed-intensity-only",  
-  po::bool_switch(&opt.save_computed_intensity_only)->default_value(false)->implicit_value(true),
-   "Save the computed (simulated) image intensities for given DEM, images, cameras, and "
-   "reflectance model, without refining the DEM. The measured intensities will be saved "
-   "as well, for comparison. The image exposures will be computed along the way unless "
-   "specified via --image-exposures-prefix, and will be saved in either case to "
-   "<output prefix>-exposures.txt. Same for haze, if applicable.")
+  ("save-sim-intensity-only",  
+  po::bool_switch(&opt.save_sim_intensity_only)->default_value(false)->implicit_value(true),
+   "Save the simulated image intensities at each DEM pixel for the given DEM, images, "
+   "cameras, and reflectance model, without refining the DEM. The output files are "
+   "<output prefix>-<image>-sim-intensity.tif for each input image. The image exposures "
+   "will be computed along the way unless specified via --image-exposures-prefix, and "
+   "will be saved in either case to <output prefix>-exposures.txt. Same for haze, if "
+   "applicable. See also: --save-meas-intensity-only.")
+  ("save-meas-intensity-only",
+  po::bool_switch(&opt.save_meas_intensity_only)->default_value(false)->implicit_value(true),
+    "Save the measured image intensities at each DEM pixel for the given DEM, "
+    "images, and cameras, without refining the DEM. The output files are "
+    "<output prefix>-<image>-meas-intensity.tif for each input image. See also: "
+    "--save-sim-intensity-only.")
   ("estimate-exposure-haze-albedo",
   po::bool_switch(&opt.estim_exposure_haze_albedo)->default_value(false)->implicit_value(true),
    "Estimate the exposure for each image, the haze for each image (if --num-haze-coeffs "
@@ -733,7 +740,8 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   if (opt.estimate_height_errors && opt.model_shadows)
     vw::vw_throw(vw::ArgumentErr() << "Cannot estimate height error when modeling shadows.");
 
-  if (opt.save_computed_intensity_only || opt.estimate_height_errors) {
+  if (opt.save_sim_intensity_only || opt.save_meas_intensity_only || 
+      opt.estimate_height_errors) {
 
     // No iterations
     opt.max_iterations = 0;

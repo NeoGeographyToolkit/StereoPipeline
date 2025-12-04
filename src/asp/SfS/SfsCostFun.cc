@@ -75,14 +75,14 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
 
   vw::vw_out() << "Finished iteration: " << iter << std::endl;
 
-  if (!opt.save_computed_intensity_only)
+  if (!opt.save_sim_intensity_only && !opt.save_meas_intensity_only)
     asp::saveExposures(opt.out_prefix, opt.input_images, exposures);
 
-  if (opt.num_haze_coeffs > 0 && !opt.save_computed_intensity_only)
+  if (opt.num_haze_coeffs > 0 && !opt.save_sim_intensity_only && !opt.save_meas_intensity_only)
     asp::saveHaze(opt.out_prefix, opt.input_images, haze);
 
   std::string model_coeffs_file = asp::modelCoeffsFileName(opt.out_prefix);
-  if (!opt.save_computed_intensity_only) {
+  if (!opt.save_sim_intensity_only && !opt.save_meas_intensity_only) {
     // Not needed, usually
     // vw::vw_out() << "Writing: " << model_coeffs_file << std::endl;
     // std::ofstream mcf(model_coeffs_file.c_str());
@@ -110,7 +110,8 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
 
   bool has_georef = true, has_nodata = true;
   vw::TerminalProgressCallback tpc("asp", ": ");
-  if ((!opt.save_sparingly || final_iter) && !opt.save_computed_intensity_only) {
+  if ((!opt.save_sparingly || final_iter) && !opt.save_sim_intensity_only && 
+      !opt.save_meas_intensity_only) {
     std::string out_dem_file = opt.out_prefix + "-DEM"
       + iter_str + ".tif";
     vw::vw_out() << "Writing: " << out_dem_file << std::endl;
@@ -120,7 +121,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
   }
 
   if ((!opt.save_sparingly || (final_iter && opt.float_albedo)) &&
-      !opt.save_computed_intensity_only) {
+      !opt.save_sim_intensity_only && !opt.save_meas_intensity_only) {
     std::string out_albedo_file = opt.out_prefix + "-comp-albedo"
       + iter_str + ".tif";
     vw::vw_out() << "Writing: " << out_albedo_file << std::endl;
@@ -200,14 +201,14 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
                                             has_georef, geo, has_nodata, img_nodata_val,
                                             opt, tpc);
 
-    std::string out_sim_intensity_file = iter_str2 + "-comp-intensity.tif";
+    std::string out_sim_intensity_file = iter_str2 + "-sim-intensity.tif";
     vw::vw_out() << "Writing: " << out_sim_intensity_file << std::endl;
     vw::cartography::block_write_gdal_image(out_sim_intensity_file,
                                             vw::apply_mask(sim_intensity, img_nodata_val),
                                             has_georef, geo, has_nodata, img_nodata_val,
                                             opt, tpc);
 
-    if (opt.save_computed_intensity_only)
+    if (opt.save_sim_intensity_only || opt.save_meas_intensity_only)
       continue; // don't write too many things
     
     // Not needed usually  

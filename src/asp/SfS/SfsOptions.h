@@ -37,7 +37,7 @@ struct SfsOptions: public vw::GdalWriteOptions {
   int max_iterations, reflectance_type, blending_dist, min_blend_size, num_haze_coeffs,
     num_samples_for_estim;
   bool float_albedo, float_exposure, model_shadows,
-    save_computed_intensity_only, estimate_height_errors,
+    save_sim_intensity_only, save_meas_intensity_only, estimate_height_errors,
     compute_exposures_only, estim_exposure_haze_albedo,
     save_dem_with_nodata, use_approx_camera_models,
     crop_input_images, allow_borderline_data, fix_dem, float_reflectance_model,

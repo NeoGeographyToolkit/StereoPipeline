@@ -83,13 +83,15 @@ outputs are:
 
  - ``run/run-<image>-final-meas-intensity.tif`` - For each input image, this
    has the actual (measured) image values at each refined DEM grid point. 
+   See also ``--save-meas-intensity-only``.
 
- - ``run/run-<image>-final-comp-intensity.tif`` - For each input image,
+ - ``run/run-<image>-final-sim-intensity.tif`` - For each input image,
    this has the simulated image values at each refined DEM grid point using
    the reflectance model and the Sun position for the
    current image. If the modeling is perfect, the measured input image
    will precisely agree with the simulated (modeled) image. In reality
-   these are close but different.
+   these are close but different. This was called the "computed" intensity
+   prior to build 2025/11. See also ``--save-sim-intensity-only``.
 
  - ``run/run-<image>-final-meas-albedo.tif`` - This stores the measured
    input image divided by the exposure times computed reflectance. Hence
@@ -279,13 +281,20 @@ Command-line options for sfs
     The input albedo image, if known. Must have the same dimensions as the input
     DEM. Otherwise it is initialized to 1. Can be refined with ``--float-albedo``.
     
---save-computed-intensity-only
-    Save the computed (simulated) image intensities for given DEM, images,
-    cameras, and reflectance model, without refining the DEM. The measured
-    intensities will be saved as well, for comparison. The image exposures will
-    be computed along the way unless specified via ``--image-exposures-prefix``,
-    and will be saved in either case to ``<output prefix>-exposures.txt``. Same
-    for haze, if applicable.
+--save-sim-intensity-only
+    Save the simulated image intensities at each DEM pixel for the given DEM,
+    images, cameras, and reflectance model, without refining the DEM. The output
+    files are ``<output prefix>-<image>-sim-intensity.tif`` for each input
+    image. The image exposures will be computed along the way unless specified
+    via ``--image-exposures-prefix``, and will be saved in either case to
+    ``<output prefix>-exposures.txt``. Same for haze, if applicable. See also
+    ``--save-meas-intensity-only``.
+
+--save-meas-intensity-only
+    Save the measured image intensities at each DEM pixel for the given DEM,
+    images, and cameras, without refining the DEM. The output files are
+    ``<output prefix>-<image>-meas-intensity.tif`` for each input image. See
+    also ``--save-sim-intensity-only``.
 
 --allow-borderline-data
     At the border of the region where there are no lit pixels in any

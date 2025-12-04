@@ -31,7 +31,7 @@ SfsOptions::SfsOptions():
   min_blend_size(0), num_haze_coeffs(0),
   num_samples_for_estim(0),
   float_albedo(false), float_exposure(false), model_shadows(false),
-  save_computed_intensity_only(false),
+  save_sim_intensity_only(false), save_meas_intensity_only(false),
   estimate_height_errors(false),
   compute_exposures_only(false),
   estim_exposure_haze_albedo(false),

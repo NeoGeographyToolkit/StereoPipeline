@@ -91,7 +91,7 @@ void handleBorderlineAndLowLight(SfsOptions & opt,
                                  vw::cartography::GeoReference const& geo,
                                  std::vector<vw::BBox2i> const& crop_boxes,
                                  std::vector<MaskedDblImgT> const& meas_intensities,
-                                 std::vector<MaskedDblImgT> const& comp_intensities,
+                                 std::vector<MaskedDblImgT> const& sim_intensities,
                                  // Outputs
                                  float & img_nodata_val,
                                  std::vector<MaskedImgRefT> & masked_images,
@@ -161,7 +161,7 @@ void saveIntensities(SfsOptions const& opt,
                      std::string const& input_camera,
                      vw::cartography::GeoReference const& geo,
                      MaskedDblImgT const& meas_intensity,
-                     MaskedDblImgT const& comp_intensity,
+                     MaskedDblImgT const& sim_intensity,
                      float img_nodata_val);
 
 // Compute a full-resolution image by specific interpolation into a low-resolution

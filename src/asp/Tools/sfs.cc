@@ -575,7 +575,7 @@ void calcIntenEstimHeights(SfsOptions & opt,
       }
     }
     
-    if (opt.save_computed_intensity_only)
+    if (opt.save_sim_intensity_only || opt.save_meas_intensity_only)
       asp::saveIntensities(opt, opt.input_images[image_iter],
                            opt.input_cameras[image_iter],
                            geo, meas_intensity,
@@ -687,7 +687,8 @@ void sfsSanityChecks(asp::SfsOptions const& opt,
 
   // This check must happen before loading images but after we know the DEM size
   if ((dem.cols() > 500 || dem.rows() > 500) && !opt.compute_exposures_only &&
-      !opt.estim_exposure_haze_albedo && !opt.save_computed_intensity_only)
+      !opt.estim_exposure_haze_albedo && !opt.save_sim_intensity_only &&
+      !opt.save_meas_intensity_only)
     vw::vw_out(vw::WarningMessage) << "The input DEM is large and this program "
       << "may run out of memory. Use parallel_sfs instead, with small tiles.\n";
 }
@@ -905,14 +906,14 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    // Compute and/or save the intensities, and/or estimate height errors,
+    // and/or compute weights for borderline data.
+    // Show progress when the DEM is big
     std::vector<ImageView<double>> ground_weights(num_images);
     std::vector<MaskedDblImgT> meas_intensities(num_images);
     std::vector<MaskedDblImgT> sim_intensities(num_images);
-
-    // Compute and/or save the intensities, and/or estimate height errors,
-    // and/or compute weights for borderline data.
-    bool show_progress = opt.save_computed_intensity_only; // because the DEM is big then
-    if (opt.save_computed_intensity_only || 
+    bool show_progress = (opt.save_sim_intensity_only || opt.save_meas_intensity_only);
+    if (opt.save_sim_intensity_only || opt.save_meas_intensity_only ||
         opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0 ||
         opt.allow_borderline_data || opt.low_light_threshold > 0.0)
       calcIntenEstimHeights(opt, dem, albedo, geo, show_progress, max_dem_height,
@@ -923,7 +924,8 @@ int main(int argc, char* argv[]) {
                             lit_image_mask, ground_weights,
                             meas_intensities, sim_intensities);
 
-    if (opt.save_computed_intensity_only || opt.estimate_height_errors) {
+    if (opt.save_sim_intensity_only || opt.save_meas_intensity_only ||
+        opt.estimate_height_errors) {
       asp::saveExposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
       return 0; // All done
     }

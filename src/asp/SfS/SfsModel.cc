@@ -375,7 +375,7 @@ double calcReflectance(vw::Vector3 const& cameraPosition,
 // Simulated model-based intensity:
 // albedo * nonlinReflectance(reflectance_i, exposures[i], haze, num_haze_coeffs) + haze[0]
 // Cost function is the squared difference between measured and computed intensity:
-// sum_i | I_i - comp_intensity_i|^2
+// sum_i | I_i - sim_intensity_i|^2
 double calcSimIntensity(double albedo, double reflectance, double exposure,
                         double steepness_factor, double const* haze, int num_haze_coeffs) {
   return albedo
@@ -610,7 +610,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
 
     int image_iter = heightErrEstim->image_iter;
     ImageView<double> const& albedo = *heightErrEstim->albedo; // alias
-    double comp_intensity 
+    double sim_intensity 
       = calcSimIntensity(albedo(col, row), reflectance,
                          opt.image_exposures_vec[image_iter],
                          opt.steepness_factor, &opt.image_haze_vec[image_iter][0],
@@ -619,7 +619,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
     // We use twice the discrepancy between the computed and measured intensity
     // as a measure for how far is overall the computed intensity allowed
     // to diverge from the measured intensity
-    double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
+    double max_intensity_err = 2.0 * std::abs(intensity.child() - sim_intensity);
     estimateHeightError(dem, geo, cameraPosition, sunPosition,  refl_params,
                         refl_coeffs, intensity.child(), max_intensity_err,
                         col, row, gridx, gridy, image_iter, opt, albedo,
@@ -715,7 +715,7 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
   // find the neighbors and surface normal.
   bool use_pq = (pq.cols() > 0 && pq.rows() > 0);
   int col_sample = 0;
-  #pragma omp parallel for num_threads(opt.num_threads)
+  //#pragma omp parallel for num_threads(opt.num_threads)
   for (int col = 1; col < dem.cols() - 1; col += sample_col_rate) {
     col_sample++;
 
@@ -743,7 +743,7 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
     
     // Show progress if requested
     if (show_progress) {
-      #pragma omp critical
+      //#pragma omp critical
       { 
         tpc.report_incremental_progress(inc);
       }
@@ -824,21 +824,21 @@ void calcSimIntensity(vw::ImageView<double> const& albedo,
                       int num_haze_coeffs,
                       int num_threads,
                       bool show_progress,
-                      MaskedDblImgT & comp_intensity) {
+                      MaskedDblImgT & sim_intensity) {
 
   // Init the output image
-  comp_intensity.set_size(reflectance.cols(), reflectance.rows());
+  sim_intensity.set_size(reflectance.cols(), reflectance.rows());
   
   // Set up a terminal progress callback. Will be used only if showing progress.
   vw::TerminalProgressCallback tpc("asp", "sim inten: ");
-  double inc = 1.0 / comp_intensity.cols();
+  double inc = 1.0 / sim_intensity.cols();
   if (show_progress)
     tpc.report_incremental_progress(0.0);
 
-  #pragma omp parallel for num_threads(num_threads)
-  for (int col = 0; col < comp_intensity.cols(); col++) {
-    for (int row = 0; row < comp_intensity.rows(); row++) {
-      comp_intensity(col, row) 
+  //#pragma omp parallel for num_threads(num_threads)
+  for (int col = 0; col < sim_intensity.cols(); col++) {
+    for (int row = 0; row < sim_intensity.rows(); row++) {
+      sim_intensity(col, row) 
         = calcSimIntensity(albedo(col, row), reflectance(col, row),
                            exposure, steepness_factor, 
                            &haze[0], num_haze_coeffs);
@@ -846,7 +846,7 @@ void calcSimIntensity(vw::ImageView<double> const& albedo,
     
     // Show progress if requested
     if (show_progress) {
-      #pragma omp critical
+      //#pragma omp critical
       { 
         tpc.report_incremental_progress(inc);
       }

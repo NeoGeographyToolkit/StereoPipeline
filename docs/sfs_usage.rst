@@ -1096,6 +1096,29 @@ to the ground, so later in the process (:numref:`parallel_sfs_usage`).
 The paper :cite:`bertone2023highly` discusses how to automate
 the process of selecting images. 
 
+Incorporation of well-registered images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The approach outlined in the next sections consists of doing bundle adjustment,
+alignment, then refinement of bundle adjustment with ground constraints.
+
+For the Lunar South Pole, a large set of well-registered cameras exists. Using
+them requires running ``spiceinit`` with the
+`provided kernels <https://www.sciencebase.gov/catalog/item/688a51d7d4be02367c9c1271>`_, followed by creation of CSM cameras as usual.
+
+In that case, consider first understanding the workflow below, then modify it as
+follows. In the first bundle adjustment, keep the subset of well-registered
+cameras for the given site fixed. Then, do not do alignment, but redo bundle
+adjustment with no fixed cameras, starting with the cameras from the first step.
+Lastly, run bundle adjustment with ground constraints as in the regular
+workflow.
+
+The explanation is as follows. The well-registered cameras will help register
+the other cameras. Then alignment is not needed. However, a subsequent bundle
+adjustment with no fixed cameras will eliminate some minor registration issues
+in the well-registered cameras (which are known not to be perfect). The final
+bundle adjustment with the ground constraint reduces any vertical discrepancies.
+
 Bundle adjustment
 ^^^^^^^^^^^^^^^^^
 
@@ -1229,9 +1252,12 @@ and then apply this alignment to the cameras.
 With LRO NAC images, stereo pairs may be hard to find. In addition, after the
 earlier step of bundle adjustment the images may already be within 10-30 meters
 horizontally relative to the reference LOLA DEM, as validated by mapprojection.
-In that case, one may consider skipping this step. It is suggested to attempt it
-anyway, and skip it only if there are very good reasons. The produced SfS DEM
-will likely need additional alignment in either case
+
+If it looks that the alignment is already in the ballpark, and it is tricky to
+find stereo pairs, or the attempt at alignment fails, consider skipping this
+step. 
+
+The produced SfS DEM will likely need additional alignment in either case
 (:numref:`sfs_align_refine`).
 
 Examine the file having the stereo convergence angles for each pair of images as

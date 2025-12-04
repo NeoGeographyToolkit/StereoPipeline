@@ -30,6 +30,8 @@ sfs (:numref:`sfs`):
   * Options ``--albedo-constraint-weight`` and ``--albedo-robust-threshold`` are
     respected when low-resolution initial albedo is estimated (with option
     ``--estimate-exposure-haze-albedo``).
+  * Replaced ``--save-computed-intensity-only`` with ``--save-sim-intensity-only`` 
+    and ``--save-meas-intensity-only``.
   * Unused option ``--estimate-slope-errors`` got removed.
 
 parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
@@ -99,6 +101,14 @@ stereo_gui (:numref:`stereo_gui`):
 
 image_align (:numref:`image_align`):
   * Added the option ``--nodata-value``.
+  * Supports the same controls for interest point detection as
+    ``bundle_adjust`` (:numref:`image_align_opts`).
+  * The option ``--output-prefix`` is now required to be non-empty. It is set by
+    default to ``out_image_align/run``.
+
+image_subset (:numref:`image_subset`):
+  * This program is now multi-threaded. Each image is read fully in memory for
+    speed.
 
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).

@@ -861,7 +861,7 @@ void handleLowLight(SfsOptions const& opt,
                     vw::ImageView<double> const& dem,
                     vw::cartography::GeoReference const& geo,
                     std::vector<MaskedDblImgT> const& meas_intensities,
-                    std::vector<MaskedDblImgT> const& comp_intensities,
+                    std::vector<MaskedDblImgT> const& sim_intensities,
                     std::vector<vw::ImageView<double>> & blend_weights) {
 
   int num_images = meas_intensities.size();
@@ -888,17 +888,17 @@ void handleLowLight(SfsOptions const& opt,
 
         // Find the meas and comp intensities
         auto meas_intensity = meas_intensities[image_iter](col, row);
-        auto comp_intensity = comp_intensities[image_iter](col, row);
+        auto sim_intensity = sim_intensities[image_iter](col, row);
 
         // Set to zero if either intensity is invalid or meas intensity is below
         // shadow threshold
-        if (!is_valid(meas_intensity) || !is_valid(comp_intensity) ||
+        if (!is_valid(meas_intensity) || !is_valid(sim_intensity) ||
             meas_intensity.child() <= opt.shadow_threshold_vec[image_iter]) {
           err[image_iter](col, row) = 0.0;
           continue;
         }
 
-        double curr_err = std::abs(meas_intensity.child() - comp_intensity.child());
+        double curr_err = std::abs(meas_intensity.child() - sim_intensity.child());
         errs.push_back(curr_err);
         err[image_iter](col, row) = curr_err;
       }
@@ -993,7 +993,7 @@ void handleBorderlineAndLowLight(SfsOptions & opt,
                                  vw::cartography::GeoReference const& geo,
                                  std::vector<BBox2i> const& crop_boxes,
                                  std::vector<MaskedDblImgT> const& meas_intensities,
-                                 std::vector<MaskedDblImgT> const& comp_intensities,
+                                 std::vector<MaskedDblImgT> const& sim_intensities,
                                  // Outputs
                                  float & img_nodata_val,
                                  std::vector<MaskedImgRefT> & masked_images,
@@ -1022,7 +1022,7 @@ void handleBorderlineAndLowLight(SfsOptions & opt,
 
   // Handle --low-light-threshold option
   if (opt.low_light_threshold > 0.0)
-    handleLowLight(opt, dem, geo, meas_intensities, comp_intensities, blend_weights);
+    handleLowLight(opt, dem, geo, meas_intensities, sim_intensities, blend_weights);
 
 } // end function handleBorderlineAndLowLight
 
@@ -1151,29 +1151,33 @@ void saveIntensities(SfsOptions const& opt,
                      std::string const& input_camera,
                      vw::cartography::GeoReference const& geo,
                      MaskedDblImgT const& meas_intensity,
-                     MaskedDblImgT const& comp_intensity,
+                     MaskedDblImgT const& sim_intensity,
                      float img_nodata_val) {
 
-  vw::TerminalProgressCallback tpc("asp", ": ");
   bool has_georef = true, has_nodata = true;
   std::string out_camera_file
     = asp::bundle_adjust_file_name(opt.out_prefix,
                                    input_image,
                                    input_camera);
   std::string local_prefix = fs::path(out_camera_file).replace_extension("").string();
-  std::string out_meas_intensity_file = local_prefix + "-meas-intensity.tif";
-  vw::vw_out() << "Writing: " << out_meas_intensity_file << "\n";
-  vw::cartography::block_write_gdal_image(out_meas_intensity_file,
-                                          vw::apply_mask(meas_intensity, img_nodata_val),
-                                          has_georef, geo, has_nodata,
-                                          img_nodata_val, opt, tpc);
-
-  std::string out_comp_intensity_file = local_prefix + "-comp-intensity.tif";
-  vw::vw_out() << "Writing: " << out_comp_intensity_file << "\n";
-  vw::cartography::block_write_gdal_image(out_comp_intensity_file,
-                                          vw::apply_mask(comp_intensity, img_nodata_val),
-                                          has_georef, geo, has_nodata, img_nodata_val,
-                                          opt, tpc);
+  if (opt.save_meas_intensity_only) {
+    std::string out_meas_intensity_file = local_prefix + "-meas-intensity.tif";
+    vw::vw_out() << "Writing: " << out_meas_intensity_file << "\n";
+    vw::TerminalProgressCallback tpc("asp", ": ");
+    vw::cartography::block_write_gdal_image(out_meas_intensity_file,
+                                            vw::apply_mask(meas_intensity, img_nodata_val),
+                                            has_georef, geo, has_nodata,
+                                            img_nodata_val, opt, tpc);
+  }
+  if (opt.save_sim_intensity_only) {
+    std::string out_sim_intensity_file = local_prefix + "-sim-intensity.tif";
+    vw::vw_out() << "Writing: " << out_sim_intensity_file << "\n";
+    vw::TerminalProgressCallback tpc("asp", ": ");
+    vw::cartography::block_write_gdal_image(out_sim_intensity_file,
+                                            vw::apply_mask(sim_intensity, img_nodata_val),
+                                            has_georef, geo, has_nodata, img_nodata_val,
+                                            opt, tpc);
+  }
 }
 
 } // end namespace asp

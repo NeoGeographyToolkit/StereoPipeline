@@ -125,13 +125,13 @@ void estimateHeightError(vw::ImageView<double> const& dem,
            = asp::calcReflectance(cameraPosition, normal, xyz, sunPosition,
                                   refl_params, refl_coeffs);
         reflectance.validate();
-        double comp_intensity
+        double sim_intensity
           = asp::calcSimIntensity(albedo(col, row), reflectance,
                                   opt.image_exposures_vec[image_iter],
                                   opt.steepness_factor, &opt.image_haze_vec[image_iter][0],
                                   opt.num_haze_coeffs);
 
-        if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
+        if (std::abs(sim_intensity - meas_intensity) > max_intensity_err) {
           // We exceeded the error budget, record the dh at which it happens
           if (sign == -1) {
             heightErrEstim->height_error_vec(colx, rowx)[0] = dh;
