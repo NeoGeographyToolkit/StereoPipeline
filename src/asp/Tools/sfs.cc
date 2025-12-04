@@ -591,6 +591,51 @@ void calcIntenEstimHeights(SfsOptions & opt,
     asp::combineHeightErrors(heightErrEstim, opt, geo);
 }
 
+// If --ref-map is passed in, crop to its extent. This will create opt.crop_win.
+void setupRefMap(vw::ImageViewRef<double> const& full_dem,
+                 vw::cartography::GeoReference const& geo,
+                 SfsOptions & opt) {
+
+  if (opt.ref_map.empty())
+    return;
+
+  // Read the georeference from the reference map
+  GeoReference ref_map_georef;
+  bool has_ref_map_georef = vw::cartography::read_georeference(ref_map_georef, opt.ref_map);
+  if (!has_ref_map_georef)
+    vw_throw(ArgumentErr() << "The image in --ref-map has no georeference.\n");
+      
+  // Find the bounding box of the reference map 
+  vw::Vector2 ref_size = vw::file_image_size(opt.ref_map);
+  vw::BBox2i ref_map_box(0, 0, ref_size.x(), ref_size.y());
+    
+  // Convert this to dem pixel coordinates via GeoTransform
+  // If the georefs are same, do not use forward_bbox, as that expands the box
+  // by a pixel
+  std::string dem_wkt = geo.get_wkt();
+  std::string ref_wkt = ref_map_georef.get_wkt();
+  vw::cartography::GeoTransform ref2dem(ref_map_georef, geo);
+  if (dem_wkt == ref_wkt) {
+    vw::Vector2 beg = ref2dem.forward(Vector2(0, 0));
+    vw::Vector2 end = ref2dem.forward(Vector2(ref_size.x(), ref_size.y()));
+    ref_map_box.min() = round(beg);
+    ref_map_box.max() = round(end);
+  } else {
+    ref_map_box = ref2dem.forward_bbox(ref_map_box);
+  }
+
+  // Crop to dem pixel coordinates
+  ref_map_box.crop(bounding_box(full_dem));
+    
+  // Assign to opt.crop_win. It is checked by now that opt.crop_win would be
+  // empty otherwise.
+  opt.crop_win = ref_map_box;
+
+  // Must be non-empty
+  if (opt.crop_win.empty())
+    vw_throw(ArgumentErr() << "The --ref-map does not overlap with the input DEM.\n");
+}
+
 void prepareDemAndAlbedo(SfsOptions& opt,
                          vw::ImageView<double>& dem,
                          vw::ImageView<double>& albedo,
@@ -628,51 +673,9 @@ void prepareDemAndAlbedo(SfsOptions& opt,
   vw::cartography::GeoReference albedo_geo;
   loadGeoref(opt, geo, albedo_geo);
 
-  // If --ref-map is passed in, need to crop to its extent.
-  // TODO(oalexan1): This must be a function.
-  if (!opt.ref_map.empty()) {
-
-    // Read the georeference from the reference map
-    GeoReference ref_map_georef;
-    bool has_ref_map_georef = vw::cartography::read_georeference(ref_map_georef, opt.ref_map);
-    if (!has_ref_map_georef)
-      vw_throw(ArgumentErr() << "The image in --ref-map has no georeference.\n");
-      
-    // Find the bounding box of the reference map 
-    vw::Vector2 ref_size = vw::file_image_size(opt.ref_map);
-    vw::BBox2i ref_map_box(0, 0, ref_size.x(), ref_size.y());
-    
-    // Convert this to dem pixel coordinates via GeoTransform
-    std::cout << "---box is " << ref_map_box << std::endl;
-    // If the georefs are same, do not use forward_bbox, as that expands the box
-    // by a pixel
-    std::string dem_wkt = geo.get_wkt();
-    std::string ref_wkt = ref_map_georef.get_wkt();
-    std::cout << "--dem wkt: " << dem_wkt << std::endl;
-    std::cout << "--ref wkt: " << ref_wkt << std::endl;
-    vw::cartography::GeoTransform ref2dem(ref_map_georef, geo);
-    if (dem_wkt == ref_wkt) {
-      vw::Vector2 beg = ref2dem.forward(Vector2(0, 0));
-      vw::Vector2 end = ref2dem.forward(Vector2(ref_size.x(), ref_size.y()));
-      ref_map_box.min() = round(beg);
-      ref_map_box.max() = round(end);
-    } else {
-      ref_map_box = ref2dem.forward_bbox(ref_map_box);
-    }
-    std::cout << "--in dem coords box is " << ref_map_box << std::endl;
-    
-    std::cout << "--in dem coords box is " << ref_map_box << std::endl;
-    // Crop to dem pixel coordinates
-    ref_map_box.crop(bounding_box(full_dem));
-    std::cout << "--after cropping to dem box is " << ref_map_box << std::endl;
-    
-    // Assign to opt.crop_win. It is checked by now that opt.crop_win would be
-    // empty otherwise.
-    opt.crop_win = ref_map_box;
-    // Must be non-empty
-    if (opt.crop_win.empty())
-      vw_throw(ArgumentErr() << "The --ref-map does not overlap with the input DEM.\n");
-  }
+  // If --ref-map is passed in, need to crop to its extent. This modifies
+  // opt.crop_win.
+  setupRefMap(full_dem, geo, opt);
   
   // Adjust the crop win
   opt.crop_win.crop(bounding_box(full_dem));
