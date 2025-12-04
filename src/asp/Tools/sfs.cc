@@ -58,6 +58,7 @@
 #include <vw/FileIO/FileUtils.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/Cartography/GeoTransform.h>
 
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
@@ -467,7 +468,7 @@ void loadGeoref(SfsOptions const& opt,
 // and unlit nearby pixels.
 void calcIntenEstimHeights(SfsOptions & opt,
                            vw::ImageView<double> const& dem,
-                           vw::ImageView<double> & albedo,
+                           vw::ImageView<double> const& albedo,
                            vw::cartography::GeoReference const& geo,
                            bool show_progress,
                            double max_dem_height,
@@ -517,8 +518,10 @@ void calcIntenEstimHeights(SfsOptions & opt,
     if (opt.estimate_height_errors)
       heightErrEstim->image_iter = image_iter;
     
-    // Find the reflectance and measured intensity (and work towards
-    // estimating the slopes if asked to).
+    // Find the reflectance and measured intensity. Note that this function is
+    // needed even if only saving the simulated intensity, as it computes
+    // the reflectance image which is a necessary input for the simulated
+    // intensity calculation.
     asp::computeReflectanceAndIntensity(dem, pq, geo,
                                         opt.model_shadows, show_progress, max_dem_height,
                                         gridx, gridy, sample_col_rate, sample_row_rate,
@@ -534,14 +537,15 @@ void calcIntenEstimHeights(SfsOptions & opt,
                                         heightErrEstim.get());
     
     // Find the simulated intensity
-    asp::calcSimIntensity(albedo, reflectance,
-                          opt.image_exposures_vec[image_iter],
-                          opt.steepness_factor,
-                          opt.image_haze_vec[image_iter],
-                          opt.num_haze_coeffs,
-                          opt.num_threads,
-                          show_progress,
-                          sim_intensity);
+    if (opt.save_sim_intensity_only)
+      asp::calcSimIntensity(albedo, reflectance,
+                            opt.image_exposures_vec[image_iter],
+                            opt.steepness_factor,
+                            opt.image_haze_vec[image_iter],
+                            opt.num_haze_coeffs,
+                            opt.num_threads,
+                            show_progress,
+                            sim_intensity);
     
     // Save some quantities if needed
     if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
@@ -624,6 +628,52 @@ void prepareDemAndAlbedo(SfsOptions& opt,
   vw::cartography::GeoReference albedo_geo;
   loadGeoref(opt, geo, albedo_geo);
 
+  // If --ref-map is passed in, need to crop to its extent.
+  // TODO(oalexan1): This must be a function.
+  if (!opt.ref_map.empty()) {
+
+    // Read the georeference from the reference map
+    GeoReference ref_map_georef;
+    bool has_ref_map_georef = vw::cartography::read_georeference(ref_map_georef, opt.ref_map);
+    if (!has_ref_map_georef)
+      vw_throw(ArgumentErr() << "The image in --ref-map has no georeference.\n");
+      
+    // Find the bounding box of the reference map 
+    vw::Vector2 ref_size = vw::file_image_size(opt.ref_map);
+    vw::BBox2i ref_map_box(0, 0, ref_size.x(), ref_size.y());
+    
+    // Convert this to dem pixel coordinates via GeoTransform
+    std::cout << "---box is " << ref_map_box << std::endl;
+    // If the georefs are same, do not use forward_bbox, as that expands the box
+    // by a pixel
+    std::string dem_wkt = geo.get_wkt();
+    std::string ref_wkt = ref_map_georef.get_wkt();
+    std::cout << "--dem wkt: " << dem_wkt << std::endl;
+    std::cout << "--ref wkt: " << ref_wkt << std::endl;
+    vw::cartography::GeoTransform ref2dem(ref_map_georef, geo);
+    if (dem_wkt == ref_wkt) {
+      vw::Vector2 beg = ref2dem.forward(Vector2(0, 0));
+      vw::Vector2 end = ref2dem.forward(Vector2(ref_size.x(), ref_size.y()));
+      ref_map_box.min() = round(beg);
+      ref_map_box.max() = round(end);
+    } else {
+      ref_map_box = ref2dem.forward_bbox(ref_map_box);
+    }
+    std::cout << "--in dem coords box is " << ref_map_box << std::endl;
+    
+    std::cout << "--in dem coords box is " << ref_map_box << std::endl;
+    // Crop to dem pixel coordinates
+    ref_map_box.crop(bounding_box(full_dem));
+    std::cout << "--after cropping to dem box is " << ref_map_box << std::endl;
+    
+    // Assign to opt.crop_win. It is checked by now that opt.crop_win would be
+    // empty otherwise.
+    opt.crop_win = ref_map_box;
+    // Must be non-empty
+    if (opt.crop_win.empty())
+      vw_throw(ArgumentErr() << "The --ref-map does not overlap with the input DEM.\n");
+  }
+  
   // Adjust the crop win
   opt.crop_win.crop(bounding_box(full_dem));
 
