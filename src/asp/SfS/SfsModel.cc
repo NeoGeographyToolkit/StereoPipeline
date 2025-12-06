@@ -714,14 +714,12 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
   // rate is 1. Here we start at col and row equal to 1 to be able to properly
   // find the neighbors and surface normal.
   bool use_pq = (pq.cols() > 0 && pq.rows() > 0);
-  int col_sample = 0;
-  //#pragma omp parallel for num_threads(opt.num_threads)
+  #pragma omp parallel for num_threads(opt.num_threads)
   for (int col = 1; col < dem.cols() - 1; col += sample_col_rate) {
-    col_sample++;
+    int col_sample = (col-1)/sample_col_rate + 1;
 
-    int row_sample = 0;
     for (int row = 1; row < dem.rows() - 1; row += sample_row_rate) {
-      row_sample++;
+      int row_sample = (row-1)/sample_row_rate + 1;
 
       double pval = 0, qval = 0;
       if (use_pq) {
@@ -743,7 +741,7 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
     
     // Show progress if requested
     if (show_progress) {
-      //#pragma omp critical
+      #pragma omp critical
       { 
         tpc.report_incremental_progress(inc);
       }
@@ -835,7 +833,7 @@ void calcSimIntensity(vw::ImageView<double> const& albedo,
   if (show_progress)
     tpc.report_incremental_progress(0.0);
 
-  //#pragma omp parallel for num_threads(num_threads)
+  #pragma omp parallel for num_threads(num_threads)
   for (int col = 0; col < sim_intensity.cols(); col++) {
     for (int row = 0; row < sim_intensity.rows(); row++) {
       sim_intensity(col, row) 
@@ -846,7 +844,7 @@ void calcSimIntensity(vw::ImageView<double> const& albedo,
     
     // Show progress if requested
     if (show_progress) {
-      //#pragma omp critical
+      #pragma omp critical
       { 
         tpc.report_incremental_progress(inc);
       }

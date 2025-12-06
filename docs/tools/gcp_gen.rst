@@ -180,6 +180,10 @@ Command-line options
     recomputing interest points with a different method. See also
     :numref:`custom_ip`.
 
+--min-matches <integer (default: 10)>
+    Set the minimum number of inlier matches between images for successful
+    matching.
+    
 --nodata-value <float (default: NaN)>
     Pixels with values less than or equal to this number are treated
     as no-data. This overrides the no-data values from input images.

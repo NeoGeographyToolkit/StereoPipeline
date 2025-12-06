@@ -104,6 +104,10 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
     "images, and cameras, without refining the DEM. The output files are "
     "<output prefix>-<image>-meas-intensity.tif for each input image. See also: "
     "--save-sim-intensity-only.")
+  ("ref-map", po::value(&opt.ref_map)->default_value(""),
+    "Save the simulated or measured intensity images to the extent given by this "
+    "mapprojected image. For use with --save-sim-intensity-only and "
+    "--save-meas-intensity-only.")
   ("estimate-exposure-haze-albedo",
   po::bool_switch(&opt.estim_exposure_haze_albedo)->default_value(false)->implicit_value(true),
    "Estimate the exposure for each image, the haze for each image (if --num-haze-coeffs "
@@ -167,6 +171,10 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   po::value(&opt.low_light_blur_sigma)->default_value(3.0),
    "With the option --low-light-threshold, apply a Gaussian blur with this sigma to the "
    "low-light weight image, to make it continuous.")
+  ("erode-seams",
+  po::bool_switch(&opt.erode_seams)->default_value(false)->implicit_value(true),
+   "Be more aggressive in removing seam artifacts, even if this results in erosion of valid "
+   "terrain.")
   ("max-valid-image-vals",
   po::value(&opt.max_valid_image_vals)->default_value(""),
    "Optional values for the largest valid image value in each image (a list of real "
@@ -529,7 +537,10 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
     vw::vw_throw(vw::ArgumentErr() << "Expecting a positive --low-light-weight-power.\n");
   if (opt.low_light_blur_sigma <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "Expecting a positive --low-light-blur-sigma.\n");
-
+  if (opt.erode_seams && opt.low_light_threshold <= 0.0)
+   vw::vw_throw(vw::ArgumentErr()
+     << "When using --erode-seams, must set a positive --low-light-threshold.\n");
+   
   // Parse max valid image vals
   std::istringstream ism(opt.max_valid_image_vals);
   opt.max_valid_image_vals_vec.clear();
@@ -760,6 +771,21 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   // Cannot have both sun positions and sun angles
   if (opt.sun_positions_list.size() > 0 && opt.sun_angles_list.size() > 0)
     vw::vw_throw(vw::ArgumentErr() << "Cannot specify both sun positions and sun angles.\n");
-}
+    
+  if (!opt.ref_map.empty()) {
+    // --ref-map is to be used only with --save-sim-intensity-only or
+    // --save-meas-intensity-only
+    if (!opt.save_sim_intensity_only && !opt.save_meas_intensity_only)
+      vw::vw_throw(vw::ArgumentErr()
+               << "--ref-map is to be used only with --save-sim-intensity-only or "
+               << "--save-meas-intensity-only.\n");
+      
+     // This is also incompatible with non-empty crop win
+     if (!opt.crop_win.empty())
+      vw::vw_throw(vw::ArgumentErr()
+               << "--ref-map is incompatible with --crop-win.\n");
+  }
+
+} // end function handleSfsArgs
     
 } // end namespace asp

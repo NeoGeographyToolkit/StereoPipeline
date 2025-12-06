@@ -28,7 +28,7 @@ namespace asp {
 struct SfsOptions: public vw::GdalWriteOptions {
   std::string input_dem, image_list, camera_list, out_prefix, stereo_session, bundle_adjust_prefix, input_albedo;
   std::vector<std::string> input_images, input_cameras;
-  std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposures_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list, sun_angles_list;
+  std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposures_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list, sun_angles_list, ref_map;
   std::vector<float> shadow_threshold_vec, max_valid_image_vals_vec;
   std::vector<double> image_exposures_vec;
   std::vector<std::vector<double>> image_haze_vec;
@@ -41,7 +41,8 @@ struct SfsOptions: public vw::GdalWriteOptions {
     compute_exposures_only, estim_exposure_haze_albedo,
     save_dem_with_nodata, use_approx_camera_models,
     crop_input_images, allow_borderline_data, fix_dem, float_reflectance_model,
-    query, save_sparingly, float_haze, read_exposures, read_haze, read_albedo;
+    query, save_sparingly, float_haze, read_exposures, read_haze, read_albedo,
+    erode_seams;
 
   double smoothness_weight, steepness_factor, gradient_weight,
     blending_power, integrability_weight, smoothness_weight_pq, init_dem_height,

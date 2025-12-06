@@ -870,15 +870,14 @@ void handleLowLight(SfsOptions const& opt,
   vw::ImageView<double> max_intensity;
   maxImage(dem.cols(), dem.rows(), opt.skip_images, meas_intensities,
             max_intensity); // output
-
+ 
   // Find the error images and median error
   std::vector<ImageView<double>> err(num_images);
-  std::vector<double> errs;  
+  std::vector<double> errs;
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
     if (opt.skip_images.find(image_iter) != opt.skip_images.end())
       continue;
-
     err[image_iter].set_size(dem.cols(), dem.rows());
     for (int col = 0; col < dem.cols(); col++) {
       for (int row = 0; row < dem.rows(); row++) {
@@ -911,10 +910,8 @@ void handleLowLight(SfsOptions const& opt,
   // Find the adjustment weights for low light
   std::vector<ImageView<double>> adj_weights(num_images);
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
-
     if (opt.skip_images.find(image_iter) != opt.skip_images.end())
       continue;
-
     adj_weights[image_iter].set_size(dem.cols(), dem.rows());
     for (int col = 0; col < adj_weights[image_iter].cols(); col++) {
       for (int row = 0; row < adj_weights[image_iter].rows(); row++) {
@@ -933,7 +930,7 @@ void handleLowLight(SfsOptions const& opt,
 
         // Skip if curr intensity equals max intensity, to respect
         // --adjust-borderline-data
-        if (curr_intensity == max_intensity(col, row))
+        if (curr_intensity == max_intensity(col, row) && !opt.erode_seams)
           continue;
           
         // Skip if meas intensity is above the low light threshold
@@ -950,7 +947,7 @@ void handleLowLight(SfsOptions const& opt,
       }
     }
   }
-  
+
   // Blur the adjustment weights. This may cause some erosion
   // TODO(oalexan1): How to do a more surgical job here? Now the adjusted weights
   // attenuated due to this blur multiply weights attenuated in the blend_weights.
@@ -983,6 +980,7 @@ void handleLowLight(SfsOptions const& opt,
                      "blend", blend_weights,
                      geo, vw::GdalWriteOptions(opt));
   }
+
 } // end function handleLowLight
 
 // This will adjust the weights to account for borderline pixels and low-light conditions.

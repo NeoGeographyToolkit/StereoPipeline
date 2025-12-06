@@ -296,6 +296,11 @@ Command-line options for sfs
     ``<output prefix>-<image>-meas-intensity.tif`` for each input image. See
     also ``--save-sim-intensity-only``.
 
+--ref-map <string (default: "")>
+    Save the simulated or measured intensity images to the extent given by this
+    mapprojected image. For use with ``--save-sim-intensity-only`` and
+    ``--save-meas-intensity-only``.
+    
 --allow-borderline-data
     At the border of the region where there are no lit pixels in any
     images, do not let the blending weights decay to 0. This
@@ -308,8 +313,8 @@ Command-line options for sfs
     A threshold for low-light pixels. If positive, pixels with intensity between
     this and the shadow threshold will be given less weight, if other images
     have higher intensity values at the same ground point. This helps fix seams.
-    See usage in :numref:`sfs_seams`. See also ``--low-light-weight-power`` and
-    ``--low-light-blur-sigma``.
+    See usage in :numref:`sfs_seams`. See also ``--low-light-weight-power``,
+    ``--low-light-blur-sigma``, and ``--erode-seams``.
 
 --low-light-weight-power <float (default: 4.0)>
     With the option ``--low-light-threshold``, the weight of a low-light pixel
@@ -319,7 +324,11 @@ Command-line options for sfs
 --low-light-blur-sigma <float (default: 3.0)>
     With the option ``--low-light-threshold``, apply a Gaussian blur with this
     sigma to the low-light weight image, to make it continuous.
-            
+
+--erode-seams 
+    Be more aggressive in removing seam artifacts, even if this results in
+    erosion of valid terrain.
+                
 --model-coeffs-prefix <path>
     Use this prefix to optionally read model coefficients from a
     file (filename is ``<path>-model_coeffs.txt``).

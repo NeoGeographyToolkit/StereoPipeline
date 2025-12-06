@@ -46,6 +46,7 @@ namespace asp {
 
 struct Options: vw::GdalWriteOptions {
   std::string camera_image, ortho_image, mapproj_image, dem, output_gcp, output_prefix, match_file;
+  int min_matches;
   double gcp_sigma;
   Options() {}
 };
@@ -109,6 +110,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The inlier threshold (in pixels) to separate inliers from outliers when "
      "computing interest point matches. A smaller threshold will result in fewer "
      "inliers. The default is auto-determined.")
+    ("min-matches", po::value(&opt.min_matches)->default_value(10),
+     "Set the minimum  number of inlier matches between images for successful matching.")
     ("nodata-value", 
      po::value(&ip_opt.nodata_value)->default_value(g_nan_val),
      "Pixels with values less than or equal to this number are treated as no-data. This "
@@ -255,6 +258,12 @@ void gcp_gen(Options & opt) {
     vw::ip::read_binary_match_file(opt.match_file, ip1, ip2);
   }
 
+  // If too few matches, fail, rather than give incorrect results
+  if (int(ip1.size()) < opt.min_matches)
+    vw::vw_throw(ArgumentErr() << "Found only " << ip1.size() << " matches, "
+              << "fewer than the minimum of " << opt.min_matches
+              << " (option --min-matches). Cannot create GCP file.\n");
+  
   if (opt.mapproj_image != "")
     undo_mapproj(opt, ip1, ip2);
 

@@ -536,8 +536,8 @@ void calcIntenEstimHeights(SfsOptions & opt,
                                         &opt.model_coeffs_vec[0], opt,
                                         heightErrEstim.get());
     
-    // Find the simulated intensity
-    if (opt.save_sim_intensity_only)
+    // Find the simulated intensity only when needed
+    if (opt.save_sim_intensity_only || opt.low_light_threshold > 0.0)
       asp::calcSimIntensity(albedo, reflectance,
                             opt.image_exposures_vec[image_iter],
                             opt.steepness_factor,
@@ -561,10 +561,10 @@ void calcIntenEstimHeights(SfsOptions & opt,
     
     if (opt.curvature_in_shadow_weight > 0.0) {
       if (meas_intensity.cols() != lit_image_mask.cols() ||
-          meas_intensity.rows() != lit_image_mask.rows()) {
+          meas_intensity.rows() != lit_image_mask.rows())
         vw_throw(ArgumentErr()
                  << "Intensity image dimensions disagree with DEM clip dimensions.\n");
-      }
+        
       for (int col = 0; col < lit_image_mask.cols(); col++) {
         for (int row = 0; row < lit_image_mask.rows(); row++) {
           if (is_valid(meas_intensity(col, row))           ||
@@ -609,9 +609,8 @@ void setupRefMap(vw::ImageViewRef<double> const& full_dem,
   vw::Vector2 ref_size = vw::file_image_size(opt.ref_map);
   vw::BBox2i ref_map_box(0, 0, ref_size.x(), ref_size.y());
     
-  // Convert this to dem pixel coordinates via GeoTransform
-  // If the georefs are same, do not use forward_bbox, as that expands the box
-  // by a pixel
+  // Convert this to dem pixel coordinates via GeoTransform. If the georefs are
+  // same, do not use forward_bbox, as that expands the box by a pixel
   std::string dem_wkt = geo.get_wkt();
   std::string ref_wkt = ref_map_georef.get_wkt();
   vw::cartography::GeoTransform ref2dem(ref_map_georef, geo);

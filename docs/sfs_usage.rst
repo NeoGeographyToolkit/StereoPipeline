@@ -1103,8 +1103,9 @@ The approach outlined in the next sections consists of doing bundle adjustment,
 alignment, then refinement of bundle adjustment with ground constraints.
 
 For the Lunar South Pole, a large set of well-registered cameras exists. Using
-them requires running ``spiceinit`` with the
-`provided kernels <https://www.sciencebase.gov/catalog/item/688a51d7d4be02367c9c1271>`_, followed by creation of CSM cameras as usual.
+them requires running ``spiceinit`` with the `provided kernels
+<https://www.sciencebase.gov/catalog/item/688a51d7d4be02367c9c1271>`_, followed
+by creation of CSM cameras as usual.
 
 In that case, consider first understanding the workflow below, then modify it as
 follows. In the first bundle adjustment, keep the subset of well-registered

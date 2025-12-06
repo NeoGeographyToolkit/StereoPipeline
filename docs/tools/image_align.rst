@@ -255,6 +255,10 @@ Command-line options for image_align
     computing interest point matches. A smaller threshold will result in fewer
     inliers.
 
+--min-matches <integer (default: 10)>
+    Set the minimum number of inlier matches between images for successful
+    matching.
+
 --disparity-params <string (default: "")>
     Find the alignment transform by using, instead of interest points,
     a disparity, such as produced by ``parallel_stereo --correlator-mode``. 

@@ -47,7 +47,7 @@ struct Options: vw::GdalWriteOptions {
   std::vector<std::string> input_images;
   std::string alignment_transform, output_image, output_prefix, output_data_string,
     input_transform, disparity_params, ecef_transform_type, dem1, dem2;
-  int output_data_type;
+  int output_data_type, min_matches;
   Options(): output_data_type(0){}
 };
 
@@ -350,6 +350,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "resulting in the tiles overlapping. This may be needed if the homography alignment "
      "between these images is not great, as this transform is used to pair up left and "
      "right image tiles.")
+     ("min-matches", po::value(&opt.min_matches)->default_value(10),
+      "Set the minimum  number of inlier matches between images for successful matching.")
     ("individually-normalize",
      po::bool_switch(&ip_opt.individually_normalize)->default_value(false)->implicit_value(true),
      "Individually normalize the input images instead of using common values.")
@@ -564,6 +566,12 @@ int main(int argc, char *argv[]) {
       else
         find_matches_from_disp(matched_ip1, matched_ip2, opt);
       
+      // Must have at least a minimum number of matches to ensure accurate transform
+      if ((int)matched_ip1.size() < opt.min_matches)
+        vw_throw(ArgumentErr() << "Found only " << matched_ip1.size()
+                 << " matches, which is less than the minimum of "
+                 << opt.min_matches << " (option --min-matches).\n");
+
       tf = calc_alignment_transform(image_file1, image_file2,  
                                     matched_ip1, matched_ip2, opt, ecef_transform);
     } else {
