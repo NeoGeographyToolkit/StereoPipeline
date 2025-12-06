@@ -325,7 +325,7 @@ Command-line options for sfs
     With the option ``--low-light-threshold``, apply a Gaussian blur with this
     sigma to the low-light weight image, to make it continuous.
 
---erode-seams 
+--erode-seams
     Be more aggressive in removing seam artifacts, even if this results in
     erosion of valid terrain.
                 
