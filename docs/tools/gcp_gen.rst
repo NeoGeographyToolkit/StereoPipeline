@@ -76,7 +76,10 @@ If needed, both the mapprojected image and orthoimage can be cropped first to a
 shared area.
 
 If the camera image and orthoimage have very different ranges of pixel values,
-use the option ``--individual-normalize``.
+use the option ``--individual-normalize``. 
+
+It is preferred that these images have similar lighting conditions and
+similar-enough resolutions.
 
 This invocation will look up the DEM and camera model from the mapprojected
 image's metadata, so these must be available.
@@ -84,7 +87,8 @@ image's metadata, so these must be available.
 A match file for this program, between the mapprojected image and orthoimage,
 can be produced with dense stereo correlation (:numref:`correlator-mode`). If
 renamed to follow the naming convention (:numref:`ba_match_files`), it will be
-picked up by this program.
+picked up by this program. Dense corelation may be more robust to lighting
+differences.
 
 If no luck, manual selection of interest points can be invoked
 (:numref:`creatinggcp`).

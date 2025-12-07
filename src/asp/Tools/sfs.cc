@@ -73,7 +73,6 @@
 
 namespace fs = boost::filesystem;
 
-using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 using namespace asp;
@@ -89,7 +88,7 @@ void runSfs(// Fixed quantities
             double                             max_dem_height,
             double                             dem_nodata_val,
             float                              img_nodata_val,
-            std::vector<BBox2i>        const & crop_boxes,
+            std::vector<vw::BBox2i>        const & crop_boxes,
             std::vector<MaskedImgRefT> const & masked_images,
             std::vector<DblImgT>       const & blend_weights,
             bool                               blend_weight_is_ground_weight,
@@ -109,7 +108,7 @@ void runSfs(// Fixed quantities
   // Set up the cost function 
   int num_images = opt.input_images.size();
   ceres::Problem problem;
-  vw::ImageView<Vector2> pq;
+  vw::ImageView<vw::Vector2> pq;
   asp::sfsCostFun(gridx, gridy, smoothness_weight, max_dem_height, dem_nodata_val,
                   img_nodata_val, blend_weight_is_ground_weight, geo,
                   crop_boxes, masked_images, blend_weights, refl_params, sunPosition,
@@ -145,7 +144,7 @@ void runSfs(// Fixed quantities
   ceres::IterationSummary callback_summary;
   callback(callback_summary);
 
-  vw_out() << summary.FullReport() << "\n" << std::endl;
+  vw::vw_out() << summary.FullReport() << "\n" << std::endl;
 }
 
 // Load cameras and sun positions
@@ -187,12 +186,12 @@ void loadCamerasSunPos(SfsOptions &opt,
                                                 opt.input_cameras[image_iter]);
 
     // Read the sun position from the camera if it is was not read from the list
-    if (sunPosition[image_iter] == Vector3())
+    if (sunPosition[image_iter] == vw::Vector3())
       sunPosition[image_iter] = asp::sunPositionFromCamera(cameras[image_iter]);
 
     // Sanity check
-    if (sunPosition[image_iter] == Vector3())
-      vw_throw(ArgumentErr()
+    if (sunPosition[image_iter] == vw::Vector3())
+      vw::vw_throw(vw::ArgumentErr()
                 << "Could not read sun positions from list or from camera model files.\n");
 
     // Compute the azimuth and elevation
@@ -204,13 +203,13 @@ void loadCamerasSunPos(SfsOptions &opt,
     // for bundle adjustment.
     // Since the sun position has very big values and we want to sort uniquely
     // the images by azimuth angle, use high precision below.
-    vw_out().precision(17);
-    vw_out() << "Sun position for: " << opt.input_images[image_iter] << " is "
-              << sunPosition[image_iter] << "\n";
-    vw_out() << "Sun azimuth and elevation for: "
-              << opt.input_images[image_iter] << " are " << azimuth
-              << " and " << elevation << " degrees.\n";
-    vw_out().precision(6); // Go back to usual precision
+    vw::vw_out().precision(17);
+    vw::vw_out() << "Sun position for: " << opt.input_images[image_iter] << " is "
+                 << sunPosition[image_iter] << "\n";
+    vw::vw_out() << "Sun azimuth and elevation for: "
+                 << opt.input_images[image_iter] << " are " << azimuth
+                 << " and " << elevation << " degrees.\n";
+    vw::vw_out().precision(6); // Go back to usual precision
   }
     
 } // end function loadCamerasSunPos
@@ -234,10 +233,10 @@ void calcApproxCamsCropBoxes(vw::ImageView<double> const& dem,
     // Here we make a copy, since soon cameras[image_iter] will be overwritten
     vw::CamPtr exact_camera = cameras[image_iter];
 
-    vw_out() << "Creating an approximate camera model for "
+    vw::vw_out() << "Creating an approximate camera model for "
             << opt.input_images[image_iter] << "\n";
-    BBox2i img_bbox = crop_boxes[image_iter];
-    Stopwatch sw;
+    vw::BBox2i img_bbox = crop_boxes[image_iter];
+    vw::Stopwatch sw;
     sw.start();
     boost::shared_ptr<CameraModel> apcam;
     apcam.reset(new asp::ApproxCameraModel(exact_camera, img_bbox, dem, geo,
@@ -245,13 +244,13 @@ void calcApproxCamsCropBoxes(vw::ImageView<double> const& dem,
     cameras[image_iter] = apcam;
 
     sw.stop();
-    vw_out() << "Approximate model generation time: " << sw.elapsed_seconds() << " s.\n";
+    vw::vw_out() << "Approximate model generation time: " << sw.elapsed_seconds() << " s.\n";
 
     // Cast the pointer back to ApproxCameraModel as we need that.
     asp::ApproxCameraModel* cam_ptr
       = dynamic_cast<asp::ApproxCameraModel*>(apcam.get());
     if (cam_ptr == NULL)
-      vw_throw(ArgumentErr() << "Expecting an ApproxCameraModel.");
+      vw::vw_throw(vw::ArgumentErr() << "Expecting an ApproxCameraModel.");
 
     bool model_is_valid = cam_ptr->model_is_valid();
 
@@ -261,13 +260,13 @@ void calcApproxCamsCropBoxes(vw::ImageView<double> const& dem,
     if (model_is_valid) {
       for (int col = 0; col < dem.cols(); col++) {
         for (int row = 0; row < dem.rows(); row++) {
-          Vector2 ll = geo.pixel_to_lonlat(Vector2(col, row));
-          Vector3 xyz = geo.datum().geodetic_to_cartesian
-            (Vector3(ll[0], ll[1], dem(col, row)));
+          vw::Vector2 ll = geo.pixel_to_lonlat(vw::Vector2(col, row));
+          vw::Vector3 xyz = geo.datum().geodetic_to_cartesian
+            (vw::Vector3(ll[0], ll[1], dem(col, row)));
 
           // Test how the exact and approximate models compare
-          Vector2 pix3 = exact_camera->point_to_pixel(xyz);
-          Vector2 pix4 = cameras[image_iter]->point_to_pixel(xyz);
+          vw::Vector2 pix3 = exact_camera->point_to_pixel(xyz);
+          vw::Vector2 pix4 = cameras[image_iter]->point_to_pixel(xyz);
           max_curr_err = std::max(max_curr_err, norm_2(pix3 - pix4));
 
           cam_ptr->crop_box().grow(pix3);
@@ -277,24 +276,24 @@ void calcApproxCamsCropBoxes(vw::ImageView<double> const& dem,
 
       cam_ptr->crop_box().crop(img_bbox);
     } else {
-      vw_out() << "Invalid camera model.\n";
+      vw::vw_out() << "Invalid camera model.\n";
     }
 
     if (max_curr_err > 2.0 || !model_is_valid) {
       // This is a bugfix. When the DEM clip does not intersect the image,
       // the approx camera model has incorrect values.
       if (model_is_valid)
-        vw_out() << "Error of camera approximation is too big.\n";
-      vw_out() << "Skip image " << image_iter << "\n";
+        vw::vw_out() << "Error of camera approximation is too big.\n";
+      vw::vw_out() << "Skip image " << image_iter << "\n";
       opt.skip_images.insert(image_iter);
-      cam_ptr->crop_box() = BBox2();
+      cam_ptr->crop_box() = vw::BBox2();
       max_curr_err = 0.0;
     }
 
     max_approx_err = std::max(max_approx_err, max_curr_err);
 
     cam_ptr->crop_box().crop(img_bbox);
-    vw_out() << "Crop box dimensions: " << cam_ptr->crop_box() << std::endl;
+    vw::vw_out() << "Crop box dimensions: " << cam_ptr->crop_box() << std::endl;
 
     // Copy the crop box
     if (opt.crop_input_images)
@@ -306,7 +305,7 @@ void calcApproxCamsCropBoxes(vw::ImageView<double> const& dem,
     }
 
   } // end iterating over images
-  vw_out() << "Max error of approximating cameras: " << max_approx_err << " pixels.\n";
+  vw::vw_out() << "Max error of approximating cameras: " << max_approx_err << " pixels.\n";
   
 } // end function calcApproxCamsCropBoxes
 
@@ -323,15 +322,15 @@ void calcCropBoxes(vw::ImageView<double> const& dem,
 
     // Store the full image box, and initialize the crop box to an empty box
     vw::BBox2i img_bbox = crop_boxes[image_iter];
-    crop_boxes[image_iter] = BBox2i();
+    crop_boxes[image_iter] = vw::BBox2i();
 
     for (int col = 0; col < dem.cols(); col++) {
       for (int row = 0; row < dem.rows(); row++) {
-        Vector2 ll = geo.pixel_to_lonlat(Vector2(col, row));
-        Vector3 xyz = geo.datum().geodetic_to_cartesian
-          (Vector3(ll[0], ll[1], dem(col, row)));
+        vw::Vector2 ll = geo.pixel_to_lonlat(vw::Vector2(col, row));
+        vw::Vector3 xyz = geo.datum().geodetic_to_cartesian
+          (vw::Vector3(ll[0], ll[1], dem(col, row)));
 
-        Vector2 pix = cameras[image_iter]->point_to_pixel(xyz);
+        vw::Vector2 pix = cameras[image_iter]->point_to_pixel(xyz);
         crop_boxes[image_iter].grow(pix);
       }
     }
@@ -342,8 +341,8 @@ void calcCropBoxes(vw::ImageView<double> const& dem,
     double extraFactor = 0.5;
     double extrax = extraFactor * crop_boxes[image_iter].width();
     double extray = extraFactor * crop_boxes[image_iter].height();
-    crop_boxes[image_iter].min() -= Vector2(extrax, extray);
-    crop_boxes[image_iter].max() += Vector2(extrax, extray);
+    crop_boxes[image_iter].min() -= vw::Vector2(extrax, extray);
+    crop_boxes[image_iter].max() += vw::Vector2(extrax, extray);
 
     // Crop to the bounding box of the image
     crop_boxes[image_iter].crop(img_bbox);
@@ -385,9 +384,9 @@ void loadMaskedImagesCalcWeights(SfsOptions const& opt,
       // Make a copy in memory for faster access
       if (!crop_boxes[image_iter].empty()) {
         vw::ImageView<float> cropped_img =
-          crop(DiskImageView<float>(img_file), crop_boxes[image_iter]);
+          vw::crop(vw::DiskImageView<float>(img_file), crop_boxes[image_iter]);
         masked_images[image_iter]
-          = create_pixel_range_mask2(cropped_img,
+          = vw::create_pixel_range_mask2(cropped_img,
                                       std::max(img_nodata_val, shadow_thresh),
                                       opt.max_valid_image_vals_vec[image_iter]);
 
@@ -396,14 +395,14 @@ void loadMaskedImagesCalcWeights(SfsOptions const& opt,
         if (opt.blending_dist > 0)
           blend_weights[image_iter]
             = asp::blendingWeights(masked_images[image_iter],
-                                    opt.blending_dist, opt.blending_power,
-                                    opt.min_blend_size);
+                                   opt.blending_dist, opt.blending_power,
+                                   opt.min_blend_size);
       }
     } else {
       masked_images[image_iter]
-        = create_pixel_range_mask2(DiskImageView<float>(img_file),
-                                    std::max(img_nodata_val, shadow_thresh),
-                                    opt.max_valid_image_vals_vec[image_iter]);
+        = vw::create_pixel_range_mask2(vw::DiskImageView<float>(img_file),
+                                       std::max(img_nodata_val, shadow_thresh),
+                                       opt.max_valid_image_vals_vec[image_iter]);
     }
   }
 
@@ -414,15 +413,15 @@ double setupDemNodata(SfsOptions const& opt) {
   double dem_nodata_val = -1e+6;
   
   if (vw::read_nodata_val(opt.input_dem, dem_nodata_val)) {
-    vw_out() << "Found DEM nodata value: " << dem_nodata_val << std::endl;
+    vw::vw_out() << "Found DEM nodata value: " << dem_nodata_val << std::endl;
     if (std::isnan(dem_nodata_val)) {
       dem_nodata_val = -1e+6; // bugfix for NaN
-      vw_out() << "Overwriting the nodata value with: " << dem_nodata_val << "\n";
+      vw::vw_out() << "Overwriting the nodata value with: " << dem_nodata_val << "\n";
     }
   }
   if (!boost::math::isnan(opt.nodata_val)) {
     dem_nodata_val = opt.nodata_val;
-    vw_out() << "Over-riding the DEM nodata value with: " << dem_nodata_val << "\n";
+    vw::vw_out() << "Over-riding the DEM nodata value with: " << dem_nodata_val << "\n";
   }
 
   return dem_nodata_val;
@@ -433,12 +432,12 @@ void loadGeoref(SfsOptions const& opt,
                 vw::cartography::GeoReference &geo,
                 vw::cartography::GeoReference &albedo_geo) {
 
-  if (!read_georeference(geo, opt.input_dem))
-      vw_throw(ArgumentErr() << "The input DEM has no georeference.\n");
+  if (!vw::cartography::read_georeference(geo, opt.input_dem))
+      vw::vw_throw(vw::ArgumentErr() << "The input DEM has no georeference.\n");
       
   if (!opt.input_albedo.empty()) {
-    if (!read_georeference(albedo_geo, opt.input_albedo))
-      vw_throw(ArgumentErr() << "The input albedo has no georeference.\n");
+    if (!vw::cartography::read_georeference(albedo_geo, opt.input_albedo))
+      vw::vw_throw(vw::ArgumentErr() << "The input albedo has no georeference.\n");
   } else {
     // Ensure initialization
     albedo_geo = geo;
@@ -447,7 +446,7 @@ void loadGeoref(SfsOptions const& opt,
   // This is a bug fix. The georef pixel size in y must be negative
   // for the DEM to be oriented correctly.
   if (geo.transform()(1, 1) > 0)
-    vw_throw(ArgumentErr() << "The input DEM has a positive pixel size in y. "
+    vw::vw_throw(vw::ArgumentErr() << "The input DEM has a positive pixel size in y. "
               << "This is unexpected. Normally it is negative since the (0, 0) "
               << "pixel is in the upper-left. Check your DEM pixel size with "
               << "gdalinfo. Cannot continue.\n");
@@ -470,10 +469,10 @@ void setupRefMap(vw::ImageViewRef<double> const& full_dem,
     return;
 
   // Read the georeference from the reference map
-  GeoReference ref_map_georef;
+  vw::cartography::GeoReference ref_map_georef;
   bool has_ref_map_georef = vw::cartography::read_georeference(ref_map_georef, opt.ref_map);
   if (!has_ref_map_georef)
-    vw_throw(ArgumentErr() << "The image in --ref-map has no georeference.\n");
+    vw::vw_throw(vw::ArgumentErr() << "The image in --ref-map has no georeference.\n");
       
   // Find the bounding box of the reference map 
   vw::Vector2 ref_size = vw::file_image_size(opt.ref_map);
@@ -485,8 +484,8 @@ void setupRefMap(vw::ImageViewRef<double> const& full_dem,
   std::string ref_wkt = ref_map_georef.get_wkt();
   vw::cartography::GeoTransform ref2dem(ref_map_georef, geo);
   if (dem_wkt == ref_wkt) {
-    vw::Vector2 beg = ref2dem.forward(Vector2(0, 0));
-    vw::Vector2 end = ref2dem.forward(Vector2(ref_size.x(), ref_size.y()));
+    vw::Vector2 beg = ref2dem.forward(vw::Vector2(0, 0));
+    vw::Vector2 end = ref2dem.forward(vw::Vector2(ref_size.x(), ref_size.y()));
     ref_map_box.min() = round(beg);
     ref_map_box.max() = round(end);
   } else {
@@ -494,7 +493,7 @@ void setupRefMap(vw::ImageViewRef<double> const& full_dem,
   }
 
   // Crop to dem pixel coordinates
-  ref_map_box.crop(bounding_box(full_dem));
+  ref_map_box.crop(vw::bounding_box(full_dem));
     
   // Assign to opt.crop_win. It is checked by now that opt.crop_win would be
   // empty otherwise.
@@ -502,7 +501,7 @@ void setupRefMap(vw::ImageViewRef<double> const& full_dem,
 
   // Must be non-empty
   if (opt.crop_win.empty())
-    vw_throw(ArgumentErr() << "The --ref-map does not overlap with the input DEM.\n");
+    vw::vw_throw(vw::ArgumentErr() << "The --ref-map does not overlap with the input DEM.\n");
 }
 
 void prepareDemAndAlbedo(SfsOptions& opt,
@@ -518,13 +517,13 @@ void prepareDemAndAlbedo(SfsOptions& opt,
   // Read the handle to the DEM. Here we don't load the DEM into memory yet. We
   // will later load into memory only a crop, if cropping is specified. This is
   // to save on memory.
-  vw::ImageViewRef<double> full_dem = DiskImageView<double>(opt.input_dem);
+  vw::ImageViewRef<double> full_dem = vw::DiskImageView<double>(opt.input_dem);
   vw::ImageViewRef<double> full_albedo;
 
   // Read the albedo
   if (!opt.input_albedo.empty()) {
     vw::vw_out() << "Reading albedo from: " << opt.input_albedo << "\n";
-    full_albedo = DiskImageView<double>(opt.input_albedo);
+    full_albedo = vw::DiskImageView<double>(opt.input_albedo);
     // Must have the same size as dem
     if (full_albedo.cols() != full_dem.cols() || full_albedo.rows() != full_dem.rows())
       vw::vw_throw(vw::ArgumentErr()
@@ -534,8 +533,8 @@ void prepareDemAndAlbedo(SfsOptions& opt,
   // This must be done before the DEM is cropped. This stats is
   // queried from parallel_sfs.
   if (opt.query) {
-    vw_out() << "dem_cols, " << full_dem.cols() << "\n";
-    vw_out() << "dem_rows, " << full_dem.rows() << "\n";
+    vw::vw_out() << "dem_cols, " << full_dem.cols() << "\n";
+    vw::vw_out() << "dem_rows, " << full_dem.rows() << "\n";
   }
 
   // Read the georeference
@@ -547,16 +546,16 @@ void prepareDemAndAlbedo(SfsOptions& opt,
   setupRefMap(full_dem, geo, opt);
   
   // Adjust the crop win
-  opt.crop_win.crop(bounding_box(full_dem));
+  opt.crop_win.crop(vw::bounding_box(full_dem));
 
   // Crop the DEM and georef if requested to given box. Same for albedo.
   // In either case, read the needed portion fully in memory.
   if (!opt.crop_win.empty()) {
-    dem = crop(full_dem, opt.crop_win);
-    geo = crop(geo, opt.crop_win);
+    dem = vw::crop(full_dem, opt.crop_win);
+    geo = vw::cartography::crop(geo, opt.crop_win);
     if (!opt.input_albedo.empty()) {
-      albedo = crop(full_albedo, opt.crop_win);
-      albedo_geo = crop(albedo_geo, opt.crop_win);
+      albedo = vw::crop(full_albedo, opt.crop_win);
+      albedo_geo = vw::cartography::crop(albedo_geo, opt.crop_win);
     }
   } else {
     // No cropping
@@ -579,7 +578,7 @@ void prepareDemAndAlbedo(SfsOptions& opt,
 
   // Albedo and DEM must have same dimensions and georef
   if (albedo.cols() != dem.cols() || albedo.rows() != dem.rows())
-    vw_throw(ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
               << "The albedo image must have the same dimensions as the DEM.\n");
   if (geo.get_wkt() != albedo_geo.get_wkt())
     vw::vw_throw(vw::ArgumentErr()
@@ -597,7 +596,7 @@ void sfsSanityChecks(asp::SfsOptions const& opt,
     for (int row = 0; row < dem.rows(); row++) {
       if (dem(col, row) == dem_nodata_val ||
           std::isnan(dem(col, row))) {
-        vw_throw(ArgumentErr()
+        vw::vw_throw(vw::ArgumentErr()
                   << "Found a no-data or NaN pixel in the DEM. Cannot continue. "
                   << "The dem_mosaic tool can be used to fill in holes. Then "
                   << "crop and use a clip from this DEM having only valid data.");
@@ -605,7 +604,7 @@ void sfsSanityChecks(asp::SfsOptions const& opt,
     }
   }
   if (dem.cols() < min_dem_size || dem.rows() < min_dem_size)
-    vw_throw(ArgumentErr() << "The input DEM is too small.\n");
+    vw::vw_throw(vw::ArgumentErr() << "The input DEM is too small.\n");
 
   // This check must happen before loading images but after we know the DEM size
   if ((dem.cols() > 500 || dem.rows() > 500) && !opt.compute_exposures_only &&
@@ -624,13 +623,13 @@ void estimExposuresHazeSkipVec(asp::SfsOptions const& opt,
                                vw::cartography::GeoReference const& geo,
                                double max_dem_height,
                                double gridx, double gridy,
-                               std::vector<vw::Vector3> const& sunPosition,
-                               asp::ReflParams const& refl_params,
-                               std::vector<BBox2i> const& crop_boxes,
+                               std::vector<vw::Vector3>   const& sunPosition,
+                               asp::ReflParams            const& refl_params,
+                               std::vector<vw::BBox2i>      const& crop_boxes,
                                std::vector<MaskedImgRefT> const& masked_images,
                                std::vector<vw::ImageView<double>> const& blend_weights,
-                               bool blend_weight_is_ground_weight,
-                               std::vector<vw::CamPtr> const& cameras,
+                               bool                               blend_weight_is_ground_weight,
+                               std::vector<vw::CamPtr>      const& cameras,
                                double mean_albedo,
                                // Outputs
                                std::vector<double> & local_exposures_vec,
@@ -653,7 +652,7 @@ void estimExposuresHazeSkipVec(asp::SfsOptions const& opt,
       
       MaskedDblImgT reflectance, intensity;
       vw::ImageView<double> ground_weight;
-      vw::ImageView<Vector2> pq; // no need for these just for initialization
+      vw::ImageView<vw::Vector2> pq; // no need for these just for initialization
       bool show_progress = false;
       computeReflectanceAndIntensity(dem, pq, geo,
                                      opt.model_shadows, show_progress, max_dem_height,
@@ -676,7 +675,7 @@ void estimExposuresHazeSkipVec(asp::SfsOptions const& opt,
 
 int main(int argc, char* argv[]) {
 
-  Stopwatch sw_total;
+  vw::Stopwatch sw_total;
   sw_total.start();
 
   asp::SfsOptions opt;
@@ -715,17 +714,17 @@ int main(int argc, char* argv[]) {
 
     // This check must be here, after we find the session
     if (opt.stereo_session != "isis" && opt.use_approx_camera_models) {
-      vw_out() << "Computing approximate models works only with ISIS cameras. "
+      vw::vw_out() << "Computing approximate models works only with ISIS cameras. "
                << "Ignoring this option.\n";
       opt.use_approx_camera_models = false;
     }
 
     if (opt.num_threads > 1 && opt.stereo_session == "isis" && 
         !opt.use_approx_camera_models) {
-      vw_out() << "Using exact ISIS camera models. Can run with only a single thread.\n";
+      vw::vw_out() << "Using exact ISIS camera models. Can run with only a single thread.\n";
       opt.num_threads = 1;
     }
-    vw_out() << "Using: " << opt.num_threads << " thread(s).\n";
+    vw::vw_out() << "Using: " << opt.num_threads << " thread(s).\n";
     
     // We won't load the full images, just portions restricted to the area we we
     // will compute the DEM.
@@ -735,7 +734,7 @@ int main(int argc, char* argv[]) {
     // The crop box starts as the original image bounding box. We'll shrink it later.
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       std::string img_file = opt.input_images[image_iter];
-      crop_boxes[image_iter] = vw::bounding_box(DiskImageView<float>(img_file));
+      crop_boxes[image_iter] = vw::bounding_box(vw::DiskImageView<float>(img_file));
     }
 
     // Ensure that no two threads can access an ISIS camera at the same time.
@@ -762,7 +761,7 @@ int main(int argc, char* argv[]) {
     double gridx = 0.0, gridy = 0.0;
     asp::calcGsd(dem, geo, dem_nodata_val, sample_col_rate, sample_row_rate,
                  gridx, gridy); // outputs
-    vw_out() << "DEM grid in x and y in meters: " << gridx << ' ' << gridy << "\n";
+    vw::vw_out() << "DEM grid in x and y in meters: " << gridx << ' ' << gridy << "\n";
 
     // Find the max DEM height
     double max_dem_height = asp::maxDemHeight(dem);
@@ -787,7 +786,7 @@ int main(int argc, char* argv[]) {
 
     // Initialize the haze as 0. If computed above, initialize its first coeff.
     if ((!opt.image_haze_vec.empty()) && (int)opt.image_haze_vec.size() != num_images)
-      vw_throw(ArgumentErr() << "Expecting as many haze values as images.\n");
+      vw::vw_throw(vw::ArgumentErr() << "Expecting as many haze values as images.\n");
     if (opt.image_haze_vec.empty()) {
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
         // Pad the haze vec with zeros
@@ -832,7 +831,7 @@ int main(int argc, char* argv[]) {
     // Compute and/or save the intensities, and/or estimate height errors,
     // and/or compute weights for borderline data.
     // Show progress when the DEM is big
-    std::vector<ImageView<double>> ground_weights(num_images);
+    std::vector<vw::ImageView<double>> ground_weights(num_images);
     std::vector<MaskedDblImgT> meas_intensities(num_images);
     std::vector<MaskedDblImgT> sim_intensities(num_images);
     bool show_progress = (opt.save_sim_intensity_only || opt.save_meas_intensity_only);
@@ -856,10 +855,10 @@ int main(int argc, char* argv[]) {
     // Print and make global the exposures and haze
     if (opt.num_haze_coeffs > 0) {
       for (size_t image_iter = 0; image_iter < opt.image_haze_vec.size(); image_iter++) {
-        vw_out() << "Image haze for " << opt.input_images[image_iter] << ':';
+        vw::vw_out() << "Image haze for " << opt.input_images[image_iter] << ':';
         for (size_t haze_it = 0; haze_it < opt.image_haze_vec[image_iter].size(); haze_it++)
-          vw_out() << " " << opt.image_haze_vec[image_iter][haze_it];
-        vw_out() << "\n";
+          vw::vw_out() << " " << opt.image_haze_vec[image_iter][haze_it];
+        vw::vw_out() << "\n";
       }
     }
 
@@ -882,7 +881,7 @@ int main(int argc, char* argv[]) {
     // info, as those take up memory (the camera is a table).
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       if (opt.skip_images.find(image_iter) != opt.skip_images.end()) {
-        masked_images[image_iter] = vw::ImageView<PixelMask<float>>();
+        masked_images[image_iter] = vw::ImageView<vw::PixelMask<float>>();
         blend_weights[image_iter] = vw::ImageView<double>();
         cameras[image_iter] = boost::shared_ptr<CameraModel>();
       }
@@ -890,7 +889,7 @@ int main(int argc, char* argv[]) {
 
     // orig_dem will keep the input DEMs and won't change. Keep to the optimized
     // DEMs close to orig_dem. Make a deep copy below. Then run sfs.
-    vw::ImageView<double> orig_dem = copy(dem);
+    vw::ImageView<double> orig_dem = vw::copy(dem);
     runSfs(opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight,
            max_dem_height, dem_nodata_val, img_nodata_val,  crop_boxes, masked_images,
            blend_weights, blend_weight_is_ground_weight,
@@ -903,7 +902,7 @@ int main(int argc, char* argv[]) {
   } ASP_STANDARD_CATCHES;
 
   sw_total.stop();
-  vw_out() << "Total elapsed time: " << sw_total.elapsed_seconds() << " s.\n";
+  vw::vw_out() << "Total elapsed time: " << sw_total.elapsed_seconds() << " s.\n";
 
   return 0;
 }

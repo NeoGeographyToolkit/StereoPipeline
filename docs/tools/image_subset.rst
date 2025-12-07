@@ -29,10 +29,10 @@ Background and example
 ~~~~~~~~~~~~~~~~~~~~~~
 
 This program was developed as an auxiliary tool for Shape-from-Shading
-processing (:numref:`sfs_usage`). For that, it is desired to have a very large
-number of images of diverse illumination to be able to coregister them all.
-However, once that is done, just a representative subset of images is needed for
-SfS, as using the full set can be prohibitive. 
+processing (:numref:`sfs_usage`). Early in this process it is desired to have a
+very large number of images of diverse illumination to be able to coregister
+them all. However, once that is done, just a representative subset of images is
+needed for SfS, as using the full set can be prohibitive computationally. 
 
 The following way of invoking this tool is suggested. 
 

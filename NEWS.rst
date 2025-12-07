@@ -103,8 +103,8 @@ image_align (:numref:`image_align`):
   * Added the option ``--nodata-value``.
   * Supports the same controls for interest point detection as
     ``bundle_adjust`` (:numref:`image_align_opts`).
-  * The option ``--output-prefix`` is now required to be non-empty. It is set by
-    default to ``out_image_align/run``.
+  * The value of option ``--output-prefix`` is now required to be non-empty. It
+    is set by default to ``out_image_align/run``.
 
 image_subset (:numref:`image_subset`):
   * This program is now multi-threaded. Each image is read fully in memory for
