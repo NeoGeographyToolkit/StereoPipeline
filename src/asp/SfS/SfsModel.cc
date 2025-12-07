@@ -857,4 +857,135 @@ void calcSimIntensity(vw::ImageView<double> const& albedo,
 
 } // end function calcSimIntensity
 
+// This function computes / saves measured and simulated intensities, and
+// handles related estimations. If opt.allow_borderline_data is true, create for
+// each image that will not be skipped a weight matrix with dimensions equal to
+// DEM dimensions, that will be used instead of weights in the camera image
+// space. These are balanced among each other and give more weight to barely lit
+// and unlit nearby pixels.
+void calcIntenEstimHeights(SfsOptions & opt,
+                           vw::ImageView<double> const& dem,
+                           vw::ImageView<double> const& albedo,
+                           vw::cartography::GeoReference const& geo,
+                           bool show_progress,
+                           double max_dem_height,
+                           double gridx, double gridy,
+                           std::vector<vw::Vector3> const& sunPosition,
+                           asp::ReflParams const& refl_params,
+                           std::vector<vw::BBox2i> const& crop_boxes,
+                           std::vector<MaskedImgRefT> const& masked_images,
+                           std::vector<vw::ImageView<double>> const& blend_weights,
+                           bool blend_weight_is_ground_weight,
+                           std::vector<vw::CamPtr> const& cameras,
+                           float img_nodata_val,
+                           // Outputs
+                           vw::ImageView<int> & lit_image_mask,
+                           std::vector<vw::ImageView<double>> & ground_weights,
+                           std::vector<MaskedDblImgT> & meas_intensities,
+                           std::vector<MaskedDblImgT> & sim_intensities) {
+
+  int num_images = opt.input_images.size();
+
+  // Save the computed and actual intensity, and for most of these quit
+  MaskedDblImgT reflectance, meas_intensity, sim_intensity;
+  vw::ImageView<double> ground_weight;
+  vw::ImageView<Vector2> pq; // no need for these just for initialization
+  int sample_col_rate = 1, sample_row_rate = 1;
+  
+  auto heightErrEstim = boost::shared_ptr<HeightErrEstim>(NULL);
+  if (opt.estimate_height_errors) {
+    double max_height_error  = opt.height_error_params[0];
+    int num_height_samples   = opt.height_error_params[1];
+    vw_out() << "Maximum height error to examine: " << max_height_error << "\n";
+    vw_out() << "Number of samples to use from 0 to that height: "
+             << num_height_samples << "\n";
+    
+    double nodata_height_val = -1.0;
+    heightErrEstim = boost::shared_ptr<HeightErrEstim>
+      (new HeightErrEstim(dem.cols(), dem.rows(),
+                          num_height_samples, max_height_error, nodata_height_val,
+                          &albedo));
+  }
+  
+  if (show_progress)
+    vw::vw_out() << "Computing measured and simulated intensities.\n";
+  
+  for (int image_iter = 0; image_iter < num_images; image_iter++) {
+    
+    if (opt.estimate_height_errors)
+      heightErrEstim->image_iter = image_iter;
+    
+    // Find the reflectance and measured intensity. Note that this function is
+    // needed even if only saving the simulated intensity, as it computes
+    // the reflectance image which is a necessary input for the simulated
+    // intensity calculation.
+    asp::computeReflectanceAndIntensity(dem, pq, geo,
+                                        opt.model_shadows, show_progress, max_dem_height,
+                                        gridx, gridy, sample_col_rate, sample_row_rate,
+                                        sunPosition[image_iter],
+                                        refl_params,
+                                        crop_boxes[image_iter],
+                                        masked_images[image_iter],
+                                        blend_weights[image_iter],
+                                        blend_weight_is_ground_weight,
+                                        cameras[image_iter],
+                                        reflectance, meas_intensity, ground_weight,
+                                        &opt.model_coeffs_vec[0], opt,
+                                        heightErrEstim.get());
+    
+    // Find the simulated intensity only when needed
+    if (opt.save_sim_intensity_only || opt.low_light_threshold > 0.0)
+      asp::calcSimIntensity(albedo, reflectance,
+                            opt.image_exposures_vec[image_iter],
+                            opt.steepness_factor,
+                            opt.image_haze_vec[image_iter],
+                            opt.num_haze_coeffs,
+                            opt.num_threads,
+                            show_progress,
+                            sim_intensity);
+    
+    // Save some quantities if needed
+    if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
+        (opt.allow_borderline_data || opt.low_light_threshold > 0.0))
+      ground_weights[image_iter] = copy(ground_weight); // save the weight
+    if (opt.skip_images.find(image_iter) == opt.skip_images.end() &&
+        opt.low_light_threshold > 0.0) {
+      // Save the measured and computed intensities. Avoid doing this in 
+      // general as they can be large, if the input DEM is large.
+      meas_intensities[image_iter] = copy(meas_intensity);
+      sim_intensities[image_iter] = copy(sim_intensity);
+    }
+    
+    if (opt.curvature_in_shadow_weight > 0.0) {
+      if (meas_intensity.cols() != lit_image_mask.cols() ||
+          meas_intensity.rows() != lit_image_mask.rows())
+        vw_throw(ArgumentErr()
+                 << "Intensity image dimensions disagree with DEM clip dimensions.\n");
+        
+      for (int col = 0; col < lit_image_mask.cols(); col++) {
+        for (int row = 0; row < lit_image_mask.rows(); row++) {
+          if (is_valid(meas_intensity(col, row))           ||
+              col == 0 || col == lit_image_mask.cols() - 1 ||
+              row == 0 || row == lit_image_mask.rows() - 1) {
+            // Boundary pixels are declared lit. Otherwise they are always
+            // unlit due to the peculiarities of how the intensity is found
+            // at the boundary.
+            lit_image_mask(col, row) = 1;
+          }
+        }
+      }
+    }
+    
+    if (opt.save_sim_intensity_only || opt.save_meas_intensity_only)
+      asp::saveIntensities(opt, opt.input_images[image_iter],
+                           opt.input_cameras[image_iter],
+                           geo, meas_intensity,
+                           sim_intensity, img_nodata_val);
+    
+  } // End iterating over images
+  
+  if (opt.estimate_height_errors)
+    asp::combineHeightErrors(heightErrEstim, opt, geo);
+}
+
 } // end namespace asp

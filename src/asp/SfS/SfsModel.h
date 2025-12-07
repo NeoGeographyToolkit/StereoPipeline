@@ -148,7 +148,34 @@ void computeReflectanceAndIntensity(DblImgT const& dem,
 
 // Initalize the reflectance parameters based on user input
 void setupReflectance(asp::ReflParams & refl_params, asp::SfsOptions & opt);
-  
+
+// This function computes / saves measured and simulated intensities, and
+// handles related estimations. If opt.allow_borderline_data is true, create for
+// each image that will not be skipped a weight matrix with dimensions equal to
+// DEM dimensions, that will be used instead of weights in the camera image
+// space. These are balanced among each other and give more weight to barely lit
+// and unlit nearby pixels.
+void calcIntenEstimHeights(SfsOptions & opt,
+                           vw::ImageView<double> const& dem,
+                           vw::ImageView<double> const& albedo,
+                           vw::cartography::GeoReference const& geo,
+                           bool show_progress,
+                           double max_dem_height,
+                           double gridx, double gridy,
+                           std::vector<vw::Vector3> const& sunPosition,
+                           asp::ReflParams const& refl_params,
+                           std::vector<vw::BBox2i> const& crop_boxes,
+                           std::vector<MaskedImgRefT> const& masked_images,
+                           std::vector<vw::ImageView<double>> const& blend_weights,
+                           bool blend_weight_is_ground_weight,
+                           std::vector<vw::CamPtr> const& cameras,
+                           float img_nodata_val,
+                           // Outputs
+                           vw::ImageView<int> & lit_image_mask,
+                           std::vector<vw::ImageView<double>> & ground_weights,
+                           std::vector<MaskedDblImgT> & meas_intensities,
+                           std::vector<MaskedDblImgT> & sim_intensities);
+
 } // end namespace asp
 
 #endif // __ASP_SFS_SFS_MODEL_H__
