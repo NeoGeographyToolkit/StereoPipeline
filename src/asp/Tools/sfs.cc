@@ -88,7 +88,7 @@ void runSfs(// Fixed quantities
             double                             max_dem_height,
             double                             dem_nodata_val,
             float                              img_nodata_val,
-            std::vector<vw::BBox2i>        const & crop_boxes,
+            std::vector<vw::BBox2i>    const & crop_boxes,
             std::vector<MaskedImgRefT> const & masked_images,
             std::vector<DblImgT>       const & blend_weights,
             bool                               blend_weight_is_ground_weight,
@@ -234,7 +234,7 @@ void calcApproxCamsCropBoxes(vw::ImageView<double> const& dem,
     vw::CamPtr exact_camera = cameras[image_iter];
 
     vw::vw_out() << "Creating an approximate camera model for "
-            << opt.input_images[image_iter] << "\n";
+                 << opt.input_images[image_iter] << "\n";
     vw::BBox2i img_bbox = crop_boxes[image_iter];
     vw::Stopwatch sw;
     sw.start();
@@ -625,11 +625,11 @@ void estimExposuresHazeSkipVec(asp::SfsOptions const& opt,
                                double gridx, double gridy,
                                std::vector<vw::Vector3>   const& sunPosition,
                                asp::ReflParams            const& refl_params,
-                               std::vector<vw::BBox2i>      const& crop_boxes,
+                               std::vector<vw::BBox2i>    const& crop_boxes,
                                std::vector<MaskedImgRefT> const& masked_images,
                                std::vector<vw::ImageView<double>> const& blend_weights,
-                               bool                               blend_weight_is_ground_weight,
-                               std::vector<vw::CamPtr>      const& cameras,
+                               bool blend_weight_is_ground_weight,
+                               std::vector<vw::CamPtr>    const& cameras,
                                double mean_albedo,
                                // Outputs
                                std::vector<double> & local_exposures_vec,
@@ -715,7 +715,7 @@ int main(int argc, char* argv[]) {
     // This check must be here, after we find the session
     if (opt.stereo_session != "isis" && opt.use_approx_camera_models) {
       vw::vw_out() << "Computing approximate models works only with ISIS cameras. "
-               << "Ignoring this option.\n";
+                   << "Ignoring this option.\n";
       opt.use_approx_camera_models = false;
     }
 
@@ -839,12 +839,12 @@ int main(int argc, char* argv[]) {
         opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0 ||
         opt.allow_borderline_data || opt.low_light_threshold > 0.0)
       asp::calcIntenEstimHeights(opt, dem, albedo, geo, show_progress, max_dem_height,
-                                gridx, gridy, sunPosition, refl_params, crop_boxes,
-                                masked_images, blend_weights, blend_weight_is_ground_weight,
-                                cameras, img_nodata_val,
-                                // Outputs
-                                lit_image_mask, ground_weights,
-                                meas_intensities, sim_intensities);
+                                 gridx, gridy, sunPosition, refl_params, crop_boxes,
+                                 masked_images, blend_weights, blend_weight_is_ground_weight,
+                                 cameras, img_nodata_val,
+                                 // Outputs
+                                 lit_image_mask, ground_weights,
+                                 meas_intensities, sim_intensities);
 
     if (opt.save_sim_intensity_only || opt.save_meas_intensity_only ||
         opt.estimate_height_errors) {
