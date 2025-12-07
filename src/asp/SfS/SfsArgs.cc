@@ -434,12 +434,16 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
 
   if (opt.compute_exposures_only || opt.estim_exposure_haze_albedo) {
     if (opt.use_approx_camera_models || opt.crop_input_images) {
-      vw::vw_out(vw::WarningMessage) << "When computing exposures only, not using approximate "
-                             << "camera models or cropping input images.\n";
+      vw::vw_out(vw::WarningMessage) 
+        << "When computing exposures only, not using approximate "
+        << "camera models or cropping input images.\n";
+      // Turn on various settings that are needed only when doing iterations  
       opt.use_approx_camera_models = false;
       opt.crop_input_images = false;
       opt.blending_dist = 0;
       opt.allow_borderline_data = false;
+      opt.low_light_threshold = -1.0;
+      opt.erode_seams = false;
     }
 
     if (!opt.crop_win.empty()) {
