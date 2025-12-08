@@ -1178,7 +1178,7 @@ void MainWindow::toggleViewMatches() {
 // useful, but not before saving, when their numbers must agree for
 // all images.
 void MainWindow::viewMatches() {
-
+  
   // Record user's intent
   asp::stereo_settings().view_matches = m_viewMatches_action->isChecked();
   asp::stereo_settings().preview = false;
@@ -1237,7 +1237,8 @@ void MainWindow::viewMatches() {
       std::vector<std::string> matchFiles;
       std::vector<size_t> leftIndices;
       bool matchfiles_found = false;
-      asp::populateMatchFiles(app_data.image_files, m_output_prefix, stereo_settings().match_file,
+      asp::populateMatchFiles(app_data.image_files, m_output_prefix, 
+                              stereo_settings().match_file,
                               matchFiles, leftIndices, matchfiles_found);      
       if (matchfiles_found) 
         m_match_mgr.m_matchlist.loadPointsFromMatchFiles(matchFiles, leftIndices);

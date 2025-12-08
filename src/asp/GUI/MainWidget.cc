@@ -1078,14 +1078,10 @@ void MainWidget::refreshPixmap() {
   QPainter paint;
   paint.begin(&m_pixmap);
   MainWidget::drawImage(&paint);
-
-  // See the other invocation of drawInterestPoints() for a lengthy note
-  m_match_mgr.drawInterestPoints(&paint, this, m_beg_image_id, m_base_image_id, 
-                                 m_window_width, m_window_height);
-
   paint.end();  // Make sure to end the painting session
 
-  // Invokes MainWidget::PaintEvent().
+  // Invokes MainWidget::PaintEvent(). This will draw the pixmap on the screen,
+  // and draw the rubberband, interest points, etc. on top of it.
   update();
   return;
 }
@@ -1174,10 +1170,10 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
   // TODO(oalexan1): Should the persistent polygons be drawn
   // as part of the drawImage() call? That will be a lot more efficient
-  // than being redrawn any time the mouse moves, etc. How about polygons
-  // actively being edited?
+  // than being redrawn any time the mouse moves, etc. But then how to handle
+  // polygons being edited?
   MainWidget::plotPolys(paint);
-
+  
   // Call another function to handle drawing the interest points
   // This drawing is expensive as it happens every time paintEvent()
   // is called, which is is countless times when the mouse is
@@ -1871,7 +1867,7 @@ void MainWidget::viewMatches() {
     emit toggleViewMatchesSignal();
     return;
   }
-
+  
   update(); // redraw matches on top of existing images
 }
 
