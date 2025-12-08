@@ -57,26 +57,20 @@ MainWidget::MainWidget(QWidget *parent,
                        int beg_image_id, int end_image_id, int base_image_id,
                        asp::AppData & app_data, // alias
                        std::string & output_prefix,     // will be aliased
-                       asp::MatchList & matches,
-                       pairwiseMatchList & pairwiseMatches,
-                       pairwiseMatchList & pairwiseCleanMatches,
-                       int &editMatchPointVecIndex,
-                       chooseFilesDlg * chooseFiles, bool use_georef,
+                       asp::MatchPointMgr & match_mgr,
+                       chooseFilesDlg * chooseFiles,
                        bool & allowMultipleSelections):
     QwtScaleWidget(parent),
     WidgetBase(beg_image_id, end_image_id, base_image_id, app_data),
     m_opt(opt), m_chooseFiles(chooseFiles),
     m_output_prefix(output_prefix), // alias
-    m_matchlist(matches),
-    m_pairwiseMatches(pairwiseMatches),
-    m_pairwiseCleanMatches(pairwiseCleanMatches),
-    m_editMatchPointVecIndex(editMatchPointVecIndex),
+    m_match_mgr(match_mgr),
     m_allowMultipleSelections(allowMultipleSelections),
     m_can_emit_zoom_all_signal(false),
     m_polyEditMode(false), m_polyLayerIndex(beg_image_id),
     m_pixelTol(6), m_backgroundColor(QColor("black")),
     m_lineWidth(1), m_polyColor("green"),
-    m_editingMatches(false), m_firstPaintEvent(false),
+    m_firstPaintEvent(false),
     m_emptyRubberBand(QRect(0,0,0,0)), m_rubberBand(QRect(0,0,0,0)),
     m_cropWinMode(false), m_profileMode(false),
     m_profilePlot(NULL), m_mousePrsX(0), m_mousePrsY(0),
@@ -972,98 +966,7 @@ void MainWidget::drawImage(QPainter* paint) {
   return;
 } // End function drawImage()
 
-void MainWidget::drawInterestPoints(QPainter* paint) {
 
-  // Highlight colors for various actions
-  QColor ipColor              = QColor(255,  0,  0); // Red
-  QColor ipInvalidColor       = QColor(255,163, 26); // Orange
-  QColor ipAddHighlightColor  = QColor(64,255,  0); // Green
-  QColor ipMoveHighlightColor = QColor(255,  0,255); // Magenta
-
-  paint->setBrush(Qt::NoBrush);
-
-  if (m_end_image_id - m_beg_image_id > 1) {
-    // In order to be able to see matches, each image must be in its own widget.
-    // So, if the current widget has more than an image, they are stacked on top
-    // of each other, and then we just can't show IP.
-    asp::stereo_settings().view_matches = false;
-    popUp("Must have the images side-by-side to view/edit interest point matches.");
-    emit toggleViewMatchesSignal();
-    return;
-  }
-
-  // If this point is currently being edited by the user, highlight it.
-  // - Here we check to see if it has not been placed in all images yet.
-  bool highlight_last = false;
-  if (asp::stereo_settings().view_matches) {
-    int lastImage = int(m_matchlist.getNumImages()) - 1;
-    highlight_last
-      = (m_matchlist.getNumPoints(m_beg_image_id) > m_matchlist.getNumPoints(lastImage));
-  }
-
-  std::vector<Vector2> ip_vec;
-  if (asp::stereo_settings().view_matches) {
-    for (size_t ip_iter = 0; ip_iter < m_matchlist.getNumPoints(m_beg_image_id); ip_iter++) {
-      // Generate the pixel coord of the point
-      Vector2 pt = m_matchlist.getPointCoord(m_beg_image_id, ip_iter);
-      ip_vec.push_back(pt);
-    }
-  } else if (asp::stereo_settings().pairwise_matches &&
-              m_beg_image_id < m_pairwiseMatches.ip_to_show.size()) {
-    // Had to check if ip_to_show was initialized by now
-    auto & ip_in_vec = m_pairwiseMatches.ip_to_show[m_beg_image_id]; // alias
-    for (size_t ip_iter = 0; ip_iter < ip_in_vec.size(); ip_iter++) {
-      ip_vec.push_back(Vector2(ip_in_vec[ip_iter].x, ip_in_vec[ip_iter].y));
-    }
-  } else if (asp::stereo_settings().pairwise_clean_matches &&
-              m_beg_image_id < m_pairwiseCleanMatches.ip_to_show.size()) {
-    // Had to check if ip_to_show was initialized by now
-    auto & ip_in_vec = m_pairwiseCleanMatches.ip_to_show[m_beg_image_id]; // alias
-    for (size_t ip_iter = 0; ip_iter < ip_in_vec.size(); ip_iter++) {
-      ip_vec.push_back(Vector2(ip_in_vec[ip_iter].x, ip_in_vec[ip_iter].y));
-    }
-  }
-
-  // Iterate over interest points
-  for (size_t ip_iter = 0; ip_iter < ip_vec.size(); ip_iter++) {
-    // Generate the pixel coord of the point
-    Vector2 pt    = ip_vec[ip_iter];
-    Vector2 world = app_data.image2world_trans(pt, m_base_image_id);
-    Vector2 P     = world2screen(world);
-
-    // Do not draw points that are outside the viewing area
-    if (P.x() < 0 || P.x() > m_window_width ||
-        P.y() < 0 || P.y() > m_window_height) {
-      continue;
-    }
-
-    paint->setPen(ipColor); // The default IP color
-    paint->setBrush(ipColor); // make the point filled
-
-    if (asp::stereo_settings().view_matches) {
-      // Some special handling for when we add matches
-      if (!m_matchlist.isPointValid(m_beg_image_id, ip_iter)) {
-        paint->setPen(ipInvalidColor);
-        paint->setBrush(ipInvalidColor);
-      }
-
-      // Highlighting the last point
-      if (highlight_last && (ip_iter == m_matchlist.getNumPoints(m_beg_image_id)-1)) {
-        paint->setPen(ipAddHighlightColor);
-        paint->setBrush(ipAddHighlightColor);
-      }
-
-      if (static_cast<int>(ip_iter) == m_editMatchPointVecIndex) {
-        paint->setPen(ipMoveHighlightColor);
-        paint->setBrush(ipMoveHighlightColor);
-      }
-    }
-
-    QPoint Q(P.x(), P.y());
-    paint->drawEllipse(Q, 2, 2); // Draw the point
-
-  } // End loop through points
-} // End function drawInterestPoints
 
 // Draw irregular xyz data to be plotted at (x, y) location with z giving
 // the intensity. May be colorized.
@@ -1177,10 +1080,8 @@ void MainWidget::refreshPixmap() {
   MainWidget::drawImage(&paint);
 
   // See the other invocation of drawInterestPoints() for a lengthy note
-  // on performance.
-  if (asp::stereo_settings().pairwise_matches ||
-      asp::stereo_settings().pairwise_clean_matches)
-    drawInterestPoints(&paint);
+  m_match_mgr.drawInterestPoints(&paint, this, m_beg_image_id, m_base_image_id, 
+                                 m_window_width, m_window_height);
 
   paint.end();  // Make sure to end the painting session
 
@@ -1287,8 +1188,16 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   // and here putting only the actively modified elements. For now,
   // editing of ip is not allowed for viewing pairwise matches, so those
   // ip are drawn in refreshPixmap()
-  if (asp::stereo_settings().view_matches)
-    drawInterestPoints(&paint);
+  if (asp::stereo_settings().view_matches) {
+    if (m_end_image_id - m_beg_image_id > 1) {
+      asp::stereo_settings().view_matches = false;
+      popUp("Images must be side-by-side to view/edit matches.");
+      emit toggleViewMatchesSignal();
+    } else {
+      m_match_mgr.drawInterestPoints(&paint, this, m_beg_image_id, m_base_image_id, 
+                                     m_window_width, m_window_height);
+    }
+  }
 
 } // end paint event
 
@@ -1330,21 +1239,21 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
   m_cropWinMode = ((event->buttons  () & Qt::LeftButton) &&
                     (event->modifiers() & Qt::ControlModifier));
 
-  m_editMatchPointVecIndex = -1; // Keep this initialized
+  m_match_mgr.m_editMatchPointVecIndex = -1; // Keep this initialized
 
   // If the user is currently editing match points
   if (!m_polyEditMode && m_menu_mgr->m_moveMatchPoint->isChecked()
       && !m_cropWinMode && asp::stereo_settings().view_matches) {
 
-    m_editingMatches = true;
+    m_match_mgr.m_editingMatches = true;
 
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
     P = app_data.world2image_trans(P, m_base_image_id);
 
     // Find the match point we want to move
     const double DISTANCE_LIMIT = 70;
-    m_editMatchPointVecIndex
-      = m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
+    m_match_mgr.m_editMatchPointVecIndex
+      = m_match_mgr.m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
 
     if (asp::stereo_settings().view_matches) {
       // Update IP draw color
@@ -1410,18 +1319,18 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
   // If the user is editing match points
   if (!m_polyEditMode && m_menu_mgr->m_moveMatchPoint->isChecked() && !m_cropWinMode) {
 
-    m_editingMatches = true;
+    m_match_mgr.m_editingMatches = true;
 
     // Error checking
-    if ((m_beg_image_id < 0) || (m_editMatchPointVecIndex < 0) ||
-          (!m_matchlist.pointExists(m_beg_image_id, m_editMatchPointVecIndex)))
+    if ((m_beg_image_id < 0) || (m_match_mgr.m_editMatchPointVecIndex < 0) ||
+          (!m_match_mgr.m_matchlist.pointExists(m_beg_image_id, m_match_mgr.m_editMatchPointVecIndex)))
       return;
 
     Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
     P = app_data.world2image_trans(P, m_base_image_id);
 
     // Update the IP location
-    m_matchlist.setPointPosition(m_beg_image_id, m_editMatchPointVecIndex, P.x(), P.y());
+    m_match_mgr.m_matchlist.setPointPosition(m_beg_image_id, m_match_mgr.m_editMatchPointVecIndex, P.x(), P.y());
 
     if (asp::stereo_settings().view_matches) {
       // Update IP draw color
@@ -1433,7 +1342,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
       emit toggleViewMatchesSignal();
     }
     return;
-  } // End polygon editing
+  } // End match point editing
 
   // If the user is editing polygons
   if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
@@ -1768,8 +1677,8 @@ void MainWidget::zoomInOut(int mouseRelX, int mouseRelY) {
 // If a point was being moved, reset the ID and color. Points that are moved
 // are also set to valid.
 void MainWidget::adjustForEditMatchPoint() {
-  m_matchlist.setPointValid(m_beg_image_id, m_editMatchPointVecIndex, true);
-  m_editMatchPointVecIndex = -1;
+  m_match_mgr.m_matchlist.setPointValid(m_beg_image_id, m_match_mgr.m_editMatchPointVecIndex, true);
+  m_match_mgr.m_editMatchPointVecIndex = -1;
 
   if (asp::stereo_settings().view_matches) {
     // Update IP draw color
@@ -1800,7 +1709,7 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
 
   // If a point was being moved, reset the ID and color. Points that are moved
   // are also set to valid.
-  if (m_editMatchPointVecIndex >= 0)
+  if (m_match_mgr.m_editMatchPointVecIndex >= 0)
     adjustForEditMatchPoint();
 
   // If the mouse was released close to where it was pressed
@@ -1968,7 +1877,7 @@ void MainWidget::viewMatches() {
 
 void MainWidget::addMatchPoint() {
 
-  if (m_beg_image_id >= static_cast<int>(m_matchlist.getNumImages())) {
+  if (m_beg_image_id >= static_cast<int>(m_match_mgr.m_matchlist.getNumImages())) {
     popUp("Number of existing matches is corrupted. Cannot add matches.");
     return;
   }
@@ -1986,14 +1895,14 @@ void MainWidget::addMatchPoint() {
     return;
   }
   
-  m_editingMatches = true;
+  m_match_mgr.m_editingMatches = true;
 
   // Convert mouse coords to world coords then image coords.
   Vector2 world_coord    = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
   Vector2 P              = app_data.world2image_trans(world_coord, m_base_image_id);
 
   // Try to add the new IP.
-  bool is_good = m_matchlist.addPoint(m_beg_image_id, ip::InterestPoint(P.x(), P.y()));
+  bool is_good = m_match_mgr.m_matchlist.addPoint(m_beg_image_id, ip::InterestPoint(P.x(), P.y()));
 
   if (!is_good) {
     popUp(std::string("Add matches by adding a point in the left-most ")
@@ -2021,7 +1930,7 @@ void MainWidget::deleteMatchPoint() {
     return;
   }
 
-  if (m_matchlist.getNumPoints() == 0) {
+  if (m_match_mgr.m_matchlist.getNumPoints() == 0) {
     popUp("No matches to delete.");
     return;
   }
@@ -2030,17 +1939,17 @@ void MainWidget::deleteMatchPoint() {
   Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
   P = app_data.world2image_trans(P, m_base_image_id);
   const double DISTANCE_LIMIT = 70;
-  int min_index = m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
+  int min_index = m_match_mgr.m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
 
   if (min_index < 0) {
     popUp("Did not find a nearby match to delete.");
     return;
   }
 
-  m_editingMatches = true;
+  m_match_mgr.m_editingMatches = true;
   bool result = false;
   try {
-    result = m_matchlist.deletePointAcrossImages(min_index);
+    result = m_match_mgr.m_matchlist.deletePointAcrossImages(min_index);
   } catch (std::exception const& e) {
     popUp(e.what());
     return;

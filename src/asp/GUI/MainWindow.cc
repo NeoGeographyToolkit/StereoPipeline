@@ -219,11 +219,13 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   m_opt(opt),
   m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
   m_grid_cols(grid_cols),
-  m_allowMultipleSelections(false), m_matches_exist(false),
+  m_allowMultipleSelections(false),
   m_argc(argc), m_argv(argv),
-  m_show_two_images_when_side_by_side_with_dialog(true), 
-  m_cursor_count(0), m_cnet("ASP_control_network"),
-  m_saved_gcp_and_ip(true) {
+  m_show_two_images_when_side_by_side_with_dialog(true),
+  m_cursor_count(0),
+  m_saved_gcp_and_ip(true),
+  m_match_mgr(app_data) { // Initialize m_match_mgr with app_data
+
 
   // Window size
   resize(window_size[0], window_size[1]);
@@ -251,14 +253,14 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     try {
        asp::readNvmAsCnet(asp::stereo_settings().nvm, std::vector<std::string>(),
                           asp::stereo_settings().nvm_no_shift,
-                          m_cnet, world_to_cam, optical_offsets);
+                          m_match_mgr.m_cnet, world_to_cam, optical_offsets);
     } catch (const std::exception& e) {
       popUp(e.what());
       exit(1);
     }
     if (!local_images.empty())
       popUp("Will ignore the images passed in and will use the nvm file only.");
-    local_images = m_cnet.get_image_list(); // overwrite local_images
+    local_images = m_match_mgr.m_cnet.get_image_list(); // overwrite local_images
   }
   if (!asp::stereo_settings().isis_cnet.empty()) {
     asp::stereo_settings().pairwise_matches = true;
@@ -268,7 +270,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     try {
       asp::IsisCnetData isisCnetData; // Part of the API, unused here
       asp::loadIsisCnet(asp::stereo_settings().isis_cnet, local_images,
-                        m_cnet, isisCnetData); // outputs
+                        m_match_mgr.m_cnet, isisCnetData); // outputs
     } catch (const std::exception& e) {
       popUp(e.what());
       exit(1);
@@ -312,9 +314,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   QObject::connect(m_chooseFiles->getFilesTable()->horizontalHeader(),
                    SIGNAL(sectionClicked(int)), this, SLOT(hideShowAll_windowVersion()));
 
-  // For editing match points
-  m_editMatchPointVecIndex = -1;
-  m_matchlist.resize(num_images);
+  m_match_mgr.init(num_images);
 
   // By default, show the images in one row
   if (m_grid_cols <= 0)
@@ -429,11 +429,8 @@ void MainWindow::createLayout() {
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID, app_data, 
                                 m_output_prefix,
-                                m_matchlist,
-                                m_pairwiseMatches, m_pairwiseCleanMatches,
-                                m_editMatchPointVecIndex,
+                                m_match_mgr,
                                 m_chooseFiles,
-                                app_data.use_georef,
                                 m_allowMultipleSelections);
     // Tell the widget if the poly edit mode and hillshade mode is on or not
     bool refresh = false; // Do not refresh prematurely
@@ -459,10 +456,8 @@ void MainWindow::createLayout() {
                                 m_opt,
                                 beg_image_id, end_image_id, BASE_IMAGE_ID, app_data,
                                 m_output_prefix,
-                                m_matchlist, m_pairwiseMatches, m_pairwiseCleanMatches,
-                                m_editMatchPointVecIndex,
+                                m_match_mgr,
                                 m_chooseFiles,
-                                app_data.use_georef, 
                                 m_allowMultipleSelections);
       } else {
         // Qwt plot with axes and colorbar. Hard to use the same API as earlier.
@@ -1198,7 +1193,7 @@ void MainWindow::viewMatches() {
   
   // If started editing matches do not load them from disk
   if (MainWindow::editingMatches())
-    m_matches_exist = true;
+    m_match_mgr.m_matches_exist = true;
 
   // TODO(oalexan1): Improve match loading when done this way, it is
   // rather ad hoc.  Maybe just switch to pairwise matches each time
@@ -1206,10 +1201,10 @@ void MainWindow::viewMatches() {
   
   // We will load the matches just once, as we later will add/delete
   // matches manually.
-  if (!m_matches_exist && asp::stereo_settings().view_matches) {
+  if (!m_match_mgr.m_matches_exist && asp::stereo_settings().view_matches) {
 
     // We will try to load matches
-    m_matches_exist = true;
+    m_match_mgr.m_matches_exist = true;
     
     size_t num_images = app_data.image_files.size();
     bool gcp_exists = !stereo_settings().gcp_file.empty() && 
@@ -1221,7 +1216,7 @@ void MainWindow::viewMatches() {
       // try to load the matches instead, which later will be used to make the
       // gcp.
       try {
-        m_matchlist.loadPointsFromGCPs(stereo_settings().gcp_file, app_data.image_files);
+        m_match_mgr.m_matchlist.loadPointsFromGCPs(stereo_settings().gcp_file, app_data.image_files);
       } catch (std::exception const& e) {
         popUp(e.what());
         return;
@@ -1229,7 +1224,7 @@ void MainWindow::viewMatches() {
 
     } else if (!stereo_settings().vwip_files.empty()) {
       // Try to read matches from vwip files
-      m_matchlist.loadPointsFromVwip(stereo_settings().vwip_files, app_data.image_files);
+      m_match_mgr.m_matchlist.loadPointsFromVwip(stereo_settings().vwip_files, app_data.image_files);
     } else {
         
       // If no match file was specified by now, ask the user for the output prefix.
@@ -1245,7 +1240,7 @@ void MainWindow::viewMatches() {
       asp::populateMatchFiles(app_data.image_files, m_output_prefix, stereo_settings().match_file,
                               matchFiles, leftIndices, matchfiles_found);      
       if (matchfiles_found) 
-        m_matchlist.loadPointsFromMatchFiles(matchFiles, leftIndices);
+        m_match_mgr.m_matchlist.loadPointsFromMatchFiles(matchFiles, leftIndices);
     }
 
   } // End case where we tried to load the matches
@@ -1343,8 +1338,8 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   // Only show matches if precisely two images are currently displayed
   if (seen_indices.size() != 2) {
     // Ensure no stray matches from before are shown
-    m_pairwiseMatches.ip_to_show.clear();
-    m_pairwiseCleanMatches.ip_to_show.clear();
+    m_match_mgr.m_pairwiseMatches.ip_to_show.clear();
+    m_match_mgr.m_pairwiseCleanMatches.ip_to_show.clear();
     return;
   }
   
@@ -1361,7 +1356,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   // First consider the case of loading from nvm.
   if (asp::stereo_settings().pairwise_matches) {
     
-    pairwiseMatches = &m_pairwiseMatches;
+    pairwiseMatches = &m_match_mgr.m_pairwiseMatches;
     if (!asp::stereo_settings().nvm.empty() ||
         !asp::stereo_settings().isis_cnet.empty()) {
       // Load from nvm or isis cnet
@@ -1373,7 +1368,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
       auto & right_ip = pairwiseMatches->matches[index_pair].second; // alias
 
       if (left_ip.empty() && right_ip.empty())
-        asp::matchesForPair(m_cnet, left_index, right_index, left_ip, right_ip);
+        asp::matchesForPair(m_match_mgr.m_cnet, left_index, right_index, left_ip, right_ip);
       
     } else if (pairwiseMatches->match_files.find(index_pair) ==
                pairwiseMatches->match_files.end()) {
@@ -1383,7 +1378,7 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
     }
   } else {
     // Load pairwise clean matches
-    pairwiseMatches = &m_pairwiseCleanMatches;
+    pairwiseMatches = &m_match_mgr.m_pairwiseCleanMatches;
     if (pairwiseMatches->match_files.find(index_pair) == 
         pairwiseMatches->match_files.end()) {
       match_file = vw::ip::clean_match_filename(m_output_prefix, app_data.images[left_index].name,
@@ -1438,14 +1433,14 @@ void MainWindow::saveMatches() {
   }
 
   try {
-    m_matchlist.savePointsToDisk(m_output_prefix, app_data.image_files,
+    m_match_mgr.m_matchlist.savePointsToDisk(m_output_prefix, app_data.image_files,
                                  stereo_settings().match_file);
   } catch (std::exception const& e) {
     popUp(e.what());
     return;
   }
     
-  m_matches_exist = true;
+  m_match_mgr.m_matches_exist = true;
 
   // If creating GCP, and matches are not saved yet, that means GCP were not saved 
   // either
@@ -1461,21 +1456,21 @@ void MainWindow::saveMatches() {
 
 void MainWindow::writeGroundControlPoints() {
 
-  if (!m_matchlist.allPointsValid()) {
+  if (!m_match_mgr.m_matchlist.allPointsValid()) {
     popUp("Cannot save GCP, at least one point is missing or not valid.");
     return;
   }
   
-  m_matches_exist = true;
+  m_match_mgr.m_matches_exist = true;
 
   const size_t num_images = app_data.image_files.size();
-  const size_t num_ips    = m_matchlist.getNumPoints();
+  const size_t num_ips    = m_match_mgr.m_matchlist.getNumPoints();
   // Don't record pixels from the last image, which is used for reference
   const size_t num_images_to_save = num_images - 1; 
 
   vw_out() << "Saving GCP with " << num_images << " images and " << num_ips << " ips.\n";
 
-  if (num_images != m_matchlist.getNumImages())
+  if (num_images != m_match_mgr.m_matchlist.getNumImages())
     return popUp("Cannot save matches. Image and match vectors are unequal!");
   if (num_ips < 1)
     return popUp("Cannot save matches. No matches have been created.");
@@ -1520,7 +1515,7 @@ void MainWindow::writeGroundControlPoints() {
     asp::writeGCP(app_data.image_files,  
                   stereo_settings().gcp_file,  
                   stereo_settings().dem_file,
-                  m_matchlist, asp::stereo_settings().gcp_sigma);
+                  m_match_mgr.m_matchlist, asp::stereo_settings().gcp_sigma);
     m_saved_gcp_and_ip = true;
   } catch (std::exception const& e) {
     popUp(e.what());

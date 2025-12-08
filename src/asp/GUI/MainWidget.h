@@ -27,6 +27,8 @@
 #include <asp/GUI/GuiUtilities.h>
 #include <asp/GUI/WidgetBase.h>
 
+#include <asp/GUI/MatchPointMgr.h>
+
 // Vision Workbench
 #include <vw/Core/Thread.h>
 #include <vw/Core/Log.h>
@@ -90,11 +92,8 @@ public:
               int beg_image_id, int end_image_id, int base_image_id,
               asp::AppData & app_data,
               std::string & output_prefix,     // will be aliased
-              asp::MatchList & matches,
-              pairwiseMatchList & pairwiseMatches,
-              pairwiseMatchList & pairwiseCleanMatches,
-              int & editMatchPointVecIndex,
-              chooseFilesDlg * chooseFiles, bool use_georef,
+              asp::MatchPointMgr & match_mgr,
+              chooseFilesDlg * chooseFiles,
               bool & allowMultipleSelections); // alias
 
   virtual ~MainWidget();
@@ -108,8 +107,8 @@ public:
   // Image Manipulation Methods
   void zoom       (double scale);
   void viewMatches();
-  void setEditingMatches(bool editingMatches) { m_editingMatches = editingMatches; }
-  bool getEditingMatches() const { return m_editingMatches; }
+  void setEditingMatches(bool editingMatches) { m_match_mgr.m_editingMatches = editingMatches; }
+  bool getEditingMatches() const { return m_match_mgr.m_editingMatches; }
   void setThreshMode(bool turnOn) { m_thresh_calc_mode = turnOn; }
   void plotProfile(std::vector<imageData> const& images,
                     std::vector<double> const& profileX,
@@ -250,13 +249,7 @@ private:
   std::string & m_output_prefix; // alias
   double m_hillshade_azimuth, m_hillshade_elevation;
 
-  /// Structure to keep track of all interest point matches.
-  /// - Note that these are aliass wrapping an object passed in through the constructor.
-  asp::MatchList & m_matchlist;
-  pairwiseMatchList & m_pairwiseMatches;
-  pairwiseMatchList & m_pairwiseCleanMatches;
-  int       &m_editMatchPointVecIndex; /// Point being edited
-  bool      m_editingMatches;          /// If we are in the middle of editing match points
+  asp::MatchPointMgr & m_match_mgr;
 
   bool  m_firstPaintEvent;
   QRect m_emptyRubberBand;
@@ -308,9 +301,9 @@ private:
 
   // Drawing is driven by QPaintEvent, which calls out to drawImage()
   void drawImage(QPainter* paint);
-  /// Add all the interest points to the provided canvas
-  /// - Called internally by paintEvent()
-  void drawInterestPoints(QPainter* paint);
+
+
+
 
   // Draw irregular xyz data to be plotted at (x, y) location with z giving
   // the intensity. May be colorized.

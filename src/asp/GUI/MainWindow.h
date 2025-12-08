@@ -24,6 +24,7 @@
 #include <asp/Core/MatchList.h>
 #include <asp/GUI/GuiUtilities.h>
 #include <asp/GUI/AppData.h>
+#include <asp/GUI/MatchPointMgr.h>
 
 #include <vw/Math/Vector.h>
 #include <vw/InterestPoint/InterestData.h>
@@ -198,15 +199,8 @@ private:
   bool     m_allowMultipleSelections;
   int      m_argc;
   char **  m_argv;
-  bool     m_matches_exist;
   
-  /// Structures to keep track of all interest point matches.
-  asp::MatchList    m_matchlist;
-  pairwiseMatchList m_pairwiseMatches;
-  pairwiseMatchList m_pairwiseCleanMatches;
-  vw::ba::ControlNetwork m_cnet;
-  
-  int m_editMatchPointVecIndex; ///< Point being edited
+  asp::MatchPointMgr m_match_mgr;
 
   int m_cursor_count;
 
