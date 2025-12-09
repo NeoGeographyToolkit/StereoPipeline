@@ -1018,22 +1018,17 @@ void sfsCostFun(// Fixed quantities
   // When using the integrability constraint, they are floated as variables
   // in their own right, while constrained to not go too far from the DEM.
   if (opt.integrability_weight > 0) {
-
     pq.set_size(dem.cols(), dem.rows());
     for (int col = 1; col < dem.cols()-1; col++) {
       for (int row = 1; row < dem.rows()-1; row++) {
-        // Note that the top value is dem(col, row-1) and the
-        //            bottom value is dem(col, row+1).
-        pq(col, row)[0] // same as (right - left)/(2*gridx)
-          = (dem(col+1, row) - dem(col-1, row))/(2*gridx);
-        pq(col, row)[1] // same as (top - bottom)/(2*gridy)
-          = (dem(col, row-1) - dem(col, row+1))/(2*gridy);
+        pq(col, row)[0] = (dem(col+1, row) - dem(col-1, row))/(2*gridx); // right - left
+        pq(col, row)[1] = (dem(col, row-1) - dem(col, row+1))/(2*gridy); // top - bottom
       }
     }
   }
 
   // Use a simpler cost function if only the DEM is floated. This results in
-  // notably reduced memory usage.
+  // notably reduced memory usage but no gain in speed.
   bool float_dem_only = true;
   if (opt.float_albedo || opt.float_exposure || opt.fix_dem || opt.float_reflectance_model ||
       opt.float_haze || opt.integrability_weight > 0) {
@@ -1127,102 +1122,99 @@ void sfsCostFun(// Fixed quantities
 
       } // end iterating over images
 
-      if (col > 0 && col < dem.cols() -1 && row > 0 && row < dem.rows() -1) {
+      // Smoothness penalty. We always add this, even if the smoothness weight is 0,
+      // to make Ceres not complain about blocks not being set.
+      ceres::LossFunction* loss_function_sm = NULL;
+      ceres::CostFunction* cost_function_sm =
+        SmoothnessError::Create(smoothness_weight, gridx, gridy);
+      problem.AddResidualBlock(cost_function_sm, loss_function_sm,
+                                &dem(col-1, row+1),  // bottom left
+                                &dem(col, row+1),    // bottom
+                                &dem(col+1, row+1),  // bottom right
+                                &dem(col-1, row),    // left
+                                &dem(col, row),      // center
+                                &dem(col+1, row),    // right
+                                &dem(col-1, row-1),  // top left
+                                &dem(col, row-1),    // top
+                                &dem(col+1, row-1)); // top right
 
-        // Smoothness penalty. We always add this, even if the weight is 0,
-        // to make Ceres not complain about blocks not being set.
-        ceres::LossFunction* loss_function_sm = NULL;
-        ceres::CostFunction* cost_function_sm =
-          SmoothnessError::Create(smoothness_weight, gridx, gridy);
-        problem.AddResidualBlock(cost_function_sm, loss_function_sm,
-                                  &dem(col-1, row+1),  // bottom left
-                                  &dem(col, row+1),    // bottom
-                                  &dem(col+1, row+1),  // bottom right
+      // Add curvature in shadow. Note that we use a per-pixel curvature_in_shadow_weight,
+      // to gradually phase it in to avoid artifacts.
+      if (opt.curvature_in_shadow_weight > 0.0 &&
+          curvature_in_shadow_weight(col, row) > 0) {
+        ceres::LossFunction* loss_function_cv = NULL;
+        ceres::CostFunction* cost_function_cv =
+          CurvatureInShadowError::Create(opt.curvature_in_shadow,
+                                          curvature_in_shadow_weight(col, row),
+                                          gridx, gridy);
+        problem.AddResidualBlock(cost_function_cv, loss_function_cv,
+                                  &dem(col,   row+1),  // bottom
                                   &dem(col-1, row),    // left
-                                  &dem(col, row),      // center
+                                  &dem(col,   row),    // center
                                   &dem(col+1, row),    // right
-                                  &dem(col-1, row-1),  // top left
-                                  &dem(col, row-1),    // top
-                                  &dem(col+1, row-1)); // top right
+                                  &dem(col,   row-1)); // top
+      }
 
-        // Add curvature in shadow. Note that we use a per-pixel curvature_in_shadow_weight,
-        // to gradually phase it in to avoid artifacts.
-        if (opt.curvature_in_shadow_weight > 0.0 &&
-            curvature_in_shadow_weight(col, row) > 0) {
-          ceres::LossFunction* loss_function_cv = NULL;
-          ceres::CostFunction* cost_function_cv =
-            CurvatureInShadowError::Create(opt.curvature_in_shadow,
-                                            curvature_in_shadow_weight(col, row),
-                                            gridx, gridy);
-          problem.AddResidualBlock(cost_function_cv, loss_function_cv,
-                                    &dem(col,   row+1),  // bottom
-                                    &dem(col-1, row),    // left
-                                    &dem(col,   row),    // center
-                                    &dem(col+1, row),    // right
-                                    &dem(col,   row-1)); // top
+      // Add gradient weight
+      if (opt.gradient_weight > 0.0) {
+        ceres::LossFunction* loss_function_grad = NULL;
+        ceres::CostFunction* cost_function_grad =
+          GradientError::Create(opt.gradient_weight, gridx, gridy);
+        problem.AddResidualBlock(cost_function_grad, loss_function_grad,
+                                  &dem(col,   row+1),  // bottom
+                                  &dem(col-1, row),    // left
+                                  &dem(col,   row),    // center
+                                  &dem(col+1, row),    // right
+                                  &dem(col,   row-1)); // top
+      }
+
+      if (opt.integrability_weight > 0) {
+        ceres::LossFunction* loss_function_int = NULL;
+        ceres::CostFunction* cost_function_int =
+          IntegrabilityError::Create(opt.integrability_weight, gridx, gridy);
+        problem.AddResidualBlock(cost_function_int, loss_function_int,
+                                  &dem(col,   row+1),   // bottom
+                                  &dem(col-1, row),     // left
+                                  &dem(col+1, row),     // right
+                                  &dem(col,   row-1),   // top
+                                  &pq  (col,   row)[0]); // pq
+
+        if (opt.smoothness_weight_pq > 0) {
+          ceres::LossFunction* loss_function_sm_pq = NULL;
+          ceres::CostFunction* cost_function_sm_pq =
+            SmoothnessErrorPQ::Create(opt.smoothness_weight_pq, gridx, gridy);
+          problem.AddResidualBlock(cost_function_sm_pq, loss_function_sm_pq,
+                                    &pq(col, row+1)[0],  // bottom
+                                    &pq(col-1, row)[0],  // left
+                                    &pq(col+1, row)[0],  // right
+                                    &pq(col, row-1)[0]); // top
         }
+      }
 
-        // Add gradient weight
-        if (opt.gradient_weight > 0.0) {
-          ceres::LossFunction* loss_function_grad = NULL;
-          ceres::CostFunction* cost_function_grad =
-            GradientError::Create(opt.gradient_weight, gridx, gridy);
-          problem.AddResidualBlock(cost_function_grad, loss_function_grad,
-                                    &dem(col,   row+1),  // bottom
-                                    &dem(col-1, row),    // left
-                                    &dem(col,   row),    // center
-                                    &dem(col+1, row),    // right
-                                    &dem(col,   row-1)); // top
-        }
+      // Deviation from prescribed height constraint
+      if (opt.initial_dem_constraint_weight > 0) {
+        ceres::LossFunction* loss_function_hc = NULL;
+        ceres::CostFunction* cost_function_hc =
+          HeightChangeError::Create(orig_dem(col, row),
+                                    opt.initial_dem_constraint_weight);
+        problem.AddResidualBlock(cost_function_hc, loss_function_hc,
+                                  &dem(col, row));
+      }
 
-        if (opt.integrability_weight > 0) {
-          ceres::LossFunction* loss_function_int = NULL;
-          ceres::CostFunction* cost_function_int =
-            IntegrabilityError::Create(opt.integrability_weight, gridx, gridy);
-          problem.AddResidualBlock(cost_function_int, loss_function_int,
-                                    &dem(col,   row+1),   // bottom
-                                    &dem(col-1, row),     // left
-                                    &dem(col+1, row),     // right
-                                    &dem(col,   row-1),   // top
-                                    &pq  (col,   row)[0]); // pq
-
-          if (opt.smoothness_weight_pq > 0) {
-            ceres::LossFunction* loss_function_sm_pq = NULL;
-            ceres::CostFunction* cost_function_sm_pq =
-              SmoothnessErrorPQ::Create(opt.smoothness_weight_pq, gridx, gridy);
-            problem.AddResidualBlock(cost_function_sm_pq, loss_function_sm_pq,
-                                      &pq(col, row+1)[0],  // bottom
-                                      &pq(col-1, row)[0],  // left
-                                      &pq(col+1, row)[0],  // right
-                                      &pq(col, row-1)[0]); // top
-          }
-        }
-
-        // Deviation from prescribed height constraint
-        if (opt.initial_dem_constraint_weight > 0) {
-          ceres::LossFunction* loss_function_hc = NULL;
-          ceres::CostFunction* cost_function_hc =
-            HeightChangeError::Create(orig_dem(col, row),
-                                      opt.initial_dem_constraint_weight);
-          problem.AddResidualBlock(cost_function_hc, loss_function_hc,
-                                   &dem(col, row));
-        }
-
-        // Deviation from prescribed albedo
-        if (opt.float_albedo > 0 && opt.albedo_constraint_weight > 0) {
-          ceres::LossFunction* loss_function_hc = NULL;
-          if (opt.albedo_robust_threshold > 0)
-            loss_function_hc = new ceres::CauchyLoss(opt.albedo_robust_threshold);
-          ceres::CostFunction* cost_function_hc =
-            AlbedoChangeError::Create(albedo(col, row), opt.albedo_constraint_weight);
-          problem.AddResidualBlock(cost_function_hc, loss_function_hc, &albedo(col, row));
-        }
-      } // end if not at boundary
+      // Deviation from prescribed albedo
+      if (opt.float_albedo > 0 && opt.albedo_constraint_weight > 0) {
+        ceres::LossFunction* loss_function_hc = NULL;
+        if (opt.albedo_robust_threshold > 0)
+          loss_function_hc = new ceres::CauchyLoss(opt.albedo_robust_threshold);
+        ceres::CostFunction* cost_function_hc =
+          AlbedoChangeError::Create(albedo(col, row), opt.albedo_constraint_weight);
+        problem.AddResidualBlock(cost_function_hc, loss_function_hc, &albedo(col, row));
+      } // end if float albedo
 
     } // end row iter
   } // end col iter
 
-  // DEM at the boundary must be fixed.
+  // DEM at the boundary must be fixed
   for (int col = 0; col < dem.cols(); col++) {
     for (int row = 0; row < dem.rows(); row++) {
       if (col == 0 || col == dem.cols() - 1 || row == 0 || row == dem.rows() - 1) {
@@ -1292,58 +1284,6 @@ void sfsCostFun(// Fixed quantities
   }
 
 } // end function formCostFun()
-
-// Given the albedo image, and the valid mask, in-fill from valid pixels to
-// invalid ones using 3x3 neighborhood averaging. Do a single pass. This is
-// mostly to resolve boundary issues. This updates the mask as well.
-void inFillImage(vw::ImageView<double> & image,
-                 vw::ImageView<int>    & valid_mask) {
-
-  // Check that these two have the same size
-  if (image.cols() != valid_mask.cols() || image.rows() != valid_mask.rows()) {
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "inFillImage(): image and valid_mask must have the same size.\n");
-  }
-  
-  int cols = image.cols();
-  int rows = image.rows();
-
-  // Make a copy of the input that will be kept constant during the iterations
-  vw::ImageView<double> image_copy = image;
-  vw::ImageView<int>    valid_mask_copy = valid_mask;
-
-  for (int col = 0; col < cols; col++) {
-    for (int row = 0; row < rows; row++) {
-
-      if (valid_mask_copy(col, row) == 1)
-        continue;
-
-      double sum = 0.0;
-      int count = 0;
-
-      // Check the 3x3 neighborhood
-      for (int ncol = -1; ncol <= 1; ncol++) {
-        for (int nrow = -1; nrow <= 1; nrow++) {
-          int c = col + ncol;
-          int r = row + nrow;
-          if (c < 0 || c >= cols || r < 0 || r >= rows)
-            continue;
-          if (valid_mask_copy(c, r) == 1) {
-            sum += image_copy(c, r);
-            count++;
-          }
-        }
-      }
-
-      if (count > 0) {
-        image(col, row) = sum / double(count);
-        valid_mask(col, row) = 1;
-      }
-
-    } // end row
-  } // end col
-
-} // end function inFillImage()
 
 // Find the best-fit exposure and haze given the input sampled image and reflectance.
 // Also find the sampled albedo along the way. The albedo will be optimized
@@ -1492,7 +1432,7 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
   if (opt.float_albedo) {
     
     // In-fill the albedo image to reduce boundary artifacts
-    inFillImage(albedo, valid_mask);
+    inFillImage3x3(albedo, valid_mask);
     
     // Up-sample the estimated albedo to full-res dimensions with bilinear
     // interpolation. This is not needed and not used if albedo is not floated.

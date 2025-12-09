@@ -164,6 +164,11 @@ void saveIntensities(SfsOptions const& opt,
                      MaskedDblImgT const& sim_intensity,
                      float img_nodata_val);
 
+// Given the albedo image, and the valid mask, in-fill from valid pixels to
+// invalid ones using 3x3 neighborhood averaging. Do a single pass. This is
+// mostly to resolve boundary issues. This updates the mask as well.
+void inFillImage3x3(vw::ImageView<double> & image, vw::ImageView<int>  & valid_mask);
+
 // Compute a full-resolution image by specific interpolation into a low-resolution
 // one. The full-res image may not fit in memory, so we need to compute it in tiles.
 // See computeReflectanceAndIntensity() for low-res vs full-res relationship.

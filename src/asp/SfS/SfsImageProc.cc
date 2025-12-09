@@ -1178,4 +1178,55 @@ void saveIntensities(SfsOptions const& opt,
   }
 }
 
+// Given the albedo image, and the valid mask, in-fill from valid pixels to
+// invalid ones using 3x3 neighborhood averaging. Do a single pass. This is
+// mostly to resolve boundary issues. This updates the mask as well.
+void inFillImage3x3(vw::ImageView<double> & image, vw::ImageView<int>  & valid_mask) {
+
+  // Check that these two have the same size
+  if (image.cols() != valid_mask.cols() || image.rows() != valid_mask.rows()) {
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "inFillImage3x3(): image and valid_mask must have the same size.\n");
+  }
+  
+  int cols = image.cols();
+  int rows = image.rows();
+
+  // Make a copy of the input that will be kept constant during the iterations
+  vw::ImageView<double> image_copy = image;
+  vw::ImageView<int>    valid_mask_copy = valid_mask;
+
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+
+      if (valid_mask_copy(col, row) == 1)
+        continue;
+
+      double sum = 0.0;
+      int count = 0;
+
+      // Check the 3x3 neighborhood
+      for (int ncol = -1; ncol <= 1; ncol++) {
+        for (int nrow = -1; nrow <= 1; nrow++) {
+          int c = col + ncol;
+          int r = row + nrow;
+          if (c < 0 || c >= cols || r < 0 || r >= rows)
+            continue;
+          if (valid_mask_copy(c, r) == 1) {
+            sum += image_copy(c, r);
+            count++;
+          }
+        }
+      }
+
+      if (count > 0) {
+        image(col, row) = sum / double(count);
+        valid_mask(col, row) = 1;
+      }
+
+    } // end row
+  } // end col
+
+} // end function inFillImage3x3()
+
 } // end namespace asp
