@@ -1345,80 +1345,10 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   }
   
   int left_index = seen_indices[0], right_index = seen_indices[1];
-  auto index_pair = std::make_pair(left_index, right_index);
+  m_match_mgr.loadPairwiseMatches(left_index, right_index, m_output_prefix);
   
-  // Get the pointer to the right structure
-  pairwiseMatchList * pairwiseMatches = NULL;
-  std::string match_file;
-
-  // Read matches or clean matches, unless read by now, for which we check
-  // if pairwiseMatches->match_files[index_pair] is initialized.
-  // Read either matches from first to second image, or vice versa.
-  // First consider the case of loading from nvm.
-  if (asp::stereo_settings().pairwise_matches) {
-    
-    pairwiseMatches = &m_match_mgr.m_pairwiseMatches;
-    if (!asp::stereo_settings().nvm.empty() ||
-        !asp::stereo_settings().isis_cnet.empty()) {
-      // Load from nvm or isis cnet
-      match_file = "placeholder.match";
-      pairwiseMatches->match_files[index_pair] = match_file; // flag it as loaded
-
-      // Where we want these loaded 
-      auto & left_ip = pairwiseMatches->matches[index_pair].first;   // alias
-      auto & right_ip = pairwiseMatches->matches[index_pair].second; // alias
-
-      if (left_ip.empty() && right_ip.empty())
-        asp::matchesForPair(m_match_mgr.m_cnet, left_index, right_index, left_ip, right_ip);
-      
-    } else if (pairwiseMatches->match_files.find(index_pair) ==
-               pairwiseMatches->match_files.end()) {
-      // Load pairwise matches
-      match_file = vw::ip::match_filename(m_output_prefix, app_data.images[left_index].name,
-                                          app_data.images[right_index].name);
-    }
-  } else {
-    // Load pairwise clean matches
-    pairwiseMatches = &m_match_mgr.m_pairwiseCleanMatches;
-    if (pairwiseMatches->match_files.find(index_pair) == 
-        pairwiseMatches->match_files.end()) {
-      match_file = vw::ip::clean_match_filename(m_output_prefix, app_data.images[left_index].name,
-                                                app_data.images[right_index].name);
-    }
-  }
-  
-  // Ensure the ip per image are always empty but initialized. This will ensure that
-  // later in MainWidget::viewMatches() we plot the intended matches.
-  pairwiseMatches->ip_to_show.clear();
-  pairwiseMatches->ip_to_show.resize(app_data.images.size());
-  
-  // Where we want these loaded
-  auto & left_ip = pairwiseMatches->matches[index_pair].first; // alias
-  auto & right_ip = pairwiseMatches->matches[index_pair].second; // alias
-  
-  // If the file was not loaded before, load it. Note that matches from an nvm file
-  // are loaded by now.
-  if (pairwiseMatches->match_files.find(index_pair) == pairwiseMatches->match_files.end()) {
-    // Flag it as loaded
-    pairwiseMatches->match_files[index_pair] = match_file;
-    try {
-      // Load it
-      vw_out() << "Loading match file: " << match_file << std::endl;
-      ip::read_binary_match_file(match_file, left_ip, right_ip);
-      vw_out() << "Read: " << left_ip.size() << " matches.\n";
-    } catch(...) {
-      // Having this pop-up for a large number of images is annoying
-      vw_out() << "Cannot find the match file with given images and output prefix.\n";
-      return;
-    }
-  }
-  
-  // These will be read when interest points are drawn
-  pairwiseMatches->ip_to_show[left_index] = left_ip;
-  pairwiseMatches->ip_to_show[right_index] = right_ip;
-  
-  // Call viewMatches() in each widget. There things will be sorted out
-  // based on stereo_settings().
+  // Call viewMatches() in each widget. That widgets already knows about m_match_mgr.
+  // The controls for what kind of matches to show are in asp::stereo_settings().
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (mw(m_widgets[i]))
       mw(m_widgets[i])->viewMatches();

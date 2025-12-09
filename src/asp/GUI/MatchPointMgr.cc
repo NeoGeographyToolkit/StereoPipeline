@@ -18,8 +18,10 @@
 #include <asp/GUI/MatchPointMgr.h>
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/IpMatchingAlgs.h>
 
 #include <vw/Math/Vector.h>
+#include <vw/InterestPoint/MatcherIO.h>
 
 #include <QtGui>
 #include <QPainter>
@@ -117,5 +119,79 @@ void MatchPointMgr::drawInterestPoints(QPainter* paint,
   } // End loop through points
 } // End function drawInterestPoints
 
+void MatchPointMgr::loadPairwiseMatches(int left_index, int right_index,
+                                        std::string const& output_prefix) {
+
+  pairwiseMatchList * pairwiseMatches = NULL;
+  std::string match_file;
+  auto index_pair = std::make_pair(left_index, right_index);
+  
+  if (asp::stereo_settings().pairwise_matches) {
+    
+    pairwiseMatches = &m_pairwiseMatches;
+    if (!asp::stereo_settings().nvm.empty() ||
+        !asp::stereo_settings().isis_cnet.empty()) {
+      // Load from nvm or isis cnet
+      match_file = "placeholder.match";
+      pairwiseMatches->match_files[index_pair] = match_file; // flag it as loaded
+
+      // Where we want these loaded 
+      auto & left_ip = pairwiseMatches->matches[index_pair].first;   // alias
+      auto & right_ip = pairwiseMatches->matches[index_pair].second; // alias
+
+      if (left_ip.empty() && right_ip.empty())
+        asp::matchesForPair(m_cnet, left_index, right_index, left_ip, right_ip);
+      
+    } else if (pairwiseMatches->match_files.find(index_pair) ==
+               pairwiseMatches->match_files.end()) {
+      // Load pairwise matches
+      match_file = vw::ip::match_filename(output_prefix,
+                                          m_app_data.images[left_index].name,
+                                          m_app_data.images[right_index].name);
+    }
+  } else {
+    // Load pairwise clean matches
+    pairwiseMatches = &m_pairwiseCleanMatches;
+    if (pairwiseMatches->match_files.find(index_pair) == 
+        pairwiseMatches->match_files.end()) {
+      match_file = vw::ip::clean_match_filename(output_prefix,
+                                                m_app_data.images[left_index].name,
+                                                m_app_data.images[right_index].name);
+    }
+  }
+  
+  // Ensure the ip per image are always empty but initialized. This will ensure that
+  // later in MainWidget::viewMatches() we plot the intended matches.
+  if (pairwiseMatches) {
+    pairwiseMatches->ip_to_show.clear();
+    pairwiseMatches->ip_to_show.resize(m_app_data.images.size());
+  }
+  
+  // Where we want these loaded 
+  auto & left_ip = pairwiseMatches->matches[index_pair].first; // alias
+  auto & right_ip = pairwiseMatches->matches[index_pair].second; // alias
+  
+  // If the file was not loaded before, load it. Note that matches from an nvm file
+  // are loaded by now.
+  if (pairwiseMatches->match_files.find(index_pair) == pairwiseMatches->match_files.end()) {
+    // Flag it as loaded
+    pairwiseMatches->match_files[index_pair] = match_file;
+    try {
+      // Load it
+      vw_out() << "Loading match file: " << match_file << std::endl;
+      vw::ip::read_binary_match_file(match_file, left_ip, right_ip);
+      vw_out() << "Read: " << left_ip.size() << " matches.\n";
+    } catch(...)
+ {
+      // Having this pop-up for a large number of images is annoying
+      vw_out() << "Cannot find the match file with given images and output prefix.\n";
+      return;
+    }
+  }
+  
+  // These will be read when interest points are drawn
+  pairwiseMatches->ip_to_show[left_index] = left_ip;
+  pairwiseMatches->ip_to_show[right_index] = right_ip;
+}
 
 } // End namespace asp

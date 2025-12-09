@@ -59,6 +59,9 @@ public:
                           int beg_image_id, int base_image_id,
                           int window_width, int window_height);
 
+  void loadPairwiseMatches(int left_index, int right_index,
+                           std::string const& output_prefix);
+
   // Member variables
   bool     m_matches_exist;
   asp::MatchList    m_matchlist;
