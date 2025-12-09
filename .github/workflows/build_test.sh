@@ -40,6 +40,9 @@ else
     echo "Platform: Intel Mac"
     tag=asp_deps_mac_x64_v5
     envName=asp_deps
+    
+    # Fix for latest MacOS versions
+    export LDFLAGS="-Wl,-ld_classic $LDFLAGS"
 fi
 
 # Fetch and unzip
