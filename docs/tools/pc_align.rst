@@ -232,11 +232,14 @@ hillshaded, the dense image correlation can be found between the hillshaded
 images, and that can be employed to align the clouds.
 
 For that, first produce the hillshades, either with ``gdaldem hillshade``
-(:numref:`gdal_hill`), which is preferred, or with the ASP ``hillshade`` program
+(:numref:`gdal_hill`) or with the ASP ``hillshade`` program
 (:numref:`hillshade`). Call these outputs ``ref_hill.tif`` and ``src_hill.tif``.
-Inspect them to ensure they have a good range of pixel values and good contrast.
-The contrast can be increased with ``hillshade`` by decreasing the
-``--elevation`` option value.
+
+Consider increasing the hillshaded image contrast and range of intensities with
+``hillshade`` by decreasing the ``--elevation`` option value. 
+
+Carefully inspect the produced hillshaded images. Washed out and textureless
+regions are likely not going to work well.
 
 Image correlation is performed (:numref:`correlator-mode`) on hillshaded
 images::
@@ -252,6 +255,10 @@ images::
 Stereo correlation can take a long time. It can be run over several nodes
 (:numref:`pbs_slurm`). The option ``--max-disp-spread`` can help with reducing
 the search range (:numref:`corr_section`). A value like 50 is likely adequate. 
+
+Increasing the correlation kernel size, such as ``--corr-kernel 9 9`` (from the
+default of ``5 5`` for the ``aspm_mgm`` algorithm) may help with noisy DEMs.
+Also running this for lower-resolution versions of the input DEMs.
 
 ASP supports many stereo correlation algorithms (:numref:`stereo_alg_overview`).
 
