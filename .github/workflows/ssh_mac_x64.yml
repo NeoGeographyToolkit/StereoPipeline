@@ -16,10 +16,6 @@ jobs:
     # Fetch the code
     - uses: actions/checkout@v3
 
-    # No caching of dependencies, as the cache does not change when it is
-    # modified, and it can expire. See build_test.sh how to fetch an offline
-    # tarball with dependencies, and how to update that one if need be.
-
     # Set up ssh for interactive use
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v3 # disconnects after about 40 minutes
@@ -30,6 +26,7 @@ jobs:
     # Upload the artifacts that were saved in the directory below before exiting
     # the ssh session. Useful for saving any results produced in this session.
     # Can be later downloaded manually and saved to a permanent location.
+    # See save_mac_deps.sh for how to prepare the dependencies for upload.
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with: 
