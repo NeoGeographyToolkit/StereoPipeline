@@ -44,7 +44,7 @@ else
     # Fix for latest MacOS versions
     export CFLAGS="-fno-lto"
     export CXXFLAGS="-fno-lto"
-    export LDFLAGS="-fno-lto -Wl,-ld_classic $LDFLAGS"
+    export LDFLAGS="-fuse-ld=lld -fno-lto -Wl,-ld_classic $LDFLAGS"
 fi
 
 # Fetch and unzip
