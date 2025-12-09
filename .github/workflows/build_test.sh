@@ -42,7 +42,9 @@ else
     envName=asp_deps
     
     # Fix for latest MacOS versions
-    export LDFLAGS="-Wl,-ld_classic $LDFLAGS"
+    export CFLAGS="-fno-lto"
+    export CXXFLAGS="-fno-lto"
+    export LDFLAGS="-fno-lto -Wl,-ld_classic $LDFLAGS"
 fi
 
 # Fetch and unzip
