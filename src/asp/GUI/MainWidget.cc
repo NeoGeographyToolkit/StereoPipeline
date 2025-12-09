@@ -1184,7 +1184,9 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   // and here putting only the actively modified elements. For now,
   // editing of ip is not allowed for viewing pairwise matches, so those
   // ip are drawn in refreshPixmap()
-  if (asp::stereo_settings().view_matches) {
+  if (asp::stereo_settings().view_matches ||
+      asp::stereo_settings().pairwise_matches ||
+      asp::stereo_settings().pairwise_clean_matches) {
     if (m_end_image_id - m_beg_image_id > 1) {
       asp::stereo_settings().view_matches = false;
       popUp("Images must be side-by-side to view/edit matches.");
