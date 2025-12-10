@@ -77,102 +77,6 @@ using namespace vw::camera;
 using namespace vw::cartography;
 using namespace asp;
 
-// Compute the DEM covariance for the given problem, and also the albedo variance,
-// if --float-albedo is on.
-bool calcSfsVariance(SfsOptions const& opt,
-                     vw::ImageView<double> const& dem,
-                     vw::ImageView<double> const& albedo,
-                     ceres::Problem &problem,
-                     ceres::Covariance &covariance) { // output
-  
-  vw::vw_out() << "Computing covariance.\n";
-
-  std::vector<const double*> parameter_blocks;
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      if (problem.HasParameterBlock(&dem(col, row)) && 
-          !problem.IsParameterBlockConstant(&dem(col, row))) {
-        parameter_blocks.push_back(&dem(col, row));
-      }
-    }
-  }
-  if (opt.float_albedo) {
-    for (int col = 0; col < albedo.cols(); col++) {
-      for (int row = 0; row < albedo.rows(); row++) {
-        if (problem.HasParameterBlock(&albedo(col, row)) && 
-            !problem.IsParameterBlockConstant(&albedo(col, row))) {
-          parameter_blocks.push_back(&albedo(col, row));
-        }
-      }
-    }
-  }
-  
-  if (!covariance.Compute(parameter_blocks, &problem)) {
-    vw::vw_out(vw::WarningMessage) << "Ceres failed to compute covariance.\n";
-    return false;
-  }
-  
-  return true;
-}
-
-// A function to save the variance of a given parameter set
-void saveVariance(SfsOptions const& opt,
-                  std::string const& variance_type,
-                  vw::ImageView<double> const& values,
-                  std::string const& variance_file,
-                  vw::cartography::GeoReference const& geo,
-                  double nodata_val,
-                  ceres::Problem &problem,
-                  ceres::Covariance &covariance) {
-  vw::vw_out() << "Saving " << variance_type << " variance.\n";
-  vw::ImageView<double> variance_image(values.cols(), values.rows());
-  vw::fill(variance_image, nodata_val);
-  for (int col = 0; col < values.cols(); col++) {
-    for (int row = 0; row < values.rows(); row++) {
-      if (problem.HasParameterBlock(&values(col, row)) && 
-          !problem.IsParameterBlockConstant(&values(col, row))) {
-        double var = 0;
-        if (covariance.GetCovarianceBlock(&values(col, row), &values(col, row), &var)) {
-          variance_image(col, row) = var;
-        }
-      }
-    }
-  }
-
-  vw::vw_out() << "Writing: " << variance_file << std::endl;
-  bool has_georef = true, has_nodata = true;
-  vw::TerminalProgressCallback tpc("asp", ": ");
-  block_write_gdal_image(variance_file, variance_image,
-                         has_georef, geo,
-                         has_nodata, nodata_val,
-                         opt, tpc);
-}
-
-// A function to compute and save the variances
-void calcSaveVariances(SfsOptions const& opt,
-                       vw::ImageView<double> const& dem,
-                       vw::ImageView<double> const& albedo,
-                       ceres::Problem &problem,
-                       vw::cartography::GeoReference const& geo,
-                       double dem_nodata_val) {
-  ceres::Covariance::Options covariance_options;
-  covariance_options.num_threads = opt.num_threads;
-  ceres::Covariance covariance(covariance_options);
-  if (calcSfsVariance(opt, dem, albedo, problem, covariance)) {
-    // Save DEM variance
-    std::string dem_variance_file = opt.out_prefix + "-DEM-variance.tif";
-    saveVariance(opt, "DEM", dem, dem_variance_file, geo, dem_nodata_val,
-                 problem, covariance);
-    
-    // Save albedo variance
-    if (opt.float_albedo) {
-      std::string albedo_variance_file = opt.out_prefix + "-albedo-variance.tif";
-      saveVariance(opt, "albedo", albedo, albedo_variance_file, geo, dem_nodata_val,
-                   problem, covariance);
-    }
-  }
-}
-
 // Run sfs
 void runSfs(// Fixed quantities
             int                                num_iterations,
@@ -240,11 +144,11 @@ void runSfs(// Fixed quantities
   ceres::IterationSummary callback_summary;
   callback(callback_summary);
 
-  vw::vw_out() << summary.FullReport() << "\n" << std::endl;
+  vw::vw_out() << summary.FullReport() << "\n\n";
 
   // Save the variances
   if (opt.save_variances)
-    calcSaveVariances(opt, dem, albedo, problem, geo, dem_nodata_val);
+    asp::calcSaveSfsVariances(opt, dem, albedo, problem, geo, dem_nodata_val);
 }
 
 // Load cameras and sun positions

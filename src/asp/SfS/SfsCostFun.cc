@@ -73,7 +73,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
 
   iter++;
 
-  vw::vw_out() << "Finished iteration: " << iter << std::endl;
+  vw::vw_out() << "Finished iteration: " << iter << "\n";
 
   if (!opt.save_sim_intensity_only && !opt.save_meas_intensity_only)
     asp::saveExposures(opt.out_prefix, opt.input_images, exposures);
@@ -84,7 +84,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
   std::string model_coeffs_file = asp::modelCoeffsFileName(opt.out_prefix);
   if (!opt.save_sim_intensity_only && !opt.save_meas_intensity_only) {
     // Not needed, usually
-    // vw::vw_out() << "Writing: " << model_coeffs_file << std::endl;
+    // vw::vw_out() << "Writing: " << model_coeffs_file << "\n";
     // std::ofstream mcf(model_coeffs_file.c_str());
     // mcf.precision(17);
     // for (size_t coeff_iter = 0; coeff_iter < refl_coeffs.size(); coeff_iter++)
@@ -114,7 +114,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
       !opt.save_meas_intensity_only) {
     std::string out_dem_file = opt.out_prefix + "-DEM"
       + iter_str + ".tif";
-    vw::vw_out() << "Writing: " << out_dem_file << std::endl;
+    vw::vw_out() << "Writing: " << out_dem_file << "\n";
     vw::cartography::block_write_gdal_image(out_dem_file, dem, has_georef, geo,
                                             has_nodata, dem_nodata_val,
                                             opt, tpc);
@@ -124,7 +124,7 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
       !opt.save_sim_intensity_only && !opt.save_meas_intensity_only) {
     std::string out_albedo_file = opt.out_prefix + "-comp-albedo"
       + iter_str + ".tif";
-    vw::vw_out() << "Writing: " << out_albedo_file << std::endl;
+    vw::vw_out() << "Writing: " << out_albedo_file << "\n";
     vw::cartography::block_write_gdal_image(out_albedo_file, albedo,
                                             has_georef, geo,
                                             has_nodata, dem_nodata_val,
@@ -195,14 +195,14 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     }
 
     std::string out_meas_intensity_file = iter_str2 + "-meas-intensity.tif";
-    vw::vw_out() << "Writing: " << out_meas_intensity_file << std::endl;
+    vw::vw_out() << "Writing: " << out_meas_intensity_file << "\n";
     vw::cartography::block_write_gdal_image(out_meas_intensity_file,
                                             vw::apply_mask(intensity, img_nodata_val),
                                             has_georef, geo, has_nodata, img_nodata_val,
                                             opt, tpc);
 
     std::string out_sim_intensity_file = iter_str2 + "-sim-intensity.tif";
-    vw::vw_out() << "Writing: " << out_sim_intensity_file << std::endl;
+    vw::vw_out() << "Writing: " << out_sim_intensity_file << "\n";
     vw::cartography::block_write_gdal_image(out_sim_intensity_file,
                                             vw::apply_mask(sim_intensity, img_nodata_val),
                                             has_georef, geo, has_nodata, img_nodata_val,
@@ -213,13 +213,13 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     
     // Not needed usually  
     // std::string out_weight_file = iter_str2 + "-blending-weight.tif";
-    // vw::vw_out() << "Writing: " << out_weight_file << std::endl;
+    // vw::vw_out() << "Writing: " << out_weight_file << "\n";
     // vw::cartography::block_write_gdal_image(out_weight_file, ground_weight,
     //                                         has_georef, geo, has_nodata, img_nodata_val,
     //                                         opt, tpc);
 
     std::string out_reflectance_file = iter_str2 + "-reflectance.tif";
-    vw::vw_out() << "Writing: " << out_reflectance_file << std::endl;
+    vw::vw_out() << "Writing: " << out_reflectance_file << "\n";
     vw::cartography::block_write_gdal_image(out_reflectance_file,
                                             vw::apply_mask(reflectance, img_nodata_val),
                                             has_georef, geo, has_nodata, img_nodata_val,
@@ -241,26 +241,26 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
       }
     }
     std::string out_albedo_file = iter_str2 + "-meas-albedo.tif";
-    vw::vw_out() << "Writing: " << out_albedo_file << std::endl;
+    vw::vw_out() << "Writing: " << out_albedo_file << "\n";
     vw::cartography::block_write_gdal_image(out_albedo_file, measured_albedo,
                                             has_georef, geo, has_nodata, 0, opt, tpc);
 
     vw::vw_out() << "Exposure for image " << image_iter << ": "
-             << exposures[image_iter] << std::endl;
+             << exposures[image_iter] << "\n";
 
     if (opt.num_haze_coeffs > 0) {
       vw::vw_out() << "Haze for image " << image_iter << ":";
       for (size_t hiter = 0; hiter < haze[image_iter].size(); hiter++) {
         vw::vw_out() << " " << haze[image_iter][hiter];
       }
-      vw::vw_out() << std::endl;
+      vw::vw_out() << "\n";
     }
   } // end loop through images
 
   if (opt.save_dem_with_nodata && (!opt.save_sparingly || final_iter)) {
     std::string out_dem_nodata_file = opt.out_prefix + "-DEM-nodata"
       + iter_str + ".tif";
-    vw::vw_out() << "Writing: " << out_dem_nodata_file << std::endl;
+    vw::vw_out() << "Writing: " << out_dem_nodata_file << "\n";
     vw::TerminalProgressCallback tpc("asp", ": ");
     vw::cartography::block_write_gdal_image(out_dem_nodata_file, dem_nodata,
                                             has_georef, geo,
@@ -1453,6 +1453,102 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
 
   // The haze and exposures will be saved outside this function.
   return;
+}
+
+// Compute the DEM covariance for the given problem, and also the albedo variance,
+// if --float-albedo is on.
+bool calcSfsVariances(SfsOptions const& opt,
+                       vw::ImageView<double> const& dem,
+                       vw::ImageView<double> const& albedo,
+                       ceres::Problem &problem,
+                       ceres::Covariance &covariance) { // output
+  
+  vw::vw_out() << "Computing covariance.\n";
+
+  std::vector<const double*> parameter_blocks;
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (problem.HasParameterBlock(&dem(col, row)) && 
+          !problem.IsParameterBlockConstant(&dem(col, row))) {
+        parameter_blocks.push_back(&dem(col, row));
+      }
+    }
+  }
+  if (opt.float_albedo) {
+    for (int col = 0; col < albedo.cols(); col++) {
+      for (int row = 0; row < albedo.rows(); row++) {
+        if (problem.HasParameterBlock(&albedo(col, row)) && 
+            !problem.IsParameterBlockConstant(&albedo(col, row))) {
+          parameter_blocks.push_back(&albedo(col, row));
+        }
+      }
+    }
+  }
+  
+  if (!covariance.Compute(parameter_blocks, &problem)) {
+    vw::vw_out(vw::WarningMessage) << "Ceres failed to compute covariance.\n";
+    return false;
+  }
+  
+  return true;
+}
+
+// A function to save the variance of a given parameter set
+void saveSfsVariance(SfsOptions const& opt,
+                     vw::ImageView<double> const& values,
+                     std::string const& variance_file,
+                     vw::cartography::GeoReference const& geo,
+                     double nodata_val,
+                     ceres::Problem &problem,
+                     ceres::Covariance &covariance) {
+
+  vw::ImageView<double> variance_image(values.cols(), values.rows());
+  vw::fill(variance_image, nodata_val);
+  for (int col = 0; col < values.cols(); col++) {
+    for (int row = 0; row < values.rows(); row++) {
+      if (problem.HasParameterBlock(&values(col, row)) && 
+          !problem.IsParameterBlockConstant(&values(col, row))) {
+        double var = 0;
+        if (covariance.GetCovarianceBlock(&values(col, row), &values(col, row), &var)) {
+          variance_image(col, row) = var;
+        }
+      }
+    }
+  }
+
+  vw::vw_out() << "Writing: " << variance_file << "\n";
+  bool has_georef = true, has_nodata = true;
+  vw::TerminalProgressCallback tpc("asp", ": ");
+  block_write_gdal_image(variance_file, variance_image,
+                         has_georef, geo,
+                         has_nodata, nodata_val,
+                         opt, tpc);
+}
+
+// Compute and save the variances
+void calcSaveSfsVariances(SfsOptions const& opt,
+                          vw::ImageView<double> const& dem,
+                          vw::ImageView<double> const& albedo,
+                          ceres::Problem &problem,
+                          vw::cartography::GeoReference const& geo,
+                          double dem_nodata_val) {
+
+  ceres::Covariance::Options covariance_options;
+  covariance_options.num_threads = opt.num_threads;
+  ceres::Covariance covariance(covariance_options);
+  if (calcSfsVariances(opt, dem, albedo, problem, covariance)) {
+    // Save DEM variance
+    std::string dem_variance_file = opt.out_prefix + "-DEM-variance.tif";
+    saveSfsVariance(opt, dem, dem_variance_file, geo, dem_nodata_val,
+                    problem, covariance);
+    
+    // Save albedo variance
+    if (opt.float_albedo) {
+      std::string albedo_variance_file = opt.out_prefix + "-albedo-variance.tif";
+      saveSfsVariance(opt, albedo, albedo_variance_file, geo, dem_nodata_val,
+                      problem, covariance);
+    }
+  }
 }
 
 } // end namespace asp
