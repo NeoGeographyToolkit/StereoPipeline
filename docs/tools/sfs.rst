@@ -78,7 +78,7 @@ outputs are:
    passed to ``sfs`` via ``--input-albedo``. Normally ``parallel_sfs`` takes
    care of the initial estimation and passing this along.
 
- - ``run/run-comp-albedo-final.tif`` - The computed albedo. All its values are 1
+ - ``run/run-albedo-final.tif`` - The computed albedo. All its values are 1
    unless the option ``--float-albedo`` is used. 
 
  - ``run/run-<image>-final-meas-intensity.tif`` - For each input image, this
@@ -92,11 +92,6 @@ outputs are:
    will precisely agree with the simulated (modeled) image. In reality
    these are close but different. This was called the "computed" intensity
    prior to build 2025/11. See also ``--save-sim-intensity-only``.
-
- - ``run/run-<image>-final-meas-albedo.tif`` - This stores the measured
-   input image divided by the exposure times computed reflectance. Hence
-   this is more of an input quantity rather than the result of computing
-   the albedo. That one is mentioned above.
 
  - ``<output prefix>-DEM-variance.tif`` - If ``--save-variances`` was set,
    this file stores the variance for each DEM pixel. If ``--float-albedo``
@@ -243,8 +238,9 @@ Command-line options for sfs
 
 --save-variances
     Save the variance of the DEM for each pixel. If ``--float-albedo`` is on,
-    also save the variance of the albedo. See :numref:`sfs_outputs` for
-    the produced output filenames.
+    also save the variance of the albedo. Note that computing the albedo
+    variance can be ill-posed if ``--float-haze`` and/or ``--float-exposure`` is
+    also on. See :numref:`sfs_outputs` for the produced output filenames.
 
 --use-approx-camera-models
     Use approximate camera models for speed. Only with ISIS .cub

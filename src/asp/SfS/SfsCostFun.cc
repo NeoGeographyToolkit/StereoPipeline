@@ -122,8 +122,15 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
 
   if ((!opt.save_sparingly || (final_iter && opt.float_albedo)) &&
       !opt.save_sim_intensity_only && !opt.save_meas_intensity_only) {
-    std::string out_albedo_file = opt.out_prefix + "-comp-albedo"
-      + iter_str + ".tif";
+    std::string out_albedo_file;
+    // For the final albedo do not use comp-albedo, as there is only one.
+    // Only for intermediate iterations we contrast the computed albedo vs 
+    // the measured one.
+    if (!final_iter)
+     out_albedo_file = opt.out_prefix + "-comp-albedo" + iter_str + ".tif";
+    else
+     out_albedo_file = opt.out_prefix + "-albedo" + iter_str + ".tif";
+    
     vw::vw_out() << "Writing: " << out_albedo_file << "\n";
     vw::cartography::block_write_gdal_image(out_albedo_file, albedo,
                                             has_georef, geo,
@@ -226,25 +233,28 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
                                             opt, tpc);
 
     // Find the measured normalized albedo, after correcting for
-    // reflectance.
-    vw::ImageView<double> measured_albedo;
-    measured_albedo.set_size(reflectance.cols(), reflectance.rows());
-    for (int col = 0; col < measured_albedo.cols(); col++) {
-      for (int row = 0; row < measured_albedo.rows(); row++) {
-        if (!vw::is_valid(reflectance(col, row)))
-          measured_albedo(col, row) = 1;
-        else
-          measured_albedo(col, row)
-            = calcAlbedo(intensity(col, row), reflectance(col, row),
-                         exposures[image_iter], opt.steepness_factor,
-                         &haze[image_iter][0], opt.num_haze_coeffs);
+    // reflectance. Do not save this for the final iteration. This is a debug product
+    // that is enabled only if not saving sparingly.
+    if (!final_iter) {
+      vw::ImageView<double> measured_albedo;
+      measured_albedo.set_size(reflectance.cols(), reflectance.rows());
+      for (int col = 0; col < measured_albedo.cols(); col++) {
+        for (int row = 0; row < measured_albedo.rows(); row++) {
+          if (!vw::is_valid(reflectance(col, row)))
+            measured_albedo(col, row) = 1;
+          else
+            measured_albedo(col, row)
+              = calcAlbedo(intensity(col, row), reflectance(col, row),
+                          exposures[image_iter], opt.steepness_factor,
+                          &haze[image_iter][0], opt.num_haze_coeffs);
+        }
       }
+      std::string out_albedo_file = iter_str2 + "-meas-albedo.tif";
+      vw::vw_out() << "Writing: " << out_albedo_file << "\n";
+      vw::cartography::block_write_gdal_image(out_albedo_file, measured_albedo,
+                                              has_georef, geo, has_nodata, 0, opt, tpc);
     }
-    std::string out_albedo_file = iter_str2 + "-meas-albedo.tif";
-    vw::vw_out() << "Writing: " << out_albedo_file << "\n";
-    vw::cartography::block_write_gdal_image(out_albedo_file, measured_albedo,
-                                            has_georef, geo, has_nodata, 0, opt, tpc);
-
+    
     vw::vw_out() << "Exposure for image " << image_iter << ": "
              << exposures[image_iter] << "\n";
 
@@ -1445,7 +1455,7 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
     vw::vw_out() << "Writing: " << albedo_file << "\n";
     // Note: This logic produces junk if the SfsInterpView is initialized on a
     // separate line and then passed to block_write_gdal_image(). Not clear why.
-    block_write_gdal_image(albedo_file, 
+    vw::cartography::block_write_gdal_image(albedo_file, 
                            SfsInterpView(dem.cols(), dem.rows(), sample_col_rate,
                                          sample_row_rate, albedo),
                            has_georef, geo, has_nodata, albedo_nodata_val, opt, tpc);
@@ -1486,7 +1496,10 @@ bool calcSfsVariances(SfsOptions const& opt,
   }
   
   if (!covariance.Compute(parameter_blocks, &problem)) {
-    vw::vw_out(vw::WarningMessage) << "Ceres failed to compute covariance.\n";
+    vw::vw_out(vw::WarningMessage) 
+      << "The CERES solver failed to compute covariance. Consider disabling one or both "
+      << "of the options --float-haze and --float-exposures, as these may make the problem "
+      << "under-determined.\n";
     return false;
   }
   
@@ -1509,9 +1522,8 @@ void saveSfsVariance(SfsOptions const& opt,
       if (problem.HasParameterBlock(&values(col, row)) && 
           !problem.IsParameterBlockConstant(&values(col, row))) {
         double var = 0;
-        if (covariance.GetCovarianceBlock(&values(col, row), &values(col, row), &var)) {
+        if (covariance.GetCovarianceBlock(&values(col, row), &values(col, row), &var))
           variance_image(col, row) = var;
-        }
       }
     }
   }
@@ -1519,10 +1531,10 @@ void saveSfsVariance(SfsOptions const& opt,
   vw::vw_out() << "Writing: " << variance_file << "\n";
   bool has_georef = true, has_nodata = true;
   vw::TerminalProgressCallback tpc("asp", ": ");
-  block_write_gdal_image(variance_file, variance_image,
-                         has_georef, geo,
-                         has_nodata, nodata_val,
-                         opt, tpc);
+  vw::cartography::block_write_gdal_image(variance_file, variance_image,
+                                          has_georef, geo,
+                                          has_nodata, nodata_val,
+                                          opt, tpc);
 }
 
 // Compute and save the variances

@@ -327,7 +327,8 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   ("save-variances",  
   po::bool_switch(&opt.save_variances)->default_value(false)->implicit_value(true),
    "Save the variance of the DEM for each pixel. If --float-albedo is on, also save the "
-   "variance of the albedo.")
+   "variance of the albedo. Note that computing the albedo variance can be ill-posed if "
+   "--float-haze and/or --float-exposure is also on.")
   ("camera-position-step-size",
   po::value(&opt.camera_position_step_size)->default_value(1.0),
    "Larger step size will result in more aggressiveness in varying the camera position "
@@ -588,7 +589,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
              << "Cannot specify both --input-albedo and --read-albedo.\n");
   // If have opt.read_albedo, use the current prefix albedo
   if (opt.read_albedo)
-    opt.input_albedo = opt.out_prefix + "-comp-albedo-final.tif";
+    opt.input_albedo = opt.out_prefix + "-albedo-final.tif";
 
   // Initial image exposures, if provided. First read them in a map,
   // as perhaps the initial exposures were created using more images
@@ -792,8 +793,18 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
      if (!opt.crop_win.empty())
       vw::vw_throw(vw::ArgumentErr()
                << "--ref-map is incompatible with --crop-win.\n");
+      
   }
 
+  // If --save-variances is on and --float-albedo is on, warn if either --float-haze
+  // or --float-exposures is also on, as this may make the albedo variance ill-posed.
+  if (opt.save_variances && opt.float_albedo) {
+    if (opt.float_haze || opt.float_exposure)
+      vw::vw_out(vw::WarningMessage)
+        << "Computing the albedo variance may be ill-posed when "
+        << "floating haze or exposures.\n";
+  }
+  
 } // end function handleSfsArgs
     
 } // end namespace asp

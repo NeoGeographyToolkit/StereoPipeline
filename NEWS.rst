@@ -34,6 +34,8 @@ sfs (:numref:`sfs`):
     ``--estimate-exposure-haze-albedo``).
   * Replaced ``--save-computed-intensity-only`` with ``--save-sim-intensity-only`` 
     and ``--save-meas-intensity-only``.
+  * Renamed ``comp-albedo-final.tif`` to ``albedo-final.tif``, for consistency with 
+    other output files.
   * Unused option ``--estimate-slope-errors`` got removed.
 
 parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
