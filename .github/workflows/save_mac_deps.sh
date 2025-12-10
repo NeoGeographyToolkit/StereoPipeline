@@ -17,8 +17,7 @@
 # When done, and before exiting, save the dependencies, such as:
 #   mkdir -p ~/work/StereoPipeline/packages
 #   cd $HOME
-#   /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz \
-#     *conda3/envs
+#   /usr/bin/time tar cfz ~/work/StereoPipeline/packages/asp_deps.tar.gz *conda3/envs
 
 # After quitting the action (exiting the shell), the tarball will be saved as an
 # artifact. Upload progress can be monitored in GitHub Actions. 
@@ -52,7 +51,7 @@
 # workflow="ssh_mac_arm.yml"
 # $HOME/projects/StereoPipeline/.github/workflows/save_mac_deps.sh $workflow $tag
 
-# For linux, the dependencies from the local machine can be saved as follows.
+# For Linux, the dependencies from the local machine can be saved as follows.
 # tag=asp_deps_linux_xxx # change here
 # $HOME/projects/StereoPipeline/.github/workflows/save_linux_deps.sh $tag
 

@@ -21,7 +21,7 @@ testDir=$baseDir/StereoPipelineTest
 
 # Throw an error unless on a Mac
 isMac=$(uname -s | grep Darwin)
-if [ "$isMac" == "" ]; then
+if [ "$isMac" = "" ]; then
     echo "This script is for Mac only"
     exit 1
 fi
@@ -31,23 +31,18 @@ isArm64=$(uname -m | grep arm64)
 
 # The ASP dependencies at the location below are updated using the script
 # save_mac_deps.sh. See that script for more info.
-# TODO(oalexan1): Reconcile these two
+# TODO(oalexan1): Convert below envName to be asp_deps.
 if [ "$isArm64" != "" ]; then
     echo "Platform: Arm64 Mac"
     tag=asp_deps_mac_arm64_v2
     envName=isis_dev
 else
     echo "Platform: Intel Mac"
-    tag=asp_deps_mac_x64_v5
+    tag=asp_deps_mac_x64_v6
     envName=asp_deps
-    
-    # # Fix for latest MacOS versions
-    # export CFLAGS="-fno-lto"
-    # export CXXFLAGS="-fno-lto"
-    # export LDFLAGS="-lto_library /Library/Developer/CommandLineTools/usr/lib/libLTO.dylib  $LDFLAGS"  
 fi
 
-# Fetch and unzip
+# Fetch and unzip the ASP dependencies
 wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
 /usr/bin/time tar xzf asp_deps.tar.gz -C $HOME > /dev/null 2>&1 # this is verbose
 
@@ -58,6 +53,20 @@ if [ ! -d "$envPath" ]; then
     exit 1
 fi
 export PATH=$envPath/bin:$PATH
+
+# Must use the linker from the conda environment to avoid issues with recent Intel Mac.
+# The linker can be installed with conda as package ld64_osx-64 on conda forge.
+# Put it in the asp_deps env.
+cmake_opts=""
+if [ "$isArm64" = "" ]; then
+    CONDA_LINKER="$(ls $envPath/bin/x86_64-apple-darwin*ld | head -n 1)"
+    if [ ! -f "$CONDA_LINKER" ]; then
+        echo "Error: File: $CONDA_LINKER does not exist"
+        exit 1
+    fi
+    ln -sf "$CONDA_LINKER" "$envPath/bin/ld" # Force the use of conda linker
+    cmake_opts="-DCMAKE_LINKER=$envPath/bin/ld"
+fi
 
 # Set up the compiler
 if [ "$(uname)" = "Darwin" ]; then
@@ -71,8 +80,6 @@ echo cc_comp=$cc_comp
 echo cxx_comp=$cxx_comp
 
 # Build visionworkbench
-# TODO(oalexan1): Use here BinaryBuilder/build.py, just as for Linux.
-
 mkdir -p $baseDir
 cd $baseDir
 git clone https://github.com/visionworkbench/visionworkbench.git
@@ -85,7 +92,9 @@ $envPath/bin/cmake ..                             \
   -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10             \
   -DCMAKE_INSTALL_PREFIX=$installDir              \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
-  -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
+  -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp   \
+  $cmake_opts
+
 echo Building VisionWorkbench
 make -j10 install > /dev/null 2>&1 # this is too verbose
 
@@ -107,7 +116,8 @@ $envPath/bin/cmake ..                             \
   -DCMAKE_INSTALL_PREFIX=$installDir              \
   -DVISIONWORKBENCH_INSTALL_DIR=$installDir       \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
-  -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
+  -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp   \
+   $cmake_opts
 echo Building StereoPipeline
 make -j10 install > /dev/null 2>&1 # this is too verbose
 ans=$?
