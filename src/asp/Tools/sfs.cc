@@ -145,6 +145,92 @@ void runSfs(// Fixed quantities
   callback(callback_summary);
 
   vw::vw_out() << summary.FullReport() << "\n" << std::endl;
+
+  // Save the variances
+  if (opt.save_variances) {
+
+    vw::vw_out() << "Computing covariance.\n";
+
+    ceres::Covariance::Options covariance_options;
+    covariance_options.num_threads = opt.num_threads;
+    ceres::Covariance covariance(covariance_options);
+    
+    std::vector<const double*> parameter_blocks;
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
+        if (problem.HasParameterBlock(&dem(col, row)) && 
+            !problem.IsParameterBlockConstant(&dem(col, row))) {
+          parameter_blocks.push_back(&dem(col, row));
+        }
+      }
+    }
+    if (opt.float_albedo) {
+      for (int col = 0; col < albedo.cols(); col++) {
+        for (int row = 0; row < albedo.rows(); row++) {
+          if (problem.HasParameterBlock(&albedo(col, row)) && 
+              !problem.IsParameterBlockConstant(&albedo(col, row))) {
+            parameter_blocks.push_back(&albedo(col, row));
+          }
+        }
+      }
+    }
+
+    if (!covariance.Compute(parameter_blocks, &problem)) {
+      vw::vw_out(vw::WarningMessage) << "Ceres failed to compute covariance.\n";
+    } else {
+
+      // Save DEM variance
+      vw::vw_out() << "Saving DEM variance.\n";
+      vw::ImageView<double> dem_variance(dem.cols(), dem.rows());
+      vw::fill(dem_variance, dem_nodata_val);
+      for (int col = 0; col < dem.cols(); col++) {
+        for (int row = 0; row < dem.rows(); row++) {
+          if (problem.HasParameterBlock(&dem(col, row)) && 
+              !problem.IsParameterBlockConstant(&dem(col, row))) {
+            double var = 0;
+            if (covariance.GetCovarianceBlock(&dem(col, row), &dem(col, row), &var)) {
+              dem_variance(col, row) = var;
+            }
+          }
+        }
+      }
+      std::string dem_variance_file = opt.out_prefix + "-DEM-variance.tif";
+      vw::vw_out() << "Writing: " << dem_variance_file << std::endl;
+      bool has_georef = true, has_nodata = true;
+      vw::TerminalProgressCallback tpc("dem var", ": ");
+      block_write_gdal_image(dem_variance_file, 
+                             dem_variance,
+                             has_georef, geo,
+                             has_nodata, dem_nodata_val,
+                             opt, tpc);
+      
+      // Save albedo variance
+      if (opt.float_albedo) {
+        vw::vw_out() << "Saving albedo variance.\n";
+        vw::ImageView<double> albedo_variance(albedo.cols(), albedo.rows());
+        vw::fill(albedo_variance, dem_nodata_val);
+        for (int col = 0; col < albedo.cols(); col++) {
+          for (int row = 0; row < albedo.rows(); row++) {
+            if (problem.HasParameterBlock(&albedo(col, row)) && 
+                !problem.IsParameterBlockConstant(&albedo(col, row))) {
+              double var = 0;
+              if (covariance.GetCovarianceBlock(&albedo(col, row), &albedo(col, row), &var)) {
+                albedo_variance(col, row) = var;
+              }
+            }
+          }
+        }
+        std::string albedo_variance_file = opt.out_prefix + "-albedo-variance.tif";
+        vw::vw_out() << "Writing: " << albedo_variance_file << std::endl;
+        vw::TerminalProgressCallback tpc("albedo var", ": ");
+        block_write_gdal_image(albedo_variance_file, 
+                               albedo_variance,
+                               has_georef, geo,
+                               has_nodata, dem_nodata_val,
+                               opt, tpc);
+      }
+    }
+  }
 }
 
 // Load cameras and sun positions

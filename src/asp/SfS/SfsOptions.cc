@@ -41,6 +41,7 @@ SfsOptions::SfsOptions():
   allow_borderline_data(false), fix_dem(false),
   float_reflectance_model(false), query(false),
   save_sparingly(false), float_haze(false),
+  save_variances(false),
   smoothness_weight(0), steepness_factor(1.0),
   curvature_in_shadow(0), curvature_in_shadow_weight(0.0),
   lit_curvature_dist(0.0), shadow_curvature_dist(0.0),

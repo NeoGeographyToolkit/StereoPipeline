@@ -26,6 +26,8 @@ parallel_sfs (:numref:`parallel_sfs`):
     produced for the full site (:numref:`parallel_sfs_usage`).
 
 sfs (:numref:`sfs`):
+  * Added the option ``--save-variances``, that saves the DEM variance
+    (and albedo variance, if albedo is floated).
   * Added a method for removing seams in the SfS terrain (:numref:`sfs_seams`).
   * Options ``--albedo-constraint-weight`` and ``--albedo-robust-threshold`` are
     respected when low-resolution initial albedo is estimated (with option

@@ -324,6 +324,10 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   ("save-sparingly",  
   po::bool_switch(&opt.save_sparingly)->default_value(false)->implicit_value(true),
    "Avoid saving any results except the adjustments and the DEM, as that's a lot of files.")
+  ("save-variances",  
+  po::bool_switch(&opt.save_variances)->default_value(false)->implicit_value(true),
+   "Save the variance of the DEM for each pixel. If --float-albedo is on, also save the "
+   "variance of the albedo.")
   ("camera-position-step-size",
   po::value(&opt.camera_position_step_size)->default_value(1.0),
    "Larger step size will result in more aggressiveness in varying the camera position "

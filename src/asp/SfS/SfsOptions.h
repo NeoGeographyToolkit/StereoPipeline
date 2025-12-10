@@ -42,7 +42,7 @@ struct SfsOptions: public vw::GdalWriteOptions {
     save_dem_with_nodata, use_approx_camera_models,
     crop_input_images, allow_borderline_data, fix_dem, float_reflectance_model,
     query, save_sparingly, float_haze, read_exposures, read_haze, read_albedo,
-    erode_seams;
+    erode_seams, save_variances;
 
   double smoothness_weight, steepness_factor, gradient_weight,
     blending_power, integrability_weight, smoothness_weight_pq, init_dem_height,

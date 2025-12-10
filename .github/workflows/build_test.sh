@@ -41,10 +41,10 @@ else
     tag=asp_deps_mac_x64_v5
     envName=asp_deps
     
-    # Fix for latest MacOS versions
-    export CFLAGS="-fno-lto"
-    export CXXFLAGS="-fno-lto"
-    export LDFLAGS="-fuse-ld=lld -fno-lto -Wl,-ld_classic $LDFLAGS"
+    # # Fix for latest MacOS versions
+    # export CFLAGS="-fno-lto"
+    # export CXXFLAGS="-fno-lto"
+    # export LDFLAGS="-lto_library /Library/Developer/CommandLineTools/usr/lib/libLTO.dylib  $LDFLAGS"  
 fi
 
 # Fetch and unzip

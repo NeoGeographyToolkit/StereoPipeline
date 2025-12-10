@@ -98,6 +98,11 @@ outputs are:
    this is more of an input quantity rather than the result of computing
    the albedo. That one is mentioned above.
 
+ - ``<output prefix>-DEM-variance.tif`` - If ``--save-variances`` was set,
+   this file stores the variance for each DEM pixel. If ``--float-albedo``
+   is also on, the albedo variance is stored in
+   ``<output prefix>-albedo-variance.tif``.
+
 In addition, SfS saves intermediate values of many of these quantities
 at each iteration, unless the flag ``--save-sparingly`` is used. SfS
 may also save the "haze" values if this is solved for (see the
@@ -235,6 +240,11 @@ Command-line options for sfs
     Save a copy of the DEM while using a no-data value at a DEM
     grid point where all images show shadows. To be used if shadow
     thresholds are set.
+
+--save-variances
+    Save the variance of the DEM for each pixel. If ``--float-albedo`` is on,
+    also save the variance of the albedo. See :numref:`sfs_outputs` for
+    the produced output filenames.
 
 --use-approx-camera-models
     Use approximate camera models for speed. Only with ISIS .cub

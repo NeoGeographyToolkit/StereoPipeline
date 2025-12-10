@@ -330,6 +330,13 @@ def main(argsIn):
         if '--save-dem-with-nodata' in argsIn:
             perTileFiles  += ['DEM-nodata-final.tif']
             mosaickedFiles += ['DEM-nodata-final.tif']
+        
+        if '--save-variances' in argsIn:
+            perTileFiles  += ['DEM-variance.tif']
+            mosaickedFiles += ['DEM-variance.tif']
+            if '--float-albedo' in argsIn:
+                perTileFiles  += ['albedo-variance.tif']
+                mosaickedFiles += ['albedo-variance.tif']
             
     elif '--estimate-height-errors' in argsIn:
         # Here we just mosaic the height errors
