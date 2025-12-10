@@ -1465,7 +1465,7 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
   return;
 }
 
-// Compute the DEM covariance for the given problem, and also the albedo variance,
+// Compute the DEM variance for the given problem, and also the albedo variance,
 // if --float-albedo is on.
 bool calcSfsVariances(SfsOptions const& opt,
                        vw::ImageView<double> const& dem,
@@ -1473,7 +1473,7 @@ bool calcSfsVariances(SfsOptions const& opt,
                        ceres::Problem &problem,
                        ceres::Covariance &covariance) { // output
   
-  vw::vw_out() << "Computing covariance.\n";
+  vw::vw_out() << "Computing variances.\n";
 
   std::vector<const double*> parameter_blocks;
   for (int col = 0; col < dem.cols(); col++) {
@@ -1497,9 +1497,10 @@ bool calcSfsVariances(SfsOptions const& opt,
   
   if (!covariance.Compute(parameter_blocks, &problem)) {
     vw::vw_out(vw::WarningMessage) 
-      << "The CERES solver failed to compute covariance. Consider disabling one or both "
-      << "of the options --float-haze and --float-exposures, as these may make the problem "
-      << "under-determined.\n";
+      << "The CERES solver failed to compute the variances. If --float-albedo is on, "
+      << "consider disabling one or both of --float-haze and --float-exposures, "
+      << "and perhaps increasing --albedo-constraint-weight, to make the problem better " 
+      << "determined.\n";
     return false;
   }
   
