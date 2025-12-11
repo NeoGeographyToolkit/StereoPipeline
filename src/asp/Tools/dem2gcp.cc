@@ -23,6 +23,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/FileUtils.h>
+#include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
@@ -407,16 +408,28 @@ int run_dem2gcp(int argc, char * argv[]) {
                       // Outputs
                       stereo_session, single_threaded_cameras, camera_models);
     
-  // Load the control network  
-  // TODO(oalexan1): Support multiple match files
+  // Load the control network. Consider the case of one match files or a prefix
+  // pointing to many match files.  
   vw::ba::ControlNetwork cnet("asp");
   bool triangulate_control_points = true;
   std::map<std::pair<int, int>, std::string> match_files;
-  match_files[std::make_pair(0, 1)] = opt.match_file;
-  int min_matches = 0;
+  if (!opt.match_file.empty()) {
+    match_files[std::make_pair(0, 1)] = opt.match_file;
+  } else {
+    // Load all match files with no constraints
+    int overlap_limit = image_files.size();
+    bool match_first_to_last = true;
+    asp::findMatchFiles(overlap_limit, match_first_to_last,
+                        image_files, opt.clean_match_files_prefix,
+                        opt.match_files_prefix, out_prefix,
+                        // Outputs
+                        match_files);
+  }
+  
+  int min_matches = 0; // Not used as we are just loading
   double min_triangulation_angle = 1e-10;
   double forced_triangulation_distance = -1.0;
-  int max_pairwise_matches = 1e6;
+  int max_pairwise_matches = 1e6; // Not used as we are just loading
   bool success = vw::ba::build_control_network(triangulate_control_points,
                                                cnet, camera_models,
                                                image_files,

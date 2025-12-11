@@ -152,15 +152,17 @@ Here we passed in the left and right raw images, the latest left and right
 camera models that produced the warped DEM, and the dense matches between the
 raw images. 
 
-If there are more than two images, first run stereo pairwise, produce a single
-mosaicked DEM with ``dem_mosaic`` (:numref:`dem_mosaic`), and then run this
-program pairwise with that DEM. This assumes that the pairwise DEMs are
-reasonably self-consistent.
+If there are more than two images, the "warped" DEM can be produced, for
+example, by merging with ``dem_mosaic`` (:numref:`dem_mosaic`) individual
+pairwise stereo DEMs (as long as these are consistent). See
+:numref:`dem2gcp_multi_image` for an example. Alternatively, this tool can be
+invoked pairwise for individual stereo DEMs, creating many GCP files.
 
-The match file also need not have dense matches. All that is assumed is that the
-images and cameras are consistent with the warped DEM, and there are plenty of
-interest point matches. Then, all produced GCP files could be passed together
-with all images and cameras to ``bundle_adjust``, as below.
+The match file need not have dense matches. It is only assumed that they are
+many and well-distributed.
+
+All produced GCP files should be passed together with all images and cameras to
+``bundle_adjust``, as shown below.
 
 Consider using the option ``--max-disp`` if the disparity has portions that are
 not accurate, such as when the ASP DEM and reference DEM were acquired at
@@ -258,6 +260,32 @@ We further improved the results for KH-7 and KH-9 cameras by creating
 linescan cameras (:numref:`opticalbar2csm`) and running ``jitter_solve``
 with GCP (:numref:`jitter_solve`).
 
+.. _dem2gcp_multi_image:
+
+Multiple images and cameras
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This program can work with multiple images, cameras, and match files, as long as
+the "warped" DEM is consistent with these datasets. In particular, the DEM can
+even be produced with Shape-from-Shading (:numref:`sfs`).
+
+The match files can be specified via ``--match-files-prefix`` or
+``--clean-match-files-prefix``, in the manner of ``bundle_adjust``
+(:numref:`ba_match_files`).
+
+:: 
+
+    dem2gcp                                    \
+      --warped-dem asp_dem.tif                 \
+      --ref-dem ref_dem.tif                    \
+      --warped-to-ref-disparity warp/run-F.tif \
+      --image-list image_list.txt              \
+      --camera-list camera_list.txt            \
+      --match-files-prefix dense_matches/run   \
+      --gcp-sigma 1.0                          \
+      --max-num-gcp 20000                      \
+      --output-gcp out.gcp
+
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
   
@@ -282,10 +310,27 @@ Command-line options
     
 --right-camera <string (default: "")>
     The right camera that was used for stereo.
-    
+
 --match-file <string (default: "")>
-    A match file between the left and right raw images with many dense matches.
+    The match file between the left and right raw images.
     
+--image-list <string (default: "")>
+    A file containing the list of images, when they are too many to specify on
+    the command line. Use space or newline as separator. See also
+    ``--camera-list``.
+
+--camera-list <string (default: "")>
+    A file containing the list of cameras, when they are too many to specify on
+    the command line. If the images have embedded camera information, such as
+    for ISIS, this file may be omitted, or specify the image names instead of
+    camera names.
+
+--match-files-prefix <string (default: "")>
+    Use the match files with this prefix.
+
+--clean-match-files-prefix <string (default: "")>
+    Use as input ``*-clean.match`` files with this prefix.
+
 --gcp-sigma <double (default: 1.0)>
     The sigma to use for the GCP points. A smaller value will give to GCP more weight.
     See also ``--gcp-sigma-image``.
@@ -317,3 +362,4 @@ Command-line options
 
 -h, --help
     Display this help message.
+

@@ -81,6 +81,9 @@ mapproject (:numref:`mapproject`):
   
 dem2gcp (:numref:`dem2gcp`):
   * Added the options ``--max-num-gcp``, ``--max-disp``, ``--gcp-sigma-image``.
+  * Added the options ``--image-list``, ``--camera-list``,
+    ``--match-files-prefix``, and ``--clean-match-files-prefix`` to work
+    with multiple input images and matches.
 
 jitter_solve (:numref:`jitter_solve`):
   * Added documentation on limitations (:numref:`jitter_limitations`).
