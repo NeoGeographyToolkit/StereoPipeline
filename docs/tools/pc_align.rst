@@ -271,11 +271,16 @@ This produces a dense match file (:numref:`dense_ip`) that should be inspected
       --num-iterations 0                               \
       --max-num-reference-points 1000000               \
       --match-file $matchFile                          \
-      --initial-transform-from-hillshading translation \
+      --initial-transform-from-hillshading rigid       \
       --initial-transform-ransac-params 1000 3         \
       --save-transformed-source-points                 \
       ref.tif src.tif                                  \
       -o run_align/run
+
+One has to consider carefully if the transform to be solved for should be rigid
+(rotation + translation) or a translation only. Inspecting the bands of the
+disparity map ``run_corr/run-F.tif`` can help with that
+(:numref:`mask_disparity`).
 
 The resulting aligned cloud ``run_align/run-trans_source.tif`` can be regridded
 with ``point2dem`` and same grid size and projection as the input DEMs, and

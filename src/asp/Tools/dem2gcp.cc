@@ -22,6 +22,8 @@
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/ImageUtils.h>
+#include <asp/Core/FileUtils.h>
+#include <asp/Sessions/CameraUtils.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 
@@ -129,6 +131,7 @@ struct Gcp {
   vw::Vector3 llh;
   vw::Vector3 sigma;
 };
+
 void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
               vw::ba::ControlNetwork const& cnet,
               vw::ImageViewRef<DpixT> const& disparity,
@@ -265,14 +268,12 @@ void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
 }
 
 // Put the variables below in a struct
-struct Options : public vw::GdalWriteOptions {
-std::string warped_dem_file, ref_dem_file, 
-  warped_to_ref_disp_file, left_img, right_img, 
-  left_cam, right_cam, 
-  match_file, out_gcp, gcp_sigma_image;
-  int search_len;
+struct Options: public vw::GdalWriteOptions {
+  std::string warped_dem_file, ref_dem_file, warped_to_ref_disp_file, left_img, right_img,
+    left_cam, right_cam,  match_file, out_gcp, gcp_sigma_image, image_list, camera_list,
+    match_files_prefix, clean_match_files_prefix;
+  int search_len, max_num_gcp;
   double gcp_sigma, max_disp;
-  int max_num_gcp;
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -318,6 +319,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "How many DEM pixels to search around a given interest point to find a valid DEM "
      "disparity (pick the closest). This may help with a spotty disparity but should not "
      "be overused.")
+    ("image-list", po::value(&opt.image_list)->default_value(""),
+     "A file containing the list of images. This can be used with more than two images.")
+    ("camera-list", po::value(&opt.camera_list)->default_value(""),
+      "A file containing the list of cameras. This can be used with more than two images.")
+    ("match-files-prefix",  po::value(&opt.match_files_prefix)->default_value(""),
+     "Use the match files with this prefix.")
+    ("clean-match-files-prefix",  po::value(&opt.clean_match_files_prefix)->default_value(""),
+     "Use as input *-clean.match files with this prefix.")
     ("help,h", "Display this help message");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -336,6 +345,29 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Create the output directory
   vw::create_out_dir(opt.out_gcp);
 
+  //  Only one of --match-file, --match-files-prefix, or
+  //  --clean-match-files-prefix can be used
+  int num = int(!opt.match_file.empty()) +
+            int(!opt.match_files_prefix.empty()) +
+            int(!opt.clean_match_files_prefix.empty());
+  if (num != 1)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Exactly one of --match-file, --match-files-prefix, or "
+                 << "--clean-match-files-prefix must be specified.\n");
+  
+  //  Can have either left and right image, or image-list
+  if ((!opt.left_img.empty() || !opt.right_img.empty()) &&
+      !opt.image_list.empty())
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Either specify both --left-image and --right-image, "
+                 << "or --image-list, but not both options.\n");
+  // Same for left and right camera
+  if ((!opt.left_cam.empty() || !opt.right_cam.empty()) &&
+      !opt.camera_list.empty())
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Either specify both --left-camera and --right-camera, "
+                 << "or --camera-list, but not both options.\n");
+    
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_gcp);
 }
@@ -347,21 +379,35 @@ int run_dem2gcp(int argc, char * argv[]) {
   // Parse and validate the input options  
   handle_arguments(argc, argv, opt);
   
-  // Load the cameras  
-  std::vector<vw::CamPtr> camera_models(2);
-  std::string stereo_session, out_prefix;
-  asp::SessionPtr session(NULL);
-  session.reset(asp::StereoSessionFactory::create
-                        (stereo_session, // will change
-                        opt, opt.left_img, opt.right_img,
-                        opt.left_cam, opt.right_cam,
-                        out_prefix));
-  session->camera_models(camera_models[0], camera_models[1]);
-
-  // Load the control network  
+  // Prepare the images  
   std::vector<std::string> image_files;
-  image_files.push_back(opt.left_img);
-  image_files.push_back(opt.right_img);
+  // See if to read from image list
+  if (!opt.image_list.empty()) {
+    asp::read_list(opt.image_list, image_files);
+  } else {
+    image_files.push_back(opt.left_img);
+    image_files.push_back(opt.right_img);
+  }
+  // Prepare camera lists
+  std::vector<std::string> camera_files;
+  // See if to read from camera list
+  if (!opt.camera_list.empty()) {
+    asp::read_list(opt.camera_list, camera_files);
+  } else {
+    camera_files.push_back(opt.left_cam);
+    camera_files.push_back(opt.right_cam);
+  }
+
+  // Load the cameras  
+  std::string stereo_session, out_prefix;
+  std::vector<vw::CamPtr> camera_models;
+  bool approximate_pinhole_intrinsics = false, single_threaded_cameras = false;
+  asp::load_cameras(image_files, camera_files, out_prefix, opt,
+                      approximate_pinhole_intrinsics,
+                      // Outputs
+                      stereo_session, single_threaded_cameras, camera_models);
+    
+  // Load the control network  
   vw::ba::ControlNetwork cnet("asp");
   bool triangulate_control_points = true;
   std::map<std::pair<int, int>, std::string> match_files;
