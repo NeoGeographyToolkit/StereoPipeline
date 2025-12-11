@@ -89,24 +89,6 @@ void check_for_duplicates(std::vector<std::string> const& image_files,
                           std::vector<std::string> const& camera_files,
                           std::string const& out_prefix);
 
-// Make a list of all of the image pairs to find matches for
-void determine_image_pairs(// Inputs
-                            int overlap_limit,
-                            bool match_first_to_last,
-                            bool external_matches,
-                            std::vector<std::string> const& image_files,
-                            // if having optional preexisting camera positions
-                            bool got_est_cam_positions,
-                            // Optional filter distance, set to -1 if not used
-                            double position_filter_dist,
-                            // Estimated camera positions, set to empty if missing
-                            std::vector<vw::Vector3> const& estimated_camera_gcc,
-                            // Optional preexisting list
-                            bool have_overlap_list,
-                            std::set<std::pair<std::string, std::string>> const& overlap_list,
-                            // Output
-                            std::vector<std::pair<int,int>> & all_pairs);
-
 // Shoot rays from all matching interest points. Intersect those with a DEM. Find
 // their average. Project it vertically onto the DEM. Invalid or uncomputable
 // xyz are set to the zero vector.

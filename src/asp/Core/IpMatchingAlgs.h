@@ -119,7 +119,36 @@ void matchesForPair(vw::ba::ControlNetwork const& cnet,
                     int left_cid, int right_cid,
                     std::vector<vw::ip::InterestPoint> & left_ip,
                     std::vector<vw::ip::InterestPoint> & right_ip);
+
+// Find interest point matches by loading them from files for a given set of images.
+void findMatchFiles(// Inputs
+                    int overlap_limit,
+                    bool match_first_to_last,
+                    std::vector<std::string> const& image_files,
+                    std::string const& clean_match_files_prefix,
+                    std::string const& match_files_prefix,
+                    std::string const& out_prefix,
+                    // Outputs
+                    std::map<std::pair<int, int>, std::string> & match_files);
   
+// Make a list of all of the image pairs to find matches for
+void determineImagePairs(// Inputs
+                         int overlap_limit,
+                         bool match_first_to_last,
+                         bool external_matches,
+                         std::vector<std::string> const& image_files,
+                         // if having optional preexisting camera positions
+                         bool got_est_cam_positions,
+                         // Optional filter distance, set to -1 if not used
+                         double position_filter_dist,
+                         // Estimated camera positions, set to empty if missing
+                         std::vector<vw::Vector3> const& estimated_camera_gcc,
+                         // Optional preexisting list
+                         bool have_overlap_list,
+                         std::set<std::pair<std::string, std::string>> const& overlap_list,
+                         // Output
+                         std::vector<std::pair<int,int>> & all_pairs);
+
 } // End namespace asp
 
 #endif//__ASP_CORE_IP_MATCHING_ALGS_H__

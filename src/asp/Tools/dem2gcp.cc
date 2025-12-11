@@ -408,6 +408,7 @@ int run_dem2gcp(int argc, char * argv[]) {
                       stereo_session, single_threaded_cameras, camera_models);
     
   // Load the control network  
+  // TODO(oalexan1): Support multiple match files
   vw::ba::ControlNetwork cnet("asp");
   bool triangulate_control_points = true;
   std::map<std::pair<int, int>, std::string> match_files;

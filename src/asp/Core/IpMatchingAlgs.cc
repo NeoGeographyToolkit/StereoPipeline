@@ -492,5 +492,145 @@ void matchesForPair(vw::ba::ControlNetwork const& cnet,
   
   return;
 }
+
+// Make a list of all of the image pairs to find matches for. When prior matches
+// are used, they can be in any order.
+void determineImagePairs(// Inputs
+                         int overlap_limit,
+                         bool match_first_to_last,
+                         bool external_matches,
+                         std::vector<std::string> const& image_files,
+                         // if having optional preexisting camera positions
+                         bool got_est_cam_positions,
+                         // Optional filter distance, set to -1 if not used
+                         double position_filter_dist,
+                         // Estimated camera positions, set to empty if missing
+                         std::vector<vw::Vector3> const& estimated_camera_gcc,
+                         // Optional preexisting list
+                         bool have_overlap_list,
+                         std::set<std::pair<std::string, std::string>> const&
+                         overlap_list,
+                         // Output
+                         std::vector<std::pair<int,int>> & all_pairs) {
+
+  // Wipe the output
+  all_pairs.clear();
+
+  // Need this to avoid repetitions
+  std::set<std::pair<int, int>> local_set;
+  
+  int num_images = image_files.size();
+  for (int i0 = 0; i0 < num_images; i0++){
+
+    for (int j0 = i0 + 1; j0 <= i0 + overlap_limit; j0++){
+
+      // Make copies of i and j which we can modify
+      int i = i0, j = j0;
+
+      if (j >= num_images) {
+        
+        if (!match_first_to_last)
+          continue; // out of bounds
+
+        j = j % num_images; // wrap around
+
+        if (i == j) 
+          continue; // can't have matches to itself
+
+        if (i > j) 
+          std::swap(i, j);
+      }
+      
+      // Apply the overlap list if manually specified. Otherwise every
+      // image pair i, j as above will be matched.
+      if (have_overlap_list) {
+        auto pair1 = std::make_pair(image_files[i], image_files[j]);
+        auto pair2 = std::make_pair(image_files[j], image_files[i]);
+        if (overlap_list.find(pair1) == overlap_list.end() &&
+            overlap_list.find(pair2) == overlap_list.end())
+          continue;
+      }
+
+      // If this option is set, don't try to match cameras that are too far apart.
+      if (got_est_cam_positions && (position_filter_dist > 0)) {
+        Vector3 this_pos  = estimated_camera_gcc[i];
+        Vector3 other_pos = estimated_camera_gcc[j];
+        if ((this_pos  != Vector3(0,0,0)) && // If both positions are known
+            (other_pos != Vector3(0,0,0)) && // and they are too far apart
+            (norm_2(this_pos - other_pos) > position_filter_dist)) {
+          vw_out() << "Skipping position: " << this_pos << " and "
+                   << other_pos << " with distance " << norm_2(this_pos - other_pos)
+                   << std::endl;
+          continue; // Skip this image pair
+        }
+      }
+
+      local_set.insert(std::make_pair(i,j));
+    }
+  }
+
+  if (external_matches) {
+    // Accept matches in reverse order
+    auto local_set_in = local_set;
+    for (auto it = local_set_in.begin(); it != local_set_in.end(); it++)
+      local_set.insert(std::make_pair(it->second, it->first));
+  }
+  
+  // The pairs without repetition
+  for (auto it = local_set.begin(); it != local_set.end(); it++)
+    all_pairs.push_back(*it);
+}
+
+// Find interest point matches by loading them from files for a given set of images.
+void findMatchFiles(// Inputs
+                    int overlap_limit,
+                    bool match_first_to_last,
+                    std::vector<std::string> const& image_files,
+                    std::string const& clean_match_files_prefix,
+                    std::string const& match_files_prefix,
+                    std::string const& out_prefix,
+                    // Outputs
+                    std::map<std::pair<int, int>, std::string> & match_files) {
+
+  // Clear the output
+  match_files.clear();
+  
+  // Make a list of all the image pairs to find matches for.
+  bool external_matches = true;
+  bool got_est_cam_positions = false;
+  double position_filter_dist = -1.0;
+  std::vector<vw::Vector3> estimated_camera_gcc;
+  bool have_overlap_list = false;
+  std::set<std::pair<std::string, std::string>> overlap_list;
+  std::vector<std::pair<int,int>> all_pairs;
+  asp::determineImagePairs(overlap_limit, match_first_to_last, external_matches,
+                           image_files, got_est_cam_positions, position_filter_dist,
+                           estimated_camera_gcc, have_overlap_list, overlap_list,
+                           all_pairs); // output
+
+  // List existing match files. This can take a while.
+  vw_out() << "Computing the list of existing match files.\n";
+  std::string prefix = asp::match_file_prefix(clean_match_files_prefix,
+                                              match_files_prefix,  
+                                              out_prefix);
+  std::set<std::string> existing_files;
+  asp::listExistingMatchFiles(prefix, existing_files);
+
+  // Load match files
+  for (size_t k = 0; k < all_pairs.size(); k++) {
+    int i = all_pairs[k].first;
+    int j = all_pairs[k].second;
+    std::string const& image1_path  = image_files[i];  // alias
+    std::string const& image2_path  = image_files[j];  // alias
+    // Load match files from a different source
+    std::string match_file 
+      = asp::match_filename(clean_match_files_prefix, match_files_prefix,  
+                            out_prefix, image1_path, image2_path);
+    // The external match file does not exist, don't try to load it
+    if (existing_files.find(match_file) == existing_files.end())
+      continue;
+    match_files[std::make_pair(i, j)] = match_file;
+  }
+}
  
 } // end namespace asp

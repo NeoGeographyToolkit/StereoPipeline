@@ -468,7 +468,8 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   if (opt.overlap_limit == 0)
     opt.overlap_limit = opt.image_files.size();
   
-  int num_pref = int(!opt.match_files_prefix.empty()) + int(!opt.clean_match_files_prefix.empty())
+  int num_pref = int(!opt.match_files_prefix.empty()) 
+      + int(!opt.clean_match_files_prefix.empty())
       + int(!opt.isis_cnet.empty()) + int(!opt.nvm.empty());
   if (num_pref > 1)
     vw_throw(ArgumentErr() << "Must specify no more than one of: --match-files-prefix, "
@@ -1313,52 +1314,13 @@ void run_jitter_solve(int argc, char* argv[]) {
   
   // Make a list of all the image pairs to find matches for. Some quantities
   // below are not needed but are part of the API.
-  if (opt.isis_cnet.empty() && opt.nvm.empty()) {
-    // TODO(oalexan1): Make this into a function
-    bool external_matches = true;
-    bool got_est_cam_positions = false;
-    double position_filter_dist = -1.0;
-    std::vector<vw::Vector3> estimated_camera_gcc;
-    bool have_overlap_list = false;
-    std::set<std::pair<std::string, std::string>> overlap_list;
-    std::vector<std::pair<int,int>> all_pairs;
-    asp::determine_image_pairs(// Inputs
-                              opt.overlap_limit, opt.match_first_to_last,  
-                              external_matches,
-                              opt.image_files, 
-                              got_est_cam_positions, position_filter_dist,
-                              estimated_camera_gcc, have_overlap_list, overlap_list,
-                              // Output
-                              all_pairs);
+  if (opt.isis_cnet.empty() && opt.nvm.empty())
+    asp::findMatchFiles(opt.overlap_limit, opt.match_first_to_last,
+                        opt.image_files, opt.clean_match_files_prefix,
+                        opt.match_files_prefix, opt.out_prefix,
+                        // Outputs
+                        opt.match_files);
 
-    // List existing match files. This can take a while.
-    vw_out() << "Computing the list of existing match files.\n";
-    std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
-                                                opt.match_files_prefix,  
-                                                opt.out_prefix);
-    std::set<std::string> existing_files;
-    asp::listExistingMatchFiles(prefix, existing_files);
-
-    // TODO(oalexan1): Make this into a function
-    // Load match files
-    for (size_t k = 0; k < all_pairs.size(); k++) {
-      int i = all_pairs[k].first;
-      int j = all_pairs[k].second;
-      std::string const& image1_path  = opt.image_files[i];  // alias
-      std::string const& image2_path  = opt.image_files[j];  // alias
-      std::string const& camera1_path = opt.camera_files[i]; // alias
-      std::string const& camera2_path = opt.camera_files[j]; // alias
-      // Load match files from a different source
-      std::string match_file 
-        = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,  
-                              opt.out_prefix, image1_path, image2_path);
-      // The external match file does not exist, don't try to load it
-      if (existing_files.find(match_file) == existing_files.end())
-        continue;
-      opt.match_files[std::make_pair(i, j)] = match_file;
-    }
-  }
-    
   // Build control network and perform triangulation with adjusted input cameras
   ba::ControlNetwork cnet("jitter_solve");
   if (opt.isis_cnet != "") {

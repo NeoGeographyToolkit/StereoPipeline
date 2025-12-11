@@ -139,14 +139,14 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
   // matches, try to read read both image1__image2 and image2__image1 matches.
   std::vector<std::pair<int,int>> all_pairs;
   if (!need_no_matches)
-    asp::determine_image_pairs(// Inputs
-                               opt.overlap_limit, opt.match_first_to_last,
-                               external_matches,
-                               opt.image_files, got_est_cam_positions,
-                               opt.position_filter_dist, estimated_camera_gcc,
-                               opt.have_overlap_list, opt.overlap_list,
-                               // Output
-                               all_pairs);
+    asp::determineImagePairs(// Inputs
+                             opt.overlap_limit, opt.match_first_to_last,
+                             external_matches,
+                             opt.image_files, got_est_cam_positions,
+                             opt.position_filter_dist, estimated_camera_gcc,
+                             opt.have_overlap_list, opt.overlap_list,
+                             // Output
+                             all_pairs);
 
   // Need this information in parallel_bundle_adjust for load balancing.
   if (opt.query_num_image_pairs) {
