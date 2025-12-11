@@ -133,18 +133,58 @@ struct Gcp {
   vw::Vector3 sigma;
 };
 
-void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
+// Write the GCP to a file. This is not a generic function. It assumes that
+// the GCP are for a subset of the cnet, and the GCP knows the index in the cnet
+// of the control point.
+void writeGcp(std::string const& out_gcp,
+              vw::cartography::GeoReference const& ref_dem_georef,
+              std::vector<Gcp> const& gcp_vec,
               vw::ba::ControlNetwork const& cnet,
-              vw::ImageViewRef<DpixT> const& disparity,
-              vw::ImageViewRef<vw::PixelMask<double>> const& interp_ref_dem,
-              vw::cartography::GeoReference const& warped_dem_georef,
-              std::vector<std::string> const& image_files,
-              double gcp_sigma, int search_len, 
-              int max_num_gcp,
-              vw::ImageViewRef<vw::PixelMask<float>> const& gcp_sigma_image,
-              vw::cartography::GeoReference          const& gcp_sigma_image_georef,
+              std::vector<std::string> const& image_files) {
 
-              std::string const& out_gcp) {
+  vw::vw_out() << "Writing: " << out_gcp << "\n";
+  std::ofstream ofs(out_gcp.c_str());
+  ofs.precision(17); // full precision
+  ofs << "# WKT: " << ref_dem_georef.get_wkt() << "\n";
+  ofs << "# id lat lon height_above_datum sigma_x sigma_y sigma_z image_name "
+      << "pixel_x pixel_y sigma_x sigma_y, etc.\n";
+
+  // Iterate over the gcp_vec
+  for (size_t gcp_id = 0; gcp_id < gcp_vec.size(); gcp_id++) {
+
+    auto const& gcp   = gcp_vec[gcp_id]; // alias
+    auto const& cp    = cnet[gcp.cnet_pt_id]; // alias
+    auto const& llh   = gcp.llh; // alias
+    auto const& sigma = gcp.sigma; // alias
+    vw::Vector2 pix_sigma(1, 1);
+
+    // Write the id, lat, lon, height, sigmas
+    ofs << gcp_id << " " << llh.y() << " " << llh.x() << " " << llh.z() << " "
+        << sigma[0] << " " << sigma[1] << " " << sigma[2] << " ";
+        
+    for (int im = 0; im < cp.size(); im++) {
+      auto const& cm = cp[im]; // measure
+      ofs << image_files[cm.image_id()] << " " 
+          << cm.position()[0] << " " << cm.position()[1] << " "
+          << pix_sigma[0] << " " << pix_sigma[1] << " ";
+    }
+    ofs << "\n";
+  }
+  
+  ofs.close();
+}
+
+void genWriteGcp(vw::cartography::GeoReference const& ref_dem_georef,
+                 vw::ba::ControlNetwork const& cnet,
+                 vw::ImageViewRef<DpixT> const& disparity,
+                 vw::ImageViewRef<vw::PixelMask<double>> const& interp_ref_dem,
+                 vw::cartography::GeoReference const& warped_dem_georef,
+                 std::vector<std::string> const& image_files,
+                 double gcp_sigma, int search_len, 
+                 int max_num_gcp,
+                 vw::ImageViewRef<vw::PixelMask<float>> const& gcp_sigma_image,
+                 vw::cartography::GeoReference          const& gcp_sigma_image_georef,
+                 std::string const& out_gcp) {
 
   int num_pts = cnet.size();
 
@@ -228,44 +268,14 @@ void writeGcp(vw::cartography::GeoReference const& ref_dem_georef,
                 << gcp_vec.size() << " to " << max_num_gcp << ".\n";
     std::vector<int> indices;
     vw::math::pick_random_indices_in_range(gcp_vec.size(), max_num_gcp, indices);
-    std::vector<Gcp> out_gcp;
+    std::vector<Gcp> local_vec;
     for (size_t i = 0; i < indices.size(); i++)
-      out_gcp.push_back(gcp_vec[indices[i]]);
+      local_vec.push_back(gcp_vec[indices[i]]);
     // Swap the two
-    gcp_vec.swap(out_gcp);
+    gcp_vec.swap(local_vec);
   }
   
-  // Write to disk
-  vw::vw_out() << "Writing: " << out_gcp << "\n";
-  std::ofstream ofs(out_gcp.c_str());
-  ofs.precision(17); // full precision
-  ofs << "# WKT: " << ref_dem_georef.get_wkt() << "\n";
-  ofs << "# id lat lon height_above_datum sigma_x sigma_y sigma_z image_name "
-      << "pixel_x pixel_y sigma_x sigma_y, etc.\n";
-
-  // Iterate over the gcp_vec
-  for (size_t gcp_id = 0; gcp_id < gcp_vec.size(); gcp_id++) {
-
-    auto const& gcp   = gcp_vec[gcp_id]; // alias
-    auto const& cp    = cnet[gcp.cnet_pt_id]; // alias
-    auto const& llh   = gcp.llh; // alias
-    auto const& sigma = gcp.sigma; // alias
-    vw::Vector2 pix_sigma(1, 1);
-
-    // Write the id, lat, lon, height, sigmas
-    ofs << gcp_id << " " << llh.y() << " " << llh.x() << " " << llh.z() << " "
-        << sigma[0] << " " << sigma[1] << " " << sigma[2] << " ";
-        
-    for (int im = 0; im < cp.size(); im++) {
-      auto const& cm = cp[im]; // measure
-      ofs << image_files[cm.image_id()] << " " 
-          << cm.position()[0] << " " << cm.position()[1] << " "
-          << pix_sigma[0] << " " << pix_sigma[1] << " ";
-    }
-    ofs << "\n";
-  }
-  
-  ofs.close();
+  writeGcp(out_gcp, ref_dem_georef, gcp_vec, cnet, image_files);
 }
 
 // Put the variables below in a struct
@@ -495,7 +505,7 @@ int run_dem2gcp(int argc, char * argv[]) {
     vw::vw_out() << "Using GCP sigma image: " << opt.gcp_sigma_image << "\n";
   }
   
-  writeGcp(ref_dem_georef, cnet, disparity,
+  genWriteGcp(ref_dem_georef, cnet, disparity,
            interp_ref_dem, warped_dem_georef, image_files, 
            opt.gcp_sigma, opt.search_len, opt.max_num_gcp,
            gcp_sigma_image, gcp_sigma_image_georef,

@@ -85,9 +85,10 @@ It is not required that the produced DEMs have precisely the same extent, but
 that may help with visualizing the disparity between them (see below). The ``gdalwarp``
 ``-te`` option can produce datasets with a given extent.
 
-The DEMs should be hillshaded. It is suggested to use the GDAL (:numref:`gdal_tools`)
-hillshading method, as it is more accurate than ASP's own ``hillshade``. Here's an
-example invocation, to be applied to each DEM::
+The DEMs should be hillshaded. It is suggested to use the GDAL
+(:numref:`gdal_tools`) hillshading method, as it is more accurate than ASP's own
+``hillshade`` (:numref:`hillshade`). Here's an example invocation, to be applied
+to each DEM::
 
     gdaldem hillshade   \
       -multidirectional \
@@ -96,7 +97,11 @@ example invocation, to be applied to each DEM::
       output_dem_hill.tif
 
 Inspect the hillshaded images in ``stereo_gui``. They should be similar enough
-in appearance.
+in appearance and with a good range of values.
+
+Consider adjusting the lighting azimuth and elevation in the hillshade program
+to get good contrast. See the options ``-az`` and ``-alt`` in ``gdaldem
+hillshade``, and ``-a`` and ``-e`` in ASP's ``hillshade``.
 
 Find the dense disparity from the warped hillshaded DEM to the reference
 hillshaded DEM with ASP's correlator mode (:numref:`correlator-mode`)::
