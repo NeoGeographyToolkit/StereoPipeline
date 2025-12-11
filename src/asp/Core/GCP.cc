@@ -15,11 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-#include <string>
-#include <vector>
-
 #include <asp/Core/ImageUtils.h>
+#include <asp/Core/MatchList.h>
 #include <asp/Core/GCP.h>
 
 #include <vw/FileIO/DiskImageView.h>
@@ -29,16 +26,52 @@
 
 namespace asp {
 
-// Write a GCP file. Can throw exceptions.
-// TODO(oalexan1): Factor out the GCP-writing logic. Move it to WV,
-// together with the logic for reading GCPs. Support reading
-// and writing a georef, not a datum.
+// Write GCP to a file
+void writeGcp(std::string const& gcpFile,
+              vw::cartography::GeoReference const& geo,
+              std::vector<Gcp> const& gcp_vec,
+              std::vector<std::string> const& image_files) {
 
+  vw::vw_out() << "Writing: " << gcpFile << "\n";
+  std::ofstream ofs(gcpFile.c_str());
+  ofs.precision(17); // full precision
+  ofs << "# WKT: " << geo.get_wkt() << "\n";
+  ofs << "# id lat lon height_above_datum sigma_x sigma_y sigma_z image_name "
+      << "pixel_x pixel_y sigma_x sigma_y, etc.\n";
+
+  // Iterate over the gcp_vec
+  for (size_t gcp_id = 0; gcp_id < gcp_vec.size(); gcp_id++) {
+
+    auto const& gcp   = gcp_vec[gcp_id]; // alias
+    auto const& cp    = gcp.cp; // alias
+    auto const& llh   = gcp.llh; // alias
+    auto const& sigma = gcp.sigma; // alias
+    vw::Vector2 pix_sigma(1, 1);
+
+    // Write the id, lat, lon, height, sigmas
+    ofs << gcp_id << " " << llh.y() << " " << llh.x() << " " << llh.z() << " "
+        << sigma[0] << " " << sigma[1] << " " << sigma[2] << " ";
+        
+    for (int im = 0; im < cp.size(); im++) {
+      auto const& cm = cp[im]; // measure
+      ofs << image_files[cm.image_id()] << " " 
+          << cm.position()[0] << " " << cm.position()[1] << " "
+          << pix_sigma[0] << " " << pix_sigma[1] << " ";
+    }
+    ofs << "\n";
+  }
+  
+  ofs.close();
+}
+
+// Write a GCP file. Can throw exceptions. TODO(oalexan1): Reuse the above
+// function named writeGcp. Consider moving this to WV, together with the logic
+// for reading GCPs. Support reading and writing a georef, not a datum.
 // TODO(oalexan1): Add the GUI option --gcp-srs. The default should be WGS84
-// with stereographic projection at lon=0, lat=0 unless there exists a DEM,
-// when the default should be the long-lat projection for that DEM. --gcp-srs
-// can be used with rig_calibrator for local Cartesian coordinates.
-void writeGCP(std::vector<std::string> const& image_files,
+// with stereographic projection at lon=0, lat=0 unless there exists a DEM, when
+// the default should be the long-lat projection for that DEM. --gcp-srs can be
+// used with rig_calibrator for local Cartesian coordinates.
+void writeGcp(std::vector<std::string> const& image_files,
               std::string const& gcp_file,
               std::string const& dem_file,
               asp::MatchList const& matchlist,

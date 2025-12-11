@@ -273,7 +273,7 @@ void gcp_gen(Options & opt) {
 
   // Write the GCP file
   std::vector<std::string> image_files = {opt.camera_image, opt.ortho_image};
-  asp::writeGCP(image_files, opt.output_gcp, opt.dem, matchList, opt.gcp_sigma);
+  asp::writeGcp(image_files, opt.output_gcp, opt.dem, matchList, opt.gcp_sigma);
 
   return;
 }

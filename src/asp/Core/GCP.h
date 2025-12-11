@@ -15,20 +15,37 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-/// \file MatchList.h
+/// \file GCP.h
 ///
-/// Interest point matching logic.
+/// GCP logic
 ///
 #ifndef __ASP_CORE_GCP_H__
 #define __ASP_CORE_GCP_H__
 
-#include <asp/Core/MatchList.h>
+#include <vw/BundleAdjustment/ControlNetwork.h>
+
+#include <string>
+#include <vector>
 
 namespace asp { 
+  class MatchList;
+
+  // A structure for storing a GCP
+  struct Gcp {
+    vw::ba::ControlPoint cp;
+    vw::Vector3 llh;
+    vw::Vector3 sigma;
+  };
+
+  // Write GCP to a file
+  void writeGcp(std::string const& gcpFile,
+                vw::cartography::GeoReference const& geo,
+                std::vector<Gcp> const& gcp_vec,
+                std::vector<std::string> const& image_files);
 
   // Write a GCP file. Can throw exceptions.
-  void writeGCP(std::vector<std::string> const& image_files,
+  // TODO(oalexan1): Reuse the above function named writeGcp.
+  void writeGcp(std::vector<std::string> const& image_files,
                 std::string const& gcp_file,
                 std::string const& dem_file,
                 asp::MatchList const& matchlist,
