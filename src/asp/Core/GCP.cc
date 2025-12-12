@@ -141,18 +141,7 @@ void writeGcp(std::vector<std::string> const& image_files,
     
     // Write the per-point information
     output_handle << num_pts_used; // The ground control point ID
-    bool write_ecef = false;
-    // TODO(oalexan1): It can be convenient to export GCP in ECEF, for software
-    // which does not know about projections. Could be an option.
-    if (!write_ecef) {
-      // Write lat, lon, height
-      output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << height[0];
-    } else {
-      // Write x, y, z
-      vw::Vector3 P(lonlat[0], lonlat[1], height[0]);
-      P = dem_georef.datum().geodetic_to_cartesian(P);
-      output_handle << ", " << P[0] << ' ' << P[1] << ' ' << P[2];
-    }
+    output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << height[0];
     
     // Write sigma values on the same line
     output_handle << ", " << xyz_sigma << ", " << xyz_sigma << ", " << xyz_sigma;
