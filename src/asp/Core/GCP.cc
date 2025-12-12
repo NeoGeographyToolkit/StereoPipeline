@@ -84,11 +84,9 @@ void genWriteGcp(std::vector<std::string> const& image_files,
                  asp::MatchList const& matchlist,
                  double xyz_sigma) {
   
-  using namespace vw;
-  
   // Must have at lest two images to write a GCP file
   if (image_files.size() < 2)
-    vw_throw(ArgumentErr() << "At least two images are needed to write a GCP file.\n");
+    vw::vw_throw(vw::ArgumentErr() << "At least two images are needed to write a GCP file.\n");
   
   // Load a georeference to use for the GCPs from the last image
   vw::cartography::GeoReference image_georef;
@@ -103,7 +101,7 @@ void genWriteGcp(std::vector<std::string> const& image_files,
   vw::ImageViewRef<vw::PixelMask<double>> interp_dem;
   vw::cartography::GeoReference dem_georef;
   asp::create_interp_dem(dem_file, dem_georef, interp_dem);
-  BBox2 dem_bbox = bounding_box(interp_dem);
+  vw::BBox2 dem_bbox = vw::bounding_box(interp_dem);
 
   // A basic sanity check. The orthoimage and DEM datums should be similar.
   double tol = 1.0; // 1 m
@@ -112,7 +110,7 @@ void genWriteGcp(std::vector<std::string> const& image_files,
   // Throw if the datums are too different
   if (img_d.semi_major_axis() - dem_d.semi_major_axis() > tol ||
       img_d.semi_minor_axis() - dem_d.semi_minor_axis() > tol)
-    vw::vw_throw(ArgumentErr() << "The orthoimage and DEM datums differ by more than "
+    vw::vw_throw(vw::ArgumentErr() << "The orthoimage and DEM datums differ by more than "
              << tol << " meters. This is not supported.\n");
     
   // Populate the GCPs
@@ -122,14 +120,14 @@ void genWriteGcp(std::vector<std::string> const& image_files,
   for (size_t p = 0; p < num_ips; p++) { // Loop through IPs
     
     // Compute the GDC coordinate of the point
-    ip::InterestPoint ip = matchlist.getPoint(georef_index, p);
-    Vector2 lonlat    = image_georef.pixel_to_lonlat(Vector2(ip.x, ip.y));
-    Vector2 dem_pixel = dem_georef.lonlat_to_pixel(lonlat);
-    PixelMask<float> height = interp_dem(dem_pixel[0], dem_pixel[1])[0];
+    vw::ip::InterestPoint ip = matchlist.getPoint(georef_index, p);
+    vw::Vector2 lonlat    = image_georef.pixel_to_lonlat(vw::Vector2(ip.x, ip.y));
+    vw::Vector2 dem_pixel = dem_georef.lonlat_to_pixel(lonlat);
+    vw::PixelMask<float> height = interp_dem(dem_pixel[0], dem_pixel[1])[0];
     
     // Bounding box check.
-    if ((!dem_bbox.contains(dem_pixel)) || (!is_valid(height))) {
-      vw_out() << "Warning: Skipped IP # " << p
+    if ((!dem_bbox.contains(dem_pixel)) || (!vw::is_valid(height))) {
+      vw::vw_out() << "Warning: Skipped IP # " << p
                << " because it does not fall on the DEM.\n";
       num_pts_skipped++;
       continue; // Skip locations which do not fall on the DEM
@@ -144,7 +142,7 @@ void genWriteGcp(std::vector<std::string> const& image_files,
     size_t num_images_to_save = num_images - 1; 
     for (size_t i = 0; i < num_images_to_save; i++) {
       // Add this IP to the current line
-      ip::InterestPoint ip = matchlist.getPoint(i, p);
+      vw::ip::InterestPoint ip = matchlist.getPoint(i, p);
       vw::ba::ControlMeasure cm;
       cm.set_image_id(i);
       cm.set_position(vw::Vector2(ip.x, ip.y));
