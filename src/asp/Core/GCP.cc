@@ -35,6 +35,9 @@ void writeGcp(std::string const& gcpFile,
   vw::vw_out() << "Writing: " << gcpFile << "\n";
   std::ofstream ofs(gcpFile.c_str());
   ofs.precision(17); // full precision
+
+  // It is important to keep track of the datum and projection, because the
+  // elevations are relative to it
   ofs << "# WKT: " << geo.get_wkt() << "\n";
   ofs << "# id lat lon height_above_datum sigma_x sigma_y sigma_z image_name "
       << "pixel_x pixel_y sigma_x sigma_y, etc.\n";
@@ -56,7 +59,11 @@ void writeGcp(std::string const& gcpFile,
       auto const& cm = cp[im]; // measure
       ofs << image_files[cm.image_id()] << " " 
           << cm.position()[0] << " " << cm.position()[1] << " "
-          << pix_sigma[0] << " " << pix_sigma[1] << " ";
+          << pix_sigma[0] << " " << pix_sigma[1];
+      
+      // Have a space between measures, except after the last one
+      if (im < int(cp.size()) - 1)
+        ofs << " ";
     }
     ofs << "\n";
   }
@@ -64,18 +71,18 @@ void writeGcp(std::string const& gcpFile,
   ofs.close();
 }
 
-// Write a GCP file. Can throw exceptions. TODO(oalexan1): Reuse the above
-// function named writeGcp. Consider moving this to WV, together with the logic
-// for reading GCPs. Support reading and writing a georef, not a datum.
-// TODO(oalexan1): Add the GUI option --gcp-srs. The default should be WGS84
-// with stereographic projection at lon=0, lat=0 unless there exists a DEM, when
-// the default should be the long-lat projection for that DEM. --gcp-srs can be
-// used with rig_calibrator for local Cartesian coordinates.
-void writeGcp(std::vector<std::string> const& image_files,
-              std::string const& gcp_file,
-              std::string const& dem_file,
-              asp::MatchList const& matchlist,
-              double xyz_sigma) {
+// Produce and write a GCP file. Can throw exceptions. TODO(oalexan1): Consider
+// moving this to WV, together with the logic for reading GCPs. Support reading
+// and writing a georef, not a datum. TODO(oalexan1): Add the GUI option
+// --gcp-srs. The default should be WGS84 with stereographic projection at
+// lon=0, lat=0 unless there exists a DEM, when the default should be the
+// long-lat projection for that DEM. --gcp-srs can be used with rig_calibrator
+// for local Cartesian coordinates.
+void genWriteGcp(std::vector<std::string> const& image_files,
+                 std::string const& gcp_file,
+                 std::string const& dem_file,
+                 asp::MatchList const& matchlist,
+                 double xyz_sigma) {
   
   using namespace vw;
   
@@ -108,20 +115,9 @@ void writeGcp(std::vector<std::string> const& image_files,
     vw::vw_throw(ArgumentErr() << "The orthoimage and DEM datums differ by more than "
              << tol << " meters. This is not supported.\n");
     
-  vw_out() << "Writing: " << gcp_file << "\n";
-  vw::create_out_dir(gcp_file);
-  std::ofstream output_handle(gcp_file.c_str());
-  output_handle << std::setprecision(17);
-
-  // It is important to keep track of the datum and projection, because the
-  // elevations are relative to it
-  // TODO(oalexan1): Put below dem_georef.get_wkt() instead.
-  // TODO(oalexan1): Have a single GCP-writing function, and put it in VW.
-  // See also the existing one called write_in_gcp_format() in VW.
-  output_handle << "# WKT: " << dem_georef.datum().get_wkt() << std::endl;
-  // TODO(oalexan1): Write here if the format is lon,lat,height, or easting, northing, height.
-  size_t num_pts_skipped = 0, num_pts_used = 0;
-
+  // Populate the GCPs
+  std::vector<asp::Gcp> gcp_vec;
+  size_t num_pts_skipped = 0;
   const size_t num_ips = matchlist.getNumPoints();
   for (size_t p = 0; p < num_ips; p++) { // Loop through IPs
     
@@ -138,29 +134,28 @@ void writeGcp(std::vector<std::string> const& image_files,
       num_pts_skipped++;
       continue; // Skip locations which do not fall on the DEM
     }
-    
-    // Write the per-point information
-    output_handle << num_pts_used; // The ground control point ID
-    output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << height[0];
-    
-    // Write sigma values on the same line
-    output_handle << ", " << xyz_sigma << ", " << xyz_sigma << ", " << xyz_sigma;
-    // Write the per-image information
+
+    asp::Gcp gcp;
+    gcp.llh = vw::Vector3(lonlat[0], lonlat[1], height[0]);
+    gcp.sigma = vw::Vector3(xyz_sigma, xyz_sigma, xyz_sigma);
+
     // The last image is the reference image, so we skip it when saving GCPs
     size_t num_images = image_files.size();
     size_t num_images_to_save = num_images - 1; 
     for (size_t i = 0; i < num_images_to_save; i++) {
       // Add this IP to the current line
       ip::InterestPoint ip = matchlist.getPoint(i, p);
-      output_handle << ", " << image_files[i];
-      output_handle << ", " << ip.x << ", " << ip.y; // IP location in image
-      output_handle << ", " << 1 << ", " << 1; // Sigma values
-    } // End loop through IP sets
-    output_handle << std::endl; // Finish the line
-    num_pts_used++;
-  } // End loop through IPs
+      vw::ba::ControlMeasure cm;
+      cm.set_image_id(i);
+      cm.set_position(vw::Vector2(ip.x, ip.y));
+      cm.set_sigma(vw::Vector2(1, 1));
+      gcp.cp.add_measure(cm);
+    }
+    gcp_vec.push_back(gcp);
+  }
   
-  output_handle.close();
+  // Write the GCPs to file
+  asp::writeGcp(gcp_file, image_georef, gcp_vec, image_files);
 
   return;
 }
