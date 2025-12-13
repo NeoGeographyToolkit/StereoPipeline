@@ -1790,7 +1790,7 @@ In either case, the alignment transform can then be applied to the full SfS DEM
 The number of points being used is not important since we will just
 apply the alignment and transform the full DEM.
 
-The aligned SfS DEM can be regenerated from the obtained transformed
+The aligned SfS DEM can be created from the obtained transformed
 cloud as::
 
     point2dem --tr 1 --search-radius-factor 2 --t_srs projection_str \
@@ -1838,7 +1838,7 @@ manually, by using ``pc_align`` as::
       --max-num-reference-points 1000 --max-num-source-points 1000
 
 Here, the value of ``down_shift`` should be 0, as we attempt a horizontal shift. For
-the other ones one may try some values and observe their effect in moving the
+the others, one may try some values and observe their effect in moving the
 SfS terrain to the desired place. 
 
 The transform obtained by using these numbers will be saved in
