@@ -1078,6 +1078,9 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "outliers. Hence, never remove errors smaller than err1 but always remove those "
      "bigger than err2. Specify as a list in quotes. Also remove outliers based on "
      "distribution of interest point matches and triangulated points.")
+    ("max-gcp-reproj-err", po::value(&opt.max_gcp_reproj_err)->default_value(-1.0),
+     "If positive, after each pass of bundle adjustment remove GCP whose reprojection "
+     "error is more than this.")
     ("elevation-limit", po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
      "Remove as outliers interest points (that are not GCP) for which the elevation of the triangulated position (after cameras are optimized) is outside of this range. Specify as two values: min max.")
     // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).

@@ -1715,15 +1715,15 @@ disparities shown by this plot.
    :alt: SfS to LOLA disparity
 
    Colorized horizontal and vertical disparities from the SfS DEM to the LOLA
-   DEM. There exists a horizontal misalignment of 5 meters in the upper-right
-   corner (left plot), and a vertical misalignment of 10 meters in the
+   DEM. There exists a horizontal misalignment of 5 pixels in the upper-right
+   corner (left plot), and a vertical misalignment of 10 pixels in the
    upper-left corner (right plot).
    
 A sample plot of such disparities is shown in :numref:`sfs_disp`. It can be seen
 that here the misregistration is large and non-uniform. In this case, the only
-reliable solution is to make use of custom GCP produced with ``dem2gcp``. A
-simpler recipe for correcting a shift or rotation only with ``pc_align`` is
-shown further down.
+reliable solution for repair is to make use of custom GCP produced with
+``dem2gcp``. A simpler recipe for correcting a shift or rotation only with
+``pc_align`` is shown further down.
 
 GCP-based refinement
 """"""""""""""""""""
@@ -1731,12 +1731,12 @@ GCP-based refinement
 The ``dem2gcp`` program (:numref:`dem2gcp`) will take as input this disparity
 and move each ground point produced by triangulation of interest point matches
 from the "warped" location on the SfS DEM to the correct location on the LOLA
-DEM, producing ground control points (:numref:`bagcp`).
+DEM, forming ground control points (:numref:`bagcp`).
 
 This invocation requires a build of ASP as of 2025/11 or later
 (:numref:`release`).
 
-Invocation::
+::
 
   dem2gcp                                           \
     --warped-dem sfs_dem.tif                        \

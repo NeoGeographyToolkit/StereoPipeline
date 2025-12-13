@@ -346,6 +346,23 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   vw_out() << "Removed " << num_box_outliers << " "
            << "outlier(s) based on spatial distribution of triangulated points.\n";
 
+  // Remove GCP outliers
+  if (opt.max_gcp_reproj_err > 0) {
+    int num_gcp_outliers = 0;
+    for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
+      if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
+        continue;
+      if (param_storage.get_point_outlier(ipt))
+        continue;
+      if (mean_residuals[ipt] > opt.max_gcp_reproj_err) {
+        param_storage.set_point_outlier(ipt, true);
+        num_gcp_outliers++;
+      }
+    }
+    vw_out() << "Removed " << num_gcp_outliers << " GCPs with reprojection error > "
+             << opt.max_gcp_reproj_err << " pixels.\n";
+  }
+
   int num_remaining_points = num_points - param_storage.get_num_outliers();
 
   return num_outliers_by_reprojection + num_outliers_by_elev_or_lonlat;

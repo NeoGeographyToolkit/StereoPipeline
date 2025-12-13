@@ -29,6 +29,8 @@ sfs (:numref:`sfs`):
   * Added the option ``--save-variances``, that saves the DEM variance
     (and albedo variance, if albedo is floated).
   * Added a method for removing seams in the SfS terrain (:numref:`sfs_seams`).
+  * Improved the documentation for how to measure and repair the misalignment
+    between the input DEM and output SfS DEM (:numref:`sfs_align_refine`). 
   * Options ``--albedo-constraint-weight`` and ``--albedo-robust-threshold`` are
     respected when low-resolution initial albedo is estimated (with option
     ``--estimate-exposure-haze-albedo``).
@@ -42,6 +44,8 @@ parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
   * Bugfix for a crash when there are no interest point matches.
 
 bundle_adjust (:numref:`bundle_adjust`):
+  * Added the option ``--max-gcp-reproj-err`` to remove GCPs with large
+    reprojection error.
   * Changed the implementation of the camera position constraint
     (:numref:`ba_cam_constraints`).
   * Added the option ``--fixed-distortion-indices`` to control which lens 
@@ -84,6 +88,8 @@ dem2gcp (:numref:`dem2gcp`):
   * Added the options ``--image-list``, ``--camera-list``,
     ``--match-files-prefix``, and ``--clean-match-files-prefix`` to work
     with multiple input images and matches.
+  * Added the option ``--max-pairwise-matches`` to control the maximum
+    number of matches loaded from any given match file.
 
 jitter_solve (:numref:`jitter_solve`):
   * Added documentation on limitations (:numref:`jitter_limitations`).

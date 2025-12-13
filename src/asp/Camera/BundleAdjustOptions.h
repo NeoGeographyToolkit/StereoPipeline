@@ -40,7 +40,7 @@ struct BaOptions: public asp::BaBaseOptions {
     calc_normalization_bounds, calc_ip, stop_after_matching,
     skip_matching, apply_initial_transform_only, save_vwip;
   std::string camera_position_file, initial_transform_file, dem_file_for_overlap;
-  double semi_major, semi_minor, position_filter_dist;
+  double semi_major, semi_minor, position_filter_dist, max_gcp_reproj_err;
   std::string remove_outliers_params_str;
   std::vector<double> intrinsics_limits;
   boost::shared_ptr<vw::ba::ControlNetwork> cnet;
@@ -68,6 +68,7 @@ struct BaOptions: public asp::BaBaseOptions {
              save_intermediate_cameras(false),
              solve_intrinsics(false), 
              semi_major(0), semi_minor(0), position_filter_dist(-1),
+             max_gcp_reproj_err(-1.0),
              ip_detect_method(0), num_scales(-1), 
              pct_for_overlap(-1), skip_rough_homography(false),
              individually_normalize(false), 

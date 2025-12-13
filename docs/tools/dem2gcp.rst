@@ -229,7 +229,9 @@ constraint. Likely it is better to prioritize the GCP instead. Reducing
 the GCP. 
 
 This invocation can be sensitive to inaccurate GCP, as those do not use a robust
-cost function.
+cost function. Consider using the ``bundle_adjust`` option ``--max-gcp-reproj-err``
+(:numref:`ba_options`) to remove worst GCP outliers. The option ``--max-disp``
+for ``dem2gcp`` can help with this as well.
 
 For linescan cameras, the jitter solver can be invoked instead with a very
 similar command to the above (:numref:`jitter_solve`).

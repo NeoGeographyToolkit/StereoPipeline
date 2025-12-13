@@ -1316,6 +1316,10 @@ Command-line options
     cameras are optimized) are outside of this range.  Specify as
     four values.
 
+--max-gcp-reproj-err <double (default: -1.0)>
+    If positive, after each pass of bundle adjustment remove GCPs
+    whose reprojection error is more than this value (in pixels).
+
 --heights-from-dem <string (default: "")>
     Assuming the cameras have already been bundle-adjusted and aligned to a
     known DEM, constrain the triangulated points to be close to the DEM. See
