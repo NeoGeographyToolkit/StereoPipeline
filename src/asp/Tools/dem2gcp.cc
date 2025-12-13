@@ -267,14 +267,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A match file between the left and right raw images with many dense matches.")
     ("gcp-sigma", po::value(&opt.gcp_sigma)->default_value(1.0),
      "The sigma to use for the GCP points. A smaller value will give to GCP more weight. "
-     "This should be a fraction of the image ground sample distance. Measured in meters."
+     "This should be a fraction of the image ground sample distance. Measured in meters. "
      "See also --gcp-sigma-image.")
     ("max-num-gcp", po::value(&opt.max_num_gcp)->default_value(-1),
      "The maximum number of GCP to write. If negative, all GCP are written. If more than "
      "this number, a random subset will be picked. The same subset will be selected if the "
      "program is called again.")
     ("output-gcp", po::value(&opt.out_gcp), 
-     "The produced GPP file with ground coordinates from the reference DEM.")
+     "The produced GCP file with ground coordinates from the reference DEM.")
     ("max-disp", po::value(&opt.max_disp)->default_value(-1), 
      "If positive, flag a disparity whose norm is larger than this as erroneous and do not "
      "use it for creating GCP. Measured in pixels. See also option --max-gcp-reproj-err in "
