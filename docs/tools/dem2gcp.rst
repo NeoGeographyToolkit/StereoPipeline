@@ -70,7 +70,7 @@ Comparison with the reference DEM
 Some hole-filling and blur can be applied to the ASP DEM with ``dem_mosaic``
 (:numref:`dem_mosaic_blur` and :numref:`dem_mosaic_extrapolate`).
 
-A command as::
+For example::
 
     gdal_translate -r average -outsize 50% 50% dem.tif dem_small.tif
     
@@ -126,8 +126,8 @@ experimenting with ASP's various stereo algorithms
 
 Inspect the bands of the produced disparity image ``warp/run-F.tif``. This
 requires extracting the horizontal and vertical disparities, and masking the
-invalid values, as in :numref:`mask_disparity`. These could be visualized such
-as::
+invalid values, as in :numref:`mask_disparity`. These can be visualized, for
+example, as follows::
 
     stereo_gui --colorbar      \
       --min -100 --max 100     \
@@ -169,7 +169,7 @@ be called for the full image set as in :numref:`dem2gcp_multi_image`.
 Alternatively, this tool can be invoked pairwise for individual stereo DEMs,
 creating many GCP files.
 
-The match file need not have dense matches. It is only assumed that they are
+The match file need not have dense matches. It is only assumed that there are
 many and well-distributed.
 
 All produced GCP files should be passed together with all images and cameras to
@@ -189,15 +189,15 @@ are off by default.
    Flat areas do not have GCP. Plotted with ``stereo_gui`` (:numref:`stereo_gui`). 
 
 Plotted in :numref:`dem2gcp_ip_vs_gcp` are the interest point matches and the
-resulting GCP. Their numbers are likely excessive here, though the bigger concern
+resulting GCP. Their number is likely excessive here, though the bigger concern
 is if they are lacking over featureless terrain. 
 
 Solving for extrinsics and intrinsics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We employ the recipe from :numref:`heights_from_dem`, that mostly takes care
+We employ the recipe from :numref:`heights_from_dem`, that mostly addresses
 of the vertical component of disagreement between the ASP-produced and reference
-DEMs. The added GCP mostly take care of the horizontal component.
+DEMs. The added GCP mostly address the horizontal component.
 
 The most recent bundle-adjusted and aligned cameras can be converted to use the
 RPC lens distortion model (:numref:`rpc_distortion`) as in
@@ -231,7 +231,7 @@ The command when it is desired to refine the intrinsics as well::
 Note how we employ *both* the match file and the GCP created earlier. A higher
 value in ``--heights-from-dem-uncertainty`` gives less weight to the vertical
 constraint. Likely it is better to prioritize the GCP instead. Reducing
-``--max-pairwise-matches`` will sparse out the interest point matches, but not
+``--max-pairwise-matches`` will thin the interest point matches, but not
 the GCP. 
 
 This invocation can be sensitive to inaccurate GCP, as those do not use a robust
@@ -310,7 +310,7 @@ produced by ``bundle_adjust``, or with dense matching (:numref:`dense_ip`).
 The value of ``--gcp-sigma`` should be a fraction of the ground sample distance
 (in meters), to ensure that GCP provide strong constraints in bundle adjustment.
 
-The value in ``--max-pairwise-matches`` can be reduced if there are very many
+The value in ``--max-pairwise-matches`` can be reduced if there is a large number of
 pairs of images.
 
 The produced GCP file can then be passed to ``bundle_adjust`` or ``jitter_solve``

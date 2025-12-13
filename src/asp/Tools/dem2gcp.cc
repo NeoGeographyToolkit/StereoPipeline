@@ -94,7 +94,7 @@ DpixT find_disparity(vw::ImageViewRef<DpixT> disparity,
     return disparity(x, y);  
 
   // Otherwise search in the neighborhood. The default value of the neighborhood
-  // is 0. This is is likely a desperate measure when the disparity has very few
+  // is 0. This is likely a desperate measure when the disparity has very few
   // good values.
   for (int l = 1; l <= max_l; l++) {
 
@@ -206,7 +206,9 @@ void genWriteGcp(vw::cartography::GeoReference const& ref_dem_georef,
       gcp_sigma = img_gcp_sigma.child();
     }
 
-    // Use given gcp sigma for ground points, and use 1 for pixel sigma.
+    // Set the GCP uncertainty for the ground point (in meters). The pixel sigmas
+    // from the input match file will be ignored and replaced with (1, 1) when the
+    // GCP file is written.
     vw::Vector3 sigma(gcp_sigma, gcp_sigma, gcp_sigma);
 
     Gcp gcp;
@@ -244,7 +246,6 @@ struct Options: public vw::GdalWriteOptions {
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
-  double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("");
   general_options.add_options()
     ("warped-dem", po::value(&opt.warped_dem_file), 
@@ -388,7 +389,7 @@ int run_dem2gcp(int argc, char * argv[]) {
   vw::ImageViewRef<vw::PixelMask<double>> interp_ref_dem;
   asp::create_interp_dem(opt.ref_dem_file, ref_dem_georef, interp_ref_dem);
   
-  // Must ensure these have the same projection and grid size, as then it ist
+  // Must ensure these have the same projection and grid size, as then it is
   // most likely the disparity will be computed accurately.
   if (warped_dem_georef.get_wkt() != ref_dem_georef.get_wkt())
     vw::vw_throw( vw::ArgumentErr() 
