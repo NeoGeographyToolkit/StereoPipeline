@@ -267,6 +267,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A match file between the left and right raw images with many dense matches.")
     ("gcp-sigma", po::value(&opt.gcp_sigma)->default_value(1.0),
      "The sigma to use for the GCP points. A smaller value will give to GCP more weight. "
+     "This should be a fraction of the image ground sample distance. Measured in meters."
      "See also --gcp-sigma-image.")
     ("max-num-gcp", po::value(&opt.max_num_gcp)->default_value(-1),
      "The maximum number of GCP to write. If negative, all GCP are written. If more than "
@@ -276,7 +277,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The produced GPP file with ground coordinates from the reference DEM.")
     ("max-disp", po::value(&opt.max_disp)->default_value(-1), 
      "If positive, flag a disparity whose norm is larger than this as erroneous and do not "
-     "use it for creating GCP.")
+     "use it for creating GCP. Measured in pixels. See also option --max-gcp-reproj-err in "
+     "bundle_adjust.")
     ("gcp-sigma-image", po::value(&opt.gcp_sigma_image)->default_value(""),
      "Given a georeferenced image with float values, for each GCP find its location in "
      "this image and closest pixel value. Let the GCP sigma be that value. Skip GCP that "
@@ -293,8 +295,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use the match files with this prefix.")
     ("clean-match-files-prefix",  po::value(&opt.clean_match_files_prefix)->default_value(""),
      "Use as input *-clean.match files with this prefix.")
-    ("max-pairwise-matches", po::value(&opt.max_pairwise_matches)->default_value(10000),
-     "Maximum number of matches to load from any given match file.")
+    ("max-pairwise-matches", po::value(&opt.max_pairwise_matches)->default_value(-1),
+     "If positive, reduce the number of matches to load from any given match file to at "
+     "most this value.")
     ("help,h", "Display this help message");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));

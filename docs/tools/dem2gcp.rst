@@ -47,9 +47,11 @@ place, but with some misregistration or warping.
 Ensure ``parallel_stereo`` was invoked to generate dense matches from disparity
 (:numref:`dense_ip`). It is suggested to use ``--num-matches-from-disparity
 100000`` or so. That is a very large number of interest points, but will help
-produce sufficient GCP later on. The number of matches can be reduced later for
-bundle adjustment with the option ``--max-pairwise-matches``, and fewer GCP can
-be created with the option ``--max-num-gcp``.
+produce sufficient GCP later on. 
+
+The number of matches can be reduced later for bundle adjustment with the option
+``--max-pairwise-matches``, and fewer GCP can be created with ``dem2gcp``
+as described below.
 
 The dense match files should follow the *naming convention* for the original raw
 images (:numref:`ba_match_files`). Sufficiently numerous sparse matches, as produced
@@ -151,8 +153,9 @@ the disparity.
       --left-camera left.tsai                          \
       --right-camera right.tsai                        \
       --match-file dense_matches/run-left__right.match \
-      --gcp-sigma 1.0                                  \
+      --max-pairwise-matches 50000                     \
       --max-num-gcp 20000                              \
+      --gcp-sigma 1.0                                  \
       --output-gcp out.gcp
 
 Here we passed in the left and right raw images, the latest left and right
@@ -175,6 +178,9 @@ All produced GCP files should be passed together with all images and cameras to
 Consider using the option ``--max-disp`` if the disparity has portions that are
 not accurate, such as when the ASP DEM and reference DEM were acquired at
 different times and too much changed on the ground.
+
+Note the options ``--max-num-gcp`` and ``--max-pairwise-matches`` above. These
+are off by default.
 
 .. figure:: ../images/dem2gcp_ip_vs_gcp.png
    :name: dem2gcp_ip_vs_gcp
@@ -292,8 +298,9 @@ The match files can be specified via ``--match-files-prefix`` or
       --image-list image_list.txt              \
       --camera-list camera_list.txt            \
       --clean-match-files-prefix matches/run   \
+      --max-pairwise-matches 50000             \
+      --max-num-gcp 100000                     \
       --gcp-sigma 1.0                          \
-      --max-num-gcp 20000                      \
       --output-gcp out.gcp
 
 Here, the entries in the camera list are usually after bundle adjustment, and
@@ -302,6 +309,9 @@ produced by ``bundle_adjust``, or with dense matching (:numref:`dense_ip`).
 
 The value of ``--gcp-sigma`` should be a fraction of the ground sample distance
 (in meters), to ensure that GCP provide strong constraints in bundle adjustment.
+
+The value in ``--max-pairwise-matches`` can be reduced if there are very many
+pairs of images.
 
 The produced GCP file can then be passed to ``bundle_adjust`` or ``jitter_solve``
 with the same lists of images, cameras, and match files.
@@ -351,12 +361,14 @@ Command-line options
 --clean-match-files-prefix <string (default: "")>
     Use as input ``*-clean.match`` files with this prefix.
 
---max-pairwise-matches <int (default: 10000)>
-    Maximum number of matches to load from any given match file.
+--max-pairwise-matches <int (default: -1)>
+    If positive, reduce the number of matches to load from any given match file to at 
+    most this value.
 
 --gcp-sigma <double (default: 1.0)>
-    The sigma to use for the GCP points. A smaller value will give to GCP more weight.
-    See also ``--gcp-sigma-image``.
+    The sigma to use for the GCP points. A smaller value will give to GCP more
+    weight. This should be a fraction of the image ground sample distance.
+    Measured in meters. See also ``--gcp-sigma-image``.
 
 --output-gcp <string (default: "")>
     The produced GCP file with ground coordinates from the reference DEM.
@@ -368,7 +380,7 @@ Command-line options
 
 --max-disp <double (default: -1.0)>
     If positive, flag a disparity whose norm is larger than this as erroneous
-    and do not use it for creating GCP.
+    and do not use it for creating GCP. Measured in pixels. See also option ``--max-gcp-reproj-err`` in ``bundle_adjust`` (:numref:`ba_options`).
 
 --gcp-sigma-image <string (default: "")>
     Given a georeferenced image with float values, for each GCP find its
