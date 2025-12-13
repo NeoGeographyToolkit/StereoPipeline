@@ -43,13 +43,12 @@ namespace asp {
                 std::vector<Gcp> const& gcp_vec,
                 std::vector<std::string> const& image_files);
 
-  // Write a GCP file. Can throw exceptions.
-  // TODO(oalexan1): Reuse the above function named writeGcp.
-  void writeGcp(std::vector<std::string> const& image_files,
-                std::string const& gcp_file,
-                std::string const& dem_file,
-                asp::MatchList const& matchlist,
-                double xyz_sigma);
+  // Produce and write a GCP file. Can throw exceptions.
+  void genWriteGcp(std::vector<std::string> const& image_files,
+                   std::string const& gcp_file,
+                   std::string const& dem_file,
+                   asp::MatchList const& matchlist,
+                   double xyz_sigma);
 
 } // namespace asp
 

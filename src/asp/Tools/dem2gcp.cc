@@ -218,9 +218,9 @@ void genWriteGcp(vw::cartography::GeoReference const& ref_dem_georef,
   tpc.report_finished();
 
   // See if to reduce the number of GCP
+  vw::vw_out() << "Generated " << gcp_vec.size() << " GCP points.\n";
   if (max_num_gcp > 0 && (int)gcp_vec.size() > max_num_gcp) {
-    vw::vw_out() << "Reducing the number of GCP from "
-                << gcp_vec.size() << " to " << max_num_gcp << ".\n";
+    vw::vw_out() << "Reducing the number of GCP to " << max_num_gcp << ".\n";
     std::vector<int> indices;
     vw::math::pick_random_indices_in_range(gcp_vec.size(), max_num_gcp, indices);
     std::vector<Gcp> local_vec;
@@ -238,7 +238,7 @@ struct Options: public vw::GdalWriteOptions {
   std::string warped_dem_file, ref_dem_file, warped_to_ref_disp_file, left_img, right_img,
     left_cam, right_cam,  match_file, out_gcp, gcp_sigma_image, image_list, camera_list,
     match_files_prefix, clean_match_files_prefix;
-  int search_len, max_num_gcp;
+  int search_len, max_num_gcp, max_pairwise_matches;
   double gcp_sigma, max_disp;
 };
 
@@ -293,6 +293,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use the match files with this prefix.")
     ("clean-match-files-prefix",  po::value(&opt.clean_match_files_prefix)->default_value(""),
      "Use as input *-clean.match files with this prefix.")
+    ("max-pairwise-matches", po::value(&opt.max_pairwise_matches)->default_value(10000),
+     "Maximum number of matches to load from any given match file.")
     ("help,h", "Display this help message");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -373,39 +375,6 @@ int run_dem2gcp(int argc, char * argv[]) {
                       // Outputs
                       stereo_session, single_threaded_cameras, camera_models);
     
-  // Load the control network. Consider the case of one match files or a prefix
-  // pointing to many match files.  
-  vw::ba::ControlNetwork cnet("asp");
-  bool triangulate_control_points = true;
-  std::map<std::pair<int, int>, std::string> match_files;
-  if (!opt.match_file.empty()) {
-    match_files[std::make_pair(0, 1)] = opt.match_file;
-  } else {
-    // Load all match files with no constraints
-    int overlap_limit = image_files.size();
-    bool match_first_to_last = true;
-    asp::findMatchFiles(overlap_limit, match_first_to_last,
-                        image_files, opt.clean_match_files_prefix,
-                        opt.match_files_prefix, out_prefix,
-                        // Outputs
-                        match_files);
-  }
-  
-  int min_matches = 0; // Not used as we are just loading
-  double min_triangulation_angle = 1e-10;
-  double forced_triangulation_distance = -1.0;
-  int max_pairwise_matches = 1e6; // Not used as we are just loading
-  bool success = vw::ba::build_control_network(triangulate_control_points,
-                                               cnet, camera_models,
-                                               image_files,
-                                               match_files,
-                                               min_matches,
-                                               min_triangulation_angle,
-                                               forced_triangulation_distance,
-                                               max_pairwise_matches);
-  if (!success)
-    vw::vw_throw(vw::ArgumentErr() << "Failed to load the interest points.\n");
-  
   // Load the DEM and georef, and prepare for interpolation  
   vw::cartography::GeoReference warped_dem_georef;
   vw::ImageViewRef<vw::PixelMask<double>> interp_warped_dem;
@@ -420,8 +389,10 @@ int run_dem2gcp(int argc, char * argv[]) {
   // most likely the disparity will be computed accurately.
   if (warped_dem_georef.get_wkt() != ref_dem_georef.get_wkt())
     vw::vw_throw( vw::ArgumentErr() 
-                << "The warped DEM and reference DEM have different projections."
-                << "Use gdalwarp -t_srs to convert them to the same projection.\n");
+                << "The warped DEM and reference DEM have different projections. "
+                << "Use gdalwarp -t_srs to convert them to the same projection.\n"
+                << "Warped DEM WKT: " << warped_dem_georef.get_wkt() << "\n"
+                << "Ref DEM WKT:    " << ref_dem_georef.get_wkt() << "\n");
     
   // The grid size is based on the transform
   auto warped_trans = warped_dem_georef.transform();
@@ -459,6 +430,38 @@ int run_dem2gcp(int argc, char * argv[]) {
       gcp_sigma_image_nodata, gcp_sigma_image_georef, gcp_sigma_image);
     vw::vw_out() << "Using GCP sigma image: " << opt.gcp_sigma_image << "\n";
   }
+
+  // Load the control network. This can be slow so left for last. Consider the
+  // case of one match files or a prefix pointing to many match files.  
+  vw::ba::ControlNetwork cnet("asp");
+  bool triangulate_control_points = true;
+  std::map<std::pair<int, int>, std::string> match_files;
+  if (!opt.match_file.empty()) {
+    match_files[std::make_pair(0, 1)] = opt.match_file;
+  } else {
+    // Load all match files with no constraints
+    int overlap_limit = image_files.size();
+    bool match_first_to_last = true;
+    asp::findMatchFiles(overlap_limit, match_first_to_last,
+                        image_files, opt.clean_match_files_prefix,
+                        opt.match_files_prefix, out_prefix,
+                        // Outputs
+                        match_files);
+  }
+  
+  int min_matches = 0; // Not used as we are just loading
+  double min_triangulation_angle = 1e-10;
+  double forced_triangulation_distance = -1.0;
+  bool success = vw::ba::build_control_network(triangulate_control_points,
+                                               cnet, camera_models,
+                                               image_files,
+                                               match_files,
+                                               min_matches,
+                                               min_triangulation_angle,
+                                               forced_triangulation_distance,
+                                               opt.max_pairwise_matches);
+  if (!success)
+    vw::vw_throw(vw::ArgumentErr() << "Failed to load the interest points.\n");
   
   genWriteGcp(ref_dem_georef, cnet, disparity,
               interp_ref_dem, warped_dem_georef, image_files, 

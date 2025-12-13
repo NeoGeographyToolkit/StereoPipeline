@@ -1443,10 +1443,9 @@ void MainWindow::writeGroundControlPoints() {
   MainWindow::saveMatches();
 
   try {
-    asp::writeGcp(app_data.image_files,
-                  stereo_settings().gcp_file,
-                  stereo_settings().dem_file,
-                  m_match_mgr.m_matchlist, asp::stereo_settings().gcp_sigma);
+    asp::genWriteGcp(app_data.image_files, stereo_settings().gcp_file, 
+                     stereo_settings().dem_file, m_match_mgr.m_matchlist, 
+                     asp::stereo_settings().gcp_sigma);
     m_saved_gcp_and_ip = true;
   } catch (std::exception const& e) {
     popUp(e.what());
