@@ -1653,8 +1653,8 @@ See an illustration of the produced terrain in :numref:`large_scale_sfs`.
 
 .. _sfs_align_refine:
 
-Inspection and further iterations
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Inspection and refinement
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The obtained shape-from-shading terrain should be studied carefully to see if it
 shows any systematic shift or rotation compared to the initial LOLA gridded
@@ -1662,24 +1662,125 @@ terrain. For that, the SfS terrain can be overlaid as a hillshaded
 (:numref:`hillshade`) image on top of the initial terrain in ``stereo_gui``, in
 georeference mode, and the SfS terrain can be toggled on and off.
 
-If a shift is found, another step of alignment can be used. This time
-one can do features-based alignment rather than based on
-point-to-point calculations. This works better on lower-resolution
-versions of the inputs, when the high-frequency discrepancies do not
-confuse the alignment, so, for example, at 1/4 or 1/8 resolution of
-the DEMs, as created ``stereo_gui``::
+Measurement of misalignment
+"""""""""""""""""""""""""""
+
+Misalignment can be measured quantitatively by hillshading the gridded LOLA and
+SfS terrain and doing stereo correlation. This goes as follows.
+
+Hillshade both DEMs::
+
+  hillshade -e 10 ref_dem.tif -o ref_dem_hill.tif
+  hillshade -e 10 sfs_dem.tif -o sfs_dem_hill.tif
+
+It is assumed as before that these two DEMs have precisely the same projection,
+grid size and extent. Consider adjusting the elevation (``-e``) parameter and
+also the azimuth (``-a``) parameter to produce well-lit images with good range
+of intensities that fill most of the 0 to 255 range. 
+
+Run stereo in correlator mode (:numref:`correlator-mode`)::
+
+    parallel_stereo               \
+      --correlator-mode           \
+      --stereo-algorithm asp_mgm  \
+      --corr-kernel 9 9           \
+      --ip-per-image 40000        \
+      --subpixel-mode 9           \
+      --corr-search -25 -25 25 25 \
+      --nodes-list nodes_list.txt \
+      sfs_dem_hill.tif            \
+      ref_dem_hill.tif            \
+      stereo_corr/run
+
+The search range in ``--corr-search`` is determined by the expected amount of 
+misalignment (:numref:`search_range`).
+
+Here, the SfS DEM is intentionally specified as the first input, as that is needed by
+subsequent logic. 
+
+The produced ``F.tif`` disparity can be split into bands while masking no-data
+values (:numref:`mask_disparity`) and viewed with ``stereo_gui``
+(:numref:`colorize`) as::
+
+    stereo_gui --colorbar             \
+      --min -10 --max 10              \
+      stereo_corr/run-F_b1_nodata.tif \
+      stereo_corr/run-F_b2_nodata.tif
+
+It is very important to confirm that the visually-observed shifts agree with the 
+disparities shown by this plot.
+
+.. figure:: images/sfs_lola_disp.png
+   :name: sfs_disp
+   :alt: SfS to LOLA disparity
+
+   Colorized horizontal and vertical disparities from the SfS DEM to the LOLA
+   DEM. There exists a horizontal misalignment of 5 meters in the upper-right
+   corner (left plot), and a vertical misalignment of 10 meters in the
+   upper-left corner (right plot).
+   
+A sample plot of such disparities is shown in :numref:`sfs_disp`. It can be seen
+that here the misregistration is large and non-uniform. In this case, the only
+reliable solution is to make use of custom GCP produced with ``dem2gcp``. A
+simpler recipe for correcting a shift or rotation only with ``pc_align`` is
+shown further down.
+
+GCP-based refinement
+""""""""""""""""""""
+
+The ``dem2gcp`` program (:numref:`dem2gcp`) will take as input this disparity
+and move each ground point produced by triangulation of interest point matches
+from the "warped" location on the SfS DEM to the correct location on the LOLA
+DEM, producing ground control points (:numref:`bagcp`).
+
+This invocation requires a build of ASP as of 2025/11 or later
+(:numref:`release`).
+
+Invocation::
+
+  dem2gcp                                           \
+    --warped-dem sfs_dem.tif                        \
+    --ref-dem ref_dem.tif                           \
+    --warped-to-ref-disparity stereo_corr/run-F.tif \
+    --image-list ba_align_ref/run-image_list.txt    \
+    --camera-list ba_align_ref/run-camera_list.txt  \
+    --clean-match-files-prefix ba/run               \
+    --max-pairwise-matches 5000                     \
+    --gcp-sigma 1.0                                 \
+    --max-num-gcp 2000000                           \
+    --output-gcp stereo_corr/run.gcp
+
+The value of ``--gcp-sigma`` should be a fraction of the ground sample distance
+(in meters), to ensure that the GCP constraint is strong enough.
+
+The resulting GCP file can be passed to ``bundle_adjust`` together with the 
+images and *latest* cameras, such as in :numref:`sfs_ba_refine`, but *without*
+a DEM constraint, as GCP provide that information. Consider using in bundle 
+adjustment a smaller value of ``--max-pairwise-matches``, such as 1000, to ensure
+the GCP dominate the solution.
+
+Then, SfS must be rerun with the new cameras. Misalignment can be evaluated 
+as before.
+
+Refinement based on a rigid transform
+"""""""""""""""""""""""""""""""""""""
+
+If the misalignment looks as if produced by a rigid transform, one can try
+alignment based on dense correlation of hillshaded images (:numref:`pc_corr`).
+This requires that the correlation be run with the inputs in *reverse* order
+from the above, so the first input would be the reference LOLA DEM.
+
+Alternatively, one can do sparse features-based alignment
+(:numref:`pc_hillshade`). This works better on lower-resolution versions of the
+inputs, when the high-frequency discrepancies do not confuse the alignment, so,
+for example, at 1/4 or 1/8 resolution of the DEMs, as created with ``stereo_gui``::
 
     pc_align --initial-transform-from-hillshading rigid \
       ref_sub4.tif sfs_dem_sub4.tif -o align_sub4/run   \
       --num-iterations 0 --max-displacement -1
 
-Another option is to use the Nuth and Kaab ``pc_align`` algorithm, as it can be
-more accurate than the default ``point-to-plane`` ICP method (:numref:`nuth`).
-
-Or, one can try to align based on dense correlation of hillshaded images
-(:numref:`pc_corr`).
-
-That alignment transform can then be applied to the full SfS DEM::
+In either case, the alignment transform can then be applied to the full SfS DEM
+(:numref:`prevtrans`)::
 
     pc_align --initial-transform align_sub4/run-transform.txt      \
       ref.tif sfs_dem.tif -o align/run --num-iterations 0          \
@@ -1702,11 +1803,17 @@ LOLA DEM named ``ref.tif``. It can be found by invoking::
 
 and looking for the value of the ``PROJ`` field.
 
-It is worth experimenting repeating this experiment at sub2 and sub8,
-and examine visually the obtained hillshaded DEMs overlaid on top of
-the reference DEM and see which agree with the reference the most
-(even though the SfS DEM and the reference DEM can be quite different,
-it is possible to notice subtle shifts upon careful inspection).
+The alignment transform should be applied to the cameras (:numref:`ba_pc_align`),
+then bundle adjustment with a terrain constraint should be redone as in
+:numref:`sfs_ba_refine`.
+
+Lastly, the SfS DEM must be regenerated with the new cameras.
+
+Ideally, after all this, there should be no systematic offset
+between the SfS terrain and the reference LOLA terrain.
+
+Image-based refinement
+""""""""""""""""""""""
 
 Another approach is to find the stereo disparity from the hillshaded SfS DEM to
 the hillshaded reference DEM (at 1/4th the resolution) with ``parallel_stereo
@@ -1717,7 +1824,10 @@ transform (:numref:`image_align_ecef_trans`) that can be passed in to
 ``pc_align`` with zero iterations to align the SfS DEM to the reference DEM
 (:numref:`prevtrans`).
 
-If these approaches fails to remove the visually noticeable displacement
+Manual alignment
+""""""""""""""""
+
+If these approaches fail to remove the visually noticeable displacement
 between the SfS and LOLA terrain, one can try to nudge the SfS terrain
 manually, by using ``pc_align`` as::
 
@@ -1727,36 +1837,23 @@ manually, by using ``pc_align`` as::
       --max-displacement -1 --save-transformed-source-points       \
       --max-num-reference-points 1000 --max-num-source-points 1000
 
-Here, value of ``down_shift`` should be 0, as we attempt a horizontal
-shift. For the other ones one may try some values and observe their
-effect in moving the SfS terrain to the desired place. The transform
-obtained by using these numbers will be saved in
+Here, the value of ``down_shift`` should be 0, as we attempt a horizontal shift. For
+the other ones one may try some values and observe their effect in moving the
+SfS terrain to the desired place. 
+
+The transform obtained by using these numbers will be saved in
 ``align/run-transform.txt`` (while being converted from the local
-North-East-Down coordinates to ECEF) and can be used below instead of
-the transform obtained with invoking
-``--initial-transform-from-hillshading``.
+North-East-Down coordinates to ECEF) and can be used to transform the cameras
+to bring them in closer alignment with the reference terrain. 
 
 If a manual rotation nudge is necessary, use ``pc_align`` with
 ``--initial-rotation-angle``.
 
-The transformed cloud then need to be regridded with ``point2dem``
+The transformed cloud then needs to be regridded with ``point2dem``
 as before.
 
-It is very recommended to redo the whole process using the improved
-alignment. First, the alignment transform must be applied to the
-camera adjustments, by invoking bundle adjustment as earlier, with the
-best cameras so far provided via ``--input-adjustments-prefix`` and
-the latest ``pc_align`` transform passed to ``--initial-transform``
-and the switch ``--apply-initial-transform-only``. Then, another pass of
-bundle adjustment while doing registration to the ground should take
-place as earlier, with ``--heights-from-dem`` and other related
-options. Lastly mapprojection and SfS should be repeated. (Any bundle
-adjustment operation can reuse the match files from previous attempts
-if the ``--match-files-prefix`` option is used.)
+In all cases the SfS DEM must be regenerated with the aligned cameras.
 
-Ideally, after all this, there should be no systematic offset
-between the SfS terrain and the reference LOLA terrain.
- 
 Comparison with initial terrain
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1844,9 +1941,9 @@ How to blend in repaired clips is discussed in :numref:`sfs_issues`.
 Blending the SfS result with the initial terrain
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-After computing a satisfactory SfS DEM, it can be processed to replace
-the values in the permanently shadowed areas with values from the
-original LOLA DEM, with a transition region. 
+After computing a satisfactory SfS DEM, it can be processed to replace the
+values in the permanently shadowed areas with values from the LOLA reference
+DEM, with a transition region. 
 
 This process will fail unless the SfS DEM and the LOLA DEM have the same grid.
 How to prepare the initial terrain is described in

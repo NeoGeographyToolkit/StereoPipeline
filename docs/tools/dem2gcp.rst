@@ -82,8 +82,10 @@ Example (adjust the projection center)::
    gdalwarp -tr 20 20 -t_srs "$proj" -r cubicspline dem_in.tif dem_out.tif
 
 It is not required that the produced DEMs have precisely the same extent, but
-that may help with visualizing the disparity between them (see below). The ``gdalwarp``
-``-te`` option can produce datasets with a given extent.
+this is strongly advised. This helps with visualizing the disparity between
+the DEMs (see below) and allows for manual control of disparity via
+``--corr-search`` (:numref:`search_range`). The ``gdalwarp`` ``-te`` option can
+produce datasets with a given extent.
 
 The DEMs should be hillshaded. It is suggested to use the GDAL
 (:numref:`gdal_tools`) hillshading method, as it is more accurate than ASP's own
@@ -159,9 +161,10 @@ raw images.
 
 If there are more than two images, the "warped" DEM can be produced, for
 example, by merging with ``dem_mosaic`` (:numref:`dem_mosaic`) individual
-pairwise stereo DEMs (as long as these are consistent). See
-:numref:`dem2gcp_multi_image` for an example. Alternatively, this tool can be
-invoked pairwise for individual stereo DEMs, creating many GCP files.
+pairwise stereo DEMs (as long as these are consistent). Then, this program can
+be called for the full image set as in :numref:`dem2gcp_multi_image`.
+Alternatively, this tool can be invoked pairwise for individual stereo DEMs,
+creating many GCP files.
 
 The match file need not have dense matches. It is only assumed that they are
 many and well-distributed.
@@ -271,7 +274,7 @@ Multiple images and cameras
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This program can work with multiple images, cameras, and match files, as long as
-the "warped" DEM is consistent with these datasets. In particular, the DEM can
+the "warped" DEM is consistent with these datasets. In particular, this DEM can
 even be produced with Shape-from-Shading (:numref:`sfs`).
 
 The match files can be specified via ``--match-files-prefix`` or
@@ -286,10 +289,20 @@ The match files can be specified via ``--match-files-prefix`` or
       --warped-to-ref-disparity warp/run-F.tif \
       --image-list image_list.txt              \
       --camera-list camera_list.txt            \
-      --match-files-prefix dense_matches/run   \
+      --clean-match-files-prefix matches/run   \
       --gcp-sigma 1.0                          \
       --max-num-gcp 20000                      \
       --output-gcp out.gcp
+
+Here, the entries in the camera list are usually after bundle adjustment, and
+the ``matches/run`` prefix points to the interest point matches, such as
+produced by ``bundle_adjust``, or with dense matching (:numref:`dense_ip`).
+
+The value of ``--gcp-sigma`` should be a fraction of the ground sample distance
+(in meters), to ensure that GCP provide strong constraints in bundle adjustment.
+
+The produced GCP file can then be passed to ``bundle_adjust`` or ``jitter_solve``
+with the same lists of images, cameras, and match files.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
@@ -335,6 +348,9 @@ Command-line options
 
 --clean-match-files-prefix <string (default: "")>
     Use as input ``*-clean.match`` files with this prefix.
+
+--max-pairwise-matches <int (default: 10000)>
+    Maximum number of matches to load from any given match file.
 
 --gcp-sigma <double (default: 1.0)>
     The sigma to use for the GCP points. A smaller value will give to GCP more weight.

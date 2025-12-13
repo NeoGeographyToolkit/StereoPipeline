@@ -407,6 +407,8 @@ like::
 
            corr-search -80 -2 20 2
 
+The search range can also be set on the command line (:numref:`cmdline`).
+
 The exact values to use with this option you'll have to discover
 yourself. These four numbers represent the horizontal
 minimum boundary, vertical minimum boundary, horizontal maximum
