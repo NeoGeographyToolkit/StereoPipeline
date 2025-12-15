@@ -290,16 +290,16 @@ Command-line options for sfs
 --save-sim-intensity-only
     Save the simulated image intensities at each DEM pixel for the given DEM,
     images, cameras, and reflectance model, without refining the DEM. The output
-    files are ``<output prefix>-<image>-sim-intensity.tif`` for each input
-    image. The image exposures will be computed along the way unless specified
-    via ``--image-exposures-prefix``, and will be saved in either case to
-    ``<output prefix>-exposures.txt``. Same for haze, if applicable. See also
+    files are of the form ``<output prefix>-*-sim-intensity.tif``. The image
+    exposures will be computed along the way unless specified via
+    ``--image-exposures-prefix``, and will be saved in either case to ``<output
+    prefix>-exposures.txt``. Same for haze, if applicable. See also
     ``--save-meas-intensity-only``.
 
 --save-meas-intensity-only
     Save the measured image intensities at each DEM pixel for the given DEM,
-    images, and cameras, without refining the DEM. The output files are
-    ``<output prefix>-<image>-meas-intensity.tif`` for each input image. See
+    images, and cameras, without refining the DEM. The output files are of the form
+    ``<output prefix>-*-meas-intensity.tif`` for each input image. See
     also ``--save-sim-intensity-only``.
 
 --ref-map <string (default: "")>

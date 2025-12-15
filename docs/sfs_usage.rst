@@ -2042,8 +2042,8 @@ Create the simulated orthoimage (this requires a build from 2025/12 or later,
         --ref-map image_map.tif     \
         -o run/image
         
-This will write ``run/image-sim-intensity.tif``. Ensure the name of this file is unique 
-for each input image.
+This will write ``run/image-camera-sim-intensity.tif``. Ensure the name of this
+file is unique for each input image.
 
 Inspect the measured and simulated orthoimages. They should be very similar,
 apart from any misregistration. The ``image_align`` tool (:numref:`image_align`)
@@ -2051,11 +2051,15 @@ can find the transform that aligns the measured image to the simulated one.
 
 ::
 
-    image_align                           \
-        --alignment-transform translation \
-        run/image-sim-intensity.tif       \
-        image_map.tif                     \
-        --output-prefix align/run         \
+    image_align                            \
+        --ip-detect-method 0               \
+        --inlier-threshold 50              \
+        --ip-per-tile 2500                 \
+        --ip-per-image 0                   \
+        --alignment-transform translation  \
+        image_map.tif                      \
+        run/image-camera-sim-intensity.tif \
+        --output-prefix align/run          \
         -o aligned_image.tif
 
 This transform will be saved to a file, and will be printed to standard output
@@ -2073,11 +2077,16 @@ raw image to 3D locations on the SfS DEM.
 ::
 
     gcp_gen                                       \
+        --ip-detect-method 0                      \
+        --inlier-threshold 50                     \
+        --ip-per-image 0                          \
+        --ip-per-tile 2500                        \
         --gcp-sigma 1.0                           \
         --camera-image image.cub                  \
         --mapproj-image image_map.tif             \
         --ortho-image run/image-sim-intensity.tif \
         --dem sfs_dem.tif                         \
+        --output-prefix gcp_gen/run               \
         -o image_gcp.gcp
 
 A GCP sigma of 1.0 meter is reasonable if the DEM resolution is 1 m/pixel.
