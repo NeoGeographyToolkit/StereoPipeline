@@ -933,13 +933,13 @@ the LBL file. We do that with ``image_calc`` (:numref:`image_calc`)::
     image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
 
 Resample the DEM to 1 m/pixel using ``gdalwarp`` (:numref:`gdal_tools`),
-creating a DEM named ``ref.tif``::
+creating a DEM named ``ref_dem.tif``::
 
     gdalwarp -overwrite -r cubicspline -tr 1 1              \
       -co COMPRESSION=LZW -co TILED=yes -co INTERLEAVE=BAND \
       -co BLOCKXSIZE=256 -co BLOCKYSIZE=256                 \
       -te -7050.5 -10890.5 -1919.5 -5759.5                  \
-      ldem_80s_20m_scale.tif ref.tif
+      ldem_80s_20m_scale.tif ref_dem.tif
 
 The values passed to ``-te`` are the bounds of the area of interest. 
 See a discussion about them below.
@@ -966,7 +966,7 @@ as a row or column.
 Inspect this DEM with ``stereo_gui`` (:numref:`stereo_gui`) in hillshade mode.
 Any spikes or other artifacts should be blurred, such as by running::
 
-    dem_mosaic --dem-blur-sigma 2 ref.tif -o ref_blur.tif
+    dem_mosaic --dem-blur-sigma 2 ref_dem.tif -o ref_blur.tif
     
 Any holes can also be filled ``dem_mosaic`` (:numref:`dem_mosaic_extrapolate`,
 :numref:`dem_mosaic_fill`). A subsequent blur with a sigma of 2 pixels is
@@ -1245,9 +1245,9 @@ Alignment to the ground
 
 A very critical part of the process is to move from the coordinate
 system of the cameras to the coordinate system of the initial guess
-terrain in ``ref.tif``. The only reliable approach for this is to
+terrain in ``ref_dem.tif``. The only reliable approach for this is to
 create a terrain model using stereo with some of the images and
-bundle-adjusted cameras produced so far, align that one to ``ref.tif``,
+bundle-adjusted cameras produced so far, align that one to ``ref_dem.tif``,
 and then apply this alignment to the cameras.
 
 With LRO NAC images, stereo pairs may be hard to find. In addition, after the
@@ -1285,11 +1285,11 @@ So, the stereo command can look as follows::
       --stereo-algorithm asp_mgm        \
       --subpixel-mode 9                 \
       run_stereo/run                    \
-      ref.tif
+      ref_dem.tif
 
-Here, ``ref.tif`` is the DEM used for mapprojection. Note that the mapprojected
-images won't fully agree with the DEM or each other yet, as they are not
-registered to the DEM, but stereo should still run fine.
+Here, ``ref_dem.tif`` is the DEM used for mapprojection. Note that the
+mapprojected images won't fully agree with the DEM or each other yet, as they
+are not registered to the DEM, but stereo should still run fine.
 
 When invoking ``point2dem`` on the resulting point clouds, use the same
 projection (``--t_srs``) as in the reference terrain and a grid size (``--tr``)
@@ -1310,11 +1310,11 @@ mosaic redone.
 Overlay and inspect the produced stereo DEM mosaic and the reference DEM in
 ``stereo_gui``. 
 
-Align the mosaicked DEM to the initial LOLA terrain in ``ref.tif``
+Align the mosaicked DEM to the initial LOLA terrain in ``ref_dem.tif``
 using ``pc_align`` (:numref:`pc_align`)::
  
     pc_align --max-displacement 500           \
-      stereo_mosaic.tif ref.tif               \
+      stereo_mosaic.tif ref_dem.tif           \
       --save-inv-transformed-reference-points \
       -o run_align/run 
 
@@ -1363,7 +1363,7 @@ coordinate system to the LOLA one. This is discussed in detail in
 in the ``ba`` directory.
 
 It is suggested to mapproject the images using the obtained
-bundle-adjusted cameras in ``ba_align/run`` onto ``ref.tif``, and
+bundle-adjusted cameras in ``ba_align/run`` onto ``ref_dem.tif``, and
 check for alignment errors in ``stereo_gui`` by overlaying the images
 using georeference information. Small errors (under 5-10 pixels) are
 likely fine and will be corrected at the next step.
@@ -1401,9 +1401,9 @@ in bundle adjustment (:numref:`heights_from_dem`)::
       --num-passes 2                              \
       --camera-weight 0                           \
       --save-intermediate-cameras                 \
-      --heights-from-dem ref.tif                  \
+      --heights-from-dem ref_dem.tif              \
       --heights-from-dem-uncertainty 20.0         \
-      --mapproj-dem ref.tif                       \
+      --mapproj-dem ref_dem.tif                   \
       --forced-triangulation-distance 100000      \
       --min-triangulation-angle 1e-10             \
       --remove-outliers-params "75.0 3.0 100 100" \
@@ -1435,7 +1435,7 @@ Validation of registration
 Mapproject the input images with the latest aligned cameras::
 
     mapproject --tr 1.0                          \
-      ref.tif                                    \
+      ref_dem.tif                                \
       image.cub                                  \
       ba_align_ref/run*image.adjusted_state.json \
       image.align.map.tif 
@@ -1563,7 +1563,7 @@ Running SfS in parallel
 
 Next, SfS follows, using ``parallel_sfs`` (:numref:`parallel_sfs`)::
 
-    parallel_sfs -i ref.tif                          \
+    parallel_sfs -i ref_dem.tif                      \
       --nodes-list nodes_list.txt                    \
       --processes 6                                  \
       --threads 8                                    \
@@ -1780,15 +1780,15 @@ Alternatively, one can do sparse features-based alignment
 inputs, when the high-frequency discrepancies do not confuse the alignment, so,
 for example, at 1/4 or 1/8 resolution of the DEMs, as created with ``stereo_gui``::
 
-    pc_align --initial-transform-from-hillshading rigid \
-      ref_sub4.tif sfs_dem_sub4.tif -o align_sub4/run   \
+    pc_align --initial-transform-from-hillshading rigid    \
+      ref_dem_sub4.tif sfs_dem_sub4.tif -o align_sub4/run  \
       --num-iterations 0 --max-displacement -1
 
 In either case, the alignment transform can then be applied to the full SfS DEM
 (:numref:`prevtrans`)::
 
     pc_align --initial-transform align_sub4/run-transform.txt      \
-      ref.tif sfs_dem.tif -o align/run --num-iterations 0          \
+      ref_dem.tif sfs_dem.tif -o align/run --num-iterations 0      \
       --max-displacement -1 --save-transformed-source-points       \
       --max-num-reference-points 1000 --max-num-source-points 1000
 
@@ -1802,9 +1802,9 @@ cloud as::
       align/run-trans_source.tif
 
 Here, the projection string should be the same one as in the reference 
-LOLA DEM named ``ref.tif``. It can be found by invoking::
+LOLA DEM named ``ref_dem.tif``. It can be found by invoking::
 
-    gdalinfo -proj4 ref.tif
+    gdalinfo -proj4 ref_dem.tif
 
 and looking for the value of the ``PROJ`` field.
 
@@ -1838,7 +1838,7 @@ manually, by using ``pc_align`` as::
 
     pc_align --initial-ned-translation                             \
       "north_shift east_shift down_shift"                          \
-      ref.tif sfs_dem.tif -o align/run --num-iterations 0          \
+      ref_dem.tif sfs_dem.tif -o align/run --num-iterations 0      \
       --max-displacement -1 --save-transformed-source-points       \
       --max-num-reference-points 1000 --max-num-source-points 1000
 
@@ -2048,6 +2048,7 @@ file is unique for each input image.
 Inspect the measured and simulated orthoimages. They should be very similar,
 apart from any misregistration. The ``image_align`` tool (:numref:`image_align`)
 can find the transform that aligns the measured image to the simulated one. 
+Note that the simulated image is the reference, and is specified first.
 
 ::
 
@@ -2057,36 +2058,37 @@ can find the transform that aligns the measured image to the simulated one.
         --ip-per-tile 2500                 \
         --ip-per-image 0                   \
         --alignment-transform translation  \
-        image_map.tif                      \
         run/image-camera-sim-intensity.tif \
+        image_map.tif                      \
         --output-prefix align/run          \
         -o aligned_image.tif
 
-This transform will be saved to a file, and will be printed to standard output
-and to the log file after the line ``Alignment transform (in pixels)``. It is
-suggested to also check the number of interest point matches inliers, as that 
-can be a proxy for how accurate the computed transform is.
+This transform will be saved to a file. It will also be printed to standard
+output and recorded in the log file after the line ``Alignment transform (in
+pixels)``. It is suggested to also check the number of interest point matches
+inliers in the log file, as that can be a proxy for how accurate the computed
+transform is.
 
 For a more complex misregistration, one can try a ``rigid`` transform. This is a
 bit harder to interpret.
 
-The ``gcp_gen`` program (:numref:`gcp_gen`) can be used to create high-quality
-ground control points (GCP). These GCP will tie pixel locations in the original
-raw image to 3D locations on the SfS DEM.
+The ``gcp_gen`` program (:numref:`gcp_gen`) can create ground control points
+(GCP, :numref:`bagcp`). These GCP will tie pixel locations in the original raw
+image to 3D locations on the SfS DEM.
 
 ::
 
-    gcp_gen                                       \
-        --ip-detect-method 0                      \
-        --inlier-threshold 50                     \
-        --ip-per-image 0                          \
-        --ip-per-tile 2500                        \
-        --gcp-sigma 1.0                           \
-        --camera-image image.cub                  \
-        --mapproj-image image_map.tif             \
-        --ortho-image run/image-sim-intensity.tif \
-        --dem sfs_dem.tif                         \
-        --output-prefix gcp_gen/run               \
+    gcp_gen                                              \
+        --ip-detect-method 0                             \
+        --inlier-threshold 50                            \
+        --ip-per-image 0                                 \
+        --ip-per-tile 2500                               \
+        --gcp-sigma 1.0                                  \
+        --camera-image image.cub                         \
+        --mapproj-image image_map.tif                    \
+        --ortho-image run/image-camera-sim-intensity.tif \
+        --dem sfs_dem.tif                                \
+        --output-prefix gcp_gen/run                      \
         -o image_gcp.gcp
 
 A GCP sigma of 1.0 meter is reasonable if the DEM resolution is 1 m/pixel.
@@ -2185,13 +2187,13 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --max-initial-reprojection-error 50            \
       --overlap-limit 10000                          \
       --parameter-tolerance 1e-20                    \
-      --heights-from-dem ref.tif                     \
+      --heights-from-dem ref_dem.tif                 \
       --heights-from-dem-uncertainty 20.0            \
-      --anchor-dem ref.tif                           \
+      --anchor-dem ref_dem.tif                       \
       --num-anchor-points-per-tile 50                \
       --num-anchor-points-extra-lines 2000           \
       --anchor-weight 0.05                           \
-      --mapproj-dem ref.tif                          \
+      --mapproj-dem ref_dem.tif                      \
       --threads 20                                   \
       -o jitter_align_ref/run
 
