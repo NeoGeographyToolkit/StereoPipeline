@@ -83,6 +83,45 @@ BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
   return b;
 }
 
+// Parse the command line arguments. Extract in a vector all the options and
+// their values, so everything apart from standalone files not associated with
+// options. This approach does not get confused by a file showing up both as a
+// value to an option and later as a standalone file. This is needed for later
+// reconstructing the command line with subsets of the input files, such when as
+// going from a multiview command to multiple pairwise commands.
+void parse_opts_vals(int argc, char *argv[],
+                     po::options_description const& all_public_options,
+                     po::options_description const& positional_options,
+                     po::positional_options_description const& positional_desc,
+                     std::vector<std::string> & opts_and_vals) {
+  
+  // Wipe the output
+  opts_and_vals.clear();
+
+  try {
+    po::options_description all_options;
+    all_options.add(all_public_options).add(positional_options);
+
+    po::parsed_options parsed = 
+      po::command_line_parser(argc, argv).options(all_options).allow_unregistered()
+       .style(po::command_line_style::unix_style).run();
+    
+    // Populate opts_and_vals
+    for (auto const& opt: parsed.options) {
+      if (opt.string_key != "input-files") {
+        opts_and_vals.insert(opts_and_vals.end(),
+                             opt.original_tokens.begin(),
+                             opt.original_tokens.end());
+      }
+    }
+
+  } catch (po::error const& e) {
+    // The main parser will catch errors, so this one can be silent.
+  }
+
+  return;
+}
+
 // Handle the arguments for the multiview case. The logic used to break up the
 // command line arguments for all images/cameras into command line arguments for
 // pairs of image/cameras is fragile.
