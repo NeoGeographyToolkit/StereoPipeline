@@ -1488,6 +1488,8 @@ that measures the errors in the pixel space rather than on the ground.
 Further refinement and re-validation can be done after solving for jitter,
 but this is a more advanced topic (:numref:`sfs_jitter`). 
 
+.. _sfs_fail:
+
 Handling failure
 ^^^^^^^^^^^^^^^^
 
@@ -1762,6 +1764,9 @@ the GCP dominate the solution.
 Then, SfS must be rerun with the new cameras. Misalignment can be evaluated 
 as before.
 
+The created SfS terrain can be employed to improve the registration of 
+any problematic images (:numref:`sfs_sim`).
+
 Refinement based on a rigid transform
 """""""""""""""""""""""""""""""""""""
 
@@ -1989,6 +1994,119 @@ Or, the SfS terrain which exists so far (``sfs_dem.tif``), the LOLA terrain
 resampled to the same grid with ``gdalwarp`` with the ``--te`` and ``-r
 cubicspline`` options, or with ``dem_mosaic --tap``, before invoking
 ``sfs_blend``.
+
+.. _sfs_sim:
+
+Post-SfS registration
+^^^^^^^^^^^^^^^^^^^^^
+
+This section discusses how to use a produced SfS terrain to measure and repair
+any misregistration of input images. It is assumed that this SfS terrain is
+well-registered to the reference DEM (e.g., from LOLA), as validated in
+:numref:`sfs_align_refine`. 
+
+Image misregistration can arise from the fact that interest point matching can
+be inaccurate for images with diverse illumination conditions, as discussed in
+:numref:`sfs_fail`.
+
+We make use of the observation that given a raw (measured) image and
+corresponding camera, a simulated image with the same view and illumination,
+produced with the SfS terrain, will look very similar to the raw mapprojected
+image, apart from some shift or rotation. This discrepancy can be measured and
+corrected, bringing the images in better registration with the SfS terrain.
+
+This process is done for each image individually. The resulting improved cameras
+could be used to create a refined SfS terrain.
+
+To define some notation, let ``sfs_dem.tif`` be the final SfS DEM, ``image.cub``
+be the input raw image, and ``camera.json`` be the best-registered camera
+available for this image.
+
+Mapproject the raw image onto the SfS DEM with this camera, producing 
+``image_map.tif``::
+
+    mapproject    \
+      --tr 1.0    \
+      sfs_dem.tif \
+      image.cub   \
+      camera.json \
+      image_map.tif
+
+Create the simulated orthoimage (this requires a build from 2025/12 or later,
+:numref:`release`)::
+
+    sfs -i sfs_dem.tif              \
+        --save-sim-intensity-only   \
+        image.cub                   \
+        camera.json                 \
+        --ref-map image_map.tif     \
+        -o run/image
+        
+This will write ``run/image-sim-intensity.tif``. Ensure the name of this file is unique 
+for each input image.
+
+Inspect the measured and simulated orthoimages. They should be very similar,
+apart from any misregistration. The ``image_align`` tool (:numref:`image_align`)
+can find the transform that aligns the measured image to the simulated one. 
+
+::
+
+    image_align                           \
+        --alignment-transform translation \
+        run/image-sim-intensity.tif       \
+        image_map.tif                     \
+        --output-prefix align/run         \
+        -o aligned_image.tif
+
+This transform will be saved to a file, and will be printed to standard output
+and to the log file after the line ``Alignment transform (in pixels)``. It is
+suggested to also check the number of interest point matches inliers, as that 
+can be a proxy for how accurate the computed transform is.
+
+For a more complex misregistration, one can try a ``rigid`` transform. This is a
+bit harder to interpret.
+
+The ``gcp_gen`` program (:numref:`gcp_gen`) can be used to create high-quality
+ground control points (GCP). These GCP will tie pixel locations in the original
+raw image to 3D locations on the SfS DEM.
+
+::
+
+    gcp_gen                                       \
+        --gcp-sigma 1.0                           \
+        --camera-image image.cub                  \
+        --mapproj-image image_map.tif             \
+        --ortho-image run/image-sim-intensity.tif \
+        --dem sfs_dem.tif                         \
+        -o image_gcp.gcp
+
+A GCP sigma of 1.0 meter is reasonable if the DEM resolution is 1 m/pixel.
+
+The newly created GCP file is used with ``bundle_adjust``
+(:numref:`bundle_adjust`) to refine the camera model for the input image.
+
+::
+
+    bundle_adjust     \
+        image.cub     \
+        camera.json   \
+        image_gcp.gcp \
+        -o ba_gcp/run
+
+This will produce an updated camera model named ``ba_gcp/run-image.json``.
+
+To validate the correction, mapproject the input image with the newly aligned
+camera::
+
+    mapproject --tr 1.0     \
+      sfs_dem.tif           \
+      image.cub             \
+      ba_gcp/run-image.json \
+      image_aligned.tif
+
+The resulting orthoimage should show better agreement with the SfS DEM, with
+the simulated image, and with other similarly aligned images. This process can
+be repeated for all input images.
 
 Creation of mask of SfS pixels
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

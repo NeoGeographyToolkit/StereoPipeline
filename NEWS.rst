@@ -31,6 +31,9 @@ sfs (:numref:`sfs`):
   * Added a method for removing seams in the SfS terrain (:numref:`sfs_seams`).
   * Improved the documentation for how to measure and repair the misalignment
     between the input DEM and output SfS DEM (:numref:`sfs_align_refine`). 
+  * Added a documentation section for how to do registration based on an SfS
+    terrain to refine the alignment of this SfS DEM and the images
+    (:numref:`sfs_sim`).
   * Options ``--albedo-constraint-weight`` and ``--albedo-robust-threshold`` are
     respected when low-resolution initial albedo is estimated (with option
     ``--estimate-exposure-haze-albedo``).
