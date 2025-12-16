@@ -178,43 +178,17 @@ void handle_multiview(int argc, char* argv[],
   ASPGlobalOptions local_opt; // part of the signature but not used here
   configStereoOpts(local_opt, additional_options, general_options, all_general_options, 
                    positional_options, positional_desc);
-  std::vector<std::string> options; // TODO(oalexan1): rename
+  std::vector<std::string> opts_vals; // TODO(oalexan1): rename
   parse_opts_vals(argc, argv, all_general_options,
-                  positional_options, positional_desc, options);
+                  positional_options, positional_desc, opts_vals);
 
-  // std::set<std::string> file_set;
-
-  // // If a file shows up more than once as input, that will confuse
-  // // the logic at the next step, so forbid that.
-  // // TODO(oalexan1): It is possible to determine the command line options and
-  // // their values from boost program options, right after parsing and before it
-  // // stores them in a map. Then this hack is not needed. The current approach
-  // // will fail with the option  --disparity-estimation-dem dem.tif if dem.tif is
-  // // also the mapprojection DEM.
-  // std::map<std::string, int> vals;
-  // for (int s = 1; s < argc; s++)
-  //   vals[argv[s]]++;
-  // for (int s = 0; s < (int)files.size(); s++) {
-  //   if (vals[files[s]] > 1) {
-  //     vw_throw(ArgumentErr() << "The following input argument shows up more than "
-  //               << "once and hence cannot be parsed correctly: "
-  //               << files[s] << ".\n");
-  //   }
-  // }
-
-  // // Store the options and their values (that is, not the input files).
-  // for (int s = 0; s < (int)files.size(); s++)
-  //   file_set.insert(files[s]);
-  // for (int s = 1; s < argc; s++) {
-  //   if (file_set.find(argv[s]) == file_set.end())
-  //     options.push_back(argv[s]);
-  // }
+  // Test with the option  --disparity-estimation-dem dem.tif if dem.tif is
 
   // Must signal to the children runs that they are part of a multiview run
   std::string opt_str = "--part-of-multiview-run";
-  auto it = find(options.begin(), options.end(), opt_str);
-  if (it == options.end())
-    options.push_back(opt_str);
+  auto it = find(opts_vals.begin(), opts_vals.end(), opt_str);
+  if (it == opts_vals.end())
+    opts_vals.push_back(opt_str);
 
   // Multiview is very picky about alignment method
   if (stereo_settings().alignment_method != "none" &&
@@ -234,14 +208,14 @@ void handle_multiview(int argc, char* argv[],
 
     // Set this for future pairwise runs as well
     std::string align_opt = "--alignment-method";
-    auto it = std::find(options.begin(), options.end(), align_opt);
-    if (it != options.end() && it + 1 != options.end()) {
+    auto it = std::find(opts_vals.begin(), opts_vals.end(), align_opt);
+    if (it != opts_vals.end() && it + 1 != opts_vals.end()) {
       // Modify existing alignment
       *(it+1) = new_alignment;
     } else {
       // Set new alignment
-      options.push_back(align_opt);
-      options.push_back(new_alignment);
+      opts_vals.push_back(align_opt);
+      opts_vals.push_back(new_alignment);
     }
   }
 
@@ -255,8 +229,8 @@ void handle_multiview(int argc, char* argv[],
     cmd.push_back(prog_name);
 
     // The command line options go first
-    for (int t = 0; t < (int)options.size(); t++)
-      cmd.push_back(options[t]);
+    for (int t = 0; t < (int)opts_vals.size(); t++)
+      cmd.push_back(opts_vals[t]);
 
     cmd.push_back(images[0]); // left image
     cmd.push_back(images[p]); // right image
