@@ -118,14 +118,25 @@ void configStereoOpts(ASPGlobalOptions& opt,
 // reconstructing the command line with subsets of the input files, such when as
 // going from a multiview command to multiple pairwise commands.
 void parseStereoOptsVals(int argc, char *argv[],
-                         po::options_description const& all_general_options,
-                         po::options_description const& positional_options,
-                         po::positional_options_description const& positional_desc,
+                         po::options_description const& additional_options,
                          std::vector<std::string> & opts_and_vals) {
   
   // Wipe the output
   opts_and_vals.clear();
 
+  // We set up the option descriptions locally just to aid the parser
+  // in distinguishing flags from positional files.
+  po::options_description general_options("");
+  po::options_description all_general_options("");
+  po::options_description positional_options("");
+  po::positional_options_description positional_desc;
+  ASPGlobalOptions local_opt; 
+
+  // Configure the descriptions using your helper function
+  configStereoOpts(local_opt, additional_options, general_options, all_general_options, 
+                   positional_options, positional_desc);
+
+  // Parse the command line
   try {
     po::options_description all_options;
     all_options.add(all_general_options).add(positional_options);
@@ -153,9 +164,8 @@ void parseStereoOptsVals(int argc, char *argv[],
   }
 }
 
-// Handle the arguments for the multiview case. The logic used to break up the
-// command line arguments for all images/cameras into command line arguments for
-// pairs of image/cameras is fragile.
+// Handle the arguments for the multiview case. It creates multiple pairwise
+// invocations of stereo.
 void handle_multiview(int argc, char* argv[],
                       int num_pairs,
                       std::vector<std::string> const& files,
@@ -171,18 +181,11 @@ void handle_multiview(int argc, char* argv[],
 
   //  Parse all the options and their values, stored in a vector, to be 
   // used later for pairwise stereo. It skips the standalone input files.
-  po::options_description general_options("");
-  po::options_description all_general_options("");
-  po::options_description positional_options("");
-  po::positional_options_description positional_desc;
-  ASPGlobalOptions local_opt; // part of the signature but not used here
-  configStereoOpts(local_opt, additional_options, general_options, all_general_options, 
-                   positional_options, positional_desc);
-  std::vector<std::string> opts_vals; // TODO(oalexan1): rename
-  parseStereoOptsVals(argc, argv, all_general_options,
-                      positional_options, positional_desc, opts_vals);
-
+  std::vector<std::string> opts_vals; 
+  parseStereoOptsVals(argc, argv, additional_options, opts_vals);
+  
   // Test with the option  --disparity-estimation-dem dem.tif if dem.tif is
+  // also a mapprojected DEM.
 
   // Must signal to the children runs that they are part of a multiview run
   std::string opt_str = "--part-of-multiview-run";
@@ -547,12 +550,6 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
                                                  all_general_options, positional_options,
                                                  positional_desc, usage,
                                                  allow_unregistered, unregistered);
-
-  // This parses out all the options and their values, stored in a vector, to be 
-  // used later for pairwise stereo. It skips the standalone input files.
-  std::vector<std::string> opts_and_vals;
-  parseStereoOptsVals(argc, argv, all_general_options,
-                      positional_options, positional_desc, opts_and_vals);
 
   // Read the config file
   try {
