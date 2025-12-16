@@ -279,63 +279,6 @@ void handle_multiview(int argc, char* argv[],
   return;
 }
 
-// If --trans-crop-win is in the input arguments, this is means that we are running
-// stereo for a tile
-bool is_tile_run(int argc, char* argv[]) {
-  for (int s = 1; s < argc; s++) {
-    if (std::string(argv[s]) == "--trans-crop-win")
-      return true;
-  }
-
-  return false;
-}
-
-// Save some info that will be useful for peeking at a run
-void save_run_info(ASPGlobalOptions const& opt,
-                   std::vector<std::string> const& images,
-                   std::vector<std::string> const& cameras,
-                   std::string const& input_dem) {
-
-  std::string info_file = opt.out_prefix + "-info.txt";
-  std::ofstream ostr(info_file.c_str());
-  if (!ostr.good())
-    vw_throw(ArgumentErr() << "Failed to open: " << info_file << "\n");
-
-  // Print the images
-  ostr << "images: ";
-  for (int i = 0; i < (int)images.size(); i++)
-    ostr << images[i] << " ";
-  ostr << "\n";
-
-  // Print the cameras
-  ostr << "cameras: ";
-  for (int i = 0; i < (int)cameras.size(); i++)
-    ostr << cameras[i] << " ";
-  ostr << "\n";
-
-  // Print the DEM
-  ostr << "input_dem: " << input_dem << "\n";
-
-  // Print the output prefix
-  ostr << "output_prefix: " << opt.out_prefix << "\n";
-
-  // Print the alignment method
-  ostr << "alignment_method: " << stereo_settings().alignment_method << "\n";
-
-  // Print the stereo session
-  ostr << "stereo_session: " << opt.stereo_session << "\n";
-
-  // Print left-image-crop-win
-  auto l = stereo_settings().left_image_crop_win;
-  ostr << "left_image_crop_win: " << l.min().x() << " " << l.min().y() << " "
-      << l.width() << " " << l.height() << "\n";
-
-  // Print right-image-crop-win
-  auto r = stereo_settings().right_image_crop_win;
-  ostr << "right_image_crop_win: " << r.min().x() << " " << r.min().y() << " "
-      << r.width() << " " << r.height() << "\n";
-}
-
 /// Parse the list of files specified as positional arguments on the command line
 // The format is:  <N image paths> [N camera model paths] <output prefix> [input DEM path]
 bool parse_multiview_cmd_files(bool override_out_prefix, 
@@ -398,6 +341,63 @@ bool parse_multiview_cmd_files(bool override_out_prefix,
   asp::separate_images_from_cameras(files, image_paths, camera_paths, ensure_equal_sizes);
 
   return true;
+}
+
+// If --trans-crop-win is in the input arguments, this is means that we are running
+// stereo for a tile
+bool is_tile_run(int argc, char* argv[]) {
+  for (int s = 1; s < argc; s++) {
+    if (std::string(argv[s]) == "--trans-crop-win")
+      return true;
+  }
+
+  return false;
+}
+
+// Save some info that will be useful for peeking at a run
+void save_run_info(ASPGlobalOptions const& opt,
+                   std::vector<std::string> const& images,
+                   std::vector<std::string> const& cameras,
+                   std::string const& input_dem) {
+
+  std::string info_file = opt.out_prefix + "-info.txt";
+  std::ofstream ostr(info_file.c_str());
+  if (!ostr.good())
+    vw_throw(ArgumentErr() << "Failed to open: " << info_file << "\n");
+
+  // Print the images
+  ostr << "images: ";
+  for (int i = 0; i < (int)images.size(); i++)
+    ostr << images[i] << " ";
+  ostr << "\n";
+
+  // Print the cameras
+  ostr << "cameras: ";
+  for (int i = 0; i < (int)cameras.size(); i++)
+    ostr << cameras[i] << " ";
+  ostr << "\n";
+
+  // Print the DEM
+  ostr << "input_dem: " << input_dem << "\n";
+
+  // Print the output prefix
+  ostr << "output_prefix: " << opt.out_prefix << "\n";
+
+  // Print the alignment method
+  ostr << "alignment_method: " << stereo_settings().alignment_method << "\n";
+
+  // Print the stereo session
+  ostr << "stereo_session: " << opt.stereo_session << "\n";
+
+  // Print left-image-crop-win
+  auto l = stereo_settings().left_image_crop_win;
+  ostr << "left_image_crop_win: " << l.min().x() << " " << l.min().y() << " "
+      << l.width() << " " << l.height() << "\n";
+
+  // Print right-image-crop-win
+  auto r = stereo_settings().right_image_crop_win;
+  ostr << "right_image_crop_win: " << r.min().x() << " " << r.min().y() << " "
+      << r.width() << " " << r.height() << "\n";
 }
 
 // If a stereo program is invoked as:
@@ -547,6 +547,12 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
                                                  all_general_options, positional_options,
                                                  positional_desc, usage,
                                                  allow_unregistered, unregistered);
+
+  // This parses out all the options and their values, stored in a vector, to be 
+  // used later for pairwise stereo.
+  std::vector<std::string> opts_and_vals;
+  parse_opts_vals(argc, argv, all_general_options,
+                  positional_options, positional_desc, opts_and_vals);
 
   // Read the config file
   try {
