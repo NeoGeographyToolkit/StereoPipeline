@@ -117,11 +117,11 @@ void configStereoOpts(ASPGlobalOptions& opt,
 // value to an option and later as a standalone file. This is needed for later
 // reconstructing the command line with subsets of the input files, such when as
 // going from a multiview command to multiple pairwise commands.
-void parse_opts_vals(int argc, char *argv[],
-                     po::options_description const& all_general_options,
-                     po::options_description const& positional_options,
-                     po::positional_options_description const& positional_desc,
-                     std::vector<std::string> & opts_and_vals) {
+void parseStereoOptsVals(int argc, char *argv[],
+                         po::options_description const& all_general_options,
+                         po::options_description const& positional_options,
+                         po::positional_options_description const& positional_desc,
+                         std::vector<std::string> & opts_and_vals) {
   
   // Wipe the output
   opts_and_vals.clear();
@@ -179,8 +179,8 @@ void handle_multiview(int argc, char* argv[],
   configStereoOpts(local_opt, additional_options, general_options, all_general_options, 
                    positional_options, positional_desc);
   std::vector<std::string> opts_vals; // TODO(oalexan1): rename
-  parse_opts_vals(argc, argv, all_general_options,
-                  positional_options, positional_desc, opts_vals);
+  parseStereoOptsVals(argc, argv, all_general_options,
+                      positional_options, positional_desc, opts_vals);
 
   // Test with the option  --disparity-estimation-dem dem.tif if dem.tif is
 
@@ -551,8 +551,8 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   // This parses out all the options and their values, stored in a vector, to be 
   // used later for pairwise stereo. It skips the standalone input files.
   std::vector<std::string> opts_and_vals;
-  parse_opts_vals(argc, argv, all_general_options,
-                  positional_options, positional_desc, opts_and_vals);
+  parseStereoOptsVals(argc, argv, all_general_options,
+                      positional_options, positional_desc, opts_and_vals);
 
   // Read the config file
   try {
