@@ -83,6 +83,34 @@ BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
   return b;
 }
 
+// Set up options for stereo. This will be used in a couple of places.
+void configStereoOpts(ASPGlobalOptions& opt,
+                      po::options_description const& additional_options,
+                      po::options_description& general_options,
+                      po::options_description& all_general_options,
+                      po::options_description& positional_options,
+                      po::positional_options_description& positional_desc) {
+
+  // Add options whose values are stored in ASPGlobalOptions rather than in stereo_settings()
+  po::options_description general_options_sub("");
+  addAspGlobalOptions(general_options_sub, opt);
+
+  // Populate general_options (specific to the current tool)
+  general_options.add(general_options_sub);
+  general_options.add(additional_options);
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
+
+  // Populate all_general_options (parsing fallback)
+  all_general_options.add(general_options_sub);
+  all_general_options.add(generate_config_file_options(opt));
+
+  // Populate positional options
+  positional_options.add_options()
+    ("input-files", po::value<std::vector<std::string>>(), "Input files");
+  
+  positional_desc.add("input-files", -1);
+}
+
 // Parse the command line arguments. Extract in a vector all the options and
 // their values, so everything apart from standalone files not associated with
 // options. This approach does not get confused by a file showing up both as a
@@ -90,7 +118,7 @@ BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
 // reconstructing the command line with subsets of the input files, such when as
 // going from a multiview command to multiple pairwise commands.
 void parse_opts_vals(int argc, char *argv[],
-                     po::options_description const& all_public_options,
+                     po::options_description const& all_general_options,
                      po::options_description const& positional_options,
                      po::positional_options_description const& positional_desc,
                      std::vector<std::string> & opts_and_vals) {
@@ -100,15 +128,20 @@ void parse_opts_vals(int argc, char *argv[],
 
   try {
     po::options_description all_options;
-    all_options.add(all_public_options).add(positional_options);
+    all_options.add(all_general_options).add(positional_options);
 
+    // Pass positional_desc to the parser so it knows which args are positional
     po::parsed_options parsed = 
-      po::command_line_parser(argc, argv).options(all_options).allow_unregistered()
-       .style(po::command_line_style::unix_style).run();
+      po::command_line_parser(argc, argv)
+        .options(all_options)
+        .positional(positional_desc)
+        .style(po::command_line_style::unix_style)
+        .run();
     
     // Populate opts_and_vals
     for (auto const& opt: parsed.options) {
-      if (opt.string_key != "input-files") {
+      // Position_key is -1 for named options, >= 0 for positional args (files)
+      if (opt.position_key == -1) { 
         opts_and_vals.insert(opts_and_vals.end(),
                              opt.original_tokens.begin(),
                              opt.original_tokens.end());
@@ -118,8 +151,6 @@ void parse_opts_vals(int argc, char *argv[],
   } catch (po::error const& e) {
     // The main parser will catch errors, so this one can be silent.
   }
-
-  return;
 }
 
 // Handle the arguments for the multiview case. The logic used to break up the
@@ -511,31 +542,14 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
                       std::vector<std::string> & input_files,
                       std::string & usage, bool exit_early) {
 
-  // Add options whose values are stored in ASPGlobalOptions rather than in stereo_settings()
-  po::options_description general_options_sub("");
-  addAspGlobalOptions(general_options_sub, opt);
-  
-  // We distinguish between all_general_options, which is all the
-  // options we must parse, even if we don't need some of them, and
-  // general_options, which are the options specifically used by the
-  // current tool, and for which we also print the help message.
-
+  // Configure the stereo options
   po::options_description general_options("");
-  general_options.add(general_options_sub);
-  general_options.add(additional_options);
-  general_options.add(vw::GdalWriteOptionsDescription(opt));
-
   po::options_description all_general_options("");
-  all_general_options.add(general_options_sub);
-  all_general_options.add(generate_config_file_options(opt));
-
-  // Store all the remaining options, to be parsed later.
   po::options_description positional_options("");
   po::positional_options_description positional_desc;
-  positional_options.add_options()
-    ("input-files", po::value<std::vector<std::string>>(), "Input files");
-  positional_desc.add("input-files", -1);
- 
+  configStereoOpts(opt, additional_options, general_options, all_general_options, 
+                   positional_options, positional_desc);
+  
   usage =
    "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n"
    "  Extensions are automatically added to the output files.\n"
@@ -549,7 +563,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
                                                  allow_unregistered, unregistered);
 
   // This parses out all the options and their values, stored in a vector, to be 
-  // used later for pairwise stereo.
+  // used later for pairwise stereo. It skips the standalone input files.
   std::vector<std::string> opts_and_vals;
   parse_opts_vals(argc, argv, all_general_options,
                   positional_options, positional_desc, opts_and_vals);
