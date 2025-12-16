@@ -184,9 +184,6 @@ void handle_multiview(int argc, char* argv[],
   std::vector<std::string> opts_vals; 
   parseStereoOptsVals(argc, argv, additional_options, opts_vals);
   
-  // Test with the option  --disparity-estimation-dem dem.tif if dem.tif is
-  // also a mapprojected DEM.
-
   // Must signal to the children runs that they are part of a multiview run
   std::string opt_str = "--part-of-multiview-run";
   auto it = find(opts_vals.begin(), opts_vals.end(), opt_str);
