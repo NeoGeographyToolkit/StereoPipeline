@@ -169,34 +169,46 @@ void handle_multiview(int argc, char* argv[],
                       std::string & usage,
                       std::vector<ASPGlobalOptions> & opt_vec) {
 
-  std::set<std::string> file_set;
-  std::vector<std::string> options;
+  //  Parse all the options and their values, stored in a vector, to be 
+  // used later for pairwise stereo. It skips the standalone input files.
+  po::options_description general_options("");
+  po::options_description all_general_options("");
+  po::options_description positional_options("");
+  po::positional_options_description positional_desc;
+  ASPGlobalOptions local_opt; // part of the signature but not used here
+  configStereoOpts(local_opt, additional_options, general_options, all_general_options, 
+                   positional_options, positional_desc);
+  std::vector<std::string> options; // TODO(oalexan1): rename
+  parse_opts_vals(argc, argv, all_general_options,
+                  positional_options, positional_desc, options);
 
-  // If a file shows up more than once as input, that will confuse
-  // the logic at the next step, so forbid that.
-  // TODO(oalexan1): It is possible to determine the command line options and
-  // their values from boost program options, right after parsing and before it
-  // stores them in a map. Then this hack is not needed. The current approach
-  // will fail with the option  --disparity-estimation-dem dem.tif if dem.tif is
-  // also the mapprojection DEM.
-  std::map<std::string, int> vals;
-  for (int s = 1; s < argc; s++)
-    vals[argv[s]]++;
-  for (int s = 0; s < (int)files.size(); s++) {
-    if (vals[files[s]] > 1) {
-      vw_throw(ArgumentErr() << "The following input argument shows up more than "
-                << "once and hence cannot be parsed correctly: "
-                << files[s] << ".\n");
-    }
-  }
+  // std::set<std::string> file_set;
 
-  // Store the options and their values (that is, not the input files).
-  for (int s = 0; s < (int)files.size(); s++)
-    file_set.insert(files[s]);
-  for (int s = 1; s < argc; s++) {
-    if (file_set.find(argv[s]) == file_set.end())
-      options.push_back(argv[s]);
-  }
+  // // If a file shows up more than once as input, that will confuse
+  // // the logic at the next step, so forbid that.
+  // // TODO(oalexan1): It is possible to determine the command line options and
+  // // their values from boost program options, right after parsing and before it
+  // // stores them in a map. Then this hack is not needed. The current approach
+  // // will fail with the option  --disparity-estimation-dem dem.tif if dem.tif is
+  // // also the mapprojection DEM.
+  // std::map<std::string, int> vals;
+  // for (int s = 1; s < argc; s++)
+  //   vals[argv[s]]++;
+  // for (int s = 0; s < (int)files.size(); s++) {
+  //   if (vals[files[s]] > 1) {
+  //     vw_throw(ArgumentErr() << "The following input argument shows up more than "
+  //               << "once and hence cannot be parsed correctly: "
+  //               << files[s] << ".\n");
+  //   }
+  // }
+
+  // // Store the options and their values (that is, not the input files).
+  // for (int s = 0; s < (int)files.size(); s++)
+  //   file_set.insert(files[s]);
+  // for (int s = 1; s < argc; s++) {
+  //   if (file_set.find(argv[s]) == file_set.end())
+  //     options.push_back(argv[s]);
+  // }
 
   // Must signal to the children runs that they are part of a multiview run
   std::string opt_str = "--part-of-multiview-run";
