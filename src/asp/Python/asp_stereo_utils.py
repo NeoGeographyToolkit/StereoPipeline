@@ -22,6 +22,7 @@
 
 from __future__ import print_function
 import sys, optparse, subprocess, re, os, time, glob
+import fcntl # for file locking
 import os.path as P
 
 from asp_system_utils import *
@@ -356,3 +357,116 @@ def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
             run_dir = os.path.dirname(out_prefix)
             rel_f   = os.path.relpath(f, run_dir)
             os.symlink(rel_f, sym_f)
+
+def stereoProgName(step):
+    '''
+    Return the stereo program name for a given step.
+    '''
+    if step == Step.corr:
+        return 'stereo_corr'
+    elif step == Step.blend:
+        return 'stereo_blend'
+    elif step == Step.rfne:
+        return 'stereo_rfne'
+    elif step == Step.tri:
+        return 'stereo_tri'
+    else:
+        return 'stereo_unknown'
+        
+def stereoTilesIndex(out_prefix):
+    '''
+    Form the index of tiles.
+    '''
+    return out_prefix + "-tiles-index.txt"
+
+def stereoStatusFile(out_prefix):
+    '''
+    The file having the status of how many tiles were successfully processed.
+    '''
+    return out_prefix + "-stereo-status.txt"
+
+
+def numTiles(out_prefix):
+    """
+    Return the total number of tiles for current stage of processing.
+    """
+    
+    tiles_index = stereoTilesIndex(out_prefix)
+    
+    num_tiles = 0
+    if not os.path.exists(tiles_index):
+        return num_tiles
+        
+    # Read this file and count how many lines
+    with open(tiles_index, 'r') as f:
+        lines = f.readlines()
+        num_tiles = len(lines)
+    return num_tiles
+    
+def readNumDoneTiles(statusFile):
+    '''
+    Return the number of done tiles for current stage of processing.
+    '''
+    if not os.path.exists(statusFile):
+        return ("", 0)
+        
+    try:
+        with open(statusFile, 'r') as f:
+            # Use lockf for better NFS compatibility
+            fcntl.lockf(f, fcntl.LOCK_SH) # LOCK_SH is sufficient for reading
+            lines = f.readlines()
+            fcntl.lockf(f, fcntl.LOCK_UN)
+            
+            if len(lines) > 1:
+                statusParts = lines[1].strip().split(' ')
+                if len(statusParts) > 1:
+                    return (statusParts[0], int(statusParts[1]))
+    except (IOError, ValueError):
+        pass
+        
+    return ("", 0) # on failure
+
+def writeNumDoneTiles(stage_name, num_done, num_total, statusFile):
+    '''
+    Write the number of done tiles for current stage of processing.
+    '''
+    
+    # Open in 'a+' or 'r+' to prevent truncation before the lock is acquired
+    mode = 'r+' if os.path.exists(statusFile) else 'a+'
+    
+    with open(statusFile, mode) as f:
+        fcntl.lockf(f, fcntl.LOCK_EX)
+        try:
+            f.seek(0)
+            f.truncate() # Wipe file only after we hold the exclusive lock
+            f.write("# stageName numDoneTiles numTotalTiles\n")
+            f.write(f"{stage_name} {num_done} {num_total}\n")
+            f.flush()
+            os.fsync(f.fileno()) # Force write to network storage
+        finally:
+            fcntl.lockf(f, fcntl.LOCK_UN)
+            
+def updateNumDoneTiles(out_prefix, latest_stage_name):
+    '''
+    Update the number of done tiles for current stage of processing.
+    '''
+    
+    num_tiles = numTiles(out_prefix)
+    status_file = stereoStatusFile(out_prefix)
+    (stage_name, num_done) = readNumDoneTiles(status_file)
+    print("--status file is %s" % status_file)
+    print("---num tiles is %d---" % num_tiles)
+    print("--stage name is %s" % stage_name)
+    print("--num done is %d" % num_done)
+
+    # If stage name is not latest, reset number of done and stage name
+    if stage_name != latest_stage_name:
+        num_done = 0
+        stage_name = latest_stage_name
+        
+    # Increment
+    num_done += 1
+    print("---after updte num done is %d---" % num_done)
+    print("after done, stage name is %s" % stage_name)
+
+    writeNumDoneTiles(stage_name, num_done, num_tiles, status_file)
