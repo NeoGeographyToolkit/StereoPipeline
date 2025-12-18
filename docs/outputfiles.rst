@@ -213,7 +213,7 @@ Other files created at all stages
 \*-log* - log files
     Each program invoked by ``parallel_stereo`` writes a log file containing the
     command name, build information, and various messages output by that
-    program. Those are saved to the  or to tile
+    program. Those are saved to the output prefix location, or to tile
     subdirectories, depending on the stage of processing. 
     
     The tiles are deleted after a successful run, which makes the log files in
