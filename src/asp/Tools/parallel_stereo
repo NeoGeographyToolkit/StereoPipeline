@@ -524,8 +524,7 @@ def spawn_to_nodes(step, opt, settings, args, subdirs):
         f.write("%d\n" % i)
     f.close()
 
-    # Reset number of done tiles
-    # TODO(oalexan1): This must play nice with --resume
+    # Reset number of done tiles for this step
     reset = True
     updateNumDoneTiles(out_prefix, stereoProgName(step), reset)
     
@@ -588,8 +587,9 @@ def tile_run(prog, args, opt, settings, tile, **kw):
     if prog != 'stereo_blend':  # Set collar_size argument to zero in almost all cases.
         set_option(args, '--sgm-collar-size', [0])
 
-    # Get tool path
+    # Get tool path and output prefix
     binpath = bin_path(prog)
+    out_prefix = settings['out_prefix'][0]
 
     # Measure the memory usage on Linux and elapsed time
     timeCmd = []
@@ -599,7 +599,7 @@ def tile_run(prog, args, opt, settings, tile, **kw):
     
     try:
         # Get tile folder
-        tile_dir_prefix = tile_dir(settings['out_prefix'][0], tile) + "/" + tile.name_str()
+        tile_dir_prefix = tile_dir(out_prefix, tile) + "/" + tile.name_str()
 
         # When using SGM correlation, increase the output tile size.
         # - The output image will contain more populated pixels but 
@@ -635,6 +635,8 @@ def tile_run(prog, args, opt, settings, tile, **kw):
         if opt.verbose:
             print(" ".join(cmd))
 
+        resetStatus = False # for updating the status of done tiles
+
         # See if perhaps we can skip correlation
         if prog == 'stereo_corr' and opt.resume_at_corr:
 
@@ -642,6 +644,7 @@ def tile_run(prog, args, opt, settings, tile, **kw):
             if (not os.path.islink(D)) and asp_system_utils.is_valid_image(D):
                 # The disparity D.tif is valid and not a symlink. No need
                 # to recreate it.
+                updateNumDoneTiles(out_prefix, prog, resetStatus)
                 return
 
             Dnosym = tile_dir_prefix + '-Dnosym.tif'
@@ -652,6 +655,7 @@ def tile_run(prog, args, opt, settings, tile, **kw):
                 if os.path.exists(D):
                     os.remove(D)
                 os.rename(Dnosym, D)
+                updateNumDoneTiles(out_prefix, prog, resetStatus)
                 return
             
             # We are left with the situation that there is no image which is both
@@ -664,7 +668,6 @@ def tile_run(prog, args, opt, settings, tile, **kw):
                 os.remove(Dnosym)
 
         cmd = timeCmd + cmd
-
         (out, err, status) = asp_system_utils.executeCommand(cmd, realTimeOutput = True)
 
         if len(timeCmd) > 0:
@@ -677,9 +680,8 @@ def tile_run(prog, args, opt, settings, tile, **kw):
             raise Exception('Stereo step ' + kw['msg'] + ' failed')
         
         if status == 0:
-          reset = False
-          updateNumDoneTiles(settings['out_prefix'][0], prog, reset)
-            
+          updateNumDoneTiles(out_prefix, prog, resetStatus)
+
     except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
 

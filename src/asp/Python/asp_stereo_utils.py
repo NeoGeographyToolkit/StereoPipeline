@@ -457,5 +457,3 @@ def updateNumDoneTiles(out_prefix, latest_stage_name, reset):
         finally:
             # release the lock
             fcntl.lockf(f, fcntl.LOCK_UN)
-
-    print(f"---updated {status_file}: {stage_name} is now {num_done}/{num_tiles}")
