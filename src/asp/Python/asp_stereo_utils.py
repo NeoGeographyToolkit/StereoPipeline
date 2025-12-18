@@ -405,18 +405,15 @@ def numTiles(out_prefix):
     
 def readNumDoneTiles(statusFile):
     '''
-    Return the number of done tiles for current stage of processing.
+    Return the number of done tiles for current stage of processing. The caller
+    is responsible for locking this file for multi-process access.
     '''
     if not os.path.exists(statusFile):
         return ("", 0)
         
     try:
         with open(statusFile, 'r') as f:
-            # Use lockf for better NFS compatibility
-            fcntl.lockf(f, fcntl.LOCK_SH) # LOCK_SH is sufficient for reading
             lines = f.readlines()
-            fcntl.lockf(f, fcntl.LOCK_UN)
-            
             if len(lines) > 1:
                 statusParts = lines[1].strip().split(' ')
                 if len(statusParts) > 1:
@@ -429,6 +426,7 @@ def readNumDoneTiles(statusFile):
 def writeNumDoneTiles(stage_name, num_done, num_total, statusFile):
     '''
     Write the number of done tiles for current stage of processing.
+    The caller is responsible for locking this file for multi-process access.
     '''
     
     # Open in 'a+' or 'r+' to prevent truncation before the lock is acquired
@@ -446,7 +444,7 @@ def writeNumDoneTiles(stage_name, num_done, num_total, statusFile):
         finally:
             fcntl.lockf(f, fcntl.LOCK_UN)
             
-def updateNumDoneTiles(out_prefix, latest_stage_name):
+def updateNumDoneTiles(out_prefix, latest_stage_name, reset)
     '''
     Update the number of done tiles for current stage of processing.
     '''
@@ -460,7 +458,7 @@ def updateNumDoneTiles(out_prefix, latest_stage_name):
     print("--num done is %d" % num_done)
 
     # If stage name is not latest, reset number of done and stage name
-    if stage_name != latest_stage_name:
+    if stage_name != latest_stage_name or reset:
         num_done = 0
         stage_name = latest_stage_name
         

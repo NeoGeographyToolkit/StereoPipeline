@@ -526,10 +526,8 @@ def spawn_to_nodes(step, opt, settings, args, subdirs):
 
     # Reset number of done tiles
     # TODO(oalexan1): This must play nice with --resume
-    status_file = stereoStatusFile(out_prefix)
-    done_tiles = 0
-    num_tiles = len(subdirs)
-    writeNumDoneTiles(stereoProgName(step), done_tiles, num_tiles, status_file)
+    reset = True
+    updateNumDoneTiles(out_prefix, stereoProgName(step), reset)
     
     # Use GNU parallel with given number of processes.
     # TODO(oalexan1): Run 'parallel' using the runInGnuParallel() function call,
@@ -679,7 +677,8 @@ def tile_run(prog, args, opt, settings, tile, **kw):
             raise Exception('Stereo step ' + kw['msg'] + ' failed')
         
         if status == 0:
-          updateNumDoneTiles(settings['out_prefix'][0], prog)
+          reset = False
+          updateNumDoneTiles(settings['out_prefix'][0], prog, reset)
             
     except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
