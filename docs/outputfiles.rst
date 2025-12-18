@@ -201,6 +201,10 @@ ending in ``stereo-status.txt`` that records the current processing step
 (:numref:`entrypoints`), the number of done tiles, and the total number of tiles
 (both for the current step). See :numref:`ps_tiling` for more details on tiling.
 
+For the preprocessing and filtering stages tiling is not done. Then, the number 
+of tiles is set to 1, and the number of done tiles is 0 if this stage is
+in progress, and 1 if it is done.
+
 .. _out_log_files:
 
 Other files created at all stages

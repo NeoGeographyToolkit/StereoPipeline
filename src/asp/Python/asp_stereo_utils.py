@@ -413,6 +413,10 @@ def updateNumDoneTiles(out_prefix, latest_stage_name, reset):
     num_tiles = numTiles(out_prefix)
     status_file = stereoStatusFile(out_prefix)
     
+    if latest_stage_name in ['stereo_pprc', 'stereo_fltr']:
+        # There is no tiling for these stages
+        num_tiles = 1
+
     # Ensure file exists so r+ mode does not fail
     if not os.path.exists(status_file):
         with open(status_file, 'a') as f:

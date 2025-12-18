@@ -685,7 +685,7 @@ def tile_run(prog, args, opt, settings, tile, **kw):
     except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
 
-def normal_run(prog, opt, args, **kw):
+def normal_run(prog, opt, args, out_prefix, **kw):
     '''Job launch wrapper for a non-tile stereo call.'''
 
     binpath = bin_path(prog)
@@ -701,14 +701,22 @@ def normal_run(prog, opt, args, **kw):
     if opt.dryrun:
         print('%s' % ' '.join(call))
         return
+    
+    resetStatus = True
+    updateNumDoneTiles(out_prefix, prog, resetStatus)
+        
     if opt.verbose:
         print('%s' % ' '.join(call))
     try:
-        code = subprocess.call(call)
+        status = subprocess.call(call)
     except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
-    if code != 0:
+    if status != 0:
         raise Exception('Stereo step ' + kw['msg'] + ' failed')
+
+    if status == 0:
+        resetStatus = False
+        updateNumDoneTiles(out_prefix, prog, resetStatus)
 
 def keepOnlySpecified(keep_only, out_prefix, subdirs, settings):
     """
@@ -1185,7 +1193,7 @@ if __name__ == '__main__':
         if (opt.entry_point <= step):
             if (opt.stop_point <= step):
                 sys.exit()
-            normal_run('stereo_pprc', opt, args, msg='%d: Preprocessing' % step)
+            normal_run('stereo_pprc', opt, args, out_prefix, msg='%d: Preprocessing' % step)
             # Now that L.tif is saved, recompute trans_left_image_size.
             settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
 
@@ -1275,7 +1283,7 @@ if __name__ == '__main__':
             if (opt.stop_point <= step):
                 sys.exit()
                 
-            normal_run('stereo_fltr', opt, args, msg='%d: Filtering' % step)
+            normal_run('stereo_fltr', opt, args, out_prefix, msg='%d: Filtering' % step)
             create_subdirs_symlink(opt, args, settings) # symlink F.tif
 
         # Triangulation
@@ -1298,7 +1306,8 @@ if __name__ == '__main__':
                 # Compute the cloud center. Done once per run.
                 tmp_args = args[:] # deep copy
                 tmp_args.append('--compute-point-cloud-center-only')
-                normal_run('stereo_tri', opt, tmp_args, msg='%d: Triangulation' % step)
+                normal_run('stereo_tri', opt, tmp_args, out_prefix, 
+                           msg='%d: Triangulation' % step)
                 # Point cloud center computation was done
                 parallel_args.extend(['--skip-point-cloud-center-comp'])
 
