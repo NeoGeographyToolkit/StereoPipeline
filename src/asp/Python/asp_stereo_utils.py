@@ -465,3 +465,32 @@ def updateNumDoneTiles(out_prefix, latest_stage_name, reset):
         finally:
             # release the lock
             fcntl.lockf(f, fcntl.LOCK_UN)
+
+def produce_tiles(opt, args, settings, tile_w, tile_h):
+    '''
+    Generate a list of bounding boxes for each output tile. Use stereo_parse for
+    that. Skip the tiles that have no valid low-res disparity (D_sub.tif).
+    '''
+    
+    # This cannot happen before we know trans_left_image_size
+    key = 'trans_left_image_size'
+    if key not in settings:
+        raise Exception("Cannot produce tiles until L.tif is known.")
+        
+    sep = ","
+    tile_opt = ['--parallel-tile-size', str(tile_w), str(tile_h)]
+    verbose = False
+    num_pairs = int(settings['num_stereo_pairs'][0]) # for multiview
+    
+    if opt.seed_mode != 0 and num_pairs == 1:
+      # D_sub must exist
+      d_sub_file = settings['out_prefix'][0] + '-D_sub.tif'
+      if not os.path.exists(d_sub_file):
+        print("WARNING: The file " + d_sub_file + " does not exist. " + \
+              "Will not be able to exclude tiles with no data.")
+    
+    # Create the tiles with stereo_parse This can handle D_sub.
+    run_and_parse_output("stereo_parse", args + tile_opt, sep, verbose)
+    tiles = readTiles(settings['out_prefix'][0])
+    return tiles
+
