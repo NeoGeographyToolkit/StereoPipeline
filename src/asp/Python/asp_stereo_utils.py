@@ -16,9 +16,8 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-# TODO(oalexan1): Move this to src/asp/Python and distribute most of
-# these functions across the files in there depending on what these
-# functions do.
+# TODO(oalexan1): Distribute some of the more low-level functions from here to 
+# other modules such as asp_system_utils, etc.
 
 from __future__ import print_function
 import sys, optparse, subprocess, re, os, time, glob
@@ -174,9 +173,6 @@ def reduce_num_threads_in_pprc(cmd):
         set_option(cmd, '--threads', [num_threads])
 
     return cmd
-
-#=====================================================================================
-# Functions below here are purely stereo
 
 # Run one of the stereo executables
 def stereo_run(prog, args, opt, **kw):
@@ -391,9 +387,9 @@ def stereoStatusFile(out_prefix):
 
 
 def numTiles(out_prefix):
-    """
+    '''
     Return the total number of tiles for current stage of processing.
-    """
+    '''
     
     tiles_index = stereoTilesIndex(out_prefix)
     
@@ -498,6 +494,11 @@ def tile_dir(prefix, tile):
     return prefix + '-' + tile.name_str()
 
 def use_padded_tiles(settings):
+    '''
+    Tiles with padding are needed for local epipolar alignment and for non-asp_bm 
+    stereo algorithms.
+    '''
+    
     alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
     return (alg > VW_CORRELATION_BM or settings['alignment_method'][0] == 'local_epipolar')
 
