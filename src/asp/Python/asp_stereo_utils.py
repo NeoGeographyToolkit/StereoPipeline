@@ -410,6 +410,10 @@ def updateNumDoneTiles(out_prefix, latest_stage_name, reset):
     if latest_stage_name in ['stereo_pprc', 'stereo_fltr']:
         # There is no tiling for these stages
         num_tiles = 1
+        
+    # If this is a sym link, wipe it. Symlinks can happen if resuming from a prev run.
+    if os.path.islink(status_file):
+        os.unlink(status_file)
 
     # Ensure file exists so r+ mode does not fail
     if not os.path.exists(status_file):
@@ -452,6 +456,10 @@ def updateNumDoneTiles(out_prefix, latest_stage_name, reset):
             f.flush()
             os.fsync(f.fileno()) 
             
+            # It is helpful to print this info, but not for pprc, etc.
+            if num_tiles > 1:
+                print(f"Processing status: {stage_name} {num_done} / {num_tiles} tiles")
+
         finally:
             # release the lock
             fcntl.lockf(f, fcntl.LOCK_UN)

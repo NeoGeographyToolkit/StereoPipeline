@@ -205,6 +205,8 @@ For the preprocessing and filtering stages tiling is not done. Then, the number
 of tiles is set to 1, and the number of done tiles is 0 if this stage is
 in progress, and 1 if it is done.
 
+The status is also printed to standard output as each tile gets done.
+
 .. _out_log_files:
 
 Other files created at all stages
