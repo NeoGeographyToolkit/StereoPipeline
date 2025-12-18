@@ -1692,7 +1692,7 @@ Run stereo in correlator mode (:numref:`correlator-mode`)::
       --nodes-list nodes_list.txt \
       sfs_dem_hill.tif            \
       ref_dem_hill.tif            \
-      stereo_corr/run
+      sfs_ref_corr/run
 
 The search range in ``--corr-search`` is determined by the expected amount of 
 misalignment (:numref:`search_range`).
@@ -1704,10 +1704,10 @@ The produced ``F.tif`` disparity can be split into bands while masking no-data
 values (:numref:`mask_disparity`) and viewed with ``stereo_gui``
 (:numref:`colorize`) as::
 
-    stereo_gui --colorbar             \
-      --min -10 --max 10              \
-      stereo_corr/run-F_b1_nodata.tif \
-      stereo_corr/run-F_b2_nodata.tif
+    stereo_gui --colorbar              \
+      --min -10 --max 10               \
+      sfs_ref_corr/run-F_b1_nodata.tif \
+      sfs_ref_corr/run-F_b2_nodata.tif
 
 It is very important to confirm that the visually-observed shifts agree with the 
 disparities shown by this plot.
@@ -1740,17 +1740,17 @@ This invocation requires a build of ASP as of 2025/11 or later
 
 ::
 
-  dem2gcp                                           \
-    --warped-dem sfs_dem.tif                        \
-    --ref-dem ref_dem.tif                           \
-    --warped-to-ref-disparity stereo_corr/run-F.tif \
-    --image-list ba_align_ref/run-image_list.txt    \
-    --camera-list ba_align_ref/run-camera_list.txt  \
-    --clean-match-files-prefix ba/run               \
-    --max-pairwise-matches 5000                     \
-    --gcp-sigma 1.0                                 \
-    --max-num-gcp 2000000                           \
-    --output-gcp stereo_corr/run.gcp
+  dem2gcp                                            \
+    --warped-dem sfs_dem.tif                         \
+    --ref-dem ref_dem.tif                            \
+    --warped-to-ref-disparity sfs_ref_corr/run-F.tif \
+    --image-list ba_align_ref/run-image_list.txt     \
+    --camera-list ba_align_ref/run-camera_list.txt   \
+    --clean-match-files-prefix ba/run                \
+    --max-pairwise-matches 5000                      \
+    --gcp-sigma 1.0                                  \
+    --max-num-gcp 2000000                            \
+    --output-gcp sfs_ref_corr/run.gcp
 
 The value of ``--gcp-sigma`` should be a fraction of the ground sample distance
 (in meters), to ensure that the GCP constraint is strong enough.
