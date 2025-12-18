@@ -77,6 +77,25 @@ class Step:
     fltr  = 4
     tri   = 5
 
+def stereoProgName(step):
+    '''
+    Return the stereo program name for a given step.
+    '''
+    if step == Step.pprc:
+        return 'stereo_pprc'
+    elif step == Step.corr:
+        return 'stereo_corr'
+    elif step == Step.blend:
+        return 'stereo_blend'
+    elif step == Step.rfne:
+        return 'stereo_rfne'
+    elif step == Step.fltr:
+        return 'stereo_fltr'
+    elif step == Step.tri:
+        return 'stereo_tri'
+    else:
+        return 'stereo_unknown'
+
 # Utilities to ensure that the Python parser does not garble negative
 # values such as '-365' into '-3'.
 escapeStr='esc_rand_str'
@@ -358,21 +377,6 @@ def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
             rel_f   = os.path.relpath(f, run_dir)
             os.symlink(rel_f, sym_f)
 
-def stereoProgName(step):
-    '''
-    Return the stereo program name for a given step.
-    '''
-    if step == Step.corr:
-        return 'stereo_corr'
-    elif step == Step.blend:
-        return 'stereo_blend'
-    elif step == Step.rfne:
-        return 'stereo_rfne'
-    elif step == Step.tri:
-        return 'stereo_tri'
-    else:
-        return 'stereo_unknown'
-        
 def stereoTilesIndex(out_prefix):
     '''
     Form the index of tiles.

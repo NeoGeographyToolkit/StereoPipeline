@@ -494,7 +494,6 @@ def get_best_procs_threads(step, opt, settings):
 
     return (num_procs, num_threads)
 
-        
 # Launch GNU Parallel for all tiles, it will take care of distributing
 # the jobs across the nodes and load balancing. The way we accomplish
 # this is by calling this same script but with --tile-id <num>.
