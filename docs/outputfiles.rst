@@ -191,6 +191,16 @@ Files created at triangulation
    to convert them to ECEF). Stored in plain text. Has the same information as
    the ``POINT_OFFSET`` header in ``PC.tif``.
 
+.. _stereo_diag:
+
+Diagnostics files
+~~~~~~~~~~~~~~~~~
+
+As ``parallel_stereo`` runs, it updates in the output prefix location a file
+ending in ``stereo-status.txt`` that records the current processing step
+(:numref:`entrypoints`), the number of done tiles, and the total number of tiles
+(both for the current step). See :numref:`ps_tiling` for more details on tiling.
+
 .. _out_log_files:
 
 Other files created at all stages
@@ -199,7 +209,7 @@ Other files created at all stages
 \*-log* - log files
     Each program invoked by ``parallel_stereo`` writes a log file containing the
     command name, build information, and various messages output by that
-    program. Those are saved to the output prefix location, or to tile
+    program. Those are saved to the  or to tile
     subdirectories, depending on the stage of processing. 
     
     The tiles are deleted after a successful run, which makes the log files in

@@ -11,6 +11,9 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Rewrote the KH-9 example to take into account the improved modeling of
     optical bar cameras and a new strategy for fixing local warping
     (:numref:`kh9`).
+  * Added a status file that shows the progress in processing
+    (:numref:`stereo_diag`).
+  
   * Left and right alignment matrices are now saved in plain text format. Older
     .exr files are still read. Support for them will be removed in the next
     release (:numref:`outputfiles`).

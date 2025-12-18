@@ -403,68 +403,59 @@ def numTiles(out_prefix):
         num_tiles = len(lines)
     return num_tiles
     
-def readNumDoneTiles(statusFile):
-    '''
-    Return the number of done tiles for current stage of processing. The caller
-    is responsible for locking this file for multi-process access.
-    '''
-    if not os.path.exists(statusFile):
-        return ("", 0)
-        
-    try:
-        with open(statusFile, 'r') as f:
-            lines = f.readlines()
-            if len(lines) > 1:
-                statusParts = lines[1].strip().split(' ')
-                if len(statusParts) > 1:
-                    return (statusParts[0], int(statusParts[1]))
-    except (IOError, ValueError):
-        pass
-        
-    return ("", 0) # on failure
-
-def writeNumDoneTiles(stage_name, num_done, num_total, statusFile):
-    '''
-    Write the number of done tiles for current stage of processing.
-    The caller is responsible for locking this file for multi-process access.
-    '''
-    
-    # Open in 'a+' or 'r+' to prevent truncation before the lock is acquired
-    mode = 'r+' if os.path.exists(statusFile) else 'a+'
-    
-    with open(statusFile, mode) as f:
-        fcntl.lockf(f, fcntl.LOCK_EX)
-        try:
-            f.seek(0)
-            f.truncate() # Wipe file only after we hold the exclusive lock
-            f.write("# stageName numDoneTiles numTotalTiles\n")
-            f.write(f"{stage_name} {num_done} {num_total}\n")
-            f.flush()
-            os.fsync(f.fileno()) # Force write to network storage
-        finally:
-            fcntl.lockf(f, fcntl.LOCK_UN)
             
-def updateNumDoneTiles(out_prefix, latest_stage_name, reset)
+def updateNumDoneTiles(out_prefix, latest_stage_name, reset):
     '''
-    Update the number of done tiles for current stage of processing.
+    Update the number of done tiles for current stage of processing. Care is taken
+    that multiple processes can both update the same status file without conflicts.
     '''
-    
+
     num_tiles = numTiles(out_prefix)
     status_file = stereoStatusFile(out_prefix)
-    (stage_name, num_done) = readNumDoneTiles(status_file)
-    print("--status file is %s" % status_file)
-    print("---num tiles is %d---" % num_tiles)
-    print("--stage name is %s" % stage_name)
-    print("--num done is %d" % num_done)
+    
+    # Ensure file exists so r+ mode does not fail
+    if not os.path.exists(status_file):
+        with open(status_file, 'a') as f:
+            pass
 
-    # If stage name is not latest, reset number of done and stage name
-    if stage_name != latest_stage_name or reset:
-        num_done = 0
-        stage_name = latest_stage_name
-        
-    # Increment
-    num_done += 1
-    print("---after updte num done is %d---" % num_done)
-    print("after done, stage name is %s" % stage_name)
+    # Open handle for both reading and writing
+    with open(status_file, 'r+') as f:
+        # Get exclusive lock to prevent race conditions
+        # lockf is used for better compatibility with network storage
+        fcntl.lockf(f, fcntl.LOCK_EX)
+        try:
+            # read current status
+            lines = f.readlines()
+            stage_name = ""
+            num_done = 0
+            
+            if len(lines) > 1:
+                # First line is a comment, second one has the data
+                statusParts = lines[1].strip().split(' ')
+                if len(statusParts) > 1:
+                    stage_name = statusParts[0]
+                    num_done = int(statusParts[1])
 
-    writeNumDoneTiles(stage_name, num_done, num_tiles, status_file)
+            # update logic
+            if stage_name != latest_stage_name or reset:
+                num_done = 0
+                stage_name = latest_stage_name
+            
+            if not reset:
+                num_done += 1
+
+            # Write new status
+            f.seek(0) # return to start of file
+            f.truncate() # wipe old data
+            f.write("# processingStep numDoneTiles numTotalTiles\n")
+            f.write(f"{stage_name} {num_done} {num_tiles}\n")
+            
+            # Ensure data reaches the disk/server before unlocking
+            f.flush()
+            os.fsync(f.fileno()) 
+            
+        finally:
+            # release the lock
+            fcntl.lockf(f, fcntl.LOCK_UN)
+
+    print(f"---updated {status_file}: {stage_name} is now {num_done}/{num_tiles}")
