@@ -544,53 +544,46 @@ def readNumDoneTiles(statusFile):
     '''
     Return the number of done tiles for current stage of processing.
     '''
-
-    stage_name = ""
-    num_done = 0
     if not os.path.exists(statusFile):
-        return (stage_name, num_done)
+        return ("", 0)
         
-    statusLine = ""
-    with open(statusFile, 'r') as f:
-        fcntl.flock(f, fcntl.LOCK_EX) # lock the file
-        try:
+    try:
+        with open(statusFile, 'r') as f:
+            # Use lockf for better NFS compatibility
+            fcntl.lockf(f, fcntl.LOCK_SH) # LOCK_SH is sufficient for reading
             lines = f.readlines()
-        except:
-            lines = []
-        fcntl.flock(f, fcntl.LOCK_UN) # unlock the file
-        # If at least two lines, the second line is the status, while the first 
-        # is a comment.
-        if len(lines) > 1:
-            statusLine = lines[1].strip()
+            fcntl.lockf(f, fcntl.LOCK_UN)
             
-    # Split by space. We do not need to read the num total tiles as
-    # the caller knows that.
-    statusParts = statusLine.split(' ')
-    if len(statusParts) > 1:
-        stage_name = statusParts[0]
-        num_done = int(statusParts[1])
+            if len(lines) > 1:
+                statusParts = lines[1].strip().split(' ')
+                if len(statusParts) > 1:
+                    return (statusParts[0], int(statusParts[1]))
+    except (IOError, ValueError):
+        pass
         
-    return (stage_name, num_done)
+    return ("", 0) # on failure
 
 def writeNumDoneTiles(stage_name, num_done, num_total, statusFile):
     '''
     Write the number of done tiles for current stage of processing.
     '''
-
-    with open(statusFile, 'w') as f:
-        fcntl.flock(f, fcntl.LOCK_EX) # lock the file
+    
+    # Open in 'a+' or 'r+' to prevent truncation before the lock is acquired
+    mode = 'r+' if os.path.exists(statusFile) else 'a+'
+    
+    with open(statusFile, mode) as f:
+        fcntl.lockf(f, fcntl.LOCK_EX)
         try:
-            print("---file is %s---" % statusFile)
-            print("--writing stage name %s---" % stage_name)
-            print("--writing num done %d---" % num_done)
-            print("--writing num total %d---" % num_total)
-            f.write("%s %s %s\n" % ("# stageName", "numDoneTiles", "numTotalTiles"))
-            f.write("%s %d %d\n" % (stage_name, num_done, num_total))
-        except:
-            pass
-        fcntl.flock(f, fcntl.LOCK_UN) # unlock the file
-
-def updateNumDone(out_prefix, latest_stage_name):
+            f.seek(0)
+            f.truncate() # Wipe file only after we hold the exclusive lock
+            f.write("# stageName numDoneTiles numTotalTiles\n")
+            f.write(f"{stage_name} {num_done} {num_total}\n")
+            f.flush()
+            os.fsync(f.fileno()) # Force write to network storage
+        finally:
+            fcntl.lockf(f, fcntl.LOCK_UN)
+            
+def updateNumDoneTiles(out_prefix, latest_stage_name):
     '''
     Update the number of done tiles for current stage of processing.
     '''
@@ -800,7 +793,7 @@ def tile_run(prog, args, opt, settings, tile, **kw):
         
         print("---status is %d---" % status)        
         if status == 0:
-          updateNumDone(settings['out_prefix'][0], prog)
+          updateNumDoneTiles(settings['out_prefix'][0], prog)
             
     except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
