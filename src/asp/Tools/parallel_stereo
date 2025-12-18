@@ -17,6 +17,7 @@
 # __END_LICENSE__
 
 import sys, argparse, subprocess, re, os, math, time, glob, shutil, math, platform
+import fcntl # for file locking
 import os.path as P
 
 # Set up the path to Python modules about to load
@@ -551,7 +552,12 @@ def readNumDoneTiles(statusFile):
         
     statusLine = ""
     with open(statusFile, 'r') as f:
-        lines = f.readlines()
+        fcntl.flock(f, fcntl.LOCK_EX) # lock the file
+        try:
+            lines = f.readlines()
+        except:
+            lines = []
+        fcntl.flock(f, fcntl.LOCK_UN) # unlock the file
         # If at least two lines, the second line is the status, while the first 
         # is a comment.
         if len(lines) > 1:
@@ -572,12 +578,17 @@ def writeNumDoneTiles(stage_name, num_done, num_total, statusFile):
     '''
 
     with open(statusFile, 'w') as f:
-        print("---file is %s---" % statusFile)
-        print("--writing stage name %s---" % stage_name)
-        print("--writing num done %d---" % num_done)
-        print("--writing num total %d---" % num_total)
-        f.write("%s %s %s\n" % ("# stageName", "numDoneTiles", "numTotalTiles"))
-        f.write("%s %d %d\n" % (stage_name, num_done, num_total))
+        fcntl.flock(f, fcntl.LOCK_EX) # lock the file
+        try:
+            print("---file is %s---" % statusFile)
+            print("--writing stage name %s---" % stage_name)
+            print("--writing num done %d---" % num_done)
+            print("--writing num total %d---" % num_total)
+            f.write("%s %s %s\n" % ("# stageName", "numDoneTiles", "numTotalTiles"))
+            f.write("%s %d %d\n" % (stage_name, num_done, num_total))
+        except:
+            pass
+        fcntl.flock(f, fcntl.LOCK_UN) # unlock the file
 
 def updateNumDone(out_prefix, latest_stage_name):
     '''
