@@ -22,7 +22,7 @@ import os, glob, optparse, re, shutil, subprocess, sys, string, time
 
 libexecpath = os.path.abspath(sys.path[0] + '/../libexec')
 sys.path.insert(0, libexecpath) # prepend to Python path
-from asp_stereo_utils import get_asp_version
+from asp_system_utils import get_asp_version
 
 import asp_system_utils
 asp_system_utils.verify_python_version_is_supported()

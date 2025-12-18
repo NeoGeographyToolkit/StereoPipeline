@@ -67,7 +67,7 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-from asp_stereo_utils import get_asp_version
+from asp_system_utils import get_asp_version
 
 #==============================================================================
 # Start of supporting functions

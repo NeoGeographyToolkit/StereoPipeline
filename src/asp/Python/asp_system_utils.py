@@ -76,6 +76,11 @@ def get_prog_version(prog):
     
     return ""
 
+def get_asp_version():
+    '''Returns the current ASP version number'''
+    prog = libexec_path("stereo_parse") # get the full path
+    return get_prog_version(prog)
+
 def get_num_cpus():
     """Return the number of CPUs on the current machine."""
 

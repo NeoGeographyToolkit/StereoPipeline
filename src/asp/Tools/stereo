@@ -42,7 +42,7 @@ if __name__ == '__main__':
         Extensions are automatically added to the output files.
         Camera model arguments may be optional for some stereo
         session types (e.g. isis). Stereo parameters should be
-        set in the stereo.default file.\n''' + get_asp_version()
+        set in the stereo.default file.\n''' + asp_system_utils.get_asp_version()
 
     p = argparse.ArgumentParser(usage=usage)
     p.add_argument('-t', '--session-type',   dest='session',

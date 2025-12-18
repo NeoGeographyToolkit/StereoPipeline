@@ -299,7 +299,7 @@ if __name__ == '__main__':
     # Fix for this failing in a subprocess. There, need not know the ASP version.
     asp_version = ''
     if 'ISISROOT' in os.environ:
-       asp_version = get_asp_version()
+       asp_version = asp_system_utils.get_asp_version()
        
     usage = '''parallel_bundle_adjust <images> <cameras> <optional ground control points> -o <output prefix> [options]
         Camera model arguments may be optional for some stereo
