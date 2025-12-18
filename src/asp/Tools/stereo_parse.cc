@@ -238,8 +238,12 @@ int main(int argc, char* argv[]) {
     vw_out() << "trans_left_image_size," << trans_left_image_size.x() << "," 
              << trans_left_image_size.y() << "\n";
 
+    // This separator needs to be in sync with parallel_stereo. It is needed to
+    // extract from a line of text the portion after the separator.
+    std::string sep = "--non-comma-separator--";
+     
     cartography::GeoReference georef = opt.session->get_georef();
-    vw_out() << "WKT--non-comma-separator--" << georef.get_wkt() << "\n";
+    vw_out() << "WKT" << sep << georef.get_wkt() << "\n";
 
     // Write the geotransform as a string as expected by GDAL's vrt xml format
     // TODO: Not sure if this will be useful as a member function in GeoReference.
@@ -248,7 +252,7 @@ int main(int argc, char* argv[]) {
     os.precision(18);
     os << " "  << T(0, 2) << ",  " << T(0, 0) << ",  " << T(0, 1) << ",  "
        << " "  << T(1, 2) << ",  " << T(1, 0) << ",  " << T(1, 1);
-    vw_out() << "GeoTransform--non-comma-separator--" << os.str() << "\n";
+    vw_out() << "GeoTransform" << sep << os.str() << "\n";
 
     // Some care is needed below. The transformed_window will be used
     // by parallel_stereo to parallelize stereo on a given user-specified

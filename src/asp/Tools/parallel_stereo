@@ -494,6 +494,116 @@ def get_best_procs_threads(step, opt, settings):
 
     return (num_procs, num_threads)
 
+def stereoProgName(step):
+    '''
+    Return the stereo program name for a given step.
+    '''
+    if step == Step.corr:
+        return 'stereo_corr'
+    elif step == Step.blend:
+        return 'stereo_blend'
+    elif step == Step.rfne:
+        return 'stereo_rfne'
+    elif step == Step.tri:
+        return 'stereo_tri'
+    else:
+        return 'stereo_unknown'
+        
+def stereoTilesIndex(out_prefix):
+    '''
+    Form the index of tiles.
+    '''
+    return out_prefix + "-tiles-index.txt"
+
+def stereoStatusFile(out_prefix):
+    '''
+    The file having the status of how many tiles were successfully processed.
+    '''
+    return out_prefix + "-stereo-status.txt"
+
+
+def numTiles(out_prefix):
+    """
+    Return the total number of tiles for current stage of processing.
+    """
+    
+    tiles_index = stereoTilesIndex(out_prefix)
+    
+    num_tiles = 0
+    if not os.path.exists(tiles_index):
+        return num_tiles
+        
+    # Read this file and count how many lines
+    with open(tiles_index, 'r') as f:
+        lines = f.readlines()
+        num_tiles = len(lines)
+    return num_tiles
+    
+def readNumDoneTiles(statusFile):
+    '''
+    Return the number of done tiles for current stage of processing.
+    '''
+
+    stage_name = ""
+    num_done = 0
+    if not os.path.exists(statusFile):
+        return (stage_name, num_done)
+        
+    statusLine = ""
+    with open(statusFile, 'r') as f:
+        lines = f.readlines()
+        # If at least two lines, the second line is the status, while the first 
+        # is a comment.
+        if len(lines) > 1:
+            statusLine = lines[1].strip()
+            
+    # Split by space. We do not need to read the num total tiles as
+    # the caller knows that.
+    statusParts = statusLine.split(' ')
+    if len(statusParts) > 1:
+        stage_name = statusParts[0]
+        num_done = int(statusParts[1])
+        
+    return (stage_name, num_done)
+
+def writeNumDoneTiles(stage_name, num_done, num_total, statusFile):
+    '''
+    Write the number of done tiles for current stage of processing.
+    '''
+
+    with open(statusFile, 'w') as f:
+        print("---file is %s---" % statusFile)
+        print("--writing stage name %s---" % stage_name)
+        print("--writing num done %d---" % num_done)
+        print("--writing num total %d---" % num_total)
+        f.write("%s %s %s\n" % ("# stageName", "numDoneTiles", "numTotalTiles"))
+        f.write("%s %d %d\n" % (stage_name, num_done, num_total))
+
+def updateNumDone(out_prefix, latest_stage_name):
+    '''
+    Update the number of done tiles for current stage of processing.
+    '''
+    
+    num_tiles = numTiles(settings['out_prefix'][0])
+    status_file = stereoStatusFile(settings['out_prefix'][0])
+    (stage_name, num_done) = readNumDoneTiles(status_file)
+    print("--status file is %s" % status_file)
+    print("---num tiles is %d---" % num_tiles)
+    print("--stage name is %s" % stage_name)
+    print("--num done is %d" % num_done)
+
+    # If stage name is not latest, reset number of done and stage name
+    if stage_name != latest_stage_name:
+        num_done = 0
+        stage_name = latest_stage_name
+        
+    # Increment
+    num_done += 1
+    print("---after updte num done is %d---" % num_done)
+    print("after done, stage name is %s" % stage_name)
+
+    writeNumDoneTiles(stage_name, num_done, num_tiles, status_file)
+        
 # Launch GNU Parallel for all tiles, it will take care of distributing
 # the jobs across the nodes and load balancing. The way we accomplish
 # this is by calling this same script but with --tile-id <num>.
@@ -516,13 +626,20 @@ def spawn_to_nodes(step, opt, settings, args, subdirs):
     # tiles, and for that reason we store their indices in a file, rather than
     # putting them on the command line. Keep this file in the run directory.
     out_prefix = settings['out_prefix'][0]
-    tiles_index = out_prefix + "-tiles-index.txt"
+    tiles_index = stereoTilesIndex(out_prefix)
     mkdir_p(os.path.dirname(tiles_index))
     f = open(tiles_index, 'w')
     for i in range(len(subdirs)):
         f.write("%d\n" % i)
     f.close()
 
+    # Reset number of done tiles
+    # TODO(oalexan1): This must play nice with --resume
+    status_file = stereoStatusFile(out_prefix)
+    done_tiles = 0
+    num_tiles = len(subdirs)
+    writeNumDoneTiles(stereoProgName(step), done_tiles, num_tiles, status_file)
+    
     # Use GNU parallel with given number of processes.
     # TODO(oalexan1): Run 'parallel' using the runInGnuParallel() function call,
     # when the ASP_LIBRARY_PATH trick can be fully encapsulated in the
@@ -669,7 +786,11 @@ def tile_run(prog, args, opt, settings, tile, **kw):
 
         if status != 0:
             raise Exception('Stereo step ' + kw['msg'] + ' failed')
-
+        
+        print("---status is %d---" % status)        
+        if status == 0:
+          updateNumDone(settings['out_prefix'][0], prog)
+            
     except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
 
@@ -1107,7 +1228,9 @@ if __name__ == '__main__':
     # Update the collar size in the settings and args
     (settings, args) = set_collar_size(opt.sgm_collar_size, args, settings)
 
-    sep2 = '--non-comma-separator--' # a string unlikely to be in the output
+    # A string unlikely to be in the output. This should be in sync with stereo_parse.
+    sep2 = '--non-comma-separator--'
+    
     georef=run_and_parse_output("stereo_parse", args, sep2, opt.verbose)
     georef["WKT"] = "".join(georef["WKT"])
     georef["GeoTransform"] = "".join(georef["GeoTransform"])
@@ -1320,22 +1443,23 @@ if __name__ == '__main__':
             # Pick the tile we want from the list of tiles
             tiles = readTiles(out_prefix)
             tile  = tiles[opt.tile_id]
+            prog_name = stereoProgName(opt.entry_point)
 
             if (opt.entry_point == Step.corr):
                 check_system_memory(opt, args, settings)
-                tile_run('stereo_corr', args, opt, settings, tile,
+                tile_run(prog_name, args, opt, settings, tile,
                          msg='%d: Correlation' % opt.entry_point)
 
             if (opt.entry_point == Step.blend):
-                tile_run('stereo_blend', args, opt, settings, tile,
+                tile_run(prog_name, args, opt, settings, tile,
                          msg='%d: Blending' % opt.entry_point)
 
             if (opt.entry_point == Step.rfne):
-                tile_run('stereo_rfne', args, opt, settings, tile,
+                tile_run(prog_name, args, opt, settings, tile,
                          msg='%d: Refinement' % opt.entry_point)
 
             if (opt.entry_point == Step.tri):
-                tile_run('stereo_tri', args, opt, settings, tile,
+                tile_run(prog_name, args, opt, settings, tile,
                          msg='%d: Triangulation' % opt.entry_point)
 
         except Exception as e:
