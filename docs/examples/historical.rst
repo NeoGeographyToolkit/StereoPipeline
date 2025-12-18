@@ -985,5 +985,5 @@ succession, it is suggested to use them together, as that can improve the
 registration.
 
 The linescan cameras are not as easy to convert to a different resolution as the
-OpticalBar cameras (it is planned to ship a tool for this). For now, linescan
-cameras need to be recreated at each resolution before being further refined.
+OpticalBar cameras. An `experimental program <https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/src/asp/Python/scale_linescan.py>`_
+for this is available.
