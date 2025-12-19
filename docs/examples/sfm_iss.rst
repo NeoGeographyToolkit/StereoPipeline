@@ -513,7 +513,7 @@ Notice how we used the rig configuration and poses from
 ``small_sci_rig`` but with the earlier mesh from ``small_rig``. The
 sensor names now refer to ``sci_cam`` as well.
 
-The produced textured mesh can be overlayed on top of the earlier ones
+The produced textured mesh can be overlaid on top of the earlier ones
 in ``meshlab``.
 
 Results

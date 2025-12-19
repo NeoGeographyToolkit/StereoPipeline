@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 // TODO(oalexan1): Reconcile this with MainWidget.cc so that different
-// images and curves can be overlayed while using a colormap and axes.
+// images and curves can be overlaid while using a colormap and axes.
 
 /// \file ColorAxes.cc
 

@@ -255,12 +255,11 @@ Polygon editing and contouring
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``stereo_gui`` can be used to draw and edit polygonal shapes on top of
-georeferenced images, save them as shape files (``*.shp``) or in plain
-text, and load such files from the command line (including ones
-produced with external tools). The editing functionality can be
-accessed by turning on polygon editing from the ``Vector layer`` menu,
-and then right-clicking with the mouse to access the various
-functions.
+georeferenced images, save them as shape files (``*.shp``) or in plain text, and
+load such files from the command line (including ones produced with external
+tools). The editing functionality can be accessed by turning on polygon editing
+from the ``Vector layer`` menu, and then right-clicking with the mouse to access
+the various functions.
 
 To create polygons, click with the left mouse button on points to be
 added. When clicking close to the starting point, the polygon becomes
@@ -281,8 +280,8 @@ as georeferenced images" to plot the polygons on top of the images.
    :name: stereo_gui_poly
    :alt: stereo_gui_poly
 
-A polygon drawn on top of a georeferenced image, in the "move vertices" editing
-mode.
+   A polygon drawn on top of a georeferenced image, in the "move vertices"
+   editing mode.
 
 Plain-text polygon files
 ^^^^^^^^^^^^^^^^^^^^^^^^

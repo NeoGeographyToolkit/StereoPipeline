@@ -247,11 +247,12 @@ void produceTiles(ASPGlobalOptions const& opt,
   // Save the shape file and qml file. Will save a georef only if the images are
   // mapprojected. In that case the shapefile can be overlaid on top of L.tif.
   std::string shapeFile = output_prefix + "-tiles.shp";
-  std::string qmlFile = output_prefix + "-tiles.qml";
+  std::string qmlFile = output_prefix + "-tiles.qml"; // must match shapefile name
   vw::vw_out() << "Writing shape file: " << shapeFile << "\n";
   vw::vw_out() << "Writing qml file: " << qmlFile << "\n";
   vw::geometry::write_shapefile(shapeFile, is_map_projected, georef, polyVec,
                                 fieldId, tile_id_vec);
+  vw::geometry::writeQml(qmlFile, fieldId);
 }
 
 int main(int argc, char* argv[]) {
@@ -408,8 +409,8 @@ int main(int argc, char* argv[]) {
           vw::ImageView<PixelMask<Vector2f>> d_sub;
           vw::read_image(d_sub, d_sub_file);
           // Account for scale.
-          double left_scale = 0.5*( double(d_sub.cols())/left_image.cols() +
-                                    double(d_sub.rows())/left_image.rows());
+          double left_scale = 0.5*(double(d_sub.cols())/left_image.cols() +
+                                   double(d_sub.rows())/left_image.rows());
           left_sub_georef = resample(left_georef, left_scale);
           vw::cartography::block_write_gdal_image(d_sub_file, d_sub,
                                       has_left_georef, left_sub_georef,

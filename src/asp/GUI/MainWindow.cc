@@ -671,7 +671,7 @@ void MainWindow::createMenus() {
   connect(m_viewGeoreferencedImages_action, SIGNAL(triggered()),
           this, SLOT(viewGeoreferencedImages()));
   
-  // View overlayed georeferenced images
+  // View overlaid georeferenced images
   m_overlayGeoreferencedImages_action = new QAction(tr("Overlay georeferenced images"), this);
   m_overlayGeoreferencedImages_action->setStatusTip(tr("Overlay georeferenced images"));
   m_overlayGeoreferencedImages_action->setCheckable(true);
@@ -1876,7 +1876,7 @@ void MainWindow::polyEditMode() {
         app_data.use_georef = true;
         // If georeference information exists, draw polygons in that mode,
         // and any newly-created polygons will inherit the georeference.
-        popUp("To edit polygons, the data will be overlayed in one window using georeferences.");
+        popUp("To edit polygons, the data will be overlaid in one window using georeferences.");
         app_data.use_georef = true;
         m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
         m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef);

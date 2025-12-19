@@ -223,9 +223,9 @@ Diagnostics files
     is saved in ``*-dirList.txt``.
 
     When the images are mapprojected, the shapefile is saved in the projection
-    of the ``L.tif`` image and can be overlaid on top it in QGIS and
-    ``stereo_gui`` (:numref:`stereo_gui`). Otherwise the shapefile is in pixel
-    units, and is somewhat less useful.
+    of the ``L.tif`` image and can be overlaid on top ``L.tif`` and ``R.tif`` in
+    QGIS and ``stereo_gui`` (:numref:`stereo_gui`). Otherwise the shapefile is
+    in pixel units, and is somewhat less useful.
 
 .. _out_log_files:
 
@@ -253,19 +253,21 @@ Other files created at all stages
 Format of polygon files
 -----------------------
 
-The ``stereo_gui`` program can read and write polygons stored in plain text with
-a ``.txt`` or ``.csv`` extension. The x and y coordinates are stored as columns
-side-by side. Individual polygons are separated by an empty line. A color for
-the polygons is specified as a line of the form: ``color = red``. The given
-color applies to all polygons on subsequent lines until overridden by another
-such statement. How to create and save such files is shown in :numref:`plot_poly`.
+The ``stereo_gui`` program can read and write polygons in the shapefile format,
+and also in in plain text with a ``.txt`` or ``.csv`` extension
+(:numref:`plot_poly`). Here the plain text format is described.
+
+The x and y coordinates are stored as columns side-by side. Individual polygons
+are separated by an empty line. A color for the polygons is specified as a line
+of the form: ``color = red``. The given color applies to all polygons on
+subsequent lines until overridden by another such statement. How to create and
+save such files is shown in :numref:`plot_poly`.
 
 When such polygons are saved, a header will be added to the file, consisting of
 lines starting with the pound sign, containing the WKT string for the
 georeference, the value of ``--csv-format`` to interpret the vertices, and the
 style (usually set to ``poly``). This allows for overlaying polygons with
 different georeferences in ``stereo_gui``.
-
 
 Inspection and properties of the output files
 ---------------------------------------------
@@ -278,7 +280,7 @@ seen in this viewer as well.
 
 If the input images are map-projected (georeferenced) and the
 alignment method is ``none``, all the output images listed above, will
-also be georeferenced, and hence can be overlayed in ``stereo_gui`` on
+also be georeferenced, and hence can be overlaid in ``stereo_gui`` on
 top of the input images (the outputs of ``disparitydebug`` will then
 be georeferenced as well).
 

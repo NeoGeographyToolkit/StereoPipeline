@@ -1035,7 +1035,7 @@ using the ``point2mesh`` or ``point2dem`` tools, respectively.
 If the input images are mapprojected (georeferenced) and the alignment
 method is ``none``, all images output by stereo are georeferenced as
 well, such as GoodPixelMap, D_sub, disparity, etc. As such, all these
-data can be overlayed in ``stereo_gui``. ``disparitydebug`` also
+data can be overlaid in ``stereo_gui``. ``disparitydebug`` also
 preserves any georeference.
 
 .. _longrun:

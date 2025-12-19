@@ -265,7 +265,7 @@ such as::
 
 This should create ``run_bathy/run-bathy_mask-DRG.tif``.
 
-This should be overlayed in ``stereo_gui`` on top of the inliers
+This should be overlaid in ``stereo_gui`` on top of the inliers
 from the bathy plane calculation, as::
 
     stereo_gui --single-window --use-georef inliers.shp    \

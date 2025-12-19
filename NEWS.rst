@@ -1364,7 +1364,7 @@ stereo_gui:
     are distinct classes for a shapefile; the shapefile format
     requires that these not be mixed in the same file.)
   * Noticeable speedup when changing display mode (e.g., from
-    side-by-side to overlayed).
+    side-by-side to overlaid).
   * Bugfix when overlaying shapefiles with different georeferences.
   * Polygon layers can be set to desired colors from the left pane,
     when overlaid.
@@ -2099,7 +2099,7 @@ colormap
 
 stereo_gui
    * Use transparent pixels for displaying no-data values instead of black.
-   * Can delete or hillshade individual images when overlayed.
+   * Can delete or hillshade individual images when overlaid.
    * Add control to hide/show all images when in overlay mode.
 
 Misc
@@ -2233,7 +2233,7 @@ stereo
     * If the input images are map-projected (georeferenced) and 
       alignment method is none, all image outputs of stereo are
       georeferenced as well, such as GoodPixelMap, D_sub, disparity,
-      etc. As such, all these data can be overlayed in stereo_gui.
+      etc. As such, all these data can be overlaid in stereo_gui.
     * The output point cloud saves datum info from input images
       (even when the inputs are not georeferenced). 
     * Increased reliability of interest point detection.
