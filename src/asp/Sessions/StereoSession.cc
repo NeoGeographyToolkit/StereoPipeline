@@ -828,7 +828,8 @@ shared_preprocessing_hook(vw::GdalWriteOptions           & options,
                   << "dimensions than set via --left-image-crop-win.");
       }
     }
-
+    
+    // Crop the georef as well
     vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
     block_write_gdal_image(left_cropped_file,
                            left_cropped_image,
@@ -860,7 +861,8 @@ shared_preprocessing_hook(vw::GdalWriteOptions           & options,
                   << "dimensions than set via --right-image-crop-win.");
       }
     }
-
+    
+    // Crop the georef as well
     vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
     block_write_gdal_image(right_cropped_file,
                            right_cropped_image,

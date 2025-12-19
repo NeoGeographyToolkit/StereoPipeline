@@ -36,7 +36,6 @@
 
 using namespace vw;
 using namespace asp;
-using namespace std;
 namespace fs = boost::filesystem;
 
 // Find the tile at given location for a parallel_stereo run with local epipolar
@@ -119,6 +118,10 @@ void appendTileToPoly(int beg_x, int beg_y, int curr_tile_x, int curr_tile_y,
     }
     x = proj_x;
     y = proj_y;
+  } else {
+    // Only flip in y, to have the shapefiles agree with the images
+    for (size_t i = 0; i < x.size(); i++) 
+      y[i] = -y[i];
   }
   
   // Follow the dPoly API
@@ -167,12 +170,12 @@ void produceTiles(ASPGlobalOptions const& opt,
   bool have_D_sub = false;
   std::string d_sub_file = output_prefix + "-D_sub.tif";
   vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
-  vw::Vector2 upsample_scale(0, 0);
+  vw::Vector2 up_scale(0, 0);
   bool is_multiview = stereo_settings().part_of_multiview_run;
   if (stereo_settings().seed_mode != 0 && !is_multiview) {
     have_D_sub = true; 
     try {
-      asp::load_D_sub_and_scale(output_prefix, d_sub_file, sub_disp, upsample_scale);
+      asp::load_D_sub_and_scale(output_prefix, d_sub_file, sub_disp, up_scale);
     } catch (...) {
       // Keep on going if we cannot load D_sub. In that case we cannot exclude
       // the tiles with no data.
@@ -182,8 +185,8 @@ void produceTiles(ASPGlobalOptions const& opt,
 
   int tile_x = parallel_tile_size[0];
   int tile_y = parallel_tile_size[1];
-  int tiles_nx = int(ceil(double(trans_left_image_size[0]) / tile_x));
-  int tiles_ny = int(ceil(double(trans_left_image_size[1]) / tile_y));
+  int tiles_nx = int(std::ceil(double(trans_left_image_size[0]) / tile_x));
+  int tiles_ny = int(std::ceil(double(trans_left_image_size[1]) / tile_y));
 
   // Open the file for writing
   std::string dirList = output_prefix + "-dirList.txt";
@@ -208,10 +211,10 @@ void produceTiles(ASPGlobalOptions const& opt,
       bool has_valid_vals = true;
       if (have_D_sub) {
         has_valid_vals = false;
-        int min_sub_x = floor((beg_x - sgm_collar_size) / upsample_scale[0]);
-        int min_sub_y = floor((beg_y - sgm_collar_size) / upsample_scale[1]);
-        int max_sub_x = ceil((beg_x + curr_tile_x + sgm_collar_size) / upsample_scale[0]);
-        int max_sub_y = ceil((beg_y + curr_tile_y + sgm_collar_size) / upsample_scale[1]);
+        int min_sub_x = std::floor((beg_x - sgm_collar_size) / up_scale[0]);
+        int min_sub_y = std::floor((beg_y - sgm_collar_size) / up_scale[1]);
+        int max_sub_x = std::ceil((beg_x + curr_tile_x + sgm_collar_size) / up_scale[0]);
+        int max_sub_y = std::ceil((beg_y + curr_tile_y + sgm_collar_size) / up_scale[1]);
         
         min_sub_x = std::max(min_sub_x, 0);
         min_sub_y = std::max(min_sub_y, 0);
@@ -247,11 +250,11 @@ void produceTiles(ASPGlobalOptions const& opt,
   // Save the shape file and qml file. Will save a georef only if the images are
   // mapprojected. In that case the shapefile can be overlaid on top of L.tif.
   std::string shapeFile = output_prefix + "-tiles.shp";
-  std::string qmlFile = output_prefix + "-tiles.qml"; // must match shapefile name
   vw::vw_out() << "Writing shape file: " << shapeFile << "\n";
-  vw::vw_out() << "Writing qml file: " << qmlFile << "\n";
   vw::geometry::write_shapefile(shapeFile, is_map_projected, georef, polyVec,
                                 fieldId, tile_id_vec);
+  std::string qmlFile = output_prefix + "-tiles.qml"; // must match shapefile name
+  vw::vw_out() << "Writing qml file: " << qmlFile << "\n";
   vw::geometry::writeQml(qmlFile, fieldId);
 }
 
@@ -262,8 +265,8 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = true;
-    vector<ASPGlobalOptions> opt_vec;
-    string output_prefix;
+    std::vector<ASPGlobalOptions> opt_vec;
+    std::string output_prefix;
     asp::parse_multiview(argc, argv, ParseDescription(),
                          verbose, output_prefix, opt_vec);
     if (opt_vec.empty())
