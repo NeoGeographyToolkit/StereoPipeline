@@ -209,7 +209,7 @@ Diagnostics files
 
     The status is also printed to standard output as each tile gets done (unless
     there is only one tile).
-   
+
 \*-tiles.shp - shapefile having the tiles
 
     This file saves the tiles used in processing (:numref:`ps_tiling`). Each is

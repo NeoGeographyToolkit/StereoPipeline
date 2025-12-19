@@ -926,7 +926,7 @@ relative to the reference terrain.
 
 Then, the ``dem2gcp`` program (:numref:`dem2gcp`) can be invoked to create GCP
 that can fix this misregistration. Pass to this program the option
-``--max-disp`` if the disparity that is an input to that tool is not acuate in
+``--max-disp`` if the disparity that is an input to that tool is not accurate in
 flat areas. 
 
 Bundle adjustment can happen with these dense GCP, while optimizing all

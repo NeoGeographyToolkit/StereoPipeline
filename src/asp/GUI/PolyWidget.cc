@@ -329,10 +329,8 @@ void MainWidget::saveVectorLayerAsShapeFile() {
   // Save only polygons in the given layer. Polygons in other layers
   // can have individual georeferences.
   vw::vw_out() << "Writing: " << shapeFile << "\n";
-  std::vector<int> tmp(5, 0);
   vw::geometry::write_shapefile(shapeFile, has_geo, geo, 
-                                app_data.images[m_polyLayerIndex].polyVec,
-                                "poly_id", tmp);
+                                app_data.images[m_polyLayerIndex].polyVec);
 }
 
 // Save the currently created vector layer. Its index is m_polyLayerIndex.
