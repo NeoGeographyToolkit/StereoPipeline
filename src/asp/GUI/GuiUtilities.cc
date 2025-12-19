@@ -140,7 +140,7 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
       bool will_write = vw::mosaic::overwrite_if_no_good(input_file, output_file,
                                              input.cols(), input.rows());
       if (will_write) {
-        vw_out() << "Writing: " << output_file << std::endl;
+        vw_out() << "Writing: " << output_file << "\n";
         vw::cartography::do_multitype_hillshade(input_file, output_file, azimuth, elevation, scale,
                                                 nodata_val, blur_sigma, align_light_to_georef);
       }
@@ -152,7 +152,7 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
       bool will_write = vw::mosaic::overwrite_if_no_good(input_file, output_file,
                                              input.cols(), input.rows());
       if (will_write) {
-        vw_out() << "Writing: " << output_file << std::endl;
+        vw_out() << "Writing: " << output_file << "\n";
         vw::cartography::do_multitype_hillshade(input_file,  output_file,
                                                 azimuth, elevation, scale,
                                                 nodata_val, blur_sigma,
@@ -247,7 +247,7 @@ bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
   if (!vw::has_shp_extension(file))
     vw_throw(ArgumentErr() << "Expecting a shapefile as input, got: " << file << ".\n");
   
-  bool has_georef;
+  bool has_georef = false; // will change
   std::vector<vw::geometry::dPoly> polyVec;
   std::string poly_color;
   read_shapefile(file, poly_color, has_georef, georef, polyVec);
@@ -424,7 +424,7 @@ void read_csv_metadata(std::string              const& csv_file,
   }
 
   if (has_datum)
-    vw::vw_out() << "Using datum: " << georef.datum() << std::endl;
+    vw::vw_out() << "Using datum: " << georef.datum() << "\n";
   
   return;
 }
@@ -548,22 +548,22 @@ void imageData::load() {
   if (m_display_mode == REGULAR_VIEW) {
     if (loaded_regular) 
       return;
-    vw_out() << "Reading: " << name << std::endl; 
+    vw_out() << "Reading: " << name << "\n"; 
     loaded_regular = true;
   } else if (m_display_mode == HILLSHADED_VIEW) {
     if (loaded_hillshaded) 
       return;
-    vw_out() << "Reading: " << hillshaded_name << std::endl; 
+    vw_out() << "Reading: " << hillshaded_name << "\n"; 
     loaded_hillshaded = true;
   } else if (m_display_mode == THRESHOLDED_VIEW) {
     if (loaded_thresholded) 
       return;
-    vw_out() << "Reading: " << thresholded_name << std::endl; 
+    vw_out() << "Reading: " << thresholded_name << "\n"; 
     loaded_thresholded = true;
   } else if (m_display_mode == COLORIZED_VIEW) {
     if (loaded_colorized) 
       return;
-    vw_out() << "Reading: " << colorized_name << std::endl; 
+    vw_out() << "Reading: " << colorized_name << "\n"; 
     loaded_colorized = true;
   }
   
@@ -574,19 +574,16 @@ void imageData::load() {
     std::string poly_color = default_poly_color;
     if (color != "default" && color != "") 
       poly_color = color;
-    read_shapefile(name, poly_color, has_georef, georef, polyVec);
+    std::string fieldId = "tile_id"; // For reading tile geom written by stereo_parse 
+    read_shapefile(name, poly_color, has_georef, georef, polyVec, fieldId);
 
-    double xll, yll, xur, yur;
+    double xll = -1.0, yll = -1.0, xur = -1.0, yur = -1.0;
     shapefile_bdbox(polyVec,
-                    // Outputs
-                    xll, yll, xur, yur);
+                    xll, yll, xur, yur); // outputs
 
     image_bbox.min() = Vector2(xll, yll);
     image_bbox.max() = Vector2(xur, yur);
 
-    if (!has_georef)
-      vw_out() << "The shapefile lacks a georeference.\n";
-    
   } else if (asp::hasCsv(name)) {
 
     // Open a file and extract the values for: WKT:, csv-format:, style:
@@ -688,7 +685,7 @@ void imageData::writePoly(std::string const& polyFile) {
   bool has_geo = this->has_georef;
   vw::cartography::GeoReference const& geo = this->georef;
 
-  vw_out() << "Writing: " << polyFile << std::endl;
+  vw_out() << "Writing: " << polyFile << "\n";
 
   std::ofstream out(polyFile.c_str());
   if (!out.is_open())
@@ -696,7 +693,7 @@ void imageData::writePoly(std::string const& polyFile) {
 
   // Save to the file all properties that are needed on reading it back
   if (has_geo) {
-    out << "# WKT: " << geo.get_wkt() << std::endl;
+    out << "# WKT: " << geo.get_wkt() << "\n";
     if (geo.is_projected())
       out << "# csv-format: 1:easting,2:northing\n";
     else

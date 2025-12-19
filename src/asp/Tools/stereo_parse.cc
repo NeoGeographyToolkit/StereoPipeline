@@ -163,7 +163,7 @@ void produceTiles(ASPGlobalOptions const& opt,
   std::vector<vw::geometry::dPoly> polyVec(1);
   vw::geometry::dPoly & poly = polyVec[0]; // alias
   std::vector<int> tile_id_vec;
-  std::string fieldId = "tile_id"; 
+  std::string fieldId = "tile_id"; // Will be used on reading in stereo_gui as well
 
   // We check for valid D_sub only if seed_mode is not 0 and not part of a multiview
   // run, as that one is tricky to get right, given that each pair run has its own D_sub.

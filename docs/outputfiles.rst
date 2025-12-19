@@ -219,16 +219,20 @@ Diagnostics files
 
     A file named ``*-tiles.qml`` is also created. With this one present, when
     the shapefile is opened in QGIS, the tile index (an integer starting with
-    zero) will be printed inside each tile. Note that the actual tile list 
-    is saved in ``*-dirList.txt``.
+    zero) will be printed inside each tile. 
+    
+    The ``stereo_gui`` program (:numref:`stereo_gui`) can also read and display
+    this shapefile and the indices.
+    
+    Note that the actual tile list is saved in ``*-dirList.txt``.
 
     When the images are mapprojected, the shapefile is saved in the projection
     of the ``L.tif`` image and can be overlaid on top ``L.tif`` and ``R.tif`` in
-    QGIS and ``stereo_gui`` (:numref:`stereo_gui`). 
+    QGIS and ``stereo_gui``. 
     
     Otherwise the shapefile is in pixel units. The y coordinate is then written
     with the negative sign, so that the shapefile appears correctly on top of 
-    ``L.tif`` and ``R.tif`` in QGIS. 
+    ``L.tif`` and ``R.tif`` in QGIS and ``stereo_gui``.
 
 .. _out_log_files:
 
