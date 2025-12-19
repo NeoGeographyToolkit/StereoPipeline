@@ -23,13 +23,15 @@
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Tools/stereo.h>
+#include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Core/DisparityProcessing.h>
 
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/CorrelationView.h>
-#include <asp/Sessions/StereoSession.h>
-#include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/Core/DisparityProcessing.h>
+#include <vw/Cartography/shapeFile.h>
+
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
@@ -93,14 +95,36 @@ void find_tile_at_loc(std::string const& tile_at_loc, ASPGlobalOptions const& op
     vw_out() << "No tile found at location.\n"; 
 }
 
-// Produce the list of tiles for which D_sub has valid values.
-void produceTiles(std::string const& output_prefix, 
+// Produce the list of tiles. If D_sub is available, write only those tiles
+// for which D_sub has valid values. Also save a shape file with the tiles
+// and the tile index for each tile, to be read in QGIS for visualization.
+void produceTiles(ASPGlobalOptions const& opt,
+                  std::string const& output_prefix, 
                   vw::Vector2 const& trans_left_image_size,
                   vw::Vector2i const& parallel_tile_size,
                   int sgm_collar_size) {
 
   if (trans_left_image_size == vw::Vector2(0, 0))
       vw_throw(ArgumentErr() << "Cannot produce tiles without a valid L.tif.\n");
+
+  // This georeference has at least the datum
+  vw::cartography::GeoReference georef;
+  bool is_map_projected = opt.session->isMapProjected();
+  // If is mapprojected, read the georef from L.tif, as that is what is used for tiling.
+  // This should handle correctly --left-image-crop-win as well.
+  if (is_map_projected) {
+    std::string left_image_file = output_prefix + "-L.tif";
+    bool has_georef = vw::cartography::read_georeference(georef, left_image_file);
+    if (!has_georef)
+      vw_throw(ArgumentErr() << "L.tif has no georeference, cannot produce tiles.\n");
+  }
+  
+  // Will store here the tile structure for visualization. The API requires
+  // a vector of dPoly.
+  std::vector<vw::geometry::dPoly> polyVec(1);
+  vw::geometry::dPoly & poly = polyVec[0]; // alias
+  std::vector<int> tile_id_vec;
+  std::string fieldId = "tile_id"; 
 
   // We check for valid D_sub only if seed_mode is not 0 and not part of a multiview
   // run, as that one is tricky to get right, given that each pair run has its own D_sub.
@@ -113,7 +137,7 @@ void produceTiles(std::string const& output_prefix,
     have_D_sub = true; 
     try {
       asp::load_D_sub_and_scale(output_prefix, d_sub_file, sub_disp, upsample_scale);
-    }catch(...) {
+    } catch(...) {
       // Keep on going if we cannot load D_sub. Just cannot exclude the tiles
       // with no data then.
       have_D_sub = false;
@@ -130,6 +154,7 @@ void produceTiles(std::string const& output_prefix,
   std::ofstream ofs(dirList.c_str()); 
 
   // Iterate in iy from 0 to tiles_ny - 1, and in ix from 0 to tiles_nx - 1.
+  size_t tile_id = 0;
   for (int iy = 0; iy < tiles_ny; iy++) {
     for (int ix = 0; ix < tiles_nx; ix++) {
       
@@ -169,12 +194,49 @@ void produceTiles(std::string const& output_prefix,
         } 
       }
       
-      if (has_valid_vals)
+      if (has_valid_vals) {
+        // Save the tile
         ofs << output_prefix << "-" << beg_x << "_" << beg_y << "_" 
             << curr_tile_x << "_" << curr_tile_y << "\n";
+            
+         // Append the tile to the shape file structure
+         std::vector<double> x = {double(beg_x), double(beg_x + curr_tile_x), 
+                                  double(beg_x + curr_tile_x), double(beg_x)};
+          std::vector<double> y = {double(beg_y), double(beg_y), 
+                                   double(beg_y + curr_tile_y), double(beg_y + curr_tile_y)};
+          
+          // If mapproj, overwrite x and y with projected coordinates
+          if (is_map_projected) {
+            std::vector<double> proj_x, proj_y;
+            for (size_t i = 0; i < x.size(); i++) {
+              Vector2 pix_pt(x[i], y[i]);
+              Vector2 proj_pt = georef.pixel_to_point(pix_pt);
+              proj_x.push_back(proj_pt[0]);
+              proj_y.push_back(proj_pt[1]);
+            }
+            x = proj_x;
+            y = proj_y;
+          }
+         bool isPolyClosed = true;
+         std::string color = "green", layer = "";
+         poly.appendPolygon(x.size(), vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
+                            isPolyClosed, color, layer);
+         tile_id_vec.push_back(tile_id);
+        tile_id++;
+      }
     }
   }
+  ofs.close();
 
+  // Save the shape file and qml file. Both will happen inside write_shapefile.
+  // Will save a georef only if the images are mapprojected, so the left image
+  // georef can be used.
+  std::string shapeFile = output_prefix + "-tiles.shp";
+  std::string qmlFile = output_prefix + "-tiles.qml";
+  vw::vw_out() << "Writing shape file: " << shapeFile << "\n";
+  vw::vw_out() << "Writing qml file: " << qmlFile << "\n";
+  vw::geometry::write_shapefile(shapeFile, is_map_projected, georef, polyVec,
+                                fieldId, tile_id_vec);
 }
 
 int main(int argc, char* argv[]) {
@@ -300,7 +362,7 @@ int main(int argc, char* argv[]) {
     vw_out() << "correlator_mode," << stereo_settings().correlator_mode << "\n";
 
     if (asp::stereo_settings().parallel_tile_size != vw::Vector2i(0, 0)) 
-      produceTiles(output_prefix, trans_left_image_size, 
+      produceTiles(opt, output_prefix, trans_left_image_size, 
                    asp::stereo_settings().parallel_tile_size, sgm_collar_size);
 
     // Attach a georeference to this disparity. 

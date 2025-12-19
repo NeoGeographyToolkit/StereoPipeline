@@ -188,24 +188,44 @@ Files created at triangulation
     as before, the triangulated points.
 
 \*-PC-center.txt - the point cloud local origin (add this to cloud points 
-   to convert them to ECEF). Stored in plain text. Has the same information as
-   the ``POINT_OFFSET`` header in ``PC.tif``.
+    to convert them to ECEF). Stored in plain text. Has the same information as
+    the ``POINT_OFFSET`` header in ``PC.tif``.
 
 .. _stereo_diag:
 
 Diagnostics files
 ~~~~~~~~~~~~~~~~~
 
-As ``parallel_stereo`` runs, it updates in the output prefix location a file
-ending in ``stereo-status.txt`` that records the current processing step
-(:numref:`entrypoints`), the number of done tiles, and the total number of tiles
-(both for the current step). See :numref:`ps_tiling` for more details on tiling.
+\*-stereo-status.txt - processing status file
 
-For the preprocessing and filtering stages tiling is not done. Then, the number 
-of tiles is set to 1, and the number of done tiles is 0 if this stage is
-in progress, and 1 if it is done.
+    As ``parallel_stereo`` runs, it updates this file. It records the current
+    processing step (:numref:`entrypoints`), the number of done tiles, and the
+    total number of tiles (both for the current step). See :numref:`ps_tiling`
+    for more details on tiling.
 
-The status is also printed to standard output as each tile gets done.
+    For the preprocessing and filtering stages tiling is not done. Then, the number 
+    of tiles is set to 1, and the number of done tiles is 0 if this stage is
+    in progress, and 1 if it is done.
+
+    The status is also printed to standard output as each tile gets done (unless
+    there is only one tile).
+   
+\*-tiles.shp - shapefile having the tiles
+
+    This file saves the tiles used in processing (:numref:`ps_tiling`). Each is
+    shown as a rectangle (the units are described below). This file is produced
+    only by ``parallel_stereo``, and not by ``stereo``. The padding of each tile
+    (for ``asp_mgm`` for example) is not included.
+
+    A file named ``*-tiles.qml`` is also created. With this one present, when
+    the shapefile is opened in QGIS, the tile index (an integer starting with
+    zero) will be printed inside each tile. Note that the actual tile list 
+    is saved in ``*-dirList.txt``.
+
+    When the images are mapprojected, the shapefile is saved in the projection
+    of the ``L.tif`` image and can be overlaid on top it in QGIS and
+    ``stereo_gui`` (:numref:`stereo_gui`). Otherwise the shapefile is in pixel
+    units, and is somewhat less useful.
 
 .. _out_log_files:
 

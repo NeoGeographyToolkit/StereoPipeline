@@ -924,8 +924,10 @@ It is quite likely that the mapprojected images after the last bundle adjustment
 are much improved, but the stereo terrain model still shows systematic issues
 relative to the reference terrain. 
 
-Then, the ``dem2gcp`` program (:numref:`dem2gcp`) can be invoked to create 
-GCP that can fix this misregistration.
+Then, the ``dem2gcp`` program (:numref:`dem2gcp`) can be invoked to create GCP
+that can fix this misregistration. Pass to this program the option
+``--max-disp`` if the disparity that is an input to that tool is not acuate in
+flat areas. 
 
 Bundle adjustment can happen with these dense GCP, while optimizing all
 intrinsics and extrinsics. We will share none of the intrinsics (the optical
@@ -968,7 +970,8 @@ We invoked it as follows::
       -o jitter_sub16/run
 
 The GCP had a sigma of 100 or so, so less uncertainty than in
-``--heights-from-dem-uncertainty``, by a notable factor. 
+``--heights-from-dem-uncertainty``, by a notable factor. At higher resolution,
+and if confident in GCP, one can reduce the GCP uncertainty further.
 
 In practice we found that after one pass of the jitter solver and stereo DEM
 creation, it may be needed to run GCP creation with ``dem2gcp`` and bundle
