@@ -95,6 +95,42 @@ void find_tile_at_loc(std::string const& tile_at_loc, ASPGlobalOptions const& op
     vw_out() << "No tile found at location.\n"; 
 }
 
+// Append a tile to a given set of polygons
+void appendTileToPoly(int beg_x, int beg_y, int curr_tile_x, int curr_tile_y,
+                      bool is_map_projected,
+                      vw::cartography::GeoReference const& georef,
+                      vw::geometry::dPoly & poly,
+                      std::vector<int> & tile_id_vec,
+                      size_t tile_id) {
+
+  std::vector<double> x = {double(beg_x), double(beg_x + curr_tile_x), 
+                           double(beg_x + curr_tile_x), double(beg_x)};
+  std::vector<double> y = {double(beg_y), double(beg_y), 
+                           double(beg_y + curr_tile_y), double(beg_y + curr_tile_y)};
+          
+  // If mapproj, overwrite x and y with projected coordinates
+  if (is_map_projected) {
+    std::vector<double> proj_x, proj_y;
+    for (size_t i = 0; i < x.size(); i++) {
+      Vector2 pix_pt(x[i], y[i]);
+      Vector2 proj_pt = georef.pixel_to_point(pix_pt);
+      proj_x.push_back(proj_pt[0]);
+      proj_y.push_back(proj_pt[1]);
+    }
+    x = proj_x;
+    y = proj_y;
+  }
+  
+  // Follow the dPoly API
+  bool isPolyClosed = true;
+  std::string color = "green", layer = "";
+  poly.appendPolygon(x.size(), vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
+                     isPolyClosed, color, layer);
+  
+  // This will be needed for QGIS
+  tile_id_vec.push_back(tile_id);
+}
+
 // Produce the list of tiles. If D_sub is available, write only those tiles
 // for which D_sub has valid values. Also save a shape file with the tiles
 // and the tile index for each tile, to be read in QGIS for visualization.
@@ -137,9 +173,9 @@ void produceTiles(ASPGlobalOptions const& opt,
     have_D_sub = true; 
     try {
       asp::load_D_sub_and_scale(output_prefix, d_sub_file, sub_disp, upsample_scale);
-    } catch(...) {
-      // Keep on going if we cannot load D_sub. Just cannot exclude the tiles
-      // with no data then.
+    } catch (...) {
+      // Keep on going if we cannot load D_sub. In that case we cannot exclude
+      // the tiles with no data.
       have_D_sub = false;
     }
   }
@@ -153,7 +189,7 @@ void produceTiles(ASPGlobalOptions const& opt,
   std::string dirList = output_prefix + "-dirList.txt";
   std::ofstream ofs(dirList.c_str()); 
 
-  // Iterate in iy from 0 to tiles_ny - 1, and in ix from 0 to tiles_nx - 1.
+  // Go over all tiles
   size_t tile_id = 0;
   for (int iy = 0; iy < tiles_ny; iy++) {
     for (int ix = 0; ix < tiles_nx; ix++) {
@@ -200,37 +236,16 @@ void produceTiles(ASPGlobalOptions const& opt,
             << curr_tile_x << "_" << curr_tile_y << "\n";
             
         // Append the tile to the shape file structure
-        std::vector<double> x = {double(beg_x), double(beg_x + curr_tile_x), 
-                                 double(beg_x + curr_tile_x), double(beg_x)};
-        std::vector<double> y = {double(beg_y), double(beg_y), 
-                                 double(beg_y + curr_tile_y), double(beg_y + curr_tile_y)};
-          
-        // If mapproj, overwrite x and y with projected coordinates
-        if (is_map_projected) {
-          std::vector<double> proj_x, proj_y;
-          for (size_t i = 0; i < x.size(); i++) {
-            Vector2 pix_pt(x[i], y[i]);
-            Vector2 proj_pt = georef.pixel_to_point(pix_pt);
-            proj_x.push_back(proj_pt[0]);
-            proj_y.push_back(proj_pt[1]);
-          }
-          x = proj_x;
-          y = proj_y;
-        }
-        bool isPolyClosed = true;
-        std::string color = "green", layer = "";
-        poly.appendPolygon(x.size(), vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
-                           isPolyClosed, color, layer);
-        tile_id_vec.push_back(tile_id);
+        appendTileToPoly(beg_x, beg_y, curr_tile_x, curr_tile_y,
+                         is_map_projected, georef, poly, tile_id_vec, tile_id);
         tile_id++;
       }
     }
   }
   ofs.close();
 
-  // Save the shape file and qml file. Both will happen inside write_shapefile.
-  // Will save a georef only if the images are mapprojected, so the left image
-  // georef can be used.
+  // Save the shape file and qml file. Will save a georef only if the images are
+  // mapprojected. In that case the shapefile can be overlaid on top of L.tif.
   std::string shapeFile = output_prefix + "-tiles.shp";
   std::string qmlFile = output_prefix + "-tiles.qml";
   vw::vw_out() << "Writing shape file: " << shapeFile << "\n";
