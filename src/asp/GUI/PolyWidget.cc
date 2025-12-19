@@ -503,6 +503,9 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
   if (showIndices) {
     clippedPoly.compVertIndexAnno();
     clippedPoly.get_vertIndexAnno(annotations);
+  } else {
+    // Copy regular annotations from the file
+    clippedPoly.get_annotations(annotations);
   }
 
   const double * xv       = clippedPoly.get_xv();
@@ -597,11 +600,15 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
 
   // Plot the annotations
   int numAnno = annotations.size();
+  std::cout << "---num annotations: " << numAnno << "\n";
   for (int aIter = 0; aIter < numAnno; aIter++) {
-    const anno & A = annotations[aIter];
+    const anno & A = annotations[aIter]; // alias
     // Avoid points close to boundary, as were we clipped artificially
+    std::cout << "--check if in box: " << A.x << ' ' << A.y << "\n";
     if (! (A.x >= x_min && A.x <= x_max && A.y >= y_min && A.y <= y_max)) continue;
+    std::cout << "--in box, plotting: " << A.x << ' ' << A.y << ' ' << A.label << "\n";
     vw::Vector2 P = world2screen(vw::Vector2(A.x, A.y));
+    std::cout << "--p is " << P.x() << ' ' << P.y() << "\n";
     paint.setPen(QPen(QColor("gold"), lineWidth));
     paint.drawText(P.x(), P.y(), (A.label).c_str());
   } // End plotting annotations
@@ -666,6 +673,7 @@ void MainWidget::plotPolys(QPainter & paint) {
     for (size_t polyIter = 0; polyIter < polyVec.size(); polyIter++) {
 
       vw::geometry::dPoly poly = polyVec[polyIter]; // make a deep copy
+      
       if (poly.get_totalNumVerts() == 0)
         continue;
 
@@ -674,12 +682,23 @@ void MainWidget::plotPolys(QPainter & paint) {
       double *             xv  = poly.get_xv();
       double *             yv  = poly.get_yv();
       for (int vIter = 0; vIter < numVerts; vIter++) {
-        vw::Vector2 P;
-        P = app_data.proj2world(vw::Vector2(xv[vIter], yv[vIter]), image_it);
+        vw::Vector2 P = app_data.proj2world(vw::Vector2(xv[vIter], yv[vIter]), image_it);
         xv[vIter] = P.x();
         yv[vIter] = P.y();
       }
 
+      // Convert annotations to world units
+      std::vector<vw::geometry::anno> annotations;
+      poly.get_annotations(annotations);
+      std::cout << "--size of annotations is " <<annotations.size() << "\n";
+      for (size_t aIter = 0; aIter < annotations.size(); aIter++) {
+        vw::geometry::anno & A = annotations[aIter]; // alias
+        vw::Vector2 P = app_data.proj2world(vw::Vector2(A.x, A.y), image_it);
+        A.x = P.x();
+        A.y = P.y();
+      }
+      poly.set_annotations(annotations);
+      
       int drawVertIndex = 0;
       bool plotPoints = false, plotEdges = true, plotFilled = false;
       if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked()) {

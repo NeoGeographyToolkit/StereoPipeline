@@ -227,7 +227,8 @@ void findClosestPolyEdge(// inputs
 void formPoly(std::string              const& override_color,
               std::vector<int>         const& contiguous_blocks,
               std::vector<std::string> const& colors,
-              std::vector<vw::Vector3> const& scattered_data, // input vertices
+              std::vector<vw::geometry::anno> const& annotations,
+              std::vector<vw::Vector3> const& vertices,
               std::vector<vw::geometry::dPoly> & polyVec) {
 
   // Wipe the output
@@ -243,11 +244,11 @@ void formPoly(std::string              const& override_color,
     std::vector<double> x, y;
     for (int vertexIt = 0; vertexIt < contiguous_blocks[polyIt]; vertexIt++) {
       
-      if (vertexCount >= scattered_data.size())
+      if (vertexCount >= vertices.size())
         vw::vw_throw(vw::ArgumentErr() << "Book-keeping error in reading polygons.\n");
       
-      x.push_back(scattered_data[vertexCount].x());
-      y.push_back(scattered_data[vertexCount].y());
+      x.push_back(vertices[vertexCount].x());
+      y.push_back(vertices[vertexCount].y());
       vertexCount++;
     }
     
@@ -263,9 +264,11 @@ void formPoly(std::string              const& override_color,
                              vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
                              isPolyClosed, curr_color, layer);
   }
+  polyVec[0].set_annotations(annotations);
   
-  if (vertexCount != scattered_data.size()) 
-    vw::vw_throw(vw::ArgumentErr() << "The number of read vertices is not what is expected.\n");
+  if (vertexCount != vertices.size()) 
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "The number of read vertices is not what is expected.\n");
   
   return;
 }

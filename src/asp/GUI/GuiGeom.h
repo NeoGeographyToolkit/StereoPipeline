@@ -71,7 +71,8 @@ void deleteVerticesInBox(asp::AppData & app_data, vw::BBox2 const& box,
 void formPoly(std::string              const& override_color,
               std::vector<int>         const& contiguous_blocks,
               std::vector<std::string> const& colors,
-              std::vector<vw::Vector3> const& scattered_data, // input vertices
+              std::vector<vw::geometry::anno> const& annotations,
+              std::vector<vw::Vector3> const& vertices,
               std::vector<vw::geometry::dPoly> & polyVec);
 
   // Find the closest edge in a given vector of polygons to a given point.

@@ -620,6 +620,7 @@ void imageData::load() {
     
     std::vector<int> contiguous_blocks;
     std::vector<std::string> colors;
+    std::vector<vw::geometry::anno> annotations;
     colors.push_back(default_poly_color); // to provide a default color for the reader
 
     // Read the file
@@ -627,9 +628,11 @@ void imageData::load() {
     if (!isPoly)
       csv_conv.read_csv_file(name, pos_records);
     else
-      csv_conv.read_poly_file(name, pos_records, contiguous_blocks, colors);
+      csv_conv.read_poly_file(name, pos_records, contiguous_blocks, colors, annotations);
     
-    scattered_data.clear();
+    std::cout << "--size of annotations is " << annotations.size() << "\n";
+    
+    scattered_data.clear(); // note that this is a member variable
     vw::BBox3 bounds;
     for (auto iter = pos_records.begin(); iter != pos_records.end(); iter++) {
       Vector3 val = csv_conv.sort_parsed_vector3(*iter);
@@ -647,8 +650,21 @@ void imageData::load() {
     val_range[1] = bounds.max()[2];
 
     if (isPoly) {
-      asp::formPoly(color, contiguous_blocks, colors, scattered_data, polyVec);
+      asp::formPoly(color, contiguous_blocks, colors, annotations, scattered_data, polyVec);
       scattered_data.clear(); // the data is now in the poly structure
+    }
+    
+    if (isPoly) {
+      std::cout << "--name is name: " << name << "\n";
+      // std::cout << "--overwrite\n";
+      // polyVec.resize(1);
+      // polyVec[0].readPoly(name, false);
+      
+      // std::vector<vw::geometry::anno> annotations;
+      // polyVec[0].get_annotations(annotations);
+      // std::cout << "--size of annotations0 is " << annotations.size() << "\n";
+    } else {
+      std::cout << "---not poly\n";
     }
     
   }else{
@@ -673,6 +689,8 @@ void imageData::load() {
       image_bbox = BBox2(0, 0, colorized_img.cols(), colorized_img.rows());
     }
   }
+  
+  std::cout << "---done loading imageData\n";
 }
 
 // Save the polygons to a plain text file. This must be in sync

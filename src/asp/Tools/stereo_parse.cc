@@ -107,8 +107,8 @@ void appendTileToPoly(int beg_x, int beg_y, int curr_tile_x, int curr_tile_y,
   std::vector<double> y = {double(beg_y), double(beg_y), 
                            double(beg_y + curr_tile_y), double(beg_y + curr_tile_y)};
           
-  // If mapproj, overwrite x and y with projected coordinates
   if (is_map_projected) {
+    // If the images are mapprojected, overwrite x and y with projected coordinates
     std::vector<double> proj_x, proj_y;
     for (size_t i = 0; i < x.size(); i++) {
       Vector2 pix_pt(x[i], y[i]);

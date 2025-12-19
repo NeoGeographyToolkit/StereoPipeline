@@ -20,6 +20,7 @@
 
 #include <asp/Core/PointUtils.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/Geometry/geomUtils.h>
 
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/math/special_functions/next.hpp>
@@ -357,11 +358,13 @@ size_t asp::CsvConv::read_csv_file(std::string const & file_path,
 size_t asp::CsvConv::read_poly_file(std::string    const & file_path,
                                     std::list<CsvRecord> & output_list,
                                     std::vector<int>         & contiguous_blocks,
-                                    std::vector<std::string> & colors) const {
+                                    std::vector<std::string> & colors,
+                                    std::vector<vw::geometry::anno> & annotations) const {
 
   // Clear output object
   output_list.clear();
-
+  annotations.clear();
+  
   std::string color = "green"; // some default
   if (colors.size() > 0) {
     color = colors[0]; // use as default color what is passed from outside
@@ -379,22 +382,39 @@ size_t asp::CsvConv::read_poly_file(std::string    const & file_path,
   // Read through all the lines of the input file, parse each line, and build
   // the output list. We ignore failed lines and lines having colors, and use
   // them as separators between polygons.
-  bool success;
+  bool success = false;
   bool first_line = true; // TODO(oalexan1): Rename this to: quiet_on_failure.
   std::string line = "";
+  vw::geometry::anno annotation;
 
   while (std::getline(file, line, '\n')) {
+    
+    // Parse colors
     std::string local_color;
     if (parse_color(line, local_color)) {
       color = local_color;
       while (colors.size() < contiguous_blocks.size())
         colors.push_back(color); // catch up on colors
+      std::cout << "--parsed color " << color << "\n";
     }
 
-    CsvRecord new_record = asp::CsvConv::parse_csv_line(first_line, success, line);
+    std::cout << "--line is '" << line << "'\n";
+    
+    // Search for annotations
+    bool found_anno = false;
+    if (line.find("anno ") == 0 && vw::geometry::searchForAnnotation(line, annotation)) {
+      std::cout << "--success with anno: " << annotation.label << std::endl;
+      found_anno = true;
+      annotations.push_back(annotation);
+      success = false; // not a vertex
+    }
+    
+    CsvRecord new_record;
+    if (!found_anno) 
+      new_record = asp::CsvConv::parse_csv_line(first_line, success, line);
     first_line = true; // Because for now the api changes this var. To fix at some point.
 
-    if (success) {
+    if (success && !found_anno) {
       output_list.push_back(new_record);
       // This is a bugfix. If we are just starting a block, and there were some
       // invalid lines before, and some were colors, let the color of this
@@ -405,7 +425,8 @@ size_t asp::CsvConv::read_poly_file(std::string    const & file_path,
       }
       // add an element to the last block
       contiguous_blocks.back()++;
-    } else {
+    } else if (!found_anno) {
+      // An annotation does not force a new block
       if (contiguous_blocks.back() > 0) {
         contiguous_blocks.push_back(0); // Add a new block
         while (colors.size() < contiguous_blocks.size())

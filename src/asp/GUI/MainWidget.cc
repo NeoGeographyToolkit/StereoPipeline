@@ -1172,6 +1172,10 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   // as part of the drawImage() call? That will be a lot more efficient
   // than being redrawn any time the mouse moves, etc. But then how to handle
   // polygons being edited?
+  
+  std::cout << "--size of images is " << app_data.images.size() << "\n";
+  std::cout << "--size of poly vec is " << app_data.images[0].polyVec.size() << "\n";
+   
   MainWidget::plotPolys(paint);
   
   // Call another function to handle drawing the interest points

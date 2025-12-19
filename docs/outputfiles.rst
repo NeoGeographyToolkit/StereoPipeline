@@ -224,8 +224,11 @@ Diagnostics files
 
     When the images are mapprojected, the shapefile is saved in the projection
     of the ``L.tif`` image and can be overlaid on top ``L.tif`` and ``R.tif`` in
-    QGIS and ``stereo_gui`` (:numref:`stereo_gui`). Otherwise the shapefile is
-    in pixel units, and is somewhat less useful.
+    QGIS and ``stereo_gui`` (:numref:`stereo_gui`). 
+    
+    Otherwise the shapefile is in pixel units. The y coordinate is then written
+    with the negative sign, so that the shapefile appears correctly on top of 
+    ``L.tif`` and ``R.tif`` in QGIS. 
 
 .. _out_log_files:
 
@@ -268,6 +271,10 @@ lines starting with the pound sign, containing the WKT string for the
 georeference, the value of ``--csv-format`` to interpret the vertices, and the
 style (usually set to ``poly``). This allows for overlaying polygons with
 different georeferences in ``stereo_gui``.
+
+The plain text polygon file supports text labels. They should be on lines that
+start with the text ``anno`` (annotation), followed by a space, then the x and y
+coordinates, separated by spaces, then the text label.
 
 Inspection and properties of the output files
 ---------------------------------------------

@@ -236,13 +236,11 @@ int main(int argc, char** argv) {
           // Create hillshaded images. 
           std::string hillshaded_file;
           bool have_gui = false; // so we don't use a pop up before the gui got started
-          bool success = asp::write_hillshade(opt,
-                                                  have_gui,
-                                                  stereo_settings().hillshade_azimuth,
-                                                  stereo_settings().hillshade_elevation,
-                                                  images[i],
-                                                  // Output
-                                                  hillshaded_file);
+          bool success = asp::write_hillshade(opt, have_gui,
+                                              stereo_settings().hillshade_azimuth,
+                                              stereo_settings().hillshade_elevation,
+                                              images[i],
+                                              hillshaded_file); // output
           if (success) // build the pyramids
             img.read(hillshaded_file, opt, asp::HILLSHADED_VIEW);
         }
@@ -270,12 +268,12 @@ int main(int argc, char** argv) {
     
     // Start up the Qt GUI
     asp::MainWindow main_window(opt, images, output_prefix,
-                                    stereo_settings().grid_cols,
-                                    stereo_settings().window_size,
-                                    stereo_settings().single_window,
-                                    stereo_settings().use_georef,
-                                    properties,
-                                    argc, argv);
+                                stereo_settings().grid_cols,
+                                stereo_settings().window_size,
+                                stereo_settings().single_window,
+                                stereo_settings().use_georef,
+                                properties,
+                                argc, argv);
     
     main_window.show();
     app.exec();
