@@ -395,18 +395,14 @@ size_t asp::CsvConv::read_poly_file(std::string    const & file_path,
       color = local_color;
       while (colors.size() < contiguous_blocks.size())
         colors.push_back(color); // catch up on colors
-      std::cout << "--parsed color " << color << "\n";
     }
 
-    std::cout << "--line is '" << line << "'\n";
-    
     // Search for annotations
     bool found_anno = false;
     if (line.find("anno ") == 0 && vw::geometry::searchForAnnotation(line, annotation)) {
-      std::cout << "--success with anno: " << annotation.label << std::endl;
-      found_anno = true;
       annotations.push_back(annotation);
-      success = false; // not a vertex
+      found_anno = true;
+      success = false;
     }
     
     CsvRecord new_record;

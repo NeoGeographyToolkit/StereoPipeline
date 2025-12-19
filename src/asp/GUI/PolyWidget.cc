@@ -600,15 +600,11 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
 
   // Plot the annotations
   int numAnno = annotations.size();
-  std::cout << "---num annotations: " << numAnno << "\n";
   for (int aIter = 0; aIter < numAnno; aIter++) {
     const anno & A = annotations[aIter]; // alias
     // Avoid points close to boundary, as were we clipped artificially
-    std::cout << "--check if in box: " << A.x << ' ' << A.y << "\n";
     if (! (A.x >= x_min && A.x <= x_max && A.y >= y_min && A.y <= y_max)) continue;
-    std::cout << "--in box, plotting: " << A.x << ' ' << A.y << ' ' << A.label << "\n";
     vw::Vector2 P = world2screen(vw::Vector2(A.x, A.y));
-    std::cout << "--p is " << P.x() << ' ' << P.y() << "\n";
     paint.setPen(QPen(QColor("gold"), lineWidth));
     paint.drawText(P.x(), P.y(), (A.label).c_str());
   } // End plotting annotations
@@ -690,7 +686,6 @@ void MainWidget::plotPolys(QPainter & paint) {
       // Convert annotations to world units
       std::vector<vw::geometry::anno> annotations;
       poly.get_annotations(annotations);
-      std::cout << "--size of annotations is " <<annotations.size() << "\n";
       for (size_t aIter = 0; aIter < annotations.size(); aIter++) {
         vw::geometry::anno & A = annotations[aIter]; // alias
         vw::Vector2 P = app_data.proj2world(vw::Vector2(A.x, A.y), image_it);
