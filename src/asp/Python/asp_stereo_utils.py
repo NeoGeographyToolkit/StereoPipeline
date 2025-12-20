@@ -27,7 +27,7 @@ import os.path as P
 from asp_system_utils import *
 from asp_alg_utils import *
 
-import asp_system_utils, asp_string_utils
+import asp_system_utils, asp_string_utils, asp_cmd_utils
 asp_system_utils.verify_python_version_is_supported()
 
 # For consistency with C++
@@ -89,62 +89,6 @@ def stereoProgName(step):
     else:
         return 'stereo_unknown'
 
-# Utilities to ensure that the Python parser does not garble negative
-# values such as '-365' into '-3'.
-escapeStr='esc_rand_str'
-def escape_vals(vals):
-    for index, val in enumerate(vals):
-        p = re.match(r"^-[\.\d]", val)
-        if p:
-            vals[index] = escapeStr + val
-    return vals
-
-def unescape_vals(vals):
-    for index, val in enumerate(vals):
-        p = re.match(r"^" + escapeStr + "(-.*?)$", val)
-        if p:
-            vals[index] = p.group(1)
-    return vals
-
-def clean_args(args):
-    '''Fix various problems that can happen in the input args'''
-    args = unescape_vals(args)
-    argsout = []
-    return args
-
-# TODO(oalexan1): Move to asp_cmd_utils.py
-# TODO(oalexan1): Run parallel_bundle_adjust with no options and see this fail.
-def get_option(options, opt, n):
-    # In the array 'options', find and return the entry with value 'opt'
-    #  and the next n values.
-    output = []
-    r = options.index(opt)
-    if r < len(options):
-        output.append(options[r])
-    for i in range(1,n+1):
-        if r+i < len(options):
-            output.append(options[r+i])
-    return output
-
-# TODO(oalexan1): Move to asp_cmd_utils.py
-def set_option(options, opt, new_values):
-    '''In the array 'options', find the entry with value 'opt'.
-    Replace the next values with new_values.'''
-
-    if opt in options:
-        # The option is already included, update its value.
-        r = options.index(opt)
-        if r < len(options):
-            r += 1
-            for i in new_values:
-                if r < len(options):
-                  options[r] = str(i)
-                r += 1
-    else: # The option is not present, add it.
-        options.append(opt)
-        for i in new_values:
-            options.append(str(i))
-
 # This is a bugfix for OpenBLAS on the Mac. It cannot handle
 # too many threads.
 def reduce_num_threads_in_pprc(cmd):
@@ -154,7 +98,7 @@ def reduce_num_threads_in_pprc(cmd):
 
         os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
-        num_threads_arr = get_option(cmd, '--threads', 1)
+        num_threads_arr = asp_cmd_utils.get_option(cmd, '--threads', 1)
         if len(num_threads_arr) > 1:
             num_threads = int(num_threads_arr[1])
         else:
@@ -164,7 +108,7 @@ def reduce_num_threads_in_pprc(cmd):
         num_threads = min(num_threads, 4)
         num_threads = max(num_threads, 1)
 
-        set_option(cmd, '--threads', [num_threads])
+        asp_cmd_utils.set_option(cmd, '--threads', [num_threads])
 
     return cmd
 

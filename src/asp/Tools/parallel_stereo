@@ -397,10 +397,10 @@ def tile_run(prog, args, opt, settings, tile, **kw):
     '''Job launch wrapper for a single tile'''
 
     if prog != 'stereo_blend':  # Set collar_size argument to zero in almost all cases.
-        set_option(args, '--sgm-collar-size', [0])
+        asp_cmd_utils.set_option(args, '--sgm-collar-size', [0])
 
     # Get tool path and output prefix
-    binpath = bin_path(prog)
+    binpath = asp_system_utils.bin_path(prog)
     out_prefix = settings['out_prefix'][0]
 
     # Measure the memory usage on Linux and elapsed time
@@ -424,7 +424,7 @@ def tile_run(prog, args, opt, settings, tile, **kw):
         # the entire tile in one go.
         if use_padded_tiles(settings) and prog == 'stereo_corr':
             curr_tile_size = max(adjusted_tile.width, adjusted_tile.height)
-            set_option(args, '--corr-tile-size', [curr_tile_size])
+            asp_cmd_utils.set_option(args, '--corr-tile-size', [curr_tile_size])
 
         # Set up the call string
         call = [binpath]
@@ -500,7 +500,7 @@ def tile_run(prog, args, opt, settings, tile, **kw):
 def normal_run(prog, opt, args, out_prefix, **kw):
     '''Job launch wrapper for a non-tile stereo call.'''
 
-    binpath = bin_path(prog)
+    binpath = asp_system_utils.bin_path(prog)
     call = [binpath]
     call.extend(args)
     
@@ -616,7 +616,7 @@ def set_collar_size(new_collar_size, args, settings):
     """
     
     collar_size = new_collar_size
-    set_option(args, '--sgm-collar-size', [str(collar_size)])
+    asp_cmd_utils.set_option(args, '--sgm-collar-size', [str(collar_size)])
     settings['collar_size'] = [str(collar_size)]
     return (settings, args)
 
@@ -814,7 +814,7 @@ if __name__ == '__main__':
                    help="Do not launch the jobs, only print the commands that should be run.")
 
     (opt, args) = p.parse_known_args()
-    args = clean_args(args)
+    args = asp_cmd_utils.clean_args(args)
     
     if opt.version:
         asp_system_utils.print_version_and_exit()

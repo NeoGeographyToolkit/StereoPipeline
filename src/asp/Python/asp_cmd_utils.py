@@ -82,3 +82,56 @@ def isCmdOption(arg):
     else:
         return False
 
+# Utilities to ensure that the Python parser does not garble negative
+# values such as '-365' into '-3'.
+escapeStr='esc_rand_str'
+def escape_vals(vals):
+    for index, val in enumerate(vals):
+        p = re.match(r"^-[\.\d]", val)
+        if p:
+            vals[index] = escapeStr + val
+    return vals
+
+def unescape_vals(vals):
+    for index, val in enumerate(vals):
+        p = re.match(r"^" + escapeStr + "(-.*?)$", val)
+        if p:
+            vals[index] = p.group(1)
+    return vals
+
+def clean_args(args):
+    '''Fix various problems that can happen in the input args'''
+    args = unescape_vals(args)
+    argsout = []
+    return args
+
+def get_option(options, opt, n):
+    # In the array 'options', find and return the entry with value 'opt'
+    #  and the next n values.
+    output = []
+    r = options.index(opt)
+    if r < len(options):
+        output.append(options[r])
+    for i in range(1,n+1):
+        if r+i < len(options):
+            output.append(options[r+i])
+    return output
+
+def set_option(options, opt, new_values):
+    '''In the array 'options', find the entry with value 'opt'.
+    Replace the next values with new_values.'''
+
+    if opt in options:
+        # The option is already included, update its value.
+        r = options.index(opt)
+        if r < len(options):
+            r += 1
+            for i in new_values:
+                if r < len(options):
+                  options[r] = str(i)
+                r += 1
+    else: # The option is not present, add it.
+        options.append(opt)
+        for i in new_values:
+            options.append(str(i))
+
