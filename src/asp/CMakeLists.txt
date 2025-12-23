@@ -240,7 +240,7 @@ if (USE_ISIS)
   # For now, this is needed only for Linux. When upgrading ISIS on the Mac,
   # it will be needed also.
   if (LINUX)
-    find_external_library(SPICEQL ${ASP_DEPS_DIR} "" "SpiceQL" REQUIRED)
+    #find_external_library(SPICEQL ${ASP_DEPS_DIR} "" "SpiceQL" REQUIRED)
   endif()
 
   # Some ISIS headers include Qt headers in a way that requires the include below
@@ -301,7 +301,9 @@ set(PDAL_LIB_NAMES pdal_plugin_kernel_fauxplugin
                    # pdal_plugin_reader_hdf
                    # pdal_plugin_reader_pgpointcloud
                    # pdal_plugin_writer_pgpointcloud
-                   pdal_plugin_reader_tiledb pdal_plugin_writer_tiledb pdalcpp)
+                   #pdal_plugin_reader_tiledb 
+                   #pdal_plugin_writer_tiledb 
+                   pdalcpp)
 find_external_library(PDAL ${ASP_DEPS_DIR} "pdal" "${PDAL_LIB_NAMES}" REQUIRED)
 
 set(TBB_LIB_NAMES tbb tbbmalloc tbbmalloc_proxy)
