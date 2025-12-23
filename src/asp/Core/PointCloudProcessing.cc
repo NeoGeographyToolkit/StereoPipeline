@@ -621,7 +621,7 @@ void las_or_csv_to_tif(std::string const& in_file,
                           opt, out_prefix, out_files);
     pdal::Options write_options;
     // The option below will be needed when upgrading PDAL. For now it fails.
-    // write_options.add("filename", in_file); // not used, part of API
+    write_options.add("filename", in_file); // not used, part of API
     writer.setOptions(write_options);
     writer.setInput(*pdal_reader);
     writer.prepare(t);
