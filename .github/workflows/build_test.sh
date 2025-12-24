@@ -38,8 +38,8 @@ if [ "$isArm64" != "" ]; then
     envName=isis_dev
 else
     echo "Platform: Intel Mac"
-    tag=asp_deps_mac_x64_v6
-    envName=asp_deps
+    tag=asp_deps_mac_x64_v7
+    envName=isis9.0
 fi
 
 # Fetch and unzip the ASP dependencies
@@ -146,6 +146,12 @@ echo Packaging the build
 cd $baseDir
 git clone https://github.com/NeoGeographyToolkit/BinaryBuilder
 cd BinaryBuilder
+num=$(ls -d $HOME/*conda3/envs/python* | wc -l)
+# Must have exactly one python env
+if [ "$num" -ne 1 ]; then
+    echo "Error: Expected exactly one python env, found $num"
+    exit 1
+fi
 export ISISROOT=$envPath # needed for Mac Arm
 ./make-dist.py $installDir \
   --asp-deps-dir $envPath  \
