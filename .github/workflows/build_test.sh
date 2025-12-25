@@ -30,16 +30,16 @@ fi
 isArm64=$(uname -m | grep arm64)
 
 # The ASP dependencies at the location below are updated using the script
-# save_mac_deps.sh. See that script for more info.
-# TODO(oalexan1): Convert below envName to be asp_deps.
+# save_mac_deps.sh. See that script for more info. Sometimes the names and
+# versions of these change during development.
 if [ "$isArm64" != "" ]; then
     echo "Platform: Arm64 Mac"
-    tag=asp_deps_mac_arm64_v2
-    envName=isis_dev
+    tag=asp_deps_mac_arm64_v1
+    envName=asp_deps
 else
     echo "Platform: Intel Mac"
-    tag=asp_deps_mac_x64_v7
-    envName=isis9.0
+    tag=asp_deps_mac_x64_v1
+    envName=asp_deps
 fi
 
 # Fetch and unzip the ASP dependencies
@@ -53,6 +53,11 @@ if [ ! -d "$envPath" ]; then
     exit 1
 fi
 export PATH=$envPath/bin:$PATH
+
+# These are of help in interactive mode but are not strictly needed in batch mode
+conda init
+source ~/.bash_profile
+conda activate $envName
 
 # Must use the linker from the conda environment to avoid issues with recent Intel Mac.
 # The linker can be installed with conda as package ld64_osx-64 on conda forge.
@@ -199,10 +204,10 @@ tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 
 # Note: If the test results change, a new tarball with latest scripts and test
 # results must be uploaded. That is done by running the script:
-# StereoPipeline/.github/workflows/update_mac_tests.sh in the local directory
-# having the Mac artifact fetched from the cloud, that is, the directory having
-# the tarball StereoPipelineTest.tar. That artifact will be uploaded further
-# down.
+# StereoPipeline/.github/workflows/update_mac_tests.sh in the local directory.
+# The nightly build script fetches the testa data with the latest and reference
+# results in tarball StereoPipelineTest.tar. That artifact will be uploaded
+# further down.
 
 # Go to the test dir
 if [ ! -d "$testDir" ]; then
@@ -221,7 +226,7 @@ for d in ss*; do
     if [ ! -d "$d" ]; then continue; fi
 
     cd $d
-    pwd
+    echo Running test in $(pwd)
     ./run.sh > output.txt 2>&1
     ./validate.sh >> output.txt 2>&1
     ans0=$?
@@ -246,8 +251,8 @@ fi
 # Create the artifacts dir that will be saved
 mkdir -p $packageDir
     
-# Save the resulting test results as part of the artifacts
-# This helps with debugging later
+# Save the resulting test results as part of the artifacts. See above for how 
+# to use this to update the test results in the cloud.
 echo Copying the build
 (cd $testDir/..; tar cf $packageDir/$(basename $testDir).tar $(basename $testDir))
 

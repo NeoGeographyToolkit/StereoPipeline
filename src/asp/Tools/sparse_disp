@@ -47,12 +47,12 @@ try:
     from osgeo import gdal, gdalconst
 except ImportError:    
     import gdal, gdalconst
+gdal.UseExceptions()
     
 import numpy as np
-import scipy as sp
-import scipy.ndimage.filters as sf
+import scipy.ndimage as sf
 import scipy.stats as ss
-import scipy.spatial as sp
+import scipy.spatial as spatial
 from scipy.ndimage import convolve, binary_dilation, convolve1d
 from scipy.sparse import coo_matrix
 from scipy.interpolate import griddata
@@ -838,10 +838,10 @@ def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_use):
         return ep_vec_initial, np.zeros([1,2])
 
     P_use   =100*np.array([(1-F_use)/2., (F_use+1.)/2.])
-    ctr_vals=((dxy[:,0] >= ss.scoreatpercentile(dxy[:,0], P_use[0])) & 
-              (dxy[:,0] <= ss.scoreatpercentile(dxy[:,0], P_use[1])) & 
-              (dxy[:,1] >= ss.scoreatpercentile(dxy[:,1], P_use[0])) & 
-              (dxy[:,1] <= ss.scoreatpercentile(dxy[:,1], P_use[1]))  )
+    ctr_vals=((dxy[:,0] >= np.percentile(dxy[:,0], P_use[0])) & 
+              (dxy[:,0] <= np.percentile(dxy[:,0], P_use[1])) & 
+              (dxy[:,1] >= np.percentile(dxy[:,1], P_use[0])) & 
+              (dxy[:,1] <= np.percentile(dxy[:,1], P_use[1]))  )
     good        = ctr_vals & np.array(C.ravel()>C_tol, dtype=bool)
     dxy1        = np.array(dxy[good.ravel(),:])
     dxy_ctr     = np.array([np.median(dxy1[:,0]), np.median(dxy1[:,1])])
@@ -1145,7 +1145,7 @@ def main():
         good_indices, ep_dist = test_epipolar(dxy_ctr, ep_vec, dxy, tolerance)
         
         # Get the 90th percentile distance from the epipolar line
-        ep_f90 = ss.scoreatpercentile(ep_dist[corr_scores.ravel() > corr_score_tolerance], 90)
+        ep_f90 = np.percentile(ep_dist[corr_scores.ravel() > corr_score_tolerance], 90)
         # Use the 90th percentile dist as the tolerance unless it falls out of bounds
         ep_tol = np.minimum(ep_tol_max, np.maximum(ep_tol_min, ep_f90))
         
@@ -1155,7 +1155,7 @@ def main():
             ep_vec, dxy_ctr = est_epipolar_vec(dxy        [good_indices,:], 
                                                corr_scores[good_indices,:], 
                                                corr_score_tolerance, None, F_ep_pts_to_use)
-            ep_f90          = ss.scoreatpercentile(ep_dist[corr_scores.ravel() > corr_score_tolerance], 90)
+            ep_f90          = np.percentile(ep_dist[corr_scores.ravel() > corr_score_tolerance], 90)
             ep_tol          = np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
             good_indices, ep_dist   = test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
         print(" --- ep vec estimated at(%f,%f), tolerance=%f, ep_dist_f90=%f" 
@@ -1183,7 +1183,7 @@ def main():
     
     # ???
     # Perform triangulation of points, then get min/max dx and dy differences with the neighboring points.
-    tri        = sp.Delaunay(all_pts)
+    tri        = spatial.Delaunay(all_pts)
     pt_dict    = make_pt_2_neighbors(tri)
     dxy_score  = neighborhood_range(np.arange(0, all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
     indices_to_refine = np.arange(0, xy_list.shape[0] )
@@ -1280,7 +1280,7 @@ def main():
             ep_vec, dxy_ctr = est_epipolar_vec(dxy, C, corr_score_tolerance)
 
         # Triangulate all the good points so far
-        tri     = sp.Delaunay(all_pts)
+        tri     = spatial.Delaunay(all_pts)
         pt_dict = make_pt_2_neighbors(tri)
         # Zero out points for which delta(disparity)/delta(dist) is too large
         # - ie, delete points with too rapid rate of disparity change.
@@ -1300,7 +1300,7 @@ def main():
 
             all_pts   = np.c_[score_mat.nonzero()]
             all_pts   = all_pts[:,[1,0]];
-            tri       = sp.Delaunay(all_pts)
+            tri       = spatial.Delaunay(all_pts)
             pt_dict   = make_pt_2_neighbors(tri)
             dxy_score = neighborhood_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
 
@@ -1333,8 +1333,8 @@ def main():
     R_dx_mat     = coo_matrix((R_dx, [all_pts[:,1], all_pts[:,0]]), im_shape).tocsr()
     R_dy_mat     = coo_matrix((R_dy, [all_pts[:,1], all_pts[:,0]]), im_shape).tocsr()
     R_dxy_score  = neighborhood_range(range(all_pts.shape[0]), R_dx_mat, R_dy_mat, tri, pt_dict)
-    P99          = (ss.scoreatpercentile(R_dxy_score[:,OFFSET_MIN_X], 99), 
-                    ss.scoreatpercentile(R_dxy_score[:,OFFSET_MIN_Y], 99))
+    P99          = (np.percentile(R_dxy_score[:,OFFSET_MIN_X], 99), 
+                    np.percentile(R_dxy_score[:,OFFSET_MIN_Y], 99))
     R_max        = np.maximum(P99,   options.R_lim_min)
     R_max        = np.minimum(R_max, options.R_limax_disp_range)
     bad_xy       = all_pts[np.logical_or((R_dxy_score[:,OFFSET_MIN_X] > R_max[0]),  
@@ -1362,7 +1362,7 @@ def main():
         return -1
     
     # Triangulate all the good points so far
-    tri       = sp.Delaunay(all_pts)
+    tri       = spatial.Delaunay(all_pts)
     pt_dict   = make_pt_2_neighbors(tri)
 
     # Check the score for output, ignore differences for points separated by more than 2*coarse skip
@@ -1372,7 +1372,7 @@ def main():
 
     print("--------output stats------")
     for pct in (99, 95, 90, 84):
-        P = (pct, ss.scoreatpercentile(R_dx, pct), ss.scoreatpercentile(R_dy, pct))
+        P = (pct, np.percentile(R_dx, pct), np.percentile(R_dy, pct))
         print("%dth percetiles (rx,ry) = (%5.2f %5.2f)" % P)
 
     dx = dx_mat   [all_pts[:,1], all_pts[:,0]].transpose()

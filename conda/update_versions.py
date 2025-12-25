@@ -36,7 +36,13 @@ outDir = sys.argv[2]
 outFile = outDir + "/recipe/meta.yaml"
 if not os.path.exists(outFile):
     print("Cannot open file: " + outFile)
-    sys.exit(1)
+    # Recent versions of conda-build use recipe/recipe.yaml
+    outFile = outDir + "/recipe/recipe.yaml"
+    if not os.path.exists(outFile):
+        print("Cannot open file: " + outFile)
+        sys.exit(1)
+    else:
+        print("Found file: " + outFile)
 
 # parse the versions from the conda env
 conda_env = {}
@@ -79,7 +85,7 @@ for it in range(len(lines)):
         # We are not in the dependencies section
         continue
            
-    if 'test:' in line:
+    if 'test:' in line or 'tests:' in line or 'about:' in line:
         # We are at the end of the dependencies
         break
 

@@ -2,9 +2,10 @@
 
 # Given the latest test results for Mac, as fetched (automatically) from the
 # cloud as an artifact, update the reference results and push the updated tests
-# back to the cloud.
+# back to the cloud. See build_test.sh for how this gets prepared and downloaded
+# to the machine that launches the build and regressions.
 
-# The tarball having the tests
+# The tarball having the tests.
 data=StereoPipelineTest.tar
 
 # Check if it exists

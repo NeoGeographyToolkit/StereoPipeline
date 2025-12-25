@@ -398,39 +398,33 @@ make -j${CPU_COUNT} install
 # PDAL
 git clone https://github.com/PDAL/PDAL.git
 cd PDAL
-git checkout 2.6.0
+git checkout 2.9.3
 mkdir -p build
 cd build
-export PREFIX=/Users/runner/miniconda3/envs/asp_deps
+export PREFIX=$HOME/miniconda3/envs/asp_deps
+ldflags="-Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib -lgeotiff -lcurl -lssl -lxml2 -lcrypto -lzstd -lz"
 if [ "$(uname)" = "Darwin" ]; then
     EXT='.dylib'
 else
     EXT='.so'
+    # add unwind to ldflags on Linux
+    ldflags="$ldflags -lunwind"
 fi
-if [ "$(uname)" = "Darwin" ]; then
-    cc_comp=clang
-    cxx_comp=clang++
-else
-    cc_comp=x86_64-conda-linux-gnu-gcc
-    cxx_comp=x86_64-conda-linux-gnu-c++
-fi
-ldflags="-Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib -lgeotiff -lcurl -lssl -lxml2 -lcrypto -lzstd -lz"
+# Compilers should be auto-detected if the env is activated
+# and has both them and cmake installed.
 cmake ${CMAKE_ARGS}                                      \
-  -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp              \
-  -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp           \
   -DBUILD_SHARED_LIBS=ON                                 \
   -DCMAKE_BUILD_TYPE=Release                             \
   -DCMAKE_INSTALL_PREFIX=$PREFIX                         \
   -DCMAKE_PREFIX_PATH=$PREFIX                            \
-  -DDIMBUILDER_EXECUTABLE=$DIMBUILDER                    \
   -DBUILD_PLUGIN_I3S=OFF                                 \
   -DBUILD_PLUGIN_TRAJECTORY=OFF                          \
   -DBUILD_PLUGIN_E57=OFF                                 \
-  -DBUILD_PLUGIN_PGPOINTCLOUD=ON                         \
+  -DBUILD_PLUGIN_PGPOINTCLOUD=OFF                        \
   -DBUILD_PLUGIN_ICEBRIDGE=OFF                           \
   -DBUILD_PLUGIN_NITF=OFF                                \
-  -DBUILD_PLUGIN_TILEDB=ON                               \
-  -DBUILD_PLUGIN_HDF=ON                                  \
+  -DBUILD_PLUGIN_TILEDB=OFF                              \
+  -DBUILD_PLUGIN_HDF=OFF                                 \
   -DBUILD_PLUGIN_DRACO=OFF                               \
   -DENABLE_CTEST=OFF                                     \
   -DWITH_TESTS=OFF                                       \
@@ -459,6 +453,7 @@ cmake ${CMAKE_ARGS}                                      \
   -DPROJ_INCLUDE_DIR=${PREFIX}/include                   \
   -DPROJ_LIBRARY:FILEPATH=${PREFIX}/lib/libproj${EXT}    \
   ..
+make -j${CPU_COUNT} install
 
 # OpenEXR
 # This will be removed from ASP
