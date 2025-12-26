@@ -1,9 +1,9 @@
 Installation
 ============
 
-Precompiled binaries are available for the stable releases and the
-current development build. Stereo Pipeline can also be compiled from
-source, but this is not recommended (:numref:`building_asp`).
+Precompiled binaries are available for the stable releases and the current
+development build. Conda packages exist for the stable versions
+(:numref:`conda_intro`).
 
 .. _release:
 
@@ -64,70 +64,6 @@ Windows using the `Windows Subsystem for Linux
 <https://learn.microsoft.com/en-us/windows/wsl/install>`_ (WSL). Once a recent
 Linux distribution is installed and verified to work, the installation steps are
 the same as for Linux.
-
-Conda and docker
-----------------
-
-The latest ASP release (3.6.0) can be installed with conda
-(:numref:`conda_intro`).
-
-ASP can be installed with Docker (`instructions
-<https://github.com/uw-cryo/asp-binder>`_).
-
-Post-installation
------------------
- 
-The next steps depend on whether it is desired to process planetary (non-Earth),
-Earth, or aerial images.
- 
-.. _planetary_images:
-
-Planetary images
-~~~~~~~~~~~~~~~~
-
-To process images from NASA's spacecraft that are exploring other planets,
-install ISIS and its data. Summary of the steps:
-
-#. Fetch ISIS binaries and install, following
-   https://github.com/DOI-USGS/ISIS3#installation
-
-#. Fetch ISIS data, as detailed at
-   https://github.com/DOI-USGS/ISIS3#the-isis-data-area
-
-#. Add the ISIS executables to your path:
-
-   - bash: ``export PATH="/path/to/isis/bin:${PATH}"``
-   - csh:  ``setenv PATH "/path/to/isis/bin:${PATH}"``
-
-#. Set the ``ISISDATA`` environmental variable to point to where your
-   ISIS data was downloaded, per the installation link above. For
-   example, in the ``bash`` shell, this is done as follows::
-  
-     export ISISDATA="/path/to/isisdata"
-   
-   Check that you have the directory ``$ISISDATA/base``.
-
-#. Install Stereo Pipeline and set the ``PATH`` variable as above.
-
-#. Try it out. See :numref:`lronac_csm` for a quick Lunar example which does not
-   require installing ISIS or it supporting data as above,
-   :numref:`moc_tutorial` for an example using Mars images and ISIS data, and
-   many other examples in :numref:`examples`.
-
-Earth images
-~~~~~~~~~~~~
-
-Processing Earth images is described in the data processing tutorial in
-:numref:`dg_tutorial`. See also examples for ASTER (:numref:`aster`), Pleiades
-(:numref:`pleiades`), SkySat (:numref:`skysat`), and many more in
-:numref:`examples`.
-
-Aerial and historical images
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Fetch the software as above. Processing images without accurate camera
-pose information is described in :numref:`sfm`. See also examples for 
-declassified satellite images in :numref:`kh4`.
 
 .. _conda_intro:
 
@@ -200,7 +136,7 @@ if the same package (even with old versions) exists in more than one channel.
 Note that the *latest build* (:numref:`release`) may have more features and
 fixes than this official release.
 
-Post-installation
+Environment setup
 ~~~~~~~~~~~~~~~~~
 
 Run::
@@ -230,6 +166,66 @@ Alternative approaches
 Consider using ``mamba`` instead of ``conda`` for the installation, as it is
 much faster. (Note that recent ``conda`` distributions default to using the
 ``mamba`` solver.)
+
+ASP can be installed with Docker (`instructions
+<https://github.com/uw-cryo/asp-binder>`_).
+
+ASP can be built form source (:numref:`building_asp`).
+
+Post-installation
+-----------------
+ 
+The next steps depend on whether it is desired to process planetary (non-Earth),
+Earth, or aerial images.
+ 
+.. _planetary_images:
+
+Planetary images
+~~~~~~~~~~~~~~~~
+
+To process images from NASA's spacecraft that are exploring other planets,
+install ISIS and its data. Summary of the steps:
+
+#. Fetch ISIS binaries and install, following
+   https://github.com/DOI-USGS/ISIS3#installation
+
+#. Fetch ISIS data, as detailed at
+   https://github.com/DOI-USGS/ISIS3#the-isis-data-area
+
+#. Add the ISIS executables to your path:
+
+   - bash: ``export PATH="/path/to/isis/bin:${PATH}"``
+   - csh:  ``setenv PATH "/path/to/isis/bin:${PATH}"``
+
+#. Set the ``ISISDATA`` environmental variable to point to where your
+   ISIS data was downloaded, per the installation link above. For
+   example, in the ``bash`` shell, this is done as follows::
+  
+     export ISISDATA="/path/to/isisdata"
+   
+   Check that you have the directory ``$ISISDATA/base``.
+
+#. Install Stereo Pipeline and set the ``PATH`` variable as above.
+
+#. Try it out. See :numref:`lronac_csm` for a quick Lunar example which does not
+   require installing ISIS or it supporting data as above,
+   :numref:`moc_tutorial` for an example using Mars images and ISIS data, and
+   many other examples in :numref:`examples`.
+
+Earth images
+~~~~~~~~~~~~
+
+Processing Earth images is described in the data processing tutorial in
+:numref:`dg_tutorial`. See also examples for ASTER (:numref:`aster`), Pleiades
+(:numref:`pleiades`), SkySat (:numref:`skysat`), and many more in
+:numref:`examples`.
+
+Aerial and historical images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Fetch the software as above. Processing images without accurate camera
+pose information is described in :numref:`sfm`. See also examples for 
+declassified satellite images in :numref:`kh4`.
 
 .. _system_rec:
 
