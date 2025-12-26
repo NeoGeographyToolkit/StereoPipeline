@@ -5,31 +5,16 @@
 # a permanent location. Some parts are more focused towards the Mac build in the 
 # cloud, while others apply to the local Linux build as well.
 
-# This script is not meant to be run directly. Each block of code must be inspected,
-# edited, and run separately.
+# This script is not meant to be run directly. Each block of code must be
+# inspected, edited, and run separately. This is a scratchpad. The production
+# logic is in build_test.sh, save_mac_deps.sh, and the
+# https://github.com/NeoGeographyToolkit/stereopipeline-feedstock repo.
  
 # This helps do a dress rehearsal for the build process, before using
 # conda-build which is very slow and error-prone.
 
-# It is shown how packages can be compiled from source, and further down
-# how to use conda-build for each of them.
-
 # After the dependencies are updated with this script, they can be saved for the
 # future with the script save_mac_deps.sh. See that script for more info.
-# Alternatively, from within the ssh session on GitHub, the dependencies can be
-# saved as follows. This needs fetching gh and doing auth with a token.
-conda create -n gh -c conda-forge gh
-gh=$(ls -d $HOME/*conda3/envs/gh/bin/gh)
-$gh auth login
-binaries=~/work/StereoPipeline/packages/asp_deps.tar.gz # save in the right dir
-mkdir -p $(dirname $binaries)
-cd $HOME
-/usr/bin/time tar cfz $binaries $(ls -d *conda3/envs/* |grep -E "asp_deps|python|gh|isis_dev|anaconda")
-repo=git@github.com:NeoGeographyToolkit/BinaryBuilder.git
-tag=asp_deps_mac_x64_v5 # will wipe and recreate this
-#tag=asp_deps_mac_arm64_v2 # will wipe and recreate this
-$gh release -R $repo delete $tag -y # Wipe the old release. Careful here.
-/usr/bin/time $gh release -R $repo create $tag $binaries --notes "$tag" --title "$tag" 
 
 # Move from the source dir to the home dir
 cd
@@ -45,8 +30,10 @@ else
     cxx_comp=x86_64-conda-linux-gnu-g++
 fi
 
-# Fetch the ASP dependencies. Must keep $tag in sync with build_test.sh.
-# See above for how to update the dependencies.
+# Fetch the ASP dependencies. Must keep $tag in sync with build_test.sh. See
+# save_mac_deps.sh for how to save and update a tarball with the dependencies.
+# New dependencies can be created from scratch with the environment in
+# stereopipeline-feedstock.
 tag=asp_deps_mac_x64_v5 # Mac Intel. Sync up tag with build_test.sh.
 # tag=asp_deps_mac_arm64_v2 # Mac Arm. Sync up tag with build_test.sh.
 # tag=asp_deps_linux_v2 # Linux.
@@ -63,13 +50,13 @@ conda activate asp_deps
 # Install anaconda client. Will save the anaconda_env client on exit.
 conda create -n anaconda -c conda-forge -c defaults -y anaconda-client
 # Activate anaconda env
-source /Users/runner/.bash_profile 
+source ~/.bash_profile 
 conda activate anaconda 
 
 # Install conda-build in a separate environment. Do not save it on exit as it
 # can have huge partial builds.
 conda create -n build -c conda-forge -c defaults -y conda-build
-source  /Users/runner/.bash_profile
+source  ~/.bash_profile
 conda activate build
 
 # Build ale. It is assumed the compiler is set up as above. May need to save the
@@ -595,7 +582,7 @@ conda activate asp_deps; conda env export > asp_deps.yaml
 
 # conda env export > ~/miniconda3/envs/asp_deps/asp_deps.yaml.bk
 
-# To create an env, it appears important to use the flexible channel prioritiy.
+# To create an env, it appears important to use the flexible channel priority.
 # Below creating the final asp_deps env, after ensuring all dependencies are good.
 conda config --set channel_priority flexible
 conda env create -n asp_deps -f asp_deps.yaml

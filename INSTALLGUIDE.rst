@@ -21,8 +21,8 @@ from:
 No installation steps or administrative rights are necessary.  Extract
 the archive, and run the executables in the ``bin`` subdirectory as::
 
-    tar xvf StereoPipeline-3.5.0-2025-04-28-x86_64-Linux.tar.bz2
-    ./StereoPipeline-3.5.0-2025-04-28-x86_64-Linux/bin/stereo --help
+    tar xvf StereoPipeline-3.6.0-2025-12-26-x86_64-Linux.tar.bz2
+    ./StereoPipeline-3.6.0-2025-12-26-x86_64-Linux/bin/stereo --help
 
 The result of the last command should be a help message.
 
@@ -36,21 +36,21 @@ The latest additions are documented in :numref:`news`.
 MacOS
 ~~~~~
 
-ASP builds are produced for MacOS, with the Intel processor. These were verified
-to work on the Mac Arm processors under Rosetta 2.
-
-An *experimental* native daily build is available for the Mac Arm architecture
-at the link above (``arm64-OSX``). This has all ASP logic except the minor
-``libelas`` stereo algorithm (:numref:`libelas`).
+ASP is available for the Mac Intel and Mac Arm architectures. The latter is
+somewhat experimental but was shown to work well in testing. The Mac Arm package
+has all ASP logic except the minor ``libelas`` stereo algorithm
+(:numref:`libelas`).
 
 The installation steps are the same as for Linux. It is important to 
 note that:
 
 - An error may be shown about not being able to verify the developers. That can
-  be overridden in the Privacy & Security settings of the system.
+  be overridden in the Privacy & Security settings of the system. Consider using 
+  instead the conda-based installation (:numref:`conda_intro`), which should 
+  not have this issue.
  
 - Running the Intel build the first time will be slow, as Rosetta will
-  translate them to the native architecture. Subsequent runs will be
+  translate the instructions to the native architecture. Subsequent runs will be
   faster.
 
 Windows
@@ -65,7 +65,7 @@ the same as for Linux.
 Conda and docker
 ----------------
 
-The latest ASP release (3.5.0) can be installed with conda
+The latest ASP release (3.6.0) can be installed with conda
 (:numref:`conda_intro`).
 
 ASP can be installed with Docker (`instructions
@@ -131,8 +131,15 @@ declassified satellite images in :numref:`kh4`.
 Conda-based installation
 ------------------------
 
-The ASP 3.5.0 release (April 28, 2025) can be installed via conda, together 
-with ISIS 8.3.0 (:numref:`planetary_images`). For Mac Arm, see further down.
+The ASP 3.6.0 release (December 26, 2025) can be installed via conda, together with
+ISIS 9.0.0 (:numref:`planetary_images`) for Linux, Mac Intel, and Mac Arm.
+
+The Mac Arm release is experimental but was tested rather thoroughly. Since USGS
+did not release an ISIS version for Mac Arm (as of 12/2025), this is shipped
+with an unofficial ISIS Arm conda package, hosted on the
+``nasa-ames-stereo-pipeline`` channel. This one lacks the Kakadu JPEG2000
+library support. Consider using the Intel release under Rosetta 2 for
+mission-critical work.
 
 To install ``conda``, see:
 
@@ -149,12 +156,7 @@ on Linux, and analogously on OSX. Use the suggested::
 
 directory for installation. 
 
-Create an environment for ASP as::
-
-    conda create -n asp
-    conda activate asp
-
-Add relevant channels::
+Configure the conda channels::
 
     conda config --env --add channels conda-forge
     conda config --env --add channels usgs-astrogeology
@@ -176,24 +178,24 @@ to ensure that the order of channels is::
 *Not having the channels in this order is likely to result in failure to install
 ASP.* Do not use the ``defaults`` channel.
 
-The command::
+Install ASP with the commands::
 
     conda config --set channel_priority flexible
+    conda create -n asp            \
+      -c nasa-ames-stereo-pipeline \
+      -c usgs-astrogeology         \
+      -c conda-forge               \
+      -c defaults                  \
+      stereo-pipeline=3.6.0
 
-is suggested, before running ``conda``, if the installation fails. It appears that
-for some versions of conda the strict order results in packages not being found.
+This will create a new environment named ``asp`` and install ASP 3.6.0 together 
+with ISIS 9.0.0 and all other dependencies.   
 
-Install ASP with the command::
-
-    conda install                 \
-     -c nasa-ames-stereo-pipeline \
-     -c usgs-astrogeology         \
-     -c conda-forge               \
-     stereo-pipeline=3.5.0
-
-This will install ASP 3.5.0 together with ISIS 8.3.0. Note that the *latest
-build* (:numref:`release`) may have more features and fixes than
-this official release.
+The priority setting is set to ``flexible``, as otherwise conda can get confused 
+if the same package (even with old versions) exists in more than one channel.
+  
+Note that the *latest build* (:numref:`release`) may have more features and
+fixes than this official release.
 
 Post-installation
 ~~~~~~~~~~~~~~~~~
@@ -222,12 +224,6 @@ see the `ISIS installation instructions
 Alternative approaches
 ~~~~~~~~~~~~~~~~~~~~~~
   
-An experimental ASP conda package for the Mac Arm processors is available, but
-without ISIS, for the time being. The package name is
-``stereo-pipeline=3.5.0_no_isis``. An Arm binary daily build is provided, however
-(:numref:`release`). That one has ISIS but Apple's security policies may prevent
-it from running, unless the user overrides them.
-
 Consider using ``mamba`` instead of ``conda`` for the installation, as it is
 much faster. (Note that recent ``conda`` distributions default to using the
 ``mamba`` solver.)
@@ -248,7 +244,7 @@ as apparently otherwise conda will not be able to reconcile the packages.
 
 Then, on Linux, run::
 
-    conda env create -n asp -f asp_3.5.0_linux_env.yaml
+    conda env create -n asp -f asp_3.6.0_linux_env.yaml
 
 and analogously on Mac.
 

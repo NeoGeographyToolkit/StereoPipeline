@@ -1,5 +1,12 @@
-Changes since last release
----------------------------
+RELEASE 3.6.0, December 26, 2025
+--------------------------------
+
+DOI: TBD
+
+Stable release doc: https://stereopipeline.readthedocs.io/en/stable/index.html
+
+ - Available for Linux, Mac Intel, and Mac Arm (the latter is experimental).
+ - Includes ISIS 9.0.0 (experimental for Mac Arm), GDAL 3.8.1 and PDAL 2.9.3.
 
 camera_solve (:numref:`camera_solve`):
   * Works on Mac Arm.
@@ -16,8 +23,7 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Added an output shapefile that shows the tiles being processed
     (:numref:`stereo_diag`).
   * Left and right alignment matrices are now saved in plain text format. Older
-    .exr files are still read. Support for them will be removed in the next
-    release (:numref:`outputfiles`).
+    .exr files can no longer be read (:numref:`outputfiles`).
   * Erode less at at image boundary during filtering when ``--subpixel-mode`` is
     not between 1 and 6 (option ``--edge-buffer-size``,
     :numref:`filter_options`).
@@ -331,7 +337,7 @@ orbit_plot (:numref:`orbit_plot`):
   * Added the options ``--use-rmse``, ``--output-file``.
 
 isis (:numref:`planetary_images`):
-  * Upgraded to ISIS 8.3.0.
+  * Upgraded to ISIS 8.0.0.
 
 misc:
   * The logic for triangulation with RPC cameras changed (:numref:`rpc_tri`).

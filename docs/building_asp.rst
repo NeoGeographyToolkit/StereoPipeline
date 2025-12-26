@@ -21,7 +21,7 @@ Alternatively, the Stereo Pipeline repository provides the full environment for
 the latest official ASP release in the ``conda`` subdirectory.  It can be installed
 with conda, such as::
 
-    conda env create -n asp_deps -f asp_3.5.0_linux_env.yaml
+    conda env create -n asp_deps -f asp_3.6.0_linux_env.yaml
 
 on Linux, and similarly on the Mac.
 
@@ -70,7 +70,7 @@ Set up a work directory::
     workDir=$HOME/build_asp
     mkdir -p $workDir
 
-Build VisionWorkbench and Stereo Pipeline version 3.5.0::
+Build VisionWorkbench and Stereo Pipeline version 3.6.0::
 
     cd $workDir
     envPath=$HOME/miniconda3/envs/asp_deps
@@ -78,7 +78,7 @@ Build VisionWorkbench and Stereo Pipeline version 3.5.0::
         git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
     # Build a specific version
-    git checkout 3.5.0
+    git checkout 3.6.0
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                             \
@@ -95,7 +95,7 @@ Build VisionWorkbench and Stereo Pipeline version 3.5.0::
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
     # Build a specific version
-    git checkout 3.5.0
+    git checkout 3.6.0
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                             \
@@ -133,14 +133,14 @@ Search for the latest available ISIS conda package::
   
     conda search -c usgs-astrogeology --override-channels isis
 
-Here it was found that ISIS version 8.3.0 was the latest, which we
+Here it was found that ISIS version 9.0.0 was the latest, which we
 will assume throughout the rest of this document. This needs to be
 adjusted for your circumstances.
 
 Create a conda environment for this version of ISIS::
 
-     conda create -n isis8.3.0
-     conda activate isis8.3.0
+     conda create -n isis9.0.0
+     conda activate isis9.0.0
 
 Add these channels to conda::
 
@@ -157,16 +157,29 @@ order and above all other channels, except perhaps the
 
 Install the desired version of ISIS::
 
-    conda install isis==8.3.0
+    conda install                 \
+      -c usgs-astrogeology        \
+      -c conda-forge              \
+      -c defaults                 \
+      --channel-priority flexible \
+      isis==9.0.0
+
+For ISIS 9.0.0, it appears that ensuring flexible channel priority is necessary
+for successful installation.
 
 Install the version of PDAL that is compatible with current ISIS
 (may already exist as part of latest ISIS)::
 
-    conda install -c conda-forge pdal==2.6.0
+  conda install -c conda-forge --channel-priority flexible libpdal-core 
 
 Save the current environment as follows::
 
-    conda env export > isis8.3.0.yaml
+    conda env export > isis9.0.0.yaml
+
+Note: As of 12/2025 any recent PDAL is incompatible with ISIS 9.0.0 and needs to
+be built from source. Also, ISIS 9.0.0 is not available for Mac Arm. An
+unofficial version (``9.0.0_asp``) is available in the
+``nasa-ames-stereo-pipeline`` channel. 
 
 Fetching the build tools
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -199,7 +212,7 @@ can be downloaded with ``git clone`` from:
   https://github.com/NeoGeographyToolkit/multiview-feedstock
   https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
 
-Temporarily, for the ASP 3.5.0 release, a few more dependencies exist:
+Temporarily, for the ASP 3.6.0 release, a few more dependencies exist:
 
   https://github.com/NeoGeographyToolkit/ilmbase-feedstock.git
   https://github.com/NeoGeographyToolkit/openexr-feedstock.git
@@ -214,10 +227,10 @@ Synchronize the versions with the existing environment
 
 For each of the above feedstocks, check the ``recipe/meta.yaml`` file
 and ensure all dependencies are in sync with what is in the file
-``isis8.3.0.yaml`` generated earlier. This can be done automatically
+``isis9.0.0.yaml`` generated earlier. This can be done automatically
 with a provided script in the ASP repository::
 
-     python StereoPipeline/conda/update_versions.py isis8.3.0.yaml \
+     python StereoPipeline/conda/update_versions.py isis9.0.0.yaml \
        gdal-feedstock
 
 and the same for the other packages.
@@ -263,8 +276,8 @@ Each of the packages above can be built, in the order specified in
     conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
       -c conda-forge fgr-feedstock
 
-Upload the produced packages to the ``nasa-ames-stereo-pipeline`` channel by
-first logging in, via the command:
+The developers can upload the produced packages to the
+``nasa-ames-stereo-pipeline`` channel by first logging in, via the command:
 
 ::
     
@@ -341,7 +354,7 @@ Helper scripts
 ~~~~~~~~~~~~~~
 
 The ``.github/workflows`` directory in the ``StereoPipeline`` repository has a
-few helper scripts that show in detail the commands that are run to build ASP
+few scripts that show in detail the commands that are run to build ASP
 and its dependencies, from source and with ``conda``.
 
 .. _build_asp_doc:
@@ -387,18 +400,18 @@ This is reading for ASP maintainers.
 Update the version number
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Inside both the ASP and VisionWorkbench code, edit ``src/CMakeLists.txt`` and
-set the new version, which should be the same for both packages, and in the
-format ``x.y.z``. If the value there is ``x.y.z-alpha``, which is used to tag a
-pre-release, remove the ``-alpha`` part. Increment one of these digits,
-depending on whether this is a major, minor, or bugfix release. See
-https://semver.org for guidance.
+Inside *both* the VisionWorkbench and ASP repositories, edit
+``src/CMakeLists.txt`` and set the new version, which should be the same for
+both packages, and in the format ``x.y.z``. If the value there is
+``x.y.z-alpha``, which is used to tag a pre-release, remove the ``-alpha`` part.
+Increment one of these digits, depending on whether this is a major, minor, or
+bugfix release. See https://semver.org for guidance.
 
 Update the documentation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Search all documentation for the old version number for ASP (such as 3.5.0) and
-ISIS (such as 8.3.0) and replace it with the new version numbers. This includes
+Search all documentation for the old version number for ASP (such as 3.6.0) and
+ISIS (such as 9.0.0) and replace it with the new version numbers. This includes
 files in the base directory, not just in ``docs``.
 
 Update NEWS.rst. Add the release date on top, along the lines of prior releases
@@ -414,9 +427,9 @@ Commit and tag
 Commit all changes. Tag the release in *both* the VisionWorkbench and
 StereoPipeline repos. Example:: 
 
-  git tag 3.5.0
-  git push origin 3.5.0 # commit to your branch
-  git push god    3.5.0 # commit to main branch
+  git tag 3.6.0
+  git push origin 3.6.0 # commit to your branch
+  git push god    3.6.0 # commit to main branch
 
 (Here it is assumed that ``origin`` points to your own fork and ``god``
 points to the parent repository.)
@@ -424,9 +437,9 @@ points to the parent repository.)
 If more commits were made and it is desired to apply this tag to a
 different commit, first remove the exiting tag with::
 
-  git tag -d 3.5.0
-  git push origin :refs/tags/3.5.0
-  git push god    :refs/tags/3.5.0
+  git tag -d 3.6.0
+  git push origin :refs/tags/3.6.0
+  git push god    :refs/tags/3.6.0
 
 Build ASP with conda
 ~~~~~~~~~~~~~~~~~~~~
@@ -444,7 +457,7 @@ The conda environment having the given ASP release can be saved in the
 StereoPipeline repo as::
 
     conda activate asp
-    conda env export > StereoPipeline/conda/asp_3.5.0_linux_env.yaml
+    conda env export > StereoPipeline/conda/asp_3.6.0_linux_env.yaml
 
 This was for Linux, and it works analogously on OSX. 
 
@@ -497,7 +510,7 @@ the entire ``asp_deps`` environment, we create a separate environment
 having only Python, numpy, with versions as expected by current ISIS.
 Run, for example::
 
-    conda create -c conda-forge -n python_isis8 python=x.y.x numpy=a.b.c
+    conda create -c conda-forge -n python_isis_v python=x.y.z numpy=a.b.c
 
 Note that different versions of these may be needed for Linux and OSX.
 The ``conda list`` command within the ``asp_deps`` environment 
@@ -511,7 +524,7 @@ Run in ``BinaryBuilder`` the command::
     /path/to/python3                                  \
       ./make-dist.py build_asp/install                \
       --asp-deps-dir $HOME/miniconda3/envs/asp_deps   \
-      --python-env $HOME/miniconda3/envs/python_isis8
+      --python-env $HOME/miniconda3/envs/python_isis_v
 
 Building and packaging should be done separately for Linux and OSX.
 
@@ -550,9 +563,9 @@ The GitHub tool ``gh`` can be invoked to push the binaries to the release.
 Example::
 
   cd BinaryBuilder/asp_tarballs
-  for file in StereoPipeline-3.5.0-2025-04-28-x86_64-Linux.tar.bz2 \
-              StereoPipeline-3.5.0-2025-04-28-x86_64-OSX.tar.bz2; do
-    gh release upload 3.5.0 $file \
+  for file in StereoPipeline-3.6.0-2025-04-28-x86_64-Linux.tar.bz2 \
+              StereoPipeline-3.6.0-2025-04-28-x86_64-OSX.tar.bz2; do
+    gh release upload 3.6.0 $file \
       -R git@github.com:NeoGeographyToolkit/StereoPipeline.git   
   done
 
@@ -605,6 +618,7 @@ Post-release work
 Update the version number in ``src/CMakeLists.txt`` in boh the VisionWorkbench
 and ASP repositories.  
 
-If version 3.5.0 just got released, we expect that the next feature release will
-likely be be 3.6.0. The version tag should be updated to 3.6.0-alpha in
-anticipation (see https://semver.org for guidance).
+If version 3.6.0 just got released, we expect that the next feature release will
+likely be be 3.7.0. The version tag should be updated to 3.7.0-alpha in
+anticipation in *both* the VisionWorkbench and ASP repositories.
+See https://semver.org for guidance on versions.

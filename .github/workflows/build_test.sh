@@ -99,7 +99,6 @@ $envPath/bin/cmake ..                             \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp   \
   $cmake_opts
-
 echo Building VisionWorkbench
 make -j10 install > /dev/null 2>&1 # this is too verbose
 

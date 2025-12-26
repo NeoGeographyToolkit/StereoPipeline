@@ -281,7 +281,7 @@ It is very important to use the same version of ``python``, ``numpy``, and
 ``gdal`` as in ASP. Hence, make adjustments below and then run::
 
     conda create -n sparse_disp c conda-forge      \
-      python=3.11.6 numpy=1.26.4 gdal=3.7.1 scipy
+      python=3.12.2 numpy=1.26.4 gdal=3.8.1 scipy
       
 ASP can be told where to look for these packages with a line such as::
       
