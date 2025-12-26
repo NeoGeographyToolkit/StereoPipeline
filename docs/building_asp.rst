@@ -17,55 +17,14 @@ All dependencies for the *latest development version* of ASP are a available as
 a `binary tarball
 <https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/>`_.
 
-Alternatively, the Stereo Pipeline repository provides the full environment for
-the latest official ASP release in the ``conda`` subdirectory.  It can be installed
-with conda, such as::
+The dependencies for the latest stable version of ASP are in the 
+``stereopipeline-feedstock`` repository (:numref:`packages_to_build`).
 
-    conda env create -n asp_deps -f asp_3.6.0_linux_env.yaml
+Assume that all dependencies, including the development tools, are installed
+in the ``asp_deps`` conda environment and the ``PATH`` variable is set up
+to use them. 
 
-on Linux, and similarly on the Mac.
-
-This will create an ``asp_deps`` environment. Activate it with::
-
-    conda activate asp_deps
-
-Any header files in the ``include/vw`` and ``include/asp`` directories
-should be deleted to not interfere with compilation. 
-
-On rare occasions conda packages have files of the form ``libMyLib.la`` that
-have incorrect paths. Any such files are not needed in either case and
-should be deleted.
-
-The `conda-provided compilers
-<https://conda.io/projects/conda-build/en/latest/resources/compiler-tools.html>`_
-should be in the environment already. If needed, they can be installed as::
-
-    conda install -c conda-forge compilers
-
-New versions of clang tend to break a lot third-party code. On occasion it is
-necessary to downgrade to compilers, especially ``clang``, which is also needed
-to maintain compatibility with ISIS.
-
-Ensure that ``parallel``, ``cmake>=3.15.5`` and ``pbzip2`` are installed::
-
-    conda install -c conda-forge "cmake>=3.15.5" pbzip2 parallel
-
-For Linux only, install the ``chrpath`` tool. 
-
-Set the compiler names. They may differ somewhat from what is in the block
-below, so this step may need some adjustments.
-
-::
-
-   if [ "$(uname)" = "Darwin" ]; then
-      cc_comp=clang
-      cxx_comp=clang++
-    else
-      cc_comp=x86_64-conda-linux-gnu-gcc
-      cxx_comp=x86_64-conda-linux-gnu-g++
-    fi
-
-Set up a work directory::
+Create a work directory::
 
     workDir=$HOME/build_asp
     mkdir -p $workDir
@@ -85,8 +44,6 @@ Build VisionWorkbench and Stereo Pipeline version 3.6.0::
       -DASP_DEPS_DIR=$envPath                         \
       -DCMAKE_VERBOSE_MAKEFILE=ON                     \
       -DCMAKE_INSTALL_PREFIX=$workDir/install         \
-      -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
-      -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
     make -j10 && make install
 
     cd $workDir
@@ -103,9 +60,9 @@ Build VisionWorkbench and Stereo Pipeline version 3.6.0::
       -DCMAKE_VERBOSE_MAKEFILE=ON                     \
       -DCMAKE_INSTALL_PREFIX=$workDir/install         \
       -DVISIONWORKBENCH_INSTALL_DIR=$workDir/install  \
-      -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
-      -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp
     make -j10 && make install
+
+Check if the compilers are picked up correctly.
 
 .. _conda_build:
 
@@ -117,14 +74,7 @@ like to use conda to rebuild ASP and all its dependencies. It is
 suggested to carefully read :numref:`conda_intro` before this page.
 
 To simplify maintenance, ASP and its dependencies are built upon ISIS
-and its dependencies. Hence, in order to create a new conda ASP
-package, first one needs to create an environment having the latest
-released ISIS, then rebuild ASP's other dependencies and ASP itself,
-while ensuring that the dependencies of each of these have their
-versions synced up with the ISIS dependency versions.
-
-The rebuilt packages will be uploaded to the ``nasa-ames-stereo-pipeline``
-anaconda channel.
+and its dependencies. The process for this is outlined below.
 
 Setting up the ISIS environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -134,8 +84,7 @@ Search for the latest available ISIS conda package::
     conda search -c usgs-astrogeology --override-channels isis
 
 Here it was found that ISIS version 9.0.0 was the latest, which we
-will assume throughout the rest of this document. This needs to be
-adjusted for your circumstances.
+will assume throughout the rest of this document. 
 
 Create a conda environment for this version of ISIS::
 
@@ -172,13 +121,13 @@ Install the version of PDAL that is compatible with current ISIS
 
   conda install -c conda-forge --channel-priority flexible libpdal-core 
 
-Save the current environment as follows::
+Save the current environment for reference as follows::
 
     conda env export > isis9.0.0.yaml
 
 Note: As of 12/2025 any recent PDAL is incompatible with ISIS 9.0.0 and needs to
 be built from source. Also, ISIS 9.0.0 is not available for Mac Arm. An
-unofficial version (``9.0.0_asp``) is available in the
+unofficial version of this (``9.0.0_asp``) is available in the
 ``nasa-ames-stereo-pipeline`` channel. 
 
 Fetching the build tools
@@ -197,111 +146,29 @@ are kept separate.
 
 .. _packages_to_build:
 
-Packages to build
-~~~~~~~~~~~~~~~~~
+Build recipe
+~~~~~~~~~~~~
 
-Many additional package need to be built, using ``conda build``. These packages
-can be downloaded with ``git clone`` from:
+ASP has many dependencies that are source code, rather than pre-existing
+packages.
 
-  https://github.com/NeoGeographyToolkit/geoid-feedstock.git
-  https://github.com/NeoGeographyToolkit/fgr-feedstock.git
-  https://github.com/NeoGeographyToolkit/libnabo-feedstock.git
-  https://github.com/NeoGeographyToolkit/libpointmatcher-feedstock.git
-  https://github.com/NeoGeographyToolkit/s2p-feedstock.git
-  https://github.com/NeoGeographyToolkit/libelas-feedstock.git
-  https://github.com/NeoGeographyToolkit/multiview-feedstock
-  https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
+The approach of producing a conda package for each turned out to be laborious,
+because conda is slow and fragile. The latest approach is to build all these
+packages and ASP itself in one single script, available at
 
-Temporarily, for the ASP 3.6.0 release, a few more dependencies exist:
+  https://github.com/NeoGeographyToolkit/stereopipeline-feedstock
 
-  https://github.com/NeoGeographyToolkit/ilmbase-feedstock.git
-  https://github.com/NeoGeographyToolkit/openexr-feedstock.git
-  https://github.com/NeoGeographyToolkit/pdal-feedstock.git
+To ensure this does not result in failures, the process is first tested
+by building these manually, as done in the script, with the environment
+specified there. 
 
-Lastly, the recipe for ASP itself:
+That environment is produced by adding dependencies to the installed ISIS
+package. 
 
-  https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
-
-Synchronize the versions with the existing environment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For each of the above feedstocks, check the ``recipe/meta.yaml`` file
-and ensure all dependencies are in sync with what is in the file
-``isis9.0.0.yaml`` generated earlier. This can be done automatically
-with a provided script in the ASP repository::
-
-     python StereoPipeline/conda/update_versions.py isis9.0.0.yaml \
-       gdal-feedstock
-
-and the same for the other packages.
-
-It is very important to note that this script is not fool-proof, and the
-changes it makes should be very carefully examined. Also, the versions
-of dependencies can be different on Linux and OSX, so the script should
-be run separately for each platform.
-
-Having incompatible versions will result in failure when resolving
-the dependencies with conda.
-
-It is suggested to examine the changed ``meta.yaml``, and if in doubt,
-leave the values as they were before modified by this script. 
-
-In the ``visionworkbench`` and ``stereopipeline`` recipes update the
-``git_tag`` value to reflect the desired commit or tag from the Git
-history, or leave it as is if desired to build the latest code.
-See :numref:`asp_release_guide` regarding tagging.
-
-Later on, after the packages are built and tested, ensure that all the
-changes to the feedstock repositories are checked in.
-
-Build the conda packages
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-When building a package that depends on other packages in the
-``nasa-ames-stereo-pipeline`` channel, edit its ``meta.yaml`` file and specify
-the appropriate version for those dependencies. 
-
-It is very important to also ensure there is a new version for this package at
-the top of ``meta.yaml``.
-
-Set the solver to ``libmamba``, for speed::
-
-    conda config --set solver libmamba
-
-This may be the default in more recent versions of conda.
-    
-Each of the packages above can be built, in the order specified in
-:numref:`conda_build_order`, as follows::
-
-    conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
-      -c conda-forge fgr-feedstock
+The ASP version in this feedstock needs to be updated for each release.
 
 The developers can upload the produced packages to the
-``nasa-ames-stereo-pipeline`` channel by first logging in, via the command:
-
-::
-    
-    anaconda login nasa-ames-stereo-pipeline
-
-The ``anaconda`` tool may have its own dependencies and may need to be 
-installed in a different environment.
-
-Run a command along the lines:
-
-::
-
-    anaconda upload \
-      $HOME/miniconda3/envs/asp_deps/conda-bld/linux-64/myPackage.tar.bz2
-
-(Use above the path echoed on the screen by the ``conda build``
-command.)
-
-Using the ``--force`` option to overwrite any existing package with the same
-name and version is discouraged. Sometimes this causes conda to claim the package
-checksum is wrong and it cannot be installed. 
-
-It is better to increment the build number in the ``meta.yaml`` file
-before rebuilding a package. 
+``nasa-ames-stereo-pipeline`` channel.
 
 After a package is uploaded, it can be installed in the desired environment as::
 
@@ -322,40 +189,18 @@ To delete a package from this channel, run::
 
     anaconda remove nasa-ames-stereo-pipeline/myPackage/myVersion
   
-This is strongly discouraged. 
+If adding an updated package with the same version, increment the build number.
+Otherwise the new package may be confused with a cached version of a prior
+build.
 
-.. _conda_build_order:
-
-Order of building the packages
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-It is suggested to build the above packages in the order listed
-earlier, as some of them depend on others.
-
-Note that ``libpointmatcher`` depends on ``libnabo``, while ``pdal`` depends on
-``gdal``, ``visionworkbench`` depends on ``gdal``, and ``multiview`` depends on
-``tbb`` (the latter for OSX only). 
-
-The ``stereopipeline`` package depends on all of these so it should be
-built the last.
-
-Additional ASP dependencies
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-VisionWorkbench and StereoPipeline have a few more conda dependencies
-that need to be fetched from ``conda-forge``.
-
-If desired to create an environment in which to build ASP or to update
-the one in :numref:`build_from_source`, the dependencies can be looked
-up in the ``meta.yaml`` files for these conda packages, after fetching
-them according to :numref:`packages_to_build`.
+.. _helper_scripts:
 
 Helper scripts
 ~~~~~~~~~~~~~~
 
 The ``.github/workflows`` directory in the ``StereoPipeline`` repository has a
-few scripts that show in detail the commands that are run to build ASP
-and its dependencies, from source and with ``conda``.
+few scripts that show in detail the commands that are run to build ASP and its
+dependencies.
 
 .. _build_asp_doc:
 
@@ -446,24 +291,6 @@ Build ASP with conda
 
 See :numref:`conda_build`. 
     
-Save a record of the conda packages
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-It is suggested to save a complete record of all packages that went into this conda
-release, as sometimes conda may have issues solving for the dependencies or it may 
-return a non-unique solution.
-
-The conda environment having the given ASP release can be saved in the
-StereoPipeline repo as::
-
-    conda activate asp
-    conda env export > StereoPipeline/conda/asp_3.6.0_linux_env.yaml
-
-This was for Linux, and it works analogously on OSX. 
-
-How to recreate ASP from this file is described in :numref:`conda_intro`. How to
-use this file to build ASP is shown in :numref:`building_asp`.
-
 .. _build_binaries:
 
 Building self-contained binaries
@@ -485,7 +312,8 @@ described in :numref:`build_from_source`. Assume it is called ``asp_deps``.
 
 Install the C, C++, and Fortran compilers (same versions as for ISIS),
 ``cmake>=3.15.5``, ``pbzip2``, ``parallel``, and for Linux also the ``chrpath``
-tool, as outlined on that page.
+tool, as outlined on that page. The full list of dependencies is in the 
+``stereopipeline-feedstock`` repository (:numref:`packages_to_build`).
 
 Go to the directory ``BinaryBuilder``, and run::
 
@@ -501,6 +329,8 @@ Go to the directory ``BinaryBuilder``, and run::
 
 This will fetch and build the latest VisionWorkbench and Stereo Pipeline in
 ``build_asp/build``, and will install them in ``build_asp/install``.
+
+See :numref:`helper_scripts` for scrips illustrating this process.
 
 Create a conda environment having Python and numpy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -559,12 +389,13 @@ the release.*
 *Do not delete and recreate the release* (:numref:`zenodo`). It is fine to
 upload the binaries after a release is created, and delete and re-upload them.
 
-The GitHub tool ``gh`` can be invoked to push the binaries to the release.
+The GitHub ``gh`` program can be invoked to push the binaries to the release.
 Example::
 
   cd BinaryBuilder/asp_tarballs
-  for file in StereoPipeline-3.6.0-2025-04-28-x86_64-Linux.tar.bz2 \
-              StereoPipeline-3.6.0-2025-04-28-x86_64-OSX.tar.bz2; do
+  for file in StereoPipeline-3.6.0-2025-12-26-x86_64-Linux.tar.bz2 \
+              StereoPipeline-3.6.0-2025-12-26-x86_64-OSX.tar.bz2 \
+              StereoPipeline-3.6.0-2025-12-26-arm64-OSX.tar.bz2; do 
     gh release upload 3.6.0 $file \
       -R git@github.com:NeoGeographyToolkit/StereoPipeline.git   
   done
