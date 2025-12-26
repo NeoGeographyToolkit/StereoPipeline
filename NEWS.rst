@@ -1,7 +1,7 @@
 RELEASE 3.6.0, December 26, 2025
 --------------------------------
 
-DOI: TBD
+DOI: https://zenodo.org/records/18064111
 
 Stable release doc: https://stereopipeline.readthedocs.io/en/stable/index.html
 

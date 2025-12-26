@@ -12,13 +12,14 @@ fi
 
 tag=$1; shift
 
-# Create the tarball of dependencies. This likely includes
-# a pre-built ASP itself, but that is not a problem.
+# Create the tarball of dependencies. This likely includes a pre-built ASP
+# itself, but that is not a problem.
+# Note: Must updated below the names of both envs if they change.
 tarball=asp_deps.tar.gz
 cd $HOME
 /usr/bin/time tar cfz $tarball \
   miniconda3/envs/asp_deps     \
-  miniconda3/envs/python_isis8
+  miniconda3/envs/python_isis9
 
 # Set up GitHub CLI
 gh=$HOME/miniconda3/envs/gh/bin/gh
