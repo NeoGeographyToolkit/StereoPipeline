@@ -31,6 +31,9 @@ shell configuration (e.g., ``~/.bashrc``), a line similar to::
 
     export PATH="${PATH}":"/path/to/StereoPipeline/bin"
 
+Then, run ``source ~/.bashrc`` (or open a new terminal) for the changes to take
+effect.
+
 The latest additions are documented in :numref:`news`.
 
 MacOS

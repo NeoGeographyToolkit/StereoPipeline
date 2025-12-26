@@ -10,8 +10,8 @@ in :numref:`installation`.
 
 .. _build_from_source:
 
-Building ASP without conda
---------------------------
+Building ASP from source
+------------------------
 
 All dependencies for the *latest development version* of ASP are a available as
 a `binary tarball
@@ -255,16 +255,16 @@ bugfix release. See https://semver.org for guidance.
 Update the documentation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Search all documentation for the old version number for ASP (such as 3.6.0) and
-ISIS (such as 9.0.0) and replace it with the new version numbers. This includes
-files in the base directory, not just in ``docs``.
+Search all documentation for the old version number for ASP (such as 3.5.0) and
+ISIS (such as 8.3.0) and replace it with the new version numbers (such as 3.6.0
+and 9.0.0). This includes files in the base directory, not just in ``docs``.
 
 Update NEWS.rst. Add the release date on top, along the lines of prior releases
 (see further down in that file). This file must have a detailed log of all
 changes, especially those that result in changed behavior or options, and it
 should be incrementally updated as changes are made during development.
 
-Update the copyright year in the README.rst file.
+Update the copyright year in the README.rst and docs/conf.py files.
 
 Commit and tag
 ~~~~~~~~~~~~~~
@@ -319,7 +319,7 @@ Go to the directory ``BinaryBuilder``, and run::
 
     /path/to/python3                                \
       ./build.py                                    \
-      --cc <path to C comipler>                     \
+      --cc <path to C compiler>                     \
       --cxx <path to C++ compiler>                  \
       --gfortran <path to Fortran compiler>         \
       --asp-deps-dir $HOME/miniconda3/envs/asp_deps \
