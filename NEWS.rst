@@ -337,7 +337,7 @@ orbit_plot (:numref:`orbit_plot`):
   * Added the options ``--use-rmse``, ``--output-file``.
 
 isis (:numref:`planetary_images`):
-  * Upgraded to ISIS 8.0.0.
+  * Upgraded to ISIS 8.3.0.
 
 misc:
   * The logic for triangulation with RPC cameras changed (:numref:`rpc_tri`).

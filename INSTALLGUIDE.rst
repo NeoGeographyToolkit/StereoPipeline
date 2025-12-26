@@ -228,33 +228,6 @@ Consider using ``mamba`` instead of ``conda`` for the installation, as it is
 much faster. (Note that recent ``conda`` distributions default to using the
 ``mamba`` solver.)
 
-Using a precise list of packages
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Some variability may exist in the precise dependencies fetched by conda. For the
-record, the full environment for this release can be found as a set of .yaml
-files in the ``conda`` subdirectory of the Stereo Pipeline GitHub repository.
-So, alternatively, the installation can happen as follows.
-
-First, set::
-
-  conda config --set channel_priority flexible
-
-as apparently otherwise conda will not be able to reconcile the packages.
-
-Then, on Linux, run::
-
-    conda env create -n asp -f asp_3.6.0_linux_env.yaml
-
-and analogously on Mac.
-
-Run, as before::
-
-    conda activate asp
-
-For how to build ASP, without and with conda, see :numref:`build_from_source`
-and :numref:`conda_build`.
-
 .. _system_rec:
 
 System requirements
