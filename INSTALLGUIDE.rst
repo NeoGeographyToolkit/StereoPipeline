@@ -170,7 +170,7 @@ much faster. (Note that recent ``conda`` distributions default to using the
 ASP can be installed with Docker (`instructions
 <https://github.com/uw-cryo/asp-binder>`_).
 
-ASP can be built form source (:numref:`building_asp`).
+ASP can be built from source (:numref:`building_asp`).
 
 Post-installation
 -----------------

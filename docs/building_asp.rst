@@ -3,8 +3,8 @@
 Building and releasing ASP
 ==========================
 
-This chapter will describe how ASP can be built without and with using conda,
-how to build the documentation, and how to prepare a new ASP release. This is
+This chapter will describe how ASP can be built from source and with conda, how
+to build the documentation, and how to prepare a new ASP release. This is
 focused towards the developer. Users should read instead the installation guide
 in :numref:`installation`.
 
@@ -166,6 +166,16 @@ That environment is produced by adding dependencies to the installed ISIS
 package. 
 
 The ASP version in this feedstock needs to be updated for each release.
+
+Build command::
+
+  conda activate tools
+  conda config --set channel_priority flexible
+  conda build                    \
+    -c nasa-ames-stereo-pipeline \
+    -c usgs-astrogeology         \
+    -c conda-forge               \
+    stereopipeline-feedstock
 
 The developers can upload the produced packages to the
 ``nasa-ames-stereo-pipeline`` channel.
