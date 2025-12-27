@@ -16,10 +16,9 @@
 // __END_LICENSE__
 
 /// \file image_calc.cc
-///
 
-// Apply specified arithmetic operations to given input images and save
-// the output with desired pixel type.
+// Apply specified arithmetic operations to given input images and save the
+// output with desired pixel type.
 
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
@@ -52,11 +51,8 @@
 namespace po = boost::program_options;
 namespace b_s = boost::spirit;
 
-// Program implementing simple calculator functionality for large images.
-
 // The operations tree structure. Boost::Spirit requires the use of some
 // specific Boost types in order to store the parsed information.
-
 enum OperationType {
   OP_pass,
   // UNARY operations
@@ -148,118 +144,117 @@ T custom_rand_0_1(T val) {
 // This type represents an operation performed on one or more inputs.
 struct calc_operation {
 
-    OperationType opType; // The operation to be performed on the children
-    double        value; // If this is a leaf node, the number is stored here.  Ignored unless OP_number.
-    int           varName;
-    std::vector<calc_operation> inputs; // The inputs to the operation
+  OperationType opType; // The operation to be performed on the children
+  double        value; // If this is a leaf node, the number is stored here.  Ignored unless OP_number.
+  int           varName;
+  std::vector<calc_operation> inputs; // The inputs to the operation
 
-    calc_operation() : opType(OP_pass) {}
+  calc_operation() : opType(OP_pass) {}
 
-    /// Recursive function to print out the contents of this object
-    void print(const int indent=0) {
+  /// Recursive function to print out the contents of this object
+  void print(const int indent=0) {
 
-      if (opType == OP_number) {
-        tab(indent);
-        std::cout << "Node: " << getTagName(opType) << " = " << value << std::endl;
-      }
-      else if (opType == OP_variable) {
-        tab(indent);
-        std::cout << "Node: " << getTagName(opType) << " = " << varName << std::endl;
-      }
-      else {
-        std::cout << std::endl;
-        tab(indent);
-        std::cout << "tag: " << getTagName(opType) << std::endl;
-        tab(indent);
-        std::cout << "value: " << value << std::endl;
-        tab(indent);
-        std::cout << "varName: " << varName << std::endl;
-        tab(indent);
-        std::cout << '{' << std::endl;
-
-        for (size_t i=0; i<inputs.size(); ++i)
-          inputs[i].print(indent+TAB_SIZE);
-
-        tab(indent);
-        std::cout << '}' << std::endl;
-      }
-
+    if (opType == OP_number) {
+      tab(indent);
+      std::cout << "Node: " << getTagName(opType) << " = " << value << std::endl;
     }
+    else if (opType == OP_variable) {
+      tab(indent);
+      std::cout << "Node: " << getTagName(opType) << " = " << varName << std::endl;
+    }
+    else {
+      std::cout << std::endl;
+      tab(indent);
+      std::cout << "tag: " << getTagName(opType) << std::endl;
+      tab(indent);
+      std::cout << "value: " << value << std::endl;
+      tab(indent);
+      std::cout << "varName: " << varName << std::endl;
+      tab(indent);
+      std::cout << '{' << std::endl;
 
-    /// Recursive function to eliminate extraneous nodes created by our parsing technique
-    void clearEmptyNodes() {
-      // Recursively call this function on all inputs
       for (size_t i=0; i<inputs.size(); ++i)
-        inputs[i].clearEmptyNodes();
+        inputs[i].print(indent+TAB_SIZE);
 
-      if (opType != OP_pass)
-        return;
-
-      // Check for errors
-      if (inputs.size() != 1) {
-        std::cout << "ERROR: pass node with " << inputs.size() << " Nodes!\n";
-        return;
-      }
-
-      // Replace this node with its input node
-      value   = inputs[0].value;
-      opType  = inputs[0].opType;
-      varName = inputs[0].varName;
-      std::vector<calc_operation> temp = inputs[0].inputs;
-      inputs = temp;
+      tab(indent);
+      std::cout << '}' << std::endl;
     }
 
+  }
 
-    /// Apply the operation tree to the input parameters and return a result
-    template <typename T>
-    T applyOperation(const std::vector<T> &params) const {
-      // Get the results from each input node.
-      // - This is a recursive call.
-      const size_t numInputs = inputs.size();
-      std::vector<T> inputResults(numInputs);
-      for (size_t i=0; i<numInputs; ++i)
-        inputResults[i] = inputs[i].applyOperation(params);
+  /// Recursive function to eliminate extraneous nodes created by our parsing technique
+  void clearEmptyNodes() {
+    // Recursively call this function on all inputs
+    for (size_t i=0; i<inputs.size(); ++i)
+      inputs[i].clearEmptyNodes();
 
-      // Now perform the operation for this node
-      switch(opType) {
-        // Unary
-        case OP_number:   return T(value);
-        case OP_variable: if (varName >= static_cast<int>(params.size()))
-          vw_throw(vw::ArgumentErr()
-                   << "Unrecognized variable input. Note that the first variable is var_0.\n");
-          return params[varName];
-        if (numInputs < 1)
-          vw_throw(vw::LogicErr() << "Insufficient inputs for this operation.\n");
-        case OP_negate:   return T(-1 * inputResults[0]);
-        case OP_abs:      return T(std::abs(inputResults[0])); // regular abs casts to integer.
-        case OP_sign:     return T(boost::math::sign(inputResults[0]));
-        case OP_rand:     return T(custom_rand_0_1(inputResults[0]));
+    if (opType != OP_pass)
+      return;
 
-        // Binary
-        if (numInputs < 2)
-          vw_throw(vw::LogicErr() << "Insufficient inputs for this operation.\n");
-        case OP_add:      return (inputResults[0] + inputResults[1]);
-        case OP_subtract: return (inputResults[0] - inputResults[1]);
-        case OP_divide:   return (inputResults[0] / inputResults[1]);
-        case OP_multiply: return (inputResults[0] * inputResults[1]);
-        case OP_power:    return (pow(inputResults[0], inputResults[1]));
-
-        // Multi
-        case OP_min:      return manual_min(inputResults); // TODO: Do these functions exist?
-        case OP_max:      return manual_max(inputResults);
-
-        case OP_lt:   return (inputResults[0] <  inputResults[1]) ? inputResults[2] : inputResults[3];
-        case OP_gt:   return (inputResults[0] >  inputResults[1]) ? inputResults[2] : inputResults[3];
-        case OP_lte:  return (inputResults[0] <= inputResults[1]) ? inputResults[2] : inputResults[3];
-        case OP_gte:  return (inputResults[0] >= inputResults[1]) ? inputResults[2] : inputResults[3];
-        case OP_eq:   return (inputResults[0] == inputResults[1]) ? inputResults[2] : inputResults[3];
-
-        default:
-          vw_throw(vw::LogicErr() << "Unexpected operation type.\n");
-      }
+    // Check for errors
+    if (inputs.size() != 1) {
+      std::cout << "ERROR: pass node with " << inputs.size() << " Nodes!\n";
+      return;
     }
+
+    // Replace this node with its input node
+    value   = inputs[0].value;
+    opType  = inputs[0].opType;
+    varName = inputs[0].varName;
+    std::vector<calc_operation> temp = inputs[0].inputs;
+    inputs = temp;
+  }
+
+
+  /// Apply the operation tree to the input parameters and return a result
+  template <typename T>
+  T applyOperation(const std::vector<T> &params) const {
+    // Get the results from each input node.
+    // - This is a recursive call.
+    const size_t numInputs = inputs.size();
+    std::vector<T> inputResults(numInputs);
+    for (size_t i=0; i<numInputs; ++i)
+      inputResults[i] = inputs[i].applyOperation(params);
+
+    // Now perform the operation for this node
+    switch(opType) {
+      // Unary
+      case OP_number:   return T(value);
+      case OP_variable: if (varName >= static_cast<int>(params.size()))
+        vw_throw(vw::ArgumentErr()
+                  << "Unrecognized variable input. Note that the first variable is var_0.\n");
+        return params[varName];
+      if (numInputs < 1)
+        vw_throw(vw::LogicErr() << "Insufficient inputs for this operation.\n");
+      case OP_negate:   return T(-1 * inputResults[0]);
+      case OP_abs:      return T(std::abs(inputResults[0])); // regular abs casts to integer.
+      case OP_sign:     return T(boost::math::sign(inputResults[0]));
+      case OP_rand:     return T(custom_rand_0_1(inputResults[0]));
+
+      // Binary
+      if (numInputs < 2)
+        vw_throw(vw::LogicErr() << "Insufficient inputs for this operation.\n");
+      case OP_add:      return (inputResults[0] + inputResults[1]);
+      case OP_subtract: return (inputResults[0] - inputResults[1]);
+      case OP_divide:   return (inputResults[0] / inputResults[1]);
+      case OP_multiply: return (inputResults[0] * inputResults[1]);
+      case OP_power:    return (pow(inputResults[0], inputResults[1]));
+
+      // Multi
+      case OP_min:      return manual_min(inputResults); // TODO: Do these functions exist?
+      case OP_max:      return manual_max(inputResults);
+
+      case OP_lt:   return (inputResults[0] <  inputResults[1]) ? inputResults[2] : inputResults[3];
+      case OP_gt:   return (inputResults[0] >  inputResults[1]) ? inputResults[2] : inputResults[3];
+      case OP_lte:  return (inputResults[0] <= inputResults[1]) ? inputResults[2] : inputResults[3];
+      case OP_gte:  return (inputResults[0] >= inputResults[1]) ? inputResults[2] : inputResults[3];
+      case OP_eq:   return (inputResults[0] == inputResults[1]) ? inputResults[2] : inputResults[3];
+
+      default:
+        vw_throw(vw::LogicErr() << "Unexpected operation type.\n");
+    }
+  }
 };
-
 
 // We need to tell fusion about our calc_operation struct
 // to make it a first-class fusion citizen
@@ -271,7 +266,6 @@ BOOST_FUSION_ADAPT_STRUCT(
     (std::vector<calc_operation>, inputs)
 )
 
-//================================================================================
 // - Boost::Spirit equation parsing
 
 // Helper constants to aid in accessing a calc_operation struct
@@ -284,84 +278,58 @@ template <typename ITER>
 struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_type> {
   // Constructor function
   calc_grammar() : calc_grammar::base_type(expression) {
-     // Definitions
-     using boost::phoenix::at;
-     using boost::phoenix::at_c;
-     using boost::phoenix::push_back;
-     using b_s::qi::double_;
-     using b_s::qi::int_;
-     using b_s::qi::eps;
-     using b_s::qi::_val;
-     using b_s::qi::_1; // This is required to avoid namespace mixups with other Boost modules.
-     using b_s::qi::_2;
-     using b_s::qi::_3;
-   
-     // This approach works but it processes expressions right to left.
-     // - To get what you want, use parenthesis.
+    // Definitions
+    using boost::phoenix::at;
+    using boost::phoenix::at_c;
+    using boost::phoenix::push_back;
+    using b_s::qi::double_;
+    using b_s::qi::int_;
+    using b_s::qi::eps;
+    using b_s::qi::_val;
+    using b_s::qi::_1; // This is required to avoid namespace mixups with other Boost modules.
+    using b_s::qi::_2;
+    using b_s::qi::_3;
 
-     // An outer expression
-     expression =
-        (term  [push_back(at_c<IN>(_val), _1)] )
-         >> *(  ('+' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_add     ]) |  // Addition
-                ('-' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_subtract])    // Subtraction
-             );
+    // This approach works but it processes expressions right to left.
+    // - To get what you want, use parenthesis.
 
-     // Middle priority
-     term =
-         (factor [push_back(at_c<IN>(_val), _1)])
-         >> *( ('*' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_multiply] ) |  // Multiplication
-               ('/' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_divide  ] )    // Subtraction
-             );
+    // An outer expression
+    expression =
+      (term  [push_back(at_c<IN>(_val), _1)] )
+        >> *(  ('+' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_add     ]) |  // Addition
+              ('-' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_subtract])    // Subtraction
+            );
 
-    // The highest priority
-    // - TODO: An additional layer to prevent double signs?
-    factor =
-        (double_          [at_c<NUM>(_val)=_1,            at_c<OP>(_val)=OP_number]    ) | // Just a number
-        // These operations take a comma separated list of expressions
-        ("min(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_min] % ',' > ')') |
-        ("max(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_max] % ',' > ')') |
-        ("lt("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_lt ] % ',' > ')') |
-        ("gt("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_gt ] % ',' > ')') |
-        ("lte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_lte] % ',' > ')') |
-        ("gte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_gte] % ',' > ')') |
-        ("eq("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_eq ] % ',' > ')') |
-        ( ("pow(" > expression > ',' > expression > ')')
-               [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2), at_c<OP>(_val)= OP_power
-                ] ) |
-        ("abs(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_abs] > ')') | // Absolute value
-        ("sign(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_sign] > ')') | // Sign function
-        ("rand(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_rand] > ')') | // rand function
-        ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') | // Something in parenthesis
-        ('-' >> factor    [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]    ) | // Negative sign
-        ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable] ) ;
+    // Middle priority
+    term =
+        (factor [push_back(at_c<IN>(_val), _1)])
+        >> *( ('*' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_multiply] ) |  // Multiplication
+              ('/' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_divide  ] )    // Subtraction
+            );
 
-    /*
+  // The highest priority
+  // - TODO: An additional layer to prevent double signs?
+  factor =
+      (double_          [at_c<NUM>(_val)=_1,            at_c<OP>(_val)=OP_number]    ) | // Just a number
+      // These operations take a comma separated list of expressions
+      ("min(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_min] % ',' > ')') |
+      ("max(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_max] % ',' > ')') |
+      ("lt("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_lt ] % ',' > ')') |
+      ("gt("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_gt ] % ',' > ')') |
+      ("lte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_lte] % ',' > ')') |
+      ("gte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_gte] % ',' > ')') |
+      ("eq("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_eq ] % ',' > ')') |
+      ( ("pow(" > expression > ',' > expression > ')')
+              [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2), at_c<OP>(_val)= OP_power
+              ] ) |
+      ("abs(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_abs] > ')') | // Absolute value
+      ("sign(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_sign] > ')') | // Sign function
+      ("rand(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_rand] > ')') | // rand function
+      ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') | // Something in parenthesis
+      ('-' >> factor    [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]    ) | // Negative sign
+      ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable] ) ;
 
-  // This code is for proper left priority parsing, but this approach does not work at all using
-  //  Boost::Spirit.  An entirely new approach is needed but it is not worth the time figuring out.
-
-
-    // This split-based approach will make the parser visit the parameters in the correct order,
-    // but the current method of each term call returning an OP node won't work.  There will have
-    // to be more of a central authority that keeps adding operations as it encounters them.
-
-    term = (factor [push_back(at_c<IN>(_val), _1)])
-            >> (termP [push_back(at_c<IN>(_val), _1)] )
-    termP =
-
-           ( ('*' >> factor >> termP ) [push_back(at_c<IN>(_val),  b_s::qi::_0), at_c<OP>(_val)=OP_multiply]
-           )
-          | eps;
-
-
-    // The highest priority
-    factor =
-        (double_          [at_c<NUM>(_val)=_1, at_c<OP>(_val)=OP_number]); // Just a number
-
-
-    */
   } // End constructor
-
 
   // Grammar rules
   b_s::qi::rule<ITER, calc_operation(), b_s::ascii::space_type> expression, term, factor;
@@ -423,8 +391,7 @@ public: // Functions
   inline vw::int32 rows  () const { return m_num_rows; }
   inline vw::int32 planes() const { return m_num_channels; }
 
-  inline result_type operator()( vw::int32 i, vw::int32 j, vw::int32 p=0 ) const
-  {
+  inline result_type operator()( vw::int32 i, vw::int32 j, vw::int32 p=0 ) const {
     return 0; // NOT IMPLEMENTED.
   }
 
@@ -433,7 +400,6 @@ public: // Functions
 
   typedef vw::CropView<vw::ImageView<result_type> > prerasterize_type;
   inline prerasterize_type prerasterize( vw::BBox2i const& bbox ) const {
-    //typedef typename PixelChannelType<typename input_pixel_type>::type output_channel_type; // TODO: Why does this not compile?
     typedef typename vw::ImageChannelType<vw::ImageView<result_type> >::type output_channel_type;
 
     // Set up the output image tile
@@ -488,9 +454,7 @@ public: // Functions
 
   // Return the tile we created with fake borders to make it look the
   // size of the entire output image
-  return prerasterize_type(tile,
-                           -bbox.min().x(), -bbox.min().y(),
-                           cols(), rows() );
+  return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(), cols(), rows());
 
   } // End prerasterize function
 
@@ -666,14 +630,14 @@ void load_inputs_and_process(Options &opt, const std::string &output_file,
   // Read the georef from the first file, they should all have the same value.
   const size_t numInputFiles = opt.input_files.size();
   std::vector<vw::ImageViewRef<PixelT>> input_images(numInputFiles);
-  std::vector<bool>                 has_nodata_vec(numInputFiles);
-  std::vector<double>               nodata_vec(numInputFiles);
+  std::vector<bool> has_nodata_vec(numInputFiles);
+  std::vector<double> nodata_vec(numInputFiles);
 
   bool have_georef = false;
   vw::cartography::GeoReference georef;
 
   // Loop through each input file
-  for (size_t i=0; i<numInputFiles; ++i) {
+  for (size_t i = 0; i < numInputFiles; ++i) {
     const std::string input = opt.input_files[i];
 
     // If desired to not use a georef, skip reading it. Else read it.
@@ -765,21 +729,13 @@ int main( int argc, char *argv[] ) {
     bool r = phrase_parse(iter, end, grammarParser, boost::spirit::ascii::space, calc_tree);
 
     if (r && iter == end) {// Successfully parsed the calculation expression
-      //std::cout << "-------------------------\n";
-      //std::cout << "Parsing succeeded\n";
-      //std::cout << "-------------------------\n";
-      ////calc_tree.print();
-      ////std::cout << "----------- pruned --------------\n";
       calc_tree.clearEmptyNodes();
-      //calc_tree.print();
     }
     else { // Failed to parse the calculation expression
       std::string::const_iterator some = iter+30;
       std::string context(iter, (some>end)?end:some);
-      std::cout << "-------------------------\n";
       std::cout << "Parsing calculation expression failed\n";
       std::cout << "stopped at: \": " << context << "...\"\n";
-      std::cout << "-------------------------\n";
       return -1;
     }
 
