@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2025, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -46,7 +46,7 @@
 #include <boost/math/special_functions/sign.hpp>
 
 #include <vector>
-#include <random> 
+#include <random>
 
 namespace po = boost::program_options;
 namespace b_s = boost::spirit;
@@ -157,12 +157,10 @@ struct calc_operation {
     if (opType == OP_number) {
       tab(indent);
       std::cout << "Node: " << getTagName(opType) << " = " << value << std::endl;
-    }
-    else if (opType == OP_variable) {
+    } else if (opType == OP_variable) {
       tab(indent);
       std::cout << "Node: " << getTagName(opType) << " = " << varName << std::endl;
-    }
-    else {
+    } else {
       std::cout << std::endl;
       tab(indent);
       std::cout << "tag: " << getTagName(opType) << std::endl;
@@ -204,7 +202,6 @@ struct calc_operation {
     std::vector<calc_operation> temp = inputs[0].inputs;
     inputs = temp;
   }
-
 
   /// Apply the operation tree to the input parameters and return a result
   template <typename T>
@@ -295,22 +292,20 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
 
     // An outer expression
     expression =
-      (term  [push_back(at_c<IN>(_val), _1)] )
-        >> *(  ('+' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_add     ]) |  // Addition
-              ('-' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_subtract])    // Subtraction
-            );
+      (term  [push_back(at_c<IN>(_val), _1)])
+        >> *(('+' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_add     ]) |  // Addition
+              ('-' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_subtract]));    // Subtraction
 
     // Middle priority
     term =
         (factor [push_back(at_c<IN>(_val), _1)])
-        >> *( ('*' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_multiply] ) |  // Multiplication
-              ('/' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_divide  ] )    // Subtraction
-            );
+        >> *(('*' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_multiply]) |  // Multiplication
+              ('/' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_divide  ]));    // Subtraction
 
   // The highest priority
   // - TODO: An additional layer to prevent double signs?
   factor =
-      (double_          [at_c<NUM>(_val)=_1,            at_c<OP>(_val)=OP_number]    ) | // Just a number
+      (double_          [at_c<NUM>(_val)=_1,            at_c<OP>(_val)=OP_number]) | // Just a number
       // These operations take a comma separated list of expressions
       ("min(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_min] % ',' > ')') |
       ("max(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_max] % ',' > ')') |
@@ -319,15 +314,15 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
       ("lte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_lte] % ',' > ')') |
       ("gte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_gte] % ',' > ')') |
       ("eq("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_eq ] % ',' > ')') |
-      ( ("pow(" > expression > ',' > expression > ')')
+      (("pow(" > expression > ',' > expression > ')')
               [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2), at_c<OP>(_val)= OP_power
-              ] ) |
+              ]) |
       ("abs(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_abs] > ')') | // Absolute value
       ("sign(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_sign] > ')') | // Sign function
       ("rand(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_rand] > ')') | // rand function
       ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') | // Something in parenthesis
-      ('-' >> factor    [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]    ) | // Negative sign
-      ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable] ) ;
+      ('-' >> factor    [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]) | // Negative sign
+      ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable]) ;
 
   } // End constructor
 
@@ -379,8 +374,8 @@ public: // Functions
     m_num_cols     = imageVec[0].cols();
     m_num_channels = imageVec[0].planes();
     for (size_t i=1; i<numImages; ++i) {
-      if ( (imageVec[i].rows()   != m_num_rows    ) ||
-           (imageVec[i].cols()   != m_num_cols    ) ||
+      if ((imageVec[i].rows()   != m_num_rows) ||
+           (imageVec[i].cols()   != m_num_cols) ||
            (imageVec[i].planes() != m_num_channels))
         vw_throw(vw::ArgumentErr()
                  << "Error: Input images must all have the same size and number of channels.");
@@ -391,15 +386,15 @@ public: // Functions
   inline vw::int32 rows  () const { return m_num_rows; }
   inline vw::int32 planes() const { return m_num_channels; }
 
-  inline result_type operator()( vw::int32 i, vw::int32 j, vw::int32 p=0 ) const {
+  inline result_type operator()(vw::int32 i, vw::int32 j, vw::int32 p=0) const {
     return 0; // NOT IMPLEMENTED.
   }
 
   typedef vw::ProceduralPixelAccessor<ImageCalcView<ImageT, OutputPixelT> > pixel_accessor;
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
   typedef vw::CropView<vw::ImageView<result_type> > prerasterize_type;
-  inline prerasterize_type prerasterize( vw::BBox2i const& bbox ) const {
+  inline prerasterize_type prerasterize(vw::BBox2i const& bbox) const {
     typedef typename vw::ImageChannelType<vw::ImageView<result_type> >::type output_channel_type;
 
     // Set up the output image tile
@@ -459,8 +454,8 @@ public: // Functions
   } // End prerasterize function
 
  template <class DestT>
- inline void rasterize( DestT const& dest, vw::BBox2i const& bbox ) const {
-   vw::rasterize( prerasterize(bbox), dest, bbox );
+ inline void rasterize(DestT const& dest, vw::BBox2i const& bbox) const {
+   vw::rasterize(prerasterize(bbox), dest, bbox);
  }
 
 }; // End class ImageCalcView
@@ -517,13 +512,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("output-nodata-value", po::value(&opt.out_nodata_value),
      "Manually specify a nodata value for the output image. By default it is read from the "
      "first input which has it, or, if missing, it is set to data type min.")
-    ("mo",  po::value(&opt.metadata)->default_value(""), 
+    ("mo",  po::value(&opt.metadata)->default_value(""),
      "Write metadata to the output file. Provide as a string in quotes if more than one "
      "item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable "
      "names nor the values should contain spaces.")
     ("no-georef", po::bool_switch(&opt.no_georef)->default_value(false),
      "Remove any georeference information (useful with subsequent GDAL-based processing).")
-    ("longitude-offset",  po::value(&opt.lon_offset)->default_value(nan), 
+    ("longitude-offset",  po::value(&opt.lon_offset)->default_value(nan),
      "Add this value to the longitudes in the geoheader (can be used to offset the "
      "longitudes by 360 degrees).")
     ("help,h", "Display this help message.");
@@ -543,45 +538,45 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage,
-                            allow_unregistered, unregistered );
+                            allow_unregistered, unregistered);
 
   if (opt.input_files.empty())
-    vw_throw(vw::ArgumentErr() << "Missing input files.\n" << usage << general_options );
+    vw_throw(vw::ArgumentErr() << "Missing input files.\n" << usage << general_options);
 
   if (opt.calc_string.empty()) {
     if (opt.input_files.size() == 1) {
       opt.calc_string = "var_0";
     } else {
-      vw_throw(vw::ArgumentErr() << "Missing operation string.\n" << usage << general_options );
+      vw_throw(vw::ArgumentErr() << "Missing operation string.\n" << usage << general_options);
     }
   }
 
-  if      (opt.output_data_string == "uint8"  ) opt.output_data_type = vw::VW_CHANNEL_UINT8;
-  else if (opt.output_data_string == "uint16" ) opt.output_data_type = vw::VW_CHANNEL_UINT16;
-  else if (opt.output_data_string == "uint32" ) opt.output_data_type = vw::VW_CHANNEL_UINT32;
+  if (opt.output_data_string == "uint8") opt.output_data_type = vw::VW_CHANNEL_UINT8;
+  else if (opt.output_data_string == "uint16") opt.output_data_type = vw::VW_CHANNEL_UINT16;
+  else if (opt.output_data_string == "uint32") opt.output_data_type = vw::VW_CHANNEL_UINT32;
   // GDAL does not support int8
   //else if (opt.output_data_string == "int8"   ) opt.output_data_type  = VW_CHANNEL_INT8;
-  else if (opt.output_data_string == "int16"  ) opt.output_data_type = vw::VW_CHANNEL_INT16;
-  else if (opt.output_data_string == "int32"  ) opt.output_data_type = vw::VW_CHANNEL_INT32;
+  else if (opt.output_data_string == "int16") opt.output_data_type = vw::VW_CHANNEL_INT16;
+  else if (opt.output_data_string == "int32") opt.output_data_type = vw::VW_CHANNEL_INT32;
   else if (opt.output_data_string == "float32") opt.output_data_type = vw::VW_CHANNEL_FLOAT32;
   else if (opt.output_data_string == "float64") opt.output_data_type = vw::VW_CHANNEL_FLOAT64;
   else
     vw_throw(vw::ArgumentErr()
-             << "Unsupported output data type: '" << opt.output_data_string << "'.\n" );
-  
+             << "Unsupported output data type: '" << opt.output_data_string << "'.\n");
+
   // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user
   // specified these options
-  if (!vm.count("input-nodata-value")){
+  if (!vm.count("input-nodata-value")) {
     opt.has_in_nodata = false;
-  }else
+  } else
     opt.has_in_nodata = true;
-  
-  if (!vm.count("output-nodata-value")){
+
+  if (!vm.count("output-nodata-value")) {
     opt.has_out_nodata   = false;
     opt.out_nodata_value = vw::get_default_nodata(opt.output_data_type);
-  }else
+  } else
     opt.has_out_nodata = true;
-  
+
   vw::create_out_dir(opt.output_file);
 }
 
@@ -646,7 +641,7 @@ void load_inputs_and_process(Options &opt, const std::string &output_file,
         have_georef = vw::cartography::read_georeference(georef, input);
         if (have_georef) {
           vw::vw_out() << "\t--> Copying georef from input image " << input << std::endl;
-        
+
           if (!std::isnan(opt.lon_offset)) {
             if (!georef.is_projected()) {
               vw::vw_out() << "\t--> Adding " << opt.lon_offset
@@ -662,12 +657,12 @@ void load_inputs_and_process(Options &opt, const std::string &output_file,
         }
       }
     }
-    
+
     // Determining the format of the input
     boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(input));
     //ChannelTypeEnum channel_type = rsrc->channel_type();
     //PixelFormatEnum pixel_format = rsrc->pixel_format();
-    
+
     // Check for nodata value in the file
     if (opt.has_in_nodata) {
       // User has specified a default nodata value, override its value in the file
@@ -675,7 +670,7 @@ void load_inputs_and_process(Options &opt, const std::string &output_file,
       nodata_vec[i]      = opt.in_nodata_value;
       opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata.
       std::cout << "\t--> Using as nodata value: " << nodata_vec[i] << "\n";
-    }else if (rsrc->has_nodata_read() ) {
+    } else if (rsrc->has_nodata_read()) {
       nodata_vec[i] = rsrc->nodata_read();
       has_nodata_vec[i] = true;
 
@@ -689,7 +684,7 @@ void load_inputs_and_process(Options &opt, const std::string &output_file,
       std::cout << "\t--> No nodata value present in: " << input << "\n";
       has_nodata_vec[i] = false;
     }
-    
+
     vw::DiskImageView<PixelT> this_disk_image(input);
     input_images[i] = this_disk_image;
 
@@ -712,74 +707,77 @@ void load_inputs_and_process(Options &opt, const std::string &output_file,
 
 }
 
+void image_calc(Options &opt) {
+  std::string exp(opt.calc_string);
+
+  calc_grammar<std::string::const_iterator> grammarParser;
+  calc_operation calc_tree;
+
+  std::string::const_iterator iter = exp.begin();
+  std::string::const_iterator end = exp.end();
+  bool r = phrase_parse(iter, end, grammarParser, boost::spirit::ascii::space, calc_tree);
+
+  if (r && iter == end) {// Successfully parsed the calculation expression
+    calc_tree.clearEmptyNodes();
+  } else { // Failed to parse the calculation expression
+    std::string::const_iterator some = iter+30;
+    std::string context(iter, (some>end)?end:some);
+    std::cout << "Parsing calculation expression failed\n";
+    std::cout << "stopped at: \": " << context << "...\"\n";
+    vw_throw(vw::ArgumentErr() << "Parsing calculation expression failed\n");
+  }
+
+  // Use a default output file if none provided
+  const std::string firstFile = opt.input_files[0];
+  //vw_out() << "Loading: " << firstFile << "\n";
+  size_t pt_idx = firstFile.rfind(".");
+  std::string output_file;
+  if (opt.output_file.size() != 0)
+    output_file = opt.output_file;
+  else {
+    output_file = firstFile.substr(0,pt_idx) + "_calc";
+    output_file += firstFile.substr(pt_idx,firstFile.size()-pt_idx);
+  }
+
+  // Determining the format of the input images
+  boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(firstFile));
+  vw::ChannelTypeEnum input_data_type = rsrc->channel_type();
+
+  // Assume that all inputs are of the same type. ASP does strange things if 
+  // loading a uint8 file as a float, for example.
+  // TODO(oalexan1): Load each file according to its format, then cast to double.
+  // TODO(oalexan1): Do not rescale the pixels on input.
+  for (size_t it = 1; it < opt.input_files.size(); it++) {
+    boost::shared_ptr<vw::DiskImageResource>
+      curr_rsrc(vw::DiskImageResourcePtr(opt.input_files[it]));
+    vw::ChannelTypeEnum curr_data_type = curr_rsrc->channel_type();
+    if (input_data_type != curr_data_type)
+      vw_throw(vw::ArgumentErr() << "All input images are supposed to be of the same data type.\n");
+  }
+
+  // Redirect to another function with the correct template type
+  switch(input_data_type) {
+    // GDAL does not support int8
+    //case vw::VW_CHANNEL_INT8   : load_inputs_and_process<vw::PixelGray<vw::int8 >>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_UINT8  : load_inputs_and_process<vw::PixelGray<vw::uint8>>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_INT16  : load_inputs_and_process<vw::PixelGray<vw::int16>>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_UINT16 : load_inputs_and_process<vw::PixelGray<vw::uint16>>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_INT32  : load_inputs_and_process<vw::PixelGray<vw::int32>>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_UINT32 : load_inputs_and_process<vw::PixelGray<vw::uint32>>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_FLOAT32: load_inputs_and_process<vw::PixelGray<vw::float32>>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_FLOAT64: load_inputs_and_process<vw::PixelGray<vw::float64>>(opt, output_file, calc_tree);  break;
+  default : vw_throw(vw::ArgumentErr() << "Input image format " << input_data_type << " is not supported.\n");
+  };
+}
+
 /// The main function calls the cmd line parsers and figures out the input image type
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   try {
     handle_arguments(argc, argv, opt);
-
-    std::string exp(opt.calc_string);
-
-    calc_grammar<std::string::const_iterator> grammarParser;
-    calc_operation calc_tree;
-
-    std::string::const_iterator iter = exp.begin();
-    std::string::const_iterator end = exp.end();
-    bool r = phrase_parse(iter, end, grammarParser, boost::spirit::ascii::space, calc_tree);
-
-    if (r && iter == end) {// Successfully parsed the calculation expression
-      calc_tree.clearEmptyNodes();
-    }
-    else { // Failed to parse the calculation expression
-      std::string::const_iterator some = iter+30;
-      std::string context(iter, (some>end)?end:some);
-      std::cout << "Parsing calculation expression failed\n";
-      std::cout << "stopped at: \": " << context << "...\"\n";
-      return -1;
-    }
-
-    // Use a default output file if none provided
-    const std::string firstFile = opt.input_files[0];
-    //vw_out() << "Loading: " << firstFile << "\n";
-    size_t pt_idx = firstFile.rfind(".");
-    std::string output_file;
-    if (opt.output_file.size() != 0)
-      output_file = opt.output_file;
-    else {
-      output_file = firstFile.substr(0,pt_idx) + "_calc";
-      output_file += firstFile.substr(pt_idx,firstFile.size()-pt_idx);
-    }
-
-    // Determining the format of the input images
-    boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(firstFile));
-    vw::ChannelTypeEnum input_data_type = rsrc->channel_type();
-
-    // Assume that all inputs are of the same type. ASP does strange things if 
-    // loading a uint8 file as a float, for example.
-    // TODO(oalexan1): Load each file according to its format, then cast to double.
-    // TODO(oalexan1): Do not rescale the pixels on input.
-    for (size_t it = 1; it < opt.input_files.size(); it++) {
-      boost::shared_ptr<vw::DiskImageResource>
-        curr_rsrc(vw::DiskImageResourcePtr(opt.input_files[it]));
-      vw::ChannelTypeEnum curr_data_type = curr_rsrc->channel_type();
-      if (input_data_type != curr_data_type)
-        vw_throw(vw::ArgumentErr() << "All input images are supposed to be of the same data type.\n");
-    }
-    
-    // Redirect to another function with the correct template type
-    switch(input_data_type) {
-      // GDAL does not support int8
-      //case VW_CHANNEL_INT8   : load_inputs_and_process<vw::PixelGray<vw::int8 >>(opt, output_file, calc_tree);  break;
-    case vw::VW_CHANNEL_UINT8  : load_inputs_and_process<vw::PixelGray<vw::uint8>>(opt, output_file, calc_tree);  break;
-    case vw::VW_CHANNEL_INT16  : load_inputs_and_process<vw::PixelGray<vw::int16>>(opt, output_file, calc_tree);  break;
-    case vw::VW_CHANNEL_UINT16 : load_inputs_and_process<vw::PixelGray<vw::uint16>>(opt, output_file, calc_tree);  break;
-    case vw::VW_CHANNEL_INT32  : load_inputs_and_process<vw::PixelGray<vw::int32>>(opt, output_file, calc_tree);  break;
-    case vw::VW_CHANNEL_UINT32 : load_inputs_and_process<vw::PixelGray<vw::uint32>>(opt, output_file, calc_tree);  break;
-    case vw::VW_CHANNEL_FLOAT32: load_inputs_and_process<vw::PixelGray<vw::float32>>(opt, output_file, calc_tree);  break;
-    case vw::VW_CHANNEL_FLOAT64: load_inputs_and_process<vw::PixelGray<vw::float64>>(opt, output_file, calc_tree);  break;
-    default : vw_throw(vw::ArgumentErr() << "Input image format " << input_data_type << " is not supported.\n");
-    };
+    image_calc(opt);
   } ASP_STANDARD_CATCHES;
 
+  return 0;
 }
