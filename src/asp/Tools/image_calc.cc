@@ -555,7 +555,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   else if (opt.output_data_string == "uint16") opt.output_data_type = vw::VW_CHANNEL_UINT16;
   else if (opt.output_data_string == "uint32") opt.output_data_type = vw::VW_CHANNEL_UINT32;
   // GDAL does not support int8
-  //else if (opt.output_data_string == "int8"   ) opt.output_data_type  = VW_CHANNEL_INT8;
+  //else if (opt.output_data_string == "int8") opt.output_data_type  = VW_CHANNEL_INT8;
   else if (opt.output_data_string == "int16") opt.output_data_type = vw::VW_CHANNEL_INT16;
   else if (opt.output_data_string == "int32") opt.output_data_type = vw::VW_CHANNEL_INT32;
   else if (opt.output_data_string == "float32") opt.output_data_type = vw::VW_CHANNEL_FLOAT32;
@@ -596,7 +596,7 @@ void write_out(const std::string                      & output_file,
   std::map<std::string, std::string> keywords;
   if (opt.metadata != "") {
     if (!opt.input_files.empty()) {
-      boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(opt.input_files[0]));
+      auto rsrc = vw::DiskImageResourcePtr(opt.input_files[0]);
       vw::cartography::read_header_strings(*rsrc.get(), keywords);
     }
     asp::parse_append_metadata(opt.metadata, keywords);
@@ -654,7 +654,7 @@ void proc_img(Options &opt, const std::string &output_file,
     }
 
     // Determining the format of the input
-    boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(input));
+    auto rsrc = vw::DiskImageResourcePtr(input);
 
     // Check for nodata value in the file
     if (opt.has_in_nodata) {
@@ -739,7 +739,7 @@ void image_calc(Options &opt) {
   }
 
   // Determining the format of the input images
-  boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(firstFile));
+  auto rsrc = vw::DiskImageResourcePtr(firstFile);
   vw::ChannelTypeEnum input_data_type = rsrc->channel_type();
 
   // Assume that all inputs are of the same type. ASP does strange things if 
@@ -747,8 +747,7 @@ void image_calc(Options &opt) {
   // TODO(oalexan1): Load each file according to its format, then cast to double.
   // TODO(oalexan1): Do not rescale the pixels on input.
   for (size_t it = 1; it < opt.input_files.size(); it++) {
-    boost::shared_ptr<vw::DiskImageResource>
-      curr_rsrc(vw::DiskImageResourcePtr(opt.input_files[it]));
+    auto curr_rsrc = vw::DiskImageResourcePtr(opt.input_files[it]);
     vw::ChannelTypeEnum curr_data_type = curr_rsrc->channel_type();
     if (input_data_type != curr_data_type)
       vw_throw(vw::ArgumentErr() << "All input images are supposed to be of the same data type.\n");
