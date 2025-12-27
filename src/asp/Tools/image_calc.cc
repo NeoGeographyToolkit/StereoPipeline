@@ -149,33 +149,33 @@ struct calc_operation {
   int           varName;
   std::vector<calc_operation> inputs; // The inputs to the operation
 
-  calc_operation() : opType(OP_pass) {}
+  calc_operation(): opType(OP_pass) {}
 
   /// Recursive function to print out the contents of this object
   void print(const int indent=0) {
 
     if (opType == OP_number) {
       tab(indent);
-      std::cout << "Node: " << getTagName(opType) << " = " << value << std::endl;
+      std::cout << "Node: " << getTagName(opType) << " = " << value << "\n";
     } else if (opType == OP_variable) {
       tab(indent);
-      std::cout << "Node: " << getTagName(opType) << " = " << varName << std::endl;
+      std::cout << "Node: " << getTagName(opType) << " = " << varName << "\n";
     } else {
-      std::cout << std::endl;
+      std::cout << "\n";
       tab(indent);
-      std::cout << "tag: " << getTagName(opType) << std::endl;
+      std::cout << "tag: " << getTagName(opType) << "\n";
       tab(indent);
-      std::cout << "value: " << value << std::endl;
+      std::cout << "value: " << value << "\n";
       tab(indent);
-      std::cout << "varName: " << varName << std::endl;
+      std::cout << "varName: " << varName << "\n";
       tab(indent);
-      std::cout << '{' << std::endl;
+      std::cout << '{' << "\n";
 
       for (size_t i=0; i<inputs.size(); ++i)
         inputs[i].print(indent+TAB_SIZE);
 
       tab(indent);
-      std::cout << '}' << std::endl;
+      std::cout << '}' << "\n";
     }
 
   }
@@ -241,11 +241,11 @@ struct calc_operation {
       case OP_min:      return manual_min(inputResults); // TODO: Do these functions exist?
       case OP_max:      return manual_max(inputResults);
 
-      case OP_lt:   return (inputResults[0] <  inputResults[1]) ? inputResults[2] : inputResults[3];
-      case OP_gt:   return (inputResults[0] >  inputResults[1]) ? inputResults[2] : inputResults[3];
-      case OP_lte:  return (inputResults[0] <= inputResults[1]) ? inputResults[2] : inputResults[3];
-      case OP_gte:  return (inputResults[0] >= inputResults[1]) ? inputResults[2] : inputResults[3];
-      case OP_eq:   return (inputResults[0] == inputResults[1]) ? inputResults[2] : inputResults[3];
+      case OP_lt:   return (inputResults[0] <  inputResults[1]) ? inputResults[2]: inputResults[3];
+      case OP_gt:   return (inputResults[0] >  inputResults[1]) ? inputResults[2]: inputResults[3];
+      case OP_lte:  return (inputResults[0] <= inputResults[1]) ? inputResults[2]: inputResults[3];
+      case OP_gte:  return (inputResults[0] >= inputResults[1]) ? inputResults[2]: inputResults[3];
+      case OP_eq:   return (inputResults[0] == inputResults[1]) ? inputResults[2]: inputResults[3];
 
       default:
         vw_throw(vw::LogicErr() << "Unexpected operation type.\n");
@@ -272,9 +272,9 @@ const int VAR = 2;
 const int IN  = 3;
 
 template <typename ITER>
-struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_type> {
+struct calc_grammar: b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_type> {
   // Constructor function
-  calc_grammar() : calc_grammar::base_type(expression) {
+  calc_grammar(): calc_grammar::base_type(expression) {
     // Definitions
     using boost::phoenix::at;
     using boost::phoenix::at_c;
@@ -333,7 +333,7 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
 
 /// Image view class which applies the calc_operation tree to each pixel location.
 template <class ImageT, typename OutputPixelT>
-class ImageCalcView : public vw::ImageViewBase<ImageCalcView<ImageT, OutputPixelT> > {
+class ImageCalcView: public vw::ImageViewBase<ImageCalcView<ImageT, OutputPixelT>> {
 
 public: // Definitions
   typedef typename ImageT::pixel_type  input_pixel_type;
@@ -390,12 +390,12 @@ public: // Functions
     return 0; // NOT IMPLEMENTED.
   }
 
-  typedef vw::ProceduralPixelAccessor<ImageCalcView<ImageT, OutputPixelT> > pixel_accessor;
+  typedef vw::ProceduralPixelAccessor<ImageCalcView<ImageT, OutputPixelT>> pixel_accessor;
   inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  typedef vw::CropView<vw::ImageView<result_type> > prerasterize_type;
+  typedef vw::CropView<vw::ImageView<result_type>> prerasterize_type;
   inline prerasterize_type prerasterize(vw::BBox2i const& bbox) const {
-    typedef typename vw::ImageChannelType<vw::ImageView<result_type> >::type output_channel_type;
+    typedef typename vw::ImageChannelType<vw::ImageView<result_type>>::type output_channel_type;
 
     // Set up the output image tile
     vw::ImageView<result_type> tile(bbox.width(), bbox.height());
@@ -408,7 +408,7 @@ public: // Functions
     std::vector<double>           input_doubles(num_images);
 
     // Rasterize all the input images at this particular tile
-    std::vector<vw::ImageView<input_pixel_type> > input_tiles(num_images);
+    std::vector<vw::ImageView<input_pixel_type>> input_tiles(num_images);
     for (size_t i=0; i<num_images; ++i)
       input_tiles[i] = crop(m_image_vec[i], bbox);
 
@@ -460,8 +460,8 @@ public: // Functions
 
 }; // End class ImageCalcView
 
-struct Options : vw::GdalWriteOptions {
-  Options() : out_nodata_value(-1) {}
+struct Options: vw::GdalWriteOptions {
+  Options(): out_nodata_value(-1) {}
   // Input
   std::vector<std::string> input_files;
   bool        has_in_nodata;
@@ -527,7 +527,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description positional("");
   positional.add_options()
-    ("input-files", po::value<std::vector<std::string> >(&opt.input_files));
+    ("input-files", po::value<std::vector<std::string>>(&opt.input_files));
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
@@ -580,16 +580,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   vw::create_out_dir(opt.output_file);
 }
 
-/// This function call is just to clean up the case statement in load_inputs_and_process
+/// This function call is just to clean up the case statement in proc_img
 template <typename PixelT, typename OutputT>
-void generate_output(const std::string                         & output_file,
-                     const Options                             & opt,
-                     const calc_operation                      & calc_tree,
-                     const bool                                  have_georef,
-                     const vw::cartography::GeoReference       & georef,
-                           std::vector<vw::ImageViewRef<PixelT> >  & input_images,
-                     const std::vector<bool>                   & has_nodata_vec,
-                     const std::vector<double>                 & nodata_vec) {
+void write_out(const std::string                      & output_file,
+               const Options                          & opt,
+               const calc_operation                   & calc_tree,
+               const bool                               have_georef,
+               const vw::cartography::GeoReference    & georef,
+               std::vector<vw::ImageViewRef<PixelT>>  & input_images,
+               const std::vector<bool>                & has_nodata_vec,
+               const std::vector<double>              & nodata_vec) {
 
   // Read previous keywords and append any new keywords from --mo. Overwrite
   // any previous value of a keyword.
@@ -602,25 +602,19 @@ void generate_output(const std::string                         & output_file,
     asp::parse_append_metadata(opt.metadata, keywords);
   }
 
-  vw::vw_out() << "Writing: " << output_file << std::endl;
+  vw::vw_out() << "Writing: " << output_file << "\n";
+  auto tpc = vw::TerminalProgressCallback("image_calc", "Writing:");
   vw::cartography::block_write_gdal_image
     (output_file,
-     ImageCalcView<vw::ImageViewRef<PixelT>, OutputT>(input_images,
-                                                  has_nodata_vec,
-                                                  nodata_vec,
-                                                  opt.out_nodata_value,
-                                                  calc_tree),
-     have_georef, georef,
-     opt.has_out_nodata, opt.out_nodata_value,
-     opt,
-     vw::TerminalProgressCallback("image_calc", "Writing:"),
-     keywords);
+     ImageCalcView<vw::ImageViewRef<PixelT>, OutputT>
+      (input_images, has_nodata_vec, nodata_vec, opt.out_nodata_value, calc_tree),
+     have_georef, georef, opt.has_out_nodata, opt.out_nodata_value, opt, tpc, keywords);
 }
 
 /// This function loads the input images and calls the main processing function
 template <typename PixelT>
-void load_inputs_and_process(Options &opt, const std::string &output_file,
-                             const calc_operation &calc_tree) {
+void proc_img(Options &opt, const std::string &output_file,
+              const calc_operation &calc_tree) {
 
   // Read the georef from the first file, they should all have the same value.
   const size_t numInputFiles = opt.input_files.size();
@@ -640,18 +634,19 @@ void load_inputs_and_process(Options &opt, const std::string &output_file,
       if (!have_georef) {
         have_georef = vw::cartography::read_georeference(georef, input);
         if (have_georef) {
-          vw::vw_out() << "\t--> Copying georef from input image " << input << std::endl;
+          vw::vw_out() << "\t--> Copying georef from input image " << input << "\n";
 
           if (!std::isnan(opt.lon_offset)) {
             if (!georef.is_projected()) {
               vw::vw_out() << "\t--> Adding " << opt.lon_offset
-                       << " to the longitude bounds in the geoheader.\n" << std::endl;
+                           << " to the longitude bounds in the geoheader.\n";
               vw::Matrix<double,3,3> T = georef.transform();
               T(0, 2) += opt.lon_offset;
               georef.set_transform(T);
             } else {
-              vw_throw(vw::ArgumentErr() << "Can apply a longitude offset only to georeferenced "
-                       << "images in the longitude-latitude projection.\n");
+              vw_throw(vw::ArgumentErr() 
+                << "Can apply a longitude offset only to georeferenced "
+                << "images in the longitude-latitude projection.\n");
             }
           }
         }
@@ -660,8 +655,6 @@ void load_inputs_and_process(Options &opt, const std::string &output_file,
 
     // Determining the format of the input
     boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(input));
-    //ChannelTypeEnum channel_type = rsrc->channel_type();
-    //PixelFormatEnum pixel_format = rsrc->pixel_format();
 
     // Check for nodata value in the file
     if (opt.has_in_nodata) {
@@ -691,18 +684,24 @@ void load_inputs_and_process(Options &opt, const std::string &output_file,
   } // loop through input images
 
   if (opt.has_out_nodata)
-    vw::vw_out() << "\t--> Writing output nodata value " << opt.out_nodata_value << std::endl;
+    vw::vw_out() << "\t--> Writing output nodata value: " << opt.out_nodata_value << "\n";
 
   // Write out the selected data type
-  //vw_out() << "Writing: " << output_file << " with data type " << opt.output_data_type << std::endl;
   switch(opt.output_data_type) {
-    case    vw::VW_CHANNEL_UINT8: generate_output<PixelT, vw::PixelGray<vw::uint8>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    vw::VW_CHANNEL_INT16: generate_output<PixelT, vw::PixelGray<vw::int16>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    vw::VW_CHANNEL_UINT16: generate_output<PixelT, vw::PixelGray<vw::uint16>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    vw::VW_CHANNEL_INT32: generate_output<PixelT, vw::PixelGray<vw::int32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    vw::VW_CHANNEL_UINT32: generate_output<PixelT, vw::PixelGray<vw::uint32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    vw::VW_CHANNEL_FLOAT32: generate_output<PixelT, vw::PixelGray<vw::float32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-  default: generate_output<PixelT, vw::PixelGray<vw::float64>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case vw::VW_CHANNEL_UINT8: 
+      write_out<PixelT, vw::PixelGray<vw::uint8>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case vw::VW_CHANNEL_INT16: 
+      write_out<PixelT, vw::PixelGray<vw::int16>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case vw::VW_CHANNEL_UINT16: 
+      write_out<PixelT, vw::PixelGray<vw::uint16>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case vw::VW_CHANNEL_INT32: 
+      write_out<PixelT, vw::PixelGray<vw::int32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case vw::VW_CHANNEL_UINT32: 
+      write_out<PixelT, vw::PixelGray<vw::uint32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case vw::VW_CHANNEL_FLOAT32: 
+      write_out<PixelT, vw::PixelGray<vw::float32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+  default: 
+    write_out<PixelT, vw::PixelGray<vw::float64>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
   };
 
 }
@@ -758,15 +757,24 @@ void image_calc(Options &opt) {
   // Redirect to another function with the correct template type
   switch(input_data_type) {
     // GDAL does not support int8
-    //case vw::VW_CHANNEL_INT8   : load_inputs_and_process<vw::PixelGray<vw::int8 >>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_UINT8  : load_inputs_and_process<vw::PixelGray<vw::uint8>>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_INT16  : load_inputs_and_process<vw::PixelGray<vw::int16>>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_UINT16 : load_inputs_and_process<vw::PixelGray<vw::uint16>>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_INT32  : load_inputs_and_process<vw::PixelGray<vw::int32>>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_UINT32 : load_inputs_and_process<vw::PixelGray<vw::uint32>>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_FLOAT32: load_inputs_and_process<vw::PixelGray<vw::float32>>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_FLOAT64: load_inputs_and_process<vw::PixelGray<vw::float64>>(opt, output_file, calc_tree);  break;
-  default : vw_throw(vw::ArgumentErr() << "Input image format " << input_data_type << " is not supported.\n");
+    //case vw::VW_CHANNEL_INT8: proc_img<vw::PixelGray<vw::int8 >>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_UINT8: 
+    proc_img<vw::PixelGray<vw::uint8>>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_INT16: 
+    proc_img<vw::PixelGray<vw::int16>>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_UINT16: 
+    proc_img<vw::PixelGray<vw::uint16>>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_INT32: 
+    proc_img<vw::PixelGray<vw::int32>>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_UINT32: 
+    proc_img<vw::PixelGray<vw::uint32>>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_FLOAT32: 
+    proc_img<vw::PixelGray<vw::float32>>(opt, output_file, calc_tree);  break;
+  case vw::VW_CHANNEL_FLOAT64: 
+    proc_img<vw::PixelGray<vw::float64>>(opt, output_file, calc_tree);  break;
+  default: 
+    vw_throw(vw::ArgumentErr() 
+      << "Input image format " << input_data_type << " is not supported.\n");
   };
 }
 
