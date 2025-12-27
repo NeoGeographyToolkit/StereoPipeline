@@ -1,3 +1,11 @@
+Changes since last release
+--------------------------
+
+image_calc (:numref:`image_calc`):
+  * For a single input image, the option ``-c`` (calculation operation) defaults
+    to ``var_0`` (identity operation).
+  * The default output data type is now ``float32`` (previously ``float64``).
+
 RELEASE 3.6.0, December 26, 2025
 --------------------------------
 

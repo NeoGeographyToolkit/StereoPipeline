@@ -53,20 +53,14 @@ namespace po = boost::program_options;
 
 using namespace vw;
 
-/**
-  Program implementing simple calculator functionality for large images.
-
-*/
+// Program implementing simple calculator functionality for large images.
 
 namespace b_s = boost::spirit;
 
-//================================================================================
 // - The operations tree structure
 
-/*
-  Boost::Spirit requires the use of some specific Boost types in order to
-   store the parsed information.
-*/
+// Boost::Spirit requires the use of some specific Boost types in order to
+// store the parsed information.
 
 enum OperationType {
   OP_pass,
@@ -533,14 +527,15 @@ struct Options : vw::GdalWriteOptions {
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
   const std::string calc_string_help =
-    "The operation to be performed on the input images. "
-    "Input images must all be the same size and type. "
-    "Currently only single channel images are supported. "
-    "Recognized operators: +, -, /, *, (), pow(), abs(), sign(), rand(), min(), max(), var_0, var_1, ..."
-    "Use var_n to refer to the pixel of the n-th input image. "
-    "Order of operations is parsed with RIGHT priority, use parenthesis "
-    "to assure the order you want. "
-    "Surround the entire string with double quotes.";
+    "The operation to be performed on the input images. Input images must all be the "
+    "same size and type. Currently only single channel images are supported. "
+    "Recognized operators: +, -, /, *, (), pow(), abs(), sign(), rand(), min(), max(), "
+    "var_0, var_1, etc. Use var_n to refer to the pixel of the n-th input image "
+    "(n starts from 0). Note that the order of operations is parsed with right-to-left "
+    "associativity, so, 'a * b * c' becomes 'a * (b * c)'. Use parentheses to "
+    "enforce the desired order. Surround the entire string with quotes. For a "
+    "single input image, if the operation is not set, it defaults to 'var_0' so the "
+    "identity operation.";
 
   const std::string data_type_string =
     "The data type of the output file:\n"
@@ -549,25 +544,30 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     "  uint32  \n"
     "  int16   \n"
     "  int32   \n"
-    "  float32 \n"
-    "  float64 (default)\n";
+    "  float32 (default)\n"
+    "  float64 \n";
 
   double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("");
   general_options.add_options()
     ("output-file,o", po::value(&opt.output_file), "Output file name.")
-    ("calc,c",            po::value(&opt.calc_string), calc_string_help.c_str())
-    ("output-data-type,d",  po::value(&opt.output_data_string)->default_value("float64"), data_type_string.c_str())
+    ("calc,c", po::value(&opt.calc_string), calc_string_help.c_str())
+    ("output-data-type,d",
+     po::value(&opt.output_data_string)->default_value("float32"), data_type_string.c_str())
     ("input-nodata-value",  po::value(&opt.in_nodata_value), "Set the nodata value for the input images, overriding the value in the images, if present.")
     ("output-nodata-value", po::value(&opt.out_nodata_value),
-     "Manually specify a nodata value for the output image. By default "
-     "it is read from the first input which has it, or, if missing, "
-     "it is set to data type min.")
-    ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
-    ("no-georef",         po::bool_switch(&opt.no_georef)->default_value(false),
+     "Manually specify a nodata value for the output image. By default it is read from the "
+     "first input which has it, or, if missing, it is set to data type min.")
+    ("mo",  po::value(&opt.metadata)->default_value(""), 
+     "Write metadata to the output file. Provide as a string in quotes if more than one "
+     "item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable "
+     "names nor the values should contain spaces.")
+    ("no-georef", po::bool_switch(&opt.no_georef)->default_value(false),
      "Remove any georeference information (useful with subsequent GDAL-based processing).")
-    ("longitude-offset",  po::value(&opt.lon_offset)->default_value(nan), "Add this value to the longitudes in the geoheader (can be used to offset the longitudes by 360 degrees).")
-    ("help,h",            "Display this help message.");
+    ("longitude-offset",  po::value(&opt.lon_offset)->default_value(nan), 
+     "Add this value to the longitudes in the geoheader (can be used to offset the "
+     "longitudes by 360 degrees).")
+    ("help,h", "Display this help message.");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -588,8 +588,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.input_files.empty())
     vw_throw( ArgumentErr() << "Missing input files.\n" << usage << general_options );
-  if ( opt.calc_string.size() == 0)
-    vw_throw( ArgumentErr() << "Missing operation string.\n" << usage << general_options );
+
+  if (opt.calc_string.empty()) {
+    if (opt.input_files.size() == 1) {
+      opt.calc_string = "var_0";
+    } else {
+      vw_throw( ArgumentErr() << "Missing operation string.\n" << usage << general_options );
+    }
+  }
 
   if      (opt.output_data_string == "uint8"  ) opt.output_data_type = VW_CHANNEL_UINT8;
   else if (opt.output_data_string == "uint16" ) opt.output_data_type = VW_CHANNEL_UINT16;
@@ -604,7 +610,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr()
              << "Unsupported output data type: '" << opt.output_data_string << "'.\n" );
   
-  // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user specified these options
+  // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user
+  // specified these options
   if (!vm.count("input-nodata-value")){
     opt.has_in_nodata = false;
   }else

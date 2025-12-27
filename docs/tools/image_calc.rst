@@ -24,13 +24,12 @@ can be any variables or constants (:numref:`image_calc_above_thresh`).
 
 An example arithmetic string to be passed via ``-c`` is::
 
-    -abs(var_0) + min(58, var_1, var_2) / 2
-
-An example is in :numref:`image_calc_mask`.
+    "-abs(var_0) + min(58, var_1, var_2) / 2"
 
 The tool respects the normal PEMDAS order of operations *except* that it parses
-equal priority operations from right to left, *not* the expected left to right.
-Parentheses can be used to enforce any preferred order of evaluation.
+equal priority operations with right-to-left associativity, so, ``a * b * c``
+becomes ``a * (b * c)``. Parentheses can be used to enforce any preferred order
+of evaluation.
 
 Examples
 ~~~~~~~~
@@ -176,9 +175,11 @@ Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
 -c, --calc <string>
-    The arithmetic string in quotes (required).
+    The arithmetic string, in quotes. For a single input image, if
+    this is not set, it defaults to ``var_0`` so the identity operation.
+    It is required when there are multiple input images.
 
--d, --output-data-type <type (default: float64)>
+-d, --output-data-type <type (default: float32)>
     The data type of the output file. Options: uint8, uint16, uint32,
     int16, int32, float32, float64.
 
