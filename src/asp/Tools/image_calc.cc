@@ -108,25 +108,25 @@ std::string getTagName(const OperationType op) {
 const int TAB_SIZE = 4;
 void tab(int indent) {
 
-  for (int i = 0; i < indent; ++i)
+  for (int i = 0; i < indent; i++)
     std::cout << ' ';
 }
 
 // TODO: Are there pixel functions for these?
 template <typename T>
-T manual_min(const std::vector<T> &vec) {
+T manual_min(std::vector<T> const& vec) {
 
   T minVal = vec[0];
-  for (size_t i=1; i<vec.size(); ++i)
+  for (size_t i = 1; i < vec.size(); i++)
     if (vec[i] < minVal)
       minVal = vec[i];
   return minVal;
 }
 template <typename T>
-T manual_max(const std::vector<T> &vec) {
+T manual_max(std::vector<T> const& vec) {
 
   T maxVal = vec[0];
-  for (size_t i=1; i<vec.size(); ++i)
+  for (size_t i = 1; i < vec.size(); i++)
     if (vec[i] > maxVal)
       maxVal = vec[i];
   return maxVal;
@@ -171,7 +171,7 @@ struct calc_operation {
       tab(indent);
       std::cout << '{' << "\n";
 
-      for (size_t i=0; i<inputs.size(); ++i)
+      for (size_t i = 0; i < inputs.size(); i++)
         inputs[i].print(indent+TAB_SIZE);
 
       tab(indent);
@@ -183,7 +183,7 @@ struct calc_operation {
   /// Recursive function to eliminate extraneous nodes created by our parsing technique
   void clearEmptyNodes() {
     // Recursively call this function on all inputs
-    for (size_t i=0; i<inputs.size(); ++i)
+    for (size_t i = 0; i < inputs.size(); i++)
       inputs[i].clearEmptyNodes();
 
     if (opType != OP_pass)
@@ -205,12 +205,12 @@ struct calc_operation {
 
   /// Apply the operation tree to the input parameters and return a result
   template <typename T>
-  T applyOperation(const std::vector<T> &params) const {
+  T applyOperation(std::vector<T> const& params) const {
     // Get the results from each input node.
     // - This is a recursive call.
     const size_t numInputs = inputs.size();
     std::vector<T> inputResults(numInputs);
-    for (size_t i=0; i<numInputs; ++i)
+    for (size_t i = 0; i < numInputs; i++)
       inputResults[i] = inputs[i].applyOperation(params);
 
     // Now perform the operation for this node
@@ -341,7 +341,7 @@ public: // Definitions
   typedef OutputPixelT result_type;
 
 private: // Variables
-  std::vector<ImageT> m_image_vec;
+  std::vector<ImageT> const& m_image_vec;
   std::vector<bool> m_has_nodata_vec;
   std::vector<double> m_nodata_vec; // nodata is always double
   double              m_output_nodata;
@@ -353,8 +353,8 @@ private: // Variables
 public: // Functions
 
   // Constructor
-  ImageCalcView(std::vector<ImageT>      & imageVec,
-                std::vector<bool  > const& has_nodata_vec,
+  ImageCalcView(std::vector<ImageT> const& imageVec,
+                std::vector<bool>   const& has_nodata_vec,
                 std::vector<double> const& nodata_vec,
                 double outputNodata,
                 calc_operation const& operation_tree):
@@ -373,7 +373,7 @@ public: // Functions
     m_num_rows     = imageVec[0].rows();
     m_num_cols     = imageVec[0].cols();
     m_num_channels = imageVec[0].planes();
-    for (size_t i=1; i<numImages; ++i) {
+    for (size_t i = 1; i < numImages; i++) {
       if ((imageVec[i].rows()   != m_num_rows) ||
            (imageVec[i].cols()   != m_num_cols) ||
            (imageVec[i].planes() != m_num_channels))
@@ -409,7 +409,7 @@ public: // Functions
 
     // Rasterize all the input images at this particular tile
     std::vector<vw::ImageView<input_pixel_type>> input_tiles(num_images);
-    for (size_t i=0; i<num_images; ++i)
+    for (size_t i = 0; i < num_images; i++)
       input_tiles[i] = crop(m_image_vec[i], bbox);
 
     // Loop through each output pixel and compute each output value
@@ -417,7 +417,7 @@ public: // Functions
       for (int r = 0; r < bbox.height(); r++) {
         // Fetch all the input pixels for this location
         bool isNodata = false;
-        for (size_t i=0; i<num_images; ++i) {
+        for (size_t i = 0; i < num_images; i++) {
           input_pixels[i] = (input_tiles[i])(c,r);
 
           // If any of the input pixels are nodata, the output is nodata.
@@ -432,8 +432,8 @@ public: // Functions
           continue;
         }
 
-        for (int chan=0; chan<m_num_channels; ++chan) {
-          for (size_t i=0; i<num_images; ++i) {
+        for (int chan = 0; chan < m_num_channels; chan++) {
+          for (size_t i = 0; i < num_images; i++) {
             input_doubles[i] = input_pixels[i][chan];
           } // End image loop
 
@@ -673,14 +673,14 @@ void image_calc_stretch(Options const& opt, bool have_georef,
 
 /// This function call is just to clean up the case statement in proc_img
 template <typename PixelT, typename OutputT>
-void write_out(const std::string                      & output_file,
-               const Options                          & opt,
-               const calc_operation                   & calc_tree,
-               bool                                     have_georef,
-               const vw::cartography::GeoReference    & georef,
-               std::vector<vw::ImageViewRef<PixelT>>  & input_images,
-               const std::vector<bool>                & has_nodata_vec,
-               const std::vector<double>              & nodata_vec) {
+void write_out(std::string const& output_file,
+               Options const& opt,
+               calc_operation const& calc_tree,
+               bool have_georef,
+               vw::cartography::GeoReference const& georef,
+               std::vector<vw::ImageViewRef<PixelT>> const& input_images,
+               std::vector<bool> const& has_nodata_vec,
+               std::vector<double> const& nodata_vec) {
 
   // Read previous keywords and append any new keywords from --mo. Overwrite
   // any previous value of a keyword.
@@ -711,8 +711,8 @@ void write_out(const std::string                      & output_file,
 
 /// This function loads the input images and calls the main processing function
 template <typename PixelT>
-void proc_img(Options &opt, const std::string &output_file,
-              const calc_operation &calc_tree) {
+void proc_img(Options &opt, std::string const& output_file,
+              calc_operation const& calc_tree) {
 
   // Read the georef from the first file, they should all have the same value.
   const size_t numInputFiles = opt.input_files.size();
@@ -724,7 +724,7 @@ void proc_img(Options &opt, const std::string &output_file,
   vw::cartography::GeoReference georef;
 
   // Loop through each input file
-  for (size_t i = 0; i < numInputFiles; ++i) {
+  for (size_t i = 0; i < numInputFiles; i++) {
     const std::string input = opt.input_files[i];
 
     // If desired to not use a georef, skip reading it. Else read it.
