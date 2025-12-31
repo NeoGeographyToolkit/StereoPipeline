@@ -461,7 +461,8 @@ public: // Functions
 }; // End class ImageCalcView
 
 struct Options: vw::GdalWriteOptions {
-  Options(): out_nodata_value(-1) {}
+  Options(): out_nodata_value(-1), percentile_stretch(false), 
+    percentile_range(vw::Vector2(2, 98)) {}
   // Input
   std::vector<std::string> input_files;
   bool        has_in_nodata;
@@ -472,6 +473,8 @@ struct Options: vw::GdalWriteOptions {
   int         output_data_type;
   bool        has_out_nodata;
   bool        no_georef;
+  bool        percentile_stretch;
+  vw::Vector2 percentile_range;
   double      out_nodata_value;
   std::string calc_string;
   std::string output_file, metadata;
@@ -518,6 +521,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "names nor the values should contain spaces.")
     ("no-georef", po::bool_switch(&opt.no_georef)->default_value(false),
      "Remove any georeference information (useful with subsequent GDAL-based processing).")
+    ("stretch", po::bool_switch(&opt.percentile_stretch)->default_value(false),
+     "Stretch the image to 0 - 255 using percentiles of input pixel values, then "
+     "round, clamp, and save as uint8. See also ``--percentile-range``.")
+    ("percentile-range", 
+     po::value(&opt.percentile_range)->default_value(vw::Vector2(2, 98), "2 98"),
+     "The percentiles to use for stretching the image to 8-bit. These are double values.")
     ("longitude-offset",  po::value(&opt.lon_offset)->default_value(nan),
      "Add this value to the longitudes in the geoheader (can be used to offset the "
      "longitudes by 360 degrees).")
@@ -543,6 +552,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.input_files.empty())
     vw_throw(vw::ArgumentErr() << "Missing input files.\n" << usage << general_options);
 
+  if (opt.percentile_stretch && opt.input_files.size() != 1)
+    vw_throw(vw::ArgumentErr() 
+             << "The --stretch option works only with a single input image.\n");
+
+  if (opt.percentile_range[0] < 0.0 || opt.percentile_range[0] >= opt.percentile_range[1] || 
+      opt.percentile_range[1] > 100.0)
+    vw_throw(vw::ArgumentErr() << "The --percentile-range values must be between 0 and 100, "
+             << "and the first value must be less than the second.\n");
+
   if (opt.calc_string.empty()) {
     if (opt.input_files.size() == 1) {
       opt.calc_string = "var_0";
@@ -562,7 +580,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   else if (opt.output_data_string == "float64") opt.output_data_type = vw::VW_CHANNEL_FLOAT64;
   else
     vw_throw(vw::ArgumentErr()
-             << "Unsupported output data type: '" << opt.output_data_string << "'.\n");
+             << "Unsupported output data type: " << opt.output_data_string << ".\n");
 
   // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user
   // specified these options
@@ -576,6 +594,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.out_nodata_value = vw::get_default_nodata(opt.output_data_type);
   } else
     opt.has_out_nodata = true;
+
+  if (opt.output_file.empty())
+    vw_throw(vw::ArgumentErr() << "The output file was not specified.\n");
 
   vw::create_out_dir(opt.output_file);
 }
@@ -728,15 +749,7 @@ void image_calc(Options &opt) {
 
   // Use a default output file if none provided
   const std::string firstFile = opt.input_files[0];
-  //vw_out() << "Loading: " << firstFile << "\n";
-  size_t pt_idx = firstFile.rfind(".");
-  std::string output_file;
-  if (opt.output_file.size() != 0)
-    output_file = opt.output_file;
-  else {
-    output_file = firstFile.substr(0,pt_idx) + "_calc";
-    output_file += firstFile.substr(pt_idx,firstFile.size()-pt_idx);
-  }
+  std::string output_file = opt.output_file;
 
   // Determining the format of the input images
   auto rsrc = vw::DiskImageResourcePtr(firstFile);
@@ -777,13 +790,126 @@ void image_calc(Options &opt) {
   };
 }
 
+// Calc percentile stretch for a single-channel image
+void image_calc_percentile_stretch(Options &opt) {
+  
+  // Check that the input image has only one channel
+  const std::string firstFile = opt.input_files[0];
+  auto rsrc = vw::DiskImageResourcePtr(firstFile);
+  if (rsrc->channels() != 1)
+    vw_throw(vw::ArgumentErr() 
+             << "The --stretch option works only with single-channel images.\n");
+
+  // Read the image
+  vw::DiskImageView<double> image(firstFile);
+
+  // Handle nodata. Mask it before doing stats.
+  double nodata_val = std::numeric_limits<double>::quiet_NaN();
+  if (opt.has_in_nodata) {
+    nodata_val = opt.in_nodata_value;
+    vw::vw_out() << "\t--> Using as nodata value: " << nodata_val << "\n";
+  } else if (rsrc->has_nodata_read()) {
+    nodata_val = rsrc->nodata_read();
+    vw::vw_out() << "\t--> Extracted nodata value from " << firstFile << ": " << nodata_val << "\n";
+  }
+  vw::ImageViewRef<vw::PixelMask<double>> masked_image = vw::create_mask(image, nodata_val);
+
+  // Compute statistics at a reduced resolution. Use double and int64 to avoid overflow.
+  const double numPixelSamples = 1000000;
+  double num_pixels = double(image.cols()) * double(image.rows());
+  vw::int64 stat_scale = vw::int64(ceil(sqrt(num_pixels / numPixelSamples)));
+
+  vw::vw_out() << "Computing statistics using downsample scale: " << stat_scale << std::endl;
+
+  vw::vw_out() << "Input image size: " << image.cols() << " x " << image.rows() << std::endl;
+
+  vw::math::CDFAccumulator<double> accumulator;
+  vw::TerminalProgressCallback tp("asp", "\t  stats:  ");
+  
+  // Subsample and accumulate
+  vw::int64 num_valid_pixels = 0;
+  vw::ImageView<vw::PixelMask<double>> sub_image = subsample(masked_image, stat_scale);
+  vw::vw_out() << "Subsampled image size: " << sub_image.cols() << " x " << sub_image.rows() << std::endl;
+  for (vw::int64 col = 0; col < sub_image.cols(); col++) {
+    for (vw::int64 row = 0; row < sub_image.rows(); row++) {
+      if (is_valid(sub_image(col, row))) {
+        accumulator(sub_image(col, row).child());
+        num_valid_pixels++;
+      }
+    }
+    tp.report_fractional_progress(col, sub_image.cols());
+  }
+  tp.report_finished();
+
+  double min_val = 0.0, max_val = 1.0;
+  if (num_valid_pixels == 0) {
+    vw::vw_out(vw::WarningMessage) << "No valid pixels found in the input image.\n";
+  } else {
+    min_val = accumulator.quantile(opt.percentile_range[0] / 100.0);
+    max_val = accumulator.quantile(opt.percentile_range[1] / 100.0);
+  }
+
+  vw::vw_out() << "Computed percentiles:\n";
+  if (num_valid_pixels > 0) {
+    vw::vw_out() << "  0%:   " << accumulator.quantile(0.0) << "\n"
+                 << "  25%:  " << accumulator.quantile(0.25) << "\n"
+                 << "  50%:  " << accumulator.quantile(0.5) << "\n"
+                 << "  75%:  " << accumulator.quantile(0.75) << "\n"
+                 << "  100%: " << accumulator.quantile(1.0) << "\n";
+  }
+  vw::vw_out() << "  " << opt.percentile_range[0] << "%: " << min_val << "\n"
+               << "  " << opt.percentile_range[1] << "%: " << max_val << "\n";
+
+  // Handle georeference
+  bool have_georef = false;
+  vw::cartography::GeoReference georef;
+  if (!opt.no_georef)
+    have_georef = vw::cartography::read_georeference(georef, firstFile);
+  if (have_georef && !std::isnan(opt.lon_offset))
+    vw::vw_throw(vw::NoImplErr() << "The --longitude-offset option is not "
+             << "implemented for the --stretch option.\n");
+
+  // Handle metadata
+  std::map<std::string, std::string> keywords;
+  if (opt.metadata != "") {
+    vw::cartography::read_header_strings(*rsrc.get(), keywords);
+    asp::parse_append_metadata(opt.metadata, keywords);
+  }
+
+  vw::vw_out() << "Writing: " << opt.output_file << "\n";
+
+  // Create the stretched view. Pixels below min_val and are clamped to 0.
+  // Pixels above max_val are clamped to 255. Nodata pixels are also clamped to
+  // 0. Round before casting to uint8.
+  vw::ImageViewRef<double> normalized_image
+    = vw::normalize(vw::apply_mask(masked_image, min_val), min_val, max_val, 0.0, 255.0);
+  vw::ImageViewRef<double> clamped_image = vw::clamp(normalized_image, 0.0, 255.0);
+  vw::ImageViewRef<double> rounded_image = vw::round(clamped_image);   
+  vw::ImageViewRef<vw::uint8> cast_image = vw::channel_cast<vw::uint8>(rounded_image);
+  
+  // vw::ImageViewRef<vw::uint8> cast_image2 = 
+  //  = vw::channel_cast_round_and_clamp<vw::uint8>(normalized_image);
+
+  bool has_out_nodata = false;
+  double out_nodata = 0.0;
+  auto tpc = vw::TerminalProgressCallback("asp", ": ");
+  vw::cartography::block_write_gdal_image(opt.output_file, cast_image, have_georef, georef,
+                                          has_out_nodata, out_nodata, opt, tpc, 
+                                          keywords);
+}
+
 /// The main function calls the cmd line parsers and figures out the input image type
 int main(int argc, char *argv[]) {
 
   Options opt;
   try {
     handle_arguments(argc, argv, opt);
-    image_calc(opt);
+
+    if (opt.percentile_stretch)
+      image_calc_percentile_stretch(opt);
+    else
+      image_calc(opt);
+
   } ASP_STANDARD_CATCHES;
 
   return 0;

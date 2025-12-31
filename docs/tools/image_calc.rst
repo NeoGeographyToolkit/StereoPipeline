@@ -117,6 +117,22 @@ If this variable already exists, its value will be overwritten. Other
 existing variables will be preserved. Use ``gdalinfo`` to view the
 metadata.
 
+.. _image_calc_stretch:
+
+Stretch and convert to 8-bit image
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Take an image with a single channel, find the 2nd and 98th percentiles, stretch
+to 0-255 with those as min and max, round, clamp, and save as ``uint8``. The
+percentile range can be set with ``--percentile-range``.
+
+::
+
+    image_calc --stretch input.tif -o output.tif
+
+This is useful for quick visualization of floating point images. See also:
+``colormap`` (:numref:`colormap`) and ``hillshade`` (:numref:`hillshade`).
+
 Subtract 360 degrees from the longitudes in a GeoTiff file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -193,7 +209,7 @@ Command-line options
     is set to data type min.
 
 -o, --output-file <string>
-    Specify the output file instead of using a default.
+    Output file name.
 
 --mo <string>
     Write metadata to the output file.  Provide as a string in quotes
@@ -208,6 +224,13 @@ Command-line options
 --no-georef
    Remove any georeference information (useful with subsequent
    GDAL-based processing).
+
+--stretch
+   Stretch the image to 0 - 255 using percentiles of input pixel values, then
+   round, clamp, and save as uint8. See also ``--percentile-range``.
+
+--percentile-range <min max (default: 2 98)>
+    The percentiles to use for stretching the image to 8-bit. These are double values.
 
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use

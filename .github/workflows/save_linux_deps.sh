@@ -17,6 +17,7 @@ tag=$1; shift
 # Note: Must updated below the names of both envs if they change.
 tarball=asp_deps.tar.gz
 cd $HOME
+echo Creating: $tarball
 /usr/bin/time tar cfz $tarball \
   miniconda3/envs/asp_deps     \
   miniconda3/envs/python_isis9
