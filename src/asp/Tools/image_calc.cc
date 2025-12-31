@@ -604,7 +604,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 // Implement option --stretch
 void image_calc_stretch(Options const& opt, bool have_georef,
                         vw::cartography::GeoReference const& georef,
-                        std::map<std::string, std::string> const& keywords) {
+                        std::map<std::string, std::string> const& keywords,
+                        bool has_nodata, double nodata_val) {
   
   // Check that the input image has only one channel
   const std::string firstFile = opt.input_files[0];
@@ -617,15 +618,11 @@ void image_calc_stretch(Options const& opt, bool have_georef,
   vw::DiskImageView<double> image(firstFile);
 
   // Handle nodata. Mask it before doing stats.
-  double nodata_val = std::numeric_limits<double>::quiet_NaN();
-  if (opt.has_in_nodata) {
-    nodata_val = opt.in_nodata_value;
-    vw::vw_out() << "\t--> Using as nodata value: " << nodata_val << "\n";
-  } else if (rsrc->has_nodata_read()) {
-    nodata_val = rsrc->nodata_read();
-    vw::vw_out() << "\t--> Extracted nodata value from " << firstFile << ": " << nodata_val << "\n";
-  }
-  vw::ImageViewRef<vw::PixelMask<double>> masked_image = vw::create_mask(image, nodata_val);
+  vw::ImageViewRef<vw::PixelMask<double>> masked_image;
+  if (has_nodata)
+    masked_image = vw::create_mask(image, nodata_val);
+  else
+    masked_image = vw::pixel_cast<vw::PixelMask<double>>(image);
 
   // Compute statistics at a reduced resolution. Use double and int64 to avoid overflow.
   const double numPixelSamples = 1000000;
@@ -702,7 +699,8 @@ void write_out(const std::string                      & output_file,
   }
 
   if (opt.percentile_stretch) {
-    image_calc_stretch(opt, have_georef, georef, keywords);
+    image_calc_stretch(opt, have_georef, georef, keywords, 
+                       has_nodata_vec[0], nodata_vec[0]);
   } else {
     if (opt.has_out_nodata)
       vw::vw_out() << "\t--> Writing output nodata value: " << opt.out_nodata_value << "\n";
