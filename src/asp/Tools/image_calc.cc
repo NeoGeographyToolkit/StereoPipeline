@@ -818,18 +818,12 @@ void image_calc_percentile_stretch(Options &opt) {
   const double numPixelSamples = 1000000;
   double num_pixels = double(image.cols()) * double(image.rows());
   vw::int64 stat_scale = vw::int64(ceil(sqrt(num_pixels / numPixelSamples)));
-
-  vw::vw_out() << "Computing statistics using downsample scale: " << stat_scale << std::endl;
-
-  vw::vw_out() << "Input image size: " << image.cols() << " x " << image.rows() << std::endl;
-
   vw::math::CDFAccumulator<double> accumulator;
-  vw::TerminalProgressCallback tp("asp", "\t  stats:  ");
-  
-  // Subsample and accumulate
   vw::int64 num_valid_pixels = 0;
   vw::ImageView<vw::PixelMask<double>> sub_image = subsample(masked_image, stat_scale);
-  vw::vw_out() << "Subsampled image size: " << sub_image.cols() << " x " << sub_image.rows() << std::endl;
+  vw::vw_out() << "Computing image percentiles with subsampled image size: " 
+    << sub_image.cols() << " x " << sub_image.rows() << "\n";
+  vw::TerminalProgressCallback tp("asp", ": ");
   for (vw::int64 col = 0; col < sub_image.cols(); col++) {
     for (vw::int64 row = 0; row < sub_image.rows(); row++) {
       if (is_valid(sub_image(col, row))) {
@@ -847,15 +841,6 @@ void image_calc_percentile_stretch(Options &opt) {
   } else {
     min_val = accumulator.quantile(opt.percentile_range[0] / 100.0);
     max_val = accumulator.quantile(opt.percentile_range[1] / 100.0);
-  }
-
-  vw::vw_out() << "Computed percentiles:\n";
-  if (num_valid_pixels > 0) {
-    vw::vw_out() << "  0%:   " << accumulator.quantile(0.0) << "\n"
-                 << "  25%:  " << accumulator.quantile(0.25) << "\n"
-                 << "  50%:  " << accumulator.quantile(0.5) << "\n"
-                 << "  75%:  " << accumulator.quantile(0.75) << "\n"
-                 << "  100%: " << accumulator.quantile(1.0) << "\n";
   }
   vw::vw_out() << "  " << opt.percentile_range[0] << "%: " << min_val << "\n"
                << "  " << opt.percentile_range[1] << "%: " << max_val << "\n";
@@ -876,8 +861,6 @@ void image_calc_percentile_stretch(Options &opt) {
     asp::parse_append_metadata(opt.metadata, keywords);
   }
 
-  vw::vw_out() << "Writing: " << opt.output_file << "\n";
-
   // Create the stretched view. Pixels below min_val and are clamped to 0.
   // Pixels above max_val are clamped to 255. Nodata pixels are also clamped to
   // 0. Round before casting to uint8.
@@ -893,6 +876,7 @@ void image_calc_percentile_stretch(Options &opt) {
   bool has_out_nodata = false;
   double out_nodata = 0.0;
   auto tpc = vw::TerminalProgressCallback("asp", ": ");
+  vw::vw_out() << "Writing: " << opt.output_file << "\n";
   vw::cartography::block_write_gdal_image(opt.output_file, cast_image, have_georef, georef,
                                           has_out_nodata, out_nodata, opt, tpc, 
                                           keywords);
