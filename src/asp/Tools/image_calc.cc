@@ -218,11 +218,11 @@ struct calc_operation {
       // Unary
       case OP_number:   return T(value);
       case OP_variable: if (varName >= static_cast<int>(params.size()))
-        vw_throw(vw::ArgumentErr()
+        vw::vw_throw(vw::ArgumentErr()
                   << "Unrecognized variable input. Note that the first variable is var_0.\n");
         return params[varName];
       if (numInputs < 1)
-        vw_throw(vw::LogicErr() << "Insufficient inputs for this operation.\n");
+        vw::vw_throw(vw::LogicErr() << "Insufficient inputs for this operation.\n");
       case OP_negate:   return T(-1 * inputResults[0]);
       case OP_abs:      return T(std::abs(inputResults[0])); // regular abs casts to integer.
       case OP_sign:     return T(boost::math::sign(inputResults[0]));
@@ -230,7 +230,7 @@ struct calc_operation {
 
       // Binary
       if (numInputs < 2)
-        vw_throw(vw::LogicErr() << "Insufficient inputs for this operation.\n");
+        vw::vw_throw(vw::LogicErr() << "Insufficient inputs for this operation.\n");
       case OP_add:      return (inputResults[0] + inputResults[1]);
       case OP_subtract: return (inputResults[0] - inputResults[1]);
       case OP_divide:   return (inputResults[0] / inputResults[1]);
@@ -248,7 +248,7 @@ struct calc_operation {
       case OP_eq:   return (inputResults[0] == inputResults[1]) ? inputResults[2]: inputResults[3];
 
       default:
-        vw_throw(vw::LogicErr() << "Unexpected operation type.\n");
+        vw::vw_throw(vw::LogicErr() << "Unexpected operation type.\n");
     }
   }
 };
@@ -377,7 +377,7 @@ public: // Functions
       if ((imageVec[i].rows()   != m_num_rows) ||
            (imageVec[i].cols()   != m_num_cols) ||
            (imageVec[i].planes() != m_num_channels))
-        vw_throw(vw::ArgumentErr()
+        vw::vw_throw(vw::ArgumentErr()
                  << "Error: Input images must all have the same size and number of channels.");
     }
   }
@@ -550,22 +550,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             allow_unregistered, unregistered);
 
   if (opt.input_files.empty())
-    vw_throw(vw::ArgumentErr() << "Missing input files.\n" << usage << general_options);
+    vw::vw_throw(vw::ArgumentErr() << "Missing input files.\n" << usage << general_options);
 
   if (opt.percentile_stretch && opt.input_files.size() != 1)
-    vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr() 
              << "The --stretch option works only with a single input image.\n");
 
   if (opt.percentile_range[0] < 0.0 || opt.percentile_range[0] >= opt.percentile_range[1] || 
       opt.percentile_range[1] > 100.0)
-    vw_throw(vw::ArgumentErr() << "The --percentile-range values must be between 0 and 100, "
+    vw::vw_throw(vw::ArgumentErr() << "The --percentile-range values must be between 0 and 100, "
              << "and the first value must be less than the second.\n");
 
   if (opt.calc_string.empty()) {
     if (opt.input_files.size() == 1) {
       opt.calc_string = "var_0";
     } else {
-      vw_throw(vw::ArgumentErr() << "Missing operation string.\n" << usage << general_options);
+      vw::vw_throw(vw::ArgumentErr() << "Missing operation string.\n" << usage << general_options);
     }
   }
 
@@ -579,7 +579,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   else if (opt.output_data_string == "float32") opt.output_data_type = vw::VW_CHANNEL_FLOAT32;
   else if (opt.output_data_string == "float64") opt.output_data_type = vw::VW_CHANNEL_FLOAT64;
   else
-    vw_throw(vw::ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
              << "Unsupported output data type: " << opt.output_data_string << ".\n");
 
   // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user
@@ -596,7 +596,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.has_out_nodata = true;
 
   if (opt.output_file.empty())
-    vw_throw(vw::ArgumentErr() << "The output file was not specified.\n");
+    vw::vw_throw(vw::ArgumentErr() << "The output file was not specified.\n");
 
   vw::create_out_dir(opt.output_file);
 }
@@ -611,7 +611,7 @@ void image_calc_stretch(Options const& opt, bool have_georef,
   const std::string firstFile = opt.input_files[0];
   auto rsrc = vw::DiskImageResourcePtr(firstFile);
   if (rsrc->channels() != 1)
-    vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr() 
              << "The --stretch option works only with single-channel images.\n");
 
   // Read the image
@@ -630,13 +630,13 @@ void image_calc_stretch(Options const& opt, bool have_georef,
   vw::int64 stat_scale = vw::int64(ceil(sqrt(num_pixels / numPixelSamples)));
   vw::math::CDFAccumulator<double> accumulator;
   vw::int64 num_valid_pixels = 0;
-  vw::ImageView<vw::PixelMask<double>> sub_image = subsample(masked_image, stat_scale);
+  vw::ImageView<vw::PixelMask<double>> sub_image = vw::subsample(masked_image, stat_scale);
   vw::vw_out() << "Computing image percentiles with subsampled image size: " 
     << sub_image.cols() << " x " << sub_image.rows() << "\n";
   vw::TerminalProgressCallback tp("asp", ": ");
   for (vw::int64 col = 0; col < sub_image.cols(); col++) {
     for (vw::int64 row = 0; row < sub_image.rows(); row++) {
-      if (is_valid(sub_image(col, row))) {
+      if (vw::is_valid(sub_image(col, row))) {
         accumulator(sub_image(col, row).child());
         num_valid_pixels++;
       }
@@ -742,7 +742,7 @@ void proc_img(Options &opt, const std::string &output_file,
               T(0, 2) += opt.lon_offset;
               georef.set_transform(T);
             } else {
-              vw_throw(vw::ArgumentErr() 
+              vw::vw_throw(vw::ArgumentErr() 
                 << "Can apply a longitude offset only to georeferenced "
                 << "images in the longitude-latitude projection.\n");
             }
@@ -818,7 +818,7 @@ void image_calc(Options &opt) {
     std::string context(iter, (some>end)?end:some);
     std::cout << "Parsing calculation expression failed\n";
     std::cout << "stopped at: \": " << context << "...\"\n";
-    vw_throw(vw::ArgumentErr() << "Parsing calculation expression failed\n");
+    vw::vw_throw(vw::ArgumentErr() << "Parsing calculation expression failed\n");
   }
 
   // Use a default output file if none provided
@@ -837,7 +837,7 @@ void image_calc(Options &opt) {
     auto curr_rsrc = vw::DiskImageResourcePtr(opt.input_files[it]);
     vw::ChannelTypeEnum curr_data_type = curr_rsrc->channel_type();
     if (input_data_type != curr_data_type)
-      vw_throw(vw::ArgumentErr() << "All input images are supposed to be of the same data type.\n");
+      vw::vw_throw(vw::ArgumentErr() << "All input images are supposed to be of the same data type.\n");
   }
 
   // Redirect to another function with the correct template type
@@ -859,7 +859,7 @@ void image_calc(Options &opt) {
   case vw::VW_CHANNEL_FLOAT64: 
     proc_img<vw::PixelGray<vw::float64>>(opt, output_file, calc_tree);  break;
   default: 
-    vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr() 
       << "Input image format " << input_data_type << " is not supported.\n");
   };
 }
