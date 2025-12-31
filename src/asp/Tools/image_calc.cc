@@ -655,17 +655,12 @@ void image_calc_stretch(Options const& opt, bool have_georef,
   vw::vw_out() << "  " << opt.percentile_range[0] << "%: " << min_val << "\n"
                << "  " << opt.percentile_range[1] << "%: " << max_val << "\n";
 
-  // Create the stretched view. Pixels below min_val and are clamped to 0.
-  // Pixels above max_val are clamped to 255. Nodata pixels are also clamped to
-  // 0. Round before casting to uint8.
+  // Create the stretched view. Pixels below min_val and nodata are clamped to
+  // 0. Pixels above max_val are clamped to 255. Round, then cast to uint8.
   vw::ImageViewRef<double> normalized_image
     = vw::normalize(vw::apply_mask(masked_image, min_val), min_val, max_val, 0.0, 255.0);
-  vw::ImageViewRef<double> clamped_image = vw::clamp(normalized_image, 0.0, 255.0);
-  vw::ImageViewRef<double> rounded_image = vw::round(clamped_image);   
-  vw::ImageViewRef<vw::uint8> cast_image = vw::channel_cast<vw::uint8>(rounded_image);
-  
-  // vw::ImageViewRef<vw::uint8> cast_image2 = 
-  //  = vw::channel_cast_round_and_clamp<vw::uint8>(normalized_image);
+  vw::ImageViewRef<vw::uint8> cast_image 
+    = vw::channel_cast_round_and_clamp<vw::uint8>(normalized_image);
 
   bool has_out_nodata = false;
   double out_nodata = 0.0;
