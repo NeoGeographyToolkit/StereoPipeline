@@ -15,9 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file disparitydebug.cc
-///
 
 #ifdef _MSC_VER
 #pragma warning(disable:4244)
@@ -168,9 +166,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Normalization range. Specify in the format: hmin vmin hmax vmax.")
     ("roi", po::value(&opt.roi)->default_value(BBox2(0,0,0,0), "auto"),
      "Region of interest. Specify in the format: xmin ymin xmax ymax.")
-    ("save-norm",      po::bool_switch(&opt.save_norm)->default_value(false),
+    ("save-norm", po::bool_switch(&opt.save_norm)->default_value(false),
      "Save the norm of the disparity instead of its two bands.")
-    ("save-norm-diff",      po::bool_switch(&opt.save_norm_diff)->default_value(false),
+    ("save-norm-diff", po::bool_switch(&opt.save_norm_diff)->default_value(false),
      "Save the maximum of norms of differences between a disparity and its four neighbors.")
     ("output-prefix, o", po::value(&opt.output_prefix), "Specify the output prefix.")
     ("output-filetype, t", po::value(&opt.output_file_type)->default_value("tif"),
@@ -190,19 +188,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered);
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
   if (opt.input_file_name.empty())
-    vw_throw(ArgumentErr() << "Missing input file!\n"
-              << usage << general_options);
+    vw_throw(ArgumentErr() << "Missing input file.\n");
 
   if (opt.output_prefix.empty())
     opt.output_prefix = vw::prefix_from_filename(opt.input_file_name);
 
   if (opt.save_norm && opt.save_norm_diff)
-    vw_throw(ArgumentErr() << "Cannot save both the norm and norm of differences at the same "
-             << "time.\n" << usage << general_options);
+    vw_throw(ArgumentErr() << "Cannot save both the norm and norm of differences.\n");
 }
 
 template <class PixelT>
@@ -273,8 +269,7 @@ void process_disparity(Options& opt) {
                                          opt.normalization_range.min().x(),
                                          opt.normalization_range.max().x(),
                                          ChannelRange<ChannelT>::min(),
-                                         ChannelRange<ChannelT>::max()
-                                         )),
+                                         ChannelRange<ChannelT>::max())),
                          crop(disk_disparity_map, roiToUse)));
   ImageViewRef<ChannelT> vertical =
     apply_mask(copy_mask(clamp(normalize(crop(select_channel(disk_disparity_map, 1),
@@ -282,20 +277,19 @@ void process_disparity(Options& opt) {
                                          opt.normalization_range.min().y(),
                                          opt.normalization_range.max().y(),
                                          ChannelRange<ChannelT>::min(),
-                                         ChannelRange<ChannelT>::max()
-                                       )),
+                                         ChannelRange<ChannelT>::max())),
                          crop(disk_disparity_map, roiToUse)));
   
   // Write both images to disk, casting as UINT8
   std::string h_file = opt.output_prefix + "-H." + opt.output_file_type;
-  vw_out() << "\t--> Writing horizontal disparity debug image: " << h_file << "\n";
+  vw_out() << "\t--> Writing horizontal disparity: " << h_file << "\n";
   block_write_gdal_image(h_file,
                           channel_cast_rescale<uint8>(horizontal),
                           has_georef, georef,
                           has_nodata, output_nodata,
                           opt, TerminalProgressCallback("asp","\t    H : "));
   std::string v_file = opt.output_prefix + "-V." + opt.output_file_type;
-  vw_out() << "\t--> Writing vertical disparity debug image: " << v_file << "\n";
+  vw_out() << "\t--> Writing vertical disparity: " << v_file << "\n";
   block_write_gdal_image(v_file,
                           channel_cast_rescale<uint8>(vertical),
                           has_georef, georef,
@@ -309,7 +303,7 @@ int main(int argc, char *argv[]) {
   try {
     handle_arguments(argc, argv, opt);
 
-    vw_out() << "Opening " << opt.input_file_name << "\n";
+    vw_out() << "Reading: " << opt.input_file_name << "\n";
     ImageFormat fmt = vw::image_format(opt.input_file_name);
 
     switch(fmt.pixel_format) {
