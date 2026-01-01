@@ -109,7 +109,7 @@ const int TAB_SIZE = 4;
 void tab(int indent) {
 
   for (int i = 0; i < indent; i++)
-    std::cout << ' ';
+    vw::vw_out() << ' ';
 }
 
 // TODO: Are there pixel functions for these?
@@ -156,26 +156,26 @@ struct calc_operation {
 
     if (opType == OP_number) {
       tab(indent);
-      std::cout << "Node: " << getTagName(opType) << " = " << value << "\n";
+      vw::vw_out() << "Node: " << getTagName(opType) << " = " << value << "\n";
     } else if (opType == OP_variable) {
       tab(indent);
-      std::cout << "Node: " << getTagName(opType) << " = " << varName << "\n";
+      vw::vw_out() << "Node: " << getTagName(opType) << " = " << varName << "\n";
     } else {
-      std::cout << "\n";
+      vw::vw_out() << "\n";
       tab(indent);
-      std::cout << "tag: " << getTagName(opType) << "\n";
+      vw::vw_out() << "tag: " << getTagName(opType) << "\n";
       tab(indent);
-      std::cout << "value: " << value << "\n";
+      vw::vw_out() << "value: " << value << "\n";
       tab(indent);
-      std::cout << "varName: " << varName << "\n";
+      vw::vw_out() << "varName: " << varName << "\n";
       tab(indent);
-      std::cout << '{' << "\n";
+      vw::vw_out() << '{' << "\n";
 
       for (size_t i = 0; i < inputs.size(); i++)
         inputs[i].print(indent+TAB_SIZE);
 
       tab(indent);
-      std::cout << '}' << "\n";
+      vw::vw_out() << '}' << "\n";
     }
 
   }
@@ -191,7 +191,7 @@ struct calc_operation {
 
     // Check for errors
     if (inputs.size() != 1) {
-      std::cout << "ERROR: pass node with " << inputs.size() << " Nodes!\n";
+      vw::vw_out() << "ERROR: pass node with " << inputs.size() << " Nodes!\n";
       return;
     }
 
@@ -208,7 +208,7 @@ struct calc_operation {
   T applyOperation(std::vector<T> const& params) const {
     // Get the results from each input node.
     // - This is a recursive call.
-    const size_t numInputs = inputs.size();
+    size_t numInputs = inputs.size();
     std::vector<T> inputResults(numInputs);
     for (size_t i = 0; i < numInputs; i++)
       inputResults[i] = inputs[i].applyOperation(params);
@@ -373,7 +373,7 @@ public: // Functions
     m_image_vec(imageVec),   m_has_nodata_vec(has_nodata_vec),
     m_nodata_vec(nodata_vec), m_output_nodata(outputNodata),
     m_operation_tree(operation_tree) {
-    const size_t numImages = imageVec.size();
+    size_t numImages = imageVec.size();
     VW_ASSERT((numImages > 0), vw::ArgumentErr()
               << "ImageCalcView: One or more images required.");
     VW_ASSERT((has_nodata_vec.size() == numImages),
@@ -415,7 +415,7 @@ public: // Functions
     // TODO: Left to right processing.
 
     // Set up for pixel calculations
-    const size_t num_images = m_image_vec.size();
+    size_t num_images = m_image_vec.size();
     std::vector<input_pixel_type> input_pixels(num_images);
     std::vector<double>           input_doubles(num_images);
 
@@ -773,7 +773,7 @@ void loadImagesNodata(Options & opt,
       has_nodata_vec[i]  = true;
       nodata_vec[i]      = opt.in_nodata_value;
       opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata.
-      std::cout << "\t--> Using as nodata value: " << nodata_vec[i] << "\n";
+      vw::vw_out() << "\t--> Using as nodata value: " << nodata_vec[i] << "\n";
     } else if (rsrc->has_nodata_read()) {
       nodata_vec[i] = rsrc->nodata_read();
       has_nodata_vec[i] = true;
@@ -782,10 +782,10 @@ void loadImagesNodata(Options & opt,
         opt.has_out_nodata   = true; // If any inputs have nodata, the output must have nodata
         opt.out_nodata_value = nodata_vec[i]; // If not set by the user, use this on output
       }
-      std::cout << "\t--> Extracted nodata value from " << input << ": "
+      vw::vw_out() << "\t--> Extracted nodata value from " << input << ": "
                 << nodata_vec[i] << "\n";
     } else {
-      std::cout << "\t--> No nodata value present in: " << input << "\n";
+      vw::vw_out() << "\t--> No nodata value present in: " << input << "\n";
       has_nodata_vec[i] = false;
     }
 
@@ -847,8 +847,8 @@ void image_calc(Options & opt) {
   } else { // Failed to parse the calculation expression
     std::string::const_iterator some = iter+30;
     std::string context(iter, (some>end)?end:some);
-    std::cout << "Parsing calculation expression failed\n";
-    std::cout << "stopped at: \": " << context << "...\"\n";
+    vw::vw_out() << "Parsing calculation expression failed\n";
+    vw::vw_out() << "stopped at: \": " << context << "...\"\n";
     vw::vw_throw(vw::ArgumentErr() << "Parsing calculation expression failed\n");
   }
 
