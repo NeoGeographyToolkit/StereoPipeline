@@ -287,25 +287,32 @@ struct calc_grammar: b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_
     using b_s::qi::_2;
     using b_s::qi::_3;
 
-    // This approach works but it processes expressions right to left.
-    // - To get what you want, use parenthesis.
+    // This approach works but it processes expressions right to left. To get a
+    // desired order, use parenthesis.
 
     // An outer expression
     expression =
       (term  [push_back(at_c<IN>(_val), _1)])
-        >> *(('+' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_add     ]) |  // Addition
-              ('-' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_subtract]));    // Subtraction
+        >> *((
+    // Addition
+    '+' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_add]) |  
+    // Subtraction         
+    ('-' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_subtract]));    
 
     // Middle priority
     term =
         (factor [push_back(at_c<IN>(_val), _1)])
-        >> *(('*' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_multiply]) |  // Multiplication
-              ('/' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_divide  ]));    // Subtraction
+        >> *((
+    // Multiplication
+    '*' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_multiply]) |  
+    // Division
+    ('/' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_divide  ]));    
 
-  // The highest priority
-  // - TODO: An additional layer to prevent double signs?
-  factor =
-      (double_          [at_c<NUM>(_val)=_1,            at_c<OP>(_val)=OP_number]) | // Just a number
+    // The highest priority
+    // TODO: An additional layer to prevent double signs?
+    factor =
+      // Just a number
+      (double_ [at_c<NUM>(_val)=_1,            at_c<OP>(_val)=OP_number]) | 
       // These operations take a comma separated list of expressions
       ("min(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_min] % ',' > ')') |
       ("max(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_max] % ',' > ')') |
@@ -315,13 +322,18 @@ struct calc_grammar: b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_
       ("gte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_gte] % ',' > ')') |
       ("eq("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_eq ] % ',' > ')') |
       (("pow(" > expression > ',' > expression > ')')
-              [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2), at_c<OP>(_val)= OP_power
-              ]) |
-      ("abs(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_abs] > ')') | // Absolute value
-      ("sign(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_sign] > ')') | // Sign function
-      ("rand(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_rand] > ')') | // rand function
-      ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') | // Something in parenthesis
-      ('-' >> factor    [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]) | // Negative sign
+        [push_back(at_c<IN>(_val), _1), 
+         push_back(at_c<IN>(_val), _2), at_c<OP>(_val)= OP_power]) |
+      // Absolute value
+      ("abs(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_abs] > ')') | 
+      // Sign function
+      ("sign(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_sign] > ')') | 
+      // rand function
+      ("rand(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_rand] > ')') | 
+      // Something in parenthesis
+      ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') | 
+      // Negative sign
+      ('-' >> factor    [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]) | 
       ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable]) ;
 
   } // End constructor
