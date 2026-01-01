@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -43,7 +43,7 @@ namespace fs = boost::filesystem;
 
 // Disparity norm
 double disparity_norm(PixelMask<Vector2f> const& pix) {
-  if (!is_valid(pix)) 
+  if (!is_valid(pix))
     return 0.0;
   return norm_2(pix.child());
 }
@@ -67,10 +67,10 @@ class DispNormDiff: public ImageViewBase<DispNormDiff> {
 public:
   DispNormDiff(ImageViewRef<PixelMask<Vector2f>> const& img):
     m_img(img) {}
-  
+
   typedef float result_type;
   typedef result_type pixel_type;
-  
+
   typedef ProceduralPixelAccessor<DispNormDiff> pixel_accessor;
 
   inline int32 cols() const { return m_img.cols(); }
@@ -79,7 +79,7 @@ public:
 
   inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline result_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+  inline result_type operator()(double/*i*/, double/*j*/, int32/*p*/ = 0) const {
     vw_throw(NoImplErr() << "DispNormDiff::operator()(...) is not implemented");
     return result_type(0.0);
   }
@@ -97,7 +97,7 @@ public:
 
     // Bring fully in memory a crop of the input for this tile
     ImageView<PixelMask<Vector2f>> cropped_img = crop(m_img, biased_box);
-    
+
     for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
       for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
 
@@ -118,7 +118,7 @@ public:
           } else {
             // Out of range
             vals[it].child() = Vector2f(0, 0);
-            vals[it].invalidate(); 
+            vals[it].invalidate();
           }
         }
 
@@ -126,16 +126,16 @@ public:
         if (is_valid(vals[0])) {
           // Need to have the center pixel valid
           for (int it = 1; it < 5; it++) {
-            if (!is_valid(vals[it])) 
+            if (!is_valid(vals[it]))
               continue;
             max_norm_diff = std::max(max_norm_diff, norm_2(vals[it].child() - vals[0].child()));
           }
         }
-        
+
         tile(col - bbox.min().x(), row - bbox.min().y()) = max_norm_diff;
       }
     }
-    
+
     return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
                              cols(), rows());
   }
@@ -152,10 +152,10 @@ struct Options : vw::GdalWriteOptions {
   BBox2       normalization_range;
   BBox2       roi; ///< Only generate output images in this region
   bool        save_norm, save_norm_diff;
-  
+
   // Output
   std::string output_prefix, output_file_type;
-  
+
   Options(): save_norm(false), save_norm_diff(false) {}
 };
 
@@ -173,7 +173,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("output-prefix, o", po::value(&opt.output_prefix), "Specify the output prefix.")
     ("output-filetype, t", po::value(&opt.output_file_type)->default_value("tif"),
      "Specify the output file type.");
-  
+
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
@@ -221,7 +221,7 @@ void process_disparity(Options& opt) {
                            opt, TerminalProgressCallback("asp","\t    norm: "));
     return;
   }
-  
+
   if (opt.save_norm_diff) {
     DiskImageView<PixelMask<Vector2f>> disk_disparity_map(opt.input_file_name);
 
@@ -245,6 +245,12 @@ void process_disparity(Options& opt) {
   if (has_georef)
     georef = crop(georef, roiToUse);
 
+  // Crop to ROI and select channels
+  ImageViewRef<PixelT> disp = crop(disk_disparity_map, roiToUse);
+  typedef typename PixelChannelType<PixelT>::type ChannelT;
+  ImageViewRef<ChannelT> horizontal = select_channel(disp, 0);
+  ImageViewRef<ChannelT> vertical   = select_channel(disp, 1);
+
   // Compute intensity display range if not passed in. For this purpose
   // subsample the image.
   vw_out() << "\t--> Computing disparity range.\n";
@@ -255,46 +261,43 @@ void process_disparity(Options& opt) {
     opt.normalization_range
       = get_disparity_range(subsample(crop(disk_disparity_map, roiToUse), subsample_amt));
   }
-  
+
   vw_out() << "\t    Horizontal: [" << opt.normalization_range.min().x()
            << " " << opt.normalization_range.max().x() << "]    Vertical: ["
            << opt.normalization_range.min().y() << " "
            << opt.normalization_range.max().y() << "]\n";
 
   // Generate value-normalized copies of the H and V channels
-  typedef typename PixelChannelType<PixelT>::type ChannelT;
-  ImageViewRef<ChannelT> horizontal =
-    apply_mask(copy_mask(clamp(normalize(crop(select_channel(disk_disparity_map, 0),
-                                              roiToUse),
+  horizontal =
+    apply_mask(copy_mask(clamp(normalize(horizontal,
                                          opt.normalization_range.min().x(),
                                          opt.normalization_range.max().x(),
                                          ChannelRange<ChannelT>::min(),
                                          ChannelRange<ChannelT>::max())),
-                         crop(disk_disparity_map, roiToUse)));
-  ImageViewRef<ChannelT> vertical =
-    apply_mask(copy_mask(clamp(normalize(crop(select_channel(disk_disparity_map, 1),
-                                              roiToUse),
+                         disp));
+  vertical =
+    apply_mask(copy_mask(clamp(normalize(vertical,
                                          opt.normalization_range.min().y(),
                                          opt.normalization_range.max().y(),
                                          ChannelRange<ChannelT>::min(),
                                          ChannelRange<ChannelT>::max())),
-                         crop(disk_disparity_map, roiToUse)));
-  
+                         disp));
+
   // Write both images to disk, casting as UINT8
   std::string h_file = opt.output_prefix + "-H." + opt.output_file_type;
   vw_out() << "\t--> Writing horizontal disparity: " << h_file << "\n";
   block_write_gdal_image(h_file,
-                          channel_cast_rescale<uint8>(horizontal),
-                          has_georef, georef,
-                          has_nodata, output_nodata,
-                          opt, TerminalProgressCallback("asp","\t    H : "));
+                         channel_cast_rescale<uint8>(horizontal),
+                         has_georef, georef,
+                         has_nodata, output_nodata,
+                         opt, TerminalProgressCallback("asp","\t    H : "));
   std::string v_file = opt.output_prefix + "-V." + opt.output_file_type;
   vw_out() << "\t--> Writing vertical disparity: " << v_file << "\n";
   block_write_gdal_image(v_file,
-                          channel_cast_rescale<uint8>(vertical),
-                          has_georef, georef,
-                          has_nodata, output_nodata,
-                          opt, TerminalProgressCallback("asp","\t    V : "));
+                         channel_cast_rescale<uint8>(vertical),
+                         has_georef, georef,
+                         has_nodata, output_nodata,
+                         opt, TerminalProgressCallback("asp","\t    V : "));
 }
 
 int main(int argc, char *argv[]) {

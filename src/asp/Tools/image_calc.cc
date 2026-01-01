@@ -254,8 +254,8 @@ struct calc_operation {
   }
 };
 
-// We need to tell fusion about our calc_operation struct
-// to make it a first-class fusion citizen
+// We need to tell fusion about our calc_operation struct to make it a
+// first-class fusion citizen
 BOOST_FUSION_ADAPT_STRUCT(
     calc_operation,
     (OperationType, opType)
@@ -264,7 +264,7 @@ BOOST_FUSION_ADAPT_STRUCT(
     (std::vector<calc_operation>, inputs)
 )
 
-// - Boost::Spirit equation parsing
+// Boost::Spirit equation parsing
 
 // Helper constants to aid in accessing a calc_operation struct
 const int OP  = 0;
@@ -306,7 +306,7 @@ struct calc_grammar: b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_
 
     // An outer expression
     expression =
-      (term  [push_back(at_c<IN>(_val), _1)])
+      (term [push_back(at_c<IN>(_val), _1)])
         >> *((
     // Addition
     '+' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_add]) |  
@@ -329,14 +329,16 @@ struct calc_grammar: b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_
       (double_ [at_c<NUM>(_val)=_1, at_c<OP>(_val)=OP_number]) | 
       // Handle all operations specified in func_map
       (func_map [at_c<OP>(_val)=_1] > '(' > expression [push_back(at_c<IN>(_val), _1)] % ',' > ')') |
+      // Power function
       (("pow(" > expression > ',' > expression > ')')
-        [push_back(at_c<IN>(_val), _1), 
-         push_back(at_c<IN>(_val), _2), at_c<OP>(_val)= OP_power]) |
+        [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2), 
+         at_c<OP>(_val)= OP_power]) |
       // Something in parenthesis
       ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') | 
       // Negative sign
       ('-' >> factor [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]) | 
-      ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable]) ;
+      // Variable
+      ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable]);
 
   } // End constructor
 
@@ -352,7 +354,7 @@ class ImageCalcView: public vw::ImageViewBase<ImageCalcView<ImageT, OutputPixelT
 
 public: // Definitions
   typedef typename ImageT::pixel_type  input_pixel_type;
-  typedef OutputPixelT pixel_type;  // This is what controls the type of image that is written to disk.
+  typedef OutputPixelT pixel_type;  // Output pixel type
   typedef OutputPixelT result_type;
 
 private: // Variables
@@ -390,10 +392,10 @@ public: // Functions
     m_num_channels = imageVec[0].planes();
     for (size_t i = 1; i < numImages; i++) {
       if ((imageVec[i].rows()   != m_num_rows) ||
-           (imageVec[i].cols()   != m_num_cols) ||
-           (imageVec[i].planes() != m_num_channels))
+          (imageVec[i].cols()   != m_num_cols) ||
+          (imageVec[i].planes() != m_num_channels))
         vw::vw_throw(vw::ArgumentErr()
-                 << "Error: Input images must all have the same size and number of channels.");
+           << "Error: Input images must all have the same size and number of channels.");
     }
   }
 
@@ -452,13 +454,13 @@ public: // Functions
             input_doubles[i] = input_pixels[i][chan];
           } // End image loop
 
-          // Apply the operation tree to this pixel and store in the output pixel
-          // TODO(oalexan1): Should we round too, if output is int?
+          // Apply the operation tree to this pixel and store in the output
+          // pixel. Note that this does not round the output value when the
+          // output type is integral. Not sure if that is desired behavior.
           double newVal = m_operation_tree.applyOperation<double>(input_doubles);
           tile(c, r, chan) = vw::clamp_and_cast<output_channel_type>(newVal);
 
         } // End channel loop
-
       } // End row loop
     } // End column loop
 
@@ -867,6 +869,8 @@ void image_calc(Options & opt) {
   // loading a uint8 file as a float, for example.
   // TODO(oalexan1): Load each file according to its format, then cast to double.
   // TODO(oalexan1): Do not rescale the pixels on input.
+  // TODO(oalexan1): Likely do not need any template logic here. All inputs should
+  // be loaded as double, processed as double, and then cast to the output type.
   for (size_t it = 1; it < opt.input_files.size(); it++) {
     auto curr_rsrc = vw::DiskImageResourcePtr(opt.input_files[it]);
     vw::ChannelTypeEnum curr_data_type = curr_rsrc->channel_type();
