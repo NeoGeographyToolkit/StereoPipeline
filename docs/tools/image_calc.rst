@@ -119,20 +119,23 @@ metadata.
 
 .. _image_calc_stretch:
 
-Stretch and convert to 8-bit image
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Stretch and convert to 8-bit
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Take an image with a single channel, find the 2nd and 98th percentiles, stretch
-the pixel values to the 0 - 255 range based on those percentiles, round, clamp,
-and save as ``uint8``. The percentile range can be set with
-``--percentile-range``.
+Linearly stretch the pixel values of a single-channel image to the 0 - 255 range
+and convert to ``uint8``. The input range is determined by the specified
+percentiles (default: 2% and 98%), mapping them to 0 and 255. Resulting values
+are rounded and clamped.
 
 ::
 
     image_calc --stretch input.tif -o output.tif
 
-This is useful for quick visualization of floating point images. See also:
-``colormap`` (:numref:`colormap`) and ``hillshade`` (:numref:`hillshade`).
+This is useful for visualizing floating-point data. Customize the bounds with
+``--percentile-range``.
+
+See also: ``colormap`` (:numref:`colormap`) and ``hillshade``
+(:numref:`hillshade`).
 
 Subtract 360 degrees from the longitudes in a GeoTiff file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -227,9 +230,8 @@ Command-line options
    GDAL-based processing).
 
 --stretch
-   Stretch the input image to the 0 - 255 range using percentiles of 
-   pixel values, then round, clamp, and save as uint8. See also
-   ``--percentile-range``.
+   Linearly stretch, round, and clamp the input values to the 0 - 255 range
+   (uint8) based on the specified percentiles. See ``--percentile-range``.
 
 --percentile-range <min max (default: 2 98)>
     The percentiles to use for stretching the image to 8-bit. These are double values.

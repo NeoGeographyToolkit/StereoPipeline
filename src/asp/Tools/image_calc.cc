@@ -522,8 +522,8 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
     ("no-georef", po::bool_switch(&opt.no_georef)->default_value(false),
      "Remove any georeference information (useful with subsequent GDAL-based processing).")
     ("stretch", po::bool_switch(&opt.percentile_stretch)->default_value(false),
-     "Stretch the input image to the 0 - 255 range using percentiles of pixel "
-     "values, then round, clamp, and save as uint8. See also --percentile-range.")
+     "Linearly stretch, round, and clamp the input values to the 0 - 255 range (uint8) "
+     "based on the specified percentiles. See --percentile-range.")
     ("percentile-range", 
      po::value(&opt.percentile_range)->default_value(vw::Vector2(2, 98), "2 98"),
      "The percentiles to use for stretching the image to 8-bit. These are double values.")
