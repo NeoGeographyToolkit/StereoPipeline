@@ -481,7 +481,7 @@ struct Options: vw::GdalWriteOptions {
 };
 
 // Handling input
-void handle_arguments(int argc, char *argv[], Options& opt) {
+void handle_arguments(int argc, char * argv[], Options & opt) {
 
   const std::string calc_string_help =
     "The operation to be performed on the input images. Input images must all be the "
@@ -522,8 +522,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("no-georef", po::bool_switch(&opt.no_georef)->default_value(false),
      "Remove any georeference information (useful with subsequent GDAL-based processing).")
     ("stretch", po::bool_switch(&opt.percentile_stretch)->default_value(false),
-     "Stretch the image to 0 - 255 using percentiles of input pixel values, then "
-     "round, clamp, and save as uint8. See also ``--percentile-range``.")
+     "Stretch the input image to the 0 - 255 range using percentiles of pixel "
+     "values, then round, clamp, and save as uint8. See also --percentile-range.")
     ("percentile-range", 
      po::value(&opt.percentile_range)->default_value(vw::Vector2(2, 98), "2 98"),
      "The percentiles to use for stretching the image to 8-bit. These are double values.")
@@ -709,23 +709,12 @@ void write_out(std::string const& output_file,
   }
 }
 
-/// This function loads the input images and calls the main processing function
-template <typename PixelT>
-void proc_img(Options &opt, std::string const& output_file,
-              calc_operation const& calc_tree) {
-
-  // Read the georef from the first file, they should all have the same value.
-  const size_t numInputFiles = opt.input_files.size();
-  std::vector<vw::ImageViewRef<PixelT>> input_images(numInputFiles);
-  std::vector<bool> has_nodata_vec(numInputFiles);
-  std::vector<double> nodata_vec(numInputFiles);
-
-  bool have_georef = false;
-  vw::cartography::GeoReference georef;
-
-  // Loop through each input file
+void handleGeoref(Options const& opt, bool & have_georef, 
+                  vw::cartography::GeoReference & georef) {
+  have_georef = false;
+  size_t numInputFiles = opt.input_files.size();
   for (size_t i = 0; i < numInputFiles; i++) {
-    const std::string input = opt.input_files[i];
+    std::string input = opt.input_files[i];
 
     // If desired to not use a georef, skip reading it. Else read it.
     if (!opt.no_georef) {
@@ -750,6 +739,18 @@ void proc_img(Options &opt, std::string const& output_file,
         }
       }
     }
+  }
+}
+
+template <typename PixelT>
+void loadImagesNodata(Options & opt, 
+                      std::vector<vw::ImageViewRef<PixelT>> & input_images,
+                      std::vector<bool> & has_nodata_vec,
+                      std::vector<double> & nodata_vec) {
+
+  size_t numInputFiles = input_images.size();
+  for (size_t i = 0; i < numInputFiles; i++) {
+    std::string input = opt.input_files[i];
 
     // Determining the format of the input
     auto rsrc = vw::DiskImageResourcePtr(input);
@@ -778,8 +779,26 @@ void proc_img(Options &opt, std::string const& output_file,
 
     vw::DiskImageView<PixelT> this_disk_image(input);
     input_images[i] = this_disk_image;
+  }
+}
 
-  } // loop through input images
+/// This function loads the input images and calls the main processing function
+template <typename PixelT>
+void proc_img(Options & opt, std::string const& output_file,
+              calc_operation const& calc_tree) {
+
+  // Read the georef from the first file, they should all have the same value.
+  size_t numInputFiles = opt.input_files.size();
+  std::vector<vw::ImageViewRef<PixelT>> input_images(numInputFiles);
+  std::vector<bool> has_nodata_vec(numInputFiles);
+  std::vector<double> nodata_vec(numInputFiles);
+
+  bool have_georef = false;
+  vw::cartography::GeoReference georef;
+  handleGeoref(opt, have_georef, georef);
+
+  // Load images and nodata values
+  loadImagesNodata(opt, input_images, has_nodata_vec, nodata_vec);
 
   // Write out the selected data type
   switch(opt.output_data_type) {
@@ -801,7 +820,7 @@ void proc_img(Options &opt, std::string const& output_file,
 
 }
 
-void image_calc(Options &opt) {
+void image_calc(Options & opt) {
   std::string exp(opt.calc_string);
 
   calc_grammar<std::string::const_iterator> grammarParser;
@@ -865,7 +884,7 @@ void image_calc(Options &opt) {
 }
 
 /// The main function calls the cmd line parsers and figures out the input image type
-int main(int argc, char *argv[]) {
+int main(int argc, char * argv[]) {
 
   Options opt;
   try {

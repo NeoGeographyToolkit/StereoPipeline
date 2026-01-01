@@ -123,8 +123,9 @@ Stretch and convert to 8-bit image
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Take an image with a single channel, find the 2nd and 98th percentiles, stretch
-to 0-255 with those as min and max, round, clamp, and save as ``uint8``. The
-percentile range can be set with ``--percentile-range``.
+the pixel values to the 0 - 255 range based on those percentiles, round, clamp,
+and save as ``uint8``. The percentile range can be set with
+``--percentile-range``.
 
 ::
 
@@ -226,8 +227,9 @@ Command-line options
    GDAL-based processing).
 
 --stretch
-   Stretch the image to 0 - 255 using percentiles of input pixel values, then
-   round, clamp, and save as uint8. See also ``--percentile-range``.
+   Stretch the input image to the 0 - 255 range using percentiles of 
+   pixel values, then round, clamp, and save as uint8. See also
+   ``--percentile-range``.
 
 --percentile-range <min max (default: 2 98)>
     The percentiles to use for stretching the image to 8-bit. These are double values.
