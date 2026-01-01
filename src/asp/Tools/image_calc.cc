@@ -132,7 +132,8 @@ T manual_max(std::vector<T> const& vec) {
   return maxVal;
 }
 
-// Initialize the random number generator
+// Initialize the random number generator. Always use the same seed, so that
+// results are repeatable.
 std::mt19937 mt(0);
 
 // Return a random number in the range [0, 1]
@@ -287,6 +288,19 @@ struct calc_grammar: b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_
     using b_s::qi::_2;
     using b_s::qi::_3;
 
+    // Map from function names to operation types
+    func_map.add
+      ("min", OP_min)
+      ("max", OP_max)
+      ("lt",  OP_lt)
+      ("gt",  OP_gt)
+      ("lte", OP_lte)
+      ("gte", OP_gte)
+      ("eq",  OP_eq)
+      ("abs", OP_abs)
+      ("sign", OP_sign)
+      ("rand", OP_rand);
+
     // This approach works but it processes expressions right to left. To get a
     // desired order, use parenthesis.
 
@@ -312,34 +326,23 @@ struct calc_grammar: b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_
     // TODO: An additional layer to prevent double signs?
     factor =
       // Just a number
-      (double_ [at_c<NUM>(_val)=_1,            at_c<OP>(_val)=OP_number]) | 
-      // These operations take a comma separated list of expressions
-      ("min(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_min] % ',' > ')') |
-      ("max(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_max] % ',' > ')') |
-      ("lt("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_lt ] % ',' > ')') |
-      ("gt("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_gt ] % ',' > ')') |
-      ("lte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_lte] % ',' > ')') |
-      ("gte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_gte] % ',' > ')') |
-      ("eq("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_eq ] % ',' > ')') |
+      (double_ [at_c<NUM>(_val)=_1, at_c<OP>(_val)=OP_number]) | 
+      // Handle all operations specified in func_map
+      (func_map [at_c<OP>(_val)=_1] > '(' > expression [push_back(at_c<IN>(_val), _1)] % ',' > ')') |
       (("pow(" > expression > ',' > expression > ')')
         [push_back(at_c<IN>(_val), _1), 
          push_back(at_c<IN>(_val), _2), at_c<OP>(_val)= OP_power]) |
-      // Absolute value
-      ("abs(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_abs] > ')') | 
-      // Sign function
-      ("sign(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_sign] > ')') | 
-      // rand function
-      ("rand(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_rand] > ')') | 
       // Something in parenthesis
       ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') | 
       // Negative sign
-      ('-' >> factor    [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]) | 
+      ('-' >> factor [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]) | 
       ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable]) ;
 
   } // End constructor
 
   // Grammar rules
   b_s::qi::rule<ITER, calc_operation(), b_s::ascii::space_type> expression, term, factor;
+  b_s::qi::symbols<char, OperationType> func_map;
 
 }; // End struct calc_grammar
 
