@@ -8,16 +8,15 @@ orbiter <https://en.wikipedia.org/wiki/Chandrayaan-2>`_ data. We will work with
 the *Orbiter High Resolution Camera* (OHRC). A *Terrain Mapping Camera-2* (TMC-2)
 example will be added at a later time.
 
-For the moment, this exercise works only much additional work. It needs the latest build of ASP
-(:numref:`release`) on Linux, the latest `ISIS
-<https://github.com/DOI-USGS/ISIS3>`_ and `ALE
-<https://github.com/DOI-USGS/ale>`_ compiled
-and installed from source (to separate locations), SPICE kernels 
-from the `ISRO Science Data Archive
-<https://pradan.issdc.gov.in/ch2/protected/browse.xhtml?id=spice>`_, and custom 
-addendum (``iak``) directories for ISIS data be set up.
+For the moment this exercise works only much additional work. It needs ASP
+3.6.0 (:numref:`release`), `ISIS <https://github.com/DOI-USGS/ISIS3>`_ 9.0.0, 
+`ALE <https://github.com/DOI-USGS/ale>`_ (compiled and installed
+from source to a separate location), SPICE kernels from the `ISRO Science Data
+Archive <https://pradan.issdc.gov.in/ch2/protected/browse.xhtml?id=spice>`_, and
+custom addendum (``iak``) directories for ISIS data be set up.
 
-This is *not ready for general use and is not reproducible*, but is provided for reference.
+This is *not ready for general use* until the kernels are released in the ISIS
+data area, but is provided for reference.
 
 Orbiter High Resolution Camera
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -78,14 +77,17 @@ as::
 
     template=/path/to/ISIS3/isis/appdata/import/PDS4/Chandrayaan2OHRC.tpl
 
-The ``isisimport`` command only works with raw images, and not with ortho images.
+In ISIS 9.0.0 likely the template parameter is optional and the template should
+be auto-detected.
+
+The ``isisimport`` command only works with raw images and not with ortho images.
 
 If this command fails with a message about not being able to find a field in the
 input xml file, it is suggested to edit that file and add a made-up entry for
 that field. This is a temporary workaround for the problem of Chandrayaan-2 xml
 files being rather diverse in what fields they record.
 
-Then, the SPICE kernels are attached with `spiceinit <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/spiceinit/spiceinit.html>`_::
+The SPICE kernels are attached with `spiceinit <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/spiceinit/spiceinit.html>`_::
 
     spiceinit from = ohrc/img1.cub
 
@@ -93,7 +95,7 @@ This expects the SPICE kernels for Chandrayaan-2 to exist locally (see the downl
 above). For more information on ISIS data, see :numref:`planetary_images` and the
 links from there.
 
-Next, the CSM cameras are created (:numref:`csm`). This makes use of the `isd_generate <https://astrogeology.usgs.gov/docs/getting-started/using-ale/isd-generate/>`_ program installed with the latest ALE (link above). The command is::
+Next, the CSM cameras are created (:numref:`csm`). This makes use of the `isd_generate <https://astrogeology.usgs.gov/docs/getting-started/using-ale/isd-generate/>`_ program installed with the latest ALE built from source (link above). The command is::
 
     export ALESPICEROOT=$ISISDATA
     isd_generate -k ohrc/img1.cub ohrc/img1.cub
