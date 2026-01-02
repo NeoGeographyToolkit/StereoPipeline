@@ -2,13 +2,16 @@ Changes since last release
 --------------------------
 
 image_calc (:numref:`image_calc`):
+  * Added the option ``--stretch`` to stretch an image and save it with 8-bit
+    pixels, for visualization purposes (:numref:`image_calc_stretch`).
   * For a single input image, the option ``-c`` (calculation operation) defaults
     to ``var_0`` (identity operation).
   * The default output data type is now ``float32`` (previously ``float64``).
-  * Added the options ``--stretch`` and ``--percentile-range`` to stretch an
-    image and save it with 8-bit pixels, for visualization purposes
-    (:numref:`image_calc_stretch`).
 
+disparitydebug (:numref:`disparitydebug`):
+  * Added the option ``--raw`` to extract the horizontal and vertical
+    disparities without normalization (:numref:`raw_disp`).
+    
 RELEASE 3.6.0, December 26, 2025
 --------------------------------
 

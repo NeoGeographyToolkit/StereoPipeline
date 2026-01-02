@@ -40,27 +40,46 @@ View the obtained horizontal and vertical disparities with::
 Another example of using this tool (and a figure) is given in
 :numref:`diagnosing_problems`, when discussing how to examine a produced run.
 
-Alternative approach
-~~~~~~~~~~~~~~~~~~~~
+.. _raw_disp:
+
+Raw disparity extraction
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 To extract the horizontal and vertical bands from a disparity without
-normalization, and then set the invalid values to no-data, see
-:numref:`mask_disparity`.
+normalization, run a command such as::
+
+    disparitydebug --raw run/run-F.tif
+
+Invalid values are set to a no-data value (-1e+6) that is saved in the geoheader
+of the output files.
+
+This option is available in build 1/2026 and later.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
 -o, --output-prefix <string (default: "")>
-    Specify the output file prefix.
+    Specify the output file prefix. This is set automatically if not provided.
 
--t, --output-filetype <string (default: tif)>
-    Specify the output file type.
+--raw 
+    Save the raw disparity values without any normalization. Invalid pixels are
+    set to no-data.
 
+--save-norm 
+    Save the norm of the disparity instead of its two bands.
+
+--save-norm-diff
+    Save the maximum of norms of differences between a disparity and its four
+    neighbors.
+        
 --normalization <(integer integer integer integer) (default = auto)>
     Normalization range. Specify in the format: hmin vmin hmax vmax.
 
 --roi <(integer integer integer integer) (default = auto)>
     Region of interest. Specify in the format: xmin ymin xmax ymax.
+
+-t, --output-filetype <string (default: tif)>
+    Specify the output file type.
 
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use

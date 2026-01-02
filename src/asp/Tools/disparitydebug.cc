@@ -151,7 +151,7 @@ struct Options : vw::GdalWriteOptions {
   std::string input_file_name;
   BBox2       normalization_range;
   BBox2       roi; ///< Only generate output images in this region
-  bool        save_norm, save_norm_diff;
+  bool        save_norm, save_norm_diff, raw;
 
   // Output
   std::string output_prefix, output_file_type;
@@ -166,11 +166,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Normalization range. Specify in the format: hmin vmin hmax vmax.")
     ("roi", po::value(&opt.roi)->default_value(BBox2(0,0,0,0), "auto"),
      "Region of interest. Specify in the format: xmin ymin xmax ymax.")
+    ("raw", po::bool_switch(&opt.raw)->default_value(false),
+     "Save the raw disparity values without any normalization. Invalid pixels are set to "
+     "no-data.")
     ("save-norm", po::bool_switch(&opt.save_norm)->default_value(false),
      "Save the norm of the disparity instead of its two bands.")
     ("save-norm-diff", po::bool_switch(&opt.save_norm_diff)->default_value(false),
      "Save the maximum of norms of differences between a disparity and its four neighbors.")
-    ("output-prefix, o", po::value(&opt.output_prefix), "Specify the output prefix.")
+    ("output-prefix, o", po::value(&opt.output_prefix), 
+     "Specify the output prefix. This is set automatically if not provided.")
     ("output-filetype, t", po::value(&opt.output_file_type)->default_value("tif"),
      "Specify the output file type.");
 
@@ -197,8 +201,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.output_prefix.empty())
     opt.output_prefix = vw::prefix_from_filename(opt.input_file_name);
 
-  if (opt.save_norm && opt.save_norm_diff)
-    vw_throw(ArgumentErr() << "Cannot save both the norm and norm of differences.\n");
+  if (int(opt.save_norm) + int(opt.save_norm_diff) + int(opt.raw) > 1)
+    vw::vw_throw(vw::ArgumentErr() 
+             << "Cannot save more than one of: disparity norm, norm of differences, raw.\n");
+  
+  // Float data need to be saved to a tif file
+  if ((opt.save_norm || opt.save_norm_diff || opt.raw) && opt.output_file_type != "tif")
+    vw::vw_throw(vw::ArgumentErr()
+             << "When saving either disparity norm, norm of differences, or raw disparity, "
+             << "the output file type must be tif.\n");
 }
 
 template <class PixelT>
@@ -211,7 +222,6 @@ void process_disparity(Options& opt) {
 
   if (opt.save_norm) {
     DiskImageView<PixelMask<Vector2f>> disk_disparity_map(opt.input_file_name);
-
     std::string norm_file = opt.output_prefix + "-norm." + opt.output_file_type;
     vw_out() << "\t--> Writing disparity norm: " << norm_file << "\n";
     block_write_gdal_image(norm_file,
@@ -224,7 +234,6 @@ void process_disparity(Options& opt) {
 
   if (opt.save_norm_diff) {
     DiskImageView<PixelMask<Vector2f>> disk_disparity_map(opt.input_file_name);
-
     std::string norm_file = opt.output_prefix + "-norm-diff." + opt.output_file_type;
     vw_out() << "\t--> Writing norm of disparity diff: " << norm_file << "\n";
     block_write_gdal_image(norm_file,
@@ -239,18 +248,45 @@ void process_disparity(Options& opt) {
 
   // If no ROI passed in, use the full image
   BBox2 roiToUse(opt.roi);
-  if (opt.roi == BBox2(0,0,0,0))
-    roiToUse = BBox2(0,0,disk_disparity_map.cols(),disk_disparity_map.rows());
+  if (opt.roi == BBox2(0, 0, 0, 0))
+    roiToUse = BBox2(0, 0, disk_disparity_map.cols(), disk_disparity_map.rows());
 
   if (has_georef)
     georef = crop(georef, roiToUse);
 
   // Crop to ROI and select channels
-  ImageViewRef<PixelT> disp = crop(disk_disparity_map, roiToUse);
   typedef typename PixelChannelType<PixelT>::type ChannelT;
+  ImageViewRef<PixelT> disp = crop(disk_disparity_map, roiToUse);
   ImageViewRef<ChannelT> horizontal = select_channel(disp, 0);
   ImageViewRef<ChannelT> vertical   = select_channel(disp, 1);
 
+  // Set up output files
+  std::string h_file = opt.output_prefix + "-H." + opt.output_file_type;
+  std::string v_file = opt.output_prefix + "-V." + opt.output_file_type;
+  
+  if (opt.raw) {
+    has_nodata = true;
+    // Pick as nodata a value that large and representable exactly as float
+    output_nodata = -1e+6; 
+    // Save as float regardless of input type
+    ImageViewRef<float> horiz_float = channel_cast<float>(horizontal);
+    ImageViewRef<float> vert_float  = channel_cast<float>(vertical);
+    // Set invalid pixels to nodata
+    horiz_float = apply_mask(copy_mask(horiz_float, disp), output_nodata);
+    vert_float  = apply_mask(copy_mask(vert_float, disp), output_nodata);
+    
+    // Write both images to disk
+    vw_out() << "\t--> Writing raw horizontal disparity: " << h_file << "\n";
+    block_write_gdal_image(h_file, horiz_float, has_georef, georef,
+                           has_nodata, output_nodata,
+                           opt, TerminalProgressCallback("asp","\t    H : "));
+    vw_out() << "\t--> Writing raw vertical disparity: " << v_file << "\n";
+    block_write_gdal_image(v_file, vert_float, has_georef, georef,
+                           has_nodata, output_nodata,
+                           opt, TerminalProgressCallback("asp","\t    V : "));
+    return;
+  }
+  
   // Compute intensity display range if not passed in. For this purpose
   // subsample the image.
   vw_out() << "\t--> Computing disparity range.\n";
@@ -284,14 +320,12 @@ void process_disparity(Options& opt) {
                          disp));
 
   // Write both images to disk, casting as UINT8
-  std::string h_file = opt.output_prefix + "-H." + opt.output_file_type;
   vw_out() << "\t--> Writing horizontal disparity: " << h_file << "\n";
   block_write_gdal_image(h_file,
                          channel_cast_rescale<uint8>(horizontal),
                          has_georef, georef,
                          has_nodata, output_nodata,
                          opt, TerminalProgressCallback("asp","\t    H : "));
-  std::string v_file = opt.output_prefix + "-V." + opt.output_file_type;
   vw_out() << "\t--> Writing vertical disparity: " << v_file << "\n";
   block_write_gdal_image(v_file,
                          channel_cast_rescale<uint8>(vertical),

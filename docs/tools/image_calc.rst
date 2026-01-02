@@ -184,6 +184,8 @@ which is set as the nodata value.
 The obtained disparity bands can be inspected (and colorized) with
 ``stereo_gui`` (:numref:`stereo_gui`).
 
+As of build 1/2026, this logic is implemented in ``disparitydebug`` (:numref:`disparitydebug`), with the option ``--raw``.
+
 Usage
 ~~~~~
 
