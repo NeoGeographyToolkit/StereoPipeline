@@ -909,6 +909,33 @@ void addRigMeshTriCostFun(Eigen::Vector3d const& avg_mesh_xyz,
   residual_scales.push_back(mesh_tri_weight);
 }
 
+void addRigTriCostFun(Eigen::Vector3d const& xyz_orig,
+                      std::vector<int> const& xyz_block_sizes,
+                      double tri_weight,
+                      double robust_threshold,
+                      double* xyz_ptr,
+                      ceres::Problem& problem,
+                      std::vector<std::string>& residual_names,
+                      std::vector<double>& residual_scales) {
+
+  // Try to make the triangulated points (and hence cameras) not move too far
+  ceres::CostFunction* tri_cost_function =
+    rig::XYZError::Create(xyz_orig, xyz_block_sizes, tri_weight);
+
+  ceres::LossFunction* tri_loss_function =
+    rig::GetLossFunction("cauchy", robust_threshold);
+
+  problem.AddResidualBlock(tri_cost_function, tri_loss_function,
+                           xyz_ptr);
+
+  residual_names.push_back("tri_x_m");
+  residual_names.push_back("tri_y_m");
+  residual_names.push_back("tri_z_m");
+  residual_scales.push_back(tri_weight);
+  residual_scales.push_back(tri_weight);
+  residual_scales.push_back(tri_weight);
+}
+
 // Add the camera position constraints for the ref cams
 void addRigCamPosCostFun(// Observation
                          std::vector<rig::cameraImage> const& cams,
@@ -1432,7 +1459,6 @@ int main(int argc, char** argv) {
            cid_fid != pid_to_cid_fid[pid].end(); cid_fid++) {
         int cid = cid_fid->first;
         int fid = cid_fid->second;
-        
         if (rig::getMapValue(pid_cid_fid_inlier, pid, cid, fid)) {
           isTriInlier = true;
           break; // found it to be an inlier, no need to do further checking
@@ -1447,31 +1473,18 @@ int main(int argc, char** argv) {
         if (FLAGS_mesh_tri_weight > 0 && avg_mesh_xyz != bad_xyz)
           have_mesh_tri_constraint = true;
       }
-      if (have_mesh_tri_constraint) {
-        std::cout << "--mesh tri weight = " << FLAGS_mesh_tri_weight << "\n";
+      if (have_mesh_tri_constraint)
         rig::addRigMeshTriCostFun(avg_mesh_xyz, xyz_block_sizes,
                                   FLAGS_mesh_tri_weight,
                                   FLAGS_robust_threshold,
                                   &xyz_vec[pid][0], problem, residual_names,
                                   residual_scales);
-      }
 
       // Add the constraint that the triangulated point does not go too far
-      if (FLAGS_tri_weight > 0.0 && isTriInlier) {
-        // Try to make the triangulated points (and hence cameras) not move too far
-        ceres::CostFunction* tri_cost_function =
-          rig::XYZError::Create(xyz_vec_orig[pid], xyz_block_sizes, FLAGS_tri_weight);
-        ceres::LossFunction* tri_loss_function =
-          rig::GetLossFunction("cauchy", FLAGS_tri_robust_threshold);
-        problem.AddResidualBlock(tri_cost_function, tri_loss_function,
-                                 &xyz_vec[pid][0]);
-        residual_names.push_back("tri_x_m");
-        residual_names.push_back("tri_y_m");
-        residual_names.push_back("tri_z_m");
-        residual_scales.push_back(FLAGS_tri_weight);
-        residual_scales.push_back(FLAGS_tri_weight);
-        residual_scales.push_back(FLAGS_tri_weight);
-      }
+      if (FLAGS_tri_weight > 0.0 && isTriInlier)
+        rig::addRigTriCostFun(xyz_vec_orig[pid], xyz_block_sizes, FLAGS_tri_weight,
+                              FLAGS_tri_robust_threshold, &xyz_vec[pid][0], problem,
+                              residual_names, residual_scales);
       
     }  // end iterating over pid
 
