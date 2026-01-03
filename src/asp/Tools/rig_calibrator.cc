@@ -882,6 +882,33 @@ void addRigDepthMeshCostFun(// Observation
     problem.SetParameterBlockConstant(depth_to_image_ptr);
 }
 
+void addRigMeshTriCostFun(Eigen::Vector3d const& avg_mesh_xyz,
+                         std::vector<int> const& xyz_block_sizes,
+                         double mesh_tri_weight,
+                         double robust_threshold,
+                         double* xyz_ptr,
+                         ceres::Problem& problem,
+                         std::vector<std::string>& residual_names,
+                         std::vector<double>& residual_scales) {
+
+  // Try to make the triangulated point agree with the mesh intersection
+  ceres::CostFunction* mesh_cost_function =
+    rig::XYZError::Create(avg_mesh_xyz, xyz_block_sizes, mesh_tri_weight);
+
+  ceres::LossFunction* mesh_loss_function =
+    rig::GetLossFunction("cauchy", robust_threshold);
+
+  problem.AddResidualBlock(mesh_cost_function, mesh_loss_function,
+                           xyz_ptr);
+
+  residual_names.push_back("mesh_tri_x_m");
+  residual_names.push_back("mesh_tri_y_m");
+  residual_names.push_back("mesh_tri_z_m");
+  residual_scales.push_back(mesh_tri_weight);
+  residual_scales.push_back(mesh_tri_weight);
+  residual_scales.push_back(mesh_tri_weight);
+}
+
 // Add the camera position constraints for the ref cams
 void addRigCamPosCostFun(// Observation
                          std::vector<rig::cameraImage> const& cams,
@@ -1421,19 +1448,12 @@ int main(int argc, char** argv) {
           have_mesh_tri_constraint = true;
       }
       if (have_mesh_tri_constraint) {
-        // Try to make the triangulated point agree with the mesh intersection
-        ceres::CostFunction* mesh_cost_function =
-          rig::XYZError::Create(avg_mesh_xyz, xyz_block_sizes, FLAGS_mesh_tri_weight);
-        ceres::LossFunction* mesh_loss_function =
-          rig::GetLossFunction("cauchy", FLAGS_robust_threshold);
-        problem.AddResidualBlock(mesh_cost_function, mesh_loss_function,
-                                 &xyz_vec[pid][0]);
-        residual_names.push_back("mesh_tri_x_m");
-        residual_names.push_back("mesh_tri_y_m");
-        residual_names.push_back("mesh_tri_z_m");
-        residual_scales.push_back(FLAGS_mesh_tri_weight);
-        residual_scales.push_back(FLAGS_mesh_tri_weight);
-        residual_scales.push_back(FLAGS_mesh_tri_weight);
+        std::cout << "--mesh tri weight = " << FLAGS_mesh_tri_weight << "\n";
+        rig::addRigMeshTriCostFun(avg_mesh_xyz, xyz_block_sizes,
+                                  FLAGS_mesh_tri_weight,
+                                  FLAGS_robust_threshold,
+                                  &xyz_vec[pid][0], problem, residual_names,
+                                  residual_scales);
       }
 
       // Add the constraint that the triangulated point does not go too far
