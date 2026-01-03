@@ -17,8 +17,8 @@
  * under the License.
  */
 
-#ifndef IMAGE_LOOKUP_H_
-#define IMAGE_LOOKUP_H_
+#ifndef RIG_IMAGE_LOOKUP_H_
+#define RIG_IMAGE_LOOKUP_H_
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
@@ -117,6 +117,29 @@ void lookupImages(// Inputs
                   std::vector<double>                 & min_timestamp_offset,
                   std::vector<double>                 & max_timestamp_offset);
   
+// Find pointers to the camera and reference images that bracket the
+// camera image. Great care is needed here. Two cases are considered,
+// if there is a rig or not. If no_rig is true, then the reference images are
+// the same as the camera images. 
+void calcBracketing(// Inputs
+                  bool no_rig, int cid, int cam_type,
+                  std::vector<rig::cameraImage> const& cams,
+                  std::vector<double> const& ref_timestamps,
+                  rig::RigSet   const& R,
+                  // Will not be changed but need access
+                  std::vector<double> & world_to_cam_vec,
+                  std::vector<double> & world_to_ref_vec,
+                  std::vector<double> & ref_to_cam_vec,
+                  std::vector<double> & ref_identity_vec,
+                  std::vector<double> & right_identity_vec,
+                  // Outputs
+                  double* & beg_cam_ptr, 
+                  double* & end_cam_ptr, 
+                  double* & ref_to_cam_ptr,
+                  double  & beg_ref_timestamp, 
+                  double  & end_ref_timestamp,
+                  double  & cam_timestamp);
+
 }  // namespace rig
 
-#endif  // IMAGE_LOOKUP_H_
+#endif  // RIG_IMAGE_LOOKUP_H_

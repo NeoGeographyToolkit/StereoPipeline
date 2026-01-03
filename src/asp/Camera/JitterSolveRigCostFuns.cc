@@ -24,7 +24,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Rig/transform_utils.h>
 #include <asp/Rig/rig_config.h>
-#include <asp/Rig/cost_function.h>
+#include <asp/Rig/RigCostFunction.h>
 #include <asp/Core/EigenTransformUtils.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveRigCostFuns.h>
