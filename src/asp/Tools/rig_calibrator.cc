@@ -717,13 +717,13 @@ int main(int argc, char** argv) {
     // world to each non-reference camera. 
     // TODO(oalexan1): Test if this works with --no_rig. For now this 
     // combination is not allowed.
-    rig::calc_world_to_cam_using_rig(// Inputs
-                                     !FLAGS_no_rig,
-                                     cams, world_to_ref, ref_timestamps,
-                                     R.ref_to_cam_trans,
-                                     R.ref_to_cam_timestamp_offsets,
-                                     // Output
-                                     world_to_cam);
+    rig::calcWorldToCamWithRig(// Inputs
+                               !FLAGS_no_rig,
+                               cams, world_to_ref, ref_timestamps,
+                               R.ref_to_cam_trans,
+                               R.ref_to_cam_timestamp_offsets,
+                               // Output
+                               world_to_cam);
   }
   
   if (!FLAGS_no_rig && !FLAGS_use_initial_rig_transforms) {
@@ -796,8 +796,8 @@ int main(int argc, char** argv) {
 
   std::set<std::string> depth_to_image_transforms_to_float;
   rig::parse_camera_names(R.cam_names, 
-                                FLAGS_depth_to_image_transforms_to_float,
-                                depth_to_image_transforms_to_float);
+                          FLAGS_depth_to_image_transforms_to_float,
+                          depth_to_image_transforms_to_float);
   
   // Set up the variable blocks to optimize for BracketedDepthError
   int num_depth_params = rig::NUM_RIGID_PARAMS;
@@ -919,12 +919,11 @@ int main(int argc, char** argv) {
     // given the current state of optimization
     // TODO(oalexan1): The call below is likely not necessary since this function
     // is already called earlier, and also whenever a pass finishes, see below.
-    rig::calc_world_to_cam_rig_or_not
-      (// Inputs
-       FLAGS_no_rig, cams, world_to_ref_vec, ref_timestamps, ref_to_cam_vec,
-       world_to_cam_vec, R.ref_to_cam_timestamp_offsets,
-       // Output
-       world_to_cam);
+    rig::calcWorldToCam(// Inputs
+                        FLAGS_no_rig, cams, world_to_ref_vec, ref_timestamps, ref_to_cam_vec,
+                        world_to_cam_vec, R.ref_to_cam_timestamp_offsets,
+                        // Output
+                        world_to_cam);
 
     // Triangulate, unless desired to reuse the initial points
     if (!FLAGS_use_initial_triangulated_points)
@@ -1010,6 +1009,7 @@ int main(int argc, char** argv) {
         pid_cid_fid_to_residual_index[pid][cid][fid] = residual_names.size();
 
         // TODO(oalexan1): Add this block to CostFunctions.cc.
+        //begx
         ceres::CostFunction* bracketed_cost_function =
           rig::BracketedCamError::Create(dist_ip, beg_ref_timestamp,
                                                end_ref_timestamp,
@@ -1098,7 +1098,8 @@ int main(int argc, char** argv) {
                                          min_timestamp_offset[cam_type]);
           problem.SetParameterUpperBound(&R.ref_to_cam_timestamp_offsets[cam_type], 0,
                                          max_timestamp_offset[cam_type]);
-        }
+        } // end of handling timestamp offsets
+        //endx
 
         Eigen::Vector3d depth_xyz(0, 0, 0);
         bool have_depth_tri_constraint
@@ -1368,16 +1369,14 @@ int main(int argc, char** argv) {
                              residuals);
 
     // Must have up-to-date world_to_cam and residuals to flag the outliers
-    rig::calc_world_to_cam_rig_or_not
-      (// Inputs
-       FLAGS_no_rig, cams, world_to_ref_vec, ref_timestamps, ref_to_cam_vec,
-       world_to_cam_vec, R.ref_to_cam_timestamp_offsets,
-      // Output
-      world_to_cam);
+    rig::calcWorldToCam(// Inputs
+                        FLAGS_no_rig, cams, world_to_ref_vec, ref_timestamps, ref_to_cam_vec,
+                        world_to_cam_vec, R.ref_to_cam_timestamp_offsets,
+                        // Output
+                        world_to_cam);
 
     // Flag outliers after this pass
-    rig::flagOutliersByTriAngleAndReprojErr
-      (// Inputs
+    rig::flagOutliersByTriAngleAndReprojErr(// Inputs
        FLAGS_min_triangulation_angle, FLAGS_max_reprojection_error,
        pid_to_cid_fid, keypoint_vec,
        world_to_cam, xyz_vec, pid_cid_fid_to_residual_index, residuals,
@@ -1385,8 +1384,8 @@ int main(int argc, char** argv) {
        pid_cid_fid_inlier);
     
     rig::writeResiduals(FLAGS_out_dir, "final", R.cam_names, cams, keypoint_vec,  
-                              pid_to_cid_fid, pid_cid_fid_inlier,
-                              pid_cid_fid_to_residual_index, residuals);
+                        pid_to_cid_fid, pid_cid_fid_inlier,
+                        pid_cid_fid_to_residual_index, residuals);
     
   }  // End optimization passes
 
@@ -1399,7 +1398,7 @@ int main(int argc, char** argv) {
                               keypoint_vec, pid_cid_fid_inlier, FLAGS_out_dir);
 
   // Update the transforms from the world to every camera
-  rig::calc_world_to_cam_rig_or_not(  // Inputs
+  rig::calcWorldToCam(  // Inputs
     FLAGS_no_rig, cams, world_to_ref_vec, ref_timestamps, ref_to_cam_vec, world_to_cam_vec,
     R.ref_to_cam_timestamp_offsets,
     // Output

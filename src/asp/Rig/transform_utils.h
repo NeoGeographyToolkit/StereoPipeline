@@ -66,13 +66,13 @@ Eigen::Affine3d calc_interp_world_to_ref(const double* beg_world_to_ref_t,
 // ignored. For the reference camera it is also expected that
 // ref_to_cam_aff is the identity. This saves some code duplication
 // later as the ref cam need not be treated separately.
-Eigen::Affine3d calc_world_to_cam_trans(const double* beg_world_to_ref_t,
-                                        const double* end_world_to_ref_t,
-                                        const double* ref_to_cam_trans,
-                                        double beg_ref_stamp,
-                                        double end_ref_stamp,
-                                        double ref_to_cam_offset,
-                                        double cam_stamp);
+Eigen::Affine3d calcWorldToCamBase(const double* beg_world_to_ref_t,
+                                   const double* end_world_to_ref_t,
+                                   const double* ref_to_cam_trans,
+                                   double beg_ref_stamp,
+                                   double end_ref_stamp,
+                                   double ref_to_cam_offset,
+                                   double cam_stamp);
 
 // Find the median of some matrices, by finding the median for each entry
 Eigen::MatrixXd median_matrix(std::vector<Eigen::MatrixXd> const& transforms);
@@ -83,41 +83,40 @@ Eigen::MatrixXd median_matrix(std::vector<Eigen::MatrixXd> const& transforms);
 // those in world_to_cam, but we don't have a way of looking them up in that
 // vector.
 void calc_rig_trans(std::vector<rig::cameraImage> const& cams,
-                    std::vector<Eigen::Affine3d>        const& world_to_ref,
-                    std::vector<Eigen::Affine3d>        const& world_to_cam,
-                    std::vector<double>                 const& ref_timestamps,
+                    std::vector<Eigen::Affine3d>  const& world_to_ref,
+                    std::vector<Eigen::Affine3d>  const& world_to_cam,
+                    std::vector<double>           const& ref_timestamps,
                     rig::RigSet                        & R); // update this
 
 // Compute the transforms from the world to every camera, based on the rig transforms.
-void calc_world_to_cam_using_rig(// Inputs
-                                 bool have_rig,
-                                 std::vector<rig::cameraImage> const& cams,
-                                 std::vector<double> const& world_to_ref_vec,
-                                 std::vector<double> const& ref_timestamps,
-                                 std::vector<double> const& ref_to_cam_vec,
-                                 std::vector<double> const& ref_to_cam_timestamp_offsets,
-                                 // Output
-                                 std::vector<Eigen::Affine3d>& world_to_cam);
+void calcWorldToCamWithRig(// Inputs
+                           bool have_rig,
+                           std::vector<rig::cameraImage> const& cams,
+                           std::vector<double> const& world_to_ref_vec,
+                           std::vector<double> const& ref_timestamps,
+                           std::vector<double> const& ref_to_cam_vec,
+                           std::vector<double> const& ref_to_cam_timestamp_offsets,
+                           // Output
+                           std::vector<Eigen::Affine3d>& world_to_cam);
   
 // A version of the above with the data stored differently
-void calc_world_to_cam_using_rig(// Inputs
-                                 bool have_rig,
-                                 std::vector<rig::cameraImage> const& cams,
-                                 std::vector<Eigen::Affine3d> const& world_to_ref,
-                                 std::vector<double> const& ref_timestamps,
-                                 std::vector<Eigen::Affine3d> const& ref_to_cam,
-                                 std::vector<double> const& ref_to_cam_timestamp_offsets,
-                                 // Output
-                                 std::vector<Eigen::Affine3d>& world_to_cam);
+void calcWorldToCamWithRig(// Inputs
+                           bool have_rig,
+                           std::vector<rig::cameraImage> const& cams,
+                           std::vector<Eigen::Affine3d> const& world_to_ref,
+                           std::vector<double> const& ref_timestamps,
+                           std::vector<Eigen::Affine3d> const& ref_to_cam,
+                           std::vector<double> const& ref_to_cam_timestamp_offsets,
+                           // Output
+                           std::vector<Eigen::Affine3d>& world_to_cam);
 
-void calc_world_to_cam_no_rig(// Inputs
-                              std::vector<rig::cameraImage> const& cams,
-                              std::vector<double> const& world_to_cam_vec,
-                              // Output
-                              std::vector<Eigen::Affine3d>& world_to_cam);
+void calcWorldToCamNoRig(// Inputs
+                          std::vector<rig::cameraImage> const& cams,
+                          std::vector<double> const& world_to_cam_vec,
+                          // Output
+                          std::vector<Eigen::Affine3d>& world_to_cam);
   
-void calc_world_to_cam_rig_or_not
-(// Inputs
+void calcWorldToCam(// Inputs
  bool no_rig, std::vector<rig::cameraImage> const& cams,
  std::vector<double> const& world_to_ref_vec, std::vector<double> const& ref_timestamps,
  std::vector<double> const& ref_to_cam_vec, std::vector<double> const& world_to_cam_vec,
@@ -201,10 +200,11 @@ Eigen::Affine3d registrationTransform(std::string                  const& hugin_
 
 // Apply a transform to inlier triangulated points  
 void transformInlierTriPoints(// Inputs
-  Eigen::Affine3d const& trans,
-  std::vector<std::map<int, int>> const& pid_to_cid_fid,
-  std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_inlier,
-  std::vector<Eigen::Vector3d> & xyz_vec); // output
+                              Eigen::Affine3d const& trans,
+                              std::vector<std::map<int, int>> const& pid_to_cid_fid,
+                              std::vector<std::map<int, std::map<int, int>>> const&
+                              pid_cid_fid_inlier,
+                              std::vector<Eigen::Vector3d> & xyz_vec); // output
 
 }  // end namespace rig
 

@@ -122,13 +122,13 @@ Eigen::Affine3d calc_interp_world_to_ref(const double* beg_world_to_ref_t,
 // ignored. For the reference camera it is also expected that
 // ref_to_cam_aff is the identity. This saves some code duplication
 // later as the ref cam need not be treated separately.
-Eigen::Affine3d calc_world_to_cam_trans(const double* beg_world_to_ref_t,
-                                        const double* end_world_to_ref_t,
-                                        const double* ref_to_cam_trans,
-                                        double beg_ref_stamp,
-                                        double end_ref_stamp,
-                                        double ref_to_cam_offset,
-                                        double cam_stamp) {
+Eigen::Affine3d calcWorldToCamBase(const double* beg_world_to_ref_t,
+                                   const double* end_world_to_ref_t,
+                                   const double* ref_to_cam_trans,
+                                   double beg_ref_stamp,
+                                   double end_ref_stamp,
+                                   double ref_to_cam_offset,
+                                   double cam_stamp) {
   
   Eigen::Affine3d ref_to_cam_aff;
   array_to_rigid_transform(ref_to_cam_aff, // output
@@ -144,15 +144,15 @@ Eigen::Affine3d calc_world_to_cam_trans(const double* beg_world_to_ref_t,
 
 
 // Compute the transforms from the world to every camera, based on the rig transforms.
-void calc_world_to_cam_using_rig(// Inputs
-                                 bool have_rig,
-                                 std::vector<rig::cameraImage> const& cams,
-                                 std::vector<double> const& world_to_ref_vec,
-                                 std::vector<double> const& ref_timestamps,
-                                 std::vector<double> const& ref_to_cam_vec,
-                                 std::vector<double> const& ref_to_cam_timestamp_offsets,
-                                 // Output
-                                 std::vector<Eigen::Affine3d>& world_to_cam) {
+void calcWorldToCamWithRig(// Inputs
+                           bool have_rig,
+                           std::vector<rig::cameraImage> const& cams,
+                           std::vector<double> const& world_to_ref_vec,
+                           std::vector<double> const& ref_timestamps,
+                           std::vector<double> const& ref_to_cam_vec,
+                           std::vector<double> const& ref_to_cam_timestamp_offsets,
+                           // Output
+                           std::vector<Eigen::Affine3d>& world_to_cam) {
   
   if (ref_to_cam_vec.size() / rig::NUM_RIGID_PARAMS != ref_to_cam_timestamp_offsets.size())
     LOG(FATAL) << "Must have as many transforms to reference as timestamp offsets.\n";
@@ -162,7 +162,7 @@ void calc_world_to_cam_using_rig(// Inputs
   // What is stored in "cams" is completely different when a rig is not used,
   // even one is available and is good, so then this code will give wrong results.
   if (!have_rig) 
-    LOG(FATAL) << "calc_world_to_cam_using_rig: Must have a rig.\n";
+    LOG(FATAL) << "calcWorldToCamWithRig: Must have a rig.\n";
   
   world_to_cam.resize(cams.size());
 
@@ -170,7 +170,7 @@ void calc_world_to_cam_using_rig(// Inputs
     int beg_index = cams[it].beg_ref_index;
     int end_index = cams[it].end_ref_index;
     int cam_type = cams[it].camera_type;
-    world_to_cam[it] = rig::calc_world_to_cam_trans
+    world_to_cam[it] = rig::calcWorldToCamBase
       (&world_to_ref_vec[rig::NUM_RIGID_PARAMS * beg_index],
        &world_to_ref_vec[rig::NUM_RIGID_PARAMS * end_index],
        &ref_to_cam_vec[rig::NUM_RIGID_PARAMS * cam_type],
@@ -182,15 +182,15 @@ void calc_world_to_cam_using_rig(// Inputs
 }
 
 // A version of the above with the data stored differently
-void calc_world_to_cam_using_rig(// Inputs
-                                 bool have_rig,
-                                 std::vector<rig::cameraImage> const& cams,
-                                 std::vector<Eigen::Affine3d> const& world_to_ref,
-                                 std::vector<double> const& ref_timestamps,
-                                 std::vector<Eigen::Affine3d> const& ref_to_cam,
-                                 std::vector<double> const& ref_to_cam_timestamp_offsets,
-                                 // Output
-                                 std::vector<Eigen::Affine3d>& world_to_cam) {
+void calcWorldToCamWithRig(// Inputs
+                           bool have_rig,
+                           std::vector<rig::cameraImage> const& cams,
+                           std::vector<Eigen::Affine3d> const& world_to_ref,
+                           std::vector<double> const& ref_timestamps,
+                           std::vector<Eigen::Affine3d> const& ref_to_cam,
+                           std::vector<double> const& ref_to_cam_timestamp_offsets,
+                           // Output
+                           std::vector<Eigen::Affine3d>& world_to_cam) {
   
   int num_cam_types = ref_to_cam.size();
   std::vector<double> ref_to_cam_vec(num_cam_types * rig::NUM_RIGID_PARAMS);
@@ -206,23 +206,23 @@ void calc_world_to_cam_using_rig(// Inputs
     rig::rigid_transform_to_array(world_to_ref[cid],
                                         &world_to_ref_vec[rig::NUM_RIGID_PARAMS * cid]);
 
-  calc_world_to_cam_using_rig(// Inputs
-                              have_rig, cams, world_to_ref_vec,
-                              ref_timestamps, ref_to_cam_vec,  
-                              ref_to_cam_timestamp_offsets,  
-                              // Output
-                              world_to_cam);
+  calcWorldToCamWithRig(// Inputs
+                        have_rig, cams, world_to_ref_vec,
+                        ref_timestamps, ref_to_cam_vec,  
+                        ref_to_cam_timestamp_offsets,  
+                        // Output
+                        world_to_cam);
 }
   
 // Calculate world_to_cam transforms from their representation in a
 // vector, rather than using reference cameras, extrinsics and
 // timestamp interpolation. Only for use with --no_rig, when
 // each camera varies independently.
-void calc_world_to_cam_no_rig(// Inputs
-                              std::vector<rig::cameraImage> const& cams,
-                              std::vector<double> const& world_to_cam_vec,
-                              // Output
-                              std::vector<Eigen::Affine3d>& world_to_cam) {
+void calcWorldToCamNoRig(// Inputs
+                         std::vector<rig::cameraImage> const& cams,
+                         std::vector<double> const& world_to_cam_vec,
+                         // Output
+                         std::vector<Eigen::Affine3d>& world_to_cam) {
   
   if (world_to_cam_vec.size() != cams.size() * rig::NUM_RIGID_PARAMS)
     LOG(FATAL) << "Incorrect size for world_to_cam_vec.\n";
@@ -235,7 +235,7 @@ void calc_world_to_cam_no_rig(// Inputs
 // Use one of the two implementations above. Care is needed as when
 // there are no extrinsics, each camera is on its own, so the input is
 // in world_to_cam_vec and not in world_to_ref_vec
-void calc_world_to_cam_rig_or_not(// Inputs
+void calcWorldToCam(// Inputs
   bool no_rig, std::vector<rig::cameraImage> const& cams,
   std::vector<double> const& world_to_ref_vec, std::vector<double> const& ref_timestamps,
   std::vector<double> const& ref_to_cam_vec, std::vector<double> const& world_to_cam_vec,
@@ -243,14 +243,14 @@ void calc_world_to_cam_rig_or_not(// Inputs
   // Output
   std::vector<Eigen::Affine3d>& world_to_cam) {
   if (!no_rig)
-    calc_world_to_cam_using_rig(// Inputs
-                                !no_rig,
-                                cams, world_to_ref_vec, ref_timestamps, ref_to_cam_vec,
-                                ref_to_cam_timestamp_offsets,
-                                // Output
-                                world_to_cam);
+    calcWorldToCamWithRig(// Inputs
+                          !no_rig,
+                          cams, world_to_ref_vec, ref_timestamps, ref_to_cam_vec,
+                          ref_to_cam_timestamp_offsets,
+                          // Output
+                          world_to_cam);
   else
-    calc_world_to_cam_no_rig(// Inputs
+    calcWorldToCamNoRig(// Inputs
       cams, world_to_cam_vec,
       // Output
       world_to_cam);
@@ -321,9 +321,9 @@ Eigen::MatrixXd median_matrix(std::vector<Eigen::MatrixXd> const& transforms) {
 // those in world_to_cam, but we don't have a way of looking them up in that
 // vector.
 void calc_rig_trans(std::vector<rig::cameraImage> const& cams,
-                    std::vector<Eigen::Affine3d>        const& world_to_ref,
-                    std::vector<Eigen::Affine3d>        const& world_to_cam,
-                    std::vector<double>                 const& ref_timestamps,
+                    std::vector<Eigen::Affine3d>  const& world_to_ref,
+                    std::vector<Eigen::Affine3d>  const& world_to_cam,
+                    std::vector<double>           const& ref_timestamps,
                     rig::RigSet                        & R) { // update this
   // Sanity check
   if (cams.size() != world_to_cam.size()) 
@@ -521,7 +521,7 @@ void Find3DAffineTransform(Eigen::Matrix3Xd const & in,
 }
 
 // Extract control points and the images they correspond 2 from
-// a hugin project file
+// a Hugin project file
 void ParseHuginControlPoints(std::string const& hugin_file,
                              std::vector<std::string> * images,
                              Eigen::MatrixXd * points) {

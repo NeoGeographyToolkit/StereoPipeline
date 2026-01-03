@@ -47,8 +47,8 @@ void setUpFixRigOptions(bool no_rig, bool fix_rig_translations, bool fix_rig_rot
     fixed_indices.push_back(it);
   
   if (!fixed_indices.empty())
-    constant_transform_manifold = new ceres::SubsetManifold(rig::NUM_RIGID_PARAMS,
-                                                            fixed_indices);
+    constant_transform_manifold 
+      = new ceres::SubsetManifold(rig::NUM_RIGID_PARAMS, fixed_indices);
 }
 
 
@@ -104,12 +104,12 @@ BracketedCamError::BracketedCamError(Eigen::Vector2d const& meas_dist_pix,
 // Call to work with ceres::DynamicNumericDiffCostFunction.
 bool BracketedCamError::operator()(double const* const* parameters, double* residuals) const {
   Eigen::Affine3d world_to_cam_trans =
-    calc_world_to_cam_trans(parameters[0],  // beg_world_to_ref_t
-                            parameters[1],  // end_world_to_ref_t
-                            parameters[2],  // ref_to_cam_trans
-                            m_left_ref_stamp, m_right_ref_stamp,
-                            parameters[4][0],  // ref_to_cam_offset
-                            m_cam_stamp);
+    calcWorldToCamBase(parameters[0],  // beg_world_to_ref_t
+                       parameters[1],  // end_world_to_ref_t
+                       parameters[2],  // ref_to_cam_trans
+                       m_left_ref_stamp, m_right_ref_stamp,
+                       parameters[4][0],  // ref_to_cam_offset
+                       m_cam_stamp);
 
   // World point
   Eigen::Vector3d X(parameters[3][0], parameters[3][1], parameters[3][2]);
@@ -192,12 +192,12 @@ BracketedDepthError::BracketedDepthError(double weight, Eigen::Vector3d const& m
 bool BracketedDepthError::operator()(double const* const* parameters, double* residuals) const {
   // Current world to camera transform
   Eigen::Affine3d world_to_cam_trans =
-    calc_world_to_cam_trans(parameters[0],  // beg_world_to_ref_t
-                            parameters[1],  // end_world_to_ref_t
-                            parameters[2],  // ref_to_cam_trans
-                            m_left_ref_stamp, m_right_ref_stamp,
-                            parameters[6][0],  // ref_to_cam_offset
-                            m_cam_stamp);
+    calcWorldToCamBase(parameters[0],  // beg_world_to_ref_t
+                       parameters[1],  // end_world_to_ref_t
+                       parameters[2],  // ref_to_cam_trans
+                       m_left_ref_stamp, m_right_ref_stamp,
+                       parameters[6][0],  // ref_to_cam_offset
+                       m_cam_stamp);
 
   // The current transform from the depth point cloud to the camera image
   Eigen::Affine3d depth_to_image;
@@ -273,12 +273,12 @@ BracketedDepthMeshError::BracketedDepthMeshError(double weight,
 bool BracketedDepthMeshError::operator()(double const* const* parameters, double* residuals) const {
   // Current world to camera transform
   Eigen::Affine3d world_to_cam_trans =
-    calc_world_to_cam_trans(parameters[0],  // beg_world_to_ref_t
-                            parameters[1],  // end_world_to_ref_t
-                            parameters[2],  // ref_to_cam_trans
-                            m_left_ref_stamp, m_right_ref_stamp,
-                            parameters[5][0],  // ref_to_cam_offset
-                            m_cam_stamp);
+    calcWorldToCamBase(parameters[0],  // beg_world_to_ref_t
+                       parameters[1],  // end_world_to_ref_t
+                       parameters[2],  // ref_to_cam_trans
+                       m_left_ref_stamp, m_right_ref_stamp,
+                       parameters[5][0],  // ref_to_cam_offset
+                       m_cam_stamp);
 
   // The current transform from the depth point cloud to the camera image
   Eigen::Affine3d depth_to_image;
