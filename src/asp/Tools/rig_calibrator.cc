@@ -755,6 +755,73 @@ void addRigReprojCostFun(// Observation
   }
 }
 
+// Add the depth to triangulation point cost function
+void addRigDepthTriCostFun(// Observation
+                           Eigen::Vector3d const& depth_xyz,
+                           double beg_ref_timestamp,
+                           double end_ref_timestamp,
+                           double cam_timestamp,
+                           // Params & Variables
+                           std::vector<int> const& bracketed_depth_block_sizes,
+                           int num_depth_params,
+                           double* beg_cam_ptr,
+                           double* end_cam_ptr,
+                           double* ref_to_cam_ptr,
+                           double* depth_to_image_ptr,
+                           double* depth_to_image_scale_ptr,
+                           double* xyz_ptr,
+                           double* timestamp_offset_ptr,
+                           rig::RigSet const& R,
+                           int cam_type,
+                           std::set<std::string> const& depth_to_image_transforms_to_float,
+                           // Flags
+                           bool float_scale,
+                           bool affine_depth_to_image,
+                           double depth_tri_weight,
+                           double robust_threshold,
+                           // Output
+                           ceres::Problem& problem,
+                           std::vector<std::string>& residual_names,
+                           std::vector<double>& residual_scales) {
+
+  // TODO(oalexan1): Add this block to CostFunctions.cc.
+  // Ensure that the depth points agree with triangulated points
+  ceres::CostFunction* bracketed_depth_cost_function
+    = rig::BracketedDepthError::Create(depth_tri_weight, depth_xyz,
+                                       beg_ref_timestamp, end_ref_timestamp,
+                                       cam_timestamp,
+                                       bracketed_depth_block_sizes);
+
+  ceres::LossFunction* bracketed_depth_loss_function
+    = rig::GetLossFunction("cauchy", robust_threshold);
+
+  residual_names.push_back("depth_tri_x_m");
+  residual_names.push_back("depth_tri_y_m");
+  residual_names.push_back("depth_tri_z_m");
+  residual_scales.push_back(depth_tri_weight);
+  residual_scales.push_back(depth_tri_weight);
+  residual_scales.push_back(depth_tri_weight);
+  problem.AddResidualBlock
+    (bracketed_depth_cost_function, bracketed_depth_loss_function,
+     beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
+     depth_to_image_ptr,
+     depth_to_image_scale_ptr,
+     xyz_ptr,
+     timestamp_offset_ptr);
+
+  // Note that above we already considered fixing some params.
+  // We won't repeat that code here.
+  // If we model an affine depth to image, fix its scale here,
+  // it will change anyway as part of depth_to_image_vec.
+  if (!float_scale || affine_depth_to_image) {
+    problem.SetParameterBlockConstant(depth_to_image_scale_ptr);
+  }
+
+  if (depth_to_image_transforms_to_float.find(R.cam_names[cam_type])
+      == depth_to_image_transforms_to_float.end())
+    problem.SetParameterBlockConstant(depth_to_image_ptr);
+}
+
 } // end namespace rig
                              
 int main(int argc, char** argv) {
@@ -900,7 +967,7 @@ int main(int argc, char** argv) {
   std::vector<double> world_to_ref_vec(num_ref_cams * rig::NUM_RIGID_PARAMS);
   for (int cid = 0; cid < num_ref_cams; cid++)
     rig::rigid_transform_to_array(world_to_ref[cid],
-                                        &world_to_ref_vec[rig::NUM_RIGID_PARAMS * cid]);
+                                  &world_to_ref_vec[rig::NUM_RIGID_PARAMS * cid]);
   
   // Need the identity transform for when the cam is the ref cam, and
   // have to have a placeholder for the right bracketing cam which won't be used.
@@ -1135,6 +1202,7 @@ int main(int argc, char** argv) {
         // Remember the index of the pixel residuals about to create
         pid_cid_fid_to_residual_index[pid][cid][fid] = residual_names.size();
 
+        // Add pixel reprojection error cost function
         rig::addRigReprojCostFun(dist_ip, beg_ref_timestamp, end_ref_timestamp,
                                  cam_timestamp,
                                  bracketed_cam_block_sizes, R.cam_params[cam_type],
@@ -1155,49 +1223,28 @@ int main(int argc, char** argv) {
                                  problem,
                                  residual_names, residual_scales);
 
+        // Add the depth to triangulated point constraint
         Eigen::Vector3d depth_xyz(0, 0, 0);
         bool have_depth_tri_constraint
           = (FLAGS_depth_tri_weight > 0 &&
              rig::depthValue(cams[cid].depth_cloud, dist_ip, depth_xyz));
-
-        if (have_depth_tri_constraint) {
-          // TODO(oalexan1): Add this block to CostFunctions.cc.
-          // Ensure that the depth points agree with triangulated points
-          ceres::CostFunction* bracketed_depth_cost_function
-            = rig::BracketedDepthError::Create(FLAGS_depth_tri_weight, depth_xyz,
-                                                     beg_ref_timestamp, end_ref_timestamp,
-                                                     cam_timestamp,
-                                                     bracketed_depth_block_sizes);
-
-          ceres::LossFunction* bracketed_depth_loss_function
-            = rig::GetLossFunction("cauchy", FLAGS_robust_threshold);
-
-          residual_names.push_back("depth_tri_x_m");
-          residual_names.push_back("depth_tri_y_m");
-          residual_names.push_back("depth_tri_z_m");
-          residual_scales.push_back(FLAGS_depth_tri_weight);
-          residual_scales.push_back(FLAGS_depth_tri_weight);
-          residual_scales.push_back(FLAGS_depth_tri_weight);
-          problem.AddResidualBlock
-            (bracketed_depth_cost_function, bracketed_depth_loss_function,
-             beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
-             &depth_to_image_vec[num_depth_params * cam_type],
-             &depth_to_image_scales[cam_type],
-             &xyz_vec[pid][0],
-             &R.ref_to_cam_timestamp_offsets[cam_type]);
-
-          // Note that above we already considered fixing some params.
-          // We won't repeat that code here.
-          // If we model an affine depth to image, fix its scale here,
-          // it will change anyway as part of depth_to_image_vec.
-          if (!FLAGS_float_scale || FLAGS_affine_depth_to_image) {
-            problem.SetParameterBlockConstant(&depth_to_image_scales[cam_type]);
-          }
-
-          if (depth_to_image_transforms_to_float.find(R.cam_names[cam_type])
-              == depth_to_image_transforms_to_float.end())
-            problem.SetParameterBlockConstant(&depth_to_image_vec[num_depth_params * cam_type]);
-        }
+        if (have_depth_tri_constraint)
+          rig::addRigDepthTriCostFun(depth_xyz, beg_ref_timestamp, end_ref_timestamp,
+                                     cam_timestamp,
+                                     bracketed_depth_block_sizes, num_depth_params,
+                                     beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
+                                     &depth_to_image_vec[num_depth_params * cam_type],
+                                     &depth_to_image_scales[cam_type],
+                                     &xyz_vec[pid][0],
+                                     &R.ref_to_cam_timestamp_offsets[cam_type],
+                                     R, cam_type, depth_to_image_transforms_to_float,
+                                     FLAGS_float_scale,
+                                     FLAGS_affine_depth_to_image,
+                                     FLAGS_depth_tri_weight,
+                                     FLAGS_robust_threshold,
+                                     problem,
+                                     residual_names,
+                                     residual_scales);
 
         // Add the depth to mesh constraint
         bool have_depth_mesh_constraint = false;
