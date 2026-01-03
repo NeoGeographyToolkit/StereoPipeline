@@ -221,7 +221,7 @@ Diagnostics files
     the shapefile is opened in QGIS, the tile index (an integer starting with
     zero) will be printed inside each tile. 
     
-    The ``stereo_gui`` program (:numref:`stereo_gui`) can also read and display
+    The ``stereo_gui`` program (:numref:`plot_poly`) can also read and display
     this shapefile and the indices.
     
     Note that the actual tile list is saved in ``*-dirList.txt``.

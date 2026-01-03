@@ -317,12 +317,11 @@ together.
 
 .. _gdal_rasterize_example:
 
-Application
-^^^^^^^^^^^
+Applications
+^^^^^^^^^^^^
 
-As an application of drawing a polygon with ``stereo_gui``, the
-``gdal_rasterize`` command can be used to keep or exclude the portion of a given
-georeferenced image or a DEM that is within or outside the polygonal shape.
+The ``gdal_rasterize`` command can be used to keep or exclude the portion of a
+given georeferenced image or a DEM that is within or outside a polygonal shape.
 Example::
 
   gdal_rasterize -i -burn <nodata_value> poly.shp dem.tif
@@ -330,10 +329,10 @@ Example::
 Here, if the DEM nodata value is specified, the DEM will be edited and
 values outside the polygon will be replaced with no data.
 
-This tool can be used to find the polygonal contour at a given image
-threshold (which can be either set or computed from the ``Threshold``
-menu). This option is accessible from the ``Vector layer`` menu as well,
-with or without the polygon editing mode being on.
+The ``stereo_gui`` program can find the polygonal contour at a given image
+threshold (which can be either set or computed from the ``Threshold`` menu).
+This option is accessible from the ``Vector layer`` menu as well, with or
+without the polygon editing mode on.
 
 .. _image_bounds:
 
