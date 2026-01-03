@@ -628,6 +628,133 @@ void applyRegistration(bool no_rig, bool scale_depth,
   return;
 }
 
+void addRigReprojCostFun(// Observation
+                         Eigen::Vector2d const& dist_ip,
+                         double beg_ref_timestamp,
+                         double end_ref_timestamp,
+                         double cam_timestamp,
+                         // Params and variables
+                         std::vector<int> const& bracketed_cam_block_sizes,
+                         rig::CameraParameters const& cam_params,
+                         Eigen::VectorXd& distortion_vec,
+                         double* distortion_placeholder_ptr,
+                         double* beg_cam_ptr,
+                         double* end_cam_ptr,
+                         double* ref_to_cam_ptr,
+                         double* xyz_ptr,
+                         double* timestamp_offset_ptr,
+                         double* focal_length_ptr,
+                         double* optical_center_ptr,
+                         rig::RigSet const& R,
+                         int cam_type,
+                         std::string const& image_name,
+                         std::set<std::string> const& intrinsics_to_float,
+                         std::set<std::string> const& camera_poses_to_float,
+                         std::set<std::string> const& fixed_images,
+                         std::set<double*>& fixed_parameters,
+                         ceres::SubsetManifold* constant_transform_manifold,
+                         double min_timestamp_offset,
+                         double max_timestamp_offset,
+                         // Flags
+                         bool no_rig, bool fix_rig_translations,
+                         bool fix_rig_rotations, bool float_timestamp_offsets,
+                         double robust_threshold,
+                         // Output
+                         ceres::Problem& problem,
+                         std::vector<std::string>& residual_names,
+                         std::vector<double>& residual_scales) {
+
+  ceres::CostFunction* bracketed_cost_function =
+    rig::BracketedCamError::Create(dist_ip, beg_ref_timestamp,
+                                   end_ref_timestamp,
+                                   cam_timestamp, bracketed_cam_block_sizes,
+                                   cam_params);
+  ceres::LossFunction* bracketed_loss_function
+    = rig::GetLossFunction("cauchy", robust_threshold);
+
+  // Handle the case of no distortion
+  double * distortion_ptr = NULL;
+  if (distortion_vec.size() > 0) 
+    distortion_ptr = &distortion_vec[0];
+  else
+    distortion_ptr = distortion_placeholder_ptr;
+        
+  residual_names.push_back(R.cam_names[cam_type] + "_pix_x");
+  residual_names.push_back(R.cam_names[cam_type] + "_pix_y");
+  residual_scales.push_back(1.0);
+  residual_scales.push_back(1.0);
+  problem.AddResidualBlock
+    (bracketed_cost_function, bracketed_loss_function,
+     beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr, xyz_ptr,
+     timestamp_offset_ptr,
+     focal_length_ptr, optical_center_ptr, distortion_ptr);
+
+  // See which intrinsics to float
+  if (intrinsics_to_float.find("focal_length") ==
+      intrinsics_to_float.end())
+    problem.SetParameterBlockConstant(focal_length_ptr);
+  if (intrinsics_to_float.find("optical_center") ==
+      intrinsics_to_float.end())
+    problem.SetParameterBlockConstant(optical_center_ptr);
+  if (intrinsics_to_float.find("distortion")
+      == intrinsics_to_float.end() || distortion_vec.size() == 0)
+    problem.SetParameterBlockConstant(distortion_ptr);
+
+  if (!no_rig) {
+    // See if to float the beg camera, which here will point to the ref cam
+    if (camera_poses_to_float.find(R.refSensor(cam_type))
+        == camera_poses_to_float.end())
+      problem.SetParameterBlockConstant(beg_cam_ptr);
+  } else {
+    // There is no rig. Then beg_cam_ptr refers to camera
+    // for cams[cid], and not to its ref bracketing cam.
+    // See if the user wants it floated.
+    if (camera_poses_to_float.find(R.cam_names[cam_type])
+        == camera_poses_to_float.end()) 
+      problem.SetParameterBlockConstant(beg_cam_ptr);
+  }
+
+  // The end cam floats only if the ref cam can float and end cam brackets
+  // a non-ref cam and we have a rig. 
+  if (camera_poses_to_float.find(R.refSensor(cam_type))
+      == camera_poses_to_float.end() ||
+      R.isRefSensor(R.cam_names[cam_type]) || no_rig) 
+    problem.SetParameterBlockConstant(end_cam_ptr);
+        
+  // ref_to_cam is kept fixed at the identity if the cam is the ref type or
+  // no rig
+  if (camera_poses_to_float.find(R.cam_names[cam_type])
+      == camera_poses_to_float.end() ||
+      R.isRefSensor(R.cam_names[cam_type]) || no_rig) {
+    problem.SetParameterBlockConstant(ref_to_cam_ptr);
+    fixed_parameters.insert(ref_to_cam_ptr);
+  }
+
+  // See if to fix the rig translation or rotation components
+  if ((fix_rig_translations || fix_rig_rotations) &&
+      fixed_parameters.find(ref_to_cam_ptr) == fixed_parameters.end())
+    problem.SetManifold(ref_to_cam_ptr, constant_transform_manifold);
+        
+  // See if to fix some images. For that, an image must be in the list,
+  // and its camera must be either of ref type or there must be no rig.
+  if (!fixed_images.empty() &&
+      (fixed_images.find(image_name) != fixed_images.end()) &&
+      (R.isRefSensor(R.cam_names[cam_type]) || no_rig))
+    problem.SetParameterBlockConstant(beg_cam_ptr);
+        
+  if (!float_timestamp_offsets || R.isRefSensor(R.cam_names[cam_type]) ||
+      no_rig) {
+    // Either we don't float timestamp offsets at all, or the cam is the ref type,
+    // or with no extrinsics, when it can't float anyway.
+    problem.SetParameterBlockConstant(timestamp_offset_ptr);
+  } else {
+    problem.SetParameterLowerBound(timestamp_offset_ptr, 0,
+                                   min_timestamp_offset);
+    problem.SetParameterUpperBound(timestamp_offset_ptr, 0,
+                                   max_timestamp_offset);
+  }
+}
+
 } // end namespace rig
                              
 int main(int argc, char** argv) {
@@ -1008,98 +1135,25 @@ int main(int argc, char** argv) {
         // Remember the index of the pixel residuals about to create
         pid_cid_fid_to_residual_index[pid][cid][fid] = residual_names.size();
 
-        // TODO(oalexan1): Add this block to CostFunctions.cc.
-        //begx
-        ceres::CostFunction* bracketed_cost_function =
-          rig::BracketedCamError::Create(dist_ip, beg_ref_timestamp,
-                                               end_ref_timestamp,
-                                               cam_timestamp, bracketed_cam_block_sizes,
-                                               R.cam_params[cam_type]);
-        ceres::LossFunction* bracketed_loss_function
-          = rig::GetLossFunction("cauchy", FLAGS_robust_threshold);
-
-        // Handle the case of no distortion
-        double * distortion_ptr = NULL;
-        if (distortions[cam_type].size() > 0) 
-          distortion_ptr = &distortions[cam_type][0];
-        else
-          distortion_ptr = &distortion_placeholder;
-        
-        residual_names.push_back(R.cam_names[cam_type] + "_pix_x");
-        residual_names.push_back(R.cam_names[cam_type] + "_pix_y");
-        residual_scales.push_back(1.0);
-        residual_scales.push_back(1.0);
-        problem.AddResidualBlock
-          (bracketed_cost_function, bracketed_loss_function,
-           beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr, &xyz_vec[pid][0],
-           &R.ref_to_cam_timestamp_offsets[cam_type],
-           &focal_lengths[cam_type], &optical_centers[cam_type][0], distortion_ptr);
-
-        // See which intrinsics to float
-        if (intrinsics_to_float[cam_type].find("focal_length") ==
-            intrinsics_to_float[cam_type].end())
-          problem.SetParameterBlockConstant(&focal_lengths[cam_type]);
-        if (intrinsics_to_float[cam_type].find("optical_center") ==
-            intrinsics_to_float[cam_type].end())
-          problem.SetParameterBlockConstant(&optical_centers[cam_type][0]);
-        if (intrinsics_to_float[cam_type].find("distortion")
-            == intrinsics_to_float[cam_type].end() || distortions[cam_type].size() == 0)
-          problem.SetParameterBlockConstant(distortion_ptr);
-
-        if (!FLAGS_no_rig) {
-          // See if to float the beg camera, which here will point to the ref cam
-          if (camera_poses_to_float.find(R.refSensor(cam_type))
-              == camera_poses_to_float.end())
-            problem.SetParameterBlockConstant(beg_cam_ptr);
-        } else {
-          // There is no rig. Then beg_cam_ptr refers to camera
-          // for cams[cid], and not to its ref bracketing cam.
-          // See if the user wants it floated.
-          if (camera_poses_to_float.find(R.cam_names[cam_type])
-              == camera_poses_to_float.end()) 
-            problem.SetParameterBlockConstant(beg_cam_ptr);
-        }
-
-        // The end cam floats only if the ref cam can float and end cam brackets
-        // a non-ref cam and we have a rig. 
-        if (camera_poses_to_float.find(R.refSensor(cam_type))
-            == camera_poses_to_float.end() ||
-            R.isRefSensor(R.cam_names[cam_type]) || FLAGS_no_rig) 
-          problem.SetParameterBlockConstant(end_cam_ptr);
-        
-        // ref_to_cam is kept fixed at the identity if the cam is the ref type or
-        // no rig
-        if (camera_poses_to_float.find(R.cam_names[cam_type])
-            == camera_poses_to_float.end() ||
-            R.isRefSensor(R.cam_names[cam_type]) || FLAGS_no_rig) {
-          problem.SetParameterBlockConstant(ref_to_cam_ptr);
-          fixed_parameters.insert(ref_to_cam_ptr);
-        }
-
-        // See if to fix the rig translation or rotation components
-        if ((FLAGS_fix_rig_translations || FLAGS_fix_rig_rotations) &&
-            fixed_parameters.find(ref_to_cam_ptr) == fixed_parameters.end())
-           problem.SetManifold(ref_to_cam_ptr, constant_transform_manifold);
-        
-        // See if to fix some images. For that, an image must be in the list,
-        // and its camera must be either of ref type or there must be no rig.
-        if (!fixed_images.empty() &&
-            (fixed_images.find(cams[cid].image_name) != fixed_images.end()) &&
-            (R.isRefSensor(R.cam_names[cam_type]) || FLAGS_no_rig))
-          problem.SetParameterBlockConstant(beg_cam_ptr);
-        
-        if (!FLAGS_float_timestamp_offsets || R.isRefSensor(R.cam_names[cam_type]) ||
-            FLAGS_no_rig) {
-          // Either we don't float timestamp offsets at all, or the cam is the ref type,
-          // or with no extrinsics, when it can't float anyway.
-          problem.SetParameterBlockConstant(&R.ref_to_cam_timestamp_offsets[cam_type]);
-        } else {
-          problem.SetParameterLowerBound(&R.ref_to_cam_timestamp_offsets[cam_type], 0,
-                                         min_timestamp_offset[cam_type]);
-          problem.SetParameterUpperBound(&R.ref_to_cam_timestamp_offsets[cam_type], 0,
-                                         max_timestamp_offset[cam_type]);
-        } // end of handling timestamp offsets
-        //endx
+        rig::addRigReprojCostFun(dist_ip, beg_ref_timestamp, end_ref_timestamp,
+                                 cam_timestamp,
+                                 bracketed_cam_block_sizes, R.cam_params[cam_type],
+                                 distortions[cam_type], &distortion_placeholder,
+                                 beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
+                                 &xyz_vec[pid][0],
+                                 &R.ref_to_cam_timestamp_offsets[cam_type],
+                                 &focal_lengths[cam_type], &optical_centers[cam_type][0],
+                                 R, cam_type, cams[cid].image_name,
+                                 intrinsics_to_float[cam_type],
+                                 camera_poses_to_float, fixed_images, fixed_parameters,
+                                 constant_transform_manifold,
+                                 min_timestamp_offset[cam_type], 
+                                 max_timestamp_offset[cam_type],
+                                 FLAGS_no_rig, FLAGS_fix_rig_translations,
+                                 FLAGS_fix_rig_rotations, FLAGS_float_timestamp_offsets,
+                                 FLAGS_robust_threshold,
+                                 problem,
+                                 residual_names, residual_scales);
 
         Eigen::Vector3d depth_xyz(0, 0, 0);
         bool have_depth_tri_constraint
@@ -1462,8 +1516,8 @@ int main(int argc, char** argv) {
   
   std::string conv_angles_file = FLAGS_out_dir + "/convergence_angles.txt";
   rig::savePairwiseConvergenceAngles(pid_to_cid_fid, keypoint_vec,
-                                           cams, world_to_cam,  
-                                           xyz_vec,  pid_cid_fid_inlier,  
-                                           conv_angles_file);
+                                     cams, world_to_cam,  
+                                     xyz_vec,  pid_cid_fid_inlier,  
+                                     conv_angles_file);
   return 0;
 } // NOLINT // TODO(oalexan1): Remove this, after making the code more modular
