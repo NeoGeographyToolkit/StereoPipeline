@@ -1004,8 +1004,221 @@ void addRigCamPosCostFun(// Observation
   }
 }
 
-} // end namespace rig
-                             
+void setupRigOptProblem(
+    // Inputs
+    std::vector<cameraImage> const& cams,
+    RigSet& R,
+    std::vector<double> const& ref_timestamps,
+    std::vector<double>& world_to_cam_vec,
+    std::vector<double>& world_to_ref_vec,
+    std::vector<double>& ref_to_cam_vec,
+    std::vector<double>& ref_identity_vec,
+    std::vector<double>& right_identity_vec,
+    std::vector<double>& focal_lengths,
+    std::vector<Eigen::Vector2d>& optical_centers,
+    std::vector<Eigen::VectorXd>& distortions,
+    std::vector<double>& depth_to_image_vec,
+    std::vector<double>& depth_to_image_scales,
+    KeypointVec const& keypoint_vec,
+    std::vector<std::map<int, int>> const& pid_to_cid_fid,
+    std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_inlier,
+    std::vector<std::map<int, std::map<int, Eigen::Vector3d>>> const& pid_cid_fid_mesh_xyz,
+    std::vector<Eigen::Vector3d> const& pid_mesh_xyz,
+    std::vector<Eigen::Vector3d>& xyz_vec,
+    std::vector<Eigen::Vector3d> const& xyz_vec_orig,
+    // Block sizes
+    std::vector<int> const& bracketed_cam_block_sizes,
+    std::vector<int> const& bracketed_depth_block_sizes,
+    std::vector<int> const& bracketed_depth_mesh_block_sizes,
+    std::vector<int> const& xyz_block_sizes,
+    int num_depth_params,
+    // Configuration
+    std::vector<std::set<std::string>> const& intrinsics_to_float,
+    std::set<std::string> const& camera_poses_to_float,
+    std::set<std::string> const& depth_to_image_transforms_to_float,
+    std::set<std::string> const& fixed_images,
+    std::vector<double> const& min_timestamp_offset,
+    std::vector<double> const& max_timestamp_offset,
+    // Logic flags
+    bool no_rig,
+    bool fix_rig_translations,
+    bool fix_rig_rotations,
+    bool float_timestamp_offsets,
+    bool float_scale,
+    bool affine_depth_to_image,
+    bool has_mesh,
+    double robust_threshold,
+    double tri_robust_threshold,
+    double tri_weight,
+    double depth_tri_weight,
+    double depth_mesh_weight,
+    double mesh_tri_weight,
+    double camera_position_weight,
+    // Outputs
+    std::vector<std::map<int, std::map<int, int>>>& pid_cid_fid_to_residual_index,
+    ceres::Problem& problem,
+    std::vector<std::string>& residual_names,
+    std::vector<double>& residual_scales) {
+
+  // For when we don't have distortion but must get a pointer to
+  // distortion for the interface
+  double distortion_placeholder = 0.0;
+  Eigen::Vector3d bad_xyz(1.0e+100, 1.0e+100, 1.0e+100);
+
+  // Prepare for the case of fixed rig translations and/or rotations
+  std::set<double*> fixed_parameters; // to avoid double fixing
+  ceres::SubsetManifold* constant_transform_manifold = nullptr;
+  rig::setUpFixRigOptions(no_rig, fix_rig_translations,
+                          fix_rig_rotations,
+                          constant_transform_manifold);
+
+  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
+    for (auto cid_fid = pid_to_cid_fid[pid].begin();
+         cid_fid != pid_to_cid_fid[pid].end(); cid_fid++) {
+      int cid = cid_fid->first;
+      int fid = cid_fid->second;
+
+      // Deal with inliers only
+      if (!rig::getMapValue(pid_cid_fid_inlier, pid, cid, fid))
+        continue;
+
+      // Find timestamps and pointers to bracketing cameras ref_to_cam transform.
+      // This strongly depends on whether we are using a rig or not.
+      int cam_type = cams[cid].camera_type;
+      double beg_ref_timestamp = -1.0, end_ref_timestamp = -1.0, cam_timestamp = -1.0;
+      double *beg_cam_ptr = NULL, *end_cam_ptr = NULL, *ref_to_cam_ptr = NULL;
+      rig::calcBracketing(// Inputs
+                          no_rig, cid, cam_type, cams, ref_timestamps, R,
+                          world_to_cam_vec, world_to_ref_vec, ref_to_cam_vec,
+                          ref_identity_vec, right_identity_vec,
+                          // Outputs
+                          beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
+                          beg_ref_timestamp, end_ref_timestamp,
+                          cam_timestamp);
+
+      Eigen::Vector2d dist_ip(keypoint_vec[cid][fid].first,
+                              keypoint_vec[cid][fid].second);
+
+      // Remember the index of the pixel residuals about to create
+      pid_cid_fid_to_residual_index[pid][cid][fid] = residual_names.size();
+
+      // Add pixel reprojection error cost function
+      rig::addRigReprojCostFun(dist_ip, beg_ref_timestamp, end_ref_timestamp,
+                               cam_timestamp,
+                               bracketed_cam_block_sizes, R.cam_params[cam_type],
+                               distortions[cam_type], &distortion_placeholder,
+                               beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
+                               &xyz_vec[pid][0],
+                               &R.ref_to_cam_timestamp_offsets[cam_type],
+                               &focal_lengths[cam_type], &optical_centers[cam_type][0],
+                               R, cam_type, cams[cid].image_name,
+                               intrinsics_to_float[cam_type],
+                               camera_poses_to_float, fixed_images, fixed_parameters,
+                               constant_transform_manifold,
+                               min_timestamp_offset[cam_type],
+                               max_timestamp_offset[cam_type],
+                               no_rig, fix_rig_translations,
+                               fix_rig_rotations, float_timestamp_offsets,
+                               robust_threshold,
+                               problem,
+                               residual_names, residual_scales);
+
+      // Add the depth to triangulated point constraint
+      Eigen::Vector3d depth_xyz(0, 0, 0);
+      bool have_depth_tri_constraint
+        = (depth_tri_weight > 0 &&
+           rig::depthValue(cams[cid].depth_cloud, dist_ip, depth_xyz));
+      if (have_depth_tri_constraint)
+        rig::addRigDepthTriCostFun(depth_xyz, beg_ref_timestamp, end_ref_timestamp,
+                                   cam_timestamp,
+                                   bracketed_depth_block_sizes, num_depth_params,
+                                   beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
+                                   &depth_to_image_vec[num_depth_params * cam_type],
+                                   &depth_to_image_scales[cam_type],
+                                   &xyz_vec[pid][0],
+                                   &R.ref_to_cam_timestamp_offsets[cam_type],
+                                   R, cam_type, depth_to_image_transforms_to_float,
+                                   float_scale,
+                                   affine_depth_to_image,
+                                   depth_tri_weight,
+                                   robust_threshold,
+                                   problem,
+                                   residual_names,
+                                   residual_scales);
+
+      // Add the depth to mesh constraint
+      bool have_depth_mesh_constraint = false;
+      depth_xyz = Eigen::Vector3d(0, 0, 0);
+      Eigen::Vector3d mesh_xyz(0, 0, 0);
+      if (has_mesh) {
+        mesh_xyz = rig::getMapValue(pid_cid_fid_mesh_xyz, pid, cid, fid);
+        have_depth_mesh_constraint
+          = (depth_mesh_weight > 0 && mesh_xyz != bad_xyz &&
+             rig::depthValue(cams[cid].depth_cloud, dist_ip, depth_xyz));
+      }
+
+      if (have_depth_mesh_constraint)
+        rig::addRigDepthMeshCostFun(depth_xyz, mesh_xyz, beg_ref_timestamp,
+                                    end_ref_timestamp, cam_timestamp,
+                                    bracketed_depth_mesh_block_sizes,
+                                    num_depth_params, beg_cam_ptr, end_cam_ptr,
+                                    ref_to_cam_ptr,
+                                    &depth_to_image_vec[num_depth_params * cam_type],
+                                    &depth_to_image_scales[cam_type],
+                                    &R.ref_to_cam_timestamp_offsets[cam_type],
+                                    R, cam_type, depth_to_image_transforms_to_float,
+                                    float_scale, affine_depth_to_image,
+                                    depth_mesh_weight, robust_threshold,
+                                    problem, residual_names, residual_scales);
+    }  // end iterating over all cid for given pid
+
+    // The constraints below will be for each triangulated point. Skip such a point
+    // if all rays converging to it come from outliers.
+    bool isTriInlier = false;
+    for (auto cid_fid = pid_to_cid_fid[pid].begin();
+         cid_fid != pid_to_cid_fid[pid].end(); cid_fid++) {
+      int cid = cid_fid->first;
+      int fid = cid_fid->second;
+      if (rig::getMapValue(pid_cid_fid_inlier, pid, cid, fid)) {
+        isTriInlier = true;
+        break; // found it to be an inlier, no need to do further checking
+      }
+    }
+
+    // Add mesh-to-triangulated point constraint
+    bool have_mesh_tri_constraint = false;
+    Eigen::Vector3d avg_mesh_xyz(0, 0, 0);
+    if (has_mesh && isTriInlier) {
+      avg_mesh_xyz = pid_mesh_xyz.at(pid);
+      if (mesh_tri_weight > 0 && avg_mesh_xyz != bad_xyz)
+        have_mesh_tri_constraint = true;
+    }
+    if (have_mesh_tri_constraint)
+      rig::addRigMeshTriCostFun(avg_mesh_xyz, xyz_block_sizes,
+                                mesh_tri_weight,
+                                robust_threshold,
+                                &xyz_vec[pid][0], problem, residual_names,
+                                residual_scales);
+
+    // Add the constraint that the triangulated point does not go too far
+    if (tri_weight > 0.0 && isTriInlier)
+      rig::addRigTriCostFun(xyz_vec_orig[pid], xyz_block_sizes, tri_weight,
+                            tri_robust_threshold, &xyz_vec[pid][0], problem,
+                            residual_names, residual_scales);
+
+  }  // end iterating over pid
+
+  // Add the camera position constraints for the ref cams
+  if (camera_position_weight > 0.0)
+    rig::addRigCamPosCostFun(cams, R, camera_poses_to_float, ref_timestamps,
+                             world_to_cam_vec, world_to_ref_vec, ref_to_cam_vec,
+                             ref_identity_vec, right_identity_vec,
+                             no_rig, camera_position_weight,
+                             problem, residual_names, residual_scales);
+}
+
+} // namespace rig
+           
 int main(int argc, char** argv) {
 
   google::InitGoogleLogging(argv[0]);
@@ -1336,165 +1549,33 @@ int main(int argc, char** argv) {
     std::vector<std::map<int, std::map<int, int>>> pid_cid_fid_to_residual_index;
     pid_cid_fid_to_residual_index.resize(pid_to_cid_fid.size());
 
-    // For when we don't have distortion but must get a pointer to
-    // distortion for the interface
-    double distortion_placeholder = 0.0;
-    
     // Form the problem
     ceres::Problem problem;
     std::vector<std::string> residual_names;
     std::vector<double> residual_scales;
-
-    // Prepare for the case of fixed rig translations and/or rotations    
-    std::set<double*> fixed_parameters; // to avoid double fixing
-    ceres::SubsetManifold* constant_transform_manifold = nullptr;
-    rig::setUpFixRigOptions(FLAGS_no_rig, FLAGS_fix_rig_translations, 
-                            FLAGS_fix_rig_rotations,
-                            constant_transform_manifold);
-    
-    for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
-      for (auto cid_fid = pid_to_cid_fid[pid].begin();
-           cid_fid != pid_to_cid_fid[pid].end(); cid_fid++) {
-        int cid = cid_fid->first;
-        int fid = cid_fid->second;
-
-        // Deal with inliers only
-        if (!rig::getMapValue(pid_cid_fid_inlier, pid, cid, fid))
-          continue;
-
-        // Find timestamps and pointers to bracketing cameras ref_to_cam transform.
-        // This strongly depends on whether we are using a rig or not.
-        int cam_type = cams[cid].camera_type;
-        double beg_ref_timestamp = -1.0, end_ref_timestamp = -1.0, cam_timestamp = -1.0;
-        double *beg_cam_ptr = NULL, *end_cam_ptr = NULL, *ref_to_cam_ptr = NULL;
-        rig::calcBracketing(// Inputs
-                      FLAGS_no_rig, cid, cam_type, cams, ref_timestamps, R,
-                      world_to_cam_vec, world_to_ref_vec, ref_to_cam_vec,
-                      ref_identity_vec, right_identity_vec,
-                      // Outputs
-                      beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
-                      beg_ref_timestamp, end_ref_timestamp,
-                      cam_timestamp);
- 
-        Eigen::Vector2d dist_ip(keypoint_vec[cid][fid].first,
-                                keypoint_vec[cid][fid].second);
-
-        // Remember the index of the pixel residuals about to create
-        pid_cid_fid_to_residual_index[pid][cid][fid] = residual_names.size();
-
-        // Add pixel reprojection error cost function
-        rig::addRigReprojCostFun(dist_ip, beg_ref_timestamp, end_ref_timestamp,
-                                 cam_timestamp,
-                                 bracketed_cam_block_sizes, R.cam_params[cam_type],
-                                 distortions[cam_type], &distortion_placeholder,
-                                 beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
-                                 &xyz_vec[pid][0],
-                                 &R.ref_to_cam_timestamp_offsets[cam_type],
-                                 &focal_lengths[cam_type], &optical_centers[cam_type][0],
-                                 R, cam_type, cams[cid].image_name,
-                                 intrinsics_to_float[cam_type],
-                                 camera_poses_to_float, fixed_images, fixed_parameters,
-                                 constant_transform_manifold,
-                                 min_timestamp_offset[cam_type], 
-                                 max_timestamp_offset[cam_type],
-                                 FLAGS_no_rig, FLAGS_fix_rig_translations,
-                                 FLAGS_fix_rig_rotations, FLAGS_float_timestamp_offsets,
-                                 FLAGS_robust_threshold,
-                                 problem,
-                                 residual_names, residual_scales);
-
-        // Add the depth to triangulated point constraint
-        Eigen::Vector3d depth_xyz(0, 0, 0);
-        bool have_depth_tri_constraint
-          = (FLAGS_depth_tri_weight > 0 &&
-             rig::depthValue(cams[cid].depth_cloud, dist_ip, depth_xyz));
-        if (have_depth_tri_constraint)
-          rig::addRigDepthTriCostFun(depth_xyz, beg_ref_timestamp, end_ref_timestamp,
-                                     cam_timestamp,
-                                     bracketed_depth_block_sizes, num_depth_params,
-                                     beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
-                                     &depth_to_image_vec[num_depth_params * cam_type],
-                                     &depth_to_image_scales[cam_type],
-                                     &xyz_vec[pid][0],
-                                     &R.ref_to_cam_timestamp_offsets[cam_type],
-                                     R, cam_type, depth_to_image_transforms_to_float,
-                                     FLAGS_float_scale,
-                                     FLAGS_affine_depth_to_image,
-                                     FLAGS_depth_tri_weight,
-                                     FLAGS_robust_threshold,
-                                     problem,
-                                     residual_names,
-                                     residual_scales);
-
-        // Add the depth to mesh constraint
-        bool have_depth_mesh_constraint = false;
-        depth_xyz = Eigen::Vector3d(0, 0, 0);
-        Eigen::Vector3d mesh_xyz(0, 0, 0);
-        if (FLAGS_mesh != "") {
-          mesh_xyz = rig::getMapValue(pid_cid_fid_mesh_xyz, pid, cid, fid);
-          have_depth_mesh_constraint
-            = (FLAGS_depth_mesh_weight > 0 && mesh_xyz != bad_xyz &&
-               rig::depthValue(cams[cid].depth_cloud, dist_ip, depth_xyz));
-        }
-
-        if (have_depth_mesh_constraint)
-          rig::addRigDepthMeshCostFun(depth_xyz, mesh_xyz, beg_ref_timestamp,
-                                      end_ref_timestamp, cam_timestamp,
-                                      bracketed_depth_mesh_block_sizes,
-                                      num_depth_params, beg_cam_ptr, end_cam_ptr,
-                                      ref_to_cam_ptr,
-                                      &depth_to_image_vec[num_depth_params * cam_type],
-                                      &depth_to_image_scales[cam_type],
-                                      &R.ref_to_cam_timestamp_offsets[cam_type],
-                                      R, cam_type, depth_to_image_transforms_to_float,
-                                      FLAGS_float_scale, FLAGS_affine_depth_to_image,
-                                      FLAGS_depth_mesh_weight, FLAGS_robust_threshold,
-                                      problem, residual_names, residual_scales);
-      }  // end iterating over all cid for given pid
-
-      // The constraints below will be for each triangulated point. Skip such a point
-      // if all rays converging to it come from outliers.
-      bool isTriInlier = false;
-      for (auto cid_fid = pid_to_cid_fid[pid].begin();
-           cid_fid != pid_to_cid_fid[pid].end(); cid_fid++) {
-        int cid = cid_fid->first;
-        int fid = cid_fid->second;
-        if (rig::getMapValue(pid_cid_fid_inlier, pid, cid, fid)) {
-          isTriInlier = true;
-          break; // found it to be an inlier, no need to do further checking
-        }
-      }
-
-      // Add mesh-to-triangulated point constraint
-      bool have_mesh_tri_constraint = false;
-      Eigen::Vector3d avg_mesh_xyz(0, 0, 0);
-      if (FLAGS_mesh != "" && isTriInlier) {
-        avg_mesh_xyz = pid_mesh_xyz.at(pid);
-        if (FLAGS_mesh_tri_weight > 0 && avg_mesh_xyz != bad_xyz)
-          have_mesh_tri_constraint = true;
-      }
-      if (have_mesh_tri_constraint)
-        rig::addRigMeshTriCostFun(avg_mesh_xyz, xyz_block_sizes,
-                                  FLAGS_mesh_tri_weight,
-                                  FLAGS_robust_threshold,
-                                  &xyz_vec[pid][0], problem, residual_names,
-                                  residual_scales);
-
-      // Add the constraint that the triangulated point does not go too far
-      if (FLAGS_tri_weight > 0.0 && isTriInlier)
-        rig::addRigTriCostFun(xyz_vec_orig[pid], xyz_block_sizes, FLAGS_tri_weight,
-                              FLAGS_tri_robust_threshold, &xyz_vec[pid][0], problem,
-                              residual_names, residual_scales);
-      
-    }  // end iterating over pid
-
-    // Add the camera position constraints for the ref cams
-    if (FLAGS_camera_position_weight > 0.0)
-      rig::addRigCamPosCostFun(cams, R, camera_poses_to_float, ref_timestamps,
-                               world_to_cam_vec, world_to_ref_vec, ref_to_cam_vec,
-                               ref_identity_vec, right_identity_vec,
-                               FLAGS_no_rig, FLAGS_camera_position_weight,
-                               problem, residual_names, residual_scales);
+    rig::setupRigOptProblem(
+        // Inputs
+        cams, R, ref_timestamps, world_to_cam_vec, world_to_ref_vec,
+        ref_to_cam_vec, ref_identity_vec, right_identity_vec, focal_lengths,
+        optical_centers, distortions, depth_to_image_vec, depth_to_image_scales,
+        keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier, pid_cid_fid_mesh_xyz,
+        pid_mesh_xyz, xyz_vec, xyz_vec_orig,
+        // Block sizes
+        bracketed_cam_block_sizes, bracketed_depth_block_sizes,
+        bracketed_depth_mesh_block_sizes, xyz_block_sizes, num_depth_params,
+        // Configuration
+        intrinsics_to_float, camera_poses_to_float,
+        depth_to_image_transforms_to_float, fixed_images, min_timestamp_offset,
+        max_timestamp_offset,
+        // Flags
+        FLAGS_no_rig, FLAGS_fix_rig_translations, FLAGS_fix_rig_rotations,
+        FLAGS_float_timestamp_offsets, FLAGS_float_scale,
+        FLAGS_affine_depth_to_image, (FLAGS_mesh != ""),
+        FLAGS_robust_threshold, FLAGS_tri_robust_threshold, FLAGS_tri_weight,
+        FLAGS_depth_tri_weight, FLAGS_depth_mesh_weight, FLAGS_mesh_tri_weight,
+        FLAGS_camera_position_weight,
+        // Outputs
+        pid_cid_fid_to_residual_index, problem, residual_names, residual_scales);
 
     // Evaluate the residuals before optimization
     std::vector<double> residuals;
