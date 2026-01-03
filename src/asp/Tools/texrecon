@@ -32,7 +32,7 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-import asp_rig_utils
+import asp_rig_utils, asp_system_utils
 
 def process_args(args):
     """
@@ -156,7 +156,13 @@ def run_texrecon(tools_base_dir, undistorted_images, cams, mesh,
     # That is one long path
     texrecon_path = tools_base_dir + "/bin/texrecon_bin"
     if not os.path.exists(texrecon_path):
-        raise Exception("Cannot find: " + texrecon_path)
+        # Handle the case when the dev version of ASP is used
+        print("Warning: Cannot find texrecon at: " + texrecon_path)
+        texrecon_path = asp_system_utils.which('texrecon_bin')
+        if texrecon_path is not None and os.path.exists(texrecon_path):
+            print("Will use: " + texrecon_path)
+        else:
+            raise Exception("Cannot find: " + texrecon_path)
     
     asp_rig_utils.mkdir_p(texture_dir)
 

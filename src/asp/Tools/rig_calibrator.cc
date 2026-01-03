@@ -755,7 +755,7 @@ void addRigReprojCostFun(// Observation
   }
 }
 
-// Add the depth to triangulation point cost function
+// Ensure that the depth points agree with triangulated points
 void addRigDepthTriCostFun(// Observation
                            Eigen::Vector3d const& depth_xyz,
                            double beg_ref_timestamp,
@@ -784,8 +784,6 @@ void addRigDepthTriCostFun(// Observation
                            std::vector<std::string>& residual_names,
                            std::vector<double>& residual_scales) {
 
-  // TODO(oalexan1): Add this block to CostFunctions.cc.
-  // Ensure that the depth points agree with triangulated points
   ceres::CostFunction* bracketed_depth_cost_function
     = rig::BracketedDepthError::Create(depth_tri_weight, depth_xyz,
                                        beg_ref_timestamp, end_ref_timestamp,
@@ -820,6 +818,136 @@ void addRigDepthTriCostFun(// Observation
   if (depth_to_image_transforms_to_float.find(R.cam_names[cam_type])
       == depth_to_image_transforms_to_float.end())
     problem.SetParameterBlockConstant(depth_to_image_ptr);
+}
+
+// Try to make each mesh intersection agree with corresponding depth
+// measurement, if it exists
+void addRigDepthMeshCostFun(// Observation
+                            Eigen::Vector3d const& depth_xyz,
+                            Eigen::Vector3d const& mesh_xyz,
+                            double beg_ref_timestamp,
+                            double end_ref_timestamp,
+                            double cam_timestamp,
+                            // Params & Variables
+                            std::vector<int> const& bracketed_depth_mesh_block_sizes,
+                            int num_depth_params,
+                            double* beg_cam_ptr,
+                            double* end_cam_ptr,
+                            double* ref_to_cam_ptr,
+                            double* depth_to_image_ptr,
+                            double* depth_to_image_scale_ptr,
+                            double* timestamp_offset_ptr,
+                            rig::RigSet const& R,
+                            int cam_type,
+                            std::set<std::string> const& depth_to_image_transforms_to_float,
+                            // Flags
+                            bool float_scale,
+                            bool affine_depth_to_image,
+                            double depth_mesh_weight,
+                            double robust_threshold,
+                            // Output
+                            ceres::Problem& problem,
+                            std::vector<std::string>& residual_names,
+                            std::vector<double>& residual_scales) {
+
+  ceres::CostFunction* bracketed_depth_mesh_cost_function
+    = rig::BracketedDepthMeshError::Create
+    (depth_mesh_weight, depth_xyz, mesh_xyz, beg_ref_timestamp,
+     end_ref_timestamp, cam_timestamp, bracketed_depth_mesh_block_sizes);
+
+  ceres::LossFunction* bracketed_depth_mesh_loss_function
+    = rig::GetLossFunction("cauchy", robust_threshold);
+
+  residual_names.push_back("depth_mesh_x_m");
+  residual_names.push_back("depth_mesh_y_m");
+  residual_names.push_back("depth_mesh_z_m");
+  residual_scales.push_back(depth_mesh_weight);
+  residual_scales.push_back(depth_mesh_weight);
+  residual_scales.push_back(depth_mesh_weight);
+  problem.AddResidualBlock
+    (bracketed_depth_mesh_cost_function, bracketed_depth_mesh_loss_function,
+     beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
+     depth_to_image_ptr,
+     depth_to_image_scale_ptr,
+     timestamp_offset_ptr);
+
+  // Note that above we already fixed some of these variables.
+  // Repeat the fixing of depth variables, however, as the previous block
+  // may not take place.
+  if (!float_scale || affine_depth_to_image)
+    problem.SetParameterBlockConstant(depth_to_image_scale_ptr);
+
+  if (depth_to_image_transforms_to_float.find(R.cam_names[cam_type])
+      == depth_to_image_transforms_to_float.end())
+    problem.SetParameterBlockConstant(depth_to_image_ptr);
+}
+
+// Add the camera position constraints for the ref cams
+void addRigCamPosCostFun(// Observation
+                         std::vector<rig::cameraImage> const& cams,
+                         // Params & Variables
+                         rig::RigSet const& R,
+                         std::set<std::string> const& camera_poses_to_float,
+                         std::vector<double> const& ref_timestamps,
+                         std::vector<double>& world_to_cam_vec,
+                         std::vector<double>& world_to_ref_vec,
+                         std::vector<double>& ref_to_cam_vec,
+                         std::vector<double>& ref_identity_vec,
+                         std::vector<double>& right_identity_vec,
+                         // Flags
+                         bool no_rig,
+                         double camera_position_weight,
+                         // Output
+                         ceres::Problem& problem,
+                         std::vector<std::string>& residual_names,
+                         std::vector<double>& residual_scales) {
+
+  for (size_t cid = 0; cid < cams.size(); cid++) {
+    int cam_type = cams[cid].camera_type;
+    auto const& sensor_name = R.cam_names[cam_type];
+    
+    if (camera_poses_to_float.find(sensor_name)
+        == camera_poses_to_float.end()) continue; // sensor not floated
+    
+    if (!no_rig && !R.isRefSensor(sensor_name))
+      continue; // only ref sensors are floated in a rig
+    
+    // Find timestamps and pointers to bracketing cameras ref_to_cam transform.
+    // This strongly depends on whether we are using a rig or not.
+    double beg_ref_timestamp = -1.0, end_ref_timestamp = -1.0, cam_timestamp = -1.0;
+    double *beg_cam_ptr = NULL, *end_cam_ptr = NULL, *ref_to_cam_ptr = NULL;
+    
+    rig::calcBracketing(// Inputs
+                  no_rig, cid, cam_type, cams, ref_timestamps, R,
+                  world_to_cam_vec, world_to_ref_vec, ref_to_cam_vec,
+                  ref_identity_vec, right_identity_vec,
+                  // Outputs
+                  beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
+                  beg_ref_timestamp, end_ref_timestamp,
+                  cam_timestamp);
+                  
+    ceres::CostFunction* cam_pos_cost_function =
+       rig::CamPositionErr::Create(beg_cam_ptr, camera_position_weight);
+    ceres::LossFunction* cam_pos_loss_function = NULL; // no robust threshold
+    
+    problem.AddResidualBlock(cam_pos_cost_function, cam_pos_loss_function,
+                             beg_cam_ptr);
+    
+    residual_names.push_back(sensor_name + "_pos_x");
+    residual_names.push_back(sensor_name + "_pos_y");
+    residual_names.push_back(sensor_name + "_pos_z");
+    residual_names.push_back(sensor_name + "_q_x");
+    residual_names.push_back(sensor_name + "_q_y");
+    residual_names.push_back(sensor_name + "_q_z");
+    residual_names.push_back(sensor_name + "_q_w");
+    residual_scales.push_back(camera_position_weight);
+    residual_scales.push_back(camera_position_weight);
+    residual_scales.push_back(camera_position_weight);
+    residual_scales.push_back(1.0); // Rotations will not be constrained
+    residual_scales.push_back(1.0);
+    residual_scales.push_back(1.0);
+    residual_scales.push_back(1.0);
+  }
 }
 
 } // end namespace rig
@@ -905,12 +1033,11 @@ int main(int argc, char** argv) {
   if (FLAGS_no_rig && FLAGS_use_initial_rig_transforms)
     LOG(FATAL) << "Cannot use initial rig transforms without a rig.\n";
   
-  if (!FLAGS_no_rig && FLAGS_use_initial_rig_transforms) {
-    // If we can use the initial rig transform, compute and
-    // overwrite overwrite world_to_cam, the transforms from the
-    // world to each non-reference camera. 
-    // TODO(oalexan1): Test if this works with --no_rig. For now this 
-    // combination is not allowed.
+  // If we can use the initial rig transform, compute and overwrite overwrite
+  // world_to_cam, the transforms from the world to each non-reference camera.
+  // TODO(oalexan1): Test if this works with --no_rig. For now this combination
+  // is not allowed.
+  if (!FLAGS_no_rig && FLAGS_use_initial_rig_transforms)
     rig::calcWorldToCamWithRig(// Inputs
                                !FLAGS_no_rig,
                                cams, world_to_ref, ref_timestamps,
@@ -918,7 +1045,6 @@ int main(int argc, char** argv) {
                                R.ref_to_cam_timestamp_offsets,
                                // Output
                                world_to_cam);
-  }
   
   if (!FLAGS_no_rig && !FLAGS_use_initial_rig_transforms) {
     // If we want a rig, and cannot use the initial rig, use the
@@ -1257,41 +1383,19 @@ int main(int argc, char** argv) {
                rig::depthValue(cams[cid].depth_cloud, dist_ip, depth_xyz));
         }
 
-        if (have_depth_mesh_constraint) {
-          // TODO(oalexan1): Add this block to CostFunctions.cc.
-          // Try to make each mesh intersection agree with corresponding depth measurement,
-          // if it exists
-          ceres::CostFunction* bracketed_depth_mesh_cost_function
-            = rig::BracketedDepthMeshError::Create
-            (FLAGS_depth_mesh_weight, depth_xyz, mesh_xyz, beg_ref_timestamp,
-             end_ref_timestamp, cam_timestamp, bracketed_depth_mesh_block_sizes);
-
-          ceres::LossFunction* bracketed_depth_mesh_loss_function
-            = rig::GetLossFunction("cauchy", FLAGS_robust_threshold);
-
-          residual_names.push_back("depth_mesh_x_m");
-          residual_names.push_back("depth_mesh_y_m");
-          residual_names.push_back("depth_mesh_z_m");
-          residual_scales.push_back(FLAGS_depth_mesh_weight);
-          residual_scales.push_back(FLAGS_depth_mesh_weight);
-          residual_scales.push_back(FLAGS_depth_mesh_weight);
-          problem.AddResidualBlock
-            (bracketed_depth_mesh_cost_function, bracketed_depth_mesh_loss_function,
-             beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
-             &depth_to_image_vec[num_depth_params * cam_type],
-             &depth_to_image_scales[cam_type],
-             &R.ref_to_cam_timestamp_offsets[cam_type]);
-
-          // Note that above we already fixed some of these variables.
-          // Repeat the fixing of depth variables, however, as the previous block
-          // may not take place.
-          if (!FLAGS_float_scale || FLAGS_affine_depth_to_image)
-            problem.SetParameterBlockConstant(&depth_to_image_scales[cam_type]);
-
-          if (depth_to_image_transforms_to_float.find(R.cam_names[cam_type])
-              == depth_to_image_transforms_to_float.end())
-            problem.SetParameterBlockConstant(&depth_to_image_vec[num_depth_params * cam_type]);
-        }
+        if (have_depth_mesh_constraint)
+          rig::addRigDepthMeshCostFun(depth_xyz, mesh_xyz, beg_ref_timestamp,
+                                      end_ref_timestamp, cam_timestamp,
+                                      bracketed_depth_mesh_block_sizes,
+                                      num_depth_params, beg_cam_ptr, end_cam_ptr,
+                                      ref_to_cam_ptr,
+                                      &depth_to_image_vec[num_depth_params * cam_type],
+                                      &depth_to_image_scales[cam_type],
+                                      &R.ref_to_cam_timestamp_offsets[cam_type],
+                                      R, cam_type, depth_to_image_transforms_to_float,
+                                      FLAGS_float_scale, FLAGS_affine_depth_to_image,
+                                      FLAGS_depth_mesh_weight, FLAGS_robust_threshold,
+                                      problem, residual_names, residual_scales);
       }  // end iterating over all cid for given pid
 
       // The constraints below will be for each triangulated point. Skip such a point
@@ -1318,16 +1422,12 @@ int main(int argc, char** argv) {
       }
       if (have_mesh_tri_constraint) {
         // Try to make the triangulated point agree with the mesh intersection
-
         ceres::CostFunction* mesh_cost_function =
           rig::XYZError::Create(avg_mesh_xyz, xyz_block_sizes, FLAGS_mesh_tri_weight);
-
         ceres::LossFunction* mesh_loss_function =
           rig::GetLossFunction("cauchy", FLAGS_robust_threshold);
-
         problem.AddResidualBlock(mesh_cost_function, mesh_loss_function,
                                  &xyz_vec[pid][0]);
-
         residual_names.push_back("mesh_tri_x_m");
         residual_names.push_back("mesh_tri_y_m");
         residual_names.push_back("mesh_tri_z_m");
@@ -1345,7 +1445,6 @@ int main(int argc, char** argv) {
           rig::GetLossFunction("cauchy", FLAGS_tri_robust_threshold);
         problem.AddResidualBlock(tri_cost_function, tri_loss_function,
                                  &xyz_vec[pid][0]);
-
         residual_names.push_back("tri_x_m");
         residual_names.push_back("tri_y_m");
         residual_names.push_back("tri_z_m");
@@ -1357,51 +1456,13 @@ int main(int argc, char** argv) {
     }  // end iterating over pid
 
     // Add the camera position constraints for the ref cams
-    if (FLAGS_camera_position_weight > 0.0) {
-      
-      for (size_t cid = 0; cid < cams.size(); cid++) {
-        int cam_type = cams[cid].camera_type;
-        auto const& sensor_name = R.cam_names[cam_type];
-        if (camera_poses_to_float.find(sensor_name)
-            == camera_poses_to_float.end()) continue; // sensor not floated
-        if (!FLAGS_no_rig && !R.isRefSensor(sensor_name))
-          continue; // only ref sensors are floated in a rig
-        
-        // Find timestamps and pointers to bracketing cameras ref_to_cam transform.
-        // This strongly depends on whether we are using a rig or not.
-        double beg_ref_timestamp = -1.0, end_ref_timestamp = -1.0, cam_timestamp = -1.0;
-        double *beg_cam_ptr = NULL, *end_cam_ptr = NULL, *ref_to_cam_ptr = NULL;
-        rig::calcBracketing(// Inputs
-                      FLAGS_no_rig, cid, cam_type, cams, ref_timestamps, R,
-                      world_to_cam_vec, world_to_ref_vec, ref_to_cam_vec,
-                      ref_identity_vec, right_identity_vec,
-                      // Outputs
-                      beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
-                      beg_ref_timestamp, end_ref_timestamp,
-                      cam_timestamp);
-        ceres::CostFunction* cam_pos_cost_function =
-           rig::CamPositionErr::Create(beg_cam_ptr, FLAGS_camera_position_weight);
-        ceres::LossFunction* cam_pos_loss_function = NULL; // no robust threshold
-        problem.AddResidualBlock(cam_pos_cost_function, cam_pos_loss_function,
-                                 beg_cam_ptr);
-        
-        residual_names.push_back(sensor_name + "_pos_x");
-        residual_names.push_back(sensor_name + "_pos_y");
-        residual_names.push_back(sensor_name + "_pos_z");
-        residual_names.push_back(sensor_name + "_q_x");
-        residual_names.push_back(sensor_name + "_q_y");
-        residual_names.push_back(sensor_name + "_q_z");
-        residual_names.push_back(sensor_name + "_q_w");
-        residual_scales.push_back(FLAGS_camera_position_weight);
-        residual_scales.push_back(FLAGS_camera_position_weight);
-        residual_scales.push_back(FLAGS_camera_position_weight);
-        residual_scales.push_back(1.0); // Rotations will not be constrained
-        residual_scales.push_back(1.0);
-        residual_scales.push_back(1.0);
-        residual_scales.push_back(1.0);
-      }
-    }
-      
+    if (FLAGS_camera_position_weight > 0.0)
+      rig::addRigCamPosCostFun(cams, R, camera_poses_to_float, ref_timestamps,
+                               world_to_cam_vec, world_to_ref_vec, ref_to_cam_vec,
+                               ref_identity_vec, right_identity_vec,
+                               FLAGS_no_rig, FLAGS_camera_position_weight,
+                               problem, residual_names, residual_scales);
+
     // Evaluate the residuals before optimization
     std::vector<double> residuals;
     rig::evalResiduals("before opt", residual_names, residual_scales, problem, residuals);
