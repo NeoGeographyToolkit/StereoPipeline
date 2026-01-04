@@ -927,20 +927,18 @@ bool depthValue(// Inputs
   return true;
 }
 
-// Write the inliers in nvm format. The keypoints are shifted relative to the optical
-// center, as written by Theia if shift_keypoints is specified.
-// We handle properly the case when a (cid, fid) shows up in many tracks
-// (this was a bug).
-void writeInliersToNvm
-(std::string                                const& nvm_file,
- bool                                              shift_keypoints, 
- std::vector<rig::CameraParameters>         const& cam_params,
- std::vector<rig::cameraImage>              const& cams,
- std::vector<Eigen::Affine3d>               const& world_to_cam,
- rig::KeypointVec                           const& keypoint_vec,
- rig::PidCidFid                             const& pid_to_cid_fid,
- PidCidFidMap                               const& pid_cid_fid_inlier,
- std::vector<Eigen::Vector3d>               const& xyz_vec) {
+// Write the inliers in nvm format. The keypoints are shifted relative to the
+// optical center, as written by Theia if shift_keypoints is specified. This
+// handles properly the case when a (cid, fid) shows up in many tracks.
+void writeInliersToNvm(std::string                        const& nvm_file,
+                       bool                                      shift_keypoints, 
+                       std::vector<rig::CameraParameters> const& cam_params,
+                       std::vector<rig::cameraImage>      const& cams,
+                       std::vector<Eigen::Affine3d>       const& world_to_cam,
+                       rig::KeypointVec                   const& keypoint_vec,
+                       rig::PidCidFid                     const& pid_to_cid_fid,
+                       PidCidFidMap                       const& pid_cid_fid_inlier,
+                       std::vector<Eigen::Vector3d>       const& xyz_vec) {
   
   // Sanity checks
   if (world_to_cam.size() != cams.size())
@@ -1015,9 +1013,9 @@ void writeInliersToNvm
 }
 
 // Calculate the rmse residual for each residual type.
-void calc_residuals_stats(std::vector<double> const& residuals,
-                          std::vector<std::string> const& residual_names,
-                          std::string const& tag) {
+void calcResidualStats(std::vector<double> const& residuals,
+                       std::vector<std::string> const& residual_names,
+                       std::string const& tag) {
   size_t num = residuals.size();
 
   if (num != residual_names.size())
@@ -1051,6 +1049,70 @@ void calc_residuals_stats(std::vector<double> const& residuals,
                 << vals[it3] << ' ' << vals[it4];
     std::cout << " (" << len << " residuals)" << std::endl;
   }
+}
+  
+// Write the inlier residuals. Create one output file for each camera type.
+// The format of each file is:
+// dist_pixel_x, dist_pixel_y, norm(residual_x, residual_y)
+void writeResiduals(std::string                   const& out_dir,
+                    std::string                   const & prefix,
+                    std::vector<std::string>      const& cam_names,
+                    std::vector<rig::cameraImage> const& cams,
+                    rig::KeypointVec              const& keypoint_vec,
+                    rig::PidCidFid                const& pid_to_cid_fid,
+                    rig::PidCidFidMap             const& pid_cid_fid_inlier,
+                    rig::PidCidFidMap             const& pid_cid_fid_to_residual_index,
+                    std::vector<double>           const& residuals) {
+
+  if (pid_to_cid_fid.size() != pid_cid_fid_inlier.size())
+    LOG(FATAL) << "Expecting as many inlier flags as there are tracks.\n";
+
+  typedef std::tuple<double, double, double> Triplet;
+  std::vector<std::vector<Triplet>> res_vec(cam_names.size());
+
+  // Create the pixel and residual triplet
+  for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
+    
+    for (auto cid_fid = pid_to_cid_fid[pid].begin();
+         cid_fid != pid_to_cid_fid[pid].end(); cid_fid++) {
+      int cid = cid_fid->first;
+      int fid = cid_fid->second;
+      
+      // Keep inliers only
+      if (!rig::getMapValue(pid_cid_fid_inlier, pid, cid, fid))
+        continue;
+
+      // Pixel value
+      Eigen::Vector2d dist_ip(keypoint_vec[cid][fid].first, keypoint_vec[cid][fid].second);
+
+      // Find the pixel residuals
+      size_t residual_index = rig::getMapValue(pid_cid_fid_to_residual_index, pid, cid, fid);
+      if (residuals.size() <= residual_index + 1) LOG(FATAL) << "Too few residuals.\n";
+      double res_x = residuals[residual_index + 0];
+      double res_y = residuals[residual_index + 1];
+      double res = Eigen::Vector2d(res_x, res_y).norm();
+      
+      int cam_type = cams[cid].camera_type;
+      res_vec[cam_type].push_back(Triplet(dist_ip.x(), dist_ip.y(), res));
+    }
+  }    
+
+  // Save these to disk
+  rig::createDir(out_dir);
+  for (size_t cam_type  = 0; cam_type < cam_names.size(); cam_type++) {
+    std::string out_file = out_dir + "/" + cam_names[cam_type] + 
+      "-" + prefix + "-residuals.txt";
+    std::cout << "Writing: " << out_file << std::endl;
+    std::ofstream ofs (out_file.c_str());
+    ofs.precision(17);
+    ofs << "# pixel_x pixel_y residual\n"; // stereo_gui will use this
+    for (size_t rit = 0; rit < res_vec[cam_type].size(); rit++) {
+      auto const& T = res_vec[cam_type][rit];
+      ofs << std::get<0>(T) << ' ' << std::get<1>(T) << ' ' << std::get<2>(T) << std::endl;
+    }
+  }
+  
+  return;
 }
   
 }  // end namespace rig

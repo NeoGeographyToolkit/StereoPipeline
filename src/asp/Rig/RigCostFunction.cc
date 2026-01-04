@@ -471,7 +471,7 @@ void evalResiduals(// Inputs
   for (size_t it = 0; it < residuals.size(); it++)
     residuals[it] /= residual_scales[it];
 
-  rig::calc_residuals_stats(residuals, residual_names, tag);
+  rig::calcResidualStats(residuals, residual_names, tag);
   return;
 }
 

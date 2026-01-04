@@ -329,10 +329,11 @@ struct RpcFitError {
 };  // End class RpcFitError
 
 // Evaluate the residuals before and after optimization
-void evalResiduals(  // Inputs
-  std::string const& tag, std::vector<std::string> const& residual_names,
-  // Outputs
-  ceres::Problem& problem, std::vector<double>& residuals) {
+void evalResiduals(// Inputs
+                   std::string const& tag, std::vector<std::string> const& residual_names,
+                   // Outputs
+                   ceres::Problem& problem, std::vector<double>& residuals) {
+
   double total_cost = 0.0;
   ceres::Problem::EvaluateOptions eval_options;
   eval_options.num_threads = 1;
@@ -343,34 +344,17 @@ void evalResiduals(  // Inputs
   if (residuals.size() != residual_names.size())
     throw "There must be as many residual names as residual values.";
 
-  calc_residuals_stats(residuals, residual_names, tag);
+  calcResidualStats(residuals, residual_names, tag);
 
   return;
 }
 
-struct BBox {
-    
-  Eigen::Vector2d m_min, m_max;
-  BBox() {
-    double big = std::numeric_limits<double>::max();
-    for (int t = 0; t < 2; t++) {
-      m_min[t] = big;
-      m_max[t] = -big;
-    }
-  }
-  void grow(Eigen::Vector2d const& p) {
-    for (int t = 0; t < 2; t++) {
-      m_min[t] = std::min(m_min[t], p[t]);
-      m_max[t] = std::max(m_max[t], p[t]);
-    }
-  }
-};
-  
 // Collect a set of pairs of centered and normalized distorted and undistorted
 // pixels. Sample uniformly the distorted pixels within the image box.
 void genDistUndistPairs(int num_samples, rig::CameraParameters const& cam_params,
                         std::vector<Eigen::Vector2d>& undist_centered_pixels,
                         std::vector<Eigen::Vector2d>& dist_centered_pixels) {
+
   dist_centered_pixels.clear();
   undist_centered_pixels.clear();
 

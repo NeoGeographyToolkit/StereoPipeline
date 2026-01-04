@@ -80,7 +80,8 @@ bool readAffine(Eigen::Affine3d& T, std::string const& filename);
 // Write a matrix with double values
 void writeMatrix(Eigen::MatrixXd const& M, std::string const& filename);
 
-void writeCloud(std::vector<float> const& points, size_t point_size, std::string const& filename);
+void writeCloud(std::vector<float> const& points, size_t point_size, 
+                std::string const& filename);
 
 // Return the type of an opencv matrix
 std::string matType(cv::Mat const& mat);
@@ -191,11 +192,13 @@ bool depthValue(// Inputs
 struct cameraImage;
 
 // Create the image and depth cloud file names
-void genImageAndDepthFileNames(  // Inputs
-  std::vector<cameraImage> const& cams, std::vector<std::string> const& cam_names,
-  std::string const& out_dir,
-  // Outputs
-  std::vector<std::string>& image_files, std::vector<std::string>& depth_files);
+void genImageAndDepthFileNames(// Inputs
+                               std::vector<cameraImage> const& cams, 
+                               std::vector<std::string> const& cam_names,
+                               std::string const& out_dir,
+                               // Outputs
+                               std::vector<std::string>& image_files, 
+                               std::vector<std::string>& depth_files);
 
 // Convert a string of space-separated numbers to a vector
 void strToVec(std::string const& str, std::vector<double> & vec);
@@ -219,25 +222,36 @@ void saveTransformedDepthClouds(std::vector<std::string> const& cam_names,
                                 std::vector<Eigen::Affine3d> const& world_to_cam,
                                 std::string const& out_dir);
   
-// Write the inliers in nvm format. The keypoints are shifted relative to the optical
-// center, as written by Theia if shift_keypoints is specified.
-// We handle properly the case when a (cid, fid) shows up in many tracks
-// (this was a bug).
- void writeInliersToNvm
-(std::string                                const& nvm_file,
- bool                                              shift_keypoints, 
- std::vector<rig::CameraParameters>         const& cam_params,
- std::vector<rig::cameraImage>              const& cams,
- std::vector<Eigen::Affine3d>               const& world_to_cam,
- rig::KeypointVec                           const& keypoint_vec,
- rig::PidCidFid                             const& pid_to_cid_fid,
- PidCidFidMap                               const& pid_cid_fid_inlier,
- std::vector<Eigen::Vector3d>               const& xyz_vec);
+// Write the inliers in nvm format. The keypoints are shifted relative to the
+// optical center, as written by Theia if shift_keypoints is specified. This
+// handles properly the case when a (cid, fid) shows up in many tracks.
+void writeInliersToNvm(std::string                        const& nvm_file,
+                       bool                                      shift_keypoints, 
+                       std::vector<rig::CameraParameters> const& cam_params,
+                       std::vector<rig::cameraImage>      const& cams,
+                       std::vector<Eigen::Affine3d>       const& world_to_cam,
+                       rig::KeypointVec                   const& keypoint_vec,
+                       rig::PidCidFid                     const& pid_to_cid_fid,
+                       PidCidFidMap                       const& pid_cid_fid_inlier,
+                       std::vector<Eigen::Vector3d>       const& xyz_vec);
 
 // Calculate the rmse residual for each residual type.
-void calc_residuals_stats(std::vector<double> const& residuals,
-                          std::vector<std::string> const& residual_names,
-                          std::string const& tag);
+void calcResidualStats(std::vector<double> const& residuals,
+                       std::vector<std::string> const& residual_names,
+                       std::string const& tag);
+
+// Write the inlier residuals. Create one output file for each camera type.
+// The format of each file is:
+// dist_pixel_x, dist_pixel_y, norm(residual_x, residual_y)
+void writeResiduals(std::string                   const& out_dir,
+                    std::string                   const & prefix,
+                    std::vector<std::string>      const& cam_names,
+                    std::vector<rig::cameraImage> const& cams,
+                    rig::KeypointVec              const& keypoint_vec,
+                    rig::PidCidFid                const& pid_to_cid_fid,
+                    rig::PidCidFidMap             const& pid_cid_fid_inlier,
+                    rig::PidCidFidMap             const& pid_cid_fid_to_residual_index,
+                    std::vector<double>           const& residuals);
 
 }  // namespace rig
 #endif  // ASP_RIG_UTILS_H_
