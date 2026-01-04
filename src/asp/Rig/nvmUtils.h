@@ -22,6 +22,7 @@
 #include <asp/Core/nvm.h>
 #include <asp/Rig/camera_image.h> // For rig::cameraImage
 #include <asp/Rig/rig_config.h>   // For rig::RigSet
+#include <asp/Rig/RigTypeDefs.h>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -70,7 +71,7 @@ void transformNvm(// Inputs
                   asp::nvmData                          const& nvm,
                   // Outputs
                   std::vector<std::map<int, int>> & pid_to_cid_fid,
-                  std::vector<std::vector<std::pair<float, float>>> & keypoint_vec,
+                  rig::KeypointVec & keypoint_vec,
                   std::vector<Eigen::Vector3d> & xyz_vec);
 
 // Given some tracks read from nvm from disk, append the ones from

@@ -23,6 +23,8 @@
 #include <vector>
 #include <map>
 
+#include <asp/Rig/RigTypeDefs.h>
+
 // TODO(oalexan1): Move here all tracks logic from interest_point.cc.
 
 namespace aspOpenMVG {
@@ -33,7 +35,6 @@ namespace aspOpenMVG {
 
 namespace rig {
 
-typedef std::vector<std::vector<std::pair<float, float>>> KeypointVecT;
 typedef std::vector<std::map<int, int>> TrackT;
 class cameraImage;
 
@@ -48,13 +49,13 @@ void rmDuplicateTracks(std::vector<std::map<int, int>> & pid_to_cid_fid);
 void splitTracksOneToOne(// Inputs
                          int num_acid, // number of images in map A
                          TrackT                        const & C_pid_to_cid_fid, 
-                         KeypointVecT                  const & C_keypoint_vec, 
+                         rig::KeypointVec              const & C_keypoint_vec, 
                          std::vector<rig::cameraImage> const & C_cams,
                          // Outputs
                          TrackT                              & A_pid_to_cid_fid, 
                          TrackT                              & B_pid_to_cid_fid, 
-                         KeypointVecT                        & A_keypoint_vec, 
-                         KeypointVecT                        & B_keypoint_vec, 
+                         rig::KeypointVec                    & A_keypoint_vec, 
+                         rig::KeypointVec                    & B_keypoint_vec, 
                          std::vector<rig::cameraImage>       & A_cams, 
                          std::vector<rig::cameraImage>       & B_cams);
   

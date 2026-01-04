@@ -738,7 +738,7 @@ void detectMatchAppendFeatures(// Inputs
                          int initial_max_reprojection_error, int num_match_threads,
                          bool read_nvm_no_shift, bool no_nvm_matches, bool verbose,
                          // Outputs
-                         std::vector<std::vector<std::pair<float, float>>>& keypoint_vec,
+                         rig::KeypointVec& keypoint_vec,
                          std::vector<std::map<int, int>>& pid_to_cid_fid,
                          std::vector<Eigen::Vector3d> & xyz_vec,
                          asp::nvmData & nvm) {
@@ -885,7 +885,7 @@ void flagOutlierByExclusionDist(// Inputs
                                 std::vector<rig::CameraParameters> const& cam_params,
                                 std::vector<rig::cameraImage> const& cams,
                                 std::vector<std::map<int, int>> const& pid_to_cid_fid,
-                                std::vector<std::vector<std::pair<float, float>>>
+                                rig::KeypointVec
                                 const& keypoint_vec,
                                 // Outputs
                                 PidCidFid & pid_cid_fid_inlier) {
@@ -932,7 +932,7 @@ void flagOutlierByExclusionDist(// Inputs
 void flagOutliersByTriAngleAndReprojErr(// Inputs
   double min_triangulation_angle, double max_reprojection_error,
   std::vector<std::map<int, int>> const& pid_to_cid_fid,
-  std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
+  rig::KeypointVec const& keypoint_vec,
   std::vector<Eigen::Affine3d> const& world_to_cam, 
   std::vector<Eigen::Vector3d> const& xyz_vec,
   PidCidFid const& pid_cid_fid_to_residual_index,

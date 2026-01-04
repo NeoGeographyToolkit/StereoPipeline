@@ -19,6 +19,7 @@
 #include <asp/Rig/system_utils.h>
 #include <asp/Rig/basic_algs.h>
 #include <asp/Rig/triangulation.h>
+#include <asp/Rig/RigTypeDefs.h>
 #include <asp/OpenMVG/tracks.hpp>
 
 #include <glog/logging.h>
@@ -112,7 +113,7 @@ void transformNvm(// Inputs
                   asp::nvmData                          const& nvm,
                   // Outputs
                   std::vector<std::map<int, int>> & pid_to_cid_fid,
-                  std::vector<std::vector<std::pair<float, float>>> & keypoint_vec,
+                  rig::KeypointVec & keypoint_vec,
                   std::vector<Eigen::Vector3d> & xyz_vec) {
 
   // Sanity checks

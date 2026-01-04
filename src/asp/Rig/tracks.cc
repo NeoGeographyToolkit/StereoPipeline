@@ -20,6 +20,7 @@
 
 #include <asp/Rig/camera_image.h>
 #include <asp/Rig/tracks.h>
+#include <asp/Rig/RigTypeDefs.h>
 
 // Get rid of warning beyond our control
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -48,13 +49,13 @@ namespace rig {
 void splitTracksOneToOne(// Inputs
                          int num_acid, // number of images in map A
                          TrackT                        const & C_pid_to_cid_fid, 
-                         KeypointVecT                  const & C_keypoint_vec, 
+                         rig::KeypointVec              const & C_keypoint_vec, 
                          std::vector<rig::cameraImage> const & C_cams,
                          // Outputs
                          TrackT                              & A_pid_to_cid_fid, 
                          TrackT                              & B_pid_to_cid_fid, 
-                         KeypointVecT                        & A_keypoint_vec, 
-                         KeypointVecT                        & B_keypoint_vec, 
+                         rig::KeypointVec                    & A_keypoint_vec, 
+                         rig::KeypointVec                    & B_keypoint_vec, 
                          std::vector<rig::cameraImage>       & A_cams, 
                          std::vector<rig::cameraImage>       & B_cams) {
   

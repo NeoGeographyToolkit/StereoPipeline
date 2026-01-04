@@ -21,10 +21,11 @@
 #include <map>
 #include <vector>
 
-// A small hearer to hold type definitions for the rig calibrator
+// A small header to hold type definitions for the rig calibrator
 namespace rig {
 
   typedef std::vector<std::map<int, std::map<int, int>>> PidCidFid;
+  typedef std::vector<std::vector<std::pair<float, float>>> KeypointVec;  
 
 }  // namespace rig
 

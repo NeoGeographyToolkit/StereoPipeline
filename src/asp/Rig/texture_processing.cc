@@ -1570,7 +1570,7 @@ void meshTriangulations(// Inputs
   std::vector<Eigen::Affine3d> const& world_to_cam,
   std::vector<std::map<int, int>> const& pid_to_cid_fid,
   PidCidFid const& pid_cid_fid_inlier,
-  std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
+  rig::KeypointVec const& keypoint_vec,
   Eigen::Vector3d const& bad_xyz, double min_ray_dist, double max_ray_dist,
   mve::TriangleMesh::Ptr const& mesh, std::shared_ptr<BVHTree> const& bvh_tree,
   // Outputs

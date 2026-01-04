@@ -120,7 +120,7 @@ void multiViewTriangulation(// Inputs
                             std::vector<rig::cameraImage>     const& cams,
                             std::vector<Eigen::Affine3d>            const& world_to_cam,
                             std::vector<std::map<int, int>>         const& pid_to_cid_fid,
-                            std::vector<std::vector<std::pair<float, float>>>
+                            rig::KeypointVec
                             const& keypoint_vec,
                             // Outputs
                             PidCidFid& pid_cid_fid_inlier,

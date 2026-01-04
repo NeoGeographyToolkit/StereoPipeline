@@ -28,6 +28,7 @@
 #include <asp/Rig/interest_point.h>
 #include <asp/Rig/triangulation.h> 
 #include <asp/Core/nvm.h>
+#include <asp/Rig/RigTypeDefs.h>
 
 #include <ceres/ceres.h>
 #include <gflags/gflags.h>
@@ -545,7 +546,7 @@ void MergeMaps(asp::nvmData const& A,
     std::string out_dir = "";
     bool save_matches = false;
     int num_overlaps = 0; // will use image_pairs
-    rig::KeypointVecT C_keypoint_vec;
+    rig::KeypointVec C_keypoint_vec;
     int initial_max_reprojection_error = -1; // won't be used
     bool verbose = false;
     bool filter_matches_using_cams = false; // do not have a single camera set yet
@@ -568,7 +569,7 @@ void MergeMaps(asp::nvmData const& A,
 
     // Split intro corresponding tracks in the two maps
     std::vector<std::map<int, int>> A_pid_to_cid_fid, B_pid_to_cid_fid;
-    rig::KeypointVecT A_keypoint_vec, B_keypoint_vec;
+    rig::KeypointVec A_keypoint_vec, B_keypoint_vec;
     std::vector<rig::cameraImage> A_cams, B_cams;
     rig::splitTracksOneToOne(// Inputs
                                    num_acid, C.pid_to_cid_fid, C_keypoint_vec, C_cams,  
@@ -628,7 +629,7 @@ void MergeMaps(asp::nvmData const& A,
     C.cid_to_keypoint_map.resize(C.cid_to_filename.size());
     for (size_t cid = 0; cid < C.cid_to_filename.size(); cid++)
       rig::vec2eigen(C_keypoint_vec[cid], C.cid_to_keypoint_map[cid]);
-    C_keypoint_vec = rig::KeypointVecT (); // wipe this
+    C_keypoint_vec = rig::KeypointVec (); // wipe this
     
   } // end finding the transform using matches
 
@@ -725,7 +726,7 @@ void MergeMaps(asp::nvmData const& A,
   mergeCameraPoses(C_cams, cid2cid, num_out_cams);
   
   // Create C_keypoint_vec. Same info as C.cid_to_keypoint_map but different structure.
-  rig::KeypointVecT C_keypoint_vec;
+  rig::KeypointVec C_keypoint_vec;
   C_keypoint_vec.resize(num_out_cams);
   for (int cid = 0; cid < num_out_cams; cid++)
     rig::eigen2vec(C.cid_to_keypoint_map[cid], C_keypoint_vec[cid]);

@@ -507,7 +507,6 @@ void evalResiduals(  // Inputs
 // Write the inlier residuals. Create one output file for each camera type.
 // The format of each file is:
 // dist_pixel_x, dist_pixel_y, norm(residual_x, residual_y)
-typedef std::vector<std::vector<std::pair<float, float>>> KeypointVec;  
 void writeResiduals(std::string                           const& out_dir,
                     std::string                           const & prefix,
                     std::vector<std::string>              const& cam_names,

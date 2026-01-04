@@ -229,7 +229,7 @@ void writeInliersToNvm
  std::vector<rig::CameraParameters>             const& cam_params,
  std::vector<rig::cameraImage>               const& cams,
  std::vector<Eigen::Affine3d>                      const& world_to_cam,
- std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
+ rig::KeypointVec const& keypoint_vec,
  std::vector<std::map<int, int>>                   const& pid_to_cid_fid,
  PidCidFid const& pid_cid_fid_inlier,
  std::vector<Eigen::Vector3d>                      const& xyz_vec);
