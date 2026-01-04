@@ -512,7 +512,7 @@ void writeResiduals(std::string                           const& out_dir,
                     std::vector<std::string>              const& cam_names,
                     std::vector<rig::cameraImage>   const& cams,
                     rig::KeypointVec                const& keypoint_vec,
-                    std::vector<std::map<int, int>>       const& pid_to_cid_fid,
+                    rig::PidToCidFidVec       const& pid_to_cid_fid,
                     rig::PidCidFid const& pid_cid_fid_inlier,
                     rig::PidCidFid const& pid_cid_fid_to_residual_index,
                     std::vector<double>                   const& residuals) {
@@ -1019,9 +1019,9 @@ void setupRigOptProblem(
     std::vector<double>& depth_to_image_vec,
     std::vector<double>& depth_to_image_scales,
     KeypointVec const& keypoint_vec,
-    std::vector<std::map<int, int>> const& pid_to_cid_fid,
+    rig::PidToCidFidVec const& pid_to_cid_fid,
     rig::PidCidFid const& pid_cid_fid_inlier,
-    std::vector<std::map<int, std::map<int, Eigen::Vector3d>>> const& pid_cid_fid_mesh_xyz,
+    rig::PidCidFidToMeshXyz const& pid_cid_fid_mesh_xyz,
     std::vector<Eigen::Vector3d> const& pid_mesh_xyz,
     std::vector<Eigen::Vector3d>& xyz_vec,
     std::vector<Eigen::Vector3d> const& xyz_vec_orig,
@@ -1442,7 +1442,7 @@ int main(int argc, char** argv) {
   // Detect and match features if --num_overlaps > 0. Append the features
   // read from the nvm.
   rig::KeypointVec keypoint_vec;
-  std::vector<std::map<int, int>> pid_to_cid_fid;
+  rig::PidToCidFidVec pid_to_cid_fid;
   bool filter_matches_using_cams = true;
   std::vector<std::pair<int, int>> input_image_pairs; // will use num_overlaps instead
   // Do not save these matches. Only inlier matches will be saved later.
@@ -1491,7 +1491,7 @@ int main(int argc, char** argv) {
                                   pid_cid_fid_inlier, xyz_vec);
   
   // Structures needed to intersect rays with the mesh
-  std::vector<std::map<int, std::map<int, Eigen::Vector3d>>> pid_cid_fid_mesh_xyz;
+  rig::PidCidFidToMeshXyz pid_cid_fid_mesh_xyz;
   std::vector<Eigen::Vector3d> pid_mesh_xyz;
   Eigen::Vector3d bad_xyz(1.0e+100, 1.0e+100, 1.0e+100);  // use this to flag invalid xyz
 

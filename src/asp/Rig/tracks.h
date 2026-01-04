@@ -35,25 +35,24 @@ namespace aspOpenMVG {
 
 namespace rig {
 
-typedef std::vector<std::map<int, int>> TrackT;
 class cameraImage;
 
 void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
-                 std::vector<std::map<int, int>>& pid_to_cid_fid);
+                 rig::PidToCidFidVec& pid_to_cid_fid);
 
 // Remove duplicate tracks. There can still be two tracks with one contained
 // in the other or otherwise having shared elements. 
-void rmDuplicateTracks(std::vector<std::map<int, int>> & pid_to_cid_fid);
+void rmDuplicateTracks(rig::PidToCidFidVec & pid_to_cid_fid);
 
 // See tracks.cc for the doc
 void splitTracksOneToOne(// Inputs
                          int num_acid, // number of images in map A
-                         TrackT                        const & C_pid_to_cid_fid, 
+                         rig::PidToCidFidVec           const & C_pid_to_cid_fid, 
                          rig::KeypointVec              const & C_keypoint_vec, 
                          std::vector<rig::cameraImage> const & C_cams,
                          // Outputs
-                         TrackT                              & A_pid_to_cid_fid, 
-                         TrackT                              & B_pid_to_cid_fid, 
+                         rig::PidToCidFidVec                 & A_pid_to_cid_fid, 
+                         rig::PidToCidFidVec                 & B_pid_to_cid_fid, 
                          rig::KeypointVec                    & A_keypoint_vec, 
                          rig::KeypointVec                    & B_keypoint_vec, 
                          std::vector<rig::cameraImage>       & A_cams, 

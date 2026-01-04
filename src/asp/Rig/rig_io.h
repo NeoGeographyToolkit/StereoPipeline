@@ -60,7 +60,7 @@ void saveImagesAndDepthClouds(std::vector<rig::cameraImage> const& cams);
 void saveInlierMatchPairs(// Inputs
                           std::vector<rig::cameraImage> const& cams,
                           int num_overlaps,
-                          std::vector<std::map<int, int>> const& pid_to_cid_fid,
+                          rig::PidToCidFidVec const& pid_to_cid_fid,
                           rig::KeypointVec
                           const& keypoint_vec,
                           PidCidFid const& pid_cid_fid_inlier,
@@ -69,7 +69,7 @@ void saveInlierMatchPairs(// Inputs
 // Find convergence angles between every pair of images and save
 // their percentiles to disk.
 void savePairwiseConvergenceAngles(// Inputs
-                                   std::vector<std::map<int, int>> const& pid_to_cid_fid,
+                                   rig::PidToCidFidVec const& pid_to_cid_fid,
                                    rig::KeypointVec
                                    const& keypoint_vec,
                                    std::vector<rig::cameraImage> const& cams,

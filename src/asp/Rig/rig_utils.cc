@@ -938,7 +938,7 @@ void writeInliersToNvm
  std::vector<rig::cameraImage>               const& cams,
  std::vector<Eigen::Affine3d>                      const& world_to_cam,
  rig::KeypointVec const& keypoint_vec,
- std::vector<std::map<int, int>>                   const& pid_to_cid_fid,
+ rig::PidToCidFidVec                   const& pid_to_cid_fid,
  PidCidFid const& pid_cid_fid_inlier,
  std::vector<Eigen::Vector3d>                      const& xyz_vec) {
   
@@ -954,7 +954,7 @@ void writeInliersToNvm
 
   // Initialize the keypoints in expected format. Copy the filenames
   // and focal lengths.
-  std::vector<Eigen::Matrix2Xd> cid_to_keypoint_map(keypoint_vec.size());
+  rig::CidToKeypointMatVec cid_to_keypoint_map(keypoint_vec.size());
   std::vector<std::string> cid_to_filename(keypoint_vec.size());
   for (size_t cid = 0; cid < cams.size(); cid++) {
     cid_to_keypoint_map[cid] = Eigen::MatrixXd(2, keypoint_vec[cid].size());
@@ -962,7 +962,7 @@ void writeInliersToNvm
   }
   
   // Copy over only inliers, and tracks of length >= 2.
-  std::vector<std::map<int, int>> nvm_pid_to_cid_fid;
+  rig::PidToCidFidVec nvm_pid_to_cid_fid;
   std::vector<Eigen::Vector3d> nvm_pid_to_xyz;
 
   for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {

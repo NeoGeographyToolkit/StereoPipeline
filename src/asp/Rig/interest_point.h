@@ -85,7 +85,7 @@ void detectMatchAppendFeatures(// Inputs
                          bool read_nvm_no_shift, bool no_nvm_matches, bool verbose,
                          // Outputs
                          rig::KeypointVec& keypoint_vec,
-                         std::vector<std::map<int, int>>& pid_to_cid_fid,
+                         rig::PidToCidFidVec& pid_to_cid_fid,
                          std::vector<Eigen::Vector3d> & xyz_vec,
                          asp::nvmData & nvm);
 
@@ -120,8 +120,8 @@ void readListOrNvm(// Inputs
 // Note that keypoint_offsets are applied before the cid2cid transform gets used!
 // This is very error-prone!
 void addMatchPairs(// Append from these
-                   std::vector<std::map<int, int>>  const& pid_to_cid_fid,
-                   std::vector<Eigen::Matrix2Xd>    const& cid_to_keypoint_map,
+                   rig::PidToCidFidVec  const& pid_to_cid_fid,
+                   rig::CidToKeypointMatVec    const& cid_to_keypoint_map,
                    std::map<int, int>               const& cid2cid,
                    std::vector<Eigen::Vector2d>     const& keypoint_offsets,
                    std::vector<std::map<std::pair<float, float>, int>>
@@ -137,8 +137,8 @@ void addMatchPairs(// Append from these
 // Note that keypoint_offsets are applied before the cid2cid transform gets used!
 // This is very error-prone!
 void transformAppendNvm(// Append from these
-                        std::vector<std::map<int, int>>  const& nvm_pid_to_cid_fid,
-                        std::vector<Eigen::Matrix2Xd>    const& nvm_cid_to_keypoint_map,
+                        rig::PidToCidFidVec  const& nvm_pid_to_cid_fid,
+                        rig::CidToKeypointMatVec    const& nvm_cid_to_keypoint_map,
                         std::map<int, int>               const& cid2cid,
                         std::vector<Eigen::Vector2d>     const& keypoint_offsets,
                         int cid_shift,
@@ -147,15 +147,15 @@ void transformAppendNvm(// Append from these
                         std::vector<int> & fid_count,
                         std::vector<std::map<std::pair<float, float>, int>>
                         & merged_keypoint_map,
-                        std::vector<std::map<int, int>> & pid_to_cid_fid);
+                        rig::PidToCidFidVec & pid_to_cid_fid);
   
 // Add keypoints from a map, appending to existing keypoints. Take into
 // account how this map's cid gets transformed to the new map cid.
 // Note that keypoint_offsets are applied before the cid2cid transform gets used!
 // This is very error-prone!
 void addKeypoints(// Append from these
-                  std::vector<std::map<int, int>>  const& pid_to_cid_fid,
-                  std::vector<Eigen::Matrix2Xd>    const& cid_to_keypoint_map,
+                  rig::PidToCidFidVec  const& pid_to_cid_fid,
+                  rig::CidToKeypointMatVec    const& cid_to_keypoint_map,
                   std::map<int, int>               const& cid2cid,
                   std::vector<Eigen::Vector2d>     const& keypoint_offsets,
                   int cid_shift,
@@ -168,7 +168,7 @@ void addKeypoints(// Append from these
 void flagOutlierByExclusionDist(// Inputs
                                 std::vector<rig::CameraParameters> const& cam_params,
                                 std::vector<rig::cameraImage> const& cams,
-                                std::vector<std::map<int, int>> const& pid_to_cid_fid,
+                                rig::PidToCidFidVec const& pid_to_cid_fid,
                                 rig::KeypointVec
                                 const& keypoint_vec,
                                 // Outputs
@@ -177,7 +177,7 @@ void flagOutlierByExclusionDist(// Inputs
 void flagOutliersByTriAngleAndReprojErr
 (// Inputs
  double min_triangulation_angle, double max_reprojection_error,
- std::vector<std::map<int, int>> const& pid_to_cid_fid,
+ rig::PidToCidFidVec const& pid_to_cid_fid,
  rig::KeypointVec const& keypoint_vec,
  std::vector<Eigen::Affine3d> const& world_to_cam, 
  std::vector<Eigen::Vector3d> const& xyz_vec,
@@ -187,7 +187,7 @@ void flagOutliersByTriAngleAndReprojErr
  PidCidFid& pid_cid_fid_inlier);
 
 void savePairwiseConvergenceAngles(// Inputs
-  std::vector<std::map<int, int>> const& pid_to_cid_fid,
+  rig::PidToCidFidVec const& pid_to_cid_fid,
   rig::KeypointVec const& keypoint_vec,
   std::vector<rig::cameraImage> const& cams,
   std::vector<Eigen::Affine3d> const& world_to_cam,

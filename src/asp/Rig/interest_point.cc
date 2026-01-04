@@ -413,8 +413,8 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
 // TODO(oalexan1): addKeypoints() can be merged into addMatchPairs().
 // Just add keypoints and update the counter as they are found.
 void addKeypoints(// Append from these
-                  std::vector<std::map<int, int>>  const& pid_to_cid_fid,
-                  std::vector<Eigen::Matrix2Xd>    const& cid_to_keypoint_map,
+                  rig::PidToCidFidVec  const& pid_to_cid_fid,
+                  rig::CidToKeypointMatVec    const& cid_to_keypoint_map,
                   std::map<int, int>               const& cid2cid,
                   std::vector<Eigen::Vector2d>     const& keypoint_offsets,
                   int cid_shift,
@@ -474,8 +474,8 @@ void addKeypoints(// Append from these
 // a merged map. The concern is that it will result in conflicting tracks
 // which will be removed, so this should be an option.
 void addMatchPairs(// Append from these
-                   std::vector<std::map<int, int>>  const& pid_to_cid_fid,
-                   std::vector<Eigen::Matrix2Xd>    const& cid_to_keypoint_map,
+                   rig::PidToCidFidVec  const& pid_to_cid_fid,
+                   rig::CidToKeypointMatVec    const& cid_to_keypoint_map,
                    std::map<int, int>               const& cid2cid,
                    std::vector<Eigen::Vector2d>     const& keypoint_offsets,
                    std::vector<std::map<std::pair<float, float>, int>>
@@ -588,7 +588,7 @@ void detectMatchFeatures(// Inputs
     // Outputs
     std::vector<std::map<std::pair<float, float>, int>>& keypoint_map,
     std::vector<int>& fid_count,
-    std::vector<std::map<int, int>>& pid_to_cid_fid) {
+    rig::PidToCidFidVec& pid_to_cid_fid) {
 
   // Initialize outputs
   size_t num_images = cams.size();
@@ -611,7 +611,7 @@ void detectMatchFeatures(// Inputs
   std::cout << "Detecting features." << std::endl;
 
   std::vector<cv::Mat> cid_to_descriptor_map;
-  std::vector<Eigen::Matrix2Xd> cid_to_keypoint_map;
+  rig::CidToKeypointMatVec cid_to_keypoint_map;
   cid_to_descriptor_map.resize(num_images);
   cid_to_keypoint_map.resize(num_images);
   {
@@ -663,7 +663,7 @@ void detectMatchFeatures(// Inputs
     }
     thread_pool.Join();
   }
-  cid_to_keypoint_map = std::vector<Eigen::Matrix2Xd>(); // wipe, no longer needed
+  cid_to_keypoint_map = rig::CidToKeypointMatVec(); // wipe, no longer needed
   cid_to_descriptor_map = std::vector<cv::Mat>();    // Wipe, no longer needed
 
   if (save_matches) {
@@ -739,7 +739,7 @@ void detectMatchAppendFeatures(// Inputs
                          bool read_nvm_no_shift, bool no_nvm_matches, bool verbose,
                          // Outputs
                          rig::KeypointVec& keypoint_vec,
-                         std::vector<std::map<int, int>>& pid_to_cid_fid,
+                         rig::PidToCidFidVec& pid_to_cid_fid,
                          std::vector<Eigen::Vector3d> & xyz_vec,
                          asp::nvmData & nvm) {
 
@@ -852,7 +852,7 @@ void detectMatchAppendFeatures(// Inputs
   // Create keypoint_vec from keypoint_map. That just reorganizes the data
   // to the format expected later.
   // TODO(oalexan1): This must be a function called keypointMapToVec().
-  // TODO(oalexan1): Use std::vector<Eigen::Matrix2Xd> as in nvm instead.
+  // TODO(oalexan1): Use rig::CidToKeypointMatVec as in nvm instead.
   keypoint_vec.clear();
   keypoint_vec.resize(num_images);
   for (size_t cid = 0; cid < num_images; cid++) {
@@ -884,7 +884,7 @@ void detectMatchAppendFeatures(// Inputs
 void flagOutlierByExclusionDist(// Inputs
                                 std::vector<rig::CameraParameters> const& cam_params,
                                 std::vector<rig::cameraImage> const& cams,
-                                std::vector<std::map<int, int>> const& pid_to_cid_fid,
+                                rig::PidToCidFidVec const& pid_to_cid_fid,
                                 rig::KeypointVec
                                 const& keypoint_vec,
                                 // Outputs
@@ -931,7 +931,7 @@ void flagOutlierByExclusionDist(// Inputs
 // the reprojection errors) have also been updated beforehand.
 void flagOutliersByTriAngleAndReprojErr(// Inputs
   double min_triangulation_angle, double max_reprojection_error,
-  std::vector<std::map<int, int>> const& pid_to_cid_fid,
+  rig::PidToCidFidVec const& pid_to_cid_fid,
   rig::KeypointVec const& keypoint_vec,
   std::vector<Eigen::Affine3d> const& world_to_cam, 
   std::vector<Eigen::Vector3d> const& xyz_vec,

@@ -409,13 +409,13 @@ void meshTriangulations(// Inputs
   std::vector<rig::CameraParameters> const& cam_params,
   std::vector<rig::cameraImage> const& cams,
   std::vector<Eigen::Affine3d> const& world_to_cam,
-  std::vector<std::map<int, int>> const& pid_to_cid_fid,
+  rig::PidToCidFidVec const& pid_to_cid_fid,
   PidCidFid const& pid_cid_fid_inlier,
   rig::KeypointVec const& keypoint_vec,
   Eigen::Vector3d const& bad_xyz, double min_ray_dist, double max_ray_dist,
   mve::TriangleMesh::Ptr const& mesh, std::shared_ptr<BVHTree> const& bvh_tree,
   // Outputs
-  std::vector<std::map<int, std::map<int, Eigen::Vector3d>>>& pid_cid_fid_mesh_xyz,
+  rig::PidCidFidToMeshXyz& pid_cid_fid_mesh_xyz,
   std::vector<Eigen::Vector3d>& pid_mesh_xyz);
   
 }  // namespace rig

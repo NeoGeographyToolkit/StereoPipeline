@@ -781,7 +781,7 @@ registrationTransform(std::string                  const& hugin_file,
   // Iterate over the control points in the hugin file. Copy the
   // control points to the list of user keypoints, and create the
   // corresponding user_pid_to_cid_fid.
-  std::vector<Eigen::Matrix2Xd> user_cid_to_keypoint_map;
+  rig::CidToKeypointMatVec user_cid_to_keypoint_map;
   std::vector<std::map<int, int> > user_pid_to_cid_fid;
   user_cid_to_keypoint_map.resize(cid_to_filename.size());
   user_pid_to_cid_fid.resize(num_points);
@@ -912,7 +912,7 @@ registrationTransform(std::string                  const& hugin_file,
 // Apply a transform to inlier triangulated points  
 void transformInlierTriPoints(// Inputs
   Eigen::Affine3d const& trans,
-  std::vector<std::map<int, int>> const& pid_to_cid_fid,
+  rig::PidToCidFidVec const& pid_to_cid_fid,
   PidCidFid const& pid_cid_fid_inlier,
   std::vector<Eigen::Vector3d> & xyz_vec) { // output
   

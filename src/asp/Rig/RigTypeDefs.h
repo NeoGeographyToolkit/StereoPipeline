@@ -20,12 +20,29 @@
 
 #include <map>
 #include <vector>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 
 // A small header to hold type definitions for the rig calibrator
 namespace rig {
 
+  // Track of features observed in multiple images
   typedef std::vector<std::map<int, std::map<int, int>>> PidCidFid;
+  
+  // Vector of keypoints for each image
   typedef std::vector<std::vector<std::pair<float, float>>> KeypointVec;  
+
+  // Maps Point ID -> Camera ID -> Feature ID
+  typedef std::vector<std::map<int, int>> PidToCidFidVec; 
+
+  // Maps Point ID -> Camera ID -> Feature ID -> 3D Mesh Intersection Point
+  typedef std::vector<std::map<int, std::map<int, Eigen::Vector3d>>> PidCidFidToMeshXyz;
+
+  // Vector of Eigen Matrices holding keypoints (NVM format)
+  typedef std::vector<Eigen::Matrix2Xd> CidToKeypointMatVec;
+
+  // Maps Image ID pair -> List of convergence angles
+  typedef std::map<std::pair<int, int>, std::vector<double>> PairwiseConvergenceAngles;
 
 }  // namespace rig
 

@@ -34,8 +34,8 @@ namespace rig {
 // version takes a single focal length and a map of camera IDs to keypoints.
 void Triangulate(bool rm_invalid_xyz, double focal_length,
                  std::vector<Eigen::Affine3d> const& world_to_cam,
-                 std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
-                 std::vector<std::map<int, int>> * pid_to_cid_fid,
+                 rig::CidToKeypointMatVec const& cid_to_keypoint_map,
+                 rig::PidToCidFidVec * pid_to_cid_fid,
                  std::vector<Eigen::Vector3d> * pid_to_xyz);
 
 // Triangulate rays emanating from given undistorted and centered pixels for a
@@ -57,7 +57,7 @@ Eigen::Vector3d Triangulate(std::vector<double>          const& focal_length_vec
 void multiViewTriangulation(std::vector<rig::CameraParameters>   const& cam_params,
                             std::vector<rig::cameraImage>     const& cams,
                             std::vector<Eigen::Affine3d>            const& world_to_cam,
-                            std::vector<std::map<int, int>>         const& pid_to_cid_fid,
+                            rig::PidToCidFidVec         const& pid_to_cid_fid,
                             rig::KeypointVec
                             const& keypoint_vec,
                             // Outputs

@@ -112,7 +112,7 @@ void transformNvm(// Inputs
                   std::vector<Eigen::Vector2d>          const& keypoint_offsets,
                   asp::nvmData                          const& nvm,
                   // Outputs
-                  std::vector<std::map<int, int>> & pid_to_cid_fid,
+                  rig::PidToCidFidVec & pid_to_cid_fid,
                   rig::KeypointVec & keypoint_vec,
                   std::vector<Eigen::Vector3d> & xyz_vec) {
 
@@ -176,7 +176,7 @@ void transformNvm(// Inputs
 // Helper function to find a keypoint for given iterator and update cid in the merged
 // map with repetitions removed (via cid2cid).
 bool updateCidFindKeypoint(std::map<int, int>::const_iterator map_it,
-                           std::vector<Eigen::Matrix2Xd> const& cid_to_keypoint_map,
+                           rig::CidToKeypointMatVec const& cid_to_keypoint_map,
                            std::map<int, int>            const& cid2cid,
                            std::vector<Eigen::Vector2d>  const& keypoint_offsets,
                            int cid_shift,
@@ -217,8 +217,8 @@ bool updateCidFindKeypoint(std::map<int, int>::const_iterator map_it,
 // TODO(oalexan1): cid_shift and keypoint_offsets should be applied outside
 // this function as they make it hard to understand.
 void transformAppendNvm(// Append from these
-                        std::vector<std::map<int, int>>  const& nvm_pid_to_cid_fid,
-                        std::vector<Eigen::Matrix2Xd>    const& nvm_cid_to_keypoint_map,
+                        rig::PidToCidFidVec  const& nvm_pid_to_cid_fid,
+                        rig::CidToKeypointMatVec    const& nvm_cid_to_keypoint_map,
                         std::map<int, int>               const& cid2cid,
                         std::vector<Eigen::Vector2d>     const& keypoint_offsets,
                         int cid_shift,
@@ -227,7 +227,7 @@ void transformAppendNvm(// Append from these
                         std::vector<int> & fid_count,
                         std::vector<std::map<std::pair<float, float>, int>>
                         & merged_keypoint_map,
-                        std::vector<std::map<int, int>> & pid_to_cid_fid) {
+                        rig::PidToCidFidVec & pid_to_cid_fid) {
 
   // Sanity checks
   if (num_out_cams != fid_count.size()) 
