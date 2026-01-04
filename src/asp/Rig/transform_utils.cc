@@ -912,8 +912,8 @@ registrationTransform(std::string                  const& hugin_file,
 // Apply a transform to inlier triangulated points  
 void transformInlierTriPoints(// Inputs
   Eigen::Affine3d const& trans,
-  rig::PidToCidFidVec const& pid_to_cid_fid,
-  PidCidFid const& pid_cid_fid_inlier,
+  rig::PidCidFid const& pid_to_cid_fid,
+  PidCidFidMap const& pid_cid_fid_inlier,
   std::vector<Eigen::Vector3d> & xyz_vec) { // output
   
   if (pid_to_cid_fid.size() != pid_cid_fid_inlier.size())

@@ -60,22 +60,22 @@ void saveImagesAndDepthClouds(std::vector<rig::cameraImage> const& cams);
 void saveInlierMatchPairs(// Inputs
                           std::vector<rig::cameraImage> const& cams,
                           int num_overlaps,
-                          rig::PidToCidFidVec const& pid_to_cid_fid,
+                          rig::PidCidFid const& pid_to_cid_fid,
                           rig::KeypointVec
                           const& keypoint_vec,
-                          PidCidFid const& pid_cid_fid_inlier,
+                          PidCidFidMap const& pid_cid_fid_inlier,
                           std::string const& out_dir);
 
 // Find convergence angles between every pair of images and save
 // their percentiles to disk.
 void savePairwiseConvergenceAngles(// Inputs
-                                   rig::PidToCidFidVec const& pid_to_cid_fid,
+                                   rig::PidCidFid const& pid_to_cid_fid,
                                    rig::KeypointVec
                                    const& keypoint_vec,
                                    std::vector<rig::cameraImage> const& cams,
                                    std::vector<Eigen::Affine3d> const& world_to_cam,
                                    std::vector<Eigen::Vector3d> const& xyz_vec,
-                                   PidCidFid const& pid_cid_fid_inlier,
+                                   PidCidFidMap const& pid_cid_fid_inlier,
                                    std::string const& conv_angles_file);
 
 // Save the list of images, for use with bundle_adjust.

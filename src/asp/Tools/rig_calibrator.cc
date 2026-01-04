@@ -512,9 +512,9 @@ void writeResiduals(std::string                           const& out_dir,
                     std::vector<std::string>              const& cam_names,
                     std::vector<rig::cameraImage>   const& cams,
                     rig::KeypointVec                const& keypoint_vec,
-                    rig::PidToCidFidVec       const& pid_to_cid_fid,
-                    rig::PidCidFid const& pid_cid_fid_inlier,
-                    rig::PidCidFid const& pid_cid_fid_to_residual_index,
+                    rig::PidCidFid       const& pid_to_cid_fid,
+                    rig::PidCidFidMap const& pid_cid_fid_inlier,
+                    rig::PidCidFidMap const& pid_cid_fid_to_residual_index,
                     std::vector<double>                   const& residuals) {
 
   if (pid_to_cid_fid.size() != pid_cid_fid_inlier.size())
@@ -1019,8 +1019,8 @@ void setupRigOptProblem(
     std::vector<double>& depth_to_image_vec,
     std::vector<double>& depth_to_image_scales,
     KeypointVec const& keypoint_vec,
-    rig::PidToCidFidVec const& pid_to_cid_fid,
-    rig::PidCidFid const& pid_cid_fid_inlier,
+    rig::PidCidFid const& pid_to_cid_fid,
+    rig::PidCidFidMap const& pid_cid_fid_inlier,
     rig::PidCidFidToMeshXyz const& pid_cid_fid_mesh_xyz,
     std::vector<Eigen::Vector3d> const& pid_mesh_xyz,
     std::vector<Eigen::Vector3d>& xyz_vec,
@@ -1054,7 +1054,7 @@ void setupRigOptProblem(
     double mesh_tri_weight,
     double camera_position_weight,
     // Outputs
-    rig::PidCidFid& pid_cid_fid_to_residual_index,
+    rig::PidCidFidMap& pid_cid_fid_to_residual_index,
     ceres::Problem& problem,
     std::vector<std::string>& residual_names,
     std::vector<double>& residual_scales) {
@@ -1442,7 +1442,7 @@ int main(int argc, char** argv) {
   // Detect and match features if --num_overlaps > 0. Append the features
   // read from the nvm.
   rig::KeypointVec keypoint_vec;
-  rig::PidToCidFidVec pid_to_cid_fid;
+  rig::PidCidFid pid_to_cid_fid;
   bool filter_matches_using_cams = true;
   std::vector<std::pair<int, int>> input_image_pairs; // will use num_overlaps instead
   // Do not save these matches. Only inlier matches will be saved later.
@@ -1475,7 +1475,7 @@ int main(int argc, char** argv) {
   // pid_cid_fid_inlier[pid][cid][fid] will be non-zero only if this
   // pixel is an inlier. Originally all pixels are inliers. Once an
   // inlier becomes an outlier, it never becomes an inlier again.
-  rig::PidCidFid pid_cid_fid_inlier;
+  rig::PidCidFidMap pid_cid_fid_inlier;
   
   // TODO(oalexan1): Must initialize all points as inliers outside this function,
   // as now this function resets those.
@@ -1545,7 +1545,7 @@ int main(int argc, char** argv) {
     // in the array of residuals (look only at pixel residuals). This
     // structure is populated only for inliers, so its total number of
     // elements changes at each pass.
-    rig::PidCidFid pid_cid_fid_to_residual_index;
+    rig::PidCidFidMap pid_cid_fid_to_residual_index;
     pid_cid_fid_to_residual_index.resize(pid_to_cid_fid.size());
 
     // Form the problem

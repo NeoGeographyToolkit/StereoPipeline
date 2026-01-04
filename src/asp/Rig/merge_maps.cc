@@ -69,9 +69,9 @@ namespace rig {
 // just one candidate from each map, based on who got most votes. Note
 // that here it is easier to work with A.cid_fid_to_pid_ rather than
 // A.pid_to_cid_fid_.
-void FindPidCorrespondences(rig::PidToCidFidVec const& A_cid_fid_to_pid,
-                            rig::PidToCidFidVec const& B_cid_fid_to_pid,
-                            rig::PidToCidFidVec const& C_pid_to_cid_fid,
+void FindPidCorrespondences(rig::PidCidFid const& A_cid_fid_to_pid,
+                            rig::PidCidFid const& B_cid_fid_to_pid,
+                            rig::PidCidFid const& C_pid_to_cid_fid,
                             int num_acid,  // How many images are in A
                             std::map<int, int> * A2B, std::map<int, int> * B2A) {
   A2B->clear();
@@ -568,7 +568,7 @@ void MergeMaps(asp::nvmData const& A,
                                    empty_nvm);
 
     // Split intro corresponding tracks in the two maps
-    rig::PidToCidFidVec A_pid_to_cid_fid, B_pid_to_cid_fid;
+    rig::PidCidFid A_pid_to_cid_fid, B_pid_to_cid_fid;
     rig::KeypointVec A_keypoint_vec, B_keypoint_vec;
     std::vector<rig::cameraImage> A_cams, B_cams;
     rig::splitTracksOneToOne(// Inputs
@@ -581,7 +581,7 @@ void MergeMaps(asp::nvmData const& A,
 #if 1
     // TODO(oalexan1): This should be a function called findMatchingTriPoints().
     // Flag as outliers features outside of the distorted crop box
-    PidCidFid A_pid_cid_fid_inlier, B_pid_cid_fid_inlier;
+    PidCidFidMap A_pid_cid_fid_inlier, B_pid_cid_fid_inlier;
     rig::flagOutlierByExclusionDist(// Inputs
                                           R.cam_params, A_cams, A_pid_to_cid_fid,
                                           A_keypoint_vec,
@@ -676,7 +676,7 @@ void MergeMaps(asp::nvmData const& A,
                                                 Eigen::Vector2d(0, 0));
   std::vector<std::map<std::pair<float, float>, int>> merged_keypoint_map(num_out_cams);
   std::vector<int> find_count(num_out_cams, 0); // how many keypoints so far
-  rig::PidToCidFidVec merged_pid_to_cid_fid;
+  rig::PidCidFid merged_pid_to_cid_fid;
   // Add A
   int cid_shift = 0; // A and C start with same images, so no shift
   rig::transformAppendNvm(A.pid_to_cid_fid, A.cid_to_keypoint_map,  
@@ -701,7 +701,7 @@ void MergeMaps(asp::nvmData const& A,
 
   // Overwrite C.pid_to_cid_fid after the merge
   C.pid_to_cid_fid = merged_pid_to_cid_fid;
-  merged_pid_to_cid_fid = rig::PidToCidFidVec();
+  merged_pid_to_cid_fid = rig::PidCidFid();
 
   // Remove duplicate tracks
   rig::rmDuplicateTracks(C.pid_to_cid_fid);
@@ -732,7 +732,7 @@ void MergeMaps(asp::nvmData const& A,
     rig::eigen2vec(C.cid_to_keypoint_map[cid], C_keypoint_vec[cid]);
 
   // Flag outliers
-  PidCidFid C_pid_cid_fid_inlier;
+  PidCidFidMap C_pid_cid_fid_inlier;
   rig::flagOutlierByExclusionDist(// Inputs
                                         R.cam_params, C_cams, C.pid_to_cid_fid,
                                         C_keypoint_vec,

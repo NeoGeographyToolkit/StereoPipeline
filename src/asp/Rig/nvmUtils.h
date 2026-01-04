@@ -70,7 +70,7 @@ void transformNvm(// Inputs
                   std::vector<Eigen::Vector2d>          const& keypoint_offsets,
                   asp::nvmData                          const& nvm,
                   // Outputs
-                  rig::PidToCidFidVec & pid_to_cid_fid,
+                  rig::PidCidFid & pid_to_cid_fid,
                   rig::KeypointVec & keypoint_vec,
                   std::vector<Eigen::Vector3d> & xyz_vec);
 
@@ -84,7 +84,7 @@ void transformNvm(// Inputs
 // TODO(oalexan1): cid_shift and keypoint_offsets should be applied outside
 // this function as they make it hard to understand.
 void transformAppendNvm(// Append from these
-                        rig::PidToCidFidVec  const& nvm_pid_to_cid_fid,
+                        rig::PidCidFid  const& nvm_pid_to_cid_fid,
                         rig::CidToKeypointMatVec    const& nvm_cid_to_keypoint_map,
                         std::map<int, int>               const& cid2cid,
                         std::vector<Eigen::Vector2d>     const& keypoint_offsets,
@@ -94,6 +94,6 @@ void transformAppendNvm(// Append from these
                         std::vector<int> & fid_count,
                         std::vector<std::map<std::pair<float, float>, int>>
                         & merged_keypoint_map,
-                        rig::PidToCidFidVec & pid_to_cid_fid);
+                        rig::PidCidFid & pid_to_cid_fid);
 
 } // end namespace rig

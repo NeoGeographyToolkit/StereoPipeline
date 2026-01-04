@@ -26,15 +26,15 @@
 // A small header to hold type definitions for the rig calibrator
 namespace rig {
 
-  // Track of features observed in multiple images
-  typedef std::vector<std::map<int, std::map<int, int>>> PidCidFid;
-  
   // Vector of keypoints for each image
   typedef std::vector<std::vector<std::pair<float, float>>> KeypointVec;  
 
   // Maps Point ID -> Camera ID -> Feature ID
-  typedef std::vector<std::map<int, int>> PidToCidFidVec; 
+  typedef std::vector<std::map<int, int>> PidCidFid; 
 
+  // PidCidFid with extra info
+  typedef std::vector<std::map<int, std::map<int, int>>> PidCidFidMap;
+  
   // Maps Point ID -> Camera ID -> Feature ID -> 3D Mesh Intersection Point
   typedef std::vector<std::map<int, std::map<int, Eigen::Vector3d>>> PidCidFidToMeshXyz;
 
