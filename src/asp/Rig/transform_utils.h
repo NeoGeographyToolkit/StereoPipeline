@@ -206,6 +206,20 @@ void transformInlierTriPoints(// Inputs
                               PidCidFidMap                 const& pid_cid_fid_inlier,
                               std::vector<Eigen::Vector3d>      & xyz_vec); // output
 
+// TODO(oalexan1): Test this with multiple rigs. It should work.
+// TODO(oalexan1): Need to fix ref_cam_type.
+// Apply registration to each camera, rig (if present), and depth-to-image, if desired
+void applyRegistration(bool no_rig, bool scale_depth, 
+                       std::string                   const & hugin_file,
+                       std::string                   const & xyz_file,
+                       std::vector<bool>             const & has_depth,
+                       std::vector<rig::cameraImage> const & cams,
+                       // Outputs
+                       Eigen::Affine3d                     & registration_trans,
+                       std::vector<Eigen::Affine3d>        & world_to_ref,
+                       std::vector<Eigen::Affine3d>        & world_to_cam,
+                       rig::RigSet                         & R);
+
 }  // end namespace rig
 
 #endif  // TRANSFORM_UTILS_H_

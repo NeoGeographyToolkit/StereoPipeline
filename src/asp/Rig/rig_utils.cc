@@ -1013,5 +1013,44 @@ void writeInliersToNvm
     }
   }
 }
+
+// Calculate the rmse residual for each residual type.
+void calc_residuals_stats(std::vector<double> const& residuals,
+                          std::vector<std::string> const& residual_names,
+                          std::string const& tag) {
+  size_t num = residuals.size();
+
+  if (num != residual_names.size())
+    LOG(FATAL) << "There must be as many residuals as residual names.";
+
+  std::map<std::string, std::vector<double>> stats;
+  for (size_t it = 0; it < residuals.size(); it++)
+    stats[residual_names[it]] = std::vector<double>();  // initialize
+
+  for (size_t it = 0; it < residuals.size(); it++)
+    stats[residual_names[it]].push_back(std::abs(residuals[it]));
+
+  std::cout << "The 25, 50, 75, and 100th percentile residual stats " << tag << std::endl;
+  for (auto it = stats.begin(); it != stats.end(); it++) {
+    std::string const& name = it->first;
+    std::vector<double> vals = stats[name];  // make a copy
+    std::sort(vals.begin(), vals.end());
+
+    int len = vals.size();
+
+    int it1 = static_cast<int>(0.25 * len);
+    int it2 = static_cast<int>(0.50 * len);
+    int it3 = static_cast<int>(0.75 * len);
+    int it4 = static_cast<int>(len - 1);
+
+    if (len == 0)
+      std::cout << name << ": " << "none";
+    else
+      std::cout << std::setprecision(5)
+                << name << ": " << vals[it1] << ' ' << vals[it2] << ' '
+                << vals[it3] << ' ' << vals[it4];
+    std::cout << " (" << len << " residuals)" << std::endl;
+  }
+}
   
 }  // end namespace rig

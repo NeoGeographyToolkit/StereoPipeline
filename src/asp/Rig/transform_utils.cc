@@ -943,4 +943,63 @@ void transformInlierTriPoints(// Inputs
   return;
 }
 
+// TODO(oalexan1): Test this with multiple rigs. It should work.
+// TODO(oalexan1): Need to fix ref_cam_type.
+// Apply registration to each camera, rig (if present), and depth-to-image, if desired
+void applyRegistration(bool no_rig, bool scale_depth, 
+                       std::string                   const & hugin_file,
+                       std::string                   const & xyz_file,
+                       std::vector<bool>             const & has_depth,
+                       std::vector<rig::cameraImage> const & cams,
+                       // Outputs
+                       Eigen::Affine3d                     & registration_trans,
+                       std::vector<Eigen::Affine3d>        & world_to_ref,
+                       std::vector<Eigen::Affine3d>        & world_to_cam,
+                       rig::RigSet                         & R) {
+  
+  if (R.cam_params.size() != has_depth.size())
+    LOG(FATAL) << "Number of camera types must equal the number of depth flags.";
+
+  // All cameras used in registration must be from the same sensor.
+  // That is enforced in registrationCamName().
+  std::string reg_cam_name = rig::registrationCamName(hugin_file, R.cam_names, cams);
+  int reg_cam_index = R.sensorIndex(reg_cam_name);
+  
+  // Find the image files. These are one-to-one with world_to_cam.
+  std::vector<std::string> image_files;
+  for (size_t cid = 0; cid < cams.size(); cid++)
+    image_files.push_back(cams[cid].image_name);
+  
+  // Find the registration transform.
+  // TODO(oalexan1): Pass to this the whole set of cameras and camera
+  // params, as it need not be the first rig images that are used.
+  registration_trans
+    = rig::registrationTransform(hugin_file, xyz_file,  
+                                 R.cam_params[reg_cam_index],  
+                                 image_files,  
+                                 world_to_cam);
+
+  // Apply the transform to world_to_ref and world_to_cam
+  rig::TransformCameras(registration_trans, world_to_ref);
+  rig::TransformCameras(registration_trans, world_to_cam);
+
+  // Transform the rig
+  if (!no_rig)
+    rig::TransformRig(registration_trans, R.ref_to_cam_trans);
+
+  // Transform the depth-to-image transforms, if desired
+  if (scale_depth) {
+    double scale = pow(registration_trans.linear().determinant(), 1.0 / 3.0);
+    int num_cam_types = R.cam_params.size();
+    for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
+      if (has_depth[cam_type]) {
+        R.depth_to_image[cam_type].linear() *= scale;
+        R.depth_to_image[cam_type].translation() *= scale;
+      }
+    }
+  }
+  
+  return;
+}
+
 }  // end namespace rig

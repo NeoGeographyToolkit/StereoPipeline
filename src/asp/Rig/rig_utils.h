@@ -223,7 +223,7 @@ void saveTransformedDepthClouds(std::vector<std::string> const& cam_names,
 // center, as written by Theia if shift_keypoints is specified.
 // We handle properly the case when a (cid, fid) shows up in many tracks
 // (this was a bug).
-void writeInliersToNvm
+ void writeInliersToNvm
 (std::string                                const& nvm_file,
  bool                                              shift_keypoints, 
  std::vector<rig::CameraParameters>         const& cam_params,
@@ -233,7 +233,11 @@ void writeInliersToNvm
  rig::PidCidFid                             const& pid_to_cid_fid,
  PidCidFidMap                               const& pid_cid_fid_inlier,
  std::vector<Eigen::Vector3d>               const& xyz_vec);
-  
-}  // namespace rig
 
+// Calculate the rmse residual for each residual type.
+void calc_residuals_stats(std::vector<double> const& residuals,
+                          std::vector<std::string> const& residual_names,
+                          std::string const& tag);
+
+}  // namespace rig
 #endif  // ASP_RIG_UTILS_H_

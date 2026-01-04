@@ -18,6 +18,7 @@
 
 #include <asp/Rig/RigRpcDistortion.h>
 #include <asp/Rig/RigCameraParams.h>
+#include <asp/Rig/rig_utils.h>
 
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
@@ -326,46 +327,6 @@ struct RpcFitError {
   Eigen::Vector2d m_undist_pix, m_dist_pix;
   std::vector<int> m_block_sizes;
 };  // End class RpcFitError
-
-// TODO(oalexan1): Move this to utils and factor out of camera_refiner.cc as well.
-// Calculate the rmse residual for each residual type.
-void calc_residuals_stats(std::vector<double> const& residuals,
-                           std::vector<std::string> const& residual_names,
-                           std::string const& tag) {
-  size_t num = residuals.size();
-
-  if (num != residual_names.size())
-    throw "There must be as many residuals as residual names.";
-
-  std::map<std::string, std::vector<double>> stats;
-  for (size_t it = 0; it < residuals.size(); it++)
-    stats[residual_names[it]] = std::vector<double>();  // initialize
-
-  for (size_t it = 0; it < residuals.size(); it++)
-    stats[residual_names[it]].push_back(std::abs(residuals[it]));
-
-  std::cout << "The 25, 50, 75, and 100th percentile residual stats " << tag << std::endl;
-  for (auto it = stats.begin(); it != stats.end(); it++) {
-    std::string const& name = it->first;
-    std::vector<double> vals = stats[name];  // make a copy
-    std::sort(vals.begin(), vals.end());
-
-    int len = vals.size();
-
-    int it1 = static_cast<int>(0.25 * len);
-    int it2 = static_cast<int>(0.50 * len);
-    int it3 = static_cast<int>(0.75 * len);
-    int it4 = static_cast<int>(len - 1);
-
-    if (len == 0)
-      std::cout << name << ": " << "none";
-    else
-      std::cout << std::setprecision(5)
-                << name << ": " << vals[it1] << ' ' << vals[it2] << ' '
-                << vals[it3] << ' ' << vals[it4];
-    std::cout << " (" << len << " residuals)" << std::endl;
-  }
-}
 
 // Evaluate the residuals before and after optimization
 void evalResiduals(  // Inputs
