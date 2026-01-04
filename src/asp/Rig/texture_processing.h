@@ -407,16 +407,16 @@ void meshProjectCameras(std::vector<std::string> const& cam_names,
 
 void meshTriangulations(// Inputs
   std::vector<rig::CameraParameters> const& cam_params,
-  std::vector<rig::cameraImage> const& cams,
-  std::vector<Eigen::Affine3d> const& world_to_cam,
-  rig::PidCidFid const& pid_to_cid_fid,
-  PidCidFidMap const& pid_cid_fid_inlier,
-  rig::KeypointVec const& keypoint_vec,
-  Eigen::Vector3d const& bad_xyz, double min_ray_dist, double max_ray_dist,
-  mve::TriangleMesh::Ptr const& mesh, std::shared_ptr<BVHTree> const& bvh_tree,
+  std::vector<rig::cameraImage>      const& cams,
+  std::vector<Eigen::Affine3d>       const& world_to_cam,
+  rig::PidCidFid                     const& pid_to_cid_fid,
+  PidCidFidMap                       const& pid_cid_fid_inlier,
+  rig::KeypointVec                   const& keypoint_vec,
+  Eigen::Vector3d                    const& bad_xyz, double min_ray_dist, double max_ray_dist,
+  mve::TriangleMesh::Ptr             const& mesh, std::shared_ptr<BVHTree> const& bvh_tree,
   // Outputs
-  rig::PidCidFidToMeshXyz& pid_cid_fid_mesh_xyz,
-  std::vector<Eigen::Vector3d>& pid_mesh_xyz);
+  rig::PidCidFidToMeshXyz                 & pid_cid_fid_mesh_xyz,
+  std::vector<Eigen::Vector3d>            & pid_mesh_xyz);
   
 }  // namespace rig
 

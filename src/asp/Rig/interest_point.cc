@@ -413,15 +413,15 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
 // TODO(oalexan1): addKeypoints() can be merged into addMatchPairs().
 // Just add keypoints and update the counter as they are found.
 void addKeypoints(// Append from these
-                  rig::PidCidFid  const& pid_to_cid_fid,
-                  rig::CidToKeypointMatVec    const& cid_to_keypoint_map,
-                  std::map<int, int>               const& cid2cid,
-                  std::vector<Eigen::Vector2d>     const& keypoint_offsets,
+                  rig::PidCidFid               const& pid_to_cid_fid,
+                  rig::CidToKeypointMatVec     const& cid_to_keypoint_map,
+                  std::map<int, int>           const& cid2cid,
+                  std::vector<Eigen::Vector2d> const& keypoint_offsets,
                   int cid_shift,
                   size_t num_out_cams,
                   // Outputs, append to these 
-                  std::vector<int> & keypoint_count,
-                  KeyPointMap & merged_keypoint_map) {
+                  std::vector<int>                  & keypoint_count,
+                  KeyPointMap                       & merged_keypoint_map) {
 
   // Sanity checks
   if (num_out_cams != keypoint_count.size()) 
@@ -473,13 +473,13 @@ void addKeypoints(// Append from these
 // a merged map. The concern is that it will result in conflicting tracks
 // which will be removed, so this should be an option.
 void addMatchPairs(// Append from these
-                   rig::PidCidFid  const& pid_to_cid_fid,
-                   rig::CidToKeypointMatVec    const& cid_to_keypoint_map,
-                   std::map<int, int>               const& cid2cid,
-                   std::vector<Eigen::Vector2d>     const& keypoint_offsets,
-                   KeyPointMap const& merged_keypoint_map, 
+                   rig::PidCidFid                        const& pid_to_cid_fid,
+                   rig::CidToKeypointMatVec              const& cid_to_keypoint_map,
+                   std::map<int, int>                    const& cid2cid,
+                   std::vector<Eigen::Vector2d>          const& keypoint_offsets,
+                   KeyPointMap                           const& merged_keypoint_map, 
                    int cid_shift, size_t num_out_cams,
-                   aspOpenMVG::matching::PairWiseMatches & match_map) { // append here
+                   aspOpenMVG::matching::PairWiseMatches      & match_map) { // append here
 
   // Sanity checks
   if (num_out_cams != merged_keypoint_map.size()) 
@@ -574,19 +574,19 @@ void findFid(std::pair<float, float> const & ip,
 //  5. Builds keypoint maps and feature-ID (fid) counts.
 //  6. Builds connectivity tracks (pid_to_cid_fid) from the pairwise matches.
 void detectMatchFeatures(// Inputs
-    std::vector<rig::cameraImage> const& cams,
+    std::vector<rig::cameraImage>      const& cams,
     std::vector<rig::CameraParameters> const& cam_params,
-    std::string const& out_dir, bool save_matches,
+    std::string                        const& out_dir, bool save_matches,
     bool filter_matches_using_cams,
-    std::vector<Eigen::Affine3d> const& world_to_cam,
+    std::vector<Eigen::Affine3d>       const& world_to_cam,
     int num_overlaps,
-    std::vector<std::pair<int, int>> const& input_image_pairs,
+    std::vector<std::pair<int, int>>   const& input_image_pairs,
     int initial_max_reprojection_error, int num_match_threads,
     bool verbose,
     // Outputs
-    KeyPointMap& keypoint_map,
-    std::vector<int>& fid_count,
-    rig::PidCidFid& pid_to_cid_fid) {
+    KeyPointMap                             & keypoint_map,
+    std::vector<int>                        & fid_count,
+    rig::PidCidFid                          & pid_to_cid_fid) {
 
   // Initialize outputs
   size_t num_images = cams.size();
@@ -726,20 +726,20 @@ void detectMatchFeatures(// Inputs
 }
          
 void detectMatchAppendFeatures(// Inputs
-                         std::vector<rig::cameraImage> const& cams,
+                         std::vector<rig::cameraImage>      const& cams,
                          std::vector<rig::CameraParameters> const& cam_params,
-                         std::string const& out_dir, bool save_matches,
+                         std::string                        const& out_dir, bool save_matches,
                          bool filter_matches_using_cams,
-                         std::vector<Eigen::Affine3d> const& world_to_cam,
+                         std::vector<Eigen::Affine3d>       const& world_to_cam,
                          int num_overlaps,
-                         std::vector<std::pair<int, int>> const& input_image_pairs, 
+                         std::vector<std::pair<int, int>>   const& input_image_pairs, 
                          int initial_max_reprojection_error, int num_match_threads,
                          bool read_nvm_no_shift, bool no_nvm_matches, bool verbose,
                          // Outputs
-                         rig::KeypointVec& keypoint_vec,
-                         rig::PidCidFid& pid_to_cid_fid,
-                         std::vector<Eigen::Vector3d> & xyz_vec,
-                         asp::nvmData & nvm) {
+                         rig::KeypointVec                        & keypoint_vec,
+                         rig::PidCidFid                          & pid_to_cid_fid,
+                         std::vector<Eigen::Vector3d>            & xyz_vec,
+                         asp::nvmData                            & nvm) {
 
   // Wipe the outputs
   keypoint_vec.clear();
@@ -881,12 +881,11 @@ void detectMatchAppendFeatures(// Inputs
   
 void flagOutlierByExclusionDist(// Inputs
                                 std::vector<rig::CameraParameters> const& cam_params,
-                                std::vector<rig::cameraImage> const& cams,
-                                rig::PidCidFid const& pid_to_cid_fid,
-                                rig::KeypointVec
-                                const& keypoint_vec,
+                                std::vector<rig::cameraImage>      const& cams,
+                                rig::PidCidFid                     const& pid_to_cid_fid,
+                                rig::KeypointVec                   const& keypoint_vec,
                                 // Outputs
-                                PidCidFidMap & pid_cid_fid_inlier) {
+                                PidCidFidMap                            & pid_cid_fid_inlier) {
 
   // Initialize the output
   pid_cid_fid_inlier.resize(pid_to_cid_fid.size());
@@ -929,14 +928,14 @@ void flagOutlierByExclusionDist(// Inputs
 // the reprojection errors) have also been updated beforehand.
 void flagOutliersByTriAngleAndReprojErr(// Inputs
   double min_triangulation_angle, double max_reprojection_error,
-  rig::PidCidFid const& pid_to_cid_fid,
-  rig::KeypointVec const& keypoint_vec,
+  rig::PidCidFid               const& pid_to_cid_fid,
+  rig::KeypointVec             const& keypoint_vec,
   std::vector<Eigen::Affine3d> const& world_to_cam, 
   std::vector<Eigen::Vector3d> const& xyz_vec,
-  PidCidFidMap const& pid_cid_fid_to_residual_index,
-  std::vector<double> const& residuals,
+  PidCidFidMap                 const& pid_cid_fid_to_residual_index,
+  std::vector<double>          const& residuals,
   // Outputs
-  PidCidFidMap& pid_cid_fid_inlier) {
+  PidCidFidMap                      & pid_cid_fid_inlier) {
 
   // Must deal with outliers by triangulation angle before
   // removing outliers by reprojection error, as the latter will

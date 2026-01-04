@@ -201,10 +201,10 @@ Eigen::Affine3d registrationTransform(std::string                  const& hugin_
 
 // Apply a transform to inlier triangulated points  
 void transformInlierTriPoints(// Inputs
-                              Eigen::Affine3d const& trans,
-                              rig::PidCidFid const& pid_to_cid_fid,
-                              PidCidFidMap const& pid_cid_fid_inlier,
-                              std::vector<Eigen::Vector3d> & xyz_vec); // output
+                              Eigen::Affine3d              const& trans,
+                              rig::PidCidFid               const& pid_to_cid_fid,
+                              PidCidFidMap                 const& pid_cid_fid_inlier,
+                              std::vector<Eigen::Vector3d>      & xyz_vec); // output
 
 }  // end namespace rig
 

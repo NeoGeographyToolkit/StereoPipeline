@@ -27,7 +27,7 @@ namespace rig {
 
 void Triangulate(bool rm_invalid_xyz, double focal_length,
                  std::vector<Eigen::Affine3d> const& world_to_cam,
-                 rig::CidToKeypointMatVec const& cid_to_keypoint_map,
+                 rig::CidToKeypointMatVec     const& cid_to_keypoint_map,
                  rig::PidCidFid * pid_to_cid_fid,
                  std::vector<Eigen::Vector3d> * pid_to_xyz) {
 
@@ -116,15 +116,14 @@ Eigen::Vector3d Triangulate(std::vector<double>          const& focal_length_vec
 }
 
 void multiViewTriangulation(// Inputs
-                            std::vector<rig::CameraParameters>   const& cam_params,
-                            std::vector<rig::cameraImage>     const& cams,
-                            std::vector<Eigen::Affine3d>            const& world_to_cam,
-                            rig::PidCidFid         const& pid_to_cid_fid,
-                            rig::KeypointVec
-                            const& keypoint_vec,
+                            std::vector<rig::CameraParameters> const& cam_params,
+                            std::vector<rig::cameraImage>      const& cams,
+                            std::vector<Eigen::Affine3d>       const& world_to_cam,
+                            rig::PidCidFid                     const& pid_to_cid_fid,
+                            rig::KeypointVec                   const& keypoint_vec,
                             // Outputs
-                            PidCidFidMap& pid_cid_fid_inlier,
-                            std::vector<Eigen::Vector3d>& xyz_vec) {
+                            PidCidFidMap                            & pid_cid_fid_inlier,
+                            std::vector<Eigen::Vector3d>            & xyz_vec) {
 
   if (cams.size() != world_to_cam.size()) 
     LOG(FATAL) << "Expecting as many images as cameras.\n";

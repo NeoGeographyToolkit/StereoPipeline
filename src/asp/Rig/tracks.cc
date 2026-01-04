@@ -48,16 +48,16 @@ namespace rig {
 // one-to-one correspondence.
 void splitTracksOneToOne(// Inputs
                          int num_acid, // number of images in map A
-                         rig::PidCidFid           const & C_pid_to_cid_fid, 
-                         rig::KeypointVec              const & C_keypoint_vec, 
-                         std::vector<rig::cameraImage> const & C_cams,
+                         rig::PidCidFid                const& C_pid_to_cid_fid, 
+                         rig::KeypointVec              const& C_keypoint_vec, 
+                         std::vector<rig::cameraImage> const& C_cams,
                          // Outputs
-                         rig::PidCidFid                 & A_pid_to_cid_fid, 
-                         rig::PidCidFid                 & B_pid_to_cid_fid, 
-                         rig::KeypointVec                    & A_keypoint_vec, 
-                         rig::KeypointVec                    & B_keypoint_vec, 
-                         std::vector<rig::cameraImage>       & A_cams, 
-                         std::vector<rig::cameraImage>       & B_cams) {
+                         rig::PidCidFid                     & A_pid_to_cid_fid, 
+                         rig::PidCidFid                     & B_pid_to_cid_fid, 
+                         rig::KeypointVec                   & A_keypoint_vec, 
+                         rig::KeypointVec                   & B_keypoint_vec, 
+                         std::vector<rig::cameraImage>      & A_cams, 
+                         std::vector<rig::cameraImage>      & B_cams) {
   
   // Wipe the outputs
   A_pid_to_cid_fid.clear();
@@ -105,7 +105,7 @@ void splitTracksOneToOne(// Inputs
 
 // Build tracks from pairs  
 void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
-                 rig::PidCidFid& pid_to_cid_fid) { // output
+                 rig::PidCidFid                             & pid_to_cid_fid) { // output
 
   pid_to_cid_fid.clear(); // wipe the output
   

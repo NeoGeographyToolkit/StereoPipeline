@@ -74,20 +74,21 @@ void matchFeatures(std::mutex* match_mutex, int left_image_index, int right_imag
                    MATCH_PAIR* matches);
 
 void detectMatchAppendFeatures(// Inputs
-                         std::vector<rig::cameraImage> const& cams,
+                         std::vector<rig::cameraImage>      const& cams,
                          std::vector<rig::CameraParameters> const& cam_params,
-                         std::string const& out_dir, bool save_matches,
+                         std::string                        const& out_dir, 
+                         bool save_matches,
                          bool filter_matches_using_cams,
-                         std::vector<Eigen::Affine3d> const& world_to_cam,
+                         std::vector<Eigen::Affine3d>       const& world_to_cam,
                          int num_overlaps,
-                         std::vector<std::pair<int, int>> const& input_image_pairs, 
+                         std::vector<std::pair<int, int>>   const& input_image_pairs, 
                          int initial_max_reprojection_error, int num_match_threads,
                          bool read_nvm_no_shift, bool no_nvm_matches, bool verbose,
                          // Outputs
-                         rig::KeypointVec& keypoint_vec,
-                         rig::PidCidFid& pid_to_cid_fid,
-                         std::vector<Eigen::Vector3d> & xyz_vec,
-                         asp::nvmData & nvm);
+                         rig::KeypointVec                        & keypoint_vec,
+                         rig::PidCidFid                          & pid_to_cid_fid,
+                         std::vector<Eigen::Vector3d>            & xyz_vec,
+                         asp::nvmData                            & nvm);
 
 // For nvm data that has the keypoints shifted relative to the optical
 // center, undo this shift when 'undo_shift' is true. So, add the optical center.
@@ -120,13 +121,13 @@ void readListOrNvm(// Inputs
 // Note that keypoint_offsets are applied before the cid2cid transform gets used!
 // This is very error-prone!
 void addMatchPairs(// Append from these
-                   rig::PidCidFid  const& pid_to_cid_fid,
-                   rig::CidToKeypointMatVec    const& cid_to_keypoint_map,
-                   std::map<int, int>               const& cid2cid,
-                   std::vector<Eigen::Vector2d>     const& keypoint_offsets,
-                   KeyPointMap const& merged_keypoint_map, 
+                   rig::PidCidFid                        const& pid_to_cid_fid,
+                   rig::CidToKeypointMatVec              const& cid_to_keypoint_map,
+                   std::map<int, int>                    const& cid2cid,
+                   std::vector<Eigen::Vector2d>          const& keypoint_offsets,
+                   KeyPointMap                           const& merged_keypoint_map, 
                    int cid_shift, size_t num_out_cams,
-                   aspOpenMVG::matching::PairWiseMatches & match_map); // append here
+                   aspOpenMVG::matching::PairWiseMatches      & match_map); // append here
 
 // Given some tracks read from nvm from disk, append the ones from
 // nvm. Some remapping is needed.  given that 'fid' values already
@@ -136,61 +137,60 @@ void addMatchPairs(// Append from these
 // Note that keypoint_offsets are applied before the cid2cid transform gets used!
 // This is very error-prone!
 void transformAppendNvm(// Append from these
-                        rig::PidCidFid  const& nvm_pid_to_cid_fid,
-                        rig::CidToKeypointMatVec    const& nvm_cid_to_keypoint_map,
-                        std::map<int, int>               const& cid2cid,
-                        std::vector<Eigen::Vector2d>     const& keypoint_offsets,
+                        rig::PidCidFid               const& nvm_pid_to_cid_fid,
+                        rig::CidToKeypointMatVec     const& nvm_cid_to_keypoint_map,
+                        std::map<int, int>           const& cid2cid,
+                        std::vector<Eigen::Vector2d> const& keypoint_offsets,
                         int cid_shift,
                         size_t num_out_cams,
                         // Outputs, append to these 
-                        std::vector<int> & fid_count,
-                        KeyPointMap & merged_keypoint_map,
-                        rig::PidCidFid & pid_to_cid_fid);
+                        std::vector<int>                  & fid_count,
+                        KeyPointMap                       & merged_keypoint_map,
+                        rig::PidCidFid                    & pid_to_cid_fid);
   
 // Add keypoints from a map, appending to existing keypoints. Take into
 // account how this map's cid gets transformed to the new map cid.
 // Note that keypoint_offsets are applied before the cid2cid transform gets used!
 // This is very error-prone!
 void addKeypoints(// Append from these
-                  rig::PidCidFid  const& pid_to_cid_fid,
-                  rig::CidToKeypointMatVec    const& cid_to_keypoint_map,
-                  std::map<int, int>               const& cid2cid,
-                  std::vector<Eigen::Vector2d>     const& keypoint_offsets,
+                  rig::PidCidFid               const& pid_to_cid_fid,
+                  rig::CidToKeypointMatVec     const& cid_to_keypoint_map,
+                  std::map<int, int>           const& cid2cid,
+                  std::vector<Eigen::Vector2d> const& keypoint_offsets,
                   int cid_shift,
                   size_t num_out_cams,
                   // Outputs, append to these 
-                  std::vector<int> & keypoint_count,
-                  KeyPointMap & merged_keypoint_map);
+                  std::vector<int>                  & keypoint_count,
+                  KeyPointMap                       & merged_keypoint_map);
 
 void flagOutlierByExclusionDist(// Inputs
                                 std::vector<rig::CameraParameters> const& cam_params,
-                                std::vector<rig::cameraImage> const& cams,
-                                rig::PidCidFid const& pid_to_cid_fid,
-                                rig::KeypointVec
-                                const& keypoint_vec,
+                                std::vector<rig::cameraImage>      const& cams,
+                                rig::PidCidFid                     const& pid_to_cid_fid,
+                                rig::KeypointVec                   const& keypoint_vec,
                                 // Outputs
-                                PidCidFidMap& pid_cid_fid_inlier);
+                                PidCidFidMap                            & pid_cid_fid_inlier);
 
 void flagOutliersByTriAngleAndReprojErr
 (// Inputs
  double min_triangulation_angle, double max_reprojection_error,
- rig::PidCidFid const& pid_to_cid_fid,
- rig::KeypointVec const& keypoint_vec,
+ rig::PidCidFid               const& pid_to_cid_fid,
+ rig::KeypointVec             const& keypoint_vec,
  std::vector<Eigen::Affine3d> const& world_to_cam, 
  std::vector<Eigen::Vector3d> const& xyz_vec,
- PidCidFidMap const& pid_cid_fid_to_residual_index,
- std::vector<double> const& residuals,
+ PidCidFidMap                 const& pid_cid_fid_to_residual_index,
+ std::vector<double>          const& residuals,
  // Outputs
- PidCidFidMap& pid_cid_fid_inlier);
+ PidCidFidMap                      & pid_cid_fid_inlier);
 
 void savePairwiseConvergenceAngles(// Inputs
-  rig::PidCidFid const& pid_to_cid_fid,
-  rig::KeypointVec const& keypoint_vec,
+  rig::PidCidFid                const& pid_to_cid_fid,
+  rig::KeypointVec              const& keypoint_vec,
   std::vector<rig::cameraImage> const& cams,
-  std::vector<Eigen::Affine3d> const& world_to_cam,
-  std::vector<Eigen::Vector3d> const& xyz_vec,
-  PidCidFidMap const& pid_cid_fid_inlier,
-  std::string const& conv_angles_file);
+  std::vector<Eigen::Affine3d>  const& world_to_cam,
+  std::vector<Eigen::Vector3d>  const& xyz_vec,
+  PidCidFidMap                  const& pid_cid_fid_inlier,
+  std::string                   const& conv_angles_file);
 
 }  // namespace rig
 

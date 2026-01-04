@@ -932,15 +932,15 @@ bool depthValue(// Inputs
 // We handle properly the case when a (cid, fid) shows up in many tracks
 // (this was a bug).
 void writeInliersToNvm
-(std::string                                       const& nvm_file,
- bool                                                     shift_keypoints, 
- std::vector<rig::CameraParameters>             const& cam_params,
- std::vector<rig::cameraImage>               const& cams,
- std::vector<Eigen::Affine3d>                      const& world_to_cam,
- rig::KeypointVec const& keypoint_vec,
- rig::PidCidFid                   const& pid_to_cid_fid,
- PidCidFidMap const& pid_cid_fid_inlier,
- std::vector<Eigen::Vector3d>                      const& xyz_vec) {
+(std::string                                const& nvm_file,
+ bool                                              shift_keypoints, 
+ std::vector<rig::CameraParameters>         const& cam_params,
+ std::vector<rig::cameraImage>              const& cams,
+ std::vector<Eigen::Affine3d>               const& world_to_cam,
+ rig::KeypointVec                           const& keypoint_vec,
+ rig::PidCidFid                             const& pid_to_cid_fid,
+ PidCidFidMap                               const& pid_cid_fid_inlier,
+ std::vector<Eigen::Vector3d>               const& xyz_vec) {
   
   // Sanity checks
   if (world_to_cam.size() != cams.size())

@@ -108,13 +108,13 @@ void shiftKeypoints(bool undo_shift, rig::RigSet const& R,
 // offset.
 // TODO(oalexan1): Integrate this with transformAppendNvm().
 void transformNvm(// Inputs
-                  std::vector<rig::cameraImage>   const& cams,
-                  std::vector<Eigen::Vector2d>          const& keypoint_offsets,
-                  asp::nvmData                          const& nvm,
+                  std::vector<rig::cameraImage> const& cams,
+                  std::vector<Eigen::Vector2d>  const& keypoint_offsets,
+                  asp::nvmData                  const& nvm,
                   // Outputs
-                  rig::PidCidFid & pid_to_cid_fid,
-                  rig::KeypointVec & keypoint_vec,
-                  std::vector<Eigen::Vector3d> & xyz_vec) {
+                  rig::PidCidFid                     & pid_to_cid_fid,
+                  rig::KeypointVec                   & keypoint_vec,
+                  std::vector<Eigen::Vector3d>       & xyz_vec) {
 
   // Sanity checks
   if (!keypoint_vec.empty() && keypoint_vec.size() != cams.size()) 
@@ -217,16 +217,16 @@ bool updateCidFindKeypoint(std::map<int, int>::const_iterator map_it,
 // TODO(oalexan1): cid_shift and keypoint_offsets should be applied outside
 // this function as they make it hard to understand.
 void transformAppendNvm(// Append from these
-                        rig::PidCidFid  const& nvm_pid_to_cid_fid,
-                        rig::CidToKeypointMatVec    const& nvm_cid_to_keypoint_map,
-                        std::map<int, int>               const& cid2cid,
-                        std::vector<Eigen::Vector2d>     const& keypoint_offsets,
+                        rig::PidCidFid               const& nvm_pid_to_cid_fid,
+                        rig::CidToKeypointMatVec     const& nvm_cid_to_keypoint_map,
+                        std::map<int, int>           const& cid2cid,
+                        std::vector<Eigen::Vector2d> const& keypoint_offsets,
                         int cid_shift,
                         size_t num_out_cams,
                         // Outputs, append to these 
-                        std::vector<int> & fid_count,
-                        KeyPointMap & merged_keypoint_map,
-                        rig::PidCidFid & pid_to_cid_fid) {
+                        std::vector<int>                  & fid_count,
+                        KeyPointMap                       & merged_keypoint_map,
+                        rig::PidCidFid                    & pid_to_cid_fid) {
 
   // Sanity checks
   if (num_out_cams != fid_count.size()) 

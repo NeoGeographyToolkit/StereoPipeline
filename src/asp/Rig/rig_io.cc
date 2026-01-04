@@ -117,11 +117,10 @@ void saveImagesAndDepthClouds(std::vector<rig::cameraImage> const& cams) {
 void saveInlierMatchPairs(// Inputs
                           std::vector<rig::cameraImage> const& cams,
                           int num_overlaps,
-                          rig::PidCidFid const& pid_to_cid_fid,
-                          rig::KeypointVec
-                          const& keypoint_vec,
-                          PidCidFidMap const& pid_cid_fid_inlier,
-                          std::string const& out_dir) {
+                          rig::PidCidFid                const& pid_to_cid_fid,
+                          rig::KeypointVec              const& keypoint_vec,
+                          PidCidFidMap                  const& pid_cid_fid_inlier,
+                          std::string                   const& out_dir) {
 
   MATCH_MAP matches;
 
@@ -196,13 +195,13 @@ void saveInlierMatchPairs(// Inputs
 // current state of optimization, and that the residuals (including the
 // reprojection errors) have also been updated beforehand.
 void savePairwiseConvergenceAngles(// Inputs
-  rig::PidCidFid const& pid_to_cid_fid,
-  rig::KeypointVec const& keypoint_vec,
+  rig::PidCidFid                const& pid_to_cid_fid,
+  rig::KeypointVec              const& keypoint_vec,
   std::vector<rig::cameraImage> const& cams,
-  std::vector<Eigen::Affine3d> const& world_to_cam,
-  std::vector<Eigen::Vector3d> const& xyz_vec,
-  PidCidFidMap const& pid_cid_fid_inlier,
-  std::string const& conv_angles_file) {
+  std::vector<Eigen::Affine3d>  const& world_to_cam,
+  std::vector<Eigen::Vector3d>  const& xyz_vec,
+  PidCidFidMap                  const& pid_cid_fid_inlier,
+  std::string                   const& conv_angles_file) {
 
   rig::PairwiseConvergenceAngles conv_angles;
   

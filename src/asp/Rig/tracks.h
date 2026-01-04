@@ -38,7 +38,7 @@ namespace rig {
 class cameraImage;
 
 void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
-                 rig::PidCidFid& pid_to_cid_fid);
+                 rig::PidCidFid                             & pid_to_cid_fid);
 
 // Remove duplicate tracks. There can still be two tracks with one contained
 // in the other or otherwise having shared elements. 
@@ -47,16 +47,16 @@ void rmDuplicateTracks(rig::PidCidFid & pid_to_cid_fid);
 // See tracks.cc for the doc
 void splitTracksOneToOne(// Inputs
                          int num_acid, // number of images in map A
-                         rig::PidCidFid           const & C_pid_to_cid_fid, 
-                         rig::KeypointVec              const & C_keypoint_vec, 
-                         std::vector<rig::cameraImage> const & C_cams,
+                         rig::PidCidFid                const& C_pid_to_cid_fid, 
+                         rig::KeypointVec              const& C_keypoint_vec, 
+                         std::vector<rig::cameraImage> const& C_cams,
                          // Outputs
-                         rig::PidCidFid                 & A_pid_to_cid_fid, 
-                         rig::PidCidFid                 & B_pid_to_cid_fid, 
-                         rig::KeypointVec                    & A_keypoint_vec, 
-                         rig::KeypointVec                    & B_keypoint_vec, 
-                         std::vector<rig::cameraImage>       & A_cams, 
-                         std::vector<rig::cameraImage>       & B_cams);
+                         rig::PidCidFid                     & A_pid_to_cid_fid, 
+                         rig::PidCidFid                     & B_pid_to_cid_fid, 
+                         rig::KeypointVec                   & A_keypoint_vec, 
+                         rig::KeypointVec                   & B_keypoint_vec, 
+                         std::vector<rig::cameraImage>      & A_cams, 
+                         std::vector<rig::cameraImage>      & B_cams);
   
 }  // namespace rig
 
