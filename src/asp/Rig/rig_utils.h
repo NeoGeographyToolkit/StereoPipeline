@@ -17,8 +17,10 @@
  * under the License.
  */
 
-#ifndef RIG_MAP_UTILS_H_
-#define RIG_MAP_UTILS_H_
+#ifndef ASP_RIG_UTILS_H_
+#define ASP_RIG_UTILS_H_
+
+#include <asp/Rig/RigTypeDefs.h>
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
@@ -48,7 +50,7 @@ class cameraImage;
 class ImageMessage;
 class RigSet;
 
-const std::string NO_DEPTH_FILE      = "no_depth_file";
+const std::string NO_DEPTH_FILE = "no_depth_file";
 
 // A function to parse a string like
 // 'cam1:focal_length,optical_center,distortion cam2:focal_length' and
@@ -229,9 +231,9 @@ void writeInliersToNvm
  std::vector<Eigen::Affine3d>                      const& world_to_cam,
  std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
  std::vector<std::map<int, int>>                   const& pid_to_cid_fid,
- std::vector<std::map<int, std::map<int, int>>>    const& pid_cid_fid_inlier,
+ PidCidFid const& pid_cid_fid_inlier,
  std::vector<Eigen::Vector3d>                      const& xyz_vec);
   
 }  // namespace rig
 
-#endif  // RIG_MAP_UTILS_H_
+#endif  // ASP_RIG_UTILS_H_

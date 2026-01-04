@@ -888,8 +888,7 @@ void flagOutlierByExclusionDist(// Inputs
                                 std::vector<std::vector<std::pair<float, float>>>
                                 const& keypoint_vec,
                                 // Outputs
-                                std::vector<std::map<int, std::map<int, int>>> &
-                                pid_cid_fid_inlier) {
+                                PidCidFid & pid_cid_fid_inlier) {
 
   // Initialize the output
   pid_cid_fid_inlier.resize(pid_to_cid_fid.size());
@@ -936,10 +935,10 @@ void flagOutliersByTriAngleAndReprojErr(// Inputs
   std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
   std::vector<Eigen::Affine3d> const& world_to_cam, 
   std::vector<Eigen::Vector3d> const& xyz_vec,
-  std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_to_residual_index,
+  PidCidFid const& pid_cid_fid_to_residual_index,
   std::vector<double> const& residuals,
   // Outputs
-  std::vector<std::map<int, std::map<int, int>>>& pid_cid_fid_inlier) {
+  PidCidFid& pid_cid_fid_inlier) {
 
   // Must deal with outliers by triangulation angle before
   // removing outliers by reprojection error, as the latter will

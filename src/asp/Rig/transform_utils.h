@@ -20,6 +20,7 @@
 #ifndef TRANSFORM_UTILS_H_
 #define TRANSFORM_UTILS_H_
 
+#include <asp/Rig/RigTypeDefs.h>
 #include <vector>
 #include <string>
 #include <map>
@@ -202,8 +203,7 @@ Eigen::Affine3d registrationTransform(std::string                  const& hugin_
 void transformInlierTriPoints(// Inputs
                               Eigen::Affine3d const& trans,
                               std::vector<std::map<int, int>> const& pid_to_cid_fid,
-                              std::vector<std::map<int, std::map<int, int>>> const&
-                              pid_cid_fid_inlier,
+                              PidCidFid const& pid_cid_fid_inlier,
                               std::vector<Eigen::Vector3d> & xyz_vec); // output
 
 }  // end namespace rig

@@ -18,6 +18,7 @@
 #ifndef __ASP_RIG_RIG_IO_H__
 #define __ASP_RIG_RIG_IO_H__
 
+#include <asp/Rig/RigTypeDefs.h>
 #include <string>
 #include <vector>
 #include <map>
@@ -62,8 +63,7 @@ void saveInlierMatchPairs(// Inputs
                           std::vector<std::map<int, int>> const& pid_to_cid_fid,
                           std::vector<std::vector<std::pair<float, float>>>
                           const& keypoint_vec,
-                          std::vector<std::map<int, std::map<int, int>>>
-                          const& pid_cid_fid_inlier,
+                          PidCidFid const& pid_cid_fid_inlier,
                           std::string const& out_dir);
 
 // Find convergence angles between every pair of images and save
@@ -75,8 +75,7 @@ void savePairwiseConvergenceAngles(// Inputs
                                    std::vector<rig::cameraImage> const& cams,
                                    std::vector<Eigen::Affine3d> const& world_to_cam,
                                    std::vector<Eigen::Vector3d> const& xyz_vec,
-                                   std::vector<std::map<int, std::map<int, int>>>
-                                   const& pid_cid_fid_inlier,
+                                   PidCidFid const& pid_cid_fid_inlier,
                                    std::string const& conv_angles_file);
 
 // Save the list of images, for use with bundle_adjust.

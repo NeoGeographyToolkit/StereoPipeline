@@ -18,6 +18,7 @@
 #ifndef ASP_RIG_TRIANGULATION_H
 #define ASP_RIG_TRIANGULATION_H
 
+#include <asp/Rig/RigTypeDefs.h>
 #include <vector>
 #include <map>
 
@@ -60,8 +61,7 @@ void multiViewTriangulation(std::vector<rig::CameraParameters>   const& cam_para
                             std::vector<std::vector<std::pair<float, float>>>
                             const& keypoint_vec,
                             // Outputs
-                            std::vector<std::map<int, std::map<int, int>>>&
-                            pid_cid_fid_inlier,
+                            PidCidFid& pid_cid_fid_inlier,
                             std::vector<Eigen::Vector3d>& xyz_vec);
 
 // A triangulated point that is equal to (0, 0, 0), inf, or NaN, is not good

@@ -913,7 +913,7 @@ registrationTransform(std::string                  const& hugin_file,
 void transformInlierTriPoints(// Inputs
   Eigen::Affine3d const& trans,
   std::vector<std::map<int, int>> const& pid_to_cid_fid,
-  std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_inlier,
+  PidCidFid const& pid_cid_fid_inlier,
   std::vector<Eigen::Vector3d> & xyz_vec) { // output
   
   if (pid_to_cid_fid.size() != pid_cid_fid_inlier.size())

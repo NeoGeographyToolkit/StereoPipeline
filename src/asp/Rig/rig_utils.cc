@@ -939,7 +939,7 @@ void writeInliersToNvm
  std::vector<Eigen::Affine3d>                      const& world_to_cam,
  std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
  std::vector<std::map<int, int>>                   const& pid_to_cid_fid,
- std::vector<std::map<int, std::map<int, int>>>    const& pid_cid_fid_inlier,
+ PidCidFid const& pid_cid_fid_inlier,
  std::vector<Eigen::Vector3d>                      const& xyz_vec) {
   
   // Sanity checks

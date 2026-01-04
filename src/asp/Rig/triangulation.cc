@@ -123,8 +123,7 @@ void multiViewTriangulation(// Inputs
                             std::vector<std::vector<std::pair<float, float>>>
                             const& keypoint_vec,
                             // Outputs
-                            std::vector<std::map<int, std::map<int, int>>>&
-                            pid_cid_fid_inlier,
+                            PidCidFid& pid_cid_fid_inlier,
                             std::vector<Eigen::Vector3d>& xyz_vec) {
 
   if (cams.size() != world_to_cam.size()) 

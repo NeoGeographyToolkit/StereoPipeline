@@ -19,6 +19,7 @@
 
 // See the ASP documentation for how this tool works.
 
+#include <asp/Rig/RigTypeDefs.h>
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Rig/triangulation.h> 
@@ -506,7 +507,6 @@ void evalResiduals(  // Inputs
 // Write the inlier residuals. Create one output file for each camera type.
 // The format of each file is:
 // dist_pixel_x, dist_pixel_y, norm(residual_x, residual_y)
-typedef std::map<int, std::map<int, int>> Int3Map;
 typedef std::vector<std::vector<std::pair<float, float>>> KeypointVec;  
 void writeResiduals(std::string                           const& out_dir,
                     std::string                           const & prefix,
@@ -514,8 +514,8 @@ void writeResiduals(std::string                           const& out_dir,
                     std::vector<rig::cameraImage>   const& cams,
                     rig::KeypointVec                const& keypoint_vec,
                     std::vector<std::map<int, int>>       const& pid_to_cid_fid,
-                    std::vector<rig::Int3Map>       const& pid_cid_fid_inlier,
-                    std::vector<rig::Int3Map>       const& pid_cid_fid_to_residual_index,
+                    rig::PidCidFid const& pid_cid_fid_inlier,
+                    rig::PidCidFid const& pid_cid_fid_to_residual_index,
                     std::vector<double>                   const& residuals) {
 
   if (pid_to_cid_fid.size() != pid_cid_fid_inlier.size())
@@ -1021,7 +1021,7 @@ void setupRigOptProblem(
     std::vector<double>& depth_to_image_scales,
     KeypointVec const& keypoint_vec,
     std::vector<std::map<int, int>> const& pid_to_cid_fid,
-    std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_inlier,
+    rig::PidCidFid const& pid_cid_fid_inlier,
     std::vector<std::map<int, std::map<int, Eigen::Vector3d>>> const& pid_cid_fid_mesh_xyz,
     std::vector<Eigen::Vector3d> const& pid_mesh_xyz,
     std::vector<Eigen::Vector3d>& xyz_vec,
@@ -1055,7 +1055,7 @@ void setupRigOptProblem(
     double mesh_tri_weight,
     double camera_position_weight,
     // Outputs
-    std::vector<std::map<int, std::map<int, int>>>& pid_cid_fid_to_residual_index,
+    rig::PidCidFid& pid_cid_fid_to_residual_index,
     ceres::Problem& problem,
     std::vector<std::string>& residual_names,
     std::vector<double>& residual_scales) {
@@ -1476,7 +1476,7 @@ int main(int argc, char** argv) {
   // pid_cid_fid_inlier[pid][cid][fid] will be non-zero only if this
   // pixel is an inlier. Originally all pixels are inliers. Once an
   // inlier becomes an outlier, it never becomes an inlier again.
-  std::vector<std::map<int, std::map<int, int>>> pid_cid_fid_inlier;
+  rig::PidCidFid pid_cid_fid_inlier;
   
   // TODO(oalexan1): Must initialize all points as inliers outside this function,
   // as now this function resets those.
@@ -1546,7 +1546,7 @@ int main(int argc, char** argv) {
     // in the array of residuals (look only at pixel residuals). This
     // structure is populated only for inliers, so its total number of
     // elements changes at each pass.
-    std::vector<std::map<int, std::map<int, int>>> pid_cid_fid_to_residual_index;
+    rig::PidCidFid pid_cid_fid_to_residual_index;
     pid_cid_fid_to_residual_index.resize(pid_to_cid_fid.size());
 
     // Form the problem

@@ -580,8 +580,7 @@ void MergeMaps(asp::nvmData const& A,
 #if 1
     // TODO(oalexan1): This should be a function called findMatchingTriPoints().
     // Flag as outliers features outside of the distorted crop box
-    std::vector<std::map<int, std::map<int, int>>> A_pid_cid_fid_inlier,
-      B_pid_cid_fid_inlier;
+    PidCidFid A_pid_cid_fid_inlier, B_pid_cid_fid_inlier;
     rig::flagOutlierByExclusionDist(// Inputs
                                           R.cam_params, A_cams, A_pid_to_cid_fid,
                                           A_keypoint_vec,
@@ -732,7 +731,7 @@ void MergeMaps(asp::nvmData const& A,
     rig::eigen2vec(C.cid_to_keypoint_map[cid], C_keypoint_vec[cid]);
 
   // Flag outliers
-  std::vector<std::map<int, std::map<int, int>>> C_pid_cid_fid_inlier;
+  PidCidFid C_pid_cid_fid_inlier;
   rig::flagOutlierByExclusionDist(// Inputs
                                         R.cam_params, C_cams, C.pid_to_cid_fid,
                                         C_keypoint_vec,

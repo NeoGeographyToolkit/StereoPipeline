@@ -20,10 +20,7 @@
 #ifndef TEXTURE_PROCESSING_H_
 #define TEXTURE_PROCESSING_H_
 
-// Here we store some utilities adapted from mvs-texturing, at
-// https://github.com/nmoehrle/mvs-texturing which were adapted for
-// use with ISAAC. That software was released under the BSD license.
-
+#include <asp/Rig/RigTypeDefs.h>
 #include <Eigen/Geometry>
 #include <Eigen/Core>
 
@@ -48,6 +45,7 @@
 // Astrobee and isaac
 #include <Rig/RigCameraModel.h>
 #include <Rig/rig_utils.h>
+#include <asp/Rig/RigTypeDefs.h>
 
 #include <vector>
 #include <map>
@@ -412,7 +410,7 @@ void meshTriangulations(// Inputs
   std::vector<rig::cameraImage> const& cams,
   std::vector<Eigen::Affine3d> const& world_to_cam,
   std::vector<std::map<int, int>> const& pid_to_cid_fid,
-  std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_inlier,
+  PidCidFid const& pid_cid_fid_inlier,
   std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
   Eigen::Vector3d const& bad_xyz, double min_ray_dist, double max_ray_dist,
   mve::TriangleMesh::Ptr const& mesh, std::shared_ptr<BVHTree> const& bvh_tree,

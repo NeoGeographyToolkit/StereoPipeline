@@ -20,6 +20,7 @@
 #ifndef INTEREST_POINT_H_
 #define INTEREST_POINT_H_
 
+#include <asp/Rig/RigTypeDefs.h>
 #include <asp/Rig/detector.h>
 
 #include <vw/InterestPoint/InterestData.h>
@@ -171,7 +172,7 @@ void flagOutlierByExclusionDist(// Inputs
                                 std::vector<std::vector<std::pair<float, float>>>
                                 const& keypoint_vec,
                                 // Outputs
-                                std::vector<std::map<int, std::map<int, int>>>& pid_cid_fid_inlier);
+                                PidCidFid& pid_cid_fid_inlier);
 
 void flagOutliersByTriAngleAndReprojErr
 (// Inputs
@@ -180,10 +181,10 @@ void flagOutliersByTriAngleAndReprojErr
  std::vector<std::vector<std::pair<float, float>>> const& keypoint_vec,
  std::vector<Eigen::Affine3d> const& world_to_cam, 
  std::vector<Eigen::Vector3d> const& xyz_vec,
- std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_to_residual_index,
+ PidCidFid const& pid_cid_fid_to_residual_index,
  std::vector<double> const& residuals,
  // Outputs
- std::vector<std::map<int, std::map<int, int>>>& pid_cid_fid_inlier);
+ PidCidFid& pid_cid_fid_inlier);
 
 void savePairwiseConvergenceAngles(// Inputs
   std::vector<std::map<int, int>> const& pid_to_cid_fid,
@@ -191,7 +192,7 @@ void savePairwiseConvergenceAngles(// Inputs
   std::vector<rig::cameraImage> const& cams,
   std::vector<Eigen::Affine3d> const& world_to_cam,
   std::vector<Eigen::Vector3d> const& xyz_vec,
-  std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_inlier,
+  PidCidFid const& pid_cid_fid_inlier,
   std::string const& conv_angles_file);
 
 }  // namespace rig

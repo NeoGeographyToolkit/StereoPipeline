@@ -115,14 +115,13 @@ void saveImagesAndDepthClouds(std::vector<rig::cameraImage> const& cams) {
 // image pair cid1 and cid2 with cid1 < cid2 < cid1 + num_overlaps + 1,
 // save the matches of this pair which occur in the set of tracks.
 void saveInlierMatchPairs(// Inputs
-                           std::vector<rig::cameraImage> const& cams,
-                           int num_overlaps,
-                           std::vector<std::map<int, int>> const& pid_to_cid_fid,
-                           std::vector<std::vector<std::pair<float, float>>>
-                           const& keypoint_vec,
-                           std::vector<std::map<int, std::map<int, int>>>
-                           const& pid_cid_fid_inlier,
-                           std::string const& out_dir) {
+                          std::vector<rig::cameraImage> const& cams,
+                          int num_overlaps,
+                          std::vector<std::map<int, int>> const& pid_to_cid_fid,
+                          std::vector<std::vector<std::pair<float, float>>>
+                          const& keypoint_vec,
+                          PidCidFid const& pid_cid_fid_inlier,
+                          std::string const& out_dir) {
 
   MATCH_MAP matches;
 
@@ -202,7 +201,7 @@ void savePairwiseConvergenceAngles(// Inputs
   std::vector<rig::cameraImage> const& cams,
   std::vector<Eigen::Affine3d> const& world_to_cam,
   std::vector<Eigen::Vector3d> const& xyz_vec,
-  std::vector<std::map<int, std::map<int, int>>> const& pid_cid_fid_inlier,
+  PidCidFid const& pid_cid_fid_inlier,
   std::string const& conv_angles_file) {
 
   std::map<std::pair<int, int>, std::vector<double>> conv_angles;
