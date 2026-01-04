@@ -124,8 +124,7 @@ void addMatchPairs(// Append from these
                    rig::CidToKeypointMatVec    const& cid_to_keypoint_map,
                    std::map<int, int>               const& cid2cid,
                    std::vector<Eigen::Vector2d>     const& keypoint_offsets,
-                   std::vector<std::map<std::pair<float, float>, int>>
-                   const& merged_keypoint_map, 
+                   KeyPointMap const& merged_keypoint_map, 
                    int cid_shift, size_t num_out_cams,
                    aspOpenMVG::matching::PairWiseMatches & match_map); // append here
 
@@ -145,8 +144,7 @@ void transformAppendNvm(// Append from these
                         size_t num_out_cams,
                         // Outputs, append to these 
                         std::vector<int> & fid_count,
-                        std::vector<std::map<std::pair<float, float>, int>>
-                        & merged_keypoint_map,
+                        KeyPointMap & merged_keypoint_map,
                         rig::PidCidFid & pid_to_cid_fid);
   
 // Add keypoints from a map, appending to existing keypoints. Take into
@@ -162,8 +160,7 @@ void addKeypoints(// Append from these
                   size_t num_out_cams,
                   // Outputs, append to these 
                   std::vector<int> & keypoint_count,
-                  std::vector<std::map<std::pair<float, float>, int>>
-                  & merged_keypoint_map);
+                  KeyPointMap & merged_keypoint_map);
 
 void flagOutlierByExclusionDist(// Inputs
                                 std::vector<rig::CameraParameters> const& cam_params,

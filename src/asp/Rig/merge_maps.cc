@@ -674,7 +674,7 @@ void MergeMaps(asp::nvmData const& A,
   // This is very error-prone!
   std::vector<Eigen::Vector2d> keypoint_offsets(num_acid + num_bcid,
                                                 Eigen::Vector2d(0, 0));
-  std::vector<std::map<std::pair<float, float>, int>> merged_keypoint_map(num_out_cams);
+  KeyPointMap merged_keypoint_map(num_out_cams);
   std::vector<int> find_count(num_out_cams, 0); // how many keypoints so far
   rig::PidCidFid merged_pid_to_cid_fid;
   // Add A

@@ -29,6 +29,9 @@ namespace rig {
   // Vector of keypoints for each image
   typedef std::vector<std::vector<std::pair<float, float>>> KeypointVec;  
 
+  // A map from keypoint coordinates to its index in the KeypointVec
+  typedef std::vector<std::map<std::pair<float, float>, int>> KeyPointMap;
+
   // Maps Point ID -> Camera ID -> Feature ID
   typedef std::vector<std::map<int, int>> PidCidFid; 
 

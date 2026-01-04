@@ -92,8 +92,7 @@ void transformAppendNvm(// Append from these
                         size_t num_out_cams,
                         // Outputs, append to these
                         std::vector<int> & fid_count,
-                        std::vector<std::map<std::pair<float, float>, int>>
-                        & merged_keypoint_map,
+                        KeyPointMap & merged_keypoint_map,
                         rig::PidCidFid & pid_to_cid_fid);
 
 } // end namespace rig
