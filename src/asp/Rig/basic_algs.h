@@ -16,8 +16,8 @@
  * under the License.
  */
 
-#ifndef RIG_CALIBRATOR_BASIC_ALGS_H
-#define RIG_CALIBRATOR_BASIC_ALGS_H
+#ifndef ASP_RIG_BASIC_ALGS_H
+#define ASP_RIG_BASIC_ALGS_H
 
 // Some low-level algorithms
 
@@ -113,4 +113,4 @@ std::string print_vec(Eigen::Vector3d a);
   
 }  // end namespace rig
 
-#endif  // RIG_CALIBRATOR_BASIC_ALGS_H_
+#endif  // ASP_RIG_BASIC_ALGS_H

@@ -16,12 +16,12 @@
  * under the License.
  */
 
-#ifndef RIG_CALIBRATOR_RIG_CONFIG_H
-#define RIG_CALIBRATOR_RIG_CONFIG_H
+#ifndef ASP_RIG_RIG_CONFIG_H
+#define ASP_RIG_RIG_CONFIG_H
 
 // A structure to hold info about a set of rigs
 
-#include <Rig/RigCameraModel.h>
+#include <asp/Rig/RigCameraModel.h>
 
 #include <map>
 #include <vector>
@@ -95,4 +95,4 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms,
                    RigSet & R);
 }  // end namespace rig
 
-#endif  // RIG_CALIBRATOR_RIG_CONFIG_H
+#endif  // ASP_RIG_RIG_CONFIG_H

@@ -17,8 +17,8 @@
  * under the License.
  */
 
-#ifndef INTEREST_POINT_H_
-#define INTEREST_POINT_H_
+#ifndef ASP_RIG_INTEREST_POINT_H
+#define ASP_RIG_INTEREST_POINT_H
 
 #include <asp/Rig/RigTypeDefs.h>
 #include <asp/Rig/detector.h>
@@ -198,4 +198,4 @@ void savePairwiseConvergenceAngles(// Inputs
 
 }  // namespace rig
 
-#endif  // INTEREST_POINT_H_
+#endif  // ASP_RIG_INTEREST_POINT_H

@@ -16,12 +16,12 @@
  * under the License.
  */
 
-#include <Rig/detector.h>
-#include <opencv2/xfeatures2d.hpp>
+#include <asp/Rig/detector.h>
 
-#include <Eigen/Core>
+#include <opencv2/xfeatures2d.hpp>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <Eigen/Core>
 
 #include <iostream>
 #include <vector>

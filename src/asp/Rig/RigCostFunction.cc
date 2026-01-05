@@ -15,13 +15,14 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <Rig/camera_image.h>
-#include <Rig/rig_config.h>
 #include <asp/Rig/RigCostFunction.h>
-#include <Rig/transform_utils.h>
-#include <Rig/image_lookup.h>
-#include <Rig/basic_algs.h>
-#include <Rig/rig_utils.h>
+#include <asp/Rig/camera_image.h>
+#include <asp/Rig/rig_config.h>
+#include <asp/Rig/transform_utils.h>
+#include <asp/Rig/image_lookup.h>
+#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/rig_utils.h>
+
 #include <iostream>
 #include <iomanip>
 

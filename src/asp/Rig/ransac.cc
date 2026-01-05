@@ -16,8 +16,9 @@
  * under the License.
  */
 
+#include <asp/Rig/ransac.h>
+
 #include <glog/logging.h>
-#include <Rig/ransac.h>
 
 #include <iostream>
 #include <set>

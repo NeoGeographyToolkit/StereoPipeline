@@ -17,8 +17,8 @@
  * under the License.
  */
 
-#ifndef INTERPOLATION_UTILS_H_
-#define INTERPOLATION_UTILS_H_
+#ifndef ASP_RIG_INTERPOLATION_UTILS_H
+#define ASP_RIG_INTERPOLATION_UTILS_H
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -49,4 +49,4 @@ void interpOrExtrap(std::map<double, Eigen::Affine3d> const& input_poses,
   
 }  // namespace rig
 
-#endif  // INTERPOLATION_UTILS_H_
+#endif  // ASP_RIG_INTERPOLATION_UTILS_H

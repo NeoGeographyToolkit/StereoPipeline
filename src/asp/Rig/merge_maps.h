@@ -1,5 +1,5 @@
-#ifndef RIG_CALIBRATOR_MERGE_MAPS_H_
-#define RIG_CALIBRATOR_MERGE_MAPS_H_
+#ifndef ASP_RIG_MERGE_MAPS_H
+#define ASP_RIG_MERGE_MAPS_H
 
 #include <string>
 
@@ -29,4 +29,4 @@ void MergeMaps(asp::nvmData const& A_in,
 
 }  // namespace rig
 
-#endif  // RIG_CALIBRATOR_MERGE_MAPS_H_
+#endif  // ASP_RIG_MERGE_MAPS_H

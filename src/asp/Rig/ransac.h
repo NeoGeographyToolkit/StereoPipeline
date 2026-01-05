@@ -16,8 +16,8 @@
  * under the License.
  */
 
-#ifndef RIG_CALIBRATOR_RANSAC_H_
-#define RIG_CALIBRATOR_RANSAC_H_
+#ifndef ASP_RIG_RANSAC_H
+#define ASP_RIG_RANSAC_H
 
 #include <glog/logging.h>
 
@@ -254,4 +254,4 @@ class RandomSampleConsensus {
 
 }  // end namespace rig
 
-#endif  // RIG_CALIBRATOR_RANSAC_H_
+#endif  // ASP_RIG_RANSAC_H

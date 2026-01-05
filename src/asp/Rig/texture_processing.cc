@@ -17,7 +17,11 @@
  * under the License.
  */
 
-#include <Rig/texture_processing.h>
+#include <asp/Rig/texture_processing.h>
+#include <asp/Rig/RigCameraModel.h>
+#include <asp/Rig/system_utils.h>
+#include <asp/Rig/camera_image.h>
+#include <asp/Rig/basic_algs.h>
 
 // OpenCV includes
 #include <opencv2/core/core.hpp>
@@ -27,11 +31,6 @@
 // Eigen includes
 #include <Eigen/Geometry>
 #include <Eigen/Core>
-
-#include <Rig/RigCameraModel.h>
-#include <Rig/system_utils.h>
-#include <Rig/camera_image.h>
-#include <Rig/basic_algs.h>
 
 #include <glog/logging.h>
 

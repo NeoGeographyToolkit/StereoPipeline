@@ -15,22 +15,22 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#ifndef RIG_COST_FUNCTION_H_
-#define RIG_COST_FUNCTION_H_
+#ifndef ASP_RIG_COST_FUNCTION_H
+#define ASP_RIG_COST_FUNCTION_H
+
+#include <asp/Rig/RigCameraParams.h>
+#include <asp/Rig/rig_config.h>
+#include <asp/Rig/transform_utils.h>
 
 #include <ceres/ceres.h>
 #include <ceres/dynamic_numeric_diff_cost_function.h>
 #include <ceres/loss_function.h>
 
-#include <vector>
-#include <string>
-
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-#include <Rig/RigCameraParams.h>
-#include <Rig/rig_config.h>
-#include <Rig/transform_utils.h>
+#include <vector>
+#include <string>
 
 namespace rig {
 
@@ -245,4 +245,4 @@ void setupRigOptProblem(
 
 }  // namespace rig
 
-#endif  // RIG_COST_FUNCTION_H_
+#endif  // ASP_RIG_COST_FUNCTION_H

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-#include <Rig/thread.h>
+#include <asp/Rig/thread.h>
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>

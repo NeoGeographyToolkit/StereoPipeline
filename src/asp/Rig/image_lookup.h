@@ -17,8 +17,8 @@
  * under the License.
  */
 
-#ifndef RIG_IMAGE_LOOKUP_H_
-#define RIG_IMAGE_LOOKUP_H_
+#ifndef ASP_RIG_IMAGE_LOOKUP_H
+#define ASP_RIG_IMAGE_LOOKUP_H
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
@@ -142,4 +142,4 @@ void calcBracketing(// Inputs
 
 }  // namespace rig
 
-#endif  // RIG_IMAGE_LOOKUP_H_
+#endif  // ASP_RIG_IMAGE_LOOKUP_H

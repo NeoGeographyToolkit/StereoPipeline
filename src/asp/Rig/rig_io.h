@@ -15,8 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#ifndef __ASP_RIG_RIG_IO_H__
-#define __ASP_RIG_RIG_IO_H__
+#ifndef ASP_RIG_RIG_IO_H
+#define ASP_RIG_RIG_IO_H
 
 #include <asp/Rig/RigTypeDefs.h>
 #include <string>
@@ -82,4 +82,4 @@ void saveImageList(std::vector<rig::cameraImage> const& cams,
 
 }  // end namespace rig
 
-#endif  // __ASP_RIG_RIG_IO_H__
+#endif  // ASP_RIG_RIG_IO_H

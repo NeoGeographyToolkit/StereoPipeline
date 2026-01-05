@@ -17,7 +17,8 @@
  * under the License.
  */
 
-#include <Rig/interpolation_utils.h>
+#include <asp/Rig/interpolation_utils.h>
+
 #include <glog/logging.h>
 
 #include <iostream>

@@ -17,8 +17,8 @@
  * under the License.
  */
 
-#ifndef ASP_RIG_UTILS_H_
-#define ASP_RIG_UTILS_H_
+#ifndef ASP_RIG_RIG_UTILS_H
+#define ASP_RIG_RIG_UTILS_H
 
 #include <asp/Rig/RigTypeDefs.h>
 
@@ -254,4 +254,4 @@ void writeResiduals(std::string                   const& out_dir,
                     std::vector<double>           const& residuals);
 
 }  // namespace rig
-#endif  // ASP_RIG_UTILS_H_
+#endif  // ASP_RIG_RIG_UTILS_H

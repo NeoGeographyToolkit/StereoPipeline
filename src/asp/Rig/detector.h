@@ -15,8 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#ifndef __ASP_RIG_DETECTOR_H__
-#define __ASP_RIG_DETECTOR_H__
+#ifndef ASP_RIG_DETECTOR_H
+#define ASP_RIG_DETECTOR_H
 
 #include <vw/InterestPoint/InterestData.h>
 
@@ -90,5 +90,5 @@ class FeatureDetector {
 
 }  // namespace rig
 
-#endif  // __ASP_RIG_DETECTOR_H__
+#endif  // ASP_RIG_DETECTOR_H
 

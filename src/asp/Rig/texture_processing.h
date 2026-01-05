@@ -17,10 +17,13 @@
  * under the License.
  */
 
-#ifndef TEXTURE_PROCESSING_H_
-#define TEXTURE_PROCESSING_H_
+#ifndef ASP_RIG_TEXTURE_PROCESSING_H
+#define ASP_RIG_TEXTURE_PROCESSING_H
 
 #include <asp/Rig/RigTypeDefs.h>
+#include <asp/Rig/RigCameraModel.h>
+#include <asp/Rig/rig_utils.h>
+
 #include <Eigen/Geometry>
 #include <Eigen/Core>
 
@@ -41,11 +44,6 @@
 
 // OpenCV
 #include <opencv2/highgui/highgui.hpp>
-
-// Astrobee and isaac
-#include <Rig/RigCameraModel.h>
-#include <Rig/rig_utils.h>
-#include <asp/Rig/RigTypeDefs.h>
 
 #include <vector>
 #include <map>
@@ -399,4 +397,4 @@ void meshTriangulations(// Inputs
   
 }  // namespace rig
 
-#endif  // TEXTURE_PROCESSING_H_
+#endif  // ASP_RIG_TEXTURE_PROCESSING_H

@@ -16,8 +16,8 @@
  * under the License.
  */
 
-#ifndef RIG_CALIBRATOR_TRACKS_H_
-#define RIG_CALIBRATOR_TRACKS_H_
+#ifndef ASP_RIG_TRACKS_H
+#define ASP_RIG_TRACKS_H
 
 #include <set>
 #include <vector>
@@ -60,4 +60,4 @@ void splitTracksOneToOne(// Inputs
   
 }  // namespace rig
 
-#endif  // RIG_CALIBRATOR_TRACKS_H_
+#endif  // ASP_RIG_TRACKS_H

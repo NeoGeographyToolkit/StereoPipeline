@@ -16,8 +16,8 @@
  * under the License.
  */
 
-#ifndef RIG_CALIBRATOR_THREAD_H
-#define RIG_CALIBRATOR_THREAD_H
+#ifndef ASP_RIG_THREAD_H
+#define ASP_RIG_THREAD_H
 
 #include <gflags/gflags.h>
 #include <pthread.h>
@@ -92,4 +92,4 @@ private:
 
 GOOGLE_ALLOW_RVALUE_REFERENCES_POP
 
-#endif  // RIG_CALIBRATOR_THREAD_H
+#endif  // ASP_RIG_THREAD_H

@@ -17,8 +17,8 @@
  * under the License.
  */
 
-#ifndef RIG_CALIBRATOR_CAMERA_IMAGE_H_
-#define RIG_CALIBRATOR_CAMERA_IMAGE_H_
+#ifndef ASP_RIG_CAMERA_IMAGE_H
+#define ASP_RIG_CAMERA_IMAGE_H
 
 #include <opencv2/imgproc.hpp>
 #include <Eigen/Core>
@@ -75,4 +75,4 @@ struct ImageMessage {
   
 }  // namespace rig
 
-#endif  // RIG_CALIBRATOR_CAMERA_IMAGE_H_
+#endif  // ASP_RIG_CAMERA_IMAGE_H

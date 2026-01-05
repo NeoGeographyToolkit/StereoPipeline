@@ -17,8 +17,8 @@
  * under the License.
  */
 
-#ifndef SYSTEM_UTILS_H_
-#define SYSTEM_UTILS_H_
+#ifndef ASP_RIG_SYSTEM_UTILS_H
+#define ASP_RIG_SYSTEM_UTILS_H
 
 #include <string>
 
@@ -29,4 +29,4 @@ void createDir(std::string const& dir);
 
 }  // namespace rig
 
-#endif  // SYSTEM_UTILS_H_
+#endif  // ASP_RIG_SYSTEM_UTILS_H
