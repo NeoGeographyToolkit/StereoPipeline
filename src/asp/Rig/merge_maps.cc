@@ -735,17 +735,17 @@ void MergeMaps(asp::nvmData const& A,
   // Flag outliers
   PidCidFidMap C_pid_cid_fid_inlier;
   rig::flagOutlierByExclusionDist(// Inputs
-                                        R.cam_params, C_cams, C.pid_to_cid_fid,
-                                        C_keypoint_vec,
-                                        // Outputs
-                                        C_pid_cid_fid_inlier);
+                                  R.cam_params, C_cams, C.pid_to_cid_fid,
+                                  C_keypoint_vec,
+                                  // Outputs
+                                  C_pid_cid_fid_inlier);
 
   // Triangulate the merged tracks with merged cameras
   rig::multiViewTriangulation(// Inputs
-                                    R.cam_params, C_cams, C.world_to_cam,
-                                    C.pid_to_cid_fid, C_keypoint_vec,
-                                    // Outputs
-                                    C_pid_cid_fid_inlier, C.pid_to_xyz);
+                              R.cam_params, C_cams, C.world_to_cam,
+                              C.pid_to_cid_fid, C_keypoint_vec,
+                              // Outputs
+                              C_pid_cid_fid_inlier, C.pid_to_xyz);
 
   // TODO(oalexan1): Should one remove outliers from tri points
   // and C.pid_to_cid_fid?

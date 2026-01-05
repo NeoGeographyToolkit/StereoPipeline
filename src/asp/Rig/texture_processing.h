@@ -345,15 +345,6 @@ void loadMeshBuildTree(std::string const& mesh_file, mve::TriangleMesh::Ptr& mes
                        std::shared_ptr<tex::Graph>& graph,
                        std::shared_ptr<BVHTree>& bvh_tree);
 
-void formModel(mve::TriangleMesh::ConstPtr mesh, double pixel_size, int64_t num_threads,
-               // outputs
-               std::vector<FaceInfo>& face_projection_info,
-               std::vector<IsaacTextureAtlas::Ptr>& texture_atlases,
-               IsaacObjModel& model);
-
-// Put an textured mesh obj file in a string
-void formObj(IsaacObjModel& texture_model, std::string const& out_prefix, std::string& obj_str);
-
 // Put an textured mesh obj file in a string
 void formObjCustomUV(mve::TriangleMesh::ConstPtr mesh, std::vector<Eigen::Vector3i> const& face_vec,
                      std::map<int, Eigen::Vector2d> const& uv_map,
@@ -368,15 +359,6 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
                     std::vector<double>& smallest_cost_per_face,
                     std::vector<Eigen::Vector3i>& face_vec,
                     std::map<int, Eigen::Vector2d>& uv_map);
-
-// Project texture on a texture model that was pre-filled already, so
-// only the texture pixel values need to be computed
-void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> bvh_tree,
-                    cv::Mat const& image, rig::CameraModel const& cam,
-                    std::vector<double>& smallest_cost_per_face, double pixel_size,
-                    int64_t num_threads, std::vector<FaceInfo> const& face_projection_info,
-                    std::vector<IsaacTextureAtlas::Ptr>& texture_atlases,
-                    IsaacObjModel& model, cv::Mat& out_texture);
 
 // Find where ray emanating from a distorted pixel intersects a mesh. Return true
 // on success.
@@ -393,9 +375,6 @@ void meshProject(mve::TriangleMesh::Ptr const& mesh, std::shared_ptr<BVHTree> co
                  cv::Mat const& image,
                  Eigen::Affine3d const& world_to_cam, rig::CameraParameters const& cam_params,
                  std::string const& out_prefix);
-
-// Save a model
-void isaac_save_model(IsaacObjModel* obj_model, std::string const& prefix);
 
 void meshProjectCameras(std::vector<std::string> const& cam_names,
                         std::vector<rig::CameraParameters> const& cam_params,

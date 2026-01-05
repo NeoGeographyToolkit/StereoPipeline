@@ -564,6 +564,24 @@ void findFid(std::pair<float, float> const & ip,
   return;
 }
 
+// Create keypoint_vec from keypoint_map. That just reorganizes the data
+// to the format expected later.
+void keypointMapToVec(KeyPointMap const& keypoint_map,
+                      KeypointVec & keypoint_vec) {
+  size_t num_images = keypoint_map.size();
+  keypoint_vec.clear();
+  keypoint_vec.resize(num_images);
+  for (size_t cid = 0; cid < num_images; cid++) {
+    auto const& map = keypoint_map[cid]; // alias
+    keypoint_vec[cid].resize(map.size());
+    for (auto ip_it = map.begin(); ip_it != map.end(); ip_it++) {
+      auto const& ip = ip_it->first;  // alias
+      int fid = ip_it->second;
+      keypoint_vec[cid][fid] = ip;
+    }
+  }
+}
+
 // Detects features, matches them between image pairs, and builds tracks.
 // 
 //  This function handles the entire feature detection and matching pipeline:
@@ -843,19 +861,7 @@ void detectMatchAppendFeatures(// Inputs
   
   // Create keypoint_vec from keypoint_map. That just reorganizes the data
   // to the format expected later.
-  // TODO(oalexan1): This must be a function called keypointMapToVec().
-  // TODO(oalexan1): Use rig::CidToKeypointMatVec as in nvm instead.
-  keypoint_vec.clear();
-  keypoint_vec.resize(num_images);
-  for (size_t cid = 0; cid < num_images; cid++) {
-    auto const& map = keypoint_map[cid]; // alias
-    keypoint_vec[cid].resize(map.size());
-    for (auto ip_it = map.begin(); ip_it != map.end(); ip_it++) {
-      auto const& ip = ip_it->first;  // alias
-      int fid = ip_it->second;
-      keypoint_vec[cid][fid] = ip;
-    }
-  }
+  keypointMapToVec(keypoint_map, keypoint_vec);
   
   // De-allocate data not needed anymore
   nvm = asp::nvmData(); // no longer needed

@@ -102,9 +102,6 @@ void setUpFixRigOptions(bool no_rig, bool fix_rig_translations, bool fix_rig_rot
       = new ceres::SubsetManifold(rig::NUM_RIGID_PARAMS, fixed_indices);
 }
 
-
-// TODO(oalexan1): Move to a separate file named costFunctions.cc
-
 ceres::LossFunction* GetLossFunction(std::string cost_fun, double th) {
   // Convert to lower-case
   std::transform(cost_fun.begin(), cost_fun.end(), cost_fun.begin(), ::tolower);
@@ -123,8 +120,6 @@ ceres::LossFunction* GetLossFunction(std::string cost_fun, double th) {
 
   return loss_function;
 }
-
-// TODO(oalexan1): Move to a separate file named costFunctions.cc
   
 BracketedCamError::BracketedCamError(Eigen::Vector2d const& meas_dist_pix,
                   double left_ref_stamp, double right_ref_stamp, double cam_stamp,
@@ -194,9 +189,11 @@ bool BracketedCamError::operator()(double const* const* parameters, double* resi
 
 // Factory to hide the construction of the CostFunction object from the client code.
 ceres::CostFunction*
-BracketedCamError::Create(Eigen::Vector2d const& meas_dist_pix, double left_ref_stamp, double right_ref_stamp,
-        double cam_stamp, std::vector<int> const& block_sizes,
-        rig::CameraParameters const& cam_params) {
+BracketedCamError::Create(Eigen::Vector2d const& meas_dist_pix, double left_ref_stamp, 
+                          double right_ref_stamp, double cam_stamp, 
+                          std::vector<int> const& block_sizes,
+                          rig::CameraParameters const& cam_params) {
+
   ceres::DynamicNumericDiffCostFunction<BracketedCamError>* cost_function =
     new ceres::DynamicNumericDiffCostFunction<BracketedCamError>
     (new BracketedCamError(meas_dist_pix, left_ref_stamp, right_ref_stamp,
@@ -213,9 +210,7 @@ BracketedCamError::Create(Eigen::Vector2d const& meas_dist_pix, double left_ref_
   cost_function->AddParameterBlock(cam_params.GetDistortion().size());
 
   return cost_function;
-  }
-
-// TODO(oalexan1): Move to future costFunctions.h
+}
   
 BracketedDepthError::BracketedDepthError(double weight, Eigen::Vector3d const& meas_depth_xyz,
                     double left_ref_stamp, double right_ref_stamp, double cam_stamp,
@@ -240,7 +235,8 @@ BracketedDepthError::BracketedDepthError(double weight, Eigen::Vector3d const& m
 }
 
 // Call to work with ceres::DynamicNumericDiffCostFunction.
-bool BracketedDepthError::operator()(double const* const* parameters, double* residuals) const {
+bool BracketedDepthError::operator()(double const* const* parameters, 
+                                     double* residuals) const {
   // Current world to camera transform
   Eigen::Affine3d world_to_cam_trans =
     calcWorldToCamBase(parameters[0],  // beg_world_to_ref_t
@@ -279,9 +275,12 @@ bool BracketedDepthError::operator()(double const* const* parameters, double* re
 }
 
 // Factory to hide the construction of the CostFunction object from the client code.
-ceres::CostFunction* BracketedDepthError::Create(double weight, Eigen::Vector3d const& meas_depth_xyz,
-                                    double left_ref_stamp, double right_ref_stamp,
-                                    double cam_stamp, std::vector<int> const& block_sizes) {
+ceres::CostFunction* BracketedDepthError::Create(double weight, 
+                                                 Eigen::Vector3d const& meas_depth_xyz,
+                                                 double left_ref_stamp, 
+                                                 double right_ref_stamp,
+                                                 double cam_stamp, 
+                                                 std::vector<int> const& block_sizes) {
   ceres::DynamicNumericDiffCostFunction<BracketedDepthError>* cost_function =
     new ceres::DynamicNumericDiffCostFunction<BracketedDepthError>
     (new BracketedDepthError(weight, meas_depth_xyz, left_ref_stamp, right_ref_stamp,

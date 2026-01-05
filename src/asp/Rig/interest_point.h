@@ -73,6 +73,10 @@ void matchFeatures(std::mutex* match_mutex, int left_image_index, int right_imag
                    // Output
                    MATCH_PAIR* matches);
 
+// Create keypoint_vec from keypoint_map. 
+void keypointMapToVec(KeyPointMap const& keypoint_map,
+                      KeypointVec & keypoint_vec);
+
 void detectMatchAppendFeatures(// Inputs
                          std::vector<rig::cameraImage>      const& cams,
                          std::vector<rig::CameraParameters> const& cam_params,
