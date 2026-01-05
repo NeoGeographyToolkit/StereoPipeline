@@ -247,6 +247,10 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
                                   std::vector<vw::Vector3> & llh_vec,
                                   std::vector<vw::Vector2> & used_vertices) {
 
+  // num_samples must be positive
+  if (num_samples <= 0)
+    vw_throw(ArgumentErr() << "The value of --num-samples must be positive.\n");
+  
   // Ensure that the outputs are initialized
   point_vec.clear();
   llh_vec.clear();
@@ -834,9 +838,9 @@ DemMinusPlaneView dem_minus_plane(ImageViewRef<float> const& dem,
 
 struct Options : vw::GdalWriteOptions {
   std::string shapefile, dem, mask, camera, stereo_session, bathy_plane,
-    water_height_measurements, csv_format_str, output_inlier_shapefile,
-    bundle_adjust_prefix, output_outlier_shapefile, mask_boundary_shapefile,
-    dem_minus_plane;
+    water_height_measurements, lon_lat_measurements, csv_format_str, 
+    output_inlier_shapefile, bundle_adjust_prefix, output_outlier_shapefile, 
+    mask_boundary_shapefile, dem_minus_plane;
   
   double outlier_threshold;
   int num_ransac_iterations, num_samples;
@@ -869,7 +873,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("mask",   po::value(&opt.mask),
      "A input mask, created from a raw camera image and hence having the same dimensions, "
      "with values of 1 on land and 0 on water, or positive values on land and no-data "
-     "values on water.")
+     "values on water. The larger of the no-data value and zero is used as the water "
+     "value.")
     ("camera",   po::value(&opt.camera),
      "The camera file to use with the mask.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
@@ -905,14 +910,21 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      po::bool_switch(&opt.save_shapefiles_as_polygons)->default_value(false),
      "Save the inlier and outlier shapefiles as polygons, rather than "
      "discrete vertices. May be more convenient for processing in a GIS tool.")
-    ("water-height-measurements", po::value(&opt.water_height_measurements)->default_value(""),
+    ("water-height-measurements", 
+     po::value(&opt.water_height_measurements)->default_value(""),
      "Use this CSV file having longitude, latitude, and height measurements "
      "for the water surface, in degrees and meters, respectively, relative to the WGS84 datum. "
      "The option --csv-format must be used.")
-     ("csv-format", po::value(&opt.csv_format_str)->default_value(""),
-      "Specify the format of the CSV file having water height measurements. "
-      "The format should have a list of entries with syntax column_index:column_type "
-      "(indices start from 1). Example: '2:lon 3:lat 4:height_above_datum'.")
+    ("lon-lat-measurements", 
+     po::value(&opt.lon_lat_measurements)->default_value(""),
+     "Use this CSV file having longitude and latitude measurements for the water surface. "
+     "The heights will be looked up in the DEM with bilinear interpolation. The option "
+     "--csv-format must be used.")
+    ("csv-format", po::value(&opt.csv_format_str)->default_value(""),
+     "Specify the format of the CSV file having water height measurements or lon and lat "
+     "values. The format should have a list of entries with syntax "
+     "column_index:column_type (indices start from 1). Example: '2:lon 3:lat "
+     "4:height_above_datum'.")
     ("dem-minus-plane",
      po::value(&opt.dem_minus_plane),
      "If specified, subtract from the input DEM the best-fit plane and save the "
@@ -922,7 +934,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Compute the best fit plane in ECEF coordinates rather than in a local stereographic "
      "projection. Hence don't model the Earth curvature. Not recommended.");
   
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   //positional.add_options()
@@ -946,14 +958,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   bool use_shapefile = !opt.shapefile.empty();
   bool use_mask      = !opt.mask.empty();
   bool use_meas      = !opt.water_height_measurements.empty();
+  bool use_lon_lat   = !opt.lon_lat_measurements.empty();
 
   if (use_mask && opt.camera.empty()) 
     vw_throw(ArgumentErr() << "If using a mask, must specify a camera.\n"
              << usage << general_options);
     
-  if (use_shapefile + use_mask + use_meas != 1)
-    vw_throw(ArgumentErr() << "Must use either a mask and camera, a shapefile, or water "
-              << "height measurements, and just one of these.\n"
+  if (use_shapefile + use_mask + use_meas + use_lon_lat != 1)
+    vw_throw(ArgumentErr() << "Must use either a mask and camera, a shapefile, "
+              << "water height measurements, or lon-lat measurements, "
+              << "and just one of these.\n"
               << usage << general_options);
 
   if (!use_meas && opt.dem == "")
@@ -963,25 +977,24 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Must set either --bathy-plane or --mask-boundary-shapefile.\n"
              << usage << general_options);
   
-  if (use_meas && opt.csv_format_str == "") 
+  if ((use_meas || use_lon_lat) && opt.csv_format_str == "") 
     vw_throw(ArgumentErr() << "Must set the option --csv-format.\n"
              << usage << general_options );
   
-  if (opt.use_ecef_water_surface && use_meas) {
-    vw_throw(ArgumentErr() << "Cannot use use-ecef-water-surface with "
-             << "--water-height-measurements.\n"
+  if (opt.use_ecef_water_surface && (use_meas || use_lon_lat)) 
+    vw_throw(ArgumentErr() << "Cannot use --use-ecef-water-surface with "
+             << "--water-height-measurements or --lon-lat-measurements.\n"
              << usage << general_options);
     
-    if (!opt.mask_boundary_shapefile.empty() && 
-        (opt.mask.empty() || opt.camera.empty() || opt.dem.empty()))
-      vw_throw(ArgumentErr() << "If using --mask-boundary-shapefile, then "
-               << "must specify a mask, a camera, and a DEM.\n"
-               << usage << general_options);
+  if (!opt.mask_boundary_shapefile.empty() && 
+      (opt.mask.empty() || opt.camera.empty() || opt.dem.empty()))
+    vw_throw(ArgumentErr() << "If using --mask-boundary-shapefile, then "
+             << "must specify a mask, a camera, and a DEM.\n"
+             << usage << general_options);
 
-    if (opt.num_samples <= 0) 
-      vw_throw(ArgumentErr() << "A positive number of samples must be specified.\n"
-               << usage << general_options);
-  }
+  if (use_mask && opt.num_samples <= 0) 
+    vw_throw(ArgumentErr() << "A positive number of samples must be specified.\n"
+             << usage << general_options);
 
   // Create the output prefix  
   std::string out_prefix = opt.bathy_plane;
