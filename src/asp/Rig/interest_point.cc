@@ -598,13 +598,7 @@ void detectMatchFeatures(// Inputs
 
   // Detect features using multiple threads. Too many threads may result
   // in high memory usage.
-  std::ostringstream oss;
-  oss << num_match_threads;
-  std::string num_threads = oss.str();
-  google::SetCommandLineOption("num_threads", num_threads.c_str());
-  if (!gflags::GetCommandLineOption("num_threads", &num_threads))
-    LOG(FATAL) << "Failed to get the value of --num_threads in Astrobee software.\n";
-  std::cout << "Using " << num_threads << " threads for feature detection/matching.\n";
+  std::cout << "Using " << num_match_threads << " threads for feature detection/matching.\n";
 
   std::cout << "Detecting features." << std::endl;
 
@@ -614,7 +608,7 @@ void detectMatchFeatures(// Inputs
   cid_to_keypoint_map.resize(num_images);
   {
     // Make the thread pool go out of scope when not needed to not use up memory
-    rig::ThreadPool thread_pool;
+    rig::ThreadPool thread_pool(num_match_threads);
     for (size_t it = 0; it < num_images; it++) {
       thread_pool.AddTask
         (&rig::detectFeatures,     // multi-threaded  // NOLINT
@@ -641,7 +635,7 @@ void detectMatchFeatures(// Inputs
   MATCH_MAP matches;
   { // Deallocate local variables as soon as they are not needed
     std::cout << "Matching features." << std::endl;
-    rig::ThreadPool thread_pool;
+    rig::ThreadPool thread_pool(num_match_threads);
     std::mutex match_mutex;
     for (size_t pair_it = 0; pair_it < image_pairs.size(); pair_it++) {
       auto pair = image_pairs[pair_it];

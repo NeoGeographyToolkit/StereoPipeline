@@ -23,6 +23,7 @@
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Rig/triangulation.h> 
+#include <asp/Rig/thread.h> 
 
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Core/Log.h>
@@ -231,11 +232,6 @@ DEFINE_bool(skip_post_registration, false,
 DEFINE_double(parameter_tolerance, 1e-12, "Stop when the optimization variables change by "
               "less than this.");
 
-DECLARE_int32(num_threads); // declared externally
-
-DEFINE_int32(num_match_threads, 8, "How many threads to use in feature "
-             "detection/matching. A large number can use a lot of memory.");
-
 DEFINE_bool(no_rig, false,
             "Do not assumes the cameras are on a rig. Hence the pose of any "
             "camera of any sensor type may vary on its own and not being tied to other "
@@ -319,6 +315,11 @@ DEFINE_bool(save_pinhole_cameras, false,
 DEFINE_bool(save_transformed_depth_clouds, false,
             "Save the depth clouds with the camera transform applied to them to make "
             "them be in world coordinates.");
+
+DEFINE_int32(num_threads, rig::defaultNumThreads(), "Number of threads to use.");
+
+DEFINE_int32(num_match_threads, 8, "How many threads to use in feature "
+             "detection/matching. A large number can use a lot of memory.");
 
 DEFINE_bool(verbose, false,
             "Print a lot of verbose information about how matching goes.");

@@ -48,6 +48,8 @@ DEFINE_string(rig_config, "",
 DEFINE_string(output_map, "",
               "Output file containing the merged map.");
 
+DEFINE_int32(num_threads, rig::defaultNumThreads(), "Number of threads to use.");
+
 DEFINE_int32(num_image_overlaps_at_endpoints, 10,
              "Search this many images at the beginning and end of the first map "
              "for matches to this many images at the beginning and end of the "
@@ -189,6 +191,7 @@ int main(int argc, char** argv) {
                          FLAGS_no_transform,
                          FLAGS_close_dist,
                          FLAGS_image_sensor_list,
+                         FLAGS_num_threads,
                          out_map);
     
     if (i + 1 < argc) {

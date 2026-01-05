@@ -23,7 +23,8 @@ void MergeMaps(asp::nvmData const& A_in,
                bool fast_merge,
                bool no_transform,
                double close_dist,
-               std::string const& image_sensor_list, 
+               std::string const& image_sensor_list,
+               int num_threads, 
                asp::nvmData & C_out);
 
 }  // namespace rig

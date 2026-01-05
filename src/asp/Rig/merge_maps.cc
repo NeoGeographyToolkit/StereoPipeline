@@ -494,6 +494,7 @@ void MergeMaps(asp::nvmData const& A,
                bool no_transform,
                double close_dist,
                std::string const& image_sensor_list, 
+               int num_threads,
                asp::nvmData & C) { // output merged map
 
   // Wipe the output
@@ -561,7 +562,7 @@ void MergeMaps(asp::nvmData const& A,
                                    filter_matches_using_cams,  
                                    C.world_to_cam,
                                    num_overlaps, image_pairs,
-                                   initial_max_reprojection_error, FLAGS_num_threads,  
+                                   initial_max_reprojection_error, num_threads,  
                                    read_nvm_no_shift, no_nvm_matches, verbose,  
                                    // Outputs
                                    C_keypoint_vec, C.pid_to_cid_fid, local_xyz_vec,

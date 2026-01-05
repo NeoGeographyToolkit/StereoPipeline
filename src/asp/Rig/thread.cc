@@ -24,11 +24,15 @@
 #include <sys/time.h>
 #include <thread>
 
-DEFINE_int32(num_threads, (std::thread::hardware_concurrency() == 0 ?
-                           8 : std::thread::hardware_concurrency()),
-             "Number of threads to use.");
+namespace rig {
+  
+int defaultNumThreads() {
+  return (std::thread::hardware_concurrency() == 0 ?
+          8 : std::thread::hardware_concurrency());
+}
 
-void* rig::HolderFunction(void* ptr) {
+
+void* HolderFunction(void* ptr) {
   rig::ThreadPool::VarsTuple* vars = reinterpret_cast<rig::ThreadPool::VarsTuple*>(ptr);
 
   // Run the function
@@ -45,8 +49,7 @@ void* rig::HolderFunction(void* ptr) {
   return NULL;
 }
 
-rig::ThreadPool::ThreadPool()
-  : max_concurrent_jobs_(FLAGS_num_threads) {
+ThreadPool::ThreadPool(int num_threads): max_concurrent_jobs_(num_threads) {
   pthread_mutex_init(&cond_mutex_, NULL);
   pthread_cond_init(&cond_, NULL);
   if (max_concurrent_jobs_ <= 0) {
@@ -54,13 +57,13 @@ rig::ThreadPool::ThreadPool()
   }
 }
 
-rig::ThreadPool::~ThreadPool() {
+ThreadPool::~ThreadPool() {
   Join();
   pthread_cond_destroy(&cond_);
   pthread_mutex_destroy(&cond_mutex_);
 }
 
-void rig::ThreadPool::Join() {
+void ThreadPool::Join() {
   while (threads_.size()) {
     pthread_join(threads_.front(), NULL);
     threads_.pop_front();
@@ -68,7 +71,7 @@ void rig::ThreadPool::Join() {
   }
 }
 
-void rig::ThreadPool::WaitTillJobOpening() {
+void ThreadPool::WaitTillJobOpening() {
   while (threads_.size() >= max_concurrent_jobs_) {
     // Wait for a condition event to signal a free job or time out
     // after one second. I do a time out because somehow I still have
@@ -99,3 +102,5 @@ void rig::ThreadPool::WaitTillJobOpening() {
     }
   }
 }
+
+} // end namespace rig
